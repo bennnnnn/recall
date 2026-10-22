@@ -23,8 +23,7 @@ from redis.exceptions import RedisError
 from app.core import user_cache
 from app.core.cache_generation import ensure_generation
 from app.core.config import Settings
-from app.exceptions import RedisUnavailableError
-from app.gateways.google_auth import GoogleAuthError
+from app.exceptions import AuthenticationError, RedisUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +94,13 @@ def _revocation_keys(payload: dict[str, Any], user_id: UUID) -> tuple[list[str],
     return markers, since
 
 
+def _issued_before(issued_at: object, revoked_since_raw: str | bytes | None) -> bool:
+    """Whether a token issued at ``issued_at`` predates the account's revocation cutoff."""
+    if not isinstance(issued_at, int | float) or revoked_since_raw is None:
+        return False
+    return float(issued_at) <= float(redis_str(revoked_since_raw))
+
+
 @dataclass(frozen=True)
 class AccessCheck:
     """A live token's user, and that user row's current generation (``core/user_cache``)."""
@@ -115,18 +121,20 @@ async def check_access(redis: Redis, token: str, settings: Settings) -> AccessCh
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
     except (jwt.PyJWTError, ValueError, KeyError) as exc:
-        raise GoogleAuthError("Invalid access token") from exc
-    user_id = UUID(payload["sub"])
+        raise AuthenticationError("Invalid access token") from exc
+    try:
+        user_id = UUID(payload["sub"])
+    except (ValueError, KeyError, TypeError) as exc:
+        raise AuthenticationError("Invalid access token") from exc
     markers, since = _revocation_keys(payload, user_id)
     generation_key = user_cache.generation_key(user_id)
     keys = [*markers, generation_key, *([since] if since else [])]
     try:
         values = await redis.mget(keys)
         if any(values[: len(markers)]):
-            raise GoogleAuthError("Token revoked")
-        since_raw = values[-1] if since else None
-        if since_raw is not None and payload["iat"] <= float(redis_str(since_raw)):
-            raise GoogleAuthError("Token revoked")
+            raise AuthenticationError("Token revoked")
+        if _issued_before(payload.get("iat"), values[-1] if since else None):
+            raise AuthenticationError("Token revoked")
         generation = values[len(markers)]
         if generation is None:
             generation = await ensure_generation(redis, generation_key)

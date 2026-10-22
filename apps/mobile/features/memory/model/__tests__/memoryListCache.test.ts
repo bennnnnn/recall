@@ -1,5 +1,6 @@
 import { api, type Memory } from "@/lib/api";
 import { requireTokenSession } from "@/lib/auth";
+import { emitAppEvent } from "@/lib/appEvents";
 import {
   fetchMemories,
   getCachedMemories,
@@ -52,6 +53,12 @@ describe("memoryListCache", () => {
     jest.mocked(requireTokenSession).mockReset();
     mockSession = 0;
     invalidateMemoriesCache();
+  });
+
+  it("reads fresh when memory changes from a chat's settings card (ARCH-10)", () => {
+    setMemoriesCache(sample);
+    emitAppEvent("memoryChanged", {});
+    expect(isMemoriesFresh()).toBe(false);
   });
 
   it("returns cached memories without refetching when fresh", async () => {

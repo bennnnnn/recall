@@ -50,7 +50,7 @@ export function diagonalAngleArcPath(
   return `M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}`;
 }
 
-export type AngleLeader = {
+type AngleLeader = {
   x1: number;
   y1: number;
   x2: number;

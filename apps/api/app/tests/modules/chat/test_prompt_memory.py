@@ -7,6 +7,7 @@ past-chat recall), M16 (no record of an earlier chat), M17 (a failed read is sai
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -18,6 +19,7 @@ from app.modules.chat import prompt_memory
 from app.modules.chat.prompt_builder import _context_plan, build_prompt_messages
 from app.modules.chat.prompt_constants import PROFILE_FACT_HINT
 from app.modules.chat.prompt_context import _PromptContextBlocks
+from app.modules.memory.switch import memory_switch_on
 from app.tests.modules.chat.chat_test_support import system_prompt
 
 
@@ -27,7 +29,6 @@ def _user(*, memory: bool = True) -> User:
         name="Bini",
         email="bini@example.com",
         plan="free",
-        response_style="balanced",
         response_tone="casual",
         locale="en",
         timezone="Africa/Nairobi",
@@ -197,10 +198,10 @@ def test_the_saved_memory_block_says_it_may_be_stale():
 
     memory = wrap_saved_memory("Known facts about the user:\n- Uses FastAPI")
     assert memory.startswith("[BEGIN UNTRUSTED CONTENT — saved memory]")
-    assert "what the user says in this conversation overrides it" in memory
-    assert "comes from the current source" in memory
+    assert "what the user says in this conversation overrides it" in memory  # safety phrase
+    assert "comes from the current source" in memory  # safety phrase
     chats = wrap_earlier_chats("[1] (2026-05-03) User: we picked Neon")
-    assert "not this conversation and not saved memory" in chats
+    assert "not this conversation and not saved memory" in chats  # safety phrase
 
 
 @pytest.mark.parametrize(
@@ -222,8 +223,9 @@ def test_work_turns_are_about_building_software(text, work):
 
 
 def test_memory_switch_counts_an_unloaded_row_as_on():
-    assert prompt_memory.memory_switch_on(SimpleNamespace(memory_enabled=None))
-    assert not prompt_memory.memory_switch_on(SimpleNamespace(memory_enabled=False))
+    assert memory_switch_on(cast(User, SimpleNamespace(memory_enabled=None)))
+    assert not memory_switch_on(cast(User, SimpleNamespace(memory_enabled=False)))
+    assert memory_switch_on(None)
 
 
 @pytest.mark.asyncio

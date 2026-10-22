@@ -1,3 +1,5 @@
+import type { ApiRequestError } from "@/lib/api/client";
+
 type SignInProvider = "google" | "apple";
 
 /**
@@ -12,16 +14,9 @@ export class AccountExistsError extends Error {
   }
 }
 
-/** The provider named by a 409 `{"detail": {"code": "account_exists", "sign_in_with": …}}`. */
-export function accountExistsProvider(status: number, body: string): SignInProvider | null {
-  if (status !== 409) return null;
-  try {
-    const detail = (JSON.parse(body) as { detail?: unknown }).detail;
-    if (!detail || typeof detail !== "object") return null;
-    const { code, sign_in_with: provider } = detail as Record<string, unknown>;
-    if (code !== "account_exists") return null;
-    return provider === "apple" || provider === "google" ? provider : null;
-  } catch {
-    return null;
-  }
+/** The provider an `account_exists` refusal names in `sign_in_with`. */
+export function accountExistsProvider(error: ApiRequestError): SignInProvider | null {
+  if (error.status !== 409 || error.code !== "account_exists") return null;
+  const provider = error.fields.sign_in_with;
+  return provider === "apple" || provider === "google" ? provider : null;
 }

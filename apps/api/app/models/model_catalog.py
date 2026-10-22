@@ -413,6 +413,10 @@ def vision_backup_alias() -> str:
     return ROUTING.vision_backup
 
 
+def structured_fallback_alias() -> str:
+    return ROUTING.structured_fallback
+
+
 def reads_images(model_id: str) -> bool:
     """True when the alias is known and its model takes image input."""
     model = _BY_ID.get(model_id)
@@ -470,13 +474,10 @@ def validate_user_alias(alias: str, *, allow_auto: bool = False) -> None:
     raise ValueError(f"Unknown model alias: {alias}")
 
 
-# BUG FIX: a flat 999.0 for every model missing catalog pricing made
-# unpriced fast/standard-tier entries (an open model with no list price — likely
-# cheap, just not backfilled yet) sort as if they were the single most
-# expensive option in the pool, behind even priced smart-tier models. Fall
-# back to a per-tier estimate instead so an unpriced model lands among
-# plausible peers by cost tier; "max" keeps the old worst-case sentinel
-# since that tier is genuinely the priciest by design.
+# An entry with no list price (an open model whose price is not backfilled yet, likely
+# cheap) sorts among its tier by a per-tier estimate: one worst-case number for every
+# unpriced model ranked a fast model as the priciest in the pool. "max" keeps the
+# worst case, since that tier is the priciest by design.
 _TIER_PRICE_FALLBACK = {"fast": 0.5, "standard": 1.5, "smart": 5.0, "max": 999.0}
 _DEFAULT_PRICE_FALLBACK = 999.0
 _TIER_RANK = {"fast": 0, "standard": 1, "smart": 2, "max": 3}

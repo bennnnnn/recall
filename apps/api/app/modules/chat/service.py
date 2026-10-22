@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -11,11 +11,15 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import jobs
+from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.exceptions import DomainError
 from app.models.orm import Chat, Message, User
 from app.models.schemas import ChatListOut, ChatOut, MessageOut, MessagePageOut, UsageOut
+from app.modules.chat import chats_repository as chats_repo
 from app.modules.chat import finalize_registry
+from app.modules.chat import messages_repository as messages_repo
 from app.modules.chat.email_fence import rewrite_first_email_fence
 from app.modules.chat.related_prompts import (
     RELATED_PROMPTS_TTL_SECONDS,
@@ -23,8 +27,6 @@ from app.modules.chat.related_prompts import (
     load_related_prompts,
 )
 from app.modules.chat.titles import sanitize_manual_chat_title
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
 from app.services.quota import utc_today
@@ -35,11 +37,8 @@ DEFAULT_CHAT_LIST_LIMIT = 200
 ARCHIVED_CHAT_LIST_LIMIT = 50
 
 
-class ChatsError(Exception):
-    def __init__(self, detail: str, *, status_code: int) -> None:
-        self.detail = detail
-        self.status_code = status_code
-        super().__init__(detail)
+class ChatsError(DomainError):
+    """A chat history refusal."""
 
 
 async def create_chat(
@@ -60,22 +59,28 @@ async def list_chats_grouped(
     user: User,
     *,
     limit: int = DEFAULT_CHAT_LIST_LIMIT,
+    cursor: str | None = None,
 ) -> ChatListOut:
-    async def _archived() -> list[Chat]:
-        async with SessionLocal() as archived_session:
-            return await chats_repo.list_archived_for_user(
-                archived_session, user.id, limit=ARCHIVED_CHAT_LIST_LIMIT
-            )
+    """The drawer's chats by recency; ``cursor`` reads the dated chats after a page.
 
-    chats, archived = await asyncio.gather(
-        chats_repo.list_for_user(session, user.id, limit=limit),
-        _archived(),
+    The first page also holds every pinned chat and the newest archived ones.
+    """
+
+    async def _pinned_and_archived() -> tuple[list[Chat], list[Chat]]:
+        if cursor is not None:
+            return [], []
+        async with SessionLocal() as side_session:
+            pinned = await chats_repo.list_pinned(side_session, user.id)
+            archived = await chats_repo.list_archived_for_user(
+                side_session, user.id, limit=ARCHIVED_CHAT_LIST_LIMIT
+            )
+        return pinned, archived
+
+    (dated, next_cursor), (pinned, archived) = await gather_or_cancel(
+        chats_repo.list_recent_page(session, user.id, limit=limit, cursor=cursor),
+        _pinned_and_archived(),
     )
-    pinned = [c for c in chats if c.pinned]
-    grouped = chats_repo.group_by_recency(
-        [c for c in chats if not c.pinned],
-        user_timezone=user.timezone,
-    )
+    grouped = chats_repo.group_by_recency(dated, user_timezone=user.timezone)
     return ChatListOut(
         pinned=[ChatOut.model_validate(c) for c in pinned],
         today=[ChatOut.model_validate(c) for c in grouped["today"]],
@@ -84,6 +89,7 @@ async def list_chats_grouped(
         this_month=[ChatOut.model_validate(c) for c in grouped["this_month"]],
         older=[ChatOut.model_validate(c) for c in grouped["older"]],
         archived=[ChatOut.model_validate(c) for c in archived],
+        next_cursor=next_cursor,
     )
 
 
@@ -150,11 +156,19 @@ async def delete_chat(
     chat_id: UUID,
     *,
     settings: Settings,
+    if_empty: bool = False,
 ) -> None:
-    """Remove the conversation. Library attachments stay (message_id SET NULL)."""
+    """Remove the conversation. Library attachments stay (message_id SET NULL).
+
+    ``if_empty`` keeps a chat that holds any message: the phone drops an unused draft
+    with this one request, where it read a page of messages and deleted twice
+    (code-health audit NET-13).
+    """
     chat = await chats_repo.get_by_id(session, chat_id, user.id)
     if chat is None:
         raise ChatsError("Chat not found", status_code=404)
+    if if_empty and await messages_repo.count_for_chat(session, chat_id):
+        return
     # Do not detach rows or delete bytes — explicit Library delete owns that.
     # attachments.message_id SET NULLs when messages cascade.
     _ = settings
@@ -212,13 +226,33 @@ async def list_messages_page(
     *,
     limit: int = 40,
     before: UUID | None = None,
+    after: UUID | None = None,
+    around: UUID | None = None,
 ) -> MessagePageOut:
+    """The newest page, the page ``before`` or ``after`` a message, or the window ``around`` one."""
     chat = await get_chat(session, user, chat_id)
+    # End the ownership read before waiting: up to 20 s for a stream and its save, with
+    # this connection idle in transaction while the save needed one from the same pool.
+    await session.commit()
     await finalize_registry.wait_for_inflight_stream(chat_id)
     await finalize_registry.wait_for_pending_finalize(chat_id, redis)
-    msgs, has_more = await messages_repo.list_page(session, chat_id, limit=limit, before_id=before)
+    has_more_after = False
+    if around is not None:
+        msgs, has_more, has_more_after = await messages_repo.list_around(
+            session, chat_id, limit=limit, around_id=around
+        )
+    elif after is not None:
+        msgs, has_more_after = await messages_repo.list_after(
+            session, chat_id, limit=limit, after_id=after
+        )
+        has_more = True
+    else:
+        msgs, has_more = await messages_repo.list_page(
+            session, chat_id, limit=limit, before_id=before
+        )
+    newest = before is None and after is None and around is None
 
-    if not chat.title and not before and msgs:
+    if not chat.title and newest and msgs:
         user_msg = next((m for m in msgs if m.role == "user"), None)
         asst_msg = next((m for m in msgs if m.role == "assistant"), None)
         if user_msg and asst_msg:
@@ -241,9 +275,9 @@ async def list_messages_page(
                 logger.warning("Title backfill enqueue failed chat_id=%s", chat_id, exc_info=True)
 
     outs = [MessageOut.model_validate(m) for m in msgs]
-    if before is None:
+    if newest or (around is not None and not has_more_after):
         await _attach_cached_related_prompts(redis, outs)
-    return MessagePageOut(messages=outs, has_more=has_more)
+    return MessagePageOut(messages=outs, has_more=has_more, has_more_after=has_more_after)
 
 
 async def forget_follow_up_questions(session: AsyncSession, redis: Redis, user_id: UUID) -> int:
@@ -281,6 +315,7 @@ async def set_message_feedback(
     await get_chat(session, user, chat_id)
     message = await messages_repo.set_feedback(session, message_id, chat_id, feedback)
     if message is None:
+        await session.rollback()  # nothing was written; no transaction across the wait
         await finalize_registry.wait_for_pending_finalize(chat_id, redis)
         message = await messages_repo.set_feedback(session, message_id, chat_id, feedback)
     if message is None:
@@ -303,6 +338,7 @@ async def update_message_email(
     await get_chat(session, user, chat_id)
     message = await messages_repo.get_in_chat(session, message_id, chat_id)
     if message is None:
+        await session.commit()  # end the reads; no transaction across the wait
         await finalize_registry.wait_for_pending_finalize(chat_id, redis)
         message = await messages_repo.get_in_chat(session, message_id, chat_id)
     if message is None:
@@ -315,3 +351,27 @@ async def update_message_email(
     if rewritten == message.content:
         return message
     return await messages_repo.update_content(session, message, rewritten)
+
+
+async def edit_recent_reply(
+    session: AsyncSession,
+    chat_id: UUID,
+    *,
+    containing: str,
+    edit: Callable[[str], str],
+    scan: int = 30,
+) -> bool:
+    """Rewrite the chat's recent reply that holds ``containing``; commits. Whether it changed.
+
+    A card the user acted on in another module (a reminder card saved by its tap) is
+    stored as acted on; chat keeps the only writes to its messages (audit ARCH-08).
+    """
+    for message in await messages_repo.list_recent(session, chat_id, limit=scan):
+        if message.role != "assistant" or containing not in (message.content or ""):
+            continue
+        updated = edit(message.content)
+        if updated == message.content:
+            return False
+        await messages_repo.update_content(session, message, updated)
+        return True
+    return False

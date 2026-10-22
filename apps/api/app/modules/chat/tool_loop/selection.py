@@ -17,7 +17,7 @@ from app.modules.billing import plan as plan_service
 from app.modules.chat.tool_loop.parts import live_parts, open_parts, turn_plan
 
 
-def _last_user_content(messages: list[dict[str, Any]]) -> str:
+def last_user_content(messages: list[dict[str, Any]]) -> str:
     for msg in reversed(messages):
         if msg.get("role") == "user":
             content = msg.get("content")
@@ -25,7 +25,7 @@ def _last_user_content(messages: list[dict[str, Any]]) -> str:
     return ""
 
 
-def _user_texts(messages: list[dict[str, Any]], user_text: str | None) -> list[str]:
+def user_words(messages: list[dict[str, Any]], user_text: str | None) -> list[str]:
     """What the user wrote, newest first: this turn, then earlier turns."""
     texts = [user_text.strip()] if user_text and user_text.strip() else []
     earlier = [

@@ -6,7 +6,7 @@ The value to round rides in ``percent_base`` and the places in ``combo_n``.
 from __future__ import annotations
 
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school._parse import _exactly_n_numbers
 from app.services.text_match import word_index
 
@@ -49,4 +49,4 @@ def rounding_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | 
     else:
         answer = math_formulas.round_significant_figures(intent.percent_base, intent.combo_n)
     lines.append(f"Rounded: {answer}")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)

@@ -13,13 +13,16 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useFocusedList } from "@/features/account/hooks/useFocusedList";
 import { api, type Chat } from "@/lib/api";
-import { invalidateChatListCache } from "@/lib/cache/chatListCache";
+import { fetchChatList, invalidateChatListCache } from "@/features/chat/model/chatListCache";
 import { notifyDestructive } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 
+/** The drawer's chat list holds the archived rows too: a fresh one is read from memory,
+ * not downloaded again on every visit (code-health audit NET-19). */
 async function readArchivedChats(token: string): Promise<Chat[]> {
-  const list = await api.listChats(token);
-  return list.archived ?? [];
+  const { data, error } = await fetchChatList(token);
+  if (error || !data) throw error ?? new Error("chat list unavailable");
+  return data.archived ?? [];
 }
 
 export default function ArchivedChatsScreen() {

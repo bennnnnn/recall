@@ -12,9 +12,10 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Mapping
 from types import ModuleType
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from app.core.config import Settings
+from app.core.log_context import current_log_ids
 from app.core.request_id import request_id_context
 
 if TYPE_CHECKING:
@@ -79,16 +80,52 @@ def _scrub_request(request: object) -> None:
                 env[key] = "[REDACTED]"
 
 
+# Errors can quote what they choked on; keep the start, which says what broke.
+_MAX_ERROR_TEXT = 300
+
+
+def _capped(text: object) -> object:
+    if not isinstance(text, str) or len(text) <= _MAX_ERROR_TEXT:
+        return text
+    return f"{text[:_MAX_ERROR_TEXT]}…"
+
+
+def _scrub_log_entry(event: Event) -> None:
+    """A logged error keeps its template: the arguments are what the user wrote."""
+    entry = event.get("logentry")
+    if isinstance(entry, dict):
+        entry.pop("params", None)
+        entry["formatted"] = entry.get("message", "")
+    event.pop("extra", None)
+    exceptions = event.get("exception")
+    values = exceptions.get("values") if isinstance(exceptions, dict) else None
+    for value in values or []:
+        if isinstance(value, dict) and "value" in value:
+            value["value"] = _capped(value["value"])
+
+
+def before_breadcrumb(crumb: dict[str, Any], hint: Hint) -> dict[str, Any] | None:
+    """A log line becomes a breadcrumb as its template, without its arguments or extras."""
+    record = hint.get("log_record") if isinstance(hint, dict) else None
+    if isinstance(record, logging.LogRecord):
+        crumb["message"] = str(record.msg)
+        crumb["data"] = {}
+    return crumb
+
+
 def before_send(event: Event, hint: Hint) -> Event | None:
-    """Filter noise and strip request bodies / auth headers before upload."""
+    """Filter noise and strip request bodies, auth headers and logged arguments before upload."""
     if _is_ignored(event, hint):
         return None
     _scrub_request(event.get("request"))
-    request_id = request_id_context.get()
-    if request_id:
+    _scrub_log_entry(event)
+    ids = current_log_ids()
+    if rid := request_id_context.get():
+        ids["request_id"] = rid
+    if ids:
         tags = event.setdefault("tags", {})
         if isinstance(tags, dict):
-            tags["request_id"] = request_id
+            tags.update(ids)
     return event
 
 
@@ -148,6 +185,7 @@ def init_sentry(settings: Settings) -> None:
         # only exact names like "token", so stack variables stay off.
         include_local_variables=False,
         before_send=before_send,
+        before_breadcrumb=before_breadcrumb,
         ignore_errors=list(_IGNORED_EXC_TYPES),
     )
     _initialized = True

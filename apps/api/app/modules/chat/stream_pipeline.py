@@ -17,6 +17,7 @@ from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.ids import uuid7
 from app.gateways.litellm_gateway import ModelUnavailableError
+from app.models import model_catalog
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.finalize_registry import mark_pending_finalize, register_pending_finalize
 from app.modules.chat.post_turn import enqueue_post_turn_jobs
@@ -36,7 +37,6 @@ from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
 from app.modules.chat.turn_resources import TurnResources
 from app.modules.chat.turn_settle import finalize_stream_turn_db
 from app.modules.images.answer_photo import AnswerPhoto
-from app.services import model_catalog
 from app.services import quota as quota_service
 
 logger = logging.getLogger(__name__)
@@ -66,6 +66,7 @@ def _prior_window(prompt_messages: Any) -> list[Any]:
 
 
 async def register_and_enqueue_finalize(
+    deps: ChatTurnDeps,
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
@@ -83,7 +84,7 @@ async def register_and_enqueue_finalize(
         outcome.memory_hints = list(ctx.memory_hints)
         outcome.context_summarized = ctx.context_summarized
         # Settings → Personalization can turn the suggestions, and their model call, off.
-        wants_follow_ups = getattr(ctx.user, "follow_up_suggestions_enabled", True) is not False
+        wants_follow_ups = ctx.user is None or ctx.user.follow_up_suggestions_enabled is not False
         outcome.related_task = (
             None
             if not wants_follow_ups
@@ -100,7 +101,9 @@ async def register_and_enqueue_finalize(
         )
     await mark_pending_finalize(redis, ctx.chat_id)
     finalize_db_task = create_background_task(
-        finalize_stream_turn_db(redis, ctx, assistant_text, usage, outcome),
+        finalize_stream_turn_db(
+            deps, redis, settings, ctx, assistant_text=assistant_text, usage=usage, outcome=outcome
+        ),
         name="finalize_stream_turn_db",
     )
     register_pending_finalize(ctx.chat_id, finalize_db_task)
@@ -159,9 +162,8 @@ async def finalize_terminal_image_turn(
     assistant_text = ctx.terminal_image_content or ""
 
     async def slim_finalize() -> None:
+        # The picture's row moved the chat up when it was saved (``turn_record``).
         try:
-            async with deps.session_factory() as session:
-                await deps.chats.touch_by_id(session, ctx.chat_id, commit=True)
             await enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
         except Exception:
             logger.exception("Slim finalize for terminal image failed")
@@ -330,6 +332,7 @@ async def _settle_reply(
         )
         await await_user_message_persist(ctx)
         await register_and_enqueue_finalize(
+            deps,
             redis,
             settings,
             ctx,

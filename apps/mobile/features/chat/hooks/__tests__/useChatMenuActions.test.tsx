@@ -10,13 +10,11 @@ const mockError = jest.fn();
 const mockDestructive = jest.fn();
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ error: mockError }) }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 jest.mock("@/lib/api", () => ({ api: { renameChat: jest.fn(), setPin: jest.fn(), setArchive: jest.fn(), deleteChat: jest.fn(), listAllMessages: jest.fn() } }));
 jest.mock("@/features/chat/model/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
-jest.mock("@/lib/cache/chatListCache", () => ({ getCachedChat: () => undefined }));
-jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
+jest.mock("@/features/chat/model/chatListCache", () => ({ getCachedChat: () => undefined }));
 jest.mock("@/lib/exportPdf", () => ({ isShareCancelled: () => false }));
-jest.mock("@/lib/drawer", () => ({ abandonActiveChatIfDeleted: jest.fn() }));
+jest.mock("@/features/chat/drawer/drawer", () => ({ abandonActiveChatIfDeleted: jest.fn() }));
 jest.mock("@/lib/haptics", () => ({
   ...jest.requireActual("@/lib/haptics"),
   notifyDestructive: (...args: unknown[]) => mockDestructive(...args),
@@ -133,7 +131,6 @@ it("keeps a rename editor open when its title is invalid", async () => {
   expect(current.renameVisible).toBe(true);
   expect(api.renameChat).not.toHaveBeenCalled();
 });
-
 
 it("reaffirms successful deletion after a concurrent list read", async () => {
   (api.deleteChat as jest.Mock).mockResolvedValueOnce(undefined);

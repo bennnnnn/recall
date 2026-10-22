@@ -308,10 +308,10 @@ async def build_chemistry_augmentation(
         return verified.prompt_text, verified, False
     try:
         intent, solved, local_context = await run_sympy(
-            _solve_locally, content, timeout=settings.math_solve_timeout_seconds
+            _solve_locally, content, timeout=settings.stem_solve_timeout_seconds
         )
     except TimeoutError:
-        logger.warning("chemistry solve timed out after %ss", settings.math_solve_timeout_seconds)
+        logger.warning("chemistry solve timed out after %ss", settings.stem_solve_timeout_seconds)
         return unverified_chemistry_note(), None, True
     except Exception:
         logger.warning("chemistry solve failed", exc_info=True)

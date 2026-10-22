@@ -8,6 +8,7 @@ import {
   listItemCut,
   type OpenList,
 } from "@/lib/markdown/streamListCuts";
+import { fenceAfterLine, type OpenFence } from "@/lib/mdFenceScan";
 
 /** A link reference definition the reply holds, and where. */
 export type Definition = { at: number; line: string };
@@ -18,7 +19,6 @@ export const MIN_SETTLED_CHUNK_CHARS = 320;
 const LIST_LINE_RE = /^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:\s|$)/;
 const TABLE_LINE_RE = /^ {0,3}\|/;
 const QUOTE_LINE_RE = /^ {0,3}>/;
-const FENCE_LINE_RE = /^(?:```|~~~)/;
 const REFERENCE_DEFINITION_RE = /^ {0,3}\[[^\]\n]+\]:/;
 
 function isBlankLine(line: string): boolean {
@@ -52,24 +52,20 @@ function countDoubleDollar(line: string): number {
 
 /** Where the scan stands: inside a fence or `$$` math, and what the last lines allow. */
 type ScanState = {
-  fenceOpen: boolean;
+  /** Tracked open and closed, as `scanFences` reads fences: a ``` inside ~~~ is content. */
+  openFence: OpenFence | null;
   mathOpen: boolean;
   prevLineSafe: boolean;
   inBlankRun: boolean;
   list: OpenList | null;
   /**
-   * BUG FIX: a closed rich block (fenced code, ```math, or $$ display math)
-   * sitting in the pending segment used to wait for MIN_SETTLED_CHUNK_CHARS
-   * like plain prose before it got cut into its own once-mounted chunk. A
-   * short step-by-step math reply (each step's fence is well under 320
-   * chars) could hold several ALREADY-CLOSED math blocks in that pending
-   * segment for many streaming flushes in a row — and since the pending
-   * segment re-parses from scratch on every flush (react-native-markdown-
-   * display re-keys its whole output per parse, per this file's own header
-   * comment), every KaTeX WebView inside it unmounted and remounted on every
-   * flush: a real, repeated blank-then-repaint flicker, not settled prose's
-   * merely-wasted re-parse cost. A rich block forces an eager cut at the
-   * next safe boundary regardless of size, so it only ever renders once.
+   * A closed rich block (fenced code, ```math, or $$ display math) is cut into its
+   * own once-mounted chunk at the next safe boundary, whatever its size, rather than
+   * waiting for MIN_SETTLED_CHUNK_CHARS like prose. The pending segment re-parses on
+   * every flush (react-native-markdown-display re-keys its output per parse, as
+   * `streamBlocks.ts` says), so a short step-by-step maths reply whose closed blocks
+   * waited there would unmount and remount every KaTeX WebView on every flush: a
+   * blank-then-repaint flicker.
    */
   hasRichBlockSinceChunkStart: boolean;
 };
@@ -79,16 +75,18 @@ type ScanState = {
  * say so; a plain prose line (false) is where a cut may land.
  */
 function trackBlockLine(state: ScanState, line: string): boolean {
-  if (FENCE_LINE_RE.test(line)) {
-    state.fenceOpen = !state.fenceOpen;
-    state.prevLineSafe = !state.fenceOpen;
+  const before = state.openFence;
+  state.openFence = fenceAfterLine(before, line);
+  if (before != null && state.openFence != null) {
+    state.inBlankRun = false;
+    return true;
+  }
+  if (before != null || state.openFence != null) {
+    // The fence's opener or its closer.
+    state.prevLineSafe = state.openFence == null;
     state.inBlankRun = false;
     state.hasRichBlockSinceChunkStart = true;
     state.list = null;
-    return true;
-  }
-  if (state.fenceOpen) {
-    state.inBlankRun = false;
     return true;
   }
 
@@ -131,7 +129,7 @@ function trackBlockLine(state: ScanState, line: string): boolean {
 
 export type Cut = { at: number; continued: boolean; listAfter: OpenList | null };
 
-export type Scan = {
+type Scan = {
   cuts: Cut[];
   /** A link reference definition the scan read: no cut may stand. */
   definition: Definition | null;
@@ -167,7 +165,7 @@ export function scanClosedBlocks(
   let pendingList: OpenList | null = null;
   let inheritedWide = false;
   const state: ScanState = {
-    fenceOpen: false,
+    openFence: null,
     mathOpen: false,
     prevLineSafe: false,
     inBlankRun: false,

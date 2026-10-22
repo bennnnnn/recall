@@ -21,6 +21,7 @@ from app.modules.chat.prompt_constants import (
     is_programming_turn,
     recalls_earlier_conversation,
 )
+from app.modules.memory.switch import memory_switch_on
 from app.services.subject_solving import detect_subject
 
 if TYPE_CHECKING:
@@ -93,11 +94,6 @@ _OWN_CAREER = re.compile(
     r"responsibilities))\b",
     re.IGNORECASE,
 )
-
-
-def memory_switch_on(user: object) -> bool:
-    """The Settings → Memory switch; an account row not loaded yet counts as on."""
-    return getattr(user, "memory_enabled", True) is not False
 
 
 def is_work_turn(text: str | None) -> bool:

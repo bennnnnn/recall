@@ -10,11 +10,7 @@ import numpy as np
 from sympy import (
     EmptySet,
     FiniteSet,
-    Ge,
-    Gt,
     Interval,
-    Le,
-    Lt,
     S,
     Symbol,
     Union,
@@ -23,7 +19,6 @@ from sympy import (
     limit,
     sin,
     solve,
-    solveset,
     tan,
 )
 from sympy.calculus.singularities import singularities
@@ -42,8 +37,10 @@ from app.modules.math.solve.extract_eq import (
     try_extract_inequality_from_text,
 )
 from app.modules.math.solve.graph_expr_text import graph_expr_text
-from app.modules.math.solve.parse import _parse_expression
-from app.services.solving import MathServiceError
+from app.modules.math.solve.graph_sampling import sample_at
+from app.modules.math.solve.inequalities import compound_solution_set, inequality_solution_set
+from app.modules.math.solve.parse import parse_expression
+from app.services.solving import SolveServiceError
 
 
 def _split_into_segments(
@@ -222,19 +219,14 @@ def _adapt_sample_window(
     return mid - half, mid + half, zoom_n
 
 
-def _sampled(fn: Any, inputs: Any) -> Any:
-    """``fn`` at every input. A constant (``y = 5``) evaluates to one number, so spread it."""
-    return np.broadcast_to(np.asarray(fn(inputs), dtype=float), inputs.shape)
-
-
 def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     if data.x_max <= data.x_min:
-        raise MathServiceError("x_max must be greater than x_min")
+        raise SolveServiceError("x_max must be greater than x_min")
     sym = Symbol(data.variable)
-    parsed = _parse_expression(data.expr, [data.variable])
-    original = _parse_expression(data.expr, [data.variable], evaluate=False)
+    parsed = parse_expression(data.expr, [data.variable])
+    original = parse_expression(data.expr, [data.variable], evaluate=False)
     if parsed.is_Relational:
-        raise MathServiceError("Inequality expressions are number lines, not y=f(x) plots")
+        raise SolveServiceError("Inequality expressions are number lines, not y=f(x) plots")
 
     numpy_fn = lambdify(sym, parsed, modules=["numpy"])
     x_min, x_max, n = _adapt_sample_window(
@@ -242,9 +234,9 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     )
     xs = np.linspace(x_min, x_max, n)
     try:
-        ys = _sampled(numpy_fn, xs)
+        ys = sample_at(numpy_fn, xs)
     except Exception as exc:
-        raise MathServiceError(f"Could not sample function: {data.expr}") from exc
+        raise SolveServiceError(f"Could not sample function: {data.expr}") from exc
     points: list[list[float]] = []
     for x_val, y_val in zip(xs, ys, strict=False):
         if not np.isfinite(y_val):
@@ -289,14 +281,14 @@ def sample_polar_curve(expr: str, variable: str = "theta", n: int = 96) -> Graph
     """Sample ``r = f(θ)`` on ``[0, 2π]`` into cartesian `` ```graph `` points."""
     count = max(16, min(int(n), 500))
     sym = Symbol(variable)
-    parsed = _parse_expression(expr, [variable])
+    parsed = parse_expression(expr, [variable])
     numpy_fn = lambdify(sym, parsed, modules=["numpy"])
     thetas = np.linspace(0.0, 2.0 * math.pi, count, endpoint=True)
     points: list[list[float]] = []
     try:
-        radii = _sampled(numpy_fn, thetas)
+        radii = sample_at(numpy_fn, thetas)
     except Exception as exc:
-        raise MathServiceError(f"Could not sample polar curve: {expr}") from exc
+        raise SolveServiceError(f"Could not sample polar curve: {expr}") from exc
     for theta, radius in zip(thetas, radii, strict=False):
         if not np.isfinite(radius):
             continue
@@ -307,7 +299,7 @@ def sample_polar_curve(expr: str, variable: str = "theta", n: int = 96) -> Graph
             ]
         )
     if len(points) < 2:
-        raise MathServiceError(f"Could not sample polar curve: {expr}")
+        raise SolveServiceError(f"Could not sample polar curve: {expr}")
     x_min, x_max, _y_min, _y_max = _viewport_from_points(points)
     return GraphSampleResult(
         expr=f"r = {expr}",
@@ -325,23 +317,23 @@ def sample_parametric_curve(
     """Sample ``x(t), y(t)`` on ``[0, 2π]`` into cartesian `` ```graph `` points."""
     count = max(16, min(int(n), 500))
     sym = Symbol(variable)
-    parsed_x = _parse_expression(x_expr, [variable])
-    parsed_y = _parse_expression(y_expr, [variable])
+    parsed_x = parse_expression(x_expr, [variable])
+    parsed_y = parse_expression(y_expr, [variable])
     fx = lambdify(sym, parsed_x, modules=["numpy"])
     fy = lambdify(sym, parsed_y, modules=["numpy"])
     ts = np.linspace(0.0, 2.0 * math.pi, count, endpoint=True)
     points: list[list[float]] = []
     try:
-        xs = _sampled(fx, ts)
-        ys = _sampled(fy, ts)
+        xs = sample_at(fx, ts)
+        ys = sample_at(fy, ts)
     except Exception as exc:
-        raise MathServiceError(f"Could not sample parametric curve: {x_expr}, {y_expr}") from exc
+        raise SolveServiceError(f"Could not sample parametric curve: {x_expr}, {y_expr}") from exc
     for x_val, y_val in zip(xs, ys, strict=False):
         if not np.isfinite(x_val) or not np.isfinite(y_val):
             continue
         points.append([round(float(x_val), 4), round(float(y_val), 4)])
     if len(points) < 2:
-        raise MathServiceError(f"Could not sample parametric curve: {x_expr}, {y_expr}")
+        raise SolveServiceError(f"Could not sample parametric curve: {x_expr}, {y_expr}")
     x_min, x_max, _y_min, _y_max = _viewport_from_points(points)
     return GraphSampleResult(
         expr=f"x = {x_expr}, y = {y_expr}",
@@ -403,7 +395,7 @@ def parse_ellipse_relation(expr: str) -> tuple[float, float] | None:
 def sample_ellipse(a: float, b: float, n: int = 96) -> GraphSampleResult:
     """Parametric samples for ``(x/a)^2 + (y/b)^2 = 1`` as a closed polyline."""
     if a <= 0 or b <= 0:
-        raise MathServiceError("Ellipse semi-axes must be positive")
+        raise SolveServiceError("Ellipse semi-axes must be positive")
     count = max(16, min(int(n), 500))
     thetas = np.linspace(0.0, 2.0 * math.pi, count, endpoint=False)
     points: list[list[float]] = [
@@ -516,41 +508,15 @@ def _collect_number_line_intervals(sol: Any, out: list[NumberLineInterval]) -> b
 
 
 def _inequality_solution_set(expr: str, variable: str) -> Any:
-    """Solve a 1-variable inequality; returns a SymPy set (possibly empty)."""
+    """The set a number line draws: the answer card's own (``solve/inequalities.py``)."""
     compound = try_extract_compound_inequality_from_text(expr)
     if compound is not None:
-        low, low_op, mid, high_op, high = compound
-        sym = Symbol(variable, real=True)
-        low_e = _parse_expression(low, [variable], real=True)
-        mid_e = _parse_expression(mid, [variable], real=True)
-        high_e = _parse_expression(high, [variable], real=True)
-        ascending = low_op in ("<", "<=") and high_op in ("<", "<=")
-        descending = low_op in (">", ">=") and high_op in (">", ">=")
-        if ascending:
-            lower_rel = Gt(mid_e, low_e) if low_op == "<" else Ge(mid_e, low_e)
-            upper_rel = Lt(mid_e, high_e) if high_op == "<" else Le(mid_e, high_e)
-        elif descending:
-            lower_rel = Lt(mid_e, low_e) if low_op == ">" else Le(mid_e, low_e)
-            upper_rel = Gt(mid_e, high_e) if high_op == ">" else Ge(mid_e, high_e)
-        else:
-            raise MathServiceError("Unsupported compound inequality direction")
-        return solveset(lower_rel, sym, domain=S.Reals).intersect(
-            solveset(upper_rel, sym, domain=S.Reals)
-        )
-
+        return compound_solution_set(*compound, variable)
     ineq = try_extract_inequality_from_text(expr)
     if ineq is None:
-        raise MathServiceError("Not a 1-variable inequality")
+        raise SolveServiceError("Not a 1-variable inequality")
     lhs, rhs, comparator = ineq
-    # Number lines are real; solveset(..., Reals) returns Interval/Union,
-    # unlike solve_univariate_inequality which can return a Relational.
-    sym = Symbol(variable, real=True)
-    left = _parse_expression(lhs, [variable], real=True)
-    right = _parse_expression(rhs, [variable], real=True)
-    rel_cls = {"<": Lt, ">": Gt, "<=": Le, ">=": Ge}.get(comparator)
-    if rel_cls is None:
-        raise MathServiceError(f"Unknown inequality comparator: {comparator}")
-    return solveset(rel_cls(left, right), sym, domain=S.Reals)
+    return inequality_solution_set(lhs, rhs, comparator, variable)
 
 
 def number_line_spec_from_expr(expr: str, variable: str = "x") -> GraphBlockSpec | None:
@@ -573,7 +539,7 @@ def number_line_spec_from_expr(expr: str, variable: str = "x") -> GraphBlockSpec
             return None
         if len(intervals) > _MAX_NUMBER_LINE_INTERVALS:
             return None
-    except MathServiceError:
+    except SolveServiceError:
         return None
     return GraphBlockSpec(
         type="number_line",

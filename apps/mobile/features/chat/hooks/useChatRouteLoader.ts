@@ -1,19 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, type AppStateStatus } from "react-native";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { AppStateStatus } from "react-native";
 import type { FlashListRef } from "@shopify/flash-list";
-import { useFocusEffect, useRouter } from "expo-router";
+import type { useRouter } from "expo-router";
 
 import type { IconName } from "@/ui/icons/names";
 
-import { useComposerDraftApiOptional } from "@/contexts/ComposerDraftContext";
+import { useComposerDraftApiOptional } from "@/features/chat/context/ComposerDraftContext";
 import { api, type Chat, type Message } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/client";
 import { getSessionGeneration } from "@/lib/auth";
-import { getCachedChat, getFetchedChat } from "@/lib/cache/chatListCache";
+import { getCachedChat, getFetchedChat } from "@/features/chat/model/chatListCache";
+import { onAppStateChange } from "@/lib/foregroundRefresh";
 import {
   shouldForceForegroundChatRecovery,
   shouldRefetchChatOnForeground,
-  shouldSilentRefetchChatOnFocus,
   shouldSkipSilentChatRefetch,
 } from "@/features/chat/model/foregroundRefetch";
 import {
@@ -36,12 +36,14 @@ import {
   shouldProbePreviousChat,
 } from "@/features/chat/model/draftLogic";
 import { shouldInsertDrawerRowOnLeave } from "@/features/chat/model/titleRefresh";
-import { getChatMutationRevision, removeChatGlobal, subscribeChatChanges } from "@/lib/drawer";
+import { getChatMutationRevision, removeChatGlobal, subscribeChatChanges } from "@/features/chat/drawer/drawer";
 import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import { useChatHighlightScroll } from "@/features/chat/hooks/useChatHighlightScroll";
-import { useChatOlderMessages } from "@/features/chat/hooks/useChatOlderMessages";
+import { useChatPaging } from "@/features/chat/hooks/useChatPaging";
 import { useChatPageCacheWriter, type ChatPageSync } from "@/features/chat/hooks/useChatPageCacheWriter";
 import { useChatTitlePolling } from "@/features/chat/hooks/useChatTitlePolling";
+import { useLatestRef } from "@/lib/latestRef";
+import { useViewOwner } from "@/lib/viewOwner";
 
 type Router = ReturnType<typeof useRouter>;
 type DraftChat = ReturnType<typeof useDraftChat>;
@@ -90,8 +92,7 @@ export function useChatRouteLoader({
     clearDraftChat,
   } = draft;
 
-  const messagesRef = useRef(messages);
-  messagesRef.current = messages;
+  const messagesRef = useLatestRef(messages);
   const getFirstUserText = useCallback(() => {
     const user = messagesRef.current.find((m) => m.role === "user");
     if (!user) return undefined;
@@ -101,7 +102,7 @@ export function useChatRouteLoader({
       return `[File: ${user.local_file_name ?? "file"}]`;
     }
     return user.content;
-  }, []);
+  }, [messagesRef]);
   const [chatTitle, setChatTitle] = useState<string | null>(null);
   const { titleGenerating, pollForTitle, handleFirstReply } = useChatTitlePolling({
     token,
@@ -112,27 +113,24 @@ export function useChatRouteLoader({
   const [pinned, setPinned] = useState(false);
   const [archived, setArchived] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
+  const [hasMoreOlder, setHasMoreOlder] = useState(false);
   const [pageSync, setPageSync] = useState<ChatPageSync | null>(null);
   const composer = useComposerDraftApiOptional();
   const session = getSessionGeneration();
   const signedIn = Boolean(token);
-  const viewRef = useRef({ session, routeChatId, version: 0 });
-  if (viewRef.current.session !== session || viewRef.current.routeChatId !== routeChatId) {
-    viewRef.current = { session, routeChatId, version: viewRef.current.version + 1 };
-  }
-  const viewVersion = viewRef.current.version;
-  const activeChatRef = useRef(chatId);
-  activeChatRef.current = chatId;
-  const isActiveChat = useCallback((id: string) => id === activeChatRef.current, []);
-  const { hasMoreOlder, setHasMoreOlder, loadingOlder, loadOlderMessages, resetOlder } = useChatOlderMessages({
-    token, chatId, chatLoading, messages, setMessages, viewRef, isActiveChat, showActionBanner, t,
-  });
+  // Bumped by each new route or account, New chat and unmount: a read from before lands nowhere.
+  const viewRef = useRef({ version: 0 });
+  useLayoutEffect(() => {
+    viewRef.current.version += 1;
+  }, [session, routeChatId]);
+  const { owns } = useViewOwner(`${session}:${routeChatId}`);
+  const activeChatRef = useLatestRef(chatId);
   useEffect(() => subscribeChatChanges((id, patch) => {
     if (session !== getSessionGeneration() || id !== activeChatRef.current || !patch) return;
     if (patch.title !== undefined) setChatTitle(patch.title);
     if (patch.pinned !== undefined) setPinned(patch.pinned);
     if (patch.archived !== undefined) setArchived(Boolean(patch.archived));
-  }), [session]);
+  }), [session, activeChatRef]);
 
   const applyMetadata = useCallback((chat: Chat | undefined) => {
     if (!chat) return;
@@ -140,20 +138,20 @@ export function useChatRouteLoader({
     setPinned(chat.pinned);
     setArchived(Boolean(chat.archived));
   }, []);
+  const paging = useChatPaging({ token, chatId, chatLoading, messages, setMessages, hasMoreOlder, setHasMoreOlder,
+    viewRef, activeChatRef, showActionBanner, t });
+  const { resetPaging, hasMoreNewer } = paging;
   useEffect(() => () => {
     viewRef.current.version += 1;
   }, []);
 
   const priorRouteChatIdRef = useRef<string | null>(null);
-  const skipNextFocusRef = useRef(true);
   const lastSilentFetchAtRef = useRef<Map<string, number>>(new Map());
   const wasStreamingWhenBackgroundedRef = useRef(false);
   // AppState closures must read the latest streaming/loading flags — deps alone
   // would leave a stale "still streaming" view after ws.onclose commits a partial.
-  const streamingRef = useRef(streaming);
-  const chatLoadingRef = useRef(chatLoading);
-  streamingRef.current = streaming;
-  chatLoadingRef.current = chatLoading;
+  const streamingRef = useLatestRef(streaming);
+  const chatLoadingRef = useLatestRef(chatLoading);
   const knownAssistantChatId = chatId ?? (typeof routeChatId === "string" ? routeChatId : null);
   const messagesHadContent = chatHasThreadContent(messages);
   useEffect(() => {
@@ -164,7 +162,7 @@ export function useChatRouteLoader({
 
   const turnBusy = useCallback(
     () => streamingRef.current || Boolean(imageGeneratingRef?.current),
-    [imageGeneratingRef],
+    [imageGeneratingRef, streamingRef],
   );
 
   const leaveOpenChat = useCallback(
@@ -192,13 +190,14 @@ export function useChatRouteLoader({
       discardEmptyChat,
       chatId,
       clearDraftChat,
+      messagesRef,
     ],
   );
 
   const startNewChat = useCallback(
     (_opts?: { force?: boolean }) => {
       viewRef.current.version++;
-      resetOlder();
+      resetPaging();
       leaveOpenChat(_opts);
       setChatId(null);
       setChatTitle(null);
@@ -213,20 +212,19 @@ export function useChatRouteLoader({
     },
     [
       leaveOpenChat,
+      resetPaging,
       routeChatId,
       router,
       setMessages,
       setChatId,
-      resetOlder,
-      setHasMoreOlder,
     ],
   );
 
   const silentRefetchChat = useCallback(
     async (openChatId: string, cancelled: () => boolean, opts?: { force?: boolean }) => {
-      if (!token || session !== getSessionGeneration() || viewVersion !== viewRef.current.version ||
-          openChatId !== activeChatRef.current) return;
-      const version = viewVersion;
+      if (!token || session !== getSessionGeneration() || !owns() ||
+          openChatId !== activeChatRef.current || hasMoreNewer) return;
+      const version = viewRef.current.version;
       const ownerSession = getSessionGeneration();
       const previousMessages = messagesRef.current;
       const stale = () =>
@@ -272,7 +270,7 @@ export function useChatRouteLoader({
         /* keep existing messages on silent refetch failure */
       }
     },
-    [token, session, viewVersion, setChatId, setMessages, applyMetadata, turnBusy, setHasMoreOlder],
+    [token, session, owns, activeChatRef, messagesRef, setChatId, setMessages, applyMetadata, turnBusy, hasMoreNewer],
   );
 
   useEffect(() => {
@@ -285,13 +283,7 @@ export function useChatRouteLoader({
         if (streamingRef.current || Boolean(imageGeneratingRef?.current)) {
           wasStreamingWhenBackgroundedRef.current = true;
         }
-        const draftId = draftChatIdRef.current;
-        if (!draftId) return;
-        // Empty pre-created drafts should not survive backgrounding.
-        if (messages.length === 0 && chatId == null) {
-          discardEmptyChat(draftId);
-          clearDraftChat();
-        }
+        // An unused draft is dropped by useDraftChat, once, on background.
         return;
       }
       // Backgrounding mid-stream kills the socket; onclose commits a truncated
@@ -316,13 +308,12 @@ export function useChatRouteLoader({
         wasStreamingWhenBackgrounded: wasStreamingWhenBackgroundedRef.current,
       });
       wasStreamingWhenBackgroundedRef.current = false;
-      skipNextFocusRef.current = true;
       void silentRefetchChat(openChatId, () => cancelled, { force });
     };
-    const sub = AppState.addEventListener("change", onAppState);
+    const stopAppState = onAppStateChange(onAppState);
     return () => {
       cancelled = true;
-      sub.remove();
+      stopAppState();
     };
   }, [
     messages.length,
@@ -335,14 +326,12 @@ export function useChatRouteLoader({
     silentRefetchChat,
     session,
     imageGeneratingRef,
+    chatLoadingRef,
+    streamingRef,
   ]);
 
   useEffect(() => {
-    skipNextFocusRef.current = true;
-  }, [routeChatId]);
-
-  useEffect(() => {
-    resetOlder();
+    resetPaging();
     setPageSync(null);
     if (!token) {
       setChatLoading(false);
@@ -469,43 +458,17 @@ export function useChatRouteLoader({
       // Left before the page landed: a turn waiting for it goes back to this chat's composer (not past sign-out).
       opened?.cancel(session === getSessionGeneration() ? composer : null);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload for a new route chat or account, not a rotated token or a recreated callback
   }, [signedIn, session, routeChatId]);
 
-  useFocusEffect(
-    useCallback(() => {
-      const openChatId = typeof routeChatId === "string" ? routeChatId : null;
-      if (skipNextFocusRef.current) {
-        skipNextFocusRef.current = false;
-        return;
-      }
-      if (!shouldSilentRefetchChatOnFocus()) return;
-      if (!token || !openChatId || turnBusy() || chatLoading) return;
-
-      let cancelled = false;
-      void silentRefetchChat(openChatId, () => cancelled);
-      return () => {
-        cancelled = true;
-      };
-    }, [token, routeChatId, chatLoading, silentRefetchChat, turnBusy]),
-  );
-
   useChatPageCacheWriter({
-    chatId, routeChatId, messages, busy: streaming, hasMoreOlder, sync: pageSync, resync: silentRefetchChat,
+    chatId, routeChatId, messages, busy: streaming, hasMoreOlder, hasMoreNewer, sync: pageSync,
+    resync: silentRefetchChat,
   });
 
   const { highlightedMessageId } = useChatHighlightScroll({
-    chatLoading,
-    routeChatId,
-    routeHighlightMessage,
-    router,
-    messages,
-    hasMoreOlder,
-    loadingOlder,
-    token,
-    chatId,
-    loadOlderMessages,
-    listRef,
+    chatLoading, routeChatId, routeHighlightMessage, router, messages, hasMoreOlder, hasMoreNewer,
+    token, chatId, openAround: paging.openAround, listRef,
   });
 
   return {
@@ -520,8 +483,10 @@ export function useChatRouteLoader({
     // Send waits only while nothing of the routed chat is on screen.
     historyPending: chatLoading && (messages.length === 0 || chatId !== (routeChatId ?? null)),
     hasMoreOlder,
-    loadingOlder,
-    loadOlderMessages,
+    loadingOlder: paging.loadingOlder,
+    loadOlderMessages: paging.loadOlderMessages,
+    newerPage: paging.newerPage,
+    jumpToLatest: paging.jumpToLatest,
     highlightedMessageId,
     handleFirstReply,
     startNewChat,

@@ -5,12 +5,6 @@ import PreferencesSettingsScreen from "@/features/account/screens/PreferencesSet
 const mockSetHaptics = jest.fn();
 const mockUpdateUser = jest.fn();
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
 jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn() } }));
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ token: "tok", user: { response_tone: "casual" }, updateUser: mockUpdateUser }),
@@ -19,8 +13,8 @@ jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: (
 jest.mock("@/contexts/AppearanceContext", () => ({
   useHaptics: () => ({ enabled: true, setEnabled: mockSetHaptics }),
 }));
-jest.mock("@/features/account/components/SettingsFieldSheet", () => ({
-  SettingsFieldSheet: () => null,
+jest.mock("@/ui/overlay/FieldSheet", () => ({
+  FieldSheet: () => null,
 }));
 
 beforeEach(() => jest.clearAllMocks());

@@ -6,13 +6,14 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.notifications import reminder_email as reminder_emails
-from app.modules.todos.email_repository import TodoEmailSnapshot
+from app.modules.todos.occurrences import TodoEmailSnapshot
+from app.tests.fakes import make_user
 
 
 @pytest.fixture
 def email_write():
     with patch.object(
-        reminder_emails, "mark_email_sent_if_current", AsyncMock(return_value=True)
+        reminder_emails, "mark_reminder_emailed", AsyncMock(return_value=True)
     ) as write:
         yield write
 
@@ -25,15 +26,12 @@ def _settings(**kwargs: object) -> Settings:
 
 
 def _user(*, email_reminders: bool = True, email: str = "u@test.local") -> MagicMock:
-    user = MagicMock()
-    user.id = uuid4()
-    user.email = email
-    user.name = "Ada"
-    user.locale = "en"
-    user.timezone = "UTC"
-    user.email_reminders_enabled = email_reminders
-    user.reminder_lead_minutes = 10
-    return user
+    return make_user(
+        email=email,
+        name="Ada",
+        email_reminders_enabled=email_reminders,
+        reminder_lead_minutes=10,
+    )
 
 
 def _todo(*, due_at: datetime, user_id=None) -> MagicMock:
@@ -66,7 +64,7 @@ async def test_process_todo_reminder_emails_sends_and_marks(email_write):
         count = await reminder_emails.process_todo_reminder_emails(session, _settings(), now=now)
 
     assert count == 1
-    email_write.assert_awaited_once_with(session, TodoEmailSnapshot.from_todo(todo), now)
+    email_write.assert_awaited_once_with(session, TodoEmailSnapshot.from_todo(todo), sent_at=now)
     send.assert_awaited_once()
     session.commit.assert_awaited_once()
 
@@ -178,3 +176,29 @@ async def test_run_email_reminder_cycle_respects_kill_switch():
         session, _settings(email_reminders_scheduler_enabled=False)
     )
     assert count == 0
+
+
+@pytest.mark.asyncio
+async def test_a_cycle_that_lost_its_lock_stops_sending(email_write):
+    """The fixed 600 s hold, never refreshed, let a peer take the lock and send again."""
+    now = datetime.now(UTC)
+    rows = []
+    for _ in range(3):
+        user = _user()
+        rows.append((_todo(due_at=now + timedelta(minutes=5), user_id=user.id), user))
+    session = AsyncMock()
+    result = MagicMock()
+    result.all.return_value = rows
+    session.execute = AsyncMock(return_value=result)
+    keep_lock = AsyncMock(side_effect=[True, False, True])
+
+    with patch(
+        "app.modules.notifications.reminder_email.tx_email.send_todo_reminder",
+        AsyncMock(return_value=True),
+    ) as send:
+        count = await reminder_emails.process_todo_reminder_emails(
+            session, _settings(), now=now, keep_lock=keep_lock
+        )
+
+    assert count == 1
+    send.assert_awaited_once()

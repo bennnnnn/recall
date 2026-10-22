@@ -5,19 +5,18 @@ import type { PaidPlanId } from "@/lib/plan";
 export function useSubscriptionActions() {
   const { token, user, refreshUser } = useAuth();
 
-  /** Ask the server to re-read the store; the plan only changes there. */
+  /** Ask the server to re-read the store; the plan only changes there. Both calls
+   * return the account, shown as is (code-health audit NET-19). */
   const syncSubscription = async () => {
     if (!token) return false;
-    await api.syncSubscription(token);
-    await refreshUser();
+    await refreshUser(api.syncSubscription);
     return true;
   };
 
   const devUpgrade = async (plan: PaidPlanId) => {
     if (!token) return false;
     try {
-      await api.devUpgradePro(token, plan);
-      await refreshUser();
+      await refreshUser((current) => api.devUpgradePro(current, plan));
       return true;
     } catch {
       return false;

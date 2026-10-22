@@ -5,11 +5,12 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import suppress
 from typing import Any, NamedTuple, Self
 
-from litellm import acompletion
+# Re-exported: the completion gateways call the provider through this module.
+from litellm import acompletion as acompletion
 
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
-from app.gateways import llm_spend, mock_llm
+from app.gateways import mock_llm
 from app.gateways.prompt_cache import with_cache_breakpoint
 from app.gateways.reasoning import reasoning_body
 from app.gateways.stream_signals import (
@@ -21,14 +22,16 @@ from app.gateways.stream_signals import (
     provider_fault,
     reasoning_delta,
 )
+from app.gateways.stream_tool_calls import StreamedToolCalls
 from app.gateways.stream_usage import apply_usage, merge_attempt_usage
 
 # The completion kinds split out of this module are part of its public surface
-# (callers use ``litellm_gateway.complete_structured`` and friends). They reach
-# this module's provider seams (``acompletion``, ``resolve_route``,
-# ``_litellm_kwargs``) at call time, so a test patches each seam once, here.
-from app.gateways.structured_completion import _fallback_alias
+# (callers use ``litellm_gateway.complete_structured`` and friends). They make
+# their provider calls through this module (``acompletion``, ``resolve_route``,
+# ``_litellm_kwargs``), importing it at call time: at load it would be a cycle,
+# and a test patches each seam once, here.
 from app.gateways.structured_completion import complete_structured as complete_structured
+from app.gateways.text_completion import complete_text as complete_text
 from app.gateways.think_stripper import STRAY_THINK_LEAD_HOLD, ThinkStripper
 from app.gateways.tool_completion import complete_with_tools as complete_with_tools
 from app.gateways.vision_completion import vision_completion as vision_completion
@@ -67,64 +70,6 @@ class ModelUnavailableError(Exception):
 _CHAT_MODEL_UNAVAILABLE_MSG = (
     "That model isn't responding right now. Try again — or pick a different model."
 )
-
-
-async def _acompletion_with_fallback(
-    settings: Settings,
-    primary_alias: str,
-    *,
-    messages: list[dict[str, str]],
-    max_tokens: int,
-    response_format: dict[str, str] | None = None,
-) -> Any | None:
-    """Run acompletion against the primary background alias; on provider outage
-    retry once against the fallback alias. Returns the LiteLLM response object,
-    or None if both fail. Used by the background paths (titles, summaries,
-    project extraction) so a single-provider DeepSeek incident doesn't silently
-    stall every background pipeline.
-    """
-    fallback = _fallback_alias(settings, primary_alias)
-    for alias in (primary_alias, fallback):
-        if alias is None:
-            continue
-        try:
-            route = resolve_route(alias)
-            kwargs = _litellm_kwargs(settings, route, thinking=False)
-            params: dict[str, Any] = dict(
-                model=route.model, messages=messages, max_tokens=max_tokens, **kwargs
-            )
-            if response_format is not None:
-                params["response_format"] = response_format
-            async with asyncio.timeout(settings.background_llm_timeout_seconds):
-                response = await acompletion(**params)
-            llm_spend.meter_model_call(alias, response)
-            return response
-        except TimeoutError:
-            if alias == primary_alias and fallback is not None:
-                logger.warning(
-                    "Background LLM %s timed out after %ss; retrying with fallback %s",
-                    primary_alias,
-                    settings.background_llm_timeout_seconds,
-                    fallback,
-                )
-                continue
-            logger.warning(
-                "Background LLM %s timed out after %ss",
-                alias,
-                settings.background_llm_timeout_seconds,
-            )
-            return None
-        except Exception:
-            if alias == primary_alias and fallback is not None:
-                logger.warning(
-                    "Background LLM %s unavailable; retrying with fallback %s",
-                    primary_alias,
-                    fallback,
-                )
-                continue
-            logger.exception("Background LLM %s failed", alias)
-            return None
-    return None
 
 
 def resolve_route(alias: str) -> ChatModel:
@@ -184,13 +129,17 @@ async def stream_chat_completion(
     attempts: list[StreamAttempt] | None = None,
     on_thinking: Callable[[], Awaitable[None]] | None = None,
     may_try: Callable[[str], Awaitable[bool]] | None = None,
+    tools: list[dict[str, Any]] | None = None,
+    tool_calls: list[dict[str, Any]] | None = None,
 ) -> AsyncIterator[str]:
     """Stream one reply, moving down ``fallback_aliases`` until a model answers.
 
     ``attempts`` gets one record per model tried, in order: which failed (before
     its text, or partway), and how fast each provider started. ``on_thinking``
     runs when a model is seen reasoning before any of its text. ``may_try`` is
-    asked before each model but the last; False passes it by untried.
+    asked before each model but the last; False passes it by untried. ``tools``
+    go to a model that takes them, and the calls its reply makes land on
+    ``tool_calls``: a call answers too.
     """
     if mock_llm.should_mock_llm(settings):
         logger.info("Using mock LLM stream for alias=%s", model_alias)
@@ -219,6 +168,7 @@ async def stream_chat_completion(
         # daily quota. Tool-loop usage already lives on `usage`; only merge
         # the attempt that actually produced content.
         attempt_usage: dict[str, int] = {}
+        attempt_calls: list[dict[str, Any]] = []
         cap = first_reply_cap(settings, alias, thinking, has_next=has_next, prompt=shape)
         attempt = StreamAttempt(alias)
         if attempts is not None:
@@ -238,6 +188,8 @@ async def stream_chat_completion(
                 first_content_timeout_seconds=cap,
                 attempt=attempt,
                 on_thinking=on_thinking,
+                tools=tools,
+                tool_calls=attempt_calls,
             ):
                 if not started:
                     pending.append(token)
@@ -249,18 +201,15 @@ async def stream_chat_completion(
                     pending.clear()
                     continue
                 yield token
-            if started:
+            if started or attempt_calls:
                 attempt.end(failed=False)
                 merge_attempt_usage(usage, attempt_usage)
+                if tool_calls is not None:
+                    tool_calls.extend(attempt_calls)
                 if stream_meta is not None:
                     stream_meta["model_alias"] = alias
                 return
-            logger.warning(
-                "Chat stream %s returned no content%s",
-                alias,
-                f"; retrying with fallback {aliases[index + 1]}" if has_next else "",
-            )
-            raise ModelUnavailableError.for_alias(alias, cause="empty")
+            raise _answered_nothing(alias, aliases[index + 1] if has_next else None)
         except ModelUnavailableError as exc:
             last_error = exc
             attempt.end(failed=True, cause=exc.cause)
@@ -285,6 +234,30 @@ async def stream_chat_completion(
         raise last_error
 
 
+def _answered_nothing(alias: str, fallback: str | None) -> ModelUnavailableError:
+    logger.warning(
+        "Chat stream %s returned no content%s",
+        alias,
+        f"; retrying with fallback {fallback}" if fallback else "",
+    )
+    return ModelUnavailableError.for_alias(alias, cause="empty")
+
+
+def _call_kwargs(
+    settings: Settings,
+    route: ChatModel,
+    thinking: bool | str | None,
+    tools: list[dict[str, Any]] | None,
+) -> tuple[dict[str, Any], StreamedToolCalls | None]:
+    """The streamed call's provider arguments, and where its tool calls fold: None when
+    the model was offered none (one that takes no tools gets none)."""
+    kwargs = _litellm_kwargs(settings, route, latency_sensitive=True, thinking=thinking)
+    calls = StreamedToolCalls() if tools and route.supports_tools else None
+    if calls is not None:
+        kwargs.update(tools=tools, tool_choice="auto")
+    return kwargs, calls
+
+
 _PROVIDER_CLOSE_TIMEOUT_SECONDS = 2.0
 
 
@@ -301,6 +274,8 @@ class _ChunkRead(NamedTuple):
     thinking: bool
     # The provider sent reasoning or text at all.
     delta: bool
+    # The chunk carried a tool call.
+    called: bool = False
 
 
 def _read_chunk(
@@ -309,8 +284,10 @@ def _read_chunk(
     usage: dict[str, int] | None,
     stream_meta: dict[str, str] | None,
     stripper: ThinkStripper,
+    calls: StreamedToolCalls | None = None,
 ) -> _ChunkRead:
-    """What one provider chunk shows."""
+    """What one provider chunk shows. ``calls`` is None when the request offered no
+    tools: a stray call is not read."""
     apply_usage(usage, chunk)
     choices = getattr(chunk, "choices", None) or []
     if not choices:
@@ -325,7 +302,10 @@ def _read_chunk(
         stripper.reasoning_streamed()
     content = getattr(delta, "content", None) or "" if delta is not None else ""
     text = stripper.feed(content) if content else ""
-    return _ChunkRead(text, reasoning or stripper.holding_thought, reasoning or bool(content))
+    called = calls is not None and calls.fold(getattr(delta, "tool_calls", None))
+    return _ChunkRead(
+        text, reasoning or stripper.holding_thought, reasoning or bool(content) or called, called
+    )
 
 
 async def _tell_thinking(on_thinking: Callable[[], Awaitable[None]], model_alias: str) -> None:
@@ -349,11 +329,14 @@ async def _stream_chat_once(
     thinking: bool | str | None = None,
     attempt: StreamAttempt | None = None,
     on_thinking: Callable[[], Awaitable[None]] | None = None,
+    tools: list[dict[str, Any]] | None = None,
+    tool_calls: list[dict[str, Any]] | None = None,
 ) -> AsyncIterator[str]:
     """One model's stream. ``first_content_timeout_seconds`` caps the wait for its
-    first text or reasoning (``stream_signals.first_reply_cap``)."""
+    first text or reasoning (``stream_signals.first_reply_cap``); a tool call ends
+    it too."""
     route = resolve_route(model_alias)
-    kwargs = _litellm_kwargs(settings, route, latency_sensitive=True, thinking=thinking)
+    kwargs, calls = _call_kwargs(settings, route, thinking, tools)
     stripper = ThinkStripper(lead_hold=STRAY_THINK_LEAD_HOLD if route.stray_think_guard else 0)
     # Signature kept so WS/SSE callers stay unchanged; CoT is not forwarded.
     _ = on_reasoning
@@ -405,9 +388,12 @@ async def _stream_chat_once(
                 raise _gave_up(model_alias, *stop) from exc
             if chunk is None:
                 break
-            read = _read_chunk(chunk, usage=usage, stream_meta=stream_meta, stripper=stripper)
+            read = _read_chunk(
+                chunk, usage=usage, stream_meta=stream_meta, stripper=stripper, calls=calls
+            )
             if read.delta and attempt is not None:
                 attempt.delta()
+            watch.shown_text = watch.shown_text or read.called  # a call begins the reply
             if watch.saw(text=read.text, thinking=read.thinking) and on_thinking is not None:
                 await _tell_thinking(on_thinking, model_alias)
             if read.text:
@@ -415,6 +401,8 @@ async def _stream_chat_once(
         tail = stripper.flush()
         if tail:
             yield tail
+        if tool_calls is not None and calls is not None:
+            tool_calls.extend(calls.calls())
     except TimeoutError as exc:
         # Only the wait for the stream to open raises one here.
         cap = watch.expired()
@@ -450,25 +438,3 @@ async def _stream_chat_once(
 def _gave_up(model_alias: str, ran_out: str, cause: str) -> ModelUnavailableError:
     logger.warning("LiteLLM stream for alias=%s gave up: %s", model_alias, ran_out)
     return ModelUnavailableError.for_alias(model_alias, cause=cause)
-
-
-async def complete_text(
-    *,
-    settings: Settings,
-    model_alias: str,
-    messages: list[dict[str, str]],
-    max_tokens: int = 256,
-) -> str | None:
-    """Return assistant text content from a non-streaming completion (or None)."""
-    if mock_llm.should_mock_llm(settings):
-        return None
-    response = await _acompletion_with_fallback(
-        settings, model_alias, messages=messages, max_tokens=max_tokens
-    )
-    if response is None:
-        return None
-    try:
-        return (response.choices[0].message.content or "").strip() or None
-    except Exception:
-        logger.exception("Text completion failed to parse response for %s", model_alias)
-        return None

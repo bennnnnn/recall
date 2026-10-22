@@ -14,6 +14,7 @@ import {
 import { clearScheduledTimeout, scheduleTimeout } from "@/lib/scheduleTimeout";
 import { tap } from "@/lib/haptics";
 import type { KeyboardSteps } from "@/hooks/useKeyboardInset";
+import { useLatestRef } from "@/lib/latestRef";
 
 /** What the message list wires to the scroll owner. */
 export type ChatListScroll = {
@@ -56,7 +57,6 @@ export function useChatScroll({
   const atBottomRef = useRef(true);
   const newMessageCountRef = useRef(0);
   const showScrollBtnRef = useRef(false);
-  const messagesLenRef = useRef(0);
   const listBottomPadRef = useRef(0);
   const maxScrollOffsetRef = useRef(0);
   const scrollOffsetRef = useRef(0);
@@ -71,7 +71,7 @@ export function useChatScroll({
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [scrollAwayCount, setScrollAwayCount] = useState(0);
 
-  messagesLenRef.current = messagesLength;
+  const messagesLenRef = useLatestRef(messagesLength);
 
   const updateAtBottom = useCallback((atBottom: boolean) => {
     atBottomRef.current = atBottom;
@@ -80,7 +80,7 @@ export function useChatScroll({
     showScrollBtnRef.current = shouldShow;
     setShowScrollToBottom(shouldShow);
     if (!shouldShow) setScrollAwayCount(0);
-  }, []);
+  }, [messagesLenRef]);
 
   const measureScrollMetrics = useCallback(
     (event?: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -172,7 +172,7 @@ export function useChatScroll({
       });
       updateAtBottom(nextAtBottom);
     },
-    [readScrollThresholds, measureScrollMetrics, updateAtBottom],
+    [readScrollThresholds, measureScrollMetrics, updateAtBottom, messagesLenRef],
   );
 
   const drag = useReaderDrag(syncScrollPosition);
@@ -275,7 +275,7 @@ export function useChatScroll({
       );
       scrollToEndNow();
     }
-  }, [updateAtBottom, scrollToEndNow]);
+  }, [updateAtBottom, scrollToEndNow, messagesLenRef]);
 
   const handleContentSizeChange = useCallback(
     (_width: number, height: number) => {
@@ -294,21 +294,24 @@ export function useChatScroll({
     [alignListToContent],
   );
 
+  // An interactive dismiss is the reader's own drag; an opening or held list is
+  // placed by its own rules.
+  const keyboardMayMoveList = useCallback(
+    () => !readerMovingRef.current && !openingRef.current && !heldRef.current,
+    [readerMovingRef, openingRef],
+  );
+
   // Each step restarts the wait, so the thread catches up wherever the keyboard
   // slows between steps, mid-animation, and once more after it stops.
   useEffect(
     () =>
       keyboardSteps.subscribe((height) => {
-        if (height <= 0) return;
-        // An interactive dismiss is the reader's own drag; an opening or held
-        // list is placed by its own rules.
-        const still = () => !readerMovingRef.current && !openingRef.current && !heldRef.current;
-        if (!still()) return;
+        if (height <= 0 || !keyboardMayMoveList()) return;
         scheduleTimeout(keyboardScrollTimerRef, 50, () => {
-          if (still()) scrollToEndIfAtBottom(true);
+          if (keyboardMayMoveList()) scrollToEndIfAtBottom(true);
         });
       }),
-    [keyboardSteps, scrollToEndIfAtBottom, readerMovingRef, openingRef],
+    [keyboardSteps, scrollToEndIfAtBottom, keyboardMayMoveList],
   );
 
   const handleLayoutCommit = useCallback(() => {

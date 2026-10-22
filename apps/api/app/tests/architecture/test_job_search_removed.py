@@ -13,6 +13,8 @@ from app.core.db import Base
 from app.core.jobs import queue
 from app.main import app
 
+from .boundary_support import served_paths
+
 REPO_ROOT = Path(__file__).resolve().parents[5]
 APP_ROOT = REPO_ROOT / "apps" / "api" / "app"
 MOBILE_ROOT = REPO_ROOT / "apps" / "mobile"
@@ -49,7 +51,8 @@ def test_orm_metadata_has_no_job_search_tables() -> None:
 
 
 def test_job_search_http_routes_are_absent() -> None:
-    paths = {getattr(route, "path", "") for route in app.routes}
+    paths = served_paths()
+    assert "/chats" in paths  # the check sees the live routes
     assert not any(path.startswith("/job-search") for path in paths)
     assert TestClient(app).get("/job-search").status_code == 404
 

@@ -143,3 +143,49 @@ def test_model_only_region_is_not_trusted() -> None:
     assert spec is not None
     content = f"```graph\n{spec.model_dump_json()}\n```"
     assert "```graph" not in math_fence.validate_math_fences(content)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "x**2 - 1 > 0",
+        "2*x + 3 <= 7",
+        "x**2 < 4",
+        "x**3 - x >= 0",
+        "1/x > 2",
+        "abs(x - 2) < 3",
+        "sqrt(x) < 2",
+        "1 < x <= 3",
+        "5 > 2*x + 1 >= -3",
+    ],
+)
+def test_the_number_line_draws_the_answer_cards_set(text: str) -> None:
+    """Both read one solve (``solve/inequalities.py``); they were copies that could drift."""
+    from app.modules.math.solve.extract_eq import (
+        try_extract_compound_inequality_from_text,
+        try_extract_inequality_from_text,
+    )
+    from app.modules.math.solve.graph import (
+        _collect_number_line_intervals,
+        number_line_spec_from_expr,
+    )
+    from app.modules.math.solve.inequalities import (
+        compound_solution_set,
+        inequality_solution_set,
+    )
+
+    compound = try_extract_compound_inequality_from_text(text)
+    if compound is not None:
+        answer_set = compound_solution_set(*compound, "x")
+    else:
+        single = try_extract_inequality_from_text(text)
+        assert single is not None
+        lhs, rhs, comparator = single
+        answer_set = inequality_solution_set(lhs, rhs, comparator, "x")
+    expected: list = []
+    assert _collect_number_line_intervals(answer_set, expected)
+
+    spec = number_line_spec_from_expr(text)
+
+    assert spec is not None
+    assert spec.intervals == expected

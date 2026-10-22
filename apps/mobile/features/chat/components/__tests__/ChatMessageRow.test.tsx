@@ -6,7 +6,7 @@ import type { Message } from "@/lib/api";
 let mockBubbleProps: { onRegenerate?: () => void; liveContent?: string; isGenerating?: boolean } = {};
 const mockDraftReads: boolean[] = [];
 
-jest.mock("@/components/MessageBubble", () => {
+jest.mock("@/features/chat/components/MessageBubble", () => {
   const { Text: MockText } =
     jest.requireActual("react-native") as typeof import("react-native");
   return {
@@ -25,9 +25,6 @@ jest.mock("@/contexts/StreamingDraftContext", () => ({
     mockDraftReads.push(enabled);
     return enabled ? mockDraft : null;
   },
-}));
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
 }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({ textSecondary: "#666" }) }));
 

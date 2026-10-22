@@ -22,6 +22,7 @@ from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.math import fence as math_fence_service
+from app.modules.physics.reply_policy import PHYSICS_SHORT_HINT
 from app.services.answer_fence import VERIFIED_ANSWER_MARKER
 from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock
 from app.tests.modules.chat.chat_test_support import turn_deps
@@ -54,7 +55,6 @@ def _deps() -> Any:
         users=SimpleNamespace(get_by_id=AsyncMock(return_value=MagicMock())),
         todos=SimpleNamespace(
             materialize_reminder_fences=AsyncMock(side_effect=_reminders),
-            transcript_implies_todo_sync=MagicMock(return_value=False),
         ),
         math_fence=math_fence_service,
         web_search=web_search_service,
@@ -376,7 +376,7 @@ async def test_a_model_simulation_is_dropped_on_an_unverified_physics_turn(
         reply,
         prompt="A 1500 kg car going 20 m/s brakes to a stop in 40 m. What is the braking force?",
     )
-    assert "```simulation" not in out
+    assert PHYSICS_SHORT_HINT not in out
     assert "The car stops in 40 m." in out
 
 

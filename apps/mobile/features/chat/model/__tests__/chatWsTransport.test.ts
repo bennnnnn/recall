@@ -1,5 +1,6 @@
 import { createWsBackoff, WS_RETRY_BASE_MS, WS_RETRY_MAX_MS } from "@/features/chat/model/wsBackoff";
 import {
+  STREAM_IDLE_TIMEOUT_MS,
   WS_ACK_PROBE_MS,
   WS_CONNECT_TIMEOUT_MS,
   WS_FIRST_EVENT_TIMEOUT_MS,
@@ -41,7 +42,7 @@ function setupTransport() {
   const onFallback = jest.fn<void, [ChatWsFallbackSignal]>();
   const transport = new ChatWsTransport({
     url: "wss://test/chat",
-    token: "token",
+    getToken: () => "token",
     clientTimezone: "UTC",
     onPayload,
     onFallback,
@@ -187,12 +188,57 @@ describe("ChatWsTransport", () => {
     expect(onPayload).toHaveBeenCalledWith({ type: "ping" });
   });
 
-  it("clears the first-event deadline after a turn acknowledgment", async () => {
-    const { socket, transport, onFallback } = await openTransport(true);
+  it("after a turn acknowledgment waits for each next event, keepalives included", async () => {
+    const { socket, transport, onPayload, onFallback } = setupTransport();
+    const connecting = transport.connect();
+    socket.open();
+    await connecting;
 
     transport.sendRegenerate(REGENERATE);
     socket.emit({ type: "start" });
-    jest.advanceTimersByTime(5 * WS_FIRST_EVENT_TIMEOUT_MS);
+    // The first-event deadline is gone; the idle one is longer.
+    jest.advanceTimersByTime(STREAM_IDLE_TIMEOUT_MS - 1);
+    socket.emit({ type: "keepalive" });
+    jest.advanceTimersByTime(STREAM_IDLE_TIMEOUT_MS - 1);
+    socket.emit({ type: "token", content: "slow" });
+    jest.advanceTimersByTime(STREAM_IDLE_TIMEOUT_MS - 1);
+
+    expect(onFallback).not.toHaveBeenCalled();
+    expect(socket.close).not.toHaveBeenCalled();
+    // A keepalive is proof of life, not a payload.
+    expect(onPayload.mock.calls.map(([payload]) => payload.type)).toEqual(["start", "token"]);
+  });
+
+  it("drops a turn quiet past the idle deadline and opens a new socket next time", async () => {
+    const { socket, transport, onPayload, onFallback } = setupTransport();
+    const connecting = transport.connect();
+    socket.open();
+    await connecting;
+
+    transport.sendMessage(MESSAGE);
+    socket.emit({ type: "start" });
+    socket.emit({ type: "token", content: "par" });
+    jest.advanceTimersByTime(STREAM_IDLE_TIMEOUT_MS);
+
+    expect(onFallback).toHaveBeenCalledWith({ reason: "disconnect", duringTurn: true });
+    expect(socket.close).toHaveBeenCalledTimes(1);
+    expect(transport.isTurnActive()).toBe(false);
+    expect(transport.shouldUseSse()).toBe(false);
+    // Late frames from the dropped socket are not this turn's any more.
+    socket.emit({ type: "done", message_id: "late" });
+    expect(onPayload).toHaveBeenCalledTimes(2);
+  });
+
+  it("puts no deadline on a finished turn", async () => {
+    const { socket, transport, onFallback } = setupTransport();
+    const connecting = transport.connect();
+    socket.open();
+    await connecting;
+
+    transport.sendRegenerate(REGENERATE);
+    socket.emit({ type: "start" });
+    socket.emit({ type: "done", message_id: "m1" });
+    jest.advanceTimersByTime(5 * STREAM_IDLE_TIMEOUT_MS);
 
     expect(onFallback).not.toHaveBeenCalled();
     expect(socket.close).not.toHaveBeenCalled();
@@ -363,6 +409,38 @@ describe("ChatWsTransport", () => {
     // Waiting does not help a refused token: a refreshed one builds a new transport.
     jest.advanceTimersByTime(WS_RETRY_MAX_MS);
     expect(transport.shouldUseSse()).toBe(true);
+  });
+
+  it("authenticates each new socket with the newest token", async () => {
+    let token = "first";
+    const sockets: FakeSocket[] = [];
+    const transport = new ChatWsTransport({
+      url: "wss://test/chat",
+      getToken: () => token,
+      clientTimezone: "UTC",
+      onPayload: jest.fn(),
+      onFallback: jest.fn(),
+      backoff: createWsBackoff(),
+      createSocket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket as unknown as WebSocket;
+      },
+    });
+    let connecting = transport.connect();
+    sockets[0]!.open();
+    await connecting;
+    // The server closes an idle socket (4408); the token rotated meanwhile.
+    (sockets[0]!.onclose as (event?: { code?: number }) => void)({ code: 4408 });
+    token = "rotated";
+    connecting = transport.connect();
+    sockets[1]!.open();
+    await connecting;
+
+    expect(sockets[1]!.send).toHaveBeenNthCalledWith(
+      1,
+      JSON.stringify({ token: "rotated", client_timezone: "UTC" }),
+    );
   });
 
   it.each([

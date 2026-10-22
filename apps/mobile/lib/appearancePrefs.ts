@@ -9,15 +9,8 @@ import {
   normalizeAppearancePreference,
   type AppearancePreference,
 } from "@/lib/appearance";
-import {
-  prefFilePath,
-  readLegacySecureStore,
-  readPrefFile,
-  readPrefFileSync,
-  writePrefFile,
-} from "@/lib/filePrefs";
+import { prefFilePath, readPrefFile, readPrefFileSync, writePrefFile } from "@/lib/filePrefs";
 
-const LEGACY_KEY = "appearance_preference";
 const FILE_NAME = "recall.appearance-preference.txt";
 
 let cachedPreference: AppearancePreference | null = null;
@@ -37,19 +30,8 @@ export function readAppearancePreferenceSync(): AppearancePreference | null {
 
 export async function getAppearancePreference(): Promise<AppearancePreference> {
   if (cachedPreference !== null) return cachedPreference;
-  const fromFile = await readPrefFile(filePath());
-  if (fromFile !== null) {
-    cachedPreference = normalizeAppearancePreference(fromFile);
-    return cachedPreference;
-  }
-
-  // A one-time move out of the Keychain. The file is written whatever it held,
-  // "system" included, so later launches read the file and never the Keychain.
-  const legacy = normalizeAppearancePreference(await readLegacySecureStore(LEGACY_KEY));
-  // A choice made in Settings meanwhile wins over the old value.
-  if (cachedPreference !== null) return cachedPreference;
-  await setAppearancePreference(legacy);
-  return legacy;
+  cachedPreference = normalizeAppearancePreference(await readPrefFile(filePath()));
+  return cachedPreference;
 }
 
 export async function setAppearancePreference(

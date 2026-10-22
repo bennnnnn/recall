@@ -9,6 +9,14 @@ let mockSession = 1;
 let mockToken: string | null = "token-a";
 let mockUserId: string | null = "account-a";
 let mockEnabledModels: string[] | null = null;
+// Stable, as the provider keeps it.
+const mockGetToken = () => mockToken;
+jest.mock("@/contexts/accountSession", () => ({
+  useAccountSession: () => ({
+    account: mockToken && mockUserId ? `${mockUserId}:${mockSession}` : null,
+    getToken: mockGetToken,
+  }),
+}));
 jest.mock("@/contexts/AuthContext", () => ({
   useAuthOptional: () => ({
     token: mockToken,

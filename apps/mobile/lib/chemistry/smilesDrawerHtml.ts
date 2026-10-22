@@ -88,7 +88,7 @@ export const SMILES_DRAWER_PAGE: PreviewPage<"smilesDrawer"> = {
 };
 
 /** What one structure's WebView hands the page. */
-export type SmilesDrawerConfig = { smiles: string; theme: "dark" | "light"; bg: string };
+type SmilesDrawerConfig = { smiles: string; theme: "dark" | "light"; bg: string };
 
 export function smilesDrawerConfig(smiles: string, theme: SmilesDrawerTheme): SmilesDrawerConfig {
   return { smiles: smiles.trim(), theme: theme.isDark ? "dark" : "light", bg: theme.bg };

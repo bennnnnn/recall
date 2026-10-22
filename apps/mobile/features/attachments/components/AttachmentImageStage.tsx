@@ -19,6 +19,7 @@ import Animated, {
 
 import { MediaLoadRetry } from "@/components/MediaLoadRetry";
 import { useAuthToken } from "@/contexts/AuthContext";
+import { useAccountSession } from "@/contexts/accountSession";
 import {
   ensureLocalAttachmentFile,
   getCachedAttachmentFile,
@@ -60,6 +61,7 @@ type Props = {
  */
 export function AttachmentImageStage({ item, active, onPress, onZoomChange, accessibilityLabel }: Props) {
   const token = useAuthToken();
+  const { account, getToken } = useAccountSession();
   const reduceMotion = useReduceMotion();
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -267,7 +269,7 @@ export function AttachmentImageStage({ item, active, onPress, onZoomChange, acce
     const controller = new AbortController();
     void ensureLocalAttachmentFile({
       uri: remoteUri,
-      token,
+      token: getToken(),
       fileName,
       signal: controller.signal,
     })
@@ -278,7 +280,7 @@ export function AttachmentImageStage({ item, active, onPress, onZoomChange, acce
         // Keep showing previewUri / remote; download/share will surface errors.
       });
     return () => controller.abort();
-  }, [active, remoteUri, item.localUri, item.previewUri, token, fileName, attempt, fileKey]);
+  }, [active, remoteUri, item.localUri, item.previewUri, account, getToken, fileName, attempt, fileKey]);
 
   useEffect(() => {
     const uri = cachedUri ?? (item.localUri?.startsWith("file://") ? item.localUri : null);

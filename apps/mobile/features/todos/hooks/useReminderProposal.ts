@@ -7,9 +7,18 @@ import {
   markProposalSaved,
   type ReminderProposal,
 } from "@/features/todos/model/reminderProposal";
-import { api } from "@/lib/api";
+import { api, type Todo } from "@/lib/api";
 
 type ReminderProposalError = "expired" | "changed" | "failed";
+
+/** `rows` with the saved rows in place (new ones first) and the deleted ones gone. */
+export function applySavedRows(rows: Todo[], saved: Todo[], deletedIds: string[]): Todo[] {
+  const gone = new Set(deletedIds);
+  const byId = new Map(saved.map((row) => [row.id, row]));
+  const kept = rows.filter((row) => !gone.has(row.id)).map((row) => byId.get(row.id) ?? row);
+  const known = new Set(rows.map((row) => row.id));
+  return [...saved.filter((row) => !known.has(row.id)), ...kept];
+}
 
 /** Saves a chat reminder card on tap, then refreshes To-do and its notifications. */
 export function useReminderProposal(proposal: ReminderProposal) {
@@ -24,10 +33,13 @@ export function useReminderProposal(proposal: ReminderProposal) {
     setBusy(true);
     setError(null);
     try {
-      await api.confirmReminderProposal(token, proposal.proposalId);
+      const saved = await api.confirmReminderProposal(token, proposal.proposalId);
       markProposalSaved(proposal.proposalId);
       setDone(true);
-      void todos?.refresh({ silent: true, force: true });
+      // The rows the tap wrote, applied as they are (code-health audit NET-16); a card
+      // another device saved first sends none, and the list is read again.
+      if (saved.todos) todos?.setTodos((rows) => applySavedRows(rows, saved.todos ?? [], saved.deleted_ids));
+      else void todos?.refresh({ silent: true, force: true });
     } catch (caught) {
       // ApiRequestError carries the HTTP status: 410 expired, 409 changed since.
       const status = (caught as { status?: unknown } | null)?.status;

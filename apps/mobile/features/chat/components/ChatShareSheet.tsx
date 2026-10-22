@@ -5,6 +5,7 @@ import type { Message } from "@/lib/api";
 import { conversationTranscript } from "@/features/chat/model/transcript";
 import { formatMonthDayYear } from "@/lib/datetime/format";
 import { ShareSheet } from "@/ui/share/ShareSheet";
+import { useLatestRef } from "@/lib/latestRef";
 
 const APP_ICON = require("@/assets/images/icon.png");
 
@@ -20,8 +21,7 @@ type Props = {
 export function ChatShareSheet({ visible, onClose, title, loadMessages }: Props) {
   const { t } = useTranslation();
   const messages = useRef<Promise<Message[]> | null>(null);
-  const loadRef = useRef(loadMessages);
-  loadRef.current = loadMessages;
+  const loadRef = useLatestRef(loadMessages);
 
   useEffect(() => {
     if (!visible) messages.current = null;

@@ -30,6 +30,7 @@ from app.modules.chat.client_message import (
 )
 from app.modules.chat.stream_api import _stream_tokens_sse
 from app.modules.chat.turn_outcome import TurnOutcome
+from app.tests.fakes import make_user
 from app.tests.modules.chat.test_client_message import SlowReply
 
 
@@ -254,7 +255,7 @@ async def test_stream_message_sse_claims_the_message_by_its_name(fake_redis) -> 
     from app.models.schemas import ChatMessageRequest
     from app.modules.chat.stream_api import stream_message_sse
 
-    user = MagicMock()
+    user = make_user()
     user.id = uuid4()
     chat_id, name = uuid4(), uuid4()
     runs: list[str] = []

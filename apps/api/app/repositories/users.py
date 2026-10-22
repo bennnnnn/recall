@@ -6,17 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import object_session
 
 from app.core.user_cache import forget_user, publish_change, remember_user
-from app.models.orm import (
-    Attachment,
-    Chat,
-    Memory,
-    Message,
-    PushToken,
-    Suggestion,
-    TodoItem,
-    UsageDaily,
-    User,
-)
+from app.models.orm import Chat, Message, PushToken, UsageDaily, User
 
 
 async def get_by_id(session: AsyncSession, user_id: UUID) -> User | None:
@@ -121,24 +111,24 @@ async def update(session: AsyncSession, user: User, *, commit: bool = True, **fi
     return bound
 
 
-async def delete_user(session: AsyncSession, user_id: UUID) -> None:
-    """Hard-delete a user and all their data.
-
-    Deletes every user-owned row explicitly before the user row so the delete
-    succeeds even for tables whose FK to users.id has no ON DELETE CASCADE
-    (todos, suggestions, messages, memories). Tables that do cascade
-    (attachments, push tokens) are deleted explicitly too — harmless if already
-    cascaded, and keeps the operation correct regardless of migration state.
-    """
-    # Memory writers lock User before Memory; use the same order during deletion.
+async def lock_for_delete(session: AsyncSession, user_id: UUID) -> None:
+    """Lock the user row for an account delete: memory writers lock User before Memory,
+    so the delete takes the same order before any module deletes its rows."""
     await session.execute(select(User.id).where(User.id == user_id).with_for_update())
+
+
+async def delete_user(session: AsyncSession, user_id: UUID) -> None:
+    """Hard-delete a user, their chats, messages, usage and push tokens, and commit.
+
+    The modules' rows (memory, to-dos, suggestions, attachments) are gone already:
+    ``account.lifecycle`` asks each module, under ``lock_for_delete``. Every row is
+    deleted explicitly before the user row, so the delete succeeds even for a table
+    whose FK to users.id has no ON DELETE CASCADE.
+    """
+    await lock_for_delete(session, user_id)
     await session.execute(delete(Message).where(Message.user_id == user_id))
-    await session.execute(delete(Memory).where(Memory.user_id == user_id))
     await session.execute(delete(UsageDaily).where(UsageDaily.user_id == user_id))
-    await session.execute(delete(TodoItem).where(TodoItem.user_id == user_id))
-    await session.execute(delete(Suggestion).where(Suggestion.user_id == user_id))
     await session.execute(delete(PushToken).where(PushToken.user_id == user_id))
-    await session.execute(delete(Attachment).where(Attachment.user_id == user_id))
     await session.execute(delete(Chat).where(Chat.user_id == user_id))
     user = await session.get(User, user_id)
     if user is not None:

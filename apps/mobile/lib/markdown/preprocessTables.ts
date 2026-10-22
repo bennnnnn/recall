@@ -9,11 +9,11 @@ import {
 import { allowsContentHeuristic } from "@/lib/fenceDispatch";
 import { readInlineMathSpan } from "@/lib/markdown/inlineMath";
 import { looksLikeMarkdownListProse } from "@/lib/markdown/preprocessNormalize";
-import { mapClosedFences, readFenceMarker } from "@/lib/mdFenceScan";
+import { closesFence, mapClosedFences, readFenceMarker } from "@/lib/mdFenceScan";
 import { isStructuredFenceLang } from "@/lib/richBlocks";
 
-const FENCED_TABLE_RE =
-  /```(?:markdown|md|table)\s*\n((?:[^\n]*\|[^\n]*\n){2,})```/gi;
+/** A ```markdown / ```md / ```table fence that only holds a pipe table. */
+const TABLE_FENCE_LANGS: ReadonlySet<string> = new Set(["markdown", "md", "table"]);
 
 function isPipeRow(line: string): boolean {
   const t = line.trim();
@@ -148,10 +148,11 @@ function finalizePipeTable(rows: string[]): string[] {
 export function normalizeMarkdownTables(content: string): string {
   let out = content;
 
-  out = out.replace(
-    FENCED_TABLE_RE,
-    (_m, table: string) => `\n${table.trim()}\n`,
-  );
+  out = mapClosedFences(out, (info, body, original) => {
+    const rows = body.split("\n");
+    const table = TABLE_FENCE_LANGS.has(parseFenceLang(info)) && rows.length >= 2;
+    return table && rows.every((row) => row.includes("|")) ? `\n${body.trim()}\n` : original;
+  });
 
   const lines = out.split("\n");
   const fixed: string[] = [];
@@ -172,14 +173,7 @@ export function normalizeMarkdownTables(content: string): string {
     const marker = readFenceMarker(line);
 
     if (openFence) {
-      if (
-        marker &&
-        marker.char === openFence.char &&
-        marker.len >= openFence.len &&
-        marker.info === ""
-      ) {
-        openFence = null;
-      }
+      if (marker && closesFence(marker, openFence)) openFence = null;
       fixed.push(line);
       continue;
     }

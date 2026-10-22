@@ -31,7 +31,7 @@ import { escapedAt } from "@/lib/markdown/inlineCode";
 
 type OpenFence = { char: "`" | "~"; len: number; durable: boolean };
 
-export type SegmentHooks = {
+type SegmentHooks = {
   /** Preprocess the open part cut at `start` and compare; cut and return true when they agree. */
   tryCut: (start: number) => boolean;
   /** Merge the parts that start at or after `start` back into the open part; its new start. */

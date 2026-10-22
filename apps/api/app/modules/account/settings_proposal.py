@@ -16,12 +16,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.validation import LOCALE_NAMES
-from app.exceptions import ChatServiceError
+from app.exceptions import DomainError
+from app.models import model_catalog
 from app.models.orm import User
 from app.modules import memory as memory_service
 from app.modules.account.settings_intent import SettingsChange, SettingsField
 from app.modules.billing import plan as plan_service
-from app.modules.home import service as home_service
+from app.modules.memory.switch import memory_switch_on
 from app.repositories import users as users_repo
 from app.services.response_tone import TONE_IDS
 
@@ -29,13 +30,6 @@ logger = logging.getLogger(__name__)
 
 PROPOSAL_TTL_SECONDS = 900
 _APPEARANCE_VALUES = frozenset({"light", "dark", "system"})
-_MODEL_LABELS = {
-    "auto": "Auto",
-    "free-chat": "Flash",
-    "smart-chat": "Pro",
-    "gpt-6-luna": "GPT-6 Luna",
-    "qwen-3.7-flash": "Qwen3.7 Flash",
-}
 _TONE_LABELS = {
     "funny": "Funny",
     "professional": "Professional",
@@ -77,21 +71,26 @@ def _normalize_appearance(value: str) -> str:
     return _APPEARANCE_ALIASES.get(value, value)
 
 
-class SettingsProposalError(ChatServiceError):
-    def __init__(self, detail: str, *, status_code: int = 400) -> None:
-        super().__init__(detail)
-        self.status_code = status_code
+class SettingsProposalError(DomainError):
+    """A settings card that can no longer be confirmed."""
 
 
 def _proposal_key(user_id: UUID, proposal_id: str) -> str:
     return f"settings:proposal:{user_id}:{proposal_id}"
 
 
+def _model_label(value: str) -> str:
+    """The name Settings → Models shows for the model: the catalog's label."""
+    if value == plan_service.AUTO_ALIAS:
+        return "Auto"
+    return model_catalog.get(value).label if value in model_catalog.known_ids() else value
+
+
 def change_label(field: SettingsField, value: str) -> str:
     if field == "appearance":
         return _APPEARANCE_LABELS.get(value, value)
     if field == "default_model":
-        return _MODEL_LABELS.get(value, value)
+        return _model_label(value)
     if field == "response_tone":
         return _TONE_LABELS.get(value, value)
     if field == "locale":
@@ -172,7 +171,7 @@ def validate_changes(
                 apply.append(change)
             continue
         if change.field == "memory" and change.value in _MEMORY_LABELS:
-            if change.value == "off" and not user.memory_enabled:
+            if change.value == "off" and not memory_switch_on(user):
                 already.append(change)
             else:
                 apply.append(change)
@@ -280,12 +279,8 @@ async def materialize_memory_reset_reply(
 
 
 async def _clear_memory(session: AsyncSession, user_id: UUID) -> None:
-    try:
-        await memory_service.delete_all_memories(session, user_id)
-    except memory_service.MemoryWriteLockBusyError as exc:
-        raise SettingsProposalError(
-            "Memory is being updated right now — try again in a moment.", status_code=409
-        ) from exc
+    # Busy memory refuses as itself: 409 ``memory_busy``.
+    await memory_service.delete_all_memories(session, user_id)
 
 
 def _enabled_models_for(user: User, settings: Settings, model_id: str) -> list[str]:
@@ -356,7 +351,6 @@ async def confirm_proposal(
             updated = await users_repo.update(session, user, **fields)
             if memory_toggled:
                 await memory_service.invalidate_memory_block(user.id)
-            await home_service.invalidate_home_cache(user.id)
 
         return {
             "user": updated,

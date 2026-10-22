@@ -6,11 +6,9 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
-from app.modules.physics.extractors.common import (
-    _strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
 from app.modules.physics.extractors.modern_laws import (
     _half_life,
@@ -90,10 +88,10 @@ _MODERN_LAWS: tuple[tuple[Callable[[str], bool], Callable[[str], PhysicsIntent |
 
 def _extract_modern_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _MODERN_CUES, _MODERN_CUE_RES):
+    if not has_cue(lower, _MODERN_CUES, _MODERN_CUE_RES):
         return None
     without_level_assignment = re.sub(r"\bn\s*=\s*\d+\b", "", cleaned, flags=re.IGNORECASE)
-    if has_equation(_strip_param_assignments(without_level_assignment)):
+    if has_equation(strip_param_assignments(without_level_assignment)):
         return None
     for names, law in _MODERN_LAWS:
         if names(lower):

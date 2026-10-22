@@ -1,14 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  type Dispatch,
-  type MutableRefObject,
-  type SetStateAction,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
 
-import type { StreamingDraft } from "@/lib/streamingDraftStore";
+import type { ChatTurnEvent, ChatTurnState } from "@/features/chat/model/chatTurnCore";
 
 /**
  * After `stream_end` a reply's text is all here and only its save is left, which
@@ -49,52 +41,22 @@ export type SendTurnStart = {
 type Options = {
   canStart: boolean;
   isCurrentView: () => boolean;
+  /** The turn machine (useChat holds it) and one step of it. */
+  turn: RefObject<ChatTurnState>;
+  step: (event: ChatTurnEvent) => void;
+  /** What useChat shows: a reply streams, or only its save is left. */
   streaming: boolean;
   finalizing: boolean;
-  streamingRef: MutableRefObject<boolean>;
-  finalizingRef: MutableRefObject<boolean>;
-  sendAttemptRef: MutableRefObject<number>;
-  stoppedStreamedIdRef: MutableRefObject<string | null>;
-  setStreaming: Dispatch<SetStateAction<boolean>>;
-  setSendingMessageId: Dispatch<SetStateAction<string | null>>;
-  updateStreamingDraft: (draft: StreamingDraft | null) => void;
-  appendStreamingPlaceholder: () => void;
-  clearStreamingBubble: () => void;
-  dropSocket: () => void;
-  /** A saving reply whose `done` never came: leave its connection and reload the chat for it. */
-  settleUnconfirmedReply: () => void;
 };
 
 /**
- * How a turn starts on screen: typing dots, either with the dispatch or (for the
- * composer) with the bubble before the send has gone out; a fresh connection
- * after Stop so the stopped turn's late frames reach nothing; and the wait for
- * a reply that is only saving, which Send no longer has to sit out.
+ * How a turn starts on screen before the composer's send goes out: typing dots
+ * with the bubble, and the wait for a reply that is only saving, which Send no
+ * longer has to sit out.
  */
-export function useTurnStart({
-  canStart,
-  isCurrentView,
-  streaming,
-  finalizing,
-  streamingRef,
-  finalizingRef,
-  sendAttemptRef,
-  stoppedStreamedIdRef,
-  setStreaming,
-  setSendingMessageId,
-  updateStreamingDraft,
-  appendStreamingPlaceholder,
-  clearStreamingBubble,
-  dropSocket,
-  settleUnconfirmedReply,
-}: Options) {
-  /** The attempt whose dots went up before its send was dispatched. */
-  const earlyDotsRef = useRef<number | null>(null);
+export function useTurnStart({ canStart, isCurrentView, turn, step, streaming, finalizing }: Options): SendTurnStart {
   const settleWaitersRef = useRef<(() => void)[]>([]);
   const graceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Read when the grace runs out, so the wait itself stays one stable callback.
-  const settleRef = useRef(settleUnconfirmedReply);
-  settleRef.current = settleUnconfirmedReply;
 
   const releaseWaiters = useCallback(() => {
     if (graceTimerRef.current != null) clearTimeout(graceTimerRef.current);
@@ -112,63 +74,27 @@ export function useTurnStart({
   useEffect(() => releaseWaiters, [releaseWaiters]);
 
   const whenReplySettled = useCallback((waitingId?: string) => {
-    if (!streamingRef.current && !finalizingRef.current) return Promise.resolve();
-    if (waitingId) setSendingMessageId(waitingId);
+    if (turn.current.phase === "idle") return Promise.resolve();
+    if (waitingId) step({ type: "send_waiting", messageId: waitingId });
     graceTimerRef.current ??= setTimeout(() => {
       graceTimerRef.current = null;
-      if (finalizingRef.current && isCurrentView()) settleRef.current();
+      if (isCurrentView()) step({ type: "unconfirmed_reply" });
     }, REPLY_SAVE_GRACE_MS);
     return new Promise<void>((resolve) => {
       settleWaitersRef.current.push(resolve);
     });
-  }, [streamingRef, finalizingRef, setSendingMessageId, isCurrentView]);
-
-  const showDots = useCallback((status?: string) => {
-    setStreaming(true);
-    streamingRef.current = true;
-    setSendingMessageId(null);
-    updateStreamingDraft({ content: "", status });
-    appendStreamingPlaceholder();
-  }, [setStreaming, streamingRef, setSendingMessageId, updateStreamingDraft, appendStreamingPlaceholder]);
-
-  /** Stop may still have a final frame in flight; a new connection keeps it off the next turn. */
-  const leaveStoppedTurn = useCallback(() => {
-    if (!stoppedStreamedIdRef.current) return;
-    dropSocket();
-    stoppedStreamedIdRef.current = null;
-  }, [stoppedStreamedIdRef, dropSocket]);
+  }, [turn, step, isCurrentView]);
 
   const beginDots = useCallback((): DotsTicket | null => {
-    if (!canStart || !isCurrentView() || streamingRef.current || finalizingRef.current) return null;
-    const attempt = ++sendAttemptRef.current;
-    earlyDotsRef.current = attempt;
-    leaveStoppedTurn();
-    showDots();
-    const current = () => isCurrentView() && sendAttemptRef.current === attempt;
+    if (!canStart || !isCurrentView() || turn.current.phase !== "idle") return null;
+    step({ type: "dots_begin" });
+    const attempt = turn.current.attempt;
+    const current = () => isCurrentView() && turn.current.attempt === attempt;
     const cancel = () => {
-      if (earlyDotsRef.current === attempt) earlyDotsRef.current = null;
-      if (!current()) return;
-      sendAttemptRef.current += 1;
-      setStreaming(false);
-      streamingRef.current = false;
-      clearStreamingBubble();
+      if (isCurrentView()) step({ type: "dots_cancelled", attempt });
     };
     return { current, cancel };
-  }, [
-    canStart, isCurrentView, streamingRef, finalizingRef, sendAttemptRef, leaveStoppedTurn, showDots, setStreaming,
-    clearStreamingBubble,
-  ]);
+  }, [canStart, isCurrentView, turn, step]);
 
-  /** True when the dots up now are this dispatch's (the attempt that raised them is still the latest). */
-  const takeEarlyDots = useCallback(() => {
-    const mine = earlyDotsRef.current !== null && earlyDotsRef.current === sendAttemptRef.current;
-    if (mine) earlyDotsRef.current = null;
-    return mine;
-  }, [sendAttemptRef]);
-
-  const sendStart = useMemo<SendTurnStart>(
-    () => ({ beginDots, whenReplySettled }),
-    [beginDots, whenReplySettled],
-  );
-  return { showDots, leaveStoppedTurn, takeEarlyDots, sendStart };
+  return useMemo(() => ({ beginDots, whenReplySettled }), [beginDots, whenReplySettled]);
 }

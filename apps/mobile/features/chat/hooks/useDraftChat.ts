@@ -1,31 +1,42 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AppState } from "react-native";
 
+import { useAccountSession } from "@/contexts/accountSession";
 import { api } from "@/lib/api";
-import { rememberCreatedChat } from "@/lib/cache/chatListCache";
+import { rememberCreatedChat } from "@/features/chat/model/chatListCache";
 import { resolveActiveChatId } from "@/features/chat/model/draftLogic";
-
-const DRAFT_PREWARM_DELAY_MS = 125;
+import { useLatestRef } from "@/lib/latestRef";
 
 type Options = {
-  token: string | null;
   chatId: string | null;
+  /** The user has started a message (the composer holds text): make its chat now. */
+  intent: boolean;
 };
 
-export function useDraftChat({ token, chatId }: Options) {
+/**
+ * The chat a new conversation sends into, made when the user starts writing, not when the
+ * view opens. Every glance at a new chat used to insert a chat and open a socket, then read
+ * a page and delete it twice on the way out (code-health audit NET-13). It is keyed on the
+ * account, not the bearer token, which rotates hourly (NET-11).
+ */
+export function useDraftChat({ chatId, intent }: Options) {
+  const { account, getToken } = useAccountSession();
   const [draftChatId, setDraftChatId] = useState<string | null>(null);
   const draftChatIdRef = useRef<string | null>(null);
   const draftCreatePromiseRef = useRef<Promise<string | null> | null>(null);
   const skipLoadForChatIdRef = useRef<string | null>(null);
   const creatingRef = useRef(false);
-  const chatIdRef = useRef(chatId);
-  chatIdRef.current = chatId;
+  const chatIdRef = useLatestRef(chatId);
+  const intentRef = useLatestRef(intent);
 
+  /** Delete a chat the user never wrote in: one request, a no-op once it holds a message. */
   const discardEmptyChat = useCallback(
     (id: string | null) => {
+      const token = getToken();
       if (!token || !id) return;
       api.deleteChatIfEmpty(token, id).catch(() => {});
     },
-    [token],
+    [getToken],
   );
 
   const clearDraftChat = useCallback(
@@ -34,15 +45,14 @@ export function useDraftChat({ token, chatId }: Options) {
       draftChatIdRef.current = null;
       draftCreatePromiseRef.current = null;
       setDraftChatId(null);
-      if (toDiscard && token) {
-        api.deleteChat(token, toDiscard).catch(() => {});
-      }
+      discardEmptyChat(toDiscard);
     },
-    [token],
+    [discardEmptyChat],
   );
 
   const prepareDraftChat = useCallback(
     async (model = "auto", opts?: { force?: boolean }): Promise<string | null> => {
+      const token = getToken();
       if (!token) return null;
       if (opts?.force) {
         draftChatIdRef.current = null;
@@ -67,21 +77,24 @@ export function useDraftChat({ token, chatId }: Options) {
       draftCreatePromiseRef.current = task;
       return task;
     },
-    [token, chatId],
+    [getToken, chatId],
   );
 
-  // Hide the first-message create-chat round trip behind the time the user
-  // spends looking at / typing into a fresh conversation. Delay one beat so an
-  // existing route can synchronously claim chatId first; the ref check avoids
-  // creating a throwaway draft while chat history is opening.
+  // The first keystroke makes the chat, so the send does not wait on it.
   useEffect(() => {
-    if (!token || chatId || draftChatIdRef.current || draftCreatePromiseRef.current) return;
-    const timer = setTimeout(() => {
-      if (chatIdRef.current || draftChatIdRef.current || draftCreatePromiseRef.current) return;
-      void prepareDraftChat();
-    }, DRAFT_PREWARM_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [token, chatId, prepareDraftChat]);
+    if (!account || !intent || chatId || draftChatIdRef.current || draftCreatePromiseRef.current) return;
+    void prepareDraftChat();
+  }, [account, intent, chatId, prepareDraftChat]);
+
+  // Leaving the app with nothing written drops the draft. `inactive` (Control Center, the
+  // app switcher, a call) comes straight back, so it keeps it.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state !== "background" || intentRef.current || chatIdRef.current) return;
+      if (draftChatIdRef.current) clearDraftChat();
+    });
+    return () => sub.remove();
+  }, [clearDraftChat, chatIdRef, intentRef]);
 
   return {
     draftChatId,

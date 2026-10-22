@@ -22,13 +22,10 @@ jest.mock("@expo/dom-webview", () => {
   throw new Error("@expo/dom-webview native module is not linked (test)");
 });
 
-// expo-clipboard / expo-web-browser wrap native modules that this test's
-// plain @react-native/jest-preset environment (no jest-expo) doesn't stub.
-// MermaidBlock only calls them from button-press handlers, not during
-// render, so simple no-op fakes are enough to keep import-time safe.
-jest.mock("expo-clipboard", () => ({
-  setStringAsync: jest.fn(),
-}));
+// expo-web-browser wraps a native module that this test's plain
+// @react-native/jest-preset environment (no jest-expo) doesn't stub.
+// MermaidBlock only calls it from a button-press handler, not during
+// render, so a no-op fake is enough to keep import-time safe.
 jest.mock("expo-web-browser", () => ({
   openBrowserAsync: jest.fn(),
 }));
@@ -37,18 +34,6 @@ jest.mock("expo-web-browser", () => ({
 // native module cannot load here; with no preview WebView it is never written.
 jest.mock("expo-file-system/legacy", () => ({}));
 
-// CopyButton (used by MermaidBlock's action row) pulls in expo-haptics, whose
-// native EventEmitter isn't available in this plain jest-preset environment.
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  selectionAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  ImpactFeedbackStyle: { Light: "Light" },
-  NotificationFeedbackType: { Success: "Success", Warning: "Warning" },
-}));
-
-// Icon glyphs aren't relevant to this test and pulling in the real font
-// asset registration is unnecessary risk for a fallback-rendering check.
 describe("MermaidBlock", () => {
   it("renders the static source fallback when no preview WebView is available", async () => {
     const content = "graph TD; A-->B;";

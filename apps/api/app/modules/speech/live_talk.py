@@ -4,32 +4,30 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import jobs
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models.orm import Message, User
 from app.modules import todos as todos_service
 from app.modules.billing import can_use
-from app.modules.chat import needs_generated_title, present_assistant_markdown
-from app.modules.memory import memory_extract_user_text, memory_extraction_due
+from app.modules.chat import history as chat_history
+from app.modules.chat import needs_generated_title, present_assistant_markdown, turn_record
+from app.modules.memory.switch import memory_switch_on
 from app.modules.speech.schemas import SpeechLiveStatusOut
 from app.modules.speech.service import LIVE_TALK_ALIAS
 from app.modules.todos.service import list_owned_todos
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
-from app.services.prompt_safety import wrap_untrusted, wrap_user_preferences
-from app.services.text_normalize import cap_text_head_tail
+from app.services.prompt_safety import (
+    custom_instructions_block,
+    wrap_untrusted,
+)
 
 logger = logging.getLogger(__name__)
 
 _LIVE_TALK_RECENT = 12
-_MEMORY_TRANSCRIPT_MAX_CHARS = 4000
 # A session may save turns for its reserved length plus this tail (the last
 # turn is saved as the phone hangs up). After /live/end only the tail is left.
 REALTIME_PERSIST_GRACE_SECONDS = 60
@@ -134,10 +132,10 @@ async def load_live_talk_history(
     user_id: UUID,
 ) -> tuple[list[tuple[str, str]], bool] | None:
     """Recent text turns for the audio model, plus whether the chat still needs a title."""
-    chat = await chats_repo.get_by_id(session, chat_id, user_id)
+    chat = await chat_history.get_chat(session, chat_id, user_id)
     if chat is None:
         return None
-    recent = await messages_repo.list_recent(session, chat_id, limit=_LIVE_TALK_RECENT)
+    recent = await chat_history.recent_messages(session, chat_id, limit=_LIVE_TALK_RECENT)
     history = [(row.role, row.content) for row in recent if row.role in {"user", "assistant"}]
     untitled = needs_generated_title(chat.title)
     return history, untitled
@@ -176,11 +174,7 @@ class LiveTalkSessionContext:
 
 
 def voice_custom_instructions(user: User) -> str:
-    raw = getattr(user, "custom_instructions", None)
-    custom = raw.strip() if isinstance(raw, str) and raw.strip() else ""
-    if not custom:
-        return ""
-    return wrap_user_preferences(f"User's personal instructions:\n{custom[:2000]}")
+    return custom_instructions_block(user.custom_instructions) or ""
 
 
 def _history_lines(history: list[tuple[str, str]] | None) -> list[str]:
@@ -230,7 +224,7 @@ async def _memory_block_best_effort(
     settings: Settings,
     history: list[tuple[str, str]] | None,
 ) -> str:
-    if not getattr(user, "memory_enabled", False):
+    if not memory_switch_on(user):
         return ""
     try:
         from app.modules import memory as memory_service
@@ -245,23 +239,21 @@ async def _memory_block_best_effort(
                 exclude_sensitive=memory_service.exclude_sensitive_for_query(query_text),
             )
     except Exception:
-        logger.debug("Live talk memory load failed", exc_info=True)
+        logger.warning("Live talk starts without memory user_id=%s", user.id, exc_info=True)
         return ""
 
 
 async def _schedule_block_best_effort(user: User, settings: Settings) -> str:
     """Compact Schedule snapshot. Failures yield empty so the session can still mint."""
     try:
-        tz = getattr(user, "timezone", None)
-        if not isinstance(tz, str):
-            tz = None
+        tz = user.timezone
         async with SessionLocal() as session:
             items = await list_owned_todos(session, user.id, limit=settings.todo_inject_limit)
         selected = todos_service.select_todos_for_prompt(items, settings, user_timezone=tz)
         block = todos_service.format_todos_voice_block(selected, user_timezone=tz)
         return wrap_untrusted("schedule", block, first_party=True) if block else ""
     except Exception:
-        logger.debug("Live talk schedule load failed", exc_info=True)
+        logger.warning("Live talk starts without the schedule user_id=%s", user.id, exc_info=True)
         return ""
 
 
@@ -324,169 +316,64 @@ async def persist_live_talk_turn(
 
     user_message: Message | None = None
     assistant_message: Message | None = None
-    reminder_applied = 0
-    # This turn's place in the chat, as a typed turn counts it (None: nothing written here).
-    turn_number: int | None = None
+    # Messages in the chat before this turn (None: nothing written here).
+    prior_count: int | None = None
     should_write_user = write_user and bool(user_content)
     should_write_assistant = write_assistant and bool(assistant_content)
     if should_write_user or should_write_assistant:
         async with SessionLocal() as session:
-            chat = await chats_repo.get_by_id(session, chat_id, user.id)
+            chat = await chat_history.get_chat(session, chat_id, user.id)
             if chat is None:
                 logger.warning("Live talk persist skipped; chat missing chat_id=%s", chat_id)
                 return None, None
+            prior_count = await turn_record.count_messages(session, chat_id)
             if should_write_user:
-                user_message = await messages_repo.create(
-                    session,
-                    chat_id=chat_id,
-                    user_id=user.id,
-                    role="user",
-                    content=user_content,
-                    commit=False,
+                user_message = await turn_record.add_turn_message(
+                    session, chat_id=chat_id, user_id=user.id, role="user", content=user_content
                 )
             if should_write_assistant:
-                assistant_message = await messages_repo.create(
+                assistant_message = await turn_record.add_turn_message(
                     session,
                     chat_id=chat_id,
                     user_id=user.id,
                     role="assistant",
                     content=assistant_content,
                     model=LIVE_TALK_ALIAS,
-                    commit=False,
                 )
-                tz = getattr(user, "timezone", None)
-                if not isinstance(tz, str):
-                    tz = None
+                tz = user.timezone
                 try:
-                    updated, reminder_applied = await todos_service.materialize_reminder_fences(
-                        session,
-                        user_id=user.id,
-                        chat_id=chat_id,
-                        assistant_text=assistant_content,
-                        user_timezone=tz,
-                        user_text=user_content or None,
-                    )
+                    # Its own savepoint: a reminder write that fails undoes only
+                    # itself, and both message rows still commit below.
+                    async with session.begin_nested():
+                        updated, _applied = await todos_service.materialize_reminder_fences(
+                            session,
+                            user_id=user.id,
+                            chat_id=chat_id,
+                            assistant_text=assistant_content,
+                            user_timezone=tz,
+                            user_text=user_content or None,
+                        )
                     if updated != assistant_content and assistant_message is not None:
                         assistant_message.content = updated
                         assistant_content = updated
                 except Exception:
                     logger.exception("Live talk reminder materialize failed chat_id=%s", chat_id)
-                    reminder_applied = 0
-            chat.updated_at = datetime.now(UTC)
             await session.commit()
             if user_message is not None:
                 await session.refresh(user_message)
             if assistant_message is not None:
                 await session.refresh(assistant_message)
-            turn_number = (await messages_repo.count_for_chat(session, chat_id) + 1) // 2
 
-    if enqueue_jobs:
-        await _enqueue_live_talk_jobs(
+    if enqueue_jobs and prior_count is not None:
+        # A typed turn's jobs, by the same rules (code-health audit ARCH-08).
+        await turn_record.finish_turn(
             redis,
             settings,
             user=user,
             chat_id=chat_id,
-            user_text=user_content,
-            assistant_text=assistant_content,
-            assistant_message_id=assistant_message.id if assistant_message is not None else None,
-            untitled=untitled,
-            reminder_applied=reminder_applied,
-            turn_number=turn_number,
+            user_message=user_content,
+            assistant=assistant_message,
+            prior_count=prior_count,
+            run_title=untitled,
         )
     return user_message, assistant_message
-
-
-async def _enqueue_live_talk_jobs(
-    redis: Redis,
-    settings: Settings,
-    *,
-    user: User,
-    chat_id: UUID,
-    user_text: str,
-    assistant_text: str,
-    assistant_message_id: UUID | None,
-    untitled: bool,
-    reminder_applied: int = 0,
-    turn_number: int | None = None,
-) -> None:
-    transcript = f"User: {user_text}\nAssistant: {assistant_text}"
-    specs: list[tuple[str, dict[str, str], str | None]] = []
-    turn_key = str(assistant_message_id) if assistant_message_id is not None else f"live:{chat_id}"
-    topic_user = user_text or assistant_text
-    topic_assistant = assistant_text or user_text
-    if untitled and topic_user and topic_assistant:
-        specs.append(
-            (
-                "topic",
-                {
-                    "chat_id": str(chat_id),
-                    "user_id": str(user.id),
-                    "user_message": topic_user,
-                    "assistant_message": topic_assistant,
-                },
-                f"topic:{chat_id}",
-            )
-        )
-    # Same rule as a typed turn: memory learns from the user's own words. The
-    # spoken reply may repeat a web result (the voice web_search tool), and an
-    # assistant line must never become a durable fact about the user.
-    memory_user_text = memory_extract_user_text(user_text)
-    # The same cadence too (MEMORY_EXTRACT_EVERY_N_TURNS); a turn whose place is
-    # unknown keeps the pass rather than risk dropping what the user said.
-    memory_due = turn_number is None or memory_extraction_due(
-        memory_user_text,
-        turn_number=turn_number,
-        every_n_turns=settings.memory_extract_every_n_turns,
-    )
-    if user.memory_enabled and memory_user_text and memory_due:
-        specs.append(
-            (
-                "memory",
-                {
-                    "user_id": str(user.id),
-                    "chat_id": str(chat_id),
-                    "transcript": cap_text_head_tail(
-                        f"User: {memory_user_text}", _MEMORY_TRANSCRIPT_MAX_CHARS
-                    ),
-                    "assistant_message_id": turn_key,
-                },
-                f"memory:{turn_key}",
-            )
-        )
-    # The background repair reads the spoken reply too and writes without a
-    # card, so it stays off while reminder changes wait for the user's tap
-    # (as in chat's post_turn). A reminder the user said with a clock is
-    # still applied from their own words in persist_live_talk_turn.
-    if (
-        not settings.reminder_proposals_enabled
-        and reminder_applied <= 0
-        and todos_service.should_recover_todo_writes(user_text, transcript)
-    ):
-        specs.append(
-            (
-                "todos",
-                {
-                    "user_id": str(user.id),
-                    "chat_id": str(chat_id),
-                    "transcript": transcript,
-                },
-                f"todosync:{chat_id}:{turn_key}",
-            )
-        )
-    if settings.chat_history_rag_enabled and assistant_message_id is not None:
-        specs.append(
-            (
-                "message_index",
-                {
-                    "user_id": str(user.id),
-                    "chat_id": str(chat_id),
-                    "assistant_message_id": str(assistant_message_id),
-                },
-                f"message_index:{assistant_message_id}",
-            )
-        )
-    try:
-        for name, payload, dedupe_key in specs:
-            await jobs.enqueue(redis, name, payload, dedupe_key=dedupe_key)
-    except Exception:
-        logger.exception("Live talk post-turn enqueue failed chat_id=%s", chat_id)

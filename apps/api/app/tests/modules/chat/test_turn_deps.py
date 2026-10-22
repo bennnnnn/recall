@@ -15,26 +15,34 @@ from app.gateways import litellm_gateway
 from app.models.schemas import ChatMessageRequest
 from app.modules import todos, web_search
 from app.modules.attachments import lifecycle as attachment_lifecycle
+from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan
+from app.modules.chat import chats_repository as chats
+from app.modules.chat import messages_repository as messages
+from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.turn_deps import ChatTurnDeps, default_deps
 from app.modules.images import generation as image_generation
 from app.modules.images import search as image_search
 from app.modules.math import fence as math_fence
-from app.repositories import chats, messages, users
+from app.repositories import usage, users
 from app.services import conversation_reference, quota
+from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import turn_deps
 
 _REAL_MODULES = {
     "users": users,
     "chats": chats,
     "messages": messages,
+    "usage": usage,
     "quota": quota,
     "plan": plan,
+    "model_choice": model_choice,
     "locks": redis_lock,
     "llm": litellm_gateway,
     "image_generation": image_generation,
     "image_search": image_search,
     "attachments": attachment_lifecycle,
+    "attachment_links": attachments_service,
     "references": conversation_reference,
     "web_search": web_search,
     "math_fence": math_fence,
@@ -47,7 +55,6 @@ def test_default_deps_wire_the_real_modules() -> None:
         assert getattr(deps, name) is module, name
     assert deps.session_factory is SessionLocal
     assert deps.todos.materialize_reminder_fences is todos.materialize_reminder_fences
-    assert deps.todos.transcript_implies_todo_sync is todos.transcript_implies_todo_sync
     # A new field gets its wiring checked here too.
     assert {field.name for field in fields(ChatTurnDeps)} == {
         *_REAL_MODULES,
@@ -86,7 +93,7 @@ async def test_websocket_turns_run_on_the_default_deps(entry: str) -> None:
     with patch(f"app.modules.chat.ws_api.stream_entry.{entry}", _captured_stream(captured)):
         await handle(
             AsyncMock(),
-            redis=AsyncMock(),
+            redis=redis_mock(),
             settings=Settings(),
             user_id=uuid4(),
             chat_id=uuid4(),
@@ -119,7 +126,7 @@ async def test_sse_turns_run_on_the_default_deps(entry: str) -> None:
             request=request,
             user=MagicMock(id=uuid4()),
             settings=Settings(),
-            redis=AsyncMock(),
+            redis=redis_mock(),
         )
         async for _ in response.body_iterator:
             pass

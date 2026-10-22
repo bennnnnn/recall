@@ -19,8 +19,8 @@ import pytest
 import app.modules.physics as physics_package
 from app.modules.physics import extract
 from app.modules.physics.extractors.circuit_patterns import _resistor_values
-from app.modules.physics.extractors.common import _find_value_with_specific_unit
-from app.modules.physics.solvers.common import quadratic_roots
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.solvers.arithmetic import quadratic_roots
 from app.services.symbolic_text import _MAX_PHYSICS_REQUEST, _MAX_SUBJECT_TEXT
 
 _PATTERN_BUDGET_SECONDS = 0.15
@@ -159,6 +159,17 @@ def test_each_caller_gets_its_own_intent() -> None:
     assert second.physics_params["h0"] == 20
 
 
+@pytest.mark.parametrize("run", [",", ", ", ". ", " = "])
+def test_punctuation_between_a_label_and_its_value_stays_linear(run: str) -> None:
+    # Each comma once doubled the label-gap fullmatch: 40 would have taken days.
+    text = "What is the net force on a body of mass" + run * 40 + "x 5 kg at 2 m/s^2?"
+    _clear_caches()
+    assert _elapsed(extract.extract_physics_intent, text) < _CALL_BUDGET_SECONDS
+    start = time.perf_counter()
+    find_value_with_specific_unit(text, "kg", ("mass",))
+    assert time.perf_counter() - start < _PATTERN_BUDGET_SECONDS
+
+
 def test_a_long_resistor_list_still_declines() -> None:
     assert _resistor_values("three resistors of 2, 3 and 6 ohms in parallel") == [2.0, 3.0, 6.0]
     # More than the network limit: enough values come back to refuse it.
@@ -182,7 +193,7 @@ def test_a_long_resistor_list_still_declines() -> None:
 def test_nearest_keyword_value(
     text: str, keywords: tuple[str, ...], expected: tuple[float, str]
 ) -> None:
-    assert _find_value_with_specific_unit(text, "kg", keywords) == expected
+    assert find_value_with_specific_unit(text, "kg", keywords) == expected
 
 
 @pytest.mark.parametrize(

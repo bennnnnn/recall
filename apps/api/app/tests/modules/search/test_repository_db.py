@@ -42,9 +42,9 @@ async def test_search_literal_symbols_with_real_trigram_operator(
         )
     await db_session.commit()
 
-    rows, total = await search_repo.search_conversations(db_session, owner.id, query)
+    rows, next_cursor = await search_repo.search_conversations(db_session, owner.id, query)
 
-    assert total == 1
+    assert next_cursor is None
     assert [row["chat_id"] for row in rows] == [matching.id]
 
 
@@ -55,9 +55,9 @@ async def test_search_preserves_fuzzy_title_matching(db_session):
     db_session.add(chat)
     await db_session.commit()
 
-    rows, total = await search_repo.search_conversations(db_session, owner.id, "vacaton")
+    rows, next_cursor = await search_repo.search_conversations(db_session, owner.id, "vacaton")
 
-    assert total == 1
+    assert next_cursor is None
     assert [row["chat_id"] for row in rows] == [chat.id]
 
 
@@ -78,15 +78,15 @@ async def test_search_scopes_both_message_and_chat_owners_and_excludes_archived(
     )
     await db_session.commit()
 
-    rows, total = await search_repo.search_conversations(db_session, owner.id, "needle")
+    rows, next_cursor = await search_repo.search_conversations(db_session, owner.id, "needle")
 
-    assert total == 1
+    assert next_cursor is None
     assert [row["chat_id"] for row in rows] == [allowed.id]
     assert rows[0]["match_type"] == "message"
 
 
 @pytest.mark.asyncio
-async def test_search_equal_timestamp_pages_have_stable_order_and_total(db_session):
+async def test_search_equal_timestamp_pages_have_stable_order_by_cursor(db_session):
     owner = await _user(db_session)
     now = datetime(2026, 9, 4, tzinfo=UTC)
     chat_ids = sorted([uuid4(), uuid4()])
@@ -110,23 +110,55 @@ async def test_search_equal_timestamp_pages_have_stable_order_and_total(db_sessi
     )
     await db_session.commit()
 
-    pages = [
-        await search_repo.search_conversations(
-            db_session, owner.id, "needle", limit=1, offset=offset
+    pages = []
+    cursor = None
+    for _ in range(3):
+        page = await search_repo.search_conversations(
+            db_session, owner.id, "needle", limit=1, cursor=cursor
         )
-        for offset in range(3)
-    ]
+        pages.append(page)
+        cursor = page[1]
 
-    assert [total for _, total in pages] == [3, 3, 3]
+    assert [next_cursor is not None for _, next_cursor in pages] == [True, True, False]
     assert [(rows[0]["chat_id"], rows[0]["message_id"]) for rows, _ in pages] == [
         (title_chat.id, None),
         (messages_chat.id, message_ids[1]),
         (messages_chat.id, message_ids[0]),
     ]
-    assert await search_repo.search_conversations(
-        db_session, owner.id, "needle", limit=1, offset=99
-    ) == ([], 3)
     assert await search_repo.search_conversations(db_session, owner.id, "unrelated", limit=1) == (
         [],
-        0,
+        None,
     )
+
+
+@pytest.mark.asyncio
+async def test_search_cursor_does_not_skip_when_an_earlier_hit_is_deleted(db_session):
+    """An offset skipped a hit once an earlier one went away; a cursor names the row read."""
+    owner = await _user(db_session)
+    chat = Chat(user_id=owner.id, title="Notes")
+    db_session.add(chat)
+    await db_session.flush()
+    base = datetime(2026, 9, 4, tzinfo=UTC)
+    messages = [
+        Message(
+            chat_id=chat.id,
+            user_id=owner.id,
+            role="user",
+            content=f"needle {index}",
+            created_at=base.replace(minute=index),
+        )
+        for index in range(4)
+    ]
+    db_session.add_all(messages)
+    await db_session.commit()
+
+    first, cursor = await search_repo.search_conversations(db_session, owner.id, "needle", limit=2)
+    await db_session.delete(messages[3])
+    await db_session.commit()
+    second, last = await search_repo.search_conversations(
+        db_session, owner.id, "needle", limit=2, cursor=cursor
+    )
+
+    read = [row["message_id"] for row in first + second]
+    assert read == [messages[3].id, messages[2].id, messages[1].id, messages[0].id]
+    assert last is None

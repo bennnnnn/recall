@@ -128,12 +128,27 @@ export function reportBoundaryError(
   error: Error,
   componentStack?: string | null,
 ): void {
-  const capture = (Sentry: SentrySdk) => {
+  report((Sentry) => {
     Sentry.captureException(error, {
       tags: { boundary },
       contexts: componentStack ? { react: { componentStack } } : undefined,
     });
-  };
+  });
+}
+
+/**
+ * The app store could not be read when the upgrade sheet opened. The sheet says
+ * so and offers a retry; this tells us, since an outage otherwise looks like a
+ * store with nothing to sell (code-health audit CLAR-08).
+ */
+export function reportStoreUnavailable(error: unknown): void {
+  report((Sentry) => {
+    Sentry.captureException(error, { tags: { area: "store" } });
+  });
+}
+
+/** Sent at once when the SDK is up; before that it waits in the short queue. */
+function report(capture: (sentry: SentrySdk) => void): void {
   if (sdk) {
     capture(sdk);
     return;

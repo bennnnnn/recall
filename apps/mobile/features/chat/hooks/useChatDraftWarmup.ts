@@ -1,11 +1,11 @@
 import { useEffect } from "react";
 import { Keyboard, Platform } from "react-native";
 
-import { useComposerDraftActivity } from "@/contexts/ComposerDraftContext";
+import { useAccountSession } from "@/contexts/accountSession";
+import { useComposerDraftActivity } from "@/features/chat/context/ComposerDraftContext";
 import { shouldWarmDraftSocket } from "@/features/chat/model/draftLogic";
 
 type Options = {
-  token: string | null;
   chatId: string | null;
   streaming: boolean;
   draftChatId: string | null;
@@ -19,19 +19,14 @@ type Options = {
  * idle for five minutes; reopening on intent, not on a timer, keeps that close
  * while the send still finds the socket open. `connect` does nothing when it is.
  */
-export function useChatDraftWarmup({
-  token,
-  chatId,
-  streaming,
-  draftChatId,
-  connect,
-}: Options) {
+export function useChatDraftWarmup({ chatId, streaming, draftChatId, connect }: Options) {
+  const { account } = useAccountSession();
   const composing = useComposerDraftActivity();
 
   useEffect(() => {
-    if (!shouldWarmDraftSocket({ token, draftChatId, chatId, streaming })) return;
+    if (!shouldWarmDraftSocket({ account, draftChatId, chatId, streaming })) return;
     void connect();
-  }, [token, draftChatId, chatId, streaming, connect]);
+  }, [account, draftChatId, chatId, streaming, connect]);
 
   useEffect(() => {
     if (composing) void connect();

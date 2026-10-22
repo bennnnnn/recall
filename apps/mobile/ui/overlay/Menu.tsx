@@ -25,7 +25,7 @@ import { IconSize } from "../icons/sizes";
 import { Overlay, useOverlayProgress } from "./Overlay";
 import { placePopover, type Rect } from "./placement";
 
-export type MenuItem = {
+type MenuItem = {
   key: string;
   label: string;
   icon?: IconName;

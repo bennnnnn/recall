@@ -11,8 +11,17 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
+from pydantic import BaseModel
+
 from app.modules.chat.stream_accum import Completion
 from app.modules.web_search import SearchSource
+
+
+class TurnUsage(BaseModel):
+    """The day's usage after a turn, which ``done`` carries for the quota nudge."""
+
+    used_tokens: int
+    daily_limit: int
 
 
 @dataclass
@@ -36,6 +45,8 @@ class TurnOutcome:
     context_summarized: int = 0
     search_sources: list[SearchSource] = field(default_factory=list)
     todos_changed: bool = False
+    # The day's usage once the turn's charge settled; None until then, or on failure.
+    usage: TurnUsage | None = None
     # The user message this turn answers is in the chat. An error frame says so
     # (``user_message_saved``): the phone offers Retry (resend) only when it is not,
     # and Regenerate only when it is. A regenerate answers a saved message.

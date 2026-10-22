@@ -5,6 +5,8 @@ model; an explicit pick that can read images keeps a photo turn; a re-sent
 photo gets backups that can read it.
 """
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -13,11 +15,12 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.models import model_catalog
 from app.modules.chat.turn_prep.attachments import _AttachmentProcessResult
 from app.modules.chat.turn_prep.context import await_user_message_persist
 from app.modules.chat.turn_prep.persist import UserTurn, turn_model
 from app.modules.chat.turn_prep.vision import inject_turn_images
-from app.services import model_catalog
+from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import prompt_bundle
 
 _SETTINGS = Settings(attachments_enabled=True, mock_llm_enabled=True, openrouter_api_key="")
@@ -115,6 +118,22 @@ async def test_a_generated_image_is_not_sent_back_to_the_model() -> None:
     assert prompt == before
 
 
+@contextmanager
+def _prepared(
+    processed: _AttachmentProcessResult, bundle: Any, *, images_back: bool
+) -> Iterator[None]:
+    """``prepare_chat_turn`` with its attachments, prompt and save stood in for."""
+    from app.modules.chat.turn_prep import prepare
+
+    with (
+        patch.object(prepare, "_process_attachments", AsyncMock(return_value=processed)),
+        patch.object(prepare, "build_stream_prompt_context", AsyncMock(return_value=bundle)),
+        patch.object(prepare, "_persist_and_report", AsyncMock(return_value=[])),
+        patch.object(prepare, "inject_turn_images", AsyncMock(return_value=images_back)),
+    ):
+        yield
+
+
 @pytest.mark.asyncio
 async def test_a_resent_photo_moves_the_turn_and_its_backups_to_image_readers() -> None:
     from app.modules.chat.turn_prep import prepare
@@ -126,19 +145,14 @@ async def test_a_resent_photo_moves_the_turn_and_its_backups_to_image_readers() 
     )
     processed = _attachments()
     processed.user = user
-    with (
-        patch.object(prepare, "_process_attachments", AsyncMock(return_value=processed)),
-        patch.object(prepare, "build_stream_prompt_context", AsyncMock(return_value=bundle)),
-        patch.object(prepare, "_persist_and_report", AsyncMock(return_value=[])),
-        patch.object(prepare, "inject_turn_images", AsyncMock(return_value=True)),
-    ):
+    with _prepared(processed, bundle, images_back=True):
         ctx = await prepare.prepare_chat_turn(
             user_id=user.id,
             chat_id=uuid4(),
             content="and the colour?",
             model_alias=None,
             settings=_SETTINGS,
-            redis=AsyncMock(),
+            redis=redis_mock(),
             reserved_tokens=100,
             user=user,
             chat=_stand_in(id=uuid4()),
@@ -175,19 +189,14 @@ async def test_only_a_model_the_user_named_runs_without_its_probe(
     bundle = prompt_bundle(half_open_models=frozenset({"vision-chat", "gpt-6-luna"}))
     processed = _attachments(image=True)
     processed.user = user
-    with (
-        patch.object(prepare, "_process_attachments", AsyncMock(return_value=processed)),
-        patch.object(prepare, "build_stream_prompt_context", AsyncMock(return_value=bundle)),
-        patch.object(prepare, "_persist_and_report", AsyncMock(return_value=[])),
-        patch.object(prepare, "inject_turn_images", AsyncMock(return_value=False)),
-    ):
+    with _prepared(processed, bundle, images_back=False):
         ctx = await prepare.prepare_chat_turn(
             user_id=user.id,
             chat_id=uuid4(),
             content="what's in this picture?",
             model_alias=alias,
             settings=_SETTINGS,
-            redis=AsyncMock(),
+            redis=redis_mock(),
             reserved_tokens=100,
             user=user,
             chat=_stand_in(id=uuid4()),

@@ -6,7 +6,9 @@ from google.auth import exceptions as google_exceptions
 from google.auth.transport import requests
 from google.oauth2 import id_token
 
+from app.core.blocking import run_blocking
 from app.core.config import Settings
+from app.exceptions import AuthenticationError
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +28,8 @@ def _shared_google_request() -> requests.Request:
     return _google_request
 
 
-class GoogleAuthError(Exception):
-    pass
+class GoogleAuthError(AuthenticationError):
+    """A Google ID token the server does not accept."""
 
 
 class GoogleAuthUnavailableError(Exception):
@@ -67,9 +69,10 @@ class _BoundedRequest:
 def _verify_google_id_token_sync(id_token_str: str, settings: Settings) -> dict[str, Any]:
     request = _BoundedRequest(_shared_google_request(), settings.google_auth_timeout_seconds)
     try:
-        payload = id_token.verify_oauth2_token(
+        # google-auth ships no type hints for id_token.
+        payload: dict[str, Any] = id_token.verify_oauth2_token(  # type: ignore[no-untyped-call]
             id_token_str,
-            request,  # type: ignore[arg-type]
+            request,
             settings.google_client_id,
         )
     except google_exceptions.TransportError as exc:
@@ -100,11 +103,15 @@ def _is_email_verified(value: object) -> bool:
 
 
 async def verify_google_id_token(id_token_str: str, settings: Settings) -> dict[str, Any]:
-    """Verify a Google ID token off the event loop (sync cert/HTTP in a thread)."""
+    """Verify a Google ID token off the event loop, on sign-in's own threads.
+
+    Its own pool (``core/blocking.py``): queued behind R2 calls and PDF parses on the
+    shared one, sign-in ran past its budget and answered 503.
+    """
     deadline = settings.google_auth_timeout_seconds + _THREAD_GRACE_SECONDS
     try:
         return await asyncio.wait_for(
-            asyncio.to_thread(_verify_google_id_token_sync, id_token_str, settings),
+            run_blocking("sign_in", _verify_google_id_token_sync, id_token_str, settings),
             timeout=deadline,
         )
     except TimeoutError as exc:

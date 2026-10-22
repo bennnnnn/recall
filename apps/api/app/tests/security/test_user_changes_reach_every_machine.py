@@ -63,7 +63,7 @@ async def test_a_hand_edit_reaches_every_machine_after_del_of_the_generation(
 async def test_a_change_redis_cannot_publish_answers_503_and_its_retry_publishes(
     world: World, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(user_cache, "_PUBLISH_BACKOFF_SECONDS", 0)
+    monkeypatch.setattr(user_cache, "_PUBLISH_PAUSE_SECONDS", 0)
     assert await _plan_served(world) == "free"
     before = await world.redis.get(user_cache.generation_key(world.a.id))
     real_bump = bump_generation

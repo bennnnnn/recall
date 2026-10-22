@@ -13,7 +13,13 @@ import pytest
 
 from app.core.config import Settings
 from app.exceptions import QuotaExceededError, SpendCapReachedError
-from app.modules.chat import stream_entry, turn_load, turn_resources
+from app.modules.chat import (
+    chats_repository,
+    messages_repository,
+    stream_entry,
+    turn_load,
+    turn_resources,
+)
 from app.modules.chat.stream_events import error_payload_for_exception
 from app.modules.chat.turn_prep import StreamContext
 from app.services import quota as quota_service
@@ -259,7 +265,7 @@ async def test_stream_chat_response_at_spend_cap_never_prepares_the_turn(fake_re
     release = AsyncMock()
     deps = turn_deps(
         session_factory=FakeSessionCM,
-        plan={"resolve_user_model_override": MagicMock(return_value="free-chat")},
+        model_choice={"resolve_user_model_override": MagicMock(return_value="free-chat")},
         locks={"acquire_lock": AsyncMock(return_value="tok"), "release_lock": release},
     )
     await quota_service.record_global_spend(fake_redis, 2.0)
@@ -267,9 +273,9 @@ async def test_stream_chat_response_at_spend_cap_never_prepares_the_turn(fake_re
     chat.summary = None
 
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=chat)),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=[])),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=0)),
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
         patch(
             "app.modules.chat.turn_intercepts.try_image_gen_for_turn",
@@ -301,6 +307,7 @@ async def test_regenerate_reads_back_a_lost_usage_counter_in_its_load_session(fa
     The reservation used to open a second session for it, after the load closed.
     """
     user = _user()
+    asked = MagicMock(role="user", content="explain entropy", model="free-chat", id=uuid4())
     last = MagicMock(role="assistant", content="old answer", model="free-chat", id=uuid4())
     sessions: list[object] = []
 
@@ -313,15 +320,13 @@ async def test_regenerate_reads_back_a_lost_usage_counter_in_its_load_session(fa
         users={"get_by_id": AsyncMock(return_value=user)},
         chats={"get_by_id": AsyncMock(return_value=MagicMock(summary=None))},
         messages={
-            "get_last": AsyncMock(return_value=last),
-            "get_last_user": AsyncMock(return_value=MagicMock(content="explain entropy")),
+            "list_recent": AsyncMock(return_value=[asked, last]),
             "count_for_chat": AsyncMock(return_value=2),
         },
-        plan={"resolve_regenerate_model": MagicMock(return_value="free-chat")},
+        model_choice={"resolve_regenerate_model": MagicMock(return_value="free-chat")},
     )
     with (
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
-        patch("app.modules.chat.turn_load._classify_turn_mode", AsyncMock()),
         patch(
             "app.modules.chat.turn_settle.usage_repo.get_total_for_date",
             AsyncMock(return_value=4_321),

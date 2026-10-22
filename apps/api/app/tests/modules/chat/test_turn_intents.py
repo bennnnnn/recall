@@ -26,7 +26,7 @@ from app.modules.chat.prompt_constants import (
 from app.modules.chat.prompt_constants.multi_part import MULTI_PART_MARKER, multi_part_contract
 from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.chat.prompt_sections import part_shape_hints
-from app.modules.chat.tool_loop.parts import classified_live_parts, live_parts, open_parts
+from app.modules.chat.tool_loop.parts import live_parts, open_parts, searchable_parts
 from app.modules.chat.turn_plan import TurnPart, TurnPlan
 from app.modules.chat.turn_prep.clauses import points_back, request_clauses
 from app.modules.chat.turn_prep.intents import plan_turn
@@ -352,16 +352,15 @@ def test_open_parts_leave_out_handled_and_verified_parts() -> None:
     ]
 
 
-@pytest.mark.asyncio
-async def test_parts_are_classified_without_the_chat_and_side_by_side() -> None:
+def test_parts_are_read_without_the_chat() -> None:
     verdicts = {"what's a good laptop for coding": False, "who is the mayor of Addis": True}
 
-    async def classify(text: str, _settings: Settings, **kwargs: object) -> bool:
+    def gate(text: str, _settings: Settings, **kwargs: object) -> bool:
         assert kwargs == {}
         return verdicts[text]
 
-    with patch("app.modules.web_search.detection.should_web_search", side_effect=classify):
-        found = await classified_live_parts(
+    with patch("app.modules.web_search.detection.should_web_search", side_effect=gate):
+        found = searchable_parts(
             list(verdicts), _settings(), prior_user_messages=["earlier"], prior_assistant="x"
         )
     assert found == ["who is the mayor of Addis"]

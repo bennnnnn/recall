@@ -4,9 +4,6 @@ import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { LinkPreviewTrust } from "@/components/markdown/LinkPreviewTrust";
 import { fetchLinkPreview } from "@/lib/linkPreview";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 jest.mock("@/lib/linkPreview", () => ({
   fetchLinkPreview: jest.fn(),
 }));

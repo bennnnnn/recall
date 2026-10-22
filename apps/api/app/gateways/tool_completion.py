@@ -2,8 +2,8 @@
 
 The model must return a complete decision — tool calls with valid JSON
 arguments, or the explicit no-tool call alone — before any tool runs. Provider
-calls go through ``litellm_gateway`` attributes so tests and routing patches on
-that module still apply.
+calls go through ``litellm_gateway``, which re-exports this module, so it is
+imported at call time.
 """
 
 from __future__ import annotations

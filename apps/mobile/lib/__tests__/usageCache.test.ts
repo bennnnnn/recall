@@ -29,10 +29,11 @@ describe("usageCache", () => {
 
   it("returns cached usage without refetching when fresh", async () => {
     todayUsage.mockResolvedValue(sample);
-    await expect(fetchTodayUsage("tok")).resolves.toEqual(sample);
-    await expect(fetchTodayUsage("tok")).resolves.toEqual(sample);
+    await expect(fetchTodayUsage("user-1:0", "tok")).resolves.toEqual(sample);
+    // The hourly token rotation keeps the same account's usage.
+    await expect(fetchTodayUsage("user-1:0", "rotated")).resolves.toEqual(sample);
     expect(todayUsage).toHaveBeenCalledTimes(1);
-    expect(getCachedUsage("tok")).toEqual(sample);
+    expect(getCachedUsage("user-1:0")).toEqual(sample);
   });
 
   it("refetches when forced", async () => {
@@ -40,8 +41,8 @@ describe("usageCache", () => {
       ...sample,
       remaining: 1,
     });
-    await fetchTodayUsage("tok");
-    await expect(fetchTodayUsage("tok", { force: true })).resolves.toEqual({
+    await fetchTodayUsage("user-1:0", "tok");
+    await expect(fetchTodayUsage("user-1:0", "tok", { force: true })).resolves.toEqual({
       ...sample,
       remaining: 1,
     });

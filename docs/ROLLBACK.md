@@ -37,11 +37,29 @@ after it:
    safe with a comment the CI guard looks for:
    `# expand-contract: release <sha/PR> stopped reading users.legacy_flag`.
 
+Contracts waiting for a later release:
+
+- `memories.embedding_json`, `message_chunks.embedding_json`,
+  `attachment_chunks.embedding_json`: no longer read; new writes store NULL (the
+  release that ranks memory in SQL, migration `0118`). Drop once no image that ranks
+  memory from the JSON copy is a rollback candidate.
+- `users.response_style`: no longer read, returned or accepted by `/auth/me` (the
+  release that removed the account-wide reply length). Drop once that release is the
+  oldest rollback candidate.
+
 `app/tests/architecture/test_migration_safety.py` fails on a migration after
 `0111` whose `upgrade()` drops, renames or retypes without that comment, and on
 more than one alembic head. `0099` and `0106` dropped columns in the same
 release as the code; those cannot be undone by redeploying an earlier image
 (see below). Never rewrite a migration that has run in production.
+
+Background jobs follow the same rule. A worker that has no handler for an entry's type
+(the old worker during a blue-green deploy, or the restored one after a rollback) holds the
+entry and looks again every 10 minutes for a day before dead-lettering it, so the release
+that knows the type runs it. Add a job type in one release and enqueue it only after it is
+deployed everywhere when possible. A new payload field is optional for one release: the
+handler reads it with `payload.get(...)` and a default, so entries the previous release
+queued still run, and only a later release may require it.
 
 Every migration transaction has `lock_timeout = 5s` and `statement_timeout =
 4min` (`alembic/env.py`). A migration that cannot get its lock fails the
@@ -135,7 +153,11 @@ failing health check alone never restarts a Machine, so a worker that is up but
 not ready (Redis unreachable: it keeps retrying) shows only in `fly checks list`
 and the logs.
 
-Inspect the dead-letter queue before replaying:
+A failed job retries by itself for about 50 minutes before it is dead-lettered, and once
+an hour the worker re-enqueues dead letters of types that are safe to run twice
+(`storage_sweep`, `attachment_index`, `transactional_email`), each at most three times.
+Dead letters older than seven days are trimmed. Inspect the queue before replaying
+anything else:
 
 ```bash
 cd apps/api

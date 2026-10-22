@@ -6,28 +6,18 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas import MemorySectionItem
-from app.modules.memory import embedding_text_hash
 from app.modules.memory.consolidation_workflow import consolidate_user_memory_sections
+from app.modules.memory.schemas import MemorySectionItem
+from app.modules.memory.text import embedding_text_hash
 from app.modules.memory.writes_repository import MemoryFactWrite
+from app.tests.fakes import FakeSessionCM
 from app.tests.modules.memory.embedding_support import EMBED_MANY, embed_each
 
 
-class _FakeSessionCM:
-    def __init__(self, session: AsyncMock) -> None:
-        self._session = session
-
-    async def __aenter__(self) -> AsyncMock:
-        return self._session
-
-    async def __aexit__(self, *args: object) -> None:
-        return None
-
-
-def _consolidation_sessions(*, count: int = 1) -> tuple[AsyncMock, list[_FakeSessionCM]]:
+def _consolidation_sessions(*, count: int = 1) -> tuple[AsyncMock, list[FakeSessionCM]]:
     session = AsyncMock()
     session.commit = AsyncMock()
-    return session, [_FakeSessionCM(session) for _ in range(count)]
+    return session, [FakeSessionCM(session) for _ in range(count)]
 
 
 def _fact(
@@ -282,15 +272,7 @@ async def test_consolidate_stores_embedding_when_vector_present(embedding_write)
     text = "Prefers concise answers."
     keep = _fact(memory_type="preference", text=text)
     extra = _fact(memory_type="preference", text=text)
-    listed = SimpleNamespace(
-        id=keep.id,
-        type="preference",
-        text=text,
-        status="active",
-        embedding=None,
-        embedding_json=None,
-        embedding_text_hash=None,
-    )
+    listed = SimpleNamespace(id=keep.id, text=text)
     vector = [0.1, 0.2, 0.3]
     session, session_locals = _consolidation_sessions(count=3)
     with (
@@ -300,19 +282,18 @@ async def test_consolidate_stores_embedding_when_vector_present(embedding_write)
         ),
         patch(
             "app.modules.memory.consolidation_workflow.memories_repo.list_for_user",
-            AsyncMock(side_effect=[[keep, extra], [listed]]),
+            AsyncMock(return_value=[keep, extra]),
+        ),
+        patch(
+            "app.modules.memory.consolidation_workflow.memories_repo.list_embed_state",
+            AsyncMock(return_value=[(listed.id, listed.text, False, None)]),
         ),
         patch(
             "app.modules.memory.consolidation_workflow.memories_repo.apply_writes",
             AsyncMock(return_value=[keep.id]),
         ),
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.modules.home.service.invalidate_home_cache", AsyncMock()),
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()),
         patch(EMBED_MANY, embed_each(AsyncMock(return_value=vector))),
-        patch(
-            "app.gateways.embedding_gateway.serialize_embedding",
-            return_value="[0.1,0.2,0.3]",
-        ),
     ):
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
@@ -323,7 +304,6 @@ async def test_consolidate_stores_embedding_when_vector_present(embedding_write)
         keep.id,
         listed.text,
         vector,
-        "[0.1,0.2,0.3]",
         embedding_text_hash(listed.text),
         commit=False,
     )
@@ -338,7 +318,7 @@ async def test_consolidate_releases_db_before_llm():
     session.commit = AsyncMock()
     db_open_during_merge: list[bool] = []
 
-    class _TrackingSessionCM(_FakeSessionCM):
+    class _TrackingSessionCM(FakeSessionCM):
         def __init__(self) -> None:
             super().__init__(session)
             self.open = False
@@ -347,9 +327,9 @@ async def test_consolidate_releases_db_before_llm():
             self.open = True
             return await super().__aenter__()
 
-        async def __aexit__(self, *args: object) -> None:
+        async def __aexit__(self, *args: object) -> bool:
             self.open = False
-            await super().__aexit__(*args)
+            return await super().__aexit__(*args)
 
     load_cm = _TrackingSessionCM()
     apply_cm = _TrackingSessionCM()

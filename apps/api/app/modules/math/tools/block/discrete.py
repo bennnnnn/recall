@@ -12,7 +12,7 @@ from app.modules.math.schemas import (
     NumberTheoryInput,
     NumberTheoryResult,
 )
-from app.modules.math.tools.block.canonical import _finish_with_answer
+from app.modules.math.tools.block.canonical import finish_with_answer
 from app.services.solving import VerifiedMathBlock
 from app.services.workout import math_line
 
@@ -49,10 +49,10 @@ def _verified_block_combinatorics(
         answer = f"{n}! = {product} = {answer}"
     working = _counting_working(intent.combo_op, n, intent.combo_k)
     if working is None:
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
     lines.append(f"Working: ${working}$")
     return replace(
-        _finish_with_answer(lines, answer),
+        finish_with_answer(lines, answer),
         worked_reply=f"{math_line(working)}\n\n```answer\n{answer}\n```\n",
     )
 
@@ -89,7 +89,7 @@ def _verified_block_number_theory(
         a, m, b, n = (int(value) for value in intent.vec_a)
         answer = chinese_remainder(a, m, b, n)
         lines.append(f"x \\equiv {answer} \\pmod{{{int(intent.vec_a[1] * intent.vec_a[3])}}}")
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
     if intent.numtheory_op is None or intent.numtheory_a is None:
         return None
     result = math_solve.compute_number_theory(
@@ -104,7 +104,7 @@ def _verified_block_number_theory(
     answer = _format_number_theory_answer(result)
     if not answer:
         return VerifiedMathBlock(text="\n".join(lines))
-    return _finish_with_answer(
+    return finish_with_answer(
         lines,
         answer,
     )

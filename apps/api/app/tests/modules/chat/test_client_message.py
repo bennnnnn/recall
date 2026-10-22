@@ -36,7 +36,7 @@ from app.modules.chat.client_message import (
     claim_key,
 )
 from app.modules.chat.turn_outcome import TurnOutcome
-from app.tests.modules.chat.chat_test_support import access_for
+from app.tests.modules.chat.chat_test_support import signed_in, ws_streams
 
 _SECRET = "super-secret-key-that-is-at-least-32-chars!!"
 
@@ -257,15 +257,8 @@ def _socket_client(user_id: UUID, redis: Any) -> tuple[TestClient, ExitStack]:
     stack.enter_context(
         patch("app.core.chat_rate_limit.allow_chat_message", AsyncMock(return_value=True))
     )
-    stack.enter_context(
-        patch(
-            "app.modules.chat.ws_api.access_tokens.check_access",
-            AsyncMock(return_value=access_for(user_id)),
-        )
-    )
-    stack.enter_context(
-        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", _counted_turn)
-    )
+    stack.enter_context(signed_in(user_id))
+    stack.enter_context(ws_streams(_counted_turn))
     return TestClient(app), stack
 
 

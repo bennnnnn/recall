@@ -7,19 +7,16 @@ from dataclasses import replace
 
 from app.modules.physics.constants import EPSILON_0
 from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.solvers.arithmetic import latex_num
 from app.modules.physics.solvers.circuit_scenes import circuit_scene
-from app.modules.physics.solvers.common import (
-    _RESISTOR_KEY_RE,
-    PhysicsResult,
-    QuantityResult,
-    _latex_num,
-    _params_in_si,
-)
+from app.modules.physics.solvers.resistor_network import RESISTOR_KEY_RE
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 
 def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     op = intent.physics_op or "current"
     solver = _OPERATIONS.get(op)
     if solver is None:
@@ -83,7 +80,7 @@ def _combined_resistance(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsR
     op = intent.physics_op or "current"
     # Every R the extractor found, not the first two. Reading three and
     # using two is how "2, 3 and 5 ohms in series" answered 5 ohms.
-    resistances = [p[key] for key in sorted(p) if _RESISTOR_KEY_RE.fullmatch(key)]
+    resistances = [p[key] for key in sorted(p) if RESISTOR_KEY_RE.fullmatch(key)]
     if len(resistances) < 2:
         raise SolveServiceError("a resistor network needs at least two resistances")
     if any(r <= 0 for r in resistances):
@@ -174,7 +171,7 @@ def _electrical_power(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResu
         substitution = rf"P = {p['V']:g} \cdot {p['I']:g}"
     elif "I" in p and "R" in p:
         val = p["I"] ** 2 * p["R"]
-        plugged = rf"{_latex_num(p['I'], square=True)} \cdot {p['R']:g}"
+        plugged = rf"{latex_num(p['I'], square=True)} \cdot {p['R']:g}"
         answer = rf"P = I^2 R = {plugged} \approx {val:.2f} \text{{ W}}"
         formula = r"P = I^2 R"
         substitution = rf"P = {plugged}"
@@ -182,7 +179,7 @@ def _electrical_power(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResu
         if p["R"] == 0:
             raise SolveServiceError("resistance must be nonzero")
         val = p["V"] ** 2 / p["R"]
-        plugged = rf"\frac{{{_latex_num(p['V'], square=True)}}}{{{p['R']:g}}}"
+        plugged = rf"\frac{{{latex_num(p['V'], square=True)}}}{{{p['R']:g}}}"
         answer = rf"P = \frac{{V^2}}{{R}} = {plugged} \approx {val:.2f} \text{{ W}}"
         formula = r"P = \frac{V^2}{R}"
         substitution = rf"P = {plugged}"

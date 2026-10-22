@@ -16,37 +16,51 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.deps import get_current_user
 from app.core.user_cache import forget_user
-from app.exceptions import ConsentRequiredError
+from app.exceptions import ConsentRequiredError, DomainError
 from app.models.orm import User
 
+# What a refusal re-reads: a withdrawal elsewhere can change these for the next
+# outside-AI call.
+_PRIVACY_COLUMNS = ("ai_data_consent_at", "memory_enabled", "web_search_enabled")
 
-def has_ai_data_consent(user: object) -> bool:
+
+def has_ai_data_consent(user: User) -> bool:
     """The account agreed to the outside-AI disclosure and has not withdrawn."""
-    return getattr(user, "ai_data_consent_at", None) is not None
+    return user.ai_data_consent_at is not None
 
 
-def consent_required_detail() -> dict[str, str]:
-    """The 403 body: ``{"detail": {"code": "consent_required", "message": …}}``."""
-    refused = ConsentRequiredError()
-    return {"code": refused.code, "message": refused.message}
+class ConsentRefusedError(DomainError):
+    """403 ``consent_required``: the phone opens its consent screen."""
+
+    status_code = 403
+    default_code = ConsentRequiredError.code
+
+    def __init__(self) -> None:
+        super().__init__(ConsentRequiredError().message)
 
 
 async def get_consented_user(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> User:
-    """The signed-in user, once they agreed; 403 ``consent_required`` otherwise."""
+    """The signed-in user, once they agreed; 403 ``consent_required`` otherwise.
+
+    ``get_current_user`` serves a cached row only under the account's current
+    generation, which a withdrawal made on another machine replaces
+    (``core/user_cache``). A refusal still re-reads the row before anything is sent.
+    """
     if has_ai_data_consent(user):
         return user
-    await session.refresh(user, attribute_names=["ai_data_consent_at"])
+    await session.refresh(user, attribute_names=list(_PRIVACY_COLUMNS))
+    await session.commit()  # the re-read's transaction ends here, as in get_current_user
     if not has_ai_data_consent(user):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=consent_required_detail())
+        raise ConsentRefusedError()
     # The cached copy was stale; the next request reads the row again.
     forget_user(user.id)
     return user

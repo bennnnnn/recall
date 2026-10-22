@@ -3,22 +3,6 @@ import * as Clipboard from "expo-clipboard";
 
 import { CopyButton } from "@/components/CopyButton";
 
-jest.mock("expo-clipboard", () => ({
-  setStringAsync: jest.fn().mockResolvedValue(true),
-}));
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  selectionAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  ImpactFeedbackStyle: { Light: "Light" },
-  NotificationFeedbackType: { Success: "Success", Warning: "Warning" },
-}));
-// i18next isn't initialized in the component jest preset; return the key so the
-// a11y label is deterministic and decoupled from the English copy.
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
 const setStringAsync = Clipboard.setStringAsync as jest.Mock;
 
 async function flushCopied() {

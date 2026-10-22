@@ -134,8 +134,11 @@ WATER_SPECIFIC_HEAT = 4186.0  # J/(kg·K)
 WATER_DENSITY = 1000.0  # kg/m³
 SEA_LEVEL_PRESSURE = 101325.0  # Pa
 # Another substance in the question: water's numbers may not be the ones meant.
-_NOT_FRESH_WATER = (
+NOT_FRESH_WATER = (
     "sea",
+    "seawater",
+    "saltwater",
+    "brine",
     "salt",
     "ice",
     "steam",
@@ -156,8 +159,18 @@ _NOT_FRESH_WATER = (
 )
 
 
+# An amount of something names it, listed or not: "50 g of ethanol", "200 mL of milk".
+_AMOUNT_OF = re.compile(
+    r"\d\s*(?:mg|g|kg|grams?|kilograms?|ml|millilit(?:re|er)s?|l|lit(?:re|er)s?|cm\^?3|cm³"
+    r"|m\^?3|m³)\s+of\s+(?:(?:a|an|the|some|hot|cold|warm|cool|boiling|pure|fresh|tap"
+    r"|distilled|liquid)\s+)*([a-z]+)"
+)
+
+
 def names_only_water(lower: str) -> bool:
     """True when the text names water and no other substance its numbers could mean."""
-    return word_index(lower, "water") != -1 and all(
-        word_index(lower, other) == -1 for other in _NOT_FRESH_WATER
+    return (
+        word_index(lower, "water") != -1
+        and all(word_index(lower, other) == -1 for other in NOT_FRESH_WATER)
+        and all(noun == "water" for noun in _AMOUNT_OF.findall(lower))
     )

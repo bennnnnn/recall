@@ -19,23 +19,17 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
 from app.core.config import Settings
+from app.core.redis_counters import incr_with_ttl
 
 logger = logging.getLogger(__name__)
 
 MICRO_USD_PER_USD = 1_000_000
 # A day's counter outlives it long enough to read yesterday, then expires.
 SPEND_KEY_TTL_SECONDS = 60 * 60 * 48
-# Pre-fix counter (1e-3 USD units). Still read so a mid-day deploy keeps the
-# day's total; it expires with its TTL and can be dropped after that.
-_LEGACY_SPEND_UNITS_TO_MICRO_USD = 1_000
 
 
 def spend_key(day: date | None = None) -> str:
     return f"spend_musd:{(day or datetime.now(UTC).date()).isoformat()}"
-
-
-def _legacy_spend_key() -> str:
-    return f"spend_mcents:{datetime.now(UTC).date().isoformat()}"
 
 
 def usd_to_micro_usd(usd: float) -> int:
@@ -53,17 +47,15 @@ async def record_global_spend(redis: Redis, usd: float, *, day: date | None = No
     amount = usd_to_micro_usd(usd)
     if amount <= 0:
         return await get_global_spend_micro_usd(redis)
-    key = spend_key(day)
-    new_total = await redis.incrby(key, amount)
-    if new_total == amount:
-        await redis.expire(key, SPEND_KEY_TTL_SECONDS)
-    return new_total
+    return await incr_with_ttl(redis, spend_key(day), amount, SPEND_KEY_TTL_SECONDS)
 
 
 async def get_global_spend_micro_usd(redis: Redis) -> int:
-    """Today's spend in micro-USD; both counters in one MGET (every chat turn reads it)."""
-    value, legacy = await redis.mget([spend_key(), _legacy_spend_key()])
-    return int(value or 0) + int(legacy or 0) * _LEGACY_SPEND_UNITS_TO_MICRO_USD
+    """Today's spend in micro-USD (every chat turn reads it).
+
+    The pre-fix ``spend_mcents`` key lost its writer on 2026-10-15; its read missed
+    every time after that and cost every model-calling path a command."""
+    return int(await redis.get(spend_key()) or 0)
 
 
 async def global_spend_exceeded(redis: Redis, settings: Settings) -> bool:

@@ -11,6 +11,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import Chat, User
+from app.modules.chat import messages_repository
 from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.turn_prep.context import build_stream_prompt_context
 from app.modules.chat.turn_prep.mode import _TurnMode
@@ -18,6 +19,7 @@ from app.modules.chat.turn_prep.prepare import prepare_chat_turn
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.math.followup import MATH_FOLLOWUP_HINT
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import system_prompt
 
 _QUERY = "Sum 1/n^2 from n=1 to infinity"
@@ -41,7 +43,6 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
         id=uuid4(),
         name="Test",
         email="test@example.com",
-        response_style="balanced",
         locale="en",
         timezone="UTC",
         memory_enabled=False,
@@ -82,11 +83,10 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
         math_tools_enabled=False,
         chemistry_enabled=False,
         web_search_enabled=False,
-        web_search_classifier_enabled=False,
     )
     with (
         patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=_Session()),
-        patch("app.repositories.messages.create", AsyncMock(side_effect=create_message)),
+        patch.object(messages_repository, "create", AsyncMock(side_effect=create_message)),
         patch(
             "app.modules.chat.prompt_builder._load_context_blocks",
             AsyncMock(side_effect=context_blocks),
@@ -103,7 +103,7 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
                 content="how",
                 model_alias=None,
                 settings=settings,
-                redis=AsyncMock(),
+                redis=redis_mock(),
                 reserved_tokens=100,
                 user=user,
                 chat=chat,
@@ -129,9 +129,7 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
                 "content": f"Previous result:\n\\[\n{_RESULT}\n\\]",
             }
             assert context.prompt_messages[-1] == {"role": "user", "content": "how"}
-            assert "show the calculation or mathematical argument" in system_prompt(
-                context.prompt_messages
-            )
+            assert MATH_FOLLOWUP_HINT in system_prompt(context.prompt_messages)
             if overlap:
                 assert persisted_ids == []
         finally:
@@ -150,7 +148,6 @@ async def test_how_replays_code_owned_steps_instead_of_calling_the_llm(
         id=uuid4(),
         name="Test",
         email="test@example.com",
-        response_style="short",
         locale="en",
         timezone="UTC",
         memory_enabled=False,
@@ -178,16 +175,11 @@ async def test_how_replays_code_owned_steps_instead_of_calling_the_llm(
         math_tools_enabled=True,
         chemistry_enabled=False,
         web_search_enabled=False,
-        web_search_classifier_enabled=False,
     )
     with (
         patch(
             "app.modules.chat.prompt_builder._load_context_blocks",
             AsyncMock(return_value=blocks),
-        ),
-        patch(
-            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
-            AsyncMock(return_value=[_EQUATION]),
         ),
         patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
         patch(

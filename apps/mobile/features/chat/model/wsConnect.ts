@@ -27,3 +27,11 @@ export const WS_PROBE_TIMEOUT_MS = 3_000;
 /** A saved reply's follow-up questions come on its socket after `done` (the
  * server gives their model call 6 s): a socket being replaced waits this long. */
 export const WS_FOLLOW_UPS_WAIT_MS = 10_000;
+
+/**
+ * Once a turn's stream has started (socket or SSE), the longest it may go with
+ * nothing. A quiet turn sends a `keepalive` every 15 s, so a longer silence is a
+ * dead connection: the phone gives up on the stream and reloads the chat for the
+ * reply the server saves (code-health audit NET-17).
+ */
+export const STREAM_IDLE_TIMEOUT_MS = 45_000;

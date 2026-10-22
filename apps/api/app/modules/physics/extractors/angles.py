@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import _DECIMAL, _DEGREE_WORD
+from app.modules.physics.extractors.unit_patterns import DECIMAL, DEGREE_WORD
 
-_INCLINE_ANGLE_RE = re.compile(rf"({_DECIMAL})\s*{_DEGREE_WORD}(?![A-Za-z0-9])", re.IGNORECASE)
+INCLINE_ANGLE_RE = re.compile(rf"({DECIMAL})\s*{DEGREE_WORD}(?![A-Za-z0-9])", re.IGNORECASE)
 
 _RADIAN_ANGLE_RE = re.compile(
     r"(?:at|angle(?:\s+of)?)\s+(-?\d+(?:\.\d+)?)\s*(?:radians?|rad)\b",
@@ -15,7 +15,7 @@ _RADIAN_ANGLE_RE = re.compile(
 
 
 def _stated_angle(text: str) -> tuple[float, str] | None:
-    match = _INCLINE_ANGLE_RE.search(text)
+    match = INCLINE_ANGLE_RE.search(text)
     if match is not None:
         return float(match.group(1)), "deg"
     rad = _RADIAN_ANGLE_RE.search(text)

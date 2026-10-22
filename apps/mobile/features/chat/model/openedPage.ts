@@ -6,7 +6,7 @@ import type { PendingSend } from "@/features/chat/model/sendLogic";
 export const OPENED_PAGE_WAIT_MS = 4_000;
 
 /** The composer a held turn's text goes back to, by thread (`ComposerDraftContext`). */
-export type DraftHome = {
+type DraftHome = {
   stashFailedDraftForThread: (thread: string, text: string) => void;
 };
 

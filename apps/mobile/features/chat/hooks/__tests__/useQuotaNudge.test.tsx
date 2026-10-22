@@ -1,65 +1,114 @@
-import { useLayoutEffect } from "react";
-import { act, render } from "@testing-library/react-native";
+import { act, renderHook } from "@testing-library/react-native";
 
-import { resetQuotaNudgeDismissal, useQuotaNudge } from "@/features/chat/hooks/useQuotaNudge";
-import { api } from "@/lib/api";
+import { useQuotaNudge } from "@/features/chat/hooks/useQuotaNudge";
+import { resetQuotaNudgeDismissal } from "@/features/chat/model/quotaNudgeDismissal";
+import { fetchTodayUsage } from "@/lib/cache/usageCache";
+import type { Usage } from "@/lib/api";
 
-jest.mock("@/lib/api", () => ({ api: { todayUsage: jest.fn() } }));
-
-const nearlySpent = {
-  date: "2026-10-21", input_tokens: 0, output_tokens: 0, daily_limit: 100_000, remaining: 10_000,
+jest.mock("@/lib/cache/usageCache", () => ({ fetchTodayUsage: jest.fn() }));
+// One object per account, as the provider keeps it.
+const mockGetToken = () => "token";
+const mockSessions = {
+  a: { account: "user-a:0", getToken: mockGetToken },
+  b: { account: "user-b:0", getToken: mockGetToken },
 };
+let mockSession: { account: string | null; getToken: () => string | null } = mockSessions.a;
+jest.mock("@/contexts/accountSession", () => ({
+  useAccountSession: () => mockSession,
+}));
+// The launch cache paints every plan as free until /auth/me answers.
+let mockProfileValidated = true;
+jest.mock("@/contexts/AuthContext", () => ({
+  useAuthOptional: () => ({ profileValidated: mockProfileValidated }),
+}));
 
-let nudge: ReturnType<typeof useQuotaNudge>;
-let planKnown = false;
-function Probe({ token, isPaid, refreshKey = 0 }: { token: string | null; isPaid: boolean; refreshKey?: number }) {
-  const value = useQuotaNudge({ token, isPaid, planKnown, refreshKey });
-  useLayoutEffect(() => { nudge = value; });
-  return null;
+const fetchUsage = fetchTodayUsage as jest.Mock;
+
+function usage(used: number, limit = 100_000): Usage {
+  return {
+    date: "2026-10-21",
+    input_tokens: used,
+    output_tokens: 0,
+    used_tokens: used,
+    daily_limit: limit,
+    remaining: limit - used,
+  };
+}
+
+async function setup(isPaid = false) {
+  const view = await renderHook(({ paid }: { paid: boolean }) => useQuotaNudge({ isPaid: paid }), {
+    initialProps: { paid: isPaid },
+  });
+  await act(async () => {});
+  return view;
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  fetchUsage.mockReset();
+  fetchUsage.mockResolvedValue(usage(50_000));
+  mockSession = mockSessions.a;
+  mockProfileValidated = true;
   resetQuotaNudgeDismissal();
-  planKnown = false;
-  jest.mocked(api.todayUsage).mockResolvedValue(nearlySpent);
 });
 
-it("waits for the server's plan before asking for today's usage", async () => {
-  // The launch cache paints every plan as free; a paid account must not fetch.
-  const ui = await render(<Probe token="tok" isPaid={false} />);
-  await act(async () => {});
-  expect(api.todayUsage).not.toHaveBeenCalled();
+it("reads today's usage once, then takes each turn's usage without a request", async () => {
+  const { result } = await setup();
+  expect(fetchUsage).toHaveBeenCalledTimes(1);
+  expect(fetchUsage).toHaveBeenCalledWith("user-a:0", "token");
+  expect(result.current).toMatchObject({ show: false, usedPct: 50 });
 
-  planKnown = true;
-  await ui.rerender(<Probe token="tok" isPaid />);
-  await act(async () => {});
-  expect(api.todayUsage).not.toHaveBeenCalled();
-  expect(nudge.show).toBe(false);
+  await act(async () => { result.current.applyTurnUsage({ used_tokens: 79_000, daily_limit: 100_000 }); });
+  expect(result.current).toMatchObject({ show: false, usedPct: 79 });
+  await act(async () => { result.current.applyTurnUsage({ used_tokens: 81_000, daily_limit: 100_000 }); });
+  expect(result.current).toMatchObject({ show: true, usedPct: 81 });
+  // Over the limit still reads as 100%.
+  await act(async () => { result.current.applyTurnUsage({ used_tokens: 120_000, daily_limit: 100_000 }); });
+  expect(result.current.usedPct).toBe(100);
+  expect(fetchUsage).toHaveBeenCalledTimes(1);
 });
 
-it("nudges a free account near its daily limit once the plan is confirmed", async () => {
-  const ui = await render(<Probe token="tok" isPaid={false} />);
-  planKnown = true;
-  await ui.rerender(<Probe token="tok" isPaid={false} />);
-  await act(async () => {});
-  expect(api.todayUsage).toHaveBeenCalledTimes(1);
-  expect(api.todayUsage).toHaveBeenCalledWith("tok");
-  expect(nudge.show).toBe(true);
-  expect(nudge.usedPct).toBe(90);
+it("shows from the first read, and not again once dismissed today", async () => {
+  fetchUsage.mockResolvedValue(usage(90_000));
+  const { result } = await setup();
+  expect(result.current).toMatchObject({ show: true, usedPct: 90 });
+  await act(async () => { result.current.dismiss(); });
+  expect(result.current.show).toBe(false);
+  await act(async () => { result.current.applyTurnUsage({ used_tokens: 95_000, daily_limit: 100_000 }); });
+  expect(result.current).toMatchObject({ show: false, usedPct: 95 });
 });
 
-it("does not fetch again when only the access token rotates", async () => {
-  planKnown = true;
-  const ui = await render(<Probe token="tok" isPaid={false} />);
-  await act(async () => {});
-  await ui.rerender(<Probe token="tok-refreshed" isPaid={false} />);
-  await act(async () => {});
-  expect(api.todayUsage).toHaveBeenCalledTimes(1);
+it("reads again for another account", async () => {
+  const { rerender } = await setup();
+  mockSession = mockSessions.b;
+  await act(async () => { await rerender({ paid: false }); });
+  expect(fetchUsage).toHaveBeenCalledTimes(2);
+  expect(fetchUsage).toHaveBeenLastCalledWith("user-b:0", "token");
+});
 
-  // A finished turn still refreshes, with the newest token.
-  await ui.rerender(<Probe token="tok-refreshed" isPaid={false} refreshKey={1} />);
-  await act(async () => {});
-  expect(api.todayUsage).toHaveBeenCalledTimes(2);
-  expect(api.todayUsage).toHaveBeenLastCalledWith("tok-refreshed");
+it("waits for the server's plan before reading today's usage", async () => {
+  // A paid plan painted from the launch cache must not read usage, nor show from a turn.
+  mockProfileValidated = false;
+  const { result, rerender } = await setup();
+  expect(fetchUsage).not.toHaveBeenCalled();
+  await act(async () => { result.current.applyTurnUsage({ used_tokens: 99_000, daily_limit: 100_000 }); });
+  expect(result.current).toMatchObject({ show: false, usedPct: 0 });
+
+  mockProfileValidated = true;
+  await act(async () => { await rerender({ paid: false }); });
+  expect(fetchUsage).toHaveBeenCalledTimes(1);
+});
+
+it("never reads or shows for a paid plan", async () => {
+  const { result } = await setup(true);
+  expect(fetchUsage).not.toHaveBeenCalled();
+  await act(async () => { result.current.applyTurnUsage({ used_tokens: 99_000, daily_limit: 100_000 }); });
+  expect(result.current).toMatchObject({ show: false, usedPct: 0 });
+});
+
+it("does nothing signed out", async () => {
+  mockSession = { account: null, getToken: () => null };
+  const { result } = await setup();
+  expect(fetchUsage).not.toHaveBeenCalled();
+  await act(async () => { result.current.applyTurnUsage({ used_tokens: 99_000, daily_limit: 100_000 }); });
+  expect(result.current.show).toBe(false);
 });

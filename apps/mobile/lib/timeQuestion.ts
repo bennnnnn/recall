@@ -5,6 +5,9 @@
  * the reply, never the user's words.
  */
 
+import { parseFenceLang } from "@/lib/codeHighlight";
+import { mapClosedFences, scanFences } from "@/lib/mdFenceScan";
+
 const DIGITAL_TIME_ONLY =
   /^\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?$/i;
 
@@ -12,10 +15,10 @@ const DIGITAL_TIME_ONLY =
 const IANA_TIMEZONE_ONLY =
   /^(?:Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific|Etc)\/[A-Za-z0-9_+\-]+(?:\/[A-Za-z_\-]+)?$/;
 
-/** A ```clock opener; `[ \t]` keeps "```\nclock speed…" from matching. */
-const CLOCK_FENCE_OPEN = /```[ \t]*clock\s/i;
-
-const FIRST_FENCE = /```[^\n]*\n([\s\S]*?)```/;
+/** The body of the reply's first closed fence, any language. */
+function firstFenceBody(markdown: string): string | null {
+  return scanFences(markdown).find((span) => span.closed)?.body ?? null;
+}
 
 export function isDigitalTimeOnly(text: string): boolean {
   const t = text.trim().replace(/^\*\*|\*\*$/g, "").trim();
@@ -34,18 +37,15 @@ export function isClockFenceBody(text: string): boolean {
 
 /** Strip time-answer fences (static time, timezone, empty clock blocks). */
 export function stripTimeAnswerFences(markdown: string): string {
-  return markdown
-    .replace(/```[^\n]*\n([\s\S]*?)```/g, (match, body: string) =>
-      isClockFenceBody(body) ? "" : match,
-    )
+  return mapClosedFences(markdown, (_info, body, original) =>
+    isClockFenceBody(body) ? "" : original,
+  )
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
 export function extractClockTimezone(markdown: string): string {
-  const match = markdown.match(FIRST_FENCE);
-  if (!match) return "";
-  const body = match[1].trim();
+  const body = firstFenceBody(markdown)?.trim() ?? "";
   return isIanaTimezoneOnly(body) ? body : "";
 }
 
@@ -54,8 +54,9 @@ export function extractClockTimezone(markdown: string): string {
  * ```clock fence, or a first fence holding only a clock reading or a timezone.
  */
 export function assistantReplyIsTimeAnswer(content: string): boolean {
-  if (CLOCK_FENCE_OPEN.test(content)) return true;
-  const fence = content.match(FIRST_FENCE);
-  if (!fence) return false;
-  return isDigitalTimeOnly(fence[1]) || isIanaTimezoneOnly(fence[1]);
+  // A ```clock fence, even one still streaming.
+  if (scanFences(content).some((span) => parseFenceLang(span.info) === "clock")) return true;
+  const body = firstFenceBody(content);
+  if (body == null) return false;
+  return isDigitalTimeOnly(body) || isIanaTimezoneOnly(body);
 }

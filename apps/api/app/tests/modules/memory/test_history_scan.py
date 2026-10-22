@@ -8,10 +8,9 @@ from sqlalchemy import select
 
 from app.core.config import Settings
 from app.models.orm import Chat, Memory, Message
-from app.models.schemas import MemoryFactUpdateResult
-from app.modules import memory as memory_service
-from app.modules.memory import history_scan
+from app.modules.memory import crud, history_scan, locks
 from app.modules.memory.extraction_workflow import extract_history_chat
+from app.modules.memory.schemas import MemoryFactUpdateResult
 from app.repositories import users as users_repo
 
 
@@ -97,7 +96,7 @@ def scan_env(db_session, fake_redis):
     with (
         patch("app.modules.memory.history_scan.SessionLocal", lambda: _Reuse(db_session)),
         patch("app.modules.memory.history_scan.get_redis_client", lambda: fake_redis),
-        patch("app.modules.memory.history_scan._LOCK_RETRY_SECONDS", 0),
+        patch("app.core.jobs.LOCK_RETRY_BACKOFF_S", 0),
     ):
         yield fake_redis
 
@@ -261,10 +260,10 @@ async def test_history_pass_cannot_bring_back_a_fact_the_user_deleted(db_session
     await db_session.flush()
 
     with (
-        patch.object(memory_service, "acquire_memory_write_lock", AsyncMock(return_value="t")),
-        patch.object(memory_service, "release_memory_write_lock", AsyncMock()),
+        patch.object(locks, "acquire_memory_write_lock", AsyncMock(return_value="t")),
+        patch.object(locks, "release_memory_write_lock", AsyncMock()),
     ):
-        assert await memory_service.delete_memory(db_session, user.id, fact.id) is True
+        assert await crud.delete_memory(db_session, user.id, fact.id) is True
     await db_session.refresh(user)
     assert user.memory_edited_at is not None
     # Said after the delete, so still worth reading.

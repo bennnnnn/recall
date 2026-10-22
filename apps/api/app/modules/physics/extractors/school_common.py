@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    _AMP_PATTERN,
-    _NUMBER,
-    _find_value_with_specific_unit,
-    _keyword_spans,
+from app.modules.physics.extractors.stated_values import (
+    find_value_with_specific_unit,
+    keyword_spans,
 )
+from app.modules.physics.extractors.unit_patterns import AMP_PATTERN, NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 
 _HENRY = r"mH|millihenrys?|millihenries|H|henrys?|henries"
@@ -29,8 +28,9 @@ def _intent(
     units: dict[str, str],
 ) -> PhysicsIntent:
     return PhysicsIntent(
+        # The catalog's kind is a str; the model validates it against its Literal.
         kind=kind,  # type: ignore[arg-type]
-        physics_op=operation,  # type: ignore[arg-type]
+        physics_op=operation,
         physics_params=params,
         physics_units=units,
         operation="solve",
@@ -41,17 +41,17 @@ def _numbers_before(pattern: str, text: str) -> list[float]:
     found = re.search(pattern, text, re.IGNORECASE)
     if found is None:
         return []
-    return [float(value) for value in re.findall(_NUMBER, found.group(1))]
+    return [float(value) for value in re.findall(NUMBER, found.group(1))]
 
 
 def _sum_directed(text: str, verb: str, label: str) -> float | None:
     grouped = _numbers_before(
-        rf"((?:{_NUMBER}\s*(?:{_AMP_PATTERN})(?:\s*(?:,|and)\s*)?)+)\s*(?:{verb})",
+        rf"((?:{NUMBER}\s*(?:{AMP_PATTERN})(?:\s*(?:,|and)\s*)?)+)\s*(?:{verb})",
         text,
     )
     labeled = _numbers_before(
         rf"\b{label}(?:\s+currents?)?(?:\s+of)?\s+"
-        rf"((?:{_NUMBER}\s*(?:{_AMP_PATTERN})(?:\s*(?:,|and)\s*)?)+)",
+        rf"((?:{NUMBER}\s*(?:{AMP_PATTERN})(?:\s*(?:,|and)\s*)?)+)",
         text,
     )
     values = grouped or labeled
@@ -74,7 +74,7 @@ def _one(
     require_keyword: bool = False,
 ) -> tuple[float, str] | None:
     """The value in this unit nearest a keyword, matched only as a whole word."""
-    return _find_value_with_specific_unit(
+    return find_value_with_specific_unit(
         text, unit, keywords, require_keyword=require_keyword, whole_words=True
     )
 
@@ -84,7 +84,7 @@ def _has_word(text: str, words: tuple[str, ...]) -> bool:
 
 
 def _turns(text: str, lower: str) -> float | None:
-    match = re.search(rf"({_NUMBER})\s*(?:turns?|coils?)", text, re.IGNORECASE)
+    match = re.search(rf"({NUMBER})\s*(?:turns?|coils?)", text, re.IGNORECASE)
     if match is not None:
         return float(match.group(1))
     if re.search(r"\b(?:a|one|single)\s+(?:loop|turn|coil)\b", lower):
@@ -98,10 +98,10 @@ def _kelvin(text: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
     ``300 K and a cold reservoir at 250 K`` sits closer to the word ``cold``
     than ``250 K`` does, so a nearest-either-side search would swap the reservoirs.
     """
-    for _start, end in _keyword_spans(text, keywords):
+    for _start, end in keyword_spans(text, keywords):
         window = text[end : end + 48]
         found = re.search(
-            rf"({_NUMBER})\s*(K|kelvins?)(?![A-Za-z0-9/^])",
+            rf"({NUMBER})\s*(K|kelvins?)(?![A-Za-z0-9/^])",
             window,
             re.IGNORECASE,
         )

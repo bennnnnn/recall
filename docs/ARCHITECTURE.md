@@ -62,7 +62,7 @@ roots are the only shared files it touches.
 | Step | Where | Notes |
 | --- | --- | --- |
 | Package | `modules/<domain>/__init__.py` | A docstring. Name any submodule other modules may import beyond `api`, `schemas`, `service` and `crud` in `_MODULE_EXPORTS`; keep the initializer free of service code (lazy `_EXPORTS` only when importing the package must not load the graph). |
-| HTTP | `modules/<domain>/api.py` | `router = APIRouter(prefix="/<domain>")`. Thin: validate, call the service, map domain errors to `HTTPException` (one `contextmanager` when several routes share the mapping, as in `attachments/api.py`). |
+| HTTP | `modules/<domain>/api.py` | `router = APIRouter(prefix="/<domain>")`. Thin: validate, call the service. A service refuses with a `DomainError` subclass (`app/exceptions.py`: a `code`, English, a status); the app's one handler (`core/domain_errors.py`) answers `{"detail": {"code", "message"}}`, so routes map nothing. Only the HTTP layer imports `HTTPException`. |
 | Rules and transactions | `modules/<domain>/service.py` | Owns the commit (repository writes with `commit=False`, one commit, roll back on failure), then cache invalidation and job enqueue. |
 | Queries | `modules/<domain>/repository.py` | Queries only; writes take `commit`. Tables several domains read stay in `repositories/`. |
 | Wire and ORM | `schemas.py`, `models.py` | ORM models are registered in `models/orm/__init__.py`; schema changes are expand-then-contract migrations. |
@@ -102,7 +102,7 @@ more than one machine they hold only that machine's share (the rest of the app i
 | Pending finalize task per chat | `finalize_registry._pending` | Covered: the `chatfinal:{chat}` Redis marker (30 s TTL) makes every machine wait | None needed |
 | Stops for a server shutdown | `finalize_registry._stops` | Each machine stops its own turns, by design | None needed |
 | Chat sockets per user | `ws_limits._open_sockets` | A user may hold `WS_MAX_SOCKETS_PER_USER` sockets on each machine (documented in PRODUCTION.md) | A Redis sorted set per user (socket id, expiry), heartbeated by the socket |
-| The just-created chat a first send reads | `repositories/chats` `TtlCache` (120 s) | A chat deleted through another machine still passes a send's ownership check here until the TTL ends (`forget_chat` clears only its own machine) | Drop the entry on delete through a Redis pub/sub, or read the chat when the send is not the creator's machine |
+| The just-created chat a first send reads | `modules/chat/chats_repository` `TtlCache` (120 s) | A chat deleted through another machine still passes a send's ownership check here until the TTL ends (`forget_chat` clears only its own machine) | Drop the entry on delete through a Redis pub/sub, or read the chat when the send is not the creator's machine |
 | The reply's commit, post-turn enqueue and follow-up questions | `create_background_task` in `stream_pipeline` | A machine that dies after the reply streamed loses the commit (the marker expires) or, after the commit, its post-turn jobs (no title, no memory pass) | Enqueue the post-turn jobs in the same transaction as the reply (an outbox row the worker drains) |
 
 Shared state is already in Redis: the prepare lock (`chatprep:{chat}`), quota and the spend cap,
@@ -125,7 +125,7 @@ request client and are composed into the existing `lib/api.ts` public barrel.
 6. Images, attachments, and voice — migrated
 7. Math, physics, and chemistry — three sibling modules, not `modules/stem/`. All three are migrated (`modules/math/`, `modules/physics/`, `modules/chemistry/`). A supported physics question uses the physics status, physics hints, and `[BEGIN VERIFIED PHYSICS]`. Algebra and average speed stay on the math status and `[BEGIN VERIFIED MATH]`. Dispatch is `services/subject_solving.py`: it picks one subject, then that subject's direct reply. Shared files are only the ones both sides use (graph fence, unit registry, verified-block primitives) and they live in a leaf neither subject owns. Molecule rendering stays in `lib/chemistry` because markdown already imports it.
 8. AI/model/tool infrastructure. Product chat tools live with their modules (`images/gen_tool.py`, `images/search_tool.py`, `math/tool.py`). Registration stays in `services/mcp/__init__.py`, called from process bootstrap. Tools take the turn's context as an argument, so the tool loop binds no module and lives with chat in `modules/chat/tool_loop/`. Model catalog data stays in `models/model_catalog.py`. Web search lives in `modules/web_search/`, including its chat tool.
-9. Home — migrated (`modules/home/`, `features/home/`).
+9. Home — migrated, then removed from the API: the phone builds the greeting and reads its own to-dos (`features/home/`).
 10. Search — migrated (`modules/search/`, drawer search in `features/search/`).
 11. Suggestions — retired. The proactive chips, the generator, its job and the `/suggestions` routes are removed; `modules/suggestions/` keeps the table and the export read until a later release drops it. Follow-up questions under a reply come from `modules/chat/related_prompts.py` (rules in `related_questions.py`) and render in `features/suggestions/`.
 12. Account — migrated (`modules/account/` for `/auth`; sign-in in `features/auth/`, settings screens in

@@ -1,7 +1,7 @@
 import { parseFenceLang } from "@/lib/codeHighlight";
 import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { isWorkedReply, lawHeading, WORKOUT_HEADINGS } from "@/lib/markdown/workoutSection";
-import { applyOutsideFences, mapClosedFences } from "@/lib/mdFenceScan";
+import { applyOutsideFences, fencedLines, mapClosedFences, readFenceMarker } from "@/lib/mdFenceScan";
 
 const DETAILS_FENCE_LANGS = new Set(["details", "collapse", "summary"]);
 const DETAILS_WITH_SUMMARY_RE =
@@ -128,7 +128,7 @@ export function mergeStrandedColons(content: string): string {
         const prevTrimmed = prev.trim();
         // Don't glue punctuation onto a fence closer, table row, or heading.
         if (
-          prevTrimmed.startsWith("```") ||
+          readFenceMarker(prevTrimmed) != null ||
           prevTrimmed.startsWith("|") ||
           /^#{1,6}\s/.test(prevTrimmed)
         ) {
@@ -154,12 +154,10 @@ export function mergeStrandedColons(content: string): string {
  */
 export function stripBoldListLabelContinuationColons(content: string): string {
   const lines = content.split("\n");
+  const fenced = fencedLines(content);
   const out: string[] = [];
-  let inFence = false;
-  for (const originalLine of lines) {
-    const trimmed = originalLine.trim();
-    if (/^(?:```|~~~)/.test(trimmed)) {
-      inFence = !inFence;
+  for (const [index, originalLine] of lines.entries()) {
+    if (fenced[index]) {
       out.push(originalLine);
       continue;
     }
@@ -167,7 +165,7 @@ export function stripBoldListLabelContinuationColons(content: string): string {
     const previous = out[out.length - 1]?.trim() ?? "";
     const previousIsBoldListLabel =
       /^(?:[-*+]|\d+[.)])\s+\*\*[^*\n]+\*\*\s*$/.test(previous);
-    if (!inFence && previousIsBoldListLabel) {
+    if (previousIsBoldListLabel) {
       out.push(originalLine.replace(/^(\s*):(?:\s+|$)/, "$1"));
       continue;
     }
@@ -183,16 +181,10 @@ export function stripBoldListLabelContinuationColons(content: string): string {
  */
 export function breakMidlineAtxHeadings(content: string): string {
   const lines = content.split("\n");
+  const fenced = fencedLines(content);
   const out: string[] = [];
-  let inFence = false;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (/^(?:```|~~~)/.test(trimmed)) {
-      inFence = !inFence;
-      out.push(line);
-      continue;
-    }
-    if (inFence || !line.includes("#")) {
+  for (const [index, line] of lines.entries()) {
+    if (fenced[index] || !line.includes("#")) {
       out.push(line);
       continue;
     }

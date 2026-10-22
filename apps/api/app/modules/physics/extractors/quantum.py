@@ -6,12 +6,12 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.constants import ELECTRON_MASS
-from app.modules.physics.extractors.angles import _INCLINE_ANGLE_RE
-from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _MASS_UNITS,
-    _VELOCITY_UNIT_PATTERN,
-    _find_value_with_specific_unit,
+from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.extractors.unit_patterns import (
+    LENGTH_UNIT_PATTERN,
+    MASS_UNITS,
+    VELOCITY_UNIT_PATTERN,
 )
 from app.modules.physics.extractors.waves import _HERTZ_PATTERN
 from app.modules.physics.schemas import PhysicsIntent
@@ -19,8 +19,8 @@ from app.modules.physics.schemas import PhysicsIntent
 
 def _uncertainty(cleaned: str) -> PhysicsIntent | None:
     """The least momentum uncertainty for a stated position uncertainty."""
-    uncertainty = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("position uncertainty", "delta x", "uncertainty")
+    uncertainty = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("position uncertainty", "delta x", "uncertainty")
     )
     if uncertainty is None:
         return None
@@ -36,11 +36,9 @@ def _uncertainty(cleaned: str) -> PhysicsIntent | None:
 def _particle_in_box(cleaned: str) -> PhysicsIntent | None:
     """A particle's energy level in an infinite square well."""
     lower = cleaned.lower()
-    length = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("box", "width", "length")
-    )
+    length = find_value_with_specific_unit(cleaned, LENGTH_UNIT_PATTERN, ("box", "width", "length"))
     level = re.search(r"\bn\s*(?:=|is)\s*(\d+)\b", cleaned, re.IGNORECASE)
-    mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "particle"))
+    mass = find_value_with_specific_unit(cleaned, MASS_UNITS, ("mass", "particle"))
     if length is None or level is None or (mass is None and "electron" not in lower):
         return None
     return PhysicsIntent(
@@ -81,7 +79,7 @@ def _hydrogen_level(cleaned: str) -> PhysicsIntent | None:
 
 def _compton(cleaned: str) -> PhysicsIntent | None:
     """The Compton shift at a stated scattering angle."""
-    angle = _INCLINE_ANGLE_RE.search(cleaned)
+    angle = INCLINE_ANGLE_RE.search(cleaned)
     if angle is None:
         return None
     return PhysicsIntent(
@@ -101,8 +99,8 @@ def _photoelectric(cleaned: str) -> PhysicsIntent | None:
     """
     if re.search(r"\bstopping (?:potential|voltage)\b", cleaned, re.IGNORECASE):
         return None
-    freq = _find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
-    work_function = _find_value_with_specific_unit(
+    freq = find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
+    work_function = find_value_with_specific_unit(
         cleaned,
         r"eV|electron\s*volts?|J|joules?",
         ("work function", "phi", "threshold energy"),
@@ -133,10 +131,10 @@ def _photon_energy(cleaned: str) -> PhysicsIntent | None:
         re.IGNORECASE,
     ):
         return None
-    freq = _find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
-    wavelength = _find_value_with_specific_unit(
+    freq = find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
+    wavelength = find_value_with_specific_unit(
         cleaned,
-        _LENGTH_UNIT_PATTERN,
+        LENGTH_UNIT_PATTERN,
         ("wavelength",),
         require_keyword=True,
     )
@@ -162,8 +160,8 @@ def _photon_energy(cleaned: str) -> PhysicsIntent | None:
 def _de_broglie(cleaned: str) -> PhysicsIntent | None:
     """A particle's de Broglie wavelength."""
     lower = cleaned.lower()
-    speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
-    mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass",))
+    speed = find_value_with_specific_unit(cleaned, VELOCITY_UNIT_PATTERN)
+    mass = find_value_with_specific_unit(cleaned, MASS_UNITS, ("mass",))
     if speed is None:
         return None
     # An electron's mass is not in the question, and naming it is the point

@@ -37,6 +37,7 @@ import {
   setTokenPair,
 } from "@/lib/auth";
 import { cachedUserMatchesToken, clearCachedUser, mergeCachedUser, readCachedUser, writeCachedUser } from "@/lib/cachedUser";
+import { AccountSessionContext } from "@/contexts/accountSession";
 import { clearSignedOutAccount } from "@/lib/signOutCleanup";
 import { forgetSyncRecords } from "@/lib/syncRecords";
 import { useBootstrapSync } from "@/hooks/useBootstrapSync";
@@ -53,7 +54,9 @@ type AuthContextValue = {
   signInWithApple: () => Promise<void>;
   signInWithDev: () => Promise<void>;
   signOut: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  /** Show the account `read` returns (`/auth/me` by default): a call that returns it,
+   * such as a subscription sync, passes itself and saves a second request. */
+  refreshUser: (read?: (token: string) => Promise<User>) => Promise<void>;
   updateUser: (patch: Partial<User>) => Promise<void>;
   mergeUser: (patch: Partial<User>) => void;
   onboarded: boolean;
@@ -230,7 +233,14 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
     });
     localCleanupRef.current = cleanup;
     if (accessToken) {
-      void refreshToken.then((refresh) => logoutSession(accessToken, refresh)).catch(() => {});
+      // The device's push token goes with the logout, or this account's reminders keep
+      // arriving on a signed-out phone. A failure to read it never holds the logout.
+      const pushToken = import("@/lib/pushNotifications")
+        .then(({ devicePushToken }) => devicePushToken())
+        .catch(() => null);
+      void Promise.all([refreshToken, pushToken])
+        .then(([refresh, push]) => logoutSession(accessToken, refresh, push))
+        .catch(() => {});
     }
     return cleanup;
   }, [setCurrentToken, setCurrentUser]);
@@ -275,10 +285,10 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
   // Capturing the render's generation also fences callbacks retained by a
   // dismissed screen, including a fast account A → B → A transition.
   const sessionGeneration = getSessionGeneration();
-  const refreshUser = useCallback(async () => {
+  const refreshUser = useCallback(async (read: (token: string) => Promise<User> = api.me) => {
     if (!token || !isCurrent(sessionGeneration)) return;
     const revision = updateUserGenRef.current;
-    const me = await api.me(token);
+    const me = await read(token);
     if (!isCurrent(sessionGeneration) || revision !== updateUserGenRef.current) return;
     setCurrentUser(me);
     setProfileValidated(true);
@@ -361,16 +371,25 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
 
   const tokenBag = useMemo(() => ({ token }), [token]);
   const readUser = useCallback(() => userRef.current, []);
+  // Not `getToken`: that name is the stored-credential reader startup uses.
+  const latestToken = useCallback(() => tokenRef.current, []);
+  const account = token && user ? `${user.id}:${sessionGeneration}` : null;
+  const accountSession = useMemo(
+    () => ({ account, getToken: latestToken }),
+    [account, latestToken],
+  );
 
   return (
     <AuthTokenContext.Provider value={tokenBag}>
-      <AuthUserReaderContext.Provider value={readUser}>
-        <AuthContext.Provider value={value}>
-          {loading || startupFailed
-            ? <AuthLoadingShell failed={startupFailed} onRetry={retryStartup} />
-            : children}
-        </AuthContext.Provider>
-      </AuthUserReaderContext.Provider>
+      <AccountSessionContext.Provider value={accountSession}>
+        <AuthUserReaderContext.Provider value={readUser}>
+          <AuthContext.Provider value={value}>
+            {loading || startupFailed
+              ? <AuthLoadingShell failed={startupFailed} onRetry={retryStartup} />
+              : children}
+          </AuthContext.Provider>
+        </AuthUserReaderContext.Provider>
+      </AccountSessionContext.Provider>
     </AuthTokenContext.Provider>
   );
 }

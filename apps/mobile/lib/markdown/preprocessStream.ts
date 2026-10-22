@@ -1,6 +1,7 @@
 import { preprocessMarkdown, type PreprocessOptions } from "@/lib/markdown/preprocess";
 import { presentStreamTail } from "@/lib/markdown/presentation";
 import { advanceSegmentedPrefix, type SegmentedPrefix } from "@/lib/markdown/segmentedPreprocess";
+import { fenceAfterLine, type OpenFence } from "@/lib/mdFenceScan";
 
 export type StreamingPreprocessCache = {
   /** Raw byte length covered by `preparedStable`. */
@@ -59,18 +60,15 @@ export function findStableMarkdownPrefixLen(content: string): number {
   return 0;
 }
 
-function isFenceDelimiter(line: string): boolean {
-  return line.startsWith("```") || line.startsWith("~~~");
-}
-
 /** `$`, `$$`, `\[`, and `\(` inside a code fence are code, not math. */
 function mathMarkersOutsideFences(text: string): {
   blockDollar: number;
   inlineDollar: number;
   brackets: number;
   parens: number;
+  fenceOpen: boolean;
 } {
-  let fenceOpen = false;
+  let openFence: OpenFence | null = null;
   let blockDollar = 0;
   let inlineDollar = 0;
   let brackets = 0;
@@ -80,19 +78,19 @@ function mathMarkersOutsideFences(text: string): {
     const nl = text.indexOf("\n", pos);
     const lineEnd = nl === -1 ? text.length : nl;
     const line = text.slice(pos, lineEnd);
-    const fenceLine = isFenceDelimiter(line);
-    if (!fenceOpen && !fenceLine) {
+    const before = openFence;
+    openFence = fenceAfterLine(openFence, line);
+    if (before == null && openFence == null) {
       const blocks = countOccurrences(line, "$$");
       blockDollar += blocks;
       inlineDollar += countOccurrences(line, "$") - 2 * blocks;
       brackets += countOccurrences(line, "\\[") - countOccurrences(line, "\\]");
       parens += countOccurrences(line, "\\(") - countOccurrences(line, "\\)");
     }
-    if (fenceLine) fenceOpen = !fenceOpen;
     if (nl === -1) break;
     pos = nl + 1;
   }
-  return { blockDollar, inlineDollar, brackets, parens };
+  return { blockDollar, inlineDollar, brackets, parens, fenceOpen: openFence != null };
 }
 
 function hasUnclosedStreamingStructure(text: string): boolean {
@@ -101,7 +99,7 @@ function hasUnclosedStreamingStructure(text: string): boolean {
   // Odd `$` outside a fence means an unclosed `$...$` span — without this,
   // a prefix cut mid-`$x^2 +` would be treated as stable.
   if (math.inlineDollar % 2 !== 0) return true;
-  if (countFenceMarkers(text) % 2 !== 0) return true;
+  if (math.fenceOpen) return true;
   // \[...\] is the other block-math delimiter preprocessMarkdown converts
   // (BLOCK_MATH_BRACKET_RE, alongside $$...$$) — without tracking it here
   // too, an unclosed \[ mid-stream gets folded into the "stable" prefix and
@@ -145,16 +143,6 @@ function endsWithOpenCallout(text: string): boolean {
   return false;
 }
 
-function countFenceMarkers(text: string): number {
-  // Count both ``` and ~~~ fence markers — markdown treats them as
-  // equivalent fence delimiters, so a ~~~-opened fence must contribute to
-  // the parity check or the reference scan would report an unclosed fence
-  // as "stable" (and vice versa).
-  const backtick = text.match(/^```/gm);
-  const tilde = text.match(/^~~~/gm);
-  return (backtick?.length ?? 0) + (tilde?.length ?? 0);
-}
-
 function countOccurrences(text: string, needle: string): number {
   if (!needle) return 0;
   let count = 0;
@@ -168,11 +156,14 @@ function countOccurrences(text: string, needle: string): number {
 
 const CALLOUT_MARKER_LINE_RE = /^>\s*\[!\w+\]/i;
 
-export type StableScanState = {
+type StableScanState = {
   /** Absolute offset into `content` already folded into the fields below. */
   scannedLen: number;
-  /** Parity of ``` fence-marker lines seen so far (true = inside a fence). */
-  fenceOpen: boolean;
+  /**
+   * The fence open at `scannedLen`, tracked open and closed (not a parity count of fence
+   * lines): a ``` line inside a ~~~ block is that block's content (audit DUP-03).
+   */
+  openFence: OpenFence | null;
   /** Parity of `$$` occurrences seen so far (true = inside block math). */
   dollarOpen: boolean;
   /** Running count of `\[` minus `\]` seen so far (nonzero = inside \[...\] block math). */
@@ -236,7 +227,7 @@ function scanStableMarkdownPrefix(
     end0 = lastNl === -1 ? 0 : lastNl + 1;
   }
 
-  let fenceOpen = false;
+  let openFence: OpenFence | null = null;
   let dollarOpen = false;
   let bracketDepth = 0;
   let inlineDollarOpen = false;
@@ -248,7 +239,7 @@ function scanStableMarkdownPrefix(
 
   if (prevState && prevState.scannedLen <= end0) {
     pos = prevState.scannedLen;
-    fenceOpen = prevState.fenceOpen;
+    openFence = prevState.openFence ?? null;
     dollarOpen = prevState.dollarOpen;
     bracketDepth = prevState.bracketDepth;
     inlineDollarOpen = prevState.inlineDollarOpen;
@@ -264,12 +255,11 @@ function scanStableMarkdownPrefix(
     const line = content.slice(pos, nl);
     const isAbsoluteFirstLine = pos === 0;
 
-    // Toggle fence state for both ``` and ~~~ delimiters — markdown treats
-    // them as equivalent fence markers, so a ~~~-opened fence must keep the
-    // scanner from treating its body as stable (otherwise the streaming
+    // ``` and ~~~ fences both keep their body unstable (otherwise the streaming
     // preprocessor would cut mid-fence and render a half-open fence).
-    const fenceLine = isFenceDelimiter(line);
-    if (!fenceOpen && !fenceLine) {
+    const before = openFence;
+    openFence = fenceAfterLine(openFence, line);
+    if (before == null && openFence == null) {
       const blockDollarCount = countOccurrences(line, "$$");
       if (blockDollarCount % 2 !== 0) dollarOpen = !dollarOpen;
       // Track single-`$` inline math: total `$` minus the ones consumed by `$$` pairs.
@@ -279,7 +269,6 @@ function scanStableMarkdownPrefix(
       bracketDepth += countOccurrences(line, "\\[") - countOccurrences(line, "\\]");
       parenDepth += countOccurrences(line, "\\(") - countOccurrences(line, "\\)");
     }
-    if (fenceLine) fenceOpen = !fenceOpen;
     // A callout chain continues as long as each new line still starts with
     // ">" (matching the original regex's permissive continuation pattern);
     // otherwise it only (re)starts on a proper `> [!type]` marker line — and
@@ -293,7 +282,7 @@ function scanStableMarkdownPrefix(
 
     pos = nl + 1;
     if (
-      !fenceOpen &&
+      openFence == null &&
       !dollarOpen &&
       bracketDepth === 0 &&
       !inlineDollarOpen &&
@@ -307,7 +296,7 @@ function scanStableMarkdownPrefix(
 
   return {
     scannedLen: end0,
-    fenceOpen,
+    openFence,
     dollarOpen,
     bracketDepth,
     inlineDollarOpen,

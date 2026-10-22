@@ -3,7 +3,7 @@ import type { PendingAttachment } from "@/features/attachments/model/attachments
 import { readImageTurn } from "@/features/images/model/imageGenTurn";
 import { mightBeImageTurn } from "@/features/images/model/imageIntentPrefilter";
 
-export type ImageReference = { attachment?: PendingAttachment; ids?: string[] };
+type ImageReference = { attachment?: PendingAttachment; ids?: string[] };
 
 export type SendIntercept =
   /** A reference photo: the backend's image_search attaches it to an ordinary reply. */

@@ -11,11 +11,10 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AiConsentRedirect } from "@/features/auth/components/AiConsentRedirect";
 import { ActionFeedbackProvider } from "@/contexts/ActionFeedbackContext";
 import { AppearanceProvider } from "@/contexts/AppearanceContext";
-import { HomeProvider } from "@/features/home/context/HomeContext";
 import { ModelsProvider } from "@/contexts/ModelsContext";
 import { NetworkProvider, useNetwork } from "@/contexts/NetworkContext";
 import { TodosProvider } from "@/features/todos/context/TodosContext";
-import { PushNotificationBootstrap } from "@/components/PushNotificationBootstrap";
+import { PushNotificationBootstrap } from "@/features/todos/components/PushNotificationBootstrap";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { stackBackOptions } from "@/ui/controls/StackBackButton";
 import { DialogHost } from "@/ui/overlay/DialogHost";
@@ -120,14 +119,12 @@ export default function RootLayout() {
             {fontsReady ? (
               <ModelsProvider>
                 <TodosProvider>
-                  <HomeProvider>
-                    <NetworkProvider>
-                      <PushNotificationBootstrap />
-                      <AiConsentRedirect />
-                      <RootNavigator />
-                      <DialogHost />
-                    </NetworkProvider>
-                  </HomeProvider>
+                  <NetworkProvider>
+                    <PushNotificationBootstrap />
+                    <AiConsentRedirect />
+                    <RootNavigator />
+                    <DialogHost />
+                  </NetworkProvider>
                 </TodosProvider>
               </ModelsProvider>
             ) : null}

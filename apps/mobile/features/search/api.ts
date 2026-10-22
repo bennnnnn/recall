@@ -1,5 +1,5 @@
 import { request } from "@/lib/api/client";
-import type { SearchResult } from "@/lib/api/types";
+import type { Page, SearchResult } from "@/lib/api/types";
 
 export const searchApi = {
   search: (
@@ -7,9 +7,10 @@ export const searchApi = {
     q: string,
     limit = 20,
     init?: Pick<RequestInit, "signal">,
-    offset = 0,
+    cursor?: string,
   ) => {
-    const params = new URLSearchParams({ q, limit: String(limit), offset: String(offset) });
-    return request<{ results: SearchResult[]; total: number }>(`/search?${params}`, token, init);
+    const params = new URLSearchParams({ q, limit: String(limit) });
+    if (cursor) params.set("cursor", cursor);
+    return request<Page<SearchResult>>(`/search?${params}`, token, init);
   },
 };

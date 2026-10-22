@@ -1,3 +1,4 @@
+import { fencedLines } from "@/lib/mdFenceScan";
 import { citationAuthor, splitTrailingAttribution } from "@/lib/richBlocks";
 
 // Title uses horizontal whitespace only; body lines are `>[^\n]*` (no ReDoS).
@@ -22,13 +23,12 @@ function indentLines(text: string, indent: string): string {
 
 export function promoteCalloutBlockquotes(content: string): string {
   const lines = content.split("\n");
+  const fenced = fencedLines(content);
   const out: string[] = [];
-  let inFence = false;
   let i = 0;
   while (i < lines.length) {
     const current = lines[i] ?? "";
-    if (current.trimStart().startsWith("```")) inFence = !inFence;
-    const match = inFence ? null : CALLOUT_LABEL_LINE.exec(current);
+    const match = fenced[i] ? null : CALLOUT_LABEL_LINE.exec(current);
     if (!match) {
       out.push(current);
       i += 1;
@@ -122,7 +122,7 @@ function quotedAttributionToBlockquote(raw: string): string | null {
   const t = unwrapOuterEmphasis(collapseWs(raw));
   if (t.length < MIN_PROMOTED_QUOTE_CHARS + 4) return null;
   if (t.startsWith(">") || t.startsWith("#") || t.startsWith("|")) return null;
-  if (t.startsWith("- ") || t.startsWith("* ") || t.startsWith("```")) return null;
+  if (t.startsWith("- ") || t.startsWith("* ")) return null;
   if (!isQuoteOpen(t[0] ?? "")) return null;
 
   let close = -1;
@@ -148,29 +148,19 @@ function quotedAttributionToBlockquote(raw: string): string | null {
 /** Promote standalone `"…" - Author` paragraphs into quote-card blockquotes. */
 export function promoteQuotedAttributions(content: string): string {
   const lines = content.split("\n");
+  const fenced = fencedLines(content);
   const out: string[] = [];
   let i = 0;
-  let inFence = false;
   while (i < lines.length) {
     const line = lines[i] ?? "";
-    const trimmed = line.trimStart();
-    if (trimmed.startsWith("```")) {
-      inFence = !inFence;
-      out.push(line);
-      i += 1;
-      continue;
-    }
-    if (inFence || trimmed === "") {
+    if (fenced[i] || line.trim() === "") {
       out.push(line);
       i += 1;
       continue;
     }
     const para: string[] = [];
-    while (i < lines.length) {
-      const next = lines[i] ?? "";
-      if (next.trim() === "") break;
-      if (next.trimStart().startsWith("```")) break;
-      para.push(next);
+    while (i < lines.length && !fenced[i] && (lines[i] ?? "").trim() !== "") {
+      para.push(lines[i] ?? "");
       i += 1;
     }
     const promoted = quotedAttributionToBlockquote(para.join(" "));
@@ -233,15 +223,11 @@ function nearestQuoteText(lines: string[], from: number, step: 1 | -1, indent: s
  */
 export function normalizeQuoteAttributionDashes(content: string): string {
   const lines = content.split("\n");
-  let inFence = false;
+  const fenced = fencedLines(content);
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i] ?? "";
     const trimmed = line.trimStart();
-    if (trimmed.startsWith("```")) {
-      inFence = !inFence;
-      continue;
-    }
-    if (inFence || !trimmed.startsWith(">")) continue;
+    if (fenced[i] || !trimmed.startsWith(">")) continue;
     const indent = line.slice(0, line.length - trimmed.length);
     const dash = DASH_ATTRIBUTION_RE.exec(quoteLineBody(line, indent).trimEnd());
     const name = dash?.[1]?.trim() ?? "";
@@ -257,16 +243,11 @@ export function normalizeQuoteAttributionDashes(content: string): string {
 /** `> quote. — Author` → attribution on its own blockquote line for QuoteBlock. */
 export function splitBlockquoteInlineAttribution(content: string): string {
   const lines = content.split("\n");
+  const fenced = fencedLines(content);
   const out: string[] = [];
-  let inFence = false;
-  for (const line of lines) {
+  for (const [index, line] of lines.entries()) {
     const trimmed = line.trimStart();
-    if (trimmed.startsWith("```")) {
-      inFence = !inFence;
-      out.push(line);
-      continue;
-    }
-    if (inFence || !trimmed.startsWith(">")) {
+    if (fenced[index] || !trimmed.startsWith(">")) {
       out.push(line);
       continue;
     }

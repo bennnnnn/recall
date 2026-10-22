@@ -1,4 +1,4 @@
-import { memo, ReactElement, RefObject, useMemo, useRef } from "react";
+import { memo, ReactElement, RefObject, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { FlashList, FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { HomeStarters } from "@/features/home/components/HomeStarters";
 import type { ChatListScroll } from "@/features/chat/hooks/useChatScroll";
 import { useWarmMathRenderer } from "@/features/chat/hooks/useWarmMathRenderer";
+import { useComposerDraftActivity } from "@/features/chat/context/ComposerDraftContext";
 import { SkeletonChatBubbles } from "@/ui/feedback/SkeletonLoader";
 import { Message } from "@/lib/api";
 import {
@@ -25,6 +26,8 @@ type Props = {
   listBottomPad: number;
   hasMoreOlder: boolean;
   loadingOlder: boolean;
+  /** A window around a search hit ends before the newest message: its next page. */
+  newerPage?: { loading: boolean; load: () => Promise<void> } | null;
   chatLoading: boolean;
   routeChatId?: string;
   emptyHeight: number;
@@ -49,6 +52,7 @@ function ChatMessageListComponent({
   listBottomPad,
   hasMoreOlder,
   loadingOlder,
+  newerPage = null,
   chatLoading,
   routeChatId,
   emptyHeight,
@@ -64,6 +68,7 @@ function ChatMessageListComponent({
   const theme = useTheme();
   useWarmMathRenderer(messages);
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const composerActive = useComposerDraftActivity();
   // Stable content-container style: the previous inline `{ paddingTop, paddingBottom }`
   // object was fresh every render, so FlashList re-laid out on every parent render
   // (including every composer keystroke). Memoize so it only changes when the
@@ -72,16 +77,18 @@ function ChatMessageListComponent({
     () => [s.listContent, { paddingTop: headerInset, paddingBottom: listBottomPad }],
     [s.listContent, headerInset, listBottomPad],
   );
-  const startFromBottomState = useRef({ chatKey: "", value: false });
+  // Latched per chat: a value kept from earlier renders, adjusted while rendering.
+  const [startLatch, setStartLatch] = useState({ chatKey: "", value: false });
   const chatKey = `${routeChatId ?? "new"}:${messages.length === 0 ? "empty" : "live"}`;
-  startFromBottomState.current = latchStartRenderingFromBottom({
+  const latched = latchStartRenderingFromBottom({
     chatKey,
-    previousChatKey: startFromBottomState.current.chatKey,
-    previousValue: startFromBottomState.current.value,
+    previousChatKey: startLatch.chatKey,
+    previousValue: startLatch.value,
     messageCount: messages.length,
     hasMoreOlder,
   });
-  const startFromBottom = startFromBottomState.current.value;
+  if (latched.chatKey !== startLatch.chatKey || latched.value !== startLatch.value) setStartLatch(latched);
+  const startFromBottom = latched.value;
   const maintainVisibleContentPosition = useMemo(
     () => ({
       disabled: false,
@@ -132,6 +139,24 @@ function ChatMessageListComponent({
             </Pressable>
           ) : null
         }
+        ListFooterComponent={
+          newerPage || footer ? (
+            <>
+              {newerPage ? (
+                <Pressable
+                  style={s.loadEarlier}
+                  onPress={() => void newerPage.load()}
+                  disabled={newerPage.loading}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("chat.load_newer")}
+                >
+                  <Text style={s.loadEarlierText}>{newerPage.loading ? "…" : t("chat.load_newer")}</Text>
+                </Pressable>
+              ) : null}
+              {footer}
+            </>
+          ) : null
+        }
         ListEmptyComponent={
           chatLoading && routeChatId ? (
             <View style={[s.empty, { height: emptyHeight }]}>
@@ -139,11 +164,10 @@ function ChatMessageListComponent({
             </View>
           ) : (
             <View style={[s.empty, { height: emptyHeight }]}>
-              <HomeStarters />
+              <HomeStarters composerActive={composerActive} />
             </View>
           )
         }
-        ListFooterComponent={footer}
       />
 
       {header}

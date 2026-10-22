@@ -13,9 +13,9 @@ import { startLocale } from "@/lib/i18n";
 
 /**
  * Applies the saved preferences at once. Resolves when they are all in place,
- * which is at once unless an old appearance setting still has to move out of
- * the Keychain (once per install; `lib/appearancePrefs.ts`). Never throws: a
- * preference that cannot be applied leaves its default and the launch goes on.
+ * which is at once unless the appearance file could not be read synchronously
+ * (it is then read the usual way). Never throws: a preference that cannot be
+ * applied leaves its default and the launch goes on.
  */
 export function restoreLaunchPrefs(): Promise<void> {
   try {

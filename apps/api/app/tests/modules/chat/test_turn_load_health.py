@@ -49,7 +49,7 @@ def _deps(resolve: MagicMock) -> tuple[Any, Any, Any]:
         users={"get_by_id": AsyncMock(return_value=user)},
         chats={"get_by_id": AsyncMock(return_value=chat), "peek_recent_chat": lambda *_a: chat},
         messages={"list_recent": AsyncMock(return_value=[]), "count_for_chat": AsyncMock()},
-        plan={"resolve_user_model_override": resolve},
+        model_choice={"resolve_user_model_override": resolve},
     )
     return deps, user, chat
 
@@ -57,7 +57,6 @@ def _deps(resolve: MagicMock) -> tuple[Any, Any, Any]:
 async def _load(deps: Any, user: Any, chat: Any, redis: Any, content: str) -> Any:
     with (
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
-        patch("app.modules.chat.turn_load._classify_turn_mode", AsyncMock()),
     ):
         return await load_new_turn(
             deps,

@@ -15,7 +15,7 @@ import { publishStreamingDraft } from "@/lib/streamingDraftStore";
 const mockMounts = new Map<string, number>();
 
 jest.mock("@/components/LinkPreviewCard", () => ({ LinkPreviewCard: "LinkPreviewCard" }));
-jest.mock("@/components/MessageActions", () => {
+jest.mock("@/features/chat/components/MessageActions", () => {
   const { View } = jest.requireActual<typeof import("react-native")>("react-native");
   return {
     AssistantActions: () => <View testID="assistant-actions" />,
@@ -30,12 +30,12 @@ jest.mock("@/features/suggestions/components/RelatedPromptLines", () => {
 jest.mock("@/components/SettingsProposalCard", () => ({ SettingsProposalCard: () => null }));
 jest.mock("@/features/todos/components/ReminderProposalCard", () => ({ ReminderProposalCard: () => null }));
 jest.mock("@/components/PlacesListBlock", () => ({ PlacesListBlock: () => null }));
-jest.mock("@/components/ChatMessageImageStrip", () => ({ ChatMessageImageStrip: () => null }));
+jest.mock("@/features/attachments/components/ChatMessageImageStrip", () => ({ ChatMessageImageStrip: () => null }));
 jest.mock("@/features/images/components/ImageGenPlaceholder", () => ({ ImageGenPlaceholder: () => null }));
 jest.mock("@/ui/feedback/ActionShimmer", () => ({ ActionShimmer: () => null }));
 jest.mock("@/components/SearchSourcesStack", () => ({ SearchSourcesStack: () => null }));
 jest.mock("@/components/RecallTypingIndicator", () => ({ RecallTypingIndicator: () => null }));
-jest.mock("@/components/UserMessageContent", () => ({ UserMessageContent: () => null }));
+jest.mock("@/features/chat/components/UserMessageContent", () => ({ UserMessageContent: () => null }));
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn(), selection: jest.fn() }));
 jest.mock("@/components/rich/MathText", () => {
   const { Text } = jest.requireActual<typeof import("react-native")>("react-native");

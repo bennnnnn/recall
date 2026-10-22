@@ -8,6 +8,8 @@ two independent equations, becomes separate rows.
 
 from __future__ import annotations
 
+import re
+
 from app.modules.chat.calculation_layout_tail import (
     converts_units,
     finish_inline,
@@ -18,9 +20,9 @@ from app.modules.chat.inline_code import code_span_opens_within, escaped_at, is_
 from app.modules.chat.markdown_regions import (
     display_math_lines,
     leave_prose_line,
-    read_fence_marker,
     rewrite_fenced,
 )
+from app.services.md_fence_scan import read_fence_marker
 
 _MATH_FENCE_LANGS = {"math", "latex", "tex", "equation"}
 _TEXT_COMMANDS = {"text", "mathrm", "mathbf", "textrm", "operatorname", "textbf", "mbox"}
@@ -120,13 +122,13 @@ def _tokenize(expr: str) -> list[tuple[str, int, int, bool]]:
     return out
 
 
+# ``1,500``: a digit, the comma, then exactly three digits (ASCII, as on the phone). ``10, 2x``
+# is two equations: read as one number, ``x + y = 10, 2x - y = 5`` got a row ``x + y = 5``.
+_GROUPED_DIGITS = re.compile(r"(?<=[0-9]),[0-9]{3}(?![0-9])")
+
+
 def _thousands_separator(expr: str, index: int) -> bool:
-    prev = expr[index - 1] if index else ""
-    cursor = index + 1
-    while cursor < len(expr) and expr[cursor] == " ":
-        cursor += 1
-    nxt = expr[cursor] if cursor < len(expr) else ""
-    return prev.isdigit() and nxt.isdigit()
+    return _GROUPED_DIGITS.match(expr, index) is not None
 
 
 def _break_end(expr: str, index: int) -> int:
@@ -432,7 +434,7 @@ def _interior_line_blocks_fold(line: str) -> bool:
     stripped = line.lstrip(" ")
     if not stripped:
         return False
-    if stripped.startswith(("|", "#", "```", "~~~", "- ", "* ", "+ ")):
+    if stripped.startswith(("|", "#", "- ", "* ", "+ ")) or read_fence_marker(stripped):
         return True
     digits = 0
     while digits < len(stripped) and stripped[digits].isdigit():
@@ -519,9 +521,7 @@ def _unwrap_math_line(line: str) -> str:
 
 def _rewrite_math_fence(opener: str, body: str, _closer: str) -> str | None:
     marker = read_fence_marker(opener)
-    lang = ""
-    if marker is not None and marker[2]:
-        lang = marker[2].split()[0].lower()
+    lang = marker.lang if marker is not None else ""
     if lang not in _MATH_FENCE_LANGS:
         return None
     physical = [line for line in body.split("\n") if line.strip()]

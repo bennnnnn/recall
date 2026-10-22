@@ -63,7 +63,7 @@ describe("StreamProgressLabel", () => {
   });
 
   it("names any other step at once, with no timer behind it", async () => {
-    const timeouts = jest.spyOn(global, "setTimeout");
+    const timeouts = jest.spyOn(globalThis, "setTimeout");
     const view = await render(<StreamProgressLabel phase="finding_photo" startedAt={NOW} />);
     expect(view.getByText("Finding a photo…")).toBeTruthy();
     expect(timeouts.mock.calls.some(([, delay]) => delay === 1000)).toBe(false);

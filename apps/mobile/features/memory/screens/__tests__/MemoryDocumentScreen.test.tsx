@@ -10,7 +10,7 @@ const mockDeleteDocument = jest.fn();
 const mockDeleteFact = jest.fn();
 const mockEditFact = jest.fn();
 const mockSetFactMuted = jest.fn();
-const mockConfirm = jest.fn(async () => true);
+const mockConfirm = jest.fn(async (..._args: unknown[]) => true);
 const mockFeedback = { error: jest.fn(), success: jest.fn() };
 const mockRouter = { back: jest.fn(), push: jest.fn() };
 let mockDocuments: MemoryDocument[] = [];
@@ -74,8 +74,8 @@ jest.mock("@/ui/overlay/Menu", () => ({
     );
   },
 }));
-jest.mock("@/features/account/components/SettingsFieldSheet", () => ({
-  SettingsFieldSheet: ({
+jest.mock("@/ui/overlay/FieldSheet", () => ({
+  FieldSheet: ({
     visible,
     value,
     onChangeText,
@@ -175,7 +175,7 @@ describe("MemoryDocumentScreen", () => {
   });
 
   it("deletes the whole page after confirming", async () => {
-    mockDeleteDocument.mockResolvedValue(true);
+    mockDeleteDocument.mockResolvedValue({ ok: true });
     const ui = await render(<MemoryDocumentScreen />);
     await fireEvent.press(ui.getByTestId("memory-document-delete"));
     await flush();
@@ -195,7 +195,7 @@ describe("MemoryDocumentScreen", () => {
   });
 
   it("edits one fact from its menu", async () => {
-    mockEditFact.mockResolvedValue(true);
+    mockEditFact.mockResolvedValue({ ok: true });
     const ui = await render(<MemoryDocumentScreen />);
     await fireEvent.press(ui.getByTestId("memory-fact-f2"), { nativeEvent: { pageX: 10, pageY: 20 } });
     await fireEvent.press(ui.getByTestId("menu-edit"));
@@ -208,7 +208,7 @@ describe("MemoryDocumentScreen", () => {
   });
 
   it("deletes one fact from its menu", async () => {
-    mockDeleteFact.mockResolvedValue(true);
+    mockDeleteFact.mockResolvedValue({ ok: true });
     const ui = await render(<MemoryDocumentScreen />);
     await fireEvent(ui.getByTestId("memory-fact-f1"), "longPress", { nativeEvent: { pageX: 5, pageY: 5 } });
     await fireEvent.press(ui.getByTestId("menu-delete"));
@@ -220,7 +220,7 @@ describe("MemoryDocumentScreen", () => {
   });
 
   it("mutes a fact and shows it muted", async () => {
-    mockSetFactMuted.mockResolvedValue(true);
+    mockSetFactMuted.mockResolvedValue({ ok: true });
     const ui = await render(<MemoryDocumentScreen />);
     await fireEvent.press(ui.getByTestId("memory-fact-f2"), { nativeEvent: { pageX: 1, pageY: 1 } });
     expect(ui.getByText("memory.mute_fact")).toBeTruthy();
@@ -246,12 +246,21 @@ describe("MemoryDocumentScreen", () => {
   });
 
   it("says when a mute did not go through", async () => {
-    mockSetFactMuted.mockResolvedValue(false);
+    mockSetFactMuted.mockResolvedValue({ ok: false, failure: "failed" });
     const ui = await render(<MemoryDocumentScreen />);
     await fireEvent.press(ui.getByTestId("memory-fact-f1"), { nativeEvent: { pageX: 1, pageY: 1 } });
     await fireEvent.press(ui.getByTestId("menu-mute"));
     await flush();
     expect(mockFeedback.error).toHaveBeenCalledWith("memory.mute_failed");
+  });
+
+  it("says memory is busy, not broken, when a mute meets another write (CLAR-08)", async () => {
+    mockSetFactMuted.mockResolvedValue({ ok: false, failure: "busy" });
+    const ui = await render(<MemoryDocumentScreen />);
+    await fireEvent.press(ui.getByTestId("memory-fact-f1"), { nativeEvent: { pageX: 1, pageY: 1 } });
+    await fireEvent.press(ui.getByTestId("menu-mute"));
+    await flush();
+    expect(mockFeedback.error).toHaveBeenCalledWith("memory.busy");
   });
 
   it("shows the chat a fact was learned in", async () => {

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 import type { Message } from "@/lib/api";
-import { getCachedChat } from "@/lib/cache/chatListCache";
+import { getCachedChat } from "@/features/chat/model/chatListCache";
 import {
   isSettledThread,
   keepCachedChatPage,
@@ -27,6 +27,8 @@ type Options = {
   /** A reply is streaming or finalizing. */
   busy: boolean;
   hasMoreOlder: boolean;
+  /** The thread is a window around an older message (a search hit), not the newest page. */
+  hasMoreNewer: boolean;
   sync: ChatPageSync | null;
   /** Reads the chat and merges it into the view, setting `sync` when it does (`silentRefetchChat`). */
   resync: (chatId: string, cancelled: () => boolean, opts: { force: boolean }) => Promise<void>;
@@ -40,15 +42,19 @@ type Options = {
  * unmerged) reads the chat once the turn that went first is over, again if the
  * thread changes while that read is out, until one lands.
  */
-export function useChatPageCacheWriter({ chatId, routeChatId, messages, busy, hasMoreOlder, sync, resync }: Options) {
+export function useChatPageCacheWriter({
+  chatId, routeChatId, messages, busy, hasMoreOlder, hasMoreNewer, sync, resync,
+}: Options) {
   useEffect(() => {
     if (!chatId || chatId !== routeChatId) return;
-    if (busy || sync?.chatId !== chatId || sync.fetchedAt === null || !isSettledThread(messages)) {
+    if (
+      busy || hasMoreNewer || sync?.chatId !== chatId || sync.fetchedAt === null || !isSettledThread(messages)
+    ) {
       markCachedChatPageStale(chatId);
       return;
     }
     keepCachedChatPage(chatId, messages, hasMoreOlder, sync.fetchedAt, getCachedChat(chatId)?.updated_at);
-  }, [chatId, routeChatId, messages, busy, hasMoreOlder, sync]);
+  }, [chatId, routeChatId, messages, busy, hasMoreOlder, hasMoreNewer, sync]);
 
   const unmergedChatId = sync?.fetchedAt === null ? sync.chatId : null;
   useEffect(() => {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { Keyboard } from "react-native";
 import { useRouter } from "expo-router";
 
-import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
+import { useComposerDraftApi } from "@/features/chat/context/ComposerDraftContext";
 import { useActionFeedbackOptional } from "@/contexts/ActionFeedbackContext";
 
 import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
@@ -29,6 +29,7 @@ import type { SendTurnStart } from "@/features/chat/hooks/useTurnStart";
 import { composerThreadKey } from "@/features/chat/model/composerThreadDraft";
 import type { ImageGenSubmit } from "@/features/images/hooks/useImageGeneration";
 import { queryNeedsClientGeo } from "@/lib/resolveClientGeoForQuery";
+import { useViewOwner } from "@/lib/viewOwner";
 import { discardDraftAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
 import {
   subscribeComposerAttachmentQueue,
@@ -38,12 +39,7 @@ import {
 type Router = ReturnType<typeof useRouter>;
 type DraftChat = ReturnType<typeof useDraftChat>;
 type ChatScroll = ReturnType<typeof useChatScroll>;
-type ChatSendPhase =
-  | "idle"
-  | "locating"
-  | "preparing"
-  | "uploading"
-  | "creating";
+type ChatSendPhase = "idle" | "locating" | "preparing" | "uploading" | "creating";
 
 /** False when the chat refused the send before showing it, or Stop took it back before it went out. */
 type SendMessageFn = (text: string, opts?: SendMessageOptions) => Promise<boolean>;
@@ -82,6 +78,8 @@ type Options = {
   /** Soft offline cue (toast) — prefer over a blocking Alert; draft stays in the composer. */
   onOfflineBlocked?: () => void;
   isOffline: boolean;
+  /** Runs before a send is painted (a window around a search hit goes to the newest page). */
+  beforeSend?: () => Promise<void>;
   /** Run image generation for detected image-intent text (no confirmation sheet). */
   onGenerateImage?: (request: ImageGenSubmit) => void;
   imageGenerating?: boolean;
@@ -109,6 +107,7 @@ export function useChatSend({
   onStreamBusy,
   onOfflineBlocked,
   isOffline,
+  beforeSend,
   onGenerateImage,
   imageGenerating = false,
 }: Options) {
@@ -137,10 +136,12 @@ export function useChatSend({
   const sendInFlightRef = useRef(false);
   const composerThread = composerThreadKey(routeChatId);
   const session = getSessionGeneration();
-  const viewRef = useRef({ session, composerThread, version: 0 });
-  if (viewRef.current.session !== session || viewRef.current.composerThread !== composerThread) {
-    viewRef.current = { session, composerThread, version: viewRef.current.version + 1 };
-  }
+  // Bumped by each new account or composer thread and on unmount: a send from before lands nowhere.
+  const viewRef = useRef({ version: 0 });
+  useLayoutEffect(() => {
+    viewRef.current.version += 1;
+  }, [session, composerThread]);
+  const { owns } = useViewOwner(`${session}:${composerThread}`);
   useEffect(() => () => {
     viewRef.current.version += 1;
   }, []);
@@ -190,15 +191,16 @@ export function useChatSend({
     composerThread, session, switchThread, getThreadKey, switchAttachmentThread, resetForNewSession,
     resetAttachmentDrafts, setAttachSheetOpen, setMathScannerOpen,
   ]);
+  const signedIn = Boolean(token);
   useEffect(() => {
     const applyQueued = () => {
-      if (!token || session !== getSessionGeneration()) return;
+      if (!signedIn || session !== getSessionGeneration()) return;
       const next = takeQueuedComposerAttachment(composerThread);
       if (next) replacePendingAttachment(next);
     };
     applyQueued();
     return subscribeComposerAttachmentQueue(applyQueued);
-  }, [composerThread, token, session, replacePendingAttachment]);
+  }, [composerThread, signedIn, session, replacePendingAttachment]);
   const restoreFailedSend = useRestoreFailedSend({
     token, setMessages, newMessageCountRef, pendingAttachmentRef, setPendingAttachment,
     stashAttachmentForThread, setPendingOutboundId, sendInFlightRef, setSendPhase, t,
@@ -350,6 +352,11 @@ export function useChatSend({
       if (verdict === "streaming") onStreamBusy?.();
       if (verdict !== "send") return;
       tap();
+      if (beforeSend) {
+        sendInFlightRef.current = true;
+        await beforeSend();
+        sendInFlightRef.current = false;
+      }
       const isCurrentSession = () => session === getSessionGeneration();
       const turn: SendTurn = {
         text,
@@ -369,14 +376,14 @@ export function useChatSend({
     [
       session, inputRef, chatLoading, chatId, routeChatId, isOffline, streaming, pendingAttachmentRef,
       token, creatingRef, attachPickInFlightRef, onOfflineBlocked, onStreamBusy, getThreadKey, paintUserTurn, routeSend,
+      beforeSend,
     ],
   );
 
   const removePendingAttachment = useCallback(() => replacePendingAttachment(null), [replacePendingAttachment]);
 
-  const viewVersion = viewRef.current.version;
   const restoreComposerDraft = useCallback((recovered: ComposerSendDraft): boolean => {
-    if (session !== getSessionGeneration() || viewRef.current.version !== viewVersion ||
+    if (session !== getSessionGeneration() || !owns() ||
         getThreadKey() !== composerThread || sendInFlightRef.current || streaming || attachPickInFlightRef.current) return false;
     // A recovery action must never displace text or a file typed while the
     // rejected send was in flight. The caller keeps its queue until accepted.
@@ -388,7 +395,7 @@ export function useChatSend({
     setPendingAttachment(recovered.attachment);
     return true;
   }, [
-    session, viewVersion, getThreadKey, composerThread, streaming, inputRef, pendingAttachmentRef, feedback, t,
+    session, owns, getThreadKey, composerThread, streaming, inputRef, pendingAttachmentRef, feedback, t,
     setInput, setPendingAttachment, attachPickInFlightRef,
   ]);
 

@@ -130,7 +130,7 @@ export function computeChrome(
   width: number,
   height: number,
   pad: number,
-  font: SkFont | null,
+  font: Pick<SkFont, "measureText"> | null,
 ): Chrome {
   "worklet";
   const measure = (text: string) =>

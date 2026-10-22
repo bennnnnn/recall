@@ -13,10 +13,10 @@ from dataclasses import replace
 from decimal import Decimal
 
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
+from app.services.number_text import count_word_pattern, number_word_value
 from app.services.workout import Workout, math_line, render_workout
 
-_COUNT_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "ten": 10}
 # prepare() reads "$2.40 ... $1.85" as an inline-maths span and drops the signs,
 # so the sign is optional; the item, payment and "change" words carry the money.
 _PRICE = r"(?:\$\s*)?(?P<{0}>\d+(?:\.\d{{1,2}})?)(?:\s*dollars)?"
@@ -24,7 +24,7 @@ _PERSON = r"(?:i|you|we|he|she|they|[A-Z][a-z]{1,15})"
 _ITEM_NAME = r"(?P<name>[a-z]+(?:\s+[a-z]+){0,2}?)"
 _ITEM_FORMS = (
     re.compile(
-        rf"(?P<count>\d{{1,3}}|{'|'.join(_COUNT_WORDS)})\s+{_ITEM_NAME}\s+(?:at|for)\s+"
+        rf"(?P<count>\d{{1,3}}|{count_word_pattern()})\s+{_ITEM_NAME}\s+(?:at|for)\s+"
         rf"{_PRICE.format('price')}\s*(?:each|apiece|a\s+piece)",
         re.IGNORECASE,
     ),
@@ -62,7 +62,7 @@ def extract_change_intent(cleaned: str) -> MathIntent | None:
             return None
         price = _price(item, "price")
         raw_count = item.groupdict().get("count")
-        count = 1 if raw_count is None else _COUNT_WORDS.get(raw_count.lower()) or int(raw_count)
+        count = 1 if raw_count is None else number_word_value(raw_count) or int(raw_count)
         terms.append(price if raw_count is None else f"{count}*{price}")
     paid = _price(match, "paid")
     if not 1 <= len(terms) <= _MAX_ITEMS or Decimal(paid) <= _total(terms):
@@ -124,4 +124,4 @@ def change_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | No
         ),
         answer,
     )
-    return replace(_finish_with_answer(lines, answer), worked_reply=worked)
+    return replace(finish_with_answer(lines, answer), worked_reply=worked)

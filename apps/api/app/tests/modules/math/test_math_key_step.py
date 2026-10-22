@@ -3,7 +3,7 @@
 ``solve x^2 - 5x + 6 = 0`` used to return a bare chip (or a one-line
 factorization). The working is now a server-rendered Given / one-transformation
 trace so it cannot drift from the chip. Only an explicit “just the answer” opts
-out; the global prose-length preference must not hide mathematical working.
+out.
 """
 
 from __future__ import annotations
@@ -58,17 +58,16 @@ def test_show_steps_phrase_is_an_explanation_request() -> None:
 
 def test_seven_times_eight_is_a_bare_chip() -> None:
     text = "7*8"
-    for style in ("short", "balanced", "detailed"):
-        reply = maybe_direct_math_reply(_block(text), text, response_style=style)
-        assert reply is not None
-        assert reply.startswith("```answer")
-        assert "56" in reply
-        assert "Given" not in reply
+    reply = maybe_direct_math_reply(_block(text), text)
+    assert reply is not None
+    assert reply.startswith("```answer")
+    assert "56" in reply
+    assert "Given" not in reply
 
 
 def test_linear_lesson_shows_each_move_on_both_sides() -> None:
     """4x + 4 = 0 keeps the operation, the both-sides line, and the result."""
-    reply = maybe_direct_math_reply(_block("4x+4=0"), "4x+4=0", response_style="balanced")
+    reply = maybe_direct_math_reply(_block("4x+4=0"), "4x+4=0")
 
     assert reply is not None
     before, _, _ = reply.partition("```answer")
@@ -88,9 +87,9 @@ def test_linear_lesson_shows_each_move_on_both_sides() -> None:
     assert reply.strip().endswith("```")
 
 
-def test_show_steps_linear_lesson_overrides_short() -> None:
+def test_show_steps_linear_lesson() -> None:
     text = "Show steps: 2x + 3 = 11"
-    reply = maybe_direct_math_reply(_block(text), text, response_style="short")
+    reply = maybe_direct_math_reply(_block(text), text)
 
     assert reply is not None
     assert "**Given**" in reply
@@ -127,7 +126,7 @@ async def test_lesson_prefix_reaches_verified_math_routing(text: str) -> None:
 
 def test_one_op_linear_still_shows_its_verified_working() -> None:
     text = "x+7=12"
-    reply = maybe_direct_math_reply(_block(text), text, response_style="balanced")
+    reply = maybe_direct_math_reply(_block(text), text)
 
     assert reply is not None
     assert "**Given**" in reply
@@ -136,9 +135,9 @@ def test_one_op_linear_still_shows_its_verified_working() -> None:
     assert "x = 5" in reply
 
 
-def test_balanced_two_op_linear_is_a_lesson() -> None:
+def test_two_op_linear_is_a_lesson() -> None:
     text = "2x + 7 = 19"
-    reply = maybe_direct_math_reply(_block(text), text, response_style="balanced")
+    reply = maybe_direct_math_reply(_block(text), text)
 
     assert reply is not None
     assert "**1. Subtract 7 from both sides**" in reply
@@ -152,9 +151,9 @@ def test_balanced_two_op_linear_is_a_lesson() -> None:
     assert r"\frac{2 x}{2} = \frac{12}{2}" in before_chip
 
 
-def test_detailed_pure_power_takes_the_square_root() -> None:
+def test_pure_power_takes_the_square_root() -> None:
     text = "x^2 + 2 = 6"
-    reply = maybe_direct_math_reply(_block(text), text, response_style="detailed")
+    reply = maybe_direct_math_reply(_block(text), text)
 
     assert reply is not None
     assert "**Given**" in reply
@@ -170,16 +169,16 @@ def test_detailed_pure_power_takes_the_square_root() -> None:
     assert "lvert" not in reply
     assert "```answer" in reply
     assert r"\pm 2" in reply
-    # A check is added only when the user asks for one, not for the detailed style.
+    # A check is added only when the user asks for one.
     assert "Check**" not in reply
-    asked = maybe_direct_math_reply(_block(text), f"{text} and check", response_style="detailed")
+    asked = maybe_direct_math_reply(_block(text), f"{text} and check")
     assert asked is not None and "**3. Check**" in asked
 
 
 def test_rational_equation_clears_the_denominator_and_finishes_at_the_chip() -> None:
     text = "(x+1)/(x-1)=3"
     block = _block(text)
-    reply = maybe_direct_math_reply(block, text, response_style="balanced")
+    reply = maybe_direct_math_reply(block, text)
 
     assert reply is not None
     assert "Multiply both sides by $x - 1$" in reply
@@ -204,7 +203,7 @@ def test_high_degree_denominator_is_not_enumerated() -> None:
 def test_absolute_value_equation_gets_a_complete_lesson() -> None:
     text = "|x-2|=5"
     block = _block(text)
-    reply = maybe_direct_math_reply(block, text, response_style="balanced")
+    reply = maybe_direct_math_reply(block, text)
 
     assert reply is not None
     assert "Split the absolute-value equation" in reply
@@ -230,7 +229,7 @@ def test_complex_modulus_does_not_split_like_a_real_absolute_value() -> None:
 def test_complex_pure_power_shows_the_root_before_simplifying() -> None:
     text = "x^2 + 1 = 0"
     block = _block(text)
-    reply = maybe_direct_math_reply(block, text, response_style="detailed")
+    reply = maybe_direct_math_reply(block, text)
 
     assert reply is not None
     assert r"x = \pm \sqrt{-1}" in reply
@@ -249,7 +248,7 @@ def test_negative_rational_root_matches_the_chip() -> None:
 
 def test_square_root_of_a_fraction_simplifies_before_the_chip() -> None:
     text = "3x^2 + 3 = 5"
-    reply = maybe_direct_math_reply(_block(text), text, response_style="balanced")
+    reply = maybe_direct_math_reply(_block(text), text)
 
     assert reply is not None
     before, _, _ = reply.partition("```answer")
@@ -262,7 +261,7 @@ def test_square_root_of_a_fraction_simplifies_before_the_chip() -> None:
 def test_perfect_square_finishes_with_the_same_value_as_the_chip() -> None:
     text = "3x^2 = 3"
     block = _block(text)
-    reply = maybe_direct_math_reply(block, text, response_style="balanced")
+    reply = maybe_direct_math_reply(block, text)
 
     assert reply is not None
     assert block.key_steps[-2].formula == r"x = \pm \sqrt{1}"
@@ -270,9 +269,9 @@ def test_perfect_square_finishes_with_the_same_value_as_the_chip() -> None:
     assert reply.index(r"x = \pm \sqrt{1}") < reply.index(r"x = \pm 1")
 
 
-def test_just_the_answer_keeps_the_chip_on_detailed() -> None:
+def test_just_the_answer_keeps_the_chip() -> None:
     text = "Just the answer: x^2 + 2 = 6"
-    reply = maybe_direct_math_reply(_block(text), text, response_style="detailed")
+    reply = maybe_direct_math_reply(_block(text), text)
 
     assert reply is not None
     assert "Given" not in reply
@@ -280,11 +279,12 @@ def test_just_the_answer_keeps_the_chip_on_detailed() -> None:
     assert r"\pm 2" in reply
 
 
-def test_balanced_factorable_quadratic_is_a_factor_trace() -> None:
+def test_factorable_quadratic_is_a_factor_trace() -> None:
     text = "solve x^2 - 5x + 6 = 0"
-    reply = maybe_direct_math_reply(_block(text), text, response_style="balanced")
+    reply = maybe_direct_math_reply(_block(text), text)
 
     assert reply is not None
+    assert reply.startswith("**Given**")
     assert "Factor the left side" in reply
     assert "Factors as" not in reply
     assert "x - 2" in reply and "x - 3" in reply
@@ -299,20 +299,9 @@ def test_symmetric_factor_trace_finishes_with_compact_chip_value() -> None:
     assert block.key_steps[-1].formula == block.canonical_answer == r"x = \pm 1"
 
 
-def test_short_style_keeps_verified_equation_working() -> None:
-    text = "solve x^2 - 5x + 6 = 0"
-    reply = maybe_direct_math_reply(_block(text), text, response_style="short")
-
-    assert reply is not None
-    assert "Factor the left side" in reply
-    assert "Factors as" not in reply
-    assert reply.startswith("**Given**")
-    assert "```answer" in reply
-
-
 def test_bare_how_uses_the_verified_trace_and_explains_each_transformation() -> None:
     block = _block("3x^2 + 3 = 5")
-    reply = maybe_direct_math_reply(block, "how?", response_style="short")
+    reply = maybe_direct_math_reply(block, "how?")
 
     assert reply is not None
     assert "**Given**" in reply
@@ -322,10 +311,10 @@ def test_bare_how_uses_the_verified_trace_and_explains_each_transformation() -> 
     assert block.canonical_answer in reply
 
 
-def test_detailed_irreducible_quadratic_uses_the_formula() -> None:
+def test_irreducible_quadratic_uses_the_formula() -> None:
     text = "solve x^2 - 2x - 1 = 0"
     block = _block(text)
-    reply = maybe_direct_math_reply(block, text, response_style="detailed")
+    reply = maybe_direct_math_reply(block, text)
 
     assert reply is not None
     assert "Quadratic formula" in reply
@@ -346,20 +335,13 @@ def test_complex_quadratic_final_step_uses_the_canonical_conjugate_pair() -> Non
 
 def test_joke_request_still_keeps_the_model() -> None:
     text = "solve 2x + 3 = 11 and tell me a joke"
-    assert maybe_direct_math_reply(_block(text), text, response_style="balanced") is None
-
-
-def test_default_style_is_balanced() -> None:
-    text = "solve x^2 - 5x + 6 = 0"
-    assert maybe_direct_math_reply(_block(text), text) == maybe_direct_math_reply(
-        _block(text), text, response_style="balanced"
-    )
+    assert maybe_direct_math_reply(_block(text), text) is None
 
 
 def test_linear_lesson_numbers_the_move_and_its_result() -> None:
     """Each move keeps the both-sides line and the simplified equation."""
     text = "3x - 3 = 0"
-    reply = maybe_direct_math_reply(_block(text), text, response_style="balanced")
+    reply = maybe_direct_math_reply(_block(text), text)
 
     assert reply is not None
     before_chip, _, _ = reply.partition("```answer")
@@ -378,9 +360,9 @@ def test_linear_lesson_numbers_the_move_and_its_result() -> None:
     assert "x = 1" in reply
 
 
-def test_detailed_linear_keeps_the_why_sentence() -> None:
-    text = "3x - 3 = 0"
-    reply = maybe_direct_math_reply(_block(text), text, response_style="detailed")
+def test_explain_keeps_the_why_sentence() -> None:
+    text = "explain 3x - 3 = 0"
+    reply = maybe_direct_math_reply(_block(text), text)
 
     assert reply is not None
     assert "Add 3 to both sides" in reply
@@ -437,11 +419,11 @@ def test_scanner_caption_solves_the_confirmed_line() -> None:
 
 def test_confirmed_scan_of_glued_power_uses_the_solver() -> None:
     from app.modules.math.ocr import extract_from_confirmed_reading
-    from app.modules.math.tools.prompt import _intent_from_image_extract
+    from app.modules.math.tools.image_intent import intent_from_image_extract
 
     extracted = extract_from_confirmed_reading("3x2+4=4")
     assert extracted is not None
-    intent = _intent_from_image_extract(extracted)
+    intent = intent_from_image_extract(extracted)
     assert intent is not None
     block = _build_verified_block(intent, Settings(math_tools_enabled=True))
     assert block is not None

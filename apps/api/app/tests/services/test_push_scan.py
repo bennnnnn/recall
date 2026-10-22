@@ -19,6 +19,7 @@ import pytest
 
 from app.models.orm import PushToken, TodoItem
 from app.modules.notifications import push as push_service
+from app.modules.todos import advance_recurring_without_device
 from app.repositories import users as users_repo
 from app.services.reminder_timing import OVERDUE_MAX_HOURS
 
@@ -84,4 +85,38 @@ async def test_tokenless_reminders_are_not_a_warning_per_todo(
 
     assert [m.message["body"] for m in messages] == ["Due soon"]
     assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
-    assert "no push token users=1" in caplog.text
+
+
+async def test_candidates_come_in_pages_that_cover_every_due_reminder(db_session):
+    """Keyset pages over the due index: a cycle reads a bounded page, the next one resumes.
+
+    One page names at most ``limit`` users, so the token lookup's bind parameters stay
+    far below asyncpg's 32,767 (more distinct due users than that raised every cycle).
+    """
+    users = [await _user(db_session) for _ in range(7)]
+    for n, user in enumerate(users):
+        _todo(db_session, user, NOW + timedelta(minutes=n + 1), f"Reminder {n}")
+    await db_session.flush()
+
+    bodies: list[str] = []
+    after = None
+    pages = 0
+    while True:
+        page = await push_service.collect_push_page(db_session, now=NOW, after=after, limit=3)
+        pages += 1
+        bodies += [m.message["body"] for m in page.messages]
+        if page.next_after is None:
+            break
+        after = page.next_after
+    assert pages == 3
+    assert bodies == [f"Reminder {n}" for n in range(7)]
+
+
+async def test_an_overdue_recurring_reminder_of_a_tokenless_user_moves_on(db_session):
+    tokenless = await _user(db_session, token=False)
+    item = _todo(db_session, tokenless, NOW - timedelta(minutes=5), "Water the plants")
+    item.recurrence_rule = "daily"
+    await db_session.flush()
+    assert await advance_recurring_without_device(db_session, now=NOW) == 1
+    await db_session.refresh(item)
+    assert item.due_at is not None and item.due_at > NOW

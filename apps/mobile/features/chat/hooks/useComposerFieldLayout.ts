@@ -6,6 +6,7 @@ import type {
 } from "react-native";
 
 import type { ComposerTextSize } from "@/features/chat/components/ComposerTextMeasure";
+import { useLatestRef } from "@/lib/latestRef";
 import {
   COMPOSER_CONTROL_SIZE,
   composerInputFrameForLines,
@@ -69,7 +70,9 @@ export function useComposerFieldLayout({
   const inlineWidthRef = useRef(inlineWidth);
   const measuredRef = useRef(measured);
   const textSize = useRef<ComposerTextSize>({ naturalWidth: 0, height: 0 });
-  const measuredContent = useRef<{ revision: number; height: number } | null>(null);
+  const [measuredContent, setMeasuredContent] = useState<{ revision: number; height: number } | null>(null);
+  // The effect below runs on the draft, not on each measurement: it reads the latest one.
+  const measuredContentRef = useLatestRef(measuredContent);
   // The glyph estimate walks every character: once per draft and width, shared below.
   const estimatedLines = useMemo(
     () => composerSoftWrapLineCount(input, inputContentWidth, fontScale),
@@ -96,12 +99,12 @@ export function useComposerFieldLayout({
     // drops that sample so the next draft does not inherit it.
     const revision = draftRevision ?? 0;
     if (!input) {
-      measuredContent.current = null;
+      setMeasuredContent(null);
       commitInputHeight(COMPOSER_CONTROL_SIZE);
       setComposerExpanded(false);
       return;
     }
-    const retained = retainedComposerContentHeight(measuredContent.current, revision, input);
+    const retained = retainedComposerContentHeight(measuredContentRef.current, revision, input);
     const frame = composerInputFrameHeight(
       input,
       retained,
@@ -110,7 +113,7 @@ export function useComposerFieldLayout({
       estimatedLines,
     );
     commitInputHeight(frame.height);
-  }, [commitInputHeight, draftRevision, estimatedLines, fontScale, input, inputContentWidth]);
+  }, [commitInputHeight, draftRevision, estimatedLines, fontScale, input, inputContentWidth, measuredContentRef]);
 
   const commitMeasured = (size: ComposerTextSize, fitWidth: number) => {
     const wrapsInline = size.naturalWidth > 0 ? fitWidth > 0 && size.naturalWidth > fitWidth : null;
@@ -151,7 +154,7 @@ export function useComposerFieldLayout({
   }, [inputFrameExtra, onInputFrameExtraChange]);
 
   const measuredNow = input
-    ? retainedComposerContentHeight(measuredContent.current, draftRevision ?? 0, input)
+    ? retainedComposerContentHeight(measuredContent, draftRevision ?? 0, input)
     : 0;
   const field = composerInputMetrics(fontScale);
   const frameNow =
@@ -185,10 +188,11 @@ export function useComposerFieldLayout({
     event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
   ) => {
     const measuredHeight = Math.ceil(event.nativeEvent.contentSize.height);
-    measuredContent.current = {
-      revision: draftRevision ?? 0,
-      height: measuredHeight,
-    };
+    const revision = draftRevision ?? 0;
+    // An unchanged height keeps the same object: no render for a keystroke on the same line.
+    setMeasuredContent((current) =>
+      current?.revision === revision && current.height === measuredHeight ? current : { revision, height: measuredHeight },
+    );
     const frame = composerInputFrameHeight(
       input,
       measuredHeight,

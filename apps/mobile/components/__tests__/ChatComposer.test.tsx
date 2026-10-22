@@ -5,7 +5,7 @@ import { ChatComposer } from "@/features/chat/components/ChatComposer";
 import { MATH_KEYBOARD_GAP_FADE_HEIGHT } from "@/features/chat/components/chatComposerStyles";
 import { KEY_HEIGHT_MIN, mathPadHeight, padKeyHeight } from "@/lib/math/keyboardPad";
 import { darkTheme, lightTheme } from "@/lib/theme";
-import { ComposerDraftProvider, useComposerDraftApi } from "@/contexts/ComposerDraftContext";
+import { ComposerDraftProvider, useComposerDraftApi } from "@/features/chat/context/ComposerDraftContext";
 
 import { DraftHarness } from "./DraftHarness";
 
@@ -16,31 +16,6 @@ jest.mock("expo-linear-gradient", () => {
 
 jest.mock("@/contexts/AuthContext", () => ({
   useAuthToken: () => "t",
-}));
-
-jest.mock("expo-clipboard", () => ({
-  setStringAsync: jest.fn(),
-  getStringAsync: jest.fn(async () => ""),
-  hasImageAsync: jest.fn(async () => false),
-  getImageAsync: jest.fn(),
-}));
-
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
-
-jest.mock("expo-haptics", () => ({
-  selectionAsync: jest.fn(async () => undefined),
-  impactAsync: jest.fn(async () => undefined),
-  notificationAsync: jest.fn(async () => undefined),
-  ImpactFeedbackStyle: { Light: "light" },
-  NotificationFeedbackType: { Success: "success", Warning: "warning" },
 }));
 
 jest.mock("@/features/speech/components/VoiceComposerWaveform", () => ({

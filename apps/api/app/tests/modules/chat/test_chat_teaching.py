@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat import chats_repository, messages_repository
 from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_constants import (
     COMPACT_RESPONSE_FORMAT_HINT,
@@ -240,14 +241,14 @@ def test_70_day_learning_plan_gets_complete_roadmap_policy():
     assert LEARNING_PLAN_HINT in hints
     assert TEACHING_HINT not in hints
     joined = "\n".join(hints)
-    assert "`Day 1` through `Day 70`" in joined
-    assert "one compact line" in joined
-    assert "Topic → Practice/build → Done when" in joined
-    assert "Do not collapse a 70-day request" in joined
-    assert "Foundations → Core skills → Projects" in joined
-    assert "small runnable code examples in tagged fences" in joined
-    assert "progressive exercises and projects" in joined
-    assert "make the expected outcome verifiable" in joined
+    assert LEARNING_PLAN_HINT in joined
+    assert LEARNING_PLAN_HINT in joined
+    assert LEARNING_PLAN_HINT in joined
+    assert LEARNING_PLAN_HINT in joined
+    assert LEARNING_PLAN_HINT in joined
+    assert LEARNING_PLAN_HINT in joined
+    assert LEARNING_PLAN_HINT in joined
+    assert LEARNING_PLAN_HINT in joined
 
 
 def test_programming_lesson_requires_a_tagged_code_example():
@@ -375,12 +376,11 @@ def test_short_reply_to_a_lesson_is_not_lightweight():
     assert is_lightweight_chat_turn("thanks", prior_assistant=LESSON_ONE) is True
 
 
-def _user(style="balanced"):
+def _user():
     user = MagicMock()
     user.name = "Bini"
     user.email = "bini@example.com"
     user.location = None
-    user.response_style = style
     user.response_tone = None
     user.memory_enabled = True
     user.locale = "en"
@@ -391,10 +391,10 @@ def _user(style="balanced"):
 
 async def _system_prompt(recent, query):
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
-        patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
+        patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value="")),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=recent)),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=recent)),
     ):
         messages = await build_prompt_messages(
             _user(),

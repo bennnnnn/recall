@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { registerNewChat, setActiveChatIdGlobal } from "@/lib/drawer";
+import { registerNewChat, setActiveChatIdGlobal } from "@/features/chat/drawer/drawer";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -16,15 +16,15 @@ import { LazyLiveTalkOverlay } from "@/features/speech/components/LazyLiveTalkOv
 import { makeChatScreenStyles } from "@/features/chat/components/chatScreenStyles";
 import { COMPOSER_HEIGHT } from "@/features/chat/components/ChatComposer";
 import { composerAttachmentExtra } from "@/features/attachments/components/ComposerAttachmentPreview";
-import { DrawerShell } from "@/components/DrawerShell";
-import { ComposerDraftProvider } from "@/contexts/ComposerDraftContext";
+import { DrawerShell } from "@/features/chat/drawer/DrawerShell";
+import { ComposerDraftProvider, useComposerDraftActivity } from "@/features/chat/context/ComposerDraftContext";
 import { EmailDraftPersistProvider } from "@/features/drafts/context/emailDraftPersist";
 import { useAuth } from "@/contexts/AuthContext";
 import type { UpgradeSource } from "@/components/UpgradeSheet";
-import { useHomeRefreshOnChatFocus } from "@/features/home/hooks/useHomeRefreshOnChatFocus";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { useChatComposerState } from "@/features/chat/hooks/useChatComposerState";
+import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
 import { useComposerDictation } from "@/features/chat/hooks/useComposerDictation";
 import { useChatDraftWarmup } from "@/features/chat/hooks/useChatDraftWarmup";
 import { useChatLayoutMetrics } from "@/features/chat/hooks/useChatLayoutMetrics";
@@ -38,10 +38,11 @@ import { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";
 import { useChatErrorHandlers, useChatErrorRecovery, useChatStreamLifecycle } from "@/features/chat/hooks/useChatScreenError";
+import { useQuotaNudge } from "@/features/chat/hooks/useQuotaNudge";
 import { useChatScreenBodyProps } from "@/features/chat/hooks/useChatScreenBodyProps";
 import { useTodosOptional } from "@/features/todos/context/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/features/chat/model/composerLogic";
-import { useImageGeneration } from "@/features/images/hooks/useImageGeneration";
+import { useChatImageGeneration } from "@/features/chat/hooks/useChatImageGeneration";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 function ChatScreen() {
@@ -56,12 +57,13 @@ function ChatScreen() {
     useLocalSearchParams<{ chatId?: string; highlightMessage?: string }>();
 
   const [chatId, setChatId] = useState<string | null>(null);
-  const draft = useDraftChat({ token, chatId });
+  const composerActive = useComposerDraftActivity();
+  const draft = useDraftChat({ chatId, intent: composerActive });
   const { isPaid, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
-  useHomeRefreshOnChatFocus(routeChatId, chatId);
   const {
     chatError, handleChatError, handleStreamBusy, dismissChatError, dismissBusyNotice, handleRejectedSendChange,
   } = useChatErrorHandlers(isPaid);
+  const quotaNudge = useQuotaNudge({ isPaid });
   const activeChatId = draft.activeChatId;
 
   const onFirstReplyRef = useRef<(id?: string | null) => Promise<void>>(async () => {});
@@ -94,6 +96,7 @@ function ChatScreen() {
     onFirstReply: () => onFirstReplyRef.current(),
     onError: handleChatError,
     onTodosSync: handleTodosSync,
+    onUsage: quotaNudge.applyTurnUsage,
   });
 
   const llmBusy = streaming || finalizing;
@@ -135,22 +138,9 @@ function ChatScreen() {
     t,
   });
 
-  onFirstReplyRef.current = routeLoader.handleFirstReply;
-
   const {
-    chatTitle,
-    setChatTitle,
-    titleGenerating,
-    pinned,
-    setPinned,
-    archived,
-    setArchived,
-    chatLoading,
-    hasMoreOlder,
-    loadingOlder,
-    loadOlderMessages,
-    highlightedMessageId,
-    startNewChat,
+    chatTitle, setChatTitle, titleGenerating, pinned, setPinned, archived, setArchived, chatLoading,
+    hasMoreOlder, loadingOlder, loadOlderMessages, newerPage, jumpToLatest, highlightedMessageId, startNewChat,
   } = routeLoader;
   useScrollHoldForHighlight(scroll.holdForHighlight, highlightedMessageId !== null && !llmBusy);
 
@@ -167,8 +157,6 @@ function ChatScreen() {
     setMessages,
     t,
   });
-
-  showActionBannerRef.current = chatActions.showActionBanner;
 
   const {
     menuVisible,
@@ -208,15 +196,11 @@ function ChatScreen() {
     showActionBannerRef.current(t("chat.offline_body"), "cloud-off");
   }, [t]);
 
-  const imageGen = useImageGeneration({
+  const ensureChatId = useEnsureChatId({ chatId, selectedModel, draft, setChatId, setChatTitle, router });
+  const imageGen = useChatImageGeneration({
     token,
-    chatId,
-    setChatId,
-    setChatTitle,
+    ensureChatId,
     setMessages,
-    draft,
-    router,
-    selectedModel,
     streaming: llmBusy,
     isPaid,
     isOffline,
@@ -226,26 +210,13 @@ function ChatScreen() {
     newMessageCountRef: scroll.newMessageCountRef,
     t,
   });
-  imageGeneratingRef.current = imageGen.generating;
-  stopTurnRef.current = () => {
-    imageGen.cancel();
-    stopGeneration();
-    dismissChatError();
-  };
   const streamActive = llmBusy || imageGen.generating;
 
   useEffect(() => {
     if (!streamActive) handleRejectedSendChange(rejectedSend?.reason ?? null);
   }, [streamActive, rejectedSend, handleRejectedSendChange]);
 
-  const quotaNudge = useChatStreamLifecycle({
-    streamActive,
-    replySaving: finalizing,
-    dismissChatError,
-    dismissBusyNotice,
-    token,
-    isPaid,
-  });
+  useChatStreamLifecycle({ streamActive, replySaving: finalizing, dismissChatError, dismissBusyNotice });
 
   const send = useChatSend({
     token,
@@ -270,6 +241,8 @@ function ChatScreen() {
     onStreamBusy: handleStreamBusy,
     onOfflineBlocked: notifyOfflineBlocked,
     isOffline,
+    // A send from a window around an old search hit goes to the newest page first.
+    beforeSend: newerPage ? jumpToLatest : undefined,
     imageGenerating: imageGen.generating,
     onGenerateImage: (request) => void imageGen.submitPrompt(request),
   });
@@ -305,15 +278,13 @@ function ChatScreen() {
     cancelVoiceInput,
   } = useComposerDictation({ token, user, routeChatId, setInput, openUpgradeRef, t });
 
+  // Live talk runs without a saved chat when none can be made, as it always has.
+  const ensureLiveTalkChatId = useCallback(() => ensureChatId().catch(() => null), [ensureChatId]);
   const liveTalk = useLiveTalk({
     token,
     chatId,
-    setChatId,
-    setChatTitle,
+    ensureChatId: ensureLiveTalkChatId,
     setMessages,
-    draft,
-    router,
-    selectedModel,
     isOffline,
     onUpgrade: () => openUpgradeRef.current?.("live_talk"),
     onScrollToLatest: scroll.scrollToLatest,
@@ -351,16 +322,15 @@ function ChatScreen() {
     listBottomPadRef,
     showScrollToBottom,
     scrollAwayCount,
-    scrollToLatest,
     handleScroll,
     handleScrollEnd,
     listScroll,
   } = scroll;
+  const scrollToLatest = newerPage ? () => void jumpToLatest().then(scroll.scrollToLatest) : scroll.scrollToLatest;
 
   const { draftChatId } = draft;
 
   useChatDraftWarmup({
-    token,
     chatId,
     streaming: streamActive,
     draftChatId,
@@ -450,6 +420,7 @@ function ChatScreen() {
       messages,
       hasMoreOlder,
       loadingOlder,
+      newerPage,
       chatLoading,
       renderItem,
       loadOlderMessages,
@@ -509,7 +480,14 @@ function ChatScreen() {
         }
       : null,
   });
-  openUpgradeRef.current = chatScreenBody.openUpgradeSheet;
+  // Bound late for the hooks above, which need them before they exist; set once the render commits.
+  useLayoutEffect(() => {
+    onFirstReplyRef.current = routeLoader.handleFirstReply;
+    showActionBannerRef.current = chatActions.showActionBanner;
+    imageGeneratingRef.current = imageGen.generating;
+    stopTurnRef.current = () => { imageGen.cancel(); stopGeneration(); dismissChatError(); };
+    openUpgradeRef.current = chatScreenBody.openUpgradeSheet;
+  });
   const chatScreenBodyProps = chatScreenBody.bodyProps;
 
   if (!token) return <Redirect href="/login" />;

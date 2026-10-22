@@ -10,8 +10,9 @@ from dataclasses import replace
 
 from app.modules.physics.constants import SPEED_OF_LIGHT
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
 from app.modules.physics.solvers.optics_scenes import optics_scene
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 _REFLECTION_OPS = frozenset(
@@ -64,7 +65,7 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
     if op in _REFLECTION_OPS:
         result = _reflection(intent)
     else:
-        p = _params_in_si(intent)
+        p = params_in_si(intent)
         solver = _OPERATIONS.get(op)
         if solver is None:
             raise SolveServiceError(f"unsupported optics op: {op}")

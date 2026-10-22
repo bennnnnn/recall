@@ -13,11 +13,8 @@ from app.modules.physics.block import _solve_requested_quantities
 from app.modules.physics.catalog import CATALOG, select_formula
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import PHYSICS_SOLVERS, solve_physics
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    render_chip,
-)
+from app.modules.physics.solvers.chip import render_chip
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
 from app.modules.physics.working import attach_recorded_working, result_symbol_for
 from app.services.solving import SolveServiceError
 from app.tests.modules.physics.support import (

@@ -4,15 +4,9 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    _DECIMAL,
-    _LENGTH_UNIT_PATTERN,
-    _MASS_UNITS,
-    _find_value_with_specific_unit,
-    _strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
 from app.modules.physics.extractors.oscillations import _ANGULAR_FREQ_RE
 from app.modules.physics.extractors.rotational_dynamics import (
@@ -20,6 +14,8 @@ from app.modules.physics.extractors.rotational_dynamics import (
     extract_rotational_dynamics,
 )
 from app.modules.physics.extractors.rotational_readings import _INERTIA_PATTERN
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.extractors.unit_patterns import DECIMAL, LENGTH_UNIT_PATTERN, MASS_UNITS
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation, word_index
 
@@ -60,9 +56,9 @@ _INERTIA_SHAPES: dict[str, tuple[float, str]] = {
 
 def _extract_rotation_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _ROTATION_CUES, _ROTATION_CUE_RES):
+    if not has_cue(lower, _ROTATION_CUES, _ROTATION_CUE_RES):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
     dynamic = extract_rotational_dynamics(cleaned)
     if dynamic is not None:
@@ -70,11 +66,11 @@ def _extract_rotation_intent(cleaned: str) -> PhysicsIntent | None:
     if claims_rotational_dynamics(cleaned):
         return None
 
-    inertia = _find_value_with_specific_unit(cleaned, _INERTIA_PATTERN)
+    inertia = find_value_with_specific_unit(cleaned, _INERTIA_PATTERN)
     omega = _ANGULAR_FREQ_RE.search(cleaned)
-    mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "of"))
-    radius = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
+    mass = find_value_with_specific_unit(cleaned, MASS_UNITS, ("mass", "of"))
+    radius = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
     )
 
     if "moment of inertia" in lower or "rotational inertia" in lower:
@@ -91,8 +87,8 @@ def _extract_rotation_intent(cleaned: str) -> PhysicsIntent | None:
             None,
         )
         if word_index(lower, "rod") != -1:
-            length = _find_value_with_specific_unit(
-                cleaned, _LENGTH_UNIT_PATTERN, ("length", "long"), require_keyword=True
+            length = find_value_with_specific_unit(
+                cleaned, LENGTH_UNIT_PATTERN, ("length", "long"), require_keyword=True
             )
             about_end = word_index(lower, "end") != -1
             about_center = word_index(lower, "center") != -1 or word_index(lower, "centre") != -1
@@ -125,7 +121,7 @@ def _extract_rotation_intent(cleaned: str) -> PhysicsIntent | None:
         )
         return PhysicsIntent(
             kind="rotation",
-            physics_op=op,  # type: ignore[arg-type]
+            physics_op=op,
             physics_params={"inertia": inertia[0], "omega": float(omega.group(1))},
             physics_units={"inertia": "kg*m^2", "omega": "rad/s"},
             operation="solve",
@@ -134,11 +130,11 @@ def _extract_rotation_intent(cleaned: str) -> PhysicsIntent | None:
     # omega = theta / t
     # "rad" in "rad/s" is not an angle, and neither is "radians per second".
     turned = re.search(
-        rf"({_DECIMAL})\s*(?:radians?|rad)(?![A-Za-z/])(?!\s*per\s+second)",
+        rf"({DECIMAL})\s*(?:radians?|rad)(?![A-Za-z/])(?!\s*per\s+second)",
         cleaned,
         re.IGNORECASE,
     )
-    elapsed = _find_value_with_specific_unit(cleaned, r"seconds?|secs?|sec|s|minutes?|mins?|min")
+    elapsed = find_value_with_specific_unit(cleaned, r"seconds?|secs?|sec|s|minutes?|mins?|min")
     if turned is not None and elapsed is not None:
         return PhysicsIntent(
             kind="rotation",

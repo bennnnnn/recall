@@ -35,7 +35,7 @@ def test_user_cache_forgets_users_nobody_reads_again(monkeypatch):
     """Every user who ever signed in used to stay cached for the life of the
     process: an entry left only when that user was read again after the TTL."""
     now = [time.monotonic()]
-    monkeypatch.setattr(time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(user_cache._user_cache, "clock", lambda: now[0])
     for _ in range(50):
         user_cache.remember_user(_user(), "g0")
     now[0] += user_cache.USER_CACHE_TTL_SECONDS + 1
@@ -100,7 +100,7 @@ def _failing_sets(redis, failures: int) -> list[int]:
 
 
 async def test_publish_change_rides_out_a_redis_blip(user_generation_redis, monkeypatch):
-    monkeypatch.setattr(user_cache, "_PUBLISH_BACKOFF_SECONDS", 0)
+    monkeypatch.setattr(user_cache, "_PUBLISH_PAUSE_SECONDS", 0)
     user = _user()
     attempts = _failing_sets(user_generation_redis, failures=2)
 
@@ -113,7 +113,7 @@ async def test_publish_change_rides_out_a_redis_blip(user_generation_redis, monk
 async def test_a_publish_redis_never_takes_fails_the_request(user_generation_redis, monkeypatch):
     """The write is already saved: a 503 makes its retry publish, instead of every other
     machine serving the old row (consent, plan, memory off) for the cache TTL."""
-    monkeypatch.setattr(user_cache, "_PUBLISH_BACKOFF_SECONDS", 0)
+    monkeypatch.setattr(user_cache, "_PUBLISH_PAUSE_SECONDS", 0)
     user = _user()
     user_cache.remember_user(user, "g0")
     attempts = _failing_sets(user_generation_redis, failures=10)

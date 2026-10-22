@@ -1,7 +1,6 @@
 import {
   shouldForceForegroundChatRecovery,
   shouldRefetchChatOnForeground,
-  shouldSilentRefetchChatOnFocus,
   shouldSkipSilentChatRefetch,
 } from "@/features/chat/model/foregroundRefetch";
 
@@ -37,10 +36,6 @@ describe("shouldRefetchChatOnForeground", () => {
 
   it("skips while image generation is in flight", () => {
     expect(shouldRefetchChatOnForeground({ ...base, imageGenerating: true })).toBe(false);
-  });
-
-  it("does not refetch when returning from Lists / Learning / Reminders", () => {
-    expect(shouldSilentRefetchChatOnFocus()).toBe(false);
   });
 
   it("skips a fresh silent refetch and bypasses TTL after a mid-stream background", () => {

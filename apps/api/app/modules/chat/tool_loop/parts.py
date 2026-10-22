@@ -11,7 +11,6 @@ every turn) is the whole message, exactly as before.
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Sequence
 
 from app.core.config import Settings
@@ -47,28 +46,27 @@ def live_parts(parts: Sequence[str]) -> list[str]:
     return [part for part in parts if needs_web_search(part)]
 
 
-async def classified_live_parts(
+def searchable_parts(
     parts: Sequence[str],
     settings: Settings,
     *,
     prior_user_messages: list[str] | None,
     prior_assistant: str | None,
 ) -> list[str]:
-    """The parts the search gate (classifier included) says need live results.
+    """The parts the search gate says need live results, with search on.
 
     One part keeps the chat's earlier turns, as before. Parts of one message are
-    asked side by side and without them: each is a request of its own, and a short
-    "tell me a joke" after a weather question is not that question's follow-up.
+    asked without them: each is a request of its own, and a short "tell me a joke"
+    after a weather question is not that question's follow-up.
     """
     from app.modules.web_search.detection import should_web_search
 
     if len(parts) == 1:
-        found = await should_web_search(
+        found = should_web_search(
             parts[0],
             settings,
             prior_user_messages=prior_user_messages,
             prior_assistant=prior_assistant,
         )
         return list(parts) if found else []
-    verdicts = await asyncio.gather(*(should_web_search(part, settings) for part in parts))
-    return [part for part, needed in zip(parts, verdicts, strict=True) if needed]
+    return [part for part in parts if should_web_search(part, settings)]

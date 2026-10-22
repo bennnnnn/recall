@@ -2,7 +2,7 @@ import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { useThumbnailSize } from "@/components/ChatMessageImage";
+import { useThumbnailSize } from "@/features/attachments/components/ChatMessageImage";
 import {
   estimateImageGenPercent,
   imageGenStageIndex,

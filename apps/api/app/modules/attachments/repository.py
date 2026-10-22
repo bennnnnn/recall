@@ -5,12 +5,14 @@ from uuid import UUID
 
 from sqlalchemy import String, and_, func, literal, or_, select
 from sqlalchemy import cast as sql_cast
+from sqlalchemy import delete as sa_delete
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.models.orm import Attachment, Chat, Message, User
+from app.repositories.keyset import after, decode_cursor, encode_cursor, page_of
 
 # Library is the user's archive. Reference-photo lookup copies (`search`)
 # stay on the chat and are never listed.
@@ -86,14 +88,51 @@ async def create_pending(
     return row
 
 
+async def insert_verified(
+    session: AsyncSession,
+    *,
+    attachment_id: UUID,
+    user_id: UUID,
+    storage_key: str,
+    content_type: str,
+    size_bytes: int,
+    source: str,
+    original_filename: str | None,
+    library_visible: bool,
+    message_id: UUID | None,
+) -> None:
+    """A row for bytes the server stored and checked itself, on ``message_id`` if given.
+
+    No commit: the caller's turn saves it with its messages.
+    """
+    now = datetime.now(UTC)
+    session.add(
+        Attachment(
+            id=attachment_id,
+            user_id=user_id,
+            storage_key=storage_key,
+            content_type=content_type,
+            size_bytes=size_bytes,
+            source=source,
+            original_filename=original_filename,
+            library_visible=library_visible,
+            verified_at=now,
+            message_id=message_id,
+            linked_at=now if message_id is not None else None,
+        )
+    )
+    await session.flush()
+
+
 async def insert_verified_clone(
     session: AsyncSession,
     *,
     src: Attachment,
     new_id: UUID,
     storage_key: str,
+    message_id: UUID | None = None,
 ) -> Attachment:
-    """Unlinked copy of a Library item for a new chat send. Hidden from gallery."""
+    """Copy of an item for a new chat send, on ``message_id`` if given. Hidden from gallery."""
     row = Attachment(
         id=new_id,
         user_id=src.user_id,
@@ -104,7 +143,8 @@ async def insert_verified_clone(
         original_filename=src.original_filename,
         verified_at=src.verified_at or datetime.now(UTC),
         library_visible=False,
-        message_id=None,
+        message_id=message_id,
+        linked_at=datetime.now(UTC) if message_id is not None else None,
     )
     session.add(row)
     await session.flush()
@@ -220,11 +260,11 @@ async def list_for_gallery(
     source: str | None = None,
     q: str | None = None,
     limit: int = 30,
-    offset: int = 0,
-) -> tuple[list[Attachment], bool]:
-    """Paginated attachments for the gallery.
+    cursor: str | None = None,
+) -> tuple[list[Attachment], str | None]:
+    """One page of the gallery, newest first, and the cursor for the next (None: the last).
 
-    Returns ``(rows, has_more)``. ``category`` narrows by content family:
+    ``category`` narrows by content family:
 
     * ``"images"`` — ``content_type LIKE 'image/%'``
     * ``"files"``  — ``content_type NOT LIKE 'image/%'``
@@ -276,13 +316,13 @@ async def list_for_gallery(
                 _contains(prev_user_content, q),
             )
         )
+    if cursor is not None:
+        at, ids = decode_cursor(cursor, ids=1)
+        stmt = stmt.where(after((Attachment.created_at, Attachment.id), at, ids))
     stmt = stmt.order_by(Attachment.created_at.desc(), Attachment.id.desc())
     page_size = max(limit, 1)
-    stmt = stmt.offset(max(offset, 0)).limit(page_size + 1)
-    result = await session.execute(stmt)
-    rows = list(result.scalars().all())
-    has_more = len(rows) > page_size
-    return rows[:page_size], has_more
+    rows = list((await session.execute(stmt.limit(page_size + 1))).scalars().all())
+    return page_of(rows, page_size, lambda row: encode_cursor(row.created_at, row.id))
 
 
 async def chat_meta_for_message_ids(
@@ -374,11 +414,20 @@ async def set_index_coverage(
 
 async def mark_verified(session: AsyncSession, attachment_id: UUID, *, commit: bool = True) -> None:
     """Record that stored bytes matched the declared type/size."""
+    await mark_verified_many(session, [attachment_id], commit=commit)
+
+
+async def mark_verified_many(
+    session: AsyncSession, attachment_ids: list[UUID], *, commit: bool = True
+) -> None:
+    """Record, in one statement, that these uploads' bytes matched their type and size."""
     from sqlalchemy import update as sql_update
 
+    if not attachment_ids:
+        return
     await session.execute(
         sql_update(Attachment)
-        .where(Attachment.id == attachment_id)
+        .where(Attachment.id.in_(attachment_ids))
         .values(verified_at=datetime.now(UTC))
     )
     if commit:
@@ -438,3 +487,8 @@ async def delete_unlinked_returning(
     result = await session.execute(statement.returning(Attachment.storage_key))
     await session.commit()
     return [row[0] for row in result.all()]
+
+
+async def delete_all_for_user(session: AsyncSession, user_id: UUID) -> None:
+    """Every attachment row of the user, bytes or not; no commit."""
+    await session.execute(sa_delete(Attachment).where(Attachment.user_id == user_id))

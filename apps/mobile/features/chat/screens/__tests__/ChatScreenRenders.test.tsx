@@ -1,7 +1,7 @@
 import { act, render } from "@testing-library/react-native";
 
 import HomeScreen from "@/features/chat/screens/ChatScreen";
-import { closeDrawer, openDrawer } from "@/lib/drawer";
+import { closeDrawer, openDrawer } from "@/features/chat/drawer/drawer";
 
 /**
  * The chat screen while the keyboard and the drawer move: how often it
@@ -163,7 +163,7 @@ const mockErrorHandlers = {
   dismissChatError: mockNoop,
   handleRejectedSendChange: mockNoop,
 };
-const mockQuotaNudge = { show: false, usedPct: 0, dismiss: mockNoop };
+const mockQuotaNudge = { show: false, usedPct: 0, dismiss: mockNoop, applyTurnUsage: mockNoop };
 const mockImageGen = { generating: false, cancel: mockNoop, submitPrompt: mockAsyncNoop, retry: mockNoop };
 const mockDictation = {
   voiceInputAvailable: false,
@@ -180,7 +180,6 @@ const mockMessageList = { headerTitleLabel: null, renderItem: () => null };
 const mockRegenerate = { regenerate: mockAsyncNoop, regenerating: false };
 const mockAuth = { token: "token", user: null, updateUser: mockAsyncNoop };
 const mockRouter = { push: mockNoop, replace: mockNoop, setParams: mockNoop };
-const mockT = (key: string) => key;
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
 jest.mock("expo-router", () => ({
@@ -188,9 +187,8 @@ jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({}),
   useRouter: () => mockRouter,
 }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => mockAuth }));
-jest.mock("@/components/ConversationList", () => ({ ConversationList: () => null }));
+jest.mock("@/features/chat/drawer/ConversationList", () => ({ ConversationList: () => null }));
 jest.mock("@/features/chat/components/ChatScreenBody", () => ({
   ChatScreenBody: (props: unknown) => {
     mockBodyProps(props);
@@ -204,7 +202,6 @@ jest.mock("@/features/attachments/components/ComposerAttachmentPreview", () => (
   composerAttachmentExtra: () => 0,
 }));
 jest.mock("@/features/speech/components/LiveTalkOverlay", () => ({ LiveTalkOverlay: () => null }));
-jest.mock("@/features/home/hooks/useHomeRefreshOnChatFocus", () => ({ useHomeRefreshOnChatFocus: () => {} }));
 jest.mock("@/features/chat/hooks/useChat", () => ({
   useChat: () => {
     mockChatRenders();
@@ -226,10 +223,11 @@ jest.mock("@/contexts/NetworkContext", () => ({ useNetwork: () => ({ isOffline: 
 jest.mock("@/features/chat/hooks/useChatScreenError", () => ({
   useChatErrorHandlers: () => mockErrorHandlers,
   useChatErrorRecovery: () => mockNoop,
-  useChatStreamLifecycle: () => mockQuotaNudge,
+  useChatStreamLifecycle: () => undefined,
 }));
+jest.mock("@/features/chat/hooks/useQuotaNudge", () => ({ useQuotaNudge: () => mockQuotaNudge }));
 jest.mock("@/features/todos/context/TodosContext", () => ({ useTodosOptional: () => null }));
-jest.mock("@/features/images/hooks/useImageGeneration", () => ({ useImageGeneration: () => mockImageGen }));
+jest.mock("@/features/chat/hooks/useChatImageGeneration", () => ({ useChatImageGeneration: () => mockImageGen }));
 
 const { mockEmitKeyboard } = jest.requireMock("react-native-reanimated") as {
   mockEmitKeyboard: (frame: KeyboardFrame) => void;

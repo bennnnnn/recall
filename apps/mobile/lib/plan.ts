@@ -14,7 +14,7 @@ export type PlanFeature =
   | "speech_tts"
   | "live_talk";
 
-export type PlanAllowance =
+type PlanAllowance =
   | "daily_tokens"
   | "daily_image_uploads"
   | "daily_web_searches"

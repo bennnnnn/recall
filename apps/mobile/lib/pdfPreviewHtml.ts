@@ -3,7 +3,7 @@ import { injectPreviewCsp, PDF_PREVIEW_CSP, PREVIEW_VIEWPORT, inlineScript } fro
 import type { Theme } from "@/lib/theme";
 
 /** pdf.js and its worker, which the page inlines. */
-export type PdfLibrary = "pdf" | "pdfWorker";
+type PdfLibrary = "pdf" | "pdfWorker";
 export type PdfSources = Readonly<Record<PdfLibrary, string>>;
 
 /** What one preview shows; the page reads it as `window.RECALL_PDF`. */

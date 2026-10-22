@@ -86,7 +86,7 @@ async def test_a_committed_update_redis_cannot_publish_is_saved_and_fails_the_re
     db_session, user_generation_redis, monkeypatch
 ):
     """A consent withdrawal during a Redis outage: 503, and the change is in the row."""
-    monkeypatch.setattr(user_cache, "_PUBLISH_BACKOFF_SECONDS", 0)
+    monkeypatch.setattr(user_cache, "_PUBLISH_PAUSE_SECONDS", 0)
     user = await _user(db_session)
 
     async def down(*_args, **_kwargs):

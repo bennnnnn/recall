@@ -1,5 +1,6 @@
 // Types only: the reporter loads lazily once the turn has ended.
 import type { ChatSendReadyBucket, ChatTurnOutcomeProperties } from "@/features/chat/model/latencyReporter";
+import { sampleChatEvent } from "@/features/chat/model/chatEventSample";
 
 /**
  * How each chat turn ended, as the metadata-only `chat_turn_outcome` event:
@@ -37,18 +38,15 @@ type Completion = ChatTurnOutcomeProperties["completion"];
 // One turn streams at a time; `start` opens it and its first ending reports it.
 let open = false;
 let tool = "none";
+let sampled = false;
 let lastTokenAt: number | null = null;
 let sendReadyMs: number | null = null;
-
-function isSamplingEnabled(): boolean {
-  // Production only, like chat_ttft; plain Jest/Node has no __DEV__.
-  return typeof __DEV__ === "undefined" || !__DEV__;
-}
 
 /** The server took a turn (`start`). */
 export function beginTurnOutcome(): void {
   open = true;
   tool = "none";
+  sampled = sampleChatEvent();
   lastTokenAt = null;
   sendReadyMs = null;
 }
@@ -99,7 +97,7 @@ export function reportTurnOutcome(completion: Completion, errorCode?: string): v
   if (!open) return;
   open = false;
   const properties = turnOutcomeProperties(completion, errorCode);
-  if (!isSamplingEnabled()) return;
+  if (!sampled) return;
   void import("@/features/chat/model/latencyReporter")
     .then(({ reportChatTurnOutcome }) => reportChatTurnOutcome(properties))
     .catch(() => {

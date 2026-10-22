@@ -17,7 +17,7 @@ jest.mock("@/features/chat/components/ChatHeader", () => ({
   },
 }));
 
-jest.mock("@/lib/drawer", () => ({
+jest.mock("@/features/chat/drawer/drawer", () => ({
   openDrawer: jest.fn(),
 }));
 
@@ -54,6 +54,7 @@ const toggleVoiceInput = jest.fn(async () => undefined);
 const handleHeaderHeightChange = jest.fn();
 const styles = {} as never;
 const listRef = { current: null };
+const menuAnchorRef = { current: null };
 const listBottomPadRef = { current: 0 };
 const keyboardLift = { value: 0 } as never;
 
@@ -88,12 +89,14 @@ function useHarness(streaming: boolean, messages: Message[], replySaving = false
       startNewChat,
       setMenuVisible,
       menuOverlayOpen: false,
+      menuAnchorRef,
     },
     list: {
       listRef,
       messages,
       hasMoreOlder: false,
       loadingOlder: false,
+      newerPage: null,
       chatLoading: false,
       renderItem,
       loadOlderMessages,
@@ -151,7 +154,7 @@ describe("useChatScreenBodyProps", () => {
   it("keeps unaffected groups and FlashList callbacks stable while streaming changes", async () => {
     const firstMessages = [message];
     const { result, rerender } = await renderHook(
-      ({ streaming, messages }) => useHarness(streaming, messages),
+      ({ streaming, messages }: { streaming: boolean; messages: Message[] }) => useHarness(streaming, messages),
       { initialProps: { streaming: false, messages: firstMessages } },
     );
     const initial = result.current.bodyProps;
@@ -184,7 +187,7 @@ describe("useChatScreenBodyProps", () => {
 
   it("tells the composer when the reply is only saving, so Send is offered then", async () => {
     const { result, rerender } = await renderHook(
-      ({ replySaving }) => useHarness(true, [message], replySaving),
+      ({ replySaving }: { replySaving: boolean }) => useHarness(true, [message], replySaving),
       { initialProps: { replySaving: false } },
     );
     expect(result.current.bodyProps.composer.replySaving).toBe(false);
@@ -201,7 +204,7 @@ describe("useChatScreenBodyProps", () => {
   it("updates only the list group when the message collection changes", async () => {
     const firstMessages = [message];
     const { result, rerender } = await renderHook(
-      ({ messages }) => useHarness(false, messages),
+      ({ messages }: { messages: Message[] }) => useHarness(false, messages),
       { initialProps: { messages: firstMessages } },
     );
     const initial = result.current.bodyProps;

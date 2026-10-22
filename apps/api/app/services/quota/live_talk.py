@@ -19,6 +19,7 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
 from app.core.config import Settings
+from app.core.redis_counters import incr_with_ttl
 from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.modules.billing.entitlements import allowance
@@ -103,9 +104,7 @@ async def reserve_live_talk_seconds(
         grant = min(max_session_seconds, allowance_seconds - used)
         if grant < floor:
             return 0
-        total = await redis.incrby(key, grant)
-        if total == grant:
-            await redis.expire(key, MONTHLY_TTL)
+        total = await incr_with_ttl(redis, key, grant, MONTHLY_TTL)
         overshoot = total - allowance_seconds
         if overshoot > 0:
             if grant - overshoot < floor:

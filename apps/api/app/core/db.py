@@ -36,6 +36,9 @@ engine = create_async_engine(
     # The connection returned last goes out first: busy ones stay warm and spare
     # ones age into the idle ping or the recycle (core/pool_liveness.py).
     pool_use_lifo=True,
+    # A failed statement's error otherwise quotes its parameters: a message's or a
+    # memory's text in the log line and the Sentry event.
+    hide_parameters=True,
 )
 # Instead of pool_pre_ping's three round trips on every checkout.
 pool_liveness.install(engine.sync_engine, idle_ping_seconds=settings.db_idle_ping_seconds)

@@ -1,4 +1,4 @@
-import { parseApiErrorDetail, resolveChatError } from "@/features/chat/model/errorMessage";
+import { resolveChatError } from "@/features/chat/model/errorMessage";
 
 describe("chatErrorMessage", () => {
   const t = (key: string) => key;
@@ -23,30 +23,21 @@ describe("chatErrorMessage", () => {
     });
   });
 
-  it("parses FastAPI detail JSON", () => {
-    expect(parseApiErrorDetail('{"detail":"Quota exceeded"}')).toBe("Quota exceeded");
+  it("names the plan's limit by code, never by the English", () => {
     expect(
-      resolveChatError({
-        message: '{"detail":"You hit today\'s free limit."}',
-        isPaid: false,
-        t,
-      }),
-    ).toEqual({
-      kind: "quota",
-      message: "chat.quota_exceeded_free",
-    });
+      resolveChatError({ message: "Reworded limit.", code: "quota_exceeded", isPaid: false, t }),
+    ).toEqual({ kind: "quota", message: "chat.quota_exceeded_free" });
     expect(
-      resolveChatError({
-        message: "You've used up today's free limit.",
-        code: "quota_exceeded",
-        isPaid: false,
-        t,
-      }).message,
-    ).toBe("chat.quota_exceeded_free");
+      resolveChatError({ message: "Image limit.", code: "daily_limit", isPaid: true, t }).message,
+    ).toBe("chat.quota_exceeded_pro");
+    // The words alone are not a code: a spend-cap message is not an upgrade prompt.
+    expect(
+      resolveChatError({ message: "You've used up today's free limit.", isPaid: false, t }).kind,
+    ).toBe("generic");
   });
 
-  it("falls back for opaque API bodies", () => {
-    expect(resolveChatError({ message: '{"detail":[]}', isPaid: false, t })).toEqual({
+  it("falls back for an empty message", () => {
+    expect(resolveChatError({ message: "", isPaid: false, t })).toEqual({
       kind: "generic",
       message: "chat.error_generic",
     });

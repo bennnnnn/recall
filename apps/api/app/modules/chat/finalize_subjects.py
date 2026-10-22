@@ -13,6 +13,7 @@ import logging
 from typing import TYPE_CHECKING, TypeGuard
 
 from app.core import sympy_executor
+from app.modules.chat.working_check import is_worked_solution, working_note
 from app.modules.chemistry import fence as chemistry_fence
 from app.modules.chemistry.context import append_unverified_chemistry_note
 from app.modules.math.fence import append_unverified_math_note
@@ -33,7 +34,6 @@ from app.services.solving import (
     VerifiedSolveBlock,
     strip_verified_solve_markers,
 )
-from app.services.working_check import is_worked_solution, working_note
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
@@ -146,7 +146,7 @@ async def check_math_fences(state: FinalizeState) -> str:
             math_fence.validate_math_fences_worker,
             state.text,
             verified,
-            timeout=state.settings.math_solve_timeout_seconds,
+            timeout=state.settings.stem_solve_timeout_seconds,
         )
     finally:
         if state.on_status is not None:
@@ -226,5 +226,5 @@ async def enrich_chemistry_fences(state: FinalizeState) -> str:
     return await sympy_executor.run_sympy(
         chemistry_fence.enrich_chemistry_fences_worker,
         text,
-        timeout=state.settings.math_solve_timeout_seconds,
+        timeout=state.settings.stem_solve_timeout_seconds,
     )

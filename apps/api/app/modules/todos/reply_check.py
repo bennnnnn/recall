@@ -25,6 +25,7 @@ from app.modules.todos.spoken_add import (
 )
 from app.modules.todos.spoken_change import parse_spoken_reminder_change
 from app.services.draft_fences import has_draft
+from app.services.md_fence_scan import iter_fences, without_fences
 
 NEED_A_TIME = "When should I remind you?"
 _DECLINE_SAVE_RE = re.compile(
@@ -121,7 +122,7 @@ _SAVED_TALK_RE = re.compile(
     r"|marked\s+\**[^*\n]{1,60}\**\s+as\s+(?:done|complete))\b",
     re.IGNORECASE,
 )
-_CODE_BLOCK_RE = re.compile(r"```.*?(?:```|\Z)|`[^`\n]+`", re.DOTALL)
+_INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
 _DATED_CLAIM_RE = re.compile(
     r"(?:^|\n|!\s*)\s*(?:added|set|moved|scheduled|saved|created)\s*:\s+[^\n]+?\s[\u2014\u2013]\s+[^\n]*"
     r"(?:\d|today|tomorrow|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday"
@@ -222,7 +223,7 @@ def about_saved_reminders(text: str | None) -> bool:
     """
     if not text or has_draft(text):
         return False
-    if "```reminder_proposal" in text:
+    if any(fence.lang == "reminder_proposal" for fence in iter_fences(text)):
         return True
     words = _FACT_REMINDER_RE.sub(" ", _without_code(text))
     return bool(
@@ -233,7 +234,7 @@ def about_saved_reminders(text: str | None) -> bool:
 
 
 def _without_code(text: str) -> str:
-    return _CODE_BLOCK_RE.sub(" ", text)
+    return _INLINE_CODE_RE.sub(" ", without_fences(text, " "))
 
 
 def _asked_to_change_or_add(user_text: str | None) -> bool:

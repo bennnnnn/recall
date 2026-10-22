@@ -18,7 +18,7 @@ export const SPLASH_MAX_MS = 1_000;
 /** If the app never draws at all (a crash before it), the splash still goes. */
 const SPLASH_BACKSTOP_MS = 2_000;
 
-export type LaunchPart = "session" | "fonts" | "prefs";
+type LaunchPart = "session" | "fonts" | "prefs";
 const LAUNCH_PARTS: readonly LaunchPart[] = ["session", "fonts", "prefs"];
 
 const ready = new Set<LaunchPart>();

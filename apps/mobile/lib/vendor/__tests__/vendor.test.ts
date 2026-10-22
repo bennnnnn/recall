@@ -47,6 +47,11 @@ describe("vendored web libraries", () => {
     expect(files.sort()).toEqual(FILES.map(([, file]) => file).sort());
   });
 
+  it("keeps no library in a TypeScript string module", () => {
+    // As strings they were 6 MB of the JS bundle, downloaded again with every update.
+    expect(readdirSync(VENDOR_DIR).filter((name) => /\.tsx?$/.test(name))).toEqual([]);
+  });
+
   it("is the app's only .txt asset, so a cached copy under another hash is stale", () => {
     // lib/vendorAssets.ts removeSupersededVendorCopies() relies on this.
     const app = join(VENDOR_DIR, "..", "..");

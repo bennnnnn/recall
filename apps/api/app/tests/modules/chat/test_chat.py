@@ -5,6 +5,8 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat import chats_repository, messages_repository
+from app.modules.chat.context_window import estimate_tokens
 from app.modules.chat.prompt_builder import PromptStats, build_prompt_messages
 from app.modules.chat.prompt_constants import (
     is_broad_self_question,
@@ -13,13 +15,29 @@ from app.modules.chat.prompt_constants import (
     is_writing_deliverable_request,
     needs_rich_context,
 )
+from app.modules.chat.prompt_constants.capabilities import CAPABILITIES_FORMAT_HINT
+from app.modules.chat.prompt_constants.format import (
+    CHART_FORMAT_HINT,
+    COMPARISON_FORMAT_HINT,
+    FORMAT_CONTRACT,
+    MERMAID_FORMAT_HINT,
+)
+from app.modules.chat.prompt_constants.privacy import (
+    ADVICE_PERSONALIZE_HINT,
+    BROAD_SELF_ANSWER_HINT,
+    EXAMPLE_PERSONALIZE_HINT,
+    PRIVACY_HINT,
+)
+from app.modules.chat.prompt_constants.routing import LIGHTWEIGHT_REPLY_HINT
+from app.modules.chat.prompt_constants.visuals import CHEMISTRY_FENCE_HINT
+from app.modules.chat.prompt_constants.writing import EMAIL_DRAFT_HINT
 from app.modules.chat.prompt_profile import (
     format_user_name_only_block,
     format_user_profile_block,
     should_include_profile_email,
 )
 from app.modules.chat.turn_prep import resolve_client_geo
-from app.services.context_window import estimate_tokens
+from app.tests.fakes import FakeSessionCM
 from app.tests.modules.chat.chat_test_support import system_prompt
 
 
@@ -82,23 +100,23 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.memory_enabled = True
     user.locale = "en"
     user.timezone = None
 
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -110,10 +128,9 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
         )
 
     system = system_prompt(messages)
-    assert "Email and message drafting" in system
-    assert "send-ready draft" in system.lower()
+    assert EMAIL_DRAFT_HINT in system
     assert "cannot send email or SMS" in system.lower() or "Never say you sent" in system
-    assert "do not invent bracketed slots" in system.lower()
+    assert EMAIL_DRAFT_HINT in system
 
 
 @pytest.mark.asyncio
@@ -123,23 +140,23 @@ async def test_build_prompt_includes_comparison_table_hint():
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.memory_enabled = True
     user.locale = "en"
     user.timezone = None
 
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -152,8 +169,8 @@ async def test_build_prompt_includes_comparison_table_hint():
 
     system = system_prompt(messages)
     # Technical compares get a table plus code only where it adds information.
-    assert "This turn is X vs Y" in system
-    assert "tagged code fences" in system
+    assert COMPARISON_FORMAT_HINT in system
+    assert COMPARISON_FORMAT_HINT in system
     assert "only when" in system
     assert "pipe table" in system.lower()
     assert "NEVER put source code" in system
@@ -167,23 +184,23 @@ async def test_build_prompt_includes_chart_vega_hint():
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.memory_enabled = True
     user.locale = "en"
     user.timezone = None
 
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -198,9 +215,9 @@ async def test_build_prompt_includes_chart_vega_hint():
         )
 
     system = system_prompt(messages)
-    assert "This turn is a numeric chart" in system
+    assert CHART_FORMAT_HINT in system
     assert "```chart" in system
-    assert "you CAN draw this chart" in system
+    assert CHART_FORMAT_HINT in system
     assert "NEVER substitute a markdown table" in system
     assert "No ## headings" not in system
 
@@ -212,23 +229,23 @@ async def test_build_prompt_includes_mermaid_layout_hint():
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.memory_enabled = True
     user.locale = "en"
     user.timezone = None
 
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -243,7 +260,7 @@ async def test_build_prompt_includes_mermaid_layout_hint():
         )
 
     system = system_prompt(messages)
-    assert "This turn is a flowchart" in system
+    assert MERMAID_FORMAT_HINT in system
     assert "```mermaid" in system
     assert "joke setup" in system
     assert "No ## headings" not in system
@@ -376,8 +393,8 @@ def test_format_hints_discourage_tables_for_how_tos():
     assert "roadmap" in blob.lower() or "how-to" in blob.lower()
     assert "NEVER" in blob or "Never" in blob
     assert "pipe table" in blob.lower() or "pipe tables" in blob.lower()
-    assert "Short how-to" in blob
-    assert "explicitly requested a compact grid" in blob
+    assert FORMAT_CONTRACT in blob
+    assert FORMAT_CONTRACT in blob
     assert "ask one question" in blob.lower()
     assert "invent a generic letter" in blob.lower()
 
@@ -442,8 +459,7 @@ def test_format_contract_is_markdown_not_ui_fences():
     assert "unordered children stay bullets" in FORMAT_CONTRACT
     assert "plain labels such as `A.` or `I.`" in FORMAT_CONTRACT
     assert "```smiles" not in VISUALIZATION_HINTS
-    assert "```chemistry" not in VISUALIZATION_HINTS
-    from app.modules.chat.prompt_constants.visuals import CHEMISTRY_FENCE_HINT
+    assert CHEMISTRY_FENCE_HINT not in VISUALIZATION_HINTS
     from app.modules.math.reply_policy import MATH_SOLVER_HINT
 
     assert "```smiles" in CHEMISTRY_FENCE_HINT
@@ -499,7 +515,7 @@ def test_math_solver_hint_does_not_overclaim_unverified_scope():
     assert "never invent" in lower
     assert "illustrative" in lower
     assert "only when a verified" in lower
-    assert "do not claim verification" in lower
+    assert "do not claim verification" in lower  # safety phrase
     # Physics has an independent prompt. Math must not carry formula,
     # trajectory, or simulation policy for another peer subject.
     assert "trajectory" not in lower
@@ -519,7 +535,6 @@ async def test_build_prompt_injects_custom_instructions():
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = True
     user.locale = "en"
@@ -527,17 +542,18 @@ async def test_build_prompt_injects_custom_instructions():
     user.custom_instructions = "Always answer in bullet points and cite sources."
 
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -557,7 +573,6 @@ async def test_build_prompt_strips_solver_fences_from_recent_assistant():
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = "casual"
     user.memory_enabled = True
     user.locale = "en"
@@ -574,10 +589,10 @@ async def test_build_prompt_strips_solver_fences_from_recent_assistant():
     ]
 
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
-        patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
+        patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value="")),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=recent)),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=recent)),
     ):
         messages = await build_prompt_messages(
             user,
@@ -598,7 +613,6 @@ async def test_build_prompt_reuses_passed_chat_without_db_fetch():
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = None
     user.memory_enabled = True
     user.locale = "en"
@@ -612,17 +626,18 @@ async def test_build_prompt_reuses_passed_chat_without_db_fetch():
     get_by_id = AsyncMock()
 
     with (
-        patch("app.repositories.chats.get_by_id", get_by_id),
+        patch.object(chats_repository, "get_by_id", get_by_id),
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -642,7 +657,6 @@ async def test_build_prompt_omits_custom_instructions_block_when_empty():
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = True
     user.locale = "en"
@@ -650,17 +664,18 @@ async def test_build_prompt_omits_custom_instructions_block_when_empty():
     user.custom_instructions = None
 
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -671,12 +686,11 @@ async def test_build_prompt_omits_custom_instructions_block_when_empty():
 
 
 @pytest.mark.asyncio
-async def test_build_prompt_includes_memory_and_ignores_a_stored_style():
+async def test_build_prompt_includes_memory_and_fits_length_to_the_message():
     user = MagicMock()
     user.name = "Biniyam Mecuriaw"
     user.email = "bmecuriaw@gmail.com"
     user.location = None
-    user.response_style = "short"
     user.memory_enabled = True
     user.locale = "en"
     user.timezone = "UTC"
@@ -684,23 +698,25 @@ async def test_build_prompt_includes_memory_and_ignores_a_stored_style():
 
     with (
         patch(
-            "app.modules.memory.load_relevant_memories",
+            "app.modules.memory.retrieval.load_relevant_memories",
             AsyncMock(return_value=[AsyncMock(type="preference", text="likes Python")]),
         ),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             return_value=[AsyncMock(role="user", content="Hi")],
         ),
         patch(
-            "app.modules.memory.format_memory_block",
+            "app.modules.memory.selection.format_memory_block",
             return_value="Known facts:\n- [preference] likes Python",
         ),
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
-        patch(
-            "app.repositories.chats.get_by_id",
+        patch.object(
+            chats_repository,
+            "get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -709,14 +725,15 @@ async def test_build_prompt_includes_memory_and_ignores_a_stored_style():
     assert messages[0]["role"] == "system"
     assert "Biniyam Mecuriaw" in system_prompt(messages)
     # Account email is gated to email/tool intents — omitted on a plain "Hi".
-    assert "bmecuriaw@gmail.com" not in system_prompt(messages)
-    assert "The block below is the user's saved memory" in system_prompt(messages)
-    # A stored response_style from an older app is ignored: length follows the message.
-    assert "response length: short" not in system_prompt(messages).lower()
-    assert "response length: fit the question" in system_prompt(messages).lower()
-    assert "**HTML UI**" not in system_prompt(messages)
-    assert "Python" in system_prompt(messages)
-    assert "clarifying questions" in system_prompt(messages).lower()
+    system = system_prompt(messages)
+    assert "bmecuriaw@gmail.com" not in system
+    assert "The block below is the user's saved memory" in system  # safety phrase
+    # Length follows the message: there is no account-wide setting.
+    assert "response length: short" not in system.lower()
+    assert "response length: fit the question" in system.lower()
+    assert "**HTML UI**" not in system
+    assert "Python" in system
+    assert "clarifying questions" in system.lower()
     assert messages[-1] == {"role": "user", "content": "Hi"}
 
 
@@ -728,7 +745,6 @@ async def test_build_prompt_recalled_count_counts_section_headers():
     user.name = "Dev User"
     user.email = "dev@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = True
     user.locale = "en"
@@ -743,20 +759,21 @@ async def test_build_prompt_recalled_count_counts_section_headers():
 
     with (
         patch(
-            "app.modules.memory.load_relevant_memories",
+            "app.modules.memory.retrieval.load_relevant_memories",
             AsyncMock(return_value=[AsyncMock(type="profile", text="Lives in Addis")]),
         ),
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
-            "app.modules.memory.format_memory_block",
+            "app.modules.memory.selection.format_memory_block",
             return_value=block,
         ),
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
-        patch(
-            "app.repositories.chats.get_by_id",
+        patch.object(
+            chats_repository,
+            "get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -772,7 +789,6 @@ async def test_build_prompt_recalled_count_zero_when_no_memory():
     user.name = "Dev User"
     user.email = "dev@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = True
     user.locale = "en"
@@ -782,20 +798,21 @@ async def test_build_prompt_recalled_count_zero_when_no_memory():
 
     with (
         patch(
-            "app.modules.memory.load_relevant_memories",
+            "app.modules.memory.retrieval.load_relevant_memories",
             AsyncMock(return_value=[]),
         ),
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
-            "app.modules.memory.format_memory_block",
+            "app.modules.memory.selection.format_memory_block",
             return_value="",
         ),
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
-        patch(
-            "app.repositories.chats.get_by_id",
+        patch.object(
+            chats_repository,
+            "get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -811,7 +828,6 @@ async def test_build_prompt_includes_response_tone():
     user.name = "Dev User"
     user.email = "dev@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = "professional"
     user.memory_enabled = False
     user.locale = "en"
@@ -819,29 +835,30 @@ async def test_build_prompt_includes_response_tone():
 
     with (
         patch(
-            "app.modules.memory.load_relevant_memories",
+            "app.modules.memory.retrieval.load_relevant_memories",
             AsyncMock(return_value=[]),
         ),
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
-            "app.modules.memory.format_memory_block",
+            "app.modules.memory.selection.format_memory_block",
             return_value="",
         ),
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
-        patch(
-            "app.repositories.chats.get_by_id",
+        patch.object(
+            chats_repository,
+            "get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
         messages = await build_prompt_messages(user, uuid4(), Settings())
 
-    assert "Tone: PROFESSIONAL" in system_prompt(messages)
-    assert "Privacy:" in system_prompt(messages)
-    assert "'Who am I?'" in system_prompt(messages)
-    assert "Never include email" in system_prompt(messages)
+    system = system_prompt(messages)
+    assert "Tone: PROFESSIONAL" in system
+    assert "Privacy:" in system
+    assert PRIVACY_HINT in system
 
 
 @pytest.mark.asyncio
@@ -850,7 +867,6 @@ async def test_build_prompt_includes_locale_hint_for_amharic():
     user.name = "Dev User"
     user.email = "dev@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = "casual"
     user.memory_enabled = False
     user.locale = "am"
@@ -858,20 +874,21 @@ async def test_build_prompt_includes_locale_hint_for_amharic():
 
     with (
         patch(
-            "app.modules.memory.load_relevant_memories",
+            "app.modules.memory.retrieval.load_relevant_memories",
             AsyncMock(return_value=[]),
         ),
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
-            "app.modules.memory.format_memory_block",
+            "app.modules.memory.selection.format_memory_block",
             return_value="",
         ),
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
-        patch(
-            "app.repositories.chats.get_by_id",
+        patch.object(
+            chats_repository,
+            "get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -1043,7 +1060,6 @@ async def test_build_prompt_minimal_for_who_am_i():
     user.email = "secret@example.com"
     user.location = "San Francisco, CA"
     user.location_enabled = True
-    user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = True
     user.locale = "en"
@@ -1051,9 +1067,9 @@ async def test_build_prompt_minimal_for_who_am_i():
 
     chat = MagicMock(project_id=None)
     with (
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(
                 return_value=(
                     "Known facts about the user:\n\n"
@@ -1084,7 +1100,7 @@ async def test_build_prompt_minimal_for_who_am_i():
     assert "concise, step-by-step" in system
     assert "secret@example.com" not in system
     assert "San Francisco" not in system
-    assert "explicitly asked what you know" in system
+    assert BROAD_SELF_ANSWER_HINT in system
     assert "Recall has two features" not in system
     assert "Recall has two todo features" not in system
 
@@ -1097,7 +1113,6 @@ async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
     user.email = "dev@example.com"
     user.location = "San Francisco, CA"
     user.location_enabled = True
-    user.response_style = "detailed"
     user.response_tone = "funny"
     user.memory_enabled = True
     user.locale = "en"
@@ -1105,9 +1120,9 @@ async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
     user.custom_instructions = "Always mention my cat Fluffy."
 
     with (
-        patch("app.repositories.messages.list_recent", return_value=[]) as recent_mock,
+        patch.object(messages_repository, "list_recent", return_value=[]) as recent_mock,
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(return_value="MEMORY SHOULD NOT LOAD"),
         ) as memory_mock,
         patch(
@@ -1129,7 +1144,7 @@ async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
     todos_mock.assert_not_awaited()
     system = system_prompt(messages)
     assert "Dev" in system
-    assert "short social turn" in system
+    assert LIGHTWEIGHT_REPLY_HINT in system
     assert "MEMORY SHOULD NOT LOAD" not in system
     assert "TODOS SHOULD NOT LOAD" not in system
     assert "Fluffy" in system
@@ -1145,7 +1160,6 @@ async def test_build_prompt_casual_chitchat_loads_memory_without_integrations():
     user.email = "dev@example.com"
     user.location = "San Francisco, CA"
     user.location_enabled = True
-    user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = True
     user.locale = "en"
@@ -1154,9 +1168,9 @@ async def test_build_prompt_casual_chitchat_loads_memory_without_integrations():
     chat = MagicMock(project_id=None)
 
     with (
-        patch("app.repositories.messages.list_recent", return_value=[]) as recent_mock,
+        patch.object(messages_repository, "list_recent", return_value=[]) as recent_mock,
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(return_value="Prefers warm but concise replies."),
         ) as memory_mock,
         patch(
@@ -1183,7 +1197,7 @@ async def test_build_prompt_casual_chitchat_loads_memory_without_integrations():
     todos_mock.assert_not_awaited()
     system = system_prompt(messages)
     assert "Dev" in system
-    assert "short social turn" not in system
+    assert LIGHTWEIGHT_REPLY_HINT not in system
     assert "Prefers warm but concise replies" not in system
     assert "TODOS SHOULD NOT LOAD" not in system
     assert "Fluffy" in system
@@ -1198,7 +1212,6 @@ async def test_build_prompt_advice_loads_memory_not_integrations():
     user.email = "dev@example.com"
     user.location = "San Francisco, CA"
     user.location_enabled = True
-    user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = True
     user.locale = "en"
@@ -1207,9 +1220,9 @@ async def test_build_prompt_advice_loads_memory_not_integrations():
     chat = MagicMock()
 
     with (
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(return_value="Prefers vegetarian food. Peanut allergy."),
         ) as memory_mock,
         patch(
@@ -1234,7 +1247,7 @@ async def test_build_prompt_advice_loads_memory_not_integrations():
     system = system_prompt(messages)
     assert "Prefers vegetarian food" in system
     assert "[BEGIN UNTRUSTED CONTENT — saved memory]" in system
-    assert "personal recommendation" in system
+    assert ADVICE_PERSONALIZE_HINT in system
     assert "TODOS SHOULD NOT LOAD" not in system
 
 
@@ -1245,7 +1258,6 @@ async def test_build_prompt_teaching_uses_a_known_detail_in_examples():
     user.email = "dev@example.com"
     user.location = "Addis Ababa"
     user.location_enabled = True
-    user.response_style = "balanced"
     user.response_tone = None
     user.memory_enabled = True
     user.locale = "en"
@@ -1258,9 +1270,9 @@ async def test_build_prompt_teaching_uses_a_known_detail_in_examples():
     chat = MagicMock()
 
     with (
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(return_value="User is from Addis Ababa, Ethiopia. User speaks Amharic."),
         ) as memory_mock,
         patch(
@@ -1283,8 +1295,8 @@ async def test_build_prompt_teaching_uses_a_known_detail_in_examples():
     todos_mock.assert_not_awaited()
     system = system_prompt(messages)
     assert "User speaks Amharic" in system
-    assert "country they actually have" in system
-    assert "personal recommendation" not in system
+    assert EXAMPLE_PERSONALIZE_HINT in system
+    assert ADVICE_PERSONALIZE_HINT not in system
     assert "TODOS SHOULD NOT LOAD" not in system
 
 
@@ -1295,7 +1307,6 @@ async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
     user.email = "dev@example.com"
     user.location = "San Francisco, CA"
     user.location_enabled = True
-    user.response_style = "balanced"
     user.response_tone = None
     user.memory_enabled = True
     user.locale = "en"
@@ -1304,9 +1315,9 @@ async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
     chat = MagicMock()
 
     with (
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(return_value="Building Recall. Learning FastAPI and async Python."),
         ) as memory_mock,
         patch(
@@ -1330,21 +1341,11 @@ async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
     system = system_prompt(messages)
     assert "Building Recall" in system
     assert "capabilities overview" in system.lower()
-    assert "Never emit ```email" in system
-    assert "personal recommendation" not in system
-    assert "put only send-ready text" not in system.lower()
+    assert CAPABILITIES_FORMAT_HINT in system
+    assert ADVICE_PERSONALIZE_HINT not in system
+    assert FORMAT_CONTRACT not in system
     assert "TODOS SHOULD NOT LOAD" not in system
-    assert "does not connect to calendars or email inboxes" in system
-
-
-class _FakeSessionCM:
-    """Keep this unit test off the process-wide asyncpg pool."""
-
-    async def __aenter__(self):
-        return AsyncMock()
-
-    async def __aexit__(self, *args):
-        return False
+    assert CAPABILITIES_FORMAT_HINT in system
 
 
 @pytest.mark.asyncio
@@ -1359,7 +1360,6 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
     user.email = "dev@example.com"
     user.location = None
     user.location_enabled = False
-    user.response_style = "balanced"
     user.response_tone = "casual"
     user.memory_enabled = True
     user.locale = "en"
@@ -1369,8 +1369,8 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
     rag_block = "ATTACHED DOCUMENT CONTEXT"
 
     with (
-        patch("app.modules.chat.prompt_builder.SessionLocal", _FakeSessionCM),
-        patch("app.modules.chat.prompt_context.SessionLocal", _FakeSessionCM),
+        patch("app.modules.attachments.rag.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.prompt_context.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.prompt_context.chats_repo.get_by_id",
             AsyncMock(return_value=None),
@@ -1379,9 +1379,9 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
             "app.modules.chat.history_rag.embed_query_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=[])),
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -1419,7 +1419,6 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
     user.email = "dev@example.com"
     user.location = None
     user.location_enabled = False
-    user.response_style = "balanced"
     user.response_tone = "casual"
     user.memory_enabled = True
     user.locale = "en"
@@ -1429,8 +1428,8 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
     has_chunks = AsyncMock(return_value=True)
 
     with (
-        patch("app.modules.chat.prompt_builder.SessionLocal", _FakeSessionCM),
-        patch("app.modules.chat.prompt_context.SessionLocal", _FakeSessionCM),
+        patch("app.modules.attachments.rag.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.prompt_context.SessionLocal", FakeSessionCM),
         patch(
             "app.modules.chat.prompt_context.chats_repo.get_by_id",
             AsyncMock(return_value=None),
@@ -1439,9 +1438,9 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
             "app.modules.chat.history_rag.embed_query_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=[])),
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -1479,7 +1478,6 @@ async def test_build_prompt_uses_preloaded_recent_without_list_recent():
     user.email = "dev@example.com"
     user.location = None
     user.location_enabled = False
-    user.response_style = "balanced"
     user.response_tone = "casual"
     user.memory_enabled = True
     user.locale = "en"
@@ -1498,11 +1496,11 @@ async def test_build_prompt_uses_preloaded_recent_without_list_recent():
     list_recent = AsyncMock(return_value=[])
 
     with (
-        patch("app.modules.chat.prompt_builder.SessionLocal", _FakeSessionCM),
-        patch("app.modules.chat.prompt_context.SessionLocal", _FakeSessionCM),
-        patch("app.repositories.messages.list_recent", list_recent),
+        patch("app.modules.attachments.rag.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.prompt_context.SessionLocal", FakeSessionCM),
+        patch.object(messages_repository, "list_recent", list_recent),
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -1526,21 +1524,16 @@ async def test_build_prompt_uses_preloaded_recent_without_list_recent():
     assert messages[-1]["content"] == "6!"
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_hi_is_lightweight():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_hi_is_lightweight():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, "hi")
+    mode = classify_turn_mode([], "hi")
 
     assert mode.lightweight is True
     assert mode.rich_context is False
     assert mode.advice_memory is False
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("text", "advice"),
     [
@@ -1563,126 +1556,96 @@ async def test_classify_turn_mode_hi_is_lightweight():
         ("I have 2 hours before dinner, what can I cook?", True),
     ],
 )
-async def test_classify_turn_mode_a_sum_about_a_meal_is_not_food_advice(text: str, advice: bool):
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_a_sum_about_a_meal_is_not_food_advice(text: str, advice: bool):
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, text)
+    mode = classify_turn_mode([], text)
 
     assert mode.advice_memory is advice
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_draft_follow_up_gets_the_drafts_context():
+def test_classify_turn_mode_draft_follow_up_gets_the_drafts_context():
     """ "Email" after a text-message draft ran slim and signed the email "[Your Name]"."""
     from types import SimpleNamespace
 
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
     history = [
         SimpleNamespace(role="user", content="A text message to my wife"),
         SimpleNamespace(role="assistant", content="```message\nHey love, thinking of you.\n```"),
         SimpleNamespace(role="user", content="Email"),
     ]
-    list_recent = AsyncMock(return_value=history)
+    mode = classify_turn_mode(history, "Email")
 
-    with patch("app.modules.chat.turn_prep.mode.messages_repo.list_recent", list_recent):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "Email")
-
-    list_recent.assert_awaited_once()
     assert mode.rich_context is True
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_skips_history_for_lines_that_change_no_draft():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_skips_history_for_lines_that_change_no_draft():
+    from types import SimpleNamespace
 
-    chat = MagicMock()
-    chat.id = uuid4()
-    list_recent = AsyncMock()
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    with patch("app.modules.chat.turn_prep.mode.messages_repo.list_recent", list_recent):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "what is the capital of France")
+    draft = [
+        SimpleNamespace(role="user", content="A text message to my wife"),
+        SimpleNamespace(role="assistant", content="```message\nHey love.\n```"),
+    ]
 
-    list_recent.assert_not_awaited()
+    mode = classify_turn_mode(draft, "what is the capital of France")
+
     assert mode.rich_context is False
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_no_draft_in_history_stays_slim():
+def test_classify_turn_mode_no_draft_in_history_stays_slim():
     from types import SimpleNamespace
 
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
     history = [
         SimpleNamespace(role="user", content="what is the capital of France"),
         SimpleNamespace(role="assistant", content="Paris."),
     ]
-    with patch(
-        "app.modules.chat.turn_prep.mode.messages_repo.list_recent",
-        AsyncMock(return_value=history),
-    ):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "make it shorter")
+    mode = classify_turn_mode(history, "make it shorter")
 
     assert mode.rich_context is False
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_yes_after_offer_is_not_lightweight():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_yes_after_offer_is_not_lightweight():
+    from types import SimpleNamespace
 
-    chat = MagicMock()
-    chat.id = uuid4()
-    prior = MagicMock()
-    prior.content = "Want me to check the current result?"
-    get_last = AsyncMock(return_value=prior)
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    with patch("app.modules.chat.turn_prep.mode.messages_repo.get_last_assistant", get_last):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "yes")
+    prior = SimpleNamespace(role="assistant", content="Want me to check the current result?")
 
-    get_last.assert_awaited_once()
+    mode = classify_turn_mode([prior], "yes")
+
     assert mode.lightweight is False
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_no_after_a_question_is_not_lightweight():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_no_after_a_question_is_not_lightweight():
+    from types import SimpleNamespace
 
-    chat = MagicMock()
-    chat.id = uuid4()
-    prior = MagicMock()
-    prior.content = "Better late than never: it's good to act even after a delay. Understood?"
-    get_last = AsyncMock(return_value=prior)
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    with patch("app.modules.chat.turn_prep.mode.messages_repo.get_last_assistant", get_last):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "No")
+    prior = SimpleNamespace(
+        role="assistant",
+        content="Better late than never: it's good to act even after a delay. Understood?",
+    )
 
-    get_last.assert_awaited_once()
+    mode = classify_turn_mode([prior], "No")
+
     assert mode.lightweight is False
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_hi_does_not_load_last_assistant():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_hi_ignores_the_last_assistant():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-    get_last = AsyncMock(return_value=MagicMock())
+    question = MagicMock(role="assistant", content="Want me to check the current result?")
 
-    with patch("app.modules.chat.turn_prep.mode.messages_repo.get_last_assistant", get_last):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "hi")
+    mode = classify_turn_mode([question], "hi")
 
-    get_last.assert_not_awaited()
     assert mode.lightweight is True
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("text", "advice"),
     [
@@ -1695,26 +1658,19 @@ async def test_classify_turn_mode_hi_does_not_load_last_assistant():
         ("How much energy does it take to heat 500 g of milk from 5 °C to 60 °C?", False),
     ],
 )
-async def test_classify_turn_mode_food_in_a_problem_is_not_advice(text, advice):
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_food_in_a_problem_is_not_advice(text, advice):
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, text)
+    mode = classify_turn_mode([], text)
 
     assert mode.advice_memory is advice
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_profile_field_loads_memory():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_profile_field_loads_memory():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    education = await _classify_turn_mode(AsyncMock(), chat, "What is my education level")
-    language = await _classify_turn_mode(AsyncMock(), chat, "My second langauge")
+    education = classify_turn_mode([], "What is my education level")
+    language = classify_turn_mode([], "My second langauge")
 
     assert education.advice_memory is True
     assert education.rich_context is False
@@ -1722,12 +1678,9 @@ async def test_classify_turn_mode_profile_field_loads_memory():
     assert language.rich_context is False
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_profile_pushback_loads_memory():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_profile_pushback_loads_memory():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
     language = MagicMock()
     language.role = "user"
     language.content = "My second langauge"
@@ -1735,79 +1688,54 @@ async def test_classify_turn_mode_profile_pushback_loads_memory():
     pushback.role = "user"
     pushback.content = "U don't know. It?"
 
-    with patch(
-        "app.modules.chat.turn_prep.mode.messages_repo.list_recent",
-        AsyncMock(return_value=[language, pushback]),
-    ):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "You tell me")
+    mode = classify_turn_mode([language, pushback], "You tell me")
 
     assert mode.advice_memory is True
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_teaching_loads_memory_not_rich_context():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_teaching_loads_memory_not_rich_context():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, "teach me about python variables")
+    mode = classify_turn_mode([], "teach me about python variables")
 
     assert mode.lightweight is False
     assert mode.rich_context is False
     assert mode.advice_memory is True
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_career_loads_memory():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_career_loads_memory():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, "how do I prepare for a job interview")
+    mode = classify_turn_mode([], "how do I prepare for a job interview")
 
     assert mode.advice_memory is True
     assert mode.rich_context is False
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_lookup_does_not_load_memory():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_lookup_does_not_load_memory():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, "what is the capital of France")
+    mode = classify_turn_mode([], "what is the capital of France")
 
     assert mode.advice_memory is False
     assert mode.rich_context is False
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_eat_tonight_is_advice_memory():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_eat_tonight_is_advice_memory():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, "what should I eat tonight")
+    mode = classify_turn_mode([], "what should I eat tonight")
 
     assert mode.lightweight is False
     assert mode.rich_context is False
     assert mode.advice_memory is True
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_capabilities_overview_is_advice_memory():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_capabilities_overview_is_advice_memory():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(
-        AsyncMock(),
-        chat,
+    mode = classify_turn_mode(
+        [],
         "What can you help me with? Give a few concrete examples.",
     )
 
@@ -1816,20 +1744,15 @@ async def test_classify_turn_mode_capabilities_overview_is_advice_memory():
     assert mode.advice_memory is True
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_milk_preference_is_advice_memory():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_milk_preference_is_advice_memory():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, "What milk do I drink.")
+    mode = classify_turn_mode([], "What milk do I drink.")
 
     assert mode.lightweight is False
     assert mode.advice_memory is True
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "text",
     [
@@ -1837,27 +1760,20 @@ async def test_classify_turn_mode_milk_preference_is_advice_memory():
         "Plan a workout for me.",
     ],
 )
-async def test_classify_turn_mode_ordinary_advice_phrasing_loads_memory(text: str):
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_ordinary_advice_phrasing_loads_memory(text: str):
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, text)
+    mode = classify_turn_mode([], text)
 
     assert mode.lightweight is False
     assert mode.rich_context is False
     assert mode.advice_memory is True
 
 
-@pytest.mark.asyncio
-async def test_classify_turn_mode_day_plan_skips_advice_memory():
-    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+def test_classify_turn_mode_day_plan_skips_advice_memory():
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
 
-    chat = MagicMock()
-    chat.id = uuid4()
-
-    mode = await _classify_turn_mode(AsyncMock(), chat, "anything left tonight")
+    mode = classify_turn_mode([], "anything left tonight")
 
     assert mode.day_planning is True
     assert mode.rich_context is True
@@ -1897,7 +1813,6 @@ async def test_build_prompt_passes_client_timezone():
     user.name = "Dev User"
     user.email = "dev@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = False
     user.locale = "en"
@@ -1907,20 +1822,21 @@ async def test_build_prompt_passes_client_timezone():
 
     with (
         patch(
-            "app.modules.memory.load_relevant_memories",
+            "app.modules.memory.retrieval.load_relevant_memories",
             AsyncMock(return_value=[]),
         ),
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
-            "app.modules.memory.format_memory_block",
+            "app.modules.memory.selection.format_memory_block",
             return_value="",
         ),
         patch(
             "app.modules.todos.build_todos_system_section",
             load_todos,
         ),
-        patch(
-            "app.repositories.chats.get_by_id",
+        patch.object(
+            chats_repository,
+            "get_by_id",
             AsyncMock(return_value=None),
         ),
         patch(

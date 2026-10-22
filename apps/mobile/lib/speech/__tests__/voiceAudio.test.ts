@@ -3,10 +3,6 @@ jest.mock("expo-file-system/legacy", () => ({
   readAsStringAsync: jest.fn(async () => "ZmFrZQ=="),
 }));
 
-jest.mock("@/lib/expoRuntime", () => ({
-  canUseVoiceInput: jest.fn(() => true),
-}));
-
 jest.mock("expo-modules-core", () => ({
   requireOptionalNativeModule: jest.fn(() => null),
 }));
@@ -15,7 +11,6 @@ jest.mock("expo-audio", () => {
   throw new Error("Cannot find native module 'ExpoAudio'");
 });
 
-import { canUseVoiceInput } from "@/lib/expoRuntime";
 import {
   isVoiceInputAvailable,
   loadExpoAudio,
@@ -24,21 +19,7 @@ import {
   speechUploadFromUri,
 } from "@/lib/speech/voiceAudio";
 
-const mockCanUseVoiceInput = canUseVoiceInput as jest.MockedFunction<
-  typeof canUseVoiceInput
->;
-
 describe("voiceAudio", () => {
-  beforeEach(() => {
-    mockCanUseVoiceInput.mockReturnValue(true);
-  });
-
-  it("skips expo-audio import when voice input is disabled", () => {
-    mockCanUseVoiceInput.mockReturnValue(false);
-    expect(loadExpoAudio()).toBeNull();
-    expect(isVoiceInputAvailable()).toBe(false);
-  });
-
   it("loadExpoAudio returns null when native module is missing", () => {
     expect(loadExpoAudio()).toBeNull();
   });

@@ -18,7 +18,7 @@ def _answer_canonical(content: str) -> dict[str, str]:
     return {"type": "answer", "content": content}
 
 
-def _finish_with_answer(
+def finish_with_answer(
     lines: list[str],
     answer: str,
     *,

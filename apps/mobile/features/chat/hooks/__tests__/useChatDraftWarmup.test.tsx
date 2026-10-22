@@ -2,16 +2,18 @@ import React from "react";
 import { Keyboard, Platform } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
-import { ComposerDraftProvider, useComposerDraftApi } from "@/contexts/ComposerDraftContext";
+import { AccountSessionContext } from "@/contexts/accountSession";
+import { ComposerDraftProvider, useComposerDraftApi } from "@/features/chat/context/ComposerDraftContext";
 import { useChatDraftWarmup } from "@/features/chat/hooks/useChatDraftWarmup";
 
 type Props = { chatId: string | null; draftChatId?: string | null; streaming?: boolean };
 
 const connect = jest.fn();
+const SIGNED_IN = { account: "account-1", getToken: () => "token" };
 let setInput: (text: string) => void = () => {};
 
 function Screen({ chatId, draftChatId = null, streaming = false }: Props) {
-  useChatDraftWarmup({ token: "token", chatId, streaming, draftChatId, connect });
+  useChatDraftWarmup({ chatId, streaming, draftChatId, connect });
   const draft = useComposerDraftApi();
   React.useLayoutEffect(() => { setInput = draft.setInput; });
   return null;
@@ -36,9 +38,11 @@ describe("useChatDraftWarmup", () => {
 
   async function renderScreen(props: Props) {
     return act(async () => render(
-      <ComposerDraftProvider>
-        <Screen {...props} />
-      </ComposerDraftProvider>,
+      <AccountSessionContext.Provider value={SIGNED_IN}>
+        <ComposerDraftProvider>
+          <Screen {...props} />
+        </ComposerDraftProvider>
+      </AccountSessionContext.Provider>,
     ));
   }
 

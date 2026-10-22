@@ -2,8 +2,6 @@ import { render, screen } from "@testing-library/react-native";
 
 import { FallbackMarkdown } from "@/components/FallbackMarkdown";
 
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-
 const mockLoaded: string[] = [];
 
 jest.mock("@/components/rich/GeometryBlock", () => {

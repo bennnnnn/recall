@@ -5,7 +5,6 @@ from __future__ import annotations
 import io
 import logging
 import wave
-from collections.abc import AsyncIterator
 from pathlib import Path
 
 from app.core.config import Settings
@@ -18,6 +17,10 @@ _OPENAI_SPEECH_URL = "https://api.openai.com/v1/audio/speech"
 _TRANSCRIBE_TIMEOUT = 20.0
 _TTS_TIMEOUT = 60.0
 _DEFAULT_PCM_RATE = 24000
+# The OpenAI audio models this gateway calls. An operator override outside them is not
+# used (``speech.service``), so a stale Gemini or Kokoro name never reaches OpenAI.
+_TRANSCRIBE_MODELS = frozenset({"gpt-4o-mini-transcribe", "gpt-4o-transcribe"})
+_SPEECH_MODEL_FAMILY = "gpt-4o-mini-tts"
 _DEFAULT_PCM_CHANNELS = 1
 _PCM_SAMPLE_WIDTH = 2
 
@@ -31,6 +34,16 @@ _AUDIO_FORMAT_BY_SUFFIX: dict[str, str] = {
     ".caf": "m4a",
     ".3gp": "m4a",
 }
+
+
+def can_transcribe_with(model: str) -> bool:
+    """Whether ``model`` (``openai/`` or bare) is one this gateway transcribes with."""
+    return model.removeprefix("openai/") in _TRANSCRIBE_MODELS
+
+
+def can_speak_with(model: str) -> bool:
+    """Whether ``model`` (``openai/`` or bare) is one this gateway reads aloud with."""
+    return model.removeprefix("openai/").startswith(_SPEECH_MODEL_FAMILY)
 
 
 def audio_format_from_filename(filename: str) -> str:
@@ -216,47 +229,3 @@ async def synthesize_via_openai(
     except Exception:
         logger.exception("Speech TTS failed model=%s chars=%s", model, len(text))
         return None
-
-
-async def stream_pcm_via_openai(
-    settings: Settings,
-    text: str,
-    *,
-    model: str,
-    voice: str,
-    language: str | None = None,
-) -> AsyncIterator[bytes]:
-    """Yield PCM (or raw audio) as OpenAI produces it — do not buffer the clip."""
-    payload = _tts_request_payload(
-        model=model,
-        text=text,
-        voice=voice,
-        response_format="pcm",
-        language=language,
-    )
-    try:
-        client = get_pooled_client(_TTS_TIMEOUT)
-        async with client.stream(
-            "POST",
-            _OPENAI_SPEECH_URL,
-            headers={
-                "Authorization": f"Bearer {settings.openai_api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-        ) as response:
-            if response.status_code >= 400:
-                error_body = (await response.aread())[:500].decode("utf-8", errors="replace")
-                logger.warning(
-                    "OpenAI TTS stream failed model=%s status=%s body=%s",
-                    model,
-                    response.status_code,
-                    error_body,
-                )
-                return
-            async for chunk in response.aiter_bytes():
-                if chunk:
-                    yield chunk
-    except Exception:
-        logger.exception("Speech TTS stream failed model=%s chars=%s", model, len(text))
-        return

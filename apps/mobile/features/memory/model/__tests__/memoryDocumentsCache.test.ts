@@ -8,6 +8,7 @@ import {
 } from "@/features/memory/model/memoryDocumentsCache";
 
 import type { MemoryDocuments } from "@/features/memory/types";
+import { emitAppEvent } from "@/lib/appEvents";
 
 let mockSession = 1;
 const mockList = jest.fn();
@@ -33,6 +34,13 @@ beforeEach(() => {
 });
 
 describe("memory documents cache", () => {
+  it("drops the pages when memory changes from a chat's settings card (ARCH-10)", () => {
+    setMemoryDocuments(pages, 1);
+    expect(getCachedMemoryDocuments()).toEqual(pages);
+    emitAppEvent("memoryChanged", {});
+    expect(getCachedMemoryDocuments()).toBeUndefined();
+  });
+
   it("shares one read between screens and notifies listeners", async () => {
     let resolve: (value: MemoryDocuments) => void = () => {};
     mockList.mockReturnValue(new Promise<MemoryDocuments>((done) => { resolve = done; }));

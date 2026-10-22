@@ -1,5 +1,6 @@
 """Attachment outages must preserve content and retain cleanup work."""
 
+import time
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -40,23 +41,66 @@ async def test_storage_read_failure_does_not_purge_attachment(code):
     session.commit.assert_not_awaited()
 
 
-@pytest.mark.asyncio
-async def test_failed_r2_delete_remains_queued_without_remove_then_reinsert_gap():
+def _r2(*, failing: frozenset[str] = frozenset()) -> R2StorageGateway:
+    """An R2 gateway whose deletes fail for these keys.
+
+    Deletes run on the R2 pool, so they finish in any order: the outcome follows
+    the key, never the order of the calls.
+    """
     client = MagicMock()
-    client.delete_object.side_effect = [None, RuntimeError("timeout")]
+
+    def delete_object(*, Bucket: str, Key: str) -> None:
+        if Key in failing:
+            raise RuntimeError("timeout")
+
+    client.delete_object.side_effect = delete_object
     with patch("boto3.client", return_value=client):
-        gateway = R2StorageGateway(Settings())
-    redis = AsyncMock()
-    redis.smembers.return_value = ["u/ok", "u/retry"]
-    # If re-adding failed keys is attempted, that write is unavailable too.
-    redis.sadd.side_effect = RuntimeError("Redis write unavailable")
+        return R2StorageGateway(Settings())
+
+
+@pytest.mark.asyncio
+async def test_a_failed_r2_delete_stays_queued_and_backs_off(fake_redis):
+    await attachment_lifecycle.enqueue_failed_storage_deletes([])
+    with patch.object(attachment_lifecycle, "get_redis_client", return_value=fake_redis):
+        await attachment_lifecycle.enqueue_failed_storage_deletes(["u/ok", "u/retry"])
+        with patch.object(
+            attachment_lifecycle,
+            "get_storage_gateway",
+            return_value=_r2(failing=frozenset({"u/retry"})),
+        ):
+            assert await attachment_lifecycle.retry_pending_storage_deletes(Settings()) == 1
+    queued = await fake_redis.zrange(
+        attachment_lifecycle.PENDING_STORAGE_DELETE_KEY, 0, -1, withscores=True
+    )
+    assert [key for key, _due in queued] == ["u/retry"]
+    # Not due again for an hour: the next pass leaves it alone.
+    assert queued[0][1] > time.time() + 3_000
+
+
+@pytest.mark.asyncio
+async def test_the_pending_delete_queue_is_bounded_and_paged(fake_redis):
+    """A plain set had no bound and was read whole every reaper cycle."""
+    keys = [f"u/{i}" for i in range(15)]
     with (
-        patch.object(attachment_lifecycle, "get_storage_gateway", return_value=gateway),
-        patch.object(attachment_lifecycle, "get_redis_client", return_value=redis),
+        patch.object(attachment_lifecycle, "get_redis_client", return_value=fake_redis),
+        patch.object(attachment_lifecycle, "_PENDING_MAX", 10),
+        patch.object(attachment_lifecycle, "_PENDING_PAGE", 4),
+        patch.object(attachment_lifecycle, "delete_storage_keys", AsyncMock(return_value=[])),
+    ):
+        await attachment_lifecycle.enqueue_failed_storage_deletes(keys)
+        assert await fake_redis.zcard(attachment_lifecycle.PENDING_STORAGE_DELETE_KEY) == 10
+        assert await attachment_lifecycle.retry_pending_storage_deletes(Settings()) == 4
+
+
+@pytest.mark.asyncio
+async def test_the_old_pending_set_moves_over(fake_redis):
+    await fake_redis.sadd(attachment_lifecycle._LEGACY_PENDING_KEY, "u/old")
+    with (
+        patch.object(attachment_lifecycle, "get_redis_client", return_value=fake_redis),
+        patch.object(attachment_lifecycle, "delete_storage_keys", AsyncMock(return_value=[])),
     ):
         assert await attachment_lifecycle.retry_pending_storage_deletes(Settings()) == 1
-    redis.srem.assert_awaited_once_with(attachment_lifecycle.PENDING_STORAGE_DELETE_KEY, "u/ok")
-    redis.sadd.assert_not_awaited()
+    assert not await fake_redis.exists(attachment_lifecycle._LEGACY_PENDING_KEY)
 
 
 @pytest.mark.asyncio
@@ -80,7 +124,14 @@ async def test_invalid_upload_preserves_bytes_when_database_delete_fails():
 async def test_cancel_pending_uses_committed_unlinked_delete_before_storage(removed):
     user = SimpleNamespace(id=uuid4())
     row = SimpleNamespace(
-        id=uuid4(), message_id=None, content_type="text/plain", storage_key="u/file"
+        id=uuid4(),
+        message_id=None,
+        content_type="text/plain",
+        storage_key="u/file",
+        source="upload",
+        library_visible=True,
+        verified_at=None,
+        created_at=datetime(2020, 1, 1, tzinfo=UTC),
     )
     order = []
 

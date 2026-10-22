@@ -17,10 +17,6 @@ const mockAttachmentSourceSheet = jest.fn();
 const mockScrollFab = jest.fn();
 const mockActionBanner = jest.fn();
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
 // Memoized like the real list, so a test sees when the body hands it new props.
 jest.mock("@/features/chat/components/ChatMessageList", () => {
   const { memo } = jest.requireActual("react") as typeof import("react");
@@ -128,6 +124,7 @@ const baseProps: ChatScreenBodyProps = {
     messages: [message],
     hasMoreOlder: false,
     loadingOlder: false,
+    newerPage: null,
     chatLoading: false,
     routeChatId: "chat-1",
     renderItem,
@@ -139,6 +136,7 @@ const baseProps: ChatScreenBodyProps = {
   },
   composer: {
     streaming: false,
+    replySaving: false,
     attachPicking: false,
     sendBusy: false,
     pendingAttachment: null,

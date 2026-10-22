@@ -125,7 +125,6 @@ def _deps() -> Any:
 
     todos = MagicMock()
     todos.materialize_reminder_fences = AsyncMock(side_effect=_passthrough_reminders)
-    todos.transcript_implies_todo_sync = MagicMock(return_value=False)
     math_fence = MagicMock()
     math_fence.validate_math_fences_worker = lambda content, *_a, **_k: content
     math_fence.replace_unclosed_graph_fence_safe = lambda content, _canonical: content

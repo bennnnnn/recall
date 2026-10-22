@@ -27,9 +27,10 @@ import re
 
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.formula import parse_formula
+from app.services.glyphs import SUBSCRIPT_DIGITS, SUPERSCRIPT_SIGNED
 
-_SUBSCRIPTS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
-_SUPERSCRIPTS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻", "0123456789+-")
+_SUBSCRIPTS = SUBSCRIPT_DIGITS
+_SUPERSCRIPTS = SUPERSCRIPT_SIGNED
 # A run of superscripts, and a keyboard sign straight after its digits ("Fe²+"). A sign
 # followed by a digit is the next term's ("x²-1"), not a charge.
 _SCRIPT_RUN = re.compile(r"([⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+)([+\-−](?![\d.]))?")

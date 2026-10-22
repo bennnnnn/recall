@@ -93,7 +93,7 @@ describe("graph explorer path builders", () => {
   });
 
   it.each(VIEWS.map((view, index) => [index, view]))("lays out the grid and ticks in view %i", (_, view) => {
-    const font = { measureText: (text: string) => ({ width: text.length * 6 }) };
+    const font = { measureText: (text: string) => ({ x: 0, y: 0, width: text.length * 6, height: 10 }) };
     for (const withFont of [null, font]) {
       const chrome = computeChrome(view, 320, 240, 28, withFont);
       expect({

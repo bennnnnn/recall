@@ -1,6 +1,6 @@
 import { useCallback, type MutableRefObject } from "react";
 
-import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
+import { useComposerDraftApi } from "@/features/chat/context/ComposerDraftContext";
 import { useActionFeedbackOptional } from "@/contexts/ActionFeedbackContext";
 import type { SendTurn } from "@/features/chat/hooks/useRestoreFailedSend";
 import type { DotsTicket, SendTurnStart } from "@/features/chat/hooks/useTurnStart";

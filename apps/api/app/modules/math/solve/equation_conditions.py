@@ -10,7 +10,7 @@ from sympy import Eq, latex, simplify, solve, together
 
 from app.modules.math.schemas import EquationInput
 from app.modules.math.solve.declines import sympy_decline
-from app.modules.math.solve.parse import MathServiceError, _parse_expression
+from app.modules.math.solve.parse import SolveServiceError, parse_expression
 from app.modules.math.solve.root_latex import _expr_equal
 
 
@@ -20,10 +20,10 @@ def _original_domain_conditions(data: EquationInput, sym: Any) -> tuple[list[Any
     conditions: list[str] = []
     try:
         original_sides = (
-            _parse_expression(data.lhs, data.variables, real=True, evaluate=False),
-            _parse_expression(data.rhs, data.variables, real=True, evaluate=False),
+            parse_expression(data.lhs, data.variables, real=True, evaluate=False),
+            parse_expression(data.rhs, data.variables, real=True, evaluate=False),
         )
-    except MathServiceError:
+    except SolveServiceError:
         return excluded, conditions
     for side in original_sides:
         denominator = side.as_numer_denom()[1]

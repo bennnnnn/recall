@@ -22,6 +22,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Literal
 
+from app.exceptions import DomainError
 from app.models.orm import User
 
 SignInProvider = Literal["google", "apple"]
@@ -31,15 +32,20 @@ _APPLE_MAIL_DOMAINS = frozenset({"icloud.com", "me.com", "mac.com", "privaterela
 _PROVIDER_LABELS: dict[SignInProvider, str] = {"google": "Google", "apple": "Apple"}
 
 
-class AccountExistsError(Exception):
-    """The email belongs to an account this sign-in may not join."""
+class AccountExistsError(DomainError):
+    """The email belongs to an account this sign-in may not join: 409 ``account_exists``,
+    with ``sign_in_with`` naming the way the phone offers instead."""
+
+    status_code = 409
+    default_code = "account_exists"
 
     def __init__(self, sign_in_with: SignInProvider) -> None:
-        self.sign_in_with: SignInProvider = sign_in_with
         super().__init__(
             "This email already has a Recall account. Sign in with "
-            f"{_PROVIDER_LABELS[sign_in_with]}, the way you signed in before."
+            f"{_PROVIDER_LABELS[sign_in_with]}, the way you signed in before.",
+            sign_in_with=sign_in_with,
         )
+        self.sign_in_with: SignInProvider = sign_in_with
 
 
 def claim_is_true(value: object) -> bool:

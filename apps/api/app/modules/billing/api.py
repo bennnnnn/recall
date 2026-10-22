@@ -21,9 +21,6 @@ from app.modules.billing import entitlements
 from app.modules.billing import revenuecat as webhook_service
 from app.modules.notifications import enqueue_purchase_receipt
 
-_already_processed = webhook_service._already_processed
-_try_claim = webhook_service._try_claim
-
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 plans_router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -123,8 +120,6 @@ async def revenuecat_webhook(
             redis,
             settings,
             payload,
-            processed_check=_already_processed,
-            event_claim=_try_claim,
             subscriber_lock=acquire_lock,
             receipt_enqueuer=enqueue_purchase_receipt,
         )

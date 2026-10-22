@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-import time
-
 import pytest
 
 from app.core.ttl_cache import TtlCache
 
 
 @pytest.fixture
-def clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
-    now = [1_000.0]
-    monkeypatch.setattr(time, "monotonic", lambda: now[0])
-    return now
+def clock() -> list[float]:
+    return [1_000.0]
 
 
 @pytest.mark.parametrize(
@@ -21,7 +17,7 @@ def clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     [(0.0, "v"), (9.9, "v"), (10.0, "v"), (10.1, None), (500.0, None)],
 )
 def test_ttl_cache_get_respects_ttl(clock: list[float], age: float, expected: str | None):
-    cache: TtlCache[str, str] = TtlCache(ttl_seconds=10, max_entries=10)
+    cache: TtlCache[str, str] = TtlCache(ttl_seconds=10, max_entries=10, clock=lambda: clock[0])
     cache.put("k", "v")
     clock[0] += age
     assert cache.get("k") == expected
@@ -38,7 +34,7 @@ def test_ttl_cache_get_respects_ttl(clock: list[float], age: float, expected: st
 def test_ttl_cache_put_prunes_entries_nobody_reads(
     clock: list[float], writes: int, gap: float, expected_len: int
 ):
-    cache: TtlCache[int, int] = TtlCache(ttl_seconds=10, max_entries=100)
+    cache: TtlCache[int, int] = TtlCache(ttl_seconds=10, max_entries=100, clock=lambda: clock[0])
     for i in range(writes):
         cache.put(i, i)
         clock[0] += gap
@@ -47,7 +43,9 @@ def test_ttl_cache_put_prunes_entries_nobody_reads(
 
 @pytest.mark.parametrize("max_entries, writes", [(1, 5), (3, 10), (10, 10)])
 def test_ttl_cache_caps_entries_evicting_oldest(clock: list[float], max_entries: int, writes: int):
-    cache: TtlCache[int, int] = TtlCache(ttl_seconds=60, max_entries=max_entries)
+    cache: TtlCache[int, int] = TtlCache(
+        ttl_seconds=60, max_entries=max_entries, clock=lambda: clock[0]
+    )
     for i in range(writes):
         cache.put(i, i)
     assert len(cache) == min(max_entries, writes)
@@ -57,7 +55,7 @@ def test_ttl_cache_caps_entries_evicting_oldest(clock: list[float], max_entries:
 
 
 def test_ttl_cache_rewrite_refreshes_age_and_order(clock: list[float]):
-    cache: TtlCache[str, int] = TtlCache(ttl_seconds=10, max_entries=2)
+    cache: TtlCache[str, int] = TtlCache(ttl_seconds=10, max_entries=2, clock=lambda: clock[0])
     cache.put("a", 1)
     clock[0] += 8
     cache.put("b", 2)
@@ -70,7 +68,7 @@ def test_ttl_cache_rewrite_refreshes_age_and_order(clock: list[float]):
 
 
 def test_ttl_cache_pop_and_drop_where(clock: list[float]):
-    cache: TtlCache[int, str] = TtlCache(ttl_seconds=10, max_entries=10)
+    cache: TtlCache[int, str] = TtlCache(ttl_seconds=10, max_entries=10, clock=lambda: clock[0])
     for i, owner in enumerate(["ann", "bob", "ann", "cy"]):
         cache.put(i, owner)
     cache.pop(3)

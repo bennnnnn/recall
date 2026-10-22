@@ -9,6 +9,13 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
+// Analytics reads the session's token when it sends; a sign-out moves the generation.
+let mockGeneration = 1;
+jest.mock("@/lib/auth", () => ({
+  getToken: jest.fn(async () => "tok"),
+  getSessionGeneration: () => mockGeneration,
+}));
+
 jest.mock("@/lib/installationId", () => ({
   getInstallationId: jest.fn().mockResolvedValue("dev-1"),
 }));
@@ -47,6 +54,7 @@ jest.mock("@/lib/syncRecords", () => ({
   recordSync: jest.fn(async (kind: string, account: string, variant = "", at = Date.now()) => {
     mockSyncRecords.set(kind, { account, variant, at });
   }),
+  forgetSyncRecords: jest.fn(async () => { mockSyncRecords.clear(); }),
 }));
 
 const mockAppStateHandlers = new Set<(state: string) => void>();
@@ -67,6 +75,7 @@ import * as Notifications from "expo-notifications";
 import { api } from "@/lib/api";
 import {
   attachPushForegroundSync,
+  clearPushSyncRecord,
   ensureNotificationPermission,
   getNotificationPermissionGranted,
   registerRemotePushToken,
@@ -118,7 +127,7 @@ describe("push gating on user.push_notifications_enabled", () => {
     (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
     (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
 
-    await expect(ensureNotificationPermission("tok")).resolves.toBe(false);
+    await expect(ensureNotificationPermission()).resolves.toBe(false);
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
     expect(api.recordProductEvents).toHaveBeenCalledWith(
@@ -213,11 +222,14 @@ describe("push re-sync on launch, token refresh and foreground", () => {
     for (const handler of [...mockAppStateHandlers]) handler("active");
     await settle();
   };
-  // The caller's session generation: a fresh sign-in per test.
-  let session = 100;
+  // The signed-in account: a fresh one per test.
+  let n = 100;
+  let account = "user-100";
 
   beforeEach(() => {
-    session += 1;
+    n += 1;
+    account = `user-${n}`;
+    mockSyncRecords.clear();
     Platform.OS = "ios";
     jest.clearAllMocks();
     mockAppStateHandlers.clear();
@@ -228,7 +240,7 @@ describe("push re-sync on launch, token refresh and foreground", () => {
   });
 
   it("re-registers at most twice a day, not on every return to the app", async () => {
-    const cleanup = attachPushForegroundSync("tok", true, undefined, session);
+    const cleanup = attachPushForegroundSync("tok", true, undefined, account);
     await settle();
     expect(registerMock).toHaveBeenCalledTimes(1);
     expect(tokenMock).toHaveBeenCalledTimes(1);
@@ -248,26 +260,59 @@ describe("push re-sync on launch, token refresh and foreground", () => {
   });
 
   it("does not register again when the hourly token refresh re-attaches", async () => {
-    attachPushForegroundSync("tok", true, undefined, session)();
+    attachPushForegroundSync("tok", true, undefined, account)();
     await settle();
-    attachPushForegroundSync("tok-refreshed", true, undefined, session)();
+    attachPushForegroundSync("tok-refreshed", true, undefined, account)();
     await settle();
     expect(registerMock).toHaveBeenCalledTimes(1);
   });
 
-  it("registers again after another sign-in on this device", async () => {
-    attachPushForegroundSync("tok-a", true, undefined, session)();
+  it("registers again after another account signs in on this device", async () => {
+    attachPushForegroundSync("tok-a", true, undefined, account)();
     await settle();
     // Another account's sign-in rebinds the device token to that account.
-    attachPushForegroundSync("tok-b", true, undefined, session + 1)();
+    attachPushForegroundSync("tok-b", true, undefined, `${account}-other`)();
     await settle();
     expect(registerMock).toHaveBeenCalledTimes(2);
-    session += 1;
+  });
+
+  it("does not register again on a cold start within 12 hours (NET-19)", async () => {
+    attachPushForegroundSync("tok", true, undefined, account)();
+    await settle();
+    expect(registerMock).toHaveBeenCalledTimes(1);
+    // A new process: module memory is gone, the file is not.
+    let reloaded!: typeof import("@/lib/pushNotifications");
+    jest.isolateModules(() => {
+      reloaded = jest.requireActual<typeof import("@/lib/pushNotifications")>("@/lib/pushNotifications");
+    });
+    reloaded.attachPushForegroundSync("tok", true, undefined, account)();
+    await settle();
+    expect(registerMock).toHaveBeenCalledTimes(1);
+    expect(tokenMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("registers again after sign-out, which forgets the device's token on the server", async () => {
+    attachPushForegroundSync("tok", true, undefined, account)();
+    await settle();
+    await clearPushSyncRecord();
+    attachPushForegroundSync("tok-again", true, undefined, account)();
+    await settle();
+    expect(registerMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not let a sync that ends after sign-out vouch for the next sign-in", async () => {
+    registerMock.mockImplementationOnce(async () => { mockGeneration += 1; });
+    attachPushForegroundSync("tok", true, undefined, account)();
+    await settle();
+    expect(mockSyncRecords.size).toBe(0);
+    attachPushForegroundSync("tok-next", true, undefined, account)();
+    await settle();
+    expect(registerMock).toHaveBeenCalledTimes(2);
   });
 
   it("still notices a permission turned off in Settings on return", async () => {
     const onPref = jest.fn();
-    const cleanup = attachPushForegroundSync("tok", true, onPref, session);
+    const cleanup = attachPushForegroundSync("tok", true, onPref, account);
     await settle();
     (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
     (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
@@ -279,7 +324,7 @@ describe("push re-sync on launch, token refresh and foreground", () => {
 
   it("retries on the next return after a failed sync", async () => {
     registerMock.mockRejectedValueOnce(new Error("offline"));
-    const cleanup = attachPushForegroundSync("tok", true, undefined, session);
+    const cleanup = attachPushForegroundSync("tok", true, undefined, account);
     await settle();
     await foreground();
     expect(registerMock).toHaveBeenCalledTimes(2);
@@ -288,7 +333,7 @@ describe("push re-sync on launch, token refresh and foreground", () => {
 
   it("unregisters once for a user who turned push off, and retries a failure", async () => {
     unregisterMock.mockRejectedValueOnce(new Error("offline"));
-    const cleanup = attachPushForegroundSync("tok", false, undefined, session);
+    const cleanup = attachPushForegroundSync("tok", false, undefined, account);
     await settle();
     await foreground();
     await foreground();
@@ -318,7 +363,7 @@ describe("push sync across a cold start", () => {
     } else {
       run.notifications.getDevicePushTokenAsync.mockResolvedValue({ type: "ios", data: deviceToken });
     }
-    run.push.attachPushForegroundSync("tok", enabled, undefined, 1, null, account)();
+    run.push.attachPushForegroundSync("tok", enabled, undefined, account, null)();
     await settle();
     return run;
   }
@@ -388,6 +433,7 @@ describe("push token failures are reported, routine states stay quiet", () => {
   function load() {
     jest.resetModules();
     mockAppStateHandlers.clear();
+    mockSyncRecords.clear();
     return {
       push: jest.requireActual<typeof import("@/lib/pushNotifications")>("@/lib/pushNotifications"),
       notifications: jest.requireMock<Record<string, jest.Mock>>("expo-notifications"),
@@ -414,7 +460,7 @@ describe("push token failures are reported, routine states stay quiet", () => {
   it("warns once per app run when push is off for no routine reason", async () => {
     const { push, notifications, report } = load();
     notifications.getExpoPushTokenAsync.mockRejectedValue(tokenError("ERR_NOTIFICATIONS_SERVER_ERROR"));
-    const cleanup = push.attachPushForegroundSync("tok", true, undefined, 1, feedback);
+    const cleanup = push.attachPushForegroundSync("tok", true, undefined, "u1", feedback);
     await settle();
     // A failed sync retries on every return to the app; the warning does not.
     await foreground();
@@ -431,7 +477,7 @@ describe("push token failures are reported, routine states stay quiet", () => {
   it("warns when the token for turning push off cannot be read either", async () => {
     const { push, notifications, report } = load();
     notifications.getExpoPushTokenAsync.mockRejectedValue(new Error("E_REGISTRATION_FAILED"));
-    push.attachPushForegroundSync("tok", false, undefined, 1, feedback)();
+    push.attachPushForegroundSync("tok", false, undefined, "u1", feedback)();
     await settle();
     expect(report).toHaveBeenCalledWith(feedback, UNAVAILABLE);
   });
@@ -450,7 +496,7 @@ describe("push token failures are reported, routine states stay quiet", () => {
     arrange(loaded);
     loaded.notifications.getExpoPushTokenAsync.mockRejectedValue(error);
     // Unregister reads the token whatever the permission says.
-    loaded.push.attachPushForegroundSync("tok", false, undefined, 1, feedback)();
+    loaded.push.attachPushForegroundSync("tok", false, undefined, "u1", feedback)();
     await settle();
     expect(loaded.notifications.getExpoPushTokenAsync).toHaveBeenCalled();
     expect(loaded.report).not.toHaveBeenCalled();
@@ -462,7 +508,7 @@ describe("push token failures are reported, routine states stay quiet", () => {
     const config = constants.default.expoConfig;
     constants.default.expoConfig = {};
     try {
-      loaded.push.attachPushForegroundSync("tok", true, undefined, 1, feedback)();
+      loaded.push.attachPushForegroundSync("tok", true, undefined, "u1", feedback)();
       await settle();
     } finally {
       constants.default.expoConfig = config;

@@ -10,8 +10,10 @@
  * style's weight and slant, which would draw the italic files upright (styles
  * set fontStyle "normal" on them) and react-native-svg's semibold labels
  * regular. The alias a runtime load registers names exactly one face.
+ *
+ * One file per face: Space Mono and the KaTeX faces Skia also draws come from
+ * assets/fonts, the files the plugin embeds.
  */
-import { SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
 import type { FontSource } from "expo-font";
 
 import {
@@ -24,10 +26,10 @@ import {
 import { UI_FONT } from "@/lib/uiFont";
 
 export const APP_FONT_FACES: Record<string, FontSource> = {
-  [CODE_FONT]: SpaceMono_400Regular,
-  [MATH_FONT]: require("katex/dist/fonts/KaTeX_Main-Regular.ttf"),
-  [MATH_VARIABLE_FONT]: require("katex/dist/fonts/KaTeX_Math-Italic.ttf"),
-  [MATH_SYMBOL_FONT]: require("katex/dist/fonts/KaTeX_AMS-Regular.ttf"),
+  [CODE_FONT]: require("@/assets/fonts/SpaceMono-Regular.ttf"),
+  [MATH_FONT]: require("@/assets/fonts/KaTeX_Main-Regular.ttf"),
+  [MATH_VARIABLE_FONT]: require("@/assets/fonts/KaTeX_Math-Italic.ttf"),
+  [MATH_SYMBOL_FONT]: require("@/assets/fonts/KaTeX_AMS-Regular.ttf"),
   // ∬ ∭ ∮ on the math keyboard live only in this face.
   [MATH_SIZE1_FONT]: require("katex/dist/fonts/KaTeX_Size1-Regular.ttf"),
   [UI_FONT.regular]: require("@expo-google-fonts/source-sans-3/400Regular/SourceSans3_400Regular.ttf"),

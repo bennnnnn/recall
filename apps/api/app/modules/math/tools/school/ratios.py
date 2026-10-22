@@ -6,7 +6,7 @@ import re
 
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school._parse import (
     _colon_ratio_parts,
     _exactly_n_numbers,
@@ -108,7 +108,7 @@ def _block_proportion(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock
     else:
         answer = math_formulas.inverse_proportion(a, b, c)
     lines.append(f"{intent.school_op}: {answer}")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)
 
 
 def _block_ratio(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
@@ -116,7 +116,7 @@ def _block_ratio(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | No
         return None
     answer = math_school.simplify_ratio(intent.percent_rate, intent.percent_base)
     lines.append(f"Simplified ratio: {answer}")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)
 
 
 def _block_ratio_split(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
@@ -124,4 +124,4 @@ def _block_ratio_split(intent: MathIntent, lines: list[str]) -> VerifiedMathBloc
         return None
     answer = math_school.split_ratio(intent.percent_base, intent.stats_numbers)
     lines.append(f"{intent.percent_base:g} in ratio split = {answer}")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)

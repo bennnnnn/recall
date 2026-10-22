@@ -101,9 +101,6 @@ async def test_a_timed_out_solve_runs_no_tool_round(monkeypatch: pytest.MonkeyPa
     )
     rounds = AsyncMock()
     monkeypatch.setattr(tool_loop, "run_tool_rounds", rounds)
-    monkeypatch.setattr(
-        "app.modules.chat.stream_paths.classified_live_parts", AsyncMock(return_value=[])
-    )
     settings = Settings(math_tools_enabled=True, mcp_tool_loop_enabled=True)
     for timed_out, runs in ((False, True), (True, False)):
         rounds.reset_mock()
@@ -150,25 +147,31 @@ async def test_a_recording_spans_the_tasks_started_inside_it() -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("timed_out", [False, True])
 async def test_the_turns_augmentation_says_whether_its_solve_timed_out(timed_out: bool) -> None:
+    from app.modules.chat.prompt_builder import SubjectFetch
     from app.modules.chat.turn_prep import augment
 
-    async def fetch(*_args: Any, **_kwargs: Any) -> tuple[Any, ...]:
+    async def fetch(*_args: Any, **_kwargs: Any) -> SubjectFetch:
         if timed_out:
             solve_timeouts.note("equation")
-        return (None, "MATH NOTE", [], None, timed_out, "math" if timed_out else None, None)
+        return SubjectFetch(
+            subject_block="MATH NOTE",
+            verified=None,
+            solver_unverified=timed_out,
+            unverified_subject="math" if timed_out else None,
+            direct_text=None,
+        )
 
-    request = SimpleNamespace(content=_SOLVE)
+    request = SimpleNamespace(
+        content=_SOLVE, has_image_attachment=False, image_math_extract=None, on_status=None
+    )
     identity = SimpleNamespace(
         mode=SimpleNamespace(
             lightweight=False, minimal_personal=False, day_planning=False, rich_context=True
         ),
         geo=SimpleNamespace(ambiguous_nearby=False),
     )
-    with (
-        patch.object(augment, "_turn_needs", return_value=(True, False, False)),
-        patch.object(augment, "_fetch_web_with_priors", fetch),
-        patch.object(augment, "_overlapped_classifier", return_value=None),
-    ):
+    # A maths line: the gate lets it through to the solve, whose answer is stood in for.
+    with patch.object(augment, "fetch_subject", fetch):
         got = await augment.gather_and_inject(
             request,  # type: ignore[arg-type]
             identity,  # type: ignore[arg-type]

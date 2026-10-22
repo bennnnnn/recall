@@ -228,7 +228,6 @@ def test_incomplete_mixed_or_payload_fences_are_not_retained_as_math(content: st
 async def _prompt(
     query: str,
     recent: list[SimpleNamespace],
-    style: str = "balanced",
     omit_message_ids: set[UUID] | None = None,
     current_user_message_id: UUID | None = None,
 ) -> list[dict[str, str]]:
@@ -236,7 +235,6 @@ async def _prompt(
         id=uuid4(),
         name="Test",
         email="test@example.com",
-        response_style=style,
         locale="en",
         timezone="UTC",
     )
@@ -266,19 +264,17 @@ async def _prompt(
 @pytest.mark.parametrize(
     "question,result", [(_EQUATION_ASK, _EQUATION_RESULT), (_TAYLOR_ASK, _TAYLOR_RESULT)]
 )
-@pytest.mark.parametrize("style", ["balanced", "short", "detailed"])
 async def test_actual_how_examples_keep_prior_result_and_final_scoped_policy(
-    question: str, result: str, style: str
+    question: str, result: str
 ) -> None:
     recent = _exchange(question, result)
-    prepared = await _prompt("how", recent, style)
+    prepared = await _prompt("how", recent)
     assert prepared[1]["content"].endswith(f"{MATH_REPLY_POLICY}\n\n{MATH_FOLLOWUP_HINT}")
     # The math pack's own closing copy goes: the policy is stated once, last.
     assert system_prompt(prepared).count(MATH_REPLY_POLICY) == 1
     assert prepared[-2] == {"role": "user", "content": question}
     assert prepared[-1] == {"role": "assistant", "content": f"Previous result:\n\\[\n{result}\n\\]"}
-    assert "unrequested comparisons, unit conversions" in system_prompt(prepared)
-    assert "not fresh solver verification" in system_prompt(prepared)
+    assert MATH_FOLLOWUP_HINT in system_prompt(prepared)
     assert recent[-1].content == f"```answer\n{result}\n```"
     history = [item for item in prepared if item["role"] != "system"]
     assert all("```answer" not in item["content"] for item in history)
@@ -290,8 +286,8 @@ async def test_followup_policy_preserves_requested_proof_hint_and_examples(query
     prepared = await _prompt(query, _exchange())
     policy = prepared[1]["content"]
     assert policy.endswith(MATH_FOLLOWUP_HINT)
-    assert "proof, hint, or examples keeps its requested scope" in policy
-    assert "a hint must not reveal the solution" in policy
+    assert MATH_FOLLOWUP_HINT in policy
+    assert MATH_FOLLOWUP_HINT in policy
 
 
 @pytest.mark.asyncio

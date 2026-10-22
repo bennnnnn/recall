@@ -8,19 +8,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.modules.memory import (
-    accept_memory_section_rewrite,
-    acquire_memory_write_lock,
-    facts_need_consolidation,
-    normalize_memory_text,
-    release_memory_write_lock,
-)
+from app.models.orm import Memory
 from app.modules.memory import llm as memory_llm
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
-from app.modules.memory.consolidation import fact_text_jaccard
+from app.modules.memory.consolidation import (
+    accept_memory_section_rewrite,
+    fact_text_jaccard,
+    facts_need_consolidation,
+)
 from app.modules.memory.fact_quality import FactView, texts_to_drop
 from app.modules.memory.facts import is_active_memory
+from app.modules.memory.locks import acquire_memory_write_lock, release_memory_write_lock
+from app.modules.memory.ops import normalize_memory_text
+from app.modules.memory.switch import memory_switch_on
 from app.modules.memory.writes_repository import MemoryFactWrite
 from app.repositories import users as users_repo
 
@@ -37,9 +38,9 @@ class _Pair:
 _NEAR_DUP_JACCARD = 0.8
 
 
-def _duplicate_pairs(facts: list) -> list[_Pair]:
+def _duplicate_pairs(facts: list[Memory]) -> list[_Pair]:
     active = [fact for fact in facts if is_active_memory(fact) and normalize_memory_text(fact.text)]
-    by_key: dict[tuple[str, str], list] = {}
+    by_key: dict[tuple[str, str], list[Memory]] = {}
     for fact in active:
         key = (fact.type, normalize_memory_text(fact.text).lower())
         by_key.setdefault(key, []).append(fact)
@@ -86,7 +87,7 @@ async def _load_pairs(
     session: AsyncSession, user_id: UUID
 ) -> tuple[dict[UUID, str], list[_Pair], list[str]] | None:
     user = await users_repo.get_by_id(session, user_id)
-    if user is None or not getattr(user, "memory_enabled", True):
+    if user is None or not memory_switch_on(user):
         return None
     existing = await memories_repo.list_for_user(
         session, user_id, include_muted=False, include_superseded=False
@@ -123,64 +124,8 @@ async def consolidate_user_memory_sections(
             if loaded is None:
                 return False
             expected, pairs, drops = loaded
-            writes: list[MemoryFactWrite] = []
-            dropped_text: set[str] = set()
-            for pair in pairs:
-                keep_norm = normalize_memory_text(pair.keep_text).lower()
-                drop_norm = normalize_memory_text(pair.drop_text).lower()
-                summary = pair.keep_text
-                if keep_norm != drop_norm:
-                    # Newer first: the merge prompt keeps the first fact on a conflict.
-                    draft = f"{pair.keep_text} {pair.drop_text}"
-                    merged = await memory_llm.merge_memory_section(
-                        settings,
-                        section_type=pair.memory_type,
-                        prior_text=draft,
-                    )
-                    if merged is not None:
-                        accepted = accept_memory_section_rewrite(
-                            section_type=pair.memory_type,
-                            prior=pair.keep_text,
-                            summary=merged.summary,
-                            confidence=merged.confidence,
-                            min_confidence=settings.memory_min_confidence,
-                            enforce_length_floor=False,
-                        )
-                        if accepted:
-                            summary = accepted
-                    if normalize_memory_text(summary) != normalize_memory_text(pair.keep_text):
-                        writes.append(
-                            MemoryFactWrite(
-                                op="update",
-                                type=pair.memory_type,
-                                text=summary,
-                                confidence=0.9,
-                                match_text=pair.keep_text,
-                            )
-                        )
-                writes.append(
-                    MemoryFactWrite(
-                        op="delete",
-                        type=pair.memory_type,
-                        text="",
-                        confidence=1.0,
-                        match_text=pair.drop_text,
-                    )
-                )
-                dropped_text.add(pair.drop_text)
-            for text in drops:
-                if text in dropped_text:
-                    continue
-                dropped_text.add(text)
-                writes.append(
-                    MemoryFactWrite(
-                        op="delete",
-                        type="fact",
-                        text="",
-                        confidence=1.0,
-                        match_text=text,
-                    )
-                )
+            summaries = [await _merged_summary(settings, pair) for pair in pairs]
+            writes = _consolidation_writes(pairs, summaries, drops)
             if not writes:
                 return False
             await apply_memory_facts(
@@ -197,3 +142,59 @@ async def consolidate_user_memory_sections(
     except Exception:
         logger.exception("Memory consolidation failed for user_id=%s", user_id)
         raise
+
+
+async def _merged_summary(settings: Settings, pair: _Pair) -> str:
+    """The kept fact's text once the dropped one is merged in; the kept text if none is fit."""
+    if (
+        normalize_memory_text(pair.keep_text).lower()
+        == normalize_memory_text(pair.drop_text).lower()
+    ):
+        return pair.keep_text
+    # Newer first: the merge prompt keeps the first fact on a conflict.
+    merged = await memory_llm.merge_memory_section(
+        settings,
+        section_type=pair.memory_type,
+        prior_text=f"{pair.keep_text} {pair.drop_text}",
+    )
+    if merged is None:
+        return pair.keep_text
+    accepted = accept_memory_section_rewrite(
+        section_type=pair.memory_type,
+        prior=pair.keep_text,
+        summary=merged.summary,
+        confidence=merged.confidence,
+        min_confidence=settings.memory_min_confidence,
+        enforce_length_floor=False,
+    )
+    return accepted or pair.keep_text
+
+
+def _consolidation_writes(
+    pairs: list[_Pair], summaries: list[str], drops: list[str]
+) -> list[MemoryFactWrite]:
+    """Rewrite each kept fact to its summary, then delete the duplicates and stale facts."""
+    writes: list[MemoryFactWrite] = []
+    dropped: set[str] = set()
+    for pair, summary in zip(pairs, summaries, strict=True):
+        if normalize_memory_text(summary) != normalize_memory_text(pair.keep_text):
+            writes.append(
+                MemoryFactWrite(
+                    op="update",
+                    type=pair.memory_type,
+                    text=summary,
+                    confidence=0.9,
+                    match_text=pair.keep_text,
+                )
+            )
+        writes.append(_delete(pair.drop_text, pair.memory_type))
+        dropped.add(pair.drop_text)
+    for text in drops:
+        if text not in dropped:
+            dropped.add(text)
+            writes.append(_delete(text, "fact"))
+    return writes
+
+
+def _delete(text: str, memory_type: str) -> MemoryFactWrite:
+    return MemoryFactWrite(op="delete", type=memory_type, text="", confidence=1.0, match_text=text)

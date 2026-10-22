@@ -12,6 +12,7 @@ from PIL import Image
 
 from app.core.config import Settings
 from app.gateways.storage_gateway import StorageUnavailableError
+from app.modules.chat.prompt_constants.visuals import IMAGE_GEN_UNAVAILABLE_HINT
 from app.modules.chat.turn_prep.attachments import _AttachmentProcessResult
 from app.modules.chat.turn_prep.vision import inject_turn_images
 from app.tests.modules.chat.chat_test_support import FakeSessionCM
@@ -130,7 +131,7 @@ async def test_storage_outage_on_an_earlier_photo_names_it_and_keeps_the_turn():
     with patch(f"{_MODULE}.vision_input.inject_vision_content", outage):
         needs_vision, *_ = await _run(messages, _attachments(), [_row(uid)])
     assert needs_vision is False
-    assert "not available to look at again" in str(messages[-1]["content"])
+    assert "not available to look at again" in str(messages[-1]["content"])  # safety phrase
 
 
 @pytest.mark.asyncio
@@ -147,7 +148,7 @@ async def test_an_earlier_photo_is_read_again_and_asks_for_the_vision_model():
     assert lookup.await_args.args[1:] == ([first, second], user.id)
     parts = [part for part in messages[-1]["content"] if part["type"] == "image_url"]
     assert [_colour(part) for part in parts] == ["red", "blue"]
-    assert "not available" not in str(messages[-1]["content"])
+    assert IMAGE_GEN_UNAVAILABLE_HINT not in str(messages[-1]["content"])
 
 
 @pytest.mark.asyncio
@@ -166,7 +167,7 @@ async def test_an_earlier_photo_that_is_gone_is_named_not_guessed(kind):
         messages, _attachments(), rows, byte_map={f"key-{kept}": _png("red")}
     )
     assert needs_vision is (kind == "one_of_two_missing")
-    assert "not available to look at again" in str(messages[-1]["content"])
+    assert "not available to look at again" in str(messages[-1]["content"])  # safety phrase
 
 
 @pytest.mark.asyncio
@@ -200,8 +201,8 @@ async def test_a_photo_turn_says_what_to_do_with_an_unreadable_photo(earlier):
     await _run(messages, attachments, [_row(uid)], byte_map={f"key-{uid}": _png("red")})
     text = messages[-1]["content"][0]["text"]
     assert IMAGE_REAL_NOTE in text and UNCLEAR_IMAGE_NOTE in text
-    assert "ask for a clearer photo instead of guessing" in UNCLEAR_IMAGE_NOTE
-    assert "say what you cannot make out" in UNCLEAR_IMAGE_NOTE
+    assert "ask for a clearer photo instead of guessing" in UNCLEAR_IMAGE_NOTE  # safety phrase
+    assert "say what you cannot make out" in UNCLEAR_IMAGE_NOTE  # safety phrase
 
 
 @pytest.mark.asyncio

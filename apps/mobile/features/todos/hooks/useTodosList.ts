@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
-import { AppState } from "react-native";
 import { api, type Todo } from "@/lib/api";
 import { getSessionGeneration, requireTokenSession } from "@/lib/auth";
 import { isContextFresh } from "@/lib/cache/contextRefresh";
+import { useOnForeground } from "@/lib/foregroundRefresh";
 import { getTodoMutationState, type TodoMutationState } from "@/features/todos/model/todoMutationState";
 
 type TodosRefreshOptions = { silent?: boolean; force?: boolean; afterPending?: boolean };
@@ -28,7 +28,9 @@ function createResource(owner: { session: number; signedIn: boolean; userId?: st
   return { owner, data: [] as Todo[], loaded: false,
     retainedOpenIds: undefined as Set<string> | undefined,
     fetchedAt: undefined as number | undefined, pending: undefined as Pending | undefined,
-    controller: new AbortController() };
+    controller: new AbortController(),
+    // Completed to-dos from before the last 30 days: left out until the user asks (NET-16).
+    olderCompleted: false, allCompleted: false };
 }
 
 /** One full list per account session; mutations replay over a read already in flight. */
@@ -50,7 +52,8 @@ export function useTodosList(token: string | null | undefined, userId: string | 
     return () => { mounted.current = false; cache.controller.abort(); cache.pending = undefined; };
   }, [owner]);
   const initial = { owner, todos: resource.current.data, loading: signedIn && !resource.current.loaded,
-    error: false, loaded: resource.current.loaded, retainedOpenIds: resource.current.retainedOpenIds };
+    error: false, loaded: resource.current.loaded, retainedOpenIds: resource.current.retainedOpenIds,
+    olderCompleted: resource.current.olderCompleted && !resource.current.allCompleted };
   const [state, setState] = useState(initial);
   const view = state.owner === owner ? state : initial;
   const isCurrentSession = useCallback(() => mounted.current && owner.signedIn &&
@@ -60,7 +63,8 @@ export function useTodosList(token: string | null | undefined, userId: string | 
     setState((previous) => !isCurrentSession() ? previous : ({
       ...(previous.owner === owner ? previous : { loading: owner.signedIn, error: false }),
       owner, todos: resource.current.data, loaded: resource.current.loaded,
-      retainedOpenIds: resource.current.retainedOpenIds, ...patch,
+      retainedOpenIds: resource.current.retainedOpenIds,
+      olderCompleted: resource.current.olderCompleted && !resource.current.allCompleted, ...patch,
     }));
   }, [isCurrentSession, owner]);
   const getTodos = useCallback(() => isCurrentSession() ? resource.current.data : [], [isCurrentSession]);
@@ -94,8 +98,12 @@ export function useTodosList(token: string | null | undefined, userId: string | 
     cache.pending = pending;
     pending.task = (async () => {
       try {
-        const incoming = await api.listTodos(currentToken, { signal: cache.controller.signal });
+        const { todos: incoming, olderCompleted } = await api.listTodos(currentToken, {
+          signal: cache.controller.signal,
+          allCompleted: cache.allCompleted,
+        });
         if (!isCurrentSession() || cache.pending !== pending) return;
+        cache.olderCompleted = olderCompleted;
         cache.data = pending.updates.reduce((rows, update) => update(rows), incoming);
         // An optimistic completion/removal must not erase persisted seen state.
         cache.retainedOpenIds = new Set([...incoming, ...cache.data]
@@ -112,14 +120,17 @@ export function useTodosList(token: string | null | undefined, userId: string | 
     return pending.task;
   }, [isCurrentSession, owner, publish]);
 
+  /** Read the completed to-dos the list left out (older than 30 days), for this session. */
+  const showOlderCompleted = useCallback(async () => {
+    if (!isCurrentSession() || resource.current.allCompleted) return;
+    resource.current.allCompleted = true;
+    await refresh({ force: true, afterPending: true });
+  }, [isCurrentSession, refresh]);
+
   useEffect(() => { void refresh(); }, [refresh]);
-  useEffect(() => {
-    if (!signedIn) return;
-    const subscription = AppState.addEventListener("change", (status) => {
-      if (status === "active") void refresh({ silent: true });
-    });
-    return () => subscription.remove();
-  }, [refresh, signedIn]);
+  // Read again past FOREGROUND_STALE_MS.todos (the 20 s isContextFresh window).
+  useOnForeground(() => void refresh({ silent: true }), signedIn);
   return { todos: view.todos, loading: view.loading, error: view.error, loaded: view.loaded,
-    retainedOpenIds: view.retainedOpenIds, setTodos, getTodos, refresh, isCurrentSession };
+    retainedOpenIds: view.retainedOpenIds, olderCompleted: view.olderCompleted, showOlderCompleted,
+    setTodos, getTodos, refresh, isCurrentSession };
 }

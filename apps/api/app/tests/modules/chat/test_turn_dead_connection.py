@@ -205,7 +205,9 @@ async def test_the_reply_saves_when_its_pooled_connection_died_unnoticed(
         assistant_message_id=reply_id,
     )
 
-    await finalize_stream_turn_db(redis, ctx, "6", {"input": 10, "output": 1}, TurnOutcome())
+    await finalize_stream_turn_db(
+        default_deps(), redis, get_settings(), ctx, "6", {"input": 10, "output": 1}, TurnOutcome()
+    )
 
     async with SessionLocal() as session:
         saved = await session.scalar(select(Message.content).where(Message.id == reply_id))

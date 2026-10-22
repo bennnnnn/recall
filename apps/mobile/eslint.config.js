@@ -136,6 +136,15 @@ module.exports = defineConfig([
     },
   },
   {
+    // The chat turn is a reducer held outside render (code-health audit CLAR-04): chat
+    // code reads refs in callbacks and effects only, never while rendering.
+    files: ["features/chat/**/*.{ts,tsx}"],
+    ignores: TEST_FILES,
+    rules: {
+      "react-hooks/refs": "error",
+    },
+  },
+  {
     files: ["**/*.{ts,tsx}"],
     // Domain graphics (math layout, diagrams, plots) and the type scale itself
     // keep raw numbers. Everything else uses lib/type, lib/space, lib/radius and

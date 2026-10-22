@@ -12,8 +12,10 @@ from redis.exceptions import TimeoutError as RedisTimeoutError
 from app.core import redis_lock
 from app.core.config import Settings
 from app.exceptions import ChatBusyError
-from app.modules.chat import stream_entry, turn_resources
+from app.modules.chat import chats_repository, messages_repository, stream_entry, turn_resources
+from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.stream_events import error_payload_for_exception
+from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import FakeSessionCM as _FakeSessionCM
 from app.tests.modules.chat.chat_test_support import turn_deps
 
@@ -38,9 +40,9 @@ def _chat() -> MagicMock:
 def _turn_load():
     chat = _chat()
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=chat)),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=[])),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=0)),
     ):
         yield
 
@@ -55,7 +57,7 @@ def _held_lock_deps(*, acquire, release, refresh=None, **fields):
 
 def _plan_and_quota():
     return {
-        "plan": {"resolve_user_model_override": MagicMock(return_value="free-chat")},
+        "model_choice": {"resolve_user_model_override": MagicMock(return_value="free-chat")},
         "quota": {"daily_limit_for_user": MagicMock(return_value=100_000)},
     }
 
@@ -63,7 +65,7 @@ def _plan_and_quota():
 @pytest.mark.asyncio
 async def test_stream_chat_acquire_fail_skips_prepare_and_raises_busy():
     user = _user()
-    redis = AsyncMock()
+    redis = redis_mock()
     prepare = AsyncMock()
     wait = AsyncMock()
     release = AsyncMock()
@@ -103,7 +105,7 @@ async def test_stream_chat_acquire_fail_skips_prepare_and_raises_busy():
 @pytest.mark.asyncio
 async def test_stream_chat_releases_lock_on_success():
     user = _user()
-    redis = AsyncMock()
+    redis = redis_mock()
     chat_id = uuid4()
     release = AsyncMock()
 
@@ -152,7 +154,7 @@ async def test_stream_chat_releases_lock_on_success():
 @pytest.mark.asyncio
 async def test_stream_chat_releases_lock_when_prepare_fails():
     user = _user()
-    redis = AsyncMock()
+    redis = redis_mock()
     chat_id = uuid4()
     release = AsyncMock()
     refund = AsyncMock()
@@ -198,7 +200,7 @@ async def test_stream_chat_releases_lock_when_prepare_fails():
 @pytest.mark.asyncio
 async def test_regenerate_acquires_chatprep_lock():
     user = _user()
-    redis = AsyncMock()
+    redis = redis_mock()
     chat_id = uuid4()
     release = AsyncMock()
 
@@ -209,6 +211,7 @@ async def test_regenerate_acquires_chatprep_lock():
     fake_last.content = "prior"
     fake_last.model = "free-chat"
     fake_last_user = MagicMock()
+    fake_last_user.role = "user"
     fake_last_user.content = "question"
 
     async def fake_stream(*_a, **_k):
@@ -219,12 +222,16 @@ async def test_regenerate_acquires_chatprep_lock():
     with (
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.get_last", AsyncMock(return_value=fake_last)),
-        patch("app.repositories.messages.get_last_user", AsyncMock(return_value=fake_last_user)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2)),
-        patch(
-            "app.modules.billing.plan.resolve_user_model_override",
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(
+            messages_repository,
+            "list_recent",
+            AsyncMock(return_value=[fake_last_user, fake_last]),
+        ),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=2)),
+        patch.object(
+            model_choice,
+            "resolve_user_model_override",
             return_value="free-chat",
         ),
         patch(
@@ -286,7 +293,7 @@ def test_chat_busy_error_maps_to_busy_code():
 
 @pytest.mark.asyncio
 async def test_turn_resources_refreshes_lock_while_held():
-    redis = AsyncMock()
+    redis = redis_mock()
     refresh = AsyncMock()
     release = AsyncMock()
 
@@ -308,7 +315,7 @@ async def test_turn_resources_refreshes_lock_while_held():
 async def test_refresh_loop_survives_redis_errors_and_a_lost_lock():
     """The loop used to die on its first Redis exception, so one blip ended the
     lock's heartbeat for the rest of the turn."""
-    redis = AsyncMock()
+    redis = redis_mock()
     refresh = AsyncMock(
         side_effect=[RedisConnectionError("blip"), False, RedisTimeoutError("slow"), True, True]
     )
@@ -349,7 +356,7 @@ async def test_lock_redis_errors_never_cut_the_stream_or_skip_its_save(stream_of
             "release_lock": redis_lock.release_lock,
         },
     )
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.eval = release
     ctx = StreamContext(
         user_id=uuid4(),
@@ -448,13 +455,19 @@ async def test_a_turn_handed_to_finalize_is_not_refunded_on_a_later_escape(strea
     refund.assert_not_awaited()
 
 
+@pytest.mark.parametrize("borrowed", [True, False])
 @pytest.mark.asyncio
-async def test_turn_resources_borrowed_does_not_start_refresh():
-    redis = AsyncMock()
+async def test_turn_resources_refreshes_only_a_lock_it_took(borrowed):
+    """A borrowed lock is the outer turn's to refresh. At a zero interval a refresh
+    loop runs within a few turns of the event loop, no clock involved; the owned
+    lock is the control that shows those turns are enough."""
+    redis = redis_mock()
     refresh = AsyncMock()
     chat_id = uuid4()
-    deps = turn_deps(locks={"refresh_lock": refresh})
-    borrowed = turn_resources.TurnResources(
+    deps = _held_lock_deps(
+        acquire=AsyncMock(return_value="tok"), release=AsyncMock(), refresh=refresh
+    )
+    outer = turn_resources.TurnResources(
         deps=deps,
         redis=redis,
         user_id=uuid4(),
@@ -464,23 +477,24 @@ async def test_turn_resources_borrowed_does_not_start_refresh():
         reserved_tokens=10,
     )
 
-    with patch.object(turn_resources, "CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS", 0.05):
+    with patch.object(turn_resources, "CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS", 0):
         async with turn_resources.turn_resources(
             deps,
             redis,
-            user_id=borrowed.user_id,
+            user_id=outer.user_id,
             chat_id=chat_id,
-            borrowed=borrowed,
+            borrowed=outer if borrowed else None,
         ):
-            await asyncio.sleep(0.12)
+            for _ in range(5):
+                await asyncio.sleep(0)
 
-    refresh.assert_not_awaited()
+    assert (refresh.await_count > 0) is not borrowed
 
 
 @pytest.mark.asyncio
 async def test_top_up_reserve_for_prompt_adds_delta():
     user = _user()
-    redis = AsyncMock()
+    redis = redis_mock()
     reserve = AsyncMock(return_value=30)
     res = turn_resources.TurnResources(
         deps=turn_deps(quota={"reserve_usage_up_to": reserve}),
@@ -513,7 +527,7 @@ async def test_top_up_reserve_for_prompt_adds_delta():
 async def test_top_up_reserve_for_prompt_keeps_the_turn_when_no_more_fits():
     """The turn already holds a reservation; a top-up that cannot grow never refuses."""
     user = _user()
-    redis = AsyncMock()
+    redis = redis_mock()
     res = turn_resources.TurnResources(
         deps=turn_deps(quota={"reserve_usage_up_to": AsyncMock(return_value=0)}),
         redis=redis,

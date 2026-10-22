@@ -26,20 +26,22 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
   const pushEnabled = user?.push_notifications_enabled ?? false;
   const reminderLeadMinutes = user?.reminder_lead_minutes;
   const feedback = useActionFeedbackOptional();
-  // The access token refreshes hourly; work done once per signed-in user reads
-  // the newest token from this ref instead of starting again.
+  // Keyed on the sign-in, not the token: the access token refreshes hourly, and each
+  // sync reads the newest one from this ref (code-health audit NET-11). On the token,
+  // the location sync took a GPS fix and a reverse geocode every hour.
   const tokenRef = useRef(token);
   tokenRef.current = token;
   const signedIn = Boolean(token);
   useEffect(() => {
-    if (!token || !userId) return;
+    if (!signedIn || !userId) return;
     const generation = getSessionGeneration();
     let cancelled = false;
     const active = () => !cancelled && generation === getSessionGeneration();
     void (async () => {
       if (!active()) return;
       const deviceTz = getDeviceTimezone();
-      if (timezone === deviceTz) return;
+      const token = tokenRef.current;
+      if (timezone === deviceTz || !token) return;
       const updated = await api.updateMe(token, { timezone: deviceTz });
       if (!active()) return;
       setUser((current) => current?.id === userId
@@ -48,7 +50,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
       if (active()) console.warn("[bootstrap] timezone sync failed");
     });
     return () => { cancelled = true; };
-  }, [token, userId, timezone, setUser]);
+  }, [signedIn, userId, timezone, setUser]);
 
   useEffect(() => {
     if (!signedIn || !userId || !locationEnabled) return;
@@ -77,12 +79,13 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
   }, [signedIn, userId, location, locationEnabled, setUser]);
 
   useEffect(() => {
-    if (!token || !userId) return;
+    if (!signedIn || !userId) return;
     const generation = getSessionGeneration();
     let cancelled = false;
     let cleanup: (() => void) | undefined;
     void import("@/lib/pushNotifications").then(({ attachPushForegroundSync }) => {
-      if (cancelled || generation !== getSessionGeneration()) return;
+      const token = tokenRef.current;
+      if (cancelled || generation !== getSessionGeneration() || !token) return;
       // Gate push registration on user.push_notifications_enabled — without
       // this, the backend holds a live push token for a user who opted out
       // and keeps sending them notifications. When disabled, the sync
@@ -95,17 +98,17 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
           setUser((current) => current?.id === userId
             ? { ...current, push_notifications_enabled: enabled } : current);
         },
-        // Hourly token refreshes re-attach; one sync per sign-in is enough.
-        generation,
-        feedback,
+        // Hourly token refreshes and cold starts re-attach; one sync per account
+        // every 12 hours is enough.
         userId,
+        feedback,
       );
     }).catch(() => {});
     return () => {
       cancelled = true;
       cleanup?.();
     };
-  }, [token, userId, pushEnabled, setUser, feedback]);
+  }, [signedIn, userId, pushEnabled, setUser, feedback]);
 
   useEffect(() => {
     if (reminderLeadMinutes == null) return;
@@ -118,8 +121,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
     return () => { cancelled = true; };
   }, [userId, reminderLeadMinutes]);
 
-  // RevenueCat is set up once per signed-in user; the plan sync reads the
-  // newest token from the ref above.
+  // RevenueCat is set up once per signed-in user; the plan sync reads the newest token.
   useEffect(() => {
     if (!signedIn || !userId) return;
     const generation = getSessionGeneration();

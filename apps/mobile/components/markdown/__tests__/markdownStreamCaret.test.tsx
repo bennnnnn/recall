@@ -1,4 +1,4 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet, type StyleProp, type TextStyle } from "react-native";
 import { render, type RenderResult } from "@testing-library/react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -19,7 +19,7 @@ function graySlabs(view: RenderResult): unknown[] {
       node.forEach(walk);
       return;
     }
-    const record = node as { props?: { style?: unknown }; children?: unknown };
+    const record = node as { props?: { style?: StyleProp<TextStyle> }; children?: unknown };
     const flat = StyleSheet.flatten(record.props?.style);
     if (
       flat?.width === "100%" &&

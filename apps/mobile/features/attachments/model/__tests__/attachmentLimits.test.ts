@@ -25,7 +25,8 @@ it("caps a file at the API's MAX_ATTACHMENT_SIZE", () => {
   const expression = read("core/attachment_limits.py").match(/MAX_ATTACHMENT_SIZE = ([\d\s*_]+)/)?.[1] ?? "";
   const bytes = expression.split("*").reduce((product: number, factor: string) => product * Number(factor.replace(/_/g, "")), 1);
   expect(bytes).toBe(MAX_ATTACHMENT_BYTES);
-  expect(read("modules/attachments/schemas.py")).toContain(`le=${MAX_ATTACHMENT_BYTES.toLocaleString("en-US").replace(/,/g, "_")}`);
+  // Presign checks the same constant, not a second copy of the number.
+  expect(read("modules/attachments/schemas.py")).toContain("le=MAX_ATTACHMENT_SIZE");
 });
 
 it("sends as-is exactly the image types the API stores, aliases aside", () => {

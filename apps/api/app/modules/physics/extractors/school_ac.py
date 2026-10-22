@@ -4,19 +4,16 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    _AMP_PATTERN,
-    _OHM_PATTERN,
-)
 from app.modules.physics.extractors.school_common import (
     _FARAD,
     _HENRY,
     _HERTZ,
-    _NUMBER,
+    NUMBER,
     _henry_unit,
     _intent,
     _one,
 )
+from app.modules.physics.extractors.unit_patterns import AMP_PATTERN, OHM_PATTERN
 from app.modules.physics.schemas import PhysicsIntent
 
 _PEAK_ASK_RE = re.compile(
@@ -49,7 +46,7 @@ def extract_ac(text: str, lower: str) -> PhysicsIntent | None:
                 return None
             params, units = _rms_params(given[0], given[1] or "V", text)
             return _intent("circuit", "rms_voltage", params, units)
-        given = _one(text, _AMP_PATTERN)
+        given = _one(text, AMP_PATTERN)
         if given is None:
             return None
         params = {"I": given[0]}
@@ -61,7 +58,7 @@ def extract_ac(text: str, lower: str) -> PhysicsIntent | None:
     frequency = _one(text, _HERTZ)
     inductance = _one(text, _HENRY)
     capacitance = _one(text, _FARAD)
-    resistance = _one(text, _OHM_PATTERN, ("resistance", "resistor"))
+    resistance = _one(text, OHM_PATTERN, ("resistance", "resistor"))
     if any(word in lower for word in ("resonant", "resonance")) and inductance and capacitance:
         if "string" in lower or "pipe" in lower:
             return None
@@ -75,12 +72,12 @@ def extract_ac(text: str, lower: str) -> PhysicsIntent | None:
             },
         )
     inductive = re.search(
-        rf"inductive reactance(?:\s+of)?\s+({_NUMBER})\s*({_OHM_PATTERN})",
+        rf"inductive reactance(?:\s+of)?\s+({NUMBER})\s*({OHM_PATTERN})",
         text,
         re.IGNORECASE,
     )
     capacitive = re.search(
-        rf"capacitive reactance(?:\s+of)?\s+({_NUMBER})\s*({_OHM_PATTERN})",
+        rf"capacitive reactance(?:\s+of)?\s+({NUMBER})\s*({OHM_PATTERN})",
         text,
         re.IGNORECASE,
     )
@@ -131,7 +128,7 @@ def extract_ac(text: str, lower: str) -> PhysicsIntent | None:
             {"capacitance": capacitance[1] or "F", "freq": frequency[1] or "Hz"},
         )
     if "average power" in lower and resistance is not None:
-        current = _one(text, _AMP_PATTERN)
+        current = _one(text, AMP_PATTERN)
         if current is None:
             return None
         return _intent(

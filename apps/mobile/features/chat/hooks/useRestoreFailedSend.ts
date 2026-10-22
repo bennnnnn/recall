@@ -1,7 +1,7 @@
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 
 import { useActionFeedbackOptional } from "@/contexts/ActionFeedbackContext";
-import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
+import { useComposerDraftApi } from "@/features/chat/context/ComposerDraftContext";
 import { discardDraftAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
 import { shouldRestoreFailedSend } from "@/features/chat/model/composerThreadDraft";
 import { clearPendingChatTtft } from "@/features/chat/model/latency";

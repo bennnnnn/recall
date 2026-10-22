@@ -19,13 +19,9 @@ from app.gateways.openai_speech_gateway import RealtimeClientSecretResult
 from app.main import create_app
 from app.modules.speech.live_talk import LiveTalkSessionContext
 from app.services import quota as quota_service
-from app.tests.test_routers import _fake_user
+from app.tests.api_support import api_user
 
 _AUTH = {"Authorization": "Bearer tok"}
-
-
-async def _pcm(*_args: object, **_kwargs: object):
-    yield b"pcm"
 
 
 # path -> (request kwargs, provider patched on speech_service, provider value,
@@ -36,15 +32,6 @@ _ROUTES = {
         {"json": {"text": "hello"}},
         "synthesize_speech",
         AsyncMock(return_value=(b"mp3", "audio/mpeg")),
-        "daily_speech_tts_plus",
-        quota_service.SPEECH_TTS_NOT_IN_PLAN_MESSAGE,
-        "speech_tts_rl",
-        quota_service.SPEECH_TTS_RATE_LIMIT_MESSAGE,
-    ),
-    "/speech/tts/stream": (
-        {"json": {"text": "hello"}},
-        "iter_tts_pcm",
-        _pcm,
         "daily_speech_tts_plus",
         quota_service.SPEECH_TTS_NOT_IN_PLAN_MESSAGE,
         "speech_tts_rl",
@@ -88,21 +75,24 @@ def _speech(path: str, *, spend_capped: bool = False) -> Iterator[tuple[object, 
 @pytest.mark.parametrize("path", list(_ROUTES))
 def test_speech_route_refuses_a_plan_without_the_feature(path):
     request, _, _, plan_setting, message, *_ = _ROUTES[path]
-    client = _client(_fake_user(plan="plus"), **{plan_setting: 0})
+    client = _client(api_user(plan="plus"), **{plan_setting: 0})
     with _speech(path) as (_fake_redis, _provider):
         response = client.post(path, headers=_AUTH, **request)
     assert response.status_code == 403
-    assert response.json() == {"detail": message}
+    assert response.json() == {"detail": {"code": "not_in_plan", "message": message}}
 
 
 @pytest.mark.parametrize("path", list(_ROUTES))
 def test_speech_route_refuses_while_the_spend_breaker_is_open(path):
     request, *_ = _ROUTES[path]
-    client = _client(_fake_user(plan="plus"))
+    client = _client(api_user(plan="plus"))
     with _speech(path, spend_capped=True) as (_fake_redis, _provider):
         response = client.post(path, headers=_AUTH, **request)
     assert response.status_code == 429
-    assert response.json() == {"detail": quota_service.VOICE_SPEND_CAP_MESSAGE}
+    assert response.json()["detail"] == {
+        "code": "voice_spend_cap",
+        "message": quota_service.VOICE_SPEND_CAP_MESSAGE,
+    }
 
 
 @pytest.mark.parametrize("path", list(_ROUTES))
@@ -110,7 +100,7 @@ def test_speech_route_rate_limits_per_user_and_minute(path):
     import asyncio
 
     request, _, _, _, _, rate_prefix, rate_message = _ROUTES[path]
-    user = _fake_user(plan="plus")
+    user = api_user(plan="plus")
     client = _client(user, speech_rate_limit_per_minute=1)
     with _speech(path) as (fake_redis, _provider):
         first = client.post(path, headers=_AUTH, **request)
@@ -118,7 +108,7 @@ def test_speech_route_rate_limits_per_user_and_minute(path):
         rate_key = asyncio.run(fake_redis.get(f"{rate_prefix}:{user.id}"))
     assert first.status_code == 200
     assert second.status_code == 429
-    assert second.json() == {"detail": rate_message}
+    assert second.json()["detail"] == {"code": "rate_limited", "message": rate_message}
     assert rate_key == "2"
 
 
@@ -127,7 +117,7 @@ def test_speech_route_with_rate_limit_off_takes_no_rate_key(path):
     import asyncio
 
     request, _, _, _, _, rate_prefix, _ = _ROUTES[path]
-    user = _fake_user(plan="plus")
+    user = api_user(plan="plus")
     client = _client(user, speech_rate_limit_per_minute=0)
     with _speech(path) as (fake_redis, _provider):
         response = client.post(path, headers=_AUTH, **request)
@@ -140,7 +130,6 @@ def test_speech_route_with_rate_limit_off_takes_no_rate_key(path):
     "path, cap_setting, counter",
     [
         ("/speech/tts", "daily_speech_tts_plus", "speech_tts"),
-        ("/speech/tts/stream", "daily_speech_tts_plus", "speech_tts"),
         ("/speech/transcribe", "daily_speech_transcriptions_plus", "speech_transcription"),
     ],
 )
@@ -148,20 +137,23 @@ def test_speech_route_refuses_past_the_days_cap(path, cap_setting, counter):
     from app.services.quota import counters
 
     request, *_ = _ROUTES[path]
-    user = _fake_user(plan="plus")
+    user = api_user(plan="plus")
     client = _client(user, **{cap_setting: 1})
     with _speech(path) as (_fake_redis, _provider):
         first = client.post(path, headers=_AUTH, **request)
         second = client.post(path, headers=_AUTH, **request)
     assert first.status_code == 200
     assert second.status_code == 429
-    assert second.json() == {"detail": counters.limit_message(counter, user)}
+    assert second.json()["detail"] == {
+        "code": "daily_limit",
+        "message": counters.limit_message(counter, user),
+    }
 
 
 def test_tts_provider_failure_is_502_and_gives_the_slot_back():
     import asyncio
 
-    user = _fake_user(plan="plus")
+    user = api_user(plan="plus")
     client = _client(user, daily_speech_tts_plus=1)
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
@@ -214,7 +206,7 @@ _MINT_SETTINGS: dict[str, object] = {
 def test_live_talk_mint_rate_limits_per_user_and_minute():
     import asyncio
 
-    user = _fake_user(plan="pro")
+    user = api_user(plan="pro")
     client = _client(user, speech_rate_limit_per_minute=1, **_MINT_SETTINGS)
     with _mint() as (fake_redis, mint):
         first = client.post("/speech/live/session", headers=_AUTH, json={})
@@ -222,15 +214,21 @@ def test_live_talk_mint_rate_limits_per_user_and_minute():
         rate_key = asyncio.run(fake_redis.get(f"speech_realtime_rl:{user.id}"))
     assert first.status_code == 200
     assert second.status_code == 429
-    assert second.json() == {"detail": quota_service.LIVE_TALK_RATE_LIMIT_MESSAGE}
+    assert second.json()["detail"] == {
+        "code": "rate_limited",
+        "message": quota_service.LIVE_TALK_RATE_LIMIT_MESSAGE,
+    }
     assert rate_key == "2"
     assert mint.await_count == 1
 
 
 def test_live_talk_mint_refuses_while_the_spend_breaker_is_open():
-    client = _client(_fake_user(plan="pro"), speech_rate_limit_per_minute=0, **_MINT_SETTINGS)
+    client = _client(api_user(plan="pro"), speech_rate_limit_per_minute=0, **_MINT_SETTINGS)
     with _mint(spend_capped=True) as (_fake_redis, mint):
         response = client.post("/speech/live/session", headers=_AUTH, json={})
     assert response.status_code == 429
-    assert response.json() == {"detail": quota_service.VOICE_SPEND_CAP_MESSAGE}
+    assert response.json()["detail"] == {
+        "code": "voice_spend_cap",
+        "message": quota_service.VOICE_SPEND_CAP_MESSAGE,
+    }
     mint.assert_not_awaited()

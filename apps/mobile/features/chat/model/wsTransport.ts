@@ -4,6 +4,7 @@ import {
 } from "@/features/chat/model/socketReduce";
 import { createWsBackoff, type WsBackoff } from "@/features/chat/model/wsBackoff";
 import {
+  STREAM_IDLE_TIMEOUT_MS,
   WS_ACK_PROBE_MS,
   WS_CONNECT_TIMEOUT_MS,
   WS_FIRST_EVENT_TIMEOUT_MS,
@@ -20,6 +21,8 @@ const WS_TURN_EVENT_TYPES = new Set([
   "done",
   "error",
   "duplicate",
+  // Sent while a turn is quiet: proof of life, nothing to show.
+  "keepalive",
 ]);
 
 const WS_OPEN_STATE = 1;
@@ -91,7 +94,8 @@ export type WsSendFallback = {
 
 type ChatWsTransportOptions = {
   url: string;
-  token: string;
+  /** The newest bearer token, read when the socket authenticates. */
+  getToken: () => string | null;
   clientTimezone: string;
   onPayload: (payload: ChatWsPayload) => void;
   onFallback: (signal: ChatWsFallbackSignal) => void;
@@ -112,6 +116,8 @@ export class ChatWsTransport {
   private firstEventTimer: ReturnType<typeof setTimeout> | null = null;
   private ackProbeTimer: ReturnType<typeof setTimeout> | null = null;
   private probeTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Once the turn has spoken, the wait for its next event (`STREAM_IDLE_TIMEOUT_MS`). */
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private turnActive = false;
   /** The server refused this transport's token; a refreshed token gets a new transport. */
   private authRejected = false;
@@ -190,7 +196,7 @@ export class ChatWsTransport {
       }
       this.clearConnectTimer();
       this.sendFrame({
-        token: this.options.token,
+        token: this.options.getToken() ?? "",
         client_timezone: this.options.clientTimezone,
       } satisfies ChatWsAuthFrame);
       // Its pong says this server can be probed (an older one ignores pings).
@@ -235,7 +241,9 @@ export class ChatWsTransport {
       }
       if (WS_TURN_EVENT_TYPES.has(payload.type)) {
         this.clearAckTimers();
+        if (this.turnActive) this.awaitNextEvent(socket);
       }
+      if (payload.type === "keepalive") return;
 
       if (payload.type === "error" && payload.message === "Unauthorized") {
         const duringTurn = this.turnActive;
@@ -391,7 +399,28 @@ export class ChatWsTransport {
   private clearTurnTimers(): void {
     this.clearAckTimers();
     if (this.probeTimer != null) clearTimeout(this.probeTimer);
+    if (this.idleTimer != null) clearTimeout(this.idleTimer);
     this.probeTimer = null;
+    this.idleTimer = null;
+  }
+
+  /**
+   * The turn has spoken: wait for its next event. A silence past the deadline is
+   * a dead connection (a network change leaves such a socket behind): close it,
+   * report a drop so the caller reloads the chat for the saved reply, and open a
+   * new socket for the next send (code-health audit NET-17).
+   */
+  private awaitNextEvent(socket: WebSocket): void {
+    if (this.idleTimer != null) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = null;
+      if (!this.turnActive || !this.isCurrentSocket(socket)) return;
+      this.socket = null;
+      this.turnActive = false;
+      this.clearTurnTimers();
+      this.options.onFallback({ reason: "disconnect", duringTurn: true });
+      socket.close();
+    }, STREAM_IDLE_TIMEOUT_MS);
   }
 
   private finishConnect(): void {

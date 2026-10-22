@@ -22,10 +22,6 @@ jest.mock("@/lib/theme", () => {
   return { ...actual, useTheme: () => actual.lightTheme };
 });
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
 // The 2D structure page is a file read through expo-file-system, whose native
 // module cannot load here; with no preview WebView it is never written.
 jest.mock("expo-file-system/legacy", () => ({}));

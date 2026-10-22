@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.images.reply_picture import ReplyPicture
-from app.services.md_fence_scan import strip_closed_fences
+from app.services.md_fence_scan import line_fences, strip_closed_fences
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
@@ -54,7 +54,6 @@ def add_settings_card(state: FinalizeState) -> str:
 # "### Weather in Paris": one request's section. "---": the hairline between two.
 _SECTION = re.compile(r"^#{2,3}\s+\S")
 _RULE = re.compile(r"^\s*(?:-{3,}|\*{3,}|_{3,})\s*$")
-_FENCE = re.compile(r"^\s*(?:`{3,}|~{3,})")
 
 
 def divide_request_sections(state: FinalizeState) -> str:
@@ -67,11 +66,9 @@ def divide_request_sections(state: FinalizeState) -> str:
 def divide_sections(text: str) -> str:
     """``---`` before every section heading but the first, unless one is there already."""
     out: list[str] = []
-    fenced = seen = False
-    for line in text.split("\n"):
-        if _FENCE.match(line):
-            fenced = not fenced
-        elif not fenced and _SECTION.match(line):
+    seen = False
+    for line, fence in zip(text.split("\n"), line_fences(text), strict=True):
+        if fence is None and _SECTION.match(line):
             previous = next((kept for kept in reversed(out) if kept.strip()), "")
             if seen and not _RULE.match(previous):
                 # A blank line first: "text" then "---" is a heading in markdown.

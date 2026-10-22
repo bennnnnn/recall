@@ -1,7 +1,8 @@
 """Postgres connects and statements are bounded.
 
 asyncpg's connect timeout defaulted to 60s and statements had no timeout at
-all. A checkout ping (``core/pool_liveness``) runs a statement, so one half-open
+all. The idle-connection ping (``core/pool_liveness``) runs a statement on
+checkout, so one half-open
 pooled connection (Neon restart, network blip) hung a request forever, and
 ``pool_timeout`` (5s) only covers waiting for a free slot.
 """

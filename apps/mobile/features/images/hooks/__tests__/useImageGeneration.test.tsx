@@ -6,22 +6,25 @@ import { uploadChatAttachment, type PendingAttachment } from "@/features/attachm
 import { ApiRequestError } from "@/lib/api/client";
 import { notifyWarning } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
+import { onAppEvent } from "@/lib/appEvents";
 
 jest.mock("@/lib/api", () => ({ api: { generateImage: jest.fn() } }));
 jest.mock("@/lib/api/client", () => ({
-  ApiRequestError: class extends Error {
-    status: number;
-    constructor(code: number, message = "") {
-      super(message);
-      this.status = code;
-    }
-  },
+  ApiRequestError: jest.requireActual("@/lib/api/errorBody").ApiRequestError,
 }));
 jest.mock("@/features/attachments/model/attachments", () => ({ uploadChatAttachment: jest.fn() }));
 jest.mock("@/lib/haptics", () => ({ notifyWarning: jest.fn() }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
-jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
+const attachmentAdded = jest.fn();
+onAppEvent("attachmentAdded", attachmentAdded);
+
+/** The chat screen's side, as the chat feature supplies it. */
+const host = () => ({
+  ensureChatId: jest.fn(async (): Promise<string | null> => "chat"),
+  uploadReference: async (token: string, attachment: PendingAttachment) =>
+    ({ ids: [await uploadChatAttachment(token, attachment)] }),
+  failureMessage: (message: string) => message,
+});
 jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableError: jest.fn() }));
 
 describe("image generation queued state and cancellation", () => {
@@ -30,11 +33,11 @@ describe("image generation queued state and cancellation", () => {
   async function setup() {
     const updates: React.SetStateAction<Message[]>[] = [];
     const count = { current: 0 };
+    const sides = host();
     const rendered = await renderHook(() => useImageGeneration({
-      token: "tok", chatId: "chat", setChatId: jest.fn(), setChatTitle: jest.fn(),
+      token: "tok", ...sides,
       setMessages: (update) => { updates.push(update); },
-      draft: {} as never, router: {} as never, selectedModel: "free-chat", streaming: false,
-      isPaid: true, isOffline: false, onOpenUpgrade: jest.fn(), onScrollToLatest: jest.fn(),
+      streaming: false, isOffline: false, onOpenUpgrade: jest.fn(), onScrollToLatest: jest.fn(),
       newMessageCountRef: count, t: (key) => key,
     }));
     const replay = () => updates.reduce<Message[]>((rows, update) => typeof update === "function" ? update(rows) : update, []);
@@ -141,10 +144,9 @@ describe("image generation submit steps", () => {
   async function setup(overrides: Partial<Parameters<typeof useImageGeneration>[0]> = {}) {
     const updates: React.SetStateAction<Message[]>[] = [];
     const options = {
-      token: "tok" as string | null, chatId: "chat" as string | null, setChatId: jest.fn(), setChatTitle: jest.fn(),
+      token: "tok" as string | null, ...host(),
       setMessages: (update: React.SetStateAction<Message[]>) => { updates.push(update); },
-      draft: {} as never, router: { setParams: jest.fn() } as never, selectedModel: "free-chat", streaming: false,
-      isPaid: true, isOffline: false, onOpenUpgrade: jest.fn(), onOfflineBlocked: jest.fn(), onScrollToLatest: jest.fn(),
+      streaming: false, isOffline: false, onOpenUpgrade: jest.fn(), onOfflineBlocked: jest.fn(), onScrollToLatest: jest.fn(),
       newMessageCountRef: { current: 0 }, t: (key: string) => key,
       ...overrides,
     };
@@ -194,42 +196,27 @@ describe("image generation submit steps", () => {
     expect(result.current.generating).toBe(false);
   });
 
-  it("creates a new chat first when none is open", async () => {
-    const draft = {
-      creatingRef: { current: false }, skipLoadForChatIdRef: { current: null as string | null },
-      draftChatIdRef: { current: "new-1" as string | null }, setDraftChatId: jest.fn(),
-      prepareDraftChat: jest.fn(),
-    };
-    let creatingDuringPrepare: boolean | null = null;
-    draft.prepareDraftChat.mockImplementation(async () => {
-      creatingDuringPrepare = draft.creatingRef.current;
-      return "new-1";
-    });
-    const { submit, options } = await setup({ chatId: null, draft: draft as never });
+  it("lands the picture in the chat the screen makes for it", async () => {
+    const { submit } = await setup({ ensureChatId: jest.fn(async () => "new-1") });
     await submit({ prompt: "cat", userMessage: "Draw a cat" });
-    expect(draft.prepareDraftChat).toHaveBeenCalledWith("free-chat");
-    expect(creatingDuringPrepare).toBe(true);
-    expect(draft.creatingRef.current).toBe(false);
-    expect(draft.skipLoadForChatIdRef.current).toBe("new-1");
-    expect(draft.draftChatIdRef.current).toBeNull();
-    expect(options.setChatTitle).toHaveBeenCalledWith(null);
-    expect(options.setChatId).toHaveBeenCalledWith("new-1");
-    expect(draft.setDraftChatId).toHaveBeenCalledWith(null);
-    expect((options.router as unknown as { setParams: jest.Mock }).setParams).toHaveBeenCalledWith({ chatId: "new-1" });
     expect(api.generateImage).toHaveBeenCalledWith("tok", expect.objectContaining({ chat_id: "new-1" }), expect.anything());
   });
 
   it("fails the turn when no chat can be created", async () => {
-    const draft = {
-      creatingRef: { current: false }, skipLoadForChatIdRef: { current: null }, draftChatIdRef: { current: null },
-      setDraftChatId: jest.fn(), prepareDraftChat: jest.fn().mockResolvedValue(null),
-    };
-    const { submit, replay, options } = await setup({ chatId: null, draft: draft as never });
+    const ensureChatId = jest.fn(async (): Promise<string | null> => { throw new Error("Could not create chat"); });
+    const { submit, replay } = await setup({ ensureChatId });
     await submit({ prompt: "cat", userMessage: "Draw a cat" });
     expect(api.generateImage).not.toHaveBeenCalled();
-    expect(options.setChatId).not.toHaveBeenCalled();
-    expect(draft.creatingRef.current).toBe(false);
     expect(replay().at(-1)).toMatchObject({ id: "image-gen-failed", image_gen_failure: "failed", image_gen_error: "Could not create chat" });
+  });
+
+  it("words a failure the way the chat does", async () => {
+    (api.generateImage as jest.Mock).mockRejectedValueOnce(new Error("raw provider text"));
+    const failureMessage = jest.fn(() => "chat.error_generic");
+    const { submit, replay } = await setup({ failureMessage });
+    await submit({ prompt: "cat", userMessage: "Draw a cat" });
+    expect(failureMessage).toHaveBeenCalledWith("raw provider text", undefined);
+    expect(replay().at(-1)).toMatchObject({ image_gen_failure: "failed", image_gen_error: "chat.error_generic" });
   });
 
   it("sends known reference ids without uploading", async () => {
@@ -270,29 +257,30 @@ describe("image generation submit steps", () => {
   it("settles a success: gallery refreshed, scrolled, nothing left to retry", async () => {
     const { submit, options, result } = await setup();
     await submit({ prompt: "cat", userMessage: "Draw a cat" });
-    expect(invalidateGalleryCache).toHaveBeenCalledTimes(1);
+    expect(attachmentAdded).toHaveBeenCalledTimes(1);
     expect(options.onScrollToLatest).toHaveBeenCalledTimes(2);
     await act(async () => { result.current.retry(); });
     expect(api.generateImage).toHaveBeenCalledTimes(1);
   });
 
-  it.each([true, false])("opens the upgrade on a 403 (isPaid %p: the server decides)", async (isPaid) => {
+  it("opens the upgrade on a 403 (the server decides the plan)", async () => {
     (api.generateImage as jest.Mock).mockRejectedValueOnce(new ApiRequestError(403, "Pro only"));
-    const { submit, replay, options } = await setup({ isPaid });
+    const { submit, replay, options } = await setup();
     await submit({ prompt: "cat", userMessage: "Draw a cat" });
     expect(options.onOpenUpgrade).toHaveBeenCalledTimes(1);
     expect(replay().at(-1)).toMatchObject({ id: "image-gen-failed", image_gen_failure: "failed", image_gen_error: undefined });
   });
 
-  it.each([
-    [true, "chat.quota_exceeded_pro"],
-    [false, "chat.quota_exceeded_free"],
-  ])("names the plan's limit when the quota runs out (isPaid %p)", async (isPaid, message) => {
-    (api.generateImage as jest.Mock).mockRejectedValueOnce(new ApiRequestError(429, "You've reached today's limit"));
-    const { submit, replay, options } = await setup({ isPaid });
+  it("hands a refusal's code to the chat's wording when the quota runs out", async () => {
+    (api.generateImage as jest.Mock).mockRejectedValueOnce(
+      new ApiRequestError(429, JSON.stringify({ detail: { code: "daily_limit", message: "Image limit." } })),
+    );
+    const failureMessage = jest.fn(() => "chat.quota_exceeded_free");
+    const { submit, replay, options } = await setup({ failureMessage });
     await submit({ prompt: "cat", userMessage: "Draw a cat" });
     expect(options.onOpenUpgrade).not.toHaveBeenCalled();
-    expect(replay().at(-1)).toMatchObject({ image_gen_failure: "failed", image_gen_error: message });
+    expect(failureMessage).toHaveBeenCalledWith("Image limit.", "daily_limit");
+    expect(replay().at(-1)).toMatchObject({ image_gen_failure: "failed", image_gen_error: "chat.quota_exceeded_free" });
   });
 
   it("retries a failed turn in place", async () => {
@@ -325,10 +313,9 @@ describe("image generation under the composer's painted bubble", () => {
     const updates: React.SetStateAction<Message[]>[] = [[painted]];
     const count = { current: 1 };
     const options = {
-      token: "tok" as string | null, chatId: "chat" as string | null, setChatId: jest.fn(), setChatTitle: jest.fn(),
+      token: "tok" as string | null, ...host(),
       setMessages: (update: React.SetStateAction<Message[]>) => { updates.push(update); },
-      draft: {} as never, router: { setParams: jest.fn() } as never, selectedModel: "free-chat", streaming: false,
-      isPaid: true, isOffline: false, onOpenUpgrade: jest.fn(), onOfflineBlocked: jest.fn(), onScrollToLatest: jest.fn(),
+      streaming: false, isOffline: false, onOpenUpgrade: jest.fn(), onOfflineBlocked: jest.fn(), onScrollToLatest: jest.fn(),
       newMessageCountRef: count, t: (key: string) => key,
       ...overrides,
     };

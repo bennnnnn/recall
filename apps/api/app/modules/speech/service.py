@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from collections.abc import AsyncIterator
 
 from app.core.config import Settings
 from app.gateways import mock_llm, speech_gateway
+from app.models.model_catalog import openrouter_slug
 from app.modules.speech.schemas import SPEECH_MAX_AUDIO_BYTES
 from app.modules.speech.transcript_validation import sanitize_transcript
-from app.services.model_catalog import openrouter_slug
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +83,7 @@ def resolve_tts_model(settings: Settings, *, alias: str | None = None) -> str:
     if chosen == TTS_FAST_ALIAS:
         return openrouter_slug(TTS_FAST_ALIAS)
     raw = (settings.speech_tts_model or openrouter_slug(TTS_QUALITY_ALIAS)).strip()
-    if raw.removeprefix("openai/").startswith("gpt-4o-mini-tts"):
+    if speech_gateway.can_speak_with(raw):
         return raw
     return openrouter_slug(TTS_QUALITY_ALIAS)
 
@@ -120,7 +118,7 @@ async def transcribe_audio(
         return None
 
     model = (settings.speech_transcription_model or openrouter_slug(_STT_ALIAS)).strip()
-    if model.removeprefix("openai/") not in {"gpt-4o-mini-transcribe", "gpt-4o-transcribe"}:
+    if not speech_gateway.can_transcribe_with(model):
         model = openrouter_slug(_STT_ALIAS)
     text = await speech_gateway.transcribe_via_openai(
         settings,
@@ -165,85 +163,3 @@ async def synthesize_speech(
         voice=resolve_tts_voice(settings, model, voice),
         language=language,
     )
-
-
-async def _collect_pcm(
-    settings: Settings,
-    text: str,
-    *,
-    model: str,
-    voice: str,
-    language: str | None,
-) -> list[bytes]:
-    chunks: list[bytes] = []
-    async for chunk in speech_gateway.stream_pcm_via_openai(
-        settings,
-        text,
-        model=model,
-        voice=voice,
-        language=language,
-    ):
-        if chunk:
-            chunks.append(chunk)
-    return chunks
-
-
-async def iter_tts_pcm(
-    settings: Settings,
-    text: str,
-    *,
-    language: str | None = None,
-    model_alias: str | None = None,
-    voice: str | None = None,
-) -> AsyncIterator[bytes]:
-    """Yield lead-sentence PCM first, then the rest (empty if synthesis fails)."""
-    if not settings.speech_tts_enabled:
-        return
-    plain = " ".join((text or "").split()).strip()
-    if not plain:
-        return
-    if len(plain) > _MAX_TTS_CHARS:
-        plain = plain[:_MAX_TTS_CHARS]
-    lead, rest = split_tts_lead(plain)
-    if mock_llm.should_mock_llm(settings) and not settings.openai_api_key:
-        yield b"\x00\x00" * 1200
-        if rest:
-            yield b"\x00\x00" * 400
-        return
-    if not settings.openai_api_key:
-        return
-
-    model = resolve_tts_model(settings, alias=model_alias)
-    voice = resolve_tts_voice(settings, model, voice)
-    rest_task: asyncio.Task[list[bytes]] | None = None
-    if rest:
-        rest_task = asyncio.create_task(
-            _collect_pcm(
-                settings,
-                rest,
-                model=model,
-                voice=voice,
-                language=language,
-            )
-        )
-    try:
-        async for chunk in speech_gateway.stream_pcm_via_openai(
-            settings,
-            lead,
-            model=model,
-            voice=voice,
-            language=language,
-        ):
-            if chunk:
-                yield chunk
-        if rest_task is None:
-            return
-        for chunk in await rest_task:
-            yield chunk
-    finally:
-        if rest_task is not None and not rest_task.done():
-            rest_task.cancel()
-            try:
-                await rest_task
-            except asyncio.CancelledError:
-                logger.debug("Cancelled in-flight rest TTS after stream close")

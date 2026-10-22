@@ -18,6 +18,7 @@ from uuid import UUID
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.core.background_tasks import create_background_task
+from app.core.log_context import bound_log_ids, new_turn_id
 from app.exceptions import (
     ChatBusyError,
     ChatServiceError,
@@ -28,8 +29,10 @@ from app.modules.chat.client_message import UNNAMED, ClientMessageClaim
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
+    TURN_KEEPALIVE_SECONDS,
     StreamEndEvent,
     await_finalize_commit,
+    build_keepalive_event,
     build_pong_event,
     build_start_event,
     build_token_event,
@@ -60,6 +63,79 @@ def client_shown_chars(cancel: dict[str, Any]) -> int | None:
     return shown if 0 <= shown <= _MAX_SHOWN_CHARS else None
 
 
+async def _run_stream(
+    websocket: WebSocket,
+    stream: AsyncIterator[str],
+    cancel_event: asyncio.Event,
+    outcome: TurnOutcome,
+    text_complete: asyncio.Event,
+) -> None:
+    """The turn's tokens, ``stream_end`` once its text is complete, then ``done``."""
+    sent_tokens = 0
+    try:
+        async for token_text in stream:
+            if cancel_event.is_set():
+                break
+            if not await safe_send_json(websocket, build_token_event(token_text)):
+                # Client left (New chat / navigate). Keep consuming the
+                # model stream so the thread gets a complete reply.
+                async for _ in stream:
+                    if cancel_event.is_set():
+                        break
+                break
+            sent_tokens += 1
+    except asyncio.CancelledError:
+        # Task cancel interrupts an in-flight LiteLLM wait; still fall
+        # through to stream_end/done so the client gets a clean stop.
+        clear_task_cancellation()
+        cancel_event.set()
+    except Exception as exc:
+        if not isinstance(exc, QuotaExceededError | ChatServiceError | ModelUnavailableError):
+            logger.exception("Chat stream failed")
+        await safe_send_json(
+            websocket, turn_error_payload(exc, user_message_saved=outcome.user_message_saved)
+        )
+        return
+
+    # A stop can leave the generator parked at yield. Resume it so the
+    # partial reply is saved before we read the finalize task.
+    await finish_open_stream(stream)
+
+    # M12: if the user cancelled before any token was streamed (hard
+    # cancel at the very start), skip stream_end + done entirely — an
+    # empty done with no content is misleading and the client already
+    # dropped the turn locally. SSE already returns early on cancel;
+    # this symmetrizes the WS path. Partial tokens (sent_tokens > 0)
+    # still get stream_end + done so the client can swap the streamed-*
+    # id for the persisted message_id.
+    if cancel_event.is_set() and sent_tokens == 0:
+        # Still let the finalize task run so any reserved quota is
+        # refunded, but don't send events the client doesn't expect.
+        finalize_db_task = pop_finalize_tasks(outcome)
+        if finalize_db_task is not None:
+            with suppress(Exception):
+                await await_finalize_commit(finalize_db_task)
+        return
+
+    # Set before sending: the client's next message can only answer this frame.
+    text_complete.set()
+    if not await safe_send_json(websocket, StreamEndEvent.from_outcome(outcome).model_dump()):
+        return
+
+    # Await the DB commit before sending `done` so the message_id we hand
+    # the client always references a persisted row. The token stream is
+    # already flushed (stream_end above), so only the final `done` event
+    # waits on the commit — streaming latency is unchanged. If the commit
+    # FAILED we send an error instead of a ghost `done` with a fake id.
+    # On TIMEOUT we send `done` without `message_id` (persisting: true) so
+    # the client keeps the local bubble and refetches instead of trusting
+    # a row that may never persist if the shielded task later fails.
+    commit = await await_finalize_commit(pop_finalize_tasks(outcome))
+    await safe_send_json(websocket, settled_turn_event(outcome, commit))
+    if commit == "committed":
+        schedule_related_prompts(websocket, outcome)
+
+
 async def stream_over_ws(
     websocket: WebSocket,
     stream: AsyncIterator[str],
@@ -76,75 +152,19 @@ async def stream_over_ws(
     (the socket is not read again) until ``done`` is sent, and the caller runs it
     next. Before ``stream_end`` a second turn is still refused as busy.
     """
-    text_complete = False
+    text_complete = asyncio.Event()
+    producer = asyncio.create_task(
+        _run_stream(websocket, stream, cancel_event, outcome, text_complete)
+    )
 
-    async def run_stream() -> None:
-        nonlocal text_complete
-        sent_tokens = 0
-        try:
-            async for token_text in stream:
-                if cancel_event.is_set():
-                    break
-                if not await safe_send_json(websocket, build_token_event(token_text)):
-                    # Client left (New chat / navigate). Keep consuming the
-                    # model stream so the thread gets a complete reply.
-                    async for _ in stream:
-                        if cancel_event.is_set():
-                            break
-                    break
-                sent_tokens += 1
-        except asyncio.CancelledError:
-            # Task cancel interrupts an in-flight LiteLLM wait; still fall
-            # through to stream_end/done so the client gets a clean stop.
-            clear_task_cancellation()
-            cancel_event.set()
-        except Exception as exc:
-            if not isinstance(exc, QuotaExceededError | ChatServiceError | ModelUnavailableError):
-                logger.exception("Chat stream failed")
-            await safe_send_json(
-                websocket, turn_error_payload(exc, user_message_saved=outcome.user_message_saved)
-            )
-            return
+    async def keep_alive() -> None:
+        """A frame every so often until the turn ends: the phone's idle deadline."""
+        while True:
+            await asyncio.sleep(TURN_KEEPALIVE_SECONDS)
+            if producer.done() or not await safe_send_json(websocket, build_keepalive_event()):
+                return
 
-        # A stop can leave the generator parked at yield. Resume it so the
-        # partial reply is saved before we read the finalize task.
-        await finish_open_stream(stream)
-
-        # M12: if the user cancelled before any token was streamed (hard
-        # cancel at the very start), skip stream_end + done entirely — an
-        # empty done with no content is misleading and the client already
-        # dropped the turn locally. SSE already returns early on cancel;
-        # this symmetrizes the WS path. Partial tokens (sent_tokens > 0)
-        # still get stream_end + done so the client can swap the streamed-*
-        # id for the persisted message_id.
-        if cancel_event.is_set() and sent_tokens == 0:
-            # Still let the finalize task run so any reserved quota is
-            # refunded, but don't send events the client doesn't expect.
-            finalize_db_task = pop_finalize_tasks(outcome)
-            if finalize_db_task is not None:
-                with suppress(Exception):
-                    await await_finalize_commit(finalize_db_task)
-            return
-
-        # Set before sending: the client's next message can only answer this frame.
-        text_complete = True
-        if not await safe_send_json(websocket, StreamEndEvent.from_outcome(outcome).model_dump()):
-            return
-
-        # Await the DB commit before sending `done` so the message_id we hand
-        # the client always references a persisted row. The token stream is
-        # already flushed (stream_end above), so only the final `done` event
-        # waits on the commit — streaming latency is unchanged. If the commit
-        # FAILED we send an error instead of a ghost `done` with a fake id.
-        # On TIMEOUT we send `done` without `message_id` (persisting: true) so
-        # the client keeps the local bubble and refetches instead of trusting
-        # a row that may never persist if the shielded task later fails.
-        commit = await await_finalize_commit(pop_finalize_tasks(outcome))
-        await safe_send_json(websocket, settled_turn_event(outcome, commit))
-        if commit == "committed":
-            schedule_related_prompts(websocket, outcome)
-
-    producer = asyncio.create_task(run_stream())
+    heartbeat = asyncio.create_task(keep_alive())
 
     def stop() -> None:
         """The user's Stop; a server shutdown runs the same one."""
@@ -160,6 +180,7 @@ async def stream_over_ws(
         # and would deadlock 10s on itself.
         register_inflight_stream(chat_id, producer, stop=stop)
     next_turn: dict[str, Any] | None = None
+    receiver: asyncio.Task[Any] | None = None
     try:
         while not producer.done():
             receiver = asyncio.create_task(websocket.receive_json())
@@ -195,7 +216,9 @@ async def stream_over_ws(
                     stop()
                 elif msg.get("type") == "ping":
                     await safe_send_json(websocket, build_pong_event())
-                elif msg.get("type") in TURN_FRAME_TYPES and (text_complete or producer.done()):
+                elif msg.get("type") in TURN_FRAME_TYPES and (
+                    text_complete.is_set() or producer.done()
+                ):
                     # Bounded: the producer only waits out the commit
                     # (DONE_COMMIT_WAIT_SECONDS), and frames after this one
                     # (its own Stop) stay unread until that turn reads them.
@@ -225,6 +248,11 @@ async def stream_over_ws(
             except asyncio.CancelledError:
                 pass
     finally:
+        # A disconnect or shutdown that cancels this handler mid-wait leaves the frame
+        # read it just started; it must not outlive the turn.
+        if receiver is not None and not receiver.done():
+            receiver.cancel()
+        heartbeat.cancel()
         # The producer is done unless an error cut the loop above short; then
         # the claim is settled once it is.
         if producer.done():
@@ -252,34 +280,35 @@ async def run_chat_stream(
     """
     cancel_event.clear()
     outcome = TurnOutcome()
-    try:
-        started = await safe_send_json(websocket, build_start_event())
-    except BaseException:
-        claim.settle_after(None, outcome)
-        raise
-    if not started and claim.key is None:
-        # A client gone before ``start`` gets no turn.
-        return None
-    # A named message runs even when its client is gone: the phone may have sent
-    # it again meanwhile (and been told ``duplicate``), and it follows this turn
-    # by reloading the chat. The claim keeps any other send of it from running.
-    try:
-        return await stream_over_ws(
-            websocket,
-            stream_factory(outcome),
-            cancel_event,
-            outcome,
-            chat_id,
-            frame_budget,
-            claim,
-        )
-    except Exception as exc:
-        if not isinstance(exc, EXPECTED_TURN_ERRORS):
-            logger.exception("Unexpected chat stream error")
-        await safe_send_json(
-            websocket, turn_error_payload(exc, user_message_saved=outcome.user_message_saved)
-        )
-        return None
+    with bound_log_ids(chat_id=chat_id, turn=new_turn_id()):
+        try:
+            started = await safe_send_json(websocket, build_start_event())
+        except BaseException:
+            claim.settle_after(None, outcome)
+            raise
+        if not started and claim.key is None:
+            # A client gone before ``start`` gets no turn.
+            return None
+        # A named message runs even when its client is gone: the phone may have sent
+        # it again meanwhile (and been told ``duplicate``), and it follows this turn
+        # by reloading the chat. The claim keeps any other send of it from running.
+        try:
+            return await stream_over_ws(
+                websocket,
+                stream_factory(outcome),
+                cancel_event,
+                outcome,
+                chat_id,
+                frame_budget,
+                claim,
+            )
+        except Exception as exc:
+            if not isinstance(exc, EXPECTED_TURN_ERRORS):
+                logger.exception("Unexpected chat stream error")
+            await safe_send_json(
+                websocket, turn_error_payload(exc, user_message_saved=outcome.user_message_saved)
+            )
+            return None
 
 
 def schedule_related_prompts(websocket: WebSocket, outcome: TurnOutcome) -> None:

@@ -21,7 +21,7 @@ from app.core.access_tokens import create_access_token
 from app.core.config import Settings
 from app.main import create_app
 from app.modules.chat import ws_limits
-from app.tests.modules.chat.chat_test_support import access_for
+from app.tests.modules.chat.chat_test_support import signed_in
 
 _LIMIT = 10
 _SECRET = "super-secret-key-that-is-at-least-32-chars!!"
@@ -46,10 +46,7 @@ def test_ws_closes_a_socket_that_floods_frames(frames: int, closed: bool) -> Non
     app.dependency_overrides[get_settings_dep] = lambda: settings
     with (
         patch.object(ws_limits, "WS_FRAME_LIMIT", _LIMIT),
-        patch(
-            "app.modules.chat.ws_api.access_tokens.check_access",
-            AsyncMock(return_value=access_for(user_id)),
-        ),
+        signed_in(user_id),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:

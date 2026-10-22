@@ -6,17 +6,9 @@ import re
 from typing import Literal
 
 from app.modules.physics.ask import asked_phrases
-from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _T_ASSIGN_RE,
-    _VELOCITY_UNIT_PATTERN,
-    _detect_gravity,
-    _find_value_after_keyword,
-    _find_value_with_specific_unit,
-    _strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import T_ASSIGN_RE, strip_param_assignments
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
 from app.modules.physics.extractors.kinematics_asks import (
     _ASKS_ACCELERATION_RE,
@@ -34,6 +26,12 @@ from app.modules.physics.extractors.kinematics_asks import (
     _velocity_is_downward,
 )
 from app.modules.physics.extractors.projectile import _PROJECTILE_CUE_RES
+from app.modules.physics.extractors.stated_values import (
+    find_value_after_keyword,
+    find_value_with_specific_unit,
+)
+from app.modules.physics.extractors.surface_gravity import detect_gravity
+from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, VELOCITY_UNIT_PATTERN
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -121,7 +119,7 @@ def _answerable_without_height(op: str, v0: float, time_value: float | None) -> 
 def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     # Must have a kinematics cue AND at least one number.
-    if not _has_cue(lower, _KINEMATICS_CUES, _KINEMATICS_CUE_RES):
+    if not has_cue(lower, _KINEMATICS_CUES, _KINEMATICS_CUE_RES):
         return None
     # A drop with F = -kv is not v = gt. The drag extractor owns that law.
     from app.modules.physics.extractors.drag import states_velocity_drag
@@ -167,9 +165,9 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     # but strip "g = 1.6" parameter specs first (those are knowns, not algebra).
     # When they asked for v/speed/position at a time, ``t = 1`` is a given,
     # not the problem to solve.
-    stripped = _strip_param_assignments(cleaned)
+    stripped = strip_param_assignments(cleaned)
     if asks_speed or asks_velocity or asks_position:
-        stripped = _T_ASSIGN_RE.sub("", stripped)
+        stripped = T_ASSIGN_RE.sub("", stripped)
     if has_equation(stripped):
         return None
 
@@ -178,9 +176,9 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     # so a wall ``15 m away`` is not a launch height.
     h0: float | None = None
     h0_unit = "m"
-    hu = _find_value_with_specific_unit(
+    hu = find_value_with_specific_unit(
         cleaned,
-        _LENGTH_UNIT_PATTERN,
+        LENGTH_UNIT_PATTERN,
         _H0_KEYWORDS,
         require_keyword=False,
     )
@@ -191,13 +189,13 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     # substring "at" inside "What" / "with".
     v0: float = 0.0
     v0_unit = "m/s"
-    vu = _find_value_with_specific_unit(
+    vu = find_value_with_specific_unit(
         cleaned,
-        _VELOCITY_UNIT_PATTERN,
+        VELOCITY_UNIT_PATTERN,
         ("velocity of", "speed of", "velocity", "speed", "initial velocity"),
     )
     if vu is None:
-        vu = _find_value_after_keyword(
+        vu = find_value_after_keyword(
             cleaned,
             ("velocity of", "speed of", "initial velocity", "velocity", "speed"),
         )
@@ -256,7 +254,7 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     time_value: float | None = None
     time_unit = "s"
     if op in ("position", "velocity", "speed"):
-        time_match = _find_value_with_specific_unit(
+        time_match = find_value_with_specific_unit(
             cleaned,
             r"milliseconds?|ms|seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h",
         )
@@ -273,7 +271,7 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
         # a speed at an unstated ground has no landing to solve for.
         return None
 
-    g = _detect_gravity(cleaned)
+    g = detect_gravity(cleaned)
     params: dict[str, float] = {"g": g}
     units: dict[str, str] = {"g": "m/s^2"}
     if h0 is not None:

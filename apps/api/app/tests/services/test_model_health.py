@@ -250,3 +250,24 @@ async def test_enrich_models_health() -> None:
     out = await model_health.enrich_models_health(redis, _SETTINGS, ["a", "b"])
     assert out["a"].sample_count == 1
     assert out["b"].sample_count == 0
+
+
+@pytest.mark.asyncio
+async def test_a_long_healthy_reply_is_not_slow() -> None:
+    """Whole-reply time read as latency: a 60 s answer marked its model slow for a day."""
+    redis = _redis()
+    await model_health.record_samples(
+        redis, [HealthSample("smart-chat", latency_ms=ms, success=True) for ms in (900, 1_100)]
+    )
+    assert (await _health(redis, "smart-chat")).healthy is True
+
+
+@pytest.mark.asyncio
+async def test_samples_written_in_one_second_keep_their_order() -> None:
+    """Redis orders equal scores by member, failures first: the newest is the last written."""
+    redis = _redis()
+    key = f"recall:model_health:samples:{model_health._model_of('smart-chat')}"
+    now = time.time()
+    for written_ns, ok in enumerate((True, False, False, False), start=1):
+        await redis.zadd(key, {f"{int(ok)}|50|{written_ns}": now})
+    assert (await _health(redis, "smart-chat")).healthy is False

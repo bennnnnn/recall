@@ -5,6 +5,7 @@ import pytest
 
 from app.models.schemas import ProductEventBatchIn
 from app.modules.analytics import service as product_analytics
+from app.tests.fakes import fake_session
 
 
 @pytest.mark.asyncio
@@ -53,6 +54,7 @@ async def test_record_batch_accepts_bucketed_chat_ttft_only() -> None:
                         "latency_bucket": "2000_3999",
                         "transport": "sse",
                         "has_attachment": "no",
+                        "sample_rate": "0.2",
                     },
                 }
             ]
@@ -73,6 +75,7 @@ async def test_record_batch_accepts_bucketed_chat_ttft_only() -> None:
         "latency_bucket": "2000_3999",
         "transport": "sse",
         "has_attachment": "no",
+        "sample_rate": "0.2",
     }
 
 
@@ -88,6 +91,7 @@ async def test_record_batch_rejects_raw_chat_latency_value() -> None:
                         "latency_bucket": "4821",
                         "transport": "ws",
                         "has_attachment": "no",
+                        "sample_rate": "0.2",
                     },
                 }
             ]
@@ -147,7 +151,12 @@ async def test_record_batch_rolls_back_failed_persistence() -> None:
     session.rollback.assert_awaited_once()
 
 
-_OUTCOME = {"completion": "stopped", "error_code": "none", "tool": "searching"}
+_OUTCOME = {
+    "completion": "stopped",
+    "error_code": "none",
+    "tool": "searching",
+    "sample_rate": "0.2",
+}
 
 
 @pytest.mark.asyncio
@@ -215,6 +224,7 @@ async def test_the_database_stores_chat_ttft_and_chat_turn_outcome(db_session) -
                         "latency_bucket": "lt500",
                         "transport": "ws",
                         "has_attachment": "no",
+                        "sample_rate": "0.2",
                     },
                 },
             ]
@@ -223,7 +233,12 @@ async def test_the_database_stores_chat_ttft_and_chat_turn_outcome(db_session) -
     await product_analytics.record_batch(db_session, user.id, batch)
 
 
-_TTFT = {"latency_bucket": "500_999", "transport": "ws", "has_attachment": "no"}
+_TTFT = {
+    "latency_bucket": "500_999",
+    "transport": "ws",
+    "has_attachment": "no",
+    "sample_rate": "0.2",
+}
 
 
 @pytest.mark.asyncio
@@ -241,7 +256,7 @@ async def test_record_batch_takes_the_newer_bucketed_fields_or_none(
     name: str, properties: dict[str, str]
 ) -> None:
     """Apps that predate a field still send the event without it."""
-    session = AsyncMock()
+    session = fake_session()
     batch = ProductEventBatchIn.model_validate(
         {"events": [{"name": name, "properties": properties}]}
     )
@@ -271,7 +286,7 @@ async def test_record_batch_takes_the_newer_bucketed_fields_or_none(
 async def test_record_batch_rejects_raw_or_misplaced_newer_fields(
     name: str, properties: dict[str, str]
 ) -> None:
-    session = AsyncMock()
+    session = fake_session()
     batch = ProductEventBatchIn.model_validate(
         {"events": [{"name": name, "properties": properties}]}
     )

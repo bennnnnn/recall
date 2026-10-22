@@ -32,19 +32,12 @@ async def camera_math_extract(
     from app.modules.math import match as math_match
     from app.services.subject_scan import confirmed_scan_reading, scanner_camera_subject
 
-    # BUG FIX: this used to require the sent text to be BYTE-FOR-BYTE
-    # identical to the preset camera caption — the composer pre-fills that
-    # caption into an editable text box, so any user edit (add a word, fix
-    # a typo, autocorrect touching punctuation) silently dropped the OCR
-    # step with no error shown; the photo still sent, just unverified.
-    # An edited caption from someone who chose "Solve math with camera"
-    # overwhelmingly still reads as a math ask ("solve this", "find x", a
-    # stray leftover word) — reuse the same has_math_keyword signal
-    # needs_symbolic_math already trusts for the image-attachment case, so
-    # OCR fires whenever the caption still looks like a math request, not
-    # only on an exact match. A caption with no math keyword at all (or the
-    # default blank caption every plain image attachment sends) is left
-    # alone — this must not fire a vision call on every unrelated photo.
+    # The composer pre-fills the camera caption into an editable box, so the student may
+    # have changed it (a word added, a typo fixed, autocorrect on the punctuation). An
+    # edited caption still reads as a maths ask ("solve this", "find x"), so OCR runs
+    # whenever the caption has a maths keyword, the signal needs_symbolic_math trusts for
+    # an attached image, not only on the exact caption. A caption with no maths keyword
+    # (or the blank one a plain photo sends) is left alone: no vision call on every photo.
     caption = content.strip()
     scan_subject = scanner_camera_subject(content)
     looks_like_math_caption = (

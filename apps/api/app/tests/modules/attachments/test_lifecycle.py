@@ -8,6 +8,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.attachments import lifecycle as attachment_lifecycle
+from app.tests.fakes import redis_mock
 
 
 @pytest.mark.asyncio
@@ -301,7 +302,7 @@ async def test_reap_orphan_attachments_refunds_image_upload_quota():
     )
     gateway = MagicMock()
     gateway.delete_bytes = AsyncMock()
-    fake_redis = AsyncMock()
+    fake_redis = redis_mock()
     refund = AsyncMock()
 
     with (
@@ -362,7 +363,7 @@ async def test_reap_orphan_attachments_does_not_refund_generated_reuse_clones():
     orphan.source = "generated"
     gateway = MagicMock()
     gateway.delete_bytes = AsyncMock()
-    fake_redis = AsyncMock()
+    fake_redis = redis_mock()
     refund = AsyncMock()
 
     with (
@@ -402,7 +403,7 @@ async def test_reap_orphan_attachments_does_not_refund_for_non_image():
     orphan.storage_key = "user/doc"
     gateway = MagicMock()
     gateway.delete_bytes = AsyncMock()
-    fake_redis = AsyncMock()
+    fake_redis = redis_mock()
     refund_mock = AsyncMock()
 
     with (
@@ -446,7 +447,7 @@ async def test_reap_orphan_attachments_skips_refund_when_row_linked_after_list()
     orphan.storage_key = "user/img"
     gateway = MagicMock()
     gateway.delete_bytes = AsyncMock()
-    fake_redis = AsyncMock()
+    fake_redis = redis_mock()
     refund_mock = AsyncMock()
 
     with (

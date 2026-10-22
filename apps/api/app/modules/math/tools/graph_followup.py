@@ -95,12 +95,12 @@ _TERM_END = frozenset("+-*/^=).0123456789")
 
 
 def _function_of_x(expr: str) -> bool:
-    from app.modules.math.solve.parse import _parse_expression
+    from app.modules.math.solve.parse import parse_expression
 
     if not _is_plottable_expr(expr):
         return False
     with sympy_decline() as declined:
-        parsed = _parse_expression(expr.replace("^", "**"), ["x"])
+        parsed = parse_expression(expr.replace("^", "**"), ["x"])
     return not declined and {str(symbol) for symbol in parsed.free_symbols} <= {"x"}
 
 
@@ -123,12 +123,12 @@ def _named_functions(text: str) -> list[str]:
 def _bare_function_of_x(text: str) -> str | None:
     """A message that is only an expression in x (``$x^{2}$``, ``sin(x)``): the curve to graph."""
     from app.modules.math.match.scan import prepare
-    from app.modules.math.solve.latex_normalize import _normalize_latex_to_sympy
+    from app.modules.math.solve.latex_normalize import normalize_latex_to_sympy
 
     cleaned = prepare(text)
     if not cleaned:
         return None
-    expr = _normalize_latex_to_sympy(cleaned).strip()
+    expr = normalize_latex_to_sympy(cleaned).strip()
     return expr if "x" in expr.lower() and _function_of_x(expr) else None
 
 

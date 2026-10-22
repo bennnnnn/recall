@@ -61,13 +61,13 @@ from app.modules.chat.finalize_text import (
 )
 from app.modules.chat.generic_closer import strip_generic_closer
 from app.modules.chat.json_output import check_requested_json
+from app.modules.chat.reply_labels import one_answer_label
 from app.modules.chat.search_links import unlink_unretrieved_links
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.untrusted_media import neutralize_untrusted_media
-from app.services.reply_labels import one_answer_label
 
 logger = logging.getLogger(__name__)
 

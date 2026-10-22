@@ -67,7 +67,7 @@ export function parseMolecule3DFence(content: string): Molecule3DFence | null {
 }
 
 export type MolAtom = { x: number; y: number; z: number; el: string };
-export type MolBond = { a: number; b: number; order: number };
+type MolBond = { a: number; b: number; order: number };
 export type MolGeometry = { atoms: MolAtom[]; bonds: MolBond[] };
 
 const ATOM_LINE_RE =

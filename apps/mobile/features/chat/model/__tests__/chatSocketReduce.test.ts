@@ -370,6 +370,28 @@ describe("done event shapes (today's strings, ES-45's typed fields)", () => {
     expect(payload).not.toHaveProperty("todos_sync");
   });
 
+  it("reads the day's usage the server sends as strings", () => {
+    const payload = parseDone({ used_tokens: "81000", daily_limit: "100000" });
+    expect(payload?.usage).toEqual({ used_tokens: 81_000, daily_limit: 100_000 });
+    expect(payload).not.toHaveProperty("used_tokens");
+    expect(payload).not.toHaveProperty("daily_limit");
+    expect(parseDone({ used_tokens: 0, daily_limit: 5 })?.usage).toEqual({ used_tokens: 0, daily_limit: 5 });
+  });
+
+  it.each<Record<string, unknown>>([
+    {},
+    { used_tokens: "81000" },
+    { daily_limit: "100000" },
+    { used_tokens: "", daily_limit: "100000" },
+    { used_tokens: "lots", daily_limit: "100000" },
+    { used_tokens: "-1", daily_limit: "100000" },
+    { used_tokens: "1.5", daily_limit: "100000" },
+    { used_tokens: "10", daily_limit: "0" },
+    { used_tokens: true, daily_limit: "100000" },
+  ])("leaves usage out for %j", (fields) => {
+    expect(parseDone(fields)).not.toHaveProperty("usage");
+  });
+
   it("hands either shape's sources to the done merge", () => {
     for (const search_sources of [JSON.stringify(sources), sources]) {
       const payload = parseDone({ search_sources });

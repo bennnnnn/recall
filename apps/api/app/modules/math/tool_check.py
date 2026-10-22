@@ -19,20 +19,19 @@ import re
 from collections.abc import Iterable
 from typing import Any
 
+from app.services.glyphs import OPERATOR_GLYPHS
+
 logger = logging.getLogger(__name__)
 
 _MAX_CANDIDATES = 24
 _MAX_TEXT = 2000
 
+# The operators are the shared table (services/glyphs.py); the rest are this check's.
 _UNICODE = {
     "²": "^2",
     "³": "^3",
     "⁴": "^4",
-    "\u2212": "-",  # minus sign
-    "\u2013": "-",  # en dash
-    "\u00d7": "*",  # multiplication sign
-    "·": "*",
-    "÷": "/",
+    **OPERATOR_GLYPHS,
     "π": "pi",
     "√": "sqrt",
     "≤": "<=",
@@ -116,7 +115,7 @@ def _parse(text: str) -> Any | None:
     if not candidate or len(candidate) > 200:
         return None
     with sympy_decline():
-        parsed = math_solve._parse_expression(candidate)
+        parsed = math_solve.parse_expression(candidate)
         return parsed if isinstance(parsed, Expr) else None
     return None
 

@@ -9,13 +9,9 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.bodies import WATER_DENSITY
-from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _MASS_UNITS,
-    _NUMBER,
-    _detect_gravity,
-    _find_value_with_specific_unit,
-)
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.extractors.surface_gravity import detect_gravity
+from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, MASS_UNITS, NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 
 _KV_FORCE = re.compile(
@@ -63,30 +59,30 @@ _ASKS_TIME = re.compile(
     re.IGNORECASE,
 )
 _K_VALUE = re.compile(
-    rf"\bk\s*=\s*({_NUMBER})(?:\s*(kg/s|N\s*[·*]\s*s\s*/\s*m|Ns/m))?",
+    rf"\bk\s*=\s*({NUMBER})(?:\s*(kg/s|N\s*[·*]\s*s\s*/\s*m|Ns/m))?",
     re.IGNORECASE,
 )
 _B_VALUE = re.compile(
-    rf"\bb\s*=\s*({_NUMBER})(?:\s*(kg/m))?",
+    rf"\bb\s*=\s*({NUMBER})(?:\s*(kg/m))?",
     re.IGNORECASE,
 )
 _TIME = re.compile(
-    rf"\b(?:after|at)\s+({_NUMBER})\s*(?:s|sec|secs|seconds)\b"
-    rf"|\bt\s*=\s*({_NUMBER})\s*(?:s|sec|secs|seconds)?\b",
+    rf"\b(?:after|at)\s+({NUMBER})\s*(?:s|sec|secs|seconds)\b"
+    rf"|\bt\s*=\s*({NUMBER})\s*(?:s|sec|secs|seconds)?\b",
     re.IGNORECASE,
 )
 _SPEED = re.compile(
-    rf"({_NUMBER})\s*(m/s|km/h|mph)(?![A-Za-z0-9/^])",
+    rf"({NUMBER})\s*(m/s|km/h|mph)(?![A-Za-z0-9/^])",
     re.IGNORECASE,
 )
 _DENSITY_UNIT = r"kg/m\^?3|g/cm\^?3"
 _BODY_DENSITY = re.compile(
     rf"\b(?:sphere|particle|ball|bead|drop|object)\b.{{0,48}}?"
-    rf"({_NUMBER})\s*({_DENSITY_UNIT})",
+    rf"({NUMBER})\s*({_DENSITY_UNIT})",
     re.IGNORECASE,
 )
 _FLUID_DENSITY = re.compile(
-    rf"\b(?:fluid|liquid|oil|water|air)\b.{{0,40}}?({_NUMBER})\s*({_DENSITY_UNIT})",
+    rf"\b(?:fluid|liquid|oil|water|air)\b.{{0,40}}?({NUMBER})\s*({_DENSITY_UNIT})",
     re.IGNORECASE,
 )
 
@@ -146,7 +142,7 @@ def states_velocity_drag(text: str) -> bool:
 
 
 def _mass(text: str) -> tuple[float, str] | None:
-    return _find_value_with_specific_unit(text, _MASS_UNITS, _MASS_WORDS)
+    return find_value_with_specific_unit(text, MASS_UNITS, _MASS_WORDS)
 
 
 def _time(text: str) -> float | None:
@@ -165,7 +161,7 @@ def _launch_speed(text: str) -> tuple[float, str] | None:
 
 
 def _gravity_params(text: str) -> tuple[dict[str, float], dict[str, str]]:
-    return {"g": _detect_gravity(text)}, {"g": "m/s^2"}
+    return {"g": detect_gravity(text)}, {"g": "m/s^2"}
 
 
 def _asks_only_for_time(text: str) -> bool:
@@ -299,10 +295,10 @@ def _stokes_terminal(text: str) -> PhysicsIntent | None:
         return None
     if "stokes" not in lower and "sphere" not in lower:
         return None
-    radius = _find_value_with_specific_unit(
-        text, _LENGTH_UNIT_PATTERN, ("radius",), require_keyword=True
+    radius = find_value_with_specific_unit(
+        text, LENGTH_UNIT_PATTERN, ("radius",), require_keyword=True
     )
-    viscosity = _find_value_with_specific_unit(text, r"Pa\s*[·*]\s*s|Pa\s*s|pascal\s*seconds?")
+    viscosity = find_value_with_specific_unit(text, r"Pa\s*[·*]\s*s|Pa\s*s|pascal\s*seconds?")
     if radius is None or viscosity is None:
         return None
     body = _BODY_DENSITY.search(text)

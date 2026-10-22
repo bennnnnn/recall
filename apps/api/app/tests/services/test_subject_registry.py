@@ -118,13 +118,7 @@ async def test_symbolic_drag_fall_is_verified_not_a_failed_check() -> None:
 async def test_a_failed_physics_solve_is_still_unverified() -> None:
     text = "A ball is dropped from 20 m. How long until it hits the ground?"
 
-    async def fail(*_args: object, **_kwargs: object) -> None:
-        return None
-
-    with patch(
-        "app.modules.physics.prompt._build_verified_physics_block_async",
-        fail,
-    ):
+    with patch("app.modules.physics.prompt._build_physics_block", return_value=None):
         result = await build_subject_augmentation(text, Settings(math_tools_enabled=True))
     assert result.subject == "physics"
     assert result.verified is None
@@ -155,7 +149,7 @@ async def test_chemistry_decline_is_flagged_and_element_context_is_not() -> None
 
 @pytest.mark.asyncio
 async def test_fetch_returns_the_adapter_decline_flag() -> None:
-    from app.modules.chat.prompt_builder import fetch_web_and_tools
+    from app.modules.chat.prompt_builder import fetch_subject
     from app.services.subject_solving import SubjectAugmentation
 
     settings = Settings(math_tools_enabled=True, web_search_enabled=False)
@@ -165,18 +159,8 @@ async def test_fetch_returns_the_adapter_decline_flag() -> None:
             return_value=SubjectAugmentation("physics", "Physics note: declined", None, True)
         ),
     ):
-        (
-            _web,
-            block,
-            _sources,
-            verified,
-            declined,
-            unverified_subject,
-            _direct,
-        ) = await fetch_web_and_tools(
-            "binding energy of He-4, mass = 4.002603 u",
-            settings,
-            prompt_messages=[{"role": "user", "content": "q"}],
+        block, verified, declined, unverified_subject, _direct = await fetch_subject(
+            "binding energy of He-4, mass = 4.002603 u", settings
         )
     assert block == "Physics note: declined"
     assert verified is None
@@ -186,15 +170,12 @@ async def test_fetch_returns_the_adapter_decline_flag() -> None:
 
 @pytest.mark.asyncio
 async def test_chemistry_followup_solves_the_prior_problem() -> None:
-    from app.modules.chat.prompt_builder import fetch_web_and_tools
+    from app.modules.chat.prompt_builder import fetch_subject
 
     settings = Settings(chemistry_enabled=True, web_search_enabled=False, math_tools_enabled=True)
     prior = "Find the molar mass of H2O"
-    _web, _block, _sources, verified, declined, _subject, _direct = await fetch_web_and_tools(
-        "how?",
-        settings,
-        prompt_messages=[{"role": "user", "content": "how?"}],
-        chemistry_followup_problem=prior,
+    _block, verified, declined, _subject, _direct = await fetch_subject(
+        "how?", settings, chemistry_followup_problem=prior
     )
     assert declined is False
     assert verified is not None

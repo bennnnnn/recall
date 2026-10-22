@@ -23,9 +23,6 @@ import {
 
 jest.mock("expo-file-system/legacy", () => ({}));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 jest.mock("@/lib/previewPageFile", () => ({
   previewPageFile: jest.fn(),
   readyPreviewPageFile: jest.fn(() => null),

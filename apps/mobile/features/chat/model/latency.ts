@@ -1,5 +1,6 @@
 // Types only: the reporter module itself still loads lazily after the first token.
 import type { ChatPaintBucket, ChatTransport, ChatTtftBucket } from "@/features/chat/model/latencyReporter";
+import { sampleChatEvent } from "@/features/chat/model/chatEventSample";
 
 type PendingChatTtft = {
   turnId: string;
@@ -11,12 +12,6 @@ type PendingChatTtft = {
 };
 
 let pending: PendingChatTtft | null = null;
-
-function isTtftSamplingEnabled(): boolean {
-  // Metro defines __DEV__, but plain Jest/Node does not. `typeof` keeps this
-  // production-only measurement safe in both runtimes without test globals.
-  return typeof __DEV__ === "undefined" || !__DEV__;
-}
 
 /** Bucket user-bubble -> first-token latency without storing arbitrary timing values. */
 export function chatTtftBucket(elapsedMs: number): ChatTtftBucket {
@@ -53,7 +48,9 @@ export function markChatTtftStart(
   tappedAtMs: number,
   hasAttachment: boolean,
 ): void {
-  if (!isTtftSamplingEnabled() || !turnId) return;
+  // A sampled turn only; any earlier unfinished sample is dropped either way.
+  pending = null;
+  if (!turnId || !sampleChatEvent()) return;
   pending = {
     turnId,
     startedAtMs: Number.isFinite(tappedAtMs) ? tappedAtMs : Date.now(),

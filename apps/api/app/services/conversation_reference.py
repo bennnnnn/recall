@@ -18,6 +18,7 @@ from typing import Any, Literal
 from app.core.config import Settings
 from app.core.redis import get_redis_client
 from app.gateways import litellm_gateway, mock_llm
+from app.models.routing_lanes import ROUTING
 from app.models.schemas import ConversationReference
 from app.services import quota as quota_service
 from app.services.text_normalize import collapse_ws
@@ -114,7 +115,7 @@ async def resolve_reference(
     lines = _conversation(turns, request)
     if not lines:
         return None
-    budget = settings.web_search_classifier_timeout_seconds
+    budget = settings.reference_resolve_timeout_seconds
     if budget <= 0:
         return None
     if mock_llm.should_mock_llm(settings):
@@ -126,7 +127,7 @@ async def resolve_reference(
                 return None
             result = await litellm_gateway.complete_structured(
                 settings=settings,
-                model_alias="memory-model",
+                model_alias=ROUTING.background,
                 messages=[
                     {"role": "system", "content": _INSTRUCTIONS[kind]},
                     {

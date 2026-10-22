@@ -9,21 +9,29 @@ the first subject that claims the line owns the turn.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any, Literal
 
 from app.modules.chat.continuation_subject import (
     blocks_math_followup,
     chemistry_working_followup_problem,
+    effective_presentation_subject,
+    exchange_pairs,
 )
 from app.modules.chemistry.followup import chemistry_followup_problem
 from app.modules.math.followup import (
     answer_claim_problem,
+    is_math_followup,
     math_working_followup_problem,
     offered_equation_problem,
     pronoun_math_problem,
     restated_math_problem,
 )
 from app.modules.physics.followup import physics_followup_problem
+from app.services.problem_followup import message_role_content
+
+FollowupSubject = Literal["math", "chemistry", "physics"]
 
 
 @dataclass(frozen=True)
@@ -73,3 +81,41 @@ def resolve_subject_followup(
     if chemistry is not None:
         return SubjectFollowup(chemistry=chemistry)
     return SubjectFollowup(physics=physics_followup_problem(content, history))
+
+
+def followup_subject(query_text: str | None, exchange: Sequence[Any]) -> FollowupSubject | None:
+    """The subject whose problem in ``exchange`` this turn only continues, or None."""
+    if is_math_followup(query_text, exchange, blocked=blocks_math_followup):
+        return "math"
+    if chemistry_followup_problem(query_text, exchange) is not None:
+        return "chemistry"
+    if physics_followup_problem(query_text, exchange) is not None:
+        return "physics"
+    return None
+
+
+def role_content_dicts(messages: Sequence[Any]) -> list[dict[str, str]]:
+    """Messages as plain ``role``/``content`` dicts, to read in a SymPy pool worker."""
+    out: list[dict[str, str]] = []
+    for message in messages:
+        role, content = message_role_content(message)
+        if role is not None and content is not None:
+            out.append({"role": role, "content": content})
+    return out
+
+
+def read_prompt_inputs(
+    query_text: str | None, exchange: list[dict[str, str]]
+) -> FollowupSubject | None:
+    """What the prompt's sections read of the query and the last exchange, in a pool worker.
+
+    Returns ``followup_subject``. The query's subject (the memory scope and the task
+    rules ask it) and the presentation subject the style hints read are kept for the
+    turn (``core/readings``).
+    """
+    from app.services.subject_solving import detect_subject
+
+    if query_text:
+        detect_subject(query_text)
+    effective_presentation_subject(query_text, exchange_pairs(exchange))
+    return followup_subject(query_text, exchange)

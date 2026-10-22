@@ -2,14 +2,6 @@ import { render } from "@testing-library/react-native";
 
 import { CalloutBlock } from "@/components/rich/CalloutBlock";
 
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  selectionAsync: jest.fn(),
-}));
-
 describe("CalloutBlock", () => {
   it("titles a one-line callout with its kind", async () => {
     const view = await render(<CalloutBlock kind="note" content="check the units" />);

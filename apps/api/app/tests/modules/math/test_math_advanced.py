@@ -20,6 +20,7 @@ from app.modules.math.schemas import (
     NumberTheoryInput,
     StatisticsInput,
 )
+from app.services.solving import VERIFIED_MATH_BEGIN
 from app.tests.modules.math.prompt_support import augment_prompt_messages
 
 
@@ -54,7 +55,7 @@ class TestComputeCombinatorics:
         assert result.result == 120
 
     def test_factorial_capped(self):
-        with pytest.raises(math_solve.MathServiceError):
+        with pytest.raises(math_solve.SolveServiceError):
             math_solve.compute_combinatorics(CombinatoricsInput(operation="factorial", n=171))
 
     def test_combinations(self):
@@ -70,7 +71,7 @@ class TestComputeCombinatorics:
         assert result.result == 20
 
     def test_k_greater_than_n_rejected(self):
-        with pytest.raises(math_solve.MathServiceError):
+        with pytest.raises(math_solve.SolveServiceError):
             math_solve.compute_combinatorics(CombinatoricsInput(operation="combinations", n=3, k=5))
 
 
@@ -88,7 +89,7 @@ class TestComputeNumberTheory:
         assert result.factors == {2: 2, 3: 1, 5: 1}
 
     def test_factorize_rejects_less_than_two(self):
-        with pytest.raises(math_solve.MathServiceError):
+        with pytest.raises(math_solve.SolveServiceError):
             math_solve.compute_number_theory(NumberTheoryInput(operation="factorize", a=1))
 
     def test_is_prime(self):
@@ -104,7 +105,7 @@ class TestComputeNumberTheory:
         assert result.result_int == 2
 
     def test_mod_by_zero_rejected(self):
-        with pytest.raises(math_solve.MathServiceError):
+        with pytest.raises(math_solve.SolveServiceError):
             math_solve.compute_number_theory(NumberTheoryInput(operation="mod", a=17, b=0))
 
 
@@ -122,7 +123,7 @@ class TestComputeMatrix:
         assert "\\frac{1}{6}" in result.inverse_latex
 
     def test_singular_matrix_rejected(self):
-        with pytest.raises(math_solve.MathServiceError):
+        with pytest.raises(math_solve.SolveServiceError):
             math_solve.compute_matrix(MatrixInput(operation="inverse", rows=[[1, 2], [2, 4]]))
 
     def test_non_square_rejected_at_schema_level(self):
@@ -240,7 +241,7 @@ class TestAugmentPromptMessagesForNewKinds:
         updated, verified = await augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert "mean=5" in verified.text
-        assert "[BEGIN VERIFIED MATH]" in verified.text
+        assert VERIFIED_MATH_BEGIN in verified.text
         assert "COPYING" not in verified.text
         assert len(updated) == 3
         assert verified.canonical_fence is not None

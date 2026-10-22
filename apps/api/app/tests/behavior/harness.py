@@ -3,13 +3,15 @@
 The turn runs the way ``stream_entry`` runs it: the photo-lookup and image-generation
 intercepts, the turn mode, the real prompt builder and pre-solvers, then the tool-loop
 gate. Only IO is stubbed: the database, model health, the web and image
-search providers, PubChem, and the model calls. The classifier and the tool rounds are
-recorded instead of called, so the route says whether a model would have been asked.
+search providers, PubChem, and the model calls. The tool rounds are recorded instead of
+called, so the route says whether a model would have been asked. Settings are
+production's: the battery certifies what users get.
 """
 
 from __future__ import annotations
 
-from contextlib import ExitStack
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -18,15 +20,17 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 from app.core.config import Settings
+from app.gateways.mcp import registry as tool_registry
 from app.gateways.pubchem_gateway import PubChemCompound, PubChemResult
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
 from app.modules.billing import can_use
-from app.modules.billing import plan as plan_service
 from app.modules.chat import prompt_constants as pc
 from app.modules.chat import prompt_memory
 from app.modules.chat.json_output import JSON_OUTPUT_HINT
+from app.modules.chat.model_routing import choice as model_choice
+from app.modules.chat.model_routing.route import last_user_turn
 from app.modules.chat.prompt_constants.coding import (
     CODE_DEBUG_HINT,
     CODE_EXPLAIN_HINT,
@@ -47,15 +51,16 @@ from app.modules.chat.turn_prep.context import (
     build_stream_prompt_context,
     stream_context_from_bundle,
 )
-from app.modules.chat.turn_prep.mode import _classify_turn_mode
+from app.modules.chat.turn_prep.mode import classify_turn_mode
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
 from app.modules.web_search.detection import needs_web_search
-from app.services.routing import last_user_turn
+from app.services.mcp import setup_mcp_adapters
 from app.services.subject_solving import detect_subject
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
+from app.tests.fakes import fake_session
 
 EMOJI_RULE = "Do not decorate with emoji unless the user used them."
 
@@ -172,6 +177,19 @@ class Route:
         return " ".join(parts)
 
 
+@contextmanager
+def _production_tools(settings: Settings) -> Iterator[None]:
+    """The model's tools as production registers them at startup, then the registry as it was."""
+    before = tool_registry.list_adapters()
+    setup_mcp_adapters(settings)
+    try:
+        yield
+    finally:
+        tool_registry.clear()
+        for adapter in before:
+            tool_registry.register(adapter)
+
+
 def battery_settings() -> Settings:
     """Every feature on, no provider keys: nothing leaves the process."""
     return Settings(  # type: ignore[call-arg]
@@ -181,14 +199,13 @@ def battery_settings() -> Settings:
         openai_api_key="",
         tavily_api_key="",
         web_search_enabled=True,
-        web_search_classifier_enabled=True,
         web_search_fallback_enabled=False,
         image_search_enabled=True,
         image_generation_enabled=True,
         math_tools_enabled=True,
         # Coverage, not speed: a busy CI machine must not turn a 0.7s solve
         # into an unanswered turn at the production 5s limit.
-        math_solve_timeout_seconds=30.0,
+        stem_solve_timeout_seconds=30.0,
         chemistry_enabled=True,
         mcp_tool_loop_enabled=True,
         attachments_enabled=False,
@@ -200,7 +217,7 @@ def battery_settings() -> Settings:
 
 class _Session:
     async def __aenter__(self) -> AsyncMock:
-        return AsyncMock()
+        return fake_session()
 
     async def __aexit__(self, *_args: object) -> None:
         return None
@@ -257,7 +274,6 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         name=USER_NAME,
         email="bini@example.com",
         plan="pro" if case.pro else "free",
-        response_style="balanced",
         response_tone="casual",
         locale="en",
         timezone=USER_TIMEZONE,
@@ -267,11 +283,10 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     )
     chat = Chat(id=uuid4(), user_id=user.id, title=None)
     rows = _rows(case)
-    prior_users = [row.content for row in rows if row.role == "user"]
     last_assistant = next((row for row in reversed(rows) if row.role == "assistant"), None)
     text = case.prompt
     prior_user, prior_model = last_user_turn(rows)
-    model = plan_service.resolve_user_model(
+    model = model_choice.resolve_user_model(
         user,
         text,
         settings,
@@ -297,7 +312,6 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         hit = WebSearchHit(title="Result", url="https://example.com", snippet="A result.")
         return [hit], [text]
 
-    classifier = AsyncMock(return_value=None)
     tool_rounds = AsyncMock(side_effect=lambda **kw: (kw["messages"], None, None, []))
     # What the prompt builder asked to load: the memory scope, and earlier chats.
     loaded: dict[str, Any] = {}
@@ -319,25 +333,23 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
 
         stub("app.modules.chat.turn_prep.instant.SessionLocal", lambda: _Session())
         stub("app.modules.chat.prompt_builder._load_context_blocks", context_blocks)
-        stub("app.repositories.messages.list_recent", AsyncMock(return_value=list(rows)))
-        stub("app.repositories.messages.get_last_assistant", AsyncMock(return_value=last_assistant))
-        stub("app.repositories.messages.recent_user_contents", AsyncMock(return_value=prior_users))
-        stub("app.modules.memory.list_for_user", AsyncMock(return_value=[]))
+        stub("app.modules.chat.messages_repository.list_recent", AsyncMock(return_value=list(rows)))
+        stub(
+            "app.modules.chat.messages_repository.get_last_assistant",
+            AsyncMock(return_value=last_assistant),
+        )
+        stub("app.modules.memory.repository.list_for_user", AsyncMock(return_value=[]))
         stub("app.services.model_health.enrich_models_health", AsyncMock(return_value={}))
         stub("app.modules.billing.plan.chat_fallback_models", lambda *_a, **_k: [])
-        stub(
-            "app.modules.chat.turn_prep.augment._load_prior_user_messages",
-            AsyncMock(return_value=prior_users),
-        )
         stub("app.modules.web_search.search_cache.run_cached_search", run_search)
         stub("app.gateways.web_search_gateway.search_web", AsyncMock(return_value=[]))
         stub("app.gateways.pubchem_gateway.lookup_by_name", _pubchem_lookup)
         stub("app.gateways.pubchem_gateway.lookup_iupac_name", AsyncMock(return_value=None))
-        stub("app.modules.web_search.detection.classify_web_search", classifier)
         stub("app.modules.chat.tool_loop.run_tool_rounds", tool_rounds)
         stub("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False))
+        stack.enter_context(_production_tools(settings))
 
-        turn_mode = await _classify_turn_mode(AsyncMock(), chat, text)
+        turn_mode = classify_turn_mode(list(rows), text)
         bundle = await build_stream_prompt_context(
             TurnRequest(
                 user_id=user.id,
@@ -366,7 +378,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
             user=user,
             prior_count=len(rows),
         )
-        prefetch_searched = bool(searched) or bool(bundle.search_sources)
+        prefetch_searched = bool(searched)
         await run_tool_loop_path(
             default_deps(), AsyncMock(), settings, ctx, usage={}, on_status=None, should_cancel=None
         )
@@ -380,7 +392,8 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     )
     if prefetch_searched or direct or (loop_ran and needs_web_search(text)):
         search = "yes"
-    elif classifier.await_count or loop_ran:
+    elif loop_ran or ctx.reply_tools:
+        # The tool loop's model, or the reply's own model call, may call web_search.
         search = "ask"
     else:
         search = "no"

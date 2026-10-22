@@ -12,6 +12,7 @@ from app.exceptions import AttachmentValidationError, ChatBusyError
 from app.gateways.storage_gateway import LocalStorageGateway, StorageUnavailableError
 from app.modules.attachments.quota import has_current_upload_reservation
 from app.modules.chat.turn_prep.attachments import _process_attachments
+from app.tests.fakes import redis_mock
 
 
 @pytest.mark.asyncio
@@ -38,7 +39,7 @@ async def test_missing_or_foreign_requested_ids_fail_before_reuse(partial):
             content="keep this",
             attachment_ids=ids,
             settings=Settings(attachments_enabled=True),
-            redis=AsyncMock(),
+            redis=redis_mock(),
             on_status=None,
         )
     copies.assert_not_awaited()
@@ -52,6 +53,9 @@ async def test_local_presign_without_upload_cannot_be_sent(tmp_path):
         id=uuid4(),
         message_id=None,
         verified_at=None,
+        source="upload",
+        library_visible=True,
+        created_at=datetime(2020, 1, 1, tzinfo=UTC),
         storage_key="u/pending",
         size_bytes=5,
         content_type="text/plain",
@@ -75,7 +79,7 @@ async def test_local_presign_without_upload_cannot_be_sent(tmp_path):
             content="keep this",
             attachment_ids=[row.id],
             settings=Settings(attachments_enabled=True),
-            redis=AsyncMock(),
+            redis=redis_mock(),
             on_status=None,
         )
     session.commit.assert_not_awaited()
@@ -97,7 +101,7 @@ async def test_storage_outage_before_acceptance_is_safe_to_retry():
             content="keep this",
             attachment_ids=[uuid4()],
             settings=Settings(attachments_enabled=True),
-            redis=AsyncMock(),
+            redis=redis_mock(),
             on_status=None,
         )
 

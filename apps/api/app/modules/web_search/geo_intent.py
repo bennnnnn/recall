@@ -147,14 +147,6 @@ def is_short_letter_answer(text: str) -> bool:
     return _LETTER_ANSWER.fullmatch(cleaned) is not None
 
 
-def _geo_is_active(*texts: str) -> bool:
-    return any(is_geo_query(t.strip()) for t in texts if t and t.strip())
-
-
-def _places_list_is_active(*texts: str) -> bool:
-    return any(is_places_list_query(t.strip()) for t in texts if t and t.strip())
-
-
 def format_location_not_set_answer() -> str:
     """No user location for a geo query — ask to enable location instead of guessing."""
     return (

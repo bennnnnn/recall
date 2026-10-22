@@ -12,12 +12,9 @@ from app.modules.physics.schemas import (
     SimulationPlanet,
     SimulationTether,
 )
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    _latex_num,
-    _params_in_si,
-)
+from app.modules.physics.solvers.arithmetic import latex_num
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 
@@ -59,6 +56,7 @@ def _orbit_scene(
         y_min=-margin,
         y_max=margin,
         arrows=["velocity", "centripetal"],
+        # The labels are keyed by the arrows listed above; the scene validates them.
         arrow_labels=arrow_labels or {},  # type: ignore[arg-type]
         centre=[0.0, 0.0],
         central_body=SimulationPlanet(radius=planet[0], label=planet[1]) if planet else None,
@@ -132,13 +130,13 @@ def _road_result(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult | 
 
 
 def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     road = _road_result(intent, p)
     if road is not None:
         return road
     op = intent.physics_op or "centripetal_acceleration"
     if op == "angular_velocity" and "rpm" in p:
-        # _params_in_si already turned revolutions per minute into rad/s.
+        # params_in_si already turned revolutions per minute into rad/s.
         raw_rpm = (intent.physics_params or {})["rpm"]
         omega_val = p["rpm"]
         return PhysicsResult(
@@ -234,10 +232,10 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
     if op == "centripetal_acceleration":
         if omega is not None:
             law = r"a_c = \omega^2 r"
-            plugged = rf"{_latex_num(omega, square=True)} \cdot {r:g}"
+            plugged = rf"{latex_num(omega, square=True)} \cdot {r:g}"
         else:
             law = r"a_c = \frac{v^2}{r}"
-            plugged = rf"\frac{{{_latex_num(v, square=True)}}}{{{r:g}}}"
+            plugged = rf"\frac{{{latex_num(v, square=True)}}}{{{r:g}}}"
         return PhysicsResult(
             answer=rf"{law} = {plugged} \approx {a_c:.2f} \text{{ m/s}}^2",
             formulas=(law,),
@@ -252,10 +250,10 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
         f_val = p["m"] * a_c
         if omega is not None:
             law = r"F_c = m\omega^2r"
-            plugged = rf"{p['m']:g} \cdot {_latex_num(omega, square=True)} \cdot {r:g}"
+            plugged = rf"{p['m']:g} \cdot {latex_num(omega, square=True)} \cdot {r:g}"
         else:
             law = r"F_c = \frac{m v^2}{r}"
-            plugged = rf"\frac{{{p['m']:g} \cdot {_latex_num(v, square=True)}}}{{{r:g}}}"
+            plugged = rf"\frac{{{p['m']:g} \cdot {latex_num(v, square=True)}}}{{{r:g}}}"
         return PhysicsResult(
             answer=rf"{law} = {plugged} \approx {f_val:.2f} \text{{ N}}",
             formulas=(law,),

@@ -4,9 +4,6 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 import { ScanReadingReview, type ScanReadingState } from "@/components/mathScanner/ScanReadingReview";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
   useTheme: () => mockLightTheme,

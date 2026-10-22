@@ -12,13 +12,14 @@ from dataclasses import dataclass
 
 from app.core.config import Settings
 from app.gateways.http_client import get_pooled_client
+from app.models.model_catalog import openrouter_slug
 
 logger = logging.getLogger(__name__)
 
 _OPENAI_REALTIME_CLIENT_SECRETS_URL = "https://api.openai.com/v1/realtime/client_secrets"
 _REALTIME_TIMEOUT_SECONDS = 10.0
 _REALTIME_CONNECT_RETRIES = 2
-_DEFAULT_REALTIME_MODEL = "gpt-realtime-2.1"
+_LIVE_TALK_ALIAS = "live-talk-model"
 _DEFAULT_REALTIME_VOICE = "marin"
 _REALTIME_INPUT_TRANSCRIBE_MODEL = "gpt-live-transcribe"
 
@@ -30,7 +31,9 @@ class RealtimeClientSecretResult:
 
 
 def realtime_model(settings: Settings) -> str:
-    return settings.openai_realtime_model.strip() or _DEFAULT_REALTIME_MODEL
+    """The operator's override, else the catalog's live-talk model (OpenAI's own name)."""
+    override = settings.openai_realtime_model.strip()
+    return override or openrouter_slug(_LIVE_TALK_ALIAS).removeprefix("openai/")
 
 
 def realtime_session_config(

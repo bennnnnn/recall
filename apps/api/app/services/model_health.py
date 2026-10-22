@@ -22,7 +22,9 @@ from typing import Any
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.gateways import mock_llm
 from app.models import model_catalog
+from app.models.model_catalog import ChatModel
 
 logger = logging.getLogger(__name__)
 
@@ -107,19 +109,25 @@ async def record_samples(redis: Redis, samples: Sequence[HealthSample]) -> None:
 
 
 def _parse(raw: Iterable[Any]) -> list[tuple[bool, int, float]]:
-    """(ok, latency ms, recorded at) per stored sample, oldest first."""
-    samples: list[tuple[bool, int, float]] = []
+    """(ok, latency ms, recorded at) per stored sample, oldest first.
+
+    Samples recorded at the same second keep the order they were written in (the
+    member's nanosecond part): Redis would order them failure first.
+    """
+    samples: list[tuple[bool, int, float, int]] = []
     for item in raw:
         member, score = item if isinstance(item, tuple | list) else (item, None)
         text = member.decode() if isinstance(member, bytes) else str(member)
         parts = text.split("|")
         try:
             # The score is when it was recorded; the member's last part is too.
-            at = float(score) if score is not None else int(parts[2]) / 1e9
-            samples.append((parts[0] == "1", int(parts[1]), at))
+            written_ns = int(parts[2]) if len(parts) > 2 else 0
+            at = float(score) if score is not None else written_ns / 1e9
+            samples.append((parts[0] == "1", int(parts[1]), at, written_ns))
         except (ValueError, IndexError):
             continue
-    return sorted(samples, key=lambda sample: sample[2])
+    samples.sort(key=lambda sample: (sample[2], sample[3]))
+    return [(ok, ms, at) for ok, ms, at, _ns in samples]
 
 
 def _snapshot(raw: Iterable[Any]) -> ModelHealthSnapshot:
@@ -195,3 +203,10 @@ async def claim_probe(redis: Redis, settings: Settings, alias: str) -> bool:
     except Exception:
         logger.debug("model health probe claim failed", exc_info=True)
         return False
+
+
+def is_available(model: ChatModel, settings: Settings) -> bool:
+    """Whether this process can serve ``model``: mock mode, or its provider key is set."""
+    if mock_llm.should_mock_llm(settings):
+        return True
+    return bool(getattr(settings, model.api_key_field, ""))

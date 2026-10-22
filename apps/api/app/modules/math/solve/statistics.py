@@ -5,12 +5,12 @@ from __future__ import annotations
 import math
 import statistics
 
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def _format_stat(value: float) -> str:
     if not math.isfinite(value):
-        raise MathServiceError("statistic is not finite")
+        raise SolveServiceError("statistic is not finite")
     if abs(value) < 5e-13:
         value = 0.0
     return f"{value:.10g}"
@@ -33,11 +33,11 @@ def compute_bivariate_statistics(
 ) -> tuple[str, list[str]]:
     """Return a verified answer plus short supporting steps for paired data."""
     if len(x_values) != len(y_values) or len(x_values) < 2:
-        raise MathServiceError("paired statistics need equal-length lists with at least 2 values")
+        raise SolveServiceError("paired statistics need equal-length lists with at least 2 values")
     if len(x_values) > 200:
-        raise MathServiceError("paired statistics are capped at 200 values")
+        raise SolveServiceError("paired statistics are capped at 200 values")
     if not all(math.isfinite(value) for value in (*x_values, *y_values)):
-        raise MathServiceError("statistics values must be finite numbers")
+        raise SolveServiceError("statistics values must be finite numbers")
 
     try:
         if operation == "correlation":
@@ -50,10 +50,10 @@ def compute_bivariate_statistics(
             answer = _format_stat(statistics.covariance(x_values, y_values))
             return answer, [f"Sample covariance: {answer}"]
         if operation != "linear_regression":
-            raise MathServiceError("unsupported paired-statistics operation")
+            raise SolveServiceError("unsupported paired-statistics operation")
         regression = statistics.linear_regression(x_values, y_values)
     except statistics.StatisticsError as exc:
-        raise MathServiceError(str(exc)) from exc
+        raise SolveServiceError(str(exc)) from exc
 
     slope = _format_stat(regression.slope)
     intercept_value = 0.0 if abs(regression.intercept) < 5e-13 else regression.intercept

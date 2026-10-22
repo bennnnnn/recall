@@ -39,12 +39,8 @@ function Probe() {
   const value = useLiveTalk({
     token: "tok",
     chatId: "chat-1",
-    setChatId: jest.fn(),
-    setChatTitle: jest.fn(),
+    ensureChatId: async () => "chat-1",
     setMessages: jest.fn(),
-    draft: {} as never,
-    router: { setParams: jest.fn() } as never,
-    selectedModel: "free-chat",
     isOffline: false,
     onUpgrade: jest.fn(),
     onScrollToLatest: jest.fn(),
@@ -102,7 +98,7 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
     const addListener = jest
       .spyOn(BackHandler, "addEventListener")
       .mockImplementation((_event, handler) => {
-        backHandlers.push(handler);
+        backHandlers.push(() => handler({} as never));
         return { remove: jest.fn() };
       });
     (createRealtimeVoiceSession as jest.Mock).mockResolvedValueOnce({

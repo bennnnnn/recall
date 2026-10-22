@@ -22,7 +22,7 @@ from app.main import create_app
 from app.modules.chat import finalize_registry, ws_limits
 from app.modules.chat.stream_events import SERVER_RESTARTING_MESSAGE
 from app.modules.chat.turn_outcome import TurnOutcome
-from app.tests.modules.chat.chat_test_support import access_for, offline_deps
+from app.tests.modules.chat.chat_test_support import offline_deps, signed_in, ws_streams
 
 pytest_plugins = ("app.tests.modules.chat.chat_test_support",)
 
@@ -49,12 +49,7 @@ def _client(settings: Settings, user_id) -> tuple[TestClient, ExitStack]:
     app.dependency_overrides[get_settings_dep] = lambda: settings
     stack = ExitStack()
     stack.enter_context(patch("app.modules.chat.ws_api.get_settings", return_value=settings))
-    stack.enter_context(
-        patch(
-            "app.modules.chat.ws_api.access_tokens.check_access",
-            AsyncMock(return_value=access_for(user_id)),
-        )
-    )
+    stack.enter_context(signed_in(user_id))
     return TestClient(app), stack
 
 
@@ -75,7 +70,7 @@ def test_ws_error_frame_says_whether_the_user_message_saved(saved_first: bool) -
         yield  # pragma: no cover
 
     client, stack = _client(settings, user_id)
-    with stack, patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", failing_turn):
+    with stack, ws_streams(failing_turn):
         with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
             _auth(ws, user_id, settings)
             ws.send_json({"type": "message", "content": "hi"})
@@ -119,7 +114,7 @@ def test_ws_idle_timer_does_not_cut_a_turn() -> None:
         yield "late but whole"
 
     client, stack = _client(settings, user_id)
-    with stack, patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", slow_turn):
+    with stack, ws_streams(slow_turn):
         with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
             _auth(ws, user_id, settings)
             ws.send_json({"type": "message", "content": "hi"})
@@ -165,7 +160,7 @@ def test_ws_refuses_a_new_turn_once_the_server_is_stopping(monkeypatch) -> None:
     settings, user_id = _settings(), uuid4()
     turn = MagicMock()
     client, stack = _client(settings, user_id)
-    with stack, patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", turn):
+    with stack, ws_streams(turn):
         with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
             _auth(ws, user_id, settings)
             ws.send_json({"type": "message", "content": "hi"})
@@ -256,7 +251,7 @@ async def test_shutdown_stops_a_ws_turn_through_its_stop_and_saves_it(_turn_io, 
     await asyncio.wait_for(serve, 5)
 
     _turn_io.assert_awaited_once()
-    assert _turn_io.await_args.args[2] == "a"
+    assert _turn_io.await_args.kwargs["assistant_text"] == "a"
     assert outcome.completion == "interrupted"
     done = [frame for frame in sent if frame["type"] == "done"]
     assert done and done[0]["completion"] == "interrupted"

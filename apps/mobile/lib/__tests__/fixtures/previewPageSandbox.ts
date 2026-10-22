@@ -21,6 +21,26 @@ export function fakeAnchor(href: string, { inSvg = false } = {}) {
   };
 }
 
+/**
+ * The bodies of a page's bare `<script>` blocks, in order, whatever their case. A tag with
+ * attributes never runs here: `<script src>` loads a library the test stands in for, and
+ * `<script type="text/pdf-worker">` holds the PDF worker's source as data.
+ */
+function inlineScripts(html: string): string[] {
+  const lower = html.toLowerCase();
+  const open = "<script>";
+  const close = "</script>";
+  const bodies: string[] = [];
+  let start = lower.indexOf(open);
+  while (start >= 0) {
+    const end = lower.indexOf(close, start + open.length);
+    if (end < 0) break;
+    bodies.push(html.slice(start + open.length, end));
+    start = lower.indexOf(open, end + close.length);
+  }
+  return bodies;
+}
+
 export function previewPageSandbox(globals: Record<string, unknown> = {}) {
   const posted: unknown[] = [];
   const css: Record<string, string> = {};
@@ -70,7 +90,7 @@ export function previewPageSandbox(globals: Record<string, unknown> = {}) {
     elements,
     /** The page's inline scripts in order (a library under test is a stand-in). */
     loadPage(html: string) {
-      for (const [, source] of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) run(source);
+      for (const source of inlineScripts(html)) run(source);
     },
     /** What the WebView injects for one block. */
     hand(config: PreviewPageConfig) {

@@ -113,7 +113,7 @@ it("hands the push sync the app's toasts, so a push token failure is not silent"
     </ActionFeedbackContext.Provider>,
   );
   await act(async () => {});
-  expect(attachPushForegroundSync).toHaveBeenCalledWith("a", true, expect.any(Function), 0, feedback, "a");
+  expect(attachPushForegroundSync).toHaveBeenCalledWith("a", true, expect.any(Function), "a", feedback);
 });
 
 describe("location label", () => {

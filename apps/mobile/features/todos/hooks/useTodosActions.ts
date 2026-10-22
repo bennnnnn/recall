@@ -71,6 +71,8 @@ export function useTodosActions({ token, userId, todos, getTodos,
   const applyTodos = useCallback((update: (rows: Todo[]) => Todo[]) => {
     if (isSameOwner()) setTodos(update);
   }, [isSameOwner, setTodos]);
+  // After a failed change only: a change that worked returns its row, which is applied
+  // as is. Every change used to read the whole list again (code-health audit NET-16).
   const reconcile = useCallback(() => {
     if (isSameOwner()) void refresh({ silent: true, force: true, afterPending: true });
   }, [isSameOwner, refresh]);
@@ -94,10 +96,10 @@ export function useTodosActions({ token, userId, todos, getTodos,
     } catch {
       applyTodos((rows) => replaceTodoById(rows, id, snapshot));
       reportError(errorKey);
+      reconcile();
       return false;
     } finally {
       release();
-      reconcile();
     }
   }, [canAct, latestTodo, owner, applyTodos, reportError, reconcile]);
 
@@ -143,9 +145,9 @@ export function useTodosActions({ token, userId, todos, getTodos,
     } catch {
       applyTodos((rows) => removeTodoById(rows, optimistic.id));
       reportError("todos.error_create");
+      reconcile();
     } finally {
       release();
-      reconcile();
     }
   }, [token, canAct, reportError, owner, applyTodos, isSameOwner, markSeenIds, userId, reconcile]);
 

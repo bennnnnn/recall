@@ -12,15 +12,14 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _MASS_UNITS,
-    _NUMBER,
-    _VELOCITY_UNIT_PATTERN,
-    _detect_gravity,
-    stated_gravity,
-)
 from app.modules.physics.extractors.momentum import _COLLISION_SUBJECT_RE, _TWO_DIMENSIONAL_RE
+from app.modules.physics.extractors.surface_gravity import detect_gravity, stated_gravity
+from app.modules.physics.extractors.unit_patterns import (
+    LENGTH_UNIT_PATTERN,
+    MASS_UNITS,
+    NUMBER,
+    VELOCITY_UNIT_PATTERN,
+)
 from app.modules.physics.numbers import normalize_physics_numbers, normalize_physics_units
 from app.modules.physics.registry import has_supported_physics_cue
 from app.modules.physics.schemas import PhysicsIntent
@@ -30,9 +29,9 @@ from app.services.number_text import numeric_spans
 if TYPE_CHECKING:
     from app.services.law_binding.spec import FormulaSpec
 
-_MASS = re.compile(rf"({_NUMBER})\s*({_MASS_UNITS})(?![A-Za-z0-9/^])", re.IGNORECASE)
-_SPEED = re.compile(rf"({_NUMBER})\s*({_VELOCITY_UNIT_PATTERN})(?![A-Za-z0-9/^])", re.IGNORECASE)
-_LENGTH = re.compile(rf"({_NUMBER})\s*({_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])", re.IGNORECASE)
+_MASS = re.compile(rf"({NUMBER})\s*({MASS_UNITS})(?![A-Za-z0-9/^])", re.IGNORECASE)
+_SPEED = re.compile(rf"({NUMBER})\s*({VELOCITY_UNIT_PATTERN})(?![A-Za-z0-9/^])", re.IGNORECASE)
+_LENGTH = re.compile(rf"({NUMBER})\s*({LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])", re.IGNORECASE)
 _REST = re.compile(r"\bat rest\b|\bstationary\b|\binitially still\b", re.IGNORECASE)
 # "sticks to a stationary 1 kg cart": the rest word before a mass is that body's.
 _REST_BEFORE_MASS = re.compile(
@@ -83,10 +82,10 @@ _QUANTITY = re.compile(
     re.IGNORECASE,
 )
 _GRAVITY = re.compile(
-    rf"\b(?:g\s*=|gravity\s*(?:of|is|=)?)\s*{_NUMBER}(?:\s*m/s\^?2)?",
+    rf"\b(?:g\s*=|gravity\s*(?:of|is|=)?)\s*{NUMBER}(?:\s*m/s\^?2)?",
     re.IGNORECASE,
 )
-_ANGLE = re.compile(rf"{_NUMBER}\s*(?:degrees?|deg|°|radians?|rad)(?![A-Za-z0-9])", re.IGNORECASE)
+_ANGLE = re.compile(rf"{NUMBER}\s*(?:degrees?|deg|°|radians?|rad)(?![A-Za-z0-9])", re.IGNORECASE)
 _MATH_POWER_REQUEST = re.compile(
     r"\b(?:raised\s+to|to)\s+(?:the\s+)?"
     r"(?:\d+(?:st|nd|rd|th)?|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)"
@@ -435,7 +434,7 @@ def complete_physics_intent(intent: PhysicsIntent, request: PhysicsRequest) -> P
     # Moon and Mars have a school g. A solver that would otherwise fill Earth's
     # must use that body's value when the question never wrote g.
     if uses_g and "g" not in params:
-        detected = _detect_gravity(request.text)
+        detected = detect_gravity(request.text)
         if detected != SCHOOL_GRAVITY["earth"]:
             params = {**params, "g": detected}
             units = {**(intent.physics_units or {}), "g": "m/s^2"}

@@ -6,7 +6,7 @@ from dataclasses import replace
 
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block.canonical import _finish_with_answer
+from app.modules.math.tools.block.canonical import finish_with_answer
 from app.services.solving import VerifiedMathBlock
 
 
@@ -21,7 +21,7 @@ def _derivative_at_point(
         working = f"At ${intent.variable} = {point}$: {out.steps[0]}"
     direct = f"{working}\n\n```answer\n{answer}\n```\n"
     return replace(
-        _finish_with_answer(lines, answer),
+        finish_with_answer(lines, answer),
         direct_reply=direct,
         direct_requires_calculus_guard=True,
     )
@@ -39,14 +39,14 @@ def _derivative_at_point_working(expr: str, variable: str, point: str, value: st
     from app.modules.math.tools.school.function_value import _substituted_tex
 
     try:
-        parsed = math_solve._parse_expression(expr, [variable])
+        parsed = math_solve.parse_expression(expr, [variable])
         at = sympify(point)
         derivative = simplify(diff(parsed, Symbol(variable)))
         if derivative.free_symbols - {Symbol(variable)}:
             return None
         if simplify(derivative.subs(variable, at) - sympify(value)) != 0:
             return None
-    except (math_solve.MathServiceError, TypeError, ValueError, SyntaxError):
+    except (math_solve.SolveServiceError, TypeError, ValueError, SyntaxError):
         return None
     d = rf"\frac{{dy}}{{d{variable}}}"
     return (
@@ -70,9 +70,9 @@ def _higher_derivative_at_point(intent: MathIntent, lines: list[str]) -> Verifie
     order = intent.derivative_order
     variable = intent.variable
     try:
-        parsed = math_solve._parse_expression(intent.expr or "", [variable])
+        parsed = math_solve.parse_expression(intent.expr or "", [variable])
         at = sympify(intent.evaluation_point)
-    except (math_solve.MathServiceError, TypeError, ValueError, SyntaxError):
+    except (math_solve.SolveServiceError, TypeError, ValueError, SyntaxError):
         return None
     symbol = Symbol(variable)
     if isinstance(parsed, tuple) or parsed.free_symbols - {symbol}:
@@ -92,7 +92,7 @@ def _higher_derivative_at_point(intent: MathIntent, lines: list[str]) -> Verifie
         f"Derivative of order {order}: {latex(derivative)}; at {variable} = {at}: {answer}"
     )
     return replace(
-        _finish_with_answer(lines, answer),
+        finish_with_answer(lines, answer),
         direct_reply=f"{working}\n\n```answer\n{answer}\n```\n",
         direct_requires_calculus_guard=True,
     )

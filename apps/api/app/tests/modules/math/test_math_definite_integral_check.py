@@ -19,7 +19,7 @@ from app.modules.math.calculus_applications import (
 )
 from app.modules.math.formulas import average_value
 from app.modules.math.schemas import MathIntent
-from app.modules.math.solve import MathServiceError, calculus, definite_integral
+from app.modules.math.solve import SolveServiceError, calculus, definite_integral
 from app.modules.math.tools.block.integrals import _fundamental_theorem_working
 
 _API_ROOT = Path(__file__).resolve().parents[4]
@@ -101,7 +101,7 @@ def test_definite_integral_refuses_a_closed_form_nothing_confirms(
 ) -> None:
     """No antiderivative, or one that disagrees too: no number reaches the answer card."""
     _closed_form(monkeypatch, S(5), antiderivative)
-    with pytest.raises(MathServiceError, match="numeric check"):
+    with pytest.raises(SolveServiceError, match="numeric check"):
         definite_integral(x**2, x, 0, 3)
 
 
@@ -117,7 +117,7 @@ def _ftc_working() -> object:
     real_x = Symbol("x", real=True)
     working = _fundamental_theorem_working(intent, real_x**2, "I")
     if working is None:
-        raise MathServiceError("no working")
+        raise SolveServiceError("no working")
     return working
 
 
@@ -137,5 +137,5 @@ def test_every_definite_integral_answer_goes_through_the_check(
 ) -> None:
     """With every closed form contradicted, no answer or worked line uses one."""
     _closed_form(monkeypatch, S(-5), Integral(x, x))
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         answer()

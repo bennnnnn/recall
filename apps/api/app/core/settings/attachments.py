@@ -5,12 +5,18 @@ from pydantic import BaseModel
 
 class AttachmentSettings(BaseModel):
     attachments_enabled: bool = True
-    # PDF/DOCX text extraction is sync, CPU-bound parsing; it runs on a worker
-    # thread (like the SymPy math solve) bounded by this timeout so a large or
-    # adversarially crafted file can't block the event loop.
+    # PDF/DOCX text extraction is sync, CPU-bound parsing; it runs in a document
+    # worker process killed at this timeout, so a large or adversarially crafted file
+    # can't hold the event loop or a thread.
     attachment_extract_timeout_seconds: float = 5.0
-    # The index job reads the whole file; a parse past this stops and the job retries.
+    # The index job reads the whole file. A parse past this is killed and the job is not
+    # retried: the same file reads the same way.
     attachment_index_extract_timeout_seconds: float = 60.0
+    # Documents parse and PDF pages render in their own killable processes
+    # (core/document_executor.py): a timeout ends the work, not only the wait. Each worker
+    # starts on first use, about 70 MB. A parse waits this long for a free one.
+    document_pool_workers: int = 2
+    document_pool_queue_wait_seconds: float = 5.0
     # Image-only / photographed PDFs have no text layer. After the fast
     # pypdf extract returns empty, render pages (pypdfium2) and transcribe
     # via vision-chat. Separate budget — vision is network, not the 5s CPU
@@ -46,6 +52,8 @@ class AttachmentSettings(BaseModel):
     attachment_rag_chunk_chars: int = 900
     attachment_rag_chunk_overlap: int = 120
     attachment_rag_max_chunks_per_file: int = 256
+    # A search ranks the chat's newest document chunks exactly (no vector index).
+    attachment_rag_search_window: int = 2000
     # Per-image token reserve added to the quota reservation for vision turns,
     # so a near-limit user can't start a heavy image call that blows past the
     # daily cap. Real usage is still reconciled from the provider's usage chunk.
@@ -77,9 +85,12 @@ class AttachmentSettings(BaseModel):
     # A signed PUT stays usable until it expires, even after confirm checked the
     # bytes; the phone starts its PUT right after presign.
     r2_presign_upload_expiry_seconds: int = 120
-    # boto3 defaults are 60s connect + 60s read with 5 legacy attempts, all on
-    # the default thread pool (5 threads on one CPU) shared with sign-in and
-    # PDF extraction. Bounded here; "standard" retries back off with jitter.
+    # boto3 defaults are 60s connect + 60s read with 5 legacy attempts, which held
+    # threads for minutes on a stalled R2. Bounded here; "standard" retries back off
+    # with jitter, on R2's own pool (core/blocking.py).
     r2_connect_timeout_seconds: float = 5.0
     r2_read_timeout_seconds: float = 20.0
     r2_max_attempts: int = 3
+    # One R2 call, retries included, is given up after this (its thread finishes alone,
+    # on the storage pool: core/blocking.py). The retry budget above can run past a minute.
+    r2_call_deadline_seconds: float = 30.0

@@ -1,11 +1,12 @@
-import { api, type AttachmentListItem } from "@/lib/api";
+import { api, type AttachmentListItem, type Page } from "@/lib/api";
+import { onAppEvent } from "@/lib/appEvents";
 import { CONTEXT_REFRESH_STALE_MS } from "@/lib/cache/contextRefresh";
 import { asError, SessionResourceCache, sessionChanged, type ResourceResult } from "@/lib/cache/sessionResource";
 import { GALLERY_PAGE_SIZE, galleryListCacheKey, galleryListParams, mergeGalleryItems, type GalleryFilter } from "@/features/attachments/model/gallery";
 
 export type GalleryPage = { items: AttachmentListItem[]; hasMore: boolean };
-/** The rows shown, how many server rows they consumed, and which first page they grew from. */
-type GalleryEntry = { page: GalleryPage; nextOffset: number; lineage: number };
+/** The rows shown, where the next page starts, and which first page they grew from. */
+type GalleryEntry = { page: GalleryPage; nextCursor: string | null; lineage: number };
 type NextPageRead = { lineage: number; task: Promise<ResourceResult<GalleryPage>> };
 type GallerySession = {
   /** Deleted this session; an earlier read must not bring them back. */
@@ -13,7 +14,7 @@ type GallerySession = {
   next: Map<string, NextPageRead>;
   lineages: number;
 };
-type ListResponse = { items: AttachmentListItem[]; has_more: boolean };
+type ListResponse = Page<AttachmentListItem>;
 /** One entry per filter and search; typing a search must not keep every query forever. */
 const MAX_GALLERY_QUERIES = 20;
 
@@ -23,16 +24,16 @@ const resource = new SessionResourceCache<string, GalleryEntry, GallerySession>(
   sessionState: () => ({ removed: new Set(), next: new Map(), lineages: 0 }),
 });
 
-function firstEntry(page: GalleryPage): GalleryEntry {
-  return { page, nextOffset: page.items.length, lineage: ++resource.state().lineages };
+function firstEntry(page: GalleryPage, nextCursor: string | null): GalleryEntry {
+  return { page, nextCursor, lineage: ++resource.state().lineages };
 }
 function keptRows(response: ListResponse): AttachmentListItem[] {
   const { removed } = resource.state();
   return response.items.filter((row) => !removed.has(row.id));
 }
-function readRows(token: string, filter: GalleryFilter, query: string, offset: number): Promise<ListResponse> {
+function readRows(token: string, filter: GalleryFilter, query: string, cursor: string | null): Promise<ListResponse> {
   return api.listAttachments(token, {
-    ...galleryListParams(filter), ...(query ? { q: query } : {}), limit: GALLERY_PAGE_SIZE, offset,
+    ...galleryListParams(filter), ...(query ? { q: query } : {}), limit: GALLERY_PAGE_SIZE, ...(cursor ? { cursor } : {}),
   });
 }
 function pageResult(result: ResourceResult<GalleryEntry>): ResourceResult<GalleryPage> {
@@ -42,9 +43,8 @@ function pageResult(result: ResourceResult<GalleryEntry>): ResourceResult<Galler
 }
 function withoutItem(entry: GalleryEntry, id: string): GalleryEntry {
   const items = entry.page.items.filter((item) => item.id !== id);
-  const dropped = entry.page.items.length - items.length;
-  if (!dropped) return entry;
-  return { ...entry, page: { ...entry.page, items }, nextOffset: Math.max(0, entry.nextOffset - dropped) };
+  // The cursor names the last row read, so a deleted row cannot shift the next page.
+  return items.length === entry.page.items.length ? entry : { ...entry, page: { ...entry.page, items } };
 }
 
 export function getCachedGalleryPage(filter: GalleryFilter, query: string): GalleryPage | undefined {
@@ -53,12 +53,15 @@ export function getCachedGalleryPage(filter: GalleryFilter, query: string): Gall
 export function isGalleryPageFresh(filter: GalleryFilter, query: string): boolean {
   return resource.isFresh(galleryListCacheKey(filter, query));
 }
-export function setGalleryPage(filter: GalleryFilter, query: string, page: GalleryPage): void {
-  resource.set(galleryListCacheKey(filter, query), firstEntry(page));
+export function setGalleryPage(filter: GalleryFilter, query: string, page: GalleryPage, nextCursor: string | null = null): void {
+  resource.set(galleryListCacheKey(filter, query), firstEntry(page, nextCursor));
 }
 export function invalidateGalleryCache(): void {
   resource.invalidate();
 }
+// Deleted chats take their photos with them; a picture saved into a chat joins the gallery.
+onAppEvent("chatsDeleted", invalidateGalleryCache);
+onAppEvent("attachmentAdded", invalidateGalleryCache);
 export function removeCachedGalleryItem(id: string): void {
   resource.state().removed.add(id);
   resource.updateEach((entry) => withoutItem(entry, id));
@@ -68,8 +71,8 @@ export async function fetchGalleryPage(
   token: string, filter: GalleryFilter, query: string, opts?: { force?: boolean },
 ): Promise<ResourceResult<GalleryPage>> {
   const result = await resource.fetch(galleryListCacheKey(filter, query), token, async () => {
-    const response = await readRows(token, filter, query, 0);
-    return firstEntry({ items: keptRows(response), hasMore: response.has_more });
+    const response = await readRows(token, filter, query, null);
+    return firstEntry({ items: keptRows(response), hasMore: response.next_cursor !== null }, response.next_cursor);
   }, opts);
   return pageResult(result);
 }
@@ -97,26 +100,22 @@ async function readNextPage(
 ): Promise<ResourceResult<GalleryPage>> {
   const key = galleryListCacheKey(filter, query);
   const isCurrent = resource.lease();
-  // A first-page read that started or landed since makes this page's offset meaningless.
+  // A first-page read that started or landed since makes this page's cursor meaningless.
   const replaced = () => resource.inflight(key) !== undefined || resource.get(key)?.lineage !== lineage;
   try {
-    while (true) {
-      const offset = resource.get(key)?.nextOffset ?? 0;
-      const response = await readRows(token, filter, query, offset);
-      if (!isCurrent()) return sessionChanged();
-      if (replaced()) return currentPage(key);
-      // A confirmed deletion can shift the server's rows before this query
-      // runs. Fetch the corrected offset so the file at that boundary is not skipped.
-      if (offset !== resource.get(key)?.nextOffset) continue;
-      const incoming = keptRows(response);
-      const grown = resource.update(key, (current) => ({
-        ...current,
-        page: { items: mergeGalleryItems(current.page.items, incoming, false), hasMore: response.has_more },
-        // Track consumed rows, including duplicate rows from a shifting offset page.
-        nextOffset: current.nextOffset + incoming.length,
-      }));
-      return currentPage(key, grown);
-    }
+    const cursor = resource.get(key)?.nextCursor ?? null;
+    const response = await readRows(token, filter, query, cursor);
+    if (!isCurrent()) return sessionChanged();
+    if (replaced()) return currentPage(key);
+    const incoming = keptRows(response);
+    // A cursor that did not move would read the same page forever.
+    const more = response.next_cursor !== null && response.next_cursor !== cursor;
+    const grown = resource.update(key, (current) => ({
+      ...current,
+      page: { items: mergeGalleryItems(current.page.items, incoming, false), hasMore: more },
+      nextCursor: more ? response.next_cursor : null,
+    }));
+    return currentPage(key, grown);
   } catch (caught) {
     if (!isCurrent()) return sessionChanged();
     return { data: resource.get(key)?.page ?? null, error: asError(caught) };

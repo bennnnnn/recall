@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Sequence
 
+from app.core.readings import reading
 from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.modules.math.match.literal_plot import literal_plot_point
 from app.modules.math.request_consumption import request_consumption_complete
@@ -165,6 +166,7 @@ def _numeric_statement(text: str, intent: MathIntent) -> bool:
     return re.search(r"\bsolve\b", text, re.IGNORECASE) is None
 
 
+@reading(declined=None)
 def extract_math_intent(text: str) -> MathIntent | None:
     intent = _extract_math_intent_any(text)
     if intent is None or _numeric_statement(text, intent):

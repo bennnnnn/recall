@@ -1,9 +1,11 @@
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
-import { AppState, type AppStateStatus, Platform } from "react-native";
+import { type AppStateStatus, Platform } from "react-native";
 
 import type { ActionFeedbackApi } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
+import { getSessionGeneration } from "@/lib/auth";
+import { FOREGROUND_STALE_MS, onAppStateChange } from "@/lib/foregroundRefresh";
 import { isExpoGo, isPhysicalDevice } from "@/lib/expoRuntime";
 import i18n from "@/lib/i18n";
 import { getInstallationId } from "@/lib/installationId";
@@ -14,7 +16,7 @@ import {
 } from "@/lib/notificationChannels";
 import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
 import { devicePushTokenFingerprint } from "@/lib/devicePushToken";
-import { recentSyncAt, recordSync } from "@/lib/syncRecords";
+import { forgetSyncRecords, recentSyncAt, recordSync } from "@/lib/syncRecords";
 
 type AppRouter = {
   push: (href: unknown) => void;
@@ -24,18 +26,16 @@ type AppRouter = {
 let androidChannelReady = false;
 
 export async function getNotificationPermissionGranted(): Promise<boolean> {
-  if (Platform.OS === "web") return false;
   const { status } = await Notifications.getPermissionsAsync();
   return status === "granted";
 }
 
-export async function ensureNotificationPermission(analyticsToken?: string): Promise<boolean> {
-  if (Platform.OS === "web") return false;
+export async function ensureNotificationPermission(): Promise<boolean> {
   await ensureAndroidChannel();
   const { status: existing } = await Notifications.getPermissionsAsync();
   if (existing === "granted") return true;
   const { status } = await Notifications.requestPermissionsAsync();
-  trackProductEvent(analyticsToken ?? null, "push_permission", {
+  trackProductEvent("push_permission", {
     status: status === "granted" ? "granted" : "denied",
   });
   return status === "granted";
@@ -127,9 +127,8 @@ export async function registerRemotePushToken(
   pushNotificationsEnabled: boolean,
   feedback?: ActionFeedbackApi | null,
 ): Promise<PushRegisterResult> {
-  if (Platform.OS === "web") return "skipped";
   if (!pushNotificationsEnabled) return "skipped";
-  const granted = await ensureNotificationPermission(apiToken);
+  const granted = await ensureNotificationPermission();
   if (!granted) {
     await api.updateMe(apiToken, { push_notifications_enabled: false });
     return "disabled_permission";
@@ -150,6 +149,13 @@ export async function registerRemotePushToken(
   return "registered";
 }
 
+/** This device's Expo push token, for sign-out to hand the server; null when this device
+ * cannot have registered one (Expo Go, no notification permission). */
+export async function devicePushToken(): Promise<string | null> {
+  if (!(await getNotificationPermissionGranted())) return null;
+  return resolveExpoPushToken();
+}
+
 /** Unregister the Expo push token from the backend.
  *
  * Called when the user disables ``push_notifications_enabled`` — without
@@ -161,7 +167,6 @@ export async function unregisterRemotePushToken(
   apiToken: string,
   feedback?: ActionFeedbackApi | null,
 ): Promise<boolean> {
-  if (Platform.OS === "web") return true;
   const expoPushToken = await resolveExpoPushToken(feedback);
   if (!expoPushToken) return false;
   try {
@@ -177,64 +182,72 @@ export async function unregisterRemotePushToken(
  * The background sync runs on launch, on every access-token refresh (the
  * effect re-attaches hourly) and on every return to the app. Each run asked
  * Expo's push service for the token and posted it to our API. After a sync
- * succeeds for this sign-in and setting, later runs only re-check the OS
+ * succeeds for this account and setting, later runs only re-check the OS
  * permission (local) until this long has passed; a failure retries next time.
  * The time is also kept for the account and this install's push token
  * (`lib/syncRecords.ts`, forgotten at sign-in and sign-out), so a cold start
  * inside the window does not register again unless the token changed.
  */
-const PUSH_RESYNC_INTERVAL_MS = 12 * 60 * 60_000;
-let lastPushSync: { session: number; enabled: boolean; at: number } | null = null;
+const PUSH_RESYNC_INTERVAL_MS = FOREGROUND_STALE_MS.pushRegistration;
+let lastPushSync: { session: number; account: string | undefined; enabled: boolean; at: number } | null = null;
 
-function pushSyncIsFresh(session: number | undefined, enabled: boolean): boolean {
+function pushSyncIsFresh(session: number, account: string | undefined, enabled: boolean): boolean {
+  if (lastPushSync == null) return false;
+  const age = Date.now() - lastPushSync.at;
   return (
-    session !== undefined &&
-    lastPushSync != null &&
     lastPushSync.session === session &&
+    lastPushSync.account === account &&
     lastPushSync.enabled === enabled &&
-    Date.now() - lastPushSync.at < PUSH_RESYNC_INTERVAL_MS
+    // A clock set back makes the age negative: not trusted as recent.
+    age >= 0 && age < PUSH_RESYNC_INTERVAL_MS
   );
 }
 
+/** Sign-out: the next sign-in, whoever's, registers this device again. */
+export async function clearPushSyncRecord(): Promise<void> {
+  lastPushSync = null;
+  await forgetSyncRecords();
+}
+
 /**
- * `session` is the caller's session generation. Another account signing in
- * on this device rebinds the token, so a sync never counts across sign-ins;
- * without it every run syncs. `account` (the user id) also finds a sync an
- * earlier launch made for this sign-in. `feedback` shows a push token failure
- * that is not routine (see reportPushTokenFailure).
+ * `account` is the signed-in user's id: it also finds a sync an earlier launch
+ * made for this sign-in. Another account signing in on this device rebinds the
+ * token, so a sync never counts across sign-ins. `feedback` shows a push token
+ * failure that is not routine (see reportPushTokenFailure).
  */
 export function attachPushForegroundSync(
   apiToken: string | null,
   pushNotificationsEnabled: boolean,
   onPushPrefChange?: (enabled: boolean) => void,
-  session?: number,
-  feedback?: ActionFeedbackApi | null,
   account?: string,
+  feedback?: ActionFeedbackApi | null,
 ): () => void {
   if (!apiToken) return () => {};
+  const session = getSessionGeneration();
 
   const syncNow = async () => {
     const enabled = pushNotificationsEnabled;
     // The saved record's key: the setting and the token it registered, so a
     // token the push service rolled since registers again.
     let savedKey: string | null = null;
-    if (!pushSyncIsFresh(session, enabled) && session !== undefined && account) {
+    if (!pushSyncIsFresh(session, account, enabled) && account) {
       const device = await devicePushTokenFingerprint();
       if (device !== null) {
         savedKey = `${enabled ? "on" : "off"}:${device}`;
         const at = await recentSyncAt("push", account, PUSH_RESYNC_INTERVAL_MS, savedKey);
-        if (at !== null) lastPushSync = { session, enabled, at };
+        if (at !== null) lastPushSync = { session, account, enabled, at };
       }
     }
-    if (pushSyncIsFresh(session, enabled)) {
+    if (pushSyncIsFresh(session, account, enabled)) {
       // Turning the permission off in Settings must still reach the server.
       if (!enabled || (await getNotificationPermissionGranted())) return;
     }
     lastPushSync = null;
     const remember = () => {
-      if (session === undefined) return;
+      // A sync that finishes after sign-out must not vouch for the next sign-in.
+      if (session !== getSessionGeneration()) return;
       const at = Date.now();
-      lastPushSync = { session, enabled, at };
+      lastPushSync = { session, account, enabled, at };
       if (account && savedKey !== null) void recordSync("push", account, savedKey, at);
     };
     if (enabled) {
@@ -253,12 +266,9 @@ export function attachPushForegroundSync(
   // actually stops (or starts) backend delivery, not just OS permission.
   sync();
 
-  const onChange = (state: AppStateStatus) => {
+  return onAppStateChange((state: AppStateStatus) => {
     if (state === "active") sync();
-  };
-
-  const sub = AppState.addEventListener("change", onChange);
-  return () => sub.remove();
+  });
 }
 
 type PushData = {

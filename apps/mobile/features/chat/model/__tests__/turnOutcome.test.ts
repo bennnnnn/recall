@@ -1,5 +1,8 @@
 import { reportChatTurnOutcome } from "@/features/chat/model/latencyReporter";
-import { applyChatEvent, type ChatEventContext } from "@/features/chat/model/chatEvents";
+import { CHAT_EVENT_SAMPLE_RATE } from "@/features/chat/model/chatEventSample";
+import { initialChatTurnState, type ChatTurnState } from "@/features/chat/model/chatTurnCore";
+import { reduceChatTurn } from "@/features/chat/model/chatTurnState";
+import type { ChatSsePayload } from "@/features/chat/model/sse";
 import {
   beginTurnOutcome,
   completionFromDone,
@@ -14,7 +17,7 @@ import {
 jest.mock("@/features/chat/model/latencyReporter", () => ({
   reportChatTurnOutcome: jest.fn(async () => undefined),
 }));
-// chatEvents announces a finished reply; nothing here reaches that.
+// The turn announces a finished reply; nothing here reaches that.
 jest.mock("react-native", () => ({ AccessibilityInfo: { announceForAccessibility: jest.fn() } }));
 
 const report = reportChatTurnOutcome as jest.Mock;
@@ -26,6 +29,24 @@ describe("chat_turn_outcome (O10.1)", () => {
     reportTurnOutcome("complete");
     await settle();
     report.mockClear();
+    // Every turn in the sample unless a case says otherwise.
+    jest.spyOn(Math, "random").mockReturnValue(0);
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("reports one turn in five (NET-15)", async () => {
+    jest.spyOn(Math, "random").mockReturnValue(CHAT_EVENT_SAMPLE_RATE);
+    beginTurnOutcome();
+    reportTurnOutcome("complete");
+    await settle();
+    expect(report).not.toHaveBeenCalled();
+    jest.spyOn(Math, "random").mockReturnValue(CHAT_EVENT_SAMPLE_RATE - 0.01);
+    beginTurnOutcome();
+    reportTurnOutcome("complete");
+    await settle();
+    expect(report).toHaveBeenCalledTimes(1);
   });
 
   it("names the first tool the turn showed and a clean finish", async () => {
@@ -97,28 +118,27 @@ describe("chat_turn_outcome (O10.1)", () => {
     expect(sendReadyBucket(elapsedMs)).toBe(bucket);
   });
 
-  it("measures last token -> Send ready from the chat events, once per turn", async () => {
+  it("measures last token -> Send ready from the turn's frames, once per turn", async () => {
     const now = jest.spyOn(Date, "now").mockReturnValue(1_000);
-    const ctx = {
-      t: (key: string) => key,
-      setFinalizing: jest.fn(),
-      setMessages: jest.fn(),
-      updateStreamingDraft: jest.fn(),
-      streamingRef: { current: true },
-      finalizingRef: { current: false },
-      streamCueRef: { current: { activity: jest.fn() } },
-      pendingSendRef: { current: null },
-      assistantBufferRef: { current: "" },
-      streamingDraftRef: { current: null },
-    } as unknown as ChatEventContext;
+    let state: ChatTurnState = { ...initialChatTurnState("chat-1", 0), phase: "streaming" };
+    // The turn's metric commands, as chatTurnEffects runs them.
+    const frame = (payload: ChatSsePayload) => {
+      const next = reduceChatTurn(state, { type: "frame", payload }, Date.now());
+      state = next.state;
+      for (const command of next.commands) {
+        if (command.type !== "outcome") continue;
+        if (command.outcome === "token") noteTurnToken();
+        if (command.outcome === "send_ready") noteTurnSendReady();
+      }
+    };
     beginTurnOutcome();
-    applyChatEvent({ type: "token", content: "Hel" }, ctx);
+    frame({ type: "token", content: "Hel" });
     now.mockReturnValue(1_050);
-    applyChatEvent({ type: "token", content: "lo" }, ctx);
+    frame({ type: "token", content: "lo" });
     now.mockReturnValue(1_350);
-    applyChatEvent({ type: "stream_end" }, ctx);
+    frame({ type: "stream_end" });
     // Saving from this frame on: a send now waits on it at once, not after a render.
-    expect(ctx.finalizingRef.current).toBe(true);
+    expect(state.phase).toBe("finalizing");
     now.mockReturnValue(9_000);
     noteTurnSendReady();
     expect(turnOutcomeProperties("complete").send_ready_bucket).toBe("250_499");

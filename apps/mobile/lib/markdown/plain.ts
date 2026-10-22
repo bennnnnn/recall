@@ -1,7 +1,7 @@
 /** Copy vs speech conversion of assistant markdown (do not import printDocument). */
 
 import { splitAnswerNotation } from "@/lib/answerNotation";
-import { readFenceMarker } from "@/lib/mdFenceScan";
+import { closesFence, readFenceMarker } from "@/lib/mdFenceScan";
 import {
   fenceIdForLang,
   isChartFenceLang,
@@ -46,12 +46,7 @@ function mapFenceRegions(
   for (const line of lines) {
     const marker = readFenceMarker(line);
     if (fence) {
-      if (
-        marker &&
-        marker.char === fence.char &&
-        marker.len >= fence.len &&
-        marker.info === ""
-      ) {
+      if (marker && closesFence(marker, fence)) {
         flushFence();
         continue;
       }

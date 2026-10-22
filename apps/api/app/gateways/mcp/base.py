@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol
 from uuid import UUID
@@ -55,6 +56,14 @@ class ToolContext:
     # The device location for a turn that needs one ("coffee near me", "weather
     # here"); None otherwise. A search for that turn must name it.
     user_location: str | None = None
+    # When this turn's tools must be done (``time.monotonic()``); None = no budget.
+    deadline: float | None = None
+
+    def seconds_left(self, default: float) -> float:
+        """Time left in the turn's tool budget, at most ``default``; never negative."""
+        if self.deadline is None:
+            return max(0.0, default)
+        return max(0.0, min(default, self.deadline - time.monotonic()))
 
 
 class ToolAdapter(Protocol):

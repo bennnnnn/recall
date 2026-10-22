@@ -75,35 +75,9 @@ describe("appearancePrefs", () => {
     expect(SecureStore.getItemAsync).not.toHaveBeenCalled();
   });
 
-  it("migrates a legacy Keychain preference onto the filesystem", async () => {
-    (SecureStore.getItemAsync as jest.Mock).mockResolvedValue("dark");
-    await expect(getAppearancePreference()).resolves.toBe("dark");
-    expect(writeAsStringAsync).toHaveBeenCalledWith(
-      "file:///docs/recall.appearance-preference.txt",
-      "dark",
-    );
-  });
-
-  it("writes the file for an unset preference too, so the Keychain is read once", async () => {
+  it("reads the system default, not the Keychain, when no file exists (DEAD-07)", async () => {
     await expect(getAppearancePreference()).resolves.toBe("system");
-    expect(SecureStore.getItemAsync).toHaveBeenCalledTimes(1);
-    expect(writeAsStringAsync).toHaveBeenCalledWith(
-      "file:///docs/recall.appearance-preference.txt",
-      "system",
-    );
-  });
-
-  it("keeps a choice made while the old value moves out of the Keychain", async () => {
-    let answer!: (value: string | null) => void;
-    (SecureStore.getItemAsync as jest.Mock).mockReturnValue(new Promise((resolve) => { answer = resolve; }));
-    const moving = getAppearancePreference();
-    await setAppearancePreference("light");
-    answer("dark");
-    await expect(moving).resolves.toBe("light");
-    expect(writeAsStringAsync).toHaveBeenLastCalledWith(
-      "file:///docs/recall.appearance-preference.txt",
-      "light",
-    );
+    expect(SecureStore.getItemAsync).not.toHaveBeenCalled();
   });
 
   it("reads the saved preference synchronously for the first frame", async () => {

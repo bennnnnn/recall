@@ -9,7 +9,6 @@ from __future__ import annotations
 import time
 from collections.abc import Awaitable, Callable
 from typing import Any
-from unittest.mock import AsyncMock
 from uuid import UUID, uuid4
 
 import jwt
@@ -18,8 +17,8 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 
 from app.core import access_tokens, user_cache
 from app.core.config import Settings
-from app.exceptions import RedisUnavailableError
-from app.gateways.google_auth import GoogleAuthError
+from app.exceptions import AuthenticationError, RedisUnavailableError
+from app.tests.fakes import redis_mock
 
 _SETTINGS = Settings(jwt_secret="x" * 32)
 
@@ -81,7 +80,7 @@ async def test_verify_access_token_refuses_each_revocation_in_one_round_trip(
     await _with_generation(fake_redis, claims)
     sent = _commands(fake_redis)
 
-    with pytest.raises(GoogleAuthError, match="revoked"):
+    with pytest.raises(AuthenticationError, match="revoked"):
         await access_tokens.verify_access_token(fake_redis, token, _SETTINGS)
 
     assert sent == ["MGET"]
@@ -105,7 +104,7 @@ async def test_verify_access_token_passes_a_live_token_in_one_round_trip(
 
 async def test_verify_access_token_fails_closed_when_redis_is_down() -> None:
     token, _claims = _token()
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.mget.side_effect = RedisConnectionError("down")
 
     with pytest.raises(RedisUnavailableError):
@@ -114,9 +113,9 @@ async def test_verify_access_token_fails_closed_when_redis_is_down() -> None:
 
 async def test_verify_access_token_refuses_a_bad_signature_without_redis() -> None:
     token = access_tokens.create_access_token(uuid4(), Settings(jwt_secret="y" * 32))
-    redis = AsyncMock()
+    redis = redis_mock()
 
-    with pytest.raises(GoogleAuthError, match="Invalid"):
+    with pytest.raises(AuthenticationError, match="Invalid"):
         await access_tokens.verify_access_token(redis, token, _SETTINGS)
 
     assert redis.mock_calls == []

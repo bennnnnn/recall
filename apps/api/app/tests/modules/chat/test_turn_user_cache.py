@@ -23,6 +23,7 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules.chat import turn_load, ws_api
 from app.modules.chat.turn_timing import TurnTimingTracker
+from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import FakeSessionCM, turn_deps
 
 
@@ -51,7 +52,7 @@ async def _ws_turn(monkeypatch: pytest.MonkeyPatch, user: User, generation: str)
     monkeypatch.setattr(ws_api.stream_entry, "stream_chat_response", fake_stream)
     await ws_api._handle_message(
         AsyncMock(),
-        redis=AsyncMock(),
+        redis=redis_mock(),
         settings=Settings(),
         user_id=user.id,
         chat_id=uuid4(),

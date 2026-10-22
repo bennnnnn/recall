@@ -14,7 +14,7 @@ from fractions import Fraction
 from math import isqrt
 
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.workout import math_line
 
 NUMBER_FACT_OPS = frozenset(
@@ -299,6 +299,6 @@ def number_fact_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock
     working, answer = solved
     working, _, note = working.partition("|")
     lines.append(f"Working: ${working}$")
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     shown = math_line(working, note or None)
     return replace(block, worked_reply=f"{shown}\n\n```answer\n{answer}\n```\n")

@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -33,8 +32,7 @@ async def test_apply_memory_rows_commits_once_after_repository_writes():
     user_id = uuid4()
 
     with (
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.modules.home.service.invalidate_home_cache", AsyncMock()),
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()),
     ):
         await apply_memory_section_rows(
             Settings(),
@@ -54,17 +52,15 @@ async def test_apply_memory_rows_commits_once_after_repository_writes():
 async def test_apply_memory_rows_rolls_back_when_post_write_read_fails():
     session = AsyncMock()
     memories = AsyncMock()
-    memories.list_for_user.side_effect = RuntimeError("reload failed")
+    memories.list_embed_state.side_effect = RuntimeError("reload failed")
 
     def session_factory() -> _SessionContext:
         return _SessionContext(session)
 
     invalidate_memory = AsyncMock()
-    invalidate_home = AsyncMock()
 
     with (
-        patch("app.modules.memory.invalidate_memory_block", invalidate_memory),
-        patch("app.modules.home.service.invalidate_home_cache", invalidate_home),
+        patch("app.modules.memory.cache.invalidate_memory_block", invalidate_memory),
     ):
         with pytest.raises(RuntimeError, match="reload failed"):
             await apply_memory_section_rows(
@@ -79,7 +75,6 @@ async def test_apply_memory_rows_rolls_back_when_post_write_read_fails():
     session.commit.assert_not_awaited()
     session.rollback.assert_awaited_once()
     invalidate_memory.assert_not_awaited()
-    invalidate_home.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -87,19 +82,11 @@ async def test_apply_memory_facts_bounds_embed_concurrency_and_backfill():
     import asyncio
 
     session = AsyncMock()
-    stale = [
-        SimpleNamespace(
-            id=uuid4(),
-            text=f"Fact {index}",
-            embedding=None,
-            embedding_json=None,
-            embedding_text_hash=None,
-        )
-        for index in range(12)
-    ]
+    # (id, text, has_vector, embedding_text_hash) of twelve facts with no vector yet.
+    stale = [(uuid4(), f"Fact {index}", False, None) for index in range(12)]
     memories = AsyncMock()
-    memories.apply_writes = AsyncMock(return_value=[stale[0].id])
-    memories.list_for_user = AsyncMock(return_value=stale)
+    memories.apply_writes = AsyncMock(return_value=[stale[0][0]])
+    memories.list_embed_state = AsyncMock(return_value=stale)
     memories.update_embedding_if_current = AsyncMock()
 
     current = 0
@@ -118,9 +105,7 @@ async def test_apply_memory_facts_bounds_embed_concurrency_and_backfill():
 
     with (
         patch("app.gateways.embedding_gateway.embed_text", embed),
-        patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.1, 0.2]"),
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.modules.home.service.invalidate_home_cache", AsyncMock()),
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()),
     ):
         await apply_memory_facts(
             Settings(embedding_concurrency=3, memory_embed_backfill_per_pass=4),
@@ -155,8 +140,7 @@ async def test_apply_memory_facts_stamps_a_hand_edit_in_the_same_commit(op, manu
         return _SessionContext(session)
 
     with (
-        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.modules.home.service.invalidate_home_cache", AsyncMock()),
+        patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()),
     ):
         await apply_memory_facts(
             Settings(),

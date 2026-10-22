@@ -17,7 +17,7 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
-# TYPE_CHECKING only: `math.solve` imports `MathServiceError` from this module
+# TYPE_CHECKING only: `math.solve` imports `SolveServiceError` from this module
 # (see below), so a real import of `math.solve.key_steps` here — which would
 # run `math/solve/__init__.py` first, like any submodule import does — would
 # cycle straight back before this module finishes defining that name. Every
@@ -144,12 +144,6 @@ class VerifiedPhysicsBlock(VerifiedSolveBlock):
     # A question in parts: each part's working and card, in the order asked.
     physics_parts: tuple[PhysicsPartWorking, ...] = ()
     symbolic_request: SymbolicPhysicsRequest | None = None
-
-
-# Compatibility for solver modules and downstream integrations while callers
-# migrate to the subject-neutral name. New cross-subject code uses
-# SolveServiceError; the alias contains no math behavior.
-MathServiceError = SolveServiceError
 
 
 def wrap_verified_math(text: str) -> str:

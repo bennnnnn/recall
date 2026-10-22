@@ -1,9 +1,11 @@
+import { reportStoreUnavailable } from "@/lib/sentry";
+
 jest.mock("@/lib/expoRuntime", () => ({
   isExpoGo: () => false,
-  canUseVoiceInput: () => true,
 }));
 
 jest.mock("react-native", () => ({ Platform: { OS: "ios" } }));
+jest.mock("@/lib/sentry", () => ({ reportStoreUnavailable: jest.fn() }));
 
 jest.mock("react-native-purchases", () => {
   const listeners: Array<(info: { entitlements: { active: Record<string, unknown> } }) => void> = [];
@@ -50,7 +52,7 @@ import {
 // Force the purchases module to be "configured" (API key present + not Expo Go).
 process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY = "test-ios-key";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- the mocked module, read after the env above is set
 const purchasesMod = require("react-native-purchases");
 
 describe("isPurchaseCancelled", () => {
@@ -108,6 +110,7 @@ describe("planFromCustomerInfo", () => {
 });
 
 describe("getPlanPackages", () => {
+  beforeEach(() => jest.mocked(reportStoreUnavailable).mockClear());
   const pkg = (identifier: string, price: string) => ({
     identifier,
     product: { priceString: price, identifier: `recall_${identifier}` },
@@ -120,7 +123,8 @@ describe("getPlanPackages", () => {
         availablePackages: [pkg("plus_monthly", "$7.99"), pkg("pro_monthly", "$13.99")],
       },
     });
-    const packages = await getPlanPackages();
+    const { packages, unavailable } = await getPlanPackages();
+    expect(unavailable).toBe(false);
     expect(packages.plus?.priceString).toBe("$7.99");
     expect(packages.pro?.priceString).toBe("$13.99");
   });
@@ -130,9 +134,21 @@ describe("getPlanPackages", () => {
     purchasesMod.default.getOfferings.mockResolvedValueOnce({
       current: { monthly, availablePackages: [monthly] },
     });
-    const packages = await getPlanPackages();
+    const { packages } = await getPlanPackages();
     expect(packages.plus).toBeUndefined();
     expect(packages.pro?.priceString).toBe("$9.99");
+  });
+
+  it.each([
+    ["a failed read", () => purchasesMod.default.getOfferings.mockRejectedValueOnce(new Error("store down"))],
+    ["no current offering", () => purchasesMod.default.getOfferings.mockResolvedValueOnce({ current: null })],
+    ["an offering with no plan", () => purchasesMod.default.getOfferings.mockResolvedValueOnce({
+      current: { monthly: null, availablePackages: [pkg("annual", "$99")] },
+    })],
+  ])("calls %s unavailable and reports it, never an empty shop (CLAR-08)", async (_, arrange) => {
+    arrange();
+    await expect(getPlanPackages()).resolves.toEqual({ packages: {}, unavailable: true });
+    expect(reportStoreUnavailable).toHaveBeenCalledTimes(1);
   });
 });
 

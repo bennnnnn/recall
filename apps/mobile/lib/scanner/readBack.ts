@@ -2,7 +2,7 @@ import { mathScanSolveMessage } from "@/lib/math/cameraPrompt";
 import { scannerCameraPrompt, type ScannerSubject } from "@/lib/scanner/subjects";
 
 /** Subjects whose scan is read back for the student to confirm before solving. */
-export const READ_BACK_SUBJECTS = ["math", "physics", "chemistry"] as const;
+const READ_BACK_SUBJECTS = ["math", "physics", "chemistry"] as const;
 
 export type ReadBackSubject = (typeof READ_BACK_SUBJECTS)[number];
 

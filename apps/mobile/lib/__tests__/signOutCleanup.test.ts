@@ -1,12 +1,13 @@
 /** Sign-out leaves nothing of the account for the next one (see accountState.test.ts). */
-import { requestRaw } from "@/lib/api/client";
+import { request } from "@/lib/api/client";
+import { clearPushSyncRecord } from "@/lib/pushNotifications";
 import { quizAttempt, saveQuizAttempt } from "@/lib/lesson/quizAttempts";
 import { fetchLinkPreview } from "@/lib/linkPreview";
 import { latexToSvgMath, peekSvgMath, setSvgMathRendererForTest } from "@/lib/math/svgMath";
 import { clearSignedOutAccount } from "@/lib/signOutCleanup";
 import { getStreamingDraft, publishStreamingDraft } from "@/lib/streamingDraftStore";
 import { clearSavedProposals } from "@/features/todos/model/reminderProposal";
-import { resetQuotaNudgeDismissal } from "@/features/chat/hooks/useQuotaNudge";
+import { resetQuotaNudgeDismissal } from "@/features/chat/model/quotaNudgeDismissal";
 import { forgetSyncRecords } from "@/lib/syncRecords";
 
 const mockFiles: Record<string, string[]> = {};
@@ -23,25 +24,23 @@ jest.mock("expo-file-system/legacy", () => ({
   }),
 }));
 jest.mock("@/lib/api/client", () => ({
-  requestRaw: jest.fn(async () => ({
-    ok: true,
-    json: async () => ({ url: "https://a.example", title: "A", description: null, domain: "a.example" }),
-  })),
+  request: jest.fn(async () => ({ url: "https://a.example", title: "A", description: null, domain: "a.example" })),
 }));
+jest.mock("@/lib/pushNotifications", () => ({ clearPushSyncRecord: jest.fn(async () => undefined) }));
 jest.mock("@/lib/auth", () => ({ getToken: jest.fn(async () => "token") }));
 jest.mock("@/lib/cachedModels", () => ({ clearCachedModels: jest.fn(async () => undefined) }));
 jest.mock("@/lib/syncRecords", () => ({ forgetSyncRecords: jest.fn(async () => undefined) }));
 jest.mock("@/lib/google-auth", () => ({ signOutGoogle: jest.fn(async () => undefined) }));
 jest.mock("@/features/chat/model/composerDraftReset", () => ({ resetComposerDraftsForAccount: jest.fn() }));
 jest.mock("@/features/todos/model/reminderProposal", () => ({ clearSavedProposals: jest.fn() }));
-jest.mock("@/features/chat/hooks/useQuotaNudge", () => ({ resetQuotaNudgeDismissal: jest.fn() }));
+jest.mock("@/features/chat/model/quotaNudgeDismissal", () => ({ resetQuotaNudgeDismissal: jest.fn() }));
 jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({ clearLocalAttachmentFileCache: jest.fn() }));
 jest.mock("@/features/todos/model/todoReminders", () => ({ cancelAllTodoReminders: jest.fn() }));
 jest.mock("@/features/todos/model/reminderPrefs", () => ({ clearReminderLeadPrefs: jest.fn() }));
 jest.mock("@/features/chat/model/messageCache", () => ({ clearAllCachedChatMessages: jest.fn() }));
 jest.mock("@/features/memory/model/memoryListCache", () => ({ invalidateMemoriesCache: jest.fn() }));
 jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
-jest.mock("@/lib/cache/chatListCache", () => ({ invalidateChatListCache: jest.fn() }));
+jest.mock("@/features/chat/model/chatListCache", () => ({ invalidateChatListCache: jest.fn() }));
 jest.mock("@/lib/cache/usageCache", () => ({ invalidateUsageCache: jest.fn() }));
 jest.mock("@/lib/purchases", () => ({ signOutRevenueCat: jest.fn() }));
 jest.mock("@/features/todos/model/reminderSeen", () => ({ clearSeenReminderIds: jest.fn() }));
@@ -67,8 +66,10 @@ it("forgets the quiz answers, link previews, maths and the reply still streaming
   expect(peekSvgMath("x^2", false)).toBeUndefined();
   expect(getStreamingDraft()).toBeNull();
   await fetchLinkPreview("https://a.example");
-  expect(requestRaw).toHaveBeenCalledTimes(2);
+  expect(request).toHaveBeenCalledTimes(2);
   expect(clearSavedProposals).toHaveBeenCalled();
+  // The server forgets the device's push token with the session.
+  expect(clearPushSyncRecord).toHaveBeenCalled();
   expect(resetQuotaNudgeDismissal).toHaveBeenCalled();
   // The next sign-in registers for push and reads the location afresh.
   expect(forgetSyncRecords).toHaveBeenCalled();
@@ -84,10 +85,15 @@ it("deletes the account's export, previews, read-aloud audio and PDFs, and nothi
     "Print",
   ];
   mockFiles["file:///cache/Print/"] = ["0A1B.pdf", "notes.txt"];
+  // Voice recordings expo-audio wrote (iOS, Android): never kept past sign-out (LEAK-04).
+  mockFiles["file:///cache/ExpoAudio/"] = ["recording-1.m4a", "other.caf"];
+  mockFiles["file:///cache/Audio/"] = ["recording-2.m4a"];
 
   await clearSignedOutAccount("user-1");
 
   expect(mockDeleted.sort()).toEqual([
+    "file:///cache/Audio/recording-2.m4a",
+    "file:///cache/ExpoAudio/recording-1.m4a",
     "file:///cache/Print/0A1B.pdf",
     "file:///cache/recall-export-1.json",
     "file:///cache/recall-preview-2.html",

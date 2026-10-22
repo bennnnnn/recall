@@ -6,7 +6,6 @@ import logging
 
 from app.background.periodic import (
     CycleLock,
-    lock_ttl_hold_across_ticks,
     run_locked_cycle,
     start_periodic,
     stop_periodic,
@@ -21,7 +20,8 @@ logger = logging.getLogger(__name__)
 _NAME = "email_reminders"
 LOCK_KEY = "recall:email_reminders:lock"
 INTERVAL_SECONDS = 60
-LOCK_TTL_SECONDS = lock_ttl_hold_across_ticks(INTERVAL_SECONDS)
+# Refreshed before every send (see push_scheduler.LOCK_TTL_SECONDS).
+LOCK_TTL_SECONDS = 2 * INTERVAL_SECONDS
 
 
 def _email_reminders_enabled(settings: Settings) -> bool:
@@ -29,9 +29,11 @@ def _email_reminders_enabled(settings: Settings) -> bool:
     return settings.email_reminders_scheduler_enabled and email_gateway.can_send(settings)
 
 
-async def _email_cycle(settings: Settings, _lock: CycleLock) -> None:
+async def _email_cycle(settings: Settings, lock: CycleLock) -> None:
     async with SessionLocal() as session:
-        count = await reminder_emails.run_email_reminder_cycle(session, settings)
+        count = await reminder_emails.run_email_reminder_cycle(
+            session, settings, keep_lock=lock.refresh
+        )
         if count:
             logger.info("Email reminder cycle sent count=%s", count)
 

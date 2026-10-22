@@ -7,6 +7,7 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError, ResponseError, WatchError
 
 from app.core.config import Settings
+from app.core.redis_counters import incr_with_ttl
 from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.modules.billing.entitlements import allowance
@@ -191,6 +192,7 @@ async def _reserve_up_to_watched(redis: Redis, key: str, wanted: int, daily_limi
                 grant = min(wanted, max(0, daily_limit - int(await pipe.get(key) or 0)))
                 if grant <= 0:
                     return 0
+                # redis-py's Pipeline.multi carries no annotations.
                 pipe.multi()  # type: ignore[no-untyped-call]
                 pipe.incrby(key, grant)
                 pipe.expire(key, DAILY_TTL, nx=True)
@@ -229,9 +231,7 @@ async def record_usage(
     daily_limit: int | None = None,
 ) -> int:
     key = _usage_key(user_id, utc_today())
-    new_total = await redis.incrby(key, tokens)
-    if new_total == tokens:
-        await redis.expire(key, DAILY_TTL)
+    new_total = await incr_with_ttl(redis, key, tokens, DAILY_TTL)
     if new_total < 0:
         await floor_counter(redis, key)
         new_total = 0

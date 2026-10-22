@@ -70,13 +70,7 @@ describe("restoreLaunchPrefs", () => {
     expect(getAppearancePreferenceSnapshot()).toBe("system");
     expect(setAccent).toHaveBeenCalledWith("indigo");
     expect(i18n.language).toBe("en");
-  });
-
-  it("finishes once an old appearance setting has moved out of the Keychain", async () => {
-    (SecureStore.getItemAsync as jest.Mock).mockResolvedValue("dark");
-    const ready = restoreLaunchPrefs();
-    expect(getAppearancePreferenceSnapshot()).toBe("system");
-    await ready;
-    expect(getAppearancePreferenceSnapshot()).toBe("dark");
+    // The appearance lives in its file only; the Keychain is never read (DEAD-07).
+    expect(SecureStore.getItemAsync).not.toHaveBeenCalled();
   });
 });

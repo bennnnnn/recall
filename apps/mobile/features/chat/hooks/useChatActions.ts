@@ -13,6 +13,7 @@ import type { EmailDraft } from "@/lib/richBlocks";
 import { isServerMessageId } from "@/lib/serverMessageId";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { useLatestRef } from "@/lib/latestRef";
 
 type Options = {
   token: string | null;
@@ -42,8 +43,7 @@ export function useChatActions({
   t,
 }: Options) {
   const feedback = useActionFeedbackOptional();
-  const messagesRef = useRef(messages);
-  messagesRef.current = messages;
+  const messagesRef = useLatestRef(messages);
   const emailSavesRef = useRef(new Map<string, Promise<boolean>>());
   const [menuVisible, setMenuVisible] = useState(false);
   const [shareVisible, setShareVisible] = useState(false);
@@ -126,16 +126,16 @@ export function useChatActions({
       });
       return saving;
     },
-    [token, chatId, setMessages, feedback, t],
+    [token, chatId, setMessages, feedback, t, messagesRef],
   );
 
+  /**
+   * Every message in the chat. A failed read throws: the loaded page is not the whole
+   * chat, and a PDF or share of it would pass for one (code-health audit CLAR-08).
+   */
   const loadTranscriptMessages = useCallback(async () => {
     if (!token || !chatId) return messages;
-    try {
-      return await api.listAllMessages(token, chatId);
-    } catch {
-      return messages;
-    }
+    return api.listAllMessages(token, chatId);
   }, [token, chatId, messages]);
 
   const handleExportPdf = useCallback(async () => {

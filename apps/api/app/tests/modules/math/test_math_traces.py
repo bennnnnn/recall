@@ -219,16 +219,16 @@ def test_system_trace_checks_the_answer_in_both_equations():
     )
 
 
-def _reply(text: str, style: str) -> str | None:
+def _reply(text: str) -> str | None:
     intent = extract_math_intent(text)
     assert intent is not None
     verified = mt._build_verified_block(intent, Settings())
     assert verified is not None
-    return maybe_direct_math_reply(verified, text, response_style=style)
+    return maybe_direct_math_reply(verified, text)
 
 
 def test_a_system_gets_a_server_rendered_lesson():
-    reply = _reply("solve 2x+3y=12, x-y=1", "balanced")
+    reply = _reply("solve 2x+3y=12, x-y=1")
     assert reply is not None
     assert reply.startswith("**Given**  \n$2 x + 3 y = 12$  \n$x - y = 1$")
     assert "**1. Solve equation (2) for x**" in reply
@@ -237,7 +237,7 @@ def test_a_system_gets_a_server_rendered_lesson():
 
 
 def test_an_inequality_lesson_keeps_its_number_line_and_a_clean_answer():
-    reply = _reply("show steps for 2x + 3 < 7", "balanced")
+    reply = _reply("show steps for 2x + 3 < 7")
     assert reply is not None
     assert "**1. Subtract 3 from both sides**" in reply
     assert "$2 x < 4$" in reply
@@ -247,7 +247,7 @@ def test_an_inequality_lesson_keeps_its_number_line_and_a_clean_answer():
 
 
 def test_explain_adds_the_reason_for_the_flip():
-    reply = _reply("explain how to solve -3x+2>=8", "balanced")
+    reply = _reply("explain how to solve -3x+2>=8")
     assert reply is not None
     assert (
         "**2. Divide both sides by -3** — Division property of inequality · "
@@ -256,8 +256,8 @@ def test_explain_adds_the_reason_for_the_flip():
     assert r"$x \le -2$" in reply
 
 
-def test_a_short_inequality_still_uses_the_verified_trace_and_clean_spelling():
-    reply = _reply("solve -3x+2>=8", "short")
+def test_an_inequality_uses_the_verified_trace_and_clean_spelling():
+    reply = _reply("solve -3x+2>=8")
     assert reply is not None
     assert reply.startswith("**Given**")
     assert "Divide both sides by -3" in reply
@@ -318,23 +318,20 @@ def test_derivative_trace_is_empty_for_an_unknown_rule():
 
 
 def test_a_multi_part_derivative_gets_a_lesson_with_a_find_line():
-    reply = _reply("differentiate x^3 + 2x", "balanced")
+    reply = _reply("differentiate x^3 + 2x")
     assert reply is not None
     assert reply.startswith("**Given**  \n$y = x^{3} + 2 x$\n\n**Find**  \n$\\frac{dy}{dx}$")
     assert "Power rule on $x^{3}$" in reply
     assert reply.endswith("```answer\n3 x^{2} + 2\n```\n")
 
 
-def test_a_one_rule_derivative_shows_verified_working_at_every_style():
-    balanced = _reply("differentiate x^2 sin(x)", "balanced")
-    assert balanced is not None
-    assert "Product rule" in balanced
-    assert balanced.endswith(
+def test_a_one_rule_derivative_shows_verified_working():
+    reply = _reply("differentiate x^2 sin(x)")
+    assert reply is not None
+    assert "Product rule" in reply
+    assert reply.endswith(
         "```answer\nx \\left(x \\cos{\\left(x \\right)} + 2 \\sin{\\left(x \\right)}\\right)\n```\n"
     )
-    detailed = _reply("differentiate x^2 sin(x)", "detailed")
-    assert detailed is not None
-    assert "Product rule" in detailed
 
 
 def test_integral_of_one_over_x_uses_absolute_value():
@@ -420,16 +417,17 @@ def test_integral_trace_is_empty_for_an_unknown_method():
 
 
 def test_an_integral_lesson_ends_on_its_checked_antiderivative():
-    reply = _reply("integrate x(x^2+1)^5", "balanced")
+    reply = _reply("integrate x(x^2+1)^5")
     assert reply is not None
     assert reply.startswith(r"**Find**  " "\n" r"$\int x \left(x^{2} + 1\right)^{5}\,dx$")
     assert reply.endswith("```answer\n\\frac{\\left(x^{2} + 1\\right)^{6}}{12} + C\n```\n")
 
 
-def test_a_short_integral_answer_reads_term_by_term():
-    assert _reply("integrate x^2 + 3x", "short") == (
-        "```answer\n\\frac{x^{3}}{3} + \\frac{3 x^{2}}{2} + C\n```\n"
-    )
+def test_an_integral_reads_term_by_term_and_ends_on_its_chip():
+    reply = _reply("integrate x^2 + 3x")
+    assert reply is not None
+    assert "**1. Integrate term by term**" in reply
+    assert reply.endswith("```answer\n\\frac{x^{3}}{3} + \\frac{3 x^{2}}{2} + C\n```\n")
 
 
 @pytest.mark.parametrize(
@@ -442,12 +440,12 @@ def test_a_short_integral_answer_reads_term_by_term():
     ],
 )
 def test_teaching_words_around_calculus_still_get_the_lesson(text: str, rule: str) -> None:
-    reply = _reply(text, "balanced")
+    reply = _reply(text)
     assert reply is not None and "**1." in reply and rule in reply
 
 
 def test_calculus_with_an_unrelated_ask_keeps_the_model() -> None:
-    assert _reply("differentiate x^2 sin(x) and tell me a joke", "balanced") is None
+    assert _reply("differentiate x^2 sin(x) and tell me a joke") is None
 
 
 @pytest.mark.parametrize(

@@ -15,9 +15,10 @@ import pytest
 from app.core.config import Settings
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.gateways.stream_signals import StreamAttempt
+from app.models import model_catalog
 from app.modules.chat.stream_health import StreamEnd, health_samples
 from app.modules.chat.turn_outcome import TurnOutcome
-from app.services import model_catalog, model_health
+from app.services import model_health
 from app.services.model_health import Breakers
 from app.tests.modules.chat.chat_test_support import offline_deps
 

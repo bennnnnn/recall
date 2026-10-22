@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from app.modules.physics.display import latex_given, latex_number, plain_unit
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult
 from app.modules.physics.solvers.rates import _in_si, _same_unit
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
 from app.services.solving import SolveServiceError
 
 _AVERAGE_SPEED_OPERATIONS = frozenset(

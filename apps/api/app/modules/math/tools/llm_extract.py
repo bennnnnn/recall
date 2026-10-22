@@ -24,6 +24,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.core.config import Settings
+from app.models.routing_lanes import ROUTING
 from app.modules.math.schemas import MathIntent
 
 logger = logging.getLogger(__name__)
@@ -147,7 +148,7 @@ async def llm_extract_math_intent(text: str, settings: Settings) -> MathIntent |
     try:
         parsed = await litellm_gateway.complete_structured(
             settings=settings,
-            model_alias="gpt-6-luna",
+            model_alias=ROUTING.math_extract,
             messages=[
                 {"role": "system", "content": _EXTRACT_PROMPT},
                 {"role": "user", "content": cleaned[:_MAX_INPUT_CHARS]},

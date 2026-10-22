@@ -9,34 +9,10 @@ import re
 from collections.abc import Callable
 
 from app.modules.chat.inline_code import escaped_at, read_inline_code_span
+from app.services.md_fence_scan import FenceMarker, read_fence_marker
 
 # Restaurant price tiers, ($) to ($$$$), are not maths.
 PRICE_TIER = re.compile(r"\(\s*\$+\s*\)")
-
-
-def _fence_marker(line: str) -> tuple[str, int, str] | None:
-    """CommonMark fence opener: up to three leading spaces, then ``` or ~~~."""
-    indent = 0
-    while indent < len(line) and indent < 3 and line[indent] == " ":
-        indent += 1
-    if indent >= len(line):
-        return None
-    char = line[indent]
-    if char not in {"`", "~"}:
-        return None
-    length = 0
-    index = indent
-    while index < len(line) and line[index] == char:
-        length += 1
-        index += 1
-    if length < 3:
-        return None
-    return char, length, line[index:].strip()
-
-
-def read_fence_marker(line: str) -> tuple[str, int, str] | None:
-    """Public name for the fence opener used by presentation."""
-    return _fence_marker(line)
 
 
 def rewrite_fenced(
@@ -54,7 +30,7 @@ def rewrite_fenced(
     lines = text.split("\n")
     out: list[str] = []
     prose: list[str] = []
-    open_fence: tuple[str, int] | None = None
+    open_fence: FenceMarker | None = None
     opener_line = ""
     body: list[str] = []
 
@@ -65,10 +41,9 @@ def rewrite_fenced(
         prose.clear()
 
     for line in lines:
-        marker = _fence_marker(line)
+        marker = read_fence_marker(line)
         if open_fence is not None:
-            char, length = open_fence
-            if marker is not None and marker[0] == char and marker[1] >= length and marker[2] == "":
+            if marker is not None and marker.closes(open_fence):
                 replacement = rewrite_fence(opener_line, "\n".join(body), line)
                 if replacement is None:
                     out.append(opener_line)
@@ -81,9 +56,9 @@ def rewrite_fenced(
             else:
                 body.append(line)
             continue
-        if marker is not None and "|" not in marker[2]:
+        if marker is not None and "|" not in marker.info:
             flush()
-            open_fence = (marker[0], marker[1])
+            open_fence = marker
             opener_line = line
             continue
         prose.append(line)
@@ -101,7 +76,7 @@ def map_prose_outside_fences(text: str, rewrite: Callable[[str], str]) -> str:
     lines = text.split("\n")
     out: list[str] = []
     prose: list[str] = []
-    open_fence: tuple[str, int] | None = None
+    open_fence: FenceMarker | None = None
 
     def flush() -> None:
         if not prose:
@@ -110,18 +85,17 @@ def map_prose_outside_fences(text: str, rewrite: Callable[[str], str]) -> str:
         prose.clear()
 
     for line in lines:
-        marker = _fence_marker(line)
+        marker = read_fence_marker(line)
         if open_fence is not None:
             out.append(line)
-            char, length = open_fence
-            if marker is not None and marker[0] == char and marker[1] >= length and marker[2] == "":
+            if marker is not None and marker.closes(open_fence):
                 open_fence = None
             continue
         # `` ``` | ```java `` is a broken table cell, not a fence opener.
-        if marker is not None and "|" not in marker[2]:
+        if marker is not None and "|" not in marker.info:
             flush()
             out.append(line)
-            open_fence = (marker[0], marker[1])
+            open_fence = marker
             continue
         prose.append(line)
     flush()

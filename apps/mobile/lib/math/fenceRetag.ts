@@ -1,4 +1,4 @@
-import { readFenceMarkerLoose } from "@/lib/mdFenceScan";
+import { closesFence, mapClosedFences, readFenceMarkerLoose } from "@/lib/mdFenceScan";
 import { restoreMathEscapes } from "@/lib/math/text";
 
 // Trailing (?=[^a-zA-Z]|$) instead of \b: \b treats `_` as a word char, so it
@@ -273,12 +273,7 @@ export function closeInterruptedMathFences(content: string): string {
     while (i < lines.length) {
       const line = lines[i]!;
       const inner = readFenceMarkerLoose(line);
-      if (
-        inner &&
-        inner.char === open.char &&
-        inner.len >= open.len &&
-        inner.info === ""
-      ) {
+      if (inner && closesFence(inner, open)) {
         out.push(line);
         i += 1;
         closed = true;
@@ -305,92 +300,16 @@ export function closeInterruptedMathFences(content: string): string {
 /**
  * Rewrite model math fences before markdown parse (latex/plain → math only).
  *
- * Uses a line-by-line scanner instead of a regex, so a fence body that
- * contains nested ``` lines (e.g. a ```markdown fence wrapping a ```latex
- * example) doesn't break the match — the scanner tracks fence depth and
- * only retags top-level fences, never inner fences that belong to an
- * outer fence's body.
+ * Fences are read as the renderer reads them (``mapClosedFences``): a ```latex line
+ * inside a ```markdown fence is that fence's example, never a fence of its own.
  */
 export function retagMathAndDiagramFences(content: string): string {
-  const lines = content.split("\n");
-  const out: string[] = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i]!;
-    // A fence opener is ``` at the start of a line (possibly with an info
-    // string after it). Lines that don't start with ``` pass through.
-    if (!line.startsWith("```")) {
-      out.push(line);
-      i += 1;
-      continue;
-    }
-
-    const info = line.slice(3).trim();
-
-    // Find the matching closer by scanning forward. In standard markdown,
-    // fences don't nest — a ``` inside a fence is literal text. But the
-    // model sometimes emits nested fences, so we track depth: a line
-    // starting with ``` that has a non-empty info string is an opener;
-    // a bare ``` (or ``` with only whitespace after it) is a closer.
-    let depth = 0;
-    let end = -1;
-    for (let j = i + 1; j < lines.length; j += 1) {
-      const inner = lines[j]!;
-      if (inner.startsWith("```")) {
-        const innerInfo = inner.slice(3).trim();
-        if (innerInfo && depth === 0) {
-          // Nested opener inside the body — track depth so we don't treat
-          // its closer as OUR closer.
-          depth += 1;
-        } else if (innerInfo && depth > 0) {
-          depth += 1;
-        } else {
-          // Bare ``` — this is a closer. Decrement depth first if nested.
-          if (depth > 0) {
-            depth -= 1;
-          } else {
-            end = j;
-            break;
-          }
-        }
-      }
-    }
-
-    if (end === -1) {
-      // No closer found — pass through unchanged.
-      out.push(line);
-      i += 1;
-      continue;
-    }
-
-    const body = lines.slice(i + 1, end).join("\n");
+  return mapClosedFences(content, (info, body, original) => {
     const bodyTrimmed = body.trim();
-
-    // Tagged latex/tex → math
-    if (/^(latex|tex)$/i.test(info)) {
-      out.push("```math");
-      out.push(bodyTrimmed);
-      out.push("```");
-      i = end + 1;
-      continue;
+    // Tagged latex/tex → math; an untagged fence → math when the body looks like math.
+    if (/^(latex|tex)$/i.test(info) || (!info && bodyTrimmed && looksLikeMathFenceBody(bodyTrimmed))) {
+      return `\`\`\`math\n${bodyTrimmed}\n\`\`\``;
     }
-
-    // Untagged fence → retag to math if the body looks like math
-    if (!info && bodyTrimmed && looksLikeMathFenceBody(bodyTrimmed)) {
-      out.push("```math");
-      out.push(bodyTrimmed);
-      out.push("```");
-      i = end + 1;
-      continue;
-    }
-
-    // Other tagged fence (python, mermaid, …) — keep as-is, including body
-    // and closer. The scanner already skipped past nested ``` inside the
-    // body, so this preserves the full fence intact.
-    for (let j = i; j <= end; j += 1) out.push(lines[j]!);
-    i = end + 1;
-  }
-
-  return out.join("\n");
+    return original;
+  });
 }

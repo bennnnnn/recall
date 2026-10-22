@@ -5,16 +5,15 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.bodies import named_body
-from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _NUMBER,
-    _find_value_with_specific_unit,
-    _ordered_values,
-    _strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
+from app.modules.physics.extractors.stated_values import (
+    find_value_with_specific_unit,
+    ordered_values,
+)
+from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -48,28 +47,28 @@ _IDENTICAL_PAIR_RE = re.compile(
 
 def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _GRAVITATION_CUES, _GRAVITATION_CUE_RES):
+    if not has_cue(lower, _GRAVITATION_CUES, _GRAVITATION_CUE_RES):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
 
     body = named_body(lower)
-    masses = _ordered_values(cleaned, r"kg|tonnes?|tons?")
-    radius = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
+    masses = ordered_values(cleaned, r"kg|tonnes?|tons?")
+    radius = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
     )
     if radius is None:
         radius_assignment = re.search(
-            rf"\bR\s*=\s*({_NUMBER})\s*({_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])",
+            rf"\bR\s*=\s*({NUMBER})\s*({LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])",
             cleaned,
         )
         if radius_assignment is not None:
             radius = (float(radius_assignment.group(1)), radius_assignment.group(2))
-    altitude = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("above", "altitude", "height"), require_keyword=True
+    altitude = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("above", "altitude", "height"), require_keyword=True
     )
-    separation = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("apart", "separation", "between", "distance")
+    separation = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("apart", "separation", "between", "distance")
     )
 
     if "escape" in lower:
@@ -93,7 +92,7 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
             return None
         # An orbit is measured from the centre, so an altitude adds to the
         # radius - but the two are rarely in the same unit ("400 km above the
-        # earth"), so they are passed separately and added after `_to_si`
+        # earth"), so they are passed separately and added after `to_si`
         # rather than summed here in whatever units they arrived in.
         params: dict[str, float] = {"M": planet_mass, "radius_body": planet_radius}
         units: dict[str, str] = {"M": "kg", "radius_body": "m"}

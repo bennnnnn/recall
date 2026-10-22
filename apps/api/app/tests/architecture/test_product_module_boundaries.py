@@ -62,20 +62,6 @@ def test_notifications_runtime_code_has_one_owner() -> None:
     assert (APP_ROOT / "tests" / "services" / "test_push_notifications.py").is_file()
 
 
-def test_home_runtime_code_has_one_owner() -> None:
-    module_root = APP_ROOT / "modules" / "home"
-    expected = {
-        "api.py",
-        "greeting.py",
-        "reminder_copy.py",
-        "service.py",
-    }
-    assert expected <= {path.name for path in module_root.glob("*.py")}
-    # The package initializer holds no service code; callers import ``service``.
-    assert "def " not in (module_root / "__init__.py").read_text()
-    assert (APP_ROOT / "tests" / "modules" / "home" / "test_service.py").is_file()
-
-
 def test_suggestions_keeps_only_the_table_reads() -> None:
     """The proactive suggestions are retired: no route, no generator, no job.
     The table stays for the data export and account deletion until it is dropped."""
@@ -255,8 +241,10 @@ def test_mobile_chat_has_one_feature_home_and_thin_route() -> None:
 
 def test_mobile_home_has_one_feature_home() -> None:
     feature_root = MOBILE_ROOT / "features" / "home"
-    assert (feature_root / "api.ts").is_file()
-    for folder in ("components", "context", "model"):
+    # The phone builds the home screen: no API slice, no fetched context (NET-10).
+    assert not (feature_root / "api.ts").exists()
+    assert not (feature_root / "context").exists()
+    for folder in ("components", "model"):
         assert (feature_root / folder).is_dir()
 
     assert not (MOBILE_ROOT / "components" / "HomeStarters.tsx").exists()
@@ -316,20 +304,24 @@ def test_mobile_suggestions_has_one_feature_home() -> None:
 
 def test_web_search_runtime_code_has_one_owner() -> None:
     module_root = APP_ROOT / "modules" / "web_search"
-    expected = {"augment.py", "detection.py", "formatting.py", "search_cache.py", "tool.py"}
+    expected = {"detection.py", "formatting.py", "search_cache.py", "tool.py"}
     assert expected <= {path.name for path in module_root.glob("*.py")}
     assert (APP_ROOT / "tests" / "modules" / "web_search" / "test_web_search.py").is_file()
 
 
 def test_package_import_cannot_pull_a_private_name() -> None:
-    leaked = ast.parse("from app.modules.attachments import repository\n")
+    leaked = ast.parse(
+        "from app.modules.attachments import repository\nfrom app.modules.todos import repository\n"
+    )
     violations = _foreign_module_import_violations(leaked, owner="images", label="sample")
-    assert violations == ["sample imports repository from app.modules.attachments"]
+    assert violations == [
+        "sample imports repository from app.modules.attachments",
+        "sample imports repository from app.modules.todos",
+    ]
 
     public = ast.parse(
         "from app.modules.attachments import service\n"
-        "from app.modules.todos import snap_first_due\n"
-        "from app.modules.todos import repository\n"
+        "from app.modules.todos import mark_reminder_pushed\n"
         "from app.modules.billing import plan\n"
     )
     assert not _foreign_module_import_violations(public, owner="images", label="sample")

@@ -227,7 +227,7 @@ export const CHART_PAGE: PreviewPage<VegaLibrary> = {
 };
 
 /** What one chart's WebView hands the page: the spec laid out for a phone, and the theme. */
-export type ChartPreviewConfig = {
+type ChartPreviewConfig = {
   /** JSON text; the page parses it, so a body it cannot read shows as a chart error. */
   spec: string;
   width: number;

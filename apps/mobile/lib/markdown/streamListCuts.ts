@@ -22,7 +22,7 @@ export type OpenList = {
 };
 
 /** What the chunk scan knows about the lines before the one it reads. */
-export type ListScan = { list: OpenList | null; inBlankRun: boolean };
+type ListScan = { list: OpenList | null; inBlankRun: boolean };
 
 /**
  * A numbered list's number column is as wide as its largest number. A chunk

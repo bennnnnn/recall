@@ -25,7 +25,7 @@ from app.modules.math.solve.triangle import (
     sine_rule_side,
     triangle_valid,
 )
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def _same(got: Expr, want: Expr) -> bool:
@@ -196,7 +196,7 @@ def test_triangle_valid(sides: tuple[float, float, float], valid: bool) -> None:
     ],
 )
 def test_impossible_triangles_raise(call: Callable[[], object]) -> None:
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         call()
 
 

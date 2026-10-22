@@ -208,9 +208,10 @@ A law that needs an extractor still starts as its catalog entry, which is its id
 - the solver: an `expression` needs none (`solve_expression` claims it); otherwise the kind's
   solver in `solvers/` answers the operation, and `solver._claim_solvers` refuses two solvers
   for one operation or an operation with none;
-- shared readers live in `extractors/common.py` (a value with its unit, a labelled value) and
-  shared checks in `solvers/common.py` (SI conversion, exactly one unknown): use them rather
-  than a private copy;
+- shared readers live in `extractors/`: `stated_values.py` (a value with its unit, a labelled
+  value), `unit_patterns.py`, `surface_gravity.py` and `assignments.py`; shared solver parts in
+  `solvers/`: `si.py` (SI conversion, exactly one unknown), `results.py` and `arithmetic.py`.
+  Use them rather than a private copy;
 - a question, its look-alikes and a decline go into `stem_corpus/physics/`.
 
 ## Coverage

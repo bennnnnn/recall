@@ -8,18 +8,15 @@ from app.modules.physics.bodies import body_name
 from app.modules.physics.constants import BIG_G
 from app.modules.physics.display import plain_number
 from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.solvers.arithmetic import latex_num
 from app.modules.physics.solvers.circular import _orbit_scene
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    _latex_num,
-    _params_in_si,
-)
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 
 def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     op = intent.physics_op or ""
 
     if op == "gravitational_force":
@@ -30,13 +27,13 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
         return PhysicsResult(
             answer=(
                 rf"F = \frac{{G m_1 m_2}}{{r^2}} = \frac{{{BIG_G:.5g} \cdot {p['m1']:g} "
-                rf"\cdot {p['m2']:g}}}{{{_latex_num(r, square=True)}}} "
+                rf"\cdot {p['m2']:g}}}{{{latex_num(r, square=True)}}} "
                 rf"\approx {f_val:.4g} \text{{ N}}"
             ),
             formulas=(r"F = \frac{G m_1 m_2}{r^2}",),
             substitutions=(
                 rf"F = \frac{{{BIG_G:.5g} \cdot {p['m1']:g} \cdot {p['m2']:g}}}"
-                rf"{{{_latex_num(r, square=True)}}}",
+                rf"{{{latex_num(r, square=True)}}}",
             ),
             quantities=(QuantityResult("", f_val, "N"),),
         )
@@ -92,13 +89,13 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
         return PhysicsResult(
             answer=(
                 rf"g = \frac{{GM}}{{R^2}} = \frac{{{BIG_G:.5g} \cdot {p['M']:.4g}}}"
-                rf"{{{_latex_num(radius, square=True)}}} \approx {g_val:.2f} "
+                rf"{{{latex_num(radius, square=True)}}} \approx {g_val:.2f} "
                 rf"\text{{ m/s}}^2"
             ),
             formulas=(r"g = \frac{GM}{R^2}",),
             substitutions=(
                 rf"g = \frac{{{BIG_G:.5g} \cdot {p['M']:.4g}}}"
-                rf"{{{_latex_num(radius, square=True)}}}",
+                rf"{{{latex_num(radius, square=True)}}}",
             ),
             quantities=(QuantityResult("", g_val, "m/s^2"),),
         )

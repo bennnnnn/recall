@@ -7,6 +7,7 @@ import pytest
 
 from app.background.message_indexing import index_message_job
 from app.core.config import Settings
+from app.tests.fakes import redis_mock
 
 
 @pytest.mark.asyncio
@@ -39,7 +40,7 @@ async def test_enqueue_post_turn_jobs_includes_message_index():
     from app.modules.chat.post_turn import enqueue_post_turn_jobs
     from app.modules.chat.turn_prep.context import StreamContext
 
-    redis = AsyncMock()
+    redis = redis_mock()
     ctx = StreamContext(
         user_id=uuid4(),
         chat_id=uuid4(),

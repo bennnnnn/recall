@@ -1,3 +1,4 @@
+import { isAbortError } from "@/lib/api/abort";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
 import { StaleResourceCache } from "@/lib/cache/staleResource";
 
@@ -44,7 +45,7 @@ export function asError(caught: unknown): Error {
  * offline banner), and a sign-in that ended or changed (the app signs out).
  */
 export function isExpectedReadFailure(error: Error): boolean {
-  if (error.name === "AbortError" || error.name === "SessionChangedError") return true;
+  if (isAbortError(error) || error.name === "SessionChangedError") return true;
   if ("status" in error) return error.status === 401;
   return NETWORK_FAILURE.test(error.message);
 }

@@ -80,7 +80,7 @@ export const MERMAID_PAGE: PreviewPage<"mermaid"> = {
 };
 
 /** What one diagram's WebView hands the page. */
-export type MermaidPreviewConfig = {
+type MermaidPreviewConfig = {
   source: string;
   theme: "dark" | "neutral";
   colors: { bg: string; danger: string };

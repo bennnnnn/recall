@@ -13,14 +13,13 @@ import { Space } from "@/lib/space";
 
 import { floatingSheetBottomMargin, Sheet } from "../Sheet";
 
+/** A stand-in keyboard subscription: the sheet only ever removes it. */
+function fakeSubscription(): EmitterSubscription {
+  return { remove: jest.fn() } as Partial<EmitterSubscription> as EmitterSubscription;
+}
+
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 34, left: 0, right: 0 }),
-}));
-
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
 }));
 
 jest.mock("@/lib/reduceMotion", () => ({
@@ -143,7 +142,7 @@ describe("Sheet", () => {
       if (event === showEvent) {
         showHandler = handler as (e: KeyboardEvent) => void;
       }
-      return { remove: jest.fn() } as EmitterSubscription;
+      return fakeSubscription();
     });
 
     const { getByTestId } = await render(
@@ -170,7 +169,7 @@ describe("Sheet", () => {
       if (event === showEvent) {
         showHandler = handler as (e: KeyboardEvent) => void;
       }
-      return { remove: jest.fn() } as EmitterSubscription;
+      return fakeSubscription();
     });
 
     const { getByText, getByTestId } = await render(

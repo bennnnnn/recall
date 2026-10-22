@@ -1,3 +1,5 @@
+import { emitAppEvent } from "@/lib/appEvents";
+
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "/mock-cache/",
   getInfoAsync: jest.fn(),
@@ -5,6 +7,7 @@ jest.mock("expo-file-system/legacy", () => ({
   readAsStringAsync: jest.fn(),
   writeAsStringAsync: jest.fn(),
   deleteAsync: jest.fn(),
+  readDirectoryAsync: jest.fn(async () => []),
 }));
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
@@ -29,6 +32,7 @@ import {
   patchCachedChatMessage,
   peekCachedChatPage,
   readCachedChatMessages,
+  sweepCachedChatPages,
   writeCachedChatMessages,
 } from "@/features/chat/model/messageCache";
 import type { Message } from "@/lib/api";
@@ -36,6 +40,7 @@ import {
   deleteAsync,
   getInfoAsync,
   readAsStringAsync,
+  readDirectoryAsync,
   writeAsStringAsync,
 } from "expo-file-system/legacy";
 
@@ -80,6 +85,14 @@ describe("chatMessageCache", () => {
     expect(deleteAsync).toHaveBeenCalledWith("/mock-cache/chat-pages/chat-1.json", {
       idempotent: true,
     });
+  });
+
+  it("forgets a chat whose photo the gallery deleted (ARCH-10)", async () => {
+    emitAppEvent("attachmentDeleted", { attachmentId: "a1", chatId: "chat-1" });
+    emitAppEvent("attachmentDeleted", { attachmentId: "a2", chatId: null });
+    await clearCachedChatMessages("chat-2");
+    expect(deleteAsync).toHaveBeenCalledTimes(2);
+    expect(deleteAsync).toHaveBeenNthCalledWith(1, "/mock-cache/chat-pages/chat-1.json", { idempotent: true });
   });
 
   it("patches one cached message without dropping has_more", async () => {
@@ -359,5 +372,29 @@ describe("isSettledThread", () => {
     ["nothing", [], false],
   ])("%s", (_name, thread, settled) => {
     expect(isSettledThread(thread)).toBe(settled);
+  });
+});
+
+describe("chat page sweep (LEAK-07)", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("keeps the newest 100 chats and none older than 30 days", async () => {
+    const now = Date.parse("2026-10-21T00:00:00Z");
+    const day = 24 * 60 * 60_000;
+    // chat-0 is the newest, then chat-1 and so on; chat-5 was last opened 31 days ago,
+    // so the newest 100 are chat-0 to chat-100 without it.
+    const names = Array.from({ length: 102 }, (_, index) => `chat-${index}.json`);
+    (readDirectoryAsync as jest.Mock).mockResolvedValueOnce(names);
+    (getInfoAsync as jest.Mock).mockImplementation(async (path: string) => {
+      const index = Number(path.match(/chat-(\d+)\.json$/)?.[1]);
+      const age = index === 5 ? 31 * day : index * 60_000;
+      return { exists: true, modificationTime: (now - age) / 1000 };
+    });
+    await sweepCachedChatPages(now);
+    const deleted = (deleteAsync as jest.Mock).mock.calls.map(([path]) => path).sort();
+    expect(deleted).toEqual([
+      "/mock-cache/chat-pages/chat-101.json",
+      "/mock-cache/chat-pages/chat-5.json",
+    ]);
   });
 });

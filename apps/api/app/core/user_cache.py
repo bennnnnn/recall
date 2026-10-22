@@ -39,9 +39,10 @@ from app.models.orm import User
 logger = logging.getLogger(__name__)
 
 USER_CACHE_TTL_SECONDS = 300.0
-# A publish rides out a Redis blip this many times before the request fails.
+# A publish rides out a Redis blip this many times before the request fails, waiting
+# a moment more each time. Inside the request, so not the job retry policy (core/jobs).
 _PUBLISH_ATTEMPTS = 3
-_PUBLISH_BACKOFF_SECONDS = 0.1
+_PUBLISH_PAUSE_SECONDS = 0.1
 # Users seen on one process within the TTL; far above normal traffic.
 _USER_CACHE_MAX_ENTRIES = 5_000
 _GENERATION_PREFIX = "usergen:"
@@ -94,7 +95,7 @@ async def publish_change(user_id: UUID) -> str:
             return await bump_generation(get_redis_client(), key)
         except RedisError:
             logger.warning("User generation bump failed; retrying user_id=%s", user_id)
-            await asyncio.sleep(_PUBLISH_BACKOFF_SECONDS * attempt)
+            await asyncio.sleep(_PUBLISH_PAUSE_SECONDS * attempt)
     try:
         return await bump_generation(get_redis_client(), key)
     except RedisError as exc:

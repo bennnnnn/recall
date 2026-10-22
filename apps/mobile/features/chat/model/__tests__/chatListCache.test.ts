@@ -1,6 +1,7 @@
 import { api } from "@/lib/api";
 import {
   fetchChatList,
+  fetchOlderChats,
   getCachedChat,
   getCachedChatList,
   getFetchedChat,
@@ -12,8 +13,8 @@ import {
   restoreChatList,
   setChatListCache,
   updateChatListCache,
-} from "@/lib/cache/chatListCache";
-import { clearStoredChatList, writeStoredChatList } from "@/lib/cache/chatListFile";
+} from "@/features/chat/model/chatListCache";
+import { clearStoredChatList, writeStoredChatList } from "@/features/chat/model/chatListFile";
 import {
   markChatHasAssistant,
   shouldProbePreviousChat,
@@ -23,11 +24,12 @@ import type { ChatList } from "@/lib/api";
 jest.mock("@/lib/api", () => ({
   api: {
     listChats: jest.fn(),
+    listOlderChats: jest.fn(),
   },
 }));
 
 const mockStored = new Map<string, ChatList>();
-jest.mock("@/lib/cache/chatListFile", () => ({
+jest.mock("@/features/chat/model/chatListFile", () => ({
   readStoredChatList: jest.fn(async (userId: string) => mockStored.get(userId) ?? null),
   writeStoredChatList: jest.fn(async (userId: string, list: ChatList) => { mockStored.set(userId, list); }),
   clearStoredChatList: jest.fn(async () => { mockStored.clear(); }),
@@ -287,5 +289,47 @@ describe("the list kept on disk", () => {
   it("forgets the stored list with the cache", async () => {
     await invalidateChatListCache();
     expect(clearStoredChatList).toHaveBeenCalled();
+  });
+});
+
+describe("older chats (CLAR-12)", () => {
+  const row = (id: string) => ({ ...sample.today[0]!, id, title: id });
+  const listOlderChats = api.listOlderChats as jest.Mock;
+  beforeEach(() => { jest.clearAllMocks(); mockSession = 0; invalidateChatListCache(); });
+
+  it("reads the page after the list's cursor and appends it", async () => {
+    setChatListCache({ ...sample, older: [row("o1")], next_cursor: "after-o1" });
+    listOlderChats.mockResolvedValueOnce({ ...sample, today: [], older: [row("o2"), row("o1")], next_cursor: null });
+    await fetchOlderChats("token");
+    expect(listOlderChats).toHaveBeenCalledWith("token", "after-o1");
+    const list = getCachedChatList();
+    expect(list?.older.map((chat) => chat.id)).toEqual(["o1", "o2"]);
+    expect(list?.next_cursor).toBeNull();
+  });
+
+  it("reads nothing once the list holds every chat", async () => {
+    setChatListCache(sample);
+    expect(await fetchOlderChats("token")).toBeNull();
+    expect(listOlderChats).not.toHaveBeenCalled();
+  });
+
+  it("drops a page a refresh overtook, and another account's page", async () => {
+    setChatListCache({ ...sample, next_cursor: "after-a" });
+    let finish!: (value: ChatList) => void;
+    listOlderChats.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    const reading = fetchOlderChats("token");
+    setChatListCache({ ...sample, next_cursor: "after-b" });
+    finish({ ...sample, today: [], older: [row("stale")], next_cursor: null });
+    await reading;
+    expect(getCachedChatList()?.older).toEqual([]);
+
+    setChatListCache({ ...sample, next_cursor: "after-b" });
+    listOlderChats.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    const late = fetchOlderChats("token");
+    mockSession++;
+    finish({ ...sample, today: [], older: [row("account-a")], next_cursor: null });
+    expect(await late).toBeNull();
+    expect(getCachedChatList()?.older ?? []).toEqual([]);
+
   });
 });

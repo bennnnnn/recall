@@ -278,7 +278,7 @@ def test_pipeline_a_failed_part_does_not_publish_a_partial_block(
     from app.core.config import Settings
     from app.modules.physics import block as physics_block
     from app.modules.physics.solver import PhysicsResult
-    from app.services.solving import MathServiceError
+    from app.services.solving import SolveServiceError
 
     intent = PhysicsIntent(
         kind="projectile",
@@ -291,7 +291,7 @@ def test_pipeline_a_failed_part_does_not_publish_a_partial_block(
 
     def fail_second(part: PhysicsIntent) -> PhysicsResult:
         if part.physics_op == "max_height":
-            raise MathServiceError("second part failed")
+            raise SolveServiceError("second part failed")
         return original(part)
 
     monkeypatch.setattr(physics_block, "solve_physics", fail_second)

@@ -10,6 +10,7 @@ from app.services.reminder_timing import (
     resolve_reminder_lead_minutes,
     should_notify_todo,
 )
+from app.tests.fakes import make_user
 
 
 def test_resolve_reminder_lead_minutes():
@@ -64,10 +65,8 @@ def _quiet_user(*, enabled: bool = True, start: int = 1320, end: int = 420, tz: 
     return user
 
 
-def test_in_quiet_hours_disabled_and_magicmock_are_false():
-    user = MagicMock()
-    user.timezone = "UTC"
-    assert in_quiet_hours(user) is False
+def test_in_quiet_hours_off_is_never_quiet():
+    assert in_quiet_hours(make_user()) is False
     assert (
         in_quiet_hours(_quiet_user(enabled=False), now=datetime(2026, 1, 2, 23, 0, tzinfo=UTC))
         is False

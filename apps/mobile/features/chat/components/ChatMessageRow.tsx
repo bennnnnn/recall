@@ -1,7 +1,7 @@
 import { memo, useCallback } from "react";
 
-import { MessageBubble } from "@/components/MessageBubble";
 import { useStreamingDraft } from "@/contexts/StreamingDraftContext";
+import { MessageBubble } from "@/features/chat/components/MessageBubble";
 import { MessageRowErrorBoundary } from "@/features/chat/components/MessageRowErrorBoundary";
 import { StreamSilenceHint } from "@/features/chat/components/StreamSilenceHint";
 import { useStreamSilence } from "@/features/chat/hooks/useStreamSilence";

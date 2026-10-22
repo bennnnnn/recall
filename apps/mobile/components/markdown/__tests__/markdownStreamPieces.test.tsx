@@ -6,7 +6,7 @@
  * drawn as one piece.
  */
 import { act, render } from "@testing-library/react-native";
-import { StyleSheet } from "react-native";
+import { StyleSheet, type StyleProp, type TextStyle } from "react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { STREAMING_REPLIES } from "@/lib/__tests__/fixtures/streamingReplies";
@@ -47,7 +47,7 @@ function drawn(node: Drawn, inCaret = false): Drawn {
       props[name] = value;
       continue;
     }
-    const style = { ...(StyleSheet.flatten(value as never) ?? {}) } as Record<string, unknown>;
+    const style = { ...StyleSheet.flatten(value as StyleProp<TextStyle>) } as Record<string, unknown>;
     if (caret) delete style.opacity;
     props.style = style;
   }

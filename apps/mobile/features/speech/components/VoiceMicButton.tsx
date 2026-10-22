@@ -2,7 +2,6 @@ import { Pressable, StyleSheet, View } from "react-native";
 import Svg, { Rect } from "react-native-svg";
 import { useTranslation } from "react-i18next";
 
-import { COMPOSER_CONTROL_SIZE } from "@/features/chat/model/composerLogic";
 import { lightTheme, useTheme } from "@/lib/theme";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
@@ -17,19 +16,22 @@ function RoundedStop({ size, color }: { size: number; color: string }) {
 }
 
 type Props = {
+  /** The composer's control size: the button sits in its row. */
+  size: number;
   recording: boolean;
   transcribing: boolean;
   disabled?: boolean;
   onPress: () => void;
 };
 
-export function VoiceMicButton({ recording, transcribing, disabled, onPress }: Props) {
+export function VoiceMicButton({ size, recording, transcribing, disabled, onPress }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
+  const box = { width: size, height: size };
 
   return (
     <Pressable
-      style={[styles.hit, disabled && styles.dim]}
+      style={[styles.hit, box, disabled && styles.dim]}
       onPress={onPress}
       disabled={disabled || transcribing}
       hitSlop={8}
@@ -40,7 +42,7 @@ export function VoiceMicButton({ recording, transcribing, disabled, onPress }: P
     >
       <View
         testID="voice-mic-surface"
-        style={[styles.btn, recording && styles.stopDisc]}
+        style={[styles.btn, box, recording && [styles.stopDisc, { borderRadius: size / 2 }]]}
       >
         {recording ? (
           <RoundedStop size={IconSize.md} color={lightTheme.text} />
@@ -54,21 +56,16 @@ export function VoiceMicButton({ recording, transcribing, disabled, onPress }: P
 
 const styles = StyleSheet.create({
   hit: {
-    width: COMPOSER_CONTROL_SIZE,
-    height: COMPOSER_CONTROL_SIZE,
     alignItems: "center",
     justifyContent: "center",
   },
   dim: { opacity: 0.55 },
   btn: {
-    width: COMPOSER_CONTROL_SIZE,
-    height: COMPOSER_CONTROL_SIZE,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "transparent",
   },
   stopDisc: {
     backgroundColor: lightTheme.bg,
-    borderRadius: COMPOSER_CONTROL_SIZE / 2,
   },
 });

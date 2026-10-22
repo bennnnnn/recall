@@ -20,17 +20,13 @@ import re
 from fractions import Fraction
 
 from app.core.config import Settings
-from app.gateways import litellm_gateway
+from app.models.routing_lanes import ROUTING
 from app.modules.math.request_consumption import request_consumption_complete
 from app.modules.math.schemas import MathIntent
 from app.modules.math.schemas.word_problem import WordProblemSetup
+from app.services.number_text import NUMBER_WORDS
 
 logger = logging.getLogger(__name__)
-
-# The user-facing fast route has materially lower latency and follows informal
-# school wording more reliably than the background title model. Its output is
-# still only a candidate: number grounding and SymPy remain the trust boundary.
-_TRANSLATOR_MODEL_ALIAS = "gpt-6-luna"
 
 _MIN_CHARS = 25
 _MAX_CHARS = 600
@@ -132,35 +128,9 @@ _STATED_RATE = re.compile(
     re.IGNORECASE,
 )
 _DIGITS = re.compile(r"\d+(?:,\d{3})*(?:\.\d+)?|\.\d+")
+# The cardinals from number_text's one table; the words a word problem adds on top.
 _NUMBER_WORDS: dict[str, tuple[int, ...]] = {
-    "zero": (0,),
-    "one": (1,),
-    "two": (2,),
-    "three": (3,),
-    "four": (4,),
-    "five": (5,),
-    "six": (6,),
-    "seven": (7,),
-    "eight": (8,),
-    "nine": (9,),
-    "ten": (10,),
-    "eleven": (11,),
-    "twelve": (12,),
-    "thirteen": (13,),
-    "fourteen": (14,),
-    "fifteen": (15,),
-    "sixteen": (16,),
-    "seventeen": (17,),
-    "eighteen": (18,),
-    "nineteen": (19,),
-    "twenty": (20,),
-    "thirty": (30,),
-    "forty": (40,),
-    "fifty": (50,),
-    "sixty": (60,),
-    "seventy": (70,),
-    "eighty": (80,),
-    "ninety": (90,),
+    **{word: (value,) for word, value in NUMBER_WORDS.items()},
     "hundred": (100,),
     "thousand": (1000,),
     "twice": (2,),
@@ -319,8 +289,13 @@ async def word_problem_intent(text: str, settings: Settings) -> MathIntent | Non
             return intent
     if not word_problem_candidate(text):
         return None
-    aliases = [_TRANSLATOR_MODEL_ALIAS]
-    fallback = settings.memory_fallback_model_alias.strip()
+    # Here, not at module top: the maths gate reads ``word_problem_candidate`` in the SymPy
+    # pool's workers, which must not load the model client.
+    from app.gateways import litellm_gateway
+    from app.models import model_catalog
+
+    aliases = [ROUTING.word_problems]
+    fallback = model_catalog.structured_fallback_alias()
     if fallback and fallback not in aliases:
         aliases.append(fallback)
     for alias in aliases:

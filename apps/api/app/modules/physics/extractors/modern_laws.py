@@ -6,18 +6,18 @@ import re
 from typing import Literal
 
 from app.modules.physics.constants import SPEED_OF_LIGHT
-from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _MASS_UNITS,
-    _NUMBER,
-    _VELOCITY_UNIT_PATTERN,
-    _find_value_with_specific_unit,
-)
-from app.modules.physics.extractors.fluid_readings import _AREA_PATTERN
+from app.modules.physics.extractors.fluid_readings import AREA_PATTERN
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
 from app.modules.physics.extractors.thermal_readings import _temperature_value
+from app.modules.physics.extractors.unit_patterns import (
+    LENGTH_UNIT_PATTERN,
+    MASS_UNITS,
+    NUMBER,
+    VELOCITY_UNIT_PATTERN,
+)
 from app.modules.physics.schemas import PhysicsIntent
 
-_HALF_LIFE_COUNT_RE = re.compile(rf"({_NUMBER})\s*half[- ]li(?:ves|fe)", re.IGNORECASE)
+_HALF_LIFE_COUNT_RE = re.compile(rf"({NUMBER})\s*half[- ]li(?:ves|fe)", re.IGNORECASE)
 
 _DECAY_TIME_UNITS = (
     r"seconds?|secs?|s|minutes?|mins?|min|hours?|hrs?|hr|days?|weeks?|months?|years?|yr"
@@ -26,10 +26,10 @@ _DECAY_TIME_UNITS = (
 
 def _relativistic_speed(cleaned: str) -> tuple[float, str] | None:
     """A stated speed, or a fraction of c ("0.8c")."""
-    speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
+    speed = find_value_with_specific_unit(cleaned, VELOCITY_UNIT_PATTERN)
     if speed is not None:
         return speed
-    fraction = re.search(rf"({_NUMBER})\s*c\b", cleaned, re.IGNORECASE)
+    fraction = re.search(rf"({NUMBER})\s*c\b", cleaned, re.IGNORECASE)
     if fraction is not None:
         return float(fraction.group(1)) * SPEED_OF_LIGHT, "m/s"
     return None
@@ -48,7 +48,7 @@ def _relativity(cleaned: str) -> PhysicsIntent | None:
     rel_units: dict[str, str] = {"v": speed[1] or "m/s"}
     op: Literal["lorentz_factor", "time_dilation", "length_contraction"]
     if "time dilation" in lower:
-        proper = _find_value_with_specific_unit(
+        proper = find_value_with_specific_unit(
             cleaned, _DECAY_TIME_UNITS, ("proper time", "rest time", "clock")
         )
         if proper is None:
@@ -56,8 +56,8 @@ def _relativity(cleaned: str) -> PhysicsIntent | None:
         rel_params["proper_time"], rel_units["proper_time"] = proper[0], proper[1] or "s"
         op = "time_dilation"
     elif "length contraction" in lower:
-        proper_length = _find_value_with_specific_unit(
-            cleaned, _LENGTH_UNIT_PATTERN, ("proper length", "rest length")
+        proper_length = find_value_with_specific_unit(
+            cleaned, LENGTH_UNIT_PATTERN, ("proper length", "rest length")
         )
         if proper_length is None:
             return None
@@ -98,9 +98,9 @@ def _stefan_boltzmann(cleaned: str) -> PhysicsIntent | None:
     if re.search(r"surroundings|ambient|environment", cleaned, re.IGNORECASE):
         return None
     temp = _temperature_value(cleaned, ("temperature", "at", "blackbody"))
-    area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN, ("area", "surface"))
+    area = find_value_with_specific_unit(cleaned, AREA_PATTERN, ("area", "surface"))
     emissivity_match = re.search(
-        rf"\bemissivity\s*(?:of|is|=)?\s*({_NUMBER})", cleaned, re.IGNORECASE
+        rf"\bemissivity\s*(?:of|is|=)?\s*({NUMBER})", cleaned, re.IGNORECASE
     )
     if temp is None or temp[1] != "K" or area is None:
         return None
@@ -120,7 +120,7 @@ def _stefan_boltzmann(cleaned: str) -> PhysicsIntent | None:
 def _half_life(cleaned: str) -> PhysicsIntent | None:
     """A sample's remaining mass after a count of half-lives, or a time and its half-life."""
     count = _HALF_LIFE_COUNT_RE.search(cleaned)
-    amount = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("sample", "of"))
+    amount = find_value_with_specific_unit(cleaned, MASS_UNITS, ("sample", "of"))
     if amount is None:
         return None
     params: dict[str, float] = {"m": amount[0]}
@@ -130,12 +130,12 @@ def _half_life(cleaned: str) -> PhysicsIntent | None:
         units["n_halves"] = ""
     else:
         half_life_match = re.search(
-            rf"\bhalf[- ]life\b\s*(?:of|is|=|:)?\s*({_NUMBER})\s*({_DECAY_TIME_UNITS})\b",
+            rf"\bhalf[- ]life\b\s*(?:of|is|=|:)?\s*({NUMBER})\s*({_DECAY_TIME_UNITS})\b",
             cleaned,
             re.IGNORECASE,
         )
         elapsed_match = re.search(
-            rf"\bafter\s+({_NUMBER})\s*({_DECAY_TIME_UNITS})\b",
+            rf"\bafter\s+({NUMBER})\s*({_DECAY_TIME_UNITS})\b",
             cleaned,
             re.IGNORECASE,
         )
@@ -173,7 +173,7 @@ def _mass_energy(cleaned: str) -> PhysicsIntent | None:
         is None
     ):
         return None
-    mass = _find_value_with_specific_unit(cleaned, r"kg|grams?|g", ("mass", "of"))
+    mass = find_value_with_specific_unit(cleaned, r"kg|grams?|g", ("mass", "of"))
     if mass is None:
         return None
     return PhysicsIntent(

@@ -3,12 +3,18 @@ import { act, renderHook } from "@testing-library/react-native";
 import { useUsage } from "@/features/account/hooks/useUsage";
 import type { Usage } from "@/lib/api";
 
+// The account key, and its access token, which the hourly rotation changes.
 let mockToken: string | null = "account-a";
+let mockAccessToken = "token-1";
 let mockGeneration = 0;
 const mockFetchUsage = jest.fn();
 const mockGetCachedUsage = jest.fn();
 
-jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => mockToken }));
+// Stable, as the provider keeps it.
+const mockGetToken = () => (mockToken ? mockAccessToken : null);
+jest.mock("@/contexts/accountSession", () => ({
+  useAccountSession: () => ({ account: mockToken, getToken: mockGetToken }),
+}));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockGeneration }));
 jest.mock("@/lib/cache/usageCache", () => ({
   fetchTodayUsage: (...args: unknown[]) => mockFetchUsage(...args),
@@ -41,6 +47,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockFetchUsage.mockReset();
   mockToken = "account-a";
+  mockAccessToken = "token-1";
   mockGeneration = 0;
   mockGetCachedUsage.mockReturnValue(undefined);
 });
@@ -56,7 +63,7 @@ it("moves from indeterminate loading to retryable failure and then loaded data",
   expect(result.current.error).toBe(true);
   mockFetchUsage.mockResolvedValueOnce(usage());
   await act(async () => { await result.current.refresh({ force: true }); });
-  expect(mockFetchUsage).toHaveBeenLastCalledWith("account-a", { force: true });
+  expect(mockFetchUsage).toHaveBeenLastCalledWith("account-a", "token-1", { force: true });
   expect(result.current.usage?.used_tokens).toBe(12000);
   expect(result.current.error).toBe(false);
 });
@@ -64,13 +71,13 @@ it("moves from indeterminate loading to retryable failure and then loaded data",
 it("immediately hides the previous account's usage and ignores its late response", async () => {
   const accountA = deferred<Usage | null>();
   const accountB = deferred<Usage | null>();
-  mockGetCachedUsage.mockImplementation((token: string) => token === "account-a" ? usage(1000) : undefined);
+  mockGetCachedUsage.mockImplementation((account: string) => account === "account-a" ? usage(1000) : undefined);
   mockFetchUsage.mockReturnValueOnce(accountA.promise).mockReturnValueOnce(accountB.promise);
   const { result, rerender } = await renderHook(useUsage);
   expect(result.current.usage?.used_tokens).toBe(1000);
   mockToken = "account-b";
   mockGeneration += 1;
-  await rerender();
+  await rerender(undefined);
   expect(result.current.usage).toBeNull();
   await act(async () => { accountA.resolve(usage(2000)); });
   expect(result.current.usage).toBeNull();
@@ -93,7 +100,16 @@ it("does not present yesterday's cached usage as today's limit", async () => {
   mockFetchUsage.mockReturnValueOnce(pending.promise);
   const { result } = await renderHook(useUsage);
   expect(result.current.usage).toBeNull();
-  expect(mockFetchUsage).toHaveBeenCalledWith("account-a", { force: true });
+  expect(mockFetchUsage).toHaveBeenCalledWith("account-a", "token-1", { force: true });
   await act(async () => { pending.resolve(usage()); });
   expect(result.current.usage?.used_tokens).toBe(12000);
+});
+
+it("reads nothing again when the access token rotates (NET-11)", async () => {
+  mockFetchUsage.mockResolvedValue(usage());
+  const { rerender } = await renderHook(useUsage);
+  expect(mockFetchUsage).toHaveBeenCalledTimes(1);
+  mockAccessToken = "token-2";
+  await rerender(undefined);
+  expect(mockFetchUsage).toHaveBeenCalledTimes(1);
 });

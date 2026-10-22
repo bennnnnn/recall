@@ -1,21 +1,15 @@
-import { existsSync } from "fs";
-import { join } from "path";
-
 import appJson from "../../app.json";
 import { APP_FONT_FACES } from "@/lib/appFonts";
+import { ROOT } from "@/lib/__tests__/support/sourceFiles";
 
-// The package's index also exports a useFonts hook that needs expo-font's native module.
-jest.mock("@expo-google-fonts/space-mono", () => ({ SpaceMono_400Regular: 1 }));
 // Asset ids, as Metro hands them over; jest does not transform katex's files.
-jest.mock("katex/dist/fonts/KaTeX_Main-Regular.ttf", () => 2);
-jest.mock("katex/dist/fonts/KaTeX_Math-Italic.ttf", () => 3);
-jest.mock("katex/dist/fonts/KaTeX_AMS-Regular.ttf", () => 4);
 jest.mock("katex/dist/fonts/KaTeX_Size1-Regular.ttf", () => 5);
 
-type AndroidFont = { fontFamily: string; fontDefinitions: { path: string; weight: number }[] };
+// @types/node is not installed (tsconfig.test.json), so node:fs is required untyped.
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- see above
+const { existsSync } = require("node:fs") as { existsSync: (path: string) => boolean };
 
-declare const __dirname: string;
-const APP_ROOT = join(__dirname, "..", "..");
+type AndroidFont = { fontFamily: string; fontDefinitions: { path: string; weight: number }[] };
 
 function androidFonts(): AndroidFont[] {
   const plugins: readonly unknown[] = appJson.expo.plugins;
@@ -39,7 +33,7 @@ describe("app fonts", () => {
       expect(font.fontDefinitions).toHaveLength(1);
       // Styles ask for weight 400 on every face (lib/type.ts); a heavier slot draws Roboto.
       expect(font.fontDefinitions[0].weight).toBe(400);
-      expect(existsSync(join(APP_ROOT, font.fontDefinitions[0].path))).toBe(true);
+      expect(existsSync(`${ROOT}/${font.fontDefinitions[0].path.replace(/^\.\//, "")}`)).toBe(true);
     }
   });
 });

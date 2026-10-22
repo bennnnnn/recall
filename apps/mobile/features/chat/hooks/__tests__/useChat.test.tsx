@@ -3,16 +3,18 @@ import { AccessibilityInfo, AppState } from "react-native";
 import { act, cleanup, render } from "@testing-library/react-native";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { streamChatMessageSse, streamChatRegenerateSse } from "@/features/chat/model/sse";
+import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import {
-  DROPPED_TURN_POLL_MS,
+  DROPPED_TURN_MAX_WAIT_MS,
   DROPPED_TURN_POLLS,
+  DROPPED_TURN_PROBE_ROWS,
   DUPLICATE_TURN_POLLS,
   duplicateTurnPollMs,
   SSE_DROPPED_TURN_POLLS,
 } from "@/features/chat/model/turnReconcile";
 import { WS_RETRY_BASE_MS } from "@/features/chat/model/wsBackoff";
 import {
-  EAGER_CONNECT_DEBOUNCE_MS,
+  STREAM_IDLE_TIMEOUT_MS,
   WS_ACK_PROBE_MS,
   WS_CONNECT_TIMEOUT_MS,
   WS_FIRST_EVENT_TIMEOUT_MS,
@@ -26,17 +28,21 @@ import { beginOpenedPageRead, OPENED_PAGE_WAIT_MS } from "@/features/chat/model/
 const SERVER_USER_ID = "0190a000-0000-7000-8000-000000000001";
 const SERVER_REPLY_ID = "0190a000-0000-7000-8000-000000000002";
 
-/** Let a dropped turn's reloads run out (each waits DROPPED_TURN_POLL_MS). */
+/** Let a dropped turn's reloads run out (each waits at most DROPPED_TURN_MAX_WAIT_MS). */
 async function waitOutReconcile(polls = DROPPED_TURN_POLLS) {
   for (let poll = 0; poll < polls; poll += 1) {
-    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_MAX_WAIT_MS); });
   }
 }
 
-jest.mock("react-i18next", () => {
-  const t = (key: string) => key;
-  return { useTranslation: () => ({ t }) };
+// Each poll's wait is spread at random (`droppedTurnWaitMs`); the middle of the spread
+// keeps every wait at its base, so a test's clock lands where it expects.
+beforeEach(() => {
+  jest.spyOn(Math, "random").mockReturnValue(0.5);
+  mockToken = "token";
 });
+afterEach(() => { jest.mocked(Math.random).mockRestore(); });
+
 jest.mock("@/lib/api", () => ({
   chatWebSocketUrl: (id: string) => `wss://test/${id}`,
   api: { listMessages: jest.fn() },
@@ -59,7 +65,6 @@ jest.mock("@/features/chat/model/sse", () => ({
   streamChatMessageSse: jest.fn(),
   streamChatRegenerateSse: jest.fn(),
   shouldAbortPriorSse: (previous: string, next: string) => previous === next,
-  isSseAbortError: (error: Error) => error.name === "AbortError",
 }));
 
 class FakeSocket {
@@ -81,6 +86,13 @@ let current: ReturnType<typeof useChat>;
 const onError = jest.fn();
 let mockSessionGeneration = 0;
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSessionGeneration }));
+// One object, as the provider keeps it.
+/** The newest access token; it rotates without a render (code-health audit NET-11). */
+let mockToken = "token";
+const mockAccountSession = { account: "user-1:0", getToken: () => mockToken };
+jest.mock("@/contexts/accountSession", () => ({
+  useAccountSession: () => mockAccountSession,
+}));
 function Probe({ chatId, token = "token" }: { chatId: string; token?: string }) {
   const chat = useChat(token, chatId, { onError });
   React.useLayoutEffect(() => { current = chat; });
@@ -108,21 +120,21 @@ async function sendAndStream(socket: FakeSocket, text = "reply") {
 }
 
 describe("useChat transport lifecycle", () => {
-  const originalSocket = global.WebSocket;
+  const originalSocket = globalThis.WebSocket;
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     listMessages.mockReset();
     FakeSocket.instances = [];
     mockSessionGeneration = 0;
-    global.WebSocket = FakeSocket as unknown as typeof WebSocket;
+    globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
     resetStreamingDraftStore();
   });
   afterEach(async () => {
     await cleanup();
     jest.clearAllTimers();
     jest.useRealTimers();
-    global.WebSocket = originalSocket;
+    globalThis.WebSocket = originalSocket;
   });
 
   it("surfaces an SSE transport AbortError without replaying uncertain delivery", async () => {
@@ -180,7 +192,7 @@ describe("useChat transport lifecycle", () => {
       signal.addEventListener("abort", () => reject(Object.assign(new Error("stopped"), { name: "AbortError" })));
     }));
     await render(<Probe chatId="a" />);
-    let sending!: Promise<void>;
+    let sending!: Promise<unknown>;
     await act(async () => {
       sending = kind === "send" ? current.sendMessage("question") : current.regenerateResponse();
       FakeSocket.instances[0].onerror();
@@ -247,7 +259,11 @@ describe("useChat transport lifecycle", () => {
     await act(async () => {
       await current.sendMessage("slow math");
       socket.emit(type === "status" ? { type, phase: "solving_math" } : { type });
-      jest.advanceTimersByTime(5 * 60_000);
+      // Five quiet minutes, with the server's keepalive every 15 s.
+      for (let tick = 0; tick < 20; tick += 1) {
+        jest.advanceTimersByTime(15_000);
+        socket.emit({ type: "keepalive" });
+      }
     });
     expect(current.streaming).toBe(true);
     expect(socket.close).not.toHaveBeenCalled();
@@ -320,7 +336,7 @@ describe("useChat transport lifecycle", () => {
 
   it("never dispatches an old pending send through the next chat's socket", async () => {
     const view = await render(<Probe chatId="a" />);
-    let sending!: Promise<void>;
+    let sending!: Promise<unknown>;
     await act(async () => { sending = current.sendMessage("belongs to a"); });
     const old = FakeSocket.instances[0];
     await view.rerender(<Probe chatId="b" />);
@@ -386,10 +402,31 @@ describe("useChat transport lifecycle", () => {
     const socket = await openSocket();
     await sendAndStream(socket, "partial");
     await act(async () => { socket.onclose(); });
-    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_MAX_WAIT_MS); });
     expect(current.streaming).toBe(false);
     expect(current.messages).toEqual(saved);
+    // A few rows per poll; the whole page once, to settle.
+    expect(listMessages.mock.calls.map(([, , opts]) => opts.limit)).toEqual([
+      DROPPED_TURN_PROBE_ROWS, MESSAGE_PAGE_SIZE,
+    ]);
     expect(current.rejectedSend).toBeNull();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("reloads the chat for the saved reply when a turn goes quiet past the idle deadline", async () => {
+    const saved = [
+      { id: SERVER_USER_ID, role: "user" as const, content: "question", model: null, created_at: "t1" },
+      { id: SERVER_REPLY_ID, role: "assistant" as const, content: "whole reply", model: "free-chat", created_at: "t2" },
+    ];
+    listMessages.mockResolvedValue({ messages: saved, has_more: false });
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await sendAndStream(socket, "partial");
+    await act(async () => { await jest.advanceTimersByTimeAsync(STREAM_IDLE_TIMEOUT_MS); });
+    expect(socket.close).toHaveBeenCalled();
+    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_MAX_WAIT_MS); });
+    expect(current.streaming).toBe(false);
+    expect(current.messages).toEqual(saved);
     expect(onError).not.toHaveBeenCalled();
   });
 
@@ -463,7 +500,7 @@ describe("useChat transport lifecycle", () => {
       new Promise<void>((_resolve, reject) => { rejectStream = reject; }),
     );
     const view = await render(<Probe chatId="a" />);
-    let sending!: Promise<void>;
+    let sending!: Promise<unknown>;
     await act(async () => {
       sending = current.sendMessage("old question");
       FakeSocket.instances[0].onerror();
@@ -496,7 +533,7 @@ describe("useChat transport lifecycle", () => {
     const old = await openSocket();
     await sendAndStream(old, "partial old reply");
     await act(async () => { current.stopGeneration(); });
-    let sending!: Promise<void>;
+    let sending!: Promise<unknown>;
     await act(async () => { sending = current.sendMessage("next question"); });
     const next = FakeSocket.instances[1];
     await act(async () => {
@@ -654,7 +691,7 @@ describe("useChat transport lifecycle", () => {
       onEvent({ type: "error", code: "busy", message: "Still finishing" });
     });
     await render(<Probe chatId="a" />);
-    let pending!: Promise<void>;
+    let pending!: Promise<unknown>;
     await act(async () => {
       pending = current.sendMessage("SSE follow-up", { attachmentIds: ["a1"], model: "smart-chat" });
       FakeSocket.instances[0].onerror();
@@ -1263,9 +1300,12 @@ describe("useChat transport lifecycle", () => {
       // The quiet connection is left, and the chat reloads until the saved reply is in.
       expect(old.close).toHaveBeenCalled();
       expect(queued.settled()).toBe(false);
-      await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+      await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_MAX_WAIT_MS); });
       await act(async () => { await queued.waiting; });
-      expect(listMessages).toHaveBeenCalledTimes(1);
+      // A few rows find the saved reply; the whole page once, to settle.
+      expect(listMessages.mock.calls.map(([, , opts]) => opts.limit)).toEqual([
+        DROPPED_TURN_PROBE_ROWS, MESSAGE_PAGE_SIZE,
+      ]);
       expect(current.finalizing).toBe(false);
       // The saved reply (its checked text, not the raw stream) above the waiting bubble.
       expect(current.messages.map((message) => message.id)).toEqual([SERVER_USER_ID, SERVER_REPLY_ID, "local-2"]);
@@ -1305,7 +1345,7 @@ describe("useChat transport lifecycle", () => {
         waiting = current.sendStart.whenReplySettled("local-2");
       });
       await act(async () => { jest.advanceTimersByTime(REPLY_SAVE_GRACE_MS); });
-      await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+      await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_MAX_WAIT_MS); });
       await act(async () => { await waiting; });
       expect(current.messages.map((message) => message.id)).toEqual([SERVER_USER_ID, SERVER_REPLY_ID, "local-2"]);
     });
@@ -1316,7 +1356,7 @@ describe("useChat transport lifecycle", () => {
       const socket = await openSocket();
       const queued = await paintWhileSaving(socket);
       await act(async () => { socket.onclose(); });
-      await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+      await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_MAX_WAIT_MS); });
       await act(async () => { await queued.waiting; });
       expect(queued.settled()).toBe(true);
       expect(current.messages.map((message) => message.id)).toEqual([SERVER_USER_ID, SERVER_REPLY_ID, "local-2"]);
@@ -1424,7 +1464,7 @@ describe("useChat transport lifecycle", () => {
 });
 
 describe("useChat socket while the app is in the background", () => {
-  const originalSocket = global.WebSocket;
+  const originalSocket = globalThis.WebSocket;
   const addListener = AppState.addEventListener as unknown as jest.Mock;
   const defaultAddListener = addListener.getMockImplementation();
   const appStateHandlers = new Set<(state: string) => void>();
@@ -1440,7 +1480,7 @@ describe("useChat socket while the app is in the background", () => {
     listMessages.mockReset();
     FakeSocket.instances = [];
     mockSessionGeneration = 0;
-    global.WebSocket = FakeSocket as unknown as typeof WebSocket;
+    globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
     resetStreamingDraftStore();
     appStateHandlers.clear();
     addListener.mockImplementation((event: string, handler: (state: string) => void) => {
@@ -1453,7 +1493,7 @@ describe("useChat socket while the app is in the background", () => {
     await cleanup();
     jest.clearAllTimers();
     jest.useRealTimers();
-    global.WebSocket = originalSocket;
+    globalThis.WebSocket = originalSocket;
     addListener.mockImplementation(defaultAddListener);
   });
 
@@ -1514,7 +1554,7 @@ describe("useChat socket while the app is in the background", () => {
 });
 
 describe("useChat socket recovery", () => {
-  const originalSocket = global.WebSocket;
+  const originalSocket = globalThis.WebSocket;
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
@@ -1525,14 +1565,14 @@ describe("useChat socket recovery", () => {
     // Earlier tests can leave a queued one-off stream behind.
     (streamChatMessageSse as jest.Mock).mockReset();
     (streamChatRegenerateSse as jest.Mock).mockReset();
-    global.WebSocket = FakeSocket as unknown as typeof WebSocket;
+    globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
     resetStreamingDraftStore();
   });
   afterEach(async () => {
     await cleanup();
     jest.clearAllTimers();
     jest.useRealTimers();
-    global.WebSocket = originalSocket;
+    globalThis.WebSocket = originalSocket;
   });
 
   const frames = (socket: FakeSocket) =>
@@ -1613,7 +1653,7 @@ describe("useChat socket recovery", () => {
     await act(async () => { await current.sendMessage("question"); });
     await act(async () => { jest.advanceTimersByTime(WS_ACK_PROBE_MS + WS_PROBE_TIMEOUT_MS); });
     expect(current.streaming).toBe(true);
-    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_MAX_WAIT_MS); });
     expect(current.messages).toEqual(saved);
     expect(current.streaming).toBe(false);
     expect(streamChatMessageSse).toHaveBeenCalledTimes(1);
@@ -1678,7 +1718,7 @@ describe("useChat socket recovery", () => {
     expect(FakeSocket.instances).toHaveLength(1);
 
     await act(async () => { jest.advanceTimersByTime(WS_RETRY_BASE_MS); });
-    let sending!: Promise<void>;
+    let sending!: Promise<unknown>;
     await act(async () => { sending = current.sendMessage("later"); });
     const next = latestSocket();
     expect(FakeSocket.instances).toHaveLength(2);
@@ -1688,14 +1728,15 @@ describe("useChat socket recovery", () => {
   });
 
   it("opens a new socket with a refreshed token once the old one's reply and follow-ups are in", async () => {
-    const view = await render(<Probe chatId="a" token="token-1" />);
+    mockToken = "token-1";
+    await render(<Probe chatId="a" />);
     const first = await openSocket();
     await act(async () => {
       await current.sendMessage("question");
       first.emit({ type: "start" });
     });
-    await view.rerender(<Probe chatId="a" token="token-2" />);
-    await act(async () => { jest.advanceTimersByTime(EAGER_CONNECT_DEBOUNCE_MS); });
+    mockToken = "token-2";
+    await act(async () => { void current.connect(); });
     expect(first.close).not.toHaveBeenCalled();
     expect(FakeSocket.instances).toHaveLength(1);
 
@@ -1714,22 +1755,23 @@ describe("useChat socket recovery", () => {
     await act(async () => { second.open(); });
     expect(frames(second)[0]).toEqual({ token: "token-2", client_timezone: "UTC" });
 
-    // An idle socket is replaced as soon as the token changes.
-    await view.rerender(<Probe chatId="a" token="token-3" />);
-    await act(async () => { jest.advanceTimersByTime(EAGER_CONNECT_DEBOUNCE_MS); });
+    // An idle socket is replaced at the next connect after the token changes.
+    mockToken = "token-3";
+    await act(async () => { void current.connect(); });
     expect(second.close).toHaveBeenCalledTimes(1);
     await act(async () => { latestSocket().open(); });
     expect(frames(latestSocket())[0]).toEqual({ token: "token-3", client_timezone: "UTC" });
   });
 
   it("replaces a refreshed token's socket on the next intent when no follow-ups come", async () => {
-    const view = await render(<Probe chatId="a" token="token-1" />);
+    mockToken = "token-1";
+    await render(<Probe chatId="a" />);
     const first = await openSocket();
     await act(async () => {
       await current.sendMessage("question");
       first.emit({ type: "start" });
     });
-    await view.rerender(<Probe chatId="a" token="token-2" />);
+    mockToken = "token-2";
     await act(async () => { first.emit({ type: "done", message_id: "saved", final_content: "answer" }); });
     await act(async () => { jest.advanceTimersByTime(WS_FOLLOW_UPS_WAIT_MS); });
     expect(first.close).not.toHaveBeenCalled();
@@ -1799,7 +1841,7 @@ describe("useChat socket recovery", () => {
 
     await act(async () => { jest.advanceTimersByTime(WS_PROBE_TIMEOUT_MS); });
     expect(socket.close).toHaveBeenCalledTimes(1);
-    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_MAX_WAIT_MS); });
     expect(current.messages).toEqual(saved);
     expect(streamChatMessageSse).not.toHaveBeenCalled();
     expect(onError).not.toHaveBeenCalled();
@@ -1822,7 +1864,7 @@ describe("useChat socket recovery", () => {
 });
 
 describe("useChat while the opened chat's page is read", () => {
-  const originalSocket = global.WebSocket;
+  const originalSocket = globalThis.WebSocket;
   const sentTypes = (socket: FakeSocket) => socket.send.mock.calls.map(([data]) => JSON.parse(data).type);
   beforeEach(() => {
     jest.useFakeTimers();
@@ -1830,21 +1872,21 @@ describe("useChat while the opened chat's page is read", () => {
     listMessages.mockReset();
     FakeSocket.instances = [];
     mockSessionGeneration = 0;
-    global.WebSocket = FakeSocket as unknown as typeof WebSocket;
+    globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
     resetStreamingDraftStore();
   });
   afterEach(async () => {
     await cleanup();
     jest.clearAllTimers();
     jest.useRealTimers();
-    global.WebSocket = originalSocket;
+    globalThis.WebSocket = originalSocket;
   });
 
   it("paints the turn on the tap and sends it once the page is in", async () => {
     await render(<Probe chatId="a" />);
     const socket = await openSocket();
     const read = beginOpenedPageRead("a");
-    let sending!: Promise<void>;
+    let sending!: Promise<unknown>;
     await act(async () => { sending = current.sendMessage("question"); });
     expect(current.messages.map((message) => message.content)).toEqual(["question", ""]);
     expect(current.streaming).toBe(true);
@@ -1870,7 +1912,7 @@ describe("useChat while the opened chat's page is read", () => {
     await render(<Probe chatId="a" />);
     const socket = await openSocket();
     const read = beginOpenedPageRead("a");
-    let sending!: Promise<void>;
+    let sending!: Promise<unknown>;
     await act(async () => {
       sending = current.sendMessage("question", { composerDraft: { text: "question", attachment: null } });
     });

@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.modules.chat.prompt_builder import inject_web_and_tools
+from app.modules.chat.prompt_builder import inject_subject_block
 from app.modules.chat.prompt_constants import (
     CLARIFICATION_HINT,
     FACT_GROUNDING_HINT,
@@ -300,28 +300,22 @@ def test_a_policy_joined_mid_sentence_leaves_the_sentence_whole() -> None:
     assert policies_once(prompt)[0]["content"] == "Math note: not verified.\n\nCheck it yourself."
 
 
-@pytest.mark.asyncio
-async def test_injecting_a_solve_block_leaves_one_policy_in_the_prompt() -> None:
+def test_injecting_a_solve_block_leaves_one_policy_in_the_prompt() -> None:
     prompt = [
         {"role": "system", "content": _IDENTITY},
         {"role": "system", "content": f"STYLE\n\n{MATH_REPLY_POLICY}"},
         {"role": "user", "content": "solve 2x + 5 = 17 and explain"},
     ]
     block = f"[BEGIN VERIFIED MATH]\nx = 6\n[END VERIFIED MATH]\n\n{MATH_REPLY_POLICY}"
-    injected = await inject_web_and_tools(prompt, "WEB RESULTS", block)
+    injected = inject_subject_block(prompt, block)
     assert [message["content"] for message in injected] == [
         _IDENTITY,
         "STYLE",
-        "WEB RESULTS",
         block,
         "solve 2x + 5 = 17 and explain",
     ]
     # Without a solve block nothing is taken out.
-    assert await inject_web_and_tools(prompt, "WEB RESULTS", None) == [
-        *prompt[:2],
-        {"role": "system", "content": "WEB RESULTS"},
-        prompt[2],
-    ]
+    assert inject_subject_block(prompt, None) == prompt
 
 
 def test_a_sympy_round_keeps_the_policy_after_its_results_only() -> None:

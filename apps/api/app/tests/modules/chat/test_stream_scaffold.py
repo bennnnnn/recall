@@ -13,6 +13,7 @@ from app.core.config import Settings
 from app.modules.chat.stream_scaffold import MAX_HELD_CALL_CHARS, ScaffoldFilter
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.services.solving import VERIFIED_MATH_BEGIN, VERIFIED_MATH_END, VERIFIED_PHYSICS_END
+from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import offline_deps
 
 pytest_plugins = ("app.tests.modules.chat.chat_test_support",)
@@ -151,7 +152,7 @@ async def test_live_tokens_carry_no_scaffolding_while_finalize_still_reads_it(
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         async for token in stream_and_finalize(
             offline_deps(),
-            AsyncMock(),
+            redis_mock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             _ctx(),
             should_cancel=None,
@@ -170,6 +171,6 @@ async def test_live_tokens_carry_no_scaffolding_while_finalize_still_reads_it(
     assert statuses == [("composing", None)]
     call = finalize.await_args
     assert call is not None
-    saved = call.args[2]
+    saved = call.kwargs["assistant_text"]
     assert "VERIFIED" not in saved
     assert "function_call" not in saved

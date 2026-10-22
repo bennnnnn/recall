@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from app.modules.physics.display import latex_quantity, plain_numbers_in, plain_quantity
 
 if TYPE_CHECKING:
-    from app.modules.physics.solvers.common import QuantityResult
+    from app.modules.physics.solvers.results import QuantityResult
 
 _LATEX_TEXT_SPECIALS = str.maketrans({"%": r"\%", "#": r"\#", "&": r"\&", "_": r"\_", "$": r"\$"})
 

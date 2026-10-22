@@ -26,14 +26,14 @@ from app.core.db import Base
 class MessageChunk(Base):
     __tablename__ = "message_chunks"
     __table_args__ = (
+        # Also serves a message's chunks (``message_id`` leads).
         UniqueConstraint("message_id", "chunk_index", name="uq_message_chunks_message_index"),
-        Index("ix_message_chunks_user", "user_id"),
         Index("ix_message_chunks_user_chat", "user_id", "chat_id"),
-        Index("ix_message_chunks_message", "message_id"),
-        # DB index (migration 0064) is actually:
-        #   CREATE INDEX ix_message_chunks_embedding ON message_chunks
-        #   USING hnsw (embedding vector_cosine_ops)
-        Index("ix_message_chunks_embedding", "embedding"),
+        # A search ranks the user's newest chunks (migration 0118); a global vector
+        # index cannot serve a per-user search.
+        Index("ix_message_chunks_user_created", "user_id", "created_at"),
+        # A chat delete (FK CASCADE), migration 0116.
+        Index("ix_message_chunks_chat", "chat_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -49,6 +49,12 @@ class MessageChunk(Base):
     role: Mapped[str] = mapped_column(String, nullable=False)
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
-    embedding_json: Mapped[str | None] = mapped_column(Text, nullable=True)
-    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
+    # Not loaded with the row (search ranks in SQL); ``embedding_json`` is no longer
+    # written and a later contract migration drops it.
+    embedding_json: Mapped[str | None] = mapped_column(
+        Text, nullable=True, deferred=True, deferred_raiseload=True
+    )
+    embedding: Mapped[list[float] | None] = mapped_column(
+        Vector(1536), nullable=True, deferred=True, deferred_raiseload=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

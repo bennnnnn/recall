@@ -319,12 +319,7 @@ MATH_WORKOUT_PROMPT_RULE = (
     f"prose between lines. {_WORKOUT_PARTS} {_WORKOUT_ONE_EXPRESSION}"
 )
 
-# The same rule in one sentence, for hints with a tight character budget.
-WORKOUT_PROMPT_SHORT = (
-    "Use the worked-solution layout: **Given**, **Find**, **Formula**, **Substitution** "
-    "or **Steps**, **Answer**; one state per line, the move as a short note after it "
-    "(`$2x = 8$ — subtract 3`); no numbered steps."
-)
+# Physics' rule in one sentence, for hints with a tight character budget.
 PHYSICS_WORKOUT_PROMPT_SHORT = (
     "Use the worked-solution layout: **Given** (a converted value keeps one line, with its "
     "factor), **Find**, the law's name as heading (`**Constant acceleration**`), "

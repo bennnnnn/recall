@@ -23,6 +23,7 @@ from app.modules.physics.catalog.friction import SPECS as FRICTION
 from app.modules.physics.catalog.gas_laws import SPECS as GAS_LAWS
 from app.modules.physics.catalog.gravitation import SPECS as GRAVITATION
 from app.modules.physics.catalog.heat import SPECS as HEAT
+from app.modules.physics.catalog.heat import WATER_ONLY
 from app.modules.physics.catalog.inductance_ac import SPECS as INDUCTANCE_AC
 from app.modules.physics.catalog.kinematics import SPECS as KINEMATICS
 from app.modules.physics.catalog.machines import SPECS as MACHINES
@@ -55,6 +56,7 @@ from app.services.law_binding.spec import (
 
 __all__ = [
     "CATALOG",
+    "WATER_ONLY",
     "FormulaSpec",
     "check_intent",
     "formula",

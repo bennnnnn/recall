@@ -7,13 +7,14 @@ from collections.abc import Callable
 from dataclasses import replace
 
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import params_in_si
 from app.modules.physics.solvers.wave_scenes import wave_scene
 from app.services.solving import SolveServiceError
 
 
 def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     op = intent.physics_op or ""
     solver = _OPERATIONS.get(op)
     if solver is None:

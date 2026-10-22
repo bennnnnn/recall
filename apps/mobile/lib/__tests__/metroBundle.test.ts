@@ -177,7 +177,7 @@ describe("react-native-purchases in a native production bundle (no web SDK)", ()
 
     await purchases.configurePurchases("user-1");
     await purchases.configurePurchases("user-2");
-    const { pro } = await purchases.getPlanPackages();
+    const { pro } = (await purchases.getPlanPackages()).packages;
     expect(pro).toMatchObject({ plan: "pro", priceString: "$9.99", productId: "pro_monthly:monthly" });
     await expect(purchases.purchasePlanPackage(pro!)).resolves.toBe("pro");
     await expect(purchases.restorePurchases()).resolves.toBe("plus");

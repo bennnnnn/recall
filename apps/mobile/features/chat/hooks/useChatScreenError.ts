@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useAuthOptional } from "@/contexts/AuthContext";
 import type { ComposerSendDraft } from "@/features/chat/model/sendLogic";
-import { useQuotaNudge } from "@/features/chat/hooks/useQuotaNudge";
 import { resolveChatError, type ResolvedChatError } from "@/features/chat/model/errorMessage";
 
 export function useChatErrorHandlers(isPaid: boolean) {
@@ -80,22 +78,15 @@ type StreamLifecycleParams = {
   replySaving: boolean;
   dismissChatError: () => void;
   dismissBusyNotice: () => void;
-  token: string | null;
-  isPaid: boolean;
 };
 
-/** Clear inline errors while streaming and refresh quota after each turn. */
+/** Clear the inline error once a reply starts streaming, and the busy notice once only its save is left. */
 export function useChatStreamLifecycle({
   streamActive,
   replySaving,
   dismissChatError,
   dismissBusyNotice,
-  token,
-  isPaid,
 }: StreamLifecycleParams) {
-  const [quotaRefreshKey, setQuotaRefreshKey] = useState(0);
-  const prevStreamActiveRef = useRef(false);
-
   useEffect(() => {
     if (streamActive) dismissChatError();
   }, [streamActive, dismissChatError]);
@@ -104,16 +95,4 @@ export function useChatStreamLifecycle({
   useEffect(() => {
     if (replySaving) dismissBusyNotice();
   }, [replySaving, dismissBusyNotice]);
-
-  useEffect(() => {
-    if (prevStreamActiveRef.current && !streamActive) {
-      setQuotaRefreshKey((k) => k + 1);
-    }
-    prevStreamActiveRef.current = streamActive;
-  }, [streamActive]);
-
-  // A paid plan painted from the launch cache reads "free" until /auth/me answers.
-  const planKnown = useAuthOptional()?.profileValidated ?? true;
-  const quotaNudge = useQuotaNudge({ token, isPaid, planKnown, refreshKey: quotaRefreshKey });
-  return quotaNudge;
 }

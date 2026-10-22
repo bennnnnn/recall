@@ -16,7 +16,7 @@ import { publishStreamingDraft } from "@/lib/streamingDraftStore";
 const mockMounts = new Map<string, number>();
 
 jest.mock("@/components/LinkPreviewCard", () => ({ LinkPreviewCard: "LinkPreviewCard" }));
-jest.mock("@/components/MessageActions", () => ({
+jest.mock("@/features/chat/components/MessageActions", () => ({
   AssistantActions: () => null,
   UserActions: () => null,
   MESSAGE_ACTION_ROW_HEIGHT: 44,
@@ -25,13 +25,12 @@ jest.mock("@/features/suggestions/components/RelatedPromptLines", () => ({ Relat
 jest.mock("@/components/SettingsProposalCard", () => ({ SettingsProposalCard: () => null }));
 jest.mock("@/features/todos/components/ReminderProposalCard", () => ({ ReminderProposalCard: () => null }));
 jest.mock("@/components/PlacesListBlock", () => ({ PlacesListBlock: () => null }));
-jest.mock("@/components/ChatMessageImageStrip", () => ({ ChatMessageImageStrip: () => null }));
+jest.mock("@/features/attachments/components/ChatMessageImageStrip", () => ({ ChatMessageImageStrip: () => null }));
 jest.mock("@/features/images/components/ImageGenPlaceholder", () => ({ ImageGenPlaceholder: () => null }));
 jest.mock("@/ui/feedback/ActionShimmer", () => ({ ActionShimmer: () => null }));
 jest.mock("@/components/SearchSourcesStack", () => ({ SearchSourcesStack: () => null }));
 jest.mock("@/components/RecallTypingIndicator", () => ({ RecallTypingIndicator: () => null }));
-jest.mock("@/components/UserMessageContent", () => ({ UserMessageContent: () => null }));
-jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
+jest.mock("@/features/chat/components/UserMessageContent", () => ({ UserMessageContent: () => null }));
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
   selection: jest.fn(),

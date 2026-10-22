@@ -31,7 +31,6 @@ jest.mock("@/lib/cachedUser", () => ({
   readCachedUser: jest.fn(), writeCachedUser: jest.fn(), clearCachedUser: jest.fn(),
   mergeCachedUser: (value: User) => value,
 }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({ bg: "white", primary: "blue" }) }));
 jest.mock("@/lib/i18n", () => ({ ensureLocale: jest.fn() }));
 jest.mock("@/hooks/useBootstrapSync", () => ({ useBootstrapSync: jest.fn() }));
@@ -39,6 +38,7 @@ jest.mock("@/lib/apple-auth", () => ({ signInWithAppleCredentials: jest.fn() }))
 jest.mock("@/lib/google-auth", () => ({ signInWithGoogleIdToken: jest.fn(), signOutGoogle: jest.fn() }));
 jest.mock("@/lib/signOutCleanup", () => ({ clearSignedOutAccount: jest.fn() }));
 jest.mock("@/lib/syncRecords", () => ({ forgetSyncRecords: jest.fn(async () => undefined) }));
+jest.mock("@/lib/pushNotifications", () => ({ devicePushToken: jest.fn(async () => null) }));
 
 const userA = { id: "account-a", name: "Alice", locale: "en" } as User;
 const userB = { id: "account-b", name: "Bob", locale: "en" } as User;
@@ -423,4 +423,33 @@ it("forgets the push and location sync records when an account signs in", async 
   await act(async () => { await current.signInWithDev(); });
   expect(forgetSyncRecords).toHaveBeenCalledTimes(1);
   expect(current.user?.id).toBe(userB.id);
+});
+
+it("hands the server this device's push token with the logout", async () => {
+  const { devicePushToken } = jest.requireMock("@/lib/pushNotifications");
+  devicePushToken.mockResolvedValueOnce("ExponentPushToken[this-phone]");
+  await mount();
+  await act(async () => { await current.signOut(); });
+  await act(async () => { for (let i = 0; i < 10; i += 1) await Promise.resolve(); });
+  expect(logoutSession).toHaveBeenCalledWith("access-a", "refresh-a", "ExponentPushToken[this-phone]");
+});
+
+it("still logs out when the push token cannot be read", async () => {
+  const { devicePushToken } = jest.requireMock("@/lib/pushNotifications");
+  devicePushToken.mockRejectedValueOnce(new Error("expo push service down"));
+  await mount();
+  await act(async () => { await current.signOut(); });
+  await act(async () => { for (let i = 0; i < 10; i += 1) await Promise.resolve(); });
+  expect(logoutSession).toHaveBeenCalledWith("access-a", "refresh-a", null);
+});
+
+it("shows the account a sync returns without asking /auth/me again (NET-19)", async () => {
+  await mount();
+  (api.me as jest.Mock).mockClear();
+  const synced = { ...userA, plan: "pro" } as User;
+  const read = jest.fn(async () => synced);
+  await act(async () => { await current.refreshUser(read); });
+  expect(read).toHaveBeenCalledWith(current.token);
+  expect(api.me).not.toHaveBeenCalled();
+  expect(current.user?.plan).toBe("pro");
 });

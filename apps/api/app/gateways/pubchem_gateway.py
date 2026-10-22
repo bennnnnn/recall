@@ -151,6 +151,11 @@ def _retry_delay(headers: Any) -> float:
         return _RETRY_DEFAULT_SECONDS
 
 
+async def wait_before_retry(seconds: float) -> None:
+    """The pause before the one retry. A test replaces this, never ``asyncio.sleep``."""
+    await asyncio.sleep(seconds)
+
+
 async def _pug_get(url: str) -> _Fetched:
     """GET from PUG-REST as JSON, retrying once when PubChem is busy."""
     client = get_pooled_client(DEFAULT_TIMEOUT_SECONDS)
@@ -174,7 +179,7 @@ async def _pug_get(url: str) -> _Fetched:
                 return _Fetched()
             delay = _retry_delay(resp.headers)
         if attempt == 0:
-            await asyncio.sleep(delay)
+            await wait_before_retry(delay)
     return _Fetched()
 
 

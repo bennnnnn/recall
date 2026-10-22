@@ -55,7 +55,8 @@ export const attachmentsApi = {
       source?: "upload" | "generated";
       q?: string;
       limit?: number;
-      offset?: number;
+      /** The `next_cursor` of the page before; omitted for the first page. */
+      cursor?: string;
     } = {},
   ) => {
     const search = new URLSearchParams();
@@ -63,7 +64,7 @@ export const attachmentsApi = {
     if (params.source) search.set("source", params.source);
     if (params.q) search.set("q", params.q);
     if (params.limit !== undefined) search.set("limit", String(params.limit));
-    if (params.offset !== undefined) search.set("offset", String(params.offset));
+    if (params.cursor) search.set("cursor", params.cursor);
     const qs = search.toString();
     return request<AttachmentListResponse>(
       qs ? `/attachments?${qs}` : "/attachments",

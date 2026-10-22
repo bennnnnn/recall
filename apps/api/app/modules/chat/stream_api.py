@@ -5,8 +5,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable
-from contextlib import suppress
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
+from contextlib import aclosing, suppress
 from typing import Any
 from uuid import UUID
 
@@ -18,6 +18,7 @@ from app.core import shutdown
 from app.core.chat_rate_limit import allow_chat_message
 from app.core.config import Settings, get_settings
 from app.core.deps import get_current_user
+from app.core.log_context import bound_log_ids, new_turn_id
 from app.core.redis import get_redis_client
 from app.exceptions import RedisUnavailableError
 from app.models.orm import User
@@ -28,9 +29,11 @@ from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
     SERVER_RESTARTING_MESSAGE,
+    TURN_KEEPALIVE_SECONDS,
     StreamEndEvent,
     await_finalize_commit,
     build_duplicate_event,
+    build_keepalive_event,
     build_reasoning_event,
     build_start_event,
     build_status_event,
@@ -46,6 +49,10 @@ from app.modules.chat.stream_events import (
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_outcome import TurnOutcome
+
+# What the stream's producer puts for the SSE writer: an event (kind, text, status
+# detail, status elapsed ms), or None when done.
+_EventQueue = asyncio.Queue[tuple[str, str, str | None, int | None] | None]
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +71,7 @@ _ClaimMessage = Callable[[], Awaitable[ClientMessageClaim | None]]
 async def require_chat_rate_limit(user: User = Depends(get_current_user)) -> Redis:
     """Throttle chat actions per user, then hand back the Redis handle.
 
-    The same check guards all three streaming routes (and ws.py's own
+    The same check guards all three streaming routes (and ws_api.py's own
     per-message limiter); as a dependency it is declared once instead of
     copy-pasted into every new streaming entry point.
     """
@@ -99,28 +106,75 @@ async def _stream_tokens_sse(
     request: Request,
     cancel_event: asyncio.Event | None = None,
     claim_message: _ClaimMessage | None = None,
+    user_id: UUID | None = None,
+    queue_factory: Callable[[], _EventQueue] = asyncio.Queue,
 ) -> AsyncIterator[str]:
-    outcome = TurnOutcome()
-    # (kind, text, status detail, status elapsed ms)
-    event_queue: asyncio.Queue[tuple[str, str, str | None, int | None] | None] = asyncio.Queue()
-    producer_cancelled = False
-    if cancel_event is None:
-        cancel_event = asyncio.Event()
+    """The turn's events as SSE lines, every log line inside carrying the turn's ids.
+
+    ``queue_factory`` makes the queue the producer fills; a test passes one that holds a
+    token, never by replacing ``asyncio.Queue`` for the whole process.
+    """
+    with bound_log_ids(chat_id=chat_id, user_id=user_id, turn=new_turn_id()):
+        # Closed with this generator: a client gone at ``start`` settles its claim there.
+        async with aclosing(
+            _turn_sse_lines(
+                chat_id=chat_id,
+                stream_factory=stream_factory,
+                request=request,
+                cancel_event=cancel_event,
+                claim_message=claim_message,
+                queue_factory=queue_factory,
+            )
+        ) as lines:
+            async for line in lines:
+                yield line
+
+
+async def _claim_turn(claim_message: _ClaimMessage | None) -> ClientMessageClaim | str:
+    """The turn's claim on its message, or the one SSE line that refuses the turn.
+
+    Claimed once the response is under way, so a request whose client left before it
+    began holds no claim; every exit after this settles it.
+    """
     if shutdown.stopping():
         # A turn begun now would be stopped before its first token.
-        yield _sse(
+        return _sse(
             turn_error_payload(None, user_message_saved=False, message=SERVER_RESTARTING_MESSAGE)
         )
-        return
-    # Claimed here, once the response is under way, so a request whose client
-    # left before it began holds no claim. Every exit below settles it.
     try:
         claim = UNNAMED if claim_message is None else await claim_message()
     except RedisUnavailableError as unavailable:
-        yield _sse(turn_error_payload(unavailable, user_message_saved=False))
-        return
-    if claim is None:
-        yield _sse(build_duplicate_event())
+        return _sse(turn_error_payload(unavailable, user_message_saved=False))
+    return _sse(build_duplicate_event()) if claim is None else claim
+
+
+def _queued_event(
+    kind: str, text: str, detail: str | None, elapsed_ms: int | None
+) -> dict[str, Any]:
+    """One event the producer queued, as the SSE payload the client reads."""
+    if kind == "status":
+        return build_status_event(text, detail, elapsed_ms=elapsed_ms)
+    if kind == "reasoning":
+        return build_reasoning_event(text)
+    return build_token_event(text)
+
+
+async def _turn_sse_lines(
+    *,
+    chat_id: UUID,
+    stream_factory: _TokenStream,
+    request: Request,
+    cancel_event: asyncio.Event | None = None,
+    claim_message: _ClaimMessage | None = None,
+    queue_factory: Callable[[], _EventQueue] = asyncio.Queue,
+) -> AsyncGenerator[str]:
+    outcome = TurnOutcome()
+    event_queue = queue_factory()
+    producer_cancelled = False
+    cancel_event = cancel_event or asyncio.Event()
+    claim = await _claim_turn(claim_message)
+    if isinstance(claim, str):
+        yield claim
         return
     try:
         yield _sse(build_start_event())
@@ -200,16 +254,14 @@ async def _stream_tokens_sse(
 
     try:
         while True:
-            item = await event_queue.get()
+            try:
+                item = await asyncio.wait_for(event_queue.get(), TURN_KEEPALIVE_SECONDS)
+            except TimeoutError:
+                yield _sse(build_keepalive_event())
+                continue
             if item is None:
                 break
-            kind, payload, extra, elapsed_ms = item
-            if kind == "status":
-                yield _sse(build_status_event(payload, extra, elapsed_ms=elapsed_ms))
-            elif kind == "reasoning":
-                yield _sse(build_reasoning_event(payload))
-            else:
-                yield _sse(build_token_event(payload))
+            yield _sse(_queued_event(*item))
 
         if cancel_event.is_set():
             # Disconnect already cancelled the producer. A second cancel
@@ -310,6 +362,7 @@ async def stream_message_sse(
             claim_message=lambda: claim_client_message(
                 redis, user_id=user.id, chat_id=chat_id, client_message_id=body.client_message_id
             ),
+            user_id=user.id,
             stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
                 stream_entry.stream_chat_response(
                     default_deps(),
@@ -345,6 +398,7 @@ async def stream_regenerate_sse(
         _stream_tokens_sse(
             chat_id=chat_id,
             request=request,
+            user_id=user.id,
             stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
                 stream_entry.stream_regenerate_response(
                     default_deps(),

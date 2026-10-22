@@ -18,6 +18,7 @@ from app.modules.chat.prompt_constants.teaching import (
     _TEACH_TURN,
     is_teaching_request,
 )
+from app.services.md_fence_scan import iter_fences
 from app.services.text_normalize import collapse_ws
 
 # "### Lesson 2: Dictionaries": a heading with the word Lesson in an app
@@ -35,7 +36,6 @@ _LESSON_HEADING = re.compile(
 )
 # Past this, the learner has slept on the last lesson: recall it before the next.
 LESSON_RECAP_AFTER = timedelta(hours=20)
-_QUIZ_FENCE = re.compile(r"^\s*```quiz\b", re.MULTILINE | re.IGNORECASE)
 _QUESTION_MARKS = ("?", "？", "፧")
 
 
@@ -54,7 +54,8 @@ def lesson_step(text: str | None) -> int | None:
     if found is None or found < 1:
         return None
     rest = text[end:]
-    if _QUIZ_FENCE.search(rest) or any(mark in rest for mark in _QUESTION_MARKS):
+    quiz = any(fence.lang == "quiz" for fence in iter_fences(rest))
+    if quiz or any(mark in rest for mark in _QUESTION_MARKS):
         return found
     return None
 

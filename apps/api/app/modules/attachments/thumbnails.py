@@ -15,6 +15,7 @@ import io
 import logging
 import weakref
 
+from app.core.blocking import run_blocking
 from app.core.config import Settings
 from app.gateways.storage_gateway import StorageGateway
 from app.modules.attachments.image_decode import (
@@ -111,7 +112,8 @@ async def thumbnail_bytes(
         data = await gateway.read_bytes(storage_key)
         if data is None:
             return None
-        body, content_type = await asyncio.to_thread(
+        body, content_type = await run_blocking(
+            "images",
             resize_image_bytes,
             data,
             edge,

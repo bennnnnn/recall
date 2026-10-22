@@ -11,14 +11,15 @@ from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
 from app.gateways.storage_gateway import StorageUnavailableError
 from app.models.orm import User
-from app.models.schemas import (
-    AttachmentListOut,
+from app.models.schemas.page import Page
+from app.modules.attachments import workflow as attachment_workflow
+from app.modules.attachments.schemas import (
+    AttachmentListItemOut,
     AttachmentOut,
     AttachmentPresignIn,
     AttachmentPresignOut,
 )
-from app.modules.attachments import workflow as attachment_workflow
-from app.modules.attachments.upload import AttachmentUploadError, create_presigned_upload
+from app.modules.attachments.upload import create_presigned_upload
 
 router = APIRouter(prefix="/attachments", tags=["attachments"])
 
@@ -49,24 +50,22 @@ def _workflow_http_errors() -> Iterator[None]:
     """Answer a workflow refusal with its status, and a storage outage with 503."""
     try:
         yield
-    except attachment_workflow.AttachmentWorkflowError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     except StorageUnavailableError as exc:
         raise _storage_http_error() from exc
 
 
-@router.get("", response_model=AttachmentListOut)
+@router.get("", response_model=Page[AttachmentListItemOut])
 async def list_attachments(
     category: str | None = Query(default=None, pattern="^(images|files)$"),
     source: str | None = Query(default=None, pattern="^(upload|generated)$"),
     q: str | None = Query(default=None, max_length=80),
     limit: int = Query(default=30, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    cursor: str | None = Query(default=None, max_length=200),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
-) -> AttachmentListOut:
-    """List the user's attachments with pagination.
+) -> Page[AttachmentListItemOut]:
+    """One page of the user's attachments, newest first; ``cursor`` reads the next.
 
     ``q`` is a case-insensitive substring over filename, content type, and
     the linked message (covers image-gen prompts).
@@ -82,7 +81,7 @@ async def list_attachments(
         source=source,
         q=query,
         limit=limit,
-        offset=offset,
+        cursor=cursor,
     )
 
 
@@ -106,8 +105,6 @@ async def presign_upload(
             size_bytes=body.size_bytes,
             filename=body.filename,
         )
-    except AttachmentUploadError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     except StorageUnavailableError as exc:
         raise _storage_http_error() from exc
 

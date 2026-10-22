@@ -34,7 +34,6 @@ from uuid import UUID, uuid4
 
 import httpx
 import pytest
-import redis.asyncio as redis_asyncio
 from redis.asyncio.client import Pipeline
 from sqlalchemy import event
 from starlette.websockets import WebSocket
@@ -45,11 +44,10 @@ from app.core.background_tasks import drain_background_tasks
 from app.core.cache_generation import bump_generation
 from app.core.config import get_settings
 from app.core.db import SessionLocal, engine
-from app.gateways.storage_gateway import reset_storage_gateway_cache
+from app.gateways import storage_gateway
 from app.models.orm import Memory, TodoItem, User
 from app.modules.chat import stream_api, ws_api, ws_turn
 from app.modules.images import search as image_search
-from app.repositories import users as users_repo
 from app.services.quota import tokens as quota_tokens
 
 
@@ -278,12 +276,13 @@ async def turns(
     # Production runs with the global spend cap on; a turn reads it.
     monkeypatch.setenv("DAILY_GLOBAL_SPEND_USD", "1000")
     get_settings.cache_clear()
-    reset_storage_gateway_cache()
+    storage_gateway._gateway_cache = None
     settings = get_settings()
     # The client user-row writes publish to (conftest) is the app's Redis too.
     fake = user_generation_redis
     core_redis.get_redis_client.cache_clear()
-    monkeypatch.setattr(redis_asyncio, "from_url", lambda *_a, **_k: fake)
+    core_redis.get_jobs_redis_client.cache_clear()
+    monkeypatch.setattr(core_redis, "_connect", lambda *_a, **_k: fake)
     assert user_cache.get_redis_client() is fake  # type: ignore[attr-defined]
     await engine.dispose(close=False)
 
@@ -360,14 +359,16 @@ async def turns(
         await drain_background_tasks()
         for name, listener in listeners:
             event.remove(engine.sync_engine, name, listener)
+        from app.modules.account import lifecycle
+
         async with SessionLocal() as session:
-            await users_repo.delete_user(session, user_id)
+            await lifecycle.erase_user_rows(session, user_id)
         user_cache.forget_user(user_id)
         await engine.dispose(close=False)
         await fake.aclose()
         core_redis.get_redis_client.cache_clear()
         get_settings.cache_clear()
-        reset_storage_gateway_cache()
+        storage_gateway._gateway_cache = None
 
 
 def _within(seen: Ceiling, ceiling: Ceiling) -> list[str]:

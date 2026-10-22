@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request
 
 from app.core.config import Settings
 from app.core.deps import get_settings_dep
@@ -18,7 +18,7 @@ from app.models.orm import User
 from app.models.schemas.scan import ScanReadingOut
 from app.modules.account.consent import get_consented_user
 from app.modules.math.ocr import MathOcrResult, extract_math_from_image
-from app.services.scan_read import ScanPhoto, read_scan
+from app.services.scan_read import ScanPhoto, ScanRefusedError, read_scan
 
 router = APIRouter(prefix="/math", tags=["math"])
 
@@ -37,7 +37,7 @@ async def read_math_scan(
     settings: Settings = Depends(get_settings_dep),
 ) -> ScanReadingOut:
     if not settings.math_tools_enabled:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
+        raise ScanRefusedError("Not available", status_code=404, code="not_available")
 
     async def read(photo: ScanPhoto, seconds_left: float) -> MathOcrResult:
         return await extract_math_from_image(

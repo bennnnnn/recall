@@ -22,7 +22,12 @@ symbolic solver stack. Other modules import only the names in ``_EXPORTS``.
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.modules.math.unit_conversion import (
+        get_unit_registry as get_unit_registry,
+    )
 
 _EXPORTS = {"get_unit_registry": ("unit_conversion", "get_unit_registry")}
 
@@ -40,8 +45,9 @@ def __getattr__(name: str) -> Any:
 
 
 # Seams the chat turn uses: detection, follow-ups, camera reads, post-stream fences, the
-# tool loop's check that a sympy call is the problem the user wrote, and the record of a
-# pre-solve that ran out of time (so the tool loop does not solve it again).
+# tool loop's check that a sympy call is the problem the user wrote, the record of a
+# pre-solve that ran out of time (so the tool loop does not solve it again), and the pool
+# warm-up.
 _MODULE_EXPORTS = (
     "fence",
     "followup",
@@ -49,9 +55,16 @@ _MODULE_EXPORTS = (
     "match",
     "ocr",
     "reply_policy",
+    # The verified block's types (services/solving).
+    "response_intent",
+    "solve.key_steps",
+    "sympy_warmup",
     "text_plot",
     "tool_check",
+    # The subject dispatcher (services/subject_solving): direct replies and curve points.
+    "tools.direct",
     "tools.extract",
     "tools.prompt",
+    "tools.school.curve_points",
     "tools.solve_timeouts",
 )

@@ -5,9 +5,10 @@ from types import SimpleNamespace
 import pytest
 
 from app.core.config import Settings
+from app.models import model_catalog
 from app.modules.billing import entitlements, plan
 from app.modules.billing.subscription import _plan_from_revenuecat_payload
-from app.services import model_catalog
+from app.services import model_health
 
 
 def _user(plan_id: str) -> SimpleNamespace:
@@ -73,7 +74,7 @@ def test_live_talk_is_only_on_the_top_plan():
 )
 def test_default_numbers_per_plan(plan_id, numbers):
     # The built-in defaults, not a developer's .env overrides.
-    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    settings = Settings(_env_file=None)
     for name, value in numbers.items():
         assert entitlements.allowance(plan_id, name, settings) == value
 
@@ -100,7 +101,7 @@ def test_unknown_plans_are_never_paid(raw):
 def test_paid_plans_get_every_model_and_free_gets_the_free_pool():
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     selectable = {
-        m.id for m in model_catalog.selectable_models() if model_catalog.is_available(m, settings)
+        m.id for m in model_catalog.selectable_models() if model_health.is_available(m, settings)
     }
     assert plan.allowed_model_ids(_user("plus"), settings) == selectable
     assert plan.allowed_model_ids(_user("pro"), settings) == selectable
@@ -149,5 +150,5 @@ def test_plan_catalog_lists_every_plan_with_its_numbers():
     catalog = entitlements.plan_catalog(Settings())
     assert [item["id"] for item in catalog] == ["free", "plus", "pro"]
     pro = catalog[2]
-    assert pro["allowances"]["monthly_live_talk_minutes"] == 60  # type: ignore[index]
-    assert "live_talk" in pro["features"]  # type: ignore[operator]
+    assert pro["allowances"]["monthly_live_talk_minutes"] == 60
+    assert "live_talk" in pro["features"]

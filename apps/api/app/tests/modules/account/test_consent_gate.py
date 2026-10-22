@@ -26,7 +26,6 @@ _AGREED = datetime(2026, 10, 19, 9, 0, tzinfo=UTC)
 _ROUTES = [
     ("post", "/speech/transcribe", {"audio_base64": "AAAA", "filename": "a.m4a"}),
     ("post", "/speech/tts", {"text": "hello"}),
-    ("post", "/speech/tts/stream", {"text": "hello"}),
     ("post", "/speech/live/session", {}),
     ("post", "/speech/live/tool", {"call_id": "call-123456", "name": "web_search"}),
     ("post", "/math/scan/read", None),
@@ -43,7 +42,7 @@ def _client(
     async def refresh(row: Any, attribute_names: list[str] | None = None) -> None:
         row.ai_data_consent_at = stored_consent
 
-    session = SimpleNamespace(refresh=AsyncMock(side_effect=refresh))
+    session = SimpleNamespace(refresh=AsyncMock(side_effect=refresh), commit=AsyncMock())
 
     async def db() -> Any:
         yield session
@@ -101,3 +100,42 @@ async def test_an_account_that_agreed_is_not_read_again() -> None:
     session = SimpleNamespace(refresh=AsyncMock())
     assert await get_consented_user(user=user, session=session) is user  # type: ignore[arg-type]
     session.refresh.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_withdrawal_on_another_machine_is_honoured_at_once(fake_redis) -> None:
+    """The cached row said yes for up to a minute after a withdrawal elsewhere.
+
+    A copy is served only under the account's current generation (``core/user_cache``),
+    and the withdrawal's publish replaced it, so the gate gets the row read again.
+    """
+    from app.core import user_cache
+    from app.core.cache_generation import bump_generation
+
+    user = SimpleNamespace(id=uuid4(), ai_data_consent_at=_AGREED)
+    user_cache.remember_user(user, "loaded-before")  # type: ignore[arg-type]
+    key = user_cache.generation_key(user.id)
+    await bump_generation(fake_redis, key)  # another machine's PATCH /auth/me
+    current = await fake_redis.get(key)
+
+    assert user_cache.cached_user(user.id, current) is None
+
+
+@pytest.mark.asyncio
+async def test_the_re_read_ends_its_transaction_before_the_route_runs() -> None:
+    """A stream after the gate must not hold the re-read's connection idle in transaction."""
+    from app.modules.account.consent import get_consented_user
+
+    calls: list[str] = []
+
+    async def refresh(row: Any, attribute_names: list[str] | None = None) -> None:
+        calls.append("refresh")
+        row.ai_data_consent_at = _AGREED
+
+    async def commit() -> None:
+        calls.append("commit")
+
+    user = SimpleNamespace(id=uuid4(), ai_data_consent_at=None)
+    session = SimpleNamespace(refresh=refresh, commit=commit)
+    assert await get_consented_user(user=user, session=session) is user  # type: ignore[arg-type]
+    assert calls == ["refresh", "commit"]

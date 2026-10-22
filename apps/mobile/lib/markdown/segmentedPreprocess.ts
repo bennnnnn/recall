@@ -27,7 +27,7 @@ export type SegmentedPrefix = {
   openPrepared: string;
 };
 
-export function emptySegmentedPrefix(): SegmentedPrefix {
+function emptySegmentedPrefix(): SegmentedPrefix {
   return {
     raw: "",
     starts: [],

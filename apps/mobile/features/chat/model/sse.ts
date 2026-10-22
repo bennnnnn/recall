@@ -4,12 +4,9 @@ import { markChatTtftTransport } from "@/features/chat/model/latency";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { requestSse } from "@/lib/api/client";
 import { parseChatWsPayload } from "@/features/chat/model/socketReduce";
+import { STREAM_IDLE_TIMEOUT_MS } from "@/features/chat/model/wsConnect";
 
 export type ChatSsePayload = NonNullable<ReturnType<typeof parseChatWsPayload>>;
-
-export function isSseAbortError(err: unknown): boolean {
-  return typeof err === "object" && err !== null && "name" in err && err.name === "AbortError";
-}
 
 /** Abort the previous SSE only when replacing a stream in the same chat.
  * New chat / leave must not abort — Stop is the only hard cancel (WS drains
@@ -60,8 +57,43 @@ async function streamChatSseRequest(
     client_timezone: getDeviceTimezone(),
     ...clientGeoWsFields(options.clientGeo),
   };
-  const response = await requestSse(path, options.token, body, options.signal);
+  // Stop aborts this stream; so does a silence past the idle deadline, which then
+  // fails it as a drop (not a Stop) so the caller reloads the chat for the reply.
+  const stream = new AbortController();
+  const forwardStop = () => stream.abort();
+  options.signal?.addEventListener("abort", forwardStop, { once: true });
+  if (options.signal?.aborted) stream.abort();
+  let idleTimer: ReturnType<typeof setTimeout> | null = null;
+  let wentQuiet = false;
+  const awaitNextChunk = () => {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      wentQuiet = true;
+      stream.abort();
+    }, STREAM_IDLE_TIMEOUT_MS);
+  };
 
+  const turn = { ended: false };
+  try {
+    const response = await requestSse(path, options.token, body, stream.signal);
+    await readSseBody(response, options, awaitNextChunk, turn);
+  } catch (error) {
+    // After `done` or `error` the stream only carries follow-up questions.
+    if (wentQuiet && turn.ended) return;
+    if (wentQuiet) throw new Error("Chat stream went quiet");
+    throw error;
+  } finally {
+    if (idleTimer) clearTimeout(idleTimer);
+    options.signal?.removeEventListener("abort", forwardStop);
+  }
+}
+
+async function readSseBody(
+  response: Response,
+  options: StreamChatSseClient,
+  awaitNextChunk: () => void,
+  turn: { ended: boolean },
+): Promise<void> {
   if (!response.ok) {
     const text = await response.text();
     throw new Error(text || `SSE request failed: ${response.status}`);
@@ -74,16 +106,17 @@ async function streamChatSseRequest(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  let completed = false;
   const deliver = (events: ChatSsePayload[]) => {
     for (const event of events) {
-      if (TERMINAL_EVENT_TYPES.has(event.type)) completed = true;
+      if (event.type === "keepalive") continue;
+      if (TERMINAL_EVENT_TYPES.has(event.type)) turn.ended = true;
       options.onEvent(event);
     }
   };
 
   try {
     while (true) {
+      awaitNextChunk();
       const { done, value } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
@@ -98,7 +131,7 @@ async function streamChatSseRequest(
     }
     // EOF only closes the transport. Without done/error the turn may have
     // been cut off before persistence, and the UI must recover its busy state.
-    if (!completed) throw new Error("Chat stream ended before completion");
+    if (!turn.ended) throw new Error("Chat stream ended before completion");
   } finally {
     reader.releaseLock();
   }

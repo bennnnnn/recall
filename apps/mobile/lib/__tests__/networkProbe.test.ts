@@ -63,6 +63,13 @@ describe("resolveConnectivity", () => {
     expect(mockCheckHealth).toHaveBeenCalled();
   });
 
+  it("does not ask Google when our API answers", async () => {
+    mockRefresh.mockResolvedValueOnce({ isConnected: true, isInternetReachable: true });
+    mockCheckHealth.mockResolvedValueOnce(true);
+    await expect(resolveConnectivity()).resolves.toBe("online");
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it("is api_unreachable when the link is up, public internet works, and health fails", async () => {
     mockRefresh.mockResolvedValueOnce({ isConnected: true, isInternetReachable: true });
     mockCheckHealth.mockResolvedValueOnce(false);
@@ -132,6 +139,7 @@ describe("resolveConnectivity", () => {
       const result = resolveConnectivity();
 
       await jest.advanceTimersByTimeAsync(1_000);
+      await jest.advanceTimersByTimeAsync(3_500);
       await jest.advanceTimersByTimeAsync(3_500);
 
       await expect(result).resolves.toBe("no_internet");
