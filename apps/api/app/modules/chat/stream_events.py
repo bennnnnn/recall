@@ -116,11 +116,19 @@ def build_token_event(content: str) -> dict[str, Any]:
     return {"type": "token", "content": content}
 
 
-def build_status_event(phase: str, detail: str | None = None) -> dict[str, Any]:
-    """Turn-prep progress (see stream_status.StreamStatusPhase)."""
+def build_status_event(
+    phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+) -> dict[str, Any]:
+    """Progress while the turn works (see stream_status.StreamStatusPhase).
+
+    ``elapsed_ms`` is how long the phase had run when it was sent (``thinking``:
+    since the model was asked), so a client counts from the phase's real start.
+    """
     event: dict[str, Any] = {"type": "status", "phase": phase}
     if detail:
         event["detail"] = detail
+    if elapsed_ms is not None:
+        event["elapsed_ms"] = max(0, elapsed_ms)
     return event
 
 

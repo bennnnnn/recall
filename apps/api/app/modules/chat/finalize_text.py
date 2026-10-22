@@ -16,6 +16,7 @@ from app.modules.chat.prose_normalizer import (
     prose_changed,
     strip_unrequested_recipient_placeholders,
 )
+from app.modules.chat.stream_status import announced_if_slow
 from app.modules.images.answer_photo import strip_photo_fences
 from app.services.md_fence_scan import close_unclosed_fences
 from app.services.mermaid_sanitize import sanitize_mermaid_fences
@@ -43,7 +44,9 @@ async def attach_answer_photo(state: FinalizeState) -> str:
         if photo is not None:
             photo.cancel()
         return strip_photo_fences(state.text)
-    text, ctx.answer_photo_ids = await photo.attach(state.text)
+    text, ctx.answer_photo_ids = await announced_if_slow(
+        photo.attach(state.text), state.on_status, "answer_photo", then="finishing"
+    )
     if ctx.answer_photo_ids:
         state.committed = fallback_text(text, server_text=state.server_text)
     return text

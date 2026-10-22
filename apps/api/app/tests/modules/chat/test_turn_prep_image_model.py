@@ -153,3 +153,50 @@ async def test_a_resent_photo_moves_the_turn_and_its_backups_to_image_readers() 
     assert ctx.model == "glm-5.3-flash"
     assert ctx.fallback_models
     assert all(model_catalog.reads_images(alias) for alias in ctx.fallback_models)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "alias, resolved, probing",
+    [
+        # The user's own pick runs whatever its health.
+        ("gpt-6-luna", "gpt-6-luna", {"vision-chat"}),
+        # A pick that cannot read the photo moves to the photo lane, which the user
+        # did not name: it claims its probe like any routed model.
+        ("smart-chat", "smart-chat", {"vision-chat", "gpt-6-luna"}),
+    ],
+)
+async def test_only_a_model_the_user_named_runs_without_its_probe(
+    alias: str, resolved: str, probing: set[str]
+) -> None:
+    from app.modules.chat.turn_prep import prepare
+
+    user = _pro_user()
+    bundle = prompt_bundle(half_open_models=frozenset({"vision-chat", "gpt-6-luna"}))
+    processed = _attachments(image=True)
+    processed.user = user
+    with (
+        patch.object(prepare, "_process_attachments", AsyncMock(return_value=processed)),
+        patch.object(prepare, "build_stream_prompt_context", AsyncMock(return_value=bundle)),
+        patch.object(prepare, "_persist_and_report", AsyncMock(return_value=[])),
+        patch.object(prepare, "inject_turn_images", AsyncMock(return_value=False)),
+    ):
+        ctx = await prepare.prepare_chat_turn(
+            user_id=user.id,
+            chat_id=uuid4(),
+            content="what's in this picture?",
+            model_alias=alias,
+            settings=_SETTINGS,
+            redis=AsyncMock(),
+            reserved_tokens=100,
+            user=user,
+            chat=_stand_in(id=uuid4()),
+            turn_mode=_stand_in(lightweight=False, rich_context=True),
+            prior_count=2,
+            recent_messages=[],
+            resolved_model=resolved,
+            unhealthy=frozenset(),
+            half_open=frozenset({"vision-chat", "gpt-6-luna"}),
+        )
+        await await_user_message_persist(ctx)
+    assert ctx.probe_models == probing

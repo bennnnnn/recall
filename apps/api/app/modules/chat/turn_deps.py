@@ -34,6 +34,7 @@ from app.repositories import chats, messages, users
 from app.services import conversation_reference, quota
 
 if TYPE_CHECKING:
+    from app.gateways.stream_signals import StreamAttempt
     from app.gateways.web_search_gateway import WebSearchHit
     from app.modules.billing.entitlements import Feature
     from app.services.conversation_reference import ReferenceKind, Turn
@@ -145,6 +146,9 @@ class ChatModel(Protocol):
         stream_meta: dict[str, str] | None = ...,
         on_reasoning: Callable[[str], Awaitable[None]] | None = ...,
         thinking: bool | str | None = ...,
+        attempts: list[StreamAttempt] | None = ...,
+        on_thinking: Callable[[], Awaitable[None]] | None = ...,
+        may_try: Callable[[str], Awaitable[bool]] | None = ...,
     ) -> AsyncIterator[str]: ...
 
 

@@ -130,6 +130,7 @@ async def stream_chat_response(
         )
         # The user's own switches (web search off) narrow the server's for this turn.
         settings = profile_service.settings_for_user(settings, turn.user)
+        misses: set[str] = set()
         if not attachment_ids and await intercept_new_turn(
             deps,
             settings,
@@ -139,6 +140,7 @@ async def stream_chat_response(
             outcome=outcome,
             recent_messages=turn.recent,
             prior_count=turn.prior_count,
+            misses=misses,
         ):
             await res.refund()
             return
@@ -175,7 +177,9 @@ async def stream_chat_response(
             resolved_model=turn.model,
             on_user_saved=outcome.mark_user_message_saved if outcome is not None else None,
             unhealthy=turn.unhealthy,
+            half_open=turn.half_open,
         )
+        ctx.photo_missed = "photo" in misses
         try:
             ctx.reply_picture = start_reply_picture(
                 deps, settings, user=turn.user, chat_id=chat_id, content=content
@@ -236,6 +240,7 @@ async def stream_regenerate_response(
             # The message being answered again is in the chat (it just loaded).
             outcome.mark_user_message_saved()
         settings = profile_service.settings_for_user(settings, turn.user)
+        misses: set[str] = set()
         if await intercept_regenerate(
             deps,
             settings,
@@ -244,6 +249,7 @@ async def stream_regenerate_response(
             content=turn.content,
             backup=turn.backup,
             outcome=outcome,
+            misses=misses,
         ):
             return
         # Persisted image markers identify the current input on regeneration;
@@ -303,9 +309,12 @@ async def stream_regenerate_response(
             run_title=False,
             skip_memory_jobs=False,
             regenerate_backup=turn.backup,
+            # The earlier reply's model (or the user's pick) runs whatever its health.
+            model_named=True,
             # Regenerating says the answer was not good enough: one level more.
             thinking=thinking_level(turn.content, regenerate=True, settings=settings),
         )
+        ctx.photo_missed = "photo" in misses
         await top_up_reserve_for_prompt(
             res,
             settings=settings,

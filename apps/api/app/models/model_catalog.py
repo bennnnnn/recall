@@ -56,7 +56,8 @@ class ChatModel:
     # The user said the answer was wrong, or regenerated it: one level up.
     thinking_escalate: str | None = None
     # Hold the start of a reply until a stray closing think tag could have
-    # arrived: GLM 5.3 has ended untagged reasoning with one.
+    # arrived: GLM 5.3 has ended untagged reasoning with one when its provider
+    # did not split the reasoning off (the hold shortens once reasoning streams).
     stray_think_guard: bool = False
     # What the model can take and give. Routing asks for a capability, never a
     # model name; a capability nobody has confirmed for this model is False.

@@ -138,6 +138,7 @@ describe("useChatIncomingEvents handleChatPayloadForChat", () => {
       search_sources: [{ title: "a", url: "u", snippet: "s" }],
       status: "searching",
       statusDetail: "weather",
+      statusStartedAt: NOW,
     });
     await send({ type: "status", phase: "thinking", detail: "" });
     expect(args.updateStreamingDraft).toHaveBeenLastCalledWith(expect.objectContaining({ status: "thinking", statusDetail: undefined }));
@@ -145,6 +146,19 @@ describe("useChatIncomingEvents handleChatPayloadForChat", () => {
     await send({ type: "status" });
     expect(args.updateStreamingDraft).not.toHaveBeenCalled();
     expect(cue.activity).toHaveBeenCalledTimes(3);
+  });
+
+  it("thinking starts when the model was asked, and keeps that start when sent again", async () => {
+    const { args, send } = await setup({ draft: { content: "", status: "composing", statusStartedAt: NOW - 50 } });
+    await send({ type: "status", phase: "thinking", elapsed_ms: 2300 });
+    expect(args.updateStreamingDraft).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: "thinking", statusStartedAt: NOW - 2300 }),
+    );
+    jest.advanceTimersByTime(4000);
+    await send({ type: "status", phase: "thinking", elapsed_ms: 100 });
+    expect(args.updateStreamingDraft).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: "thinking", statusStartedAt: NOW - 2300 }),
+    );
   });
 
   it("token appends to the buffer, clears the status and marks the first token", async () => {
@@ -184,6 +198,20 @@ describe("useChatIncomingEvents handleChatPayloadForChat", () => {
     await send({ type: "stream_end", resolved_model: "smart-chat" });
     expect(messages()[0].model).toBe("smart-chat");
     expect(cue.activity).not.toHaveBeenCalled();
+  });
+
+  it("stream_end drops a label left over from the reply's last step", async () => {
+    const sources = [{ title: "Ear", url: "https://example.com/ear" }];
+    const { args, send } = await setup({
+      draft: { content: "So x = 4.", search_sources: sources, status: "checking", statusStartedAt: NOW - 1500 },
+    });
+    await send({ type: "stream_end" });
+    expect(args.updateStreamingDraft).toHaveBeenLastCalledWith({ content: "So x = 4.", search_sources: sources });
+    expect(args.streamingDraftRef.current?.status).toBeUndefined();
+    // Nothing to drop: the draft is left alone.
+    args.updateStreamingDraft.mockClear();
+    await send({ type: "stream_end" });
+    expect(args.updateStreamingDraft).not.toHaveBeenCalled();
   });
 
   it("done settles the turn, merges the reply and runs the first-reply callback once", async () => {

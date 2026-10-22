@@ -84,6 +84,14 @@ jest.mock("@/components/RecallTypingIndicator", () => {
     ),
   };
 });
+jest.mock("@/components/StreamProgressLabel", () => {
+  const { Text: MockText } = jest.requireActual("react-native") as typeof import("react-native");
+  return {
+    StreamProgressLabel: ({ phase, startedAt }: { phase: string; startedAt?: number }) => (
+      <MockText testID={`progress-${phase}`}>{String(startedAt)}</MockText>
+    ),
+  };
+});
 jest.mock("@/features/drafts/context/emailDraftPersist", () => ({
   AssistantMessageScope: ({ children }: { children: React.ReactNode }) => children,
 }));
@@ -177,6 +185,47 @@ describe("MessageBubble tool status (S7.9)", () => {
       <MessageBubble message={waiting} isGenerating streamStatus="image_gen" />,
     );
     expect(generating.getByTestId("image-gen-placeholder")).toBeTruthy();
+  });
+
+  it("counts thinking from its start under the typing indicator", async () => {
+    mockHasContent = false;
+    const waiting = { ...assistantMessage, id: "streaming", content: "" } as Message;
+    const view = await render(
+      <MessageBubble
+        message={waiting}
+        isGenerating
+        streamStatus="thinking"
+        streamStatusStartedAt={1234}
+      />,
+    );
+    expect(view.getByTestId("typing-indicator-thinking")).toBeTruthy();
+    expect(view.getByTestId("progress-thinking").props.children).toBe("1234");
+    // Not the old rotating label: thinking has its own timed one.
+    expect(view.queryByText("chat.status.thinking")).toBeNull();
+  });
+
+  it("says the answer is being checked under a reply that has streamed", async () => {
+    mockHasContent = true;
+    const streamed = { ...assistantMessage, id: "streaming" } as Message;
+    const view = await render(
+      <MessageBubble
+        message={streamed}
+        isGenerating
+        liveContent="x = 4"
+        streamStatus="checking"
+        streamStatusStartedAt={99}
+      />,
+    );
+    expect(view.queryByTestId("typing-indicator-checking")).toBeNull();
+    expect(view.getByTestId("progress-checking").props.children).toBe("99");
+  });
+
+  it("shows no progress once the reply has settled", async () => {
+    mockHasContent = true;
+    const view = await render(
+      <MessageBubble message={assistantMessage} streamStatus="checking" />,
+    );
+    expect(view.queryByTestId("progress-checking")).toBeNull();
   });
 });
 

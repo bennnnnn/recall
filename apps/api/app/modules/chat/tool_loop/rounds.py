@@ -23,7 +23,7 @@ from app.gateways.mcp.base import ToolContext
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
 from app.modules.chat.prompt_repeats import policies_once
-from app.modules.chat.stream_status import StreamStatusFn
+from app.modules.chat.stream_status import StreamStatusFn, announced_if_slow
 from app.modules.chat.tool_loop.calls import _execute_calls, _Round
 from app.modules.chat.tool_loop.forced_search import _force_web_search_if_needed
 from app.modules.chat.tool_loop.results import TerminalImageResult, ToolResults
@@ -71,6 +71,7 @@ async def run_tool_rounds(
     user_location: str | None = None,
     has_verified_math: bool = False,
     search_parts: list[str] | None = None,
+    skip_tools: frozenset[str] = frozenset(),
 ) -> ToolRoundsOutcome:
     """Mutate a copy of *messages* through up to ``mcp_tool_loop_max_rounds`` tool rounds.
 
@@ -81,6 +82,7 @@ async def run_tool_rounds(
     ``has_verified_math``: the server already solved the turn's maths part.
     ``search_parts``: the requests a classifier said need live results, when the
     message holds more than one (``tool_loop.parts``); each is searched for itself.
+    ``skip_tools``: tools the turn already spent (``selection.spent_tools``).
     """
     if not settings.mcp_tool_loop_enabled:
         return ToolRoundsOutcome(messages, None, None, [])
@@ -88,7 +90,7 @@ async def run_tool_rounds(
     # The caller's text is the user's own words; the prompt's last user
     # message can also carry attached file text.
     own_text = user_text if user_text is not None else _last_user_content(messages)
-    tools = _tools_for_user(settings, user, user_text=own_text)
+    tools = _tools_for_user(settings, user, user_text=own_text, skip_tools=skip_tools)
     if not tools:
         return ToolRoundsOutcome(messages, None, None, [])
 
@@ -114,6 +116,7 @@ async def run_tool_rounds(
         user,
         web_search=web_search,
         has_verified_math=has_verified_math,
+        skip_tools=skip_tools,
     ):
         working, hits = await _force_web_search_if_needed(
             settings=settings,
@@ -206,7 +209,9 @@ async def _select_tool_calls(
     """
     if turn.cancelled():
         return []
-    msg = await _complete_selection(turn, tools, working, usage)
+    msg = await announced_if_slow(
+        _complete_selection(turn, tools, working, usage), turn.on_status, "planning"
+    )
     if msg is None:
         if not turn.cancelled():
             working.append(_tool_selection_unavailable_message())

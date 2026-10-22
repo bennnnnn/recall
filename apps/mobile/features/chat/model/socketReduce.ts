@@ -10,6 +10,8 @@ export type ChatWsPayload = {
   phase?: string;
   /** Optional activity context for a `status` event (e.g. the search query). */
   detail?: string;
+  /** On a `status` event: how long its phase had run when it was sent (`thinking`). */
+  elapsed_ms?: number;
   reasoning?: string;
   final_content?: string;
   /** The turn changed the to-do list. */

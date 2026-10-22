@@ -79,7 +79,9 @@ async def _run(
     statuses: list[str] = []
     signed_in: Any = SimpleNamespace(id=uuid4())
 
-    async def on_status(phase: str, detail: str | None = None) -> None:
+    async def on_status(
+        phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+    ) -> None:
         statuses.append(phase)
 
     with (

@@ -34,6 +34,7 @@ from app.modules.chat.turn_prep.request import (
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
+from app.services import model_catalog
 from app.services import model_health as model_health_service
 from app.services import time_context as time_context_service
 from app.services.solving import VerifiedSolveBlock
@@ -87,6 +88,13 @@ class StreamContext:
     prior_count: int = 0
     regenerate_backup: RegenerateBackup | None = None
     fallback_models: list[str] = field(default_factory=list)
+    # Recovering models (breaker half-open) among the model and its backups: the
+    # turn tries one only once it claims its probe (``model_health.claim_probe``).
+    probe_models: frozenset[str] = frozenset()
+    # Work the turn already did without an answer, which its tool loop does not
+    # repeat: SymPy ran out of time on its problem; its photo lookup found none.
+    solve_timed_out: bool = False
+    photo_missed: bool = False
     # One verified solve for the subject that owns this turn.
     verified_subject: VerifiedSolveBlock | None = None
     # A subject solver ran and declined. The reply gets one note, not a card.
@@ -141,6 +149,9 @@ class TurnPromptBundle:
     web_search_classified: bool | None = None
     # A multi-part message's settings card, added under the model's reply.
     settings_card: str | None = None
+    # Open models past their cool-down (``StreamContext.probe_models``).
+    half_open_models: frozenset[str] = frozenset()
+    solve_timed_out: bool = False
 
 
 def _search_location(geo: ClientGeoContext) -> str | None:
@@ -164,8 +175,13 @@ def stream_context_from_bundle(
     regenerate_backup: RegenerateBackup | None = None,
     user_message_persist: asyncio.Task[None] | None = None,
     thinking: bool | str = False,
+    model_named: bool = False,
 ) -> StreamContext:
-    """Map a TurnPromptBundle into StreamContext; overrides preserve call-site semantics."""
+    """Map a TurnPromptBundle into StreamContext; overrides preserve call-site semantics.
+
+    ``model_named``: the user (or the reply being regenerated) chose ``model``, so
+    it runs whatever its health and claims no probe.
+    """
     if run_title is None:
         run_title = prior_count == 0
     if skip_memory_jobs is None:
@@ -192,9 +208,11 @@ def stream_context_from_bundle(
         prior_count=prior_count,
         regenerate_backup=regenerate_backup,
         fallback_models=bundle.fallback_models,
+        probe_models=bundle.half_open_models - {model} if model_named else bundle.half_open_models,
         verified_subject=bundle.verified_subject,
         solver_unverified=bundle.solver_unverified,
         unverified_subject=bundle.unverified_subject,
+        solve_timed_out=bundle.solve_timed_out,
         timing=timing,
         # Trust turn-mode: re-running is_lightweight_chat_turn without the
         # prior assistant would mark "yes"/"go" as greetings again.
@@ -264,18 +282,23 @@ async def _fallback_models(
     *,
     needs_vision: bool = False,
     unhealthy: frozenset[str] | None = None,
-) -> list[str]:
-    """Backups for the turn's model; ``unhealthy`` is read here when the load did not."""
+    half_open: frozenset[str] = frozenset(),
+) -> tuple[list[str], frozenset[str]]:
+    """Backups for the turn's model, and the half-open models; model health is
+    read here when the load did not (``unhealthy`` None)."""
     if unhealthy is None:
         unhealthy = frozenset()
         try:
-            pool = plan_service.model_pool(user, settings)
-            unhealthy = await model_health_service.unhealthy_aliases(redis, settings, pool)
+            aliases = [*plan_service.model_pool(user, settings)]
+            aliases += [model_catalog.vision_alias(), model_catalog.vision_backup_alias()]
+            health = await model_health_service.read_breakers(redis, settings, aliases)
+            unhealthy, half_open = health.cooling, health.half_open
         except Exception:
             logger.debug("model health read failed during fallback selection", exc_info=True)
-    return plan_service.chat_fallback_models(
+    fallbacks = plan_service.chat_fallback_models(
         user, settings, model, unhealthy=unhealthy, needs_vision=needs_vision
     )
+    return fallbacks, half_open
 
 
 def _bundle(
@@ -306,6 +329,7 @@ def _bundle(
         solver_unverified=augmented.solver_unverified,
         unverified_subject=augmented.unverified_subject,
         web_search_classified=augmented.web_search_classified,
+        solve_timed_out=augmented.solve_timed_out,
     )
 
 
@@ -342,7 +366,7 @@ async def build_stream_prompt_context(
     # More than one request: each is answered (``intents``), and the prompt says how.
     plan = plan_turn(request.content, chemistry_enabled=settings.chemistry_enabled)
     # Phase A: prompt + instant-reply + fallback-health share no data.
-    prompt_messages, instant_reply, fallback_models, card = await asyncio.gather(
+    prompt_messages, instant_reply, (fallback_models, half_open), card = await asyncio.gather(
         build_prompt_messages(
             user,
             chat.id,
@@ -371,6 +395,7 @@ async def build_stream_prompt_context(
             request.model,
             needs_vision=request.has_image_attachment,
             unhealthy=request.unhealthy_models,
+            half_open=request.half_open_models,
         ),
         settings_card(identity, settings, redis, plan),
     )
@@ -398,4 +423,5 @@ async def build_stream_prompt_context(
         fallback_models=fallback_models,
     )
     bundle.settings_card = card
+    bundle.half_open_models = half_open
     return bundle

@@ -98,7 +98,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Ordinary turns show typing dots only (no “loading memory / working on it” staircase).
   Status labels are reserved for real extra work while it runs: web search, files, math,
   a reference-photo lookup ("Finding a photo") and image gen; the server sends
-  `composing` once a tool is done, so its label never outlives it. After the first
+  `composing` once a tool is done, so its label never outlives it. Hard turns say what
+  they are doing once it has run a second: "Thinking… 12s" while a model reasons
+  (counted from when it was asked; its reasoning is never shown), "Planning the answer…"
+  for a slow tool-selection round, and "Checking the answer…" (or "Finding a photo…")
+  under a streamed reply whose last step runs before it saves; the label goes when that
+  step ends, and at `stream_end` at the latest. After the first
   token, 20 s without new text shows "Still working on it… Tap Stop". A card fence
   (quiz, steps, array, places, any data-bodied registry fence) is a quiet placeholder
   until it closes, a table waits for its delimiter row, and verified-solve markers or
@@ -558,9 +563,22 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (`gateways/litellm_gateway.py`). Adding a model is a catalog entry + OpenRouter slug.
 - ✅ **Model availability + cost** — `GET /models` reports each model's availability (key present)
   and price; the picker shows available models with a per-1M-token cost hint.
-- ✅ **Live latency/health** — Redis rolling samples from stream outcomes; `GET /models` exposes
-  `healthy`, `latency_p50_ms`, and sample count. Settings shows degraded on the model list;
-  detailed timing remains available through the API.
+- ✅ **Live latency/health** — a breaker per provider model (aliases on one model share it)
+  over Redis rolling samples: every model a turn tried leaves one, blamed on the model that
+  failed (partway through a reply too), with how fast its provider started. Timeouts, 5xx,
+  rate limits, dropped connections, empty replies and first-reply caps count; a request the
+  provider refused (4xx) does not. All models, the photo lanes included, are read in one
+  round trip per turn. An open model is skipped by Auto, fallbacks and the photo lane; after
+  a 30 s cool-down a turn about to try it claims its one probe first, so only a turn that
+  tries it uses the probe up. `GET /models` exposes `healthy`, `latency_p50_ms`, and sample
+  count. Settings shows degraded on the model list; detailed timing remains available
+  through the API.
+- ✅ **Fast failover** — a model that shows nothing gives way to the next in its chain after
+  3 s on the everyday lane, 4 s for a model that always thinks, or 8 s on a paid reasoning
+  lane; its first text or reasoning ends the wait, and the idle and wall-clock caps still
+  bound the rest. Prompts past ~24k characters get a second more per 40k; a request with an
+  image, and the last model in the chain, get no cap. Never once text or thinking has
+  reached the phone.
 - 🔜 **User-tunable routing rules** (custom per-message heuristics beyond Auto + enabled set).
 
 ## 6. Memory (remembering the user)

@@ -31,6 +31,7 @@ from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import _should_augment_web_and_tools
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.math.tools.extract import is_graph_followup
+from app.modules.math.tools.solve_timeouts import recording as recording_solve_timeouts
 from app.modules.web_search import detection as web_search_detection
 from app.modules.web_search.subject import (
     collect_prior_user_messages as _prompt_prior_user_messages,
@@ -54,6 +55,8 @@ class Augmentation:
     web_search_classified: bool | None = None
     # The message asks for more than its solve: the model answers the rest.
     asks_more: bool = False
+    # SymPy ran out of time on the turn's problem: the tool loop does not run it again.
+    solve_timed_out: bool = False
 
     def direct_reply(self, request: TurnRequest, followup: SubjectFollowup) -> str | None:
         """The reply the verified solve writes itself, when the turn needs no model."""
@@ -121,7 +124,8 @@ async def gather_and_inject(
     )
     if classify is not None:
         jobs.append(classify)
-    fetched = await _gather_or_cancel(jobs)
+    with recording_solve_timeouts() as timed_out:
+        fetched = await _gather_or_cancel(jobs)
     (
         web_block,
         math_block,
@@ -141,6 +145,7 @@ async def gather_and_inject(
         direct_text=direct_text,
         web_search_classified=fetched[1] if len(fetched) > 1 else None,
         asks_more=plan.multi and any(part.kind != "solve" for part in plan.parts),
+        solve_timed_out=bool(timed_out),
     )
 
 
