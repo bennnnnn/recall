@@ -325,7 +325,9 @@ async def _stream_chat_once(
         async with asyncio.timeout(settings.chat_stream_connect_timeout_seconds):
             response = await acompletion(
                 model=route.model,
-                messages=with_cache_breakpoint(messages, route),
+                messages=with_cache_breakpoint(
+                    messages, route, enabled=settings.prompt_cache_breakpoints_enabled
+                ),
                 stream=True,
                 max_tokens=max_tokens,
                 stream_options={"include_usage": True},

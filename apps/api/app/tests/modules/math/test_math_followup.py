@@ -280,7 +280,8 @@ async def test_actual_how_examples_keep_prior_result_and_final_scoped_policy(
     assert "unrequested comparisons, unit conversions" in system_prompt(prepared)
     assert "not fresh solver verification" in system_prompt(prepared)
     assert recent[-1].content == f"```answer\n{result}\n```"
-    assert all("```answer" not in item["content"] for item in prepared[1:])
+    history = [item for item in prepared if item["role"] != "system"]
+    assert all("```answer" not in item["content"] for item in history)
 
 
 @pytest.mark.asyncio

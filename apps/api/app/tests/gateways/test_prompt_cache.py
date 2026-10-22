@@ -3,12 +3,14 @@ that caches a marked prefix, and the provider's cached prompt tokens are counted
 
 from __future__ import annotations
 
+import json
 import logging
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import httpx
 import pytest
 from litellm.llms.openrouter.chat.transformation import OpenrouterConfig
 
@@ -93,9 +95,18 @@ class _OneChunk:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("alias, marked", [("free-chat", True), ("qwen-3.7-flash", False)])
-async def test_the_stream_sends_the_mark_for_its_route(alias: str, marked: bool) -> None:
-    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+@pytest.mark.parametrize(
+    "alias, enabled, marked",
+    [("free-chat", True, True), ("free-chat", False, False), ("qwen-3.7-flash", True, False)],
+)
+async def test_the_stream_sends_the_mark_for_its_route(
+    alias: str, enabled: bool, marked: bool
+) -> None:
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        prompt_cache_breakpoints_enabled=enabled,
+    )
     acompletion = AsyncMock(return_value=_OneChunk())
     with patch("app.gateways.litellm_gateway.acompletion", acompletion):
         tokens = [
@@ -109,6 +120,86 @@ async def test_the_stream_sends_the_mark_for_its_route(alias: str, marked: bool)
     sent = acompletion.await_args.kwargs["messages"]
     assert isinstance(sent[0]["content"], list) is marked
     assert sent[1:] == _PROMPT[1:]
+
+
+def _sse(usage: dict[str, Any]) -> bytes:
+    """OpenRouter's stream for a two-chunk reply, then its usage chunk."""
+    base = {"id": "gen-1", "object": "chat.completion.chunk", "created": 1, "model": "m"}
+    chunks = [
+        {**base, "choices": [{"index": 0, "delta": {"role": "assistant", "content": "Hello"}}]},
+        {
+            **base,
+            "choices": [{"index": 0, "delta": {"content": " there"}, "finish_reason": "stop"}],
+        },
+        {**base, "choices": [], "usage": usage},
+    ]
+    return "".join(f"data: {json.dumps(chunk)}\n\n" for chunk in [*chunks, "[DONE]"]).encode()
+
+
+_TOKENS = {"prompt_tokens": 5000, "completion_tokens": 40, "total_tokens": 5040}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "alias, enabled, usage, marked, counts",
+    [
+        (
+            "free-chat",
+            True,
+            {**_TOKENS, "prompt_tokens_details": {"cached_tokens": 4096, "cache_write_tokens": 0}},
+            True,
+            {"cached_input": 4096},
+        ),
+        (
+            "free-chat",
+            True,
+            {**_TOKENS, "prompt_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 4096}},
+            True,
+            {"cache_write": 4096},
+        ),
+        ("free-chat", False, _TOKENS, False, {}),
+        (
+            "qwen-3.7-flash",
+            True,
+            {**_TOKENS, "prompt_tokens_details": {"cached_tokens": 4096}},
+            False,
+            {"cached_input": 4096},
+        ),
+    ],
+)
+async def test_through_litellm_the_request_carries_the_mark_and_the_reply_its_cache_counts(
+    alias: str, enabled: bool, usage: dict[str, Any], marked: bool, counts: dict[str, int]
+) -> None:
+    """The real LiteLLM path to OpenRouter, with only the HTTP layer faked."""
+    sent: list[httpx.Request] = []
+
+    async def send(_client: Any, request: httpx.Request, *_args: Any, **_kwargs: Any) -> Any:
+        sent.append(request)
+        stream = {"content-type": "text/event-stream"}
+        return httpx.Response(200, headers=stream, content=_sse(usage), request=request)
+
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        prompt_cache_breakpoints_enabled=enabled,
+    )
+    totals: dict[str, int] = {}
+    with patch.object(httpx.AsyncClient, "send", send):
+        reply = [
+            token
+            async for token in litellm_gateway.stream_chat_completion(
+                settings=settings, model_alias=alias, messages=_PROMPT, max_tokens=50, usage=totals
+            )
+        ]
+    assert "".join(reply) == "Hello there"
+    assert totals == {"input": 5000, "output": 40, **counts}
+    (request,) = sent
+    assert request.url.host == "openrouter.ai"
+    body = json.loads(request.content)
+    stable = {"type": "text", "text": "Stable instructions", "cache_control": EPHEMERAL}
+    expected = [stable] if marked else "Stable instructions"
+    assert body["messages"][0] == {"role": "system", "content": expected}
+    assert body["messages"][1:] == _PROMPT[1:]
 
 
 def _usage(**details: Any) -> SimpleNamespace:

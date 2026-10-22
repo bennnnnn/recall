@@ -24,7 +24,7 @@ from app.modules.chat.prompt_memory import (
     memory_switch_on,
     recalls_shared_past,
 )
-from app.modules.chat.prompt_repeats import last_copies, policies_once
+from app.modules.chat.prompt_repeats import last_policy_parts, policies_once
 from app.modules.chat.prompt_sections import (
     NEARBY_CONTRACTS,
     STABLE_SECTIONS,
@@ -311,11 +311,13 @@ async def build_prompt_messages(
 
     Context loading uses short-lived sessions so embeds cannot pin a caller
     connection across the concurrent gather. The system prompt is two messages: the
-    first is ``STABLE_SECTIONS``, the same text on every turn of this kind for this
-    user, which the gateway marks for providers that cache only a marked prefix; the
-    second is ``TURN_SECTIONS``. The history is ``prompt_window``. ``turn_plan``: the
-    message's separate requests, when it holds more than one (``turn_prep.intents``).
-    ``stats``, when given, is filled with what the prompt drew on.
+    first is ``STABLE_SECTIONS``, the same text on every turn for this user (who Recall
+    is, the tone and unclear-message rules, their own instructions and language), which
+    the gateway marks for providers that cache only a marked prefix; the second is
+    ``TURN_SECTIONS``, everything that depends on the turn. The history is
+    ``prompt_window``. ``turn_plan``: the message's separate requests, when it holds
+    more than one (``turn_prep.intents``). ``stats``, when given, is filled with what
+    the prompt drew on.
     """
     plan = await _context_plan(
         user,
@@ -391,8 +393,8 @@ async def build_prompt_messages(
         ),
         recalls_shared_past=plan.recalls_shared_past,
     )
-    # An instruction stated twice keeps its copy closest to the user turn.
-    stable, turn_context, nearby = last_copies(
+    # A subject's reply policy stated twice keeps its copy closest to the user turn.
+    stable, turn_context, nearby = last_policy_parts(
         render_rules(STABLE_SECTIONS, turn),
         render_rules(TURN_SECTIONS, turn),
         render_rules(NEARBY_CONTRACTS, turn),
