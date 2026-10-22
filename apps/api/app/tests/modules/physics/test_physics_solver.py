@@ -570,9 +570,7 @@ def test_physics_block_does_not_disclaim_its_native_visual() -> None:
     block = physics_block._build_physics_block(intent, Settings(), [])
 
     assert block is not None
-    assert "verified native physics visual" in block.text
-    assert "Never claim that you cannot show" in block.text
-    assert "do not emit a simulation fence" in block.text
+    assert physics_block.NATIVE_VISUAL_RULE in block.text
 
 
 def test_velocity_unit_metres_raises_dimension_error() -> None:

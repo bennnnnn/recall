@@ -85,6 +85,11 @@ from app.modules.chat.prompt_constants.privacy import (
     PRIVACY_HINT,
     PROFILE_FACT_HINT,
 )
+from app.modules.chat.prompt_constants.profile_ask import (
+    is_profile_fact_question,
+    is_profile_recall_pushback,
+    profile_question_to_answer,
+)
 from app.modules.chat.prompt_constants.routing import (
     CONFIRM_FOLLOW_THROUGH_HINT,
     LIGHTWEIGHT_REPLY_HINT,
@@ -95,13 +100,10 @@ from app.modules.chat.prompt_constants.routing import (
     is_lightweight_chat_turn,
     is_personal_advice_question,
     is_personal_disclosure_turn,
-    is_profile_fact_question,
-    is_profile_recall_pushback,
     is_short_confirmation,
     is_short_reply,
     needs_rich_context,
     prior_looks_like_offer,
-    profile_question_to_answer,
     recalls_earlier_conversation,
 )
 from app.modules.chat.prompt_constants.solving import VERIFIED_SOLVE_SAFETY_HINT

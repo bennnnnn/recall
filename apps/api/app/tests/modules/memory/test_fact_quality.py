@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.modules.chat.prompt_constants.routing import profile_question_to_answer
+from app.modules.chat.prompt_constants.profile_ask import profile_question_to_answer
 from app.modules.chat.turn_prep.instant import _profile_reply
 from app.modules.memory.fact_quality import FactView, is_one_off_schedule_fact, texts_to_drop
 from app.modules.memory.pass_writes import writes_from_ops

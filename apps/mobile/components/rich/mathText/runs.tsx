@@ -84,6 +84,9 @@ function renderMathGlyph(
   }
   const primes = primeRun(ch);
   if (primes) return primes;
+  // A formula is one word in the line: "(T = mg)" drew "(T" on one line and "= mg)"
+  // on the next. A no-break space measures as a space (layout.ts) but never wraps.
+  if (ch === " ") return "\u00a0";
   if (ch === "-") return "−";
   if (ch === "·") return "⋅";
   if (ch === "‖") {
