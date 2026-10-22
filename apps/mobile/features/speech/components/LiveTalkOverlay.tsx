@@ -9,6 +9,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
+import { useDrawerOpen } from "@/contexts/DrawerContext";
 import { LiveTalkOrb } from "@/features/speech/components/LiveTalkOrb";
 import {
   liveTalkOrbA11yHintKey,
@@ -30,7 +31,7 @@ type Props = {
   phase: LiveTalkPhase;
   meterLevel: number;
   recording: boolean;
-  /** Leave this strip open so ChatHeader (hamburger / ⋮) stays tappable. */
+  /** Leave this strip open so ChatHeader (hamburger / ⋮) stays tappable; the drawer hides the header. */
   headerInset: number;
   /** Leave the real composer (type / attach) uncovered. */
   composerClearance: number;
@@ -49,6 +50,7 @@ export function LiveTalkOverlay({
   const { t } = useTranslation();
   const theme = useTheme();
   const reduceMotion = useReduceMotion();
+  const drawerOpen = useDrawerOpen();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const orbAction = liveTalkOrbAction(phase);
   const orbLabel = t(liveTalkOrbA11yKey(phase));
@@ -103,7 +105,7 @@ export function LiveTalkOverlay({
 
   return (
     <Animated.View
-      style={[s.overlay, overlayStyle, { top: headerInset, bottom: composerClearance }]}
+      style={[s.overlay, overlayStyle, { top: drawerOpen ? 0 : headerInset, bottom: composerClearance }]}
       testID="live-talk-overlay"
       pointerEvents={visible ? "auto" : "none"}
     >

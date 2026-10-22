@@ -15,6 +15,7 @@ import {
 import { STREAM_AUTOSCROLL_RESUME_MS } from "@/lib/messageListLayout";
 import { clearScheduledTimeout, scheduleTimeout } from "@/lib/scheduleTimeout";
 import { tap } from "@/lib/haptics";
+import type { KeyboardSteps } from "@/hooks/useKeyboardInset";
 
 /**
  * While streaming, JS owns bottom-pinning (FlashList autoscroll is off).
@@ -34,7 +35,8 @@ type Options = {
   messagesLength: number;
   streamActive: boolean;
   windowHeight: number;
-  keyboardHeight: number;
+  /** The keyboard's steps while it moves (no React state); the thread follows them at the bottom. */
+  keyboardSteps: KeyboardSteps;
 };
 
 export function useChatScroll({
@@ -42,7 +44,7 @@ export function useChatScroll({
   messagesLength,
   streamActive,
   windowHeight,
-  keyboardHeight,
+  keyboardSteps,
 }: Options) {
   const listRef = useRef<FlashListRef<Message>>(null);
   const atBottomRef = useRef(true);
@@ -311,10 +313,16 @@ export function useChatScroll({
     [alignListToContent],
   );
 
-  useEffect(() => {
-    if (keyboardHeight <= 0) return;
-    scheduleTimeout(keyboardScrollTimerRef, 50, () => scrollToEndIfAtBottom(true));
-  }, [keyboardHeight, scrollToEndIfAtBottom]);
+  // Each step restarts the wait, so the thread catches up wherever the keyboard
+  // slows between steps, mid-animation, and once more after it stops.
+  useEffect(
+    () =>
+      keyboardSteps.subscribe((height) => {
+        if (height <= 0) return;
+        scheduleTimeout(keyboardScrollTimerRef, 50, () => scrollToEndIfAtBottom(true));
+      }),
+    [keyboardSteps, scrollToEndIfAtBottom],
+  );
 
   return {
     listRef,

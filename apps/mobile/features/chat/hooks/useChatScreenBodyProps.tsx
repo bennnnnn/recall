@@ -8,11 +8,12 @@ import {
 } from "react";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { type NativeScrollEvent, type NativeSyntheticEvent, type View, type ViewStyle } from "react-native";
-import { type AnimatedStyle } from "react-native-reanimated";
+import { type AnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 
 import type { UpgradeSource } from "@/components/UpgradeSheet";
 import type { LiveTalkComposerChrome } from "@/features/chat/components/ChatComposer";
+import { WhileDrawerClosed } from "@/contexts/DrawerContext";
 import { ChatHeader } from "@/features/chat/components/ChatHeader";
 import type {
   ChatScreenBodyProps,
@@ -23,6 +24,7 @@ import type {
   ChatScreenSheetsProps,
 } from "@/features/chat/components/ChatScreenBody";
 import type { ChatScreenStyles } from "@/features/chat/components/chatScreenStyles";
+import type { useChatLayoutMetrics } from "@/features/chat/hooks/useChatLayoutMetrics";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
 import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
@@ -39,19 +41,14 @@ type QuotaNudge = {
   dismiss: () => void;
 };
 
+type ChatLayout = ReturnType<typeof useChatLayoutMetrics>;
+
 type UseChatScreenBodyPropsParams = {
   styles: ChatScreenStyles;
   theme: Theme;
-  drawerOpen: boolean;
   routeChatId?: string;
-  layout: {
-    headerMinimumHeight: number;
-    headerInset: number;
-    onHeaderHeightChange: (height: number) => void;
-    composerClearance: number;
-    listBottomPad: number;
-    emptyHeight: number;
-  };
+  layout: Pick<ChatLayout, "headerMinimumHeight" | "headerInset" | "onHeaderHeightChange" | "emptyHeight" |
+    "listBottomPad" | "restingComposerClearance" | "restingListBottomPad">;
   listBottomPadRef: MutableRefObject<number>;
   actionBanner: ChatScreenChromeProps["actionBanner"];
   dismissActionBanner: () => void;
@@ -111,6 +108,7 @@ type UseChatScreenBodyPropsParams = {
   retryChatError: () => void;
   dismissChatError: () => void;
   composerAnimatedStyle?: AnimatedStyle<ViewStyle>;
+  keyboardLift: SharedValue<number>;
   streaming: boolean;
   replySaving: boolean;
   sendBusy: boolean;
@@ -132,7 +130,6 @@ type UseChatScreenBodyPropsParams = {
 export function useChatScreenBodyProps({
   styles,
   theme,
-  drawerOpen,
   routeChatId,
   layout,
   listBottomPadRef,
@@ -189,6 +186,7 @@ export function useChatScreenBodyProps({
   retryChatError,
   dismissChatError,
   composerAnimatedStyle,
+  keyboardLift,
   streaming,
   replySaving,
   sendBusy,
@@ -220,8 +218,9 @@ export function useChatScreenBodyProps({
     headerMinimumHeight,
     headerInset,
     onHeaderHeightChange,
-    composerClearance,
     listBottomPad,
+    restingComposerClearance,
+    restingListBottomPad,
     emptyHeight,
   } = layout;
   listBottomPadRef.current = listBottomPad;
@@ -275,9 +274,10 @@ export function useChatScreenBodyProps({
     ],
   );
 
+  // Hidden while the drawer is open; it reads that itself, so this screen never re-renders for it.
   const listHeader = useMemo(
-    () =>
-      !drawerOpen ? (
+    () => (
+      <WhileDrawerClosed>
         <ChatHeader
           paddingTop={insetsTop}
           minimumHeight={headerMinimumHeight}
@@ -294,9 +294,9 @@ export function useChatScreenBodyProps({
           onOpenMenu={() => setMenuVisible((v) => !v)}
           menuAnchorRef={menuAnchorRef}
         />
-      ) : null,
+      </WhileDrawerClosed>
+    ),
     [
-      drawerOpen,
       insetsTop,
       headerMinimumHeight,
       onHeaderHeightChange,
@@ -316,19 +316,19 @@ export function useChatScreenBodyProps({
     (): ChatScreenLayoutProps => ({
       styles,
       theme,
-      drawerOpen,
-      composerClearance,
+      restingComposerClearance,
       headerInset,
-      listBottomPad,
+      restingListBottomPad,
+      keyboardLift,
       emptyHeight,
     }),
     [
       styles,
       theme,
-      drawerOpen,
-      composerClearance,
+      restingComposerClearance,
       headerInset,
-      listBottomPad,
+      restingListBottomPad,
+      keyboardLift,
       emptyHeight,
     ],
   );

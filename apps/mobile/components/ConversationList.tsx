@@ -11,7 +11,7 @@ import { ChatShareSheet } from "@/features/chat/components/ChatShareSheet";
 import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import { ChatRenameSheet } from "@/components/ChatRenameSheet";
 import { useAuthToken } from "@/contexts/AuthContext";
-import { useDrawer } from "@/contexts/DrawerContext";
+import { useDrawerOpen } from "@/contexts/DrawerContext";
 import { useChatBulkActions } from "@/features/chat/hooks/useChatBulkActions";
 import { useChatMenuActions } from "@/features/chat/hooks/useChatMenuActions";
 import { useDrawerChatList } from "@/hooks/useDrawerChatList";
@@ -42,7 +42,7 @@ import {
 
 export function ConversationList() {
   const token = useAuthToken();
-  const { isOpen } = useDrawer();
+  const isOpen = useDrawerOpen();
   const theme = useTheme();
   const s = useMemo(() => makeConversationListStyles(theme), [theme]);
   const router = useRouter();

@@ -2,6 +2,8 @@ import React from "react";
 import { Text } from "react-native";
 import { render } from "@testing-library/react-native";
 
+import { DrawerProvider } from "@/contexts/DrawerContext";
+
 import {
   ChatScreenBody,
   type ChatScreenBodyProps,
@@ -12,42 +14,49 @@ import { lightTheme } from "@/lib/theme";
 const mockChatMessageList = jest.fn();
 const mockChatComposer = jest.fn();
 const mockAttachmentSourceSheet = jest.fn();
+const mockScrollFab = jest.fn();
+const mockActionBanner = jest.fn();
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-jest.mock("@/features/chat/components/ChatMessageList", () => ({
-  ChatMessageList: (props: {
-    messages: Message[];
-    renderItem: (info: {
-      item: Message;
-      index: number;
-      target: "Cell";
-      extraData: unknown;
-    }) => React.ReactElement | null;
-  }) => {
-    const { View: MockView } = jest.requireActual("react-native") as typeof import("react-native");
-    mockChatMessageList(props);
-    return (
-      <MockView testID="message-list">
-        {props.messages[0]
-          ? props.renderItem({
-              item: props.messages[0],
-              index: 0,
-              target: "Cell",
-              extraData: undefined,
-            })
-          : null}
-      </MockView>
-    );
-  },
-}));
+// Memoized like the real list, so a test sees when the body hands it new props.
+jest.mock("@/features/chat/components/ChatMessageList", () => {
+  const { memo } = jest.requireActual("react") as typeof import("react");
+  const { View: MockView } = jest.requireActual("react-native") as typeof import("react-native");
+  return {
+    ChatMessageList: memo(function MockChatMessageList(props: {
+      messages: Message[];
+      renderItem: (info: {
+        item: Message;
+        index: number;
+        target: "Cell";
+        extraData: unknown;
+      }) => React.ReactElement | null;
+    }) {
+      mockChatMessageList(props);
+      return (
+        <MockView testID="message-list">
+          {props.messages[0]
+            ? props.renderItem({
+                item: props.messages[0],
+                index: 0,
+                target: "Cell",
+                extraData: undefined,
+              })
+            : null}
+        </MockView>
+      );
+    }),
+  };
+});
 
 jest.mock("@/features/chat/components/ChatComposer", () => ({
-  ChatComposer: (props: { streaming: boolean }) => {
+  ChatComposer: (props: { streaming: boolean; visible: boolean }) => {
     const { View: MockView } = jest.requireActual("react-native") as typeof import("react-native");
     mockChatComposer(props);
+    if (!props.visible) return null;
     return <MockView testID={props.streaming ? "composer-streaming" : "composer-idle"} />;
   },
 }));
@@ -56,7 +65,12 @@ jest.mock("@/contexts/StreamingDraftContext", () => ({
   StreamingDraftProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-jest.mock("@/ui/feedback/ActionBanner", () => ({ ActionBanner: () => null }));
+jest.mock("@/ui/feedback/ActionBanner", () => ({
+  ActionBanner: (props: unknown) => {
+    mockActionBanner(props);
+    return null;
+  },
+}));
 jest.mock("@/features/attachments/components/AttachmentSourceSheet", () => ({
   AttachmentSourceSheet: (props: { visible?: boolean }) => {
     mockAttachmentSourceSheet(props);
@@ -69,7 +83,12 @@ jest.mock("@/components/MathEquationScanner", () => ({
 jest.mock("@/components/UpgradeSheet", () => ({ UpgradeSheet: () => null }));
 jest.mock("@/features/chat/components/ChatInlineError", () => ({ ChatInlineError: () => null }));
 jest.mock("@/features/chat/components/ChatQuotaNudge", () => ({ ChatQuotaNudge: () => null }));
-jest.mock("@/features/chat/components/ChatScrollFab", () => ({ ChatScrollFab: () => null }));
+jest.mock("@/features/chat/components/ChatScrollFab", () => ({
+  ChatScrollFab: (props: unknown) => {
+    mockScrollFab(props);
+    return null;
+  },
+}));
 
 const noop = jest.fn();
 const message: Message = {
@@ -83,15 +102,17 @@ const renderItem = jest.fn(({ item }: { item: Message }) => <Text>{item.content}
 const onScroll = jest.fn();
 const onScrollEnd = jest.fn();
 const onLoadOlder = jest.fn();
+const keyboardLift = { value: 0 } as never;
+const drawerControls = { open: noop, close: noop, isOpenNow: () => false };
 
 const baseProps: ChatScreenBodyProps = {
   layout: {
     styles: { container: {} } as never,
     theme: lightTheme,
-    drawerOpen: false,
-    composerClearance: 96,
+    restingComposerClearance: 96,
     headerInset: 72,
-    listBottomPad: 104,
+    restingListBottomPad: 104,
+    keyboardLift,
     emptyHeight: 500,
   },
   list: {
@@ -221,5 +242,70 @@ describe("ChatScreenBody", () => {
     expect(getByTestId("composer-idle")).toBeTruthy();
     // The list still treats the reply as live until its done lands.
     expect(mockChatMessageList).toHaveBeenLastCalledWith(expect.objectContaining({ streamActive: true }));
+  });
+
+  it("lays the list out at rest and lets the keyboard spacer and lifted chrome follow the keyboard", async () => {
+    await render(
+      <ChatScreenBody
+        {...baseProps}
+        chrome={{ ...baseProps.chrome, showScrollToBottom: true, actionBanner: { message: "Saved" } }}
+      />,
+    );
+
+    const listProps = mockChatMessageList.mock.calls.at(-1)?.[0];
+    expect(listProps).toEqual(expect.objectContaining({ listBottomPad: 104 }));
+    expect(listProps.footer.props).toEqual({ lift: keyboardLift });
+    expect(mockScrollFab).toHaveBeenLastCalledWith(
+      expect.objectContaining({ visible: true, bottomOffset: 104, lift: keyboardLift }),
+    );
+    expect(mockActionBanner).toHaveBeenLastCalledWith(
+      expect.objectContaining({ bottomOffset: 108, lift: keyboardLift }),
+    );
+  });
+
+  it("steps the composer and the chrome aside while the drawer is open, without new props", async () => {
+    const props = {
+      ...baseProps,
+      chrome: { ...baseProps.chrome, showScrollToBottom: true },
+      sheets: { ...baseProps.sheets, attachSheetOpen: true },
+    };
+    const view = await render(
+      <DrawerProvider controls={drawerControls} isOpen={false}>
+        <ChatScreenBody {...props} />
+      </DrawerProvider>,
+    );
+    expect(view.getByTestId("composer-idle")).toBeTruthy();
+    expect(mockScrollFab).toHaveBeenLastCalledWith(expect.objectContaining({ visible: true }));
+    expect(mockAttachmentSourceSheet).toHaveBeenLastCalledWith(expect.objectContaining({ visible: true }));
+    const listRenders = mockChatMessageList.mock.calls.length;
+
+    await view.rerender(
+      <DrawerProvider controls={drawerControls} isOpen>
+        <ChatScreenBody {...props} />
+      </DrawerProvider>,
+    );
+    expect(view.queryByTestId("composer-idle")).toBeNull();
+    expect(mockScrollFab).toHaveBeenLastCalledWith(expect.objectContaining({ visible: false }));
+    expect(mockAttachmentSourceSheet).toHaveBeenLastCalledWith(expect.objectContaining({ visible: false }));
+    // The thread itself is untouched by the drawer.
+    expect(mockChatMessageList).toHaveBeenCalledTimes(listRenders);
+  });
+
+  it("closes the math scanner when the drawer opens over it", async () => {
+    const onCloseMathScanner = jest.fn();
+    const props = { ...baseProps, sheets: { ...baseProps.sheets, mathScannerOpen: true, onCloseMathScanner } };
+    const view = await render(
+      <DrawerProvider controls={drawerControls} isOpen={false}>
+        <ChatScreenBody {...props} />
+      </DrawerProvider>,
+    );
+    expect(onCloseMathScanner).not.toHaveBeenCalled();
+
+    await view.rerender(
+      <DrawerProvider controls={drawerControls} isOpen>
+        <ChatScreenBody {...props} />
+      </DrawerProvider>,
+    );
+    expect(onCloseMathScanner).toHaveBeenCalledTimes(1);
   });
 });

@@ -235,13 +235,11 @@ export function DrawerShell({ children }: { children: ReactNode }) {
     opacity: overlayOpacity.value,
   }));
 
-  const drawerValue = useMemo(
-    () => ({ isOpen: drawerOpen, open, close }),
-    [drawerOpen, open, close],
-  );
+  const isOpenNow = useCallback(() => drawerOpenRef.current, []);
+  const drawerControls = useMemo(() => ({ open, close, isOpenNow }), [open, close, isOpenNow]);
 
   return (
-    <DrawerProvider value={drawerValue}>
+    <DrawerProvider controls={drawerControls} isOpen={drawerOpen}>
       <GestureDetector gesture={pan}>
         <View style={s.root}>
           <View style={s.rootInner}>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, BackHandler, Linking } from "react-native";
 
-import { useDrawer } from "@/contexts/DrawerContext";
+import { useDrawerControls } from "@/contexts/DrawerContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
 import type { Message } from "@/lib/api";
@@ -60,7 +60,9 @@ export function useLiveTalk({
   t,
 }: Options) {
   const feedback = useActionFeedbackOptional();
-  const drawerOpen = useDrawer().isOpen;
+  // Read when Back is pressed, not subscribed: the chat screen that calls this
+  // hook must not render again every time the drawer opens or closes.
+  const drawer = useDrawerControls();
   const [visible, setVisible] = useState(false);
   const [phase, setPhase] = useState<LiveTalkPhase>("idle");
   const [muted, setMuted] = useState(false);
@@ -434,12 +436,12 @@ export function useLiveTalk({
   useEffect(() => {
     if (!visible) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (drawerOpen) return false;
+      if (drawer.isOpenNow()) return false;
       close();
       return true;
     });
     return () => sub.remove();
-  }, [visible, drawerOpen, close]);
+  }, [visible, drawer, close]);
 
   useEffect(() => {
     if (!liveTalkShouldCloseOnChatChange(turnChatIdRef.current, chatId)) return;

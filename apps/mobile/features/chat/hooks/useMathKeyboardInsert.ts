@@ -60,6 +60,11 @@ export function useMathKeyboardInsert(options: {
   const [padHeight, setPadHeight] = useState(() => mathPadHeight(0));
   const [selection, setSelection] = useState<TextSelection>({ start: 0, end: 0 });
   const [forcedSelection, setForcedSelection] = useState<TextSelection | undefined>();
+  // Mirrors of the two selections, so an event that repeats one (each typed
+  // character reports the caret it already moved to) does not render the
+  // composer again: React renders even for an unchanged value set right after an update.
+  const selectionRef = useRef(selection);
+  const forcedSelectionRef = useRef(forcedSelection);
   const [previewEnabled, setPreviewEnabled] = useState(false);
   const previewEnabledRef = useRef(false);
   const draftRevisionRef = useRef(draftRevision);
@@ -82,6 +87,18 @@ export function useMathKeyboardInsert(options: {
     setPreviewEnabled(true);
   }, []);
 
+  /** The caret the composer shows, and the one forced onto the native field (undefined: native owns it). */
+  const commitSelection = useCallback((next: TextSelection, forced: TextSelection | undefined) => {
+    const current = selectionRef.current;
+    if (current.start !== next.start || current.end !== next.end) {
+      selectionRef.current = next;
+      setSelection(next);
+    }
+    if (forced === undefined && forcedSelectionRef.current === undefined) return;
+    forcedSelectionRef.current = forced;
+    setForcedSelection(forced);
+  }, []);
+
   useEffect(() => {
     if (input) return;
     previewEnabledRef.current = false;
@@ -98,15 +115,13 @@ export function useMathKeyboardInsert(options: {
     resumeMathRef.current = false;
     setResumeMathOnFocus(false);
     pinRef.current = null;
-    setSelection({ start: input.length, end: input.length });
-    setForcedSelection(undefined);
-  }, [draftRevision, input]);
+    commitSelection({ start: input.length, end: input.length }, undefined);
+  }, [commitSelection, draftRevision, input]);
 
   const pinSelection = useCallback((sel: TextSelection) => {
     pinRef.current = sel;
-    setSelection(sel);
-    setForcedSelection(sel);
-  }, []);
+    commitSelection(sel, sel);
+  }, [commitSelection]);
 
   useLayoutEffect(() => {
     if (!previewEnabledRef.current || !hasEditableMath(input)) return;
@@ -127,15 +142,16 @@ export function useMathKeyboardInsert(options: {
       // The parked TextInput keeps the OS caret in the last LaTeX slot.
       if (pinned && previewEnabledRef.current && hasEditableMath(textRef.current)) {
         if (next.start !== pinned.start || next.end !== pinned.end) {
-          setForcedSelection({ ...pinned });
+          // A new object even when equal: it puts the native caret back on the pin.
+          forcedSelectionRef.current = { ...pinned };
+          setForcedSelection(forcedSelectionRef.current);
         }
         return;
       }
       pinRef.current = next;
-      setSelection(next);
-      setForcedSelection(undefined);
+      commitSelection(next, undefined);
     },
-    [],
+    [commitSelection],
   );
 
   const onChangeText = useCallback(
@@ -179,8 +195,7 @@ export function useMathKeyboardInsert(options: {
         pinSelection(nextSelection);
       } else {
         pinRef.current = nextSelection;
-        setSelection(nextSelection);
-        setForcedSelection(undefined);
+        commitSelection(nextSelection, undefined);
       }
       if (!changed.text) {
         previewEnabledRef.current = false;
@@ -193,7 +208,7 @@ export function useMathKeyboardInsert(options: {
         });
       }
     },
-    [onImageOnlyPaste, pinSelection, selection, setInput],
+    [commitSelection, onImageOnlyPaste, pinSelection, selection, setInput],
   );
 
   const openMathBar = useCallback(() => {

@@ -1,15 +1,19 @@
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text } from "react-native";
+import Animated, { type SharedValue } from "react-native-reanimated";
 import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
 import type { ChatScreenStyles } from "@/features/chat/components/chatScreenStyles";
 import type { Theme } from "@/lib/theme";
 import { IconSize } from "@/ui/icons/sizes";
+import { useBottomLiftStyle } from "@/ui/hooks/useBottomLiftStyle";
 
 type Props = {
   styles: ChatScreenStyles;
   theme: Theme;
   bottomOffset: number;
+  /** Rides the keyboard with the composer, frame by frame. */
+  lift?: SharedValue<number>;
   usedPct: number;
   onUpgrade: () => void;
   onDismiss: () => void;
@@ -19,14 +23,16 @@ export function ChatQuotaNudge({
   styles: s,
   theme,
   bottomOffset,
+  lift,
   usedPct,
   onUpgrade,
   onDismiss,
 }: Props) {
   const { t } = useTranslation();
+  const liftStyle = useBottomLiftStyle(lift);
 
   return (
-    <View style={[s.quotaNudge, { bottom: bottomOffset }]}>
+    <Animated.View style={[s.quotaNudge, { bottom: bottomOffset }, lift ? liftStyle : null]}>
       <Pressable style={s.quotaNudgeBody} onPress={onUpgrade}>
         <Icon
           name="zap"
@@ -44,6 +50,6 @@ export function ChatQuotaNudge({
       <Pressable onPress={onDismiss} hitSlop={8} style={s.quotaNudgeClose} accessibilityRole="button" accessibilityLabel={t("common.cancel")}>
         <Icon name="close" size={IconSize.xs} color={theme.textTertiary} />
       </Pressable>
-    </View>
+    </Animated.View>
   );
 }
