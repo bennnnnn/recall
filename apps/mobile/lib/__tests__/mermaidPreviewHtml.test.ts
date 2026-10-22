@@ -105,6 +105,28 @@ describe("buildMermaidPageHtml", () => {
     expect(page.posted).toEqual([{ kind: "mermaid-size", height: 116 }]);
   });
 
+  it("fits a card's diagram to its width and draws the full-screen one at its own size", () => {
+    const fitted = fakeMermaid(() => Promise.resolve());
+    const card = previewPageSandbox({ mermaid: fitted });
+    card.loadPage(buildMermaidPageHtml(LIBRARY));
+    card.hand(mermaidPreviewConfig("erDiagram\n  A ||--o{ B : has", LIGHT));
+    expect(fitted.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({ er: { useMaxWidth: true }, sequence: { useMaxWidth: true } }),
+    );
+
+    const natural = fakeMermaid(() => Promise.resolve());
+    const full = previewPageSandbox({ mermaid: natural });
+    full.loadPage(buildMermaidPageHtml(LIBRARY));
+    full.hand(mermaidPreviewConfig("erDiagram\n  A ||--o{ B : has", LIGHT, { natural: true }));
+    expect(natural.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flowchart: { useMaxWidth: false, htmlLabels: false },
+        er: { useMaxWidth: false },
+        sequence: { useMaxWidth: false },
+      }),
+    );
+  });
+
   it("reports a diagram Mermaid cannot read", async () => {
     const page = previewPageSandbox({ mermaid: fakeMermaid(() => Promise.reject(new Error("Parse error"))) });
     page.loadPage(buildMermaidPageHtml(LIBRARY));
@@ -121,6 +143,7 @@ describe("mermaidPreviewConfig", () => {
       source: "graph TD; A-->B",
       theme: "neutral",
       colors: { bg: LIGHT.bg, danger: LIGHT.danger },
+      natural: false,
     });
     expect(mermaidPreviewConfig("graph TD; A-->B", DARK).theme).toBe("dark");
   });
