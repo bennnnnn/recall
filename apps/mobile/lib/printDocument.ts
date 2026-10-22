@@ -3,8 +3,8 @@
 import katex from "katex";
 
 import { isMathFenceLang } from "@/lib/fenceRegistry";
-import { KATEX_CSS } from "@/lib/vendor/katexCss";
 import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/preprocess";
+import { readVendorLibrary } from "@/lib/vendorAssets";
 
 function escapeHtml(text: string): string {
   return text
@@ -65,7 +65,7 @@ function isPrintMathFenceLang(lang: string): boolean {
   return isMathFenceLang(l) || l === "katex" || l === "asciimath";
 }
 
-function wrapPrintDocument(title: string, bodyHtml: string, meta?: string): string {
+function wrapPrintDocument(title: string, bodyHtml: string, katexCss: string, meta?: string): string {
   const safeTitle = escapeHtml(title.trim() || "Recall report");
   const metaBlock = meta?.trim()
     ? `<p class="meta">${escapeHtml(meta.trim())}</p>`
@@ -74,7 +74,7 @@ function wrapPrintDocument(title: string, bodyHtml: string, meta?: string): stri
 <html>
 <head>
 <meta charset="utf-8"/>
-<style>${KATEX_CSS}
+<style>${katexCss}
 ${PRINT_STYLES}</style>
 </head>
 <body>
@@ -88,9 +88,17 @@ ${PRINT_STYLES}</style>
 /**
  * Convert markdown into structured print HTML (headings, lists, code, paragraphs).
  * Math fences and $...$ / \\(...\\) inline math use KaTeX — same as the chat UI —
- * instead of dumping raw LaTeX into <pre>.
+ * instead of dumping raw LaTeX into <pre>. KaTeX's stylesheet is a vendored asset,
+ * read here rather than carried in the JS bundle.
  */
-export function markdownToStructuredPrintHtml(title: string, markdown: string): string {
+export async function markdownToStructuredPrintHtml(title: string, markdown: string): Promise<string> {
+  const body = structuredPrintBody(markdown);
+  // Without the stylesheet KaTeX's markup still reads, unstyled; the export goes ahead.
+  const katexCss = await readVendorLibrary("katexCss").catch(() => "");
+  return wrapPrintDocument(title, body, katexCss);
+}
+
+function structuredPrintBody(markdown: string): string {
   const prepared = preprocessMarkdown(markdown.replace(/\r\n/g, "\n"));
   const lines = prepared.split("\n");
   const parts: string[] = [];
@@ -194,8 +202,7 @@ export function markdownToStructuredPrintHtml(title: string, markdown: string): 
   }
   flushParagraph();
 
-  const body = parts.join("\n") || `<p class="empty"></p>`;
-  return wrapPrintDocument(title, body);
+  return parts.join("\n") || `<p class="empty"></p>`;
 }
 
 function looksLikePrintTableRow(line: string): boolean {

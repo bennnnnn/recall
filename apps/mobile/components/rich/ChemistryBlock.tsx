@@ -8,12 +8,14 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { CopyButton } from "@/components/CopyButton";
 import { MoleculeCaption, MoleculeNote } from "@/components/rich/MoleculeChrome";
+import { usePreviewPage } from "@/components/rich/usePreviewPage";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { parseChemistryFence } from "@/lib/chemistry/fence";
 import {
-  buildSmilesDrawerHtml,
   readSmilesDrawerError,
+  SMILES_DRAWER_PAGE,
+  smilesDrawerConfig,
   type SmilesDrawerError,
 } from "@/lib/chemistry/smilesDrawerHtml";
 import { CODE_FONT } from "@/lib/fonts";
@@ -22,11 +24,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
-import {
-  getPreviewWebView,
-  STATIC_HTML_ORIGIN_WHITELIST,
-  useStaticOnlyNavigation,
-} from "@/lib/webView";
+import { getPreviewWebView } from "@/lib/webView";
 
 type Props = { content: string };
 
@@ -44,18 +42,6 @@ export function Chemistry2DView({ smiles }: { smiles: string }) {
   const s = useMemo(() => makeStyles(theme), [theme]);
   // Keyed by the SMILES it failed on, so a new structure starts clean without an effect.
   const [failure, setFailure] = useState<{ smiles: string; code: SmilesDrawerError } | null>(null);
-  const renderError = failure?.smiles === smiles ? failure.code : null;
-
-  const html = useMemo(
-    () => (smiles ? buildSmilesDrawerHtml(smiles, theme) : ""),
-    [smiles, theme],
-  );
-  const webSource = useMemo(() => ({ html }), [html]);
-  const previewWebView = getPreviewWebView();
-  const WebView = previewWebView?.Component;
-  const canRenderInline = previewWebView?.mode === "rnc" && Boolean(smiles);
-  const { canMount, onLoaded } = useDeferredWebViewMount(Boolean(WebView) && canRenderInline);
-  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(html);
 
   const handleWebViewMessage = useCallback(
     (event: { nativeEvent: { data?: string } }) => {
@@ -64,6 +50,20 @@ export function Chemistry2DView({ smiles }: { smiles: string }) {
     },
     [smiles],
   );
+
+  const config = useMemo(() => smilesDrawerConfig(smiles, theme), [smiles, theme]);
+  const previewWebView = getPreviewWebView();
+  const WebView = previewWebView?.Component;
+  const canRenderInline = previewWebView?.mode === "rnc" && Boolean(smiles);
+  const preview = usePreviewPage(SMILES_DRAWER_PAGE, config, {
+    active: Boolean(WebView) && canRenderInline,
+    onMessage: handleWebViewMessage,
+  });
+  const { canMount, onLoaded } = useDeferredWebViewMount(
+    Boolean(WebView) && canRenderInline && preview.status === "ready",
+  );
+  const drawError = failure?.smiles === smiles ? failure.code : null;
+  const renderError = drawError ?? (preview.status === "failed" ? "unavailable" : null);
 
   const handleWebViewFailure = useCallback(() => {
     setFailure({ smiles, code: "render" });
@@ -78,7 +78,7 @@ export function Chemistry2DView({ smiles }: { smiles: string }) {
     );
   }
   if (canRenderInline && WebView) {
-    if (!canMount) {
+    if (!canMount || preview.status !== "ready") {
       return (
         <View style={s.loadingWrap}>
           <ActivityIndicator color={theme.primary} />
@@ -88,17 +88,14 @@ export function Chemistry2DView({ smiles }: { smiles: string }) {
     return (
       <View style={s.webWrap}>
         <WebView
-          originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
-          source={webSource}
+          key={preview.webViewKey}
+          {...preview.webViewProps}
           scrollEnabled={false}
           style={s.webview}
           javaScriptEnabled
           domStorageEnabled={false}
           onLoadEnd={onLoaded}
-          onError={handleWebViewFailure}
           onRenderProcessGone={handleWebViewFailure}
-          onMessage={handleWebViewMessage}
-          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         />
       </View>
     );

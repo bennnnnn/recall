@@ -33,6 +33,10 @@ jest.mock("expo-web-browser", () => ({
   openBrowserAsync: jest.fn(),
 }));
 
+// The diagram page is a file the block reads from expo-file-system, whose
+// native module cannot load here; with no preview WebView it is never written.
+jest.mock("expo-file-system/legacy", () => ({}));
+
 // CopyButton (used by MermaidBlock's action row) pulls in expo-haptics, whose
 // native EventEmitter isn't available in this plain jest-preset environment.
 jest.mock("expo-haptics", () => ({

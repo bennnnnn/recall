@@ -4,6 +4,13 @@ import {
   markdownToSpeechText,
 } from "@/lib/markdown/plain";
 import { markdownToStructuredPrintHtml } from "@/lib/printDocument";
+import { readVendorLibrary } from "@/lib/vendorAssets";
+
+// KaTeX's stylesheet is a vendored asset the print path reads from disk.
+const MOCK_KATEX_CSS = ".katex{font:normal 1.21em KaTeX_Main}";
+jest.mock("@/lib/vendorAssets", () => ({
+  readVendorLibrary: jest.fn(async () => MOCK_KATEX_CSS),
+}));
 
 describe("markdownPlain", () => {
   it("strips fences and markdown emphasis for TTS", () => {
@@ -128,16 +135,31 @@ describe("markdownPlain", () => {
 });
 
 describe("markdownToStructuredPrintHtml", () => {
-  it("keeps code fences as pre blocks", () => {
-    const html = markdownToStructuredPrintHtml("Note", "Intro\n\n```js\nconst x = 1;\n```\n\nDone");
+  it("styles the document with KaTeX's vendored stylesheet", async () => {
+    const html = await markdownToStructuredPrintHtml("Note", "Solve $x^2=4$.");
+    expect(readVendorLibrary).toHaveBeenCalledWith("katexCss");
+    const head = html.slice(0, html.indexOf("</head>"));
+    expect(head).toContain(`<style>${MOCK_KATEX_CSS}`);
+  });
+
+  it("still exports, unstyled math and all, when the stylesheet cannot be read", async () => {
+    jest.mocked(readVendorLibrary).mockRejectedValueOnce(new Error("asset missing"));
+    const html = await markdownToStructuredPrintHtml("Note", "Solve $x^2=4$.");
+    expect(html).not.toContain(MOCK_KATEX_CSS);
+    expect(html).toContain("katex");
+    expect(html).toContain("<h1>Note</h1>");
+  });
+
+  it("keeps code fences as pre blocks", async () => {
+    const html = await markdownToStructuredPrintHtml("Note", "Intro\n\n```js\nconst x = 1;\n```\n\nDone");
     expect(html).toContain("<pre><code");
     expect(html).toContain("const x = 1;");
     expect(html).toContain("<p>Intro</p>");
     expect(html).toContain("<p>Done</p>");
   });
 
-  it("renders headings and lists", () => {
-    const html = markdownToStructuredPrintHtml(
+  it("renders headings and lists", async () => {
+    const html = await markdownToStructuredPrintHtml(
       "Guide",
       "## Section\n\n- one\n- two\n\n1. first\n2. second",
     );
@@ -148,8 +170,8 @@ describe("markdownToStructuredPrintHtml", () => {
     expect(html).toContain("<li>first</li>");
   });
 
-  it("renders math fences with KaTeX instead of raw pre blocks", () => {
-    const html = markdownToStructuredPrintHtml(
+  it("renders math fences with KaTeX instead of raw pre blocks", async () => {
+    const html = await markdownToStructuredPrintHtml(
       "Math",
       "Answer:\n\n```math\nx^2 + 1 = 0\n```\n",
     );
@@ -158,21 +180,21 @@ describe("markdownToStructuredPrintHtml", () => {
     expect(html).not.toContain("<pre><code class=\"language-math\"");
   });
 
-  it("renders inline $math$ with KaTeX", () => {
-    const html = markdownToStructuredPrintHtml("Inline", "Solve $x^2=4$ next.");
+  it("renders inline $math$ with KaTeX", async () => {
+    const html = await markdownToStructuredPrintHtml("Inline", "Solve $x^2=4$ next.");
     expect(html).toContain("katex");
     expect(html).toContain("math-inline");
     expect(html).not.toContain("$x^2=4$");
   });
 
-  it("converts $$ block math via preprocess before printing", () => {
-    const html = markdownToStructuredPrintHtml("Display", "See\n\n$$\\frac{a}{b}$$\n");
+  it("converts $$ block math via preprocess before printing", async () => {
+    const html = await markdownToStructuredPrintHtml("Display", "See\n\n$$\\frac{a}{b}$$\n");
     expect(html).toContain("katex");
     expect(html).toContain("math-block");
   });
 
-  it("keeps hyphenated fence langs and prints GFM tables plus links", () => {
-    const html = markdownToStructuredPrintHtml(
+  it("keeps hyphenated fence langs and prints GFM tables plus links", async () => {
+    const html = await markdownToStructuredPrintHtml(
       "Note",
       "See [docs](https://example.com).\n\n```vega-lite\n{}\n```\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n",
     );

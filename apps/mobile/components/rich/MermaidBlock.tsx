@@ -9,83 +9,22 @@ import * as WebBrowser from "expo-web-browser";
 import { Icon } from "@/ui/icons/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
+import { usePreviewPage } from "@/components/rich/usePreviewPage";
 import { useWebPreviewHeight } from "@/components/rich/useWebPreviewHeight";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CODE_FONT } from "@/lib/fonts";
 import { MERMAID_MIN_HEIGHT, MERMAID_PREVIEW_HEIGHT } from "@/lib/mermaidPreviewHeight";
+import { MERMAID_PAGE, mermaidPreviewConfig } from "@/lib/mermaidPreviewHtml";
 import { sanitizeMermaidNodeLabels } from "@/lib/mermaidSanitize";
-import { injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
 import { Theme, useTheme } from "@/lib/theme";
-import {
-  getPreviewWebView,
-  STATIC_HTML_ORIGIN_WHITELIST,
-  useStaticOnlyNavigation,
-} from "@/lib/webView";
-import { MERMAID_MIN_JS } from "@/lib/vendor/mermaidMinJs";
+import { getPreviewWebView } from "@/lib/webView";
 import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Type, Weight } from "@/lib/type";
 
 type Props = { content: string };
-
-function buildMermaidHtml(source: string, theme: Theme): string {
-  const safeSpec = source
-    .trim()
-    .replace(/\\/g, "\\\\")
-    .replace(/`/g, "\\`")
-    .replace(/\$/g, "\\$")
-    .replace(/<\/script>/gi, "<\\/script>");
-  const mermaidTheme = theme.isDark ? "dark" : "neutral";
-  return injectPreviewCsp(`<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script>${inlineScript(MERMAID_MIN_JS)}</script>
-<style>
-  body { margin: 0; padding: 8px; font-family: -apple-system, sans-serif; background: ${theme.bg}; }
-  #err { color: ${theme.danger}; font-size: 12px; display: none; white-space: pre-wrap; padding: 8px; }
-  .mermaid { display: flex; justify-content: center; }
-</style>
-</head>
-<body>
-<pre class="mermaid" id="diagram"></pre>
-<div id="err"></div>
-<script>
-  const src = \`${safeSpec}\`;
-  function reportError(msg) {
-    try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'mermaid-error', message: msg })); } catch (e) {}
-    var el = document.getElementById('err');
-    el.textContent = 'Diagram error: ' + msg;
-    el.style.display = 'block';
-  }
-  function reportSize() {
-    var svg = document.querySelector('#diagram svg');
-    var h = 0;
-    if (svg) {
-      var box = svg.getBoundingClientRect();
-      h = box.height;
-    }
-    if (!h) h = document.body.scrollHeight;
-    try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'mermaid-size', height: Math.ceil(h + 16) })); } catch (e) {}
-  }
-  const el = document.getElementById('diagram');
-  el.textContent = src;
-  mermaid.initialize({
-    startOnLoad: false,
-    theme: '${mermaidTheme}',
-    securityLevel: 'strict',
-    flowchart: { useMaxWidth: true, htmlLabels: false },
-  });
-  mermaid.run({ nodes: [el] }).then(function() {
-    requestAnimationFrame(reportSize);
-  }).catch(function(err) { reportError(err && err.message ? err.message : String(err)); });
-</script>
-</body>
-</html>`);
-}
 
 export function MermaidBlock({ content }: Props) {
   const theme = useTheme();
@@ -100,13 +39,18 @@ export function MermaidBlock({ content }: Props) {
     });
 
   const sanitized = useMemo(() => sanitizeMermaidNodeLabels(content.trim()), [content]);
-  const mermaidHtml = useMemo(() => buildMermaidHtml(sanitized, theme), [sanitized, theme]);
-  const source = useMemo(() => ({ html: mermaidHtml }), [mermaidHtml]);
+  const config = useMemo(() => mermaidPreviewConfig(sanitized, theme), [sanitized, theme]);
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInline = previewWebView?.mode === "rnc";
-  const { canMount, onLoaded } = useDeferredWebViewMount(Boolean(WebView) && canRenderInline);
-  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(mermaidHtml);
+  const preview = usePreviewPage(MERMAID_PAGE, config, {
+    active: Boolean(WebView) && canRenderInline,
+    onMessage,
+  });
+  const { canMount, onLoaded } = useDeferredWebViewMount(
+    Boolean(WebView) && canRenderInline && preview.status === "ready",
+  );
+  const previewError = preview.status === "failed" ? t("rich.mermaid_error") : null;
 
   const handleOpenLiveEditor = useCallback(async () => {
     await Clipboard.setStringAsync(sanitized);
@@ -156,11 +100,11 @@ export function MermaidBlock({ content }: Props) {
         </>
       }
     >
-      {renderError ? (
+      {renderError || previewError ? (
         <View style={s.previewBox}>
           <Icon name="alert-circle" size={IconSize.sm} color={theme.danger} />
           <Text style={[s.previewText, { color: theme.danger }]}>
-            {renderError}
+            {renderError ?? previewError}
           </Text>
         </View>
       ) : showSource ? (
@@ -168,11 +112,11 @@ export function MermaidBlock({ content }: Props) {
           <Text style={s.previewText}>{sanitized}</Text>
         </View>
       ) : canRenderInline && WebView ? (
-        canMount ? (
+        canMount && preview.status === "ready" ? (
           <View style={[s.webWrap, { height }]}>
             <WebView
-              originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
-              source={source}
+              key={preview.webViewKey}
+              {...preview.webViewProps}
               scrollEnabled={clipped}
               nestedScrollEnabled={clipped}
               showsVerticalScrollIndicator={clipped}
@@ -182,8 +126,6 @@ export function MermaidBlock({ content }: Props) {
               javaScriptEnabled
               domStorageEnabled={false}
               onLoadEnd={onLoaded}
-              onMessage={onMessage}
-              onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
             />
           </View>
         ) : (

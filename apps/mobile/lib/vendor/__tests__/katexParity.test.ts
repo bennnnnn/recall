@@ -1,7 +1,5 @@
 import katex from "katex";
 
-import { KATEX_CSS } from "@/lib/vendor/katexCss";
-
 // The lib test project includes Jest types, but no global Node type package.
 // These test-only native helpers have deliberately small typed interfaces.
 declare const __dirname: string;
@@ -21,6 +19,8 @@ const { createRequire } = jest.requireActual<{
 const packageDir = dirname(createRequire(join(__dirname, "katexParity.test.ts")).resolve("katex/package.json"));
 const sourceCss = readFileSync(join(packageDir, "dist/katex.min.css"), "utf8");
 const manifest = JSON.parse(readFileSync(join(__dirname, "../manifest.json"), "utf8"));
+/** The stylesheet PDF export inlines (lib/printDocument.ts), as shipped. */
+const KATEX_CSS = readFileSync(join(__dirname, "../katex.min.css.txt"), "utf8");
 const facePattern = /@font-face\{[^}]*\}/g;
 const sha = (value: string): string => createHash("sha256").update(value).digest("hex");
 

@@ -5,7 +5,7 @@ import { markdownToStructuredPrintHtml } from "@/lib/printDocument";
 import { conversationMarkdownBody } from "@/features/chat/model/transcript";
 
 async function exportMessageAsPdf(title: string, markdown: string): Promise<void> {
-  const html = markdownToStructuredPrintHtml(title, markdown);
+  const html = await markdownToStructuredPrintHtml(title, markdown);
   await printHtmlToSharedPdf(html, title);
 }
 
