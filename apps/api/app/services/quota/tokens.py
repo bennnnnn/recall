@@ -191,7 +191,7 @@ async def _reserve_up_to_watched(redis: Redis, key: str, wanted: int, daily_limi
                 grant = min(wanted, max(0, daily_limit - int(await pipe.get(key) or 0)))
                 if grant <= 0:
                     return 0
-                pipe.multi()
+                pipe.multi()  # type: ignore[no-untyped-call]
                 pipe.incrby(key, grant)
                 pipe.expire(key, DAILY_TTL, nx=True)
                 await pipe.execute()
