@@ -1,14 +1,16 @@
 """The database and Redis round trips a chat turn makes before its reply starts.
 
 Each one costs the user time before the first token: about 12 ms per Postgres round
-trip from Fly to Neon, and about 1 ms per Redis command. This drives the real SSE
-chat path (auth, rate limits, the turn, the mock model) for a few kinds of message
-and counts, from the request until the first token is sent: SQL statements, pool
-checkouts, transactions (each also a BEGIN and a COMMIT or ROLLBACK on the wire),
-checkout pings (one round trip each; none for a connection used moments ago,
-``core/pool_liveness``) and Redis round trips (a pipeline is one). That is
-everything before the model is called, plus the user message's save, which the
-first token waits for.
+trip from Fly to Neon, and about 1 ms per Redis command. This drives the real chat
+paths (auth, rate limits, the turn, the mock model) for a few kinds of message, over
+SSE from the request and over the WebSocket from the message frame, and counts until
+the first token is sent: SQL statements, pool checkouts, transactions (each also a
+BEGIN and a COMMIT or ROLLBACK on the wire), checkout pings (one round trip each;
+none for a connection used moments ago, ``core/pool_liveness``) and Redis round
+trips (a pipeline is one). That is everything before the model is called, plus the
+user message's save, which the first token waits for. The app has one fake Redis,
+as production has one Redis: a user-row write publishes its generation where the
+next token check reads it (``core/user_cache``).
 
 No timing: counts only, so it cannot flake. Each ceiling is the count when it was
 set. A change that lowers a count lowers its ceiling here in the same change, so
@@ -19,29 +21,33 @@ raise the ceiling and say why in the change's description.
 
 from __future__ import annotations
 
+import asyncio
+import json
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock
 from uuid import UUID, uuid4
 
-import fakeredis.aioredis
 import httpx
 import pytest
 import redis.asyncio as redis_asyncio
 from redis.asyncio.client import Pipeline
 from sqlalchemy import event
+from starlette.websockets import WebSocket
 
 from app.core import access_tokens, pool_liveness, user_cache
 from app.core import redis as core_redis
 from app.core.background_tasks import drain_background_tasks
+from app.core.cache_generation import bump_generation
 from app.core.config import get_settings
 from app.core.db import SessionLocal, engine
 from app.gateways.storage_gateway import reset_storage_gateway_cache
 from app.models.orm import Memory, TodoItem, User
-from app.modules.chat import stream_api
+from app.modules.chat import stream_api, ws_api, ws_turn
 from app.modules.images import search as image_search
 from app.repositories import users as users_repo
 from app.services.quota import tokens as quota_tokens
@@ -83,6 +89,22 @@ CEILINGS: dict[str, tuple[str, Ceiling]] = {
 # The day's first message: Redis has no usage counter yet, so it is read back from
 # the database before the turn reserves its tokens.
 FIRST_OF_THE_DAY = ("hi", Ceiling(sql=2, checkouts=2, transactions=2, redis=17))
+# Questions on one chat socket, from the message frame to the first token frame (the
+# handshake and auth frame are the socket's, paid once). On a machine that has not
+# read the user yet, the first turn reads the row; the next finds it in the process's
+# cache, current by the generation its frame's token check read; after a change made
+# on another machine, the generation moved and the row is read again.
+WS_TURNS: dict[str, tuple[str, Ceiling]] = {
+    "first on the socket": (
+        "What's the capital of France?",
+        Ceiling(sql=3, checkouts=3, transactions=3, redis=15),
+    ),
+    "next": ("And of Spain?", Ceiling(sql=2, checkouts=2, transactions=2, redis=15)),
+    "after a change elsewhere": (
+        "And of Italy?",
+        Ceiling(sql=3, checkouts=3, transactions=3, redis=15),
+    ),
+}
 
 
 @dataclass
@@ -93,9 +115,11 @@ class _Trips:
     transactions: int = 0
     redis: int = 0
     pings: int = 0
+    statements: list[str] = field(default_factory=list)
 
     def start(self) -> None:
         self.sql = self.checkouts = self.transactions = self.redis = self.pings = 0
+        self.statements = []
         self.counting = True
 
     def seen(self) -> Ceiling:
@@ -105,9 +129,31 @@ class _Trips:
 @dataclass
 class _Turns:
     client: httpx.AsyncClient
-    headers: dict[str, str]
+    token: str
+    user_id: UUID
     redis: Any
     trips: _Trips
+
+    @property
+    def headers(self) -> dict[str, str]:
+        return {"Authorization": f"Bearer {self.token}"}
+
+    @asynccontextmanager
+    async def socket(self) -> AsyncIterator[_Socket]:
+        """A chat socket on a new chat, authenticated; closed by the client on exit."""
+        created = await self.client.post("/chats", json={}, headers=self.headers)
+        chat_id = UUID(created.json()["id"])
+        await drain_background_tasks()
+        socket = _Socket(self.trips)
+        websocket = WebSocket(socket.scope(chat_id), socket.receive, socket.send)
+        served = asyncio.create_task(ws_api.chat_websocket(websocket, chat_id))
+        try:
+            await socket.connect(self.token)
+            yield socket
+        finally:
+            await socket.inbox.put({"type": "websocket.disconnect", "code": 1000})
+            async with asyncio.timeout(30):
+                await served
 
     async def first_token_trips(self, content: str) -> Ceiling:
         """Send ``content`` in a new chat; the round trips until its first token."""
@@ -123,6 +169,67 @@ class _Turns:
         assert response.status_code == 200
         assert '"type":"token"' in response.text, response.text[-400:]
         return self.trips.seen()
+
+
+@dataclass
+class _Socket:
+    """The app's chat WebSocket, served in this event loop: httpx speaks no WebSocket,
+    and a TestClient would run the app on a loop of its own."""
+
+    trips: _Trips
+    inbox: asyncio.Queue[dict[str, Any]] = field(default_factory=asyncio.Queue)
+    outbox: asyncio.Queue[dict[str, Any]] = field(default_factory=asyncio.Queue)
+
+    @staticmethod
+    def scope(chat_id: UUID) -> dict[str, Any]:
+        return {
+            "type": "websocket",
+            "path": f"/ws/chats/{chat_id}",
+            "headers": [(b"host", b"test")],
+            "query_string": b"",
+            "client": ("127.0.0.1", 50_000),
+            "server": ("test", 80),
+            "subprotocols": [],
+        }
+
+    async def receive(self) -> dict[str, Any]:
+        """What the client sent (ASGI); a counted frame starts the count as it is read."""
+        message = await self.inbox.get()
+        if message.pop("count", False):
+            self.trips.start()
+        return message
+
+    async def send(self, message: dict[str, Any]) -> None:
+        """What the app sent (ASGI)."""
+        await self.outbox.put(message)
+
+    async def connect(self, token: str) -> None:
+        await self.inbox.put({"type": "websocket.connect"})
+        await self.inbox.put({"type": "websocket.receive", "text": json.dumps({"token": token})})
+        async with asyncio.timeout(30):
+            accepted = await self.outbox.get()
+        assert accepted["type"] == "websocket.accept", accepted
+
+    async def _until(self, kind: str) -> None:
+        async with asyncio.timeout(30):
+            while True:
+                message = await self.outbox.get()
+                assert message["type"] == "websocket.send", message
+                frame = json.loads(message["text"])
+                assert frame.get("type") != "error", frame
+                if frame.get("type") == kind:
+                    return
+
+    async def first_token_trips(self, content: str) -> tuple[Ceiling, list[str]]:
+        """Send ``content`` as a message frame; the round trips until its first token
+        frame, and the statements among them. Returns once the turn is saved."""
+        frame = json.dumps({"type": "message", "content": content})
+        await self.inbox.put({"type": "websocket.receive", "text": frame, "count": True})
+        await self._until("token")
+        seen, statements = self.trips.seen(), list(self.trips.statements)
+        await self._until("done")
+        await drain_background_tasks()
+        return seen, statements
 
 
 async def _seed_user() -> UUID:
@@ -160,7 +267,9 @@ def _count(trips: _Trips, field: str) -> Any:
 
 
 @pytest.fixture
-async def turns(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> AsyncIterator[_Turns]:
+async def turns(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, user_generation_redis: Any
+) -> AsyncIterator[_Turns]:
     from app.main import create_app
 
     monkeypatch.setenv("MOCK_LLM_ENABLED", "true")
@@ -171,14 +280,23 @@ async def turns(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> AsyncIterato
     get_settings.cache_clear()
     reset_storage_gateway_cache()
     settings = get_settings()
-    fake = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    # The client user-row writes publish to (conftest) is the app's Redis too.
+    fake = user_generation_redis
     core_redis.get_redis_client.cache_clear()
     monkeypatch.setattr(redis_asyncio, "from_url", lambda *_a, **_k: fake)
+    assert user_cache.get_redis_client() is fake
     await engine.dispose(close=False)
 
     trips = _Trips()
+    count_sql = _count(trips, "sql")
+
+    def sql(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
+        if trips.counting and not _IN_PLACE_OF_LUA.get():
+            trips.statements.append(" ".join(statement.split())[:80])
+        count_sql()
+
     listeners = [
-        ("before_cursor_execute", _count(trips, "sql")),
+        ("before_cursor_execute", sql),
         ("checkout", _count(trips, "checkouts")),
         ("begin", _count(trips, "transactions")),
     ]
@@ -226,6 +344,7 @@ async def turns(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> AsyncIterato
         return build_token_event(content)
 
     monkeypatch.setattr(stream_api, "build_token_event", first_token_stops_the_count)
+    monkeypatch.setattr(ws_turn, "build_token_event", first_token_stops_the_count)
     # No photo is fetched from the internet: a lookup finds none it can use.
     monkeypatch.setattr(image_search, "_fetch_candidates", AsyncMock(return_value=[]))
 
@@ -236,7 +355,7 @@ async def turns(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> AsyncIterato
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
-            yield _Turns(client, {"Authorization": f"Bearer {token}"}, fake, trips)
+            yield _Turns(client, token, user_id, fake, trips)
     finally:
         await drain_background_tasks()
         for name, listener in listeners:
@@ -286,3 +405,30 @@ async def test_the_days_first_turn_reads_back_usage_under_its_ceiling(turns: _Tu
     print("round trips before the day's first token:", seen)
 
     assert not _within(seen, ceiling), seen
+
+
+async def test_websocket_turns_stay_under_their_ceilings_and_reuse_the_user_until_it_changes(
+    turns: _Turns,
+) -> None:
+    # Today's usage counter now exists, as for every message after the day's first.
+    await turns.first_token_trips("hello")
+    seen: dict[str, tuple[Ceiling, list[str]]] = {}
+
+    async with turns.socket() as socket:
+        # The socket landed on a machine that has not read this user yet.
+        user_cache.forget_user(turns.user_id)
+        for step, (content, _) in WS_TURNS.items():
+            if step == "after a change elsewhere":
+                # What another machine's settings change does to the one Redis.
+                await bump_generation(turns.redis, user_cache.generation_key(turns.user_id))
+            seen[step] = await socket.first_token_trips(content)
+    print("round trips before each socket turn's first token:", seen)
+
+    over = {step: _within(counts, WS_TURNS[step][1]) for step, (counts, _) in seen.items()}
+    assert not any(over.values()), over
+    user_reads = {step: len(_user_reads(statements)) for step, (_, statements) in seen.items()}
+    assert user_reads == {"first on the socket": 1, "next": 0, "after a change elsewhere": 1}
+
+
+def _user_reads(statements: list[str]) -> list[str]:
+    return [statement for statement in statements if statement.startswith("SELECT users.")]
