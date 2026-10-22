@@ -58,7 +58,7 @@
   "chat.home.greeting_night_name": "Salut, {{name}}",
   "chat.home.overdue": "En retard",
   "chat.image_gen_a11y_progress": "{{status}}, {{percent}}",
-  "chat.image_gen_canceled": "Génération d'image annulée",
+  "chat.image_gen_canceled": "Attente arrêtée. L'image peut encore apparaître dans ce chat et compter dans les images du jour.",
   "chat.image_gen_failed": "Impossible de créer l'image",
   "chat.image_gen_percent": "{{percent}} %",
   "chat.image_gen_play": "Jouer avec les points",

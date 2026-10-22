@@ -58,7 +58,7 @@
   "chat.home.greeting_night_name": "Привет, {{name}}",
   "chat.home.overdue": "Просрочено",
   "chat.image_gen_a11y_progress": "{{status}}, {{percent}}",
-  "chat.image_gen_canceled": "Создание изображения отменено",
+  "chat.image_gen_canceled": "Ожидание остановлено. Картинка всё ещё может появиться в этом чате и засчитаться в сегодняшние изображения.",
   "chat.image_gen_failed": "Не удалось создать изображение",
   "chat.image_gen_percent": "{{percent}} %",
   "chat.image_gen_play": "Поиграть с точками",
