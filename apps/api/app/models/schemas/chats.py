@@ -108,6 +108,8 @@ class MessageOut(BaseModel):
     content: str
     model: str | None
     feedback: MessageFeedback | None = None
+    # A reply that did not finish: stopped by the user, or cut off.
+    completion: Literal["interrupted", "user_stop"] | None = None
     related_prompts: list[str] | None = None
     created_at: datetime
 

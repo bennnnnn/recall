@@ -4,6 +4,7 @@ import type { IconName } from "@/ui/icons/names";
 
 import { api, type Message } from "@/lib/api";
 import { patchCachedChatMessage } from "@/features/chat/model/messageCache";
+import { NothingToExportError } from "@/features/chat/model/nothingToExport";
 import { isShareCancelled } from "@/lib/shareCancelled";
 import { tap } from "@/lib/haptics";
 import { useChatManagementActions } from "@/features/chat/hooks/useChatManagementActions";
@@ -151,7 +152,10 @@ export function useChatActions({
     } catch (error) {
       dismissActionBanner();
       if (isShareCancelled(error)) return;
-      reportRecoverableError(feedback, t("chat.export_pdf_failed"));
+      reportRecoverableError(
+        feedback,
+        t(error instanceof NothingToExportError ? "chat.export_pdf_empty" : "chat.export_pdf_failed"),
+      );
     }
   }, [chatTitle, dismissActionBanner, loadTranscriptMessages, showActionBanner, feedback, t]);
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -6,31 +6,28 @@ import { api, Chat } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { useLatestRef } from "@/lib/latestRef";
 import { useViewOwner } from "@/lib/viewOwner";
-import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
 import { getCachedChat } from "@/features/chat/model/chatListCache";
-import { emitAppEvent } from "@/lib/appEvents";
-import { abandonActiveChatIfDeleted } from "@/features/chat/drawer/drawer";
+import {
+  confirmAndDeleteChat,
+  renameChat,
+  setChatArchived,
+  setChatPinned,
+  type ChatOperationContext,
+} from "@/features/chat/model/chatOperations";
 import type { IconName } from "@/ui/icons/names";
-import { beginChatMutation } from "@/features/chat/model/mutationLock";
-import { sanitizeManualChatTitle } from "@/features/chat/model/title";
-import { notifyDestructive } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { confirmDialog } from "@/ui/overlay/dialogs";
 
 type Params = {
   token: string | null;
   isDrawerOpen: boolean;
   patchChatInGroups: (chatId: string, patch: Partial<Chat>) => void;
   insertChatInGroups: (chat: Chat) => void;
-  moveChatPinState: (chatId: string, pinned: boolean) => void;
-  moveChatArchiveState: (chatId: string, archived: boolean) => void;
   removeChatFromGroupsById: (chatId: string) => void;
 };
 
 /** Row-menu, rename sheet, and single-chat actions for the drawer. */
 export function useChatMenuActions({
-  token, isDrawerOpen, patchChatInGroups, insertChatInGroups,
-  moveChatPinState, moveChatArchiveState, removeChatFromGroupsById,
+  token, isDrawerOpen, patchChatInGroups, insertChatInGroups, removeChatFromGroupsById,
 }: Params) {
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
@@ -89,104 +86,50 @@ export function useChatMenuActions({
     closeMenu();
   }, [menuChat, currentView, closeMenu, view]);
 
+  const operations = useMemo<ChatOperationContext | null>(
+    () =>
+      token
+        ? {
+            token,
+            session,
+            list: { patch: patchChatInGroups, insert: insertChatInGroups, remove: removeChatFromGroupsById },
+            signedIn: current,
+            shown: currentView,
+            banner: showActionBanner,
+            failure: (message: string) => reportRecoverableError(feedback, message),
+            t,
+          }
+        : null,
+    [token, session, patchChatInGroups, insertChatInGroups, removeChatFromGroupsById, current, currentView, showActionBanner, feedback, t],
+  );
+
   const confirmRename = useCallback(async () => {
-    if (!token || !renameTarget || !currentView()) return;
-    const title = sanitizeManualChatTitle(renameText);
-    if (!title) return;
-    const release = beginChatMutation(session, [renameTarget.id]);
-    if (!release) return;
+    if (!operations || !renameTarget || !currentView()) return;
     const chat = getCachedChat(renameTarget.id) ?? renameTarget;
-    patchChatInGroups(chat.id, { title });
-    closeRename();
-    try {
-      const saved = await api.renameChat(token, chat.id, title);
-      if (!current()) return;
-      patchChatInGroups(chat.id, { title: saved.title });
-      showActionBanner(t("chat.renamed_toast"), "pencil");
-    } catch {
-      if (!current()) return;
-      patchChatInGroups(chat.id, { title: chat.title });
-      reportRecoverableError(feedback, t("chat.rename_failed"));
-    } finally { release(); }
-  }, [renameText, renameTarget, token, currentView, current, session, patchChatInGroups, closeRename, showActionBanner, feedback, t]);
+    if (renameChat(operations, chat, renameText)) closeRename();
+  }, [operations, renameTarget, currentView, renameText, closeRename]);
 
   const togglePinChat = useCallback(async () => {
-    if (!token || !menuChat || !currentView()) return;
+    if (!operations || !menuChat || !currentView()) return;
     const chat = getCachedChat(menuChat.id) ?? menuChat;
     if (chat.archived) return;
-    const release = beginChatMutation(session, [chat.id]);
-    if (!release) return;
-    const next = !chat.pinned;
     closeMenu();
-    moveChatPinState(chat.id, next);
-    try {
-      const saved = await api.setPin(token, chat.id, next);
-      if (!current()) return;
-      patchChatInGroups(chat.id, { pinned: saved.pinned, archived: saved.archived });
-      showActionBanner(saved.pinned ? t("chat.pinned_toast") : t("chat.unpinned_toast"), saved.pinned ? "pin" : "pin-off");
-    } catch {
-      if (!current()) return;
-      moveChatPinState(chat.id, chat.pinned);
-      reportRecoverableError(feedback, t("chat.pin_failed"));
-    } finally { release(); }
-  }, [token, menuChat, currentView, current, session, closeMenu, moveChatPinState, patchChatInGroups, showActionBanner, feedback, t]);
+    await setChatPinned(operations, chat, !chat.pinned);
+  }, [operations, menuChat, currentView, closeMenu]);
 
   const toggleArchiveChat = useCallback(async () => {
-    if (!token || !menuChat || !currentView()) return;
+    if (!operations || !menuChat || !currentView()) return;
     const chat = getCachedChat(menuChat.id) ?? menuChat;
-    const release = beginChatMutation(session, [chat.id]);
-    if (!release) return;
-    const next = !chat.archived;
     closeMenu();
-    moveChatArchiveState(chat.id, next);
-    try {
-      const saved = await api.setArchive(token, chat.id, next);
-      if (!current()) return;
-      patchChatInGroups(chat.id, { archived: saved.archived, pinned: saved.pinned });
-      showActionBanner(saved.archived ? t("chat.archived_toast") : t("chat.unarchived_toast"), saved.archived ? "archive" : "unarchive");
-    } catch {
-      if (!current()) return;
-      patchChatInGroups(chat.id, { archived: chat.archived ?? false, pinned: chat.pinned });
-      reportRecoverableError(feedback, t("common.error"));
-    } finally { release(); }
-  }, [token, menuChat, currentView, current, session, closeMenu, moveChatArchiveState, patchChatInGroups, showActionBanner, feedback, t]);
+    await setChatArchived(operations, chat, !chat.archived);
+  }, [operations, menuChat, currentView, closeMenu]);
 
-  const requestDeleteChat = useCallback((chat: Chat) => {
-    void confirmDialog({
-      title: t("chat.delete_confirm_title"),
-      message: t("chat.delete_confirm_body"),
-      cancelLabel: t("common.cancel"),
-      confirmLabel: t("common.delete"),
-      destructive: true,
-    }).then(async (ok) => {
-      if (!ok) return;
-      if (!token || !currentView()) return;
-      const release = beginChatMutation(session, [chat.id]);
-      if (!release) return;
-      const snapshot = getCachedChat(chat.id) ?? chat;
-      removeChatFromGroupsById(chat.id);
-      try {
-        await api.deleteChat(token, chat.id);
-        if (!current()) return;
-        notifyDestructive();
-        removeChatFromGroupsById(chat.id);
-        void clearCachedChatMessages(chat.id);
-        emitAppEvent("chatsDeleted", { chatIds: [chat.id] });
-        abandonActiveChatIfDeleted([chat.id]);
-        showActionBanner(t("chat.deleted_toast"), "trash");
-      } catch {
-        if (!current()) return;
-        insertChatInGroups(snapshot);
-        reportRecoverableError(feedback, t("chat.delete_failed"));
-      } finally { release(); }
-    });
-  }, [token, currentView, current, session, removeChatFromGroupsById, insertChatInGroups, showActionBanner, feedback, t]);
   const confirmDeleteChat = useCallback(() => {
-    if (!menuChat || !currentView()) return;
+    if (!operations || !menuChat || !currentView()) return;
     const chat = menuChat;
     closeMenu();
-    requestDeleteChat(chat);
-  }, [menuChat, currentView, closeMenu, requestDeleteChat]);
+    confirmAndDeleteChat(operations, chat.id, getCachedChat(chat.id) ?? chat);
+  }, [operations, menuChat, currentView, closeMenu]);
 
   return {
     menuChat,

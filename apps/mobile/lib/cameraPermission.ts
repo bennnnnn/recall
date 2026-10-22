@@ -1,5 +1,5 @@
 /** Camera permission shape from expo-image-picker (the scanner's permission hook). */
-type CameraPermissionSnapshot = {
+export type CameraPermissionSnapshot = {
   granted: boolean;
   canAskAgain?: boolean;
 };

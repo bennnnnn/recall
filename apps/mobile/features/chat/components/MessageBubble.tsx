@@ -151,7 +151,7 @@ export const MessageBubble = React.memo(function MessageBubble({
     t,
     streamStatusDetail,
   );
-  // Generated image with no prose — copy/speak/PDF/regenerate are noise.
+  // Generated image with no prose — copy, read aloud and regenerate are noise.
   const imageOnlyActions =
     showImages && !hasMarkdown && !showLiveClock && !showSettingsProposals && !showPlaces;
 
@@ -260,7 +260,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                 style={b.afterTextStatus}
               />
             ) : null}
-            {message.generationStopped || message.replyNotSaved ? (
+            {message.generationStopped || message.completion || message.replyNotSaved ? (
               <Text style={b.stoppedFooter}>
                 {t(message.replyNotSaved ? "chat.reply_not_saved" : "chat.generation_stopped")}
               </Text>

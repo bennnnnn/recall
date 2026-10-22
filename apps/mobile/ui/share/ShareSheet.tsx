@@ -8,10 +8,9 @@ import {
   View,
   type ImageSourcePropType,
 } from "react-native";
-import { setStringAsync } from "expo-clipboard";
 
 import { isShareCancelled } from "@/lib/shareCancelled";
-import { notifySuccess, tap } from "@/lib/haptics";
+import { tap } from "@/lib/haptics";
 import { Radius } from "@/lib/radius";
 import { presentShareSheet } from "@/lib/share";
 import { Space } from "@/lib/space";
@@ -23,9 +22,8 @@ import { Icon } from "../icons/Icon";
 import type { IconName } from "../icons/names";
 import { IconSize } from "../icons/sizes";
 import { Sheet } from "../overlay/Sheet";
+import { useCopyText } from "./useCopyText";
 
-/** How long the copy button shows its check mark. */
-const COPIED_MS = 1600;
 const PREVIEW_ART = 44;
 const ACTION = 56;
 
@@ -52,6 +50,8 @@ type Props = {
   shareTitle?: string;
   /** Adds a PDF button. Rejecting with a share cancel is not a failure. */
   onExportPdf?: () => Promise<void>;
+  /** A failure's own words ("Nothing to export yet"), instead of `labels.failed`. */
+  failureText?: (error: unknown) => string | null;
   labels: {
     share: string;
     copy: string;
@@ -81,6 +81,7 @@ export function ShareSheet({
   load,
   shareTitle,
   onExportPdf,
+  failureText,
   labels,
   testID = "share-sheet",
 }: Props) {
@@ -88,13 +89,13 @@ export function ShareSheet({
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState<Action | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy: copyText, reset: resetCopied } = useCopyText();
   const [failed, setFailed] = useState<Action | null>(null);
+  const [failedWords, setFailedWords] = useState<string | null>(null);
   const text = useRef<Promise<string> | null>(null);
   const loadRef = useRef(load);
   loadRef.current = load;
   const open = useRef(false);
-  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** One load per opening; a failed load is tried again by the next action. */
   const getText = () => {
@@ -118,7 +119,7 @@ export function ShareSheet({
     }
     setReady(false);
     setBusy(null);
-    setCopied(false);
+    resetCopied();
     setFailed(null);
     getText().then(
       () => {
@@ -130,14 +131,7 @@ export function ShareSheet({
         setFailed("share");
       },
     );
-  }, [visible]);
-
-  useEffect(
-    () => () => {
-      if (copiedTimer.current) clearTimeout(copiedTimer.current);
-    },
-    [],
-  );
+  }, [visible, resetCopied]);
 
   const run = async (action: Action, work: () => Promise<void>) => {
     if (busy) return;
@@ -146,7 +140,10 @@ export function ShareSheet({
     try {
       await work();
     } catch (error) {
-      if (open.current && !isShareCancelled(error)) setFailed(action);
+      if (open.current && !isShareCancelled(error)) {
+        setFailedWords(failureText?.(error) ?? null);
+        setFailed(action);
+      }
     } finally {
       if (open.current) setBusy(null);
     }
@@ -163,11 +160,7 @@ export function ShareSheet({
     run("copy", async () => {
       const message = await getText();
       if (!open.current) return;
-      await setStringAsync(message);
-      notifySuccess();
-      setCopied(true);
-      if (copiedTimer.current) clearTimeout(copiedTimer.current);
-      copiedTimer.current = setTimeout(() => setCopied(false), COPIED_MS);
+      if (!(await copyText(message))) throw new Error("copy failed");
     });
 
   const exportPdf = () => {
@@ -274,7 +267,7 @@ export function ShareSheet({
 
         {failed ? (
           <Text style={s.failed} accessibilityLiveRegion="polite" testID={`${testID}-failed`}>
-            {labels.failed[failed]}
+            {failedWords ?? labels.failed[failed]}
           </Text>
         ) : null}
       </View>

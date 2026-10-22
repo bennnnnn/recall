@@ -83,6 +83,16 @@ it("makes a PDF and says so inline when it fails", async () => {
   expect(view.queryByTestId("share-sheet-failed", hidden)).toBeNull();
 });
 
+it("says a failure in its own words when the caller names them", async () => {
+  const onExportPdf = jest.fn().mockRejectedValueOnce(new Error("empty"));
+  const { view } = await open({
+    onExportPdf,
+    failureText: (error) => (error instanceof Error && error.message === "empty" ? "Nothing to print yet" : null),
+  });
+  await act(async () => fireEvent.press(view.getByText("PDF", hidden)));
+  expect(view.getByTestId("share-sheet-failed", hidden)).toHaveTextContent("Nothing to print yet");
+});
+
 it("treats a cancelled OS menu as no failure", async () => {
   mockPresent.mockRejectedValueOnce(new Error("User did not share"));
   const { view } = await open();

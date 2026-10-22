@@ -5,7 +5,7 @@ import { act, render } from "@testing-library/react-native";
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { api, type Chat } from "@/lib/api";
 import { getCachedChat } from "@/features/chat/model/chatListCache";
-import { abandonActiveChatIfDeleted, insertChatGlobal, moveChatArchiveGlobal, patchChatGlobal } from "@/features/chat/drawer/drawer";
+import { abandonActiveChatIfDeleted, insertChatGlobal, patchChatGlobal } from "@/features/chat/drawer/drawer";
 import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
 
 let mockSession = 0;
@@ -165,7 +165,7 @@ it("coalesces repeated archive taps while the mutation is pending, including tok
   expect(api.setArchive).toHaveBeenCalledTimes(1);
   await act(async () => { request.resolve({ ...chat, title: "Saved", archived: true }); await pending; });
   expect(actions.actionBanner?.message).toBe("chat.archived_toast");
-  expect(moveChatArchiveGlobal).toHaveBeenCalledWith("chat-1", true);
+  expect(patchChatGlobal).toHaveBeenCalledWith("chat-1", { archived: true, pinned: false });
 });
 
 it("closes a rename editor when its conversation changes", async () => {
@@ -216,4 +216,21 @@ it.each([
   expect(setArchived).toHaveBeenLastCalledWith(saved.archived);
   expect(patchChatGlobal).toHaveBeenLastCalledWith(chat.id, { pinned: saved.pinned, archived: saved.archived });
   expect(actions.actionBanner?.message).toBe(testCase.toast);
+});
+
+it("keeps the rename editor open and says why when the title is blank, like the drawer", async () => {
+  await render(<Probe />);
+  await act(async () => { actions.openRename(); actions.setRenameText("   "); });
+  await act(async () => { await actions.confirmRename(); });
+  expect(actions.renameVisible).toBe(true);
+  expect(api.renameChat).not.toHaveBeenCalled();
+  expect(mockError).toHaveBeenCalledWith("chat.rename_blank");
+});
+
+it("names an archive failure the same way the drawer does", async () => {
+  (api.setArchive as jest.Mock).mockRejectedValueOnce(new Error("offline"));
+  await render(<Probe />);
+  await act(async () => { await actions.toggleArchive(); });
+  expect(mockError).toHaveBeenCalledWith("chat.archive_failed");
+  expect(patchChatGlobal).toHaveBeenLastCalledWith("chat-1", { archived: false, pinned: false });
 });

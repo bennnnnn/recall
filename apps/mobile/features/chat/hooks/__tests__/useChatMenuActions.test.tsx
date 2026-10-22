@@ -12,7 +12,7 @@ jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ error: mockError }) }));
 jest.mock("@/lib/api", () => ({ api: { renameChat: jest.fn(), setPin: jest.fn(), setArchive: jest.fn(), deleteChat: jest.fn(), listAllMessages: jest.fn() } }));
 jest.mock("@/features/chat/model/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
-jest.mock("@/features/chat/model/chatListCache", () => ({ getCachedChat: () => undefined }));
+jest.mock("@/features/chat/model/chatListCache", () => ({ getCachedChat: () => undefined, peekCreatedChat: () => undefined }));
 jest.mock("@/lib/exportPdf", () => ({ isShareCancelled: () => false }));
 jest.mock("@/features/chat/drawer/drawer", () => ({ abandonActiveChatIfDeleted: jest.fn() }));
 jest.mock("@/lib/haptics", () => ({
@@ -21,13 +21,11 @@ jest.mock("@/lib/haptics", () => ({
 }));
 const chat: Chat = { id: "one", title: "Original", model: "free-chat", pinned: true, archived: false, created_at: "2026-01-01", updated_at: "2026-01-01" };
 const patch = jest.fn();
-const moveArchive = jest.fn();
 const remove = jest.fn();
 const insert = jest.fn();
-const movePin = jest.fn();
 let current: ReturnType<typeof useChatMenuActions>;
 function Probe({ token = "token", open = true }: { token?: string; open?: boolean }) {
-  const result = useChatMenuActions({ token, isDrawerOpen: open, patchChatInGroups: patch, insertChatInGroups: insert, moveChatPinState: movePin, moveChatArchiveState: moveArchive, removeChatFromGroupsById: remove });
+  const result = useChatMenuActions({ token, isDrawerOpen: open, patchChatInGroups: patch, insertChatInGroups: insert, removeChatFromGroupsById: remove });
   React.useLayoutEffect(() => { current = result; });
   return <Text>menu</Text>;
 }
@@ -38,9 +36,9 @@ it("restores a pinned chat when optimistic archive fails", async () => {
   await render(<Probe />);
   await act(async () => { current.showRowMenu(chat); });
   await act(async () => { await current.toggleArchiveChat(); });
-  expect(moveArchive).toHaveBeenCalledWith("one", true);
-  expect(patch).toHaveBeenCalledWith("one", { archived: false, pinned: true });
-  expect(mockError).toHaveBeenCalledWith("common.error");
+  expect(patch).toHaveBeenCalledWith("one", { archived: true, pinned: false });
+  expect(patch).toHaveBeenLastCalledWith("one", { archived: false, pinned: true });
+  expect(mockError).toHaveBeenCalledWith("chat.archive_failed");
 });
 
 it("ignores failed rename completion after account switch", async () => {
@@ -118,7 +116,7 @@ it("does not submit a second surface's mutation for a busy chat", async () => {
   const release = beginChatMutation(mockSession, [chat.id]);
   await act(async () => { await current.toggleArchiveChat(); });
   expect(api.setArchive).not.toHaveBeenCalled();
-  expect(moveArchive).not.toHaveBeenCalled();
+  expect(patch).not.toHaveBeenCalled();
   release?.();
 });
 
@@ -130,6 +128,7 @@ it("keeps a rename editor open when its title is invalid", async () => {
   await act(async () => { await current.confirmRename(); });
   expect(current.renameVisible).toBe(true);
   expect(api.renameChat).not.toHaveBeenCalled();
+  expect(mockError).toHaveBeenCalledWith("chat.rename_blank");
 });
 
 it("reaffirms successful deletion after a concurrent list read", async () => {

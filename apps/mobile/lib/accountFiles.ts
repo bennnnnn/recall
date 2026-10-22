@@ -21,6 +21,11 @@ export function newAccountFile(kind: keyof typeof ACCOUNT_FILE_PREFIX, extension
 
 /** expo-print writes every PDF (chat exports) here, on iOS and Android alike. */
 const PRINTED_PDF_DIRECTORY = "Print/";
+
+/** A PDF named for the person (`Spanish verbs.pdf`), beside expo-print's own; sign-out clears both. */
+export function namedPdfFile(name: string): string | null {
+  return cacheDirectory ? `${cacheDirectory}${PRINTED_PDF_DIRECTORY}${name}` : null;
+}
 /** expo-audio writes each voice recording here (iOS, Android): `recording-<id>.m4a`. */
 const RECORDING_DIRECTORIES = ["ExpoAudio/", "Audio/"] as const;
 const RECORDING_PREFIX = "recording-";

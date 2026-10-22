@@ -84,6 +84,10 @@ class Message(Base):
         CheckConstraint(
             "feedback IS NULL OR feedback IN ('up', 'down')", name="ck_messages_feedback"
         ),
+        CheckConstraint(
+            "completion IS NULL OR completion IN ('interrupted', 'user_stop')",
+            name="ck_messages_completion",
+        ),
     )
 
     # uuid7 so (created_at, id) cursors stay time-stable when created_at ties.
@@ -98,6 +102,8 @@ class Message(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     model: Mapped[str | None] = mapped_column(String)
     feedback: Mapped[str | None] = mapped_column(String)  # 'up' | 'down' | None
+    # A reply that did not finish: 'user_stop' (Stop) or 'interrupted'; None when it did.
+    completion: Mapped[str | None] = mapped_column(String(16))
     input_tokens: Mapped[int] = mapped_column(Integer, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

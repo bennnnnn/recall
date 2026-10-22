@@ -105,6 +105,8 @@ export type Message = {
   image_gen_error?: string;
   /** Client-only: stream was stopped or the provider died after tokens started. */
   generationStopped?: boolean;
+  /** Saved with the reply: it did not finish (Stop, or cut off). Null when it did. */
+  completion?: "interrupted" | "user_stop" | null;
   /** Client-only: the reply came whole (`stream_end`), then the server failed to save it. */
   replyNotSaved?: boolean;
   created_at: string;

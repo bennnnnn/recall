@@ -23,7 +23,13 @@ describe("markdownPlain", () => {
 
   it("does not re-export print helpers that pull KaTeX", () => {
     expect(Object.keys(markdownPlain).sort()).toEqual(
-      ["markdownToCopyText", "markdownToSpeechText", "spokenText"].sort(),
+      [
+        "fenceToCopyText",
+        "mapFenceRegions",
+        "markdownToCopyText",
+        "markdownToSpeechText",
+        "spokenText",
+      ].sort(),
     );
   });
 

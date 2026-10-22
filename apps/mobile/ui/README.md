@@ -24,6 +24,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 | A time | `pickers/TimePickerDialog` (Android clock: dial, AM/PM, keyboard entry) | `@react-native-community/datetimepicker` |
 | A date (month grid, year list, min/max) | `pickers/DatePickerDialog` | the native picker |
 | Share a chat or a summary | `share/ShareSheet` (preview card, Share / Copy / PDF) | `Share.share` straight from a menu |
+| Copy text with a check mark | `share/useCopyText` (one timing, success haptic, a refused copy reported) | `Clipboard.setStringAsync` plus a timer in the component |
 | Back, close, menu, ⋮ in a header | `controls/HeaderButton` (`plate`, `plain` in a `HeaderButtonGroup`, `media` over photos); `StackBackButton` in stacks | a hand-styled circle |
 | A labelled action | `controls/Button` (pill; `sm` 36 / `md` 44 / `lg` 52; optional icon; `media` is the white pill over a photo, like the viewer's Share) | a `Pressable` styled as a button |
 | An icon-only action inside content | `controls/IconButton` | a `Pressable` around `Icon` |
@@ -45,7 +46,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
   `dialogs.ts`, Sheet, SheetFormHeader, FullScreenModal.
 - `pickers/`: ClockDial, TimePickerDialog, DatePickerDialog. The
   geometry and calendar rules live in `lib/datetime/clockDial.ts` and `calendarGrid.ts`.
-- `share/`: ShareSheet.
+- `share/`: ShareSheet, useCopyText.
 - `icons/`: Icon, BrandMark, the icon manifest and generated glyphs, IconSize.
 - `feedback/`: ActionBanner (the toast), StateView, SkeletonLoader, CountBadge, ActionShimmer.
 - `hooks/`: useKeyboardHeight, useBottomLiftStyle (bottom chrome that rides a keyboard-lifted composer on the UI thread).

@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import { StyleSheet } from "react-native";
-import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { IconButton } from "@/ui/controls/IconButton";
-import { notifySuccess } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 import { IconSize } from "@/ui/icons/sizes";
+import { useCopyText } from "@/ui/share/useCopyText";
 
 type Props = {
   text: string;
@@ -14,7 +15,6 @@ type Props = {
   accessibilityLabel?: string;
 };
 
-const COPIED_RESET_MS = 1500;
 const ICON_SIZE = IconSize.sm;
 
 export function CopyButton({
@@ -24,24 +24,10 @@ export function CopyButton({
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(), []);
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    },
-    [],
+  const feedback = useActionFeedbackOptional();
+  const { copied, copy } = useCopyText(() =>
+    reportRecoverableError(feedback, t("share.copy_failed")),
   );
-
-  const onCopy = async () => {
-    if (!text.trim()) return;
-    await Clipboard.setStringAsync(text);
-    setCopied(true);
-    notifySuccess();
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setCopied(false), COPIED_RESET_MS);
-  };
 
   const label = copied ? t("common.copied") : t("common.copy");
   // The same quiet ink as the copy icon under a reply.
@@ -52,7 +38,7 @@ export function CopyButton({
       name={copied ? "check" : "copy"}
       size={ICON_SIZE}
       color={ink}
-      onPress={() => void onCopy()}
+      onPress={() => void copy(text)}
       accessibilityLabel={accessibilityLabel ?? label}
       style={s.btn}
     />

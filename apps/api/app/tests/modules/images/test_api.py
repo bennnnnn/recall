@@ -148,6 +148,7 @@ def test_generate_image_success():
     user_msg.content = "Generate image: a cat"
     user_msg.model = None
     user_msg.feedback = None
+    user_msg.completion = None
     user_msg.created_at = datetime.now()
 
     assistant_msg = MagicMock(spec=Message)
@@ -156,6 +157,7 @@ def test_generate_image_success():
     assistant_msg.content = f"[Image: /attachments/{attachment_id}/file]"
     assistant_msg.model = "image-gen-model"
     assistant_msg.feedback = None
+    assistant_msg.completion = None
     assistant_msg.created_at = datetime.now()
 
     gateway = MagicMock(spec=LocalStorageGateway)
@@ -232,6 +234,7 @@ def test_generate_image_passes_original_user_message():
     user_msg.content = "create a cat image"
     user_msg.model = None
     user_msg.feedback = None
+    user_msg.completion = None
     user_msg.created_at = datetime.now()
 
     assistant_msg = MagicMock(spec=Message)
@@ -240,6 +243,7 @@ def test_generate_image_passes_original_user_message():
     assistant_msg.content = "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]"
     assistant_msg.model = "image-gen-model"
     assistant_msg.feedback = None
+    assistant_msg.completion = None
     assistant_msg.created_at = datetime.now()
 
     generate = AsyncMock(return_value=(user_msg, assistant_msg))

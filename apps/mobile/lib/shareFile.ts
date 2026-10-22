@@ -45,7 +45,7 @@ export function shareRoute(platform: string, hasSharing: boolean): ShareRoute {
  */
 export async function shareLocalFile(
   localUri: string,
-  options: { title: string; mimeType?: string | null },
+  options: { title: string; mimeType?: string | null; uti?: string },
 ): Promise<void> {
   const sharing = loadSharing();
   const route = shareRoute(Platform.OS, sharing != null);
@@ -54,7 +54,12 @@ export async function shareLocalFile(
   }
   try {
     if (route === "expo-sharing" && sharing) {
-      await sharing.shareAsync(localUri, options.mimeType ? { mimeType: options.mimeType } : {});
+      await sharing.shareAsync(localUri, {
+        dialogTitle: options.title,
+        ...(options.mimeType ? { mimeType: options.mimeType } : {}),
+        // iOS reads the file's type from its UTI; without it a PDF can open as plain data.
+        ...(options.uti ? { UTI: options.uti } : {}),
+      });
     } else {
       await Share.share({ url: localUri, title: options.title });
     }

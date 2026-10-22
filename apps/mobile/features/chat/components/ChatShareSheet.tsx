@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Message } from "@/lib/api";
+import { NothingToExportError } from "@/features/chat/model/nothingToExport";
 import { conversationTranscript } from "@/features/chat/model/transcript";
 import { formatMonthDayYear } from "@/lib/datetime/format";
 import { ShareSheet } from "@/ui/share/ShareSheet";
@@ -58,6 +59,9 @@ export function ChatShareSheet({ visible, onClose, title, loadMessages }: Props)
         const { exportConversationAsPdf } = await import("@/features/chat/model/exportMessagePdf");
         await exportConversationAsPdf(title, await getMessages());
       }}
+      failureText={(error) =>
+        error instanceof NothingToExportError ? t("chat.export_pdf_empty") : null
+      }
       labels={{
         share: t("share.action_share"),
         copy: t("share.action_copy"),

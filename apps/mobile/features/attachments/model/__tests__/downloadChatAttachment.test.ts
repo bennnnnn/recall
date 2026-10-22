@@ -348,7 +348,7 @@ describe("share and save", () => {
   it("hands the file itself to the share sheet, with its type for Android", async () => {
     (Platform as { OS: string }).OS = "android";
     await shareChatAttachment({ uri: "http://127.0.0.1:8000/attachments/abc/file", token: "tok", fileName: "cat.png" });
-    expect(shareAsync).toHaveBeenCalledWith(expect.stringMatching(/^file:\/\/.*cat\.png$/), { mimeType: "image/png" });
+    expect(shareAsync).toHaveBeenCalledWith(expect.stringMatching(/^file:\/\/.*cat\.png$/), expect.objectContaining({ mimeType: "image/png" }));
     // Android's RN Share would send the cache path as text.
     expect(Share.share).not.toHaveBeenCalled();
   });
@@ -360,7 +360,7 @@ describe("share and save", () => {
       fileName: "notes",
       contentType: "text/markdown; charset=utf-8",
     });
-    expect(shareAsync).toHaveBeenCalledWith(expect.any(String), { mimeType: "text/markdown" });
+    expect(shareAsync).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ mimeType: "text/markdown" }));
   });
 
   it("falls back to a file url on iOS builds without expo-sharing", async () => {

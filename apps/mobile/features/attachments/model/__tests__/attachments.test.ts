@@ -24,6 +24,10 @@ import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { ImageManipulator } from "expo-image-manipulator";
 
+jest.mock("@/ui/overlay/dialogs", () => ({ confirmDialog: jest.fn(async () => true) }));
+const confirmDialog = jest.requireMock<{ confirmDialog: jest.Mock }>("@/ui/overlay/dialogs").confirmDialog;
+jest.mock("@/lib/i18n", () => ({ __esModule: true, default: { t: (key: string) => key } }));
+
 const mockRead = jest.fn();
 let mockGeneration = 0;
 jest.mock("expo-file-system", () => ({ File: jest.fn(), Paths: { cache: { uri: "file:///cache/" } } }));
@@ -221,7 +225,12 @@ it("asks for camera permission only after the system rejects the launch", async 
   expect(Linking.openSettings).not.toHaveBeenCalled();
 });
 
-it("opens Settings when camera access cannot be requested again", async () => {
+it.each([
+  [true, 1],
+  [false, 0],
+])("asks before opening Settings when camera access cannot be requested again (open=%p)", async (open, opened) => {
+  confirmDialog.mockClear().mockResolvedValueOnce(open);
+  jest.mocked(Linking.openSettings).mockClear();
   jest.mocked(ImagePicker.launchCameraAsync).mockRejectedValue(
     new Error("Missing camera or camera roll permission"),
   );
@@ -229,8 +238,12 @@ it("opens Settings when camera access cannot be requested again", async () => {
     granted: false,
     canAskAgain: false,
   } as ImagePicker.CameraPermissionResponse);
-  await expect(pickFromCamera()).rejects.toMatchObject({ name: "AttachmentError", reason: "camera_permission" });
-  expect(Linking.openSettings).toHaveBeenCalledTimes(1);
+  // The dialog said what is needed; the pick ends quietly instead of a second error.
+  await expect(pickFromCamera()).resolves.toBeNull();
+  expect(confirmDialog).toHaveBeenCalledWith(
+    expect.objectContaining({ title: "chat.camera_permission", confirmLabel: "chat.location_open_settings" }),
+  );
+  expect(Linking.openSettings).toHaveBeenCalledTimes(opened);
   expect(ImagePicker.launchCameraAsync).toHaveBeenCalledTimes(1);
 });
 

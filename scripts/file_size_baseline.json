@@ -146,7 +146,7 @@
       "why": "Over 500 before the standards; tracked in ES-04"
     },
     "apps/mobile/components/MathEquationScanner.tsx": {
-      "lines": 564,
+      "lines": 509,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/mobile/features/chat/components/ChatComposer.tsx": {

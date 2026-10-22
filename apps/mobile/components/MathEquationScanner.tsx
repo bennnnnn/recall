@@ -3,11 +3,8 @@ import {
   ActivityIndicator,
   Image,
   type LayoutChangeEvent,
-  Linking,
   Platform,
-  Pressable,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
 } from "react-native";
@@ -27,6 +24,7 @@ import {
   type LiveScannerDetection,
 } from "@/components/mathScanner/LiveMathScannerCamera";
 import { ScanReadingReview } from "@/components/mathScanner/ScanReadingReview";
+import { ScannerPermission } from "@/components/mathScanner/ScannerPermission";
 import { ScannerSubjectGuide } from "@/components/mathScanner/ScannerSubjectGuide";
 import { useScanReview } from "@/components/mathScanner/useScanReview";
 import { useMathScannerCrop } from "@/hooks/useMathScannerCrop";
@@ -36,9 +34,9 @@ import type { ReadBackSubject } from "@/lib/scanner/readBack";
 import {
   NativePickerBusyError,
   NativePickerTimeoutError,
+  pickFromPhotoLibrary,
   pickImageDocument,
 } from "@/features/attachments/model/attachments";
-import { cameraPermissionNeedsSettings } from "@/lib/cameraPermission";
 import { impactMedium, selection } from "@/lib/haptics";
 import { useReduceMotion } from "@/lib/motion";
 import {
@@ -57,10 +55,8 @@ import {
 } from "@/lib/scanner/switchCue";
 import { SCANNER_SUBJECTS, type ScannerSubject } from "@/lib/scanner/subjects";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
-import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 
 type Props = {
@@ -348,7 +344,8 @@ export function MathEquationScanner({
     setSubject(next);
   }, [resetLive, subject]);
 
-  const openLibrary = useCallback(async () => {
+  /** Photos by default (no permission needed, and where a homework photo is); Files second. */
+  const openLibrary = useCallback(async (source: "photos" | "files") => {
     if (busy) return;
     const session = sessionRef.current;
     const isCurrent = () => session === sessionRef.current;
@@ -356,7 +353,7 @@ export function MathEquationScanner({
     setError(null);
     try {
       await scheduleIdlePromise();
-      const picked = await pickImageDocument();
+      const picked = await (source === "files" ? pickImageDocument() : pickFromPhotoLibrary());
       if (!picked) return;
       // The picker copied the image into the cache for the scanner.
       files.track(picked.localUri);
@@ -394,40 +391,12 @@ export function MathEquationScanner({
             <ActivityIndicator color={theme.onMedia} />
           </View>
         ) : !granted && !preview ? (
-          <View style={s.center}>
-            <Text style={s.permissionText}>{t("chat.math_scan_permission")}</Text>
-            <Pressable
-              style={s.permissionBtn}
-              testID="math-scanner-permission"
-              accessibilityRole="button"
-              accessibilityLabel={
-                cameraPermissionNeedsSettings(permission)
-                  ? t("chat.location_open_settings")
-                  : t("chat.math_scan_allow_camera")
-              }
-              onPress={() => {
-                if (cameraPermissionNeedsSettings(permission)) {
-                  void Linking.openSettings();
-                  return;
-                }
-                void requestPermission();
-              }}
-            >
-              <Text style={s.permissionBtnText}>
-                {cameraPermissionNeedsSettings(permission)
-                  ? t("chat.location_open_settings")
-                  : t("chat.math_scan_allow_camera")}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={s.permissionSecondary}
-              onPress={() => void openLibrary()}
-              accessibilityRole="button"
-              accessibilityLabel={t("chat.math_scan_photos_a11y")}
-            >
-              <Text style={s.permissionSecondaryText}>{t("chat.math_scan_choose_photo")}</Text>
-            </Pressable>
-          </View>
+          <ScannerPermission
+            permission={permission}
+            requestPermission={() => void requestPermission()}
+            onChoosePhoto={() => void openLibrary("photos")}
+            onChooseFile={() => void openLibrary("files")}
+          />
         ) : (
           <View style={StyleSheet.absoluteFill} collapsable={false}>
             {granted ? <View style={StyleSheet.absoluteFill} testID="math-scanner-camera" pointerEvents="none">
@@ -501,7 +470,8 @@ export function MathEquationScanner({
             selection();
             setTorchOn((on) => !on);
           }}
-          onOpenLibrary={() => void openLibrary()}
+          onOpenPhotos={() => void openLibrary("photos")}
+          onOpenFiles={() => void openLibrary("files")}
           onCapture={capture}
           onRetake={retake}
           onSolve={confirmPreview}
@@ -534,31 +504,6 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       paddingHorizontal: Space.xl,
       gap: Space.md,
-    },
-    permissionText: {
-      ...Type.body,
-      color: theme.onMedia,
-      textAlign: "center",
-    },
-    permissionBtn: {
-      backgroundColor: theme.primary,
-      paddingHorizontal: Space.gutter,
-      paddingVertical: Space.sm,
-      borderRadius: Radius.md,
-    },
-    permissionBtnText: {
-      ...Type.label,
-      color: theme.onPrimary,
-      ...Weight.bold,
-    },
-    permissionSecondary: {
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
-    },
-    permissionSecondaryText: {
-      ...Type.label,
-      color: theme.onMedia,
-      ...Weight.bold,
     },
   });
 }
