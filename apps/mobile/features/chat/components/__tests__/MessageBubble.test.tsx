@@ -375,6 +375,9 @@ describe("MessageBubble markdown presentation", () => {
 describe("MessageBubble footer under a cut-short reply", () => {
   it.each([
     [{ generationStopped: true }, "chat.generation_stopped"],
+    // Saved with the reply, so a reopened chat still says it was stopped.
+    [{ completion: "user_stop" as const }, "chat.generation_stopped"],
+    [{ completion: "interrupted" as const }, "chat.generation_stopped"],
     [{ replyNotSaved: true }, "chat.reply_not_saved"],
   ])("says what happened to a reply marked %o", async (mark, label) => {
     const view = await render(<MessageBubble message={{ ...assistantMessage, ...mark }} />);

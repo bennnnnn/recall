@@ -19,6 +19,7 @@ async def create(
     output_tokens: int = 0,
     commit: bool = True,
     message_id: UUID | None = None,
+    completion: str | None = None,
 ) -> Message:
     message = Message(
         chat_id=chat_id,
@@ -28,6 +29,7 @@ async def create(
         model=model,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
+        completion=completion,
     )
     if message_id is not None:
         message.id = message_id
@@ -400,6 +402,9 @@ async def set_feedback(
     message = result.scalar_one_or_none()
     if message is None:
         return None
+    if message.role != "assistant":
+        # Only a reply is rated; the service turns this into a 422.
+        return message
     message.feedback = feedback
     await session.commit()
     await session.refresh(message)

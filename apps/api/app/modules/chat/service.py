@@ -320,6 +320,8 @@ async def set_message_feedback(
         message = await messages_repo.set_feedback(session, message_id, chat_id, feedback)
     if message is None:
         raise ChatsError("Message not found", status_code=404)
+    if message.role != "assistant":
+        raise ChatsError("Only a reply can be rated", status_code=422)
     return message
 
 

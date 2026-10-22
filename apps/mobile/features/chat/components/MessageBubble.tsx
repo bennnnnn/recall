@@ -254,7 +254,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                 style={b.afterTextStatus}
               />
             ) : null}
-            {message.generationStopped || message.replyNotSaved ? (
+            {message.generationStopped || message.completion || message.replyNotSaved ? (
               <Text style={b.stoppedFooter}>
                 {t(message.replyNotSaved ? "chat.reply_not_saved" : "chat.generation_stopped")}
               </Text>

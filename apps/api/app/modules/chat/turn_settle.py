@@ -172,6 +172,8 @@ async def _write_reply_rows(
         input_tokens=charge.input_tokens,
         output_tokens=charge.output_tokens,
         message_id=ctx.assistant_message_id,
+        # A stopped or cut-off reply says so after a reload too.
+        completion=outcome.completion if outcome is not None else None,
         commit=False,  # batch with touch + usage into one commit
     )
     if ctx.answer_photo_ids:

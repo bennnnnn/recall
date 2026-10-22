@@ -199,6 +199,7 @@ def test_list_messages_enqueues_topic_backfill():
     user_msg.id = uuid4()
     user_msg.model = "free-chat"
     user_msg.feedback = None
+    user_msg.completion = None
     user_msg.recalled = False
     user_msg.memory_hints = None
     user_msg.context_summarized = None
@@ -211,6 +212,7 @@ def test_list_messages_enqueues_topic_backfill():
     asst_msg.id = uuid4()
     asst_msg.model = "free-chat"
     asst_msg.feedback = None
+    asst_msg.completion = None
     asst_msg.recalled = False
     asst_msg.memory_hints = None
     asst_msg.context_summarized = None
@@ -256,6 +258,7 @@ def test_patch_message_email_rewrites_via_service():
     asst_msg.content = "```email\nTo: a@b.com\nSubject: Hi\n\nShorter\n```"
     asst_msg.model = "free-chat"
     asst_msg.feedback = None
+    asst_msg.completion = None
     asst_msg.created_at = datetime(2024, 1, 1)
 
     with patch(

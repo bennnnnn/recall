@@ -77,6 +77,7 @@ class MessagesRepo(Protocol):
         output_tokens: int = ...,
         commit: bool = ...,
         message_id: UUID | None = ...,
+        completion: str | None = ...,
     ) -> Message: ...
 
     async def list_recent(

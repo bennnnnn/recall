@@ -85,7 +85,7 @@ async def test_set_feedback(fake_session):
 
     msg_id = uuid4()
     chat_id = uuid4()
-    mock_message = MagicMock()
+    mock_message = MagicMock(role="assistant")
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = mock_message
     fake_session.execute.return_value = mock_result
@@ -95,6 +95,40 @@ async def test_set_feedback(fake_session):
     assert result is mock_message
     assert mock_message.feedback == "like"
     fake_session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_set_feedback_leaves_a_user_message_unrated(fake_session):
+    """Only a reply is rated: a user message comes back unchanged and nothing is written."""
+    from app.modules.chat.messages_repository import set_feedback
+
+    mock_message = MagicMock(role="user", feedback=None)
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_message
+    fake_session.execute.return_value = mock_result
+
+    result = await set_feedback(fake_session, uuid4(), uuid4(), "up")
+
+    assert result is mock_message
+    assert mock_message.feedback is None
+    fake_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_rating_a_user_message_is_refused(fake_session, fake_redis):
+    from app.modules.chat.service import ChatsError, set_message_feedback
+
+    message = MagicMock(role="user", feedback=None)
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = message
+    fake_session.execute.return_value = result
+
+    with pytest.raises(ChatsError) as refused:
+        await set_message_feedback(
+            fake_session, fake_redis, MagicMock(id=uuid4()), uuid4(), uuid4(), "up"
+        )
+    assert refused.value.status_code == 422
+    assert message.feedback is None
 
 
 @pytest.mark.asyncio
