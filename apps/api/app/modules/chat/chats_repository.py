@@ -154,19 +154,27 @@ async def list_recent_page(
     return page_of(rows, limit, lambda chat: encode_cursor(chat.updated_at, chat.id))
 
 
-async def list_archived_for_user(
-    session: AsyncSession, user_id: UUID, limit: int = 100
-) -> list[Chat]:
+async def list_archived_page(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    limit: int,
+    cursor: str | None = None,
+) -> tuple[list[Chat], str | None]:
+    """One page of archived chats, newest first, and the cursor for the next (None: the last)."""
     has_messages = exists().where(Message.chat_id == Chat.id)
-    result = await session.execute(
+    stmt = (
         select(Chat)
         .options(_LIST_COLUMNS)
         .where(Chat.user_id == user_id, Chat.archived.is_(True))
         .where(has_messages)
-        .order_by(Chat.updated_at.desc(), Chat.id.desc())
-        .limit(limit)
     )
-    return list(result.scalars().all())
+    if cursor is not None:
+        at, ids = decode_cursor(cursor, ids=1)
+        stmt = stmt.where(after((Chat.updated_at, Chat.id), at, ids))
+    stmt = stmt.order_by(Chat.updated_at.desc(), Chat.id.desc()).limit(limit + 1)
+    rows = list((await session.execute(stmt)).scalars().all())
+    return page_of(rows, limit, lambda chat: encode_cursor(chat.updated_at, chat.id))
 
 
 async def touch_by_id(session: AsyncSession, chat_id: UUID, *, commit: bool = True) -> None:
@@ -313,6 +321,37 @@ async def archive_all_for_user(
     else:
         await session.flush()
     return int(result.rowcount or 0)
+
+
+async def set_archived_many(
+    session: AsyncSession, user_id: UUID, chat_ids: list[UUID], *, archived: bool
+) -> list[UUID]:
+    """Archive (and unpin) or unarchive the user's chats among ``chat_ids``; the ids changed.
+
+    The caller owns the commit (one transaction for the whole selection).
+    """
+    values: dict[str, bool] = {"archived": archived}
+    if archived:
+        values["pinned"] = False
+    result = await session.execute(
+        update(Chat)
+        .where(Chat.user_id == user_id, Chat.id.in_(chat_ids))
+        .values(**values)
+        .returning(Chat.id)
+        .execution_options(synchronize_session=False)
+    )
+    return list(result.scalars().all())
+
+
+async def delete_many(session: AsyncSession, user_id: UUID, chat_ids: list[UUID]) -> list[UUID]:
+    """Delete the user's chats among ``chat_ids`` (messages cascade); the ids deleted.
+
+    The caller owns the commit, then forgets each id (``forget_chat``).
+    """
+    result = await session.execute(
+        delete(Chat).where(Chat.user_id == user_id, Chat.id.in_(chat_ids)).returning(Chat.id)
+    )
+    return list(result.scalars().all())
 
 
 async def delete_all_for_user(

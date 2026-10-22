@@ -25,7 +25,7 @@ import {
   drawerHeaderFade,
 } from "@/lib/chromeFade";
 import { tap } from "@/lib/haptics";
-import { chatsFromSelection } from "@/features/chat/drawer/drawerChatSelection";
+import { chatsFromSelection, selectableChats } from "@/features/chat/drawer/drawerChatSelection";
 import { prefetchGallery } from "@/features/attachments/model/galleryListCache";
 import { DrawerChatFlashList } from "@/features/chat/drawer/DrawerChatFlashList";
 import { DrawerListHeader } from "@/features/chat/drawer/DrawerListHeader";
@@ -84,6 +84,9 @@ export function ConversationList() {
     removeChatFromGroupsById,
     hasOlderChats,
     loadOlderChats,
+    hasMoreArchived,
+    loadMoreArchivedChats,
+    archivedPaging,
   } = useDrawerChatList({ isDrawerOpen: isOpen });
 
   const {
@@ -128,6 +131,11 @@ export function ConversationList() {
   });
 
   const listedChats = useMemo(() => [...allChats, ...groups.archived], [allChats, groups.archived]);
+  // "Select all" picks what is on screen: it used to take archived chats and collapsed sections too.
+  const selectable = useMemo(
+    () => selectableChats(groups, isSectionCollapsed),
+    [groups, isSectionCollapsed],
+  );
 
   const {
     selectionMode,
@@ -141,6 +149,7 @@ export function ConversationList() {
     token,
     isDrawerOpen: isOpen,
     listedChats,
+    selectableChats: selectable,
   });
 
   const { unseenCount, showIndicator } = useReminderBadgeCount({
@@ -352,6 +361,8 @@ export function ConversationList() {
         searchLoadingMoreError={loadingMoreError}
         onSearchLoadMore={loadMore}
         onLoadOlderChats={hasOlderChats ? loadOlderChats : undefined}
+        onLoadMoreArchived={hasMoreArchived ? loadMoreArchivedChats : undefined}
+        archivedPaging={archivedPaging}
       />
 
       <LinearGradient

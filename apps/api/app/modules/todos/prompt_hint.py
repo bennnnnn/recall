@@ -23,18 +23,20 @@ TODO_HINT = (
     "Emit the fence first, before any other text. One fence per item. "
     "A chat to-do needs a date and a clock the user actually said. If they did not "
     "give one, ask when. Do not invent a time, do not emit a fence, and do not say "
-    "it was added. due_at must be ISO-8601 with a timezone offset (or Z). "
+    "it was added. due_at is the user's local date and clock as ISO-8601 with no "
+    "offset (2026-07-19T15:00:00); the app applies their time zone. A time they gave "
+    "for another place, convert to their local clock first. "
     "Repeat requires a due_at and may be daily, weekdays, weekly, or monthly.\n"
     "Create a dated to-do:\n"
     "```reminder\n"
-    '{"title":"short title","due_at":"2026-07-19T15:00:00-04:00","repeat":"weekly"}\n'
+    '{"title":"short title","due_at":"2026-07-19T15:00:00","repeat":"weekly"}\n'
     "```\n"
     "Complete, uncheck, delete, date, or remove the date:\n"
     "```reminder\n"
     '{"action":"delete","title":"Walk"}\n'
     "```\n"
     "```reminder\n"
-    '{"action":"set_due","title":"Walk","due_at":"2026-07-20T15:00:00-04:00","repeat":"weekly"}\n'
+    '{"action":"set_due","title":"Walk","due_at":"2026-07-20T15:00:00","repeat":"weekly"}\n'
     "```\n"
     "```reminder\n"
     '{"action":"clear_due","title":"Walk"}\n'

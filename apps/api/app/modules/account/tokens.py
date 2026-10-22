@@ -423,11 +423,18 @@ async def revoke_session(
     """
     if current_session_id and session_id == current_session_id:
         raise CurrentSessionError("Cannot revoke the current session")
-    sessions = await list_sessions(redis, user_id, current_session_id=current_session_id)
-    match = next((item for item in sessions if item["id"] == session_id), None)
-    if match is None:
+    if not await end_session(redis, user_id, session_id, settings=settings):
         raise SessionNotFoundError("Session not found")
-    refresh_token = str(match["_refresh_token"])
+
+
+async def end_session(redis: Redis, user_id: UUID, session_id: str, *, settings: Settings) -> bool:
+    """End one session: its access tokens by id, and its refresh token. Whether it was live.
+
+    Signing out without the refresh token (the phone could not read it) ends this session
+    by its access token's id; it used to end every session on every device.
+    """
+    sessions = await list_sessions(redis, user_id, current_session_id=None)
+    match = next((item for item in sessions if item["id"] == session_id), None)
     try:
         await redis.set(
             _revoked_session_key(session_id),
@@ -437,4 +444,7 @@ async def revoke_session(
     except RedisError as exc:
         logger.warning("Session revoke failed; Redis unavailable", exc_info=True)
         raise RedisUnavailableError() from exc
-    await revoke_refresh_token(redis, refresh_token)
+    if match is None:
+        return False
+    await revoke_refresh_token(redis, str(match["_refresh_token"]))
+    return True

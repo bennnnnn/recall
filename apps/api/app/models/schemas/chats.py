@@ -32,6 +32,23 @@ class ArchiveUpdate(BaseModel):
     archived: bool
 
 
+# The most chats one bulk request may name; the phone sends a longer selection in parts.
+BULK_CHAT_LIMIT = 200
+
+
+class ChatBulkAction(BaseModel):
+    """Archive, unarchive or delete many chats in one request (the drawer's selection)."""
+
+    action: Literal["archive", "unarchive", "delete"]
+    chat_ids: list[UUID] = Field(min_length=1, max_length=BULK_CHAT_LIMIT)
+
+
+class ChatBulkOut(BaseModel):
+    """The chats the action changed: the user's own, still there. Any other id was skipped."""
+
+    changed: list[UUID]
+
+
 class FeedbackUpdate(BaseModel):
     feedback: MessageFeedback | None = None
 
@@ -79,6 +96,8 @@ class ChatListOut(BaseModel):
     archived: list[ChatOut] = Field(default_factory=list)
     # The dated groups page by keyset: pass it back as ``cursor`` for older chats.
     next_cursor: str | None = None
+    # More archived chats than ``archived`` holds: GET /chats/archived?cursor= reads on.
+    archived_next_cursor: str | None = None
 
 
 class MessageOut(BaseModel):
@@ -141,6 +160,8 @@ class SearchResultItem(BaseModel):
     content: str
     role: str
     created_at: datetime
+    # The hit is in an archived chat: the drawer tags it, and opening it unarchives nothing.
+    archived: bool = False
 
     @model_validator(mode="after")
     def sanitize_chat_title(self) -> Self:

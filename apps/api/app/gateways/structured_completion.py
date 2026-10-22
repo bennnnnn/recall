@@ -124,6 +124,13 @@ async def _complete_structured_once[T: BaseModel](
         if callable(salvage) and isinstance(data, dict):
             partial = salvage(data)
             if partial is not None:
+                # Counts only: the dropped items may be the user's own words.
+                logger.warning(
+                    "Structured completion: kept part of a reply alias=%s schema=%s dropped=%s",
+                    model_alias,
+                    schema.__name__,
+                    getattr(partial, "dropped", "some"),
+                )
                 return cast(T, partial)
         _invalid_output(model_alias, schema, "schema validation failed")
         return None

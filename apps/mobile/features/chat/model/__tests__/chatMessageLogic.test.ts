@@ -1,6 +1,7 @@
 import {
   findLastAssistantId,
   isChatStreamActive,
+  nextUserTextFor,
   priorUserTextFor,
   streamVisualActiveForRow,
 } from "@/features/chat/model/messageLogic";
@@ -44,6 +45,25 @@ describe("chatMessageLogic", () => {
 
     it("returns false for a user row when no turn is active", () => {
       expect(streamVisualActiveForRow("user", "u1", null, false, false)).toBe(false);
+    });
+  });
+
+  describe("nextUserTextFor", () => {
+    const messages = [
+      { id: "1", role: "user", content: "how can I understand integrals?" },
+      { id: "2", role: "assistant", content: "Two quick questions" },
+      { id: "3", role: "user", content: "Studied it before: No, never" },
+      { id: "4", role: "assistant", content: "Then start with areas." },
+    ] as Message[];
+
+    it("returns the user message that answered an assistant reply", () => {
+      expect(nextUserTextFor(messages, 1)).toBe("Studied it before: No, never");
+    });
+
+    it("returns null for the newest reply, a user message, or an index past the end", () => {
+      expect(nextUserTextFor(messages, 3)).toBeNull();
+      expect(nextUserTextFor(messages, 0)).toBeNull();
+      expect(nextUserTextFor(messages, 99)).toBeNull();
     });
   });
 

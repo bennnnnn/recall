@@ -1,4 +1,4 @@
-import { todosForView } from "@/features/todos/model/todoListFilter";
+import { todosForView, viewForNewTodo } from "@/features/todos/model/todoListFilter";
 import type { Todo } from "@/lib/api";
 
 function todo(partial: Partial<Todo> & Pick<Todo, "id">): Todo {
@@ -53,5 +53,19 @@ describe("todosForView", () => {
       "today",
       "overdue",
     ]);
+  });
+});
+
+describe("viewForNewTodo", () => {
+  it("keeps the view when it lists the new to-do", () => {
+    expect(viewForNewTodo("today", new Date(2026, 8, 25, 18, 0, 0), now)).toBe("today");
+    expect(viewForNewTodo("all", null, now)).toBe("all");
+    expect(viewForNewTodo("open", new Date(2026, 9, 3), now)).toBe("open");
+  });
+
+  it("shows open to-dos when the view would hide it", () => {
+    expect(viewForNewTodo("today", null, now)).toBe("open");
+    expect(viewForNewTodo("today", new Date(2026, 8, 28), now)).toBe("open");
+    expect(viewForNewTodo("completed", null, now)).toBe("open");
   });
 });

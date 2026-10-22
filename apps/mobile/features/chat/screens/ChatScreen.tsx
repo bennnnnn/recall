@@ -18,7 +18,7 @@ import { COMPOSER_HEIGHT } from "@/features/chat/components/ChatComposer";
 import { composerAttachmentExtra } from "@/features/attachments/components/ComposerAttachmentPreview";
 import { DrawerShell } from "@/features/chat/drawer/DrawerShell";
 import { ComposerDraftProvider, useComposerDraftActivity } from "@/features/chat/context/ComposerDraftContext";
-import { EmailDraftPersistProvider } from "@/features/drafts/context/emailDraftPersist";
+import { ChatReplyProviders } from "@/features/chat/components/ChatReplyProviders";
 import { useAuth } from "@/contexts/AuthContext";
 import type { UpgradeSource } from "@/components/UpgradeSheet";
 import { useChat } from "@/features/chat/hooks/useChat";
@@ -493,7 +493,7 @@ function ChatScreen() {
   if (!token) return <Redirect href="/login" />;
 
   return (
-    <EmailDraftPersistProvider save={handleSaveEmailDraft}>
+    <ChatReplyProviders saveEmailDraft={handleSaveEmailDraft} send={onSelectSuggestion} busy={streamActive || regenerating}>
       <View style={{ flex: 1 }}>
         <ChatScreenBody {...chatScreenBodyProps} />
         <LazyLiveTalkOverlay
@@ -528,7 +528,7 @@ function ChatScreen() {
           loadShareMessages={loadTranscriptMessages}
         />
       </View>
-    </EmailDraftPersistProvider>
+    </ChatReplyProviders>
   );
 }
 

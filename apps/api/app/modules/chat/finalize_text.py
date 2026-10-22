@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app.modules.chat.clarify_card import CLARIFY_FENCE, NEVER_WITH_CARD, settle_clarify_cards
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.mermaid_sanitize import sanitize_mermaid_fences
 from app.modules.chat.presentation import drop_orphan_leading_answer, present_assistant_markdown
@@ -19,7 +20,7 @@ from app.modules.chat.prose_normalizer import (
 )
 from app.modules.chat.stream_status import announced_if_slow
 from app.modules.images.answer_photo import strip_photo_fences
-from app.services.md_fence_scan import close_unclosed_fences
+from app.services.md_fence_scan import close_unclosed_fences, iter_fences
 from app.services.places_fence import sanitize_places_fences
 from app.services.time_context import (
     correct_weekday_dates,
@@ -121,3 +122,25 @@ def fix_clock(state: FinalizeState) -> str:
         locale = ctx.user.locale if ctx.user is not None else None
         text = format_shown_clock_answer(ctx.user_timezone, locale)
     return correct_weekday_dates(text)
+
+
+def _turn_may_ask(state: FinalizeState) -> bool:
+    """Whether this turn may end with a card (docs/clarify.md, "Never")."""
+    ctx = state.ctx
+    # A maths, physics or chemistry problem, solved or declined, is answered, not asked.
+    if state.server_text or ctx.verified_subject is not None or ctx.solver_unverified:
+        return False
+    # A multi-part reply's settings card or picture, or a photo above the answer.
+    if ctx.settings_card or ctx.reply_picture is not None or ctx.answer_photo_ids:
+        return False
+    return not any(fence.lang in NEVER_WITH_CARD for fence in iter_fences(state.text))
+
+
+def settle_clarify(state: FinalizeState) -> str:
+    """The finalize pass: one checked card, or none."""
+    if CLARIFY_FENCE not in state.text:
+        return state.text
+    text = settle_clarify_cards(state.text, allowed=_turn_may_ask(state))
+    if text != state.text:
+        state.committed = fallback_text(text, server_text=state.server_text)
+    return text

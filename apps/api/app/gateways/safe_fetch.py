@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+from collections.abc import Mapping
 from urllib.parse import urljoin, urlparse, urlunparse
 
 import httpx
@@ -167,17 +168,30 @@ async def get_pinned(
             # Redirect bodies are unused — close without buffering.
             return httpx.Response(
                 status_code=response.status_code,
-                headers=response.headers,
+                headers=_decoded_headers(response.headers),
                 content=b"",
                 request=response.request,
             )
         body = await read_stream_capped(response, max_body_bytes)
         return httpx.Response(
             status_code=response.status_code,
-            headers=response.headers,
+            headers=_decoded_headers(response.headers),
             content=body,
             request=response.request,
         )
+
+
+# The body is already decoded and maybe cut short: these would make httpx decode it
+# again (a gzip page raised DecodingError) or expect the original length.
+_ENCODING_HEADERS = frozenset({"content-encoding", "content-length", "transfer-encoding"})
+
+
+def _decoded_headers(headers: httpx.Headers | Mapping[str, str]) -> httpx.Headers:
+    """The upstream headers for a body that is already decompressed."""
+    items = httpx.Headers(headers).multi_items()
+    return httpx.Headers(
+        [(name, value) for name, value in items if name.lower() not in _ENCODING_HEADERS]
+    )
 
 
 def fetch_client(timeout: float | httpx.Timeout) -> httpx.AsyncClient:

@@ -13,6 +13,7 @@ import time
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import httpx
 import pytest
 
 from app.tests.gateways.slow_http_server import dripping_server
@@ -406,3 +407,33 @@ def test_link_preview_router_rate_limit_fails_closed():
             headers={"Authorization": "Bearer tok"},
         )
     assert r.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_fetch_link_preview_reads_a_gzip_page():
+    """End to end through the real safe fetch: a gzip page (most sites) gives its title."""
+    import gzip
+
+    from app.modules.link_preview.service import fetch_link_preview
+
+    html = b'<html><head><meta property="og:title" content="Gzip Title"></head></html>'
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html", "content-encoding": "gzip"},
+            content=gzip.compress(html),
+        )
+
+    def client(_timeout: object) -> httpx.AsyncClient:
+        return httpx.AsyncClient(transport=httpx.MockTransport(handler), follow_redirects=False)
+
+    with (
+        patch("app.modules.link_preview.service.fetch_client", client),
+        patch(
+            "app.gateways.safe_fetch.resolve_external_host",
+            AsyncMock(return_value=("example.org", "93.184.216.34")),
+        ),
+    ):
+        preview = await fetch_link_preview("https://example.org/page")
+    assert preview["title"] == "Gzip Title"

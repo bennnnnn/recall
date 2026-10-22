@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
+from app.modules.chat import chats_repository as chats_repo
 from app.tests.api_support import api_user, app_with_user
 
 
@@ -77,8 +78,8 @@ def test_list_chats():
         ),
         patch("app.modules.chat.service.chats_repo.list_pinned", AsyncMock(return_value=[])),
         patch(
-            "app.modules.chat.service.chats_repo.list_archived_for_user",
-            AsyncMock(return_value=empty_list),
+            "app.modules.chat.service.chats_repo.list_archived_page",
+            AsyncMock(return_value=(empty_list, None)),
         ),
     ):
         client = TestClient(app)
@@ -93,6 +94,7 @@ def test_list_chats():
         "older": [],
         "archived": [],
         "next_cursor": None,
+        "archived_next_cursor": None,
     }
 
 
@@ -107,8 +109,8 @@ def test_list_chats_answers_an_unchanged_list_with_304():
         ),
         patch("app.modules.chat.service.chats_repo.list_pinned", AsyncMock(return_value=[])),
         patch(
-            "app.modules.chat.service.chats_repo.list_archived_for_user",
-            AsyncMock(return_value=[]),
+            "app.modules.chat.service.chats_repo.list_archived_page",
+            AsyncMock(return_value=([], None)),
         ),
     ):
         client = TestClient(app)
@@ -157,8 +159,8 @@ def test_list_chats_never_overlaps_ops_on_one_session():
             AsyncMock(side_effect=tracked("pinned", [])),
         ),
         patch(
-            "app.modules.chat.service.chats_repo.list_archived_for_user",
-            AsyncMock(side_effect=tracked("archived", [])),
+            "app.modules.chat.service.chats_repo.list_archived_page",
+            AsyncMock(side_effect=tracked("archived", ([], None))),
         ),
     ):
         client = TestClient(app)
@@ -454,3 +456,50 @@ async def test_delete_chat_keeps_library_attachments():
     session.commit.assert_awaited_once()
     delete_keys.assert_not_awaited()
     enqueue.assert_not_awaited()
+
+
+def test_archived_chats_page_by_cursor_past_the_drawer():
+    """GET /chats/archived reads on from the drawer's ``archived_next_cursor``."""
+    user = api_user()
+    app = app_with_user(user)
+    page = AsyncMock(return_value=([], "next-page"))
+    with patch.object(chats_repo, "list_archived_page", page):
+        client = TestClient(app)
+        r = client.get(
+            "/chats/archived?cursor=abc&limit=20", headers={"Authorization": "Bearer tok"}
+        )
+    assert r.status_code == 200
+    assert r.json() == {"items": [], "next_cursor": "next-page"}
+    assert page.await_args.kwargs == {"limit": 20, "cursor": "abc"}
+
+
+def test_bulk_chats_runs_one_request_and_caps_the_selection():
+    """One request for the whole selection (it was one per chat, past the rate limit)."""
+    from app.modules.chat import service as chats_service
+
+    user = api_user()
+    app = app_with_user(user)
+    ids = [str(uuid4()) for _ in range(3)]
+    bulk = AsyncMock(return_value=[ids[0], ids[1]])
+    with patch.object(chats_service, "bulk_chats", bulk):
+        client = TestClient(app)
+        ok = client.post(
+            "/chats/bulk",
+            json={"action": "archive", "chat_ids": ids},
+            headers={"Authorization": "Bearer tok"},
+        )
+        too_many = client.post(
+            "/chats/bulk",
+            json={"action": "delete", "chat_ids": [str(uuid4()) for _ in range(201)]},
+            headers={"Authorization": "Bearer tok"},
+        )
+        wrong = client.post(
+            "/chats/bulk",
+            json={"action": "pin", "chat_ids": ids},
+            headers={"Authorization": "Bearer tok"},
+        )
+    assert ok.status_code == 200
+    assert ok.json() == {"changed": ids[:2]}
+    assert bulk.await_args.kwargs["action"] == "archive"
+    assert [str(i) for i in bulk.await_args.kwargs["chat_ids"]] == ids
+    assert (too_many.status_code, wrong.status_code) == (422, 422)

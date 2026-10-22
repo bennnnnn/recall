@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from calendar import monthrange
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
-from typing import Literal, TypeGuard
+from typing import Any, Literal, TypeGuard
 from zoneinfo import ZoneInfo
 
 RecurrenceRule = Literal["daily", "weekdays", "weekly", "monthly"]
@@ -100,3 +101,24 @@ def next_recurring_due(
     if nxt.astimezone(UTC) <= now_local.astimezone(UTC):
         nxt = _step_local(nxt, rule)
     return nxt.astimezone(due_at.tzinfo or _zone(timezone))
+
+
+def completed_fields(
+    fields: Mapping[str, Any],
+    *,
+    due_at: datetime | None,
+    rule: object,
+    timezone: str | None,
+    now: datetime,
+) -> dict[str, Any]:
+    """A write's fields, where ticking a repeating to-do finishes this occurrence only.
+
+    Ticking "gym, every Monday" checked the row for good and ended the series. It now
+    stays open, due at the next occurrence after this one (or after now, when several
+    passed). Any other change passes through as it is.
+    """
+    if fields.get("checked") is not True or due_at is None or not is_recurrence_rule(rule):
+        return dict(fields)
+    changed = {key: value for key, value in fields.items() if key != "checked"}
+    changed["due_at"] = next_recurring_due(due_at, rule, now=max(now, due_at), timezone=timezone)
+    return changed

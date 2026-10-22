@@ -25,6 +25,7 @@ from app.modules.chat.prompt_constants.format import (
 from app.modules.chat.prompt_constants.privacy import (
     ADVICE_PERSONALIZE_HINT,
     BROAD_SELF_ANSWER_HINT,
+    CLARIFICATION_HINT,
     EXAMPLE_PERSONALIZE_HINT,
     PRIVACY_HINT,
 )
@@ -749,7 +750,7 @@ async def test_build_prompt_includes_memory_and_fits_length_to_the_message():
     assert "response length: fit the question" in system.lower()
     assert "**HTML UI**" not in system
     assert "Python" in system
-    assert "clarifying questions" in system.lower()
+    assert CLARIFICATION_HINT in system
     assert messages[-1] == {"role": "user", "content": "Hi"}
 
 

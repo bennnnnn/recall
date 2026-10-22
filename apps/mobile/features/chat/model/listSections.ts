@@ -1,4 +1,4 @@
-import type { Chat, ChatList } from "@/lib/api";
+import type { Chat, ChatList, Page } from "@/lib/api";
 
 /** Date buckets returned by GET /chats (matches backend RECENCY_BUCKETS). */
 export const CHAT_DATE_SECTIONS = [
@@ -117,6 +117,16 @@ export function appendOlderChats(groups: ChatList, older: ChatList): ChatList {
     next[key] = [...groups[key], ...older[key].filter((chat) => !shown.has(chat.id))];
   }
   return next;
+}
+
+/** A page of archived chats joins the archived section below what it already shows. */
+export function appendArchivedChats(groups: ChatList, page: Page<Chat>): ChatList {
+  const shown = new Set(groups.archived.map((chat) => chat.id));
+  return {
+    ...groups,
+    archived: [...groups.archived, ...page.items.filter((chat) => !shown.has(chat.id))],
+    archived_next_cursor: page.next_cursor ?? null,
+  };
 }
 
 export function insertChatByRecency(groups: ChatList, chat: Chat): ChatList {

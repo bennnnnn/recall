@@ -11,6 +11,10 @@ jest.mock("@/lib/api", () => ({
 
 // Analytics reads the session's token when it sends; a sign-out moves the generation.
 let mockGeneration = 1;
+const mockReportUnregisterFailed = jest.fn();
+jest.mock("@/lib/sentry", () => ({
+  reportPushUnregisterFailed: (error: unknown) => mockReportUnregisterFailed(error),
+}));
 jest.mock("@/lib/auth", () => ({
   getToken: jest.fn(async () => "tok"),
   getSessionGeneration: () => mockGeneration,
@@ -171,6 +175,13 @@ describe("push gating on user.push_notifications_enabled", () => {
       "tok",
       expect.objectContaining({ expo_push_token: "ExponentPushToken[abc]" }),
     );
+  });
+
+  it("unregisterRemotePushToken reports a failed removal instead of hiding it", async () => {
+    const failure = new Error("422");
+    unregisterMock.mockRejectedValueOnce(failure);
+    await expect(unregisterRemotePushToken("tok")).resolves.toBe(false);
+    expect(mockReportUnregisterFailed).toHaveBeenCalledWith(failure);
   });
 
   it("registerRemotePushToken throws when the Expo token cannot be resolved", async () => {

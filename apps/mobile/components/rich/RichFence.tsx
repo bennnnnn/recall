@@ -24,6 +24,7 @@ import {
   LazyMolecule3DBlock,
 } from "@/components/rich/LazyHeavyRich";
 import { ChemistrySceneBlock } from "@/components/rich/ChemistrySceneBlock";
+import { ClarifyCard } from "@/components/rich/ClarifyCard";
 import { MathBlock } from "@/components/rich/MathView";
 import { MessagePreview } from "@/components/rich/MessagePreview";
 import { QuizCard } from "@/components/rich/QuizCard";
@@ -118,6 +119,8 @@ export function renderRichFenceById(
     }
     case "quiz":
       return <QuizCard key={key} content={content} />;
+    case "clarify":
+      return <ClarifyCard key={key} content={content} />;
     case "array":
       return <ArrayBlock key={key} content={content} />;
     case "mermaid":
