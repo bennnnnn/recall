@@ -63,6 +63,7 @@ async def stream_over_ws(
     outcome: TurnOutcome,
     chat_id: UUID | None = None,
     frame_budget: FrameBudget | None = None,
+    claim: ClientMessageClaim = UNNAMED,
 ) -> None:
     async def run_stream() -> None:
         sent_tokens = 0
@@ -201,6 +202,12 @@ async def stream_over_ws(
             except asyncio.CancelledError:
                 pass
     finally:
+        # The producer is done unless an error cut the loop above short; then
+        # the claim is settled once it is.
+        if producer.done():
+            await claim.settle(outcome)
+        else:
+            claim.settle_after(producer, outcome)
         # Same as SSE M10: client close must not orphan the DB commit that
         # persists the (partial) assistant row and enqueues the title job.
         await persist_finalize_if_pending(outcome)
@@ -215,13 +222,21 @@ async def run_chat_stream(
     frame_budget: FrameBudget | None = None,
     claim: ClientMessageClaim = UNNAMED,
 ) -> None:
-    """One turn: ``start``, the stream, and the settle of the message's ``claim``."""
+    """One turn: ``start``, then the stream, which settles the message's ``claim``."""
     cancel_event.clear()
     outcome = TurnOutcome()
     try:
-        # A client gone before ``start`` gets no turn, and its claim is freed.
-        if not await safe_send_json(websocket, build_start_event()):
-            return
+        started = await safe_send_json(websocket, build_start_event())
+    except BaseException:
+        claim.settle_after(None, outcome)
+        raise
+    if not started and claim.key is None:
+        # A client gone before ``start`` gets no turn.
+        return
+    # A named message runs even when its client is gone: the phone may have sent
+    # it again meanwhile (and been told ``duplicate``), and it follows this turn
+    # by reloading the chat. The claim keeps any other send of it from running.
+    try:
         await stream_over_ws(
             websocket,
             stream_factory(outcome),
@@ -229,6 +244,7 @@ async def run_chat_stream(
             outcome,
             chat_id,
             frame_budget,
+            claim,
         )
     except Exception as exc:
         if not isinstance(exc, EXPECTED_TURN_ERRORS):
@@ -236,8 +252,6 @@ async def run_chat_stream(
         await safe_send_json(
             websocket, turn_error_payload(exc, user_message_saved=outcome.user_message_saved)
         )
-    finally:
-        await claim.settle(outcome)
 
 
 def schedule_related_prompts(websocket: WebSocket, outcome: TurnOutcome) -> None:

@@ -195,9 +195,13 @@ async def _handle_message(
         )
         return
 
-    claim = await claim_client_message(
-        redis, user_id=user_id, chat_id=chat_id, client_message_id=request.client_message_id
-    )
+    try:
+        claim = await claim_client_message(
+            redis, user_id=user_id, chat_id=chat_id, client_message_id=request.client_message_id
+        )
+    except RedisUnavailableError as exc:
+        await safe_send_json(websocket, turn_error_payload(exc, user_message_saved=False))
+        return
     if claim is None:
         # A resend of a message an earlier turn took (its socket died before the
         # phone heard ``start``): the phone follows that turn instead.
