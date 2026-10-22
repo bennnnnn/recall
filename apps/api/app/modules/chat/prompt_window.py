@@ -15,6 +15,8 @@ from uuid import UUID
 from app.core.config import Settings
 from app.models.orm import Chat
 from app.modules import todos as todos_service
+from app.modules.chat.clarify_card import CLARIFY_FENCE
+from app.modules.chat.clarify_turn import card_as_line
 from app.modules.chat.context_window import (
     estimate_tokens,
     select_recent_window,
@@ -145,6 +147,8 @@ def _strip_prompt_owned_fences(content: str) -> str:
     unchecked.
     """
     out = _LABEL_UNDER_HEADING.sub(r"\1", map_closed_fences(content, "answer", _answer_line))
+    # A clarify card is read as what it asked, never as JSON to copy.
+    out = map_closed_fences(out, CLARIFY_FENCE, card_as_line)
     for lang in _PROMPT_STRIP_FENCE_LANGS:
         out = strip_closed_fences(out, lang)
     return out

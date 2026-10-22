@@ -58,6 +58,7 @@ from app.modules.chat.finalize_text import (
     present_markdown,
     record_instant_usage,
     sanitize_fences,
+    settle_clarify,
     strip_recipient_placeholders,
 )
 from app.modules.chat.generic_closer import strip_generic_closer
@@ -171,6 +172,8 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("instant_usage", record_instant_usage, FALL_BACK),
     # Layout, last, so it never interferes with fence parsing.
     FinalizePass("close_fences", close_open_fences, FALL_BACK),
+    # After the closer: a card the model left open is read once it is closed.
+    FinalizePass("clarify_card", settle_clarify, FALL_BACK),
     FinalizePass("requested_json", check_requested_json, OnError(log_as="requested_json")),
     FinalizePass("recipient_placeholders", strip_recipient_placeholders, FALL_BACK),
     FinalizePass("prose", normalize_prose, FALL_BACK),
@@ -197,6 +200,7 @@ STOPPED_REPLY_PASSES = frozenset(
         "solve_markers",
         "instant_usage",
         "close_fences",
+        "clarify_card",
         "recipient_placeholders",
         "prose",
         "mermaid_and_places",
