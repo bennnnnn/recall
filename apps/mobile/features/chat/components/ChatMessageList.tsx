@@ -59,7 +59,7 @@ function ChatMessageListComponent({
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
-  useWarmMathRenderer();
+  useWarmMathRenderer(messages);
   const s = useMemo(() => makeStyles(theme), [theme]);
   // Stable content-container style: the previous inline `{ paddingTop, paddingBottom }`
   // object was fresh every render, so FlashList re-laid out on every parent render
@@ -106,7 +106,7 @@ function ChatMessageListComponent({
         onScroll={onScroll}
         onScrollBeginDrag={scroll?.onReaderScrollBegin}
         onMomentumScrollBegin={scroll?.onReaderScrollBegin}
-        onScrollEndDrag={onScrollEnd}
+        onScrollEndDrag={scroll?.onReaderScrollEndDrag ?? onScrollEnd}
         onMomentumScrollEnd={onScrollEnd}
         onContentSizeChange={scroll?.onContentSizeChange}
         onCommitLayoutEffect={scroll?.onLayoutCommit}

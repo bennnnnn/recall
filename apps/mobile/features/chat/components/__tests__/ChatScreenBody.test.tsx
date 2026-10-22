@@ -84,6 +84,7 @@ const listScroll = {
   onListLayout: jest.fn(),
   onLayoutCommit: jest.fn(),
   onReaderScrollBegin: jest.fn(),
+  onReaderScrollEndDrag: jest.fn(),
   hidden: false,
 };
 const renderItem = jest.fn(({ item }: { item: Message }) => <Text>{item.content}</Text>);

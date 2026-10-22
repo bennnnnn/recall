@@ -4,6 +4,7 @@ import type { FlashListRef } from "@shopify/flash-list";
 
 import type { Message } from "@/lib/api";
 import { useOpenAtEnd } from "@/features/chat/hooks/useOpenAtEnd";
+import { useReaderDrag } from "@/features/chat/hooks/useReaderDrag";
 import {
   getScrollThresholds,
   resolveListAnchor,
@@ -21,6 +22,8 @@ export type ChatListScroll = {
   onLayoutCommit: () => void;
   /** The reader drags the list, or a flick carries on: the pin waits until the scroll ends. */
   onReaderScrollBegin: () => void;
+  /** The reader let go: with speed, the flick's momentum follows and the pin keeps waiting. */
+  onReaderScrollEndDrag: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   /** A chat just opened and is not at its end yet: the list is drawn hidden. */
   hidden: boolean;
 };
@@ -49,7 +52,6 @@ export function useChatScroll({
 }: Options) {
   const listRef = useRef<FlashListRef<Message>>(null);
   const atBottomRef = useRef(true);
-  const draggingRef = useRef(false);
   const newMessageCountRef = useRef(0);
   const showScrollBtnRef = useRef(false);
   const messagesLenRef = useRef(0);
@@ -171,6 +173,9 @@ export function useChatScroll({
     [readScrollThresholds, measureScrollMetrics, updateAtBottom],
   );
 
+  const drag = useReaderDrag(syncScrollPosition);
+  const readerMovingRef = drag.movingRef;
+
   const scrollToEndIfAtBottom = useCallback((animated: boolean) => {
     if (!atBottomRef.current) return;
     const metrics = measureScrollMetrics();
@@ -183,12 +188,13 @@ export function useChatScroll({
     (source: "rows" | "content", height: number) => {
       const grew = height > followedRef.current[source] + 0.5;
       followedRef.current[source] = height;
-      if (!grew || !atBottomRef.current || draggingRef.current || openingRef.current || heldRef.current) return;
+      const still = !readerMovingRef.current && !openingRef.current && !heldRef.current;
+      if (!grew || !atBottomRef.current || !still) return;
       const metrics = measureScrollMetrics();
       if (metrics && !shouldScrollToEndWhenPinned(metrics.maxOffset)) return;
       scrollToEndNow();
     },
-    [measureScrollMetrics, scrollToEndNow, openingRef],
+    [measureScrollMetrics, scrollToEndNow, openingRef, readerMovingRef],
   );
 
   useEffect(() => {
@@ -238,14 +244,11 @@ export function useChatScroll({
     [syncScrollPosition, settleOpening, measureScrollMetrics, openingRef],
   );
 
-  const handleReaderScrollBegin = useCallback(() => {
-    draggingRef.current = true;
-  }, []);
-
-  const handleScrollEnd = useCallback(() => {
-    draggingRef.current = false;
-    syncScrollPosition();
-  }, [syncScrollPosition]);
+  const {
+    begin: handleReaderScrollBegin,
+    endDrag: handleReaderScrollEndDrag,
+    end: handleScrollEnd,
+  } = drag;
 
   const alignListToContent = useCallback(() => {
     if (messagesLenRef.current === 0) return;
@@ -314,9 +317,17 @@ export function useChatScroll({
       onListLayout: handleListLayout,
       onLayoutCommit: handleLayoutCommit,
       onReaderScrollBegin: handleReaderScrollBegin,
+      onReaderScrollEndDrag: handleReaderScrollEndDrag,
       hidden,
     }),
-    [handleContentSizeChange, handleListLayout, handleLayoutCommit, handleReaderScrollBegin, hidden],
+    [
+      handleContentSizeChange,
+      handleListLayout,
+      handleLayoutCommit,
+      handleReaderScrollBegin,
+      handleReaderScrollEndDrag,
+      hidden,
+    ],
   );
 
   return {

@@ -67,7 +67,10 @@ export function useAssistantMessageContent({
     // A saved row the server presented is shown as saved; a live draft is the
     // model's own text and the phone presents it. So is the reply that just
     // streamed in here, saved or not: it goes on being drawn as it streamed,
-    // and nothing in it moves when the turn ends.
+    // and nothing in it moves when the turn ends. The trade-off: after the
+    // server cut-over that row shows the phone's presentation of the saved
+    // text until the chat is opened again; both follow the one contract
+    // (docs/fixtures/presentation_cases.json), so they agree.
     markdownPresented:
       liveContent === undefined &&
       !isUser &&

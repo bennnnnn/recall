@@ -2,6 +2,7 @@ import { act, renderHook } from "@testing-library/react-native";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 
 import { useChatScroll } from "@/features/chat/hooks/useChatScroll";
+import { MOMENTUM_WAIT_MS } from "@/features/chat/hooks/useReaderDrag";
 
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 
@@ -20,12 +21,13 @@ function fakeList(rows: number) {
   return { state, scroller, list };
 }
 
-function scrollEvent(offset: number, content: number, viewport = 600) {
+function scrollEvent(offset: number, content: number, viewport = 600, velocity = 0) {
   return {
     nativeEvent: {
       contentOffset: { x: 0, y: offset },
       contentSize: { width: 390, height: content },
       layoutMeasurement: { width: 390, height: viewport },
+      velocity: { x: 0, y: velocity },
     },
   } as NativeSyntheticEvent<NativeScrollEvent>;
 }
@@ -135,6 +137,74 @@ describe("useChatScroll pins to the bottom from layout", () => {
   });
 });
 
+describe("useChatScroll waits out a flick", () => {
+  const props: Props = { chatId: "chat-a", messagesLength: 4, streamActive: true };
+
+  /** A thread at its bottom, its rows measured once. */
+  async function atBottom() {
+    const fake = fakeList(1000);
+    fake.state.offset = 400;
+    const hook = await mountScroll(fake, props);
+    await act(async () => {
+      hook.result.current.listScroll.onLayoutCommit();
+    });
+    fake.scroller.scrollToEnd.mockClear();
+    return { fake, ...hook };
+  }
+
+  async function grow(fake: ReturnType<typeof fakeList>, result: { current: ReturnType<typeof useChatScroll> }) {
+    fake.state.rows += 50;
+    await act(async () => {
+      result.current.listScroll.onLayoutCommit();
+    });
+  }
+
+  it("does not pull the list from the drag's release until its momentum ends", async () => {
+    const { fake, result } = await atBottom();
+    await act(async () => {
+      result.current.listScroll.onReaderScrollBegin();
+      result.current.listScroll.onReaderScrollEndDrag(scrollEvent(400, 1000, 600, 1.5));
+    });
+    // Between the release and the momentum's start the reader still moves the list.
+    await grow(fake, result);
+    await act(async () => {
+      result.current.listScroll.onReaderScrollBegin();
+    });
+    await grow(fake, result);
+    expect(fake.scroller.scrollToEnd).not.toHaveBeenCalled();
+
+    fake.state.offset = fake.state.rows - 600;
+    await act(async () => {
+      result.current.handleScrollEnd();
+    });
+    await grow(fake, result);
+    expect(fake.scroller.scrollToEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it("follows again when no momentum comes after a flick", async () => {
+    const { fake, result } = await atBottom();
+    await act(async () => {
+      result.current.listScroll.onReaderScrollBegin();
+      result.current.listScroll.onReaderScrollEndDrag(scrollEvent(400, 1000, 600, 1.5));
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(MOMENTUM_WAIT_MS);
+    });
+    await grow(fake, result);
+    expect(fake.scroller.scrollToEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it("ends a drag let go without speed at once", async () => {
+    const { fake, result } = await atBottom();
+    await act(async () => {
+      result.current.listScroll.onReaderScrollBegin();
+      result.current.listScroll.onReaderScrollEndDrag(scrollEvent(400, 1000));
+    });
+    await grow(fake, result);
+    expect(fake.scroller.scrollToEnd).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("useChatScroll opens a chat at its end", () => {
   const closed: Props = { chatId: null, messagesLength: 0, streamActive: false };
 
@@ -203,6 +273,11 @@ describe("useChatScroll leaves a highlighted search hit to its own scroll", () =
       result.current.listScroll.onListLayout(600);
       result.current.listScroll.onContentSizeChange(390, 2000);
     });
+    // The highlight scrolls the list to the hit, well above the end.
+    fake.state.offset = 700;
+    await act(async () => {
+      result.current.handleScroll(scrollEvent(700, 2000));
+    });
     fake.state.rows = 2100;
     await act(async () => {
       result.current.listScroll.onLayoutCommit();
@@ -210,11 +285,23 @@ describe("useChatScroll leaves a highlighted search hit to its own scroll", () =
     });
     expect(fake.scroller.scrollToEnd).not.toHaveBeenCalled();
 
-    // The highlight over, growth at the bottom is followed again.
+    // The highlight over, the reader is still at the hit: growth is not followed.
     await act(async () => {
       result.current.holdForHighlight(false);
     });
     fake.state.rows = 2200;
+    await act(async () => {
+      result.current.listScroll.onLayoutCommit();
+      result.current.listScroll.onContentSizeChange(390, 2200);
+    });
+    expect(fake.scroller.scrollToEnd).not.toHaveBeenCalled();
+
+    // Once the reader is back at the bottom, growth is followed again.
+    fake.state.offset = 1600;
+    await act(async () => {
+      result.current.handleScroll(scrollEvent(1600, 2200));
+    });
+    fake.state.rows = 2300;
     await act(async () => {
       result.current.listScroll.onLayoutCommit();
     });

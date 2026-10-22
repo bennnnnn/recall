@@ -28,10 +28,21 @@ export function useStreamingDraft(enabled = true): StreamingDraft | null {
   const [snapshot, setSnapshot] = useState<StreamingDraft | null>(() =>
     enabled ? getStreamingDraft() : null,
   );
+  // A row that goes live again (a reused list cell, the next turn) starts
+  // from the store in the render it goes live, never from the draft it held
+  // in an earlier live stretch.
+  const [liveAt, setLiveAt] = useState(enabled);
+  let current = snapshot;
+  if (liveAt !== enabled) {
+    current = enabled ? getStreamingDraft() : null;
+    setLiveAt(enabled);
+    setSnapshot(current);
+  }
   const lastFlushRef = useRef(0);
 
   useEffect(() => {
     if (!enabled) return;
+    lastFlushRef.current = 0;
     setSnapshot(getStreamingDraft());
     let timer: ReturnType<typeof setTimeout> | null = null;
     const unsubscribe = subscribeStreamingDraft(() => {
@@ -65,5 +76,5 @@ export function useStreamingDraft(enabled = true): StreamingDraft | null {
     };
   }, [enabled]);
 
-  return enabled ? snapshot : null;
+  return enabled ? current : null;
 }
