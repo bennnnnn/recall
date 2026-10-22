@@ -12,6 +12,15 @@
  * never changes, so its parse/render is done exactly once.
  */
 
+import {
+  CONTINUATION_LINE_RE,
+  listGoesOn,
+  listItemCut,
+  type OpenList,
+} from "@/lib/markdown/streamListCuts";
+
+export type { OpenList } from "@/lib/markdown/streamListCuts";
+
 export type StreamBlocksState = {
   /** Settled chunks; their concatenation is exactly `settledText`. */
   chunks: string[];
@@ -27,33 +36,13 @@ export type StreamBlocksState = {
   settledText: string;
 };
 
-/**
- * The top-level list the scan is in. A numbered list's `next` is the number
- * its next item shows (markdown numbers items from the first one, whatever
- * they say). `irregular`: a line markdown may read either way, or numbering
- * that does not run on, so no cut is made in this list.
- */
-export type OpenList = { marker: string; next: number | null; irregular: boolean };
-
 /** Group small blocks together so long replies don't spawn hundreds of renderers. */
 export const MIN_SETTLED_CHUNK_CHARS = 320;
-
-/**
- * A numbered list's number column is as wide as its largest number. A chunk
- * that ends at item 10 or later already has the width every item up to 99
- * shares, so the items after it cannot widen the column the chunk drew.
- */
-const MIN_NUMBERED_CUT = 11;
-const MAX_NUMBERED_CUT = 99;
 
 const LIST_LINE_RE = /^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:\s|$)/;
 const TABLE_LINE_RE = /^ {0,3}\|/;
 const QUOTE_LINE_RE = /^ {0,3}>/;
-const CONTINUATION_LINE_RE = /^(?: {2,}|\t)/;
 const FENCE_LINE_RE = /^(?:```|~~~)/;
-const BULLET_ITEM_RE = /^([-*+])[ \t]/;
-const NUMBERED_ITEM_RE = /^(\d{1,9})([.)])[ \t]/;
-const THEMATIC_BREAK_RE = /^(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 
 function isBlankLine(line: string): boolean {
   return line.trim().length === 0;
@@ -167,53 +156,6 @@ function trackBlockLine(state: ScanState, line: string): boolean {
   return false;
 }
 
-/** The top-level list item `line` opens, if any: its marker and number. */
-function readListItem(line: string): { marker: string; number: number | null } | null {
-  if (THEMATIC_BREAK_RE.test(line)) return null;
-  const bullet = BULLET_ITEM_RE.exec(line);
-  if (bullet) return { marker: bullet[1]!, number: null };
-  const numbered = NUMBERED_ITEM_RE.exec(line);
-  if (numbered) return { marker: numbered[2]!, number: Number(numbered[1]) };
-  return null;
-}
-
-/**
- * Follow the top-level list through a prose line; true when the line is the
- * next item of the open list and a cut before it draws the same list.
- */
-function listItemCut(state: ScanState, line: string): boolean {
-  const item = readListItem(line);
-  const list = state.list;
-  if (item) {
-    const sameList =
-      list != null && list.marker === item.marker && (list.next === null) === (item.number === null);
-    if (!sameList) {
-      state.list = {
-        marker: item.marker,
-        next: item.number === null ? null : item.number + 1,
-        irregular: false,
-      };
-      return false;
-    }
-    if (item.number === null) return !list.irregular;
-    const shown = list.next ?? 0;
-    list.next = shown + 1;
-    if (item.number !== shown) {
-      list.irregular = true;
-      return false;
-    }
-    return !list.irregular && shown >= MIN_NUMBERED_CUT && shown <= MAX_NUMBERED_CUT;
-  }
-  if (CONTINUATION_LINE_RE.test(line) || !list) return false;
-  if (state.inBlankRun) {
-    state.list = null;
-  } else {
-    // A lazy continuation, or a block that ends the list: either way, no cut.
-    list.irregular = true;
-  }
-  return false;
-}
-
 type Cut = { at: number; continued: boolean; listAfter: OpenList | null };
 
 /**
@@ -286,19 +228,27 @@ function cutChunks(base: StreamBlocksState, prepared: string, cuts: Cut[]): Stre
 
 /**
  * The chunks of `state` that `prepared` still starts with: a preprocess pass
- * that rewrote earlier text drops the chunks from there on, not all of them.
+ * that rewrote earlier text, or a settled reply that differs from what
+ * streamed, drops the chunks from there on, not all of them. A chunk drawn as
+ * a list that goes on is kept only while the text after it still goes on with
+ * that list.
  */
 function keptPrefix(state: StreamBlocksState, prepared: string): StreamBlocksState {
-  if (prepared.startsWith(state.settledText)) return state;
-  let keep = 0;
-  let length = 0;
-  while (
-    keep < state.chunks.length &&
-    prepared.startsWith(state.chunks[keep]!, length)
-  ) {
-    length += state.chunks[keep]!.length;
-    keep += 1;
+  let keep = state.chunks.length;
+  let length = state.settledText.length;
+  if (!prepared.startsWith(state.settledText)) {
+    keep = 0;
+    length = 0;
+    while (keep < state.chunks.length && prepared.startsWith(state.chunks[keep]!, length)) {
+      length += state.chunks[keep]!.length;
+      keep += 1;
+    }
   }
+  while (keep > 0 && state.continued[keep - 1] && !listGoesOn(state.listAfter[keep - 1]!, prepared, length)) {
+    keep -= 1;
+    length -= state.chunks[keep]!.length;
+  }
+  if (keep === state.chunks.length) return state;
   return {
     chunks: state.chunks.slice(0, keep),
     continued: state.continued.slice(0, keep),

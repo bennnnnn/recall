@@ -1,7 +1,10 @@
 import { memo, useCallback } from "react";
 
 import { MessageBubble } from "@/components/MessageBubble";
+import { useStreamingDraft } from "@/contexts/StreamingDraftContext";
 import { MessageRowErrorBoundary } from "@/features/chat/components/MessageRowErrorBoundary";
+import { StreamSilenceHint } from "@/features/chat/components/StreamSilenceHint";
+import { useStreamSilence } from "@/features/chat/hooks/useStreamSilence";
 import type { Message } from "@/lib/api";
 import { messageListKey } from "@/lib/messageListLayout";
 
@@ -16,6 +19,14 @@ type Props = {
    * assistant row, so this row doesn't re-render when a turn starts/ends.
    */
   streamVisualActive: boolean;
+  /**
+   * The reply streaming into this row (or the picture being made for it): it
+   * draws the live draft. The same row goes on drawing the saved reply when
+   * the turn ends, so nothing in it is created again.
+   */
+  live?: boolean;
+  /** When true, show the image-generation status label instead of chat stream draft. */
+  imageGenPending?: boolean;
   lastAssistantId: string | null;
   selectedModel: string;
   highlightedMessageId: string | null;
@@ -30,6 +41,8 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   item,
   priorUserText,
   streamVisualActive,
+  live = false,
+  imageGenPending = false,
   lastAssistantId,
   selectedModel,
   highlightedMessageId,
@@ -39,21 +52,28 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   onFeedback,
   onRetryImageGen,
 }: Props) {
+  // Already throttled once at the store→UI boundary (useStreamingDraft) —
+  // read directly; a second throttle here would only add latency.
+  const streamingDraft = useStreamingDraft(live);
+  const liveContent = streamingDraft?.content;
+  const generating = live && streamVisualActive;
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
 
   const handleRegenerate = useCallback(() => {
     onRegenerate(selectedModel);
   }, [onRegenerate, selectedModel]);
+  const stalled = useStreamSilence(liveContent?.length ?? 0, generating && !imageGenPending);
 
   return (
     <MessageRowErrorBoundary resetKey={messageListKey(item)}>
       <MessageBubble
         message={item}
         priorUserText={priorUserText}
-        isGenerating={false}
-        liveContent={undefined}
-        liveSearchSources={undefined}
-        streamStatus={undefined}
+        isGenerating={generating}
+        liveContent={liveContent}
+        liveSearchSources={streamingDraft?.search_sources}
+        streamStatus={imageGenPending ? "image_gen" : streamingDraft?.status}
+        streamStatusDetail={imageGenPending ? undefined : streamingDraft?.statusDetail}
         isLastAssistant={isLastAssistant}
         onRegenerate={
           isLastAssistant && !streamVisualActive && !item.image_gen_failure
@@ -66,6 +86,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
         highlighted={item.id === highlightedMessageId}
         isSending={item.id === sendingMessageId}
       />
+      {stalled ? <StreamSilenceHint /> : null}
     </MessageRowErrorBoundary>
   );
 });

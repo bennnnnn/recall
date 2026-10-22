@@ -831,8 +831,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   autoscroll + JS `scrollToEnd` + a leftover streaming catch-up all wrote at
   the 280ms settle — spring, and the scroll-to-bottom chevron appeared. Fix:
   pad = composer gap only while the last row is the `streaming` placeholder;
-  mount icons when that row persists (same render, net zero); cancel streaming
-  scroll on end; keep native autoscroll off until `STREAM_AUTOSCROLL_RESUME_MS`.
+  mount icons when that row persists (same render, net zero). Later: the row
+  that streamed is the row that settles (no remount, no 280ms hold), native
+  autoscroll is off for good, and `useChatScroll` alone pins, from FlashList's
+  layout commit.
 - **Streaming math boxes flicker (blank → repaint).** Pending stream tail re-parsed
   every flush; `react-native-markdown-display` re-keys the tree so KaTeX WebViews in that
   tail remount. Short closed ` ```math ` / `$$` blocks sat under the 320-char settle

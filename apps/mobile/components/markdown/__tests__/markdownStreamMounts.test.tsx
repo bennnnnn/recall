@@ -1,8 +1,8 @@
 /**
  * A flush updates the reply's live part in place: what was already drawn keeps
  * its views (react-native-markdown-display re-keys every node on each parse;
- * withStableNodeKeys keys them by their place instead), and a chunk cut from
- * the live part keeps them too.
+ * withStableNodeKeys keys them by their place instead), a chunk cut from the
+ * live part keeps them too, and so does the reply when it settles.
  */
 import { act, render } from "@testing-library/react-native";
 
@@ -61,6 +61,40 @@ describe("a streaming reply's live part", () => {
     const root = view.toJSON() as { children: { props: { testID?: string } }[] };
     expect(root.children.filter((piece) => piece.props.testID === undefined)).toHaveLength(2);
     expect(mockMounts.get("c^2")).toBe(1);
+    await view.unmount();
+  });
+});
+
+describe("a streamed reply that settles", () => {
+  it("keeps every view it drew, and only its answer gains the check", async () => {
+    const lines = [
+      `First $c^2$ ${PARAGRAPH}`,
+      "",
+      `Second $d^2$ ${PARAGRAPH}`,
+      "",
+      "```answer",
+      "verified: true",
+      "$x = 4$",
+      "```",
+      "",
+      "Third $e^2$ and the rest",
+    ];
+    const view = await streamLines(lines);
+    expect(view.queryByTestId("answer-success-check")).toBeNull();
+    const caretBefore = view.queryAllByTestId("stream-caret", { includeHiddenElements: true }).length;
+    const answerBox = view.getByTestId("answer-box");
+    const mountedWhileStreaming = Object.fromEntries(mockMounts);
+    expect(mountedWhileStreaming).toEqual(expect.objectContaining({ "c^2": 1, "d^2": 1, "x = 4": 1 }));
+
+    await act(async () => {
+      view.rerender(<MarkdownContent content={`${lines.join("\n")}\n`} />);
+    });
+    // Settling mounts nothing: every formula is the one drawn while it streamed.
+    expect(Object.fromEntries(mockMounts)).toEqual(mountedWhileStreaming);
+    expect(view.getByTestId("answer-box")).toBe(answerBox);
+    expect(view.getByTestId("answer-success-check")).toBeTruthy();
+    expect(caretBefore).toBeGreaterThan(0);
+    expect(view.queryAllByTestId("stream-caret", { includeHiddenElements: true })).toHaveLength(0);
     await view.unmount();
   });
 });

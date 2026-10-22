@@ -52,6 +52,11 @@ describe("useAssistantMessageContent markdownPresented", () => {
     expect(await presented(row("streamed-1798761600000", AFTER_CUTOVER))).toBe(false);
   });
 
+  it("is false for the reply that just streamed in, so it stays as it was drawn", async () => {
+    const streamedHere = { ...row(SAVED_ID, AFTER_CUTOVER), renderKey: "stream-1798761600000" };
+    expect(await presented(streamedHere)).toBe(false);
+  });
+
   it("is false for the user's own message", async () => {
     expect(await presented(row(SAVED_ID, AFTER_CUTOVER), { isUser: true })).toBe(false);
   });

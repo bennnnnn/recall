@@ -4,9 +4,6 @@ import { hasSettingsProposalFence } from "@/lib/settingsProposal";
 // itself and `overrideItemLayout` only supports span. Recycling quality comes
 // from `getItemType` (messageListItemType below).
 
-/** Delay post-stream rich chrome (sources, full markdown) so layout settles once. */
-export const STREAM_LAYOUT_SETTLE_MS = 280;
-
 /**
  * Short threads stay under the header. FlashList's bottom start pads the top
  * until the rows fill the screen, so a few messages sit on the composer and
@@ -47,26 +44,6 @@ export function latchStartRenderingFromBottom(options: {
 /** Render keys assigned to the in-flight streaming placeholder (`stream-<ts>`). */
 export function isFreshStreamRenderKey(renderKey?: string): boolean {
   return Boolean(renderKey?.startsWith("stream-"));
-}
-
-/** Start a timed layout hold; returns an effect cleanup. */
-export function beginStreamLayoutHold(
-  setHeld: (held: boolean) => void,
-  ms: number = STREAM_LAYOUT_SETTLE_MS,
-): () => void {
-  setHeld(true);
-  const timer = setTimeout(() => setHeld(false), ms);
-  return () => clearTimeout(timer);
-}
-
-export function shouldHoldStreamLayoutOnPersistedMount(options: {
-  isUser: boolean;
-  isGenerating: boolean;
-  renderKey?: string;
-  alreadyApplied: boolean;
-}): boolean {
-  if (options.isUser || options.isGenerating || options.alreadyApplied) return false;
-  return isFreshStreamRenderKey(options.renderKey);
 }
 
 export function messageListItemType(item: {

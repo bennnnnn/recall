@@ -95,9 +95,6 @@ jest.mock("@/contexts/AuthContext", () => ({
 jest.mock("@/contexts/actionFeedbackCore", () => ({
   useActionFeedbackOptional: () => null,
 }));
-jest.mock("@/hooks/useStreamLayoutHold", () => ({
-  useStreamLayoutHold: () => false,
-}));
 jest.mock("@/hooks/useAssistantMessageContent", () => ({
   useAssistantMessageContent: ({ isUser }: { isUser: boolean }) => ({
     hasContent: mockHasContent,

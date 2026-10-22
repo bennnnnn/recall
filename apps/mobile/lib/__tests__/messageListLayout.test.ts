@@ -1,11 +1,8 @@
 import {
-  beginStreamLayoutHold,
   isFreshStreamRenderKey,
   latchStartRenderingFromBottom,
   messageListItemType,
   messageListKey,
-  STREAM_LAYOUT_SETTLE_MS,
-  shouldHoldStreamLayoutOnPersistedMount,
   shouldStartRenderingFromBottom,
 } from "@/lib/messageListLayout";
 
@@ -113,53 +110,5 @@ describe("messageListLayout", () => {
     expect(isFreshStreamRenderKey("stream-171")).toBe(true);
     expect(isFreshStreamRenderKey("msg-1")).toBe(false);
     expect(isFreshStreamRenderKey(undefined)).toBe(false);
-  });
-
-  it("beginStreamLayoutHold releases after the settle delay", () => {
-    jest.useFakeTimers();
-    const setHeld = jest.fn();
-    const cleanup = beginStreamLayoutHold(setHeld);
-    expect(setHeld).toHaveBeenCalledWith(true);
-    jest.advanceTimersByTime(STREAM_LAYOUT_SETTLE_MS - 1);
-    expect(setHeld).not.toHaveBeenCalledWith(false);
-    jest.advanceTimersByTime(1);
-    expect(setHeld).toHaveBeenCalledWith(false);
-    cleanup();
-    jest.useRealTimers();
-  });
-
-  it("shouldHoldStreamLayoutOnPersistedMount only for fresh assistant rows", () => {
-    expect(
-      shouldHoldStreamLayoutOnPersistedMount({
-        isUser: false,
-        isGenerating: false,
-        renderKey: "stream-1",
-        alreadyApplied: false,
-      }),
-    ).toBe(true);
-    expect(
-      shouldHoldStreamLayoutOnPersistedMount({
-        isUser: true,
-        isGenerating: false,
-        renderKey: "stream-1",
-        alreadyApplied: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldHoldStreamLayoutOnPersistedMount({
-        isUser: false,
-        isGenerating: true,
-        renderKey: "stream-1",
-        alreadyApplied: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldHoldStreamLayoutOnPersistedMount({
-        isUser: false,
-        isGenerating: false,
-        renderKey: "stream-1",
-        alreadyApplied: true,
-      }),
-    ).toBe(false);
   });
 });

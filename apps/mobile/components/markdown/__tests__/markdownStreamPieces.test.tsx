@@ -10,6 +10,7 @@ import { StyleSheet } from "react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { STREAMING_REPLIES } from "@/lib/__tests__/fixtures/streamingReplies";
+import { advanceStreamBlocks } from "@/lib/markdown/streamBlocks";
 import { formatAssistantMathExpr } from "@/lib/math/formatInput";
 
 import physics from "../../../../../docs/fixtures/physics_replies.json";
@@ -154,4 +155,71 @@ describe("a streaming reply drawn in pieces", () => {
     expect(goesOn.length).toBeGreaterThan(0);
     await view.unmount();
   });
+});
+
+/** Stream `text` in small flushes (the last one mid-line when it ends so), then settle it as `final`. */
+async function streamedThenSettled(text: string, final = text): Promise<Drawn[]> {
+  const view = await render(
+    <MarkdownContent content="" streaming mathFormat={formatAssistantMathExpr} />,
+  );
+  for (let end = 40; end < text.length + 40; end += 40) {
+    const content = text.slice(0, Math.min(end, text.length));
+    await act(async () => {
+      view.rerender(
+        <MarkdownContent content={content} streaming mathFormat={formatAssistantMathExpr} />,
+      );
+    });
+  }
+  await act(async () => {
+    view.rerender(<MarkdownContent content={final} mathFormat={formatAssistantMathExpr} />);
+  });
+  const blocks = blocksOf(view.toJSON() as Json);
+  await view.unmount();
+  return blocks;
+}
+
+async function drawnSettled(content: string): Promise<Drawn[]> {
+  const view = await render(<MarkdownContent content={content} mathFormat={formatAssistantMathExpr} />);
+  const blocks = blocksOf(view.toJSON() as Json);
+  await view.unmount();
+  return blocks;
+}
+
+describe("a streamed reply that settles", () => {
+  it.each(replies)(
+    "%s looks the same as the reply drawn settled",
+    async (_name, text) => {
+      expect(JSON.stringify(await streamedThenSettled(text))).toBe(
+        JSON.stringify(await drawnSettled(text)),
+      );
+    },
+    120_000,
+  );
+
+  it("looks the same when the saved reply differs from what streamed", async () => {
+    const text = STREAMING_REPLIES.tips;
+    const lines = text.split("\n");
+    // The server's saved text: a line in the middle reworded, and the long list cut short.
+    const middle = Math.floor(lines.length / 3);
+    const reworded = [...lines.slice(0, middle), "A reworded line.", ...lines.slice(middle + 1)].join("\n");
+    const listCut = text.slice(0, Math.floor(text.length * 0.6)).replace(/\n[^\n]*$/, "\n\nThat is all.");
+    for (const final of [reworded, listCut]) {
+      expect(JSON.stringify(await streamedThenSettled(text, final))).toBe(
+        JSON.stringify(await drawnSettled(final)),
+      );
+    }
+  }, 120_000);
+
+  it("draws a list's end again when the saved reply ends the list where a piece did", async () => {
+    const items = Array.from({ length: 14 }, (_, i) => `- Item ${i + 1}: ${"plain words ".repeat(6).trim()}`);
+    const text = `Intro.\n\n${items.join("\n")}\n\nDone.\n`;
+    const streamed = advanceStreamBlocks(null, text, text.length);
+    expect(streamed.continued[0]).toBe(true);
+    // The saved reply stops the list where the first piece ended: a line that
+    // belongs to the item above, not a list that goes on.
+    const final = `${streamed.chunks[0]}That is all.\n`;
+    expect(JSON.stringify(await streamedThenSettled(text, final))).toBe(
+      JSON.stringify(await drawnSettled(final)),
+    );
+  }, 120_000);
 });

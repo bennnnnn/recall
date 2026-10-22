@@ -245,6 +245,21 @@ describe("advanceStreamBlocks between list items", () => {
     expect(final.chunks.slice(0, 1)).toEqual(state.chunks);
   });
 
+  it("drops a chunk drawn as a list that goes on once the text after it no longer does", () => {
+    const lines = Array.from({ length: 13 }, (_, i) => `${i + 1}. ${"step words ".repeat(10).trim()}`);
+    const streamed = `${lines.join("\n")}\n`;
+    const state = advanceStreamBlocks(null, streamed, streamed.length);
+    expect(state.continued).toEqual([true]);
+    const chunk = state.chunks[0]!;
+
+    // The same text after it: kept.
+    expect(advanceStreamBlocks(state, `${streamed}\nDone.`, 0).chunks).toEqual([chunk]);
+    // Its list ends where the chunk does: the chunk is drawn again with its end.
+    for (const after of ["Done.\n", "- a bullet\n", "12. skipped a number\n"]) {
+      expect(advanceStreamBlocks(state, `${chunk}${after}`, 0).chunks).toEqual([]);
+    }
+  });
+
   it("drops only the chunks a rewrite changed", () => {
     const streamed = `${PARA("First.")}\n\n${PARA("Second.")}\n\n${PARA("Third.")}\n\n`;
     const s1 = advanceStreamBlocks(null, streamed, streamed.length);
