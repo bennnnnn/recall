@@ -22,6 +22,7 @@ from app.modules.chat.prompt_constants import (
     CHART_FORMAT_HINT,
     CHECKLIST_FORMAT_HINT,
     CLARIFICATION_HINT,
+    CLARIFY_CARD_HINT,
     COMPACT_RESPONSE_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
     CONFIRM_FOLLOW_THROUGH_HINT,
@@ -347,8 +348,16 @@ def _answer_photo(turn: StyleTurn) -> list[str]:
     return [ANSWER_PHOTO_HINT]
 
 
+def _may_ask_with_card(turn: StyleTurn) -> bool:
+    """A turn whose shape is not already set: a greeting, draft, code, lesson or problem."""
+    shaped = turn.compact or turn.multi or turn.writing or turn.code_hint or turn.lesson_hint
+    lesson = turn.teaching or turn.learning_plan or turn.subject in _NO_PHOTO_SUBJECTS
+    return bool(turn.query) and not shaped and not lesson
+
+
 HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
     PromptRule(_always, _hints(CLARIFICATION_HINT, PRIVACY_HINT)),
+    PromptRule(_may_ask_with_card, _hints(CLARIFY_CARD_HINT)),
     # A proofread is a writing request too; it only has no draft fence.
     PromptRule(
         lambda t: bool(t.query) and t.writing is None and t.writing_kind != "edit" and not t.multi,

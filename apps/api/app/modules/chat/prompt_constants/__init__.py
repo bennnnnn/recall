@@ -14,6 +14,7 @@ from app.modules.chat.prompt_constants.checklist import (
     CHECKLIST_FORMAT_HINT,
     is_checklist_request,
 )
+from app.modules.chat.prompt_constants.clarify import CLARIFY_CARD_HINT
 from app.modules.chat.prompt_constants.coding import (
     CODE_INK_REMINDER,
     code_question_hint,
@@ -157,6 +158,7 @@ __all__ = [
     "CHART_FORMAT_HINT",
     "CHECKLIST_FORMAT_HINT",
     "CLARIFICATION_HINT",
+    "CLARIFY_CARD_HINT",
     "CODE_INK_REMINDER",
     "COMPACT_RESPONSE_FORMAT_HINT",
     "COMPARISON_FORMAT_HINT",

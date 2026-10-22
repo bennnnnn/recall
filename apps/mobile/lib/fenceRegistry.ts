@@ -129,6 +129,15 @@ const FENCE_TABLE = [
     owner: "model", body: "data",
   },
   {
+    // A few questions with choices when the answer depends on the user (docs/clarify.md):
+    // Submit sends the picks as their next message.
+    id: "clarify",
+    langs: ["clarify"],
+    structured: true,
+    neverCodeBlock: true,
+    owner: "model", body: "data",
+  },
+  {
     // A lesson's list as boxes, each value over its index.
     id: "array",
     langs: ["array"],
