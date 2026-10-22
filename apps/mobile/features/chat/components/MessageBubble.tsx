@@ -147,7 +147,7 @@ export const MessageBubble = React.memo(function MessageBubble({
     t,
     streamStatusDetail,
   );
-  // Generated image with no prose — copy/speak/PDF/regenerate are noise.
+  // Generated image with no prose — copy, read aloud and regenerate are noise.
   const imageOnlyActions =
     showImages && !hasMarkdown && !showLiveClock && !showSettingsProposals && !showPlaces;
 

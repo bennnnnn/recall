@@ -11,6 +11,8 @@ import { localFileSize, preparePickedAsset, type PickedAsset } from "@/features/
 import { discardLocalCopy } from "@/features/attachments/model/localAttachmentFile";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
 import { cameraPermissionNeedsSettings } from "@/lib/cameraPermission";
+import i18n from "@/lib/i18n";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 export type AttachmentKind = "image" | "file";
 
@@ -219,6 +221,16 @@ function isMissingCameraPermission(error: unknown): boolean {
   return message.toLowerCase().includes("missing camera");
 }
 
+async function offerCameraSettings(): Promise<void> {
+  const open = await confirmDialog({
+    title: i18n.t("chat.camera_permission"),
+    message: i18n.t("chat.camera_settings_body"),
+    cancelLabel: i18n.t("chat.camera_settings_not_now"),
+    confirmLabel: i18n.t("chat.location_open_settings"),
+  });
+  if (open) void Linking.openSettings();
+}
+
 function launchCamera() {
   return ImagePicker.launchCameraAsync({
     mediaTypes: ["images"],
@@ -239,7 +251,9 @@ export async function pickFromCamera(): Promise<PendingAttachment | null> {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
         if (cameraPermissionNeedsSettings(permission)) {
-          void Linking.openSettings();
+          // Only Settings can turn it back on: ask before leaving the app.
+          await offerCameraSettings();
+          return null;
         }
         throw new AttachmentError("camera_permission");
       }

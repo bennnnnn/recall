@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { useAuthToken, useAuthUserReader } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
-import { speakPlainText, stopSpeaking } from "@/features/speech/model/pronunciation";
+import { readAloudIsCut, speakPlainText, stopSpeaking } from "@/features/speech/model/pronunciation";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
 import { speechLocale } from "@/lib/i18n/languages";
@@ -145,6 +145,7 @@ function useReadAloud(messageId: string, markdown: string) {
     // plans read with the phone's own voice, which never reaches the server.
     const user = readUser();
     const cloudVoice = hasPlanFeature(user, "speech_tts");
+    if (readAloudIsCut(markdown)) feedbackApi?.info(t("chat.read_aloud_cut"));
     const result = await speakPlainText(markdown, speechLocale(user?.locale), {
       token: cloudVoice ? token : null,
       preferCloud: cloudVoice,
