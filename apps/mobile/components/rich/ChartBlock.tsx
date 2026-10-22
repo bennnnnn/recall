@@ -16,7 +16,7 @@ import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CHART_PAGE, chartPreviewConfig } from "@/lib/chartPreviewHtml";
 import { CHART_HEIGHT_EPSILON_PX, CHART_PREVIEW_HEIGHT } from "@/lib/chartPreviewHeight";
-import { CODE_FONT } from "@/lib/fonts";
+import { CODE_FACE } from "@/lib/fonts";
 import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
@@ -185,7 +185,7 @@ function makeStyles(t: Theme) {
       borderBottomColor: t.border,
       maxHeight: 200,
     },
-    sourceText: { ...Type.meta, fontFamily: CODE_FONT, lineHeight: 18, color: t.textSecondary },
+    sourceText: { ...Type.meta, ...CODE_FACE, lineHeight: 18, color: t.textSecondary },
     iconBtn: {
       width: 32,
       height: 32,

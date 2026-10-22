@@ -1,7 +1,14 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
-import { Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
 
 import { CodeBlock } from "@/components/CodeBlock";
+import { darkTheme, lightTheme, withAlpha } from "@/lib/theme";
+
+const mockTheme = { dark: false };
+jest.mock("@/lib/theme", () => {
+  const actual = jest.requireActual("@/lib/theme");
+  return { ...actual, useTheme: () => (mockTheme.dark ? actual.darkTheme : actual.lightTheme) };
+});
 
 // The real Prism tokenizer loads through a dynamic import(); a one-token
 // stand-in keeps the card's layout under test.
@@ -20,6 +27,10 @@ async function renderBlock(props: Partial<Parameters<typeof CodeBlock>[0]> = {})
   });
   return utils;
 }
+
+beforeEach(() => {
+  mockTheme.dark = false;
+});
 
 describe("CodeBlock", () => {
   it("shows the code, a Python corner label, and a floating copy button", async () => {
@@ -77,5 +88,51 @@ describe("CodeBlock", () => {
 
     expect(getByText(CODE)).toBeOnTheScreen();
     expect(queryByLabelText("common.copy")).toBeNull();
+  });
+
+  it("draws code without ligatures, so `fib` never reads as one glyph", async () => {
+    const { getByText } = await renderBlock({ code: "fib = fibonacci(10)" });
+    expect(StyleSheet.flatten(getByText("fib = fibonacci(10)").props.style)).toMatchObject({
+      fontFamily: "SpaceMono",
+      fontVariant: ["no-common-ligatures"],
+    });
+  });
+
+  describe("diff fences", () => {
+    const DIFF = ["def f(xs):", "-    count = 0", "+    total = 0", "     for x in xs:"].join("\n");
+
+    function lineStyle(utils: Awaited<ReturnType<typeof renderBlock>>, text: string) {
+      const line = utils.getByText(text);
+      return {
+        ink: StyleSheet.flatten(line.props.style).color,
+        band: StyleSheet.flatten(line.parent?.props.style).backgroundColor,
+      };
+    }
+
+    it("colors added lines green and removed lines red, context plain", async () => {
+      const utils = await renderBlock({ code: DIFF, lang: "diff" });
+      expect(lineStyle(utils, "+    total = 0")).toEqual({
+        ink: lightTheme.success,
+        band: withAlpha(lightTheme.success, 0.12),
+      });
+      expect(lineStyle(utils, "-    count = 0")).toEqual({
+        ink: lightTheme.danger,
+        band: withAlpha(lightTheme.danger, 0.1),
+      });
+      expect(lineStyle(utils, "def f(xs):").band).toBeUndefined();
+      expect(utils.getAllByTestId("code-block-diff-line")).toHaveLength(2);
+    });
+
+    it("uses the dark theme's colors in dark mode", async () => {
+      mockTheme.dark = true;
+      const utils = await renderBlock({ code: DIFF, lang: "patch" });
+      expect(lineStyle(utils, "+    total = 0").ink).toBe(darkTheme.success);
+      expect(lineStyle(utils, "-    count = 0").ink).toBe(darkTheme.danger);
+    });
+
+    it("leaves +/- lines of other languages alone", async () => {
+      const utils = await renderBlock({ code: DIFF, lang: "python" });
+      expect(utils.queryByTestId("code-block-diff-line")).toBeNull();
+    });
   });
 });

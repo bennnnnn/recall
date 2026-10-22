@@ -18,7 +18,7 @@ import { useTranslation } from "react-i18next";
 import { inlineCodeTextStyle } from "@/components/markdown/markdownContentStyles";
 import { LazyFunctionGraphBlock, LazyGeometryBlock } from "@/components/rich/LazyHeavyRich";
 import { codeLanguageLabel } from "@/lib/codeHighlight";
-import { CODE_FONT } from "@/lib/fonts";
+import { CODE_FACE } from "@/lib/fonts";
 import { markdownItInstance } from "@/lib/markdown/parser";
 import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import { classifyFallbackFence } from "@/lib/fallbackFence";
@@ -199,7 +199,7 @@ function makeFenceStyles(t: Theme) {
     },
     code: {
       ...Type.compact,
-      fontFamily: CODE_FONT,
+      ...CODE_FACE,
       lineHeight: 20,
       color: t.text,
       padding: Space.sm,

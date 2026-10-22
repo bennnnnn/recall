@@ -8,7 +8,7 @@ import { GraphCanvas, GRAPH_AXIS_PAD } from "@/components/rich/GraphCanvas";
 import { SkiaGraphCanvasLazy } from "@/components/rich/skia/SkiaGraphCanvasLazy";
 import { CHART_HEIGHT, GRAPH_CARD_INSET, useFunctionPlotState } from "@/components/rich/useFunctionPlotState";
 import { type DrawnSeries } from "@/hooks/useInteractiveGraph";
-import { CODE_FONT } from "@/lib/fonts";
+import { CODE_FACE } from "@/lib/fonts";
 import { formatGraphExpr } from "@/lib/math/graphBlock";
 import { type GraphSpec } from "@/lib/math/graphSpec";
 import { IconSize } from "@/ui/icons/sizes";
@@ -333,7 +333,7 @@ const makeExplorerStyles = (theme: Theme) =>
     input: {
       margin: 0,
       paddingVertical: 2,
-      fontFamily: CODE_FONT,
+      ...CODE_FACE,
       fontSize: 15,
       color: theme.text,
     },

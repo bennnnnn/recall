@@ -14,7 +14,7 @@ import { usePreviewPage } from "@/components/rich/usePreviewPage";
 import { useWebPreviewHeight } from "@/components/rich/useWebPreviewHeight";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
-import { CODE_FONT } from "@/lib/fonts";
+import { CODE_FACE } from "@/lib/fonts";
 import { mermaidTitleKey } from "@/lib/mermaidKind";
 import { MERMAID_MIN_HEIGHT, MERMAID_PREVIEW_HEIGHT } from "@/lib/mermaidPreviewHeight";
 import { MERMAID_PAGE, mermaidPreviewConfig } from "@/lib/mermaidPreviewHtml";
@@ -220,7 +220,7 @@ function makeStyles(t: Theme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.border,
     },
-    previewText: { ...Type.meta, fontFamily: CODE_FONT, lineHeight: 18, color: t.textSecondary },
+    previewText: { ...Type.meta, ...CODE_FACE, lineHeight: 18, color: t.textSecondary },
     fallbackHint: { ...Type.meta, color: t.textTertiary, marginTop: Space.xs },
     iconBtn: {
       width: 32,

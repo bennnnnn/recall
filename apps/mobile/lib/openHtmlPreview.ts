@@ -41,7 +41,7 @@ export function wrapFullDocument(html: string, theme?: Theme): string {
   td, th { border: 1px solid ${border}; padding: 8px; }
   th { background: ${thBg}; font-weight: 600; }
   pre { background: ${preBg}; padding: 12px; border-radius: 8px; overflow-x: auto; }
-  code { font-family: ${codeFont}; font-size: 14px; }
+  code { font-family: ${codeFont}; font-size: 14px; font-variant-ligatures: none; }
   img { max-width: 100%; }
 </style>
 </head>

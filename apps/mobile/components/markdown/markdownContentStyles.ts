@@ -1,6 +1,6 @@
 import { StyleSheet, type TextStyle } from "react-native";
 
-import { CODE_FONT } from "@/lib/fonts";
+import { CODE_FACE } from "@/lib/fonts";
 import type { Theme } from "@/lib/theme";
 import { Italic, Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
@@ -20,7 +20,7 @@ import { Space } from "@/lib/space";
 export function inlineCodeTextStyle(t: Theme): TextStyle {
   return {
     ...Type.secondary,
-    fontFamily: CODE_FONT,
+    ...CODE_FACE,
     color: t.text,
     backgroundColor: t.codeInlineBg,
     borderRadius: Radius.row,
