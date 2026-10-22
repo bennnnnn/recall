@@ -381,9 +381,9 @@ def test_first_unanswered_assistant_idx_detects_partial_tools():
         },
         {"role": "tool", "tool_call_id": "a", "content": "ok"},
     ]
-    assert rounds._first_unanswered_assistant_idx(msgs) == 1
+    assert rounds.first_unanswered_tool_turn(msgs) == 1
     msgs.append({"role": "tool", "tool_call_id": "b", "content": "ok"})
-    assert rounds._first_unanswered_assistant_idx(msgs) is None
+    assert rounds.first_unanswered_tool_turn(msgs) is None
 
 
 @pytest.mark.asyncio

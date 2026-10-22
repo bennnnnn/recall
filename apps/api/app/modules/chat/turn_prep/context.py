@@ -126,6 +126,9 @@ class StreamContext:
     # A multi-part message's settings card and picture: the server's part of the reply.
     settings_card: str | None = None
     reply_picture: ReplyPicture | None = None
+    # The tools the reply's own model call carries, when the tool loop leaves the
+    # turn to it: ``web_search`` (``tool_loop.reply_calls``).
+    reply_tools: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass

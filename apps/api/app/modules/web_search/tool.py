@@ -59,10 +59,18 @@ class WebSearchAdapter:
 
     def describe(self) -> str:
         return (
-            "Search the web for current information. Call it whenever the user asks you "
-            "to search, look something up, google it or check online, and for facts that "
-            "change. The query must stand alone: spell out who or what the conversation "
-            "is about (a full name, a place), never 'it', 'her' or 'do a search'."
+            "Search the web for current information. Call it before you write anything "
+            "when the answer may have changed since you were trained: who holds an office "
+            "or a title, winners, results and scores, records and rankings, prices, rates "
+            "and figures that move (a population, a statistic), releases and versions, "
+            "news, events and schedules, laws and rules, and anything about this year or "
+            "the latest. Call it whenever the user asks you to search, look something up, "
+            "google it or check online. Do not call it for what stays true (definitions, "
+            "history, science, maths, how things work, code, writing), for what the user "
+            "told you about themselves, or for the date or time anywhere (the prompt has the "
+            "user's clock). The query must stand alone: spell out who or what "
+            "the conversation is about (a full name, a place), never 'it', 'her' or 'do a "
+            "search'."
         )
 
     def to_openai_tool(self) -> dict[str, Any]:

@@ -61,7 +61,7 @@ def _list_field_name(schema: type[BaseModel]) -> str | None:
     return None
 
 
-def _fallback_alias(settings: Settings, primary: str) -> str | None:
+def fallback_alias(settings: Settings, primary: str) -> str | None:
     """The alias to retry against when the primary background model is down.
 
     Returns None when mock mode is on, or when the primary IS the fallback (don't
@@ -148,7 +148,7 @@ async def complete_structured[T: BaseModel](
     """
     if mock_llm.should_mock_llm(settings):
         return None
-    fallback = _fallback_alias(settings, model_alias)
+    fallback = fallback_alias(settings, model_alias)
 
     async def ask(alias: str) -> T | None:
         return await _complete_structured_once(

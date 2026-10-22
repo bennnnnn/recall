@@ -14,7 +14,7 @@ from app.gateways.mcp.base import ToolContext
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.chat.stream_status import StreamStatusFn, clip_status_detail
 from app.modules.chat.tool_loop.parts import live_parts, open_parts
-from app.modules.chat.tool_loop.selection import _last_user_content
+from app.modules.chat.tool_loop.selection import last_user_content
 from app.modules.web_search import (
     format_search_block,
     format_search_empty_block,
@@ -67,7 +67,7 @@ async def _force_web_search_if_needed(
         return messages, search_hits
     if not settings.web_search_enabled:
         return messages, search_hits
-    user_text = _last_user_content(messages)
+    user_text = last_user_content(messages)
     if not user_text:
         return messages, search_hits
     from app.modules.chat.prompt_inject import inject_before_last_user

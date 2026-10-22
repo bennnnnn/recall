@@ -31,8 +31,9 @@ def _extract_price_from_snippet(snippet: str) -> str | None:
 
 
 WEB_SEARCH_HINT = (
-    "Live web search may be injected immediately before the user's latest message. "
-    "When a **Web search results** block is present, ground your answer in those results "
+    "Live web search results come as a **Web search results** block just before the "
+    "user's latest message, or as the web_search tool's result. "
+    "When either is present, ground your answer in those results "
     "(scores, dates, headlines, facts). If none of them answers the question, say so "
     'plainly ("The results I found don\'t cover that") instead of stretching an '
     "off-topic result or filling in from memory. "
@@ -60,8 +61,9 @@ WEB_SEARCH_HINT = (
     "failed, say the search didn't work just now, not that nothing exists. "
     "Do NOT add a separate Sources section — the app renders source cards. "
     "Never role-play searching. "
-    "If no **Web search results** block is in this prompt, do not claim you searched the "
-    "live web — answer from knowledge or say you don't have live results. "
+    "If neither is in this prompt, do not claim you searched the live web: call the "
+    "web_search tool when it is offered, else answer from knowledge or say you don't have "
+    "live results. "
     "Recall does search the web when the user asks: never say you can't browse, can't "
     "search or have no internet access. If the user asked for a search and no results "
     "came with this turn, say you couldn't find it this time and ask them to name the "

@@ -11,15 +11,16 @@ from litellm import acompletion as acompletion
 
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
-from app.gateways import llm_spend, mock_llm
+from app.gateways import mock_llm
 from app.gateways.reasoning import reasoning_body
 
 # The completion kinds split out of this module are part of its public surface
 # (callers use ``litellm_gateway.complete_structured`` and friends). They make
 # their provider calls through this module (``acompletion``, ``resolve_route``,
 # ``_litellm_kwargs``), importing it at call time: at load it would be a cycle.
-from app.gateways.structured_completion import _fallback_alias
+from app.gateways.stream_tool_calls import StreamedToolCalls
 from app.gateways.structured_completion import complete_structured as complete_structured
+from app.gateways.text_completion import complete_text as complete_text
 from app.gateways.think_stripper import STRAY_THINK_LEAD_HOLD, ThinkStripper
 from app.gateways.tool_completion import complete_with_tools as complete_with_tools
 from app.gateways.vision_completion import vision_completion as vision_completion
@@ -53,64 +54,6 @@ class ModelUnavailableError(Exception):
 _CHAT_MODEL_UNAVAILABLE_MSG = (
     "That model isn't responding right now. Try again — or pick a different model."
 )
-
-
-async def _acompletion_with_fallback(
-    settings: Settings,
-    primary_alias: str,
-    *,
-    messages: list[dict[str, str]],
-    max_tokens: int,
-    response_format: dict[str, str] | None = None,
-) -> Any | None:
-    """Run acompletion against the primary background alias; on provider outage
-    retry once against the fallback alias. Returns the LiteLLM response object,
-    or None if both fail. Used by the background paths (titles, summaries,
-    project extraction) so a single-provider DeepSeek incident doesn't silently
-    stall every background pipeline.
-    """
-    fallback = _fallback_alias(settings, primary_alias)
-    for alias in (primary_alias, fallback):
-        if alias is None:
-            continue
-        try:
-            route = resolve_route(alias)
-            kwargs = _litellm_kwargs(settings, route, thinking=False)
-            params: dict[str, Any] = dict(
-                model=route.model, messages=messages, max_tokens=max_tokens, **kwargs
-            )
-            if response_format is not None:
-                params["response_format"] = response_format
-            async with asyncio.timeout(settings.background_llm_timeout_seconds):
-                response = await acompletion(**params)
-            llm_spend.meter_model_call(alias, response)
-            return response
-        except TimeoutError:
-            if alias == primary_alias and fallback is not None:
-                logger.warning(
-                    "Background LLM %s timed out after %ss; retrying with fallback %s",
-                    primary_alias,
-                    settings.background_llm_timeout_seconds,
-                    fallback,
-                )
-                continue
-            logger.warning(
-                "Background LLM %s timed out after %ss",
-                alias,
-                settings.background_llm_timeout_seconds,
-            )
-            return None
-        except Exception:
-            if alias == primary_alias and fallback is not None:
-                logger.warning(
-                    "Background LLM %s unavailable; retrying with fallback %s",
-                    primary_alias,
-                    fallback,
-                )
-                continue
-            logger.exception("Background LLM %s failed", alias)
-            return None
-    return None
 
 
 def resolve_route(alias: str) -> ChatModel:
@@ -205,7 +148,11 @@ async def stream_chat_completion(
     on_reasoning: Callable[[str], Awaitable[None]] | None = None,
     thinking: bool | str | None = None,
     attempts: list[StreamAttempt] | None = None,
+    tools: list[dict[str, Any]] | None = None,
+    tool_calls: list[dict[str, Any]] | None = None,
 ) -> AsyncIterator[str]:
+    """The reply from the first alias that answers. ``tools`` go to an alias that takes
+    them, and the calls its reply makes land on ``tool_calls``: a call answers too."""
     if mock_llm.should_mock_llm(settings):
         logger.info("Using mock LLM stream for alias=%s", model_alias)
         if stream_meta is not None:
@@ -227,6 +174,7 @@ async def stream_chat_completion(
         # daily quota. Tool-loop usage already lives on `usage`; only merge
         # the attempt that actually produced content.
         attempt_usage: dict[str, int] = {}
+        attempt_calls: list[dict[str, Any]] = []
         attempt_started = time.perf_counter()
         first_content_ms: float | None = None
         # "ok" answered, "failed" did not, "closed" was stopped before its first content.
@@ -243,11 +191,11 @@ async def stream_chat_completion(
                 on_reasoning=on_reasoning,
                 stream_meta=stream_meta,
                 thinking=thinking,
-                first_content_timeout_seconds=(
-                    settings.chat_stream_first_content_timeout_seconds
-                    if index < len(aliases) - 1 and model_catalog.is_reasoning_alias(alias)
-                    else None
+                first_content_timeout_seconds=_first_content_timeout(
+                    settings, alias, last=index == len(aliases) - 1
                 ),
+                tools=tools,
+                tool_calls=attempt_calls,
             ):
                 if not started:
                     pending.append(token)
@@ -260,9 +208,11 @@ async def stream_chat_completion(
                     pending.clear()
                     continue
                 yield token
-            if started:
+            if started or attempt_calls:
                 result = "ok"
                 _merge_attempt_usage(usage, attempt_usage)
+                if tool_calls is not None:
+                    tool_calls.extend(attempt_calls)
                 if stream_meta is not None:
                     stream_meta["model_alias"] = alias
                 return
@@ -299,20 +249,38 @@ async def stream_chat_completion(
             result = "ok" if started else "closed"
             raise
         finally:
-            if attempts is not None and result != "closed":
-                elapsed_ms = (time.perf_counter() - attempt_started) * 1000
-                attempts.append(
-                    StreamAttempt(
-                        alias=alias,
-                        ok=result == "ok",
-                        first_content_ms=first_content_ms
-                        if first_content_ms is not None
-                        else elapsed_ms,
-                    )
-                )
+            if result != "closed":
+                _note_attempt(attempts, alias, result == "ok", attempt_started, first_content_ms)
 
     if last_error is not None:
         raise last_error
+
+
+def _first_content_timeout(settings: Settings, alias: str, *, last: bool) -> float | None:
+    """A thinking alias with a fallback after it must show content in time, or yield."""
+    if last or not model_catalog.is_reasoning_alias(alias):
+        return None
+    return settings.chat_stream_first_content_timeout_seconds
+
+
+def _note_attempt(
+    attempts: list[StreamAttempt] | None,
+    alias: str,
+    ok: bool,
+    started_at: float,
+    first_content_ms: float | None,
+) -> None:
+    """Record one alias's attempt, timed to its first content (or to its end)."""
+    if attempts is None:
+        return
+    elapsed_ms = (time.perf_counter() - started_at) * 1000
+    attempts.append(
+        StreamAttempt(
+            alias=alias,
+            ok=ok,
+            first_content_ms=first_content_ms if first_content_ms is not None else elapsed_ms,
+        )
+    )
 
 
 _PROVIDER_CLOSE_TIMEOUT_SECONDS = 2.0
@@ -322,6 +290,56 @@ async def _close_provider_stream(close: Callable[[], Awaitable[None]]) -> None:
     """Close the provider socket after a stop without blocking the caller."""
     with suppress(Exception, asyncio.CancelledError):
         await asyncio.wait_for(close(), _PROVIDER_CLOSE_TIMEOUT_SECONDS)
+
+
+async def _close_response(response: Any) -> None:
+    close = getattr(response, "aclose", None)
+    if close is None:
+        return
+    # A stop cancels this task. Awaiting the socket close here either
+    # raises again immediately or waits out the provider, and the
+    # partial reply never gets saved. Close in the background.
+    task = asyncio.current_task()
+    if task is not None and task.cancelling():
+        create_background_task(_close_provider_stream(close), name="close_provider_stream")
+    else:
+        with suppress(Exception):
+            await close()
+
+
+def _read_chunk(
+    chunk: Any,
+    usage: dict[str, int] | None,
+    stream_meta: dict[str, str] | None,
+    calls: StreamedToolCalls | None,
+) -> tuple[str, bool]:
+    """A chunk's text, and whether it carried a tool call; its usage and finish noted.
+
+    ``calls`` is None when the request offered no tools: a stray call is not read."""
+    _apply_usage(usage, chunk)
+    choices = getattr(chunk, "choices", None) or []
+    if not choices:
+        return "", False
+    reason = getattr(choices[0], "finish_reason", None)
+    if reason and stream_meta is not None:
+        stream_meta["finish_reason"] = str(reason)
+    delta = getattr(choices[0], "delta", None)
+    if delta is None:
+        return "", False
+    called = calls is not None and calls.fold(getattr(delta, "tool_calls", None))
+    return getattr(delta, "content", None) or "", called
+
+
+def _no_content_in_time(alias: str, seconds: float | None) -> ModelUnavailableError:
+    logger.warning(
+        "LiteLLM stream produced no visible content for alias=%s within %ss", alias, seconds
+    )
+    return ModelUnavailableError.for_alias(alias)
+
+
+def _over_wall_clock(alias: str, max_seconds: float) -> ModelUnavailableError:
+    logger.warning("LiteLLM stream wall-clock timed out for alias=%s (max=%ss)", alias, max_seconds)
+    return ModelUnavailableError.for_alias(alias)
 
 
 async def _stream_chat_once(
@@ -335,9 +353,14 @@ async def _stream_chat_once(
     stream_meta: dict[str, str] | None = None,
     first_content_timeout_seconds: float | None = None,
     thinking: bool | str | None = None,
+    tools: list[dict[str, Any]] | None = None,
+    tool_calls: list[dict[str, Any]] | None = None,
 ) -> AsyncIterator[str]:
     route = resolve_route(model_alias)
     kwargs = _litellm_kwargs(settings, route, latency_sensitive=True, thinking=thinking)
+    calls = StreamedToolCalls() if tools and route.supports_tools else None
+    if calls is not None:
+        kwargs.update(tools=tools, tool_choice="auto")
     stripper = ThinkStripper(lead_hold=STRAY_THINK_LEAD_HOLD if route.stray_think_guard else 0)
     # Signature kept so WS/SSE callers stay unchanged; CoT is not forwarded.
     _ = on_reasoning
@@ -347,6 +370,7 @@ async def _stream_chat_once(
         if first_content_timeout_seconds is not None
         else None
     )
+    # A tool call counts as content: the model chose to call instead of writing.
     visible_content_started = False
     try:
         async with asyncio.timeout(settings.chat_stream_connect_timeout_seconds):
@@ -373,22 +397,12 @@ async def _stream_chat_once(
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                logger.warning(
-                    "LiteLLM stream wall-clock timed out for alias=%s (max=%ss)",
-                    model_alias,
-                    max_seconds,
-                )
-                raise ModelUnavailableError.for_alias(model_alias)
+                raise _over_wall_clock(model_alias, max_seconds)
             first_content_remaining: float | None = None
             if not visible_content_started and first_content_deadline is not None:
                 first_content_remaining = first_content_deadline - time.monotonic()
                 if first_content_remaining <= 0:
-                    logger.warning(
-                        "LiteLLM stream produced no visible content for alias=%s within %ss",
-                        model_alias,
-                        first_content_timeout_seconds,
-                    )
-                    raise ModelUnavailableError.for_alias(model_alias)
+                    raise _no_content_in_time(model_alias, first_content_timeout_seconds)
             read_timeout = min(idle_seconds, remaining)
             if first_content_remaining is not None:
                 read_timeout = min(read_timeout, first_content_remaining)
@@ -398,40 +412,25 @@ async def _stream_chat_once(
                     timeout=read_timeout,
                 )
             except TimeoutError as exc:
+                now = time.monotonic()
                 if (
                     not visible_content_started
                     and first_content_deadline is not None
-                    and time.monotonic() >= first_content_deadline
+                    and now >= first_content_deadline
                 ):
-                    logger.warning(
-                        "LiteLLM stream produced no visible content for alias=%s within %ss",
-                        model_alias,
-                        first_content_timeout_seconds,
-                    )
-                elif time.monotonic() >= deadline:
-                    logger.warning(
-                        "LiteLLM stream wall-clock timed out for alias=%s (max=%ss)",
-                        model_alias,
-                        max_seconds,
-                    )
-                else:
-                    logger.warning(
-                        "LiteLLM stream idle timed out for alias=%s (idle=%ss)",
-                        model_alias,
-                        idle_seconds,
-                    )
+                    raise _no_content_in_time(model_alias, first_content_timeout_seconds) from exc
+                if now >= deadline:
+                    raise _over_wall_clock(model_alias, max_seconds) from exc
+                logger.warning(
+                    "LiteLLM stream idle timed out for alias=%s (idle=%ss)",
+                    model_alias,
+                    idle_seconds,
+                )
                 raise ModelUnavailableError.for_alias(model_alias) from exc
             if chunk is None:
                 break
-            _apply_usage(usage, chunk)
-            choices = getattr(chunk, "choices", None) or []
-            if not choices:
-                continue
-            reason = getattr(choices[0], "finish_reason", None)
-            if reason and stream_meta is not None:
-                stream_meta["finish_reason"] = str(reason)
-            delta = getattr(choices[0], "delta", None)
-            content = getattr(delta, "content", None) or "" if delta is not None else ""
+            content, called = _read_chunk(chunk, usage, stream_meta, calls)
+            visible_content_started = visible_content_started or called
             if content:
                 cleaned = stripper.feed(content)
                 if cleaned:
@@ -443,6 +442,8 @@ async def _stream_chat_once(
             if tail.strip():
                 visible_content_started = True
             yield tail
+        if tool_calls is not None and calls is not None:
+            tool_calls.extend(calls.calls())
     except TimeoutError as exc:
         logger.warning(
             "LiteLLM stream timed out for alias=%s (connect=%ss idle=%ss)",
@@ -457,39 +458,4 @@ async def _stream_chat_once(
         logger.exception("LiteLLM streaming failed for alias=%s", model_alias)
         raise ModelUnavailableError.for_alias(model_alias) from exc
     finally:
-        close = getattr(response, "aclose", None)
-        if close is not None:
-            # A stop cancels this task. Awaiting the socket close here either
-            # raises again immediately or waits out the provider, and the
-            # partial reply never gets saved. Close in the background.
-            task = asyncio.current_task()
-            if task is not None and task.cancelling():
-                create_background_task(
-                    _close_provider_stream(close),
-                    name="close_provider_stream",
-                )
-            else:
-                with suppress(Exception):
-                    await close()
-
-
-async def complete_text(
-    *,
-    settings: Settings,
-    model_alias: str,
-    messages: list[dict[str, str]],
-    max_tokens: int = 256,
-) -> str | None:
-    """Return assistant text content from a non-streaming completion (or None)."""
-    if mock_llm.should_mock_llm(settings):
-        return None
-    response = await _acompletion_with_fallback(
-        settings, model_alias, messages=messages, max_tokens=max_tokens
-    )
-    if response is None:
-        return None
-    try:
-        return (response.choices[0].message.content or "").strip() or None
-    except Exception:
-        logger.exception("Text completion failed to parse response for %s", model_alias)
-        return None
+        await _close_response(response)

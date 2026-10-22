@@ -1,6 +1,6 @@
 {
-  "gateways/litellm_gateway.py::_stream_chat_once": 147,
-  "gateways/litellm_gateway.py::stream_chat_completion": 120,
+  "gateways/litellm_gateway.py::_stream_chat_once": 117,
+  "gateways/litellm_gateway.py::stream_chat_completion": 118,
   "modules/account/export.py::_iter_export_json": 172,
   "modules/chat/prompt_builder.py::build_prompt_messages": 119,
   "modules/chat/stream_api.py::_turn_sse_lines": 164,

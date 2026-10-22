@@ -90,12 +90,6 @@ class Case:
 
 
 NO_PHOTO = ""
-# Turns production does not search (the classifier that did was off in production).
-_PRODUCTION_SEARCH_GAP = (
-    "Production never searches this: the LLM classifier that decided these was off in "
-    "production (fly.toml), and the deterministic gate does not catch it. Needs a routing "
-    "decision (search on live cues, or a model round)."
-)
 NONE = ""
 
 # A story cut off mid-sentence, and code with its bug report, for the follow-up turns.
@@ -300,7 +294,7 @@ CASES: tuple[Case, ...] = (
         "physics-concept",
         "physics",
         "explain Newton's third law",
-        Expect(search="no", solved=False, photo=NO_PHOTO),
+        Expect(search="ask", solved=False, photo=NO_PHOTO),
         "Equal and opposite forces on two different bodies, with an everyday example.",
     ),
     Case(
@@ -446,10 +440,9 @@ CASES: tuple[Case, ...] = (
         "search-static-fact",
         "web search",
         "what is the capital of Kenya",
-        # A question about the world reaches the classifier, which needs no search here.
+        # A question about the world: the reply's model has web_search, and needs none here.
         Expect(search="ask", photo=NO_PHOTO),
         "Nairobi, in one line.",
-        gap=_PRODUCTION_SEARCH_GAP,
     ),
     Case(
         "search-bare-command",
@@ -466,10 +459,9 @@ CASES: tuple[Case, ...] = (
         "search-world-fact",
         "web search",
         "what's the population of Ethiopia",
-        # No live word, yet the answer is a number that changes: the classifier decides.
+        # No live word, yet the answer is a number that changes: the reply's model searches.
         Expect(search="ask"),
         "A recent figure from a search with its year, never a remembered guess.",
-        gap=_PRODUCTION_SEARCH_GAP,
     ),
     Case(
         "search-claim-about-a-leader",
@@ -482,7 +474,6 @@ CASES: tuple[Case, ...] = (
             ("user", "tell me about the war in ethiopia"),
             ("assistant", "The Tigray war began in November 2020 and ended with a 2022 truce."),
         ),
-        gap=_PRODUCTION_SEARCH_GAP,
     ),
     Case(
         "search-officeholder-followup",
@@ -507,21 +498,21 @@ CASES: tuple[Case, ...] = (
         "search-no-new-to",
         "web search",
         "I'm new to python, where should I start?",
-        Expect(search="no"),
+        Expect(search="ask"),
         "A starting path; nothing about new products.",
     ),
     Case(
         "search-no-new-year",
         "web search",
         "happy new year!",
-        Expect(search="no"),
+        Expect(search="ask"),
         "A warm reply.",
     ),
     Case(
         "search-no-weather-concept",
         "web search",
         "what causes weather",
-        Expect(search="no"),
+        Expect(search="ask"),
         "Sun, air pressure, water vapor and the earth's rotation, explained simply.",
     ),
     Case(
@@ -579,7 +570,10 @@ CASES: tuple[Case, ...] = (
         "photos and maps",
         "where is kenya",
         Expect(
-            hints=("answer_photo", "where_is_photo"), photo=NO_PHOTO, search="no", answer_photo=True
+            hints=("answer_photo", "where_is_photo"),
+            photo=NO_PHOTO,
+            search="ask",
+            answer_photo=True,
         ),
         "A real map of Kenya above: East Africa on the equator, on the Indian Ocean.",
     ),
@@ -587,14 +581,14 @@ CASES: tuple[Case, ...] = (
         "map-show-where",
         "photos and maps",
         "show me where nepal is",
-        Expect(hints=("where_is_photo",), photo=NO_PHOTO, search="no", answer_photo=True),
+        Expect(hints=("where_is_photo",), photo=NO_PHOTO, search="ask", answer_photo=True),
         "A real map of Nepal above: between India and China in the Himalayas.",
     ),
     Case(
         "map-not-a-place",
         "photos and maps",
         "where is the error in my code",
-        Expect(no_hints=("where_is_photo",), photo=NO_PHOTO, search="no", answer_photo=False),
+        Expect(no_hints=("where_is_photo",), photo=NO_PHOTO, search="ask", answer_photo=False),
         "Asks for the code (none was shared); no photo.",
     ),
     Case(
@@ -726,7 +720,7 @@ CASES: tuple[Case, ...] = (
         "location-duration-not-a-trip",
         "time and location",
         "how many minutes in a good nap",
-        Expect(instant="", search="no"),
+        Expect(instant="", search="ask"),
         "About 10–20 minutes for a power nap, or 90 for a full cycle. No location needed.",
     ),
     # ── Teaching ────────────────────────────────────────────────────────────
@@ -756,14 +750,14 @@ CASES: tuple[Case, ...] = (
         "teach-two-sum-explain",
         "teaching",
         "explain two sum in python",
-        Expect(search="no", photo=NO_PHOTO),
+        Expect(search="ask", photo=NO_PHOTO),
         "Same walkthrough, shorter; ends with the O(n) solution and its trace.",
     ),
     Case(
         "teach-history-know",
         "teaching",
         "I want to know american history",
-        Expect(hints=("teaching",), search="no"),
+        Expect(hints=("teaching",), search="ask"),
         "Lesson 1 on the first era: sections with dates and causes, a quiz card, the next era.",
     ),
     Case(
@@ -889,7 +883,7 @@ CASES: tuple[Case, ...] = (
         "format-compare",
         "format",
         "compare python and javascript",
-        Expect(hints=("comparison",), search="no"),
+        Expect(hints=("comparison",), search="ask"),
         "A short comparison table, then when to pick each.",
     ),
     Case(
@@ -903,7 +897,7 @@ CASES: tuple[Case, ...] = (
         "format-json-planets",
         "format",
         "give me the list of the planets as valid JSON",
-        Expect(search="no", hints=("json_output",), model="qwen-3.7-flash"),
+        Expect(search="ask", hints=("json_output",), model="qwen-3.7-flash"),
         "One ```json fence holding a valid array of the eight planets, at most a line "
         "around it; the server checks that it parses.",
     ),
@@ -960,7 +954,7 @@ CASES: tuple[Case, ...] = (
         "format-in-detail",
         "format",
         "explain in detail how Raft handles split votes and network partitions",
-        Expect(hints=("detail",), no_hints=("fit_length",), search="no"),
+        Expect(hints=("detail",), no_hints=("fit_length",), search="ask"),
         "A thorough answer: randomized election timeouts and terms for split votes, what a "
         "minority partition can and cannot commit, and a short example timeline.",
     ),
@@ -1117,7 +1111,7 @@ CASES: tuple[Case, ...] = (
         "code-fix-that",
         "code",
         "fix that",
-        Expect(no_hints=("answer_photo",), search="no", photo=NO_PHOTO),
+        Expect(no_hints=("answer_photo",), search="ask", photo=NO_PHOTO),
         "The fixed average() in one python fence that handles an empty list (returns 0 or "
         "raises a clear ValueError), and one line on the change.",
         history=_AVERAGE_CODE,
@@ -1167,7 +1161,7 @@ CASES: tuple[Case, ...] = (
         "tone-plain",
         "tone and emoji",
         "what are the benefits of drinking water",
-        Expect(hints=("emoji_rule",), search="no", model="qwen-3.7-flash"),
+        Expect(hints=("emoji_rule",), search="ask", model="qwen-3.7-flash"),
         "A clear answer with no emoji decoration.",
     ),
     Case(
@@ -1499,7 +1493,7 @@ CASES: tuple[Case, ...] = (
         "personal-memory-not-config",
         "personal",
         "You know which models Recall uses. Tell me what to fix",
-        Expect(search="no", memory=True),
+        Expect(search="ask", memory=True),
         "States any recalled aliases as possibly out of date and asks for the current "
         "config before prescribing changes.",
     ),

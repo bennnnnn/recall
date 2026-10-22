@@ -42,7 +42,7 @@ _TRIG_DOMAIN_REFUSAL = (
 
 
 @dataclass(frozen=True)
-class _Round:
+class CallRound:
     """What every call in the turn's selection round shares."""
 
     settings: Settings
@@ -123,8 +123,8 @@ def _sympy_solve_drops_trig_domain(name: str, raw_args: Any, user_text: str) -> 
     )
 
 
-async def _execute_calls(
-    turn: _Round,
+async def execute_calls(
+    turn: CallRound,
     tool_calls: list[dict[str, Any]],
     working: list[dict[str, Any]],
     collected: ToolResults,
@@ -160,7 +160,7 @@ async def _execute_calls(
 
 
 def _refusal(
-    turn: _Round, name: str, raw_args: Any, *, over_cap: bool, deadline: float
+    turn: CallRound, name: str, raw_args: Any, *, over_cap: bool, deadline: float
 ) -> str | None:
     """Why this call must not run, as its tool message; None when it may run."""
     if over_cap:
@@ -181,7 +181,7 @@ def _refusal(
 
 
 async def _run_call_by(
-    deadline: float, turn: _Round, name: str, raw_args: Any, collected: ToolResults
+    deadline: float, turn: CallRound, name: str, raw_args: Any, collected: ToolResults
 ) -> str:
     """``_run_call``, cut off at the round's deadline.
 
@@ -196,7 +196,7 @@ async def _run_call_by(
         return "Tool round timed out."
 
 
-async def _run_call(turn: _Round, name: str, raw_args: Any, collected: ToolResults) -> str:
+async def _run_call(turn: CallRound, name: str, raw_args: Any, collected: ToolResults) -> str:
     """Run one offered call, merge what it found, and return its tool message."""
     phase = _status_for_tool(name) if name else None
     if turn.on_status is not None and phase is not None:

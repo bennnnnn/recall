@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import html
 import re
+import string
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
@@ -42,7 +43,9 @@ _ATTACHMENT_MARKER = re.compile(
     r"\[Image: /attachments/[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}/file\]"
 )
 _IMAGE_MARKER_HEAD = "[Image:"
-_SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.\-]*:")
+# RFC 3986: a scheme is a letter, then letters, digits, "+", "." or "-", up to the first ":".
+_SCHEME_FIRST = frozenset(string.ascii_letters)
+_SCHEME_REST = frozenset(string.ascii_letters + string.digits + "+.-")
 # Browsers drop tabs, newlines and control characters from URLs: "ht\ttps:" is https.
 _URL_IGNORED_CHARS = re.compile(r"[\x00-\x20\x7f]")
 _BACKSLASH_ESCAPE = re.compile(r"\\([!-/:-@\[-`{-~])")
@@ -115,7 +118,13 @@ def loads_nothing(raw: str) -> bool:
         return True
     if url.startswith(("//", "\\", "/\\")):
         return False
-    return _SCHEME.match(url) is None
+    return not _starts_with_scheme(url)
+
+
+def _starts_with_scheme(url: str) -> bool:
+    """``scheme:`` at the start, read in one pass: the URL is the model's, of any length."""
+    head, colon, _rest = url.partition(":")
+    return bool(colon and head) and head[0] in _SCHEME_FIRST and set(head) <= _SCHEME_REST
 
 
 def _label(alt: str, url: str) -> str:

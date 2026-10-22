@@ -14,7 +14,7 @@ from app.core.access_tokens import (
     decode_access_token,
 )
 from app.core.config import Settings
-from app.gateways import litellm_gateway, think_stripper
+from app.gateways import litellm_gateway, text_completion, think_stripper
 from app.gateways.google_auth import GoogleAuthError
 from app.gateways.mock_llm import (
     mock_stream,
@@ -1140,7 +1140,7 @@ async def test_acompletion_with_fallback_times_out_hung_provider():
         return _fake_completion("{}")
 
     with patch.object(litellm_gateway, "acompletion", AsyncMock(side_effect=fake_acompletion)):
-        result = await litellm_gateway._acompletion_with_fallback(
+        result = await text_completion.acompletion_with_fallback(
             settings,
             "memory-model",
             messages=[{"role": "user", "content": "x"}],
