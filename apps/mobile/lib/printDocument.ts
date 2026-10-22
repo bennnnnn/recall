@@ -2,8 +2,9 @@
 
 import katex from "katex";
 
+import { splitAnswerNotation } from "@/lib/answerNotation";
 import { parseFenceLang } from "@/lib/codeHighlight";
-import { isMathFenceLang } from "@/lib/fenceRegistry";
+import { fenceIdForLang, isMathFenceLang } from "@/lib/fenceRegistry";
 import { fenceAfterLine, readFenceMarker } from "@/lib/mdFenceScan";
 import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/preprocess";
 import { readVendorLibrary } from "@/lib/vendorAssets";
@@ -30,7 +31,12 @@ const PRINT_STYLES = `
   .status { font-size: 11px; font-weight: 600; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.4px; }
   ul, ol { margin: 0 0 12px; padding-left: 22px; }
   li { font-size: 14px; margin: 0 0 4px; }
-  pre { background: #F1F5F9; border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 12px; line-height: 1.4; }
+  pre { background: #F1F5F9; border-radius: 8px; padding: 12px; font-size: 12px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
+  table { border-collapse: collapse; margin: 0 0 12px; font-size: 13px; }
+  th, td { border: 1px solid #E5E7EB; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #F9FAFB; font-weight: 600; }
+  .answer { margin: 10px 0 14px; padding: 10px 14px; border: 1px solid #E5E7EB; border-radius: 10px; }
+  .answer p, .answer .math-block { margin: 0; }
   code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
   blockquote { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid #E5E7EB; color: #6B7280; }
   .empty { font-size: 14px; color: #9CA3AF; }
@@ -130,6 +136,8 @@ function structuredPrintBody(markdown: string): string {
       const body = codeLines.join("\n");
       if (isPrintMathFenceLang(lang)) {
         parts.push(renderPrintMathHtml(body, true));
+      } else if (fenceIdForLang(lang) === "answer") {
+        parts.push(answerToHtml(body));
       } else {
         const code = escapeHtml(body);
         const langAttr = lang ? ` class="language-${escapeHtml(lang)}"` : "";
@@ -207,6 +215,18 @@ function structuredPrintBody(markdown: string): string {
   return parts.join("\n") || `<p class="empty"></p>`;
 }
 
+/** An answer card: its maths typeset, or its text when it is chemistry or a sentence. */
+function answerToHtml(body: string): string {
+  const { notation, body: answer } = splitAnswerNotation(body);
+  const inner =
+    notation === "chemistry"
+      ? `<p>${escapeHtml(answer)}</p>`
+      : answer.includes("$")
+        ? `<p>${inlineMarkdownToHtml(answer)}</p>`
+        : renderPrintMathHtml(answer, true);
+  return `<div class="answer">${inner}</div>`;
+}
+
 function looksLikePrintTableRow(line: string): boolean {
   const trimmed = line.trim();
   return trimmed.startsWith("|") && trimmed.indexOf("|", 1) >= 0;
@@ -244,14 +264,22 @@ function inlineMarkdownToHtml(text: string): string {
     .join("");
 }
 
+/** Stands in for a code span while emphasis is read, so `proposal_id` keeps its underscore. */
+const CODE_SLOT = "\uE000";
+
 function formatInlineText(text: string): string {
-  let out = escapeHtml(text);
+  const codes: string[] = [];
+  let out = escapeHtml(text).replace(/`([^`]+)`/g, (_match, code: string) => {
+    codes.push(`<code>${code}</code>`);
+    return `${CODE_SLOT}${codes.length - 1}${CODE_SLOT}`;
+  });
   out = out.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, "$1");
   out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-  out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
   out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-  out = out.replace(/__([^_]+)__/g, "<strong>$1</strong>");
-  out = out.replace(/\*([^*]+)\*/g, "<em>$1</em>");
-  out = out.replace(/_([^_]+)_/g, "<em>$1</em>");
-  return out;
+  // Emphasis opens and closes at word edges, as in CommonMark: due_at stays a word.
+  out = out.replace(/(^|[^\w])__(?!\s)([^_]+?)__(?!\w)/g, "$1<strong>$2</strong>");
+  out = out.replace(/(^|[^\w*])\*(?![\s*])([^*]+?)\*(?![\w*])/g, "$1<em>$2</em>");
+  out = out.replace(/(^|[^\w])_(?![\s_])([^_]+?)_(?!\w)/g, "$1<em>$2</em>");
+  const slot = new RegExp(`${CODE_SLOT}(\\d+)${CODE_SLOT}`, "g");
+  return out.replace(slot, (_match, index: string) => codes[Number(index)] ?? "");
 }
