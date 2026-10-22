@@ -138,6 +138,15 @@ function loadSimulationSizing(): Promise<SimulationSizing> {
   return simulationSizingLoad;
 }
 
+/**
+ * Loads the sizing parsers ahead of the first scene (the root layout calls this
+ * once the launch has settled), so that scene's placeholder is its own height
+ * from the start instead of the usual one for a frame.
+ */
+export function preloadSimulationSizing(): void {
+  loadSimulationSizing().catch(() => {});
+}
+
 /** The sizing module once loaded; the first scene of a session asks for it. */
 function useSimulationSizing(): SimulationSizing | null {
   const [sizing, setSizing] = useState(simulationSizing);

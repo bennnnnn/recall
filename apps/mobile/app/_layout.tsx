@@ -2,8 +2,7 @@ import "@/lib/i18n";
 
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useFonts } from "expo-font";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { InteractionManager, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
@@ -20,9 +19,10 @@ import { PushNotificationBootstrap } from "@/components/PushNotificationBootstra
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { stackBackOptions } from "@/ui/controls/StackBackButton";
 import { DialogHost } from "@/ui/overlay/DialogHost";
-import { APP_FONT_FACES } from "@/lib/appFonts";
+import { preloadSimulationSizing } from "@/components/rich/LazyHeavyRich";
+import { useLaunchFonts } from "@/hooks/useLaunchFonts";
 import { restoreLaunchPrefs } from "@/lib/launchPrefs";
-import { markLaunchReady, SPLASH_MAX_MS } from "@/lib/launchSplash";
+import { markLaunchReady } from "@/lib/launchSplash";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { useStackHeaderOptions } from "@/lib/stackHeader";
 import {
@@ -100,32 +100,14 @@ function RootNavigator() {
   );
 }
 
-/**
- * The faces the app draws with. True once they are in, or failed, or slower
- * than the splash may wait (a dev server): text laid out before its font is
- * registered keeps the system face, so the app draws only after this.
- */
-function useLaunchFonts(): boolean {
-  // Faces already embedded (every one, in an Android build) load nothing.
-  const [loaded, error] = useFonts(APP_FONT_FACES);
-  const [waitedEnough, setWaitedEnough] = useState(false);
-  useEffect(() => {
-    const timer = setTimeout(() => setWaitedEnough(true), SPLASH_MAX_MS);
-    return () => clearTimeout(timer);
-  }, []);
-  const ready = loaded || error !== null || waitedEnough;
-  useEffect(() => {
-    if (ready) markLaunchReady("fonts");
-  }, [ready]);
-  return ready;
-}
-
 export default function RootLayout() {
   const fontsReady = useLaunchFonts();
 
+  // Work for later in the session, once the launch has settled.
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
       void initMobileSentry();
+      preloadSimulationSizing();
     });
     return () => task.cancel();
   }, []);

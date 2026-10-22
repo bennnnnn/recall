@@ -58,6 +58,8 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "lib/onboarding.ts#writes": "clearOnboarded",
   "lib/purchases.ts#configuredAppUserId": "signOutRevenueCat",
   "lib/streamingDraftStore.ts#draft": "publishStreamingDraft",
+  "lib/syncRecords.ts#locationRecord": "forgetSyncRecords",
+  "lib/syncRecords.ts#pushRecord": "forgetSyncRecords",
 };
 
 /** Read only by the sign-in session that wrote it (checked against `getSessionGeneration()` or keyed by it). */
@@ -135,6 +137,7 @@ const NO_ACCOUNT_DATA = [
   "lib/google-auth.ts#googleModule",
   "lib/haptics.ts#enabled",
   "lib/haptics.ts#unavailableOn",
+  "lib/launchSplash.ts#deadlinePassed",
   "lib/launchSplash.ts#hidden",
   "lib/launchSplash.ts#ready",
   "lib/math/svgMath.ts#rendererImpl",

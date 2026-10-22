@@ -1,23 +1,29 @@
 /**
  * When a sync the app runs after sign-in last succeeded on this phone (push
- * registration, the location label), per account. A file pref, so a cold start
- * can skip work done a moment ago instead of repeating it every launch.
- * Sign-out forgets them: the next sign-in, of any account, syncs afresh.
+ * registration, the location label), per account, so a cold start can skip
+ * work done a moment ago instead of repeating it every launch.
+ *
+ * Kept in the cache directory: no backup or device restore carries a record
+ * to another phone, and a purge only costs one sync. Sign-in and sign-out
+ * both forget them, so a new sign-in, of any account, syncs afresh.
  */
-import { deletePrefFile, prefFilePath, readPrefFile, writePrefFile } from "@/lib/filePrefs";
+import { cacheFile } from "@/lib/cache/cacheFile";
 
-const SYNC_KINDS = ["push", "location"] as const;
-type SyncKind = (typeof SYNC_KINDS)[number];
+type SyncKind = "push" | "location";
 
 type SyncRecord = { account: string; variant: string; at: number };
 
-function filePath(kind: SyncKind): string | null {
-  return prefFilePath(`recall.synced-${kind}.json`);
+const pushRecord = cacheFile("recall-synced-push.json");
+const locationRecord = cacheFile("recall-synced-location.json");
+
+function recordFile(kind: SyncKind) {
+  return kind === "push" ? pushRecord : locationRecord;
 }
 
 /**
  * When `kind` last synced for `account` (with the same `variant`, such as the
- * push setting it registered), if that was less than `maxAgeMs` ago; else null.
+ * push setting and token it registered), if that was less than `maxAgeMs`
+ * ago; else null.
  */
 export async function recentSyncAt(
   kind: SyncKind,
@@ -26,7 +32,7 @@ export async function recentSyncAt(
   variant = "",
   now = Date.now(),
 ): Promise<number | null> {
-  const raw = await readPrefFile(filePath(kind));
+  const raw = await recordFile(kind).read();
   if (raw === null) return null;
   try {
     const record = JSON.parse(raw) as Partial<SyncRecord>;
@@ -47,14 +53,10 @@ export function recordSync(
   at = Date.now(),
 ): Promise<void> {
   const record: SyncRecord = { account, variant, at };
-  return writePrefFile(filePath(kind), JSON.stringify(record));
+  return recordFile(kind).write(JSON.stringify(record));
 }
 
-export function forgetSync(kind: SyncKind): Promise<void> {
-  return deletePrefFile(filePath(kind));
-}
-
-/** Sign-out. */
+/** Sign-in and sign-out. */
 export async function forgetSyncRecords(): Promise<void> {
-  await Promise.all(SYNC_KINDS.map(forgetSync));
+  await Promise.all([pushRecord.clear(), locationRecord.clear()]);
 }

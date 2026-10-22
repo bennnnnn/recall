@@ -43,10 +43,11 @@ function loadRealtimeVoice() {
   return import("@/features/speech/model/realtimeVoice");
 }
 
+/** Best-effort, as the cue itself is: a chime that cannot load never fails Live Talk. */
 function playCue(kind: "start" | "end"): Promise<void> {
-  return import("@/features/speech/model/liveTalkSfx").then(({ playLiveTalkCue }) =>
-    playLiveTalkCue(kind),
-  );
+  return import("@/features/speech/model/liveTalkSfx")
+    .then(({ playLiveTalkCue }) => playLiveTalkCue(kind))
+    .catch(() => {});
 }
 
 export function useLiveTalk({
@@ -348,7 +349,7 @@ export function useLiveTalk({
     setMuted(false);
     setPhase("idle");
     setVisible(false);
-    if (shouldCueEnd) void playCue("end").catch(() => {});
+    if (shouldCueEnd) void playCue("end");
   }, [captureCurrentTurn, finishTurn, token]);
   closeRef.current = close;
 

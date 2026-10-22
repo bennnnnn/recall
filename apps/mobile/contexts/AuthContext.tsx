@@ -38,6 +38,7 @@ import {
 } from "@/lib/auth";
 import { cachedUserMatchesToken, clearCachedUser, mergeCachedUser, readCachedUser, writeCachedUser } from "@/lib/cachedUser";
 import { clearSignedOutAccount } from "@/lib/signOutCleanup";
+import { forgetSyncRecords } from "@/lib/syncRecords";
 import { useBootstrapSync } from "@/hooks/useBootstrapSync";
 import { AuthLoadingShell } from "@/components/AuthLoadingShell";
 
@@ -118,8 +119,17 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
         ]);
         if (!current()) return;
         setOnboardedState(onb);
+        const cacheIsThisAccount = Boolean(
+          stored && cachedUser && cachedUserMatchesToken(cachedUser, stored),
+        );
+        if (cachedUser && !cacheIsThisAccount) {
+          // Left by another account, or a sign-out whose delete failed. Its
+          // language was applied before the first render (lib/launchPrefs.ts).
+          void clearCachedUser();
+          void ensureLocale("en");
+        }
         if (!stored) return;
-        if (cachedUser && cachedUserMatchesToken(cachedUser, stored)) {
+        if (cachedUser && cacheIsThisAccount) {
           hasCachedAccount = true;
           setCurrentToken(stored);
           setCurrentUser(mergeCachedUser(cachedUser));
@@ -166,8 +176,10 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
     const result = await login(() => isCurrent(generation));
     if (!result || !isCurrent(generation)) return;
     // A crash between the credential write and cache write must not pair a
-    // newly signed-in account's token with the previous account's display.
-    await clearCachedUser();
+    // newly signed-in account's token with the previous account's display,
+    // and a sync record a sign-out failed to delete must not skip this
+    // sign-in's push registration (lib/syncRecords.ts).
+    await Promise.all([clearCachedUser(), forgetSyncRecords()]);
     if (!isCurrent(generation)) return;
     const saved = await setTokenPair(result.access_token, result.refresh_token, generation);
     if (!saved || !isCurrent(generation)) return;

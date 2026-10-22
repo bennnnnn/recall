@@ -10,6 +10,17 @@ import {
 
 const OFFLINE_POLL_MS = 1_500;
 
+/**
+ * The address the link has, where the OS gives it without extra permission
+ * (Wi-Fi and Ethernet): a switch straight from one Wi-Fi network to another
+ * is a new link, though its type stays "wifi".
+ */
+function linkAddress(state: NetInfoState): string {
+  const details = state.details;
+  const address = details && "ipAddress" in details ? details.ipAddress : null;
+  return typeof address === "string" ? address : "";
+}
+
 export function useNetworkStatus(): {
   isOffline: boolean;
   status: ConnectivityStatus;
@@ -29,6 +40,7 @@ export function useNetworkStatus(): {
     // the internet is unreachable, is news; its reachability check settling
     // to "reachable" just after launch is not.
     let lastLink: string | null = null;
+    let lastOffline: boolean | null = null;
 
     /** Each probe is two requests; `join` lets one already running answer. */
     const runProbe = (join: boolean) => {
@@ -44,13 +56,17 @@ export function useNetworkStatus(): {
 
     const onNetInfo = (state: NetInfoState) => {
       const offline = isNetworkOffline(state);
-      // Link up: drop a stale "No internet" banner immediately (iOS often
-      // leaves isInternetReachable stuck false). Offline from NetInfo is often
-      // stale after reconnect, so it never flips the banner on by itself.
-      if (!offline) setStatus((prev) => (prev === "no_internet" ? "online" : prev));
-      const link = `${state.type}:${offline}:${state.isInternetReachable === false}`;
+      const link = `${state.type}:${offline}:${state.isInternetReachable === false}:${linkAddress(state)}`;
       if (link === lastLink) return;
+      // The link coming back up drops a stale "No internet" banner at once (iOS
+      // often leaves isInternetReachable stuck false). A report on a link that
+      // stayed up does not: on Wi-Fi with no internet behind it, the probe that
+      // just found that triggers one. Offline from NetInfo is often stale after
+      // reconnect, so it never flips the banner on by itself.
+      const cameUp = lastOffline === true && !offline;
       lastLink = link;
+      lastOffline = offline;
+      if (cameUp) setStatus((prev) => (prev === "no_internet" ? "online" : prev));
       // Still probe a new link: connected Wi-Fi can be a captive portal or the
       // API can be down. A probe started on the old link is superseded.
       runProbe(false);

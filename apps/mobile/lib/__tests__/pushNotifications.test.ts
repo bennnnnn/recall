@@ -23,6 +23,7 @@ jest.mock("expo-notifications", () => ({
   requestPermissionsAsync: jest.fn().mockResolvedValue({ status: "granted" }),
   setNotificationChannelAsync: jest.fn().mockResolvedValue(undefined),
   getExpoPushTokenAsync: jest.fn().mockResolvedValue({ data: "ExponentPushToken[abc]" }),
+  getDevicePushTokenAsync: jest.fn().mockResolvedValue({ type: "ios", data: "apns-token-1" }),
   setNotificationHandler: jest.fn(),
   AndroidImportance: { HIGH: 4, DEFAULT: 3 },
 }));
@@ -310,8 +311,13 @@ describe("push sync across a cold start", () => {
     };
   }
 
-  async function launch(account: string, enabled = true) {
+  async function launch(account: string, enabled = true, deviceToken: string | null = "apns-token-1") {
     const run = coldStart();
+    if (deviceToken === null) {
+      run.notifications.getDevicePushTokenAsync.mockRejectedValue(new Error("no APNs"));
+    } else {
+      run.notifications.getDevicePushTokenAsync.mockResolvedValue({ type: "ios", data: deviceToken });
+    }
     run.push.attachPushForegroundSync("tok", enabled, undefined, 1, null, account)();
     await settle();
     return run;
@@ -344,6 +350,20 @@ describe("push sync across a cold start", () => {
     const now = Date.now();
     jest.spyOn(Date, "now").mockReturnValue(now + 13 * 60 * 60_000);
     expect((await launch("user-1")).api.registerPushToken).toHaveBeenCalledTimes(1);
+  });
+
+  it("registers again when the push service rolled this install's token since", async () => {
+    await launch("user-1", true, "apns-token-1");
+    const rolled = await launch("user-1", true, "apns-token-2");
+    expect(rolled.api.registerPushToken).toHaveBeenCalledTimes(1);
+    // The record keeps a fingerprint of the token, never the token.
+    expect(JSON.stringify([...mockSyncRecords.values()])).not.toContain("apns-token");
+  });
+
+  it("trusts no record when the device token cannot be read", async () => {
+    await launch("user-1", true, null);
+    expect(mockSyncRecords.size).toBe(0);
+    expect((await launch("user-1", true, null)).api.registerPushToken).toHaveBeenCalledTimes(1);
   });
 
   it("keeps no record without the account, as the Settings switch calls it", async () => {

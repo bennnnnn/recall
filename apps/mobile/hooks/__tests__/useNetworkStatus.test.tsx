@@ -167,6 +167,69 @@ describe("useNetworkStatus launch probe", () => {
     expect(probe).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps \"No internet\" on a link that is up with nothing behind it", async () => {
+    // A captive portal, or Wi-Fi with its upstream down. Each probe's own
+    // NetInfo.refresh() repeats the report to every subscriber.
+    const wifiNoInternet = { type: "wifi", isConnected: true, isInternetReachable: false };
+    (NetInfo.fetch as jest.Mock).mockResolvedValue(wifiNoInternet);
+    netInfoAdd.mockImplementation((listener: (state: object) => void) => {
+      netInfoListener = listener;
+      void Promise.resolve().then(() => listener(wifiNoInternet));
+      return () => { netInfoListener = null; };
+    });
+    probe.mockImplementation(async () => {
+      netInfoListener?.(wifiNoInternet);
+      return "no_internet";
+    });
+    jest.useFakeTimers();
+    try {
+      await render(<Probe />);
+      for (let tick = 0; tick < 6; tick += 1) {
+        await act(async () => {
+          jest.advanceTimersByTime(1_000);
+          await flush();
+        });
+        expect(status).toBe("no_internet");
+      }
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("drops the banner as soon as the link comes back up, before the probe answers", async () => {
+    const airplane = { type: "none", isConnected: false, isInternetReachable: false };
+    (NetInfo.fetch as jest.Mock).mockResolvedValue(airplane);
+    netInfoAdd.mockImplementation((listener: (state: object) => void) => {
+      netInfoListener = listener;
+      return () => { netInfoListener = null; };
+    });
+    probe.mockResolvedValue("no_internet");
+    await render(<Probe />);
+    await act(async () => { await flush(); });
+    expect(status).toBe("no_internet");
+
+    probe.mockImplementation(() => new Promise(() => {}));
+    await emit({ type: "wifi", isConnected: true, isInternetReachable: null });
+    expect(status).toBe("online");
+  });
+
+  it("probes a switch straight from one Wi-Fi network to another", async () => {
+    const home = { ...wifi, details: { ipAddress: "192.168.1.20", isConnectionExpensive: false } };
+    (NetInfo.fetch as jest.Mock).mockResolvedValue(home);
+    netInfoAdd.mockImplementation((listener: (state: object) => void) => {
+      netInfoListener = listener;
+      return () => { netInfoListener = null; };
+    });
+    await render(<Probe />);
+    await act(async () => { await flush(); });
+    expect(probe).toHaveBeenCalledTimes(1);
+
+    await emit(home);
+    expect(probe).toHaveBeenCalledTimes(1);
+    await emit({ ...wifi, details: { ipAddress: "10.0.0.7", isConnectionExpensive: false } });
+    expect(probe).toHaveBeenCalledTimes(2);
+  });
+
   it("keeps the same value when only the app's background state changes", async () => {
     await render(<Probe />);
     await act(async () => { await flush(); });

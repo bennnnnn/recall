@@ -1,9 +1,10 @@
 /**
  * Structural guard: what the phone evaluates at launch. Metro runs without
  * `inlineRequires`, so a module that loads evaluates every module it imports
- * statically (and every `require` at its top level) right then; `import()` and
- * type-only imports wait. From the root layout and the chat route, follow those
- * eager edges and keep the heavy code below out: each loads on first use.
+ * statically (and every `require` that runs as it loads) right then;
+ * `import()` and type-only imports wait. From the routes a launch loads,
+ * follow those eager edges and keep the heavy code below out: each loads on
+ * first use.
  *
  * A failure prints the import chain that pulled the module in. Load it with
  * `import()` where it is used (or `React.lazy`), or import only its types.
@@ -13,7 +14,18 @@ import * as ts from "typescript";
 declare const __dirname: string;
 
 const ROOT = ts.sys.resolvePath(`${__dirname}/../..`);
-const LAUNCH_ENTRIES = ["app/_layout.tsx", "app/index.tsx"];
+
+/**
+ * expo-router loads every layout at launch, then the screen it opens on: the
+ * chat for a signed-in account, and sign-in, consent or onboarding otherwise.
+ */
+function launchEntries(): string[] {
+  const layouts = ts.sys
+    .readDirectory(`${ROOT}/app`, [".tsx", ".ts"])
+    .filter((file) => /\/_layout\.tsx?$/.test(file))
+    .map((file) => file.slice(ROOT.length + 1));
+  return [...layouts, "app/index.tsx", "app/login.tsx", "app/consent.tsx", "app/onboarding.tsx"];
+}
 
 /** Packages that load on first use, never at launch. */
 const LAZY_PACKAGES = [
@@ -75,20 +87,37 @@ function eagerSpecifiers(fileName: string, source: string): string[] {
       if (!typesOnly && ts.isStringLiteral(statement.moduleSpecifier)) {
         found.push(statement.moduleSpecifier.text);
       }
+    } else if (
+      ts.isImportEqualsDeclaration(statement) &&
+      !statement.isTypeOnly &&
+      ts.isExternalModuleReference(statement.moduleReference) &&
+      ts.isStringLiteral(statement.moduleReference.expression)
+    ) {
+      found.push(statement.moduleReference.expression.text);
     }
   }
-  // A require() runs with the module only outside a function body.
+  // A require() runs with the module outside a function body, or inside a
+  // function the module calls as it loads, (() => { ... })().
   const visit = (node: ts.Node): void => {
-    if (ts.isFunctionLike(node)) return;
-    if (
-      ts.isCallExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      node.expression.text === "require" &&
-      node.arguments.length === 1 &&
-      ts.isStringLiteral(node.arguments[0])
-    ) {
-      found.push(node.arguments[0].text);
+    if (ts.isCallExpression(node)) {
+      let callee: ts.Expression = node.expression;
+      while (ts.isParenthesizedExpression(callee)) callee = callee.expression;
+      if (ts.isFunctionExpression(callee) || ts.isArrowFunction(callee)) {
+        visit(callee.body);
+        node.arguments.forEach(visit);
+        return;
+      }
+      const [argument] = node.arguments;
+      if (
+        ts.isIdentifier(node.expression) &&
+        node.expression.text === "require" &&
+        node.arguments.length === 1 &&
+        ts.isStringLiteral(argument)
+      ) {
+        found.push(argument.text);
+      }
     }
+    if (ts.isFunctionLike(node)) return;
     ts.forEachChild(node, visit);
   };
   ts.forEachChild(file, visit);
@@ -113,7 +142,7 @@ function launchGraph(): LaunchGraph {
   const cache = ts.createModuleResolutionCache(ROOT, (name) => name, options);
   const files = new Map<string, string | null>();
   const packages = new Map<string, string>();
-  const queue = LAUNCH_ENTRIES.map((entry) => `${ROOT}/${entry}`);
+  const queue = launchEntries().map((entry) => `${ROOT}/${entry}`);
   for (const entry of queue) files.set(entry, null);
   for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
     const importer = next;
@@ -165,13 +194,34 @@ describe("launch imports", () => {
       'const icon = require("./icon.png");',
       'const lazy = () => import("dynamic");',
       'function later() { return require("in-function"); }',
+      'import H = require("import-equals");',
+      'import type I = require("import-equals-type");',
+      'const J = (() => require("immediately-invoked"))();',
+      '(function () { require("immediately-invoked-function"); })();',
+      'const K = () => (() => require("invoked-later"))();',
     ].join("\n");
     expect(eagerSpecifiers("sample.ts", source)).toEqual([
       "side-effect",
       "value",
       "re-export",
+      "import-equals",
       "top-level-require",
+      "immediately-invoked",
+      "immediately-invoked-function",
     ]);
+  });
+
+  it("starts from every layout and each screen a launch can open on", () => {
+    const entries = launchEntries();
+    expect(entries).toEqual(expect.arrayContaining([
+      "app/_layout.tsx",
+      "app/settings/_layout.tsx",
+      "app/memory/_layout.tsx",
+      "app/index.tsx",
+      "app/login.tsx",
+      "app/consent.tsx",
+      "app/onboarding.tsx",
+    ]));
   });
 
   it("reaches the modules the first screen draws", () => {
