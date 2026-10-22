@@ -26,7 +26,7 @@ from app.services.answer_fence import answer_fence_value
 from app.services.md_fence_scan import map_closed_fences, strip_closed_fences
 from app.services.prompt_safety import wrap_persisted_attachment_excerpts
 
-_PROMPT_STRIP_FENCE_LANGS = ("geometry", "graph", "sources", "places", "photo")
+_PROMPT_STRIP_FENCE_LANGS = ("geometry", "graph", "sources", "places", "photo", "calculator")
 
 
 @dataclass(frozen=True)

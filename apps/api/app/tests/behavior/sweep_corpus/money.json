@@ -1,0 +1,146 @@
+[
+ {
+  "id": "mo-001",
+  "area": "money lookalike",
+  "prompt": "I'm interested in buying a car, which brand is most reliable?",
+  "history": [],
+  "reply": "Toyota and Honda top most reliability surveys; Mazda is close behind.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-002",
+  "area": "money lookalike",
+  "prompt": "rate my essay out of 10",
+  "history": [],
+  "reply": "I'd give it a 7: a clear thesis, but the middle paragraphs repeat.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-003",
+  "area": "money lookalike",
+  "prompt": "what does a school principal do all day?",
+  "history": [],
+  "reply": "A principal runs the school: staff, budgets, discipline and parents.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-004",
+  "area": "money lookalike",
+  "prompt": "credit card design ideas for a fintech startup",
+  "history": [],
+  "reply": "- A matte black card with a vertical layout\n- A clear card with a printed edge",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-005",
+  "area": "money lookalike",
+  "prompt": "my card was declined at the store, why?",
+  "history": [],
+  "reply": "Common reasons: a fraud hold, an expired card, or the daily limit.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-006",
+  "area": "money lookalike",
+  "prompt": "pay attention to the details in this paragraph",
+  "history": [],
+  "reply": "Here are the details worth noticing: the dates, the names and the order of events.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-007",
+  "area": "money lookalike",
+  "prompt": "the interest of the story fades in act 3, how do I fix it?",
+  "history": [],
+  "reply": "Raise the stakes: give the hero a deadline and take away an ally.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-008",
+  "area": "money lookalike",
+  "prompt": "savings on groceries tips",
+  "history": [],
+  "reply": "- Plan meals for the week\n- Buy store brands\n- Shop with a list",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-009",
+  "area": "money lookalike",
+  "prompt": "how much should I save for a house",
+  "history": [],
+  "reply": "Aim for a 20% down payment plus 3-5% for closing costs, if you can.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-010",
+  "area": "money lookalike",
+  "prompt": "my house is 20 years old, should I replace the roof?",
+  "history": [],
+  "reply": "Asphalt roofs last about 20-25 years, so have it inspected.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-011",
+  "area": "money lookalike",
+  "prompt": "I drove my car 300 miles today",
+  "history": [],
+  "reply": "That's a long day on the road; take a break before driving again.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-012",
+  "area": "money lookalike",
+  "prompt": "what does APR mean",
+  "history": [],
+  "reply": "APR, the annual percentage rate, is a loan's yearly cost including fees.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-013",
+  "area": "money lookalike",
+  "prompt": "explain how mortgages work",
+  "history": [],
+  "reply": "A mortgage is a loan secured by a home: you repay principal and interest monthly.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-014",
+  "area": "money lookalike",
+  "prompt": "write a short poem about saving money",
+  "history": [],
+  "reply": "A coin today, a coin tomorrow,\nfar from debt and far from sorrow.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-015",
+  "area": "money lookalike",
+  "prompt": "compound interest on 1000 at 5% for 3 years",
+  "history": [],
+  "reply": "**Given**\n$P = 1000$, $r = 5\\%$, $t = 3$\n\n**Answer**\n\n```answer\n1157.63\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-016",
+  "area": "money",
+  "prompt": "what is my mortgage for 300k dollars house if mr rate is 1 percent",
+  "history": [],
+  "reply": "At 1%, a $300,000 mortgage over 30 years (assumed) is about $964.92 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-017",
+  "area": "money",
+  "prompt": "I owe 5000 on my credit card at 22% apr and pay 200 a month, how long to pay off",
+  "history": [],
+  "reply": "About 34 months, paying about $1,800 in interest.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-018",
+  "area": "money",
+  "prompt": "if I save 200 a month at 4.5% for 10 years how much will I have",
+  "history": [],
+  "reply": "About $30,200: $24,000 deposited and about $6,200 in interest.",
+  "expect": "answer"
+ }
+]

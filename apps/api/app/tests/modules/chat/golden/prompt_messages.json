@@ -413,6 +413,25 @@
    }
   },
   {
+   "id": "battery:money-mortgage-low-rate",
+   "kwargs": {
+    "query_text": "what is my mortgage for 300k dollars house if mr rate is 1 percent"
+   },
+   "expected": {
+    "messages": [
+     [
+      "system",
+      "0 @TONE_HINTS[casual] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT"
+     ],
+     [
+      "system",
+      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @VERIFIED_SOLVE_SAFETY_HINT 1 @MATH_INTENT_HINT 1 @MATH_SOLVER_HINT 1 @MATH_TUTORING_HINT 1 @COPY_DELIVERABLE_HINT 1 @MATH_REPLY_POLICY 1 @FACT_GROUNDING_HINT 2"
+     ]
+    ],
+    "out": {}
+   }
+  },
+  {
    "id": "branch:sequence-nearby+rich+account+long-gap",
    "user": {
     "name": "Bini Tesfaye",

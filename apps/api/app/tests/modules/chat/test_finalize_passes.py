@@ -93,6 +93,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "solve_markers",
         "chemistry_enrich",
         "settings_card",
+        "money_card",
         "request_sections",
         "search_sources",
         "instant_usage",

@@ -6,7 +6,6 @@
   "modules/chat/stream_api.py::_turn_sse_lines": 164,
   "modules/chat/stream_entry.py::stream_chat_response": 125,
   "modules/chat/stream_entry.py::stream_regenerate_response": 122,
-  "modules/chat/turn_prep/context.py::build_stream_prompt_context": 104,
   "modules/chat/turn_prep/prepare.py::prepare_chat_turn": 118,
   "modules/chat/ws_turn.py::stream_over_ws": 127,
   "modules/chemistry/extractors/stoichiometry.py::_extract_mass_chain": 108,

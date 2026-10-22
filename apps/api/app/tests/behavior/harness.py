@@ -56,6 +56,12 @@ from app.modules.chat.turn_prep.mode import classify_turn_mode
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
+from app.modules.money.block import (
+    MONEY_HEADER,
+    MONEY_RATE_MISSING,
+    MONEY_RATES_MISSING,
+    MONEY_REPLY_RULES,
+)
 from app.modules.physics import is_picture_only
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.modules.web_search.detection import needs_web_search
@@ -80,6 +86,11 @@ HINTS: dict[str, str] = {
     "mermaid": pc.MERMAID_FORMAT_HINT,
     "diagram": pc.DIAGRAM_KIND_HINT,
     "quiz": pc.QUIZ_FORMAT_HINT,
+    # Any money turn; its reply rules; asking for the rate; no checked average for "rates now".
+    "money": MONEY_HEADER,
+    "money_reply": MONEY_REPLY_RULES,
+    "money_ask_rate": MONEY_RATE_MISSING,
+    "money_rates": MONEY_RATES_MISSING,
     "email": EMAIL_DRAFT_HINT,
     "ask_purpose": EMAIL_ASK_PURPOSE_HINT,
     "social": SOCIAL_DRAFT_HINT,
