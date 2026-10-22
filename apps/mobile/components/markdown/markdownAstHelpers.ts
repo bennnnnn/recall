@@ -280,21 +280,6 @@ export function taskChecked(node: AstNode): boolean | null {
   return isTaskCheckboxChecked(checkbox);
 }
 
-export function countTableColumns(node: AstNode): number {
-  let max = 1;
-  const walk = (n: AstNode) => {
-    if (n.type === "tr") {
-      const cells = (n.children ?? []).filter(
-        (c) => c.type === "th" || c.type === "td",
-      );
-      if (cells.length > max) max = cells.length;
-    }
-    (n.children ?? []).forEach(walk);
-  };
-  walk(node);
-  return max;
-}
-
 export function detectStandaloneLink(node: AstNode): string | null {
   let kids = node.children ?? [];
   // markdown-display flattens inlines then wraps them in `textgroup`.
