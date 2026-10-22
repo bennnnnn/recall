@@ -35,6 +35,7 @@ from app.modules.chat.prompt_constants import (
     NON_DRAFT_TURN_HINT,
     PERSONAL_DISCLOSURE_HINT,
     PRIVACY_HINT,
+    QUIZ_FORMAT_HINT,
     QUOTE_FORMAT_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STANDING_PREFERENCE_HINT,
@@ -58,6 +59,7 @@ from app.modules.chat.prompt_constants import (
     is_lightweight_chat_turn,
     is_mermaid_question,
     is_personal_disclosure_turn,
+    is_practice_request,
     is_programming_turn,
     is_quote_question,
     is_short_confirmation,
@@ -148,6 +150,9 @@ def _layout_format_hint(query_text: str | None) -> str | None:
     # A task ("walk me through changing a tire") is not one: it keeps how-to steps.
     if is_walkthrough_request(query_text):
         return WALKTHROUGH_HINT
+    # "Quiz me on the differences between X and Y" is cards, not a table.
+    if is_practice_request(query_text):
+        return QUIZ_FORMAT_HINT
     if is_structured_comparison_question(query_text):
         return COMPARISON_FORMAT_HINT
     if is_quote_question(query_text):

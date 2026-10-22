@@ -286,5 +286,53 @@
   "area": "continue lookalike",
   "prompt": "fix that bug in my login form: the button does nothing",
   "reply": "The button needs `type=\"submit\"` inside the form, or an `onClick` that calls your login function."
+ },
+ {
+  "id": "cv-031",
+  "area": "quiz lookalike",
+  "prompt": "I have a quiz tomorrow on cell biology, can you explain mitosis?",
+  "history": [],
+  "reply": "**Mitosis** is how one cell becomes two identical cells.\n\n1. **Prophase**: chromosomes condense.\n2. **Metaphase**: they line up in the middle.\n3. **Anaphase**: the copies are pulled apart.\n4. **Telophase**: two nuclei form, then the cell splits.\n\nGood luck tomorrow!",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-032",
+  "area": "quiz lookalike",
+  "prompt": "how do I make flashcards in Anki?",
+  "history": [],
+  "reply": "1. Open Anki and pick a deck.\n2. Tap **Add**.\n3. Type the front and the back.\n4. Tap **Add** again to save it.",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-033",
+  "area": "quiz lookalike",
+  "prompt": "my teacher gave us a true or false test and I got 6/10, is that bad?",
+  "history": [],
+  "reply": "6/10 is a pass, but true/false tests reward careful reading. Check which ones you missed: were they the trick wording ones?",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-034",
+  "area": "quiz lookalike",
+  "prompt": "write 10 multiple choice questions on photosynthesis with the answers for my class",
+  "history": [],
+  "reply": "1. Where does photosynthesis happen?\n   A. Mitochondria  B. Chloroplasts  C. Nucleus  D. Ribosome\n   **Answer: B**",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-035",
+  "area": "quiz lookalike",
+  "prompt": "is it true or false that goldfish have a 3-second memory?",
+  "history": [],
+  "reply": "False. Goldfish remember things for months; they can be trained to push levers for food.",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-036",
+  "area": "quiz lookalike",
+  "prompt": "create a quiz app in React with a score at the end",
+  "history": [],
+  "reply": "Here's a small quiz app:\n\n```tsx\nexport function Quiz() {\n  return null;\n}\n```",
+  "expect": "answer"
  }
 ]

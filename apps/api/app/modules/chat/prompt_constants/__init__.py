@@ -70,6 +70,7 @@ from app.modules.chat.prompt_constants.lesson_flow import (
     outline_awaits_pick,
 )
 from app.modules.chat.prompt_constants.math import MATH_FENCE_SAFETY_HINT
+from app.modules.chat.prompt_constants.practice import QUIZ_FORMAT_HINT, is_practice_request
 from app.modules.chat.prompt_constants.privacy import (
     ADVICE_PERSONALIZE_HINT,
     BROAD_SELF_ANSWER_HINT,
@@ -176,6 +177,7 @@ __all__ = [
     "PHOTO_LOOKUP_HINT",
     "PRIVACY_HINT",
     "PROFILE_FACT_HINT",
+    "QUIZ_FORMAT_HINT",
     "QUOTE_FORMAT_HINT",
     "SEQUENCE_FORMAT_HINT",
     "SHORT_RESPONSE_FORMAT_HINT",
@@ -218,6 +220,7 @@ __all__ = [
     "is_mermaid_question",
     "is_personal_advice_question",
     "is_personal_disclosure_turn",
+    "is_practice_request",
     "is_profile_fact_question",
     "is_profile_recall_pushback",
     "is_programming_turn",
