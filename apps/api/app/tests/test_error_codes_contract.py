@@ -98,6 +98,60 @@ def _presign(content_type: str, size_bytes: int, *, at_daily_cap: bool = False) 
         )
 
 
+def _transcribe(*, at_daily_cap: bool = False, allowed: bool = True) -> Any:
+    """POST /speech/transcribe for a Pro user, at the day's cap or past the minute's rate."""
+    user = _user()
+    user.plan = "pro"
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    if at_daily_cap:
+        cap = counters.limit("speech_transcription", user, Settings())
+        key = counters.daily_key("speech", user.id, counters.utc_today())
+        asyncio.run(_seed(fake_redis, key, cap))
+    with (
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.modules.speech.gates.allow_request_fail_closed",
+            AsyncMock(return_value=allowed),
+        ),
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+    ):
+        return _client(user).post(
+            "/speech/transcribe",
+            headers=_AUTH,
+            json={"audio_base64": base64.b64encode(b"audio").decode(), "filename": "a.m4a"},
+        )
+
+
+def _generate(code: str) -> Any:
+    """POST /images/generate refused the way the picture service refuses."""
+    from app.modules.images.generation import ImageGenerationError
+
+    refusals = {
+        "daily_limit": ImageGenerationError(
+            "No more pictures today.",
+            status_code=429,
+            code="daily_limit",
+            feature="image_generation",
+        ),
+        "content_blocked": ImageGenerationError(
+            "That picture can't be made.",
+            status_code=422,
+            code="content_blocked",
+            feature="image_generation",
+        ),
+    }
+    with (
+        patch(
+            "app.modules.images.api.image_generation_service.generate_for_chat",
+            AsyncMock(side_effect=refusals[code]),
+        ),
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+    ):
+        return _client(_user()).post(
+            "/images/generate", headers=_AUTH, json={"chat_id": str(uuid4()), "prompt": "a cat"}
+        )
+
+
 def _bodies() -> dict[str, dict[str, Any]]:
     too_big = base64.b64encode(b"\xff" * (SCAN_MAX_IMAGE_BYTES + 1)).decode()
     with (
@@ -131,6 +185,10 @@ def _bodies() -> dict[str, dict[str, Any]]:
             "detail": too_large.json()["detail"],
         },
         "presign_daily_limit": _refusal(_presign("image/png", 128, at_daily_cap=True)),
+        "dictation_daily_limit": _refusal(_transcribe(at_daily_cap=True)),
+        "dictation_rate_limited": _refusal(_transcribe(allowed=False)),
+        "image_daily_limit": _refusal(_generate("daily_limit")),
+        "image_content_blocked": _refusal(_generate("content_blocked")),
     }
 
 

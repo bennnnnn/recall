@@ -2,7 +2,7 @@ import { useCallback } from "react";
 
 import { useImageGeneration } from "@/features/images/hooks/useImageGeneration";
 import { uploadSendAttachment } from "@/features/chat/hooks/useSendAttachment";
-import { resolveChatError } from "@/features/chat/model/errorMessage";
+import { refusalCode, resolveChatError } from "@/features/chat/model/errorMessage";
 
 type Options = Omit<Parameters<typeof useImageGeneration>[0], "uploadReference" | "failureMessage"> & {
   isPaid: boolean;
@@ -11,7 +11,9 @@ type Options = Omit<Parameters<typeof useImageGeneration>[0], "uploadReference" 
 /** Image generation on the chat screen: the chat uploads its reference photo and words its failures. */
 export function useChatImageGeneration({ isPaid, t, ...options }: Options) {
   const failureMessage = useCallback(
-    (message: string, code: string | undefined) => resolveChatError({ message, code, isPaid, t }).message,
+    // Every daily_limit from the picture endpoint is the picture's own cap.
+    (message: string, code: string | undefined) =>
+      resolveChatError({ message, code: refusalCode(code, "image_generation"), isPaid, t }).message,
     [isPaid, t],
   );
   return useImageGeneration({ ...options, t, uploadReference: uploadSendAttachment, failureMessage });

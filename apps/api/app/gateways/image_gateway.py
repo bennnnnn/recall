@@ -18,6 +18,18 @@ _GENERATE_TIMEOUT = 120.0
 # The finished picture is a few MB on the provider's CDN; the whole download,
 # redirects included, gets this long (each read still has _GENERATE_TIMEOUT).
 _RESULT_DOWNLOAD_DEADLINE = 60.0
+# How a provider says a prompt broke its content rules (OpenAI's content_policy_violation,
+# OpenRouter's moderation "flagged" error); a refusal, not a failure to retry.
+_REFUSAL_WORDS = ("content_policy", "content policy", "moderation", "flagged", "safety system")
+
+
+class ImageContentBlockedError(Exception):
+    """The provider refused the prompt under its content rules."""
+
+
+def _is_content_refusal(status_code: int, body: str) -> bool:
+    lowered = body.lower()
+    return status_code in (400, 403, 451) and any(word in lowered for word in _REFUSAL_WORDS)
 
 
 async def generate_via_openrouter(
@@ -61,6 +73,8 @@ async def generate_via_openrouter(
                 response.status_code,
                 response.text[:500],
             )
+            if _is_content_refusal(response.status_code, response.text):
+                raise ImageContentBlockedError(model)
         response.raise_for_status()
         data = response.json()
         items = data.get("data")
@@ -112,6 +126,8 @@ async def generate_via_openrouter(
                     return img_resp.content, content_type or "image/png"
         logger.warning("OpenRouter image generation response missing image payload model=%s", model)
         return None
+    except ImageContentBlockedError:
+        raise
     except Exception:
         logger.exception("Image generation failed model=%s prompt_len=%s", model, len(prompt))
         return None

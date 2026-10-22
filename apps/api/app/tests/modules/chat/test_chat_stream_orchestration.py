@@ -1039,6 +1039,48 @@ async def test_try_image_gen_reads_the_chat_like_the_composer(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("error_code", "status_code", "raised", "code"),
+    [
+        ("daily_limit", 429, "TurnRefusedError", "daily_limit"),
+        ("content_blocked", 422, "TurnRefusedError", "content_blocked"),
+        ("spend_cap", 429, "SpendCapReachedError", "spend_cap"),
+    ],
+)
+async def test_a_refused_picture_says_which_limit_not_the_chat_quota(
+    error_code: str, status_code: int, raised: str, code: str
+):
+    """A picture's own cap or a provider refusal is not "out of messages" (quota_exceeded)."""
+    from app import exceptions
+    from app.modules.chat.stream_events import error_payload_for_exception
+    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
+    from app.modules.images.generation import ImageGenerationError
+
+    user = MagicMock()
+    user.id = uuid4()
+    refusal = ImageGenerationError(
+        "No more pictures today.", status_code=status_code, code=error_code
+    )
+    deps = _image_gen_deps(
+        image_generation={"generate_for_chat": AsyncMock(side_effect=refusal)},
+    )
+    with pytest.raises(getattr(exceptions, raised)) as caught:
+        await try_image_gen_for_turn(
+            deps,
+            Settings(),
+            user=user,
+            chat_id=uuid4(),
+            content="Generate image: a cat",
+            outcome=None,
+            create_user_message=True,
+        )
+    payload = error_payload_for_exception(caught.value)
+    assert payload["code"] == code and payload["message"] == "No more pictures today."
+    if raised == "TurnRefusedError":
+        assert payload["feature"] == "image_generation"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("status_code", [403, 404])
 async def test_image_regen_soft_fail_keeps_prior_assistant(status_code: int):
     """403/404 must not delete the prior assistant (omit-until-success)."""
@@ -1207,35 +1249,12 @@ async def test_try_image_lookup_succeeds_and_populates_outcome():
 
 
 @pytest.mark.asyncio
-async def test_try_image_lookup_quota_exceeded_raises():
-    from app.exceptions import QuotaExceededError
-    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
-    from app.modules.images.search import ImageSearchError
-
-    user = MagicMock()
-    user.id = uuid4()
-
-    search_and_attach = AsyncMock(side_effect=ImageSearchError("limit reached", status_code=429))
-
-    with (
-        patch("app.modules.chat.turn_intercepts.extract_image_lookup_query", return_value="ear"),
-        pytest.raises(QuotaExceededError),
-    ):
-        await try_image_lookup_for_turn(
-            turn_deps(image_search={"search_and_attach_for_chat": search_and_attach}),
-            Settings(image_search_enabled=True),
-            user=user,
-            chat_id=uuid4(),
-            content="show me an ear",
-            outcome=None,
-            create_user_message=True,
-        )
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("status_code", [404, 502, 503])
+@pytest.mark.parametrize("status_code", [404, 429, 502, 503])
 async def test_try_image_lookup_soft_fails_fall_through_to_chat(status_code: int):
-    """No-results / provider-down lookups fall through to a normal LLM answer."""
+    """No-results, provider-down and at-the-cap lookups fall through to a normal answer.
+
+    A 429 is the photo cap (or the spend cap): the turn is answered in words instead of
+    failing as if the chat quota were spent."""
     from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
     from app.modules.images.search import ImageSearchError
 
