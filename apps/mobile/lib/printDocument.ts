@@ -93,7 +93,9 @@ ${PRINT_STYLES}</style>
  */
 export async function markdownToStructuredPrintHtml(title: string, markdown: string): Promise<string> {
   const body = structuredPrintBody(markdown);
-  return wrapPrintDocument(title, body, await readVendorLibrary("katexCss"));
+  // Without the stylesheet KaTeX's markup still reads, unstyled; the export goes ahead.
+  const katexCss = await readVendorLibrary("katexCss").catch(() => "");
+  return wrapPrintDocument(title, body, katexCss);
 }
 
 function structuredPrintBody(markdown: string): string {

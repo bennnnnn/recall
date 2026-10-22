@@ -43,17 +43,6 @@ export function Chemistry2DView({ smiles }: { smiles: string }) {
   // Keyed by the SMILES it failed on, so a new structure starts clean without an effect.
   const [failure, setFailure] = useState<{ smiles: string; code: SmilesDrawerError } | null>(null);
 
-  const config = useMemo(() => smilesDrawerConfig(smiles, theme), [smiles, theme]);
-  const previewWebView = getPreviewWebView();
-  const WebView = previewWebView?.Component;
-  const canRenderInline = previewWebView?.mode === "rnc" && Boolean(smiles);
-  const preview = usePreviewPage(SMILES_DRAWER_PAGE, config, Boolean(WebView) && canRenderInline);
-  const { canMount, onLoaded } = useDeferredWebViewMount(
-    Boolean(WebView) && canRenderInline && preview.status === "ready",
-  );
-  const drawError = failure?.smiles === smiles ? failure.code : null;
-  const renderError = drawError ?? (preview.status === "failed" ? "unavailable" : null);
-
   const handleWebViewMessage = useCallback(
     (event: { nativeEvent: { data?: string } }) => {
       const code = readSmilesDrawerError(event.nativeEvent.data);
@@ -61,6 +50,20 @@ export function Chemistry2DView({ smiles }: { smiles: string }) {
     },
     [smiles],
   );
+
+  const config = useMemo(() => smilesDrawerConfig(smiles, theme), [smiles, theme]);
+  const previewWebView = getPreviewWebView();
+  const WebView = previewWebView?.Component;
+  const canRenderInline = previewWebView?.mode === "rnc" && Boolean(smiles);
+  const preview = usePreviewPage(SMILES_DRAWER_PAGE, config, {
+    active: Boolean(WebView) && canRenderInline,
+    onMessage: handleWebViewMessage,
+  });
+  const { canMount, onLoaded } = useDeferredWebViewMount(
+    Boolean(WebView) && canRenderInline && preview.status === "ready",
+  );
+  const drawError = failure?.smiles === smiles ? failure.code : null;
+  const renderError = drawError ?? (preview.status === "failed" ? "unavailable" : null);
 
   const handleWebViewFailure = useCallback(() => {
     setFailure({ smiles, code: "render" });
@@ -93,7 +96,6 @@ export function Chemistry2DView({ smiles }: { smiles: string }) {
           domStorageEnabled={false}
           onLoadEnd={onLoaded}
           onRenderProcessGone={handleWebViewFailure}
-          onMessage={handleWebViewMessage}
         />
       </View>
     );

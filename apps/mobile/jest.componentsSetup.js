@@ -153,6 +153,7 @@ jestGlobals.mock("expo-asset", () => ({
 jestGlobals.mock("expo-crypto", () => ({
   CryptoDigestAlgorithm: { SHA256: "SHA-256" },
   digestStringAsync: () => Promise.reject(new Error("No digests in this environment")),
+  randomUUID: () => "00000000-0000-4000-8000-000000000000",
 }));
 
 // expo-image's Image is a native view (requireNativeViewManager) that cannot

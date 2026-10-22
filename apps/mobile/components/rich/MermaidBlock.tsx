@@ -43,7 +43,10 @@ export function MermaidBlock({ content }: Props) {
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInline = previewWebView?.mode === "rnc";
-  const preview = usePreviewPage(MERMAID_PAGE, config, Boolean(WebView) && canRenderInline);
+  const preview = usePreviewPage(MERMAID_PAGE, config, {
+    active: Boolean(WebView) && canRenderInline,
+    onMessage,
+  });
   const { canMount, onLoaded } = useDeferredWebViewMount(
     Boolean(WebView) && canRenderInline && preview.status === "ready",
   );
@@ -123,7 +126,6 @@ export function MermaidBlock({ content }: Props) {
               javaScriptEnabled
               domStorageEnabled={false}
               onLoadEnd={onLoaded}
-              onMessage={onMessage}
             />
           </View>
         ) : (

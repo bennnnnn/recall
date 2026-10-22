@@ -6,6 +6,7 @@
  */
 import { act, render, waitFor } from "@testing-library/react-native";
 import type { ReactElement } from "react";
+import { Linking } from "react-native";
 
 import { ChartBlock } from "@/components/rich/ChartBlock";
 import { Chemistry2DView } from "@/components/rich/ChemistryBlock";
@@ -65,6 +66,8 @@ type Case = {
   /** How the data reads inside the injected JSON. */
   inScript: (data: string) => string;
   failure: string;
+  /** What the page posts when it cannot draw the data, and what the card then says. */
+  drawError: [message: object, text: string];
 };
 
 const CASES: [string, Case][] = [
@@ -76,6 +79,7 @@ const CASES: [string, Case][] = [
       data: ["graph TD; A-->B", "graph LR; X-->Y"],
       inScript: (data) => `"source":${JSON.stringify(data)}`,
       failure: "rich.mermaid_error",
+      drawError: [{ kind: "mermaid-error", message: "Parse error on line 1" }, "Parse error on line 1"],
     },
   ],
   [
@@ -86,6 +90,7 @@ const CASES: [string, Case][] = [
       data: ['{"mark":"bar"}', '{"mark":"line"}'],
       inScript: (data) => JSON.stringify(data),
       failure: "rich.chart_error",
+      drawError: [{ kind: "chart-error", message: "Unrecognized mark" }, "Unrecognized mark"],
     },
   ],
   [
@@ -96,13 +101,25 @@ const CASES: [string, Case][] = [
       data: ["CCO", "c1ccccc1"],
       inScript: (data) => `"smiles":${JSON.stringify(data)}`,
       failure: "rich.chemistry_renderer_unavailable",
+      drawError: [{ kind: "chemistry-error", code: "render" }, "rich.chemistry_invalid"],
     },
   ],
 ];
 
 const fileFor = (page: PreviewPage) => `file:///cache/preview-pages/${page.name}-0123456789abcdef.html`;
 
+type Guard = (request: Record<string, unknown>) => boolean;
+const guard = () => lastProps().onShouldStartLoadWithRequest as Guard;
+/** The page posting `message` to the app. */
+const post = (message: object) =>
+  act(async () =>
+    (lastProps().onMessage as (event: { nativeEvent: { data: string } }) => void)({
+      nativeEvent: { data: JSON.stringify(message) },
+    }),
+  );
+
 beforeEach(() => {
+  jest.spyOn(Linking, "openURL").mockReset().mockResolvedValue(true);
   mockWebView.renders.length = 0;
   mockWebView.mounts = 0;
   mockTheme.dark = false;
@@ -111,7 +128,7 @@ beforeEach(() => {
   jest.mocked(previewPageFile).mockReset().mockImplementation(async (page) => fileFor(page));
 });
 
-describe.each(CASES)("%s", (_name, { page, element, data, inScript, failure }) => {
+describe.each(CASES)("%s", (_name, { page, element, data, inScript, failure, drawError }) => {
   const file = fileFor(page);
 
   it("loads its kind's page file and hands it this block's data", async () => {
@@ -139,11 +156,45 @@ describe.each(CASES)("%s", (_name, { page, element, data, inScript, failure }) =
     expect(props.allowFileAccessFromFileURLs).toBeUndefined();
     expect(props.allowUniversalAccessFromFileURLs).toBeUndefined();
     expect(props.originWhitelist).toEqual(["*"]);
+    // No window (Android) or link preview (iOS) that loads outside the guard.
+    expect(props.setSupportMultipleWindows).toBe(false);
+    expect(props.allowsLinkPreview).toBe(false);
 
-    const allow = props.onShouldStartLoadWithRequest as (request: { url: string }) => boolean;
+    const allow = guard();
     expect(allow({ url: file })).toBe(true);
     expect(allow({ url: "https://example.com/?leak=1" })).toBe(false);
     expect(allow({ url: "file:///cache/att-1-2-doc.pdf" })).toBe(false);
+    expect(allow({ url: "about:blank" })).toBe(false);
+    // What the page loads by itself never opens outside the card either.
+    expect(Linking.openURL).not.toHaveBeenCalled();
+  });
+
+  it("opens a link the user taps in the card as a chat link would", async () => {
+    const { findByTestId } = await render(element(data[0]));
+    await findByTestId("preview-webview");
+
+    // iOS: a tap on a link the page did not catch reaches the guard.
+    expect(guard()({ url: "https://example.com/a", navigationType: "click", isTopFrame: true })).toBe(false);
+    expect(guard()({ url: "javascript:alert(1)", navigationType: "click", isTopFrame: true })).toBe(false);
+    expect(guard()({ url: "file:///cache/att-1-2-doc.pdf", navigationType: "click", isTopFrame: true })).toBe(false);
+    expect(Linking.openURL).toHaveBeenCalledTimes(1);
+    expect(Linking.openURL).toHaveBeenCalledWith("https://example.com/a");
+  });
+
+  it("opens the links the page hands over and leaves the rest of its messages to the card", async () => {
+    const { findByTestId, findByText, queryByTestId } = await render(element(data[0]));
+    await findByTestId("preview-webview");
+
+    await post({ kind: "preview-link", url: "https://example.com/b" });
+    await post({ kind: "preview-link", url: "javascript:alert(1)" });
+    await post({ kind: "preview-link", url: "recall://chat/1" });
+    expect(Linking.openURL).toHaveBeenCalledTimes(1);
+    expect(Linking.openURL).toHaveBeenCalledWith("https://example.com/b");
+    expect(queryByTestId("preview-webview")).toBeTruthy();
+
+    await post(drawError[0]);
+    expect(await findByText(drawError[1])).toBeTruthy();
+    expect(Linking.openURL).toHaveBeenCalledTimes(1);
   });
 
   it("waits for the page file before mounting a WebView", async () => {
@@ -171,13 +222,35 @@ describe.each(CASES)("%s", (_name, { page, element, data, inScript, failure }) =
     expect(queryByTestId("preview-webview")).toBeNull();
   });
 
-  it("forgets a page file the WebView could not load", async () => {
-    const { findByTestId, findByText } = await render(element(data[0]));
+  it("writes the page file again when the WebView cannot load it, once", async () => {
+    const { findByTestId, findByText, queryByText } = await render(element(data[0]));
     await findByTestId("preview-webview");
-    await act(async () => (lastProps().onError as () => void)());
+    expect(mockWebView.mounts).toBe(1);
 
-    expect(forgetPreviewPageFile).toHaveBeenCalledWith(page);
+    // The system cleared the cache: the file is written again and loads in a fresh WebView.
+    await act(async () => (lastProps().onError as () => void)());
+    expect(forgetPreviewPageFile).toHaveBeenCalledWith(page, file);
+    await waitFor(() => expect(mockWebView.mounts).toBe(2));
+    expect(previewPageFile).toHaveBeenCalledTimes(2);
+    expect(lastProps().source).toEqual({ uri: file });
+    expect(queryByText(failure)).toBeNull();
+
+    // It failed again: the card says so instead of trying forever.
+    await act(async () => (lastProps().onError as () => void)());
+    expect(forgetPreviewPageFile).toHaveBeenCalledTimes(2);
     expect(await findByText(failure)).toBeTruthy();
+    expect(previewPageFile).toHaveBeenCalledTimes(2);
+  });
+
+  it("writes again a page file this run had at once, when the WebView cannot load it", async () => {
+    jest.mocked(readyPreviewPageFile).mockReturnValue(file);
+    const { findByTestId } = await render(element(data[0]));
+    await findByTestId("preview-webview");
+
+    await act(async () => (lastProps().onError as () => void)());
+    expect(forgetPreviewPageFile).toHaveBeenCalledWith(page, file);
+    await waitFor(() => expect(mockWebView.mounts).toBe(2));
+    expect(previewPageFile).toHaveBeenCalledWith(page);
   });
 
   it("starts a fresh WebView on the same file for new data or a new theme", async () => {

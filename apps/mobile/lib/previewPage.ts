@@ -11,6 +11,8 @@ export type PreviewPage<L extends string = string> = {
   name: string;
   libraries: readonly L[];
   build: (sources: Readonly<Record<L, string>>) => string;
+  /** A file an earlier app version wrote in the cache directory for this page, removed once this one is in place. */
+  formerFile?: string;
 };
 
 /** One block's data, as the page script reads it. */
@@ -19,6 +21,9 @@ export type PreviewPageConfig = Record<string, unknown>;
 /** Where the page finds its block's data, and the function that starts it. */
 const CONFIG_GLOBAL = "RECALL_PREVIEW";
 const START_GLOBAL = "RECALL_PREVIEW_START";
+
+/** What a page posts for a link the user tapped: `{ kind, url }`. The app decides whether it opens. */
+export const PREVIEW_PAGE_LINK_KIND = "preview-link";
 
 /**
  * The script that hands a block's data to its page. The WebView runs it before
@@ -34,12 +39,49 @@ export function previewPageConfigScript(config: PreviewPageConfig): string {
   );
 }
 
+/** The URL a page posted for a tapped link, or null for any other message. */
+export function previewPageLink(data: string | undefined): string | null {
+  if (!data) return null;
+  try {
+    const message: unknown = JSON.parse(data);
+    if (typeof message !== "object" || message === null) return null;
+    const { kind, url } = message as { kind?: unknown; url?: unknown };
+    return kind === PREVIEW_PAGE_LINK_KIND && typeof url === "string" ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The page's own script: `start` (a function expression) runs once, with the
  * first data to arrive, whether that came before this script ran or after.
+ *
+ * Links never navigate the page. A tapped link, or a window the page opens,
+ * becomes a `PREVIEW_PAGE_LINK_KIND` message (`start` can call `postLink` for
+ * links a library follows itself), so nothing depends on the WebView's own
+ * navigation check, which Android lets through when the app is slow to answer.
  */
 export function previewPageStartScript(start: string): string {
   return `(function () {
+  function postLink(href) {
+    var url = String(href);
+    try { url = new URL(url, document.baseURI).href; } catch (e) {}
+    try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ kind: '${PREVIEW_PAGE_LINK_KIND}', url: url })); } catch (e) {}
+  }
+  document.addEventListener('click', function (event) {
+    var node = event.target;
+    while (node && !(node.nodeName && String(node.nodeName).toLowerCase() === 'a')) node = node.parentNode;
+    if (!node) return;
+    event.preventDefault();
+    event.stopPropagation();
+    var href = node.getAttribute('href') || node.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+    // A tap, not a click the page dispatched itself.
+    if (href && event.isTrusted) postLink(href);
+  }, true);
+  window.open = function (href) {
+    if (href) postLink(href);
+    return null;
+  };
   var start = ${start};
   var started = false;
   function begin(config) {

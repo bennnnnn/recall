@@ -176,6 +176,8 @@ export const PDF_VIEWER_PAGE: PreviewPage<PdfLibrary> = {
   name: "pdf-viewer",
   libraries: ["pdf", "pdfWorker"],
   build: buildPdfViewerHtml,
+  // Earlier versions rewrote one unversioned viewer page in the cache root each run.
+  formerFile: "pdf-viewer.html",
 };
 
 /** Inline fallback for WebViews that cannot read local files: the PDF rides in the page. */

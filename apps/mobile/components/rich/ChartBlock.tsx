@@ -46,7 +46,10 @@ export function ChartBlock({ content }: Props) {
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInlineChart = previewWebView?.mode === "rnc";
-  const preview = usePreviewPage(CHART_PAGE, config, Boolean(WebView) && canRenderInlineChart);
+  const preview = usePreviewPage(CHART_PAGE, config, {
+    active: Boolean(WebView) && canRenderInlineChart,
+    onMessage,
+  });
   const { canMount, onLoaded } = useDeferredWebViewMount(
     Boolean(WebView) && canRenderInlineChart && preview.status === "ready",
   );
@@ -126,14 +129,13 @@ export function ChartBlock({ content }: Props) {
             <WebView
               key={preview.webViewKey}
               {...preview.webViewProps}
-              style={{ height, width: viewWidth > 0 ? viewWidth : 320 }}
+              style={[s.webview, { height, width: viewWidth > 0 ? viewWidth : 320 }]}
               scrollEnabled={clipped}
               nestedScrollEnabled={clipped}
               showsVerticalScrollIndicator={clipped}
               javaScriptEnabled
               domStorageEnabled={false}
               onLoadEnd={onLoaded}
-              onMessage={onMessage}
             />
           ) : (
             <View style={[s.previewPlaceholder, { height }]}>
@@ -163,6 +165,8 @@ export function ChartBlock({ content }: Props) {
 function makeStyles(t: Theme) {
   return StyleSheet.create({
     lineCount: { ...Type.meta, color: t.textTertiary },
+    // The page paints its background once its chart arrives; until then the card's shows.
+    webview: { backgroundColor: "transparent" },
     previewBox: {
       backgroundColor: t.bg,
       overflow: "hidden",

@@ -4,6 +4,7 @@ import {
   chartPreviewConfig,
   normalizeChartSpec,
 } from "@/lib/chartPreviewHtml";
+import { PREVIEW_PAGE_LINK_KIND } from "@/lib/previewPage";
 import { CHART_PREVIEW_CSP, PREVIEW_CSP } from "@/lib/previewSandbox";
 
 import { previewPageSandbox, settle } from "./fixtures/previewPageSandbox";
@@ -146,10 +147,18 @@ describe("buildVegaPageHtml", () => {
   });
 });
 
+/** Vega's loader as the page gets it from `vega.loader()`, sanitizing as Vega would. */
+function fakeVega() {
+  const sanitize = jest.fn(async (uri: string) => ({ href: uri }));
+  return { vega: { loader: () => ({ sanitize }) }, sanitize };
+}
+
+type EmbedOptions = { loader: { sanitize: (uri: string, options: { context: string }) => Promise<unknown> } };
+
 describe("the chart page", () => {
   it("embeds the spec it is handed, themed and fitted to the card", async () => {
-    const vegaEmbed = jest.fn(() => Promise.resolve());
-    const page = previewPageSandbox({ vegaEmbed });
+    const vegaEmbed = jest.fn((_target: string, _spec: unknown, _options: EmbedOptions) => Promise.resolve());
+    const page = previewPageSandbox({ vegaEmbed, ...fakeVega() });
     page.loadPage(buildVegaPageHtml(SOURCES));
     expect(vegaEmbed).not.toHaveBeenCalled();
 
@@ -170,15 +179,50 @@ describe("the chart page", () => {
         config: { ...themed, axis: { grid: false } },
         autosize: { type: "fit-x", contains: "padding" },
       },
-      { actions: false, tooltip: false, renderer: "svg", width: 296, theme: "vox", config: themed },
+      {
+        actions: false,
+        tooltip: false,
+        renderer: "svg",
+        width: 296,
+        theme: "vox",
+        config: themed,
+        loader: expect.anything(),
+      },
     );
     await settle();
     page.runFrames();
     expect(page.posted).toEqual([{ kind: "chart-size", height: 116 }]);
   });
 
+  it("hands a mark's link to the app instead of letting Vega follow it", async () => {
+    const vegaEmbed = jest.fn((_target: string, _spec: unknown, _options: EmbedOptions) => Promise.resolve());
+    const { vega, sanitize } = fakeVega();
+    const page = previewPageSandbox({ vegaEmbed, vega });
+    page.loadPage(buildVegaPageHtml(SOURCES));
+    page.hand(chartPreviewConfig('{"mark":"bar"}', theme));
+    const { loader } = vegaEmbed.mock.calls[0][2];
+
+    await expect(loader.sanitize("https://example.com/?leak=1", { context: "href" })).rejects.toThrow();
+    expect(page.posted).toEqual([{ kind: PREVIEW_PAGE_LINK_KIND, url: "https://example.com/?leak=1" }]);
+    // Images and data still go through Vega's own checks.
+    await expect(loader.sanitize("data:image/png;base64,AA", { context: "image" })).resolves.toEqual({
+      href: "data:image/png;base64,AA",
+    });
+    expect(sanitize).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a spec's own embed options, which would override the page's", () => {
+    const vegaEmbed = jest.fn((_target: string, _spec: unknown, _options: EmbedOptions) => Promise.resolve());
+    const page = previewPageSandbox({ vegaEmbed, ...fakeVega() });
+    page.loadPage(buildVegaPageHtml(SOURCES));
+    const spec = { mark: "bar", usermeta: { embedOptions: { actions: true, editorUrl: "https://evil.test" }, note: "kept" } };
+    page.hand(chartPreviewConfig(JSON.stringify(spec), theme));
+    expect(vegaEmbed.mock.calls[0][1]).toMatchObject({ usermeta: { note: "kept" } });
+    expect(vegaEmbed.mock.calls[0][1]).not.toHaveProperty("usermeta.embedOptions");
+  });
+
   it("reports a spec that is not JSON", () => {
-    const page = previewPageSandbox({ vegaEmbed: jest.fn() });
+    const page = previewPageSandbox({ vegaEmbed: jest.fn(), ...fakeVega() });
     page.loadPage(buildVegaPageHtml(SOURCES));
     page.hand(chartPreviewConfig("{not json", theme));
     expect(page.posted).toEqual([{ kind: "chart-error", message: expect.stringContaining("JSON") }]);

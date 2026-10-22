@@ -142,6 +142,14 @@ describe("markdownToStructuredPrintHtml", () => {
     expect(head).toContain(`<style>${MOCK_KATEX_CSS}`);
   });
 
+  it("still exports, unstyled math and all, when the stylesheet cannot be read", async () => {
+    jest.mocked(readVendorLibrary).mockRejectedValueOnce(new Error("asset missing"));
+    const html = await markdownToStructuredPrintHtml("Note", "Solve $x^2=4$.");
+    expect(html).not.toContain(MOCK_KATEX_CSS);
+    expect(html).toContain("katex");
+    expect(html).toContain("<h1>Note</h1>");
+  });
+
   it("keeps code fences as pre blocks", async () => {
     const html = await markdownToStructuredPrintHtml("Note", "Intro\n\n```js\nconst x = 1;\n```\n\nDone");
     expect(html).toContain("<pre><code");

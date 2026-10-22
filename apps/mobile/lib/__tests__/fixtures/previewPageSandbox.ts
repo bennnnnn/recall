@@ -1,27 +1,52 @@
 /**
- * Runs a preview page's own script and a block's config script against fake
+ * Runs a preview page's own scripts and a block's config script against fake
  * browser globals, so a test sees what the page does with the data a WebView
  * hands it (lib/previewPage.ts) without a browser.
  */
 import { previewPageConfigScript, type PreviewPageConfig } from "@/lib/previewPage";
 
 type FakeElement = { textContent: string; style: Record<string, string> };
+type Listener = (event: unknown) => void;
+
+/** A tap's (or a script's) click on `target`, as the page's listeners see it. */
+export type FakeClick = { target: unknown; isTrusted: boolean; defaultPrevented: boolean };
+
+/** An `<a>` in the page; `inSvg` spells it as SVG does, with an xlink:href. */
+export function fakeAnchor(href: string, { inSvg = false } = {}) {
+  return {
+    nodeName: inSvg ? "a" : "A",
+    parentNode: null,
+    getAttribute: (name: string) => (name === "href" && !inSvg ? href : null),
+    getAttributeNS: (_namespace: string, name: string) => (name === "href" && inSvg ? href : null),
+  };
+}
 
 export function previewPageSandbox(globals: Record<string, unknown> = {}) {
   const posted: unknown[] = [];
   const css: Record<string, string> = {};
   const elements: Record<string, FakeElement> = {};
   const frames: (() => void)[] = [];
-  const window: Record<string, unknown> = {
+  const windowListeners: Record<string, Listener[]> = {};
+  const clickListeners: Listener[] = [];
+  const window: Record<string, unknown> & {
+    addEventListener: (type: string, listener: Listener) => void;
+  } = {
     ReactNativeWebView: { postMessage: (data: string) => posted.push(JSON.parse(data)) },
+    addEventListener: (type: string, listener: Listener) => {
+      (windowListeners[type] ??= []).push(listener);
+    },
   };
   const document = {
+    baseURI: "file:///cache/preview-pages/page-0123456789abcdef.html",
     documentElement: {
       style: {
         setProperty: (name: string, value: string) => {
           css[name] = value;
         },
       },
+    },
+    addEventListener: (type: string, listener: Listener) => {
+      if (type === "click") clickListeners.push(listener);
     },
     getElementById: (id: string) => (elements[id] ??= { textContent: "", style: {} }),
     querySelector: () => null,
@@ -37,19 +62,34 @@ export function previewPageSandbox(globals: Record<string, unknown> = {}) {
 
   return {
     window,
+    document,
     /** What the page posted to the app, parsed. */
     posted,
     /** CSS variables the page set on its root. */
     css,
     elements,
-    /** The page's own script: its last inline <script>, after the libraries. */
+    /** The page's inline scripts in order (a library under test is a stand-in). */
     loadPage(html: string) {
-      const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
-      run(scripts[scripts.length - 1]?.[1] ?? "");
+      for (const [, source] of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) run(source);
     },
     /** What the WebView injects for one block. */
     hand(config: PreviewPageConfig) {
       run(previewPageConfigScript(config));
+    },
+    fire(type: string) {
+      for (const listener of windowListeners[type] ?? []) listener({ type });
+    },
+    click(target: unknown, { isTrusted = true } = {}): FakeClick {
+      const click: FakeClick = { target, isTrusted, defaultPrevented: false };
+      const event = {
+        ...click,
+        preventDefault: () => {
+          click.defaultPrevented = true;
+        },
+        stopPropagation: () => undefined,
+      };
+      for (const listener of clickListeners) listener(event);
+      return click;
     },
     runFrames() {
       frames.splice(0).forEach((frame) => frame());

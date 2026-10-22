@@ -43,6 +43,14 @@ const START = `function (config) {
   }).catch(function(err) { reportError(err && err.message ? err.message : String(err)); });
 }`;
 
+/**
+ * Mermaid draws every `.mermaid` node on the window's load event unless told
+ * not to. The diagram may arrive after that event (Android can run the early
+ * injection late), and a node Mermaid already tried is never drawn again, so
+ * auto-start is off before load and the diagram node has no `mermaid` class.
+ */
+const NO_AUTO_START = "mermaid.initialize({ startOnLoad: false });";
+
 export function buildMermaidPageHtml(mermaidJs: string): string {
   return injectPreviewCsp(`<!DOCTYPE html>
 <html lang="en">
@@ -50,14 +58,15 @@ export function buildMermaidPageHtml(mermaidJs: string): string {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>${inlineScript(mermaidJs)}</script>
+<script>${NO_AUTO_START}</script>
 <style>
   body { margin: 0; padding: 8px; font-family: -apple-system, sans-serif; background: var(--bg); }
   #err { color: var(--danger); font-size: 12px; display: none; white-space: pre-wrap; padding: 8px; }
-  .mermaid { display: flex; justify-content: center; }
+  #diagram { display: flex; justify-content: center; }
 </style>
 </head>
 <body>
-<pre class="mermaid" id="diagram"></pre>
+<pre id="diagram"></pre>
 <div id="err"></div>
 <script>${previewPageStartScript(START)}</script>
 </body>

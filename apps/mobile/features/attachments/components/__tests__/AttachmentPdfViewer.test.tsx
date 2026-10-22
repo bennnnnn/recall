@@ -4,7 +4,7 @@ import { StyleSheet } from "react-native";
 import { AttachmentPdfViewer } from "@/features/attachments/components/AttachmentPdfViewer";
 import { ensureLocalAttachmentFile } from "@/features/attachments/model/downloadChatAttachment";
 import { PDF_VIEWER_PAGE } from "@/lib/pdfPreviewHtml";
-import { previewPageFile } from "@/lib/previewPageFile";
+import { forgetPreviewPageFile, previewPageFile } from "@/lib/previewPageFile";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 import { readVendorLibraries } from "@/lib/vendorAssets";
 
@@ -23,6 +23,7 @@ jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({
 }));
 jest.mock("@/lib/previewPageFile", () => ({
   previewPageFile: jest.fn(async () => "file:///cache/preview-pages/pdf-viewer-0123456789abcdef.html"),
+  forgetPreviewPageFile: jest.fn(),
 }));
 jest.mock("@/lib/vendorAssets", () => ({
   readVendorLibraries: jest.fn(async () => ({ pdf: "/*pdf.js*/", pdfWorker: "/*worker*/" })),
@@ -42,11 +43,15 @@ jest.mock("@/lib/theme", () => ({
 }));
 
 const mockWebViewProps: Record<string, unknown>[] = [];
+const mockWebViewMounts = { count: 0 };
 jest.mock("@/lib/webView", () => ({
   ...jest.requireActual("@/lib/webView"),
   getPreviewWebView: () => ({
     mode: "rnc",
     Component: (props: Record<string, unknown>) => {
+      jest.requireActual<typeof import("react")>("react").useEffect(() => {
+        mockWebViewMounts.count += 1;
+      }, []);
       mockWebViewProps.push(props);
       const { View: MockView } = jest.requireActual<typeof import("react-native")>("react-native");
       return <MockView testID="pdf-webview" />;
@@ -62,8 +67,13 @@ function viewer(visible: boolean) {
   );
 }
 
+const VIEWER_FILE = "file:///cache/preview-pages/pdf-viewer-0123456789abcdef.html";
+
 beforeEach(() => {
   mockWebViewProps.length = 0;
+  mockWebViewMounts.count = 0;
+  jest.mocked(previewPageFile).mockClear();
+  jest.mocked(forgetPreviewPageFile).mockClear();
   jest.mocked(ensureLocalAttachmentFile).mockReset().mockResolvedValue("file:///cache/att-1-2-doc.pdf");
 });
 
@@ -94,6 +104,25 @@ it("falls back to the inline page when the WebView cannot read the file", async 
   expect(readVendorLibraries).toHaveBeenCalledWith(["pdf", "pdfWorker"]);
   // The bytes come from the cached file, not a second download.
   expect(ensureLocalAttachmentFile).toHaveBeenLastCalledWith(expect.objectContaining({ uri: "https://api.test/attachments/doc/file" }));
+});
+
+it("writes the viewer page again when the WebView cannot load it, then shows the PDF inline", async () => {
+  const { findByTestId } = await render(viewer(true));
+  await findByTestId("pdf-webview");
+  expect(mockWebViewMounts.count).toBe(1);
+
+  // The system cleared the cache: the page is written again and loads in a fresh WebView.
+  await act(async () => (lastProps().onError as () => void)());
+  expect(forgetPreviewPageFile).toHaveBeenCalledWith(PDF_VIEWER_PAGE, VIEWER_FILE);
+  await waitFor(() => expect(mockWebViewMounts.count).toBe(2));
+  expect(previewPageFile).toHaveBeenCalledTimes(2);
+  expect(lastProps().source).toEqual({ uri: VIEWER_FILE });
+
+  // It failed again: the PDF goes inline, as when the WebView cannot read files.
+  await act(async () => (lastProps().onError as () => void)());
+  await waitFor(() => expect(lastProps().source).toEqual({ html: "<html>QUJD</html>" }));
+  expect(forgetPreviewPageFile).toHaveBeenCalledTimes(2);
+  expect(previewPageFile).toHaveBeenCalledTimes(2);
 });
 
 it("stops the download when the viewer closes", async () => {

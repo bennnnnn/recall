@@ -15,6 +15,38 @@ function fakeMermaid(run: () => Promise<void>) {
   return { initialize: jest.fn(), run: jest.fn(run) };
 }
 
+/**
+ * Mermaid 10 as it behaves on a page: when its script loads it listens for the
+ * window's load event and then draws every `.mermaid` node unless startOnLoad
+ * is off by then; it never draws a node it has already tried, failed or not.
+ */
+function autoStartingMermaid() {
+  let startOnLoad = true;
+  const tried = new Set<unknown>();
+  const drawn: string[] = [];
+  const mermaid = {
+    initialize: jest.fn((config: { startOnLoad?: boolean }) => {
+      if (config.startOnLoad !== undefined) startOnLoad = config.startOnLoad;
+    }),
+    run: jest.fn(async ({ nodes }: { nodes: { textContent: string }[] }) => {
+      for (const node of nodes) {
+        if (tried.has(node)) continue;
+        tried.add(node);
+        if (!node.textContent) throw new Error("No diagram type detected");
+        drawn.push(node.textContent);
+      }
+    }),
+  };
+  /** Its load listener on the page `html` builds, finding nodes by class. */
+  function listen(page: ReturnType<typeof previewPageSandbox>, html: string) {
+    page.window.addEventListener("load", () => {
+      const nodes = /class="mermaid"/.test(html) ? [page.document.getElementById("diagram")] : [];
+      if (startOnLoad) void mermaid.run({ nodes }).catch(() => undefined);
+    });
+  }
+  return { mermaid, drawn, listen };
+}
+
 describe("buildMermaidPageHtml", () => {
   it("is one page for every diagram: the sandbox CSP, the library once, no diagram", () => {
     const html = MERMAID_PAGE.build({ mermaid: LIBRARY });
@@ -24,6 +56,30 @@ describe("buildMermaidPageHtml", () => {
     expect(html).toContain("connect-src 'none'");
     expect(html.split(LIBRARY)).toHaveLength(2);
     expect(html).not.toContain(LIGHT.bg);
+  });
+
+  it("turns Mermaid's load-time auto-start off before the window loads", () => {
+    const html = buildMermaidPageHtml(LIBRARY);
+    const library = html.indexOf(LIBRARY);
+    const noAutoStart = html.indexOf("<script>mermaid.initialize({ startOnLoad: false });</script>");
+    expect(noAutoStart).toBeGreaterThan(library);
+    expect(noAutoStart).toBeLessThan(html.indexOf("<body>"));
+    // And it finds nothing to start: the diagram has no `mermaid` class.
+    expect(html).not.toMatch(/class="mermaid"/);
+  });
+
+  it("draws a diagram that arrives after the window loaded (Android's late hand-off)", async () => {
+    const fake = autoStartingMermaid();
+    const page = previewPageSandbox({ mermaid: fake.mermaid });
+    const html = buildMermaidPageHtml(LIBRARY);
+    fake.listen(page, html);
+    page.loadPage(html);
+    page.fire("load");
+    page.hand(mermaidPreviewConfig("graph TD; A-->B", LIGHT));
+    await settle();
+    page.runFrames();
+    expect(fake.drawn).toEqual(["graph TD; A-->B"]);
+    expect(page.posted).toEqual([{ kind: "mermaid-size", height: 116 }]);
   });
 
   it("keeps a closing script tag in the library from ending its script", () => {

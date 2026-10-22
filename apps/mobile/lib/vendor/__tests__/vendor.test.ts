@@ -8,9 +8,10 @@ declare const __dirname: string;
 const { createHash } = jest.requireActual<{
   createHash(name: string): { update(value: string): { digest(encoding: string): string } };
 }>("node:crypto");
-const { readdirSync, readFileSync } = jest.requireActual<{
+const { readdirSync, readFileSync, statSync } = jest.requireActual<{
   readdirSync(path: string): string[];
   readFileSync(path: string, encoding: "utf8"): string;
+  statSync(path: string): { isDirectory(): boolean };
 }>("node:fs");
 const { join } = jest.requireActual<{ join(...parts: string[]): string }>("node:path");
 
@@ -44,6 +45,22 @@ describe("vendored web libraries", () => {
     const files = readdirSync(VENDOR_DIR).filter((file) => file.endsWith(".txt"));
     expect(shipped.sort()).toEqual(files.sort());
     expect(files.sort()).toEqual(FILES.map(([, file]) => file).sort());
+  });
+
+  it("is the app's only .txt asset, so a cached copy under another hash is stale", () => {
+    // lib/vendorAssets.ts removeSupersededVendorCopies() relies on this.
+    const app = join(VENDOR_DIR, "..", "..");
+    const sourceFiles = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) return ["__tests__", "node_modules", "vendor"].includes(name) ? [] : sourceFiles(path);
+        return /\.tsx?$/.test(name) ? [path] : [];
+      });
+    const requiring = ["app", "components", "contexts", "features", "hooks", "lib", "ui"]
+      .flatMap((dir) => sourceFiles(join(app, dir)))
+      .filter((path) => /require\(["'][^"']+\.txt["']\)/.test(readFileSync(path, "utf8")))
+      .map((path) => path.slice(app.length + 1));
+    expect(requiring).toEqual(["lib/vendorAssets.ts"]);
   });
 
   it.each(SCRIPTS)("%s is a substantial script", (file) => {

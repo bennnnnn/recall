@@ -151,7 +151,19 @@ const START = `function (config) {
     try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'chart-size', height: Math.ceil(h + 16) })); } catch (e) {}
   }
   try {
+    // Vega follows a mark's href itself: its loader hands the link to the app instead.
+    var loader = vega.loader();
+    var sanitize = loader.sanitize;
+    loader.sanitize = function(uri, options) {
+      if (options && options.context === 'href') {
+        postLink(uri);
+        return Promise.reject(new Error('The app opens links.'));
+      }
+      return sanitize.call(loader, uri, options);
+    };
     var parsed = JSON.parse(config.spec);
+    // A spec's own embed options would override these (actions, editor URL, loader).
+    if (parsed && parsed.usermeta) delete parsed.usermeta.embedOptions;
     var themedConfig = {
       background: colors.bg,
       axis: { domainColor: colors.axis, labelColor: colors.text, titleColor: colors.text, tickColor: colors.axis, gridColor: colors.grid },
@@ -170,6 +182,7 @@ const START = `function (config) {
       width: config.width,
       theme: config.vegaTheme,
       config: themedConfig,
+      loader: loader,
     }).then(function() {
       requestAnimationFrame(reportSize);
     }).catch(function(err) { reportError(err && err.message ? err.message : String(err)); });

@@ -258,6 +258,8 @@ export function injectPreviewCsp(html: string, csp: string = PREVIEW_CSP): strin
 
 /**
  * Make a raw JS source safe to inline inside a <script>...</script> block.
+ * Preview page files embed their libraries with this: a change here needs a
+ * new PAGE_FORMAT in lib/previewPageFile.ts, or old pages stay in use.
  */
 export function inlineScript(source: string): string {
   return source.replace(new RegExp(SCRIPT_END, "gi"), "<\\/script>");
