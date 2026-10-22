@@ -26,10 +26,6 @@ jest.mock("@shopify/flash-list", () => {
     },
   };
 });
-let mockPick: string | undefined;
-jest.mock("expo-router", () => ({
-  useLocalSearchParams: () => ({ pick: mockPick }),
-}));
 const mockFeedback = { error: jest.fn(), success: jest.fn(), info: jest.fn(), warning: jest.fn(), show: jest.fn(), dismiss: jest.fn() };
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => mockFeedback }));
 jest.mock("@/features/attachments/components/GalleryMediaModals", () => ({ GalleryMediaModals: () => null }));
@@ -105,7 +101,6 @@ function data(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockPick = undefined;
   mockListProps = null;
   mockData = data();
   mockLibrary = library();
@@ -136,18 +131,16 @@ describe("GalleryScreen", () => {
     expect(label.props.ellipsizeMode).toBe("middle");
   });
 
-  it("shows a spinner on the item being attached in pick mode, and waits", async () => {
-    mockPick = "1";
+  it("shows a spinner on the item being attached from its menu, and offers the menu to screen readers", async () => {
     mockLibrary = library({ busyItemId: "gen" });
     const view = await render(<GalleryScreen />);
     const photo = view.getByRole("button", { name: "A cat in a hat" });
-    expect(photo.props.accessibilityHint).toBe("gallery.use_in_chat");
-    expect(photo.props.accessibilityActions).toBeUndefined();
+    expect(photo.props.accessibilityHint).toBe("chat.image_view_a11y");
+    expect(photo.props.accessibilityActions.map((a: { name: string }) => a.name)).toContain("use");
     expect(photo.props.accessibilityState).toMatchObject({ busy: true });
     expect(view.getByTestId("gallery-item-busy")).toBeTruthy();
-    await fireEvent.press(photo);
-    expect(mockLibrary.attachToComposer).not.toHaveBeenCalled();
-    await fireEvent.press(view.getByRole("button", { name: "quarterly-report.pdf" }));
+    const pdfRow = view.getByRole("button", { name: "quarterly-report.pdf" });
+    await fireEvent(pdfRow, "accessibilityAction", { nativeEvent: { actionName: "use" } });
     expect(mockLibrary.attachToComposer).toHaveBeenCalledWith(pdf);
   });
 

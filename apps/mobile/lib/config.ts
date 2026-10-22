@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 
+/** Build-time settings. The API's URL comes from getApiUrl() below. */
 export const config = {
-  apiUrl: process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000",
   googleWebClientId:
     process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ??
     "your-google-web-client-id.apps.googleusercontent.com",
@@ -9,10 +9,8 @@ export const config = {
     process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ??
     "your-ios-client-id.apps.googleusercontent.com",
   devAuthEnabled: process.env.EXPO_PUBLIC_DEV_AUTH_ENABLED === "true",
-  /** Settings → Help → Contact support; the row is hidden without one. */
+  /** Settings → Help emails it; without one the help rows are hidden. */
   supportEmail: process.env.EXPO_PUBLIC_SUPPORT_EMAIL?.trim() || null,
-  appName: "Recall",
-  isDev: __DEV__,
 } as const;
 
 /** True when the Google OAuth web client ID is set (required on all platforms). */

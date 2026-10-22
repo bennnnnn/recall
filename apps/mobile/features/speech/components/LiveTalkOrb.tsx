@@ -24,16 +24,16 @@ const CORE = 128;
 const HALO = 148;
 const PARK_LOOK_X = 9;
 const PARK_LOOK_Y = -7;
+const LISTENING_GLOW = 0.8;
 
 type Props = {
   theme: Theme;
   phase: LiveTalkPhase;
-  meterLevel: number;
   recording: boolean;
   reduceMotion: boolean;
 };
 
-export function LiveTalkOrb({ theme, phase, meterLevel, recording, reduceMotion }: Props) {
+export function LiveTalkOrb({ theme, phase, recording, reduceMotion }: Props) {
   const s = useMemo(() => makeOrbStyles(theme), [theme]);
   const mode = liveTalkOrbMode(phase);
   const lookX = useSharedValue(PARK_LOOK_X);
@@ -44,13 +44,12 @@ export function LiveTalkOrb({ theme, phase, meterLevel, recording, reduceMotion 
   const scaleY = useSharedValue(1);
   const meter = useSharedValue(0);
 
-  // Halo breathes with the user's voice while listening (same meter
-  // smoothing as VoiceComposerWaveform).
+  // A steady glow while it listens. Live talk has no input level to follow, so the halo
+  // says "listening" rather than pretending to move with the voice.
   useEffect(() => {
-    const target =
-      mode === "listen" && recording ? Math.min(1, Math.max(0, meterLevel)) : 0;
-    meter.value = withTiming(target, { duration: reduceMotion ? 0 : 70 });
-  }, [meterLevel, mode, recording, meter, reduceMotion]);
+    const target = mode === "listen" && recording ? LISTENING_GLOW : 0;
+    meter.value = withTiming(target, { duration: reduceMotion ? 0 : 120 });
+  }, [mode, recording, meter, reduceMotion]);
 
   useEffect(() => {
     cancelAnimation(lookX);

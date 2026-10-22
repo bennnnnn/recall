@@ -153,7 +153,6 @@ const mockLiveTalk = {
   visible: false,
   muted: false,
   phase: "idle",
-  meterLevel: 0,
   recording: false,
 };
 const mockErrorHandlers = {

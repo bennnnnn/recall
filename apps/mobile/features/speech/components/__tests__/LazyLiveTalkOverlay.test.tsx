@@ -19,7 +19,6 @@ jest.mock("@/features/speech/components/LiveTalkOverlay", () => {
 
 const props = {
   phase: "recording" as const,
-  meterLevel: 0.8,
   recording: true,
   headerInset: 0,
   composerClearance: 0,

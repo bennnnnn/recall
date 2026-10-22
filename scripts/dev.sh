@@ -162,6 +162,8 @@ case "${1:-}" in
     ;;
   mobile)
     kill_metro
+    # A phone reaches the API at this Mac's LAN address, not the 127.0.0.1 mobile-sim leaves.
+    "$ROOT/scripts/set-lan-ip.sh"
     cd "$ROOT/apps/mobile"
     echo "LAN mode — phone and Mac must be on the same Wi‑Fi."
     echo "Unplug USB or authorize USB debugging if Android is connected."
