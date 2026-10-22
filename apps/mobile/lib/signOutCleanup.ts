@@ -3,6 +3,7 @@ import { deleteAccountFiles } from "@/lib/accountFiles";
 import { clearCachedModels } from "@/lib/cachedModels";
 import { signOutGoogle } from "@/lib/google-auth";
 import { clearQuizAttempts } from "@/lib/lesson/quizAttempts";
+import { clearCalculatorPositions } from "@/lib/money/calculatorPositions";
 import { clearLinkPreviewCache } from "@/lib/linkPreview";
 import { clearSvgMathCache } from "@/lib/math/svgMath";
 import { publishStreamingDraft } from "@/lib/streamingDraftStore";
@@ -15,6 +16,7 @@ import { forgetSyncRecords } from "@/lib/syncRecords";
 export async function clearSignedOutAccount(userId: string | undefined): Promise<void> {
   resetComposerDraftsForAccount();
   clearQuizAttempts();
+  clearCalculatorPositions();
   clearLinkPreviewCache();
   clearSvgMathCache();
   publishStreamingDraft(null);

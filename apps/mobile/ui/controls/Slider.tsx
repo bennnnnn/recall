@@ -190,7 +190,7 @@ export function Slider({
       {marker ? (
         <View style={s.markerRow}>
           <Pressable
-            onPress={() => jump(sliderValueAt(sliderFraction(marker.value, min, max), min, max, step))}
+            onPress={() => jump(Math.min(max, Math.max(min, marker.value)))}
             onLayout={(event: LayoutChangeEvent) => setMarkerWidth(event.nativeEvent.layout.width)}
             disabled={disabled}
             hitSlop={8}

@@ -45,7 +45,7 @@ describe("Slider", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("jumps to the marker when it is tapped", async () => {
+  it("jumps to the marker's exact value when it is tapped", async () => {
     const onChange = jest.fn();
     const onRelease = jest.fn();
     const view = await render(
@@ -60,8 +60,9 @@ describe("Slider", () => {
     );
     expect(view.getByText("Avg 6.27% · Oct 16")).toBeTruthy();
     await fireEvent.press(view.getByRole("button", { name: "Average 6.27%" }));
-    expect(onChange).toHaveBeenCalledWith(6.25);
-    expect(onRelease).toHaveBeenCalledWith(6.25);
+    // The marker's own value, not the nearest step: today's average exactly.
+    expect(onChange).toHaveBeenCalledWith(6.27);
+    expect(onRelease).toHaveBeenCalledWith(6.27);
   });
 
   it("ignores a screen-reader step while disabled", async () => {
