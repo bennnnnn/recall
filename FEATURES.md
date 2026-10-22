@@ -1007,6 +1007,12 @@ only `GOOGLE_CLIENT_ID`.
 
 The dedicated language-learning product (vocabulary classes, lesson maps, SM-2 practice, `/projects`, and the Learning drawer) has been removed. Chat still teaches math, physics, chemistry, and programming, including “teach me…” lessons and multi-day study roadmaps. Those stay in ordinary chat. There is no Learning screen, API or table; a lesson chat keeps only one ordinary memory line (`lesson_progress`).
 
+## 18. Money (loans, cards, savings)
+
+- "What is my mortgage for 300k at 1%?", a car payment, a card payoff, a savings goal: the server reads the numbers, works them from the catalog's formulas (`modules/money/`) and the model writes the words around them.
+- Today's average rate comes from one web search read into a checked structured answer (plausible for the product, recent, from a page the search returned), cached per product, term and country. The server's note compares the user's rate with it ("1% is not a realistic 30-year fixed mortgage rate…"), with its date and a source link; no checked average, no note.
+- A `calculator` card under the reply has sliders for the inputs and live readouts; the phone evaluates the server's formula tree and never solves. Design and contract: `docs/money.md`.
+
 ## Deferred to upcoming version(s)
 A consolidated list of what's intentionally **not** (or only partially) in this version.
 

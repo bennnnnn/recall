@@ -57,6 +57,7 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "lib/cachedUser.ts#cachedUserFile": "clearCachedUser",
   "lib/lesson/quizAttempts.ts#attempts": "clearQuizAttempts",
   "lib/linkPreview.ts#cache": "clearLinkPreviewCache",
+  "lib/money/calculatorPositions.ts#positions": "clearCalculatorPositions",
   "lib/math/svgMath.ts#cache": "clearSvgMathCache",
   "lib/math/svgMath.ts#drawings": "clearSvgMathCache",
   "lib/onboarding.ts#cached": "clearOnboarded",
