@@ -11,7 +11,6 @@ from redis.asyncio import Redis
 from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.core.readings import read_off_loop
 from app.exceptions import ChatNotFoundError
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models import model_catalog
@@ -20,20 +19,14 @@ from app.modules.billing import plan as plan_service
 from app.modules.chat import chats_repository as chats_repo
 from app.modules.chat import messages_repository as messages_repo
 from app.modules.chat.prompt_builder import PromptStats, build_prompt_messages
-from app.modules.chat.turn_prep.augment import Augmentation, gather_and_inject
-from app.modules.chat.turn_prep.followups import (
-    SubjectFollowup,
-    resolve_subject_followup,
-    role_content_dicts,
-)
+from app.modules.chat.turn_prep.augment import Augmentation, augment_after_prompt
 from app.modules.chat.turn_prep.instant import (
-    location_not_set_reply,
     recurring_pay_reply,
     resolve_instant_reply,
-    settings_card,
 )
 from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import classify_turn_mode
+from app.modules.chat.turn_prep.money import server_parts, with_money_block
 from app.modules.chat.turn_prep.reading import read_turn_message
 from app.modules.chat.turn_prep.request import (
     ClientGeoContext,
@@ -53,6 +46,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from app.modules.images.answer_photo import AnswerPhoto
     from app.modules.images.reply_picture import ReplyPicture
+    from app.modules.money.service import MoneyTurn
 
 
 @dataclass
@@ -137,6 +131,8 @@ class StreamContext:
     # The tools the reply's own model call carries, when the tool loop leaves the
     # turn to it: ``web_search`` (``tool_loop.reply_calls``).
     reply_tools: list[dict[str, Any]] = field(default_factory=list)
+    # A loan, card or savings question: finalize adds its note and calculator card.
+    money: MoneyTurn | None = None
 
 
 @dataclass
@@ -159,6 +155,7 @@ class TurnPromptBundle:
     # Open models past their cool-down (``StreamContext.probe_models``).
     half_open_models: frozenset[str] = frozenset()
     solve_timed_out: bool = False
+    money: MoneyTurn | None = None
 
 
 def _search_location(geo: ClientGeoContext) -> str | None:
@@ -225,6 +222,7 @@ def stream_context_from_bundle(
         lightweight_turn=bundle.lightweight,
         rich_context_turn=bundle.rich_context,
         settings_card=bundle.settings_card,
+        money=bundle.money,
         user_message_persist=user_message_persist,
         thinking=thinking,
     )
@@ -385,7 +383,7 @@ async def build_stream_prompt_context(
     # More than one request: each is answered (``intents``), and the prompt says how.
     plan = plan_turn(request.content, chemistry_enabled=settings.chemistry_enabled)
     # Phase A: prompt + instant-reply + fallback-health share no data.
-    prompt_messages, instant_reply, (fallback_models, half_open), card = await gather_or_cancel(
+    prompt_messages, instant_reply, (fallback_models, half_open), extras = await gather_or_cancel(
         build_prompt_messages(
             user,
             chat.id,
@@ -417,31 +415,22 @@ async def build_stream_prompt_context(
             unhealthy=request.unhealthy_models,
             half_open=request.half_open_models,
         ),
-        settings_card(identity, settings, redis, plan),
+        server_parts(request, identity, settings, redis, plan),
     )
     if timing is not None:
         timing.mark_phase("prompt_assembled")
-
-    followup = (
-        await read_off_loop(
-            resolve_subject_followup,
-            request.content,
-            role_content_dicts(prompt_messages),
-            timeout=settings.subject_read_timeout_seconds,
-        )
-        or SubjectFollowup()
+    card, money = extras
+    if instant_reply is not None:
+        money = None
+    augmented, instant_reply = await augment_after_prompt(
+        request,
+        identity,
+        settings,
+        redis,
+        with_money_block(prompt_messages, money),
+        instant_reply,
+        money,
     )
-    if instant_reply is None:
-        instant_reply = location_not_set_reply(request.content, geo, followup)
-    augmented = await gather_and_inject(
-        request, identity, settings, redis, prompt_messages, followup, instant_reply=instant_reply
-    )
-    if timing is not None:
-        timing.mark_phase("augment_done")
-        timing.mark_prompt_ready()
-
-    if instant_reply is None:
-        instant_reply = await augmented.direct_reply(request, followup, settings)
     bundle = _bundle(
         identity,
         settings,
@@ -452,4 +441,5 @@ async def build_stream_prompt_context(
     )
     bundle.settings_card = card
     bundle.half_open_models = half_open
+    bundle.money = money
     return bundle

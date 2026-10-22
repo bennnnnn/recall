@@ -13,6 +13,7 @@ from app.core.settings.infrastructure import InfrastructureSettings
 from app.core.settings.llm import LlmSettings
 from app.core.settings.media import MediaSettings
 from app.core.settings.memory import MemorySettings
+from app.core.settings.money import MoneySettings
 from app.core.settings.notifications import NotificationSettings
 from app.core.settings.plans import PlanAllowanceSettings
 from app.core.settings.search import SearchSettings
@@ -32,6 +33,7 @@ class Settings(
     AttachmentSettings,
     StemSettings,
     SearchSettings,
+    MoneySettings,
     MediaSettings,
     PlanAllowanceSettings,
     WorkerSettings,
