@@ -18,6 +18,8 @@ from app.modules.chat.prompt_constants import is_practice_request
         ("give me a quick quiz on capitals", True),
         ("test me on python basics", True),
         ("can you do a pop quiz on the periodic table", True),
+        ("Make Spanish verb flashcards", True),
+        ("give me a 10-question geography quiz", True),
         # Look-alikes: a quiz mentioned, asked how, an answer key, or an app.
         ("I have a quiz tomorrow on cell biology, can you explain mitosis?", False),
         ("how do I make flashcards in Anki?", False),
@@ -29,6 +31,12 @@ from app.modules.chat.prompt_constants import is_practice_request
         ("what is a good app for making flashcards?", False),
         ("create a quiz app in React", False),
         ("make a test plan for the login page", False),
+        ("give me a checklist to study for my quiz", False),
+        ("give me tips for my quiz tomorrow", False),
+        ("make sure I pass my quiz", False),
+        ("help me prepare for my true or false test", False),
+        ("do my multiple choice homework", False),
+        ("write an essay about my pop quiz disaster", False),
         ("", False),
     ],
 )

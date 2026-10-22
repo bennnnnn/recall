@@ -334,5 +334,29 @@
   "history": [],
   "reply": "Here's a small quiz app:\n\n```tsx\nexport function Quiz() {\n  return null;\n}\n```",
   "expect": "answer"
+ },
+ {
+  "id": "cv-037",
+  "area": "quiz lookalike",
+  "prompt": "give me tips for my quiz tomorrow on the French revolution",
+  "history": [],
+  "reply": "- Know the order: 1789, the Terror, Napoleon.\n- Learn three causes: debt, bread prices, Enlightenment ideas.\n- Sleep well tonight.",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-038",
+  "area": "quiz lookalike",
+  "prompt": "make sure I pass my history quiz: what were the causes of World War I?",
+  "history": [],
+  "reply": "The main causes are often remembered as **MAIN**: militarism, alliances, imperialism and nationalism, with the assassination of Franz Ferdinand as the spark.",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-039",
+  "area": "quiz lookalike",
+  "prompt": "give me a checklist to study for my biology quiz",
+  "history": [],
+  "reply": "- [ ] Reread the cell chapter\n- [ ] Draw mitosis from memory\n- [ ] Do the end-of-chapter questions",
+  "expect": "answer"
  }
 ]

@@ -6,12 +6,20 @@ one card per question, so the answers stay hidden until the user checks them.
 
 import re
 
+_PRACTICE_NOUN = (
+    r"(?:quiz(?:zes)?|flash\s?cards?|true[\s/-]+(?:or[\s-]+)?false|multiple[\s-]+choice|mcqs?)"
+)
+# "Give me a quick geography quiz": the quiz is what they asked for. "Give me tips for
+# my quiz" and "make sure I pass my quiz" name one they already have.
 _PRACTICE_ASK = re.compile(
     r"(?:"
     r"\b(?:quiz|test)\s+me\b|"
-    r"\b(?:make|give|create|write|generate|build|prepare|do)\b[^.?!\n]{0,40}?"
-    r"\b(?:quiz(?:zes)?|flash\s?cards?|true[\s/-]+(?:or[\s-]+)?false|"
-    r"multiple[\s-]+choice|mcqs?)\b|"
+    r"\b(?:make|give|create|write|generate|build|prepare|do|run)\s+(?:(?:me|us)\s+)?"
+    r"(?:(?:a|an|the|some|another|one|two|three|four|five|six|seven|eight|nine|ten|"
+    r"\d+[\s-]questions?|\d+|few|quick|short|pop|small|little|fun|simple|hard|easy|tricky|"
+    r"practice|review|new|more)\s+){0,3}"
+    r"(?:(?!(?:my|our|your|his|her|their|for|to|about|on|of|in|with|sure|i|me)\b)"
+    r"[a-z]+\s+){0,2}" + _PRACTICE_NOUN + r"\b|"
     r"^\s*(?:some\s+)?flash\s?cards?\s+(?:on|about|for)\b|"
     r"\btrue[\s/-]+(?:or[\s-]+)?false\s+questions?\b|"
     r"\bmultiple[\s-]+choice\s+questions?\b"
