@@ -146,8 +146,8 @@ async def test_logout_removes_token_from_user_session_set(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_logout_without_refresh_purges_all_sessions(fake_redis):
-    """When the client omits refresh_token, logout must kill every session."""
+async def test_logout_without_refresh_ends_only_this_devices_session(fake_redis):
+    """A phone that could not read its refresh token signs out itself, not every device."""
     from unittest.mock import AsyncMock, MagicMock
 
     from app.models.schemas import LogoutRequest
@@ -155,8 +155,10 @@ async def test_logout_without_refresh_purges_all_sessions(fake_redis):
 
     settings = Settings(jwt_secret="x" * 32)
     user_id = uuid4()
-    access, refresh1 = await tokens_service.issue_token_pair(fake_redis, user_id, settings)
-    _a2, refresh2 = await tokens_service.issue_token_pair(fake_redis, user_id, settings)
+    access, refresh_here = await tokens_service.issue_token_pair(fake_redis, user_id, settings)
+    other_access, refresh_other = await tokens_service.issue_token_pair(
+        fake_redis, user_id, settings
+    )
 
     request = MagicMock()
     request.headers = {"authorization": f"Bearer {access}"}
@@ -168,9 +170,14 @@ async def test_logout_without_refresh_purges_all_sessions(fake_redis):
         session=AsyncMock(),
     )
 
-    assert await fake_redis.get(f"refresh:{refresh1}") is None
-    assert await fake_redis.get(f"refresh:{refresh2}") is None
-    assert await fake_redis.smembers(f"refresh_user:{user_id}") == set()
+    # This session is over: its refresh token and its access token.
+    assert await fake_redis.get(f"refresh:{refresh_here}") is None
+    with pytest.raises(AuthenticationError):
+        await tokens_service.verify_access_token(fake_redis, access, settings)
+    # The other device stays signed in.
+    assert await fake_redis.get(f"refresh:{refresh_other}") is not None
+    assert await fake_redis.smembers(f"refresh_user:{user_id}") == {refresh_other}
+    assert await tokens_service.verify_access_token(fake_redis, other_access, settings) == user_id
 
 
 @pytest.mark.asyncio
