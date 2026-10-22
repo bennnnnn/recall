@@ -23,7 +23,7 @@ from app.modules.chat.prompt_window import PromptWindow, history_messages
 from app.modules.chat.turn_prep.mode import classify_turn_mode
 
 _QUESTION = "how can I understand integrals"
-_CARD = {
+_CARD: dict[str, object] = {
     "when": "first",
     "questions": [
         {
