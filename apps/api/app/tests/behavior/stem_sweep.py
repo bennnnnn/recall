@@ -23,10 +23,12 @@ expected failure until the fix deletes the line. Every verified physics and
 chemistry reply is also checked for its shape (Given, Find, Formula,
 Substitution, Answer; no calculator notation; no invented zero given), and
 every picture it carries is validated: a ``simulation`` scene against the
-server schema and its own bounds, a ``graph`` for finite points. ``visual``
-names the picture a student would want, and is counted, not required.
+server schema and its own bounds, a ``graph`` for finite points. Its LaTeX is
+held to what the phone draws (``latex_check.py``): no command the phone lacks,
+no TeX outside maths. ``visual`` names the picture a student would want, and is
+counted, not required.
 
-A problem is ``critical`` (a wrong number, a misread turn, a broken picture)
+A problem is ``critical`` (a wrong number, a misread turn, a broken picture, LaTeX shown as source)
 or ``coverage`` (a question declined or not recognised, a picture missing). The test fails on
 the first kind; the second is held by floors that only go up.
 
@@ -54,13 +56,14 @@ import pint
 from app.modules.physics.schemas.simulation import SimulationBlockSpec
 from app.services.workout import as_formula_heading
 from app.tests.behavior.harness import Case, Expect, Route, route_case
+from app.tests.behavior.latex_check import latex_problems
 from app.tests.behavior.stem_math_judge import judge_check
 
 CORPUS = Path(__file__).with_name("stem_corpus")
 EXPECTS = {"answer", "explain", "decline", "not_subject"}
 SUBJECT_NAMES = {"physics": "physics", "chemistry": "chemistry", "math": "math"}
 TOLERANCE = 0.01
-CRITICAL = {"wrong", "misread", "shape", "broken_visual"}
+CRITICAL = {"wrong", "misread", "shape", "broken_visual", "latex"}
 
 _UNITS = pint.UnitRegistry()
 _UNITS.define("diopter = 1 / meter = D")
@@ -559,6 +562,7 @@ def judge(entry: Entry, subject: str, route: Route) -> Outcome:
     problems.extend(answer_problems)
     if route.subject == subject:
         problems.extend(check_shape(entry, route.instant_text, subject))
+    problems.extend(Problem("latex", text) for text in latex_problems(route.instant_text))
     outcome.visuals, visual_problems = check_visuals(route.instant_text)
     problems.extend(visual_problems)
     if entry.visual and entry.visual not in outcome.visuals:

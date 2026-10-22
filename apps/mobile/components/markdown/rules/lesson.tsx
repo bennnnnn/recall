@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { Text, View, type StyleProp, type TextStyle } from "react-native";
 
 import { MathText } from "@/components/rich/MathText";
+import { splitStreamCaret } from "@/components/StreamingCursor";
 import {
   type AstNode,
   astText,
@@ -29,13 +30,16 @@ export function lessonStepParts(
   );
   const strong = openingStrong(kids[0]);
   if (!strong) return null;
-  const match = LESSON_STEP_RE.exec(astText(strong).trim());
+  // A streaming caret's mark is never part of the step.
+  const match = LESSON_STEP_RE.exec(splitStreamCaret(astText(strong)).text.trim());
   if (!match) return null;
 
-  const tail = kids
-    .slice(1)
-    .map((kid) => astTextWithBreaks(kid))
-    .join("");
+  const tail = splitStreamCaret(
+    kids
+      .slice(1)
+      .map((kid) => astTextWithBreaks(kid))
+      .join(""),
+  ).text;
   if (!tail.trim()) {
     return { n: match[1], label: match[2], reason: null, formulas: [] };
   }

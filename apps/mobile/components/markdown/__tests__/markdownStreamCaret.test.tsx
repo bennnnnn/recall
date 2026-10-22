@@ -61,6 +61,15 @@ describe("streaming caret", () => {
     expect(view.getByTestId("stream-caret", { includeHiddenElements: true })).toBeTruthy();
   });
 
+  it("draws the caret, never its mark, after a worked section's last line", async () => {
+    const view = await render(
+      <MarkdownContent content={"**Given**  \n$m = 0.2\\,\\mathrm{kg}$  \n$v_1 = 10"} streaming />,
+    );
+    expect(JSON.stringify(view.toJSON())).not.toContain(STREAM_CARET);
+    expect(view.getByTestId("workout-section")).toBeOnTheScreen();
+    expect(view.getByTestId("stream-caret", { includeHiddenElements: true })).toBeTruthy();
+  });
+
   it("keeps an open code fence as a code card", async () => {
     const view = await render(
       <MarkdownContent content={"```python\nprint(1)\n"} streaming />,

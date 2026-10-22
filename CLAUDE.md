@@ -298,6 +298,15 @@ honest). An entry with a `gap` is a strict expected failure until the fix delete
 `shared` names the peer subject that owns a law both use (gases, Q = mcΔT and half-lives are
 physics'). `uv run python -m app.tests.behavior.stem_sweep math --show`.
 
+**LaTeX on screen:** no reply may show LaTeX source. `docs/fixtures/latex_commands.json` lists every
+command the phone draws (inline by its native renderer, display maths by MathJax);
+`apps/mobile/lib/math/__tests__/latexCoverage.test.ts` writes it and renders every entry both ways
+(`pnpm latex-symbols` after upgrading mathjax-full). `components/markdown/__tests__/latexLeakCorpus.test.tsx`
+renders the sweep replies, the shared fixtures and model-style variants, settled and while streaming, and
+fails on any source a reader would see; its known gaps only shrink. The STEM sweep holds every
+server-written reply to the same list (`app/tests/behavior/latex_check.py`). A command the renderer has
+no entry for is never drawn (its argument is) and is reported through `subscribeUnknownLatexCommands`.
+
 **Coverage requirements**
 
 - Backend minimum 80%; critical services (quota, auth, memory) target 90%+.

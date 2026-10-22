@@ -411,7 +411,7 @@ function convertFence(lang: string, body: string, mode: "copy" | "speech"): stri
   if (isControlFenceLang(lang)) return "";
   if (fenceIdForLang(lang) === "arithmetic") {
     const spoken = teachingSpeech(trimmed);
-    if (spoken) return spoken;
+    if (spoken) return withTexRuns(spoken, mode === "speech" ? speakMath : copyMath);
   }
   if (isChartFenceLang(lang)) return mode === "speech" ? "a chart" : "";
   const id = fenceIdForLang(lang);
@@ -454,4 +454,16 @@ export function markdownToCopyText(markdown: string): string {
 /** Read-aloud: speak prose and results; label visuals; skip control JSON. */
 export function markdownToSpeechText(markdown: string): string {
   return convertMarkdown(markdown, "speech");
+}
+
+/** A command with its braced arguments, one level of nesting deep (`\frac{\sqrt{3}}{2}`). */
+const TEX_RUN = /\\[A-Za-z]+(?:\s*\{(?:[^{}]|\{[^{}]*\})*\})*/g;
+
+function withTexRuns(text: string, render: (latex: string) => string): string {
+  return text.replace(TEX_RUN, (run) => render(run)).replace(/[ \t]+/g, " ").trim();
+}
+
+/** A sentence that carries bare TeX ("cosine \frac{\sqrt{3}}{2}"), as words to read aloud. */
+export function spokenText(text: string): string {
+  return withTexRuns(text, speakMath);
 }
