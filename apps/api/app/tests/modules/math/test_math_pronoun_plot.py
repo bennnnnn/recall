@@ -135,5 +135,5 @@ async def test_graph_it_with_nothing_to_plot_asks_instead_of_drawing() -> None:
 
     assert verified is None
     assert block is NOTHING_TO_GRAPH
-    assert "which function to graph" in block
+    assert NOTHING_TO_GRAPH in block
     assert "ASCII" in block

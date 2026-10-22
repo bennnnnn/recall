@@ -1,6 +1,7 @@
 """Per-user daily counters in Redis, and the table of per-feature daily caps."""
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Literal
@@ -14,6 +15,8 @@ from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.modules.billing.entitlements import Allowance, allowance
 from app.services.quota.messages import (
+    DOCUMENT_LIMIT_EXCEEDED_MESSAGE_FREE,
+    DOCUMENT_LIMIT_EXCEEDED_MESSAGE_PAID,
     IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_FREE,
     IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_PAID,
     IMAGE_LIMIT_EXCEEDED_MESSAGE_FREE,
@@ -28,8 +31,17 @@ from app.services.quota.messages import (
 logger = logging.getLogger(__name__)
 
 
-def utc_today() -> date:
+def _utc_date() -> date:
     return datetime.now(UTC).date()
+
+
+# The day every daily counter is keyed by. Every reader goes through ``utc_today``,
+# however it imported it, so a test that fixes this (``quota_clock``) fixes them all.
+clock: Callable[[], date] = _utc_date
+
+
+def utc_today() -> date:
+    return clock()
 
 
 def daily_key(prefix: str, owner: str | UUID, day: date | None = None) -> str:
@@ -146,6 +158,7 @@ async def raise_counter(redis: Redis, key: str, floor: int, *, ttl: int) -> None
 
 CounterName = Literal[
     "image_upload",
+    "document_upload",
     "speech_transcription",
     "speech_tts",
     "tavily_search",
@@ -179,6 +192,14 @@ COUNTERS: dict[CounterName, CounterSpec] = {
         prefix="imgup",
         allowance="daily_image_uploads",
         message=(IMAGE_LIMIT_EXCEEDED_MESSAGE_FREE, IMAGE_LIMIT_EXCEEDED_MESSAGE_PAID),
+        refund=True,
+    ),
+    # Documents are parsed on the API machine (and may be OCR'd); with no cap one
+    # account could re-upload ten 10 MiB files a message, every message.
+    "document_upload": CounterSpec(
+        prefix="docup",
+        allowance="daily_document_uploads",
+        message=(DOCUMENT_LIMIT_EXCEEDED_MESSAGE_FREE, DOCUMENT_LIMIT_EXCEEDED_MESSAGE_PAID),
         refund=True,
     ),
     "speech_transcription": CounterSpec(

@@ -1,9 +1,7 @@
 """Conditional writes for delayed recurring To-do catch-up and delivery results."""
 
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, cast
-from uuid import UUID
 
 from sqlalchemy import and_, case, or_, update
 from sqlalchemy.engine import CursorResult
@@ -11,29 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.models.orm import TodoItem
-
-
-@dataclass(frozen=True)
-class TodoScheduleSnapshot:
-    id: UUID
-    user_id: UUID
-    content: str
-    due_at: datetime | None
-    recurrence_rule: str | None
-    checked: bool
-    notification_sent_at: datetime | None
-
-    @classmethod
-    def from_todo(cls, todo: TodoItem) -> "TodoScheduleSnapshot":
-        return cls(
-            todo.id,
-            todo.user_id,
-            todo.content,
-            todo.due_at,
-            todo.recurrence_rule,
-            todo.checked,
-            todo.notification_sent_at,
-        )
+from app.modules.todos.occurrences import TodoScheduleSnapshot
 
 
 def _matches(snapshot: TodoScheduleSnapshot) -> ColumnElement[bool]:

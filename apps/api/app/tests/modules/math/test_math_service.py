@@ -16,7 +16,7 @@ from app.modules.math.schemas import (
     RectangleGeometryInput,
     SystemOfEquationsInput,
 )
-from app.modules.math.solve import MathServiceError
+from app.modules.math.solve import SolveServiceError
 from app.modules.math.solve.graph import parse_ellipse_relation
 
 
@@ -34,26 +34,26 @@ def test_solve_equation(lhs: str, rhs: str, expected_count: int) -> None:
 
 
 def test_normalize_latex_frac_and_abs() -> None:
-    assert math_solve._normalize_latex_to_sympy(r"\frac{1}{2}x") == "((1)/(2))x"
-    assert math_solve._normalize_latex_to_sympy(r"\left|x-1\right|") == "Abs(x-1)"
-    assert math_solve._normalize_latex_to_sympy(r"\frac{a}{b}+\frac{c}{d}") == "((a)/(b))+((c)/(d))"
-    assert math_solve._normalize_latex_to_sympy("|x-2|") == "Abs(x-2)"
-    assert math_solve._normalize_latex_to_sympy("|x-2|<5") == "Abs(x-2)<5"
+    assert math_solve.normalize_latex_to_sympy(r"\frac{1}{2}x") == "((1)/(2))x"
+    assert math_solve.normalize_latex_to_sympy(r"\left|x-1\right|") == "Abs(x-1)"
+    assert math_solve.normalize_latex_to_sympy(r"\frac{a}{b}+\frac{c}{d}") == "((a)/(b))+((c)/(d))"
+    assert math_solve.normalize_latex_to_sympy("|x-2|") == "Abs(x-2)"
+    assert math_solve.normalize_latex_to_sympy("|x-2|<5") == "Abs(x-2)<5"
 
 
 def test_normalize_latex_inline_math_and_braced_power() -> None:
     """Composer ``$x^{6}=1$`` used to fail the ASCII equation walker (``$``/``{}``)."""
-    assert math_solve._normalize_latex_to_sympy("$x^{6}=1$") == "x^6=1"
-    assert math_solve._normalize_latex_to_sympy(r"^{x}^{2}") == "x^2"
+    assert math_solve.normalize_latex_to_sympy("$x^{6}=1$") == "x^6=1"
+    assert math_solve.normalize_latex_to_sympy(r"^{x}^{2}") == "x^2"
     assert math_solve.try_extract_equations_from_text("$x^{6}=1$") == [("x^6", "1")]
 
 
 def test_normalize_unicode_ops_to_ascii() -> None:
     """OCR/homework glyphs must ascii-ize before the allowlist — not widen it."""
     mul = "2\u00d7x+3"
-    assert math_solve._normalize_latex_to_sympy(mul) == "2*x+3"
-    assert math_solve._normalize_latex_to_sympy("6\u00f72") == "6/2"
-    assert math_solve._normalize_latex_to_sympy("2\u2212x") == "2-x"
+    assert math_solve.normalize_latex_to_sympy(mul) == "2*x+3"
+    assert math_solve.normalize_latex_to_sympy("6\u00f72") == "6/2"
+    assert math_solve.normalize_latex_to_sympy("2\u2212x") == "2-x"
     assert math_solve._SAFE_EXPR_CHARS.match("2\u00d73") is None
     result = math_solve.solve_equation(EquationInput(lhs=mul, rhs="7", variables=["x"]))
     assert len(result.solutions_latex) == 1
@@ -62,17 +62,17 @@ def test_normalize_unicode_ops_to_ascii() -> None:
 
 def test_normalize_unicode_scripts_and_glyphs() -> None:
     """Superscript/subscript digits, √, π, vulgar fractions → ASCII/SymPy."""
-    assert math_solve._normalize_latex_to_sympy("x\u00b2") == "x**2"
-    assert math_solve._normalize_latex_to_sympy("a\u2081") == "a_1"
-    assert math_solve._normalize_latex_to_sympy("x\u00b9\u2070") == "x**(10)"
-    assert math_solve._normalize_latex_to_sympy("\u03c0") == "pi"
-    assert math_solve._normalize_latex_to_sympy("\u221a(4)") == "sqrt(4)"
-    assert math_solve._normalize_latex_to_sympy("\u221a9") == "sqrt(9)"
-    assert math_solve._normalize_latex_to_sympy("\u221ax") == "sqrt(x)"
-    assert math_solve._normalize_latex_to_sympy("\u00bd") == "(1)/(2)"
-    assert math_solve._normalize_latex_to_sympy(r"6\sqrt{4}") == "6*sqrt(4)"
-    assert math_solve._normalize_latex_to_sympy(r"\sqrt[6]{4}") == "(4)**(1/(6))"
-    parsed = math_solve._parse_expression("x\u00b2 + 1", ["x"])
+    assert math_solve.normalize_latex_to_sympy("x\u00b2") == "x**2"
+    assert math_solve.normalize_latex_to_sympy("a\u2081") == "a_1"
+    assert math_solve.normalize_latex_to_sympy("x\u00b9\u2070") == "x**(10)"
+    assert math_solve.normalize_latex_to_sympy("\u03c0") == "pi"
+    assert math_solve.normalize_latex_to_sympy("\u221a(4)") == "sqrt(4)"
+    assert math_solve.normalize_latex_to_sympy("\u221a9") == "sqrt(9)"
+    assert math_solve.normalize_latex_to_sympy("\u221ax") == "sqrt(x)"
+    assert math_solve.normalize_latex_to_sympy("\u00bd") == "(1)/(2)"
+    assert math_solve.normalize_latex_to_sympy(r"6\sqrt{4}") == "6*sqrt(4)"
+    assert math_solve.normalize_latex_to_sympy(r"\sqrt[6]{4}") == "(4)**(1/(6))"
+    parsed = math_solve.parse_expression("x\u00b2 + 1", ["x"])
     assert parsed is not None
 
 
@@ -211,7 +211,7 @@ def test_solve_equation_keeps_complex_roots_when_no_real_root() -> None:
 
 
 def test_solve_rejects_polynomial_above_degree_cap() -> None:
-    with pytest.raises(MathServiceError, match="degree"):
+    with pytest.raises(SolveServiceError, match="degree"):
         math_solve.solve_equation(EquationInput(lhs="x**40", rhs="1", variables=["x"]))
 
 
@@ -388,7 +388,7 @@ def test_sample_function_draws_a_horizontal_line() -> None:
 
 
 def test_sample_function_rejects_relational_expr() -> None:
-    with pytest.raises(math_solve.MathServiceError, match="number lines"):
+    with pytest.raises(math_solve.SolveServiceError, match="number lines"):
         math_solve.sample_function(
             GraphSampleInput(expr="x > 3", variable="x", x_min=-10, x_max=10, n=20)
         )
@@ -396,8 +396,8 @@ def test_sample_function_rejects_relational_expr() -> None:
 
 def test_sample_function_free_symbols_are_math_service_error() -> None:
     """Leftover letters (``Graph`` → G·a·h·p·r) used to TypeError at np.asarray
-    and log as ``math_tools failed`` instead of a clean MathServiceError skip."""
-    with pytest.raises(math_solve.MathServiceError, match="Could not sample"):
+    and log as ``math_tools failed`` instead of a clean SolveServiceError skip."""
+    with pytest.raises(math_solve.SolveServiceError, match="Could not sample"):
         math_solve.sample_function(
             GraphSampleInput(expr="x**2/(G*a*h*p*r)", variable="x", x_min=-2, x_max=2, n=10)
         )
@@ -696,7 +696,7 @@ def test_compute_limit_negative_infinity_point() -> None:
 def test_compute_limit_refuses_a_value_sympy_did_not_establish(
     expr: str, variable: str, point: str, direction: str
 ) -> None:
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         math_solve.compute_limit(expr, variable, point, direction)
 
 
@@ -727,7 +727,7 @@ def test_evaluate_series_sum_refuses_a_sum_with_an_undefined_term(
     expr: str, start: str, end: str
 ) -> None:
     """``1/n`` from ``n = 0``: SymPy sums to complex infinity, ``\\tilde{\\infty}``."""
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         math_solve.evaluate_series_sum(expr, "n", start, end)
 
 
@@ -1052,8 +1052,8 @@ def test_graph_block_spec_rejects_more_points_than_the_backend_ever_samples() ->
     ],
 )
 def test_parse_expression_rejects_attribute_and_subscript_gadgets(payload: str) -> None:
-    with pytest.raises(math_solve.MathServiceError):
-        math_solve._parse_expression(payload, ["x"])
+    with pytest.raises(math_solve.SolveServiceError):
+        math_solve.parse_expression(payload, ["x"])
 
 
 @pytest.mark.parametrize(
@@ -1070,7 +1070,7 @@ def test_parse_expression_rejects_attribute_and_subscript_gadgets(payload: str) 
 )
 def test_parse_expression_still_accepts_ordinary_math(expr: str, variables: list[str]) -> None:
     """The RCE fix must not collateral-damage normal expressions."""
-    math_solve._parse_expression(expr, variables)
+    math_solve.parse_expression(expr, variables)
 
 
 @pytest.mark.parametrize(
@@ -1095,9 +1095,9 @@ def test_parse_expression_refuses_a_bare_sympy_name(monkeypatch, text: str) -> N
     from app.modules.math.solve.work_lines import parse_line
 
     monkeypatch.setenv("RECALL_STRICT_DECLINES", "1")
-    with pytest.raises(MathServiceError):
-        math_solve._parse_expression(text, ["x"])
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
+        math_solve.parse_expression(text, ["x"])
+    with pytest.raises(SolveServiceError):
         solve_equation(EquationInput(lhs=text, rhs="2 x", variables=["x"]))
     assert integral_trace(text, "x") == ([], None, None)
     assert derivative_trace(text, "x") == ([], None)
@@ -1110,6 +1110,6 @@ def test_parse_expression_keeps_a_tuple_and_a_relation() -> None:
     from sympy.core.relational import StrictLessThan
 
     x = Symbol("x")
-    assert math_solve._parse_expression("2, 3") == (2, 3)
-    assert isinstance(math_solve._parse_expression("x < 1", ["x"]), StrictLessThan)
-    assert math_solve._parse_expression("Q x", ["Q", "x"]) == Symbol("Q") * x
+    assert math_solve.parse_expression("2, 3") == (2, 3)
+    assert isinstance(math_solve.parse_expression("x < 1", ["x"]), StrictLessThan)
+    assert math_solve.parse_expression("Q x", ["Q", "x"]) == Symbol("Q") * x

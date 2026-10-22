@@ -9,6 +9,9 @@ class InfrastructureSettings(BaseModel):
 
     # Process role for production split: all (dev), api (HTTP only), worker (jobs only).
     process_role: str = "all"
+    # Root log level (DEBUG, INFO, WARNING, ...). Failures that matter log at WARNING;
+    # DEBUG is for chasing one problem, never the default.
+    log_level: str = "INFO"
 
     # Per-instance DB pool. Keep (db_pool_size + db_max_overflow) * INSTANCE_COUNT
     # under the Neon pooler connection ceiling. The chat hot path opens several
@@ -18,8 +21,8 @@ class InfrastructureSettings(BaseModel):
     db_max_overflow: int = 10
     db_pool_timeout_seconds: float = 5.0
     # asyncpg connect timeout (default 60s) and per-statement timeout (default
-    # none). pool_pre_ping runs a statement on every checkout, so without a
-    # statement timeout one half-open pooled connection hung a request
+    # none). The idle-connection ping (core/db_ping.py) is a statement too, so
+    # without a statement timeout one half-open pooled connection hung a request
     # forever. Generous: account delete is one cascading DELETE. 0 disables.
     db_connect_timeout_seconds: float = 10.0
     db_command_timeout_seconds: float = 120.0

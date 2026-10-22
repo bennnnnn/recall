@@ -1,5 +1,5 @@
 /** One small scene of each kind, shared by the simulation snapshot tests. */
-import type { SimulationKind } from "@/lib/physics/simulation";
+import type { SimulationKind } from "@/lib/physics/simulation/spec";
 
 export const SIMULATION_SCENES: Record<SimulationKind, object> = {
   projectile_motion: {

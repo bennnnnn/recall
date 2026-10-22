@@ -1,10 +1,12 @@
 import os
 from datetime import date
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import fakeredis.aioredis
 import pytest
+from hypothesis import settings as hypothesis_settings
 
 # Match local `.env.example` — Settings.environment defaults to production
 # (fail-closed). Tests that construct Settings() without an env file need this.
@@ -19,6 +21,17 @@ os.environ.setdefault("LITELLM_MODE", "PRODUCTION")
 # suite is written against. A developer's apps/api/.env key would turn it off and send those
 # tests to the real provider. A key exported in the shell still wins.
 os.environ.setdefault("OPENROUTER_API_KEY", "")
+# No paid or outside service is reachable from a test, whatever apps/api/.env holds: an empty
+# key is "not configured" to every gateway. A test of a gateway passes its own Settings.
+for _provider_key in (
+    "OPENAI_API_KEY",
+    "TAVILY_API_KEY",
+    "RESEND_API_KEY",
+    "MATHPIX_APP_KEY",
+    "REVENUECAT_SECRET_KEY",
+):
+    os.environ[_provider_key] = ""
+os.environ["WEB_SEARCH_FALLBACK_ENABLED"] = "false"
 
 # A maths decline that would hide a programming error (an AttributeError, NameError or our
 # own TypeError; see app/modules/math/solve/declines.py) raises under pytest. A value already in
@@ -26,10 +39,142 @@ os.environ.setdefault("OPENROUTER_API_KEY", "")
 _STRICT_DECLINES_ASKED = "RECALL_STRICT_DECLINES" in os.environ
 os.environ.setdefault("RECALL_STRICT_DECLINES", "1")
 
+# Hypothesis explores new examples on every local run. CI sets HYPOTHESIS_PROFILE=ci:
+# the same examples every run, so an unrelated change never turns a property red
+# (code-health audit TEST-08); a failure found locally is pinned with @example.
+hypothesis_settings.register_profile("ci", derandomize=True, database=None)
+hypothesis_settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "default"))
+
+# Helper modules under app/tests (fakes, chat_test_support, the sweeps) get pytest's assert
+# messages as test files and conftests do. This works only before any of them is imported:
+# a helper a test imports first would otherwise run with plain asserts.
+_TESTS = Path(__file__).parent
+pytest.register_assert_rewrite(
+    *(
+        ".".join(path.relative_to(_TESTS.parents[1]).with_suffix("").parts)
+        for path in _TESTS.rglob("*.py")
+        if not path.name.startswith("test_") and path.name not in {"conftest.py", "__init__.py"}
+    )
+)
+
+# Before any test module imports the app (and with it SymPy's names): a reading or a SymPy
+# call made on the event loop by production code fails the test (app/tests/loop_guard.py).
+from app.tests import loop_guard
+
+loop_guard.install()
+
+
+_REAL_CONNECT: dict[str, object] = {}
+
+
+@pytest.fixture(autouse=True)
+def _nothing_read_on_the_loop():
+    """No production coroutine reads a message or runs SymPy on the event loop."""
+    loop_guard.found.clear()
+    yield
+    if loop_guard.found:
+        ran = sorted(set(loop_guard.found))
+        loop_guard.found.clear()
+        pytest.fail(
+            "Ran on the event loop; read it in the SymPy pool (app/core/readings.py):\n"
+            + "\n".join(ran)
+        )
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_redis():
+    """Every Redis client the app makes talks to one in-memory server per test.
+
+    Isolation used to be opt-in per consumer: 37 modules call ``get_redis_client()``,
+    four were faked, and the rest reached the developer's Redis (or a client bound to
+    an earlier test's event loop). ``real_redis`` opts a test out.
+    """
+    from app.core import redis as redis_module
+
+    _REAL_CONNECT.setdefault("connect", redis_module._connect)
+    server = fakeredis.FakeServer()
+
+    def connect(_socket_timeout: float) -> fakeredis.aioredis.FakeRedis:
+        return fakeredis.aioredis.FakeRedis(server=server, decode_responses=True)
+
+    redis_module.get_redis_client.cache_clear()
+    redis_module.get_jobs_redis_client.cache_clear()
+    with patch.object(redis_module, "_connect", connect):
+        yield server
+    redis_module.get_redis_client.cache_clear()
+    redis_module.get_jobs_redis_client.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _fresh_db_pool():
+    """Each test starts with an empty connection pool.
+
+    A pooled asyncpg connection belongs to the event loop that opened it, and each test
+    (and each ``TestClient``) runs its own loop. The per-checkout ping used to discard a
+    connection another loop left behind; the app pings only idle connections now
+    (``core/db_ping.py``: production has one loop per process), so tests drop them here.
+    """
+    from app.core.db import engine
+
+    engine.sync_engine.dispose(close=False)
+    yield
+    engine.sync_engine.dispose(close=False)
+
 
 @pytest.fixture
-async def fake_redis():
-    client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+def real_redis(_hermetic_redis):
+    """The configured Redis, for a test that needs a real server (none today)."""
+    from app.core import redis as redis_module
+
+    redis_module.get_redis_client.cache_clear()
+    with patch.object(redis_module, "_connect", _REAL_CONNECT["connect"]):
+        yield
+
+
+_LOCAL_HOSTS = frozenset({"testserver", "test", "localhost", "127.0.0.1"})
+
+
+@pytest.fixture(autouse=True)
+def _no_network(monkeypatch):
+    """No test reaches the internet: an outside request fails as a refused connection.
+
+    Mock transports and the in-process app are allowed. DuckDuckGo's client is not httpx,
+    so it is refused by name.
+    """
+    import httpx
+
+    real_send = httpx.AsyncClient.send
+
+    async def guarded_send(self, request, *args, **kwargs):
+        transport = getattr(self, "_transport", None)
+        if request.url.host in _LOCAL_HOSTS or isinstance(
+            transport, httpx.MockTransport | httpx.ASGITransport
+        ):
+            return await real_send(self, request, *args, **kwargs)
+        raise httpx.ConnectError(f"no network in tests ({request.url.host})", request=request)
+
+    monkeypatch.setattr(httpx.AsyncClient, "send", guarded_send)
+
+    class _NoDuckDuckGo:
+        def __init__(self, *_args, **_kwargs):
+            raise RuntimeError("no network in tests (DuckDuckGo)")
+
+    monkeypatch.setattr("ddgs.DDGS", _NoDuckDuckGo)
+
+
+@pytest.fixture(name="fake_session")
+def fake_session_fixture():
+    """An ``AsyncSession`` over empty tables, specced so ``add`` stays synchronous
+    (``app.tests.fakes.fake_session``; code-health audit TEST-07)."""
+    from app.tests import fakes  # after loop_guard.install(): fakes imports the app
+
+    return fakes.fake_session()
+
+
+@pytest.fixture
+async def fake_redis(_hermetic_redis):
+    """A client on the test's in-memory server: what the app's own clients see."""
+    client = fakeredis.aioredis.FakeRedis(server=_hermetic_redis, decode_responses=True)
     yield client
     await client.aclose()
 
@@ -41,6 +186,29 @@ def production_declines(monkeypatch):
         monkeypatch.setenv("RECALL_STRICT_DECLINES", "0")
 
 
+@pytest.fixture(autouse=True)
+def _tool_registry_restored():
+    """A test that fills or clears the model's tool registry leaves it as it found it,
+    so the suite passes in any order (code-health audit TEST-10)."""
+    from app.gateways.mcp import registry
+
+    before = registry.list_adapters()
+    yield
+    registry.clear()
+    for adapter in before:
+        registry.register(adapter)
+
+
+@pytest.fixture(autouse=True)
+def _model_health_verdicts_forgotten():
+    """Each test reads model health for itself. A verdict an earlier test cached (3 s)
+    skipped the read, so a test that handed the turn a bare ``AsyncMock()`` Redis passed
+    or failed by the suite's order and speed: locally green, red in CI."""
+    from app.services import model_health
+
+    model_health.forget_verdicts()
+
+
 @pytest.fixture
 def quota_clock():
     """The UTC day the daily counters see, 2026-10-16 until a test sets ``.day``.
@@ -48,8 +216,10 @@ def quota_clock():
     A provider fake that sets ``quota_clock.day = quota_clock.next_day`` makes
     its request run past UTC midnight.
     """
+    from app.services.quota import counters
+
     clock = SimpleNamespace(day=date(2026, 10, 16), next_day=date(2026, 10, 17))
-    with patch("app.services.quota.counters.utc_today", side_effect=lambda: clock.day):
+    with patch.object(counters, "clock", lambda: clock.day):
         yield clock
 
 
@@ -145,15 +315,23 @@ def _reset_sympy_executor():
     a full suite. The thread worker also correctly observes monkeypatches;
     the production ``spawn`` context intentionally does not inherit them.
     """
-    from app.core.sympy_executor import (
-        ThreadSympyExecutor,
-        reset_sympy_executor,
-        set_sympy_executor,
-    )
+    from app.core.sympy_executor import set_sympy_executor
+    from app.tests.sympy_support import ThreadSympyExecutor
 
     set_sympy_executor(ThreadSympyExecutor(max_workers=1))
     yield
-    reset_sympy_executor()
+    set_sympy_executor(None)
+
+
+@pytest.fixture(autouse=True)
+def _thread_document_executor():
+    """Documents parse on an in-process thread in tests, as maths does above."""
+    from app.core.document_executor import set_document_executor
+    from app.tests.sympy_support import ThreadSympyExecutor
+
+    set_document_executor(ThreadSympyExecutor(max_workers=2))
+    yield
+    set_document_executor(None)
 
 
 @pytest.fixture
@@ -164,15 +342,12 @@ def thread_sympy_executor():
     subprocess boundary) or that spy on in-process state (a subprocess can't
     write back to the test's memory). The production executor's hard-kill
     behavior is exercised in test_sympy_executor.py."""
-    from app.core.sympy_executor import (
-        ThreadSympyExecutor,
-        reset_sympy_executor,
-        set_sympy_executor,
-    )
+    from app.core.sympy_executor import set_sympy_executor
+    from app.tests.sympy_support import ThreadSympyExecutor
 
     set_sympy_executor(ThreadSympyExecutor(max_workers=1))
     yield
-    reset_sympy_executor()
+    set_sympy_executor(None)
 
 
 @pytest.fixture

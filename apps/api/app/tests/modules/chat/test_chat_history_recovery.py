@@ -8,12 +8,13 @@ from uuid import uuid4
 import pytest
 
 from app.modules.chat import service as chats
+from app.tests.fakes import redis_mock
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure_step", ["claim", "enqueue"])
 async def test_saved_messages_remain_readable_when_title_backfill_fails(failure_step):
-    redis = AsyncMock()
+    redis = redis_mock()
     enqueue = AsyncMock()
     failing = redis.set if failure_step == "claim" else enqueue
     failing.side_effect = RuntimeError("queue unavailable")

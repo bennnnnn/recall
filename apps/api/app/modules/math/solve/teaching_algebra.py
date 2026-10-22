@@ -45,12 +45,12 @@ def _polynomial(source: str) -> Poly | None:
         return None
     if "xx" in source.lower():
         return None
-    from app.modules.math.solve.parse import _parse_expression
-    from app.services.solving import MathServiceError
+    from app.modules.math.solve.parse import parse_expression
+    from app.services.solving import SolveServiceError
 
     try:
-        parsed_expr = _parse_expression(source, ["x"])
-    except MathServiceError:
+        parsed_expr = parse_expression(source, ["x"])
+    except SolveServiceError:
         return None
     if isinstance(parsed_expr, tuple) or getattr(parsed_expr, "free_symbols", set()) - {_X}:
         return None
@@ -170,7 +170,7 @@ def unit_circle_spec(degrees: int, answer: str | None = None) -> UnitCircleSpec 
     if reduced is None or abs(degrees) > 360:
         return None
     from app.modules.math.school import evaluate_trig_degrees
-    from app.services.solving import MathServiceError
+    from app.services.solving import SolveServiceError
 
     try:
         cosine = evaluate_trig_degrees("cos", float(degrees))
@@ -178,7 +178,7 @@ def unit_circle_spec(degrees: int, answer: str | None = None) -> UnitCircleSpec 
         tangent = (
             "undefined" if reduced in {90, 270} else evaluate_trig_degrees("tan", float(degrees))
         )
-    except MathServiceError:
+    except SolveServiceError:
         return None
     shown = degrees if -360 <= degrees <= 360 else reduced
     point = rf"\left({cosine}, {sine}\right)"

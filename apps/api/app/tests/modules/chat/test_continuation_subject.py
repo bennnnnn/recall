@@ -13,6 +13,7 @@ from app.modules.chat.continuation_subject import (
     is_new_problem_request,
     is_pure_continuation,
 )
+from app.modules.chat.model_routing.route import route_chat_model
 from app.modules.chat.prompt_constants import (
     BIOLOGY_PRESENTATION_HINT,
     NEW_PROBLEM_HINT,
@@ -24,7 +25,6 @@ from app.modules.math.followup import is_math_followup
 from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_REPLY_POLICY
 from app.modules.physics.extract import needs_physics
 from app.modules.physics.reply_policy import PHYSICS_INTENT_HINT, PHYSICS_REPLY_POLICY
-from app.services.routing import route_chat_model
 from app.services.subject_solving import detect_subject
 
 CYCLIST = "A cyclist rides 12 km at 20 km/h then 8 km at 10 km/h. Find average speed."

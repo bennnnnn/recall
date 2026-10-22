@@ -15,6 +15,7 @@ from typing import Literal
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.core.readings import read_off_loop, reading
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.prompt import (
     NOTHING_TO_GRAPH,
@@ -119,6 +120,33 @@ def detect_subject(
     """
     if image_math_extract is not None:
         return "math"
+    return _subject_of_text(text, has_image_attachment, chemistry_enabled)
+
+
+async def read_subject(
+    text: str,
+    settings: Settings,
+    *,
+    has_image_attachment: bool = False,
+    image_math_extract: MathImageExtract | None = None,
+) -> SubjectName | None:
+    """``detect_subject`` read off the event loop, in the SymPy pool (``core/readings``)."""
+    if image_math_extract is not None:
+        return "math"
+    return await read_off_loop(
+        _subject_of_text,
+        text,
+        has_image_attachment,
+        settings.chemistry_enabled,
+        timeout=settings.subject_read_timeout_seconds,
+    )
+
+
+@reading(declined=None)
+def _subject_of_text(
+    text: str, has_image_attachment: bool, chemistry_enabled: bool
+) -> SubjectName | None:
+    """``detect_subject`` for a line with no image extract: a reading (``core/readings``)."""
     from app.modules.chat import has_code_syntax
 
     # Pasted code is not a problem to solve: `for (int i = 1; i <= 3; i++)` is a
@@ -223,10 +251,9 @@ def _direct_physics(
     user_text: str,
     *,
     has_image_attachment: bool,
-    response_style: str,
     verified_request_text: str | None,
 ) -> str | None:
-    del response_style, verified_request_text
+    del verified_request_text
     if not isinstance(verified, VerifiedPhysicsBlock):
         return None
     from app.modules.physics.direct import maybe_direct_physics_reply
@@ -273,7 +300,6 @@ def _direct_math(
     user_text: str,
     *,
     has_image_attachment: bool,
-    response_style: str,
     verified_request_text: str | None,
 ) -> str | None:
     if not isinstance(verified, VerifiedMathBlock):
@@ -284,7 +310,6 @@ def _direct_math(
         verified,
         user_text,
         has_image_attachment=has_image_attachment,
-        response_style=response_style,
         verified_request_text=verified_request_text,
     )
 
@@ -309,7 +334,7 @@ async def _augment_chemistry(
     )
     if not settings.chemistry_enabled:
         return SubjectAugmentation(None, None, None)
-    from app.modules.chat.prompt_constants.visuals import attach_chemistry_fence_hint
+    from app.modules.chat import attach_chemistry_fence_hint
     from app.modules.chemistry.context import build_chemistry_augmentation
     from app.modules.chemistry.reading import chemistry_text_for_solve
 
@@ -331,10 +356,9 @@ def _direct_chemistry(
     user_text: str,
     *,
     has_image_attachment: bool,
-    response_style: str,
     verified_request_text: str | None,
 ) -> str | None:
-    del response_style, verified_request_text
+    del verified_request_text
     from app.modules.chemistry.block import VerifiedChemistry
     from app.modules.chemistry.direct import maybe_direct_chemistry_reply
 
@@ -383,11 +407,11 @@ async def build_subject_augmentation(
         if paired is not None:
             return SubjectAugmentation(None, None, None, direct_text=paired)
     math_text = math_user_content or user_content
-    subject = detected_subject or detect_subject(
+    subject = detected_subject or await read_subject(
         user_content,
+        settings,
         has_image_attachment=has_image_attachment,
         image_math_extract=image_math_extract,
-        chemistry_enabled=settings.chemistry_enabled,
     )
     adapter = SUBJECT_ADAPTERS.get(subject) if subject is not None else None
     if adapter is None:
@@ -417,7 +441,7 @@ async def _paired_direct_reply(
     replies: list[str] = []
     for part in parts:
         piece = await build_subject_augmentation(part, settings, pair=False, redis=redis)
-        reply = maybe_direct_subject_reply(piece.verified, part)
+        reply = await read_direct_reply(piece.verified, part, settings)
         if reply is None:
             return None
         replies.append(reply.strip())
@@ -425,12 +449,32 @@ async def _paired_direct_reply(
     return "\n\n---\n\n".join(replies)
 
 
+async def read_direct_reply(
+    verified: VerifiedSolveBlock | None,
+    user_text: str,
+    settings: Settings,
+    *,
+    has_image_attachment: bool = False,
+    verified_request_text: str | None = None,
+) -> str | None:
+    """``maybe_direct_subject_reply`` off the event loop: its checks parse with SymPy."""
+    if verified is None:
+        return None
+    return await read_off_loop(
+        maybe_direct_subject_reply,
+        verified,
+        user_text,
+        has_image_attachment=has_image_attachment,
+        verified_request_text=verified_request_text,
+        timeout=settings.stem_solve_timeout_seconds,
+    )
+
+
 def maybe_direct_subject_reply(
     verified: VerifiedSolveBlock | None,
     user_text: str,
     *,
     has_image_attachment: bool = False,
-    response_style: str = "balanced",
     verified_request_text: str | None = None,
 ) -> str | None:
     if verified is None:
@@ -442,6 +486,5 @@ def maybe_direct_subject_reply(
         verified,
         user_text,
         has_image_attachment=has_image_attachment,
-        response_style=response_style,
         verified_request_text=verified_request_text,
     )

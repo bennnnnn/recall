@@ -6,6 +6,7 @@ import pytest
 from app.core.config import Settings
 from app.gateways import email_gateway
 from app.modules.notifications import transactional_email as tx_email
+from app.tests.fakes import redis_mock
 
 
 def _user(*, email="user@test.local", name="Ada", locale=None):
@@ -466,14 +467,13 @@ async def test_login_dev_enqueues_welcome_for_new_user():
     from app.modules.account import service as auth_service
 
     settings = Settings(dev_auth_enabled=True, jwt_secret="test-secret-long-enough-32-chars!!")
-    redis = AsyncMock()
+    redis = redis_mock()
     fake_user_out = UserOut(
         id=uuid4(),
         email="dev@test.local",
         name="Dev",
         avatar_url=None,
         default_model="auto",
-        response_style="balanced",
         memory_enabled=True,
         created_at="2024-01-01T00:00:00",
     )
@@ -505,7 +505,7 @@ async def test_login_dev_does_not_enqueue_for_existing_user():
     from app.modules.account import service as auth_service
 
     settings = Settings(dev_auth_enabled=True, jwt_secret="test-secret-long-enough-32-chars!!")
-    redis = AsyncMock()
+    redis = redis_mock()
     existing = MagicMock(id=uuid4())
     fake_user_out = UserOut(
         id=uuid4(),
@@ -513,7 +513,6 @@ async def test_login_dev_does_not_enqueue_for_existing_user():
         name="Dev",
         avatar_url=None,
         default_model="auto",
-        response_style="balanced",
         memory_enabled=True,
         created_at="2024-01-01T00:00:00",
     )
@@ -542,7 +541,7 @@ async def test_login_dev_refreshes_name_on_relogin():
     from app.modules.account import service as auth_service
 
     settings = Settings(dev_auth_enabled=True, jwt_secret="test-secret-long-enough-32-chars!!")
-    redis = AsyncMock()
+    redis = redis_mock()
     existing = MagicMock(id=uuid4())
     existing.name = "Dev User"
     fake_user_out = UserOut(
@@ -551,7 +550,6 @@ async def test_login_dev_refreshes_name_on_relogin():
         name="Bini",
         avatar_url=None,
         default_model="auto",
-        response_style="balanced",
         memory_enabled=True,
         created_at="2024-01-01T00:00:00",
     )
@@ -584,7 +582,7 @@ async def test_login_dev_keeps_name_when_unchanged():
     from app.modules.account import service as auth_service
 
     settings = Settings(dev_auth_enabled=True, jwt_secret="test-secret-long-enough-32-chars!!")
-    redis = AsyncMock()
+    redis = redis_mock()
     existing = MagicMock(id=uuid4())
     existing.name = "Bini"
     fake_user_out = UserOut(
@@ -593,7 +591,6 @@ async def test_login_dev_keeps_name_when_unchanged():
         name="Bini",
         avatar_url=None,
         default_model="auto",
-        response_style="balanced",
         memory_enabled=True,
         created_at="2024-01-01T00:00:00",
     )
@@ -629,14 +626,13 @@ async def test_login_dev_skips_enqueue_when_email_disabled():
         email_enabled=False,
         jwt_secret="test-secret-long-enough-32-chars!!",
     )
-    redis = AsyncMock()
+    redis = redis_mock()
     fake_user_out = UserOut(
         id=uuid4(),
         email="dev@test.local",
         name="Dev",
         avatar_url=None,
         default_model="auto",
-        response_style="balanced",
         memory_enabled=True,
         created_at="2024-01-01T00:00:00",
     )

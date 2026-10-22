@@ -3,10 +3,6 @@ import { render } from "@testing-library/react-native";
 import { StateView } from "../StateView";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
 jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
   useTheme: () => mockLightTheme,

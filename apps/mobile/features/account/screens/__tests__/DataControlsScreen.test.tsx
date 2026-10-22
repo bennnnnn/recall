@@ -18,12 +18,6 @@ const mockWriteCachedUser = jest.fn();
 let mockProgress = "idle";
 let mockUser: Record<string, unknown>;
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
 jest.mock("expo-router", () => ({
   Redirect: () => null,
   router: { push: jest.fn() },
@@ -58,7 +52,7 @@ jest.mock("@/ui/overlay/dialogs", () => ({
   confirmDialog: (...args: unknown[]) => mockConfirm(...args),
   alertDialog: jest.fn(),
 }));
-jest.mock("@/lib/cache/chatListCache", () => ({ invalidateChatListCache: jest.fn() }));
+jest.mock("@/features/chat/model/chatListCache", () => ({ invalidateChatListCache: jest.fn() }));
 jest.mock("@/lib/reportRecoverableError", () => ({
   reportRecoverableError: (...args: unknown[]) => mockReportError(...args),
 }));

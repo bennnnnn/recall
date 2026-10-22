@@ -5,21 +5,21 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.tests.test_routers import _app_with_user, _fake_user
+from app.tests.api_support import api_user, app_with_user
 
 
 def _patch_me(body: dict, **updated_fields):
-    user = _fake_user()
-    update = AsyncMock(return_value=_fake_user(**updated_fields))
+    user = api_user()
+    update = AsyncMock(return_value=api_user(**updated_fields))
     with patch("app.modules.account.lifecycle.users_repo.update", update):
-        response = TestClient(_app_with_user(user)).patch(
+        response = TestClient(app_with_user(user)).patch(
             "/auth/me", headers={"Authorization": "Bearer tok"}, json=body
         )
     return response, update
 
 
 def test_me_reports_the_new_settings_with_defaults() -> None:
-    client = TestClient(_app_with_user(_fake_user()))
+    client = TestClient(app_with_user(api_user()))
     body = client.get("/auth/me", headers={"Authorization": "Bearer tok"}).json()
     assert body["push_reminders_enabled"] is True
     assert "push_email_suggestions_enabled" not in body

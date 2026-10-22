@@ -7,6 +7,7 @@ import pytest
 
 from app import process_bootstrap
 from app.core.config import Settings
+from app.tests.fakes import redis_mock
 
 
 @pytest.mark.asyncio
@@ -41,9 +42,9 @@ async def test_initialize_process_warms_sympy_only_for_api_roles(
 
     assert (stop_inflight_streams in shutdown._callbacks) is bool(expected_warmups)
     if expected_warmups:
-        from app.modules.math.sympy_warmup import warm_math_worker
+        from app.modules.chat.turn_prep.reading import warm_pool_worker
 
-        warm_sympy.assert_awaited_once_with(warm_math_worker)
+        warm_sympy.assert_awaited_once_with(warm_pool_worker)
 
 
 @pytest.mark.asyncio
@@ -136,7 +137,7 @@ async def test_worker_runtime_starts_and_stops_every_scheduler_in_order():
 @pytest.mark.asyncio
 async def test_shutdown_process_stops_worker_before_closing_resources():
     stop_worker = AsyncMock()
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.aclose = AsyncMock()
     engine = MagicMock()
     engine.dispose = AsyncMock()

@@ -16,7 +16,7 @@ from app.core.config import Settings
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
-from app.services.md_fence_scan import next_fence_marker_line
+from app.services.md_fence_scan import last_fence
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +31,10 @@ def drop_cut_reminder_fence(text: str) -> str:
     pass never applies an open one. Finalize closes every open fence before that
     pass runs, so the cut fence goes first (the phone hides reminder fences).
     """
-    count = 0
-    last: tuple[int, int, str] | None = None
-    while (marker := next_fence_marker_line(text, last[1] if last else 0)) is not None:
-        count += 1
-        last = marker
-    if count % 2 == 0 or last is None:
+    last = last_fence(text)
+    if last is None or last.closed or last.lang != _REMINDER_FENCE_LANG:
         return text
-    if last[2].strip("`").strip().lower() != _REMINDER_FENCE_LANG:
-        return text
-    return text[: last[0]].rstrip()
+    return text[: last.start].rstrip()
 
 
 async def apply_reminder_pass(
@@ -62,10 +56,10 @@ async def apply_reminder_pass(
         # say something: an empty one kept the streamed fence on the phone.
         if given.strip() and not text.strip():
             text = _ASK_WHEN
-        if outcome is not None and not ctx.skip_memory_jobs:
-            transcript = f"User: {ctx.user_message_content}\nAssistant: {text}"
-            if created > 0 or deps.todos.transcript_implies_todo_sync(transcript):
-                outcome.todos_changed = True
+        # Rows written this turn: the phone reloads its list once (code-health audit
+        # NET-14). No background job writes to-dos after the reply any more.
+        if outcome is not None and created > 0:
+            outcome.todos_changed = True
     except Exception:
         logger.exception("Reminder pass failed; keeping the finished reply")
     return text
@@ -86,15 +80,18 @@ async def _materialize(
             user_id=ctx.user_id,
             chat_id=ctx.chat_id,
             assistant_text=text,
-            user_timezone=ctx.user_timezone or getattr(user, "timezone", None),
+            user_timezone=ctx.user_timezone or user.timezone,
             user_text=ctx.user_message_content,
             # "Mark it done" points at a reminder only after a reply about
             # reminders, or right after a message that asked about them.
             prior_assistant=_prior_text(ctx, "assistant"),
             prior_user=_prior_text(ctx, "user"),
             redis=redis,
-            confirm=settings.reminder_proposals_enabled,
+            # A reminder change in chat is a card the user taps; nothing is written yet.
+            confirm=True,
         )
+        # The pass never commits the session it is given; this one is the pass's own.
+        await session.commit()
     return materialized
 
 

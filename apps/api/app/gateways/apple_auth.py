@@ -14,7 +14,7 @@ import jwt
 from jwt.algorithms import RSAAlgorithm
 
 from app.core.config import Settings
-from app.gateways.google_auth import GoogleAuthError
+from app.exceptions import AuthenticationError
 from app.gateways.http_client import get_pooled_client
 
 logger = logging.getLogger(__name__)
@@ -37,14 +37,16 @@ def _cache_is_fresh() -> bool:
 
 async def _fetch_apple_jwks(*, force_refresh: bool = False) -> dict[str, Any]:
     global _jwks_cache, _jwks_fetched_at
-    if not force_refresh and _cache_is_fresh():
-        return _jwks_cache  # type: ignore[return-value]
+    cached = _jwks_cache
+    if not force_refresh and cached is not None and _cache_is_fresh():
+        return cached
 
     async with _jwks_lock:
         # Re-check inside the lock: another coroutine may have just refreshed
         # it while we were waiting, so we don't fetch a second time in a row.
-        if not force_refresh and _cache_is_fresh():
-            return _jwks_cache  # type: ignore[return-value]
+        cached = _jwks_cache
+        if not force_refresh and cached is not None and _cache_is_fresh():
+            return cached
         response = await get_pooled_client(_JWKS_TIMEOUT_SECONDS).get(APPLE_JWKS_URL)
         response.raise_for_status()
         parsed: dict[str, Any] = response.json()
@@ -64,7 +66,7 @@ async def _public_key_for_kid(kid: str) -> Any:
     for key in jwks.get("keys", []):
         if key.get("kid") == kid:
             return RSAAlgorithm.from_jwk(key)
-    raise GoogleAuthError("Apple signing key not found")
+    raise AuthenticationError("Apple signing key not found")
 
 
 def _nonce_matches(raw_nonce: str | None, token_nonce: object) -> bool:
@@ -85,7 +87,7 @@ async def verify_apple_id_token(
 ) -> dict[str, Any]:
     client_id = settings.apple_client_id.strip()
     if not client_id:
-        raise GoogleAuthError("Apple Sign-In is not configured on this server")
+        raise AuthenticationError("Apple Sign-In is not configured on this server")
 
     try:
         header = jwt.get_unverified_header(id_token_str)
@@ -101,13 +103,13 @@ async def verify_apple_id_token(
         )
     except (jwt.PyJWTError, KeyError, httpx.HTTPError) as exc:
         logger.warning("Apple ID token verification failed: %s", exc)
-        raise GoogleAuthError("Invalid Apple ID token") from exc
+        raise AuthenticationError("Invalid Apple ID token") from exc
 
     sub = payload.get("sub")
     if not sub:
-        raise GoogleAuthError("Invalid Apple ID token")
+        raise AuthenticationError("Invalid Apple ID token")
     if not _nonce_matches(nonce, payload.get("nonce")):
         logger.warning("Apple ID token rejected: nonce missing or not from this sign-in")
-        raise GoogleAuthError("Invalid Apple ID token")
+        raise AuthenticationError("Invalid Apple ID token")
 
     return payload

@@ -17,7 +17,6 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.home import service as home_service
 from app.modules.todos import proposals, write_log
 from app.modules.todos.actions import MAX_TODO_ACTIONS_PER_TURN
 from app.modules.todos.recurrence import next_recurring_due
@@ -82,6 +81,10 @@ async def materialize_reminder_fences(
     With ``confirm`` the same rules run, but nothing is written: the reply ends
     with a ``reminder_proposal`` card in place of the result lines, and the
     writes wait in Redis for the user's tap. Returns (text, rows written).
+
+    The writes join the caller's session and are never committed or rolled back
+    here: the caller commits them with its own rows (live talk's voice turn) or
+    rolls them back (code-health audit ARCH-07).
     """
     turn = partial(
         _materialize,
@@ -306,8 +309,6 @@ async def _save_user_remind(turn: _Turn) -> tuple[str, int]:
         updated = without_claims(updated, [draft.title])
     if line:
         updated = f"{updated}\n\n{line}" if updated else line
-    if ok:
-        await home_service.invalidate_home_cache(turn.user_id)
     return _tidy(updated), (1 if ok else 0)
 
 
@@ -317,7 +318,6 @@ class _FenceResult:
 
     line: str | None = None
     ok: bool = False
-    created: bool = False
     invalid: bool = False
 
 
@@ -328,7 +328,6 @@ async def _apply_fences(turn: _Turn, spans: _Spans) -> tuple[str, int]:
     state = turn.writes()
     in_place: list[str] = []
     result_lines: list[str] = []
-    created_any = False
     invalid_any = False
     for _start, _end, body in spans:
         result = _FenceResult()
@@ -340,10 +339,7 @@ async def _apply_fences(turn: _Turn, spans: _Spans) -> tuple[str, int]:
             result_lines.append(result.line)
         if result.ok:
             state.applied += 1
-        created_any = created_any or result.created
     updated = _render(turn.assistant_text, spans, in_place, result_lines)
-    if created_any:
-        await home_service.invalidate_home_cache(turn.user_id)
     if state.applied == 0:
         updated = reply_when_nothing_saved(updated, turn.user_text, about_reminders=True)
         if invalid_any and not updated.strip():
@@ -368,7 +364,7 @@ async def _apply_fence(turn: _Turn, state: ReminderWrites, body: str) -> _FenceR
         return _FenceResult(line=passed_time_reply())
     if draft.action == "add":
         line, ok = await create_one(state, draft)
-        return _FenceResult(line=line, ok=ok, created=ok)
+        return _FenceResult(line=line, ok=ok)
     line, ok = await mutate_one(state, draft)
     return _FenceResult(line=line, ok=ok)
 
@@ -379,7 +375,7 @@ async def _apply_invalid_fence(turn: _Turn, state: ReminderWrites) -> _FenceResu
     if fallback is None:
         return _FenceResult(invalid=True)
     line, ok = await create_one(state, fallback)
-    return _FenceResult(line=line, ok=ok, created=ok, invalid=not ok)
+    return _FenceResult(line=line, ok=ok, invalid=not ok)
 
 
 async def _apply_stated_clock(turn: _Turn, state: ReminderWrites) -> _FenceResult:
@@ -392,7 +388,7 @@ async def _apply_stated_clock(turn: _Turn, state: ReminderWrites) -> _FenceResul
     if fallback is None or due_at is None or due_is_past(due_at, user_timezone=turn.user_timezone):
         return _FenceResult()
     line, ok = await create_one(state, fallback)
-    return _FenceResult(line=line, ok=ok, created=ok)
+    return _FenceResult(line=line, ok=ok)
 
 
 def _render(text: str, spans: _Spans, in_place: list[str], result_lines: list[str]) -> str:
@@ -432,8 +428,6 @@ async def _save_spoken_adds(turn: _Turn, spans: _Spans, adds: list[SpokenAdd]) -
         line, ok = await create_one(state, draft)
         lines.append(line)
         state.applied += 1 if ok else 0
-    if state.applied:
-        await home_service.invalidate_home_cache(turn.user_id)
     answer = _render(turn.assistant_text, spans, [""] * len(spans), [])
     titles = [add.title for add in adds]
     return _render(without_claims(answer, titles), [], [], lines), state.applied

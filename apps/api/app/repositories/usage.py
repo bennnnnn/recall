@@ -1,4 +1,5 @@
 from datetime import date
+from typing import NamedTuple
 from uuid import UUID
 
 from sqlalchemy import select
@@ -23,6 +24,11 @@ async def get_for_date(session: AsyncSession, user_id: UUID, day: date) -> Usage
     return await session.get(UsageDaily, {"user_id": user_id, "date": day})
 
 
+class DayTotals(NamedTuple):
+    input_tokens: int
+    output_tokens: int
+
+
 async def add_tokens(
     session: AsyncSession,
     user_id: UUID,
@@ -32,8 +38,12 @@ async def add_tokens(
     output_tokens: int,
     est_cost_usd: float = 0.0,
     commit: bool = True,
-) -> UsageDaily:
-    """Atomically increment daily usage (safe under concurrent finalizes)."""
+) -> DayTotals:
+    """Atomically increment daily usage (safe under concurrent finalizes).
+
+    The upsert returns the day's totals itself: the SELECT that used to follow it sat
+    inside the commit that holds a turn's ``done``, and its caller ignored the row.
+    """
     stmt = pg_insert(UsageDaily).values(
         user_id=user_id,
         date=day,
@@ -41,25 +51,20 @@ async def add_tokens(
         output_tokens=output_tokens,
         est_cost_usd=est_cost_usd,
     )
-    stmt = stmt.on_conflict_do_update(
+    upsert = stmt.on_conflict_do_update(
         index_elements=[UsageDaily.user_id, UsageDaily.date],
         set_={
             "input_tokens": UsageDaily.input_tokens + stmt.excluded.input_tokens,
             "output_tokens": UsageDaily.output_tokens + stmt.excluded.output_tokens,
             "est_cost_usd": UsageDaily.est_cost_usd + stmt.excluded.est_cost_usd,
         },
-    )
-    await session.execute(stmt)
+    ).returning(UsageDaily.input_tokens, UsageDaily.output_tokens)
+    row = (await session.execute(upsert)).one()
     if commit:
         await session.commit()
     else:
         await session.flush()
-    usage = await get_for_date(session, user_id, day)
-    if usage is None:  # pragma: no cover — upsert always leaves a row
-        raise RuntimeError("usage_daily upsert did not produce a row")
-    if commit:
-        await session.refresh(usage)
-    return usage
+    return DayTotals(int(row[0]), int(row[1]))
 
 
 async def get_total_for_date(session: AsyncSession, user_id: UUID, day: date) -> int:

@@ -125,9 +125,8 @@ prompt.
 
 ## Compatibility surface
 
-`MathServiceError` remains a compatibility alias of `SolveServiceError` for older math-only
-callers. Physics production code imports the neutral name directly. The alias carries no behavior
-and is not a permitted cross-subject dependency.
+Every subject raises the neutral `SolveServiceError`; the `MathServiceError` alias was removed once
+no caller used it (2026-10-20 code-health audit, DEAD-05).
 
 Older public math entry points remain available where existing callers depend on them, but they
 no longer dispatch physics. Compatibility must never reintroduce a physics registry or intent into

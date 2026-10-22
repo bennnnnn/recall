@@ -85,7 +85,7 @@ export const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\neg(?![a-zA-Z])/g, "¬"],
   // \bmod renders as "mod" with math spacing; in plain text use a spaced "mod".
   [/\\bmod(?![a-zA-Z])/g, " mod "],
-  // Lowercase Greek letters — matches mathFenceRetag.ts's LATEX_CMD_RE list.
+  // Lowercase Greek letters — matches lib/math/fenceRetag.ts's LATEX_CMD_RE list.
   // Only alpha/beta/gamma/theta/pi were handled here; the rest leaked as
   // raw "\delta"/"\sigma"/etc. backslash text once actually rendered.
   // Reduced Planck constant. Without this, `\hbar` falls through as the word hbar.
@@ -116,7 +116,7 @@ export const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\psi(?![a-zA-Z])/g, "ψ"],
   [/\\omega(?![a-zA-Z])/g, "ω"],
   [/\\Delta(?![a-zA-Z])/g, "Δ"],
-  // Arrow/implication commands — matches mathFenceRetag.ts's LATEX_CMD_RE
+  // Arrow/implication commands — matches lib/math/fenceRetag.ts's LATEX_CMD_RE
   // list. Only the 4 short arrows were handled; the rest (routine in
   // step-by-step derivations and limit notation \lim_{x \to 0}) leaked as
   // raw backslash text.

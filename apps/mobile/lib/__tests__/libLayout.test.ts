@@ -12,7 +12,7 @@
  */
 
 declare const __dirname: string;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- @types/node is not installed, so node:fs is required untyped
 const { readdirSync, statSync } = require("node:fs") as {
   readdirSync: (path: string) => string[];
   statSync: (path: string) => { isDirectory: () => boolean };

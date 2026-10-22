@@ -6,6 +6,7 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway
+from app.models.routing_lanes import ROUTING
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools import prompt as math_prompt
 from app.modules.math.tools.llm_extract import (
@@ -98,7 +99,7 @@ async def test_llm_extract_disabled_by_flag(monkeypatch: pytest.MonkeyPatch) -> 
 @pytest.mark.asyncio
 async def test_llm_extract_returns_mapped_intent(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake(**kwargs: object) -> LLMMathExtract:
-        assert kwargs["model_alias"] == "gpt-6-luna"
+        assert kwargs["model_alias"] == ROUTING.math_extract
         assert kwargs["allow_fallback"] is True
         assert kwargs["fallback_on_invalid"] is True
         return LLMMathExtract(found=True, kind="equation", lhs="3*x+5", rhs="17")

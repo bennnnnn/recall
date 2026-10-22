@@ -1,5 +1,6 @@
 import pytest
 
+from app.models import model_catalog
 from app.modules.account.settings_intent import SettingsChange, extract_settings_changes
 
 
@@ -172,3 +173,45 @@ def test_more_questions_edits_and_system_theme() -> None:
 )
 def test_long_lines_need_an_ask_and_a_verb(text, prior, expected) -> None:
     assert extract_settings_changes(text, prior_assistant=prior) == expected
+
+
+def _model_named(text: str) -> str | None:
+    changes = extract_settings_changes(text)
+    return changes[0].value if [c.field for c in changes] == ["default_model"] else None
+
+
+def test_every_model_in_the_picker_can_be_named_in_chat() -> None:
+    # The reader's words come from the catalog (code-health audit ARCH-06): a model
+    # added there is reachable by its id and by the label Settings → Models shows.
+    for model in model_catalog.selectable_models():
+        assert _model_named(f"switch to {model.id}") == model.id
+        assert _model_named(f"switch to {model.label}") == model.id, model.label
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("switch to GLM", "glm-5.3-flash"),
+        ("switch to glm 5.2", "glm-5.2"),
+        ("use GLM 5.3 Flash", "glm-5.3-flash"),
+        ("use deepseek", "smart-chat"),
+        ("switch to Claude", "free-chat"),
+        ("claude model please", "free-chat"),
+        ("use chatgpt", "gpt-6-luna"),
+    ],
+)
+def test_a_brand_names_its_model_and_a_version_picks_one(text: str, value: str) -> None:
+    assert _model_named(text) == value
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "change my name to Claude",
+        "call me Claude",
+        "set my nickname to Claude please",
+        "my friend claude is visiting, use a warm tone",
+    ],
+)
+def test_a_brand_that_is_also_a_name_is_read_as_a_name(text: str) -> None:
+    assert all(change.field != "default_model" for change in extract_settings_changes(text))

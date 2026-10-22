@@ -13,9 +13,12 @@ function smilesAsPageReadsIt(html: string): string {
   return new Function(`return \`${match[1]}\`;`)() as string;
 }
 
+// The bundle is browserify output whose entry returns require(); a stand-in will do.
+const SMILES_DRAWER = "function(){return function(){return {}}}()";
+
 describe("buildSmilesDrawerHtml", () => {
   it("hands an ordinary SMILES to the page unchanged", () => {
-    expect(smilesAsPageReadsIt(buildSmilesDrawerHtml("CC(=O)Oc1ccccc1C(=O)O", THEME))).toBe(
+    expect(smilesAsPageReadsIt(buildSmilesDrawerHtml("CC(=O)Oc1ccccc1C(=O)O", THEME, SMILES_DRAWER))).toBe(
       "CC(=O)Oc1ccccc1C(=O)O",
     );
   });
@@ -28,7 +31,7 @@ describe("buildSmilesDrawerHtml", () => {
     ["a comment opener before a script tag", "C<!--<script>"],
     ["a line break", "C\nC"],
   ])("cannot be broken out of by %s", (_name, hostile) => {
-    const html = buildSmilesDrawerHtml(hostile, THEME);
+    const html = buildSmilesDrawerHtml(hostile, THEME, SMILES_DRAWER);
     expect(smilesAsPageReadsIt(html)).toBe(hostile);
     // The script ends once, at its own closing tag, and no comment opener reaches the page
     // (`<!--` before `<script` would stop that closing tag from ending it).
@@ -37,25 +40,25 @@ describe("buildSmilesDrawerHtml", () => {
   });
 
   it("trims the SMILES it draws", () => {
-    expect(smilesAsPageReadsIt(buildSmilesDrawerHtml("  CCO \n", THEME))).toBe("CCO");
+    expect(smilesAsPageReadsIt(buildSmilesDrawerHtml("  CCO \n", THEME, SMILES_DRAWER))).toBe("CCO");
   });
 
   it("carries the content security policy and no network access", () => {
-    const html = buildSmilesDrawerHtml("CCO", THEME);
+    const html = buildSmilesDrawerHtml("CCO", THEME, SMILES_DRAWER);
     expect(html).toContain("Content-Security-Policy");
     expect(html).toContain("connect-src 'none'");
   });
 
   it("follows the theme", () => {
-    expect(buildSmilesDrawerHtml("CCO", { bg: "#101010", isDark: true })).toContain(
+    expect(buildSmilesDrawerHtml("CCO", { bg: "#101010", isDark: true }, SMILES_DRAWER)).toContain(
       "background:#101010",
     );
-    expect(buildSmilesDrawerHtml("CCO", { bg: "#101010", isDark: true })).toContain("'dark'");
-    expect(buildSmilesDrawerHtml("CCO", THEME)).toContain("'light'");
+    expect(buildSmilesDrawerHtml("CCO", { bg: "#101010", isDark: true }, SMILES_DRAWER)).toContain("'dark'");
+    expect(buildSmilesDrawerHtml("CCO", THEME, SMILES_DRAWER)).toContain("'light'");
   });
 
   it("reports failure by code, leaving the words to the app", () => {
-    const html = buildSmilesDrawerHtml("CCO", THEME);
+    const html = buildSmilesDrawerHtml("CCO", THEME, SMILES_DRAWER);
     expect(html).toContain(`kind: '${SMILES_DRAWER_ERROR_KIND}'`);
     expect(html).toContain("reportError('render')");
     expect(html).toContain("reportError('unavailable')");

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,7 +51,7 @@ async def advance_rc_event_watermark(
     await users_repo.update(session, user, rc_last_event_at_ms=event_timestamp_ms)
 
 
-def _plan_from_revenuecat_payload(payload: dict, settings: Settings) -> str:
+def _plan_from_revenuecat_payload(payload: dict[str, Any], settings: Settings) -> str:
     entitlement_ids = (
         settings.revenuecat_entitlement_id,
         settings.revenuecat_plus_entitlement_id,
@@ -173,6 +174,8 @@ async def _resync_transfer_source(
     would stick until the app reopened. Unreadable falls back to free, as
     before: the moved entitlement is no longer this account's.
     """
+    # The previous write re-read its row; end that transaction before the RevenueCat call.
+    await session.commit()
     plan = await resolve_plan_from_revenuecat(settings, app_user_id)
     if plan is None:
         logger.warning("RevenueCat TRANSFER source unreadable; free app_user_id=%s", app_user_id)

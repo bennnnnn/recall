@@ -8,7 +8,7 @@ from app.core.config import Settings
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
 from app.modules.physics.bodies import names_only_water
 from app.modules.physics.direct import maybe_direct_physics_reply
-from app.modules.physics.solvers.common import _to_si
+from app.modules.physics.solvers.si import to_si
 
 _SETTINGS = Settings(math_tools_enabled=True)
 
@@ -214,7 +214,7 @@ def test_a_question_the_catalog_cannot_read_exactly_declines(text: str) -> None:
     ],
 )
 def test_to_si_reads_differences_counts_and_c(value: float, unit: str, key: str, si: float) -> None:
-    assert _to_si(value, unit, expected_key=key) == pytest.approx(si)
+    assert to_si(value, unit, expected_key=key) == pytest.approx(si)
 
 
 @pytest.mark.parametrize(
@@ -225,7 +225,31 @@ def test_to_si_reads_differences_counts_and_c(value: float, unit: str, key: str,
         ("sea water", False),
         ("ice melts into water", False),
         ("a 2 kg block", False),
+        ("200 g of hot water and 300 g of cold water", True),
+        ("100 grams of the water at 80 °c", True),
+        ("100 g of water and 50 g of ethanol", False),
+        ("seawater and 200 g of water", False),
+        ("150 g of milk and 100 g of water", False),
+        ("2 kg of a liquid in water", False),
     ],
 )
 def test_water_numbers_apply_only_when_water_is_the_substance(text: str, water: bool) -> None:
     assert names_only_water(text) is water
+
+
+@pytest.mark.parametrize(
+    "second",
+    ["ethanol", "alcohol", "milk", "oil", "mercury", "glycerin", "honey"],
+)
+def test_water_mixed_with_another_liquid_is_not_answered_as_water(second: str) -> None:
+    text = (
+        f"100 g of water at 80 °C is mixed with 50 g of {second} at 20 °C. "
+        "What is the final temperature?"
+    )
+    assert _answer(text) is None
+
+
+def test_every_water_only_law_is_in_the_catalog() -> None:
+    from app.modules.physics.catalog import CATALOG, WATER_ONLY
+
+    assert WATER_ONLY <= CATALOG.keys()

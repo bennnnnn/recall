@@ -46,10 +46,11 @@ class Turn:
     ref_bytes: bytes = PNG
     generated: Any = (PNG, "image/png")
     fail: dict[str, BaseException] = field(default_factory=dict)
-    short_links: set[str] = field(default_factory=set)
     prior: SimpleNamespace | None = None
     user: SimpleNamespace = field(default_factory=lambda: SimpleNamespace(id=uuid4(), plan="pro"))
     events: list[tuple[Any, ...]] = field(default_factory=list)
+    # Messages the chat held before the turn.
+    earlier: list[Any] = field(default_factory=list)
     output_key: str | None = None
     slot_at_delete: list[str | None] = field(default_factory=list)
 
@@ -115,19 +116,26 @@ class Turn:
             turn.step(f"create_{role}", content, commit)
             return SimpleNamespace(id=uuid4(), role=role, content=content, model=kw.get("model"))
 
-        async def link(_s: Any, *, attachment_ids: list[UUID], commit: bool, **_kw: Any) -> int:
-            which = "output" if turn.events[-1][0] == "create_assistant" else "refs"
-            turn.step(f"link_{which}", len(attachment_ids), commit)
-            return len(attachment_ids) - (which in turn.short_links)
+        async def touch(_s: Any, chat_id: UUID, *, commit: bool) -> None:
+            turn.step("touch", chat_id, commit)
+
+        async def count(*_a: Any) -> int:
+            return len(turn.earlier)
+
+        async def finish(_redis: Any, _settings: Any, **kw: Any) -> None:
+            turn.step("finish", kw["prior_count"], kw["assistant"].id, kw["user_message"])
+
+        async def add_image(_s: Any, *, images: list[Any], message_id: UUID, **kw: Any) -> None:
+            turn.step("add_image", [image.attachment_id for image in images], message_id, kw)
+
+        async def add_refs(_s: Any, *, message_id: UUID, copies: list[Any]) -> None:
+            turn.step("add_refs", [copy.attachment_id for copy in copies], message_id)
 
         async def provider(_settings: Any, **kw: Any) -> Any:
             turn.step("provider", kw["prompt"], kw["aspect_ratio"], kw["reference_images"])
             if isinstance(turn.generated, BaseException):
                 raise turn.generated
             return turn.generated
-
-        async def recorded(name: str, *_a: Any, **kw: Any) -> None:
-            turn.step(name, kw.get("commit"))
 
         async def chat(*_a: Any) -> object | None:
             turn.events.append(("chat",))
@@ -149,9 +157,6 @@ class Turn:
             turn.step("spend", usd)
             return await real_spend(redis, usd)
 
-        def call(name: str) -> Any:
-            return lambda *a, **kw: recorded(name, *a, **kw)
-
         gateway = Gateway() if self.storage else UnconfiguredStorageGateway()
         with ExitStack() as stack:
             for target, value in {
@@ -159,16 +164,17 @@ class Turn:
                 "get_storage_gateway": lambda _s: gateway,
                 "get_redis_client": lambda: turn.redis,
                 "generate_image": provider,
-                "chats_repo.get_by_id": chat,
-                "messages_repo.get_last_user": last_user,
-                "messages_repo.get_by_id": none,
-                "messages_repo.create": create_message,
-                "attachments_repo.get_by_ids": get_by_ids,
-                "attachments_repo.list_for_message_ids": nothing,
-                "attachments_repo.create_pending": call("pending"),
-                "attachments_repo.insert_verified_clone": call("clone"),
-                "attachments_repo.link_to_message": link,
-                "attachments_repo.mark_verified": call("mark_verified"),
+                "chat_history.get_chat": chat,
+                "chat_history.last_user_message": last_user,
+                "chat_history.message_in_chat": none,
+                "turn_record.messages_repo.create": create_message,
+                "turn_record.messages_repo.count_for_chat": count,
+                "turn_record.chats_repo.touch_by_id": touch,
+                "turn_record.finish_turn": finish,
+                "attachments_service.get_by_ids": get_by_ids,
+                "attachments_service.list_for_message_ids": nothing,
+                "attachments_service.add_server_images": add_image,
+                "attachments_service.add_reference_copies": add_refs,
                 "quota_service.record_global_spend": spend,
             }.items():
                 stack.enter_context(patch(f"{MOD}.{target}", value))
@@ -327,10 +333,10 @@ async def test_generate_for_chat_a_blank_prompt_is_refused_after_the_reserve(tur
         ("presign", False, []),
         ("write_output", False, []),
         ("write_ref", True, ["output"]),
-        ("pending", True, ["output", "ref"]),
         ("create_user", True, ["output", "ref"]),
+        ("add_refs", True, ["output", "ref"]),
         ("create_assistant", False, ["output"]),
-        ("mark_verified", False, ["output"]),
+        ("add_image", False, ["output"]),
         ("commit", True, ["output", "ref"]),
     ],
 )
@@ -351,39 +357,20 @@ async def test_generate_for_chat_a_failure_after_the_reserve_refunds_and_deletes
     assert "spend" not in turn.names()
 
 
-@pytest.mark.parametrize(
-    "case, status, detail, deleted",
-    [
-        ("refs_link_short", 500, "Could not preserve image references", ["output", "ref"]),
-        ("output_link_short", 500, "Could not link generated image", ["output", "ref"]),
-        ("regenerate_without_user_turn", 404, "No user message to attach image to", ["output"]),
-    ],
-)
-async def test_generate_for_chat_a_persist_refusal_rolls_back_and_refunds(
-    turn, case, status, detail, deleted
-):
+async def test_generate_for_chat_a_regenerate_without_a_user_turn_rolls_back_and_refunds(turn):
     ref = turn.owned_ref()
-    kwargs: dict[str, Any] = {"reference_attachment_ids": [ref.id]}
-    if case == "refs_link_short":
-        turn.short_links = {"refs"}
-    elif case == "output_link_short":
-        turn.short_links = {"output"}
-    else:
-        kwargs["create_user_message"] = False
 
-    error = await _refused(turn, **kwargs)
+    error = await _refused(turn, reference_attachment_ids=[ref.id], create_user_message=False)
 
-    assert (error.status_code, error.detail) == (status, detail)
+    assert (error.status_code, error.detail) == (404, "No user message to attach image to")
     assert await turn.slot() == "0"
     assert "commit" not in turn.names()
-    assert turn.events[-len(deleted) - 1][0] == "session_exit"
-    keys = {"output": turn.output_key}
-    keys["ref"] = next((e[1] for e in turn.events if e[0] == "write_ref"), None)
-    assert turn.deleted() == [keys[name] for name in deleted]
+    assert turn.events[-2][0] == "session_exit"
+    assert turn.deleted() == [turn.output_key]
 
 
 @pytest.mark.parametrize("status, refunded", [(403, False), (429, False), (409, True)])
-@pytest.mark.parametrize("fail_at", ["provider", "pending"])
+@pytest.mark.parametrize("fail_at", ["provider", "add_image"])
 async def test_generate_for_chat_a_403_or_429_inside_the_turn_keeps_the_slot(
     turn, status, refunded, fail_at
 ):
@@ -393,7 +380,7 @@ async def test_generate_for_chat_a_403_or_429_inside_the_turn_keeps_the_slot(
 
     assert error.status_code == status
     assert await turn.slot() == ("0" if refunded else "1")
-    assert turn.deleted() == ([turn.output_key] if fail_at == "pending" else [])
+    assert turn.deleted() == ([turn.output_key] if fail_at == "add_image" else [])
 
 
 async def test_generate_for_chat_deletes_the_bytes_before_giving_the_slot_back(turn):
@@ -435,16 +422,30 @@ async def test_generate_for_chat_success_commits_one_turn_then_records_spend(tur
         "presign",
         "write_output",
         "session",
-        "pending",
         "create_user",
+        "touch",
         "create_assistant",
-        "link_output",
-        "mark_verified",
+        "touch",
+        "add_image",
         "commit",
         "session_exit",
         "spend",
+        "finish",
     ]
-    assert all(e[-1] is False for e in turn.events if e[0].startswith(("pending", "create_")))
+    # Each row moves the chat up the drawer, in the turn's one commit (audit ARCH-08).
+    assert all(e[-1] is False for e in turn.events if e[0].startswith(("create_", "touch")))
+    # Then a typed turn's jobs: its title, memory and indexing.
+    assert next(e for e in turn.events if e[0] == "finish")[1:] == (
+        0,
+        assistant_message.id,
+        "Generate image: a cat",
+    )
+    added = next(e for e in turn.events if e[0] == "add_image")
+    assert added[1:] == (
+        [UUID(attachment)],
+        assistant_message.id,
+        {"user_id": turn.user.id, "source": "generated", "label": "a cat"},
+    )
     assert await turn.slot() == "1"
     assert await quota_service.get_global_spend_micro_usd(turn.redis) == 30_000
 
@@ -463,18 +464,20 @@ async def test_generate_for_chat_a_users_photo_is_copied_linked_and_shown(turn):
     assert user_message.content == f"Make it blue\n[Image: /attachments/{copy_id}/file]"
     provider = next(e for e in turn.events if e[0] == "provider")
     assert provider[3] == [(PNG, "image/png")]
-    assert turn.names()[turn.names().index("pending") :] == [
-        "pending",
-        "clone",
+    assert turn.names()[turn.names().index("create_user") :] == [
         "create_user",
-        "link_refs",
+        "touch",
+        "add_refs",
         "create_assistant",
-        "link_output",
-        "mark_verified",
+        "touch",
+        "add_image",
         "commit",
         "session_exit",
         "spend",
+        "finish",
     ]
+    copies = next(e for e in turn.events if e[0] == "add_refs")
+    assert copies[1:] == ([UUID(copy_id)], user_message.id)
 
 
 async def test_generate_for_chat_regenerate_reuses_the_last_user_turn(turn):
@@ -486,6 +489,8 @@ async def test_generate_for_chat_regenerate_reuses_the_last_user_turn(turn):
     assert assistant_message.role == "assistant"
     assert turn.names().count("last_user") == 2
     assert "create_user" not in turn.names()
+    # A regenerate saves only a new reply: the turn's jobs already ran.
+    assert "finish" not in turn.names()
 
 
 async def test_generate_for_chat_a_failed_spend_record_is_logged_not_raised(turn, caplog):

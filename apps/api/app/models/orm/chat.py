@@ -64,21 +64,21 @@ class Chat(Base):
 class Message(Base):
     __tablename__ = "messages"
     __table_args__ = (
-        Index("ix_messages_chat_created", "chat_id", "created_at"),
         # Composite (chat_id, created_at, id) serves the tuple-cursor
-        # pagination queries in repositories/messages.py, which order by
+        # pagination queries in modules/chat/messages_repository.py, which order by
         # (created_at DESC, id DESC) and filter on (created_at, id) — the
         # id tiebreaker makes the sort stable when two messages share a
         # millisecond timestamp. See migration 0063.
         Index("ix_messages_chat_created_id", "chat_id", "created_at", "id"),
         Index("ix_messages_chat_role", "chat_id", "role"),
         Index("ix_messages_user_id", "user_id"),
-        # DB index (migration 0009) is actually:
-        #   CREATE INDEX ix_messages_content_trgm ON messages USING gin (content gin_trgm_ops)
-        # Plain Index() can't express the gin/trgm opclass; declared on `content` so
-        # autogenerate knows an index with this name exists here and won't propose
-        # dropping it.
-        Index("ix_messages_content_trgm", "content"),
+        # DB index (migration 0118) is actually:
+        #   CREATE INDEX ix_messages_user_content_trgm ON messages
+        #   USING gin (user_id, content gin_trgm_ops)
+        # (btree_gin), so a search reads one user's trigrams. Plain Index() can't express
+        # the opclass; declared so autogenerate knows an index with this name exists here
+        # and won't propose dropping it.
+        Index("ix_messages_user_content_trgm", "user_id", "content"),
         CheckConstraint("role IN ('user', 'assistant', 'system')", name="ck_messages_role"),
         CheckConstraint(
             "feedback IS NULL OR feedback IN ('up', 'down')", name="ck_messages_feedback"

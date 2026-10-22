@@ -49,6 +49,11 @@ designed and a long one can be justified. What CI can check reliably, it checks 
   runtime. Calculations take inputs and return results; adapters fetch and store.
 - Screens render state and handle input; logic lives in hooks and models.
 - `core/` and `gateways/` never import `modules/`; `ui/` never imports product code.
+- A phone feature reaches another only through its public modules (its `api.ts`, `types.ts`
+  and the modules listed public in `lib/__tests__/featureBoundaries.test.ts`); shared folders
+  reach features only at named composition points; features depend on each other without a
+  cycle. A change another feature's cache must follow is an event (`lib/appEvents.ts`), never
+  a call into its storage.
 - No hidden coupling: no module-level mutable state that leaks between requests, no reaching
   into another module's private helpers, no undocumented side effects.
 - Shared modules are named by purpose (formula evaluation, unit conversion, dates, error
@@ -73,7 +78,7 @@ designed and a long one can be justified. What CI can check reliably, it checks 
 | What | Default | Review |
 |---|---|---|
 | Production file | 300 lines or fewer | Over 500 needs a recorded reason and may not grow. 900 is an exceptional ceiling. |
-| Function | under 40–50 lines | Longer functions are checked for mixed responsibilities. |
+| Function | under 40–50 lines | Longer functions are checked for mixed responsibilities. An API function over 100 lines is recorded and may only shrink. |
 | Nesting | 3 levels of control flow | Use guard clauses and small helpers. |
 | Abstractions | when they pay for themselves | No speculative interfaces or wrappers. |
 
@@ -103,6 +108,10 @@ Correct maths, physics and chemistry is a release requirement.
 - Least privilege for credentials, database roles and integrations.
 - No repeated work: batch independent calls, cache hot reads, no heavy work per keystroke or
   per streamed token. Handle timeouts, cancellation, retries and duplicate requests.
+- Nothing CPU-bound and unbounded on the event loop. A pure reader of user text (subject
+  detection, the plan, a subject's extraction) is a `@reading` (`core/readings.py`) and is
+  read in the SymPy pool; async code that needs one awaits `read_off_loop`. SymPy runs in
+  the pool only.
 - Accessibility: screen-reader labels, contrast, scalable text, real touch targets.
 - Measure before optimizing.
 - Schema changes are expand, then contract: add first; drop, rename or retype
@@ -115,11 +124,13 @@ Correct maths, physics and chemistry is a release requirement.
 | Check | How | Runs in |
 |---|---|---|
 | Format and lint | `ruff check`, `ruff format`; ESLint | API CI, Mobile CI |
-| Types | mypy (strict per package, widening); `tsc` strict; ESLint `no-explicit-any` | API CI, Mobile CI |
+| Types | mypy (strict per package, widening); `tsc` strict, app and tests (`tsconfig.test.json`: jest runs through Babel, which strips types); ESLint `no-explicit-any` | API CI, Mobile CI |
 | Tests | pytest with 80 % coverage floor; jest; behavior and STEM sweeps | API CI, Mobile CI |
 | Import cycles | `app/tests/architecture/test_import_cycles.py`; `lib/__tests__/importCycles.test.ts` (type-only imports included) | API CI, Mobile CI |
-| Layer boundaries | `app/tests/architecture/` (module boundaries; `test_pure_solvers.py` keeps solvers off infrastructure and subjects apart); ESLint `no-restricted-imports` (`ui/` leaf, subject libraries) | API CI, Mobile CI |
+| Layer boundaries | `app/tests/architecture/` (module boundaries; `test_pure_solvers.py` keeps solvers off infrastructure and subjects apart); `lib/__tests__/featureBoundaries.test.ts` (phone features: public modules, composition points, no feature cycles); ESLint `no-restricted-imports` (`ui/` leaf, subject libraries) | API CI, Mobile CI |
 | File size | `scripts/check_file_sizes.py` against `scripts/file_size_baseline.json` | API CI, Mobile CI |
+| Function size | `app/tests/architecture/test_function_sizes.py` against `function_size_baseline.json` beside it: no new API function over 100 lines, and a recorded one may not grow | API CI |
+| Event loop | `app/tests/loop_guard.py` fails any test in which production code runs SymPy or computes a reading on the loop; `test_sympy_worker_imports.py` keeps the pool's workers free of the web stack | API CI |
 | Migrations | `app/tests/architecture/test_migration_safety.py`: one alembic head; no drop or rename in `upgrade()` without an `# expand-contract:` reason | API CI |
 | Deploy gate | Deploy and production app updates run from `main` only, after CI passed for the commit (`scripts/require-green-ci.sh`) | Deploy, Publish app update |
 | Security | CodeQL, Dependabot, GitHub secret scanning | GitHub |
@@ -130,7 +141,9 @@ Correct maths, physics and chemistry is a release requirement.
 **Exceptions.** A file over 500 lines is listed in `scripts/file_size_baseline.json` with its
 reason: either a documented exception (one table, catalog or algorithm) or the ticket that
 splits it. The size there is a ceiling; after a split, `scripts/check_file_sizes.py --update`
-lowers it. Any other exception (a `# noqa`, an ESLint disable) carries a one-line reason.
+lowers it. A function over 100 lines works the same way: after a split, run its test with
+`UPDATE_FUNCTION_SIZES=1`. Any other exception (a `# noqa`, an ESLint disable) carries a
+one-line reason.
 
 ## Changing code
 
@@ -142,6 +155,11 @@ which tests ran, and any risk or exception left. Never claim a check passed that
 
 Do not rewrite broadly to make code look cleaner. Preserve working behavior, keep unrelated
 changes out, and refactor in small tested steps.
+
+Compatibility code (an old app build's field, a storage migration, a route kept for old
+clients) names the released version it serves and the date it can go. Before the first store
+build nothing has shipped, so there is nothing to stay compatible with: such code is deleted,
+not kept.
 
 ## Definition of done
 

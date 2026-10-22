@@ -1,10 +1,12 @@
+"""Redis keys for a user's memory blocks, and dropping them when memory changes."""
+
 import hashlib
 import logging
-from typing import Any
 from uuid import UUID
 
 from app.core.cache_generation import bump_generation
 from app.core.config import Settings
+from app.core.redis import get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +43,9 @@ def memory_generation_key(user_id: UUID) -> str:
     return f"memgen:{user_id}"
 
 
-async def write_query_block_cache(
-    seams: Any, cache_key: str, block: str, settings: Settings
-) -> None:
+async def write_query_block_cache(cache_key: str, block: str, settings: Settings) -> None:
     try:
-        await seams.get_redis_client().set(
+        await get_redis_client().set(
             cache_key,
             block,
             ex=max(30, settings.memory_query_cache_ttl),
@@ -54,10 +54,10 @@ async def write_query_block_cache(
         logger.debug("Memory query cache write failed", exc_info=True)
 
 
-async def invalidate_memory_block(seams: Any, user_id: UUID) -> None:
+async def invalidate_memory_block(user_id: UUID) -> None:
     """Bump the query generation and drop every scoped block-cache key."""
     try:
-        redis = seams.get_redis_client()
+        redis = get_redis_client()
         await bump_generation(redis, memory_generation_key(user_id))
         block_key = memory_block_key(user_id)
         await redis.delete(

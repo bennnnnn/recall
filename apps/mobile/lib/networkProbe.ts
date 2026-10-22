@@ -10,6 +10,16 @@ const CONNECTIVITY_PROBE_TIMEOUT_MS = 3_500;
 
 export type ConnectivityStatus = "online" | "no_internet" | "api_unreachable";
 
+let netInfoConfigured = false;
+
+/** Our own probe decides reachability. NetInfo's would add a HEAD to Google every 60 s (5 s
+ * while unreachable) and one on every refresh. Call once, before subscribing. */
+export function configureNetInfo(): void {
+  if (netInfoConfigured) return;
+  netInfoConfigured = true;
+  NetInfo.configure({ reachabilityShouldRun: () => false });
+}
+
 function settleWithin<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
   return new Promise((resolve) => {
     let settled = false;
@@ -51,8 +61,8 @@ export function classifyConnectivity(apiOk: boolean, publicOk: boolean): Connect
 }
 
 /**
- * Probe API + public internet. Does not trust OS "connected" — that hid
- * captive portals and API-down behind a missing banner.
+ * Probe the API, then the public internet only if the API failed. Does not trust OS
+ * "connected": that hid captive portals and API-down behind a missing banner.
  */
 export async function resolveConnectivity(): Promise<ConnectivityStatus> {
   // NetInfo.refresh can remain unresolved after an iOS/simulator reconnect.
@@ -63,13 +73,17 @@ export async function resolveConnectivity(): Promise<ConnectivityStatus> {
     null,
   );
 
-  const [apiOk, publicOk] = await Promise.all([
-    settleWithin(checkHealth(CONNECTIVITY_PROBE_TIMEOUT_MS), CONNECTIVITY_PROBE_TIMEOUT_MS, false),
-    settleWithin(
-      checkPublicReachability(CONNECTIVITY_PROBE_TIMEOUT_MS),
-      CONNECTIVITY_PROBE_TIMEOUT_MS,
-      false,
-    ),
-  ]);
+  const apiOk = await settleWithin(
+    checkHealth(CONNECTIVITY_PROBE_TIMEOUT_MS),
+    CONNECTIVITY_PROBE_TIMEOUT_MS,
+    false,
+  );
+  if (apiOk) return "online";
+  // Only now ask Google: is it our API, or the whole connection?
+  const publicOk = await settleWithin(
+    checkPublicReachability(CONNECTIVITY_PROBE_TIMEOUT_MS),
+    CONNECTIVITY_PROBE_TIMEOUT_MS,
+    false,
+  );
   return classifyConnectivity(apiOk, publicOk);
 }

@@ -9,14 +9,10 @@ from __future__ import annotations
 import math
 
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    _latex_num,
-    _params_in_si,
-    gravity_of,
-)
+from app.modules.physics.solvers.arithmetic import latex_num
 from app.modules.physics.solvers.motion_scenes import projectile_scene
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import gravity_of, params_in_si
 from app.services.solving import SolveServiceError
 
 
@@ -46,7 +42,7 @@ def _projectile_max_height_substitution(intent: PhysicsIntent) -> str:
 
 
 def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     g = gravity_of(p)
     v0 = p["v0"]
     # No default. The extractor's `range` initializer was one half of the bug
@@ -74,7 +70,7 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
             answer=(
                 rf"\theta = \tfrac{{1}}{{2}} \arcsin\!\left(\frac{{Rg}}{{v_0^2}}\right) = "
                 rf"\tfrac{{1}}{{2}} \arcsin\!\left(\frac{{{r_target:g} \cdot {g:g}}}"
-                rf"{{{_latex_num(v0, square=True)}}}\right) \approx {shown}"
+                rf"{{{latex_num(v0, square=True)}}}\right) \approx {shown}"
             ),
             formulas=(
                 r"\theta = \tfrac{1}{2} \arcsin\!\left(\frac{Rg}{v_0^2}\right)",
@@ -82,13 +78,13 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
             ),
             substitutions=(
                 rf"\theta = \tfrac{{1}}{{2}} \arcsin\!\left(\frac{{{r_target:g} \cdot {g:g}}}"
-                rf"{{{_latex_num(v0, square=True)}}}\right)",
+                rf"{{{latex_num(v0, square=True)}}}\right)",
             ),
             quantities=tuple(QuantityResult("", angle, "deg") for angle in angles),
             joiner=" or ",
         )
 
-    theta = p["angle"]  # radians (converted by _params_in_si)
+    theta = p["angle"]  # radians (converted by params_in_si)
 
     if h0 > 0:
         # y = h0 + v0 sinθ t - ½ g t² = 0 → ½ g t² - v0 sinθ t - h0 = 0
@@ -110,7 +106,7 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
         else:
             r_val = v0**2 * math.sin(2 * theta) / g
         deg = math.degrees(theta)
-        v0_sq = _latex_num(v0, square=True)
+        v0_sq = latex_num(v0, square=True)
         if h0 <= 0:
             answer_latex = (
                 rf"R = \frac{{v_0^2 \sin(2\theta)}}{{g}} = "

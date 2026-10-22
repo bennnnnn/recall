@@ -8,13 +8,11 @@ from app.core.config import Settings
 from app.gateways.speech_gateway import (
     audio_format_from_filename,
     pcm_to_wav,
-    stream_pcm_via_openai,
 )
 from app.modules.speech.service import (
     SPEECH_MAX_AUDIO_BYTES,
     TTS_FAST_ALIAS,
     TTS_QUALITY_ALIAS,
-    iter_tts_pcm,
     normalize_tts_alias,
     resolve_tts_model,
     resolve_tts_voice,
@@ -351,42 +349,6 @@ async def test_synthesize_uses_openai_when_mock_llm_but_key_present():
 
 
 @pytest.mark.asyncio
-async def test_stream_pcm_yields_chunks_without_buffering():
-    class _Resp:
-        status_code = 200
-
-        async def __aenter__(self) -> "_Resp":
-            return self
-
-        async def __aexit__(self, *args: object) -> bool:
-            return False
-
-        async def aiter_bytes(self, chunk_size: int = 4096):
-            yield b"aa"
-            yield b"bb"
-
-    client = MagicMock()
-    client.stream.return_value = _Resp()
-    settings = Settings(openai_api_key="sk-test")
-    chunks: list[bytes] = []
-    with patch("app.gateways.speech_gateway.get_pooled_client", return_value=client):
-        async for chunk in stream_pcm_via_openai(
-            settings,
-            "Hello",
-            model="openai/gpt-4o-mini-tts",
-            voice="alloy",
-        ):
-            chunks.append(chunk)
-    assert chunks == [b"aa", b"bb"]
-    body = client.stream.call_args.kwargs["json"]
-    assert body["response_format"] == "pcm"
-    assert body["input"] == "Hello"
-    assert body["model"] == "gpt-4o-mini-tts"
-    assert client.stream.call_args.args == ("POST", "https://api.openai.com/v1/audio/speech")
-    assert client.stream.call_args.kwargs["headers"]["Authorization"] == "Bearer sk-test"
-
-
-@pytest.mark.asyncio
 async def test_voice_never_uses_openrouter_key_as_fallback():
     settings = Settings(mock_llm_enabled=False, openai_api_key="", openrouter_api_key="router-only")
     with (
@@ -395,21 +357,7 @@ async def test_voice_never_uses_openrouter_key_as_fallback():
     ):
         assert await transcribe_audio(settings, b"audio") is None
         assert await synthesize_speech(settings, "Hello") is None
-        assert [chunk async for chunk in iter_tts_pcm(settings, "Hello")] == []
         client.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_iter_tts_pcm_mock_without_key():
-    settings = Settings(
-        mock_llm_enabled=True,
-        openai_api_key="",
-        speech_tts_enabled=True,
-    )
-    with patch("app.modules.speech.service.mock_llm.should_mock_llm", return_value=True):
-        chunks = [chunk async for chunk in iter_tts_pcm(settings, "Hello")]
-    assert len(chunks) == 1
-    assert len(chunks[0]) > 0
 
 
 def test_split_tts_lead_keeps_short_text():
@@ -432,47 +380,3 @@ def test_split_tts_lead_caps_the_window():
     lead, rest = split_tts_lead(f"{'alpha ' * 40}. Extra sentence after the cut.")
     assert len(lead) <= 160
     assert rest
-
-
-@pytest.mark.asyncio
-async def test_iter_tts_pcm_yields_lead_before_rest_finishes():
-    import asyncio
-
-    order: list[str] = []
-
-    async def fake_stream(_settings: Settings, text: str, **_kwargs: object):
-        if text.startswith("Lead"):
-            order.append("lead-start")
-            yield b"LEAD"
-            order.append("lead-done")
-            return
-        order.append("rest-start")
-        await asyncio.sleep(0.05)
-        yield b"REST"
-        order.append("rest-done")
-
-    settings = Settings(
-        mock_llm_enabled=False,
-        openai_api_key="sk-test",
-        speech_tts_enabled=True,
-    )
-    with (
-        patch("app.modules.speech.service.mock_llm.should_mock_llm", return_value=False),
-        patch(
-            "app.modules.speech.service.split_tts_lead",
-            return_value=("Lead sentence.", "Rest of the message."),
-        ),
-        patch(
-            "app.modules.speech.service.speech_gateway.stream_pcm_via_openai",
-            fake_stream,
-        ),
-    ):
-        chunks: list[bytes] = []
-        async for chunk in iter_tts_pcm(settings, "unused"):
-            chunks.append(chunk)
-            if chunk == b"LEAD":
-                order.append("yielded-lead")
-
-    assert chunks == [b"LEAD", b"REST"]
-    assert order.index("yielded-lead") < order.index("rest-done")
-    assert "rest-start" in order

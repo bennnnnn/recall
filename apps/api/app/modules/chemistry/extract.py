@@ -11,6 +11,7 @@ import logging
 import re
 from functools import lru_cache
 
+from app.core.readings import reading
 from app.modules.chemistry.binding import bind_chemistry_intent
 from app.modules.chemistry.input_text import read_chemistry_text
 from app.modules.chemistry.registry import CHEMISTRY_EXTRACTORS, UNIT_AWARE_EXTRACTORS
@@ -41,6 +42,7 @@ def extract_chemistry_intent(text: str) -> ChemistryIntent | None:
     return None if intent is None else intent.model_copy(deep=True)
 
 
+@reading(declined=None)
 @lru_cache(maxsize=_CACHE_SIZE)
 def _extract_chemistry_intent(text: str) -> ChemistryIntent | None:
     if not text.strip() or len(text) > _MAX_TEXT_LENGTH:

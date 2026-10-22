@@ -77,7 +77,7 @@ describe("useMathKeyboardInsert", () => {
 
   it("resets math editing for another owner even when the draft text is identical", async () => {
     const { result, rerender } = await renderHook(
-      ({ draftRevision }) => useMathKeyboardInsert({ input: "$x^2$", setInput: jest.fn(), draftRevision }),
+      ({ draftRevision }: { draftRevision: number }) => useMathKeyboardInsert({ input: "$x^2$", setInput: jest.fn(), draftRevision }),
       { initialProps: { draftRevision: 1 } },
     );
     await act(() => result.current.toggleMathBar());

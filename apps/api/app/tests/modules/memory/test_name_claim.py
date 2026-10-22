@@ -1,7 +1,7 @@
 from uuid import uuid4
 
-from app.modules.memory.extraction_workflow import writes_from_ops
 from app.modules.memory.name_claim import is_unclaimed_user_name
+from app.modules.memory.pass_writes import writes_from_ops
 from app.modules.memory.schemas import MemoryFactOp
 
 _PROBLEM = "User: Bebe has 2 pens and if he gives that to Cal, how many does he have?"

@@ -4,6 +4,7 @@ import { transcribeSpeech } from "@/lib/api";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import {
+  deleteVoiceRecording,
   isVoiceInputAvailable,
   loadExpoAudio,
   requestVoicePermission,
@@ -103,7 +104,7 @@ export function useVoiceInput({
       }
       const next = await startVoiceRecording();
       if (gen !== captureGenRef.current) {
-        if (next) void next.stop().catch(() => undefined);
+        if (next) void next.stop().then(deleteVoiceRecording).catch(() => undefined);
         return false;
       }
       if (!next) {
@@ -139,6 +140,7 @@ export function useVoiceInput({
     setTranscribing(true);
     const heardSpeech = speechSamplesRef.current >= VOICE_MIN_SPEECH_SAMPLES;
     const uri = await stopRecording();
+    if (gen !== captureGenRef.current || !uri || !heardSpeech) void deleteVoiceRecording(uri);
     if (gen !== captureGenRef.current) return null;
     if (!uri || !heardSpeech) {
       setTranscribing(false);
@@ -170,6 +172,8 @@ export function useVoiceInput({
       }
       return null;
     } finally {
+      // Sent or not, the recording is not kept (code-health audit LEAK-04).
+      void deleteVoiceRecording(uri);
       if (transcribeAbortRef.current === controller) transcribeAbortRef.current = null;
       if (gen === captureGenRef.current) setTranscribing(false);
     }
@@ -181,7 +185,7 @@ export function useVoiceInput({
     captureGenRef.current += 1;
     transcribeAbortRef.current?.abort();
     transcribeAbortRef.current = null;
-    void stopRecording();
+    void stopRecording().then(deleteVoiceRecording);
     setTranscribing(false);
   }, [stopRecording]);
 
@@ -220,7 +224,7 @@ export function useVoiceInput({
       const active = recordingRef.current;
       recordingRef.current = null;
       if (active) {
-        void active.stop().catch(() => undefined);
+        void active.stop().then(deleteVoiceRecording).catch(() => undefined);
       }
     };
   }, []);
@@ -234,6 +238,5 @@ export function useVoiceInput({
     startRecording,
     finishRecording,
     cancelVoiceInput,
-    cancelRecording: stopRecording,
   };
 }

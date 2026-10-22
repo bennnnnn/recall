@@ -1,7 +1,5 @@
 import {
   formatUsageSummary,
-  isQuotaErrorMessage,
-  isQuotaErrorPayload,
   usageRemainingPercent,
   usageUsedPercent,
   usageUsedTokens,
@@ -27,12 +25,6 @@ describe("quota helpers", () => {
   it("usageUsedPercent and usageRemainingPercent stay in sync", () => {
     expect(usageUsedPercent(usage)).toBe(12);
     expect(usageRemainingPercent(usage)).toBe(88);
-  });
-
-  it("detects structured and legacy quota errors", () => {
-    expect(isQuotaErrorPayload({ code: "quota_exceeded" })).toBe(true);
-    expect(isQuotaErrorMessage("You've used up today's free limit.")).toBe(true);
-    expect(isQuotaErrorMessage("Network error")).toBe(false);
   });
 
   it("formatUsageSummary is plan-aware", () => {

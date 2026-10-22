@@ -2,11 +2,9 @@ import base64
 import binascii
 import json
 import logging
-from collections.abc import AsyncIterator
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import StreamingResponse
 
 from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
@@ -40,44 +38,15 @@ from app.modules.speech.tts_followup import (
     tts_lead_hash,
 )
 from app.services import quota as quota_service
-from app.services.quota import counters
 
 router = APIRouter(prefix="/speech", tags=["speech"])
 logger = logging.getLogger(__name__)
-
-TTS_STREAM_MEDIA_TYPE = "audio/L16;rate=24000;channels=1"
-
-
-def _raise_live_talk_route_gone(settings: Settings) -> None:
-    if not settings.speech_live_talk_enabled:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
-    raise HTTPException(
-        status_code=status.HTTP_410_GONE,
-        detail="Live talk is metered in minutes: POST /speech/live/session, then /speech/live/end",
-    )
-
-
-async def _reserve_tts_or_raise(user: User, settings: Settings) -> date:
-    """Every TTS gate, then today's slot; returns the day it charged."""
-    require_plan_feature(user, settings, "speech_tts", quota_service.SPEECH_TTS_NOT_IN_PLAN_MESSAGE)
-    redis = get_redis_client()
-    await require_voice_spend_ok(redis, settings)
-    await require_speech_rate(
-        redis, settings, f"speech_tts_rl:{user.id}", quota_service.SPEECH_TTS_RATE_LIMIT_MESSAGE
-    )
-    return await reserve_day_or_raise("speech_tts", redis, user, settings)
-
-
-async def _aiter_nonempty(chunks: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
-    async for chunk in chunks:
-        if chunk:
-            yield chunk
 
 
 def _reject_oversized_audio(data: bytes) -> None:
     if len(data) > SPEECH_MAX_AUDIO_BYTES:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail="Audio payload too large",
         )
 
@@ -160,50 +129,6 @@ async def synthesize_speech(
         )
 
 
-@router.post("/tts/stream")
-async def stream_speech(
-    body: SpeechTtsIn,
-    user: User = Depends(get_consented_user),
-    settings: Settings = Depends(get_settings_dep),
-) -> StreamingResponse:
-    if not settings.speech_tts_enabled:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
-
-    day = await _reserve_tts_or_raise(user, settings)
-    redis = get_redis_client()
-    alias = speech_service.normalize_tts_alias(body.model)
-
-    async def body_iter() -> AsyncIterator[bytes]:
-        got = False
-        try:
-            async for chunk in _aiter_nonempty(
-                speech_service.iter_tts_pcm(
-                    settings,
-                    body.text,
-                    language=body.language,
-                    model_alias=alias,
-                    voice=user.tts_voice,
-                )
-            ):
-                got = True
-                yield chunk
-        finally:
-            if not got:
-                await counters.refund("speech_tts", redis, user.id, day=day)
-            else:
-                await quota_service.record_voice_spend(redis, quota_service.TTS_SPEND_USD)
-
-    return StreamingResponse(
-        body_iter(),
-        media_type=TTS_STREAM_MEDIA_TYPE,
-        headers={
-            "Cache-Control": "no-store",
-            "X-Accel-Buffering": "no",
-            "X-Recall-Tts-Model": alias,
-        },
-    )
-
-
 @router.post("/transcribe", response_model=SpeechTranscriptionOut)
 async def transcribe_speech(
     request: Request,
@@ -243,16 +168,16 @@ async def transcribe_speech(
         upload = form.get("file")
         if upload is None or not hasattr(upload, "read"):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Missing audio file",
             )
         declared_size = getattr(upload, "size", None)
         if declared_size is not None and int(declared_size) > SPEECH_MAX_AUDIO_BYTES:
             raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                 detail="Audio payload too large",
             )
-        data = await upload.read()  # type: ignore[union-attr]
+        data = await upload.read()
         _reject_oversized_audio(data)
         filename = getattr(upload, "filename", None) or "speech.m4a"
 
@@ -277,39 +202,3 @@ async def live_talk_status(
     if not settings.speech_live_talk_enabled:
         return SpeechLiveStatusOut(enabled=False, entitled=False, remaining=0, limit=0)
     return await live_talk_service.live_talk_status(get_redis_client(), user, settings)
-
-
-@router.post("/live/turn")
-async def live_talk_turn(
-    _user: User = Depends(get_current_user),
-    settings: Settings = Depends(get_settings_dep),
-) -> None:
-    """Gone — speak self-reserves. Stale clients get 410 instead of a second slot."""
-    _raise_live_talk_route_gone(settings)
-
-
-@router.post("/live/refund")
-async def live_talk_refund(
-    _user: User = Depends(get_current_user),
-    settings: Settings = Depends(get_settings_dep),
-) -> None:
-    """Gone — minutes settle on POST /speech/live/end, not per turn."""
-    _raise_live_talk_route_gone(settings)
-
-
-@router.post("/live/commit")
-async def live_talk_commit(
-    _user: User = Depends(get_current_user),
-    settings: Settings = Depends(get_settings_dep),
-) -> None:
-    """Gone — Live Talk is WebRTC (`POST /speech/live/session`)."""
-    _raise_live_talk_route_gone(settings)
-
-
-@router.post("/live/speak")
-async def live_talk_speak(
-    _user: User = Depends(get_current_user),
-    settings: Settings = Depends(get_settings_dep),
-) -> None:
-    """Gone — Live Talk is WebRTC (`POST /speech/live/session`)."""
-    _raise_live_talk_route_gone(settings)

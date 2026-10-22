@@ -8,8 +8,9 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat import stream_entry
+from app.modules.chat import chats_repository, messages_repository, stream_entry
 from app.modules.chat.turn_resources import TurnResources
+from app.tests.fakes import FakeSessionCM, redis_mock
 from app.tests.modules.chat.chat_test_support import FakeSessionCM as _FakeSessionCM
 from app.tests.modules.chat.chat_test_support import turn_deps
 
@@ -27,9 +28,9 @@ def _turn_load():
     chat = MagicMock()
     chat.summary = None
     with (
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=chat)),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=[])),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=0)),
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
     ):
         yield
@@ -40,7 +41,7 @@ def _deps(**fields):
     quota = {"daily_limit_for_user": MagicMock(return_value=100_000), **fields.pop("quota", {})}
     return turn_deps(
         session_factory=_FakeSessionCM,
-        plan={"resolve_user_model_override": MagicMock(return_value="smart-chat")},
+        model_choice={"resolve_user_model_override": MagicMock(return_value="smart-chat")},
         quota=quota,
         **fields,
     )
@@ -69,7 +70,7 @@ async def test_stream_chat_response_refunds_pre_reserved_on_image_gen():
     """Edit reserves before stream_chat_response; image-gen must refund that hold."""
     user = _pro_user()
     chat_id = uuid4()
-    redis = AsyncMock()
+    redis = redis_mock()
     refund = AsyncMock()
     deps = _deps(quota={"refund_usage": refund})
 
@@ -103,7 +104,7 @@ async def test_stream_chat_response_refunds_pre_reserved_on_image_gen():
 async def test_stream_chat_response_refunds_on_cancelled_error():
     """Hard cancel (CancelledError) must refund — except Exception would miss it."""
     user = _pro_user()
-    redis = AsyncMock()
+    redis = redis_mock()
     refund = AsyncMock()
 
     async def boom_stream(*_a, **_k):
@@ -143,8 +144,7 @@ async def test_stream_chat_response_refunds_on_cancelled_error():
 @pytest.mark.asyncio
 async def test_stream_chat_response_reserves_max_output_ceiling():
     user = _pro_user()
-    user.response_style = "detailed"
-    redis = AsyncMock()
+    redis = redis_mock()
     reserve = AsyncMock(return_value=3400)
 
     async def empty_stream(*_a, **_k):
@@ -176,8 +176,7 @@ async def test_stream_chat_response_reserves_max_output_ceiling():
         ):
             pass
 
-    # No style-based cap anymore — reserve against the single ceiling
-    # (settings.max_output_tokens), regardless of response_style.
+    # No style-based cap: reserve against the single ceiling (settings.max_output_tokens).
     assert reserve.await_args.kwargs["max_output"] == 1200
 
 
@@ -218,7 +217,7 @@ async def test_prior_count_queries_when_recent_window_is_full():
 @pytest.mark.asyncio
 async def test_stream_skips_count_when_recent_window_has_room():
     user = _pro_user()
-    redis = AsyncMock()
+    redis = redis_mock()
     count = AsyncMock(return_value=99)
 
     async def fake_stream(*_a, **_k):
@@ -228,9 +227,9 @@ async def test_stream_skips_count_when_recent_window_has_room():
     chat.summary = None
     with (
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[MagicMock()])),
-        patch("app.repositories.messages.count_for_chat", count),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=chat)),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=[MagicMock()])),
+        patch.object(messages_repository, "count_for_chat", count),
         patch(
             "app.modules.chat.turn_intercepts.try_image_gen_for_turn",
             AsyncMock(return_value=False),
@@ -259,7 +258,7 @@ async def test_stream_skips_count_when_recent_window_has_room():
 @pytest.mark.asyncio
 async def test_stream_counts_when_recent_window_is_full():
     user = _pro_user()
-    redis = AsyncMock()
+    redis = redis_mock()
     count = AsyncMock(return_value=40)
 
     async def fake_stream(*_a, **_k):
@@ -269,12 +268,13 @@ async def test_stream_counts_when_recent_window_is_full():
     chat.summary = None
     with (
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=chat)),
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(return_value=[MagicMock(), MagicMock()]),
         ),
-        patch("app.repositories.messages.count_for_chat", count),
+        patch.object(messages_repository, "count_for_chat", count),
         patch(
             "app.modules.chat.turn_intercepts.try_image_gen_for_turn",
             AsyncMock(return_value=False),
@@ -298,3 +298,49 @@ async def test_stream_counts_when_recent_window_is_full():
             pass
 
     count.assert_awaited_once()
+
+
+# ── chat service: quota guard ──────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("used", [100, 101], ids=["at-limit", "over-limit"])
+async def test_stream_chat_response_quota_exceeded(used: int) -> None:
+    from app.exceptions import QuotaExceededError
+    from app.modules import chat as chat_service
+
+    user_id = uuid4()
+    redis = redis_mock()
+    settings = Settings(daily_token_limit=100)
+    fake_user = MagicMock(id=user_id, plan="free", default_model="free-chat")
+    usage = AsyncMock(return_value=used)
+    # Soft quota reads actual usage; mocking reserve_usage no longer rejects
+    # the turn. Fail immediately if the guard lets message persistence begin.
+    prepare = AsyncMock(side_effect=AssertionError("Over-limit turn reached preparation"))
+    deps = turn_deps(
+        session_factory=lambda: FakeSessionCM(),
+        chats={"get_by_id": AsyncMock(return_value=MagicMock(summary=None))},
+        messages={"list_recent": AsyncMock(return_value=[])},
+    )
+    with (
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
+        patch("app.services.quota.has_daily_usage_key", AsyncMock(return_value=True)),
+        patch("app.services.quota.get_daily_usage", usage),
+        patch("app.services.quota.reserve_usage", AsyncMock()) as reserve,
+        patch("app.modules.chat.stream_entry.prepare_chat_turn", prepare),
+    ):
+        with pytest.raises(QuotaExceededError):
+            async for _t in chat_service.stream_chat_response(
+                deps,
+                redis,
+                settings,
+                user_id=user_id,
+                chat_id=uuid4(),
+                content="hi",
+            ):
+                pass
+
+    usage.assert_awaited_once_with(redis, str(user_id))
+    reserve.assert_not_awaited()
+    prepare.assert_not_awaited()

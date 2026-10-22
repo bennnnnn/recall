@@ -416,7 +416,7 @@ def test_every_law_promises_inputs_its_solver_answers(law: object) -> None:
     assert frozenset(params) in law.spec.binding.inputs
     intent = ChemistryIntent(
         kind=law.kind,  # type: ignore[arg-type]
-        chemistry_op=law.op,  # type: ignore[arg-type]
+        chemistry_op=law.op,
         params=params,
         units=units,
         formula=formula,

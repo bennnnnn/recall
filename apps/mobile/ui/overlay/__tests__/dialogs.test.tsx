@@ -9,7 +9,6 @@ jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
   useTheme: () => mockLightTheme,
 }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
 describe("confirmDialog() without a host", () => {
   it("falls back to the platform alert with the same choices", async () => {

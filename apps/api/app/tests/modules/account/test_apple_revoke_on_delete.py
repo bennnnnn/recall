@@ -135,7 +135,6 @@ def test_user_out_says_whether_apple_signs_in():
         "name": None,
         "avatar_url": None,
         "default_model": "free-chat",
-        "response_style": "balanced",
         "memory_enabled": True,
         "created_at": datetime(2024, 1, 1),
     }

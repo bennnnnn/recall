@@ -11,18 +11,10 @@ from collections.abc import Callable, Collection
 from dataclasses import dataclass
 
 from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.solvers.arithmetic import latex_num, quadratic_roots
 from app.modules.physics.solvers.average_speed import (
     _AVERAGE_SPEED_OPERATIONS,
     solve_average_speed,
-)
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    _latex_num,
-    _params_in_si,
-    gravity_of,
-    quadratic_roots,
-    solved,
 )
 from app.modules.physics.solvers.motion_scenes import fall_scenes, fall_speed_pictures
 from app.modules.physics.solvers.rates import _RATE_OPERATIONS, _solve_distance_speed_time
@@ -30,6 +22,8 @@ from app.modules.physics.solvers.relative_motion import (
     RELATIVE_MOTION_OPERATIONS,
     solve_relative_motion,
 )
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult, solved
+from app.modules.physics.solvers.si import gravity_of, params_in_si
 from app.modules.physics.solvers.stopping import _solve_stopping_distance
 from app.modules.physics.solvers.two_stage import TWO_STAGE_OPERATIONS, solve_two_stage
 from app.services.solving import SolveServiceError
@@ -76,7 +70,7 @@ class _Fall:
 
 def _read_fall(intent: PhysicsIntent) -> _Fall:
     """The fall's givens, refused when no op could answer from them."""
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     fall = _Fall(
         op=intent.physics_op or "time_to_ground",
         g=gravity_of(p),
@@ -116,17 +110,17 @@ def _time_to_ground(fall: _Fall) -> PhysicsResult:
     g, h0, v0 = fall.g, fall.h0, fall.v0
     # Solve h(t) = 0 for t > 0.
     t_val = _landed(fall)
-    v0_sq = _latex_num(v0, square=True)
+    v0_sq = latex_num(v0, square=True)
     if fall.stated_height:
         formula = r"t = \frac{v_0 + \sqrt{v_0^2 + 2 g h_0}}{g}"
         substitution = (
-            rf"t = \frac{{{_latex_num(v0)} + \sqrt{{{v0_sq} + 2 \cdot {g:g} \cdot {h0:g}}}}}"
+            rf"t = \frac{{{latex_num(v0)} + \sqrt{{{v0_sq} + 2 \cdot {g:g} \cdot {h0:g}}}}}"
             rf"{{{g:g}}}"
         )
     else:
         # Up and back to the launch height: twice the time to the top.
         formula = r"t = \frac{2 v_0}{g}"
-        substitution = rf"t = \frac{{2 \cdot {_latex_num(v0)}}}{{{g:g}}}"
+        substitution = rf"t = \frac{{2 \cdot {latex_num(v0)}}}{{{g:g}}}"
     answer_latex = rf"{formula} = {substitution.split(' = ', 1)[1]} \approx {t_val:.2f} \text{{ s}}"
     return solved(
         QuantityResult("", t_val, "s"),
@@ -151,17 +145,17 @@ def _velocity_or_speed(fall: _Fall) -> PhysicsResult:
     elif op == "speed":
         v_val = abs(v_val)
         formula = r"v = \lvert v_0 - g \cdot t\rvert"
-        substitution = rf"v = \lvert {_latex_num(v0)} - {g:g} \cdot {t_val:g}\rvert"
+        substitution = rf"v = \lvert {latex_num(v0)} - {g:g} \cdot {t_val:g}\rvert"
         answer_latex = (
             rf"v = \lvert v_0 - g \cdot t\rvert = "
-            rf"\lvert {_latex_num(v0)} - {g:g} \cdot {t_val:g}\rvert "
+            rf"\lvert {latex_num(v0)} - {g:g} \cdot {t_val:g}\rvert "
             rf"\approx {v_val:.2f} \text{{ m/s}}"
         )
     else:
         formula = r"v = v_0 - g t"
-        substitution = rf"v = {_latex_num(v0)} - {g:g} \cdot {t_val:g}"
+        substitution = rf"v = {latex_num(v0)} - {g:g} \cdot {t_val:g}"
         answer_latex = (
-            rf"v = v_0 - g t = {_latex_num(v0)} - {g:g} \cdot {t_val:g} "
+            rf"v = v_0 - g t = {latex_num(v0)} - {g:g} \cdot {t_val:g} "
             rf"\approx {v_val:.2f} \text{{ m/s}}"
         )
     scenes, graphs = fall_speed_pictures(
@@ -186,12 +180,12 @@ def _impact(fall: _Fall) -> tuple[float, str, str, str]:
     sign = "-" if op == "velocity" else ""
     formula = rf"{symbol} = {sign}\sqrt{{v_0^2 + 2gh_0}}"
     substitution = (
-        rf"{symbol} = {sign}\sqrt{{{_latex_num(v0, square=True)} + "
+        rf"{symbol} = {sign}\sqrt{{{latex_num(v0, square=True)} + "
         rf"2 \cdot {g:g} \cdot {h0:g}}}"
     )
     answer_latex = (
         rf"{symbol} = {sign}\sqrt{{v_0^2 + 2gh_0}} = "
-        rf"{sign}\sqrt{{{_latex_num(v0, square=True)} + 2 \cdot {g:g} \cdot {h0:g}}} "
+        rf"{sign}\sqrt{{{latex_num(v0, square=True)} + 2 \cdot {g:g} \cdot {h0:g}}} "
         rf"\approx {v_val:.2f} \text{{ m/s}}"
     )
     return v_val, formula, substitution, answer_latex
@@ -207,15 +201,15 @@ def _position(fall: _Fall) -> PhysicsResult:
     if fall.stated_height:
         formula = r"h = h_0 + v_0 t - \frac{1}{2} g t^2"
         substitution = (
-            rf"h = {h0:g} + {_latex_num(v0)} \cdot {t_val:g} - "
-            rf"\frac{{1}}{{2}} \cdot {g:g} \cdot {_latex_num(t_val, square=True)}"
+            rf"h = {h0:g} + {latex_num(v0)} \cdot {t_val:g} - "
+            rf"\frac{{1}}{{2}} \cdot {g:g} \cdot {latex_num(t_val, square=True)}"
         )
     else:
         # The height above the launch point.
         formula = r"h = v_0 t - \frac{1}{2} g t^2"
         substitution = (
-            rf"h = {_latex_num(v0)} \cdot {t_val:g} - "
-            rf"\frac{{1}}{{2}} \cdot {g:g} \cdot {_latex_num(t_val, square=True)}"
+            rf"h = {latex_num(v0)} \cdot {t_val:g} - "
+            rf"\frac{{1}}{{2}} \cdot {g:g} \cdot {latex_num(t_val, square=True)}"
         )
     answer_latex = rf"{formula} = {substitution.split(' = ', 1)[1]} \approx {h_val:.2f} \text{{ m}}"
     return solved(
@@ -233,9 +227,9 @@ def _time_to_peak(fall: _Fall) -> PhysicsResult:
         raise SolveServiceError("only an upward launch has a top to reach")
     t_top = v0 / g
     formula = r"t_{\text{top}} = \frac{v_0}{g}"
-    substitution = rf"t_{{\text{{top}}}} = \frac{{{_latex_num(v0)}}}{{{g:g}}}"
+    substitution = rf"t_{{\text{{top}}}} = \frac{{{latex_num(v0)}}}{{{g:g}}}"
     answer_latex = (
-        rf"t_{{\text{{top}}}} = \frac{{v_0}}{{g}} = \frac{{{_latex_num(v0)}}}{{{g:g}}} "
+        rf"t_{{\text{{top}}}} = \frac{{v_0}}{{g}} = \frac{{{latex_num(v0)}}}{{{g:g}}} "
         rf"\approx {t_top:.2f} \text{{ s}}"
     )
     # As for the peak height: the picture is the whole trip, the answer its top.
@@ -254,7 +248,7 @@ def _vertical_max_height(fall: _Fall) -> PhysicsResult:
     if v0 <= 0:
         raise SolveServiceError("maximum height for a vertical launch requires v0 > 0")
     h_val = h0 + v0**2 / (2 * g)
-    rise = rf"\frac{{{_latex_num(v0, square=True)}}}{{2 \cdot {g:g}}}"
+    rise = rf"\frac{{{latex_num(v0, square=True)}}}{{2 \cdot {g:g}}}"
     if fall.stated_height:
         formula = r"h_{\max} = h_0 + \frac{v_0^2}{2g}"
         substitution = rf"h_{{\max}} = {h0:g} + {rise}"

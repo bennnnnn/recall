@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { useAuthToken } from "@/contexts/AuthContext";
+import { useAccountSession } from "@/contexts/accountSession";
 import {
   AttachmentViewerChrome,
   type AttachmentViewerProps,
@@ -30,7 +30,7 @@ export function AttachmentTextViewer({ visible, attachmentId, path, ...chrome }:
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const token = useAuthToken();
+  const { account, getToken } = useAccountSession();
   const [text, setText] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -52,7 +52,7 @@ export function AttachmentTextViewer({ visible, attachmentId, path, ...chrome }:
     setFailed(false);
     void (async () => {
       try {
-        const bytes = await fetchAttachmentBytes(remoteUri, token, controller.signal);
+        const bytes = await fetchAttachmentBytes(remoteUri, getToken(), controller.signal);
         if (controller.signal.aborted) return;
         const decoded = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
         setText(decoded.length > MAX_PREVIEW_CHARS ? decoded.slice(0, MAX_PREVIEW_CHARS) : decoded);
@@ -63,7 +63,7 @@ export function AttachmentTextViewer({ visible, attachmentId, path, ...chrome }:
       }
     })();
     return () => controller.abort();
-  }, [visible, remoteUri, token]);
+  }, [visible, remoteUri, account, getToken]);
 
   return (
     <AttachmentViewerChrome

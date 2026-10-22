@@ -32,6 +32,7 @@ import {
   healDroppedCommandSlash,
 } from "@/lib/math/healMathSource";
 import { mathPadHeight } from "@/lib/math/keyboardPad";
+import { useLatestRef } from "@/lib/latestRef";
 
 function hasEditableMath(text: string): boolean {
   return text.includes("$") && !isMostlyProsePaste(text);
@@ -63,13 +64,14 @@ export function useMathKeyboardInsert(options: {
   const [previewEnabled, setPreviewEnabled] = useState(false);
   const previewEnabledRef = useRef(false);
   const draftRevisionRef = useRef(draftRevision);
+  // The draft whose math state this render shows; another draft shows no preview until reset.
+  const [seenRevision, setSeenRevision] = useState(draftRevision);
   const pinRef = useRef<TextSelection | null>(null);
   const mathBarOpenRef = useRef(false);
   /** Outside tap hides the pad, but the next composer focus brings it back. ABC clears this. */
   const resumeMathRef = useRef(false);
   const [resumeMathOnFocus, setResumeMathOnFocus] = useState(false);
-  const textRef = useRef(input);
-  textRef.current = input;
+  const textRef = useLatestRef(input);
 
   useEffect(() => {
     const event = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -91,6 +93,7 @@ export function useMathKeyboardInsert(options: {
   useLayoutEffect(() => {
     if (draftRevisionRef.current === draftRevision) return;
     draftRevisionRef.current = draftRevision;
+    setSeenRevision(draftRevision);
     previewEnabledRef.current = false;
     setPreviewEnabled(false);
     mathBarOpenRef.current = false;
@@ -116,7 +119,7 @@ export function useMathKeyboardInsert(options: {
     textRef.current = healed.text;
     setInput(healed.text);
     pinSelection({ start: healed.start, end: healed.end });
-  }, [input, pinSelection, selection, setInput]);
+  }, [input, pinSelection, selection, setInput, textRef]);
 
   const onSelectionChange = useCallback(
     (event: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
@@ -135,7 +138,7 @@ export function useMathKeyboardInsert(options: {
       setSelection(next);
       setForcedSelection(undefined);
     },
-    [],
+    [textRef],
   );
 
   const onChangeText = useCallback(
@@ -193,7 +196,7 @@ export function useMathKeyboardInsert(options: {
         });
       }
     },
-    [onImageOnlyPaste, pinSelection, selection, setInput],
+    [onImageOnlyPaste, pinSelection, selection, setInput, textRef],
   );
 
   const openMathBar = useCallback(() => {
@@ -206,7 +209,7 @@ export function useMathKeyboardInsert(options: {
     setResumeMathOnFocus(true);
     mathBarOpenRef.current = true;
     setMathBarOpen(true);
-  }, [enablePreview]);
+  }, [enablePreview, textRef]);
 
   const dismissMathBar = useCallback(() => {
     if (!mathBarOpenRef.current) return;
@@ -245,7 +248,7 @@ export function useMathKeyboardInsert(options: {
         advanced != null ? { start: advanced, end: advanced } : result.selection,
       );
     },
-    [enablePreview, pinSelection, selection, setInput],
+    [enablePreview, pinSelection, selection, setInput, textRef],
   );
 
   const backspace = useCallback(() => {
@@ -255,7 +258,7 @@ export function useMathKeyboardInsert(options: {
     textRef.current = healed.text;
     setInput(healed.text);
     pinSelection({ start: healed.start, end: healed.end });
-  }, [pinSelection, selection, setInput]);
+  }, [pinSelection, selection, setInput, textRef]);
 
   const pasteText = useCallback(
     async (text: string) => {
@@ -271,7 +274,7 @@ export function useMathKeyboardInsert(options: {
       setInput(spliced);
       pinSelection({ start: caret, end: caret });
     },
-    [enablePreview, pinSelection, selection, setInput],
+    [enablePreview, pinSelection, selection, setInput, textRef],
   );
 
   const stepCaret = useCallback(
@@ -286,7 +289,7 @@ export function useMathKeyboardInsert(options: {
       }
       pinSelection({ start: next, end: next });
     },
-    [pinSelection, selection],
+    [pinSelection, selection, textRef],
   );
 
   const moveCaret = useCallback(
@@ -294,7 +297,7 @@ export function useMathKeyboardInsert(options: {
       const next = Math.max(0, Math.min(pos, textRef.current.length));
       pinSelection({ start: next, end: next });
     },
-    [pinSelection],
+    [pinSelection, textRef],
   );
 
   const toggleMathBar = useCallback(() => {
@@ -309,11 +312,11 @@ export function useMathKeyboardInsert(options: {
       return;
     }
     openMathBar();
-  }, [openMathBar, pinSelection]);
+  }, [openMathBar, pinSelection, textRef]);
 
   return {
     mathBarOpen,
-    showMathPreview: draftRevisionRef.current === draftRevision && previewEnabled && hasEditableMath(input),
+    showMathPreview: seenRevision === draftRevision && previewEnabled && hasEditableMath(input),
     padHeight,
     resumeMathOnFocus,
     toggleMathBar,

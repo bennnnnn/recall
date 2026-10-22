@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.math.solve import MathServiceError
+from app.modules.math.solve import SolveServiceError
 from app.modules.math.unit_conversion import convert_unit
 
 # ---------------------------------------------------------------------------
@@ -162,10 +162,10 @@ def test_converter_pad_prompts_round_trip(value: float, src: str, dest: str) -> 
 
 
 def test_incompatible_dimensions_raise() -> None:
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         convert_unit(1.0, "m", "kg")
 
 
 def test_unknown_unit_raises() -> None:
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         convert_unit(1.0, "foo", "bar")

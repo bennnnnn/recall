@@ -8,21 +8,21 @@ from sympy import Poly, Symbol, degree, expand, factor, latex, simplify
 from app.modules.math.schemas import MathExprResult
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.display import format_verified_latex
-from app.modules.math.solve.parse import _parse_expression
+from app.modules.math.solve.parse import parse_expression
 
 
 def simplify_expression(expr: str, variable: str = "x") -> MathExprResult:
     # School-level simplification is over the reals unless the prompt names a
     # complex domain.  The real assumption is essential for identities such
     # as sqrt(x^2) = |x|; an unconstrained complex symbol leaves it unchanged.
-    parsed = _parse_expression(expr, [variable], real=True)
+    parsed = parse_expression(expr, [variable], real=True)
     result = simplify(parsed)
     return MathExprResult(result=str(result), latex=format_verified_latex(result))
 
 
 def factor_expression(expr: str, variable: str = "x") -> MathExprResult:
     """Factor a polynomial/expression into a product of irreducible factors."""
-    parsed = _parse_expression(expr, [variable])
+    parsed = parse_expression(expr, [variable])
     result = factor(parsed)
     # General display simplification can expand a product again. Preserve
     # the requested factor form, including exact symbolic coefficients.
@@ -31,7 +31,7 @@ def factor_expression(expr: str, variable: str = "x") -> MathExprResult:
 
 def expand_expression(expr: str, variable: str = "x") -> MathExprResult:
     """Expand a factored expression into a sum of terms."""
-    parsed = _parse_expression(expr, [variable])
+    parsed = parse_expression(expr, [variable])
     result = expand(parsed)
     return MathExprResult(result=str(result), latex=latex(result))
 
@@ -48,7 +48,7 @@ def factored_key_step(lhs: str, rhs: str, variable: str = "x") -> str | None:
     """
     with sympy_decline():
         symbol = Symbol(variable)
-        expr = simplify(_parse_expression(lhs, [variable]) - _parse_expression(rhs, [variable]))
+        expr = simplify(parse_expression(lhs, [variable]) - parse_expression(rhs, [variable]))
         if degree(Poly(expr, symbol)) < 2:
             return None
         factored = factor(expr)

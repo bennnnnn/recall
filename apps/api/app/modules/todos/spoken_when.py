@@ -18,27 +18,11 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import NamedTuple
 
+from app.services.calendar_dates import read_dates
+
 _WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 # The words a day is said as on its own, as ``date_for_day`` reads them.
 DAY_NAMES = frozenset(("today", "tomorrow", *_WEEKDAYS))
-_MONTHS = {
-    "jan": 1,
-    "feb": 2,
-    "mar": 3,
-    "apr": 4,
-    "may": 5,
-    "jun": 6,
-    "jul": 7,
-    "aug": 8,
-    "sep": 9,
-    "oct": 10,
-    "nov": 11,
-    "dec": 12,
-}
-_MONTH = (
-    r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?"
-    r"|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
-)
 _LEAD = r"\b(?:(?:on|for|by|this|coming)\s+){0,2}"
 _DAY_RE = re.compile(
     _LEAD + r"(?P<next>next\s+)?(?P<day>today|tonight|tomorrow|" + "|".join(_WEEKDAYS) + r")\b",
@@ -71,11 +55,8 @@ _REPEAT_RE = re.compile(
     r"|every\s+(?P<monthly>month)|(?P<monthly2>monthly))\b",
     re.IGNORECASE,
 )
-_DATE_RE = re.compile(
-    _LEAD + r"(?:(?P<mon>" + _MONTH + r")\.?\s+(?P<d1>\d{1,2})(?:st|nd|rd|th)?"
-    r"|(?P<d2>\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?P<mon2>" + _MONTH + r"))\b",
-    re.IGNORECASE,
-)
+# The words before a date that go with it out of the reminder's text: "on", "by Dec 25".
+_LEAD_BEFORE = re.compile(r"\b(?:(?:on|for|by|this|coming)\s+){1,2}\Z", re.IGNORECASE)
 # "6pm", "7:30 a.m.": the am/pm clock, read at a place or found anywhere.
 _AMPM = r"(?P<h>\d{1,2})(?::(?P<m>[0-5]\d))?\s*(?P<ap>[ap])\.?m\b\.?"
 _AMPM_RE = re.compile(_AMPM, re.IGNORECASE)
@@ -113,14 +94,15 @@ def find_when(text: str) -> SpokenWhen:
 
 
 def _find_day(text: str, found: SpokenWhen) -> None:
-    dated = _DATE_RE.search(text)
+    # A named date or an ISO one ("Dec 25", "25th of December", "2026-12-25").
+    dated = next(iter(read_dates(text)), None)
     day = _DAY_RE.search(text)
-    if dated is not None and (day is None or dated.start() < day.start()):
-        month = _MONTHS[(dated.group("mon") or dated.group("mon2"))[:3].lower()]
-        number = int(dated.group("d1") or dated.group("d2"))
-        if 1 <= number <= 31:
-            found.day = f"{month:02d}-{number:02d}"
-            found.spans.append(dated.span())
+    if dated is not None:
+        lead = _LEAD_BEFORE.search(text, 0, dated.start)
+        start = dated.start if lead is None else lead.start()
+        if day is None or start < day.start():
+            found.day = f"{dated.month:02d}-{dated.day:02d}"
+            found.spans.append((start, dated.end))
             return
     if day is None:
         day = _SHORT_DAY_RE.search(text)

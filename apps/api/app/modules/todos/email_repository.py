@@ -1,38 +1,14 @@
 """Conditional finalization of a delivered dated To-do email occurrence."""
 
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, cast
-from uuid import UUID
 
 from sqlalchemy import update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
-
-
-@dataclass(frozen=True)
-class TodoEmailSnapshot:
-    id: UUID
-    user_id: UUID
-    content: str
-    due_at: datetime | None
-    recurrence_rule: str | None
-    checked: bool
-    email_sent_at: datetime | None
-
-    @classmethod
-    def from_todo(cls, todo: TodoItem) -> "TodoEmailSnapshot":
-        return cls(
-            todo.id,
-            todo.user_id,
-            todo.content,
-            todo.due_at,
-            todo.recurrence_rule,
-            todo.checked,
-            todo.email_sent_at,
-        )
+from app.modules.todos.occurrences import TodoEmailSnapshot
 
 
 async def mark_email_sent_if_current(

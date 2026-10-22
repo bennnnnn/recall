@@ -18,6 +18,7 @@ from app.models.orm import User
 from app.modules import memory as memory_service
 from app.modules.account import profile as profile_service
 from app.modules.chat import is_lightweight_chat_turn
+from app.modules.memory.switch import memory_switch_on
 from app.modules.web_search import TurnTavilyBudget, WebSearchAdapter
 from app.services.prompt_safety import wrap_untrusted
 
@@ -43,7 +44,7 @@ async def execute_tool(
     if name not in {"memory_lookup", "web_search"}:
         return {"content": "This action is not available in voice."}
     settings = profile_service.settings_for_user(settings, user)
-    if name == "memory_lookup" and not user.memory_enabled:
+    if name == "memory_lookup" and not memory_switch_on(user):
         return {"content": "Memory is disabled. Do not use saved personal details."}
     # One reservation per tool per utterance, including retries and concurrent
     # function calls. Unknown IDs cannot bypass daily search quotas/rate limits.
@@ -61,7 +62,7 @@ async def execute_tool(
     try:
         async with asyncio.timeout(12):
             if name == "memory_lookup":
-                if not user.memory_enabled:
+                if not memory_switch_on(user):
                     result = {"content": "Memory is disabled. Do not use saved personal details."}
                 else:
                     async with SessionLocal() as session:
@@ -84,7 +85,7 @@ async def execute_tool(
                     user=user,
                     redis=redis,
                     chat_id=None,
-                    user_timezone=getattr(user, "timezone", None),
+                    user_timezone=user.timezone,
                     user_query=query,
                     tavily_budget=TurnTavilyBudget(settings=settings, user=user),
                 )

@@ -3,19 +3,6 @@ import { Text } from "react-native";
 
 import { CodeBlock } from "@/components/CodeBlock";
 
-jest.mock("expo-clipboard", () => ({
-  setStringAsync: jest.fn().mockResolvedValue(true),
-}));
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  selectionAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  ImpactFeedbackStyle: { Light: "Light" },
-  NotificationFeedbackType: { Success: "Success", Warning: "Warning" },
-}));
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 // The real Prism tokenizer loads through a dynamic import(); a one-token
 // stand-in keeps the card's layout under test.
 jest.mock("@/lib/codeTokenize", () => ({

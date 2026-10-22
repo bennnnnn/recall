@@ -1,16 +1,18 @@
+from datetime import UTC, datetime, time, timedelta
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis
+from app.core.etag import conditional_json
 from app.models.orm import User
-from app.models.schemas import TodoCreate, TodoOut, TodoPageOut, TodoReorderBody, TodoUpdate
 from app.modules.todos import crud as todos_crud
 from app.modules.todos import proposals as reminder_proposals
+from app.modules.todos.schemas import TodoCreate, TodoOut, TodoPageOut, TodoUpdate
 
 router = APIRouter(prefix="/todos", tags=["todos"])
 
@@ -22,42 +24,37 @@ def _map_error(exc: todos_crud.TodosError) -> HTTPException:
 _MAX_TODOS_PAGE = 1000
 
 
-@router.get("", response_model=list[TodoOut])
-async def list_todos(
-    limit: int = _MAX_TODOS_PAGE,
-    offset: int = 0,
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> list[TodoOut]:
-    # Expose pagination (forward-compatible for the web client) and raise the
-    # default page from 200 to 1000 so a heavy user no longer silently loses
-    # todos past the cap. Clamp at the max so a caller can't request an
-    # unbounded scan.
-    limit = max(1, min(limit, _MAX_TODOS_PAGE))
-    offset = max(0, offset)
-    items = await todos_crud.list_todos(session, user, limit=limit, offset=offset)
-    return [TodoOut.model_validate(item) for item in items]
+def _completed_since(days: int) -> datetime:
+    """Midnight UTC ``days`` ago: the same all day, so an unchanged list keeps its ETag."""
+    return datetime.combine(datetime.now(UTC).date() - timedelta(days=days), time(), UTC)
 
 
 @router.get("/page", response_model=TodoPageOut)
 async def list_todos_page(
+    request: Request,
     limit: int = Query(default=_MAX_TODOS_PAGE, ge=1, le=_MAX_TODOS_PAGE),
     cursor: UUID | None = None,
+    # Completed rows only from the last this many days; the rest on request
+    # (code-health audit NET-16). Omitted: every row.
+    completed_days: int | None = Query(default=None, ge=1, le=3650),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
-) -> TodoPageOut:
-    items, next_cursor = await todos_crud.list_todos_page(session, user, limit=limit, cursor=cursor)
-    return TodoPageOut(
-        items=[TodoOut.model_validate(item) for item in items], next_cursor=next_cursor
+) -> Response:
+    since = _completed_since(completed_days) if completed_days is not None else None
+    items, next_cursor = await todos_crud.list_todos_page(
+        session, user, limit=limit, cursor=cursor, completed_since=since
     )
-
-
-@router.get("/topics", response_model=list[str])
-async def list_todo_topics(
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> list[str]:
-    return await todos_crud.list_topics(session, user)
+    older = (
+        since is not None
+        and cursor is None
+        and await todos_crud.has_older_completed(session, user, since)
+    )
+    page = TodoPageOut(
+        items=[TodoOut.model_validate(item) for item in items],
+        next_cursor=str(next_cursor) if next_cursor else None,
+        older_completed=older,
+    )
+    return conditional_json(request, page)
 
 
 @router.post("", response_model=TodoOut, status_code=status.HTTP_201_CREATED)
@@ -66,34 +63,24 @@ async def create_todo(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> TodoOut:
-    try:
-        item = await todos_crud.create_todo(
-            session,
-            user,
-            content=body.content,
-            topic=body.topic,
-            chat_id=body.chat_id,
-            due_at=body.due_at,
-            recurrence_rule=body.recurrence_rule,
-        )
-    except todos_crud.TodosError as exc:
-        raise _map_error(exc) from exc
+    item = await todos_crud.create_todo(
+        session,
+        user,
+        content=body.content,
+        topic=body.topic,
+        chat_id=body.chat_id,
+        due_at=body.due_at,
+        recurrence_rule=body.recurrence_rule,
+    )
     return TodoOut.model_validate(item)
-
-
-@router.post("/reorder", response_model=list[TodoOut])
-async def reorder_todos(
-    body: TodoReorderBody,
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> list[TodoOut]:
-    payload = [(item.id, item.sort_order, item.topic) for item in body.items]
-    items = await todos_crud.reorder_todos(session, user, payload)
-    return [TodoOut.model_validate(item) for item in items]
 
 
 class ReminderProposalConfirmOut(BaseModel):
     items: list[reminder_proposals.CardItem]
+    # The rows the tap wrote and deleted, for the phone to apply without reading its
+    # list again (code-health audit NET-16); null when the card was already saved.
+    todos: list[TodoOut] | None = None
+    deleted_ids: list[UUID] = []
 
 
 @router.post("/proposals/{proposal_id}/confirm", response_model=ReminderProposalConfirmOut)
@@ -104,13 +91,18 @@ async def confirm_reminder_proposal(
     redis: Redis = Depends(get_redis),
 ) -> ReminderProposalConfirmOut:
     """Save the reminder change a chat card offered. A second tap is a no-op."""
-    try:
-        items = await reminder_proposals.confirm_proposal(
-            session, redis, user_id=user.id, proposal_id=proposal_id
-        )
-    except reminder_proposals.ProposalError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
-    return ReminderProposalConfirmOut(items=items)
+    confirmed = await reminder_proposals.confirm_proposal(
+        session, redis, user_id=user.id, proposal_id=proposal_id
+    )
+    return ReminderProposalConfirmOut(
+        items=confirmed.items,
+        todos=(
+            None
+            if confirmed.rows is None
+            else [TodoOut.model_validate(row) for row in confirmed.rows]
+        ),
+        deleted_ids=confirmed.deleted_ids,
+    )
 
 
 @router.patch("/{todo_id}", response_model=TodoOut)
@@ -120,12 +112,9 @@ async def update_todo(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> TodoOut:
-    try:
-        updated = await todos_crud.update_todo(
-            session, user, todo_id, body.model_dump(exclude_unset=True)
-        )
-    except todos_crud.TodosError as exc:
-        raise _map_error(exc) from exc
+    updated = await todos_crud.update_todo(
+        session, user, todo_id, body.model_dump(exclude_unset=True)
+    )
     return TodoOut.model_validate(updated)
 
 
@@ -135,22 +124,4 @@ async def delete_todo(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> None:
-    try:
-        await todos_crud.delete_todo(session, user, todo_id)
-    except todos_crud.TodosError as exc:
-        raise _map_error(exc) from exc
-
-
-@router.delete("/topic/{topic}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_todo_topic(
-    topic: str,
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> None:
-    """Delete an entire list (topic) in one call — only items without a due_at
-    (lists, not reminders) are removed, matching delete_by_topic's semantics.
-    """
-    try:
-        await todos_crud.delete_topic(session, user, topic)
-    except todos_crud.TodosError as exc:
-        raise _map_error(exc) from exc
+    await todos_crud.delete_todo(session, user, todo_id)

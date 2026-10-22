@@ -54,6 +54,7 @@ dev = [
     "pytest>=9.1.1,<10",
     "pytest-asyncio>=0.24.0,<1.5",
     "pytest-cov>=6.0.0,<8",
+    "pytest-timeout>=2.3,<3",
     "ruff>=0.8.0,<0.18",
 ]
 
@@ -70,7 +71,18 @@ override-dependencies = [
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["app/tests"]
-addopts = ["--assert=plain", "--import-mode=importlib"]
+# Assertion rewriting is on: a failure shows the values that differed. Plain asserts
+# worked around a collection segfault that was CPython 3.12.3 (see requires-python).
+addopts = ["--import-mode=importlib"]
+# A test that hangs fails after a minute, with every thread's stack, instead of holding
+# CI until the job's limit (code-health audit TEST-09).
+timeout = 60
+# A coroutine nobody awaited, or an exception raised where nothing could catch it, is a
+# bug the test would otherwise pass over.
+filterwarnings = [
+    "error::RuntimeWarning",
+    "error::pytest.PytestUnraisableExceptionWarning",
+]
 
 [tool.ruff]
 line-length = 100
@@ -109,6 +121,8 @@ python_version = "3.12"
 strict = false
 ignore_missing_imports = true
 files = ["app"]
+# A suppression that no longer suppresses anything is reported (code-health audit CLAR-06).
+warn_unused_ignores = true
 
 # Incremental strict: expand package by package. Do not flip global `strict` —
 # in mypy <2.x, `strict = true` in overrides leaks globally. Use expanded
@@ -127,6 +141,14 @@ module = [
     "app.repositories.*",
     "app.services.quota",
     "app.services.quota.*",
+    "app.modules.billing",
+    "app.modules.billing.*",
+    "app.modules.todos",
+    "app.modules.todos.*",
+    "app.gateways",
+    "app.gateways.*",
+    "app.modules.memory",
+    "app.modules.memory.*",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

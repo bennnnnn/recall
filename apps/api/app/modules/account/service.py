@@ -3,16 +3,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.validation import normalize_display_name
+from app.exceptions import AuthenticationError
 from app.gateways.apple_auth import verify_apple_id_token
-from app.gateways.google_auth import (
-    GoogleAuthError,
-    verify_google_id_token,
-)
 
 # Re-exported for the account API (maps it to 503, not 401).
 from app.gateways.google_auth import (
     GoogleAuthUnavailableError as GoogleAuthUnavailableError,
 )
+from app.gateways.google_auth import verify_google_id_token
 from app.models.orm import User
 from app.models.schemas import AuthResponse, UserOut
 from app.modules.account import quota_carryover
@@ -88,7 +86,7 @@ async def login_with_google(
 
     if user is None:
         if not email:
-            raise GoogleAuthError(
+            raise AuthenticationError(
                 "Google did not share an email. Check that the Google account "
                 "has a verified email, or use Apple Sign-In."
             )
@@ -152,7 +150,7 @@ async def login_with_apple(
     # string form and to a missing claim (which must not silently pass).
     email_verified = payload.get("email_verified")
     if not claim_is_true(email_verified):
-        raise GoogleAuthError("Apple email address is not verified")
+        raise AuthenticationError("Apple email address is not verified")
 
     user = await users_repo.get_by_apple_sub(session, apple_sub)
     is_new_user = user is None
@@ -168,7 +166,7 @@ async def login_with_apple(
 
     if user is None:
         if not email:
-            raise GoogleAuthError(
+            raise AuthenticationError(
                 "Apple did not share an email. Revoke Recall in Apple ID settings "
                 "and sign in again, or use Google Sign-In."
             )
@@ -214,7 +212,7 @@ async def login_dev(
     platform: str | None = None,
 ) -> AuthResponse:
     if not settings.dev_auth_enabled:
-        raise GoogleAuthError("Dev auth is disabled")
+        raise AuthenticationError("Dev auth is disabled")
 
     google_sub = f"dev:{email}"
     user = await users_repo.get_by_google_sub(session, google_sub)

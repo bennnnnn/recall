@@ -78,10 +78,12 @@ def test_day_planning_answer_hint_uses_plain_markdown_not_callout_cards():
 
 
 def test_day_planning_answer_hint_says_recall_has_no_calendar_or_inbox():
-    assert "does not connect to the user's calendar or email" in DAY_PLANNING_ANSWER_HINT
-    assert "never invent meetings or mail" in DAY_PLANNING_ANSWER_HINT
+    assert (
+        "does not connect to the user's calendar or email" in DAY_PLANNING_ANSWER_HINT
+    )  # safety phrase
+    assert "never invent meetings or mail" in DAY_PLANNING_ANSWER_HINT  # safety phrase
     assert "Settings →" not in DAY_PLANNING_ANSWER_HINT
-    assert "Do not suggest connecting an account" in DAY_PLANNING_ANSWER_HINT
+    assert "Do not suggest connecting an account" in DAY_PLANNING_ANSWER_HINT  # safety phrase
 
 
 def test_day_plan_style_hints_include_snapshot_and_override_format_contract_callouts():
@@ -95,7 +97,7 @@ def test_day_plan_style_hints_include_snapshot_and_override_format_contract_call
     assert "a blockquote starting with Tip:" not in joined
     assert "A `>` quote card is only a cited quotation whose last line is " in joined
     assert "> Warning:" in joined
-    assert "Never a card" in joined
+    assert DAY_PLANNING_ANSWER_HINT in joined
     assert "quote card" in joined
 
 

@@ -86,11 +86,12 @@ def use_school_log_notation() -> None:
             return str(original_log(self, expr, exp))
         return f"{name}{_argument(self, arg)}"
 
+    # A function takes attributes; mypy models none.
     _print_mul.school_log_notation = True  # type: ignore[attr-defined]
     # SymPy has no setting for either spelling, so its printer is patched once.
-    setattr(LatexPrinter, "_print_Mul", _print_mul)  # noqa: B010
-    setattr(LatexPrinter, "_print_log", _print_log)  # noqa: B010
-    setattr(LatexPrinter, "_print_Add", _print_add)  # noqa: B010
+    setattr(LatexPrinter, "_print_Mul", _print_mul)  # noqa: B010 - a plain assignment fails mypy
+    setattr(LatexPrinter, "_print_log", _print_log)  # noqa: B010 - a plain assignment fails mypy
+    setattr(LatexPrinter, "_print_Add", _print_add)  # noqa: B010 - a plain assignment fails mypy
 
 
 def school_text(expr: Any) -> str:

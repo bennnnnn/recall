@@ -2,9 +2,9 @@
  * The circuit diagram's reading and layout, as pure functions: what the
  * schematic is allowed to draw, and where each symbol, wire and label goes.
  */
+import { circuitLabelBoxes } from "@/lib/physics/__tests__/support/circuitLabels";
 import {
   circuitDepth,
-  circuitLabelBoxes,
   circuitPartCount,
   describeCircuit,
   layoutCircuit,

@@ -21,7 +21,6 @@ from uuid import UUID, uuid4
 import fakeredis.aioredis
 import httpx
 import pytest
-import redis.asyncio as redis_asyncio
 
 from app.core import access_tokens
 from app.core import redis as core_redis
@@ -203,37 +202,38 @@ async def _seed(settings: Settings, storage_root: Path) -> tuple[UUID, UUID, Own
 async def delete_accounts(*user_ids: UUID) -> None:
     from app.core.db import SessionLocal
     from app.core.user_cache import forget_user
-    from app.repositories import users as users_repo
+    from app.modules.account import lifecycle
 
     for user_id in user_ids:
         async with SessionLocal() as session:
-            await users_repo.delete_user(session, user_id)
+            await lifecycle.erase_user_rows(session, user_id)
         forget_user(user_id)
 
 
 def isolated_settings(monkeypatch: pytest.MonkeyPatch, storage_root: Path) -> Settings:
-    from app.gateways.storage_gateway import reset_storage_gateway_cache
+    from app.gateways import storage_gateway
 
     monkeypatch.setenv("STORAGE_BACKEND", "local")
     monkeypatch.setenv("STORAGE_LOCAL_PATH", str(storage_root))
     monkeypatch.setenv("MOCK_LLM_ENABLED", "true")
     get_settings.cache_clear()
-    reset_storage_gateway_cache()
+    storage_gateway._gateway_cache = None
     return get_settings()
 
 
 def use_fake_redis(monkeypatch: pytest.MonkeyPatch, fake: Any) -> None:
-    """Every ``get_redis_client()`` caller (one lru-cached function) gets ``fake``."""
+    """Every Redis client the app makes (the app's and the jobs stream's) is ``fake``."""
     core_redis.get_redis_client.cache_clear()
-    monkeypatch.setattr(redis_asyncio, "from_url", lambda *_a, **_k: fake)
+    core_redis.get_jobs_redis_client.cache_clear()
+    monkeypatch.setattr(core_redis, "_connect", lambda *_a, **_k: fake)
 
 
 def reset_process_caches() -> None:
-    from app.gateways.storage_gateway import reset_storage_gateway_cache
+    from app.gateways import storage_gateway
 
     core_redis.get_redis_client.cache_clear()
     get_settings.cache_clear()
-    reset_storage_gateway_cache()
+    storage_gateway._gateway_cache = None
 
 
 @pytest.fixture

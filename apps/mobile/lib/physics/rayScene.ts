@@ -58,7 +58,7 @@ export type RaySceneSpec = {
  * converge light, in-turned ones spread it), an interface's boundary along
  * the axis, or a mirror's face with its hatching behind.
  */
-export type RayElement =
+type RayElement =
   | { kind: "lens"; outward: boolean }
   | { kind: "interface" }
   | { kind: "mirror"; curve: ScreenPoint[]; hatches: Segment[] };
@@ -66,9 +66,9 @@ export type RayElement =
 /** An object or an image standing on the axis at `x`; `uy` is -1 when it points up. */
 export type StandingArrow = { x: number; length: number; uy: number; head: number; virtual: boolean };
 
-export type SceneRay = { virtual: boolean; points: ScreenPoint[]; marks: RayMark[] };
+type SceneRay = { virtual: boolean; points: ScreenPoint[]; marks: RayMark[] };
 
-export type SceneAngle = {
+type SceneAngle = {
   points: ScreenPoint[];
   endDirection: { ux: number; uy: number };
   arrow: boolean;

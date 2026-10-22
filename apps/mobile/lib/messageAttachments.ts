@@ -1,5 +1,5 @@
 import { attachmentIdFromRef } from "@/lib/attachmentRef";
-import { readFenceMarker } from "@/lib/mdFenceScan";
+import { fenceAfterLine, type OpenFence } from "@/lib/mdFenceScan";
 import { SCANNER_CAMERA_PROMPTS } from "@/lib/scanner/subjects";
 
 // resolveAttachmentUri loads no other scheme; file: and local refs never leave the phone.
@@ -168,18 +168,11 @@ export function parseMessageImages(content: string): {
 } {
   const images: ParsedMessageImage[] = [];
   const kept: string[] = [];
-  let fence: { char: string; len: number } | null = null;
+  let fence: OpenFence | null = null;
   for (const line of content.split("\n")) {
-    const marker = readFenceMarker(line);
-    if (fence) {
-      if (marker && marker.char === fence.char && marker.len >= fence.len && !marker.info) {
-        fence = null;
-      }
-      kept.push(line);
-      continue;
-    }
-    if (marker && !marker.info.includes("|")) {
-      fence = { char: marker.char, len: marker.len };
+    const before = fence;
+    fence = fenceAfterLine(fence, line);
+    if (before || fence) {
       kept.push(line);
       continue;
     }

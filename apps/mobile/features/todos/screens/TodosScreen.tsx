@@ -36,8 +36,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
   const navigation = useNavigation();
-  const { focus, highlight } = useLocalSearchParams<{
-    focus?: string;
+  const { highlight } = useLocalSearchParams<{
     highlight?: string;
   }>();
   const {
@@ -49,6 +48,8 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     markSeenIds,
     getTodos,
     isCurrentSession,
+    olderCompleted,
+    showOlderCompleted,
   } = useTodos();
   const [editorOpen, setEditorOpen] = useState(false);
   const [pullRefreshing, setPullRefreshing] = useState(false);
@@ -211,11 +212,6 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
   if (!token) return <Redirect href="/login" />;
 
-  // Legacy links used focus=list; the list is the only view now.
-  if (focus === "list") {
-    return <Redirect href="/todos" />;
-  }
-
   if (loading && todos.length === 0) {
     return <SkeletonList />;
   }
@@ -276,6 +272,9 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         selecting={selecting}
         selectedIds={selected}
         onSelect={toggleSelected}
+        onShowOlder={olderCompleted && !selecting && (view === "all" || view === "completed")
+          ? () => void showOlderCompleted()
+          : undefined}
       />
       )}
 

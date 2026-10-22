@@ -272,10 +272,10 @@ def derivative_key_steps(expr: Any, variable: str) -> list[KeyStep]:
 
 def derivative_trace(expr: str, variable: str) -> tuple[list[KeyStep], str | None]:
     """Parse, then trace: (steps, ``\\frac{d}{dx}(...)`` to show as the problem)."""
-    from app.modules.math.solve.parse import _parse_expression
+    from app.modules.math.solve.parse import parse_expression
 
     with sympy_decline() as declined:
-        parsed = _parse_expression(expr, [variable])
+        parsed = parse_expression(expr, [variable])
     if declined:
         return [], None
     steps = derivative_key_steps(parsed, variable)

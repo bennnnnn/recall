@@ -15,9 +15,17 @@ from collections.abc import Callable
 
 
 class TtlCache[K, V]:
-    def __init__(self, *, ttl_seconds: float, max_entries: int) -> None:
+    def __init__(
+        self,
+        *,
+        ttl_seconds: float,
+        max_entries: int,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._ttl = ttl_seconds
         self._max = max(1, max_entries)
+        # A test sets its own clock here, never ``time.monotonic`` for the whole process.
+        self.clock = clock
         # Oldest first: a write moves its key to the end.
         self._entries: dict[K, tuple[float, V]] = {}
 
@@ -29,13 +37,13 @@ class TtlCache[K, V]:
         if hit is None:
             return None
         stored_at, value = hit
-        if time.monotonic() - stored_at > self._ttl:
+        if self.clock() - stored_at > self._ttl:
             self._entries.pop(key, None)
             return None
         return value
 
     def put(self, key: K, value: V) -> None:
-        now = time.monotonic()
+        now = self.clock()
         self._entries.pop(key, None)
         self._entries[key] = (now, value)
         self._prune(now)

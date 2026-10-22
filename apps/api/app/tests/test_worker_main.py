@@ -24,9 +24,8 @@ async def test_run_worker_uses_shared_bootstrap():
         patch("app.worker_main.process_bootstrap.initialize_process", initialize),
         patch("app.worker_main.process_bootstrap.start_worker_runtime", start),
         patch("app.worker_main.process_bootstrap.shutdown_process", shutdown),
-        patch("app.worker_main.asyncio.Event") as event_cls,
+        patch("app.worker_main.wait_for_stop_or_death", AsyncMock(return_value=[])),
     ):
-        event_cls.return_value.wait = AsyncMock(return_value=None)
         await _run_worker()
 
     initialize.assert_awaited_once_with(settings)
@@ -53,11 +52,10 @@ async def test_run_worker_starts_health_server_when_port_set():
         patch("app.worker_main.process_bootstrap.initialize_process", AsyncMock()),
         patch("app.worker_main.process_bootstrap.start_worker_runtime", AsyncMock()),
         patch("app.worker_main.process_bootstrap.shutdown_process", AsyncMock()),
-        patch("app.worker_main.asyncio.Event") as event_cls,
+        patch("app.worker_main.wait_for_stop_or_death", AsyncMock(return_value=[])),
         patch("uvicorn.Server", return_value=fake_server) as server_ctor,
         patch("uvicorn.Config", return_value=fake_config) as config_ctor,
     ):
-        event_cls.return_value.wait = AsyncMock(return_value=None)
         await _run_worker()
 
     assert config_ctor.call_args.kwargs["port"] == 8001
@@ -101,14 +99,13 @@ async def test_run_worker_shuts_down_on_sigterm():
 
 @pytest.mark.parametrize("status", [0, 1])
 def test_worker_main_exits_with_the_run_status(status):
-    with patch("app.worker_main.asyncio.run", return_value=status) as run_mock:
+    with patch("app.worker_main._run_worker", AsyncMock(return_value=status)) as run_worker:
         from app.worker_main import main
 
         with pytest.raises(SystemExit) as exited:
             main()
     assert exited.value.code == status
-    run_mock.assert_called_once()
-    run_mock.call_args.args[0].close()
+    run_worker.assert_awaited_once()
 
 
 @pytest.mark.parametrize(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.modules.math.solve import MathServiceError
+from app.modules.math.solve import SolveServiceError
 from app.services.units import get_unit_registry
 
 # Aliases the old hardcoded tables accepted that Pint doesn't by default.
@@ -47,7 +47,7 @@ def convert_unit(value: float, src: str, dest: str) -> str:
     """Convert a value from one unit to another using Pint dimensional analysis.
 
     Handles length, mass, time, temperature (C/F/K), and compound units
-    (m/s, m/s², N, J, Pa, W, Hz, etc.). Raises MathServiceError on
+    (m/s, m/s², N, J, Pa, W, Hz, etc.). Raises SolveServiceError on
     unsupported conversions or dimensionality mismatches.
     """
     ureg = get_unit_registry()
@@ -88,7 +88,7 @@ def convert_unit(value: float, src: str, dest: str) -> str:
                 except Exception as inner:
                     last_exc = inner
                     continue
-        raise MathServiceError(f"unsupported conversion {src} to {dest}") from last_exc
+        raise SolveServiceError(f"unsupported conversion {src} to {dest}") from last_exc
 
     try:
         quantity = _quantity(value, src)
@@ -105,8 +105,8 @@ def convert_unit(value: float, src: str, dest: str) -> str:
             except Exception as exc:
                 last_exc = exc
                 continue
-        raise MathServiceError(f"unsupported conversion {src} to {dest}") from last_exc
-    except MathServiceError:
+        raise SolveServiceError(f"unsupported conversion {src} to {dest}") from last_exc
+    except SolveServiceError:
         raise
     except Exception as exc:
-        raise MathServiceError(f"unsupported conversion {src} to {dest}") from exc
+        raise SolveServiceError(f"unsupported conversion {src} to {dest}") from exc

@@ -2,6 +2,7 @@ import { ActivityIndicator, Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import type { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
+import { COMPOSER_CONTROL_SIZE } from "@/features/chat/model/composerLogic";
 import { LiveTalkButton } from "@/features/speech/components/LiveTalkButton";
 import { VoiceMicButton } from "@/features/speech/components/VoiceMicButton";
 import { useTheme } from "@/lib/theme";
@@ -66,6 +67,7 @@ export function ComposerSendControls({
     <View style={s.sendBtnSlot}>
       {showMic && onVoicePress ? (
         <VoiceMicButton
+          size={COMPOSER_CONTROL_SIZE}
           recording={voiceRecording}
           transcribing={voiceTranscribing}
           disabled={attachBusy || sendBusy || isOffline}
@@ -73,7 +75,7 @@ export function ComposerSendControls({
         />
       ) : null}
       {onLiveTalkPress && !liveTalkOpen && !voiceActive && !showSend && !sendBusy ? (
-        <LiveTalkButton disabled={attachBusy || isOffline} onPress={onLiveTalkPress} />
+        <LiveTalkButton size={COMPOSER_CONTROL_SIZE} disabled={attachBusy || isOffline} onPress={onLiveTalkPress} />
       ) : null}
       {showSend || sendBusy ? (
         <Pressable

@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/ui/icons/Icon";
 import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
 import { StateView } from "@/ui/feedback/StateView";
-import { displayChatTitle } from "@/features/chat/model/title";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import type { SearchResult } from "@/lib/api";
@@ -49,10 +48,12 @@ export function DrawerSearchResultsChrome({
 
 type RowProps = {
   result: SearchResult;
+  /** The chat's title as the drawer shows it (the chat feature owns how titles read). */
+  title: string;
   onOpenChat: (chatId: string, messageId?: string | null) => void;
 };
 
-export function DrawerSearchResultRow({ result, onOpenChat }: RowProps) {
+export function DrawerSearchResultRow({ result, title, onOpenChat }: RowProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme);
@@ -76,7 +77,7 @@ export function DrawerSearchResultRow({ result, onOpenChat }: RowProps) {
           color={result.match_type === "title" ? theme.primary : theme.textSecondary}
         />
         <Text style={s.searchResultTitle} numberOfLines={1}>
-          {displayChatTitle(result.chat_title, {}, t)}
+          {title}
         </Text>
         {result.match_type === "title" ? (
           <Text style={s.searchResultBadge}>{t("search.topic_match")}</Text>

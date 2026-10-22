@@ -4,11 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _NUMBER,
-    _ordered_values,
-)
 from app.modules.physics.extractors.school_common import (
     _PRESSURE,
     _VOLUME,
@@ -16,15 +11,17 @@ from app.modules.physics.extractors.school_common import (
     _kelvin,
     _one,
 )
+from app.modules.physics.extractors.stated_values import ordered_values
 from app.modules.physics.extractors.thermal_readings import _reservoir_temperatures
+from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 
 
 def extract_poiseuille(text: str, lower: str) -> PhysicsIntent | None:
     if "poiseuille" not in lower:
         return None
-    radius = _one(text, _LENGTH_UNIT_PATTERN, ("radius",), require_keyword=True)
-    length = _one(text, _LENGTH_UNIT_PATTERN, ("length", "long"), require_keyword=True)
+    radius = _one(text, LENGTH_UNIT_PATTERN, ("radius",), require_keyword=True)
+    length = _one(text, LENGTH_UNIT_PATTERN, ("length", "long"), require_keyword=True)
     pressure = _one(text, _PRESSURE)
     viscosity = _one(text, r"Pa·s|Pa\*s|Pa s")
     if radius is None or length is None or pressure is None or viscosity is None:
@@ -48,10 +45,10 @@ def extract_poiseuille(text: str, lower: str) -> PhysicsIntent | None:
 
 
 def extract_gravitation(text: str, lower: str) -> PhysicsIntent | None:
-    mass = _ordered_values(text, r"kg|tonnes?|tons?")
+    mass = ordered_values(text, r"kg|tonnes?|tons?")
     distance = _one(
         text,
-        _LENGTH_UNIT_PATTERN,
+        LENGTH_UNIT_PATTERN,
         ("radius", "distance", "separation", "apart", "from the center"),
     )
     if "gravitational potential energy" in lower:
@@ -107,7 +104,7 @@ def extract_thermal(text: str, lower: str) -> PhysicsIntent | None:
         )
     if "isobaric" in lower:
         pressure = _one(text, _PRESSURE)
-        volumes = _ordered_values(text, _VOLUME)
+        volumes = ordered_values(text, _VOLUME)
         if pressure is None or len(volumes) != 2:
             return None
         return _intent(
@@ -131,12 +128,12 @@ def extract_thermal(text: str, lower: str) -> PhysicsIntent | None:
 
 def _adiabatic(text: str, lower: str) -> PhysicsIntent | None:
     del lower
-    gamma = re.search(rf"\bgamma(?:\s+is|\s+of|=)?\s*({_NUMBER})", text, re.IGNORECASE)
+    gamma = re.search(rf"\bgamma(?:\s+is|\s+of|=)?\s*({NUMBER})", text, re.IGNORECASE)
     if gamma is None:
         return None
     # Boyle and Charles already read "2 atm" and "3 L". This law uses the same units.
-    pressures = _ordered_values(text, _PRESSURE + r"|atm|atmospheres?")
-    volumes = _ordered_values(text, _VOLUME + r"|mL|L")
+    pressures = ordered_values(text, _PRESSURE + r"|atm|atmospheres?")
+    volumes = ordered_values(text, _VOLUME + r"|mL|L")
     params: dict[str, float] = {"gamma_gas": float(gamma.group(1))}
     units = {"gamma_gas": ""}
     if len(pressures) == 1 and len(volumes) == 2:
@@ -190,9 +187,9 @@ def _ideal_gas(text: str) -> PhysicsIntent | None:
     # A second pressure, volume, or temperature is a change of state. Keeping
     # the first state would answer n = PV/RT and block the combined-gas law.
     if (
-        len(_ordered_values(text, _PRESSURE)) > 1
-        or len(_ordered_values(text, _VOLUME)) > 1
-        or len(_ordered_values(text, r"K|kelvins?")) > 1
+        len(ordered_values(text, _PRESSURE)) > 1
+        or len(ordered_values(text, _VOLUME)) > 1
+        or len(ordered_values(text, r"K|kelvins?")) > 1
     ):
         return None
     pressure = _one(text, _PRESSURE)

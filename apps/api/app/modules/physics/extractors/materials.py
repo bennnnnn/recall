@@ -4,17 +4,16 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _NUMBER,
-    _find_value_with_specific_unit,
-    _ordered_values,
-    _strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
-from app.modules.physics.extractors.fluid_readings import _AREA_PATTERN, _PRESSURE_PATTERN
+from app.modules.physics.extractors.fluid_readings import _PRESSURE_PATTERN, AREA_PATTERN
+from app.modules.physics.extractors.stated_values import (
+    find_value_with_specific_unit,
+    ordered_values,
+)
+from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, NUMBER
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -30,31 +29,31 @@ _MATERIALS_CUE_RES: tuple[re.Pattern[str], ...] = (
         re.IGNORECASE,
     ),
     re.compile(
-        rf"\bstrain\b.{{0,80}}?\d\s*(?:{_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9])", re.IGNORECASE
+        rf"\bstrain\b.{{0,80}}?\d\s*(?:{LENGTH_UNIT_PATTERN})(?![A-Za-z0-9])", re.IGNORECASE
     ),
     re.compile(
-        rf"\d\s*(?:{_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9]).{{0,80}}?\bstrain\b", re.IGNORECASE
+        rf"\d\s*(?:{LENGTH_UNIT_PATTERN})(?![A-Za-z0-9]).{{0,80}}?\bstrain\b", re.IGNORECASE
     ),
 )
 
 
 def _extract_materials_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _MATERIALS_CUES, _MATERIALS_CUE_RES):
+    if not has_cue(lower, _MATERIALS_CUES, _MATERIALS_CUE_RES):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
 
-    stress = _find_value_with_specific_unit(cleaned, _PRESSURE_PATTERN)
-    strain_match = re.search(rf"strain\s*(?:of|is|=)?\s*({_NUMBER})", cleaned, re.IGNORECASE)
-    force = _find_value_with_specific_unit(cleaned, r"N|newtons?", ("force", "load"))
-    area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN)
-    original = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("wire", "rod", "bar", "long", "length", "original")
+    stress = find_value_with_specific_unit(cleaned, _PRESSURE_PATTERN)
+    strain_match = re.search(rf"strain\s*(?:of|is|=)?\s*({NUMBER})", cleaned, re.IGNORECASE)
+    force = find_value_with_specific_unit(cleaned, r"N|newtons?", ("force", "load"))
+    area = find_value_with_specific_unit(cleaned, AREA_PATTERN)
+    original = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("wire", "rod", "bar", "long", "length", "original")
     )
-    extension = _find_value_with_specific_unit(
+    extension = find_value_with_specific_unit(
         cleaned,
-        _LENGTH_UNIT_PATTERN,
+        LENGTH_UNIT_PATTERN,
         ("extends", "extension", "stretches", "lengthens", "elongat"),
     )
 
@@ -75,7 +74,7 @@ def _extract_materials_intent(cleaned: str) -> PhysicsIntent | None:
         # Two distinct lengths, not one read twice. "a wire extends by 4 mm"
         # matches both keyword sets on the same value, which would give a
         # strain of exactly 1 for any wire.
-        lengths = _ordered_values(cleaned, _LENGTH_UNIT_PATTERN)
+        lengths = ordered_values(cleaned, LENGTH_UNIT_PATTERN)
         if len(lengths) == 2:
             original, extension = lengths
         if original is None or extension is None or len(lengths) < 2:

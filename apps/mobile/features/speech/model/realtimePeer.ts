@@ -22,7 +22,22 @@ type WebRtcTrack = {
 type WebRtcStream = {
   getTracks: () => WebRtcTrack[];
   getAudioTracks: () => WebRtcTrack[];
+  /** Frees the native stream and its tracks (react-native-webrtc). */
+  release?: () => void;
 };
+
+/**
+ * A track's `stop()` only flags it: the native stream, track and source stay in
+ * WebRTCModule until `release()`, one more per session and per failed connect
+ * (code-health audit LEAK-06).
+ */
+function releaseStream(stream: WebRtcStream): void {
+  try {
+    stream.release?.();
+  } catch {
+    /* already released */
+  }
+}
 
 type WebRtcSessionDescription = { sdp?: string };
 
@@ -112,7 +127,7 @@ export function loadWebRtc(): NativeWebRtc | null {
   if (!isWebRtcLinked()) return null;
   try {
     // Native module: Live Talk requires a rebuilt dev client, not Expo Go.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded after the native probe; an import crashes Expo Go
     const webrtc = require("react-native-webrtc") as NativeWebRtc;
     if (webrtc.__WEBRTC_STUB__) return null;
     return webrtc;
@@ -179,6 +194,7 @@ export async function openRealtimeMicrophone(
   const audioTracks = stream.getAudioTracks();
   if (audioTracks.length === 0) {
     for (const track of stream.getTracks()) track.stop();
+    releaseStream(stream);
     throw new Error("webrtc_unavailable");
   }
   debugRealtime("microphone-ready", {
@@ -360,6 +376,7 @@ export function createRealtimePeer(
       remoteAudioTracks.clear();
       for (const track of localStream.getTracks()) track.stop();
       pc.close();
+      releaseStream(localStream);
     },
   };
 }

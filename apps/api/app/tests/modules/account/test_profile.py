@@ -142,7 +142,8 @@ def test_settings_for_user_keeps_the_server_switches_when_search_is_on(enabled):
     from app.modules.account.profile import settings_for_user
 
     settings = Settings(web_search_enabled=True, image_search_enabled=True)
-    user = SimpleNamespace() if enabled is None else SimpleNamespace(web_search_enabled=enabled)
+    # None: a row built in code and not saved yet, which takes the column's default.
+    user = SimpleNamespace(web_search_enabled=enabled)
     assert settings_for_user(settings, user) is settings
 
 

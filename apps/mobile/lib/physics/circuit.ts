@@ -14,6 +14,8 @@
  * top of the loop stays straight.
  */
 
+import { guard, optionalText, refuse, requireRecord } from "@/lib/fenceValidate";
+
 export type CircuitPartKind =
   | "resistor"
   | "bulb"
@@ -41,7 +43,7 @@ type CircuitGroupNode = {
   role: CircuitRole;
 };
 
-export type CircuitNode = CircuitPartNode | CircuitGroupNode;
+type CircuitNode = CircuitPartNode | CircuitGroupNode;
 
 export type CircuitSourceKind = "battery" | "ac";
 
@@ -67,57 +69,35 @@ const SERIES_LIMITS = [2, 6] as const;
 const PARALLEL_LIMITS = [2, 4] as const;
 const MAX_LABEL = 24;
 
-class Invalid extends Error {}
-
-function fail(): never {
-  throw new Invalid();
-}
-
-function record(raw: unknown): Record<string, unknown> {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) fail();
-  return raw as Record<string, unknown>;
-}
-
-/**
- * An optional string of at most `max` code points (Pydantic counts code
- * points, not UTF-16 units). `null` and a missing key are both "absent"; an
- * empty string is absent too, since it would draw nothing.
- */
-function optionalText(value: unknown, max: number): string | undefined {
-  if (value === undefined || value === null) return undefined;
-  if (typeof value !== "string" || [...value].length > max) fail();
-  return value.length > 0 ? value : undefined;
-}
-
 function role(value: unknown): CircuitRole {
   if (value === undefined || value === null || value === "given") return "given";
   if (value === "result") return "result";
-  return fail();
+  return refuse();
 }
 
 function parseNode(raw: unknown, level: number, count: { parts: number }): CircuitNode {
-  const row = record(raw);
+  const row = requireRecord(raw);
   const has = (key: string) => row[key] !== undefined && row[key] !== null;
   const kinds = [has("part"), has("series"), has("parallel")].filter(Boolean).length;
-  if (kinds !== 1) fail();
+  if (kinds !== 1) refuse();
   const label = optionalText(row.label, MAX_LABEL);
   const detail = optionalText(row.detail, MAX_LABEL);
   const nodeRole = role(row.role);
 
   if (has("part")) {
-    if (!CIRCUIT_PARTS.includes(row.part as CircuitPartKind)) fail();
+    if (!CIRCUIT_PARTS.includes(row.part as CircuitPartKind)) refuse();
     count.parts += 1;
-    if (count.parts > MAX_CIRCUIT_PARTS) fail();
+    if (count.parts > MAX_CIRCUIT_PARTS) refuse();
     return { kind: "part", part: row.part as CircuitPartKind, label, detail, role: nodeRole };
   }
 
   // A group one level deeper than the server allows is refused on the way
   // down, so a pathological fence never recurses far.
-  if (level > MAX_CIRCUIT_DEPTH) fail();
+  if (level > MAX_CIRCUIT_DEPTH) refuse();
   const kind = has("series") ? "series" : "parallel";
   const list = row[kind];
   const [min, max] = kind === "series" ? SERIES_LIMITS : PARALLEL_LIMITS;
-  if (!Array.isArray(list) || list.length < min || list.length > max) fail();
+  if (!Array.isArray(list) || list.length < min || list.length > max) refuse();
   const children = list.map((child) => parseNode(child, level + 1, count));
   return { kind, children, label, detail, role: nodeRole };
 }
@@ -130,21 +110,18 @@ function parseNode(raw: unknown, level: number, count: { parts: number }): Circu
  * whole rather than drawn in part.
  */
 export function parseCircuitSpec(raw: unknown): CircuitSpec | null {
-  try {
-    const row = record(raw);
-    const sourceRow = record(row.source);
+  return guard(() => {
+    const row = requireRecord(raw);
+    const sourceRow = requireRecord(row.source);
     const kind = sourceRow.kind ?? "battery";
-    if (kind !== "battery" && kind !== "ac") fail();
+    if (kind !== "battery" && kind !== "ac") refuse();
     const load = parseNode(row.load, 1, { parts: 0 });
     return {
       source: { kind, label: optionalText(sourceRow.label, MAX_LABEL) },
       load,
       current: optionalText(row.current, MAX_LABEL),
     };
-  } catch (error) {
-    if (error instanceof Invalid) return null;
-    throw error;
-  }
+  });
 }
 
 export function circuitPartCount(node: CircuitNode): number {
@@ -160,9 +137,9 @@ export function circuitDepth(node: CircuitNode): number {
 // --- layout ---------------------------------------------------------------------
 
 /** Above a 12 pt label's baseline: cap height plus a little for accents. */
-const TEXT_ASCENT = 9;
+export const TEXT_ASCENT = 9;
 /** Below the baseline: subscripts (R₁) and descenders. */
-const TEXT_DESCENT = 3;
+export const TEXT_DESCENT = 3;
 const TEXT_HEIGHT = TEXT_ASCENT + TEXT_DESCENT;
 /** Every symbol fits within this distance of its wire, so a row's labels align. */
 const SYMBOL_HALF_HEIGHT = 9;
@@ -203,8 +180,8 @@ export const PART_HALF_SPAN: Record<CircuitPartKind, number> = {
 
 /** A label: `x` is its left edge and `y` its baseline, in layout units. */
 export type TextMark = { text: string; x: number; y: number; width: number };
-export type WireSegment = { x1: number; y1: number; x2: number; y2: number };
-export type PartMark = {
+type WireSegment = { x1: number; y1: number; x2: number; y2: number };
+type PartMark = {
   part: CircuitPartKind;
   cx: number;
   cy: number;
@@ -213,10 +190,10 @@ export type PartMark = {
   detail?: TextMark;
 };
 /** A light bracket over a group, with its combined value above it. */
-export type GroupMark = { x1: number; x2: number; y: number; role: CircuitRole; text: TextMark };
-export type SourceMark = { kind: CircuitSourceKind; cx: number; cy: number; label?: TextMark };
+type GroupMark = { x1: number; x2: number; y: number; role: CircuitRole; text: TextMark };
+type SourceMark = { kind: CircuitSourceKind; cx: number; cy: number; label?: TextMark };
 /** An upward arrow on the left wire: current leaving the source's top terminal. */
-export type CurrentMark = { x: number; tailY: number; tipY: number; label: TextMark };
+type CurrentMark = { x: number; tailY: number; tipY: number; label: TextMark };
 
 export type CircuitLayout = {
   /** Size of the drawing before it is scaled to fit. */
@@ -472,17 +449,6 @@ export function layoutCircuit(spec: CircuitSpec, width: number, measure: Measure
     source,
     current,
   };
-}
-
-/** Every label's box, for overlap checks: [left, top, right, bottom] in layout units. */
-export function circuitLabelBoxes(layout: CircuitLayout): [number, number, number, number][] {
-  const marks: TextMark[] = [
-    ...layout.parts.flatMap((part) => [part.label, part.detail]),
-    ...layout.groups.map((group) => group.text),
-    layout.source.label,
-    layout.current?.label,
-  ].filter((mark): mark is TextMark => Boolean(mark));
-  return marks.map((mark) => [mark.x, mark.y - TEXT_ASCENT, mark.x + mark.width, mark.y + TEXT_DESCENT]);
 }
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;

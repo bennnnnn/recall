@@ -4,13 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _NUMBER,
-    _VELOCITY_UNIT_PATTERN,
-    _find_value_with_specific_unit,
-    labeled_value,
-)
 from app.modules.physics.extractors.rotational_readings import (
     _INERTIA_PATTERN,
     _OMEGA_UNIT,
@@ -22,13 +15,22 @@ from app.modules.physics.extractors.rotational_readings import (
     _time,
     _torque_value,
 )
+from app.modules.physics.extractors.stated_values import (
+    find_value_with_specific_unit,
+    labeled_value,
+)
+from app.modules.physics.extractors.unit_patterns import (
+    LENGTH_UNIT_PATTERN,
+    NUMBER,
+    VELOCITY_UNIT_PATTERN,
+)
 from app.modules.physics.schemas import PhysicsIntent
 
 
 def _angular_impulse(cleaned: str) -> PhysicsIntent | None:
     values = _angular_values(cleaned)
     pair = re.search(
-        rf"\bfrom\s+({_NUMBER})\s+to\s+({_NUMBER})\s*(?:kg\s*m\^?2\s*/\s*s|kg\*m\^?2/s)",
+        rf"\bfrom\s+({NUMBER})\s+to\s+({NUMBER})\s*(?:kg\s*m\^?2\s*/\s*s|kg\*m\^?2/s)",
         cleaned,
         re.IGNORECASE,
     )
@@ -63,11 +65,11 @@ def _angular_impulse(cleaned: str) -> PhysicsIntent | None:
 def _angular_momentum(cleaned: str) -> PhysicsIntent | None:
     inertias = [
         float(match.group(1))
-        for match in re.finditer(rf"({_NUMBER})\s*(?:{_INERTIA_PATTERN})", cleaned, re.IGNORECASE)
+        for match in re.finditer(rf"({NUMBER})\s*(?:{_INERTIA_PATTERN})", cleaned, re.IGNORECASE)
     ]
     omegas = [
         float(match.group(1))
-        for match in re.finditer(rf"({_NUMBER})\s*(?:{_OMEGA_UNIT})\b", cleaned, re.IGNORECASE)
+        for match in re.finditer(rf"({NUMBER})\s*(?:{_OMEGA_UNIT})\b", cleaned, re.IGNORECASE)
     ]
     if len(inertias) < 1 or len(omegas) < 1:
         return None
@@ -103,19 +105,19 @@ def _angular_momentum(cleaned: str) -> PhysicsIntent | None:
 
 def _rolling(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    radius = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
+    radius = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
     )
-    speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
+    speed = find_value_with_specific_unit(cleaned, VELOCITY_UNIT_PATTERN)
     omega = labeled_value(cleaned, r"angular (?:velocity|speed)", _OMEGA_UNIT)
     if omega is None:
-        match = re.search(rf"({_NUMBER})\s*({_OMEGA_UNIT})\b", cleaned, re.IGNORECASE)
+        match = re.search(rf"({NUMBER})\s*({_OMEGA_UNIT})\b", cleaned, re.IGNORECASE)
         if match is not None and not re.search(
             r"\bfind\b.{0,40}?\bangular (?:velocity|speed)\b", lower
         ):
             omega = (float(match.group(1)), "rad/s")
     alpha = _alpha(cleaned)
-    linear_a = _find_value_with_specific_unit(cleaned, r"m/s\^?2|m/s2")
+    linear_a = find_value_with_specific_unit(cleaned, r"m/s\^?2|m/s2")
     params: dict[str, float] = {}
     units: dict[str, str] = {}
     if radius is not None:
@@ -168,15 +170,15 @@ def _rolling(cleaned: str) -> PhysicsIntent | None:
 
 def _parallel_axis(cleaned: str) -> PhysicsIntent | None:
     mass = _mass_not_inertia(cleaned)
-    center = _find_value_with_specific_unit(
+    center = find_value_with_specific_unit(
         cleaned,
         _INERTIA_PATTERN,
         ("center of mass", "centre of mass", "cm"),
         require_keyword=True,
     )
-    distance = _find_value_with_specific_unit(
+    distance = find_value_with_specific_unit(
         cleaned,
-        _LENGTH_UNIT_PATTERN,
+        LENGTH_UNIT_PATTERN,
         ("away", "distance", "axis"),
         require_keyword=True,
     )

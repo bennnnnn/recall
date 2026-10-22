@@ -648,7 +648,8 @@ def main() -> None:
     parser.add_argument("--area", help="one area")
     parser.add_argument("--show", action="store_true", help="also list coverage problems")
     args = parser.parse_args()
-    from app.core.sympy_executor import ThreadSympyExecutor, set_sympy_executor
+    from app.core.sympy_executor import set_sympy_executor
+    from app.tests.sympy_support import ThreadSympyExecutor
 
     set_sympy_executor(ThreadSympyExecutor(max_workers=1))
     entries = load(args.subject)

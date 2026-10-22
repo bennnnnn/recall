@@ -6,12 +6,6 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 }),
 }));
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
 jest.mock("@/lib/reduceMotion", () => ({
   useReduceMotion: () => false,
 }));
@@ -105,7 +99,6 @@ describe("ChatActionsMenu", () => {
     expect(queryByText("chat.export_pdf")).toBeNull();
   });
 });
-
 
 it("offers Unarchive before Pin for an archived conversation", async () => {
   const view = await render(<ChatActionsMenu {...baseProps} archived />);

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from app.modules.chat.prompt_constants.routing import EMOJI
 from app.modules.chat.prompt_constants.writing import draft_followup
 from app.modules.chat.prompt_constants.writing_kind import writing_request_kind
-from app.services.md_fence_scan import next_fence_marker_line
+from app.services.md_fence_scan import last_fence
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 if TYPE_CHECKING:
@@ -123,9 +123,5 @@ def _is_closer(sentence: str) -> bool:
 
 
 def _ends_inside_fence(text: str) -> bool:
-    count = 0
-    index = 0
-    while (marker := next_fence_marker_line(text, index)) is not None:
-        count += 1
-        index = marker[1]
-    return count % 2 == 1
+    last = last_fence(text)
+    return last is not None and not last.closed

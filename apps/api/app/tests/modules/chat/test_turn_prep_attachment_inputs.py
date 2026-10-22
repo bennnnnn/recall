@@ -19,6 +19,7 @@ from app.exceptions import AttachmentValidationError, ChatNotFoundError
 from app.modules.chat.turn_prep.attachments import _process_attachments
 from app.modules.math.image_extract import camera_math_user_suffix
 from app.modules.math.schemas import MathImageExtract
+from app.tests.fakes import redis_mock
 
 _EXTRACTED = MathImageExtract(lhs="2*x+3", rhs="7", variables=["x"], found=True)
 _SOLVE = "please solve this equation"
@@ -86,7 +87,7 @@ async def _run(
         patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=_Session()),
         patch("app.repositories.users.get_by_id", mocks["get_by_id"]),
         patch("app.modules.attachments.repository.get_by_ids", mocks["get_by_ids"]),
-        patch("app.modules.attachments.repository.mark_verified", mocks["mark_verified"]),
+        patch("app.modules.attachments.repository.mark_verified_many", mocks["mark_verified"]),
         patch("app.gateways.storage_gateway.get_storage_gateway", return_value=gateway) as gw,
         patch("app.modules.attachments.content.verify_uploaded_bytes", mocks["verify"]),
         patch("app.modules.attachments.content.purge_invalid_upload", mocks["purge"]),
@@ -102,7 +103,7 @@ async def _run(
             content=content,
             attachment_ids=[row.id for row in rows] if ids is None else ids,
             settings=Settings(attachments_enabled=True),
-            redis=AsyncMock(),
+            redis=redis_mock(),
             on_status=on_status,
         )
     mocks["gateway_value"] = gateway
@@ -118,7 +119,7 @@ async def test_flag_off_rejects_ids_and_no_ids_pass_the_text_through() -> None:
             content="hi",
             attachment_ids=[uuid4()],
             settings=Settings(attachments_enabled=False),
-            redis=AsyncMock(),
+            redis=redis_mock(),
             on_status=None,
         )
     result = await _process_attachments(
@@ -127,7 +128,7 @@ async def test_flag_off_rejects_ids_and_no_ids_pass_the_text_through() -> None:
         content="hi",
         attachment_ids=[],
         settings=Settings(attachments_enabled=True),
-        redis=AsyncMock(),
+        redis=redis_mock(),
         on_status=None,
     )
     assert (result.user, result.user_content, result.content) == (None, "hi", "hi")
@@ -197,7 +198,9 @@ async def test_camera_math_reads_the_first_image_from_the_verified_bytes() -> No
     result, mocks, _ = await _run([first, second], content=_SOLVE)
     mocks["read"].assert_not_awaited()
     assert mocks["extract"].await_args.kwargs == {"content_type": "image/jpeg", "data": b"verified"}
-    assert mocks["mark_verified"].await_count == 2
+    # Both uploads are marked verified in one statement.
+    mocks["mark_verified"].assert_awaited_once()
+    assert set(mocks["mark_verified"].await_args.args[1]) == {first.id, second.id}
     assert result.has_document_attachment is False
 
 
@@ -234,8 +237,8 @@ async def test_a_failed_verify_purges_and_refunds_only_a_reserved_image(reserved
     fakes = {"verify": verify, "purge": purge, "refund": refund, "mark_verified": mark_verified}
     with pytest.raises(AttachmentValidationError, match="Upload not found"):
         await _run([document, image], fakes=fakes)
-    mark_verified.assert_awaited_once()
-    assert mark_verified.call_args.args[1] == document.id
+    # A refused turn marks nothing; the next send checks the good upload again.
+    mark_verified.assert_not_awaited()
     assert purge.call_args.kwargs == {"attachment_id": image.id, "storage_key": image.storage_key}
     assert refund.await_count == (1 if reserved else 0)
     assert refund.await_args is None or refund.await_args.args[0] == "image_upload"

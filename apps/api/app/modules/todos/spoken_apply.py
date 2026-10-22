@@ -13,6 +13,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.todos.recurrence import is_recurrence_rule
 from app.modules.todos.schemas import RecurrenceRule
 from app.modules.todos.spoken_change import (
     SpokenReminderChange,
@@ -46,7 +47,6 @@ async def apply_spoken_change(
     that confirms a change in the app's own shape ("Reopened: buy milk.") is
     about a reminder, so a missing one gets the "Could not" line, not the claim.
     """
-    from app.modules.home import service as home_service
     from app.modules.todos.reminder_fence_parse import ReminderFence
     from app.modules.todos.reminder_writes import (
         ReminderWrites,
@@ -127,14 +127,10 @@ async def apply_spoken_change(
             title=title,
             user_timezone=user_timezone,
         )
-        if ok:
-            await home_service.invalidate_home_cache(user_id)
         return line, (1 if ok else 0)
     draft = ReminderFence(action=spoken.action, title=title, due_at=spoken.due_at)
     draft.repeat = spoken.repeat
     line, ok = await mutate_one(state, draft)
-    if ok:
-        await home_service.invalidate_home_cache(user_id)
     return line, (1 if ok else 0)
 
 
@@ -207,7 +203,7 @@ async def _apply_saved_fields(
             user_timezone=user_timezone,
             ok=False,
         ), False
-    await todos_repo.update(session, item, **fields)
+    await todos_repo.update(session, item, commit=False, **fields)
     if spoken.topic:
         when = format_schedule_when(due, user_timezone, repeat) if isinstance(due, datetime) else ""
         if when:
@@ -316,6 +312,4 @@ def _due_with_clock(
 
 def _kept_repeat(item: Any) -> RecurrenceRule | None:
     rule = getattr(item, "recurrence_rule", None)
-    if rule == "daily" or rule == "weekdays" or rule == "weekly" or rule == "monthly":
-        return rule
-    return None
+    return rule if is_recurrence_rule(rule) else None

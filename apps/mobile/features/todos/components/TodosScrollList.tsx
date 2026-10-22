@@ -16,6 +16,7 @@ import {
 } from "@/features/todos/model/todoListRows";
 import { useTheme } from "@/lib/theme";
 import { addFabClearance } from "@/ui/controls/addFabLayout";
+import { Button } from "@/ui/controls/Button";
 
 type Props = {
   rows: TodoListRow[];
@@ -32,6 +33,8 @@ type Props = {
   selecting?: boolean;
   selectedIds?: ReadonlySet<string>;
   onSelect?: (todo: Todo) => void;
+  /** Completed to-dos from before the last 30 days were left out: read them. */
+  onShowOlder?: () => void;
 };
 
 type SheetBlock = {
@@ -109,6 +112,7 @@ export function TodosScrollList({
   selecting = false,
   selectedIds,
   onSelect,
+  onShowOlder,
 }: Props) {
   const { t, i18n } = useTranslation();
   const C = useTheme();
@@ -136,6 +140,13 @@ export function TodosScrollList({
         ) : undefined
       }
       ListHeaderComponent={listHeader}
+      ListFooterComponent={
+        onShowOlder ? (
+          <View style={s.olderFooter}>
+            <Button variant="ghost" size="sm" title={t("todos.show_older_completed")} onPress={onShowOlder} />
+          </View>
+        ) : null
+      }
       ListEmptyComponent={
         !showEmpty && !error ? (
           <Text style={s.filterEmpty}>{t("todos.filter_empty")}</Text>

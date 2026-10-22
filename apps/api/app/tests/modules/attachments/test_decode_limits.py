@@ -10,7 +10,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import io
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -21,7 +20,7 @@ from PIL import Image
 from pypdf import PdfWriter
 
 from app.core.config import Settings
-from app.modules.attachments import ocr
+from app.modules.attachments import ocr, pdf_render
 from app.modules.attachments.image_decode import ImageTooLargeError
 from app.modules.attachments.thumbnails import resize_image_bytes
 
@@ -73,7 +72,7 @@ async def test_ocr_passes_the_configured_pixel_budget() -> None:
         seen.update(kwargs)
         return [], 0
 
-    with patch.object(ocr, "render_pdf_pages_and_count", fake_render):
+    with patch.object(pdf_render, "render_pdf_pages_and_count", fake_render):
         await ocr.ocr_scanned_pdf(settings, b"%PDF-1.4")
     assert seen["max_pixels"] == 123_456
 
@@ -117,19 +116,19 @@ async def test_thumbnail_decode_runs_off_the_event_loop() -> None:
     original = _image("PNG", 64)
     gateway.read_bytes = AsyncMock(side_effect=lambda key: original if key == "u/k" else None)
     gateway.write_bytes = AsyncMock()
-    calls: list[str] = []
-    real_to_thread = asyncio.to_thread
+    calls: list[tuple[str, str]] = []
+    real_run_blocking = thumbnails.run_blocking
 
-    async def spy_to_thread(func: Any, /, *args: Any, **kwargs: Any) -> Any:
-        calls.append(func.__name__)
-        return await real_to_thread(func, *args, **kwargs)
+    async def spy(kind: Any, func: Any, /, *args: Any, **kwargs: Any) -> Any:
+        calls.append((kind, func.__name__))
+        return await real_run_blocking(kind, func, *args, **kwargs)
 
     with (
         patch.object(workflow, "_verified_row", AsyncMock(return_value=(row, gateway))),
-        patch.object(thumbnails.asyncio, "to_thread", spy_to_thread),
+        patch.object(thumbnails, "run_blocking", spy),
     ):
         access = await workflow.get_file_access(
             MagicMock(), Settings(), MagicMock(), uuid4(), width=128
         )
-    assert "resize_image_bytes" in calls
+    assert ("images", "resize_image_bytes") in calls
     assert access.body

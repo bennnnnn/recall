@@ -4,6 +4,7 @@ import type { PurchasesPackage } from "react-native-purchases";
 
 import { isExpoGo } from "@/lib/expoRuntime";
 import type { PaidPlanId, PlanId } from "@/lib/plan";
+import { reportStoreUnavailable } from "@/lib/sentry";
 
 /**
  * RevenueCat entitlement per paid plan. "pro" keeps the single-plan id, so
@@ -22,7 +23,7 @@ const PLAN_PACKAGE_IDS: Record<PaidPlanId, string> = {
 
 /** Opaque handle — keeps react-native-purchases out of the static import graph
  * (its types are erased at build time). */
-export type PlanPackage = {
+type PlanPackage = {
   plan: PaidPlanId;
   /** Localized by the store ("$7.99", "7,99 €"); never hardcoded. */
   priceString: string;
@@ -52,7 +53,7 @@ function revenueCatApiKey(): string | null {
 }
 
 export function isPurchasesConfigured(): boolean {
-  if (Platform.OS === "web" || isExpoGo()) return false;
+  if (isExpoGo()) return false;
   return revenueCatApiKey() != null;
 }
 
@@ -106,39 +107,59 @@ export async function configurePurchases(appUserId: string): Promise<void> {
   configuredAppUserId = appUserId;
 }
 
-/** The store's packages for each paid plan in the current offering. */
-export async function getPlanPackages(): Promise<Partial<Record<PaidPlanId, PlanPackage>>> {
+export type PlanOffer = {
+  packages: Partial<Record<PaidPlanId, PlanPackage>>;
+  /** The store could not be read, or sells no plan: say so and offer a retry. */
+  unavailable: boolean;
+};
+
+const STORE_UNAVAILABLE: PlanOffer = { packages: {}, unavailable: true };
+
+/**
+ * The store's packages for each paid plan in the current offering. A failed read
+ * is `unavailable`, never an empty offer that looks like "no products".
+ */
+export async function getPlanPackages(): Promise<PlanOffer> {
   const mod = await loadPurchases();
-  if (!mod) return {};
+  if (!mod) return STORE_UNAVAILABLE;
+  let offerings: Awaited<ReturnType<PurchasesModule["default"]["getOfferings"]>>;
   try {
-    const offerings = await mod.default.getOfferings();
-    const offering = offerings.current;
-    if (!offering) return {};
-    const found: Partial<Record<PaidPlanId, PlanPackage>> = {};
-    for (const pkg of offering.availablePackages) {
-      for (const plan of ["plus", "pro"] as const) {
-        if (pkg.identifier === PLAN_PACKAGE_IDS[plan]) {
-          found[plan] = {
-            plan,
-            priceString: pkg.product.priceString,
-            productId: pkg.product.identifier,
-            native: pkg,
-          };
-        }
+    offerings = await mod.default.getOfferings();
+  } catch (error) {
+    reportStoreUnavailable(error);
+    return STORE_UNAVAILABLE;
+  }
+  const offering = offerings.current;
+  if (!offering) {
+    reportStoreUnavailable(new Error("The store has no current offering"));
+    return STORE_UNAVAILABLE;
+  }
+  const found: Partial<Record<PaidPlanId, PlanPackage>> = {};
+  for (const pkg of offering.availablePackages) {
+    for (const plan of ["plus", "pro"] as const) {
+      if (pkg.identifier === PLAN_PACKAGE_IDS[plan]) {
+        found[plan] = {
+          plan,
+          priceString: pkg.product.priceString,
+          productId: pkg.product.identifier,
+          native: pkg,
+        };
       }
     }
-    if (!found.plus && !found.pro && offering.monthly) {
-      found.pro = {
-        plan: "pro",
-        priceString: offering.monthly.product.priceString,
-        productId: offering.monthly.product.identifier,
-        native: offering.monthly,
-      };
-    }
-    return found;
-  } catch {
-    return {};
   }
+  if (!found.plus && !found.pro && offering.monthly) {
+    found.pro = {
+      plan: "pro",
+      priceString: offering.monthly.product.priceString,
+      productId: offering.monthly.product.identifier,
+      native: offering.monthly,
+    };
+  }
+  if (!found.plus && !found.pro) {
+    reportStoreUnavailable(new Error("The store's offering holds no plan"));
+    return STORE_UNAVAILABLE;
+  }
+  return { packages: found, unavailable: false };
 }
 
 /**

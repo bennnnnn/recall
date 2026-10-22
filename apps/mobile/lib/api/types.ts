@@ -26,7 +26,6 @@ export type User = {
   /** What the plan includes (display only; the server checks every request). */
   features?: PlanFeature[];
   enabled_models: string[] | null;
-  response_style: string;
   /** Three follow-up questions under a reply; on unless the user turned it off. */
   follow_up_suggestions_enabled?: boolean;
   /** Web search and photo lookups (Settings → Data controls); on unless turned off. */
@@ -73,11 +72,17 @@ export type Chat = {
   updated_at: string;
 };
 
+/** A page of a list: pass `next_cursor` back as `cursor` for the next; null after the last. */
+export type Page<T> = { items: T[]; next_cursor: string | null };
+
 export type Feedback = "up" | "down" | null;
 
 export type MessagePage = {
   messages: Message[];
+  /** Older messages precede the page. */
   has_more: boolean;
+  /** Newer messages follow it: a page read `around` or `after` a message. */
+  has_more_after?: boolean;
 };
 
 export type Message = {
@@ -153,21 +158,6 @@ export type HomeUrgentTodo = {
   minutes_until: number;
 };
 
-export type HomeStarter = {
-  id?: string;
-  text: string;
-  prompt: string;
-  kind: "time" | "memory" | "chat" | "general" | "todo";
-  chat_id?: string;
-};
-
-export type HomeScreen = {
-  greeting: string;
-  subtitle: string | null;
-  urgent_todos: HomeUrgentTodo[];
-  starters: HomeStarter[];
-};
-
 export type ChatList = {
   pinned: Chat[];
   today: Chat[];
@@ -176,6 +166,8 @@ export type ChatList = {
   this_month: Chat[];
   older: Chat[];
   archived: Chat[];
+  /** Older dated chats follow: read them with `cursor`. Absent or null: none. */
+  next_cursor?: string | null;
 };
 
 export type Usage = {

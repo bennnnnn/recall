@@ -22,7 +22,7 @@ from sympy import (
 )
 
 from app.modules.math.schemas import MathSolveResult
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def _complete_solution_latex(solution: Any, variable: Any) -> str:
@@ -62,9 +62,9 @@ def solve_real_trig_equation(lhs: Any, rhs: Any, variable: Any) -> MathSolveResu
     try:
         solution = solveset(lhs - rhs, variable, domain=S.Reals)
     except Exception as exc:
-        raise MathServiceError("Could not determine all real trigonometric solutions") from exc
+        raise SolveServiceError("Could not determine all real trigonometric solutions") from exc
     if solution.has(ConditionSet):
-        raise MathServiceError("Complete real trigonometric solution set is unresolved")
+        raise SolveServiceError("Complete real trigonometric solution set is unresolved")
     steps = [f"Equation: {latex(lhs)} = {latex(rhs)}", "Solve over the real numbers."]
     if solution == S.EmptySet:
         steps.append("No real solutions.")

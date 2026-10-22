@@ -44,7 +44,9 @@ jobs:
   test:
     needs: changes
     if: needs.changes.outputs.run == 'true'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    # A hung run fails here instead of holding a runner for GitHub's six hours.
+    timeout-minutes: 30
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -101,14 +103,9 @@ jobs:
       - name: Pytest
         env:
           VIRTUAL_ENV: ""
-        run: |
-          rm -rf .pytest_cache
-          uv run pytest app/tests/services app/tests/repositories \
-            --cov=app --cov-report=
-          uv run pytest app/tests \
-            --ignore=app/tests/services \
-            --ignore=app/tests/repositories \
-            --cov=app --cov-append --cov-report=term-missing --cov-fail-under=80
+          HYPOTHESIS_PROFILE: ci
+        # One run, as scripts/check.sh does (code-health audit TEST-03).
+        run: uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=80
 
   # Validate the production image builds so a Dockerfile/dependency regression
   # surfaces on the PR, not at deploy time. No push — build only. Layer cache

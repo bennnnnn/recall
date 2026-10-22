@@ -16,12 +16,13 @@ class LlmSettings(BaseModel):
     # Tool selection returns calls or a no-tool decision, not the final answer.
     mcp_tool_loop_probe_max_tokens: int = 1024
     mcp_tool_loop_max_calls_per_round: int = 4
+    # A tool round's deadline: no call starts after it, and one running at it is cut off.
     mcp_tool_loop_invoke_timeout_seconds: float = 20.0
+    # Everything before the reply streams (selection, tool calls, the forced search)
+    # shares this budget, so a search or image-host brownout cannot hold "Searching…"
+    # for a minute while the turn keeps its lock, quota reservation and socket.
+    mcp_tool_loop_total_timeout_seconds: float = 25.0
 
-    # Background LLM resilience: if the primary memory-model provider is down,
-    # retry background jobs (memory/todo/project extraction, titles, summaries)
-    # once against this alias. Empty disables the fallback.
-    memory_fallback_model_alias: str = "fallback-memory-model"
     # Hard ceiling on a single turn's output tokens. This is a safety backstop
     # against runaway generation and cost, NOT a response-style throttle —
     # brevity is driven by the STYLE_HINTS prompt guidance (short/balanced/
@@ -41,15 +42,17 @@ class LlmSettings(BaseModel):
     embedding_batch_size: int = 64
     embedding_concurrency: int = 8
 
-    # Abort a provider stream after this many seconds with no new chunk (fly.toml
-    # sets 30). A stall mid-reply froze the bubble for 3 min; the phone says
-    # "still working" at 20 s. Reasoning chunks count, and the cap below applies.
-    chat_stream_timeout_seconds: int = 45
+    # Abort a provider stream after this many seconds with no new chunk. A stall
+    # mid-reply froze the bubble for 3 min; the phone says "still working" at 20 s.
+    # Reasoning chunks count, and the cap below applies. Production's value: no
+    # deploy file overrides it (test_config_sources.py).
+    chat_stream_timeout_seconds: int = 30
     # Hard cap on one provider stream (seconds). Stops a slow drip from holding
     # the chatprep lock, RAM, and the OpenRouter meter indefinitely.
     chat_stream_max_seconds: int = 600
-    # Fail fast when the provider never opens an SSE stream (separate from read timeout).
-    chat_stream_connect_timeout_seconds: int = 15
+    # Fail fast when the provider never opens an SSE stream (separate from read
+    # timeout), soon enough for the model fallback chain to help.
+    chat_stream_connect_timeout_seconds: int = 5
     # Reasoning models can keep sending hidden chain-of-thought while never
     # producing a user-visible token. When a fallback exists, stop that silent
     # attempt and move on rather than making the chat bubble wait indefinitely.

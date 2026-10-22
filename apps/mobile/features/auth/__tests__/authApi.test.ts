@@ -1,8 +1,17 @@
 import { loginWithApple, loginWithGoogle } from "@/features/auth/api";
 import { AccountExistsError, accountExistsProvider } from "@/features/auth/model/accountExists";
-import { fetchWithTimeout } from "@/lib/api/client";
+import { ApiRequestError, fetchWithTimeout } from "@/lib/api/client";
 
+jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.test" }));
+jest.mock("@/lib/auth", () => ({
+  getSessionGeneration: () => 0,
+  requireTokenSession: jest.fn(),
+  SessionChangedError: class extends Error {},
+  getRefreshToken: jest.fn(),
+  setTokenPair: jest.fn(),
+}));
 jest.mock("@/lib/api/client", () => ({
+  ...jest.requireActual("@/lib/api/client"),
   apiUrl: (path: string) => `https://api.test${path}`,
   fetchWithTimeout: jest.fn(),
 }));
@@ -30,7 +39,7 @@ describe("accountExistsProvider", () => {
     [409, "not json", null],
     [401, ACCOUNT_EXISTS, null],
   ])("status %s body %s → %s", (status, body, expected) => {
-    expect(accountExistsProvider(status, body)).toBe(expected);
+    expect(accountExistsProvider(new ApiRequestError(status, body))).toBe(expected);
   });
 });
 
@@ -45,8 +54,22 @@ describe("login errors", () => {
     expect((error as AccountExistsError).signInWith).toBe("apple");
   });
 
-  it("keeps other failures as the server's text", async () => {
+  it("keeps other failures as the server's words", async () => {
     jest.mocked(fetchWithTimeout).mockResolvedValueOnce(reply(401, '{"detail":"Invalid"}'));
-    await expect(loginWithGoogle("id-token")).rejects.toThrow('{"detail":"Invalid"}');
+    await expect(loginWithGoogle("id-token")).rejects.toThrow("Invalid");
+  });
+});
+
+describe("sign-in deadline (NET-17)", () => {
+  afterEach(() => jest.useRealTimers());
+
+  it("gives up when the reply's body never finishes", async () => {
+    jest.useFakeTimers();
+    jest.mocked(fetchWithTimeout).mockResolvedValueOnce(
+      { ok: true, status: 200, json: () => new Promise(() => undefined) } as unknown as Response,
+    );
+    const outcome = loginWithGoogle("id-token").catch((caught: unknown) => caught);
+    await jest.advanceTimersByTimeAsync(15_000);
+    await expect(outcome).resolves.toMatchObject({ message: expect.stringContaining("Could not reach") });
   });
 });

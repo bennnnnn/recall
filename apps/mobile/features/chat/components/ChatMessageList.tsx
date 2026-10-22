@@ -1,9 +1,10 @@
-import { memo, ReactElement, RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { memo, ReactElement, RefObject, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { FlashList, FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
 import { HomeStarters } from "@/features/home/components/HomeStarters";
+import { useComposerDraftActivity } from "@/features/chat/context/ComposerDraftContext";
 import { SkeletonChatBubbles } from "@/ui/feedback/SkeletonLoader";
 import { Message } from "@/lib/api";
 import {
@@ -25,6 +26,8 @@ type Props = {
   listBottomPad: number;
   hasMoreOlder: boolean;
   loadingOlder: boolean;
+  /** A window around a search hit ends before the newest message: its next page. */
+  newerPage?: { loading: boolean; load: () => Promise<void> } | null;
   chatLoading: boolean;
   routeChatId?: string;
   emptyHeight: number;
@@ -46,6 +49,7 @@ function ChatMessageListComponent({
   listBottomPad,
   hasMoreOlder,
   loadingOlder,
+  newerPage = null,
   chatLoading,
   routeChatId,
   emptyHeight,
@@ -61,6 +65,7 @@ function ChatMessageListComponent({
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const composerActive = useComposerDraftActivity();
   // Stable content-container style: the previous inline `{ paddingTop, paddingBottom }`
   // object was fresh every render, so FlashList re-laid out on every parent render
   // (including every composer keystroke). Memoize so it only changes when the
@@ -87,19 +92,24 @@ function ChatMessageListComponent({
     return beginStreamLayoutHold(setAutoscrollSuppressed, STREAM_AUTOSCROLL_RESUME_MS);
   }, [streamActive]);
 
-  const startFromBottomState = useRef({ chatKey: "", value: false });
+  // Latched per chat: a value kept from earlier renders, adjusted while rendering.
+  const [startLatch, setStartLatch] = useState({ chatKey: "", value: false });
   const chatKey = `${routeChatId ?? "new"}:${messages.length === 0 ? "empty" : "live"}`;
-  startFromBottomState.current = latchStartRenderingFromBottom({
+  const latched = latchStartRenderingFromBottom({
     chatKey,
-    previousChatKey: startFromBottomState.current.chatKey,
-    previousValue: startFromBottomState.current.value,
+    previousChatKey: startLatch.chatKey,
+    previousValue: startLatch.value,
     messageCount: messages.length,
     hasMoreOlder,
   });
-  const startFromBottom = startFromBottomState.current.value;
+  if (latched.chatKey !== startLatch.chatKey || latched.value !== startLatch.value) setStartLatch(latched);
+  const startFromBottom = latched.value;
+  // In a window the bottom is not the newest message: a newer page must not pull
+  // the list down past what the user is reading.
+  const holdPosition = autoscrollSuppressed || newerPage != null;
   const maintainVisibleContentPosition = useMemo(
     () =>
-      autoscrollSuppressed
+      holdPosition
         ? {
             disabled: false,
             autoscrollToBottomThreshold: -1,
@@ -110,7 +120,7 @@ function ChatMessageListComponent({
             autoscrollToBottomThreshold: 0.25,
             startRenderingFromBottom: startFromBottom,
           },
-    [autoscrollSuppressed, startFromBottom],
+    [holdPosition, startFromBottom],
   );
 
   return (
@@ -150,6 +160,19 @@ function ChatMessageListComponent({
             </Pressable>
           ) : null
         }
+        ListFooterComponent={
+          newerPage ? (
+            <Pressable
+              style={s.loadEarlier}
+              onPress={() => void newerPage.load()}
+              disabled={newerPage.loading}
+              accessibilityRole="button"
+              accessibilityLabel={t("chat.load_newer")}
+            >
+              <Text style={s.loadEarlierText}>{newerPage.loading ? "…" : t("chat.load_newer")}</Text>
+            </Pressable>
+          ) : null
+        }
         ListEmptyComponent={
           chatLoading && routeChatId ? (
             <View style={[s.empty, { height: emptyHeight }]}>
@@ -157,7 +180,7 @@ function ChatMessageListComponent({
             </View>
           ) : (
             <View style={[s.empty, { height: emptyHeight }]}>
-              <HomeStarters />
+              <HomeStarters composerActive={composerActive} />
             </View>
           )
         }

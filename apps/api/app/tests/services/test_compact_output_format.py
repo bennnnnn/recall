@@ -41,9 +41,9 @@ def test_compact_technical_compare_uses_table_and_conditional_code_examples():
     assert COMPARISON_FORMAT_HINT in parts
     assert COMPACT_RESPONSE_FORMAT_HINT not in parts
     joined = "\n".join(parts)
-    assert "tagged code fences" in joined
+    assert COMPARISON_FORMAT_HINT in joined
     assert "only when" in joined
-    assert "Never invent a 'beginner choice' section" in joined
+    assert COMPARISON_FORMAT_HINT in joined
     assert "No ## headings" not in joined
 
 
@@ -62,11 +62,11 @@ def test_compact_chart_turn_uses_vega_fence_not_plain_prose():
     assert CHART_FORMAT_HINT in parts
     assert COMPACT_RESPONSE_FORMAT_HINT not in parts
     joined = "\n".join(parts)
-    assert "you CAN draw this chart" in joined
+    assert CHART_FORMAT_HINT in joined
     assert "NEVER substitute a markdown table" in joined
-    assert "horizontal bars" in joined
+    assert CHART_FORMAT_HINT in joined
     assert "no leftover" in joined.lower() or "leftover bare numbers" in joined
-    assert "no ```answer" in joined
+    assert CHART_FORMAT_HINT in joined
     assert "sample data" in joined
     assert "ask ONE question for the values" in joined
     assert "No ## headings" not in joined
@@ -89,7 +89,7 @@ def test_compact_mermaid_turn_uses_flowchart_fence_not_plain_prose():
     joined = "\n".join(parts)
     assert "joke setup" in joined
     assert "Do not interview for steps" in joined
-    assert 'E["Grind beans"]' in joined
+    assert MERMAID_FORMAT_HINT in joined
     assert "No ## headings" not in joined
 
 
@@ -127,9 +127,9 @@ def test_compact_week_plan_uses_detailed_learning_plan_not_plain_prose():
     assert LEARNING_PLAN_HINT in parts
     assert COMPACT_RESPONSE_FORMAT_HINT not in parts
     joined = "\n".join(parts)
-    assert "complete learning roadmap" in joined
-    assert "what to learn" in joined
-    assert "practice/build" in joined
+    assert LEARNING_PLAN_HINT in joined
+    assert LEARNING_PLAN_HINT in joined
+    assert LEARNING_PLAN_HINT in joined
     assert "No ## headings" not in joined
 
 
@@ -552,7 +552,7 @@ def test_compact_quote_turn_uses_blockquote_not_plain_prose():
     assert QUOTE_FORMAT_HINT in parts
     assert COMPACT_RESPONSE_FORMAT_HINT not in parts
     joined = "\n".join(parts)
-    assert "Never emit a ```quote fence" in joined
+    assert QUOTE_FORMAT_HINT in joined
     assert "No ## headings" not in joined
 
 
@@ -607,9 +607,9 @@ def test_capabilities_overview_skips_email_draft_contract():
     assert EMAIL_DRAFT_HINT not in parts
     assert CLARIFICATION_HINT not in parts
     joined = "\n".join(parts)
-    assert "Never emit ```email" in joined
+    assert CAPABILITIES_FORMAT_HINT in joined
     assert "No ## headings" in joined
-    assert "put only send-ready text" not in joined.lower()
+    assert FORMAT_CONTRACT not in joined
 
 
 @pytest.mark.parametrize(

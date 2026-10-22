@@ -1,6 +1,6 @@
 import { memo, useCallback } from "react";
 
-import { MessageBubble } from "@/components/MessageBubble";
+import { MessageBubble } from "@/features/chat/components/MessageBubble";
 import { MessageRowErrorBoundary } from "@/features/chat/components/MessageRowErrorBoundary";
 import type { Message } from "@/lib/api";
 import { messageListKey } from "@/lib/messageListLayout";

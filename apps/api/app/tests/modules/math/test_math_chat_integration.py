@@ -2,36 +2,26 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
-
 import pytest
 
 from app.core.config import Settings
-from app.tests.modules.chat.chat_test_support import augment_web_and_tools
+from app.services.solving import VERIFIED_MATH_BEGIN
+from app.tests.modules.chat.chat_test_support import augment_subject
 
 
 @pytest.mark.asyncio
-async def test_augment_web_and_tools_injects_math_for_solve() -> None:
+async def test_augment_subject_injects_math_for_solve() -> None:
     settings = Settings(web_search_enabled=False, math_tools_enabled=True)
     messages = [
         {"role": "system", "content": "base"},
         {"role": "user", "content": "Solve x^2 + 2 = 6"},
     ]
 
-    with patch(
-        "app.modules.web_search.build_search_augmentation",
-        AsyncMock(return_value=(None, [])),
-    ):
-        updated, hits, verified_math = await augment_web_and_tools(
-            messages,
-            "Solve x^2 + 2 = 6",
-            settings,
-        )
+    updated, verified_math = await augment_subject(messages, "Solve x^2 + 2 = 6", settings)
 
-    assert hits == []
     assert len(updated) == 3
     assert updated[1]["role"] == "system"
-    assert "[BEGIN VERIFIED MATH]" in updated[1]["content"]
+    assert VERIFIED_MATH_BEGIN in updated[1]["content"]
     assert "SymPy" not in updated[1]["content"]
     assert verified_math is not None
     assert verified_math.canonical_fence is not None

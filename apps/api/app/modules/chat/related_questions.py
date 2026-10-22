@@ -12,12 +12,17 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
-from app.modules.chat.continuation_subject import is_new_problem_request, is_pure_continuation
+from app.modules.chat.continuation_subject import (
+    BIOLOGY_CUES,
+    is_new_problem_request,
+    is_pure_continuation,
+)
 from app.modules.chat.prompt_constants.routing import (
     is_lightweight_chat_turn,
     is_personal_disclosure_turn,
 )
 from app.modules.chat.prompt_constants.writing_kind import writing_request_kind
+from app.services.md_fence_scan import read_fence_marker
 from app.services.problem_followup import message_role_content
 from app.services.subject_solving import detect_subject
 from app.services.text_normalize import collapse_ws
@@ -74,21 +79,6 @@ _FOLLOW_UP_LEADS = frozenset(
 _CONTENT_WORD = re.compile(r"[a-z]{5,}")
 _UNIT_TOKEN = re.compile(r"[a-z]+/[a-z]+")
 
-# Biology is not a solver subject. These cues only decide whether to ask the
-# model for follow-up questions. They are not a list of questions to show.
-_BIOLOGY_CUES = (
-    "dilution",
-    "punnett",
-    "hardy-weinberg",
-    "hardy weinberg",
-    "allele",
-    "enzyme kinetics",
-    "michaelis",
-    "population growth",
-    "photosynthesis",
-    "mitosis",
-)
-
 
 def subject_for_related(text: str) -> str | None:
     """Math, physics, chemistry, or biology. Anything else is skipped."""
@@ -99,7 +89,7 @@ def subject_for_related(text: str) -> str | None:
     if detected is not None:
         return detected
     lowered = cleaned.casefold()
-    if any(cue in lowered for cue in _BIOLOGY_CUES):
+    if any(cue in lowered for cue in BIOLOGY_CUES):
         return "biology"
     return None
 
@@ -400,9 +390,9 @@ def accepted_questions(
 
 
 def answer_excerpt(answer: str) -> str:
-    text = re.sub(r"```[a-z0-9_-]*", " ", answer, flags=re.IGNORECASE)
-    text = text.replace("```", " ")
-    return collapse_ws(text)[:_ANSWER_CHARS]
+    # The fence lines go; a code block's body reads as text.
+    lines = [line for line in answer.split("\n") if read_fence_marker(line, lenient=True) is None]
+    return collapse_ws(" ".join(lines).replace("```", " "))[:_ANSWER_CHARS]
 
 
 # A line that asks for something to know: a question, or "explain", "tips for".

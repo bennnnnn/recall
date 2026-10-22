@@ -39,16 +39,15 @@ from app.modules.math.text_plot import strip_text_plots
 from app.modules.math.tools.direct_counting import verified_counting_fence
 from app.services.answer_check import correction_line, stated_verdict
 from app.services.answer_fence import (
+    ANSWER_FENCE_LANGS,
     demote_answer_body,
     land_answer_card,
     verified_answer_fence,
 )
 from app.services.md_fence_scan import (
-    find_lang_opener,
     has_closed_fence,
-    is_fence_closer,
+    iter_fences,
     map_closed_fences,
-    next_fence_marker_line,
     strip_closed_fences,
     strip_gfm_pipe_tables,
     strip_hand_sketch_filler,
@@ -65,7 +64,7 @@ _MAX_ANSWER_FENCES = 4
 _MAX_GEOMETRY_FENCES = 4
 _MAX_GRAPH_FENCES = 2
 _MAX_ARITHMETIC_FENCES = 1
-_ANSWER_FENCE_LANGS = ("answer", "result", "final")
+_ANSWER_FENCE_LANGS = ANSWER_FENCE_LANGS
 _CHART_ALIAS_LANGS = ("chart", "vega", "vega-lite", "plot")
 _DIAGRAM_FAIL_NOTE = "\n*Could not render that diagram.*\n"
 _WORKING_FAIL_NOTE = "\n*Could not render that written working.*\n"
@@ -157,24 +156,10 @@ def _replace_unclosed_graph_fence(
     fence marker is another opener (```python) or the message ends — so
     following prose is not swallowed into the graph body.
     """
-    opener = find_lang_opener(content, "graph")
-    while opener is not None:
-        newline = content.find("\n", opener)
-        if newline < 0:
-            head, rest = content[:opener], ""
-            break
-        marker = next_fence_marker_line(content, newline + 1)
-        if marker is None:
-            head, rest = content[:opener], ""
-            break
-        line_start, after, stripped = marker
-        if is_fence_closer(stripped):
-            opener = find_lang_opener(content, "graph", after)
-            continue
-        head, rest = content[:opener], content[line_start:]
-        break
-    else:
+    found = _unclosed_graph(content)
+    if found is None:
         return content
+    head, rest = found
 
     if canonical_fence is None or canonical_fence.get("type") not in {
         "function",
@@ -193,6 +178,15 @@ def _replace_unclosed_graph_fence(
     spec = densify_sparse_graph(parsed) if densify else parsed
     suffix = rest if rest.startswith("\n") else ("\n" + rest if rest else "\n")
     return head + "\n" + _graph_fence_body(spec) + suffix
+
+
+def _unclosed_graph(content: str) -> tuple[str, str] | None:
+    """The text before a ```graph left open, and what follows it (from the next opener):
+    in model text a later ```python opener is the model forgetting the closer."""
+    for fence in iter_fences(content):
+        if not fence.closed and fence.opener.info.lower().split()[:1] == ["graph"]:
+            return content[: fence.start], content[fence.end :]
+    return None
 
 
 def replace_unclosed_graph_fence_safe(
@@ -404,7 +398,7 @@ def _with_extras(content: str, extras: list[str]) -> str:
 
 def _with_correction(content: str, correction: str) -> str:
     """Put the correction line directly above the verified pill."""
-    opener = find_lang_opener(content, "answer")
+    opener = next((f.start for f in iter_fences(content) if f.lang == "answer"), None)
     if opener is None:
         return content
     head = content[:opener].rstrip()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.services.glyphs import SUPERSCRIPT_DIGIT_GLYPHS, SUPERSCRIPT_DIGITS
 from app.services.text_normalize import collapse_ws
 
 _MAX_SYMBOLIC_REQUEST = 1000
@@ -12,9 +13,8 @@ _MAX_PHYSICS_REQUEST = 4_000
 # The longest message a subject gate reads at all. Past this it is a document,
 # and only its head and tail are worth looking at.
 _MAX_SUBJECT_TEXT = 20_000
-_SUP_GLYPHS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
-_SUP_ASCII = "0123456789"
-_SUP_TABLE = str.maketrans(_SUP_GLYPHS, _SUP_ASCII)
+_SUP_GLYPHS = SUPERSCRIPT_DIGIT_GLYPHS
+_SUP_TABLE = SUPERSCRIPT_DIGITS
 
 
 def strip_inline_math_delimiters(text: str) -> str:

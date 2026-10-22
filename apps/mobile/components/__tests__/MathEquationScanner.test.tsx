@@ -39,7 +39,7 @@ jest.mock("@/components/mathScanner/LiveMathScannerCamera", () => {
           text: string;
         }) => void;
       },
-      ref: unknown,
+      ref: React.Ref<unknown>,
     ) => {
       ReactNative.useImperativeHandle(ref, () => ({ takePictureAsync: mockTakePictureAsync }));
       ReactNative.useEffect(() => {
@@ -51,11 +51,9 @@ jest.mock("@/components/mathScanner/LiveMathScannerCamera", () => {
           cancelled = true;
         };
       }, [props.onReady]);
-      return ReactNative.createElement(View, {
-        testID: "mock-live-scanner-camera",
-        onDetectionChange: props.onDetectionChange,
-        onUnavailable: props.onUnavailable,
-      });
+      // The camera's callbacks ride on the host view, where the tests call them.
+      const callbacks = { onDetectionChange: props.onDetectionChange, onUnavailable: props.onUnavailable };
+      return ReactNative.createElement(View, { testID: "mock-live-scanner-camera", ...callbacks });
     },
   );
   LiveMathScannerCamera.displayName = "LiveMathScannerCamera";
@@ -98,9 +96,6 @@ jest.mock("@/features/attachments/model/attachments", () => ({
   },
 }));
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 }),
 }));
@@ -337,7 +332,6 @@ describe("MathEquationScanner", () => {
     expect(view.queryByTestId("math-scanner-preview")).toBeNull();
   });
 });
-
 
 describe("imported math scanner photos", () => {
   beforeEach(() => {

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from app.modules.physics.solvers.common import PhysicsResult
+from app.modules.physics.solvers.results import PhysicsResult
 from app.modules.physics.solvers.school_common import positive, result
 
 

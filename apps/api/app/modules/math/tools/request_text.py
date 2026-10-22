@@ -105,7 +105,7 @@ def _split_response_instruction_sentence(s: str) -> str:
     return s
 
 
-def _strip_trailing_filler(expr: str) -> str:
+def strip_trailing_filler(expr: str) -> str:
     """`_GRAPH_EXPR`/the calculus expr-match are greedy captures of everything
     after the trigger word, so natural phrasing like "graph x^2 please" or
     "differentiate x^2 for me" sweeps the trailing words into the

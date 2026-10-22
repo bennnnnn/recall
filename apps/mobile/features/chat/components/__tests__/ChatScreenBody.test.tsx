@@ -13,10 +13,6 @@ const mockChatMessageList = jest.fn();
 const mockChatComposer = jest.fn();
 const mockAttachmentSourceSheet = jest.fn();
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
 jest.mock("@/features/chat/components/ChatMessageList", () => ({
   ChatMessageList: (props: {
     messages: Message[];
@@ -99,6 +95,7 @@ const baseProps: ChatScreenBodyProps = {
     messages: [message],
     hasMoreOlder: false,
     loadingOlder: false,
+    newerPage: null,
     chatLoading: false,
     routeChatId: "chat-1",
     renderItem,

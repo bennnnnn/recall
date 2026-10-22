@@ -1,9 +1,6 @@
-import Constants from "expo-constants";
-import { Platform } from "react-native";
-
-import { analyticsApi, type ProductEventName } from "@/lib/api/analytics";
-import { getToken } from "@/lib/auth";
-import { getInstallationId } from "@/lib/installationId";
+import type { ProductEventName } from "@/lib/api/analytics";
+import { trackProductEvent } from "@/lib/productAnalytics";
+import { CHAT_EVENT_SAMPLE_RATE } from "@/features/chat/model/chatEventSample";
 
 export type ChatTtftBucket =
   | "lt500"
@@ -28,31 +25,14 @@ export type ChatTurnOutcomeProperties = {
   tool: string;
 };
 
-/** Loaded lazily by the chat model, after the moment it measures. */
-async function recordChatEvent(
-  name: ProductEventName,
-  properties: Record<string, string>,
-): Promise<void> {
-  const platform = Platform.OS;
-  if (platform !== "ios" && platform !== "android" && platform !== "web") return;
-  const token = await getToken();
-  if (!token) return;
-  const installationId = await getInstallationId();
-  await analyticsApi.recordProductEvents(token, [
-    {
-      name,
-      properties,
-      platform,
-      app_version: Constants.expoConfig?.version,
-      installation_id: installationId ?? undefined,
-      client_at: new Date().toISOString(),
-    },
-  ]);
+/** Loaded lazily by the chat model, after the moment it measures; sent with the next batch. */
+function recordChatEvent(name: ProductEventName, properties: Record<string, string>): void {
+  trackProductEvent(name, { ...properties, sample_rate: String(CHAT_EVENT_SAMPLE_RATE) });
 }
 
 /** Fire-and-forget caller; all work here happens after first-token delivery. */
 export async function reportChatTtft(sample: Sample): Promise<void> {
-  await recordChatEvent("chat_ttft", {
+  recordChatEvent("chat_ttft", {
     latency_bucket: sample.latencyBucket,
     transport: sample.transport,
     has_attachment: sample.hasAttachment ? "yes" : "no",
@@ -61,5 +41,5 @@ export async function reportChatTtft(sample: Sample): Promise<void> {
 
 /** Fire-and-forget caller; sent once the turn has ended. */
 export async function reportChatTurnOutcome(properties: ChatTurnOutcomeProperties): Promise<void> {
-  await recordChatEvent("chat_turn_outcome", properties);
+  recordChatEvent("chat_turn_outcome", properties);
 }

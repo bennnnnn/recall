@@ -22,7 +22,7 @@ import {
   STATIC_HTML_ORIGIN_WHITELIST,
   useStaticOnlyNavigation,
 } from "@/lib/webView";
-import { MERMAID_MIN_JS } from "@/lib/vendor/mermaidMinJs";
+import { useVendorTexts } from "@/lib/vendorAssets";
 import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -30,7 +30,9 @@ import { Type, Weight } from "@/lib/type";
 
 type Props = { content: string };
 
-function buildMermaidHtml(source: string, theme: Theme): string {
+const MERMAID_LIBRARY = ["mermaid"] as const;
+
+function buildMermaidHtml(source: string, theme: Theme, mermaid: string): string {
   const safeSpec = source
     .trim()
     .replace(/\\/g, "\\\\")
@@ -43,7 +45,7 @@ function buildMermaidHtml(source: string, theme: Theme): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script>${inlineScript(MERMAID_MIN_JS)}</script>
+<script>${inlineScript(mermaid)}</script>
 <style>
   body { margin: 0; padding: 8px; font-family: -apple-system, sans-serif; background: ${theme.bg}; }
   #err { color: ${theme.danger}; font-size: 12px; display: none; white-space: pre-wrap; padding: 8px; }
@@ -100,12 +102,17 @@ export function MermaidBlock({ content }: Props) {
     });
 
   const sanitized = useMemo(() => sanitizeMermaidNodeLabels(content.trim()), [content]);
-  const mermaidHtml = useMemo(() => buildMermaidHtml(sanitized, theme), [sanitized, theme]);
-  const source = useMemo(() => ({ html: mermaidHtml }), [mermaidHtml]);
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInline = previewWebView?.mode === "rnc";
-  const { canMount, onLoaded } = useDeferredWebViewMount(Boolean(WebView) && canRenderInline);
+  const library = useVendorTexts(MERMAID_LIBRARY, Boolean(WebView) && canRenderInline);
+  const mermaidHtml = useMemo(
+    () => (library.texts ? buildMermaidHtml(sanitized, theme, library.texts.mermaid) : ""),
+    [sanitized, theme, library.texts],
+  );
+  const source = useMemo(() => ({ html: mermaidHtml }), [mermaidHtml]);
+  const { canMount: canMountWebView, onLoaded } = useDeferredWebViewMount(Boolean(WebView) && canRenderInline);
+  const canMount = canMountWebView && Boolean(mermaidHtml);
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(mermaidHtml);
 
   const handleOpenLiveEditor = useCallback(async () => {
@@ -156,11 +163,11 @@ export function MermaidBlock({ content }: Props) {
         </>
       }
     >
-      {renderError ? (
+      {renderError || library.failed ? (
         <View style={s.previewBox}>
           <Icon name="alert-circle" size={IconSize.sm} color={theme.danger} />
           <Text style={[s.previewText, { color: theme.danger }]}>
-            {renderError}
+            {renderError ?? t("rich.mermaid_error")}
           </Text>
         </View>
       ) : showSource ? (

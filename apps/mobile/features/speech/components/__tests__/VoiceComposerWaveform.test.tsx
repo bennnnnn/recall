@@ -4,12 +4,6 @@ import { render } from "@testing-library/react-native";
 import { VoiceComposerWaveform } from "@/features/speech/components/VoiceComposerWaveform";
 import { lightTheme } from "@/lib/theme";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
 jest.mock("react-native-reanimated", () => {
   const { View } = jest.requireActual("react-native");
   const linear = (t: number) => t;

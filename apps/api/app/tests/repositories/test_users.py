@@ -9,12 +9,6 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-@pytest.fixture
-def fake_session():
-    """Return a mocked AsyncSession."""
-    return AsyncMock(spec=AsyncSession)
-
-
 @pytest.mark.asyncio
 async def test_get_by_id_returns_user(fake_session):
     """get_by_id should return the user from session.get."""

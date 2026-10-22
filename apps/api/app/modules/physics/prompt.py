@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import replace
+from typing import Literal
 
 from app.core.config import Settings
 from app.modules.physics.block import _build_physics_block
 from app.modules.physics.extract import extract_physics_intent, needs_physics
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY
-from app.modules.physics.schemas import PhysicsIntent
 from app.services.solving import VerifiedPhysicsBlock, wrap_verified_physics
 from app.services.workout import PHYSICS_WORKOUT_PARTS_PROMPT, SELF_CHECK_PROMPT_RULE
 
@@ -31,32 +31,48 @@ def _unverified_physics_note() -> str:
     )
 
 
-async def _build_verified_physics_block_async(
-    intent: PhysicsIntent, settings: Settings
-) -> VerifiedPhysicsBlock | None:
-    from app.core.sympy_executor import run_sympy
+PhysicsOutcome = Literal["skip", "note", "failed", "symbolic", "verified"]
 
+
+def solve_physics_request(
+    user_content: str, settings: Settings, needs_subject: bool | None
+) -> tuple[PhysicsOutcome, VerifiedPhysicsBlock | None]:
+    """Read a physics request and solve it, in the SymPy pool (never on the event loop).
+
+    ``skip``: not physics. ``note``: physics with no template, so the prompt note.
+    ``failed``: a template matched and its solve failed. ``symbolic`` and ``verified``
+    carry the block.
+    """
+    detected = needs_physics(user_content) if needs_subject is None else needs_subject
+    if not detected:
+        return "skip", None
+    from app.modules.physics.symbolic.request import (
+        is_symbolic_physics_request,
+        parse_symbolic_physics_request,
+    )
+
+    if is_symbolic_physics_request(user_content):
+        request = parse_symbolic_physics_request(user_content)
+        if request is None:
+            return "note", None
+        from app.modules.physics.symbolic.solver import build_symbolic_physics_block
+
+        try:
+            return "symbolic", build_symbolic_physics_block(request, user_content)
+        except Exception:
+            logger.info("symbolic physics model declined", exc_info=True)
+            return "failed", None
+    intent = extract_physics_intent(user_content)
+    if intent is None:
+        return "note", None
     try:
-        block = await run_sympy(
-            _build_physics_block,
-            intent,
-            settings,
-            [],
-            timeout=settings.math_solve_timeout_seconds,
-        )
-    except TimeoutError:
-        logger.warning(
-            "physics solve timed out after %ss for kind=%s",
-            settings.math_solve_timeout_seconds,
-            intent.kind,
-        )
-        return None
+        block = _build_physics_block(intent, settings, [])
     except Exception:
         logger.warning("physics solve failed for kind=%s", intent.kind, exc_info=True)
-        return None
+        return "failed", None
     if block is None:
-        return None
-    return replace(block, text=wrap_verified_physics(block.text))
+        return "failed", None
+    return "verified", replace(block, text=wrap_verified_physics(block.text))
 
 
 async def build_physics_augmentation(
@@ -73,36 +89,28 @@ async def build_physics_augmentation(
     """
     if not settings.math_tools_enabled:
         return None, None, False
-    detected = needs_physics(user_content) if needs_subject is None else needs_subject
-    if not detected:
-        return None, None, False
-    from app.modules.physics.symbolic.request import (
-        is_symbolic_physics_request,
-        parse_symbolic_physics_request,
-    )
+    from app.core.sympy_executor import run_sympy
 
-    if is_symbolic_physics_request(user_content):
-        request = parse_symbolic_physics_request(user_content)
-        if request is None:
-            return _unverified_physics_note(), None, False
-        from app.core.sympy_executor import run_sympy
-        from app.modules.physics.symbolic.solver import build_symbolic_physics_block
-
-        try:
-            symbolic_verified = await run_sympy(
-                build_symbolic_physics_block,
-                request,
-                user_content,
-                timeout=settings.math_solve_timeout_seconds,
-            )
-        except Exception:
-            logger.info("symbolic physics model declined", exc_info=True)
-            return _unverified_physics_note(), None, True
-        return f"{symbolic_verified.text}\n\n{PHYSICS_REPLY_POLICY}", symbolic_verified, False
-    intent = extract_physics_intent(user_content)
-    if intent is None:
-        return _unverified_physics_note(), None, False
-    verified = await _build_verified_physics_block_async(intent, settings)
-    if verified is None:
+    try:
+        outcome, block = await run_sympy(
+            solve_physics_request,
+            user_content,
+            settings,
+            needs_subject,
+            timeout=settings.stem_solve_timeout_seconds,
+        )
+    except TimeoutError:
+        logger.warning(
+            "physics read and solve timed out after %ss", settings.stem_solve_timeout_seconds
+        )
         return _unverified_physics_note(), None, True
-    return f"{verified.text}\n\n{PHYSICS_REPLY_POLICY}", verified, False
+    except Exception:
+        logger.warning("physics read and solve failed", exc_info=True)
+        return _unverified_physics_note(), None, True
+    if outcome == "skip":
+        return None, None, False
+    if outcome == "note":
+        return _unverified_physics_note(), None, False
+    if block is None:
+        return _unverified_physics_note(), None, True
+    return f"{block.text}\n\n{PHYSICS_REPLY_POLICY}", block, False

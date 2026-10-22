@@ -1,10 +1,12 @@
 import {
   activeChatsFromGroups,
+  appendOlderChats,
   defaultChatSectionCollapsed,
   drawerSectionTitleKey,
   emptyChatList,
   isCollapsibleChatSection,
   PINNED_CHAT_SECTION,
+  removeChatFromGroups,
 } from "@/features/chat/model/listSections";
 
 describe("chatListSections", () => {
@@ -52,5 +54,24 @@ describe("chatListSections", () => {
 
   it("drawerSectionTitleKey maps to i18n keys", () => {
     expect(drawerSectionTitleKey("last_7_days")).toBe("drawer.last_7_days");
+  });
+});
+
+
+describe("older chat pages (CLAR-12)", () => {
+  const chat = (id: string) => ({ id, title: id, model: "free-chat", pinned: false, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" });
+
+  it("appends each dated group below what is shown, once, and takes the page's cursor", () => {
+    const shown = { ...emptyChatList(), pinned: [chat("p")], older: [chat("a")], next_cursor: "after-a" };
+    const page = { ...emptyChatList(), older: [chat("a"), chat("b")], next_cursor: "after-b" };
+    const merged = appendOlderChats(shown, page);
+    expect(merged.older.map((row) => row.id)).toEqual(["a", "b"]);
+    expect(merged.pinned.map((row) => row.id)).toEqual(["p"]);
+    expect(merged.next_cursor).toBe("after-b");
+  });
+
+  it("keeps the cursor when a chat leaves the list", () => {
+    const groups = { ...emptyChatList(), older: [chat("a")], next_cursor: "after-a" };
+    expect(removeChatFromGroups(groups, "a").next_cursor).toBe("after-a");
   });
 });

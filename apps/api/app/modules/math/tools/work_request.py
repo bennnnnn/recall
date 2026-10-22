@@ -13,7 +13,9 @@ import re
 from dataclasses import dataclass
 
 from app.modules.math.function_names import MATH_FUNCTION_NAMES
+from app.services.glyphs import OPERATOR_GLYPHS
 from app.services.number_text import FRACTION_OR_DECIMAL
+from app.services.student_claim import CLAIM_LEAD
 
 _MAX_TEXT = 1000
 _MAX_LINES = 12
@@ -89,14 +91,10 @@ _HINT_CUES: tuple[str, ...] = (
     "i want to finish",
 )
 
+# The operators are the shared table (services/glyphs.py); the rest are this reader's.
 _UNICODE = (
     ("\u2019", "'"),
-    ("\u2212", "-"),
-    ("\u2013", "-"),
-    ("\u00d7", "*"),
-    ("\u00b7", "*"),
-    ("\u22c5", "*"),
-    ("\u00f7", "/"),
+    *OPERATOR_GLYPHS.items(),
     ("\u2264", "<="),
     ("\u2265", ">="),
     ("\u00b1", "+-"),
@@ -146,8 +144,8 @@ _ROOT_CLAIM = re.compile(
 
 # "I got x = 4 for 3x - 2 = 10": the answer comes before the equation.
 _ANSWER_CLAIM = re.compile(
-    rf"\b(?:i\s+(?:got|found|get|have)|my\s+answer\s+(?:is|was)"
-    rf"|i\s+think\s+(?:it'?s|it\s+is))\s+"
+    # "I get / I have" too: a ``var = value`` follows, so it is a claim, not a given.
+    rf"(?:{CLAIM_LEAD}|\bi\s+(?:get|have)\b)\s+"
     rf"(?P<var>[A-Za-z])\s*=\s*(?P<value>{FRACTION_OR_DECIMAL})"
     rf"\s+(?:for|in|on|when\s+solving|solving)\s+(?P<equation>.+)",
     re.IGNORECASE,
@@ -334,7 +332,8 @@ def _merge_final_values(lines: list[str]) -> list[str]:
     if len(lines) - tail < 2:
         return lines
     values = [part for line in lines[tail:] for part in line.split(" or ")]
-    names = {_EQUALS_VALUE.match(part)["var"] for part in values}  # type: ignore[index]
+    matches = [_EQUALS_VALUE.match(part) for part in values]
+    names = {match["var"] for match in matches if match is not None}
     if len(names) != 1:
         return lines
     return [*lines[:tail], " or ".join(values)]

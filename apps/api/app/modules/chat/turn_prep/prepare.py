@@ -20,6 +20,8 @@ from app.core.ids import uuid7
 from app.exceptions import ChatNotFoundError
 from app.models.orm import Chat, User
 from app.modules.billing import plan as plan_service
+from app.modules.chat.model_routing.route import last_user_turn
+from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.prompt_constants import active_lesson_step
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_prep.attachments import _process_attachments
@@ -40,8 +42,6 @@ from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.chat.turn_prep.vision import inject_turn_images
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services.prompt_safety import messages_have_attachment_marker
-from app.services.routing import last_user_turn
-from app.services.thinking_effort import thinking_level
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +140,7 @@ async def prepare_chat_turn(
         turn_mode=turn.turn_mode,
         probe_attachment_rag=_probe_attachment_rag(turn, history, settings),
         recent_messages=history,
+        prior_count=turn.prior_count if history is not None else None,
         current_user_message_id=turn.message_id,
         unhealthy_models=unhealthy,
     )

@@ -17,7 +17,7 @@ import { getDeviceLocationLabel } from "@/lib/deviceLocation";
 import { canUseDeviceLocation } from "@/lib/expoRuntime";
 import { useDataControls } from "@/features/account/hooks/useDataControls";
 import { api, withdrawAiDataSharing } from "@/lib/api";
-import { invalidateChatListCache } from "@/lib/cache/chatListCache";
+import { invalidateChatListCache } from "@/features/chat/model/chatListCache";
 import { writeCachedUser } from "@/lib/cachedUser";
 import { formatMonthDayYear } from "@/lib/datetime/format";
 import { notifyDestructive } from "@/lib/haptics";

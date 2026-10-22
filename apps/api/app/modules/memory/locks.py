@@ -1,7 +1,12 @@
+"""The per-user memory write lock: one writer at a time over a user's facts."""
+
 import asyncio
 import logging
-from typing import Any
 from uuid import UUID
+
+from app.core.redis import get_redis_client
+from app.core.redis_lock import acquire_lock, release_lock
+from app.exceptions import DomainError
 
 logger = logging.getLogger(__name__)
 
@@ -11,40 +16,51 @@ _DELETE_LOCK_RETRY_ATTEMPTS = 4
 _DELETE_LOCK_RETRY_DELAY_SECONDS = 0.15
 
 
+class MemoryWriteLockBusyError(DomainError):
+    """Another write holds the user's memory; 409 ``memory_busy``."""
+
+    status_code = 409
+    default_code = "memory_busy"
+
+    def __init__(self, user_id: UUID) -> None:
+        super().__init__("Memory is being updated right now — try again in a moment.")
+        self.user_id = user_id
+
+
 def memory_write_lock_key(user_id: UUID) -> str:
     return f"memwrite:{user_id}"
 
 
-async def acquire_memory_write_lock(seams: Any, user_id: UUID) -> str | None:
+async def acquire_memory_write_lock(user_id: UUID) -> str | None:
     """Acquire the per-user memory rewrite lock, failing closed on Redis errors."""
-    from app.core.redis_lock import acquire_lock
-
     try:
-        redis = seams.get_redis_client()
-        return await acquire_lock(redis, memory_write_lock_key(user_id), _MEMORY_WRITE_LOCK_TTL)
+        return await acquire_lock(
+            get_redis_client(), memory_write_lock_key(user_id), _MEMORY_WRITE_LOCK_TTL
+        )
     except Exception:
-        logger.debug("Memory write lock acquire failed", exc_info=True)
+        # Not contention: the caller's "lock held" line follows, and this says why.
+        logger.warning(
+            "Memory write lock unavailable (Redis error) user_id=%s", user_id, exc_info=True
+        )
         return None
 
 
-async def release_memory_write_lock(seams: Any, user_id: UUID, token: str | None) -> None:
+async def release_memory_write_lock(user_id: UUID, token: str | None) -> None:
     """Release only when ``token`` still owns the lock."""
     if not token:
         return
-    from app.core.redis_lock import release_lock
-
     try:
-        redis = seams.get_redis_client()
-        await release_lock(redis, memory_write_lock_key(user_id), token)
+        await release_lock(get_redis_client(), memory_write_lock_key(user_id), token)
     except Exception:
         logger.debug("Memory write lock release failed", exc_info=True)
 
 
-async def acquire_memory_write_lock_or_raise(seams: Any, user_id: UUID) -> str:
+async def acquire_memory_write_lock_or_raise(user_id: UUID) -> str:
+    """The lock for a hand edit, retried briefly; ``MemoryWriteLockBusyError`` if held."""
     for attempt in range(_DELETE_LOCK_RETRY_ATTEMPTS):
-        token = await seams.acquire_memory_write_lock(user_id)
+        token = await acquire_memory_write_lock(user_id)
         if token:
             return token
         if attempt < _DELETE_LOCK_RETRY_ATTEMPTS - 1:
             await asyncio.sleep(_DELETE_LOCK_RETRY_DELAY_SECONDS)
-    raise seams.MemoryWriteLockBusyError(user_id)
+    raise MemoryWriteLockBusyError(user_id)

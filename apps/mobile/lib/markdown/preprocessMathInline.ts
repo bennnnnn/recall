@@ -24,7 +24,7 @@ const MATH_ESCAPE_BACKSLASH_RE = /\\(?=[!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~])/g;
  * CommonMark's escapable set — so this only needs to touch the backslash
  * itself, and only inside math spans (fenced ```math bodies are already
  * exempt: markdown-it's fence rule never applies inline escaping to them).
- * mathText.ts's preprocessLatex decodes the marker back to "\" as its first
+ * lib/math/latexPreprocess.ts's preprocessLatex decodes the marker back to "\" as its first
  * step, before any command table runs.
  *
  * Also converts `\(...\)` → `$...$`. CommonMark treats `\(` / `\)` as escaped
@@ -36,7 +36,7 @@ const MATH_ESCAPE_BACKSLASH_RE = /\\(?=[!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~])/g;
  * Bare `_` and `*` inside the same spans are swapped for PUA markers so
  * markdown-it's emphasis tokenizer cannot turn `$x_1 * y_2$` into nested
  * em/strong. Apostrophes are protected from smartquotes in the same spans.
- * mathText.ts restores the original source before math parsing.
+ * lib/math/latexPreprocess.ts restores the original source before math parsing.
  */
 export function protectMathEscapes(content: string): string {
   return applyOutsideFences(content, (prose) => {

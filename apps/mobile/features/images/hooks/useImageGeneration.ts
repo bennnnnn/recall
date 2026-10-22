@@ -1,9 +1,15 @@
-import { useCallback, useRef, useState } from "react";
+import {
+  useCallback,
+  useRef,
+  useState,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from "react";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
-import { api } from "@/lib/api";
+import { api, type Message } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/client";
-import { resolveChatError } from "@/features/chat/model/errorMessage";
 import { notifyWarning } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import {
@@ -17,17 +23,29 @@ import {
   restoreImageGenPending,
 } from "@/features/images/model/imageGenTurn";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
-import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
+import { emitAppEvent } from "@/lib/appEvents";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
-import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
-import { uploadSendAttachment } from "@/features/chat/hooks/useSendAttachment";
-import type { ChatTurnHost } from "@/features/chat/model/turnHost";
 
-type Options = ChatTurnHost & {
+/**
+ * What image generation takes from the chat screen it runs on: the chat a picture lands
+ * in, how a reference photo uploads and how a failure reads. Images owns this shape, so
+ * it never imports the chat feature (code-health audit ARCH-10).
+ */
+type Options = {
+  token: string | null;
+  /** The open chat's id, or a new chat made the open one; throws when none can be made. */
+  ensureChatId: () => Promise<string | null>;
+  uploadReference: (token: string, attachment: PendingAttachment) => Promise<{ ids: string[] }>;
+  /** A failed request in the chat's words (its code, the plan's limits). */
+  failureMessage: (message: string, code: string | undefined) => string;
+  setMessages: Dispatch<SetStateAction<Message[]>>;
   streaming: boolean;
-  isPaid: boolean;
+  isOffline: boolean;
   onOpenUpgrade: () => void;
   onOfflineBlocked?: () => void;
+  onScrollToLatest: () => void;
+  newMessageCountRef: MutableRefObject<number>;
+  t: (key: string) => string;
 };
 
 type ImageGenSubmit = {
@@ -45,15 +63,11 @@ type ImageGenSubmit = {
 /** Pro image generation from composer text — no confirmation sheet. */
 export function useImageGeneration({
   token,
-  chatId,
-  setChatId,
-  setChatTitle,
+  ensureChatId,
+  uploadReference,
+  failureMessage,
   setMessages,
-  draft,
-  router,
-  selectedModel,
   streaming,
-  isPaid,
   isOffline,
   onOpenUpgrade,
   onOfflineBlocked,
@@ -75,8 +89,6 @@ export function useImageGeneration({
   generatingRef.current = generating;
   streamingRef.current = streaming;
   tokenRef.current = token;
-
-  const ensureChatId = useEnsureChatId({ chatId, selectedModel, draft, setChatId, setChatTitle, router });
 
   const submitPrompt = useCallback(
     async (input: ImageGenSubmit) => {
@@ -185,7 +197,7 @@ export function useImageGeneration({
           return;
         }
         const referenceIds = input.referenceAttachment
-          ? (await uploadSendAttachment(authToken, input.referenceAttachment)).ids
+          ? (await uploadReference(authToken, input.referenceAttachment)).ids
           : input.referenceAttachmentIds;
         // Retry the same upload/reference, not whatever image is newest later.
         lastSubmitRef.current = {
@@ -212,7 +224,7 @@ export function useImageGeneration({
           );
           return [...without, result.user_message, result.assistant_message];
         });
-        invalidateGalleryCache();
+        emitAppEvent("attachmentAdded", { chatId: activeChatId });
         optimisticUserIdRef.current = null;
         lastSubmitRef.current = null;
         onScrollToLatest();
@@ -229,8 +241,9 @@ export function useImageGeneration({
           return;
         }
         const message = error instanceof Error ? error.message : t("common.error");
-        const resolved = resolveChatError({ message, isPaid, t });
-        setMessages((prev) => applyImageGenFailure(prev, "failed", resolved.message));
+        const code = error instanceof ApiRequestError ? (error.code ?? undefined) : undefined;
+        const failure = failureMessage(message, code);
+        setMessages((prev) => applyImageGenFailure(prev, "failed", failure));
       } finally {
         if (abortRef.current === abort) abortRef.current = null;
         generatingRef.current = false;
@@ -238,10 +251,11 @@ export function useImageGeneration({
       }
     },
     [
-      isPaid,
       isOffline,
       onOfflineBlocked,
       ensureChatId,
+      uploadReference,
+      failureMessage,
       setMessages,
       newMessageCountRef,
       onScrollToLatest,

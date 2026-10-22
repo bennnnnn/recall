@@ -20,7 +20,6 @@ const mockUpdateUser = jest.fn();
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: mockUser, token: mockToken, updateUser: mockUpdateUser }),
 }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/lib/api", () => ({ api: { cancelAttachment: jest.fn() } }));
 jest.mock("@/features/attachments/model/attachments", () => ({

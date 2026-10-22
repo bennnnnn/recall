@@ -36,6 +36,7 @@ FEATURES: tuple[Feature, ...] = get_args(Feature)
 Allowance = Literal[
     "daily_tokens",
     "daily_image_uploads",
+    "daily_document_uploads",
     "daily_web_searches",
     "daily_image_searches",
     "daily_image_generations",
@@ -49,6 +50,7 @@ ALLOWANCES: tuple[Allowance, ...] = get_args(Allowance)
 _ALLOWANCE_SETTING: dict[Allowance, str] = {
     "daily_tokens": "daily_token_limit",
     "daily_image_uploads": "daily_image_limit",
+    "daily_document_uploads": "daily_document_limit",
     "daily_web_searches": "daily_tavily_searches",
     "daily_image_searches": "daily_image_searches",
     "daily_image_generations": "daily_image_generations",

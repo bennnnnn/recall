@@ -67,15 +67,11 @@ def test_equivalent_equation_prompts_follow_the_requested_presentation() -> None
     explain = "Explain why each step is valid for 2x+3=7"
     lowercase = "Solve 2x+3=7 and keep x lowercase in the final answer"
 
-    normal_reply = maybe_direct_math_reply(_block(normal), normal, response_style="short")
-    answer_reply = maybe_direct_math_reply(
-        _block(answer_only), answer_only, response_style="balanced"
-    )
-    steps_reply = maybe_direct_math_reply(_block(steps), steps, response_style="balanced")
-    explain_reply = maybe_direct_math_reply(_block(explain), explain, response_style="detailed")
-    lowercase_reply = maybe_direct_math_reply(
-        _block(lowercase), lowercase, response_style="balanced"
-    )
+    normal_reply = maybe_direct_math_reply(_block(normal), normal)
+    answer_reply = maybe_direct_math_reply(_block(answer_only), answer_only)
+    steps_reply = maybe_direct_math_reply(_block(steps), steps)
+    explain_reply = maybe_direct_math_reply(_block(explain), explain)
+    lowercase_reply = maybe_direct_math_reply(_block(lowercase), lowercase)
 
     assert normal_reply is not None and "**1. Subtract 3 from both sides**" in normal_reply
     assert answer_reply == "```answer\nx = 2\n```\n"

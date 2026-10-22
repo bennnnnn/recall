@@ -18,7 +18,7 @@ from app.core.spend_counter import get_global_spend_micro_usd, usd_to_micro_usd
 from app.gateways import embedding_gateway, litellm_gateway, llm_spend
 from app.gateways.tool_completion import NO_TOOL_NAME
 from app.models.model_catalog import estimate_cost_usd
-from app.models.schemas import WebSearchClassification
+from app.models.schemas import ConversationReference
 
 _SETTINGS = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
 
@@ -97,7 +97,7 @@ async def _complete_structured() -> None:
         settings=_SETTINGS,
         model_alias="memory-model",
         messages=[{"role": "user", "content": "x"}],
-        schema=WebSearchClassification,
+        schema=ConversationReference,
     )
 
 

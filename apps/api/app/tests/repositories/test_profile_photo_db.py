@@ -45,13 +45,12 @@ async def _photo(session, user: User) -> Attachment:
 async def test_saved_photo_is_private_persistent_and_not_a_chat_attachment(db_session):
     user = await _user(db_session)
     photo = await _photo(db_session, user)
-    with patch.object(account_lifecycle.home_service, "invalidate_home_cache", AsyncMock()):
-        await account_lifecycle.update_account(
-            db_session,
-            user,
-            Settings(_env_file=None),
-            {"name": "After", "avatar_url": f"/attachments/{photo.id}/file"},
-        )
+    await account_lifecycle.update_account(
+        db_session,
+        user,
+        Settings(_env_file=None),
+        {"name": "After", "avatar_url": f"/attachments/{photo.id}/file"},
+    )
     user_id, photo_id = user.id, photo.id
     db_session.expire_all()
     saved = await db_session.get(User, user_id)
@@ -81,14 +80,13 @@ async def test_replaced_photo_can_be_reaped_without_deleting_current_photo(db_se
     user = await _user(db_session)
     first = await _photo(db_session, user)
     second = await _photo(db_session, user)
-    with patch.object(account_lifecycle.home_service, "invalidate_home_cache", AsyncMock()):
-        for photo in (first, second):
-            await account_lifecycle.update_account(
-                db_session,
-                user,
-                Settings(_env_file=None),
-                {"avatar_url": f"/attachments/{photo.id}/file"},
-            )
+    for photo in (first, second):
+        await account_lifecycle.update_account(
+            db_session,
+            user,
+            Settings(_env_file=None),
+            {"avatar_url": f"/attachments/{photo.id}/file"},
+        )
     orphans = await attachments.list_orphans(db_session, older_than_hours=24)
     assert first.id in {row.id for row in orphans}
     assert second.id not in {row.id for row in orphans}

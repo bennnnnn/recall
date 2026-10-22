@@ -5,7 +5,7 @@ import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
 /** Shared stack header options — keeps back chevron and title styling consistent. */
-export function stackHeaderOptions(theme: Theme) {
+function stackHeaderOptions(theme: Theme) {
   return {
     headerStyle: { backgroundColor: theme.bg },
     headerTitleStyle: {

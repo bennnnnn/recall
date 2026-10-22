@@ -61,26 +61,10 @@ it("reports read failures instead of returning a stale memory credential", async
   await expect(auth.getRefreshToken()).rejects.toThrow(/secure/i);
 });
 
-it("migrates legacy credentials before deleting their separate records", async () => {
-  storage.set("recall_access_token", "legacy-access");
-  storage.set("recall_refresh_token", "legacy-refresh");
-  await expect(auth.getToken()).resolves.toBe("legacy-access");
-  await expect(auth.getRefreshToken()).resolves.toBe("legacy-refresh");
-  expect(mockSetItem).toHaveBeenCalledTimes(1);
-  expect(storage.has("recall_access_token")).toBe(false);
-  expect(storage.has("recall_refresh_token")).toBe(false);
-  jest.resetModules();
-  auth = await import("@/lib/auth");
-  await expect(auth.getToken()).resolves.toBe("legacy-access");
-});
-
-it("does not discard legacy credentials when migration storage fails", async () => {
-  storage.set("recall_access_token", "legacy-access");
-  storage.set("recall_refresh_token", "legacy-refresh");
-  mockSetItem.mockRejectedValue(new Error("Keychain unavailable"));
-  await expect(auth.getToken()).rejects.toThrow(/secure/i);
-  expect(storage.get("recall_access_token")).toBe("legacy-access");
-  expect(mockDeleteItem).not.toHaveBeenCalled();
+it("reads only the one session record (no pre-launch build kept two, DEAD-07)", async () => {
+  storage.set("recall_access_token", "never-shipped");
+  await expect(auth.getToken()).resolves.toBeNull();
+  expect(mockSetItem).not.toHaveBeenCalled();
 });
 
 it("serializes logout behind an in-progress write so credentials cannot survive it", async () => {
@@ -101,15 +85,14 @@ it("serializes logout behind an in-progress write so credentials cannot survive 
   await expect(auth.getToken()).resolves.toBeNull();
 });
 
-it("keeps signed-out state authoritative when legacy cleanup fails", async () => {
-  storage.set("recall_access_token", "legacy-access");
-  storage.set("recall_refresh_token", "legacy-refresh");
-  mockDeleteItem.mockRejectedValue(new Error("Keychain temporarily unavailable"));
-  await expect(auth.clearToken()).rejects.toThrow(/secure/i);
+it("deletes the session record when signing out cannot overwrite it", async () => {
+  await auth.setTokenPair("access-a", "refresh-a");
+  mockSetItem.mockRejectedValueOnce(new Error("Keychain full"));
+  await auth.clearToken();
+  expect(mockDeleteItem).toHaveBeenCalledWith("recall_session_v1");
   jest.resetModules();
   auth = await import("@/lib/auth");
   await expect(auth.getToken()).resolves.toBeNull();
-  await expect(auth.getRefreshToken()).resolves.toBeNull();
 });
 
 it("does not write refresh credentials belonging to an invalidated session", async () => {

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from app.modules.physics.solvers.common import PhysicsResult
+from app.modules.physics.solvers.results import PhysicsResult
 from app.modules.physics.solvers.school_ac import AC_SOLVERS
 from app.modules.physics.solvers.school_circuits import CIRCUIT_SOLVERS
 from app.modules.physics.solvers.school_fields import FIELD_SOLVERS

@@ -1,5 +1,6 @@
 /** Device TTS via expo-speech; optional cloud TTS via /speech/tts. */
 
+import { isAbortError } from "@/lib/api/abort";
 import { cacheDirectory, deleteAsync, writeAsStringAsync, EncodingType } from "expo-file-system/legacy";
 import { AppState } from "react-native";
 
@@ -324,10 +325,6 @@ async function beginDeviceSpeech(
       resolve({ ok: false, reason: "unavailable" });
     }
   });
-}
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof Error && (error.name === "AbortError" || error.name === "CanceledError");
 }
 
 function ttsPartForChunk(index: number, total: number): "full" | "lead" | "rest" {

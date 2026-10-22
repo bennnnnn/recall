@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 from app.modules.physics.constants import BIG_G, GAS_CONSTANT
-from app.modules.physics.solvers.common import PhysicsResult
+from app.modules.physics.solvers.results import PhysicsResult
 from app.modules.physics.solvers.school_common import positive, result
 from app.services.solving import SolveServiceError
 

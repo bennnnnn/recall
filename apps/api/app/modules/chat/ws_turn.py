@@ -16,6 +16,7 @@ from uuid import UUID
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.core.background_tasks import create_background_task
+from app.core.log_context import bound_log_ids, new_turn_id
 from app.exceptions import (
     ChatBusyError,
     ChatServiceError,
@@ -25,8 +26,10 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
+    TURN_KEEPALIVE_SECONDS,
     StreamEndEvent,
     await_finalize_commit,
+    build_keepalive_event,
     build_start_event,
     build_token_event,
     clear_task_cancellation,
@@ -127,6 +130,15 @@ async def stream_over_ws(
 
     producer = asyncio.create_task(run_stream())
 
+    async def keep_alive() -> None:
+        """A frame every so often until the turn ends: the phone's idle deadline."""
+        while True:
+            await asyncio.sleep(TURN_KEEPALIVE_SECONDS)
+            if producer.done() or not await safe_send_json(websocket, build_keepalive_event()):
+                return
+
+    heartbeat = asyncio.create_task(keep_alive())
+
     def stop() -> None:
         """The user's Stop; a server shutdown runs the same one."""
         cancel_event.set()
@@ -140,6 +152,7 @@ async def stream_over_ws(
         # map — stream_chat_response gather-waits that map as a child Task
         # and would deadlock 10s on itself.
         register_inflight_stream(chat_id, producer, stop=stop)
+    receiver: asyncio.Task[Any] | None = None
     try:
         while not producer.done():
             receiver = asyncio.create_task(websocket.receive_json())
@@ -197,6 +210,11 @@ async def stream_over_ws(
             except asyncio.CancelledError:
                 pass
     finally:
+        # A disconnect or shutdown that cancels this handler mid-wait leaves the frame
+        # read it just started; it must not outlive the turn.
+        if receiver is not None and not receiver.done():
+            receiver.cancel()
+        heartbeat.cancel()
         # Same as SSE M10: client close must not orphan the DB commit that
         # persists the (partial) assistant row and enqueues the title job.
         await persist_finalize_if_pending(outcome)
@@ -214,21 +232,22 @@ async def run_chat_stream(
     if not await safe_send_json(websocket, build_start_event()):
         return
     outcome = TurnOutcome()
-    try:
-        await stream_over_ws(
-            websocket,
-            stream_factory(outcome),
-            cancel_event,
-            outcome,
-            chat_id,
-            frame_budget,
-        )
-    except Exception as exc:
-        if not isinstance(exc, EXPECTED_TURN_ERRORS):
-            logger.exception("Unexpected chat stream error")
-        await safe_send_json(
-            websocket, turn_error_payload(exc, user_message_saved=outcome.user_message_saved)
-        )
+    with bound_log_ids(chat_id=chat_id, turn=new_turn_id()):
+        try:
+            await stream_over_ws(
+                websocket,
+                stream_factory(outcome),
+                cancel_event,
+                outcome,
+                chat_id,
+                frame_budget,
+            )
+        except Exception as exc:
+            if not isinstance(exc, EXPECTED_TURN_ERRORS):
+                logger.exception("Unexpected chat stream error")
+            await safe_send_json(
+                websocket, turn_error_payload(exc, user_message_saved=outcome.user_message_saved)
+            )
 
 
 def schedule_related_prompts(websocket: WebSocket, outcome: TurnOutcome) -> None:

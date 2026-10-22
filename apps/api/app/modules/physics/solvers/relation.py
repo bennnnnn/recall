@@ -15,12 +15,8 @@ from app.modules.physics.display import conversion_row, si_symbol
 from app.modules.physics.expression import evaluate, to_latex
 from app.modules.physics.givens import unit_dimension, unit_expression
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    _params_in_si,
-    solved,
-)
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult, solved
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 if TYPE_CHECKING:
@@ -33,7 +29,7 @@ def solve_expression(intent: PhysicsIntent) -> PhysicsResult:
     spec = CATALOG.get(intent.physics_op or "")
     if spec is None or spec.expression is None or spec.binding is None:
         raise SolveServiceError(f"{intent.physics_op} is not an expression operation")
-    params = _params_in_si(intent)
+    params = params_in_si(intent)
     variant = matching_variant(spec, params)
     expression = spec.expression
     symbol = spec.result_symbol

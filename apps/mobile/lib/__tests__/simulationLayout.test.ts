@@ -8,33 +8,12 @@
  * line) or a ratio between magnitudes the server stated; a speed is read off
  * how far the body moves between samples taken at uniform time.
  */
-import {
-  ARROW_EDGE_INSET,
-  ARROW_MAX_LENGTH,
-  ARROW_MIN_LENGTH,
-  bodyLabelOffset,
-  derivedArrowGeometry,
-  describeSimulation,
-  fitArrowLength,
-  isClosedPath,
-  layoutSimulationScene,
-  leverLoadAnchor,
-  maxTrackSpeed,
-  parseSimulationSpec,
-  PIVOT_SIZE,
-  projectPath,
-  segmentHitsBox,
-  simulationTransform,
-  simulationViewportHeight,
-  tangentAt,
-  vectorScreenLengths,
-  velocityArrowLength,
-  VELOCITY_MIN_LENGTH,
-  worldToScreen,
-  type LabelBox,
-  type ScreenPoint,
-  type SimulationSpec,
-} from "@/lib/physics/simulation";
+import { derivedArrowGeometry, layoutSimulationScene, parseSimulationSpec, PIVOT_SIZE, simulationTransform, simulationViewportHeight, tangentAt, worldToScreen, type ScreenPoint, type SimulationSpec } from "@/lib/physics/simulation";
+import { ARROW_EDGE_INSET, ARROW_MAX_LENGTH, ARROW_MIN_LENGTH, fitArrowLength, leverLoadAnchor, vectorScreenLengths, velocityArrowLength, VELOCITY_MIN_LENGTH } from "@/lib/physics/simulation/arrows";
+import { bodyLabelOffset, segmentHitsBox, type LabelBox } from "@/lib/physics/simulation/labels";
+import { describeSimulation } from "@/lib/physics/simulation/describe";
+import { isClosedPath, maxTrackSpeed } from "@/lib/physics/simulation/paths";
+import { projectPath } from "@/lib/physics/simulation/viewport";
 
 const WIDTH = 312;
 const FONT = 11;

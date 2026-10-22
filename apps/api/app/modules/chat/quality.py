@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 
 from app.modules.chat.turn_prep.context import StreamContext
 from app.services.answer_fence import answer_fence_value
+from app.services.md_fence_scan import iter_fences
 
 logger = logging.getLogger(__name__)
 
@@ -113,61 +114,18 @@ class _Fence:
     end: int
 
 
-def _fence_lang(info: str) -> str:
-    stripped = info.strip()
-    if not stripped:
-        return ""
-    space = stripped.find(" ")
-    token = stripped if space < 0 else stripped[:space]
-    return token.lower()
-
-
 def _iter_fences(text: str) -> list[_Fence]:
-    """Walk ``` fences with linear ``find`` (no nested regex)."""
-    fences: list[_Fence] = []
-    index = 0
-    length = len(text)
-    while True:
-        start = text.find("```", index)
-        if start < 0:
-            break
-        lang_start = start + 3
-        newline = text.find("\n", lang_start)
-        if newline < 0:
-            fences.append(
-                _Fence(
-                    lang=_fence_lang(text[lang_start:]),
-                    body="",
-                    closed=False,
-                    start=start,
-                    end=length,
-                )
-            )
-            break
-        lang = _fence_lang(text[lang_start:newline])
-        close = text.find("```", newline + 1)
-        if close < 0:
-            fences.append(
-                _Fence(
-                    lang=lang,
-                    body=text[newline + 1 :],
-                    closed=False,
-                    start=start,
-                    end=length,
-                )
-            )
-            break
-        fences.append(
-            _Fence(
-                lang=lang,
-                body=text[newline + 1 : close],
-                closed=True,
-                start=start,
-                end=close + 3,
-            )
+    """The reply's fences on the shared grammar (``services/md_fence_scan``)."""
+    return [
+        _Fence(
+            lang=fence.lang,
+            body=text[fence.body_start : fence.body_end],
+            closed=fence.closed,
+            start=fence.start,
+            end=fence.end,
         )
-        index = close + 3
-    return fences
+        for fence in iter_fences(text)
+    ]
 
 
 def _collect_format_signals(text: str) -> list[QualitySignal]:

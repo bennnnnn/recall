@@ -55,12 +55,8 @@ describe("appearancePrefs", () => {
     expect(SecureStore.getItemAsync).not.toHaveBeenCalled();
   });
 
-  it("migrates a legacy Keychain preference onto the filesystem", async () => {
-    (SecureStore.getItemAsync as jest.Mock).mockResolvedValue("dark");
-    await expect(getAppearancePreference()).resolves.toBe("dark");
-    expect(writeAsStringAsync).toHaveBeenCalledWith(
-      "file:///docs/recall.appearance-preference.txt",
-      "dark",
-    );
+  it("reads the system default, not the Keychain, when no file exists (DEAD-07)", async () => {
+    await expect(getAppearancePreference()).resolves.toBe("system");
+    expect(SecureStore.getItemAsync).not.toHaveBeenCalled();
   });
 });

@@ -7,6 +7,8 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.core.config import Settings
+from app.gateways.litellm_gateway import StreamAttempt
+from app.modules.chat import chats_repository, messages_repository
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.tests.modules.chat.chat_test_support import (
     FakeSessionCM as _FakeSessionCM,
@@ -24,7 +26,7 @@ pytest_plugins = ("app.tests.modules.chat.chat_test_support",)
 
 
 @pytest.mark.asyncio
-async def test_stream_does_not_duplicate_user_message(stream_offline_io):
+async def test_stream_does_not_duplicate_user_message(fake_redis, stream_offline_io):
     from app.modules import chat as chat_module
 
     tokens = ["Hello", " there"]
@@ -46,8 +48,6 @@ async def test_stream_does_not_duplicate_user_message(stream_offline_io):
     fake_user = MagicMock()
     fake_user.id = user_id
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
@@ -55,25 +55,20 @@ async def test_stream_does_not_duplicate_user_message(stream_offline_io):
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=1)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=1)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch("app.modules.chat.turn_prep.context.build_prompt_messages", mock_build),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
-        ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         collected = []
         async for tok in chat_module.stream_chat_response(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=user_id,
             chat_id=chat_id,
@@ -86,7 +81,7 @@ async def test_stream_does_not_duplicate_user_message(stream_offline_io):
 
 
 @pytest.mark.asyncio
-async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
+async def test_memory_extraction_runs_on_later_turn(fake_redis, stream_offline_io):
     from app.modules import chat as chat_module
 
     async def fake_stream(**kwargs):
@@ -95,8 +90,6 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
@@ -104,29 +97,24 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=stub_recent(3))),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=stub_recent(3))),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
-        ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
         outcome = TurnOutcome()
         async for _ in chat_module.stream_chat_response(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(
                 max_output_tokens=100,
                 memory_extract_every_n_turns=1,
@@ -151,7 +139,7 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
 
 
 @pytest.mark.asyncio
-async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io):
+async def test_memory_extraction_skipped_when_memory_disabled(fake_redis, stream_offline_io):
     """When the user has memory_enabled=False, the memory job must not be
     enqueued at all — previously it was enqueued every N turns and the
     extraction worker no-op'd internally, wasting a stream-job cycle."""
@@ -163,7 +151,6 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
     fake_user.memory_enabled = False
 
     fake_chat = MagicMock()
@@ -173,28 +160,23 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
-        ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
         outcome = TurnOutcome()
         async for _ in chat_module.stream_chat_response(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
@@ -211,7 +193,7 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
 
 
 @pytest.mark.asyncio
-async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
+async def test_memory_extraction_throttled_when_every_n_gt_1(fake_redis, stream_offline_io):
     """Ops can still raise memory_extract_every_n_turns to skip intermediate turns."""
     from app.modules import chat as chat_module
 
@@ -221,8 +203,6 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
@@ -230,29 +210,24 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.list_recent", AsyncMock(return_value=stub_recent(2))),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "list_recent", AsyncMock(return_value=stub_recent(2))),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=2)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
-        ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
         outcome = TurnOutcome()
         async for _ in chat_module.stream_chat_response(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(
                 max_output_tokens=100, memory_extract_every_n_turns=3, mcp_tool_loop_enabled=False
             ),
@@ -271,68 +246,10 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
 
 
 @pytest.mark.asyncio
-async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
-    """Todo LLM extraction must not block the chat path before streaming."""
-    from app.modules import chat as chat_module
-
-    async def fake_stream(**kwargs):
-        yield "ok"
-
-    fake_user = MagicMock()
-    fake_user.id = MagicMock()
-    fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
-    fake_chat = MagicMock()
-    fake_chat.model = "free-chat"
-    fake_chat.summary = None
-
-    with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
-        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=1)),
-        patch("app.repositories.messages.create", AsyncMock()),
-        patch(
-            "app.modules.chat.turn_prep.context.build_prompt_messages",
-            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
-        ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
-        patch(
-            "app.modules.todos.extract.extract_todo_actions",
-            AsyncMock(),
-        ) as extract_mock,
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
-        ),
-        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
-        patch("app.services.quota.adjust_usage", AsyncMock()),
-        patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
-    ):
-        async for _ in chat_module.stream_chat_response(
-            offline_deps(),
-            AsyncMock(),
-            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
-            user_id=fake_user.id,
-            chat_id=MagicMock(),
-            content="remind me to call mom tomorrow",
-        ):
-            pass
-
-    extract_mock.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("proposals", [False, True])
-async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offline_io, proposals):
-    """A reminder the model confirmed still enqueues the background repair.
-
-    "Remind me tomorrow" with no clock is not that case: the reply asks for a
-    time, and the extractor does not invent one. While reminder changes wait
-    for a tap on a card, the repair (which writes without one) stays off.
-    """
+async def test_a_reminder_reply_enqueues_no_background_write(fake_redis, stream_offline_io):
+    """A reminder change in chat waits for a tap on its card: no job writes it behind
+    the user's back (the background repair job is gone), and with nothing written the
+    phone is not told to reload its list (code-health audit NET-14)."""
     from app.modules import chat as chat_module
 
     async def fake_stream(**kwargs):
@@ -341,8 +258,6 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
@@ -350,33 +265,24 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
-        ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
         outcome = TurnOutcome()
         async for _ in chat_module.stream_chat_response(
             offline_deps(),
-            AsyncMock(),
-            Settings(
-                max_output_tokens=100,
-                mcp_tool_loop_enabled=False,
-                reminder_proposals_enabled=proposals,
-            ),
+            fake_redis,
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="Sounds good for tomorrow",
@@ -388,12 +294,12 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
             await finalize
 
     job_types = [call.args[1] for call in enqueue_job.call_args_list]
-    assert ("todos" in job_types) is not proposals
-    assert outcome.todos_changed
+    assert "todos" not in job_types
+    assert not outcome.todos_changed
 
 
 @pytest.mark.asyncio
-async def test_stream_sets_final_content_on_cancel(stream_offline_io):
+async def test_stream_sets_final_content_on_cancel(fake_redis, stream_offline_io):
     """On a user-initiated stop, the server persists text the client may not have
     rendered yet; `outcome.final_content` carries the authoritative persisted
     text so the client can reconcile (stop/regenerate desync fix)."""
@@ -406,8 +312,6 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
@@ -421,29 +325,24 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
-        ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         outcome = TurnOutcome()
         yielded: list[str] = []
         async for tok in chat_module.stream_chat_response(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
@@ -463,7 +362,7 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
 
 
 @pytest.mark.asyncio
-async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
+async def test_cancelled_stream_skips_model_health_sample(fake_redis, stream_offline_io):
     """User stop must not record a failed health sample (poisons fallback routing)."""
     from uuid import uuid4
 
@@ -505,7 +404,7 @@ async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         async for _ in stream_and_finalize(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=should_cancel,
@@ -520,7 +419,9 @@ async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
 
 
 @pytest.mark.asyncio
-async def test_stream_and_finalize_asks_the_model_beside_the_user_row_commit(stream_offline_io):
+async def test_stream_and_finalize_asks_the_model_beside_the_user_row_commit(
+    fake_redis, stream_offline_io
+):
     """The model is asked while the user's row commits (no time-to-first-token
     cost), but its first token is sent only once the row is saved."""
     from app.modules.chat.stream_pipeline import stream_and_finalize
@@ -560,7 +461,7 @@ async def test_stream_and_finalize_asks_the_model_beside_the_user_row_commit(str
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         agen = stream_and_finalize(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
@@ -604,7 +505,13 @@ def _turn_ctx(**fields: Any):
 
 
 def _stream_of(*tokens: str):
-    async def fake_stream(**_kwargs: object):
+    async def fake_stream(**kwargs: object):
+        # As the gateway does: the alias that answers is one attempt, ok.
+        attempts = kwargs.get("attempts")
+        if isinstance(attempts, list):
+            attempts.append(
+                StreamAttempt(alias=str(kwargs["model_alias"]), ok=True, first_content_ms=1.0)
+            )
         for token in tokens:
             yield token
             await asyncio.sleep(0)
@@ -613,7 +520,7 @@ def _stream_of(*tokens: str):
 
 
 @pytest.mark.asyncio
-async def test_failed_user_row_save_sends_no_reply(stream_offline_io):
+async def test_failed_user_row_save_sends_no_reply(fake_redis, stream_offline_io):
     """Regression: a failed user-message save surfaced only after every token had
     streamed, and the turn was never charged (a full answer for free). Now the
     first token is held until the row commits, so a failed save sends nothing
@@ -639,11 +546,11 @@ async def test_failed_user_row_save_sends_no_reply(stream_offline_io):
             patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
         )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
-        stack.enter_context(patch("app.services.model_health.record_sample", health))
+        stack.enter_context(patch("app.services.model_health.record_attempts", health))
         with pytest.raises(RuntimeError, match="database unavailable"):
             async for token in stream_and_finalize(
                 offline_deps(),
-                AsyncMock(),
+                fake_redis,
                 Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                 ctx,
                 should_cancel=None,
@@ -655,8 +562,9 @@ async def test_failed_user_row_save_sends_no_reply(stream_offline_io):
     finalize.assert_not_awaited()
     assert outcome.finalize_db_task is None
     assert outcome.user_message_saved is False
-    # The model answered; the failure was the save's.
-    assert health.await_args.kwargs["success"] is True
+    # The model answered; the failure was the save's, not the model's health sample.
+    attempts = health.await_args.args[1]
+    assert [(attempt.alias, attempt.ok) for attempt in attempts] == [("free-chat", True)]
 
 
 @pytest.mark.asyncio
@@ -689,7 +597,7 @@ async def test_terminal_image_turn_counts_its_tool_rounds_toward_global_spend():
 
 
 @pytest.mark.asyncio
-async def test_stop_after_the_last_token_still_saves_the_reply(stream_offline_io):
+async def test_stop_after_the_last_token_still_saves_the_reply(fake_redis, stream_offline_io):
     """Regression: a Stop that landed during the finalize passes (answer photo up
     to 6s, SymPy, the reminder write) cancelled the save: nothing was stored or
     charged, and the phone's streamed bubble vanished on the next refetch."""
@@ -710,7 +618,7 @@ async def test_stop_after_the_last_token_still_saves_the_reply(stream_offline_io
     async def consume() -> None:
         async for token in stream_and_finalize(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
@@ -746,14 +654,16 @@ async def test_stop_after_the_last_token_still_saves_the_reply(stream_offline_io
 
     assert tokens == ["full ", "answer"]
     finalize.assert_awaited_once()
-    assert finalize.await_args.args[2] == "full answer"
+    assert finalize.await_args.kwargs["assistant_text"] == "full answer"
     assert outcome.message_id is not None
     # The reply was complete; the Stop only came during its finishing passes.
     assert outcome.completion is None
 
 
 @pytest.mark.asyncio
-async def test_a_server_stop_saves_the_partial_reply_as_interrupted(stream_offline_io, monkeypatch):
+async def test_a_server_stop_saves_the_partial_reply_as_interrupted(
+    fake_redis, stream_offline_io, monkeypatch
+):
     """At shutdown the turn is stopped through the user's Stop path; the saved
     partial reply says it was interrupted, not stopped by the user."""
     from app.core import shutdown
@@ -777,7 +687,7 @@ async def test_a_server_stop_saves_the_partial_reply_as_interrupted(stream_offli
         tokens: list[str] = []
         async for token in stream_and_finalize(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             _turn_ctx(),
             should_cancel=stopped.is_set,
@@ -794,7 +704,7 @@ async def test_a_server_stop_saves_the_partial_reply_as_interrupted(stream_offli
 
 
 @pytest.mark.asyncio
-async def test_hard_cancel_before_tokens_skips_model_health_sample(stream_offline_io):
+async def test_hard_cancel_before_tokens_skips_model_health_sample(fake_redis, stream_offline_io):
     """Cancel while waiting on the provider must not record success=False."""
     import asyncio
     from uuid import uuid4
@@ -827,7 +737,7 @@ async def test_hard_cancel_before_tokens_skips_model_health_sample(stream_offlin
         with pytest.raises(asyncio.CancelledError):
             async for _ in stream_and_finalize(
                 offline_deps(),
-                AsyncMock(),
+                fake_redis,
                 Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                 ctx,
                 should_cancel=None,
@@ -838,14 +748,14 @@ async def test_hard_cancel_before_tokens_skips_model_health_sample(stream_offlin
 
 
 @pytest.mark.asyncio
-async def test_stream_chat_response_rejects_empty_content(stream_offline_io):
+async def test_stream_chat_response_rejects_empty_content(fake_redis, stream_offline_io):
     from app.exceptions import ChatNotFoundError
     from app.modules.chat.stream_entry import stream_chat_response
 
     with pytest.raises(ChatNotFoundError, match="empty"):
         async for _ in stream_chat_response(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(),
             user_id=uuid4(),
             chat_id=uuid4(),
@@ -1376,7 +1286,7 @@ async def test_try_image_lookup_other_error_raises_chat_service_error():
 
 
 @pytest.mark.asyncio
-async def test_hard_cancel_with_partial_reply_finalizes(stream_offline_io):
+async def test_hard_cancel_with_partial_reply_finalizes(fake_redis, stream_offline_io):
     """WS/SSE CancelledError after tokens must persist like soft stop (no full refund)."""
     import asyncio
     from uuid import uuid4
@@ -1413,7 +1323,7 @@ async def test_hard_cancel_with_partial_reply_finalizes(stream_offline_io):
         tokens: list[str] = []
         async for tok in stream_and_finalize(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
@@ -1431,7 +1341,7 @@ async def test_hard_cancel_with_partial_reply_finalizes(stream_offline_io):
 
 
 @pytest.mark.asyncio
-async def test_task_cancel_after_tokens_still_finalizes(stream_offline_io):
+async def test_task_cancel_after_tokens_still_finalizes(fake_redis, stream_offline_io):
     """Stopping the task after a token must still save that partial reply."""
     from app.modules.chat.stream_pipeline import stream_and_finalize
     from app.modules.chat.turn_prep import StreamContext
@@ -1458,7 +1368,7 @@ async def test_task_cancel_after_tokens_still_finalizes(stream_offline_io):
     async def consume() -> None:
         async for tok in stream_and_finalize(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
@@ -1493,7 +1403,7 @@ async def test_task_cancel_after_tokens_still_finalizes(stream_offline_io):
 
 
 @pytest.mark.asyncio
-async def test_hard_cancel_with_empty_reply_reraises(stream_offline_io):
+async def test_hard_cancel_with_empty_reply_reraises(fake_redis, stream_offline_io):
     """CancelledError before any token must propagate so the caller refunds."""
     import asyncio
     from uuid import uuid4
@@ -1524,7 +1434,7 @@ async def test_hard_cancel_with_empty_reply_reraises(stream_offline_io):
     ):
         async for _ in stream_and_finalize(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
@@ -1536,7 +1446,7 @@ async def test_hard_cancel_with_empty_reply_reraises(stream_offline_io):
 
 
 @pytest.mark.asyncio
-async def test_provider_fail_with_partial_reply_marks_interrupted(stream_offline_io):
+async def test_provider_fail_with_partial_reply_marks_interrupted(fake_redis, stream_offline_io):
     """A mid-stream provider error with tokens must finalize as interrupted, not complete."""
     from uuid import uuid4
 
@@ -1573,7 +1483,7 @@ async def test_provider_fail_with_partial_reply_marks_interrupted(stream_offline
         tokens: list[str] = []
         async for tok in stream_and_finalize(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
@@ -1590,7 +1500,7 @@ async def test_provider_fail_with_partial_reply_marks_interrupted(stream_offline
 
 
 @pytest.mark.asyncio
-async def test_token_limit_finish_reason_marks_interrupted(stream_offline_io):
+async def test_token_limit_finish_reason_marks_interrupted(fake_redis, stream_offline_io):
     """finish_reason=length is a truncated answer, not a completed one."""
     from uuid import uuid4
 
@@ -1627,7 +1537,7 @@ async def test_token_limit_finish_reason_marks_interrupted(stream_offline_io):
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         async for _ in stream_and_finalize(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
@@ -1643,7 +1553,7 @@ async def test_token_limit_finish_reason_marks_interrupted(stream_offline_io):
 
 
 @pytest.mark.asyncio
-async def test_soft_cancel_mid_stream_marks_user_stop(stream_offline_io):
+async def test_soft_cancel_mid_stream_marks_user_stop(fake_redis, stream_offline_io):
     from uuid import uuid4
 
     from app.modules.chat.stream_pipeline import stream_and_finalize
@@ -1684,7 +1594,7 @@ async def test_soft_cancel_mid_stream_marks_user_stop(stream_offline_io):
         tokens: list[str] = []
         async for tok in stream_and_finalize(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=should_cancel,
@@ -1701,15 +1611,13 @@ async def test_soft_cancel_mid_stream_marks_user_stop(stream_offline_io):
 
 
 @pytest.mark.asyncio
-async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
+async def test_stream_closes_llm_stream_on_cancel(fake_redis, stream_offline_io):
     """Stop generation must aclose the provider stream so upstream tokens stop accruing."""
     from app.modules import chat as chat_module
 
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
@@ -1743,27 +1651,22 @@ async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
-        ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", tracked),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         async for _ in chat_module.stream_chat_response(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
@@ -1776,7 +1679,9 @@ async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
 
 
 @pytest.mark.asyncio
-async def test_stream_places_query_without_location_prompts_to_enable(stream_offline_io):
+async def test_stream_places_query_without_location_prompts_to_enable(
+    fake_redis, stream_offline_io
+):
     """A 'near me' places query with no user.location should yield a deterministic
     'enable location' instant reply and skip web search (no guessing)."""
     from app.modules import chat as chat_module
@@ -1784,7 +1689,6 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
     fake_user.location = ""  # no location set
     fake_user.location_enabled = False
 
@@ -1792,30 +1696,26 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
     fake_chat.model = "free-chat"
     fake_chat.summary = None
 
-    augment = AsyncMock(return_value=(None, []))
-
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=0)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
-        patch("app.modules.web_search.build_search_augmentation", augment),
         patch("app.gateways.litellm_gateway.stream_chat_completion", AsyncMock()),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         yielded: list[str] = []
         async for tok in chat_module.stream_chat_response(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
@@ -1823,29 +1723,27 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
         ):
             yielded.append(tok)
 
-    # The instant reply is the enable-location prompt.
+    # The instant reply is the enable-location prompt (no guessing "near me").
     assert any("Settings" in t and "location" in t.lower() for t in yielded), yielded
-    # Web search must be skipped (no guessing "near me").
-    augment.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_stream_places_query_uses_client_location_without_profile(stream_offline_io):
-    """Opted-in client GPS (no saved profile city) should run web search."""
+async def test_stream_places_query_with_client_location_skips_the_settings_prompt(
+    fake_redis,
+    stream_offline_io,
+):
+    """Opted-in client GPS (no saved profile city) answers, without the settings prompt."""
     from app.modules import chat as chat_module
 
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
     fake_user.location = ""
     fake_user.location_enabled = True
 
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
-
-    augment = AsyncMock(return_value=(None, []))
 
     async def fake_stream(**kwargs):
         yield "answer"
@@ -1854,25 +1752,23 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.repositories.users.update", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=0)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
-        patch("app.modules.web_search.build_search_augmentation", augment),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         yielded: list[str] = []
         async for tok in chat_module.stream_chat_response(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
@@ -1882,12 +1778,10 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
             yielded.append(tok)
 
     assert not any("Settings" in t for t in yielded), yielded
-    augment.assert_awaited_once()
-    assert augment.await_args.kwargs["user_location"] == "San Francisco, CA"
 
 
 @pytest.mark.asyncio
-async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io):
+async def test_stream_persists_raw_text_when_enrichment_fails(fake_redis, stream_offline_io):
     """Post-stream enrichment (reminder fences, math fences, …) must not
     abort persistence — the user already saw streamed tokens."""
     from app.modules import chat as chat_module
@@ -1899,8 +1793,6 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
@@ -1913,12 +1805,12 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
             patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
         )
         stack.enter_context(
-            patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
+            patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat))
         )
         stack.enter_context(
-            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3))
+            patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3))
         )
-        stack.enter_context(patch("app.repositories.messages.create", AsyncMock()))
+        stack.enter_context(patch.object(messages_repository, "create", AsyncMock()))
         stack.enter_context(
             patch(
                 "app.modules.chat.turn_prep.context.build_prompt_messages",
@@ -1926,20 +1818,11 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
             )
         )
         stack.enter_context(
-            patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[]))
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.web_search.build_search_augmentation",
-                AsyncMock(return_value=(None, [])),
-            )
-        )
-        stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
         stack.enter_context(patch("app.services.quota.adjust_usage", AsyncMock()))
         stack.enter_context(patch("app.repositories.usage.add_tokens", AsyncMock()))
-        stack.enter_context(patch("app.repositories.chats.touch_by_id", AsyncMock()))
+        stack.enter_context(patch.object(chats_repository, "touch_by_id", AsyncMock()))
         stack.enter_context(patch("app.core.jobs.enqueue", AsyncMock()))
         stack.enter_context(
             patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
@@ -1955,7 +1838,7 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
         collected: list[str] = []
         async for tok in chat_module.stream_chat_response(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
@@ -1970,11 +1853,11 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
 
     assert collected == ["hello ", "world"]
     finalize.assert_awaited()
-    assert finalize.await_args.args[2] == "hello world"
+    assert finalize.await_args.kwargs["assistant_text"] == "hello world"
 
 
 @pytest.mark.asyncio
-async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
+async def test_stream_no_final_content_on_normal_completion(fake_redis, stream_offline_io):
     """`final_content` must NOT be set on a normal (non-cancelled) turn — keep
     `done` payloads small."""
     from app.modules import chat as chat_module
@@ -1985,8 +1868,6 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
-
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
@@ -1994,28 +1875,23 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.repositories.messages.create", AsyncMock()),
+        patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
+        patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
+        patch.object(messages_repository, "create", AsyncMock()),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
-        patch(
-            "app.modules.web_search.build_search_augmentation",
-            AsyncMock(return_value=(None, [])),
-        ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
-        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch.object(chats_repository, "touch_by_id", AsyncMock()),
         patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         outcome = TurnOutcome()
         async for _ in chat_module.stream_chat_response(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
@@ -2039,7 +1915,6 @@ async def test_regenerate_keeps_assistant_when_stream_empty(fake_redis):
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
     fake_user.timezone = None
 
     fake_chat = MagicMock()
@@ -2053,6 +1928,7 @@ async def test_regenerate_keeps_assistant_when_stream_empty(fake_redis):
     fake_last.model = "free-chat"
 
     fake_last_user = MagicMock()
+    fake_last_user.role = "user"
     fake_last_user.content = "question"
 
     finalize = AsyncMock()
@@ -2069,24 +1945,19 @@ async def test_regenerate_keeps_assistant_when_stream_empty(fake_redis):
             patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
         )
         stack.enter_context(
-            patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
+            patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat))
         )
         stack.enter_context(
-            patch("app.repositories.messages.get_last", AsyncMock(return_value=fake_last))
-        )
-        stack.enter_context(
-            patch(
-                "app.repositories.messages.get_last_user",
-                AsyncMock(return_value=fake_last_user),
-            )
-        )
-        stack.enter_context(
-            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
+            patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=2))
         )
         # Every plan can generate images now, so a short regenerate reads the
         # thread for an image follow-up before it searches.
         stack.enter_context(
-            patch("app.repositories.messages.list_recent", AsyncMock(return_value=[]))
+            patch.object(
+                messages_repository,
+                "list_recent",
+                AsyncMock(return_value=[fake_last_user, fake_last]),
+            )
         )
         stack.enter_context(
             patch(
@@ -2106,24 +1977,6 @@ async def test_regenerate_keeps_assistant_when_stream_empty(fake_redis):
                 MagicMock(return_value=False),
             )
         )
-        stack.enter_context(
-            patch(
-                "app.repositories.messages.recent_user_contents",
-                AsyncMock(return_value=[]),
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
-                AsyncMock(return_value=(None, None, [], None, False, None, None)),
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.chat.turn_prep.augment.inject_web_and_tools",
-                AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
-            )
-        )
         stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
@@ -2138,7 +1991,7 @@ async def test_regenerate_keeps_assistant_when_stream_empty(fake_redis):
                 AsyncMock(),
             )
         )
-        stack.enter_context(patch("app.repositories.messages.delete_message", delete))
+        stack.enter_context(patch.object(messages_repository, "delete_message", delete))
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
         )
@@ -2173,7 +2026,6 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
     fake_user.timezone = None
 
     fake_chat = MagicMock()
@@ -2187,6 +2039,7 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
     fake_last.model = "free-chat"
 
     fake_last_user = MagicMock()
+    fake_last_user.role = "user"
     fake_last_user.content = "question"
 
     async def track_build(request, *_args):
@@ -2195,7 +2048,6 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
             prompt_messages=[{"role": "system", "content": "sys"}],
             stats=PromptStats(),
             instant_reply=None,
-            search_sources=[],
             local_places=False,
             max_out=100,
             fallback_models=[],
@@ -2227,19 +2079,17 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
             patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
         )
         stack.enter_context(
-            patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
+            patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat))
         )
         stack.enter_context(
-            patch("app.repositories.messages.get_last", AsyncMock(return_value=fake_last))
+            patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=2))
         )
         stack.enter_context(
-            patch(
-                "app.repositories.messages.get_last_user",
-                AsyncMock(return_value=fake_last_user),
+            patch.object(
+                messages_repository,
+                "list_recent",
+                AsyncMock(return_value=[fake_last_user, fake_last]),
             )
-        )
-        stack.enter_context(
-            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
         )
         stack.enter_context(
             patch(
@@ -2262,8 +2112,9 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
             )
         )
         stack.enter_context(
-            patch(
-                "app.repositories.messages.delete_message",
+            patch.object(
+                messages_repository,
+                "delete_message",
                 delete_mock,
             )
         )
@@ -2287,13 +2138,13 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
 
 
 @pytest.mark.asyncio
-async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
+async def test_regenerate_passes_client_geo_to_the_turn(fake_redis):
+    """The device's place reaches the turn a regenerate builds (its searches use it)."""
     from app.modules import chat as chat_module
 
     fake_user = MagicMock()
     fake_user.id = MagicMock()
     fake_user.default_model = "free-chat"
-    fake_user.response_style = "balanced"
     fake_user.timezone = None
     fake_user.locale = "en"
 
@@ -2308,13 +2159,17 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
     fake_last.model = "free-chat"
 
     fake_last_user = MagicMock()
+    fake_last_user.role = "user"
     fake_last_user.content = "Best restaurants near me"
 
-    fetch_web = AsyncMock(return_value=(None, None, [], None, False, None, None))
+    class _Built(Exception):
+        pass
 
-    async def empty_stream(**kwargs):
-        if False:
-            yield ""
+    captured: dict[str, Any] = {}
+
+    async def build(request, *_args):
+        captured["request"] = request
+        raise _Built
 
     with ExitStack() as stack:
         for patcher in _offline_session_patches():
@@ -2323,76 +2178,24 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
             patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
         )
         stack.enter_context(
-            patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
+            patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat))
         )
         stack.enter_context(
-            patch("app.repositories.messages.get_last", AsyncMock(return_value=fake_last))
+            patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=2))
         )
         stack.enter_context(
-            patch(
-                "app.repositories.messages.get_last_user",
-                AsyncMock(return_value=fake_last_user),
+            patch.object(
+                messages_repository,
+                "list_recent",
+                AsyncMock(return_value=[fake_last_user, fake_last]),
             )
         )
         stack.enter_context(
-            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
-        )
-        # Every plan can generate images now, so a short regenerate reads the
-        # thread for an image follow-up before it searches.
-        stack.enter_context(
-            patch("app.repositories.messages.list_recent", AsyncMock(return_value=[]))
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.chat.turn_prep.context.build_prompt_messages",
-                AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.web_search.is_short_letter_answer",
-                MagicMock(return_value=False),
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.repositories.messages.recent_user_contents",
-                AsyncMock(return_value=[]),
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.chat.turn_prep.augment.fetch_web_and_tools",
-                fetch_web,
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.chat.turn_prep.augment.inject_web_and_tools",
-                AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
-            )
+            patch("app.modules.chat.stream_entry.build_stream_prompt_context", build)
         )
         stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
-        stack.enter_context(
-            patch(
-                "app.modules.attachments.lifecycle.detach_attachments_for_messages",
-                AsyncMock(return_value=[]),
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.attachments.lifecycle.delete_storage_keys",
-                AsyncMock(),
-            )
-        )
-        stack.enter_context(patch("app.repositories.messages.delete_message", AsyncMock()))
-        stack.enter_context(
-            patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
-        )
-        from app.gateways.litellm_gateway import ModelUnavailableError
-
-        with pytest.raises(ModelUnavailableError):
+        with pytest.raises(_Built):
             async for _ in chat_module.stream_regenerate_response(
                 offline_deps(),
                 fake_redis,
@@ -2405,14 +2208,13 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
             ):
                 pass
 
-    fetch_web.assert_awaited_once()
-    assert fetch_web.await_args.kwargs["latitude"] == 37.77
-    assert fetch_web.await_args.kwargs["longitude"] == -122.42
-    assert fetch_web.await_args.kwargs["user_location"] == "San Francisco, CA"
+    request = captured["request"]
+    assert (request.client_latitude, request.client_longitude) == (37.77, -122.42)
+    assert request.client_location == "San Francisco, CA"
 
 
 @pytest.mark.asyncio
-async def test_instant_reply_usage_uses_input_output_keys(stream_offline_io):
+async def test_instant_reply_usage_uses_input_output_keys(fake_redis, stream_offline_io):
     """Instant replies must seed usage with ``input``/``output`` — the keys
     ``finalize_stream_turn_db`` reads. ``input_tokens``/``output_tokens`` were
     ignored, so quota fell back to full prompt re-estimation and overcharged."""
@@ -2423,7 +2225,7 @@ async def test_instant_reply_usage_uses_input_output_keys(stream_offline_io):
 
     captured: dict[str, object] = {}
 
-    async def capture_finalize(_redis, _ctx, assistant_text, usage, _outcome):
+    async def capture_finalize(*_args, assistant_text, usage, outcome):
         captured["usage"] = dict(usage)
         captured["assistant_text"] = assistant_text
 
@@ -2450,7 +2252,7 @@ async def test_instant_reply_usage_uses_input_output_keys(stream_offline_io):
         tokens: list[str] = []
         async for tok in stream_and_finalize(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
@@ -2476,6 +2278,7 @@ async def test_instant_reply_usage_uses_input_output_keys(stream_offline_io):
 
 @pytest.mark.asyncio
 async def test_web_search_tool_round_streams_final_instead_of_regenerating(
+    fake_redis,
     stream_offline_io,
 ):
     """After web_search tools run, the visible answer is streamed — not a
@@ -2530,7 +2333,7 @@ async def test_web_search_tool_round_streams_final_instead_of_regenerating(
         yielded: list[str] = []
         async for tok in stream_and_finalize(
             offline_deps(),
-            AsyncMock(),
+            fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=True),
             ctx,
             should_cancel=None,

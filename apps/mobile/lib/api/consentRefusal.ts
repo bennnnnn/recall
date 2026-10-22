@@ -16,14 +16,3 @@ export function setConsentRequiredHandler(fn: (() => void) | null): void {
 export function notifyConsentRequired(): void {
   onConsentRequired?.();
 }
-
-/** True for the 403 body `{"detail": {"code": "consent_required", …}}`. */
-export function isConsentRequiredBody(body: string): boolean {
-  try {
-    const parsed: unknown = JSON.parse(body);
-    const detail = (parsed as { detail?: unknown } | null)?.detail;
-    return (detail as { code?: unknown } | null)?.code === CONSENT_REQUIRED_CODE;
-  } catch {
-    return false;
-  }
-}

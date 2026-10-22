@@ -5,6 +5,8 @@ Also the shape and draw words the geometry extractors require. Linear scans (Cod
 
 from __future__ import annotations
 
+import re
+
 from app.services.number_text import DECIMAL_LITERAL
 from app.services.text_match import word_index
 
@@ -63,10 +65,32 @@ def geometry_dim_context(lower: str) -> bool:
     return any(word_index(lower, cue) != -1 for cue in _GEOMETRY_DIM_WORDS)
 
 
-def has_draw_shape(lower: str, shape: str) -> bool:
-    if shape not in lower:
+_DRAW_VERB = re.compile(r"\b(?:draw|show|sketch|visuali[sz]e)\s", re.IGNORECASE)
+# Capitalised words a plain shape may follow in Title Case: "Draw An Equilateral Triangle".
+_SHAPE_WORDS = frozenset(
+    {
+        "a", "an", "the", "this", "that", "my", "your", "one", "two", "three", "four",
+        "right", "equilateral", "isosceles", "scalene", "acute", "obtuse", "regular", "unit",
+    }
+)  # fmt: skip
+
+
+def has_draw_shape(cleaned: str, shape: str) -> bool:
+    """A draw, show or sketch verb with ``shape`` (lower case) as a plain shape.
+
+    A capitalised word before the shape makes it a name, not a figure to draw: "a
+    flowchart of a Punnett square", "Times Square", "Pascal's triangle".
+    """
+    lower = cleaned.lower()
+    if shape not in lower or _DRAW_VERB.search(cleaned) is None:
         return False
-    return any(v in lower for v in ("draw ", "show ", "sketch ", "visualize ", "visualise "))
+    for match in re.finditer(re.escape(shape), lower):
+        words = cleaned[: match.start()].split()
+        previous = words[-1] if words else ""
+        name = previous.removesuffix("'s").removesuffix("\u2019s")
+        if not name[:1].isupper() or name.lower() in _SHAPE_WORDS:
+            return True
+    return False
 
 
 def first_dim_pair(text: str) -> tuple[float, float, str] | None:

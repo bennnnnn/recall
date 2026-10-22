@@ -22,7 +22,7 @@ from app.modules.physics.law_titles import law_title
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import PhysicsResult, solve_physics
 from app.modules.physics.solvers.chip import render_quantity, render_quantity_latex
-from app.modules.physics.solvers.common import PartResult, QuantityResult
+from app.modules.physics.solvers.results import PartResult, QuantityResult
 from app.modules.physics.working_steps import carried_to_answer
 from app.services.solving import (
     PhysicsPartWorking,

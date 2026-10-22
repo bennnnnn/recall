@@ -39,6 +39,7 @@ export interface ChatScreenListProps {
   messages: Message[];
   hasMoreOlder: boolean;
   loadingOlder: boolean;
+  newerPage: { loading: boolean; load: () => Promise<void> } | null;
   chatLoading: boolean;
   routeChatId?: string;
   renderItem: (info: ListRenderItemInfo<Message>) => ReactElement | null;
@@ -161,6 +162,7 @@ export const ChatScreenBody = memo(function ChatScreenBody({
           listBottomPad={layout.listBottomPad}
           hasMoreOlder={list.hasMoreOlder}
           loadingOlder={list.loadingOlder}
+          newerPage={list.newerPage}
           chatLoading={list.chatLoading}
           routeChatId={list.routeChatId}
           emptyHeight={layout.emptyHeight}

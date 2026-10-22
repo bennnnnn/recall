@@ -1,23 +1,7 @@
-import {
-  autoAdvanceNextEmptySlot,
-  caretInGroup,
-  caretStepLeft,
-  caretStepRight,
-  findFracSlots,
-  findLognSlots,
-  findNrootSlots,
-  isCursorInsideInlineMath,
-  MATH_KEYBOARD_GROUPS,
-  MATH_KEYBOARD_SYMBOLS,
-  MATH_PAD_KEYS,
-  PAD_ROWS,
-  padRows,
-  spliceMathInsert,
-  SYMBOL_A11Y,
-  symbolA11yLabel,
-  tapAdvancesToNextSlot,
-  type SymbolPage,
-} from "@/lib/math/keyboardSymbols";
+import { autoAdvanceNextEmptySlot, caretInGroup, caretStepLeft, caretStepRight, MATH_KEYBOARD_GROUPS, MATH_KEYBOARD_SYMBOLS, padRows, spliceMathInsert, symbolA11yLabel, tapAdvancesToNextSlot, type SymbolPage } from "@/lib/math/keyboardSymbols";
+import { findFracSlots, findLognSlots, findNrootSlots } from "@/lib/math/keyboardSlots";
+import { isCursorInsideInlineMath, MATH_PAD_KEYS, SYMBOL_A11Y } from "@/lib/math/keyboardCatalog";
+import { PAD_ROWS } from "@/lib/math/keyboardPages";
 
 const SYMBOL_PAGES = MATH_KEYBOARD_GROUPS.filter((group): group is SymbolPage => group !== "converter");
 const pageKeyIds = (page: SymbolPage) =>

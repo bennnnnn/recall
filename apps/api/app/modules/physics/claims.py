@@ -25,27 +25,12 @@ from dataclasses import dataclass
 
 from app.modules.physics.ask import _QUANTITY, SENTENCE, has_ask
 from app.modules.physics.givens import scan_givens, unit_dimension, unit_expression
+from app.services.student_claim import CHECK_ONLY as CHECK_ONLY
+from app.services.student_claim import OWN as _OWN
+from app.services.student_claim import QUESTION_WORD as _QUESTION_WORD
+from app.services.student_claim import STATED as _STATED
+from app.services.student_claim import TRAILING_CHECK as _TRAILING_CHECK
 
-# The lead-in that makes the value after it the student's own result.
-_STATED = re.compile(
-    r"\b(?:i|we)\s+(?:got|calculated|computed|worked\s+(?:it\s+)?out|found|"
-    r"obtained|reckon|estimated|came\s+up\s+with|ended\s+up\s+with|wrote|answered|"
-    r"think\s+(?:it'?s|it\s+is|the\s+answer\s+is))\b"
-    r"|\bmy\s+(?:final\s+)?(?:answer|result|value|working|calculation|solution)\s+"
-    r"(?:is|was|says|gives|gave|came\s+to|comes\s+to)\b"
-    r"|\b(?:my|a|the|our)\s+(?:friend|teacher|book|textbook|classmate|tutor|answer\s+key|"
-    r"answer\s+sheet|mark\s+scheme)\s+(?:says?|said|thinks?|thought|got|gets|claims?|"
-    r"reckons?)\b",
-    re.IGNORECASE,
-)
-_OWN = re.compile(
-    r"(?:i|we|my\s+(?:final\s+)?(?:answer|result|value|working|calculation|solution))\b", re.I
-)
-# A question word before the lead-in makes it part of the question.
-_ASKED_FIRST = re.compile(
-    r"\b(?:how|what|when|where|which|why|do|does|did|can|could|will|would|should)\b",
-    re.IGNORECASE,
-)
 # The claimed value follows its lead-in closely: "I got a range of 35.3 m".
 _CLAIM_REACH = 48
 # A yes/no question about a value, at the start of its sentence.
@@ -61,24 +46,10 @@ _THRESHOLD = re.compile(
     r"at\s+most|beyond|exceed\w*)\s*$",
     re.IGNORECASE,
 )
-# "Am I right?", "Is that correct?": a check, not a question of its own.
-CHECK_ONLY = re.compile(
-    r"^\s*(?:(?:am|are)\s+(?:i|we)\s+(?:right|correct)|is\s+(?:that|this|it|my\s+answer|"
-    r"my\s+working)\s+(?:right|correct|ok|okay)|(?:is\s+(?:that|this)\s+)?(?:right|correct)|"
-    r"did\s+(?:i|we)\s+get\s+it\s+right|(?:can\s+you\s+)?check\s+(?:it|this|that|my\s+\w+)|"
-    r"yes\s+or\s+no)\s*(?:[?.!]+\s*)?$",
-    re.IGNORECASE,
-)
 # A yes/no question that asks how, not whether a value is right.
 _NOT_A_CHECK = re.compile(
     r"\b(?:possible|able|enough|find|calculate|compute|determine|work\s+out|solve|explain|"
     r"show|use|need)\b",
-    re.IGNORECASE,
-)
-# A trailing check glued to the claim: "I got 4 m/s^2, correct?".
-_TRAILING_CHECK = re.compile(
-    r"(?:,|\b|\B(?<!\s))\s*(?:(?:is\s+(?:that|this|it)\s+)?(?:right|correct)|am\s+i\s+right)"
-    r"\s*(?=[?.!]|$)",
     re.IGNORECASE,
 )
 
@@ -152,7 +123,7 @@ def read_claims(text: str) -> list[Claim]:
             and _NOT_A_CHECK.search(body) is None
         )
         stated = _STATED.search(body)
-        if stated is not None and _ASKED_FIRST.search(body, 0, stated.start()):
+        if stated is not None and _QUESTION_WORD.search(body, 0, stated.start()):
             # "how far do I get in 30 minutes" asks; it states nothing.
             stated = None
         if not yes_no and stated is None:

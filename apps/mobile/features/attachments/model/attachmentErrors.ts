@@ -38,27 +38,27 @@ export function attachmentErrorMessage(error: unknown, t: Translate): string {
   return t(MESSAGE_KEYS[error.reason], { limit: MAX_ATTACHMENT_MEGABYTES });
 }
 
-function apiDetail(error: ApiRequestError): string {
-  try {
-    const body = JSON.parse(error.message) as { detail?: unknown };
-    return typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail ?? "");
-  } catch {
-    return error.message;
-  }
+/** The fields FastAPI's validation refused: each error's `loc`, last part. */
+function refusedFields(error: ApiRequestError): string[] {
+  const errors = error.fields.errors;
+  if (!Array.isArray(errors)) return [];
+  return errors.map((item) => {
+    const loc = (item as { loc?: unknown } | null)?.loc;
+    return Array.isArray(loc) ? String(loc[loc.length - 1]) : "";
+  });
 }
 
 /**
- * Presign refusals named by the API (modules/attachments/upload.py): 400 for an
- * unsupported type or a bad size, 422 when `size_bytes` breaks the schema cap,
- * 429 for the daily image limit. Any other API refusal is a failed upload; a
- * non-API error (session change, network) passes through unchanged.
+ * Presign refusals named by the API's codes (modules/attachments/upload.py,
+ * docs/fixtures/error_codes.json); the schema's cap on `size_bytes` is FastAPI's 422.
+ * Any other API refusal is a failed upload; a non-API error (session change,
+ * network) passes through unchanged.
  */
 export function presignFailure(error: unknown): unknown {
   if (!(error instanceof ApiRequestError)) return error;
-  const detail = apiDetail(error);
-  if (error.status === 429) return new AttachmentError("daily_limit");
-  if (error.status === 400 && /content type/i.test(detail)) return new AttachmentError("unsupported_type");
-  if ((error.status === 400 || error.status === 422) && /size/i.test(detail)) {
+  if (error.code === "daily_limit") return new AttachmentError("daily_limit");
+  if (error.code === "unsupported_type") return new AttachmentError("unsupported_type");
+  if (error.code === "invalid_size" || refusedFields(error).includes("size_bytes")) {
     return new AttachmentError("too_large");
   }
   return new AttachmentError("upload_failed");

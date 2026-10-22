@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, Chat } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
+import { useViewOwner } from "@/lib/viewOwner";
 import { beginChatMutation } from "@/features/chat/model/mutationLock";
 import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
-import { getCachedChat } from "@/lib/cache/chatListCache";
-import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
-import { abandonActiveChatIfDeleted } from "@/lib/drawer";
-import { archiveBulkTargets } from "@/lib/drawerChatSelection";
+import { getCachedChat } from "@/features/chat/model/chatListCache";
+import { emitAppEvent } from "@/lib/appEvents";
+import { abandonActiveChatIfDeleted } from "@/features/chat/drawer/drawer";
+import { archiveBulkTargets } from "@/features/chat/drawer/drawerChatSelection";
 import { notifyDestructive } from "@/lib/haptics";
 import type { IconName } from "@/ui/icons/names";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
@@ -35,17 +36,11 @@ export function useChatBulkActions({
   const feedback = useActionFeedbackOptional();
   const session = getSessionGeneration();
   const signedIn = Boolean(token);
-  const viewRef = useRef({ session, isDrawerOpen, signedIn });
-  if (viewRef.current.session !== session || viewRef.current.isDrawerOpen !== isDrawerOpen || viewRef.current.signedIn !== signedIn) {
-    viewRef.current = { session, isDrawerOpen, signedIn };
-  }
-  const view = viewRef.current;
-  const mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const { owns } = useViewOwner(`${session}:${isDrawerOpen}:${signedIn}`);
   const currentSession = useCallback(() => session === getSessionGeneration(), [session]);
   const currentView = useCallback(
-    () => mounted.current && isDrawerOpen && viewRef.current === view && currentSession(),
-    [isDrawerOpen, view, currentSession],
+    () => owns() && isDrawerOpen && currentSession(),
+    [isDrawerOpen, owns, currentSession],
   );
 
   const bulkArchiveChats = useCallback(
@@ -128,7 +123,7 @@ export function useChatBulkActions({
             }
           }
           if (deletedIds.length > 0) {
-            invalidateGalleryCache();
+            emitAppEvent("chatsDeleted", { chatIds: deletedIds });
             abandonActiveChatIfDeleted(deletedIds);
           }
           if (deletedIds.length !== targets.length) {

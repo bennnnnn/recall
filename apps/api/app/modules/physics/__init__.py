@@ -19,7 +19,30 @@ Other modules import only the names in ``_EXPORTS``.
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.modules.physics.block import (
+        build_verified_physics_block as build_verified_physics_block,
+    )
+    from app.modules.physics.extract import (
+        extract_physics_intent as extract_physics_intent,
+    )
+    from app.modules.physics.extract import (
+        needs_physics as needs_physics,
+    )
+    from app.modules.physics.reply_policy import (
+        PHYSICS_REPLY_POLICY as PHYSICS_REPLY_POLICY,
+    )
+    from app.modules.physics.reply_policy import (
+        physics_prompt_hints as physics_prompt_hints,
+    )
+    from app.modules.physics.solver import (
+        solve_physics as solve_physics,
+    )
+    from app.modules.physics.symbol_givens import (
+        is_symbol_givens_request as is_symbol_givens_request,
+    )
 
 _EXPORTS = {
     "PHYSICS_REPLY_POLICY": ("reply_policy", "PHYSICS_REPLY_POLICY"),

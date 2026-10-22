@@ -1,5 +1,5 @@
-import { request } from "@/lib/api/client";
-import { chatHasThreadContent, shareEmptyChatCheck } from "@/features/chat/model/draftLogic";
+import { request, requestRevalidated } from "@/lib/api/client";
+import { shareEmptyChatCheck } from "@/features/chat/model/draftLogic";
 import type {
   Chat,
   ChatList,
@@ -15,19 +15,23 @@ function normalizeMessagePage(data: MessagePage | Message[]): MessagePage {
   return data;
 }
 
+/** The newest page, or the page `before` or `after` a message, or the window `around` one. */
 async function listMessages(
   token: string,
   chatId: string,
-  opts?: { limit?: number; before?: string },
+  opts?: { limit?: number; before?: string; after?: string; around?: string },
 ): Promise<MessagePage> {
   const params = new URLSearchParams();
   if (opts?.limit != null) params.set("limit", String(opts.limit));
   if (opts?.before) params.set("before", opts.before);
+  if (opts?.after) params.set("after", opts.after);
+  if (opts?.around) params.set("around", opts.around);
   const qs = params.toString();
-  const data = await request<MessagePage | Message[]>(
-    `/chats/${chatId}/messages${qs ? `?${qs}` : ""}`,
-    token,
-  );
+  const path = `/chats/${chatId}/messages${qs ? `?${qs}` : ""}`;
+  // The newest page is read again on every visit; another, seldom.
+  const data = opts?.before || opts?.after || opts?.around
+    ? await request<MessagePage | Message[]>(path, token)
+    : await requestRevalidated<MessagePage | Message[]>(path, token);
   return normalizeMessagePage(data);
 }
 
@@ -60,21 +64,15 @@ export const chatsApi = {
     request<void>("/chats/archive-all", token, { method: "POST" }),
   deleteAllChats: (token: string) =>
     request<void>("/chats", token, { method: "DELETE" }),
+  /** One request: the server keeps a chat that holds any message (a turn left mid-stream). */
   deleteChatIfEmpty: (token: string, chatId: string) =>
-    shareEmptyChatCheck(chatId, async () => {
-      const page = normalizeMessagePage(
-        await request<MessagePage | Message[]>(
-          `/chats/${chatId}/messages?limit=20`,
-          token,
-        ),
-      );
-      // A user turn with no assistant yet is a real chat (left mid-stream).
-      // Only unused empty drafts should be deleted.
-      if (!chatHasThreadContent(page.messages)) {
-        await request<void>(`/chats/${chatId}`, token, { method: "DELETE" });
-      }
-    }),
-  listChats: (token: string) => request<ChatList>("/chats", token),
+    shareEmptyChatCheck(chatId, () =>
+      request<void>(`/chats/${chatId}?if_empty=true`, token, { method: "DELETE" }),
+    ),
+  listChats: (token: string) => requestRevalidated<ChatList>("/chats", token),
+  /** The dated chats after the first page; `cursor` is the list's `next_cursor`. */
+  listOlderChats: (token: string, cursor: string) =>
+    request<ChatList>(`/chats?cursor=${encodeURIComponent(cursor)}`, token),
   listMessages,
   listAllMessages: async (token: string, chatId: string): Promise<Message[]> => {
     const batch = 100;

@@ -44,8 +44,7 @@ export function useSkiaGraphViewport({
   useEffect(() => {
     bounds.value = initialView;
     gestureStart.value = initialView;
-    // Shared values are mutable refs — only reseed for a genuinely new window.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- shared values are mutable refs; reseed only for a new window
   }, [initialView]);
 
   const commit = (next: GraphViewW) => {

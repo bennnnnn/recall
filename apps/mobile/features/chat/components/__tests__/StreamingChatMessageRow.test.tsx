@@ -5,7 +5,7 @@ import type { Message } from "@/lib/api";
 
 let mockBubbleProps: { onRegenerate?: () => void } = {};
 
-jest.mock("@/components/MessageBubble", () => ({
+jest.mock("@/features/chat/components/MessageBubble", () => ({
   MessageBubble: (props: { onRegenerate?: () => void }) => {
     mockBubbleProps = props;
     return null;
@@ -14,9 +14,6 @@ jest.mock("@/components/MessageBubble", () => ({
 let mockDraft: { content: string } | null = null;
 jest.mock("@/contexts/StreamingDraftContext", () => ({
   useStreamingDraft: () => mockDraft,
-}));
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
 }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({ textSecondary: "#666" }) }));
 

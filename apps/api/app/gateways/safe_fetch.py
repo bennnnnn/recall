@@ -180,6 +180,11 @@ async def get_pinned(
         )
 
 
+def fetch_client(timeout: float | httpx.Timeout) -> httpx.AsyncClient:
+    """The client ``fetch_safely`` takes: redirects off, since it follows each hop itself."""
+    return httpx.AsyncClient(timeout=timeout, follow_redirects=False)
+
+
 async def fetch_safely(
     client: httpx.AsyncClient,
     url: str,
@@ -191,7 +196,7 @@ async def fetch_safely(
 ) -> httpx.Response:
     """GET *url* with SSRF-safe DNS pinning, re-validating on every redirect hop.
 
-    The caller's client must be constructed with follow_redirects=False —
+    The caller's client is a ``fetch_client()``, with follow_redirects=False —
     redirects are followed manually here so each hop's target is re-resolved
     and re-validated before connecting (closing the window a malicious/
     misbehaving upstream could otherwise use to redirect to an internal

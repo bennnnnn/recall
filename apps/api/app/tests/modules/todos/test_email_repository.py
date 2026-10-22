@@ -7,7 +7,8 @@ from uuid import uuid4
 import pytest
 
 from app.models.orm import TodoItem
-from app.modules.todos.email_repository import TodoEmailSnapshot, mark_email_sent_if_current
+from app.modules.todos.email_repository import mark_email_sent_if_current
+from app.modules.todos.occurrences import TodoEmailSnapshot
 from app.repositories import users as users_repo
 
 

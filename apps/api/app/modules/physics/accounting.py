@@ -22,17 +22,18 @@ import re
 from dataclasses import dataclass
 from itertools import combinations, product
 
-from app.modules.physics.extractors.common import _NUMBER
+from app.modules.physics.extractors.unit_patterns import NUMBER
 from app.modules.physics.givens import ANGLE, Given, scan_givens, unit_dimension, unit_expression
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import _PARAM_SI_DIMENSIONS, _to_si
+from app.modules.physics.solvers.si import PARAM_SI_DIMENSIONS, to_si
+from app.services.number_text import count_word_pattern, number_word_value
 from app.services.solving import SolveServiceError
 
 logger = logging.getLogger(__name__)
 
 # A stated g is a setting for whichever law needs it, not a competing given.
 _GRAVITY_SETTING = re.compile(
-    rf"\b(?:g\s*=|gravity\s*(?:of|is|=)?)\s*{_NUMBER}(?:\s*m/s\^?2)?",
+    rf"\b(?:g\s*=|gravity\s*(?:of|is|=)?)\s*{NUMBER}(?:\s*m/s\^?2)?",
     re.IGNORECASE,
 )
 # Derived values are sums or differences of a few givens; more is a guess.
@@ -76,7 +77,7 @@ def _same(left: float, right: float) -> bool:
 
 
 def _param_dimension(key: str) -> str | None:
-    expression = _PARAM_SI_DIMENSIONS.get(key)
+    expression = PARAM_SI_DIMENSIONS.get(key)
     if expression is None:
         return None
     if key.startswith("angle") or expression in {"radian", "degree"}:
@@ -105,7 +106,7 @@ def _in_si(value: float, dimension: str, key: str, unit: str) -> float | None:
     if dimension == ANGLE:
         return value if unit.lower().startswith("rad") else math.radians(value)
     try:
-        return _to_si(value, unit, expected_key=key)
+        return to_si(value, unit, expected_key=key)
     except SolveServiceError:
         return None
 
@@ -182,9 +183,8 @@ def _derived(given: Given, others: list[Given], params: list[_Param]) -> bool:
     return False
 
 
-_COUNTS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
 _COUNT_BEFORE = re.compile(
-    r"\b(two|three|four|five|six)\s+(?:identical\s+|equal\s+)?\Z", re.IGNORECASE
+    rf"\b({count_word_pattern(low=2, high=6)})\s+(?:identical\s+|equal\s+)?\Z", re.IGNORECASE
 )
 
 
@@ -195,7 +195,7 @@ def _counted_network(given: Given, text: str, params: list[_Param]) -> bool:
     counted = _COUNT_BEFORE.search(text[max(0, given.start - 24) : given.start])
     if counted is None:
         return False
-    count = _COUNTS[counted.group(1).lower()]
+    count = number_word_value(counted.group(1)) or 0
     return any(
         param.si is not None
         and (_same(param.si, given.si * count) or _same(param.si, given.si / count))

@@ -1,31 +1,32 @@
 """What a saved turn sets off: the durable post-turn jobs (``core/jobs``).
 
-Title, memory, lesson progress, the to-do repair, compression and indexing are
-best-effort background work: enqueued after the reply commits, never on the
-stream's path. The commit itself is ``turn_settle``. ``POST_TURN_JOBS`` is the
-list, in order: each entry reads the ``FinishedTurn`` and returns the jobs it
-wants (none or one). A turn's documents are not here: they are queued for
-indexing as soon as the user's message commits (``turn_prep/persist.py``).
+Title, memory, lesson progress, compression and indexing are best-effort background
+work: enqueued after the reply commits, never on the stream's path. A typed turn
+commits in ``turn_settle``; a picture, a photo lookup or a voice turn commits through
+``turn_record`` and sets off the same jobs (code-health audit ARCH-08).
+``POST_TURN_JOBS`` is the list, in order: each entry reads the ``FinishedTurn`` and
+returns the jobs it wants (none or one). A turn's documents are not here: they are
+queued for indexing as soon as the user's message commits (``turn_prep/persist.py``).
 """
 
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from uuid import UUID
 
 from redis.asyncio import Redis
 
 from app.core import jobs
 from app.core.config import Settings
-from app.core.db import SessionLocal
-from app.modules import todos as todos_service
+from app.models.orm import User
 from app.modules.chat.prompt_constants.lesson_flow import lesson_step
-from app.modules.chat.prompt_memory import memory_switch_on
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.memory import (
     memory_extract_user_text,
     memory_extraction_due,
 )
+from app.modules.memory.switch import memory_switch_on
 from app.services import quota as quota_service
 from app.services.text_normalize import cap_text_head_tail
 
@@ -47,14 +48,44 @@ class PostTurnJob:
 
 
 @dataclass(frozen=True)
+class SavedTurn:
+    """A committed turn as its jobs read it, whichever path saved it."""
+
+    user_id: UUID
+    chat_id: UUID
+    # The account as the turn read it; None when the turn did not load it.
+    user: User | None
+    user_message: str
+    assistant_text: str
+    assistant_message_id: UUID | None
+    # Messages in the chat before this turn.
+    prior_count: int
+    # The chat needs a title: a typed turn's first, or an untitled voice chat.
+    run_title: bool
+    # A quiz answer reads nothing new about the user.
+    skip_memory_jobs: bool = False
+
+    @classmethod
+    def from_context(cls, ctx: StreamContext, assistant_text: str) -> "SavedTurn":
+        return cls(
+            user_id=ctx.user_id,
+            chat_id=ctx.chat_id,
+            user=ctx.user,
+            user_message=ctx.user_message_content,
+            assistant_text=assistant_text,
+            assistant_message_id=ctx.assistant_message_id,
+            prior_count=ctx.prior_count,
+            run_title=ctx.run_title,
+            skip_memory_jobs=ctx.skip_memory_jobs,
+        )
+
+
+@dataclass(frozen=True)
 class FinishedTurn:
     """What the post-turn jobs read about the turn they follow."""
 
     settings: Settings
-    ctx: StreamContext
-    assistant_text: str
-    # This turn as "User: …\nAssistant: …".
-    transcript: str
+    saved: SavedTurn
     # The user line only (stripped): assistant restatements and attachment OCR
     # must not become durable memories.
     memory_user_text: str
@@ -65,19 +96,19 @@ class FinishedTurn:
 
 
 async def _memory_job(turn: FinishedTurn) -> list[PostTurnJob]:
-    ctx, settings = turn.ctx, turn.settings
+    saved, settings = turn.saved, turn.settings
     memory_transcript = f"User: {turn.memory_user_text}" if turn.memory_user_text else ""
     should_extract_memory = memory_extraction_due(
         turn.memory_user_text,
-        turn_number=(ctx.prior_count + 2) // 2,
+        turn_number=(saved.prior_count + 2) // 2,
         every_n_turns=settings.memory_extract_every_n_turns,
     )
     if (
         turn.spend_capped
-        or ctx.skip_memory_jobs
+        or saved.skip_memory_jobs
         or not should_extract_memory
-        or ctx.user is None
-        or not memory_switch_on(ctx.user)
+        or saved.user is None
+        or not memory_switch_on(saved.user)
         or not memory_transcript
     ):
         return []
@@ -86,8 +117,8 @@ async def _memory_job(turn: FinishedTurn) -> list[PostTurnJob]:
         PostTurnJob(
             "memory",
             {
-                "user_id": str(ctx.user_id),
-                "chat_id": str(ctx.chat_id),
+                "user_id": str(saved.user_id),
+                "chat_id": str(saved.chat_id),
                 "transcript": cap_text_head_tail(memory_transcript, _MEMORY_TRANSCRIPT_MAX_CHARS),
                 "assistant_message_id": turn.turn_key,
             },
@@ -98,20 +129,20 @@ async def _memory_job(turn: FinishedTurn) -> list[PostTurnJob]:
 
 async def _lesson_progress_job(turn: FinishedTurn) -> list[PostTurnJob]:
     """A lesson reply updates the chat's one "Learning X" memory line (no LLM)."""
-    ctx = turn.ctx
+    saved = turn.saved
     if (
-        ctx.skip_memory_jobs
-        or ctx.user is None
-        or not memory_switch_on(ctx.user)
-        or lesson_step(turn.assistant_text) is None
+        saved.skip_memory_jobs
+        or saved.user is None
+        or not memory_switch_on(saved.user)
+        or lesson_step(saved.assistant_text) is None
     ):
         return []
     return [
         PostTurnJob(
             "lesson_progress",
             {
-                "user_id": str(ctx.user_id),
-                "chat_id": str(ctx.chat_id),
+                "user_id": str(saved.user_id),
+                "chat_id": str(saved.chat_id),
                 "assistant_message_id": turn.turn_key,
             },
             f"lesson_progress:{turn.turn_key}",
@@ -119,101 +150,67 @@ async def _lesson_progress_job(turn: FinishedTurn) -> list[PostTurnJob]:
     ]
 
 
-async def _todos_job(turn: FinishedTurn) -> list[PostTurnJob]:
-    """The background repair of a reminder change the reply missed.
-
-    It writes without a card, so it stays off while reminder changes wait for the
-    user's tap.
-    """
-    ctx = turn.ctx
-    if (
-        turn.spend_capped
-        or ctx.skip_memory_jobs
-        or turn.settings.reminder_proposals_enabled
-        or not todos_service.should_recover_todo_writes(ctx.user_message_content, turn.transcript)
-    ):
-        return []
-    todo_transcript = turn.transcript
-    try:
-        async with SessionLocal() as session:
-            todo_transcript = await todos_service.build_todo_sync_transcript(
-                session,
-                ctx.chat_id,
-                user_message=ctx.user_message_content,
-                assistant_text=turn.assistant_text,
-            )
-    except Exception:
-        logger.exception("Failed to expand todo sync transcript; using current turn only")
-    return [
-        PostTurnJob(
-            "todos",
-            {
-                "user_id": str(ctx.user_id),
-                "chat_id": str(ctx.chat_id),
-                "transcript": todo_transcript,
-            },
-            f"todosync:{ctx.chat_id}:{turn.turn_key}",
-        )
-    ]
-
-
 async def _topic_job(turn: FinishedTurn) -> list[PostTurnJob]:
-    ctx = turn.ctx
-    if not ctx.run_title:
+    saved = turn.saved
+    # A voice turn may have one side only (a transcript came back empty): the title
+    # reads the side there is.
+    user_message = saved.user_message or saved.assistant_text
+    assistant_message = saved.assistant_text or saved.user_message
+    if not saved.run_title or not (user_message and assistant_message):
         return []
     return [
         PostTurnJob(
             "topic",
             {
-                "chat_id": str(ctx.chat_id),
-                "user_id": str(ctx.user_id),
-                "user_message": ctx.user_message_content,
-                "assistant_message": turn.assistant_text,
+                "chat_id": str(saved.chat_id),
+                "user_id": str(saved.user_id),
+                "user_message": user_message,
+                "assistant_message": assistant_message,
             },
-            f"topic:{ctx.chat_id}",
+            f"topic:{saved.chat_id}",
         )
     ]
 
 
 async def _compress_job(turn: FinishedTurn) -> list[PostTurnJob]:
-    """Dedupe by chat: rapid successive turns on one chat coalesce.
-
-    The worker skips a duplicate enqueue, and the one job that runs compresses
-    whatever is pending then (the later turn's messages too), instead of a no-op
-    compress job on every turn.
+    """One key per enqueue: a fixed ``compress:{chat}`` key was marked done for 24 h by
+    turn 1's no-op run, so the chat was never compressed again that day and the middle
+    of a long chat fell out of the prompt. Runs on one chat still coalesce: the
+    ``chatcompress:`` lock serializes them and a run with too little pending returns
+    before reading the transcript.
     """
-    ctx = turn.ctx
+    saved = turn.saved
     if turn.spend_capped or not turn.settings.history_compression_enabled:
         return []
     return [
         PostTurnJob(
             "compress",
-            {"chat_id": str(ctx.chat_id), "user_id": str(ctx.user_id)},
-            f"compress:{ctx.chat_id}",
+            {"chat_id": str(saved.chat_id), "user_id": str(saved.user_id)},
+            jobs.unique_dedupe_key(f"compress:{saved.chat_id}"),
         )
     ]
 
 
 async def _message_index_job(turn: FinishedTurn) -> list[PostTurnJob]:
     """Memory off means no personal recall: past turns are not indexed for it either."""
-    ctx = turn.ctx
+    saved = turn.saved
     if (
         turn.spend_capped
         or not turn.settings.chat_history_rag_enabled
-        or ctx.assistant_message_id is None
-        or ctx.skip_memory_jobs
-        or not (ctx.user is None or memory_switch_on(ctx.user))
+        or saved.assistant_message_id is None
+        or saved.skip_memory_jobs
+        or not (saved.user is None or memory_switch_on(saved.user))
     ):
         return []
     return [
         PostTurnJob(
             "message_index",
             {
-                "user_id": str(ctx.user_id),
-                "chat_id": str(ctx.chat_id),
-                "assistant_message_id": str(ctx.assistant_message_id),
+                "user_id": str(saved.user_id),
+                "chat_id": str(saved.chat_id),
+                "assistant_message_id": str(saved.assistant_message_id),
             },
-            f"message_index:{ctx.assistant_message_id}",
+            f"message_index:{saved.assistant_message_id}",
         )
     ]
 
@@ -223,7 +220,6 @@ async def _message_index_job(turn: FinishedTurn) -> list[PostTurnJob]:
 POST_TURN_JOBS: tuple[Callable[[FinishedTurn], Awaitable[list[PostTurnJob]]], ...] = (
     _memory_job,
     _lesson_progress_job,
-    _todos_job,
     _topic_job,
     _compress_job,
     _message_index_job,
@@ -236,27 +232,38 @@ async def enqueue_post_turn_jobs(
     ctx: StreamContext,
     assistant_text: str,
 ) -> None:
+    """The jobs for a streamed turn the stream just saved."""
+    await enqueue_saved_turn_jobs(redis, settings, SavedTurn.from_context(ctx, assistant_text))
+
+
+async def enqueue_saved_turn_jobs(redis: Redis, settings: Settings, saved: SavedTurn) -> None:
+    """The jobs for any committed turn, in ``POST_TURN_JOBS`` order."""
     spend_capped = await quota_service.global_spend_exceeded(redis, settings)
     if spend_capped:
         logger.warning(
             "skipping background LLM jobs: global spend cap user_id=%s chat_id=%s",
-            ctx.user_id,
-            ctx.chat_id,
+            saved.user_id,
+            saved.chat_id,
         )
     turn = FinishedTurn(
         settings=settings,
-        ctx=ctx,
-        assistant_text=assistant_text,
-        transcript=f"User: {ctx.user_message_content}\nAssistant: {assistant_text}",
-        memory_user_text=memory_extract_user_text(ctx.user_message_content),
+        saved=saved,
+        memory_user_text=memory_extract_user_text(saved.user_message),
         turn_key=(
-            str(ctx.assistant_message_id)
-            if ctx.assistant_message_id is not None
-            else f"prior{ctx.prior_count}"
+            str(saved.assistant_message_id)
+            if saved.assistant_message_id is not None
+            else f"prior{saved.prior_count}"
         ),
         spend_capped=spend_capped,
     )
     queued = [job for build in POST_TURN_JOBS for job in await build(turn)]
-    await asyncio.gather(
-        *(jobs.enqueue(redis, job.name, job.payload, dedupe_key=job.dedupe_key) for job in queued)
+    # Each job is queued whatever happens to the others: one failed enqueue loses only itself.
+    results = await asyncio.gather(
+        *(jobs.enqueue(redis, job.name, job.payload, dedupe_key=job.dedupe_key) for job in queued),
+        return_exceptions=True,
     )
+    for job, result in zip(queued, results, strict=True):
+        if isinstance(result, Exception):
+            logger.warning(
+                "Post-turn job %s not queued chat_id=%s", job.name, saved.chat_id, exc_info=result
+            )

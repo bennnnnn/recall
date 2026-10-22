@@ -4,12 +4,6 @@ import { GalleryColumnRow } from "@/features/attachments/components/GalleryColum
 import type { AttachmentListItem } from "@/lib/api";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
 jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
   useTheme: () => mockLightTheme,

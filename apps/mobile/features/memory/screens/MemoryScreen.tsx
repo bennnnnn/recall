@@ -26,6 +26,7 @@ import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
 import { StateView } from "@/ui/feedback/StateView";
 import { ListGroup } from "@/ui/list/ListGroup";
 import { ListRow } from "@/ui/list/ListRow";
+import { memoryFailureKey } from "@/features/memory/model/memoryFailure";
 
 // While Recall reads recent chats for the first time, check back for a while.
 const SCAN_POLL_MS = 5000;
@@ -73,7 +74,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     const outcome = await instruct(instruction);
     if (!isCurrentView()) return false;
     if (!outcome.ok) {
-      reportRecoverableError(feedback, t("memory.instruct_failed"));
+      reportRecoverableError(feedback, t(memoryFailureKey(outcome.failure, "memory.instruct_failed")));
       return false;
     }
     feedback?.success(outcome.reply || t("memory.instruct_done"));

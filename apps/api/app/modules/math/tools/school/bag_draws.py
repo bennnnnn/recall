@@ -15,14 +15,11 @@ from dataclasses import replace
 from fractions import Fraction
 
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
+from app.services.number_text import count_word_pattern, number_word_value
 from app.services.workout import Workout, math_line, render_workout
 
-_COUNT_WORDS = {
-    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
-    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
-}  # fmt: skip
-_COUNT = r"(?:\d{1,3}|" + "|".join(_COUNT_WORDS) + ")"
+_COUNT = r"(?:\d{1,3}|" + count_word_pattern() + ")"
 _COLOUR = r"(?:red|blue|green|yellow|white|black|orange|purple|pink|brown|gr[ae]y)"
 _ITEM = (
     r"(?:marbles?|balls?|counters?|beads?|sweets?|candies|candy|socks?|chips?|cubes?|"
@@ -78,7 +75,7 @@ _MAX_ITEMS = 200
 
 
 def _count(word: str) -> int:
-    return _COUNT_WORDS.get(word.lower()) or int(word)
+    return number_word_value(word.lower()) or int(word)
 
 
 def _contents(text: str) -> dict[str, int] | None:
@@ -198,4 +195,4 @@ def bag_draws_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock |
         ),
         answer,
     )
-    return replace(_finish_with_answer(lines, answer), worked_reply=worked)
+    return replace(finish_with_answer(lines, answer), worked_reply=worked)

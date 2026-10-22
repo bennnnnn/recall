@@ -149,6 +149,7 @@ def _ester(acid: Any, partner: str | None) -> str | None:
     alcohol = parse_mol(partner)
     if alcohol is None:
         return None
+    # RDKit's stubs omit AllChem.ReactionFromSmarts.
     reaction = AllChem.ReactionFromSmarts(  # type: ignore[attr-defined]
         "[C:1](=[O:2])[OX2H1].[OX2H1][CX4:3]>>[C:1](=[O:2])O[C:3]"
     )

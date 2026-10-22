@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import process_bootstrap
 from app.core.body_limit import RequestBodyLimitMiddleware
 from app.core.config import cors_allow_origins, get_settings
+from app.core.domain_errors import register_domain_error_handler
 from app.core.request_id import RequestIdMiddleware
 from app.core.rest_rate_limit import RestRateLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
@@ -18,7 +19,6 @@ from app.modules.chat import api as chats
 from app.modules.chat import stream_api as chat_stream
 from app.modules.chat import ws_api as ws
 from app.modules.chemistry import api as chemistry_api
-from app.modules.home import api as home
 from app.modules.images import api as images
 from app.modules.link_preview import api as link_preview
 from app.modules.math import api as math_api
@@ -100,6 +100,7 @@ def create_app() -> FastAPI:
         enable_hsts=settings.environment == "production",
     )
     register_unavailable_handlers(app)
+    register_domain_error_handler(app)
 
     app.include_router(health.router)
     app.include_router(legal.router)
@@ -109,7 +110,6 @@ def create_app() -> FastAPI:
     app.include_router(webhooks.router)
     app.include_router(webhooks.plans_router)
     app.include_router(users.router)
-    app.include_router(home.router)
     app.include_router(link_preview.router)
     app.include_router(chats.router)
     app.include_router(chat_stream.router)

@@ -7,11 +7,13 @@ import logging
 from typing import Any
 from uuid import UUID
 
+from app.core import presence_cache
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.core.sympy_executor import WorkerBusyError
 from app.gateways import embedding_gateway
 from app.gateways.storage_gateway import get_storage_gateway
-from app.models.orm import Attachment, AttachmentChunk
+from app.models.orm import Attachment
 from app.modules.attachments import chunks_repository as chunks_repo
 from app.modules.attachments import content as attachment_content_service
 from app.modules.attachments import ocr_allowance
@@ -135,6 +137,11 @@ def is_indexable_attachment(row: Attachment) -> bool:
     )
 
 
+class AttachmentUnreadableError(Exception):
+    """The parse ran past its budget, or its worker died: a retry reads the same file the
+    same way. Not retried (three attempts stacked parses of one hostile file)."""
+
+
 class AttachmentIndexError(Exception):
     """Raised when attachment indexing fails transiently (R2 read, extraction, embedding).
 
@@ -173,9 +180,12 @@ async def _extract_for_index(
             timeout_seconds=settings.attachment_index_extract_timeout_seconds,
             raise_on_timeout=True,
         )
+    except WorkerBusyError as exc:
+        await ocr_allowance.refund_ocr(owner_id, attachment_id, ocr_day)
+        raise AttachmentIndexError(f"No document worker free for {attachment_id}") from exc
     except ExtractTimeoutError as exc:
         await ocr_allowance.refund_ocr(owner_id, attachment_id, ocr_day)
-        raise AttachmentIndexError(f"Text extraction timed out for {attachment_id}") from exc
+        raise AttachmentUnreadableError(f"Could not read {attachment_id} in time") from exc
     await ocr_allowance.release_unused_ocr(owner_id, attachment_id, ocr_day, details)
     if details is not None:
         await ocr_allowance.remember_ocr_text(attachment_id, details)
@@ -266,7 +276,19 @@ async def index_attachment(
                 user_id=owner_id,
                 coverage=_index_coverage_payload(details, settings),
             )
+    if stored and chat_id is not None:
+        await presence_cache.mark_present(presence_cache.documents_key(chat_id))
     return len(successful) if stored else 0
+
+
+async def chat_has_document_chunks(user_id: UUID, chat_id: UUID) -> bool:
+    """Whether this chat has searchable document chunks (remembered; see presence_cache)."""
+
+    async def probe() -> bool:
+        async with SessionLocal() as session:
+            return await chunks_repo.has_chunks_for_chat(session, user_id, chat_id)
+
+    return await presence_cache.cached_presence(presence_cache.documents_key(chat_id), probe)
 
 
 async def retrieve_for_prompt(
@@ -290,9 +312,8 @@ async def retrieve_for_prompt(
 
     # Skip paid embed when this chat has no indexed chunks yet.
     try:
-        async with SessionLocal() as probe_session:
-            if not await chunks_repo.has_chunks_for_chat(probe_session, user_id, chat_id):
-                return ""
+        if not await chat_has_document_chunks(user_id, chat_id):
+            return ""
     except Exception:
         logger.warning("Attachment RAG chunk probe failed for chat_id=%s", chat_id, exc_info=True)
         return ""
@@ -314,12 +335,9 @@ async def retrieve_for_prompt(
     if settings.attachment_rag_min_similarity > 0:
         max_distance = 1.0 - settings.attachment_rag_min_similarity
 
-    # BUG FIX (was silent): a DB/pgvector-level error here (unlike an
-    # embedding-gateway failure, already handled above via the empty-vector
-    # check) had no catch anywhere in this call chain, so it propagated all
-    # the way up and failed the whole chat turn instead of just proceeding
-    # without attachment context — RAG is best-effort background context,
-    # same as memory and todos, and must degrade the same way.
+    # A database or pgvector error here costs the turn its attachment context, never the
+    # turn: RAG is best-effort context, like memory and to-dos. (A failed embedding is
+    # the empty vector checked above.)
     filenames: dict[UUID, str] = {}
     loaded_files: list[Attachment] = []
     try:
@@ -328,9 +346,10 @@ async def retrieve_for_prompt(
                 search_session,
                 user_id,
                 query_vec,
+                window=settings.attachment_rag_search_window,
                 chat_id=chat_id,
                 limit=settings.attachment_rag_chunk_limit,
-                max_distance=max_distance if len(query_vec) == chunks_repo.EMBEDDING_DIM else None,
+                max_distance=max_distance,
             )
             att_ids = list({row.attachment_id for row in rows})
             if att_ids:
@@ -342,18 +361,6 @@ async def retrieve_for_prompt(
     except Exception:
         logger.warning("Attachment RAG retrieval failed for chat_id=%s", chat_id, exc_info=True)
         return ""
-
-    if len(query_vec) != chunks_repo.EMBEDDING_DIM and rows:
-        scored: list[tuple[float, AttachmentChunk]] = []
-        for row in rows:
-            stored = embedding_gateway.parse_embedding(row.embedding_json)
-            if not stored:
-                continue
-            score = embedding_gateway.cosine_similarity(query_vec, stored)
-            if score >= settings.attachment_rag_min_similarity:
-                scored.append((score, row))
-        scored.sort(key=lambda item: item[0], reverse=True)
-        rows = [item[1] for item in scored[: settings.attachment_rag_chunk_limit]]
 
     if not rows:
         return wrap_untrusted("attached documents", _RAG_MISS_NOTE)

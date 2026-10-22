@@ -7,7 +7,7 @@ import pytest
 
 from app.background import handlers
 from app.core.config import Settings
-from app.core.jobs import queue
+from app.core.jobs import JobSkipped, queue
 
 _USER, _CHAT, _MESSAGE = str(uuid4()), str(uuid4()), str(uuid4())
 _PAYLOAD = {
@@ -24,9 +24,8 @@ _CAPPED = {
     "memory_consolidate": (
         "app.background.handlers.memory_consolidation.consolidate_user_memory_sections"
     ),
-    "todos": "app.background.handlers.todo_jobs.sync_todos_from_chat",
     "compress": "app.background.handlers.compaction.compress_chat_history",
-    "topic": "app.background.handlers.topic_service.generate_chat_title",
+    "topic": "app.background.handlers.chat_titles.generate_chat_title",
     "attachment_index": "app.background.handlers.attachment_indexing.index_attachment_job",
     "message_index": "app.background.handlers.message_indexing.index_message_job",
 }
@@ -46,6 +45,8 @@ async def test_a_model_job_does_nothing_once_the_spend_cap_is_reached(
     with (
         patch(work, AsyncMock()) as body,
         patch.object(handlers.quota_service, "global_spend_exceeded", AsyncMock(return_value=True)),
+        # Not done: the worker releases the job's key so a later request still runs.
+        pytest.raises(JobSkipped),
     ):
         await queue._HANDLERS[job_type](settings, dict(_PAYLOAD))
     body.assert_not_awaited()
@@ -55,8 +56,10 @@ async def test_a_model_job_does_nothing_once_the_spend_cap_is_reached(
 @pytest.mark.parametrize("job_type, work", sorted(_CAPPED.items()))
 async def test_a_model_job_runs_below_the_spend_cap(job_type: str, work: str) -> None:
     settings = Settings(daily_global_spend_usd=1.0)
+    # A title job reports whether it applied one; the rest return nothing.
+    result = True if job_type == "topic" else None
     with (
-        patch(work, AsyncMock(return_value=None)) as body,
+        patch(work, AsyncMock(return_value=result)) as body,
         patch.object(
             handlers.quota_service, "global_spend_exceeded", AsyncMock(return_value=False)
         ),

@@ -9,7 +9,7 @@ from app.core.config import Settings
 from app.modules.math import school as math_school
 from app.modules.math.match.coordinate_vector import literal_math_tuples
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school._parse import _exactly_n_numbers
 from app.services.number_text import DECIMAL_LITERAL, finite_match_value
 from app.services.text_match import word_index
@@ -20,12 +20,12 @@ def _linear_abc(cleaned: str) -> tuple[float, float, float] | None:
     from sympy import Symbol, diff
 
     from app.modules.math.solve import try_extract_equation_from_text
-    from app.modules.math.solve.parse import _parse_expression
+    from app.modules.math.solve.parse import parse_expression
 
     extracted = try_extract_equation_from_text(cleaned)
     if extracted is None:
         return None
-    parsed = _parse_expression(f"({extracted.lhs})-({extracted.rhs})", ["x", "y"])
+    parsed = parse_expression(f"({extracted.lhs})-({extracted.rhs})", ["x", "y"])
     x, y = Symbol("x"), Symbol("y")
     if parsed.free_symbols - {x, y}:
         return None
@@ -162,7 +162,7 @@ def sas_area_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | 
         intent.percent_base, intent.percent_rate, intent.point_x
     )
     lines.append(f"SAS area = {answer}")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)
 
 
 def _verified_block_coord(
@@ -181,7 +181,7 @@ def _verified_block_coord(
             intent.point_x, intent.point_y, intent.vec_a[0], intent.vec_a[1], intent.vec_a[2]
         )
         lines.append(f"point_to_line: {answer}")
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
     if None in (intent.point_x, intent.point_y, intent.x2, intent.y2):
         return None
     x1, y1, x2, y2 = intent.point_x, intent.point_y, intent.x2, intent.y2
@@ -196,7 +196,7 @@ def _verified_block_coord(
     else:
         answer = math_school.coord_distance(x1, y1, x2, y2)
     lines.append(f"{intent.school_op}: {answer}")
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     working = _coordinate_working(intent.school_op or "distance", (x1, y1), (x2, y2), answer)
     return replace(block, worked_reply=working) if working else block
 

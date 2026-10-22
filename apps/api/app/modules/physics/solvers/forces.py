@@ -7,23 +7,19 @@ from collections.abc import Callable
 
 from app.modules.physics.display import GIVEN_FIGURES, plain_number
 from app.modules.physics.schemas import PhysicsIntent, SimulationVector
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    _latex_num,
-    _params_in_si,
-    gravity_of,
-)
+from app.modules.physics.solvers.arithmetic import latex_num
 from app.modules.physics.solvers.force_scenes import (
     _atwood_scene,
     _free_body_scene,
     _vector_sum_scene,
 )
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import gravity_of, params_in_si
 from app.services.solving import SolveServiceError
 
 
 def solve_force(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     op = intent.physics_op
     # Rope and vector shapes by name; anything else is the F/m/a triangle.
     solver = _OPERATIONS.get(op or "")
@@ -45,11 +41,11 @@ def _tension(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
     t_val = m * (g + a)
     return PhysicsResult(
         answer=(
-            rf"T = m(g + a) = {m:g}({g:g} + {_latex_num(a)}) "
+            rf"T = m(g + a) = {m:g}({g:g} + {latex_num(a)}) "
             rf"\approx {t_val:.2f} \text{{ N}}"
         ),
         formulas=(r"T = m(g + a)",),
-        substitutions=(rf"T = {m:g}({g:g} + {_latex_num(a)})",),
+        substitutions=(rf"T = {m:g}({g:g} + {latex_num(a)})",),
         quantities=(QuantityResult("", t_val, "N"),),
         # Two arrows and a mass is the whole of this problem, and seeing
         # them is what makes T = m(g + a) rather than m*a obvious: the rope
@@ -81,7 +77,7 @@ def _tension(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
 
 def _resultant_force(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
     f1, f2 = p["F1"], p["F2"]
-    phi = p["angle"]  # radians (converted by _params_in_si)
+    phi = p["angle"]  # radians (converted by params_in_si)
     # The general parallelogram law. At phi = 90 degrees the cosine term
     # drops out and it reduces to Pythagoras, so the perpendicular case
     # needs no separate branch.
@@ -90,7 +86,7 @@ def _resultant_force(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResul
     return PhysicsResult(
         answer=(
             rf"R = \sqrt{{F_1^2 + F_2^2 + 2F_1F_2\cos\phi}} = "
-            rf"\sqrt{{{_latex_num(f1, square=True)} + {_latex_num(f2, square=True)} + "
+            rf"\sqrt{{{latex_num(f1, square=True)} + {latex_num(f2, square=True)} + "
             rf"2 \cdot {f1:g} \cdot {f2:g}\cos({math.degrees(phi):g}^\circ)}} "
             rf"\approx {r_val:.2f} \text{{ N}}, \quad "
             rf"\theta = \arctan\frac{{F_2\sin\phi}}{{F_1 + F_2\cos\phi}} "
@@ -103,7 +99,7 @@ def _resultant_force(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResul
             r"\theta = \arctan\frac{F_2\sin\phi}{F_1 + F_2\cos\phi}",
         ),
         substitutions=(
-            rf"R = \sqrt{{{_latex_num(f1, square=True)} + {_latex_num(f2, square=True)} + 2 "
+            rf"R = \sqrt{{{latex_num(f1, square=True)} + {latex_num(f2, square=True)} + 2 "
             rf"\cdot {f1:g} \cdot {f2:g}\cos({math.degrees(phi):g}^\circ)}}",
             rf"\theta = \arctan\frac{{{f2:g}\sin({math.degrees(phi):g}^\circ)}}{{{f1:g} + "
             rf"{f2:g}\cos({math.degrees(phi):g}^\circ)}}",

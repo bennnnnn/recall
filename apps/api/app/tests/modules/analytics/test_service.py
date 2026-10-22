@@ -53,6 +53,7 @@ async def test_record_batch_accepts_bucketed_chat_ttft_only() -> None:
                         "latency_bucket": "2000_3999",
                         "transport": "sse",
                         "has_attachment": "no",
+                        "sample_rate": "0.2",
                     },
                 }
             ]
@@ -73,6 +74,7 @@ async def test_record_batch_accepts_bucketed_chat_ttft_only() -> None:
         "latency_bucket": "2000_3999",
         "transport": "sse",
         "has_attachment": "no",
+        "sample_rate": "0.2",
     }
 
 
@@ -88,6 +90,7 @@ async def test_record_batch_rejects_raw_chat_latency_value() -> None:
                         "latency_bucket": "4821",
                         "transport": "ws",
                         "has_attachment": "no",
+                        "sample_rate": "0.2",
                     },
                 }
             ]
@@ -147,7 +150,12 @@ async def test_record_batch_rolls_back_failed_persistence() -> None:
     session.rollback.assert_awaited_once()
 
 
-_OUTCOME = {"completion": "stopped", "error_code": "none", "tool": "searching"}
+_OUTCOME = {
+    "completion": "stopped",
+    "error_code": "none",
+    "tool": "searching",
+    "sample_rate": "0.2",
+}
 
 
 @pytest.mark.asyncio
@@ -215,6 +223,7 @@ async def test_the_database_stores_chat_ttft_and_chat_turn_outcome(db_session) -
                         "latency_bucket": "lt500",
                         "transport": "ws",
                         "has_attachment": "no",
+                        "sample_rate": "0.2",
                     },
                 },
             ]

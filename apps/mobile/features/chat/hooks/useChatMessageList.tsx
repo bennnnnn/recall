@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 
 import { ChatMessageRow } from "@/features/chat/components/ChatMessageRow";
@@ -13,6 +13,7 @@ import {
 } from "@/features/chat/model/messageLogic";
 import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenMessages";
 import { STREAM_LAYOUT_SETTLE_MS } from "@/lib/messageListLayout";
+import { useLatestRef } from "@/lib/latestRef";
 
 type Options = {
   messages: Message[];
@@ -49,8 +50,7 @@ export function useChatMessageList({
     if (messages.length === 0) setMenuVisible(false);
   }, [messages.length, setMenuVisible]);
 
-  const messagesRef = useRef(messages);
-  messagesRef.current = messages;
+  const messagesRef = useLatestRef(messages);
 
   const lastAssistantId = useMemo(
     () => findLastAssistantId(messages),
@@ -166,6 +166,7 @@ export function useChatMessageList({
       lastAssistantId,
       regenerating,
       onSelectSuggestion,
+      messagesRef,
     ],
   );
 

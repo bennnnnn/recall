@@ -112,7 +112,7 @@ async def test_tool_loop_no_tools_first_round_does_not_complete_twice(web_search
 
 
 def test_tool_selectors_are_tool_capable_catalog_aliases():
-    from app.services import model_catalog
+    from app.models import model_catalog
 
     selectors = model_catalog.tool_selector_aliases()
     assert selectors[:2] == ("gpt-6-luna", "free-chat")
@@ -430,7 +430,7 @@ async def test_tool_loop_keeps_a_chemistry_verified_block():
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
+async def test_tool_loop_path_asks_the_search_gate_when_the_heuristic_is_weak():
     from uuid import uuid4
 
     from app.modules.chat.stream_paths import run_tool_loop_path
@@ -454,8 +454,8 @@ async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
         ) as run,
         patch(
             "app.modules.web_search.detection.should_web_search",
-            AsyncMock(return_value=True),
-        ) as classify,
+            MagicMock(return_value=True),
+        ) as gate,
     ):
         await run_tool_loop_path(
             deps,
@@ -466,13 +466,13 @@ async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
             on_status=None,
             should_cancel=None,
         )
-    classify.assert_awaited_once()
+    gate.assert_called_once()
     run.assert_awaited_once()
     assert run.await_args.kwargs["web_search"] is True
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_path_skips_classifier_when_heuristic_already_yes():
+async def test_tool_loop_path_skips_the_search_gate_when_heuristic_already_yes():
     from uuid import uuid4
 
     from app.modules.chat.stream_paths import run_tool_loop_path
@@ -496,8 +496,8 @@ async def test_tool_loop_path_skips_classifier_when_heuristic_already_yes():
         ),
         patch(
             "app.modules.web_search.detection.should_web_search",
-            AsyncMock(side_effect=AssertionError("heuristic already yes")),
-        ) as classify,
+            MagicMock(side_effect=AssertionError("heuristic already yes")),
+        ) as gate,
     ):
         await run_tool_loop_path(
             deps,
@@ -508,11 +508,11 @@ async def test_tool_loop_path_skips_classifier_when_heuristic_already_yes():
             on_status=None,
             should_cancel=None,
         )
-    classify.assert_not_awaited()
+    gate.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_path_skips_classifier_when_spend_capped():
+async def test_tool_loop_path_skips_the_search_gate_when_spend_capped():
     from uuid import uuid4
 
     from app.modules.chat.stream_paths import run_tool_loop_path
@@ -532,8 +532,8 @@ async def test_tool_loop_path_skips_classifier_when_spend_capped():
     with (
         patch(
             "app.modules.web_search.detection.should_web_search",
-            AsyncMock(side_effect=AssertionError("spend cap must skip classifier")),
-        ) as classify,
+            MagicMock(side_effect=AssertionError("spend cap must skip the search gate")),
+        ) as gate,
         patch(
             "app.modules.chat.tool_loop.run_tool_rounds",
             AsyncMock(side_effect=AssertionError("spend cap must skip tool loop")),
@@ -548,5 +548,5 @@ async def test_tool_loop_path_skips_classifier_when_spend_capped():
             on_status=None,
             should_cancel=None,
         )
-    classify.assert_not_awaited()
+    gate.assert_not_called()
     run.assert_not_awaited()

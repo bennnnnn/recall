@@ -7,7 +7,7 @@ from typing import Any
 
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block.canonical import _finish_with_answer
+from app.modules.math.tools.block.canonical import finish_with_answer
 from app.modules.math.tools.block.integrals import _bound_tex
 from app.services.solving import VerifiedMathBlock
 from app.services.workout import Workout, math_line, render_workout, text_line
@@ -50,15 +50,15 @@ def _area_between_curves(
     var = intent.variable
     answer = apps.area_between_curves(expr, expr2, low, high, var)
     lines.append(f"Area between the curves: {answer}")
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     from sympy import Symbol, latex, simplify
 
     sym = Symbol(var, real=True)
-    parsed = math_solve._parse_expression(expr, [var], real=True)
-    second = math_solve._parse_expression(expr2, [var], real=True)
+    parsed = math_solve.parse_expression(expr, [var], real=True)
+    second = math_solve.parse_expression(expr2, [var], real=True)
     difference = simplify(parsed - second)
-    low_expr = math_solve._parse_expression(str(low), [], real=True)
-    high_expr = math_solve._parse_expression(str(high), [], real=True)
+    low_expr = math_solve.parse_expression(str(low), [], real=True)
+    high_expr = math_solve.parse_expression(str(high), [], real=True)
     order = _curve_order(sym, parsed, second, difference, low_expr, high_expr)
     # "Area under y = f(x)" is the area between the curve and the x-axis.
     x_axis = second == 0
@@ -170,11 +170,11 @@ def _arc_length(
     var = intent.variable
     answer = apps.arc_length(expr, low, high, var)
     lines.append(f"Arc length: {answer}")
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     from sympy import Symbol, diff, latex, sqrt
 
     sym = Symbol(var, real=True)
-    parsed = math_solve._parse_expression(expr, [var], real=True)
+    parsed = math_solve.parse_expression(expr, [var], real=True)
     derivative = diff(parsed, sym)
     integrand = sqrt(1 + derivative**2)
     integral = rf"\int_{{{_bound_tex(low)}}}^{{{_bound_tex(high)}}}"
@@ -201,13 +201,13 @@ def _volume_of_revolution(
     var = intent.variable
     answer = apps.volume_of_revolution(expr, low, high, axis, var)
     lines.append(f"Volume about the {axis}-axis: {answer}")
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     from sympy import Symbol, latex
 
     sym = Symbol(var, real=True)
-    parsed = math_solve._parse_expression(expr, [var], real=True)
-    low_expr = math_solve._parse_expression(str(low), [], real=True)
-    high_expr = math_solve._parse_expression(str(high), [], real=True)
+    parsed = math_solve.parse_expression(expr, [var], real=True)
+    low_expr = math_solve.parse_expression(str(low), [], real=True)
+    high_expr = math_solve.parse_expression(str(high), [], real=True)
     method = _disk_working if axis == "x" else _shell_working
     formula, working = method(intent, sym, parsed, (low_expr, high_expr), answer)
     workout = Workout(

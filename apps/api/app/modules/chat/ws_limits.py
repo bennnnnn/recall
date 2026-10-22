@@ -101,3 +101,8 @@ def user_socket_slot(user_id: UUID, limit: int) -> Iterator[bool]:
             _open_sockets[user_id] = remaining
         else:
             _open_sockets.pop(user_id, None)
+
+
+def open_socket_count() -> int:
+    """Chat sockets open on this machine (saturation report)."""
+    return sum(_open_sockets.values())

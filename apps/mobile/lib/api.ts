@@ -1,7 +1,6 @@
 import { accountApi } from "@/features/account/api";
 import { attachmentsApi } from "@/features/attachments/api";
 import { chatsApi } from "@/features/chat/api";
-import { homeApi } from "@/features/home/api";
 import { imagesApi } from "@/features/images/api";
 import { memoriesApi } from "@/features/memory/api";
 import { searchApi } from "@/features/search/api";
@@ -38,7 +37,6 @@ export const api = {
   ...analyticsApi,
   ...chatsApi,
   ...memoriesApi,
-  ...homeApi,
   ...searchApi,
   ...discoverApi,
   ...todosApi,

@@ -8,7 +8,7 @@ from app.modules.math.match.letter_runs import MATH_MULTI_LETTER
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
-from app.modules.math.tools.request_text import _strip_trailing_filler
+from app.modules.math.tools.request_text import strip_trailing_filler
 
 
 def _extract_point_intent(cleaned: str) -> MathIntent | None:
@@ -130,8 +130,8 @@ def _extract_graph_pair_intent(cleaned: str) -> MathIntent | None:
     x_max: float | None = None
     if domain is not None:
         x_min, x_max, second = domain
-    expr1 = _strip_trailing_filler(first).replace("^", "**")
-    expr2 = _strip_trailing_filler(second).replace("^", "**")
+    expr1 = strip_trailing_filler(first).replace("^", "**")
+    expr2 = strip_trailing_filler(second).replace("^", "**")
     if not expr1 or not expr2:
         return None
     return MathIntent(
@@ -176,7 +176,7 @@ def _solve_for_y_as_function_of_x(expr: str) -> str | None:
     from sympy.core.relational import Relational
 
     from app.core.sympy_notation import school_text
-    from app.modules.math.solve.parse import _parse_expression
+    from app.modules.math.solve.parse import parse_expression
 
     lhs_str, _, rhs_str = expr.partition("=")
     lhs_str, rhs_str = lhs_str.strip(), rhs_str.strip()
@@ -191,8 +191,8 @@ def _solve_for_y_as_function_of_x(expr: str) -> str | None:
     if _has_non_math_word(lhs_str) or _has_non_math_word(rhs_str):
         return None
     with sympy_decline() as declined:
-        lhs = _parse_expression(lhs_str, ["x", "y"], real=True)
-        rhs = _parse_expression(rhs_str, ["x", "y"], real=True)
+        lhs = parse_expression(lhs_str, ["x", "y"], real=True)
+        rhs = parse_expression(rhs_str, ["x", "y"], real=True)
     if declined:
         return None
     if isinstance(lhs, Relational) or isinstance(rhs, Relational):
@@ -236,11 +236,11 @@ def _equation_as_function_of_x(expr: str) -> str | None:
     from sympy.core.relational import Relational
 
     from app.core.sympy_notation import school_text
-    from app.modules.math.solve.parse import _parse_expression
+    from app.modules.math.solve.parse import parse_expression
 
     with sympy_decline() as declined:
-        lhs = _parse_expression(lhs_str, ["x"], real=True)
-        rhs = _parse_expression(rhs_str, ["x"], real=True)
+        lhs = parse_expression(lhs_str, ["x"], real=True)
+        rhs = parse_expression(rhs_str, ["x"], real=True)
     if declined:
         return None
     if isinstance(lhs, Relational) or isinstance(rhs, Relational):
@@ -297,10 +297,10 @@ def _extract_graph_intent(cleaned: str) -> MathIntent | None:
     if g_expr is None:
         return None
     g_expr = _strip_math_delims_and_fix_superscripts(g_expr)
-    # _strip_trailing_filler(g_expr) used to run twice (once for the x= vertical
+    # strip_trailing_filler(g_expr) used to run twice (once for the x= vertical
     # check, once for the returned graph expr). Compute it once and derive
     # both forms from it.
-    stripped = _strip_trailing_filler(g_expr)
+    stripped = strip_trailing_filler(g_expr)
     # A user-named domain ("from 0 to 100") must be peeled off the expression
     # before SymPy sees it, and applied to the sample window. Without this,
     # "graph y=x^2 from 0 to 100" sampled on the [-10, 10] default and the

@@ -77,6 +77,8 @@ class ChatListOut(BaseModel):
     this_month: list[ChatOut] = Field(default_factory=list)
     older: list[ChatOut] = Field(default_factory=list)
     archived: list[ChatOut] = Field(default_factory=list)
+    # The dated groups page by keyset: pass it back as ``cursor`` for older chats.
+    next_cursor: str | None = None
 
 
 class MessageOut(BaseModel):
@@ -93,7 +95,10 @@ class MessageOut(BaseModel):
 
 class MessagePageOut(BaseModel):
     messages: list[MessageOut]
+    # Older messages precede the page.
     has_more: bool
+    # Newer messages follow it: a page read ``around`` or ``after`` a message.
+    has_more_after: bool = False
 
 
 class _StreamClientContext(BaseModel):
@@ -137,8 +142,3 @@ class SearchResultItem(BaseModel):
     def sanitize_chat_title(self) -> Self:
         self.chat_title = normalize_stored_chat_title(self.chat_title)
         return self
-
-
-class SearchResults(BaseModel):
-    results: list[SearchResultItem] = Field(default_factory=list)
-    total: int = 0

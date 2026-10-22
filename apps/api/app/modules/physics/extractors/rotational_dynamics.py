@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import labeled_value
 from app.modules.physics.extractors.rotational_laws import (
     _angular_impulse,
     _angular_momentum,
@@ -27,6 +26,7 @@ from app.modules.physics.extractors.rotational_readings import (
     _time,
     _torque_value,
 )
+from app.modules.physics.extractors.stated_values import labeled_value
 from app.modules.physics.schemas import PhysicsIntent
 
 _CLAIM_RE = re.compile(

@@ -77,6 +77,16 @@ export function scrubSentryEvent(event: ErrorEvent): ErrorEvent | null {
   return event;
 }
 
+/**
+ * The app store could not be read when the upgrade sheet opened. The sheet says
+ * so and offers a retry; this tells us, since an outage otherwise looks like a
+ * store with nothing to sell (code-health audit CLAR-08).
+ */
+export function reportStoreUnavailable(error: unknown): void {
+  if (!initialized) return;
+  Sentry.captureException(error, { tags: { area: "store" } });
+}
+
 export function initMobileSentry(): void {
   if (initialized) return;
   const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN?.trim();

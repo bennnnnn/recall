@@ -2,7 +2,7 @@ import { Platform, type TextStyle } from "react-native";
 
 import { Weight } from "@/lib/type";
 
-/** SpaceMono from @expo-google-fonts/space-mono. Registered in _layout without blocking first paint. */
+/** Space Mono (assets/fonts). Registered in _layout without blocking first paint. */
 export const CODE_FONT = "SpaceMono";
 
 /**

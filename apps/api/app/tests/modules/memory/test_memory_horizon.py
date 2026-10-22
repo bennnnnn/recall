@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
-from app.modules.memory import format_memory_block, is_memory_candidate
+from app.models.orm import Memory
 from app.modules.memory.extraction_workflow import extract_and_store_memories
 from app.modules.memory.facts import is_active_memory
-from app.modules.memory.text import memory_extract_user_text
+from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
+from app.modules.memory.selection import format_memory_block
+from app.modules.memory.text import is_memory_candidate, memory_extract_user_text
+from app.tests.fakes import redis_mock
 
 
 def _row(text: str, *, memory_type: str = "fact", status: str = "active") -> SimpleNamespace:
@@ -55,10 +58,9 @@ def _apply(store: list[SimpleNamespace], ops: list[MemoryFactOp]) -> None:
 
 
 def _block(store: list[SimpleNamespace]) -> str:
-    return format_memory_block(
-        [row for row in store if is_active_memory(row)],
-        max_chars=1500,
-    )
+    # The rows stand in for Memory: the same fields, no database.
+    active = cast(list[Memory], [row for row in store if is_active_memory(row)])
+    return format_memory_block(active, max_chars=1500)
 
 
 def test_horizon_max_python_oakland_forget_luna():
@@ -178,12 +180,12 @@ async def test_extract_remember_max_persists_via_ops():
         ),
         patch("app.modules.memory.extraction_workflow.release_memory_write_lock", AsyncMock()),
         patch(
-            "app.modules.memory.extract_backlog.messages_repo.list_user_contents_since",
+            "app.modules.memory.extract_backlog.chat_history.user_lines_since",
             AsyncMock(return_value=[]),
         ),
         patch(
             "app.modules.memory.extract_backlog.get_redis_client",
-            MagicMock(return_value=AsyncMock(get=AsyncMock(return_value=None))),
+            MagicMock(return_value=redis_mock(get=None)),
         ),
     ):
         await extract_and_store_memories(

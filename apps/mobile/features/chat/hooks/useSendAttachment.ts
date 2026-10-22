@@ -5,6 +5,7 @@ import {
   uploadChatAttachment,
   type PendingAttachment,
 } from "@/features/attachments/model/attachments";
+import { useLatestRef } from "@/lib/latestRef";
 
 /**
  * The attachment queued in the composer, and the ones waiting on other threads
@@ -18,8 +19,7 @@ export function useSendAttachment(token: string | null) {
   const [pendingAttachment, setPendingAttachmentState] = useState<PendingAttachment | null>(null);
   const pendingAttachmentRef = useRef<PendingAttachment | null>(null);
   const threadDraftsRef = useRef(new Map<string, PendingAttachment>());
-  const tokenRef = useRef(token);
-  tokenRef.current = token;
+  const tokenRef = useLatestRef(token);
 
   const setPendingAttachment = useCallback((value: SetStateAction<PendingAttachment | null>) => {
     const next = typeof value === "function" ? value(pendingAttachmentRef.current) : value;
@@ -31,7 +31,7 @@ export function useSendAttachment(token: string | null) {
     const previous = pendingAttachmentRef.current;
     setPendingAttachment(next);
     if (previous && previous !== next) discardDraftAttachment(tokenRef.current, previous);
-  }, [setPendingAttachment]);
+  }, [setPendingAttachment, tokenRef]);
 
   /** Leaving a thread keeps its attachment beside its text; arriving brings that thread's back. */
   const switchAttachmentThread = useCallback((fromKey: string, toKey: string) => {
@@ -60,7 +60,7 @@ export function useSendAttachment(token: string | null) {
       }
       drafts.set(key, attachment);
     },
-    [],
+    [tokenRef],
   );
 
   /** Account change: nothing carries over. The old token is gone, so only the copies go. */

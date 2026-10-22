@@ -4,7 +4,7 @@ import { ChatMessageRow } from "@/features/chat/components/ChatMessageRow";
 import { StreamingChatMessageRow } from "@/features/chat/components/StreamingChatMessageRow";
 import type { Message } from "@/lib/api";
 
-jest.mock("@/components/MessageBubble", () => {
+jest.mock("@/features/chat/components/MessageBubble", () => {
   const { Text: MockText } =
     jest.requireActual("react-native") as typeof import("react-native");
   return {
@@ -18,9 +18,6 @@ jest.mock("@/components/MessageBubble", () => {
 });
 jest.mock("@/contexts/StreamingDraftContext", () => ({
   useStreamingDraft: () => null,
-}));
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
 }));
 
 const message = (id: string, content: string): Message =>

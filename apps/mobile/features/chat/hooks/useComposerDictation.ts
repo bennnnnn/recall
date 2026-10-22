@@ -5,6 +5,7 @@ import { composerThreadKey } from "@/features/chat/model/composerThreadDraft";
 import { useVoiceInput } from "@/features/speech/hooks/useVoiceInput";
 import type { User } from "@/lib/api";
 import { hasPlanFeature } from "@/lib/plan";
+import { useLatestRef } from "@/lib/latestRef";
 
 type Options = {
   token: string | null;
@@ -32,8 +33,7 @@ export function useComposerDictation({
   const composerThread = composerThreadKey(
     typeof routeChatId === "string" ? routeChatId : undefined,
   );
-  const composerThreadRef = useRef(composerThread);
-  composerThreadRef.current = composerThread;
+  const composerThreadRef = useLatestRef(composerThread);
   const voiceCaptureThreadRef = useRef(composerThread);
 
   const {
@@ -69,7 +69,7 @@ export function useComposerDictation({
       voiceCaptureThreadRef.current = composerThreadRef.current;
     }
     void toggleVoiceInput();
-  }, [canDictate, toggleVoiceInput, voiceRecording, voiceTranscribing, openUpgradeRef]);
+  }, [canDictate, toggleVoiceInput, voiceRecording, voiceTranscribing, openUpgradeRef, composerThreadRef]);
 
   return {
     voiceInputAvailable,

@@ -7,13 +7,8 @@
  * hands back unchanged (`vector`, `angle`, `solid`) are left out.
  */
 import { SIMULATION_SCENES as SCENES } from "@/lib/__tests__/fixtures/simulationScenes";
-import {
-  layoutSimulationScene,
-  parseSimulationSpec,
-  simulationTransform,
-  simulationViewportHeight,
-  type SimulationKind,
-} from "@/lib/physics/simulation";
+import { layoutSimulationScene, parseSimulationSpec, simulationTransform, simulationViewportHeight } from "@/lib/physics/simulation";
+import { type SimulationKind } from "@/lib/physics/simulation/spec";
 
 const WIDTH = 312;
 const FONT = 11;

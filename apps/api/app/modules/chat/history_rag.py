@@ -4,15 +4,21 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
+
+from app.core import presence_cache
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways import embedding_gateway
 from app.models.orm import Message, MessageChunk
 from app.modules.attachments.rag import chunk_text
-from app.repositories import message_chunks as chunks_repo
-from app.repositories import messages as messages_repo
+from app.modules.chat import chunks_repository as chunks_repo
+from app.modules.chat import messages_repository as messages_repo
+from app.modules.memory.switch import memory_switch_on
 from app.repositories import users as users_repo
 from app.services.prompt_safety import text_before_attachment_markers, wrap_earlier_chats
 
@@ -35,6 +41,65 @@ def prepare_message_text(role: str, content: str) -> str | None:
     return f"{label}: {cleaned}"
 
 
+class HistoryEmbeddingUnavailable(Exception):
+    """The embedder gave no usable vector for a piece of the message.
+
+    Nothing is stored then: a chunk with no vector counted as indexed while search
+    skipped it, a permanent hole in chat-history recall. The job retries later.
+    """
+
+
+def _pieces(settings: Settings, message: Message) -> list[str]:
+    text = prepare_message_text(message.role, message.content)
+    if not text:
+        return []
+    return chunk_text(
+        text,
+        chunk_chars=settings.chat_history_rag_chunk_chars,
+        overlap=settings.chat_history_rag_chunk_overlap,
+    )[: settings.chat_history_rag_max_chunks_per_message]
+
+
+async def _embed_and_store(settings: Settings, user_id: UUID, messages: list[Message]) -> int:
+    """Embed every piece of ``messages`` in one request and store them in one transaction.
+
+    Never holds a session during the embed. Raises ``HistoryEmbeddingUnavailable``
+    unless every piece got a full vector, so a message is indexed whole or not at all.
+    """
+    planned = [(message, _pieces(settings, message)) for message in messages]
+    planned = [(message, pieces) for message, pieces in planned if pieces]
+    if not planned:
+        return 0
+    texts = [piece for _message, pieces in planned for piece in pieces]
+    vectors = await embedding_gateway.embed_many(
+        settings, texts, concurrency=settings.embedding_concurrency
+    )
+    if len(vectors) != len(texts) or any(
+        vec is None or len(vec) != chunks_repo.EMBEDDING_DIM for vec in vectors
+    ):
+        raise HistoryEmbeddingUnavailable(f"{len(texts)} pieces, not every one embedded")
+    stored = 0
+    async with SessionLocal() as session:
+        offset = 0
+        for message, pieces in planned:
+            chunk_vectors = vectors[offset : offset + len(pieces)]
+            offset += len(pieces)
+            await chunks_repo.replace_chunks(
+                session,
+                user_id=user_id,
+                message_id=message.id,
+                chat_id=message.chat_id,
+                role=message.role,
+                chunks=list(zip(range(len(pieces)), pieces, chunk_vectors, strict=True)),
+                commit=False,
+            )
+            stored += len(pieces)
+        await session.commit()
+    if stored:
+        await presence_cache.mark_present(presence_cache.history_key(user_id))
+    return stored
+
+
 async def index_message(
     settings: Settings,
     *,
@@ -44,30 +109,7 @@ async def index_message(
     """Chunk + embed one message. Returns chunk count. Never holds a session during embed."""
     if not settings.chat_history_rag_enabled:
         return 0
-    text = prepare_message_text(message.role, message.content)
-    if not text:
-        return 0
-    pieces = chunk_text(
-        text,
-        chunk_chars=settings.chat_history_rag_chunk_chars,
-        overlap=settings.chat_history_rag_chunk_overlap,
-    )[: settings.chat_history_rag_max_chunks_per_message]
-    if not pieces:
-        return 0
-    vectors = await embedding_gateway.embed_many(
-        settings, pieces, concurrency=settings.embedding_concurrency
-    )
-    embedded = list(zip(range(len(pieces)), pieces, vectors, strict=True))
-    async with SessionLocal() as session:
-        await chunks_repo.replace_chunks(
-            session,
-            user_id=user_id,
-            message_id=message.id,
-            chat_id=message.chat_id,
-            role=message.role,
-            chunks=embedded,
-        )
-    return len(embedded)
+    return await _embed_and_store(settings, user_id, [message])
 
 
 async def _backfill_recent(
@@ -111,6 +153,8 @@ async def index_turn_messages(
 ) -> int:
     """Index the finalized assistant row and the latest user message, then warm empty corpora.
 
+    Both lines go in one embedding request and one transaction. When the embedder
+    fails, ``HistoryEmbeddingUnavailable`` reaches the job, which retries later.
     Memory off means no personal recall, so nothing is indexed while it is off.
     """
     if not settings.chat_history_rag_enabled:
@@ -118,32 +162,20 @@ async def index_turn_messages(
 
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, user_id)
-        if user is None or not user.memory_enabled:
+        if user is None or not memory_switch_on(user):
             return 0
-        existing = await chunks_repo.count_for_user(session, user_id)
+        has_chunks = await chunks_repo.has_chunks_for_user(session, user_id)
         assistant = await messages_repo.get_by_id(session, assistant_message_id, chat_id)
         user_msg = await messages_repo.get_last_user(session, chat_id)
 
-    indexed_ids: set[UUID] = set()
-    total = 0
-    for row in (user_msg, assistant):
-        if row is None:
-            continue
-        try:
-            count = await index_message(settings, user_id=user_id, message=row)
-        except Exception:
-            logger.warning("Chat-history RAG index failed message_id=%s", row.id, exc_info=True)
-            continue
-        if count:
-            total += count
-            indexed_ids.add(row.id)
-
-    if existing == 0:
+    turn = [row for row in (user_msg, assistant) if row is not None]
+    total = await _embed_and_store(settings, user_id, turn)
+    if not has_chunks:
         total += await _backfill_recent(
             settings,
             user_id,
-            skip_ids=indexed_ids,
-            edited_at=getattr(user, "memory_edited_at", None),
+            skip_ids={row.id for row in turn},
+            edited_at=user.memory_edited_at,
         )
     return total
 
@@ -156,6 +188,11 @@ def _said_after(created_at: datetime | None, edited_at: datetime | None) -> bool
     if edited_at.tzinfo is None:
         edited_at = edited_at.replace(tzinfo=UTC)
     return created_at > edited_at
+
+
+async def _user_has_chunks(user_id: UUID) -> bool:
+    async with SessionLocal() as session:
+        return await chunks_repo.has_chunks_for_user(session, user_id)
 
 
 async def embed_query_for_prompt(
@@ -175,9 +212,10 @@ async def embed_query_for_prompt(
     if not query:
         return None
     try:
-        async with SessionLocal() as probe_session:
-            if not await chunks_repo.has_chunks_for_user(probe_session, user_id):
-                return None
+        if not await presence_cache.cached_presence(
+            presence_cache.history_key(user_id), lambda: _user_has_chunks(user_id)
+        ):
+            return None
     except Exception:
         logger.warning("Chat-history RAG chunk probe failed user_id=%s", user_id, exc_info=True)
         return None
@@ -227,25 +265,14 @@ async def retrieve_for_prompt(
                 search_session,
                 user_id,
                 query_vec,
+                window=settings.chat_history_rag_search_window,
                 exclude_message_ids=exclude_message_ids,
                 limit=settings.chat_history_rag_chunk_limit,
-                max_distance=max_distance if len(query_vec) == chunks_repo.EMBEDDING_DIM else None,
+                max_distance=max_distance,
             )
     except Exception:
         logger.warning("Chat-history RAG retrieval failed user_id=%s", user_id, exc_info=True)
         return ""
-
-    if len(query_vec) != chunks_repo.EMBEDDING_DIM and rows:
-        scored: list[tuple[float, MessageChunk]] = []
-        for row in rows:
-            stored = embedding_gateway.parse_embedding(row.embedding_json)
-            if not stored:
-                continue
-            score = embedding_gateway.cosine_similarity(query_vec, stored)
-            if score >= settings.chat_history_rag_min_similarity:
-                scored.append((score, row))
-        scored.sort(key=lambda item: item[0], reverse=True)
-        rows = [item[1] for item in scored[: settings.chat_history_rag_chunk_limit]]
 
     if not rows:
         return ""
@@ -259,5 +286,24 @@ async def retrieve_for_prompt(
 
 
 def _snippet_date(row: MessageChunk) -> str:
-    created_at = getattr(row, "created_at", None)
+    created_at = row.created_at
     return f" ({created_at:%Y-%m-%d})" if isinstance(created_at, datetime) else ""
+
+
+async def forget_snippets_near(
+    session: AsyncSession, user_id: UUID, vector: ColumnElement[Any], *, max_distance: float
+) -> None:
+    """Drop the user's past-chat snippets close to ``vector`` (a forgotten fact); no commit."""
+    await chunks_repo.delete_near(session, user_id, vector, max_distance=max_distance)
+
+
+async def forget_snippets_naming(
+    session: AsyncSession, user_id: UUID, names: list[str], *, role: str
+) -> None:
+    """Drop the user's ``role`` snippets that name every one of ``names``; no commit."""
+    await chunks_repo.delete_mentioning_all(session, user_id, names, role=role)
+
+
+async def forget_all_snippets(session: AsyncSession, user_id: UUID) -> None:
+    """Drop the user's whole past-chat index (memory reset); no commit."""
+    await chunks_repo.delete_all_for_user(session, user_id)

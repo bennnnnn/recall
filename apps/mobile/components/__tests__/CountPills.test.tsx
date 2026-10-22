@@ -5,10 +5,6 @@ import { ReminderBadge } from "@/components/ReminderBadge";
 import { ChatScrollFab } from "@/features/chat/components/ChatScrollFab";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
 jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
   useTheme: () => mockLightTheme,

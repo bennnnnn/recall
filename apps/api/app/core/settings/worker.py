@@ -22,3 +22,10 @@ class WorkerSettings(BaseModel):
     # Fly never restarts on a failing check, worker_main exits instead). 0
     # disables the worker health server (e.g. process_role=all dev).
     worker_health_port: int = 8001
+    # Product events are kept this many days, then folded into per-day counts
+    # (``product_event_daily``) and deleted: two rows a chat turn kept forever.
+    analytics_event_retention_days: int = 90
+    analytics_retention_interval_seconds: int = 3600
+    # Rows deleted per statement, and per cycle, so a backlog drains in steps.
+    analytics_retention_delete_batch: int = 5_000
+    analytics_retention_max_deletes_per_cycle: int = 200_000

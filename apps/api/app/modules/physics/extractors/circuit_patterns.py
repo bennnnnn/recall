@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    _AMP_PATTERN,
-    _OHM_PATTERN,
-    _ordered_values,
-)
+from app.modules.physics.extractors.stated_values import ordered_values
+from app.modules.physics.extractors.unit_patterns import AMP_PATTERN, OHM_PATTERN
+from app.services.number_text import count_word_pattern, number_word_value
 
 _CIRCUIT_CUES = (
     "ohm",
@@ -54,8 +52,8 @@ def _circuit_pair(first: str, second: str) -> re.Pattern[str]:
 
 
 _CHARGE_FLOW_RE = re.compile(
-    rf"\bcharge\b.{{0,60}}?\d\s*(?:{_AMP_PATTERN})(?![A-Za-z0-9])"
-    rf"|\d\s*(?:{_AMP_PATTERN})(?![A-Za-z0-9]).{{0,60}}?\bcharge\b",
+    rf"\bcharge\b.{{0,60}}?\d\s*(?:{AMP_PATTERN})(?![A-Za-z0-9])"
+    rf"|\d\s*(?:{AMP_PATTERN})(?![A-Za-z0-9]).{{0,60}}?\bcharge\b",
     re.IGNORECASE,
 )
 
@@ -115,10 +113,9 @@ _RESISTOR_LIST_RE = re.compile(
 )
 
 
-_COUNT_WORDS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
 # "three 9 Ω resistors", "two identical 10 ohm resistors": one value, stated once.
 _COUNTED_RESISTORS_RE = re.compile(
-    r"\b(two|three|four|five|six)\s+(?:identical\s+|equal\s+)?"
+    rf"\b({count_word_pattern(low=2, high=6)})\s+(?:identical\s+|equal\s+)?"
     r"(\d+(?:\.\d+)?)\s*(?:ohms?|Ω)\s+resistors\b",
     re.IGNORECASE,
 )
@@ -130,7 +127,8 @@ def counted_resistors(text: str) -> tuple[int, float] | None:
     found = list(_COUNTED_RESISTORS_RE.finditer(text))
     if len(found) != 1:
         return None
-    return _COUNT_WORDS[found[0].group(1).lower()], float(found[0].group(2))
+    # The pattern reads only count words, so the value is always there.
+    return number_word_value(found[0].group(1)) or 0, float(found[0].group(2))
 
 
 def _resistor_values(text: str) -> list[float]:
@@ -142,7 +140,7 @@ def _resistor_values(text: str) -> list[float]:
     counted = counted_resistors(text)
     if counted is not None:
         count, value = counted
-        others = _ordered_values(text, _OHM_PATTERN)
+        others = ordered_values(text, OHM_PATTERN)
         if len(others) != 1:
             # Other resistors beside the counted ones: a network this does not read.
             return []
@@ -150,4 +148,4 @@ def _resistor_values(text: str) -> list[float]:
     listed = _RESISTOR_LIST_RE.search(text)
     if listed is not None:
         return [float(n) for n in re.findall(r"\d+(?:\.\d+)?", listed.group(1))]
-    return [value for value, _ in _ordered_values(text, _OHM_PATTERN)]
+    return [value for value, _ in ordered_values(text, OHM_PATTERN)]

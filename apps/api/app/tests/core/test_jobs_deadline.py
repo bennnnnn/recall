@@ -26,12 +26,6 @@ from app.core.jobs import queue, worker
 
 
 @pytest.fixture(autouse=True)
-def _fast_retries():
-    with patch.object(worker, "_RETRY_BACKOFF_S", 0.0):
-        yield
-
-
-@pytest.fixture(autouse=True)
 def _restore_handlers():
     """Handlers registered here must not leak into later tests."""
     with patch.dict(queue._HANDLERS):
@@ -51,7 +45,8 @@ async def _queued_entry(redis: Any, job_type: str) -> str:
     "behaviour, expected_calls, expected_dlq",
     [
         ("hangs", 1, 1),
-        ("inner_timeout", worker._MAX_ATTEMPTS, 1),
+        # A provider timeout inside the handler is an ordinary failure: it retries later.
+        ("inner_timeout", 1, 0),
         ("ok", 1, 0),
     ],
 )

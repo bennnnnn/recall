@@ -8,6 +8,7 @@ in that message and never runs.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -41,7 +42,7 @@ _TRIG_DOMAIN_REFUSAL = (
 
 
 @dataclass(frozen=True)
-class _Round:
+class CallRound:
     """What every call in the turn's selection round shares."""
 
     settings: Settings
@@ -100,7 +101,7 @@ async def _tool_call_matches_user(raw_args: Any, user_texts: list[str], settings
             tool_call_matches_user_text,
             raw_args,
             user_texts,
-            timeout=settings.math_solve_timeout_seconds,
+            timeout=settings.stem_solve_timeout_seconds,
         )
     except Exception:
         logger.info("tool-call match check did not finish; result stays unverified", exc_info=True)
@@ -122,16 +123,16 @@ def _sympy_solve_drops_trig_domain(name: str, raw_args: Any, user_text: str) -> 
     )
 
 
-async def _execute_calls(
-    turn: _Round,
+async def execute_calls(
+    turn: CallRound,
     tool_calls: list[dict[str, Any]],
     working: list[dict[str, Any]],
     collected: ToolResults,
 ) -> None:
     """Append one tool message per call, in order, until the turn is cancelled."""
     max_calls = max(1, turn.settings.mcp_tool_loop_max_calls_per_round)
-    invoke_deadline = time.monotonic() + max(
-        0.0, turn.settings.mcp_tool_loop_invoke_timeout_seconds
+    invoke_deadline = time.monotonic() + turn.ctx.seconds_left(
+        turn.settings.mcp_tool_loop_invoke_timeout_seconds
     )
     announced = False
     for index, call in enumerate(tool_calls):
@@ -145,7 +146,9 @@ async def _execute_calls(
         )
         announced = announced or (refusal is None and _status_for_tool(name) is not None)
         content = (
-            refusal if refusal is not None else await _run_call(turn, name, raw_args, collected)
+            refusal
+            if refusal is not None
+            else await _run_call_by(invoke_deadline, turn, name, raw_args, collected)
         )
         working.append(
             {"role": "tool", "tool_call_id": str(call.get("id") or name), "content": content}
@@ -157,7 +160,7 @@ async def _execute_calls(
 
 
 def _refusal(
-    turn: _Round, name: str, raw_args: Any, *, over_cap: bool, deadline: float
+    turn: CallRound, name: str, raw_args: Any, *, over_cap: bool, deadline: float
 ) -> str | None:
     """Why this call must not run, as its tool message; None when it may run."""
     if over_cap:
@@ -177,7 +180,23 @@ def _refusal(
     return None
 
 
-async def _run_call(turn: _Round, name: str, raw_args: Any, collected: ToolResults) -> str:
+async def _run_call_by(
+    deadline: float, turn: CallRound, name: str, raw_args: Any, collected: ToolResults
+) -> str:
+    """``_run_call``, cut off at the round's deadline.
+
+    The deadline used to stop only new calls from starting: a call that started in time
+    ran on its own httpx timeouts (Tavily 12 s per phase, image generation 120 s).
+    """
+    try:
+        async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
+            return await _run_call(turn, name, raw_args, collected)
+    except TimeoutError:
+        logger.warning("Tool call timed out tool=%s", name or "(unnamed)")
+        return "Tool round timed out."
+
+
+async def _run_call(turn: CallRound, name: str, raw_args: Any, collected: ToolResults) -> str:
     """Run one offered call, merge what it found, and return its tool message."""
     phase = _status_for_tool(name) if name else None
     if turn.on_status is not None and phase is not None:

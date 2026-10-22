@@ -90,7 +90,8 @@ async def test_clone_failure_rolls_back_and_cleans_every_attempted_object(failur
     if failure == "insert":
         insert.side_effect = RuntimeError("insert")
     elif failure == "commit":
-        session.commit.side_effect = RuntimeError("commit")
+        # The first commit ends the caller's read before the copies; the clones' fails.
+        session.commit.side_effect = [None, RuntimeError("commit")]
     else:
         gateway.copy_bytes.side_effect = [True, RuntimeError("second_write")]
     with (
