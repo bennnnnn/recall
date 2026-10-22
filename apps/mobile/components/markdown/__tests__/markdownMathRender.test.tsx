@@ -60,11 +60,11 @@ describe("MarkdownContent math rendering", () => {
   });
 
   it("renders the exact H22 explanation fractions without invented pi parentheses", async () => {
-    const { getByText, getAllByText, getAllByTestId, queryByText } = await render(
+    const { getByText, getAllByText, getAllByTestId, getByLabelText, queryByText } = await render(
       <MarkdownContent content={String.raw`- Convert angle: $90^\circ = \frac{\pi}{2}$ radians
 - Calculation: $4 \times \frac{\pi}{2} = 2\pi \approx 6.28$`} />,
     );
-    expect(getByText("Convert angle:")).toBeOnTheScreen();
+    expect(getByLabelText("Convert angle: 90° = π/2 radians")).toBeOnTheScreen();
     expect(getByText("radians")).toBeOnTheScreen();
     expect(getByText(/= 2π/)).toBeOnTheScreen();
     expect(getByText(/≈ 6.28/)).toBeOnTheScreen();
@@ -75,10 +75,10 @@ describe("MarkdownContent math rendering", () => {
   });
 
   it("renders the exact S04 mean line without stray dollar delimiters", async () => {
-    const { getByText, queryByText, getByTestId } = await render(
+    const { getByText, getByLabelText, queryByText, getByTestId } = await render(
       <MarkdownContent content={String.raw`- Mean (\(\mu\)) = \( \frac{1+2+3}{3} = 2 \),`} />,
     );
-    expect(getByText(/Mean \(μ\) =/)).toBeOnTheScreen();
+    expect(getByLabelText(/Mean \(μ\) =/)).toBeOnTheScreen();
     expect(getByText("1+2+3")).toBeOnTheScreen();
     expect(getByText("= 2,")).toBeOnTheScreen();
     expect(getByTestId("math-frac")).toBeOnTheScreen();
@@ -102,29 +102,30 @@ describe("MarkdownContent math rendering", () => {
   });
 
   it("keeps prose and punctuation together beside a heavy limit", async () => {
-    const { getByTestId, queryByText } = await render(
+    const { getByTestId, getByText, queryByText } = await render(
       <MarkdownContent content={String.raw`For $A \subseteq B$, use $\lim_{x\to0} x=0$.`} />,
     );
     expect(getByTestId("md-heavy-math-run")).toHaveStyle({ width: "100%" });
-    expect(queryByText(/^,$/)).toBeNull();
+    // The comma shares one Text with its formula, so a line never starts with it.
+    expect(getByText(/⊆.*B,$/)).toBeOnTheScreen();
     expect(queryByText(/^\.$/)).toBeNull();
   });
 
   it.each([",", ";"])("keeps leading %s with a heavy formula while retaining the following prose", async (punctuation) => {
-    const { getByText, queryByText } = await render(
+    const { getByText, getByLabelText, queryByText } = await render(
       <MarkdownContent content={String.raw`Evaluate $\int_0^1 x\,dx$${punctuation} then compare.`} />,
     );
     expect(getByText(`x dx${punctuation}`)).toBeOnTheScreen();
-    expect(getByText("then compare.")).toBeOnTheScreen();
+    expect(getByLabelText(`Evaluate ∫_0^1 x dx${punctuation} then compare.`)).toBeOnTheScreen();
     expect(queryByText(/^[,;]\s*then compare\./)).toBeNull();
   });
 
   it("keeps the exact H11 inline prose together and punctuation attached to its fraction", async () => {
-    const { getByText, queryByText, getByTestId, getAllByTestId } = await render(
+    const { getByText, getByLabelText, queryByText, getByTestId, getAllByTestId } = await render(
       <MarkdownContent content={String.raw`Since $3^2 + 4^2 = 5^2$, it's a right triangle with legs 3 and 4, so area $= \tfrac{1}{2}(3)(4) = 6$.`} />,
     );
     expect(getByText(/Since/)).toBeOnTheScreen();
-    expect(getByText(/right triangle/)).toBeOnTheScreen();
+    expect(getByLabelText(/, it’s a right triangle with legs 3 and 4, so area =/)).toBeOnTheScreen();
     expect(getAllByTestId("math-script").length).toBeGreaterThanOrEqual(3);
     expect(getByText("(3)(4) = 6.")).toBeOnTheScreen();
     expect(queryByText(/^, it[’']s a right triangle/)).toBeNull();
@@ -134,11 +135,10 @@ describe("MarkdownContent math rendering", () => {
   });
 
   it("attaches a root's comma while retaining following prose and simple math", async () => {
-    const { getByText, queryByText, getByTestId, getAllByTestId } = await render(
+    const { getByLabelText, queryByText, getByTestId, getAllByTestId } = await render(
       <MarkdownContent content={String.raw`Use $\sqrt{2}$, then compare $x^2$ with 4.`} />,
     );
-    expect(getByText(/then compare/)).toBeOnTheScreen();
-    expect(getByText(/with 4\./)).toBeOnTheScreen();
+    expect(getByLabelText(/^Use .+, then compare x\^2 with 4\.$/)).toBeOnTheScreen();
     expect(getByTestId("math-script")).toHaveTextContent("2");
     expect(queryByText(/^, then compare/)).toBeNull();
     expect(getByTestId("md-math-inline-wrap")).toBeOnTheScreen();

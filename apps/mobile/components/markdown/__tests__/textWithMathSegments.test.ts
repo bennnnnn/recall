@@ -3,7 +3,6 @@ import {
   type MathTextRun,
   type TextWithMathSegments,
 } from "@/components/markdown/rules/textWithMathSegments";
-import { MATH_SCRIPT_LINE_HEIGHT, MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
 
 const text = (value: string) => ({ type: "text" as const, value });
 const math = (value: string) => ({ type: "math" as const, value });
@@ -34,7 +33,8 @@ const CASES: [string, string, Partial<TextWithMathSegments>][] = [
     {
       layout: "nested",
       runs: [inline(text("Let ")), formula("x^2", 1), inline(text(" be"))],
-      runHeight: MATH_SCRIPT_LINE_HEIGHT,
+      // The formula's View sizes itself; the prose keeps the body line height.
+      runHeight: undefined,
     },
   ],
   [
@@ -49,7 +49,7 @@ const CASES: [string, string, Partial<TextWithMathSegments>][] = [
       content: String.raw`✓ $\frac{3}{4}=\frac{6}{8}$`,
       layout: "nested",
       runs: [inline(text("✓ ")), formula(String.raw`\frac{3}{4}=\frac{6}{8}`, 1)],
-      runHeight: MATH_TALL_LINE_HEIGHT,
+      runHeight: undefined,
     },
   ],
   [
@@ -95,6 +95,31 @@ const CASES: [string, string, Partial<TextWithMathSegments>][] = [
     {
       layout: "display",
       runs: [inline(math(String.raw`\sqrt{2}`), text(" and ")), formula(String.raw`\sum_{k=1}^n k`, 2)],
+    },
+  ],
+  [
+    "a parenthesis closing on a display formula joins it with its period",
+    String.raw`(so $x$ is $\lim_{h\to0}(1+h)^{1/h} = e$). The second`,
+    {
+      layout: "display",
+      runs: [
+        inline(text("(so "), math("x"), text(" is ")),
+        formula(String.raw`\lim_{h\to0}(1+h)^{1/h} = e\text{).}`, 3),
+        inline(text("The second")),
+      ],
+    },
+  ],
+  [
+    "a display fraction leaves the prose at body line height",
+    String.raw`Here $x$ tends to $\lim_{n\to\infty} \frac{1}{n} = 0$ fast.`,
+    { layout: "display", runHeight: undefined },
+  ],
+  [
+    "a bracket after nested math stays with it",
+    String.raw`($\sqrt{2}$), then`,
+    {
+      layout: "nested",
+      runs: [inline(text("(")), formula(String.raw`\sqrt{2}\text{),}`, 1), inline(text(" then"))],
     },
   ],
 ];

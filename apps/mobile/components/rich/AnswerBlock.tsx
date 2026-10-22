@@ -1,11 +1,12 @@
 import { type ReactNode, useMemo } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { ProseAnswer, ScrollingLine, spokenAnswer } from "@/components/rich/answerLines";
 import { MathSvgView } from "@/components/rich/MathSvgView";
 import { MathText } from "@/components/rich/MathText";
 import { splitAnswerNotation } from "@/lib/answerNotation";
-import { splitAnswerBranches } from "@/lib/math/answerLayout";
+import { answerReadsAsProse, splitAnswerBranches } from "@/lib/math/answerLayout";
 import {
   isHeavyInlineMath,
   stripEmbeddedDollarWraps,
@@ -36,6 +37,8 @@ function normalizeAnswerContent(raw: string): string {
   const text = stripTrailingFenceCloser(raw.trim());
   const boxed = text.match(/^\\boxed\{([\s\S]+)\}$/);
   if (boxed) return rewriteSolutionSeparatorBars(boxed[1].trim());
+  // Unwrapped, a sentence's words would be typeset as italic variables.
+  if (answerReadsAsProse(text)) return text;
   return rewriteSolutionSeparatorBars(
     stripEmbeddedDollarWraps(stripRedundantDollarWrap(text)),
   );
@@ -105,6 +108,16 @@ export function AnswerBlock({ content, settled = true }: Props) {
   }
   const text = normalizeAnswerContent(parsed.body);
   const parts = splitInlineMath(text);
+  if (answerReadsAsProse(text)) {
+    return frame(
+      spokenAnswer(parts),
+      <View style={s.fill}>
+        <ProseAnswer parts={parts} textStyle={s.answer} flowStyle={s.prose} fontSize={ANSWER_FONT_SIZE}>
+          {check}
+        </ProseAnswer>
+      </View>,
+    );
+  }
   const hasInlineMath = parts.some((p) => p.type === "math");
   const useSvgMath = answerNeedsDisplayMath(text);
   // A nested math View (stacked frac / sqrt) must be a direct child of the box,
@@ -145,13 +158,9 @@ export function AnswerBlock({ content, settled = true }: Props) {
       readableLatexFallback(text),
       <View style={s.fill}>
         {nativeLines.map((line, lineIndex) => (
-          <ScrollView
+          <ScrollingLine
             key={lineIndex}
             testID={`answer-line-scroll-${lineIndex}`}
-            horizontal
-            nestedScrollEnabled
-            showsHorizontalScrollIndicator
-            bounces={false}
             style={s.lineViewport}
             contentContainerStyle={s.lineScroll}
           >
@@ -179,7 +188,7 @@ export function AnswerBlock({ content, settled = true }: Props) {
               )}
               {lineIndex === nativeLines.length - 1 ? check : null}
             </View>
-          </ScrollView>
+          </ScrollingLine>
         ))}
       </View>,
     );
@@ -260,6 +269,14 @@ const makeStyles = (t: Theme) =>
       flexShrink: 0,
     },
     lineViewport: {
+      alignSelf: "stretch",
+    },
+    // A sentence answer: centred rows that wrap at the card's edge.
+    prose: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      justifyContent: "center",
       alignSelf: "stretch",
     },
     lineScroll: {

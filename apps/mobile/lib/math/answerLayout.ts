@@ -1,3 +1,5 @@
+import { splitInlineMath } from "@/lib/markdown/inlineMath";
+
 /** Break only independent equation alternatives; each separator stays with
  * its following branch and trailing parameter conditions remain untouched. */
 export function splitAnswerBranches(text: string): string[] {
@@ -39,4 +41,17 @@ export function splitAnswerBranches(text: string): string[] {
   if (!starts.every((start, i) => equations.some((at) => at >= start && at < ends[i]))) return [text];
   const cuts = [0, ...separators.map((separator) => separator.start), text.length];
   return cuts.slice(0, -1).map((start, i) => text.slice(start, cuts[i + 1]).trim());
+}
+
+/**
+ * An answer written as a sentence around its formulas ("$a = g\sin\theta$, which at
+ * $30^\circ$ gives …"): two or more words outside the maths and no LaTeX there.
+ * Its formulas keep their dollars, so the words are drawn as words.
+ */
+export function answerReadsAsProse(text: string): boolean {
+  const parts = splitInlineMath(text);
+  if (!parts.some((part) => part.type === "math")) return false;
+  const prose = parts.filter((part) => part.type === "text").map((part) => part.value);
+  if (prose.some((value) => /\\[A-Za-z]/.test(value))) return false;
+  return prose.flatMap((value) => value.match(/[A-Za-z]{3,}/g) ?? []).length >= 2;
 }

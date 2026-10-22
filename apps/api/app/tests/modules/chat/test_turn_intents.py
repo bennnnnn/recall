@@ -121,6 +121,15 @@ def web_search_tool() -> Iterator[None]:
             "how do I make cold brew? btw what's the weather in Addis today",
             [("how do I make cold brew?", "ask"), ("what's the weather in Addis today", "live")],
         ),
+        # Beside a solve, a search for something else and a maths command keep their parts.
+        (
+            "solve 2x + 5 = 17 and find me a good book to read",
+            [("solve 2x + 5 = 17", "solve"), ("find me a good book to read", "ask")],
+        ),
+        (
+            "Graph y = x^2 + 4x + 1 and find the vertex",
+            [("Graph y = x^2 + 4x + 1", "solve"), ("find the vertex", "ask")],
+        ),
     ],
 )
 def test_plan_turn_splits_independent_requests(text: str, parts: list[tuple[str, str]]) -> None:
@@ -145,6 +154,10 @@ def test_plan_turn_splits_independent_requests(text: str, parts: list[tuple[str,
         "who won the world cup in 2022 and who scored the goals",
         "I'm going to Paris tomorrow. What's the weather going to be like and what should I pack?",
         "How long does a ball take to fall 20 m on Earth? Compare with Jupiter.",
+        # A physics calculation asked after its givens: solved apart, the first half's
+        # parallel resistance was the answer card for a question about the current.
+        "Draw a circuit with a 9V battery and two 3 ohm resistors in parallel and find the total current",
+        "A ball is dropped from 20 m and work out how fast it hits the ground",
         "why does it look like that? what are the scales made of",
         # A request that names nothing of its own, or only shapes the one before.
         "explain recursion and give me an example",

@@ -131,7 +131,7 @@ describe("a reply's row from its first token to `done`", () => {
     expect(Object.keys(mountedWhileStreaming)).toEqual(
       expect.arrayContaining(["c^2", "p+1", "p+2", "c = 5"]),
     );
-    const firstParagraph = view.getByText(/Start from/);
+    const firstParagraph = view.getByLabelText(/^Start from/);
     expect(view.queryByTestId("assistant-actions")).toBeNull();
 
     const saved = { ...live, id: "m-1", content: REPLY, model: "free-chat", related_prompts: ["Why squares?"] };
@@ -141,7 +141,7 @@ describe("a reply's row from its first token to `done`", () => {
     });
 
     expect(Object.fromEntries(mockMounts)).toEqual(mountedWhileStreaming);
-    expect(view.getByText(/Start from/)).toBe(firstParagraph);
+    expect(view.getByLabelText(/^Start from/)).toBe(firstParagraph);
     // The action row and the follow-up questions land with the saved reply, not after a hold.
     expect(view.getByTestId("assistant-actions")).toBeTruthy();
     expect(view.getByTestId("related-prompts")).toBeTruthy();
@@ -151,7 +151,7 @@ describe("a reply's row from its first token to `done`", () => {
       jest.advanceTimersByTime(1_000);
     });
     expect(Object.fromEntries(mockMounts)).toEqual(mountedWhileStreaming);
-    expect(view.getByText(/Start from/)).toBe(firstParagraph);
+    expect(view.getByLabelText(/^Start from/)).toBe(firstParagraph);
     await view.unmount();
   });
 });
