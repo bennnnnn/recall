@@ -12,6 +12,8 @@ from app.modules.money.rates import MarketRate
 from app.modules.money.read import MoneyRequest
 from app.modules.money.solve import Worked
 
+# Every money block opens with this: the turn's numbers are the app's.
+MONEY_HEADER = "Money, worked by the app"
 MONEY_REPLY_RULES = (
     "Answer in a few short lines: the main result first, then the other results, and say "
     "which values were assumed. Copy these numbers exactly; never recompute them. Under "
@@ -56,7 +58,7 @@ _OUTPUT_WORDS = {
 
 def money_block(request: MoneyRequest, worked: Worked | None, average: MarketRate | None) -> str:
     product = request.product
-    head = f"Money ({product.key.replace('_', ' ')}), worked by the app."
+    head = f"{MONEY_HEADER}: {product.key.replace('_', ' ')}."
     if request.rates_only:
         return "\n".join((head, _rates_line(average)))
     if worked is None:

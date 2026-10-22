@@ -34,6 +34,7 @@ CATEGORIES = (
     "tone and emoji",
     "personal",
     "multi-intent",
+    "money",
 )
 
 
@@ -1614,6 +1615,63 @@ CASES: tuple[Case, ...] = (
         Expect(instant="text", search="no"),
         "A card to delete everything saved, with a Confirm button; nothing is deleted "
         "until it is tapped.",
+    ),
+    Case(
+        "money-mortgage-low-rate",
+        "money",
+        "what is my mortgage for 300k dollars house if mr rate is 1 percent",
+        Expect(hints=("money", "money_reply"), solved=False, image_gen=False, photo=NO_PHOTO),
+        "$964.92 a month over an assumed 30 years, a calculator card, and a note that 1% is "
+        "not a realistic rate next to today's average (when the lookup finds one).",
+    ),
+    Case(
+        "money-car-loan",
+        "money",
+        "what would my car payment be on a $32,000 car at 7.5% APR for 72 months",
+        Expect(hints=("money", "money_reply"), image_gen=False, photo=NO_PHOTO),
+        "About $553 a month, total interest and total paid, and the card with three sliders.",
+    ),
+    Case(
+        "money-card-payoff",
+        "money",
+        "I owe 5000 on my credit card at 22% apr and pay 200 a month, how long to pay off",
+        Expect(hints=("money", "money_reply"), solved=False),
+        "About 34 months and the interest paid, with a card to try other payments.",
+    ),
+    Case(
+        "money-savings",
+        "money",
+        "if I save 200 a month at 4.5% for 10 years how much will I have",
+        Expect(hints=("money", "money_reply")),
+        "About $30,200, what was deposited and the interest earned.",
+    ),
+    Case(
+        "money-rates-now",
+        "money",
+        "what are mortgage rates right now",
+        Expect(hints=("money", "money_rates")),
+        "Today's average with its date and a link, or a plain 'could not find today's figure'.",
+    ),
+    Case(
+        "money-no-rate",
+        "money",
+        "monthly payment on a 250000 mortgage",
+        Expect(hints=("money", "money_ask_rate")),
+        "Offline there is no average to assume: one question for the rate their lender quoted.",
+    ),
+    Case(
+        "money-lookalike",
+        "money",
+        "rate my essay out of 10, I tried to make the interest of the story build slowly",
+        Expect(no_hints=("money",)),
+        "Feedback on the essay; rate and interest are not money here.",
+    ),
+    Case(
+        "money-homework-stays-math",
+        "money",
+        "compound interest on 1000 at 5% for 3 years",
+        Expect(subject="math", no_hints=("money",)),
+        "School compound interest is maths' worked answer, not a calculator card.",
     ),
 )
 

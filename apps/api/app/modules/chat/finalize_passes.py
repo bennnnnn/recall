@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.modules.chat.finalize_money import attach_money_card
 from app.modules.chat.finalize_parts import (
     add_settings_card,
     attach_reply_picture,
@@ -166,6 +167,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         OnError(log_as="enrich_chemistry_fences"),
     ),
     FinalizePass("settings_card", add_settings_card, FALL_BACK),
+    FinalizePass("money_card", attach_money_card, FALL_BACK),
     FinalizePass("request_sections", divide_request_sections, FALL_BACK),
     FinalizePass("search_sources", add_search_sources, FALL_BACK),
     FinalizePass("instant_usage", record_instant_usage, FALL_BACK),

@@ -9,5 +9,5 @@ class MoneySettings(BaseModel):
     # Today's average rate is looked up on the web once per product, term and country,
     # and kept this long: averages move weekly at most.
     money_rate_cache_seconds: int = 43_200
-    # A rate below average ÷ ratio or above average × ratio "is not realistic".
+    # A rate below the average divided by this, or above it times this, "is not realistic".
     money_unrealistic_ratio: float = 2.0

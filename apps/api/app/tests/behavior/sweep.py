@@ -109,6 +109,7 @@ LOOKALIKE_HINTS = {
     "chart lookalike": "chart",
     "quiz lookalike": "quiz",
     "checklist lookalike": "checklist",
+    "money lookalike": "money",
 }
 # Reminders already saved, so "mark call mom as done" has something to find.
 SEEDED = ("call mom", "dentist appointment", "gym", "pay rent", "read", "water the plants")
