@@ -35,7 +35,7 @@ function parensBalanced(text: string): boolean {
 }
 
 /** The text between a node's brackets, with any parenthesised label quoted. */
-export function quoteMermaidLabel(body: string): string {
+function quoteMermaidLabel(body: string): string {
   const edge = SHAPE_EDGES.find(
     ([open, close]) =>
       body.length >= 2 &&

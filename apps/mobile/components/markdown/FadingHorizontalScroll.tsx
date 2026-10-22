@@ -19,7 +19,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { useTheme, withAlpha } from "@/lib/theme";
 
-export const SCROLL_FADE_WIDTH = 28;
+const SCROLL_FADE_WIDTH = 28;
 /** Offsets this close to an edge count as being at it (sub-pixel rounding). */
 const EDGE_SLOP = 2;
 

@@ -10,7 +10,7 @@
  * them keeps its own. The test checks these rules against Node's ICU.
  */
 
-export type PluralCategory = "one" | "few" | "many" | "other";
+type PluralCategory = "one" | "few" | "many" | "other";
 
 /** The categories each language's strings must provide, in i18next's order. */
 export const PLURAL_CATEGORIES: Record<string, readonly PluralCategory[]> = {

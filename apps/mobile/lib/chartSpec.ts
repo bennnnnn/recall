@@ -19,7 +19,7 @@ import {
 
 export type ChartTable = { columns: string[]; rows: string[][] };
 
-export type ChartRead = {
+type ChartRead = {
   /** The Vega-Lite or Vega spec to draw, or null when the body cannot be drawn. */
   spec: JsonRecord | null;
   /** The chart's inline data as a table, for when it cannot be drawn. */

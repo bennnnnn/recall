@@ -47,7 +47,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /** The width one column asks for before the table is fitted to the viewport. */
-export function tableColumnNaturalWidth({ longest, longestWord }: TableColumnText): number {
+function tableColumnNaturalWidth({ longest, longestWord }: TableColumnText): number {
   const floor = clamp(longestWord * CHAR_WIDTH + CELL_PAD, TABLE_MIN_COL_WIDTH, TABLE_MAX_COL_WIDTH);
   return clamp(longest * CHAR_WIDTH + CELL_PAD, floor, TABLE_MAX_COL_WIDTH);
 }
