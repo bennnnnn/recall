@@ -36,6 +36,7 @@ const KEPT_EVERYWHERE = new Set([
   "settings.live_talk_minutes",
   "upgrade.feature_live_talk_plain",
   "share.action_pdf", // file format
+  "share.attachment_pdf",
   "common.ok",
   "chat.math_converter_clear", // the calculator's AC key
   "chat.math_keyboard_abc", // the key back to letters

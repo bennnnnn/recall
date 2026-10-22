@@ -19,7 +19,8 @@ import {
   type MathSegment,
 } from "@/lib/math/text";
 
-function mapFenceRegions(
+/** Walk prose and fenced blocks, converting each; the fence's markers are not kept. */
+export function mapFenceRegions(
   text: string,
   onProse: (prose: string) => string,
   onFence: (lang: string, body: string) => string,
@@ -444,6 +445,11 @@ function convertMarkdown(markdown: string, mode: "copy" | "speech"): string {
     (lang, body) => convertFence(lang, body, mode),
   );
   return walked.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/** One fenced block as whole-message Copy writes it. */
+export function fenceToCopyText(lang: string, body: string): string {
+  return convertFence(lang, body, "copy");
 }
 
 /** Whole-message Copy: keep code and identifiers; flatten `$...$` math to readable text. */
