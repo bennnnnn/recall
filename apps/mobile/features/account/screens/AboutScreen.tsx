@@ -1,4 +1,3 @@
-import Constants from "expo-constants";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -6,26 +5,25 @@ import {
   SettingsLinkRow,
   SettingsPage,
   SettingsValueRow,
+  useSettingsAction,
 } from "@/features/account/components/settingsUi";
+import { openSettingsLink } from "@/features/account/model/openSettingsLink";
+import { appVersion, versionLabel } from "@/lib/appVersion";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
-import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 
 /** Settings → About: the legal pages, the licenses, and the version. */
 export default function AboutScreen() {
   const { t } = useTranslation();
-  const version = Constants.expoConfig?.version ?? "1.0.0";
+  const action = useSettingsAction();
+  const app = appVersion();
+  const open = (url: string) =>
+    void action.run("link", () => openSettingsLink(url), { errorKey: "settings.link_failed" });
 
   return (
     <SettingsPage>
       <SettingsGroup label={t("settings.legal")}>
-        <SettingsLinkRow
-          title={t("privacy.title")}
-          onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
-        />
-        <SettingsLinkRow
-          title={t("terms.title")}
-          onPress={() => void openAllowedUrl(getLegalTermsUrl())}
-        />
+        <SettingsLinkRow title={t("privacy.title")} onPress={() => open(getLegalPrivacyUrl())} />
+        <SettingsLinkRow title={t("terms.title")} onPress={() => open(getLegalTermsUrl())} />
         <SettingsLinkRow
           title={t("settings.licenses")}
           href="/settings/licenses"
@@ -33,7 +31,8 @@ export default function AboutScreen() {
       </SettingsGroup>
 
       <SettingsGroup>
-        <SettingsValueRow title={t("settings.about_version")} value={version} />
+        <SettingsValueRow title={t("settings.about_version")} value={versionLabel(app)} />
+        {app.update ? <SettingsValueRow title={t("settings.about_update")} value={app.update} /> : null}
       </SettingsGroup>
     </SettingsPage>
   );
