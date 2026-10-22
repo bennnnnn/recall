@@ -278,14 +278,14 @@ def _value_line(line: str) -> str:
 
 
 def _answer_heading(line: str) -> str | None:
-    """The value on an Answer heading's own line ("" for none), or None for any other line."""
+    """The value on an Answer heading's own line ("" for none; bare "Answer" too), else None."""
     match = _ANSWER_HEADING.fullmatch(line.strip())
     if match is None:
         return None
     rest = _value_line(match.group("rest"))
     if match.group("inner") or match.group("outer"):
         return rest
-    return "" if not rest and (match.group("atx") or match.group("bold")) else None
+    return "" if not match.group("rest").strip() else None
 
 
 def _ends_section(line: str) -> bool:

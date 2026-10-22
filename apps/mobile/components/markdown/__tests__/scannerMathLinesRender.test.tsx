@@ -39,7 +39,8 @@ const SCANNER_RESPONSE = "Here's how to solve for $x$ step-by-step:\n\n1.  **Ori
 type RenderNode = string | { children?: RenderNode[] | null } | RenderNode[] | null;
 function visibleText(node: RenderNode): string {
   if (node == null) return "";
-  if (typeof node === "string") return node;
+  // A formula's spaces are no-break spaces; on screen they read as spaces.
+  if (typeof node === "string") return node.replace(/\u00a0/g, " ");
   if (Array.isArray(node)) return node.map(visibleText).join("");
   return (node.children ?? []).map(visibleText).join("");
 }
