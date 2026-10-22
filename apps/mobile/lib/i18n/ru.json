@@ -188,6 +188,7 @@
   "chat.remove_attachment_a11y": "Удалить вложение",
   "chat.rename": "Переименовать",
   "chat.rename_failed": "Не удалось переименовать этот чат.",
+  "chat.rename_blank": "Сначала дайте чату название.",
   "chat.rename_title": "Переименовать чат",
   "chat.renamed_toast": "Чат переименован",
   "chat.reply_not_saved": "Этот ответ не сохранён.",

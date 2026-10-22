@@ -188,6 +188,7 @@
   "chat.remove_attachment_a11y": "Eki kaldır",
   "chat.rename": "Yeniden adlandır",
   "chat.rename_failed": "Bu sohbet yeniden adlandırılamadı.",
+  "chat.rename_blank": "Önce sohbete bir ad verin.",
   "chat.rename_title": "Sohbeti yeniden adlandır",
   "chat.renamed_toast": "Sohbet yeniden adlandırıldı",
   "chat.reply_not_saved": "Bu yanıt kaydedilmedi.",

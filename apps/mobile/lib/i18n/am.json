@@ -188,6 +188,7 @@
   "chat.remove_attachment_a11y": "አባሪ አስወግድ",
   "chat.rename": "እንደገና ስይም",
   "chat.rename_failed": "ይህን ውይይት መሰየም አልተቻለም።",
+  "chat.rename_blank": "መጀመሪያ ለውይይቱ ስም ይስጡ።",
   "chat.rename_title": "ውይይት እንደገና ስይም",
   "chat.renamed_toast": "ውይይት ተሰይሟል",
   "chat.reply_not_saved": "ይህ መልስ አልተቀመጠም።",

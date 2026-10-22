@@ -188,6 +188,7 @@
   "chat.remove_attachment_a11y": "Retirer la pièce jointe",
   "chat.rename": "Renommer",
   "chat.rename_failed": "Impossible de renommer ce chat.",
+  "chat.rename_blank": "Donnez d'abord un nom à la conversation.",
   "chat.rename_title": "Renommer le chat",
   "chat.renamed_toast": "Chat renommé",
   "chat.reply_not_saved": "Cette réponse n’a pas été enregistrée.",

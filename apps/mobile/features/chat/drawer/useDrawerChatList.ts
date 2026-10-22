@@ -188,9 +188,6 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
   const removeChatFromGroupsById = useCallback((chatId: string) => {
     updateGroups(chatId, null, (prev) => removeChatFromGroups(prev, chatId));
   }, [updateGroups]);
-  const moveChatPinState = useCallback((chatId: string, pinned: boolean) => {
-    patchChatInGroups(chatId, { pinned });
-  }, [patchChatInGroups]);
   const moveChatArchiveState = useCallback((chatId: string, archived: boolean) => {
     patchChatInGroups(chatId, archived ? { archived, pinned: false } : { archived });
   }, [patchChatInGroups]);
@@ -210,6 +207,6 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     loading, error, refreshing, groups, allChats, load, handleRefresh,
     hasOlderChats: Boolean(groups.next_cursor), loadOlderChats,
     patchChatInGroups, insertChatInGroups, isSectionCollapsed, toggleSectionCollapsed,
-    moveChatPinState, moveChatArchiveState, removeChatFromGroupsById,
+    moveChatArchiveState, removeChatFromGroupsById,
   };
 }

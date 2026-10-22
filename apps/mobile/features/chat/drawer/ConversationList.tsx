@@ -79,7 +79,6 @@ export function ConversationList() {
     insertChatInGroups,
     isSectionCollapsed,
     toggleSectionCollapsed,
-    moveChatPinState,
     moveChatArchiveState,
     removeChatFromGroupsById,
     hasOlderChats,
@@ -111,8 +110,6 @@ export function ConversationList() {
     isDrawerOpen: isOpen,
     patchChatInGroups,
     insertChatInGroups,
-    moveChatPinState,
-    moveChatArchiveState,
     removeChatFromGroupsById,
   });
 

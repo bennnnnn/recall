@@ -1,19 +1,19 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
-import { api } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { useViewOwner } from "@/lib/viewOwner";
-import { getCachedChat, peekCreatedChat } from "@/features/chat/model/chatListCache";
-import { emitAppEvent } from "@/lib/appEvents";
-import { beginChatMutation } from "@/features/chat/model/mutationLock";
-import { sanitizeManualChatTitle } from "@/features/chat/model/title";
-import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
-import { abandonActiveChatIfDeleted, insertChatGlobal, moveChatArchiveGlobal, patchChatGlobal, removeChatGlobal } from "@/features/chat/drawer/drawer";
-import { notifyDestructive, tap } from "@/lib/haptics";
+import { insertChatGlobal, patchChatGlobal, removeChatGlobal } from "@/features/chat/drawer/drawer";
+import {
+  confirmAndDeleteChat,
+  renameChat,
+  setChatArchived,
+  setChatPinned,
+  type ChatOperationContext,
+} from "@/features/chat/model/chatOperations";
+import type { Chat } from "@/lib/api";
 import type { IconName } from "@/ui/icons/names";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { confirmDialog } from "@/ui/overlay/dialogs";
 
 type Options = {
   token: string | null;
@@ -30,7 +30,9 @@ type Options = {
   t: (key: string, options?: Record<string, unknown>) => string;
 };
 
-/** Conversation management keeps server reconciliation separate from the current screen. */
+const DRAWER_LIST = { patch: patchChatGlobal, insert: insertChatGlobal, remove: removeChatGlobal };
+
+/** The chat header's menu: the same operations as the drawer's row menu, on the open chat. */
 export function useChatManagementActions({
   token, chatId, chatTitle, pinned, archived, setPinned, setArchived,
   setChatTitle, closeMenu, dismissActionBanner, showActionBanner, t,
@@ -50,6 +52,32 @@ export function useChatManagementActions({
     dismissActionBanner();
   }, [view, closeMenu, dismissActionBanner]);
 
+  const operations = useMemo<ChatOperationContext | null>(
+    () =>
+      token
+        ? {
+            token,
+            session,
+            list: DRAWER_LIST,
+            signedIn: currentSession,
+            shown: currentView,
+            mirror: (patch: Partial<Chat>) => {
+              if (patch.title !== undefined) setChatTitle(patch.title);
+              if (patch.pinned !== undefined) setPinned(patch.pinned);
+              if (patch.archived !== undefined) setArchived(Boolean(patch.archived));
+            },
+            banner: showActionBanner,
+            failure: (message: string) => reportRecoverableError(feedback, message),
+            t,
+          }
+        : null,
+    [token, session, currentSession, currentView, setChatTitle, setPinned, setArchived, showActionBanner, feedback, t],
+  );
+  const ref = useMemo(
+    () => (chatId ? { id: chatId, title: chatTitle, pinned, archived } : null),
+    [chatId, chatTitle, pinned, archived],
+  );
+
   const openRename = useCallback(() => {
     if (!currentView()) return;
     setRenameText(chatTitle ?? "");
@@ -57,128 +85,24 @@ export function useChatManagementActions({
   }, [chatTitle, currentView]);
 
   const confirmRename = useCallback(async () => {
-    if (!currentView()) return;
-    const title = sanitizeManualChatTitle(renameText);
-    if (!title || !chatId || !token) {
-      setRenameVisible(false);
-      return;
-    }
-    const release = beginChatMutation(session, [chatId]);
-    if (!release) return;
-    const previousTitle = chatTitle;
-    setChatTitle(title);
-    patchChatGlobal(chatId, { title });
-    setRenameVisible(false);
-    try {
-      const updated = await api.renameChat(token, chatId, title);
-      if (!currentSession()) return;
-      patchChatGlobal(chatId, { title: updated.title });
-      if (currentView()) {
-        setChatTitle(updated.title);
-        showActionBanner(t("chat.renamed_toast"), "pencil");
-      }
-    } catch {
-      if (!currentSession()) return;
-      patchChatGlobal(chatId, { title: previousTitle });
-      if (currentView()) {
-        setChatTitle(previousTitle);
-        reportRecoverableError(feedback, t("chat.rename_failed"));
-      }
-    } finally { release(); }
-  }, [currentView, renameText, chatId, token, session, chatTitle, setChatTitle, currentSession, showActionBanner, t, feedback]);
+    if (!operations || !ref || !currentView()) return;
+    if (renameChat(operations, ref, renameText)) setRenameVisible(false);
+  }, [operations, ref, currentView, renameText]);
 
   const togglePin = useCallback(async () => {
-    if (!chatId || !token || archived || !currentView()) return;
-    const release = beginChatMutation(session, [chatId]);
-    if (!release) return;
-    tap();
-    const next = !pinned;
-    setPinned(next);
-    patchChatGlobal(chatId, { pinned: next });
-    try {
-      const saved = await api.setPin(token, chatId, next);
-      if (!currentSession()) return;
-      patchChatGlobal(chatId, { pinned: saved.pinned, archived: Boolean(saved.archived) });
-      if (currentView()) {
-        setPinned(saved.pinned);
-        setArchived(Boolean(saved.archived));
-        showActionBanner(saved.pinned ? t("chat.pinned_toast") : t("chat.unpinned_toast"), saved.pinned ? "pin" : "pin-off");
-      }
-    } catch {
-      if (!currentSession()) return;
-      patchChatGlobal(chatId, { pinned });
-      if (currentView()) {
-        setPinned(pinned);
-        reportRecoverableError(feedback, t("chat.pin_failed"));
-      }
-    } finally { release(); }
-  }, [chatId, token, archived, currentView, session, pinned, setPinned, setArchived, showActionBanner, t, currentSession, feedback]);
+    if (!operations || !ref || !currentView()) return;
+    await setChatPinned(operations, ref, !ref.pinned);
+  }, [operations, ref, currentView]);
 
   const toggleArchive = useCallback(async () => {
-    if (!chatId || !token || !currentView()) return;
-    const release = beginChatMutation(session, [chatId]);
-    if (!release) return;
-    tap();
-    const next = !archived;
-    setArchived(next);
-    if (next) setPinned(false);
-    moveChatArchiveGlobal(chatId, next);
-    try {
-      const saved = await api.setArchive(token, chatId, next);
-      if (!currentSession()) return;
-      patchChatGlobal(chatId, { archived: Boolean(saved.archived), pinned: saved.pinned });
-      if (currentView()) {
-        setArchived(Boolean(saved.archived));
-        setPinned(saved.pinned);
-        showActionBanner(saved.archived ? t("chat.archived_toast") : t("chat.unarchived_toast"), saved.archived ? "archive" : "unarchive");
-      }
-    } catch {
-      if (!currentSession()) return;
-      moveChatArchiveGlobal(chatId, archived);
-      patchChatGlobal(chatId, { pinned });
-      if (currentView()) {
-        setArchived(archived);
-        setPinned(pinned);
-        reportRecoverableError(feedback, t("chat.archive_failed"));
-      }
-    } finally { release(); }
-  }, [chatId, token, currentView, session, archived, setArchived, setPinned, pinned, showActionBanner, t, currentSession, feedback]);
+    if (!operations || !ref || !currentView()) return;
+    await setChatArchived(operations, ref, !ref.archived);
+  }, [operations, ref, currentView]);
 
   const confirmDelete = useCallback(() => {
-    if (!chatId || !token || !currentView()) return;
-    void confirmDialog({
-      title: t("chat.delete_confirm_title"),
-      message: t("chat.delete_confirm_body"),
-      cancelLabel: t("common.cancel"),
-      confirmLabel: t("common.delete"),
-      destructive: true,
-    }).then(async (ok) => {
-      if (!ok) return;
-      if (!currentView()) return;
-      const release = beginChatMutation(session, [chatId]);
-      if (!release) return;
-      const snapshot = getCachedChat(chatId) ?? peekCreatedChat(chatId);
-      removeChatGlobal(chatId);
-      try {
-        await api.deleteChat(token, chatId);
-        if (!currentSession()) return;
-        notifyDestructive();
-        removeChatGlobal(chatId);
-        void clearCachedChatMessages(chatId);
-        emitAppEvent("chatsDeleted", { chatIds: [chatId] });
-        if (currentView()) showActionBanner(t("chat.deleted_toast"), "trash");
-        abandonActiveChatIfDeleted([chatId]);
-      } catch {
-        if (!currentSession()) return;
-        // A failed delete must preserve original dates and project/quiz
-        // metadata. A chat absent from the list needs its real server row.
-        const restored = snapshot ?? await api.getChat(token, chatId).catch(() => null);
-        if (!currentSession()) return;
-        if (restored) insertChatGlobal(restored);
-        if (currentView()) reportRecoverableError(feedback, t("chat.delete_failed"));
-      } finally { release(); }
-    });
-  }, [chatId, token, currentView, t, session, currentSession, showActionBanner, feedback]);
+    if (!operations || !chatId || !currentView()) return;
+    confirmAndDeleteChat(operations, chatId);
+  }, [operations, chatId, currentView]);
 
   return { renameVisible, setRenameVisible, renameText, setRenameText, openRename, confirmRename, togglePin, toggleArchive, confirmDelete };
 }

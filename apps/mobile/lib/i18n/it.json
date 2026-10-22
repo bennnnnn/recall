@@ -188,6 +188,7 @@
   "chat.remove_attachment_a11y": "Rimuovi allegato",
   "chat.rename": "Rinomina",
   "chat.rename_failed": "Impossibile rinominare questa chat.",
+  "chat.rename_blank": "Prima dai un nome alla chat.",
   "chat.rename_title": "Rinomina chat",
   "chat.renamed_toast": "Chat rinominata",
   "chat.reply_not_saved": "Questa risposta non è stata salvata.",

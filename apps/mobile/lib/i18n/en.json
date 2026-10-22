@@ -188,6 +188,7 @@
   "chat.remove_attachment_a11y": "Remove attachment",
   "chat.rename": "Rename",
   "chat.rename_failed": "Could not rename this chat.",
+  "chat.rename_blank": "Give the chat a name first.",
   "chat.rename_title": "Rename chat",
   "chat.renamed_toast": "Chat renamed",
   "chat.reply_not_saved": "This reply wasn’t saved.",

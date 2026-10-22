@@ -188,6 +188,7 @@
   "chat.remove_attachment_a11y": "Remover anexo",
   "chat.rename": "Renomear",
   "chat.rename_failed": "Não foi possível renomear esta conversa.",
+  "chat.rename_blank": "Dê um nome à conversa primeiro.",
   "chat.rename_title": "Renomear conversa",
   "chat.renamed_toast": "Conversa renomeada",
   "chat.reply_not_saved": "Esta resposta não foi salva.",

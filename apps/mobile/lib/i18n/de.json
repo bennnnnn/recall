@@ -188,6 +188,7 @@
   "chat.remove_attachment_a11y": "Anhang entfernen",
   "chat.rename": "Umbenennen",
   "chat.rename_failed": "Chat konnte nicht umbenannt werden.",
+  "chat.rename_blank": "Gib dem Chat zuerst einen Namen.",
   "chat.rename_title": "Chat umbenennen",
   "chat.renamed_toast": "Chat umbenannt",
   "chat.reply_not_saved": "Diese Antwort wurde nicht gespeichert.",
