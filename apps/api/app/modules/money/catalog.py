@@ -213,9 +213,7 @@ PRODUCTS: tuple[Product, ...] = (
         words=("credit card", "credit cards", "card balance", "card debt", "visa", "mastercard"),
         inputs=(_BALANCE, _APR, _CARD_PAYMENT),
         outputs=(
-            Output(
-                "months", "money.months_to_payoff", "months", _CARD_MONTHS, True, "money.never"
-            ),
+            Output("months", "money.months_to_payoff", "months", _CARD_MONTHS, True, "money.never"),
             Output(
                 "interest",
                 "money.total_interest",
