@@ -9,11 +9,13 @@ import * as WebBrowser from "expo-web-browser";
 import { Icon } from "@/ui/icons/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
+import { MermaidFullScreen } from "@/components/rich/MermaidFullScreen";
 import { usePreviewPage } from "@/components/rich/usePreviewPage";
 import { useWebPreviewHeight } from "@/components/rich/useWebPreviewHeight";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
-import { CODE_FONT } from "@/lib/fonts";
+import { CODE_FACE } from "@/lib/fonts";
+import { mermaidTitleKey } from "@/lib/mermaidKind";
 import { MERMAID_MIN_HEIGHT, MERMAID_PREVIEW_HEIGHT } from "@/lib/mermaidPreviewHeight";
 import { MERMAID_PAGE, mermaidPreviewConfig } from "@/lib/mermaidPreviewHtml";
 import { sanitizeMermaidNodeLabels } from "@/lib/mermaidSanitize";
@@ -31,6 +33,7 @@ export function MermaidBlock({ content }: Props) {
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [showSource, setShowSource] = useState(false);
+  const [fullScreen, setFullScreen] = useState(false);
   const { expanded, height, clipped, renderError, onMessage, toggleExpanded } =
     useWebPreviewHeight({
       rules: MERMAID_PREVIEW_HEIGHT,
@@ -51,15 +54,11 @@ export function MermaidBlock({ content }: Props) {
     Boolean(WebView) && canRenderInline && preview.status === "ready",
   );
   const previewError = preview.status === "failed" ? t("rich.mermaid_error") : null;
-
-  const handleOpenLiveEditor = useCallback(async () => {
-    await Clipboard.setStringAsync(sanitized);
-    await WebBrowser.openBrowserAsync("https://mermaid.live/edit");
-  }, [sanitized]);
+  const title = t(mermaidTitleKey(sanitized));
 
   return (
     <VisualCard
-      label={t("rich.mermaid_diagram")}
+      label={title}
       icon="network"
       headerRight={
         <Pressable
@@ -76,30 +75,21 @@ export function MermaidBlock({ content }: Props) {
         </Pressable>
       }
       actions={
-        <>
-          <CopyButton text={sanitized} />
-          {clipped || expanded ? (
-            <Pressable
-              style={s.iconBtn}
-              onPress={toggleExpanded}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={expanded ? t("rich.collapse") : t("rich.expand")}
-            >
-              <Icon
-                name={expanded ? "collapse" : "expand"}
-                size={IconSize.sm}
-                color={theme.textSecondary}
-              />
-            </Pressable>
-          ) : null}
-          <Pressable style={s.openBtn} onPress={handleOpenLiveEditor} hitSlop={8}>
-            <Icon name="external-link" size={IconSize.sm} color={theme.onPrimary} />
-            <Text style={s.openLabel}>{t("rich.mermaid_live")}</Text>
-          </Pressable>
-        </>
+        <MermaidActions
+          source={sanitized}
+          sizeToggle={clipped || expanded ? { expanded, toggle: toggleExpanded } : null}
+          onFullScreen={canRenderInline && WebView ? () => setFullScreen(true) : null}
+          theme={theme}
+          styles={s}
+        />
       }
     >
+      <MermaidFullScreen
+        visible={fullScreen}
+        source={sanitized}
+        title={title}
+        onClose={() => setFullScreen(false)}
+      />
       {renderError || previewError ? (
         <View style={s.previewBox}>
           <Icon name="alert-circle" size={IconSize.sm} color={theme.danger} />
@@ -145,6 +135,74 @@ export function MermaidBlock({ content }: Props) {
   );
 }
 
+/** Copy, the card's height toggle, full screen, and the online editor. */
+function MermaidActions({
+  source,
+  sizeToggle,
+  onFullScreen,
+  theme,
+  styles: s,
+}: {
+  source: string;
+  sizeToggle: { expanded: boolean; toggle: () => void } | null;
+  onFullScreen: (() => void) | null;
+  theme: Theme;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  const { t } = useTranslation();
+  // The source goes to the clipboard only; mermaid.live opens empty and the
+  // user pastes it there.
+  const openEditor = useCallback(async () => {
+    await Clipboard.setStringAsync(source);
+    await WebBrowser.openBrowserAsync("https://mermaid.live/edit");
+  }, [source]);
+
+  return (
+    <>
+      <CopyButton text={source} />
+      {sizeToggle ? (
+        <Pressable
+          style={s.iconBtn}
+          onPress={sizeToggle.toggle}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={sizeToggle.expanded ? t("rich.collapse") : t("rich.expand")}
+        >
+          <Icon
+            name={sizeToggle.expanded ? "collapse" : "expand"}
+            size={IconSize.sm}
+            color={theme.textSecondary}
+          />
+        </Pressable>
+      ) : null}
+      {onFullScreen ? (
+        <Pressable
+          style={s.iconBtn}
+          onPress={onFullScreen}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t("rich.diagram_full_screen")}
+        >
+          <Icon name="scan" size={IconSize.sm} color={theme.textSecondary} />
+        </Pressable>
+      ) : null}
+      <Pressable
+        style={s.openBtn}
+        onPress={openEditor}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={t("rich.mermaid_editor")}
+        accessibilityHint={t("rich.mermaid_editor_hint")}
+      >
+        <Icon name="external-link" size={IconSize.sm} color={theme.onPrimary} />
+        <Text style={s.openLabel} numberOfLines={1}>
+          {t("rich.mermaid_editor")}
+        </Text>
+      </Pressable>
+    </>
+  );
+}
+
 function makeStyles(t: Theme) {
   return StyleSheet.create({
     webWrap: { backgroundColor: t.bg },
@@ -162,7 +220,7 @@ function makeStyles(t: Theme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.border,
     },
-    previewText: { ...Type.meta, fontFamily: CODE_FONT, lineHeight: 18, color: t.textSecondary },
+    previewText: { ...Type.meta, ...CODE_FACE, lineHeight: 18, color: t.textSecondary },
     fallbackHint: { ...Type.meta, color: t.textTertiary, marginTop: Space.xs },
     iconBtn: {
       width: 32,
@@ -171,6 +229,7 @@ function makeStyles(t: Theme) {
       justifyContent: "center",
     },
     openBtn: {
+      flexShrink: 1,
       flexDirection: "row",
       alignItems: "center",
       gap: Space.xs,
@@ -179,6 +238,6 @@ function makeStyles(t: Theme) {
       borderRadius: Radius.sm,
       backgroundColor: t.primary,
     },
-    openLabel: { ...Type.label, ...Weight.bold, color: t.onPrimary },
+    openLabel: { ...Type.label, ...Weight.bold, color: t.onPrimary, flexShrink: 1 },
   });
 }

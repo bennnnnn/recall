@@ -18,7 +18,7 @@ import {
   smilesDrawerConfig,
   type SmilesDrawerError,
 } from "@/lib/chemistry/smilesDrawerHtml";
-import { CODE_FONT } from "@/lib/fonts";
+import { CODE_FACE } from "@/lib/fonts";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -153,7 +153,7 @@ function makeStyles(t: Theme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.border,
     },
-    previewText: { ...Type.meta, fontFamily: CODE_FONT, lineHeight: 18, color: t.textSecondary },
+    previewText: { ...Type.meta, ...CODE_FACE, lineHeight: 18, color: t.textSecondary },
     fallbackHint: { ...Type.meta, color: t.textTertiary, marginTop: Space.xs },
   });
 }

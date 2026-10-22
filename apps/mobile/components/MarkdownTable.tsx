@@ -9,32 +9,32 @@ import {
   useMemo,
   useState,
 } from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { StyleSheet, useWindowDimensions, View } from "react-native";
 
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
+import { FadingHorizontalScroll } from "@/components/markdown/FadingHorizontalScroll";
 import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
+import {
+  sumWidths,
+  tableColumnWidths,
+  type TableColumnText,
+} from "@/components/markdown/tableLayout";
 
-type CellProps = { isLast?: boolean };
+type CellProps = { isLast?: boolean; columnIndex?: number };
 
-type RowProps = CellProps;
+type RowProps = { isLast?: boolean };
 
 type TableLayout = {
-  columnWidth: number;
+  columnWidths: number[];
 };
 
 const TableLayoutContext = createContext<TableLayout>({
-  columnWidth: 120,
+  columnWidths: [],
 });
 
 const TABLE_H_PAD = 32;
-/** Wide enough that a 3-col ChatGPT-style grid pans instead of squeezing. */
-const MIN_COL_WIDTH = 168;
+const FALLBACK_COL_WIDTH = 120;
 
 export function tableViewportWidth(screenWidth: number, measuredWidth: number): number {
   const screenBound = Math.max(200, screenWidth - TABLE_H_PAD);
@@ -45,21 +45,15 @@ export function resolveFrozenRowHeight(left?: number, right?: number): number {
   return Math.max(left ?? 0, right ?? 0);
 }
 
-export function tableColumnWidth(viewportWidth: number, columns: number): number {
-  const colCount = Math.max(1, columns);
-  const available = Math.max(200, viewportWidth);
-  return Math.max(MIN_COL_WIDTH, available / colCount);
-}
-
 export function tableShouldFreezeFirstColumn(
   columns: number,
   viewportWidth: number,
-  columnWidth: number,
+  tableWidth: number,
 ): boolean {
   // On a phone, a frozen first column consumes almost half of the gesture
   // surface and makes the table feel stuck. Pan the whole grid there; retain
   // the useful frozen label column on tablet-sized viewports.
-  return viewportWidth >= 600 && columns >= 3 && columnWidth * columns > viewportWidth + 1;
+  return viewportWidth >= 600 && columns >= 3 && tableWidth > viewportWidth + 1;
 }
 
 function collectTableRows(children: ReactNode): ReactElement[] {
@@ -82,7 +76,7 @@ function mapCells(children: ReactNode) {
   const cells = Children.toArray(children);
   return cells.map((child, index) => {
     if (!isValidElement<CellProps>(child)) return child;
-    return cloneElement(child, { isLast: index === cells.length - 1 });
+    return cloneElement(child, { isLast: index === cells.length - 1, columnIndex: index });
   });
 }
 
@@ -98,7 +92,8 @@ function mapRows(children: ReactNode) {
 
 type Props = {
   nodeKey: string;
-  columns: number;
+  /** What each column holds (tableColumnText), which sets its width. */
+  columns: TableColumnText[];
   children: ReactNode;
 };
 
@@ -111,26 +106,17 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
   // layout pass. Never let that measurement exceed the physical chat canvas,
   // or `scrollable` becomes false while the last columns are clipped.
   const layoutW = tableViewportWidth(screenWidth, viewportW);
-  const colCount = Math.max(1, columns);
-  const columnWidth = tableColumnWidth(layoutW, colCount);
-  const scrollable = columnWidth * colCount > layoutW + 1;
+  const columnWidths = useMemo(() => tableColumnWidths(columns, layoutW), [columns, layoutW]);
+  const tableWidth = sumWidths(columnWidths);
+  const layout = useMemo(() => ({ columnWidths }), [columnWidths]);
 
-  const table = (
-    <View
-      key={nodeKey}
-      style={[s.table, { width: columnWidth * colCount }]}
-    >
-      {mapRows(children)}
-    </View>
-  );
-
-  const freezeFirst = tableShouldFreezeFirstColumn(colCount, layoutW, columnWidth);
+  const freezeFirst = tableShouldFreezeFirstColumn(columnWidths.length, layoutW, tableWidth);
   const rows = freezeFirst ? collectTableRows(children) : [];
-  const restCols = Math.max(1, colCount - 1);
 
   return (
-    <TableLayoutContext.Provider value={{ columnWidth }}>
+    <TableLayoutContext.Provider value={layout}>
       <View
+        testID="markdown-table"
         style={[s.scrollWrap, { maxWidth: layoutW }]}
         onLayout={(e) => {
           const w = Math.round(e.nativeEvent.layout.width);
@@ -140,30 +126,24 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
         {freezeFirst ? (
           <FrozenFirstColumnTable
             rows={rows}
-            columnWidth={columnWidth}
-            restCols={restCols}
+            firstWidth={columnWidths[0] ?? FALLBACK_COL_WIDTH}
+            restWidth={tableWidth - (columnWidths[0] ?? 0)}
+            viewportWidth={layoutW}
             theme={theme}
             styles={s}
           />
         ) : (
-          <ScrollView
+          // A wide table's cut-off column needs a cue that the row scrolls.
+          <FadingHorizontalScroll
             testID="markdown-table-scroll"
-            horizontal
-            nestedScrollEnabled
-            directionalLockEnabled
-            bounces={false}
-            overScrollMode="never"
-            // A wide table's cut-off column needs a cue that the row scrolls.
-            showsHorizontalScrollIndicator={scrollable}
-            persistentScrollbar={scrollable}
-            scrollEnabled={scrollable}
-            style={[s.scroll, { maxWidth: layoutW }]}
-            contentContainerStyle={
-              scrollable ? { width: columnWidth * colCount } : undefined
-            }
+            contentWidth={tableWidth}
+            viewportWidth={layoutW}
+            style={{ maxWidth: layoutW }}
           >
-            {table}
-          </ScrollView>
+            <View key={nodeKey} style={[s.table, { width: tableWidth }]}>
+              {mapRows(children)}
+            </View>
+          </FadingHorizontalScroll>
         )}
       </View>
     </TableLayoutContext.Provider>
@@ -172,14 +152,16 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
 
 function FrozenFirstColumnTable({
   rows,
-  columnWidth,
-  restCols,
+  firstWidth,
+  restWidth,
+  viewportWidth,
   theme,
   styles: s,
 }: {
   rows: ReactElement[];
-  columnWidth: number;
-  restCols: number;
+  firstWidth: number;
+  restWidth: number;
+  viewportWidth: number;
   theme: Theme;
   styles: ReturnType<typeof makeStyles>;
 }) {
@@ -191,13 +173,11 @@ function FrozenFirstColumnTable({
       <View
         style={[
           s.frozenCol,
-          { width: columnWidth, backgroundColor: theme.contentSurface },
+          { width: firstWidth, backgroundColor: theme.contentSurface },
         ]}
       >
         {rows.map((row, index) => {
-          const cells = Children.toArray(
-            (row.props as { children?: ReactNode }).children,
-          );
+          const cells = mapCells((row.props as { children?: ReactNode }).children);
           const height = resolveFrozenRowHeight(leftHeights[index], rightHeights[index]);
           return (
             <View
@@ -218,23 +198,15 @@ function FrozenFirstColumnTable({
           );
         })}
       </View>
-      <ScrollView
+      <FadingHorizontalScroll
         testID="markdown-table-scroll"
-        horizontal
-        nestedScrollEnabled
-        directionalLockEnabled
-        bounces={false}
-        overScrollMode="never"
-        showsHorizontalScrollIndicator
-        persistentScrollbar
-        style={s.scroll}
-        contentContainerStyle={{ width: columnWidth * restCols }}
+        contentWidth={restWidth}
+        viewportWidth={viewportWidth - firstWidth}
+        style={s.frozenRest}
       >
         <View>
           {rows.map((row, index) => {
-            const cells = Children.toArray(
-              (row.props as { children?: ReactNode }).children,
-            );
+            const cells = mapCells((row.props as { children?: ReactNode }).children);
             const height = resolveFrozenRowHeight(leftHeights[index], rightHeights[index]);
             return (
               <View
@@ -242,7 +214,7 @@ function FrozenFirstColumnTable({
                 style={[
                   s.row,
                   index === rows.length - 1 && s.rowLast,
-                  { width: columnWidth * restCols },
+                  { width: restWidth },
                   height ? { minHeight: height } : null,
                 ]}
                 onLayout={(e) => {
@@ -260,7 +232,7 @@ function FrozenFirstColumnTable({
             );
           })}
         </View>
-      </ScrollView>
+      </FadingHorizontalScroll>
     </View>
   );
 }
@@ -287,14 +259,17 @@ function TableCell({
   nodeKey,
   children,
   isLast = false,
+  columnIndex = 0,
 }: {
   nodeKey: string;
   children: ReactNode;
   isLast?: boolean;
+  columnIndex?: number;
 }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const { columnWidth } = useContext(TableLayoutContext);
+  const { columnWidths } = useContext(TableLayoutContext);
+  const columnWidth = columnWidths[columnIndex] ?? FALLBACK_COL_WIDTH;
 
   return (
     <View
@@ -330,12 +305,7 @@ function makeStyles(theme: Theme) {
       minWidth: 0,
       flexShrink: 1,
     },
-    scroll: {
-      backgroundColor: "transparent",
-      width: "100%",
-      maxWidth: "100%",
-      minWidth: 0,
-    },
+    frozenRest: { flex: 1 },
     freezeRow: {
       flexDirection: "row",
       alignSelf: "stretch",

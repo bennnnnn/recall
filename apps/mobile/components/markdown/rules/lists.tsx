@@ -11,6 +11,7 @@ import {
   isLastRootBlock,
   listItemDisplayNumber,
   listItemHasNestedList,
+  listHasOpenTask,
   listItemOpensWithTitle,
   listLargestNumber,
   numberColumnWidth,
@@ -62,7 +63,7 @@ export function listRules(t: Theme, mdMath: MdMathStyles, continuesBelow = false
           (styles.lastListItem as object),
       ];
       if (parentHasType(parent, "bullet_list") && task !== null) {
-        if (task) {
+        if (task && !listHasOpenTask(parent)) {
           return (
             <View key={node.key} style={itemStyle}>
               <View
@@ -76,13 +77,21 @@ export function listRules(t: Theme, mdMath: MdMathStyles, continuesBelow = false
             </View>
           );
         }
+        // A checklist item: an empty box, or a ticked one once done.
         return (
-          <View key={node.key} style={itemStyle}>
+          <View
+            key={node.key}
+            style={itemStyle}
+            accessible
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: task }}
+          >
             <Icon
-              name="square"
+              name={task ? "select" : "square"}
               size={IconSize.sm}
-              color={t.textTertiary}
+              color={task ? t.success : t.textTertiary}
               style={{ marginTop: 2, marginRight: Space.xs }}
+              testID={task ? "md-task-done" : "md-task-open"}
             />
             <View style={styles._VIEW_SAFE_bullet_list_content as object}>
               {children}

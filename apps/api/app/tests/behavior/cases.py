@@ -906,6 +906,20 @@ CASES: tuple[Case, ...] = (
         "around it; the server checks that it parses.",
     ),
     Case(
+        "format-checklist",
+        "format",
+        "give me a packing checklist for a 3-day hiking trip, grouped by category",
+        Expect(hints=("checklist",), no_hints=("howto", "steps")),
+        "`###` category headings over `- [ ]` task lines, which the phone draws as checkboxes.",
+    ),
+    Case(
+        "format-checklist-app",
+        "format",
+        "write a checklist component in React",
+        Expect(no_hints=("checklist",)),
+        "Code for a component, not a Markdown checklist.",
+    ),
+    Case(
         "format-howto",
         "format",
         "how do I make tea",

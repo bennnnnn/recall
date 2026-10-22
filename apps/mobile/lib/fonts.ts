@@ -6,6 +6,16 @@ import { Weight } from "@/lib/type";
 export const CODE_FONT = "SpaceMono";
 
 /**
+ * The code face for any text style. Ligatures off: Space Mono joins "fi"
+ * and "fl" into one glyph, so `fib` read as "ﬁb" and `floor` as "ﬂoor".
+ * Every code style spreads this instead of naming CODE_FONT alone.
+ */
+export const CODE_FACE: TextStyle = {
+  fontFamily: CODE_FONT,
+  fontVariant: ["no-common-ligatures"],
+};
+
+/**
  * Keep a loaded math face on Android. A parent weight of 700 makes the system
  * look up a bold file that was never registered and draw Roboto. The default
  * font padding also sits inside the line box and clips Computer Modern.

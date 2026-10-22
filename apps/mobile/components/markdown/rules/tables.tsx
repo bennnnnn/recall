@@ -7,12 +7,13 @@ import {
   MarkdownTableHeaderCell,
   MarkdownTableRow,
 } from "@/components/MarkdownTable";
-import { type AstNode, countTableColumns } from "@/components/markdown/markdownAstHelpers";
+import { type AstNode } from "@/components/markdown/markdownAstHelpers";
+import { tableColumnText } from "@/components/markdown/tableLayout";
 
 export function tableRules() {
   return {
     table: (node: AstNode, children: ReactNode) => (
-      <MarkdownTable key={node.key} nodeKey={node.key} columns={countTableColumns(node)}>
+      <MarkdownTable key={node.key} nodeKey={node.key} columns={tableColumnText(node)}>
         {children}
       </MarkdownTable>
     ),

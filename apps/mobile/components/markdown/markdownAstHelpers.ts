@@ -280,19 +280,15 @@ export function taskChecked(node: AstNode): boolean | null {
   return isTaskCheckboxChecked(checkbox);
 }
 
-export function countTableColumns(node: AstNode): number {
-  let max = 1;
-  const walk = (n: AstNode) => {
-    if (n.type === "tr") {
-      const cells = (n.children ?? []).filter(
-        (c) => c.type === "th" || c.type === "td",
-      );
-      if (cells.length > max) max = cells.length;
-    }
-    (n.children ?? []).forEach(walk);
-  };
-  walk(node);
-  return max;
+/**
+ * The item's list holds an open task (`- [ ]`), so it is a checklist and a
+ * done item is a ticked box. A list of done items only is a run of
+ * verified checks (`- [x] For x = 2: …`), which keeps its trailing tick.
+ */
+export function listHasOpenTask(parent: unknown): boolean {
+  if (!Array.isArray(parent) || parent.length === 0) return false;
+  const list = parent[0] as AstNode;
+  return (list.children ?? []).some((item) => taskChecked(item) === false);
 }
 
 export function detectStandaloneLink(node: AstNode): string | null {

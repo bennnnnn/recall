@@ -20,6 +20,7 @@ from app.modules.chat.prompt_constants import (
     CALLOUT_FORMAT_HINT,
     CAPABILITIES_FORMAT_HINT,
     CHART_FORMAT_HINT,
+    CHECKLIST_FORMAT_HINT,
     CLARIFICATION_HINT,
     COMPACT_RESPONSE_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
@@ -54,6 +55,7 @@ from app.modules.chat.prompt_constants import (
     is_callout_question,
     is_capabilities_question,
     is_chart_question,
+    is_checklist_request,
     is_howto_question,
     is_learning_plan_request,
     is_lightweight_chat_turn,
@@ -155,6 +157,9 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return QUIZ_FORMAT_HINT
     if is_structured_comparison_question(query_text):
         return COMPARISON_FORMAT_HINT
+    # Before how-to: "a step-by-step moving checklist" is items to tick, not steps.
+    if is_checklist_request(query_text):
+        return CHECKLIST_FORMAT_HINT
     if is_quote_question(query_text):
         return QUOTE_FORMAT_HINT
     if is_callout_question(query_text):

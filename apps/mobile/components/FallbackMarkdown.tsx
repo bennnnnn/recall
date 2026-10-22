@@ -18,11 +18,12 @@ import { useTranslation } from "react-i18next";
 import { inlineCodeTextStyle } from "@/components/markdown/markdownContentStyles";
 import { LazyFunctionGraphBlock, LazyGeometryBlock } from "@/components/rich/LazyHeavyRich";
 import { codeLanguageLabel } from "@/lib/codeHighlight";
-import { CODE_FONT } from "@/lib/fonts";
+import { CODE_FACE } from "@/lib/fonts";
 import { markdownItInstance } from "@/lib/markdown/parser";
 import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import { classifyFallbackFence } from "@/lib/fallbackFence";
 import { fenceIdForLang } from "@/lib/fenceRegistry";
+import { mermaidTitleKey } from "@/lib/mermaidKind";
 import { Theme, useTheme } from "@/lib/theme";
 import { Italic, Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
@@ -67,10 +68,10 @@ export function FallbackMarkdown({ content }: Props) {
   );
 }
 
-function visualFallbackLabel(lang: string, t: (key: string) => string): string {
+function visualFallbackLabel(lang: string, content: string, t: (key: string) => string): string {
   const id = fenceIdForLang(lang);
   if (id === "chart") return t("rich.chart");
-  if (id === "mermaid") return t("rich.mermaid_diagram");
+  if (id === "mermaid") return t(mermaidTitleKey(content));
   if (id === "chemistry" || id === "molecule" || id === "molecule3d") return t("rich.chemistry_structure");
   if (id === "chem_scene") return t("rich.chemistry_diagram");
   return t("rich.diagram");
@@ -126,7 +127,7 @@ function renderFallbackFence(
     );
   }
   if (classified.kind === "visual") {
-    const label = visualFallbackLabel(classified.labelLang, t);
+    const label = visualFallbackLabel(classified.labelLang, node.content, t);
     return (
       <View key={node.key} style={calloutStyles.wrap}>
         <Text style={calloutStyles.label}>{label}</Text>
@@ -198,7 +199,7 @@ function makeFenceStyles(t: Theme) {
     },
     code: {
       ...Type.compact,
-      fontFamily: CODE_FONT,
+      ...CODE_FACE,
       lineHeight: 20,
       color: t.text,
       padding: Space.sm,

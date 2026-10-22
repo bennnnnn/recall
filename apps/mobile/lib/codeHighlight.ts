@@ -282,6 +282,37 @@ export function fenceUsesSyntaxColor(info: string): boolean {
   return Boolean(LANG_TO_PRISM[raw]);
 }
 
+/** True for ```diff / ```patch fences, which color by line instead of by token. */
+export function isDiffFence(info: string): boolean {
+  return LANG_TO_PRISM[parseFenceLang(info)] === "diff";
+}
+
+/** A diff line's role: an added or removed line, a hunk (`@@`), or a file header. */
+export type DiffLineKind = "added" | "removed" | "hunk" | "header" | null;
+
+/**
+ * Each line's role, read in order: `--- a/file` and `+++ b/file` are file
+ * headers only before a hunk starts, so a removed SQL comment (`--- note`)
+ * inside a hunk stays a removed line.
+ */
+export function diffLineKinds(lines: string[]): DiffLineKind[] {
+  let inHunk = false;
+  return lines.map((line) => {
+    if (/^(diff --git|index [0-9a-f])/.test(line)) {
+      inHunk = false;
+      return "header";
+    }
+    if (line.startsWith("@@")) {
+      inHunk = true;
+      return "hunk";
+    }
+    if (!inHunk && /^(---|\+\+\+)(\s|$)/.test(line)) return "header";
+    if (line.startsWith("+")) return "added";
+    if (line.startsWith("-")) return "removed";
+    return null;
+  });
+}
+
 export function normalizeLang(lang: string): string {
   const raw = parseFenceLang(lang);
   if (!raw) return "";

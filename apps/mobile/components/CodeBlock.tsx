@@ -4,19 +4,23 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import {
   codeLanguageLabel,
+  diffLineKinds,
+  type DiffLineKind,
   fenceUsesSyntaxColor,
   groupTokensByLine,
+  type HighlightToken,
+  isDiffFence,
   parseFenceLang,
   resolveTokenColor,
   TOKEN_COLORS,
 } from "@/lib/codeHighlight";
 import type * as CodeTokenizeModule from "@/lib/codeTokenize";
 import { Radius } from "@/lib/radius";
-import { Theme, useTheme } from "@/lib/theme";
+import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
 import { CopyButton } from "@/components/CopyButton";
 
-import { CODE_FONT } from "@/lib/fonts";
+import { CODE_FACE } from "@/lib/fonts";
 import { Space } from "@/lib/space";
 import { Type, Weight } from "@/lib/type";
 import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
@@ -55,11 +59,26 @@ function useCodeTokenizer(enabled: boolean): typeof CodeTokenizeModule | null {
 
 function tokenStyle(color: string) {
   return {
-    fontFamily: CODE_FONT,
+    ...CODE_FACE,
     fontSize: CODE_FONT_SIZE,
     lineHeight: CODE_LINE_HEIGHT,
     color,
   };
+}
+
+/**
+ * A diff line's ink and tint: added green, removed red, hunks and file
+ * headers muted. Theme colors, so both read in light and dark.
+ */
+function diffLineStyle(kind: DiffLineKind, t: Theme): { color: string; backgroundColor?: string } | null {
+  if (kind === "added") return { color: t.success, backgroundColor: withAlpha(t.success, 0.12) };
+  if (kind === "removed") return { color: t.danger, backgroundColor: withAlpha(t.danger, 0.1) };
+  if (kind === "hunk" || kind === "header") return { color: t.textSecondary };
+  return null;
+}
+
+function diffLineStyles(code: string, t: Theme) {
+  return diffLineKinds(code.split("\n")).map((kind) => diffLineStyle(kind, t));
 }
 
 const CODE_COLLAPSED_LINES = 14;
@@ -94,7 +113,9 @@ export function CodeBlock({
   const [actionsWidth, setActionsWidth] = useState(0);
   const fenceLang = parseFenceLang(lang);
   const languageLabel = codeLanguageLabel(lang);
-  const colorSyntax = fenceUsesSyntaxColor(lang);
+  // A diff colors whole lines (added, removed), not Prism tokens.
+  const diff = isDiffFence(lang) && !streaming;
+  const colorSyntax = fenceUsesSyntaxColor(lang) && !diff;
   const tokenizer = useCodeTokenizer(!streaming && colorSyntax);
   const tokens = useMemo(() => {
     // While the fence is still open, skip Prism — retokenizing a growing
@@ -109,6 +130,7 @@ export function CodeBlock({
     }
   }, [streaming, colorSyntax, tokenizer, code, fenceLang]);
   const lines = useMemo(() => groupTokensByLine(tokens), [tokens]);
+  const diffStyles = useMemo(() => (diff ? diffLineStyles(code, t) : null), [diff, code, t]);
   const lineCount = code.split("\n").length;
   const collapsible = !streaming && lineCount >= CODE_COLLAPSE_MIN_LINES;
   const collapsed = collapsible && !expanded;
@@ -150,28 +172,26 @@ export function CodeBlock({
           nestedScrollEnabled
           directionalLockEnabled
           style={s.codeScroller}
-          contentContainerStyle={s.codeScrollContent}
+          contentContainerStyle={[s.codeScrollContent, diff && s.fill]}
         >
           <View
             testID="code-block-lines"
             style={[
               s.codeLines,
+              // A tinted line runs to the card's edge, not to its last character.
+              diff && s.fill,
               languageLabel != null && { paddingTop: Space.xs },
               hasActions && { paddingRight: Space.md + (actionsWidth || ACTIONS_GUTTER) },
             ]}
           >
             {lines.map((lineTokens, lineIdx) => (
-              <View key={lineIdx} style={s.codeLineRow}>
-                {lineTokens.length > 0 ? (
-                  lineTokens.map((tk, i) => (
-                    <Text key={i} style={tokenStyle(colorFor(tk.color))} selectable>
-                      {tk.text}
-                    </Text>
-                  ))
-                ) : (
-                  <Text style={tokenStyle(colorFor(TOKEN_COLORS.plain))}> </Text>
-                )}
-              </View>
+              <CodeLine
+                key={lineIdx}
+                tokens={lineTokens}
+                diffLine={diffStyles?.[lineIdx] ?? null}
+                colorFor={colorFor}
+                styles={s}
+              />
             ))}
           </View>
         </ScrollView>
@@ -199,6 +219,39 @@ export function CodeBlock({
         </Pressable>
       )}
       {footerExtra ? <View style={s.footer}>{footerExtra}</View> : null}
+    </View>
+  );
+}
+
+/** One line: its tokens, or the whole line in its diff color on a tinted band. */
+function CodeLine({
+  tokens,
+  diffLine,
+  colorFor,
+  styles: s,
+}: {
+  tokens: HighlightToken[];
+  diffLine: ReturnType<typeof diffLineStyle>;
+  colorFor: (color: string) => string;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  return (
+    <View
+      testID={diffLine ? "code-block-diff-line" : undefined}
+      style={[
+        s.codeLineRow,
+        diffLine?.backgroundColor ? [s.diffRow, { backgroundColor: diffLine.backgroundColor }] : null,
+      ]}
+    >
+      {tokens.length > 0 ? (
+        tokens.map((tk, i) => (
+          <Text key={i} style={tokenStyle(diffLine?.color ?? colorFor(tk.color))} selectable>
+            {tk.text}
+          </Text>
+        ))
+      ) : (
+        <Text style={tokenStyle(colorFor(TOKEN_COLORS.plain))}> </Text>
+      )}
     </View>
   );
 }
@@ -252,6 +305,9 @@ function makeStyles(t: Theme) {
       alignSelf: "flex-start",
     },
     codeLineRow: { flexDirection: "row", flexWrap: "nowrap", alignItems: "flex-start" },
+    // The tint bleeds into the side padding so a changed line reads as a band.
+    diffRow: { marginHorizontal: -Space.md, paddingHorizontal: Space.md },
+    fill: { flexGrow: 1 },
     expandBtn: {
       alignItems: "center",
       paddingVertical: Space.xs,
