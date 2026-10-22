@@ -1062,6 +1062,63 @@ CASES: tuple[Case, ...] = (
         "A quiz they mention is not one they asked for.",
     ),
     Case(
+        "clarify-vague-ask",
+        "format",
+        "how can I understand integrals",
+        Expect(hints=("clarify",), image_gen=False),
+        "May ask with a tap card (level, goal) before or after a short explanation; never a "
+        "list of questions in prose.",
+    ),
+    Case(
+        "clarify-not-on-a-problem",
+        "format",
+        "solve 2x + 5 = 17",
+        Expect(no_hints=("clarify",)),
+        "A problem is solved, never answered with questions.",
+    ),
+    Case(
+        "clarify-not-on-a-greeting",
+        "format",
+        "good morning!",
+        Expect(no_hints=("clarify",)),
+        "A greeting is answered in kind.",
+    ),
+    Case(
+        "clarify-not-in-a-lesson",
+        "format",
+        "teach me python",
+        Expect(no_hints=("clarify",)),
+        "A lesson has its own outline and question.",
+    ),
+    Case(
+        "clarify-picks-answer-the-card",
+        "format",
+        "Studied it before: No, never",
+        Expect(hints=("clarify_picks",), no_hints=("clarify_unanswered",), lightweight=False),
+        "The whole answer to how to understand integrals, pitched at a beginner; no new card.",
+        history=(
+            ("user", "how can I understand integrals"),
+            (
+                "assistant",
+                'Two quick questions:\n\n```clarify\n{"when":"first","questions":[{"id":"level","label":"Studied it before","question":"Have you studied integrals before?","options":["No, never","A little","Yes, I\'m revising"],"multi":false}]}\n```',
+            ),
+        ),
+    ),
+    Case(
+        "clarify-skip",
+        "format",
+        "Just answer",
+        Expect(hints=("clarify_unanswered",), lightweight=False),
+        "A general answer to how to understand integrals; no new card.",
+        history=(
+            ("user", "how can I understand integrals"),
+            (
+                "assistant",
+                'Two quick questions:\n\n```clarify\n{"when":"first","questions":[{"id":"level","label":"Studied it before","question":"Have you studied integrals before?","options":["No, never","A little","Yes, I\'m revising"],"multi":false}]}\n```',
+            ),
+        ),
+    ),
+    Case(
         "format-in-detail",
         "format",
         "explain in detail how Raft handles split votes and network partitions",

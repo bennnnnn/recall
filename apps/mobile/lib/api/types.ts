@@ -150,6 +150,8 @@ export type SearchResult = {
   content: string;
   role: string;
   created_at: string;
+  /** The hit is in an archived chat. */
+  archived?: boolean;
 };
 
 export type HomeUrgentTodo = {
@@ -170,6 +172,8 @@ export type ChatList = {
   archived: Chat[];
   /** Older dated chats follow: read them with `cursor`. Absent or null: none. */
   next_cursor?: string | null;
+  /** More archived chats than `archived` holds: GET /chats/archived reads on. */
+  archived_next_cursor?: string | null;
 };
 
 export type Usage = {

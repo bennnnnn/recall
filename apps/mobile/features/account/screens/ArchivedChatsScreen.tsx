@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { FlashList } from "@shopify/flash-list";
 import { Redirect } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -13,7 +14,11 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useFocusedList } from "@/features/account/hooks/useFocusedList";
 import { api, type Chat } from "@/lib/api";
-import { fetchChatList, invalidateChatListCache } from "@/features/chat/model/chatListCache";
+import {
+  fetchChatList,
+  fetchMoreArchivedChats,
+  invalidateChatListCache,
+} from "@/features/chat/model/chatListCache";
 import { notifyDestructive } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 
@@ -40,6 +45,25 @@ export default function ArchivedChatsScreen() {
   } = useFocusedList(token, readArchivedChats);
 
   const drop = (chat: Chat) => setChats((rows) => rows.filter((row) => row.id !== chat.id));
+
+  // Past the first page: the list used to stop at the newest 50 archived chats.
+  const paging = useRef(false);
+  const loadMore = async () => {
+    if (!token || paging.current) return;
+    paging.current = true;
+    try {
+      const grown = await fetchMoreArchivedChats(token);
+      if (!grown) return;
+      setChats((rows) => {
+        const shown = new Set(rows.map((row) => row.id));
+        return [...rows, ...grown.archived.filter((chat) => !shown.has(chat.id))];
+      });
+    } catch {
+      // The rows shown stay; reaching the end again tries again.
+    } finally {
+      paging.current = false;
+    }
+  };
 
   const unarchive = (chat: Chat) => {
     if (!token) return;
@@ -97,6 +121,8 @@ export default function ArchivedChatsScreen() {
       keyExtractor={(chat) => chat.id}
       style={{ flex: 1, backgroundColor: theme.bg }}
       contentContainerStyle={contentStyle}
+      onEndReached={() => void loadMore()}
+      onEndReachedThreshold={0.5}
       renderItem={({ item: chat }) => (
         <SettingsGroup>
           <SettingsLinkRow

@@ -6,6 +6,7 @@ import type {
   Feedback,
   Message,
   MessagePage,
+  Page,
 } from "@/lib/api/types";
 
 function normalizeMessagePage(data: MessagePage | Message[]): MessagePage {
@@ -60,6 +61,12 @@ export const chatsApi = {
     }),
   deleteChat: (token: string, chatId: string) =>
     request<void>(`/chats/${chatId}`, token, { method: "DELETE" }),
+  /** Archive, unarchive or delete up to 200 chats at once; `changed` is what the server did. */
+  bulkChats: (token: string, action: "archive" | "unarchive" | "delete", chatIds: string[]) =>
+    request<{ changed: string[] }>("/chats/bulk", token, {
+      method: "POST",
+      body: JSON.stringify({ action, chat_ids: chatIds }),
+    }),
   archiveAllChats: (token: string) =>
     request<void>("/chats/archive-all", token, { method: "POST" }),
   deleteAllChats: (token: string) =>
@@ -73,6 +80,9 @@ export const chatsApi = {
   /** The dated chats after the first page; `cursor` is the list's `next_cursor`. */
   listOlderChats: (token: string, cursor: string) =>
     request<ChatList>(`/chats?cursor=${encodeURIComponent(cursor)}`, token),
+  /** Archived chats past the drawer's first page; `cursor` is `archived_next_cursor`. */
+  listArchivedChats: (token: string, cursor: string) =>
+    request<Page<Chat>>(`/chats/archived?cursor=${encodeURIComponent(cursor)}`, token),
   listMessages,
   listAllMessages: async (token: string, chatId: string): Promise<Message[]> => {
     const batch = 100;

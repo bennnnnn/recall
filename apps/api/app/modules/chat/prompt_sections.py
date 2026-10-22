@@ -21,6 +21,7 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules import web_search as web_search_service
 from app.modules.account import profile as profile_service
+from app.modules.chat.clarify_turn import clarify_reply_hint
 from app.modules.chat.continuation_subject import exchange_pairs, is_resume_request
 from app.modules.chat.json_output import JSON_OUTPUT_HINT, is_json_request
 from app.modules.chat.prompt_constants import (
@@ -231,6 +232,14 @@ def _resumes(turn: PromptTurn) -> bool:
     return not (active_lesson_step(turn.exchange) or outline_awaits_pick(turn.exchange))
 
 
+def _card_reply(turn: PromptTurn) -> str | None:
+    return clarify_reply_hint(turn.query_text, exchange_pairs(turn.exchange))
+
+
+def _after_card(turn: PromptTurn) -> bool:
+    return _card_reply(turn) is not None
+
+
 def _advice(turn: PromptTurn) -> list[str]:
     query = turn.query
     if query and (is_profile_fact_question(query) or is_profile_recall_pushback(query)):
@@ -373,6 +382,8 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
         lambda t: not t.lightweight and bool(code_question_layout(t.query_text)),
         lambda _t: [CODE_INK_REMINDER],
     ),
+    # The message after a clarify card: the picks, a skip, or something typed instead.
+    PromptSection(_after_card, lambda t: _present(_card_reply(t))),
     # "continue" resumes the last reply; it does not start over or recap.
     PromptSection(_resumes, lambda _t: [CONTINUE_HINT]),
     # "no, I said I'm vegetarian": the correction wins over what the last reply assumed.

@@ -1,8 +1,10 @@
 import {
   archiveBulkTargets,
+  bulkInParts,
   chatsFromSelection,
   clearChatSelection,
   selectAllChatIds,
+  selectableChats,
   toggleChatSelection,
 } from "@/features/chat/drawer/drawerChatSelection";
 import { emptyChatList } from "@/features/chat/drawer/drawerChatList";
@@ -47,5 +49,32 @@ describe("drawerChatSelection", () => {
       chat("b", { archived: true }),
     ]);
     expect(targets.map((c) => c.id)).toEqual(["a"]);
+  });
+});
+
+describe("select all and bulk parts", () => {
+  it("selects the chats on screen: pinned and dated, not collapsed, never archived", () => {
+    const groups = {
+      ...emptyChatList(),
+      pinned: [chat("p", { pinned: true })],
+      today: [chat("t")],
+      older: [chat("o")],
+      archived: [chat("a", { archived: true })],
+    };
+    const ids = selectableChats(groups, (key) => key === "older").map((row) => row.id);
+    expect(ids).toEqual(["p", "t"]);
+  });
+
+  it("sends at most 200 ids per request, and a failed part changes none of its ids", async () => {
+    const ids = Array.from({ length: 401 }, (_, index) => `c${index}`);
+    const sizes: number[] = [];
+    const changed = await bulkInParts(ids, async (part) => {
+      sizes.push(part.length);
+      if (part[0] === "c200") throw new Error("offline");
+      return { changed: part };
+    });
+    expect(sizes).toEqual([200, 200, 1]);
+    expect(changed.has("c0") && changed.has("c400")).toBe(true);
+    expect(changed.has("c200") || changed.has("c399")).toBe(false);
   });
 });

@@ -62,6 +62,7 @@ const LEGACY_STRUCTURED = [
   "3dmol",
   "places",
   "quiz",
+  "clarify",
   "array",
   // callout langs
   "tip",
@@ -114,6 +115,7 @@ const LEGACY_NEVER_CODE_BLOCK = [
   "sources",
   "places",
   "quiz",
+  "clarify",
   "array",
   "graph",
   "simulation",
@@ -229,6 +231,7 @@ describe("fence registry lookups", () => {
       "chart",
       "chem_scene",
       "chemistry",
+      "clarify",
       "clock",
       "comparison",
       "copy",
@@ -258,6 +261,7 @@ describe("fence registry lookups", () => {
       "array",
       "chart",
       "chemistry",
+      "clarify",
       "copy",
       "email",
       "math",
@@ -303,6 +307,7 @@ describe("fence registry round-trip (render, copy, fallback)", () => {
       molecule3d: "component",
       places: "component",
       quiz: "component",
+      clarify: "component",
       array: "component",
       callout: "component",
       social: "component",
@@ -324,6 +329,7 @@ describe("fence registry round-trip (render, copy, fallback)", () => {
     expect(isControlFenceLang("python")).toBe(false);
     expect(isDataBodyFenceId("mermaid")).toBe(true);
     expect(isDataBodyFenceId("quiz")).toBe(true);
+    expect(isDataBodyFenceId("clarify")).toBe(true);
     expect(isDataBodyFenceId("callout")).toBe(false);
     expect(shouldLiftFenceOutOfList("latex")).toBe(true);
     expect(shouldLiftFenceOutOfList("python")).toBe(false);

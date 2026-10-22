@@ -14,7 +14,9 @@ import { invalidateMemoriesCache } from "@/features/memory/model/memoryListCache
 import { memoryFailure, type MemoryChange, type MemoryFailure } from "@/features/memory/model/memoryFailure";
 import type { MemoryDocument, MemoryDocuments } from "@/features/memory/types";
 
-type InstructOutcome = { ok: true; reply: string } | { ok: false; failure: MemoryFailure };
+type InstructOutcome =
+  | { ok: true; reply: string; applied: number; dropped: number }
+  | { ok: false; failure: MemoryFailure };
 
 const NOT_SIGNED_IN = { ok: false, failure: "failed" } as const;
 
@@ -106,7 +108,7 @@ export function useMemoryDocuments(token: string | null) {
       const scanning = getCachedMemoryDocuments()?.scanning ?? false;
       setMemoryDocuments({ documents: result.documents, scanning }, session);
       invalidateMemoriesCache();
-      return { ok: true, reply: result.reply };
+      return { ok: true, reply: result.reply, applied: result.applied, dropped: result.dropped ?? 0 };
     } catch (error) {
       return { ok: false, failure: memoryFailure(error) };
     }

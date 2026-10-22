@@ -7,10 +7,11 @@ let mockSession = 0;
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 const chats = [{ id: "first" }, { id: "second", archived: true }] as Chat[];
 let selection: ReturnType<typeof useDrawerChatSelection>;
-function Probe({ listedChats = chats, token = "token", isDrawerOpen = true }: {
-  listedChats?: Chat[]; token?: string; isDrawerOpen?: boolean;
+function Probe({ listedChats = chats, selectableChats = chats.slice(0, 1), token = "token",
+  isDrawerOpen = true }: {
+  listedChats?: Chat[]; selectableChats?: Chat[]; token?: string; isDrawerOpen?: boolean;
 }) {
-  const value = useDrawerChatSelection({ listedChats, token, isDrawerOpen });
+  const value = useDrawerChatSelection({ listedChats, selectableChats, token, isDrawerOpen });
   React.useLayoutEffect(() => { selection = value; });
   return <Text>{value.selectedCount}</Text>;
 }
@@ -59,9 +60,9 @@ it("rejects retained selection callbacks after the drawer closes and reopens", a
   expect(selection.selectedCount).toBe(0);
 });
 
-it("selects all loaded chats including archived rows", async () => {
+it("selects all of what is on screen, never the archived chats", async () => {
   await render(<Probe />);
   await act(async () => { selection.enterSelectionMode(); });
   await act(async () => { selection.selectAllListed(); });
-  expect([...selection.selectedIds]).toEqual(["first", "second"]);
+  expect([...selection.selectedIds]).toEqual(["first"]);
 });

@@ -128,6 +128,7 @@ async def instruct_memory(
     return MemoryInstructOut(
         reply=outcome.reply,
         applied=outcome.applied,
+        dropped=outcome.dropped,
         documents=await _documents_out(session, user),
     )
 

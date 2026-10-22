@@ -1,0 +1,259 @@
+"""The clarify card a reply asks with: read, checked, and kept at most once, last."""
+
+from __future__ import annotations
+
+import json
+from typing import Any
+from unittest.mock import MagicMock
+from uuid import uuid4
+
+import pytest
+
+from app.core.config import Settings
+from app.modules.chat.clarify_card import read_card, settle_clarify_cards
+from app.modules.chat.finalize_passes import FinalizeState, run_finalize_passes
+from app.modules.chat.finalize_text import settle_clarify
+from app.modules.chat.turn_outcome import TurnOutcome
+from app.modules.chat.turn_prep import StreamContext
+from app.services.md_fence_scan import iter_fences
+from app.tests.modules.chat.chat_test_support import turn_deps
+
+_ASK = "Before I explain, two quick questions so I can pitch it right:"
+_LEVEL = {
+    "id": "level",
+    "label": "Studied it before",
+    "question": "Have you studied integrals before?",
+    "options": ["No, never", "A little", "Yes, I'm revising"],
+}
+_GOAL = {
+    "id": "goal",
+    "label": "What it's for",
+    "question": "What do you need it for?",
+    "options": ["An exam", "A class", "Curiosity"],
+}
+_ANSWER = " ".join(["An integral adds up tiny slices of an area under a curve."] * 5)
+
+
+def _fence(card: dict[str, Any] | str) -> str:
+    body = card if isinstance(card, str) else json.dumps(card)
+    return f"```clarify\n{body}\n```"
+
+
+def _card(text: str) -> dict[str, Any] | None:
+    for fence in iter_fences(text):
+        if fence.lang == "clarify":
+            return json.loads(text[fence.body_start : fence.body_end])
+    return None
+
+
+def test_a_valid_card_is_kept_last_in_its_normal_shape() -> None:
+    text = f"{_ASK}\n\n{_fence({'when': 'first', 'questions': [_LEVEL, _GOAL]})}"
+    settled = settle_clarify_cards(text, allowed=True)
+    assert settled.startswith(_ASK)
+    assert settled.rstrip().endswith("```")
+    assert _card(settled) == {
+        "when": "first",
+        "questions": [{**_LEVEL, "multi": False}, {**_GOAL, "multi": False}],
+    }
+
+
+@pytest.mark.parametrize(
+    ("question", "normal"),
+    [
+        # Trimmed, repeats dropped whatever their case, blanks dropped.
+        (
+            {**_LEVEL, "options": [" No, never ", "A little", "a little", "", "Yes"]},
+            {**_LEVEL, "options": ["No, never", "A little", "Yes"], "multi": False},
+        ),
+        # No id or label: the place and the question name it.
+        (
+            {"question": "Which do you prefer?", "options": ["Video", "Text"]},
+            {
+                "id": "q1",
+                "label": "Which do you prefer",
+                "question": "Which do you prefer?",
+                "options": ["Video", "Text"],
+                "multi": False,
+            },
+        ),
+        ({**_GOAL, "multi": True}, {**_GOAL, "multi": True}),
+        # Only a real true picks several.
+        ({**_GOAL, "multi": "yes"}, {**_GOAL, "multi": False}),
+    ],
+)
+def test_read_card_normalises_a_question(question: dict[str, Any], normal: dict[str, Any]) -> None:
+    card = read_card(json.dumps({"when": "first", "questions": [question]}))
+    assert card is not None
+    assert card.model_dump()["questions"] == [normal]
+
+
+def test_read_card_keeps_the_first_three_questions() -> None:
+    questions = [{**_GOAL, "id": f"q{i}"} for i in range(5)]
+    card = read_card(json.dumps({"when": "first", "questions": questions}))
+    assert card is not None and [q.id for q in card.questions] == ["q0", "q1", "q2"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "not json",
+        "[]",
+        json.dumps({"when": "first"}),
+        json.dumps({"when": "first", "questions": []}),
+        json.dumps({"when": "first", "questions": ["a question"]}),
+        # One choice is not a choice, even after a too-long one is dropped.
+        json.dumps({"when": "first", "questions": [{**_LEVEL, "options": ["Yes", "yes"]}]}),
+        json.dumps({"when": "first", "questions": [{**_LEVEL, "question": " "}]}),
+        json.dumps({"when": "first", "questions": [{**_LEVEL, "options": ["x" * 81, "y"]}]}),
+        json.dumps({"when": "first", "questions": [{**_LEVEL, "label": "x" * 61}]}),
+    ],
+)
+def test_read_card_refuses_a_card_that_breaks_the_rules(body: str) -> None:
+    assert read_card(body) is None
+
+
+@pytest.mark.parametrize(
+    ("options", "kept"),
+    [
+        # Five choices keep the first four: the card's Other... covers the fifth.
+        (["Work", "Study", "Chores", "Fitness", "Social"], ["Work", "Study", "Chores", "Fitness"]),
+        # A choice too long to tap is dropped, not the whole card.
+        (["x" * 81, "Yes", "No"], ["Yes", "No"]),
+    ],
+)
+def test_read_card_trims_choices_instead_of_dropping_the_card(
+    options: list[str], kept: list[str]
+) -> None:
+    card = read_card(json.dumps({"when": "first", "questions": [{**_LEVEL, "options": options}]}))
+    assert card is not None and card.questions[0].options == kept
+
+
+def test_a_dropped_card_logs_its_reason_not_its_text(caplog: pytest.LogCaptureFixture) -> None:
+    secret = "my salary is 4000"
+    with caplog.at_level("INFO", logger="app.modules.chat.clarify_card"):
+        assert (
+            read_card(
+                json.dumps(
+                    {"when": "first", "questions": [{**_LEVEL, "question": " ", "label": secret}]}
+                )
+            )
+            is None
+        )
+    assert "clarify card dropped" in caplog.text and secret not in caplog.text
+
+
+@pytest.mark.parametrize(("prose_words", "when"), [(5, "first"), (60, "after")])
+def test_a_card_with_no_when_is_first_unless_it_follows_an_answer(
+    prose_words: int, when: str
+) -> None:
+    card = read_card(json.dumps({"questions": [_LEVEL]}), prose_words=prose_words)
+    assert card is not None and card.when == when
+
+
+def test_one_card_only_and_it_moves_under_the_answer() -> None:
+    second = {"when": "after", "questions": [_GOAL]}
+    text = f"{_fence({'when': 'after', 'questions': [_LEVEL]})}\n\n{_ANSWER}\n\n{_fence(second)}"
+    settled = settle_clarify_cards(text, allowed=True)
+    assert settled.count("```clarify") == 1
+    assert settled.startswith(_ANSWER)
+    assert _card(settled)["questions"][0]["id"] == "level"  # type: ignore[index]
+
+
+def test_a_broken_card_on_an_ask_keeps_its_questions_as_prose() -> None:
+    broken = {"when": "first", "questions": [{**_LEVEL, "options": ["Only one"]}, _GOAL]}
+    settled = settle_clarify_cards(f"{_ASK}\n\n{_fence(broken)}", allowed=True)
+    assert "```clarify" not in settled
+    assert settled == (
+        f"{_ASK}\n\n- Have you studied integrals before? (Only one)\n"
+        "- What do you need it for? (An exam / A class / Curiosity)"
+    )
+
+
+def test_unreadable_json_leaves_the_sentence() -> None:
+    assert settle_clarify_cards(f"{_ASK}\n\n{_fence('{oops')}", allowed=True) == _ASK
+
+
+def test_a_card_under_an_answer_that_cannot_be_shown_leaves_the_answer() -> None:
+    broken = {"when": "after", "questions": [{**_GOAL, "options": ["Only"]}]}
+    assert settle_clarify_cards(f"{_ANSWER}\n\n{_fence(broken)}", allowed=False) == _ANSWER
+
+
+def test_a_turn_that_may_not_ask_keeps_the_questions_as_prose() -> None:
+    text = f"{_ASK}\n\n{_fence({'when': 'first', 'questions': [_LEVEL]})}"
+    settled = settle_clarify_cards(text, allowed=False)
+    assert "```clarify" not in settled
+    assert "- Have you studied integrals before? (No, never / A little" in settled
+
+
+def test_a_reply_without_a_card_is_untouched() -> None:
+    assert settle_clarify_cards(_ANSWER, allowed=True) == _ANSWER
+
+
+def _state(raw: str, **ctx: Any) -> FinalizeState:
+    context = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "how can I understand integrals"}],
+        run_title=False,
+        user_message_content="how can I understand integrals",
+        reserved_tokens=0,
+        max_output_tokens=0,
+        **ctx,
+    )
+    return FinalizeState(
+        deps=turn_deps(),
+        settings=Settings(),
+        ctx=context,
+        raw=raw,
+        text=raw,
+        usage={},
+        outcome=TurnOutcome(),
+        was_cancelled=False,
+        assistant_parts=[raw],
+        should_cancel=None,
+    )
+
+
+_ASKED = f"{_ASK}\n\n{_fence({'when': 'first', 'questions': [_LEVEL, _GOAL]})}"
+
+
+@pytest.mark.parametrize(
+    "ctx",
+    [
+        {"verified_subject": MagicMock()},
+        {"solver_unverified": True},
+        {"instant_reply": "It's 9:00."},
+        {"settings_card": "```settings_proposal\n{}\n```"},
+        {"reply_picture": MagicMock()},
+        {"answer_photo_ids": [uuid4()]},
+    ],
+)
+def test_the_pass_drops_the_card_on_a_turn_that_never_asks(ctx: dict[str, Any]) -> None:
+    assert "```clarify" not in settle_clarify(_state(_ASKED, **ctx))
+
+
+@pytest.mark.parametrize("lang", ["answer", "reminder", "reminder_proposal", "photo"])
+def test_the_pass_drops_the_card_beside_a_card_that_never_asks(lang: str) -> None:
+    text = f"```{lang}\n12\n```\n\n{_ASKED}"
+    assert "```clarify" not in settle_clarify(_state(text))
+
+
+def test_the_pass_keeps_a_card_on_an_open_question() -> None:
+    state = _state(_ASKED)
+    assert _card(settle_clarify(state)) is not None
+    assert state.committed is not None
+
+
+async def test_every_finalize_pass_leaves_a_valid_card_whole() -> None:
+    state = _state(_ASKED)
+    assert await run_finalize_passes(state)
+    card = _card(state.text)
+    assert card is not None and [q["id"] for q in card["questions"]] == ["level", "goal"]
+    assert state.text.startswith(_ASK)
+
+
+async def test_an_unclosed_card_is_closed_then_read() -> None:
+    state = _state(_ASKED.removesuffix("\n```"))
+    assert await run_finalize_passes(state)
+    assert _card(state.text) is not None

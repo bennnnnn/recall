@@ -6,7 +6,7 @@ import type { MemoryDocument } from "@/features/memory/types";
 let mockToken: string | null = "token-a";
 const mockLoad = jest.fn(async () => {});
 const mockInstruct = jest.fn();
-const mockFeedback = { error: jest.fn(), success: jest.fn() };
+const mockFeedback = { error: jest.fn(), success: jest.fn(), warning: jest.fn() };
 const mockRouter = { push: jest.fn(), replace: jest.fn() };
 let mockDocuments: MemoryDocument[] = [];
 let mockScanning = false;
@@ -128,7 +128,7 @@ describe("MemoryScreen", () => {
   });
 
   it("sends a plain-words edit and shows the reply", async () => {
-    mockInstruct.mockResolvedValue({ ok: true, reply: "Saved: disagree more." });
+    mockInstruct.mockResolvedValue({ ok: true, reply: "Saved: disagree more.", applied: 1, dropped: 0 });
     const ui = await render(<MemoryScreen />);
 
     await fireEvent.changeText(ui.getByTestId("memory-composer-input"), "  You can disagree with me more ");
@@ -137,6 +137,19 @@ describe("MemoryScreen", () => {
     expect(mockInstruct).toHaveBeenCalledWith("You can disagree with me more");
     expect(mockFeedback.success).toHaveBeenCalledWith("Saved: disagree more.");
     expect(ui.getByTestId("memory-composer-input").props.value).toBe("");
+  });
+
+  it("warns and keeps the words when the edit changed nothing", async () => {
+    // The model said "Added your goal." but its edit never landed.
+    mockInstruct.mockResolvedValue({ ok: true, reply: "Added your goal.", applied: 0, dropped: 1 });
+    const ui = await render(<MemoryScreen />);
+
+    await fireEvent.changeText(ui.getByTestId("memory-composer-input"), "My goal is a marathon");
+    await fireEvent.press(ui.getByTestId("memory-composer-send"));
+
+    expect(mockFeedback.success).not.toHaveBeenCalled();
+    expect(mockFeedback.warning).toHaveBeenCalledWith("memory.instruct_nothing");
+    expect(ui.getByTestId("memory-composer-input").props.value).toBe("My goal is a marathon");
   });
 
   it("keeps the words and says so when the edit fails", async () => {

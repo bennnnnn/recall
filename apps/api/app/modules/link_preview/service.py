@@ -99,8 +99,14 @@ async def fetch_link_preview(url: str) -> dict[str, str | None]:
     except TimeoutError:
         logger.info("Link preview passed its %.0fs deadline", _LINK_PREVIEW_DEADLINE_SECONDS)
         return {"url": url, "title": None, "description": None, "domain": domain}
-    except Exception:
-        logger.debug("Link preview fetch failed for %s", url, exc_info=True)
+    except httpx.HTTPStatusError as exc:
+        # A site that refuses bots (403) or a dead page: expected, not ours to fix.
+        logger.info("Link preview of %s got HTTP %s", domain, exc.response.status_code)
+        return {"url": url, "title": None, "description": None, "domain": domain}
+    except Exception as exc:
+        # Ours to look at (a page that could not be decoded hid every preview): the
+        # site and the error's kind, never the full URL.
+        logger.warning("Link preview fetch failed for %s: %s", domain, type(exc).__name__)
         return {"url": url, "title": None, "description": None, "domain": domain}
 
     parser = _MetaParser()

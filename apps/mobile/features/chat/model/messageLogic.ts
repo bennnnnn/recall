@@ -24,6 +24,14 @@ export function priorUserTextFor(messages: Message[], index: number): string | n
   return prior?.role === "user" ? prior.content : null;
 }
 
+/** Content of the user message right after the assistant reply at `index`: what answered it. */
+export function nextUserTextFor(messages: Message[], index: number): string | null {
+  const item = messages[index];
+  if (!item || item.role !== "assistant") return null;
+  const next = messages[index + 1];
+  return next?.role === "user" ? next.content : null;
+}
+
 /** True while tokens are streaming or the server is persisting after stream_end. */
 export function isChatStreamActive(streaming: boolean, finalizing: boolean): boolean {
   return streaming || finalizing;
