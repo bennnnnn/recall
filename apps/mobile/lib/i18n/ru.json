@@ -481,6 +481,8 @@
   "rich.chart": "График",
   "rich.chart_dev_build": "Предпросмотр графика требует dev-сборку",
   "rich.chart_error": "Не удалось построить график.",
+  "rich.chart_data_instead": "Не удалось построить график, вот его данные.",
+  "rich.chart_show_source": "Показать исходник",
   "rich.chemistry_2d": "2D",
   "rich.chemistry_3d": "3D",
   "rich.chemistry_dev_build": "Соберите приложение, чтобы видеть структуры.",

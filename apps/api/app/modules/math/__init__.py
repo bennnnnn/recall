@@ -49,6 +49,8 @@ def __getattr__(name: str) -> Any:
 # pre-solve that ran out of time (so the tool loop does not solve it again), and the pool
 # warm-up.
 _MODULE_EXPORTS = (
+    # A model's chart of a formula, sampled by SymPy (the phone never evaluates one).
+    "chart_formula",
     "fence",
     "followup",
     "image_extract",

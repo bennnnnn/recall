@@ -2,8 +2,8 @@
 
 import re
 
+from app.modules.chat.prompt_constants.chart import is_chart_question
 from app.modules.chat.prompt_constants.diagrams import is_mermaid_question
-from app.services.diagram_kinds import names_diagram_kind
 
 _COMPARISON_TURN = re.compile(
     r"(?:"
@@ -105,96 +105,6 @@ def is_structured_comparison_question(text: str) -> bool:
     ):
         return True
     return any(_has_whole_word(lower, word) for word in _TECHNICAL_COMPARE_WORDS)
-
-
-_CHART_TURN = re.compile(
-    r"(?:"
-    r"\b(?:bar|line|pie|area|scatter|donut)\s+charts?\s+(?:of|for|with|from|using)\b|"
-    r"\bcharts?\s+(?:of|for|my)\b|"
-    r"\bhistograms?\b|"
-    r"\bvega(?:-lite)?\b|"
-    r"```(?:chart|vega|vega-lite|plot)\b|"
-    r"\b(?:make|draw|show|create|render|plot)\s+a\s+"
-    r"(?:bar\s+|line\s+|pie\s+|area\s+)?charts?\b"
-    r")",
-    re.IGNORECASE,
-)
-
-CHART_FORMAT_HINT = (
-    "This turn is a numeric chart. Recall renders Vega-Lite in the bubble — "
-    "you CAN draw this chart. NEVER say you cannot draw / cannot literally "
-    "draw a chart. NEVER substitute a markdown table, mermaid, or ASCII bars.\n"
-    "Lead with a ```chart fence of Vega-Lite JSON. At most one short sentence "
-    "before the fence. No joke setup. No leftover bare numbers and no "
-    "```answer / ```result fence.\n"
-    "If they gave numbers, use those as data.values in that order. "
-    "If they asked for an example or a generic chart with no series, a short "
-    "labelled sample is fine — say it is sample data in that one sentence. "
-    "If they asked to chart their real/my data and gave no numbers, ask ONE "
-    "question for the values. Do not invent a sample and treat that as the answer.\n"
-    "If they also asked for a statistic or explanation, put that after the fence. "
-    "Do not stop immediately after the chart unless they only asked for the drawing.\n"
-    'First key must be "$schema": "https://vega.github.io/schema/vega-lite/v5.json". '
-    "Prefer mark bar/line as asked. Named categories (months, items) go on y "
-    'with "sort": null (horizontal bars) so labels stay visible — never '
-    "clip them under the plot. Grouped series dodge with yOffset when "
-    "category is on y (or xOffset when category is on x).\n"
-    "Example shape only:\n"
-    "```chart\n"
-    '{"$schema":"https://vega.github.io/schema/vega-lite/v5.json",'
-    '"description":"A simple bar chart","data":{"values":['
-    '{"month":"Jan","inches":5.7},{"month":"Feb","inches":3.5}]},'
-    '"mark":"bar","encoding":{"x":{"field":"inches","type":"quantitative"},'
-    '"y":{"field":"month","type":"nominal","sort":null}}}\n'
-    "```"
-)
-
-
-def is_chart_question(text: str) -> bool:
-    """True when the user asked to draw a numeric chart (Vega), not define one."""
-    cleaned = text.strip()
-    if not cleaned:
-        return False
-    # "An org chart" or "a Gantt chart" is a Mermaid diagram, not numbers.
-    if _is_chart_definition(cleaned) or _chart_request_negated(cleaned):
-        return False
-    if names_diagram_kind(cleaned):
-        return False
-    return bool(_CHART_TURN.search(cleaned))
-
-
-_CHART_KINDS = ("bar", "line", "pie", "area", "scatter", "donut")
-
-
-def _is_chart_definition(cleaned: str) -> bool:
-    lower = cleaned.lower()
-    if "what is a chart" in lower or "what's a chart" in lower:
-        return True
-    for kind in _CHART_KINDS:
-        if f"what is a {kind} chart" in lower or f"what's a {kind} chart" in lower:
-            return True
-        if f"what are {kind} charts" in lower:
-            return True
-    return False
-
-
-def _chart_request_negated(cleaned: str) -> bool:
-    lower = cleaned.lower()
-    if "chart" not in lower:
-        return False
-    for neg in ("do not", "don't", "dont", "never", "without"):
-        start = 0
-        while True:
-            idx = lower.find(neg, start)
-            if idx < 0:
-                break
-            window = lower[idx : idx + 80]
-            if "chart" in window and any(
-                verb in window for verb in ("make", "draw", "create", "render", "plot")
-            ):
-                return True
-            start = idx + len(neg)
-    return False
 
 
 _CALLOUT_TURN = re.compile(

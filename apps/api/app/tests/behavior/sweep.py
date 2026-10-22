@@ -106,6 +106,7 @@ LOOKALIKE_HINTS = {
     "correction lookalike": "correction",
     "detail lookalike": "detail",
     "continue lookalike": "continue",
+    "chart lookalike": "chart",
     "quiz lookalike": "quiz",
     "checklist lookalike": "checklist",
 }

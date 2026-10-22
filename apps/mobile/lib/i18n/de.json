@@ -479,6 +479,8 @@
   "rich.chart": "Diagramm",
   "rich.chart_dev_build": "Diagramm-Vorschau erfordert einen Dev-Build",
   "rich.chart_error": "Diagramm konnte nicht gerendert werden.",
+  "rich.chart_data_instead": "Das Diagramm ließ sich nicht zeichnen, hier sind seine Daten.",
+  "rich.chart_show_source": "Quelle anzeigen",
   "rich.chemistry_2d": "2D",
   "rich.chemistry_3d": "3D",
   "rich.chemistry_dev_build": "App bauen, um Strukturen inline anzuzeigen.",

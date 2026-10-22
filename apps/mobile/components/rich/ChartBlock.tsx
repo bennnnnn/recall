@@ -1,6 +1,8 @@
 /**
  * Chart block — renders ```chart / ```vega / ```vega-lite / ```plot fences
  * inline via WebView + Vega-Embed so the user sees the actual chart, not raw JSON.
+ * A body it cannot draw (lib/chartSpec.ts), or one the page drew nothing for, shows
+ * ChartFallback: a note, the chart's data as a table, and its source.
  */
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,12 +12,14 @@ import * as WebBrowser from "expo-web-browser";
 import { Icon } from "@/ui/icons/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
+import { ChartFallback } from "@/components/rich/ChartFallback";
 import { usePreviewPage } from "@/components/rich/usePreviewPage";
 import { useWebPreviewHeight } from "@/components/rich/useWebPreviewHeight";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CHART_PAGE, chartPreviewConfig } from "@/lib/chartPreviewHtml";
 import { CHART_HEIGHT_EPSILON_PX, CHART_PREVIEW_HEIGHT } from "@/lib/chartPreviewHeight";
+import { readChart } from "@/lib/chartSpec";
 import { CODE_FACE } from "@/lib/fonts";
 import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
@@ -38,6 +42,7 @@ export function ChartBlock({ content }: Props) {
       errorText: t("rich.chart_error"),
     });
 
+  const read = useMemo(() => readChart(content), [content]);
   const plotWidth = viewWidth > 0 ? viewWidth - 16 : 320;
   const config = useMemo(
     () => chartPreviewConfig(content, theme, plotWidth),
@@ -46,14 +51,16 @@ export function ChartBlock({ content }: Props) {
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInlineChart = previewWebView?.mode === "rnc";
+  const drawable = read.spec !== null;
   const preview = usePreviewPage(CHART_PAGE, config, {
-    active: Boolean(WebView) && canRenderInlineChart,
+    active: Boolean(WebView) && canRenderInlineChart && drawable,
     onMessage,
   });
   const { canMount, onLoaded } = useDeferredWebViewMount(
-    Boolean(WebView) && canRenderInlineChart && preview.status === "ready",
+    Boolean(WebView) && canRenderInlineChart && drawable && preview.status === "ready",
   );
   const previewError = preview.status === "failed" ? t("rich.chart_error") : null;
+  const undrawn = !drawable || renderError !== null;
 
   const handleOpenVegaEditor = useCallback(async () => {
     await Clipboard.setStringAsync(content);
@@ -111,12 +118,17 @@ export function ChartBlock({ content }: Props) {
         </>
       }
     >
-      <View style={[s.previewBox, { height }]}>
-        {renderError || previewError ? (
+      <View style={[s.previewBox, undrawn ? null : { height }]}>
+        {undrawn ? (
+          <ChartFallback
+            table={read.table}
+            onShowSource={showSource ? null : () => setShowSource(true)}
+          />
+        ) : previewError ? (
           <View style={[s.previewPlaceholder, { height }]}>
             <Icon name="alert-circle" size={IconSize.sm} color={theme.danger} />
             <Text style={[s.previewPlaceholderText, { color: theme.danger }]}>
-              {renderError ?? previewError}
+              {previewError}
             </Text>
           </View>
         ) : WebView && canRenderInlineChart ? (

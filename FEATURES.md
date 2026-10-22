@@ -498,7 +498,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Function graphs** — ` ```graph` JSON fences plot y=f(x) from server-computed point arrays
   via native SVG.
 - ✅ **Charts** — `chart` / `vega` / `vega-lite` fences render inline via a sandboxed WebView
-  (Vega; needs a dev build).
+  (Vega; needs a dev build). One contract: the chart hint shows bar, line, scatter with a
+  regression best-fit layer, histogram and pie (`prompt_constants/chart_shapes.json`, every one
+  drawn in the phone's tests); the phone also reads a `series` chart and a Chart.js config. Data
+  must be inline: a body it cannot draw, or one Vega draws no marks for, shows a note, the data as
+  a table and the source, never a blank card. A chart of a formula is sampled by SymPy into a
+  ` ```graph` (`modules/math/chart_formula.py`); the phone never evaluates one. A chart of the
+  user's own numbers is not a maths turn.
 - ✅ **HTML/CSS/JS preview** — `html` fences get a sandboxed WebView preview ("run" → modal) plus
   "open in browser" (needs a dev build; see the code-execution policy below). Run may load
   scripts/styles only from `cdn.jsdelivr.net`, `unpkg.com`, `cdnjs.cloudflare.com`, and Google
