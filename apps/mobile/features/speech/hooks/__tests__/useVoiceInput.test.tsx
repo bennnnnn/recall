@@ -2,7 +2,7 @@ import React from "react";
 import { act, render } from "@testing-library/react-native";
 
 import { transcribeSpeech } from "@/lib/api";
-import { startVoiceRecording, type VoiceRecorder } from "@/lib/speech/voiceAudio";
+import { deleteVoiceRecording, startVoiceRecording, type VoiceRecorder } from "@/lib/speech/voiceAudio";
 import { useVoiceInput } from "@/features/speech/hooks/useVoiceInput";
 
 jest.mock("@/lib/api", () => ({ transcribeSpeech: jest.fn() }));
@@ -15,6 +15,7 @@ jest.mock("@/lib/speech/voiceAudio", () => ({
   loadExpoAudio: () => ({}),
   requestVoicePermission: jest.fn(async () => ({ granted: true })),
   startVoiceRecording: jest.fn(),
+  deleteVoiceRecording: jest.fn(async () => undefined),
 }));
 
 type Deferred<T> = { promise: Promise<T>; resolve: (value: T) => void };
@@ -100,7 +101,7 @@ describe("useVoiceInput microphone ownership", () => {
     expect(voice.voiceRecording).toBe(true);
   });
 
-  it("stops the recording it owns on unmount", async () => {
+  it("stops the recording it owns on unmount, and deletes it", async () => {
     const recorder = fakeRecorder();
     startMock.mockResolvedValueOnce(recorder);
     const view = await render(<Probe />);
@@ -108,6 +109,17 @@ describe("useVoiceInput microphone ownership", () => {
     expect(voice.voiceRecording).toBe(true);
     await view.unmount();
     expect(recorder.stop).toHaveBeenCalledTimes(1);
+    await act(async () => {});
+    expect(deleteVoiceRecording).toHaveBeenCalledWith("file:///rec.m4a");
+  });
+
+  it("deletes a recording the user cancelled (LEAK-04)", async () => {
+    startMock.mockResolvedValueOnce(fakeRecorder());
+    await render(<Probe />);
+    await act(async () => { await voice.startRecording(); });
+    await act(async () => { voice.cancelVoiceInput(); });
+    expect(deleteVoiceRecording).toHaveBeenCalledWith("file:///rec.m4a");
+    expect(transcribeSpeech).not.toHaveBeenCalled();
   });
 });
 
@@ -146,6 +158,19 @@ describe("useVoiceInput permission and transcription errors (F8.2)", () => {
     await act(async () => { await voice.startRecording(); });
     await act(async () => { await voice.finishRecording(); });
   }
+
+  it.each([
+    ["transcribed", () => (transcribeSpeech as jest.Mock).mockResolvedValueOnce("hello")],
+    ["refused", () => (transcribeSpeech as jest.Mock).mockRejectedValueOnce(new Error("server error"))],
+  ])("deletes the recording once it was %s (LEAK-04)", async (_outcome, arrange) => {
+    arrange();
+    startMock.mockResolvedValueOnce(speakingRecorder());
+    await render(<Probe />);
+    await act(async () => { await voice.startRecording(); });
+    await act(async () => { await voice.finishRecording(); });
+    expect(transcribeSpeech).toHaveBeenCalledWith("tok", "file:///rec.m4a", expect.anything());
+    expect(deleteVoiceRecording).toHaveBeenCalledWith("file:///rec.m4a");
+  });
 
   it("asks for the microphone in an alert and opens no recorder when access is denied", async () => {
     requestVoicePermission.mockResolvedValueOnce({ granted: false });

@@ -28,6 +28,8 @@ module.exports = {
       testEnvironment: "node",
       extensionsToTreatAsEsm: ['.ts', '.tsx'],
       moduleNameMapper: {
+        // Vendored web libraries are app assets (lib/vendorAssets.ts); first, before the alias.
+        "\\.txt$": "<rootDir>/jest.assetStub.js",
         "^@/(.*)$": "<rootDir>/$1",
       },
       globals: {
@@ -68,6 +70,7 @@ module.exports = {
       ],
       moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
       moduleNameMapper: {
+        "\\.txt$": "<rootDir>/jest.assetStub.js",
         "^@/(.*)$": "<rootDir>/$1",
         // See jest.skiaMock.js — the shipped jestSetup misses the ESM build.
         "^@shopify/react-native-skia$": "<rootDir>/jest.skiaMock.js",

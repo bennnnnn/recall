@@ -1,30 +1,31 @@
-import { reportChatTurnOutcome } from "@/features/chat/model/latencyReporter";
-import { analyticsApi } from "@/lib/api/analytics";
+import { reportChatTtft, reportChatTurnOutcome } from "@/features/chat/model/latencyReporter";
+import { trackProductEvent } from "@/lib/productAnalytics";
 
-jest.mock("react-native", () => ({ Platform: { OS: "ios" } }));
-jest.mock("expo-constants", () => ({ expoConfig: { version: "1.2.3" } }));
-jest.mock("@/lib/auth", () => ({ getToken: jest.fn(async () => "tok") }));
-jest.mock("@/lib/installationId", () => ({ getInstallationId: jest.fn(async () => "install-1") }));
-jest.mock("@/lib/api/analytics", () => ({
-  analyticsApi: { recordProductEvents: jest.fn(async () => undefined) },
-}));
+jest.mock("@/lib/productAnalytics", () => ({ trackProductEvent: jest.fn() }));
 
-describe("reportChatTurnOutcome", () => {
-  it("sends one chat_turn_outcome event holding only its enumerated properties", async () => {
+const track = trackProductEvent as jest.Mock;
+
+describe("chat event reporter", () => {
+  beforeEach(() => track.mockClear());
+
+  it("queues one chat_turn_outcome holding only its enumerated properties and its rate", async () => {
     await reportChatTurnOutcome({ completion: "error", error_code: "busy", tool: "searching" });
+    expect(track).toHaveBeenCalledTimes(1);
+    expect(track).toHaveBeenCalledWith("chat_turn_outcome", {
+      completion: "error",
+      error_code: "busy",
+      tool: "searching",
+      sample_rate: "0.2",
+    });
+  });
 
-    const record = analyticsApi.recordProductEvents as jest.Mock;
-    expect(record).toHaveBeenCalledTimes(1);
-    const [token, events] = record.mock.calls[0];
-    expect(token).toBe("tok");
-    expect(events).toEqual([
-      expect.objectContaining({
-        name: "chat_turn_outcome",
-        properties: { completion: "error", error_code: "busy", tool: "searching" },
-        platform: "ios",
-        app_version: "1.2.3",
-        installation_id: "install-1",
-      }),
-    ]);
+  it("queues one bucketed chat_ttft with its rate", async () => {
+    await reportChatTtft({ latencyBucket: "500_999", transport: "sse", hasAttachment: true });
+    expect(track).toHaveBeenCalledWith("chat_ttft", {
+      latency_bucket: "500_999",
+      transport: "sse",
+      has_attachment: "yes",
+      sample_rate: "0.2",
+    });
   });
 });

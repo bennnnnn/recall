@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   LayoutChangeEvent,
   NativeSyntheticEvent,
@@ -15,6 +15,7 @@ import {
   composerSoftWrapLineCount,
   retainedComposerContentHeight,
 } from "@/features/chat/model/composerLogic";
+import { useLatestRef } from "@/lib/latestRef";
 
 type Options = {
   input: string;
@@ -49,7 +50,9 @@ export function useComposerFieldLayout({
   // wider stacked field cannot flip the layout back.
   const [inlineWidth, setInlineWidth] = useState(0);
   const [textSize, setTextSize] = useState<ComposerTextSize>({ naturalWidth: 0, height: 0 });
-  const measuredContent = useRef<{ revision: number; height: number } | null>(null);
+  const [measuredContent, setMeasuredContent] = useState<{ revision: number; height: number } | null>(null);
+  // The effect below runs on the draft, not on each measurement: it reads the latest one.
+  const measuredRef = useLatestRef(measuredContent);
 
   // Expanded chrome belongs to the active draft, not the mounted screen.
   useEffect(() => {
@@ -65,19 +68,19 @@ export function useComposerFieldLayout({
     // drops that sample so the next draft does not inherit it.
     const revision = draftRevision ?? 0;
     if (!input) {
-      measuredContent.current = null;
+      setMeasuredContent(null);
       setInputHeight(COMPOSER_CONTROL_SIZE);
       setComposerExpanded(false);
       return;
     }
     const measured = retainedComposerContentHeight(
-      measuredContent.current,
+      measuredRef.current,
       revision,
       input,
     );
     const frame = composerInputFrameHeight(input, measured, inputContentWidth, fontScale);
     setInputHeight(frame.height);
-  }, [draftRevision, fontScale, input, inputContentWidth]);
+  }, [draftRevision, fontScale, input, inputContentWidth, measuredRef]);
 
   // Only hard returns move the thread. A soft wrap grows the field in place;
   // pushing list padding here is what yanks the chat up on every line.
@@ -102,7 +105,7 @@ export function useComposerFieldLayout({
   }, [inputFrameExtra, onInputFrameExtraChange, visible]);
 
   const measuredNow = input
-    ? retainedComposerContentHeight(measuredContent.current, draftRevision ?? 0, input)
+    ? retainedComposerContentHeight(measuredContent, draftRevision ?? 0, input)
     : 0;
   const field = composerInputMetrics(fontScale);
   const frameNow =
@@ -131,10 +134,10 @@ export function useComposerFieldLayout({
     event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
   ) => {
     const measured = Math.ceil(event.nativeEvent.contentSize.height);
-    measuredContent.current = {
-      revision: draftRevision ?? 0,
-      height: measured,
-    };
+    const revision = draftRevision ?? 0;
+    setMeasuredContent((current) =>
+      current?.revision === revision && current.height === measured ? current : { revision, height: measured },
+    );
     const frame = composerInputFrameHeight(
       input,
       measured,

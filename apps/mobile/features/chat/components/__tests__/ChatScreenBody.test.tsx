@@ -99,6 +99,7 @@ const baseProps: ChatScreenBodyProps = {
     messages: [message],
     hasMoreOlder: false,
     loadingOlder: false,
+    newerPage: null,
     chatLoading: false,
     routeChatId: "chat-1",
     renderItem,

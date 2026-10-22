@@ -8,47 +8,13 @@
  * plain functions; `components/__tests__/SimulationBlock.test.tsx` covers what
  * only a render can.
  */
-import {
-  angleArcPoints,
-  angleArrowHead,
-  angleLabelBox,
-  angleRadius,
-  ANGLE_MAX_RADIUS,
-  ANGLE_RADIUS,
-  ARROW_MAX_LENGTH,
-  bodyBoxAngle,
-  bodyEdgeDistance,
-  bodyExtent,
-  clearanceAlong,
-  clipArrowAtCircle,
-  clipArrowLength,
-  derivedArrowGeometry,
-  derivedLabelOrigin,
-  describeSimulation,
-  inclineSurface,
-  inclineWedge,
-  layoutSimulationScene,
-  MIN_CLIPPED_ARROW,
-  onPulleyRim,
-  parseSimulationSpec,
-  placeNudgedLabel,
-  pulleyRope,
-  riddenVectorGeometry,
-  sceneTitle,
-  SCENE_TITLE_KEYS,
-  simulationAccessibilityLabel,
-  simulationTransform,
-  simulationViewportHeight,
-  strobeIndices,
-  supportGeometry,
-  tangentAt,
-  tetherEnd,
-  tipLabelOrigin,
-  worldToScreen,
-  type LabelBox,
-  type ScreenPoint,
-  type SimulationSpec,
-} from "@/lib/physics/simulation";
+import { derivedArrowGeometry, derivedLabelOrigin, inclineSurface, inclineWedge, layoutSimulationScene, parseSimulationSpec, placeNudgedLabel, riddenVectorGeometry, sceneTitle, simulationAccessibilityLabel, simulationTransform, simulationViewportHeight, tangentAt, tetherEnd, worldToScreen, type ScreenPoint, type SimulationSpec } from "@/lib/physics/simulation";
+import { angleArcPoints, angleArrowHead, angleLabelBox, angleRadius, ANGLE_MAX_RADIUS, ANGLE_RADIUS, onPulleyRim, pulleyRope, supportGeometry } from "@/lib/physics/simulation/parts";
+import { ARROW_MAX_LENGTH, bodyBoxAngle, bodyEdgeDistance, bodyExtent, clipArrowAtCircle, clipArrowLength, MIN_CLIPPED_ARROW } from "@/lib/physics/simulation/arrows";
+import { clearanceAlong, tipLabelOrigin, type LabelBox } from "@/lib/physics/simulation/labels";
+import { describeSimulation } from "@/lib/physics/simulation/describe";
+import { SCENE_TITLE_KEYS } from "@/lib/physics/simulation/spec";
+import { strobeIndices } from "@/lib/physics/simulation/paths";
 
 const WIDTH = 312;
 const FONT = 11;

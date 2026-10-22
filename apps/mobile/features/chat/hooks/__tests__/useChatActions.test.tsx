@@ -4,10 +4,11 @@ import { act, render } from "@testing-library/react-native";
 
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { api, type Message } from "@/lib/api";
-import { insertChatGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
+import { insertChatGlobal, patchChatGlobal, removeChatGlobal } from "@/features/chat/drawer/drawer";
+import { exportConversationAsPdf } from "@/features/chat/model/exportMessagePdf";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
-jest.mock("@/lib/cache/chatListCache", () => ({
+jest.mock("@/features/chat/model/chatListCache", () => ({
   getCachedChat: () => ({ id: "chat-1", title: "Old title" }),
   peekCreatedChat: () => undefined,
 }));
@@ -24,7 +25,7 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
-jest.mock("@/lib/drawer", () => ({
+jest.mock("@/features/chat/drawer/drawer", () => ({
   insertChatGlobal: jest.fn(),
   moveChatArchiveGlobal: jest.fn(),
   patchChatGlobal: jest.fn(),
@@ -149,7 +150,7 @@ describe("useChatActions", () => {
     expect(actions.shareVisible).toBe(false);
   });
 
-  it("shares the whole chat, or what is loaded when the full list fails", async () => {
+  it("shares the whole chat, and never the loaded page in its place (CLAR-08)", async () => {
     const full = [{ id: "m1", role: "user", content: "hi" }];
     (api.listAllMessages as jest.Mock).mockResolvedValueOnce(full).mockRejectedValueOnce(new Error("offline"));
     await act(async () => {
@@ -157,8 +158,21 @@ describe("useChatActions", () => {
     });
 
     await expect(actions.loadTranscriptMessages()).resolves.toBe(full);
-    await expect(actions.loadTranscriptMessages()).resolves.toEqual([]);
+    await expect(actions.loadTranscriptMessages()).rejects.toThrow("offline");
     expect(api.listAllMessages).toHaveBeenCalledWith("tok", "chat-1");
+  });
+
+  it("says the PDF failed when the whole chat cannot be read, and exports nothing", async () => {
+    (api.listAllMessages as jest.Mock).mockRejectedValueOnce(new Error("offline"));
+    await act(async () => {
+      render(<Probe />);
+    });
+
+    await act(async () => {
+      await actions.handleExportPdf();
+    });
+    expect(exportConversationAsPdf).not.toHaveBeenCalled();
+    expect(mockFeedbackError).toHaveBeenCalledWith("chat.export_pdf_failed");
   });
 });
 

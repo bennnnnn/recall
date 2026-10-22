@@ -1,4 +1,4 @@
-"""HTTP-facing todos CRUD (create/update/delete + home cache invalidate)."""
+"""HTTP-facing todos CRUD (create/update/delete)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import DomainError
 from app.models.orm import TodoItem, User
-from app.modules.home import service as home_service
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.recurrence import (
     RecurrenceRule,
@@ -38,9 +37,13 @@ async def list_todos_page(
     *,
     limit: int = 1000,
     cursor: UUID | None = None,
+    completed_since: datetime | None = None,
 ) -> tuple[list[TodoItem], UUID | None]:
+    """A page of the user's to-dos; with ``completed_since``, older completed ones are left out."""
     user_id = user.id
-    selected = await todos_repo.list_after_id(session, user_id, limit=limit + 1, cursor=cursor)
+    selected = await todos_repo.list_after_id(
+        session, user_id, limit=limit + 1, cursor=cursor, completed_since=completed_since
+    )
     items = selected[:limit]
     page_ids = [item.id for item in items]
     # Preserve this boundary even when catch-up races a deletion of the last row.
@@ -49,8 +52,12 @@ async def list_todos_page(
         session, items, timezone=user.timezone
     ):
         items = await todos_repo.list_by_ids(session, user_id, page_ids)
-        await home_service.invalidate_home_cache(user_id)
     return items, next_cursor
+
+
+async def has_older_completed(session: AsyncSession, user: User, since: datetime) -> bool:
+    """The user has completed to-dos last changed before ``since`` (a page left them out)."""
+    return await todos_repo.has_completed_before(session, user.id, since)
 
 
 async def create_todo(
@@ -92,7 +99,6 @@ async def create_todo(
         if existing is None:
             raise
         return existing
-    await home_service.invalidate_home_cache(user.id)
     return item
 
 
@@ -122,7 +128,6 @@ async def update_todo(
     if due is not None and is_recurrence_rule(rule):
         patch["due_at"] = snap_first_due(due, rule, timezone=user.timezone)
     updated = await todos_repo.update(session, item, **patch)
-    await home_service.invalidate_home_cache(user.id)
     return updated
 
 
@@ -162,4 +167,3 @@ async def delete_todo(session: AsyncSession, user: User, todo_id: UUID) -> None:
     deleted = await todos_repo.delete_by_id(session, todo_id, user.id)
     if not deleted:
         raise TodosError("Todo not found", status_code=404)
-    await home_service.invalidate_home_cache(user.id)

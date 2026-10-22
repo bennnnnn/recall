@@ -4,7 +4,7 @@ import { ChatMessageRow } from "@/features/chat/components/ChatMessageRow";
 import { StreamingChatMessageRow } from "@/features/chat/components/StreamingChatMessageRow";
 import type { Message } from "@/lib/api";
 
-jest.mock("@/components/MessageBubble", () => {
+jest.mock("@/features/chat/components/MessageBubble", () => {
   const { Text: MockText } =
     jest.requireActual("react-native") as typeof import("react-native");
   return {

@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
 from app.models.schemas import TodoActionItem
-from app.modules.home import service as home_service
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.prompt_context import _normalize, _topic_key
 from app.modules.todos.recurrence import RecurrenceRule, is_recurrence_rule, snap_first_due
@@ -319,6 +318,5 @@ async def apply_todo_actions(
             user_id,
             chat_id,
         )
-        await home_service.invalidate_home_cache(user_id)
     await session.commit()
     return applied

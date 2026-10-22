@@ -1,5 +1,6 @@
 import { ApiRequestError, readErrorBody } from "@/lib/api/errorBody";
 import { isAbortError } from "@/lib/api/abort";
+import { abortError, serverUnreachableError, untilAborted, withDeadline } from "@/lib/api/deadline";
 import { getApiUrl } from "@/lib/config";
 import {
   getRefreshToken,
@@ -48,10 +49,7 @@ function requireSession(generation: number): void {
 }
 
 function requireNotAborted(signal?: AbortSignal | null): void {
-  if (!signal?.aborted) return;
-  const error = new Error("Request canceled");
-  error.name = "AbortError";
-  throw error;
+  if (signal?.aborted) throw abortError();
 }
 
 /**
@@ -79,38 +77,46 @@ export function accessTokenNeedsRefresh(
   }
 }
 
-const AUTH_FETCH_TIMEOUT_MS = 15_000;
+export const AUTH_FETCH_TIMEOUT_MS = 15_000;
 
+/** A fetch outside a session (sign-in, sign-out) that gives up after 15 s without
+ * headers; `init.signal` aborts it too. The caller bounds the body it reads. */
 export async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AUTH_FETCH_TIMEOUT_MS);
+  const forwardAbort = () => controller.abort();
+  init.signal?.addEventListener("abort", forwardAbort, { once: true });
+  if (init.signal?.aborted) controller.abort();
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (error) {
-    if (isAbortError(error)) {
-      throw new Error("Could not reach the Recall server. Check your connection and try again.");
-    }
+    if (isAbortError(error)) throw serverUnreachableError();
     throw error;
   } finally {
     clearTimeout(timeout);
+    init.signal?.removeEventListener("abort", forwardAbort);
   }
 }
 
 let refreshInFlight: { generation: number; promise: Promise<string | null> } | null = null;
 
 /** Share refresh within one session. Only an absent/rejected refresh credential
- * returns null; outages and secure storage failures must not sign the user out. */
+ * returns null; outages and secure storage failures must not sign the user out.
+ * One deadline covers the whole refresh, its body and secure storage included: a
+ * stalled one used to hold every request behind it until the app was killed. At
+ * the deadline it fails, and the next request starts a new one. */
 async function refreshAccessToken(): Promise<string | null> {
   const generation = getSessionGeneration();
   if (refreshInFlight?.generation === generation) return refreshInFlight.promise;
-  const promise = (async () => {
+  const promise = withDeadline(AUTH_FETCH_TIMEOUT_MS, null, async (signal) => {
     const refreshToken = await getRefreshToken();
     requireSession(generation);
     if (!refreshToken) return null;
-    const response = await fetchWithTimeout(apiUrl("/auth/refresh"), {
+    const response = await fetch(apiUrl("/auth/refresh"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: refreshToken, ...deviceSessionFields() }),
+      signal,
     });
     requireSession(generation);
     if (response.status === 401) return null;
@@ -126,7 +132,7 @@ async function refreshAccessToken(): Promise<string | null> {
     if (!saved) throw new SessionChangedError();
     onTokenRefresh?.(data.access_token, data.user);
     return data.access_token;
-  })();
+  }, serverUnreachableError);
   refreshInFlight = { generation, promise };
   try {
     return await promise;
@@ -134,6 +140,19 @@ async function refreshAccessToken(): Promise<string | null> {
     // An old account's completion must not release a newer account's refresh.
     if (refreshInFlight?.promise === promise) refreshInFlight = null;
   }
+}
+
+/**
+ * `token`, or a refreshed one when it is about to expire: the same single-flight refresh
+ * a request makes. A long-lived WebSocket kept the token it was made with, so a return
+ * after an hour authenticated with an expired one and fell back to SSE for good
+ * (code-health audit NET-12); it reads its token through this before it connects.
+ */
+export async function freshAccessToken(token: string | null): Promise<string | null> {
+  if (!token || !accessTokenNeedsRefresh(token)) return token;
+  const generation = getSessionGeneration();
+  const refreshed = await refreshAccessToken();
+  return generation === getSessionGeneration() ? (refreshed ?? token) : null;
 }
 
 /** `pushToken` is this device's Expo push token: the server forgets it with the session, so
@@ -174,15 +193,74 @@ export async function request<T>(
   timeoutMs = 30_000,
 ): Promise<T> {
   const generation = getSessionGeneration();
-  const response = await requestRaw(path, token, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
-  }, allowRefresh, timeoutMs);
-  if (!response.ok) throw new ApiRequestError(response.status, await response.text());
-  const data = response.status === 204 ? undefined : await response.json();
-  requireSession(generation);
-  return data as T;
+  return withDeadline(timeoutMs, init?.signal, async (signal) => {
+    const response = await requestRaw(path, token, {
+      ...init,
+      signal,
+      headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    }, allowRefresh, timeoutMs);
+    if (!response.ok) throw new ApiRequestError(response.status, await response.text());
+    const data = response.status === 204 ? undefined : await response.json();
+    requireSession(generation);
+    return data as T;
+  });
 }
+
+/**
+ * Lists the server answers with an ETag (the to-do list, the chat list, a chat's
+ * newest messages): the reply is kept, and the next read of the same path sends its
+ * ETag back, so an unchanged list costs a 304 and no body (code-health audit NET-16).
+ * Only this sign-in's replies are used.
+ */
+const MAX_REVALIDATED = 40;
+const revalidated = new Map<string, { generation: number; etag: string; data: unknown }>();
+
+function responseEtag(response: Response): string | null {
+  // Test doubles and some transports have no headers object.
+  return typeof response.headers?.get === "function" ? response.headers.get("etag") : null;
+}
+
+export async function requestRevalidated<T>(
+  path: string,
+  token: string,
+  init?: RequestInit,
+  timeoutMs = 30_000,
+): Promise<T> {
+  const generation = getSessionGeneration();
+  const held = revalidated.get(path);
+  const kept = held?.generation === generation ? held : undefined;
+  return withDeadline(timeoutMs, init?.signal, async (signal) => {
+    const response = await requestRaw(path, token, {
+      ...init,
+      signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+        ...(kept ? { "If-None-Match": kept.etag } : {}),
+      },
+    }, true, timeoutMs);
+    requireSession(generation);
+    if (response.status === 304 && kept) {
+      revalidated.delete(path);
+      revalidated.set(path, kept);
+      return kept.data as T;
+    }
+    if (!response.ok) throw new ApiRequestError(response.status, await response.text());
+    const data = (await response.json()) as T;
+    requireSession(generation);
+    const etag = responseEtag(response);
+    revalidated.delete(path);
+    if (etag) {
+      revalidated.set(path, { generation, etag, data });
+      while (revalidated.size > MAX_REVALIDATED) {
+        revalidated.delete(revalidated.keys().next().value as string);
+      }
+    }
+    return data;
+  });
+}
+
+const EXPORT_TIMEOUT_MS = 120_000;
 
 export async function fetchExportText(
   token: string,
@@ -190,14 +268,16 @@ export async function fetchExportText(
   signal?: AbortSignal,
 ): Promise<string> {
   const generation = getSessionGeneration();
-  const response = await requestRaw("/auth/me/export", token, {
-    headers: { Accept: "application/json" },
-    signal,
-  }, allowRefresh, 120_000);
-  if (!response.ok) throw new ApiRequestError(response.status, await response.text());
-  const text = await response.text();
-  requireSession(generation);
-  return text;
+  return withDeadline(EXPORT_TIMEOUT_MS, signal, async (deadline) => {
+    const response = await requestRaw("/auth/me/export", token, {
+      headers: { Accept: "application/json" },
+      signal: deadline,
+    }, allowRefresh, EXPORT_TIMEOUT_MS);
+    if (!response.ok) throw new ApiRequestError(response.status, await response.text());
+    const text = await response.text();
+    requireSession(generation);
+    return text;
+  });
 }
 
 /** Single authenticated fetch boundary for JSON, downloads, and SSE. Raw
@@ -226,9 +306,11 @@ export async function requestRaw(
     // /me, /home, /chats, /models, etc. to all send one doomed 401 before
     // joining the shared refresh. Join that same single-flight *before* any
     // authenticated request leaves the device when expiry is already known.
+    // A refresh another request started keeps running for it; this one waits only
+    // as long as its own deadline and its caller allow (code-health audit NET-17).
     if (effectiveToken && allowRefresh && accessTokenNeedsRefresh(effectiveToken)) {
       refreshAttempted = true;
-      const refreshed = await refreshAccessToken();
+      const refreshed = await untilAborted(refreshAccessToken(), controller.signal);
       requireSession(generation);
       requireNotAborted(controller.signal);
       if (refreshed) effectiveToken = refreshed;
@@ -245,7 +327,7 @@ export async function requestRaw(
     requireNotAborted(controller.signal);
     if (response.status === 401 && effectiveToken) {
       if (allowRefresh && !refreshAttempted) {
-        const refreshed = await refreshAccessToken();
+        const refreshed = await untilAborted(refreshAccessToken(), controller.signal);
         requireSession(generation);
         requireNotAborted(controller.signal);
         if (refreshed) return requestRaw(path, refreshed, init, false, timeoutMs, retainStreamAbort);

@@ -1,3 +1,4 @@
+import { useAccountSession } from "@/contexts/accountSession";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
@@ -12,7 +13,7 @@ import {
   getPlanPackages,
   isPurchaseCancelled,
   isPurchasesConfigured,
-  type PlanPackage,
+  type PlanOffer,
   purchasePlanPackage,
   restorePurchases,
 } from "@/lib/purchases";
@@ -46,6 +47,8 @@ type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 const PLAN_RANK: Record<PlanId, number> = { free: 0, plus: 1, pro: 2 };
 
+const NO_OFFER: PlanOffer = { packages: {}, unavailable: false };
+
 type FeatureLine = { icon: IconName; text: string };
 
 /** What a plan includes, with the server's numbers (the store owns the price). */
@@ -73,9 +76,12 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
   const theme = useTheme();
   const s = makeStyles(theme);
   const { token, user, syncSubscription, devUpgrade } = useSubscriptionActions();
+  const { account, getToken } = useAccountSession();
   const current = planOf(user);
   const targets = upgradeTargets(current);
-  const [packages, setPackages] = useState<Partial<Record<PaidPlanId, PlanPackage>>>({});
+  const [offer, setOffer] = useState<PlanOffer>(NO_OFFER);
+  const [offerAttempt, setOfferAttempt] = useState(0);
+  const packages = offer.packages;
   const [catalog, setCatalog] = useState<PlanCatalog | null>(null);
   const [loadingOffer, setLoadingOffer] = useState(false);
   const [busy, setBusy] = useState<PaidPlanId | "restore" | null>(null);
@@ -85,14 +91,15 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
 
   useEffect(() => {
     if (visible && !wasVisible.current) {
-      trackProductEvent(token, "paywall_viewed", { source });
+      trackProductEvent("paywall_viewed", { source });
       setError(null);
     }
     wasVisible.current = visible;
-  }, [source, token, visible]);
+  }, [source, visible]);
 
   useEffect(() => {
-    if (!visible || !token) return;
+    const token = getToken();
+    if (!visible || !account || !token) return;
     let cancelled = false;
     void api
       .listPlans(token)
@@ -105,18 +112,18 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [visible, token]);
+  }, [visible, account, getToken]);
 
   useEffect(() => {
     if (!visible || !purchasesReady) {
-      setPackages({});
+      setOffer(NO_OFFER);
       return;
     }
     let cancelled = false;
     setLoadingOffer(true);
     void getPlanPackages()
       .then((next) => {
-        if (!cancelled) setPackages(next);
+        if (!cancelled) setOffer(next);
       })
       .finally(() => {
         if (!cancelled) setLoadingOffer(false);
@@ -124,7 +131,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [visible, purchasesReady]);
+  }, [visible, purchasesReady, offerAttempt]);
 
   const syncAfterStore = async () => {
     if (!token) return;
@@ -137,13 +144,13 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
     if (!token || !pkg || busy) return;
     setBusy(plan);
     setError(null);
-    trackProductEvent(token, "purchase_started", { plan });
+    trackProductEvent("purchase_started", { plan });
     let purchased: PlanId = "free";
     try {
       purchased = await purchasePlanPackage(pkg);
     } catch (purchaseError) {
       const cancelled = isPurchaseCancelled(purchaseError);
-      trackProductEvent(token, "purchase_failed", {
+      trackProductEvent("purchase_failed", {
         plan,
         reason: cancelled ? "cancelled" : "error",
       });
@@ -152,12 +159,12 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
       return;
     }
     if (PLAN_RANK[purchased] < PLAN_RANK[plan]) {
-      trackProductEvent(token, "purchase_failed", { plan, reason: "error" });
+      trackProductEvent("purchase_failed", { plan, reason: "error" });
       setError(t("upgrade.purchase_failed"));
       setBusy(null);
       return;
     }
-    trackProductEvent(token, "purchase_succeeded", { plan });
+    trackProductEvent("purchase_succeeded", { plan });
     try {
       await syncAfterStore();
     } catch {
@@ -238,6 +245,17 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
           </View>
         );
       })}
+      {purchasesReady && offer.unavailable && !loadingOffer ? (
+        <>
+          <Text style={s.error}>{t("upgrade.store_unavailable")}</Text>
+          <Button
+            title={t("common.retry")}
+            onPress={() => setOfferAttempt((attempt) => attempt + 1)}
+            variant="secondary"
+            style={s.primaryBtn}
+          />
+        </>
+      ) : null}
       {error ? <Text style={s.error}>{error}</Text> : null}
       {purchasesReady ? (
         <Button

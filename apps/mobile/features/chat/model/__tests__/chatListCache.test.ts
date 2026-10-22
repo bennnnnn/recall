@@ -10,7 +10,7 @@ import {
   isChatListFresh,
   setChatListCache,
   updateChatListCache,
-} from "@/lib/cache/chatListCache";
+} from "@/features/chat/model/chatListCache";
 import {
   markChatHasAssistant,
   shouldProbePreviousChat,

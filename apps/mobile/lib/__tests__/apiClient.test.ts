@@ -7,6 +7,7 @@ import {
   logoutSession,
   request,
   requestRaw,
+  requestRevalidated,
   requestSse,
   setTokenRefreshHandler,
   setUnauthorizedHandler,
@@ -559,5 +560,105 @@ describe("authorizeNativeTransfer", () => {
     const send = jest.fn(async () => 200);
     await authorizeNativeTransfer(null, send);
     expect(send).toHaveBeenCalledWith({});
+  });
+});
+
+describe("deadlines past the headers (NET-17)", () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it("rejects a request whose body never finishes at its deadline", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: () => new Promise(() => undefined) });
+    const outcome = request("/auth/me", "access", undefined, true, 5_000).catch((error: unknown) => error);
+    await jest.advanceTimersByTimeAsync(4_999);
+    let settled = false;
+    void outcome.then(() => { settled = true; });
+    await jest.advanceTimersByTimeAsync(0);
+    expect(settled).toBe(false);
+    await jest.advanceTimersByTimeAsync(1);
+    await expect(outcome).resolves.toMatchObject({ name: "AbortError" });
+  });
+
+  it("rejects an export whose body never finishes", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200, text: () => new Promise(() => undefined) });
+    const outcome = fetchExportText("access").catch((error: unknown) => error);
+    await jest.advanceTimersByTimeAsync(120_000);
+    await expect(outcome).resolves.toMatchObject({ name: "AbortError" });
+  });
+
+  it("fails a stalled refresh for every request behind it, and the next request starts a new one", async () => {
+    mockGetRefreshToken.mockResolvedValue("refresh-token");
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401, text: async () => "" })
+      .mockResolvedValueOnce({ ok: false, status: 401, text: async () => "" })
+      // The refresh's headers arrive; its body never does.
+      .mockResolvedValueOnce({ ok: true, status: 200, json: () => new Promise(() => undefined) });
+    const first = request("/a", "t1", undefined, true, 60_000).catch((error: unknown) => error);
+    const second = request("/b", "t2", undefined, true, 60_000).catch((error: unknown) => error);
+    await jest.advanceTimersByTimeAsync(15_000);
+    await expect(first).resolves.toMatchObject({ message: expect.stringContaining("Could not reach") });
+    await expect(second).resolves.toMatchObject({ message: expect.stringContaining("Could not reach") });
+
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401, text: async () => "" })
+      .mockResolvedValueOnce({
+        ok: true, status: 200,
+        json: async () => ({ access_token: "new-access", refresh_token: "new-refresh" }),
+      })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: 1 }) });
+    await expect(request("/c", "t3")).resolves.toEqual({ ok: 1 });
+    const refreshes = mockFetch.mock.calls.filter(([url]) => url === "http://test.local/auth/refresh");
+    expect(refreshes).toHaveLength(2);
+  });
+
+  it("stops waiting for another request's refresh when its own caller aborts", async () => {
+    mockGetRefreshToken.mockResolvedValue("refresh-token");
+    const refresh = deferred<Response>();
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401, text: async () => "" })
+      .mockImplementationOnce(() => refresh.promise);
+    const caller = new AbortController();
+    const outcome = request("/a", "t1", { signal: caller.signal }).catch((error: unknown) => error);
+    await jest.advanceTimersByTimeAsync(0);
+    caller.abort();
+    await expect(outcome).resolves.toMatchObject({ name: "AbortError" });
+  });
+});
+
+
+describe("revalidated reads (NET-16)", () => {
+  const withEtag = (body: unknown, etag: string) => ({
+    ok: true, status: 200, headers: { get: (name: string) => (name === "etag" ? etag : null) },
+    json: async () => body,
+  });
+
+  it("sends the kept ETag back and answers a 304 with the kept body", async () => {
+    mockFetch
+      .mockResolvedValueOnce(withEtag({ items: [1] }, 'W/"one"'))
+      .mockResolvedValueOnce({ ok: false, status: 304, headers: { get: () => 'W/"one"' } });
+    await expect(requestRevalidated("/todos/page?x=1", "access")).resolves.toEqual({ items: [1] });
+    await expect(requestRevalidated("/todos/page?x=1", "access")).resolves.toEqual({ items: [1] });
+    expect(mockFetch.mock.calls[0][1].headers["If-None-Match"]).toBeUndefined();
+    expect(mockFetch.mock.calls[1][1].headers["If-None-Match"]).toBe('W/"one"');
+  });
+
+  it("keeps the new body when the list changed", async () => {
+    mockFetch
+      .mockResolvedValueOnce(withEtag({ items: [1] }, 'W/"one"'))
+      .mockResolvedValueOnce(withEtag({ items: [2] }, 'W/"two"'))
+      .mockResolvedValueOnce({ ok: false, status: 304, headers: { get: () => 'W/"two"' } });
+    await requestRevalidated("/chats", "access");
+    await expect(requestRevalidated("/chats", "access")).resolves.toEqual({ items: [2] });
+    await expect(requestRevalidated("/chats", "access")).resolves.toEqual({ items: [2] });
+    expect(mockFetch.mock.calls[2][1].headers["If-None-Match"]).toBe('W/"two"');
+  });
+
+  it("never offers another sign-in's body", async () => {
+    mockFetch.mockResolvedValueOnce(withEtag({ items: ["a"] }, 'W/"a"'));
+    await requestRevalidated("/chats?who", "access");
+    mockSessionGeneration += 1;
+    mockFetch.mockResolvedValueOnce(withEtag({ items: ["b"] }, 'W/"b"'));
+    await expect(requestRevalidated("/chats?who", "access")).resolves.toEqual({ items: ["b"] });
+    expect(mockFetch.mock.calls[1][1].headers["If-None-Match"]).toBeUndefined();
   });
 });

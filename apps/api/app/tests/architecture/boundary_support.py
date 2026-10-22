@@ -44,7 +44,6 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     # The chat stream's seam module: stages take ``turn_deps.ChatTurnDeps`` (ES-23).
     "app.modules.chat.stream",
     "app.modules.chemistry.legacy_alias",
-    "app.modules.home.legacy_alias",
     "app.modules.math.legacy_alias",
     # Split by job: ``equations``, ``equation_conditions``, ``root_latex``, ``systems``,
     # ``numeric``, ``expressions``, ``inequalities`` (ES-34).

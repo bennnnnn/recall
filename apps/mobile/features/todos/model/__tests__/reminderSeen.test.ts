@@ -40,13 +40,9 @@ describe("reminderSeen", () => {
     expect(SecureStore.getItemAsync).not.toHaveBeenCalled();
   });
 
-  it("migrates legacy Keychain ids onto the filesystem", async () => {
-    (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(["old"]));
-    await expect(loadSeenReminderIds("user-1")).resolves.toEqual(new Set(["old"]));
-    expect(writeAsStringAsync).toHaveBeenCalledWith(
-      "file:///docs/recall.reminder-seen.user-1.json",
-      JSON.stringify(["old"]),
-    );
+  it("reads nothing from the Keychain when no file exists (DEAD-07)", async () => {
+    await expect(loadSeenReminderIds("user-1")).resolves.toEqual(new Set());
+    expect(SecureStore.getItemAsync).not.toHaveBeenCalled();
   });
 
   it("saveSeenReminderIds writes the filesystem, not Keychain", async () => {
@@ -58,11 +54,10 @@ describe("reminderSeen", () => {
     expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
   });
 
-  it("clearSeenReminderIds deletes the file and legacy Keychain key", async () => {
+  it("clearSeenReminderIds deletes the file", async () => {
     await clearSeenReminderIds("user-1");
     expect(deleteAsync).toHaveBeenCalledWith("file:///docs/recall.reminder-seen.user-1.json", {
       idempotent: true,
     });
-    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("reminder-seen-user-1");
   });
 });

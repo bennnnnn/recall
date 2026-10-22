@@ -1,11 +1,4 @@
-import {
-  useMemo,
-  useState,
-  useCallback,
-  type MutableRefObject,
-  type ReactElement,
-  type RefObject,
-} from "react";
+import { useCallback, useLayoutEffect, useMemo, useState, type MutableRefObject, type ReactElement, type RefObject } from "react";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { type NativeScrollEvent, type NativeSyntheticEvent, type View, type ViewStyle } from "react-native";
 import { type AnimatedStyle } from "react-native-reanimated";
@@ -28,7 +21,7 @@ import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/features/chat/model/errorMessage";
-import { openDrawer } from "@/lib/drawer";
+import { openDrawer } from "@/features/chat/drawer/drawer";
 import type { Theme } from "@/lib/theme";
 
 type Router = ReturnType<typeof useRouter>;
@@ -74,6 +67,7 @@ type UseChatScreenBodyPropsParams = {
     messages: Message[];
     hasMoreOlder: boolean;
     loadingOlder: boolean;
+    newerPage: ChatScreenListProps["newerPage"];
     chatLoading: boolean;
     renderItem: (info: ListRenderItemInfo<Message>) => ReactElement | null;
     loadOlderMessages: () => Promise<void>;
@@ -153,6 +147,7 @@ export function useChatScreenBodyProps({
     messages,
     hasMoreOlder,
     loadingOlder,
+    newerPage,
     chatLoading,
     renderItem,
     loadOlderMessages,
@@ -222,7 +217,9 @@ export function useChatScreenBodyProps({
     listBottomPad,
     emptyHeight,
   } = layout;
-  listBottomPadRef.current = listBottomPad;
+  useLayoutEffect(() => {
+    listBottomPadRef.current = listBottomPad;
+  }, [listBottomPadRef, listBottomPad]);
 
   // Keep list-facing callbacks identity-stable. Composer text lives in
   // ComposerDraftContext so keystrokes do not rebuild bodyProps.
@@ -337,6 +334,7 @@ export function useChatScreenBodyProps({
       messages,
       hasMoreOlder,
       loadingOlder,
+      newerPage,
       chatLoading,
       routeChatId,
       renderItem,
@@ -352,6 +350,7 @@ export function useChatScreenBodyProps({
       messages,
       hasMoreOlder,
       loadingOlder,
+      newerPage,
       chatLoading,
       routeChatId,
       renderItem,

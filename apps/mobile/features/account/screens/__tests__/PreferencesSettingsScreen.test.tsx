@@ -19,8 +19,8 @@ jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: (
 jest.mock("@/contexts/AppearanceContext", () => ({
   useHaptics: () => ({ enabled: true, setEnabled: mockSetHaptics }),
 }));
-jest.mock("@/features/account/components/SettingsFieldSheet", () => ({
-  SettingsFieldSheet: () => null,
+jest.mock("@/ui/overlay/FieldSheet", () => ({
+  FieldSheet: () => null,
 }));
 
 beforeEach(() => jest.clearAllMocks());

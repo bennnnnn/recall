@@ -3,6 +3,7 @@ import {
   type ChatWsPayload,
 } from "@/features/chat/model/socketReduce";
 import {
+  STREAM_IDLE_TIMEOUT_MS,
   WS_CONNECT_TIMEOUT_MS,
   WS_FIRST_EVENT_TIMEOUT_MS,
 } from "@/features/chat/model/wsConnect";
@@ -15,6 +16,8 @@ const WS_TURN_EVENT_TYPES = new Set([
   "stream_end",
   "done",
   "error",
+  // Sent while a turn is quiet: proof of life, nothing to show.
+  "keepalive",
 ]);
 
 const WS_OPEN_STATE = 1;
@@ -74,7 +77,8 @@ export type ChatWsFallbackSignal =
 
 type ChatWsTransportOptions = {
   url: string;
-  token: string;
+  /** The newest bearer token, read when the socket authenticates. */
+  getToken: () => string | null;
   clientTimezone: string;
   onPayload: (payload: ChatWsPayload) => void;
   onFallback: (signal: ChatWsFallbackSignal) => void;
@@ -90,10 +94,13 @@ export class ChatWsTransport {
   private connectPromise: Promise<void> | null = null;
   private settleConnect: (() => void) | null = null;
   private connectTimer: ReturnType<typeof setTimeout> | null = null;
-  private firstEventTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The turn's deadline: its first event, then the next one (`STREAM_IDLE_TIMEOUT_MS`). */
+  private turnTimer: ReturnType<typeof setTimeout> | null = null;
   private turnActive = false;
   private preferSse = false;
   private closed = false;
+  /** The server refused this socket's token once: a second refusal falls back to SSE. */
+  private refusedOnce = false;
 
   constructor(private readonly options: ChatWsTransportOptions) {}
 
@@ -144,7 +151,7 @@ export class ChatWsTransport {
         return;
       }
       this.sendFrame({
-        token: this.options.token,
+        token: this.options.getToken() ?? "",
         client_timezone: this.options.clientTimezone,
       } satisfies ChatWsAuthFrame);
       this.finishConnect();
@@ -152,7 +159,7 @@ export class ChatWsTransport {
 
     const disconnect = (code?: number) => {
       this.clearConnectTimer();
-      this.clearFirstEventTimer();
+      this.clearTurnTimer();
       this.finishConnect();
       if (!this.isCurrentSocket(socket)) return;
       const duringTurn = this.turnActive;
@@ -176,15 +183,17 @@ export class ChatWsTransport {
       // concrete event types. String conversion is the narrow shared boundary.
       const payload = parseChatWsPayload(String(event.data));
       if (!payload) return;
-      if (WS_TURN_EVENT_TYPES.has(payload.type)) {
-        this.clearFirstEventTimer();
-      }
+      if (this.turnActive && WS_TURN_EVENT_TYPES.has(payload.type)) this.awaitNextEvent(socket);
+      if (payload.type === "keepalive") return;
 
       if (payload.type === "error" && payload.message === "Unauthorized") {
         const duringTurn = this.turnActive;
         this.socket = null;
         this.turnActive = false;
-        this.preferSse = true;
+        // The turn replays over SSE, whose request refreshes the token; the next
+        // connect authenticates with the new one. Only a second refusal stays on SSE.
+        this.preferSse = this.refusedOnce;
+        this.refusedOnce = true;
         this.options.onFallback({
           reason: "unauthorized",
           duringTurn,
@@ -196,7 +205,9 @@ export class ChatWsTransport {
 
       if (payload.type === "done" || payload.type === "error") {
         this.turnActive = false;
+        this.clearTurnTimer();
       }
+      if (payload.type === "done") this.refusedOnce = false;
       this.options.onPayload(payload);
     };
 
@@ -217,7 +228,7 @@ export class ChatWsTransport {
    * answer and the saved one are the same text.
    */
   cancel(shownChars?: number): void {
-    this.clearFirstEventTimer();
+    this.clearTurnTimer();
     if (!this.isOpen()) return;
     this.sendFrame(shownChars == null ? { type: "cancel" } : { type: "cancel", shown_chars: shownChars });
   }
@@ -226,7 +237,7 @@ export class ChatWsTransport {
     if (this.closed) return;
     this.closed = true;
     this.clearConnectTimer();
-    this.clearFirstEventTimer();
+    this.clearTurnTimer();
     this.finishConnect();
     this.turnActive = false;
     const socket = this.socket;
@@ -239,11 +250,11 @@ export class ChatWsTransport {
   ): boolean {
     if (!this.isOpen()) return false;
     this.turnActive = true;
-    this.clearFirstEventTimer();
-    this.firstEventTimer = setTimeout(() => {
+    this.clearTurnTimer();
+    this.turnTimer = setTimeout(() => {
       if (!this.turnActive || !this.socket) return;
       const socket = this.socket;
-      this.firstEventTimer = null;
+      this.turnTimer = null;
       this.socket = null;
       this.turnActive = false;
       this.preferSse = true;
@@ -271,10 +282,28 @@ export class ChatWsTransport {
     this.connectTimer = null;
   }
 
-  private clearFirstEventTimer(): void {
-    if (this.firstEventTimer == null) return;
-    clearTimeout(this.firstEventTimer);
-    this.firstEventTimer = null;
+  /**
+   * The turn has spoken: wait for its next event. A silence past the deadline is
+   * a dead connection (a network change leaves such a socket behind): close it,
+   * report a drop so the caller reloads the chat for the saved reply, and open a
+   * new socket for the next send.
+   */
+  private awaitNextEvent(socket: WebSocket): void {
+    this.clearTurnTimer();
+    this.turnTimer = setTimeout(() => {
+      if (!this.turnActive || !this.isCurrentSocket(socket)) return;
+      this.turnTimer = null;
+      this.socket = null;
+      this.turnActive = false;
+      this.options.onFallback({ reason: "disconnect", duringTurn: true });
+      socket.close();
+    }, STREAM_IDLE_TIMEOUT_MS);
+  }
+
+  private clearTurnTimer(): void {
+    if (this.turnTimer == null) return;
+    clearTimeout(this.turnTimer);
+    this.turnTimer = null;
   }
 
   private finishConnect(): void {

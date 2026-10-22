@@ -1,4 +1,8 @@
-import { WS_CONNECT_TIMEOUT_MS, WS_FIRST_EVENT_TIMEOUT_MS } from "@/features/chat/model/wsConnect";
+import {
+  STREAM_IDLE_TIMEOUT_MS,
+  WS_CONNECT_TIMEOUT_MS,
+  WS_FIRST_EVENT_TIMEOUT_MS,
+} from "@/features/chat/model/wsConnect";
 import {
   ChatWsTransport,
   type ChatWsFallbackSignal,
@@ -31,7 +35,7 @@ function setupTransport() {
   const onFallback = jest.fn<void, [ChatWsFallbackSignal]>();
   const transport = new ChatWsTransport({
     url: "wss://test/chat",
-    token: "token",
+    getToken: () => "token",
     clientTimezone: "UTC",
     onPayload,
     onFallback,
@@ -136,7 +140,60 @@ describe("ChatWsTransport", () => {
     expect(onPayload).toHaveBeenCalledWith({ type: "ping" });
   });
 
-  it("clears the first-event deadline after a turn acknowledgment", async () => {
+  it("after a turn acknowledgment waits for each next event, keepalives included", async () => {
+    const { socket, transport, onPayload, onFallback } = setupTransport();
+    const connecting = transport.connect();
+    socket.open();
+    await connecting;
+
+    transport.sendRegenerate({
+      model: null,
+      client_location: null,
+      client_latitude: null,
+      client_longitude: null,
+    });
+    socket.emit({ type: "start" });
+    // The first-event deadline is gone; the idle one is longer.
+    jest.advanceTimersByTime(STREAM_IDLE_TIMEOUT_MS - 1);
+    socket.emit({ type: "keepalive" });
+    jest.advanceTimersByTime(STREAM_IDLE_TIMEOUT_MS - 1);
+    socket.emit({ type: "token", content: "slow" });
+    jest.advanceTimersByTime(STREAM_IDLE_TIMEOUT_MS - 1);
+
+    expect(onFallback).not.toHaveBeenCalled();
+    expect(socket.close).not.toHaveBeenCalled();
+    // A keepalive is proof of life, not a payload.
+    expect(onPayload.mock.calls.map(([payload]) => payload.type)).toEqual(["start", "token"]);
+  });
+
+  it("drops a turn quiet past the idle deadline and opens a new socket next time", async () => {
+    const { socket, transport, onPayload, onFallback } = setupTransport();
+    const connecting = transport.connect();
+    socket.open();
+    await connecting;
+
+    transport.sendMessage({
+      content: "hi",
+      attachment_ids: [],
+      model: null,
+      client_location: null,
+      client_latitude: null,
+      client_longitude: null,
+    });
+    socket.emit({ type: "start" });
+    socket.emit({ type: "token", content: "par" });
+    jest.advanceTimersByTime(STREAM_IDLE_TIMEOUT_MS);
+
+    expect(onFallback).toHaveBeenCalledWith({ reason: "disconnect", duringTurn: true });
+    expect(socket.close).toHaveBeenCalledTimes(1);
+    expect(transport.isTurnActive()).toBe(false);
+    expect(transport.shouldUseSse()).toBe(false);
+    // Late frames from the dropped socket are not this turn's any more.
+    socket.emit({ type: "done", message_id: "late" });
+    expect(onPayload).toHaveBeenCalledTimes(2);
+  });
+
+  it("puts no deadline on a finished turn", async () => {
     const { socket, transport, onFallback } = setupTransport();
     const connecting = transport.connect();
     socket.open();
@@ -149,7 +206,8 @@ describe("ChatWsTransport", () => {
       client_longitude: null,
     });
     socket.emit({ type: "start" });
-    jest.advanceTimersByTime(5 * WS_FIRST_EVENT_TIMEOUT_MS);
+    socket.emit({ type: "done", message_id: "m1" });
+    jest.advanceTimersByTime(5 * STREAM_IDLE_TIMEOUT_MS);
 
     expect(onFallback).not.toHaveBeenCalled();
     expect(socket.close).not.toHaveBeenCalled();
@@ -177,6 +235,41 @@ describe("ChatWsTransport", () => {
       duringTurn: true,
       payload: { type: "error", message: "Unauthorized" },
     });
+    // The turn replays over SSE, which refreshes the token; the socket tries again.
+    expect(transport.shouldUseSse()).toBe(false);
+  });
+
+  it("authenticates a new socket with the newest token, and stays on SSE after a second refusal", async () => {
+    const sockets: FakeSocket[] = [];
+    let token = "expired";
+    const onFallback = jest.fn<void, [ChatWsFallbackSignal]>();
+    const transport = new ChatWsTransport({
+      url: "wss://test/chat",
+      getToken: () => token,
+      clientTimezone: "UTC",
+      onPayload: jest.fn(),
+      onFallback,
+      createSocket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket as unknown as WebSocket;
+      },
+    });
+    let connecting = transport.connect();
+    sockets[0]!.open();
+    await connecting;
+    sockets[0]!.emit({ type: "error", message: "Unauthorized" });
+    expect(transport.shouldUseSse()).toBe(false);
+
+    token = "fresh";
+    connecting = transport.connect();
+    sockets[1]!.open();
+    await connecting;
+    expect(sockets[1]!.send).toHaveBeenNthCalledWith(
+      1,
+      JSON.stringify({ token: "fresh", client_timezone: "UTC" }),
+    );
+    sockets[1]!.emit({ type: "error", message: "Unauthorized" });
     expect(transport.shouldUseSse()).toBe(true);
   });
 

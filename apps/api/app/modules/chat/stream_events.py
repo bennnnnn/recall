@@ -28,7 +28,7 @@ from app.exceptions import (
 )
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.modules.chat.stream_accum import Completion
-from app.modules.chat.turn_outcome import TurnOutcome
+from app.modules.chat.turn_outcome import TurnOutcome, TurnUsage
 from app.modules.web_search import SearchSource
 
 logger = logging.getLogger(__name__)
@@ -106,6 +106,17 @@ REPLY_SAVE_FAILED_MESSAGE = "Failed to save the response. Please retry."
 SERVER_RESTARTING_MESSAGE = "The server is restarting. Send again in a moment."
 
 
+# A turn that is quiet this long (tool calls, a slow provider) sends a keepalive, so
+# the phone can tell a slow turn from a dead connection: it gives up on a stream
+# after 45 s with nothing (code-health audit NET-17).
+TURN_KEEPALIVE_SECONDS = 15.0
+
+
+def build_keepalive_event() -> dict[str, Any]:
+    """Sent while a turn is quiet; carries nothing."""
+    return {"type": "keepalive"}
+
+
 def build_start_event() -> dict[str, Any]:
     """First frame of a turn; tells the client generation has begun."""
     return {"type": "start"}
@@ -164,6 +175,8 @@ class DoneEvent(BaseModel):
     memory_hints: list[str] = []
     context_summarized: int = 0
     todos_changed: bool = False
+    # The day's usage after this turn: the quota nudge reads it here, not with a GET.
+    usage: TurnUsage | None = None
     search_sources: list[SearchSource] = []
     final_content: str | None = None
     resolved_model: str | None = None
@@ -180,6 +193,7 @@ class DoneEvent(BaseModel):
             memory_hints=outcome.memory_hints,
             context_summarized=outcome.context_summarized,
             todos_changed=outcome.todos_changed,
+            usage=outcome.usage,
             search_sources=outcome.search_sources,
             final_content=outcome.final_content,
             resolved_model=outcome.resolved_model,
@@ -206,6 +220,9 @@ class DoneEvent(BaseModel):
             event["context_summarized"] = str(self.context_summarized)
         if self.todos_changed:
             event["todos_sync"] = "1"
+        if self.usage:
+            event["used_tokens"] = str(self.usage.used_tokens)
+            event["daily_limit"] = str(self.usage.daily_limit)
         if self.search_sources:
             event["search_sources"] = json.dumps(self.search_sources)
         if self.final_content:

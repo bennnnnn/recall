@@ -34,6 +34,10 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   return context.resolveRequest(context, moduleName, platform);
 };
 
+// The web libraries the WebViews run ship as assets (lib/vendorAssets.ts), so they stay
+// out of the JS bundle and an update re-downloads them only when they change.
+config.resolver.assetExts = [...config.resolver.assetExts, "txt"];
+
 // Keep Jest-only tooling out of the app bundle (SDK 52+ handles monorepo resolution;
 // avoid extraNodeModules — it can break RN global init with "property is not writable").
 config.resolver.blockList = [

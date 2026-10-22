@@ -1,20 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, type AppStateStatus } from "react-native";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { AppStateStatus } from "react-native";
 import type { FlashListRef } from "@shopify/flash-list";
-import { useFocusEffect, useRouter } from "expo-router";
+import type { useRouter } from "expo-router";
 
 import type { IconName } from "@/ui/icons/names";
 
 import { api, type Chat, type Message } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/client";
 import { getSessionGeneration } from "@/lib/auth";
-import { getCachedChat } from "@/lib/cache/chatListCache";
+import { getCachedChat } from "@/features/chat/model/chatListCache";
+import { onAppStateChange } from "@/lib/foregroundRefresh";
 import {
   shouldForceForegroundChatRecovery,
   shouldRefetchChatOnForeground,
-  shouldSilentRefetchChatOnFocus,
   shouldSkipSilentChatRefetch,
 } from "@/features/chat/model/foregroundRefetch";
+import { keepLeftThread, takeRecentLeftThread, type LeftThread } from "@/features/chat/model/leftThreads";
 import {
   cachedChatPageFetchedAt,
   clearCachedChatMessages,
@@ -31,10 +32,13 @@ import {
   shouldProbePreviousChat,
 } from "@/features/chat/model/draftLogic";
 import { shouldInsertDrawerRowOnLeave } from "@/features/chat/model/titleRefresh";
-import { getChatMutationRevision, removeChatGlobal, subscribeChatChanges } from "@/lib/drawer";
+import { getChatMutationRevision, removeChatGlobal, subscribeChatChanges } from "@/features/chat/drawer/drawer";
 import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import { useChatHighlightScroll } from "@/features/chat/hooks/useChatHighlightScroll";
+import { useChatPaging } from "@/features/chat/hooks/useChatPaging";
 import { useChatTitlePolling } from "@/features/chat/hooks/useChatTitlePolling";
+import { useLatestRef } from "@/lib/latestRef";
+import { useViewOwner } from "@/lib/viewOwner";
 
 type Router = ReturnType<typeof useRouter>;
 type DraftChat = ReturnType<typeof useDraftChat>;
@@ -83,8 +87,7 @@ export function useChatRouteLoader({
     clearDraftChat,
   } = draft;
 
-  const messagesRef = useRef(messages);
-  messagesRef.current = messages;
+  const messagesRef = useLatestRef(messages);
   const getFirstUserText = useCallback(() => {
     const user = messagesRef.current.find((m) => m.role === "user");
     if (!user) return undefined;
@@ -94,7 +97,7 @@ export function useChatRouteLoader({
       return `[File: ${user.local_file_name ?? "file"}]`;
     }
     return user.content;
-  }, []);
+  }, [messagesRef]);
   const [chatTitle, setChatTitle] = useState<string | null>(null);
   const { titleGenerating, pollForTitle, handleFirstReply } = useChatTitlePolling({
     token,
@@ -106,22 +109,21 @@ export function useChatRouteLoader({
   const [archived, setArchived] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [hasMoreOlder, setHasMoreOlder] = useState(false);
-  const [loadingOlder, setLoadingOlder] = useState(false);
   const session = getSessionGeneration();
   const signedIn = Boolean(token);
-  const viewRef = useRef({ session, routeChatId, version: 0 });
-  if (viewRef.current.session !== session || viewRef.current.routeChatId !== routeChatId) {
-    viewRef.current = { session, routeChatId, version: viewRef.current.version + 1 };
-  }
-  const viewVersion = viewRef.current.version;
-  const activeChatRef = useRef(chatId);
-  activeChatRef.current = chatId;
+  // Bumped by each new route or account, New chat and unmount: a read from before lands nowhere.
+  const viewRef = useRef({ version: 0 });
+  useLayoutEffect(() => {
+    viewRef.current.version += 1;
+  }, [session, routeChatId]);
+  const { owns } = useViewOwner(`${session}:${routeChatId}`);
+  const activeChatRef = useLatestRef(chatId);
   useEffect(() => subscribeChatChanges((id, patch) => {
     if (session !== getSessionGeneration() || id !== activeChatRef.current || !patch) return;
     if (patch.title !== undefined) setChatTitle(patch.title);
     if (patch.pinned !== undefined) setPinned(patch.pinned);
     if (patch.archived !== undefined) setArchived(Boolean(patch.archived));
-  }), [session]);
+  }), [session, activeChatRef]);
 
   const applyMetadata = useCallback((chat: Chat | undefined) => {
     if (!chat) return;
@@ -129,21 +131,22 @@ export function useChatRouteLoader({
     setPinned(chat.pinned);
     setArchived(Boolean(chat.archived));
   }, []);
-  const olderRequestRef = useRef<object | null>(null);
+  const paging = useChatPaging({ token, chatId, chatLoading, messages, setMessages, hasMoreOlder, setHasMoreOlder,
+    viewRef, activeChatRef, showActionBanner, t });
+  const { resetPaging, hasMoreNewer } = paging;
   useEffect(() => () => {
     viewRef.current.version += 1;
   }, []);
 
   const priorRouteChatIdRef = useRef<string | null>(null);
-  const skipNextFocusRef = useRef(true);
+  const leftThreadsRef = useRef(new Map<string, LeftThread>());
+  const hasMoreOlderRef = useLatestRef(hasMoreOlder);
   const lastSilentFetchAtRef = useRef<Map<string, number>>(new Map());
   const wasStreamingWhenBackgroundedRef = useRef(false);
   // AppState closures must read the latest streaming/loading flags — deps alone
   // would leave a stale "still streaming" view after ws.onclose commits a partial.
-  const streamingRef = useRef(streaming);
-  const chatLoadingRef = useRef(chatLoading);
-  streamingRef.current = streaming;
-  chatLoadingRef.current = chatLoading;
+  const streamingRef = useLatestRef(streaming);
+  const chatLoadingRef = useLatestRef(chatLoading);
   const knownAssistantChatId = chatId ?? (typeof routeChatId === "string" ? routeChatId : null);
   const messagesHadContent = chatHasThreadContent(messages);
   useEffect(() => {
@@ -154,7 +157,7 @@ export function useChatRouteLoader({
 
   const turnBusy = useCallback(
     () => streamingRef.current || Boolean(imageGeneratingRef?.current),
-    [imageGeneratingRef],
+    [imageGeneratingRef, streamingRef],
   );
 
   const leaveOpenChat = useCallback(
@@ -182,13 +185,14 @@ export function useChatRouteLoader({
       discardEmptyChat,
       chatId,
       clearDraftChat,
+      messagesRef,
     ],
   );
 
   const startNewChat = useCallback(
     (_opts?: { force?: boolean }) => {
       viewRef.current.version++;
-      olderRequestRef.current = null;
+      resetPaging();
       leaveOpenChat(_opts);
       setChatId(null);
       setChatTitle(null);
@@ -196,7 +200,6 @@ export function useChatRouteLoader({
       setArchived(false);
       setMessages([]);
       setHasMoreOlder(false);
-      setLoadingOlder(false);
       setChatLoading(false);
       if (routeChatId != null) {
         router.setParams({ chatId: undefined });
@@ -204,6 +207,7 @@ export function useChatRouteLoader({
     },
     [
       leaveOpenChat,
+      resetPaging,
       routeChatId,
       router,
       setMessages,
@@ -214,9 +218,9 @@ export function useChatRouteLoader({
 
   const silentRefetchChat = useCallback(
     async (openChatId: string, cancelled: () => boolean, opts?: { force?: boolean }) => {
-      if (!token || session !== getSessionGeneration() || viewVersion !== viewRef.current.version ||
-          openChatId !== activeChatRef.current) return;
-      const version = viewVersion;
+      if (!token || session !== getSessionGeneration() || !owns() ||
+          openChatId !== activeChatRef.current || hasMoreNewer) return;
+      const version = viewRef.current.version;
       const ownerSession = getSessionGeneration();
       const previousMessages = messagesRef.current;
       const stale = () =>
@@ -262,7 +266,7 @@ export function useChatRouteLoader({
         /* keep existing messages on silent refetch failure */
       }
     },
-    [token, session, viewVersion, setChatId, setMessages, applyMetadata, turnBusy],
+    [token, session, owns, activeChatRef, messagesRef, setChatId, setMessages, applyMetadata, turnBusy, hasMoreNewer],
   );
 
   useEffect(() => {
@@ -273,13 +277,7 @@ export function useChatRouteLoader({
         if (streamingRef.current || Boolean(imageGeneratingRef?.current)) {
           wasStreamingWhenBackgroundedRef.current = true;
         }
-        const draftId = draftChatIdRef.current;
-        if (!draftId) return;
-        // Empty pre-created drafts should not survive backgrounding.
-        if (messages.length === 0 && chatId == null) {
-          discardEmptyChat(draftId);
-          clearDraftChat();
-        }
+        // An unused draft is dropped by useDraftChat, once, on background.
         return;
       }
       // Backgrounding mid-stream kills the socket; onclose commits a truncated
@@ -304,13 +302,12 @@ export function useChatRouteLoader({
         wasStreamingWhenBackgrounded: wasStreamingWhenBackgroundedRef.current,
       });
       wasStreamingWhenBackgroundedRef.current = false;
-      skipNextFocusRef.current = true;
       void silentRefetchChat(openChatId, () => cancelled, { force });
     };
-    const sub = AppState.addEventListener("change", onAppState);
+    const stopAppState = onAppStateChange(onAppState);
     return () => {
       cancelled = true;
-      sub.remove();
+      stopAppState();
     };
   }, [
     messages.length,
@@ -323,21 +320,23 @@ export function useChatRouteLoader({
     silentRefetchChat,
     session,
     imageGeneratingRef,
+    chatLoadingRef,
+    streamingRef,
   ]);
 
   useEffect(() => {
-    skipNextFocusRef.current = true;
-  }, [routeChatId]);
-
-  useEffect(() => {
-    olderRequestRef.current = null;
-    setLoadingOlder(false);
+    resetPaging();
     if (!token) {
       setChatLoading(false);
       return;
     }
     const openChatId = typeof routeChatId === "string" ? routeChatId : null;
     const prevOpenChatId = priorRouteChatIdRef.current;
+    if (prevOpenChatId && prevOpenChatId !== openChatId && activeChatRef.current === prevOpenChatId &&
+        !turnBusy() && chatHasThreadContent(messagesRef.current)) {
+      keepLeftThread(leftThreadsRef.current, prevOpenChatId,
+        { messages: messagesRef.current, hasMore: hasMoreOlderRef.current, at: Date.now() });
+    }
     if (prevOpenChatId && prevOpenChatId !== openChatId) {
       if (
         shouldProbePreviousChat({
@@ -374,6 +373,16 @@ export function useChatRouteLoader({
         setChatId(openChatId);
         setChatLoading(false);
         lastSilentFetchAtRef.current.set(openChatId, Date.now());
+        return;
+      }
+      const left = takeRecentLeftThread(leftThreadsRef.current, openChatId);
+      const listedChat = getCachedChat(openChatId);
+      if (left && listedChat) {
+        setChatId(openChatId);
+        setMessages(left.messages);
+        setHasMoreOlder(left.hasMore);
+        applyMetadata(listedChat);
+        setChatLoading(false);
         return;
       }
       setChatLoading(true);
@@ -440,76 +449,9 @@ export function useChatRouteLoader({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signedIn, session, routeChatId]);
 
-  useFocusEffect(
-    useCallback(() => {
-      const openChatId = typeof routeChatId === "string" ? routeChatId : null;
-      if (skipNextFocusRef.current) {
-        skipNextFocusRef.current = false;
-        return;
-      }
-      if (!shouldSilentRefetchChatOnFocus()) return;
-      if (!token || !openChatId || turnBusy() || chatLoading) return;
-
-      let cancelled = false;
-      void silentRefetchChat(openChatId, () => cancelled);
-      return () => {
-        cancelled = true;
-      };
-    }, [token, routeChatId, chatLoading, silentRefetchChat, turnBusy]),
-  );
-
-  const loadOlderMessages = useCallback(async () => {
-    if (
-      !token || !chatId || session !== getSessionGeneration() || viewVersion !== viewRef.current.version ||
-      chatId !== activeChatRef.current || chatLoading || olderRequestRef.current ||
-      !hasMoreOlder || messages.length === 0
-    ) return;
-    const oldest = messages[0];
-    const isServerId =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(oldest.id);
-    if (!isServerId) return;
-
-    const request = {};
-    const version = viewRef.current.version;
-    const ownerSession = getSessionGeneration();
-    const isCurrent = () =>
-      ownerSession === getSessionGeneration() && version === viewRef.current.version && olderRequestRef.current === request;
-    olderRequestRef.current = request;
-    setLoadingOlder(true);
-    try {
-      const page = await api.listMessages(token, chatId, {
-        limit: MESSAGE_PAGE_SIZE,
-        before: oldest.id,
-      });
-      if (!isCurrent()) return;
-      setMessages((prev) => {
-        if (ownerSession !== getSessionGeneration() || version !== viewRef.current.version) return prev;
-        const knownIds = new Set(prev.map((message) => message.id));
-        return [...page.messages.filter((message) => !knownIds.has(message.id)), ...prev];
-      });
-      setHasMoreOlder(page.has_more);
-    } catch {
-      if (isCurrent()) showActionBanner(t("common.error"), "alert-circle");
-    } finally {
-      if (isCurrent()) {
-        olderRequestRef.current = null;
-        setLoadingOlder(false);
-      }
-    }
-  }, [token, session, viewVersion, chatId, chatLoading, hasMoreOlder, messages, setMessages, showActionBanner, t]);
-
   const { highlightedMessageId } = useChatHighlightScroll({
-    chatLoading,
-    routeChatId,
-    routeHighlightMessage,
-    router,
-    messages,
-    hasMoreOlder,
-    loadingOlder,
-    token,
-    chatId,
-    loadOlderMessages,
-    listRef,
+    chatLoading, routeChatId, routeHighlightMessage, router, messages, hasMoreOlder, hasMoreNewer,
+    token, chatId, openAround: paging.openAround, listRef,
   });
 
 
@@ -523,8 +465,10 @@ export function useChatRouteLoader({
     setArchived,
     chatLoading,
     hasMoreOlder,
-    loadingOlder,
-    loadOlderMessages,
+    loadingOlder: paging.loadingOlder,
+    loadOlderMessages: paging.loadOlderMessages,
+    newerPage: paging.newerPage,
+    jumpToLatest: paging.jumpToLatest,
     highlightedMessageId,
     handleFirstReply,
     startNewChat,

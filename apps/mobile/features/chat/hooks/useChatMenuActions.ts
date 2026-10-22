@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, Chat } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
+import { useLatestRef } from "@/lib/latestRef";
+import { useViewOwner } from "@/lib/viewOwner";
 import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
-import { getCachedChat } from "@/lib/cache/chatListCache";
-import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
-import { abandonActiveChatIfDeleted } from "@/lib/drawer";
+import { getCachedChat } from "@/features/chat/model/chatListCache";
+import { emitAppEvent } from "@/lib/appEvents";
+import { abandonActiveChatIfDeleted } from "@/features/chat/drawer/drawer";
 import type { IconName } from "@/ui/icons/names";
 import { beginChatMutation } from "@/features/chat/model/mutationLock";
 import { sanitizeManualChatTitle } from "@/features/chat/model/title";
@@ -33,53 +35,43 @@ export function useChatMenuActions({
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
   const session = getSessionGeneration();
-  const mounted = useRef(true);
-  const view = useRef({ session, isDrawerOpen, version: 0 });
-  if (view.current.session !== session || view.current.isDrawerOpen !== isDrawerOpen) {
-    view.current = { session, isDrawerOpen, version: view.current.version + 1 };
-  }
-  const [menuChat, setMenuChat] = useState<Chat | null>(null);
-  const menuRef = useRef(menuChat);
-  menuRef.current = menuChat;
-  const [renameVisible, setRenameVisible] = useState(false);
+  const { view, owns, mounted } = useViewOwner(`${session}:${isDrawerOpen}`);
+  // The menu, rename sheet and share sheet each belong to the view they opened in.
+  const [menu, setMenu] = useState<{ chat: Chat; view: object } | null>(null);
+  const [rename, setRename] = useState<{ chat: Chat; view: object } | null>(null);
   const [renameText, setRenameText] = useState("");
-  const [renameTarget, setRenameTarget] = useState<Chat | null>(null);
-  const [shareChat, setShareChat] = useState<Chat | null>(null);
-  const shareRef = useRef(shareChat);
-  shareRef.current = shareChat;
+  const [share, setShare] = useState<{ chat: Chat; view: object } | null>(null);
+  const menuChat = menu?.view === view ? menu.chat : null;
+  const renameTarget = rename?.view === view ? rename.chat : null;
+  const shareChat = share?.view === view ? share.chat : null;
+  const shareRef = useLatestRef(shareChat);
   const [actionBanner, setActionBanner] = useState<{ message: string; icon?: IconName } | null>(null);
-  const current = useCallback(() => mounted.current && session === getSessionGeneration(), [session]);
-  const viewVersion = view.current.version;
-  const currentView = useCallback(() => current() && view.current.isDrawerOpen && view.current.version === viewVersion, [current, viewVersion]);
+  const current = useCallback(() => mounted() && session === getSessionGeneration(), [mounted, session]);
+  const currentView = useCallback(() => current() && isDrawerOpen && owns(), [current, isDrawerOpen, owns]);
   useEffect(() => {
-    mounted.current = true;
-    return () => { mounted.current = false; };
-  }, []);
-  useEffect(() => {
-    setMenuChat(null);
-    setRenameVisible(false);
-    setRenameTarget(null);
+    setMenu(null);
+    setRename(null);
     setActionBanner(null);
-    setShareChat(null);
+    setShare(null);
   }, [session, isDrawerOpen]);
 
   const showActionBanner = useCallback((message: string, icon?: IconName) => {
     if (current()) setActionBanner({ message, icon });
   }, [current]);
   const dismissActionBanner = useCallback(() => setActionBanner(null), []);
-  const closeMenu = useCallback(() => { menuRef.current = null; setMenuChat(null); }, []);
+  const closeMenu = useCallback(() => setMenu(null), []);
   const showRowMenu = useCallback((chat: Chat) => {
-    if (currentView()) { menuRef.current = chat; setMenuChat(chat); }
-  }, [currentView]);
-  const closeRename = useCallback(() => { setRenameVisible(false); setRenameTarget(null); }, []);
+    if (currentView()) setMenu({ chat, view });
+  }, [currentView, view]);
+  const closeRename = useCallback(() => setRename(null), []);
 
   const openShareChat = useCallback(() => {
     if (!menuChat || !currentView()) return;
     const chat = getCachedChat(menuChat.id) ?? menuChat;
     closeMenu();
-    setShareChat(chat);
-  }, [menuChat, currentView, closeMenu]);
-  const closeShare = useCallback(() => setShareChat(null), []);
+    setShare({ chat, view });
+  }, [menuChat, currentView, closeMenu, view]);
+  const closeShare = useCallback(() => setShare(null), []);
   /** Private history reaches the share sheet only while the drawer and account are unchanged. */
   const loadShareMessages = useCallback(async () => {
     const chat = shareRef.current;
@@ -87,16 +79,15 @@ export function useChatMenuActions({
     const msgs = await api.listAllMessages(token, chat.id);
     if (!currentView() || shareRef.current !== chat) throw new Error("share_closed");
     return msgs;
-  }, [token, currentView]);
+  }, [token, currentView, shareRef]);
 
   const openRenameFromMenu = useCallback(() => {
     if (!menuChat || !currentView()) return;
     const chat = getCachedChat(menuChat.id) ?? menuChat;
-    setRenameTarget(chat);
+    setRename({ chat, view });
     setRenameText(chat.title ?? "");
     closeMenu();
-    setRenameVisible(true);
-  }, [menuChat, currentView, closeMenu]);
+  }, [menuChat, currentView, closeMenu, view]);
 
   const confirmRename = useCallback(async () => {
     if (!token || !renameTarget || !currentView()) return;
@@ -180,7 +171,7 @@ export function useChatMenuActions({
         notifyDestructive();
         removeChatFromGroupsById(chat.id);
         void clearCachedChatMessages(chat.id);
-        invalidateGalleryCache();
+        emitAppEvent("chatsDeleted", { chatIds: [chat.id] });
         abandonActiveChatIfDeleted([chat.id]);
         showActionBanner(t("chat.deleted_toast"), "trash");
       } catch {
@@ -198,11 +189,11 @@ export function useChatMenuActions({
   }, [menuChat, currentView, closeMenu, requestDeleteChat]);
 
   return {
-    menuChat: currentView() ? menuChat : null,
-    renameVisible: currentView() && renameVisible,
+    menuChat,
+    renameVisible: renameTarget !== null,
     renameText, setRenameText, actionBanner, dismissActionBanner, showActionBanner,
     closeMenu, showRowMenu, openRenameFromMenu, confirmRename,
-    shareChat: currentView() ? shareChat : null, openShareChat, closeShare, loadShareMessages,
+    shareChat, openShareChat, closeShare, loadShareMessages,
     togglePinChat, toggleArchiveChat, confirmDeleteChat, closeRename,
   };
 }

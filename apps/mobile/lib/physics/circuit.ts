@@ -137,9 +137,9 @@ export function circuitDepth(node: CircuitNode): number {
 // --- layout ---------------------------------------------------------------------
 
 /** Above a 12 pt label's baseline: cap height plus a little for accents. */
-const TEXT_ASCENT = 9;
+export const TEXT_ASCENT = 9;
 /** Below the baseline: subscripts (R₁) and descenders. */
-const TEXT_DESCENT = 3;
+export const TEXT_DESCENT = 3;
 const TEXT_HEIGHT = TEXT_ASCENT + TEXT_DESCENT;
 /** Every symbol fits within this distance of its wire, so a row's labels align. */
 const SYMBOL_HALF_HEIGHT = 9;
@@ -449,17 +449,6 @@ export function layoutCircuit(spec: CircuitSpec, width: number, measure: Measure
     source,
     current,
   };
-}
-
-/** Every label's box, for overlap checks: [left, top, right, bottom] in layout units. */
-export function circuitLabelBoxes(layout: CircuitLayout): [number, number, number, number][] {
-  const marks: TextMark[] = [
-    ...layout.parts.flatMap((part) => [part.label, part.detail]),
-    ...layout.groups.map((group) => group.text),
-    layout.source.label,
-    layout.current?.label,
-  ].filter((mark): mark is TextMark => Boolean(mark));
-  return marks.map((mark) => [mark.x, mark.y - TEXT_ASCENT, mark.x + mark.width, mark.y + TEXT_DESCENT]);
 }
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;

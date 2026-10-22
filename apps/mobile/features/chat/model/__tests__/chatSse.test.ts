@@ -187,3 +187,85 @@ describe("streamChatMessageSse routes through lib/api requestSse", () => {
     expect(onEvent.mock.calls.map(([event]) => event.type)).toEqual(["start", "error"]);
   });
 });
+
+describe("a stream's idle deadline (NET-17)", () => {
+  const requestSseMock = requestSse as jest.MockedFunction<typeof requestSse>;
+  const encode = (text: string) => new TextEncoder().encode(text);
+  const abortError = () => Object.assign(new Error("Aborted"), { name: "AbortError" });
+
+  /** A body that sends `chunks` at the given times, then ends or (`open`) waits until aborted. */
+  function timedStream(chunks: { afterMs: number; text: string }[], { open = false } = {}) {
+    requestSseMock.mockImplementationOnce(async (_path, _token, _body, signal) => {
+      const queue = [...chunks];
+      return {
+        ok: true,
+        status: 200,
+        body: {
+          getReader: () => ({
+            releaseLock: jest.fn(),
+            read: () => new Promise((resolve, reject) => {
+              signal?.addEventListener("abort", () => reject(abortError()), { once: true });
+              const next = queue.shift();
+              if (next) setTimeout(() => resolve({ done: false, value: encode(next.text) }), next.afterMs);
+              else if (!open) resolve({ done: true, value: undefined });
+            }),
+          }),
+        },
+      } as unknown as Response;
+    });
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    requestSseMock.mockReset();
+  });
+  afterEach(() => jest.useRealTimers());
+
+  it("gives up on a stream quiet for 45 s, as a drop rather than a Stop", async () => {
+    timedStream([{ afterMs: 10, text: 'data: {"type":"start"}\n\n' }], { open: true });
+    const onEvent = jest.fn();
+    const outcome = streamChatMessageSse({ token: "tok", chatId: "chat-1", content: "hi", onEvent })
+      .catch((error: unknown) => error);
+    await jest.advanceTimersByTimeAsync(10 + 44_999);
+    expect(onEvent).toHaveBeenCalledWith({ type: "start" });
+    await jest.advanceTimersByTimeAsync(1);
+    const error = await outcome;
+    expect(error).toMatchObject({ message: "Chat stream went quiet" });
+    expect((error as Error).name).not.toBe("AbortError");
+  });
+
+  it("keeps a quiet turn alive on keepalives, which never reach the caller", async () => {
+    timedStream([
+      { afterMs: 10, text: 'data: {"type":"start"}\n\n' },
+      { afterMs: 40_000, text: 'data: {"type":"keepalive"}\n\n' },
+      { afterMs: 40_000, text: 'data: {"type":"keepalive"}\n\n' },
+      { afterMs: 40_000, text: 'data: {"type":"done","message_id":"m1"}\n\n' },
+    ]);
+    const onEvent = jest.fn();
+    const outcome = streamChatMessageSse({ token: "tok", chatId: "chat-1", content: "hi", onEvent });
+    await jest.advanceTimersByTimeAsync(120_010);
+    await expect(outcome).resolves.toBeUndefined();
+    expect(onEvent.mock.calls.map(([event]) => event.type)).toEqual(["start", "done"]);
+  });
+
+  it("ends quietly when only the follow-ups are late after done", async () => {
+    timedStream([
+      { afterMs: 10, text: 'data: {"type":"start"}\n\n' },
+      { afterMs: 10, text: 'data: {"type":"done","message_id":"m1"}\n\n' },
+    ], { open: true });
+    const outcome = streamChatMessageSse({ token: "tok", chatId: "chat-1", content: "hi", onEvent: jest.fn() });
+    await jest.advanceTimersByTimeAsync(45_100);
+    await expect(outcome).resolves.toBeUndefined();
+  });
+
+  it("still reads a Stop as a cancel", async () => {
+    timedStream([{ afterMs: 10, text: 'data: {"type":"start"}\n\n' }], { open: true });
+    const stop = new AbortController();
+    const outcome = streamChatMessageSse({
+      token: "tok", chatId: "chat-1", content: "hi", onEvent: jest.fn(), signal: stop.signal,
+    }).catch((error: unknown) => error);
+    await jest.advanceTimersByTimeAsync(1_000);
+    stop.abort();
+    await expect(outcome).resolves.toMatchObject({ name: "AbortError" });
+  });
+});

@@ -346,3 +346,14 @@ it("still logs out when the push token cannot be read", async () => {
   await act(async () => { for (let i = 0; i < 10; i += 1) await Promise.resolve(); });
   expect(logoutSession).toHaveBeenCalledWith("access-a", "refresh-a", null);
 });
+
+it("shows the account a sync returns without asking /auth/me again (NET-19)", async () => {
+  await mount();
+  (api.me as jest.Mock).mockClear();
+  const synced = { ...userA, plan: "pro" } as User;
+  const read = jest.fn(async () => synced);
+  await act(async () => { await current.refreshUser(read); });
+  expect(read).toHaveBeenCalledWith(current.token);
+  expect(api.me).not.toHaveBeenCalled();
+  expect(current.user?.plan).toBe("pro");
+});

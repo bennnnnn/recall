@@ -107,7 +107,5 @@ async def apply_memory_facts(
 
 async def _invalidate_memory_caches(user_id: UUID) -> None:
     from app.modules import memory as memory_service
-    from app.modules.home import service as home_service
 
     await memory_service.invalidate_memory_block(user_id)
-    await home_service.invalidate_home_cache(user_id)

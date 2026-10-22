@@ -26,8 +26,10 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
+    TURN_KEEPALIVE_SECONDS,
     StreamEndEvent,
     await_finalize_commit,
+    build_keepalive_event,
     build_start_event,
     build_token_event,
     clear_task_cancellation,
@@ -128,6 +130,15 @@ async def stream_over_ws(
 
     producer = asyncio.create_task(run_stream())
 
+    async def keep_alive() -> None:
+        """A frame every so often until the turn ends: the phone's idle deadline."""
+        while True:
+            await asyncio.sleep(TURN_KEEPALIVE_SECONDS)
+            if producer.done() or not await safe_send_json(websocket, build_keepalive_event()):
+                return
+
+    heartbeat = asyncio.create_task(keep_alive())
+
     def stop() -> None:
         """The user's Stop; a server shutdown runs the same one."""
         cancel_event.set()
@@ -198,6 +209,7 @@ async def stream_over_ws(
             except asyncio.CancelledError:
                 pass
     finally:
+        heartbeat.cancel()
         # Same as SSE M10: client close must not orphan the DB commit that
         # persists the (partial) assistant row and enqueues the title job.
         await persist_finalize_if_pending(outcome)

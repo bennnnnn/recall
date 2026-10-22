@@ -8,19 +8,20 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { AppState, type AppStateStatus } from "react-native";
 
 import { useAuthOptional } from "@/contexts/AuthContext";
+import { useAccountSession } from "@/contexts/accountSession";
 import { api, type ModelInfo } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { readCachedModels, writeCachedModels } from "@/lib/cachedModels";
 import { MODEL_CATALOG_FALLBACK } from "@/lib/modelCatalogFallback";
 import { shouldRefreshModels } from "@/lib/modelRefresh";
+import { FOREGROUND_STALE_MS, useOnForeground } from "@/lib/foregroundRefresh";
 import { hasPlanFeature } from "@/lib/plan";
 
 const AUTO_MODEL_ID = "auto";
 
-const MODEL_REFRESH_TTL_MS = 5 * 60 * 1000;
+const MODEL_REFRESH_TTL_MS = FOREGROUND_STALE_MS.models;
 
 function defaultModelPreferences(
   models: ModelInfo[],
@@ -61,7 +62,8 @@ type AccountCatalog = { userId: string; models: ModelInfo[] };
 
 export function ModelsProvider({ children }: { children: ReactNode }) {
   const auth = useAuthOptional();
-  const token = auth?.token;
+  // Keyed on the account: the hourly token rotation re-read /models (code-health audit NET-11).
+  const { account, getToken } = useAccountSession();
   const user = auth?.user;
   const userId = user?.id;
   const [catalog, setCatalog] = useState<AccountCatalog | null>(null);
@@ -87,7 +89,8 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
   }, [userId]);
 
   const refresh = useCallback(async () => {
-    if (!token || !userId) return;
+    const token = getToken();
+    if (!account || !token || !userId) return;
     if (inflightRef.current) {
       await inflightRef.current;
       return;
@@ -116,25 +119,15 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
     } finally {
       inflightRef.current = null;
     }
-  }, [token, userId]);
+  }, [account, getToken, userId]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  useEffect(() => {
-    if (!token) return;
-    const onAppState = (state: AppStateStatus) => {
-      if (
-        state === "active" &&
-        shouldRefreshModels(lastFetchedAtRef.current, Date.now(), MODEL_REFRESH_TTL_MS)
-      ) {
-        void refresh();
-      }
-    };
-    const sub = AppState.addEventListener("change", onAppState);
-    return () => sub.remove();
-  }, [refresh, token]);
+  useOnForeground(() => {
+    if (shouldRefreshModels(lastFetchedAtRef.current, Date.now(), MODEL_REFRESH_TTL_MS)) void refresh();
+  }, Boolean(account));
 
   // Paid plans (Plus and Pro) unlock every model; the server enforces it.
   const isPaid = hasPlanFeature(user, "all_models");

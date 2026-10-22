@@ -57,7 +57,6 @@ async def test_profile_rejects_unusable_photo_without_saving_name(override):
             account_lifecycle.attachments_service, "get_by_id", AsyncMock(return_value=photo)
         ) as get_photo,
         patch.object(account_lifecycle.users_repo, "update", AsyncMock()) as update,
-        patch.object(account_lifecycle.home_service, "invalidate_home_cache", AsyncMock()) as cache,
     ):
         with pytest.raises(ValueError, match="uploaded photo"):
             await account_lifecycle.update_account(
@@ -68,7 +67,6 @@ async def test_profile_rejects_unusable_photo_without_saving_name(override):
             )
     get_photo.assert_awaited_once_with(session, attachment_id, user.id, for_update=True)
     update.assert_not_awaited()
-    cache.assert_not_awaited()
     session.commit.assert_not_awaited()
     session.rollback.assert_awaited_once()
     assert user.name == "Before"
@@ -83,7 +81,6 @@ async def test_profile_save_rolls_back_without_cache_invalidation_on_commit_fail
         patch.object(
             account_lifecycle.attachments_service, "get_by_id", AsyncMock(return_value=photo)
         ),
-        patch.object(account_lifecycle.home_service, "invalidate_home_cache", AsyncMock()) as cache,
     ):
         with pytest.raises(RuntimeError, match="commit failed"):
             await account_lifecycle.update_account(
@@ -93,7 +90,6 @@ async def test_profile_save_rolls_back_without_cache_invalidation_on_commit_fail
                 {"name": "After", "avatar_url": f"/attachments/{photo.id}/file"},
             )
     session.rollback.assert_awaited_once()
-    cache.assert_not_awaited()
 
 
 @pytest.mark.parametrize("custom", [True, False])

@@ -14,7 +14,7 @@ jest.mock("react-i18next", () => ({
 describe("VoiceMicButton", () => {
   it("keeps the stop glyph in the same ink as the other composer icons", async () => {
     const { getByTestId } = await render(
-      <VoiceMicButton recording transcribing={false} onPress={jest.fn()} />,
+      <VoiceMicButton size={36} recording transcribing={false} onPress={jest.fn()} />,
     );
 
     expect(getByTestId("voice-stop-mark").props.rx).toBe("5");

@@ -37,7 +37,7 @@ const mockAdoptComposerThread = jest.fn();
 const mockStashFailedDraftForThread = jest.fn();
 let mockThreadKey = "new";
 const mockResetForNewSession = jest.fn();
-jest.mock("@/contexts/ComposerDraftContext", () => ({
+jest.mock("@/features/chat/context/ComposerDraftContext", () => ({
   useComposerDraftApi: () => ({
     setInput: mockSetInput,
     inputRef,
@@ -128,6 +128,7 @@ function Probe({
   messages = [],
   imageGenerating,
   draft,
+  beforeSend,
 }: {
   offline?: boolean;
   chatLoading?: boolean;
@@ -142,6 +143,7 @@ function Probe({
   messages?: Message[];
   imageGenerating?: boolean;
   draft?: Record<string, unknown>;
+  beforeSend?: () => Promise<void>;
 }) {
   const result = useChatSend({
     token,
@@ -172,6 +174,7 @@ function Probe({
     onOfflineBlocked,
     onGenerateImage,
     imageGenerating,
+    beforeSend,
   });
   useLayoutEffect(() => { current = result; });
   return <Text>send</Text>;
@@ -505,6 +508,34 @@ describe("useChatSend", () => {
     );
     expect(current.pendingOutboundId).toBeNull();
     expect(current.sendPhase).toBe("idle");
+  });
+
+  it("sends from a window only after the newest page is back, and once (NET-18)", async () => {
+    inputRef.current = "and then?";
+    let back: () => void = () => undefined;
+    const beforeSend = jest.fn(() => new Promise<void>((resolve) => { back = resolve; }));
+    const setMessages = jest.fn();
+    const sendMessage = jest.fn();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} setMessages={setMessages} beforeSend={beforeSend} />);
+    });
+    let sendPromise: Promise<void> = Promise.resolve();
+    await act(async () => {
+      sendPromise = current.handleSend();
+      await Promise.resolve();
+    });
+    expect(beforeSend).toHaveBeenCalledTimes(1);
+    expect(setMessages).not.toHaveBeenCalled();
+    // A second tap while the newest page loads sends nothing.
+    await act(async () => { await current.handleSend(); });
+    expect(beforeSend).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      back();
+      await sendPromise;
+    });
+    expect(setMessages).toHaveBeenCalledTimes(1);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
   });
 
   it("leaves the draft untouched when geo is cancelled", async () => {

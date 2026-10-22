@@ -31,10 +31,8 @@ def test_create_todo():
 
     user = _fake_user()
     app = _app_with_user(user)
-    invalidate_mock = AsyncMock()
     with (
         patch("app.modules.todos.crud.todos_repo.create", AsyncMock(return_value=todo_mock)),
-        patch("app.modules.todos.crud.home_service.invalidate_home_cache", invalidate_mock),
     ):
         client = TestClient(app)
         r = client.post(
@@ -44,7 +42,6 @@ def test_create_todo():
         )
     assert r.status_code == 201
     assert r.json()["content"] == "Test todo"
-    invalidate_mock.assert_awaited_once_with(user.id)
 
 
 def test_create_todo_with_chat_id():
@@ -238,7 +235,6 @@ def test_create_todo_normalizes_naive_due_at_to_user_timezone():
     create_mock = AsyncMock(return_value=todo_mock)
     with (
         patch("app.modules.todos.crud.todos_repo.create", create_mock),
-        patch("app.modules.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         # Naive 9:00 — should be interpreted as 9:00 America/New_York -> 14:00 UTC.
@@ -278,7 +274,6 @@ def test_create_todo_accepts_plain_undated_item():
     create_mock = AsyncMock(return_value=todo_mock)
     with (
         patch("app.modules.todos.crud.todos_repo.create", create_mock),
-        patch("app.modules.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.post(
@@ -325,7 +320,6 @@ def test_update_todo_can_clear_due_at_and_repeat():
     with (
         patch("app.modules.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
         patch("app.modules.todos.crud.todos_repo.update", update_mock),
-        patch("app.modules.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.patch(
@@ -360,7 +354,6 @@ def test_update_todo_normalizes_naive_due_at():
     with (
         patch("app.modules.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
         patch("app.modules.todos.crud.todos_repo.update", update_mock),
-        patch("app.modules.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         # Naive 9:00 — should be interpreted as 9:00 Asia/Tokyo -> 0:00 UTC.

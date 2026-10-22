@@ -56,10 +56,10 @@ async def apply_reminder_pass(
         # say something: an empty one kept the streamed fence on the phone.
         if given.strip() and not text.strip():
             text = _ASK_WHEN
-        if outcome is not None and not ctx.skip_memory_jobs:
-            transcript = f"User: {ctx.user_message_content}\nAssistant: {text}"
-            if created > 0 or deps.todos.transcript_implies_todo_sync(transcript):
-                outcome.todos_changed = True
+        # Rows written this turn: the phone reloads its list once (code-health audit
+        # NET-14). No background job writes to-dos after the reply any more.
+        if outcome is not None and created > 0:
+            outcome.todos_changed = True
     except Exception:
         logger.exception("Reminder pass failed; keeping the finished reply")
     return text

@@ -2,6 +2,7 @@ import { StrictMode, useEffect } from "react";
 import { act, render, waitFor } from "@testing-library/react-native";
 import { TodosProvider, useTodos } from "@/features/todos/context/TodosContext";
 import { api, type Todo } from "@/lib/api";
+import type { TodoList } from "@/features/todos/api";
 import { syncTodoReminders } from "@/features/todos/model/todoReminders";
 import { loadSeenReminderIds, markReminderIdsSeen, saveSeenReminderIds } from "@/features/todos/model/reminderSeen";
 import { loadHomeNudgeState, saveHomeNudgeState } from "@/features/todos/model/homeReminderNudges";
@@ -40,16 +41,17 @@ jest.mock("@/features/todos/model/homeReminderNudges", () => ({
 
 function Probe() { const value = useTodos(); useEffect(() => { mockValue = value; }, [value]); return null; }
 function Screen() { return <TodosProvider><Probe /></TodosProvider>; }
+const list = (todos: Todo[]): TodoList => ({ todos, olderCompleted: false });
 function deferred() {
   let resolve!: (rows: Todo[]) => void;
-  const promise = new Promise<Todo[]>((done) => { resolve = done; });
+  const promise = new Promise<TodoList>((done) => { resolve = (rows) => done(list(rows)); });
   return { promise, resolve };
 }
 beforeEach(() => {
   jest.clearAllMocks(); mockSession = 1; mockToken = "token-a"; mockUserId = "account-a";
   mockLead = 60; mockSeen = new Set(); mockDismissed = new Set();
   jest.useFakeTimers({ now });
-  jest.mocked(api.listTodos).mockResolvedValue([todo]);
+  jest.mocked(api.listTodos).mockResolvedValue(list([todo]));
   jest.mocked(api.updateTodo).mockResolvedValue(todo);
 });
 afterEach(() => { jest.restoreAllMocks(); jest.useRealTimers(); });
@@ -96,7 +98,7 @@ it("does not let a retained setter write to another account", async () => {
   const ui = await render(<Screen />);
   const setOld = mockValue.setTodos;
   mockSession++; mockToken = "token-b"; mockUserId = "account-b";
-  jest.mocked(api.listTodos).mockResolvedValue([]);
+  jest.mocked(api.listTodos).mockResolvedValue(list([]));
   await ui.rerender(<Screen />);
   await act(() => { setOld([todo]); });
   expect(mockValue.todos).toEqual([]);
@@ -120,7 +122,7 @@ it("marks the same configured lead window seen that contributes to the badge", a
 
 it("preserves canonical server recurrence dates without a client PATCH", async () => {
   const recurring = { ...todo, recurrence_rule: "daily" as const, due_at: "2020-01-01T12:00:00Z" };
-  jest.mocked(api.listTodos).mockResolvedValue([recurring]);
+  jest.mocked(api.listTodos).mockResolvedValue(list([recurring]));
   await render(<Screen />);
   await waitFor(() => expect(mockValue.loading).toBe(false));
   expect(api.updateTodo).not.toHaveBeenCalled();
@@ -148,7 +150,7 @@ it("waits for a pending mutation before beginning a newer list read", async () =
     await act(() => { refresh = mockValue.refresh({ force: true }); });
     expect(api.listTodos).toHaveBeenCalledTimes(1);
     expect(mockValue.todos).toEqual([]);
-    jest.mocked(api.listTodos).mockResolvedValueOnce([]);
+    jest.mocked(api.listTodos).mockResolvedValueOnce(list([]));
     await act(async () => { release(); await refresh; });
     expect(api.listTodos).toHaveBeenCalledTimes(2);
     expect(mockValue.todos).toEqual([]);
@@ -200,7 +202,7 @@ it("releases a mutation wait immediately when its account owner changes", async 
     await act(() => { waiting = mockValue.refresh({ force: true }); });
     expect(mutations.listeners.size).toBe(1);
     mockSession++; mockToken = "token-b"; mockUserId = "account-b";
-    jest.mocked(api.listTodos).mockResolvedValue([]);
+    jest.mocked(api.listTodos).mockResolvedValue(list([]));
     await ui.rerender(<Screen />);
     await act(async () => { await waiting; });
     expect(mutations.listeners.size).toBe(0);
@@ -216,7 +218,7 @@ it("keeps a newer account's mutation registry when an old afterPending wait resu
   let waiting!: Promise<void>;
   await act(() => { waiting = mockValue.refresh({ afterPending: true }); });
   mockSession++; mockToken = "token-b"; mockUserId = "account-b";
-  jest.mocked(api.listTodos).mockResolvedValue([]);
+  jest.mocked(api.listTodos).mockResolvedValue(list([]));
   await ui.rerender(<Screen />);
   const key = `${mockSession}:${mockUserId}`;
   const mutations = getTodoMutationState(key);
@@ -231,7 +233,7 @@ it("keeps a newer account's mutation registry when an old afterPending wait resu
 it("starts a fresh recovery read after an older response replays a rollback", async () => {
   await render(<Screen />);
   const old = deferred();
-  jest.mocked(api.listTodos).mockReturnValueOnce(old.promise).mockResolvedValueOnce([]);
+  jest.mocked(api.listTodos).mockReturnValueOnce(old.promise).mockResolvedValueOnce(list([]));
   let first!: Promise<void>; let recovery!: Promise<void>;
   await act(() => { first = mockValue.refresh({ force: true }); });
   await act(() => { mockValue.setTodos([]); mockValue.setTodos([todo]);
@@ -255,9 +257,23 @@ it("rejects stale badge hydration without losing a newer account's seen state", 
   const ui = await render(<Screen />);
   mockSession++; mockToken = "token-b"; mockUserId = "account-b";
   const b = { ...todo, id: "b" };
-  jest.mocked(api.listTodos).mockResolvedValue([b]);
+  jest.mocked(api.listTodos).mockResolvedValue(list([b]));
   mockSeen = new Set([b.id]);
   await ui.rerender(<Screen />);
   await act(async () => { finish(new Set([todo.id])); });
   expect([...mockValue.seenReminderIds]).toEqual([b.id]);
+});
+
+it("reads the completed to-dos it left out only when asked (NET-16)", async () => {
+  jest.mocked(api.listTodos).mockResolvedValue({ todos: [todo], olderCompleted: true });
+  await render(<Screen />);
+  await waitFor(() => expect(mockValue.olderCompleted).toBe(true));
+  expect(jest.mocked(api.listTodos).mock.calls.at(-1)?.[1]).toMatchObject({ allCompleted: false });
+
+  const old = { ...todo, id: "old", checked: true };
+  jest.mocked(api.listTodos).mockResolvedValue({ todos: [todo, old], olderCompleted: false });
+  await act(async () => { await mockValue.showOlderCompleted(); });
+  expect(jest.mocked(api.listTodos).mock.calls.at(-1)?.[1]).toMatchObject({ allCompleted: true });
+  expect(mockValue.todos.map((row) => row.id)).toEqual([todo.id, "old"]);
+  expect(mockValue.olderCompleted).toBe(false);
 });

@@ -15,7 +15,6 @@ export type LiveTalkStatus = {
   entitled: boolean;
   remaining: number;
   limit: number;
-  refunded?: boolean;
   remaining_seconds?: number;
   limit_seconds?: number;
   /** The server refuses a session when fewer seconds than this are left. */

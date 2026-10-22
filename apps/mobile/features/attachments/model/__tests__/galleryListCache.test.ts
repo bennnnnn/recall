@@ -1,4 +1,5 @@
 import { getSessionGeneration } from "@/lib/auth";
+import { emitAppEvent } from "@/lib/appEvents";
 import { api } from "@/lib/api";
 import {
   fetchGalleryPage,
@@ -43,6 +44,15 @@ describe("galleryListCache", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     invalidateGalleryCache();
+  });
+
+  it.each([
+    ["chats are deleted", () => emitAppEvent("chatsDeleted", { chatIds: ["chat-1"] })],
+    ["a picture is saved into a chat", () => emitAppEvent("attachmentAdded", { chatId: "chat-1" })],
+  ])("reads again when %s elsewhere (ARCH-10)", (_, announce) => {
+    setGalleryPage("all", "", sample);
+    announce();
+    expect(isGalleryPageFresh("all", "")).toBe(false);
   });
 
   it("returns a fresh page without refetching", async () => {

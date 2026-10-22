@@ -1,6 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.db import get_db
@@ -84,11 +85,33 @@ def test_chat_turn_outcome_is_accepted_with_metadata_only() -> None:
         "app.modules.analytics.service.product_events_repo.create_batch", AsyncMock()
     ) as create_batch:
         response = _post_turn_outcome(
-            app, {"completion": "error", "error_code": "model_unavailable", "tool": "none"}
+            app,
+            {
+                "completion": "error",
+                "error_code": "model_unavailable",
+                "tool": "none",
+                "sample_rate": "0.2",
+            },
         )
 
     assert response.status_code == 204
     create_batch.assert_awaited_once()
+
+
+@pytest.mark.parametrize("sample_rate", [None, "0.25", "all"])
+def test_chat_turn_outcome_needs_a_known_sample_rate(sample_rate: str | None) -> None:
+    """NET-15: a sampled event says its rate, so its count can be scaled back."""
+    app, _, _ = _app_with_analytics_dependencies()
+    properties = {"completion": "complete", "error_code": "none", "tool": "none"}
+    if sample_rate is not None:
+        properties["sample_rate"] = sample_rate
+    with patch(
+        "app.modules.analytics.service.product_events_repo.create_batch", AsyncMock()
+    ) as create_batch:
+        response = _post_turn_outcome(app, properties)
+
+    assert response.status_code == 422
+    create_batch.assert_not_awaited()
 
 
 def test_chat_turn_outcome_rejects_free_text_properties() -> None:
@@ -103,6 +126,7 @@ def test_chat_turn_outcome_rejects_free_text_properties() -> None:
                 "completion": "complete",
                 "error_code": "none",
                 "tool": "searching: cheap flights to Lagos",
+                "sample_rate": "0.2",
             },
         )
 

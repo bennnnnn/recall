@@ -146,29 +146,6 @@ def test_me_patch_invalidates_memory_cache_on_toggle():
     invalidate_mock.assert_awaited_once_with(user.id)
 
 
-def test_me_patch_invalidates_home_cache():
-    user = _fake_user()
-    app = _app_with_user(user)
-    invalidate_mock = AsyncMock()
-
-    with (
-        patch("app.modules.account.lifecycle.users_repo.update", AsyncMock(return_value=user)),
-        patch(
-            "app.modules.account.lifecycle.home_service.invalidate_home_cache",
-            invalidate_mock,
-        ),
-    ):
-        client = TestClient(app)
-        r = client.patch(
-            "/auth/me",
-            headers={"Authorization": "Bearer tok"},
-            json={"name": "New Name"},
-        )
-
-    assert r.status_code == 200
-    invalidate_mock.assert_awaited_once_with(user.id)
-
-
 def test_me_patch_skips_memory_invalidation_when_unchanged():
     user = _fake_user()
     user.memory_enabled = True
@@ -622,6 +599,30 @@ def test_list_chats():
     }
 
 
+def test_list_chats_answers_an_unchanged_list_with_304():
+    """NET-16: the phone sends back the list's ETag and gets no body when nothing changed."""
+    user = _fake_user()
+    app = _app_with_user(user)
+    groups = {"today": [], "yesterday": [], "last_7_days": [], "this_month": [], "older": []}
+    with (
+        patch("app.modules.chat.service.chats_repo.list_for_user", AsyncMock(return_value=[])),
+        patch(
+            "app.modules.chat.service.chats_repo.list_archived_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch("app.modules.chat.service.chats_repo.group_by_recency", return_value=groups),
+    ):
+        client = TestClient(app)
+        first = client.get("/chats", headers={"Authorization": "Bearer tok"})
+        again = client.get(
+            "/chats",
+            headers={"Authorization": "Bearer tok", "If-None-Match": first.headers["etag"]},
+        )
+    assert first.status_code == 200
+    assert again.status_code == 304
+    assert again.content == b""
+
+
 def test_list_chats_never_overlaps_ops_on_one_session():
     """The active + archived queries run concurrently, and an AsyncSession can
     only run one operation at a time (asyncpg raises InterfaceError on
@@ -733,10 +734,14 @@ def test_list_messages_enqueues_topic_backfill():
     ):
         client = TestClient(app)
         r = client.get(f"/chats/{chat_id}/messages", headers={"Authorization": "Bearer tok"})
-        r2 = client.get(f"/chats/{chat_id}/messages", headers={"Authorization": "Bearer tok"})
+        r2 = client.get(
+            f"/chats/{chat_id}/messages",
+            headers={"Authorization": "Bearer tok", "If-None-Match": r.headers["etag"]},
+        )
 
     assert r.status_code == 200
-    assert r2.status_code == 200
+    # The same page again: no body (NET-16).
+    assert r2.status_code == 304
     enqueue_job.assert_awaited_once()
     assert enqueue_job.call_args.args[1] == "topic"
     payload = enqueue_job.call_args.args[2]
@@ -2974,3 +2979,17 @@ def test_speech_live_disabled():
     r = client.get("/speech/live", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
     assert r.json()["enabled"] is False
+
+
+def test_list_messages_takes_one_cursor():
+    """NET-18: a page is before, after or around one message, never two at once."""
+    user = _fake_user()
+    app = _app_with_user(user)
+    chat_id = uuid4()
+    client = TestClient(app)
+    response = client.get(
+        f"/chats/{chat_id}/messages",
+        params={"before": str(uuid4()), "around": str(uuid4())},
+        headers={"Authorization": "Bearer tok"},
+    )
+    assert response.status_code == 422

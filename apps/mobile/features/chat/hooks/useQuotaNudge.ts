@@ -1,68 +1,71 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { api } from "@/lib/api";
+import { useAccountSession } from "@/contexts/accountSession";
+import { fetchTodayUsage } from "@/lib/cache/usageCache";
 import { usageUsedPercent } from "@/lib/quota";
+import type { TurnUsage } from "@/features/chat/model/socketReduce";
+import {
+  dismissQuotaNudgeToday,
+  quotaNudgeDismissedToday,
+} from "@/features/chat/model/quotaNudgeDismissal";
 
 // Show the upgrade nudge once the free user has used this much of today's quota.
 const QUOTA_NUDGE_THRESHOLD_PCT = 80;
 
-// In-memory per-day dismissal. Resets when the app restarts — acceptable for a
-// conversion nudge (it just re-shows once the next session of the same day).
-// Avoids adding an AsyncStorage dependency for a non-sensitive UI flag.
-let dismissedDate: string | null = null;
-
-/** Sign-out: the next account sees the nudge on its own terms. */
-export function resetQuotaNudgeDismissal(): void {
-  dismissedDate = null;
-}
-
-function today(): string {
-  // L7: use UTC (toISOString) to match the server's UTC-day quota reset.
-  // A local-date slice would dismiss the nudge across a midnight boundary
-  // that the server hasn't crossed yet.
-  return new Date().toISOString().slice(0, 10);
-}
-
 type Options = {
-  token: string | null;
   isPaid: boolean;
-  /** Bump to refetch (e.g. when a chat turn finishes and usage likely changed). */
-  refreshKey: number;
 };
 
 /**
- * Fetches today's usage and decides whether to show a "you're nearing the free
- * limit, go Pro" nudge. Only fires for free users at/above the threshold, and
- * only once per day until dismissed. Pro users never see it.
+ * Decides whether to show a "you're nearing the free limit, go Pro" nudge. Only
+ * fires for free users at/above the threshold, and only once per day until
+ * dismissed. Pro users never see it.
+ *
+ * Today's usage is read once per account; after that each finished turn reports
+ * the day's usage on its `done` (`applyTurnUsage`), so a turn costs no extra
+ * request (code-health audit NET-14).
  */
-export function useQuotaNudge({ token, isPaid, refreshKey }: Options) {
+export function useQuotaNudge({ isPaid }: Options) {
+  const { account, getToken } = useAccountSession();
   const [show, setShow] = useState(false);
   const [usedPct, setUsedPct] = useState(0);
 
+  const applyPercent = useCallback((pct: number) => {
+    setUsedPct(pct);
+    if (pct >= QUOTA_NUDGE_THRESHOLD_PCT && !quotaNudgeDismissedToday()) {
+      setShow(true);
+    }
+  }, []);
+
   useEffect(() => {
-    if (!token || isPaid) {
+    const token = getToken();
+    if (!account || !token || isPaid) {
       setShow(false);
       return;
     }
     let cancelled = false;
     void (async () => {
-      const usage = await api.todayUsage(token).catch(() => null);
+      const usage = await fetchTodayUsage(account, token);
       if (cancelled || !usage) return;
-      const pct = Math.round(usageUsedPercent(usage));
-      setUsedPct(pct);
-      if (pct >= QUOTA_NUDGE_THRESHOLD_PCT && dismissedDate !== today()) {
-        setShow(true);
-      }
+      applyPercent(Math.round(usageUsedPercent(usage)));
     })();
     return () => {
       cancelled = true;
     };
-  }, [token, isPaid, refreshKey]);
+  }, [account, getToken, isPaid, applyPercent]);
+
+  const applyTurnUsage = useCallback(
+    (usage: TurnUsage) => {
+      if (!account || isPaid || usage.daily_limit <= 0) return;
+      applyPercent(Math.round(Math.min(100, (usage.used_tokens / usage.daily_limit) * 100)));
+    },
+    [account, isPaid, applyPercent],
+  );
 
   const dismiss = useCallback(() => {
-    dismissedDate = today();
+    dismissQuotaNudgeToday();
     setShow(false);
   }, []);
 
-  return { show, usedPct, dismiss };
+  return { show, usedPct, dismiss, applyTurnUsage };
 }

@@ -42,7 +42,6 @@ def _deps() -> tuple[Any, MagicMock, MagicMock]:
 
     todos = MagicMock()
     todos.materialize_reminder_fences = AsyncMock(side_effect=_passthrough)
-    todos.transcript_implies_todo_sync = MagicMock(return_value=False)
     math_fence = MagicMock()
     math_fence.needs_math_fence_validate = MagicMock(return_value=True)
     math_fence.validate_math_fences_worker = MagicMock(

@@ -1,23 +1,23 @@
-/** Sync first-paint home content — no network, no `@/lib/api` import
- * (keeps HomeProvider free of circular-module init races with Metro). */
+/** The empty chat's greeting, built on the phone: no request, in the phone's language.
+ *
+ * The greeting came from `GET /home` on every start, return and token rotation; the
+ * server's was English only and replaced the translated one (code-health audit NET-10). */
 
 import i18n from "@/lib/i18n";
-import type { HomeScreen } from "@/lib/api/types";
 
-export function localGreeting(now: Date = new Date()): string {
+function partOfDay(now: Date): "morning" | "afternoon" | "evening" | "night" {
   const hour = now.getHours();
-  if (hour >= 5 && hour < 12) return i18n.t("chat.home.greeting_morning");
-  if (hour >= 12 && hour < 17) return i18n.t("chat.home.greeting_afternoon");
-  if (hour >= 17 && hour < 22) return i18n.t("chat.home.greeting_evening");
-  return i18n.t("chat.home.greeting_night");
+  if (hour >= 5 && hour < 12) return "morning";
+  if (hour >= 12 && hour < 17) return "afternoon";
+  if (hour >= 17 && hour < 22) return "evening";
+  return "night";
 }
 
-/** Sync placeholder so post-login home never paints a bare spinner. */
-export function instantHomePlaceholder(now: Date = new Date()): HomeScreen {
-  return {
-    greeting: localGreeting(now),
-    subtitle: null,
-    urgent_todos: [],
-    starters: [],
-  };
+/** "Good morning, Sam": the first word of the account's name, when it has one. */
+export function homeGreeting(name: string | null | undefined, now: Date = new Date()): string {
+  const first = name?.trim().split(/\s+/)[0];
+  const part = partOfDay(now);
+  return first
+    ? i18n.t(`chat.home.greeting_${part}_name`, { name: first })
+    : i18n.t(`chat.home.greeting_${part}`);
 }

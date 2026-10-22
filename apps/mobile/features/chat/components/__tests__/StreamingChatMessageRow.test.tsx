@@ -5,7 +5,7 @@ import type { Message } from "@/lib/api";
 
 let mockBubbleProps: { onRegenerate?: () => void } = {};
 
-jest.mock("@/components/MessageBubble", () => ({
+jest.mock("@/features/chat/components/MessageBubble", () => ({
   MessageBubble: (props: { onRegenerate?: () => void }) => {
     mockBubbleProps = props;
     return null;

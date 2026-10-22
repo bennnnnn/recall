@@ -5,12 +5,10 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
 import { useAuth } from "@/contexts/AuthContext";
-import { useComposerDraftActivity } from "@/contexts/ComposerDraftContext";
-import { useHome } from "@/features/home/context/HomeContext";
 import { useTodos } from "@/features/todos/context/TodosContext";
 import type { HomeUrgentTodo } from "@/lib/api";
 import { describeDueAt } from "@/features/todos/model/dueDate";
-import { instantHomePlaceholder } from "@/features/home/model/homeWelcome";
+import { homeGreeting } from "@/features/home/model/homeWelcome";
 import { filterHomeNudgeTodos } from "@/features/todos/model/homeReminderNudges";
 import { firstOverdueHomeTodo, listHomeUrgentTodos } from "@/features/todos/model/homeUrgentTodos";
 import { tap } from "@/lib/haptics";
@@ -83,12 +81,15 @@ function OverdueReminderRow({
   );
 }
 
-export function HomeStarters() {
+type Props = {
+  /** The composer holds a draft: the empty-chat canvas stays clear. The chat passes it. */
+  composerActive: boolean;
+};
+
+export function HomeStarters({ composerActive }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { user } = useAuth();
-  const composerActive = useComposerDraftActivity();
-  const { screen } = useHome();
   const {
     todos,
     loading: todosLoading,
@@ -97,8 +98,6 @@ export function HomeStarters() {
     dismissReminderNudge,
   } = useTodos();
   const leadMinutes = user?.reminder_lead_minutes ?? undefined;
-  // Never block first paint on /home — local greeting, then hydrate the name.
-  const display = screen ?? instantHomePlaceholder();
 
   const overdueTodo = useMemo(() => {
     // Wait until todos + nudge-state are in sync. Silent refreshes used to paint
@@ -121,7 +120,7 @@ export function HomeStarters() {
 
   return (
     <View style={s.wrap}>
-      <Text style={s.greeting}>{display.greeting}</Text>
+      <Text style={s.greeting}>{homeGreeting(user?.name)}</Text>
 
       {overdueTodo ? (
         <OverdueReminderRow

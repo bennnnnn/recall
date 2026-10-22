@@ -29,8 +29,3 @@ export function discardLocalCopy(uri: string | null | undefined): void {
     // Cache cleanup is best-effort; the OS reclaims the cache directory anyway.
   }
 }
-
-/** Test helper. */
-export function ownsLocalCopy(uri: string): boolean {
-  return ownedCopies.has(uri);
-}

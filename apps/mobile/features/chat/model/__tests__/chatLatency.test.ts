@@ -1,4 +1,5 @@
 import { parseChatWsPayload } from "@/features/chat/model/socketReduce";
+import { CHAT_EVENT_SAMPLE_RATE } from "@/features/chat/model/chatEventSample";
 import { reportChatTtft } from "@/features/chat/model/latencyReporter";
 import {
   chatTtftBucket,
@@ -45,6 +46,8 @@ describe("pending chat TTFT samples", () => {
     clearPendingChatTtft();
     jest.mocked(reportChatTtft).mockClear();
     jest.spyOn(Date, "now").mockReturnValue(Date.parse(startedAt) + 750);
+    // Every turn in the sample unless a case says otherwise.
+    jest.spyOn(Math, "random").mockReturnValue(0);
   });
 
   afterEach(() => {
@@ -94,6 +97,24 @@ describe("pending chat TTFT samples", () => {
     clearPendingChatTtft("turn-a");
     markChatFirstToken("turn-a", "token");
     markChatFirstToken(undefined, "token");
+    await flushTtftReport();
+    expect(reportChatTtft).not.toHaveBeenCalled();
+  });
+
+  it("reports one turn in five, and a turn left out drops the one before it", async () => {
+    markChatTtftStart("turn-a", startedAt, false);
+    jest.spyOn(Math, "random").mockReturnValue(CHAT_EVENT_SAMPLE_RATE);
+    markChatTtftStart("turn-b", startedAt, false);
+    markChatFirstToken("turn-a", "token");
+    markChatFirstToken("turn-b", "token");
+    await flushTtftReport();
+    expect(reportChatTtft).not.toHaveBeenCalled();
+  });
+
+  it("never samples a development build", async () => {
+    devHolder.__DEV__ = true;
+    markChatTtftStart("turn-a", startedAt, false);
+    markChatFirstToken("turn-a", "token");
     await flushTtftReport();
     expect(reportChatTtft).not.toHaveBeenCalled();
   });

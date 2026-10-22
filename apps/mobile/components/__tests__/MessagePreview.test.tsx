@@ -1,4 +1,4 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet, type StyleProp, type TextStyle } from "react-native";
 import { render } from "@testing-library/react-native";
 
 import { MessagePreview } from "@/components/rich/MessagePreview";
@@ -40,13 +40,13 @@ describe("MessagePreview", () => {
     expect(StyleSheet.flatten(text.props.style)).toMatchObject({
       color: lightTheme.text,
     });
-    let node: { parent?: unknown; props?: { style?: unknown } } | undefined =
+    let node: { parent?: unknown; props?: { style?: StyleProp<TextStyle> } } | undefined =
       text;
     let cardFill: string | undefined;
     while (node) {
-      const flat = StyleSheet.flatten(node.props?.style);
-      if (flat?.backgroundColor) {
-        cardFill = flat.backgroundColor;
+      const fill = StyleSheet.flatten(node.props?.style)?.backgroundColor;
+      if (typeof fill === "string") {
+        cardFill = fill;
         break;
       }
       node = node.parent as typeof node;
@@ -68,7 +68,7 @@ describe("MessagePreview", () => {
       <MessagePreview text="Hey [Friend's Name]! 👋" />,
     );
     const label = getByText("rich.message_draft");
-    let node: { parent?: unknown; props?: { style?: unknown } } | undefined =
+    let node: { parent?: unknown; props?: { style?: StyleProp<TextStyle> } } | undefined =
       label;
     let sawPrimaryAccent = false;
     while (node) {

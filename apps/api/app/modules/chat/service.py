@@ -148,11 +148,19 @@ async def delete_chat(
     chat_id: UUID,
     *,
     settings: Settings,
+    if_empty: bool = False,
 ) -> None:
-    """Remove the conversation. Library attachments stay (message_id SET NULL)."""
+    """Remove the conversation. Library attachments stay (message_id SET NULL).
+
+    ``if_empty`` keeps a chat that holds any message: the phone drops an unused draft
+    with this one request, where it read a page of messages and deleted twice
+    (code-health audit NET-13).
+    """
     chat = await chats_repo.get_by_id(session, chat_id, user.id)
     if chat is None:
         raise ChatsError("Chat not found", status_code=404)
+    if if_empty and await messages_repo.count_for_chat(session, chat_id):
+        return
     # Do not detach rows or delete bytes — explicit Library delete owns that.
     # attachments.message_id SET NULLs when messages cascade.
     _ = settings
@@ -210,16 +218,33 @@ async def list_messages_page(
     *,
     limit: int = 40,
     before: UUID | None = None,
+    after: UUID | None = None,
+    around: UUID | None = None,
 ) -> MessagePageOut:
+    """The newest page, the page ``before`` or ``after`` a message, or the window ``around`` one."""
     chat = await get_chat(session, user, chat_id)
     # End the ownership read before waiting: up to 20 s for a stream and its save, with
     # this connection idle in transaction while the save needed one from the same pool.
     await session.commit()
     await finalize_registry.wait_for_inflight_stream(chat_id)
     await finalize_registry.wait_for_pending_finalize(chat_id, redis)
-    msgs, has_more = await messages_repo.list_page(session, chat_id, limit=limit, before_id=before)
+    has_more_after = False
+    if around is not None:
+        msgs, has_more, has_more_after = await messages_repo.list_around(
+            session, chat_id, limit=limit, around_id=around
+        )
+    elif after is not None:
+        msgs, has_more_after = await messages_repo.list_after(
+            session, chat_id, limit=limit, after_id=after
+        )
+        has_more = True
+    else:
+        msgs, has_more = await messages_repo.list_page(
+            session, chat_id, limit=limit, before_id=before
+        )
+    newest = before is None and after is None and around is None
 
-    if not chat.title and not before and msgs:
+    if not chat.title and newest and msgs:
         user_msg = next((m for m in msgs if m.role == "user"), None)
         asst_msg = next((m for m in msgs if m.role == "assistant"), None)
         if user_msg and asst_msg:
@@ -242,9 +267,9 @@ async def list_messages_page(
                 logger.warning("Title backfill enqueue failed chat_id=%s", chat_id, exc_info=True)
 
     outs = [MessageOut.model_validate(m) for m in msgs]
-    if before is None:
+    if newest or (around is not None and not has_more_after):
         await _attach_cached_related_prompts(redis, outs)
-    return MessagePageOut(messages=outs, has_more=has_more)
+    return MessagePageOut(messages=outs, has_more=has_more, has_more_after=has_more_after)
 
 
 async def forget_follow_up_questions(session: AsyncSession, redis: Redis, user_id: UUID) -> int:

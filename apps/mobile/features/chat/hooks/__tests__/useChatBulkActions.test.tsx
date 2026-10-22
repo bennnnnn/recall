@@ -3,10 +3,10 @@ import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { useChatBulkActions } from "@/features/chat/hooks/useChatBulkActions";
 import { api, type Chat } from "@/lib/api";
-import { abandonActiveChatIfDeleted } from "@/lib/drawer";
+import { abandonActiveChatIfDeleted } from "@/features/chat/drawer/drawer";
 import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
-import { getCachedChat } from "@/lib/cache/chatListCache";
-import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
+import { getCachedChat } from "@/features/chat/model/chatListCache";
+import { onAppEvent } from "@/lib/appEvents";
 
 let mockSession = 0;
 const mockError = jest.fn();
@@ -16,10 +16,11 @@ jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ error: mockError }) }));
 jest.mock("@/lib/api", () => ({ api: { setArchive: jest.fn(), deleteChat: jest.fn() } }));
-jest.mock("@/lib/drawer", () => ({ abandonActiveChatIfDeleted: jest.fn() }));
+jest.mock("@/features/chat/drawer/drawer", () => ({ abandonActiveChatIfDeleted: jest.fn() }));
 jest.mock("@/features/chat/model/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
-jest.mock("@/lib/cache/chatListCache", () => ({ getCachedChat: jest.fn() }));
-jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
+jest.mock("@/features/chat/model/chatListCache", () => ({ getCachedChat: jest.fn() }));
+const chatsDeleted = jest.fn();
+onAppEvent("chatsDeleted", chatsDeleted);
 jest.mock("@/lib/haptics", () => ({
   ...jest.requireActual("@/lib/haptics"),
   notifyDestructive: (...args: unknown[]) => mockDestructive(...args),
@@ -78,7 +79,7 @@ it("keeps successful deletes removed, clears their cache and abandons only delet
   expect(insertChatInGroups).toHaveBeenCalledWith(second);
   expect(clearCachedChatMessages).toHaveBeenCalledWith(first.id);
   expect(clearCachedChatMessages).not.toHaveBeenCalledWith(second.id);
-  expect(invalidateGalleryCache).toHaveBeenCalledTimes(1);
+  expect(chatsDeleted).toHaveBeenCalledWith({ chatIds: [first.id] });
   expect(abandonActiveChatIfDeleted).toHaveBeenCalledWith([first.id]);
   expect(complete).not.toHaveBeenCalled();
   expect(mockError).toHaveBeenCalledWith("chat.delete_failed");

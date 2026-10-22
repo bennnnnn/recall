@@ -39,7 +39,7 @@ jest.mock("@/components/mathScanner/LiveMathScannerCamera", () => {
           text: string;
         }) => void;
       },
-      ref: unknown,
+      ref: React.Ref<unknown>,
     ) => {
       ReactNative.useImperativeHandle(ref, () => ({ takePictureAsync: mockTakePictureAsync }));
       ReactNative.useEffect(() => {
@@ -51,11 +51,9 @@ jest.mock("@/components/mathScanner/LiveMathScannerCamera", () => {
           cancelled = true;
         };
       }, [props.onReady]);
-      return ReactNative.createElement(View, {
-        testID: "mock-live-scanner-camera",
-        onDetectionChange: props.onDetectionChange,
-        onUnavailable: props.onUnavailable,
-      });
+      // The camera's callbacks ride on the host view, where the tests call them.
+      const callbacks = { onDetectionChange: props.onDetectionChange, onUnavailable: props.onUnavailable };
+      return ReactNative.createElement(View, { testID: "mock-live-scanner-camera", ...callbacks });
     },
   );
   LiveMathScannerCamera.displayName = "LiveMathScannerCamera";

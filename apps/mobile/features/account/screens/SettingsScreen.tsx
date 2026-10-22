@@ -16,7 +16,6 @@ import {
 import { useAccent, useAppearance } from "@/contexts/AppearanceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModels } from "@/hooks/useModels";
-import { prefetchMemories } from "@/features/memory/model/memoryListCache";
 import { voiceLabel } from "@/features/speech/model/voices";
 import { ACCENT_OPTIONS, accentSwatch } from "@/lib/accent";
 import { APPEARANCE_OPTIONS } from "@/lib/appearance";
@@ -132,9 +131,6 @@ export default function SettingsScreen() {
           accessibilityHint={t("settings.memory_desc")}
           value={user?.memory_enabled ? t("settings.on") : t("settings.off")}
           href="/settings/memory-settings"
-          onPress={() => {
-            if (token) prefetchMemories(token);
-          }}
         />
         <SettingsLinkRow
           icon="sparkles"

@@ -4,7 +4,7 @@ import {
   ComposerDraftProvider,
   useComposerDraftApi,
   useComposerDraftValueOptional,
-} from "@/contexts/ComposerDraftContext";
+} from "@/features/chat/context/ComposerDraftContext";
 
 /** Puts the starting draft in place before the composer mounts; a new `input` replaces it. */
 function Seed({ input, children }: { input: string; children: ReactNode }) {

@@ -22,7 +22,7 @@ from app.models import model_catalog
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import service as attachments_service
 from app.modules.chat.finalize_registry import clear_pending_finalize
-from app.modules.chat.turn_outcome import TurnOutcome
+from app.modules.chat.turn_outcome import TurnOutcome, TurnUsage
 from app.modules.chat.turn_prep import StreamContext
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
@@ -222,8 +222,11 @@ async def _write_reply_rows(
 
 async def _settle_quota(
     redis: Redis, ctx: StreamContext, settings: Settings, charge: _TurnCharge
-) -> None:
+) -> TurnUsage | None:
     """Settle the reservation to the turn's weighted usage, after the reply committed.
+
+    Returns the day's usage after it, which ``done`` carries: the phone read it with a
+    GET after every turn (code-health audit NET-14). None when the settle failed.
 
     The overshoot is capped at the user's daily limit so one turn's actual >
     reserved delta can't push the counter past the cap (which would make later
@@ -233,6 +236,7 @@ async def _settle_quota(
     daily_limit = (
         quota_service.daily_limit_for_user(ctx.user, settings) if ctx.user is not None else None
     )
+    used = None
     try:
         # H2: retry adjust_usage with short backoff so a transient Redis
         # blip doesn't leave the reservation inflated (user loses quota
@@ -240,7 +244,7 @@ async def _settle_quota(
         # heal_usage_drift will correct the drift from the DB total.
         for _attempt in range(3):
             try:
-                await quota_service.adjust_usage(
+                used = await quota_service.adjust_usage(
                     redis,
                     str(ctx.user_id),
                     ctx.reserved_tokens,
@@ -270,6 +274,9 @@ async def _settle_quota(
             await quota_service.record_global_spend(redis, charge.est_cost)
         except Exception:
             logger.exception("record_global_spend failed after successful finalize")
+    if used is None or daily_limit is None:
+        return None
+    return TurnUsage(used_tokens=used, daily_limit=daily_limit)
 
 
 async def finalize_stream_turn_db(
@@ -300,7 +307,9 @@ async def finalize_stream_turn_db(
             # reply as failed or refund its charged quota.
             await session.commit()
             committed = True
-        await _settle_quota(redis, ctx, settings, charge)
+        day_usage = await _settle_quota(redis, ctx, settings, charge)
+        if outcome is not None:
+            outcome.usage = day_usage
     except Exception:
         logger.exception("Stream-turn finalize failed; refunding reserved quota")
         try:

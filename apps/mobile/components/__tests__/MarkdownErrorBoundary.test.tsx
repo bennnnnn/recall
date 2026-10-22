@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Text } from "react-native";
 import { render } from "@testing-library/react-native";
 
@@ -9,7 +10,7 @@ jest.mock("@/components/FallbackMarkdown", () => ({
   },
 }));
 
-function Boom() {
+function Boom(): ReactNode {
   throw new Error("rich boom");
 }
 

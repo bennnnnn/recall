@@ -129,6 +129,43 @@ def test_router_delete_chat_404():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(("messages", "deleted"), [(0, True), (1, False)])
+async def test_delete_if_empty_keeps_a_chat_with_messages(messages: int, deleted: bool):
+    """The phone drops an unused draft in one request (code-health audit NET-13)."""
+    from app.modules.chat import service as chats_service
+
+    chat = MagicMock()
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    with (
+        patch.object(chats_service.chats_repo, "get_by_id", AsyncMock(return_value=chat)),
+        patch.object(chats_service.chats_repo, "forget_chat"),
+        patch.object(
+            chats_service.messages_repo, "count_for_chat", AsyncMock(return_value=messages)
+        ),
+    ):
+        await chats_service.delete_chat(session, user, uuid4(), settings=Settings(), if_empty=True)
+    assert session.delete.await_count == (1 if deleted else 0)
+
+
+def test_router_passes_if_empty():
+    from fastapi.testclient import TestClient
+
+    user = MagicMock()
+    user.id = uuid4()
+    app = _app_with_user(user)
+
+    with patch("app.modules.chat.service.delete_chat", AsyncMock(return_value=None)) as delete:
+        client = TestClient(app)
+        r = client.delete(
+            f"/chats/{uuid4()}?if_empty=true", headers={"Authorization": "Bearer tok"}
+        )
+    assert r.status_code == 204
+    assert delete.await_args.kwargs["if_empty"] is True
+
+
+@pytest.mark.asyncio
 async def test_delete_chat_keeps_library_attachments():
     """Chat delete must not purge Library files — only the conversation."""
     from app.models.orm import User

@@ -109,3 +109,50 @@ describe("a Live Talk call that never connects gives its minutes back", () => {
     expect(endSession).not.toHaveBeenCalled();
   });
 });
+
+describe("a Live Talk call releases its native media stream (LEAK-06)", () => {
+  const track = { kind: "audio", enabled: true, stop: jest.fn() };
+  const createSession = speechApi.createRealtimeSession as jest.Mock;
+
+  function microphone(tracks: unknown[]) {
+    const release = jest.fn();
+    (webrtc.mediaDevices.getUserMedia as jest.Mock).mockResolvedValue({
+      getAudioTracks: () => tracks,
+      getTracks: () => tracks,
+      release,
+    });
+    return release;
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
+    (webrtc.RTCPeerConnection as unknown as jest.Mock).mockImplementation(() => ({
+      addTrack: jest.fn(),
+      createDataChannel: () => ({ readyState: "connecting", send: jest.fn(), close: jest.fn() }),
+      createOffer: jest.fn(async () => { throw new Error("offer failed"); }),
+      setLocalDescription: async () => undefined,
+      setRemoteDescription: async () => undefined,
+      close: jest.fn(),
+      getReceivers: () => [],
+    }));
+    createSession.mockResolvedValue({ client_secret: "ek_1", call_id: "call-1" });
+  });
+
+  it("on a connect that fails", async () => {
+    const release = microphone([track]);
+    await expect(
+      createRealtimeVoiceSession({ token: "tok", chatId: "chat-1", onEvent: () => {} }),
+    ).rejects.toThrow("offer failed");
+    expect(track.stop).toHaveBeenCalled();
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it("on a microphone with no audio track", async () => {
+    const release = microphone([]);
+    await expect(
+      createRealtimeVoiceSession({ token: "tok", chatId: "chat-1", onEvent: () => {} }),
+    ).rejects.toThrow("webrtc_unavailable");
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+});

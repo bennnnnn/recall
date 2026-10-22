@@ -1,8 +1,9 @@
-import { StyleSheet, Text } from "react-native";
+import { StyleSheet, Text, type StyleProp, type TextStyle } from "react-native";
 import { fireEvent, render, within } from "@testing-library/react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
+import { runRule } from "@/components/markdown/__tests__/support/runRule";
 import { makeMdStyles, PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 import { Space } from "@/lib/space";
 import { lightTheme } from "@/lib/theme";
@@ -105,13 +106,15 @@ describe("markdown render rules", () => {
   it("forwards strong children even when the node text contains math", () => {
     const { rules } = makeRenderRules(lightTheme);
     const child = <Text key="c">keep me</Text>;
-    const element = rules.strong(
+    const element = runRule(
+      rules,
+      "strong",
       { key: "s1", content: "keep me $x$" },
       child,
       [],
       { strong: { fontWeight: "700" } },
     );
-    expect(element?.props.children).toBe(child);
+    expect(element.props.children).toBe(child);
   });
 
   it("keeps bold and a newline inside a markdown blockquote", async () => {
@@ -134,7 +137,7 @@ describe("markdown render rules", () => {
       "> Courage is the most important of all the virtues, because without courage you can't practice any other virtue consistently. — Maya Angelou";
     const { getByText } = await render(<MarkdownContent content={md} />);
     const author = getByText("— Maya Angelou");
-    let node: { parent?: unknown; props?: { style?: unknown } } | undefined =
+    let node: { parent?: unknown; props?: { style?: StyleProp<TextStyle> } } | undefined =
       author;
     let sawPrimaryAccent = false;
     while (node) {
@@ -224,7 +227,7 @@ describe("markdown render rules", () => {
     const fills = new Set<string>();
     const painted = [lightTheme.surface, lightTheme.surfaceAlt];
     for (const label of ["Feature", "Addis Ababa"]) {
-      let node: { parent?: unknown; props?: { style?: unknown } } | undefined =
+      let node: { parent?: unknown; props?: { style?: StyleProp<TextStyle> } } | undefined =
         getByText(label);
       while (node) {
         const flat = StyleSheet.flatten(node.props?.style);
@@ -506,11 +509,11 @@ describe("markdown render rules", () => {
     ].join("\n");
     const { toJSON, getAllByTestId } = await render(<MarkdownContent content={content} />);
     expect(getAllByTestId("workout-part")).toHaveLength(2);
-    type Node = { props?: { style?: unknown }; children?: unknown[] | null };
+    type Node = { props?: { style?: StyleProp<TextStyle> }; children?: unknown[] | null };
     const hairlines = (node: unknown): number => {
       if (!node || typeof node !== "object") return 0;
       const { props, children } = node as Node;
-      const own = StyleSheet.flatten(props?.style as never)?.height === StyleSheet.hairlineWidth;
+      const own = StyleSheet.flatten(props?.style)?.height === StyleSheet.hairlineWidth;
       return (own ? 1 : 0) + (children ?? []).reduce<number>((sum, child) => sum + hairlines(child), 0);
     };
     expect(hairlines(toJSON())).toBe(1);
@@ -827,10 +830,10 @@ $\frac{d}{dx} x^{3} = 3 x^{2}$`}
 
 describe("emphasis faces", () => {
   // A one-file family has no italic or bold slot: the face must be the file.
-  function faceOf(node: { props: { style?: unknown }; parent: unknown }): string | undefined {
-    let current: { props: { style?: unknown }; parent: unknown } | null = node;
+  function faceOf(node: { props: { style?: StyleProp<TextStyle> }; parent: unknown }): string | undefined {
+    let current: { props: { style?: StyleProp<TextStyle> }; parent: unknown } | null = node;
     while (current) {
-      const family = StyleSheet.flatten(current.props.style as never)?.fontFamily;
+      const family = StyleSheet.flatten(current.props.style)?.fontFamily;
       if (family) return family;
       current = current.parent as typeof current;
     }
@@ -860,17 +863,17 @@ describe("emphasis faces", () => {
 describe("reply rhythm", () => {
   it("drops the top margin of a heading that opens the reply", async () => {
     const { toJSON } = await render(<MarkdownContent content={"# Title\n\nBody text"} />);
-    const tree = toJSON() as { props: { style?: unknown } } | null;
-    const top = StyleSheet.flatten(tree?.props.style as never)?.marginTop;
-    const heading = StyleSheet.flatten(makeMdStyles(lightTheme).heading1 as never)?.marginTop;
+    const tree = toJSON() as { props: { style?: StyleProp<TextStyle> } } | null;
+    const top = StyleSheet.flatten(tree?.props.style)?.marginTop;
+    const heading = StyleSheet.flatten(makeMdStyles(lightTheme).heading1)?.marginTop;
     expect(heading).toBeGreaterThan(0);
     expect(top).toBe(-(heading as number));
   });
 
   it("leaves a reply that opens with text where it is", async () => {
     const { toJSON } = await render(<MarkdownContent content={"Body text\n\n# Later"} />);
-    const tree = toJSON() as { props: { style?: unknown } } | null;
-    expect(StyleSheet.flatten(tree?.props.style as never)?.marginTop).toBeUndefined();
+    const tree = toJSON() as { props: { style?: StyleProp<TextStyle> } } | null;
+    expect(StyleSheet.flatten(tree?.props.style)?.marginTop).toBeUndefined();
   });
 
   it("sizes inline code to the heading it sits in", async () => {
@@ -922,11 +925,11 @@ describe("reply rhythm", () => {
 });
 
 describe("list rhythm", () => {
-  type Host = { parent?: unknown; props: { style?: unknown } };
+  type Host = { parent?: unknown; props: { style?: StyleProp<TextStyle> } };
   /** The bottom margin of the list item that holds this marker. */
-  function itemGap(marker: Host): number {
+  function itemGap(marker: Host) {
     const item = marker.parent as Host;
-    return StyleSheet.flatten(item.props.style as never)?.marginBottom ?? 0;
+    return StyleSheet.flatten(item.props.style)?.marginBottom ?? 0;
   }
 
   it("ends a list with the block gap alone", async () => {
@@ -934,16 +937,16 @@ describe("list rhythm", () => {
       <MarkdownContent content={"- one\n- two\n- three\n\nAfter."} />,
     );
     const bullets = getAllByTestId("md-list-bullet");
-    expect(bullets.map((bullet) => itemGap(bullet as never))).toEqual([Space.xs, Space.xs, 0]);
-    const list = (bullets[0] as never as Host).parent as Host;
-    expect(StyleSheet.flatten((list.parent as Host).props.style as never)?.marginBottom).toBe(
+    expect(bullets.map((bullet) => itemGap(bullet))).toEqual([Space.xs, Space.xs, 0]);
+    const list = bullets[0].parent as Host;
+    expect(StyleSheet.flatten((list.parent as Host).props.style)?.marginBottom).toBe(
       PARAGRAPH_GAP,
     );
   });
 
   it("ends a numbered list the same way", async () => {
     const { getByText } = await render(<MarkdownContent content={"1. one\n2. two\n3. three"} />);
-    expect(["1.", "2.", "3."].map((n) => itemGap(getByText(n) as never))).toEqual([
+    expect(["1.", "2.", "3."].map((n) => itemGap(getByText(n)))).toEqual([
       Space.xs,
       Space.xs,
       0,
@@ -955,11 +958,11 @@ describe("list rhythm", () => {
       <MarkdownContent content={"- Parent\n  - child a\n  - child b\n- Last"} />,
     );
     // child a, child b (nested), then Last.
-    expect(getAllByTestId("md-list-bullet").map((b) => itemGap(b as never))).toEqual([
+    expect(getAllByTestId("md-list-bullet").map((b) => itemGap(b))).toEqual([
       Space.xs,
       0,
       0,
     ]);
-    expect(itemGap(getByTestId("md-list-bullet-spacer") as never)).toBe(Space.xs);
+    expect(itemGap(getByTestId("md-list-bullet-spacer"))).toBe(Space.xs);
   });
 });

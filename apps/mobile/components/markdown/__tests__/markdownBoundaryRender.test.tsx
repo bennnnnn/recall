@@ -81,15 +81,16 @@ describe("markdown token boundaries", () => {
       <MarkdownContent content="A train travels at**60 km/h** and returns at**40 km/h**." />,
     );
     const speed = getByText("40 km/h");
-    const paragraph = paragraphText(speed as never);
+    const paragraph = paragraphText(speed);
     const pieces = paragraph.children.filter(
-      (child): child is { children: unknown[] } => typeof child === "object" && child !== null,
+      (child): child is { type?: string; parent?: unknown; children: unknown[] } =>
+        typeof child === "object" && child !== null,
     );
     const before = pieces.find((piece) => ownText(piece).endsWith("at "));
     expect(before).toBeTruthy();
     expect(ownText(before!)).toMatch(/at $/);
     expect(getByText("60 km/h")).toBeTruthy();
-    expect(outermostTextAncestor(before!)).toBe(outermostTextAncestor(speed as never));
+    expect(outermostTextAncestor(before!)).toBe(outermostTextAncestor(speed));
     expect(visibleText(paragraph)).toBe("A train travels at 60 km/h and returns at 40 km/h.");
   });
 
@@ -98,7 +99,7 @@ describe("markdown token boundaries", () => {
       <MarkdownContent content="A cyclist rides **12 km** at**20 km/h**, then**8 km** at**10 km/h**." />,
     );
     const speed = getByText("20 km/h");
-    expect(visibleText(paragraphText(speed as never))).toBe(
+    expect(visibleText(paragraphText(speed))).toBe(
       "A cyclist rides 12 km at 20 km/h, then 8 km at 10 km/h.",
     );
     expect(getByText("8 km")).toBeTruthy();

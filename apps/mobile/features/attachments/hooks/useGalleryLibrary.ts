@@ -8,7 +8,7 @@ import { getSessionGeneration } from "@/lib/auth";
 import { api, type AttachmentListItem } from "@/lib/api";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { removeCachedGalleryItem } from "@/features/attachments/model/galleryListCache";
-import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
+import { emitAppEvent } from "@/lib/appEvents";
 import { shareChatAttachment } from "@/features/attachments/model/downloadChatAttachment";
 import {
   galleryFileName,
@@ -174,7 +174,7 @@ export function useGalleryLibrary(
         await api.deleteAttachment(token, item.id);
         if (session !== getSessionGeneration()) return;
         removeCachedGalleryItem(item.id);
-        if (item.chat_id) void clearCachedChatMessages(item.chat_id);
+        emitAppEvent("attachmentDeleted", { attachmentId: item.id, chatId: item.chat_id ?? null });
         if (!isCurrent(version)) return;
         // The viewer stays open on the next photo (or the one before); it
         // closes only when the deleted photo was the last one.

@@ -4,6 +4,8 @@ import NotificationsSettingsScreen from "@/features/account/screens/Notification
 import { cancelAllTodoReminders, syncTodoReminders } from "@/features/todos/model/todoReminders";
 import { ensureNotificationPermission, getNotificationPermissionGranted, registerRemotePushToken, unregisterRemotePushToken } from "@/lib/pushNotifications";
 
+type PushRegistration = Awaited<ReturnType<typeof registerRemotePushToken>>;
+
 let mockSession = 0;
 let mockFocused = true;
 const mockUpdate = jest.fn();
@@ -183,7 +185,7 @@ it.each([false, true])("finishes disabling after unmount only in the same accoun
 });
 
 it.each([false, true])("finishes enabling after registration while offscreen only in the same account (account changed: %s)", async (accountChanged) => {
-  const registration = deferred<void>();
+  const registration = deferred<PushRegistration>();
   jest.mocked(registerRemotePushToken).mockReturnValueOnce(registration.promise);
   const ui = await render(<NotificationsSettingsScreen />);
   let pending!: Promise<void>;
@@ -191,7 +193,7 @@ it.each([false, true])("finishes enabling after registration while offscreen onl
   expect(registerRemotePushToken).toHaveBeenCalledTimes(1);
   await ui.unmount();
   if (accountChanged) mockSession++;
-  await act(async () => { registration.resolve(); await pending; });
+  await act(async () => { registration.resolve("registered"); await pending; });
   expect(mockUpdate).toHaveBeenCalledTimes(accountChanged ? 0 : 1);
   if (!accountChanged) expect(mockUpdate).toHaveBeenCalledWith({ push_notifications_enabled: true });
 });
@@ -230,7 +232,7 @@ it("turns the server pref off when enabling push is blocked by the OS", async ()
 });
 
 it("optimistically turns push on while registration is pending", async () => {
-  const registration = deferred<void>();
+  const registration = deferred<PushRegistration>();
   jest.mocked(registerRemotePushToken).mockReturnValueOnce(registration.promise);
   await render(<NotificationsSettingsScreen />);
 
@@ -244,7 +246,7 @@ it("optimistically turns push on while registration is pending", async () => {
   expect(mockUpdate).not.toHaveBeenCalled();
 
   await act(async () => {
-    registration.resolve();
+    registration.resolve("registered");
     await pending;
   });
   expect(mockUpdate).toHaveBeenCalledWith({ push_notifications_enabled: true });

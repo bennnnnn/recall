@@ -32,7 +32,7 @@ const scheduledVersions = new Map<string, string>();
 
 /** Native writes finish in order; newer full-list intent invalidates older work. */
 function enqueue(session: number, operation: (current: IsCurrent) => Promise<void>, supersede = true): Promise<void> {
-  if (Platform.OS === "web" || session !== getSessionGeneration()) return Promise.resolve();
+  if (session !== getSessionGeneration()) return Promise.resolve();
   const request = supersede ? ++revision : revision;
   const current = () => session === getSessionGeneration() && request === revision;
   const task = pending.then(async () => { if (current()) await operation(current); });

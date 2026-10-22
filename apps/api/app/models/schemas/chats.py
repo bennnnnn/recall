@@ -93,7 +93,10 @@ class MessageOut(BaseModel):
 
 class MessagePageOut(BaseModel):
     messages: list[MessageOut]
+    # Older messages precede the page.
     has_more: bool
+    # Newer messages follow it: a page read ``around`` or ``after`` a message.
+    has_more_after: bool = False
 
 
 class _StreamClientContext(BaseModel):

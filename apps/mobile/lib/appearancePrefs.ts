@@ -9,9 +9,8 @@ import {
   normalizeAppearancePreference,
   type AppearancePreference,
 } from "@/lib/appearance";
-import { prefFilePath, readLegacySecureStore, readPrefFile, writePrefFile } from "@/lib/filePrefs";
+import { prefFilePath, readPrefFile, writePrefFile } from "@/lib/filePrefs";
 
-const LEGACY_KEY = "appearance_preference";
 const FILE_NAME = "recall.appearance-preference.txt";
 
 let cachedPreference: AppearancePreference | null = null;
@@ -22,17 +21,7 @@ function filePath(): string | null {
 
 export async function getAppearancePreference(): Promise<AppearancePreference> {
   if (cachedPreference !== null) return cachedPreference;
-  const fromFile = await readPrefFile(filePath());
-  if (fromFile !== null) {
-    cachedPreference = normalizeAppearancePreference(fromFile);
-    return cachedPreference;
-  }
-
-  const legacy = await readLegacySecureStore(LEGACY_KEY);
-  cachedPreference = normalizeAppearancePreference(legacy);
-  if (legacy === "light" || legacy === "dark") {
-    await setAppearancePreference(cachedPreference);
-  }
+  cachedPreference = normalizeAppearancePreference(await readPrefFile(filePath()));
   return cachedPreference;
 }
 

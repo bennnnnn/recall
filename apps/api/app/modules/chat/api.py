@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +8,7 @@ from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis, get_settings_dep
 from app.core.dev_guards import require_dev_privilege_access
+from app.core.etag import conditional_json
 from app.models.orm import User
 from app.models.schemas import (
     ArchiveUpdate,
@@ -47,6 +48,7 @@ async def create_chat(
 
 @router.get("", response_model=ChatListOut)
 async def list_chats(
+    request: Request,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     limit: int = Query(
@@ -54,8 +56,9 @@ async def list_chats(
         ge=1,
         le=chats_service.DEFAULT_CHAT_LIST_LIMIT,
     ),
-) -> ChatListOut:
-    return await chats_service.list_chats_grouped(session, user, limit=limit)
+) -> Response:
+    chats = await chats_service.list_chats_grouped(session, user, limit=limit)
+    return conditional_json(request, chats)
 
 
 @router.post("/archive-all", status_code=status.HTTP_204_NO_CONTENT)
@@ -111,11 +114,12 @@ async def archive_chat(
 @router.delete("/{chat_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_chat(
     chat_id: UUID,
+    if_empty: bool = False,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
-    await chats_service.delete_chat(session, user, chat_id, settings=settings)
+    await chats_service.delete_chat(session, user, chat_id, settings=settings, if_empty=if_empty)
 
 
 @router.get("/usage/today", response_model=UsageOut)
@@ -152,16 +156,25 @@ async def get_chat(
 
 @router.get("/{chat_id}/messages", response_model=MessagePageOut)
 async def list_messages(
+    request: Request,
     chat_id: UUID,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
     limit: int = Query(default=40, ge=1, le=200),
     before: UUID | None = None,
-) -> MessagePageOut:
-    return await chats_service.list_messages_page(
-        session, redis, user, chat_id, limit=limit, before=before
+    after: UUID | None = None,
+    around: UUID | None = None,
+) -> Response:
+    if sum(cursor is not None for cursor in (before, after, around)) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Use one of before, after and around.",
+        )
+    page = await chats_service.list_messages_page(
+        session, redis, user, chat_id, limit=limit, before=before, after=after, around=around
     )
+    return conditional_json(request, page)
 
 
 @router.patch("/{chat_id}/messages/{message_id}/feedback", response_model=MessageOut)

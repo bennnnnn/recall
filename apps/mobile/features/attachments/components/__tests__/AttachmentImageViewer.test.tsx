@@ -10,6 +10,11 @@ import { AttachmentImageViewer } from "@/features/attachments/components/Attachm
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 import { alertDialog } from "@/ui/overlay/dialogs";
 
+// One object, as the provider keeps it: a new getter per render re-runs every effect.
+const mockAccountSession = { account: "user-1:0", getToken: () => "tok" };
+jest.mock("@/contexts/accountSession", () => ({
+  useAccountSession: () => mockAccountSession,
+}));
 jest.mock("@/contexts/AuthContext", () => ({
   useAuthToken: () => "tok",
 }));
@@ -44,6 +49,7 @@ jest.mock("@/lib/theme", () => ({
 }));
 
 let mockGeneration = 0;
+const onClose = () => undefined;
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockGeneration }));
 
 describe("AttachmentImageViewer", () => {
@@ -54,7 +60,7 @@ describe("AttachmentImageViewer", () => {
   });
   it("shows Retry after the image fails instead of spinning forever", async () => {
     const { getByTestId, queryByTestId } = await render(
-      <AttachmentImageViewer visible attachmentId="a" />,
+      <AttachmentImageViewer onClose={onClose} visible attachmentId="a" />,
     );
     expect(getByTestId("attachment-viewer-image")).toBeTruthy();
     await act(async () => {
@@ -66,7 +72,7 @@ describe("AttachmentImageViewer", () => {
 
   it("reloads the image when Retry is pressed", async () => {
     const { getByTestId, queryByTestId } = await render(
-      <AttachmentImageViewer visible attachmentId="a" />,
+      <AttachmentImageViewer onClose={onClose} visible attachmentId="a" />,
     );
     const firstSource = getByTestId("attachment-viewer-image").props.source;
     await act(async () => {
@@ -82,7 +88,7 @@ describe("AttachmentImageViewer", () => {
 
   it("keeps auth headers, cached loading, and decoded aspect sizing", async () => {
     const view = await render(
-      <AttachmentImageViewer visible attachmentId="a" />,
+      <AttachmentImageViewer onClose={onClose} visible attachmentId="a" />,
     );
     const image = view.getByTestId("attachment-viewer-image");
     expect(image.props.source).toEqual({
@@ -106,22 +112,22 @@ describe("AttachmentImageViewer", () => {
   });
   it("never displays a previous image's cached file when the selected attachment changes", async () => {
     jest.mocked(ensureLocalAttachmentFile).mockResolvedValueOnce("file:///cache/first.jpg");
-    const view = await render(<AttachmentImageViewer visible attachmentId="first" />);
+    const view = await render(<AttachmentImageViewer onClose={onClose} visible attachmentId="first" />);
     expect(view.getByTestId("attachment-viewer-image").props.source.uri).toBe("file:///cache/first.jpg");
-    await view.rerender(<AttachmentImageViewer visible attachmentId="second" />);
+    await view.rerender(<AttachmentImageViewer onClose={onClose} visible attachmentId="second" />);
     expect(view.getByTestId("attachment-viewer-image").props.source.uri).toBe("http://test.local/second");
   });
 
   it("does not attach authorization to an external preview URL", async () => {
-    const view = await render(<AttachmentImageViewer visible attachmentId="first" previewUri="https://external.test/preview.jpg" />);
+    const view = await render(<AttachmentImageViewer onClose={onClose} visible attachmentId="first" previewUri="https://external.test/preview.jpg" />);
     expect(view.getByTestId("attachment-viewer-image").props.source).toEqual({ uri: "https://external.test/preview.jpg" });
   });
 
   it("detaches a cached image when the account changes", async () => {
     jest.mocked(ensureLocalAttachmentFile).mockResolvedValueOnce("file:///cache/previous-account.jpg");
-    const view = await render(<AttachmentImageViewer visible attachmentId="first" />);
+    const view = await render(<AttachmentImageViewer onClose={onClose} visible attachmentId="first" />);
     mockGeneration++;
-    await view.rerender(<AttachmentImageViewer visible attachmentId="first" />);
+    await view.rerender(<AttachmentImageViewer onClose={onClose} visible attachmentId="first" />);
     expect(view.getByTestId("attachment-viewer-image").props.source).toEqual({
       uri: "http://test.local/first",
       headers: { Authorization: "Bearer tok" },
@@ -131,7 +137,7 @@ describe("AttachmentImageViewer", () => {
 
   it("pages across photos from the same generation", async () => {
     const { getByTestId } = await render(
-      <AttachmentImageViewer
+      <AttachmentImageViewer onClose={onClose}
         visible
         images={[
           { attachmentId: "a", path: "/attachments/a/file" },
@@ -148,7 +154,7 @@ describe("AttachmentImageViewer", () => {
 
   it("hides Open chat when the visible photo is not linked to a chat", async () => {
     const { getByLabelText, queryByLabelText } = await render(
-      <AttachmentImageViewer
+      <AttachmentImageViewer onClose={onClose}
         visible
         images={[{ attachmentId: "a" }]}
         onOpenChat={jest.fn()}
@@ -163,7 +169,7 @@ describe("AttachmentImageViewer", () => {
   it("opens chat for the visible Library photo from the more menu", async () => {
     const onOpenChat = jest.fn();
     const { getByLabelText, queryByLabelText } = await render(
-      <AttachmentImageViewer
+      <AttachmentImageViewer onClose={onClose}
         visible
         images={[{ attachmentId: "a", chatId: "c1" }]}
         onOpenChat={onOpenChat}
@@ -177,7 +183,7 @@ describe("AttachmentImageViewer", () => {
 
   it("puts More, Download and a Share pill on the right, in that order", async () => {
     const { getByLabelText, queryByLabelText, getByTestId } = await render(
-      <AttachmentImageViewer
+      <AttachmentImageViewer onClose={onClose}
         visible
         images={[{ attachmentId: "a", chatId: "c1" }]}
         onOpenChat={jest.fn()}
@@ -200,7 +206,7 @@ describe("AttachmentImageViewer", () => {
 
   it("hides More when it has nothing to offer (chat)", async () => {
     const { getByLabelText, queryByLabelText } = await render(
-      <AttachmentImageViewer visible attachmentId="a" />,
+      <AttachmentImageViewer onClose={onClose} visible attachmentId="a" />,
     );
     expect(getByLabelText("preview.share")).toBeTruthy();
     expect(getByLabelText("common.download")).toBeTruthy();
@@ -208,15 +214,15 @@ describe("AttachmentImageViewer", () => {
   });
 
   it("turns the status bar light while open", async () => {
-    const view = await render(<AttachmentImageViewer visible attachmentId="a" />);
+    const view = await render(<AttachmentImageViewer onClose={onClose} visible attachmentId="a" />);
     expect(view.getByTestId("viewer-status-bar").props.children).toBe("light");
-    await view.rerender(<AttachmentImageViewer visible={false} attachmentId="a" />);
+    await view.rerender(<AttachmentImageViewer onClose={onClose} visible={false} attachmentId="a" />);
     expect(view.queryByTestId("viewer-status-bar")).toBeNull();
   });
 
   it("hides chrome on a tap and brings it back on the next tap", async () => {
     const { getByTestId, getByLabelText, queryByLabelText } = await render(
-      <AttachmentImageViewer visible attachmentId="a" />,
+      <AttachmentImageViewer onClose={onClose} visible attachmentId="a" />,
     );
     expect(getByLabelText("preview.close")).toBeTruthy();
     await fireEvent.press(getByTestId("attachment-viewer-tap"));
@@ -229,7 +235,7 @@ describe("AttachmentImageViewer", () => {
 
   it("lets a screen reader toggle the controls by activating the photo", async () => {
     const { getByTestId, queryByLabelText } = await render(
-      <AttachmentImageViewer visible attachmentId="a" fileName="cat.png" />,
+      <AttachmentImageViewer onClose={onClose} visible attachmentId="a" fileName="cat.png" />,
     );
     const photo = getByTestId("attachment-viewer-tap");
     expect(photo.props.accessibilityRole).toBe("image");
@@ -240,7 +246,7 @@ describe("AttachmentImageViewer", () => {
 
   it("puts round media chips on the left and a white Share pill on the right", async () => {
     const { getByLabelText } = await render(
-      <AttachmentImageViewer visible attachmentId="a" />,
+      <AttachmentImageViewer onClose={onClose} visible attachmentId="a" />,
     );
     const close = StyleSheet.flatten(getByLabelText("preview.close").props.style);
     expect(close.backgroundColor).toBeTruthy();
@@ -254,7 +260,7 @@ describe("AttachmentImageViewer", () => {
 
   it("slides the lightbox so a downward pull can dismiss it", async () => {
     const { getByTestId } = await render(
-      <AttachmentImageViewer visible attachmentId="a" />,
+      <AttachmentImageViewer onClose={onClose} visible attachmentId="a" />,
     );
     const root = getByTestId("attachment-image-viewer");
     expect(root.props.collapsable).toBe(false);
@@ -267,7 +273,7 @@ describe("AttachmentImageViewer", () => {
 
   it("stops paging while the photo is zoomed", async () => {
     const view = await render(
-      <AttachmentImageViewer visible images={[{ attachmentId: "a" }, { attachmentId: "b" }]} />,
+      <AttachmentImageViewer onClose={onClose} visible images={[{ attachmentId: "a" }, { attachmentId: "b" }]} />,
     );
     expect(view.getByTestId("attachment-viewer-pager").props.scrollEnabled).toBe(true);
     const [first] = view.getAllByTestId("attachment-viewer-tap");
@@ -296,7 +302,7 @@ describe("AttachmentImageViewer", () => {
       const onDelete = jest.fn();
       const onIndexChange = jest.fn();
       const view = await render(
-        <AttachmentImageViewer visible images={photos("a", "b", "c")} initialIndex={0} onDelete={onDelete} onIndexChange={onIndexChange} />,
+        <AttachmentImageViewer onClose={onClose} visible images={photos("a", "b", "c")} initialIndex={0} onDelete={onDelete} onIndexChange={onIndexChange} />,
       );
       await pageTo(view, 1);
       expect(onIndexChange).toHaveBeenLastCalledWith(expect.objectContaining({ attachmentId: "b" }), 1);
@@ -306,7 +312,7 @@ describe("AttachmentImageViewer", () => {
 
       // The Library removes b and keeps the viewer open on its neighbour.
       await view.rerender(
-        <AttachmentImageViewer visible images={photos("a", "c")} initialIndex={1} onDelete={onDelete} onIndexChange={onIndexChange} />,
+        <AttachmentImageViewer onClose={onClose} visible images={photos("a", "c")} initialIndex={1} onDelete={onDelete} onIndexChange={onIndexChange} />,
       );
       expect(onIndexChange).toHaveBeenLastCalledWith(expect.objectContaining({ attachmentId: "c" }), 1);
       await fireEvent.press(view.getByLabelText("preview.share"));
@@ -315,11 +321,11 @@ describe("AttachmentImageViewer", () => {
 
     it("stays on the same photo when one before it is removed", async () => {
       const view = await render(
-        <AttachmentImageViewer visible images={photos("a", "b", "c")} initialIndex={2} />,
+        <AttachmentImageViewer onClose={onClose} visible images={photos("a", "b", "c")} initialIndex={2} />,
       );
       await pageTo(view, 0);
       // Deleting a elsewhere shifts every index; the viewer must keep showing what it showed.
-      await view.rerender(<AttachmentImageViewer visible images={photos("x", "a", "b", "c")} initialIndex={3} />);
+      await view.rerender(<AttachmentImageViewer onClose={onClose} visible images={photos("x", "a", "b", "c")} initialIndex={3} />);
       await fireEvent.press(view.getByLabelText("preview.share"));
       expect(shareChatAttachment).toHaveBeenLastCalledWith(expect.objectContaining({ uri: "http://test.local/a" }));
       const labels = view.getAllByTestId("attachment-viewer-tap").map((stage) => stage.props.accessibilityLabel);
@@ -329,7 +335,7 @@ describe("AttachmentImageViewer", () => {
     it("loads only the photo on screen and its neighbours in a large Library", async () => {
       const ids = Array.from({ length: 40 }, (_, index) => `p${index}`);
       const view = await render(
-        <AttachmentImageViewer visible images={photos(...ids)} initialIndex={20} />,
+        <AttachmentImageViewer onClose={onClose} visible images={photos(...ids)} initialIndex={20} />,
       );
       // FlatList keeps many pages mounted (10 at first, up to 21 after
       // layout). Each page with a photo downloads and decodes it at full
@@ -357,7 +363,7 @@ describe("AttachmentImageViewer", () => {
     it("asks for the next Library page when it nears the last loaded photo", async () => {
       const onNearEnd = jest.fn();
       const view = await render(
-        <AttachmentImageViewer visible images={photos("a", "b", "c", "d", "e")} initialIndex={0} onNearEnd={onNearEnd} />,
+        <AttachmentImageViewer onClose={onClose} visible images={photos("a", "b", "c", "d", "e")} initialIndex={0} onNearEnd={onNearEnd} />,
       );
       expect(onNearEnd).not.toHaveBeenCalled();
       await pageTo(view, 2);
@@ -368,7 +374,7 @@ describe("AttachmentImageViewer", () => {
   describe("feedback inside the viewer", () => {
     it("shows Saved as a toast in the viewer instead of a blocking dialog", async () => {
       jest.mocked(saveChatAttachmentToLibrary).mockResolvedValueOnce("saved");
-      const view = await render(<AttachmentImageViewer visible attachmentId="a" />);
+      const view = await render(<AttachmentImageViewer onClose={onClose} visible attachmentId="a" />);
       await act(async () => {
         await fireEvent.press(view.getByLabelText("common.download"));
       });
@@ -378,7 +384,7 @@ describe("AttachmentImageViewer", () => {
 
     it("shows a failed share as a toast in the viewer", async () => {
       jest.mocked(shareChatAttachment).mockRejectedValueOnce(new Error("boom"));
-      const view = await render(<AttachmentImageViewer visible attachmentId="a" />);
+      const view = await render(<AttachmentImageViewer onClose={onClose} visible attachmentId="a" />);
       await act(async () => {
         await fireEvent.press(view.getByLabelText("preview.share"));
       });

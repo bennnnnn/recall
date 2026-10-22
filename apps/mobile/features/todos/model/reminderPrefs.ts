@@ -1,11 +1,4 @@
-import {
-  deleteLegacySecureStore,
-  deletePrefFile,
-  prefFilePath,
-  readLegacySecureStore,
-  readPrefFile,
-  writePrefFile,
-} from "@/lib/filePrefs";
+import { deletePrefFile, prefFilePath, readPrefFile, writePrefFile } from "@/lib/filePrefs";
 import {
   DEFAULT_REMINDER_LEAD_MINUTES,
   leadMsFromMinutes,
@@ -19,7 +12,6 @@ export {
   REMINDER_LEAD_OPTIONS,
 };
 
-const LEGACY_KEY = "reminder_lead_minutes";
 const FILE_NAME = "recall.reminder-lead-minutes.txt";
 
 let cachedLeadMinutes: ReminderLeadMinutes | null = null;
@@ -40,13 +32,7 @@ export function getReminderLeadMinutes(): Promise<ReminderLeadMinutes> {
   return withPreference(async () => {
     if (cachedLeadMinutes !== null) return cachedLeadMinutes;
     const fromFile = await readPrefFile(filePath());
-    if (fromFile !== null) {
-      cachedLeadMinutes = normalizeReminderLeadMinutes(Number.parseInt(fromFile, 10));
-      return cachedLeadMinutes;
-    }
-    const legacy = await readLegacySecureStore(LEGACY_KEY);
-    cachedLeadMinutes = normalizeReminderLeadMinutes(legacy ? Number.parseInt(legacy, 10) : undefined);
-    if (legacy) await writePrefFile(filePath(), String(cachedLeadMinutes));
+    cachedLeadMinutes = normalizeReminderLeadMinutes(fromFile !== null ? Number.parseInt(fromFile, 10) : undefined);
     return cachedLeadMinutes;
   });
 }
@@ -70,7 +56,6 @@ export function clearReminderLeadPrefs(): Promise<void> {
   return withPreference(async () => {
     cachedLeadMinutes = null;
     await deletePrefFile(filePath());
-    await deleteLegacySecureStore(LEGACY_KEY);
   });
 }
 

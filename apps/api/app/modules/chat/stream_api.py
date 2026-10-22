@@ -27,8 +27,10 @@ from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
     SERVER_RESTARTING_MESSAGE,
+    TURN_KEEPALIVE_SECONDS,
     StreamEndEvent,
     await_finalize_commit,
+    build_keepalive_event,
     build_reasoning_event,
     build_start_event,
     build_status_event,
@@ -186,7 +188,11 @@ async def _turn_sse_lines(
 
     try:
         while True:
-            item = await event_queue.get()
+            try:
+                item = await asyncio.wait_for(event_queue.get(), TURN_KEEPALIVE_SECONDS)
+            except TimeoutError:
+                yield _sse(build_keepalive_event())
+                continue
             if item is None:
                 break
             kind, payload, extra = item

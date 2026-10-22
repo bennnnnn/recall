@@ -190,21 +190,23 @@ def test_instruct_applies_the_edit_and_returns_the_documents():
 
 
 @pytest.mark.parametrize(
-    "kwargs,status",
+    "kwargs,status,code",
     [
-        ({"spend_capped": True}, 503),
-        ({"allowed": False}, 429),
-        ({"error": memory_service.MemoryWriteLockBusyError(uuid4())}, 409),
-        ({"error": instruct_service.MemoryOffError()}, 409),
-        ({"error": instruct_service.MemoryInstructionFailedError()}, 502),
+        ({"spend_capped": True}, 503, "unavailable"),
+        ({"allowed": False}, 429, "rate_limited"),
+        ({"error": memory_service.MemoryWriteLockBusyError(uuid4())}, 409, "memory_busy"),
+        ({"error": instruct_service.MemoryOffError()}, 409, "memory_off"),
+        ({"error": instruct_service.MemoryInstructionFailedError()}, 502, "memory_edit_failed"),
     ],
 )
-def test_instruct_errors(kwargs, status):
+def test_instruct_errors(kwargs, status, code):
+    """Each refusal names itself: the phone tells busy, off and too many apart (CLAR-08)."""
     client, _ = _client()
     patches = _instruct_patches(**kwargs)
     with patches[0], patches[1], patches[2], patches[3], patches[4]:
         response = client.post("/memories/instruct", json={"instruction": "Remember I like tea"})
     assert response.status_code == status
+    assert response.json()["detail"]["code"] == code
 
 
 @pytest.mark.parametrize("instruction", ["", "x" * 501])

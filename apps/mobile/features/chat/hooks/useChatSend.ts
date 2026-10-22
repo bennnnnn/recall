@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { Keyboard } from "react-native";
 import { useRouter } from "expo-router";
 
-import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
+import { useComposerDraftApi } from "@/features/chat/context/ComposerDraftContext";
 import { useActionFeedbackOptional } from "@/contexts/ActionFeedbackContext";
 
 import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
@@ -26,26 +26,15 @@ import { useRestoreFailedSend, type SendTurn } from "@/features/chat/hooks/useRe
 import { uploadSendAttachment, useSendAttachment } from "@/features/chat/hooks/useSendAttachment";
 import { composerThreadKey, shouldRestoreFailedSend } from "@/features/chat/model/composerThreadDraft";
 import { flushEmailDrafts } from "@/features/drafts/model/emailDraftFlush";
-import {
-  queryNeedsClientGeo,
-  resolveClientGeoForQuery,
-} from "@/lib/resolveClientGeoForQuery";
+import { queryNeedsClientGeo, resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
 import { discardDraftAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
 import { attachmentErrorMessage } from "@/features/attachments/model/attachmentErrors";
-import {
-  subscribeComposerAttachmentQueue,
-  takeQueuedComposerAttachment,
-} from "@/features/attachments/model/pendingComposerAttachment";
+import { subscribeComposerAttachmentQueue, takeQueuedComposerAttachment } from "@/features/attachments/model/pendingComposerAttachment";
 
 type Router = ReturnType<typeof useRouter>;
 type DraftChat = ReturnType<typeof useDraftChat>;
 type ChatScroll = ReturnType<typeof useChatScroll>;
-type ChatSendPhase =
-  | "idle"
-  | "locating"
-  | "preparing"
-  | "uploading"
-  | "creating";
+type ChatSendPhase = "idle" | "locating" | "preparing" | "uploading" | "creating";
 
 type SendMessageFn = (text: string, opts?: SendMessageOptions) => void;
 
@@ -79,6 +68,8 @@ type Options = {
   /** Soft offline cue (toast) — prefer over a blocking Alert; draft stays in the composer. */
   onOfflineBlocked?: () => void;
   isOffline: boolean;
+  /** Runs before a send is painted (a window around a search hit goes to the newest page). */
+  beforeSend?: () => Promise<void>;
   /** Run image generation for detected image-intent text (no confirmation sheet). */
   onGenerateImage?: (
     prompt: string,
@@ -112,6 +103,7 @@ export function useChatSend({
   onStreamBusy,
   onOfflineBlocked,
   isOffline,
+  beforeSend,
   onGenerateImage,
   imageGenerating = false,
 }: Options) {
@@ -193,15 +185,16 @@ export function useChatSend({
     composerThread, session, switchThread, getThreadKey, switchAttachmentThread, resetForNewSession,
     resetAttachmentDrafts, setAttachSheetOpen, setMathScannerOpen,
   ]);
+  const signedIn = Boolean(token);
   useEffect(() => {
     const applyQueued = () => {
-      if (!token || session !== getSessionGeneration()) return;
+      if (!signedIn || session !== getSessionGeneration()) return;
       const next = takeQueuedComposerAttachment(composerThread);
       if (next) replacePendingAttachment(next);
     };
     applyQueued();
     return subscribeComposerAttachmentQueue(applyQueued);
-  }, [composerThread, token, session, replacePendingAttachment]);
+  }, [composerThread, signedIn, session, replacePendingAttachment]);
   useEffect(() => {
     if (
       pendingSend &&
@@ -340,6 +333,11 @@ export function useChatSend({
       if (verdict === "streaming") onStreamBusy?.();
       if (verdict !== "send") return;
       tap();
+      if (beforeSend) {
+        sendInFlightRef.current = true;
+        await beforeSend();
+        sendInFlightRef.current = false;
+      }
       const isCurrentSession = () => session === getSessionGeneration();
       const turn: SendTurn = {
         text,
@@ -453,7 +451,7 @@ export function useChatSend({
       token, creatingRef, attachPickInFlightRef, onOfflineBlocked, onStreamBusy, getThreadKey,
       messages, onGenerateImage, imageGenerating, generateFromComposer, t, updateUser, paintUserTurn,
       restoreFailedSend, feedback, selectedModel, sendMessage, ensureChatId, discardEmptyChat,
-      adoptComposerThread,
+      adoptComposerThread, beforeSend,
     ],
   );
 

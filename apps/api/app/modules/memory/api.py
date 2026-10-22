@@ -8,6 +8,7 @@ from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
+from app.exceptions import DomainError
 from app.models.orm import Memory, User
 from app.models.schemas import MemoryOut, MemoryUpdate
 from app.modules import memory as memory_service
@@ -103,17 +104,18 @@ async def instruct_memory(
     settings: Settings = Depends(get_settings_dep),
 ) -> MemoryInstructOut:
     redis = get_redis_client()
+    # Coded refusals, so the phone says which (code-health audit CLAR-08).
     if await quota_service.global_spend_exceeded(redis, settings):
-        raise HTTPException(
+        raise DomainError(
+            "Memory editing is paused right now — try again later.",
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Memory editing is paused right now — try again later.",
         )
     if not await allow_request_fail_closed(
         redis, f"memory_instruct:{user.id}", limit=_INSTRUCT_PER_HOUR, window_seconds=3600
     ):
-        raise HTTPException(
+        raise DomainError(
+            "Too many memory edits — try again later.",
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many memory edits — try again later.",
         )
     outcome = await instruct_service.apply_memory_instruction(
         settings,

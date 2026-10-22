@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import UUID, uuid4
@@ -24,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.timezone import resolve_timezone
 from app.exceptions import DomainError
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.models import TodoItem
 from app.modules.todos.recurrence import next_recurring_due
 from app.modules.todos.write_log import PlannedWrite
 from app.repositories import messages as messages_repo
@@ -199,7 +201,23 @@ def _upcoming(fields: dict[str, Any], user_timezone: str | None) -> dict[str, An
     return {**fields, "due_at": next_recurring_due(due, rule, now=now, timezone=user_timezone)}
 
 
-async def _apply(session: AsyncSession, user_id: UUID, stored: _Stored) -> None:
+@dataclass(frozen=True)
+class ConfirmedProposal:
+    """What a tap saved: the card's lines, and the rows it wrote and deleted, which the
+    phone applies instead of reading its whole list again (code-health audit NET-16).
+    ``rows`` is None for a tap that found the card already saved (another device)."""
+
+    items: list[CardItem]
+    rows: list[TodoItem] | None = None
+    deleted_ids: list[UUID] = field(default_factory=list)
+
+
+async def _apply(
+    session: AsyncSession, user_id: UUID, stored: _Stored
+) -> tuple[list[UUID], list[UUID]]:
+    """Make the writes; the ids written and the ids deleted."""
+    written: list[UUID] = []
+    deleted: list[UUID] = []
     for write in stored.writes:
         fields = _row_fields(write.fields)
         if write.kind == "create":
@@ -208,7 +226,10 @@ async def _apply(session: AsyncSession, user_id: UUID, stored: _Stored) -> None:
                 # A savepoint, so an open reminder already saved at that time
                 # (a second device, an earlier tap) skips only this row.
                 async with session.begin_nested():
-                    await todos_repo.create(session, user_id=user_id, commit=False, **fields)
+                    created = await todos_repo.create(
+                        session, user_id=user_id, commit=False, **fields
+                    )
+                written.append(created.id)
             except IntegrityError as exc:
                 if not todos_repo.is_open_content_due_conflict(exc):
                     raise
@@ -217,13 +238,16 @@ async def _apply(session: AsyncSession, user_id: UUID, stored: _Stored) -> None:
         if write.kind == "delete":
             if row is not None:
                 await todos_repo.delete_by_id(session, write.todo_id, user_id, commit=False)
+                deleted.append(write.todo_id)
             continue
         if row is None:
             raise ProposalError(f"{write.title} is no longer in your to-dos.", status_code=409)
         if "due_at" in fields:
             fields = _upcoming(fields, stored.user_timezone)
         await todos_repo.update(session, row, commit=False, **fields)
+        written.append(row.id)
     await session.commit()
+    return written, deleted
 
 
 def mark_saved(content: str, proposal_id: str) -> str:
@@ -259,7 +283,7 @@ async def confirm_proposal(
     *,
     user_id: UUID,
     proposal_id: str,
-) -> list[CardItem]:
+) -> ConfirmedProposal:
     """Make the card's writes. A second tap returns the same items."""
     key = _key(user_id, proposal_id)
     lock_key = f"{key}:confirm"
@@ -270,14 +294,16 @@ async def confirm_proposal(
         if raw is None:
             saved = await redis.get(_saved_key(user_id, proposal_id))
             if saved is not None:
-                return [CardItem.model_validate(item) for item in json.loads(saved)]
+                return ConfirmedProposal(
+                    items=[CardItem.model_validate(item) for item in json.loads(saved)]
+                )
             raise ProposalError("This expired. Ask again.", status_code=410)
         try:
             stored = _Stored.model_validate_json(raw)
         except ValidationError as exc:
             raise ProposalError("This expired. Ask again.", status_code=410) from exc
         try:
-            await _apply(session, user_id, stored)
+            written, deleted = await _apply(session, user_id, stored)
         except ProposalError:
             await session.rollback()
             raise
@@ -286,6 +312,7 @@ async def confirm_proposal(
             # Nothing was saved: the same card can be tapped again.
             await redis.set(key, raw, ex=PROPOSAL_TTL_SECONDS)
             raise
+        rows = await todos_repo.list_by_ids(session, user_id, written)
         items_json = json.dumps([item.model_dump(mode="json") for item in stored.items])
         await redis.set(_saved_key(user_id, proposal_id), items_json, ex=PROPOSAL_TTL_SECONDS)
         try:
@@ -293,10 +320,7 @@ async def confirm_proposal(
         except Exception:
             await session.rollback()
             logger.exception("Could not mark reminder card saved proposal_id=%s", proposal_id)
-        from app.modules.home import service as home_service
-
-        await home_service.invalidate_home_cache(user_id)
-        return stored.items
+        return ConfirmedProposal(items=stored.items, rows=rows, deleted_ids=deleted)
     finally:
         try:
             await redis.delete(lock_key)

@@ -145,6 +145,10 @@ export function makeTodosStyles(C: Theme) {
       textAlign: "center",
       padding: Space.lg,
     },
+    olderFooter: {
+      alignItems: "center",
+      paddingVertical: Space.md,
+    },
     selectionBar: {
       position: "absolute",
       left: Space.md,

@@ -76,7 +76,10 @@ export type Feedback = "up" | "down" | null;
 
 export type MessagePage = {
   messages: Message[];
+  /** Older messages precede the page. */
   has_more: boolean;
+  /** Newer messages follow it: a page read `around` or `after` a message. */
+  has_more_after?: boolean;
 };
 
 export type Message = {
@@ -150,21 +153,6 @@ export type HomeUrgentTodo = {
   topic: string;
   due_at: string;
   minutes_until: number;
-};
-
-type HomeStarter = {
-  id?: string;
-  text: string;
-  prompt: string;
-  kind: "time" | "memory" | "chat" | "general" | "todo";
-  chat_id?: string;
-};
-
-export type HomeScreen = {
-  greeting: string;
-  subtitle: string | null;
-  urgent_todos: HomeUrgentTodo[];
-  starters: HomeStarter[];
 };
 
 export type ChatList = {
