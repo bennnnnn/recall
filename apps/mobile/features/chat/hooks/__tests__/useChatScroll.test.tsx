@@ -327,3 +327,34 @@ describe("useChatScroll leaves a highlighted search hit to its own scroll", () =
     expect(fake.scroller.scrollToEnd).not.toHaveBeenCalled();
   });
 });
+
+describe("useChatScroll keyboard steps", () => {
+  it("do not pull the list while the reader drags it (an interactive keyboard dismiss)", async () => {
+    const listeners = new Set<(height: number) => void>();
+    const keyboardSteps = {
+      subscribe: (listener: (height: number) => void) => {
+        listeners.add(listener);
+        return () => { listeners.delete(listener); };
+      },
+    };
+    const fake = fakeList(1600);
+    fake.state.offset = 1000;
+    const hook = await renderHook(() => useChatScroll({
+      chatId: "chat-a", messagesLength: 8, streamActive: false, windowHeight: 800, keyboardSteps,
+    }));
+    (hook.result.current.listRef as { current: unknown }).current = fake.list;
+    await act(async () => { jest.advanceTimersByTime(400); });
+    fake.list.scrollToEnd.mockClear();
+    fake.scroller.scrollToEnd.mockClear();
+
+    await act(async () => { hook.result.current.listScroll.onReaderScrollBegin(); });
+    await act(async () => {
+      for (const height of [300, 250, 200]) {
+        listeners.forEach((listener) => listener(height));
+        jest.advanceTimersByTime(60);
+      }
+    });
+    expect(fake.list.scrollToEnd).not.toHaveBeenCalled();
+    expect(fake.scroller.scrollToEnd).not.toHaveBeenCalled();
+  });
+});

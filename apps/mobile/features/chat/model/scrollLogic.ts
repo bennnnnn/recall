@@ -74,7 +74,8 @@ export function resolveListAnchor(options: {
  * A chat the reader opened has just shown its messages: another chat's, or the
  * open chat's arriving after its load. A new chat taking its id is not one: its
  * first message was already on screen, and the list must not blink under it.
- * Nothing opens while a reply streams.
+ * Nothing opens while the open chat's own reply streams; a stream on screen
+ * when another chat opens belongs to the chat left behind.
  */
 export function opensChat(options: {
   previousChatId: string | null;
@@ -83,7 +84,7 @@ export function opensChat(options: {
   count: number;
   streamActive: boolean;
 }): boolean {
-  if (options.count === 0 || options.chatId === null || options.streamActive) return false;
-  if (options.chatId === options.previousChatId) return options.previousCount === 0;
+  if (options.count === 0 || options.chatId === null) return false;
+  if (options.chatId === options.previousChatId) return !options.streamActive && options.previousCount === 0;
   return !(options.previousChatId === null && options.previousCount > 0);
 }

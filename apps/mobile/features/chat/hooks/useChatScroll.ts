@@ -300,9 +300,15 @@ export function useChatScroll({
     () =>
       keyboardSteps.subscribe((height) => {
         if (height <= 0) return;
-        scheduleTimeout(keyboardScrollTimerRef, 50, () => scrollToEndIfAtBottom(true));
+        // An interactive dismiss is the reader's own drag; an opening or held
+        // list is placed by its own rules.
+        const still = () => !readerMovingRef.current && !openingRef.current && !heldRef.current;
+        if (!still()) return;
+        scheduleTimeout(keyboardScrollTimerRef, 50, () => {
+          if (still()) scrollToEndIfAtBottom(true);
+        });
       }),
-    [keyboardSteps, scrollToEndIfAtBottom],
+    [keyboardSteps, scrollToEndIfAtBottom, readerMovingRef, openingRef],
   );
 
   const handleLayoutCommit = useCallback(() => {

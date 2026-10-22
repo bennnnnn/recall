@@ -117,7 +117,8 @@ describe("chatScrollLogic", () => {
     ["a new chat taking its id under its first message", null, "chat-c", 1, 1, false, false],
     ["a new chat's first message", null, null, 0, 1, false, false],
     ["more messages in the open chat", "chat-b", "chat-b", 9, 10, false, false],
-    ["anything while a reply streams", "chat-a", "chat-b", 6, 9, true, false],
+    ["another chat while the last one's reply streams", "chat-a", "chat-b", 6, 9, true, true],
+    ["the open chat's load while its own reply streams", "chat-b", "chat-b", 0, 9, true, false],
     ["a chat with no messages yet", "chat-a", "chat-b", 6, 0, false, false],
   ] as const)("opensChat: %s", (_case, previousChatId, chatId, previousCount, count, streamActive, expected) => {
     expect(opensChat({ previousChatId, chatId, previousCount, count, streamActive })).toBe(expected);
