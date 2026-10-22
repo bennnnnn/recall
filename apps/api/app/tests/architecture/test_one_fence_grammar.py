@@ -30,7 +30,6 @@ _ALLOWED = {
     ),
     "modules/chat/prompt_constants/chart.py": _USER_CUE,
     "modules/chat/prompt_constants/diagrams.py": _USER_CUE,
-    "modules/chat/prompt_constants/format.py": _USER_CUE,
     "modules/chat/prompt_constants/teaching.py": _USER_CUE,
     "modules/chat/prompt_constants/visuals.py": _USER_CUE,
     "modules/web_search/patterns.py": _USER_CUE,
