@@ -5,7 +5,7 @@
 # Redis-stream jobs + schedulers (PROCESS_ROLE=worker). Scale each independently.
 
 app = "recall-api"
-primary_region = "iad" # change to your region; Neon DB is in us-east-2
+primary_region = "iad" # beside Neon (AWS us-east-1); production Redis (Upstash) belongs in us-east-1 too
 # A deploy or restart stops a Machine with kill_signal (Fly's default, SIGINT;
 # uvicorn and the worker shut down gracefully on SIGINT and SIGTERM) and kills
 # it kill_timeout seconds later. The default 5s cut every reply in progress.
