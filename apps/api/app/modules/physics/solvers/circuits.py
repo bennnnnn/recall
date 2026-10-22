@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import replace
 
 from app.modules.physics.constants import EPSILON_0
+from app.modules.physics.display import latex_given, latex_unit
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.arithmetic import latex_num
 from app.modules.physics.solvers.circuit_scenes import circuit_scene
@@ -76,8 +77,8 @@ def _rc_time_constant(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResu
     )
 
 
-def _combined_resistance(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
-    op = intent.physics_op or "current"
+def _network(intent: PhysicsIntent, p: dict[str, float]) -> tuple[bool, list[float], float]:
+    """Whether the network is in series, its resistances in order, and its total."""
     # Every R the extractor found, not the first two. Reading three and
     # using two is how "2, 3 and 5 ohms in series" answered 5 ohms.
     resistances = [p[key] for key in sorted(p) if RESISTOR_KEY_RE.fullmatch(key)]
@@ -85,29 +86,69 @@ def _combined_resistance(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsR
         raise SolveServiceError("a resistor network needs at least two resistances")
     if any(r <= 0 for r in resistances):
         raise SolveServiceError("resistances must be positive")
-    terms = " + ".join(f"{r:g}" for r in resistances)
-    if op == "series_resistance":
-        total = sum(resistances)
+    series = (intent.physics_op or "").startswith("series")
+    total = sum(resistances) if series else 1 / sum(1 / r for r in resistances)
+    return series, resistances, total
+
+
+def _network_law(series: bool, resistances: list[float]) -> tuple[str, str]:
+    """The network's law and its substitution: R_s = 2 + 4, 1/R_p = 1/3 + 1/3."""
+    if series:
+        return r"R_s = \sum R_i", rf"R_s = {' + '.join(f'{r:g}' for r in resistances)}"
+    symbols = " + ".join(rf"\frac{{1}}{{R_{index}}}" for index in range(1, len(resistances) + 1))
+    reciprocals = " + ".join(rf"\frac{{1}}{{{r:g}}}" for r in resistances)
+    return rf"\frac{{1}}{{R_p}} = {symbols}", rf"\frac{{1}}{{R_p}} = {reciprocals}"
+
+
+def _combined_resistance(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    series, resistances, total = _network(intent, p)
+    formula, substitution = _network_law(series, resistances)
+    if series:
+        terms = " + ".join(f"{r:g}" for r in resistances)
         answer = rf"R = \sum R_i = {terms} \approx {total:.2f} \,\Omega"
-        formula = r"R = \sum R_i"
-        substitution = rf"R_s = {terms}"
     else:
-        total = 1 / sum(1 / r for r in resistances)
         reciprocals = " + ".join(rf"\frac{{1}}{{{r:g}}}" for r in resistances)
-        symbols = " + ".join(
-            rf"\frac{{1}}{{R_{index}}}" for index in range(1, len(resistances) + 1)
-        )
         answer = (
             rf"\frac{{1}}{{R}} = {reciprocals} \Rightarrow R "
             rf"\approx {total:.2f} \,\Omega"
         )
-        formula = rf"\frac{{1}}{{R_p}} = {symbols}"
-        substitution = rf"\frac{{1}}{{R_p}} = {reciprocals}"
     return PhysicsResult(
         answer=answer,
         formulas=(formula,),
         substitutions=(substitution,),
         quantities=(QuantityResult("", total, "ohm"),),
+    )
+
+
+def _reciprocal_rows(series: bool, total: float) -> tuple[str, ...]:
+    """A parallel total's last steps, as the parallel-resistance working shows them:
+    1/R_p = 0.833333, then R_p = 1/0.833333."""
+    if series:
+        return ()
+    reciprocal = latex_given(1 / total)
+    return (rf"\frac{{1}}{{R_p}} = {reciprocal}", rf"R_p = \frac{{1}}{{{reciprocal}}}")
+
+
+def _network_current(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    """The network's equivalent resistance, then Ohm's law across it."""
+    series, resistances, total = _network(intent, p)
+    formula, substitution = _network_law(series, resistances)
+    symbol = "R_s" if series else "R_p"
+    shown = latex_given(total)
+    current = p["V"] / total
+    return PhysicsResult(
+        answer=(
+            rf"I = \frac{{V}}{{{symbol}}} = \frac{{{p['V']:g}}}{{{shown}}} "
+            rf"\approx {current:.2f} \text{{ A}}"
+        ),
+        formulas=(formula, rf"I = \frac{{V}}{{{symbol}}}"),
+        substitutions=(
+            substitution,
+            *_reciprocal_rows(series, total),
+            rf"{symbol} = {shown}{latex_unit('ohm')}",
+            rf"I = \frac{{{p['V']:g}}}{{{shown}}}",
+        ),
+        quantities=(QuantityResult("", current, "A"),),
     )
 
 
@@ -239,6 +280,8 @@ _OPERATIONS: dict[str, Callable[[PhysicsIntent, dict[str, float]], PhysicsResult
     "rc_time_constant": _rc_time_constant,
     "series_resistance": _combined_resistance,
     "parallel_resistance": _combined_resistance,
+    "series_current": _network_current,
+    "parallel_current": _network_current,
     "charge": _charge,
     "electrical_energy": _electrical_energy,
     "capacitance": _capacitance,
