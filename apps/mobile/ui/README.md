@@ -17,6 +17,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 | Actions on a thing (⋮, long-press) | `overlay/Menu`, anchored to the button or the touch point | a bottom sheet of actions |
 | Pick one of several from a row | `overlay/SelectMenu` (checked popover) | expanding options inline |
 | Pick one of two to four in place | `controls/SegmentedControl` | a row of hand-made chips |
+| Pick a number in a range (an amount, a rate, a term) | `controls/Slider` (label and value above the track; an optional marker for a reference value, tap to jump; screen-reader steps; math in `sliderValue.ts`) | a hand-built track and thumb |
 | A form, the attach sources, sharing | `overlay/Sheet` | a raw `Modal` |
 | Edit one text value (a profile field, a memory) | `overlay/FieldSheet` (title, hint, Save) | a hand-built sheet with a field |
 | A full-screen viewer (photo, PDF, scanner) | `overlay/FullScreenModal` | a raw `Modal` |
@@ -37,7 +38,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 ## Folders
 
 - `controls/`: Button, IconButton, HeaderButton (+ HeaderButtonGroup), StackBackButton, Chip,
-  SegmentedControl, TextField, SearchField, AddFab (`addFabLayout.ts` gives a list the bottom
+  SegmentedControl, Slider (`sliderValue.ts`), TextField, SearchField, AddFab (`addFabLayout.ts` gives a list the bottom
   padding that clears it).
 - `list/`: ListRow, ListGroup, ListSeparator.
 - `overlay/`: Overlay (the one floating layer), Menu, SelectMenu, Dialog + DialogHost +
