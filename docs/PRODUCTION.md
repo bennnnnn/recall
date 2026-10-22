@@ -15,7 +15,7 @@ or alert on every usage-billed account.
 
 | Service | What it runs | Production plan | Region | Today |
 |---------|--------------|-----------------|--------|-------|
-| Neon | Postgres + pgvector | Paid, usage-based, for the whole org | AWS `us-east-1` | Project `recall-us-east-1` (young-tree-05012126): `production` branch empty at migration head, `dev` branch used by the local API. Free plan. |
+| Neon | Postgres + pgvector | Paid, usage-based, for the whole org | AWS `us-east-1` | No production database. Development uses a throwaway free database in `us-east-1`; its data does not matter. The paid one is created fresh on deploy day, and it is the first data we keep. |
 | Upstash | Redis (jobs, quota, rate limits, sign-out) | Pay as you go | `us-east-1` | No production database yet; local dev uses Homebrew Redis. |
 | Fly.io | API and worker machines | Pay as you go (card on file) | `iad` | Not deployed. `recall-api.fly.dev` answers as an unrelated app, so the name `recall-api` may be taken: pick a free name and update `fly.toml` and the app's `EXPO_PUBLIC_API_URL`. |
 | Cloudflare R2 | Attachments | Pay as you go | Location hint: Eastern North America | Not created. |
@@ -43,8 +43,8 @@ or alert on every usage-billed account.
 
 **Order at deploy time:**
 
-1. Neon: upgrade the org's plan and set a spending limit; confirm `production` shows
-   `alembic heads` (§1). Its direct URL is the commented `DATABASE_URL` in `apps/api/.env`.
+1. Neon: on a paid plan with a spending limit, create the production project in
+   `us-east-1`, run the migrations and confirm it shows `alembic heads` (§1).
 2. Upstash: create the production database in `us-east-1`; take its `rediss://` URL (§2).
 3. R2: bucket and token (§3).
 4. Fly: install `flyctl`, choose the app name, deploy, set every secret (§4).
@@ -54,7 +54,7 @@ or alert on every usage-billed account.
 
 ## 1. Database (Neon Postgres + pgvector)
 
-- [x] Create Neon project: `recall-us-east-1` in AWS `us-east-1` (§0)
+- [ ] Create the paid Neon project in AWS `us-east-1`, beside Fly `iad` (§0)
 - [ ] Enable `vector` extension: `CREATE EXTENSION IF NOT EXISTS vector;`
 - [ ] Set `DATABASE_URL` as `postgresql+asyncpg://...?sslmode=require`, the
       project's **direct** endpoint (the app switches itself to the `-pooler`
