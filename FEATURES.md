@@ -825,7 +825,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Agree stores `users.ai_data_consent_at` on the account (`PATCH /auth/me`
   `ai_data_consent`), Not now signs out. Every signed-in screen waits on it (the root
   layout's `features/auth/components/AiConsentRedirect.tsx` sends it to `app/consent.tsx`);
-  the web client asks too. The server holds the same line (`modules/account/consent.py`): a
+  the web client asks too. The server holds the same line (`core/consent.py`): a
   chat turn (WebSocket and SSE), speech (transcribe, read aloud, a live talk key or tool) and a
   scan read-back are refused with `consent_required` (an error frame with
   `user_message_saved: false`, or HTTP 403) until the account agrees, and the phone answers it

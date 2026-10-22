@@ -15,9 +15,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import app as app_package
+from app.core.consent import ConsentRefusedError
 from app.core.domain_errors import register_domain_error_handler
 from app.exceptions import DomainError
-from app.modules.account.consent import ConsentRefusedError
 from app.modules.account.email_authority import AccountExistsError
 from app.modules.account.settings_proposal import SettingsProposalError
 from app.modules.attachments.upload import AttachmentUploadError

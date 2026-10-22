@@ -2,10 +2,12 @@
 
 The phone and the web ask once after sign-in (``users.ai_data_consent_at``, set
 by ``PATCH /auth/me`` ``ai_data_consent``). The server holds the same line: a
-chat turn, speech (transcribe, read aloud, a live talk key or tool) and a
-scanned problem's read-back are refused with ``consent_required`` until the
-account agrees, and again after it withdraws. The phone answers that code with
-its consent screen.
+chat turn, speech (transcribe, read aloud, a live talk key or tool), a scanned
+problem's read-back, a picture and the composer's picture check, and a memory
+edit are refused with ``consent_required`` until the account agrees, and again
+after it withdraws; a file's indexing (OCR and embeddings) skips it. The phone
+answers that code with its consent screen. It sits in ``core`` because every
+feature module checks it, and account itself reads those modules.
 
 A user cached by ``get_current_user`` trails an agreement made on another
 machine only when that change's generation never reached Redis

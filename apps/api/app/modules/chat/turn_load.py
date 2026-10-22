@@ -14,13 +14,12 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import pool_liveness, user_cache
+from app.core import consent, pool_liveness, user_cache
 from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError, ConsentRequiredError
 from app.models import model_catalog
 from app.models.orm import Chat, User
-from app.modules.account import consent
 from app.modules.chat.finalize_registry import wait_for_pending_finalize
 from app.modules.chat.model_routing.route import last_user_turn
 from app.modules.chat.prompt_constants import (

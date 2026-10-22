@@ -152,11 +152,18 @@ async def insert_verified_clone(
 
 
 async def get_by_id(
-    session: AsyncSession, attachment_id: UUID, user_id: UUID, *, for_update: bool = False
+    session: AsyncSession,
+    attachment_id: UUID,
+    user_id: UUID,
+    *,
+    for_update: bool = False,
+    owner_consented: bool = False,
 ) -> Attachment | None:
     statement = select(Attachment).where(
         Attachment.id == attachment_id, Attachment.user_id == user_id
     )
+    if owner_consented:  # only while the owner has AI data consent (indexing OCRs and embeds)
+        statement = statement.join(User).where(User.ai_data_consent_at.is_not(None))
     if for_update:
         statement = statement.with_for_update().execution_options(populate_existing=True)
     result = await session.execute(statement)
@@ -166,10 +173,9 @@ async def get_by_id(
 async def get_by_ids(
     session: AsyncSession, attachment_ids: list[UUID], user_id: UUID
 ) -> list[Attachment]:
-    """Batched ``get_by_id`` — one round-trip instead of one query per id.
+    """Batched ``get_by_id``, scoped by ``user_id``, in one round-trip.
 
-    Scoped by ``user_id`` like ``get_by_id``. Order is not guaranteed to match
-    ``attachment_ids``; callers that care should re-order by id themselves.
+    Order is not guaranteed to match ``attachment_ids``; re-order by id if it matters.
     """
     if not attachment_ids:
         return []

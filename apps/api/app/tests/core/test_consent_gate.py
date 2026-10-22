@@ -1,4 +1,4 @@
-"""Speech and scan reads wait for the account's consent to outside AI services.
+"""Speech, scan reads, pictures and memory edits wait for consent to outside AI services.
 
 Each answers 403 ``{"detail": {"code": "consent_required", …}}`` before it reads
 the request, so nothing reaches a provider; the phone opens its consent screen.
@@ -31,6 +31,9 @@ _ROUTES = [
     ("post", "/math/scan/read", None),
     ("post", "/physics/scan/read", None),
     ("post", "/chemistry/scan/read", None),
+    ("post", "/images/generate", {"chat_id": str(uuid4()), "prompt": "a lighthouse at dusk"}),
+    ("post", "/images/intent", {"text": "draw a lighthouse at dusk"}),
+    ("post", "/memories/instruct", {"instruction": "remember that I prefer metric units"}),
 ]
 
 
@@ -94,7 +97,7 @@ def test_consent_given_on_another_machine_lets_the_request_through(
 
 @pytest.mark.asyncio
 async def test_an_account_that_agreed_is_not_read_again() -> None:
-    from app.modules.account.consent import get_consented_user
+    from app.core.consent import get_consented_user
 
     user = SimpleNamespace(id=uuid4(), ai_data_consent_at=_AGREED)
     session = SimpleNamespace(refresh=AsyncMock())
@@ -124,7 +127,7 @@ async def test_a_withdrawal_on_another_machine_is_honoured_at_once(fake_redis) -
 @pytest.mark.asyncio
 async def test_the_re_read_ends_its_transaction_before_the_route_runs() -> None:
     """A stream after the gate must not hold the re-read's connection idle in transaction."""
-    from app.modules.account.consent import get_consented_user
+    from app.core.consent import get_consented_user
 
     calls: list[str] = []
 
