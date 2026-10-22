@@ -24,5 +24,7 @@ export type MemoryDocuments = {
 export type MemoryInstructResult = {
   reply: string;
   applied: number;
+  /** Edits the model proposed that never landed. */
+  dropped?: number;
   documents: MemoryDocument[];
 };

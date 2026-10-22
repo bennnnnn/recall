@@ -44,6 +44,8 @@ class MemoryInstructionFailedError(DomainError):
 class MemoryInstructionOutcome:
     applied: int
     reply: str
+    # Edits the model proposed that never landed: unreadable, filtered or stale.
+    dropped: int = 0
 
 
 _OP_WORDS = {
@@ -120,12 +122,15 @@ async def apply_memory_instruction(
                 manual_edit=True,
                 applied=applied,
             )
-        logger.info("memory_instruction user_id=%s applied=%s", user_id, len(applied))
+        # An op that did not validate was still proposed: "Added it" must not stand.
+        proposed = len(result.ops) + result.dropped
+        logger.info(
+            "memory_instruction user_id=%s applied=%s proposed=%s", user_id, len(applied), proposed
+        )
         return MemoryInstructionOutcome(
             applied=len(applied),
-            reply=instruction_reply(
-                result.reply.strip(), proposed=len(result.ops), applied=applied
-            ),
+            reply=instruction_reply(result.reply.strip(), proposed=proposed, applied=applied),
+            dropped=max(proposed - len(applied), 0),
         )
     finally:
         await locks.release_memory_write_lock(user_id, lock_token)

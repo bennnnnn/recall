@@ -17,10 +17,11 @@ import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { useTodosActions } from "@/features/todos/hooks/useTodosActions";
 import { useTodosDerivedState } from "@/features/todos/hooks/useTodosDerivedState";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/features/todos/context/TodosContext";
 import { buildTodoListRows } from "@/features/todos/model/todoListRows";
-import { todosForView, type TodoView } from "@/features/todos/model/todoListFilter";
+import { todosForView, type TodoView, viewForNewTodo } from "@/features/todos/model/todoListFilter";
 import { useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { confirmDialog } from "@/ui/overlay/dialogs";
@@ -33,6 +34,7 @@ export default function TodosScreen() {
 function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const { token, user, updateUser } = useAuth();
   const { t } = useTranslation();
+  const feedback = useActionFeedbackOptional();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
   const navigation = useNavigation();
@@ -319,7 +321,15 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
           void actions.handleCreateTodo(
             content,
             dueDate,
-            () => { if (isCurrentView()) setEditorOpen(false); },
+            () => {
+              if (!isCurrentView()) return;
+              setEditorOpen(false);
+              // A to-do the current view would hide: show the view that lists it.
+              const shown = viewForNewTodo(view, dueDate);
+              if (shown === view) return;
+              setView(shown);
+              feedback?.info(t("todos.added_shown_open"));
+            },
             recurrence,
             topic,
           )

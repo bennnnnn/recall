@@ -16,6 +16,7 @@ from app.modules.todos import repository as todos_repo
 from app.modules.todos.occurrences import TodoScheduleSnapshot
 from app.modules.todos.recurrence import (
     RecurrenceRule,
+    completed_fields,
     is_recurrence_rule,
     next_recurring_due,
     snap_first_due,
@@ -26,6 +27,13 @@ from app.services.time_context import normalize_due_at
 
 class TodosError(DomainError):
     """A to-do refusal."""
+
+
+def _duplicate() -> TodosError:
+    """Another open to-do already has this title at this time (uq_todo_open_content_due)."""
+    return TodosError(
+        "You already have this to-do at that time.", status_code=409, code="todo_duplicate"
+    )
 
 
 def _reminder_pushes_on(user: User) -> bool:
@@ -81,10 +89,12 @@ async def create_todo(
         normalized_due = snap_first_due(normalized_due, recurrence_rule, timezone=user.timezone)
     if normalized_due is None:
         recurrence_rule = None
+    # Read before the try: a rollback expires the user, and reading it then fails.
+    user_id = user.id
     try:
         item = await todos_repo.create(
             session,
-            user_id=user.id,
+            user_id=user_id,
             content=content,
             topic=topic or todos_repo.DEFAULT_TOPIC,
             chat_id=chat_id,
@@ -96,10 +106,10 @@ async def create_todo(
             raise
         await session.rollback()
         existing = await todos_repo.get_open_dated_duplicate(
-            session, user.id, content=content, due_at=normalized_due
+            session, user_id, content=content, due_at=normalized_due
         )
         if existing is None:
-            raise
+            raise _duplicate() from exc
         return existing
     return item
 
@@ -129,8 +139,20 @@ async def update_todo(
         raise TodosError("recurrence_rule requires due_at", status_code=422)
     if due is not None and is_recurrence_rule(rule):
         patch["due_at"] = snap_first_due(due, rule, timezone=user.timezone)
-    updated = await todos_repo.update(session, item, **patch)
-    return updated
+    patch = completed_fields(
+        patch,
+        due_at=patch.get("due_at", item.due_at),
+        rule=rule,
+        timezone=user.timezone,
+        now=datetime.now(UTC),
+    )
+    try:
+        return await todos_repo.update(session, item, **patch)
+    except IntegrityError as exc:
+        if not todos_repo.is_open_content_due_conflict(exc):
+            raise
+        await session.rollback()
+        raise _duplicate() from exc
 
 
 async def advance_past_recurring(

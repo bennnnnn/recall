@@ -35,7 +35,7 @@ from app.models.schemas.common import (
     ModelInfo,
     UsageOut,
 )
-from app.models.schemas.push import PushTokenIn
+from app.models.schemas.push import PushTokenDeleteIn, PushTokenIn
 
 __all__ = [
     "AccountDeleteRequest",
@@ -62,6 +62,7 @@ __all__ = [
     "PinUpdate",
     "ProductEventBatchIn",
     "ProductEventIn",
+    "PushTokenDeleteIn",
     "PushTokenIn",
     "RefreshRequest",
     "SearchResultItem",
