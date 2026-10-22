@@ -20,7 +20,10 @@ jest.mock("@/lib/cache/chatListFile", () => ({
   writeStoredChatList: jest.fn(async () => undefined),
   clearStoredChatList: jest.fn(async () => undefined),
 }));
-jest.mock("@/lib/scheduleIdle", () => ({ scheduleIdleTask: () => jest.fn() }));
+const mockIdle: (() => void)[] = [];
+jest.mock("@/lib/scheduleIdle", () => ({
+  scheduleIdleTask: (task: () => void) => { mockIdle.push(task); return jest.fn(); },
+}));
 const mockWarn = jest.fn();
 jest.mock("@/lib/reportRecoverableError", () => ({
   reportRecoverableWarning: (_feedback: unknown, message: string) => mockWarn(message),
@@ -35,7 +38,7 @@ function Probe({ token = "token", open = true }: { token?: string | null; open?:
   return <Text>{result.allChats.map((row) => row.title).join(",")}</Text>;
 }
 beforeEach(() => {
-  jest.clearAllMocks(); mockSession = 0; invalidateChatListCache();
+  jest.clearAllMocks(); mockSession = 0; mockIdle.length = 0; invalidateChatListCache();
 });
 
 it("hides account A immediately and rejects its late read after account B signs in", async () => {
@@ -142,4 +145,28 @@ it("paints the chats this account had last time while the list is read again", a
   expect(api.listChats).toHaveBeenCalledTimes(1);
   await act(async () => { finish(initial); });
   expect(current.allChats).toEqual([chat]);
+});
+
+it("reads the list on the next drawer open when the first read after a cold start failed", async () => {
+  const encode = (value: unknown) => btoa(JSON.stringify(value)).replace(/=/g, "");
+  const token = `${encode({ alg: "HS256" })}.${encode({ sub: "user-1" })}.signature`;
+  const stored = { ...emptyChatList(), today: [{ ...chat, id: "stored", title: "From last time" }] };
+  (readStoredChatList as jest.Mock).mockResolvedValueOnce(stored);
+  (api.listChats as jest.Mock).mockRejectedValueOnce(new TypeError("Network request failed"));
+  const view = await render(<Probe token={token} open={false} />);
+  await act(async () => { await Promise.resolve(); });
+  expect(current.allChats.map((row) => row.title)).toEqual(["From last time"]);
+  // The closed drawer's warm-up read fails: the list shown is still the one from disk.
+  await act(async () => {
+    mockIdle.splice(0).forEach((task) => task());
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+  });
+  expect(api.listChats).toHaveBeenCalledTimes(1);
+  expect(current.allChats.map((row) => row.title)).toEqual(["From last time"]);
+  const laptop = { ...emptyChatList(), today: [{ ...chat, id: "new", title: "Created on laptop" }] };
+  (api.listChats as jest.Mock).mockResolvedValueOnce(laptop);
+  await view.rerender(<Probe token={token} open />);
+  await act(async () => { await Promise.resolve(); });
+  expect(api.listChats).toHaveBeenCalledTimes(2);
+  expect(current.allChats.map((row) => row.title)).toEqual(["Created on laptop"]);
 });

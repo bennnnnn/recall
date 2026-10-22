@@ -105,7 +105,8 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
     setError(false);
     const result = await fetchChatList(token, { force, report: reportFailure });
     if (!current() || loadId !== loadIdRef.current) return;
-    if (result.data) applyChatList(getCachedChatList() ?? result.data);
+    // A failed read hands back the list already shown (one restored from disk, say): not loaded yet.
+    if (result.data) applyChatList(getCachedChatList() ?? result.data, !result.error);
     if (result.error && !background) setError(true);
     if (!background) setLoading(false);
   }, [token, current, hydrateFromCache, applyChatList, reportFailure]);
@@ -135,8 +136,8 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
     let cancelled = false;
     const cancelIdle = scheduleIdleTask(() => {
       if (cancelled || !current()) return;
-      void fetchChatList(token).then(({ data }) => {
-        if (!cancelled && current() && data) applyChatList(getCachedChatList() ?? data);
+      void fetchChatList(token).then(({ data, error }) => {
+        if (!cancelled && current() && data) applyChatList(getCachedChatList() ?? data, !error);
       });
     });
     return () => { cancelled = true; cancelIdle(); };
