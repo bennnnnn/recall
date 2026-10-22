@@ -9,11 +9,18 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.money import rates
-from app.modules.money.catalog import product
+from app.modules.money.catalog import RateLookup, product
 from app.modules.money.rates import RateReading, checked, country_for, current_average
 from app.tests.modules.money.money_support import HITS, TODAY
 
-_LOOKUP = product("mortgage").lookup
+
+def _mortgage_lookup() -> RateLookup:
+    lookup = product("mortgage").lookup
+    assert lookup is not None
+    return lookup
+
+
+_LOOKUP = _mortgage_lookup()
 assert _LOOKUP is not None
 
 
