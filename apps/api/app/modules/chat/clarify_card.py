@@ -11,11 +11,14 @@ pass (``finalize_text.settle_clarify``) says which turns those are.
 from __future__ import annotations
 
 import json
+import logging
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from app.services.md_fence_scan import iter_fences
+
+logger = logging.getLogger(__name__)
 
 CLARIFY_FENCE = "clarify"
 MAX_QUESTIONS = 3
@@ -65,15 +68,16 @@ class ClarifyCard(BaseModel):
 
 
 def _options(raw: object) -> list[str]:
-    """Trimmed, without blanks or repeats (ignoring case), in the model's order."""
+    """Trimmed, without blanks, repeats (ignoring case) or choices too long to tap, in the
+    model's order, and at most four: the card's Other... covers a fifth."""
     seen: set[str] = set()
     options: list[str] = []
     for option in raw if isinstance(raw, list) else []:
         text = _text(option)
-        if text and text.casefold() not in seen:
+        if text and len(text) <= _MAX_OPTION and text.casefold() not in seen:
             seen.add(text.casefold())
             options.append(text)
-    return options
+    return options[:MAX_OPTIONS]
 
 
 def _question(raw: object, index: int) -> dict[str, object] | None:
@@ -93,25 +97,31 @@ def _question(raw: object, index: int) -> dict[str, object] | None:
 def read_card(body: str, *, prose_words: int = 0) -> ClarifyCard | None:
     """The card a fence body holds, normalised, or None when it breaks the rules.
 
-    More than three questions keeps the first three; a question left with fewer than two
-    choices, or with more than four, makes the card invalid. With no "when", a reply that
-    already answers (``prose_words`` past ``_ANSWER_WORDS``) holds an "after" card.
+    More than three questions keeps the first three, and more than four choices the first
+    four; a question left with fewer than two choices makes the card invalid. With no
+    "when", a reply that already answers (``prose_words`` past ``_ANSWER_WORDS``) holds an
+    "after" card. A refused card is logged by its reason only, never its text.
     """
     try:
         raw = json.loads(body)
     except ValueError:
+        logger.info("clarify card dropped: not JSON")
         return None
     if not isinstance(raw, dict) or not isinstance(raw.get("questions"), list):
+        logger.info("clarify card dropped: no questions list")
         return None
     questions = [_question(item, i) for i, item in enumerate(raw["questions"][:MAX_QUESTIONS])]
     if any(question is None for question in questions):
+        logger.info("clarify card dropped: a question is not an object")
         return None
     when = raw.get("when")
     if when not in ("first", "after"):
         when = "after" if prose_words > _ANSWER_WORDS else "first"
     try:
         return ClarifyCard.model_validate({"when": when, "questions": questions})
-    except ValidationError:
+    except ValidationError as exc:
+        fields = sorted({".".join(str(part) for part in error["loc"]) for error in exc.errors()})
+        logger.info("clarify card dropped: invalid %s", ", ".join(fields))
         return None
 
 

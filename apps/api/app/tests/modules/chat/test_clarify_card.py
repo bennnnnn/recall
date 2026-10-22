@@ -101,9 +101,8 @@ def test_read_card_keeps_the_first_three_questions() -> None:
         json.dumps({"when": "first"}),
         json.dumps({"when": "first", "questions": []}),
         json.dumps({"when": "first", "questions": ["a question"]}),
-        # One choice is not a choice; five are too many to tap.
+        # One choice is not a choice, even after a too-long one is dropped.
         json.dumps({"when": "first", "questions": [{**_LEVEL, "options": ["Yes", "yes"]}]}),
-        json.dumps({"when": "first", "questions": [{**_LEVEL, "options": list("abcde")}]}),
         json.dumps({"when": "first", "questions": [{**_LEVEL, "question": " "}]}),
         json.dumps({"when": "first", "questions": [{**_LEVEL, "options": ["x" * 81, "y"]}]}),
         json.dumps({"when": "first", "questions": [{**_LEVEL, "label": "x" * 61}]}),
@@ -111,6 +110,36 @@ def test_read_card_keeps_the_first_three_questions() -> None:
 )
 def test_read_card_refuses_a_card_that_breaks_the_rules(body: str) -> None:
     assert read_card(body) is None
+
+
+@pytest.mark.parametrize(
+    ("options", "kept"),
+    [
+        # Five choices keep the first four: the card's Other... covers the fifth.
+        (["Work", "Study", "Chores", "Fitness", "Social"], ["Work", "Study", "Chores", "Fitness"]),
+        # A choice too long to tap is dropped, not the whole card.
+        (["x" * 81, "Yes", "No"], ["Yes", "No"]),
+    ],
+)
+def test_read_card_trims_choices_instead_of_dropping_the_card(
+    options: list[str], kept: list[str]
+) -> None:
+    card = read_card(json.dumps({"when": "first", "questions": [{**_LEVEL, "options": options}]}))
+    assert card is not None and card.questions[0].options == kept
+
+
+def test_a_dropped_card_logs_its_reason_not_its_text(caplog: pytest.LogCaptureFixture) -> None:
+    secret = "my salary is 4000"
+    with caplog.at_level("INFO", logger="app.modules.chat.clarify_card"):
+        assert (
+            read_card(
+                json.dumps(
+                    {"when": "first", "questions": [{**_LEVEL, "question": " ", "label": secret}]}
+                )
+            )
+            is None
+        )
+    assert "clarify card dropped" in caplog.text and secret not in caplog.text
 
 
 @pytest.mark.parametrize(("prose_words", "when"), [(5, "first"), (60, "after")])
@@ -131,11 +160,11 @@ def test_one_card_only_and_it_moves_under_the_answer() -> None:
 
 
 def test_a_broken_card_on_an_ask_keeps_its_questions_as_prose() -> None:
-    broken = {"when": "first", "questions": [{**_LEVEL, "options": list("abcde")}, _GOAL]}
+    broken = {"when": "first", "questions": [{**_LEVEL, "options": ["Only one"]}, _GOAL]}
     settled = settle_clarify_cards(f"{_ASK}\n\n{_fence(broken)}", allowed=True)
     assert "```clarify" not in settled
     assert settled == (
-        f"{_ASK}\n\n- Have you studied integrals before? (a / b / c / d / e)\n"
+        f"{_ASK}\n\n- Have you studied integrals before? (Only one)\n"
         "- What do you need it for? (An exam / A class / Curiosity)"
     )
 
