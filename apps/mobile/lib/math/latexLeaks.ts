@@ -6,8 +6,8 @@
  * sees here, so callers leave code out.
  */
 
-export type LatexLeakKind = "command" | "escape" | "script" | "delimiter" | "marker" | "name";
-export type LatexLeak = { kind: LatexLeakKind; text: string; index: number };
+type LatexLeakKind = "command" | "escape" | "script" | "delimiter" | "marker" | "name";
+type LatexLeak = { kind: LatexLeakKind; text: string; index: number };
 
 const PATTERNS: [LatexLeakKind, RegExp][] = [
   ["command", /\\[A-Za-z]+/g],

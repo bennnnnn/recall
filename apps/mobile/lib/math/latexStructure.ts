@@ -352,6 +352,3 @@ export function rewriteLatexStructure(source: string): string {
   }
   return out;
 }
-
-/** The commands this pass rewrites (the coverage test reads it). */
-export const STRUCTURE_COMMANDS: ReadonlySet<string> = new Set(Object.keys(RULES));

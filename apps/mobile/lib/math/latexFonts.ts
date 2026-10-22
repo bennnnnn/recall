@@ -20,7 +20,7 @@ const ALPHABETS: Record<"double-struck" | "fraktur", Alphabet> = {
   },
 };
 
-export type LetterStyle = keyof typeof ALPHABETS;
+type LetterStyle = keyof typeof ALPHABETS;
 
 /** Each ASCII letter (and, double-struck, digit) in `style`; anything else unchanged. */
 export function styledLetters(text: string, style: LetterStyle): string {

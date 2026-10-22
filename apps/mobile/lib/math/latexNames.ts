@@ -10,7 +10,7 @@ import { NAMED_FUNCTIONS } from "@/lib/math/latexCommands";
 import { LATEX_OPERATOR_NAMES, LATEX_SYMBOLS } from "@/lib/math/latexSymbols.generated";
 import { TEXT_STYLE_COMMANDS } from "@/lib/math/textMarkers";
 
-export type LatexNameKind = "function" | "operator" | "symbol" | "style" | "unknown";
+type LatexNameKind = "function" | "operator" | "symbol" | "style" | "unknown";
 
 /** amsmath's limit variants draw decorated "lim"; inline shows the word. */
 const LIMIT_VARIANTS: Readonly<Record<string, string>> = {
