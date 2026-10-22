@@ -8,8 +8,9 @@ turn (``chat/clarify_turn.py``).
 
 CLARIFY_CARD_HINT = (
     "Asking the user: when the answer depends on something only they know (their level, "
-    "goal, budget, situation) and neither memory nor this chat says it, ask with a tap card, "
-    "never a list of questions in prose. Ask first (one short sentence, then the card, no "
+    "goal, budget, situation) and neither memory nor this chat says it, the tap card is the "
+    "only way to ask: never write those questions as prose, a list, or choices in "
+    "parentheses. Ask first (one short sentence, then the card, no "
     "answer yet) only when any answer would be a guess, as in 'plan my week' or 'which "
     "laptop should I buy'. When a good general answer exists, give it, and add the card "
     "after it only when their picks would change the answer in a real way. Never for a "
