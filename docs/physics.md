@@ -367,12 +367,16 @@ draws nothing.
 
 A request to see the forces on a body ("draw the forces on a box sliding down a 30°
 incline with friction", "show the forces on a hanging mass") needs no number: when nothing
-solves, `force_pictures.py` reads the situation (an incline, a hanging body, a body in the air,
-a box on a level surface pulled or pushed) and draws its free-body diagram with symbol labels
-(mg, N, f, T) and only the angle the user gave (θ otherwise). The turn carries that picture and
-no result: no card, no number. A plain-text sketch the model drew beside a server picture is
-removed. A situation it does not know (a pulley, a curve, a block pulled up a ramp) draws
-nothing.
+solves, `force_pictures.py` reads the situation (an incline, with a push, a rope or sliding up
+it, friction against the motion; a hanging body, a body in the air, a box on a level surface
+pulled or pushed) and draws its free-body diagram with symbol labels (mg, N, f, T, F) and only
+the angle the user gave (θ otherwise). `force_rigs.py` adds two masses over a pulley, a block on
+a table pulled over a pulley by a hanging mass, a car on a flat or banked curve seen from behind
+(its acceleration a toward the centre, never a separate "centripetal force"), and a ball on a
+string at the top or bottom of a vertical circle. The turn carries that picture and no result:
+no card, no number. A plain-text sketch the model drew beside a server picture is removed. A
+situation neither knows (a pulley on a slope, a cart in a loop of track, two ropes, a spring)
+draws nothing.
 
 Where one formula covers different apparatus, a hidden variable that only the picture reads
 says which one it is:
