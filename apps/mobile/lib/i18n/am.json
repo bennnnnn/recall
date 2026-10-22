@@ -396,6 +396,7 @@
   "memory.group.you": "እርስዎ",
   "memory.instruct_done": "ማህደረ ትውስታ ተዘምኗል",
   "memory.instruct_failed": "ማህደረ ትውስታውን ማዘመን አልተቻለም። እንደገና ይሞክሩ።",
+  "memory.instruct_nothing": "በማህደረ ትውስታዎ ውስጥ ምንም አልተለወጠም። በሌላ መንገድ ለመናገር ይሞክሩ።",
   "memory.last_updated": "ለመጨረሻ ጊዜ የተዘመነው",
   "memory.scanning": "ማህደረ ትውስታዎን ለመሙላት የቅርብ ጊዜ ውይይቶችዎ እየተነበቡ ነው…",
   "memory.summary_label": "ማጠቃለያ",

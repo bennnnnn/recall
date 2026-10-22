@@ -36,6 +36,7 @@ import { confirmDialog } from "@/ui/overlay/dialogs";
 import { Menu } from "@/ui/overlay/Menu";
 import { MemoryHeaderMenu } from "@/features/memory/components/MemoryHeaderMenu";
 import { useClearAllMemories } from "@/features/memory/hooks/useClearAllMemories";
+import { instructNotice } from "@/features/memory/model/instructNotice";
 import { memoryFailureKey } from "@/features/memory/model/memoryFailure";
 
 type FactMenu = { fact: Memory; point: { x: number; y: number } };
@@ -144,8 +145,10 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       reportRecoverableError(feedback, t(memoryFailureKey(outcome.failure, "memory.instruct_failed")));
       return false;
     }
-    feedback?.success(outcome.reply || t("memory.instruct_done"));
-    return true;
+    const notice = instructNotice(outcome, t);
+    if (notice.landed) feedback?.success(notice.message);
+    else feedback?.warning(notice.message);
+    return notice.landed;
   }, [instruct, key, isCurrentView, feedback, t]);
 
   if (!token) return <Redirect href="/login" />;

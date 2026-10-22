@@ -397,6 +397,7 @@
   "memory.group.you": "Vous",
   "memory.instruct_done": "Mémoire mise à jour",
   "memory.instruct_failed": "Impossible de mettre à jour la mémoire. Réessayez.",
+  "memory.instruct_nothing": "Rien n'a changé dans votre mémoire. Essayez de le formuler autrement.",
   "memory.last_updated": "Dernière mise à jour",
   "memory.scanning": "Lecture de vos discussions récentes pour compléter votre mémoire…",
   "memory.summary_label": "Résumé",

@@ -396,6 +396,7 @@
   "memory.group.you": "Sen",
   "memory.instruct_done": "Hafıza güncellendi",
   "memory.instruct_failed": "Hafıza güncellenemedi. Tekrar dene.",
+  "memory.instruct_nothing": "Hafızanda hiçbir şey değişmedi. Başka bir şekilde söylemeyi dene.",
   "memory.last_updated": "Son güncelleme",
   "memory.scanning": "Hafızanı doldurmak için son sohbetlerin okunuyor…",
   "memory.summary_label": "Özet",

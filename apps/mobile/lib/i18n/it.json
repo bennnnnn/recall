@@ -397,6 +397,7 @@
   "memory.group.you": "Tu",
   "memory.instruct_done": "Memoria aggiornata",
   "memory.instruct_failed": "Impossibile aggiornare la memoria. Riprova.",
+  "memory.instruct_nothing": "Nella tua memoria non è cambiato nulla. Prova a dirlo in un altro modo.",
   "memory.last_updated": "Ultimo aggiornamento",
   "memory.scanning": "Sto leggendo le tue chat recenti per completare la tua memoria…",
   "memory.summary_label": "Riepilogo",

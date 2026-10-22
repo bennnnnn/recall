@@ -1,9 +1,9 @@
 import logging
 from datetime import datetime
-from typing import Literal, Self
+from typing import Literal, Self, get_args
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from app.models.schemas.common import (
     MemoryOpKind,
@@ -12,6 +12,7 @@ from app.models.schemas.common import (
     MemoryType,
 )
 from app.models.schemas.text import UserText
+from app.modules.memory.topics import parse_topic, topic_memory_type
 
 _logger = logging.getLogger(__name__)
 
@@ -40,7 +41,8 @@ class MemoryOut(BaseModel):
 
 class MemoryUpdate(BaseModel):
     text: UserText | None = Field(default=None, min_length=1, max_length=MEMORY_TEXT_MAX_LENGTH)
-    status: MemoryStatus | None = None
+    # "superseded" is the server's own state: a fact set to it vanished for good.
+    status: Literal["active", "muted"] | None = None
 
 
 class MemorySectionItem(BaseModel):
@@ -76,9 +78,27 @@ class MemorySectionUpdateResult(BaseModel):
         return cls(sections=valid)
 
 
+_MEMORY_TYPES = frozenset(get_args(MemoryType))
+# Words models use for a type that is not one ("goal" is what the goals topic stores).
+_TYPE_WORDS = {"goal": "focus", "projects": "project", "preferences": "preference"}
+
+
+def _op_type(raw: object, topic: object) -> str:
+    """The op's type: as given when valid, else its topic's, else what the word means."""
+    word = raw.strip().casefold() if isinstance(raw, str) else ""
+    if word in _MEMORY_TYPES:
+        return word
+    named = parse_topic(topic) if isinstance(topic, str) else None
+    if named is not None:
+        return topic_memory_type(named)
+    as_topic = parse_topic(word)
+    return _TYPE_WORDS.get(word) or (topic_memory_type(as_topic) if as_topic else "fact")
+
+
 class MemoryFactOp(BaseModel):
     op: MemoryOpKind
-    type: MemoryType
+    # Missing or unknown ("goal") follows the topic, so the fact is not dropped.
+    type: MemoryType = "fact"
     text: str = Field(default="", max_length=MEMORY_TEXT_MAX_LENGTH)
     confidence: float = Field(ge=0.0, le=1.0)
     sensitivity: MemorySensitivity = "normal"
@@ -90,6 +110,13 @@ class MemoryFactOp(BaseModel):
     topic_title: str | None = None
     topic_summary: str | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _typed(cls, data: object) -> object:
+        if isinstance(data, dict):
+            return {**data, "type": _op_type(data.get("type"), data.get("topic"))}
+        return data
+
 
 MEMORY_REPLY_MAX_LENGTH = 400
 
@@ -98,6 +125,12 @@ class MemoryFactUpdateResult(BaseModel):
     ops: list[MemoryFactOp] = Field(default_factory=list)
     # A direct memory edit also says, in a sentence, what changed.
     reply: str = Field(default="", max_length=MEMORY_REPLY_MAX_LENGTH)
+    # Ops the model wrote that did not validate (salvage_partial): never in the schema.
+    _dropped: int = PrivateAttr(default=0)
+
+    @property
+    def dropped(self) -> int:
+        return self._dropped
 
     @classmethod
     def salvage_partial(cls, data: dict[str, object]) -> Self | None:
@@ -120,7 +153,9 @@ class MemoryFactUpdateResult(BaseModel):
         reply = raw_reply.strip()[:MEMORY_REPLY_MAX_LENGTH] if isinstance(raw_reply, str) else ""
         if not valid and not reply:
             return None
-        return cls(ops=valid, reply=reply)
+        result = cls(ops=valid, reply=reply)
+        result._dropped = len(raw_ops) - len(valid)
+        return result
 
 
 class MemoryDocumentOut(BaseModel):
@@ -152,4 +187,6 @@ class MemoryInstructIn(BaseModel):
 class MemoryInstructOut(BaseModel):
     reply: str
     applied: int
+    # Edits the model proposed that could not be read or did not land.
+    dropped: int = 0
     documents: list[MemoryDocumentOut]

@@ -11,7 +11,7 @@ const mockDeleteFact = jest.fn();
 const mockEditFact = jest.fn();
 const mockSetFactMuted = jest.fn();
 const mockConfirm = jest.fn(async (..._args: unknown[]) => true);
-const mockFeedback = { error: jest.fn(), success: jest.fn() };
+const mockFeedback = { error: jest.fn(), success: jest.fn(), warning: jest.fn() };
 const mockRouter = { back: jest.fn(), push: jest.fn() };
 let mockDocuments: MemoryDocument[] = [];
 let mockLoading = false;
@@ -273,7 +273,7 @@ describe("MemoryDocumentScreen", () => {
   });
 
   it("sends edits scoped to this page", async () => {
-    mockInstruct.mockResolvedValue({ ok: true, reply: "" });
+    mockInstruct.mockResolvedValue({ ok: true, reply: "", applied: 1, dropped: 0 });
     const ui = await render(<MemoryDocumentScreen />);
     await fireEvent.changeText(ui.getByTestId("memory-composer-input"), "It also uses Neon");
     await fireEvent.press(ui.getByTestId("memory-composer-send"));

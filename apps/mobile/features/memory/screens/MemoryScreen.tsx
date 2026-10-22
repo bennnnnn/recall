@@ -26,6 +26,7 @@ import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
 import { StateView } from "@/ui/feedback/StateView";
 import { ListGroup } from "@/ui/list/ListGroup";
 import { ListRow } from "@/ui/list/ListRow";
+import { instructNotice } from "@/features/memory/model/instructNotice";
 import { memoryFailureKey } from "@/features/memory/model/memoryFailure";
 
 // While Recall reads recent chats for the first time, check back for a while.
@@ -77,8 +78,10 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       reportRecoverableError(feedback, t(memoryFailureKey(outcome.failure, "memory.instruct_failed")));
       return false;
     }
-    feedback?.success(outcome.reply || t("memory.instruct_done"));
-    return true;
+    const notice = instructNotice(outcome, t);
+    if (notice.landed) feedback?.success(notice.message);
+    else feedback?.warning(notice.message);
+    return notice.landed;
   }, [instruct, isCurrentView, feedback, t]);
 
   const refresh = useCallback(async () => {

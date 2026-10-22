@@ -381,13 +381,14 @@ def test_memory_op_salvage_keeps_the_reply() -> None:
         {
             "ops": [
                 {"op": "add", "type": "fact", "text": "User likes tea", "confidence": 0.9},
-                {"op": "add", "type": "nonsense", "text": "dropped", "confidence": 0.9},
+                # An unknown type is typed by its topic now; a missing confidence still drops.
+                {"op": "add", "type": "nonsense", "text": "dropped"},
             ],
             "reply": "Saved that you like tea." + " " * 3,
         }
     )
     assert parsed is not None
-    assert [op.text for op in parsed.ops] == ["User likes tea"]
+    assert [op.text for op in parsed.ops] == ["User likes tea"] and parsed.dropped == 1
     assert parsed.reply == "Saved that you like tea."
     # A reply alone is still an answer; nothing at all is a failure.
     only_reply = MemoryFactUpdateResult.salvage_partial({"ops": [], "reply": "Nothing to change."})

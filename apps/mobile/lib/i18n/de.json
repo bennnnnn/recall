@@ -396,6 +396,7 @@
   "memory.group.you": "Du",
   "memory.instruct_done": "Erinnerung aktualisiert",
   "memory.instruct_failed": "Die Erinnerung konnte nicht aktualisiert werden. Versuch es noch einmal.",
+  "memory.instruct_nothing": "In deiner Erinnerung hat sich nichts geändert. Versuch es anders zu formulieren.",
   "memory.last_updated": "Zuletzt aktualisiert",
   "memory.scanning": "Recall liest deine letzten Chats, um deine Erinnerung zu füllen…",
   "memory.summary_label": "Zusammenfassung",

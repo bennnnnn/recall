@@ -397,6 +397,7 @@
   "memory.group.you": "Tú",
   "memory.instruct_done": "Memoria actualizada",
   "memory.instruct_failed": "No se pudo actualizar la memoria. Inténtalo de nuevo.",
+  "memory.instruct_nothing": "No cambió nada en tu memoria. Prueba a decirlo de otra forma.",
   "memory.last_updated": "Última actualización",
   "memory.scanning": "Leyendo tus chats recientes para completar tu memoria…",
   "memory.summary_label": "Resumen",
