@@ -23,11 +23,12 @@ class InfrastructureSettings(BaseModel):
     # one cascading DELETE. 0 disables.
     db_connect_timeout_seconds: float = 10.0
     db_command_timeout_seconds: float = 120.0
-    # A pooled connection idle this long is pinged on checkout (three round
-    # trips); one used more recently is trusted, and one the server closed is
-    # replaced for free (core/pool_liveness.py). 0 pings every checkout, as
-    # pool_pre_ping did. Well under Neon's 5 min suspend and NAT idle timeouts.
-    db_idle_ping_seconds: float = 60.0
+    # A pooled connection idle this long is pinged on checkout (one round trip);
+    # one used more recently is trusted, and one the server closed is replaced
+    # for free (core/pool_liveness.py). 0 pings every checkout, as pool_pre_ping
+    # did. A turn's sessions run seconds apart, so they skip it; the next
+    # message, after the user reads and types, usually pays it once.
+    db_idle_ping_seconds: float = 10.0
     # Each migration transaction's lock wait and statement limit (Postgres
     # durations; core/migration_session.py). Under Fly's 5 min release timeout.
     migration_lock_timeout: str = "5s"

@@ -5,7 +5,7 @@ trip from Fly to Neon, and about 1 ms per Redis command. This drives the real SS
 chat path (auth, rate limits, the turn, the mock model) for a few kinds of message
 and counts, from the request until the first token is sent: SQL statements, pool
 checkouts, transactions (each also a BEGIN and a COMMIT or ROLLBACK on the wire),
-checkout pings (three round trips each; none for a connection used moments ago,
+checkout pings (one round trip each; none for a connection used moments ago,
 ``core/pool_liveness``) and Redis round trips (a pipeline is one). That is
 everything before the model is called, plus the user message's save, which the
 first token waits for.
@@ -34,7 +34,7 @@ import redis.asyncio as redis_asyncio
 from redis.asyncio.client import Pipeline
 from sqlalchemy import event
 
-from app.core import access_tokens, user_cache
+from app.core import access_tokens, pool_liveness, user_cache
 from app.core import redis as core_redis
 from app.core.background_tasks import drain_background_tasks
 from app.core.config import get_settings
@@ -184,14 +184,13 @@ async def turns(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> AsyncIterato
     ]
     for name, listener in listeners:
         event.listen(engine.sync_engine, name, listener)
-    dialect = engine.sync_engine.dialect
-    ping = dialect.do_ping
+    ping = pool_liveness.ping
 
-    def counted_ping(dbapi_connection: Any) -> bool:
+    def counted_ping(driver_connection: Any) -> None:
         _count(trips, "pings")()
-        return ping(dbapi_connection)
+        ping(driver_connection)
 
-    monkeypatch.setattr(dialect, "do_ping", counted_ping)
+    monkeypatch.setattr(pool_liveness, "ping", counted_ping)
     # Every fake Redis counts: in production they are all the one Redis.
     fake_redis_class = type(fake)
     send = fake_redis_class.execute_command
