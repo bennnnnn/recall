@@ -10,13 +10,13 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 from unittest.mock import AsyncMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import jwt
 import pytest
 from redis.exceptions import ConnectionError as RedisConnectionError
 
-from app.core import access_tokens
+from app.core import access_tokens, user_cache
 from app.core.config import Settings
 from app.exceptions import RedisUnavailableError
 from app.gateways.google_auth import GoogleAuthError
@@ -25,16 +25,34 @@ _SETTINGS = Settings(jwt_secret="x" * 32)
 
 
 def _commands(redis: Any) -> list[str]:
-    """Record the name of every command ``redis`` sends from here on."""
+    """Record every round trip ``redis`` makes from here on: a command, or a pipeline."""
     sent: list[str] = []
     execute = redis.execute_command
+    pipeline = redis.pipeline
 
     async def recording(*args: Any, **kwargs: Any) -> Any:
         sent.append(str(args[0]).upper())
         return await execute(*args, **kwargs)
 
+    def recording_pipeline(*args: Any, **kwargs: Any) -> Any:
+        pipe = pipeline(*args, **kwargs)
+        run = pipe.execute
+
+        async def execute_pipe(*a: Any, **k: Any) -> Any:
+            sent.append("PIPELINE[" + ",".join(str(c[0][0]) for c in pipe.command_stack) + "]")
+            return await run(*a, **k)
+
+        pipe.execute = execute_pipe
+        return pipe
+
     redis.execute_command = recording
+    redis.pipeline = recording_pipeline
     return sent
+
+
+async def _with_generation(redis: Any, claims: dict[str, Any]) -> None:
+    """The user's row generation exists, as it does after the first request."""
+    await redis.set(user_cache.generation_key(UUID(claims["sub"])), "g1")
 
 
 def _token(*, session_id: str | None = "device-1") -> tuple[str, dict[str, Any]]:
@@ -60,6 +78,7 @@ async def test_verify_access_token_refuses_each_revocation_in_one_round_trip(
 ) -> None:
     token, claims = _token()
     await revoke(fake_redis, claims)
+    await _with_generation(fake_redis, claims)
     sent = _commands(fake_redis)
 
     with pytest.raises(GoogleAuthError, match="revoked"):
@@ -75,6 +94,7 @@ async def test_verify_access_token_passes_a_live_token_in_one_round_trip(
     token, claims = _token(session_id=session_id)
     # A cutoff from before this token was issued (an earlier sign-out) leaves it valid.
     await fake_redis.set(access_tokens.revoked_since_key(claims["sub"]), str(claims["iat"] - 60))
+    await _with_generation(fake_redis, claims)
     sent = _commands(fake_redis)
 
     user_id = await access_tokens.verify_access_token(fake_redis, token, _SETTINGS)
@@ -100,3 +120,18 @@ async def test_verify_access_token_refuses_a_bad_signature_without_redis() -> No
         await access_tokens.verify_access_token(redis, token, _SETTINGS)
 
     assert redis.mock_calls == []
+
+
+async def test_check_access_starts_a_generation_for_a_user_without_one(fake_redis) -> None:
+    """A missing key is never read as a generation a copy could be stored under."""
+    token, claims = _token()
+    sent = _commands(fake_redis)
+
+    first = await access_tokens.check_access(fake_redis, token, _SETTINGS)
+    second = await access_tokens.check_access(fake_redis, token, _SETTINGS)
+
+    # The first check sets it (one more round trip); every later one only reads it.
+    assert sent == ["MGET", "PIPELINE[SET,GET]", "MGET"]
+    key = user_cache.generation_key(UUID(claims["sub"]))
+    assert first.user_generation == second.user_generation == await fake_redis.get(key)
+    assert await fake_redis.ttl(key) > 0

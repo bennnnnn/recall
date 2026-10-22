@@ -12,7 +12,6 @@ import pytest
 
 from app.core import user_cache
 from app.core.background_tasks import drain_background_tasks
-from app.core.cache_generation import MISSING_GENERATION, generation_from
 from app.models.orm import User
 from app.repositories import users
 
@@ -27,8 +26,8 @@ async def _user(session) -> User:
     )
 
 
-async def _generation(redis, user_id) -> str:
-    return generation_from(await redis.get(user_cache.generation_key(user_id)))
+async def _generation(redis, user_id) -> str | None:
+    return await redis.get(user_cache.generation_key(user_id))
 
 
 @pytest.fixture(autouse=True)
@@ -42,16 +41,16 @@ async def test_an_uncommitted_change_is_published_only_at_the_commit(
     db_session, user_generation_redis
 ):
     user = await _user(db_session)
-    user_cache.remember_user(user, MISSING_GENERATION)
+    user_cache.remember_user(user, "g0")
 
     await users.update(db_session, user, commit=False, name="After")
     await drain_background_tasks()
-    assert await _generation(user_generation_redis, user.id) == MISSING_GENERATION
+    assert await _generation(user_generation_redis, user.id) is None
 
     await db_session.commit()
     await drain_background_tasks()
-    assert await _generation(user_generation_redis, user.id) != MISSING_GENERATION
-    assert user_cache.cached_user(user.id, MISSING_GENERATION) is None
+    assert await _generation(user_generation_redis, user.id) is not None
+    assert user_cache.cached_user(user.id, "g0") is None
 
 
 async def test_a_rolled_back_change_is_never_served_from_the_cache(
@@ -59,30 +58,30 @@ async def test_a_rolled_back_change_is_never_served_from_the_cache(
 ):
     user = await _user(db_session)
     user_id = user.id  # the rollback expires the row; reading it again would load it
-    user_cache.remember_user(user, MISSING_GENERATION)
+    user_cache.remember_user(user, "g0")
 
     await users.update(db_session, user, commit=False, name="Unsaved")
     await db_session.rollback()
 
-    assert user_cache.cached_user(user_id, MISSING_GENERATION) is None
+    assert user_cache.cached_user(user_id, "g0") is None
     # A later commit on the same session does not publish the unsaved change.
     await db_session.commit()
     await drain_background_tasks()
-    assert await _generation(user_generation_redis, user_id) == MISSING_GENERATION
+    assert await _generation(user_generation_redis, user_id) is None
 
 
 async def test_a_committed_update_is_kept_under_its_new_generation(
     db_session, user_generation_redis
 ):
     user = await _user(db_session)
-    user_cache.remember_user(user, MISSING_GENERATION)
+    user_cache.remember_user(user, "g0")
 
     await users.update(db_session, user, name="Saved")
 
     generation = await _generation(user_generation_redis, user.id)
-    assert generation != MISSING_GENERATION
+    assert generation is not None
     # Another machine (or this one) holding the old generation reads the row again.
-    assert user_cache.cached_user(user.id, MISSING_GENERATION) is None
+    assert user_cache.cached_user(user.id, "g0") is None
     cached = user_cache.cached_user(user.id, generation)
     assert cached is not None
     assert cached.name == "Saved"
@@ -98,8 +97,8 @@ async def test_a_memory_hand_edit_retires_cached_copies_at_the_commit(
 
     await memories_repo.note_manual_edit(db_session, user.id)
     await drain_background_tasks()
-    assert await _generation(user_generation_redis, user.id) == MISSING_GENERATION
+    assert await _generation(user_generation_redis, user.id) is None
 
     await db_session.commit()
     await drain_background_tasks()
-    assert await _generation(user_generation_redis, user.id) != MISSING_GENERATION
+    assert await _generation(user_generation_redis, user.id) is not None

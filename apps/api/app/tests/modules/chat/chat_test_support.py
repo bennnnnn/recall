@@ -7,7 +7,6 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.core.access_tokens import AccessCheck
-from app.core.cache_generation import MISSING_GENERATION
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.chat.prompt_builder import (
@@ -40,8 +39,8 @@ class Overlay:
 
 
 def access_for(user_id: UUID) -> AccessCheck:
-    """What ``check_access`` returns for a live token of a user never edited."""
-    return AccessCheck(user_id=user_id, user_generation=MISSING_GENERATION)
+    """What ``check_access`` returns for a live token (any generation will do)."""
+    return AccessCheck(user_id=user_id, user_generation="test-generation")
 
 
 def grant_quota() -> AsyncMock:

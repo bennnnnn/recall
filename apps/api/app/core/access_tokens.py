@@ -21,7 +21,7 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
 from app.core import user_cache
-from app.core.cache_generation import generation_from
+from app.core.cache_generation import ensure_generation
 from app.core.config import Settings
 from app.exceptions import RedisUnavailableError
 from app.gateways.google_auth import GoogleAuthError
@@ -109,6 +109,8 @@ async def check_access(redis: Redis, token: str, settings: Settings) -> AccessCh
     Every revocation key (this token, its signed-in device, the user's cutoff)
     and the generation are read in one MGET: this runs before every
     authenticated request and every chat frame, so it is one Redis round trip.
+    A user whose generation key is missing (never set, expired or lost) gets a
+    fresh one first, one more round trip (``ensure_generation``).
     """
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
@@ -116,20 +118,24 @@ async def check_access(redis: Redis, token: str, settings: Settings) -> AccessCh
         raise GoogleAuthError("Invalid access token") from exc
     user_id = UUID(payload["sub"])
     markers, since = _revocation_keys(payload, user_id)
-    keys = [*markers, user_cache.generation_key(user_id), *([since] if since else [])]
+    generation_key = user_cache.generation_key(user_id)
+    keys = [*markers, generation_key, *([since] if since else [])]
     try:
         values = await redis.mget(keys)
+        if any(values[: len(markers)]):
+            raise GoogleAuthError("Token revoked")
+        since_raw = values[-1] if since else None
+        if since_raw is not None and payload["iat"] <= float(redis_str(since_raw)):
+            raise GoogleAuthError("Token revoked")
+        generation = values[len(markers)]
+        if generation is None:
+            generation = await ensure_generation(redis, generation_key)
     except RedisError as exc:
         # Fail closed: without Redis we cannot check jti / revoked_since.
         # Surface as 503 (not 401) so clients retry instead of forcing re-login.
         logger.warning("Access token revocation check failed; Redis unavailable", exc_info=True)
         raise RedisUnavailableError() from exc
-    if any(values[: len(markers)]):
-        raise GoogleAuthError("Token revoked")
-    since_raw = values[-1] if since else None
-    if since_raw is not None and payload["iat"] <= float(redis_str(since_raw)):
-        raise GoogleAuthError("Token revoked")
-    return AccessCheck(user_id=user_id, user_generation=generation_from(values[len(markers)]))
+    return AccessCheck(user_id=user_id, user_generation=redis_str(generation))
 
 
 async def verify_access_token(redis: Redis, token: str, settings: Settings) -> UUID:
