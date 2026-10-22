@@ -292,6 +292,12 @@
   {"id": "q30", "area": "explain", "prompt": "is 9.81 m/s^2 the same everywhere on earth?", "expect": "explain"},
   {"id": "l18", "area": "electricity", "prompt": "A 4 ohm resistor is in series with a parallel pair of 6 ohm and 3 ohm resistors across a 12 V battery. Find the current.", "expect": "answer", "answer": [2.0, "A"], "visual": "circuit", "note": "4 + (6 ∥ 3) = 6 Ω; the schematic nests the pair on the series wire"},
   {"id": "l19", "area": "electricity", "prompt": "Draw a circuit where a 2 Ω resistor is in series with three 6 Ω resistors in parallel, connected to a 16 V battery, and find the current", "expect": "answer", "answer": [4.0, "A"], "visual": "circuit"},
+  {"id": "l20", "area": "electricity", "prompt": "R1 = 10 ohm is in series with R2 = 20 ohm across a 12 V battery, find the current", "expect": "answer", "answer": [0.4, "A"], "note": "named resistors read like the same sentence without the names"},
+  {"id": "l21", "area": "electricity", "prompt": "R1=10Ω, R2=20Ω in parallel. Find the total resistance.", "expect": "answer", "answer": [6.66667, "ohm"]},
+  {"id": "l22", "area": "electricity", "prompt": "R1 = 4 Ω is in series with a parallel pair of R2 = 6 Ω and R3 = 3 Ω. A 12 V battery drives the circuit. Find the current.", "expect": "answer", "answer": [2.0, "A"]},
+  {"id": "l23", "area": "electricity", "prompt": "R_1 = 5 Ω and R_2 = 5 Ω are in parallel. What is the equivalent resistance?", "expect": "answer", "answer": [2.5, "ohm"]},
   {"id": "x-d16", "area": "decline", "prompt": "A 4 Ω resistor is in series with a 6 Ω resistor, and a 12 Ω resistor is in parallel with both. Find the total resistance.", "expect": "decline", "note": "(4 + 6) ∥ 12, not 4 + (6 ∥ 12): another shape, read by no rule"},
-  {"id": "x-d17", "area": "decline", "prompt": "A 4 Ω and a 6 Ω resistor are in series, and that pair is in parallel with a 12 Ω resistor. Total resistance?", "expect": "decline"}
+  {"id": "x-d17", "area": "decline", "prompt": "A 4 Ω and a 6 Ω resistor are in series, and that pair is in parallel with a 12 Ω resistor. Total resistance?", "expect": "decline"},
+  {"id": "x-d18", "area": "decline", "prompt": "R1 = 10 Ω, R2 = 20 Ω and R3 = 30 Ω. R1 and R2 are in series. Find the total resistance.", "expect": "decline", "note": "wired by name: which resistors are in the network is the reading this does not make"},
+  {"id": "x-d19", "area": "decline", "prompt": "R1 = 10 Ω and R2 = 20 Ω are in parallel across 12 V. Find the current through R2.", "expect": "decline", "note": "a branch current asked by name, not the total"}
 ]

@@ -596,12 +596,11 @@ _ROUND5_DECLINED = [
     # 8. A full lap ends where it started: the average velocity is not d/t.
     "a runner does one full lap of a 400 m track in 80 s. what is her average velocity?",
     # 11. Series and parallel together are not one sum. One resistor in series with a
-    # parallel group is now read and solved (test_physics_series_parallel.py); any other
-    # shape, or one written as R1 = … assignments, stays declined.
+    # parallel group is now read and solved, with or without R1 = … names
+    # (test_physics_series_parallel.py, test_physics_named_resistors.py); any other
+    # shape stays declined.
     "A 4 Ω resistor is in series with a 6 Ω resistor, and a 12 Ω resistor is in parallel "
     "with both. Find the total resistance.",
-    "R1 = 10 ohm is in series with a parallel combination of R2 = 20 ohm and R3 = 20 ohm. "
-    "Find the equivalent resistance",
     # 13. Boiling or melting takes latent heat as well.
     "How much heat is needed to warm 250 g of water from 20 °C to 100 °C and then boil it "
     "all away?",
