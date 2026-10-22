@@ -149,3 +149,25 @@ def resistor_values(text: str) -> list[float]:
     if listed is not None:
         return [float(n) for n in re.findall(r"\d+(?:\.\d+)?", listed.group(1))]
     return [value for value, _ in ordered_values(text, OHM_PATTERN)]
+
+
+# "R1 = 10 Ω", "R_2=20Ω": a resistor's name before its value, a given and not algebra.
+_NAMED_RESISTOR_RE = re.compile(r"\bR_?\{?(\d{1,2})\}?\s*=\s*(?=\d)")
+
+
+def without_resistor_names(text: str) -> str | None:
+    """The question with its "R1 =" labels taken off, so the network reads as the same
+    sentence written without them ("10 Ω is in series with 20 Ω").
+
+    None when a name is used again ("R1 and R2 are in parallel", "the current through
+    R2"): a network wired, or a value asked, by name, which this reader does not map.
+    """
+    labels = [match.group(1) for match in _NAMED_RESISTOR_RE.finditer(text)]
+    if not labels:
+        return text
+    if len(set(labels)) != len(labels):
+        return None
+    for label in labels:
+        if len(re.findall(rf"\bR_?\{{?{label}\}}?(?!\d)", text)) != 1:
+            return None
+    return _NAMED_RESISTOR_RE.sub("", text)

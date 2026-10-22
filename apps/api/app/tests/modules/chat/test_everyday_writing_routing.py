@@ -250,7 +250,7 @@ def test_drafts_are_signed_with_the_users_name_never_a_placeholder() -> None:
     ],
 )
 def test_profile_fact_question_is_a_short_ask(text: str, asks: bool) -> None:
-    from app.modules.chat.prompt_constants.routing import is_profile_fact_question
+    from app.modules.chat.prompt_constants.profile_ask import is_profile_fact_question
 
     assert is_profile_fact_question(text) is asks
 

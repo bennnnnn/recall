@@ -21,6 +21,7 @@ from app.modules.physics.extractors.circuit_patterns import (
     _WATT_PATTERN,
     counted_resistors,
     resistor_values,
+    without_resistor_names,
 )
 from app.modules.physics.extractors.cues import (
     _has_cue_either_case,
@@ -114,16 +115,27 @@ def _network_intent(
     )
 
 
+def _readable_circuit_text(cleaned: str) -> str | None:
+    """The question as the readers below take it: without its "R1 =" labels. None for
+    a circuit this does not read (a blocked shape, a network wired by name, algebra)."""
+    if blocks_circuit(cleaned):
+        return None
+    unnamed = without_resistor_names(cleaned)
+    if unnamed is None or has_equation(strip_param_assignments(unnamed)):
+        return None
+    return unnamed
+
+
 def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     # The same check the pre-filter runs, so the two cannot disagree about
     # whether this question is a circuit question.
     if not _has_cue_either_case(cleaned, _CIRCUIT_CUES, _CIRCUIT_CUE_RES):
         return None
-    if blocks_circuit(cleaned):
+    readable = _readable_circuit_text(cleaned)
+    if readable is None:
         return None
-    if has_equation(strip_param_assignments(cleaned)):
-        return None
+    cleaned, lower = readable, readable.lower()
 
     volts = ordered_values(cleaned, _VOLT_PATTERN)
     amps = ordered_values(cleaned, AMP_PATTERN)

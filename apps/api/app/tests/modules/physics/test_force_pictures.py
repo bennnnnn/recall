@@ -73,10 +73,16 @@ def test_force_picture_keeps_a_given_angle_and_names_a_missing_one() -> None:
         "show me the incline at Lalibela",
         "what forces shaped the French revolution?",
         "draw a box",
-        "draw the forces on a box pulled up a ramp by a rope",
-        "draw a free body diagram for two blocks connected by a string over a pulley",
-        "draw the forces on a car going around a curve",
         "what is the slope of y = 2x + 3?",
+        # Rigs this draws no picture of: a loop of track, a pulley on a slope, one mass
+        # on a pulley rope, a curve on ice.
+        "draw the forces on a roller coaster cart at the top of a loop",
+        "draw the forces on a block on an incline connected over a pulley to a hanging mass",
+        "draw the forces on a mass hanging from a pulley",
+        "draw the forces on a car on an icy curve",
+        "draw the forces of the learning curve",
+        "what forces shape the curve of supply and demand?",
+        "how do I fix a squeaky pulley on my garage door?",
     ],
 )
 def test_force_picture_leaves_other_requests_alone(text: str) -> None:
@@ -122,3 +128,87 @@ def test_the_picture_replaces_a_sketch_in_characters() -> None:
     assert "```answer" not in out
     assert out.count("```simulation") == 1
     assert out.index("The tension") < out.index("```simulation")
+
+
+@pytest.mark.parametrize(
+    "text, kind, labels",
+    [
+        (
+            "Draw the forces on a box pushed up a 25 degree incline with friction",
+            "incline",
+            {"mg", "N", "F", "f"},
+        ),
+        ("draw the forces on a box pulled up a ramp by a rope", "incline", {"mg", "N", "T"}),
+        (
+            "draw a free body diagram of a block pushed horizontally up a frictionless 30° ramp",
+            "incline",
+            {"mg", "N", "F"},
+        ),
+        # Held still by the rope: friction's way is not drawn, only named.
+        (
+            "draw the forces on a block held at rest on a rough incline by a rope",
+            "incline",
+            {"mg", "N", "T"},
+        ),
+        ("show the forces on a crate pulled down a rough slope", "incline", {"mg", "N", "T", "f"}),
+        (
+            "draw the forces on a block sliding up an incline with friction",
+            "incline",
+            {"mg", "N", "f"},
+        ),
+        (
+            "Draw a free-body diagram for two blocks connected by a string over a pulley",
+            "free_body",
+            {"T", "m₁g", "m₂g"},
+        ),
+        (
+            "show the forces on a block on a rough table connected over a pulley to a hanging mass",
+            "free_body",
+            {"m₁g", "N", "T", "f", "m₂g"},
+        ),
+        ("draw the forces on a car going around a curve", "free_body", {"mg", "N", "f", "a"}),
+        ("free body diagram of a car on a banked curve", "incline", {"mg", "N", "a"}),
+        (
+            "draw the forces on a ball on a string swung in a vertical circle",
+            "free_body",
+            {"T", "mg"},
+        ),
+    ],
+)
+def test_force_picture_draws_pulleys_curves_and_driven_slopes(
+    text: str, kind: str, labels: set[str]
+) -> None:
+    picture = force_picture(text)
+    assert picture is not None
+    assert picture.spec.type == kind
+    assert _labels(text) == labels
+    # Symbols only: m₁g names a body, and no force gets a number.
+    assert not any(char in "0123456789" for label in labels for char in label)
+
+
+def test_friction_opposes_the_motion_on_a_driven_slope() -> None:
+    up = force_picture("draw the forces on a box pushed up a 25 degree incline with friction")
+    assert up is not None
+    push = next(v for v in up.spec.vectors if v.label == "F")
+    friction = next(v for v in up.spec.vectors if v.label == "f")
+    # Pushed up the slope (up and to the left), friction down it (down and to the right).
+    assert push.dx < 0 < push.dy and friction.dy < 0 < friction.dx
+    assert "friction" not in up.spec.arrows
+    down = force_picture("show the forces on a crate pulled down a rough slope")
+    assert down is not None and "friction" in down.spec.arrows
+
+
+def test_a_vertical_circle_draws_where_it_was_asked() -> None:
+    both = force_picture("draw the forces on a ball on a string swung in a vertical circle")
+    top = force_picture("draw the forces on a ball on a string at the top of a vertical circle")
+    assert both is not None and top is not None
+    assert len(both.spec.bodies) == 2 and len(top.spec.bodies) == 1
+    # At the top both forces point down, to the centre.
+    assert all(vector.dy < 0 for vector in top.spec.vectors)
+
+
+def test_a_banked_curve_keeps_its_angle() -> None:
+    picture = force_picture("draw the forces on a car on a road banked at 15 degrees")
+    assert picture is not None
+    assert [angle.label for angle in picture.spec.angles] == ["15°"]
+    assert picture.spec.title_key == "circular_motion"

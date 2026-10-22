@@ -106,7 +106,10 @@ def check_physics_fences(state: FinalizeState) -> str:
     if verified is None:
         return state.text
     return physics_fence.validate_physics_fences(
-        state.text, verified=verified, correct=not state.server_text
+        state.text,
+        verified=verified,
+        correct=not state.server_text,
+        user_text=state.ctx.user_message_content,
     )
 
 
