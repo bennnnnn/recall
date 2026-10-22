@@ -345,8 +345,9 @@ def test_a_sympy_round_keeps_the_policy_after_its_results_only() -> None:
     [
         ("solve 2x + 5 = 17 and explain why each step works", MATH_REPLY_POLICY),
         (
-            "Two 6 ohm resistors in parallel are in series with a 3 ohm resistor across a "
-            "12 V battery. Find the current from the battery.",
+            # A network the server does not read: the model writes the working.
+            "A 4 ohm and a 6 ohm resistor are in series, and that pair is in parallel with a "
+            "12 ohm resistor across a 12 V battery. Find the current from the battery.",
             PHYSICS_REPLY_POLICY,
         ),
     ],
