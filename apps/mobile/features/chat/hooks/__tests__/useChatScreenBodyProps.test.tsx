@@ -54,7 +54,7 @@ const router = {
   push: jest.fn(),
 } as never;
 
-function useHarness(streaming: boolean, messages: Message[], drawerOpen = false) {
+function useHarness(streaming: boolean, messages: Message[], drawerOpen = false, replySaving = false) {
   return useChatScreenBodyProps({
     styles,
     theme: lightTheme,
@@ -120,6 +120,7 @@ function useHarness(streaming: boolean, messages: Message[], drawerOpen = false)
     retryChatError,
     dismissChatError,
     streaming,
+    replySaving,
     sendBusy: false,
     stopGeneration,
     isOffline: false,
@@ -170,6 +171,16 @@ describe("useChatScreenBodyProps", () => {
 
     await rerender({ streaming: true, messages: firstMessages });
     expect(result.current.bodyProps).toBe(streaming);
+  });
+
+  it("tells the composer when the reply is only saving, so Send is offered then", async () => {
+    const { result, rerender } = await renderHook(
+      ({ replySaving }) => useHarness(true, [message], false, replySaving),
+      { initialProps: { replySaving: false } },
+    );
+    expect(result.current.bodyProps.composer.replySaving).toBe(false);
+    await rerender({ replySaving: true });
+    expect(result.current.bodyProps.composer).toMatchObject({ streaming: true, replySaving: true });
   });
 
   it("wires the composer's remove button to the discarding remove, not a bare clear", async () => {

@@ -21,6 +21,10 @@ export function useChatErrorHandlers(isPaid: boolean) {
   }, [isPaid, t]);
 
   const dismissChatError = useCallback(() => setChatError(null), []);
+  /** "Still generating — tap Stop" is over once the reply's text is all in. */
+  const dismissBusyNotice = useCallback(() => {
+    setChatError((current) => (current?.kind === "busy" ? null : current));
+  }, []);
   const handleRejectedSendChange = useCallback((reason: "send_rejected" | "attachment_rejected" | null) => {
     if (reason) handleChatError("", reason);
     else setChatError((current) => current?.kind === "send_rejected" || current?.kind === "attachment_rejected" ? null : current);
@@ -31,6 +35,7 @@ export function useChatErrorHandlers(isPaid: boolean) {
     handleChatError,
     handleStreamBusy,
     dismissChatError,
+    dismissBusyNotice,
     handleRejectedSendChange,
   };
 }
@@ -70,7 +75,10 @@ export function useChatErrorRecovery({
 
 type StreamLifecycleParams = {
   streamActive: boolean;
+  /** The reply's text is all in (`stream_end`) and only its save is left. */
+  replySaving: boolean;
   dismissChatError: () => void;
+  dismissBusyNotice: () => void;
   token: string | null;
   isPaid: boolean;
 };
@@ -78,7 +86,9 @@ type StreamLifecycleParams = {
 /** Clear inline errors while streaming and refresh quota after each turn. */
 export function useChatStreamLifecycle({
   streamActive,
+  replySaving,
   dismissChatError,
+  dismissBusyNotice,
   token,
   isPaid,
 }: StreamLifecycleParams) {
@@ -88,6 +98,11 @@ export function useChatStreamLifecycle({
   useEffect(() => {
     if (streamActive) dismissChatError();
   }, [streamActive, dismissChatError]);
+
+  // Its Stop would cut the save short and mark a whole reply stopped.
+  useEffect(() => {
+    if (replySaving) dismissBusyNotice();
+  }, [replySaving, dismissBusyNotice]);
 
   useEffect(() => {
     if (prevStreamActiveRef.current && !streamActive) {

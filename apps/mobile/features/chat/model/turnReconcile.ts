@@ -49,12 +49,18 @@ export function droppedTurnState(page: Message[], known: ReadonlySet<string>): D
   return page.slice(userIndex + 1).some(isNewReply) ? "answered" : "saved";
 }
 
-/** The newest page in place of the turn's local bubbles; older pages already loaded stay. */
+/**
+ * The newest page in place of the turn's local bubbles; older pages already
+ * loaded stay, and so does what was sent after the turn (below its streaming
+ * row), which the server has not seen yet.
+ */
 export function mergeReconciledPage(previous: Message[], page: Message[]): Message[] {
   const pageIds = new Set(page.map((message) => message.id));
   const firstShared = previous.findIndex((message) => pageIds.has(message.id));
   const older = firstShared > 0 ? previous.slice(0, firstShared) : [];
-  return [...older, ...mergeLocalAttachmentUris(previous, page)];
+  const turnEnd = previous.findIndex((message) => message.id === "streaming");
+  const later = turnEnd < 0 ? [] : previous.slice(turnEnd + 1).filter((message) => !pageIds.has(message.id));
+  return [...older, ...mergeLocalAttachmentUris(previous, page), ...later];
 }
 
 function sleep(ms: number): Promise<void> {

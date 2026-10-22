@@ -184,6 +184,7 @@
   "chat.rename_failed": "Bu sohbet yeniden adlandırılamadı.",
   "chat.rename_title": "Sohbeti yeniden adlandır",
   "chat.renamed_toast": "Sohbet yeniden adlandırıldı",
+  "chat.reply_not_saved": "Bu yanıt kaydedilmedi.",
   "chat.reply_ready": "Yanıt hazır",
   "chat.restore_draft": "Taslağı geri yükle",
   "chat.restore_draft_blocked": "Mevcut taslağı gönderin veya temizleyin, ardından bu mesajı geri yükleyin.",

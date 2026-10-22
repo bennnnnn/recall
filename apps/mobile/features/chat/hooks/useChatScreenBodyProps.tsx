@@ -112,6 +112,7 @@ type UseChatScreenBodyPropsParams = {
   dismissChatError: () => void;
   composerAnimatedStyle?: AnimatedStyle<ViewStyle>;
   streaming: boolean;
+  replySaving: boolean;
   sendBusy: boolean;
   sendStatus?: string;
   stopGeneration: () => void;
@@ -189,6 +190,7 @@ export function useChatScreenBodyProps({
   dismissChatError,
   composerAnimatedStyle,
   streaming,
+  replySaving,
   sendBusy,
   sendStatus,
   stopGeneration,
@@ -368,6 +370,7 @@ export function useChatScreenBodyProps({
     (): ChatScreenComposerProps => ({
       animatedStyle: composerAnimatedStyle,
       streaming,
+      replySaving,
       attachPicking,
       sendBusy,
       sendStatus,
@@ -392,6 +395,7 @@ export function useChatScreenBodyProps({
     [
       composerAnimatedStyle,
       streaming,
+      replySaving,
       attachPicking,
       sendBusy,
       sendStatus,

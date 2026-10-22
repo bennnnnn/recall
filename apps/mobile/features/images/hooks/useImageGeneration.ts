@@ -30,7 +30,7 @@ type Options = ChatTurnHost & {
   onOfflineBlocked?: () => void;
 };
 
-type ImageGenSubmit = {
+export type ImageGenSubmit = {
   prompt: string;
   userMessage: string;
   aspectRatio?: string | null;
@@ -40,6 +40,11 @@ type ImageGenSubmit = {
   persistenceReady?: Promise<boolean>;
   /** Restores the composer draft when the persistence gate rejects the turn. */
   onPersistenceFailure?: () => void;
+  /**
+   * The composer already painted this request's bubble: the picture is drawn
+   * under it, and a request that cannot start takes it away and restores the draft.
+   */
+  userMessageId?: string;
 };
 
 /** Pro image generation from composer text — no confirmation sheet. */
@@ -80,10 +85,18 @@ export function useImageGeneration({
 
   const submitPrompt = useCallback(
     async (input: ImageGenSubmit) => {
+      const adoptedId = input.userMessageId;
+      /** A painted bubble with nothing to draw under it goes, and its draft comes back. */
+      const giveBack = () => {
+        if (!adoptedId) return;
+        setMessages((prev) => prev.filter((row) => row.id !== adoptedId));
+        newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 1);
+        input.onPersistenceFailure?.();
+      };
       const authToken = tokenRef.current;
-      if (!authToken) return;
-      if (generatingRef.current) return;
-      if (streamingRef.current) {
+      if (!authToken || generatingRef.current) return giveBack();
+      // The composer hands over its own painted turn only once no reply streams.
+      if (streamingRef.current && !adoptedId) {
         reportRecoverableError(feedback, t("chat.busy"));
         return;
       }
@@ -93,13 +106,14 @@ export function useImageGeneration({
           warn: notifyWarning,
           showToast: onOfflineBlocked,
         });
-        return;
+        return giveBack();
       }
       const prompt = input.prompt.trim();
       const userContent = imageGenUserBubble(input.userMessage, prompt);
-      if (!prompt || !userContent) return;
+      if (!prompt || !userContent) return giveBack();
 
-      lastSubmitRef.current = { ...input, prompt, userMessage: userContent };
+      // A retry draws under the same bubble by its own path (`priorUserId`).
+      lastSubmitRef.current = { ...input, prompt, userMessage: userContent, userMessageId: undefined };
       generatingRef.current = true;
       setGenerating(true);
       const abort = new AbortController();
@@ -110,25 +124,28 @@ export function useImageGeneration({
       // React may defer/replay functional updates. Establish request identity
       // before scheduling the render, never from inside its updater.
       const priorUserId = optimisticUserIdRef.current;
-      const optimisticUserId = priorUserId ?? `local-img-${Date.now()}`;
+      const optimisticUserId = adoptedId ?? priorUserId ?? `local-img-${Date.now()}`;
       optimisticUserIdRef.current = optimisticUserId;
       setMessages((prev) => {
         const retrySameTurn =
+          !adoptedId &&
           hasImageGenFailedAssistant(prev) &&
           Boolean(priorUserId) &&
           prev.some((row) => row.id === priorUserId && row.content === userContent);
         if (retrySameTurn) {
           return restoreImageGenPending(prev);
         }
+        const adopted = adoptedId ? prev.find((row) => row.id === adoptedId) : undefined;
         const without = prev.filter(
           (row) =>
             row.id !== IMAGE_GEN_FAILED_ASSISTANT_ID &&
             row.id !== IMAGE_GEN_PENDING_ASSISTANT_ID &&
-            row.id !== priorUserId,
+            row.id !== priorUserId &&
+            row.id !== adoptedId,
         );
         return [
           ...without,
-          {
+          adopted ? { ...adopted, content: userContent } : {
             id: optimisticUserId,
             role: "user",
             content: userContent,
@@ -144,9 +161,9 @@ export function useImageGeneration({
           },
         ];
       });
-      if (!priorUserId) {
-        newMessageCountRef.current += 2;
-      }
+      // The composer counted its own bubble when it painted it.
+      const addedRows = adoptedId ? 1 : priorUserId ? 0 : 2;
+      newMessageCountRef.current += addedRows;
       onScrollToLatest();
 
       try {
@@ -161,7 +178,7 @@ export function useImageGeneration({
                 row.id !== IMAGE_GEN_PENDING_ASSISTANT_ID,
             ),
           );
-          if (!priorUserId) {
+          if (adoptedId || !priorUserId) {
             newMessageCountRef.current = Math.max(
               0,
               newMessageCountRef.current - 2,
@@ -176,6 +193,7 @@ export function useImageGeneration({
           ...input,
           persistenceReady: undefined,
           onPersistenceFailure: undefined,
+          userMessageId: undefined,
         };
         lastSubmitRef.current = persistedInput;
 

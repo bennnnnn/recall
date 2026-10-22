@@ -184,6 +184,7 @@
   "chat.rename_failed": "Não foi possível renomear esta conversa.",
   "chat.rename_title": "Renomear conversa",
   "chat.renamed_toast": "Conversa renomeada",
+  "chat.reply_not_saved": "Esta resposta não foi salva.",
   "chat.reply_ready": "Resposta pronta",
   "chat.restore_draft": "Restaurar rascunho",
   "chat.restore_draft_blocked": "Envie ou apague seu rascunho atual e depois restaure esta mensagem.",

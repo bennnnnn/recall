@@ -1,11 +1,13 @@
 // Types only: the reporter module itself still loads lazily after the first token.
-import type { ChatTransport, ChatTtftBucket } from "@/features/chat/model/latencyReporter";
+import type { ChatPaintBucket, ChatTransport, ChatTtftBucket } from "@/features/chat/model/latencyReporter";
 
 type PendingChatTtft = {
   turnId: string;
   startedAtMs: number;
   transport: ChatTransport;
   hasAttachment: boolean;
+  /** Tap -> the frame that drew the user's bubble. */
+  paintMs?: number;
 };
 
 let pending: PendingChatTtft | null = null;
@@ -27,27 +29,43 @@ export function chatTtftBucket(elapsedMs: number): ChatTtftBucket {
   return "6000_plus";
 }
 
+/** Bucket tap -> bubble on screen: a frame is about 16 ms, so past a few is a wait before the paint. */
+export function chatPaintBucket(elapsedMs: number): ChatPaintBucket {
+  const ms = Number.isFinite(elapsedMs) ? Math.max(0, elapsedMs) : 0;
+  if (ms < 50) return "lt50";
+  if (ms < 100) return "50_99";
+  if (ms < 250) return "100_249";
+  if (ms < 500) return "250_499";
+  if (ms < 1_000) return "500_999";
+  return "1000_plus";
+}
+
 /**
- * Start when the optimistic user bubble is created. This happens before file
- * upload, draft-chat creation, transport connection, backend prep, and model
- * inference, so the sample captures nearly all latency the user actually sees.
+ * Start at the tap on Send (`tappedAtMs`), before the bubble is painted, so
+ * every wait the user sees is inside the sample: the paint, a picture check,
+ * a location, file upload or new chat, the transport, backend prep and the model.
  *
  * `turnId` is the optimistic user-message id. Leftover SSE from a previous
  * chat must not stamp or consume a later send's sample.
  */
 export function markChatTtftStart(
   turnId: string,
-  createdAt: string,
+  tappedAtMs: number,
   hasAttachment: boolean,
 ): void {
   if (!isTtftSamplingEnabled() || !turnId) return;
-  const parsed = Date.parse(createdAt);
   pending = {
     turnId,
-    startedAtMs: Number.isFinite(parsed) ? parsed : Date.now(),
+    startedAtMs: Number.isFinite(tappedAtMs) ? tappedAtMs : Date.now(),
     transport: "ws",
     hasAttachment,
   };
+}
+
+/** The frame that drew `turnId`'s bubble has run (first call only). */
+export function markChatBubblePainted(turnId: string): void {
+  if (!pending || pending.turnId !== turnId || pending.paintMs !== undefined) return;
+  pending.paintMs = Math.max(0, Date.now() - pending.startedAtMs);
 }
 
 /** SSE is a fallback; the optimistic default is WebSocket until this is called. */
@@ -78,6 +96,7 @@ export function markChatFirstToken(
         latencyBucket: chatTtftBucket(elapsedMs),
         transport: sample.transport,
         hasAttachment: sample.hasAttachment,
+        ...(sample.paintMs === undefined ? {} : { paintBucket: chatPaintBucket(sample.paintMs) }),
       }),
     )
     .catch(() => {

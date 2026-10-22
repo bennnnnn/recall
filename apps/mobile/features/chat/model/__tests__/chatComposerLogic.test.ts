@@ -11,6 +11,7 @@ import {
   composerNativeInputTraits,
   composerShowsMic,
   composerShowsSend,
+  composerShowsStop,
   computeChatLayoutMetrics,
   isComposerMenuOverlayOpen,
   shouldReserveComposerActionGap,
@@ -128,6 +129,18 @@ describe("chatComposerLogic", () => {
       spellCheck: false,
       autoCapitalize: "none",
     });
+  });
+
+  it.each([
+    [{ streaming: true, sendBusy: false, replySaving: false }, true],
+    // Typing dots went up with the bubble, but the turn has not gone out yet.
+    [{ streaming: true, sendBusy: true, replySaving: false }, false],
+    // The reply's text is all in (stream_end); only its save is left.
+    [{ streaming: true, sendBusy: false, replySaving: true }, false],
+    [{ streaming: false, sendBusy: true, replySaving: false }, false],
+    [{ streaming: false, sendBusy: false, replySaving: false }, false],
+  ])("composerShowsStop(%o) is %p", (state, shows) => {
+    expect(composerShowsStop(state)).toBe(shows);
   });
 
   it("composerShowsMic and composerShowsSend are mutually exclusive for typed text", () => {

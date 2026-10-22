@@ -198,4 +198,28 @@ describe("ChatScreenBody", () => {
       }),
     );
   });
+
+  it("shows a busy Send, not Stop, while a send is on its way; the list still follows the dots", async () => {
+    const { getByTestId } = await render(
+      <ChatScreenBody
+        {...baseProps}
+        composer={{ ...baseProps.composer, streaming: true, sendBusy: true }}
+      />,
+    );
+    expect(getByTestId("composer-idle")).toBeTruthy();
+    expect(mockChatComposer).toHaveBeenLastCalledWith(expect.objectContaining({ streaming: false, sendBusy: true }));
+    expect(mockChatMessageList).toHaveBeenLastCalledWith(expect.objectContaining({ streamActive: true }));
+  });
+
+  it("offers Send, not Stop, once the reply's text is in and only its save is left", async () => {
+    const { getByTestId } = await render(
+      <ChatScreenBody
+        {...baseProps}
+        composer={{ ...baseProps.composer, streaming: true, replySaving: true }}
+      />,
+    );
+    expect(getByTestId("composer-idle")).toBeTruthy();
+    // The list still treats the reply as live until its done lands.
+    expect(mockChatMessageList).toHaveBeenLastCalledWith(expect.objectContaining({ streamActive: true }));
+  });
 });

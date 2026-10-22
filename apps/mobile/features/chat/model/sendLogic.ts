@@ -2,7 +2,6 @@ import type { Message } from "@/lib/api";
 import { messageTextForSend, type PendingAttachment } from "@/features/attachments/model/attachments";
 
 import type { ClientGeo } from "@/lib/clientGeo";
-import { markChatTtftStart } from "@/features/chat/model/latency";
 
 export type ComposerSendDraft = {
   text: string;
@@ -61,10 +60,6 @@ export function buildOptimisticUserMessage(options: {
   optimisticId: string;
   createdAt: string;
 }): Message {
-  // This is the first durable UI-visible point after Send is accepted. Start
-  // the production TTFT sample before attachment upload / draft creation /
-  // transport setup so those costs are included in perceived latency.
-  markChatTtftStart(options.optimisticId, options.createdAt, Boolean(options.attached));
   const sendText = messageTextForSend(options.text, options.attached);
   const display =
     options.text.trim() ||

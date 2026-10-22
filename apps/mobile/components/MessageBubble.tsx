@@ -229,8 +229,10 @@ export const MessageBubble = React.memo(function MessageBubble({
                 </MarkdownErrorBoundary>
               </AssistantMessageScope>
             ) : null}
-            {message.generationStopped ? (
-              <Text style={b.stoppedFooter}>{t("chat.generation_stopped")}</Text>
+            {message.generationStopped || message.replyNotSaved ? (
+              <Text style={b.stoppedFooter}>
+                {t(message.replyNotSaved ? "chat.reply_not_saved" : "chat.generation_stopped")}
+              </Text>
             ) : null}
             {showPlaces ? <PlacesListBlock places={places} /> : null}
             {showSettingsProposals

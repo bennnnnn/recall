@@ -184,6 +184,7 @@
   "chat.rename_failed": "Impossibile rinominare questa chat.",
   "chat.rename_title": "Rinomina chat",
   "chat.renamed_toast": "Chat rinominata",
+  "chat.reply_not_saved": "Questa risposta non è stata salvata.",
   "chat.reply_ready": "Risposta pronta",
   "chat.restore_draft": "Ripristina bozza",
   "chat.restore_draft_blocked": "Invia o cancella la bozza attuale, poi ripristina questo messaggio.",

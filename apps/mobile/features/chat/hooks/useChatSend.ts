@@ -18,20 +18,18 @@ import {
   type SendMessageOptions,
 } from "@/features/chat/model/sendLogic";
 import { canSend } from "@/features/chat/model/sendGuards";
-import { resolveSendIntercept, type SendIntercept } from "@/features/chat/model/sendIntercept";
+import { markChatBubblePainted, markChatTtftStart } from "@/features/chat/model/latency";
 import { useComposerAttachmentSheet } from "@/features/chat/hooks/useComposerAttachmentSheet";
+import { useChatSendRoute, type PaintedSend } from "@/features/chat/hooks/useChatSendRoute";
 import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
 import { useMathScanSend } from "@/features/chat/hooks/useMathScanSend";
 import { useRestoreFailedSend, type SendTurn } from "@/features/chat/hooks/useRestoreFailedSend";
-import { uploadSendAttachment, useSendAttachment } from "@/features/chat/hooks/useSendAttachment";
-import { composerThreadKey, shouldRestoreFailedSend } from "@/features/chat/model/composerThreadDraft";
-import { flushEmailDrafts } from "@/features/drafts/model/emailDraftFlush";
-import {
-  queryNeedsClientGeo,
-  resolveClientGeoForQuery,
-} from "@/lib/resolveClientGeoForQuery";
+import { useSendAttachment } from "@/features/chat/hooks/useSendAttachment";
+import type { SendTurnStart } from "@/features/chat/hooks/useTurnStart";
+import { composerThreadKey } from "@/features/chat/model/composerThreadDraft";
+import type { ImageGenSubmit } from "@/features/images/hooks/useImageGeneration";
+import { queryNeedsClientGeo } from "@/lib/resolveClientGeoForQuery";
 import { discardDraftAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
-import { attachmentErrorMessage } from "@/features/attachments/model/attachmentErrors";
 import {
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,
@@ -47,7 +45,8 @@ type ChatSendPhase =
   | "uploading"
   | "creating";
 
-type SendMessageFn = (text: string, opts?: SendMessageOptions) => void;
+/** False when the chat refused the send before showing it. */
+type SendMessageFn = (text: string, opts?: SendMessageOptions) => Promise<boolean>;
 
 /** A send waiting for its new chat's id; dropped if the view moves on first. */
 type PendingChatSend = ReturnType<typeof buildPendingSendAfterCreate> & {
@@ -69,26 +68,22 @@ type Options = {
   scroll: ChatScroll;
   streaming: boolean;
   sendMessage: SendMessageFn;
+  /** Typing dots that go up with the bubble, before the turn is sent. */
+  sendStart: SendTurnStart;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   /** Current transcript — a short follow-up after a picture is worth asking the server about. */
   messages: Message[];
   selectedModel: string;
   updateUser: (patch: Partial<import("@/lib/api").User>) => Promise<void>;
+  /** The profile's location switch is on (a location question then need not wait for it to save). */
+  locationEnabled?: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
   onStreamBusy?: () => void;
   /** Soft offline cue (toast) — prefer over a blocking Alert; draft stays in the composer. */
   onOfflineBlocked?: () => void;
   isOffline: boolean;
   /** Run image generation for detected image-intent text (no confirmation sheet). */
-  onGenerateImage?: (
-    prompt: string,
-    userMessage: string,
-    reference?: { attachment?: PendingAttachment; ids?: string[] },
-    persistence?: {
-      ready: Promise<boolean>;
-      onFailure: () => void;
-    },
-  ) => void;
+  onGenerateImage?: (request: ImageGenSubmit) => void;
   imageGenerating?: boolean;
 };
 
@@ -104,10 +99,12 @@ export function useChatSend({
   scroll,
   streaming,
   sendMessage,
+  sendStart,
   setMessages,
   messages,
   selectedModel,
   updateUser,
+  locationEnabled = false,
   t,
   onStreamBusy,
   onOfflineBlocked,
@@ -202,6 +199,10 @@ export function useChatSend({
     applyQueued();
     return subscribeComposerAttachmentQueue(applyQueued);
   }, [composerThread, token, session, replacePendingAttachment]);
+  const restoreFailedSend = useRestoreFailedSend({
+    token, setMessages, newMessageCountRef, pendingAttachmentRef, setPendingAttachment,
+    stashAttachmentForThread, setPendingOutboundId, sendInFlightRef, setSendPhase, t,
+  });
   useEffect(() => {
     if (
       pendingSend &&
@@ -235,7 +236,7 @@ export function useChatSend({
         model,
       } = pendingSend;
       setPendingSend(null);
-      sendMessage(text, {
+      const sending = sendMessage(text, {
         skipUserBubble,
         trackSendingMessageId,
         attachmentIds,
@@ -250,44 +251,27 @@ export function useChatSend({
       setPendingOutboundId(null);
       sendInFlightRef.current = false;
       setSendPhase("idle");
-    }
-  }, [chatId, routeChatId, session, pendingSend, sendMessage, stashFailedDraftForThread, stashAttachmentForThread, getThreadKey]);
-
-  /** Hands an image request to generation; persistence failure brings the draft back. */
-  const generateFromComposer = useCallback(
-    (intercept: Extract<SendIntercept, { kind: "generate" }>, turn: SendTurn) => {
-      const draftsPromise = flushEmailDrafts();
-      setInput("");
-      setPendingAttachment(null);
-      Keyboard.dismiss();
-      const restoreImageDraft = () => {
-        if (!turn.isCurrentSession()) return;
-        if (!turn.isCurrentView() || getThreadKey() !== turn.threadKey) {
-          stashFailedDraftForThread(turn.threadKey, turn.composerText);
-          return;
-        }
-        if (
-          !pendingAttachmentRef.current &&
-          shouldRestoreFailedSend(inputRef.current, turn.composerText)
-        ) {
-          setInput(turn.composerText);
-          setPendingAttachment(turn.attachment);
-          return;
-        }
-        feedback?.error(t("chat.restore_draft_blocked"));
+      // Refused before it showed: the draft comes back to the new chat's composer.
+      const isCurrentSession = () => session === getSessionGeneration();
+      const turn: SendTurn = {
+        text: composerDraft.text.trim(),
+        composerText: composerDraft.text,
+        attachment: composerDraft.attachment,
+        threadKey: chatId,
+        isCurrentSession,
+        isCurrentView: () => isCurrentSession() && getThreadKey() === chatId,
       };
-      onGenerateImage?.(intercept.prompt, turn.text, intercept.reference, {
-        ready: draftsPromise,
-        onFailure: restoreImageDraft,
+      void sending.then((sent) => {
+        if (!sent) restoreFailedSend(turn, trackSendingMessageId, composerDraft.attachment);
       });
-      sendInFlightRef.current = false;
-      setSendPhase("idle");
-    },
-    [setInput, setPendingAttachment, pendingAttachmentRef, getThreadKey, stashFailedDraftForThread, inputRef, feedback, t, onGenerateImage],
-  );
+    }
+  }, [
+    chatId, routeChatId, session, pendingSend, sendMessage, stashFailedDraftForThread, stashAttachmentForThread,
+    getThreadKey, restoreFailedSend,
+  ]);
 
-  /** Clears the composer and paints the user's bubble; returns its id. */
-  const paintUserTurn = useCallback((text: string, attached: PendingAttachment | null) => {
+  /** Clears the composer and paints the user's bubble, with typing dots when they can go up. */
+  const paintUserTurn = useCallback((text: string, attached: PendingAttachment | null, tappedAt: number) => {
     // Clear the composer immediately so the next draft can be typed.
     // Keep Send/Attach busy until the turn is accepted — an idle button
     // with sendInFlightRef set looked finished and ate the next tap.
@@ -295,8 +279,10 @@ export function useChatSend({
     setPendingAttachment(null);
     Keyboard.dismiss();
 
-    const optimisticId = `local-${Date.now()}`;
-    const createdAt = new Date().toISOString();
+    const optimisticId = `local-${tappedAt}`;
+    const createdAt = new Date(tappedAt).toISOString();
+    // From the tap, not the paint: anything that ever delays the bubble counts.
+    markChatTtftStart(optimisticId, tappedAt, Boolean(attached));
     setPendingOutboundId(optimisticId);
     setMessages((prev) => [
       ...prev,
@@ -308,16 +294,40 @@ export function useChatSend({
       }),
     ]);
     newMessageCountRef.current += 1;
-    return optimisticId;
-  }, [setInput, setPendingAttachment, setMessages, newMessageCountRef]);
+    requestAnimationFrame(() => markChatBubblePainted(optimisticId));
+    return { optimisticId, dots: sendStart.beginDots() };
+  }, [setInput, setPendingAttachment, setMessages, newMessageCountRef, sendStart]);
 
-  const restoreFailedSend = useRestoreFailedSend({
-    token, setMessages, newMessageCountRef, pendingAttachmentRef, setPendingAttachment,
-    stashAttachmentForThread, setPendingOutboundId, sendInFlightRef, setSendPhase,
+  /** A send to a chat that does not exist yet: it waits for the new chat's id. */
+  const sendToNewChat = useCallback(
+    async (send: PaintedSend, pending: ReturnType<typeof buildPendingSendAfterCreate>, giveBack: () => void) => {
+      setSendPhase("creating");
+      try {
+        const id = await ensureChatId({
+          isCurrent: send.isCurrentView,
+          discard: discardEmptyChat,
+          adopt: adoptComposerThread,
+        });
+        if (!id) giveBack();
+        else setPendingSend({ chatId: id, session, originViewVersion: send.version, ...pending });
+      } catch {
+        giveBack();
+        if (send.isCurrentView()) feedback?.error(t("chat.error_generic"));
+      }
+    },
+    [ensureChatId, discardEmptyChat, adoptComposerThread, session, feedback, t],
+  );
+
+  const routeSend = useChatSendRoute({
+    token, chatId, messages, selectedModel, imageGenerating, onGenerateImage, sendMessage, sendStart, updateUser,
+    locationEnabled, t,
+    pendingAttachmentRef, setPendingAttachment, setPendingOutboundId, sendInFlightRef, setSendPhase,
+    restoreFailedSend, sendToNewChat,
   });
 
   const handleSend = useCallback(
     async (overrideText?: string) => {
+      const tappedAt = Date.now();
       const version = viewRef.current.version;
       const composerText = overrideText ?? inputRef.current;
       const text = composerText.trim();
@@ -349,111 +359,16 @@ export function useChatSend({
         isCurrentSession,
         isCurrentView: () => isCurrentSession() && viewRef.current.version === version,
       };
-
-      const deciding = resolveSendIntercept({
-        text,
-        attachment: turn.attachment,
-        chatId,
-        messages,
-        canGenerate: Boolean(onGenerateImage),
-        imageGenerating,
-        token,
-        isCurrentView: turn.isCurrentView,
-        onServerCheck: () => {
-          sendInFlightRef.current = true;
-          setSendPhase("preparing");
-        },
-      });
-      const intercept = deciding instanceof Promise ? await deciding : deciding;
-      if (intercept.kind === "drop" || intercept.kind === "stale") {
-        sendInFlightRef.current = false;
-        setSendPhase("idle");
-        return;
-      }
-      if (intercept.kind === "generate") {
-        generateFromComposer(intercept, turn);
-        return;
-      }
-
-      const authToken = token;
-      if (!authToken) return;
-      let attached = turn.attachment;
+      // Paint first: the bubble, an empty composer and typing dots in this
+      // frame, before any network call. Where the turn goes is decided after.
       sendInFlightRef.current = true;
-      setSendPhase(
-        queryNeedsClientGeo(text) ? "locating" : attached ? "uploading" : "preparing",
-      );
-      // Geo intents: resolve the OS permission before painting anything, so a
-      // deny never makes a just-painted bubble vanish. Instant for non-geo text.
-      const geoResult = await resolveClientGeoForQuery(authToken, text, t, updateUser);
-      if (!geoResult.ok || !turn.isCurrentView()) {
-        sendInFlightRef.current = false;
-        setSendPhase("idle");
-        return;
-      }
-      setSendPhase(attached ? "uploading" : "preparing");
-      const optimisticId = paintUserTurn(text, attached);
-      const restoreDraft = () => restoreFailedSend(turn, optimisticId, attached);
-
-      // Flush in-progress email card edits in parallel with the attachment
-      // upload instead of blocking the optimistic bubble on the flush.
-      const draftsPromise = flushEmailDrafts();
-      let attachmentIds: string[] | undefined;
-      if (attached) {
-        try {
-          ({ ids: attachmentIds, attachment: attached } = await uploadSendAttachment(authToken, attached));
-          if (!turn.isCurrentView()) {
-            restoreDraft();
-            return;
-          }
-        } catch (error) {
-          restoreDraft();
-          if (turn.isCurrentView()) feedback?.error(attachmentErrorMessage(error, t));
-          return;
-        }
-      }
-      const draftsSaved = await draftsPromise;
-      if (!turn.isCurrentView()) return;
-      if (!draftsSaved) {
-        restoreDraft();
-        return;
-      }
-
-      const pending = buildPendingSendAfterCreate({
-        text,
-        composerText,
-        attached,
-        attachmentIds,
-        optimisticId,
-        clientGeo: geoResult.clientGeo,
-        model: selectedModel,
-      });
-      if (chatId) {
-        sendMessage(pending.text, pending);
-        setPendingOutboundId(null);
-        sendInFlightRef.current = false;
-        setSendPhase("idle");
-        return;
-      }
-      setSendPhase("creating");
-      try {
-        const id = await ensureChatId({
-          isCurrent: turn.isCurrentView,
-          discard: discardEmptyChat,
-          adopt: adoptComposerThread,
-        });
-        if (!id) restoreDraft();
-        else setPendingSend({ chatId: id, session, originViewVersion: version, ...pending });
-      } catch {
-        restoreDraft();
-        if (turn.isCurrentView()) feedback?.error(t("chat.error_generic"));
-      }
+      setSendPhase(queryNeedsClientGeo(text) ? "locating" : turn.attachment ? "uploading" : "preparing");
+      const painted = paintUserTurn(text, turn.attachment, tappedAt);
+      await routeSend({ ...turn, ...painted, version });
     },
     [
       session, inputRef, chatLoading, chatId, routeChatId, isOffline, streaming, pendingAttachmentRef,
-      token, creatingRef, attachPickInFlightRef, onOfflineBlocked, onStreamBusy, getThreadKey,
-      messages, onGenerateImage, imageGenerating, generateFromComposer, t, updateUser, paintUserTurn,
-      restoreFailedSend, feedback, selectedModel, sendMessage, ensureChatId, discardEmptyChat,
-      adoptComposerThread,
+      token, creatingRef, attachPickInFlightRef, onOfflineBlocked, onStreamBusy, getThreadKey, paintUserTurn, routeSend,
     ],
   );
 

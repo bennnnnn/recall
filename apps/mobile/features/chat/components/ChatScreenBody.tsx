@@ -12,6 +12,7 @@ import { ChatMessageList } from "@/features/chat/components/ChatMessageList";
 import { ChatQuotaNudge } from "@/features/chat/components/ChatQuotaNudge";
 import type { ChatScreenStyles } from "@/features/chat/components/chatScreenStyles";
 import { ChatScrollFab } from "@/features/chat/components/ChatScrollFab";
+import { composerShowsStop } from "@/features/chat/model/composerLogic";
 import { UpgradeSheet, type UpgradeSource } from "@/components/UpgradeSheet";
 import { StreamingDraftProvider } from "@/contexts/StreamingDraftContext";
 import { useTranslation } from "react-i18next";
@@ -53,6 +54,8 @@ export interface ChatScreenListProps {
 export interface ChatScreenComposerProps {
   animatedStyle?: AnimatedStyle<ViewStyle>;
   streaming: boolean;
+  /** The reply's text is all in and only its save is left: Send works, Stop is gone. */
+  replySaving: boolean;
   attachPicking: boolean;
   sendBusy: boolean;
   sendStatus?: string;
@@ -178,7 +181,7 @@ export const ChatScreenBody = memo(function ChatScreenBody({
       <ChatComposer
         visible={!drawerOpen}
         animatedContainerStyle={composer.animatedStyle}
-        streaming={composer.streaming}
+        streaming={composerShowsStop(composer)}
         attachPicking={composer.attachPicking}
         sendBusy={composer.sendBusy}
         sendStatus={composer.sendStatus}

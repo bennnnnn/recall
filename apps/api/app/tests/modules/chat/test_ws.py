@@ -1082,3 +1082,149 @@ def test_ws_rechecks_token_on_chargeable_message():
             assert err["type"] == "error"
             assert err["message"] == "Unauthorized"
             assert verify.await_count == 2
+
+
+# ── the next turn, sent once the reply's text is out ───────────────────────────
+
+
+def _saving_turns(release: dict, contents: list[str]):
+    """Each turn streams one token; the first one's save waits until the test releases it."""
+
+    async def fake_stream(*args, content="", outcome=None, **kwargs):
+        contents.append(content)
+        if len(contents) > 1:
+            # Long enough for a Stop already sent to reach this turn first.
+            await asyncio.sleep(0.2)
+        yield f"reply to {content}"
+        if outcome is None:
+            return
+        outcome.message_id = f"id-{content}"
+        if len(contents) == 1:
+            release["loop"] = asyncio.get_running_loop()
+            release["event"] = asyncio.Event()
+            outcome.finalize_db_task = asyncio.create_task(release["event"].wait())
+
+    return fake_stream
+
+
+def _release_first_save(release: dict) -> None:
+    import time
+
+    # Let the server read what was just sent while the first save still runs.
+    time.sleep(0.2)
+    release["loop"].call_soon_threadsafe(release["event"].set)
+
+
+def test_ws_message_after_stream_end_runs_once_the_last_turn_is_done():
+    """A send at stream_end waits for the previous commit instead of a busy refusal."""
+    _, tok = _token()
+    user = _fake_user()
+    release: dict = {}
+    contents: list[str] = []
+    fake_stream = _saving_turns(release, contents)
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "first"})
+            assert [ws.receive_json()["type"] for _ in range(3)] == [
+                "start",
+                "token",
+                "stream_end",
+            ]
+            ws.send_json({"type": "message", "content": "second"})
+            _release_first_save(release)
+            # One at a time: a busy refusal fails here instead of waiting forever.
+            assert ws.receive_json() == {"type": "done", "message_id": "id-first"}
+            assert ws.receive_json() == {"type": "start"}
+            assert ws.receive_json() == {"type": "token", "content": "reply to second"}
+            assert ws.receive_json()["type"] == "stream_end"
+            assert ws.receive_json() == {"type": "done", "message_id": "id-second"}
+
+    assert contents == ["first", "second"]
+
+
+def test_ws_message_before_stream_end_is_still_busy():
+    _, tok = _token()
+    user = _fake_user()
+    gate: dict = {}
+    contents: list[str] = []
+
+    async def fake_stream(*args, content="", **kwargs):
+        contents.append(content)
+        gate["loop"] = asyncio.get_running_loop()
+        gate["event"] = asyncio.Event()
+        yield "one"
+        await gate["event"].wait()
+        yield " two"
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "first"})
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            ws.send_json({"type": "message", "content": "second"})
+            busy = ws.receive_json()
+            gate["loop"].call_soon_threadsafe(gate["event"].set)
+            rest = [ws.receive_json()["type"] for _ in range(3)]
+
+    assert busy["code"] == "busy"
+    assert busy["user_message_saved"] is False
+    assert rest == ["token", "stream_end", "done"]
+    assert contents == ["first"]
+
+
+def test_ws_stop_after_a_waiting_message_stops_that_message_not_the_save():
+    """The waiting turn's own Stop stays unread until that turn runs."""
+    _, tok = _token()
+    user = _fake_user()
+    release: dict = {}
+    contents: list[str] = []
+    fake_stream = _saving_turns(release, contents)
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "first"})
+            assert [ws.receive_json()["type"] for _ in range(3)] == [
+                "start",
+                "token",
+                "stream_end",
+            ]
+            ws.send_json({"type": "message", "content": "second"})
+            ws.send_json({"type": "cancel"})
+            _release_first_save(release)
+            assert ws.receive_json() == {"type": "done", "message_id": "id-first"}
+            assert ws.receive_json() == {"type": "start"}
+            # The stopped turn sends nothing more (no token, stream_end or done
+            # comes before this answer), and the socket still serves frames.
+            ws.send_json({"type": "message", "content": ""})
+            assert ws.receive_json()["message"] == "Message cannot be empty."
+
+    assert contents == ["first", "second"]

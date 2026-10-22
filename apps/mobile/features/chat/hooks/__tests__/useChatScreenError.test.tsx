@@ -1,5 +1,9 @@
 import { act, renderHook } from "@testing-library/react-native";
-import { useChatErrorHandlers, useChatErrorRecovery } from "@/features/chat/hooks/useChatScreenError";
+import {
+  useChatErrorHandlers,
+  useChatErrorRecovery,
+  useChatStreamLifecycle,
+} from "@/features/chat/hooks/useChatScreenError";
 
 jest.mock("react-i18next", () => {
   const t = (key: string) => key;
@@ -92,4 +96,38 @@ it("regenerates a saved reply without retrying an unsaved send", async () => {
   await act(async () => { result.current(); });
   expect(regenerate).toHaveBeenCalledWith("smart-chat");
   expect(retryRejectedSend).not.toHaveBeenCalled();
+});
+
+describe("the busy notice and its Stop", () => {
+  function useScreenErrors({ streamActive, replySaving }: { streamActive: boolean; replySaving: boolean }) {
+    const errors = useChatErrorHandlers(false);
+    useChatStreamLifecycle({
+      streamActive,
+      replySaving,
+      dismissChatError: errors.dismissChatError,
+      dismissBusyNotice: errors.dismissBusyNotice,
+      token: "token",
+      isPaid: false,
+    });
+    return errors;
+  }
+
+  it("goes once the reply's text is all in, so Stop cannot cut its save short", async () => {
+    const { result, rerender } = await renderHook(useScreenErrors, {
+      initialProps: { streamActive: true, replySaving: false },
+    });
+    await act(async () => { result.current.handleStreamBusy(); });
+    expect(result.current.chatError?.kind).toBe("busy");
+    await rerender({ streamActive: true, replySaving: true });
+    expect(result.current.chatError).toBeNull();
+  });
+
+  it("leaves any other error up while the reply saves", async () => {
+    const { result, rerender } = await renderHook(useScreenErrors, {
+      initialProps: { streamActive: true, replySaving: false },
+    });
+    await act(async () => { result.current.handleChatError("Connection lost"); });
+    await rerender({ streamActive: true, replySaving: true });
+    expect(result.current.chatError).toEqual({ kind: "generic", message: "Connection lost" });
+  });
 });

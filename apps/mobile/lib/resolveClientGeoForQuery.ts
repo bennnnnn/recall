@@ -1,5 +1,6 @@
 import { Linking } from "react-native";
 
+import { getSessionGeneration } from "@/lib/auth";
 import type { ClientGeo } from "@/lib/clientGeo";
 import { requestDeviceGeo } from "@/lib/deviceLocation";
 import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/localPlacesQuery";
@@ -12,8 +13,8 @@ type ClientGeoResolveResult =
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 type PersistLocation = (patch: {
-  location: string;
-  location_enabled: boolean;
+  location?: string;
+  location_enabled?: boolean;
 }) => void | Promise<void>;
 
 export function queryNeedsClientGeo(queryText: string): boolean {
@@ -44,6 +45,11 @@ function alertOpenDeviceSettings(t: Translate): void {
  * Resolve device geo for nearby / where-am-I asks.
  * Show the system permission sheet immediately — do not ask the model for a city,
  * and do not insert an in-app "Turn on" alert in front of the OS prompt.
+ * A recent fix serves, and the waits are bounded: with no fix in time the turn
+ * goes without one. `persistLocation` is awaited only as far as it says: the
+ * caller decides whether the turn must wait for the profile to save. Coordinates
+ * alone never replace the profile's place: a name that comes after the turn
+ * went saves then, for the account that asked.
  */
 export async function resolveClientGeoForQuery(
   _token: string,
@@ -55,22 +61,32 @@ export async function resolveClientGeoForQuery(
     return { ok: true, clientGeo: null };
   }
 
-  const result = await requestDeviceGeo();
+  const session = getSessionGeneration();
+  const result = await requestDeviceGeo({ quick: true });
+
+  if (result.status === "no_fix") {
+    return { ok: true, clientGeo: null };
+  }
 
   if (result.status === "granted") {
-    const label =
-      result.geo.label?.trim() ||
-      formatCoordLabel(result.geo.latitude, result.geo.longitude);
+    const { geo } = result;
+    const place = geo.label?.trim() || null;
     const clientGeo: ClientGeo = {
-      label,
-      latitude: result.geo.latitude,
-      longitude: result.geo.longitude,
+      label: place ?? formatCoordLabel(geo.latitude, geo.longitude),
+      latitude: geo.latitude,
+      longitude: geo.longitude,
     };
     try {
-      await persistLocation({ location: clientGeo.label, location_enabled: true });
+      await persistLocation(place ? { location: place, location_enabled: true } : { location_enabled: true });
     } catch {
       // Still use this turn's fix; Settings may catch up on next refresh.
     }
+    void geo.lateLabel
+      ?.then((late) => {
+        const name = late?.trim();
+        if (name && session === getSessionGeneration()) return persistLocation({ location: name });
+      })
+      .catch(() => undefined);
     return { ok: true, clientGeo };
   }
 

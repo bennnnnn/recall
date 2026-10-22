@@ -3,6 +3,8 @@
 ``ws_api`` reads the socket's frames and hands each message or regenerate here.
 The producer runs the turn on its own task while this side keeps reading the
 socket for a cancel; both go through the one ``stop`` a server shutdown uses too.
+The next turn's frame may arrive once ``stream_end`` is out: it waits for this
+turn's ``done`` and runs next, as a new SSE turn waits on the previous save.
 """
 
 import asyncio
@@ -46,6 +48,8 @@ logger = logging.getLogger(__name__)
 
 # A reply is far shorter; a larger count is not a length the client drew.
 _MAX_SHOWN_CHARS = 1_000_000
+# Frames that start a turn.
+TURN_FRAME_TYPES = frozenset({"message", "regenerate"})
 
 
 def client_shown_chars(cancel: dict[str, Any]) -> int | None:
@@ -64,8 +68,18 @@ async def stream_over_ws(
     chat_id: UUID | None = None,
     frame_budget: FrameBudget | None = None,
     claim: ClientMessageClaim = UNNAMED,
-) -> None:
+) -> dict[str, Any] | None:
+    """Run one turn; return the next turn's frame when it came during this one's save.
+
+    Once ``stream_end`` is out the reply's text is complete and only its commit
+    is left, so a client may send its next message then. That frame is held
+    (the socket is not read again) until ``done`` is sent, and the caller runs it
+    next. Before ``stream_end`` a second turn is still refused as busy.
+    """
+    text_complete = False
+
     async def run_stream() -> None:
+        nonlocal text_complete
         sent_tokens = 0
         try:
             async for token_text in stream:
@@ -112,6 +126,8 @@ async def stream_over_ws(
                     await await_finalize_commit(finalize_db_task)
             return
 
+        # Set before sending: the client's next message can only answer this frame.
+        text_complete = True
         if not await safe_send_json(websocket, StreamEndEvent.from_outcome(outcome).model_dump()):
             return
 
@@ -143,6 +159,7 @@ async def stream_over_ws(
         # map — stream_chat_response gather-waits that map as a child Task
         # and would deadlock 10s on itself.
         register_inflight_stream(chat_id, producer, stop=stop)
+    next_turn: dict[str, Any] | None = None
     try:
         while not producer.done():
             receiver = asyncio.create_task(websocket.receive_json())
@@ -178,6 +195,12 @@ async def stream_over_ws(
                     stop()
                 elif msg.get("type") == "ping":
                     await safe_send_json(websocket, build_pong_event())
+                elif msg.get("type") in TURN_FRAME_TYPES and (text_complete or producer.done()):
+                    # Bounded: the producer only waits out the commit
+                    # (DONE_COMMIT_WAIT_SECONDS), and frames after this one
+                    # (its own Stop) stay unread until that turn reads them.
+                    next_turn = msg
+                    break
                 else:
                     await safe_send_json(
                         websocket,
@@ -211,6 +234,7 @@ async def stream_over_ws(
         # Same as SSE M10: client close must not orphan the DB commit that
         # persists the (partial) assistant row and enqueues the title job.
         await persist_finalize_if_pending(outcome)
+    return next_turn
 
 
 async def run_chat_stream(
@@ -221,8 +245,11 @@ async def run_chat_stream(
     chat_id: UUID | None = None,
     frame_budget: FrameBudget | None = None,
     claim: ClientMessageClaim = UNNAMED,
-) -> None:
-    """One turn: ``start``, then the stream, which settles the message's ``claim``."""
+) -> dict[str, Any] | None:
+    """One turn: ``start``, then the stream, which settles the message's ``claim``.
+
+    Returns the next turn's frame if it arrived during this turn's save.
+    """
     cancel_event.clear()
     outcome = TurnOutcome()
     try:
@@ -232,12 +259,12 @@ async def run_chat_stream(
         raise
     if not started and claim.key is None:
         # A client gone before ``start`` gets no turn.
-        return
+        return None
     # A named message runs even when its client is gone: the phone may have sent
     # it again meanwhile (and been told ``duplicate``), and it follows this turn
     # by reloading the chat. The claim keeps any other send of it from running.
     try:
-        await stream_over_ws(
+        return await stream_over_ws(
             websocket,
             stream_factory(outcome),
             cancel_event,
@@ -252,6 +279,7 @@ async def run_chat_stream(
         await safe_send_json(
             websocket, turn_error_payload(exc, user_message_saved=outcome.user_message_saved)
         )
+        return None
 
 
 def schedule_related_prompts(websocket: WebSocket, outcome: TurnOutcome) -> None:

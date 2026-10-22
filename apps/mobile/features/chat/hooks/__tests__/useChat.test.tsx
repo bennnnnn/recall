@@ -19,6 +19,7 @@ import {
   WS_FOLLOW_UPS_WAIT_MS,
   WS_PROBE_TIMEOUT_MS,
 } from "@/features/chat/model/wsConnect";
+import { REPLY_SAVE_GRACE_MS, type DotsTicket } from "@/features/chat/hooks/useTurnStart";
 import { getStreamingDraft, resetStreamingDraftStore } from "@/lib/streamingDraftStore";
 
 const SERVER_USER_ID = "0190a000-0000-7000-8000-000000000001";
@@ -900,9 +901,12 @@ describe("useChat transport lifecycle", () => {
       contentType: "application/pdf", existingAttachmentId: "rejected-id",
     } };
     const error = { type: "error", code: "attachment_rejected", message: "File unavailable" };
-    (streamChatMessageSse as jest.Mock).mockImplementationOnce(async ({ onEvent }) => {
-      onEvent({ type: "start" }); onEvent(error);
-    });
+    // Queued only when SSE will take it: a leftover would answer a later test's send.
+    if (transport === "sse") {
+      (streamChatMessageSse as jest.Mock).mockImplementationOnce(async ({ onEvent }) => {
+        onEvent({ type: "start" }); onEvent(error);
+      });
+    }
     await render(<Probe chatId="a" />);
     const socket = transport === "ws" ? await openSocket() : null;
     await act(async () => {
@@ -997,6 +1001,401 @@ describe("useChat transport lifecycle", () => {
     });
     expect(restore).toHaveBeenCalledWith({ text: "attachment second", attachment: null });
     expect(current.rejectedSend).toBeNull();
+  });
+
+  describe("typing dots before a send goes out", () => {
+    const bubble = { id: "local-1", role: "user" as const, content: "question", model: null, created_at: "now" };
+    // Turn frames only: the auth frame has no type, and the connect ping is the socket's own.
+    const sentTypes = (socket: FakeSocket) =>
+      socket.send.mock.calls
+        .map(([data]) => JSON.parse(data).type)
+        .filter((type) => Boolean(type) && type !== "ping");
+
+    async function paint(row = bubble) {
+      let dots: DotsTicket | null = null;
+      await act(async () => {
+        current.setMessages([row]);
+        dots = current.sendStart.beginDots();
+      });
+      return dots as DotsTicket | null;
+    }
+
+    it("go up under the painted bubble and stay for its send", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      const dots = await paint();
+      expect(dots?.current()).toBe(true);
+      expect(current.streaming).toBe(true);
+      expect(current.messages.map((message) => message.id)).toEqual(["local-1", "streaming"]);
+      expect(sentTypes(socket)).toEqual([]);
+
+      await act(async () => {
+        await current.sendMessage("question", { skipUserBubble: true, trackSendingMessageId: "local-1" });
+      });
+      expect(sentTypes(socket)).toEqual(["message"]);
+      expect(current.messages.map((message) => message.id)).toEqual(["local-1", "streaming"]);
+      await act(async () => {
+        socket.emit({ type: "start" });
+        socket.emit({ type: "token", content: "answer" });
+        socket.emit({ type: "stream_end" });
+        socket.emit({ type: "done", message_id: "saved", final_content: "answer" });
+      });
+      expect(current.messages.map((message) => message.id)).toEqual(["local-1", "saved"]);
+      expect(current.streaming).toBe(false);
+    });
+
+    it("do not go up while a reply streams or saves", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      await sendAndStream(socket);
+      expect(current.sendStart.beginDots()).toBeNull();
+      await act(async () => { socket.emit({ type: "stream_end" }); });
+      expect(current.sendStart.beginDots()).toBeNull();
+      await act(async () => { socket.emit({ type: "done", message_id: "saved", final_content: "reply" }); });
+      let dots: DotsTicket | null = null;
+      await act(async () => { dots = current.sendStart.beginDots(); });
+      expect(dots).not.toBeNull();
+    });
+
+    it("come down when the send goes elsewhere, and a later send raises its own", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      const dots = await paint();
+      await act(async () => { dots?.cancel(); });
+      expect(dots?.current()).toBe(false);
+      expect(current.streaming).toBe(false);
+      expect(current.messages.map((message) => message.id)).toEqual(["local-1"]);
+      await act(async () => { await current.sendMessage("next"); });
+      expect(current.messages.filter((message) => message.id === "streaming")).toHaveLength(1);
+      expect(sentTypes(socket)).toEqual(["message"]);
+    });
+
+    it("come down on Stop, which the send that raised them sees", async () => {
+      await render(<Probe chatId="a" />);
+      await openSocket();
+      const dots = await paint();
+      await act(async () => { current.stopGeneration(); });
+      expect(dots?.current()).toBe(false);
+      expect(current.streaming).toBe(false);
+      expect(current.messages.map((message) => message.id)).toEqual(["local-1"]);
+    });
+
+    it("taken down late from a chat left behind, leave the next chat's dots and send alone", async () => {
+      // A's send waits on a slow upload; the user opens B and sends there first.
+      const view = await render(<Probe chatId="a" />);
+      await openSocket();
+      const inA = await paint({ ...bubble, id: "local-a" });
+      await act(async () => { view.rerender(<Probe chatId="b" />); });
+      const socketB = await openSocket();
+      const inB = await paint({ ...bubble, id: "local-b", content: "question in b" });
+      await act(async () => { inA?.cancel(); });
+      expect(inB?.current()).toBe(true);
+      expect(current.streaming).toBe(true);
+      let sent: boolean | undefined;
+      await act(async () => {
+        sent = await current.sendMessage("question in b", { skipUserBubble: true, trackSendingMessageId: "local-b" });
+      });
+      expect(sent).toBe(true);
+      expect(sentTypes(socketB)).toEqual(["message"]);
+      expect(current.messages.map((message) => message.id)).toEqual(["local-b", "streaming"]);
+    });
+
+    it("are not borrowed: a send with none of its own is refused while another turn runs, and says so", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      await sendAndStream(socket);
+      await act(async () => {
+        socket.emit({ type: "stream_end" });
+        socket.emit({ type: "done", message_id: "saved", final_content: "reply" });
+      });
+      // A waiting send's upload ends after Regenerate was tapped.
+      await act(async () => { current.beginRegenerateUi(); });
+      let sent: boolean | undefined;
+      await act(async () => {
+        sent = await current.sendMessage("next", { skipUserBubble: true, trackSendingMessageId: "local-2" });
+      });
+      expect(sent).toBe(false);
+      expect(sentTypes(socket)).toEqual(["message"]);
+      expect(current.messages.some((message) => message.id === "local-2")).toBe(false);
+    });
+
+    it("go up with a painted bubble put back when a reload took it away", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      await act(async () => {
+        await current.sendMessage("question", { skipUserBubble: true, trackSendingMessageId: "local-1" });
+      });
+      expect(current.messages.map((message) => message.id)).toEqual(["local-1", "streaming"]);
+      expect(current.messages[0]).toMatchObject({ role: "user", content: "question" });
+      expect(sentTypes(socket)).toEqual(["message"]);
+    });
+
+    it("leave a stopped turn's socket first, so its late frames reach nothing", async () => {
+      await render(<Probe chatId="a" />);
+      const old = await openSocket();
+      await sendAndStream(old, "partial");
+      await act(async () => { current.stopGeneration(); });
+      await act(async () => {
+        current.sendStart.beginDots();
+        old.emit({ type: "token", content: " late" });
+        old.emit({ type: "done", message_id: "old-id", final_content: "partial late" });
+        jest.advanceTimersByTime(20);
+      });
+      expect(old.close).toHaveBeenCalled();
+      expect(current.streaming).toBe(true);
+      expect(getStreamingDraft()?.content).toBe("");
+      expect(current.messages.at(-1)?.id).toBe("streaming");
+    });
+  });
+
+  describe("a send made while the last reply saves", () => {
+    const next = { id: "local-2", role: "user" as const, content: "next", model: null, created_at: "later" };
+    const savedTurn = [
+      { id: SERVER_USER_ID, role: "user" as const, content: "question", model: null, created_at: "t1" },
+      { id: SERVER_REPLY_ID, role: "assistant" as const, content: "reply, checked", model: null, created_at: "t2" },
+    ];
+    const messageFrames = (socket: FakeSocket) =>
+      socket.send.mock.calls.map(([data]) => JSON.parse(data)).filter((frame) => frame.type === "message");
+
+    /** The reply's text is all in (`stream_end`); the next bubble is painted and waits. */
+    async function paintWhileSaving(socket: FakeSocket) {
+      await sendAndStream(socket, "reply");
+      await act(async () => { socket.emit({ type: "stream_end" }); });
+      expect(current.finalizing).toBe(true);
+      let settled = false;
+      let waiting!: Promise<void>;
+      await act(async () => {
+        current.setMessages((rows) => [...rows, next]);
+        expect(current.sendStart.beginDots()).toBeNull();
+        waiting = current.sendStart.whenReplySettled("local-2").then(() => { settled = true; });
+      });
+      return { waiting, settled: () => settled };
+    }
+
+    async function sendNext() {
+      await act(async () => {
+        await current.sendMessage("next", { skipUserBubble: true, trackSendingMessageId: "local-2" });
+      });
+    }
+
+    it("waits for the reply's done, which lands on that reply, then goes out", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      const queued = await paintWhileSaving(socket);
+      expect(queued.settled()).toBe(false);
+      expect(current.sendingMessageId).toBe("local-2");
+      expect(messageFrames(socket)).toHaveLength(1);
+
+      // The wait ends once React has rendered the settled reply.
+      await act(async () => {
+        socket.emit({ type: "done", message_id: "saved-1", final_content: "reply, checked" });
+      });
+      await act(async () => { await queued.waiting; });
+      expect(current.messages.map((message) => message.id)).toEqual([
+        expect.stringMatching(/^local-/), "saved-1", "local-2",
+      ]);
+      expect(current.messages[1].content).toBe("reply, checked");
+      expect(current.sendingMessageId).toBeNull();
+
+      await sendNext();
+      expect(messageFrames(socket).map((frame) => frame.content)).toEqual(["question", "next"]);
+      expect(current.messages.map((message) => message.id).slice(1)).toEqual(["saved-1", "local-2", "streaming"]);
+      await act(async () => {
+        socket.emit({ type: "start" });
+        socket.emit({ type: "token", content: "second answer" });
+        jest.advanceTimersByTime(20);
+      });
+      expect(getStreamingDraft()?.content).toBe("second answer");
+    });
+
+    it("goes out after a done that has no id yet (the save outlived the server's wait)", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      const queued = await paintWhileSaving(socket);
+      await act(async () => { socket.emit({ type: "done", persisting: true }); });
+      await act(async () => { await queued.waiting; });
+      expect(current.messages.map((message) => message.id)).toEqual([
+        expect.stringMatching(/^local-/), expect.stringMatching(/^streamed-/), "local-2",
+      ]);
+      expect(current.messages[1].content).toBe("reply");
+      await sendNext();
+      expect(messageFrames(socket)).toHaveLength(2);
+    });
+
+    it("goes out after a save that failed (an error after stream_end), keeping what was shown", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      const queued = await paintWhileSaving(socket);
+      await act(async () => {
+        socket.emit({ type: "error", message: "Failed to save the response. Please retry.", user_message_saved: true });
+      });
+      await act(async () => { await queued.waiting; });
+      expect(onError).toHaveBeenCalledWith("Failed to save the response. Please retry.", undefined);
+      // The reply says so itself: the banner goes when the next turn starts.
+      expect(current.messages[1]).toMatchObject({ content: "reply", replyNotSaved: true });
+      expect(current.messages[1].generationStopped).toBeUndefined();
+      expect(current.messages[2].id).toBe("local-2");
+      // As after any reply kept partial, the next turn takes a new socket.
+      let sending!: Promise<boolean>;
+      await act(async () => {
+        sending = current.sendMessage("next", { skipUserBubble: true, trackSendingMessageId: "local-2" });
+      });
+      const fresh = FakeSocket.instances.at(-1)!;
+      await act(async () => { fresh.open(); await sending; });
+      expect(fresh).not.toBe(socket);
+      expect(messageFrames(fresh).map((frame) => frame.content)).toEqual(["next"]);
+      expect(current.streaming).toBe(true);
+    });
+
+    it("reloads a reply whose done never comes after the grace, then goes out on a new socket", async () => {
+      listMessages.mockResolvedValue({ messages: savedTurn, has_more: false });
+      await render(<Probe chatId="a" />);
+      const old = await openSocket();
+      const queued = await paintWhileSaving(old);
+      await act(async () => { jest.advanceTimersByTime(REPLY_SAVE_GRACE_MS - 1); });
+      expect(queued.settled()).toBe(false);
+      await act(async () => { jest.advanceTimersByTime(1); });
+      // The quiet connection is left, and the chat reloads until the saved reply is in.
+      expect(old.close).toHaveBeenCalled();
+      expect(queued.settled()).toBe(false);
+      await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+      await act(async () => { await queued.waiting; });
+      expect(listMessages).toHaveBeenCalledTimes(1);
+      expect(current.finalizing).toBe(false);
+      // The saved reply (its checked text, not the raw stream) above the waiting bubble.
+      expect(current.messages.map((message) => message.id)).toEqual([SERVER_USER_ID, SERVER_REPLY_ID, "local-2"]);
+      expect(current.messages[1].content).toBe("reply, checked");
+      expect(onError).not.toHaveBeenCalled();
+
+      let sending!: Promise<boolean>;
+      await act(async () => {
+        sending = current.sendMessage("next", { skipUserBubble: true, trackSendingMessageId: "local-2" });
+      });
+      const fresh = FakeSocket.instances.at(-1)!;
+      expect(fresh).not.toBe(old);
+      await act(async () => {
+        fresh.open();
+        await sending;
+        // The old turn's done turns up after all: it reaches nothing.
+        old.emit({ type: "done", message_id: "saved-1", final_content: "reply" });
+      });
+      expect(messageFrames(fresh).map((frame) => frame.content)).toEqual(["next"]);
+      expect(current.streaming).toBe(true);
+      expect(current.messages.some((message) => message.id === "saved-1")).toBe(false);
+    });
+
+    it("reloads a reply that streamed no text (a photo answer) rather than dropping it", async () => {
+      listMessages.mockResolvedValue({ messages: savedTurn, has_more: false });
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      await act(async () => {
+        await current.sendMessage("question");
+        socket.emit({ type: "start" });
+        jest.advanceTimersByTime(20);
+      });
+      await act(async () => { socket.emit({ type: "stream_end" }); });
+      let waiting!: Promise<void>;
+      await act(async () => {
+        current.setMessages((rows) => [...rows, next]);
+        waiting = current.sendStart.whenReplySettled("local-2");
+      });
+      await act(async () => { jest.advanceTimersByTime(REPLY_SAVE_GRACE_MS); });
+      await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+      await act(async () => { await waiting; });
+      expect(current.messages.map((message) => message.id)).toEqual([SERVER_USER_ID, SERVER_REPLY_ID, "local-2"]);
+    });
+
+    it("keeps the waiting bubble when the connection drops while the reply saves", async () => {
+      listMessages.mockResolvedValue({ messages: savedTurn, has_more: false });
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      const queued = await paintWhileSaving(socket);
+      await act(async () => { socket.onclose(); });
+      await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+      await act(async () => { await queued.waiting; });
+      expect(queued.settled()).toBe(true);
+      expect(current.messages.map((message) => message.id)).toEqual([SERVER_USER_ID, SERVER_REPLY_ID, "local-2"]);
+
+      // A dropped socket sends the next turn over SSE, under the bubble it kept.
+      (streamChatMessageSse as jest.Mock).mockResolvedValueOnce(undefined);
+      await sendNext();
+      expect(streamChatMessageSse).toHaveBeenCalledWith(expect.objectContaining({ content: "next" }));
+      expect(current.messages.map((message) => message.id)).toEqual([
+        SERVER_USER_ID, SERVER_REPLY_ID, "local-2", "streaming",
+      ]);
+    });
+
+    it("waits for a regenerated reply's done the same way", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      await sendAndStream(socket);
+      await act(async () => {
+        socket.emit({ type: "stream_end" });
+        socket.emit({ type: "done", message_id: "saved", final_content: "first answer" });
+      });
+      await act(async () => {
+        current.beginRegenerateUi();
+        await current.regenerateResponse();
+        socket.emit({ type: "start" });
+        socket.emit({ type: "token", content: "better answer" });
+        socket.emit({ type: "stream_end" });
+      });
+      let settled = false;
+      let waiting!: Promise<void>;
+      await act(async () => {
+        waiting = current.sendStart.whenReplySettled().then(() => { settled = true; });
+      });
+      expect(settled).toBe(false);
+      await act(async () => {
+        socket.emit({ type: "done", message_id: "saved-again", final_content: "better answer" });
+      });
+      await act(async () => { await waiting; });
+      expect(current.messages.map((message) => message.id)).toEqual([expect.stringMatching(/^local-/), "saved-again"]);
+      expect(current.messages[1].content).toBe("better answer");
+    });
+
+    it("puts a regenerated reply's old answer back above the waiting bubble when its save fails", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      await act(async () => {
+        current.setMessages([
+          { id: "u1", role: "user", content: "q1", model: null, created_at: "t1" },
+          { id: "r1", role: "assistant", content: "old answer", model: null, created_at: "t2" },
+        ]);
+      });
+      await act(async () => {
+        current.beginRegenerateUi();
+        await current.regenerateResponse();
+        socket.emit({ type: "start" });
+        socket.emit({ type: "token", content: "new answer" });
+        jest.advanceTimersByTime(20);
+        socket.emit({ type: "stream_end" });
+      });
+      let waiting!: Promise<void>;
+      await act(async () => {
+        current.setMessages((rows) => [...rows, next]);
+        waiting = current.sendStart.whenReplySettled("local-2");
+      });
+      await act(async () => {
+        socket.emit({ type: "error", message: "Failed to save the response. Please retry.", user_message_saved: true });
+      });
+      await act(async () => { await waiting; });
+      expect(current.messages.map((message) => `${message.id}:${message.content}`)).toEqual([
+        "u1:q1", "r1:old answer", "local-2:next",
+      ]);
+    });
+
+    it("waits for nothing after Stop", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      await sendAndStream(socket);
+      await act(async () => { current.stopGeneration(); });
+      let settled = false;
+      await act(async () => {
+        await current.sendStart.whenReplySettled().then(() => { settled = true; });
+      });
+      expect(settled).toBe(true);
+    });
   });
 
   it("announces a finished reply once, not per token", async () => {

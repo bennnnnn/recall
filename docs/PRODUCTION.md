@@ -411,6 +411,12 @@ background, and runs the new code from the next launch.
       without that native code would crash it.
 - [ ] Builds made before `expo-updates` was added cannot receive updates; install
       a new build once
+- [ ] **Deploy the API before the app** (store build or update) whenever the app
+      starts sending something new. An older API refuses fields it does not know:
+      the chat analytics fields `paint_bucket` (on `chat_ttft`) and
+      `send_ready_bucket` (on `chat_turn_outcome`) get a 422 there. The app drops
+      a failed analytics post, so the cost is only those samples, but they are lost
+      until the API is out.
 - [ ] Review [`docs/ROLLBACK.md`](ROLLBACK.md) before the first store submission
 
 ---

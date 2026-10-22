@@ -79,7 +79,7 @@ function Probe({ streaming = false, token = "token" }: { streaming?: boolean; to
     } as never,
     scroll: { newMessageCountRef: { current: 0 } } as never,
     streaming,
-    sendMessage: jest.fn(),
+    sendMessage: jest.fn(async () => true),
     setMessages: jest.fn(),
     messages: [],
     selectedModel: "free-chat",

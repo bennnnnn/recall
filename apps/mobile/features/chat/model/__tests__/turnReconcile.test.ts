@@ -56,6 +56,13 @@ describe("mergeReconciledPage", () => {
     const page = [msg(id(3), "user"), msg(id(4), "assistant")];
     expect(mergeReconciledPage([msg("local-1", "user"), msg("streaming", "assistant")], page)).toEqual(page);
   });
+
+  it("keeps a message sent while the turn saved, below the saved reply", () => {
+    const queued = msg("local-10", "user", "next");
+    const previous = [...before, msg("local-9", "user", "q"), msg("streaming", "assistant", "a"), queued];
+    const page = [...before, msg(id(3), "user", "q"), msg(id(4), "assistant", "a")];
+    expect(mergeReconciledPage(previous, page)).toEqual([...page, queued]);
+  });
 });
 
 describe("pollDroppedTurn", () => {

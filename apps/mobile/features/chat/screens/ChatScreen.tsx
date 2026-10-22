@@ -61,8 +61,9 @@ function ChatScreen() {
   const draft = useDraftChat({ token, chatId });
   const { isPaid, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
   useHomeRefreshOnChatFocus(routeChatId, chatId);
-  const { chatError, handleChatError, handleStreamBusy, dismissChatError, handleRejectedSendChange } =
-    useChatErrorHandlers(isPaid);
+  const {
+    chatError, handleChatError, handleStreamBusy, dismissChatError, dismissBusyNotice, handleRejectedSendChange,
+  } = useChatErrorHandlers(isPaid);
   const activeChatId = draft.activeChatId;
 
   const onFirstReplyRef = useRef<(id?: string | null) => Promise<void>>(async () => {});
@@ -82,6 +83,7 @@ function ChatScreen() {
     finalizing,
     sendingMessageId,
     sendMessage,
+    sendStart,
     rejectedSend,
     retryRejectedSend,
     restoreRejectedAttachmentDraft,
@@ -239,7 +241,9 @@ function ChatScreen() {
 
   const quotaNudge = useChatStreamLifecycle({
     streamActive,
+    replySaving: finalizing,
     dismissChatError,
+    dismissBusyNotice,
     token,
     isPaid,
   });
@@ -254,28 +258,21 @@ function ChatScreen() {
     router,
     draft,
     scroll,
-    streaming: streamActive,
+    // A reply that is only saving (after `stream_end`) does not hold the next send.
+    streaming: (streaming && !finalizing) || imageGen.generating,
     sendMessage,
+    sendStart,
     setMessages,
     messages,
     selectedModel,
     updateUser,
+    locationEnabled: user?.location_enabled === true,
     t,
     onStreamBusy: handleStreamBusy,
     onOfflineBlocked: notifyOfflineBlocked,
     isOffline,
     imageGenerating: imageGen.generating,
-    onGenerateImage: (prompt, userMessage, reference, persistence) => {
-      void imageGen.submitPrompt({
-        prompt,
-        userMessage,
-        aspectRatio: null,
-        referenceAttachment: reference?.attachment,
-        referenceAttachmentIds: reference?.ids,
-        persistenceReady: persistence?.ready,
-        onPersistenceFailure: persistence?.onFailure,
-      });
-    },
+    onGenerateImage: (request) => void imageGen.submitPrompt(request),
   });
 
   const {
@@ -492,6 +489,7 @@ function ChatScreen() {
     dismissChatError,
     composerAnimatedStyle,
     streaming: streamActive,
+    replySaving: finalizing,
     sendBusy: chatLoading || sendPhase !== "idle",
     sendStatus: sendPhase === "locating" ? t("chat.locating") : undefined,
     stopGeneration: stopTurn,

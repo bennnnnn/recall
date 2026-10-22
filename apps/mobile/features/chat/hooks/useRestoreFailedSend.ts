@@ -1,5 +1,6 @@
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 
+import { useActionFeedbackOptional } from "@/contexts/ActionFeedbackContext";
 import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
 import { discardDraftAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
 import { shouldRestoreFailedSend } from "@/features/chat/model/composerThreadDraft";
@@ -26,9 +27,14 @@ type Options = {
   setPendingOutboundId: (id: string | null) => void;
   sendInFlightRef: MutableRefObject<boolean>;
   setSendPhase: (phase: "idle") => void;
+  t: (key: string) => string;
 };
 
-/** Takes the bubble back and returns the draft (text and file) to the thread it was typed in. */
+/**
+ * Takes the bubble back and returns the draft (text as typed, and file) to the
+ * thread it was typed in. Newer text or a file already there stays put, and the
+ * user is told this draft could not come back.
+ */
 export function useRestoreFailedSend({
   token,
   setMessages,
@@ -39,8 +45,10 @@ export function useRestoreFailedSend({
   setPendingOutboundId,
   sendInFlightRef,
   setSendPhase,
+  t,
 }: Options) {
   const { setInput, inputRef, stashFailedDraftForThread, getThreadKey } = useComposerDraftApi();
+  const feedback = useActionFeedbackOptional();
   return useCallback(
     (turn: SendTurn, optimisticId: string, attached: PendingAttachment | null) => {
       clearPendingChatTtft(optimisticId);
@@ -50,7 +58,7 @@ export function useRestoreFailedSend({
       }
       // The attachment travels with the text: uploaded, it keeps its id for the next send.
       const stash = () => {
-        stashFailedDraftForThread(turn.threadKey, turn.text);
+        stashFailedDraftForThread(turn.threadKey, turn.composerText);
         stashAttachmentForThread(turn.threadKey, getThreadKey(), attached);
       };
       if (!turn.isCurrentView()) {
@@ -60,15 +68,14 @@ export function useRestoreFailedSend({
       setPendingOutboundId(null);
       setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
       newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 1);
-      if (getThreadKey() === turn.threadKey) {
-        if (!pendingAttachmentRef.current && shouldRestoreFailedSend(inputRef.current, turn.text)) {
-          setInput(turn.text);
-          setPendingAttachment(attached);
-        } else {
-          discardDraftAttachment(token, attached);
-        }
-      } else {
+      if (getThreadKey() !== turn.threadKey) {
         stash();
+      } else if (!pendingAttachmentRef.current && shouldRestoreFailedSend(inputRef.current, turn.composerText)) {
+        setInput(turn.composerText);
+        setPendingAttachment(attached);
+      } else {
+        discardDraftAttachment(token, attached);
+        feedback?.error(t("chat.restore_draft_blocked"));
       }
       sendInFlightRef.current = false;
       setSendPhase("idle");
@@ -76,7 +83,7 @@ export function useRestoreFailedSend({
     [
       stashFailedDraftForThread, stashAttachmentForThread, setMessages, newMessageCountRef, getThreadKey,
       pendingAttachmentRef, inputRef, setInput, setPendingAttachment, token, setPendingOutboundId,
-      sendInFlightRef, setSendPhase,
+      sendInFlightRef, setSendPhase, feedback, t,
     ],
   );
 }
