@@ -335,7 +335,7 @@ async def test_quota_enforced(fake_redis, used, requested, allowed):
 
 **Required services:** Neon Postgres + Upstash Redis (no Docker required). Local API rate limits: Homebrew Redis (`redis://127.0.0.1:6379`) if Upstash free-tier max-requests is exhausted.
 
-> **Neon setup:** use a **direct Neon account** (neon.com), *not* the Vercel-managed integration — the backend is FastAPI (not on Vercel), so that integration adds no value and limits the console/CLI/feature access. Create the project in **AWS us-east-2** to keep the option of trying Neon Storage (S3-compatible object storage, currently private preview). Just point `DATABASE_URL` at it.
+> **Neon setup:** use a **direct Neon account** (neon.com), *not* the Vercel-managed integration — the backend is FastAPI (not on Vercel), so that integration adds no value and limits the console/CLI/feature access. The project is in **AWS us-east-1** (N. Virginia), beside Fly's `iad`: each database round trip from the API stays within the region (us-east-2 cost about 10 ms a trip). Branches: `production` (Fly's secret only) and `dev` (local API and tests). Just point `DATABASE_URL` at `dev`.
 
 **Env** (`apps/api/.env`):
 
