@@ -180,3 +180,43 @@ async def test_the_drawer_pages_every_dated_chat_by_cursor(db_session):
     assert read == sorted(times, key=lambda chat_id: (times[chat_id], chat_id), reverse=True)
     assert cursor is None
     assert [chat.id for chat in await chats_repo.list_pinned(db_session, owner.id)] == [pinned.id]
+
+
+@pytest.mark.asyncio
+async def test_only_activity_moves_a_chat_up_the_drawer(db_session):
+    """Pin, unpin, rename, archive, unarchive and a generated title used to bump
+    updated_at (onupdate=now()), so tidying a chat moved it to Today."""
+    from datetime import UTC, datetime
+
+    user = await _make_user(db_session)
+    chat = await _make_chat_with_message(db_session, user.id)
+    long_ago = datetime(2025, 1, 1, tzinfo=UTC)
+
+    async def updated_at() -> datetime:
+        await db_session.execute(update(Chat).where(Chat.id == chat.id).values(updated_at=long_ago))
+        await db_session.commit()
+        return long_ago
+
+    steps = [
+        lambda: chats_repo.set_pinned(db_session, chat, True),
+        lambda: chats_repo.set_pinned(db_session, chat, False),
+        lambda: chats_repo.set_title(db_session, chat, "Renamed"),
+        lambda: chats_repo.set_archived(db_session, chat, True),
+        lambda: chats_repo.set_archived(db_session, chat, False),
+        lambda: chats_repo.archive_all_for_user(db_session, user.id),
+    ]
+    for step in steps:
+        before = await updated_at()
+        await step()
+        await db_session.refresh(chat)
+        assert chat.updated_at == before
+
+    await updated_at()
+    await chats_repo.set_title(db_session, chat, "")
+    await chats_repo.set_title_if_empty(db_session, chat.id, "Generated", user_id=user.id)
+    await db_session.refresh(chat)
+    assert chat.updated_at == long_ago
+
+    await chats_repo.touch_by_id(db_session, chat.id)
+    await db_session.refresh(chat)
+    assert chat.updated_at > long_ago
