@@ -7,6 +7,8 @@ const mockSyncSubscription = jest.fn();
 const mockPurchase = jest.fn();
 const mockRestore = jest.fn();
 const mockListPlans = jest.fn();
+const mockListModels = jest.fn();
+let mockPurchasesConfigured = true;
 const mockTrack = jest.fn();
 let mockUser: { plan: string } = { plan: "free" };
 
@@ -37,13 +39,16 @@ jest.mock("@/hooks/useSubscriptionActions", () => ({
   }),
 }));
 jest.mock("@/lib/api", () => ({
-  api: { listPlans: (...args: unknown[]) => mockListPlans(...args) },
+  api: {
+    listPlans: (...args: unknown[]) => mockListPlans(...args),
+    listModels: (...args: unknown[]) => mockListModels(...args),
+  },
 }));
 jest.mock("@/lib/productAnalytics", () => ({
   trackProductEvent: (...args: unknown[]) => mockTrack(...args),
 }));
 jest.mock("@/lib/purchases", () => ({
-  isPurchasesConfigured: () => true,
+  isPurchasesConfigured: () => mockPurchasesConfigured,
   isPurchaseCancelled: (error: { userCancelled?: boolean }) => error?.userCancelled === true,
   getPlanPackages: jest.fn(async () => ({
     packages: {
@@ -73,6 +78,14 @@ const CATALOG = {
   ],
 };
 
+// What GET /models returns: the paywall names only the paid models that are on.
+const MODELS = [
+  { id: "free-chat", label: "Free One", description: "", tier: "fast", plan_access: "free", available: true },
+  { id: "smart-chat", label: "Paid One", description: "", tier: "smart", plan_access: "pro", available: true },
+  { id: "glm", label: "Paid Two", description: "", tier: "smart", plan_access: "pro", available: true },
+  { id: "off", label: "Paid Off", description: "", tier: "smart", plan_access: "pro", available: false },
+];
+
 const SUBSCRIBE_PLUS = 'upgrade.subscribe_plan {"plan":"plans.plus"}';
 const SUBSCRIBE_PRO = 'upgrade.subscribe_plan {"plan":"plans.pro"}';
 
@@ -88,6 +101,8 @@ beforeEach(() => {
   mockRestore.mockReset();
   mockTrack.mockReset();
   mockListPlans.mockReset().mockResolvedValue(CATALOG);
+  mockListModels.mockReset().mockResolvedValue(MODELS);
+  mockPurchasesConfigured = true;
   jest.mocked(getPlanPackages).mockClear();
   mockUser = { plan: "free" };
 });
@@ -188,4 +203,24 @@ it("restore that finds a plan refreshes the server plan", async () => {
     fireEvent.press(screen.getByText("upgrade.restore"));
   });
   expect(mockSyncSubscription).toHaveBeenCalledTimes(1);
+});
+
+it("names the paid models from the server's list, never a free or switched-off one", async () => {
+  const screen = await openSheet();
+  expect(screen.getByText('upgrade.feature_models_named {"models":"Paid One, Paid Two"}')).toBeOnTheScreen();
+  expect(screen.queryByText(/Free One|Paid Off/)).toBeNull();
+});
+
+it("names no model when the list cannot be read", async () => {
+  mockListModels.mockRejectedValue(new Error("offline"));
+  const screen = await openSheet();
+  expect(screen.getByText("upgrade.feature_models")).toBeOnTheScreen();
+});
+
+it("says purchases are not in this build instead of a button that does nothing", async () => {
+  mockPurchasesConfigured = false;
+  const screen = await openSheet();
+  expect(screen.getByText("upgrade.store_not_in_build")).toBeOnTheScreen();
+  expect(screen.queryByText("upgrade.coming_soon")).toBeNull();
+  expect(screen.queryByText("upgrade.restore")).toBeNull();
 });
