@@ -45,7 +45,7 @@ type ChatSendPhase =
   | "uploading"
   | "creating";
 
-/** False when the chat refused the send before showing it. */
+/** False when the chat refused the send before showing it, or Stop took it back before it went out. */
 type SendMessageFn = (text: string, opts?: SendMessageOptions) => Promise<boolean>;
 
 /** A send waiting for its new chat's id; dropped if the view moves on first. */

@@ -13,8 +13,8 @@ import { useTurnStart } from "@/features/chat/hooks/useTurnStart";
 import { publishStreamingDraft, type StreamingDraft } from "@/lib/streamingDraftStore";
 import { popLastAssistantMessage, restoreAssistantMessage } from "@/features/chat/model/regenerateLogic";
 import { reportTurnOutcome } from "@/features/chat/model/turnOutcome";
-import { withStreamingPlaceholder } from "@/features/chat/model/partialStream";
-import { whenOpenedPageSettled } from "@/features/chat/model/openedPage";
+import { replaceStreamingMessageWithPartial, withStreamingPlaceholder } from "@/features/chat/model/partialStream";
+import { whenOpenedPageSettled, withdrawFromOpenedPage } from "@/features/chat/model/openedPage";
 import type { ChatWsFallbackSignal, ChatWsTransport, WsSendFallback } from "@/features/chat/model/wsTransport";
 import type {
   ComposerSendDraft,
@@ -307,7 +307,10 @@ export function useChat(
     return opened;
   }, [chatId, connectTransport, reportError, t]);
 
-  /** False only when refused before anything showed; past that, whatever ends the turn owns its bubble. */
+  /**
+   * False when refused before anything showed, or stopped before it went out: the caller then takes the
+   * bubble back and returns the draft. Past that, whatever ends the turn owns its bubble.
+   */
   const dispatchSend = useCallback(
     async (
       content: string,
@@ -340,7 +343,7 @@ export function useChat(
       }
       // One name for every send of this message (a replay, Retry): the server runs it once.
       const clientMessageId = rejectedRetry?.clientMessageId ?? randomUUID();
-      pendingSendRef.current = {
+      const pending: PendingSend = {
         content,
         messageId: trackedId,
         retryingRejected: rejectedRetry != null,
@@ -358,16 +361,18 @@ export function useChat(
           clientGeo: options?.clientGeo ? { ...options.clientGeo } : options?.clientGeo,
         },
       };
+      pendingSendRef.current = pending;
       ttftTurnIdRef.current = trackedId;
       assistantBuffer.current = "";
       // Typing dots now (or kept from the tap) — don't wait for the socket or
       // server `start`, and don't leave "Sending" on the user bubble while we connect.
       showDots(options?.attachmentIds?.length ? "reading_files" : undefined);
 
-      // False: the turn must not go (its chat is gone, or the view left); the
-      // opened-page read already handed its draft back.
-      if (!(await ensureConnected())) return true;
-      if (!isCurrentView() || sendAttemptRef.current !== attempt) return true;
+      // It must not go: the opened-page read took it back (its chat is gone, or the view left), or Stop did,
+      // and then the caller returns the draft (false).
+      if (!(await ensureConnected()) || !isCurrentView() || sendAttemptRef.current !== attempt) {
+        return pending.takenBack !== "stop";
+      }
       if (rejectedRetry) {
         // Keep recovery available while the handshake is pending: navigation
         // can still prevent dispatch. Consume it only when sending can begin.
@@ -377,7 +382,7 @@ export function useChat(
         if (!queue?.length) rejectedSendsRef.current.delete(chatId);
         setRejectedSend(queue?.[0] ?? null);
       }
-      if (pendingSendRef.current) pendingSendRef.current.dispatched = true;
+      pending.dispatched = true;
 
       const sse = {
         attachmentIds: options?.attachmentIds,
@@ -496,9 +501,13 @@ export function useChat(
     streamCueRef.current.stopped();
     reportTurnOutcome("stopped");
     sendAttemptRef.current += 1;
-    const pendingRetry = pendingSendRef.current;
-    if (pendingRetry?.retryingRejected && !pendingRetry.dispatched) {
-      setMessages((previous) => previous.filter((message) => message.id !== pendingRetry.messageId));
+    // A turn still waiting to go out (for its chat's page, or the socket) never will: its bubble goes now,
+    // and its sender returns the draft unless the page read already took it back.
+    const unsent = pendingSendRef.current?.dispatched === false ? pendingSendRef.current : null;
+    withdrawFromOpenedPage(chatId, pendingSendRef.current);
+    if (unsent) {
+      unsent.takenBack ??= "stop";
+      setMessages((previous) => previous.filter((message) => message.id !== unsent.messageId));
     }
     pendingSendRef.current = null;
     if (chatId) rejectedSendsRef.current.delete(chatId);
@@ -527,17 +536,7 @@ export function useChat(
       if (!streamingMsg) return prev;
       const content = draft?.content ?? streamingMsg.content;
       if (!content.trim()) return restoreAssistantMessage(prev, backup);
-      return prev.map((m) =>
-        m.id === "streaming"
-          ? {
-              ...m,
-              id: stoppedId,
-              content,
-              search_sources: draft?.search_sources ?? m.search_sources,
-              generationStopped: true,
-            }
-          : m,
-      );
+      return replaceStreamingMessageWithPartial(prev, content, draft, stoppedId);
     });
     // Track the committed bubble id so the server's late `done` reconciles
     // it (real message_id + final_content) instead of appending a duplicate.

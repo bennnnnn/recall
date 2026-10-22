@@ -13,7 +13,7 @@ import {
   peekCachedChatPage,
   readCachedChatMessages,
 } from "@/features/chat/model/messageCache";
-import { OPENED_PAGE_WAIT_MS, whenOpenedPageSettled } from "@/features/chat/model/openedPage";
+import { OPENED_PAGE_WAIT_MS, whenOpenedPageSettled, withdrawFromOpenedPage } from "@/features/chat/model/openedPage";
 import {
   resetComposerAttachmentQueue,
   takeQueuedComposerAttachment,
@@ -520,13 +520,14 @@ describe("opening a chat", () => {
   const picked: PendingAttachment = {
     localUri: "file:///cache/picked.jpg", contentType: "image/jpeg", fileName: "picked.jpg", kind: "image",
   };
-  const heldTurn: PendingSend = {
+  /** A send waiting for the page; a fresh one each time, since the page read marks the turns it hands back. */
+  const heldTurn = (): PendingSend => ({
     content: "Next question",
     options: { composerDraft: { text: "Next question", attachment: picked } },
     messageId: "local-9",
     retryingRejected: false,
     dispatched: false,
-  };
+  });
   const addListener = AppState.addEventListener as unknown as jest.Mock;
   const defaultAddListener = addListener.getMockImplementation();
   const appStateHandlers = new Set<(state: string) => void>();
@@ -547,6 +548,8 @@ describe("opening a chat", () => {
       messages: [hello, answer], has_more: false, cached_at: "2026-01-01T00:00:00Z",
     });
     (api.getChat as jest.Mock).mockImplementation(async (_token, id) => listedChat(id));
+    // Reset, not just cleared: a read a test queued but never made must not answer the next test.
+    (api.listMessages as jest.Mock).mockReset();
     (api.listMessages as jest.Mock).mockResolvedValue({ messages: [hello, answer], has_more: false });
   });
   afterAll(() => addListener.mockImplementation(defaultAddListener));
@@ -591,7 +594,7 @@ describe("opening a chat", () => {
     await act(async () => {
       setThread((prev) => [...prev, sent, streamingRow]);
       view.rerender(<RouteProbe routeId="chat-a" streaming />);
-      void whenOpenedPageSettled("chat-a", heldTurn).then((go) => { verdict = go; });
+      void whenOpenedPageSettled("chat-a", heldTurn()).then((go) => { verdict = go; });
     });
     expect(verdict).toBeUndefined();
     const elsewhere = [userRow(uuid(3), "From the laptop"), message(uuid(4), "Laptop answer")];
@@ -628,7 +631,7 @@ describe("opening a chat", () => {
   it("needs no hold when a fresh kept page opens the chat without a read", async () => {
     const view = await openAThenB();
     await view.rerender(<RouteProbe routeId="chat-a" />);
-    await expect(whenOpenedPageSettled("chat-a", heldTurn)).resolves.toBe(true);
+    await expect(whenOpenedPageSettled("chat-a", heldTurn())).resolves.toBe(true);
   });
 
   it("hands a held turn back to New Chat's composer when the chat was deleted elsewhere", async () => {
@@ -636,7 +639,7 @@ describe("opening a chat", () => {
     (api.listMessages as jest.Mock).mockReturnValue(page.promise);
     await render(<RouteProbe routeId="chat-a" />);
     let verdict: boolean | undefined;
-    void whenOpenedPageSettled("chat-a", heldTurn).then((go) => { verdict = go; });
+    void whenOpenedPageSettled("chat-a", heldTurn()).then((go) => { verdict = go; });
     (api.listMessages as jest.Mock).mockRejectedValue(new ApiRequestError(404, "Gone"));
     await act(async () => { page.reject(new ApiRequestError(404, "Gone")); });
     expect(verdict).toBe(false);
@@ -649,7 +652,7 @@ describe("opening a chat", () => {
     const page = deferred<Page>();
     (api.listMessages as jest.Mock).mockReturnValue(page.promise);
     await render(<RouteProbe routeId="chat-a" />);
-    const held = whenOpenedPageSettled("chat-a", heldTurn);
+    const held = whenOpenedPageSettled("chat-a", heldTurn());
     await act(async () => { page.reject(new ApiRequestError(503, "Unavailable")); });
     await expect(held).resolves.toBe(true);
     expect(visibleMessages).toEqual([hello, answer]);
@@ -658,7 +661,7 @@ describe("opening a chat", () => {
   it("hands a held turn back to its chat's composer when the user leaves the chat first", async () => {
     (api.listMessages as jest.Mock).mockReturnValue(deferred<Page>().promise);
     const view = await render(<RouteProbe routeId="chat-a" />);
-    const held = whenOpenedPageSettled("chat-a", heldTurn);
+    const held = whenOpenedPageSettled("chat-a", heldTurn());
     await view.rerender(<RouteProbe routeId="chat-b" />);
     await expect(held).resolves.toBe(false);
     expect(mockComposer.stashFailedDraftForThread).toHaveBeenCalledWith("chat-a", "Next question");
@@ -668,7 +671,7 @@ describe("opening a chat", () => {
   it("gives nothing of a held turn to the next account", async () => {
     (api.listMessages as jest.Mock).mockReturnValue(deferred<Page>().promise);
     const view = await render(<RouteProbe routeId="chat-a" />);
-    const held = whenOpenedPageSettled("chat-a", heldTurn);
+    const held = whenOpenedPageSettled("chat-a", heldTurn());
     mockSession += 1;
     await view.rerender(<RouteProbe routeId="chat-a" token="next-token" />);
     await expect(held).resolves.toBe(false);
@@ -676,31 +679,129 @@ describe("opening a chat", () => {
     expect(takeQueuedComposerAttachment("chat-a")).toBeNull();
   });
 
-  it("does not merge a page that lands after a turn stopped waiting, and does not keep the thread", async () => {
+  /** Paints chat-a from cache, sends a turn and lets the cap send it before `page` lands (fake timers). */
+  async function sendPastTheCap(page: Promise<Page>) {
+    (api.listMessages as jest.Mock).mockReturnValueOnce(page);
+    const view = await render(<RouteProbe routeId="chat-a" />);
+    let verdict: boolean | undefined;
+    await act(async () => {
+      setThread((prev) => [...prev, sent, streamingRow]);
+      view.rerender(<RouteProbe routeId="chat-a" streaming />);
+      void whenOpenedPageSettled("chat-a", heldTurn()).then((go) => { verdict = go; });
+    });
+    await act(async () => { await jest.advanceTimersByTimeAsync(OPENED_PAGE_WAIT_MS); });
+    expect(verdict).toBe(true);
+    return view;
+  }
+  const settle = () => act(async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); });
+
+  it("leaves a page that lands while a turn that went first is out unmerged, and reads the chat once it is over", async () => {
     jest.useFakeTimers();
     try {
       const page = deferred<Page>();
-      (api.listMessages as jest.Mock).mockReturnValue(page.promise);
-      const view = await render(<RouteProbe routeId="chat-a" />);
-      let verdict: boolean | undefined;
-      await act(async () => {
-        setThread((prev) => [...prev, sent, streamingRow]);
-        view.rerender(<RouteProbe routeId="chat-a" streaming />);
-        void whenOpenedPageSettled("chat-a", heldTurn).then((go) => { verdict = go; });
-      });
-      await act(async () => { await jest.advanceTimersByTimeAsync(OPENED_PAGE_WAIT_MS); });
-      expect(verdict).toBe(true);
-      // The page may already hold the turn that went out: it is left unmerged.
+      const view = await sendPastTheCap(page.promise);
+      // The page may already hold the turn that went out: it stays unmerged while that turn is out.
       const saved = userRow(uuid(3), "Next question");
       await act(async () => { page.resolve({ messages: [hello, answer, saved], has_more: false }); });
       expect(visibleMessages.map((m) => m.id)).toEqual([uuid(1), uuid(2), "local-9", "streaming"]);
       expect(routeState.chatLoading).toBe(false);
+      expect(peekCachedChatPage("chat-a")).toBeNull();
+      // Its reply is done: the chat is read again, and the turn shows once, as saved.
       const reply = message(uuid(4), "Reply");
+      (api.listMessages as jest.Mock).mockResolvedValueOnce({ messages: [hello, answer, saved, reply], has_more: false });
       await act(async () => {
         setThread((prev) => [...prev.filter((m) => m.id !== "streaming"), reply]);
         view.rerender(<RouteProbe routeId="chat-a" />);
       });
-      expect(peekCachedChatPage("chat-a")).toBeNull();
+      await settle();
+      expect(api.listMessages).toHaveBeenCalledTimes(2);
+      expect(visibleMessages.map((m) => m.id)).toEqual([uuid(1), uuid(2), uuid(3), uuid(4)]);
+      expect(peekCachedChatPage("chat-a")?.messages.map((m) => m.id)).toEqual([uuid(1), uuid(2), uuid(3), uuid(4)]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("merges the late page once the turn that went first was refused (busy) before it landed", async () => {
+    jest.useFakeTimers();
+    try {
+      const page = deferred<Page>();
+      const view = await sendPastTheCap(page.promise);
+      // The reply the chat was left on still streams: the turn is refused, its bubble and dots go, Retry shows.
+      await act(async () => {
+        setThread((prev) => prev.filter((m) => m.id !== "local-9" && m.id !== "streaming"));
+        view.rerender(<RouteProbe routeId="chat-a" />);
+      });
+      // The page that lands next holds the user's own last exchange, which the cache lacked.
+      const lastExchange = [userRow(uuid(3), "Asked before leaving"), message(uuid(4), "The long reply")];
+      await act(async () => { page.resolve({ messages: [hello, answer, ...lastExchange], has_more: false }); });
+      expect(visibleMessages.map((m) => m.id)).toEqual([uuid(1), uuid(2), uuid(3), uuid(4)]);
+      await settle();
+      expect(api.listMessages).toHaveBeenCalledTimes(1);
+      expect(isCachedChatPageFresh("chat-a", undefined)).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("reads the chat again when follow-up questions change the thread while that read is out", async () => {
+    jest.useFakeTimers();
+    try {
+      const page = deferred<Page>();
+      const view = await sendPastTheCap(page.promise);
+      const saved = userRow(uuid(3), "Next question");
+      await act(async () => { page.resolve({ messages: [hello, answer, saved], has_more: false }); });
+      const reply = message(uuid(4), "Reply");
+      const firstRead = deferred<Page>();
+      (api.listMessages as jest.Mock).mockReturnValueOnce(firstRead.promise);
+      await act(async () => {
+        setThread((prev) => [...prev.filter((m) => m.id !== "streaming"), reply]);
+        view.rerender(<RouteProbe routeId="chat-a" />);
+      });
+      await settle();
+      expect(api.listMessages).toHaveBeenCalledTimes(2);
+      const withPrompts = { ...reply, related_prompts: ["More?"] };
+      (api.listMessages as jest.Mock).mockResolvedValueOnce({ messages: [hello, answer, saved, withPrompts], has_more: false });
+      await act(async () => { setThread((prev) => prev.map((m) => (m.id === reply.id ? withPrompts : m))); });
+      await settle();
+      // The read the questions landed under is dropped; the one after it holds them.
+      await act(async () => { firstRead.resolve({ messages: [hello, answer, saved, reply], has_more: false }); });
+      await settle();
+      expect(api.listMessages).toHaveBeenCalledTimes(3);
+      expect(visibleMessages.map((m) => m.id)).toEqual([uuid(1), uuid(2), uuid(3), uuid(4)]);
+      expect(visibleMessages[3].related_prompts).toEqual(["More?"]);
+      expect(peekCachedChatPage("chat-a")?.messages[3].related_prompts).toEqual(["More?"]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("merges the page as usual after Stop took back the turn waiting for it", async () => {
+    jest.useFakeTimers();
+    try {
+      const page = deferred<Page>();
+      (api.listMessages as jest.Mock).mockReturnValueOnce(page.promise);
+      const view = await render(<RouteProbe routeId="chat-a" />);
+      const turn = heldTurn();
+      let verdict: boolean | undefined;
+      await act(async () => {
+        setThread((prev) => [...prev, sent, streamingRow]);
+        view.rerender(<RouteProbe routeId="chat-a" streaming />);
+        void whenOpenedPageSettled("chat-a", turn).then((go) => { verdict = go; });
+      });
+      // Stop (useChat.stopGeneration): the turn stops waiting, and its bubble and dots go.
+      await act(async () => {
+        withdrawFromOpenedPage("chat-a", turn);
+        setThread((prev) => prev.filter((m) => m.id !== "local-9" && m.id !== "streaming"));
+        view.rerender(<RouteProbe routeId="chat-a" />);
+      });
+      expect(verdict).toBe(false);
+      await act(async () => { await jest.advanceTimersByTimeAsync(OPENED_PAGE_WAIT_MS); });
+      const elsewhere = [userRow(uuid(3), "From the laptop"), message(uuid(4), "Laptop answer")];
+      await act(async () => { page.resolve({ messages: [hello, answer, ...elsewhere], has_more: false }); });
+      expect(visibleMessages.map((m) => m.id)).toEqual([uuid(1), uuid(2), uuid(3), uuid(4)]);
+      expect(api.listMessages).toHaveBeenCalledTimes(1);
+      expect(mockComposer.stashFailedDraftForThread).not.toHaveBeenCalled();
     } finally {
       jest.useRealTimers();
     }

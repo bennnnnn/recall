@@ -1,4 +1,4 @@
-import { mergeLocalAttachmentUris, mergeOpenedPage, paintCachedThread } from "@/features/chat/model/messageMerge";
+import { addedSincePaint, mergeLocalAttachmentUris, mergeOpenedPage, paintCachedThread } from "@/features/chat/model/messageMerge";
 import type { Message } from "@/lib/api";
 
 describe("mergeLocalAttachmentUris", () => {
@@ -289,6 +289,23 @@ describe("mergeOpenedPage", () => {
   it("is the shown thread itself when the page left every row as it was", () => {
     const shown = [...cached];
     expect(mergeOpenedPage(shown, fresh(cached), painted)).toBe(shown);
+  });
+});
+
+describe("addedSincePaint", () => {
+  const cached = [row(uuid(1), "user", "Hi"), row(uuid(2), "assistant", "Hello")];
+  const painted = new Set(cached.map((message) => message.id));
+  const page = [...cached, row(uuid(3), "user", "Asked before leaving"), row(uuid(4), "assistant", "Its reply")];
+
+  it("sees a turn sent since the paint while any of it is on screen", () => {
+    expect(addedSincePaint([...cached, row("local-9", "user", "Next")], page, painted)).toBe(true);
+    expect(addedSincePaint([...cached, row("streaming", "assistant", "")], page, painted)).toBe(true);
+  });
+
+  it("sees nothing once that turn is gone, or when its rows are the page's own", () => {
+    expect(addedSincePaint(cached, page, painted)).toBe(false);
+    expect(addedSincePaint([cached[0]], page, painted)).toBe(false);
+    expect(addedSincePaint([...cached, page[2], page[3]], page, painted)).toBe(false);
   });
 });
 

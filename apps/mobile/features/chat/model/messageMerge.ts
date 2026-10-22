@@ -172,3 +172,13 @@ export function mergeOpenedPage(previous: Message[], page: Message[], painted: R
   const added = previous.slice(lastShared + 1).filter((m) => !painted.has(m.id));
   return unlessUnchanged(previous, [...kept.map((row) => settleRow(shown.get(row.id), row)), ...added]);
 }
+
+/**
+ * True when the view shows a row that neither the cached paint nor the page
+ * holds: what a turn sent while the page loaded still has on screen. With none
+ * left (the turn ended unsaved) a page that turn went out before is safe to merge.
+ */
+export function addedSincePaint(previous: Message[], page: Message[], painted: ReadonlySet<string>): boolean {
+  const pageIds = new Set(page.map((m) => m.id));
+  return previous.some((m) => !painted.has(m.id) && !pageIds.has(m.id));
+}

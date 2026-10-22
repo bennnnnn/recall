@@ -9,6 +9,7 @@ import {
   beginOpenedPageRead,
   OPENED_PAGE_WAIT_MS,
   whenOpenedPageSettled,
+  withdrawFromOpenedPage,
 } from "@/features/chat/model/openedPage";
 import type { PendingSend } from "@/features/chat/model/sendLogic";
 
@@ -106,9 +107,12 @@ describe("a turn sent while the opened chat's page is read", () => {
 
   it("comes back to New Chat's composer when the chat is gone", async () => {
     const read = beginOpenedPageRead("chat-1");
-    const waiting = whenOpenedPageSettled("chat-1", turn());
+    const held = turn();
+    const waiting = whenOpenedPageSettled("chat-1", held);
     read.chatGone(home);
     expect(await settled(waiting)).toEqual({ done: true, value: false });
+    // Marked, so a Stop that follows (New Chat stops the turn) does not hand it back a second time.
+    expect(held.takenBack).toBe("page");
     expect(home.stashFailedDraftForThread).toHaveBeenCalledWith("new", "Next question");
     expect(takeQueuedComposerAttachment("new")).toBe(photo);
   });
@@ -159,5 +163,32 @@ describe("a turn sent while the opened chat's page is read", () => {
     expect(await settled(waiting)).toEqual({ done: false });
     newer.release();
     expect(await settled(waiting)).toEqual({ done: true, value: true });
+  });
+
+  it("lets Stop withdraw a waiting turn: it says no at once, never counts as going first, and is not handed back", async () => {
+    const read = beginOpenedPageRead("chat-1");
+    const stopped = turn();
+    const waiting = whenOpenedPageSettled("chat-1", stopped);
+    withdrawFromOpenedPage("chat-1", stopped);
+    expect(await settled(waiting)).toEqual({ done: true, value: false });
+    jest.advanceTimersByTime(OPENED_PAGE_WAIT_MS);
+    read.cancel(home);
+    expect(home.stashFailedDraftForThread).not.toHaveBeenCalled();
+    expect(read.release()).toBe(true);
+    // Whoever sent it hands it back, so the read leaves it unmarked.
+    expect(stopped.takenBack).toBeUndefined();
+  });
+
+  it("withdraws a regeneration's wait the same way, and only the turn Stop names", async () => {
+    const read = beginOpenedPageRead("chat-1");
+    const regenerating = whenOpenedPageSettled("chat-1", null);
+    withdrawFromOpenedPage("chat-1", turn());
+    expect(await settled(regenerating)).toEqual({ done: false });
+    withdrawFromOpenedPage("chat-2", null);
+    expect(await settled(regenerating)).toEqual({ done: false });
+    withdrawFromOpenedPage("chat-1", null);
+    expect(await settled(regenerating)).toEqual({ done: true, value: false });
+    jest.advanceTimersByTime(OPENED_PAGE_WAIT_MS);
+    expect(read.release()).toBe(true);
   });
 });

@@ -1736,6 +1736,29 @@ describe("useChatSend send steps", () => {
     expect(current.pendingOutboundId).toBeNull();
   });
 
+  it("gives the draft back when Stop takes back a send still waiting to go out (its chat's page)", async () => {
+    inputRef.current = "  next question\n";
+    let stop!: (sent: boolean) => void;
+    const sendMessage = jest.fn(() => new Promise<boolean>((resolve) => { stop = resolve; }));
+    const setMessages = jest.fn();
+    await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={sendMessage} />);
+    let sending!: Promise<void>;
+    await act(async () => { sending = current.handleSend(); });
+    // Handed over and waiting: Send is idle again, so Stop shows.
+    expect(sendMessage).toHaveBeenCalledWith("next question", expect.anything());
+    expect(current.sendPhase).toBe("idle");
+    expect(mockSetInput).toHaveBeenLastCalledWith("");
+    // Stop: the chat takes the turn back and says so.
+    await act(async () => { stop(false); await sending; });
+    const rows = setMessages.mock.calls.reduce(
+      (prev: Message[], [update]) => (typeof update === "function" ? update(prev) : update),
+      [],
+    );
+    expect(rows).toEqual([]);
+    expect(mockSetInput).toHaveBeenLastCalledWith("  next question\n");
+    expect(current.pendingOutboundId).toBeNull();
+  });
+
   it("says why a given-back draft stays out of a composer that has newer text", async () => {
     let finishGeo!: (value: { ok: false }) => void;
     needsGeo.mockReturnValue(true);

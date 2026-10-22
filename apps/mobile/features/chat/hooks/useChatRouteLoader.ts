@@ -25,7 +25,7 @@ import {
   readCachedChatMessages,
   type CachedChatPage,
 } from "@/features/chat/model/messageCache";
-import { mergeLocalAttachmentUris, mergeOpenedPage, paintCachedThread } from "@/features/chat/model/messageMerge";
+import { mergeLocalAttachmentUris, mergeOpenedPage, paintCachedThread, addedSincePaint } from "@/features/chat/model/messageMerge";
 import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import { beginOpenedPageRead, type OpenedPageRead } from "@/features/chat/model/openedPage";
 import {
@@ -221,7 +221,6 @@ export function useChatRouteLoader({
       setHasMoreOlder,
     ],
   );
-
 
   const silentRefetchChat = useCallback(
     async (openChatId: string, cancelled: () => boolean, opts?: { force?: boolean }) => {
@@ -438,14 +437,14 @@ export function useChatRouteLoader({
         setChatId(chat.id);
         const currentChat = revision === getChatMutationRevision(openChatId) ? chat : getCachedChat(openChatId);
         applyMetadata(currentChat);
-        // A turn that went out before the page landed may be in it: the view then stays unsynced.
-        if (read.release()) {
+        // A turn that went out before the page may be in it: merge once nothing of it is on screen, else reread later.
+        if (read.release() || !addedSincePaint(messagesRef.current, page.messages, painted)) {
           setMessages((prev) => mergeOpenedPage(prev, page.messages, painted));
           setHasMoreOlder(page.has_more);
           const fetchedAt = Date.now();
           lastSilentFetchAtRef.current.set(openChatId, fetchedAt);
           setPageSync({ chatId: openChatId, fetchedAt });
-        }
+        } else setPageSync({ chatId: openChatId, fetchedAt: null });
         if (currentChat && !currentChat.title && page.messages.length > 0) {
           pollForTitle(token, openChatId);
         }
@@ -491,7 +490,9 @@ export function useChatRouteLoader({
     }, [token, routeChatId, chatLoading, silentRefetchChat, turnBusy]),
   );
 
-  useChatPageCacheWriter({ chatId, routeChatId, messages, busy: streaming, hasMoreOlder, sync: pageSync });
+  useChatPageCacheWriter({
+    chatId, routeChatId, messages, busy: streaming, hasMoreOlder, sync: pageSync, resync: silentRefetchChat,
+  });
 
   const { highlightedMessageId } = useChatHighlightScroll({
     chatLoading,
@@ -506,7 +507,6 @@ export function useChatRouteLoader({
     loadOlderMessages,
     listRef,
   });
-
 
   return {
     chatTitle,

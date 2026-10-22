@@ -32,6 +32,11 @@ export type PendingSend = {
   accepted?: boolean;
   /** The message's name on every send of it (a replay, Retry): the server runs one turn per name. */
   clientMessageId?: string;
+  /**
+   * Taken back before it went out: by the opened chat's page read (`page`; its chat is gone or the
+   * view left, and the read returned the draft) or by Stop (`stop`; its sender returns the draft).
+   */
+  takenBack?: "page" | "stop";
 };
 
 export type RejectedSend = PendingSend & { reason: "send_rejected" | "attachment_rejected" };

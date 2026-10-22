@@ -11,7 +11,12 @@ import {
 /** The server read the shown thread rests on; none until this open's read lands. */
 export type ChatPageSync = {
   chatId: string;
-  fetchedAt: number;
+  /**
+   * Null when this open's page landed after a turn that went out first and was
+   * left unmerged (it may hold that turn): the chat is read again once no turn
+   * is under way.
+   */
+  fetchedAt: number | null;
 };
 
 type Options = {
@@ -23,21 +28,36 @@ type Options = {
   busy: boolean;
   hasMoreOlder: boolean;
   sync: ChatPageSync | null;
+  /** Reads the chat and merges it into the view, setting `sync` when it does (`silentRefetchChat`). */
+  resync: (chatId: string, cancelled: () => boolean, opts: { force: boolean }) => Promise<void>;
 };
 
 /**
  * Keeps the open chat's page in step with what it shows: each finished turn,
  * follow-up questions, feedback or edit is kept once the thread settles, so
  * the next open paints it at once. Until then the kept page is marked stale and
- * the next open reads the chat.
+ * the next open reads the chat. A view left without a read to rest on (its page
+ * unmerged) reads the chat once the turn that went first is over, again if the
+ * thread changes while that read is out, until one lands.
  */
-export function useChatPageCacheWriter({ chatId, routeChatId, messages, busy, hasMoreOlder, sync }: Options) {
+export function useChatPageCacheWriter({ chatId, routeChatId, messages, busy, hasMoreOlder, sync, resync }: Options) {
   useEffect(() => {
     if (!chatId || chatId !== routeChatId) return;
-    if (busy || sync?.chatId !== chatId || !isSettledThread(messages)) {
+    if (busy || sync?.chatId !== chatId || sync.fetchedAt === null || !isSettledThread(messages)) {
       markCachedChatPageStale(chatId);
       return;
     }
     keepCachedChatPage(chatId, messages, hasMoreOlder, sync.fetchedAt, getCachedChat(chatId)?.updated_at);
   }, [chatId, routeChatId, messages, busy, hasMoreOlder, sync]);
+
+  const unmergedChatId = sync?.fetchedAt === null ? sync.chatId : null;
+  useEffect(() => {
+    if (!unmergedChatId || unmergedChatId !== chatId || chatId !== routeChatId || busy) return;
+    let cancelled = false;
+    // A read that `messages` changed under is dropped (silentRefetchChat): this effect then runs again.
+    void resync(unmergedChatId, () => cancelled, { force: true });
+    return () => {
+      cancelled = true;
+    };
+  }, [unmergedChatId, chatId, routeChatId, busy, messages, resync]);
 }

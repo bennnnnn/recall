@@ -35,7 +35,10 @@ type Options = {
   selectedModel: string;
   imageGenerating: boolean;
   onGenerateImage?: (request: ImageGenSubmit) => void;
-  /** False when the chat refused the send before showing it (say, a regenerate began). */
+  /**
+   * False when the chat refused the send before showing it (say, a regenerate began), or Stop took it
+   * back before it went out.
+   */
   sendMessage: (text: string, opts?: SendMessageOptions) => Promise<boolean>;
   sendStart: SendTurnStart;
   updateUser: (patch: Partial<User>) => Promise<void>;

@@ -343,12 +343,16 @@ describe("useChat transport lifecycle", () => {
     expect(settled).toBe(true);
   });
 
-  it("does not send a turn stopped during the handshake", async () => {
+  it("takes back a turn stopped during the handshake: nothing goes out, and its sender returns the draft", async () => {
     await render(<Probe chatId="a" />);
-    let sending!: Promise<void>;
+    let sending!: Promise<boolean>;
     await act(async () => { sending = current.sendMessage("cancel before sending"); });
     const socket = FakeSocket.instances[0];
-    await act(async () => { current.stopGeneration(); socket.open(); await sending; });
+    await act(async () => { current.stopGeneration(); });
+    expect(current.messages).toEqual([]);
+    let sent: boolean | undefined;
+    await act(async () => { socket.open(); sent = await sending; });
+    expect(sent).toBe(false);
     expect(socket.send.mock.calls.map(([data]) => JSON.parse(data).type)).not.toContain("message");
     expect(streamChatMessageSse).not.toHaveBeenCalled();
     expect(current.streaming).toBe(false);
@@ -1887,5 +1891,91 @@ describe("useChat while the opened chat's page is read", () => {
     expect(sentTypes(socket)).not.toContain("regenerate");
     await act(async () => { read.release(); await regenerating; });
     expect(sentTypes(socket)).toContain("regenerate");
+  });
+  // Stop offered while the turn waits (Send is idle once it is handed over) must take it back,
+  // like a send stopped before it was handed over: no bubble left that looks sent but never went out.
+  it("takes back a turn stopped while it waits for the page: nothing goes out, and its sender returns the draft", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    const read = beginOpenedPageRead("a");
+    let sending!: Promise<boolean>;
+    await act(async () => {
+      sending = current.sendMessage("question", { composerDraft: { text: "question", attachment: null } });
+    });
+    expect(current.messages.map((message) => message.id)).toEqual([expect.stringMatching(/^local-/), "streaming"]);
+    let sent: boolean | undefined;
+    void sending.then((value) => { sent = value; });
+    await act(async () => {
+      current.stopGeneration();
+      for (let i = 0; i < 10; i++) await Promise.resolve();
+    });
+    // At once, without waiting for the page: the bubble and dots are gone, and false has the sender return the draft.
+    expect(sent).toBe(false);
+    expect(current.messages).toEqual([]);
+    expect(current.streaming).toBe(false);
+    // The page that lands later merges as usual, and the page read does not hand the turn back a second time.
+    const home = { stashFailedDraftForThread: jest.fn() };
+    await act(async () => { await jest.advanceTimersByTimeAsync(OPENED_PAGE_WAIT_MS); });
+    read.cancel(home);
+    expect(home.stashFailedDraftForThread).not.toHaveBeenCalled();
+    expect(read.release()).toBe(true);
+    expect(sentTypes(socket)).not.toContain("message");
+    expect(streamChatMessageSse).not.toHaveBeenCalled();
+  });
+
+  it("does not have Stop hand back a turn the page read already handed back (its chat was deleted)", async () => {
+    const stash = jest.fn();
+    await render(<Probe chatId="a" />);
+    await openSocket();
+    const read = beginOpenedPageRead("a");
+    let sending!: Promise<boolean>;
+    await act(async () => {
+      sending = current.sendMessage("question", { composerDraft: { text: "question", attachment: null } });
+    });
+    // The route loader hands the turn to New Chat's composer, then New Chat stops the turn.
+    let sent: boolean | undefined;
+    await act(async () => {
+      read.chatGone({ stashFailedDraftForThread: stash });
+      current.stopGeneration();
+      sent = await sending;
+    });
+    expect(sent).toBe(true);
+    expect(stash).toHaveBeenCalledTimes(1);
+    expect(stash).toHaveBeenCalledWith("new", "question");
+  });
+
+  it("never sends a regeneration stopped while it waits for the page, and that page still merges", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await sendAndStream(socket);
+    await act(async () => { socket.emit({ type: "done", message_id: "saved", final_content: "original" }); });
+    const read = beginOpenedPageRead("a");
+    let regenerating!: Promise<void>;
+    await act(async () => { current.beginRegenerateUi(); regenerating = current.regenerateResponse(); });
+    let over = false;
+    void regenerating.then(() => { over = true; });
+    await act(async () => {
+      current.stopGeneration();
+      for (let i = 0; i < 10; i++) await Promise.resolve();
+    });
+    expect(over).toBe(true);
+    expect(current.messages.map((message) => message.id)).toEqual([expect.stringMatching(/^local-/), "saved"]);
+    await act(async () => { await jest.advanceTimersByTimeAsync(OPENED_PAGE_WAIT_MS); });
+    expect(read.release()).toBe(true);
+    expect(sentTypes(socket)).not.toContain("regenerate");
+  });
+
+  it("keeps a turn that went out when Stop comes after it was sent", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    const read = beginOpenedPageRead("a");
+    let sending!: Promise<boolean>;
+    await act(async () => { sending = current.sendMessage("question"); });
+    let sent: boolean | undefined;
+    await act(async () => { read.release(); sent = await sending; });
+    expect(sent).toBe(true);
+    await act(async () => { current.stopGeneration(); });
+    expect(current.messages.map((message) => message.content)).toEqual(["question"]);
+    expect(sentTypes(socket).filter((type) => type === "message" || type === "cancel")).toEqual(["message", "cancel"]);
   });
 });
