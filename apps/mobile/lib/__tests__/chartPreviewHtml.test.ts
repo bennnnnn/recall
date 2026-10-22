@@ -98,6 +98,40 @@ describe("normalizeChartSpec", () => {
     expect(enc.xOffset).toBeUndefined();
   });
 
+  it("drops tooltips: the card shows none, and a bad format blanked the chart", () => {
+    const spec = {
+      mark: "bar",
+      encoding: { x: { field: "a" }, tooltip: [{ field: "a", format: "[datum.a)" }] },
+      layer: [{ mark: "line", encoding: { tooltip: { field: "b" } } }],
+    };
+    normalizeChartSpec(spec);
+    expect(spec.encoding).not.toHaveProperty("tooltip");
+    expect(spec.layer[0].encoding).not.toHaveProperty("tooltip");
+  });
+
+  it.each([
+    ["an [start, end] pair", ["lo", "hi"], "hi"],
+    ["one name, whose end Vega-Lite calls <name>_end", "lo", "lo_end"],
+  ])("gives pre-binned bars their bin end from the transform's %s", (_name, as, end) => {
+    const spec: Record<string, unknown> = {
+      transform: [{ bin: true, field: "score", as }],
+      mark: "bar",
+      encoding: { x: { field: "lo", type: "quantitative", bin: "binned" }, y: { aggregate: "count" } },
+    };
+    normalizeChartSpec(spec);
+    expect(spec.encoding).toMatchObject({ x: { bin: "binned" }, x2: { field: end } });
+  });
+
+  it("draws pre-binned bars with no bin end at their starts instead of not at all", () => {
+    const spec = {
+      mark: "bar",
+      encoding: { x: { field: "lo", type: "quantitative", bin: "binned" } as Record<string, unknown> },
+    };
+    normalizeChartSpec(spec);
+    expect(spec.encoding.x).toEqual({ field: "lo", type: "quantitative" });
+    expect(spec.encoding).not.toHaveProperty("x2");
+  });
+
   it("leaves already-horizontal grouped bars on yOffset", () => {
     const spec: Record<string, unknown> = {
       mark: "bar",

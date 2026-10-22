@@ -84,10 +84,11 @@ const CASES: [string, Case][] = [
     {
       page: CHART_PAGE,
       element: (data) => <ChartBlock content={data} />,
-      data: ['{"mark":"bar"}', '{"mark":"line"}'],
+      data: ['{"mark":"bar","data":{"values":[{"a":1}]}}', '{"mark":"line","data":{"values":[{"a":2}]}}'],
       inScript: (data) => JSON.stringify(data),
       failure: "rich.chart_error",
-      drawError: [{ kind: "chart-error", message: "Unrecognized mark" }, "Unrecognized mark"],
+      // Not Vega's message: the card says it could not draw the chart and shows its data.
+      drawError: [{ kind: "chart-error", message: "Unrecognized mark" }, "rich.chart_data_instead"],
     },
   ],
   [

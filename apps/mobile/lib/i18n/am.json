@@ -478,6 +478,8 @@
   "rich.chart": "ገበታ",
   "rich.chart_dev_build": "የገበታ ቅድመ እይታ የልማት ግንባታ ይፈልጋል",
   "rich.chart_error": "ገበታውን ማሳየት አልተቻለም።",
+  "rich.chart_data_instead": "ይህን ገበታ መሳል አልተቻለም፤ ውሂቡ ይኸውና።",
+  "rich.chart_show_source": "ምንጩን አሳይ",
   "rich.chemistry_2d": "2ዲ",
   "rich.chemistry_3d": "3ዲ",
   "rich.chemistry_dev_build": "መዋቅሮችን ለማየት መተግበሪያውን ይገንቡ።",
