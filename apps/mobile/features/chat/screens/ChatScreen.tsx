@@ -251,7 +251,7 @@ function ChatScreen() {
   const send = useChatSend({
     token,
     chatId,
-    chatLoading,
+    chatLoading: routeLoader.historyPending,
     routeChatId: typeof routeChatId === "string" ? routeChatId : undefined,
     setChatId,
     setChatTitle,
@@ -379,7 +379,7 @@ function ChatScreen() {
   });
   const retryChatError = useChatErrorRecovery({
     error: chatError,
-    blocked: chatLoading || streamActive || regenerating,
+    blocked: routeLoader.historyPending || streamActive || regenerating,
     dismiss: dismissChatError,
     retryRejectedSend,
     restoreRejectedAttachmentDraft,
@@ -490,7 +490,7 @@ function ChatScreen() {
     composerAnimatedStyle,
     streaming: streamActive,
     replySaving: finalizing,
-    sendBusy: chatLoading || sendPhase !== "idle",
+    sendBusy: routeLoader.historyPending || sendPhase !== "idle",
     sendStatus: sendPhase === "locating" ? t("chat.locating") : undefined,
     stopGeneration: stopTurn,
     isOffline,

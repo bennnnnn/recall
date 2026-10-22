@@ -1,6 +1,7 @@
 import type { User } from "@/lib/api/types";
 import { cacheFile } from "@/lib/cache/cacheFile";
 import { planOf } from "@/lib/plan";
+import { tokenSubject } from "@/lib/tokenSubject";
 
 const cachedUserFile = cacheFile("cached-user.json");
 
@@ -23,17 +24,7 @@ type CachedUser = Pick<User, "id" | "name" | "avatar_url" | "plan" | "ai_data_co
 /** Decode only to select cached display fields, never to authenticate or grant
  * access. A cache from a previous account can survive a failed file deletion. */
 export function cachedUserMatchesToken(cached: CachedUser, token: string): boolean {
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3 || parts.some((part) => !part)) return false;
-    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const padded = payload.padEnd(Math.ceil(payload.length / 4) * 4, "=");
-    const claims: unknown = JSON.parse(atob(padded));
-    return typeof claims === "object" && claims !== null &&
-      "sub" in claims && typeof claims.sub === "string" && claims.sub === cached.id;
-  } catch {
-    return false;
-  }
+  return tokenSubject(token) === cached.id;
 }
 
 

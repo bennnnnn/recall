@@ -14,6 +14,7 @@ import { publishStreamingDraft, type StreamingDraft } from "@/lib/streamingDraft
 import { popLastAssistantMessage, restoreAssistantMessage } from "@/features/chat/model/regenerateLogic";
 import { reportTurnOutcome } from "@/features/chat/model/turnOutcome";
 import { withStreamingPlaceholder } from "@/features/chat/model/partialStream";
+import { whenOpenedPageSettled } from "@/features/chat/model/openedPage";
 import type { ChatWsFallbackSignal, ChatWsTransport, WsSendFallback } from "@/features/chat/model/wsTransport";
 import type {
   ComposerSendDraft,
@@ -299,13 +300,12 @@ export function useChat(
     settleUnconfirmedReply: () => { dropSocket(); abortSse(); reconcileUnconfirmedReply(); },
   });
 
+  // A turn on a chat whose page is still being read waits for it (openedPage.ts); false: it must not go out.
   const ensureConnected = useCallback(async () => {
-    try {
-      await connectTransport();
-    } catch {
-      reportError(t("chat.error_unreachable"));
-    }
-  }, [connectTransport, reportError, t]);
+    const opened = whenOpenedPageSettled(chatId, pendingSendRef.current);
+    try { await connectTransport(); } catch { reportError(t("chat.error_unreachable")); }
+    return opened;
+  }, [chatId, connectTransport, reportError, t]);
 
   /** False only when refused before anything showed; past that, whatever ends the turn owns its bubble. */
   const dispatchSend = useCallback(
@@ -364,7 +364,9 @@ export function useChat(
       // server `start`, and don't leave "Sending" on the user bubble while we connect.
       showDots(options?.attachmentIds?.length ? "reading_files" : undefined);
 
-      await ensureConnected();
+      // False: the turn must not go (its chat is gone, or the view left); the
+      // opened-page read already handed its draft back.
+      if (!(await ensureConnected())) return true;
       if (!isCurrentView() || sendAttemptRef.current !== attempt) return true;
       if (rejectedRetry) {
         // Keep recovery available while the handshake is pending: navigation
@@ -469,7 +471,7 @@ export function useChat(
       }
       const attempt = ++sendAttemptRef.current;
 
-      await ensureConnected();
+      if (!(await ensureConnected())) return;
       if (!isCurrentView() || sendAttemptRef.current !== attempt) return;
       const transport = currentSocket();
       if (!transport?.isOpen() || transport.shouldUseSse()) {

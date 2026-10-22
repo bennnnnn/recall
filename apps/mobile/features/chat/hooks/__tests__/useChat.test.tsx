@@ -21,6 +21,7 @@ import {
 } from "@/features/chat/model/wsConnect";
 import { REPLY_SAVE_GRACE_MS, type DotsTicket } from "@/features/chat/hooks/useTurnStart";
 import { getStreamingDraft, resetStreamingDraftStore } from "@/lib/streamingDraftStore";
+import { beginOpenedPageRead, OPENED_PAGE_WAIT_MS } from "@/features/chat/model/openedPage";
 
 const SERVER_USER_ID = "0190a000-0000-7000-8000-000000000001";
 const SERVER_REPLY_ID = "0190a000-0000-7000-8000-000000000002";
@@ -1813,5 +1814,78 @@ describe("useChat socket recovery", () => {
     });
     expect(socket.close).not.toHaveBeenCalled();
     expect(current.messages.some((message) => message.content === "partial and the rest")).toBe(true);
+  });
+});
+
+describe("useChat while the opened chat's page is read", () => {
+  const originalSocket = global.WebSocket;
+  const sentTypes = (socket: FakeSocket) => socket.send.mock.calls.map(([data]) => JSON.parse(data).type);
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    listMessages.mockReset();
+    FakeSocket.instances = [];
+    mockSessionGeneration = 0;
+    global.WebSocket = FakeSocket as unknown as typeof WebSocket;
+    resetStreamingDraftStore();
+  });
+  afterEach(async () => {
+    await cleanup();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+    global.WebSocket = originalSocket;
+  });
+
+  it("paints the turn on the tap and sends it once the page is in", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    const read = beginOpenedPageRead("a");
+    let sending!: Promise<void>;
+    await act(async () => { sending = current.sendMessage("question"); });
+    expect(current.messages.map((message) => message.content)).toEqual(["question", ""]);
+    expect(current.streaming).toBe(true);
+    expect(sentTypes(socket)).not.toContain("message");
+    await act(async () => { expect(read.release()).toBe(true); await sending; });
+    expect(sentTypes(socket)).toContain("message");
+  });
+
+  it("sends anyway when the page takes too long, and that page is then not merged", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    const read = beginOpenedPageRead("a");
+    await act(async () => { void current.sendMessage("question"); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(OPENED_PAGE_WAIT_MS - 1); });
+    expect(sentTypes(socket)).not.toContain("message");
+    await act(async () => { await jest.advanceTimersByTimeAsync(1); });
+    expect(sentTypes(socket)).toContain("message");
+    expect(read.release()).toBe(false);
+  });
+
+  it("never sends a turn whose chat turned out to be gone, and hands its text back", async () => {
+    const stash = jest.fn();
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    const read = beginOpenedPageRead("a");
+    let sending!: Promise<void>;
+    await act(async () => {
+      sending = current.sendMessage("question", { composerDraft: { text: "question", attachment: null } });
+    });
+    await act(async () => { read.chatGone({ stashFailedDraftForThread: stash }); await sending; });
+    expect(sentTypes(socket)).not.toContain("message");
+    expect(streamChatMessageSse).not.toHaveBeenCalled();
+    expect(stash).toHaveBeenCalledWith("new", "question");
+  });
+
+  it("holds a regeneration until the page is in", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await sendAndStream(socket);
+    await act(async () => { socket.emit({ type: "done", message_id: "saved", final_content: "original" }); });
+    const read = beginOpenedPageRead("a");
+    let regenerating!: Promise<void>;
+    await act(async () => { current.beginRegenerateUi(); regenerating = current.regenerateResponse(); });
+    expect(sentTypes(socket)).not.toContain("regenerate");
+    await act(async () => { read.release(); await regenerating; });
+    expect(sentTypes(socket)).toContain("regenerate");
   });
 });
