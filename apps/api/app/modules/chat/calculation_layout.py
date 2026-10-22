@@ -3,7 +3,7 @@
 The phone's twin is apps/mobile/lib/markdown/calculationLayout.ts; the shared corpus
 docs/fixtures/presentation_cases.json holds both to one output. A row stays together when it
 is one formula, one substitution, or one simple evaluation. A chain of transformations, or
-two independent equations, becomes separate rows.
+two independent equations, becomes separate rows, unless its sentence goes on after it.
 """
 
 from __future__ import annotations
