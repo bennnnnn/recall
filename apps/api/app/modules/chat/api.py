@@ -23,6 +23,7 @@ from app.models.schemas import (
     PinUpdate,
     UsageOut,
 )
+from app.models.schemas.page import Page
 from app.modules.chat import service as chats_service
 
 router = APIRouter(prefix="/chats", tags=["chats"])
@@ -60,6 +61,17 @@ async def list_chats(
 ) -> Response:
     chats = await chats_service.list_chats_grouped(session, user, limit=limit, cursor=cursor)
     return conditional_json(request, chats)
+
+
+@router.get("/archived", response_model=Page[ChatOut])
+async def list_archived_chats(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    limit: int = Query(default=chats_service.ARCHIVED_CHAT_LIST_LIMIT, ge=1, le=100),
+    cursor: str | None = Query(default=None, max_length=200),
+) -> Page[ChatOut]:
+    """Archived chats past the drawer's first page (``archived_next_cursor``)."""
+    return await chats_service.list_archived_chats(session, user, limit=limit, cursor=cursor)
 
 
 @router.post("/archive-all", status_code=status.HTTP_204_NO_CONTENT)

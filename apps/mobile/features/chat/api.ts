@@ -6,6 +6,7 @@ import type {
   Feedback,
   Message,
   MessagePage,
+  Page,
 } from "@/lib/api/types";
 
 function normalizeMessagePage(data: MessagePage | Message[]): MessagePage {
@@ -73,6 +74,9 @@ export const chatsApi = {
   /** The dated chats after the first page; `cursor` is the list's `next_cursor`. */
   listOlderChats: (token: string, cursor: string) =>
     request<ChatList>(`/chats?cursor=${encodeURIComponent(cursor)}`, token),
+  /** Archived chats past the drawer's first page; `cursor` is `archived_next_cursor`. */
+  listArchivedChats: (token: string, cursor: string) =>
+    request<Page<Chat>>(`/chats/archived?cursor=${encodeURIComponent(cursor)}`, token),
   listMessages,
   listAllMessages: async (token: string, chatId: string): Promise<Message[]> => {
     const batch = 100;

@@ -38,7 +38,8 @@ export type DrawerChatListItem =
     }
   | { type: "row"; key: string; chat: Chat }
   | { type: "searchRow"; key: string; result: SearchResult }
-  | { type: "searchLoadMore"; key: "search-load-more" };
+  | { type: "searchLoadMore"; key: "search-load-more" }
+  | { type: "archivedMore"; key: "archived-more" };
 
 type Props = {
   groups: ChatList;
@@ -69,6 +70,9 @@ type Props = {
   onSearchLoadMore?: () => void;
   /** Read the next page of older chats; omitted when the list holds them all. */
   onLoadOlderChats?: () => void;
+  /** Read more archived chats; omitted when the archived section holds them all. */
+  onLoadMoreArchived?: () => void;
+  archivedPaging?: "idle" | "loading" | "failed";
 };
 
 export function DrawerChatFlashList({
@@ -98,6 +102,8 @@ export function DrawerChatFlashList({
   searchLoadingMoreError = false,
   onSearchLoadMore,
   onLoadOlderChats,
+  onLoadMoreArchived,
+  archivedPaging = "idle",
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -140,12 +146,16 @@ export function DrawerChatFlashList({
       for (const chat of section.chats) {
         items.push({ type: "row", key: chat.id, chat });
       }
+      if (section.key === ARCHIVED_CHAT_SECTION && onLoadMoreArchived) {
+        items.push({ type: "archivedMore", key: "archived-more" });
+      }
     }
     return items;
   }, [
     activeChatCount,
     groups,
     isSectionCollapsed,
+    onLoadMoreArchived,
     searchHasMore,
     searchLoadingMoreError,
     searchOpen,
@@ -170,6 +180,16 @@ export function DrawerChatFlashList({
             loadingMore={searchLoadingMore}
             loadingMoreError={searchLoadingMoreError}
             onLoadMore={onSearchLoadMore}
+          />
+        );
+      }
+      if (item.type === "archivedMore") {
+        return (
+          <DrawerSearchLoadMore
+            label={t("drawer.archived_show_more")}
+            loadingMore={archivedPaging === "loading"}
+            loadingMoreError={archivedPaging === "failed"}
+            onLoadMore={onLoadMoreArchived}
           />
         );
       }
@@ -229,6 +249,8 @@ export function DrawerChatFlashList({
       searchLoadingMore,
       searchLoadingMoreError,
       onSearchLoadMore,
+      archivedPaging,
+      onLoadMoreArchived,
       t,
     ],
   );

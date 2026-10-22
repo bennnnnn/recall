@@ -1,6 +1,7 @@
 import { api } from "@/lib/api";
 import {
   fetchChatList,
+  fetchMoreArchivedChats,
   fetchOlderChats,
   getCachedChat,
   getCachedChatList,
@@ -25,6 +26,7 @@ jest.mock("@/lib/api", () => ({
   api: {
     listChats: jest.fn(),
     listOlderChats: jest.fn(),
+    listArchivedChats: jest.fn(),
   },
 }));
 
@@ -331,5 +333,26 @@ describe("older chats (CLAR-12)", () => {
     expect(await late).toBeNull();
     expect(getCachedChatList()?.older ?? []).toEqual([]);
 
+  });
+});
+
+describe("archived chats past the first page", () => {
+  const row = (id: string) => ({ ...sample.today[0]!, id, title: id, archived: true });
+  const listArchivedChats = api.listArchivedChats as jest.Mock;
+  beforeEach(() => { jest.clearAllMocks(); mockSession = 0; invalidateChatListCache(); });
+
+  it("reads the page after the archived cursor and appends it", async () => {
+    setChatListCache({ ...sample, archived: [row("a1")], archived_next_cursor: "after-a1" });
+    listArchivedChats.mockResolvedValueOnce({ items: [row("a2")], next_cursor: null });
+    await fetchMoreArchivedChats("token");
+    expect(listArchivedChats).toHaveBeenCalledWith("token", "after-a1");
+    expect(getCachedChatList()?.archived.map((chat) => chat.id)).toEqual(["a1", "a2"]);
+    expect(getCachedChatList()?.archived_next_cursor).toBeNull();
+  });
+
+  it("reads nothing once every archived chat is listed", async () => {
+    setChatListCache(sample);
+    expect(await fetchMoreArchivedChats("token")).toBeNull();
+    expect(listArchivedChats).not.toHaveBeenCalled();
   });
 });

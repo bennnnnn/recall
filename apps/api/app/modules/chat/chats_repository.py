@@ -154,19 +154,27 @@ async def list_recent_page(
     return page_of(rows, limit, lambda chat: encode_cursor(chat.updated_at, chat.id))
 
 
-async def list_archived_for_user(
-    session: AsyncSession, user_id: UUID, limit: int = 100
-) -> list[Chat]:
+async def list_archived_page(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    limit: int,
+    cursor: str | None = None,
+) -> tuple[list[Chat], str | None]:
+    """One page of archived chats, newest first, and the cursor for the next (None: the last)."""
     has_messages = exists().where(Message.chat_id == Chat.id)
-    result = await session.execute(
+    stmt = (
         select(Chat)
         .options(_LIST_COLUMNS)
         .where(Chat.user_id == user_id, Chat.archived.is_(True))
         .where(has_messages)
-        .order_by(Chat.updated_at.desc(), Chat.id.desc())
-        .limit(limit)
     )
-    return list(result.scalars().all())
+    if cursor is not None:
+        at, ids = decode_cursor(cursor, ids=1)
+        stmt = stmt.where(after((Chat.updated_at, Chat.id), at, ids))
+    stmt = stmt.order_by(Chat.updated_at.desc(), Chat.id.desc()).limit(limit + 1)
+    rows = list((await session.execute(stmt)).scalars().all())
+    return page_of(rows, limit, lambda chat: encode_cursor(chat.updated_at, chat.id))
 
 
 async def touch_by_id(session: AsyncSession, chat_id: UUID, *, commit: bool = True) -> None:

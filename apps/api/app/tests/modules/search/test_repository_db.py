@@ -62,7 +62,9 @@ async def test_search_preserves_fuzzy_title_matching(db_session):
 
 
 @pytest.mark.asyncio
-async def test_search_scopes_both_message_and_chat_owners_and_excludes_archived(db_session):
+async def test_search_scopes_both_message_and_chat_owners_and_tags_archived(db_session):
+    """An archived chat is found and says so: search was the only way back to one past the
+    drawer's first page, and it skipped them all."""
     owner = await _user(db_session)
     other = await _user(db_session)
     allowed = Chat(user_id=owner.id, title="needle")
@@ -81,8 +83,11 @@ async def test_search_scopes_both_message_and_chat_owners_and_excludes_archived(
     rows, next_cursor = await search_repo.search_conversations(db_session, owner.id, "needle")
 
     assert next_cursor is None
-    assert [row["chat_id"] for row in rows] == [allowed.id]
-    assert rows[0]["match_type"] == "message"
+    assert {row["chat_id"]: row["archived"] for row in rows} == {
+        allowed.id: False,
+        archived.id: True,
+    }
+    assert {row["match_type"] for row in rows} == {"message"}
 
 
 @pytest.mark.asyncio

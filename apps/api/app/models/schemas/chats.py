@@ -79,6 +79,8 @@ class ChatListOut(BaseModel):
     archived: list[ChatOut] = Field(default_factory=list)
     # The dated groups page by keyset: pass it back as ``cursor`` for older chats.
     next_cursor: str | None = None
+    # More archived chats than ``archived`` holds: GET /chats/archived?cursor= reads on.
+    archived_next_cursor: str | None = None
 
 
 class MessageOut(BaseModel):
@@ -141,6 +143,8 @@ class SearchResultItem(BaseModel):
     content: str
     role: str
     created_at: datetime
+    # The hit is in an archived chat: the drawer tags it, and opening it unarchives nothing.
+    archived: bool = False
 
     @model_validator(mode="after")
     def sanitize_chat_title(self) -> Self:

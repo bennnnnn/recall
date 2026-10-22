@@ -17,6 +17,7 @@ from app.core.db import SessionLocal
 from app.exceptions import DomainError
 from app.models.orm import Chat, Message, User
 from app.models.schemas import ChatListOut, ChatOut, MessageOut, MessagePageOut, UsageOut
+from app.models.schemas.page import Page
 from app.modules.chat import chats_repository as chats_repo
 from app.modules.chat import finalize_registry
 from app.modules.chat import messages_repository as messages_repo
@@ -66,17 +67,17 @@ async def list_chats_grouped(
     The first page also holds every pinned chat and the newest archived ones.
     """
 
-    async def _pinned_and_archived() -> tuple[list[Chat], list[Chat]]:
+    async def _pinned_and_archived() -> tuple[list[Chat], tuple[list[Chat], str | None]]:
         if cursor is not None:
-            return [], []
+            return [], ([], None)
         async with SessionLocal() as side_session:
             pinned = await chats_repo.list_pinned(side_session, user.id)
-            archived = await chats_repo.list_archived_for_user(
+            archived = await chats_repo.list_archived_page(
                 side_session, user.id, limit=ARCHIVED_CHAT_LIST_LIMIT
             )
         return pinned, archived
 
-    (dated, next_cursor), (pinned, archived) = await gather_or_cancel(
+    (dated, next_cursor), (pinned, (archived, archived_cursor)) = await gather_or_cancel(
         chats_repo.list_recent_page(session, user.id, limit=limit, cursor=cursor),
         _pinned_and_archived(),
     )
@@ -90,7 +91,18 @@ async def list_chats_grouped(
         older=[ChatOut.model_validate(c) for c in grouped["older"]],
         archived=[ChatOut.model_validate(c) for c in archived],
         next_cursor=next_cursor,
+        archived_next_cursor=archived_cursor,
     )
+
+
+async def list_archived_chats(
+    session: AsyncSession, user: User, *, limit: int, cursor: str | None
+) -> Page[ChatOut]:
+    """Archived chats after the drawer's first page, by cursor: none is out of reach."""
+    chats, next_cursor = await chats_repo.list_archived_page(
+        session, user.id, limit=limit, cursor=cursor
+    )
+    return Page(items=[ChatOut.model_validate(c) for c in chats], next_cursor=next_cursor)
 
 
 async def get_chat(session: AsyncSession, user: User, chat_id: UUID) -> Chat:

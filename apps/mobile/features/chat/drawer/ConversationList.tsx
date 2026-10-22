@@ -84,6 +84,9 @@ export function ConversationList() {
     removeChatFromGroupsById,
     hasOlderChats,
     loadOlderChats,
+    hasMoreArchived,
+    loadMoreArchivedChats,
+    archivedPaging,
   } = useDrawerChatList({ isDrawerOpen: isOpen });
 
   const {
@@ -352,6 +355,8 @@ export function ConversationList() {
         searchLoadingMoreError={loadingMoreError}
         onSearchLoadMore={loadMore}
         onLoadOlderChats={hasOlderChats ? loadOlderChats : undefined}
+        onLoadMoreArchived={hasMoreArchived ? loadMoreArchivedChats : undefined}
+        archivedPaging={archivedPaging}
       />
 
       <LinearGradient

@@ -220,3 +220,34 @@ async def test_only_activity_moves_a_chat_up_the_drawer(db_session):
     await chats_repo.touch_by_id(db_session, chat.id)
     await db_session.refresh(chat)
     assert chat.updated_at > long_ago
+
+
+@pytest.mark.asyncio
+async def test_every_archived_chat_is_reachable_by_cursor(db_session):
+    """Only the newest 50 archived chats were ever listed; "Archive all" put the rest
+    out of reach."""
+    from datetime import UTC, datetime, timedelta
+
+    user = await _make_user(db_session)
+    start = datetime(2025, 1, 1, tzinfo=UTC)
+    made = []
+    for step in range(7):
+        chat = await _make_chat_with_message(db_session, user.id)
+        await db_session.execute(
+            update(Chat)
+            .where(Chat.id == chat.id)
+            .values(archived=True, updated_at=start + timedelta(hours=step))
+        )
+        made.append(chat.id)
+    await db_session.commit()
+
+    seen = []
+    cursor = None
+    while True:
+        page, cursor = await chats_repo.list_archived_page(
+            db_session, user.id, limit=3, cursor=cursor
+        )
+        seen.extend(chat.id for chat in page)
+        if cursor is None:
+            break
+    assert seen == list(reversed(made))

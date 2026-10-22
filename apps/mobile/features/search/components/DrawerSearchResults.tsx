@@ -82,6 +82,9 @@ export function DrawerSearchResultRow({ result, title, onOpenChat }: RowProps) {
         {result.match_type === "title" ? (
           <Text style={s.searchResultBadge}>{t("search.topic_match")}</Text>
         ) : null}
+        {result.archived ? (
+          <Text style={s.searchResultBadge}>{t("search.archived_tag")}</Text>
+        ) : null}
       </View>
       <Text style={s.searchResultSnippet} numberOfLines={2}>
         {result.content}
@@ -91,15 +94,18 @@ export function DrawerSearchResultRow({ result, title, onOpenChat }: RowProps) {
 }
 
 type LoadMoreProps = {
+  /** What the row says; search results by default. */
+  label?: string;
   loadingMore?: boolean;
   loadingMoreError?: boolean;
   onLoadMore?: () => void;
 };
 
-export function DrawerSearchLoadMore({ loadingMore, loadingMoreError, onLoadMore }: LoadMoreProps) {
+export function DrawerSearchLoadMore({ label, loadingMore, loadingMoreError, onLoadMore }: LoadMoreProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme);
+  const text = label ?? t("search.load_more");
 
   if (loadingMoreError && !loadingMore) {
     return <StateView variant="error" compact message={t("common.error")} onRetry={onLoadMore} />;
@@ -111,12 +117,12 @@ export function DrawerSearchLoadMore({ loadingMore, loadingMoreError, onLoadMore
       onPress={onLoadMore}
       disabled={loadingMore}
       accessibilityRole="button"
-      accessibilityLabel={t("search.load_more")}
+      accessibilityLabel={text}
     >
       {loadingMore ? (
         <ActivityIndicator size="small" color={theme.primary} />
       ) : (
-        <Text style={s.loadMoreText}>{t("search.load_more")}</Text>
+        <Text style={s.loadMoreText}>{text}</Text>
       )}
     </Pressable>
   );
