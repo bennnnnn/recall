@@ -108,20 +108,40 @@ The server appends it after the reply; the model never writes one. JSON, one obj
   payment that never pays off) shows the readout's `never_key` text, or a dash.
 - `marker` is optional: today's average on the rate slider, with its date, the source's title
   and, optionally, `source_url` (the page the rate came from).
-- `currency` is "" when the request named none; the phone then shows its own.
+- `currency` is "" when the request named none; the phone then shows plain numbers, no symbol.
 - Labels are i18n keys the phone translates; there is no English text in the fence.
 - The server checks every tree before sending: only the closed operations and declared names,
   finite at the asked values and at every corner of the control ranges where the formula is
   defined, and equal to the server's own numbers at the asked values. A card that fails is not
   sent; the reply still has its worked numbers.
 
-### Keys the server sends
+## Label keys
 
-- Titles: `money.title.car`, `money.title.card`, `money.title.loan`, `money.title.mortgage`, `money.title.personal`, `money.title.savings`, `money.title.student`.
-- Controls: `money.amount`, `money.apr`, `money.balance`, `money.deposit`, `money.monthly_payment`, `money.rate`, `money.start`, `money.term_months`, `money.term_years`.
-- Readouts: `money.final_balance`, `money.interest_earned`, `money.monthly_payment`, `money.months_to_pay_off`, `money.total_deposited`, `money.total_interest`, `money.total_paid`; `never_key`: `money.never`.
-- Marker: `money.average`.
-- Control names per product: mortgage `amount, rate, years`; car `amount, rate, months`; student `amount, rate, years`; personal `amount, rate, months`; loan `amount, rate, years`; card `balance, apr, payment`; savings `start, deposit, rate, years`. A car or personal loan's term is `months`; every other term is `years`.
+The fence names text by key, and the phone translates it in all nine languages. Every key starts
+with `money.`; the phone refuses a fence whose `title_key` or `label_key` doesn't, and shows a
+fallback (the title "Loan", an empty label, a dash) for a `money.` key it has no text for, never
+the raw key. Keys the phone has (a server test, `test_money_label_keys.py`, holds the catalog to them):
+
+| Use | Keys |
+|-----|------|
+| `title_key` | `money.title.mortgage`, `money.title.car`, `money.title.personal`, `money.title.student`, `money.title.loan`, `money.title.card`, `money.title.savings` |
+| control `label_key` | `money.amount`, `money.rate`, `money.term_years`, `money.term_months`, `money.balance`, `money.apr`, `money.payment`, `money.start`, `money.deposit` |
+| readout `label_key` | `money.monthly_payment`, `money.total_interest`, `money.total_paid`, `money.months_to_payoff`, `money.final_balance`, `money.total_deposited`, `money.interest_earned` |
+| readout `never_key` | `money.never` ("Never at this payment") |
+| marker `label_key` | `money.average` ("Avg {{value}} · {{date}}"); with no `as_of` the phone uses `money.average_undated` |
+
+The phone's own keys, not sent by the server: `money.average_a11y`, `money.average_a11y_undated`,
+`money.source`, `money.source_undated` (the line under the card naming the marker's source and
+date), `money.reset`, `money.reset_a11y`, and the counted `money.years_count` / `money.months_count`
+that print a `years` or `months` value ("30 years"; a `months` readout counts a last part-month).
+
+On the phone: the card is `components/rich/CalculatorBlock.tsx`, its reader `lib/money/calculator.ts`,
+its formatting `lib/money/format.ts` (money in the fence's `currency` and the app's language, cents
+only on amounts under 10,000 that have them). Tapping the marker sets the slider to the marker's
+exact value. Where the user left the sliders survives the list recycling the card and is cleared at
+sign-out. Copy and Read aloud leave the card out: the reply's own text states its numbers.
+
+Control names per product: mortgage `amount, rate, years`; car `amount, rate, months`; student `amount, rate, years`; personal `amount, rate, months`; loan `amount, rate, years`; card `balance, apr, payment`; savings `start, deposit, rate, years`. A car or personal loan's term is `months`; every other term is `years`.
 
 ## The formula tree
 

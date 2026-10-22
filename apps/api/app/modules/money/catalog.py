@@ -214,7 +214,7 @@ PRODUCTS: tuple[Product, ...] = (
         inputs=(_BALANCE, _APR, _CARD_PAYMENT),
         outputs=(
             Output(
-                "months", "money.months_to_pay_off", "months", _CARD_MONTHS, True, "money.never"
+                "months", "money.months_to_payoff", "months", _CARD_MONTHS, True, "money.never"
             ),
             Output(
                 "interest",

@@ -230,6 +230,16 @@ const FENCE_TABLE = [
     fallback: "visual",
     plainText: "diagram",
   },
+  // A loan, a card payoff or savings with sliders (docs/money.md). The server writes it
+  // after the reply; the reply's own text states the numbers, so copy and speech drop it.
+  {
+    id: "calculator",
+    langs: ["calculator"],
+    structured: true,
+    neverCodeBlock: true,
+    owner: "server", body: "data",
+    plainText: "drop",
+  },
   {
     id: "chem_scene",
     langs: ["chem_scene"],
