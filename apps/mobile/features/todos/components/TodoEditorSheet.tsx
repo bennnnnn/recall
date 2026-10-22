@@ -19,7 +19,7 @@ function dueFromTodo(todo: Todo): Date | null {
   return Number.isFinite(due.getTime()) ? due : null;
 }
 
-export type TodoEditorDraft = {
+type TodoEditorDraft = {
   content: string;
   dueDate: Date | null;
   recurrence: RecurrenceRule | null;

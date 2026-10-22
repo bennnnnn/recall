@@ -40,7 +40,6 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
         id=uuid4(),
         name="Test",
         email="test@example.com",
-        response_style="balanced",
         locale="en",
         timezone="UTC",
         memory_enabled=False,
@@ -81,7 +80,6 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
         math_tools_enabled=False,
         chemistry_enabled=False,
         web_search_enabled=False,
-        web_search_classifier_enabled=False,
     )
     with (
         patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=_Session()),
@@ -150,7 +148,6 @@ async def test_how_replays_code_owned_steps_instead_of_calling_the_llm(
         id=uuid4(),
         name="Test",
         email="test@example.com",
-        response_style="short",
         locale="en",
         timezone="UTC",
         memory_enabled=False,
@@ -178,7 +175,6 @@ async def test_how_replays_code_owned_steps_instead_of_calling_the_llm(
         math_tools_enabled=True,
         chemistry_enabled=False,
         web_search_enabled=False,
-        web_search_classifier_enabled=False,
     )
     with (
         patch(

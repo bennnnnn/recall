@@ -16,7 +16,7 @@ from app.modules.math.schemas import (
     RectangleGeometryInput,
     SystemOfEquationsInput,
 )
-from app.modules.math.solve import MathServiceError
+from app.modules.math.solve import SolveServiceError
 from app.modules.math.solve.graph import parse_ellipse_relation
 
 
@@ -211,7 +211,7 @@ def test_solve_equation_keeps_complex_roots_when_no_real_root() -> None:
 
 
 def test_solve_rejects_polynomial_above_degree_cap() -> None:
-    with pytest.raises(MathServiceError, match="degree"):
+    with pytest.raises(SolveServiceError, match="degree"):
         math_solve.solve_equation(EquationInput(lhs="x**40", rhs="1", variables=["x"]))
 
 
@@ -388,7 +388,7 @@ def test_sample_function_draws_a_horizontal_line() -> None:
 
 
 def test_sample_function_rejects_relational_expr() -> None:
-    with pytest.raises(math_solve.MathServiceError, match="number lines"):
+    with pytest.raises(math_solve.SolveServiceError, match="number lines"):
         math_solve.sample_function(
             GraphSampleInput(expr="x > 3", variable="x", x_min=-10, x_max=10, n=20)
         )
@@ -396,8 +396,8 @@ def test_sample_function_rejects_relational_expr() -> None:
 
 def test_sample_function_free_symbols_are_math_service_error() -> None:
     """Leftover letters (``Graph`` → G·a·h·p·r) used to TypeError at np.asarray
-    and log as ``math_tools failed`` instead of a clean MathServiceError skip."""
-    with pytest.raises(math_solve.MathServiceError, match="Could not sample"):
+    and log as ``math_tools failed`` instead of a clean SolveServiceError skip."""
+    with pytest.raises(math_solve.SolveServiceError, match="Could not sample"):
         math_solve.sample_function(
             GraphSampleInput(expr="x**2/(G*a*h*p*r)", variable="x", x_min=-2, x_max=2, n=10)
         )
@@ -696,7 +696,7 @@ def test_compute_limit_negative_infinity_point() -> None:
 def test_compute_limit_refuses_a_value_sympy_did_not_establish(
     expr: str, variable: str, point: str, direction: str
 ) -> None:
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         math_solve.compute_limit(expr, variable, point, direction)
 
 
@@ -727,7 +727,7 @@ def test_evaluate_series_sum_refuses_a_sum_with_an_undefined_term(
     expr: str, start: str, end: str
 ) -> None:
     """``1/n`` from ``n = 0``: SymPy sums to complex infinity, ``\\tilde{\\infty}``."""
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         math_solve.evaluate_series_sum(expr, "n", start, end)
 
 
@@ -1052,7 +1052,7 @@ def test_graph_block_spec_rejects_more_points_than_the_backend_ever_samples() ->
     ],
 )
 def test_parse_expression_rejects_attribute_and_subscript_gadgets(payload: str) -> None:
-    with pytest.raises(math_solve.MathServiceError):
+    with pytest.raises(math_solve.SolveServiceError):
         math_solve._parse_expression(payload, ["x"])
 
 
@@ -1095,9 +1095,9 @@ def test_parse_expression_refuses_a_bare_sympy_name(monkeypatch, text: str) -> N
     from app.modules.math.solve.work_lines import parse_line
 
     monkeypatch.setenv("RECALL_STRICT_DECLINES", "1")
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         math_solve._parse_expression(text, ["x"])
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         solve_equation(EquationInput(lhs=text, rhs="2 x", variables=["x"]))
     assert integral_trace(text, "x") == ([], None, None)
     assert derivative_trace(text, "x") == ([], None)

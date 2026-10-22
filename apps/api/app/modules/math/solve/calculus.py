@@ -33,7 +33,7 @@ from app.modules.math.schemas import (
 )
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.display import derivative_latex, format_verified_latex
-from app.modules.math.solve.parse import MathServiceError, _parse_expression
+from app.modules.math.solve.parse import SolveServiceError, _parse_expression
 from app.modules.math.solve.root_latex import _expr_equal
 
 # A quadrature whose own error estimate is above _QUADRATURE_TRUST (relative) judges nothing; a
@@ -102,7 +102,7 @@ def _differentiation_steps(parsed: Any, sym: Any, result_latex: str) -> list[str
 
 def differentiate_expression(expr: str, variable: str = "x", order: int = 1) -> MathExprResult:
     if order < 1 or order > 4:
-        raise MathServiceError("unsupported derivative order")
+        raise SolveServiceError("unsupported derivative order")
     sym = Symbol(variable)
     parsed = _parse_expression(expr, [variable])
     result = diff(parsed, sym, order)
@@ -143,7 +143,7 @@ def differentiate_at_point(expr: str, variable: str, point: str) -> MathExprResu
         left = limit(quotient, sym, at, dir="-")
         right = limit(quotient, sym, at, dir="+")
     except Exception as exc:
-        raise MathServiceError("Could not evaluate derivative at the requested point") from exc
+        raise SolveServiceError("Could not evaluate derivative at the requested point") from exc
     finite = bool(left.is_finite is True and right.is_finite is True)
     if not finite or not _expr_equal(left, right):
         if finite:
@@ -211,7 +211,7 @@ def definite_integral(integrand: Any, sym: Any, low: Any, high: Any) -> Any:
         rebuilt = limit(antiderivative, sym, high, "-") - limit(antiderivative, sym, low, "+")
         if _agrees(rebuilt, numeric):
             return rebuilt
-    raise MathServiceError("the integral's closed form disagrees with a numeric check")
+    raise SolveServiceError("the integral's closed form disagrees with a numeric check")
 
 
 def _quadrature(integrand: Any, sym: Any, low: Any, high: Any) -> complex | None:
@@ -259,7 +259,7 @@ def integrate_definite(expr: str, variable: str, lower: str, upper: str) -> Math
     try:
         result = definite_integral(parsed, sym, a, b)
     except Exception as exc:
-        raise MathServiceError(f"Could not compute definite integral of: {expr}") from exc
+        raise SolveServiceError(f"Could not compute definite integral of: {expr}") from exc
     solved = not result.has(Integral)
     return MathExprResult(result=str(result), latex=format_verified_latex(result), solved=solved)
 
@@ -286,7 +286,7 @@ def integrate_double(
             (Symbol(variable2), c, d),
         )
     except Exception as exc:
-        raise MathServiceError(f"Could not compute double integral of: {expr}") from exc
+        raise SolveServiceError(f"Could not compute double integral of: {expr}") from exc
     solved = not result.has(Integral)
     return MathExprResult(result=str(result), latex=format_verified_latex(result), solved=solved)
 
@@ -319,7 +319,7 @@ def integrate_triple(
             (Symbol(variable3), e, f),
         )
     except Exception as exc:
-        raise MathServiceError(f"Could not compute triple integral of: {expr}") from exc
+        raise SolveServiceError(f"Could not compute triple integral of: {expr}") from exc
     solved = not result.has(Integral)
     return MathExprResult(result=str(result), latex=format_verified_latex(result), solved=solved)
 
@@ -367,18 +367,18 @@ def compute_limit(expr: str, variable: str, point: str, direction: str = "+-") -
         result = limit(parsed, sym, point_val, dir=direction)
     except ValueError as exc:
         if direction != "+-":
-            raise MathServiceError(f"Could not compute limit of: {expr}") from exc
+            raise SolveServiceError(f"Could not compute limit of: {expr}") from exc
         try:
             left = limit(parsed, sym, point_val, dir="-")
             right = limit(parsed, sym, point_val, dir="+")
         except Exception as side_exc:
-            raise MathServiceError(f"Could not compute limit of: {expr}") from side_exc
+            raise SolveServiceError(f"Could not compute limit of: {expr}") from side_exc
         if not (_is_limit_value(left) and _is_limit_value(right)):
             # sin(1/x)/x at 0: neither side has a limit, so they cannot disagree.
-            raise MathServiceError(f"Could not compute limit of: {expr}") from exc
+            raise SolveServiceError(f"Could not compute limit of: {expr}") from exc
         result = left if simplify(left - right) == 0 else zoo
     except Exception as exc:
-        raise MathServiceError(f"Could not compute limit of: {expr}") from exc
+        raise SolveServiceError(f"Could not compute limit of: {expr}") from exc
     # A limit can legitimately evaluate to oo/-oo (diverges) or zoo (the
     # two-sided limit doesn't exist because the two sides disagree). Keep
     # the symbolic result so presentation can distinguish these statuses.
@@ -386,9 +386,9 @@ def compute_limit(expr: str, variable: str, point: str, direction: str = "+-") -
     # are no two sides, and (-2)^n is unbounded both ways.
     if result == zoo:
         if direction != "+-" or point_val.is_finite is not True:
-            raise MathServiceError(f"Could not compute limit of: {expr}")
+            raise SolveServiceError(f"Could not compute limit of: {expr}")
     elif not _is_limit_value(result):
-        raise MathServiceError(f"Could not compute limit of: {expr}")
+        raise SolveServiceError(f"Could not compute limit of: {expr}")
     return MathLimitResult(
         result=str(result), latex=latex(result), is_infinite=bool(result.is_infinite)
     )
@@ -411,10 +411,10 @@ def evaluate_series_sum(expr: str, variable: str, start: str, end: str) -> MathS
     try:
         result = series.doit()
     except Exception as exc:
-        raise MathServiceError(f"Could not evaluate series: {expr}") from exc
+        raise SolveServiceError(f"Could not evaluate series: {expr}") from exc
     if result.has(AccumBounds, nan, zoo):
         # 1/n from n = 0: a term is undefined, and the sum is complex infinity.
-        raise MathServiceError(f"Could not evaluate series: {expr}")
+        raise SolveServiceError(f"Could not evaluate series: {expr}")
     return MathSeriesResult(
         result=str(result),
         latex=latex(result),

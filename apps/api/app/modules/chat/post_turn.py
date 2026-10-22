@@ -17,8 +17,6 @@ from redis.asyncio import Redis
 
 from app.core import jobs
 from app.core.config import Settings
-from app.core.db import SessionLocal
-from app.modules import todos as todos_service
 from app.modules.chat.prompt_constants.lesson_flow import lesson_step
 from app.modules.chat.prompt_memory import memory_switch_on
 from app.modules.chat.turn_prep import StreamContext
@@ -119,44 +117,6 @@ async def _lesson_progress_job(turn: FinishedTurn) -> list[PostTurnJob]:
     ]
 
 
-async def _todos_job(turn: FinishedTurn) -> list[PostTurnJob]:
-    """The background repair of a reminder change the reply missed.
-
-    It writes without a card, so it stays off while reminder changes wait for the
-    user's tap.
-    """
-    ctx = turn.ctx
-    if (
-        turn.spend_capped
-        or ctx.skip_memory_jobs
-        or turn.settings.reminder_proposals_enabled
-        or not todos_service.should_recover_todo_writes(ctx.user_message_content, turn.transcript)
-    ):
-        return []
-    todo_transcript = turn.transcript
-    try:
-        async with SessionLocal() as session:
-            todo_transcript = await todos_service.build_todo_sync_transcript(
-                session,
-                ctx.chat_id,
-                user_message=ctx.user_message_content,
-                assistant_text=turn.assistant_text,
-            )
-    except Exception:
-        logger.exception("Failed to expand todo sync transcript; using current turn only")
-    return [
-        PostTurnJob(
-            "todos",
-            {
-                "user_id": str(ctx.user_id),
-                "chat_id": str(ctx.chat_id),
-                "transcript": todo_transcript,
-            },
-            f"todosync:{ctx.chat_id}:{turn.turn_key}",
-        )
-    ]
-
-
 async def _topic_job(turn: FinishedTurn) -> list[PostTurnJob]:
     ctx = turn.ctx
     if not ctx.run_title:
@@ -223,7 +183,6 @@ async def _message_index_job(turn: FinishedTurn) -> list[PostTurnJob]:
 POST_TURN_JOBS: tuple[Callable[[FinishedTurn], Awaitable[list[PostTurnJob]]], ...] = (
     _memory_job,
     _lesson_progress_job,
-    _todos_job,
     _topic_job,
     _compress_job,
     _message_index_job,

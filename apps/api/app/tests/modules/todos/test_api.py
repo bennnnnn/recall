@@ -232,7 +232,7 @@ async def page_client(page_sql):
 
 
 @pytest.mark.asyncio
-async def test_page_route_serializes_cursor_and_keeps_legacy_list(page_sql, page_client):
+async def test_page_route_serializes_cursor(page_sql, page_client):
     sync_session, _, user, _ = page_sql
     rows = _seed(sync_session, user.id, count=3)
     response = await page_client.get("/todos/page", params={"limit": 2})
@@ -244,9 +244,6 @@ async def test_page_route_serializes_cursor_and_keeps_legacy_list(page_sql, page
     assert response.status_code == 200
     assert [item["id"] for item in response.json()["items"]] == [str(rows[2].id)]
     assert response.json()["next_cursor"] is None
-    legacy = await page_client.get("/todos", params={"limit": 2, "offset": 1})
-    assert legacy.status_code == 200
-    assert [item["id"] for item in legacy.json()] == [str(row.id) for row in rows[1:]]
 
 
 @pytest.mark.asyncio

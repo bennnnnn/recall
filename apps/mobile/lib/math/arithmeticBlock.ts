@@ -1,12 +1,12 @@
 import { isJsonRecord, parseJsonRecord } from "@/lib/jsonFence";
 
-export type ArithmeticOperation =
+type ArithmeticOperation =
   | "addition"
   | "subtraction"
   | "multiplication"
   | "division";
 
-export type AdditionColumn = {
+type AdditionColumn = {
   position: number;
   place: string;
   addends: number[];
@@ -15,7 +15,7 @@ export type AdditionColumn = {
   carry_out: number;
 };
 
-export type SubtractionColumn = {
+type SubtractionColumn = {
   position: number;
   place: string;
   top_digit: number;
@@ -25,7 +25,7 @@ export type SubtractionColumn = {
   regrouped_from: string[];
 };
 
-export type PartialProduct = {
+type PartialProduct = {
   position: number;
   place: string;
   multiplier_digit: number;
@@ -43,7 +43,7 @@ type MultiplicationColumn = {
   carry_out: number;
 };
 
-export type DivisionStep = {
+type DivisionStep = {
   index: number;
   column_end: number;
   partial_dividend: string;
@@ -80,7 +80,7 @@ export type ArithmeticWorkSpec = {
   explanations: string[];
 };
 
-export type FractionStep = {
+type FractionStep = {
   kind: string;
   explanation: string;
   expression: string;

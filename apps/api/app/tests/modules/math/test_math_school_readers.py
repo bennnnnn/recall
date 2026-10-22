@@ -7,7 +7,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.math.function_analysis import inverse_function
 from app.modules.math.match.discrete import word_arrangement_signal
-from app.modules.math.solve import MathServiceError
+from app.modules.math.solve import SolveServiceError
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.extractors.fractions import extract_fraction_intent
 from app.modules.math.tools.prompt import build_math_augmentation, needs_symbolic_math
@@ -249,7 +249,7 @@ def test_inverse_function_reads_one_candidate_under_domain_conditions(
 
 @pytest.mark.parametrize("expr", ["x**2", "sqrt(x)"])
 def test_inverse_function_still_refuses_two_branches(expr: str) -> None:
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         inverse_function(expr)
 
 

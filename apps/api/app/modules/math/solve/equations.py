@@ -21,7 +21,7 @@ from app.modules.math.solve.equation_conditions import (
     _parameter_solution_conditions,
 )
 from app.modules.math.solve.parse import (
-    MathServiceError,
+    SolveServiceError,
     _expr_needs_real_domain,
     parse_equation,
 )
@@ -69,7 +69,7 @@ def _reject_high_degree(lhs: Any, rhs: Any, variables: list[str]) -> None:
         except TypeError:
             continue
         if degree > max_degree:
-            raise MathServiceError("Polynomial degree too high")
+            raise SolveServiceError("Polynomial degree too high")
 
 
 def _real_fractional_power_solutions(lhs: Any, rhs: Any, sym: Any) -> list[Any] | None:
@@ -116,7 +116,7 @@ def _require_unknown(data: EquationInput, lhs: Any, rhs: Any) -> None:
         for name in data.variables
     ):
         return
-    raise MathServiceError(f"{', '.join(data.variables)} does not appear in the equation")
+    raise SolveServiceError(f"{', '.join(data.variables)} does not appear in the equation")
 
 
 def solve_equation(data: EquationInput) -> MathSolveResult:
@@ -143,7 +143,7 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
             else solve(equation, syms, dict=True)
         )
     except Exception as exc:
-        raise MathServiceError("Could not solve equation") from exc
+        raise SolveServiceError("Could not solve equation") from exc
 
     if original_excluded:
         raw_solutions = [

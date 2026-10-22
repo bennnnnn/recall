@@ -559,7 +559,7 @@ UTC day (Redis `spend_musd:<date>`, `core/spend_counter.py`). What adds to it:
 - every other model call, priced from its tokens by the gateway that makes it
   (`gateways/llm_spend.py`): memory extraction and consolidation, titles,
   compression, follow-up questions, attachment OCR, embeddings,
-  the web-search classifier, the reference resolver, maths extraction;
+  the reference resolver, maths extraction;
 - a fixed price per call for images, photo lookup, scan reads, voice input and
   read-aloud (`services/quota/spend.py`);
 - live talk by time: the reserved minutes at mint, settled at

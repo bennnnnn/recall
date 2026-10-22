@@ -31,7 +31,7 @@ def _verified_block_matrix(
                 rows_b=intent.matrix_rows_b,
             )
         )
-    except math_solve.MathServiceError as exc:
+    except math_solve.SolveServiceError as exc:
         if intent.matrix_op == "diagonalize" and "not diagonalizable" in str(exc).lower():
             message = (
                 "This matrix is not diagonalizable: it does not have enough "

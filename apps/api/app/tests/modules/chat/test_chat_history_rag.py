@@ -293,7 +293,6 @@ async def test_build_prompt_uses_gathered_history_embedding_once(
         id=uuid4(),
         email="test@example.com",
         location_enabled=False,
-        response_style="balanced",
         response_tone="casual",
         locale="en",
         timezone="UTC",

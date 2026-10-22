@@ -2,8 +2,9 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
+from app.models import model_catalog
 from app.models.schemas import ChatCreate, UserUpdate
-from app.services import model_catalog
+from app.services import model_health
 
 
 def test_selectable_models_count():
@@ -221,9 +222,9 @@ def test_chat_create_accepts_auto():
 def test_is_available_with_openrouter_key():
     settings = Settings(openrouter_api_key="sk-or-test", mock_llm_enabled=False)
     minimax = model_catalog.get("glm-5.2")
-    assert model_catalog.is_available(minimax, settings) is True
+    assert model_health.is_available(minimax, settings) is True
     free = model_catalog.get("free-chat")
-    assert model_catalog.is_available(free, settings) is True
+    assert model_health.is_available(free, settings) is True
 
 
 def test_is_available_without_keys():
@@ -232,7 +233,7 @@ def test_is_available_without_keys():
         mock_llm_enabled=False,
     )
     minimax = model_catalog.get("glm-5.2")
-    assert model_catalog.is_available(minimax, settings) is False
+    assert model_health.is_available(minimax, settings) is False
 
 
 def test_speech_stt_alias_uses_direct_openai():

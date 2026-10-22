@@ -20,7 +20,7 @@ import { Type, Weight } from "@/lib/type";
 import { useKeyboardHeight } from "../hooks/useKeyboardHeight";
 import { Overlay, useOverlayProgress } from "./Overlay";
 
-export type DialogActionStyle = "default" | "cancel" | "destructive" | "primary";
+type DialogActionStyle = "default" | "cancel" | "destructive" | "primary";
 
 export type DialogAction = {
   label: string;

@@ -22,6 +22,7 @@ from app.gateways import litellm_gateway
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.gateways.mcp.base import ToolContext
 from app.gateways.web_search_gateway import WebSearchHit
+from app.models import model_catalog
 from app.models.orm import User
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.tool_loop.calls import _execute_calls, _Round
@@ -36,7 +37,6 @@ from app.modules.chat.tool_loop.selection import (
 from app.modules.chat.tool_loop.text_calls import _tool_calls_from_text
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.web_search import TurnTavilyBudget
-from app.services import model_catalog
 from app.services.solving import VerifiedMathBlock
 
 logger = logging.getLogger(__name__)

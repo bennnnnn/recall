@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, NamedTuple
@@ -9,9 +8,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 
 from app.core.config import Settings
-from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
-from app.modules import web_search as web_search_service
 from app.modules.attachments import service as attachments_service
 from app.modules.chat import history_rag as chat_history_rag_service
 from app.modules.chat.prompt_context import _load_context_blocks
@@ -49,14 +46,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class WebAndSubject(NamedTuple):
-    """What one turn's web search and subject solver found, before either is injected."""
+class SubjectFetch(NamedTuple):
+    """What one turn's subject solver found, before it is injected.
 
-    web_block: str | None
+    Web results no longer come before the stream: the tool loop searches (the
+    pre-stream search ran only with the loop off, which production never was).
+    """
+
     subject_block: str | None
-    search_sources: list[WebSearchHit]
     verified: VerifiedSolveBlock | None
-    # The solver adapter's own flag: callers must not re-derive it from the
+    # True when a subject solver was asked and verified nothing; changes the
     # wording of the prompt block.
     solver_unverified: bool
     # Set only when ``solver_unverified`` is.
@@ -65,15 +64,10 @@ class WebAndSubject(NamedTuple):
     direct_text: str | None
 
 
-async def fetch_web_and_tools(
+async def fetch_subject(
     user_content: str,
     settings: Settings,
     *,
-    prompt_messages: list[dict[str, str]],
-    user_timezone: str | None = None,
-    user_location: str | None = None,
-    latitude: float | None = None,
-    longitude: float | None = None,
     prior_user_messages: list[str] | None = None,
     has_image_attachment: bool = False,
     image_math_extract: MathImageExtract | None = None,
@@ -81,13 +75,11 @@ async def fetch_web_and_tools(
     chemistry_followup_problem: str | None = None,
     physics_followup_problem: str | None = None,
     on_status: StreamStatusFn | None = None,
-    user: User | None = None,
     redis: Redis | None = None,
     subject_text: str | None = None,
-) -> WebAndSubject:
-    """Fetch web-search and subject blocks WITHOUT mutating prompt_messages.
+) -> SubjectFetch:
+    """The subject solver's block for this turn, WITHOUT mutating the prompt.
 
-    Web search (network) and the subject solver are independent — gather both.
     ``subject_text``: the solve part of a message that asks for more (its plan).
     """
     math_user_content = math_followup_problem or subject_text or user_content
@@ -116,48 +108,19 @@ async def fetch_web_and_tools(
         needs_subject = False
     if needs_subject and on_status is not None and subject is not None:
         await on_status(status_phase_for_subject(subject))
-
-    async def _web_for_turn() -> tuple[str | None, list[WebSearchHit]]:
-        # Closed symbolic/statistical work is self-contained. Do not ask the
-        # web classifier (or a search provider) whether a z-score, equation,
-        # derivative, etc. needs live sources. Explicit/current-data requests
-        # still pass the ordinary synchronous live-data gate below.
-        if needs_subject and not web_search_service.web_search_fast_yes(
-            user_content, prior_user_messages=prior_user_messages
-        ):
-            return None, []
-        return await web_search_service.build_search_augmentation(
-            user_content,
-            settings,
-            messages=prompt_messages,
-            user_timezone=user_timezone,
-            user_location=user_location,
-            latitude=latitude,
-            longitude=longitude,
-            prior_user_messages=prior_user_messages,
-            on_status=on_status,
-            user=user,
-            redis=redis,
-        )
-
-    (web_block, search_sources), subject_result = await asyncio.gather(
-        _web_for_turn(),
-        build_subject_augmentation(
-            subject_user_content,
-            settings,
-            math_user_content=math_user_content,
-            has_image_attachment=has_image_attachment,
-            image_math_extract=image_math_extract,
-            prior_user_messages=prior_user_messages,
-            response_intent_text=user_content if math_followup_problem is not None else None,
-            detected_subject=subject,
-            redis=redis,
-        ),
+    subject_result = await build_subject_augmentation(
+        subject_user_content,
+        settings,
+        math_user_content=math_user_content,
+        has_image_attachment=has_image_attachment,
+        image_math_extract=image_math_extract,
+        prior_user_messages=prior_user_messages,
+        response_intent_text=user_content if math_followup_problem is not None else None,
+        detected_subject=subject,
+        redis=redis,
     )
-    return WebAndSubject(
-        web_block=web_block,
+    return SubjectFetch(
         subject_block=subject_result.prompt_block,
-        search_sources=search_sources,
         verified=subject_result.verified,
         solver_unverified=subject_result.unverified,
         unverified_subject=subject_result.subject if subject_result.unverified else None,
@@ -165,21 +128,13 @@ async def fetch_web_and_tools(
     )
 
 
-async def inject_web_and_tools(
-    prompt_messages: list[dict[str, str]],
-    web_block: str | None,
-    math_block: str | None,
+def inject_subject_block(
+    prompt_messages: list[dict[str, str]], subject_block: str | None
 ) -> list[dict[str, str]]:
-    """Inject web → math blocks in the historical order.
-
-    Mutation order is what keeps prompt shape stable; fetch order is irrelevant.
-    """
-    updated = prompt_messages
-    if web_block:
-        updated = inject_before_last_user(updated, web_block)
-    if math_block:
-        updated = inject_before_last_user(updated, math_block)
-    return updated
+    """The prompt with the subject block placed before the last user message."""
+    if subject_block:
+        return inject_before_last_user(prompt_messages, subject_block)
+    return prompt_messages
 
 
 @dataclass

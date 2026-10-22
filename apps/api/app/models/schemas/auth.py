@@ -11,7 +11,7 @@ from app.core.validation import (
     normalize_locale_code,
 )
 from app.models.model_catalog import validate_user_alias
-from app.models.schemas.common import ResponseStyle, ResponseTone, UserVoice
+from app.models.schemas.common import ResponseTone, UserVoice
 from app.models.schemas.text import UserText
 
 
@@ -25,7 +25,6 @@ class UserOut(BaseModel):
     default_model: str
     plan: str = "free"
     enabled_models: list[str] | None = None
-    response_style: str
     response_tone: str = "casual"
     memory_enabled: bool
     follow_up_suggestions_enabled: bool = True
@@ -100,7 +99,6 @@ class UserUpdate(BaseModel):
     avatar_url: UserText | None = Field(default=None, max_length=64)
     default_model: str | None = None
     enabled_models: list[str] | None = None
-    response_style: ResponseStyle | None = None
     response_tone: ResponseTone | None = None
     memory_enabled: bool | None = None
     follow_up_suggestions_enabled: bool | None = None

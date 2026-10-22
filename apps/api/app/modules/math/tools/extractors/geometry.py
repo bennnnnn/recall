@@ -542,7 +542,7 @@ def _extract_triangle_angles_intent(cleaned: str) -> MathIntent | None:
         return None
     try:
         side_a, side_b, side_c = math_solve.sides_from_interior_angles(*angles)
-    except math_solve.MathServiceError:
+    except math_solve.SolveServiceError:
         return None
     return MathIntent(
         kind="triangle_sides",

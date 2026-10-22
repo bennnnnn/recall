@@ -146,8 +146,8 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                 block.canonical_answer if block.direct_reply is not None else None
             ),
         )
-    except math_solve.MathServiceError as exc:
-        # The class only: a MathServiceError's message quotes the user's expression.
+    except math_solve.SolveServiceError as exc:
+        # The class only: a SolveServiceError's message quotes the user's expression.
         logger.info("math_tools skipped: %s", type(exc).__name__)
         return None
     except Exception:

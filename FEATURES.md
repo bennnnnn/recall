@@ -173,16 +173,16 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Like / dislike** — thumbs up/down persist per message (saved to the backend and restored on
   load); tapping the active rating clears it.
 - ✅ **Per-message model** — the model used is recorded on each message.
-- ✅ **Web search** — when the user's question needs fresh facts, the backend runs Tavily (or
-  DuckDuckGo fallback) and injects wrapped results; source links render under the reply (skipped on
-  short A–D replies). The default owned tool loop attaches the same source chips; if the model skips
-  `web_search` on a turn that still needs live results (heuristic **or** classifier), the backend
+- ✅ **Web search** — when the user's question needs fresh facts, the owned tool loop runs Tavily
+  (or the DuckDuckGo fallback) and the reply carries source chips (skipped on short A–D replies); if
+  the model skips `web_search` on a turn the search gate says needs live results, the backend
   searches once. Empty hits inject a no-results instruction so the reply cannot look live from
   training data. One Tavily
   reservation per turn. A Redis reserve failure (or a missing user) fails closed to **DuckDuckGo
-  only** — DDG is uncapped (latency only). Search cache keys include `user_id`. A live cue or a
-  short follow-up to a searchable topic consults the LLM classifier (`should_web_search`); every
-  other line keeps the regex answer. Factual lookups that still need a live result get a tool round.
+  only** — DDG is uncapped (latency only). Search cache keys include `user_id`. The search gate is
+  deterministic (`should_web_search`: skip rules, the explicit fast path, then the heuristic); the
+  LLM classifier that once sat behind it was off in production and is gone. Known misses (a
+  question about the world with no live word) are listed as gaps in the behavior battery.
   An explicit request always searches: "do a search", "search it online", "google it", "check
   that online", typos like "seearch" (`web_search/command.py`). When the request names no topic,
   or a follow-up says "she" or "it", one cheap call reads the last turns and writes the query
@@ -209,8 +209,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   close. Spoken sessions get the same stored-memory snapshot as text chat
   plus bounded read-only memory lookup and web search.
   Search sources use the existing reply chips. The chat header (drawer / ⋮) stays
-  available. Needs `OPENAI_API_KEY` — OpenRouter has no Realtime API. Stale
-  clients that still call `POST /speech/live/speak` get **410**.
+  available. Needs `OPENAI_API_KEY` — OpenRouter has no Realtime API.
 - ✅ **Read aloud (TTS)** — defaults to OpenAI **gpt-4o-mini-tts** PCM
   (`POST /speech/tts` lead then rest, rest bound to the lead hash so it cannot steal
   another utterance's unbilled quota) and starts playback on the first sentence.
@@ -549,7 +548,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   learning roadmaps use the low-latency fast lane (Qwen3.7 Flash) with strict step/day and tagged-example
   contracts; hard reasoning remains on Pro. Short follow-ups of a hard turn inherit that turn’s tier;
   a new topic drops back to Flash. No extra LLM call.
-- ✅ **Multi-provider** — a **model catalog** (`services/model_catalog.py`) defines provider, model,
+- ✅ **Multi-provider** — a **model catalog** (`models/model_catalog.py`) defines provider, model,
   key, base URL, and pricing per entry. All chat aliases route through **OpenRouter** via LiteLLM
   (`gateways/litellm_gateway.py`). Adding a model is a catalog entry + OpenRouter slug.
 - ✅ **Model availability + cost** — `GET /models` reports each model's availability (key present)
@@ -731,7 +730,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Personalization** — tone labels and custom instructions. Stored tone ids stay
   `soft` / `casual` / `professional` / `funny`. There is no response-length setting:
   each message sets its own ("briefly", "in detail"), and how hard a turn thinks is
-  automatic (`services/thinking_effort.py`). A stored `users.response_style` is ignored.
+  automatic (`services/thinking_effort.py`). The old `users.response_style` column is
+  neither read nor returned, and goes in a later release (docs/ROLLBACK.md).
 - ✅ **Voice** — the voice (`users.tts_voice`, one of the voices both read-aloud and live
   talk speak; Default keeps the server's), read-aloud speed (0.75×–1.5×, on the device,
   pitch kept) and Use on-device voice (offline device speech instead of cloud read-aloud).
@@ -897,8 +897,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   on create and cannot be cleared on update. Recurring without a due date stays invalid.
   Chat extract skips undated adds.
 - ✅ **Reminder cards** — a to-do change from chat is a card the user taps: **Save reminder**,
-  **Mark done**, **Move**, **Delete** (` ```reminder_proposal `, `reminder_proposals_enabled`,
-  default on). The reminder rules run unchanged inside `todos/write_log.recording()`, where the
+  **Mark done**, **Move**, **Delete** (` ```reminder_proposal `; always, and no background job
+  writes a reminder from a reply). The reminder rules run unchanged inside `todos/write_log.recording()`, where the
   repository plans its writes instead of making them; `todos/proposals.py` keeps them in Redis
   for a day. `POST /todos/proposals/{id}/confirm` makes them once (a second tap answers the
   same), refuses a one-off time that has passed or a row deleted since, and marks the card
@@ -949,13 +949,12 @@ only `GOOGLE_CLIENT_ID`.
   servers stay out of scope.
 - ✅ **Full tool-calling loop** — **on by default**, but **not on every turn.**
   Ordinary chat streams immediately. Pre-stream `complete_with_tools` runs only
-  when the turn still looks like web search (a live cue or a short follow-up may
-  consult the LLM classifier; otherwise the regex answer stands — and heuristic
-  search did not already fill sources), unsolved math, or image gen. If that round
+  when the turn still looks like web search (the deterministic search gate),
+  unsolved math, or image gen. If that round
   finishes without tools, the text is shown — the stream does not call the model
   a second time. Pydantic-validated args, bounded by `mcp_tool_loop_max_rounds`.
-  Heuristic SymPy + web-search inject still run so homework and first-turn search do
-  not wait on a tool call.
+  Heuristic SymPy still runs before the stream so homework does not wait on a tool
+  call; web search is the loop's (with the loop off, nothing searches).
 - ✅ **Golden rules preserved** — product aliases in services; structured outputs validated with
   Pydantic before DB writes.
 
@@ -1308,7 +1307,7 @@ drawer FTS search ✅.
 |---------|----------|
 | Record → OpenAI `gpt-4o-mini-transcribe` → composer (app-language hint, no-speech gate) | Live provider verification |
 | Live Talk WebRTC + OpenAI `gpt-realtime-2.1` (Pro, 60 min/month; server VAD, physical-device barge-in, bounded read-only tools; Schedule snapshot + clocked reminder persist off audio path). Needs `OPENAI_API_KEY`. | Physical-device echo/interruption checks; heard-word transcript alignment |
-| Device TTS + cloud TTS (`POST /speech/tts` lead/rest JSON, daily caps; `/tts/stream` stays server-ready) | — |
+| Device TTS + cloud TTS (`POST /speech/tts` lead/rest JSON, daily caps) | — |
 
 ### Cost guards (recent)
 | Guard | Free | Plus | Pro |

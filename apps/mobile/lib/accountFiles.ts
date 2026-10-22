@@ -5,7 +5,7 @@ import { cacheDirectory, deleteAsync, readDirectoryAsync } from "expo-file-syste
  * its file with its prefix here, so sign-out can find every one, including those
  * left by an earlier app run.
  */
-export const ACCOUNT_FILE_PREFIX = {
+const ACCOUNT_FILE_PREFIX = {
   /** Settings → Data controls: the whole account export (chats, memories). */
   export: "recall-export-",
   /** A chat's HTML opened in the system browser. */

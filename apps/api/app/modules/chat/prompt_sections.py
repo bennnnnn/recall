@@ -123,7 +123,7 @@ class PromptTurn:
     @property
     def length_hint(self) -> str:
         # No account-wide length: each message says how long it wants ("briefly",
-        # "in detail"). A stored users.response_style from an older app is ignored.
+        # "in detail").
         if self.lightweight:
             return STYLE_HINTS["short"]
         return STYLE_HINTS["detailed" if reply_length(self.query) == "detailed" else "balanced"]

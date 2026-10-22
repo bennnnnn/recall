@@ -10,7 +10,6 @@ from app.modules.chat.prompt_builder import build_prompt_messages
 @pytest.mark.asyncio
 async def test_build_prompt_includes_web_search_hint():
     user = MagicMock()
-    user.response_style = "balanced"
     user.memory_enabled = True
     user.locale = "en"
     user.timezone = "UTC"

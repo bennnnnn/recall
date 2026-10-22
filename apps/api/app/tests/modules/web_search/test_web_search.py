@@ -512,21 +512,6 @@ def test_mock_search_results_respects_limit():
     assert len(hits) == 1
 
 
-def test_prioritize_team_hits():
-    from app.modules.web_search.query_builders import _prioritize_team_hits
-
-    hits = [
-        WebSearchHit(title="World Cup group stage", url="https://a.com", snippet="Brazil vs Spain"),
-        WebSearchHit(
-            title="Ethiopia latest", url="https://b.com", snippet="Ethiopia national team"
-        ),
-        WebSearchHit(title="Other", url="https://c.com", snippet="generic"),
-    ]
-    ordered = _prioritize_team_hits(hits, "Ethiopia")
-    assert ordered[0].title == "Ethiopia latest"
-    assert ordered[1].title == "World Cup group stage"
-
-
 def test_format_places_fence():
     from app.modules.web_search import format_places_fence
 

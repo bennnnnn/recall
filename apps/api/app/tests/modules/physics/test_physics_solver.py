@@ -9,7 +9,7 @@ from collections.abc import Callable
 import pytest
 
 from app.core.config import Settings
-from app.modules.math.solve import MathServiceError
+from app.modules.math.solve import SolveServiceError
 from app.modules.physics import block as physics_block
 from app.modules.physics import solver as physics_solver
 from app.modules.physics.schemas import PhysicsIntent
@@ -139,7 +139,7 @@ def test_params_in_si_rejects_length_as_velocity() -> None:
         physics_units={"h0": "m", "v0": "miles", "g": "m/s^2"},
         operation="solve",
     )
-    with pytest.raises(MathServiceError, match="does not match expected dimension"):
+    with pytest.raises(SolveServiceError, match="does not match expected dimension"):
         physics_solver.solve_kinematics(intent)
 
 
@@ -165,7 +165,7 @@ def test_kinematics_position_past_impact_is_not_verified() -> None:
         physics_units={"h0": "m", "v0": "m/s", "g": "m/s^2", "t": "s"},
         operation="solve",
     )
-    with pytest.raises(MathServiceError, match="already on the ground"):
+    with pytest.raises(SolveServiceError, match="already on the ground"):
         physics_solver.solve_kinematics(intent)
     settings = Settings()
     assert physics_block._build_physics_block(intent, settings, []) is None
@@ -179,7 +179,7 @@ def test_kinematics_velocity_past_impact_is_not_verified() -> None:
         physics_units={"h0": "m", "v0": "m/s", "g": "m/s^2", "t": "s"},
         operation="solve",
     )
-    with pytest.raises(MathServiceError, match="already on the ground"):
+    with pytest.raises(SolveServiceError, match="already on the ground"):
         physics_solver.solve_kinematics(intent)
 
 
@@ -276,7 +276,7 @@ def test_kinematics_rise_without_a_ledge_is_drawn_without_ground() -> None:
     ],
 )
 def test_kinematics_vertical_declines(op: str, params: dict[str, float], reason: str) -> None:
-    with pytest.raises(MathServiceError, match=reason):
+    with pytest.raises(SolveServiceError, match=reason):
         physics_solver.solve_kinematics(_vertical(op, **params))
 
 
@@ -284,7 +284,7 @@ def test_kinematics_unknown_vertical_op_is_refused() -> None:
     intent = PhysicsIntent.model_construct(
         kind="kinematics", physics_op="bogus", physics_params={"h0": 5.0}, physics_units={}
     )
-    with pytest.raises(MathServiceError, match="unsupported kinematics op: bogus"):
+    with pytest.raises(SolveServiceError, match="unsupported kinematics op: bogus"):
         physics_solver.solve_kinematics(intent)
 
 
@@ -436,7 +436,7 @@ def test_force_missing_two_knowns_raises() -> None:
     try:
         physics_solver.solve_force(intent)
         raise AssertionError("should have raised")
-    except MathServiceError:
+    except SolveServiceError:
         pass
 
 
@@ -513,7 +513,7 @@ def test_solve_physics_unknown_kind_raises() -> None:
     try:
         physics_solver.solve_physics(intent)
         raise AssertionError("should have raised")
-    except MathServiceError:
+    except SolveServiceError:
         pass
 
 
@@ -529,7 +529,7 @@ def test_physics_block_logs_expected_solver_rejection(
     )
 
     def reject(_intent: PhysicsIntent):
-        raise MathServiceError("position requires a time t")
+        raise SolveServiceError("position requires a time t")
 
     monkeypatch.setattr(physics_block, "solve_physics", reject)
     with caplog.at_level(logging.INFO, logger=physics_block.__name__):
@@ -583,7 +583,7 @@ def test_velocity_unit_metres_raises_dimension_error() -> None:
         physics_units={"h0": "m", "v0": "m", "g": "m/s^2"},
         operation="solve",
     )
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         physics_solver.solve_kinematics(intent)
     block = physics_block._build_physics_block(intent, Settings(), [])
     assert block is None

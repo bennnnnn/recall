@@ -167,27 +167,6 @@ async def apply_writes(
     return touched
 
 
-async def delete_by_type(
-    session: AsyncSession,
-    user_id: UUID,
-    memory_type: str,
-    *,
-    commit: bool = True,
-) -> int:
-    await _purge_where(session, user_id, Memory.type == memory_type)
-    result = cast(
-        CursorResult[Any],
-        await session.execute(
-            delete(Memory).where(Memory.user_id == user_id, Memory.type == memory_type)
-        ),
-    )
-    if commit:
-        await session.commit()
-    else:
-        await session.flush()
-    return int(result.rowcount or 0)
-
-
 async def delete_all_for_user(
     session: AsyncSession,
     user_id: UUID,

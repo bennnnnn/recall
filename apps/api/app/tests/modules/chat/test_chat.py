@@ -81,7 +81,6 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.memory_enabled = True
     user.locale = "en"
     user.timezone = None
@@ -122,7 +121,6 @@ async def test_build_prompt_includes_comparison_table_hint():
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.memory_enabled = True
     user.locale = "en"
     user.timezone = None
@@ -166,7 +164,6 @@ async def test_build_prompt_includes_chart_vega_hint():
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.memory_enabled = True
     user.locale = "en"
     user.timezone = None
@@ -211,7 +208,6 @@ async def test_build_prompt_includes_mermaid_layout_hint():
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.memory_enabled = True
     user.locale = "en"
     user.timezone = None
@@ -518,7 +514,6 @@ async def test_build_prompt_injects_custom_instructions():
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = True
     user.locale = "en"
@@ -556,7 +551,6 @@ async def test_build_prompt_strips_solver_fences_from_recent_assistant():
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = "casual"
     user.memory_enabled = True
     user.locale = "en"
@@ -597,7 +591,6 @@ async def test_build_prompt_reuses_passed_chat_without_db_fetch():
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = None
     user.memory_enabled = True
     user.locale = "en"
@@ -641,7 +634,6 @@ async def test_build_prompt_omits_custom_instructions_block_when_empty():
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = True
     user.locale = "en"
@@ -670,12 +662,11 @@ async def test_build_prompt_omits_custom_instructions_block_when_empty():
 
 
 @pytest.mark.asyncio
-async def test_build_prompt_includes_memory_and_ignores_a_stored_style():
+async def test_build_prompt_includes_memory_and_fits_length_to_the_message():
     user = MagicMock()
     user.name = "Biniyam Mecuriaw"
     user.email = "bmecuriaw@gmail.com"
     user.location = None
-    user.response_style = "short"
     user.memory_enabled = True
     user.locale = "en"
     user.timezone = "UTC"
@@ -710,7 +701,7 @@ async def test_build_prompt_includes_memory_and_ignores_a_stored_style():
     # Account email is gated to email/tool intents — omitted on a plain "Hi".
     assert "bmecuriaw@gmail.com" not in messages[0]["content"]
     assert "The block below is the user's saved memory" in messages[0]["content"]
-    # A stored response_style from an older app is ignored: length follows the message.
+    # Length follows the message: there is no account-wide setting.
     assert "response length: short" not in messages[0]["content"].lower()
     assert "response length: fit the question" in messages[0]["content"].lower()
     assert "**HTML UI**" not in messages[0]["content"]
@@ -727,7 +718,6 @@ async def test_build_prompt_recalled_count_counts_section_headers():
     user.name = "Dev User"
     user.email = "dev@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = True
     user.locale = "en"
@@ -771,7 +761,6 @@ async def test_build_prompt_recalled_count_zero_when_no_memory():
     user.name = "Dev User"
     user.email = "dev@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = True
     user.locale = "en"
@@ -810,7 +799,6 @@ async def test_build_prompt_includes_response_tone():
     user.name = "Dev User"
     user.email = "dev@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = "professional"
     user.memory_enabled = False
     user.locale = "en"
@@ -849,7 +837,6 @@ async def test_build_prompt_includes_locale_hint_for_amharic():
     user.name = "Dev User"
     user.email = "dev@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = "casual"
     user.memory_enabled = False
     user.locale = "am"
@@ -1042,7 +1029,6 @@ async def test_build_prompt_minimal_for_who_am_i():
     user.email = "secret@example.com"
     user.location = "San Francisco, CA"
     user.location_enabled = True
-    user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = True
     user.locale = "en"
@@ -1096,7 +1082,6 @@ async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
     user.email = "dev@example.com"
     user.location = "San Francisco, CA"
     user.location_enabled = True
-    user.response_style = "detailed"
     user.response_tone = "funny"
     user.memory_enabled = True
     user.locale = "en"
@@ -1144,7 +1129,6 @@ async def test_build_prompt_casual_chitchat_loads_memory_without_integrations():
     user.email = "dev@example.com"
     user.location = "San Francisco, CA"
     user.location_enabled = True
-    user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = True
     user.locale = "en"
@@ -1197,7 +1181,6 @@ async def test_build_prompt_advice_loads_memory_not_integrations():
     user.email = "dev@example.com"
     user.location = "San Francisco, CA"
     user.location_enabled = True
-    user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = True
     user.locale = "en"
@@ -1244,7 +1227,6 @@ async def test_build_prompt_teaching_uses_a_known_detail_in_examples():
     user.email = "dev@example.com"
     user.location = "Addis Ababa"
     user.location_enabled = True
-    user.response_style = "balanced"
     user.response_tone = None
     user.memory_enabled = True
     user.locale = "en"
@@ -1294,7 +1276,6 @@ async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
     user.email = "dev@example.com"
     user.location = "San Francisco, CA"
     user.location_enabled = True
-    user.response_style = "balanced"
     user.response_tone = None
     user.memory_enabled = True
     user.locale = "en"
@@ -1358,7 +1339,6 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
     user.email = "dev@example.com"
     user.location = None
     user.location_enabled = False
-    user.response_style = "balanced"
     user.response_tone = "casual"
     user.memory_enabled = True
     user.locale = "en"
@@ -1418,7 +1398,6 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
     user.email = "dev@example.com"
     user.location = None
     user.location_enabled = False
-    user.response_style = "balanced"
     user.response_tone = "casual"
     user.memory_enabled = True
     user.locale = "en"
@@ -1478,7 +1457,6 @@ async def test_build_prompt_uses_preloaded_recent_without_list_recent():
     user.email = "dev@example.com"
     user.location = None
     user.location_enabled = False
-    user.response_style = "balanced"
     user.response_tone = "casual"
     user.memory_enabled = True
     user.locale = "en"
@@ -1814,7 +1792,6 @@ async def test_build_prompt_passes_client_timezone():
     user.name = "Dev User"
     user.email = "dev@example.com"
     user.location = None
-    user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = False
     user.locale = "en"

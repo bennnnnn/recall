@@ -12,21 +12,21 @@ from typing import Any
 from sympy import Complement, Eq, FiniteSet, Intersection, S, Symbol, latex, simplify, solveset
 from sympy.calculus.util import continuous_domain, function_range
 
-from app.modules.math.solve import MathServiceError, _parse_expression
+from app.modules.math.solve import SolveServiceError, _parse_expression
 
 
 def _real_expression(expr: str, variable: str):
     if not (expr or "").strip():
-        raise MathServiceError("function expression is required")
+        raise SolveServiceError("function expression is required")
     try:
         parsed = _parse_expression(expr, [variable], real=True)
-    except MathServiceError:
+    except SolveServiceError:
         raise
     except Exception as exc:
-        raise MathServiceError("could not parse function expression") from exc
+        raise SolveServiceError("could not parse function expression") from exc
     extra = {str(symbol) for symbol in parsed.free_symbols if str(symbol) != variable}
     if extra:
-        raise MathServiceError("function analysis supports one variable at a time")
+        raise SolveServiceError("function analysis supports one variable at a time")
     return parsed
 
 
@@ -37,7 +37,7 @@ def real_domain(expr: str, variable: str = "x") -> str:
     try:
         result = continuous_domain(parsed, sym, S.Reals)
     except Exception as exc:
-        raise MathServiceError("could not determine the real domain") from exc
+        raise SolveServiceError("could not determine the real domain") from exc
     return str(latex(result))
 
 
@@ -49,7 +49,7 @@ def real_range(expr: str, variable: str = "x") -> str:
         domain = continuous_domain(parsed, sym, S.Reals)
         result = function_range(parsed, sym, domain)
     except Exception as exc:
-        raise MathServiceError("could not determine the real range") from exc
+        raise SolveServiceError("could not determine the real range") from exc
     return str(latex(result))
 
 
@@ -87,20 +87,20 @@ def inverse_function(expr: str, variable: str = "x") -> str:
     try:
         solutions = _candidate_set(solveset(Eq(parsed, target), sym, domain=S.Reals))
     except Exception as exc:
-        raise MathServiceError("could not determine an inverse function") from exc
+        raise SolveServiceError("could not determine an inverse function") from exc
     if not isinstance(solutions, FiniteSet) or len(solutions) != 1:
-        raise MathServiceError(
+        raise SolveServiceError(
             "inverse is not single-valued on the full real domain; specify a restricted domain"
         )
     inverse = next(iter(solutions))
     # Verify the candidate really composes back to the target before exposing it.
     try:
         if simplify(parsed.subs(sym, inverse) - target) != 0:
-            raise MathServiceError("could not verify the inverse function")
-    except MathServiceError:
+            raise SolveServiceError("could not verify the inverse function")
+    except SolveServiceError:
         raise
     except Exception as exc:
-        raise MathServiceError("could not verify the inverse function") from exc
+        raise SolveServiceError("could not verify the inverse function") from exc
     display = simplify(inverse.subs(target, sym))
     return str(latex(display))
 
@@ -113,7 +113,7 @@ def compose_functions(outer_expr: str, inner_expr: str, variable: str = "x") -> 
     try:
         result = simplify(outer.subs(sym, inner))
     except Exception as exc:
-        raise MathServiceError("could not compose the functions") from exc
+        raise SolveServiceError("could not compose the functions") from exc
     return str(latex(result))
 
 

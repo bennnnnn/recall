@@ -10,7 +10,7 @@ import { inlineScript } from "@/lib/previewSandbox";
 const HTML_PREVIEW_MAX_FILES = 8;
 const HTML_PREVIEW_MAX_FILE_CHARS = 80_000;
 
-export type PreviewKind = "html" | "css" | "js";
+type PreviewKind = "html" | "css" | "js";
 
 export type PreviewFile = {
   kind: PreviewKind;

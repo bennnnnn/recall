@@ -21,7 +21,7 @@ from app.modules.math.schemas import EquationInput
 from app.modules.math.solve.latex_normalize import _normalize_latex_to_sympy
 from app.modules.math.solve.number_size import reject_huge_numbers
 from app.modules.math.solve.written_names import lone_quantity, reject_unwritten_symbols
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -151,15 +151,15 @@ def _reject_unsafe_expr(normalized: str) -> None:
     eval() in the API process.
     """
     if "__" in normalized:
-        raise MathServiceError("Invalid expression")
+        raise SolveServiceError("Invalid expression")
     if _LONG_EXPONENT.search(normalized):  # 1e-1000000 is beyond any number a student means
-        raise MathServiceError("Number out of range")
+        raise SolveServiceError("Number out of range")
     if "[" in normalized or "]" in normalized:
-        raise MathServiceError("Invalid expression")
+        raise SolveServiceError("Invalid expression")
     if "." in _DECIMAL_NUMBER.sub("", normalized):
-        raise MathServiceError("Invalid expression")
+        raise SolveServiceError("Invalid expression")
     if not _SAFE_EXPR_CHARS.match(normalized):
-        raise MathServiceError("Invalid expression")
+        raise SolveServiceError("Invalid expression")
 
 
 def _parse_expression(
@@ -171,7 +171,7 @@ def _parse_expression(
 ):
     normalized = _normalize_expr(expr)
     if len(normalized) > get_settings().math_max_expr_length:
-        raise MathServiceError("Expression too long")
+        raise SolveServiceError("Expression too long")
     _reject_unsafe_expr(normalized)
     local_dict = dict(_LOCALS)
     for name in [*(variable_names or []), *lone_quantity(expr)]:
@@ -186,11 +186,11 @@ def _parse_expression(
             evaluate=evaluate,
         )
     except Exception as exc:
-        raise MathServiceError(f"Could not parse expression: {expr}") from exc
+        raise SolveServiceError(f"Could not parse expression: {expr}") from exc
     if not isinstance(parsed, Basic | tuple):
         # A bare SymPy name parses to what it names (``Q``, ``CC``, ``limit``, the class ``O``)
         # and ``x == 1`` to a bool: neither is an expression. ``2, 3`` stays a tuple.
-        raise MathServiceError(f"Could not parse expression: {expr}")
+        raise SolveServiceError(f"Could not parse expression: {expr}")
     reject_unwritten_symbols(expr, parsed)
     return parsed
 

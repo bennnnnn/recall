@@ -80,7 +80,7 @@ def test_derivative_ask_is_not_mistaken_for_an_ode() -> None:
 
 
 def test_solve_ode_rejects_an_equation_with_no_derivative() -> None:
-    with pytest.raises(math_school.MathServiceError):
+    with pytest.raises(math_school.SolveServiceError):
         solve_ode("y + 1 = 0")
 
 

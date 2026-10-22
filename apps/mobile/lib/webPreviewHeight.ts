@@ -4,7 +4,7 @@
  * shrinks after first paint, so the reply does not jump, and stays between the
  * placeholder height and the active cap (taller once the user expands it).
  */
-export type PreviewHeightPolicy = {
+type PreviewHeightPolicy = {
   /** Also the placeholder until the page reports its size. */
   min: number;
   max: number;

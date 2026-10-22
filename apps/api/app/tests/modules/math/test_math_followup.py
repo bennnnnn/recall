@@ -227,7 +227,6 @@ def test_incomplete_mixed_or_payload_fences_are_not_retained_as_math(content: st
 async def _prompt(
     query: str,
     recent: list[SimpleNamespace],
-    style: str = "balanced",
     omit_message_ids: set[UUID] | None = None,
     current_user_message_id: UUID | None = None,
 ) -> list[dict[str, str]]:
@@ -235,7 +234,6 @@ async def _prompt(
         id=uuid4(),
         name="Test",
         email="test@example.com",
-        response_style=style,
         locale="en",
         timezone="UTC",
     )
@@ -265,12 +263,11 @@ async def _prompt(
 @pytest.mark.parametrize(
     "question,result", [(_EQUATION_ASK, _EQUATION_RESULT), (_TAYLOR_ASK, _TAYLOR_RESULT)]
 )
-@pytest.mark.parametrize("style", ["balanced", "short", "detailed"])
 async def test_actual_how_examples_keep_prior_result_and_final_scoped_policy(
-    question: str, result: str, style: str
+    question: str, result: str
 ) -> None:
     recent = _exchange(question, result)
-    prepared = await _prompt("how", recent, style)
+    prepared = await _prompt("how", recent)
     assert prepared[0]["content"].endswith(f"{MATH_REPLY_POLICY}\n\n{MATH_FOLLOWUP_HINT}")
     assert prepared[-2] == {"role": "user", "content": question}
     assert prepared[-1] == {"role": "assistant", "content": f"Previous result:\n\\[\n{result}\n\\]"}

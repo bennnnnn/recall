@@ -207,18 +207,20 @@ async def set_title_if_empty(
     chat_id: UUID,
     title: str,
     *,
-    user_id: UUID | None = None,
+    user_id: UUID,
     commit: bool = True,
 ) -> bool:
     """Apply a generated title atomically so a concurrent rename always wins."""
     stmt = (
         update(Chat)
-        .where(Chat.id == chat_id, or_(Chat.title.is_(None), Chat.title == ""))
+        .where(
+            Chat.id == chat_id,
+            Chat.user_id == user_id,
+            or_(Chat.title.is_(None), Chat.title == ""),
+        )
         .values(title=title)
         .execution_options(synchronize_session=False)
     )
-    if user_id is not None:
-        stmt = stmt.where(Chat.user_id == user_id)
     result = cast(CursorResult[Any], await session.execute(stmt))
     if commit:
         await session.commit()

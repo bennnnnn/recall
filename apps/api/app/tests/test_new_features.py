@@ -13,72 +13,6 @@ _DUE_AT = "2026-08-30T18:00:00Z"
 # ── todos router ────────────────────────────────────────────────────────────
 
 
-def test_list_todos_empty():
-    from fastapi.testclient import TestClient
-
-    user = _fake_user()
-    app = _app_with_user(user)
-    with patch("app.modules.todos.crud.todos_repo.list_for_user", AsyncMock(return_value=[])):
-        client = TestClient(app)
-        r = client.get("/todos", headers={"Authorization": "Bearer tok"})
-    assert r.status_code == 200
-    assert r.json() == []
-
-
-def test_list_todos_returns_items():
-    from fastapi.testclient import TestClient
-
-    tid = uuid4()
-    now = datetime.now(UTC)
-    todo_mock = MagicMock()
-    todo_mock.id = tid
-    todo_mock.content = "Buy milk"
-    todo_mock.topic = "General"
-    todo_mock.checked = False
-    todo_mock.due_at = None
-    todo_mock.chat_id = None
-    todo_mock.created_at = now
-    todo_mock.updated_at = now
-
-    user = _fake_user()
-    app = _app_with_user(user)
-    with patch(
-        "app.modules.todos.crud.todos_repo.list_for_user", AsyncMock(return_value=[todo_mock])
-    ):
-        client = TestClient(app)
-        r = client.get("/todos", headers={"Authorization": "Bearer tok"})
-    assert r.status_code == 200
-    data = r.json()
-    assert len(data) == 1
-    assert data[0]["content"] == "Buy milk"
-
-
-def test_list_todos_passes_pagination_and_clamps_limit():
-    """GET /todos exposes limit/offset (forward-compatible) and clamps the page
-    so a caller can't request an unbounded scan. Default is 1000, not 200, so a
-    heavy user no longer silently loses todos past the old cap."""
-    from fastapi.testclient import TestClient
-
-    user = _fake_user()
-    app = _app_with_user(user)
-    with patch(
-        "app.modules.todos.crud.todos_repo.list_for_user", AsyncMock(return_value=[])
-    ) as list_mock:
-        client = TestClient(app)
-        # explicit pagination is forwarded
-        client.get("/todos?limit=50&offset=10", headers={"Authorization": "Bearer tok"})
-        _args, kwargs = list_mock.call_args
-        assert kwargs["limit"] == 50
-        assert kwargs["offset"] == 10
-
-        # over-large limit is clamped to the max (1000); negative offset to 0
-        list_mock.reset_mock()
-        client.get("/todos?limit=99999&offset=-5", headers={"Authorization": "Bearer tok"})
-        _args, kwargs = list_mock.call_args
-        assert kwargs["limit"] == 1000
-        assert kwargs["offset"] == 0
-
-
 def test_create_todo():
     from fastapi.testclient import TestClient
 
@@ -269,44 +203,6 @@ def test_delete_todo_not_found():
         client = TestClient(app)
         r = client.delete(
             f"/todos/{uuid4()}",
-            headers={"Authorization": "Bearer tok"},
-        )
-    assert r.status_code == 404
-
-
-def test_delete_todo_topic_batches_list_delete():
-    """DELETE /todos/topic/{topic} removes a whole list in one call (only
-    items without a due_at — lists, not reminders — per delete_by_topic)."""
-    from fastapi.testclient import TestClient
-
-    user = _fake_user()
-    app = _app_with_user(user)
-    with (
-        patch(
-            "app.modules.todos.crud.todos_repo.delete_by_topic", AsyncMock(return_value=5)
-        ) as delete_by_topic,
-        patch("app.modules.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
-    ):
-        client = TestClient(app)
-        r = client.delete(
-            "/todos/topic/Groceries",
-            headers={"Authorization": "Bearer tok"},
-        )
-    assert r.status_code == 204
-    delete_by_topic.assert_awaited_once()
-    # Topic is passed through case-insensitively to the repo.
-    assert delete_by_topic.call_args.args[2] == "Groceries"
-
-
-def test_delete_todo_topic_not_found():
-    from fastapi.testclient import TestClient
-
-    user = _fake_user()
-    app = _app_with_user(user)
-    with patch("app.modules.todos.crud.todos_repo.delete_by_topic", AsyncMock(return_value=0)):
-        client = TestClient(app)
-        r = client.delete(
-            "/todos/topic/Nope",
             headers={"Authorization": "Bearer tok"},
         )
     assert r.status_code == 404

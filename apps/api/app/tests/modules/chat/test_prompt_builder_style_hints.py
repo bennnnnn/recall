@@ -598,7 +598,6 @@ def _turn_prompt(
     *,
     exchange: tuple[tuple[str, str], ...] = (),
     lightweight: bool = False,
-    response_style: str = "balanced",
 ) -> tuple[str, str]:
     """(system prompt, nearby contracts) for one turn, from the real section tables."""
     from types import SimpleNamespace
@@ -613,7 +612,6 @@ def _turn_prompt(
         id=uuid4(),
         name="Bini",
         email="bini@example.com",
-        response_style=response_style,
         response_tone="casual",
         locale="en",
         timezone="UTC",
@@ -661,11 +659,11 @@ def test_a_hard_question_without_a_length_word_may_still_go_deep():
     assert "A simple question gets a short, direct answer" in STYLE_HINTS["balanced"]
 
 
-def test_a_stored_account_response_style_is_ignored():
+def test_length_follows_the_message_not_an_account_setting():
     """The Short / Detailed account setting was retired (FEATURES.md, Personalization)."""
     from app.modules.chat.prompt_constants import STYLE_HINTS
 
-    system, _ = _turn_prompt("how does Raft work?", response_style="short")
+    system, _ = _turn_prompt("how does Raft work?")
     assert STYLE_HINTS["balanced"] in system
     assert STYLE_HINTS["short"] not in system
     greeting, _ = _turn_prompt("hi", lightweight=True)

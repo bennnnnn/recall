@@ -15,8 +15,6 @@ def test_todos_runtime_code_has_one_owner() -> None:
         "classification.py",
         "crud.py",
         "email_repository.py",
-        "extract.py",
-        "jobs.py",
         "models.py",
         "prompt_context.py",
         "prompt_hint.py",
@@ -25,7 +23,6 @@ def test_todos_runtime_code_has_one_owner() -> None:
         "repository.py",
         "schedule_repository.py",
         "schemas.py",
-        "sync.py",
     }
     assert expected <= {path.name for path in module_root.glob("*.py")}
     assert {

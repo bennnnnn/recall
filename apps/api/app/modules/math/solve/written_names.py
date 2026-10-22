@@ -17,7 +17,7 @@ import re
 from typing import Any
 
 from app.modules.math.function_names import MATH_FUNCTION_NAMES, names_longest_first
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 # Longest first, so ``sinh`` is not read as ``sin`` + ``h``.
 _FUNCTION_WORDS = names_longest_first(MATH_FUNCTION_NAMES)
@@ -65,7 +65,7 @@ def reject_unwritten_symbols(expr: str, parsed: Any) -> None:
     """
     names = {symbol.name for symbol in getattr(parsed, "free_symbols", ()) if len(symbol.name) == 1}
     if _subscripted(expr) or (names and not names <= _written_letters(expr)):
-        raise MathServiceError(f"Could not parse expression: {expr}")
+        raise SolveServiceError(f"Could not parse expression: {expr}")
 
 
 def defined_variable(lhs: str, rhs: str | None = None) -> str | None:

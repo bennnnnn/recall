@@ -157,9 +157,7 @@ async def test_memory_routes_answer_404_for_another_users_memory(world: World) -
         ("PATCH", f"/memories/{mem}", {"text": "pwned"}),
         ("PATCH", f"/memories/{mem}", {"status": "muted"}),
         ("DELETE", f"/memories/{mem}", None),
-        ("DELETE", f"/memories/{mem}/facts/0", None),
         ("DELETE", f"/memories/documents/{data.area_key}", None),
-        ("DELETE", "/memories/type/fact", None),
     ]:
         response = await c.request(method, path, json=body, headers=b.headers)
         assert response.status_code == 404, (method, path, response.text)
@@ -188,25 +186,16 @@ async def test_todo_routes_never_touch_another_users_items(world: World) -> None
         await c.patch(f"/todos/{todo}", json={"checked": True}, headers=b.headers)
     ).status_code == 404
     assert (await c.delete(f"/todos/{todo}", headers=b.headers)).status_code == 404
-    reordered = await c.post(
-        "/todos/reorder",
-        json={"items": [{"id": str(todo), "sort_order": 9, "topic": "Pwned"}]},
-        headers=b.headers,
-    )
-    assert reordered.status_code == 200 and reordered.json() == []
-    deleted_topic = await c.delete(f"/todos/topic/{data.todo_topic}", headers=b.headers)
-    assert deleted_topic.status_code in (204, 404)
     linked = await c.post(
         "/todos", json={"content": "x", "chat_id": str(data.chat_id)}, headers=b.headers
     )
     assert linked.status_code == 400
-    assert data.secret_word not in (await c.get("/todos", headers=b.headers)).text
-    assert data.secret_word not in (await c.get("/todos/topics", headers=b.headers)).text
+    assert data.secret_word not in (await c.get("/todos/page", headers=b.headers)).text
 
     row = await _get(TodoItem, todo)
     assert row is not None and row.checked is False
     assert row.sort_order == 0 and row.topic == data.todo_topic
-    assert data.secret_word in (await c.get("/todos", headers=a.headers)).text
+    assert data.secret_word in (await c.get("/todos/page", headers=a.headers)).text
 
 
 @pytest.mark.asyncio

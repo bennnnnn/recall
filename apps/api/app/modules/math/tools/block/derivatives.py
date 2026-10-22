@@ -46,7 +46,7 @@ def _derivative_at_point_working(expr: str, variable: str, point: str, value: st
             return None
         if simplify(derivative.subs(variable, at) - sympify(value)) != 0:
             return None
-    except (math_solve.MathServiceError, TypeError, ValueError, SyntaxError):
+    except (math_solve.SolveServiceError, TypeError, ValueError, SyntaxError):
         return None
     d = rf"\frac{{dy}}{{d{variable}}}"
     return (
@@ -72,7 +72,7 @@ def _higher_derivative_at_point(intent: MathIntent, lines: list[str]) -> Verifie
     try:
         parsed = math_solve._parse_expression(intent.expr or "", [variable])
         at = sympify(intent.evaluation_point)
-    except (math_solve.MathServiceError, TypeError, ValueError, SyntaxError):
+    except (math_solve.SolveServiceError, TypeError, ValueError, SyntaxError):
         return None
     symbol = Symbol(variable)
     if isinstance(parsed, tuple) or parsed.free_symbols - {symbol}:

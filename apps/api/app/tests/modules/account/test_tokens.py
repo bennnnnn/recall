@@ -229,7 +229,7 @@ async def test_sign_in_drops_sessions_whose_refresh_token_expired(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_issue_stores_json_session_and_legacy_plain_user_id_still_refreshes(fake_redis):
+async def test_issue_stores_a_json_session_that_refreshes(fake_redis):
     settings = Settings(jwt_secret="x" * 32)
     from app.tests.test_routers import _fake_user
 
@@ -238,26 +238,51 @@ async def test_issue_stores_json_session_and_legacy_plain_user_id_still_refreshe
     access, refresh = await tokens_service.issue_token_pair(
         fake_redis, user.id, settings, device_label="Pixel 8", platform="android"
     )
-    raw = await fake_redis.get(f"refresh:{refresh}")
-    record = tokens_service.parse_refresh_record(raw, refresh)
+    record = tokens_service.parse_refresh_record(await fake_redis.get(f"refresh:{refresh}"))
+    assert record is not None
     assert record["user_id"] == str(user.id)
     assert record["device_label"] == "Pixel 8"
     payload = jwt.decode(access, settings.jwt_secret, algorithms=["HS256"])
     assert payload.get("sid") == record["session_id"]
 
-    legacy = "legacy-refresh-token"
-    await fake_redis.set(f"refresh:{legacy}", str(user.id))
-    await fake_redis.sadd(f"refresh_user:{user.id}", legacy)
     with patch("app.modules.account.tokens.users_repo.get_by_id", AsyncMock(return_value=user)):
         new_access, new_refresh, user_out = await tokens_service.refresh_token_pair(
-            fake_redis, legacy, session, settings, device_label="iPhone"
+            fake_redis, refresh, session, settings, device_label="iPhone"
         )
     assert user_out.id == user.id
     assert new_access != access
-    rotated = tokens_service.parse_refresh_record(
-        await fake_redis.get(f"refresh:{new_refresh}"), new_refresh
-    )
+    rotated = tokens_service.parse_refresh_record(await fake_redis.get(f"refresh:{new_refresh}"))
+    assert rotated is not None
     assert rotated["device_label"] == "iPhone"
+    assert rotated["session_id"] == record["session_id"]
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        "plain-user-id",
+        '{"user_id": "00000000-0000-0000-0000-000000000001"}',
+        '{"user_id": "not-a-uuid", "session_id": "s1"}',
+        "[1, 2]",
+    ],
+)
+def test_a_record_this_release_never_writes_is_refused(stored: str) -> None:
+    assert tokens_service.parse_refresh_record(stored) is None
+
+
+@pytest.mark.asyncio
+async def test_refreshing_an_unreadable_record_signs_that_device_out(fake_redis):
+    settings = Settings(jwt_secret="x" * 32)
+    user_id = uuid4()
+    await fake_redis.set("refresh:old", str(user_id))
+    await fake_redis.sadd(f"refresh_user:{user_id}", "old")
+
+    with pytest.raises(GoogleAuthError):
+        await tokens_service.refresh_token_pair(fake_redis, "old", AsyncMock(), settings)
+
+    assert await fake_redis.exists("refresh:old") == 0
+    assert await tokens_service.refresh_token_user(fake_redis, "old") is None
+    assert await tokens_service.list_sessions(fake_redis, user_id, current_session_id=None) == []
 
 
 @pytest.mark.asyncio

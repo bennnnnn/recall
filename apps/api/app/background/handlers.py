@@ -41,7 +41,6 @@ from app.modules.memory import extraction_workflow as memory_extraction
 from app.modules.memory import history_scan as memory_history_scan
 from app.modules.memory import learning_progress as memory_learning
 from app.modules.notifications import transactional_email as transactional_email_service
-from app.modules.todos import jobs as todo_jobs
 from app.repositories import users as users_repo
 from app.services import quota as quota_service
 from app.services import topic as topic_service
@@ -235,16 +234,6 @@ async def _handle_memory_consolidate(settings: Settings, payload: dict[str, Any]
 
 
 @_unless_spend_capped
-async def _handle_todos(settings: Settings, payload: dict[str, Any]) -> None:
-    await todo_jobs.sync_todos_from_chat(
-        settings,
-        user_id=UUID(payload["user_id"]),
-        chat_id=UUID(payload["chat_id"]),
-        transcript=payload["transcript"],
-    )
-
-
-@_unless_spend_capped
 async def _handle_compress(settings: Settings, payload: dict[str, Any]) -> None:
     await compaction.compress_chat_history(
         settings, UUID(payload["chat_id"]), user_id=UUID(payload["user_id"])
@@ -321,7 +310,6 @@ def register_all() -> None:
         _handle_memory_history_scan,
         max_running=HISTORY_SCANS_AT_ONCE,
     )
-    register("todos", _handle_todos)
     register("compress", _handle_compress)
     register("transactional_email", _handle_transactional_email, done_ttl_seconds=_ONCE_A_DAY)
     register("attachment_index", _handle_attachment_index)

@@ -20,7 +20,7 @@ from app.gateways.think_stripper import (
     ThinkStripper,
 )
 from app.models import model_catalog
-from app.models.schemas import TodoExtractionResult
+from app.models.schemas import MemoryFactUpdateResult
 
 _SETTINGS = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
 
@@ -127,7 +127,7 @@ async def test_structured_background_call_turns_thinking_off() -> None:
             settings=_SETTINGS,
             model_alias="memory-model",
             messages=[{"role": "user", "content": "x"}],
-            schema=TodoExtractionResult,
+            schema=MemoryFactUpdateResult,
         )
     assert seen[0]["model"] == "openrouter/qwen/qwen3.7-flash"
     assert seen[0]["extra_body"]["reasoning"] == {"enabled": False}

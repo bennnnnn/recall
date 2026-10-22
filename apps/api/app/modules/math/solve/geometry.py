@@ -27,7 +27,7 @@ from app.modules.math.schemas import (
     TriangleSidesResult,
 )
 from app.modules.math.solve.triangle import cosine_rule_angle, heron_area, sine_rule_side
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 _ANGLE_INT_TOL_DEG = 0.11
 
@@ -52,9 +52,9 @@ def sides_from_interior_angles(
 ) -> tuple[float, float, float]:
     """Law of sines with the smallest opposite side scaled to 1 (relative units)."""
     if min(angle_a, angle_b, angle_c) <= 0 or max(angle_a, angle_b, angle_c) >= 180:
-        raise MathServiceError("each interior angle must be between 0° and 180°")
+        raise SolveServiceError("each interior angle must be between 0° and 180°")
     if abs(angle_a + angle_b + angle_c - 180.0) > 0.6:
-        raise MathServiceError("interior angles must sum to 180°")
+        raise SolveServiceError("interior angles must sum to 180°")
     smallest = min(angle_a, angle_b, angle_c)
     side_a, side_b, side_c = (
         round(float(sine_rule_side(1, smallest, angle)), 4) for angle in (angle_a, angle_b, angle_c)
@@ -121,14 +121,14 @@ def solid_geometry(data: SolidGeometryInput) -> SolidGeometryResult:
 
     if shape == "cube":
         if data.side is None:
-            raise MathServiceError("cube requires side")
+            raise SolveServiceError("cube requires side")
         s = data.side
         volume = s * s * s
         surface = 6 * s * s
         extra["side"] = f"{s:g} {unit}"
     elif shape == "rectangular_prism":
         if data.width is None or data.height is None or data.depth is None:
-            raise MathServiceError("rectangular prism requires three edges")
+            raise SolveServiceError("rectangular prism requires three edges")
         length, w, h = data.width, data.depth, data.height
         volume = length * w * h
         surface = 2 * (length * w + length * h + w * h)
@@ -137,7 +137,7 @@ def solid_geometry(data: SolidGeometryInput) -> SolidGeometryResult:
         extra["height"] = f"{h:g} {unit}"
     elif shape == "cylinder":
         if data.radius is None or data.height is None:
-            raise MathServiceError("cylinder requires radius and height")
+            raise SolveServiceError("cylinder requires radius and height")
         r, h = data.radius, data.height
         volume = math.pi * r * r * h
         surface = 2 * math.pi * r * (r + h)
@@ -145,7 +145,7 @@ def solid_geometry(data: SolidGeometryInput) -> SolidGeometryResult:
         extra["height"] = f"{h:g} {unit}"
     elif shape == "cone":
         if data.radius is None or data.height is None:
-            raise MathServiceError("cone requires radius and height")
+            raise SolveServiceError("cone requires radius and height")
         r, h = data.radius, data.height
         slant = math.sqrt(r * r + h * h)
         volume = (1.0 / 3.0) * math.pi * r * r * h
@@ -155,7 +155,7 @@ def solid_geometry(data: SolidGeometryInput) -> SolidGeometryResult:
         extra["slant"] = f"{format_geometry_decimal(slant)} {unit}"
     elif shape == "sphere":
         if data.radius is None:
-            raise MathServiceError("sphere requires radius")
+            raise SolveServiceError("sphere requires radius")
         r = data.radius
         volume = (4.0 / 3.0) * math.pi * r * r * r
         surface = 4 * math.pi * r * r
@@ -163,7 +163,7 @@ def solid_geometry(data: SolidGeometryInput) -> SolidGeometryResult:
     elif shape == "pyramid":
         pyr_h = data.height
         if pyr_h is None:
-            raise MathServiceError("pyramid requires height")
+            raise SolveServiceError("pyramid requires height")
         if data.side is not None:
             s = data.side
             volume = (1.0 / 3.0) * s * s * pyr_h
@@ -179,10 +179,10 @@ def solid_geometry(data: SolidGeometryInput) -> SolidGeometryResult:
             extra["length"] = f"{length:g} {unit}"
             extra["width"] = f"{w:g} {unit}"
         else:
-            raise MathServiceError("pyramid requires base side or length and width")
+            raise SolveServiceError("pyramid requires base side or length and width")
         extra["height"] = f"{pyr_h:g} {unit}"
     else:
-        raise MathServiceError(f"unsupported solid {shape}")
+        raise SolveServiceError(f"unsupported solid {shape}")
 
     uses_pi = shape in {"cylinder", "cone", "sphere"}
     volume_text = format_geometry_decimal(volume) if uses_pi else f"{volume:g}"

@@ -215,12 +215,12 @@ def _parse(expr: str, variable: str) -> tuple[Any, Any] | None:
     from sympy import Symbol
 
     from app.modules.math import solve as math_solve
-    from app.services.solving import MathServiceError
+    from app.services.solving import SolveServiceError
 
     symbol = Symbol(variable, real=True)
     try:
         parsed = math_solve._parse_expression(expr, [variable], real=True)
-    except (MathServiceError, SyntaxError, TypeError, ValueError):
+    except (SolveServiceError, SyntaxError, TypeError, ValueError):
         return None
     if isinstance(parsed, tuple) or parsed.free_symbols - {symbol}:
         return None

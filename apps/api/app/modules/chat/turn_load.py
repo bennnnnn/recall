@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import user_cache
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError, ConsentRequiredError
+from app.models import model_catalog
 from app.models.orm import Chat, User
 from app.modules.account import consent
 from app.modules.chat.finalize_registry import wait_for_pending_finalize
@@ -31,7 +32,7 @@ from app.modules.chat.turn_prep import RegenerateBackup
 from app.modules.chat.turn_prep.mode import _TurnMode, classify_turn_mode
 from app.modules.chat.turn_settle import seed_usage_from_db
 from app.modules.chat.turn_timing import TurnTimingTracker
-from app.services import model_catalog, model_health
+from app.services import model_health
 from app.services.routing import last_user_turn
 
 logger = logging.getLogger(__name__)

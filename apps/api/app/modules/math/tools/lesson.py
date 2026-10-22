@@ -87,27 +87,17 @@ def strip_lesson_prefixes(text: str) -> str:
     return strip_math_response_wrappers(text)
 
 
-def should_render_equation_lesson(
-    verified: VerifiedMathBlock,
-    user_text: str,
-    response_style: str,
-) -> bool:
+def should_render_equation_lesson(verified: VerifiedMathBlock, user_text: str) -> bool:
     if not verified.key_steps or not (verified.canonical_answer or "").strip():
         return False
     if wants_answer_only(user_text):
         return False
-    # A closed equation/system/inequality should teach, regardless of the
-    # global prose-length preference. ``key_steps`` is a short,
-    # server-rendered, SymPy-checked trace; hiding it in Short mode is what
-    # reduced homework to a bare chip. Calculus keeps its existing compact
-    # style rules unless the learner explicitly asks how/why/for steps.
+    # A closed equation/system/inequality should teach. ``key_steps`` is a short,
+    # server-rendered, SymPy-checked trace; hiding it reduced homework to a bare chip.
+    # Calculus keeps its compact style unless the learner asks how/why/for steps.
     if verified.given_label == "Given":
         return True
     if wants_math_explanation(user_text):
-        return True
-    if response_style == "short":
-        return False
-    if response_style == "detailed":
         return True
     # One rule with its working shown (``x^{3 + 1} / (3 + 1)``), short of the
     # answer, teaches as much as two lines.

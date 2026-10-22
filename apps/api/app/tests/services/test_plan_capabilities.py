@@ -7,8 +7,9 @@ from typing import Any
 import pytest
 
 from app.core.config import Settings
+from app.models import model_catalog
 from app.modules.billing import plan as plan_service
-from app.services import model_catalog, routing
+from app.services import routing
 
 _SETTINGS = Settings(mock_llm_enabled=True, openrouter_api_key="")
 _HARD = "plan a zero-downtime migration of a monolith Postgres schema to sharded tables"

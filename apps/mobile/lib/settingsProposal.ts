@@ -6,7 +6,7 @@ type SettingsProposalField =
   /** "clear" (delete everything saved) or "off" (turn memory off), from a chat ask. */
   | "memory";
 
-export type SettingsProposalChange = {
+type SettingsProposalChange = {
   field: SettingsProposalField;
   value: string;
   label: string;

@@ -16,7 +16,9 @@ from app.tests.test_routers import _fake_user
 
 
 def _refresh_user_id(raw: str | bytes, refresh: str) -> str:
-    return str(tokens.parse_refresh_record(raw, refresh)["user_id"])
+    record = tokens.parse_refresh_record(raw)
+    assert record is not None
+    return str(record["user_id"])
 
 
 @pytest.mark.asyncio

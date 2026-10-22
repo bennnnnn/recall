@@ -3,7 +3,7 @@
  * layout or the wave frames, and `components/rich/diagrams/` lays them out.
  * Everything else in a `simulation` fence is `SimulationBlock`'s.
  */
-export const DIAGRAM_KINDS = ["circuit", "rays", "wave"] as const;
+const DIAGRAM_KINDS = ["circuit", "rays", "wave"] as const;
 export type DiagramKind = (typeof DIAGRAM_KINDS)[number];
 
 /** The diagram kind a fence's JSON names, or null for a body scene or bad JSON. */

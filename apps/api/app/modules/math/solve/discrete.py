@@ -21,7 +21,7 @@ from app.modules.math.schemas import (
     StatisticsInput,
     StatisticsResult,
 )
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 # Letters around a name, not ``\b``: in ``2sin(t)`` the digit joins the word,
 # so ``sin`` stayed and the guesser solved for ``i`` ("no solution").
@@ -124,7 +124,7 @@ def compute_combinatorics(data: CombinatoricsInput) -> CombinatoricsResult:
     perm), not SymPy: these never touch the untrusted-expression parser."""
     if data.operation == "factorial":
         if data.n > 170:
-            raise MathServiceError("Factorial input is capped at 170")
+            raise SolveServiceError("Factorial input is capped at 170")
         result = math.factorial(data.n)
         return CombinatoricsResult(
             operation="factorial",
@@ -134,7 +134,7 @@ def compute_combinatorics(data: CombinatoricsInput) -> CombinatoricsResult:
             steps=[f"{data.n}! = {result}"],
         )
     if data.k is None or data.k < 0 or data.k > data.n:
-        raise MathServiceError("k must satisfy 0 <= k <= n")
+        raise SolveServiceError("k must satisfy 0 <= k <= n")
     if data.operation == "combinations":
         result = math.comb(data.n, data.k)
         steps = [
@@ -174,7 +174,7 @@ def compute_number_theory(data: NumberTheoryInput) -> NumberTheoryResult:
         return _gcd_lcm_of_list(data.operation, data.values)
     if data.operation in ("gcd", "lcm", "mod"):
         if data.b is None:
-            raise MathServiceError(f"{data.operation} requires two integers")
+            raise SolveServiceError(f"{data.operation} requires two integers")
         b = data.b
         if data.operation == "gcd":
             result = math.gcd(a, b)
@@ -184,7 +184,7 @@ def compute_number_theory(data: NumberTheoryInput) -> NumberTheoryResult:
             steps = [f"lcm({a}, {b}) = {result}"]
         else:
             if b == 0:
-                raise MathServiceError("Modulo by zero is undefined")
+                raise SolveServiceError("Modulo by zero is undefined")
             result = a % b
             steps = [f"{a} \\bmod {b} = {result}"]
         return NumberTheoryResult(
@@ -195,7 +195,7 @@ def compute_number_theory(data: NumberTheoryInput) -> NumberTheoryResult:
         from app.modules.math.formulas import modular_inverse
 
         if data.b is None:
-            raise MathServiceError("modular inverse requires two integers")
+            raise SolveServiceError("modular inverse requires two integers")
         result = int(modular_inverse(a, data.b))
         return NumberTheoryResult(
             operation="mod_inverse",
@@ -215,7 +215,7 @@ def compute_number_theory(data: NumberTheoryInput) -> NumberTheoryResult:
 
     if data.operation == "factorize":
         if a < 2:
-            raise MathServiceError("Prime factorization needs an integer >= 2")
+            raise SolveServiceError("Prime factorization needs an integer >= 2")
         raw_factors = factorint(a)
         factors = {int(p): int(e) for p, e in raw_factors.items()}
         parts = [(f"{p}^{{{e}}}" if e > 1 else f"{p}") for p, e in sorted(factors.items())]
@@ -250,7 +250,7 @@ def compute_matrix(data: MatrixInput) -> MatrixResult:
     mat = _matrix_from_rows(data.rows)
     square_ops = {"determinant", "inverse", "eigenvalues", "eigenvectors", "diagonalize"}
     if data.operation in square_ops and mat.rows != mat.cols:
-        raise MathServiceError(f"{data.operation} needs a square matrix")
+        raise SolveServiceError(f"{data.operation} needs a square matrix")
 
     if data.operation == "determinant":
         det = mat.det()
@@ -260,7 +260,7 @@ def compute_matrix(data: MatrixInput) -> MatrixResult:
     if data.operation == "inverse":
         det = mat.det()
         if det == 0:
-            raise MathServiceError("Matrix is singular (determinant is 0) — no inverse exists")
+            raise SolveServiceError("Matrix is singular (determinant is 0) — no inverse exists")
         inv = mat.inv()
         steps = [f"\\det = {latex(det)}", f"\\text{{inverse}} = {latex(inv)}"]
         return MatrixResult(
@@ -269,10 +269,10 @@ def compute_matrix(data: MatrixInput) -> MatrixResult:
 
     if data.operation == "multiply":
         if data.rows_b is None:
-            raise MathServiceError("multiply needs a second matrix")
+            raise SolveServiceError("multiply needs a second matrix")
         other = _matrix_from_rows(data.rows_b)
         if mat.cols != other.rows:
-            raise MathServiceError("matrix multiply inner dimensions must agree")
+            raise SolveServiceError("matrix multiply inner dimensions must agree")
         product = mat * other
         steps = [f"AB = {latex(product)}"]
         return MatrixResult(operation="multiply", result_latex=latex(product), steps=steps)
@@ -317,10 +317,10 @@ def compute_matrix(data: MatrixInput) -> MatrixResult:
 
     if data.operation == "add":
         if data.rows_b is None:
-            raise MathServiceError("add needs a second matrix")
+            raise SolveServiceError("add needs a second matrix")
         other = _matrix_from_rows(data.rows_b)
         if mat.rows != other.rows or mat.cols != other.cols:
-            raise MathServiceError("matrix add needs matching shapes")
+            raise SolveServiceError("matrix add needs matching shapes")
         summed = mat + other
         steps = [f"A+B = {latex(summed)}"]
         return MatrixResult(operation="add", result_latex=latex(summed), steps=steps)
@@ -347,7 +347,7 @@ def compute_matrix(data: MatrixInput) -> MatrixResult:
         try:
             p_matrix, d_matrix = mat.diagonalize()
         except Exception as exc:
-            raise MathServiceError("matrix is not diagonalizable") from exc
+            raise SolveServiceError("matrix is not diagonalizable") from exc
         answer = f"P={latex(p_matrix)},\\quad D={latex(d_matrix)}"
         steps = [f"A=PDP^{{-1}},\\quad {answer}"]
         return MatrixResult(operation="diagonalize", result_latex=answer, steps=steps)

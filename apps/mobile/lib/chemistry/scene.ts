@@ -4,20 +4,20 @@ import { isJsonRecord, parseJsonRecord } from "@/lib/jsonFence";
 
 type BalanceRow = { element: string; left: number; right: number };
 
-export type BalanceScene = {
+type BalanceScene = {
   kind: "balance";
   title: string;
   rows: BalanceRow[];
   charge: { left: number; right: number };
 };
 
-export type StoichScene = {
+type StoichScene = {
   kind: "stoich";
   title: string;
   steps: { label: string; value: string }[];
 };
 
-export type VseprScene = {
+type VseprScene = {
   kind: "vsepr";
   title: string;
   central: string;
@@ -29,20 +29,20 @@ export type VseprScene = {
   ideal_angle: string;
 };
 
-export type TitrationScene = {
+type TitrationScene = {
   kind: "titration";
   title: string;
   region: string;
   anchors: { label: string; ph?: string; volume?: string; detail?: string; value?: string }[];
 };
 
-export type EquilibriumScene = {
+type EquilibriumScene = {
   kind: "equilibrium";
   title: string;
   rows: { species: string; initial: string; change: string; equilibrium: string }[];
 };
 
-export type CellScene = {
+type CellScene = {
   kind: "cell";
   title: string;
   anode: string;

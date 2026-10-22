@@ -473,7 +473,6 @@ async def test_login_dev_enqueues_welcome_for_new_user():
         name="Dev",
         avatar_url=None,
         default_model="auto",
-        response_style="balanced",
         memory_enabled=True,
         created_at="2024-01-01T00:00:00",
     )
@@ -513,7 +512,6 @@ async def test_login_dev_does_not_enqueue_for_existing_user():
         name="Dev",
         avatar_url=None,
         default_model="auto",
-        response_style="balanced",
         memory_enabled=True,
         created_at="2024-01-01T00:00:00",
     )
@@ -551,7 +549,6 @@ async def test_login_dev_refreshes_name_on_relogin():
         name="Bini",
         avatar_url=None,
         default_model="auto",
-        response_style="balanced",
         memory_enabled=True,
         created_at="2024-01-01T00:00:00",
     )
@@ -593,7 +590,6 @@ async def test_login_dev_keeps_name_when_unchanged():
         name="Bini",
         avatar_url=None,
         default_model="auto",
-        response_style="balanced",
         memory_enabled=True,
         created_at="2024-01-01T00:00:00",
     )
@@ -636,7 +632,6 @@ async def test_login_dev_skips_enqueue_when_email_disabled():
         name="Dev",
         avatar_url=None,
         default_model="auto",
-        response_style="balanced",
         memory_enabled=True,
         created_at="2024-01-01T00:00:00",
     )

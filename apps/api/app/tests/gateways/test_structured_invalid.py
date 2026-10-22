@@ -10,10 +10,14 @@ from app.core.background_tasks import drain_background_tasks
 from app.core.config import Settings
 from app.gateways import litellm_gateway
 from app.gateways.structured_completion import invalid_output_key
-from app.models.schemas import MemoryFactUpdateResult, TodoExtractionResult
+from app.models.schemas import MemoryFactUpdateResult, TodoActionItem
 
 _SETTINGS = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
 _TODO = '{"actions": [{"action": "add", "topic": "T", "content": "C"}]}'
+
+
+class _ActionList(BaseModel):
+    actions: list[TodoActionItem]
 
 
 def _completion(content: str) -> MagicMock:
@@ -82,17 +86,17 @@ async def test_memory_model_bad_output_twice_is_logged_counted_and_dropped(
 
 @pytest.mark.asyncio
 async def test_bad_json_is_retried_without_an_outage_fallback() -> None:
-    """The search classifier: a bad reply is asked again; a provider outage is not."""
+    """A foreground call: a bad reply is asked again; a provider outage is not."""
     result, models = await _ask(
         ["not json {{", _TODO],
-        schema=TodoExtractionResult,
+        schema=_ActionList,
         allow_fallback=False,
         fallback_on_invalid=True,
     )
     assert result is not None and len(models) == 2
     result, models = await _ask(
         [RuntimeError("provider down"), _TODO],
-        schema=TodoExtractionResult,
+        schema=_ActionList,
         allow_fallback=False,
         fallback_on_invalid=True,
     )
@@ -113,11 +117,9 @@ async def test_a_bare_list_for_a_schema_without_one_is_counted(structured_invali
 
 
 @pytest.mark.asyncio
-async def test_background_extractions_and_the_search_classifier_retry_bad_output() -> None:
-    """Memory and to-do extraction and the search classifier ask once more on bad JSON."""
+async def test_memory_extraction_retries_bad_output() -> None:
+    """Memory extraction asks once more on bad JSON."""
     from app.modules.memory import llm as memory_llm
-    from app.modules.todos import extract as todo_extract
-    from app.modules.web_search import classify
 
     calls: list[dict[str, object]] = []
 
@@ -125,19 +127,7 @@ async def test_background_extractions_and_the_search_classifier_retry_bad_output
         calls.append(kwargs)
         return None
 
-    with (
-        patch.object(litellm_gateway, "complete_structured", complete),
-        patch.object(classify, "get_redis_client", MagicMock()),
-        patch.object(
-            classify.quota_service, "global_spend_exceeded", AsyncMock(return_value=False)
-        ),
-    ):
+    with patch.object(litellm_gateway, "complete_structured", complete):
         await memory_llm.revise_memory_facts(_SETTINGS, "user: I moved to Lisbon")
-        await todo_extract.extract_todo_actions(_SETTINGS, "user: remind me", [])
-        await classify.classify_web_search_need(_SETTINGS, "who won the match last night?")
     by_schema = {getattr(call["schema"], "__name__", ""): call for call in calls}
     assert by_schema["MemoryFactUpdateResult"]["fallback_on_invalid"] is True
-    assert by_schema["TodoExtractionResult"]["fallback_on_invalid"] is True
-    classifier = by_schema["WebSearchClassification"]
-    assert classifier["fallback_on_invalid"] is True
-    assert classifier["allow_fallback"] is False

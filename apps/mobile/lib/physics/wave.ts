@@ -13,7 +13,7 @@
 
 import { finiteNumber } from "@/lib/physics/optics";
 
-export type WaveEnd = "none" | "fixed" | "open" | "closed";
+type WaveEnd = "none" | "fixed" | "open" | "closed";
 
 const WAVE_ENDS: readonly WaveEnd[] = ["none", "fixed", "open", "closed"];
 

@@ -17,6 +17,7 @@ from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.ids import uuid7
 from app.gateways.litellm_gateway import ModelUnavailableError
+from app.models import model_catalog
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.finalize_registry import mark_pending_finalize, register_pending_finalize
 from app.modules.chat.post_turn import enqueue_post_turn_jobs
@@ -36,7 +37,6 @@ from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
 from app.modules.chat.turn_resources import TurnResources
 from app.modules.chat.turn_settle import finalize_stream_turn_db
 from app.modules.images.answer_photo import AnswerPhoto
-from app.services import model_catalog
 from app.services import quota as quota_service
 
 logger = logging.getLogger(__name__)

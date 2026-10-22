@@ -12,7 +12,7 @@ import pytest
 
 from app.modules.math.solve.parse import _parse_expression
 from app.modules.math.tools.extract import extract_math_intent
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 @pytest.mark.parametrize(
@@ -21,7 +21,7 @@ from app.services.solving import MathServiceError
 )
 def test_a_number_past_the_limit_is_refused(expr: str) -> None:
     start = time.perf_counter()
-    with pytest.raises(MathServiceError, match="out of range"):
+    with pytest.raises(SolveServiceError, match="out of range"):
         _parse_expression(expr, ["x"])
     assert time.perf_counter() - start < 0.5
 

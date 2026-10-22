@@ -74,12 +74,12 @@ from app.modules.math.solve.statistics import compute_bivariate_statistics
 from app.modules.math.solve.systems import solve_system
 from app.modules.math.solve.written_names import defined_variable
 from app.services.solving import (
-    MathServiceError as MathServiceError,
+    SolveServiceError as SolveServiceError,
 )
 
 __all__ = [
     "_SAFE_EXPR_CHARS",
-    "MathServiceError",
+    "SolveServiceError",
     "_normalize_latex_to_sympy",
     "_parse_expression",
     "build_ellipse_graph_spec",

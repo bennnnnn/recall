@@ -21,6 +21,8 @@ from app.gateways.storage_gateway import (
     UnconfiguredStorageGateway,
     get_storage_gateway,
 )
+from app.models.model_catalog import get as get_model
+from app.models.model_catalog import openrouter_slug
 from app.models.orm import Attachment, Message, User
 from app.modules.attachments import service as attachments_repo
 from app.modules.attachments.service import (
@@ -35,8 +37,6 @@ from app.modules.images.turn_references import shown_in_chat, turn_reference_ids
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import quota as quota_service
-from app.services.model_catalog import get as get_model
-from app.services.model_catalog import openrouter_slug
 from app.services.quota import counters
 
 logger = logging.getLogger(__name__)

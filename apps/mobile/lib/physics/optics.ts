@@ -12,7 +12,7 @@
  * right. An `interface` is the line y = 0 instead, with its normal along x = 0.
  */
 
-export type OpticsElement =
+type OpticsElement =
   | "converging_lens"
   | "diverging_lens"
   | "concave_mirror"
@@ -29,12 +29,12 @@ const OPTICS_ELEMENTS: readonly OpticsElement[] = [
   "interface",
 ];
 
-export type WorldPoint = { x: number; y: number };
+type WorldPoint = { x: number; y: number };
 
 /** An object or an image standing on the axis; a negative height is inverted. */
 export type OpticsArrow = { x: number; height: number; label?: string; virtual: boolean };
 
-export type OpticsRay = { points: WorldPoint[]; virtual: boolean };
+type OpticsRay = { points: WorldPoint[]; virtual: boolean };
 
 export type OpticsSpec = {
   element: OpticsElement;

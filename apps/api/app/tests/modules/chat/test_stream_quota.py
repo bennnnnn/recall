@@ -143,7 +143,6 @@ async def test_stream_chat_response_refunds_on_cancelled_error():
 @pytest.mark.asyncio
 async def test_stream_chat_response_reserves_max_output_ceiling():
     user = _pro_user()
-    user.response_style = "detailed"
     redis = AsyncMock()
     reserve = AsyncMock(return_value=3400)
 
@@ -176,8 +175,7 @@ async def test_stream_chat_response_reserves_max_output_ceiling():
         ):
             pass
 
-    # No style-based cap anymore — reserve against the single ceiling
-    # (settings.max_output_tokens), regardless of response_style.
+    # No style-based cap: reserve against the single ceiling (settings.max_output_tokens).
     assert reserve.await_args.kwargs["max_output"] == 1200
 
 

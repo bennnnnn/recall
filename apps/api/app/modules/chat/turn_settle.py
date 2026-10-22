@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.db import SessionLocal
+from app.models import model_catalog
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import service as attachments_service
 from app.modules.chat.finalize_registry import clear_pending_finalize
@@ -26,7 +27,6 @@ from app.modules.chat.turn_prep import StreamContext
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
-from app.services import model_catalog
 from app.services import quota as quota_service
 from app.services.context_window import estimate_tokens
 from app.services.quota import utc_today

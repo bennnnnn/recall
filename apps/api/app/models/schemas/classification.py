@@ -1,14 +1,6 @@
-"""What a small model classifier returns (validated before use, Golden Rule 6)."""
+"""What a small model call returns about the conversation (validated before use, Golden Rule 6)."""
 
 from pydantic import BaseModel, Field
-
-
-class WebSearchClassification(BaseModel):
-    needs_search: bool
-    query: str | None = Field(
-        default=None,
-        description="Concise web search query when needs_search is true",
-    )
 
 
 class ConversationReference(BaseModel):

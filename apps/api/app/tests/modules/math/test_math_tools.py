@@ -2490,7 +2490,7 @@ async def test_augment_prompt_math_service_error_injects_unverified_note(
     settings = Settings(math_tools_enabled=True)
 
     def boom(intent, settings):  # type: ignore[no-untyped-def]
-        raise math_tools.math_solve.MathServiceError("unsafe expr")
+        raise math_tools.math_solve.SolveServiceError("unsafe expr")
 
     monkeypatch.setattr(math_tools, "_build_verified_block", boom)
 

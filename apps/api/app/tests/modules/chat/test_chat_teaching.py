@@ -374,12 +374,11 @@ def test_short_reply_to_a_lesson_is_not_lightweight():
     assert is_lightweight_chat_turn("thanks", prior_assistant=LESSON_ONE) is True
 
 
-def _user(style="balanced"):
+def _user():
     user = MagicMock()
     user.name = "Bini"
     user.email = "bini@example.com"
     user.location = None
-    user.response_style = style
     user.response_tone = None
     user.memory_enabled = True
     user.locale = "en"

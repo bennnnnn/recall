@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -9,13 +9,12 @@ from app.core.deps import get_current_user, get_settings_dep
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.models.orm import Memory, User
-from app.models.schemas import MemoryOut, MemoryType, MemoryUpdate
+from app.models.schemas import MemoryOut, MemoryUpdate
 from app.modules import memory as memory_service
 from app.modules.memory import documents as documents_service
 from app.modules.memory import enqueue_policy, history_scan
 from app.modules.memory import instruct as instruct_service
 from app.modules.memory.schemas import (
-    MEMORY_FACT_TEXT_MAX_LENGTH,
     MemoryDocumentOut,
     MemoryDocumentsOut,
     MemoryInstructIn,
@@ -143,19 +142,6 @@ async def instruct_memory(
     )
 
 
-@router.post("/consolidate", status_code=status.HTTP_202_ACCEPTED)
-async def consolidate_memories(
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> dict[str, str]:
-    result = await enqueue_policy.request_user_consolidation(
-        session,
-        get_redis_client(),
-        user,
-    )
-    return {"status": result}
-
-
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_all_memories(
     user: User = Depends(get_current_user),
@@ -165,20 +151,6 @@ async def delete_all_memories(
         await memory_service.delete_all_memories(session, user.id)
     except memory_service.MemoryWriteLockBusyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
-
-
-@router.delete("/type/{memory_type}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_memory_section(
-    memory_type: MemoryType,
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> None:
-    try:
-        deleted = await memory_service.delete_memory_section(session, user.id, memory_type)
-    except memory_service.MemoryWriteLockBusyError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
-    if not deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
 
 
 @router.patch("/{memory_id}", response_model=MemoryOut)
@@ -217,24 +189,3 @@ async def delete_memory(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
-
-
-@router.delete("/{memory_id}/facts/{fact_index}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_memory_fact(
-    memory_id: UUID,
-    fact_index: int,
-    fact_text: str | None = Query(default=None, max_length=MEMORY_FACT_TEXT_MAX_LENGTH),
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-    settings: Settings = Depends(get_settings_dep),
-) -> None:
-    if fact_index < 0:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid fact index")
-    try:
-        deleted = await memory_service.delete_memory_fact(
-            session, settings, user.id, memory_id, fact_index, expected_text=fact_text
-        )
-    except memory_service.MemoryWriteLockBusyError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
-    if not deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory fact not found")

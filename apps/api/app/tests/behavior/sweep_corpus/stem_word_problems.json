@@ -627,7 +627,8 @@
   "prompt": "price of a casio fx-991es plus calculator in addis these days?",
   "history": [],
   "reply": "From current listings in Addis Ababa, a **Casio fx-991ES PLUS** is going for roughly **2,500–3,500 birr**, depending on the shop and whether it's the 2nd edition. Stationery shops around Piassa and Merkato tend to be cheaper than malls in Bole.\n\n⚠️ Watch out for fakes: check the solar panel works, the font on the keys is sharp, and the box has the Casio hologram sticker.",
-  "expect": "search"
+  "expect": "search",
+  "gap": "Production never searches this: the LLM classifier that decided these was off in production (fly.toml), and the deterministic gate does not catch it. Needs a routing decision (search on live cues, or a model round)."
  },
  {
   "id": "s2-062",

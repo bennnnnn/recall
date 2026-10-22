@@ -3,7 +3,7 @@
 import pytest
 
 from app.core.config import Settings
-from app.services import model_catalog
+from app.models import model_catalog
 from app.services.rate_problems import is_multi_step_rate_problem
 from app.services.routing import message_needs_thinking, route_chat_model
 

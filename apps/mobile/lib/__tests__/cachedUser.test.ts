@@ -29,7 +29,6 @@ const user: User = {
   default_model: "smart-chat",
   plan: "free",
   enabled_models: null,
-  response_style: "balanced",
   response_tone: "neutral",
   memory_enabled: true,
   push_notifications_enabled: true,

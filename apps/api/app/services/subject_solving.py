@@ -223,10 +223,9 @@ def _direct_physics(
     user_text: str,
     *,
     has_image_attachment: bool,
-    response_style: str,
     verified_request_text: str | None,
 ) -> str | None:
-    del response_style, verified_request_text
+    del verified_request_text
     if not isinstance(verified, VerifiedPhysicsBlock):
         return None
     from app.modules.physics.direct import maybe_direct_physics_reply
@@ -273,7 +272,6 @@ def _direct_math(
     user_text: str,
     *,
     has_image_attachment: bool,
-    response_style: str,
     verified_request_text: str | None,
 ) -> str | None:
     if not isinstance(verified, VerifiedMathBlock):
@@ -284,7 +282,6 @@ def _direct_math(
         verified,
         user_text,
         has_image_attachment=has_image_attachment,
-        response_style=response_style,
         verified_request_text=verified_request_text,
     )
 
@@ -331,10 +328,9 @@ def _direct_chemistry(
     user_text: str,
     *,
     has_image_attachment: bool,
-    response_style: str,
     verified_request_text: str | None,
 ) -> str | None:
-    del response_style, verified_request_text
+    del verified_request_text
     from app.modules.chemistry.block import VerifiedChemistry
     from app.modules.chemistry.direct import maybe_direct_chemistry_reply
 
@@ -430,7 +426,6 @@ def maybe_direct_subject_reply(
     user_text: str,
     *,
     has_image_attachment: bool = False,
-    response_style: str = "balanced",
     verified_request_text: str | None = None,
 ) -> str | None:
     if verified is None:
@@ -442,6 +437,5 @@ def maybe_direct_subject_reply(
         verified,
         user_text,
         has_image_attachment=has_image_attachment,
-        response_style=response_style,
         verified_request_text=verified_request_text,
     )
