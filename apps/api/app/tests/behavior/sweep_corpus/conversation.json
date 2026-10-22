@@ -358,5 +358,46 @@
   "history": [],
   "reply": "- [ ] Reread the cell chapter\n- [ ] Draw mitosis from memory\n- [ ] Do the end-of-chapter questions",
   "expect": "answer"
+ },
+ {
+  "id": "cv-040",
+  "area": "clarify lookalike",
+  "prompt": "Name: Abebe Kebede\nAge: 29\nCity: Addis Ababa",
+  "history": [],
+  "reply": "Nice to meet you, Abebe! Anything I can help you with in Addis?",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-041",
+  "area": "clarify lookalike",
+  "prompt": "Subject: Rent increase\nTo: my landlord",
+  "history": [],
+  "reply": "Do you want me to draft that email to your landlord about the rent increase? Tell me what you'd like to say.",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-042",
+  "area": "clarify lookalike",
+  "prompt": "Ingredients: flour, sugar, eggs\nTime: 30 minutes",
+  "history": [],
+  "reply": "You can make simple pancakes: whisk the eggs and sugar, fold in the flour, and cook on a hot pan.",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-043",
+  "area": "clarify lookalike",
+  "prompt": "what about double integrals?",
+  "history": [
+   [
+    "user",
+    "how can I understand integrals"
+   ],
+   [
+    "assistant",
+    "Two quick questions:\n\n```clarify\n{\"when\": \"first\", \"questions\": [{\"id\": \"level\", \"label\": \"Studied it before\", \"question\": \"Have you studied integrals before?\", \"options\": [\"No, never\", \"A little\", \"Yes, I'm revising\"], \"multi\": false}]}\n```"
+   ]
+  ],
+  "reply": "A double integral adds up a function over an area instead of along a line.",
+  "expect": "answer"
  }
 ]

@@ -123,9 +123,7 @@ def test_a_card_with_no_when_is_first_unless_it_follows_an_answer(
 
 def test_one_card_only_and_it_moves_under_the_answer() -> None:
     second = {"when": "after", "questions": [_GOAL]}
-    text = (
-        f"{_fence({'when': 'after', 'questions': [_LEVEL]})}\n\n{_ANSWER}\n\n{_fence(second)}"
-    )
+    text = f"{_fence({'when': 'after', 'questions': [_LEVEL]})}\n\n{_ANSWER}\n\n{_fence(second)}"
     settled = settle_clarify_cards(text, allowed=True)
     assert settled.count("```clarify") == 1
     assert settled.startswith(_ANSWER)

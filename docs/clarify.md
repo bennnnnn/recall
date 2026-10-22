@@ -25,8 +25,11 @@ user on 2026-10-22.
 
 - Each question shows its choices; a question may allow several picks.
 - Every question ends with **Other…**, which opens a short text field.
-- **Submit** is enabled once every question has an answer. **Skip** sends "just answer" and
-  Recall answers with its best general reading. Typing a normal message instead also skips.
+- **Submit** is enabled once every question has an answer. **Skip** sends "Just answer" (in
+  the app's language) and Recall answers with its best general reading. Typing a normal
+  message instead also skips. The server needs no word list for it: any message after a
+  card that is not the picks gets the same hint (answer the request now, do not ask again;
+  a new question is answered as asked).
 - After Submit or Skip the card stays, read-only, with the picks ticked.
 
 ## What is sent
@@ -70,8 +73,8 @@ plain prose. JSON, one object:
 
 | Part | Path |
 |------|------|
-| When to ask, and the card's shape (prompt) | `apps/api/app/modules/chat/prompt_constants/clarify.py` |
-| Check and normalise the fence (finalize pass) | `apps/api/app/modules/chat/clarify_card.py` |
-| The card in history, and the turn after a submit | `apps/api/app/modules/chat/prompt_window.py`, turn prep |
+| When to ask, the card's shape, the next turn's hints (prompt) | `apps/api/app/modules/chat/prompt_constants/clarify.py` |
+| Check and normalise the fence (finalize pass `clarify_card`) | `apps/api/app/modules/chat/clarify_card.py`, `finalize_text.settle_clarify` |
+| The card in history, and the turn after a card | `apps/api/app/modules/chat/clarify_turn.py` (read by `prompt_window.py`, `prompt_sections.py`, `turn_prep/mode.py`) |
 | The card | `apps/mobile/components/rich/ClarifyCard.tsx` |
 | The sent message | `apps/mobile/lib/clarify/` |

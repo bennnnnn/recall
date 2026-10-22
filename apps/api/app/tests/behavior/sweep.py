@@ -109,6 +109,8 @@ LOOKALIKE_HINTS = {
     "chart lookalike": "chart",
     "quiz lookalike": "quiz",
     "checklist lookalike": "checklist",
+    # "Label: value" lines with no card before them are not picks.
+    "clarify lookalike": "clarify_picks",
 }
 # Reminders already saved, so "mark call mom as done" has something to find.
 SEEDED = ("call mom", "dentist appointment", "gym", "pay rent", "read", "water the plants")
