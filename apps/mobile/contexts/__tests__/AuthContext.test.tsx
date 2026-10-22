@@ -5,7 +5,9 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 import { AuthProvider, useAuth, useAuthUserReader } from "@/contexts/AuthContext";
 import { api, loginWithDev, logoutSession, setTokenRefreshHandler, type User } from "@/lib/api";
 import { getToken, setTokenPair } from "@/lib/auth";
-import { readCachedUser, writeCachedUser } from "@/lib/cachedUser";
+import { cachedUserMatchesToken, clearCachedUser, readCachedUser, writeCachedUser } from "@/lib/cachedUser";
+import { ensureLocale } from "@/lib/i18n";
+import { forgetSyncRecords } from "@/lib/syncRecords";
 
 jest.mock("@/lib/api", () => ({
   api: { me: jest.fn(), updateMe: jest.fn() },
@@ -36,6 +38,7 @@ jest.mock("@/hooks/useBootstrapSync", () => ({ useBootstrapSync: jest.fn() }));
 jest.mock("@/lib/apple-auth", () => ({ signInWithAppleCredentials: jest.fn() }));
 jest.mock("@/lib/google-auth", () => ({ signInWithGoogleIdToken: jest.fn(), signOutGoogle: jest.fn() }));
 jest.mock("@/lib/signOutCleanup", () => ({ clearSignedOutAccount: jest.fn() }));
+jest.mock("@/lib/syncRecords", () => ({ forgetSyncRecords: jest.fn(async () => undefined) }));
 
 const userA = { id: "account-a", name: "Alice", locale: "en" } as User;
 const userB = { id: "account-b", name: "Bob", locale: "en" } as User;
@@ -343,4 +346,81 @@ it("restores an unvalidated cache flag when a failed edit rolls back after token
   await act(async () => { update.reject(new Error("offline")); await pending; me.resolve(verified); });
   expect(current.user).toEqual(userA);
   expect(useBootstrapSync.mock.calls.at(-1)[0]).toEqual(expect.objectContaining({ token: null, user: null }));
+});
+
+describe("launch restore", () => {
+  it("reports the restore from the cache before /auth/me answers", async () => {
+    const me = deferred<User>();
+    (api.me as jest.Mock).mockReturnValue(me.promise);
+    const onRestored = jest.fn();
+    await render(<AuthProvider onRestored={onRestored}><Probe /></AuthProvider>);
+    expect(onRestored).toHaveBeenCalled();
+    expect(current.user?.id).toBe(userA.id);
+    expect(current.profileValidated).toBe(false);
+
+    await act(async () => { me.resolve(userA); });
+    expect(current.profileValidated).toBe(true);
+  });
+
+  it("reports a signed-out launch, and one whose restore failed, so the splash can go", async () => {
+    (getToken as jest.Mock).mockResolvedValueOnce(null);
+    const signedOut = jest.fn();
+    const first = await render(<AuthProvider onRestored={signedOut}><Probe /></AuthProvider>);
+    expect(signedOut).toHaveBeenCalled();
+    await first.unmount();
+
+    (readCachedUser as jest.Mock).mockResolvedValue(null);
+    (api.me as jest.Mock).mockRejectedValue(new Error("offline"));
+    const failed = jest.fn();
+    await render(<AuthProvider onRestored={failed}><Probe /></AuthProvider>);
+    expect(failed).toHaveBeenCalled();
+  });
+
+  it("waits for /auth/me without a cached account", async () => {
+    const me = deferred<User>();
+    (readCachedUser as jest.Mock).mockResolvedValue(null);
+    (api.me as jest.Mock).mockReturnValue(me.promise);
+    const onRestored = jest.fn();
+    await render(<AuthProvider onRestored={onRestored}><Probe /></AuthProvider>);
+    expect(onRestored).not.toHaveBeenCalled();
+    await act(async () => { me.resolve(userA); });
+    expect(onRestored).toHaveBeenCalled();
+  });
+});
+
+describe("a cache that is not this sign-in's", () => {
+  it("is cleared, and its language with it, when nobody is signed in", async () => {
+    (getToken as jest.Mock).mockResolvedValueOnce(null);
+    (readCachedUser as jest.Mock).mockResolvedValue({ ...userA, locale: "de" });
+    await mount();
+    expect(clearCachedUser).toHaveBeenCalled();
+    expect(ensureLocale).toHaveBeenCalledWith("en");
+    expect(current.user).toBeNull();
+  });
+
+  it("is cleared when it belongs to another account than the stored token", async () => {
+    (cachedUserMatchesToken as jest.Mock).mockReturnValueOnce(false);
+    (readCachedUser as jest.Mock).mockResolvedValue({ ...userB, locale: "de" });
+    await mount();
+    expect(clearCachedUser).toHaveBeenCalled();
+    expect(ensureLocale).toHaveBeenCalledWith("en");
+    expect(current.user?.id).toBe(userA.id);
+  });
+
+  it("is kept for the signed-in account", async () => {
+    const german = { ...userA, locale: "de" };
+    (readCachedUser as jest.Mock).mockResolvedValue(german);
+    (api.me as jest.Mock).mockResolvedValue(german);
+    await mount();
+    expect(clearCachedUser).not.toHaveBeenCalled();
+    expect(ensureLocale).not.toHaveBeenCalledWith("en");
+  });
+});
+
+it("forgets the push and location sync records when an account signs in", async () => {
+  (getToken as jest.Mock).mockResolvedValueOnce(null);
+  await mount();
+  await act(async () => { await current.signInWithDev(); });
+  expect(forgetSyncRecords).toHaveBeenCalledTimes(1);
+  expect(current.user?.id).toBe(userB.id);
 });

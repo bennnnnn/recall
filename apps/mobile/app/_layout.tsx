@@ -2,9 +2,6 @@ import "@/lib/i18n";
 
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
-import { useFonts } from "expo-font";
-import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { InteractionManager, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -22,6 +19,10 @@ import { PushNotificationBootstrap } from "@/components/PushNotificationBootstra
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { stackBackOptions } from "@/ui/controls/StackBackButton";
 import { DialogHost } from "@/ui/overlay/DialogHost";
+import { preloadSimulationSizing } from "@/components/rich/LazyHeavyRich";
+import { useLaunchFonts } from "@/hooks/useLaunchFonts";
+import { restoreLaunchPrefs } from "@/lib/launchPrefs";
+import { markLaunchReady } from "@/lib/launchSplash";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { useStackHeaderOptions } from "@/lib/stackHeader";
 import {
@@ -32,9 +33,11 @@ import {
 } from "@/lib/stackTransitions";
 import { initMobileSentry } from "@/lib/sentry";
 import { useTheme } from "@/lib/theme";
-import { UI_FONT } from "@/lib/uiFont";
 
-SplashScreen.preventAutoHideAsync().catch(() => {});
+// Before the first render: the user's appearance, accent and language.
+void restoreLaunchPrefs().then(() => markLaunchReady("prefs"));
+
+const markSessionRestored = () => markLaunchReady("session");
 
 function RootNavigator() {
   const { t } = useTranslation();
@@ -98,29 +101,13 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
-  useFonts({
-    SpaceMono: SpaceMono_400Regular,
-    KaTeX_Main: require("katex/dist/fonts/KaTeX_Main-Regular.ttf"),
-    KaTeX_MathItalic: require("katex/dist/fonts/KaTeX_Math-Italic.ttf"),
-    KaTeX_AMS: require("katex/dist/fonts/KaTeX_AMS-Regular.ttf"),
-    // ∬ ∭ ∮ on the math keyboard live only in this face.
-    KaTeX_Size1: require("katex/dist/fonts/KaTeX_Size1-Regular.ttf"),
-    [UI_FONT.regular]: require("@expo-google-fonts/source-sans-3/400Regular/SourceSans3_400Regular.ttf"),
-    [UI_FONT.medium]: require("@expo-google-fonts/source-sans-3/500Medium/SourceSans3_500Medium.ttf"),
-    [UI_FONT.semibold]: require("@expo-google-fonts/source-sans-3/600SemiBold/SourceSans3_600SemiBold.ttf"),
-    [UI_FONT.bold]: require("@expo-google-fonts/source-sans-3/700Bold/SourceSans3_700Bold.ttf"),
-    [UI_FONT.italic]: require("@expo-google-fonts/source-sans-3/400Regular_Italic/SourceSans3_400Regular_Italic.ttf"),
-    [UI_FONT.semiboldItalic]: require("@expo-google-fonts/source-sans-3/600SemiBold_Italic/SourceSans3_600SemiBold_Italic.ttf"),
-    [UI_FONT.boldItalic]: require("@expo-google-fonts/source-sans-3/700Bold_Italic/SourceSans3_700Bold_Italic.ttf"),
-  });
+  const fontsReady = useLaunchFonts();
 
-  useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {});
-  }, []);
-
+  // Work for later in the session, once the launch has settled.
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
-      initMobileSentry();
+      void initMobileSentry();
+      preloadSimulationSizing();
     });
     return () => task.cancel();
   }, []);
@@ -129,19 +116,21 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.root}>
       <AppearanceProvider>
         <ActionFeedbackProvider>
-          <AuthProvider>
-            <ModelsProvider>
-              <TodosProvider>
-                <HomeProvider>
-                  <NetworkProvider>
-                    <PushNotificationBootstrap />
-                    <AiConsentRedirect />
-                    <RootNavigator />
-                    <DialogHost />
-                  </NetworkProvider>
-                </HomeProvider>
-              </TodosProvider>
-            </ModelsProvider>
+          <AuthProvider onRestored={markSessionRestored}>
+            {fontsReady ? (
+              <ModelsProvider>
+                <TodosProvider>
+                  <HomeProvider>
+                    <NetworkProvider>
+                      <PushNotificationBootstrap />
+                      <AiConsentRedirect />
+                      <RootNavigator />
+                      <DialogHost />
+                    </NetworkProvider>
+                  </HomeProvider>
+                </TodosProvider>
+              </ModelsProvider>
+            ) : null}
           </AuthProvider>
         </ActionFeedbackProvider>
       </AppearanceProvider>

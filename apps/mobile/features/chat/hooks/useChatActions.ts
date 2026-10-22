@@ -4,8 +4,7 @@ import type { IconName } from "@/ui/icons/names";
 
 import { api, type Message } from "@/lib/api";
 import { patchCachedChatMessage } from "@/features/chat/model/messageCache";
-import { exportConversationAsPdf } from "@/features/chat/model/exportMessagePdf";
-import { isShareCancelled } from "@/lib/exportPdf";
+import { isShareCancelled } from "@/lib/shareCancelled";
 import { tap } from "@/lib/haptics";
 import { useChatManagementActions } from "@/features/chat/hooks/useChatManagementActions";
 import { fullEmailText } from "@/features/drafts/model/emailCompose";
@@ -142,7 +141,11 @@ export function useChatActions({
   const handleExportPdf = useCallback(async () => {
     showActionBanner(t("chat.status.preparing"), "file-text");
     try {
-      const transcript = await loadTranscriptMessages();
+      // KaTeX, its stylesheet and expo-print load when a PDF is asked for, not with the chat.
+      const [transcript, { exportConversationAsPdf }] = await Promise.all([
+        loadTranscriptMessages(),
+        import("@/features/chat/model/exportMessagePdf"),
+      ]);
       dismissActionBanner();
       await exportConversationAsPdf(chatTitle, transcript);
     } catch (error) {

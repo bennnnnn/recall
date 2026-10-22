@@ -5,37 +5,49 @@ import en from "./en.json";
 
 type LocaleBundle = typeof en;
 
-const LOCALE_LOADERS: Record<string, () => Promise<{ default: LocaleBundle }>> = {
-  es: () => import("./es.json"),
-  fr: () => import("./fr.json"),
-  de: () => import("./de.json"),
-  it: () => import("./it.json"),
-  pt: () => import("./pt.json"),
-  ru: () => import("./ru.json"),
-  tr: () => import("./tr.json"),
-  am: () => import("./am.json"),
+// Each bundle is evaluated only when its language is first used. The require
+// is synchronous so the launch language can be in place before the first frame.
+const LOCALE_BUNDLES: Record<string, () => LocaleBundle> = {
+  es: () => require("./es.json") as LocaleBundle,
+  fr: () => require("./fr.json") as LocaleBundle,
+  de: () => require("./de.json") as LocaleBundle,
+  it: () => require("./it.json") as LocaleBundle,
+  pt: () => require("./pt.json") as LocaleBundle,
+  ru: () => require("./ru.json") as LocaleBundle,
+  tr: () => require("./tr.json") as LocaleBundle,
+  am: () => require("./am.json") as LocaleBundle,
 };
 
 const loadedLocales = new Set<string>(["en"]);
 
+/** The supported code for a preference ("en" for unknown), its bundle added. */
+function addLocale(lng: string): string {
+  const code = lng.trim() || "en";
+  if (loadedLocales.has(code)) return code;
+  const bundle = LOCALE_BUNDLES[code];
+  if (!bundle) return "en";
+  i18n.addResourceBundle(code, "translation", bundle(), true, true);
+  loadedLocales.add(code);
+  return code;
+}
+
 /** Boot English only. Other locales load when the user preference is not `en`. */
 export async function ensureLocale(lng: string): Promise<void> {
-  const code = lng.trim() || "en";
-  if (code === "en") {
-    await i18n.changeLanguage("en");
-    return;
-  }
-  if (!loadedLocales.has(code)) {
-    const load = LOCALE_LOADERS[code];
-    if (!load) {
-      await i18n.changeLanguage("en");
-      return;
-    }
-    const mod = await load();
-    i18n.addResourceBundle(code, "translation", mod.default, true, true);
-    loadedLocales.add(code);
-  }
+  const code = addLocale(lng);
+  // Already in it (the launch language, say): a change event would re-render
+  // every translated component for the same words.
+  if (code === i18n.language) return;
   await i18n.changeLanguage(code);
+}
+
+/**
+ * Before the first render: the language the cached account last used
+ * (`lib/launchPrefs.ts`). The bundle is already in, so the switch takes
+ * effect at once and the first frame is drawn in it.
+ */
+export function startLocale(lng: string): void {
+  const code = addLocale(lng);
+  if (code !== i18n.language) void i18n.changeLanguage(code);
 }
 
 i18n.use(initReactI18next).init({

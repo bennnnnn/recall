@@ -70,6 +70,12 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const inflightRef = useRef<Promise<void> | null>(null);
   const lastFetchedAtRef = useRef<number>(0);
+  // The catalog is the account's: a refresh reads the newest access token, so
+  // the hourly token rotation (or the refresh after a launch on an expired
+  // one) does not fetch it again.
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+  const signedIn = Boolean(token);
 
   // Paint the last catalog this account fetched, unless /models already answered.
   useEffect(() => {
@@ -87,7 +93,8 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
   }, [userId]);
 
   const refresh = useCallback(async () => {
-    if (!token || !userId) return;
+    const accessToken = tokenRef.current;
+    if (!signedIn || !accessToken || !userId) return;
     if (inflightRef.current) {
       await inflightRef.current;
       return;
@@ -96,7 +103,7 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
     const session = getSessionGeneration();
     const task = (async () => {
       try {
-        const fetched = await api.listModels(token);
+        const fetched = await api.listModels(accessToken);
         // A list that lands after signout is neither shown nor kept.
         if (session !== getSessionGeneration()) return;
         if (fetched.length > 0) {
@@ -116,14 +123,14 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
     } finally {
       inflightRef.current = null;
     }
-  }, [token, userId]);
+  }, [signedIn, userId]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!signedIn) return;
     const onAppState = (state: AppStateStatus) => {
       if (
         state === "active" &&
@@ -134,7 +141,7 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
     };
     const sub = AppState.addEventListener("change", onAppState);
     return () => sub.remove();
-  }, [refresh, token]);
+  }, [refresh, signedIn]);
 
   // Paid plans (Plus and Pro) unlock every model; the server enforces it.
   const isPaid = hasPlanFeature(user, "all_models");

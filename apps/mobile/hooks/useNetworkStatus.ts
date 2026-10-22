@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 
@@ -9,6 +9,17 @@ import {
 } from "@/lib/networkProbe";
 
 const OFFLINE_POLL_MS = 1_500;
+
+/**
+ * The address the link has, where the OS gives it without extra permission
+ * (Wi-Fi and Ethernet): a switch straight from one Wi-Fi network to another
+ * is a new link, though its type stays "wifi".
+ */
+function linkAddress(state: NetInfoState): string {
+  const details = state.details;
+  const address = details && "ipAddress" in details ? details.ipAddress : null;
+  return typeof address === "string" ? address : "";
+}
 
 export function useNetworkStatus(): {
   isOffline: boolean;
@@ -22,26 +33,43 @@ export function useNetworkStatus(): {
   const probeGen = useRef(0);
 
   useEffect(() => {
-    const runProbe = () => {
+    // The probe whose answer is still to come, if any.
+    let pendingGen: number | null = null;
+    // NetInfo repeats its report: once per subscription at launch, and again
+    // after each probe's own refresh. Only a change of link, or the OS saying
+    // the internet is unreachable, is news; its reachability check settling
+    // to "reachable" just after launch is not.
+    let lastLink: string | null = null;
+    let lastOffline: boolean | null = null;
+
+    /** Each probe is two requests; `join` lets one already running answer. */
+    const runProbe = (join: boolean) => {
+      if (join && pendingGen !== null) return;
       const gen = ++probeGen.current;
+      pendingGen = gen;
       void resolveConnectivity().then((next) => {
         if (gen !== probeGen.current) return;
+        pendingGen = null;
         setStatus(next);
       });
     };
 
     const onNetInfo = (state: NetInfoState) => {
-      // Link up: drop a stale "No internet" banner immediately (iOS often
-      // leaves isInternetReachable stuck false). Still probe — connected
-      // Wi-Fi can be a captive portal or the API can be down.
-      if (!isNetworkOffline(state)) {
-        setStatus((prev) => (prev === "no_internet" ? "online" : prev));
-        runProbe();
-        return;
-      }
-      // Offline from NetInfo is often stale after reconnect. Never flip
-      // no_internet on from a raw event — confirm via probe.
-      runProbe();
+      const offline = isNetworkOffline(state);
+      const link = `${state.type}:${offline}:${state.isInternetReachable === false}:${linkAddress(state)}`;
+      if (link === lastLink) return;
+      // The link coming back up drops a stale "No internet" banner at once (iOS
+      // often leaves isInternetReachable stuck false). A report on a link that
+      // stayed up does not: on Wi-Fi with no internet behind it, the probe that
+      // just found that triggers one. Offline from NetInfo is often stale after
+      // reconnect, so it never flips the banner on by itself.
+      const cameUp = lastOffline === true && !offline;
+      lastLink = link;
+      lastOffline = offline;
+      if (cameUp) setStatus((prev) => (prev === "no_internet" ? "online" : prev));
+      // Still probe a new link: connected Wi-Fi can be a captive portal or the
+      // API can be down. A probe started on the old link is superseded.
+      runProbe(false);
     };
 
     void NetInfo.fetch().then(onNetInfo);
@@ -49,7 +77,7 @@ export function useNetworkStatus(): {
 
     const onAppState = (next: AppStateStatus) => {
       setInBackground(next === "background");
-      if (next === "active") runProbe();
+      if (next === "active") runProbe(true);
     };
     const appSub = AppState.addEventListener("change", onAppState);
 
@@ -84,5 +112,6 @@ export function useNetworkStatus(): {
     };
   }, [status, inBackground]);
 
-  return { isOffline: status !== "online", status };
+  // Going to the background and back changes nothing a reader sees.
+  return useMemo(() => ({ isOffline: status !== "online", status }), [status]);
 }

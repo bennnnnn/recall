@@ -3,6 +3,7 @@ import { Alert, Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
+import { exportConversationAsPdf } from "@/features/chat/model/exportMessagePdf";
 import { api, type Message } from "@/lib/api";
 import { insertChatGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
 
@@ -39,10 +40,6 @@ jest.mock("@/features/chat/model/messageCache", () => ({
 
 jest.mock("@/features/chat/model/exportMessagePdf", () => ({
   exportConversationAsPdf: jest.fn(),
-}));
-
-jest.mock("@/lib/exportPdf", () => ({
-  isShareCancelled: jest.fn(() => false),
 }));
 
 jest.mock("@/lib/haptics", () => ({
@@ -147,6 +144,42 @@ describe("useChatActions", () => {
       actions.closeShare();
     });
     expect(actions.shareVisible).toBe(false);
+  });
+
+  it("exports the whole chat as a PDF through the module it loads on demand", async () => {
+    const full = [{ id: "m1", role: "user", content: "hi" }];
+    (api.listAllMessages as jest.Mock).mockResolvedValueOnce(full);
+    await act(async () => {
+      render(<Probe />);
+    });
+
+    await act(async () => {
+      await actions.handleExportPdf();
+    });
+
+    expect(exportConversationAsPdf).toHaveBeenCalledWith("Old title", full);
+    expect(actions.actionBanner).toBeNull();
+    expect(mockFeedbackError).not.toHaveBeenCalled();
+  });
+
+  it("stays quiet when the share sheet is closed, and reports a failed export", async () => {
+    (api.listAllMessages as jest.Mock).mockResolvedValue([]);
+    const exportPdf = exportConversationAsPdf as jest.Mock;
+    exportPdf.mockRejectedValueOnce(new Error("User did not share"));
+    await act(async () => {
+      render(<Probe />);
+    });
+
+    await act(async () => {
+      await actions.handleExportPdf();
+    });
+    expect(mockFeedbackError).not.toHaveBeenCalled();
+
+    exportPdf.mockRejectedValueOnce(new Error("print failed"));
+    await act(async () => {
+      await actions.handleExportPdf();
+    });
+    expect(mockFeedbackError).toHaveBeenCalledWith("chat.export_pdf_failed");
   });
 
   it("shares the whole chat, or what is loaded when the full list fails", async () => {

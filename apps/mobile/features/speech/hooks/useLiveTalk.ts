@@ -17,13 +17,7 @@ import {
   type LiveTalkPhase,
   type LiveTalkStatus,
 } from "@/features/speech/model/liveTalkLogic";
-import { playLiveTalkCue } from "@/features/speech/model/liveTalkSfx";
-import {
-  createRealtimeVoiceSession,
-  isRealtimeVoiceAvailable,
-  type RealtimeVoiceEvent,
-  type RealtimeVoiceSession,
-} from "@/features/speech/model/realtimeVoice";
+import type { RealtimeVoiceEvent, RealtimeVoiceSession } from "@/features/speech/model/realtimeVoice";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 import type { ChatTurnHost } from "@/features/chat/model/turnHost";
@@ -42,6 +36,19 @@ type CompletedTurn = {
 };
 
 const REALTIME_TRANSCRIPT_GRACE_MS = 350;
+
+// The WebRTC session, its turn state and the chimes load when Live Talk is
+// started, not with the chat screen. The hook itself stays static.
+function loadRealtimeVoice() {
+  return import("@/features/speech/model/realtimeVoice");
+}
+
+/** Best-effort, as the cue itself is: a chime that cannot load never fails Live Talk. */
+function playCue(kind: "start" | "end"): Promise<void> {
+  return import("@/features/speech/model/liveTalkSfx")
+    .then(({ playLiveTalkCue }) => playLiveTalkCue(kind))
+    .catch(() => {});
+}
 
 export function useLiveTalk({
   token,
@@ -344,7 +351,7 @@ export function useLiveTalk({
     setMuted(false);
     setPhase("idle");
     setVisible(false);
-    if (shouldCueEnd) void playLiveTalkCue("end");
+    if (shouldCueEnd) void playCue("end");
   }, [captureCurrentTurn, finishTurn, token]);
   closeRef.current = close;
 
@@ -354,7 +361,8 @@ export function useLiveTalk({
       alertForGate("offline");
       return;
     }
-    if (!isRealtimeVoiceAvailable()) {
+    const voice = await loadRealtimeVoice().catch(() => null);
+    if (!voice?.isRealtimeVoiceAvailable()) {
       alertForGate("unavailable");
       return;
     }
@@ -378,9 +386,9 @@ export function useLiveTalk({
       setVisible(true);
       // Finish and release the open chime before getUserMedia. A leftover
       // expo-audio player keeps the session in playback and WebRTC is mute.
-      await playLiveTalkCue("start");
+      await playCue("start");
       if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;
-      const session = await createRealtimeVoiceSession({
+      const session = await voice.createRealtimeVoiceSession({
         token,
         chatId: activeChatId,
         onEvent: handleRealtimeEvent,

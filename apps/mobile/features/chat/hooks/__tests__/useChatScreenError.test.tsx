@@ -4,12 +4,17 @@ import {
   useChatErrorRecovery,
   useChatStreamLifecycle,
 } from "@/features/chat/hooks/useChatScreenError";
+import { useQuotaNudge } from "@/features/chat/hooks/useQuotaNudge";
 
 jest.mock("react-i18next", () => {
   const t = (key: string) => key;
   return { useTranslation: () => ({ t }) };
 });
 jest.mock("@/features/chat/hooks/useQuotaNudge", () => ({ useQuotaNudge: jest.fn() }));
+let mockProfileValidated = false;
+jest.mock("@/contexts/AuthContext", () => ({
+  useAuthOptional: () => ({ profileValidated: mockProfileValidated }),
+}));
 
 it("clears the previous chat's rejection while preserving unrelated errors", async () => {
   const { result } = await renderHook(() => useChatErrorHandlers(false));
@@ -130,4 +135,15 @@ describe("the busy notice and its Stop", () => {
     await rerender({ streamActive: true, replySaving: true });
     expect(result.current.chatError).toEqual({ kind: "generic", message: "Connection lost" });
   });
+});
+
+it("tells the quota nudge whether the plan came from the server yet", async () => {
+  mockProfileValidated = false;
+  const props = { streamActive: false, dismissChatError: jest.fn(), token: "tok", isPaid: false };
+  const { rerender } = await renderHook(() => useChatStreamLifecycle(props));
+  expect(useQuotaNudge).toHaveBeenLastCalledWith({ token: "tok", isPaid: false, planKnown: false, refreshKey: 0 });
+
+  mockProfileValidated = true;
+  await rerender({});
+  expect(useQuotaNudge).toHaveBeenLastCalledWith({ token: "tok", isPaid: false, planKnown: true, refreshKey: 0 });
 });

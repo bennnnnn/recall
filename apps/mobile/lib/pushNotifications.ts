@@ -13,6 +13,8 @@ import {
   TONE_ANDROID_CHANNELS,
 } from "@/lib/notificationChannels";
 import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
+import { devicePushTokenFingerprint } from "@/lib/devicePushToken";
+import { recentSyncAt, recordSync } from "@/lib/syncRecords";
 
 type AppRouter = {
   push: (href: unknown) => void;
@@ -177,6 +179,9 @@ export async function unregisterRemotePushToken(
  * Expo's push service for the token and posted it to our API. After a sync
  * succeeds for this sign-in and setting, later runs only re-check the OS
  * permission (local) until this long has passed; a failure retries next time.
+ * The time is also kept for the account and this install's push token
+ * (`lib/syncRecords.ts`, forgotten at sign-in and sign-out), so a cold start
+ * inside the window does not register again unless the token changed.
  */
 const PUSH_RESYNC_INTERVAL_MS = 12 * 60 * 60_000;
 let lastPushSync: { session: number; enabled: boolean; at: number } | null = null;
@@ -194,8 +199,9 @@ function pushSyncIsFresh(session: number | undefined, enabled: boolean): boolean
 /**
  * `session` is the caller's session generation. Another account signing in
  * on this device rebinds the token, so a sync never counts across sign-ins;
- * without it every run syncs. `feedback` shows a push token failure that is
- * not routine (see reportPushTokenFailure).
+ * without it every run syncs. `account` (the user id) also finds a sync an
+ * earlier launch made for this sign-in. `feedback` shows a push token failure
+ * that is not routine (see reportPushTokenFailure).
  */
 export function attachPushForegroundSync(
   apiToken: string | null,
@@ -203,18 +209,33 @@ export function attachPushForegroundSync(
   onPushPrefChange?: (enabled: boolean) => void,
   session?: number,
   feedback?: ActionFeedbackApi | null,
+  account?: string,
 ): () => void {
   if (!apiToken) return () => {};
 
   const syncNow = async () => {
     const enabled = pushNotificationsEnabled;
+    // The saved record's key: the setting and the token it registered, so a
+    // token the push service rolled since registers again.
+    let savedKey: string | null = null;
+    if (!pushSyncIsFresh(session, enabled) && session !== undefined && account) {
+      const device = await devicePushTokenFingerprint();
+      if (device !== null) {
+        savedKey = `${enabled ? "on" : "off"}:${device}`;
+        const at = await recentSyncAt("push", account, PUSH_RESYNC_INTERVAL_MS, savedKey);
+        if (at !== null) lastPushSync = { session, enabled, at };
+      }
+    }
     if (pushSyncIsFresh(session, enabled)) {
       // Turning the permission off in Settings must still reach the server.
       if (!enabled || (await getNotificationPermissionGranted())) return;
     }
     lastPushSync = null;
     const remember = () => {
-      if (session !== undefined) lastPushSync = { session, enabled, at: Date.now() };
+      if (session === undefined) return;
+      const at = Date.now();
+      lastPushSync = { session, enabled, at };
+      if (account && savedKey !== null) void recordSync("push", account, savedKey, at);
     };
     if (enabled) {
       const result = await registerRemotePushToken(apiToken, true, feedback);

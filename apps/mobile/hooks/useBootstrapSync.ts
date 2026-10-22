@@ -6,12 +6,16 @@ import { getDeviceLocationLabel } from "@/lib/deviceLocation";
 import { configurePurchases, isPurchasesConfigured, registerPlanChangeListener } from "@/lib/purchases";
 import { getSessionGeneration } from "@/lib/auth";
 import { api, type User } from "@/lib/api";
+import { recentSyncAt, recordSync } from "@/lib/syncRecords";
 
 type Options = {
   token: string | null;
   user: User | null;
   setUser: Dispatch<SetStateAction<User | null>>;
 };
+
+/** A GPS fix and a reverse geocode for a city label: once a day is enough. */
+const LOCATION_SYNC_INTERVAL_MS = 24 * 60 * 60_000;
 
 /** Post-login side effects — timezone, location, push sync, RevenueCat, reminders. */
 export function useBootstrapSync({ token, user, setUser }: Options): void {
@@ -22,6 +26,11 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
   const pushEnabled = user?.push_notifications_enabled ?? false;
   const reminderLeadMinutes = user?.reminder_lead_minutes;
   const feedback = useActionFeedbackOptional();
+  // The access token refreshes hourly; work done once per signed-in user reads
+  // the newest token from this ref instead of starting again.
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+  const signedIn = Boolean(token);
   useEffect(() => {
     if (!token || !userId) return;
     const generation = getSessionGeneration();
@@ -42,23 +51,30 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
   }, [token, userId, timezone, setUser]);
 
   useEffect(() => {
-    if (!token || !userId || !locationEnabled) return;
+    if (!signedIn || !userId || !locationEnabled) return;
     const generation = getSessionGeneration();
     let cancelled = false;
     const active = () => !cancelled && generation === getSessionGeneration();
     void (async () => {
       if (!active()) return;
-      const label = await getDeviceLocationLabel();
-      if (!active() || !label || location === label) return;
-      const updated = await api.updateMe(token, { location: label });
+      // The server keeps the label between reads; without one, read it now.
+      if (location && (await recentSyncAt("location", userId, LOCATION_SYNC_INTERVAL_MS)) !== null) return;
       if (!active()) return;
-      setUser((current) => current?.id === userId
-        ? { ...current, location: updated.location } : current);
+      const label = await getDeviceLocationLabel();
+      const current = tokenRef.current;
+      if (!active() || !label || !current) return;
+      const updated = location === label ? null : await api.updateMe(current, { location: label });
+      if (!active()) return;
+      // Recorded before the new label re-runs this effect, so that run finds it.
+      await recordSync("location", userId);
+      if (!active() || !updated) return;
+      setUser((latest) => latest?.id === userId
+        ? { ...latest, location: updated.location } : latest);
     })().catch(() => {
       if (active()) console.warn("[bootstrap] location sync failed");
     });
     return () => { cancelled = true; };
-  }, [token, userId, location, locationEnabled, setUser]);
+  }, [signedIn, userId, location, locationEnabled, setUser]);
 
   useEffect(() => {
     if (!token || !userId) return;
@@ -82,6 +98,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
         // Hourly token refreshes re-attach; one sync per sign-in is enough.
         generation,
         feedback,
+        userId,
       );
     }).catch(() => {});
     return () => {
@@ -101,11 +118,8 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
     return () => { cancelled = true; };
   }, [userId, reminderLeadMinutes]);
 
-  // The access token refreshes hourly; RevenueCat is set up once per signed-in
-  // user, and the plan sync reads the newest token from this ref.
-  const tokenRef = useRef(token);
-  tokenRef.current = token;
-  const signedIn = Boolean(token);
+  // RevenueCat is set up once per signed-in user; the plan sync reads the
+  // newest token from the ref above.
   useEffect(() => {
     if (!signedIn || !userId) return;
     const generation = getSessionGeneration();

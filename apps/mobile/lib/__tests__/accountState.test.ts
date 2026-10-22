@@ -63,6 +63,8 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "lib/onboarding.ts#writes": "clearOnboarded",
   "lib/purchases.ts#configuredAppUserId": "signOutRevenueCat",
   "lib/streamingDraftStore.ts#draft": "publishStreamingDraft",
+  "lib/syncRecords.ts#locationRecord": "forgetSyncRecords",
+  "lib/syncRecords.ts#pushRecord": "forgetSyncRecords",
 };
 
 /** Read only by the sign-in session that wrote it (checked against `getSessionGeneration()` or keyed by it). */
@@ -107,6 +109,8 @@ const IN_FLIGHT = [
 /** No account data: phone settings, native modules, players, listeners, counters, lookup tables. */
 const NO_ACCOUNT_DATA = [
   "components/CodeBlock.tsx#cachedTokenizer",
+  "components/rich/LazyHeavyRich.tsx#simulationSizing",
+  "components/rich/LazyHeavyRich.tsx#simulationSizingLoad",
   "components/markdown/LinkPreviewTrust.tsx#NO_PREVIEWS",
   "features/attachments/model/attachmentIndexStatus.ts#offline",
   "features/attachments/model/attachmentIndexStatus.ts#stopWatchingNetwork",
@@ -141,6 +145,9 @@ const NO_ACCOUNT_DATA = [
   "lib/google-auth.ts#googleModule",
   "lib/haptics.ts#enabled",
   "lib/haptics.ts#unavailableOn",
+  "lib/launchSplash.ts#deadlinePassed",
+  "lib/launchSplash.ts#hidden",
+  "lib/launchSplash.ts#ready",
   "lib/math/svgMath.ts#rendererImpl",
   "lib/math/svgMath.ts#rendererPromise",
   "lib/pdfPreviewHtml.ts#viewerHtml",
@@ -151,7 +158,8 @@ const NO_ACCOUNT_DATA = [
   "lib/scanner/switchCue.ts#activePlayer",
   "lib/scanner/switchCue.ts#cueEpoch",
   "lib/scanner/switchCue.ts#releaseTimer",
-  "lib/sentry.ts#initialized",
+  "lib/sentry.ts#sdk",
+  "lib/sentry.ts#starting",
   "lib/skiaAvailability.ts#cached",
   "lib/speech/voiceAudio.ts#audioModule",
   "lib/speech/voiceAudio.ts#exclusiveMicStop",

@@ -5,7 +5,7 @@ import { type AnimatedStyle, type SharedValue } from "react-native-reanimated";
 
 import { ActionBanner } from "@/ui/feedback/ActionBanner";
 import { AttachmentSourceSheet } from "@/features/attachments/components/AttachmentSourceSheet";
-import { MathEquationScanner } from "@/components/MathEquationScanner";
+import { LazyMathEquationScanner } from "@/components/mathScanner/LazyMathEquationScanner";
 import { ChatComposer, type LiveTalkComposerChrome } from "@/features/chat/components/ChatComposer";
 import { ChatInlineError } from "@/features/chat/components/ChatInlineError";
 import { ChatMessageList } from "@/features/chat/components/ChatMessageList";
@@ -292,7 +292,7 @@ const ChatOverlays = memo(function ChatOverlays({
         onSelect={sheets.onAttachmentSource}
       />
 
-      <MathEquationScanner
+      <LazyMathEquationScanner
         visible={sheets.mathScannerOpen}
         onClose={sheets.onCloseMathScanner}
         onCaptured={sheets.onMathScanCaptured}

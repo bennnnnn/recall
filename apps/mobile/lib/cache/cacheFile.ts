@@ -6,10 +6,15 @@ import {
   writeAsStringAsync,
 } from "expo-file-system/legacy";
 
+import { readTextFileSync } from "@/lib/syncFileRead";
+
 /** One best-effort text file in the OS cache directory, which the OS may purge
  * at any time; a missing or unreadable file reads as null. */
 type CacheFile = {
   read: () => Promise<string | null>;
+  /** Read at once, before the first render (`lib/launchPrefs.ts`). It does not
+   * wait for this run's queued writes: it is for launch, before there are any. */
+  readSync: () => string | null;
   write: (contents: string) => Promise<void>;
   clear: () => Promise<void>;
 };
@@ -37,6 +42,7 @@ export function cacheFile(fileName: string): CacheFile {
         return null;
       }
     },
+    readSync: () => (path ? readTextFileSync("cache", fileName) : null),
     write: (contents) => enqueue((filePath) => writeAsStringAsync(filePath, contents)),
     clear: () => enqueue((filePath) => deleteAsync(filePath, { idempotent: true })),
   };

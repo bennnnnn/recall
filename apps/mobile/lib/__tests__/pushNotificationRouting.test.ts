@@ -29,6 +29,8 @@ jest.mock("react-native", () => ({
   AppState: { addEventListener: () => ({ remove: jest.fn() }) },
 }));
 
+jest.mock("@/lib/syncRecords", () => ({ recentSyncAt: jest.fn(), recordSync: jest.fn() }));
+
 import { handlePushNotificationResponse } from "@/lib/pushNotifications";
 
 function fakeRouter() {
