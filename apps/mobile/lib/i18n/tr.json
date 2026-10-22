@@ -797,6 +797,8 @@
   "settings.model": "Varsayılan model",
   "settings.model_auto": "Otomatik",
   "settings.model_auto_summary": "Önerilen — her mesaj için en iyi açık modeli seçer",
+  "settings.model_in_use": "Mesajların modeli",
+  "settings.model_in_use_summary": "Auto kapalıyken her mesaj bu modele gider.",
   "settings.model_degraded": "Kısıtlı",
   "settings.model_summary": "Hangi modeller yanıt verebilir",
   "settings.models_list": "Modeller",

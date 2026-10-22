@@ -803,6 +803,8 @@
   "settings.model": "Модель по умолчанию",
   "settings.model_auto": "Авто",
   "settings.model_auto_summary": "Рекомендуется — выбирает лучшую включённую модель для сообщения",
+  "settings.model_in_use": "Модель для сообщений",
+  "settings.model_in_use_summary": "Когда Auto выключен, каждое сообщение идёт этой модели.",
   "settings.model_degraded": "Работает с перебоями",
   "settings.model_summary": "Какие модели могут отвечать",
   "settings.models_list": "Модели",

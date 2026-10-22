@@ -173,4 +173,26 @@ describe("models settings", () => {
     });
     expect(getByRole("switch", { name: "Balanced" }).props.accessibilityState.checked).toBe(false);
   });
+
+  it("says which model messages use with Auto off, and lets the user choose it", async () => {
+    mockAutoEnabled = false;
+    mockEnabledModelIds = ["free-chat", "smart-chat"];
+    mockModels = [
+      ...mockModels,
+      { ...mockModels[0], id: "smart-chat", label: "Smart", plan_access: "free" },
+    ];
+    const view = await render(<ModelsSettingsScreen />);
+    expect(view.getByText("settings.model_in_use")).toBeTruthy();
+    expect(view.getByLabelText("settings.model_in_use, Flash")).toBeTruthy();
+    await fireEvent.press(view.getByLabelText("settings.model_in_use, Flash"));
+    await act(async () => {
+      fireEvent.press(view.getByRole("radio", { name: "Smart" }));
+    });
+    expect(mockUpdateUser).toHaveBeenCalledWith({ enabled_models: ["smart-chat", "free-chat"] });
+  });
+
+  it("shows no model-in-use row while Auto picks per message", async () => {
+    const view = await render(<ModelsSettingsScreen />);
+    expect(view.queryByText("settings.model_in_use")).toBeNull();
+  });
 });

@@ -4,8 +4,10 @@ import { useTranslation } from "react-i18next";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import {
   SettingsGroup,
+  SettingsMenuRow,
   SettingsPage,
   SettingsSwitchRow,
+  SettingsValueRow,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -70,6 +72,16 @@ export default function ModelsSettingsScreen() {
     patchPreferences(enabled, effectiveModels, "auto");
   };
 
+  /** With Auto off, every message goes to the first model switched on; this puts `modelId` first. */
+  const chooseModelInUse = (modelId: string) => {
+    const rest = [...effectiveModels].filter((id) => id !== modelId);
+    patchPreferences(false, new Set([modelId, ...rest]), "in-use");
+  };
+  const usable = models.filter(
+    (option) => effectiveModels.has(option.id) && (isPaid || option.plan_access !== "pro"),
+  );
+  const inUse = usable.find((option) => option.id === [...effectiveModels][0]) ?? usable[0];
+
   const toggleModel = (modelId: string, enabled: boolean) => {
     if (!user) return;
     const option = models.find((m) => m.id === modelId);
@@ -97,6 +109,26 @@ export default function ModelsSettingsScreen() {
             busy={savingKey === "auto"}
             onValueChange={toggleAuto}
           />
+          {!effectiveAuto && inUse ? (
+            usable.length > 1 ? (
+              <SettingsMenuRow
+                title={t("settings.model_in_use")}
+                subtitle={t("settings.model_in_use_summary")}
+                value={inUse.label}
+                options={usable.map((option) => ({ key: option.id, label: option.label }))}
+                selectedKey={inUse.id}
+                disabled={Boolean(savingKey)}
+                busy={savingKey === "in-use"}
+                onSelect={chooseModelInUse}
+              />
+            ) : (
+              <SettingsValueRow
+                title={t("settings.model_in_use")}
+                subtitle={t("settings.model_in_use_summary")}
+                value={inUse.label}
+              />
+            )
+          ) : null}
         </SettingsGroup>
 
         <SettingsGroup label={t("settings.models_list")}>

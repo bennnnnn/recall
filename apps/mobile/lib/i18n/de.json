@@ -797,6 +797,8 @@
   "settings.model": "Standardmodell",
   "settings.model_auto": "Automatisch",
   "settings.model_auto_summary": "Empfohlen — wählt das beste aktivierte Modell pro Nachricht",
+  "settings.model_in_use": "Nachrichten nutzen",
+  "settings.model_in_use_summary": "Ist Auto aus, geht jede Nachricht an dieses Modell.",
   "settings.model_degraded": "Eingeschränkt",
   "settings.model_summary": "Welche Modelle antworten dürfen",
   "settings.models_list": "Modelle",

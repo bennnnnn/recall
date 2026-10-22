@@ -557,7 +557,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   GPT-6 Luna. No OpenRouter-auto “Max” chip.
 - ✅ **Manual switching** — model selection lives in Settings → Models (settings-only by
   design; the composer picker was removed to keep the composer single-purpose). Respected
-  per chat turn.
+  per chat turn. With Auto off, every message goes to one model: the screen names it
+  ("Messages use") and lets the user pick it among the models switched on.
 - ✅ **Chat settings from natural language** — small allowlist, confirm-then-write
   (the same card a reminder change gets): model (Flash / Pro / Auto, nicknames like “GPT” → GPT-6 Luna),
   tone (funny / professional / casual / soft), app language, and appearance
@@ -571,8 +572,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Multi-provider** — a **model catalog** (`models/model_catalog.py`) defines provider, model,
   key, base URL, and pricing per entry. All chat aliases route through **OpenRouter** via LiteLLM
   (`gateways/litellm_gateway.py`). Adding a model is a catalog entry + OpenRouter slug.
-- ✅ **Model availability + cost** — `GET /models` reports each model's availability (key present)
-  and price; the picker shows available models with a per-1M-token cost hint.
+- ✅ **Model availability** — `GET /models` reports each model's availability (key present)
+  and price; Settings → Models lists the available models (it shows no prices).
 - ✅ **Live latency/health** — a breaker per provider model (aliases on one model share it)
   over Redis rolling samples: every model a turn tried leaves one, blamed on the model that
   failed (partway through a reply too), with how fast its provider started. Timeouts, 5xx,

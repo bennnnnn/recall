@@ -800,6 +800,8 @@
   "settings.model": "Modelo predeterminado",
   "settings.model_auto": "Automático",
   "settings.model_auto_summary": "Recomendado: elige el mejor modelo activado por mensaje",
+  "settings.model_in_use": "Los mensajes usan",
+  "settings.model_in_use_summary": "Con Auto desactivado, cada mensaje va a este modelo.",
   "settings.model_degraded": "Degradado",
   "settings.model_summary": "Qué modelos pueden responder",
   "settings.models_list": "Modelos",
