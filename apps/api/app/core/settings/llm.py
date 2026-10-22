@@ -16,7 +16,12 @@ class LlmSettings(BaseModel):
     # Tool selection returns calls or a no-tool decision, not the final answer.
     mcp_tool_loop_probe_max_tokens: int = 1024
     mcp_tool_loop_max_calls_per_round: int = 4
+    # A tool round's deadline: no call starts after it, and one running at it is cut off.
     mcp_tool_loop_invoke_timeout_seconds: float = 20.0
+    # Everything before the reply streams (selection, tool calls, the forced search)
+    # shares this budget, so a search or image-host brownout cannot hold "Searching…"
+    # for a minute while the turn keeps its lock, quota reservation and socket.
+    mcp_tool_loop_total_timeout_seconds: float = 25.0
 
     # Background LLM resilience: if the primary memory-model provider is down,
     # retry background jobs (memory/todo/project extraction, titles, summaries)

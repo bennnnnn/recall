@@ -676,6 +676,57 @@ async def test_stream_chat_completion_retries_fallback_alias():
 
 
 @pytest.mark.asyncio
+async def test_every_attempted_alias_is_a_health_sample():
+    """A failing primary whose fallback answered was never recorded as failing."""
+    from app.gateways.litellm_gateway import ModelUnavailableError
+
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+
+    async def fake_stream_once(**kwargs):
+        if kwargs["model_alias"] == "smart-chat":
+            raise ModelUnavailableError("down", failed_alias="smart-chat")
+        yield "hello"
+
+    attempts: list[litellm_gateway.StreamAttempt] = []
+    with patch.object(litellm_gateway, "_stream_chat_once", fake_stream_once):
+        async for _ in litellm_gateway.stream_chat_completion(
+            settings=settings,
+            model_alias="smart-chat",
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=10,
+            fallback_aliases=["free-chat"],
+            attempts=attempts,
+        ):
+            pass
+    assert [(a.alias, a.ok) for a in attempts] == [("smart-chat", False), ("free-chat", True)]
+
+
+@pytest.mark.asyncio
+async def test_a_stream_that_breaks_after_its_first_token_is_a_failed_sample():
+    """A failure after the first token counted as a success."""
+    from app.gateways.litellm_gateway import ModelUnavailableError
+
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+
+    async def fake_stream_once(**_kwargs):
+        yield "partial"
+        raise ModelUnavailableError("cut", failed_alias="smart-chat")
+
+    attempts: list[litellm_gateway.StreamAttempt] = []
+    with patch.object(litellm_gateway, "_stream_chat_once", fake_stream_once):
+        with pytest.raises(ModelUnavailableError):
+            async for _ in litellm_gateway.stream_chat_completion(
+                settings=settings,
+                model_alias="smart-chat",
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=10,
+                attempts=attempts,
+            ):
+                pass
+    assert [(a.alias, a.ok) for a in attempts] == [("smart-chat", False)]
+
+
+@pytest.mark.asyncio
 async def test_reasoning_primary_gets_visible_content_deadline_when_fallback_exists():
     """Hidden reasoning must not keep the user waiting before a healthy fallback."""
     from app.gateways.litellm_gateway import ModelUnavailableError

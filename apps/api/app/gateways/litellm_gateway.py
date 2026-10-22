@@ -3,6 +3,7 @@ import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import suppress
+from dataclasses import dataclass
 from typing import Any, Self
 
 from litellm import acompletion
@@ -177,6 +178,20 @@ def _merge_attempt_usage(usage: dict[str, int] | None, attempt: dict[str, int]) 
     usage["output"] = usage.get("output", 0) + attempt.get("output", 0)
 
 
+@dataclass(frozen=True, slots=True)
+class StreamAttempt:
+    """One alias the stream tried: did it answer, and how long until its first content.
+
+    The model-health sample used to follow only the alias that produced content, so a
+    primary that failed before a fallback answered was never recorded, a failure after
+    the first token counted as a success, and the whole reply's time read as latency.
+    """
+
+    alias: str
+    ok: bool
+    first_content_ms: float
+
+
 async def stream_chat_completion(
     *,
     settings: Settings,
@@ -188,6 +203,7 @@ async def stream_chat_completion(
     stream_meta: dict[str, str] | None = None,
     on_reasoning: Callable[[str], Awaitable[None]] | None = None,
     thinking: bool | str | None = None,
+    attempts: list[StreamAttempt] | None = None,
 ) -> AsyncIterator[str]:
     if mock_llm.should_mock_llm(settings):
         logger.info("Using mock LLM stream for alias=%s", model_alias)
@@ -210,6 +226,10 @@ async def stream_chat_completion(
         # daily quota. Tool-loop usage already lives on `usage`; only merge
         # the attempt that actually produced content.
         attempt_usage: dict[str, int] = {}
+        attempt_started = time.perf_counter()
+        first_content_ms: float | None = None
+        # "ok" answered, "failed" did not, "closed" was stopped before its first content.
+        result = "failed"
         try:
             if stream_meta is not None:
                 stream_meta.pop("finish_reason", None)
@@ -233,12 +253,14 @@ async def stream_chat_completion(
                     if not "".join(pending).strip():
                         continue
                     started = True
+                    first_content_ms = (time.perf_counter() - attempt_started) * 1000
                     for piece in pending:
                         yield piece
                     pending.clear()
                     continue
                 yield token
             if started:
+                result = "ok"
                 _merge_attempt_usage(usage, attempt_usage)
                 if stream_meta is not None:
                     stream_meta["model_alias"] = alias
@@ -269,6 +291,24 @@ async def stream_chat_completion(
             if stream_meta is not None:
                 stream_meta["model_alias"] = failed
             raise ModelUnavailableError.for_alias(failed) from exc
+        except (GeneratorExit, asyncio.CancelledError):
+            # The caller stopped reading (a user stop, a closed socket): an alias that
+            # had answered counts as answering; one stopped before its first content
+            # says nothing about the provider.
+            result = "ok" if started else "closed"
+            raise
+        finally:
+            if attempts is not None and result != "closed":
+                elapsed_ms = (time.perf_counter() - attempt_started) * 1000
+                attempts.append(
+                    StreamAttempt(
+                        alias=alias,
+                        ok=result == "ok",
+                        first_content_ms=first_content_ms
+                        if first_content_ms is not None
+                        else elapsed_ms,
+                    )
+                )
 
     if last_error is not None:
         raise last_error

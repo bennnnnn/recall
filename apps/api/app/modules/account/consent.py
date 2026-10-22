@@ -16,13 +16,17 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.core.deps import get_current_user
-from app.core.user_cache import remember_user
+from app.core.deps import get_current_user, get_redis_dep
+from app.core.user_cache import is_current, note_generation, remember_user
 from app.exceptions import ConsentRequiredError
 from app.models.orm import User
+
+# What a withdrawal elsewhere can change for the next outside-AI call.
+_PRIVACY_COLUMNS = ("ai_data_consent_at", "memory_enabled", "web_search_enabled")
 
 
 def has_ai_data_consent(user: object) -> bool:
@@ -39,13 +43,19 @@ def consent_required_detail() -> dict[str, str]:
 async def get_consented_user(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
+    redis: Annotated[Redis, Depends(get_redis_dep)],
 ) -> User:
-    """The signed-in user, once they agreed; 403 ``consent_required`` otherwise."""
-    if has_ai_data_consent(user):
+    """The signed-in user, once they agreed; 403 ``consent_required`` otherwise.
+
+    A cached row is trusted only while its generation is current: a withdrawal made on
+    another machine bumps it, and this re-reads the row before sending anything out.
+    """
+    if has_ai_data_consent(user) and await is_current(redis, user.id):
         return user
-    await session.refresh(user, attribute_names=["ai_data_consent_at"])
+    await session.refresh(user, attribute_names=list(_PRIVACY_COLUMNS))
     await session.commit()  # the re-read's transaction ends here, as in get_current_user
     if not has_ai_data_consent(user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=consent_required_detail())
     remember_user(user)
+    await note_generation(redis, user.id)
     return user

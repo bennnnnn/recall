@@ -16,6 +16,7 @@ from uuid import UUID
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.core.background_tasks import create_background_task
+from app.core.log_context import bound_log_ids, new_turn_id
 from app.exceptions import (
     ChatBusyError,
     ChatServiceError,
@@ -214,21 +215,22 @@ async def run_chat_stream(
     if not await safe_send_json(websocket, build_start_event()):
         return
     outcome = TurnOutcome()
-    try:
-        await stream_over_ws(
-            websocket,
-            stream_factory(outcome),
-            cancel_event,
-            outcome,
-            chat_id,
-            frame_budget,
-        )
-    except Exception as exc:
-        if not isinstance(exc, EXPECTED_TURN_ERRORS):
-            logger.exception("Unexpected chat stream error")
-        await safe_send_json(
-            websocket, turn_error_payload(exc, user_message_saved=outcome.user_message_saved)
-        )
+    with bound_log_ids(chat_id=chat_id, turn=new_turn_id()):
+        try:
+            await stream_over_ws(
+                websocket,
+                stream_factory(outcome),
+                cancel_event,
+                outcome,
+                chat_id,
+                frame_budget,
+            )
+        except Exception as exc:
+            if not isinstance(exc, EXPECTED_TURN_ERRORS):
+                logger.exception("Unexpected chat stream error")
+            await safe_send_json(
+                websocket, turn_error_payload(exc, user_message_saved=outcome.user_message_saved)
+            )
 
 
 def schedule_related_prompts(websocket: WebSocket, outcome: TurnOutcome) -> None:

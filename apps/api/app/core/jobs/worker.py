@@ -41,6 +41,7 @@ from app.core.jobs.queue import (
     done_ttl_seconds,
     trim_jobs_stream,
 )
+from app.core.log_context import bound_log_ids
 from app.core.redis import get_jobs_redis_client
 
 logger = logging.getLogger("app.core.jobs")
@@ -70,6 +71,16 @@ async def _process_one_entry(
     fields: dict[str, Any],
 ) -> None:
     """Claim, dispatch, then ack or dead-letter a single stream entry (safe to run concurrently)."""
+    with bound_log_ids(job=entry_id, job_type=fields.get("type")):
+        await _process_one_entry_logged(redis, settings, entry_id, fields)
+
+
+async def _process_one_entry_logged(
+    redis: Redis,
+    settings: Settings,
+    entry_id: str,
+    fields: dict[str, Any],
+) -> None:
     # Per-entry (and per-attempt) so a long LLM timeout / index batch cannot
     # trip the 120s stale health check while this worker is still healthy.
     _touch_heartbeat()

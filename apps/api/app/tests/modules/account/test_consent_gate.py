@@ -94,13 +94,34 @@ def test_consent_given_on_another_machine_lets_the_request_through(
 
 
 @pytest.mark.asyncio
-async def test_an_account_that_agreed_is_not_read_again() -> None:
+async def test_an_account_that_agreed_is_not_read_again(fake_redis) -> None:
     from app.modules.account.consent import get_consented_user
 
     user = SimpleNamespace(id=uuid4(), ai_data_consent_at=_AGREED)
     session = SimpleNamespace(refresh=AsyncMock())
-    assert await get_consented_user(user=user, session=session) is user  # type: ignore[arg-type]
+    assert await get_consented_user(user=user, session=session, redis=fake_redis) is user  # type: ignore[arg-type]
     session.refresh.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_withdrawal_on_another_machine_is_honoured_at_once(fake_redis) -> None:
+    """The cached row said yes for up to a minute after a withdrawal elsewhere."""
+    from app.core import user_cache
+    from app.modules.account.consent import get_consented_user
+
+    user = SimpleNamespace(id=uuid4(), ai_data_consent_at=_AGREED)
+
+    async def withdrawn(row: Any, attribute_names: list[str] | None = None) -> None:
+        row.ai_data_consent_at = None
+
+    session = SimpleNamespace(refresh=AsyncMock(side_effect=withdrawn), commit=AsyncMock())
+    await user_cache.bump_generation(fake_redis, user.id)  # another machine's PATCH /auth/me
+    user_cache.forget_user(user.id)  # this machine noted the old generation
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as refused:
+        await get_consented_user(user=user, session=session, redis=fake_redis)  # type: ignore[arg-type]
+    assert refused.value.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -120,5 +141,5 @@ async def test_the_re_read_ends_its_transaction_before_the_route_runs() -> None:
     user = SimpleNamespace(id=uuid4(), ai_data_consent_at=None)
     session = SimpleNamespace(refresh=refresh, commit=commit)
     with patch("app.modules.account.consent.remember_user"):
-        assert await get_consented_user(user=user, session=session) is user  # type: ignore[arg-type]
+        assert await get_consented_user(user=user, session=session, redis=AsyncMock()) is user  # type: ignore[arg-type]
     assert calls == ["refresh", "commit"]

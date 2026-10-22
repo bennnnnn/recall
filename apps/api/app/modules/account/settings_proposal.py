@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import user_cache
 from app.core.config import Settings
 from app.core.validation import LOCALE_NAMES
 from app.exceptions import ChatServiceError
@@ -357,6 +358,7 @@ async def confirm_proposal(
             if memory_toggled:
                 await memory_service.invalidate_memory_block(user.id)
             await home_service.invalidate_home_cache(user.id)
+            await user_cache.bump_generation(redis, user.id)
 
         return {
             "user": updated,

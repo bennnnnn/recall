@@ -23,6 +23,7 @@ from app.core import redis_lock
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways import litellm_gateway
+from app.gateways.litellm_gateway import StreamAttempt
 from app.models.orm import Chat, Message, User
 from app.modules import todos, web_search
 from app.modules.attachments import lifecycle as attachment_lifecycle
@@ -145,6 +146,7 @@ class ChatModel(Protocol):
         stream_meta: dict[str, str] | None = ...,
         on_reasoning: Callable[[str], Awaitable[None]] | None = ...,
         thinking: bool | str | None = ...,
+        attempts: list[StreamAttempt] | None = ...,
     ) -> AsyncIterator[str]: ...
 
 

@@ -15,6 +15,7 @@ from types import ModuleType
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.core.config import Settings
+from app.core.log_context import current_log_ids
 from app.core.request_id import request_id_context
 
 if TYPE_CHECKING:
@@ -118,11 +119,13 @@ def before_send(event: Event, hint: Hint) -> Event | None:
         return None
     _scrub_request(event.get("request"))
     _scrub_log_entry(event)
-    request_id = request_id_context.get()
-    if request_id:
+    ids = current_log_ids()
+    if rid := request_id_context.get():
+        ids["request_id"] = rid
+    if ids:
         tags = event.setdefault("tags", {})
         if isinstance(tags, dict):
-            tags["request_id"] = request_id
+            tags.update(ids)
     return event
 
 

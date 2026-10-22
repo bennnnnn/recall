@@ -19,6 +19,7 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
+from app.core.log_context import current_log_ids
 from app.core.request_id import request_id_context
 
 # Matches RFC-5321-ish emails (loose: user@host.tld) and common bearer/JWT
@@ -87,21 +88,30 @@ def _access_line(record: logging.LogRecord) -> str | None:
     return f"{method} {path} {status} {duration_ms}ms"
 
 
+def _context_ids() -> dict[str, str]:
+    ids: dict[str, str] = {}
+    rid = request_id_context.get()
+    if rid:
+        ids["request_id"] = rid
+    ids.update(current_log_ids())
+    return ids
+
+
 class _RequestIdFormatter(logging.Formatter):
-    """Formatter that appends ``[request_id=<id>]`` when a request ID is set."""
+    """Formatter that appends ``[request_id=<id> chat_id=<id> ...]`` for the bound ids."""
 
     _BASE_FMT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
-    _REQ_FMT = "%(asctime)s %(levelname)s [%(name)s] [request_id=%(request_id)s] %(message)s"
+    _IDS_FMT = "%(asctime)s %(levelname)s [%(name)s] [%(context_ids)s] %(message)s"
 
     def format(self, record: logging.LogRecord) -> str:
         access = _access_line(record)
         if access:
             record.msg = access
             record.args = ()
-        rid = request_id_context.get()
-        if rid:
-            record.request_id = rid
-            self._style._fmt = self._REQ_FMT
+        ids = _context_ids()
+        if ids:
+            record.context_ids = " ".join(f"{key}={value}" for key, value in ids.items())
+            self._style._fmt = self._IDS_FMT
         else:
             self._style._fmt = self._BASE_FMT
         return super().format(record)
@@ -117,9 +127,7 @@ class _JsonFormatter(logging.Formatter):
             "logger": record.name,
             "msg": record.getMessage(),
         }
-        rid = request_id_context.get()
-        if rid:
-            payload["request_id"] = rid
+        payload.update(_context_ids())
         access = _http_access(record)
         if access is not None:
             method, path, status, duration_ms = access
@@ -163,7 +171,7 @@ def log_http_request(
     )
 
 
-def setup_logging(*, json_output: bool = False) -> None:
+def setup_logging(*, json_output: bool = False, level: str = "INFO") -> None:
     formatter: logging.Formatter = _JsonFormatter() if json_output else _RequestIdFormatter()
     root = logging.getLogger()
     # Replace any pre-existing handlers so we don't double-log or keep the
@@ -174,4 +182,8 @@ def setup_logging(*, json_output: bool = False) -> None:
     handler.setFormatter(formatter)
     handler.addFilter(_PIIRedactFilter())
     root.addHandler(handler)
-    root.setLevel(logging.INFO)
+    root.setLevel(logging.getLevelName(level.upper()) if _known_level(level) else logging.INFO)
+
+
+def _known_level(level: str) -> bool:
+    return isinstance(logging.getLevelName(level.upper()), int)

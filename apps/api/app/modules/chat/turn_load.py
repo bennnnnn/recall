@@ -15,6 +15,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import user_cache
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError, ConsentRequiredError
 from app.models.orm import Chat, User
@@ -77,13 +78,21 @@ async def _prior_count_for_window(
 
 
 async def _load_user(
-    deps: ChatTurnDeps, timing: TurnTimingTracker, user_id: UUID, user: User | None
+    deps: ChatTurnDeps,
+    redis: Redis,
+    timing: TurnTimingTracker,
+    user_id: UUID,
+    user: User | None,
 ) -> User:
-    if user is not None and consent.has_ai_data_consent(user):
+    if (
+        user is not None
+        and consent.has_ai_data_consent(user)
+        and await user_cache.is_current(redis, user_id)
+    ):
         timing.mark_phase("user_ready")
         return user
-    # A user handed in from the request cache can trail an agreement made on
-    # another machine, so a refusal reads the row first.
+    # A user handed in from the request cache can trail an agreement made, or a consent,
+    # memory or web-search switch turned off, on another machine: read the row.
     async with deps.session_factory() as session:
         loaded = await deps.users.get_by_id(session, user_id)
     if loaded is None:
@@ -136,7 +145,7 @@ async def _needs_usage_seed(
         missing = not await deps.quota.has_daily_usage_key(redis, str(user_id))
     except Exception:
         # Unknown counts as missing: the turn re-reads today's total from the DB.
-        logger.debug("Daily usage probe failed user_id=%s", user_id, exc_info=True)
+        logger.warning("Daily usage probe failed user_id=%s", user_id, exc_info=True)
         missing = True
     timing.mark_phase("quota_probe_ready")
     return missing
@@ -160,7 +169,7 @@ async def _load_account(
     # AsyncSession; SQLAlchemy AsyncSession itself is intentionally not used
     # concurrently.
     loaded_user, loaded_chat, need_usage_seed = await asyncio.gather(
-        _load_user(deps, timing, user_id, user),
+        _load_user(deps, redis, timing, user_id, user),
         _load_chat(deps, timing, chat_id=chat_id, user_id=user_id, chat=chat),
         _needs_usage_seed(deps, redis, timing, user_id, skip_usage_seed),
     )

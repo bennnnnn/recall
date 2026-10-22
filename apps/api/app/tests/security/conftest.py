@@ -21,7 +21,6 @@ from uuid import UUID, uuid4
 import fakeredis.aioredis
 import httpx
 import pytest
-import redis.asyncio as redis_asyncio
 
 from app.core import access_tokens
 from app.core import redis as core_redis
@@ -223,9 +222,10 @@ def isolated_settings(monkeypatch: pytest.MonkeyPatch, storage_root: Path) -> Se
 
 
 def use_fake_redis(monkeypatch: pytest.MonkeyPatch, fake: Any) -> None:
-    """Every ``get_redis_client()`` caller (one lru-cached function) gets ``fake``."""
+    """Every Redis client the app makes (the app's and the jobs stream's) is ``fake``."""
     core_redis.get_redis_client.cache_clear()
-    monkeypatch.setattr(redis_asyncio, "from_url", lambda *_a, **_k: fake)
+    core_redis.get_jobs_redis_client.cache_clear()
+    monkeypatch.setattr(core_redis, "_connect", lambda *_a, **_k: fake)
 
 
 def reset_process_caches() -> None:

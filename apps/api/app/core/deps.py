@@ -63,6 +63,7 @@ async def get_current_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     user_cache.remember_user(user)
+    await user_cache.note_generation(redis, user_id)
     return user
 
 

@@ -7,9 +7,11 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import user_cache
 from app.core.access_tokens import REVOKED_SINCE_PREFIX
 from app.core.config import Settings
 from app.core.jobs import enqueue
+from app.core.redis import get_redis_client
 from app.core.validation import normalize_avatar_url
 from app.gateways import apple_revoke
 from app.gateways.google_auth import GoogleAuthError
@@ -75,6 +77,7 @@ async def update_account(
     if memory_toggled:
         await memory_service.invalidate_memory_block(user.id)
     await home_service.invalidate_home_cache(user.id)
+    await user_cache.bump_generation(get_redis_client(), user.id)
     return updated
 
 

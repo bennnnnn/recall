@@ -245,7 +245,7 @@ async def _memory_block_best_effort(
                 exclude_sensitive=memory_service.exclude_sensitive_for_query(query_text),
             )
     except Exception:
-        logger.debug("Live talk memory load failed", exc_info=True)
+        logger.warning("Live talk starts without memory user_id=%s", user.id, exc_info=True)
         return ""
 
 
@@ -261,7 +261,7 @@ async def _schedule_block_best_effort(user: User, settings: Settings) -> str:
         block = todos_service.format_todos_voice_block(selected, user_timezone=tz)
         return wrap_untrusted("schedule", block, first_party=True) if block else ""
     except Exception:
-        logger.debug("Live talk schedule load failed", exc_info=True)
+        logger.warning("Live talk starts without the schedule user_id=%s", user.id, exc_info=True)
         return ""
 
 
