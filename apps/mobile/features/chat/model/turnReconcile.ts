@@ -25,6 +25,18 @@ export const DROPPED_TURN_PROBE_ROWS = 4;
 export const DROPPED_TURN_POLLS = 15;
 /** A dropped SSE stream: the server stopped the turn and saved what it had at once. */
 export const SSE_DROPPED_TURN_POLLS = 3;
+/**
+ * A resend the server answered `duplicate`: the turn it already took exists
+ * and may be long (reasoning, tools, a picture), so it is followed for about
+ * five minutes, polled less often as it goes (`duplicateTurnPollMs`).
+ */
+export const DUPLICATE_TURN_POLLS = 24;
+const DUPLICATE_TURN_POLL_MAX_MS = 15_000;
+
+/** The wait before poll `poll` (from 0) of a turn followed after `duplicate`. */
+export function duplicateTurnPollMs(poll: number): number {
+  return Math.min(DROPPED_TURN_POLL_MS * 1.5 ** poll, DUPLICATE_TURN_POLL_MAX_MS);
+}
 
 const SERVER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -50,21 +62,27 @@ export function droppedTurnState(page: Message[], known: ReadonlySet<string>): D
   return page.slice(userIndex + 1).some(isNewReply) ? "answered" : "saved";
 }
 
-/** The newest page in place of the turn's local bubbles; older pages already loaded stay. */
+/**
+ * The newest page in place of the turn's local bubbles; older pages already
+ * loaded stay, and so does what was sent after the turn (below its streaming
+ * row), which the server has not seen yet.
+ */
 export function mergeReconciledPage(previous: Message[], page: Message[]): Message[] {
   const pageIds = new Set(page.map((message) => message.id));
   const firstShared = previous.findIndex((message) => pageIds.has(message.id));
   const older = firstShared > 0 ? previous.slice(0, firstShared) : [];
-  return [...older, ...mergeLocalAttachmentUris(previous, page)];
+  const turnEnd = previous.findIndex((message) => message.id === "streaming");
+  const later = turnEnd < 0 ? [] : previous.slice(turnEnd + 1).filter((message) => !pageIds.has(message.id));
+  return [...older, ...mergeLocalAttachmentUris(previous, page), ...later];
 }
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** One poll's wait, somewhere in `DROPPED_TURN_POLL_MS` ± 25%. */
-export function droppedTurnWaitMs(random: () => number = Math.random): number {
-  return Math.round(DROPPED_TURN_POLL_MS * (1 - POLL_JITTER + 2 * POLL_JITTER * random()));
+/** One poll's wait, somewhere in `baseMs` (by default `DROPPED_TURN_POLL_MS`) ± 25%. */
+export function droppedTurnWaitMs(random: () => number = Math.random, baseMs = DROPPED_TURN_POLL_MS): number {
+  return Math.round(baseMs * (1 - POLL_JITTER + 2 * POLL_JITTER * random()));
 }
 
 /**
@@ -78,6 +96,7 @@ export async function pollDroppedTurn({
   known,
   stillWaiting,
   polls = DROPPED_TURN_POLLS,
+  pollMs = () => DROPPED_TURN_POLL_MS,
   wait = sleep,
   random = Math.random,
 }: {
@@ -85,12 +104,14 @@ export async function pollDroppedTurn({
   known: ReadonlySet<string>;
   stillWaiting: () => boolean;
   polls?: number;
+  /** The wait before each poll (from 0), spread by ±25%. */
+  pollMs?: (poll: number) => number;
   wait?: (ms: number) => Promise<void>;
   random?: () => number;
 }): Promise<DroppedTurnResult | null> {
   let last: DroppedTurnResult = { state: "unknown", page: null };
   for (let poll = 0; poll < polls; poll += 1) {
-    await wait(droppedTurnWaitMs(random));
+    await wait(droppedTurnWaitMs(random, pollMs(poll)));
     if (!stillWaiting()) return null;
     try {
       const probe = await fetchPage(DROPPED_TURN_PROBE_ROWS);

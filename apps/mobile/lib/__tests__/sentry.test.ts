@@ -2,10 +2,12 @@ import type { ErrorEvent } from "@sentry/react-native";
 
 import { redactSecrets, scrubBreadcrumb, scrubSentryEvent } from "@/lib/sentry";
 
-jest.mock("@sentry/react-native", () => ({
-  init: jest.fn(),
-  captureException: jest.fn(),
-}));
+const mockSdkLoads: string[] = [];
+
+jest.mock("@sentry/react-native", () => {
+  mockSdkLoads.push("@sentry/react-native");
+  return { init: jest.fn(), captureException: jest.fn() };
+});
 
 const JWT = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.sig_part_here";
 
@@ -67,40 +69,66 @@ describe("error-boundary capture", () => {
     jest.resetModules();
   });
 
+  type SdkMock = { init: jest.Mock; captureException: jest.Mock };
+
   function freshSentry() {
-    let mod!: typeof import("@/lib/sentry");
-    let sdk!: { init: jest.Mock; captureException: jest.Mock };
-    jest.isolateModules(() => {
-      mod = jest.requireActual("@/lib/sentry");
-      sdk = jest.requireMock("@sentry/react-native");
-    });
-    sdk.init.mockClear();
-    sdk.captureException.mockClear();
+    jest.resetModules();
+    mockSdkLoads.length = 0;
+    const mod = jest.requireActual<typeof import("@/lib/sentry")>("@/lib/sentry");
+    // The module the init loads, from the same registry.
+    const sdk = () => jest.requireMock<SdkMock>("@sentry/react-native");
     return { mod, sdk };
   }
 
-  it("reports nothing when Sentry is not configured", () => {
+  it("reports nothing when Sentry is not configured", async () => {
     delete process.env.EXPO_PUBLIC_SENTRY_DSN;
-    const { mod, sdk } = freshSentry();
-    mod.initMobileSentry();
+    const { mod } = freshSentry();
+    await mod.initMobileSentry();
     mod.reportBoundaryError("markdown", new Error("render failed"), "in MarkdownContent");
-    expect(sdk.init).not.toHaveBeenCalled();
-    expect(sdk.captureException).not.toHaveBeenCalled();
+    await Promise.resolve();
+    expect(mockSdkLoads).toEqual([]);
   });
 
-  it("captures a boundary crash with its boundary and component stack once configured", () => {
+  it("loads the SDK only in the deferred init, then captures a boundary crash", async () => {
     (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
     process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example.com/1";
     const { mod, sdk } = freshSentry();
-    mod.initMobileSentry();
-    expect(sdk.init).toHaveBeenCalledWith(
+    expect(mockSdkLoads).toEqual([]);
+
+    await mod.initMobileSentry();
+    expect(mockSdkLoads).toEqual(["@sentry/react-native"]);
+    expect(sdk().init).toHaveBeenCalledWith(
       expect.objectContaining({ sendDefaultPii: false, beforeSend: expect.any(Function) }),
     );
     const error = new Error("render failed");
     mod.reportBoundaryError("message_row", error, "\n    in MessageBubble");
-    expect(sdk.captureException).toHaveBeenCalledWith(error, {
+    expect(sdk().captureException).toHaveBeenCalledWith(error, {
       tags: { boundary: "message_row" },
       contexts: { react: { componentStack: "\n    in MessageBubble" } },
     });
+  });
+
+  it("keeps a crash reported before the SDK is up and sends it once it starts", async () => {
+    process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example.com/1";
+    const { mod, sdk } = freshSentry();
+    const early = new Error("early render failure");
+    mod.reportBoundaryError("markdown", early, null);
+    expect(mockSdkLoads).toEqual([]);
+
+    await Promise.all([mod.initMobileSentry(), mod.initMobileSentry()]);
+    expect(sdk().init).toHaveBeenCalledTimes(1);
+    expect(sdk().captureException).toHaveBeenCalledTimes(1);
+    expect(sdk().captureException).toHaveBeenCalledWith(early, {
+      tags: { boundary: "markdown" },
+      contexts: undefined,
+    });
+  });
+
+  it("keeps only the first few crashes of a loop before init", async () => {
+    process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example.com/1";
+    const { mod, sdk } = freshSentry();
+    for (let i = 0; i < 25; i += 1) mod.reportBoundaryError("message_row", new Error(`loop ${i}`));
+    await mod.initMobileSentry();
+    expect(sdk().captureException).toHaveBeenCalledTimes(10);
   });
 });

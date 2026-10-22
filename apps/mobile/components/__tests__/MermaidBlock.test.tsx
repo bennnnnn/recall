@@ -30,6 +30,10 @@ jest.mock("expo-web-browser", () => ({
   openBrowserAsync: jest.fn(),
 }));
 
+// The diagram page is a file the block reads from expo-file-system, whose
+// native module cannot load here; with no preview WebView it is never written.
+jest.mock("expo-file-system/legacy", () => ({}));
+
 describe("MermaidBlock", () => {
   it("renders the static source fallback when no preview WebView is available", async () => {
     const content = "graph TD; A-->B;";

@@ -5,6 +5,7 @@ import { act, render, screen, waitFor } from "@testing-library/react-native";
 
 import { useChatRouteLoader } from "@/features/chat/hooks/useChatRouteLoader";
 import { api, type Message } from "@/lib/api";
+import { clearAllCachedChatMessages } from "@/features/chat/model/messageCache";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 jest.mock("@/features/chat/drawer/drawer", () => ({
@@ -15,15 +16,12 @@ jest.mock("@/features/chat/drawer/drawer", () => ({
 jest.mock("@/lib/api/client", () => ({ ApiRequestError: class extends Error {} }));
 jest.mock("expo-router", () => ({ useFocusEffect: () => undefined, useRouter: () => ({}) }));
 jest.mock("@/lib/api", () => ({ api: { getChat: jest.fn(), listMessages: jest.fn() } }));
-jest.mock("@/features/chat/model/chatListCache", () => ({
-  getCachedChat: (id: string) => ({ id, title: id.toUpperCase(), pinned: false, archived: false }),
-}));
-jest.mock("@/features/chat/model/messageCache", () => ({
-  clearCachedChatMessages: jest.fn(async () => undefined),
-  readCachedChatMessages: jest.fn(async () => null),
-  writeCachedChatMessages: jest.fn(async () => undefined),
-  cachedChatPageFetchedAt: () => undefined,
-}));
+jest.mock("@/features/chat/model/chatListCache", () => {
+  const listed = (id: string) => ({ id, title: id.toUpperCase(), pinned: false, archived: false });
+  return { getCachedChat: listed, getFetchedChat: listed };
+});
+// The kept pages are real; the file behind them is not.
+jest.mock("expo-file-system/legacy", () => ({ cacheDirectory: null }));
 jest.mock("@/features/chat/hooks/useChatTitlePolling", () => ({
   useChatTitlePolling: () => ({ titleGenerating: false, pollForTitle: jest.fn(), handleFirstReply: jest.fn() }),
 }));
@@ -52,12 +50,13 @@ function Probe({ route, streaming = false }: { route: string; streaming?: boolea
 }
 
 const reply = (chat: string, content: string): Message =>
-  ({ id: `${chat}-1`, role: "assistant", content, model: null, created_at: "t" });
+  ({ id: `0190a000-0000-7000-8000-${chat.padStart(12, "0")}`, role: "assistant", content, model: null, created_at: "t" });
 const reads = (chat: string) =>
   jest.mocked(api.listMessages).mock.calls.filter(([, id]) => id === chat).length;
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
+  await clearAllCachedChatMessages();
   jest.mocked(api.listMessages).mockImplementation(async (_token, chat) => ({
     messages: [reply(chat, `${chat} thread`)],
     has_more: false,

@@ -5,8 +5,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator, Callable
-from contextlib import suppress
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
+from contextlib import aclosing, suppress
 from typing import Any
 from uuid import UUID
 
@@ -20,9 +20,11 @@ from app.core.config import Settings, get_settings
 from app.core.deps import get_current_user
 from app.core.log_context import bound_log_ids, new_turn_id
 from app.core.redis import get_redis_client
+from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.models.schemas import ChatMessageRequest
 from app.modules.chat import stream_entry
+from app.modules.chat.client_message import UNNAMED, ClientMessageClaim, claim_client_message
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
@@ -30,6 +32,7 @@ from app.modules.chat.stream_events import (
     TURN_KEEPALIVE_SECONDS,
     StreamEndEvent,
     await_finalize_commit,
+    build_duplicate_event,
     build_keepalive_event,
     build_reasoning_event,
     build_start_event,
@@ -47,8 +50,9 @@ from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_outcome import TurnOutcome
 
-# What the stream's producer puts for the SSE writer: an event, or None when done.
-_EventQueue = asyncio.Queue[tuple[str, str, str | None] | None]
+# What the stream's producer puts for the SSE writer: an event (kind, text, status
+# detail, status elapsed ms), or None when done.
+_EventQueue = asyncio.Queue[tuple[str, str, str | None, int | None] | None]
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +64,8 @@ _TokenStream = Callable[
     [TurnOutcome, StreamStatusFn, StreamReasoningFn, Callable[[], bool]],
     AsyncIterator[str],
 ]
+# A message's claim on its client_message_id; None when an earlier send took it.
+_ClaimMessage = Callable[[], Awaitable[ClientMessageClaim | None]]
 
 
 async def require_chat_rate_limit(user: User = Depends(get_current_user)) -> Redis:
@@ -83,12 +89,23 @@ def _sse(payload: dict[str, Any]) -> str:
     return f"data: {json.dumps(payload, separators=(',', ':'))}\n\n"
 
 
+async def _until_done(producer: asyncio.Task[None]) -> None:
+    """Wait for the producer without passing this task's cancellation on to it.
+
+    Starlette cancels a disconnected client's response at every await, and
+    ``await producer`` forwarded each of those: a second cancel lands in the
+    turn's own cleanup (the user row's save, the partial reply).
+    """
+    await asyncio.wait({producer})
+
+
 async def _stream_tokens_sse(
     *,
     chat_id: UUID,
     stream_factory: _TokenStream,
     request: Request,
     cancel_event: asyncio.Event | None = None,
+    claim_message: _ClaimMessage | None = None,
     user_id: UUID | None = None,
     queue_factory: Callable[[], _EventQueue] = asyncio.Queue,
 ) -> AsyncIterator[str]:
@@ -98,14 +115,48 @@ async def _stream_tokens_sse(
     token, never by replacing ``asyncio.Queue`` for the whole process.
     """
     with bound_log_ids(chat_id=chat_id, user_id=user_id, turn=new_turn_id()):
-        async for line in _turn_sse_lines(
-            chat_id=chat_id,
-            stream_factory=stream_factory,
-            request=request,
-            cancel_event=cancel_event,
-            queue_factory=queue_factory,
-        ):
-            yield line
+        # Closed with this generator: a client gone at ``start`` settles its claim there.
+        async with aclosing(
+            _turn_sse_lines(
+                chat_id=chat_id,
+                stream_factory=stream_factory,
+                request=request,
+                cancel_event=cancel_event,
+                claim_message=claim_message,
+                queue_factory=queue_factory,
+            )
+        ) as lines:
+            async for line in lines:
+                yield line
+
+
+async def _claim_turn(claim_message: _ClaimMessage | None) -> ClientMessageClaim | str:
+    """The turn's claim on its message, or the one SSE line that refuses the turn.
+
+    Claimed once the response is under way, so a request whose client left before it
+    began holds no claim; every exit after this settles it.
+    """
+    if shutdown.stopping():
+        # A turn begun now would be stopped before its first token.
+        return _sse(
+            turn_error_payload(None, user_message_saved=False, message=SERVER_RESTARTING_MESSAGE)
+        )
+    try:
+        claim = UNNAMED if claim_message is None else await claim_message()
+    except RedisUnavailableError as unavailable:
+        return _sse(turn_error_payload(unavailable, user_message_saved=False))
+    return _sse(build_duplicate_event()) if claim is None else claim
+
+
+def _queued_event(
+    kind: str, text: str, detail: str | None, elapsed_ms: int | None
+) -> dict[str, Any]:
+    """One event the producer queued, as the SSE payload the client reads."""
+    if kind == "status":
+        return build_status_event(text, detail, elapsed_ms=elapsed_ms)
+    if kind == "reasoning":
+        return build_reasoning_event(text)
+    return build_token_event(text)
 
 
 async def _turn_sse_lines(
@@ -114,26 +165,31 @@ async def _turn_sse_lines(
     stream_factory: _TokenStream,
     request: Request,
     cancel_event: asyncio.Event | None = None,
+    claim_message: _ClaimMessage | None = None,
     queue_factory: Callable[[], _EventQueue] = asyncio.Queue,
-) -> AsyncIterator[str]:
+) -> AsyncGenerator[str]:
     outcome = TurnOutcome()
     event_queue = queue_factory()
     producer_cancelled = False
-    if cancel_event is None:
-        cancel_event = asyncio.Event()
-    if shutdown.stopping():
-        # A turn begun now would be stopped before its first token.
-        yield _sse(
-            turn_error_payload(None, user_message_saved=False, message=SERVER_RESTARTING_MESSAGE)
-        )
+    cancel_event = cancel_event or asyncio.Event()
+    claim = await _claim_turn(claim_message)
+    if isinstance(claim, str):
+        yield claim
         return
-    yield _sse(build_start_event())
+    try:
+        yield _sse(build_start_event())
+    except GeneratorExit:
+        # The client left before the turn began: nothing ran.
+        claim.settle_after(None, outcome)
+        raise
 
-    async def on_status(phase: str, detail: str | None = None) -> None:
-        await event_queue.put(("status", phase, detail))
+    async def on_status(
+        phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+    ) -> None:
+        await event_queue.put(("status", phase, detail, elapsed_ms))
 
     async def on_reasoning(chunk: str) -> None:
-        await event_queue.put(("reasoning", chunk, None))
+        await event_queue.put(("reasoning", chunk, None, None))
 
     def should_cancel() -> bool:
         return cancel_event.is_set()
@@ -144,7 +200,7 @@ async def _turn_sse_lines(
             async for token_text in stream:
                 if should_cancel():
                     break
-                await event_queue.put(("token", token_text, None))
+                await event_queue.put(("token", token_text, None, None))
         except asyncio.CancelledError:
             # Cancel often lands in this task, not inside the generator.
             # The generator is then parked at yield and would never save.
@@ -205,19 +261,12 @@ async def _turn_sse_lines(
                 continue
             if item is None:
                 break
-            kind, payload, extra = item
-            if kind == "status":
-                yield _sse(build_status_event(payload, extra))
-            elif kind == "reasoning":
-                yield _sse(build_reasoning_event(payload))
-            else:
-                yield _sse(build_token_event(payload))
+            yield _sse(_queued_event(*item))
 
         if cancel_event.is_set():
             # Disconnect already cancelled the producer. A second cancel
             # lands in the partial-reply save and drops the text.
-            with suppress(asyncio.CancelledError):
-                await producer
+            await _until_done(producer)
             if not shutdown.stopping():
                 return
             # The server stopped the turn; the client is still here to be told.
@@ -231,8 +280,7 @@ async def _turn_sse_lines(
                 )
                 return
 
-        with suppress(asyncio.CancelledError):
-            await producer
+        await _until_done(producer)
         if producer.cancelled():
             return
         if (exc := producer.exception()) is not None:
@@ -257,9 +305,12 @@ async def _turn_sse_lines(
         clear_task_cancellation()
         cancel_event.set()
         cancel_producer_once()
+        # Settled off this task once the producer is done: a disconnected
+        # client's response is cancelled again at every await below.
+        claim.settle_after(producer, outcome)
         if not producer.done():
-            with suppress(asyncio.CancelledError, Exception):
-                await producer
+            with suppress(asyncio.CancelledError):
+                await _until_done(producer)
         # M10: if the SSE transport failed mid-stream (client disconnect,
         # proxy drop) the success-path finalize await above never ran, so
         # the background DB commit that persists the partial assistant
@@ -308,6 +359,9 @@ async def stream_message_sse(
         _stream_tokens_sse(
             chat_id=chat_id,
             request=request,
+            claim_message=lambda: claim_client_message(
+                redis, user_id=user.id, chat_id=chat_id, client_message_id=body.client_message_id
+            ),
             user_id=user.id,
             stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
                 stream_entry.stream_chat_response(

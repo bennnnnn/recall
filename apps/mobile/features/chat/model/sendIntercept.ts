@@ -24,16 +24,14 @@ type InterceptInput = {
   canGenerate: boolean;
   imageGenerating: boolean;
   token: string | null;
-  /** Runs just before the server is asked. */
-  onServerCheck: () => void;
   isCurrentView: () => boolean;
 };
 
 /**
  * What the composer makes of a send before chat sees it: a photo lookup, an image to
  * generate, or a normal send. Only the server reads image intent (POST /images/intent);
- * the phone asks it when the send might be one, and a send that cannot be one stays
- * synchronous, so a plain send claims its double-send guard in the same tick.
+ * the phone asks it, after the bubble is painted, when the send might be one. A send
+ * that cannot be one stays synchronous and goes out in the tap's own tick.
  */
 export function resolveSendIntercept(input: InterceptInput): SendIntercept | Promise<SendIntercept> {
   const { text, attachment, token } = input;
@@ -43,7 +41,6 @@ export function resolveSendIntercept(input: InterceptInput): SendIntercept | Pro
   if (!input.canGenerate || !token || (attachment && attachment.kind !== "image")) return { kind: "send" };
   const imageAttached = attachment?.kind === "image";
   if (!mightBeImageTurn(text, input.messages, imageAttached)) return { kind: "send" };
-  input.onServerCheck();
   return askServer(input, token, imageAttached);
 }
 

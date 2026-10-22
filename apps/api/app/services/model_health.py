@@ -1,46 +1,50 @@
-"""Rolling model health samples in Redis (best-effort, never blocks chat)."""
+"""Rolling model health samples in Redis: a breaker per model (best-effort, never blocks chat).
+
+Every model call of a turn leaves one sample: whether that model answered, and how
+long its provider took to start (``latency_ms``). Samples are kept per provider
+model, so aliases that run the same model share one breaker. A model is open, so
+routing and fallbacks skip it, while half or more of its recent samples are bad
+(failed, or slower than ``_SLOW_MS`` to start) and its newest one is bad too. Once
+its cool-down has passed with no new sample it is half-open: routing may pick it
+again, and a turn about to try it first claims its probe (``claim_probe``), so one
+turn at a time tries it. A success closes the breaker, a failure opens it for
+another cool-down.
+"""
 
 from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any
 
 from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.gateways import mock_llm
+from app.models import model_catalog
 from app.models.model_catalog import ChatModel
 
 logger = logging.getLogger(__name__)
 
-_SAMPLES_KEY = "recall:model_health:samples:{alias}"
+_SAMPLES_KEY = "recall:model_health:samples:{model}"
+# Held by the one turn trying a half-open model; its sample lets the next one go.
+_PROBE_KEY = "recall:model_health:probe:{model}"
 _MAX_SAMPLES = 40
 _SAMPLE_TTL_SECONDS = 86_400
-# Only samples this recent count. An unhealthy alias leaves Auto and the fallbacks, so
-# it gets no new samples: once its failures age out it is routable again (half-open).
-_WINDOW_SECONDS = 15 * 60
-# Fewer samples than this never mark an alias unhealthy: one blip is not an outage.
-_MIN_SAMPLES = 3
-# Time to first content past this, at the median, is too slow to route to.
-_SLOW_FIRST_CONTENT_MS = 30_000
-# The verdict is shared by every turn on this process for a few seconds: six ZRANGEs
-# per turn for a best-effort hint was most of a turn's Redis traffic.
-_VERDICT_CACHE_SECONDS = 3.0
-_verdicts: dict[tuple[str, ...], tuple[float, frozenset[str]]] = {}
+# A provider this slow to start answering counts against its model.
+_SLOW_MS = 30_000
+_BAD_RATE = 0.5
 
 
-class _Attempt(Protocol):
-    @property
-    def alias(self) -> str: ...
+@dataclass(frozen=True)
+class HealthSample:
+    """One model call: did that model answer, and how long until its provider started."""
 
-    @property
-    def ok(self) -> bool: ...
-
-    @property
-    def first_content_ms(self) -> float: ...
+    alias: str
+    latency_ms: float
+    success: bool
 
 
 @dataclass(frozen=True)
@@ -49,128 +53,156 @@ class ModelHealthSnapshot:
     latency_p50_ms: int | None
     sample_count: int
     error_rate: float
+    # When the newest sample was recorded (epoch seconds); None without samples.
+    newest_at: float | None = None
 
 
-async def record_sample(
-    redis: Redis,
-    alias: str,
-    *,
-    latency_ms: float,
-    success: bool,
-) -> None:
-    """Append one sample (``latency_ms`` = time to first content). Failures are swallowed."""
-    await record_attempts(redis, [_Sample(alias, success, latency_ms)])
+@dataclass(frozen=True)
+class Breakers:
+    """The open models among those read, by alias."""
+
+    # Inside their cool-down: routing and fallbacks skip them.
+    cooling: frozenset[str] = frozenset()
+    # Cool-down passed: a turn tries one only once it holds its probe.
+    half_open: frozenset[str] = frozenset()
 
 
-@dataclass(frozen=True, slots=True)
-class _Sample:
-    alias: str
-    ok: bool
-    first_content_ms: float
+_NO_SAMPLES = ModelHealthSnapshot(healthy=True, latency_p50_ms=None, sample_count=0, error_rate=0.0)
 
 
-async def record_attempts(
-    redis: Redis, attempts: Sequence[_Attempt], *, now: float | None = None
-) -> None:
-    """One sample per alias a stream tried, in one round trip, timed ``now`` (the
-    current time by default). Failures are swallowed."""
-    if not attempts:
+def _model_of(alias: str) -> str:
+    """The provider model whose breaker ``alias`` reads (an unknown alias is its own)."""
+    if alias in model_catalog.known_ids():
+        return model_catalog.get(alias).model
+    return alias
+
+
+def probe_ttl_seconds(settings: Settings) -> int:
+    """How long a claimed probe stands: past the cool-down, and long enough for
+    the probing turn to open its stream and wait out an idle provider."""
+    attempt = settings.chat_stream_connect_timeout_seconds + settings.chat_stream_timeout_seconds
+    return max(settings.model_health_cooldown_seconds, attempt)
+
+
+async def record_samples(redis: Redis, samples: Sequence[HealthSample]) -> None:
+    """Append a turn's samples in one round trip, and release their models' probes.
+
+    Failures are logged and swallowed.
+    """
+    if not samples:
         return
     try:
-        now = time.time() if now is None else now
-        async with redis.pipeline(transaction=False) as pipe:
-            for attempt in attempts:
-                key = _SAMPLES_KEY.format(alias=attempt.alias)
-                # score = timestamp; member encodes success|latency|nonce
-                member = f"{int(attempt.ok)}|{int(attempt.first_content_ms)}|{time.time_ns()}"
-                pipe.zadd(key, {member: now})
-                pipe.zremrangebyrank(key, 0, -(_MAX_SAMPLES + 1))
-                pipe.expire(key, _SAMPLE_TTL_SECONDS)
-            await pipe.execute()
+        pipe = redis.pipeline(transaction=False)
+        for sample in samples:
+            model = _model_of(sample.alias)
+            key = _SAMPLES_KEY.format(model=model)
+            # score = timestamp; member encodes success|latency|unique
+            member = f"{int(sample.success)}|{int(sample.latency_ms)}|{time.time_ns()}"
+            pipe.zadd(key, {member: time.time()})
+            pipe.zremrangebyrank(key, 0, -(_MAX_SAMPLES + 1))
+            pipe.expire(key, _SAMPLE_TTL_SECONDS)
+            # The sample decides the breaker; the next cool-down starts from it.
+            pipe.delete(_PROBE_KEY.format(model=model))
+        await pipe.execute()
     except Exception:
         logger.debug("model health samples failed", exc_info=True)
 
 
-def _snapshot(raw: Sequence[object]) -> ModelHealthSnapshot:
-    samples: list[tuple[bool, int]] = []
+def _parse(raw: Iterable[Any]) -> list[tuple[bool, int, float]]:
+    """(ok, latency ms, recorded at) per stored sample, oldest first.
+
+    Samples recorded at the same second keep the order they were written in (the
+    member's nanosecond part): Redis would order them failure first.
+    """
+    samples: list[tuple[bool, int, float, int]] = []
     for item in raw:
-        text = item.decode() if isinstance(item, bytes) else str(item)
+        member, score = item if isinstance(item, tuple | list) else (item, None)
+        text = member.decode() if isinstance(member, bytes) else str(member)
         parts = text.split("|")
-        if len(parts) < 2:
-            continue
         try:
-            samples.append((parts[0] == "1", int(parts[1])))
-        except ValueError:
+            # The score is when it was recorded; the member's last part is too.
+            written_ns = int(parts[2]) if len(parts) > 2 else 0
+            at = float(score) if score is not None else written_ns / 1e9
+            samples.append((parts[0] == "1", int(parts[1]), at, written_ns))
+        except (ValueError, IndexError):
             continue
+    samples.sort(key=lambda sample: (sample[2], sample[3]))
+    return [(ok, ms, at) for ok, ms, at, _ns in samples]
+
+
+def _snapshot(raw: Iterable[Any]) -> ModelHealthSnapshot:
+    samples = _parse(raw)
     if not samples:
-        return ModelHealthSnapshot(
-            healthy=True, latency_p50_ms=None, sample_count=0, error_rate=0.0
-        )
-    errors = sum(1 for ok, _ in samples if not ok)
-    error_rate = errors / len(samples)
-    latencies = sorted(ms for ok, ms in samples if ok)
-    p50 = latencies[len(latencies) // 2] if latencies else None
-    enough = len(samples) >= _MIN_SAMPLES
-    healthy = not enough or (error_rate < 0.5 and (p50 is None or p50 < _SLOW_FIRST_CONTENT_MS))
+        return _NO_SAMPLES
+    bad = [not ok or ms >= _SLOW_MS for ok, ms, _at in samples]
+    errors = sum(1 for ok, _ms, _at in samples if not ok)
+    latencies = sorted(ms for ok, ms, _at in samples if ok)
     return ModelHealthSnapshot(
-        healthy=healthy,
-        latency_p50_ms=p50,
+        # A model that just answered is closed, whatever came before.
+        healthy=not (bad[-1] and sum(bad) / len(bad) >= _BAD_RATE),
+        latency_p50_ms=latencies[len(latencies) // 2] if latencies else None,
         sample_count=len(samples),
-        error_rate=error_rate,
+        error_rate=errors / len(samples),
+        newest_at=samples[-1][2],
     )
-
-
-async def _read_windows(redis: Redis, aliases: Sequence[str]) -> list[list[object]]:
-    since = time.time() - _WINDOW_SECONDS
-    async with redis.pipeline(transaction=False) as pipe:
-        for alias in aliases:
-            pipe.zrangebyscore(_SAMPLES_KEY.format(alias=alias), since, "+inf")
-        return list(await pipe.execute())
-
-
-async def get_health(redis: Redis, alias: str) -> ModelHealthSnapshot:
-    return (await enrich_models_health(redis, None, [alias]))[alias]
 
 
 async def enrich_models_health(
     redis: Redis,
-    settings: Settings | None,
+    settings: Settings,
     aliases: list[str],
 ) -> dict[str, ModelHealthSnapshot]:
-    """Each alias's health over the last ``_WINDOW_SECONDS``; healthy when unreadable."""
+    """Every alias's breaker in one Redis round trip; all healthy when it can't be read."""
     _ = settings
+    if not aliases:
+        return {}
+    models = list(dict.fromkeys(_model_of(alias) for alias in aliases))
     try:
-        windows = await _read_windows(redis, aliases)
+        pipe = redis.pipeline(transaction=False)
+        for model in models:
+            pipe.zrange(_SAMPLES_KEY.format(model=model), 0, -1, withscores=True)
+        raw = await pipe.execute()
     except Exception:
         logger.debug("model health read failed", exc_info=True)
-        windows = [[] for _ in aliases]
-    return {alias: _snapshot(raw) for alias, raw in zip(aliases, windows, strict=True)}
+        return dict.fromkeys(aliases, _NO_SAMPLES)
+    by_model = {model: _snapshot(samples) for model, samples in zip(models, raw, strict=True)}
+    return {alias: by_model[_model_of(alias)] for alias in aliases}
 
 
-async def unhealthy_aliases(redis: Redis, settings: Settings, aliases: list[str]) -> frozenset[str]:
-    """The aliases whose provider is failing or slow; empty when health can't be read.
-
-    Best-effort: routing must never fail a turn over a health read. Shared per process
-    for ``_VERDICT_CACHE_SECONDS``.
+async def read_breakers(redis: Redis, settings: Settings, aliases: list[str]) -> Breakers:
+    """The open models among ``aliases``, cooling or half-open; none when health
+    can't be read. Reading claims nothing: routing must never fail a turn over a
+    health read, nor use up a probe for a model the turn does not try.
     """
-    key = tuple(aliases)
-    cached = _verdicts.get(key)
-    now = time.monotonic()
-    if cached is not None and cached[0] > now:
-        return cached[1]
     try:
         snaps = await enrich_models_health(redis, settings, aliases)
     except Exception:
         logger.debug("model health read failed during routing", exc_info=True)
-        return frozenset()
-    verdict = frozenset(alias for alias, snap in snaps.items() if not snap.healthy)
-    _verdicts[key] = (now + _VERDICT_CACHE_SECONDS, verdict)
-    return verdict
+        return Breakers()
+    cooldown = settings.model_health_cooldown_seconds
+    now = time.time()
+    cooling: set[str] = set()
+    half_open: set[str] = set()
+    for alias, snap in snaps.items():
+        if snap.healthy:
+            continue
+        cooled = snap.newest_at is not None and now - snap.newest_at >= cooldown
+        (half_open if cooled else cooling).add(alias)
+    return Breakers(cooling=frozenset(cooling), half_open=frozenset(half_open))
 
 
-def forget_verdicts() -> None:
-    """Drop the per-process verdict cache (tests)."""
-    _verdicts.clear()
+async def claim_probe(redis: Redis, settings: Settings, alias: str) -> bool:
+    """Claim the one try a half-open model allows; False when another turn holds it.
+
+    Called right before a turn tries the model. A claim that can't be made counts
+    as lost: without the record, every turn could pile onto a failing model.
+    """
+    try:
+        key = _PROBE_KEY.format(model=_model_of(alias))
+        return bool(await redis.set(key, "1", nx=True, ex=probe_ttl_seconds(settings)))
+    except Exception:
+        logger.debug("model health probe claim failed", exc_info=True)
+        return False
 
 
 def is_available(model: ChatModel, settings: Settings) -> bool:

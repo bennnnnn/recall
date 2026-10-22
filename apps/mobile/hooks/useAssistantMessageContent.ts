@@ -6,6 +6,7 @@ import {
   type AssistantMessageContent,
 } from "@/lib/markdown/assistantMessageContent";
 import { isServerPresentedRow } from "@/lib/markdown/presentation";
+import { isFreshStreamRenderKey } from "@/lib/messageListLayout";
 
 type Options = {
   message: Pick<Message, "id" | "content" | "search_sources" | "renderKey" | "created_at">;
@@ -64,7 +65,16 @@ export function useAssistantMessageContent({
     content,
     hasContent: content.trim().length > 0,
     // A saved row the server presented is shown as saved; a live draft is the
-    // model's own text and the phone presents it.
-    markdownPresented: liveContent === undefined && !isUser && isServerPresentedRow(message),
+    // model's own text and the phone presents it. So is the reply that just
+    // streamed in here, saved or not: it goes on being drawn as it streamed,
+    // and nothing in it moves when the turn ends. The trade-off: after the
+    // server cut-over that row shows the phone's presentation of the saved
+    // text until the chat is opened again; both follow the one contract
+    // (docs/fixtures/presentation_cases.json), so they agree.
+    markdownPresented:
+      liveContent === undefined &&
+      !isUser &&
+      !isFreshStreamRenderKey(message.renderKey) &&
+      isServerPresentedRow(message),
   };
 }

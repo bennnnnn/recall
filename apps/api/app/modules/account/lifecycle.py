@@ -11,7 +11,6 @@ from app.core import user_cache
 from app.core.access_tokens import REVOKED_SINCE_PREFIX
 from app.core.config import Settings
 from app.core.jobs import enqueue
-from app.core.redis import get_redis_client
 from app.core.validation import normalize_avatar_url
 from app.exceptions import AuthenticationError
 from app.gateways import apple_revoke
@@ -58,7 +57,9 @@ async def update_account(
                 raise ValueError("Choose an uploaded photo that has finished uploading.")
             fields["avatar_url"] = avatar_url
             updated = await users_repo.update(session, user, commit=False, **fields)
+            user_id = updated.id
             await session.commit()
+            await user_cache.publish_change(user_id)
             await session.refresh(updated)
         except BaseException:
             await session.rollback()
@@ -67,7 +68,6 @@ async def update_account(
         updated = await users_repo.update(session, user, **fields)
     if memory_toggled:
         await memory_service.invalidate_memory_block(user.id)
-    await user_cache.bump_generation(get_redis_client(), user.id)
     return updated
 
 

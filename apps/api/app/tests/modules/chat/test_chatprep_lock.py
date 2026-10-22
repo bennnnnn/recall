@@ -374,7 +374,7 @@ async def test_lock_redis_errors_never_cut_the_stream_or_skip_its_save(stream_of
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)),
-        patch("app.services.model_health.record_sample", AsyncMock()),
+        patch("app.services.model_health.record_samples", AsyncMock()),
         patch.object(turn_resources, "CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS", 0.005),
     ):
         async with turn_resources.turn_resources(
@@ -433,7 +433,7 @@ async def test_a_turn_handed_to_finalize_is_not_refunded_on_a_later_escape(strea
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", AsyncMock()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)),
-        patch("app.services.model_health.record_sample", AsyncMock()),
+        patch("app.services.model_health.record_samples", AsyncMock()),
     ):
         with pytest.raises(RuntimeError, match="after the save"):
             async with turn_resources.turn_resources(
@@ -495,9 +495,9 @@ async def test_turn_resources_refreshes_only_a_lock_it_took(borrowed):
 async def test_top_up_reserve_for_prompt_adds_delta():
     user = _user()
     redis = redis_mock()
-    reserve = AsyncMock(return_value=True)
+    reserve = AsyncMock(return_value=30)
     res = turn_resources.TurnResources(
-        deps=turn_deps(quota={"reserve_usage": reserve}),
+        deps=turn_deps(quota={"reserve_usage_up_to": reserve}),
         redis=redis,
         user_id=user.id,
         chat_id=uuid4(),
@@ -529,7 +529,7 @@ async def test_top_up_reserve_for_prompt_keeps_the_turn_when_no_more_fits():
     user = _user()
     redis = redis_mock()
     res = turn_resources.TurnResources(
-        deps=turn_deps(quota={"reserve_usage": AsyncMock(return_value=False)}),
+        deps=turn_deps(quota={"reserve_usage_up_to": AsyncMock(return_value=0)}),
         redis=redis,
         user_id=user.id,
         chat_id=uuid4(),

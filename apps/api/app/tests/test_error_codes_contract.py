@@ -72,7 +72,6 @@ def _scan(body: dict[str, Any], *, settings: Settings | None = None, **redis: bo
             "app.services.scan_read.allow_request_fail_closed",
             AsyncMock(return_value=redis.get("allowed", True)),
         ),
-        patch("app.modules.account.consent.is_current", AsyncMock(return_value=True)),
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
     ):
         return _client(_user(), settings).post("/math/scan/read", headers=_AUTH, json=body)
@@ -91,7 +90,6 @@ def _presign(content_type: str, size_bytes: int, *, at_daily_cap: bool = False) 
         asyncio.run(_seed(fake_redis, f"imgup:{user.id}:{day}", cap))
     with (
         patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis),
-        patch("app.modules.account.consent.is_current", AsyncMock(return_value=True)),
     ):
         return _client(user).post(
             "/attachments/presign",
@@ -103,8 +101,6 @@ def _presign(content_type: str, size_bytes: int, *, at_daily_cap: bool = False) 
 def _bodies() -> dict[str, dict[str, Any]]:
     too_big = base64.b64encode(b"\xff" * (SCAN_MAX_IMAGE_BYTES + 1)).decode()
     with (
-        patch("app.modules.account.consent.is_current", AsyncMock(return_value=False)),
-        patch("app.modules.account.consent.read_generation", AsyncMock(return_value=0)),
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
     ):
         consent = _client(_user(consented=False)).post(

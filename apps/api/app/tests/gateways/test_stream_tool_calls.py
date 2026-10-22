@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.gateways import litellm_gateway
-from app.gateways.litellm_gateway import StreamAttempt
+from app.gateways.stream_signals import StreamAttempt
 from app.gateways.stream_tool_calls import StreamedToolCalls
 from app.tests.fakes import isolated_settings
 
@@ -137,7 +137,7 @@ async def test_stream_a_reply_that_only_calls_a_tool_has_answered() -> None:
         }
     ]
     assert meta == {"finish_reason": "tool_calls", "model_alias": "free-chat"}
-    assert [attempt.ok for attempt in attempts] == [True]
+    assert [attempt.failed for attempt in attempts] == [False]
 
 
 @pytest.mark.asyncio

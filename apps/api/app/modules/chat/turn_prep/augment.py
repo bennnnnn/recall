@@ -19,6 +19,7 @@ from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import _should_augment_web_and_tools
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.math.tools.extract import is_graph_followup
+from app.modules.math.tools.solve_timeouts import recording as recording_solve_timeouts
 from app.modules.web_search.subject import (
     collect_prior_user_messages as _prompt_prior_user_messages,
 )
@@ -40,6 +41,8 @@ class Augmentation:
     direct_text: str | None = None
     # The message asks for more than its solve: the model answers the rest.
     asks_more: bool = False
+    # SymPy ran out of time on the turn's problem: the tool loop does not run it again.
+    solve_timed_out: bool = False
 
     async def direct_reply(
         self, request: TurnRequest, followup: SubjectFollowup, settings: Settings
@@ -94,9 +97,10 @@ async def gather_and_inject(
         return Augmentation(prompt_messages)
 
     # Phase B: the subject solve. Phase C: inject it before the last user message.
-    fetched = await _fetch_subject_with_priors(
-        request, identity, settings, redis, prompt_messages, followup, _mixed_solve(plan)
-    )
+    with recording_solve_timeouts() as timed_out:
+        fetched = await _fetch_subject_with_priors(
+            request, identity, settings, redis, prompt_messages, followup, _mixed_solve(plan)
+        )
     return Augmentation(
         prompt_messages=inject_subject_block(prompt_messages, fetched.subject_block),
         verified_subject=fetched.verified,
@@ -104,6 +108,7 @@ async def gather_and_inject(
         unverified_subject=fetched.unverified_subject,
         direct_text=fetched.direct_text,
         asks_more=plan.multi and any(part.kind != "solve" for part in plan.parts),
+        solve_timed_out=bool(timed_out),
     )
 
 

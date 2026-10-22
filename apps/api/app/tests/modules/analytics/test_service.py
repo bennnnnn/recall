@@ -5,6 +5,7 @@ import pytest
 
 from app.models.schemas import ProductEventBatchIn
 from app.modules.analytics import service as product_analytics
+from app.tests.fakes import fake_session
 
 
 @pytest.mark.asyncio
@@ -230,3 +231,68 @@ async def test_the_database_stores_chat_ttft_and_chat_turn_outcome(db_session) -
         }
     )
     await product_analytics.record_batch(db_session, user.id, batch)
+
+
+_TTFT = {
+    "latency_bucket": "500_999",
+    "transport": "ws",
+    "has_attachment": "no",
+    "sample_rate": "0.2",
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("name", "properties"),
+    [
+        ("chat_ttft", _TTFT),
+        ("chat_ttft", {**_TTFT, "paint_bucket": "lt50"}),
+        ("chat_turn_outcome", _OUTCOME),
+        ("chat_turn_outcome", {**_OUTCOME, "send_ready_bucket": "100_249"}),
+        ("chat_turn_outcome", {**_OUTCOME, "send_ready_bucket": "none"}),
+    ],
+)
+async def test_record_batch_takes_the_newer_bucketed_fields_or_none(
+    name: str, properties: dict[str, str]
+) -> None:
+    """Apps that predate a field still send the event without it."""
+    session = fake_session()
+    batch = ProductEventBatchIn.model_validate(
+        {"events": [{"name": name, "properties": properties}]}
+    )
+    with patch(
+        "app.modules.analytics.service.product_events_repo.create_batch", AsyncMock()
+    ) as create_batch:
+        await product_analytics.record_batch(session, uuid4(), batch)
+
+    call = create_batch.await_args
+    assert call is not None
+    assert call.args[1][0].properties == properties
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("name", "properties"),
+    [
+        ("chat_ttft", {**_TTFT, "paint_bucket": "37"}),
+        ("chat_turn_outcome", {**_OUTCOME, "send_ready_bucket": "412"}),
+        # A field belongs to its own event only.
+        ("chat_ttft", {**_TTFT, "send_ready_bucket": "lt100"}),
+        ("chat_turn_outcome", {**_OUTCOME, "paint_bucket": "lt50"}),
+        # The newer field never stands in for a required one.
+        ("chat_ttft", {"transport": "ws", "has_attachment": "no", "paint_bucket": "lt50"}),
+    ],
+)
+async def test_record_batch_rejects_raw_or_misplaced_newer_fields(
+    name: str, properties: dict[str, str]
+) -> None:
+    session = fake_session()
+    batch = ProductEventBatchIn.model_validate(
+        {"events": [{"name": name, "properties": properties}]}
+    )
+    with patch(
+        "app.modules.analytics.service.product_events_repo.create_batch", AsyncMock()
+    ) as create_batch:
+        with pytest.raises(ValueError, match="Invalid"):
+            await product_analytics.record_batch(session, uuid4(), batch)
+    create_batch.assert_not_awaited()

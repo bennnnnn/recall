@@ -98,7 +98,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Ordinary turns show typing dots only (no “loading memory / working on it” staircase).
   Status labels are reserved for real extra work while it runs: web search, files, math,
   a reference-photo lookup ("Finding a photo") and image gen; the server sends
-  `composing` once a tool is done, so its label never outlives it. After the first
+  `composing` once a tool is done, so its label never outlives it. Hard turns say what
+  they are doing once it has run a second: "Thinking… 12s" while a model reasons
+  (counted from when it was asked; its reasoning is never shown), "Planning the answer…"
+  for a slow tool-selection round, and "Checking the answer…" (or "Finding a photo…")
+  under a streamed reply whose last step runs before it saves; the label goes when that
+  step ends, and at `stream_end` at the latest. After the first
   token, 20 s without new text shows "Still working on it… Tap Stop". A card fence
   (quiz, steps, array, places, any data-bodied registry fence) is a quiet placeholder
   until it closes, a table waits for its delimiter row, and verified-solve markers or
@@ -106,7 +111,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   with user/quota load (regenerate still waits first so it does not miss that reply).
   Attachment-chunk probes run only when they can apply;
   time/location answers skip a database checkout.
-- ✅ **Stop generation** — cancel mid-stream (send button becomes a stop button); the partial reply
+- ✅ **Stop generation** — cancel mid-stream (send button becomes a stop button, until the
+  reply's text is all in: at `stream_end` Send works again, and a turn sent then goes out
+  once that reply's `done` lands, or once a reload finds the saved reply when no `done`
+  comes in 12 s; a reply whose save fails then says “This reply wasn’t saved.”); the partial reply
   is kept and marked incomplete (same “Generation stopped.” footer as a provider
   drop or token-limit cut). The kept text never changes after Stop: the cancel frame
   says how much the phone drew (`shown_chars`), the server saves that text made safe
@@ -252,7 +260,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   dotted cover in Expo Go), a stage line ("Sketching it out" … "Almost there") and an estimated
   percentage; tapping it starts a small dot game. Tap the result to
   view full-screen and save via the system share sheet. Only the server reads the request:
-  when a send might be a picture or a photo, the composer asks `POST /images/intent`, which
+  the tap paints the bubble and typing dots first, and when a send might be a picture or a
+  photo the composer then asks `POST /images/intent` (a picture is drawn under that bubble), which
   answers with the chat turn's own reading of the text and the chat's recent turns
   (`docs/fixtures/image_intent_cases.json`), and draws what it answers, so "show the steps"
   after a picture is chat. A maths, physics or chemistry turn is never a picture: "draw
@@ -558,9 +567,22 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (`gateways/litellm_gateway.py`). Adding a model is a catalog entry + OpenRouter slug.
 - ✅ **Model availability + cost** — `GET /models` reports each model's availability (key present)
   and price; the picker shows available models with a per-1M-token cost hint.
-- ✅ **Live latency/health** — Redis rolling samples from stream outcomes; `GET /models` exposes
-  `healthy`, `latency_p50_ms`, and sample count. Settings shows degraded on the model list;
-  detailed timing remains available through the API.
+- ✅ **Live latency/health** — a breaker per provider model (aliases on one model share it)
+  over Redis rolling samples: every model a turn tried leaves one, blamed on the model that
+  failed (partway through a reply too), with how fast its provider started. Timeouts, 5xx,
+  rate limits, dropped connections, empty replies and first-reply caps count; a request the
+  provider refused (4xx) does not. All models, the photo lanes included, are read in one
+  round trip per turn. An open model is skipped by Auto, fallbacks and the photo lane; after
+  a 30 s cool-down a turn about to try it claims its one probe first, so only a turn that
+  tries it uses the probe up. `GET /models` exposes `healthy`, `latency_p50_ms`, and sample
+  count. Settings shows degraded on the model list; detailed timing remains available
+  through the API.
+- ✅ **Fast failover** — a model that shows nothing gives way to the next in its chain after
+  3 s on the everyday lane, 4 s for a model that always thinks, or 8 s on a paid reasoning
+  lane; its first text or reasoning ends the wait, and the idle and wall-clock caps still
+  bound the rest. Prompts past ~24k characters get a second more per 40k; a request with an
+  image, and the last model in the chain, get no cap. Never once text or thinking has
+  reached the phone.
 - 🔜 **User-tunable routing rules** (custom per-message heuristics beyond Auto + enabled set).
 
 ## 6. Memory (remembering the user)
@@ -776,6 +798,16 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 
 ## 11. Navigation & UX
 - ✅ **Drawer** — custom slide-in: search, New chat, chat history, profile + settings.
+  A cold start shows the chats the account had last time while the list is read again.
+- ✅ **Opening a chat** — the last page shows at once (kept after every finished turn) and Send
+  works on it: a message sent before the server's page lands shows at once and goes out once
+  that page is in (at most 4 s later), so it shows once, below the page. Stopped or left before
+  then, it goes back to the composer unsent (New Chat's if the chat was deleted elsewhere). A page
+  that lands after the 4 s is merged once nothing of the message that went first is left on screen
+  (it was refused), else the chat is read again when that turn is over. A chat reopened within
+  20 s of this phone keeping its page is not read again, unless the app went to the background
+  since or the drawer's last read of the chat list (once per session, or on pull to refresh) shows
+  the chat changed; rows the server's page left unchanged are not redrawn.
 - ✅ **Chat screen** — single-purpose composer, top-right `＋` (new) and `⋯` (Share / Rename /
   Pin / Delete).
 - ✅ **States** — login, loading, empty chat ("How can I help?"), empty memory, drawer offline/retry.
@@ -1143,7 +1175,15 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
 - ✅ **JWT refresh / logout** — 1h access + refresh rotation; mobile auto-refresh on 401.
 - ✅ **HTTP SSE chat fallback** — `POST /chats/{id}/messages/stream` when WebSocket fails.
   New chat does not abort the fetch; Stop still does. The producer is registered as
-  in-flight so `GET /messages` can wait out a leave.
+  in-flight so `GET /messages` can wait out a leave. After a socket failure the next sends
+  use SSE for 10 s (doubling to 5 min, reset by a reply over the socket, a network change
+  or another chat), then the socket again; it used to stay SSE for the rest of the chat.
+- ✅ **Chat socket recovery** — the socket reopens when the user starts to write after the
+  server's idle close, is rebuilt after an access-token refresh, and is replaced on a network
+  change (a reply in flight is probed instead). A send with no `start` within 3 s is probed
+  (ping/pong); a dead socket's send is replayed over SSE under the message's
+  `client_message_id`, which the server runs at most once (`modules/chat/client_message.py`);
+  a resend it already took gets `duplicate` and the phone follows the first turn.
 
 ### Architecture review follow-ups (Jul 2026)
 

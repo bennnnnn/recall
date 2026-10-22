@@ -128,16 +128,19 @@ export function composerSoftWrapLineCount(
  * Once the field width is known, ignore the native content size. iOS reports
  * the height we just set, and trusting that number ratchets the pill (and the
  * thread) upward on every keystroke.
+ *
+ * `lineCount` is `composerSoftWrapLineCount` for the same text, width and
+ * scale, for a caller that already has it: the estimate walks every character.
  */
 export function composerInputFrameHeight(
   text: string,
   measuredContentHeight: number,
   contentWidth = 0,
   fontScale = 1,
+  lineCount = composerSoftWrapLineCount(text, contentWidth, fontScale),
 ): { height: number; overflows: boolean } {
   const { line, min, max } = composerInputMetrics(fontScale);
   if (!text) return { height: min, overflows: false };
-  const lineCount = composerSoftWrapLineCount(text, contentWidth, fontScale);
   const fromLines = min + (lineCount - 1) * line;
   const measured =
     contentWidth >= SOFT_WRAP_MIN_WIDTH
@@ -225,6 +228,20 @@ export function composerShowsSend(options: {
   return options.hasSendableContent;
 }
 
+/**
+ * Stop is for a reply or a picture under way. A send still on its way (its
+ * picture check, location, file or new chat not done) shows a busy Send instead:
+ * nothing has gone out yet for Stop to stop. Neither does a reply whose text is
+ * all in (`stream_end`) and only saving: Send works again from then.
+ */
+export function composerShowsStop(options: {
+  streaming: boolean;
+  sendBusy: boolean;
+  replySaving: boolean;
+}): boolean {
+  return options.streaming && !options.sendBusy && !options.replySaving;
+}
+
 /** True while the last row is the in-flight placeholder (no action icons yet). */
 export function shouldReserveComposerActionGap(lastMessageId?: string): boolean {
   return lastMessageId === "streaming" || lastMessageId === IMAGE_GEN_PENDING_ASSISTANT_ID;
@@ -239,6 +256,13 @@ type ChatLayoutMetrics = {
   composerClearance: number;
   listBottomPad: number;
   emptyHeight: number;
+  /**
+   * `composerClearance` with the keyboard down. Chrome above the composer adds
+   * the keyboard's lift on the UI thread, so it moves with every frame of it.
+   */
+  restingComposerClearance: number;
+  /** `listBottomPad` with the keyboard down; a spacer under the list adds the keyboard frame by frame. */
+  restingListBottomPad: number;
 };
 
 export function computeChatHeaderMinimumHeight(insetsTop: number, fontScale = 1): number {
@@ -277,22 +301,22 @@ export function computeChatLayoutMetrics(options: {
     options.keyboardHeight > 0
       ? options.keyboardHeight + CHAT_KEYBOARD_LIFT_EXTRA
       : 0;
-  const composerBottomPad =
-    options.keyboardHeight > 0
-      ? 0
-      : Math.max(options.insetsBottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
+  const restingBottomPad = Math.max(options.insetsBottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
+  const composerBottomPad = options.keyboardHeight > 0 ? 0 : restingBottomPad;
   const composerBlockHeight =
     options.composerHeight + options.attachmentExtra + (options.mathBarExtra ?? 0);
   const composerClearance = composerBlockHeight + composerBottomPad + composerLift;
+  const restingComposerClearance = composerBlockHeight + restingBottomPad;
   // ChatGPT-style: while the in-flight placeholder is on screen, hold empty
   // air above the composer. When that row becomes a real message the icons
   // mount in the bubble and this pad drops in the same render — net zero, so
   // the prose does not move. Never reserve both regions at once (`streaming`
   // is not the signal: it stays true through finalize after icons already
   // landed, which was the down-spring).
-  const listBottomPad =
-    composerClearance +
-    (shouldReserveComposerActionGap(options.lastMessageId) ? CHAT_ACTION_ROW_HEIGHT : 0);
+  const actionGap = shouldReserveComposerActionGap(options.lastMessageId)
+    ? CHAT_ACTION_ROW_HEIGHT
+    : 0;
+  const listBottomPad = composerClearance + actionGap;
   const emptyHeight = Math.max(
     CHAT_EMPTY_MIN_HEIGHT,
     options.windowHeight - headerInset - composerClearance,
@@ -307,6 +331,8 @@ export function computeChatLayoutMetrics(options: {
     composerClearance,
     listBottomPad,
     emptyHeight,
+    restingComposerClearance,
+    restingListBottomPad: restingComposerClearance + actionGap,
   };
 }
 

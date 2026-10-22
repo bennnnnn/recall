@@ -5,7 +5,6 @@ import { type AppStateStatus, Platform } from "react-native";
 import type { ActionFeedbackApi } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
-import { cacheFile } from "@/lib/cache/cacheFile";
 import { FOREGROUND_STALE_MS, onAppStateChange } from "@/lib/foregroundRefresh";
 import { isExpoGo, isPhysicalDevice } from "@/lib/expoRuntime";
 import i18n from "@/lib/i18n";
@@ -16,6 +15,8 @@ import {
   TONE_ANDROID_CHANNELS,
 } from "@/lib/notificationChannels";
 import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
+import { devicePushTokenFingerprint } from "@/lib/devicePushToken";
+import { forgetSyncRecords, recentSyncAt, recordSync } from "@/lib/syncRecords";
 
 type AppRouter = {
   push: (href: unknown) => void;
@@ -183,52 +184,36 @@ export async function unregisterRemotePushToken(
  * Expo's push service for the token and posted it to our API. After a sync
  * succeeds for this account and setting, later runs only re-check the OS
  * permission (local) until this long has passed; a failure retries next time.
+ * The time is also kept for the account and this install's push token
+ * (`lib/syncRecords.ts`, forgotten at sign-in and sign-out), so a cold start
+ * inside the window does not register again unless the token changed.
  */
 const PUSH_RESYNC_INTERVAL_MS = FOREGROUND_STALE_MS.pushRegistration;
-/**
- * The last sync that succeeded, on disk: in module memory it was lost with every
- * process, so each cold start asked Expo and our API again (code-health audit
- * NET-19). Sign-out clears it, since the server forgets the device's token with
- * the session.
- */
-const pushSyncFile = cacheFile("push-sync.json");
-type PushSyncRecord = { account: string; enabled: boolean; at: number };
+let lastPushSync: { session: number; account: string | undefined; enabled: boolean; at: number } | null = null;
 
-async function readPushSync(): Promise<PushSyncRecord | null> {
-  const raw = await pushSyncFile.read();
-  if (!raw) return null;
-  try {
-    const record = JSON.parse(raw) as Partial<PushSyncRecord> | null;
-    if (typeof record?.account === "string" && typeof record.enabled === "boolean" &&
-      typeof record.at === "number") {
-      return { account: record.account, enabled: record.enabled, at: record.at };
-    }
-  } catch {
-    /* unreadable: sync again */
-  }
-  return null;
-}
-
-function pushSyncIsFresh(record: PushSyncRecord | null, account: string | undefined, enabled: boolean): boolean {
+function pushSyncIsFresh(session: number, account: string | undefined, enabled: boolean): boolean {
+  if (lastPushSync == null) return false;
+  const age = Date.now() - lastPushSync.at;
   return (
-    account !== undefined &&
-    record != null &&
-    record.account === account &&
-    record.enabled === enabled &&
-    Date.now() - record.at < PUSH_RESYNC_INTERVAL_MS
+    lastPushSync.session === session &&
+    lastPushSync.account === account &&
+    lastPushSync.enabled === enabled &&
+    // A clock set back makes the age negative: not trusted as recent.
+    age >= 0 && age < PUSH_RESYNC_INTERVAL_MS
   );
 }
 
 /** Sign-out: the next sign-in, whoever's, registers this device again. */
-export function clearPushSyncRecord(): Promise<void> {
-  return pushSyncFile.clear();
+export async function clearPushSyncRecord(): Promise<void> {
+  lastPushSync = null;
+  await forgetSyncRecords();
 }
 
 /**
- * `account` is the signed-in user's id; without it every run syncs. Another
- * account signing in on this device rebinds the token, so a sync never counts
- * for another account. `feedback` shows a push token failure that is not
- * routine (see reportPushTokenFailure).
+ * `account` is the signed-in user's id: it also finds a sync an earlier launch
+ * made for this sign-in. Another account signing in on this device rebinds the
+ * token, so a sync never counts across sign-ins. `feedback` shows a push token
+ * failure that is not routine (see reportPushTokenFailure).
  */
 export function attachPushForegroundSync(
   apiToken: string | null,
@@ -242,22 +227,35 @@ export function attachPushForegroundSync(
 
   const syncNow = async () => {
     const enabled = pushNotificationsEnabled;
-    if (pushSyncIsFresh(await readPushSync(), account, enabled)) {
+    // The saved record's key: the setting and the token it registered, so a
+    // token the push service rolled since registers again.
+    let savedKey: string | null = null;
+    if (!pushSyncIsFresh(session, account, enabled) && account) {
+      const device = await devicePushTokenFingerprint();
+      if (device !== null) {
+        savedKey = `${enabled ? "on" : "off"}:${device}`;
+        const at = await recentSyncAt("push", account, PUSH_RESYNC_INTERVAL_MS, savedKey);
+        if (at !== null) lastPushSync = { session, account, enabled, at };
+      }
+    }
+    if (pushSyncIsFresh(session, account, enabled)) {
       // Turning the permission off in Settings must still reach the server.
       if (!enabled || (await getNotificationPermissionGranted())) return;
     }
-    await pushSyncFile.clear();
-    const remember = async () => {
+    lastPushSync = null;
+    const remember = () => {
       // A sync that finishes after sign-out must not vouch for the next sign-in.
-      if (account === undefined || session !== getSessionGeneration()) return;
-      await pushSyncFile.write(JSON.stringify({ account, enabled, at: Date.now() }));
+      if (session !== getSessionGeneration()) return;
+      const at = Date.now();
+      lastPushSync = { session, account, enabled, at };
+      if (account && savedKey !== null) void recordSync("push", account, savedKey, at);
     };
     if (enabled) {
       const result = await registerRemotePushToken(apiToken, true, feedback);
-      if (result === "registered") await remember();
+      if (result === "registered") remember();
       if (result === "disabled_permission") onPushPrefChange?.(false);
     } else if (await unregisterRemotePushToken(apiToken, feedback)) {
-      await remember();
+      remember();
     }
   };
   const sync = () => {

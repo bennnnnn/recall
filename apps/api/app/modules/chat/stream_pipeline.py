@@ -288,6 +288,7 @@ async def _settle_reply(
     should_cancel: Callable[[], bool] | None,
     outcome: TurnOutcome | None,
     resources: TurnResources | None,
+    on_status: StreamStatusFn | None = None,
 ) -> None:
     """Save the streamed reply: finalize its text, then commit it and queue its jobs.
 
@@ -327,6 +328,7 @@ async def _settle_reply(
             assistant_parts=accum.parts,
             should_cancel=should_cancel,
             user_stopped=user_stopped,
+            on_status=on_status,
         )
         await await_user_message_persist(ctx)
         await register_and_enqueue_finalize(
@@ -435,6 +437,7 @@ async def stream_and_finalize(
             should_cancel=should_cancel,
             outcome=outcome,
             resources=resources,
+            on_status=on_status,
         )
     finally:
         await _close_turn(ctx)

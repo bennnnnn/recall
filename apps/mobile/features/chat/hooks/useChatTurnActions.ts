@@ -1,9 +1,11 @@
 import { useCallback, type RefObject } from "react";
+import { randomUUID } from "expo-crypto";
 
 import type { Message } from "@/lib/api";
 import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { headRejectedSend, type ChatTurnEvent, type ChatTurnState } from "@/features/chat/model/chatTurnCore";
-import type { ComposerSendDraft, RejectedSend, SendMessageOptions } from "@/features/chat/model/sendLogic";
+import { whenOpenedPageSettled } from "@/features/chat/model/openedPage";
+import type { ComposerSendDraft, PendingSend, RejectedSend, SendMessageOptions } from "@/features/chat/model/sendLogic";
 import type { useChatTransport } from "@/features/chat/hooks/useChatTransport";
 
 type Options = {
@@ -26,39 +28,69 @@ type Options = {
 export function useChatTurnActions({ token, chatId, isCurrentView, turn, step, messagesRef, transport, onUnreachable }: Options) {
   const { connect, sendViaSse, regenerateViaSse, currentSocket } = transport;
 
-  const ensureConnected = useCallback(async () => {
+  /**
+   * Connect for a turn. A turn on a chat whose page is still being read waits for it
+   * (`openedPage.ts`; `turn` is the send, null for a regeneration): false when it must
+   * not go out.
+   */
+  const ensureConnected = useCallback(async (pending: PendingSend | null) => {
+    const opened = whenOpenedPageSettled(chatId, pending);
     try {
       await connect();
     } catch {
       onUnreachable();
     }
-  }, [connect, onUnreachable]);
+    return opened;
+  }, [chatId, connect, onUnreachable]);
 
-  const dispatchSend = useCallback(async (content: string, options?: SendMessageOptions, retrying?: RejectedSend) => {
-    if (!token || !chatId || !isCurrentView() || turn.current.phase !== "idle") return;
-    step({ type: "send", content, options, retrying });
-    const { attempt, ttftTurnId } = turn.current;
-    await ensureConnected();
-    if (!isCurrentView() || turn.current.attempt !== attempt) return;
+  /**
+   * False when refused before anything showed, or stopped before it went out: the caller
+   * then takes the bubble back and returns the draft. Past that, whatever ends the turn
+   * owns its bubble.
+   */
+  const dispatchSend = useCallback(async (
+    content: string,
+    options?: SendMessageOptions,
+    retrying?: RejectedSend,
+  ): Promise<boolean> => {
+    const current = turn.current;
+    // Dots the composer raised at the tap are this send's own: they do not make it busy.
+    const ownDots = current.earlyDots !== null && current.earlyDots === current.attempt;
+    if (!token || !chatId || !isCurrentView() || (current.phase !== "idle" && !ownDots)) return false;
+    // One name for every send of this message (a replay, Retry): the server runs it once.
+    const clientMessageId = retrying?.clientMessageId ?? randomUUID();
+    step({ type: "send", content, options, retrying, clientMessageId });
+    const { attempt, ttftTurnId, pending } = turn.current;
+    // It must not go: the opened-page read took it back (its chat is gone, or the view
+    // left), or Stop did, and then the caller returns the draft (false).
+    if (!(await ensureConnected(pending)) || !isCurrentView() || turn.current.attempt !== attempt) {
+      return pending?.takenBack !== "stop";
+    }
     step({ type: "send_dispatched", retrying });
-    const sse = () => sendViaSse(content, {
+    const sseOptions = {
       attachmentIds: options?.attachmentIds,
       model: options?.model,
       clientGeo: options?.clientGeo,
       ttftTurnId,
-    });
+      clientMessageId,
+    };
     const socket = currentSocket();
     if (!socket?.isOpen() || socket.shouldUseSse()) {
-      await sse();
-      return;
+      await sendViaSse(content, sseOptions);
+      return true;
     }
-    step({ type: "fallback_armed", fallback: { transport: socket, retry: sse } });
+    step({
+      type: "fallback_armed",
+      fallback: { transport: socket, retry: () => sendViaSse(content, sseOptions), idempotent: true },
+    });
     socket.sendMessage({
       content,
       attachment_ids: options?.attachmentIds ?? [],
       model: options?.model ?? null,
+      client_message_id: clientMessageId,
       ...clientGeoWsFields(options?.clientGeo),
     });
+    return true;
   }, [token, chatId, isCurrentView, turn, step, ensureConnected, sendViaSse, currentSocket]);
 
   const sendMessage = useCallback(
@@ -103,7 +135,7 @@ export function useChatTurnActions({ token, chatId, isCurrentView, turn, step, m
     if (!token || !chatId || !isCurrentView()) return;
     step({ type: "regenerate", messages: messagesRef.current });
     const { attempt } = turn.current;
-    await ensureConnected();
+    if (!(await ensureConnected(null))) return;
     if (!isCurrentView() || turn.current.attempt !== attempt) return;
     const socket = currentSocket();
     if (!socket?.isOpen() || socket.shouldUseSse()) {

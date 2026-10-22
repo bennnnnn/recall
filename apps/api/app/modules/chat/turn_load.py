@@ -14,7 +14,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import user_cache
+from app.core import pool_liveness, user_cache
 from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError, ConsentRequiredError
@@ -48,8 +48,10 @@ class NewTurn:
     prior_count: int
     turn_mode: _TurnMode
     model: str
-    # Chat models whose provider is failing; routing above already skipped them.
+    # Chat models whose breaker is open and cooling down; routing above skipped them.
     unhealthy: frozenset[str] = frozenset()
+    # Open models past their cool-down: tried only by a turn that claims their probe.
+    half_open: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -85,28 +87,29 @@ async def _prior_count_for_window(
 
 async def _load_user(
     deps: ChatTurnDeps,
-    redis: Redis,
     timing: TurnTimingTracker,
     user_id: UUID,
     user: User | None,
+    generation: str | None,
 ) -> User:
-    if (
-        user is not None
-        and consent.has_ai_data_consent(user)
-        and await user_cache.is_current(redis, user_id)
-    ):
+    """The transport's copy of the user, which it read under the account's current
+    generation (``core/user_cache``), or the row read again.
+
+    A copy can still trail a change whose generation never reached Redis, so a
+    refusal reads the row first; a WebSocket turn keeps the row it read for the
+    socket's next turn.
+    """
+    if user is not None and consent.has_ai_data_consent(user):
         timing.mark_phase("user_ready")
         return user
-    # A user handed in from the request cache can trail an agreement made, or a consent,
-    # memory or web-search switch turned off, on another machine: read the row, and keep
-    # it for the next turn (a WebSocket turn has no request cache to fill it).
-    generation = await user_cache.read_generation(redis, user_id)
-    async with deps.session_factory() as session:
-        loaded = await deps.users.get_by_id(session, user_id)
+    loaded = await pool_liveness.run_unit(
+        deps.session_factory, lambda session: deps.users.get_by_id(session, user_id)
+    )
     if loaded is None:
         raise ChatNotFoundError("User not found.")
     _require_consent(loaded)
-    user_cache.remember_read(loaded, generation)
+    if generation is not None:
+        user_cache.remember_user(loaded, generation)
     timing.mark_phase("user_ready")
     return loaded
 
@@ -136,8 +139,9 @@ async def _load_chat(
     if remembered is not None:
         timing.mark_phase("chat_ready")
         return remembered
-    async with deps.session_factory() as session:
-        loaded = await deps.chats.get_by_id(session, chat_id, user_id)
+    loaded = await pool_liveness.run_unit(
+        deps.session_factory, lambda session: deps.chats.get_by_id(session, chat_id, user_id)
+    )
     if loaded is None:
         raise ChatNotFoundError("Chat not found.")
     timing.mark_phase("chat_ready")
@@ -169,6 +173,7 @@ async def _load_account(
     user_id: UUID,
     chat_id: UUID,
     user: User | None,
+    user_generation: str | None,
     chat: Chat | None,
     skip_usage_seed: bool,
 ) -> tuple[User, int, Chat]:
@@ -178,7 +183,7 @@ async def _load_account(
     # AsyncSession; SQLAlchemy AsyncSession itself is intentionally not used
     # concurrently.
     loaded_user, loaded_chat, need_usage_seed = await gather_or_cancel(
-        _load_user(deps, redis, timing, user_id, user),
+        _load_user(deps, timing, user_id, user, user_generation),
         _load_chat(deps, timing, chat_id=chat_id, user_id=user_id, chat=chat),
         _needs_usage_seed(deps, redis, timing, user_id, skip_usage_seed),
     )
@@ -204,8 +209,9 @@ async def _load_history_after_finalize(
     # once for account/chat and again for recent messages.
     await wait_for_pending_finalize(chat_id, redis, require_complete=True)
     timing.mark_phase("previous_finalize_ready")
-    async with deps.session_factory() as session:
-        window = settings.recent_message_window
+    window = settings.recent_message_window
+
+    async def read(session: AsyncSession) -> tuple[list[Any], int]:
         recent = await deps.messages.list_recent(session, chat_id, limit=window)
         prior_count = await _prior_count_for_window(
             recent,
@@ -214,6 +220,9 @@ async def _load_history_after_finalize(
             session=session,
             chat_id=chat_id,
         )
+        return recent, prior_count
+
+    recent, prior_count = await pool_liveness.run_unit(deps.session_factory, read)
     timing.mark_phase("history_ready")
     return recent, prior_count
 
@@ -245,6 +254,7 @@ async def load_new_turn(
     user: User | None,
     chat: Chat | None,
     skip_usage_seed: bool,
+    user_generation: str | None = None,
 ) -> NewTurn:
     # Account/quota and history are independent once the previous turn is
     # committed. A greeting does not need the recent window before the model
@@ -261,14 +271,15 @@ async def load_new_turn(
         user_id=user_id,
         chat_id=chat_id,
         user=user,
+        user_generation=user_generation,
         chat=chat,
         skip_usage_seed=skip_usage_seed,
     )
     if obvious_greeting:
         await wait_for_pending_finalize(chat_id, redis, require_complete=True)
         timing.mark_phase("previous_finalize_ready")
-        (loaded_user, daily_limit, loaded_chat), unhealthy = await gather_or_cancel(
-            load_account(), _unhealthy_models(redis, settings)
+        (loaded_user, daily_limit, loaded_chat), health = await gather_or_cancel(
+            load_account(), _model_breakers(redis, settings)
         )
         recent: list[Any] = []
         prior_count = 0
@@ -278,11 +289,11 @@ async def load_new_turn(
         (
             (loaded_user, daily_limit, loaded_chat),
             (recent, prior_count),
-            unhealthy,
+            health,
         ) = await gather_or_cancel(
             load_account(),
             _load_history_and_read(deps, redis, settings, timing, chat_id, content),
-            _unhealthy_models(redis, settings),
+            _model_breakers(redis, settings),
         )
     # Read from the window just loaded: "yes" after a question, or "make it shorter"
     # after a draft, used to read the messages again in a session of its own.
@@ -296,7 +307,7 @@ async def load_new_turn(
         prior_user=prior_user,
         prior_model=prior_model,
         lesson_active=active_lesson_step(recent) is not None,
-        unhealthy=unhealthy,
+        unhealthy=health.cooling,
     )
     timing.mark_phase("user_quota")
     return NewTurn(
@@ -307,15 +318,19 @@ async def load_new_turn(
         prior_count=prior_count,
         turn_mode=turn_mode,
         model=model,
-        unhealthy=unhealthy,
+        unhealthy=health.cooling,
+        half_open=health.half_open,
     )
 
 
-async def _unhealthy_models(redis: Redis, settings: Settings) -> frozenset[str]:
-    """Chat models whose provider is failing, read beside the account (the pool
-    needs the user, so every selectable model is read)."""
+async def _model_breakers(redis: Redis, settings: Settings) -> model_health.Breakers:
+    """The open breakers among the models a turn may run on, read beside the
+    account (the pool needs the user, so every selectable model and the photo
+    lanes are read). A half-open model is routed to like a healthy one; the turn
+    claims its probe only right before it tries it (``stream_paths``)."""
     aliases = [model.id for model in model_catalog.selectable_models()]
-    return await model_health.unhealthy_aliases(redis, settings, aliases)
+    aliases += [model_catalog.vision_alias(), model_catalog.vision_backup_alias()]
+    return await model_health.read_breakers(redis, settings, aliases)
 
 
 async def load_regenerate_turn(
@@ -332,9 +347,9 @@ async def load_regenerate_turn(
     # row. New turns gather wait with user/quota instead — prepare reads
     # messages only after both finish.
     await wait_for_pending_finalize(chat_id, redis, require_complete=True)
-    (user, chat, recent, prior_count, last_user), unhealthy = await gather_or_cancel(
-        _read_regenerate_rows(deps, settings, user_id=user_id, chat_id=chat_id),
-        _unhealthy_models(redis, settings),
+    (user, chat, recent, prior_count, last_user), health = await gather_or_cancel(
+        _read_regenerate_rows(deps, redis, settings, user_id=user_id, chat_id=chat_id),
+        _model_breakers(redis, settings),
     )
     last = recent[-1]
     # A regenerate routes the line on its own (``resolve_regenerate_model``): no prior line.
@@ -357,20 +372,22 @@ async def load_regenerate_turn(
         backup=backup,
         omit_message_ids=omit_message_ids,
         recent=recent,
-        unhealthy=unhealthy,
+        unhealthy=health.cooling,
     )
 
 
 async def _read_regenerate_rows(
-    deps: ChatTurnDeps, settings: Settings, *, user_id: UUID, chat_id: UUID
+    deps: ChatTurnDeps, redis: Redis, settings: Settings, *, user_id: UUID, chat_id: UUID
 ) -> tuple[User, Chat, list[Any], int, Any]:
-    """The user, the chat, the recent window and the count, in one session.
+    """The user, the chat, the recent window and the count, in one session (run again on
+    a new connection when its first statement finds the pooled one dead).
 
     The last message and the last user message come from the window; it used to read
-    the messages four to six times.
+    the messages four to six times. A lost usage counter is re-read in the same session.
     """
     window = settings.recent_message_window
-    async with deps.session_factory() as session:
+
+    async def read(session: AsyncSession) -> tuple[User, Chat, list[Any], int, Any]:
         user = await deps.users.get_by_id(session, user_id)
         if user is None:
             raise ChatNotFoundError("User not found.")
@@ -394,4 +411,8 @@ async def _read_regenerate_rows(
             session=session,
             chat_id=chat_id,
         )
-    return user, chat, recent, prior_count, last_user
+        # Last, so a failed read here (logged, not raised) cannot cut the reads above.
+        await seed_usage_from_db(redis, session, user_id)
+        return user, chat, recent, prior_count, last_user
+
+    return await pool_liveness.run_unit(deps.session_factory, read)

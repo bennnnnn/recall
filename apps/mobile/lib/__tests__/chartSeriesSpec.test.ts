@@ -1,4 +1,4 @@
-import { buildVegaHtml } from "@/lib/chartPreviewHtml";
+import { chartPreviewConfig } from "@/lib/chartPreviewHtml";
 import { parseChartBody, seriesChartToVegaLite } from "@/lib/chartSeriesSpec";
 
 const theme = {
@@ -65,7 +65,7 @@ describe("seriesChartToVegaLite", () => {
 });
 
 it("builds the Plot reply's chart as Vega-Lite instead of failing on its caption line", () => {
-  const html = buildVegaHtml(PLOT_REPLY_BODY, theme, 320, { vega: "", vegaLite: "", vegaEmbed: "" });
-  expect(html).toContain('"mark":"line"');
-  expect(html).not.toContain("x^2 over");
+  const { spec } = chartPreviewConfig(PLOT_REPLY_BODY, theme);
+  expect(spec).toContain('"mark":"line"');
+  expect(spec).not.toContain("x^2 over");
 });

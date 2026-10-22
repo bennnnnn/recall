@@ -5,8 +5,10 @@ import {
   DROPPED_TURN_POLL_MS,
   DROPPED_TURN_POLLS,
   DROPPED_TURN_PROBE_ROWS,
+  DUPLICATE_TURN_POLLS,
   droppedTurnState,
   droppedTurnWaitMs,
+  duplicateTurnPollMs,
   knownServerIds,
   mergeReconciledPage,
   pollDroppedTurn,
@@ -57,6 +59,13 @@ describe("mergeReconciledPage", () => {
   it("a first turn has no older rows to keep", () => {
     const page = [msg(id(3), "user"), msg(id(4), "assistant")];
     expect(mergeReconciledPage([msg("local-1", "user"), msg("streaming", "assistant")], page)).toEqual(page);
+  });
+
+  it("keeps a message sent while the turn saved, below the saved reply", () => {
+    const queued = msg("local-10", "user", "next");
+    const previous = [...before, msg("local-9", "user", "q"), msg("streaming", "assistant", "a"), queued];
+    const page = [...before, msg(id(3), "user", "q"), msg(id(4), "assistant", "a")];
+    expect(mergeReconciledPage(previous, page)).toEqual([...page, queued]);
   });
 });
 
@@ -138,5 +147,27 @@ describe("pollDroppedTurn", () => {
     });
     expect(await pollDroppedTurn({ fetchPage, known, stillWaiting: () => waiting, wait })).toBeNull();
     expect(fetchPage).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("following a turn the server reported as a duplicate", () => {
+  it("waits longer between polls as it goes, for about five minutes", () => {
+    const waits = Array.from({ length: DUPLICATE_TURN_POLLS }, (_, poll) => duplicateTurnPollMs(poll));
+    expect(waits[0]).toBe(DROPPED_TURN_POLL_MS);
+    expect(waits[1]).toBeGreaterThan(waits[0]);
+    expect(Math.max(...waits)).toBe(15_000);
+    const total = waits.reduce((sum, ms) => sum + ms, 0);
+    expect(total).toBeGreaterThan(4 * 60_000);
+    expect(total).toBeLessThan(6 * 60_000);
+  });
+
+  it("polls on the schedule it is given", async () => {
+    const wait = jest.fn(async (_ms: number) => {});
+    const fetchPage = jest.fn().mockResolvedValue(before);
+    await pollDroppedTurn({
+      // The middle of the jitter: each wait is exactly its schedule's.
+      fetchPage, known, stillWaiting: () => true, polls: 4, pollMs: duplicateTurnPollMs, wait, random: () => 0.5,
+    });
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([0, 1, 2, 3].map(duplicateTurnPollMs));
   });
 });

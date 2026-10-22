@@ -163,6 +163,30 @@
                 "fontDefinitions": [
                   { "path": "./node_modules/@expo-google-fonts/source-sans-3/700Bold/SourceSans3_700Bold.ttf", "weight": 400 }
                 ]
+              },
+              {
+                "fontFamily": "SourceSans3-Italic",
+                "fontDefinitions": [
+                  { "path": "./node_modules/@expo-google-fonts/source-sans-3/400Regular_Italic/SourceSans3_400Regular_Italic.ttf", "weight": 400 }
+                ]
+              },
+              {
+                "fontFamily": "SourceSans3-SemiboldItalic",
+                "fontDefinitions": [
+                  { "path": "./node_modules/@expo-google-fonts/source-sans-3/600SemiBold_Italic/SourceSans3_600SemiBold_Italic.ttf", "weight": 400 }
+                ]
+              },
+              {
+                "fontFamily": "SourceSans3-BoldItalic",
+                "fontDefinitions": [
+                  { "path": "./node_modules/@expo-google-fonts/source-sans-3/700Bold_Italic/SourceSans3_700Bold_Italic.ttf", "weight": 400 }
+                ]
+              },
+              {
+                "fontFamily": "KaTeX_Size1",
+                "fontDefinitions": [
+                  { "path": "./node_modules/katex/dist/fonts/KaTeX_Size1-Regular.ttf", "weight": 400 }
+                ]
               }
             ]
           }

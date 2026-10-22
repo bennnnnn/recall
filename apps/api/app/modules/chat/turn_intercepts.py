@@ -191,11 +191,14 @@ async def try_image_lookup_for_turn(
     create_user_message: bool,
     replace_assistant_id: UUID | None = None,
     recent_messages: list[Any] | None = None,
+    misses: set[str] | None = None,
 ) -> bool:
     """Deterministic reference-photo lookup intercept ("show me an ear").
 
     Failures that aren't quota-related fall through to a normal model answer
     instead of erroring the turn (a missing photo is not worth breaking chat).
+    A search that ran and found no photo adds "photo" to ``misses``, so the
+    turn's tool loop does not search again.
     """
     if not settings.image_search_enabled:
         return False
@@ -227,6 +230,8 @@ async def try_image_lookup_for_turn(
         if exc.status_code == 429:
             raise QuotaExceededError(exc.detail) from exc
         if exc.status_code in (404, 502, 503):
+            if misses is not None:
+                misses.add("photo")
             return False
         raise ChatServiceError(exc.detail) from exc
 
@@ -274,8 +279,12 @@ async def intercept_new_turn(
     outcome: TurnOutcome | None,
     recent_messages: list[Any],
     prior_count: int,
+    misses: set[str] | None = None,
 ) -> bool:
-    """A new message answered by a photo or a picture; True when one stored the reply."""
+    """A new message answered by a photo or a picture; True when one stored the reply.
+
+    A lookup that ran and found nothing is added to ``misses`` ("photo").
+    """
     if await try_image_lookup_for_turn(
         deps,
         settings,
@@ -285,6 +294,7 @@ async def intercept_new_turn(
         outcome=outcome,
         create_user_message=True,
         recent_messages=recent_messages,
+        misses=misses,
     ):
         return True
     # A photo was asked for and none came back: the model answers in words. A
@@ -329,8 +339,12 @@ async def intercept_regenerate(
     content: str,
     backup: RegenerateBackup | None,
     outcome: TurnOutcome | None,
+    misses: set[str] | None = None,
 ) -> bool:
-    """Regenerating a photo or a picture makes another; True when one replaced the reply."""
+    """Regenerating a photo or a picture makes another; True when one replaced the reply.
+
+    A lookup that ran and found nothing is added to ``misses`` ("photo").
+    """
     replace_id = backup.message_id if backup is not None else None
     if backup is not None and backup.model == _IMAGE_SEARCH_MODEL:
         if await try_image_lookup_for_turn(
@@ -342,6 +356,7 @@ async def intercept_regenerate(
             outcome=outcome,
             create_user_message=False,
             replace_assistant_id=replace_id,
+            misses=misses,
         ):
             return True
     return await try_image_gen_for_turn(

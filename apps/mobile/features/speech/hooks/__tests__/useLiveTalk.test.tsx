@@ -1,5 +1,5 @@
 import React from "react";
-import { Linking } from "react-native";
+import { BackHandler, Linking } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { useLiveTalk } from "@/features/speech/hooks/useLiveTalk";
@@ -7,7 +7,9 @@ import { createRealtimeVoiceSession } from "@/features/speech/model/realtimeVoic
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 
-jest.mock("@/contexts/DrawerContext", () => ({ useDrawer: () => ({ isOpen: false }) }));
+let mockDrawerOpen = false;
+const mockDrawerControls = { open: jest.fn(), close: jest.fn(), isOpenNow: () => mockDrawerOpen };
+jest.mock("@/contexts/DrawerContext", () => ({ useDrawerControls: () => mockDrawerControls }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
 jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableError: jest.fn() }));
 jest.mock("@/ui/overlay/dialogs", () => ({ confirmDialog: jest.fn(async () => true) }));
@@ -89,5 +91,40 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
 
     expect(confirmDialog).not.toHaveBeenCalled();
     expect(reportRecoverableError).toHaveBeenCalledWith(null, "chat.live_talk_unavailable_body");
+  });
+
+  it("leaves Back to an open drawer, reading the drawer when Back is pressed", async () => {
+    const backHandlers: (() => boolean | null | undefined)[] = [];
+    const addListener = jest
+      .spyOn(BackHandler, "addEventListener")
+      .mockImplementation((_event, handler) => {
+        backHandlers.push(() => handler({} as never));
+        return { remove: jest.fn() };
+      });
+    (createRealtimeVoiceSession as jest.Mock).mockResolvedValueOnce({
+      callId: null,
+      maxDurationSeconds: null,
+      setMuted: jest.fn(),
+      cancelResponse: jest.fn(),
+      close: jest.fn(),
+    });
+    await render(<Probe />);
+    await act(async () => {
+      await live.open();
+    });
+    expect(live.visible).toBe(true);
+    const back = backHandlers.at(-1)!;
+
+    // The drawer opened after Live Talk did: Back closes the drawer, not Live Talk.
+    mockDrawerOpen = true;
+    expect(back()).toBe(false);
+    expect(live.visible).toBe(true);
+
+    mockDrawerOpen = false;
+    await act(async () => {
+      expect(back()).toBe(true);
+    });
+    expect(live.visible).toBe(false);
+    addListener.mockRestore();
   });
 });

@@ -14,16 +14,18 @@ from app.core.access_tokens import (
     decode_access_token,
 )
 from app.core.config import Settings
-from app.gateways import litellm_gateway, text_completion, think_stripper
+from app.gateways import litellm_gateway, stream_usage, text_completion, think_stripper
 from app.gateways.google_auth import GoogleAuthError
 from app.gateways.mock_llm import (
     mock_stream,
     mock_title,
     should_mock_llm,
 )
+from app.gateways.stream_signals import StreamAttempt
 from app.modules.chat import titles as chat_titles
 from app.modules.memory.offline import offline_memory_facts
 from app.modules.todos.schemas import TodoActionItem
+from app.tests.modules.chat.chat_test_support import access_for
 
 
 class _ActionList(BaseModel):
@@ -162,7 +164,7 @@ def test_apply_usage_accumulates_onto_existing_totals():
     chunk = SimpleNamespace(
         usage=SimpleNamespace(prompt_tokens=7, completion_tokens=3),
     )
-    litellm_gateway._apply_usage(usage, chunk)
+    stream_usage.apply_usage(usage, chunk)
     assert usage == {"input": 17, "output": 7}
 
 
@@ -542,7 +544,7 @@ async def test_get_current_user_from_valid_token():
     fake_user.id = uid
     session = AsyncMock()
     with (
-        patch("app.core.deps.access_tokens.verify_access_token", AsyncMock(return_value=uid)),
+        patch("app.core.deps.access_tokens.check_access", AsyncMock(return_value=access_for(uid))),
         patch("app.core.deps.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.core.deps.get_settings", return_value=settings),
     ):
@@ -577,7 +579,8 @@ async def test_get_current_user_returns_its_connection_before_the_route_runs():
         async with SessionLocal() as session:
             with (
                 patch(
-                    "app.core.deps.access_tokens.verify_access_token", AsyncMock(return_value=uid)
+                    "app.core.deps.access_tokens.check_access",
+                    AsyncMock(return_value=access_for(uid)),
                 ),
                 patch("app.core.deps.users_repo.get_by_id", read_row),
             ):
@@ -603,7 +606,7 @@ async def test_get_current_user_not_found_raises_401():
     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="tok")
 
     with (
-        patch("app.core.deps.access_tokens.verify_access_token", AsyncMock(return_value=uid)),
+        patch("app.core.deps.access_tokens.check_access", AsyncMock(return_value=access_for(uid))),
         patch("app.core.deps.users_repo.get_by_id", AsyncMock(return_value=None)),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -624,7 +627,7 @@ async def test_get_current_user_invalid_token_raises_401():
     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="bad-token")
 
     with patch(
-        "app.core.deps.access_tokens.verify_access_token",
+        "app.core.deps.access_tokens.check_access",
         AsyncMock(side_effect=GoogleAuthError("Invalid token")),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -677,7 +680,7 @@ async def test_every_attempted_alias_is_a_health_sample():
             raise ModelUnavailableError("down", failed_alias="smart-chat")
         yield "hello"
 
-    attempts: list[litellm_gateway.StreamAttempt] = []
+    attempts: list[StreamAttempt] = []
     with patch.object(litellm_gateway, "_stream_chat_once", fake_stream_once):
         async for _ in litellm_gateway.stream_chat_completion(
             settings=settings,
@@ -688,7 +691,7 @@ async def test_every_attempted_alias_is_a_health_sample():
             attempts=attempts,
         ):
             pass
-    assert [(a.alias, a.ok) for a in attempts] == [("smart-chat", False), ("free-chat", True)]
+    assert [(a.alias, a.failed) for a in attempts] == [("smart-chat", True), ("free-chat", False)]
 
 
 @pytest.mark.asyncio
@@ -702,7 +705,7 @@ async def test_a_stream_that_breaks_after_its_first_token_is_a_failed_sample():
         yield "partial"
         raise ModelUnavailableError("cut", failed_alias="smart-chat")
 
-    attempts: list[litellm_gateway.StreamAttempt] = []
+    attempts: list[StreamAttempt] = []
     with patch.object(litellm_gateway, "_stream_chat_once", fake_stream_once):
         with pytest.raises(ModelUnavailableError):
             async for _ in litellm_gateway.stream_chat_completion(
@@ -713,7 +716,7 @@ async def test_a_stream_that_breaks_after_its_first_token_is_a_failed_sample():
                 attempts=attempts,
             ):
                 pass
-    assert [(a.alias, a.ok) for a in attempts] == [("smart-chat", False)]
+    assert [(a.alias, a.failed) for a in attempts] == [("smart-chat", True)]
 
 
 @pytest.mark.asyncio
@@ -752,31 +755,65 @@ async def test_reasoning_primary_gets_visible_content_deadline_when_fallback_exi
     assert calls == [("smart-chat", 0.05), ("free-chat", None)]
 
 
+class _HiddenReasoningStream:
+    """Reasoning chunks every 10 ms; then the answer, after ``answer_after`` of them."""
+
+    def __init__(self, answer_after: int | None = None) -> None:
+        self._sent = 0
+        self._answer_after = answer_after
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        await asyncio.sleep(0.01)
+        self._sent += 1
+        if self._answer_after is not None and self._sent > self._answer_after + 1:
+            raise StopAsyncIteration
+        delta = MagicMock()
+        answering = self._answer_after is not None and self._sent > self._answer_after
+        delta.content = "x = 2 or x = -2" if answering else ""
+        delta.reasoning_content = "" if answering else "still thinking"
+        choice = MagicMock()
+        choice.delta = delta
+        choice.finish_reason = None
+        chunk = MagicMock()
+        chunk.choices = [choice]
+        chunk.usage = None
+        return chunk
+
+
 @pytest.mark.asyncio
-async def test_stream_chat_once_times_out_reasoning_without_visible_content():
+async def test_stream_chat_once_lets_a_model_streaming_its_reasoning_think():
+    """Reasoning that streams ends the first-reply cap; the answer comes after it."""
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
-
-    class HiddenReasoningStream:
-        def __aiter__(self):
-            return self
-
-        async def __anext__(self):
-            await asyncio.sleep(0.01)
-            delta = MagicMock()
-            delta.content = ""
-            delta.reasoning_content = "still thinking"
-            choice = MagicMock()
-            choice.delta = delta
-            chunk = MagicMock()
-            chunk.choices = [choice]
-            chunk.usage = None
-            return chunk
-
     with patch(
         "app.gateways.litellm_gateway.acompletion",
-        AsyncMock(return_value=HiddenReasoningStream()),
+        AsyncMock(return_value=_HiddenReasoningStream(answer_after=20)),
     ):
-        with pytest.raises(litellm_gateway.ModelUnavailableError):
+        tokens = [
+            token
+            async for token in litellm_gateway._stream_chat_once(
+                settings=settings,
+                model_alias="smart-chat",
+                messages=[{"role": "user", "content": "solve x^2 = 4"}],
+                max_tokens=20,
+                first_content_timeout_seconds=0.05,
+            )
+        ]
+    assert "".join(tokens) == "x = 2 or x = -2"
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_once_still_bounds_endless_reasoning_by_the_wall_clock():
+    settings = Settings(
+        mock_llm_enabled=False, openrouter_api_key="sk-or-test", chat_stream_max_seconds=1
+    )
+    with patch(
+        "app.gateways.litellm_gateway.acompletion",
+        AsyncMock(return_value=_HiddenReasoningStream()),
+    ):
+        with pytest.raises(litellm_gateway.ModelUnavailableError) as raised:
             async for _ in litellm_gateway._stream_chat_once(
                 settings=settings,
                 model_alias="smart-chat",
@@ -785,6 +822,7 @@ async def test_stream_chat_once_times_out_reasoning_without_visible_content():
                 first_content_timeout_seconds=0.05,
             ):
                 pass
+    assert raised.value.cause == "timeout"
 
 
 @pytest.mark.asyncio

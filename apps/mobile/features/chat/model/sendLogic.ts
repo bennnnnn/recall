@@ -2,7 +2,6 @@ import type { Message } from "@/lib/api";
 import { messageTextForSend, type PendingAttachment } from "@/features/attachments/model/attachments";
 
 import type { ClientGeo } from "@/lib/clientGeo";
-import { markChatTtftStart } from "@/features/chat/model/latency";
 
 export type ComposerSendDraft = {
   text: string;
@@ -31,6 +30,13 @@ export type PendingSend = {
   dispatched: boolean;
   /** The server sent `start`: it owns this turn, so a dropped connection is never replayed. */
   accepted?: boolean;
+  /** The message's name on every send of it (a replay, Retry): the server runs one turn per name. */
+  clientMessageId?: string;
+  /**
+   * Taken back before it went out: by the opened chat's page read (`page`; its chat is gone or the
+   * view left, and the read returned the draft) or by Stop (`stop`; its sender returns the draft).
+   */
+  takenBack?: "page" | "stop";
 };
 
 export type RejectedSend = PendingSend & { reason: "send_rejected" | "attachment_rejected" };
@@ -59,10 +65,6 @@ export function buildOptimisticUserMessage(options: {
   optimisticId: string;
   createdAt: string;
 }): Message {
-  // This is the first durable UI-visible point after Send is accepted. Start
-  // the production TTFT sample before attachment upload / draft creation /
-  // transport setup so those costs are included in perceived latency.
-  markChatTtftStart(options.optimisticId, options.createdAt, Boolean(options.attached));
   const sendText = messageTextForSend(options.text, options.attached);
   const display =
     options.text.trim() ||

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { useTodosList } from "@/features/todos/hooks/useTodosList";
 import { useTodoReminderState } from "@/features/todos/hooks/useTodoReminderState";
@@ -17,13 +17,28 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   const reminders = useTodoReminderState({ userId: auth?.user?.id, leadMinutes,
     todos: list.todos, retainedOpenIds: list.retainedOpenIds, getTodos: list.getTodos, isCurrentSession: list.isCurrentSession });
   const session = getSessionGeneration();
-  const { todos, loaded, isCurrentSession } = list;
+  const {
+    todos, loading, error, loaded, retainedOpenIds, olderCompleted, showOlderCompleted, setTodos, getTodos, refresh,
+    isCurrentSession,
+  } = list;
   useEffect(() => {
     if (!loaded || !isCurrentSession()) return;
     void syncTodoReminders(todos, { pushEnabled, remindersEnabled, session, leadMinutes })
       .catch(() => { if (isCurrentSession()) console.warn("[todos] device reminder sync failed"); });
   }, [todos, loaded, isCurrentSession, pushEnabled, remindersEnabled, session, leadMinutes]);
-  const value = { ...list, ...reminders, remindersReady: reminders.remindersReady && !list.loading };
+  const { unseenCount, showIndicator, seenReminderIds, homeNudgeDismissed, markSeen, markSeenIds,
+    dismissReminderNudge } = reminders;
+  const remindersReady = reminders.remindersReady && !loading;
+  // Both hooks hand back a new object every render, and this provider renders on
+  // every auth change. Rebuild the value only when a field does, so readers (the
+  // chat screen among them) do not render along with it.
+  const value = useMemo<TodosContextValue>(() => ({
+    todos, loading, error, loaded, retainedOpenIds, olderCompleted, showOlderCompleted, setTodos, getTodos, refresh,
+    isCurrentSession, unseenCount, showIndicator, remindersReady, seenReminderIds, homeNudgeDismissed, markSeen,
+    markSeenIds, dismissReminderNudge,
+  }), [todos, loading, error, loaded, retainedOpenIds, olderCompleted, showOlderCompleted, setTodos, getTodos,
+    refresh, isCurrentSession, unseenCount, showIndicator, remindersReady, seenReminderIds, homeNudgeDismissed,
+    markSeen, markSeenIds, dismissReminderNudge]);
   return <TodosContext.Provider value={value}>{children}</TodosContext.Provider>;
 }
 

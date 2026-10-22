@@ -14,6 +14,7 @@ from app.models.orm import User
 from app.modules.chat import chats_repository, messages_repository
 from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_constants import WEB_SEARCH_OFF_HINT
+from app.tests.modules.chat.chat_test_support import system_prompt
 
 
 def _user(search_on: bool = True) -> User:
@@ -47,7 +48,7 @@ async def _system_prompt(query: str, settings: Settings, search_on: bool = True)
             rich_context=False,
             current_user_message_id=current.id,
         )
-    return messages[0]["content"]
+    return system_prompt(messages)
 
 
 @pytest.mark.asyncio

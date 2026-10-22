@@ -38,6 +38,7 @@ const PUBLIC: Record<string, readonly string[]> = {
     "model/attachments.ts",
     "model/downloadChatAttachment.ts",
     "model/galleryListCache.ts",
+    "model/localAttachmentFile.ts",
     "model/pendingComposerAttachment.ts",
   ],
   auth: [],
@@ -67,7 +68,7 @@ const PUBLIC: Record<string, readonly string[]> = {
   speech: [
     "components/LiveTalkButton.tsx",
     "components/LiveTalkComposerControls.tsx",
-    "components/LiveTalkOverlay.tsx",
+    "components/LazyLiveTalkOverlay.tsx",
     "components/VoiceComposerWaveform.tsx",
     "components/VoiceMicButton.tsx",
     "hooks/useLiveTalk.ts",

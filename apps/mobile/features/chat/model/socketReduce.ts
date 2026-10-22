@@ -13,6 +13,8 @@ export type ChatWsPayload = {
   phase?: string;
   /** Optional activity context for a `status` event (e.g. the search query). */
   detail?: string;
+  /** On a `status` event: how long its phase had run when it was sent (`thinking`). */
+  elapsed_ms?: number;
   reasoning?: string;
   final_content?: string;
   /** The turn changed the to-do list. */
@@ -144,6 +146,12 @@ export function mergeDoneIntoMessages(
     generationStopped,
     savedAsStopped,
   } = input;
+
+  // The saved reply is on screen already (a read brought it first): its stand-in goes, so it never shows twice.
+  if (messageId && prev.some((m) => m.id === messageId)) {
+    const rest = prev.filter((m) => m.id !== "streaming" && m.id !== stoppedStreamedId);
+    return rest.length === prev.length ? prev : rest;
+  }
 
   if (prev.some((m) => m.id === "streaming")) {
     if (!messageId && !draftContent.trim()) {

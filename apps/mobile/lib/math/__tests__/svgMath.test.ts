@@ -3,8 +3,11 @@ import {
   latexToSvgMath,
   parseExDimension,
   peekSvgMath,
+  clearSvgMathCache,
   setSvgMathRendererForTest,
+  svgMathDrawing,
   svgPaintsGlyphs,
+  warmSvgMath,
 } from "@/lib/math/svgMath";
 
 const CONTAINER =
@@ -112,5 +115,52 @@ describe("latexToSvgMath", () => {
   it("peekSvgMath is undefined before any attempt", () => {
     setSvgMathRendererForTest(() => CONTAINER);
     expect(peekSvgMath("never-attempted", true)).toBeUndefined();
+  });
+});
+
+describe("warmSvgMath", () => {
+  it("loads the renderer and runs a formula through it, caching nothing", async () => {
+    const render = jest.fn(() => CONTAINER);
+    setSvgMathRendererForTest(render);
+    warmSvgMath();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(render).toHaveBeenCalledWith("x", true);
+    expect(peekSvgMath("x", true)).toBeUndefined();
+  });
+
+  it("leaves a renderer that fails for the formula to retry", async () => {
+    setSvgMathRendererForTest(() => {
+      throw new Error("not loaded");
+    });
+    expect(() => warmSvgMath()).not.toThrow();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+});
+
+describe("svgMathDrawing", () => {
+  it("draws a conversion once per color, and again after the cache is cleared", async () => {
+    setSvgMathRendererForTest(() => CONTAINER);
+    const result = (await latexToSvgMath("x^2", true))!;
+    const draw = jest.fn(() => ({ drawn: true }));
+    const first = svgMathDrawing(result, "#111", draw);
+    expect(svgMathDrawing(result, "#111", draw)).toBe(first);
+    expect(draw).toHaveBeenCalledTimes(1);
+
+    svgMathDrawing(result, "#eee", draw);
+    expect(draw).toHaveBeenCalledTimes(2);
+
+    clearSvgMathCache();
+    svgMathDrawing(result, "#111", draw);
+    expect(draw).toHaveBeenCalledTimes(3);
+  });
+
+  it("never hands one formula's drawing to another", async () => {
+    setSvgMathRendererForTest((latex) => CONTAINER.replace("M0 0", `M${latex.length} 0`));
+    const short = (await latexToSvgMath("a", true))!;
+    const long = (await latexToSvgMath("a+b", true))!;
+    expect(svgMathDrawing(short, "#111", () => "short")).toBe("short");
+    expect(svgMathDrawing(long, "#111", () => "long")).toBe("long");
   });
 });

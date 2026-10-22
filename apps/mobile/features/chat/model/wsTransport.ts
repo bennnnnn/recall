@@ -2,10 +2,14 @@ import {
   parseChatWsPayload,
   type ChatWsPayload,
 } from "@/features/chat/model/socketReduce";
+import { createWsBackoff, type WsBackoff } from "@/features/chat/model/wsBackoff";
 import {
   STREAM_IDLE_TIMEOUT_MS,
+  WS_ACK_PROBE_MS,
   WS_CONNECT_TIMEOUT_MS,
   WS_FIRST_EVENT_TIMEOUT_MS,
+  WS_FOLLOW_UPS_WAIT_MS,
+  WS_PROBE_TIMEOUT_MS,
 } from "@/features/chat/model/wsConnect";
 
 const WS_TURN_EVENT_TYPES = new Set([
@@ -16,6 +20,7 @@ const WS_TURN_EVENT_TYPES = new Set([
   "stream_end",
   "done",
   "error",
+  "duplicate",
   // Sent while a turn is quiet: proof of life, nothing to show.
   "keepalive",
 ]);
@@ -51,6 +56,8 @@ type ChatWsMessageFrame = {
   content: string;
   attachment_ids: string[];
   model: string | null;
+  /** The message's name, the same on every send of it: the server runs one turn per name. */
+  client_message_id: string;
   client_location: string | null;
   client_latitude: number | null;
   client_longitude: number | null;
@@ -73,7 +80,17 @@ export type ChatWsFallbackSignal =
       duringTurn: boolean;
       payload: ChatWsPayload;
     }
-  | { reason: "first_event_timeout"; duringTurn: true };
+  | { reason: "first_event_timeout"; duringTurn: true }
+  /** A probe's ping went unanswered: the socket is dead (see `probe`). */
+  | { reason: "unresponsive"; duringTurn: boolean };
+
+/** How a send on a socket is replayed when the socket fails it before `start`. */
+export type WsSendFallback = {
+  transport: ChatWsTransport;
+  retry: () => Promise<void>;
+  /** The send carries its client message id: a replay after a dead probe cannot run twice. */
+  idempotent?: boolean;
+};
 
 type ChatWsTransportOptions = {
   url: string;
@@ -83,6 +100,8 @@ type ChatWsTransportOptions = {
   onPayload: (payload: ChatWsPayload) => void;
   onFallback: (signal: ChatWsFallbackSignal) => void;
   createSocket?: (url: string) => WebSocket;
+  /** When the socket may be tried again after a failure; one view's transports share it. */
+  backoff?: WsBackoff;
 };
 
 /**
@@ -94,22 +113,41 @@ export class ChatWsTransport {
   private connectPromise: Promise<void> | null = null;
   private settleConnect: (() => void) | null = null;
   private connectTimer: ReturnType<typeof setTimeout> | null = null;
-  /** The turn's deadline: its first event, then the next one (`STREAM_IDLE_TIMEOUT_MS`). */
-  private turnTimer: ReturnType<typeof setTimeout> | null = null;
+  private firstEventTimer: ReturnType<typeof setTimeout> | null = null;
+  private ackProbeTimer: ReturnType<typeof setTimeout> | null = null;
+  private probeTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Once the turn has spoken, the wait for its next event (`STREAM_IDLE_TIMEOUT_MS`). */
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private turnActive = false;
-  private preferSse = false;
+  /** The server refused this transport's token; a refreshed token gets a new transport. */
+  private authRejected = false;
+  /** The current socket's server answered the connect ping, so it can be probed. */
+  private answersPing = false;
+  /** The send went quiet before that answer came: probe as soon as it does. */
+  private probeOnPong = false;
+  /** `related_prompts` for the last reply may still come on this socket until then. */
+  private followUpsUntil = 0;
+  /** Frames the current socket delivered: a probe is answered when this moves. */
+  private framesSeen = 0;
   private closed = false;
-  /** The server refused this socket's token once: a second refusal falls back to SSE. */
-  private refusedOnce = false;
+  private readonly backoff: WsBackoff;
 
-  constructor(private readonly options: ChatWsTransportOptions) {}
+  constructor(private readonly options: ChatWsTransportOptions) {
+    this.backoff = options.backoff ?? createWsBackoff();
+  }
 
   isOpen(): boolean {
     return this.socket?.readyState === WS_OPEN_STATE;
   }
 
+  /** A socket is open or opening (not closed by the server, a failure or `close`). */
+  holdsSocket(): boolean {
+    return this.socket !== null;
+  }
+
+  /** Sends go over SSE while the socket cools down after a failure, or once its token was refused. */
   shouldUseSse(): boolean {
-    return this.preferSse;
+    return this.authRejected || this.backoff.cooling();
   }
 
   /** A message or regenerate frame is still waiting for its done or error. */
@@ -117,8 +155,13 @@ export class ChatWsTransport {
     return this.turnActive;
   }
 
+  /** The last reply's follow-up questions may still arrive: closing now would lose them. */
+  expectsFollowUps(): boolean {
+    return this.socket !== null && Date.now() < this.followUpsUntil;
+  }
+
   connect(): Promise<void> {
-    if (this.closed || this.preferSse || this.isOpen()) {
+    if (this.closed || this.shouldUseSse() || this.isOpen()) {
       return Promise.resolve();
     }
     if (this.connectPromise) return this.connectPromise;
@@ -127,6 +170,7 @@ export class ChatWsTransport {
       this.options.url,
     );
     this.socket = socket;
+    this.answersPing = false;
     this.connectPromise = new Promise<void>((resolve) => {
       this.settleConnect = resolve;
     });
@@ -134,7 +178,7 @@ export class ChatWsTransport {
     this.connectTimer = setTimeout(() => {
       if (!this.isCurrentSocket(socket)) return;
       this.socket = null;
-      this.preferSse = true;
+      this.backoff.fail();
       this.finishConnect();
       this.options.onFallback({
         reason: "connect_timeout",
@@ -143,29 +187,32 @@ export class ChatWsTransport {
       socket.close();
     }, WS_CONNECT_TIMEOUT_MS);
 
+    // A replaced socket's late events must not touch the timers or the
+    // connect wait of the socket that took its place.
     socket.onopen = () => {
-      this.clearConnectTimer();
       if (!this.isCurrentSocket(socket)) {
-        this.finishConnect();
         socket.close();
         return;
       }
+      this.clearConnectTimer();
       this.sendFrame({
         token: this.options.getToken() ?? "",
         client_timezone: this.options.clientTimezone,
       } satisfies ChatWsAuthFrame);
+      // Its pong says this server can be probed (an older one ignores pings).
+      this.sendFrame({ type: "ping" });
       this.finishConnect();
     };
 
     const disconnect = (code?: number) => {
-      this.clearConnectTimer();
-      this.clearTurnTimer();
-      this.finishConnect();
       if (!this.isCurrentSocket(socket)) return;
+      this.clearConnectTimer();
+      this.clearTurnTimers();
+      this.finishConnect();
       const duringTurn = this.turnActive;
       this.socket = null;
       this.turnActive = false;
-      this.preferSse = code === undefined || !RECONNECT_CLOSE_CODES.has(code);
+      if (code === undefined || !RECONNECT_CLOSE_CODES.has(code)) this.backoff.fail();
       this.options.onFallback({
         reason: code !== undefined && UNREAD_CLOSE_CODES.has(code) ? "closed_unread" : "disconnect",
         duringTurn,
@@ -179,21 +226,31 @@ export class ChatWsTransport {
     };
     socket.onmessage = (event) => {
       if (!this.isCurrentSocket(socket)) return;
+      this.framesSeen += 1;
       // React Native and DOM WebSocket both expose `data`, but use different
       // concrete event types. String conversion is the narrow shared boundary.
       const payload = parseChatWsPayload(String(event.data));
       if (!payload) return;
-      if (this.turnActive && WS_TURN_EVENT_TYPES.has(payload.type)) this.awaitNextEvent(socket);
+      if (payload.type === "pong") {
+        this.answersPing = true;
+        if (this.probeOnPong) {
+          this.probeOnPong = false;
+          this.probe();
+        }
+        return;
+      }
+      if (WS_TURN_EVENT_TYPES.has(payload.type)) {
+        this.clearAckTimers();
+        if (this.turnActive) this.awaitNextEvent(socket);
+      }
       if (payload.type === "keepalive") return;
 
       if (payload.type === "error" && payload.message === "Unauthorized") {
         const duringTurn = this.turnActive;
         this.socket = null;
         this.turnActive = false;
-        // The turn replays over SSE, whose request refreshes the token; the next
-        // connect authenticates with the new one. Only a second refusal stays on SSE.
-        this.preferSse = this.refusedOnce;
-        this.refusedOnce = true;
+        this.authRejected = true;
+        this.clearTurnTimers();
         this.options.onFallback({
           reason: "unauthorized",
           duringTurn,
@@ -203,11 +260,16 @@ export class ChatWsTransport {
         return;
       }
 
-      if (payload.type === "done" || payload.type === "error") {
+      if (payload.type === "done" || payload.type === "error" || payload.type === "duplicate") {
         this.turnActive = false;
-        this.clearTurnTimer();
+        this.clearTurnTimers();
       }
-      if (payload.type === "done") this.refusedOnce = false;
+      if (payload.type === "done") {
+        this.backoff.succeed();
+        // The server sends a saved reply's follow-up questions after its done.
+        this.followUpsUntil = payload.message_id ? Date.now() + WS_FOLLOW_UPS_WAIT_MS : 0;
+      }
+      if (payload.type === "related_prompts") this.followUpsUntil = 0;
       this.options.onPayload(payload);
     };
 
@@ -223,12 +285,36 @@ export class ChatWsTransport {
   }
 
   /**
+   * Ask the server to answer at once while a turn waits on this socket. No
+   * frame within WS_PROBE_TIMEOUT_MS means the socket is dead: it is dropped
+   * with `unresponsive`. Only a socket whose server answered the connect ping
+   * is probed; an older server never answers, and that silence proves nothing.
+   */
+  probe(): void {
+    const socket = this.socket;
+    if (!socket || !this.isOpen() || !this.turnActive || !this.answersPing || this.probeTimer) return;
+    const seen = this.framesSeen;
+    const sentAt = Date.now();
+    this.sendFrame({ type: "ping" });
+    this.probeTimer = setTimeout(() => {
+      this.probeTimer = null;
+      if (!this.isCurrentSocket(socket) || this.framesSeen !== seen) return;
+      // Timers stop while the app is suspended; a deadline that fired late proves nothing.
+      if (Date.now() - sentAt > 2 * WS_PROBE_TIMEOUT_MS) {
+        this.probe();
+        return;
+      }
+      this.dropUnresponsive(socket);
+    }, WS_PROBE_TIMEOUT_MS);
+  }
+
+  /**
    * Stop the turn. `shownChars` is how much of the reply the phone drew (the
    * kept bubble's length): the server saves no more than that, so the stopped
    * answer and the saved one are the same text.
    */
   cancel(shownChars?: number): void {
-    this.clearTurnTimer();
+    this.clearTurnTimers();
     if (!this.isOpen()) return;
     this.sendFrame(shownChars == null ? { type: "cancel" } : { type: "cancel", shown_chars: shownChars });
   }
@@ -237,7 +323,7 @@ export class ChatWsTransport {
     if (this.closed) return;
     this.closed = true;
     this.clearConnectTimer();
-    this.clearTurnTimer();
+    this.clearTurnTimers();
     this.finishConnect();
     this.turnActive = false;
     const socket = this.socket;
@@ -250,22 +336,41 @@ export class ChatWsTransport {
   ): boolean {
     if (!this.isOpen()) return false;
     this.turnActive = true;
-    this.clearTurnTimer();
-    this.turnTimer = setTimeout(() => {
+    this.clearTurnTimers();
+    this.firstEventTimer = setTimeout(() => {
       if (!this.turnActive || !this.socket) return;
       const socket = this.socket;
-      this.turnTimer = null;
+      this.firstEventTimer = null;
       this.socket = null;
       this.turnActive = false;
-      this.preferSse = true;
+      this.clearTurnTimers();
+      this.backoff.fail();
       this.options.onFallback({
         reason: "first_event_timeout",
         duringTurn: true,
       });
       socket.close();
     }, WS_FIRST_EVENT_TIMEOUT_MS);
+    // A server that answers sends `start` at once: a quiet send is probed long
+    // before the deadline above (a half-open socket used to mean 30 s of dots).
+    this.ackProbeTimer = setTimeout(() => {
+      this.ackProbeTimer = null;
+      // A fresh socket's connect pong can still be on its way.
+      if (this.answersPing) this.probe();
+      else this.probeOnPong = true;
+    }, WS_ACK_PROBE_MS);
     this.sendFrame(frame);
     return true;
+  }
+
+  private dropUnresponsive(socket: WebSocket): void {
+    const duringTurn = this.turnActive;
+    this.socket = null;
+    this.turnActive = false;
+    this.clearTurnTimers();
+    this.backoff.fail();
+    this.options.onFallback({ reason: "unresponsive", duringTurn });
+    socket.close();
   }
 
   private sendFrame(frame: object): void {
@@ -282,28 +387,40 @@ export class ChatWsTransport {
     this.connectTimer = null;
   }
 
+  /** The waits for a turn's first event: the deadline and the probe before it. */
+  private clearAckTimers(): void {
+    this.probeOnPong = false;
+    if (this.firstEventTimer != null) clearTimeout(this.firstEventTimer);
+    if (this.ackProbeTimer != null) clearTimeout(this.ackProbeTimer);
+    this.firstEventTimer = null;
+    this.ackProbeTimer = null;
+  }
+
+  private clearTurnTimers(): void {
+    this.clearAckTimers();
+    if (this.probeTimer != null) clearTimeout(this.probeTimer);
+    if (this.idleTimer != null) clearTimeout(this.idleTimer);
+    this.probeTimer = null;
+    this.idleTimer = null;
+  }
+
   /**
    * The turn has spoken: wait for its next event. A silence past the deadline is
    * a dead connection (a network change leaves such a socket behind): close it,
    * report a drop so the caller reloads the chat for the saved reply, and open a
-   * new socket for the next send.
+   * new socket for the next send (code-health audit NET-17).
    */
   private awaitNextEvent(socket: WebSocket): void {
-    this.clearTurnTimer();
-    this.turnTimer = setTimeout(() => {
+    if (this.idleTimer != null) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = null;
       if (!this.turnActive || !this.isCurrentSocket(socket)) return;
-      this.turnTimer = null;
       this.socket = null;
       this.turnActive = false;
+      this.clearTurnTimers();
       this.options.onFallback({ reason: "disconnect", duringTurn: true });
       socket.close();
     }, STREAM_IDLE_TIMEOUT_MS);
-  }
-
-  private clearTurnTimer(): void {
-    if (this.turnTimer == null) return;
-    clearTimeout(this.turnTimer);
-    this.turnTimer = null;
   }
 
   private finishConnect(): void {

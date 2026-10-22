@@ -6,6 +6,7 @@ import { parseFenceLang } from "@/lib/codeHighlight";
 import { isMathFenceLang } from "@/lib/fenceRegistry";
 import { fenceAfterLine, readFenceMarker } from "@/lib/mdFenceScan";
 import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/preprocess";
+import { readVendorLibrary } from "@/lib/vendorAssets";
 
 function escapeHtml(text: string): string {
   return text
@@ -89,9 +90,17 @@ ${PRINT_STYLES}</style>
 /**
  * Convert markdown into structured print HTML (headings, lists, code, paragraphs).
  * Math fences and $...$ / \\(...\\) inline math use KaTeX — same as the chat UI —
- * instead of dumping raw LaTeX into <pre>.
+ * instead of dumping raw LaTeX into <pre>. KaTeX's stylesheet is a vendored asset,
+ * read here rather than carried in the JS bundle.
  */
-export function markdownToStructuredPrintHtml(title: string, markdown: string, katexCss: string): string {
+export async function markdownToStructuredPrintHtml(title: string, markdown: string): Promise<string> {
+  const body = structuredPrintBody(markdown);
+  // Without the stylesheet KaTeX's markup still reads, unstyled; the export goes ahead.
+  const katexCss = await readVendorLibrary("katexCss").catch(() => "");
+  return wrapPrintDocument(title, body, katexCss);
+}
+
+function structuredPrintBody(markdown: string): string {
   const prepared = preprocessMarkdown(markdown.replace(/\r\n/g, "\n"));
   const lines = prepared.split("\n");
   const parts: string[] = [];
@@ -195,8 +204,7 @@ export function markdownToStructuredPrintHtml(title: string, markdown: string, k
   }
   flushParagraph();
 
-  const body = parts.join("\n") || `<p class="empty"></p>`;
-  return wrapPrintDocument(title, body, katexCss);
+  return parts.join("\n") || `<p class="empty"></p>`;
 }
 
 function looksLikePrintTableRow(line: string): boolean {

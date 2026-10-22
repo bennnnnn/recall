@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef } from "react";
-import { NativeModules, TurboModuleRegistry } from "react-native";
+import { NativeModules, Platform, TurboModuleRegistry } from "react-native";
 import type { ComponentType } from "react";
 
 import { HTML_RUN_CDN_HOSTS } from "@/lib/htmlRunCdn";
+import { isAllowedLinkUrl } from "@/lib/linkSchemePolicy";
 import {
   createStaticOnlyNavigationGuard,
   isPreviewInlineDocumentUrl,
@@ -114,6 +115,46 @@ export function allowHtmlRunNavigation(request?: unknown): boolean {
     return parsed.protocol === "https:" && HTML_RUN_CDN_ORIGINS.has(parsed.origin);
   } catch {
     return false;
+  }
+}
+
+/**
+ * A preview page loaded from its file (lib/previewPageFile.ts). Every URL
+ * reaches {@link allowPreviewPageNavigation}, so react-native-webview never
+ * hands one to the OS by itself; {@link previewPageLinkToOpen} decides that.
+ */
+export const PREVIEW_PAGE_ORIGIN_WHITELIST: string[] = ["*"];
+
+/** The page may load itself and nothing else: no other file, no web page. */
+export function allowPreviewPageNavigation(pageUri: string, request?: unknown): boolean {
+  const url = navigationRequestUrl(request).trim();
+  // A subframe's blank document, never the card itself.
+  if (url.toLowerCase() === "about:blank") return !navigationRequestIsTopFrame(request);
+  const page = filePath(pageUri);
+  return page !== null && filePath(url) === page;
+}
+
+/**
+ * A navigation the page may not make that should still open, as links in
+ * these cards did before they were files: a top-frame link the chat would open
+ * too (lib/linkSchemePolicy.ts). iOS reports what started a navigation, so
+ * there only a tap on a link opens.
+ */
+export function previewPageLinkToOpen(request?: unknown): string | null {
+  if (!navigationRequestIsTopFrame(request)) return null;
+  if (Platform.OS === "ios" && navigationRequestType(request) !== "click") return null;
+  const url = navigationRequestUrl(request).trim();
+  return isAllowedLinkUrl(url) ? url : null;
+}
+
+/** A file URL's whole path, decoded, with iOS's /private/var spelled /var. */
+function filePath(url: string): string | null {
+  const match = /^file:\/\/(?:localhost)?(\/[^?#]*)/i.exec(url);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]).replace(/^\/private\/var\//, "/var/");
+  } catch {
+    return null;
   }
 }
 

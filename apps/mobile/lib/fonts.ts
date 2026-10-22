@@ -2,7 +2,7 @@ import { Platform, type TextStyle } from "react-native";
 
 import { Weight } from "@/lib/type";
 
-/** Space Mono (assets/fonts). Registered in _layout without blocking first paint. */
+/** Space Mono (assets/fonts/SpaceMono-Regular.ttf). Registered at launch with the other faces (`lib/appFonts.ts`). */
 export const CODE_FONT = "SpaceMono";
 
 /**

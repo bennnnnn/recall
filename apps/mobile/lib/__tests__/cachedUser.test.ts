@@ -2,6 +2,7 @@ import {
   cachedUserMatchesToken,
   clearCachedUser,
   mergeCachedUser,
+  readCachedLocaleSync,
   readCachedUser,
   writeCachedUser,
 } from "@/lib/cachedUser";
@@ -19,6 +20,24 @@ jest.mock("expo-file-system/legacy", () => ({
   readAsStringAsync: jest.fn(),
   writeAsStringAsync: jest.fn(),
   deleteAsync: jest.fn(),
+}));
+
+/** The synchronous read the first frame uses (`lib/syncFileRead.ts`). */
+const mockSyncFiles = new Map<string, string>();
+jest.mock("expo-file-system", () => ({
+  Paths: { document: "/mock-docs/", cache: "/mock-cache/" },
+  File: class {
+    private readonly path: string;
+    constructor(directory: string, name: string) {
+      this.path = `${directory}${name}`;
+    }
+    get exists() {
+      return mockSyncFiles.has(this.path);
+    }
+    textSync() {
+      return mockSyncFiles.get(this.path) ?? "";
+    }
+  },
 }));
 
 const user: User = {
@@ -70,6 +89,7 @@ describe("cachedUser", () => {
       name: "Alex",
       avatar_url: null,
       plan: "free",
+      locale: "",
     });
   });
 
@@ -96,6 +116,7 @@ describe("cachedUser", () => {
         name: "Alex",
         avatar_url: null,
         plan: "free",
+        locale: "en",
       }),
     );
   });
@@ -116,8 +137,25 @@ describe("cachedUser", () => {
     expect(parsed).not.toHaveProperty("job");
     expect(parsed).not.toHaveProperty("custom_instructions");
     expect(parsed).not.toHaveProperty("default_model");
-    expect(parsed).not.toHaveProperty("locale");
     expect(parsed).not.toHaveProperty("timezone");
+  });
+
+  it("keeps the language, so a cold start draws its first frame in it", async () => {
+    await writeCachedUser({ ...user, locale: "es" });
+    const written = (writeAsStringAsync as jest.Mock).mock.calls[0][1] as string;
+    expect(JSON.parse(written)).toMatchObject({ locale: "es" });
+
+    expect(readCachedLocaleSync()).toBeNull();
+    mockSyncFiles.set("/mock-cache/cached-user.json", written);
+    expect(readCachedLocaleSync()).toBe("es");
+    mockSyncFiles.set("/mock-cache/cached-user.json", JSON.stringify({ id: "u1", plan: "free" }));
+    expect(readCachedLocaleSync()).toBeNull();
+    mockSyncFiles.set("/mock-cache/cached-user.json", "{half a file");
+    expect(readCachedLocaleSync()).toBeNull();
+
+    (getInfoAsync as jest.Mock).mockResolvedValue({ exists: true });
+    (readAsStringAsync as jest.Mock).mockResolvedValue(written);
+    expect(mergeCachedUser((await readCachedUser())!).locale).toBe("es");
   });
 
   it("keeps the AI-consent time so a cold start does not ask again", async () => {
@@ -158,11 +196,13 @@ describe("cachedUser", () => {
       name: "Alex",
       avatar_url: null,
       plan: "free",
+      locale: "fr",
     });
     // Display fields come from the cache.
     expect(merged.id).toBe("u1");
     expect(merged.name).toBe("Alex");
     expect(merged.plan).toBe("free");
+    expect(merged.locale).toBe("fr");
     // PII/prefs are defaulted (empty/false/null) — replaced by api.me() on launch.
     expect(merged.email).toBe("");
     expect(merged.push_notifications_enabled).toBe(false);

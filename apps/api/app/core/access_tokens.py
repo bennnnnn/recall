@@ -2,20 +2,26 @@
 
 Every authenticated request verifies its token here (``app.core.deps``). The
 account module issues, rotates and revokes sessions, and writes the revocation
-keys this module reads. Not Google OAuth.
+keys this module reads. Not Google OAuth. The same round trip reads the user
+row's generation, which says whether this process's copy of the row is current
+(``core/user_cache``).
 """
 
 from __future__ import annotations
 
 import logging
 import secrets
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 import jwt
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
+from app.core import user_cache
+from app.core.cache_generation import ensure_generation
 from app.core.config import Settings
 from app.exceptions import AuthenticationError, RedisUnavailableError
 
@@ -72,12 +78,20 @@ def decode_access_token(token: str, settings: Settings) -> UUID:
         raise AccessTokenError("Invalid access token") from exc
 
 
-async def is_access_revoked(redis: Redis, jti: str) -> bool:
-    return bool(await redis.get(revoked_key(jti)))
+def _revocation_keys(payload: dict[str, Any], user_id: UUID) -> tuple[list[str], str | None]:
+    """The keys that revoke this token when set, and its user's revoked-since cutoff key.
 
-
-# Stands in for a claim the token lacks, so MGET keeps its three slots; never written.
-_NO_KEY = "revoked:none"
+    A token without a ``jti``, ``sid`` or ``iat`` claim has nothing of that kind to check.
+    """
+    markers: list[str] = []
+    jti = payload.get("jti")
+    if jti:
+        markers.append(revoked_key(str(jti)))
+    sid = payload.get("sid")
+    if isinstance(sid, str) and sid:
+        markers.append(revoked_session_key(sid))
+    since = revoked_since_key(user_id) if payload.get("iat") is not None else None
+    return markers, since
 
 
 def _issued_before(issued_at: object, revoked_since_raw: str | bytes | None) -> bool:
@@ -87,35 +101,51 @@ def _issued_before(issued_at: object, revoked_since_raw: str | bytes | None) -> 
     return float(issued_at) <= float(redis_str(revoked_since_raw))
 
 
-async def verify_access_token(redis: Redis, token: str, settings: Settings) -> UUID:
+@dataclass(frozen=True)
+class AccessCheck:
+    """A live token's user, and that user row's current generation (``core/user_cache``)."""
+
+    user_id: UUID
+    user_generation: str
+
+
+async def check_access(redis: Redis, token: str, settings: Settings) -> AccessCheck:
+    """The token's user once no revocation names it, with the user row's generation.
+
+    Every revocation key (this token, its signed-in device, the user's cutoff)
+    and the generation are read in one MGET: this runs before every
+    authenticated request and every chat frame, so it is one Redis round trip.
+    A user whose generation key is missing (never set, expired or lost) gets a
+    fresh one first, one more round trip (``ensure_generation``).
+    """
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
     except (jwt.PyJWTError, ValueError, KeyError) as exc:
         raise AuthenticationError("Invalid access token") from exc
-    jti = payload.get("jti")
-    sid = payload.get("sid")
     try:
         user_id = UUID(payload["sub"])
     except (ValueError, KeyError, TypeError) as exc:
         raise AuthenticationError("Invalid access token") from exc
+    markers, since = _revocation_keys(payload, user_id)
+    generation_key = user_cache.generation_key(user_id)
+    keys = [*markers, generation_key, *([since] if since else [])]
     try:
-        # One round trip for the three revocation keys (every authenticated request).
-        revoked_jti, revoked_sid, revoked_since_raw = await redis.mget(
-            revoked_key(str(jti)) if jti else _NO_KEY,
-            revoked_session_key(sid) if isinstance(sid, str) and sid else _NO_KEY,
-            revoked_since_key(user_id),
-        )
-        if jti and revoked_jti:
+        values = await redis.mget(keys)
+        if any(values[: len(markers)]):
             raise AuthenticationError("Token revoked")
-        if isinstance(sid, str) and sid and revoked_sid:
+        if _issued_before(payload.get("iat"), values[-1] if since else None):
             raise AuthenticationError("Token revoked")
-        if _issued_before(payload.get("iat"), revoked_since_raw):
-            raise AuthenticationError("Token revoked")
-    except AuthenticationError:
-        raise
+        generation = values[len(markers)]
+        if generation is None:
+            generation = await ensure_generation(redis, generation_key)
     except RedisError as exc:
         # Fail closed: without Redis we cannot check jti / revoked_since.
         # Surface as 503 (not 401) so clients retry instead of forcing re-login.
         logger.warning("Access token revocation check failed; Redis unavailable", exc_info=True)
         raise RedisUnavailableError() from exc
-    return user_id
+    return AccessCheck(user_id=user_id, user_generation=redis_str(generation))
+
+
+async def verify_access_token(redis: Redis, token: str, settings: Settings) -> UUID:
+    """The token's user once no revocation names it (``check_access`` without the row)."""
+    return (await check_access(redis, token, settings)).user_id

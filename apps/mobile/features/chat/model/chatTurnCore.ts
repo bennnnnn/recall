@@ -7,7 +7,7 @@ import type { ChatSsePayload } from "@/features/chat/model/sse";
 import type { TurnUsage } from "@/features/chat/model/socketReduce";
 import type { ChatTurnOutcomeProperties } from "@/features/chat/model/latencyReporter";
 import type { DroppedTurnResult } from "@/features/chat/model/turnReconcile";
-import type { ChatWsFallbackSignal, ChatWsTransport } from "@/features/chat/model/wsTransport";
+import type { ChatWsFallbackSignal, ChatWsTransport, WsSendFallback } from "@/features/chat/model/wsTransport";
 
 /**
  * The chat turn as one state machine (code-health audit CLAR-04): a send or regenerate
@@ -19,7 +19,7 @@ import type { ChatWsFallbackSignal, ChatWsTransport } from "@/features/chat/mode
 type ChatTurnPhase = "idle" | "streaming" | "finalizing";
 
 /** A WebSocket send the server may still refuse before `start`; replayed over SSE then. */
-type AuthFallback = { transport: ChatWsTransport; retry: () => Promise<void> };
+type AuthFallback = WsSendFallback;
 
 export type ChatTurnState = {
   /** The chat on screen, in which sign-in session; rejected sends are kept per chat. */
@@ -47,16 +47,28 @@ export type ChatTurnState = {
   /** This view announced its first reply. */
   firstReply: boolean;
   authFallback: AuthFallback | null;
+  /** The attempt whose typing dots went up at the tap, before its send was dispatched. */
+  earlyDots: number | null;
 };
 
 /** What to do when a turn the server took is not found after its connection dropped. */
 export type DroppedTurnFollow =
   | { via: "socket"; pending: PendingSend | null }
+  /** The server answered `duplicate`: an earlier send of this message took the turn. */
+  | { via: "duplicate"; pending: PendingSend | null }
   | { via: "sse"; pending: PendingSend | null; error: unknown; ttftTurnId: string | null };
 
 export type ChatTurnEvent =
   | { type: "view_changed"; chatId: string | null; session: number }
-  | { type: "send"; content: string; options?: SendMessageOptions; retrying?: RejectedSend }
+  | { type: "send"; content: string; options?: SendMessageOptions; retrying?: RejectedSend; clientMessageId: string }
+  /** Typing dots under a bubble the composer just painted, before its send goes out. */
+  | { type: "dots_begin" }
+  /** Those dots come down: the send went to image generation, or nowhere. */
+  | { type: "dots_cancelled"; attempt: number }
+  /** A send waits for the reply still saving; its bubble says "Sending". */
+  | { type: "send_waiting"; messageId: string }
+  /** A reply past `stream_end` whose `done` never came (its connection gone quiet). */
+  | { type: "unconfirmed_reply" }
   | { type: "send_dispatched"; retrying?: RejectedSend }
   | { type: "fallback_armed"; fallback: AuthFallback }
   | { type: "regenerate_ui"; messages: Message[] }
@@ -77,6 +89,8 @@ export type ChatTurnCommand =
   | { type: "pop_for_regenerate" }
   | { type: "cue"; cue: "reset" | "activity" | "complete" | "error" | "stopped" }
   | { type: "outcome"; outcome: "begin" }
+  | { type: "outcome"; outcome: "token" }
+  | { type: "outcome"; outcome: "send_ready" }
   | { type: "outcome"; outcome: "activity"; phase: string }
   | { type: "outcome"; outcome: "report"; completion: ChatTurnOutcomeProperties["completion"]; code?: string }
   | { type: "first_token"; turnId: string | null | undefined; frame: string }
@@ -92,7 +106,12 @@ export type ChatTurnCommand =
   | { type: "abort_sse" }
   | { type: "cancel_socket"; streamedChars?: number }
   | { type: "retry_fallback"; fallback: AuthFallback }
-  | { type: "follow_dropped_turn"; follow: DroppedTurnFollow; polls?: number };
+  | { type: "follow_dropped_turn"; follow: DroppedTurnFollow; polls?: number; pollMs?: (poll: number) => number }
+  /**
+   * Stop came before this send (null: a regeneration) went out: it stops waiting for the
+   * opened chat's page (`openedPage.ts`) and is marked taken back, so its sender returns the draft.
+   */
+  | { type: "withdraw_unsent"; chatId: string | null; pending: PendingSend | null };
 
 export type ChatTurnStep = { state: ChatTurnState; commands: ChatTurnCommand[] };
 
@@ -103,7 +122,7 @@ export function initialChatTurnState(chatId: string | null, session: number): Ch
   return {
     chatId, session, phase: "idle", sendingMessageId: null, attempt: 0, pending: null, rejected: new Map(),
     buffer: "", draft: null, stoppedStreamedId: null, regenerating: false, regenerateBackup: null,
-    ttftTurnId: null, firstReply: false, authFallback: null,
+    ttftTurnId: null, firstReply: false, authFallback: null, earlyDots: null,
   };
 }
 
@@ -160,9 +179,10 @@ export function restoreRegenerateBackup(s: ChatTurnState, out: Out): void {
   s.regenerating = false;
   const backup = s.regenerateBackup;
   s.regenerateBackup = null;
+  // Into the replacement's place, so a message sent meanwhile stays below it.
+  messages(out, (previous) => restoreAssistantMessage(previous, backup));
   clearStreamingBubble(s, out);
   s.phase = "idle";
-  if (backup) messages(out, (previous) => restoreAssistantMessage(previous, backup));
 }
 
 /** Keep what the user already saw as a stopped answer; false when nothing streamed. */
@@ -177,10 +197,25 @@ export function preservePartialStream(s: ChatTurnState, out: Out, now: number): 
   return true;
 }
 
-/** The streaming bubble with what streamed so far, kept as a stopped answer under `id`. */
-export function keepStreamedBubble(previous: Message[], id: string, content: string | undefined, draft: StreamingDraft | null): Message[] {
+/**
+ * The streaming bubble with what streamed so far, kept as a stopped answer under `id`.
+ * `notSaved`: the reply came whole (`stream_end`) and its save failed, said on the reply.
+ */
+export function keepStreamedBubble(
+  previous: Message[],
+  id: string,
+  content: string | undefined,
+  draft: StreamingDraft | null,
+  notSaved = false,
+): Message[] {
   return previous.map((m) => (m.id === "streaming"
-    ? { ...m, id, content: content ?? m.content, search_sources: draft?.search_sources ?? m.search_sources, generationStopped: true }
+    ? {
+        ...m,
+        id,
+        content: content ?? m.content,
+        search_sources: draft?.search_sources ?? m.search_sources,
+        ...(notSaved ? { replyNotSaved: true } : { generationStopped: true }),
+      }
     : m));
 }
 

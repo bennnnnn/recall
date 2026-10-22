@@ -10,6 +10,8 @@ import {
   writeAsStringAsync,
 } from "expo-file-system/legacy";
 
+import { readTextFileSync } from "@/lib/syncFileRead";
+
 export function prefFilePath(fileName: string): string | null {
   if (!documentDirectory) return null;
   return `${documentDirectory}${fileName}`;
@@ -28,6 +30,11 @@ export async function readPrefFile(path: string | null): Promise<string | null> 
   } catch {
     return null;
   }
+}
+
+/** The pref read synchronously: only for what the first frame needs (`lib/launchPrefs.ts`). */
+export function readPrefFileSync(fileName: string): string | null {
+  return readTextFileSync("document", fileName);
 }
 
 export async function writePrefFile(path: string | null, value: string): Promise<void> {

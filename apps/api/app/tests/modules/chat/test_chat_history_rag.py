@@ -19,6 +19,7 @@ from app.modules.chat.history_rag import (
     prepare_message_text,
     retrieve_for_prompt,
 )
+from app.tests.modules.chat.chat_test_support import system_prompt
 
 
 def test_prepare_message_text_skips_short_and_system():
@@ -329,11 +330,11 @@ async def test_build_prompt_uses_gathered_history_embedding_once(
     assert messages[0]["role"] == "system"
     if query_vec is None:
         search.assert_not_awaited()
-        assert row.text not in messages[0]["content"]
+        assert row.text not in system_prompt(messages)
     else:
         search.assert_awaited_once()
         assert search.await_args.args[2] == query_vec
-        assert row.text in messages[0]["content"]
+        assert row.text in system_prompt(messages)
 
 
 @pytest.mark.asyncio

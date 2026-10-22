@@ -39,6 +39,7 @@ import {
 import { cachedUserMatchesToken, clearCachedUser, mergeCachedUser, readCachedUser, writeCachedUser } from "@/lib/cachedUser";
 import { AccountSessionContext } from "@/contexts/accountSession";
 import { clearSignedOutAccount } from "@/lib/signOutCleanup";
+import { forgetSyncRecords } from "@/lib/syncRecords";
 import { useBootstrapSync } from "@/hooks/useBootstrapSync";
 import { AuthLoadingShell } from "@/components/AuthLoadingShell";
 
@@ -46,6 +47,9 @@ type AuthContextValue = {
   user: User | null;
   token: string | null;
   loading: boolean;
+  /** The user came from the server this run (sign-in, /auth/me or a profile
+   * write), not only the launch cache, whose plan always reads "free". */
+  profileValidated: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signInWithDev: () => Promise<void>;
@@ -66,8 +70,16 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 /** Token-only bag so chat list cells don't re-render on every user/quota patch. */
 type AuthTokenBag = { token: string | null };
 const AuthTokenContext = createContext<AuthTokenBag | null>(null);
+/** Never changes: reads the signed-in user when called, for event handlers in list rows. */
+const AuthUserReaderContext = createContext<(() => User | null) | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+type AuthProviderProps = {
+  children: ReactNode;
+  /** The launch restore has settled: the app, the sign-in or the retry screen can show. */
+  onRestored?: () => void;
+};
+
+export function AuthProvider({ children, onRestored }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,8 +124,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ]);
         if (!current()) return;
         setOnboardedState(onb);
+        const cacheIsThisAccount = Boolean(
+          stored && cachedUser && cachedUserMatchesToken(cachedUser, stored),
+        );
+        if (cachedUser && !cacheIsThisAccount) {
+          // Left by another account, or a sign-out whose delete failed. Its
+          // language was applied before the first render (lib/launchPrefs.ts).
+          void clearCachedUser();
+          void ensureLocale("en");
+        }
         if (!stored) return;
-        if (cachedUser && cachedUserMatchesToken(cachedUser, stored)) {
+        if (cachedUser && cacheIsThisAccount) {
           hasCachedAccount = true;
           setCurrentToken(stored);
           setCurrentUser(mergeCachedUser(cachedUser));
@@ -141,6 +162,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; mountedRef.current = false; };
   }, [hydrationAttempt, isCurrent, setCurrentToken, setCurrentUser]);
 
+  const restored = !loading || startupFailed;
+  useEffect(() => {
+    if (restored) onRestored?.();
+  }, [restored, onRestored]);
+
   const retryStartup = useCallback(() => {
     setStartupFailed(false);
     setLoading(true);
@@ -155,8 +181,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const result = await login(() => isCurrent(generation));
     if (!result || !isCurrent(generation)) return;
     // A crash between the credential write and cache write must not pair a
-    // newly signed-in account's token with the previous account's display.
-    await clearCachedUser();
+    // newly signed-in account's token with the previous account's display,
+    // and a sync record a sign-out failed to delete must not skip this
+    // sign-in's push registration (lib/syncRecords.ts).
+    await Promise.all([clearCachedUser(), forgetSyncRecords()]);
     if (!isCurrent(generation)) return;
     const saved = await setTokenPair(result.access_token, result.refresh_token, generation);
     if (!saved || !isCurrent(generation)) return;
@@ -311,6 +339,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       token,
       loading,
+      profileValidated,
       signInWithGoogle,
       signInWithApple,
       signInWithDev,
@@ -326,6 +355,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       token,
       loading,
+      profileValidated,
       signInWithGoogle,
       signInWithApple,
       signInWithDev,
@@ -340,6 +370,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const tokenBag = useMemo(() => ({ token }), [token]);
+  const readUser = useCallback(() => userRef.current, []);
   // Not `getToken`: that name is the stored-credential reader startup uses.
   const latestToken = useCallback(() => tokenRef.current, []);
   const account = token && user ? `${user.id}:${sessionGeneration}` : null;
@@ -351,11 +382,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthTokenContext.Provider value={tokenBag}>
       <AccountSessionContext.Provider value={accountSession}>
-        <AuthContext.Provider value={value}>
-          {loading || startupFailed
-            ? <AuthLoadingShell failed={startupFailed} onRetry={retryStartup} />
-            : children}
-        </AuthContext.Provider>
+        <AuthUserReaderContext.Provider value={readUser}>
+          <AuthContext.Provider value={value}>
+            {loading || startupFailed
+              ? <AuthLoadingShell failed={startupFailed} onRetry={retryStartup} />
+              : children}
+          </AuthContext.Provider>
+        </AuthUserReaderContext.Provider>
       </AccountSessionContext.Provider>
     </AuthTokenContext.Provider>
   );
@@ -376,6 +409,19 @@ export function useAuthToken(): string | null {
     throw new Error("useAuthToken must be used within AuthProvider");
   }
   return bag.token;
+}
+
+/**
+ * The signed-in user as of the moment it is called. For a handler in a list
+ * row that needs the plan or locale on press: unlike `useAuth()`, it never
+ * re-renders the row when the profile or quota is patched.
+ */
+export function useAuthUserReader(): () => User | null {
+  const read = useContext(AuthUserReaderContext);
+  if (!read) {
+    throw new Error("useAuthUserReader must be used within AuthProvider");
+  }
+  return read;
 }
 
 export function useAuthOptional() {

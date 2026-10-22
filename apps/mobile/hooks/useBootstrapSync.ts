@@ -6,12 +6,16 @@ import { getDeviceLocationLabel } from "@/lib/deviceLocation";
 import { configurePurchases, isPurchasesConfigured, registerPlanChangeListener } from "@/lib/purchases";
 import { getSessionGeneration } from "@/lib/auth";
 import { api, type User } from "@/lib/api";
+import { recentSyncAt, recordSync } from "@/lib/syncRecords";
 
 type Options = {
   token: string | null;
   user: User | null;
   setUser: Dispatch<SetStateAction<User | null>>;
 };
+
+/** A GPS fix and a reverse geocode for a city label: once a day is enough. */
+const LOCATION_SYNC_INTERVAL_MS = 24 * 60 * 60_000;
 
 /** Post-login side effects — timezone, location, push sync, RevenueCat, reminders. */
 export function useBootstrapSync({ token, user, setUser }: Options): void {
@@ -55,13 +59,19 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
     const active = () => !cancelled && generation === getSessionGeneration();
     void (async () => {
       if (!active()) return;
-      const label = await getDeviceLocationLabel();
-      const token = tokenRef.current;
-      if (!active() || !label || location === label || !token) return;
-      const updated = await api.updateMe(token, { location: label });
+      // The server keeps the label between reads; without one, read it now.
+      if (location && (await recentSyncAt("location", userId, LOCATION_SYNC_INTERVAL_MS)) !== null) return;
       if (!active()) return;
-      setUser((current) => current?.id === userId
-        ? { ...current, location: updated.location } : current);
+      const label = await getDeviceLocationLabel();
+      const current = tokenRef.current;
+      if (!active() || !label || !current) return;
+      const updated = location === label ? null : await api.updateMe(current, { location: label });
+      if (!active()) return;
+      // Recorded before the new label re-runs this effect, so that run finds it.
+      await recordSync("location", userId);
+      if (!active() || !updated) return;
+      setUser((latest) => latest?.id === userId
+        ? { ...latest, location: updated.location } : latest);
     })().catch(() => {
       if (active()) console.warn("[bootstrap] location sync failed");
     });

@@ -51,8 +51,10 @@ async def record_global_spend(redis: Redis, usd: float, *, day: date | None = No
 
 
 async def get_global_spend_micro_usd(redis: Redis) -> int:
-    # The pre-fix ``spend_mcents`` key lost its writer on 2026-10-15; its read missed
-    # every time after that and cost every model-calling path a command.
+    """Today's spend in micro-USD (every chat turn reads it).
+
+    The pre-fix ``spend_mcents`` key lost its writer on 2026-10-15; its read missed
+    every time after that and cost every model-calling path a command."""
     return int(await redis.get(spend_key()) or 0)
 
 

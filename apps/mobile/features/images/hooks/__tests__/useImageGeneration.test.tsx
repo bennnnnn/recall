@@ -293,3 +293,103 @@ describe("image generation submit steps", () => {
     expect(options.newMessageCountRef.current).toBe(2);
   });
 });
+
+describe("image generation under the composer's painted bubble", () => {
+  const painted: Message = {
+    id: "local-1", role: "user", content: "draw me a cat", model: null, created_at: "now",
+    local_image_uri: "file:///reference.png",
+  };
+  const saved = {
+    user_message: { id: "saved-user", role: "user", content: "draw me a cat" },
+    assistant_message: { id: "saved-image", role: "assistant", content: "image" },
+  };
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (api.generateImage as jest.Mock).mockResolvedValue(saved);
+  });
+
+  /** The composer painted its bubble (and counted it) before handing the request over. */
+  async function setup(overrides: Partial<Parameters<typeof useImageGeneration>[0]> = {}) {
+    const updates: React.SetStateAction<Message[]>[] = [[painted]];
+    const count = { current: 1 };
+    const options = {
+      token: "tok" as string | null, ...host(),
+      setMessages: (update: React.SetStateAction<Message[]>) => { updates.push(update); },
+      streaming: false, isOffline: false, onOpenUpgrade: jest.fn(), onOfflineBlocked: jest.fn(), onScrollToLatest: jest.fn(),
+      newMessageCountRef: count, t: (key: string) => key,
+      ...overrides,
+    };
+    const rendered = await renderHook(() => useImageGeneration(options));
+    const replay = () => updates.reduce<Message[]>((rows, update) => typeof update === "function" ? update(rows) : update, []);
+    return { ...rendered, count, replay };
+  }
+
+  it("draws under that bubble instead of adding a second one", async () => {
+    let finish!: (value: typeof saved) => void;
+    (api.generateImage as jest.Mock).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    const { result, replay, count } = await setup();
+    let pending!: Promise<void>;
+    await act(async () => {
+      pending = result.current.submitPrompt({ prompt: "cat", userMessage: "draw me a cat", userMessageId: "local-1" });
+    });
+    expect(replay()).toEqual([
+      { ...painted, content: "draw me a cat" },
+      expect.objectContaining({ id: "image-gen-pending" }),
+    ]);
+    expect(count.current).toBe(2);
+    await act(async () => { finish(saved); await pending; });
+    expect(replay().map((row) => row.id)).toEqual(["saved-user", "saved-image"]);
+  });
+
+  it("is not refused by a chat reply that ended in the same tick", async () => {
+    const { result, replay } = await setup({ streaming: true });
+    await act(async () => {
+      await result.current.submitPrompt({ prompt: "cat", userMessage: "draw me a cat", userMessageId: "local-1" });
+    });
+    expect(reportRecoverableError).not.toHaveBeenCalled();
+    expect(replay().map((row) => row.id)).toEqual(["saved-user", "saved-image"]);
+  });
+
+  it.each([
+    ["offline", { isOffline: true }],
+    ["signed out", { token: null }],
+  ])("takes the bubble away and gives the draft back when it cannot start (%s)", async (_label, overrides) => {
+    const onPersistenceFailure = jest.fn();
+    const { result, replay, count } = await setup(overrides);
+    await act(async () => {
+      await result.current.submitPrompt({
+        prompt: "cat", userMessage: "draw me a cat", userMessageId: "local-1", onPersistenceFailure,
+      });
+    });
+    expect(replay()).toEqual([]);
+    expect(count.current).toBe(0);
+    expect(onPersistenceFailure).toHaveBeenCalledTimes(1);
+    expect(api.generateImage).not.toHaveBeenCalled();
+  });
+
+  it("takes the bubble and the pending picture away when the drafts fail to save", async () => {
+    const onPersistenceFailure = jest.fn();
+    const { result, replay, count } = await setup();
+    await act(async () => {
+      await result.current.submitPrompt({
+        prompt: "cat", userMessage: "draw me a cat", userMessageId: "local-1",
+        persistenceReady: Promise.resolve(false), onPersistenceFailure,
+      });
+    });
+    expect(replay()).toEqual([]);
+    expect(count.current).toBe(0);
+    expect(onPersistenceFailure).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a failed picture under the same bubble", async () => {
+    (api.generateImage as jest.Mock).mockRejectedValueOnce(new Error("boom"));
+    const { result, replay } = await setup();
+    await act(async () => {
+      await result.current.submitPrompt({ prompt: "cat", userMessage: "draw me a cat", userMessageId: "local-1" });
+    });
+    expect(replay().map((row) => row.id)).toEqual(["local-1", "image-gen-failed"]);
+    await act(async () => { result.current.retry(); await Promise.resolve(); await Promise.resolve(); });
+    expect(replay().map((row) => row.id)).toEqual(["saved-user", "saved-image"]);
+    expect(api.generateImage).toHaveBeenCalledTimes(2);
+  });
+});

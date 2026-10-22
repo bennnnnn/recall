@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from contextlib import suppress
 from dataclasses import dataclass, replace
 
 from app.core.config import Settings
@@ -29,6 +31,7 @@ from app.modules.math.tools.extract import (
 from app.modules.math.tools.function_def import has_assignment_evaluation_request
 from app.modules.math.tools.image_intent import intent_from_image_extract
 from app.modules.math.tools.llm_extract import llm_extract_math_intent
+from app.modules.math.tools.solve_timeouts import note as note_solve_timeout
 from app.services.solving import VERIFIED_MATH_BEGIN, VERIFIED_MATH_END
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 
@@ -294,24 +297,10 @@ async def build_math_augmentation(
     if reading.answered:
         return reading.note, None
     user_content, intent = reading.content, reading.intent
-    if intent is None and image_math_extract is None:
-        from app.modules.math.tools.word_problem import word_problem_intent
-
-        intent = await word_problem_intent(user_content, settings)
     if intent is None:
-        # The gate fired but no regex extractor matched (the "Couldn't verify
-        # under a correct ∫ x²" class). One bounded structured-extraction call
-        # on a fast alias; the candidate still has to survive SymPy below.
-        # Only this already-failing path pays — gate-miss and regex-hit turns
-        # never make this call.
-        intent = await llm_extract_math_intent(user_content, settings)
-        if intent is not None and not await read_off_loop(
-            _intent_preserves_request,
-            user_content,
-            intent,
-            timeout=settings.subject_read_timeout_seconds,
-        ):
-            intent = None
+        intent = await _model_math_intent(
+            user_content, settings, word_problem=image_math_extract is None
+        )
 
     if intent is None:
         return _NO_VERIFIED_RESULT, None
@@ -346,6 +335,56 @@ async def build_math_augmentation(
         f"{verified.text}\n\n{response_intent_prompt(response_intent)}\n{VERIFIED_MATH_REPLY_HINT}",
         verified,
     )
+
+
+async def _model_math_intent(
+    user_content: str, settings: Settings, *, word_problem: bool
+) -> MathIntent | None:
+    """The intent no regex extractor found, from the two model helpers side by side.
+
+    A translated word problem wins, as before. Otherwise the gate fired but no
+    extractor matched (the "Couldn't verify under a correct ∫ x²" class): one
+    bounded structured extraction on a fast alias, whose candidate still has to
+    survive SymPy. Both start at once under one budget, so the extraction no
+    longer waits out a translation that finds nothing (up to 6 s); when the
+    translation wins, the extraction is dropped. That costs one small extraction
+    call on word problems the translation reads; gate-miss and regex-hit turns
+    never get here. A translation still running when the budget ends gives way
+    to an extraction that has finished.
+    """
+    from app.modules.math.tools.word_problem import word_problem_intent
+
+    extract = asyncio.ensure_future(_llm_extract_preserving(user_content, settings))
+    budget = settings.math_model_intent_budget_seconds
+    try:
+        async with asyncio.timeout(budget):
+            if word_problem:
+                translated = await word_problem_intent(user_content, settings)
+                if translated is not None:
+                    return translated
+            return await extract
+    except TimeoutError:
+        logger.warning("math model helpers ran past their %ss budget", budget)
+        if extract.done() and not extract.cancelled() and extract.exception() is None:
+            return extract.result()
+        return None
+    finally:
+        # Dropped (or finished): either way nothing is left running or unread.
+        extract.cancel()
+        with suppress(asyncio.CancelledError, Exception):
+            await extract
+
+
+async def _llm_extract_preserving(user_content: str, settings: Settings) -> MathIntent | None:
+    intent = await llm_extract_math_intent(user_content, settings)
+    if intent is not None and not await read_off_loop(
+        _intent_preserves_request,
+        user_content,
+        intent,
+        timeout=settings.subject_read_timeout_seconds,
+    ):
+        return None
+    return intent
 
 
 def _unverified_math_note(kind: str | None) -> str:
@@ -394,6 +433,7 @@ async def _build_verified_block_async(
             settings.stem_solve_timeout_seconds,
             intent.kind,
         )
+        note_solve_timeout(intent.kind)
         return None
     except math_solve.SolveServiceError as exc:
         # Sync builder also catches this; keep the async boundary honest if a

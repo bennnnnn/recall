@@ -30,9 +30,15 @@ from app.modules.chat.turn_intercepts import (
     intercept_regenerate,
     start_reply_picture,
 )
-from app.modules.chat.turn_load import NewTurn, load_new_turn, load_regenerate_turn
+from app.modules.chat.turn_load import (
+    NewTurn,
+    RegenerateTurn,
+    load_new_turn,
+    load_regenerate_turn,
+)
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import (
+    StreamContext,
     TurnRequest,
     await_user_message_persist,
     build_stream_prompt_context,
@@ -79,7 +85,33 @@ async def _reserve_new_turn(
         daily_limit=turn.daily_limit,
         vision_extra=vision_extra,
         max_output=settings.max_output_tokens,
-        seed=False,
+    )
+
+
+async def _end_new_turn(ctx: StreamContext, chat_id: UUID) -> None:
+    """A turn that failed before its reply saved draws nothing; the user's row still lands."""
+    if ctx.reply_picture is not None:
+        ctx.reply_picture.cancel()
+    try:
+        await await_user_message_persist(ctx)
+    except Exception:
+        logger.exception("User message persist failed chat_id=%s", chat_id)
+
+
+def _regenerate_images(
+    turn: RegenerateTurn, settings: Settings, model_alias: str | None
+) -> tuple[list[UUID], str]:
+    """The photos the message being answered again carries, and the model that reads them.
+
+    Persisted image markers identify the current input on regeneration; unlike a new
+    send, this path does not run prepare_chat_turn.
+    """
+    image_ids = image_attachment_ids_from_text(turn.content) if settings.attachments_enabled else []
+    if not image_ids:
+        return image_ids, turn.model
+    explicit = plan_service.is_explicit_pick(model_alias)
+    return image_ids, plan_service.image_turn_model(
+        turn.user, settings, turn.model, explicit=explicit
     )
 
 
@@ -102,10 +134,14 @@ async def stream_chat_response(
     on_status: StreamStatusFn | None = None,
     on_reasoning: StreamReasoningFn | None = None,
     user: User | None = None,
+    user_generation: str | None = None,
     chat: Chat | None = None,
     skip_usage_seed: bool = False,
     resources: TurnResources | None = None,
 ) -> AsyncIterator[str]:
+    """``user`` is the transport's current copy of the user, if it has one;
+    ``user_generation`` is the generation it read (``core/user_cache``), under
+    which a row this turn reads instead is kept for the next turn."""
     content = content.strip()
     if not content and not attachment_ids:
         raise ChatNotFoundError("Message cannot be empty.")
@@ -127,11 +163,13 @@ async def stream_chat_response(
             content=content,
             model_alias=model_alias,
             user=user,
+            user_generation=user_generation,
             chat=chat,
             skip_usage_seed=skip_usage_seed,
         )
         # The user's own switches (web search off) narrow the server's for this turn.
         settings = profile_service.settings_for_user(settings, turn.user)
+        misses: set[str] = set()
         if not attachment_ids and await intercept_new_turn(
             deps,
             settings,
@@ -141,6 +179,7 @@ async def stream_chat_response(
             outcome=outcome,
             recent_messages=turn.recent,
             prior_count=turn.prior_count,
+            misses=misses,
         ):
             await res.refund()
             return
@@ -177,7 +216,9 @@ async def stream_chat_response(
             resolved_model=turn.model,
             on_user_saved=outcome.mark_user_message_saved if outcome is not None else None,
             unhealthy=turn.unhealthy,
+            half_open=turn.half_open,
         )
+        ctx.photo_missed = "photo" in misses
         try:
             ctx.reply_picture = start_reply_picture(
                 deps, settings, user=turn.user, chat_id=chat_id, content=content
@@ -198,16 +239,7 @@ async def stream_chat_response(
             ):
                 yield token
         finally:
-            # A turn that failed before its reply saved draws nothing.
-            if ctx.reply_picture is not None:
-                ctx.reply_picture.cancel()
-            try:
-                await await_user_message_persist(ctx)
-            except Exception:
-                logger.exception(
-                    "User message persist failed chat_id=%s",
-                    chat_id,
-                )
+            await _end_new_turn(ctx, chat_id)
 
 
 async def stream_regenerate_response(
@@ -239,6 +271,7 @@ async def stream_regenerate_response(
             # The message being answered again is in the chat (it just loaded).
             outcome.mark_user_message_saved()
         settings = profile_service.settings_for_user(settings, turn.user)
+        misses: set[str] = set()
         if await intercept_regenerate(
             deps,
             settings,
@@ -247,18 +280,10 @@ async def stream_regenerate_response(
             content=turn.content,
             backup=turn.backup,
             outcome=outcome,
+            misses=misses,
         ):
             return
-        # Persisted image markers identify the current input on regeneration;
-        # unlike a new send, this path does not run prepare_chat_turn.
-        current_image_ids = (
-            image_attachment_ids_from_text(turn.content) if settings.attachments_enabled else []
-        )
-        model = turn.model
-        if current_image_ids:
-            model = plan_service.image_turn_model(
-                turn.user, settings, model, explicit=plan_service.is_explicit_pick(model_alias)
-            )
+        current_image_ids, model = _regenerate_images(turn, settings, model_alias)
         await res.reserve(
             user=turn.user,
             content=turn.content,
@@ -266,7 +291,6 @@ async def stream_regenerate_response(
             settings=settings,
             max_output=settings.max_output_tokens,
             vision_extra=vision_reserve_tokens(settings, len(current_image_ids)),
-            seed=True,
         )
         request = TurnRequest(
             user_id=user_id,
@@ -309,9 +333,12 @@ async def stream_regenerate_response(
             run_title=False,
             skip_memory_jobs=False,
             regenerate_backup=turn.backup,
+            # The earlier reply's model (or the user's pick) runs whatever its health.
+            model_named=True,
             # Regenerating says the answer was not good enough: one level more.
             thinking=thinking_level(turn.content, regenerate=True, settings=settings),
         )
+        ctx.photo_missed = "photo" in misses
         await top_up_reserve_for_prompt(
             res,
             settings=settings,

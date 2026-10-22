@@ -2,12 +2,27 @@
  * Optional Sentry: a no-op when EXPO_PUBLIC_SENTRY_DSN is unset. Same rule as
  * the API's (apps/api/app/core/sentry.py): an event carries what broke, never
  * what the user wrote, what the model answered, a request body or a token.
+ *
+ * The SDK (about 750 KB) loads inside the deferred init, not at launch. Until
+ * then Sentry has no global handler, as before; a boundary crash reported in
+ * that window waits in a short queue and is sent once the SDK is up.
  */
 
-import * as Sentry from "@sentry/react-native";
 import type { Breadcrumb, ErrorEvent } from "@sentry/react-native";
 
-let initialized = false;
+type SentrySdk = typeof import("@sentry/react-native");
+
+/** The SDK once `init` has run. */
+let sdk: SentrySdk | null = null;
+let starting: Promise<void> | null = null;
+
+/** A crash loop before init keeps only the first few. */
+const MAX_EARLY_REPORTS = 10;
+const earlyReports: ((sentry: SentrySdk) => void)[] = [];
+
+function configuredDsn(): string | undefined {
+  return process.env.EXPO_PUBLIC_SENTRY_DSN?.trim() || undefined;
+}
 
 const SENSITIVE_HEADERS = new Set([
   "authorization",
@@ -77,45 +92,67 @@ export function scrubSentryEvent(event: ErrorEvent): ErrorEvent | null {
   return event;
 }
 
-/**
- * The app store could not be read when the upgrade sheet opened. The sheet says
- * so and offers a retry; this tells us, since an outage otherwise looks like a
- * store with nothing to sell (code-health audit CLAR-08).
- */
-export function reportStoreUnavailable(error: unknown): void {
-  if (!initialized) return;
-  Sentry.captureException(error, { tags: { area: "store" } });
-}
-
-export function initMobileSentry(): void {
-  if (initialized) return;
-  const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN?.trim();
-  if (!dsn) return;
-
-  Sentry.init({
-    dsn,
-    enabled: !__DEV__,
-    tracesSampleRate: 0.1,
-    sendDefaultPii: false,
-    beforeSend: scrubSentryEvent,
-    beforeBreadcrumb: scrubBreadcrumb,
-  });
-  initialized = true;
+/** Loads and starts the SDK once; resolves when it is up, or at once without a DSN. */
+export function initMobileSentry(): Promise<void> {
+  const dsn = configuredDsn();
+  if (!dsn) return Promise.resolve();
+  starting ??= import("@sentry/react-native").then(
+    (Sentry) => {
+      Sentry.init({
+        dsn,
+        enabled: !__DEV__,
+        tracesSampleRate: 0.1,
+        sendDefaultPii: false,
+        beforeSend: scrubSentryEvent,
+        beforeBreadcrumb: scrubBreadcrumb,
+      });
+      sdk = Sentry;
+      for (const report of earlyReports.splice(0)) report(Sentry);
+    },
+    () => {
+      // The SDK could not load (a dev bundle offline): the next init tries again.
+      starting = null;
+    },
+  );
+  return starting;
 }
 
 /**
  * A render crash an error boundary kept inside one message. The boundary
  * shows its fallback either way; this only reports it, and only when Sentry is
- * set up. The component stack names components, never their text.
+ * configured (before the SDK is up, it waits in the queue). The component
+ * stack names components, never their text.
  */
 export function reportBoundaryError(
   boundary: "markdown" | "message_row",
   error: Error,
   componentStack?: string | null,
 ): void {
-  if (!initialized) return;
-  Sentry.captureException(error, {
-    tags: { boundary },
-    contexts: componentStack ? { react: { componentStack } } : undefined,
+  report((Sentry) => {
+    Sentry.captureException(error, {
+      tags: { boundary },
+      contexts: componentStack ? { react: { componentStack } } : undefined,
+    });
   });
+}
+
+/**
+ * The app store could not be read when the upgrade sheet opened. The sheet says
+ * so and offers a retry; this tells us, since an outage otherwise looks like a
+ * store with nothing to sell (code-health audit CLAR-08).
+ */
+export function reportStoreUnavailable(error: unknown): void {
+  report((Sentry) => {
+    Sentry.captureException(error, { tags: { area: "store" } });
+  });
+}
+
+/** Sent at once when the SDK is up; before that it waits in the short queue. */
+function report(capture: (sentry: SentrySdk) => void): void {
+  if (sdk) {
+    capture(sdk);
+    return;
+  }
+  if (!configuredDsn() || earlyReports.length >= MAX_EARLY_REPORTS) return;
+  earlyReports.push(capture);
 }

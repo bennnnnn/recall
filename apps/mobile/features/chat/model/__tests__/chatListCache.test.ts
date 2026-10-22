@@ -4,14 +4,17 @@ import {
   fetchOlderChats,
   getCachedChat,
   getCachedChatList,
+  getFetchedChat,
   peekCreatedChat,
   rememberCreatedChat,
   getChatListFetchedAt,
   invalidateChatListCache,
   isChatListFresh,
+  restoreChatList,
   setChatListCache,
   updateChatListCache,
 } from "@/features/chat/model/chatListCache";
+import { clearStoredChatList, writeStoredChatList } from "@/features/chat/model/chatListFile";
 import {
   markChatHasAssistant,
   shouldProbePreviousChat,
@@ -23,6 +26,17 @@ jest.mock("@/lib/api", () => ({
     listChats: jest.fn(),
     listOlderChats: jest.fn(),
   },
+}));
+
+const mockStored = new Map<string, ChatList>();
+jest.mock("@/features/chat/model/chatListFile", () => ({
+  readStoredChatList: jest.fn(async (userId: string) => mockStored.get(userId) ?? null),
+  writeStoredChatList: jest.fn(async (userId: string, list: ChatList) => { mockStored.set(userId, list); }),
+  clearStoredChatList: jest.fn(async () => { mockStored.clear(); }),
+}));
+const mockIdle: (() => void)[] = [];
+jest.mock("@/lib/scheduleIdle", () => ({
+  scheduleIdleTask: (task: () => void) => { mockIdle.push(task); return () => {}; },
 }));
 
 let mockSession = 0;
@@ -196,6 +210,87 @@ it("does not return current cached history to a token from an old account", asyn
   expect(getCachedChatList()).toEqual(sample);
 });
 
+describe("the list kept on disk", () => {
+  const tokenFor = (sub: string) => {
+    const encode = (value: unknown) => btoa(JSON.stringify(value)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+    return `${encode({ alg: "HS256" })}.${encode({ sub })}.signature`;
+  };
+  const token = tokenFor("user-1");
+  const idle = async () => {
+    mockIdle.splice(0).forEach((task) => task());
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+  };
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    mockSession = 0;
+    await invalidateChatListCache();
+    await idle();
+    mockStored.clear();
+  });
+
+  it("paints the chats this account had last time until the list is read again", async () => {
+    mockStored.set("user-1", sample);
+    await expect(restoreChatList(token)).resolves.toBe(true);
+    expect(getCachedChatList()).toEqual(sample);
+    expect(getCachedChat("c1")?.title).toBe("Hello");
+    // Its titles may be old: not fresh, not a read, and not the server's row.
+    expect(isChatListFresh()).toBe(false);
+    expect(getChatListFetchedAt()).toBeUndefined();
+    expect(getFetchedChat("c1")).toBeUndefined();
+    listChats.mockResolvedValueOnce(sample);
+    await fetchChatList(token);
+    expect(listChats).toHaveBeenCalledTimes(1);
+    expect(getFetchedChat("c1")?.title).toBe("Hello");
+  });
+
+  it("restores nothing over a list already read, for another account, or for an old token", async () => {
+    mockStored.set("user-2", sample);
+    await expect(restoreChatList(token)).resolves.toBe(false);
+    await invalidateChatListCache();
+    mockStored.set("user-1", sample);
+    const { requireTokenSession } = jest.requireMock("@/lib/auth") as { requireTokenSession: jest.Mock };
+    requireTokenSession.mockImplementationOnce(() => { throw new Error("old account"); });
+    await expect(restoreChatList(token)).resolves.toBe(false);
+    await invalidateChatListCache();
+    mockStored.set("user-1", sample);
+    const read = { ...sample, today: [] };
+    setChatListCache(read);
+    await expect(restoreChatList(token)).resolves.toBe(false);
+    expect(getCachedChatList()).toEqual(read);
+  });
+
+  it("writes the list it read for this account once idle, and not after sign-out", async () => {
+    listChats.mockResolvedValueOnce(sample);
+    await fetchChatList(token);
+    await idle();
+    expect(writeStoredChatList).toHaveBeenCalledWith("user-1", sample);
+    (writeStoredChatList as jest.Mock).mockClear();
+    updateChatListCache((groups) => ({ ...groups, today: [] }));
+    mockSession++;
+    await idle();
+    expect(writeStoredChatList).not.toHaveBeenCalled();
+  });
+
+  it("writes edits made to a restored list, but never a list of edits alone", async () => {
+    updateChatListCache((groups) => ({ ...groups, today: sample.today }));
+    await idle();
+    expect(writeStoredChatList).not.toHaveBeenCalled();
+    await invalidateChatListCache();
+    mockStored.set("user-1", sample);
+    await restoreChatList(token);
+    await idle();
+    expect(writeStoredChatList).not.toHaveBeenCalled();
+    updateChatListCache((groups) => ({ ...groups, today: [] }));
+    await idle();
+    expect(writeStoredChatList).toHaveBeenCalledWith("user-1", { ...sample, today: [] });
+  });
+
+  it("forgets the stored list with the cache", async () => {
+    await invalidateChatListCache();
+    expect(clearStoredChatList).toHaveBeenCalled();
+  });
+});
 
 describe("older chats (CLAR-12)", () => {
   const row = (id: string) => ({ ...sample.today[0]!, id, title: id });
@@ -235,5 +330,6 @@ describe("older chats (CLAR-12)", () => {
     finish({ ...sample, today: [], older: [row("account-a")], next_cursor: null });
     expect(await late).toBeNull();
     expect(getCachedChatList()?.older ?? []).toEqual([]);
+
   });
 });

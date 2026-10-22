@@ -8,6 +8,7 @@ import { clearSignedOutAccount } from "@/lib/signOutCleanup";
 import { getStreamingDraft, publishStreamingDraft } from "@/lib/streamingDraftStore";
 import { clearSavedProposals } from "@/features/todos/model/reminderProposal";
 import { resetQuotaNudgeDismissal } from "@/features/chat/model/quotaNudgeDismissal";
+import { forgetSyncRecords } from "@/lib/syncRecords";
 
 const mockFiles: Record<string, string[]> = {};
 const mockDeleted: string[] = [];
@@ -28,6 +29,7 @@ jest.mock("@/lib/api/client", () => ({
 jest.mock("@/lib/pushNotifications", () => ({ clearPushSyncRecord: jest.fn(async () => undefined) }));
 jest.mock("@/lib/auth", () => ({ getToken: jest.fn(async () => "token") }));
 jest.mock("@/lib/cachedModels", () => ({ clearCachedModels: jest.fn(async () => undefined) }));
+jest.mock("@/lib/syncRecords", () => ({ forgetSyncRecords: jest.fn(async () => undefined) }));
 jest.mock("@/lib/google-auth", () => ({ signOutGoogle: jest.fn(async () => undefined) }));
 jest.mock("@/features/chat/model/composerDraftReset", () => ({ resetComposerDraftsForAccount: jest.fn() }));
 jest.mock("@/features/todos/model/reminderProposal", () => ({ clearSavedProposals: jest.fn() }));
@@ -69,6 +71,8 @@ it("forgets the quiz answers, link previews, maths and the reply still streaming
   // The server forgets the device's push token with the session.
   expect(clearPushSyncRecord).toHaveBeenCalled();
   expect(resetQuotaNudgeDismissal).toHaveBeenCalled();
+  // The next sign-in registers for push and reads the location afresh.
+  expect(forgetSyncRecords).toHaveBeenCalled();
 });
 
 it("deletes the account's export, previews, read-aloud audio and PDFs, and nothing else", async () => {

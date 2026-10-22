@@ -118,6 +118,24 @@ def test_image_turn_model_skips_an_unhealthy_reader() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "routed, explicit",
+    [("qwen-3.7-flash", False), ("vision-chat", False), ("smart-chat", True)],
+)
+def test_a_photo_turn_skips_an_open_photo_lane(routed: str, explicit: bool) -> None:
+    """The photo lane shares the everyday lane's model, and its breaker: while it is
+    open, a photo goes straight to the backup it would have fallen back to."""
+    open_lane = frozenset({"qwen-3.7-flash", "vision-chat"})
+    backups = plan_service.chat_fallback_models(
+        _User(), _SETTINGS, "vision-chat", unhealthy=open_lane, needs_vision=True
+    )
+    model = plan_service.image_turn_model(
+        _User(), _SETTINGS, routed, explicit=explicit, unhealthy=open_lane
+    )
+    assert model == backups[0]
+    assert model not in open_lane and model_catalog.reads_images(model)
+
+
 def test_is_explicit_pick() -> None:
     assert plan_service.is_explicit_pick("smart-chat")
     assert not plan_service.is_explicit_pick("auto")

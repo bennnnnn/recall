@@ -70,10 +70,12 @@ async def prepare_chat_turn(
     resolved_model: str | None = None,
     on_user_saved: Callable[[], None] | None = None,
     unhealthy: frozenset[str] | None = None,
+    half_open: frozenset[str] = frozenset(),
 ) -> StreamContext:
     """``on_user_saved`` runs once the user's row has committed (an error after
-    that point must not offer to resend the message). ``unhealthy`` is the model
-    health the load read (None: read it again for the backups)."""
+    that point must not offer to resend the message). ``unhealthy`` and
+    ``half_open`` are the model health the load read (None: read it again for
+    the backups)."""
     attachments = await _process_attachments(
         user_id=user_id,
         user=user,
@@ -143,6 +145,7 @@ async def prepare_chat_turn(
         prior_count=turn.prior_count if history is not None else None,
         current_user_message_id=turn.message_id,
         unhealthy_models=unhealthy,
+        half_open_models=half_open,
     )
     persist: asyncio.Task[None] | None = None
     if history is None:
@@ -152,15 +155,7 @@ async def prepare_chat_turn(
     if await inject_turn_images(
         bundle.prompt_messages, attachments, caption=content, settings=settings, user=turn.user
     ):
-        # An earlier photo went back in: the model and its backups must read it.
-        turn.model = image_model(turn, turn.user, settings, turn.model)
-        bundle.fallback_models = plan_service.chat_fallback_models(
-            turn.user,
-            settings,
-            turn.model,
-            unhealthy=turn.unhealthy or frozenset(),
-            needs_vision=True,
-        )
+        _route_to_vision(turn, turn.user, turn.model, bundle, settings)
     return _stream_context(
         bundle,
         turn,
@@ -168,6 +163,16 @@ async def prepare_chat_turn(
         reserved_tokens=reserved_tokens,
         timing=timing,
         persist=persist,
+    )
+
+
+def _route_to_vision(
+    turn: UserTurn, user: User, model: str, bundle: TurnPromptBundle, settings: Settings
+) -> None:
+    """An earlier photo went back in: the model and its backups must read it."""
+    turn.model = image_model(turn, user, settings, model)
+    bundle.fallback_models = plan_service.chat_fallback_models(
+        user, settings, turn.model, unhealthy=turn.unhealthy or frozenset(), needs_vision=True
     )
 
 
@@ -247,6 +252,8 @@ def _stream_context(
         prior_count=prior_count,
         timing=timing,
         user_message_persist=persist,
+        # The user's own pick runs whatever its health; Auto's claims its probe.
+        model_named=plan_service.is_explicit_pick(turn.model_alias) and model == turn.model_alias,
         thinking=thinking_level(
             turn.content,
             prior_user=prior_user,

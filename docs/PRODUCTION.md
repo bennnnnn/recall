@@ -71,6 +71,25 @@ from the write-ahead log); nothing in this repository takes backups.
       state. Nothing here backs it up; if Redis is lost or flushed, the worker
       recreates its consumer group by itself and queued jobs are gone
 
+**Cached user rows.** Each API machine keeps the user rows it has read for up to
+5 minutes and checks each one, on every request and chat frame, against the
+user's generation in Redis (`usergen:<user id>`, `core/user_cache.py`). Every
+change the app commits to a user row (settings, consent, memory switches, the
+RevenueCat plan) stores a new generation, so all machines read the row again on
+their next request.
+
+- A change made to `users` outside the app (SQL by hand, a restore) is not
+  seen until each machine's copy expires: after it, run
+  `DEL usergen:<user id>` for each user changed (after a restore,
+  `redis-cli --scan --pattern 'usergen:*' | xargs redis-cli del`). The next
+  request starts a fresh generation and reads the row.
+- If Redis refuses a change's new generation (after three tries), the request
+  answers `503` + `Retry-After` although the change is saved. While Redis is
+  down every request is refused anyway. Once it is back, other machines can
+  serve the old row until the change is made again (the phone does not retry a
+  503 by itself, so the user does, after the error; a RevenueCat redelivery; a
+  retried job) or for at most 5 minutes.
+
 ---
 
 ## 3. Object storage (Cloudflare R2)
@@ -411,6 +430,12 @@ background, and runs the new code from the next launch.
       without that native code would crash it.
 - [ ] Builds made before `expo-updates` was added cannot receive updates; install
       a new build once
+- [ ] **Deploy the API before the app** (store build or update) whenever the app
+      starts sending something new. An older API refuses fields it does not know:
+      the chat analytics fields `paint_bucket` (on `chat_ttft`) and
+      `send_ready_bucket` (on `chat_turn_outcome`) get a 422 there. The app drops
+      a failed analytics post, so the cost is only those samples, but they are lost
+      until the API is out.
 - [ ] Review [`docs/ROLLBACK.md`](ROLLBACK.md) before the first store submission
 
 ---
@@ -523,14 +548,15 @@ index jobs at once than it has of them.
 | `ATTACHMENT_IMAGE_MAX_DECODE_PIXELS` | `16000000` | Largest decode for a gallery thumbnail (`GET /attachments/{id}/file?w=`), which now runs off the event loop. JPEG decodes at a reduced scale first, so phone photos work; a lossless image past the budget gets 422. A 505 KiB 13000x13000 PNG used to add ~650 MB RSS and block the loop 1.4s. `0` disables. |
 | `JOBS_STREAM_MAX_LEN` | `50000` | Hard ceiling on the `recall:jobs` Redis Stream, applied on every `XADD`. The worker trims only entries that were delivered and acked, so the ceiling bites only when no worker has read for a long time; past it the oldest jobs are dropped, and the queue metrics warn at 90%. `0` disables. |
 | uvicorn `--ws-max-size` (in `fly.toml` and `apps/api/Dockerfile`) | `1048576` (1 MiB) | Largest WebSocket frame (uvicorn default 16 MiB). A chat frame is at most ~130 KB. Change both files together. |
-| WebSocket frame budget (`modules/chat/ws_limits.py`) | 120 frames/min per socket | Every frame after auth counts, including pings, cancels and invalid JSON (only message/regenerate were limited). Over budget the server sends `{"code": "rate_limited"}` and closes with 1008; a reply in progress is still saved. |
+| WebSocket frame budget (`modules/chat/ws_limits.py`) | 120 frames/min per socket | Every frame after auth counts, including pings, cancels and invalid JSON (only message/regenerate were limited). A ping is answered with a pong; the phone pings once per socket and when a send goes unanswered. Over budget the server sends `{"code": "rate_limited"}` and closes with 1008; a reply in progress is still saved. |
 | `WS_MAX_SOCKETS_PER_USER` | `5` | Open chat WebSockets per user on one machine (the phone holds one per open chat screen, and closes it in the background). Past it a new socket is closed with code 4429 and the phone sends over SSE instead. Counted in-process, so with N `app` machines a user can hold up to N×5. `0` disables. |
-| `WS_IDLE_TIMEOUT_SECONDS` | `300` | A chat socket that sends no frame between turns for this long is closed with code 4408 (never during a turn). The phone opens a new socket on its next send, with no error shown. Sockets used to stay open indefinitely, so idle authenticated sockets could fill Fly's `hard_limit` of 200 per machine. `0` disables. |
+| `WS_IDLE_TIMEOUT_SECONDS` | `300` | A chat socket that sends no frame between turns for this long is closed with code 4408 (never during a turn). The phone opens a new socket when the user starts to write (keyboard up, first character) or on its next send, with no error shown; it never pings to keep an idle socket open. Sockets used to stay open indefinitely, so idle authenticated sockets could fill Fly's `hard_limit` of 200 per machine. `0` disables. |
 | `WS_AUTH_TIMEOUT_SECONDS` | `10` | A new chat socket that has not sent its auth frame by then gets an `Auth timeout` error and is closed, so a connect that never authenticates cannot hold a socket open. |
 | `R2_CONNECT_TIMEOUT_SECONDS` / `R2_READ_TIMEOUT_SECONDS` / `R2_MAX_ATTEMPTS` | `5` / `20` / `3` | boto3 calls to R2 (attachment reads on the chat path, deletes, sweeps). botocore's defaults were 60s + 60s with 5 attempts, each holding a default-executor thread (5 on one CPU). Retries use botocore's `standard` mode (jittered backoff). |
 | `GOOGLE_AUTH_TIMEOUT_SECONDS` | `10` | Google cert fetch during sign-in (google-auth defaulted to 120s). A failed or slow fetch answers 503 + `Retry-After`, not 500 or 401. |
 | Link preview (`modules/link_preview/service.py`) | 8s per fetch, 3 open per user, 20/min | `fetch_safely` takes an overall deadline (DNS, every redirect hop, the body): a server dripping one byte per read used to hold a request open for minutes. A fourth uncached preview while three are open answers 429 + `Retry-After` (Redis sorted set; a crashed fetch ages out after 30s). |
-| `DB_CONNECT_TIMEOUT_SECONDS` / `DB_COMMAND_TIMEOUT_SECONDS` | `10` / `120` | asyncpg connect (default was 60s) and every statement (default was unbounded), including the ping a pooled connection gets after sitting idle 30 s (`core/db_ping.py`; a warm connection is not pinged, which saved three round trips per session), so a half-open pooled connection can no longer hang a request. Client-side, so it works through Neon's pooler. Generous because account delete is one cascading `DELETE`. Migrations are not affected. A pool, connect or statement timeout, or a dropped connection, now answers `503` + `Retry-After: 5` instead of a bare 500. |
+| `DB_CONNECT_TIMEOUT_SECONDS` / `DB_COMMAND_TIMEOUT_SECONDS` | `10` / `120` | asyncpg connect (default was 60s) and every statement (default was unbounded), the idle ping included (`DB_IDLE_PING_SECONDS` below), so a half-open pooled connection can no longer hang a request. Client-side, so it works through Neon's pooler. Generous because account delete is one cascading `DELETE`. Migrations are not affected. A pool, connect or statement timeout, or a dropped connection, now answers `503` + `Retry-After: 5` instead of a bare 500. |
+| `DB_IDLE_PING_SECONDS` | `10` | A pooled Postgres connection idle this long is pinged on checkout: one simple `SELECT 1`, outside any transaction, so PgBouncer's transaction mode is fine with it. One used more recently is trusted, and one the server already closed (Neon suspend, a restart) is replaced without a round trip (`core/pool_liveness.py`). This replaced `pool_pre_ping`, which pinged on every checkout with three round trips (BEGIN, `;`, ROLLBACK: about 36 ms to Neon) before each session's first query. A connection that died within the window and that asyncpg has not yet seen close fails its first statement, and the pool recycles every older connection. A chat turn's reads, the save of its message and the save of its reply then run once more on a new connection (`pool_liveness.run_unit`, only when none of their statements had succeeded, so nothing is written twice). Any other request answers `503` + `Retry-After`, which the phone does not retry by itself: the user sees the error and tries again. `0` pings every checkout again. |
 | `DAILY_DOCUMENT_LIMIT` / `_PLUS` / `_PRO` | `10` / `50` / `100` | Document (PDF, Word, text) uploads per user per UTC day, reserved at presign like images (`DAILY_IMAGE_LIMIT*`). Each is read and parsed on the API machine; a turn reads its files two at a time and drops a document's bytes once its excerpt is taken. |
 | `CHAT_HISTORY_RAG_SEARCH_WINDOW` / `ATTACHMENT_RAG_SEARCH_WINDOW` | `2000` / `2000` | Chunks one recall search ranks: the user's (or the chat's) newest. Exact distances over a bounded set; older chunks stay with their chat. |
 | `ANALYTICS_EVENT_RETENTION_DAYS` | `90` | Product events older than this are counted into `product_event_daily` and deleted by an hourly worker cycle (`ANALYTICS_RETENTION_DELETE_BATCH` 5,000 rows a statement, `ANALYTICS_RETENTION_MAX_DELETES_PER_CYCLE` 200,000 a run). `0` keeps them. |

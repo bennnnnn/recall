@@ -353,3 +353,43 @@ describe("failure reports", () => {
     expect(report).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("a value restored from disk", () => {
+  const rowsCache = () => new SessionResourceCache<string, string[]>({ staleMs: 1_000, sessionState: () => undefined });
+
+  it("is shown at once but never counts as fresh or as read", () => {
+    const cache = rowsCache();
+    expect(cache.seed("rows", ["disk"], mockSession)).toBe(true);
+    expect(cache.get("rows")).toEqual(["disk"]);
+    expect(cache.isFresh("rows")).toBe(false);
+    expect(cache.fetchedAt("rows")).toBeUndefined();
+  });
+
+  it("never replaces a value already read or edited, or lands in another session", () => {
+    const read = rowsCache();
+    read.set("rows", ["server"]);
+    expect(read.seed("rows", ["disk"], mockSession)).toBe(false);
+    expect(read.get("rows")).toEqual(["server"]);
+    const edited = new SessionResourceCache<string, string[]>({
+      staleMs: 1_000, empty: () => [], sessionState: () => undefined,
+    });
+    edited.update("rows", (rows) => [...rows, "local"]);
+    expect(edited.seed("rows", ["disk"], mockSession)).toBe(false);
+    expect(rowsCache().seed("rows", ["disk"], mockSession + 1)).toBe(false);
+  });
+
+  it("gives way to a read that was already running, with the edits made meanwhile", async () => {
+    const cache = new SessionResourceCache<string, string[]>({
+      staleMs: 1_000, empty: () => [], sessionState: () => undefined,
+    });
+    let finish!: (rows: string[]) => void;
+    const reading = cache.fetch("rows", "token", () => new Promise<string[]>((done) => { finish = done; }));
+    cache.seed("rows", ["disk"], mockSession);
+    cache.update("rows", (rows) => [...rows, "local"]);
+    expect(cache.get("rows")).toEqual(["disk", "local"]);
+    finish(["server"]);
+    await reading;
+    expect(cache.get("rows")).toEqual(["server", "local"]);
+    expect(cache.isFresh("rows")).toBe(true);
+  });
+});

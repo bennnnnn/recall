@@ -7,6 +7,9 @@ jest.mock("@/lib/deviceLocation", () => ({
   requestDeviceGeo: jest.fn(),
 }));
 
+let mockSessionGeneration = 0;
+jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSessionGeneration }));
+
 jest.mock("@/lib/localPlacesQuery", () => ({
   isGeoQuery: jest.fn(),
   isAmbiguousLocalPlacesQuery: jest.fn(() => false),
@@ -24,6 +27,7 @@ const persistLocation = jest.fn().mockResolvedValue(undefined);
 describe("resolveClientGeoForQuery", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSessionGeneration = 0;
     (Alert.alert as jest.Mock).mockReset();
     (isGeoQuery as jest.Mock).mockReturnValue(true);
   });
@@ -142,5 +146,75 @@ describe("resolveClientGeoForQuery", () => {
       "settings.location_expo_go",
     );
     expect(persistLocation).not.toHaveBeenCalled();
+  });
+
+  it("reads quickly: a recent fix serves, and the waits are bounded", async () => {
+    (requestDeviceGeo as jest.Mock).mockResolvedValue({ status: "no_fix" });
+    await resolveClientGeoForQuery("tok", "Where am I right now", t, persistLocation);
+    expect(requestDeviceGeo).toHaveBeenCalledWith({ quick: true });
+  });
+
+  it("sends the turn without a fix when none comes in time, saving nothing", async () => {
+    (requestDeviceGeo as jest.Mock).mockResolvedValue({ status: "no_fix" });
+
+    const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation);
+
+    expect(result).toEqual({ ok: true, clientGeo: null });
+    expect(persistLocation).not.toHaveBeenCalled();
+    expect(Alert.alert).not.toHaveBeenCalled();
+  });
+
+  it("waits on the profile save only as long as the caller's save does", async () => {
+    (requestDeviceGeo as jest.Mock).mockResolvedValue({
+      status: "granted",
+      geo: { label: "Oakland, CA", latitude: 37.8, longitude: -122.27 },
+    });
+    // A save the caller does not wait for (location already on) returns nothing to await.
+    const saveInBackground = jest.fn(() => undefined);
+    const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, saveInBackground);
+    expect(saveInBackground).toHaveBeenCalledWith({ location: "Oakland, CA", location_enabled: true });
+    expect(result).toMatchObject({ ok: true, clientGeo: { label: "Oakland, CA" } });
+  });
+
+  describe("a place name slower than the turn", () => {
+    function slowName() {
+      let named!: (label: string | null) => void;
+      const lateLabel = new Promise<string | null>((resolve) => { named = resolve; });
+      (requestDeviceGeo as jest.Mock).mockResolvedValue({
+        status: "granted",
+        geo: { label: null, latitude: 37.8, longitude: -122.27, lateLabel },
+      });
+      return (label: string | null) => named(label);
+    }
+
+    it("sends the coordinates with the turn but never saves them as the profile's place", async () => {
+      slowName();
+      const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation);
+      expect(result).toEqual({
+        ok: true,
+        clientGeo: { label: "37.8000, -122.2700", latitude: 37.8, longitude: -122.27 },
+      });
+      expect(persistLocation).toHaveBeenCalledTimes(1);
+      expect(persistLocation).toHaveBeenCalledWith({ location_enabled: true });
+    });
+
+    it("saves the name when the lookup finishes", async () => {
+      const name = slowName();
+      await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation);
+      name("Oakland, CA, United States");
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(persistLocation).toHaveBeenLastCalledWith({ location: "Oakland, CA, United States" });
+    });
+
+    it.each([
+      ["no name", () => null],
+      ["another account", () => { mockSessionGeneration += 1; return "Oakland, CA"; }],
+    ])("saves nothing more for %s", async (_case, outcome) => {
+      const name = slowName();
+      await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation);
+      name(outcome());
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(persistLocation).toHaveBeenCalledTimes(1);
+    });
   });
 });

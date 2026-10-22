@@ -16,6 +16,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import pool_liveness
 from app.core.config import Settings
 from app.models import model_catalog
 from app.modules.chat.context_window import estimate_tokens
@@ -84,6 +85,10 @@ class _TurnCharge:
     # Dollars from RAW tokens x catalog prices (not quota-weighted); None when
     # the catalog has no price for the model.
     est_cost: float | None
+    # Of input_tokens: read from the provider's prompt cache, and written to it.
+    # Logged so production can see cache hits; prices and quota ignore them.
+    cached_input_tokens: int = 0
+    cache_write_tokens: int = 0
 
 
 def _turn_charge(ctx: StreamContext, assistant_text: str, usage: dict[str, int]) -> _TurnCharge:
@@ -109,31 +114,25 @@ def _turn_charge(ctx: StreamContext, assistant_text: str, usage: dict[str, int])
             input_tokens=input_tokens,
             output_tokens=output_tokens,
         ),
+        cached_input_tokens=usage.get("cached_input", 0),
+        cache_write_tokens=usage.get("cache_write", 0),
     )
 
 
 def _log_turn_cost(ctx: StreamContext, charge: _TurnCharge) -> None:
-    if charge.est_cost is not None:
-        logger.info(
-            "turn_cost user_id=%s model=%s input_tokens=%s output_tokens=%s "
-            "est_cost_usd=%.6f quota_multiplier=%s",
-            ctx.user_id,
-            ctx.model,
-            charge.input_tokens,
-            charge.output_tokens,
-            charge.est_cost,
-            charge.multiplier,
-        )
-    else:
-        logger.info(
-            "turn_cost user_id=%s model=%s input_tokens=%s output_tokens=%s "
-            "est_cost_usd=unknown quota_multiplier=%s",
-            ctx.user_id,
-            ctx.model,
-            charge.input_tokens,
-            charge.output_tokens,
-            charge.multiplier,
-        )
+    est_cost = f"{charge.est_cost:.6f}" if charge.est_cost is not None else "unknown"
+    logger.info(
+        "turn_cost user_id=%s model=%s input_tokens=%s output_tokens=%s "
+        "cached_input_tokens=%s cache_write_tokens=%s est_cost_usd=%s quota_multiplier=%s",
+        ctx.user_id,
+        ctx.model,
+        charge.input_tokens,
+        charge.output_tokens,
+        charge.cached_input_tokens,
+        charge.cache_write_tokens,
+        est_cost,
+        charge.multiplier,
+    )
 
 
 async def _write_reply_rows(
@@ -227,7 +226,7 @@ async def _settle_quota(
 
     The overshoot is capped at the user's daily limit so one turn's actual >
     reserved delta can't push the counter past the cap (which would make later
-    reserve_usage checks under-report remaining quota). A failure here must not
+    reserve_usage_up_to calls under-report remaining quota). A failure here must not
     refund the whole reservation: the reply already persisted.
     """
     daily_limit = (
@@ -295,16 +294,20 @@ async def finalize_stream_turn_db(
     pending_storage_keys: list[str] = []
     committed = False
 
+    async def save(session: AsyncSession) -> None:
+        nonlocal pending_storage_keys, committed
+        pending_storage_keys = await _write_reply_rows(
+            deps, session, ctx, assistant_text, charge, outcome
+        )
+        # The create flush already supplies the row identity. No refresh
+        # is needed after commit: a failed read must not report a saved
+        # reply as failed or refund its charged quota.
+        await session.commit()
+        committed = True
+
     try:
-        async with deps.session_factory() as session:
-            pending_storage_keys = await _write_reply_rows(
-                deps, session, ctx, assistant_text, charge, outcome
-            )
-            # The create flush already supplies the row identity. No refresh
-            # is needed after commit: a failed read must not report a saved
-            # reply as failed or refund its charged quota.
-            await session.commit()
-            committed = True
+        # Saved on a new connection when the first statement finds the pooled one dead.
+        await pool_liveness.run_unit(deps.session_factory, save)
         day_usage = await _settle_quota(deps, redis, ctx, settings, charge)
         if outcome is not None:
             outcome.usage = day_usage

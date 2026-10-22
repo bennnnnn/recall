@@ -45,7 +45,9 @@ def __getattr__(name: str) -> Any:
 
 
 # Seams the chat turn uses: detection, follow-ups, camera reads, post-stream fences, the
-# tool loop's check that a sympy call is the problem the user wrote, and the pool warm-up.
+# tool loop's check that a sympy call is the problem the user wrote, the record of a
+# pre-solve that ran out of time (so the tool loop does not solve it again), and the pool
+# warm-up.
 _MODULE_EXPORTS = (
     "fence",
     "followup",
@@ -64,4 +66,5 @@ _MODULE_EXPORTS = (
     "tools.extract",
     "tools.prompt",
     "tools.school.curve_points",
+    "tools.solve_timeouts",
 )

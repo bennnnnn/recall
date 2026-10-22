@@ -137,6 +137,25 @@ jestGlobals.mock("expo-clipboard", () => ({
   hasImageAsync: jestGlobals.fn(async () => false),
 }));
 
+// expo-asset and expo-crypto are native modules (expo-modules-core) that cannot
+// load here; rich blocks reach them through lib/previewPageFile.ts and
+// lib/vendorAssets.ts. Nothing is read or hashed: a test that shows a preview
+// page mocks lib/previewPageFile.
+jestGlobals.mock("expo-asset", () => ({
+  Asset: {
+    fromModule: () => ({
+      hash: null,
+      downloadAsync: () => Promise.reject(new Error("No assets in this environment")),
+    }),
+  },
+}));
+
+jestGlobals.mock("expo-crypto", () => ({
+  CryptoDigestAlgorithm: { SHA256: "SHA-256" },
+  digestStringAsync: () => Promise.reject(new Error("No digests in this environment")),
+  randomUUID: () => "00000000-0000-4000-8000-000000000000",
+}));
+
 // expo-image's Image is a native view (requireNativeViewManager) that cannot
 // load here. Wrap RN's Image and translate the load event into expo-image's
 // shape ({ source } instead of { nativeEvent: { source } }) so components

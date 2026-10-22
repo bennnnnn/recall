@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AppStateStatus } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 
@@ -24,6 +24,17 @@ export function retryDelayMs(attempt: number, random: () => number = Math.random
   return Math.round(base * (1 - RETRY_JITTER + 2 * RETRY_JITTER * random()));
 }
 
+/**
+ * The address the link has, where the OS gives it without extra permission
+ * (Wi-Fi and Ethernet): a switch straight from one Wi-Fi network to another
+ * is a new link, though its type stays "wifi".
+ */
+function linkAddress(state: NetInfoState): string {
+  const details = state.details;
+  const address = details && "ipAddress" in details ? details.ipAddress : null;
+  return typeof address === "string" ? address : "";
+}
+
 export function useNetworkStatus(): {
   isOffline: boolean;
   status: ConnectivityStatus;
@@ -36,39 +47,54 @@ export function useNetworkStatus(): {
   const [retryEpoch, setRetryEpoch] = useState(0);
   // Bump to ignore in-flight probes after unmount or a newer event.
   const probeGen = useRef(0);
-  // One probe at a time: start-up's fetch and the listener's first call, or an event
-  // during the degraded loop, share the probe already on its way.
+  // One probe at a time (each is two requests): start-up's fetch and the listener's
+  // first call, or a return during the degraded loop, share the probe on its way.
+  // A new link starts its own (`fresh`): one started on the old link says nothing.
   const inFlight = useRef<Promise<ConnectivityStatus> | null>(null);
-  const probe = useCallback((): Promise<ConnectivityStatus> => {
-    inFlight.current ??= resolveConnectivity().finally(() => {
-      inFlight.current = null;
-    });
+  const probe = useCallback((fresh = false): Promise<ConnectivityStatus> => {
+    if (fresh || !inFlight.current) {
+      const run = resolveConnectivity().finally(() => {
+        if (inFlight.current === run) inFlight.current = null;
+      });
+      inFlight.current = run;
+    }
     return inFlight.current;
   }, []);
 
   useEffect(() => {
     configureNetInfo();
-    const runProbe = () => {
+    // NetInfo repeats its report: once per subscription at launch, and again
+    // after each probe's own refresh. Only a change of link, or the OS saying
+    // the internet is unreachable, is news; its reachability check settling
+    // to "reachable" just after launch is not.
+    let lastLink: string | null = null;
+    let lastOffline: boolean | null = null;
+
+    const runProbe = (fresh: boolean) => {
       const gen = ++probeGen.current;
-      void probe().then((next) => {
+      void probe(fresh).then((next) => {
         if (gen !== probeGen.current) return;
         setStatus(next);
       });
     };
 
     const onNetInfo = (state: NetInfoState) => {
+      const offline = isNetworkOffline(state);
+      const link = `${state.type}:${offline}:${state.isInternetReachable === false}:${linkAddress(state)}`;
+      if (link === lastLink) return;
+      // The link coming back up drops a stale "No internet" banner at once (iOS
+      // often leaves isInternetReachable stuck false). A report on a link that
+      // stayed up does not: on Wi-Fi with no internet behind it, the probe that
+      // just found that triggers one. Offline from NetInfo is often stale after
+      // reconnect, so it never flips the banner on by itself.
+      const cameUp = lastOffline === true && !offline;
+      lastLink = link;
+      lastOffline = offline;
       setRetryEpoch((epoch) => epoch + 1);
-      // Link up: drop a stale "No internet" banner immediately (iOS often
-      // leaves isInternetReachable stuck false). Still probe — connected
-      // Wi-Fi can be a captive portal or the API can be down.
-      if (!isNetworkOffline(state)) {
-        setStatus((prev) => (prev === "no_internet" ? "online" : prev));
-        runProbe();
-        return;
-      }
-      // Offline from NetInfo is often stale after reconnect. Never flip
-      // no_internet on from a raw event — confirm via probe.
-      runProbe();
+      if (cameUp) setStatus((prev) => (prev === "no_internet" ? "online" : prev));
+      // Still probe a new link: connected Wi-Fi can be a captive portal or the
+      // API can be down.
+      runProbe(true);
     };
 
     void NetInfo.fetch().then(onNetInfo);
@@ -79,7 +105,7 @@ export function useNetworkStatus(): {
       setInBackground(next === "background");
       if (next === "active") {
         setRetryEpoch((epoch) => epoch + 1);
-        runProbe();
+        runProbe(false);
       }
     };
     const stopAppState = onAppStateChange(onAppState);
@@ -114,5 +140,6 @@ export function useNetworkStatus(): {
     };
   }, [degraded, inBackground, retryEpoch, probe]);
 
-  return { isOffline: status !== "online", status };
+  // Going to the background and back changes nothing a reader sees.
+  return useMemo(() => ({ isOffline: status !== "online", status }), [status]);
 }

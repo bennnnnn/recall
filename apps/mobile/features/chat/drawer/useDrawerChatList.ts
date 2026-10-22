@@ -17,6 +17,7 @@ import {
   getCachedChatList,
   getChatListFetchedAt,
   isChatListFresh,
+  restoreChatList,
   updateChatListCache,
 } from "@/features/chat/model/chatListCache";
 import {
@@ -109,7 +110,8 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     setError(false);
     const result = await fetchChatList(token, { force, report: reportFailure });
     if (!current() || loadId !== loadIdRef.current) return;
-    if (result.data) applyChatList(getCachedChatList() ?? result.data);
+    // A failed read hands back the list already shown (one restored from disk, say): not loaded yet.
+    if (result.data) applyChatList(getCachedChatList() ?? result.data, !result.error);
     if (result.error && !background) setError(true);
     if (!background) setLoading(false);
   }, [account, getToken, current, hydrateFromCache, applyChatList, reportFailure]);
@@ -139,6 +141,17 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     finally { if (current()) setRefreshing(false); }
   }, [account, current, load]);
 
+  // A cold start paints the chats this account had last time while the list is read again.
+  useEffect(() => {
+    const token = getToken();
+    if (!account || !token) return;
+    let cancelled = false;
+    void restoreChatList(token).then((restored) => {
+      if (restored && !cancelled && current()) hydrateFromCache();
+    });
+    return () => { cancelled = true; };
+  }, [account, getToken, current, hydrateFromCache]);
+
   // Idle warm is only for first paint. Closing the drawer never triggers a read.
   useEffect(() => {
     hydrateFromCache();
@@ -148,8 +161,8 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     let cancelled = false;
     const cancelIdle = scheduleIdleTask(() => {
       if (cancelled || !current()) return;
-      void fetchChatList(token).then(({ data }) => {
-        if (!cancelled && current() && data) applyChatList(getCachedChatList() ?? data);
+      void fetchChatList(token).then(({ data, error }) => {
+        if (!cancelled && current() && data) applyChatList(getCachedChatList() ?? data, !error);
       });
     });
     return () => { cancelled = true; cancelIdle(); };

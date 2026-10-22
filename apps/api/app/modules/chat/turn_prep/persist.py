@@ -13,6 +13,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import pool_liveness
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.exceptions import ChatBusyError, ChatNotFoundError
@@ -101,11 +102,14 @@ async def persist_user_turn(
 ) -> None:
     """Insert the user's row and link its attachments; commit once, or roll back.
 
-    After the commit, queue the linked documents' index jobs (best-effort).
+    A pooled connection found dead at the first statement saves on a new one
+    (``pool_liveness.run_unit``). After the commit, queue the linked documents'
+    index jobs (best-effort).
     """
     if timing is not None:
         timing.mark_phase("persist_start")
-    async with SessionLocal() as session:
+
+    async def save(session: AsyncSession) -> list[str]:
         user = await _read_missing(session, turn, settings)
         try:
             indexable = await _insert_and_link(session, turn, user, settings)
@@ -113,6 +117,9 @@ async def persist_user_turn(
         except Exception:
             await session.rollback()
             raise
+        return indexable
+
+    indexable = await pool_liveness.run_unit(SessionLocal, save)
     if timing is not None:
         timing.mark_phase("persist_done")
     await attachments_service.enqueue_index_jobs(

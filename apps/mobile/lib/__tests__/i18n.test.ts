@@ -2,7 +2,7 @@ import {
   DOCUMENT_GROUPS,
   STANDARD_DOCUMENT_KEYS,
 } from "@/features/memory/model/memoryDocuments";
-import i18n, { ensureLocale } from "@/lib/i18n";
+import i18n, { ensureLocale, startLocale } from "@/lib/i18n";
 import en from "@/lib/i18n/en.json";
 import am from "@/lib/i18n/am.json";
 import de from "@/lib/i18n/de.json";
@@ -63,5 +63,26 @@ describe("i18n runtime", () => {
 
     await ensureLocale("not-a-locale");
     expect(i18n.language).toBe("en");
+  });
+
+  it("switches to the launch language at once, before anything renders", () => {
+    startLocale("fr");
+    // No await: the first frame reads it synchronously.
+    expect(i18n.language).toBe("fr");
+    expect(i18n.t("common.retry")).toBe(fr["common.retry"]);
+
+    startLocale("not-a-locale");
+    expect(i18n.language).toBe("en");
+  });
+
+  it("does not announce a change to the language already in use", async () => {
+    const changed = jest.fn();
+    i18n.on("languageChanged", changed);
+    await ensureLocale("en");
+    expect(changed).not.toHaveBeenCalled();
+    await ensureLocale("de");
+    expect(changed).toHaveBeenCalledWith("de");
+    i18n.off("languageChanged", changed);
+    await ensureLocale("en");
   });
 });

@@ -2,8 +2,10 @@ import { parseChatWsPayload } from "@/features/chat/model/socketReduce";
 import { CHAT_EVENT_SAMPLE_RATE } from "@/features/chat/model/chatEventSample";
 import { reportChatTtft } from "@/features/chat/model/latencyReporter";
 import {
+  chatPaintBucket,
   chatTtftBucket,
   clearPendingChatTtft,
+  markChatBubblePainted,
   markChatFirstToken,
   markChatTtftStart,
   markChatTtftTransport,
@@ -13,7 +15,8 @@ jest.mock("@/features/chat/model/latencyReporter", () => ({
   reportChatTtft: jest.fn(async () => undefined),
 }));
 
-const startedAt = "2026-01-01T00:00:00.000Z";
+/** The tap on Send. */
+const startedAt = Date.parse("2026-01-01T00:00:00.000Z");
 const devHolder = globalThis as unknown as { __DEV__?: boolean };
 const originalDev = devHolder.__DEV__;
 
@@ -40,12 +43,28 @@ describe("chatTtftBucket", () => {
   });
 });
 
+describe("chatPaintBucket", () => {
+  it.each([
+    [0, "lt50"],
+    [49, "lt50"],
+    [50, "50_99"],
+    [100, "100_249"],
+    [250, "250_499"],
+    [500, "500_999"],
+    [999, "500_999"],
+    [1_000, "1000_plus"],
+    [Number.NaN, "lt50"],
+  ])("buckets %sms as %s", (elapsedMs, expected) => {
+    expect(chatPaintBucket(elapsedMs as number)).toBe(expected);
+  });
+});
+
 describe("pending chat TTFT samples", () => {
   beforeEach(() => {
     devHolder.__DEV__ = false;
     clearPendingChatTtft();
     jest.mocked(reportChatTtft).mockClear();
-    jest.spyOn(Date, "now").mockReturnValue(Date.parse(startedAt) + 750);
+    jest.spyOn(Date, "now").mockReturnValue(startedAt + 750);
     // Every turn in the sample unless a case says otherwise.
     jest.spyOn(Math, "random").mockReturnValue(0);
   });
@@ -126,5 +145,31 @@ describe("pending chat TTFT samples", () => {
     markChatFirstToken("turn-b", "token");
     await flushTtftReport();
     expect(reportChatTtft).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports tap -> bubble painted with the sample, from the first paint only", async () => {
+    const now = jest.spyOn(Date, "now");
+    markChatTtftStart("turn-a", startedAt, false);
+    now.mockReturnValue(startedAt + 20);
+    markChatBubblePainted("turn-a");
+    now.mockReturnValue(startedAt + 400);
+    markChatBubblePainted("turn-a");
+    markChatBubblePainted("turn-b");
+    now.mockReturnValue(startedAt + 1_200);
+    markChatFirstToken("turn-a", "token");
+    await flushTtftReport();
+    expect(reportChatTtft).toHaveBeenCalledWith({
+      latencyBucket: "1000_1999",
+      transport: "ws",
+      hasAttachment: false,
+      paintBucket: "lt50",
+    });
+  });
+
+  it("leaves the paint out when no frame ran before the first token", async () => {
+    markChatTtftStart("turn-a", startedAt, false);
+    markChatFirstToken("turn-a", "token");
+    await flushTtftReport();
+    expect(jest.mocked(reportChatTtft).mock.calls[0][0]).not.toHaveProperty("paintBucket");
   });
 });

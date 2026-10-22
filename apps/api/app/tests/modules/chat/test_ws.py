@@ -15,6 +15,7 @@ from app.main import create_app
 from app.modules.chat.stream_events import REPLY_SAVE_FAILED_MESSAGE
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.services.quota.messages import QUOTA_EXCEEDED_MESSAGE_FREE
+from app.tests.modules.chat.chat_test_support import access_for, signed_in, ws_streams
 
 
 @pytest.fixture(autouse=True)
@@ -123,10 +124,7 @@ async def test_ws_receive_after_client_dropped_mid_stream(error, socket_closed, 
         patch("app.modules.chat.ws_api._ws_handshake_rate_limit", AsyncMock(return_value=True)),
         patch("app.modules.chat.ws_api._ws_connect_rate_limit", AsyncMock(return_value=True)),
         patch("app.modules.chat.ws_api.get_redis_client", return_value=AsyncMock()),
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=uuid4()),
-        ),
+        signed_in(uuid4()),
     ):
         if ends_quietly:
             await chat_websocket(socket, uuid4())
@@ -257,10 +255,7 @@ def test_ws_non_dict_frame_does_not_crash():
     chat_id = uuid4()
     app = _app(user)
 
-    with patch(
-        "app.modules.chat.ws_api.access_tokens.verify_access_token",
-        AsyncMock(return_value=user.id),
-    ):
+    with signed_in(user.id):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
             ws.send_json({"token": tok})
@@ -279,10 +274,7 @@ def test_ws_null_content_does_not_crash():
     chat_id = uuid4()
     app = _app(user)
 
-    with patch(
-        "app.modules.chat.ws_api.access_tokens.verify_access_token",
-        AsyncMock(return_value=user.id),
-    ):
+    with signed_in(user.id):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
             ws.send_json({"token": tok})
@@ -307,10 +299,7 @@ def test_ws_connect_rate_limit_fails_closed_on_redis_error():
 
     with (
         patch("app.modules.chat.ws_api.allow_request_fail_closed", side_effect=allow_side_effect),
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
+        signed_in(user.id),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
@@ -335,11 +324,8 @@ def test_ws_sends_message_and_receives_tokens():
     app = _app(user)
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
-        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
+        signed_in(user.id),
+        ws_streams(fake_stream),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -371,11 +357,8 @@ def test_ws_done_includes_resolved_model():
     app = _app(user)
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
-        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
+        signed_in(user.id),
+        ws_streams(fake_stream),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -403,11 +386,8 @@ def test_ws_passes_client_timezone_to_stream():
     app = _app(user)
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
-        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
+        signed_in(user.id),
+        ws_streams(fake_stream),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -430,10 +410,7 @@ def test_ws_empty_message_sends_error_frame():
     app = _app(user)
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
+        signed_in(user.id),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -458,10 +435,7 @@ def test_ws_regenerate():
     app = _app(user)
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
+        signed_in(user.id),
         patch("app.modules.chat.ws_api.stream_entry.stream_regenerate_response", fake_regen),
     ):
         client = TestClient(app)
@@ -491,10 +465,7 @@ def test_ws_regenerate_passes_client_geo():
     app = _app(user)
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
+        signed_in(user.id),
         patch("app.modules.chat.ws_api.stream_entry.stream_regenerate_response", fake_regen),
     ):
         client = TestClient(app)
@@ -531,11 +502,8 @@ def test_ws_cancel_sets_flag():
     app = _app(user)
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
-        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
+        signed_in(user.id),
+        ws_streams(fake_stream),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -564,11 +532,8 @@ def test_ws_mid_stream_cancel():
     app = _app(user)
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
-        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", slow_stream),
+        signed_in(user.id),
+        ws_streams(slow_stream),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -602,11 +567,8 @@ def test_ws_cancel_carries_how_much_the_phone_drew():
     app = _app(user)
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
-        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", slow_stream),
+        signed_in(user.id),
+        ws_streams(slow_stream),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -637,11 +599,8 @@ def test_ws_mid_stream_non_dict_frame_is_ignored():
     app = _app(user)
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
-        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", slow_stream),
+        signed_in(user.id),
+        ws_streams(slow_stream),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -751,10 +710,7 @@ def test_ws_invalid_message_payload():
     app = _app(user)
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
+        signed_in(user.id),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -783,11 +739,8 @@ def test_ws_rejected_send_error_frame(error, code):
     app = _app(user)
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
-        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", quota_fail),
+        signed_in(user.id),
+        ws_streams(quota_fail),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -816,11 +769,8 @@ def test_ws_user_not_found_sends_error():
         return _gen()
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=uuid4()),
-        ),
-        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", missing_user_stream),
+        signed_in(uuid4()),
+        ws_streams(missing_user_stream),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -852,11 +802,8 @@ def test_ws_message_rate_limit_blocks_second_chargeable_message():
             "app.core.chat_rate_limit.allow_chat_message",
             side_effect=allow_chat_side_effect,
         ),
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
-        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
+        signed_in(user.id),
+        ws_streams(fake_stream),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -908,11 +855,8 @@ def test_ws_done_waits_for_finalize_commit():
     app = _app(user)
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
-        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
+        signed_in(user.id),
+        ws_streams(fake_stream),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -952,11 +896,8 @@ def test_ws_done_sends_error_when_finalize_fails():
     app = _app(user)
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
-        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
+        signed_in(user.id),
+        ws_streams(fake_stream),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -994,11 +935,8 @@ def test_ws_done_sends_persisting_when_finalize_times_out():
     app = _app(user)
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
-        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
+        signed_in(user.id),
+        ws_streams(fake_stream),
         patch("app.modules.chat.stream_events.DONE_COMMIT_WAIT_SECONDS", 0.05),
     ):
         client = TestClient(app)
@@ -1031,11 +969,8 @@ def test_ws_status_event_carries_detail():
     app = _app(user)
 
     with (
-        patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user.id),
-        ),
-        patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", fake_stream),
+        signed_in(user.id),
+        ws_streams(fake_stream),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -1063,9 +998,9 @@ def test_ws_rechecks_token_on_chargeable_message():
     user = _fake_user()
     chat_id = uuid4()
     app = _app(user)
-    verify = AsyncMock(side_effect=[user.id, AuthenticationError("Token revoked")])
+    verify = AsyncMock(side_effect=[access_for(user.id), AuthenticationError("Token revoked")])
 
-    with patch("app.modules.chat.ws_api.access_tokens.verify_access_token", verify):
+    with patch("app.modules.chat.ws_api.access_tokens.check_access", verify):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
             ws.send_json({"token": tok})
@@ -1074,3 +1009,140 @@ def test_ws_rechecks_token_on_chargeable_message():
             assert err["type"] == "error"
             assert err["message"] == "Unauthorized"
             assert verify.await_count == 2
+
+
+# ── the next turn, sent once the reply's text is out ───────────────────────────
+
+
+def _saving_turns(release: dict, contents: list[str]):
+    """Each turn streams one token; the first one's save waits until the test releases it."""
+
+    async def fake_stream(*args, content="", outcome=None, **kwargs):
+        contents.append(content)
+        if len(contents) > 1:
+            # Long enough for a Stop already sent to reach this turn first.
+            await asyncio.sleep(0.2)
+        yield f"reply to {content}"
+        if outcome is None:
+            return
+        outcome.message_id = f"id-{content}"
+        if len(contents) == 1:
+            release["loop"] = asyncio.get_running_loop()
+            release["event"] = asyncio.Event()
+            outcome.finalize_db_task = asyncio.create_task(release["event"].wait())
+
+    return fake_stream
+
+
+def _release_first_save(release: dict) -> None:
+    import time
+
+    # Let the server read what was just sent while the first save still runs.
+    time.sleep(0.2)
+    release["loop"].call_soon_threadsafe(release["event"].set)
+
+
+def test_ws_message_after_stream_end_runs_once_the_last_turn_is_done():
+    """A send at stream_end waits for the previous commit instead of a busy refusal."""
+    _, tok = _token()
+    user = _fake_user()
+    release: dict = {}
+    contents: list[str] = []
+    fake_stream = _saving_turns(release, contents)
+    app = _app(user)
+
+    with (
+        signed_in(user.id),
+        ws_streams(fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "first"})
+            assert [ws.receive_json()["type"] for _ in range(3)] == [
+                "start",
+                "token",
+                "stream_end",
+            ]
+            ws.send_json({"type": "message", "content": "second"})
+            _release_first_save(release)
+            # One at a time: a busy refusal fails here instead of waiting forever.
+            assert ws.receive_json() == {"type": "done", "message_id": "id-first"}
+            assert ws.receive_json() == {"type": "start"}
+            assert ws.receive_json() == {"type": "token", "content": "reply to second"}
+            assert ws.receive_json()["type"] == "stream_end"
+            assert ws.receive_json() == {"type": "done", "message_id": "id-second"}
+
+    assert contents == ["first", "second"]
+
+
+def test_ws_message_before_stream_end_is_still_busy():
+    _, tok = _token()
+    user = _fake_user()
+    gate: dict = {}
+    contents: list[str] = []
+
+    async def fake_stream(*args, content="", **kwargs):
+        contents.append(content)
+        gate["loop"] = asyncio.get_running_loop()
+        gate["event"] = asyncio.Event()
+        yield "one"
+        await gate["event"].wait()
+        yield " two"
+
+    app = _app(user)
+
+    with (
+        signed_in(user.id),
+        ws_streams(fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "first"})
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            ws.send_json({"type": "message", "content": "second"})
+            busy = ws.receive_json()
+            gate["loop"].call_soon_threadsafe(gate["event"].set)
+            rest = [ws.receive_json()["type"] for _ in range(3)]
+
+    assert busy["code"] == "busy"
+    assert busy["user_message_saved"] is False
+    assert rest == ["token", "stream_end", "done"]
+    assert contents == ["first"]
+
+
+def test_ws_stop_after_a_waiting_message_stops_that_message_not_the_save():
+    """The waiting turn's own Stop stays unread until that turn runs."""
+    _, tok = _token()
+    user = _fake_user()
+    release: dict = {}
+    contents: list[str] = []
+    fake_stream = _saving_turns(release, contents)
+    app = _app(user)
+
+    with (
+        signed_in(user.id),
+        ws_streams(fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "first"})
+            assert [ws.receive_json()["type"] for _ in range(3)] == [
+                "start",
+                "token",
+                "stream_end",
+            ]
+            ws.send_json({"type": "message", "content": "second"})
+            ws.send_json({"type": "cancel"})
+            _release_first_save(release)
+            assert ws.receive_json() == {"type": "done", "message_id": "id-first"}
+            assert ws.receive_json() == {"type": "start"}
+            # The stopped turn sends nothing more (no token, stream_end or done
+            # comes before this answer), and the socket still serves frames.
+            ws.send_json({"type": "message", "content": ""})
+            assert ws.receive_json()["message"] == "Message cannot be empty."
+
+    assert contents == ["first", "second"]

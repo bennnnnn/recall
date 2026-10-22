@@ -10,12 +10,26 @@ export type ChatTtftBucket =
   | "4000_5999"
   | "6000_plus";
 
+export type ChatPaintBucket = "lt50" | "50_99" | "100_249" | "250_499" | "500_999" | "1000_plus";
+
+/** The reply's last token -> Send ready (`stream_end`); "none" when the turn ended another way. */
+export type ChatSendReadyBucket =
+  | "none"
+  | "lt100"
+  | "100_249"
+  | "250_499"
+  | "500_999"
+  | "1000_1999"
+  | "2000_plus";
+
 export type ChatTransport = "ws" | "sse";
 
 type Sample = {
   latencyBucket: ChatTtftBucket;
   transport: ChatTransport;
   hasAttachment: boolean;
+  /** Tap -> bubble on screen, when the frame that drew it ran before the first token. */
+  paintBucket?: ChatPaintBucket;
 };
 
 /** How a chat turn ended (`chat_turn_outcome`): enumerated values only, never text. */
@@ -23,6 +37,7 @@ export type ChatTurnOutcomeProperties = {
   completion: "complete" | "stopped" | "interrupted" | "error";
   error_code: string;
   tool: string;
+  send_ready_bucket: ChatSendReadyBucket;
 };
 
 /** Loaded lazily by the chat model, after the moment it measures; sent with the next batch. */
@@ -36,6 +51,7 @@ export async function reportChatTtft(sample: Sample): Promise<void> {
     latency_bucket: sample.latencyBucket,
     transport: sample.transport,
     has_attachment: sample.hasAttachment ? "yes" : "no",
+    ...(sample.paintBucket ? { paint_bucket: sample.paintBucket } : {}),
   });
 }
 

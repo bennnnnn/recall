@@ -15,6 +15,6 @@ chunk, and we do not throw it away and call the model a third time.
 """
 
 from app.modules.chat.tool_loop.rounds import run_tool_rounds
-from app.modules.chat.tool_loop.selection import turn_needs_tool_loop
+from app.modules.chat.tool_loop.selection import spent_tools, turn_needs_tool_loop
 
-__all__ = ["run_tool_rounds", "turn_needs_tool_loop"]
+__all__ = ["run_tool_rounds", "spent_tools", "turn_needs_tool_loop"]

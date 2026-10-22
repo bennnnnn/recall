@@ -29,8 +29,8 @@ _SHARED_MODULE = re.compile(
     r"subprocess|shutil|tempfile|threading|concurrent)\.[A-Za-z_]+$"
 )
 # What is left; lower these when a change removes some.
-_CHAT_PATCHES = 521
-_PRIVATE_PATCHES = 103
+_CHAT_PATCHES = 503
+_PRIVATE_PATCHES = 102
 
 
 def patch_targets(*, setattr_objects: bool = False) -> Iterator[tuple[str, str]]:

@@ -1,18 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { View } from "react-native";
 
 import { ChatMessageRow } from "@/features/chat/components/ChatMessageRow";
-import { StreamingChatMessageRow } from "@/features/chat/components/StreamingChatMessageRow";
 import { RelatedPromptLines } from "@/features/suggestions/components/RelatedPromptLines";
 import type { Message } from "@/lib/api";
 import {
   findLastAssistantId,
-  isChatStreamActive,
   priorUserTextFor,
   streamVisualActiveForRow,
 } from "@/features/chat/model/messageLogic";
 import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenMessages";
-import { STREAM_LAYOUT_SETTLE_MS } from "@/lib/messageListLayout";
 import { useLatestRef } from "@/lib/latestRef";
 
 type Options = {
@@ -59,17 +56,6 @@ export function useChatMessageList({
 
   const headerTitleLabel = null;
 
-  // Defer follow-up questions until post-stream layout settle (avoids list bounce).
-  const [suggestionsDelayed, setSuggestionsDelayed] = useState(false);
-  useEffect(() => {
-    if (streaming || finalizing) {
-      setSuggestionsDelayed(true);
-      return;
-    }
-    const timer = setTimeout(() => setSuggestionsDelayed(false), STREAM_LAYOUT_SETTLE_MS);
-    return () => clearTimeout(timer);
-  }, [streaming, finalizing]);
-
   // `regenerating` is deliberately NOT here: it flips true→false once per
   // regenerate and would change this object's identity, re-rendering every
   // row. Only the last-assistant row consumes it, so it is passed per-row in
@@ -100,35 +86,20 @@ export function useChatMessageList({
   const renderItem = useCallback(
     ({ item, index }: { item: Message; index: number }) => {
       const priorUserText = priorUserTextFor(messagesRef.current, index);
-
-      if (item.id === "streaming" || item.id === IMAGE_GEN_PENDING_ASSISTANT_ID) {
-        return (
-          <StreamingChatMessageRow
-            item={item}
-            priorUserText={priorUserText}
-            streamVisualActive={
-              item.id === IMAGE_GEN_PENDING_ASSISTANT_ID
-                ? true
-                : isChatStreamActive(streaming, finalizing)
-            }
-            imageGenPending={item.id === IMAGE_GEN_PENDING_ASSISTANT_ID}
-            {...sharedRowProps}
-          />
-        );
-      }
-
-      const streamVisualActive = streamVisualActiveForRow(
-        item.role,
-        item.id,
-        lastAssistantId,
-        streaming,
-        finalizing,
-      );
+      const imageGenPending = item.id === IMAGE_GEN_PENDING_ASSISTANT_ID;
+      const live = item.id === "streaming" || imageGenPending;
+      const streamVisualActive =
+        imageGenPending ||
+        streamVisualActiveForRow(item.role, item.id, lastAssistantId, streaming, finalizing);
+      // The reply streaming in and the reply saved at `done` are one row: the
+      // same elements, so the turn ending updates it instead of creating it again.
       const row = (
         <ChatMessageRow
           item={item}
           priorUserText={priorUserText}
           streamVisualActive={streamVisualActive}
+          live={live}
+          imageGenPending={imageGenPending}
           regenerating={item.id === lastAssistantId ? regenerating : false}
           {...sharedRowProps}
         />
@@ -145,7 +116,6 @@ export function useChatMessageList({
         !streaming &&
         !finalizing &&
         !imageGenerating &&
-        !suggestionsDelayed &&
         relatedPrompts.length > 0 &&
         Boolean(onSelectSuggestion);
       return (
@@ -162,7 +132,6 @@ export function useChatMessageList({
       streaming,
       finalizing,
       imageGenerating,
-      suggestionsDelayed,
       lastAssistantId,
       regenerating,
       onSelectSuggestion,

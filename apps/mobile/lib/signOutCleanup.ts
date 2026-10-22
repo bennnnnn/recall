@@ -6,6 +6,7 @@ import { clearQuizAttempts } from "@/lib/lesson/quizAttempts";
 import { clearLinkPreviewCache } from "@/lib/linkPreview";
 import { clearSvgMathCache } from "@/lib/math/svgMath";
 import { publishStreamingDraft } from "@/lib/streamingDraftStore";
+import { forgetSyncRecords } from "@/lib/syncRecords";
 
 /** Device/account side effects finish before another account signs in, so it
  * starts with nothing of this one. Every store that can hold an account's data
@@ -19,6 +20,7 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
   publishStreamingDraft(null);
   await Promise.allSettled([
     deleteAccountFiles(),
+    forgetSyncRecords(),
     import("@/features/todos/model/reminderProposal").then(({ clearSavedProposals }) => clearSavedProposals()),
     import("@/features/chat/model/quotaNudgeDismissal").then(({ resetQuotaNudgeDismissal }) => resetQuotaNudgeDismissal()),
     import("@/features/attachments/model/downloadChatAttachment").then(({ clearLocalAttachmentFileCache }) => clearLocalAttachmentFileCache()),

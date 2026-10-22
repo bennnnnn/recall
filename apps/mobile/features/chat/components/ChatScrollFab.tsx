@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet } from "react-native";
+import Animated, { type SharedValue } from "react-native-reanimated";
 import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
@@ -8,25 +9,29 @@ import { Theme, useTheme } from "@/lib/theme";
 import { formatScrollAwayBadge } from "@/features/chat/model/scrollLogic";
 import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
+import { useBottomLiftStyle } from "@/ui/hooks/useBottomLiftStyle";
 
 type Props = {
   visible: boolean;
   bottomOffset: number;
+  /** Rides the keyboard with the composer, frame by frame. */
+  lift?: SharedValue<number>;
   scrollAwayCount: number;
   onPress: () => void;
 };
 
-export function ChatScrollFab({ visible, bottomOffset, scrollAwayCount, onPress }: Props) {
+export function ChatScrollFab({ visible, bottomOffset, lift, scrollAwayCount, onPress }: Props) {
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeS(C), [C]);
+  const liftStyle = useBottomLiftStyle(lift);
   const badgeLabel = formatScrollAwayBadge(scrollAwayCount);
 
   if (!visible) return null;
 
   return (
-    <View
-      style={[s.overlay, { bottom: bottomOffset }]}
+    <Animated.View
+      style={[s.overlay, { bottom: bottomOffset }, lift ? liftStyle : null]}
       pointerEvents="box-none"
     >
       <Pressable
@@ -40,7 +45,7 @@ export function ChatScrollFab({ visible, bottomOffset, scrollAwayCount, onPress 
           <CountBadge count={scrollAwayCount} max={9} style={s.badge} />
         ) : null}
       </Pressable>
-    </View>
+    </Animated.View>
   );
 }
 

@@ -3,24 +3,28 @@ import { cacheDirectory, EncodingType, readAsStringAsync } from "expo-file-syste
 
 import { useAccountSession } from "@/contexts/accountSession";
 import { ensureLocalAttachmentFile } from "@/features/attachments/model/downloadChatAttachment";
-import { pdfViewerFile } from "@/features/attachments/model/pdfViewerFile";
 import {
   buildPdfPreviewHtml,
-  PDF_LIBRARIES,
   PDF_PREVIEW_ERROR,
+  PDF_VIEWER_PAGE,
   pdfPreviewColors,
   pdfPreviewConfigScript,
+  type PdfSources,
 } from "@/lib/pdfPreviewHtml";
-import { loadVendorTexts, type VendorTexts } from "@/lib/vendorAssets";
+import { forgetPreviewPageFile, previewPageFile } from "@/lib/previewPageFile";
 import { useTheme } from "@/lib/theme";
+import { readVendorLibraries } from "@/lib/vendorAssets";
 import { getPreviewWebView, STATIC_HTML_ORIGIN_WHITELIST } from "@/lib/webView";
 
 /** The file-backed page is a file:// document reading a file:// PDF. */
 const FILE_ORIGIN_WHITELIST = [...STATIC_HTML_ORIGIN_WHITELIST, "file://*"];
 
+/** A viewer page that will not load (the system cleared the cache) is written and loaded once more. */
+const VIEWER_RETRIES = 1;
+
 type Loaded =
   | { key: string; kind: "file"; viewer: string; pdf: string }
-  | { key: string; kind: "html"; base64: string; libraries: VendorTexts<(typeof PDF_LIBRARIES)[number]> };
+  | { key: string; kind: "html"; base64: string; sources: PdfSources };
 
 type PdfPreview =
   | { status: "idle" | "loading" | "failed" }
@@ -43,6 +47,7 @@ export function usePdfPreview(options: {
   const { account, getToken } = useAccountSession();
   const theme = useTheme();
   const [fileUnreadable, setFileUnreadable] = useState(false);
+  const [viewerRetries, setViewerRetries] = useState(0);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failedKey, setFailedKey] = useState<string | null>(null);
   const useFile = getPreviewWebView()?.mode === "rnc" && !fileUnreadable;
@@ -50,6 +55,7 @@ export function usePdfPreview(options: {
 
   useEffect(() => {
     setFileUnreadable(false);
+    setViewerRetries(0);
   }, [uri]);
 
   useEffect(() => {
@@ -60,12 +66,12 @@ export function usePdfPreview(options: {
       try {
         const pdf = await ensureLocalAttachmentFile({ uri, token: getToken(), fileName, signal: controller.signal });
         const next: Loaded = useFile
-          ? { key, kind: "file", viewer: await pdfViewerFile(), pdf }
+          ? { key, kind: "file", viewer: await previewPageFile(PDF_VIEWER_PAGE), pdf }
           : {
               key,
               kind: "html",
               base64: await readAsStringAsync(pdf, { encoding: EncodingType.Base64 }),
-              libraries: await loadVendorTexts(PDF_LIBRARIES),
+              sources: await readVendorLibraries(PDF_VIEWER_PAGE.libraries),
             };
         if (!controller.signal.aborted) setLoaded(next);
       } catch {
@@ -73,7 +79,7 @@ export function usePdfPreview(options: {
       }
     })();
     return () => controller.abort();
-  }, [enabled, uri, account, getToken, fileName, useFile, key]);
+  }, [enabled, uri, account, getToken, fileName, useFile, key, viewerRetries]);
 
   const onMessage = useCallback((event: { nativeEvent?: { data?: unknown } }) => {
     const data = event.nativeEvent?.data;
@@ -83,12 +89,20 @@ export function usePdfPreview(options: {
   }, [useFile]);
 
   const current = loaded?.key === key ? loaded : null;
+  const viewer = current?.kind === "file" ? current.viewer : null;
+
+  const onViewerError = useCallback(() => {
+    // The viewer page went missing: write it again and load it once more, then inline the PDF.
+    if (viewer) forgetPreviewPageFile(PDF_VIEWER_PAGE, viewer);
+    setLoaded(null);
+    if (viewerRetries < VIEWER_RETRIES) setViewerRetries(viewerRetries + 1);
+    else setFileUnreadable(true);
+  }, [viewer, viewerRetries]);
+
   const colors = pdfPreviewColors(theme);
   const colorKey = `${colors.bg}|${colors.text}|${colors.danger}`;
   const html = useMemo(
-    () => (current?.kind === "html"
-      ? buildPdfPreviewHtml(current.base64, theme, allPages, current.libraries)
-      : null),
+    () => (current?.kind === "html" ? buildPdfPreviewHtml(current.base64, theme, allPages, current.sources) : null),
     [current, allPages, theme],
   );
 
@@ -104,7 +118,7 @@ export function usePdfPreview(options: {
   }
   return {
     status: "ready",
-    webViewKey: `${key}|${colorKey}|${allPages}`,
+    webViewKey: `${key}|${colorKey}|${allPages}|${viewerRetries}`,
     webViewProps: {
       source: { uri: current.viewer },
       injectedJavaScriptBeforeContentLoaded: pdfPreviewConfigScript({ src: current.pdf, allPages, colors }),
@@ -113,6 +127,7 @@ export function usePdfPreview(options: {
       allowFileAccessFromFileURLs: true,
       allowingReadAccessToURL: cacheDirectory ?? undefined,
       onMessage,
+      onError: onViewerError,
     },
   };
 }

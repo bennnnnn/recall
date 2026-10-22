@@ -32,6 +32,10 @@ class LlmSettings(BaseModel):
     # environment overrides aligned with this 8192 default; lower legacy caps
     # can cut advanced derivations off mid-step.
     max_output_tokens: int = 8192
+    # Send the chat prompt's stable system message with a cache_control mark to the
+    # models that cache only a marked prefix (catalog cache_breakpoints: Claude). Off
+    # sends it unmarked; providers that reuse a repeated prefix on their own still do.
+    prompt_cache_breakpoints_enabled: bool = True
     # Provider embedding-input char cap (embedding_gateway.embed_text). Was a
     # bare `text[:8000]` inline in the gateway; every other tunable in this
     # codebase lives in Settings, so don't reintroduce an inline magic number
@@ -53,10 +57,23 @@ class LlmSettings(BaseModel):
     # Fail fast when the provider never opens an SSE stream (separate from read
     # timeout), soon enough for the model fallback chain to help.
     chat_stream_connect_timeout_seconds: int = 5
-    # Reasoning models can keep sending hidden chain-of-thought while never
-    # producing a user-visible token. When a fallback exists, stop that silent
-    # attempt and move on rather than making the chat bubble wait indefinitely.
+    # A paid reasoning lane may think silently before its first token. When a
+    # fallback exists, an attempt that has sent neither text nor reasoning after
+    # this long gives way to it; one streaming its reasoning is left to think
+    # (the idle and wall-clock caps above still bound it).
     chat_stream_first_content_timeout_seconds: float = 8.0
+    # Fail fast while another model can take over (the last one in the chain
+    # always gets the idle timeout above). Auto's everyday lane does not think
+    # and shows its first text in about a second: an attempt that has shown
+    # nothing (no text, no thinking) after this long gives way to the next.
+    chat_stream_first_text_timeout_seconds: float = 3.0
+    # A model that always thinks (the free plan's hard and maths lane) streams
+    # its reasoning from the start: one that has sent neither reasoning nor
+    # text after this long gives way to the next.
+    chat_stream_first_thought_timeout_seconds: float = 4.0
+    # A model whose breaker opened (services/model_health) is skipped for this
+    # long after its last sample; then a turn about to try it claims its probe.
+    model_health_cooldown_seconds: int = 30
 
     # Abort hung background (non-streaming) LLM calls after this many seconds.
     # Covers title generation, memory extraction, todos, summaries — a hung

@@ -67,7 +67,7 @@ def test_turn_deps_swaps_only_the_named_function() -> None:
     refund = AsyncMock()
     deps = turn_deps(quota={"refund_usage": refund})
     assert deps.quota.refund_usage is refund
-    assert deps.quota.reserve_usage is quota.reserve_usage
+    assert deps.quota.reserve_usage_up_to is quota.reserve_usage_up_to
     assert quota.refund_usage is not refund
     assert deps.messages is messages
 

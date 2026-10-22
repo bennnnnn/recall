@@ -11,11 +11,13 @@ import {
   composerNativeInputTraits,
   composerShowsMic,
   composerShowsSend,
+  composerShowsStop,
   computeChatLayoutMetrics,
   isComposerMenuOverlayOpen,
   shouldReserveComposerActionGap,
 } from "@/features/chat/model/composerLogic";
 import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenMessages";
+import { keyboardLiftAbove } from "@/lib/keyboardInset";
 
 describe("composerInputFrameHeight", () => {
   it("grows one line per Return and caps at the field max", () => {
@@ -128,6 +130,18 @@ describe("chatComposerLogic", () => {
       spellCheck: false,
       autoCapitalize: "none",
     });
+  });
+
+  it.each([
+    [{ streaming: true, sendBusy: false, replySaving: false }, true],
+    // Typing dots went up with the bubble, but the turn has not gone out yet.
+    [{ streaming: true, sendBusy: true, replySaving: false }, false],
+    // The reply's text is all in (stream_end); only its save is left.
+    [{ streaming: true, sendBusy: false, replySaving: true }, false],
+    [{ streaming: false, sendBusy: true, replySaving: false }, false],
+    [{ streaming: false, sendBusy: false, replySaving: false }, false],
+  ])("composerShowsStop(%o) is %p", (state, shows) => {
+    expect(composerShowsStop(state)).toBe(shows);
   });
 
   it("composerShowsMic and composerShowsSend are mutually exclusive for typed text", () => {
@@ -282,6 +296,33 @@ describe("chatComposerLogic", () => {
     });
     expect(scaledHeader.headerMinimumHeight).toBeGreaterThan(96);
     expect(scaledHeader.headerInset).toBe(scaledHeader.headerMinimumHeight);
+  });
+
+  it.each([
+    ["the keyboard down", 0, "msg-1"],
+    ["the keyboard up", 336, "msg-1"],
+    ["the keyboard up and a reply in flight", 336, "streaming"],
+  ])("resting clearance plus the keyboard lift lands where the settled layout puts it, with %s", (_case, keyboardHeight, lastMessageId) => {
+    const options = {
+      insetsTop: 44,
+      insetsBottom: 34,
+      windowHeight: 800,
+      composerHeight: 56,
+      attachmentExtra: 0,
+      mathBarExtra: 24,
+      messagesLength: 2,
+      streaming: false,
+      lastMessageId,
+    };
+    const settled = computeChatLayoutMetrics({ ...options, keyboardHeight });
+    const keyboardDown = computeChatLayoutMetrics({ ...options, keyboardHeight: 0 });
+    const lift = keyboardLiftAbove(keyboardHeight, keyboardDown.composerBottomPad);
+
+    // The resting values never move with the keyboard; the UI thread adds the lift.
+    expect(settled.restingComposerClearance).toBe(keyboardDown.restingComposerClearance);
+    expect(settled.restingListBottomPad).toBe(keyboardDown.restingListBottomPad);
+    expect(settled.restingComposerClearance + lift).toBe(settled.composerClearance);
+    expect(settled.restingListBottomPad + lift).toBe(settled.listBottomPad);
   });
 
   it("shouldReserveComposerActionGap only for in-flight placeholders", () => {

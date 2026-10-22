@@ -23,7 +23,6 @@ from app.core import redis_lock
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways import litellm_gateway
-from app.gateways.litellm_gateway import StreamAttempt
 from app.models.orm import Chat, Message, User
 from app.modules import todos, web_search
 from app.modules.attachments import lifecycle as attachment_lifecycle
@@ -39,6 +38,7 @@ from app.repositories import usage, users
 from app.services import conversation_reference, quota
 
 if TYPE_CHECKING:
+    from app.gateways.stream_signals import StreamAttempt
     from app.gateways.web_search_gateway import WebSearchHit
     from app.modules.billing.entitlements import Feature
     from app.services.conversation_reference import ReferenceKind, Turn
@@ -105,11 +105,9 @@ class Quota(Protocol):
         self, redis: Redis, user_id: str, *, day: date | None = ...
     ) -> bool: ...
 
-    async def get_daily_usage(self, redis: Redis, user_id: str) -> int: ...
-
-    async def reserve_usage(
-        self, redis: Redis, user_id: str, requested: int, *, daily_limit: int
-    ) -> bool: ...
+    async def reserve_usage_up_to(
+        self, redis: Redis, user_id: str, wanted: int, *, daily_limit: int
+    ) -> int: ...
 
     async def refund_usage(self, redis: Redis, user_id: str, amount: int) -> None: ...
 
@@ -204,6 +202,8 @@ class ChatModel(Protocol):
         on_reasoning: Callable[[str], Awaitable[None]] | None = ...,
         thinking: bool | str | None = ...,
         attempts: list[StreamAttempt] | None = ...,
+        on_thinking: Callable[[], Awaitable[None]] | None = ...,
+        may_try: Callable[[str], Awaitable[bool]] | None = ...,
         tools: list[dict[str, Any]] | None = ...,
         tool_calls: list[dict[str, Any]] | None = ...,
     ) -> AsyncIterator[str]: ...

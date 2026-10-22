@@ -110,9 +110,9 @@ def _fresh_db_pool():
     """Each test starts with an empty connection pool.
 
     A pooled asyncpg connection belongs to the event loop that opened it, and each test
-    (and each ``TestClient``) runs its own loop. The per-checkout ping used to discard a
-    connection another loop left behind; the app pings only idle connections now
-    (``core/db_ping.py``: production has one loop per process), so tests drop them here.
+    (and each ``TestClient``) runs its own loop. ``core/pool_liveness.py`` replaces one
+    opened on another loop at checkout; dropping the pool here also keeps a test from
+    inheriting another test's connections at all.
     """
     from app.core.db import engine
 
@@ -199,16 +199,6 @@ def _tool_registry_restored():
         registry.register(adapter)
 
 
-@pytest.fixture(autouse=True)
-def _model_health_verdicts_forgotten():
-    """Each test reads model health for itself. A verdict an earlier test cached (3 s)
-    skipped the read, so a test that handed the turn a bare ``AsyncMock()`` Redis passed
-    or failed by the suite's order and speed: locally green, red in CI."""
-    from app.services import model_health
-
-    model_health.forget_verdicts()
-
-
 @pytest.fixture
 def quota_clock():
     """The UTC day the daily counters see, 2026-10-16 until a test sets ``.day``.
@@ -268,6 +258,20 @@ def model_spend_redis():
     """
     client = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with patch("app.gateways.llm_spend.get_redis_client", return_value=client):
+        yield client
+
+
+@pytest.fixture(autouse=True)
+def user_generation_redis():
+    """Where user-row writes publish their generation (core/user_cache): a fresh fake per test.
+
+    In production that is the app's one Redis, where every token check reads the
+    generation. A test that drives the app through a fake Redis makes it this same
+    client (the round-trip guard), or points the user cache at its own (security
+    ``use_fake_redis``), so a write's generation is where the next request reads it.
+    """
+    client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with patch("app.core.user_cache.get_redis_client", return_value=client):
         yield client
 
 

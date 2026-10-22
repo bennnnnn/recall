@@ -14,7 +14,7 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import { Dimensions, StyleSheet } from "react-native";
 
-import { simulationPlaceholderHeight } from "@/components/rich/LazyHeavyRich";
+import { simulationPlaceholderHeight } from "@/components/rich/simulationPlaceholder";
 import { SimulationBlock } from "@/components/rich/SimulationBlock";
 import { Space } from "@/lib/space";
 

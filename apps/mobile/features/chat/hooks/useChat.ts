@@ -7,6 +7,7 @@ import { useChatTransport } from "@/features/chat/hooks/useChatTransport";
 import { useChatTurnActions } from "@/features/chat/hooks/useChatTurnActions";
 import { useDroppedTurnReconcile } from "@/features/chat/hooks/useDroppedTurnReconcile";
 import { useStreamingDraftPublisher } from "@/features/chat/hooks/useStreamingDraftPublisher";
+import { useTurnStart } from "@/features/chat/hooks/useTurnStart";
 import { headRejectedSend, initialChatTurnState, type ChatTurnEvent } from "@/features/chat/model/chatTurnCore";
 import { runChatTurnCommands, type ChatTurnEffects } from "@/features/chat/model/chatTurnEffects";
 import { reduceChatTurn } from "@/features/chat/model/chatTurnState";
@@ -123,7 +124,8 @@ export function useChat(token: string | null, chatId: string | null, options: Us
       dropSocket: transport.dropSocket,
       abortSse: transport.abortSse,
       cancelSocket: transport.cancelSocket,
-      followDroppedTurn: (follow, polls) => followDroppedTurn((result) => step({ type: "dropped_turn", follow, result }), polls),
+      followDroppedTurn: (follow, polls, pollMs) =>
+        followDroppedTurn((result) => step({ type: "dropped_turn", follow, result }), polls, pollMs),
     };
   }, [
     t, popForRegenerate, cue, options.onError, options.onFirstReply, options.onTodosSync, options.onUsage,
@@ -146,6 +148,7 @@ export function useChat(token: string | null, chatId: string | null, options: Us
   const actions = useChatTurnActions({
     token, chatId, isCurrentView, turn, step, messagesRef, transport: { connect, sendViaSse, regenerateViaSse, currentSocket }, onUnreachable,
   });
+  const sendStart = useTurnStart({ canStart: Boolean(token && chatId), isCurrentView, turn, step, streaming, finalizing });
 
-  return { messages, setMessages, streaming, finalizing, sendingMessageId, rejectedSend, ...actions, connect };
+  return { messages, setMessages, streaming, finalizing, sendingMessageId, rejectedSend, ...actions, sendStart, connect };
 }

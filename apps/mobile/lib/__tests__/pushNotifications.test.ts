@@ -16,16 +16,6 @@ jest.mock("@/lib/auth", () => ({
   getSessionGeneration: () => mockGeneration,
 }));
 
-// The push sync record's file, kept across a module reload as the disk keeps it.
-const mockFiles = new Map<string, string>();
-jest.mock("@/lib/cache/cacheFile", () => ({
-  cacheFile: (name: string) => ({
-    read: async () => mockFiles.get(name) ?? null,
-    write: async (contents: string) => { mockFiles.set(name, contents); },
-    clear: async () => { mockFiles.delete(name); },
-  }),
-}));
-
 jest.mock("@/lib/installationId", () => ({
   getInstallationId: jest.fn().mockResolvedValue("dev-1"),
 }));
@@ -40,6 +30,7 @@ jest.mock("expo-notifications", () => ({
   requestPermissionsAsync: jest.fn().mockResolvedValue({ status: "granted" }),
   setNotificationChannelAsync: jest.fn().mockResolvedValue(undefined),
   getExpoPushTokenAsync: jest.fn().mockResolvedValue({ data: "ExponentPushToken[abc]" }),
+  getDevicePushTokenAsync: jest.fn().mockResolvedValue({ type: "ios", data: "apns-token-1" }),
   setNotificationHandler: jest.fn(),
   AndroidImportance: { HIGH: 4, DEFAULT: 3 },
 }));
@@ -50,6 +41,21 @@ jest.mock("@/lib/expoRuntime", () => ({
 }));
 
 jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableWarning: jest.fn() }));
+
+/** The file prefs `lib/syncRecords.ts` keeps, which outlive a cold start. */
+const mockSyncRecords = new Map<string, { account: string; variant: string; at: number }>();
+jest.mock("@/lib/syncRecords", () => ({
+  recentSyncAt: jest.fn(async (kind: string, account: string, maxAgeMs: number, variant = "") => {
+    const record = mockSyncRecords.get(kind);
+    if (!record || record.account !== account || record.variant !== variant) return null;
+    const age = Date.now() - record.at;
+    return age >= 0 && age < maxAgeMs ? record.at : null;
+  }),
+  recordSync: jest.fn(async (kind: string, account: string, variant = "", at = Date.now()) => {
+    mockSyncRecords.set(kind, { account, variant, at });
+  }),
+  forgetSyncRecords: jest.fn(async () => { mockSyncRecords.clear(); }),
+}));
 
 const mockAppStateHandlers = new Set<(state: string) => void>();
 
@@ -223,7 +229,7 @@ describe("push re-sync on launch, token refresh and foreground", () => {
   beforeEach(() => {
     n += 1;
     account = `user-${n}`;
-    mockFiles.clear();
+    mockSyncRecords.clear();
     Platform.OS = "ios";
     jest.clearAllMocks();
     mockAppStateHandlers.clear();
@@ -298,7 +304,7 @@ describe("push re-sync on launch, token refresh and foreground", () => {
     registerMock.mockImplementationOnce(async () => { mockGeneration += 1; });
     attachPushForegroundSync("tok", true, undefined, account)();
     await settle();
-    expect(mockFiles.size).toBe(0);
+    expect(mockSyncRecords.size).toBe(0);
     attachPushForegroundSync("tok-next", true, undefined, account)();
     await settle();
     expect(registerMock).toHaveBeenCalledTimes(2);
@@ -336,6 +342,81 @@ describe("push re-sync on launch, token refresh and foreground", () => {
   });
 });
 
+describe("push sync across a cold start", () => {
+  const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+  /** A new app run: nothing in memory, the same files on disk. */
+  function coldStart() {
+    jest.resetModules();
+    mockAppStateHandlers.clear();
+    return {
+      push: jest.requireActual<typeof import("@/lib/pushNotifications")>("@/lib/pushNotifications"),
+      api: jest.requireMock<{ api: Record<string, jest.Mock> }>("@/lib/api").api,
+      notifications: jest.requireMock<Record<string, jest.Mock>>("expo-notifications"),
+    };
+  }
+
+  async function launch(account: string, enabled = true, deviceToken: string | null = "apns-token-1") {
+    const run = coldStart();
+    if (deviceToken === null) {
+      run.notifications.getDevicePushTokenAsync.mockRejectedValue(new Error("no APNs"));
+    } else {
+      run.notifications.getDevicePushTokenAsync.mockResolvedValue({ type: "ios", data: deviceToken });
+    }
+    run.push.attachPushForegroundSync("tok", enabled, undefined, account, null)();
+    await settle();
+    return run;
+  }
+
+  beforeEach(() => {
+    mockSyncRecords.clear();
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("does not register again when this account synced within the last 12 hours", async () => {
+    const first = await launch("user-1");
+    expect(first.api.registerPushToken).toHaveBeenCalledTimes(1);
+
+    const second = await launch("user-1");
+    expect(second.api.registerPushToken).not.toHaveBeenCalled();
+    expect(second.notifications.getExpoPushTokenAsync).not.toHaveBeenCalled();
+    // The OS permission is still read: turning it off must reach the server.
+    expect(second.notifications.getPermissionsAsync).toHaveBeenCalled();
+  });
+
+  it("registers again for another account, another setting, or after 12 hours", async () => {
+    await launch("user-1");
+    expect((await launch("user-2")).api.registerPushToken).toHaveBeenCalledTimes(1);
+    expect((await launch("user-2", false)).api.unregisterPushToken).toHaveBeenCalledTimes(1);
+
+    await launch("user-1");
+    const now = Date.now();
+    jest.spyOn(Date, "now").mockReturnValue(now + 13 * 60 * 60_000);
+    expect((await launch("user-1")).api.registerPushToken).toHaveBeenCalledTimes(1);
+  });
+
+  it("registers again when the push service rolled this install's token since", async () => {
+    await launch("user-1", true, "apns-token-1");
+    const rolled = await launch("user-1", true, "apns-token-2");
+    expect(rolled.api.registerPushToken).toHaveBeenCalledTimes(1);
+    // The record keeps a fingerprint of the token, never the token.
+    expect(JSON.stringify([...mockSyncRecords.values()])).not.toContain("apns-token");
+  });
+
+  it("trusts no record when the device token cannot be read", async () => {
+    await launch("user-1", true, null);
+    expect(mockSyncRecords.size).toBe(0);
+    expect((await launch("user-1", true, null)).api.registerPushToken).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps no record without the account, as the Settings switch calls it", async () => {
+    await launch("");
+    expect(mockSyncRecords.size).toBe(0);
+  });
+});
+
 describe("push token failures are reported, routine states stay quiet", () => {
   const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
   const feedback: ActionFeedbackApi = {
@@ -352,7 +433,7 @@ describe("push token failures are reported, routine states stay quiet", () => {
   function load() {
     jest.resetModules();
     mockAppStateHandlers.clear();
-    mockFiles.clear();
+    mockSyncRecords.clear();
     return {
       push: jest.requireActual<typeof import("@/lib/pushNotifications")>("@/lib/pushNotifications"),
       notifications: jest.requireMock<Record<string, jest.Mock>>("expo-notifications"),

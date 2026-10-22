@@ -36,6 +36,7 @@ from app.modules.chat.prompt_constants.coding import (
 from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.math.reply_policy import MATH_INTENT_HINT
 from app.services.subject_solving import detect_subject
+from app.tests.modules.chat.chat_test_support import system_prompt
 
 TRACE_LOOP = (
     "Explain this code line by line, then show the value of total after each iteration:\n"
@@ -240,7 +241,7 @@ async def test_code_ink_reminder_sits_next_to_the_question() -> None:
         )
     assert messages[-1]["role"] == "user"
     assert messages[-2] == {"role": "system", "content": CODE_INK_REMINDER}
-    assert CODE_EXPLAIN_HINT in messages[0]["content"]
+    assert CODE_EXPLAIN_HINT in system_prompt(messages)
 
 
 # "Run this python code: print(1+1)" got a bare "2", as if Recall had run it.

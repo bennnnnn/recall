@@ -1,17 +1,19 @@
-import { memo, ReactElement, RefObject, useCallback, useEffect } from "react";
+import { memo, ReactElement, RefObject, useCallback, useEffect, useMemo } from "react";
 import { View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from "react-native";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
-import { type AnimatedStyle } from "react-native-reanimated";
+import { type AnimatedStyle, type SharedValue } from "react-native-reanimated";
 
 import { ActionBanner } from "@/ui/feedback/ActionBanner";
 import { AttachmentSourceSheet } from "@/features/attachments/components/AttachmentSourceSheet";
-import { MathEquationScanner } from "@/components/MathEquationScanner";
+import { LazyMathEquationScanner } from "@/components/mathScanner/LazyMathEquationScanner";
 import { ChatComposer, type LiveTalkComposerChrome } from "@/features/chat/components/ChatComposer";
 import { ChatInlineError } from "@/features/chat/components/ChatInlineError";
 import { ChatMessageList } from "@/features/chat/components/ChatMessageList";
 import { ChatQuotaNudge } from "@/features/chat/components/ChatQuotaNudge";
 import type { ChatScreenStyles } from "@/features/chat/components/chatScreenStyles";
 import { ChatScrollFab } from "@/features/chat/components/ChatScrollFab";
+import { composerShowsStop } from "@/features/chat/model/composerLogic";
+import type { ChatListScroll } from "@/features/chat/hooks/useChatScroll";
 import { UpgradeSheet, type UpgradeSource } from "@/components/UpgradeSheet";
 import { StreamingDraftProvider } from "@/contexts/StreamingDraftContext";
 import { useTranslation } from "react-i18next";
@@ -23,14 +25,19 @@ import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/features/chat/model/errorMessage";
 import type { IconName } from "@/ui/icons/names";
 import type { Theme } from "@/lib/theme";
+import { useDrawerOpen } from "@/contexts/DrawerContext";
+import { ChatKeyboardSpacer } from "@/features/chat/components/ChatKeyboardSpacer";
 
 export interface ChatScreenLayoutProps {
   styles: ChatScreenStyles;
   theme: Theme;
-  drawerOpen: boolean;
-  composerClearance: number;
+  /** Clearance above the composer with the keyboard down; chrome above it rides `keyboardLift`. */
+  restingComposerClearance: number;
   headerInset: number;
-  listBottomPad: number;
+  /** The list's bottom pad with the keyboard down; a spacer under the list adds `keyboardLift`. */
+  restingListBottomPad: number;
+  /** How far the keyboard lifts the composer, frame by frame on the UI thread. */
+  keyboardLift: SharedValue<number>;
   emptyHeight: number;
 }
 
@@ -46,14 +53,15 @@ export interface ChatScreenListProps {
   onLoadOlder: () => void;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onScrollEnd: () => void;
-  onContentSizeChange?: (width: number, height: number) => void;
-  onListLayout?: (height: number) => void;
+  scroll?: ChatListScroll;
   header: ReactElement | null;
 }
 
 export interface ChatScreenComposerProps {
   animatedStyle?: AnimatedStyle<ViewStyle>;
   streaming: boolean;
+  /** The reply's text is all in and only its save is left: Send works, Stop is gone. */
+  replySaving: boolean;
   attachPicking: boolean;
   sendBusy: boolean;
   sendStatus?: string;
@@ -136,7 +144,8 @@ export const ChatScreenBody = memo(function ChatScreenBody({
   sheets,
 }: ChatScreenBodyProps) {
   const { t } = useTranslation();
-  const { styles: s, drawerOpen } = layout;
+  const drawerOpen = useDrawerOpen();
+  const { styles: s, keyboardLift } = layout;
   const { messages } = list;
   const { liveTalkSession, onSend } = composer;
   const { mathScannerOpen, onCloseMathScanner } = sheets;
@@ -151,6 +160,7 @@ export const ChatScreenBody = memo(function ChatScreenBody({
   useEffect(() => {
     if (drawerOpen && mathScannerOpen) onCloseMathScanner();
   }, [drawerOpen, mathScannerOpen, onCloseMathScanner]);
+  const keyboardSpacer = useMemo(() => <ChatKeyboardSpacer lift={keyboardLift} />, [keyboardLift]);
 
   return (
     <View style={s.container}>
@@ -159,7 +169,7 @@ export const ChatScreenBody = memo(function ChatScreenBody({
           listRef={list.listRef}
           messages={messages}
           headerInset={layout.headerInset}
-          listBottomPad={layout.listBottomPad}
+          listBottomPad={layout.restingListBottomPad}
           hasMoreOlder={list.hasMoreOlder}
           loadingOlder={list.loadingOlder}
           newerPage={list.newerPage}
@@ -170,17 +180,16 @@ export const ChatScreenBody = memo(function ChatScreenBody({
           onLoadOlder={list.onLoadOlder}
           onScroll={list.onScroll}
           onScrollEnd={list.onScrollEnd}
-          onContentSizeChange={list.onContentSizeChange}
-          onListLayout={list.onListLayout}
+          scroll={list.scroll}
           header={list.header}
-          streamActive={composer.streaming}
+          footer={keyboardSpacer}
         />
       </StreamingDraftProvider>
 
       <ChatComposer
         visible={!drawerOpen}
         animatedContainerStyle={composer.animatedStyle}
-        streaming={composer.streaming}
+        streaming={composerShowsStop(composer)}
         attachPicking={composer.attachPicking}
         sendBusy={composer.sendBusy}
         sendStatus={composer.sendStatus}
@@ -206,6 +215,7 @@ export const ChatScreenBody = memo(function ChatScreenBody({
 
       <ChatOverlays
         layout={layout}
+        drawerOpen={drawerOpen}
         chrome={chrome}
         sheets={sheets}
         onStop={composer.onStop}
@@ -217,6 +227,7 @@ export const ChatScreenBody = memo(function ChatScreenBody({
 
 type ChatOverlaysProps = {
   layout: ChatScreenLayoutProps;
+  drawerOpen: boolean;
   chrome: ChatScreenChromeProps;
   sheets: ChatScreenSheetsProps;
   onStop: () => void;
@@ -225,18 +236,20 @@ type ChatOverlaysProps = {
 
 const ChatOverlays = memo(function ChatOverlays({
   layout,
+  drawerOpen,
   chrome,
   sheets,
   onStop,
   quotaUpgradeLabel,
 }: ChatOverlaysProps) {
-  const { styles, theme, drawerOpen, composerClearance } = layout;
+  const { styles, theme, restingComposerClearance: composerClearance, keyboardLift } = layout;
 
   return (
     <>
       <ChatScrollFab
         visible={!drawerOpen && chrome.showScrollToBottom}
         bottomOffset={composerClearance + 8}
+        lift={keyboardLift}
         scrollAwayCount={chrome.scrollAwayCount}
         onPress={chrome.onScrollToLatest}
       />
@@ -246,6 +259,7 @@ const ChatOverlays = memo(function ChatOverlays({
           styles={styles}
           theme={theme}
           bottomOffset={composerClearance + 8}
+          lift={keyboardLift}
           usedPct={chrome.quotaUsedPct}
           onUpgrade={chrome.onQuotaUpgrade}
           onDismiss={chrome.onQuotaDismiss}
@@ -255,6 +269,7 @@ const ChatOverlays = memo(function ChatOverlays({
       <ChatInlineError
         error={chrome.chatError}
         bottom={composerClearance + 8}
+        lift={keyboardLift}
         upgradeLabel={!chrome.isPaid ? quotaUpgradeLabel : undefined}
         onUpgrade={!chrome.isPaid ? chrome.onUpgrade : undefined}
         onStop={onStop}
@@ -267,6 +282,7 @@ const ChatOverlays = memo(function ChatOverlays({
         message={chrome.actionBanner?.message ?? null}
         icon={chrome.actionBanner?.icon}
         bottomOffset={composerClearance + 12}
+        lift={keyboardLift}
         onDismiss={chrome.onDismissActionBanner}
       />
 
@@ -276,7 +292,7 @@ const ChatOverlays = memo(function ChatOverlays({
         onSelect={sheets.onAttachmentSource}
       />
 
-      <MathEquationScanner
+      <LazyMathEquationScanner
         visible={sheets.mathScannerOpen}
         onClose={sheets.onCloseMathScanner}
         onCaptured={sheets.onMathScanCaptured}

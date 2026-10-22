@@ -19,7 +19,6 @@ from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
 from app.main import create_app
-from app.tests.fakes import redis_mock
 
 pytestmark = pytest.mark.usefixtures("consent_enforced")
 
@@ -94,34 +93,32 @@ def test_consent_given_on_another_machine_lets_the_request_through(
 
 
 @pytest.mark.asyncio
-async def test_an_account_that_agreed_is_not_read_again(fake_redis) -> None:
+async def test_an_account_that_agreed_is_not_read_again() -> None:
     from app.modules.account.consent import get_consented_user
 
     user = SimpleNamespace(id=uuid4(), ai_data_consent_at=_AGREED)
     session = SimpleNamespace(refresh=AsyncMock())
-    assert await get_consented_user(user=user, session=session, redis=fake_redis) is user  # type: ignore[arg-type]
+    assert await get_consented_user(user=user, session=session) is user  # type: ignore[arg-type]
     session.refresh.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_a_withdrawal_on_another_machine_is_honoured_at_once(fake_redis) -> None:
-    """The cached row said yes for up to a minute after a withdrawal elsewhere."""
+    """The cached row said yes for up to a minute after a withdrawal elsewhere.
+
+    A copy is served only under the account's current generation (``core/user_cache``),
+    and the withdrawal's publish replaced it, so the gate gets the row read again.
+    """
     from app.core import user_cache
-    from app.modules.account.consent import get_consented_user
+    from app.core.cache_generation import bump_generation
 
     user = SimpleNamespace(id=uuid4(), ai_data_consent_at=_AGREED)
+    user_cache.remember_user(user, "loaded-before")  # type: ignore[arg-type]
+    key = user_cache.generation_key(user.id)
+    await bump_generation(fake_redis, key)  # another machine's PATCH /auth/me
+    current = await fake_redis.get(key)
 
-    async def withdrawn(row: Any, attribute_names: list[str] | None = None) -> None:
-        row.ai_data_consent_at = None
-
-    session = SimpleNamespace(refresh=AsyncMock(side_effect=withdrawn), commit=AsyncMock())
-    await user_cache.bump_generation(fake_redis, user.id)  # another machine's PATCH /auth/me
-    user_cache.forget_user(user.id)  # this machine noted the old generation
-    from app.modules.account.consent import ConsentRefusedError
-
-    with pytest.raises(ConsentRefusedError) as refused:
-        await get_consented_user(user=user, session=session, redis=fake_redis)  # type: ignore[arg-type]
-    assert (refused.value.status_code, refused.value.code) == (403, "consent_required")
+    assert user_cache.cached_user(user.id, current) is None
 
 
 @pytest.mark.asyncio
@@ -140,6 +137,5 @@ async def test_the_re_read_ends_its_transaction_before_the_route_runs() -> None:
 
     user = SimpleNamespace(id=uuid4(), ai_data_consent_at=None)
     session = SimpleNamespace(refresh=refresh, commit=commit)
-    with patch("app.modules.account.consent.remember_read"):
-        assert await get_consented_user(user=user, session=session, redis=redis_mock()) is user  # type: ignore[arg-type]
+    assert await get_consented_user(user=user, session=session) is user  # type: ignore[arg-type]
     assert calls == ["refresh", "commit"]

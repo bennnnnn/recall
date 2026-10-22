@@ -111,7 +111,9 @@ async def note_manual_edit(session: AsyncSession, user_id: UUID) -> None:
     """Stamp a hand edit to memory; the caller commits.
 
     The history scan reads only lines written after this stamp, so it cannot
-    bring back what the user removed or changed.
+    bring back what the user removed or changed. Only background jobs read the
+    stamp, from the row itself, so it is not published to cached user copies
+    (``core/user_cache``).
     """
     await session.execute(
         update(User).where(User.id == user_id).values(memory_edited_at=datetime.now(UTC))

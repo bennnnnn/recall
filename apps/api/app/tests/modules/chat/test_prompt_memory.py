@@ -20,6 +20,7 @@ from app.modules.chat.prompt_builder import _context_plan, build_prompt_messages
 from app.modules.chat.prompt_constants import PROFILE_FACT_HINT
 from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.memory.switch import memory_switch_on
+from app.tests.modules.chat.chat_test_support import system_prompt
 
 
 def _user(*, memory: bool = True) -> User:
@@ -176,7 +177,7 @@ async def test_remember_while_saving_is_paused_says_so():
         messages = await build_prompt_messages(
             user, chat.id, Settings(), chat=chat, query_text="remember that I'm vegetarian"
         )
-    assert prompt_memory.MEMORY_PAUSED_HINT in messages[0]["content"]
+    assert prompt_memory.MEMORY_PAUSED_HINT in system_prompt(messages)
 
 
 @pytest.mark.asyncio

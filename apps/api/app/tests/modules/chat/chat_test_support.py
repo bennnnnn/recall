@@ -2,10 +2,11 @@ from contextlib import ExitStack
 from dataclasses import replace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
+from app.core.access_tokens import AccessCheck
 from app.core.config import Settings
 from app.modules.chat import messages_repository
 from app.modules.chat.prompt_builder import PromptStats, fetch_subject, inject_subject_block
@@ -24,6 +25,29 @@ class Overlay:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._base, name)
+
+
+def access_for(user_id: UUID) -> AccessCheck:
+    """What ``check_access`` returns for a live token (any generation will do)."""
+    return AccessCheck(user_id=user_id, user_generation="test-generation")
+
+
+def signed_in(user_id: UUID) -> Any:
+    """The WebSocket's token check passes for ``user_id``: one patch for every socket test."""
+    return patch(
+        "app.modules.chat.ws_api.access_tokens.check_access",
+        AsyncMock(return_value=access_for(user_id)),
+    )
+
+
+def ws_streams(stream: Any) -> Any:
+    """The WebSocket's message turns run ``stream`` in place of the chat stream."""
+    return patch("app.modules.chat.ws_api.stream_entry.stream_chat_response", stream)
+
+
+def grant_quota() -> AsyncMock:
+    """A ``reserve_usage_up_to`` with room for every turn: it takes all it is asked for."""
+    return AsyncMock(side_effect=lambda _redis, _user_id, wanted, **_kwargs: wanted)
 
 
 def turn_deps(**fields: Any) -> ChatTurnDeps:
@@ -49,6 +73,13 @@ async def augment_subject(
     """Fetch the subject block, then inject it, as a turn's Phase B/C does."""
     fetched = await fetch_subject(user_content, settings, **fetch_kwargs)
     return inject_subject_block(prompt_messages, fetched.subject_block), fetched.verified
+
+
+def system_prompt(messages: list[dict[str, Any]]) -> str:
+    """A built prompt's system prompt as one text: its stable message, then the turn's."""
+    stable, turn = messages[0], messages[1]
+    assert stable["role"] == turn["role"] == "system", (stable["role"], turn["role"])
+    return f"{stable['content']}\n\n{turn['content']}"
 
 
 def prompt_bundle(**fields: Any) -> TurnPromptBundle:

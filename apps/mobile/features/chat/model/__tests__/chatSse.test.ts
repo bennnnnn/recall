@@ -104,7 +104,18 @@ describe("streamChatMessageSse routes through lib/api requestSse", () => {
     expect(path).toBe("/chats/chat-1/messages/stream");
     expect(token).toBe("tok");
     expect(body).toMatchObject({ content: "hi", model: null });
+    expect(body).not.toHaveProperty("client_message_id");
     expect(events).toEqual([{ type: "done" }]);
+  });
+
+  it("names a resent message and settles on the server's duplicate answer", async () => {
+    requestSseMock.mockResolvedValueOnce(makeOkStream('data: {"type":"duplicate"}\n\n'));
+    const onEvent = jest.fn();
+    await streamChatMessageSse({
+      token: "tok", chatId: "chat-1", content: "hi", clientMessageId: "name-1", onEvent,
+    });
+    expect(requestSseMock.mock.calls[0][2]).toMatchObject({ content: "hi", client_message_id: "name-1" });
+    expect(onEvent).toHaveBeenCalledWith({ type: "duplicate" });
   });
 
   it("surfaces401 without duplicating the network boundary sign-out notification", async () => {

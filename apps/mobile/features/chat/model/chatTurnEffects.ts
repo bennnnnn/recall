@@ -4,9 +4,16 @@ import { AccessibilityInfo } from "react-native";
 import type { Message } from "@/lib/api";
 import { notifyConsentRequired } from "@/lib/api/consentRefusal";
 import { clearPendingChatTtft, markChatFirstToken } from "@/features/chat/model/latency";
+import { withdrawFromOpenedPage } from "@/features/chat/model/openedPage";
 import type { createStreamCueGate } from "@/features/chat/model/streamFeedback";
 import type { TurnUsage } from "@/features/chat/model/socketReduce";
-import { beginTurnOutcome, noteTurnActivity, reportTurnOutcome } from "@/features/chat/model/turnOutcome";
+import {
+  beginTurnOutcome,
+  noteTurnActivity,
+  noteTurnSendReady,
+  noteTurnToken,
+  reportTurnOutcome,
+} from "@/features/chat/model/turnOutcome";
 import type { ChatTurnCommand, DroppedTurnFollow } from "@/features/chat/model/chatTurnCore";
 
 /** What the chat turn's commands act on: the screen's state, the transport and the callers. */
@@ -23,7 +30,7 @@ export type ChatTurnEffects = {
   dropSocket: () => void;
   abortSse: () => void;
   cancelSocket: (streamedChars?: number) => void;
-  followDroppedTurn: (follow: DroppedTurnFollow, polls?: number) => void;
+  followDroppedTurn: (follow: DroppedTurnFollow, polls?: number, pollMs?: (poll: number) => number) => void;
 };
 
 function runCommand(command: ChatTurnCommand, effects: ChatTurnEffects): void {
@@ -39,6 +46,8 @@ function runCommand(command: ChatTurnCommand, effects: ChatTurnEffects): void {
       return;
     case "outcome":
       if (command.outcome === "begin") beginTurnOutcome();
+      else if (command.outcome === "token") noteTurnToken();
+      else if (command.outcome === "send_ready") noteTurnSendReady();
       else if (command.outcome === "activity") noteTurnActivity(command.phase);
       else reportTurnOutcome(command.completion, command.code);
       return;
@@ -79,7 +88,12 @@ function runCommand(command: ChatTurnCommand, effects: ChatTurnEffects): void {
       void command.fallback.retry();
       return;
     case "follow_dropped_turn":
-      effects.followDroppedTurn(command.follow, command.polls);
+      effects.followDroppedTurn(command.follow, command.polls, command.pollMs);
+      return;
+    case "withdraw_unsent":
+      withdrawFromOpenedPage(command.chatId, command.pending);
+      // The flag lives on the send its sender holds: it then returns the draft.
+      if (command.pending && !command.pending.dispatched) command.pending.takenBack ??= "stop";
       return;
   }
 }

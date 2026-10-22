@@ -111,6 +111,48 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
 
 
 @pytest.mark.asyncio
+async def test_a_slow_tool_selection_round_is_announced(web_search_registered):
+    """The selection round can take seconds: past one, the phone hears it is planning."""
+    from app.gateways.mcp.base import ToolResult
+
+    async def slow_selection(**_kwargs):
+        await asyncio.sleep(0.2)
+        return {
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "c1",
+                    "type": "function",
+                    "function": {"name": "web_search", "arguments": '{"query": "latest news"}'},
+                }
+            ],
+        }
+
+    invoke = AsyncMock(return_value=ToolResult(name="web_search", content="- Example"))
+    statuses: list[str] = []
+
+    async def on_status(phase: str, detail: str | None = None) -> None:
+        statuses.append(phase)
+
+    with (
+        patch(
+            "app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools",
+            slow_selection,
+        ),
+        patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
+        patch("app.modules.chat.stream_status.SLOW_STEP_SECONDS", 0.05),
+    ):
+        await tool_loop.run_tool_rounds(
+            settings=settings(mcp_tool_loop_enabled=True),
+            messages=[{"role": "user", "content": "tell me about Lisbon"}],
+            usage={},
+            on_status=on_status,
+        )
+
+    assert statuses == ["planning", "searching", "composing"]
+
+
+@pytest.mark.asyncio
 async def test_tool_loop_gives_every_call_and_the_forced_search_one_turn_context(
     sympy_registered,
 ):

@@ -4,6 +4,7 @@ import { act, render } from "@testing-library/react-native";
 import { useDrawerChatList } from "@/features/chat/drawer/useDrawerChatList";
 import { api, type ChatList } from "@/lib/api";
 import { getCachedChatList, invalidateChatListCache, setChatListCache } from "@/features/chat/model/chatListCache";
+import { readStoredChatList } from "@/features/chat/model/chatListFile";
 import { emptyChatList } from "@/features/chat/model/listSections";
 import { patchChatGlobal, subscribeChatChanges } from "@/features/chat/drawer/drawer";
 
@@ -14,13 +15,21 @@ jest.mock("@/lib/auth", () => ({
   SessionChangedError: class SessionChangedError extends Error {},
 }));
 jest.mock("@/lib/api", () => ({ api: { listChats: jest.fn(), listOlderChats: jest.fn() } }));
+jest.mock("@/features/chat/model/chatListFile", () => ({
+  readStoredChatList: jest.fn(async () => null),
+  writeStoredChatList: jest.fn(async () => undefined),
+  clearStoredChatList: jest.fn(async () => undefined),
+}));
 // The signed-in account (per session) and its access token, which rotates hourly.
 let mockToken: string | null = "token";
 const mockGetToken = () => mockToken;
 jest.mock("@/contexts/accountSession", () => ({
   useAccountSession: () => ({ account: mockToken ? `account:${mockSession}` : null, getToken: mockGetToken }),
 }));
-jest.mock("@/lib/scheduleIdle", () => ({ scheduleIdleTask: () => jest.fn() }));
+const mockIdle: (() => void)[] = [];
+jest.mock("@/lib/scheduleIdle", () => ({
+  scheduleIdleTask: (task: () => void) => { mockIdle.push(task); return jest.fn(); },
+}));
 const mockWarn = jest.fn();
 jest.mock("@/lib/reportRecoverableError", () => ({
   reportRecoverableWarning: (_feedback: unknown, message: string) => mockWarn(message),
@@ -34,7 +43,7 @@ function Probe({ open = true }: { open?: boolean }) {
   return <Text>{result.allChats.map((row) => row.title).join(",")}</Text>;
 }
 beforeEach(() => {
-  jest.clearAllMocks(); mockSession = 0; mockToken = "token"; invalidateChatListCache();
+  jest.clearAllMocks(); mockSession = 0; mockToken = "token"; mockIdle.length = 0; invalidateChatListCache();
 });
 
 it("hides account A immediately and rejects its late read after account B signs in", async () => {
@@ -128,6 +137,47 @@ it("does not paint a resolved response over an edit queued before the hook resum
   expect(getCachedChatList()).toEqual(current.groups);
 });
 
+it("paints the chats this account had last time while the list is read again", async () => {
+  const encode = (value: unknown) => btoa(JSON.stringify(value)).replace(/=/g, "");
+  const token = `${encode({ alg: "HS256" })}.${encode({ sub: "user-1" })}.signature`;
+  const stored = { ...emptyChatList(), today: [{ ...chat, id: "stored", title: "From last time" }] };
+  (readStoredChatList as jest.Mock).mockResolvedValueOnce(stored);
+  let finish!: (value: ChatList) => void;
+  (api.listChats as jest.Mock).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+  mockToken = token;
+  await render(<Probe />);
+  await act(async () => { await Promise.resolve(); });
+  expect(readStoredChatList).toHaveBeenCalledWith("user-1");
+  expect(current.allChats.map((row) => row.title)).toEqual(["From last time"]);
+  expect(api.listChats).toHaveBeenCalledTimes(1);
+  await act(async () => { finish(initial); });
+  expect(current.allChats).toEqual([chat]);
+});
+
+it("reads the list on the next drawer open when the first read after a cold start failed", async () => {
+  const encode = (value: unknown) => btoa(JSON.stringify(value)).replace(/=/g, "");
+  const token = `${encode({ alg: "HS256" })}.${encode({ sub: "user-1" })}.signature`;
+  const stored = { ...emptyChatList(), today: [{ ...chat, id: "stored", title: "From last time" }] };
+  (readStoredChatList as jest.Mock).mockResolvedValueOnce(stored);
+  (api.listChats as jest.Mock).mockRejectedValueOnce(new TypeError("Network request failed"));
+  mockToken = token;
+  const view = await render(<Probe open={false} />);
+  await act(async () => { await Promise.resolve(); });
+  expect(current.allChats.map((row) => row.title)).toEqual(["From last time"]);
+  // The closed drawer's warm-up read fails: the list shown is still the one from disk.
+  await act(async () => {
+    mockIdle.splice(0).forEach((task) => task());
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+  });
+  expect(api.listChats).toHaveBeenCalledTimes(1);
+  expect(current.allChats.map((row) => row.title)).toEqual(["From last time"]);
+  const laptop = { ...emptyChatList(), today: [{ ...chat, id: "new", title: "Created on laptop" }] };
+  (api.listChats as jest.Mock).mockResolvedValueOnce(laptop);
+  await view.rerender(<Probe open />);
+  await act(async () => { await Promise.resolve(); });
+  expect(api.listChats).toHaveBeenCalledTimes(2);
+  expect(current.allChats.map((row) => row.title)).toEqual(["Created on laptop"]);
+});
 
 it("reads older chats once at a time and appends them (CLAR-12)", async () => {
   (api.listChats as jest.Mock).mockResolvedValueOnce({ ...initial, next_cursor: "after-old" });
@@ -153,4 +203,5 @@ it("keeps the chats shown and warns when an older page fails", async () => {
   expect(current.allChats.map((row) => row.id)).toEqual(["old"]);
   expect(current.hasOlderChats).toBe(true);
   expect(mockWarn).toHaveBeenCalledTimes(1);
+
 });

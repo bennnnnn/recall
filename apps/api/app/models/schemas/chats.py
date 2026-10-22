@@ -127,6 +127,10 @@ class ChatMessageRequest(_StreamClientContext):
     content: UserText = Field(default="", max_length=32_000)
     # Cap per turn — unbounded lists let a client force huge DB/RAG work.
     attachment_ids: list[UUID] = Field(default_factory=list, max_length=10)
+    # The phone's name for this message, the same on every send of it (a resend
+    # after a dead socket, the SSE fallback, Retry): the server runs one turn per
+    # name (``modules/chat/client_message.py``). Regenerate ignores it.
+    client_message_id: UUID | None = None
 
 
 class SearchResultItem(BaseModel):

@@ -68,7 +68,7 @@ async def test_gateway_interval_starts_after_prep_and_ends_at_first_visible_toke
 
     deps = turn_deps(llm=SimpleNamespace(stream_chat_completion=visible_stream))
     clock["ms"] = 100.0  # Quota top-up and tool work happened after prompt_ready.
-    with patch("app.services.model_health.record_sample", AsyncMock()):
+    with patch("app.services.model_health.record_samples", AsyncMock()):
         tokens = [
             token
             async for token in run_llm_token_stream(

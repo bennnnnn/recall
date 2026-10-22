@@ -4,6 +4,7 @@ import { reduceChatTurn } from "@/features/chat/model/chatTurnState";
 import { popLastAssistantMessage } from "@/features/chat/model/regenerateLogic";
 import type { PendingSend } from "@/features/chat/model/sendLogic";
 import type { ChatSsePayload } from "@/features/chat/model/sse";
+import { DUPLICATE_TURN_POLLS, duplicateTurnPollMs } from "@/features/chat/model/turnReconcile";
 import type { ChatWsTransport } from "@/features/chat/model/wsTransport";
 
 /**
@@ -64,10 +65,21 @@ describe("frames", () => {
     const run = play(streaming({ buffer: "so far", draft: { content: "", search_sources: sources } }), [
       frame({ type: "status", phase: "searching", detail: "weather" }),
     ]);
-    expect(run.state.draft).toEqual({ content: "so far", search_sources: sources, status: "searching", statusDetail: "weather" });
+    expect(run.state.draft).toEqual({
+      content: "so far", search_sources: sources, status: "searching", statusDetail: "weather", statusStartedAt: NOW,
+    });
     const blank = play(run.state, [frame({ type: "status", phase: "thinking", detail: "" }), frame({ type: "status" })]);
     expect(blank.state.draft).toMatchObject({ status: "thinking", statusDetail: undefined });
     expect(cues(blank.commands)).toEqual(["activity", "activity"]);
+  });
+
+  it("a step keeps its start when sent again, and starts as long ago as the server says", () => {
+    const thinking = play(streaming(), [frame({ type: "status", phase: "thinking", elapsed_ms: 4_000 })]);
+    expect(thinking.state.draft?.statusStartedAt).toBe(NOW - 4_000);
+    const again = play(thinking.state, [frame({ type: "status", phase: "thinking", elapsed_ms: 9_000 })]);
+    expect(again.state.draft?.statusStartedAt).toBe(NOW - 4_000);
+    const next = play(again.state, [frame({ type: "status", phase: "searching" })]);
+    expect(next.state.draft?.statusStartedAt).toBe(NOW);
   });
 
   it("tokens build the reply, clear the status and mark the first token", () => {
@@ -93,6 +105,15 @@ describe("frames", () => {
     const run = play(streaming({ pending: pending() }), [frame({ type: "stream_end" }), frame({ type: "stream_end", resolved_model: "smart-chat" })], [bubble]);
     expect(run.state).toMatchObject({ phase: "finalizing", pending: null });
     expect(run.messages[0].model).toBe("smart-chat");
+  });
+
+  it("stream_end drops a label left over from the reply's last step", () => {
+    const run = play(streaming({ buffer: "Done", draft: { content: "Done", status: "checking", statusStartedAt: NOW } }), [
+      frame({ type: "stream_end" }),
+    ]);
+    expect(run.state.phase).toBe("finalizing");
+    expect(run.state.draft).toEqual({ content: "Done", search_sources: undefined });
+    expect(run.of("outcome")).toEqual([{ type: "outcome", outcome: "send_ready" }]);
   });
 
   it("done settles the turn, merges the reply and announces the first reply once", () => {
@@ -203,7 +224,7 @@ describe("errors", () => {
 
 describe("a turn from send to the end", () => {
   const send = (content: string, extra: Partial<Extract<ChatTurnEvent, { type: "send" }>> = {}): ChatTurnEvent =>
-    ({ type: "send", content, ...extra });
+    ({ type: "send", content, clientMessageId: "name-1", ...extra });
 
   it("sends, streams and lands the reply", () => {
     const run = play(idle(), [
@@ -274,7 +295,7 @@ describe("a turn from send to the end", () => {
 });
 
 describe("dropped connections", () => {
-  const signal = (reason: "disconnect" | "closed_unread" | "first_event_timeout", duringTurn = true) =>
+  const signal = (reason: "disconnect" | "closed_unread" | "first_event_timeout" | "unresponsive", duringTurn = true) =>
     ({ reason, duringTurn }) as Extract<ChatTurnEvent, { type: "socket_fallback" }>["signal"];
   const dropped = (s: Extract<ChatTurnEvent, { type: "socket_fallback" }>["signal"]): ChatTurnEvent =>
     ({ type: "socket_fallback", transport: socket, signal: s });
@@ -305,6 +326,38 @@ describe("dropped connections", () => {
     expect(headRejectedSend(run.state)).toBeNull();
     expect(run.state).toMatchObject({ phase: "idle", pending: null });
     expect(run.of("report_error")[0]).toMatchObject({ key: "chat.error_unreachable" });
+  });
+
+  it("replays a named message when a probe finds its socket dead before start", () => {
+    const retry = jest.fn(async () => undefined);
+    const run = play(streaming({ pending: pending(), authFallback: { transport: socket, retry, idempotent: true } }),
+      [dropped(signal("unresponsive"))], [bubble]);
+    expect(run.of("retry_fallback")).toHaveLength(1);
+    expect(run.of("report_error")).toEqual([]);
+  });
+
+  it("gives up an unnamed send, a regenerate, on a dead socket instead of replaying it", () => {
+    const retry = jest.fn(async () => undefined);
+    const old = answer("m-1", "Old answer");
+    const run = play(streaming({ regenerateBackup: old, authFallback: { transport: socket, retry } }),
+      [dropped(signal("unresponsive"))], [bubble]);
+    expect(run.of("retry_fallback")).toEqual([]);
+    expect(run.messages).toEqual([old]);
+    expect(run.of("report_error")[0]).toMatchObject({ key: "chat.error_unreachable" });
+  });
+
+  it("follows the earlier send on duplicate, for minutes, instead of asking for a second turn", () => {
+    const run = play(streaming({ pending: pending({ clientMessageId: "c-1" }) }), [frame({ type: "duplicate" })], [bubble]);
+    const [follow] = run.of("follow_dropped_turn");
+    expect(follow.follow).toMatchObject({ via: "duplicate", pending: expect.objectContaining({ messageId: "local-1" }) });
+    expect(follow.polls).toBe(DUPLICATE_TURN_POLLS);
+    expect(follow.pollMs?.(0)).toBe(duplicateTurnPollMs(0));
+    expect(run.state.pending).toBeNull();
+  });
+
+  it("ignores a duplicate that arrives after Stop", () => {
+    const run = play(idle({ pending: pending() }), [frame({ type: "duplicate" })]);
+    expect(run.of("follow_dropped_turn")).toEqual([]);
   });
 
   it("follows a turn the server took until the reply lands", () => {

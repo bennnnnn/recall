@@ -63,6 +63,7 @@ from app.modules.chat.generic_closer import strip_generic_closer
 from app.modules.chat.json_output import check_requested_json
 from app.modules.chat.reply_labels import one_answer_label
 from app.modules.chat.search_links import unlink_unretrieved_links
+from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
@@ -90,6 +91,8 @@ class FinalizeState:
     committed: str | None = None
     # The user stopped the reply: it saves as they saw it (STOPPED_REPLY_PASSES).
     user_stopped: bool = False
+    # Tells the client what a slow pass is doing while the reply waits on it.
+    on_status: StreamStatusFn | None = None
 
     @property
     def server_text(self) -> bool:
@@ -250,6 +253,7 @@ async def enrich_final_content(
     assistant_parts: list[str],
     should_cancel: Callable[[], bool] | None,
     user_stopped: bool = False,
+    on_status: StreamStatusFn | None = None,
 ) -> str:
     """The reply as it persists: the finalize passes, then the reminder pass.
 
@@ -269,6 +273,7 @@ async def enrich_final_content(
         assistant_parts=assistant_parts,
         should_cancel=should_cancel,
         user_stopped=user_stopped,
+        on_status=on_status,
     )
     enriched = await run_finalize_passes(state)
     # Last, on the finished text: no later pass can fail and lose its card.

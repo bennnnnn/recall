@@ -7,10 +7,7 @@ import {
   type MdMathStyles,
   type MdTableStyles,
 } from "@/components/markdown/markdownContentStyles";
-import {
-  renderSettledFence,
-  renderStreamingFence,
-} from "@/components/markdown/markdownFenceRender";
+import { fenceRule } from "@/components/markdown/markdownFenceRender";
 import { blockRules } from "@/components/markdown/rules/blocks";
 import { codeRules } from "@/components/markdown/rules/code";
 import { inlineRules } from "@/components/markdown/rules/inline";
@@ -18,7 +15,8 @@ import { linkRules } from "@/components/markdown/rules/links";
 import { listRules } from "@/components/markdown/rules/lists";
 import { tableRules } from "@/components/markdown/rules/tables";
 import { textRules } from "@/components/markdown/rules/textWithMath";
-import type { RenderRules } from "react-native-markdown-display";
+import { withStableNodeKeys } from "@/components/markdown/stableNodeKeys";
+import { renderRules as libraryRules, type RenderRules } from "react-native-markdown-display";
 
 import type { Theme } from "@/lib/theme";
 
@@ -28,30 +26,38 @@ function makeSharedRules(
   mdMath: MdMathStyles,
   mdImg: MdImgStyles,
   mdCodeInline: object,
-  streaming = false,
 ) {
   return {
     ...linkRules(mdImg),
     ...textRules(t, mdTable, mdMath),
     ...inlineRules(mdTable, mdMath),
     ...listRules(t, mdMath),
-    ...blockRules(t, mdTable, mdMath, streaming),
+    ...blockRules(t, mdTable, mdMath),
     ...codeRules(mdTable, mdCodeInline),
     ...tableRules(),
   };
 }
 
-export function makeRenderRules(t: Theme, streaming = false) {
+/**
+ * `rules` draw a reply; `continuedRules` draw a piece of a reply whose last
+ * list goes on in the next piece (`listRules`). The same rules draw a reply
+ * while it streams and once it settles: what differs reads `ReplyStreaming`.
+ */
+export function makeRenderRules(t: Theme) {
   const mdMath = makeMdMath(t);
   const mdTable = makeMdTable(t);
   const mdImg = makeMdImg(t);
   const mdStyles = makeMdStyles(t);
-  // A streaming reply is not yet the server's final text: no answer check in it.
-  const fence = streaming ? renderStreamingFence : renderSettledFence;
-  const rules: RenderRules = {
-    ...makeSharedRules(t, mdTable, mdMath, mdImg, mdStyles.code_inline, streaming),
-    fence,
-    code_block: fence,
+  const shared = {
+    ...libraryRules,
+    ...makeSharedRules(t, mdTable, mdMath, mdImg, mdStyles.code_inline),
+    fence: fenceRule,
+    code_block: fenceRule,
   };
-  return { rules, mdStyles };
+  const rules: RenderRules = withStableNodeKeys(shared);
+  const continuedRules: RenderRules = withStableNodeKeys({
+    ...shared,
+    ...listRules(t, mdMath, true),
+  });
+  return { rules, continuedRules, mdStyles };
 }

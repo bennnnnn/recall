@@ -1,49 +1,57 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import type { FlashListRef } from "@shopify/flash-list";
 
-import { getStreamingDraftContentLength, subscribeStreamingDraft } from "@/lib/streamingDraftStore";
 import type { Message } from "@/lib/api";
+import { useOpenAtEnd } from "@/features/chat/hooks/useOpenAtEnd";
+import { useReaderDrag } from "@/features/chat/hooks/useReaderDrag";
 import {
   getScrollThresholds,
-  nextStreamingScrollDelay,
   resolveListAnchor,
   resolveScrollAtBottom,
-  shouldSchedulePostStreamScroll,
   shouldScrollToEndWhenPinned,
 } from "@/features/chat/model/scrollLogic";
-import { STREAM_AUTOSCROLL_RESUME_MS } from "@/lib/messageListLayout";
 import { clearScheduledTimeout, scheduleTimeout } from "@/lib/scheduleTimeout";
 import { tap } from "@/lib/haptics";
+import type { KeyboardSteps } from "@/hooks/useKeyboardInset";
 import { useLatestRef } from "@/lib/latestRef";
 
-/**
- * While streaming, JS owns bottom-pinning (FlashList autoscroll is off).
- * This is a throttle interval, not a debounce: `scheduleTimeout` clears and
- * restarts on every call, so a plain debounce here would never fire while
- * draft updates keep arriving faster than this interval (normal for a fast
- * provider) — the view would sit frozen through the stream and only catch
- * up once generation paused. `scheduleStreamingScroll` re-derives the
- * remaining wait from elapsed time so it still fires on a steady cadence.
- */
-const STREAMING_SCROLL_THROTTLE_MS = 64;
-/** Skip catch-up when already within a few pixels of the bottom. */
-const STREAMING_SCROLL_SLACK_PX = 8;
+/** What the message list wires to the scroll owner. */
+export type ChatListScroll = {
+  onContentSizeChange: (width: number, height: number) => void;
+  onListLayout: (height: number) => void;
+  /** FlashList measured and placed the rows: called before that frame is drawn. */
+  onLayoutCommit: () => void;
+  /** The reader drags the list, or a flick carries on: the pin waits until the scroll ends. */
+  onReaderScrollBegin: () => void;
+  /** The reader let go: with speed, the flick's momentum follows and the pin keeps waiting. */
+  onReaderScrollEndDrag: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /** A chat just opened and is not at its end yet: the list is drawn hidden. */
+  hidden: boolean;
+};
 
 type Options = {
   chatId: string | null;
   messagesLength: number;
   streamActive: boolean;
   windowHeight: number;
-  keyboardHeight: number;
+  /** The keyboard's steps while it moves (no React state); the thread follows them at the bottom. */
+  keyboardSteps: KeyboardSteps;
 };
 
+/**
+ * One writer pins the list to the bottom. While the reader is at the bottom
+ * and not dragging, every time the rows grow (streamed text, a settling reply's
+ * chrome, follow-up questions, an image) the list follows them in the frame
+ * they grew, after FlashList measured them. FlashList's own autoscroll is off:
+ * two writers fought, and it ran a tick late.
+ */
 export function useChatScroll({
   chatId,
   messagesLength,
   streamActive,
   windowHeight,
-  keyboardHeight,
+  keyboardSteps,
 }: Options) {
   const listRef = useRef<FlashListRef<Message>>(null);
   const atBottomRef = useRef(true);
@@ -53,13 +61,13 @@ export function useChatScroll({
   const maxScrollOffsetRef = useRef(0);
   const scrollOffsetRef = useRef(0);
   const viewportHeightRef = useRef(0);
-  const streamingScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const streamingScrollLastRunRef = useRef(0);
-  const streamEndScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keyboardScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevStreamActiveRef = useRef(false);
   const contentHeightRef = useRef(0);
   const pinnedOverflowRef = useRef(false);
+  /** Heights the pin last followed: FlashList's rows, and the scroll content. */
+  const followedRef = useRef({ rows: 0, content: 0 });
+  /** A search hit is being shown: the list is the highlight's to scroll, not the pin's. */
+  const heldRef = useRef(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [scrollAwayCount, setScrollAwayCount] = useState(0);
 
@@ -118,6 +126,31 @@ export function useChatScroll({
     });
   }, [windowHeight]);
 
+  /** The end, in this frame: FlashList's own scrollToEnd waits a tick and may scroll by index first. */
+  const scrollToEndNow = useCallback(() => {
+    const list = listRef.current;
+    const scroller = list?.getNativeScrollRef();
+    if (scroller) scroller.scrollToEnd({ animated: false });
+    else list?.scrollToEnd({ animated: false });
+  }, []);
+
+  const { hidden, openingRef, settleOpening, endOpening } = useOpenAtEnd({
+    chatId,
+    messagesLength,
+    streamActive,
+    heldRef,
+    scrollToEndNow,
+  });
+
+  /** See useScrollHoldForHighlight. */
+  const holdForHighlight = useCallback(
+    (held: boolean) => {
+      heldRef.current = held;
+      if (held && openingRef.current) endOpening();
+    },
+    [endOpening, openingRef],
+  );
+
   const syncScrollPosition = useCallback(
     (event?: NativeSyntheticEvent<NativeScrollEvent>) => {
       if (messagesLenRef.current === 0) {
@@ -142,6 +175,9 @@ export function useChatScroll({
     [readScrollThresholds, measureScrollMetrics, updateAtBottom, messagesLenRef],
   );
 
+  const drag = useReaderDrag(syncScrollPosition);
+  const readerMovingRef = drag.movingRef;
+
   const scrollToEndIfAtBottom = useCallback((animated: boolean) => {
     if (!atBottomRef.current) return;
     const metrics = measureScrollMetrics();
@@ -149,41 +185,19 @@ export function useChatScroll({
     listRef.current?.scrollToEnd({ animated });
   }, [measureScrollMetrics]);
 
-  const runStreamingScrollCatchUp = useCallback(() => {
-    streamingScrollLastRunRef.current = Date.now();
-    if (atBottomRef.current) {
-      // During streaming, FlashList autoscroll is disabled (see ChatMessageList)
-      // so this is the sole bottom-pin writer. Skip when already close; snap
-      // the rest — 64ms animated catch-ups read as micro-jitter.
+  /** Follow rows or content that grew, while the reader is at the bottom and not dragging. */
+  const followGrowth = useCallback(
+    (source: "rows" | "content", height: number) => {
+      const grew = height > followedRef.current[source] + 0.5;
+      followedRef.current[source] = height;
+      const still = !readerMovingRef.current && !openingRef.current && !heldRef.current;
+      if (!grew || !atBottomRef.current || !still) return;
       const metrics = measureScrollMetrics();
-      if (metrics && metrics.distanceFromBottom <= STREAMING_SCROLL_SLACK_PX) {
-        return;
-      }
-      listRef.current?.scrollToEnd({ animated: false });
-    } else {
-      requestAnimationFrame(() => syncScrollPosition());
-    }
-  }, [measureScrollMetrics, syncScrollPosition]);
-
-  const scheduleStreamingScroll = useCallback(() => {
-    const elapsed = Date.now() - streamingScrollLastRunRef.current;
-    const delay = nextStreamingScrollDelay(elapsed, STREAMING_SCROLL_THROTTLE_MS);
-    if (delay <= 0) {
-      clearScheduledTimeout(streamingScrollTimerRef);
-      runStreamingScrollCatchUp();
-      return;
-    }
-    // Trailing call for the tail of a burst — rescheduled on every call, but
-    // `delay` shrinks toward 0 as elapsed time grows, so the target fire time
-    // converges instead of being pushed out on every new update.
-    scheduleTimeout(streamingScrollTimerRef, delay, runStreamingScrollCatchUp);
-  }, [runStreamingScrollCatchUp]);
-
-  const schedulePostStreamScroll = useCallback(() => {
-    scheduleTimeout(streamEndScrollTimerRef, STREAM_AUTOSCROLL_RESUME_MS, () => {
-      scrollToEndIfAtBottom(false);
-    });
-  }, [scrollToEndIfAtBottom]);
+      if (metrics && !shouldScrollToEndWhenPinned(metrics.maxOffset)) return;
+      scrollToEndNow();
+    },
+    [measureScrollMetrics, scrollToEndNow, openingRef, readerMovingRef],
+  );
 
   useEffect(() => {
     if (messagesLength > 0 && newMessageCountRef.current > 0) {
@@ -200,35 +214,6 @@ export function useChatScroll({
   }, [messagesLength, scrollToEndIfAtBottom]);
 
   useEffect(() => {
-    const wasStreamActive = prevStreamActiveRef.current;
-    prevStreamActiveRef.current = streamActive;
-
-    if (!streamActive) {
-      // A trailing animated catch-up can still be queued from the last token
-      // burst. If it fires into the settle window it fights the instant pin
-      // and the row looks like a spring.
-      clearScheduledTimeout(streamingScrollTimerRef);
-      if (shouldSchedulePostStreamScroll(wasStreamActive, streamActive, atBottomRef.current)) {
-        schedulePostStreamScroll();
-      }
-      return;
-    }
-
-    const syncStreamingScroll = () => {
-      if (getStreamingDraftContentLength() > 0) {
-        scheduleStreamingScroll();
-      }
-    };
-
-    syncStreamingScroll();
-    const unsubscribe = subscribeStreamingDraft(syncStreamingScroll);
-    return () => {
-      unsubscribe();
-      clearScheduledTimeout(streamingScrollTimerRef);
-    };
-  }, [streamActive, scheduleStreamingScroll, schedulePostStreamScroll]);
-
-  useEffect(() => {
     requestAnimationFrame(() => syncScrollPosition());
   }, [messagesLength, syncScrollPosition]);
 
@@ -238,20 +223,14 @@ export function useChatScroll({
     viewportHeightRef.current = 0;
     contentHeightRef.current = 0;
     pinnedOverflowRef.current = false;
+    followedRef.current = { rows: 0, content: 0 };
     showScrollBtnRef.current = false;
     setShowScrollToBottom(false);
     setScrollAwayCount(0);
     atBottomRef.current = true;
-    streamingScrollLastRunRef.current = 0;
   }, [chatId]);
 
-  useEffect(() => {
-    return () => {
-      clearScheduledTimeout(streamingScrollTimerRef);
-      clearScheduledTimeout(streamEndScrollTimerRef);
-      clearScheduledTimeout(keyboardScrollTimerRef);
-    };
-  }, []);
+  useEffect(() => () => clearScheduledTimeout(keyboardScrollTimerRef), []);
 
   const scrollToLatest = useCallback(() => {
     tap();
@@ -262,13 +241,16 @@ export function useChatScroll({
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       syncScrollPosition(event);
+      if (openingRef.current) settleOpening(measureScrollMetrics(event));
     },
-    [syncScrollPosition],
+    [syncScrollPosition, settleOpening, measureScrollMetrics, openingRef],
   );
 
-  const handleScrollEnd = useCallback(() => {
-    syncScrollPosition();
-  }, [syncScrollPosition]);
+  const {
+    begin: handleReaderScrollBegin,
+    endDrag: handleReaderScrollEndDrag,
+    end: handleScrollEnd,
+  } = drag;
 
   const alignListToContent = useCallback(() => {
     if (messagesLenRef.current === 0) return;
@@ -286,21 +268,22 @@ export function useChatScroll({
       updateAtBottom(true);
       return;
     }
-    if (decision.action === "end") {
+    if (decision.action === "end" && !heldRef.current) {
       scrollOffsetRef.current = Math.max(
         0,
         contentHeightRef.current - viewportHeightRef.current,
       );
-      listRef.current?.scrollToEnd({ animated: false });
+      scrollToEndNow();
     }
-  }, [updateAtBottom, messagesLenRef]);
+  }, [updateAtBottom, scrollToEndNow, messagesLenRef]);
 
   const handleContentSizeChange = useCallback(
     (_width: number, height: number) => {
       contentHeightRef.current = height;
       alignListToContent();
+      followGrowth("content", height);
     },
-    [alignListToContent],
+    [alignListToContent, followGrowth],
   );
 
   const handleListLayout = useCallback(
@@ -311,10 +294,58 @@ export function useChatScroll({
     [alignListToContent],
   );
 
-  useEffect(() => {
-    if (keyboardHeight <= 0) return;
-    scheduleTimeout(keyboardScrollTimerRef, 50, () => scrollToEndIfAtBottom(true));
-  }, [keyboardHeight, scrollToEndIfAtBottom]);
+  // An interactive dismiss is the reader's own drag; an opening or held list is
+  // placed by its own rules.
+  const keyboardMayMoveList = useCallback(
+    () => !readerMovingRef.current && !openingRef.current && !heldRef.current,
+    [readerMovingRef, openingRef],
+  );
+
+  // Each step restarts the wait, so the thread catches up wherever the keyboard
+  // slows between steps, mid-animation, and once more after it stops.
+  useEffect(
+    () =>
+      keyboardSteps.subscribe((height) => {
+        if (height <= 0 || !keyboardMayMoveList()) return;
+        scheduleTimeout(keyboardScrollTimerRef, 50, () => {
+          if (keyboardMayMoveList()) scrollToEndIfAtBottom(true);
+        });
+      }),
+    [keyboardSteps, scrollToEndIfAtBottom, keyboardMayMoveList],
+  );
+
+  const handleLayoutCommit = useCallback(() => {
+    const list = listRef.current;
+    if (!list) return;
+    if (openingRef.current) {
+      settleOpening(measureScrollMetrics());
+      return;
+    }
+    try {
+      followGrowth("rows", list.getChildContainerDimensions().height);
+    } catch {
+      // FlashList has no layout yet.
+    }
+  }, [followGrowth, measureScrollMetrics, settleOpening, openingRef]);
+
+  const listScroll: ChatListScroll = useMemo(
+    () => ({
+      onContentSizeChange: handleContentSizeChange,
+      onListLayout: handleListLayout,
+      onLayoutCommit: handleLayoutCommit,
+      onReaderScrollBegin: handleReaderScrollBegin,
+      onReaderScrollEndDrag: handleReaderScrollEndDrag,
+      hidden,
+    }),
+    [
+      handleContentSizeChange,
+      handleListLayout,
+      handleLayoutCommit,
+      handleReaderScrollBegin,
+      handleReaderScrollEndDrag,
+      hidden,
+    ],
+  );
 
   return {
     listRef,
@@ -325,7 +356,16 @@ export function useChatScroll({
     scrollToLatest,
     handleScroll,
     handleScrollEnd,
-    handleContentSizeChange,
-    handleListLayout,
+    listScroll,
+    holdForHighlight,
   };
+}
+
+/**
+ * While a search hit is highlighted the list is the highlight's to scroll: an
+ * opened chat is not put at its end and the bottom pin stands down, so neither
+ * pulls the list back under the hit. A reply streaming takes the list back.
+ */
+export function useScrollHoldForHighlight(hold: (held: boolean) => void, held: boolean): void {
+  useLayoutEffect(() => hold(held), [hold, held]);
 }

@@ -117,6 +117,23 @@ it("does not show one account's catalog to the next", async () => {
   expect(shownIds()).toEqual(["free-chat"]);
 });
 
+it("does not fetch /models again when the access token rotates", async () => {
+  jest.mocked(api.listModels).mockResolvedValue([everyday, reasoning]);
+  const ui = await render(<Screen />);
+  await waitFor(() => expect(shownIds()).toEqual(["free-chat", "smart-chat"]));
+  expect(api.listModels).toHaveBeenCalledTimes(1);
+
+  mockToken = "token-a-refreshed";
+  await ui.rerender(<Screen />);
+  await act(async () => {});
+  expect(api.listModels).toHaveBeenCalledTimes(1);
+
+  await act(async () => {
+    await current.refresh();
+  });
+  expect(api.listModels).toHaveBeenLastCalledWith("token-a-refreshed");
+});
+
 it("does not persist a /models response that lands after signout", async () => {
   const late = deferred<ModelInfo[]>();
   jest.mocked(api.listModels).mockReturnValue(late.promise);

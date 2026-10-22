@@ -25,7 +25,7 @@ type Options = {
  */
 export function useDroppedTurnReconcile({ token, chatId, isCurrentView, messages, attempt, streaming }: Options) {
   return useCallback(
-    (settle: (result: DroppedTurnResult) => void, polls?: number) => {
+    (settle: (result: DroppedTurnResult) => void, polls?: number, pollMs?: (poll: number) => number) => {
       if (!token || !chatId) {
         settle({ state: "unknown", page: null });
         return;
@@ -36,6 +36,7 @@ export function useDroppedTurnReconcile({ token, chatId, isCurrentView, messages
         known: knownServerIds(messages()),
         stillWaiting: () => isCurrentView() && attempt() === followed && streaming(),
         polls,
+        pollMs,
       }).then((result) => {
         if (result) settle(result);
       });

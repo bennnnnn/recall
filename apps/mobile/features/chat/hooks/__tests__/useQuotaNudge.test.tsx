@@ -16,6 +16,11 @@ let mockSession: { account: string | null; getToken: () => string | null } = moc
 jest.mock("@/contexts/accountSession", () => ({
   useAccountSession: () => mockSession,
 }));
+// The launch cache paints every plan as free until /auth/me answers.
+let mockProfileValidated = true;
+jest.mock("@/contexts/AuthContext", () => ({
+  useAuthOptional: () => ({ profileValidated: mockProfileValidated }),
+}));
 
 const fetchUsage = fetchTodayUsage as jest.Mock;
 
@@ -42,6 +47,7 @@ beforeEach(() => {
   fetchUsage.mockReset();
   fetchUsage.mockResolvedValue(usage(50_000));
   mockSession = mockSessions.a;
+  mockProfileValidated = true;
   resetQuotaNudgeDismissal();
 });
 
@@ -77,6 +83,19 @@ it("reads again for another account", async () => {
   await act(async () => { await rerender({ paid: false }); });
   expect(fetchUsage).toHaveBeenCalledTimes(2);
   expect(fetchUsage).toHaveBeenLastCalledWith("user-b:0", "token");
+});
+
+it("waits for the server's plan before reading today's usage", async () => {
+  // A paid plan painted from the launch cache must not read usage, nor show from a turn.
+  mockProfileValidated = false;
+  const { result, rerender } = await setup();
+  expect(fetchUsage).not.toHaveBeenCalled();
+  await act(async () => { result.current.applyTurnUsage({ used_tokens: 99_000, daily_limit: 100_000 }); });
+  expect(result.current).toMatchObject({ show: false, usedPct: 0 });
+
+  mockProfileValidated = true;
+  await act(async () => { await rerender({ paid: false }); });
+  expect(fetchUsage).toHaveBeenCalledTimes(1);
 });
 
 it("never reads or shows for a paid plan", async () => {

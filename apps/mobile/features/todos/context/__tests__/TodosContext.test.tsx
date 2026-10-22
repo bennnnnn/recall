@@ -56,6 +56,20 @@ beforeEach(() => {
 });
 afterEach(() => { jest.restoreAllMocks(); jest.useRealTimers(); });
 
+it("keeps its value through an auth change that touches no to-do field, so readers do not render", async () => {
+  const rendered = jest.fn();
+  function CountingProbe() { useTodos(); rendered(); return null; }
+  const probe = <CountingProbe />;
+  const ui = await render(<TodosProvider>{probe}</TodosProvider>);
+  // The list read and the reminder state settle first.
+  await act(async () => { await Promise.resolve(); });
+  const settled = rendered.mock.calls.length;
+  // A token refresh re-renders the provider; the to-do value is the same.
+  mockToken = "refreshed-token";
+  await ui.rerender(<TodosProvider>{probe}</TodosProvider>);
+  expect(rendered).toHaveBeenCalledTimes(settled);
+});
+
 it("hides the previous account immediately and rejects its late list result", async () => {
   const old = deferred(); const next = deferred();
   jest.mocked(api.listTodos).mockReturnValueOnce(old.promise).mockReturnValueOnce(next.promise);

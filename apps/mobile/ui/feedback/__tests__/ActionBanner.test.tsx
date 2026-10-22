@@ -41,6 +41,20 @@ describe("ActionBanner", () => {
     expect(getByLabelText("Saved")).toBeOnTheScreen();
   });
 
+  it("rides a lift above its offset, and moves nothing without one", async () => {
+    const lifted = await render(
+      <ActionBanner message="Saved" onDismiss={jest.fn()} lift={{ value: 120 } as never} />,
+    );
+    expect(lifted.getByTestId("action-banner-host")).toHaveStyle({
+      transform: [{ translateY: -120 }],
+    });
+
+    const resting = await render(<ActionBanner message="Saved" onDismiss={jest.fn()} />);
+    expect(resting.getByTestId("action-banner-host").props.style).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ transform: expect.anything() })]),
+    );
+  });
+
   it("dismisses a success after two seconds", async () => {
     const onDismiss = jest.fn();
     await render(<ActionBanner message="Saved" tone="success" onDismiss={onDismiss} />);

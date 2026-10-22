@@ -100,7 +100,7 @@ async def _reserve_daily_slot(redis: Redis, key: str, *, limit: int) -> bool:
     charge is left without a TTL (as in ``core/rate_limit.allow_request``).
 
     M10: Redis outages fail closed with ``RedisUnavailableError`` — same
-    pattern as ``reserve_usage`` so speech/image/Tavily paths return 503
+    pattern as ``reserve_usage_up_to`` so speech/image/Tavily paths return 503
     instead of an opaque 500.
     """
     if limit <= 0:

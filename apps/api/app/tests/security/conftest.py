@@ -22,7 +22,7 @@ import fakeredis.aioredis
 import httpx
 import pytest
 
-from app.core import access_tokens
+from app.core import access_tokens, user_cache
 from app.core import redis as core_redis
 from app.core.config import Settings, get_settings
 
@@ -222,10 +222,15 @@ def isolated_settings(monkeypatch: pytest.MonkeyPatch, storage_root: Path) -> Se
 
 
 def use_fake_redis(monkeypatch: pytest.MonkeyPatch, fake: Any) -> None:
-    """Every Redis client the app makes (the app's and the jobs stream's) is ``fake``."""
+    """Every Redis client the app makes (the app's and the jobs stream's) is ``fake``.
+
+    The user cache's publishes too, so a change's new generation is what the
+    next request's token check reads (``core/user_cache``).
+    """
     core_redis.get_redis_client.cache_clear()
     core_redis.get_jobs_redis_client.cache_clear()
     monkeypatch.setattr(core_redis, "_connect", lambda *_a, **_k: fake)
+    monkeypatch.setattr(user_cache, "get_redis_client", lambda: fake)
 
 
 def reset_process_caches() -> None:

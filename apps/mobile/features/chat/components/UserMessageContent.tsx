@@ -17,6 +17,7 @@ import {
   isPdfContentType,
   parseUserMessageContent,
 } from "@/lib/messageAttachments";
+import { messageListKey } from "@/lib/messageListLayout";
 import { shouldCollapseMessage } from "@/lib/markdown/messageFold";
 import { displayMathToInline } from "@/lib/math/solutionBars";
 import { Radius } from "@/lib/radius";
@@ -118,9 +119,9 @@ export function UserMessageContent({ message }: Props) {
               </View>
             ) : null}
             {showCaption ? (
-              <UserBubbleBody content={parsed.caption} />
+              <UserBubbleBody key={messageListKey(message)} content={parsed.caption} />
             ) : plainText ? (
-              <UserBubbleBody content={plainText} />
+              <UserBubbleBody key={messageListKey(message)} content={plainText} />
             ) : null}
           </View>
         </CollapsibleMessageBody>
@@ -129,6 +130,7 @@ export function UserMessageContent({ message }: Props) {
   );
 }
 
+/** Keyed by its message: a list row reused for another message draws it afresh. */
 function UserBubbleBody({ content }: { content: string }) {
   const inline = displayMathToInline(content);
   if (sentMessageShowsMathPreview(inline)) {

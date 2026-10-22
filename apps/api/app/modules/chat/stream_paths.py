@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncGenerator, AsyncIterator, Callable
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from contextlib import aclosing, suppress
 from dataclasses import dataclass, field, replace
 from typing import Any
@@ -19,13 +19,14 @@ from redis.asyncio import Redis
 
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
-from app.gateways.litellm_gateway import StreamAttempt
+from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
 from app.modules.chat import tool_loop
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_events import clear_task_cancellation
+from app.modules.chat.stream_health import ReplyHealth, probe_gate
 from app.modules.chat.stream_scaffold import ScaffoldFilter
-from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
+from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn, thinking_status
 from app.modules.chat.tool_gate import should_classify_tool_web_search
 from app.modules.chat.tool_loop import reply_calls
 from app.modules.chat.tool_loop.parts import open_parts, searchable_parts, turn_plan
@@ -34,7 +35,6 @@ from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
 from app.modules.web_search.subject import collect_prior_user_messages, last_assistant_content
-from app.services import model_health as model_health_service
 from app.services.solving import VerifiedMathBlock
 
 logger = logging.getLogger(__name__)
@@ -81,6 +81,8 @@ class _LoopGate:
     has_instant_reply: bool
     has_verified_math: bool
     has_search_sources: bool
+    # Tools the turn's pre-work already ran without an answer.
+    skip_tools: frozenset[str] = frozenset()
 
     @classmethod
     def of(cls, ctx: StreamContext) -> _LoopGate:
@@ -91,6 +93,10 @@ class _LoopGate:
             has_instant_reply=ctx.instant_reply is not None,
             has_verified_math=ctx.verified_subject is not None,
             has_search_sources=bool(sources),
+            skip_tools=tool_loop.spent_tools(
+                solve_timed_out=getattr(ctx, "solve_timed_out", False) is True,
+                photo_missed=getattr(ctx, "photo_missed", False) is True,
+            ),
         )
 
     def needs_loop(
@@ -105,6 +111,7 @@ class _LoopGate:
             web_search=web_search,
             settings=settings,
             user=user,
+            skip_tools=self.skip_tools,
         )
 
     def reply_tools(self, settings: Settings, prompt: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -209,6 +216,7 @@ async def run_tool_loop_path(
         user_location=ctx.search_location,
         has_verified_math=gate.has_verified_math,
         search_parts=search_parts,
+        skip_tools=gate.skip_tools,
     )
     _apply_tool_rounds(ctx, rounds)
 
@@ -265,6 +273,8 @@ async def run_llm_token_stream(
 ) -> AsyncIterator[str]:
     """The model's reply. A call it makes to its tool runs, and one more call answers."""
     requested_model = ctx.model
+    health = ReplyHealth()
+    may_try = probe_gate(redis, settings, ctx.probe_models)
     scaffold = ScaffoldFilter()
     if on_status is not None:
         # The model is writing now: a tool or search label must not linger.
@@ -280,13 +290,12 @@ async def run_llm_token_stream(
             async with aclosing(
                 _stream_round(
                     deps,
-                    redis,
                     settings,
                     ctx,
                     reply_round,
+                    _RoundHooks(health, may_try, on_reasoning, on_status),
                     usage=usage,
                     should_cancel=should_cancel,
-                    on_reasoning=on_reasoning,
                     accum=accum,
                     scaffold=scaffold,
                 )
@@ -318,29 +327,43 @@ async def run_llm_token_stream(
         finish = reply_round.meta.get("finish_reason")
         if finish in _INCOMPLETE_FINISH_REASONS and not accum.was_cancelled:
             accum.mark_truncated()
+    except ModelUnavailableError:
+        health.failed = True
+        raise
     except asyncio.CancelledError:
         clear_task_cancellation()
         accum.mark_user_stop()
         raise
+    finally:
+        model = reply_round.meta.get("model_alias") or ctx.model
+        await health.record(redis, model, stopped=accum.was_cancelled)
     if outcome is not None and ctx.model != requested_model:
         outcome.fallback_used = True
 
 
+@dataclass(frozen=True)
+class _RoundHooks:
+    """What every model call of one reply reports to, and asks before it tries a model."""
+
+    health: ReplyHealth
+    may_try: Callable[[str], Awaitable[bool]] | None
+    on_reasoning: StreamReasoningFn | None
+    on_status: StreamStatusFn | None
+
+
 async def _stream_round(
     deps: ChatTurnDeps,
-    redis: Redis,
     settings: Settings,
     ctx: StreamContext,
     reply_round: _ReplyRound,
+    hooks: _RoundHooks,
     *,
     usage: dict[str, int],
     should_cancel: Callable[[], bool] | None,
-    on_reasoning: StreamReasoningFn | None,
     accum: StreamAccum,
     scaffold: ScaffoldFilter,
 ) -> AsyncGenerator[str]:
     """One model call's tokens, added to the reply; its tool calls land on the round."""
-    attempts: list[StreamAttempt] = []
     llm_stream = deps.llm.stream_chat_completion(
         settings=settings,
         model_alias=ctx.model,
@@ -349,9 +372,11 @@ async def _stream_round(
         usage=usage,
         fallback_aliases=ctx.fallback_models,
         stream_meta=reply_round.meta,
-        on_reasoning=on_reasoning,
+        on_reasoning=hooks.on_reasoning,
         thinking=ctx.thinking,
-        attempts=attempts,
+        attempts=hooks.health.attempts,
+        on_thinking=thinking_status(hooks.on_status, hooks.health.started),
+        may_try=hooks.may_try,
         tools=reply_round.tools or None,
         tool_calls=reply_round.calls,
     )
@@ -365,6 +390,7 @@ async def _stream_round(
                 # token. No token goes out before it has: a reply to a message
                 # that never saved would be neither stored nor charged. The
                 # model did answer, so a failed save is not its health sample.
+                hooks.health.first_token()
                 await await_user_message_persist(ctx)
                 if ctx.timing is not None:
                     ctx.timing.mark_first_token()
@@ -399,8 +425,6 @@ async def _stream_round(
                 )
             else:
                 await close()
-        # One sample per alias the gateway tried, timed to its first content.
-        await model_health_service.record_attempts(redis, attempts)
 
 
 async def _answer_reply_calls(

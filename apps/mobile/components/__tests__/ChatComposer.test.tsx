@@ -214,6 +214,34 @@ describe("ChatComposer math keyboard", () => {
     );
   });
 
+  it("keeps reporting its size while the drawer hides it, so the chat under the drawer keeps its layout", async () => {
+    const onInputFrameExtraChange = jest.fn();
+    const onMathChromeHeightChange = jest.fn();
+    const composer = (visible: boolean) => (
+      <DraftHarness input={"First line\nSecond line"}>
+        <ChatComposer
+          {...baseProps}
+          visible={visible}
+          sendStatus="chat.locating"
+          onInputFrameExtraChange={onInputFrameExtraChange}
+          onMathChromeHeightChange={onMathChromeHeightChange}
+        />
+      </DraftHarness>
+    );
+    const view = await render(composer(true));
+    const extra = onInputFrameExtraChange.mock.calls.at(-1)?.[0];
+    const chrome = onMathChromeHeightChange.mock.calls.at(-1)?.[0];
+    expect(extra).toBeGreaterThan(0);
+    expect(chrome).toBeGreaterThan(0);
+    onInputFrameExtraChange.mockClear();
+    onMathChromeHeightChange.mockClear();
+
+    await view.rerender(composer(false));
+    expect(view.queryByTestId("chat-composer")).toBeNull();
+    expect(onInputFrameExtraChange).not.toHaveBeenCalled();
+    expect(onMathChromeHeightChange).not.toHaveBeenCalled();
+  });
+
   it("returns an expanded multiline input to its default height after send", async () => {
     function SendClearsDraft() {
       const draft = useComposerDraftApi();

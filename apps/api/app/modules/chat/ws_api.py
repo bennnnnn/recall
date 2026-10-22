@@ -1,14 +1,18 @@
 """The chat WebSocket: handshake limits, auth, then one frame at a time.
 
-A message or regenerate frame becomes a turn (``ws_turn``); the socket's own
-limits (frames, sockets per user, idle time) are ``ws_limits``.
+A message or regenerate frame becomes a turn (``ws_turn``); one that arrives
+while the last turn saves runs as soon as that turn is done. The socket's own
+limits (frames, sockets per user, idle time) are ``ws_limits``. A ping is
+answered with a pong, and a message the server already took (its
+``client_message_id``) with ``duplicate`` instead of a second turn.
 """
 
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
+from functools import partial
 from typing import Any
 from uuid import UUID
 
@@ -24,10 +28,14 @@ from app.core.log_context import bound_log_ids
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.exceptions import AuthenticationError, RedisUnavailableError
+from app.models.orm import User
 from app.models.schemas import ChatMessageRequest
 from app.modules.chat import stream_entry, turn_deps
+from app.modules.chat.client_message import claim_client_message
 from app.modules.chat.stream_events import (
     SERVER_RESTARTING_MESSAGE,
+    build_duplicate_event,
+    build_pong_event,
     build_reasoning_event,
     build_status_event,
     turn_error_payload,
@@ -44,7 +52,7 @@ from app.modules.chat.ws_limits import (
     safe_send_json,
     user_socket_slot,
 )
-from app.modules.chat.ws_turn import run_chat_stream
+from app.modules.chat.ws_turn import TURN_FRAME_TYPES, run_chat_stream
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["websocket"])
@@ -52,7 +60,6 @@ router = APIRouter(tags=["websocket"])
 _WS_MSG_WINDOW_SECONDS = 60
 _WS_CONNECT_RATE_LIMIT = 30
 _WS_HANDSHAKE_RATE_LIMIT = 60  # unauthenticated connects per IP per minute
-_CHARGEABLE_WS_TYPES = frozenset({"message", "regenerate"})
 
 
 async def _ws_rate_limit(redis: Redis, user_id: UUID) -> bool:
@@ -90,8 +97,10 @@ async def _ws_handshake_rate_limit(redis: Redis, websocket: WebSocket) -> bool:
 def _status_emitters(websocket: WebSocket) -> tuple[StreamStatusFn, StreamReasoningFn]:
     """Shared status/reasoning WS emitters for chargeable chat actions."""
 
-    async def emit_status(phase: str, detail: str | None = None) -> None:
-        await safe_send_json(websocket, build_status_event(phase, detail))
+    async def emit_status(
+        phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+    ) -> None:
+        await safe_send_json(websocket, build_status_event(phase, detail, elapsed_ms=elapsed_ms))
 
     async def emit_reasoning(chunk: str) -> None:
         await safe_send_json(websocket, build_reasoning_event(chunk))
@@ -125,12 +134,12 @@ async def _handle_regenerate(
     emit_status: StreamStatusFn,
     emit_reasoning: StreamReasoningFn,
     frame_budget: FrameBudget | None = None,
-) -> None:
+) -> dict[str, Any] | None:
     try:
         request = ChatMessageRequest.model_validate(payload)
     except ValidationError:
         await websocket.send_json({"type": "error", "message": "Invalid regenerate request"})
-        return
+        return None
 
     def _regen_stream(outcome: TurnOutcome) -> AsyncIterator[str]:
         return stream_entry.stream_regenerate_response(
@@ -147,7 +156,7 @@ async def _handle_regenerate(
             **_client_geo_kwargs(request, client_timezone=client_timezone),
         )
 
-    await run_chat_stream(
+    return await run_chat_stream(
         websocket,
         cancel_event=cancel_event,
         stream_factory=_regen_stream,
@@ -169,14 +178,15 @@ async def _handle_message(
     emit_status: StreamStatusFn,
     emit_reasoning: StreamReasoningFn,
     frame_budget: FrameBudget | None = None,
-) -> None:
+    access: access_tokens.AccessCheck | None = None,
+) -> dict[str, Any] | None:
     try:
         request = ChatMessageRequest.model_validate(payload)
     except ValidationError:
         await websocket.send_json(
             turn_error_payload(None, user_message_saved=False, message="Invalid message")
         )
-        return
+        return None
 
     # Reject an empty text-only message at the WS layer so the client gets an
     # explicit error frame immediately, rather than the stream raising
@@ -186,7 +196,25 @@ async def _handle_message(
         await websocket.send_json(
             turn_error_payload(None, user_message_saved=False, message="Message cannot be empty.")
         )
-        return
+        return None
+
+    try:
+        claim = await claim_client_message(
+            redis, user_id=user_id, chat_id=chat_id, client_message_id=request.client_message_id
+        )
+    except RedisUnavailableError as exc:
+        await safe_send_json(websocket, turn_error_payload(exc, user_message_saved=False))
+        return None
+    if claim is None:
+        # A resend of a message an earlier turn took (its socket died before the
+        # phone heard ``start``): the phone follows that turn instead.
+        await safe_send_json(websocket, build_duplicate_event())
+        return None
+
+    user_generation = access.user_generation if access is not None else None
+    user: User | None = (
+        user_cache.cached_user(user_id, user_generation) if user_generation is not None else None
+    )
 
     def _message_stream(outcome: TurnOutcome) -> AsyncIterator[str]:
         return stream_entry.stream_chat_response(
@@ -195,8 +223,6 @@ async def _handle_message(
             settings,
             user_id=user_id,
             chat_id=chat_id,
-            # The turn checks the cached row is current before trusting it.
-            user=user_cache.cached_copy(user_id),
             content=request.content,
             model_alias=request.model,
             attachment_ids=request.attachment_ids,
@@ -204,15 +230,18 @@ async def _handle_message(
             outcome=outcome,
             on_status=emit_status,
             on_reasoning=emit_reasoning,
+            user=user,
+            user_generation=user_generation,
             **_client_geo_kwargs(request, client_timezone=client_timezone),
         )
 
-    await run_chat_stream(
+    return await run_chat_stream(
         websocket,
         cancel_event=cancel_event,
         stream_factory=_message_stream,
         chat_id=chat_id,
         frame_budget=frame_budget,
+        claim=claim,
     )
 
 
@@ -229,6 +258,8 @@ class _ChatSocket:
     client_timezone: str | None
     cancel_event: asyncio.Event
     frame_budget: FrameBudget
+    # A turn sent while the last one saved: it runs before the socket is read again.
+    next_turn: dict[str, Any] | None = None
 
 
 async def _authenticate(
@@ -331,6 +362,12 @@ async def _serve_frames(conn: _ChatSocket) -> None:
     websocket, chat_id = conn.websocket, conn.chat_id
     try:
         while True:
+            held, conn.next_turn = conn.next_turn, None
+            if held is not None:
+                # Counted against the frame budget when it arrived.
+                if not await _dispatch(conn, held):
+                    return
+                continue
             try:
                 payload = await receive_frame(websocket, conn.settings.ws_idle_timeout_seconds)
             except TimeoutError:
@@ -381,7 +418,12 @@ async def _dispatch(conn: _ChatSocket, payload: dict[str, Any]) -> bool:
     if msg_type == "cancel":
         conn.cancel_event.set()
         return True
-    if msg_type not in _CHARGEABLE_WS_TYPES:
+    if msg_type == "ping":
+        # Counted by the frame budget like any frame; the phone pings on connect
+        # and when a send goes unanswered, never to keep an idle socket open.
+        await safe_send_json(websocket, build_pong_event())
+        return True
+    if msg_type not in TURN_FRAME_TYPES:
         return True
     if shutdown.stopping():
         # A turn begun now would be stopped before its first token.
@@ -393,8 +435,9 @@ async def _dispatch(conn: _ChatSocket, payload: dict[str, Any]) -> bool:
     # Re-check access on every chargeable frame so logout / account
     # delete / refresh-reuse revoke (purge_user_sessions) actually
     # closes open sockets — handshake-only verify would leave them live.
+    # The same read says whether this process's copy of the user is current.
     try:
-        await access_tokens.verify_access_token(conn.redis, conn.token, conn.settings)
+        access = await access_tokens.check_access(conn.redis, conn.token, conn.settings)
     except RedisUnavailableError as exc:
         await safe_send_json(
             websocket,
@@ -414,9 +457,11 @@ async def _dispatch(conn: _ChatSocket, payload: dict[str, Any]) -> bool:
         )
         return True
 
-    handle = _handle_regenerate if msg_type == "regenerate" else _handle_message
+    handle: Callable[..., Awaitable[dict[str, Any] | None]] = (
+        _handle_regenerate if msg_type == "regenerate" else partial(_handle_message, access=access)
+    )
     emit_status, emit_reasoning = _status_emitters(websocket)
-    await handle(
+    conn.next_turn = await handle(
         websocket,
         redis=conn.redis,
         settings=conn.settings,

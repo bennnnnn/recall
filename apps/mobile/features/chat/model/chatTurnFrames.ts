@@ -1,4 +1,5 @@
 import { CONSENT_REQUIRED_CODE } from "@/lib/api/consentRefusal";
+import { phaseStartedAt } from "@/lib/streamStatusLabel";
 import { withStreamingPlaceholder } from "@/features/chat/model/partialStream";
 import type { RejectedSend } from "@/features/chat/model/sendLogic";
 import type { ChatSsePayload } from "@/features/chat/model/sse";
@@ -11,6 +12,7 @@ import {
   shouldIgnoreStoppedStreamEvent,
 } from "@/features/chat/model/socketReduce";
 import { completionFromDone } from "@/features/chat/model/turnOutcome";
+import { DUPLICATE_TURN_POLLS, duplicateTurnPollMs } from "@/features/chat/model/turnReconcile";
 import {
   clearStreamingBubble,
   cue,
@@ -65,6 +67,8 @@ function onDone(s: ChatTurnState, out: Out, payload: ChatSsePayload, now: number
 }
 
 function onError(s: ChatTurnState, out: Out, payload: ChatSsePayload, ttftTurnId: string | null | undefined, now: number): void {
+  // After `stream_end` only the save was left: the reply came whole and failed to save.
+  const saveFailed = s.phase === "finalizing";
   cue(out, "error");
   const code = typeof payload.code === "string" ? payload.code : undefined;
   out.push({ type: "outcome", outcome: "report", completion: "error", code });
@@ -88,11 +92,12 @@ function onError(s: ChatTurnState, out: Out, payload: ChatSsePayload, ttftTurnId
   if (s.regenerateBackup) {
     restoreRegenerateBackup(s, out);
   } else if (partial) {
-    // Keep what the user already saw (as Stop and a dropped connection do).
+    // Keep what the user already saw (as Stop and a dropped connection do), said on the
+    // reply itself when it came whole, where it outlasts the banner the next turn clears.
     const keptId = `streamed-${now}`;
     s.draft = null;
     messages(out, (previous) => (previous.some((m) => m.id === "streaming")
-      ? keepStreamedBubble(previous, keptId, partial, draft)
+      ? keepStreamedBubble(previous, keptId, partial, draft, saveFailed)
       : previous));
     s.stoppedStreamedId = keptId;
   } else {
@@ -100,6 +105,24 @@ function onError(s: ChatTurnState, out: Out, payload: ChatSsePayload, ttftTurnId
   }
   const queuedReason = pending && reason ? headRejectedSend(s)?.reason : undefined;
   reportError(out, { message: payload.message, key: "chat.error_generic", code: queuedReason ?? code });
+}
+
+/**
+ * `duplicate`: an earlier send of this message reached the server, which runs that
+ * turn. Follow it until its reply lands (minutes, for a long turn); no second turn
+ * is asked for. Not found in the chat, it is offered again under a new name.
+ */
+function onDuplicate(s: ChatTurnState, out: Out): void {
+  if (s.phase === "idle") return;
+  const pending = s.pending;
+  s.pending = null;
+  s.authFallback = null;
+  out.push({
+    type: "follow_dropped_turn",
+    follow: { via: "duplicate", pending },
+    polls: DUPLICATE_TURN_POLLS,
+    pollMs: duplicateTurnPollMs,
+  });
 }
 
 /** Applies one socket or SSE frame; late deltas after Stop and unknown types change nothing. */
@@ -122,7 +145,12 @@ export function applyFrame(
       s.phase = "streaming";
       s.buffer = "";
       // Keep the instant local status instead of blanking it until the first status frame.
-      s.draft = { content: "", status: s.draft?.status, statusDetail: s.draft?.statusDetail };
+      s.draft = {
+        content: "",
+        status: s.draft?.status,
+        statusDetail: s.draft?.statusDetail,
+        statusStartedAt: s.draft?.statusStartedAt,
+      };
       messages(out, (previous) => withStreamingPlaceholder(previous));
       return;
     case "status":
@@ -134,18 +162,23 @@ export function applyFrame(
         search_sources: s.draft?.search_sources,
         status: payload.phase,
         statusDetail: typeof payload.detail === "string" && payload.detail ? payload.detail : undefined,
+        statusStartedAt: phaseStartedAt(s.draft, payload.phase, payload.elapsed_ms, now),
       };
       return;
     case "token":
       cue(out, "activity");
       s.pending = null;
       out.push({ type: "first_token", turnId: ttftTurnId, frame: payload.type });
+      out.push({ type: "outcome", outcome: "token" });
       s.buffer += payload.content ?? "";
       s.draft = { content: s.buffer, search_sources: s.draft?.search_sources, status: undefined, statusDetail: undefined };
       return;
     case "stream_end": {
       s.pending = null;
+      out.push({ type: "outcome", outcome: "send_ready" });
       s.phase = "finalizing";
+      // The reply is whole: a label from its last step must not outlive it.
+      if (s.draft?.status !== undefined) s.draft = { content: s.draft.content, search_sources: s.draft.search_sources };
       const model = payload.resolved_model;
       if (typeof model === "string" && model) messages(out, (previous) => applyStreamEndModel(previous, model));
       return;
@@ -163,6 +196,9 @@ export function applyFrame(
     case "error":
       onError(s, out, payload, ttftTurnId, now);
       return;
-    // `reasoning` is not the answer; status already says the model is working.
+    case "duplicate":
+      onDuplicate(s, out);
+      return;
+    // `reasoning` is not the answer; the `thinking` status says the model is working.
   }
 }

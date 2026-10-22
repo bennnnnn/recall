@@ -6,6 +6,7 @@ type SendGuardVerdict = "send" | "blocked" | "offline" | "streaming";
 /** Whether a tap on Send may start a turn. */
 export function canSend(input: {
   sendInFlight: boolean;
+  /** Nothing of the routed chat is on screen yet; a painted cached page is enough to send on. */
   chatLoading: boolean;
   chatId: string | null;
   routeChatId?: string;
@@ -18,7 +19,7 @@ export function canSend(input: {
   /** A picked file is still being prepared; sending now would leave it behind. */
   attachPicking: boolean;
 }): SendGuardVerdict {
-  // A send still preparing, or a routed chat whose history has not loaded.
+  // A send still preparing, or a routed chat with nothing on screen yet.
   if (
     input.sendInFlight || input.chatLoading ||
     (input.routeChatId != null && input.routeChatId !== input.chatId)

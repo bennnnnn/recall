@@ -20,7 +20,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy import exists, select, update
 
-from app.core import jobs
+from app.core import jobs, user_cache
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
@@ -156,8 +156,14 @@ async def _clear_state(redis: Redis, user_id: UUID) -> None:
 async def scan_recent_chats(settings: Settings, *, user_id: UUID) -> None:
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, user_id)
-        if user is None or not memory_switch_on(user) or user.memory_history_scanned_at:
-            return
+    if user is None or not memory_switch_on(user):
+        return
+    if user.memory_history_scanned_at:
+        # Asked by a cached copy still saying "not scanned", or retried after the
+        # stamp's publish failed: retire those copies (core/user_cache).
+        await user_cache.publish_change(user_id)
+        await _clear_state(get_redis_client(), user_id)
+        return
     redis = get_redis_client()
     already_read = await _chats_read(redis, user_id)
     chat_ids = await _recent_chat_ids(user_id)
@@ -190,6 +196,8 @@ async def scan_recent_chats(settings: Settings, *, user_id: UUID) -> None:
             .values(memory_history_scanned_at=datetime.now(UTC))
         )
         await session.commit()
+    # Cached copies of the row still say "not scanned" (core/user_cache).
+    await user_cache.publish_change(user_id)
     await _clear_state(redis, user_id)
     logger.info(
         "memory history scan done user_id=%s chats=%s missed=%s", user_id, len(chat_ids), missed

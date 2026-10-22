@@ -7,13 +7,14 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.core.config import Settings
-from app.gateways.litellm_gateway import StreamAttempt
+from app.gateways.stream_signals import StreamAttempt
 from app.modules.chat import chats_repository, messages_repository
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.tests.modules.chat.chat_test_support import (
     FakeSessionCM as _FakeSessionCM,
 )
 from app.tests.modules.chat.chat_test_support import (
+    grant_quota,
     offline_deps,
     stub_recent,
     turn_deps,
@@ -53,7 +54,7 @@ async def test_stream_does_not_duplicate_user_message(fake_redis, stream_offline
     fake_chat.summary = None
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
         patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=1)),
@@ -95,7 +96,7 @@ async def test_memory_extraction_runs_on_later_turn(fake_redis, stream_offline_i
     fake_chat.summary = None
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
         patch.object(messages_repository, "list_recent", AsyncMock(return_value=stub_recent(3))),
@@ -158,7 +159,7 @@ async def test_memory_extraction_skipped_when_memory_disabled(fake_redis, stream
     fake_chat.summary = None
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
         patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
@@ -208,7 +209,7 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(fake_redis, stream_
     fake_chat.summary = None
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
         patch.object(messages_repository, "list_recent", AsyncMock(return_value=stub_recent(2))),
@@ -263,7 +264,7 @@ async def test_a_reminder_reply_enqueues_no_background_write(fake_redis, stream_
     fake_chat.summary = None
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
         patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
@@ -323,7 +324,7 @@ async def test_stream_sets_final_content_on_cancel(fake_redis, stream_offline_io
         return cancel_after["n"] > 1  # let the first token through, then cancel
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
         patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
@@ -397,7 +398,7 @@ async def test_cancelled_stream_skips_model_health_sample(fake_redis, stream_off
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
-        stack.enter_context(patch("app.services.model_health.record_sample", record))
+        stack.enter_context(patch("app.services.model_health.record_samples", record))
         stack.enter_context(
             patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", AsyncMock())
         )
@@ -506,12 +507,13 @@ def _turn_ctx(**fields: Any):
 
 def _stream_of(*tokens: str):
     async def fake_stream(**kwargs: object):
-        # As the gateway does: the alias that answers is one attempt, ok.
+        # As the gateway does: the alias that answers is one attempt, not failed.
         attempts = kwargs.get("attempts")
         if isinstance(attempts, list):
-            attempts.append(
-                StreamAttempt(alias=str(kwargs["model_alias"]), ok=True, first_content_ms=1.0)
-            )
+            attempt = StreamAttempt(str(kwargs["model_alias"]))
+            attempt.delta()
+            attempt.end(failed=False)
+            attempts.append(attempt)
         for token in tokens:
             yield token
             await asyncio.sleep(0)
@@ -546,7 +548,7 @@ async def test_failed_user_row_save_sends_no_reply(fake_redis, stream_offline_io
             patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
         )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
-        stack.enter_context(patch("app.services.model_health.record_attempts", health))
+        stack.enter_context(patch("app.services.model_health.record_samples", health))
         with pytest.raises(RuntimeError, match="database unavailable"):
             async for token in stream_and_finalize(
                 offline_deps(),
@@ -562,9 +564,8 @@ async def test_failed_user_row_save_sends_no_reply(fake_redis, stream_offline_io
     finalize.assert_not_awaited()
     assert outcome.finalize_db_task is None
     assert outcome.user_message_saved is False
-    # The model answered; the failure was the save's, not the model's health sample.
-    attempts = health.await_args.args[1]
-    assert [(attempt.alias, attempt.ok) for attempt in attempts] == [("free-chat", True)]
+    # The model answered; the failure was the save's.
+    assert [sample.success for sample in health.await_args.args[1]] == [True]
 
 
 @pytest.mark.asyncio
@@ -639,7 +640,7 @@ async def test_stop_after_the_last_token_still_saves_the_reply(fake_redis, strea
             patch("app.modules.chat.stream_pipeline.enrich_final_content", slow_enrich)
         )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
-        stack.enter_context(patch("app.services.model_health.record_sample", AsyncMock()))
+        stack.enter_context(patch("app.services.model_health.record_samples", AsyncMock()))
         task = asyncio.create_task(consume())
         await asyncio.wait_for(entered.wait(), 5)
         # The WS receive loop does exactly this on {"type": "cancel"}; twice, as
@@ -733,7 +734,7 @@ async def test_hard_cancel_before_tokens_skips_model_health_sample(fake_redis, s
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
-        stack.enter_context(patch("app.services.model_health.record_sample", record))
+        stack.enter_context(patch("app.services.model_health.record_samples", record))
         with pytest.raises(asyncio.CancelledError):
             async for _ in stream_and_finalize(
                 offline_deps(),
@@ -1649,7 +1650,7 @@ async def test_stream_closes_llm_stream_on_cancel(fake_redis, stream_offline_io)
         return cancel_after["n"] > 1
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
         patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
@@ -1697,7 +1698,7 @@ async def test_stream_places_query_without_location_prompts_to_enable(
     fake_chat.summary = None
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
         patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=0)),
@@ -1749,7 +1750,7 @@ async def test_stream_places_query_with_client_location_skips_the_settings_promp
         yield "answer"
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.repositories.users.update", AsyncMock(return_value=fake_user)),
         patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
@@ -1800,7 +1801,7 @@ async def test_stream_persists_raw_text_when_enrichment_fails(fake_redis, stream
     finalize = AsyncMock()
 
     with ExitStack() as stack:
-        stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
+        stack.enter_context(patch("app.services.quota.reserve_usage_up_to", grant_quota()))
         stack.enter_context(
             patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
         )
@@ -1873,7 +1874,7 @@ async def test_stream_no_final_content_on_normal_completion(fake_redis, stream_o
     fake_chat.summary = None
 
     with (
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.reserve_usage_up_to", grant_quota()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch.object(chats_repository, "get_by_id", AsyncMock(return_value=fake_chat)),
         patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=3)),
@@ -1977,7 +1978,7 @@ async def test_regenerate_keeps_assistant_when_stream_empty(fake_redis):
                 MagicMock(return_value=False),
             )
         )
-        stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
+        stack.enter_context(patch("app.services.quota.reserve_usage_up_to", grant_quota()))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
@@ -2097,7 +2098,7 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
                 side_effect=track_build,
             )
         )
-        stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
+        stack.enter_context(patch("app.services.quota.reserve_usage_up_to", grant_quota()))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
@@ -2193,7 +2194,7 @@ async def test_regenerate_passes_client_geo_to_the_turn(fake_redis):
         stack.enter_context(
             patch("app.modules.chat.stream_entry.build_stream_prompt_context", build)
         )
-        stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
+        stack.enter_context(patch("app.services.quota.reserve_usage_up_to", grant_quota()))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         with pytest.raises(_Built):
             async for _ in chat_module.stream_regenerate_response(
@@ -2328,7 +2329,7 @@ async def test_web_search_tool_round_streams_final_instead_of_regenerating(
         stack.enter_context(
             patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", AsyncMock())
         )
-        stack.enter_context(patch("app.services.model_health.record_sample", AsyncMock()))
+        stack.enter_context(patch("app.services.model_health.record_samples", AsyncMock()))
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         yielded: list[str] = []
         async for tok in stream_and_finalize(

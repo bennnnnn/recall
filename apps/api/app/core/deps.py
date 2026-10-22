@@ -40,29 +40,28 @@ async def get_current_user(
     session: AsyncSession = Depends(get_db),
 ) -> User:
     try:
-        user_id = await access_tokens.verify_access_token(redis, credentials.credentials, settings)
+        access = await access_tokens.check_access(redis, credentials.credentials, settings)
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
     except AuthenticationError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
-    # Per-process cache of the last loaded row (core/user_cache.py).
-    cached = user_cache.cached_user(user_id)
+    # This process's copy of the row, when it is still the current one (core/user_cache.py).
+    cached = user_cache.cached_user(access.user_id, access.user_generation)
     if isinstance(cached, User):
         # Attach the cached row to this request so updates commit.
         return await session.merge(cached, load=False)
     if cached is not None:
         return cached
 
-    generation = await user_cache.read_generation(redis, user_id)
-    user = await users_repo.get_by_id(session, user_id)
+    user = await users_repo.get_by_id(session, access.user_id)
     # End the read now. FastAPI closes the request's session only after the response is sent,
     # so an SSE reply or a slow upload kept this connection idle in transaction throughout.
     # Nothing else has used the session yet, and expire_on_commit=False keeps the row loaded.
     await session.commit()
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-    user_cache.remember_read(user, generation)
+    user_cache.remember_user(user, access.user_generation)
     return user
 
 

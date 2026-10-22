@@ -253,11 +253,25 @@ def _chat_models() -> list[model_catalog.ChatModel]:
 
 def test_aliases_on_one_model_claim_the_same_capabilities() -> None:
     """An internal alias can never claim more than the model it runs on."""
-    by_model: dict[str, set[tuple[bool, bool, bool, int]]] = {}
+    by_model: dict[str, set[tuple[bool, bool, bool, int, bool]]] = {}
     for m in model_catalog.CATALOG:
-        caps = (m.supports_vision, m.supports_tools, m.json_mode, m.context_tokens)
+        caps = (
+            m.supports_vision,
+            m.supports_tools,
+            m.json_mode,
+            m.context_tokens,
+            m.cache_breakpoints,
+        )
         by_model.setdefault(m.model, set()).add(caps)
     assert {model: caps for model, caps in by_model.items() if len(caps) > 1} == {}
+
+
+def test_only_anthropic_models_get_cache_breakpoints() -> None:
+    """Claude caches a prompt only up to a cache_control mark; the other providers in
+    the catalog reuse an identical prefix by themselves, or are unconfirmed (unset)."""
+    flagged = {m.id for m in model_catalog.CATALOG if m.cache_breakpoints}
+    assert flagged == {"free-chat", "fallback-memory-model"}
+    assert {model_catalog.get(alias).provider for alias in flagged} == {"anthropic"}
 
 
 def test_every_chat_model_fits_the_prompt_budget_and_a_full_reply() -> None:

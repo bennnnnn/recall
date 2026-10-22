@@ -19,6 +19,7 @@ from app.core.redis import get_redis_client
 from app.core.redis_counters import hincr_with_ttl
 from app.gateways import llm_spend, mock_llm
 from app.gateways.model_output import parse_model_json
+from app.gateways.stream_usage import apply_usage
 from app.models import model_catalog
 
 logger = logging.getLogger(__name__)
@@ -101,7 +102,7 @@ async def _complete_structured_once[T: BaseModel](
             response_format={"type": "json_object"},
             **kwargs,
         )
-    gateway._apply_usage(usage, response)
+    apply_usage(usage, response)
     llm_spend.meter_model_call(model_alias, response)
     try:
         data = parse_model_json(response.choices[0].message.content or "{}")

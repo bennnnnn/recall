@@ -1,9 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { SvgXml } from "react-native-svg";
+import { parse, SvgAst, type JsxAST } from "react-native-svg";
 
 import { MathText } from "@/components/rich/MathText";
-import { latexToSvgMath, peekSvgMath, type SvgMathResult } from "@/lib/math/svgMath";
+import {
+  latexToSvgMath,
+  peekSvgMath,
+  svgMathDrawing,
+  type SvgMathResult,
+} from "@/lib/math/svgMath";
 import { latexHasNestedMathView, MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
 import { Space } from "@/lib/space";
 
@@ -20,6 +25,9 @@ type Props = {
   minHeight?: number;
 };
 
+/** A conversion and the latex it belongs to (`undefined` while it runs). */
+type Loaded = { latex: string; result: SvgMathResult | null | undefined };
+
 /**
  * Display-math formula as a native SVG — no WebView, no postMessage height
  * round-trip, no stream flicker. Falls back to readable MathText when MathJax
@@ -30,37 +38,56 @@ export const MathSvgView = React.memo(function MathSvgView({
   textColor,
   minHeight = 48,
 }: Props) {
-  const [result, setResult] = useState<SvgMathResult | null | undefined>(() =>
-    peekSvgMath(latex, true),
-  );
+  // The conversion is held with the latex it was made from. A view whose
+  // latex changes (a streaming answer growing, a reused row) never draws the
+  // previous formula's result, not even for one frame: until its own result
+  // arrives it shows the cached one for the new latex, or the loading slot.
+  const [loaded, setLoaded] = useState<Loaded>(() => ({
+    latex,
+    result: peekSvgMath(latex, true),
+  }));
+  const result = loaded.latex === latex ? loaded.result : peekSvgMath(latex, true);
 
   useEffect(() => {
+    const keep = (next: SvgMathResult | null | undefined) =>
+      setLoaded((previous) =>
+        previous.latex === latex && previous.result === next ? previous : { latex, result: next },
+      );
     const peeked = peekSvgMath(latex, true);
     if (peeked !== undefined) {
-      setResult(peeked);
+      keep(peeked);
       return;
     }
     let live = true;
-    setResult(undefined);
+    keep(undefined);
     void latexToSvgMath(latex, true).then((next) => {
-      if (live) setResult(next);
+      if (live) keep(next);
     });
     return () => {
       live = false;
     };
   }, [latex]);
 
-  // react-native-svg does not resolve currentColor — substitute the theme color.
-  const xml = useMemo(
-    () => (result ? result.svg.split("currentColor").join(textColor) : null),
-    [result, textColor],
-  );
+  // react-native-svg does not resolve currentColor — substitute the theme
+  // color. The parsed tree is kept with the conversion, per color: drawing
+  // the same formula again (a reused row, a re-cut streaming piece) parses
+  // nothing.
+  const ast = useMemo((): JsxAST | null => {
+    if (!result) return null;
+    try {
+      return svgMathDrawing(result, textColor, () =>
+        parse(result.svg.split("currentColor").join(textColor)),
+      );
+    } catch {
+      return null;
+    }
+  }, [result, textColor]);
 
   if (result === undefined) {
     return <View style={[styles.wrap, { minHeight }]} testID="math-svg-loading" />;
   }
 
-  if (result === null || xml == null) {
+  if (result === null || ast == null) {
     const hasNestedView = latexHasNestedMathView(latex);
     return (
       <View style={[styles.wrap, styles.fallbackBox]} testID="math-svg-fallback">
@@ -97,12 +124,9 @@ export const MathSvgView = React.memo(function MathSvgView({
         style={{ height }}
         contentContainerStyle={styles.lineScroll}
       >
-        <SvgXml
-          xml={xml}
-          width={width}
-          height={height}
-          preserveAspectRatio="xMidYMid meet"
-          testID="math-svg"
+        <SvgAst
+          ast={ast}
+          override={{ width, height, preserveAspectRatio: "xMidYMid meet", testID: "math-svg" }}
         />
       </ScrollView>
     </View>

@@ -9,7 +9,7 @@ import {
   normalizeAppearancePreference,
   type AppearancePreference,
 } from "@/lib/appearance";
-import { prefFilePath, readPrefFile, writePrefFile } from "@/lib/filePrefs";
+import { prefFilePath, readPrefFile, readPrefFileSync, writePrefFile } from "@/lib/filePrefs";
 
 const FILE_NAME = "recall.appearance-preference.txt";
 
@@ -17,6 +17,15 @@ let cachedPreference: AppearancePreference | null = null;
 
 function filePath(): string | null {
   return prefFilePath(FILE_NAME);
+}
+
+/** The saved preference, read before the first render; null when there is no file yet. */
+export function readAppearancePreferenceSync(): AppearancePreference | null {
+  if (cachedPreference !== null) return cachedPreference;
+  const fromFile = readPrefFileSync(FILE_NAME);
+  if (fromFile === null) return null;
+  cachedPreference = normalizeAppearancePreference(fromFile);
+  return cachedPreference;
 }
 
 export async function getAppearancePreference(): Promise<AppearancePreference> {

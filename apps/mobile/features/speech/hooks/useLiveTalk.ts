@@ -9,7 +9,7 @@ import {
 } from "react";
 import { AppState, BackHandler, Linking } from "react-native";
 
-import { useDrawer } from "@/contexts/DrawerContext";
+import { useDrawerControls } from "@/contexts/DrawerContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
 import type { Message } from "@/lib/api";
@@ -25,13 +25,7 @@ import {
   type LiveTalkPhase,
   type LiveTalkStatus,
 } from "@/features/speech/model/liveTalkLogic";
-import { playLiveTalkCue } from "@/features/speech/model/liveTalkSfx";
-import {
-  createRealtimeVoiceSession,
-  isRealtimeVoiceAvailable,
-  type RealtimeVoiceEvent,
-  type RealtimeVoiceSession,
-} from "@/features/speech/model/realtimeVoice";
+import type { RealtimeVoiceEvent, RealtimeVoiceSession } from "@/features/speech/model/realtimeVoice";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 
@@ -64,6 +58,19 @@ type CompletedTurn = {
 
 const REALTIME_TRANSCRIPT_GRACE_MS = 350;
 
+// The WebRTC session, its turn state and the chimes load when Live Talk is
+// started, not with the chat screen. The hook itself stays static.
+function loadRealtimeVoice() {
+  return import("@/features/speech/model/realtimeVoice");
+}
+
+/** Best-effort, as the cue itself is: a chime that cannot load never fails Live Talk. */
+function playCue(kind: "start" | "end"): Promise<void> {
+  return import("@/features/speech/model/liveTalkSfx")
+    .then(({ playLiveTalkCue }) => playLiveTalkCue(kind))
+    .catch(() => {});
+}
+
 export function useLiveTalk({
   token,
   chatId,
@@ -77,7 +84,9 @@ export function useLiveTalk({
   t,
 }: Options) {
   const feedback = useActionFeedbackOptional();
-  const drawerOpen = useDrawer().isOpen;
+  // Read when Back is pressed, not subscribed: the chat screen that calls this
+  // hook must not render again every time the drawer opens or closes.
+  const drawer = useDrawerControls();
   const [visible, setVisible] = useState(false);
   const [phase, setPhase] = useState<LiveTalkPhase>("idle");
   const [muted, setMuted] = useState(false);
@@ -340,7 +349,7 @@ export function useLiveTalk({
     setMuted(false);
     setPhase("idle");
     setVisible(false);
-    if (shouldCueEnd) void playLiveTalkCue("end");
+    if (shouldCueEnd) void playCue("end");
   }, [captureCurrentTurn, finishTurn, token]);
   closeRef.current = close;
 
@@ -350,7 +359,8 @@ export function useLiveTalk({
       alertForGate("offline");
       return;
     }
-    if (!isRealtimeVoiceAvailable()) {
+    const voice = await loadRealtimeVoice().catch(() => null);
+    if (!voice?.isRealtimeVoiceAvailable()) {
       alertForGate("unavailable");
       return;
     }
@@ -374,9 +384,9 @@ export function useLiveTalk({
       setVisible(true);
       // Finish and release the open chime before getUserMedia. A leftover
       // expo-audio player keeps the session in playback and WebRTC is mute.
-      await playLiveTalkCue("start");
+      await playCue("start");
       if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;
-      const session = await createRealtimeVoiceSession({
+      const session = await voice.createRealtimeVoiceSession({
         token,
         chatId: activeChatId,
         onEvent: handleRealtimeEvent,
@@ -432,12 +442,12 @@ export function useLiveTalk({
   useEffect(() => {
     if (!visible) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (drawerOpen) return false;
+      if (drawer.isOpenNow()) return false;
       close();
       return true;
     });
     return () => sub.remove();
-  }, [visible, drawerOpen, close]);
+  }, [visible, drawer, close]);
 
   useEffect(() => {
     if (!liveTalkShouldCloseOnChatChange(turnChatIdRef.current, chatId)) return;

@@ -10,6 +10,7 @@ from app.models.schemas import UserOut
 from app.modules.account import lifecycle as account_lifecycle
 from app.modules.account import service as auth
 from app.modules.attachments import repository as attachments_repository
+from app.tests.fakes import fake_session
 
 
 def _user() -> User:
@@ -87,6 +88,38 @@ async def test_profile_save_rolls_back_without_cache_invalidation_on_commit_fail
                 {"name": "After", "avatar_url": f"/attachments/{photo.id}/file"},
             )
     session.rollback.assert_awaited_once()
+
+
+async def test_a_saved_profile_photo_is_published_after_its_commit():
+    """This path commits itself, so it publishes the change to every machine's user
+    cache once the commit succeeded (``core/user_cache``)."""
+    user = _user()
+    photo = _photo(user)
+    order: list[str] = []
+    session = fake_session()
+    session.commit.side_effect = lambda: order.append("commit")
+
+    async def publish(user_id):
+        order.append(f"publish {user_id}")
+        return "g1"
+
+    with (
+        patch.object(
+            account_lifecycle.attachments_service,
+            "claim_profile_photo",
+            AsyncMock(return_value=True),
+        ),
+        patch.object(account_lifecycle.users_repo, "update", AsyncMock(return_value=user)),
+        patch.object(account_lifecycle.user_cache, "publish_change", publish),
+    ):
+        await account_lifecycle.update_account(
+            session,
+            user,
+            Settings(_env_file=None),
+            {"name": "After", "avatar_url": f"/attachments/{photo.id}/file"},
+        )
+
+    assert order == ["commit", f"publish {user.id}"]
 
 
 @pytest.mark.parametrize("custom", [True, False])

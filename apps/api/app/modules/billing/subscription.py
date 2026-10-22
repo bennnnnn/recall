@@ -8,6 +8,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import user_cache
 from app.core.config import Settings
 from app.gateways import revenuecat_gateway
 from app.models.orm import User
@@ -111,7 +112,9 @@ async def apply_plan_for_app_user_id(
         return False
     if user.plan == plan:
         # No change — return False so the caller doesn't fire a duplicate
-        # receipt email on every RENEWAL/replay of an already-Pro user.
+        # receipt email on every RENEWAL/replay of an already-Pro user. A replay
+        # may follow a change whose publish failed: publish it (core/user_cache).
+        await user_cache.publish_change(user.id)
         return False
     await users_repo.update(session, user, plan=plan)
     logger.info("RevenueCat webhook set plan=%s user=%s", plan, user_id)

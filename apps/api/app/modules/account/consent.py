@@ -7,8 +7,9 @@ scanned problem's read-back are refused with ``consent_required`` until the
 account agrees, and again after it withdraws. The phone answers that code with
 its consent screen.
 
-A user cached by ``get_current_user`` can trail an agreement made on another
-machine by up to a minute, so a refusal re-reads the row first.
+A user cached by ``get_current_user`` trails an agreement made on another
+machine only when that change's generation never reached Redis
+(``core/user_cache``), so a refusal still re-reads the row first.
 """
 
 from __future__ import annotations
@@ -16,16 +17,16 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends
-from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.core.deps import get_current_user, get_redis_dep
-from app.core.user_cache import is_current, read_generation, remember_read
+from app.core.deps import get_current_user
+from app.core.user_cache import forget_user
 from app.exceptions import ConsentRequiredError, DomainError
 from app.models.orm import User
 
-# What a withdrawal elsewhere can change for the next outside-AI call.
+# What a refusal re-reads: a withdrawal elsewhere can change these for the next
+# outside-AI call.
 _PRIVACY_COLUMNS = ("ai_data_consent_at", "memory_enabled", "web_search_enabled")
 
 
@@ -47,19 +48,19 @@ class ConsentRefusedError(DomainError):
 async def get_consented_user(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
-    redis: Annotated[Redis, Depends(get_redis_dep)],
 ) -> User:
     """The signed-in user, once they agreed; 403 ``consent_required`` otherwise.
 
-    A cached row is trusted only while its generation is current: a withdrawal made on
-    another machine bumps it, and this re-reads the row before sending anything out.
+    ``get_current_user`` serves a cached row only under the account's current
+    generation, which a withdrawal made on another machine replaces
+    (``core/user_cache``). A refusal still re-reads the row before anything is sent.
     """
-    if has_ai_data_consent(user) and await is_current(redis, user.id):
+    if has_ai_data_consent(user):
         return user
-    generation = await read_generation(redis, user.id)
     await session.refresh(user, attribute_names=list(_PRIVACY_COLUMNS))
     await session.commit()  # the re-read's transaction ends here, as in get_current_user
     if not has_ai_data_consent(user):
         raise ConsentRefusedError()
-    remember_read(user, generation)
+    # The cached copy was stale; the next request reads the row again.
+    forget_user(user.id)
     return user

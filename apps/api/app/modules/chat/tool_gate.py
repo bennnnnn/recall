@@ -1,5 +1,7 @@
 """Eligibility shared by prompt prefetch and the final tool-loop gate."""
 
+from functools import partial
+
 from app.core.config import Settings
 from app.models.orm import User
 
@@ -23,12 +25,14 @@ def should_classify_tool_web_search(
         return False
     from app.modules.chat.tool_loop import turn_needs_tool_loop
 
-    flags = {
-        "lightweight": lightweight,
-        "has_instant_reply": has_instant_reply,
-        "has_verified_math": has_verified_math,
-        "has_search_sources": has_search_sources,
-    }
-    return not turn_needs_tool_loop(
-        content, settings=settings, user=user, **flags
-    ) and turn_needs_tool_loop(content, settings=settings, user=user, web_search=True, **flags)
+    gate = partial(
+        turn_needs_tool_loop,
+        content,
+        settings=settings,
+        user=user,
+        lightweight=lightweight,
+        has_instant_reply=has_instant_reply,
+        has_verified_math=has_verified_math,
+        has_search_sources=has_search_sources,
+    )
+    return not gate() and gate(web_search=True)
