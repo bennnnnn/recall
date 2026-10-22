@@ -43,6 +43,7 @@
   "chat.export_pdf": "Экспорт PDF",
   "chat.export_pdf_default_title": "Отчёт Recall",
   "chat.export_pdf_failed": "Не удалось создать PDF. Попробуйте снова.",
+  "chat.export_pdf_empty": "В этом чате пока нет текста для PDF.",
   "chat.feedback_failed": "Не удалось сохранить отзыв.",
   "chat.file_index_failed": "Не удалось проиндексировать файл",
   "chat.file_indexing": "Ещё индексируется…",

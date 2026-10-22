@@ -52,6 +52,8 @@ type Props = {
   shareTitle?: string;
   /** Adds a PDF button. Rejecting with a share cancel is not a failure. */
   onExportPdf?: () => Promise<void>;
+  /** A failure's own words ("Nothing to export yet"), instead of `labels.failed`. */
+  failureText?: (error: unknown) => string | null;
   labels: {
     share: string;
     copy: string;
@@ -81,6 +83,7 @@ export function ShareSheet({
   load,
   shareTitle,
   onExportPdf,
+  failureText,
   labels,
   testID = "share-sheet",
 }: Props) {
@@ -90,6 +93,7 @@ export function ShareSheet({
   const [busy, setBusy] = useState<Action | null>(null);
   const [copied, setCopied] = useState(false);
   const [failed, setFailed] = useState<Action | null>(null);
+  const [failedWords, setFailedWords] = useState<string | null>(null);
   const text = useRef<Promise<string> | null>(null);
   const loadRef = useRef(load);
   loadRef.current = load;
@@ -146,7 +150,10 @@ export function ShareSheet({
     try {
       await work();
     } catch (error) {
-      if (open.current && !isShareCancelled(error)) setFailed(action);
+      if (open.current && !isShareCancelled(error)) {
+        setFailedWords(failureText?.(error) ?? null);
+        setFailed(action);
+      }
     } finally {
       if (open.current) setBusy(null);
     }
@@ -274,7 +281,7 @@ export function ShareSheet({
 
         {failed ? (
           <Text style={s.failed} accessibilityLiveRegion="polite" testID={`${testID}-failed`}>
-            {labels.failed[failed]}
+            {failedWords ?? labels.failed[failed]}
           </Text>
         ) : null}
       </View>

@@ -2,6 +2,7 @@ import type { Message } from "@/lib/api";
 import { printHtmlToSharedPdf } from "@/lib/exportPdf";
 import i18n from "@/lib/i18n";
 import { markdownToStructuredPrintHtml } from "@/lib/printDocument";
+import { NothingToExportError } from "@/features/chat/model/nothingToExport";
 import { conversationMarkdownBody } from "@/features/chat/model/transcript";
 
 async function exportMessageAsPdf(title: string, markdown: string): Promise<void> {
@@ -16,6 +17,6 @@ export async function exportConversationAsPdf(
 ): Promise<void> {
   const heading = title?.trim() || i18n.t("chat.export_pdf_default_title");
   const body = conversationMarkdownBody(messages);
-  if (!body.trim()) return;
+  if (!body.trim()) throw new NothingToExportError();
   await exportMessageAsPdf(heading, body);
 }

@@ -43,6 +43,7 @@
   "chat.export_pdf": "PDF ላክ",
   "chat.export_pdf_default_title": "የRecall ሪፖርት",
   "chat.export_pdf_failed": "PDF መፍጠር አልተቻለም። እንደገና ይሞክሩ።",
+  "chat.export_pdf_empty": "ይህ ውይይት እስካሁን በPDF ውስጥ የሚገባ ጽሑፍ የለውም።",
   "chat.feedback_failed": "አስተያየትዎን ማስቀመጥ አልተቻለም።",
   "chat.file_index_failed": "ይህን ፋይል ማውጫ ማድረግ አልተቻለም",
   "chat.file_indexing": "እየተዘጋጀ ነው…",

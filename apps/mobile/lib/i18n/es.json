@@ -43,6 +43,7 @@
   "chat.export_pdf": "Exportar PDF",
   "chat.export_pdf_default_title": "Informe de Recall",
   "chat.export_pdf_failed": "No se pudo crear el PDF. Inténtalo de nuevo.",
+  "chat.export_pdf_empty": "Este chat aún no tiene texto para un PDF.",
   "chat.feedback_failed": "No se pudo guardar tu valoración.",
   "chat.file_index_failed": "No se pudo indexar este archivo",
   "chat.file_indexing": "Indexando…",

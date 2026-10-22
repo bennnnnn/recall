@@ -43,6 +43,7 @@
   "chat.export_pdf": "PDF dışa aktar",
   "chat.export_pdf_default_title": "Recall raporu",
   "chat.export_pdf_failed": "PDF oluşturulamadı. Tekrar deneyin.",
+  "chat.export_pdf_empty": "Bu sohbette henüz PDF'e konacak metin yok.",
   "chat.feedback_failed": "Geri bildiriminiz kaydedilemedi.",
   "chat.file_index_failed": "Bu dosya dizinlenemedi",
   "chat.file_indexing": "Dizinleniyor…",

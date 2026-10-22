@@ -30,10 +30,18 @@ it.each([
   expect(shareRoute(platform, hasSharing)).toBe(route);
 });
 
-it("hands the file and its type to expo-sharing", async () => {
+it("hands the file, its type and its title to expo-sharing", async () => {
   (Platform as { OS: string }).OS = "android";
-  await shareLocalFile("file:///cache/a.pdf", { title: "a.pdf", mimeType: "application/pdf" });
-  expect(shareAsync).toHaveBeenCalledWith("file:///cache/a.pdf", { mimeType: "application/pdf" });
+  await shareLocalFile("file:///cache/a.pdf", {
+    title: "a.pdf",
+    mimeType: "application/pdf",
+    uti: "com.adobe.pdf",
+  });
+  expect(shareAsync).toHaveBeenCalledWith("file:///cache/a.pdf", {
+    dialogTitle: "a.pdf",
+    mimeType: "application/pdf",
+    UTI: "com.adobe.pdf",
+  });
   expect(Share.share).not.toHaveBeenCalled();
 });
 
