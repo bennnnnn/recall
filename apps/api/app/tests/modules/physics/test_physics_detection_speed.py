@@ -18,7 +18,7 @@ import pytest
 
 import app.modules.physics as physics_package
 from app.modules.physics import extract
-from app.modules.physics.extractors.circuit_patterns import _resistor_values
+from app.modules.physics.extractors.circuit_patterns import resistor_values
 from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
 from app.modules.physics.solvers.arithmetic import quadratic_roots
 from app.services.symbolic_text import _MAX_PHYSICS_REQUEST, _MAX_SUBJECT_TEXT
@@ -171,9 +171,9 @@ def test_punctuation_between_a_label_and_its_value_stays_linear(run: str) -> Non
 
 
 def test_a_long_resistor_list_still_declines() -> None:
-    assert _resistor_values("three resistors of 2, 3 and 6 ohms in parallel") == [2.0, 3.0, 6.0]
+    assert resistor_values("three resistors of 2, 3 and 6 ohms in parallel") == [2.0, 3.0, 6.0]
     # More than the network limit: enough values come back to refuse it.
-    assert len(_resistor_values("1, 2, 3, 4, 5, 6, 7 ohms in series")) > 4
+    assert len(resistor_values("1, 2, 3, 4, 5, 6, 7 ohms in series")) > 4
 
 
 @pytest.mark.parametrize(

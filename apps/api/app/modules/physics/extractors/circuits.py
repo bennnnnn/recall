@@ -19,14 +19,15 @@ from app.modules.physics.extractors.circuit_patterns import (
     _TERMINAL_ASK_RE,
     _VOLT_PATTERN,
     _WATT_PATTERN,
-    _resistor_values,
     counted_resistors,
+    resistor_values,
 )
 from app.modules.physics.extractors.cues import (
     _has_cue_either_case,
 )
 from app.modules.physics.extractors.fluid_readings import AREA_PATTERN
 from app.modules.physics.extractors.school_extensions import blocks_circuit
+from app.modules.physics.extractors.series_parallel import series_parallel_intent
 from app.modules.physics.extractors.stated_values import (
     find_value_with_specific_unit,
     ordered_values,
@@ -176,14 +177,14 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
         )
 
     # --- resistor networks: two or more resistances and a stated topology ---
-    network = _resistor_values(cleaned)
-    counted = counted_resistors(cleaned)
-    if counted is not None and not network:
-        # Counted resistors beside others: a network this does not read.
-        return None
     if "series" in lower and "parallel" in lower:
         # A series-parallel network is not one sum: 4 Ω in series with 6 Ω
         # and 12 Ω in parallel is 8 Ω, and the all-series reading said 22 Ω.
+        return series_parallel_intent(cleaned, volts, amps)
+    network = resistor_values(cleaned)
+    counted = counted_resistors(cleaned)
+    if counted is not None and not network:
+        # Counted resistors beside others: a network this does not read.
         return None
     if len(network) >= 2 and ("series" in lower or "parallel" in lower):
         return _network_intent(lower, network, counted, volts, amps)

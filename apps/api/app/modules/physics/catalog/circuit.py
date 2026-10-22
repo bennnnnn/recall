@@ -156,6 +156,22 @@ SPECS: tuple[FormulaSpec, ...] = (
         )
         for operation in ("series_current", "parallel_current")
     ),
+    # One resistor in series with a parallel group (``extractors/series_parallel.py``):
+    # R = R₁ + R_p, where 1/R_p sums the group. 4 Ω with 6 Ω ∥ 12 Ω is 8 Ω.
+    formula(
+        "series_parallel_resistance",
+        "circuit",
+        "Series-parallel network",
+        "R",
+        variables=(*_NETWORK,),
+    ),
+    formula(
+        "series_parallel_current",
+        "circuit",
+        "Series-parallel network",
+        "I",
+        variables=(*_NETWORK, var("V", "V", "volt")),
+    ),
     formula(
         "charge",
         "circuit",

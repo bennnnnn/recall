@@ -152,6 +152,51 @@ def _network_current(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResul
     )
 
 
+def _series_parallel(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    """R₁ in series with a parallel group: the group's total, the whole, then, when
+    asked, the current a supply drives through it."""
+    resistances = [p[key] for key in sorted(p) if RESISTOR_KEY_RE.fullmatch(key)]
+    if len(resistances) < 3:
+        raise SolveServiceError("a series-parallel network needs a resistor and a group of two")
+    if any(r <= 0 for r in resistances):
+        raise SolveServiceError("resistances must be positive")
+    single, group = resistances[0], resistances[1:]
+    parallel = 1 / sum(1 / r for r in group)
+    total = single + parallel
+    symbols = " + ".join(rf"\frac{{1}}{{R_{index}}}" for index in range(2, len(resistances) + 1))
+    reciprocals = " + ".join(rf"\frac{{1}}{{{r:g}}}" for r in group)
+    shown = latex_given(parallel)
+    formulas = [rf"\frac{{1}}{{R_p}} = {symbols}", r"R = R_1 + R_p"]
+    rows = [
+        rf"\frac{{1}}{{R_p}} = {reciprocals}",
+        *_reciprocal_rows(False, parallel),
+        rf"R_p = {shown}{latex_unit('ohm')}",
+        rf"R = {single:g} + {shown}",
+    ]
+    if intent.physics_op != "series_parallel_current":
+        return PhysicsResult(
+            answer=rf"R = R_1 + R_p = {single:g} + {shown} \approx {total:.2f} \,\Omega",
+            formulas=tuple(formulas),
+            substitutions=tuple(rows),
+            quantities=(QuantityResult("", total, "ohm"),),
+        )
+    whole = latex_given(total)
+    current = p["V"] / total
+    return PhysicsResult(
+        answer=(
+            rf"I = \frac{{V}}{{R}} = \frac{{{p['V']:g}}}{{{whole}}} "
+            rf"\approx {current:.2f} \text{{ A}}"
+        ),
+        formulas=(*formulas, r"I = \frac{V}{R}"),
+        substitutions=(
+            *rows,
+            rf"R = {whole}{latex_unit('ohm')}",
+            rf"I = \frac{{{p['V']:g}}}{{{whole}}}",
+        ),
+        quantities=(QuantityResult("", current, "A"),),
+    )
+
+
 def _charge(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
     q_val = p["I"] * p["t"]
     return PhysicsResult(
@@ -282,6 +327,8 @@ _OPERATIONS: dict[str, Callable[[PhysicsIntent, dict[str, float]], PhysicsResult
     "parallel_resistance": _combined_resistance,
     "series_current": _network_current,
     "parallel_current": _network_current,
+    "series_parallel_resistance": _series_parallel,
+    "series_parallel_current": _series_parallel,
     "charge": _charge,
     "electrical_energy": _electrical_energy,
     "capacitance": _capacitance,

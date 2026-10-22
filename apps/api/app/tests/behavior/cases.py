@@ -351,13 +351,13 @@ CASES: tuple[Case, ...] = (
     Case(
         "physics-unverified-self-check",
         "physics",
-        "Two 6 ohm resistors in parallel are in series with a 3 ohm resistor across a 12 V "
-        "battery. Find the current from the battery.",
-        # Series-parallel networks stay with the model: it uses the same layout and
-        # checks its own answer, since no server check stands behind it.
+        "A 4 ohm and a 6 ohm resistor are in series, and that pair is in parallel with a "
+        "12 ohm resistor across a 12 V battery. Find the current from the battery.",
+        # A network the server does not read stays with the model: it uses the same
+        # layout and checks its own answer, since no server check stands behind it.
         Expect(subject="physics", solved=False, hints=("self_check",)),
-        "Given/Find/Formula/Substitution/Answer: R = 3 + 3 = 6 Ω, I = 12/6 = 2 A, then a "
-        "one-line Check. Never a ✓ and never 'verified'.",
+        "Given/Find/Formula/Substitution/Answer: R = (4 + 6) ∥ 12 = 120/22 ≈ 5.45 Ω, "
+        "I = 12/5.45 ≈ 2.2 A, then a one-line Check. Never a ✓ and never 'verified'.",
     ),
     Case(
         "physics-verified-no-self-check",
