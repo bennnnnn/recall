@@ -1,6 +1,6 @@
 # CLAUDE.md — Recall (Personal AI Chat)
 
-A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Architecture migration: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). Math: [docs/math.md](./docs/math.md) (tutoring roadmap: [docs/MATH_TUTORING_TICKETS.md](./docs/MATH_TUTORING_TICKETS.md)). Physics: [docs/physics.md](./docs/physics.md). Chemistry: [docs/chemistry.md](./docs/chemistry.md). Making math/physics/chemistry true peer subjects at the type level: [docs/SUBJECT_SEPARATION_TICKETS.md](./docs/SUBJECT_SEPARATION_TICKETS.md) (complete: `PhysicsIntent` is a peer of `MathIntent`). Engineering standards (layers, subject isolation, size limits, CI gates): [docs/ENGINEERING_STANDARDS.md](./docs/ENGINEERING_STANDARDS.md). Launch: [docs/PRODUCTION.md](./docs/PRODUCTION.md), [docs/SCALING.md](./docs/SCALING.md), [docs/QA_MATRIX.md](./docs/QA_MATRIX.md), [docs/ROLLBACK.md](./docs/ROLLBACK.md). Security: [SECURITY.md](./SECURITY.md).
+A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Architecture migration: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). Math: [docs/math.md](./docs/math.md) (tutoring roadmap: [docs/MATH_TUTORING_TICKETS.md](./docs/MATH_TUTORING_TICKETS.md)). Physics: [docs/physics.md](./docs/physics.md) (interactive scenes roadmap: [docs/INTERACTIVE_SCENES_TICKETS.md](./docs/INTERACTIVE_SCENES_TICKETS.md)). Chemistry: [docs/chemistry.md](./docs/chemistry.md). Making math/physics/chemistry true peer subjects at the type level: [docs/SUBJECT_SEPARATION_TICKETS.md](./docs/SUBJECT_SEPARATION_TICKETS.md) (complete: `PhysicsIntent` is a peer of `MathIntent`). Engineering standards (layers, subject isolation, size limits, CI gates): [docs/ENGINEERING_STANDARDS.md](./docs/ENGINEERING_STANDARDS.md). Launch: [docs/PRODUCTION.md](./docs/PRODUCTION.md), [docs/SCALING.md](./docs/SCALING.md), [docs/QA_MATRIX.md](./docs/QA_MATRIX.md), [docs/ROLLBACK.md](./docs/ROLLBACK.md). Security: [SECURITY.md](./SECURITY.md).
 
 **This is not a week-one MVP.** Approximate size (app code, excluding generated/`node_modules`):
 
@@ -297,6 +297,15 @@ chemistry each have a folder (physics `holdout.json` is questions written after 
 honest). An entry with a `gap` is a strict expected failure until the fix deletes the line;
 `shared` names the peer subject that owns a law both use (gases, Q = mcΔT and half-lives are
 physics'). `uv run python -m app.tests.behavior.stem_sweep math --show`.
+
+**LaTeX on screen:** no reply may show LaTeX source. `docs/fixtures/latex_commands.json` lists every
+command the phone draws (inline by its native renderer, display maths by MathJax);
+`apps/mobile/lib/math/__tests__/latexCoverage.test.ts` writes it and renders every entry both ways
+(`pnpm latex-symbols` after upgrading mathjax-full). `components/markdown/__tests__/latexLeakCorpus.test.tsx`
+renders the sweep replies, the shared fixtures and model-style variants, settled and while streaming, and
+fails on any source a reader would see; its known gaps only shrink. The STEM sweep holds every
+server-written reply to the same list (`app/tests/behavior/latex_check.py`). A command the renderer has
+no entry for is never drawn (its argument is) and is reported through `subscribeUnknownLatexCommands`.
 
 **Coverage requirements**
 

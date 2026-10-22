@@ -1,6 +1,7 @@
 import { readGroup } from "@/lib/math/latexGroups";
 import { preprocessLatex } from "@/lib/math/latexPreprocess";
-import { NAMED_FUNCTIONS, pushNamedFunction } from "@/lib/math/latexCommands";
+import { pushNamedFunction } from "@/lib/math/latexCommands";
+import { latexNameKind, operatorWord, reportUnknownLatexCommand, symbolGlyph } from "@/lib/math/latexNames";
 import {
   MAX_MATH_NEST_DEPTH,
   NATIVE_LITERAL_APOSTROPHE_MARKER,
@@ -9,7 +10,6 @@ import {
   NATIVE_UPRIGHT_END_MARKER,
   NATIVE_UPRIGHT_START_MARKER,
   restoreNativeLiterals,
-  TEXT_STYLE_COMMANDS,
 } from "@/lib/math/textMarkers";
 import type { MathAccentKind, MathSegment } from "@/lib/math/textTypes";
 
@@ -424,28 +424,30 @@ function readScript(state: LatexState, kind: "sup" | "sub"): void {
   state.i = bare.next > state.i ? bare.next : state.i + 1;
 }
 
-/** Any other `\name`, `\|` or escaped character. */
+/** Any other `\name`, `\|` or escaped character. A function keeps readable notation;
+ * a name with no table entry is never drawn (its argument is) and is reported. */
 function readEscape(state: LatexState): boolean {
   const { input } = state;
   const rest = input.slice(state.i + 1);
   const cmd = rest.match(/^[a-zA-Z]+/)?.[0];
   if (cmd) {
-    // Preserve the operation as readable function notation. Dropping a
-    // braced command name made \sin{x} and \log{x} silently become x.
     state.i += cmd.length + 1;
+    const kind = latexNameKind(cmd);
+    if (kind === "symbol") {
+      pushText(state, symbolGlyph(cmd));
+      return true;
+    }
     let argStart = state.i;
     while (input[argStart] === " ") argStart += 1;
     const group = input[argStart] === "{" ? readGroup(input, argStart) : null;
-    const named = NAMED_FUNCTIONS.has(cmd);
-    if (named) pushNamedFunction(state.out, cmd, group ? null : input.slice(state.i));
-    if (!group) {
-      if (!named) pushText(state, cmd);
-      return true;
-    }
-    if (named) pushText(state, "(");
-    else if (!TEXT_STYLE_COMMANDS.has(cmd)) pushText(state, `${cmd}(`);
+    const word = kind === "function" || kind === "operator";
+    if (kind === "function") pushNamedFunction(state.out, cmd, group ? null : input.slice(state.i));
+    else if (kind === "operator") pushText(state, operatorWord(cmd));
+    else if (kind === "unknown" && !commandName(cmd)) reportUnknownLatexCommand(cmd);
+    if (!group) return true;
+    if (word) pushText(state, "(");
     pushParsed(state, parseSimpleLatex(group.value, state.depth + 1));
-    if (!TEXT_STYLE_COMMANDS.has(cmd)) pushText(state, ")");
+    if (word) pushText(state, ")");
     state.i = group.next;
     return true;
   }
@@ -486,21 +488,19 @@ function readNext(state: LatexState): void {
 
 export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
   if (depth > MAX_MATH_NEST_DEPTH) {
-    return [{ type: "text", value: latex }];
+    return [{ type: "text", value: latex.replace(/\\[A-Za-z]+|[\\{}]/g, "") }];
   }
   const state: LatexState = { input: preprocessLatex(latex), depth, i: 0, out: [] };
   while (state.i < state.input.length) readNext(state);
-  return state.out.length ? state.out : [{ type: "text", value: state.input }];
+  // Nothing drawn (a lone `\displaystyle`, an unknown name): never the source.
+  return state.out.length ? state.out : [{ type: "text", value: "" }];
 }
 
 export function segmentsToPlain(segments: MathSegment[]): string {
   return segments.map(segmentToPlain).join("");
 }
 
-/**
- * Readable stand-in when KaTeX cannot typeset (parse error, no WebView).
- * Never includes a leftover `\\command` — that is what showed as raw LaTeX.
- */
+/** The formula as plain words (a screen reader's label), never a leftover `\\command`. */
 export function readableLatexFallback(latex: string): string {
   const plain = segmentsToPlain(parseSimpleLatex(latex));
   return plain.replace(/\\[a-zA-Z]+/g, (cmd) => cmd.slice(1));

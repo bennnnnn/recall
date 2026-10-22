@@ -54,6 +54,22 @@ describe("streaming math preview", () => {
     expect(completeStreamingLatex(String.raw`\begin{aligned} x &= 1`)).toBe("");
   });
 
+  it.each([String.raw`So $12 \times 3`, String.raw`Check: $\$43 \text{ per hour}`, String.raw`Then $[\text{H}^+]`])(
+    "holds an unfinished formula whose line already shows TeX: %s", (text) => {
+      expect(prepareStreamingMathText(text).pending).toBe(true);
+    },
+  );
+
+  it("reads a price-like span that holds a TeX command as maths, and one without as prose", () => {
+    expect(splitInlineMath(String.raw`So $4! = 4 \times 3 \times 2 \times 1 = 24$.`)[1]).toEqual({
+      type: "math",
+      value: String.raw`4! = 4 \times 3 \times 2 \times 1 = 24`,
+    });
+    expect(splitInlineMath("It costs $5 each, so the total = $15.")).toEqual([
+      { type: "text", value: "It costs $5 each, so the total = $15." },
+    ]);
+  });
+
   it.each(["Price: $5 and $10.", "It costs $5 for x^2 copies", String.raw`Price: \$5`, "Budget: ($$)", 'Type `$\\frac` in LaTeX.']) (
     "preserves code and currency: %s", (text) => {
       expect(prepareStreamingMathText(text)).toEqual({ text, pending: false });

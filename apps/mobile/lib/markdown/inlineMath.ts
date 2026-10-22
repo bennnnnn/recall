@@ -39,7 +39,8 @@ export function readInlineMathSpan(
     const price = /^\d[\d,.]*(?:[;:!?](?:\s.*)?|\s+([A-Za-z]+).*)$/.exec(value);
     const word = price?.[1] ?? "";
     const mathWord = /^[a-z]$|^(?:sin|cos|tan|sec|csc|cot|log|ln|exp|lim|max|min)$/i.test(word);
-    if (price && !mathWord) return null;
+    // A TeX command is maths, not a price: `$4! = 4 \times 3$`.
+    if (price && !mathWord && !/\\[A-Za-z]/.test(value)) return null;
   }
   return { value: value.trim(), end: end + closer.length };
 }

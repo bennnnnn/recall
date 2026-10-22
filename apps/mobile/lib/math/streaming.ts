@@ -96,8 +96,13 @@ export function prepareStreamingMathText(text: string): { text: string; pending:
     if (text.startsWith("\\(", i) || text.startsWith("\\[", i) || text.startsWith("$$", i)) {
       return { text: out, pending: true };
     }
-    if (text[i] === "$" && text.indexOf("$", i + 1) < 0 &&
-      /^(?:\\(?:[A-Za-z]|$)|[a-zA-Z](?:[\s_^=']|$)|\d+[_^+*/=-])/.test(text.slice(i + 1))) {
+    // An unfinished formula waits to close: one that starts like maths, or whose line
+    // already holds TeX (`$12 \times 3`, `$[\text{H}^+]`). A price stays visible.
+    // An escaped `\$` inside the formula is a dollar sign, not its closer.
+    const open = text[i] === "$" && text.slice(i + 1).search(/(?<!\\)\$/) < 0;
+    const line = open ? (text.slice(i + 1).split("\n", 1)[0] ?? "") : "";
+    if (open && (/^(?:\\(?:[A-Za-z]|$)|[a-zA-Z](?:[\s_^=']|$)|\d+[_^+*/=-]|\{)/.test(line) ||
+      /\\|[\^_]\{/.test(line))) {
       return { text: out, pending: true };
     }
     if (text[i] === "\\" && i + 1 < text.length) {

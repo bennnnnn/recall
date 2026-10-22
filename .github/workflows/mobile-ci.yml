@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - "apps/mobile/**"
+      # Phone tests read the shared fixtures and the API's behaviour-sweep replies.
+      - "docs/fixtures/**"
+      - "apps/api/app/tests/behavior/sweep_corpus/**"
       - "scripts/check_file_sizes.py"
       - "scripts/file_size_baseline.json"
       - ".github/workflows/mobile-ci.yml"
@@ -35,7 +38,7 @@ jobs:
         run: |
           run=true
           if [ -n "$PR" ] && files=$(gh pr diff "$PR" --repo "$GITHUB_REPOSITORY" --name-only); then
-            echo "$files" | grep -qE '^(apps/mobile/|scripts/(check_file_sizes\.py|file_size_baseline\.json)$|\.github/workflows/mobile-ci\.yml$)' || run=false
+            echo "$files" | grep -qE '^(apps/mobile/|docs/fixtures/|apps/api/app/tests/behavior/sweep_corpus/|scripts/(check_file_sizes\.py|file_size_baseline\.json)$|\.github/workflows/mobile-ci\.yml$)' || run=false
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
 
