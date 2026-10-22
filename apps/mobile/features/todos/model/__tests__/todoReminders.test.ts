@@ -24,7 +24,7 @@ describe("todo reminder push helpers", () => {
 });
 
 describe("shouldSyncLocalTodoReminders", () => {
-  it("skips on-device scheduling when push is on", () => {
+  it("skips on-device scheduling only when the server holds this device's token", () => {
     expect(shouldSyncLocalTodoReminders(true)).toBe(false);
     expect(shouldSyncLocalTodoReminders(false)).toBe(true);
     expect(shouldSyncLocalTodoReminders(undefined)).toBe(true);

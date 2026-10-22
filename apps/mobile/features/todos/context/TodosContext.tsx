@@ -1,8 +1,9 @@
-import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { useTodosList } from "@/features/todos/hooks/useTodosList";
 import { useTodoReminderState } from "@/features/todos/hooks/useTodoReminderState";
 import { getSessionGeneration } from "@/lib/auth";
+import { remotePushRegistered, subscribeRemotePushRegistered } from "@/lib/pushRegistration";
 import { syncTodoReminders } from "@/features/todos/model/todoReminders";
 
 type TodosContextValue = ReturnType<typeof useTodosList> & ReturnType<typeof useTodoReminderState>;
@@ -12,7 +13,8 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   const auth = useAuthOptional();
   const list = useTodosList(auth?.token, auth?.user?.id);
   const leadMinutes = auth?.user?.reminder_lead_minutes ?? undefined;
-  const pushEnabled = auth?.user?.push_notifications_enabled ?? true;
+  // Reminders come from the server only to a device whose push token it holds.
+  const remotePush = useSyncExternalStore(subscribeRemotePushRegistered, remotePushRegistered);
   const remindersEnabled = auth?.user?.push_reminders_enabled ?? true;
   const reminders = useTodoReminderState({ userId: auth?.user?.id, leadMinutes,
     todos: list.todos, retainedOpenIds: list.retainedOpenIds, getTodos: list.getTodos, isCurrentSession: list.isCurrentSession });
@@ -23,9 +25,9 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   } = list;
   useEffect(() => {
     if (!loaded || !isCurrentSession()) return;
-    void syncTodoReminders(todos, { pushEnabled, remindersEnabled, session, leadMinutes })
+    void syncTodoReminders(todos, { remotePush, remindersEnabled, session, leadMinutes })
       .catch(() => { if (isCurrentSession()) console.warn("[todos] device reminder sync failed"); });
-  }, [todos, loaded, isCurrentSession, pushEnabled, remindersEnabled, session, leadMinutes]);
+  }, [todos, loaded, isCurrentSession, remotePush, remindersEnabled, session, leadMinutes]);
   const { unseenCount, showIndicator, seenReminderIds, homeNudgeDismissed, markSeen, markSeenIds,
     dismissReminderNudge } = reminders;
   const remindersReady = reminders.remindersReady && !loading;
