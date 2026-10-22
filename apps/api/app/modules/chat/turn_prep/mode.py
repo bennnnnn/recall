@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from app.modules.chat.clarify_turn import card_in_reply
 from app.modules.chat.prompt_constants import (
     could_continue_draft,
     draft_followup,
@@ -178,12 +179,16 @@ def classify_turn_mode(recent: Sequence[Any], content: str) -> _TurnMode:
     day_planning = day_planning_service.is_day_planning_question(content)
     day_reflection = day_planning_service.is_day_reflection_question(content)
     prior_assistant = _last_assistant(recent) if is_short_reply(content) else None
-    lightweight = is_lightweight_chat_turn(content, prior_assistant=prior_assistant)
+    # After a clarify card the message answers it: the whole request, never small talk.
+    after_card = card_in_reply(_last_assistant(recent)) is not None
+    lightweight = not after_card and is_lightweight_chat_turn(
+        content, prior_assistant=prior_assistant
+    )
     profile_followup = False
     if is_profile_recall_pushback(content):
         prior_users = _prior_user_texts(recent, content)
         profile_followup = profile_question_to_answer(content, prior_users) is not None
-    rich_context = _turn_needs_rich_context(
+    rich_context = after_card or _turn_needs_rich_context(
         content,
         day_planning=day_planning,
         day_reflection=day_reflection,

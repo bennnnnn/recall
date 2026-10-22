@@ -10,6 +10,7 @@ import { ImageGenPlaceholder } from "@/features/images/components/ImageGenPlaceh
 import { ActionShimmer } from "@/ui/feedback/ActionShimmer";
 import { SearchSourcesStack } from "@/components/SearchSourcesStack";
 import { LazyCircularClockBlock } from "@/components/rich/LazyHeavyRich";
+import { ClarifyMessageScope } from "@/components/rich/clarifyContext";
 import { ReplyMarkdown } from "@/components/markdown/ReplyMarkdown";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
@@ -40,6 +41,8 @@ import { Space } from "@/lib/space";
 type Props = {
   message: Message;
   priorUserText?: string | null;
+  /** The user message right after this reply: what answered its clarify card. */
+  nextUserText?: string | null;
   isGenerating?: boolean;
   /** Live token stream — avoids mutating the messages array on every token. */
   liveContent?: string;
@@ -65,6 +68,7 @@ function userMessageCopyText(content: string): string {
 export const MessageBubble = React.memo(function MessageBubble({
   message,
   priorUserText = null,
+  nextUserText = null,
   isGenerating = false,
   liveContent,
   liveSearchSources,
@@ -229,20 +233,22 @@ export const MessageBubble = React.memo(function MessageBubble({
             ) : null}
             {hasMarkdown ? (
               <AssistantMessageScope messageId={message.id}>
-                <MarkdownErrorBoundary
-                  resetKey={markdownResetKey}
-                  content={markdownContent}
-                >
-                  {/* A row reused for another message starts afresh; renderKey survives `done`. */}
-                  <ReplyMarkdown
-                    key={messageListKey(message)}
+                <ClarifyMessageScope latest={Boolean(isLastAssistant)} nextUserText={nextUserText}>
+                  <MarkdownErrorBoundary
+                    resetKey={markdownResetKey}
                     content={markdownContent}
-                    streaming={markdownStreamMode}
-                    presented={markdownPresented}
-                    userText={priorUserText}
-                    sources={searchSources}
-                  />
-                </MarkdownErrorBoundary>
+                  >
+                    {/* A row reused for another message starts afresh; renderKey survives `done`. */}
+                    <ReplyMarkdown
+                      key={messageListKey(message)}
+                      content={markdownContent}
+                      streaming={markdownStreamMode}
+                      presented={markdownPresented}
+                      userText={priorUserText}
+                      sources={searchSources}
+                    />
+                  </MarkdownErrorBoundary>
+                </ClarifyMessageScope>
               </AssistantMessageScope>
             ) : null}
             {isStreaming && hasContent && streamStatus ? (

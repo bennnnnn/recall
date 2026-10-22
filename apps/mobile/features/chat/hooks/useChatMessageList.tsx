@@ -6,6 +6,7 @@ import { RelatedPromptLines } from "@/features/suggestions/components/RelatedPro
 import type { Message } from "@/lib/api";
 import {
   findLastAssistantId,
+  nextUserTextFor,
   priorUserTextFor,
   streamVisualActiveForRow,
 } from "@/features/chat/model/messageLogic";
@@ -86,6 +87,7 @@ export function useChatMessageList({
   const renderItem = useCallback(
     ({ item, index }: { item: Message; index: number }) => {
       const priorUserText = priorUserTextFor(messagesRef.current, index);
+      const nextUserText = nextUserTextFor(messagesRef.current, index);
       const imageGenPending = item.id === IMAGE_GEN_PENDING_ASSISTANT_ID;
       const live = item.id === "streaming" || imageGenPending;
       const streamVisualActive =
@@ -97,6 +99,7 @@ export function useChatMessageList({
         <ChatMessageRow
           item={item}
           priorUserText={priorUserText}
+          nextUserText={nextUserText}
           streamVisualActive={streamVisualActive}
           live={live}
           imageGenPending={imageGenPending}

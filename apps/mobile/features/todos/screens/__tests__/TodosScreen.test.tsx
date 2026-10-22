@@ -8,10 +8,16 @@ let mockRouteParams: Record<string, string> = {};
 const mockRefresh = jest.fn(async () => {});
 const mockNavigation = { setOptions: jest.fn() };
 let mockAdd: { onPress: () => void };
-let mockSheet: { visible: boolean; onClose: () => void };
+let mockSheet: {
+  visible: boolean;
+  onClose: () => void;
+  onSave: (content: string, due: Date | null, recurrence: null, topic: string) => void;
+};
 let mockList: { onRefresh: () => Promise<void>; refreshing: boolean; rows: unknown[]; onOpen: (row: { id: string; content: string }) => void };
 let mockHeader: { onRetry: () => void };
 const mockOpenTodo = jest.fn();
+const mockCreate = jest.fn();
+const mockInfo = jest.fn();
 const mockGetTodos = () => mockTodos;
 let mockTodos: {
   id: string;
@@ -76,10 +82,11 @@ jest.mock("@/features/todos/hooks/useTodosActions", () => ({ useTodosActions: (p
     openTodoEditor: mockOpenTodo,
     handleDeleteItem: jest.fn(),
     closeTodoEditor: jest.fn(),
-    handleCreateTodo: jest.fn(),
+    handleCreateTodo: mockCreate,
     handleUpdateTodo: jest.fn(),
   };
 } }));
+jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ info: mockInfo }) }));
 jest.mock("@/features/todos/context/TodosContext", () => ({ useTodos: () => ({ todos: mockTodos, loading: false, error: false,
   getTodos: mockGetTodos, isCurrentSession: mockCurrentSession, markSeenIds: mockMarkSeenIds,
   refresh: mockRefresh, setTodos: jest.fn(),
@@ -195,4 +202,21 @@ it("opens the reminder a due notification points at", async () => {
   mockRouteParams = { highlight: "todo-1" };
   await render(<TodosScreen />);
   expect(mockOpenTodo).toHaveBeenCalledWith(due);
+});
+
+
+it.each([
+  ["a to-do due in three days", 3, true],
+  ["a to-do due today", 0, false],
+])("after adding %s on Today, says where it went only when Today hides it", async (_name, days, moved) => {
+  await render(<TodosScreen />);
+  await act(() => { mockAdd.onPress(); });
+  const due = new Date();
+  due.setDate(due.getDate() + days);
+  await act(() => { mockSheet.onSave("Gym", due, null, "General"); });
+  const onCreated = mockCreate.mock.calls[0][2] as () => void;
+  await act(() => { onCreated(); });
+  expect(mockSheet.visible).toBe(false);
+  if (moved) expect(mockInfo).toHaveBeenCalledWith("todos.added_shown_open");
+  else expect(mockInfo).not.toHaveBeenCalled();
 });

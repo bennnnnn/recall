@@ -147,6 +147,17 @@ export function reportStoreUnavailable(error: unknown): void {
   });
 }
 
+/**
+ * Turning push off could not remove this phone's token from the server. The switch
+ * still turns off (the account setting stops sends) and the next sync tries again;
+ * this says so, since the call failing on every phone once went unseen.
+ */
+export function reportPushUnregisterFailed(error: unknown): void {
+  report((Sentry) => {
+    Sentry.captureException(error, { tags: { area: "push_unregister" } });
+  });
+}
+
 /** Sent at once when the SDK is up; before that it waits in the short queue. */
 function report(capture: (sentry: SentrySdk) => void): void {
   if (sdk) {

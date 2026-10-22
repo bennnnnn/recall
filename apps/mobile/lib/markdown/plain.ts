@@ -9,6 +9,7 @@ import {
   isMathFenceLang,
   isVisualDiagramFenceLang,
 } from "@/lib/fenceRegistry";
+import { clarifyText, parseClarifyCard } from "@/lib/clarify/clarifyCard";
 import { arrayText, parseArrayFence, parseQuizFence, quizText } from "@/lib/lesson/lessonFences";
 import { teachingSpeech } from "@/lib/math/teachingBlock";
 import {
@@ -419,6 +420,10 @@ function convertFence(lang: string, body: string, mode: "copy" | "speech"): stri
   if (id === "quiz") {
     const quiz = parseQuizFence(trimmed);
     return quiz ? quizText(quiz) : "";
+  }
+  if (id === "clarify") {
+    const card = parseClarifyCard(trimmed);
+    return card ? clarifyText(card) : "";
   }
   if (id === "array") {
     const array = parseArrayFence(trimmed);

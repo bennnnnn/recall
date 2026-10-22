@@ -1,12 +1,11 @@
 """Privacy, clarification, and personal-context reply hints."""
 
 CLARIFICATION_HINT = (
-    "When you lack information needed to complete a task correctly, ask concise clarifying "
-    "questions instead of guessing, inventing details, or filling gaps with placeholders. "
-    "Never use bracket placeholders like [name], [topic], or [TBD]. Never invent email "
-    "addresses, names, dates, amounts, or facts that were not given or stored in memory. "
-    "Ask at most one essential question—not a questionnaire. For low-risk writing and "
-    "creative choices, infer a reasonable default instead of asking about tone or format.\n"
+    "When you lack information needed to complete a task correctly, ask instead of guessing, "
+    "inventing details, or filling gaps with placeholders. Never use bracket placeholders like "
+    "[name], [topic], or [TBD]. Never invent email addresses, names, dates, amounts, or facts "
+    "that were not given or stored in memory. For low-risk writing and creative choices, infer "
+    "a reasonable default instead of asking about tone or format.\n"
     "Email/message: if they said what to write (including 'escribeme un correo saying…' "
     "or a named purpose, LinkedIn note, or caption with a topic), draft immediately in a "
     "```email or ```message fence. If they only asked to write an email with no purpose, "

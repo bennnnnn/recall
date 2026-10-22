@@ -132,3 +132,19 @@ async def test_memory_extraction_retries_bad_output() -> None:
         await memory_llm.revise_memory_facts(_SETTINGS, "user: I moved to Lisbon")
     by_schema = {getattr(call["schema"], "__name__", ""): call for call in calls}
     assert by_schema["MemoryFactUpdateResult"]["fallback_on_invalid"] is True
+
+
+async def test_a_salvaged_reply_logs_how_many_items_it_dropped(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.WARNING, logger="app.gateways.structured_completion")
+    reply = (
+        '{"ops": [{"op": "add", "type": "fact", "text": "User likes tea", "confidence": 0.9},'
+        ' {"op": "add", "text": "Private words"}], "reply": "Done"}'
+    )
+    result, _ = await _ask([reply], schema=MemoryFactUpdateResult)
+    assert isinstance(result, MemoryFactUpdateResult) and len(result.ops) == 1
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert any("kept part of a reply" in w and "dropped=1" in w for w in warnings)
+    # The count only: the dropped op's text never reaches the log.
+    assert not any("Private words" in w for w in warnings)
