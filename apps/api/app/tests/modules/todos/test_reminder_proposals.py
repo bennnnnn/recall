@@ -35,22 +35,55 @@ async def _user_and_chat(session: Any) -> tuple[Any, Any]:
     return user, chat
 
 
-async def _turn(session: Any, redis: Any, user: Any, chat: Any, user_text: str, reply: str) -> str:
-    text, written = await materialize_reminder_fences(
-        session,
-        user_id=user.id,
-        chat_id=chat.id,
-        assistant_text=reply,
-        user_timezone="UTC",
-        user_text=user_text,
-        redis=redis,
-        confirm=True,
-    )
+# The morning turns' fixed clock: their tests assert exact due times and never tap a card.
+_MORNING = datetime(2026, 10, 14, 6, 0, tzinfo=UTC)
+
+
+def _next_wednesday_morning() -> datetime:
+    now = datetime.now(UTC)
+    days = (2 - now.weekday()) % 7 or 7
+    return (now + timedelta(days=days)).replace(hour=6, minute=0, second=0, microsecond=0)
+
+
+# What the other turns read: on the real clock, "thursday at 5pm" asked on a Thursday
+# evening was a time already gone, and CI failed on Thursdays. Next Wednesday's morning
+# is always a Wednesday, and still ahead of the real clock a tap's check reads.
+_NEXT_WEDNESDAY = _next_wednesday_morning()
+
+
+async def _materialize(
+    session: Any,
+    redis: Any,
+    user: Any,
+    chat: Any,
+    user_text: str,
+    reply: str,
+    *,
+    user_timezone: str,
+    clock: datetime,
+) -> str:
+    with patch("app.modules.todos.spoken_add._now", lambda tz: clock.astimezone(tz)):
+        text, written = await materialize_reminder_fences(
+            session,
+            user_id=user.id,
+            chat_id=chat.id,
+            assistant_text=reply,
+            user_timezone=user_timezone,
+            user_text=user_text,
+            redis=redis,
+            confirm=True,
+        )
     assert written == 0
     await messages_repo.create(
         session, chat_id=chat.id, user_id=user.id, role="assistant", content=text
     )
     return text
+
+
+async def _turn(session: Any, redis: Any, user: Any, chat: Any, user_text: str, reply: str) -> str:
+    return await _materialize(
+        session, redis, user, chat, user_text, reply, user_timezone="UTC", clock=_NEXT_WEDNESDAY
+    )
 
 
 def _card(text: str) -> dict[str, Any]:
@@ -460,31 +493,22 @@ async def test_a_past_fence_with_no_clock_still_says_something(db_session, fake_
 
 
 # 09:00 in Nairobi on a Wednesday: 5pm today and Friday 9am are both ahead.
-_MORNING = datetime(2026, 10, 14, 6, 0, tzinfo=UTC)
-
-
 async def _morning_turn(
     session: Any, redis: Any, user: Any, chat: Any, user_text: str, reply: str
 ) -> str:
     await messages_repo.create(
         session, chat_id=chat.id, user_id=user.id, role="user", content=user_text
     )
-    with patch("app.modules.todos.spoken_add._now", lambda tz: _MORNING.astimezone(tz)):
-        text, written = await materialize_reminder_fences(
-            session,
-            user_id=user.id,
-            chat_id=chat.id,
-            assistant_text=reply,
-            user_timezone="Africa/Nairobi",
-            user_text=user_text,
-            redis=redis,
-            confirm=True,
-        )
-    assert written == 0
-    await messages_repo.create(
-        session, chat_id=chat.id, user_id=user.id, role="assistant", content=text
+    return await _materialize(
+        session,
+        redis,
+        user,
+        chat,
+        user_text,
+        reply,
+        user_timezone="Africa/Nairobi",
+        clock=_MORNING,
     )
-    return text
 
 
 @pytest.mark.asyncio

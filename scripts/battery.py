@@ -151,7 +151,14 @@ class Battery:
         self.client.patch(
             "/auth/me",
             headers=headers,
-            json={"timezone": TIMEZONE, "location_enabled": False, "location": None},
+            # A turn needs the account's AI data consent, as the phone records it after
+            # sign-in; a fresh database has battery accounts that never gave it.
+            json={
+                "timezone": TIMEZONE,
+                "location_enabled": False,
+                "location": None,
+                "ai_data_consent": True,
+            },
         ).raise_for_status()
         self.location[pro] = None
         # A fresh start: last run's chats go, and what they taught memory. A
@@ -295,14 +302,34 @@ def check(case: Case, turn: Turn) -> list[str]:
     if expect.instant == "location" and not turn.reply.startswith(LOCATION_OFF_START):
         misses.append("did not ask for location")
     lesson = {"teaching", "walkthrough"} & set(expect.hints)
-    if lesson and lesson_step(turn.reply) is None:
-        misses.append("no lesson title")
-    if lesson and "```quiz" not in turn.reply:
-        misses.append("no quiz card")
+    if expect.outline:
+        misses.extend(_outline_misses(turn.reply))
+    # In a reply to several requests, the request's own heading stands in for the title.
+    elif lesson and "multi_intent" not in expect.hints:
+        if lesson_step(turn.reply) is None:
+            misses.append("no lesson title")
+        if "```quiz" not in turn.reply:
+            misses.append("no quiz card")
     if "map" in expect.hints and "```map" not in turn.reply:
         misses.append("no map card")
     if "map" in expect.no_hints and "```map" in turn.reply:
         misses.append("map card shown")
+    return misses
+
+
+_TOPIC_LINE = re.compile(r"^\s*\d+\.\s+\*\*", re.MULTILINE)
+
+
+def _outline_misses(reply: str) -> list[str]:
+    """A whole subject: 5-8 bold topics in order and a closing question, no lesson yet."""
+    misses: list[str] = []
+    if len(_TOPIC_LINE.findall(reply)) < 5:
+        misses.append("no topic outline")
+    lines = reply.strip().splitlines()
+    if not lines or "?" not in lines[-1]:
+        misses.append("no closing question")
+    if lesson_step(reply) is not None or "```quiz" in reply:
+        misses.append("taught a lesson instead of the outline")
     return misses
 
 

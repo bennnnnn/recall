@@ -60,6 +60,9 @@ class Expect:
     # A real photo above the model's answer (it opened with ```photo). Routing can
     # only check the hint that offers it; the live replay checks the photo.
     answer_photo: bool | None = None
+    # A whole subject ("teach me python") gets its topics in order and one question,
+    # never a lesson yet (prompt_constants.teaching._SUBJECT_OUTLINE).
+    outline: bool = False
     # The model the case's plan gets on Auto (``model_choice.resolve_user_model``).
     model: str | None = None
     # A multi-part message's picture, drawn above the model's answer to the rest.
@@ -728,15 +731,16 @@ CASES: tuple[Case, ...] = (
         "teach-python",
         "teaching",
         "teach me python",
-        Expect(hints=("teaching", "programming_lesson"), search="no"),
-        "Lesson 1: a one-line hook, numbered sections, runnable code, a quiz card, the next lesson.",
+        Expect(hints=("teaching", "programming_lesson"), search="no", outline=True),
+        "One line on what Python opens up, 5-8 topics in order, then where they are and where "
+        "to start. No lesson, no code, no quiz yet.",
     ),
     Case(
         "teach-python-scratch",
         "teaching",
         "I want to learn python from scratch",
-        Expect(hints=("teaching",)),
-        "Same lesson shape as 'teach me python', starting from variables and print.",
+        Expect(hints=("teaching",), outline=True),
+        "The same outline as 'teach me python', tailored to starting from nothing.",
     ),
     Case(
         "teach-two-sum-understand",
@@ -757,8 +761,8 @@ CASES: tuple[Case, ...] = (
         "teach-history-know",
         "teaching",
         "I want to know american history",
-        Expect(hints=("teaching",), search="ask"),
-        "Lesson 1 on the first era: sections with dates and causes, a quiz card, the next era.",
+        Expect(hints=("teaching",), search="ask", outline=True),
+        "The same outline as 'teach me american history': the eras in order, then where to start.",
     ),
     Case(
         "teach-no-know-fact",
@@ -778,8 +782,8 @@ CASES: tuple[Case, ...] = (
         "teach-history",
         "teaching",
         "teach me american history",
-        Expect(hints=("teaching",), search="no"),
-        "Lesson 1 on the first era, in the same lesson shape, ending on a quiz card.",
+        Expect(hints=("teaching",), search="no", outline=True),
+        "The eras in order as an outline, then where to start. No lesson yet.",
     ),
     Case(
         "teach-eli10",
