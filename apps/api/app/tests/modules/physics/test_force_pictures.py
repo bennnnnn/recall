@@ -1,0 +1,124 @@
+"""Draw the forces on a body: its free-body diagram even with no number to solve."""
+
+from __future__ import annotations
+
+import pytest
+
+from app.core.config import get_settings
+from app.modules.physics.extract import needs_physics
+from app.modules.physics.fence import validate_physics_fences
+from app.modules.physics.force_pictures import force_picture, force_picture_block, is_picture_only
+from app.modules.physics.prompt import solve_physics_request
+
+
+def _labels(text: str) -> set[str]:
+    picture = force_picture(text)
+    assert picture is not None, text
+    spec = picture.spec
+    return {*(spec.arrow_labels or {}).values(), *(v.label for v in spec.vectors if v.label)}
+
+
+@pytest.mark.parametrize(
+    "text, kind, labels",
+    [
+        (
+            "Draw the forces on a box sliding down a 30 degree incline with friction",
+            "incline",
+            {"mg", "N", "f"},
+        ),
+        ("Draw a free-body diagram of a block on a frictionless ramp", "incline", {"mg", "N"}),
+        ("Draw a free-body diagram of a block at rest on an incline", "incline", {"mg", "N", "f"}),
+        ("show the forces acting on a hanging mass", "free_body", {"T", "mg"}),
+        ("draw the forces on a lamp suspended from the ceiling", "free_body", {"T", "mg"}),
+        ("What forces act on a book resting on a table?", "free_body", {"mg", "N"}),
+        (
+            "draw the forces on a block on a table pulled by a rope at 30 degrees",
+            "free_body",
+            {"mg", "N", "T"},
+        ),
+        (
+            "draw a free-body diagram of a crate pushed across a rough floor",
+            "free_body",
+            {"mg", "N", "F", "f"},
+        ),
+        ("sketch the forces on a ball falling with air resistance", "free_body", {"mg", "drag"}),
+        ("FBD of a stone thrown up in the air", "free_body", {"mg"}),
+    ],
+)
+def test_force_picture_draws_the_situation_with_symbol_labels(
+    text: str, kind: str, labels: set[str]
+) -> None:
+    picture = force_picture(text)
+    assert picture is not None
+    assert picture.spec.type == kind
+    assert _labels(text) == labels
+    # Symbols only: no number is invented for a force.
+    assert not any(char.isdigit() for label in labels for char in label)
+
+
+def test_force_picture_keeps_a_given_angle_and_names_a_missing_one() -> None:
+    given = force_picture("draw the forces on a box on a 30° incline")
+    missing = force_picture("draw the forces on a box on an incline")
+    assert given is not None and missing is not None
+    assert [angle.label for angle in given.spec.angles] == ["30°"]
+    assert [angle.label for angle in missing.spec.angles] == ["θ"]
+    assert "θ slope" in missing.shows
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "draw the forces of the market",
+        "the forces of nature are amazing",
+        "show me the incline at Lalibela",
+        "what forces shaped the French revolution?",
+        "draw a box",
+        "draw the forces on a box pulled up a ramp by a rope",
+        "draw a free body diagram for two blocks connected by a string over a pulley",
+        "draw the forces on a car going around a curve",
+        "what is the slope of y = 2x + 3?",
+    ],
+)
+def test_force_picture_leaves_other_requests_alone(text: str) -> None:
+    assert force_picture(text) is None
+
+
+def test_a_digit_free_free_body_request_is_physics() -> None:
+    assert needs_physics("show the forces acting on a hanging mass")
+    assert not needs_physics("draw the forces of the market")
+
+
+def test_a_force_picture_turn_carries_the_scene_and_no_result() -> None:
+    text = "Draw the forces on a box sliding down a 30 degree incline with friction"
+    outcome, block = solve_physics_request(text, get_settings(), None)
+    assert outcome == "picture"
+    assert block is not None and is_picture_only(block)
+    assert block.canonical_fence is not None and block.canonical_fence["type"] == "incline"
+    assert not block.allow_direct
+    # The prompt says what the picture shows, so the prose can name each force.
+    picture = force_picture(text)
+    assert picture is not None and picture.shows in block.text
+
+
+def test_a_solved_turn_is_not_picture_only() -> None:
+    text = "A 5 kg box slides down a 30° incline with μ = 0.2. Find its acceleration."
+    outcome, block = solve_physics_request(text, get_settings(), None)
+    assert outcome == "verified"
+    assert not is_picture_only(block)
+
+
+def test_the_picture_replaces_a_sketch_in_characters() -> None:
+    block = force_picture_block("show the forces acting on a hanging mass")
+    assert block is not None
+    reply = (
+        "Two forces act on the mass.\n\n"
+        "```text\n   ↑ T\n   │\n ┌───┐\n │ m │\n └───┘\n   │\n   ▼ mg\n```\n\n"
+        "The tension $T$ balances the weight $mg$.\n\n"
+        "```python\nT = m * g\n```"
+    )
+    out = validate_physics_fences(reply, verified=block)
+    assert "┌───┐" not in out
+    assert "```python" in out
+    assert "```answer" not in out
+    assert out.count("```simulation") == 1
+    assert out.index("The tension") < out.index("```simulation")

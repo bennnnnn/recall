@@ -31,7 +31,7 @@ def _unverified_physics_note() -> str:
     )
 
 
-PhysicsOutcome = Literal["skip", "note", "failed", "symbolic", "verified"]
+PhysicsOutcome = Literal["skip", "note", "failed", "symbolic", "verified", "picture"]
 
 
 def solve_physics_request(
@@ -41,7 +41,8 @@ def solve_physics_request(
 
     ``skip``: not physics. ``note``: physics with no template, so the prompt note.
     ``failed``: a template matched and its solve failed. ``symbolic`` and ``verified``
-    carry the block.
+    carry the block; ``picture`` carries a free-body diagram and no result ("draw the
+    forces on a box on a 30° incline" names no mass and no μ).
     """
     detected = needs_physics(user_content) if needs_subject is None else needs_subject
     if not detected:
@@ -64,15 +65,25 @@ def solve_physics_request(
             return "failed", None
     intent = extract_physics_intent(user_content)
     if intent is None:
-        return "note", None
+        return _picture_or(user_content, "note")
     try:
         block = _build_physics_block(intent, settings, [])
     except Exception:
         logger.warning("physics solve failed for kind=%s", intent.kind, exc_info=True)
-        return "failed", None
+        return _picture_or(user_content, "failed")
     if block is None:
-        return "failed", None
+        return _picture_or(user_content, "failed")
     return "verified", replace(block, text=wrap_verified_physics(block.text))
+
+
+def _picture_or(
+    user_content: str, outcome: PhysicsOutcome
+) -> tuple[PhysicsOutcome, VerifiedPhysicsBlock | None]:
+    """Nothing solved, but the forces it asks to see can still be drawn."""
+    from app.modules.physics.force_pictures import force_picture_block
+
+    block = force_picture_block(user_content)
+    return ("picture", block) if block is not None else (outcome, None)
 
 
 async def build_physics_augmentation(
@@ -111,6 +122,8 @@ async def build_physics_augmentation(
         return None, None, False
     if outcome == "note":
         return _unverified_physics_note(), None, False
+    if outcome == "picture" and block is not None:
+        return block.text, block, False
     if block is None:
         return _unverified_physics_note(), None, True
     return f"{block.text}\n\n{PHYSICS_REPLY_POLICY}", block, False

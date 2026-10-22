@@ -889,5 +889,37 @@
   "history": [],
   "reply": "I need your location to tell you that.",
   "expect": "instant"
+ },
+ {
+  "id": "s2-092",
+  "area": "physics",
+  "prompt": "Draw the forces on a box sliding down a 30 degree incline with friction",
+  "history": [],
+  "reply": "Three forces act on the box:\n\n1. **Weight** $mg$, straight down.\n2. **Normal force** $N = mg\\cos 30^\\circ$, perpendicular to the slope.\n3. **Kinetic friction** $f = \\mu N$, up the slope, against the sliding.",
+  "expect": "answer"
+ },
+ {
+  "id": "s2-093",
+  "area": "physics",
+  "prompt": "show the forces acting on a hanging mass",
+  "history": [],
+  "reply": "Two forces act on the mass: the **tension** $T$ up the rope and its **weight** $mg$ down. At rest they balance, so $T = mg$.",
+  "expect": "answer"
+ },
+ {
+  "id": "s2-094",
+  "area": "physics",
+  "prompt": "draw a free-body diagram of a ball falling with air resistance",
+  "history": [],
+  "reply": "While it falls, its **weight** $mg$ pulls it down and **air resistance** pushes up, growing with speed until the two balance at terminal velocity.",
+  "expect": "answer"
+ },
+ {
+  "id": "s2-095",
+  "area": "lookalike",
+  "prompt": "what are the forces of the market behind oil prices?",
+  "history": [],
+  "reply": "Supply and demand: OPEC output, shale production, global growth and inventories.",
+  "expect": "answer"
  }
 ]

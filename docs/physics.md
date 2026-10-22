@@ -362,6 +362,15 @@ up by operation and reuses the same builders. A string's tension is the circular
 its string, and a recoil is the collision scene started from rest. An operation not listed
 draws nothing.
 
+A request to see the forces on a body ("draw the forces on a box sliding down a 30°
+incline with friction", "show the forces on a hanging mass") needs no number: when nothing
+solves, `force_pictures.py` reads the situation (an incline, a hanging body, a body in the air,
+a box on a level surface pulled or pushed) and draws its free-body diagram with symbol labels
+(mg, N, f, T) and only the angle the user gave (θ otherwise). The turn carries that picture and
+no result: no card, no number. A plain-text sketch the model drew beside a server picture is
+removed. A situation it does not know (a pulley, a curve, a block pulled up a ramp) draws
+nothing.
+
 Where one formula covers different apparatus, a hidden variable that only the picture reads
 says which one it is:
 - `pipe`: an open pipe and a string share n·v/2L, but a pipe's open end is an antinode;

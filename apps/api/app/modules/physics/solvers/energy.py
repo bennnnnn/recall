@@ -7,7 +7,7 @@ import math
 from app.modules.physics.display import GIVEN_FIGURES, plain_number
 from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec, SimulationVector
 from app.modules.physics.solvers.arithmetic import latex_num
-from app.modules.physics.solvers.force_scenes import _free_body_scene
+from app.modules.physics.solvers.force_scenes import free_body_scene
 from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
 from app.modules.physics.solvers.si import gravity_of, params_in_si
 from app.services.solving import SolveServiceError
@@ -108,7 +108,7 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
         scene = height_scene(p["m"], g, p["h"])
     elif op == "work":
         distance = p["d"]
-        scene = _free_body_scene(
+        scene = free_body_scene(
             [
                 SimulationVector(
                     anchor=[0.0, 0.0],
@@ -144,7 +144,7 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
 def height_scene(mass: float, g: float, height: float) -> list[SimulationBlockSpec]:
     """A mass at a height above the ground, its weight and the height it is at."""
     shown_mass = f"{plain_number(mass, GIVEN_FIGURES)} kg"
-    return _free_body_scene(
+    return free_body_scene(
         [
             SimulationVector(
                 anchor=[0.0, height], dx=0.0, dy=-1.0, label=f"W = {plain_number(mass * g)} N"

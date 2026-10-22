@@ -31,6 +31,10 @@ logger = logging.getLogger(__name__)
 
 _PICTURE_FENCE_LANGS = ("graph", "simulation", "geometry")
 _DIAGRAM_FAILED = "*Could not render that diagram.*"
+# A plain block may hold a sketch; a tagged one (python, math) never does.
+_PLAIN_FENCE_LANGS = frozenset({"", "text", "txt", "plaintext", "ascii"})
+# Box-drawing lines, arrows and blocks, or a run of slashes, bars and dashes.
+_DRAWN = re.compile(r"[\u2190-\u21ff\u2500-\u257f\u25a0-\u25ff]|[-_|/\\]{3,}|[/\\]\s*$")
 
 
 def _has_picture_fence(content: str) -> bool:
@@ -90,7 +94,24 @@ def validate_physics_fences(
             continue
         language = "simulation" if spec_type in SIMULATION_SPEC_TYPES else "graph"
         extras.append(f"```{language}\n{json.dumps(spec, separators=(',', ':'))}\n```")
-    return _with_pictures(cleaned, extras)
+    return _with_pictures(_without_text_drawings(cleaned) if extras else cleaned, extras)
+
+
+def _without_text_drawings(text: str) -> str:
+    """The solver's picture replaces a sketch of the same thing in characters: a box
+    drawn in ASCII art reads as broken rows of symbols on the phone."""
+    drawings = [
+        fence
+        for fence in iter_fences(text)
+        if fence.lang in _PLAIN_FENCE_LANGS
+        and sum(
+            bool(_DRAWN.search(row)) for row in text[fence.body_start : fence.body_end].split("\n")
+        )
+        >= 2
+    ]
+    for fence in reversed(drawings):
+        text = text[: fence.start] + text[fence.end :]
+    return re.sub(r"\n{3,}", "\n\n", text).strip() if drawings else text
 
 
 # "### Joke": a later request's section, after the one the solve answered.

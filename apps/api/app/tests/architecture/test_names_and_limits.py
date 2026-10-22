@@ -26,7 +26,7 @@ from app.services.prompt_safety import custom_instructions_block
 from .boundary_support import APP_ROOT
 
 # Imports of another file's ``_private`` names; lower it when a change removes some.
-_PRIVATE_IMPORTS = 742
+_PRIVATE_IMPORTS = 737
 
 
 def _production() -> list[tuple[str, ast.Module]]:
