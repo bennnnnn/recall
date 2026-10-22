@@ -20,7 +20,6 @@ from app.models.orm import User
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import StreamContext
-from app.modules.chat.turn_settle import seed_usage_from_db
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services import model_catalog
 from app.services.context_window import estimate_tokens
@@ -33,8 +32,6 @@ logger = logging.getLogger(__name__)
 # it stays short and is refreshed three times a TTL.
 CHATPREP_LOCK_TTL_SECONDS = 30
 CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS = 10.0
-# Concurrent turns can take the room another read just saw; re-read this often.
-_RESERVE_ATTEMPTS = 3
 
 
 @dataclass
@@ -66,7 +63,6 @@ class TurnResources:
         daily_limit: int | None = None,
         max_output: int | None = None,
         vision_extra: int = 0,
-        seed: bool = True,
     ) -> int:
         self.reserved_tokens = await reserve_turn_quota(
             self.deps,
@@ -78,7 +74,6 @@ class TurnResources:
             daily_limit=daily_limit,
             max_output=max_output,
             vision_extra=vision_extra,
-            seed=seed,
         )
         return self.reserved_tokens
 
@@ -240,33 +235,10 @@ async def top_up_reserve_for_prompt(
     )
     extra = needed - res.reserved_tokens
     if extra > 0:
-        res.reserved_tokens += await reserve_tokens_up_to(
-            res.deps, res.redis, str(res.user_id), extra, daily_limit=daily_limit
+        res.reserved_tokens += await res.deps.quota.reserve_usage_up_to(
+            res.redis, str(res.user_id), extra, daily_limit=daily_limit
         )
     ctx.reserved_tokens = res.reserved_tokens
-
-
-async def reserve_tokens_up_to(
-    deps: ChatTurnDeps,
-    redis: Redis,
-    user_id: str,
-    wanted: int,
-    *,
-    daily_limit: int,
-) -> int:
-    """Take ``wanted`` of today's tokens, or all that is left. 0 when none is.
-
-    ``reserve_usage`` is the atomic check: a turn that lost a race to the
-    same room is rolled back and reads the new total again.
-    """
-    for _attempt in range(_RESERVE_ATTEMPTS):
-        room = daily_limit - await deps.quota.get_daily_usage(redis, user_id)
-        if room <= 0:
-            return 0
-        take = min(wanted, room)
-        if await deps.quota.reserve_usage(redis, user_id, take, daily_limit=daily_limit):
-            return take
-    return 0
 
 
 async def reserve_turn_quota(
@@ -280,7 +252,6 @@ async def reserve_turn_quota(
     daily_limit: int | None = None,
     max_output: int | None = None,
     vision_extra: int = 0,
-    seed: bool = True,
 ) -> int:
     """Refuse a turn the global spend cap or today's token budget cannot cover.
 
@@ -293,14 +264,11 @@ async def reserve_turn_quota(
     or a page of code would stop mid-fence), and finalize clips the counter
     at the limit, so one turn is the most a user can go over.
 
-    ``seed`` re-reads today's total from the DB when Redis lost it
-    (regenerate); a new turn already did that in ``turn_load``.
+    When Redis had lost today's total, the turn read it back from the DB as it
+    loaded (``turn_load``).
     """
     if await deps.quota.global_spend_exceeded(redis, settings):
         raise SpendCapReachedError(CHAT_SPEND_CAP_MESSAGE)
-    if seed:
-        async with deps.session_factory() as session:
-            await seed_usage_from_db(redis, session, user.id)
     if daily_limit is None:
         daily_limit = deps.quota.daily_limit_for_user(user, settings)
     wanted = weighted_reserve_tokens(
@@ -310,8 +278,8 @@ async def reserve_turn_quota(
         max_output=max_output,
         vision_extra=vision_extra,
     )
-    reserved = await reserve_tokens_up_to(
-        deps, redis, str(user.id), wanted, daily_limit=daily_limit
+    reserved = await deps.quota.reserve_usage_up_to(
+        redis, str(user.id), wanted, daily_limit=daily_limit
     )
     if reserved <= 0:
         raise QuotaExceededError(quota_exceeded_message(user))

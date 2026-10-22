@@ -13,7 +13,7 @@ from app.core.access_tokens import (
     decode_access_token,
 )
 from app.core.config import Settings
-from app.gateways import litellm_gateway, think_stripper
+from app.gateways import litellm_gateway, stream_usage, think_stripper
 from app.gateways.google_auth import GoogleAuthError
 from app.gateways.mock_llm import (
     mock_memory_facts,
@@ -23,6 +23,7 @@ from app.gateways.mock_llm import (
 )
 from app.models.schemas import TodoExtractionResult
 from app.modules.chat import titles as chat_titles
+from app.tests.modules.chat.chat_test_support import access_for
 
 # ── mock_llm ───────────────────────────────────────────────────────────────────
 
@@ -154,7 +155,7 @@ def test_apply_usage_accumulates_onto_existing_totals():
     chunk = SimpleNamespace(
         usage=SimpleNamespace(prompt_tokens=7, completion_tokens=3),
     )
-    litellm_gateway._apply_usage(usage, chunk)
+    stream_usage.apply_usage(usage, chunk)
     assert usage == {"input": 17, "output": 7}
 
 
@@ -552,7 +553,7 @@ async def test_get_current_user_from_valid_token():
     fake_user.id = uid
     session = AsyncMock()
     with (
-        patch("app.core.deps.access_tokens.verify_access_token", AsyncMock(return_value=uid)),
+        patch("app.core.deps.access_tokens.check_access", AsyncMock(return_value=access_for(uid))),
         patch("app.core.deps.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.core.deps.get_settings", return_value=settings),
     ):
@@ -575,7 +576,7 @@ async def test_get_current_user_not_found_raises_401():
     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="tok")
 
     with (
-        patch("app.core.deps.access_tokens.verify_access_token", AsyncMock(return_value=uid)),
+        patch("app.core.deps.access_tokens.check_access", AsyncMock(return_value=access_for(uid))),
         patch("app.core.deps.users_repo.get_by_id", AsyncMock(return_value=None)),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -596,7 +597,7 @@ async def test_get_current_user_invalid_token_raises_401():
     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="bad-token")
 
     with patch(
-        "app.core.deps.access_tokens.verify_access_token",
+        "app.core.deps.access_tokens.check_access",
         AsyncMock(side_effect=GoogleAuthError("Invalid token")),
     ):
         with pytest.raises(HTTPException) as exc_info:

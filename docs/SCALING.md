@@ -19,7 +19,7 @@ Everything a turn or a request must agree on across machines lives in Redis or P
 
 | What | Where it lives | Notes |
 |---|---|---|
-| Sign-in and every request's token check | JWT + Redis (`revoked:jti:`, `revoked:sid:`, `revoked_since:`) | `core/access_tokens.py`; account delete revokes every session first, so a cached user row elsewhere is never served to a deleted account |
+| Sign-in and every request's token check | JWT + Redis (`revoked:jti:`, `revoked:sid:`, `revoked_since:`, read with the user's `usergen:` in one MGET) | `core/access_tokens.py`; account delete revokes every session first, so a cached user row elsewhere is never served to a deleted account |
 | Rate limits: REST, sign-in, chat messages (30/min across WS and SSE), WS connect and handshake, voice, scan reads, link previews | Redis counters (`core/rate_limit.py`, `core/rest_rate_limit.py`, `core/chat_rate_limit.py`) | Fail closed when Redis is down. Per-IP limits need `TRUST_X_FORWARDED_FOR=true` behind Fly |
 | Daily tokens, image, voice, search and live-talk allowances, Tavily budget | Redis (`services/quota/`) | One budget per user whichever machine serves the turn |
 | Global daily spend cap | Redis `spend_musd:<date>` (`core/spend_counter.py`) | Every machine adds to and reads the same counter |
@@ -36,7 +36,7 @@ Everything a turn or a request must agree on across machines lives in Redis or P
 
 | State | Where | Effect with N app machines |
 |---|---|---|
-| Last loaded user row, 60 s | `core/user_cache.py` | An edit saved on one machine (plan change from the RevenueCat webhook, a settings change, consent) reaches the others within 60 s. Consent is re-read from the row before a turn is refused. |
+| Last loaded user row, 5 min, checked against Redis | `core/user_cache.py` | Every committed write to a user row (plan change from the RevenueCat webhook, a settings or memory change, consent) stores a new `usergen:{user}`; every request and chat frame reads it with its token check and loads the row again when its copy is older. A write whose generation Redis refuses answers 503 (it is saved; making it again publishes, and the phone does not retry a 503 by itself); a missing key starts a fresh generation, never one an old copy was stored under. A SQL edit to `users` needs `DEL usergen:<id>` (PRODUCTION.md §2); otherwise, and after a machine dies between a commit and its publish, a copy can lag for up to 5 min. Consent is re-read from the row before a turn is refused. |
 | A chat created here, 120 s | `repositories/chats.py` (`_chat_cache`) | The send right after "new chat" skips a query. If the chat is deleted through another machine, this machine still starts a turn for it for up to 120 s, which then fails when it saves. |
 | Open chat sockets per user (5) | `modules/chat/ws_limits.py` | A user can hold 5 per machine, N×5 in all. The frame budget and idle timeout are per socket, so they are exact. |
 | SymPy process pool (3 workers, 2 s slot wait) | `core/sympy_executor.py` | Capacity grows with machines (3 per machine); a maths turn that waits more than 2 s for a slot on its machine is answered unverified. |
@@ -59,7 +59,7 @@ Everything a turn or a request must agree on across machines lives in Redis or P
   pool: a burst opens a connection per concurrent command. Upstash limits concurrent
   connections per plan and bills per command.
 - **Redis commands per request.** An authenticated REST request costs the rate-limit
-  pipeline (INCR + EXPIRE) and up to three GETs for the token check. A finished chat turn
+  pipeline (INCR + EXPIRE) and one MGET for the token check. A finished chat turn
   enqueues up to seven jobs, each an XADD plus the soft trim (XPENDING, XTRIM).
 - **CPU.** One event loop per machine on a shared CPU. SymPy runs in its own processes and
   document parsing on threads, but prompt building, the maths/physics/chemistry readers
@@ -76,17 +76,15 @@ plugs in.
    `[http_service.concurrency] type = "requests"`, 200 open chat sockets may fill a machine.
    Seam: `fly.toml`. Do this first; it decides when a second `app` machine is needed.
 2. **Bound and trim Redis use.** Give both clients a `max_connections` (a blocking pool) sized
-   to Upstash's limit ÷ machines; read the three revocation keys in one MGET
-   (`core/access_tokens.verify_access_token`); trim the jobs stream from the worker on a
-   timer instead of on every enqueue (`core/jobs/queue.enqueue`). Seams: `core/redis.py`,
-   `core/access_tokens.py`, `core/jobs/queue.py`.
+   to Upstash's limit ÷ machines; trim the jobs stream from the worker on a timer instead of
+   on every enqueue (`core/jobs/queue.enqueue`). Seams: `core/redis.py`,
+   `core/jobs/queue.py`.
 3. **Size the Postgres pool per role** (smaller on workers) and per Neon compute, so
    (N + M) × pool stays under the server pool. Seam: `DB_POOL_SIZE` / `DB_MAX_OVERFLOW`
    (`core/settings/infrastructure.py`), set per process group.
-4. **Share or invalidate the per-machine caches** once 60 s of stale plan or settings on
-   another machine matters: keep the row in this process but check a Redis generation key
-   per user on read (the `core/cache_generation.py` pattern), or publish invalidations.
-   Seams: `core/user_cache.py` (its three functions are the whole interface) and
+4. **Invalidate the per-machine chat cache** once a chat deleted through another machine
+   must stop at once: check a Redis generation per chat on read, as `core/user_cache.py`
+   does for user rows (the `core/cache_generation.py` pattern). Seam:
    `repositories/chats.py` (`peek_recent_chat` / `forget_chat`).
 5. **Count chat sockets per user in Redis** if N×5 is too many: an expiring counter or set
    per user, refreshed while the socket lives. Seam: `modules/chat/ws_limits.py`

@@ -7,8 +7,9 @@ scanned problem's read-back are refused with ``consent_required`` until the
 account agrees, and again after it withdraws. The phone answers that code with
 its consent screen.
 
-A user cached by ``get_current_user`` can trail an agreement made on another
-machine by up to a minute, so a refusal re-reads the row first.
+A user cached by ``get_current_user`` trails an agreement made on another
+machine only when that change's generation never reached Redis
+(``core/user_cache``), so a refusal still re-reads the row first.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.deps import get_current_user
-from app.core.user_cache import remember_user
+from app.core.user_cache import forget_user
 from app.exceptions import ConsentRequiredError
 from app.models.orm import User
 
@@ -46,5 +47,6 @@ async def get_consented_user(
     await session.refresh(user, attribute_names=["ai_data_consent_at"])
     if not has_ai_data_consent(user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=consent_required_detail())
-    remember_user(user)
+    # The cached copy was stale; the next request reads the row again.
+    forget_user(user.id)
     return user

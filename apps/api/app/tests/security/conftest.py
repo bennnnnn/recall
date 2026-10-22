@@ -23,7 +23,7 @@ import httpx
 import pytest
 import redis.asyncio as redis_asyncio
 
-from app.core import access_tokens
+from app.core import access_tokens, user_cache
 from app.core import redis as core_redis
 from app.core.config import Settings, get_settings
 
@@ -223,9 +223,14 @@ def isolated_settings(monkeypatch: pytest.MonkeyPatch, storage_root: Path) -> Se
 
 
 def use_fake_redis(monkeypatch: pytest.MonkeyPatch, fake: Any) -> None:
-    """Every ``get_redis_client()`` caller (one lru-cached function) gets ``fake``."""
+    """Every ``get_redis_client()`` caller (one lru-cached function) gets ``fake``.
+
+    The user cache's publishes too, so a change's new generation is what the
+    next request's token check reads (``core/user_cache``).
+    """
     core_redis.get_redis_client.cache_clear()
     monkeypatch.setattr(redis_asyncio, "from_url", lambda *_a, **_k: fake)
+    monkeypatch.setattr(user_cache, "get_redis_client", lambda: fake)
 
 
 def reset_process_caches() -> None:

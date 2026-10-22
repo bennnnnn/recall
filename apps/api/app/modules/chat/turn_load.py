@@ -15,6 +15,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import pool_liveness, user_cache
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError, ConsentRequiredError
 from app.models.orm import Chat, User
@@ -79,18 +80,26 @@ async def _prior_count_for_window(
 
 
 async def _load_user(
-    deps: ChatTurnDeps, timing: TurnTimingTracker, user_id: UUID, user: User | None
+    deps: ChatTurnDeps,
+    timing: TurnTimingTracker,
+    user_id: UUID,
+    user: User | None,
+    generation: str | None,
 ) -> User:
     if user is not None and consent.has_ai_data_consent(user):
         timing.mark_phase("user_ready")
         return user
     # A user handed in from the request cache can trail an agreement made on
     # another machine, so a refusal reads the row first.
-    async with deps.session_factory() as session:
-        loaded = await deps.users.get_by_id(session, user_id)
+    loaded = await pool_liveness.run_unit(
+        deps.session_factory, lambda session: deps.users.get_by_id(session, user_id)
+    )
     if loaded is None:
         raise ChatNotFoundError("User not found.")
     _require_consent(loaded)
+    if generation is not None:
+        # The socket's next turn finds it (core/user_cache).
+        user_cache.remember_user(loaded, generation)
     timing.mark_phase("user_ready")
     return loaded
 
@@ -120,8 +129,9 @@ async def _load_chat(
     if remembered is not None:
         timing.mark_phase("chat_ready")
         return remembered
-    async with deps.session_factory() as session:
-        loaded = await deps.chats.get_by_id(session, chat_id, user_id)
+    loaded = await pool_liveness.run_unit(
+        deps.session_factory, lambda session: deps.chats.get_by_id(session, chat_id, user_id)
+    )
     if loaded is None:
         raise ChatNotFoundError("Chat not found.")
     timing.mark_phase("chat_ready")
@@ -153,6 +163,7 @@ async def _load_account(
     user_id: UUID,
     chat_id: UUID,
     user: User | None,
+    user_generation: str | None,
     chat: Chat | None,
     skip_usage_seed: bool,
 ) -> tuple[User, int, Chat]:
@@ -162,7 +173,7 @@ async def _load_account(
     # AsyncSession; SQLAlchemy AsyncSession itself is intentionally not used
     # concurrently.
     loaded_user, loaded_chat, need_usage_seed = await asyncio.gather(
-        _load_user(deps, timing, user_id, user),
+        _load_user(deps, timing, user_id, user, user_generation),
         _load_chat(deps, timing, chat_id=chat_id, user_id=user_id, chat=chat),
         _needs_usage_seed(deps, redis, timing, user_id, skip_usage_seed),
     )
@@ -188,8 +199,9 @@ async def _load_history_after_finalize(
     # once for account/chat and again for recent messages.
     await wait_for_pending_finalize(chat_id, redis, require_complete=True)
     timing.mark_phase("previous_finalize_ready")
-    async with deps.session_factory() as session:
-        window = settings.recent_message_window
+    window = settings.recent_message_window
+
+    async def read(session: AsyncSession) -> tuple[list[Any], int]:
         recent = await deps.messages.list_recent(session, chat_id, limit=window)
         prior_count = await _prior_count_for_window(
             recent,
@@ -198,6 +210,9 @@ async def _load_history_after_finalize(
             session=session,
             chat_id=chat_id,
         )
+        return recent, prior_count
+
+    recent, prior_count = await pool_liveness.run_unit(deps.session_factory, read)
     timing.mark_phase("history_ready")
     return recent, prior_count
 
@@ -215,6 +230,7 @@ async def load_new_turn(
     user: User | None,
     chat: Chat | None,
     skip_usage_seed: bool,
+    user_generation: str | None = None,
 ) -> NewTurn:
     # Account/quota and history are independent once the previous turn is
     # committed. A greeting does not need the recent window before the model
@@ -231,6 +247,7 @@ async def load_new_turn(
         user_id=user_id,
         chat_id=chat_id,
         user=user,
+        user_generation=user_generation,
         chat=chat,
         skip_usage_seed=skip_usage_seed,
     )
@@ -256,8 +273,9 @@ async def load_new_turn(
     # Only short confirmation turns touch the DB here; ordinary lightweight
     # greetings classify synchronously, so opening a fresh AsyncSession has no
     # checkout/network cost on the common path.
-    async with deps.session_factory() as session:
-        turn_mode = await _classify_turn_mode(session, loaded_chat, content)
+    turn_mode = await pool_liveness.run_unit(
+        deps.session_factory, lambda session: _classify_turn_mode(session, loaded_chat, content)
+    )
     prior_user, prior_model = last_user_turn(recent)
     model = deps.plan.resolve_user_model_override(
         loaded_user,
@@ -307,9 +325,8 @@ async def load_regenerate_turn(
     # row. New turns gather wait with user/quota instead — prepare reads
     # messages only after both finish.
     await wait_for_pending_finalize(chat_id, redis, require_complete=True)
-    backup: RegenerateBackup | None = None
-    omit_message_ids: set[UUID] | None = None
-    async with deps.session_factory() as session:
+
+    async def read(session: AsyncSession) -> RegenerateTurn:
         user = await deps.users.get_by_id(session, user_id)
         if user is None:
             raise ChatNotFoundError("User not found.")
@@ -328,17 +345,23 @@ async def load_regenerate_turn(
         )
         content = last_user.content
         prior_count = await deps.messages.count_for_chat(session, chat_id)
+        backup: RegenerateBackup | None = None
+        omit_message_ids: set[UUID] | None = None
         if last.role == "assistant":
             backup = RegenerateBackup(content=last.content, model=last.model, message_id=last.id)
             omit_message_ids = {last.id}
         turn_mode = await _classify_turn_mode(session, chat, content)
-    return RegenerateTurn(
-        user=user,
-        chat=chat,
-        model=model,
-        content=content,
-        prior_count=prior_count,
-        turn_mode=turn_mode,
-        backup=backup,
-        omit_message_ids=omit_message_ids,
-    )
+        # Last, so a failed read here (logged, not raised) cannot cut the reads above.
+        await seed_usage_from_db(redis, session, user_id)
+        return RegenerateTurn(
+            user=user,
+            chat=chat,
+            model=model,
+            content=content,
+            prior_count=prior_count,
+            turn_mode=turn_mode,
+            backup=backup,
+            omit_message_ids=omit_message_ids,
+        )
+
+    return await pool_liveness.run_unit(deps.session_factory, read)

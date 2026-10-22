@@ -481,9 +481,9 @@ async def test_turn_resources_borrowed_does_not_start_refresh():
 async def test_top_up_reserve_for_prompt_adds_delta():
     user = _user()
     redis = AsyncMock()
-    reserve = AsyncMock(return_value=True)
+    reserve = AsyncMock(return_value=30)
     res = turn_resources.TurnResources(
-        deps=turn_deps(quota={"reserve_usage": reserve}),
+        deps=turn_deps(quota={"reserve_usage_up_to": reserve}),
         redis=redis,
         user_id=user.id,
         chat_id=uuid4(),
@@ -515,7 +515,7 @@ async def test_top_up_reserve_for_prompt_keeps_the_turn_when_no_more_fits():
     user = _user()
     redis = AsyncMock()
     res = turn_resources.TurnResources(
-        deps=turn_deps(quota={"reserve_usage": AsyncMock(return_value=False)}),
+        deps=turn_deps(quota={"reserve_usage_up_to": AsyncMock(return_value=0)}),
         redis=redis,
         user_id=user.id,
         chat_id=uuid4(),

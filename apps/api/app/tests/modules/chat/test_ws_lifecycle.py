@@ -22,7 +22,7 @@ from app.main import create_app
 from app.modules.chat import finalize_registry, ws_limits
 from app.modules.chat.stream_events import SERVER_RESTARTING_MESSAGE
 from app.modules.chat.turn_outcome import TurnOutcome
-from app.tests.modules.chat.chat_test_support import offline_deps
+from app.tests.modules.chat.chat_test_support import access_for, offline_deps
 
 pytest_plugins = ("app.tests.modules.chat.chat_test_support",)
 
@@ -51,8 +51,8 @@ def _client(settings: Settings, user_id) -> tuple[TestClient, ExitStack]:
     stack.enter_context(patch("app.modules.chat.ws_api.get_settings", return_value=settings))
     stack.enter_context(
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user_id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user_id)),
         )
     )
     return TestClient(app), stack

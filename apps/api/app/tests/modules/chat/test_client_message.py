@@ -36,6 +36,7 @@ from app.modules.chat.client_message import (
     claim_key,
 )
 from app.modules.chat.turn_outcome import TurnOutcome
+from app.tests.modules.chat.chat_test_support import access_for
 
 _SECRET = "super-secret-key-that-is-at-least-32-chars!!"
 
@@ -258,8 +259,8 @@ def _socket_client(user_id: UUID, redis: Any) -> tuple[TestClient, ExitStack]:
     )
     stack.enter_context(
         patch(
-            "app.modules.chat.ws_api.access_tokens.verify_access_token",
-            AsyncMock(return_value=user_id),
+            "app.modules.chat.ws_api.access_tokens.check_access",
+            AsyncMock(return_value=access_for(user_id)),
         )
     )
     stack.enter_context(

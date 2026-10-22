@@ -15,7 +15,7 @@ import pytest
 from litellm.llms.openrouter.chat.transformation import OpenrouterConfig
 
 from app.core.config import Settings
-from app.gateways import litellm_gateway
+from app.gateways import litellm_gateway, stream_usage
 from app.gateways.prompt_cache import EPHEMERAL, with_cache_breakpoint
 from app.models import model_catalog
 
@@ -214,16 +214,16 @@ def _usage(**details: Any) -> SimpleNamespace:
 
 def test_cached_and_written_prompt_tokens_are_counted() -> None:
     usage: dict[str, int] = {}
-    litellm_gateway._apply_usage(usage, _usage(cached_tokens=4096, cache_write_tokens=0))
-    litellm_gateway._apply_usage(usage, _usage(cached_tokens=0, cache_write_tokens=4096))
+    stream_usage.apply_usage(usage, _usage(cached_tokens=4096, cache_write_tokens=0))
+    stream_usage.apply_usage(usage, _usage(cached_tokens=0, cache_write_tokens=4096))
     assert usage == {"input": 10_000, "output": 80, "cached_input": 4096, "cache_write": 4096}
 
 
 def test_a_provider_without_cache_details_adds_no_cache_counts() -> None:
     usage: dict[str, int] = {}
-    litellm_gateway._apply_usage(usage, _usage())
+    stream_usage.apply_usage(usage, _usage())
     # A mock's attribute is not a count.
-    litellm_gateway._apply_usage(
+    stream_usage.apply_usage(
         usage,
         SimpleNamespace(
             usage=SimpleNamespace(
@@ -236,7 +236,7 @@ def test_a_provider_without_cache_details_adds_no_cache_counts() -> None:
 
 def test_a_kept_attempt_carries_its_cache_counts() -> None:
     usage = {"input": 10, "output": 2}
-    litellm_gateway._merge_attempt_usage(usage, {"input": 5000, "output": 40, "cached_input": 4096})
+    stream_usage.merge_attempt_usage(usage, {"input": 5000, "output": 40, "cached_input": 4096})
     assert usage == {"input": 5010, "output": 42, "cached_input": 4096}
 
 

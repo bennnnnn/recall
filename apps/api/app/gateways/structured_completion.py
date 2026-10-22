@@ -18,6 +18,7 @@ from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.redis import get_redis_client
 from app.gateways import llm_spend, mock_llm
+from app.gateways.stream_usage import apply_usage
 from app.models.schemas import (
     MEMORY_REPLY_MAX_LENGTH,
     MemoryFactOp,
@@ -160,7 +161,7 @@ async def _complete_structured_once[T: BaseModel](
             response_format={"type": "json_object"},
             **kwargs,
         )
-    gateway._apply_usage(usage, response)
+    apply_usage(usage, response)
     llm_spend.meter_model_call(model_alias, response)
     raw = (response.choices[0].message.content or "{}").strip()
     if raw.startswith("```"):

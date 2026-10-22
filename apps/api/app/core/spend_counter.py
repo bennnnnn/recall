@@ -61,8 +61,8 @@ async def record_global_spend(redis: Redis, usd: float, *, day: date | None = No
 
 
 async def get_global_spend_micro_usd(redis: Redis) -> int:
-    value = await redis.get(spend_key())
-    legacy = await redis.get(_legacy_spend_key())
+    """Today's spend in micro-USD; both counters in one MGET (every chat turn reads it)."""
+    value, legacy = await redis.mget([spend_key(), _legacy_spend_key()])
     return int(value or 0) + int(legacy or 0) * _LEGACY_SPEND_UNITS_TO_MICRO_USD
 
 

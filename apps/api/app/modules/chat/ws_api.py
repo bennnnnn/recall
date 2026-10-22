@@ -10,8 +10,9 @@ answered with a pong, and a message the server already took (its
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
+from functools import partial
 from typing import Any
 from uuid import UUID
 
@@ -20,13 +21,14 @@ from pydantic import ValidationError
 from redis.asyncio import Redis
 from starlette.websockets import WebSocketState
 
-from app.core import access_tokens, chat_rate_limit, shutdown
+from app.core import access_tokens, chat_rate_limit, shutdown, user_cache
 from app.core.client_ip import client_ip_from_websocket
 from app.core.config import Settings, get_settings
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.exceptions import RedisUnavailableError
 from app.gateways.google_auth import GoogleAuthError
+from app.models.orm import User
 from app.models.schemas import ChatMessageRequest
 from app.modules.chat import stream_entry, turn_deps
 from app.modules.chat.client_message import claim_client_message
@@ -178,6 +180,7 @@ async def _handle_message(
     emit_status: StreamStatusFn,
     emit_reasoning: StreamReasoningFn,
     frame_budget: FrameBudget | None = None,
+    access: access_tokens.AccessCheck | None = None,
 ) -> dict[str, Any] | None:
     try:
         request = ChatMessageRequest.model_validate(payload)
@@ -210,6 +213,11 @@ async def _handle_message(
         await safe_send_json(websocket, build_duplicate_event())
         return None
 
+    user_generation = access.user_generation if access is not None else None
+    user: User | None = (
+        user_cache.cached_user(user_id, user_generation) if user_generation is not None else None
+    )
+
     def _message_stream(outcome: TurnOutcome) -> AsyncIterator[str]:
         return stream_entry.stream_chat_response(
             turn_deps.default_deps(),
@@ -224,6 +232,8 @@ async def _handle_message(
             outcome=outcome,
             on_status=emit_status,
             on_reasoning=emit_reasoning,
+            user=user,
+            user_generation=user_generation,
             **_client_geo_kwargs(request, client_timezone=client_timezone),
         )
 
@@ -423,8 +433,9 @@ async def _dispatch(conn: _ChatSocket, payload: dict[str, Any]) -> bool:
     # Re-check access on every chargeable frame so logout / account
     # delete / refresh-reuse revoke (purge_user_sessions) actually
     # closes open sockets — handshake-only verify would leave them live.
+    # The same read says whether this process's copy of the user is current.
     try:
-        await access_tokens.verify_access_token(conn.redis, conn.token, conn.settings)
+        access = await access_tokens.check_access(conn.redis, conn.token, conn.settings)
     except RedisUnavailableError as exc:
         await safe_send_json(
             websocket,
@@ -444,7 +455,9 @@ async def _dispatch(conn: _ChatSocket, payload: dict[str, Any]) -> bool:
         )
         return True
 
-    handle = _handle_regenerate if msg_type == "regenerate" else _handle_message
+    handle: Callable[..., Awaitable[dict[str, Any] | None]] = (
+        _handle_regenerate if msg_type == "regenerate" else partial(_handle_message, access=access)
+    )
     emit_status, emit_reasoning = _status_emitters(websocket)
     conn.next_turn = await handle(
         websocket,

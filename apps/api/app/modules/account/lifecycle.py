@@ -7,6 +7,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import user_cache
 from app.core.access_tokens import REVOKED_SINCE_PREFIX
 from app.core.config import Settings
 from app.core.jobs import enqueue
@@ -64,7 +65,9 @@ async def update_account(
             fields["avatar_url"] = avatar_url
             await attachments_service.hide_from_gallery(session, photo)
             updated = await users_repo.update(session, user, commit=False, **fields)
+            user_id = updated.id
             await session.commit()
+            await user_cache.publish_change(user_id)
             await session.refresh(updated)
         except BaseException:
             await session.rollback()

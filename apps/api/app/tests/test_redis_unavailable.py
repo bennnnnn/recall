@@ -3,6 +3,8 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import fakeredis
+import fakeredis.aioredis
 import pytest
 from fastapi import HTTPException
 from redis.exceptions import ConnectionError as RedisConnectionError
@@ -19,11 +21,12 @@ from app.services import quota as quota_service
 
 
 @pytest.mark.asyncio
-async def test_reserve_usage_raises_when_redis_down():
-    redis = AsyncMock()
-    redis.incrby = AsyncMock(side_effect=RedisConnectionError("down"))
+async def test_reserve_usage_up_to_raises_when_redis_down():
+    server = fakeredis.FakeServer()
+    server.connected = False
+    redis = fakeredis.aioredis.FakeRedis(server=server, decode_responses=True)
     with pytest.raises(RedisUnavailableError):
-        await quota_service.reserve_usage(redis, "u1", 100, daily_limit=1000)
+        await quota_service.reserve_usage_up_to(redis, "u1", 100, daily_limit=1000)
 
 
 @pytest.mark.asyncio
@@ -31,7 +34,7 @@ async def test_verify_access_token_raises_when_redis_down():
     settings = Settings(jwt_secret="x" * 32)
     token = create_access_token(uuid4(), settings)
     redis = AsyncMock()
-    redis.get = AsyncMock(side_effect=RedisConnectionError("down"))
+    redis.mget = AsyncMock(side_effect=RedisConnectionError("down"))
     with pytest.raises(RedisUnavailableError):
         await tokens_service.verify_access_token(redis, token, settings)
 
@@ -61,7 +64,7 @@ async def test_get_current_user_maps_redis_outage_to_503():
     credentials = MagicMock()
     credentials.credentials = "tok"
     with patch(
-        "app.core.deps.access_tokens.verify_access_token",
+        "app.core.deps.access_tokens.check_access",
         AsyncMock(side_effect=RedisUnavailableError()),
     ):
         with pytest.raises(HTTPException) as exc:

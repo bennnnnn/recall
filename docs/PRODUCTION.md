@@ -71,6 +71,25 @@ from the write-ahead log); nothing in this repository takes backups.
       state. Nothing here backs it up; if Redis is lost or flushed, the worker
       recreates its consumer group by itself and queued jobs are gone
 
+**Cached user rows.** Each API machine keeps the user rows it has read for up to
+5 minutes and checks each one, on every request and chat frame, against the
+user's generation in Redis (`usergen:<user id>`, `core/user_cache.py`). Every
+change the app commits to a user row (settings, consent, memory switches, the
+RevenueCat plan) stores a new generation, so all machines read the row again on
+their next request.
+
+- A change made to `users` outside the app (SQL by hand, a restore) is not
+  seen until each machine's copy expires: after it, run
+  `DEL usergen:<user id>` for each user changed (after a restore,
+  `redis-cli --scan --pattern 'usergen:*' | xargs redis-cli del`). The next
+  request starts a fresh generation and reads the row.
+- If Redis refuses a change's new generation (after three tries), the request
+  answers `503` + `Retry-After` although the change is saved. While Redis is
+  down every request is refused anyway. Once it is back, other machines can
+  serve the old row until the change is made again (the phone does not retry a
+  503 by itself, so the user does, after the error; a RevenueCat redelivery; a
+  retried job) or for at most 5 minutes.
+
 ---
 
 ## 3. Object storage (Cloudflare R2)
@@ -531,7 +550,8 @@ second maths turn inside the 2 s slot wait gets an unverified answer.
 | `R2_CONNECT_TIMEOUT_SECONDS` / `R2_READ_TIMEOUT_SECONDS` / `R2_MAX_ATTEMPTS` | `5` / `20` / `3` | boto3 calls to R2 (attachment reads on the chat path, deletes, sweeps). botocore's defaults were 60s + 60s with 5 attempts, each holding a default-executor thread (5 on one CPU). Retries use botocore's `standard` mode (jittered backoff). |
 | `GOOGLE_AUTH_TIMEOUT_SECONDS` | `10` | Google cert fetch during sign-in (google-auth defaulted to 120s). A failed or slow fetch answers 503 + `Retry-After`, not 500 or 401. |
 | Link preview (`modules/link_preview/service.py`) | 8s per fetch, 3 open per user, 20/min | `fetch_safely` takes an overall deadline (DNS, every redirect hop, the body): a server dripping one byte per read used to hold a request open for minutes. A fourth uncached preview while three are open answers 429 + `Retry-After` (Redis sorted set; a crashed fetch ages out after 30s). |
-| `DB_CONNECT_TIMEOUT_SECONDS` / `DB_COMMAND_TIMEOUT_SECONDS` | `10` / `120` | asyncpg connect (default was 60s) and every statement (default was unbounded), including the `pool_pre_ping` on each checkout, so a half-open pooled connection can no longer hang a request. Client-side, so it works through Neon's pooler. Generous because account delete is one cascading `DELETE`. Migrations are not affected. A pool, connect or statement timeout, or a dropped connection, now answers `503` + `Retry-After: 5` instead of a bare 500. |
+| `DB_CONNECT_TIMEOUT_SECONDS` / `DB_COMMAND_TIMEOUT_SECONDS` | `10` / `120` | asyncpg connect (default was 60s) and every statement (default was unbounded), including the checkout ping, so a half-open pooled connection can no longer hang a request. Client-side, so it works through Neon's pooler. Generous because account delete is one cascading `DELETE`. Migrations are not affected. A pool, connect or statement timeout, or a dropped connection, now answers `503` + `Retry-After: 5` instead of a bare 500. |
+| `DB_IDLE_PING_SECONDS` | `10` | A pooled Postgres connection idle this long is pinged on checkout: one simple `SELECT 1`, outside any transaction, so PgBouncer's transaction mode is fine with it. One used more recently is trusted, and one the server already closed (Neon suspend, a restart) is replaced without a round trip (`core/pool_liveness.py`). This replaced `pool_pre_ping`, which pinged on every checkout with three round trips (BEGIN, `;`, ROLLBACK: about 36 ms to Neon) before each session's first query. A connection that died within the window and that asyncpg has not yet seen close fails its first statement, and the pool recycles every older connection. A chat turn's reads, the save of its message and the save of its reply then run once more on a new connection (`pool_liveness.run_unit`, only when none of their statements had succeeded, so nothing is written twice). Any other request answers `503` + `Retry-After`, which the phone does not retry by itself: the user sees the error and tries again. `0` pings every checkout again. |
 | `JOB_TIMEOUT_SECONDS` | `900` | Deadline for one attempt of one background job. An attempt that runs out goes to the DLQ without retry. An entry delivered more than 5 times without an ack (it keeps killing the worker) also goes to the DLQ on reclaim. |
 
 **Deploys and in-flight replies.** On SIGINT/SIGTERM the API stops every chat

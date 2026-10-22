@@ -1,37 +1,58 @@
-"""This process's cache of recently loaded users, read by every authenticated request.
+"""This process's copies of recently loaded users, checked against a generation in Redis.
 
-Neon from a laptop is a few hundred milliseconds per checkout. Chat auth runs
-on every send, so the last loaded user stays here and the next request skips
-that round trip. Profile edits are rare; a short TTL is enough.
+Every authenticated request and every chat turn needs the user row, and Neon is a
+round trip or more away, so the last loaded row stays here. Each request reads the
+user's current generation in the same MGET as its token check
+(``core/access_tokens.check_access``), and a copy is used only under the generation
+it was loaded at.
 
-Per machine by design: a write on one machine refreshes or drops its own entry
-only, so another ``app`` machine can serve the old row for up to the TTL
-(``docs/SCALING.md``). A shared cache or a cross-machine invalidation would
-replace this module and keep its three functions.
+Whoever commits a write to a user row awaits ``publish_change`` right after, which
+stores a new generation: ``users_repo.update`` does for its own commits, a caller
+that commits itself does after its commit, and so does the history scan's stamp.
+So a plan change from the RevenueCat webhook, a settings, memory or preferences
+change, or consent saved on any machine applies to the next request and the next
+chat turn on every machine. ``memory_edited_at`` is read only from the row itself
+(background jobs), so a hand edit's stamp does not publish.
+
+A publish Redis refuses (after retries) fails the request with 503, though its
+write is saved: while Redis is down every request is refused anyway, and the
+write's retry (the client's, RevenueCat's redelivery, a job's) publishes again.
+Until then, once Redis is back, a copy can lag that write by at most the TTL.
 """
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from uuid import UUID
 
-from sqlalchemy import event
+from redis.exceptions import RedisError
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.orm import Session, make_transient_to_detached
+from sqlalchemy.orm import make_transient_to_detached
 
+from app.core.cache_generation import bump_generation
+from app.core.redis import get_redis_client
 from app.core.ttl_cache import TtlCache
+from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 
-USER_CACHE_TTL_SECONDS = 60.0
+logger = logging.getLogger(__name__)
+
+USER_CACHE_TTL_SECONDS = 300.0
+# A publish rides out a Redis blip this many times before the request fails.
+_PUBLISH_ATTEMPTS = 3
+_PUBLISH_BACKOFF_SECONDS = 0.1
 # Users seen on one process within the TTL; far above normal traffic.
 _USER_CACHE_MAX_ENTRIES = 5_000
-_user_cache: TtlCache[UUID, User] = TtlCache(
+_GENERATION_PREFIX = "usergen:"
+_user_cache: TtlCache[UUID, tuple[User, str]] = TtlCache(
     ttl_seconds=USER_CACHE_TTL_SECONDS,
     max_entries=_USER_CACHE_MAX_ENTRIES,
 )
 
 
-def cached_user(user_id: UUID) -> User | None:
-    return _user_cache.get(user_id)
+def generation_key(user_id: UUID) -> str:
+    return f"{_GENERATION_PREFIX}{user_id}"
 
 
 def _snapshot(user: User) -> User:
@@ -45,36 +66,45 @@ def _snapshot(user: User) -> User:
     return snap
 
 
-def remember_user(user: User) -> None:
+def cached_user(user_id: UUID, generation: str) -> User | None:
+    """A private copy of the row loaded under ``generation`` (the current one), or None."""
+    hit = _user_cache.get(user_id)
+    if hit is None or hit[1] != generation:
+        return None
+    user = hit[0]
+    return _snapshot(user) if isinstance(user, User) else user
+
+
+def remember_user(user: User, generation: str) -> None:
+    """Keep ``user`` as read under ``generation``, read before the row was."""
     cached = _snapshot(user) if isinstance(user, User) else user
-    _user_cache.put(user.id, cached)
+    _user_cache.put(user.id, (cached, generation))
 
 
-def remember_user_after_commit(session: Session, user: User) -> None:
-    """Cache ``user`` as written once ``session`` commits; drop the entry if it rolls back.
+async def publish_change(user_id: UUID) -> str:
+    """After a committed write to the user's row: drop this copy, give every machine a
+    new generation, and return it (a row read from now on may be kept under it).
 
-    Until then the change is not saved, and a rollback must not leave this
-    process serving it. Dropping (not keeping the old entry) sends the next read
-    to the database, which also covers a read that cached the old row meanwhile.
+    Retried; raises ``RedisUnavailableError`` (503) when Redis never takes it.
     """
-    snapshot = _snapshot(user) if isinstance(user, User) else user
-    settled = False
-
-    def settle(committed: bool) -> None:
-        nonlocal settled
-        if settled:
-            return
-        settled = True
-        if committed:
-            _user_cache.put(snapshot.id, snapshot)
-        else:
-            _user_cache.pop(snapshot.id)
-
-    event.listen(session, "after_commit", lambda _session: settle(True), once=True)
-    # Soft too: any rollback, a savepoint's included, may have undone the write.
-    event.listen(
-        session, "after_soft_rollback", lambda _session, _previous: settle(False), once=True
-    )
+    forget_user(user_id)
+    key = generation_key(user_id)
+    for attempt in range(1, _PUBLISH_ATTEMPTS):
+        try:
+            return await bump_generation(get_redis_client(), key)
+        except RedisError:
+            logger.warning("User generation bump failed; retrying user_id=%s", user_id)
+            await asyncio.sleep(_PUBLISH_BACKOFF_SECONDS * attempt)
+    try:
+        return await bump_generation(get_redis_client(), key)
+    except RedisError as exc:
+        logger.error(
+            "User change saved but not published; other machines keep their copy until "
+            "it is repeated or expires user_id=%s",
+            user_id,
+            exc_info=True,
+        )
+        raise RedisUnavailableError() from exc
 
 
 def forget_user(user_id: UUID) -> None:

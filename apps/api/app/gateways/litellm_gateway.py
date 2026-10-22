@@ -21,6 +21,7 @@ from app.gateways.stream_signals import (
     provider_fault,
     reasoning_delta,
 )
+from app.gateways.stream_usage import apply_usage, merge_attempt_usage
 
 # The completion kinds split out of this module are part of its public surface
 # (callers use ``litellm_gateway.complete_structured`` and friends). They reach
@@ -169,42 +170,6 @@ def _litellm_kwargs(
     return kwargs
 
 
-# Of the prompt tokens: those the provider read from its prompt cache, and those it
-# wrote to it (LiteLLM's names for OpenRouter's usage.prompt_tokens_details).
-_CACHE_DETAILS = (("cached_input", "cached_tokens"), ("cache_write", "cache_write_tokens"))
-
-
-def _apply_usage(usage: dict[str, int] | None, source: Any) -> None:
-    """Add a stream chunk's or a whole response's reported tokens onto ``usage``."""
-    if usage is None:
-        return
-    source_usage = getattr(source, "usage", None)
-    if not source_usage:
-        return
-    prompt = getattr(source_usage, "prompt_tokens", None)
-    completion = getattr(source_usage, "completion_tokens", None)
-    if prompt is not None:
-        usage["input"] = usage.get("input", 0) + int(prompt)
-    if completion is not None:
-        usage["output"] = usage.get("output", 0) + int(completion)
-    details = getattr(source_usage, "prompt_tokens_details", None)
-    for key, field in _CACHE_DETAILS:
-        count = getattr(details, field, None)
-        if isinstance(count, int) and not isinstance(count, bool) and count > 0:
-            usage[key] = usage.get(key, 0) + count
-
-
-def _merge_attempt_usage(usage: dict[str, int] | None, attempt: dict[str, int]) -> None:
-    """Charge the caller for one stream attempt (only an attempt that produced content)."""
-    if usage is None:
-        return
-    usage["input"] = usage.get("input", 0) + attempt.get("input", 0)
-    usage["output"] = usage.get("output", 0) + attempt.get("output", 0)
-    for key, _field in _CACHE_DETAILS:
-        if key in attempt:
-            usage[key] = usage.get(key, 0) + attempt[key]
-
-
 async def stream_chat_completion(
     *,
     settings: Settings,
@@ -286,7 +251,7 @@ async def stream_chat_completion(
                 yield token
             if started:
                 attempt.end(failed=False)
-                _merge_attempt_usage(usage, attempt_usage)
+                merge_attempt_usage(usage, attempt_usage)
                 if stream_meta is not None:
                     stream_meta["model_alias"] = alias
                 return
@@ -302,7 +267,7 @@ async def stream_chat_completion(
             # Mid-stream failure: client already has partial tokens — falling
             # back would concatenate partial + full into one persisted reply.
             if started:
-                _merge_attempt_usage(usage, attempt_usage)
+                merge_attempt_usage(usage, attempt_usage)
                 raise
             if has_next:
                 logger.warning(
@@ -346,7 +311,7 @@ def _read_chunk(
     stripper: ThinkStripper,
 ) -> _ChunkRead:
     """What one provider chunk shows."""
-    _apply_usage(usage, chunk)
+    apply_usage(usage, chunk)
     choices = getattr(chunk, "choices", None) or []
     if not choices:
         return _ChunkRead("", thinking=False, delta=False)

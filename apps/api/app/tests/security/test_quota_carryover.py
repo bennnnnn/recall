@@ -56,7 +56,7 @@ async def _sign_in_google(world: World, *, sub: str, email: str) -> UUID:
 
 async def _use_quota(redis: Any, user_id: UUID) -> None:
     """What a busy day leaves: tokens, uploads, voice, searches, images, live talk."""
-    assert await quota.reserve_usage(redis, str(user_id), 1234, daily_limit=10**9)
+    assert await quota.reserve_usage_up_to(redis, str(user_id), 1234, daily_limit=10**9) == 1234
     user, caps = User(id=user_id, plan="pro"), _pro_caps(10)
     for _ in range(2):
         assert await counters.reserve("image_upload", redis, user, caps)

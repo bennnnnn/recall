@@ -122,6 +122,45 @@ async def _chats_with_lines(session, user, count: int) -> list[Chat]:
 
 
 @pytest.mark.asyncio
+async def test_a_finished_scan_retires_every_cached_copy_of_the_user(
+    db_session, scan_env, user_generation_redis
+):
+    """A copy still saying "not scanned" would ask for the scan again (core/user_cache)."""
+    from app.core import user_cache
+
+    user = await _make_user(db_session)
+    key = user_cache.generation_key(user.id)
+    assert await user_generation_redis.get(key) is None
+
+    with patch("app.modules.memory.history_scan.extract_history_chat", AsyncMock()):
+        await history_scan.scan_recent_chats(Settings(), user_id=user.id)
+
+    assert await user_generation_redis.get(key) is not None
+
+
+@pytest.mark.asyncio
+async def test_a_scan_asked_for_a_stamped_user_publishes_again(
+    db_session, scan_env, user_generation_redis
+):
+    """A copy that still says "not scanned" asked, or the stamp's publish failed and
+    the job is retried: either way the copies are retired and nothing is read."""
+    from app.core import user_cache
+
+    user = await _make_user(db_session)
+    user.memory_history_scanned_at = datetime.now(UTC)
+    await db_session.flush()
+    await scan_env.set(f"memory:history_scan:{user.id}", "queued")
+    extract = AsyncMock()
+
+    with patch("app.modules.memory.history_scan.extract_history_chat", extract):
+        await history_scan.scan_recent_chats(Settings(), user_id=user.id)
+
+    assert await user_generation_redis.get(user_cache.generation_key(user.id)) is not None
+    assert await scan_env.keys("memory:history_scan*") == []
+    extract.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_scan_reads_recent_chats_with_user_lines_once(db_session, scan_env):
     user = await _make_user(db_session)
     talk = Chat(user_id=user.id, title="Recall app")

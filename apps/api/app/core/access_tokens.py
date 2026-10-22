@@ -2,20 +2,26 @@
 
 Every authenticated request verifies its token here (``app.core.deps``). The
 account module issues, rotates and revokes sessions, and writes the revocation
-keys this module reads. Not Google OAuth.
+keys this module reads. Not Google OAuth. The same round trip reads the user
+row's generation, which says whether this process's copy of the row is current
+(``core/user_cache``).
 """
 
 from __future__ import annotations
 
 import logging
 import secrets
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 import jwt
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
+from app.core import user_cache
+from app.core.cache_generation import ensure_generation
 from app.core.config import Settings
 from app.exceptions import RedisUnavailableError
 from app.gateways.google_auth import GoogleAuthError
@@ -73,44 +79,65 @@ def decode_access_token(token: str, settings: Settings) -> UUID:
         raise AccessTokenError("Invalid access token") from exc
 
 
-async def is_access_revoked(redis: Redis, jti: str) -> bool:
-    return bool(await redis.get(revoked_key(jti)))
+def _revocation_keys(payload: dict[str, Any], user_id: UUID) -> tuple[list[str], str | None]:
+    """The keys that revoke this token when set, and its user's revoked-since cutoff key.
+
+    A token without a ``jti``, ``sid`` or ``iat`` claim has nothing of that kind to check.
+    """
+    markers: list[str] = []
+    jti = payload.get("jti")
+    if jti:
+        markers.append(revoked_key(str(jti)))
+    sid = payload.get("sid")
+    if isinstance(sid, str) and sid:
+        markers.append(revoked_session_key(sid))
+    since = revoked_since_key(user_id) if payload.get("iat") is not None else None
+    return markers, since
 
 
-async def is_session_revoked(redis: Redis, session_id: str) -> bool:
-    return bool(await redis.get(revoked_session_key(session_id)))
+@dataclass(frozen=True)
+class AccessCheck:
+    """A live token's user, and that user row's current generation (``core/user_cache``)."""
+
+    user_id: UUID
+    user_generation: str
 
 
-async def _is_access_revoked_since(redis: Redis, user_id: UUID, issued_at: float | None) -> bool:
-    if issued_at is None:
-        return False
-    revoked_since_raw = await redis.get(revoked_since_key(user_id))
-    if revoked_since_raw is None:
-        return False
-    revoked_since = float(redis_str(revoked_since_raw))
-    return issued_at <= revoked_since
+async def check_access(redis: Redis, token: str, settings: Settings) -> AccessCheck:
+    """The token's user once no revocation names it, with the user row's generation.
 
-
-async def verify_access_token(redis: Redis, token: str, settings: Settings) -> UUID:
+    Every revocation key (this token, its signed-in device, the user's cutoff)
+    and the generation are read in one MGET: this runs before every
+    authenticated request and every chat frame, so it is one Redis round trip.
+    A user whose generation key is missing (never set, expired or lost) gets a
+    fresh one first, one more round trip (``ensure_generation``).
+    """
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
     except (jwt.PyJWTError, ValueError, KeyError) as exc:
         raise GoogleAuthError("Invalid access token") from exc
-    jti = payload.get("jti")
-    sid = payload.get("sid")
+    user_id = UUID(payload["sub"])
+    markers, since = _revocation_keys(payload, user_id)
+    generation_key = user_cache.generation_key(user_id)
+    keys = [*markers, generation_key, *([since] if since else [])]
     try:
-        if jti and await is_access_revoked(redis, str(jti)):
+        values = await redis.mget(keys)
+        if any(values[: len(markers)]):
             raise GoogleAuthError("Token revoked")
-        if isinstance(sid, str) and sid and await is_session_revoked(redis, sid):
+        since_raw = values[-1] if since else None
+        if since_raw is not None and payload["iat"] <= float(redis_str(since_raw)):
             raise GoogleAuthError("Token revoked")
-        user_id = UUID(payload["sub"])
-        if await _is_access_revoked_since(redis, user_id, payload.get("iat")):
-            raise GoogleAuthError("Token revoked")
-    except GoogleAuthError:
-        raise
+        generation = values[len(markers)]
+        if generation is None:
+            generation = await ensure_generation(redis, generation_key)
     except RedisError as exc:
         # Fail closed: without Redis we cannot check jti / revoked_since.
         # Surface as 503 (not 401) so clients retry instead of forcing re-login.
         logger.warning("Access token revocation check failed; Redis unavailable", exc_info=True)
         raise RedisUnavailableError() from exc
-    return user_id
+    return AccessCheck(user_id=user_id, user_generation=redis_str(generation))
+
+
+async def verify_access_token(redis: Redis, token: str, settings: Settings) -> UUID:
+    """The token's user once no revocation names it (``check_access`` without the row)."""
+    return (await check_access(redis, token, settings)).user_id

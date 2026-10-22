@@ -2,10 +2,11 @@ from contextlib import ExitStack
 from dataclasses import replace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
+from app.core.access_tokens import AccessCheck
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.chat.prompt_builder import (
@@ -35,6 +36,16 @@ class Overlay:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._base, name)
+
+
+def access_for(user_id: UUID) -> AccessCheck:
+    """What ``check_access`` returns for a live token (any generation will do)."""
+    return AccessCheck(user_id=user_id, user_generation="test-generation")
+
+
+def grant_quota() -> AsyncMock:
+    """A ``reserve_usage_up_to`` with room for every turn: it takes all it is asked for."""
+    return AsyncMock(side_effect=lambda _redis, _user_id, wanted, **_kwargs: wanted)
 
 
 def turn_deps(**fields: Any) -> ChatTurnDeps:

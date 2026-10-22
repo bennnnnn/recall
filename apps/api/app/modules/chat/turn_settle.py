@@ -16,6 +16,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import pool_liveness
 from app.core.config import Settings, get_settings
 from app.core.db import SessionLocal
 from app.modules.attachments import lifecycle as attachment_lifecycle
@@ -225,7 +226,7 @@ async def _settle_quota(
 
     The overshoot is capped at the user's daily limit so one turn's actual >
     reserved delta can't push the counter past the cap (which would make later
-    reserve_usage checks under-report remaining quota). A failure here must not
+    reserve_usage_up_to calls under-report remaining quota). A failure here must not
     refund the whole reservation: the reply already persisted.
     """
     daily_limit = (
@@ -288,16 +289,20 @@ async def finalize_stream_turn_db(
     pending_storage_keys: list[str] = []
     committed = False
 
+    async def save(session: AsyncSession) -> None:
+        nonlocal pending_storage_keys, committed
+        pending_storage_keys = await _write_reply_rows(
+            session, ctx, assistant_text, charge, outcome
+        )
+        # The create flush already supplies the row identity. No refresh
+        # is needed after commit: a failed read must not report a saved
+        # reply as failed or refund its charged quota.
+        await session.commit()
+        committed = True
+
     try:
-        async with SessionLocal() as session:
-            pending_storage_keys = await _write_reply_rows(
-                session, ctx, assistant_text, charge, outcome
-            )
-            # The create flush already supplies the row identity. No refresh
-            # is needed after commit: a failed read must not report a saved
-            # reply as failed or refund its charged quota.
-            await session.commit()
-            committed = True
+        # Saved on a new connection when the first statement finds the pooled one dead.
+        await pool_liveness.run_unit(SessionLocal, save)
         await _settle_quota(redis, ctx, settings, charge)
     except Exception:
         logger.exception("Stream-turn finalize failed; refunding reserved quota")

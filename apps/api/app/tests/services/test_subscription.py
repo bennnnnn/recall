@@ -125,6 +125,29 @@ async def test_apply_plan_for_app_user_id():
 
 
 @pytest.mark.asyncio
+async def test_apply_plan_replay_publishes_the_unchanged_plan():
+    """A redelivery after a change whose publish failed (503) must reach every machine's
+    cached copy: the plan is already saved, so the no-change path publishes."""
+    user = MagicMock(id=uuid4(), plan="pro")
+
+    with (
+        patch(
+            "app.modules.billing.subscription.users_repo.get_by_id",
+            AsyncMock(return_value=user),
+        ),
+        patch("app.modules.billing.subscription.users_repo.update", AsyncMock()) as update,
+        patch("app.modules.billing.subscription.user_cache.publish_change", AsyncMock()) as publish,
+    ):
+        applied = await subscription_service.apply_plan_for_app_user_id(
+            AsyncMock(), str(user.id), plan="pro"
+        )
+
+    assert applied is False
+    update.assert_not_awaited()
+    publish.assert_awaited_once_with(user.id)
+
+
+@pytest.mark.asyncio
 async def test_is_stale_rc_event_when_older_than_watermark():
     user_id = uuid4()
     user = MagicMock()
