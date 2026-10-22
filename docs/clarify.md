@@ -77,4 +77,10 @@ plain prose. JSON, one object:
 | Check and normalise the fence (finalize pass `clarify_card`) | `apps/api/app/modules/chat/clarify_card.py`, `finalize_text.settle_clarify` |
 | The card in history, and the turn after a card | `apps/api/app/modules/chat/clarify_turn.py` (read by `prompt_window.py`, `prompt_sections.py`, `turn_prep/mode.py`) |
 | The card | `apps/mobile/components/rich/ClarifyCard.tsx` |
-| The sent message | `apps/mobile/lib/clarify/` |
+| The sent message, and a sent message read back onto its card | `apps/mobile/lib/clarify/clarifyCard.ts` |
+| What the card reads from the chat: the send path, busy, newest reply, the answer | `apps/mobile/components/rich/clarifyContext.tsx`, provided by `features/chat/components/ChatReplyProviders.tsx` and `MessageBubble.tsx` |
+
+On the phone a card is live only on the newest reply while nothing streams. Once answered it
+stays read-only with the picks ticked, read back from the user message after it, so no store is
+needed across list recycling or a restart. Copy and Read aloud give each question with its
+choices.
