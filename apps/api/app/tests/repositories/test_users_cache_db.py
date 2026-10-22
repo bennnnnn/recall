@@ -1,17 +1,20 @@
-"""A user change reaches the user cache only once it commits, and then on every machine.
+"""A user change reaches the user caches only once it commits, and then on every machine.
 
 ``users.update(commit=False)`` used to cache the new values at flush. When the
 caller's commit then failed and rolled back, this process served the unsaved
-profile to every request for up to the cache TTL. A committed change now also
-publishes a new generation (core/user_cache), so other machines drop their copy.
+profile to every request for up to the cache TTL. A committed change now
+publishes a new generation (core/user_cache), so every machine drops its copy;
+a publish Redis refuses fails the request, so the change is never silently lost.
 """
 
 from uuid import uuid4
 
 import pytest
+from redis.exceptions import ConnectionError as RedisConnectionError
+from sqlalchemy import select
 
 from app.core import user_cache
-from app.core.background_tasks import drain_background_tasks
+from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.repositories import users
 
@@ -37,20 +40,15 @@ def _empty_cache():
     user_cache.clear()
 
 
-async def test_an_uncommitted_change_is_published_only_at_the_commit(
-    db_session, user_generation_redis
-):
+async def test_an_uncommitted_change_publishes_nothing(db_session, user_generation_redis):
     user = await _user(db_session)
     user_cache.remember_user(user, "g0")
 
     await users.update(db_session, user, commit=False, name="After")
-    await drain_background_tasks()
-    assert await _generation(user_generation_redis, user.id) is None
 
-    await db_session.commit()
-    await drain_background_tasks()
-    assert await _generation(user_generation_redis, user.id) is not None
+    # Dropped here, published by the caller only after its own commit.
     assert user_cache.cached_user(user.id, "g0") is None
+    assert await _generation(user_generation_redis, user.id) is None
 
 
 async def test_a_rolled_back_change_is_never_served_from_the_cache(
@@ -64,9 +62,6 @@ async def test_a_rolled_back_change_is_never_served_from_the_cache(
     await db_session.rollback()
 
     assert user_cache.cached_user(user_id, "g0") is None
-    # A later commit on the same session does not publish the unsaved change.
-    await db_session.commit()
-    await drain_background_tasks()
     assert await _generation(user_generation_redis, user_id) is None
 
 
@@ -87,18 +82,20 @@ async def test_a_committed_update_is_kept_under_its_new_generation(
     assert cached.name == "Saved"
 
 
-async def test_a_memory_hand_edit_retires_cached_copies_at_the_commit(
-    db_session, user_generation_redis
+async def test_a_committed_update_redis_cannot_publish_is_saved_and_fails_the_request(
+    db_session, user_generation_redis, monkeypatch
 ):
-    """The stamp is a write to the user row like any other."""
-    from app.modules.memory import repository as memories_repo
-
+    """A consent withdrawal during a Redis outage: 503, and the change is in the row."""
+    monkeypatch.setattr(user_cache, "_PUBLISH_BACKOFF_SECONDS", 0)
     user = await _user(db_session)
 
-    await memories_repo.note_manual_edit(db_session, user.id)
-    await drain_background_tasks()
-    assert await _generation(user_generation_redis, user.id) is None
+    async def down(*_args, **_kwargs):
+        raise RedisConnectionError("down")
 
-    await db_session.commit()
-    await drain_background_tasks()
-    assert await _generation(user_generation_redis, user.id) is not None
+    user_generation_redis.set = down
+
+    with pytest.raises(RedisUnavailableError):
+        await users.update(db_session, user, name="Saved anyway")
+
+    saved = (await db_session.execute(select(User.name).where(User.id == user.id))).scalar_one()
+    assert saved == "Saved anyway"

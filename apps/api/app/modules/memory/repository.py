@@ -5,10 +5,8 @@ from uuid import UUID
 from sqlalchemy import delete, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
 
 import app.modules.memory.erase as erase
-from app.core.user_cache import publish_change_after_commit
 from app.models.orm import Memory, MemoryArea, User
 from app.modules.memory.ops import ACTIVE_STATUS, MUTED_STATUS, normalize_memory_text
 from app.modules.memory.writes_repository import MemoryFactWrite as MemoryFactWrite
@@ -75,15 +73,13 @@ async def note_manual_edit(session: AsyncSession, user_id: UUID) -> None:
     """Stamp a hand edit to memory; the caller commits.
 
     The history scan reads only lines written after this stamp, so it cannot
-    bring back what the user removed or changed. The commit retires every cached
-    copy of the user row (``core/user_cache``).
+    bring back what the user removed or changed. Only background jobs read the
+    stamp, from the row itself, so it is not published to cached user copies
+    (``core/user_cache``).
     """
     await session.execute(
         update(User).where(User.id == user_id).values(memory_edited_at=datetime.now(UTC))
     )
-    sync = getattr(session, "sync_session", None)
-    if isinstance(sync, Session):
-        publish_change_after_commit(sync, user_id)
 
 
 async def list_range(

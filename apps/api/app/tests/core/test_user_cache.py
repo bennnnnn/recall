@@ -14,6 +14,7 @@ from sqlalchemy.orm import make_transient_to_detached
 from app.core import access_tokens, user_cache
 from app.core.cache_generation import bump_generation
 from app.core.config import Settings
+from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 
 
@@ -83,16 +84,44 @@ async def test_publish_change_drops_the_copy_and_moves_the_generation(user_gener
     assert user_cache.cached_user(user.id, "g0") is None
 
 
-async def test_publish_change_without_redis_still_drops_the_copy(user_generation_redis):
+def _failing_sets(redis, failures: int) -> list[int]:
+    """Make ``redis``'s next ``failures`` SETs fail as a Redis outage would; count attempts."""
+    attempts: list[int] = []
+    set_value = redis.set
+
+    async def flaky(*args, **kwargs):
+        attempts.append(1)
+        if len(attempts) <= failures:
+            raise RedisConnectionError("down")
+        return await set_value(*args, **kwargs)
+
+    redis.set = flaky
+    return attempts
+
+
+async def test_publish_change_rides_out_a_redis_blip(user_generation_redis, monkeypatch):
+    monkeypatch.setattr(user_cache, "_PUBLISH_BACKOFF_SECONDS", 0)
+    user = _user()
+    attempts = _failing_sets(user_generation_redis, failures=2)
+
+    generation = await user_cache.publish_change(user.id)
+
+    assert len(attempts) == 3
+    assert await user_generation_redis.get(user_cache.generation_key(user.id)) == generation
+
+
+async def test_a_publish_redis_never_takes_fails_the_request(user_generation_redis, monkeypatch):
+    """The write is already saved: a 503 makes its retry publish, instead of every other
+    machine serving the old row (consent, plan, memory off) for the cache TTL."""
+    monkeypatch.setattr(user_cache, "_PUBLISH_BACKOFF_SECONDS", 0)
     user = _user()
     user_cache.remember_user(user, "g0")
+    attempts = _failing_sets(user_generation_redis, failures=10)
 
-    async def down(*_args, **_kwargs):
-        raise RedisConnectionError("down")
+    with pytest.raises(RedisUnavailableError):
+        await user_cache.publish_change(user.id)
 
-    user_generation_redis.set = down
-
-    assert await user_cache.publish_change(user.id) is None
+    assert len(attempts) == 3
     assert user_cache.cached_user(user.id, "g0") is None
 
 

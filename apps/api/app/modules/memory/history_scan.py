@@ -152,8 +152,14 @@ async def _clear_state(redis: Redis, user_id: UUID) -> None:
 async def scan_recent_chats(settings: Settings, *, user_id: UUID) -> None:
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, user_id)
-        if user is None or not user.memory_enabled or user.memory_history_scanned_at:
-            return
+    if user is None or not user.memory_enabled:
+        return
+    if user.memory_history_scanned_at:
+        # Asked by a cached copy still saying "not scanned", or retried after the
+        # stamp's publish failed: retire those copies (core/user_cache).
+        await user_cache.publish_change(user_id)
+        await _clear_state(get_redis_client(), user_id)
+        return
     redis = get_redis_client()
     already_read = await _chats_read(redis, user_id)
     chat_ids = await _recent_chat_ids(user_id)

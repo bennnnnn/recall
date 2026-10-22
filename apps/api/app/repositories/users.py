@@ -3,14 +3,9 @@ from uuid import UUID
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session, object_session
+from sqlalchemy.orm import object_session
 
-from app.core.user_cache import (
-    forget_user,
-    publish_change,
-    publish_change_after_commit,
-    remember_user,
-)
+from app.core.user_cache import forget_user, publish_change, remember_user
 from app.models.orm import (
     Attachment,
     Chat,
@@ -93,6 +88,11 @@ async def update(session: AsyncSession, user: User, *, commit: bool = True, **fi
     Keys present in *fields* are written as-is, including explicit ``None``
     (so nullable columns like ``custom_instructions`` / ``location`` can be
     cleared). Omit a key to leave that column unchanged.
+
+    Committed here, the change is published to every machine's user cache
+    (``core/user_cache``); a publish Redis refuses raises ``RedisUnavailableError``
+    after the commit. With ``commit=False`` the caller commits, then awaits
+    ``user_cache.publish_change(user.id)``.
     """
     bound = user
     # object_session returns the sync Session, not the AsyncSession wrapper.
@@ -113,16 +113,11 @@ async def update(session: AsyncSession, user: User, *, commit: bool = True, **fi
         # kept here under the new generation already holds this write.
         generation = await publish_change(user_id)
         await session.refresh(bound)
-        if generation is not None:
-            remember_user(bound, generation)
+        remember_user(bound, generation)
     else:
         await session.flush()
-        if isinstance(sync, Session):
-            # The caller commits; publish the change only once that commit succeeds.
-            publish_change_after_commit(sync, bound.id)
-        else:
-            # Session mocks in unit tests have no transaction to wait for.
-            forget_user(bound.id)
+        # Not saved yet: the caller publishes after its commit.
+        forget_user(bound.id)
     return bound
 
 

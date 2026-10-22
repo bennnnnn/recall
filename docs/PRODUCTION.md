@@ -71,6 +71,24 @@ from the write-ahead log); nothing in this repository takes backups.
       state. Nothing here backs it up; if Redis is lost or flushed, the worker
       recreates its consumer group by itself and queued jobs are gone
 
+**Cached user rows.** Each API machine keeps the user rows it has read for up to
+5 minutes and checks each one, on every request and chat frame, against the
+user's generation in Redis (`usergen:<user id>`, `core/user_cache.py`). Every
+change the app commits to a user row (settings, consent, memory switches, the
+RevenueCat plan) stores a new generation, so all machines read the row again on
+their next request.
+
+- A change made to `users` outside the app (SQL by hand, a restore) is not
+  seen until each machine's copy expires: after it, run
+  `DEL usergen:<user id>` for each user changed (after a restore,
+  `redis-cli --scan --pattern 'usergen:*' | xargs redis-cli del`). The next
+  request starts a fresh generation and reads the row.
+- If Redis refuses a change's new generation (after three tries), the request
+  answers `503` + `Retry-After` although the change is saved. While Redis is
+  down every request is refused anyway. Once it is back, other machines can
+  serve the old row until the change is repeated (the phone's retry, a
+  RevenueCat redelivery, a retried job) or for at most 5 minutes.
+
 ---
 
 ## 3. Object storage (Cloudflare R2)

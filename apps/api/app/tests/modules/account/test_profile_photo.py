@@ -96,6 +96,38 @@ async def test_profile_save_rolls_back_without_cache_invalidation_on_commit_fail
     cache.assert_not_awaited()
 
 
+async def test_a_saved_profile_photo_is_published_after_its_commit():
+    """This path commits itself, so it publishes the change to every machine's user
+    cache once the commit succeeded (``core/user_cache``)."""
+    user = _user()
+    photo = _photo(user)
+    order: list[str] = []
+    session = AsyncMock()
+    session.commit.side_effect = lambda: order.append("commit")
+
+    async def publish(user_id):
+        order.append(f"publish {user_id}")
+        return "g1"
+
+    with (
+        patch.object(
+            account_lifecycle.attachments_service, "get_by_id", AsyncMock(return_value=photo)
+        ),
+        patch.object(account_lifecycle.attachments_service, "hide_from_gallery", AsyncMock()),
+        patch.object(account_lifecycle.users_repo, "update", AsyncMock(return_value=user)),
+        patch.object(account_lifecycle.user_cache, "publish_change", publish),
+        patch.object(account_lifecycle.home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        await account_lifecycle.update_account(
+            session,
+            user,
+            Settings(_env_file=None),
+            {"name": "After", "avatar_url": f"/attachments/{photo.id}/file"},
+        )
+
+    assert order == ["commit", f"publish {user.id}"]
+
+
 @pytest.mark.parametrize("custom", [True, False])
 async def test_google_login_preserves_uploaded_photo_and_refreshes_provider_photo(custom):
     user = _user()
