@@ -878,5 +878,50 @@
   "prompt": "Give me 5 tips to increase my running speed.",
   "expect": "not_physics",
   "note": "fitness tips"
+ },
+ {
+  "id": "dec-water-ethanol",
+  "area": "decline",
+  "prompt": "100 g of water at 80 °C is mixed with 50 g of ethanol at 20 °C. What is the final temperature?",
+  "expect": "decline",
+  "note": "ethanol's specific heat is not water's: 60 °C was a verified wrong answer"
+ },
+ {
+  "id": "dec-water-alcohol",
+  "area": "decline",
+  "prompt": "200 g of water at 90 °C is mixed with 100 g of alcohol at 20 °C. What is the final temperature?",
+  "expect": "decline",
+  "note": "a second substance"
+ },
+ {
+  "id": "dec-seawater",
+  "area": "decline",
+  "prompt": "300 g of seawater at 30 °C is mixed with 200 g of water at 10 °C. What is the final temperature?",
+  "expect": "decline",
+  "note": "seawater is not fresh water"
+ },
+ {
+  "id": "dec-water-mercury",
+  "area": "decline",
+  "prompt": "50 g of mercury at 100 °C is poured into 200 g of water at 20 °C. What is the final temperature?",
+  "expect": "decline",
+  "note": "mercury's specific heat is not water's"
+ },
+ {
+  "id": "dec-water-milk",
+  "area": "decline",
+  "prompt": "150 g of milk at 5 °C is mixed with 100 g of water at 60 °C. What is the final temperature?",
+  "expect": "decline",
+  "note": "a substance no list names: the amount names it"
+ },
+ {
+  "id": "t-hot-cold-water",
+  "area": "thermal",
+  "prompt": "200 g of hot water at 70 °C is mixed with 300 g of cold water at 20 °C. What is the final temperature?",
+  "expect": "answer",
+  "answer": [
+   40.0,
+   "degC"
+  ]
  }
 ]

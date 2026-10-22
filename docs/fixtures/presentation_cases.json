@@ -526,6 +526,24 @@
       "expected": "$P = 1,500 \\times 2$  \n$P = 3,000$"
     },
     {
+      "id": "system-of-equations-comma",
+      "area": "calculation",
+      "input": "Solve the system $x + y = 10, 2x - y = 5$ for x and y.",
+      "expected": "Solve the system\n$x + y = 10$  \n$2x - y = 5$\nfor x and y."
+    },
+    {
+      "id": "comma-list-of-values",
+      "area": "calculation",
+      "input": "$x = 1, 2, 3$",
+      "expected": "$x = 1, 2, 3$"
+    },
+    {
+      "id": "grouped-digits-chain",
+      "area": "calculation",
+      "input": "$N = 12,345,678 = 1.2 \\times 10^7$",
+      "expected": "$N = 12,345,678$  \n$N = 1.2 \\times 10^7$"
+    },
+    {
       "id": "separate-inline-equations",
       "area": "calculation",
       "input": "We get $x = 2$, $y = 3$, so $x + y = 5$.",

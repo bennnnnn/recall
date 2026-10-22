@@ -8,6 +8,8 @@ two independent equations, becomes separate rows.
 
 from __future__ import annotations
 
+import re
+
 from app.modules.chat.calculation_layout_tail import (
     converts_units,
     finish_inline,
@@ -120,13 +122,13 @@ def _tokenize(expr: str) -> list[tuple[str, int, int, bool]]:
     return out
 
 
+# ``1,500``: a digit, the comma, then exactly three digits (ASCII, as on the phone). ``10, 2x``
+# is two equations: read as one number, ``x + y = 10, 2x - y = 5`` got a row ``x + y = 5``.
+_GROUPED_DIGITS = re.compile(r"(?<=[0-9]),[0-9]{3}(?![0-9])")
+
+
 def _thousands_separator(expr: str, index: int) -> bool:
-    prev = expr[index - 1] if index else ""
-    cursor = index + 1
-    while cursor < len(expr) and expr[cursor] == " ":
-        cursor += 1
-    nxt = expr[cursor] if cursor < len(expr) else ""
-    return prev.isdigit() and nxt.isdigit()
+    return _GROUPED_DIGITS.match(expr, index) is not None
 
 
 def _break_end(expr: str, index: int) -> int:

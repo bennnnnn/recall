@@ -59,6 +59,10 @@ def _heat_law(
     )
 
 
+# Laws that hold only when every sample is water. The binder drops them when the question names
+# any other substance (``bodies.names_only_water``): water + ethanol was answered as water + water.
+WATER_ONLY = frozenset({"water_mixture_temperature"})
+
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "heat_energy",
@@ -155,7 +159,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
     ),
     # Two amounts of water mixed: the heat one loses the other gains. Both
-    # are water, so c cancels; any other substance named rules this out.
+    # are water, so c cancels; any other substance named rules this out (WATER_ONLY).
     formula(
         "water_mixture_temperature",
         "thermal",
@@ -183,22 +187,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("kelvin",),
             inputs=(frozenset({"m1", "m2", "temp_a", "temp_b"}),),
             cues=("water",),
-            excludes=(
-                "ice",
-                "steam",
-                "oil",
-                "copper",
-                "iron",
-                "aluminium",
-                "aluminum",
-                "steel",
-                "lead",
-                "brass",
-                "glass",
-                "metal",
-                "block",
-                "specific heat",
-            ),
+            excludes=("block", "specific heat"),
             interchangeable=("m1", "m2", "temp_a", "temp_b"),
             nonnegative=True,
         ),
