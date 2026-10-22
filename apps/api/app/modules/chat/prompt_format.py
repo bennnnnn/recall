@@ -30,14 +30,12 @@ from app.modules.chat.prompt_constants import (
     HOWTO_FORMAT_HINT,
     LEARNING_PLAN_HINT,
     MATH_FENCE_SAFETY_HINT,
-    MERMAID_FORMAT_HINT,
     MIXED_LENGTH_HINT,
     NEW_PROBLEM_HINT,
     NON_DRAFT_TURN_HINT,
     PERSONAL_DISCLOSURE_HINT,
     PRIVACY_HINT,
     QUOTE_FORMAT_HINT,
-    SEQUENCE_FORMAT_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STANDING_PREFERENCE_HINT,
     STEPS_FORMAT_HINT,
@@ -62,7 +60,6 @@ from app.modules.chat.prompt_constants import (
     is_personal_disclosure_turn,
     is_programming_turn,
     is_quote_question,
-    is_sequence_diagram_question,
     is_short_confirmation,
     is_social_opener,
     is_standing_preference,
@@ -71,6 +68,7 @@ from app.modules.chat.prompt_constants import (
     is_teaching_request,
     is_walkthrough_request,
     learning_plan_daily_contract,
+    mermaid_format_hint,
     programming_lesson_contract,
     reply_length,
     writing_format_hint,
@@ -132,10 +130,9 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return None
     if is_chart_question(query_text):
         return CHART_FORMAT_HINT
-    if is_sequence_diagram_question(query_text):
-        return SEQUENCE_FORMAT_HINT
-    if is_mermaid_question(query_text):
-        return MERMAID_FORMAT_HINT
+    diagram_hint = mermaid_format_hint(query_text)
+    if diagram_hint:
+        return diagram_hint
     # Pasted code with "explain this" or "why does it fail" is about that code,
     # line by line, even when it says "walk me through" or "teach me".
     code_hint = code_question_hint(query_text)

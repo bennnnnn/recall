@@ -16,11 +16,11 @@ from app.modules.chat.prompt_constants import (
     needs_rich_context,
 )
 from app.modules.chat.prompt_constants.capabilities import CAPABILITIES_FORMAT_HINT
+from app.modules.chat.prompt_constants.diagrams import MERMAID_FORMAT_HINT
 from app.modules.chat.prompt_constants.format import (
     CHART_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
     FORMAT_CONTRACT,
-    MERMAID_FORMAT_HINT,
 )
 from app.modules.chat.prompt_constants.privacy import (
     ADVICE_PERSONALIZE_HINT,

@@ -19,7 +19,7 @@ from app.modules import todos as todos_service
 from app.modules import web_search as web_search_service
 from app.modules.chat import chats_repository as chats_repo
 from app.modules.chat.finalize_passes import enrich_final_content
-from app.modules.chat.prompt_constants.format import MERMAID_FORMAT_HINT
+from app.modules.chat.prompt_constants import MERMAID_FORMAT_HINT
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.prompt_hint import TODO_HINT

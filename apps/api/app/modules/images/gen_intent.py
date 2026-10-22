@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from app.modules.images.gen_intent_words import (
     ARTICLES,
     CODEISH_WORDS,
+    DIAGRAM_WORDS,
     GENERATE_NOW_EXACT,
     IMAGE_NOUNS,
     MAKE_IDIOM_FILLER,
@@ -33,6 +34,7 @@ from app.modules.images.gen_intent_words import (
     VERBS_DRAW,
     VERBS_IMAGE,
 )
+from app.services.diagram_kinds import names_diagram_kind
 
 if TYPE_CHECKING:
     from app.services.subject_solving import SubjectName
@@ -100,7 +102,16 @@ def has_non_image_draw(subject: str) -> bool:
     # "A cute cartoon atom for our chemistry club poster" is art, not a diagram.
     if any(word in _ART_WORDS for word in words):
         return False
-    return any(word in NON_IMAGE_DRAW_WORDS for word in words)
+    return names_a_diagram(subject) or any(word in NON_IMAGE_DRAW_WORDS for word in words)
+
+
+def names_a_diagram(subject: str) -> bool:
+    """A diagram the app draws itself ("a decision tree", "a mind map", "a flowchart"):
+    never an AI picture, whose labels come out garbled, and never an edit of the last one."""
+    words = [fold_token(word) for word in subject.split()]
+    if any(word in _ART_WORDS for word in words):
+        return False
+    return names_diagram_kind(subject) or any(word in DIAGRAM_WORDS for word in words)
 
 
 _ART_WORDS = frozenset(

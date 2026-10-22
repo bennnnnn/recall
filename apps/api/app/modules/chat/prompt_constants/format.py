@@ -2,6 +2,9 @@
 
 import re
 
+from app.modules.chat.prompt_constants.diagrams import is_mermaid_question
+from app.services.diagram_kinds import names_diagram_kind
+
 _COMPARISON_TURN = re.compile(
     r"(?:"
     r"\bvs\.?\b|"
@@ -152,7 +155,10 @@ def is_chart_question(text: str) -> bool:
     cleaned = text.strip()
     if not cleaned:
         return False
+    # "An org chart" or "a Gantt chart" is a Mermaid diagram, not numbers.
     if _is_chart_definition(cleaned) or _chart_request_negated(cleaned):
+        return False
+    if names_diagram_kind(cleaned):
         return False
     return bool(_CHART_TURN.search(cleaned))
 
@@ -189,69 +195,6 @@ def _chart_request_negated(cleaned: str) -> bool:
                 return True
             start = idx + len(neg)
     return False
-
-
-_SEQUENCE_CUE = re.compile(r"\bsequence\s+diagram\b", re.IGNORECASE)
-_FLOWCHART_CUE = re.compile(
-    r"(?:\bflow[\s-]?chart\b|```mermaid\b)",
-    re.IGNORECASE,
-)
-_MERMAID_WORD = re.compile(r"\bmermaid\b", re.IGNORECASE)
-_MERMAID_RENDER_CUE = re.compile(
-    r"\b(?:draw|show|make|create|render|diagram)\b",
-    re.IGNORECASE,
-)
-
-MERMAID_FORMAT_HINT = (
-    "This turn is a flowchart. Lead with a ```mermaid fence — not a numbered "
-    "list, not HTML/SVG, and not a joke setup ('let's brew up some fun'). "
-    "At most one short sentence, then the fence. Do not interview for steps.\n"
-    "Match the process they asked for. If they named steps or said ~N steps, "
-    "emit those nodes — do not invent a 2-box story.\n"
-    "Linear process: flowchart TD, one rectangle per step, --> between them. "
-    "Start/end may use stadium ([...]); decisions use diamonds.\n"
-    "Node labels must not contain raw parentheses — they break the parser. "
-    'Quote any label that needs extra words: E["Grind beans"] not '
-    "E[Grind Beans (Medium Grind)].\n"
-    "Example shape only:\n"
-    "```mermaid\n"
-    "flowchart TD\n"
-    "    start([Start]) --> step[Do the work] --> done([Done])\n"
-    "```"
-)
-
-SEQUENCE_FORMAT_HINT = (
-    "This turn is a sequence diagram, not a flowchart. Lead with a ```mermaid "
-    "fence using sequenceDiagram — not flowchart TD, not a numbered list, and "
-    "not a joke setup. At most one short sentence, then the fence.\n"
-    "Participants and messages they named; do not invent a 2-box story.\n"
-    "Example shape only:\n"
-    "```mermaid\n"
-    "sequenceDiagram\n"
-    "    participant Client\n"
-    "    participant Server\n"
-    "    Client->>Server: request\n"
-    "    Server-->>Client: response\n"
-    "```"
-)
-
-
-def is_sequence_diagram_question(text: str) -> bool:
-    """True when the user asked for a sequence diagram specifically."""
-    cleaned = text.strip()
-    return bool(cleaned and _SEQUENCE_CUE.search(cleaned))
-
-
-def is_mermaid_question(text: str) -> bool:
-    """True when the user asked for a Mermaid/flowchart/sequence diagram."""
-    cleaned = text.strip()
-    if not cleaned:
-        return False
-    if is_sequence_diagram_question(cleaned):
-        return True
-    if _FLOWCHART_CUE.search(cleaned):
-        return True
-    return bool(_MERMAID_WORD.search(cleaned) and _MERMAID_RENDER_CUE.search(cleaned))
 
 
 _CALLOUT_TURN = re.compile(

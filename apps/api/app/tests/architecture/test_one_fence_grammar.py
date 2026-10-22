@@ -28,6 +28,7 @@ _ALLOWED = {
         "the user's message: a closer glued to the last code line still ends the code, "
         "so the question after it is read"
     ),
+    "modules/chat/prompt_constants/diagrams.py": _USER_CUE,
     "modules/chat/prompt_constants/format.py": _USER_CUE,
     "modules/chat/prompt_constants/teaching.py": _USER_CUE,
     "modules/chat/prompt_constants/visuals.py": _USER_CUE,

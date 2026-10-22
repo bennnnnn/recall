@@ -2,7 +2,7 @@ from app.modules.chat.mermaid_sanitize import (
     sanitize_mermaid_fences,
     sanitize_mermaid_node_labels,
 )
-from app.modules.chat.prompt_constants.format import MERMAID_FORMAT_HINT
+from app.modules.chat.prompt_constants import MERMAID_FORMAT_HINT
 
 GRIND = "D --> E[Grind Beans (Medium Grind)]"
 GRIND_QUOTED = 'D --> E["Grind Beans (Medium Grind)"]'

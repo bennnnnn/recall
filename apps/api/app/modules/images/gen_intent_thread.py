@@ -23,6 +23,7 @@ from app.modules.images.gen_intent import (
     is_image_gen_generate_now,
     is_image_noun_only_message,
     join_subject,
+    names_a_diagram,
     split_tokens,
 )
 from app.modules.images.gen_intent_words import (
@@ -264,7 +265,7 @@ def extract_image_revision_prompt(
     revision = join_subject(tokens)
     if not revision:
         return None
-    if has_non_image_subject(revision):
+    if has_non_image_subject(revision) or names_a_diagram(revision):
         return None
     cleaned = clean_prompt(revision)
     if not cleaned:

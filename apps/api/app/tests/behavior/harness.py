@@ -74,6 +74,7 @@ HINTS: dict[str, str] = {
     "steps": pc.STEPS_FORMAT_HINT,
     "chart": pc.CHART_FORMAT_HINT,
     "mermaid": pc.MERMAID_FORMAT_HINT,
+    "diagram": pc.DIAGRAM_KIND_HINT,
     "email": EMAIL_DRAFT_HINT,
     "ask_purpose": EMAIL_ASK_PURPOSE_HINT,
     "social": SOCIAL_DRAFT_HINT,

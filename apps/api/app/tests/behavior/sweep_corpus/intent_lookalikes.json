@@ -903,5 +903,53 @@
   "history": [],
   "reply": "Noted: examples first when I explain something.",
   "expect": "memory"
+ },
+ {
+  "id": "hi-096",
+  "area": "image",
+  "prompt": "draw a decision tree for choosing a first programming language",
+  "history": [],
+  "reply": "Here's a decision tree to help you pick:\n\n```mermaid\nflowchart TD\n    Q1{What do you want to build?} -->|Websites| JS[JavaScript]\n    Q1 -->|Data or AI| PY[Python]\n    Q1 -->|Mobile apps| Q2{Which phone?}\n    Q2 -->|iPhone| SW[Swift]\n    Q2 -->|Android| KT[Kotlin]\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "hi-097",
+  "area": "image",
+  "prompt": "Draw a state machine for a traffic light",
+  "history": [],
+  "reply": "```mermaid\nstateDiagram-v2\n    [*] --> Red\n    Red --> Green : timer\n    Green --> Yellow : timer\n    Yellow --> Red : timer\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "hi-098",
+  "area": "image",
+  "prompt": "make a mind map of renewable energy sources",
+  "history": [],
+  "reply": "```mermaid\nmindmap\n  root((Renewable energy))\n    Solar\n      Rooftop panels\n      Solar farms\n    Wind\n      Onshore\n      Offshore\n    Hydro\n    Geothermal\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "hi-099",
+  "area": "image",
+  "prompt": "draw our family tree: grandma Almaz, her kids Dawit and Sara, and Sara's son Abel",
+  "history": [],
+  "reply": "```mermaid\nflowchart TD\n    A[Almaz] --> D[Dawit]\n    A --> S[Sara]\n    S --> B[Abel]\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "hi-100",
+  "area": "image",
+  "prompt": "generate an image of an old oak tree in autumn, watercolor",
+  "history": [],
+  "reply": "Here's your watercolor of an old oak tree in autumn.",
+  "expect": "image_gen"
+ },
+ {
+  "id": "hi-101",
+  "area": "image",
+  "prompt": "draw a treasure map for my kid's pirate party",
+  "history": [],
+  "reply": "Here's your treasure map for the pirate party.",
+  "expect": "image_gen"
  }
 ]
