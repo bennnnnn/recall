@@ -23,13 +23,23 @@ from app.services.answer_fence import (
     [
         "**Substitution**  \n$s = 3$\n\n**Answer**\n\n**Answer**\n",
         "**Substitution**  \n$s = 3$\n\n**Answer**\n\n**Answer:** $s = 37.5$\n",
+        # The circuit reply: a plain "Answer" line, then the server's card under its own heading.
+        "**Substitution**  \n$s = 3$\n\nAnswer\n$37.5\\ \\mathrm{m}$\n\nWant more?\n",
+        "**Substitution**  \n$s = 3$\n\n## Answer\n$37.5$\n",
     ],
 )
 def test_land_keeps_one_answer_heading_when_the_model_wrote_two(reply: str) -> None:
     # Physics follow-ups ("how far does it go?") showed **Answer** twice above the card.
     landed = land_answer_card(reply, "verified: true\n37.5")
-    assert landed.count("**Answer**") == 1
+    # One label of any spelling: "Answer" also counts, "```answer" does not.
+    assert landed.count("Answer") == 1
     assert "**Answer**\n\n```answer\nverified: true\n37.5\n```" in landed
+
+
+def test_a_line_that_only_starts_with_answer_is_prose() -> None:
+    landed = land_answer_card("Answer the question below.\nx = 3\n", "verified: true\n3")
+    assert landed.startswith("Answer the question below.\nx = 3")
+    assert landed.count("**Answer**") == 1
 
 
 def test_the_server_card_opens_with_the_marker_once() -> None:
