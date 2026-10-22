@@ -47,6 +47,18 @@ def _sympy_free() -> int | None:
     return get_sympy_executor().free_slots()
 
 
+def _documents_free() -> int | None:
+    from app.core.document_executor import get_document_executor
+
+    return get_document_executor().free_slots()
+
+
+def _blocking_running() -> dict[str, int]:
+    from app.core import blocking
+
+    return {kind: count for kind, count in blocking.running().items() if count}
+
+
 def _redis_in_use() -> int | None:
     from app.core.redis import get_redis_client
 
@@ -57,7 +69,9 @@ def _redis_in_use() -> int | None:
 
 _PROBES: tuple[tuple[str, Callable[[], object]], ...] = (
     ("executor_queue", _default_executor_queue),
+    ("blocking_running", _blocking_running),
     ("sympy_free", _sympy_free),
+    ("documents_free", _documents_free),
     ("redis_in_use", _redis_in_use),
 )
 # Gauges a product module owns (open chat sockets), handed in at start-up: core

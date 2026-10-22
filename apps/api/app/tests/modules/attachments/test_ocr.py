@@ -10,6 +10,7 @@ from pypdf import PdfWriter
 
 from app.core.config import Settings
 from app.modules.attachments import ocr as ocr
+from app.modules.attachments import pdf_render
 
 
 def _blank_pdf_bytes() -> bytes:
@@ -73,7 +74,7 @@ async def test_ocr_scanned_pdf_concatenates_pages():
     )
 
     with (
-        patch.object(ocr, "render_pdf_pages_and_count", return_value=(rendered, 2)),
+        patch.object(pdf_render, "render_pdf_pages_and_count", return_value=(rendered, 2)),
         patch(
             "app.gateways.litellm_gateway.vision_completion",
             AsyncMock(side_effect=lambda **_k: next(responses)),
@@ -100,7 +101,7 @@ async def test_ocr_scanned_pdf_joins_nonempty_pages():
     ]
     responses = iter([_vision_response("Heading"), _vision_response("Body paragraph")])
     with (
-        patch.object(ocr, "render_pdf_pages_and_count", return_value=(rendered, 2)),
+        patch.object(pdf_render, "render_pdf_pages_and_count", return_value=(rendered, 2)),
         patch(
             "app.gateways.litellm_gateway.vision_completion",
             AsyncMock(side_effect=lambda **_k: next(responses)),
@@ -127,7 +128,7 @@ async def test_extract_async_uses_ocr_when_text_layer_empty(monkeypatch):
     from app.modules.attachments.content import extract_text_details_async
 
     monkeypatch.setattr(
-        "app.modules.attachments.content.extract_text_details",
+        "app.modules.attachments.text_extract.extract_text_details",
         lambda *_a, **_k: None,
     )
     monkeypatch.setattr(
@@ -145,7 +146,7 @@ async def test_extract_async_skips_ocr_when_disallowed(monkeypatch):
     from app.modules.attachments.content import extract_text_details_async
 
     monkeypatch.setattr(
-        "app.modules.attachments.content.extract_text_details",
+        "app.modules.attachments.text_extract.extract_text_details",
         lambda *_a, **_k: None,
     )
     ocr_mock = AsyncMock(return_value="should-not-run")
@@ -161,7 +162,7 @@ async def test_extract_async_does_not_ocr_when_text_layer_present(monkeypatch):
     from app.modules.attachments.content import ExtractedText, extract_text_details_async
 
     monkeypatch.setattr(
-        "app.modules.attachments.content.extract_text_details",
+        "app.modules.attachments.text_extract.extract_text_details",
         lambda *_a, **_k: ExtractedText(text="selectable text"),
     )
     ocr_mock = AsyncMock(return_value="should-not-run")
@@ -184,7 +185,7 @@ async def test_extract_async_timeout_does_not_ocr(monkeypatch):
         time.sleep(0.5)
         return None
 
-    monkeypatch.setattr("app.modules.attachments.content.extract_text_details", _slow)
+    monkeypatch.setattr("app.modules.attachments.text_extract.extract_text_details", _slow)
     ocr_mock = AsyncMock(return_value="should-not-run")
     monkeypatch.setattr("app.modules.attachments.ocr.ocr_scanned_pdf", ocr_mock)
     settings = Settings(attachment_extract_timeout_seconds=0.05, attachment_ocr_enabled=True)
@@ -202,7 +203,9 @@ async def test_ocr_scanned_pdf_uses_caller_char_cap():
     )
     rendered = [("image/jpeg", b"\xff\xd8\xffpage1")]
     with (
-        patch.object(ocr, "render_pdf_pages_and_count", return_value=(rendered, 40)) as render,
+        patch.object(
+            pdf_render, "render_pdf_pages_and_count", return_value=(rendered, 40)
+        ) as render,
         patch(
             "app.gateways.litellm_gateway.vision_completion",
             AsyncMock(return_value=_vision_response("x" * 50)),
@@ -232,7 +235,7 @@ async def test_extract_async_ocr_index_uses_index_caps(monkeypatch):
     )
 
     monkeypatch.setattr(
-        "app.modules.attachments.content.extract_text_details",
+        "app.modules.attachments.text_extract.extract_text_details",
         lambda *_a, **_k: None,
     )
     captured: dict = {}

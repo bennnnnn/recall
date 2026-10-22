@@ -8,16 +8,16 @@ pool is enough. It lived in ``core/``; nothing in production uses it.
 from __future__ import annotations
 
 import asyncio
-import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, TypeVar
 
 from app.core.sympy_executor import (
-    _QUEUE_POLL_SECONDS,
     DEFAULT_SYMPY_QUEUE_WAIT_SECONDS,
     BoundedSympyExecutor,
+    WorkerBusyError,
     _clamp_workers,
+    wait_until_started,
 )
 
 _T = TypeVar("_T")
@@ -52,13 +52,10 @@ class ThreadSympyExecutor(BoundedSympyExecutor):
         *args: Any,
         timeout: float,  # noqa: ASYNC109 - we IMPLEMENT the timeout, not consume it
     ) -> _T:
-        t_submit = time.monotonic()
         future = self._pool.submit(fn, *args)
-        while not future.running() and not future.done():
-            if time.monotonic() - t_submit >= self._queue_wait_seconds:
-                future.cancel()
-                raise TimeoutError("SymPy worker slot wait timed out")
-            await asyncio.sleep(_QUEUE_POLL_SECONDS)
+        if not await wait_until_started(future, self._queue_wait_seconds):
+            future.cancel()
+            raise WorkerBusyError("SymPy worker slot wait timed out")
         afut = asyncio.wrap_future(future)
         try:
             async with asyncio.timeout(timeout):

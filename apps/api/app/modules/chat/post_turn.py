@@ -216,6 +216,13 @@ async def enqueue_post_turn_jobs(
         spend_capped=spend_capped,
     )
     queued = [job for build in POST_TURN_JOBS for job in await build(turn)]
-    await asyncio.gather(
-        *(jobs.enqueue(redis, job.name, job.payload, dedupe_key=job.dedupe_key) for job in queued)
+    # Each job is queued whatever happens to the others: one failed enqueue loses only itself.
+    results = await asyncio.gather(
+        *(jobs.enqueue(redis, job.name, job.payload, dedupe_key=job.dedupe_key) for job in queued),
+        return_exceptions=True,
     )
+    for job, result in zip(queued, results, strict=True):
+        if isinstance(result, Exception):
+            logger.warning(
+                "Post-turn job %s not queued chat_id=%s", job.name, ctx.chat_id, exc_info=result
+            )

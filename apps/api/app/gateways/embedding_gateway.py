@@ -11,6 +11,7 @@ from uuid import UUID
 
 from litellm import aembedding
 
+from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.redis import get_redis_client
 from app.gateways import llm_spend, mock_llm
@@ -111,7 +112,7 @@ async def embed_many(
                 return list(vectors)
             return [await embed_text(settings, text) for text in batch]
 
-    results = await asyncio.gather(*(_batch(batch) for batch in batches))
+    results = await gather_or_cancel(*(_batch(batch) for batch in batches))
     return [vector for batch in results for vector in batch]
 
 

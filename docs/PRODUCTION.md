@@ -510,6 +510,10 @@ load; each worker 90–150 MB (150 once a chemistry fence loads RDKit). That is
 550–850 MB, more than a 512 MB machine without swap, so `fly.toml` gives the
 `app` machine 1 GB. On 512 MB, run `SYMPY_MAX_WORKERS=1` and accept that a
 second maths turn inside the 2 s slot wait gets an unverified answer.
+Documents parse and PDF pages render in their own processes
+(`DOCUMENT_POOL_WORKERS`, 2), each about 70 MB, started on a machine's first
+document and killed at the parse timeout; the `worker` machine runs no more
+index jobs at once than it has of them.
 
 | Setting | Default | What it protects |
 |---------|---------|------------------|

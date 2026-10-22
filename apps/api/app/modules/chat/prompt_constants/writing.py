@@ -1,6 +1,7 @@
 """Email and copy-paste deliverable hints."""
 
 import re
+from collections.abc import Sequence
 
 from app.modules.chat.prompt_constants.format import is_comparison_question
 from app.modules.chat.prompt_constants.routing import is_lightweight_chat_turn
@@ -238,7 +239,7 @@ def could_continue_draft(text: str | None) -> bool:
 
 
 def draft_followup(
-    text: str | None, prior_messages: list[tuple[str, str]] | None
+    text: str | None, prior_messages: Sequence[tuple[str, str]] | None
 ) -> tuple[str, bool] | None:
     """(fence, drafted) when this line goes on with a recent draft, else None.
 
@@ -256,7 +257,7 @@ def draft_followup(
     return _FORMAT_FENCE[switch.group(1).lower()], found[1]
 
 
-def _draft_in_history(prior_messages: list[tuple[str, str]]) -> tuple[str, bool] | None:
+def _draft_in_history(prior_messages: Sequence[tuple[str, str]]) -> tuple[str, bool] | None:
     for role, content in reversed(prior_messages[-_FOLLOWUP_LOOKBACK:]):
         if role == "assistant":
             fences = _DRAFT_FENCE.findall(content)

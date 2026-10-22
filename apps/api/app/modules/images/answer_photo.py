@@ -77,8 +77,11 @@ class AnswerPhoto:
         try:
             ids = await asyncio.wait_for(asyncio.shield(task), timeout=_WAIT_SECONDS)
         except TimeoutError:
+            # Stopped, not left to finish: a late photo was stored unlinked for the reaper,
+            # after costing a lookup. Its cleanup (bytes, allowance) runs as the reply goes.
             logger.info("Answer photo took too long; sending the reply without it")
             task.add_done_callback(_log_late_photo)
+            task.cancel()
         except Exception:
             logger.exception("Answer photo failed")
         marker = "\n".join(_marker(attachment_id) for attachment_id in ids)
@@ -100,8 +103,8 @@ class AnswerPhoto:
 
 
 def _log_late_photo(task: asyncio.Task[list[UUID]]) -> None:
-    # A photo that arrives after the reply was saved stays unlinked; the
-    # attachment reaper removes it.
+    # A search that finished storing before its cancel arrived leaves an unlinked photo;
+    # the attachment reaper removes it.
     if not task.cancelled() and task.exception() is not None:
         logger.warning("Late answer photo failed", exc_info=task.exception())
 

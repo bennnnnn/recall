@@ -20,7 +20,6 @@ import re
 from fractions import Fraction
 
 from app.core.config import Settings
-from app.gateways import litellm_gateway
 from app.modules.math.request_consumption import request_consumption_complete
 from app.modules.math.schemas import MathIntent
 from app.modules.math.schemas.word_problem import WordProblemSetup
@@ -319,6 +318,10 @@ async def word_problem_intent(text: str, settings: Settings) -> MathIntent | Non
             return intent
     if not word_problem_candidate(text):
         return None
+    # Here, not at module top: the maths gate reads ``word_problem_candidate`` in the SymPy
+    # pool's workers, which must not load the model client.
+    from app.gateways import litellm_gateway
+
     aliases = [_TRANSLATOR_MODEL_ALIAS]
     fallback = settings.memory_fallback_model_alias.strip()
     if fallback and fallback not in aliases:

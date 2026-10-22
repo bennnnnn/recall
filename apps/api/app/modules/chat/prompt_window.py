@@ -9,17 +9,14 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID
 
 from app.core.config import Settings
 from app.models.orm import Chat
 from app.modules import todos as todos_service
-from app.modules.chat.continuation_subject import blocks_math_followup
 from app.modules.chat.prompt_context import _load_unsummarized_gap
-from app.modules.chemistry.followup import chemistry_followup_problem
-from app.modules.math.followup import is_math_followup, readable_standalone_answer
-from app.modules.physics.followup import physics_followup_problem
+from app.modules.math.followup import readable_standalone_answer
 from app.services.answer_fence import answer_fence_value
 from app.services.context_window import (
     estimate_tokens,
@@ -28,8 +25,6 @@ from app.services.context_window import (
 )
 from app.services.md_fence_scan import map_closed_fences, strip_closed_fences
 from app.services.prompt_safety import wrap_persisted_attachment_excerpts
-
-FollowupSubject = Literal["math", "chemistry", "physics"]
 
 _PROMPT_STRIP_FENCE_LANGS = ("geometry", "graph", "sources", "places", "photo")
 
@@ -124,17 +119,6 @@ def _completed_exchange(
     ):
         return recent[:-1]
     return recent
-
-
-def followup_subject(query_text: str | None, exchange: list[Any]) -> FollowupSubject | None:
-    """The subject whose problem in ``exchange`` this turn only continues, or None."""
-    if is_math_followup(query_text, exchange, blocked=blocks_math_followup):
-        return "math"
-    if chemistry_followup_problem(query_text, exchange) is not None:
-        return "chemistry"
-    if physics_followup_problem(query_text, exchange) is not None:
-        return "physics"
-    return None
 
 
 def _answer_line(body: str) -> str:

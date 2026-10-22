@@ -206,6 +206,11 @@ async def composer_intent_for_chat(
             recent = await messages_repo.list_recent(
                 session, chat_id, limit=settings.recent_message_window
             )
+    # The subject is the one reading behind this answer that parses with SymPy; read it in
+    # the pool, and ``composer_image_intent`` asks it of this request's readings.
+    from app.services.subject_solving import read_subject
+
+    await read_subject(text, settings)
     return composer_image_intent(
         text,
         recent,

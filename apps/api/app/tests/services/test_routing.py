@@ -7,7 +7,7 @@ import pytest
 from app.core.config import Settings
 from app.models import model_catalog
 from app.modules.billing import plan as plan_service
-from app.services import routing
+from app.services import routing, routing_physics
 from app.services.routing import (
     message_needs_thinking,
     resolve_alias_in_pool,
@@ -416,11 +416,11 @@ def test_physics_route_declines_when_the_solver_raises(
         raise ZeroDivisionError("solver bug")
 
     monkeypatch.setattr(physics, "solve_physics", broken)
-    routing._physics_solves.cache_clear()
+    routing_physics._physics_solves.cache_clear()
     try:
         assert route_chat_model(_VERIFIED_PHYSICS) == "smart-chat"
     finally:
-        routing._physics_solves.cache_clear()
+        routing_physics._physics_solves.cache_clear()
     assert "physics routing solve failed" in caplog.text
 
 
@@ -436,7 +436,7 @@ def test_physics_route_solves_each_line_once(monkeypatch: pytest.MonkeyPatch) ->
         return real(intent)  # type: ignore[arg-type]
 
     monkeypatch.setattr(physics, "solve_physics", counting)
-    routing._physics_solves.cache_clear()
+    routing_physics._physics_solves.cache_clear()
     try:
         for _ in range(3):
             assert route_chat_model(_VERIFIED_PHYSICS) == "qwen-3.7-flash"
@@ -449,5 +449,5 @@ def test_physics_route_solves_each_line_once(monkeypatch: pytest.MonkeyPatch) ->
                 is not None
             )
     finally:
-        routing._physics_solves.cache_clear()
+        routing_physics._physics_solves.cache_clear()
     assert calls == 1

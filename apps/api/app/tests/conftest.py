@@ -37,8 +37,28 @@ os.environ["WEB_SEARCH_FALLBACK_ENABLED"] = "false"
 _STRICT_DECLINES_ASKED = "RECALL_STRICT_DECLINES" in os.environ
 os.environ.setdefault("RECALL_STRICT_DECLINES", "1")
 
+# Before any test module imports the app (and with it SymPy's names): a reading or a SymPy
+# call made on the event loop by production code fails the test (app/tests/loop_guard.py).
+from app.tests import loop_guard
+
+loop_guard.install()
+
 
 _REAL_CONNECT: dict[str, object] = {}
+
+
+@pytest.fixture(autouse=True)
+def _nothing_read_on_the_loop():
+    """No production coroutine reads a message or runs SymPy on the event loop."""
+    loop_guard.found.clear()
+    yield
+    if loop_guard.found:
+        ran = sorted(set(loop_guard.found))
+        loop_guard.found.clear()
+        pytest.fail(
+            "Ran on the event loop; read it in the SymPy pool (app/core/readings.py):\n"
+            + "\n".join(ran)
+        )
 
 
 @pytest.fixture(autouse=True)
@@ -247,6 +267,17 @@ def _reset_sympy_executor():
     set_sympy_executor(ThreadSympyExecutor(max_workers=1))
     yield
     reset_sympy_executor()
+
+
+@pytest.fixture(autouse=True)
+def _thread_document_executor():
+    """Documents parse on an in-process thread in tests, as maths does above."""
+    from app.core.document_executor import set_document_executor
+    from app.tests.sympy_support import ThreadSympyExecutor
+
+    set_document_executor(ThreadSympyExecutor(max_workers=2))
+    yield
+    set_document_executor(None)
 
 
 @pytest.fixture

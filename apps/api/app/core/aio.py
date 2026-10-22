@@ -2,17 +2,60 @@
 
 ``asyncio.gather`` leaves the siblings of a failed branch running: a paid model
 call, a search or a download keeps going after its turn already failed, and its
-own error is never retrieved.
+own error is never retrieved. Code that wants every branch to finish whatever the
+others do passes ``return_exceptions=True`` to ``asyncio.gather`` and handles each
+result (``app/tests/architecture/test_gather_cancels.py``).
 """
 
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Iterable
-from typing import Any
+from collections.abc import Awaitable
+from typing import Any, overload
+
+# The fixed-arity forms are typed as tuples, as typeshed types ``asyncio.gather``; like
+# it, the result is a list at run time. Callers unpack it.
 
 
-async def gather_or_cancel(aws: Iterable[Awaitable[Any]]) -> list[Any]:
+@overload
+async def gather_or_cancel[A, B](a: Awaitable[A], b: Awaitable[B], /) -> tuple[A, B]: ...
+
+
+@overload
+async def gather_or_cancel[A, B, C](
+    a: Awaitable[A], b: Awaitable[B], c: Awaitable[C], /
+) -> tuple[A, B, C]: ...
+
+
+@overload
+async def gather_or_cancel[A, B, C, D](
+    a: Awaitable[A], b: Awaitable[B], c: Awaitable[C], d: Awaitable[D], /
+) -> tuple[A, B, C, D]: ...
+
+
+@overload
+async def gather_or_cancel[A, B, C, D, E](
+    a: Awaitable[A], b: Awaitable[B], c: Awaitable[C], d: Awaitable[D], e: Awaitable[E], /
+) -> tuple[A, B, C, D, E]: ...
+
+
+@overload
+async def gather_or_cancel[A, B, C, D, E, F](
+    a: Awaitable[A],
+    b: Awaitable[B],
+    c: Awaitable[C],
+    d: Awaitable[D],
+    e: Awaitable[E],
+    f: Awaitable[F],
+    /,
+) -> tuple[A, B, C, D, E, F]: ...
+
+
+@overload
+async def gather_or_cancel[T](*aws: Awaitable[T]) -> list[T]: ...
+
+
+async def gather_or_cancel(*aws: Awaitable[Any]) -> Any:
     """Results in order; the first error cancels the others (awaited) and is raised."""
     tasks = [asyncio.ensure_future(aw) for aw in aws]
     try:

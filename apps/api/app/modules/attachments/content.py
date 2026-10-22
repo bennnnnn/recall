@@ -3,55 +3,44 @@
 from __future__ import annotations
 
 import asyncio
-import io
 import logging
-from dataclasses import dataclass
-from typing import Any
+from concurrent.futures.process import BrokenProcessPool
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.attachment_limits import MAX_ATTACHMENT_SIZE as MAX_ATTACHMENT_SIZE
 from app.core.config import Settings
+from app.core.document_executor import run_document
+from app.core.sympy_executor import WorkerBusyError
 from app.gateways.storage_gateway import StorageGateway
 from app.modules.attachments.content_types import (
-    _DOCX_CONTENT_TYPE,
-    _OFFICE_MARKERS,
-    _TEXTISH_TYPES,
     EXTRACTABLE_CONTENT_TYPES,
-    _docx_zip_bomb,
-    _office_content_type,
     bytes_match_claimed,
 )
 
 # Re-exported: rag and chat's vision paths read it through this module.
 from app.modules.attachments.content_types import is_image_content_type as is_image_content_type
-from app.modules.attachments.office_text import extract_office_text
+from app.modules.attachments.text_extract import (
+    MAX_EXTRACT_CHARS,
+    PDF_EXTRACT_MAX_PAGES,
+    extract_in_worker,
+)
+
+# Re-exported: callers read the parser's names through this module.
+from app.modules.attachments.text_extract import (
+    MAX_INDEX_EXTRACT_CHARS as MAX_INDEX_EXTRACT_CHARS,
+)
+from app.modules.attachments.text_extract import PDF_INDEX_MAX_PAGES as PDF_INDEX_MAX_PAGES
+from app.modules.attachments.text_extract import ExtractedText as ExtractedText
+from app.modules.attachments.text_extract import extract_text_details as extract_text_details
 
 logger = logging.getLogger(__name__)
 
-# Inline excerpt cap — keeps the user-message attachment excerpt small so it
-# doesn't bloat the prompt with a full document dump.
-MAX_EXTRACT_CHARS = 12_000
-# Indexing cap — the background indexing path chunks the whole document for
-# pgvector RAG, so it can extract far more than the inline excerpt. Capped to
-# avoid runaway memory on adversarially large text payloads.
-MAX_INDEX_EXTRACT_CHARS = 200_000
-# Inline excerpts stay small; background indexing can read later PDF pages.
-PDF_EXTRACT_MAX_PAGES = 25
-PDF_INDEX_MAX_PAGES = 500
-
 
 class ExtractTimeoutError(TimeoutError):
-    """Parsing ran past its budget; the file may still have text."""
-
-
-@dataclass(frozen=True)
-class ExtractedText:
-    text: str
-    char_capped: bool = False
-    page_capped: bool = False
-    via_ocr: bool = False
+    """The file could not be read in time: the parse ran past its budget (or its worker
+    died on it). The file may still have text; it is not a scan."""
 
 
 def file_excerpt_limit_note(
@@ -78,112 +67,6 @@ def file_excerpt_limit_note(
     )
 
 
-def _docx_tables_as_markdown(document: Any) -> list[str]:
-    """Keep table cell alignment as a markdown grid instead of flattening cells."""
-    blocks: list[str] = []
-    for table in document.tables:
-        rows_out: list[str] = []
-        for row in table.rows:
-            cells = [cell.text.strip().replace("|", "\\|") for cell in row.cells]
-            if not any(cells):
-                continue
-            rows_out.append("| " + " | ".join(cells) + " |")
-        if not rows_out:
-            continue
-        col_count = max(1, rows_out[0].count("|") - 1)
-        sep = "| " + " | ".join("---" for _ in range(col_count)) + " |"
-        if len(rows_out) == 1:
-            blocks.append(f"{rows_out[0]}\n{sep}")
-        else:
-            blocks.append(f"{rows_out[0]}\n{sep}\n" + "\n".join(rows_out[1:]))
-    return blocks
-
-
-def extract_text_details(
-    content_type: str,
-    data: bytes,
-    *,
-    max_chars: int = MAX_EXTRACT_CHARS,
-) -> ExtractedText | None:
-    """Sync, CPU-bound parsing with truncation flags for honest disclosure.
-
-    Call via ``extract_text_details_async`` on any code path that isn't already
-    off the event loop.
-    """
-    if content_type in _TEXTISH_TYPES:
-        text = data.decode("utf-8", errors="replace").strip()
-        if not text:
-            return None
-        return ExtractedText(text=text[:max_chars], char_capped=len(text) > max_chars)
-
-    if content_type == "application/pdf":
-        try:
-            from pypdf import PdfReader
-
-            reader = PdfReader(io.BytesIO(data))
-            page_limit = (
-                PDF_INDEX_MAX_PAGES if max_chars > MAX_EXTRACT_CHARS else PDF_EXTRACT_MAX_PAGES
-            )
-            page_capped = len(reader.pages) > page_limit
-            parts: list[str] = []
-            size = 0
-            char_capped = False
-            for index, page in enumerate(reader.pages[:page_limit], start=1):
-                page_text = page.extract_text().replace("\x00", "")  # Postgres text rejects NUL
-                if page_text:
-                    parts.append(f"[page {index}] {page_text.strip()}")
-                    size += len(parts[-1]) + 2
-                    if size > max_chars:
-                        char_capped = True
-                        break
-            joined = "\n\n".join(parts).strip()
-            if not joined:
-                return None
-            return ExtractedText(
-                text=joined[:max_chars],
-                char_capped=char_capped or len(joined) > max_chars,
-                page_capped=page_capped,
-            )
-        except Exception:
-            logger.warning(
-                "PDF text extraction failed; the file has no text for search", exc_info=True
-            )
-            return None
-
-    if content_type == _DOCX_CONTENT_TYPE:
-        try:
-            if _docx_zip_bomb(data):
-                return None
-            from docx import Document
-
-            document = Document(io.BytesIO(data))
-            parts = [p.text.strip() for p in document.paragraphs if p.text.strip()]
-            parts.extend(_docx_tables_as_markdown(document))
-            joined = "\n".join(parts).strip()
-            if not joined:
-                return None
-            return ExtractedText(text=joined[:max_chars], char_capped=len(joined) > max_chars)
-        except Exception:
-            logger.warning(
-                "DOCX text extraction failed; the file has no text for search", exc_info=True
-            )
-            return None
-
-    if content_type in _OFFICE_MARKERS.values() and content_type != _DOCX_CONTENT_TYPE:
-        if _office_content_type(data) != content_type:
-            return None
-        office_text = extract_office_text(content_type, data, max_chars=max_chars + 1)
-        if office_text:
-            return ExtractedText(
-                text=office_text[:max_chars], char_capped=len(office_text) > max_chars
-            )
-
-    # Legacy .doc (application/msword) and anything else: no parser. Handled
-    # explicitly (not silently) by format_attachment_lines via
-    # EXTRACTABLE_CONTENT_TYPES.
-    return None
-
-
 async def extract_text_details_async(
     content_type: str,
     data: bytes,
@@ -195,9 +78,9 @@ async def extract_text_details_async(
     timeout_seconds: float | None = None,
     raise_on_timeout: bool = False,
 ) -> ExtractedText | None:
-    """Offload the sync, CPU-bound parse to a worker thread with a timeout,
-    so a large or adversarially crafted PDF/DOCX can't block the event loop —
-    same pattern as the SymPy math solve offload.
+    """Parse in a document worker process, killed at the timeout, so a large or
+    adversarially crafted PDF/DOCX holds neither the event loop nor a thread
+    (``core/document_executor.py``).
 
     When a PDF has no text layer, fall through to vision OCR (scanned /
     photographed pages) using a separate network timeout — unless
@@ -207,13 +90,26 @@ async def extract_text_details_async(
     passes its own and ``raise_on_timeout`` (a slow parse is not "no text").
     """
     timed_out = False
+    budget = timeout_seconds or settings.attachment_extract_timeout_seconds
     try:
-        async with asyncio.timeout(timeout_seconds or settings.attachment_extract_timeout_seconds):
-            details = await asyncio.to_thread(
-                extract_text_details, content_type, data, max_chars=max_chars
+        # The outer timeout bounds the wait for a free worker too.
+        async with asyncio.timeout(budget):
+            details = await run_document(
+                extract_in_worker, content_type, data, max_chars, timeout=budget
             )
-    except TimeoutError as exc:
-        logger.warning("Attachment text extraction timed out for content_type=%s", content_type)
+    except WorkerBusyError:
+        # Every document worker was busy: the file was not read, and is not unreadable.
+        logger.warning("Attachment text extraction found no free worker")
+        if raise_on_timeout:
+            raise
+        timed_out = True
+        details = None
+    except (TimeoutError, BrokenProcessPool) as exc:
+        logger.warning(
+            "Attachment text extraction gave up (%s) for content_type=%s",
+            type(exc).__name__,
+            content_type,
+        )
         if raise_on_timeout:
             raise ExtractTimeoutError(content_type) from exc
         timed_out = True
@@ -341,6 +237,20 @@ async def ensure_verified_or_purge(
     return None, False
 
 
+def _unread_in_time_note(content_type: str, settings: Settings) -> str:
+    """A file the parse could not finish within the turn's budget: slow, not a scan."""
+    lead = (
+        f"[File attached: {content_type}. Recall could not read it in time "
+        "(a large or complex file). Do not guess its contents. "
+    )
+    if settings.attachment_rag_enabled:
+        return (
+            f"{lead}It is being read in the background; on a later turn its text may be "
+            "searchable. Suggest pasting the relevant part if the user needs it now.]"
+        )
+    return f"{lead}Suggest pasting the relevant part.]"
+
+
 def _scanned_pdf_note(settings: Settings) -> str:
     """What the model may promise about a PDF with no text layer: only what will run."""
     lead = (
@@ -379,7 +289,13 @@ async def format_attachment_lines(
         data = await read_attachment_bytes(gateway, storage_key)
     file_ref = f"[File: /attachments/{attachment_id}/file]"
     if data:
-        excerpt = await extract_text_details_async(content_type, data, settings, allow_ocr=False)
+        try:
+            excerpt = await extract_text_details_async(
+                content_type, data, settings, allow_ocr=False, raise_on_timeout=True
+            )
+        except (ExtractTimeoutError, WorkerBusyError):
+            # Told "likely a scanned PDF" before: a slow parse is not a missing text layer.
+            return [file_ref, _unread_in_time_note(content_type, settings)], False
         if excerpt:
             note = file_excerpt_limit_note(
                 char_capped=excerpt.char_capped,

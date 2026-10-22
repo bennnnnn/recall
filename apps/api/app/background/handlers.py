@@ -20,7 +20,7 @@ from typing import Any
 from uuid import UUID
 
 from app.background import message_indexing
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
 from app.core.db import SessionLocal
 from app.core.jobs import (
     JobDiscardError,
@@ -312,6 +312,12 @@ def register_all() -> None:
     )
     register("compress", _handle_compress)
     register("transactional_email", _handle_transactional_email, done_ttl_seconds=_ONCE_A_DAY)
-    register("attachment_index", _handle_attachment_index)
+    # No more at once than the worker has document processes: a parse that waits for one
+    # past the queue wait is retried, but need not wait at all.
+    register(
+        "attachment_index",
+        _handle_attachment_index,
+        max_running=get_settings().document_pool_workers,
+    )
     register("message_index", _handle_message_index)
     register("storage_sweep", _handle_storage_sweep, done_ttl_seconds=_ONCE_A_DAY)

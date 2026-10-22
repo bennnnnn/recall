@@ -8,6 +8,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolContext
 from app.gateways.web_search_gateway import WebSearchHit
@@ -116,7 +117,7 @@ async def _search_targets(
     the words of the request. Hits alternate between targets, so a part with many
     results cannot crowd out another's.
     """
-    query_lists = await asyncio.gather(
+    query_lists = await gather_or_cancel(
         *(
             search_queries_for_turn(
                 settings,
@@ -142,7 +143,7 @@ async def _search_targets(
     queries = [
         found[0] if found else target for found, target in zip(query_lists, targets, strict=True)
     ]
-    results = await asyncio.gather(
+    results = await gather_or_cancel(
         *(
             run_cached_search(
                 settings, [query], user=ctx.user, redis=ctx.redis, budget=ctx.tavily_budget

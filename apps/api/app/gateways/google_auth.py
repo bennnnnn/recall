@@ -6,6 +6,7 @@ from google.auth import exceptions as google_exceptions
 from google.auth.transport import requests
 from google.oauth2 import id_token
 
+from app.core.blocking import run_blocking
 from app.core.config import Settings
 
 logger = logging.getLogger(__name__)
@@ -100,11 +101,15 @@ def _is_email_verified(value: object) -> bool:
 
 
 async def verify_google_id_token(id_token_str: str, settings: Settings) -> dict[str, Any]:
-    """Verify a Google ID token off the event loop (sync cert/HTTP in a thread)."""
+    """Verify a Google ID token off the event loop, on sign-in's own threads.
+
+    Its own pool (``core/blocking.py``): queued behind R2 calls and PDF parses on the
+    shared one, sign-in ran past its budget and answered 503.
+    """
     deadline = settings.google_auth_timeout_seconds + _THREAD_GRACE_SECONDS
     try:
         return await asyncio.wait_for(
-            asyncio.to_thread(_verify_google_id_token_sync, id_token_str, settings),
+            run_blocking("sign_in", _verify_google_id_token_sync, id_token_str, settings),
             timeout=deadline,
         )
     except TimeoutError as exc:

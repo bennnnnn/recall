@@ -41,9 +41,19 @@ async def test_storage_read_failure_does_not_purge_attachment(code):
     session.commit.assert_not_awaited()
 
 
-def _r2(*outcomes: object) -> R2StorageGateway:
+def _r2(*, failing: frozenset[str] = frozenset()) -> R2StorageGateway:
+    """An R2 gateway whose deletes fail for these keys.
+
+    Deletes run on the R2 pool, so they finish in any order: the outcome follows
+    the key, never the order of the calls.
+    """
     client = MagicMock()
-    client.delete_object.side_effect = list(outcomes)
+
+    def delete_object(*, Bucket: str, Key: str) -> None:
+        if Key in failing:
+            raise RuntimeError("timeout")
+
+    client.delete_object.side_effect = delete_object
     with patch("boto3.client", return_value=client):
         return R2StorageGateway(Settings())
 
@@ -56,7 +66,7 @@ async def test_a_failed_r2_delete_stays_queued_and_backs_off(fake_redis):
         with patch.object(
             attachment_lifecycle,
             "get_storage_gateway",
-            return_value=_r2(None, RuntimeError("timeout")),
+            return_value=_r2(failing=frozenset({"u/retry"})),
         ):
             assert await attachment_lifecycle.retry_pending_storage_deletes(Settings()) == 1
     queued = await fake_redis.zrange(

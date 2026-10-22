@@ -10,6 +10,7 @@ from uuid import UUID
 from app.core import presence_cache
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.core.sympy_executor import WorkerBusyError
 from app.gateways import embedding_gateway
 from app.gateways.storage_gateway import get_storage_gateway
 from app.models.orm import Attachment
@@ -136,6 +137,11 @@ def is_indexable_attachment(row: Attachment) -> bool:
     )
 
 
+class AttachmentUnreadableError(Exception):
+    """The parse ran past its budget, or its worker died: a retry reads the same file the
+    same way. Not retried (three attempts stacked parses of one hostile file)."""
+
+
 class AttachmentIndexError(Exception):
     """Raised when attachment indexing fails transiently (R2 read, extraction, embedding).
 
@@ -174,9 +180,12 @@ async def _extract_for_index(
             timeout_seconds=settings.attachment_index_extract_timeout_seconds,
             raise_on_timeout=True,
         )
+    except WorkerBusyError as exc:
+        await ocr_allowance.refund_ocr(owner_id, attachment_id, ocr_day)
+        raise AttachmentIndexError(f"No document worker free for {attachment_id}") from exc
     except ExtractTimeoutError as exc:
         await ocr_allowance.refund_ocr(owner_id, attachment_id, ocr_day)
-        raise AttachmentIndexError(f"Text extraction timed out for {attachment_id}") from exc
+        raise AttachmentUnreadableError(f"Could not read {attachment_id} in time") from exc
     await ocr_allowance.release_unused_ocr(owner_id, attachment_id, ocr_day, details)
     if details is not None:
         await ocr_allowance.remember_ocr_text(attachment_id, details)

@@ -39,11 +39,11 @@ Everything a turn or a request must agree on across machines lives in Redis or P
 | Last loaded user row, 60 s | `core/user_cache.py` | An edit saved on one machine (plan change from the RevenueCat webhook, a settings change, consent) reaches the others within 60 s. Consent is re-read from the row before a turn is refused. |
 | A chat created here, 120 s | `repositories/chats.py` (`_chat_cache`) | The send right after "new chat" skips a query. If the chat is deleted through another machine, this machine still starts a turn for it for up to 120 s, which then fails when it saves. |
 | Open chat sockets per user (5) | `modules/chat/ws_limits.py` | A user can hold 5 per machine, N×5 in all. The frame budget and idle timeout are per socket, so they are exact. |
-| SymPy process pool (3 workers, 2 s slot wait, one slot per user) | `core/sympy_executor.py` | Capacity grows with machines (3 per machine); a maths turn that waits more than 2 s for a slot on its machine is answered unverified. A user holds at most one slot per machine, so one account's pathological expressions cannot take all three. A worker is killed only when a solve overruns; a Stop lets the solve finish first. |
+| SymPy process pool (3 workers, 2 s slot wait, one slot per user) | `core/sympy_executor.py` | Capacity grows with machines (3 per machine); a maths turn that waits more than 2 s for a slot on its machine is answered unverified. A user holds at most one slot per machine, so one account's pathological expressions cannot take all three. A worker is killed only when a solve overruns; a Stop lets the solve finish first. Every turn also reads its message there once (`core/readings.py`, a few milliseconds; `subject_read_timeout_seconds` 3 s, after which the turn reads no subject and the model answers unverified). |
 | In-flight turns, their Stop, the finalize task that saves the reply, the post-turn enqueue, follow-up questions | `modules/chat/` background tasks (`core/background_tasks.py`) | A machine that dies without the stop signal (OOM, host loss) loses the replies it had not saved yet; its `chatprep` lock and `chatfinal` marker expire within 30 s. |
 | Spend record and invalid-output counter after each model call | `gateways/llm_spend.py`, `gateways/structured_completion.py` | Written on a background task; lost only if the machine dies in that instant. |
 | Outbound HTTP pools, Google request session, Apple signing keys (1 h), storage client | `gateways/` | Each machine warms its own; no shared state. |
-| Pure-function LRU caches (maths and physics readers, routing) | `modules/*` | Inputs only; any machine computes the same answer. |
+| Pure-function LRU caches (maths and physics readers, routing) | `modules/*` | Inputs only; any machine computes the same answer. The readings a turn read in the pool are kept for that turn only (`core/readings.py`). |
 | Jobs a worker runs at once (`JOBS_WORKER_CONCURRENCY` 8) and per-type caps (`memory_history_scan` 3) | `core/jobs/worker.py`, `background/handlers.py` | Caps are per worker: M workers run 8×M jobs and 3×M history scans at once. |
 
 ## Resource budgets per process
@@ -63,11 +63,19 @@ Everything a turn or a request must agree on across machines lives in Redis or P
 - **Redis commands per request.** An authenticated REST request costs the rate-limit
   pipeline (INCR + EXPIRE) and one MGET for the token check. A finished chat turn
   enqueues up to seven jobs, one XADD each; the worker trims the stream on its own cadence.
-- **CPU.** One event loop per machine on a shared CPU. SymPy runs in its own processes and
-  document parsing on threads, but prompt building, the maths/physics/chemistry readers
-  and the finalize passes run on the loop. Measure before moving any of it.
-- **Memory.** About 270–400 MB for the API plus 90–150 MB per SymPy worker
-  (PRODUCTION.md); hence 1 GB per `app` machine.
+- **CPU.** One event loop per machine on a shared CPU. SymPy and the maths, physics and
+  chemistry readers run in the pool's processes: a turn reads its message there once and
+  keeps the answers (`core/readings.py`, `modules/chat/turn_prep/reading.py`), and the
+  test suite fails when production code reads a message or runs SymPy on the loop
+  (`app/tests/loop_guard.py`). Documents parse and PDF pages render in their own
+  killable processes (`core/document_executor.py`, 2 per machine). Blocking calls run on
+  a small thread pool per kind, never the shared default executor (`core/blocking.py`:
+  R2 8, images 2, sign-in 2, DuckDuckGo 2, which refuses rather than queues); the
+  saturation report logs each pool's fill. Prompt building and the finalize passes' text
+  work still run on the loop.
+- **Memory.** About 270–400 MB for the API plus 90–150 MB per SymPy worker and about
+  70 MB per document worker once one starts (PRODUCTION.md); hence 1 GB per `app`
+  machine.
 
 ## Changes for scaling out, most useful first
 
@@ -102,9 +110,10 @@ plugs in.
    worker slots; `max_running` limits a slow type per worker. A second stream (or a second
    consumer group) for slow jobs would keep titles and memory quick under a burst. Seams:
    `core/jobs/queue.py` (`JOBS_STREAM`, `register`), `core/jobs/worker.py`.
-9. **Move CPU off the event loop when measurements say so**: the readers and finalize
-   passes are text processing over the reply, so a process pool like SymPy's could take them. Seams:
-   `core/sympy_executor.py` (the bounded, injectable pool), `modules/chat/finalize_passes.py`.
+9. **Move the finalize passes off the event loop when measurements say so**: they are text
+   processing over the reply, so the SymPy pool could take them as it takes the readers. Seams:
+   `core/sympy_executor.py` (the bounded, injectable pool), `core/readings.py`,
+   `modules/chat/finalize_passes.py`.
    A remote SymPy service would implement `BoundedSympyExecutor` and plug in through
    `set_sympy_executor`.
 10. **Save replies durably** if losing an unsaved reply on a machine crash matters: hand the

@@ -4,7 +4,6 @@ The prepare lock is already held. Both loads wait for the previous turn's save
 first, so history never misses the reply before this one.
 """
 
-import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -16,6 +15,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import user_cache
+from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError, ConsentRequiredError
 from app.models import model_catalog
@@ -30,6 +30,7 @@ from app.modules.chat.prompt_constants import (
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import RegenerateBackup
 from app.modules.chat.turn_prep.mode import _TurnMode, classify_turn_mode
+from app.modules.chat.turn_prep.reading import read_turn_message
 from app.modules.chat.turn_settle import seed_usage_from_db
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.services import model_health
@@ -176,7 +177,7 @@ async def _load_account(
     # reads dominating this lane, so overlap them. Each DB read gets its own
     # AsyncSession; SQLAlchemy AsyncSession itself is intentionally not used
     # concurrently.
-    loaded_user, loaded_chat, need_usage_seed = await asyncio.gather(
+    loaded_user, loaded_chat, need_usage_seed = await gather_or_cancel(
         _load_user(deps, redis, timing, user_id, user),
         _load_chat(deps, timing, chat_id=chat_id, user_id=user_id, chat=chat),
         _needs_usage_seed(deps, redis, timing, user_id, skip_usage_seed),
@@ -217,6 +218,20 @@ async def _load_history_after_finalize(
     return recent, prior_count
 
 
+async def _load_history_and_read(
+    deps: ChatTurnDeps,
+    redis: Redis,
+    settings: Settings,
+    timing: TurnTimingTracker,
+    chat_id: UUID,
+    content: str,
+) -> tuple[list[Any], int]:
+    """The recent window, then the message read off the loop with the line before it."""
+    recent, prior_count = await _load_history_after_finalize(deps, redis, settings, timing, chat_id)
+    await read_turn_message(content, recent, settings)
+    return recent, prior_count
+
+
 async def load_new_turn(
     deps: ChatTurnDeps,
     redis: Redis,
@@ -252,20 +267,21 @@ async def load_new_turn(
     if obvious_greeting:
         await wait_for_pending_finalize(chat_id, redis, require_complete=True)
         timing.mark_phase("previous_finalize_ready")
-        (loaded_user, daily_limit, loaded_chat), unhealthy = await asyncio.gather(
+        (loaded_user, daily_limit, loaded_chat), unhealthy = await gather_or_cancel(
             load_account(), _unhealthy_models(redis, settings)
         )
         recent: list[Any] = []
         prior_count = 0
         timing.mark_phase("history_ready")
+        await read_turn_message(content, recent, settings)
     else:
         (
             (loaded_user, daily_limit, loaded_chat),
             (recent, prior_count),
             unhealthy,
-        ) = await asyncio.gather(
+        ) = await gather_or_cancel(
             load_account(),
-            _load_history_after_finalize(deps, redis, settings, timing, chat_id),
+            _load_history_and_read(deps, redis, settings, timing, chat_id, content),
             _unhealthy_models(redis, settings),
         )
     # Read from the window just loaded: "yes" after a question, or "make it shorter"
@@ -316,11 +332,13 @@ async def load_regenerate_turn(
     # row. New turns gather wait with user/quota instead — prepare reads
     # messages only after both finish.
     await wait_for_pending_finalize(chat_id, redis, require_complete=True)
-    (user, chat, recent, prior_count, last_user), unhealthy = await asyncio.gather(
+    (user, chat, recent, prior_count, last_user), unhealthy = await gather_or_cancel(
         _read_regenerate_rows(deps, settings, user_id=user_id, chat_id=chat_id),
         _unhealthy_models(redis, settings),
     )
     last = recent[-1]
+    # A regenerate routes the line on its own (``resolve_regenerate_model``): no prior line.
+    await read_turn_message(last_user.content, [], settings)
     model = deps.plan.resolve_regenerate_model(
         user, model_alias, last_user.content, last.model, settings
     )

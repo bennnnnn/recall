@@ -22,6 +22,10 @@ class StemSettings(BaseModel):
     # the 5s solve timeout; 1+1=x must not sit 60s behind an integral.
     sympy_max_workers: int = 3
     sympy_queue_wait_seconds: float = 2.0
+    # Reading a message (its subject, plan and maths and physics intents) runs in the same
+    # pool (core/readings.py). Normal messages read in milliseconds; past this the turn
+    # reads no subject and the model answers without a verified solve.
+    subject_read_timeout_seconds: float = 3.0
     # math_image_extract.py's vision-chat call is a network round trip, not
     # local synchronous SymPy work — reusing math_solve_timeout_seconds's 5s
     # budget (sized for CPU-bound solve/integrate) cut off OCR calls that

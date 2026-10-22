@@ -396,11 +396,11 @@ def test_system_longer_than_four_equations_is_not_verified() -> None:
 
 
 def test_photo_system_longer_than_four_equations_is_not_verified() -> None:
-    from app.modules.math.tools.prompt import _intent_from_image_extract
+    from app.modules.math.tools.image_intent import intent_from_image_extract
 
     equations = [(f"a+{name}", "1") for name in ("b", "c", "d", "e", "f")]
     extracted = MathImageExtract(kind="system", equations=equations, variables=["a", "b"])
-    assert _intent_from_image_extract(extracted) is None
+    assert intent_from_image_extract(extracted) is None
 
 
 def test_system_of_four_equations_still_extracts() -> None:

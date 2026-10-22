@@ -40,7 +40,8 @@ async def enqueue_index_jobs(
         if await quota_service.global_spend_exceeded(redis, settings):
             logger.warning("skipping attachment index: global spend cap user_id=%s", user_id)
             return
-        await asyncio.gather(
+        # Each file is queued whatever happens to the others.
+        results = await asyncio.gather(
             *(
                 jobs.enqueue(
                     redis,
@@ -53,8 +54,14 @@ async def enqueue_index_jobs(
                     dedupe_key=index_dedupe_key(attachment_id, chat_id),
                 )
                 for attachment_id in attachment_ids
-            )
+            ),
+            return_exceptions=True,
         )
+        for attachment_id, result in zip(attachment_ids, results, strict=True):
+            if isinstance(result, Exception):
+                logger.warning(
+                    "Attachment index not queued attachment_id=%s", attachment_id, exc_info=result
+                )
     except Exception:
         logger.exception("Attachment index enqueue failed chat_id=%s", chat_id)
 
@@ -72,12 +79,16 @@ async def index_attachment_job(settings: Settings, payload: dict[str, Any]) -> N
         logger.warning("attachment_index job missing ids payload=%s", payload)
         return
 
-    count = await attachment_rag.index_attachment(
-        settings,
-        user_id=user_id,
-        attachment_id=attachment_id,
-        chat_id=chat_id,
-    )
+    try:
+        count = await attachment_rag.index_attachment(
+            settings,
+            user_id=user_id,
+            attachment_id=attachment_id,
+            chat_id=chat_id,
+        )
+    except attachment_rag.AttachmentUnreadableError as exc:
+        # Dead-lettered, not retried: the same file would time out the same way.
+        raise jobs.JobDiscardError(str(exc)) from exc
     if count:
         logger.info(
             "Indexed attachment_id=%s chunks=%s chat_id=%s",

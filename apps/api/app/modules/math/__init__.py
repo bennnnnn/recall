@@ -39,8 +39,8 @@ def __getattr__(name: str) -> Any:
     return value
 
 
-# Seams the chat turn uses: detection, follow-ups, camera reads, post-stream fences, and the
-# tool loop's check that a sympy call is the problem the user wrote.
+# Seams the chat turn uses: detection, follow-ups, camera reads, post-stream fences, the
+# tool loop's check that a sympy call is the problem the user wrote, and the pool warm-up.
 _MODULE_EXPORTS = (
     "fence",
     "followup",
@@ -48,6 +48,7 @@ _MODULE_EXPORTS = (
     "match",
     "ocr",
     "reply_policy",
+    "sympy_warmup",
     "text_plot",
     "tool_check",
     "tools.extract",

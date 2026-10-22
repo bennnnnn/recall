@@ -11,54 +11,14 @@ from __future__ import annotations
 
 import logging
 import re
-from functools import lru_cache
 from typing import Any
 
 from app.core.config import Settings
 from app.models import model_catalog
+from app.services.routing_physics import physics_route
 from app.services.routing_signals import SMART_TRIGGERS, needs_strong_model
 
 logger = logging.getLogger(__name__)
-
-# Homework physics the verified solver does not cover (incline, momentum,
-# escape velocity, …). needs_symbolic stays the solver gate so we don't
-# inject fake verified fences; Auto still escalates so a weak model isn't
-# left to invent F=ma on an incline. Bare "physics" must not match.
-#
-# Deliberately a separate list from `modules.physics.registry.PHYSICS_CUES` /
-# `has_supported_physics_cue`, not a duplicate of it: that one gates "the
-# solver's extractors might handle this text," which has grown to twenty
-# kinds. This one gates "escalate Auto to the smarter model," which some
-# entries here now overlap with a covered kind (momentum, simple harmonic,
-# centripetal) — kept anyway, since a smarter model's surrounding
-# explanation is still worth it even when the number itself is guaranteed.
-# If that stops being true for a given phrase, prune it here; don't point
-# this at `has_supported_physics_cue` — inverting the gate would escalate
-# exactly the questions the solver already has covered, and stop escalating
-# the ones it doesn't, which is backwards from this function's purpose.
-_PHYSICS_HOMEWORK_CUES = (
-    "frictionless",
-    "incline",
-    "inclined plane",
-    "momentum",
-    "escape velocity",
-    "centripetal",
-    "simple harmonic",
-    "coefficient of friction",
-    "normal force",
-    "pendulum",
-    "projectile motion",
-    "free body",
-    "atwood",
-)
-# Formula / conceptual asks that are hard even without a printed number.
-_PHYSICS_FORMULA_CUES = (
-    "escape velocity",
-    "simple harmonic",
-    "pendulum",
-    "atwood",
-    "projectile motion",
-)
 
 _FOLLOWUP_MAX_CHARS = 120
 # Linear phrase scan — same style as prompt_constants.routing `_OFFER_PHRASES`.
@@ -142,21 +102,6 @@ _LONG_MESSAGE_CHARS = 800
 # can't consume `\n`, so each line's whitespace run is only ever scanned
 # once — linear in input length regardless of how many blank lines it has.
 _CODE_FENCE = re.compile(r"(?:^|\n)[ \t]*```")
-
-
-def _looks_like_physics_homework(content: str) -> bool:
-    """Hard physics asks the solver templates don't cover.
-
-    Requires a quantity (a digit) for everyday words like "momentum", so
-    "the project has momentum" stays on the fast model. Formula phrases
-    (escape velocity, pendulum, …) escalate even without a number.
-    """
-    lower = content.lower()
-    if not any(cue in lower for cue in _PHYSICS_HOMEWORK_CUES):
-        return False
-    if any(ch.isdigit() for ch in content):
-        return True
-    return any(cue in lower for cue in _PHYSICS_FORMULA_CUES)
 
 
 def last_user_turn(messages: list[Any] | None) -> tuple[str | None, str | None]:
@@ -311,7 +256,7 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
     # A tweet or an email about a migration is writing, not the migration.
     if needs_strong_model(content) and not is_writing_deliverable_request(content):
         return smart
-    physics_alias = _physics_route(content, fast=fast, smart=smart, settings=settings)
+    physics_alias = physics_route(content, fast=fast, smart=smart, settings=settings)
     if physics_alias is not None:
         return physics_alias
     # Math turns (equations, graphs, geometry, calculus, stats, …) go to the math-tuned
@@ -385,58 +330,6 @@ def message_needs_thinking(
         )
         == model_catalog.auto_smart_alias()
     )
-
-
-@lru_cache(maxsize=128)
-def _physics_solves(content: str) -> bool:
-    """Whether the verified solver finishes this line's physics template.
-
-    Routing asks this of the current line and again of a prior one, every
-    turn; the answer only depends on the text. Any failure is a decline: the
-    strong model answers it, and the turn never fails for a routing hint.
-    """
-    from app.modules.physics import extract_physics_intent, solve_physics
-    from app.services.solving import SolveServiceError
-
-    intent = extract_physics_intent(content)
-    if intent is None:
-        return False
-    try:
-        solve_physics(intent)
-    except SolveServiceError:
-        return False
-    except Exception:
-        logger.warning(
-            "physics routing solve failed kind=%s op=%s",
-            intent.kind,
-            intent.physics_op,
-            exc_info=True,
-        )
-        return False
-    return True
-
-
-def _physics_route(
-    content: str,
-    *,
-    fast: str,
-    smart: str,
-    settings: Settings | None = None,
-) -> str | None:
-    """Verified physics stays on the fast model. Uncovered homework goes smart.
-
-    The fast tier is only for a template the solver actually finishes, and
-    only while math tools are on. Otherwise the strong model answers it.
-    """
-    homework = _looks_like_physics_homework(content)
-    from app.modules.physics import extract_physics_intent, needs_physics
-
-    if not homework and not needs_physics(content):
-        return None
-    if extract_physics_intent(content) is None:
-        return smart if homework else None
-    tools_on = settings is None or settings.math_tools_enabled
-    return fast if tools_on and _physics_solves(content) else smart
 
 
 def _verified_math_stays_fast(content: str) -> bool:
