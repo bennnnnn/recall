@@ -6,6 +6,8 @@ import { streamChatMessageSse, streamChatRegenerateSse } from "@/features/chat/m
 import {
   DROPPED_TURN_POLL_MS,
   DROPPED_TURN_POLLS,
+  DUPLICATE_TURN_POLLS,
+  duplicateTurnPollMs,
   SSE_DROPPED_TURN_POLLS,
 } from "@/features/chat/model/turnReconcile";
 import { WS_RETRY_BASE_MS } from "@/features/chat/model/wsBackoff";
@@ -1227,6 +1229,34 @@ describe("useChat socket recovery", () => {
     expect(streamChatMessageSse).not.toHaveBeenCalled();
     expect(current.streaming).toBe(false);
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("sends a Retry under a new name after a duplicate whose message never showed up", async () => {
+    // A held claim whose turn never saved: a machine that died mid-turn keeps
+    // the name for 15 min, so the same name would be told duplicate again.
+    listMessages.mockResolvedValue({ messages: [], has_more: false });
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await act(async () => {
+      await current.sendMessage("question");
+      socket.emit({ type: "error", code: "busy" });
+    });
+    await act(async () => { await current.retryRejectedSend(); });
+    const sent = () => frames(socket).filter((frame) => frame.type === "message");
+    expect(sent()[1].client_message_id).toBe(sent()[0].client_message_id);
+    await act(async () => { socket.emit({ type: "duplicate" }); });
+    expect(current.streaming).toBe(true);
+    for (let poll = 0; poll < DUPLICATE_TURN_POLLS; poll += 1) {
+      await act(async () => { await jest.advanceTimersByTimeAsync(duplicateTurnPollMs(poll)); });
+    }
+    expect(current.streaming).toBe(false);
+    expect(current.rejectedSend?.content).toBe("question");
+    expect(onError).toHaveBeenLastCalledWith("chat.error_unreachable", "send_rejected");
+
+    await act(async () => { await current.retryRejectedSend(); });
+    expect(sent()).toHaveLength(3);
+    expect(sent()[2].client_message_id).not.toBe(sent()[0].client_message_id);
+    expect(current.messages.filter((message) => message.role === "user")).toHaveLength(1);
   });
 
   it("sends over SSE while the dead socket's wait runs, then over a new socket", async () => {

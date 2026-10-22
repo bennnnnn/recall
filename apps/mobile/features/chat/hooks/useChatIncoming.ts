@@ -8,6 +8,8 @@ import { restoreAssistantMessage } from "@/features/chat/model/regenerateLogic";
 import { replaceStreamingMessageWithPartial } from "@/features/chat/model/partialStream";
 import type { PendingSend } from "@/features/chat/model/sendLogic";
 import {
+  DUPLICATE_TURN_POLLS,
+  duplicateTurnPollMs,
   mergeReconciledPage,
   SSE_DROPPED_TURN_POLLS,
   type DroppedTurnResult,
@@ -172,7 +174,11 @@ export function useChatIncomingEvents({
   /** Keep the bubble up and reload the chat until the reply lands; `settleLost`
    * runs only when it does not, told whether the message is in the chat. */
   const followTakenSend = useCallback(
-    (settleLost: (messageSaved: boolean) => void, polls?: number) => {
+    (
+      settleLost: (messageSaved: boolean) => void,
+      polls?: number,
+      pollMs?: (poll: number) => number,
+    ) => {
       reconcileDroppedTurn((result: DroppedTurnResult) => {
         if (result.state === "answered" && result.page) {
           settleWithServerPage(result.page);
@@ -180,7 +186,7 @@ export function useChatIncomingEvents({
         }
         // Replay only what a reload showed is not in the chat.
         settleLost(result.state !== "missing");
-      }, polls);
+      }, polls, pollMs);
     },
     [reconcileDroppedTurn, settleWithServerPage],
   );
@@ -254,13 +260,22 @@ export function useChatIncomingEvents({
   ]);
 
   /** `duplicate`: an earlier send of this message reached the server, which runs
-   * that turn. Follow it until its reply lands; no second turn is asked for. */
+   * that turn. Follow it until its reply lands (minutes, for a long turn); no
+   * second turn is asked for. */
   const followDuplicateSend = useCallback(() => {
     if (!streamingRef.current) return;
     const pending = pendingSendRef.current;
     pendingSendRef.current = null;
     wsAuthFallbackRef.current = null;
-    followTakenSend((messageSaved) => settleDroppedSocketTurn(pending, messageSaved));
+    // Minutes without the message in the chat: that send never saved, and the
+    // server's hold on its name can outlive a machine that died. Retry sends
+    // it under a new name.
+    const renamed = pending && { ...pending, clientMessageId: undefined };
+    followTakenSend(
+      (messageSaved) => settleDroppedSocketTurn(messageSaved ? pending : renamed, messageSaved),
+      DUPLICATE_TURN_POLLS,
+      duplicateTurnPollMs,
+    );
   }, [followTakenSend, pendingSendRef, settleDroppedSocketTurn, streamingRef, wsAuthFallbackRef]);
 
   const handleChatPayloadForChat = useCallback(

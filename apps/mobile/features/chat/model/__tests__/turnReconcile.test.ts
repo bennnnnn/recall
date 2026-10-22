@@ -1,7 +1,10 @@
 import type { Message } from "@/lib/api";
 import {
+  DROPPED_TURN_POLL_MS,
   DROPPED_TURN_POLLS,
+  DUPLICATE_TURN_POLLS,
   droppedTurnState,
+  duplicateTurnPollMs,
   knownServerIds,
   mergeReconciledPage,
   pollDroppedTurn,
@@ -93,5 +96,26 @@ describe("pollDroppedTurn", () => {
     expect(await pollDroppedTurn({ fetchPage, known, stillWaiting: () => waiting, wait })).toBeNull();
     expect(await pollDroppedTurn({ fetchPage, known, stillWaiting: () => false, wait })).toBeNull();
     expect(fetchPage).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("following a turn the server reported as a duplicate", () => {
+  it("waits longer between polls as it goes, for about five minutes", () => {
+    const waits = Array.from({ length: DUPLICATE_TURN_POLLS }, (_, poll) => duplicateTurnPollMs(poll));
+    expect(waits[0]).toBe(DROPPED_TURN_POLL_MS);
+    expect(waits[1]).toBeGreaterThan(waits[0]);
+    expect(Math.max(...waits)).toBe(15_000);
+    const total = waits.reduce((sum, ms) => sum + ms, 0);
+    expect(total).toBeGreaterThan(4 * 60_000);
+    expect(total).toBeLessThan(6 * 60_000);
+  });
+
+  it("polls on the schedule it is given", async () => {
+    const wait = jest.fn(async (_ms: number) => {});
+    const fetchPage = jest.fn().mockResolvedValue(before);
+    await pollDroppedTurn({
+      fetchPage, known, stillWaiting: () => true, polls: 4, pollMs: duplicateTurnPollMs, wait,
+    });
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([0, 1, 2, 3].map(duplicateTurnPollMs));
   });
 });
