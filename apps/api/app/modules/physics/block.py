@@ -141,6 +141,16 @@ def _with_conversions(solved: PhysicsResult, shown: PhysicsResult) -> PhysicsRes
     return replace(shown, substitutions=(*shown.substitutions, *rows)) if rows else shown
 
 
+# The solver's scene is the drawing: the model neither denies it nor draws its own.
+NATIVE_VISUAL_RULE = (
+    "A verified native physics visual will render with this answer and will animate "
+    "automatically when the scene contains motion. Never claim that you cannot show, "
+    "embed, or provide an animation or diagram. Do not discuss how the visual is attached "
+    "and do not emit a simulation fence yourself, or draw the situation again as a "
+    "```mermaid diagram, ASCII art or a text sketch: the app's picture is the drawing."
+)
+
+
 def _build_physics_block(
     intent: PhysicsIntent, settings: Settings, lines: list[str]
 ) -> VerifiedPhysicsBlock | None:
@@ -198,12 +208,7 @@ def _build_physics_block(
         "result. Under Answer, state the verified result exactly once."
     )
     if result.simulation_specs:
-        lines.append(
-            "A verified native physics visual will render with this answer and will animate "
-            "automatically when the scene contains motion. Never claim that you cannot show, "
-            "embed, or provide an animation or diagram. Do not discuss how the visual is attached "
-            "and do not emit a simulation fence yourself."
-        )
+        lines.append(NATIVE_VISUAL_RULE)
     # Plain text for guards and readers without math; LaTeX for the card.
     answer, card = result.answer_value, result.answer_latex
     # The model sees the same rows the direct reply formats. The combined

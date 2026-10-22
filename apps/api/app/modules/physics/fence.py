@@ -33,6 +33,14 @@ _PICTURE_FENCE_LANGS = ("graph", "simulation", "geometry")
 _DIAGRAM_FAILED = "*Could not render that diagram.*"
 # A plain block may hold a sketch; a tagged one (python, math) never does.
 _PLAIN_FENCE_LANGS = frozenset({"", "text", "txt", "plaintext", "ascii"})
+# The model's own diagram of the situation ("graph TD Battery --> R1"): the solver's
+# picture draws it, so a second, rougher one goes. A user who asked for a flowchart
+# or a Mermaid diagram keeps theirs.
+_MODEL_DIAGRAM_LANGS = frozenset({"mermaid"})
+_ASKED_FOR_DIAGRAM = re.compile(
+    r"\b(?:flow[\s-]?charts?|mermaid|sequence diagram|mind[\s-]?maps?|state diagram)\b",
+    re.IGNORECASE,
+)
 # Box-drawing lines, arrows and blocks, or a run of slashes, bars and dashes.
 _DRAWN = re.compile(r"[\u2190-\u21ff\u2500-\u257f\u25a0-\u25ff]|[-_|/\\]{3,}|[/\\]\s*$")
 
@@ -61,11 +69,13 @@ def validate_physics_fences(
     *,
     verified: VerifiedPhysicsBlock | None = None,
     correct: bool = True,
+    user_text: str = "",
 ) -> str:
     """Drop model-authored result fences and append only solver-owned data.
 
     ``correct`` adds a correction line above the card when the prose states a
     different final value; the server never corrects its own (instant) text.
+    ``user_text`` is the request: a flowchart it asked for survives the picture.
     """
     had_visual_fence = _has_picture_fence(content)
     cleaned = _without_model_result_fences(content)
@@ -94,20 +104,28 @@ def validate_physics_fences(
             continue
         language = "simulation" if spec_type in SIMULATION_SPEC_TYPES else "graph"
         extras.append(f"```{language}\n{json.dumps(spec, separators=(',', ':'))}\n```")
-    return _with_pictures(_without_text_drawings(cleaned) if extras else cleaned, extras)
+    if not extras:
+        return cleaned
+    keep_diagrams = _ASKED_FOR_DIAGRAM.search(user_text) is not None
+    return _with_pictures(_without_model_drawings(cleaned, keep_diagrams), extras)
 
 
-def _without_text_drawings(text: str) -> str:
-    """The solver's picture replaces a sketch of the same thing in characters: a box
-    drawn in ASCII art reads as broken rows of symbols on the phone."""
+def _without_model_drawings(text: str, keep_diagrams: bool) -> str:
+    """The solver's picture replaces the model's own drawing of the same thing: a box
+    in ASCII art reads as broken rows of symbols on the phone, and a Mermaid "circuit"
+    above the real schematic is a second, wrong one."""
     drawings = [
         fence
         for fence in iter_fences(text)
-        if fence.lang in _PLAIN_FENCE_LANGS
-        and sum(
-            bool(_DRAWN.search(row)) for row in text[fence.body_start : fence.body_end].split("\n")
+        if (fence.lang in _MODEL_DIAGRAM_LANGS and not keep_diagrams)
+        or (
+            fence.lang in _PLAIN_FENCE_LANGS
+            and sum(
+                bool(_DRAWN.search(row))
+                for row in text[fence.body_start : fence.body_end].split("\n")
+            )
+            >= 2
         )
-        >= 2
     ]
     for fence in reversed(drawings):
         text = text[: fence.start] + text[fence.end :]

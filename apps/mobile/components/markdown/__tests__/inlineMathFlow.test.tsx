@@ -104,6 +104,41 @@ describe("inline maths flows inside the line", () => {
   });
 });
 
+/** The text a formula's math run draws, as the native text engine sees it. */
+function mathRunText(node: unknown): string {
+  if (typeof node === "string") return node;
+  if (Array.isArray(node)) return node.map(mathRunText).join("");
+  const children = (node as { children?: unknown } | null)?.children;
+  return children == null ? "" : mathRunText(children);
+}
+
+describe("a formula is one word in the line", () => {
+  // "...equal in size ($T = mg$) and opposite..." drew "(T" at the end of a line
+  // and "= mg)" on the next: the formula's spaces were break points.
+  it.each([
+    ["equal in size ($T = mg$) and opposite in direction.", "T\u00a0=\u00a0mg"],
+    ["so the forces balance ($F_{net} = 0$) at rest", "0"],
+    [String.raw`the sum is $a + b + c + d + e + f + g + h + i + j + k$ in all`, "a\u00a0+\u00a0b"],
+  ])("draws %s with no breakable space inside the formula", async (content, piece) => {
+    const { getAllByTestId, toJSON } = await render(<MarkdownContent content={content} />);
+    const runs = getAllByTestId("math-variable").map((node) => node.parent?.parent ?? node);
+    expect(runs.length).toBeGreaterThan(0);
+    const drawn = mathRunText(toJSON());
+    expect(drawn).toContain(piece);
+    for (const run of runs) expect(mathRunText(run.props.children)).not.toMatch(/ /);
+  });
+
+  it("keeps a formula one item in a flowing paragraph too", async () => {
+    const content = String.raw`Light takes **$8.3 \times 10^2$** s, and ($T = mg$) holds at rest.`;
+    const { getByTestId, queryByText, toJSON } = await render(<MarkdownContent content={content} />);
+    expect(getByTestId("md-math-inline-wrap")).toBeOnTheScreen();
+    // The row splits prose into word items; the formula is not split with it.
+    expect(queryByText("=")).toBeNull();
+    expect(queryByText("mg)")).toBeNull();
+    expect(mathRunText(toJSON())).toContain("T\u00a0=\u00a0mg");
+  });
+});
+
 describe("InlineFlow", () => {
   const prose = { fontSize: 20, color: "#111" };
 

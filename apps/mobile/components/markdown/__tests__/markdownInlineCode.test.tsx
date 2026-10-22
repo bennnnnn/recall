@@ -74,7 +74,8 @@ describe("inline code in a reply", () => {
       "total = total + n",
       "total",
     ]);
-    expect(spansInFace(tree, MATH_FONT).map((span) => strings(span))).toEqual([
+    // A formula's spaces are no-break spaces, so it never wraps mid-formula.
+    expect(spansInFace(tree, MATH_FONT).map((span) => strings(span).replace(/\u00a0/g, " "))).toEqual([
       "2",
       "0 + 2 = 2",
     ]);

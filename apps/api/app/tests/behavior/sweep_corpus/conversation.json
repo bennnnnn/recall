@@ -358,5 +358,53 @@
   "history": [],
   "reply": "- [ ] Reread the cell chapter\n- [ ] Draw mitosis from memory\n- [ ] Do the end-of-chapter questions",
   "expect": "answer"
+ },
+ {
+  "id": "cv-040",
+  "area": "profile lookalike",
+  "prompt": "who is the principal of my school?",
+  "history": [],
+  "reply": "I don't know who the principal of your school is. Which school is it? I can help you find out.",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-041",
+  "area": "profile lookalike",
+  "prompt": "when does my school start this year?",
+  "history": [],
+  "reply": "That depends on your school. Most schools post the first day on their website or calendar; which one is it?",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-042",
+  "area": "profile lookalike",
+  "prompt": "what language should I learn next?",
+  "history": [],
+  "reply": "If you speak English and Amharic, Spanish or French are easy next steps; Arabic is great for work in the Gulf.",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-043",
+  "area": "profile lookalike",
+  "prompt": "what grade should my son be in if he's 9?",
+  "history": [],
+  "reply": "At 9, most children are in 3rd or 4th grade, depending on the cut-off date where you live.",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-044",
+  "area": "profile lookalike",
+  "prompt": "I'm worried about school",
+  "history": [],
+  "reply": "That's a lot to carry. What part worries you most: the work, the people, or something else?",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-045",
+  "area": "profile lookalike",
+  "prompt": "how do I improve my grades fast?",
+  "history": [],
+  "reply": "1. Find the topics you lose most marks on.\n2. Do past papers under time.\n3. Ask your teacher what a top answer looks like.",
+  "expect": "answer"
  }
 ]
