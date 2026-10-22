@@ -2,11 +2,10 @@ import "@/lib/i18n";
 
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
-import { useFonts } from "expo-font";
+import { useFonts, type FontSource } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
-import { InteractionManager, StyleSheet } from "react-native";
+import { InteractionManager, Platform, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 
@@ -14,11 +13,10 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AiConsentRedirect } from "@/features/auth/components/AiConsentRedirect";
 import { ActionFeedbackProvider } from "@/contexts/ActionFeedbackContext";
 import { AppearanceProvider } from "@/contexts/AppearanceContext";
-import { HomeProvider } from "@/features/home/context/HomeContext";
 import { ModelsProvider } from "@/contexts/ModelsContext";
 import { NetworkProvider, useNetwork } from "@/contexts/NetworkContext";
 import { TodosProvider } from "@/features/todos/context/TodosContext";
-import { PushNotificationBootstrap } from "@/components/PushNotificationBootstrap";
+import { PushNotificationBootstrap } from "@/features/todos/components/PushNotificationBootstrap";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { stackBackOptions } from "@/ui/controls/StackBackButton";
 import { DialogHost } from "@/ui/overlay/DialogHost";
@@ -97,18 +95,29 @@ function RootNavigator() {
   );
 }
 
+/**
+ * The faces the Android build embeds natively (the expo-font plugin in app.json).
+ * Loading them again shipped each one twice (code-health audit DEAD-09), so an
+ * Android production bundle leaves them out (Metro folds the condition and drops the
+ * requires); iOS, and Expo Go during development, have no native copy. One file per
+ * face: the same files the native embedding and the Skia charts read.
+ */
+const NATIVELY_EMBEDDED_FACES: Record<string, FontSource> = Platform.OS === "android" && !__DEV__ ? {} : {
+  SpaceMono: require("@/assets/fonts/SpaceMono-Regular.ttf"),
+  KaTeX_Main: require("@/assets/fonts/KaTeX_Main-Regular.ttf"),
+  KaTeX_MathItalic: require("@/assets/fonts/KaTeX_Math-Italic.ttf"),
+  KaTeX_AMS: require("@/assets/fonts/KaTeX_AMS-Regular.ttf"),
+  [UI_FONT.regular]: require("@expo-google-fonts/source-sans-3/400Regular/SourceSans3_400Regular.ttf"),
+  [UI_FONT.medium]: require("@expo-google-fonts/source-sans-3/500Medium/SourceSans3_500Medium.ttf"),
+  [UI_FONT.semibold]: require("@expo-google-fonts/source-sans-3/600SemiBold/SourceSans3_600SemiBold.ttf"),
+  [UI_FONT.bold]: require("@expo-google-fonts/source-sans-3/700Bold/SourceSans3_700Bold.ttf"),
+};
+
 export default function RootLayout() {
   useFonts({
-    SpaceMono: SpaceMono_400Regular,
-    KaTeX_Main: require("katex/dist/fonts/KaTeX_Main-Regular.ttf"),
-    KaTeX_MathItalic: require("katex/dist/fonts/KaTeX_Math-Italic.ttf"),
-    KaTeX_AMS: require("katex/dist/fonts/KaTeX_AMS-Regular.ttf"),
+    ...NATIVELY_EMBEDDED_FACES,
     // ∬ ∭ ∮ on the math keyboard live only in this face.
     KaTeX_Size1: require("katex/dist/fonts/KaTeX_Size1-Regular.ttf"),
-    [UI_FONT.regular]: require("@expo-google-fonts/source-sans-3/400Regular/SourceSans3_400Regular.ttf"),
-    [UI_FONT.medium]: require("@expo-google-fonts/source-sans-3/500Medium/SourceSans3_500Medium.ttf"),
-    [UI_FONT.semibold]: require("@expo-google-fonts/source-sans-3/600SemiBold/SourceSans3_600SemiBold.ttf"),
-    [UI_FONT.bold]: require("@expo-google-fonts/source-sans-3/700Bold/SourceSans3_700Bold.ttf"),
     [UI_FONT.italic]: require("@expo-google-fonts/source-sans-3/400Regular_Italic/SourceSans3_400Regular_Italic.ttf"),
     [UI_FONT.semiboldItalic]: require("@expo-google-fonts/source-sans-3/600SemiBold_Italic/SourceSans3_600SemiBold_Italic.ttf"),
     [UI_FONT.boldItalic]: require("@expo-google-fonts/source-sans-3/700Bold_Italic/SourceSans3_700Bold_Italic.ttf"),
@@ -132,14 +141,12 @@ export default function RootLayout() {
           <AuthProvider>
             <ModelsProvider>
               <TodosProvider>
-                <HomeProvider>
-                  <NetworkProvider>
-                    <PushNotificationBootstrap />
-                    <AiConsentRedirect />
-                    <RootNavigator />
-                    <DialogHost />
-                  </NetworkProvider>
-                </HomeProvider>
+                <NetworkProvider>
+                  <PushNotificationBootstrap />
+                  <AiConsentRedirect />
+                  <RootNavigator />
+                  <DialogHost />
+                </NetworkProvider>
               </TodosProvider>
             </ModelsProvider>
           </AuthProvider>

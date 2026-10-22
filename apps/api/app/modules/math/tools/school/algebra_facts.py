@@ -13,7 +13,7 @@ from typing import Any
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.triangle import cos_degrees, cosine_rule_side
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school._parse import _SIDE_ASKED
 from app.services.number_text import DECIMAL
 from app.services.workout import Workout, math_line, render_workout
@@ -70,7 +70,7 @@ def _polynomial(text: str) -> Any | None:
         return None
     x = Symbol("x")
     with sympy_decline() as declined:
-        poly = Poly(math_solve._parse_expression(expr, ["x"]), x)
+        poly = Poly(math_solve.parse_expression(expr, ["x"]), x)
     if declined:
         return None
     if poly.free_symbols - {x} or not poly.domain.is_Numerical:
@@ -160,7 +160,7 @@ def _polynomial_remainder(intent: MathIntent, lines: list[str]) -> VerifiedMathB
             ),
         )
     lines.append(f"Remainder of ({top}) / ({bottom}) = {remainder}")
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     working = render_workout(
         Workout(
             given=(math_line(rf"P(x) = {latex(top)}"), math_line(rf"D(x) = {latex(bottom)}")),
@@ -179,7 +179,7 @@ def _complete_square(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock 
 
     x = Symbol("x")
     with sympy_decline() as declined:
-        parsed = math_solve._parse_expression(intent.expr or "", ["x"])
+        parsed = math_solve.parse_expression(intent.expr or "", ["x"])
         poly = Poly(parsed, x)
     if declined:
         return None
@@ -212,7 +212,7 @@ def _complete_square(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock 
         )
     )
     lines.append(f"Completed square: {answer}")
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     working = render_workout(Workout(given=(math_line(latex(parsed)),), steps=tuple(rows)), answer)
     return replace(block, worked_reply=working)
 
@@ -243,7 +243,7 @@ def _cosine_rule(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | No
     ]
     lines.append(f"{target}^2 = {float(square):.6g}; {target} = {float(side):.6g}")
     answer = _side_answer(side, exact=exact)
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     working = render_workout(
         Workout(
             given=(

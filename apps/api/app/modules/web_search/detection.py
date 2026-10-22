@@ -6,7 +6,6 @@ import logging
 import re
 
 from app.core.config import Settings
-from app.models.schemas import WebSearchClassification
 from app.modules.chat import (
     has_code_syntax,
     has_locale_cue,
@@ -50,13 +49,11 @@ from app.modules.web_search.patterns import (
     is_correspondence_request,
     is_weather_request,
     is_word_problem,
-    looks_like_math_or_code,
 )
 from app.modules.web_search.subject import (
     _prior_searchable_topic,
     resolve_search_subject,
 )
-from app.modules.web_search.world_fact import asks_about_the_world
 from app.services import time_context as time_context_service
 
 logger = logging.getLogger(__name__)
@@ -138,51 +135,6 @@ def web_search_skip(
     if _PERSONAL_PLANNING.search(cleaned):
         return True
     return bool(_OWN_CALENDAR.search(cleaned)) or has_locale_cue(cleaned, "calendar")
-
-
-# A live or time-sensitive cue is the only reason to spend a model call
-# deciding search. Schoolbook questions and chitchat have none of these, so
-# they keep the regex answer and the chat model can start immediately. Weather
-# is not a cue: a forecast is a fast yes and "what causes weather" needs no search.
-_MAYBE_LIVE = re.compile(
-    r"\b(?:who\s+is|who\s+leads|current|latest|today|tonight|right\s+now|"
-    r"price|pricing|hotel|score|news|ceo|near\s+me|"
-    # Rules, fares, schedules and results change; a model's memory of them is stale.
-    r"visas?|flights?|airfares?|fares?|tickets?|this\s+weekend|open\s+now|"
-    r"sunset|sunrise|results|how\s+much\s+(?:is|are|does|do)\s+(?:an?|the)|"
-    r"rn|exchange\s+rates?|(?:usd|eur|gbp|etb|kes)\s+(?:to|in)\s+(?:usd|eur|gbp|etb|kes|birr)|"
-    r"opening\s+hours|what\s+time\s+(?:does|do)|open\s+(?:today|tomorrow|on\s+sundays?))\b",
-    re.IGNORECASE,
-)
-_TIME_SENSITIVE = re.compile(
-    r"\b(?:when|next|upcoming|release|coming out|launch)\b",
-    re.IGNORECASE,
-)
-
-
-def _live_lookup_cue(text: str) -> bool:
-    return _MAYBE_LIVE.search(text) is not None or _TIME_SENSITIVE.search(text) is not None
-
-
-def _continues_searchable_topic(
-    text: str,
-    prior_user_messages: list[str] | None,
-) -> bool:
-    """A short line continuing the user's previous message, when that needed a lookup.
-
-    An older search does not count. Otherwise "remind me…" or "what is my
-    dog's name?" after a price question pays for a classifier that says no.
-    """
-    if not prior_user_messages:
-        return False
-    if len(collapse_ws(text).split()) > _SHORT_FOLLOWUP_WORDS:
-        return False
-    # "And the Red Terror museum?" after "what time does the National Museum
-    # open" continues a live question; the classifier decides.
-    last = prior_user_messages[-1]
-    return _prior_searchable_topic([last]) is not None or (
-        _live_lookup_cue(collapse_ws(last)) and not looks_like_math_or_code(last)
-    )
 
 
 def web_search_fast_yes(
@@ -307,60 +259,20 @@ def needs_web_search(
     return needs_web_search_heuristic(text, prior_user_messages=prior_user_messages)
 
 
-async def classify_web_search(
-    text: str,
-    settings: Settings,
-    *,
-    prior_user_messages: list[str] | None = None,
-    prior_assistant: str | None = None,
-) -> WebSearchClassification | None:
-    """LLM gate for ambiguous turns; None when classifier disabled or call fails."""
-    if not settings.web_search_classifier_enabled:
-        return None
-    from app.modules.web_search.classify import classify_web_search_need
-
-    try:
-        return await classify_web_search_need(
-            settings,
-            text,
-            prior_user_messages=prior_user_messages,
-            prior_assistant=prior_assistant,
-        )
-    except Exception:
-        logger.warning("Web-search classifier failed; using heuristic", exc_info=True)
-    # CancelledError intentionally propagates: stopping a turn cancels its IO.
-    return None
-
-
-async def should_web_search(
+def should_web_search(
     text: str,
     settings: Settings,
     *,
     prior_user_messages: list[str] | None = None,
     prior_assistant: str | None = None,
 ) -> bool:
-    """Async gate: regex first. The classifier runs for a live cue, a question
-    about the world, or a short follow-up."""
+    """Whether a turn needs live results: search on, then skip, fast path and heuristic.
+
+    An LLM classifier used to run for live cues and questions about the world; it was
+    off in production (time to first token), so production read this heuristic.
+    """
     if not settings.web_search_enabled:
         return False
-    if web_search_skip(
+    return needs_web_search(
         text, prior_user_messages=prior_user_messages, prior_assistant=prior_assistant
-    ):
-        return False
-    if web_search_fast_yes(text, prior_user_messages=prior_user_messages):
-        return True
-    cleaned = collapse_ws(text)
-    live = _live_lookup_cue(cleaned) and not _tells_about_the_user(cleaned)
-    # "What's the population of Ethiopia" has no live word, and its answer was a guess.
-    world = asks_about_the_world(cleaned) and not _tells_about_the_user(cleaned)
-    if not (live or world or _continues_searchable_topic(cleaned, prior_user_messages)):
-        return needs_web_search_heuristic(text, prior_user_messages=prior_user_messages)
-    classification = await classify_web_search(
-        text,
-        settings,
-        prior_user_messages=prior_user_messages,
-        prior_assistant=prior_assistant,
     )
-    if classification is None:
-        return needs_web_search_heuristic(text, prior_user_messages=prior_user_messages)
-    return classification.needs_search

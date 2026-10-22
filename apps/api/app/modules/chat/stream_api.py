@@ -18,6 +18,7 @@ from app.core import shutdown
 from app.core.chat_rate_limit import allow_chat_message
 from app.core.config import Settings, get_settings
 from app.core.deps import get_current_user
+from app.core.log_context import bound_log_ids, new_turn_id
 from app.core.redis import get_redis_client
 from app.models.orm import User
 from app.models.schemas import ChatMessageRequest
@@ -26,8 +27,10 @@ from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
     SERVER_RESTARTING_MESSAGE,
+    TURN_KEEPALIVE_SECONDS,
     StreamEndEvent,
     await_finalize_commit,
+    build_keepalive_event,
     build_reasoning_event,
     build_start_event,
     build_status_event,
@@ -44,6 +47,9 @@ from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_outcome import TurnOutcome
 
+# What the stream's producer puts for the SSE writer: an event, or None when done.
+_EventQueue = asyncio.Queue[tuple[str, str, str | None] | None]
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chats", tags=["chat-stream"])
@@ -59,7 +65,7 @@ _TokenStream = Callable[
 async def require_chat_rate_limit(user: User = Depends(get_current_user)) -> Redis:
     """Throttle chat actions per user, then hand back the Redis handle.
 
-    The same check guards all three streaming routes (and ws.py's own
+    The same check guards all three streaming routes (and ws_api.py's own
     per-message limiter); as a dependency it is declared once instead of
     copy-pasted into every new streaming entry point.
     """
@@ -83,9 +89,35 @@ async def _stream_tokens_sse(
     stream_factory: _TokenStream,
     request: Request,
     cancel_event: asyncio.Event | None = None,
+    user_id: UUID | None = None,
+    queue_factory: Callable[[], _EventQueue] = asyncio.Queue,
+) -> AsyncIterator[str]:
+    """The turn's events as SSE lines, every log line inside carrying the turn's ids.
+
+    ``queue_factory`` makes the queue the producer fills; a test passes one that holds a
+    token, never by replacing ``asyncio.Queue`` for the whole process.
+    """
+    with bound_log_ids(chat_id=chat_id, user_id=user_id, turn=new_turn_id()):
+        async for line in _turn_sse_lines(
+            chat_id=chat_id,
+            stream_factory=stream_factory,
+            request=request,
+            cancel_event=cancel_event,
+            queue_factory=queue_factory,
+        ):
+            yield line
+
+
+async def _turn_sse_lines(
+    *,
+    chat_id: UUID,
+    stream_factory: _TokenStream,
+    request: Request,
+    cancel_event: asyncio.Event | None = None,
+    queue_factory: Callable[[], _EventQueue] = asyncio.Queue,
 ) -> AsyncIterator[str]:
     outcome = TurnOutcome()
-    event_queue: asyncio.Queue[tuple[str, str, str | None] | None] = asyncio.Queue()
+    event_queue = queue_factory()
     producer_cancelled = False
     if cancel_event is None:
         cancel_event = asyncio.Event()
@@ -166,7 +198,11 @@ async def _stream_tokens_sse(
 
     try:
         while True:
-            item = await event_queue.get()
+            try:
+                item = await asyncio.wait_for(event_queue.get(), TURN_KEEPALIVE_SECONDS)
+            except TimeoutError:
+                yield _sse(build_keepalive_event())
+                continue
             if item is None:
                 break
             kind, payload, extra = item
@@ -272,6 +308,7 @@ async def stream_message_sse(
         _stream_tokens_sse(
             chat_id=chat_id,
             request=request,
+            user_id=user.id,
             stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
                 stream_entry.stream_chat_response(
                     default_deps(),
@@ -307,6 +344,7 @@ async def stream_regenerate_sse(
         _stream_tokens_sse(
             chat_id=chat_id,
             request=request,
+            user_id=user.id,
             stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
                 stream_entry.stream_regenerate_response(
                     default_deps(),

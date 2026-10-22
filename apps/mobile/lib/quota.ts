@@ -15,19 +15,6 @@ export function usageRemainingPercent(usage: Usage): number {
   return Math.max(0, Math.min(100, (usage.remaining / usage.daily_limit) * 100));
 }
 
-export function isQuotaErrorPayload(payload: {
-  type?: string;
-  code?: string;
-  message?: string;
-}): boolean {
-  if (payload.code === "quota_exceeded") return true;
-  return /free limit|daily limit|today'?s limit/i.test(payload.message ?? "");
-}
-
-export function isQuotaErrorMessage(message: string): boolean {
-  return isQuotaErrorPayload({ message });
-}
-
 export function formatUsageSummary(
   usage: Usage,
   isPaid: boolean,

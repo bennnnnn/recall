@@ -5,16 +5,10 @@ import { COMPOSER_CONTROL_SIZE } from "@/features/chat/model/composerLogic";
 import { VoiceMicButton } from "@/features/speech/components/VoiceMicButton";
 import { lightTheme } from "@/lib/theme";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
 describe("VoiceMicButton", () => {
   it("keeps the stop glyph in the same ink as the other composer icons", async () => {
     const { getByTestId } = await render(
-      <VoiceMicButton recording transcribing={false} onPress={jest.fn()} />,
+      <VoiceMicButton size={36} recording transcribing={false} onPress={jest.fn()} />,
     );
 
     expect(getByTestId("voice-stop-mark").props.rx).toBe("5");

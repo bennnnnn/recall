@@ -52,7 +52,6 @@ const DEFAULT_USER_FIELDS: Omit<User, keyof CachedUser> = {
   email: "",
   default_model: "",
   enabled_models: null,
-  response_style: "",
   response_tone: "",
   memory_enabled: false,
   push_notifications_enabled: false,

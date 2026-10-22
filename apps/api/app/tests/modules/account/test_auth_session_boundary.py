@@ -6,12 +6,12 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.config import Settings
-from app.exceptions import RedisUnavailableError
-from app.gateways.google_auth import GoogleAuthError
+from app.exceptions import AuthenticationError, RedisUnavailableError
 from app.models.schemas import AppleAuthRequest, DevAuthRequest, GoogleAuthRequest
 from app.modules.account import api as auth_router
 from app.modules.account import service as auth_service
-from app.tests.test_routers import _fake_user
+from app.tests.api_support import api_user
+from app.tests.fakes import redis_mock
 
 
 @pytest.mark.asyncio
@@ -19,7 +19,7 @@ from app.tests.test_routers import _fake_user
 async def test_email_match_cannot_replace_another_provider_identity(provider):
     # Even an address the provider owns cannot move the account to another id.
     email = "shared@gmail.com" if provider == "google" else "shared@icloud.com"
-    existing = _fake_user(email=email, google_sub=None, apple_sub=None)
+    existing = api_user(email=email, google_sub=None, apple_sub=None)
     setattr(existing, f"{provider}_sub", "existing-subject")
     payload = {"sub": "different-subject", "email": existing.email, "email_verified": True}
     with (
@@ -80,7 +80,7 @@ async def test_login_session_store_outage_reaches_the_retryable_503_handler(
                 request,
                 session=AsyncMock(),
                 settings=Settings(jwt_secret="x" * 32, dev_auth_enabled=True),
-                redis=AsyncMock(),
+                redis=redis_mock(),
             )
 
 
@@ -93,7 +93,7 @@ async def test_apple_login_hands_the_raw_nonce_to_token_verification():
         patch("app.modules.account.api._enforce_login_rate_limit", AsyncMock()),
         patch(
             "app.modules.account.service.verify_apple_id_token",
-            AsyncMock(side_effect=GoogleAuthError("Invalid Apple ID token")),
+            AsyncMock(side_effect=AuthenticationError("Invalid Apple ID token")),
         ) as verify,
         pytest.raises(HTTPException) as caught,
     ):
@@ -102,7 +102,7 @@ async def test_apple_login_hands_the_raw_nonce_to_token_verification():
             request,
             session=AsyncMock(),
             settings=Settings(jwt_secret="x" * 32),
-            redis=AsyncMock(),
+            redis=redis_mock(),
         )
     assert caught.value.status_code == 401
     assert verify.await_args.kwargs["nonce"] == "raw-nonce"

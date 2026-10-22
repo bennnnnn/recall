@@ -1,3 +1,5 @@
+import type { Page } from "@/lib/api/types";
+
 export type AttachmentListItem = {
   id: string;
   content_type: string;
@@ -11,7 +13,4 @@ export type AttachmentListItem = {
   chat_title?: string | null;
 };
 
-export type AttachmentListResponse = {
-  items: AttachmentListItem[];
-  has_more: boolean;
-};
+export type AttachmentListResponse = Page<AttachmentListItem>;

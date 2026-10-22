@@ -64,7 +64,7 @@ describe("chatDraftLogic", () => {
   it("shouldWarmDraftSocket when draft exists and chat not committed", () => {
     expect(
       shouldWarmDraftSocket({
-        token: "tok",
+        account: "user-1:0",
         draftChatId: "draft-1",
         chatId: null,
         streaming: false,
@@ -72,7 +72,7 @@ describe("chatDraftLogic", () => {
     ).toBe(true);
     expect(
       shouldWarmDraftSocket({
-        token: "tok",
+        account: "user-1:0",
         draftChatId: "draft-1",
         chatId: "chat-1",
         streaming: false,
@@ -80,7 +80,7 @@ describe("chatDraftLogic", () => {
     ).toBe(false);
     expect(
       shouldWarmDraftSocket({
-        token: null,
+        account: null,
         draftChatId: "draft-1",
         chatId: null,
         streaming: false,

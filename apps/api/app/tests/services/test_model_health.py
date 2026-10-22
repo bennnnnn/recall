@@ -1,115 +1,96 @@
-"""Unit tests for Redis-backed model health samples."""
+"""Model health: one sample per attempted alias, a recent window, and recovery."""
 
 from __future__ import annotations
 
+import time
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.gateways.litellm_gateway import StreamAttempt
 from app.services import model_health
 
 
-class _FakeRedis:
-    def __init__(self) -> None:
-        self._zsets: dict[str, dict[str, float]] = {}
-
-    def pipeline(self) -> _FakePipe:
-        return _FakePipe(self)
-
-    async def zrange(self, key: str, start: int, end: int) -> list[str]:
-        items = sorted(self._zsets.get(key, {}).items(), key=lambda kv: kv[1])
-        members = [m for m, _ in items]
-        if end == -1:
-            return members[start:]
-        return members[start : end + 1]
+@pytest.fixture(autouse=True)
+def _no_verdict_cache():
+    model_health.forget_verdicts()
+    yield
+    model_health.forget_verdicts()
 
 
-class _FakePipe:
-    def __init__(self, redis: _FakeRedis) -> None:
-        self._redis = redis
-        self._ops: list[tuple[Any, ...]] = []
-
-    def zadd(self, key: str, mapping: dict[str, float]) -> None:
-        self._ops.append(("zadd", key, mapping))
-
-    def zremrangebyrank(self, key: str, start: int, end: int) -> None:
-        self._ops.append(("zremrangebyrank", key, start, end))
-
-    def expire(self, key: str, ttl: int) -> None:
-        self._ops.append(("expire", key, ttl))
-
-    async def execute(self) -> list[Any]:
-        for op in self._ops:
-            if op[0] == "zadd":
-                _, key, mapping = op
-                bucket = self._redis._zsets.setdefault(key, {})
-                bucket.update(mapping)
-            elif op[0] == "zremrangebyrank":
-                _, key, start, end = op
-                items = sorted(self._redis._zsets.get(key, {}).items(), key=lambda kv: kv[1])
-                # Redis: remove by rank inclusive; negative end from end
-                if end < 0:
-                    keep_from = len(items) + end + 1
-                    if keep_from < 0:
-                        keep_from = 0
-                    kept = items[keep_from:]
-                else:
-                    kept = [it for i, it in enumerate(items) if not (start <= i <= end)]
-                self._redis._zsets[key] = dict(kept)
-        self._ops.clear()
-        return []
+async def _samples(
+    redis: Any, alias: str, *outcomes: tuple[bool, float], now: float | None = None
+) -> None:
+    await model_health.record_attempts(
+        redis,
+        [StreamAttempt(alias=alias, ok=ok, first_content_ms=ms) for ok, ms in outcomes],
+        now=now,
+    )
 
 
-@pytest.mark.asyncio
-async def test_get_health_empty_is_healthy() -> None:
-    redis = _FakeRedis()
-    snap = await model_health.get_health(redis, "free-chat")  # type: ignore[arg-type]
+async def test_get_health_empty_is_healthy(fake_redis: Any) -> None:
+    snap = await model_health.get_health(fake_redis, "free-chat")
     assert snap.healthy is True
     assert snap.latency_p50_ms is None
     assert snap.sample_count == 0
 
 
-@pytest.mark.asyncio
-async def test_record_and_p50() -> None:
-    redis = _FakeRedis()
-    for ms in (100, 200, 300):
-        await model_health.record_sample(redis, "free-chat", latency_ms=ms, success=True)  # type: ignore[arg-type]
-    snap = await model_health.get_health(redis, "free-chat")  # type: ignore[arg-type]
+async def test_record_and_p50_of_time_to_first_content(fake_redis: Any) -> None:
+    await _samples(fake_redis, "free-chat", (True, 100), (True, 200), (True, 300))
+    snap = await model_health.get_health(fake_redis, "free-chat")
     assert snap.sample_count == 3
     assert snap.healthy is True
     assert snap.latency_p50_ms == 200
 
 
-@pytest.mark.asyncio
-async def test_high_error_rate_unhealthy() -> None:
-    redis = _FakeRedis()
-    await model_health.record_sample(redis, "smart-chat", latency_ms=50, success=True)  # type: ignore[arg-type]
-    for _ in range(3):
-        await model_health.record_sample(redis, "smart-chat", latency_ms=50, success=False)  # type: ignore[arg-type]
-    snap = await model_health.get_health(redis, "smart-chat")  # type: ignore[arg-type]
+async def test_high_error_rate_unhealthy(fake_redis: Any) -> None:
+    await _samples(fake_redis, "smart-chat", (True, 50), (False, 50), (False, 50), (False, 50))
+    snap = await model_health.get_health(fake_redis, "smart-chat")
     assert snap.sample_count == 4
     assert snap.error_rate == 0.75
     assert snap.healthy is False
 
 
-@pytest.mark.asyncio
-async def test_record_sample_swallows_redis_errors() -> None:
+async def test_one_failure_is_not_an_outage(fake_redis: Any) -> None:
+    await _samples(fake_redis, "smart-chat", (False, 8_000))
+    assert (await model_health.get_health(fake_redis, "smart-chat")).healthy is True
+
+
+async def test_a_long_healthy_reply_is_not_slow(fake_redis: Any) -> None:
+    """Whole-reply time read as latency: a 60 s answer marked its model slow for a day."""
+    await _samples(fake_redis, "smart-chat", (True, 900), (True, 1_100), (True, 1_000))
+    assert (await model_health.get_health(fake_redis, "smart-chat")).healthy is True
+
+
+async def test_an_alias_with_only_old_failures_is_routable_again(fake_redis: Any) -> None:
+    """Unhealthy aliases get no new samples; the window lets them come back (half-open)."""
+    an_hour_ago = time.time() - 3_600
+    await _samples(fake_redis, "smart-chat", (False, 50), (False, 50), (False, 50), now=an_hour_ago)
+    assert await model_health.unhealthy_aliases(fake_redis, MagicMock(), ["smart-chat"]) == (
+        frozenset()
+    )
+
+
+async def test_the_verdict_is_shared_for_a_few_seconds(fake_redis: Any) -> None:
+    await _samples(fake_redis, "a", (False, 50), (False, 50), (False, 50))
+    assert await model_health.unhealthy_aliases(fake_redis, MagicMock(), ["a"]) == {"a"}
+    with patch.object(fake_redis, "pipeline", side_effect=AssertionError("re-read")):
+        assert await model_health.unhealthy_aliases(fake_redis, MagicMock(), ["a"]) == {"a"}
+
+
+async def test_record_attempts_swallows_redis_errors() -> None:
     redis = MagicMock()
     pipe = MagicMock()
-    pipe.zadd = MagicMock()
-    pipe.zremrangebyrank = MagicMock()
-    pipe.expire = MagicMock()
+    pipe.__aenter__ = AsyncMock(return_value=pipe)
+    pipe.__aexit__ = AsyncMock(return_value=None)
     pipe.execute = AsyncMock(side_effect=RuntimeError("down"))
     redis.pipeline.return_value = pipe
-    await model_health.record_sample(redis, "free-chat", latency_ms=10, success=True)
+    await model_health.record_attempts(redis, [StreamAttempt("free-chat", True, 10)])
 
 
-@pytest.mark.asyncio
-async def test_enrich_models_health() -> None:
-    redis = _FakeRedis()
-    await model_health.record_sample(redis, "a", latency_ms=40, success=True)  # type: ignore[arg-type]
-    settings = MagicMock()
-    out = await model_health.enrich_models_health(redis, settings, ["a", "b"])  # type: ignore[arg-type]
+async def test_enrich_models_health(fake_redis: Any) -> None:
+    await _samples(fake_redis, "a", (True, 40))
+    out = await model_health.enrich_models_health(fake_redis, MagicMock(), ["a", "b"])
     assert out["a"].sample_count == 1
     assert out["b"].sample_count == 0

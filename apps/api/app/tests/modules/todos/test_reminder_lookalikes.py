@@ -12,7 +12,6 @@ from uuid import uuid4
 import pytest
 
 from app.modules import todos as todos_service
-from app.modules.home import service as home_service
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.reply_check import (
     claims_a_reminder_change,
@@ -22,6 +21,7 @@ from app.modules.todos.reply_check import (
 )
 from app.modules.todos.spoken_add import parse_spoken_add
 from app.modules.todos.spoken_change import asks_to_read_reminders
+from app.tests.fakes import fake_session
 
 REACT_TODO_REPLY = (
     "Create a new array instead of mutating the old one:\n\n"
@@ -72,9 +72,8 @@ async def _finalize(
         stack.enter_context(
             patch.object(todos_repo, "get_open_dated_duplicate", AsyncMock(return_value=None))
         )
-        stack.enter_context(patch.object(home_service, "invalidate_home_cache", AsyncMock()))
         text, applied = await todos_service.materialize_reminder_fences(
-            AsyncMock(),
+            fake_session(),
             user_id=uuid4(),
             chat_id=uuid4(),
             assistant_text=reply,

@@ -171,3 +171,13 @@ def test_routers_do_not_rebuild_shared_events_inline(router: Path) -> None:
     inline = _inline_event_types(router) - {"error"}
     leaked = inline & shared
     assert leaked == set(), f"{router.name} builds shared events inline: {sorted(leaked)}"
+
+
+def test_done_carries_the_days_usage_for_the_quota_nudge() -> None:
+    """The phone read the usage with a GET after every turn (code-health audit NET-14)."""
+    from app.modules.chat.turn_outcome import TurnUsage
+
+    outcome = TurnOutcome(usage=TurnUsage(used_tokens=8000, daily_limit=10000))
+    payload = DoneEvent.from_outcome(outcome).model_dump()
+    assert (payload["used_tokens"], payload["daily_limit"]) == ("8000", "10000")
+    assert "used_tokens" not in DoneEvent.from_outcome(TurnOutcome()).model_dump()

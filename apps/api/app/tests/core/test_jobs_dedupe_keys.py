@@ -54,7 +54,7 @@ async def test_consolidation_enqueue_carries_a_dedupe_key(fake_redis: Any) -> No
     enqueue = AsyncMock()
     with (
         patch("app.modules.memory.enqueue_policy.jobs.enqueue", enqueue),
-        patch.object(enqueue_policy.memory_service, "facts_need_consolidation", return_value=True),
+        patch("app.modules.memory.consolidation.facts_need_consolidation", return_value=True),
     ):
         outcome = await enqueue_policy.request_consolidation(
             fake_redis,

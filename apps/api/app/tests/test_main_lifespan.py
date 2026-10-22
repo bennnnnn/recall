@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app, lifespan
+from app.tests.fakes import redis_mock
 
 
 def test_create_app_registers_health_route():
@@ -48,7 +49,7 @@ async def test_lifespan_starts_and_stops_workers():
 
     mock_engine = MagicMock()
     mock_engine.dispose = AsyncMock()
-    mock_redis = AsyncMock()
+    mock_redis = redis_mock()
     mock_redis.aclose = AsyncMock()
     start_worker = AsyncMock()
 
@@ -68,7 +69,7 @@ async def test_lifespan_api_role_skips_workers():
 
     mock_engine = MagicMock()
     mock_engine.dispose = AsyncMock()
-    mock_redis = AsyncMock()
+    mock_redis = redis_mock()
     mock_redis.aclose = AsyncMock()
     start_worker = AsyncMock()
     start_push = AsyncMock()
@@ -100,7 +101,7 @@ async def test_lifespan_rejects_unknown_process_role():
 
     mock_engine = MagicMock()
     mock_engine.dispose = AsyncMock()
-    mock_redis = AsyncMock()
+    mock_redis = redis_mock()
     mock_redis.aclose = AsyncMock()
 
     mock_settings = MagicMock()

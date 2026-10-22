@@ -2,45 +2,39 @@
 
 from __future__ import annotations
 
-from datetime import date
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.redis import get_redis_client
+from app.exceptions import DomainError
 from app.gateways.storage_gateway import UnconfiguredStorageGateway, get_storage_gateway
 from app.models.orm import User
-from app.models.schemas import AttachmentPresignOut
 from app.modules.attachments import repository as attachments_repo
 from app.modules.attachments.content import MAX_ATTACHMENT_SIZE
 from app.modules.attachments.content_types import (
-    IMAGE_CONTENT_TYPES,
     is_allowed_content_type,
-    is_image_content_type,
     normalize_content_type,
 )
-from app.modules.attachments.quota import has_current_upload_reservation
+from app.modules.attachments.models import ORIGINAL_FILENAME_MAX_CHARS
+from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
+from app.modules.attachments.schemas import AttachmentPresignOut
 from app.services.quota import counters
 
 
-class AttachmentUploadError(Exception):
-    """Typed failure for the attachments router to map to HTTPException."""
-
-    def __init__(self, detail: str, *, status_code: int) -> None:
-        self.detail = detail
-        self.status_code = status_code
-        super().__init__(detail)
+class AttachmentUploadError(DomainError):
+    """An upload refusal; the phone names the type, size and daily limit by code."""
 
 
 def sanitize_original_filename(name: str | None) -> str | None:
-    """Basename only, max 255. Reject empty / traversal names."""
+    """Basename only, cut to the column's width. Reject empty / traversal names."""
     if name is None:
         return None
     base = name.strip().replace("\\", "/").rsplit("/", 1)[-1].strip()
     if not base or base in (".", ".."):
         return None
-    return base[:255]
+    return base[:ORIGINAL_FILENAME_MAX_CHARS]
 
 
 async def create_presigned_upload(
@@ -54,9 +48,11 @@ async def create_presigned_upload(
 ) -> AttachmentPresignOut:
     """Validate, reserve image quota, presign storage, and create a pending row."""
     if not is_allowed_content_type(content_type):
-        raise AttachmentUploadError("Unsupported content type", status_code=400)
+        raise AttachmentUploadError(
+            "Unsupported content type", status_code=400, code="unsupported_type"
+        )
     if size_bytes <= 0 or size_bytes > MAX_ATTACHMENT_SIZE:
-        raise AttachmentUploadError("Invalid file size", status_code=400)
+        raise AttachmentUploadError("Invalid file size", status_code=400, code="invalid_size")
 
     normalized = normalize_content_type(content_type)
 
@@ -68,14 +64,12 @@ async def create_presigned_upload(
         )
 
     redis = get_redis_client()
-    reserved_day: date | None = None
-    if normalized in IMAGE_CONTENT_TYPES:
-        reserved_day = await counters.reserve("image_upload", redis, user, settings)
-        if not reserved_day:
-            raise AttachmentUploadError(
-                counters.limit_message("image_upload", user),
-                status_code=429,
-            )
+    counter = upload_counter(normalized)
+    reserved_day = await counters.reserve(counter, redis, user, settings)
+    if not reserved_day:
+        raise AttachmentUploadError(
+            counters.limit_message(counter, user), status_code=429, code="daily_limit"
+        )
 
     try:
         presigned = await gateway.presign_upload(
@@ -96,8 +90,7 @@ async def create_presigned_upload(
         )
         await session.commit()
     except Exception:
-        if reserved_day:
-            await counters.refund("image_upload", redis, user.id, day=reserved_day)
+        await counters.refund(counter, redis, user.id, day=reserved_day)
         raise
 
     return AttachmentPresignOut(
@@ -137,5 +130,5 @@ async def cancel_pending_upload(
 
     failed = await delete_storage_keys(settings, removed)
     await enqueue_failed_storage_deletes(failed)
-    if is_image_content_type(row.content_type) and has_current_upload_reservation(row):
-        await counters.refund("image_upload", get_redis_client(), user.id)
+    if has_current_upload_reservation(row):
+        await counters.refund(upload_counter(row.content_type), get_redis_client(), user.id)

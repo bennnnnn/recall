@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 
+from app.core.readings import reading
 from app.modules.account.settings_intent import extract_settings_changes
 from app.modules.chat.turn_plan import PartKind, TurnPart, TurnPlan, single_plan
 from app.modules.chat.turn_prep.clauses import (
@@ -80,6 +81,7 @@ def _keeps_cut(clause: Clause, kind: PartKind, last: Clause, last_kind: PartKind
     return len(clause.topics) >= _MIN_OWN_TOPICS and not leans_on_definite(clause.text)
 
 
+@reading(declined=lambda text, **_: single_plan(text))
 @lru_cache(maxsize=_PLAN_CACHE)
 def plan_turn(text: str, *, chemistry_enabled: bool = True) -> TurnPlan:
     """The separate requests in ``text``, in order; one part when it asks one thing."""

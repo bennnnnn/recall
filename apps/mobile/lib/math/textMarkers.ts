@@ -1,6 +1,6 @@
 /**
  * Placeholder for a backslash inside `$...$` / `\(...\)` math that
- * markdownPreprocess.ts substitutes in *before* the content reaches
+ * lib/markdown/preprocess.ts substitutes in *before* the content reaches
  * markdown-it. CommonMark's own backslash-escape rule fires on "\" followed
  * by any ASCII punctuation character and silently drops the backslash
  * (e.g. "\," becomes a bare "," — a stray comma sitting where an invisible

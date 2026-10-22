@@ -388,8 +388,9 @@ def _bind(text: str) -> ChemistryIntent | None:
     params, units = converted
     try:
         return ChemistryIntent(
+            # The catalog's kind is a str; the model validates it against its Literal.
             kind=law.kind,  # type: ignore[arg-type]
-            chemistry_op=law.op,  # type: ignore[arg-type]
+            chemistry_op=law.op,
             params=params,
             units=units,
             formula=formula if isinstance(formula, str) else None,

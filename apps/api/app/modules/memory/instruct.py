@@ -8,21 +8,36 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.exceptions import DomainError
 from app.modules.memory import llm as memory_llm
+from app.modules.memory import locks
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
-from app.modules.memory.extraction_workflow import load_memory_snapshot, writes_from_ops
+from app.modules.memory.extraction_workflow import load_memory_snapshot
+from app.modules.memory.pass_writes import writes_from_ops
 from app.modules.memory.topics import parse_topic
 
 logger = logging.getLogger(__name__)
 
 
-class MemoryOffError(Exception):
+class MemoryOffError(DomainError):
     """Memory is turned off for this account."""
 
+    status_code = 409
+    default_code = "memory_off"
 
-class MemoryInstructionFailedError(Exception):
+    def __init__(self, message: str = "Memory is off.") -> None:
+        super().__init__(message)
+
+
+class MemoryInstructionFailedError(DomainError):
     """The model could not turn the instruction into edits."""
+
+    status_code = 502
+    default_code = "memory_edit_failed"
+
+    def __init__(self, message: str = "Memory couldn't be updated right now — try again.") -> None:
+        super().__init__(message)
 
 
 @dataclass(frozen=True)
@@ -64,11 +79,9 @@ async def apply_memory_instruction(
     focus_topic: str | None = None,
 ) -> MemoryInstructionOutcome:
     """Edit memory as the user asked. Raises MemoryWriteLockBusyError while memory is busy."""
-    from app.modules import memory as memory_service
-
-    lock_token = await memory_service.acquire_memory_write_lock(user_id)
+    lock_token = await locks.acquire_memory_write_lock(user_id)
     if not lock_token:
-        raise memory_service.MemoryWriteLockBusyError(user_id)
+        raise locks.MemoryWriteLockBusyError(user_id)
     try:
         # Short session: nothing stays open while the model works.
         async with SessionLocal() as session:
@@ -115,4 +128,4 @@ async def apply_memory_instruction(
             ),
         )
     finally:
-        await memory_service.release_memory_write_lock(user_id, lock_token)
+        await locks.release_memory_write_lock(user_id, lock_token)

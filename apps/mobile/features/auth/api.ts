@@ -1,60 +1,71 @@
 /** Sign-in with Google, Apple, or dev auth, and the consent asked right after it.
  * Session refresh lives in lib/api/client.ts. */
-import { apiUrl, fetchWithTimeout, request } from "@/lib/api/client";
+import {
+  ApiRequestError,
+  apiUrl,
+  AUTH_FETCH_TIMEOUT_MS,
+  fetchWithTimeout,
+  request,
+} from "@/lib/api/client";
+import { serverUnreachableError, withDeadline } from "@/lib/api/deadline";
 import type { AuthResult, User } from "@/lib/api/types";
 import { AccountExistsError, accountExistsProvider } from "@/features/auth/model/accountExists";
 import { deviceSessionFields } from "@/lib/deviceSession";
 
 async function loginFailure(response: Response, fallback: string): Promise<Error> {
-  const detail = await response.text();
-  const provider = accountExistsProvider(response.status, detail);
+  const refused = new ApiRequestError(response.status, await response.text());
+  const provider = accountExistsProvider(refused);
   if (provider) return new AccountExistsError(provider);
-  return new Error(detail || fallback);
+  return new Error(refused.message || fallback);
 }
 
-export async function loginWithGoogle(idToken: string): Promise<AuthResult> {
-  const response = await fetchWithTimeout(apiUrl("/auth/google"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id_token: idToken, ...deviceSessionFields() }),
+/** One sign-in call and the reading of its reply, under one deadline: the headers'
+ * timer alone left a stalled body spinning the sign-in button (code-health audit NET-17). */
+function signIn(
+  path: string,
+  body: Record<string, unknown>,
+  read: (response: Response) => Promise<AuthResult>,
+): Promise<AuthResult> {
+  return withDeadline(AUTH_FETCH_TIMEOUT_MS, null, async (signal) => read(
+    await fetchWithTimeout(apiUrl(path), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal,
+    }),
+  ), serverUnreachableError);
+}
+
+export function loginWithGoogle(idToken: string): Promise<AuthResult> {
+  return signIn("/auth/google", { id_token: idToken, ...deviceSessionFields() }, async (response) => {
+    if (!response.ok) throw await loginFailure(response, "Google login failed");
+    return (await response.json()) as AuthResult;
   });
-  if (!response.ok) throw await loginFailure(response, "Google login failed");
-  return response.json() as Promise<AuthResult>;
 }
 
-export async function loginWithApple(
+export function loginWithApple(
   idToken: string,
   name: string | null,
   nonce: string,
 ): Promise<AuthResult> {
-  const response = await fetchWithTimeout(apiUrl("/auth/apple"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      id_token: idToken,
-      name: name ?? null,
-      nonce,
-      ...deviceSessionFields(),
-    }),
+  const body = { id_token: idToken, name: name ?? null, nonce, ...deviceSessionFields() };
+  return signIn("/auth/apple", body, async (response) => {
+    if (!response.ok) throw await loginFailure(response, "Apple login failed");
+    return (await response.json()) as AuthResult;
   });
-  if (!response.ok) throw await loginFailure(response, "Apple login failed");
-  return response.json() as Promise<AuthResult>;
 }
 
-export async function loginWithDev(
+export function loginWithDev(
   email = "dev@recall.local",
   name = "bini",
 ): Promise<AuthResult> {
-  const response = await fetchWithTimeout(apiUrl("/auth/dev"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, name, ...deviceSessionFields() }),
+  return signIn("/auth/dev", { email, name, ...deviceSessionFields() }, async (response) => {
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || "Dev login failed — is the API running?");
+    }
+    return (await response.json()) as AuthResult;
   });
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || "Dev login failed — is the API running?");
-  }
-  return response.json() as Promise<AuthResult>;
 }
 
 /** Record that the user agreed to the outside-AI disclosure; the server stamps the time. */

@@ -8,15 +8,23 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
+from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.core.readings import read_off_loop
 from app.exceptions import ChatNotFoundError
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
 from app.modules.billing import plan as plan_service
+from app.modules.chat import chats_repository as chats_repo
+from app.modules.chat import messages_repository as messages_repo
 from app.modules.chat.prompt_builder import PromptStats, build_prompt_messages
 from app.modules.chat.turn_prep.augment import Augmentation, gather_and_inject
-from app.modules.chat.turn_prep.followups import resolve_subject_followup
+from app.modules.chat.turn_prep.followups import (
+    SubjectFollowup,
+    resolve_subject_followup,
+    role_content_dicts,
+)
 from app.modules.chat.turn_prep.instant import (
     location_not_set_reply,
     recurring_pay_reply,
@@ -24,7 +32,8 @@ from app.modules.chat.turn_prep.instant import (
     settings_card,
 )
 from app.modules.chat.turn_prep.intents import plan_turn
-from app.modules.chat.turn_prep.mode import _classify_turn_mode
+from app.modules.chat.turn_prep.mode import classify_turn_mode
+from app.modules.chat.turn_prep.reading import read_turn_message
 from app.modules.chat.turn_prep.request import (
     ClientGeoContext,
     TurnIdentity,
@@ -32,7 +41,6 @@ from app.modules.chat.turn_prep.request import (
     resolve_client_geo,
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
-from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
 from app.services import model_health as model_health_service
 from app.services import time_context as time_context_service
@@ -102,8 +110,6 @@ class StreamContext:
     # finalize and stream teardown await it so the assistant insert cannot
     # commit first and so a failed prompt still keeps what the user sent.
     user_message_persist: asyncio.Task[None] | None = None
-    # None means no verdict was prefetched; False is a completed negative.
-    web_search_classified: bool | None = None
     # Set when the tool loop's generate_image persisted the assistant row —
     # stream_and_finalize skips the LLM + second insert.
     terminal_image_message_id: str | None = None
@@ -120,6 +126,9 @@ class StreamContext:
     # A multi-part message's settings card and picture: the server's part of the reply.
     settings_card: str | None = None
     reply_picture: ReplyPicture | None = None
+    # The tools the reply's own model call carries, when the tool loop leaves the
+    # turn to it: ``web_search`` (``tool_loop.reply_calls``).
+    reply_tools: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -127,7 +136,6 @@ class TurnPromptBundle:
     prompt_messages: list[dict[str, str]]
     stats: PromptStats
     instant_reply: str | None
-    search_sources: list[WebSearchHit]
     local_places: bool
     max_out: int
     fallback_models: list[str]
@@ -138,7 +146,6 @@ class TurnPromptBundle:
     verified_subject: VerifiedSolveBlock | None = None
     solver_unverified: bool = False
     unverified_subject: str | None = None
-    web_search_classified: bool | None = None
     # A multi-part message's settings card, added under the model's reply.
     settings_card: str | None = None
 
@@ -186,7 +193,6 @@ def stream_context_from_bundle(
         memory_hints=list(bundle.stats.memory_hints),
         context_summarized=bundle.stats.context_summarized,
         instant_reply=bundle.instant_reply,
-        search_sources=bundle.search_sources,
         local_places=bundle.local_places,
         skip_memory_jobs=skip_memory_jobs,
         prior_count=prior_count,
@@ -200,7 +206,6 @@ def stream_context_from_bundle(
         # prior assistant would mark "yes"/"go" as greetings again.
         lightweight_turn=bundle.lightweight,
         rich_context_turn=bundle.rich_context,
-        web_search_classified=bundle.web_search_classified,
         settings_card=bundle.settings_card,
         user_message_persist=user_message_persist,
         thinking=thinking,
@@ -224,7 +229,7 @@ async def await_user_message_persist(ctx: StreamContext) -> None:
             ctx.user_message_persist = None
 
 
-async def _load_turn_identity(request: TurnRequest) -> TurnIdentity:
+async def _load_turn_identity(request: TurnRequest, settings: Settings) -> TurnIdentity:
     """The user, chat and turn mode, with the turn's geo and clock resolved in memory.
 
     Prepare and regenerate pass all three, so a turn skips a Neon checkout; one
@@ -242,7 +247,12 @@ async def _load_turn_identity(request: TurnRequest) -> TurnIdentity:
                 if chat is None:
                     raise ChatNotFoundError("Chat not found.")
             if mode is None:
-                mode = await _classify_turn_mode(session, chat, request.content)
+                recent = request.recent_messages
+                if recent is None:
+                    recent = await messages_repo.list_recent(
+                        session, request.chat_id, limit=settings.recent_message_window
+                    )
+                mode = classify_turn_mode(recent, request.content)
     if request.force_rich_context and not mode.rich_context:
         mode = replace(mode, rich_context=True)
     geo = resolve_client_geo(
@@ -291,7 +301,6 @@ def _bundle(
         prompt_messages=augmented.prompt_messages,
         stats=stats,
         instant_reply=instant_reply,
-        search_sources=augmented.search_sources,
         local_places=identity.geo.local_places,
         # One high ceiling for every turn — brevity is driven by the STYLE_HINTS
         # prompt guidance, not a hard token cap. Capping by style truncated large
@@ -305,7 +314,6 @@ def _bundle(
         verified_subject=augmented.verified_subject,
         solver_unverified=augmented.solver_unverified,
         unverified_subject=augmented.unverified_subject,
-        web_search_classified=augmented.web_search_classified,
     )
 
 
@@ -316,7 +324,13 @@ async def build_stream_prompt_context(
     timing = request.timing
     if timing is not None:
         timing.mark_phase("prepare_start")
-    identity = await _load_turn_identity(request)
+    await read_turn_message(
+        request.content,
+        request.recent_messages or [],
+        settings,
+        has_image_attachment=request.has_image_attachment,
+    )
+    identity = await _load_turn_identity(request, settings)
     pay_reply = recurring_pay_reply(request, identity.local_tz)
     if pay_reply is not None:
         if timing is not None:
@@ -342,7 +356,7 @@ async def build_stream_prompt_context(
     # More than one request: each is answered (``intents``), and the prompt says how.
     plan = plan_turn(request.content, chemistry_enabled=settings.chemistry_enabled)
     # Phase A: prompt + instant-reply + fallback-health share no data.
-    prompt_messages, instant_reply, fallback_models, card = await asyncio.gather(
+    prompt_messages, instant_reply, fallback_models, card = await gather_or_cancel(
         build_prompt_messages(
             user,
             chat.id,
@@ -361,6 +375,7 @@ async def build_stream_prompt_context(
             probe_attachment_rag=request.probe_attachment_rag,
             recent_messages=request.recent_messages,
             current_user_message_id=request.current_user_message_id,
+            prior_count=request.prior_count,
             turn_plan=plan if plan.multi else None,
         ),
         resolve_instant_reply(request, identity, settings, redis, plan),
@@ -377,7 +392,15 @@ async def build_stream_prompt_context(
     if timing is not None:
         timing.mark_phase("prompt_assembled")
 
-    followup = resolve_subject_followup(request.content, prompt_messages)
+    followup = (
+        await read_off_loop(
+            resolve_subject_followup,
+            request.content,
+            role_content_dicts(prompt_messages),
+            timeout=settings.subject_read_timeout_seconds,
+        )
+        or SubjectFollowup()
+    )
     if instant_reply is None:
         instant_reply = location_not_set_reply(request.content, geo, followup)
     augmented = await gather_and_inject(
@@ -388,7 +411,7 @@ async def build_stream_prompt_context(
         timing.mark_prompt_ready()
 
     if instant_reply is None:
-        instant_reply = augmented.direct_reply(request, followup)
+        instant_reply = await augmented.direct_reply(request, followup, settings)
     bundle = _bundle(
         identity,
         settings,

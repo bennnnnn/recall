@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -75,13 +75,33 @@ async def list_after_id(
     *,
     limit: int,
     cursor: UUID | None = None,
+    completed_since: datetime | None = None,
 ) -> list[TodoItem]:
-    """Traverse immutable IDs so edits cannot move rows across page boundaries."""
+    """Traverse immutable IDs so edits cannot move rows across page boundaries.
+
+    With ``completed_since``, completed rows last changed before it are left out.
+    """
     statement = select(TodoItem).where(TodoItem.user_id == user_id)
+    if completed_since is not None:
+        statement = statement.where(
+            or_(TodoItem.checked.is_(False), TodoItem.updated_at >= completed_since)
+        )
     if cursor is not None:
         statement = statement.where(TodoItem.id > cursor)
     result = await session.execute(statement.order_by(TodoItem.id.asc()).limit(limit))
     return list(result.scalars().all())
+
+
+async def has_completed_before(session: AsyncSession, user_id: UUID, before: datetime) -> bool:
+    """The user has a completed row last changed before ``before``."""
+    statement = select(
+        exists().where(
+            TodoItem.user_id == user_id,
+            TodoItem.checked.is_(True),
+            TodoItem.updated_at < before,
+        )
+    )
+    return bool((await session.execute(statement)).scalar())
 
 
 async def list_by_ids(session: AsyncSession, user_id: UUID, ids: list[UUID]) -> list[TodoItem]:
@@ -108,16 +128,6 @@ async def next_sort_order(
     result = await session.execute(stmt)
     current = result.scalar()
     return int(current or 0) + 1
-
-
-async def list_topics(session: AsyncSession, user_id: UUID) -> list[str]:
-    result = await session.execute(
-        select(TodoItem.topic)
-        .where(TodoItem.user_id == user_id)
-        .distinct()
-        .order_by(TodoItem.topic.asc())
-    )
-    return [row[0] for row in result.all()]
 
 
 async def get_by_id(session: AsyncSession, todo_id: UUID, user_id: UUID) -> TodoItem | None:
@@ -224,55 +234,6 @@ async def delete_by_id(
     return result.rowcount > 0
 
 
-async def delete_by_topic(session: AsyncSession, user_id: UUID, topic: str) -> int:
-    normalized = topic.strip()
-    if not normalized:
-        return 0
-    result = cast(
-        CursorResult[Any],
-        await session.execute(
-            delete(TodoItem).where(
-                TodoItem.user_id == user_id,
-                TodoItem.topic == normalized,
-                TodoItem.due_at.is_(None),
-            )
-        ),
-    )
-    await session.commit()
-    return int(result.rowcount or 0)
-
-
-async def reorder(
-    session: AsyncSession,
-    user_id: UUID,
-    items: list[tuple[UUID, int, str | None]],
-) -> list[TodoItem]:
-    """Bulk-fetch, mutate in memory, and commit once — instead of a SELECT +
-    COMMIT + REFRESH round trip per item."""
-    if not items:
-        return []
-
-    todo_ids = [todo_id for todo_id, _sort_order, _topic in items]
-    result = await session.execute(
-        select(TodoItem).where(TodoItem.id.in_(todo_ids), TodoItem.user_id == user_id)
-    )
-    todos_by_id = {todo.id: todo for todo in result.scalars().all()}
-
-    ordered_ids: list[UUID] = []
-    for todo_id, sort_order, topic in items:
-        todo = todos_by_id.get(todo_id)
-        if not todo:
-            continue
-        todo.sort_order = sort_order
-        if topic is not None:
-            todo.topic = topic.strip() or DEFAULT_TOPIC
-        ordered_ids.append(todo_id)
-
-    if not ordered_ids:
-        return []
-
-    await session.commit()
-
-    refreshed = await session.execute(select(TodoItem).where(TodoItem.id.in_(ordered_ids)))
-    refreshed_by_id = {todo.id: todo for todo in refreshed.scalars().all()}
-    return [refreshed_by_id[todo_id] for todo_id in ordered_ids if todo_id in refreshed_by_id]
+async def delete_all_for_user(session: AsyncSession, user_id: UUID) -> None:
+    """Every to-do of the user; no commit."""
+    await session.execute(delete(TodoItem).where(TodoItem.user_id == user_id))

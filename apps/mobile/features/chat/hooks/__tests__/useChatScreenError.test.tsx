@@ -1,12 +1,6 @@
 import { act, renderHook } from "@testing-library/react-native";
 import { useChatErrorHandlers, useChatErrorRecovery } from "@/features/chat/hooks/useChatScreenError";
 
-jest.mock("react-i18next", () => {
-  const t = (key: string) => key;
-  return { useTranslation: () => ({ t }) };
-});
-jest.mock("@/features/chat/hooks/useQuotaNudge", () => ({ useQuotaNudge: jest.fn() }));
-
 it("clears the previous chat's rejection while preserving unrelated errors", async () => {
   const { result } = await renderHook(() => useChatErrorHandlers(false));
   await act(async () => { result.current.handleRejectedSendChange("send_rejected"); });
@@ -27,7 +21,6 @@ it("clears the previous chat's rejection while preserving unrelated errors", asy
   // Dismissal does not change the callback and retrigger the screen effect.
   expect(result.current.handleRejectedSendChange).toBe(synchronize);
 });
-
 
 it("shows and clears the retained attachment rejection for the current conversation", async () => {
   const { result } = await renderHook(() => useChatErrorHandlers(false));

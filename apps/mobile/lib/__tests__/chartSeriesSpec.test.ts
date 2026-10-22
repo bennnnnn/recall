@@ -65,7 +65,7 @@ describe("seriesChartToVegaLite", () => {
 });
 
 it("builds the Plot reply's chart as Vega-Lite instead of failing on its caption line", () => {
-  const html = buildVegaHtml(PLOT_REPLY_BODY, theme);
+  const html = buildVegaHtml(PLOT_REPLY_BODY, theme, 320, { vega: "", vegaLite: "", vegaEmbed: "" });
   expect(html).toContain('"mark":"line"');
   expect(html).not.toContain("x^2 over");
 });

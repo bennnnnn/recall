@@ -1,9 +1,10 @@
 /**
  * Best-effort Unicode math → LaTeX for composer pastes.
  * Glyph set is the client counterpart of `_UNICODE_OP_SUBS` in
- * `apps/api/app/services/math_service/parse.py`.
+ * `apps/api/app/modules/math/solve/unicode_normalize.py`.
  */
 
+import { nativeEditRange } from "@/lib/math/composerChange";
 import { formatMathExpr } from "@/lib/math/formatInput";
 import { isMathLike } from "@/lib/math/normalizeImplicit";
 import { normalizeUnicodeScripts } from "@/lib/unicodeSupSub";
@@ -231,16 +232,7 @@ export function normalizePastedMath(delta: string): string {
 /** Longest common prefix/suffix → inserted middle. Null if not a paste-sized insert. */
 export function extractInsertedDelta(prev: string, next: string): string | null {
   if (next.length <= prev.length) return null;
-  let i = 0;
-  const minLen = Math.min(prev.length, next.length);
-  while (i < minLen && prev[i] === next[i]) i += 1;
-  let pe = prev.length;
-  let ne = next.length;
-  while (pe > i && ne > i && prev[pe - 1] === next[ne - 1]) {
-    pe -= 1;
-    ne -= 1;
-  }
-  const inserted = next.slice(i, ne);
+  const inserted = nativeEditRange(prev, next)?.added ?? "";
   if (inserted.length < 1) return null;
   if (inserted.length < PASTE_GROWTH_MIN && !pastedDeltaLooksLikeMath(inserted)) {
     return null;

@@ -12,6 +12,7 @@
  */
 
 import { parseJsonRecord } from "@/lib/jsonFence";
+import { scanFences } from "@/lib/mdFenceScan";
 
 type QuizFence = {
   /** The pill at the top of the card, such as "Exercise 1". */
@@ -146,21 +147,20 @@ export function quizText(fence: QuizFence): string {
   return [fence.question, ...code, ...options].join("\n");
 }
 
-const EXPLANATION_FENCE = /```([\w+-]*)[ \t]*\n([\s\S]*?)\n?```/g;
-
 /** Split an explanation into prose and fenced code, in order. */
 export function explanationParts(text: string): ExplanationPart[] {
   const parts: ExplanationPart[] = [];
   let last = 0;
-  for (const match of text.matchAll(EXPLANATION_FENCE)) {
-    const before = text.slice(last, match.index).trim();
+  for (const span of scanFences(text)) {
+    if (!span.closed) continue;
+    const before = text.slice(last, span.start).trim();
     if (before) parts.push({ kind: "text", text: before });
     parts.push({
       kind: "code",
-      lang: match[1] || "text",
-      code: match[2]!.replace(/\s+$/, ""),
+      lang: span.info.split(/\s/)[0] || "text",
+      code: span.body.replace(/\s+$/, ""),
     });
-    last = match.index! + match[0].length;
+    last = span.end;
   }
   const rest = text.slice(last).trim();
   if (rest) parts.push({ kind: "text", text: rest });

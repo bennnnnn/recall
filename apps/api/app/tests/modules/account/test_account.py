@@ -61,7 +61,7 @@ def _empty_product_events_for_exports():
             AsyncMock(return_value=[]),
         ) as list_events,
         patch(
-            "app.modules.account.export.memory_service.list_areas",
+            "app.modules.memory.repository.list_areas",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -176,6 +176,43 @@ def test_export_returns_data():
     assert r.json()["exported_at"] == "now"
 
 
+def test_export_runs_one_at_a_time_per_user():
+    """One account could start dozens of exports at once, each reading ~1M rows."""
+    user = _fake_user()
+    app = _app_with_user(user)
+
+    async def fake_iter(_user):
+        yield "{}"
+
+    with (
+        patch("app.modules.account.api.export_service.iter_export_json", fake_iter),
+        patch("app.modules.account.api.acquire_lock", AsyncMock(side_effect=["token", None])),
+        patch("app.modules.account.api.release_lock", AsyncMock()) as release,
+    ):
+        client = TestClient(app)
+        first = client.get("/auth/me/export", headers={"Authorization": "Bearer tok"})
+        second = client.get("/auth/me/export", headers={"Authorization": "Bearer tok"})
+    assert first.status_code == 200
+    assert second.status_code == 429
+    release.assert_awaited_once()
+
+
+def test_export_is_capped_per_hour():
+    user = _fake_user()
+    app = _app_with_user(user)
+
+    async def fake_iter(_user):
+        yield "{}"
+
+    with patch("app.modules.account.api.export_service.iter_export_json", fake_iter):
+        client = TestClient(app)
+        codes = [
+            client.get("/auth/me/export", headers={"Authorization": "Bearer tok"}).status_code
+            for _ in range(4)
+        ]
+    assert codes == [200, 200, 200, 429]
+
+
 @pytest.mark.asyncio
 async def test_delete_user_deletes_children_then_user():
     from app.repositories import users as users_repo
@@ -183,13 +220,12 @@ async def test_delete_user_deletes_children_then_user():
     session = AsyncMock()
     session.get = AsyncMock(return_value=MagicMock())
     await users_repo.delete_user(session, uuid4())
-    # Every user-owned table is purged before the user row itself, so the delete
-    # never fails on an FK to users.id without ON DELETE CASCADE. 8 tables are
-    # cleared explicitly (messages, memories, usage, todos, suggestions,
-    # push_tokens, attachments, chats). The account lock precedes every child
-    # delete to match memory writers.
+    # The core tables go before the user row itself, so the delete never fails on an
+    # FK to users.id without ON DELETE CASCADE: messages, usage, push tokens, chats.
+    # The modules' rows went first (account.lifecycle asks each module). The account
+    # lock precedes every delete to match memory writers.
     statements = [call.args[0] for call in session.execute.await_args_list]
-    assert len(statements) == 9
+    assert len(statements) == 5
     assert statements[0].is_select
     assert str(statements[0]).endswith("FOR UPDATE")
     assert all(statement.is_delete for statement in statements[1:])
@@ -243,19 +279,19 @@ async def test_build_export_structure(_empty_product_events_for_exports):
 
     with (
         patch(
-            "app.modules.account.export.chats_repo.list_for_user",
+            "app.modules.account.export.chat_history.chats_for_export",
             AsyncMock(return_value=[chat]),
         ),
         patch(
-            "app.modules.account.export.messages_repo.list_range",
+            "app.modules.account.export.chat_history.messages_page",
             AsyncMock(return_value=[msg]),
         ),
         patch(
-            "app.modules.account.export.memory_service.list_range",
+            "app.modules.memory.repository.list_range",
             AsyncMock(return_value=[mem]),
         ),
         patch(
-            "app.modules.account.export.todos_repo.list_for_user",
+            "app.modules.account.export.todos_service.list_owned_todos",
             AsyncMock(return_value=[todo]),
         ),
         patch(
@@ -310,19 +346,19 @@ async def test_build_export_includes_archived_chats():
     list_chats = AsyncMock(return_value=[archived])
     with (
         patch(
-            "app.modules.account.export.chats_repo.list_for_user",
+            "app.modules.account.export.chat_history.chats_for_export",
             list_chats,
         ),
         patch(
-            "app.modules.account.export.messages_repo.list_range",
+            "app.modules.account.export.chat_history.messages_page",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.account.export.memory_service.list_range",
+            "app.modules.memory.repository.list_range",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.account.export.todos_repo.list_for_user",
+            "app.modules.account.export.todos_service.list_owned_todos",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -334,7 +370,8 @@ async def test_build_export_includes_archived_chats():
 
     assert len(data["chats"]) == 1
     assert data["chats"][0]["title"] == "Old"
-    assert list_chats.await_args.kwargs.get("include_archived") is True
+    # chat.history's export read includes archived chats (test_chat_history.py).
+    list_chats.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -376,19 +413,19 @@ async def test_build_export_pages_messages_per_chat():
     with (
         patch.object(export_service, "EXPORT_MESSAGE_PAGE_SIZE", 2),
         patch(
-            "app.modules.account.export.chats_repo.list_for_user",
+            "app.modules.account.export.chat_history.chats_for_export",
             AsyncMock(return_value=[chat]),
         ),
         patch(
-            "app.modules.account.export.messages_repo.list_range",
+            "app.modules.account.export.chat_history.messages_page",
             AsyncMock(side_effect=list_range),
         ),
         patch(
-            "app.modules.account.export.memory_service.list_range",
+            "app.modules.memory.repository.list_range",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.account.export.todos_repo.list_for_user",
+            "app.modules.account.export.todos_service.list_owned_todos",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -426,15 +463,15 @@ async def test_build_export_pages_memories():
     with (
         patch.object(export_service, "EXPORT_MEMORY_PAGE_SIZE", 2),
         patch(
-            "app.modules.account.export.chats_repo.list_for_user",
+            "app.modules.account.export.chat_history.chats_for_export",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.account.export.memory_service.list_range",
+            "app.modules.memory.repository.list_range",
             AsyncMock(side_effect=list_memories),
         ),
         patch(
-            "app.modules.account.export.todos_repo.list_for_user",
+            "app.modules.account.export.todos_service.list_owned_todos",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -471,15 +508,15 @@ async def test_build_export_caps_memories():
         patch.object(export_service, "EXPORT_MEMORY_PAGE_SIZE", 2),
         patch.object(export_service, "EXPORT_MAX_MEMORIES", 2),
         patch(
-            "app.modules.account.export.chats_repo.list_for_user",
+            "app.modules.account.export.chat_history.chats_for_export",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.account.export.memory_service.list_range",
+            "app.modules.memory.repository.list_range",
             AsyncMock(side_effect=list_memories),
         ),
         patch(
-            "app.modules.account.export.todos_repo.list_for_user",
+            "app.modules.account.export.todos_service.list_owned_todos",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -519,15 +556,15 @@ async def test_build_export_includes_attachment_with_presigned_url():
 
     with (
         patch(
-            "app.modules.account.export.chats_repo.list_for_user",
+            "app.modules.account.export.chat_history.chats_for_export",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.account.export.memory_service.list_range",
+            "app.modules.memory.repository.list_range",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.modules.account.export.todos_repo.list_for_user",
+            "app.modules.account.export.todos_service.list_owned_todos",
             AsyncMock(return_value=[]),
         ),
         patch(

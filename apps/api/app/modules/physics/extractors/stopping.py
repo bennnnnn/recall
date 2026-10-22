@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import _NUMBER, _VELOCITY_UNIT_PATTERN
 from app.modules.physics.extractors.suvat import _SUVAT_TIME_UNITS
+from app.modules.physics.extractors.unit_patterns import NUMBER, VELOCITY_UNIT_PATTERN
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.unit_text import TIME_UNITS
 
@@ -33,7 +33,7 @@ def _quantity_spans(text: str, unit_pattern: str) -> list[tuple[int, int, float,
     return [
         (match.start(), match.end(), float(match.group(1)), match.group(2))
         for match in re.finditer(
-            rf"({_NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
+            rf"({NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
             text,
             re.IGNORECASE,
         )
@@ -98,7 +98,7 @@ def extract_stopping_distance(cleaned: str) -> PhysicsIntent | None:
     """
     if _STOPPING_CUE_RE.search(cleaned) is None:
         return None
-    speeds = _quantity_spans(cleaned, _VELOCITY_UNIT_PATTERN)
+    speeds = _quantity_spans(cleaned, VELOCITY_UNIT_PATTERN)
     times = _quantity_spans(cleaned, _SUVAT_TIME_UNITS)
     rates = _quantity_spans(cleaned, _ACCELERATION_UNITS)
     if len(speeds) != 1:

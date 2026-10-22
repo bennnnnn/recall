@@ -10,8 +10,8 @@ from sympy import Expr, Poly, Symbol
 from sympy.polys.polyerrors import PolynomialError
 
 from app.modules.math.schemas import GraphBlockSpec
-from app.modules.math.solve.latex_normalize import _normalize_latex_to_sympy
-from app.modules.math.solve.parse import MathServiceError, _parse_expression
+from app.modules.math.solve.latex_normalize import normalize_latex_to_sympy
+from app.modules.math.solve.parse import SolveServiceError, parse_expression
 
 
 def affine_inequality_graph_spec(
@@ -25,15 +25,15 @@ def affine_inequality_graph_spec(
     """
     if not expr or len(expr) > 256:
         return None
-    cleaned = _normalize_latex_to_sympy(expr).replace("\u2264", "<=").replace("\u2265", ">=")
+    cleaned = normalize_latex_to_sympy(expr).replace("\u2264", "<=").replace("\u2265", ">=")
     parts = re.split(r"(<=|>=|<|>)", cleaned)
     if len(parts) != 3:
         return None
     lhs, comparator, rhs = parts
     x, y = Symbol("x", real=True), Symbol("y", real=True)
     try:
-        left = _parse_expression(lhs, ["x", "y"], real=True, evaluate=False)
-        right = _parse_expression(rhs, ["x", "y"], real=True, evaluate=False)
+        left = parse_expression(lhs, ["x", "y"], real=True, evaluate=False)
+        right = parse_expression(rhs, ["x", "y"], real=True, evaluate=False)
         if not isinstance(left, Expr) or not isinstance(right, Expr):
             return None
         if left.free_symbols | right.free_symbols != {x, y}:
@@ -70,5 +70,5 @@ def affine_inequality_graph_spec(
             y_min=-10,
             y_max=10,
         )
-    except (MathServiceError, PolynomialError, TypeError, ValueError, OverflowError):
+    except (SolveServiceError, PolynomialError, TypeError, ValueError, OverflowError):
         return None

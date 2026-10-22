@@ -14,12 +14,12 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
-jest.mock("@/lib/cache/chatListCache", () => ({
+jest.mock("@/features/chat/model/chatListCache", () => ({
   getCachedChat: jest.fn(),
   peekCreatedChat: jest.fn(),
 }));
 
-jest.mock("@/lib/drawer", () => {
+jest.mock("@/features/chat/drawer/drawer", () => {
   let pending: string | null = null;
   return {
     getChatMutationRevision: () => mockRevision,
@@ -33,8 +33,8 @@ jest.mock("@/lib/drawer", () => {
 });
 
 import { api } from "@/lib/api";
-import { getCachedChat, peekCreatedChat } from "@/lib/cache/chatListCache";
-import { insertChatGlobal, patchChatGlobal, setChatTitleGenerating } from "@/lib/drawer";
+import { getCachedChat, peekCreatedChat } from "@/features/chat/model/chatListCache";
+import { insertChatGlobal, patchChatGlobal, setChatTitleGenerating } from "@/features/chat/drawer/drawer";
 
 const getChat = api.getChat as jest.Mock;
 const peekCreated = peekCreatedChat as jest.Mock;

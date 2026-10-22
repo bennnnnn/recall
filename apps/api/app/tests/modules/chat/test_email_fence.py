@@ -6,6 +6,7 @@ import pytest
 from app.models.schemas import EmailDraftUpdate
 from app.modules.chat.email_fence import format_email_fence_body, rewrite_first_email_fence
 from app.modules.chat.service import ChatsError, update_message_email
+from app.tests.fakes import redis_mock
 
 
 def test_email_draft_update_treats_blank_to_as_missing() -> None:
@@ -40,7 +41,7 @@ def test_rewrite_first_email_fence_leaves_later_fences() -> None:
 @pytest.mark.asyncio
 async def test_update_message_email_rewrites_assistant_fence() -> None:
     session = AsyncMock()
-    redis = AsyncMock()
+    redis = redis_mock()
     user = MagicMock()
     chat_id = uuid4()
     message_id = uuid4()

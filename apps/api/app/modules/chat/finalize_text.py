@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.modules.chat.finalize_subjects import fallback_text
+from app.modules.chat.mermaid_sanitize import sanitize_mermaid_fences
 from app.modules.chat.presentation import drop_orphan_leading_answer, present_assistant_markdown
 from app.modules.chat.prose_normalizer import (
     normalize_prose_artifacts,
@@ -18,7 +19,6 @@ from app.modules.chat.prose_normalizer import (
 )
 from app.modules.images.answer_photo import strip_photo_fences
 from app.services.md_fence_scan import close_unclosed_fences
-from app.services.mermaid_sanitize import sanitize_mermaid_fences
 from app.services.places_fence import sanitize_places_fences
 from app.services.time_context import (
     correct_weekday_dates,

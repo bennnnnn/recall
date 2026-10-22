@@ -7,6 +7,7 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
 from app.core.config import Settings
+from app.core.redis_counters import incr_with_ttl
 from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.modules.billing.entitlements import allowance
@@ -146,9 +147,7 @@ async def reserve_usage(
         return True
     key = _usage_key(user_id, utc_today())
     try:
-        new_total = await redis.incrby(key, requested)
-        if new_total == requested:
-            await redis.expire(key, DAILY_TTL)
+        new_total = await incr_with_ttl(redis, key, requested, DAILY_TTL)
         if new_total > daily_limit:
             # Roll back the over-limit reservation. If this incrby fails
             # (Redis blip after the first succeeded), the user would be
@@ -196,9 +195,7 @@ async def record_usage(
     daily_limit: int | None = None,
 ) -> int:
     key = _usage_key(user_id, utc_today())
-    new_total = await redis.incrby(key, tokens)
-    if new_total == tokens:
-        await redis.expire(key, DAILY_TTL)
+    new_total = await incr_with_ttl(redis, key, tokens, DAILY_TTL)
     if new_total < 0:
         await floor_counter(redis, key)
         new_total = 0

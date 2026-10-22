@@ -14,7 +14,14 @@ import {
   stripRedundantDollarWrap,
 } from "@/lib/math/fenceRetag";
 import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
-import { readFenceMarker, readFenceMarkerLoose } from "@/lib/mdFenceScan";
+import {
+  closesFence,
+  fenceAfterLine,
+  fencedLines,
+  readFenceMarker,
+  readFenceMarkerLoose,
+  type OpenFence,
+} from "@/lib/mdFenceScan";
 import { isStructuredFenceLang } from "@/lib/richBlocks";
 
 /**
@@ -147,16 +154,10 @@ function stripUnpairedTrailingTicks(line: string): string {
  */
 export function unwrapProseMathBackticks(content: string): string {
   const lines = content.split("\n");
+  const fenced = fencedLines(content);
   const out: string[] = [];
-  let inFence = false;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (/^```/.test(trimmed)) {
-      inFence = !inFence;
-      out.push(line);
-      continue;
-    }
-    if (inFence) {
+  for (const [index, line] of lines.entries()) {
+    if (fenced[index]) {
       out.push(line);
       continue;
     }
@@ -181,39 +182,31 @@ export function unwrapProseMathBackticks(content: string): string {
 export function liftMathFencesOutOfLists(content: string): string {
   const lines = content.split("\n");
   const out: string[] = [];
-  let inFence: "math" | "other" | null = null;
+  let open: { fence: OpenFence; lifted: boolean } | null = null;
   for (const line of lines) {
-    const trimmed = line.trim();
-    const open = trimmed.match(/^```([a-zA-Z][\w-]*)\s*$/);
-    if (inFence == null) {
-      if (open && shouldLiftFenceOutOfList(open[1]!)) {
+    if (open == null) {
+      const fence = fenceAfterLine(null, line, true);
+      const lang = fence ? (readFenceMarkerLoose(line)?.info ?? "") : "";
+      if (fence && /^[a-zA-Z][\w-]*$/.test(lang) && shouldLiftFenceOutOfList(lang)) {
         if (out.length > 0 && out[out.length - 1] !== "") out.push("");
-        out.push("```" + open[1]!.toLowerCase());
-        inFence = "math";
+        out.push("```" + lang.toLowerCase());
+        open = { fence, lifted: true };
         continue;
       }
-      if (open) {
-        inFence = "other";
-        out.push(line);
-        continue;
-      }
+      if (fence) open = { fence, lifted: false };
       out.push(line);
       continue;
     }
-    if (/^```$/.test(trimmed)) {
-      out.push(inFence === "math" ? "```" : line);
-      if (inFence === "math") out.push("");
-      inFence = null;
+    if (fenceAfterLine(open.fence, line, true) == null) {
+      out.push(open.lifted ? "```" : line);
+      if (open.lifted) out.push("");
+      open = null;
       continue;
     }
     // When the fence opener was lifted to column 0, strip the original list
     // indent from body lines too — otherwise CommonMark treats 4+ space-
     // indented body lines as indented code blocks, not fence content.
-    if (inFence === "math") {
-      out.push(trimmed);
-      continue;
-    }
-    out.push(line);
+    out.push(open.lifted ? line.trim() : line);
   }
   return out.join("\n");
 }
@@ -227,24 +220,11 @@ export function liftMathFencesOutOfLists(content: string): string {
 export function dedentMisindentedMarkdownSteps(content: string): string {
   const lines = content.split("\n");
   const out: string[] = [];
-  let open: { char: "`" | "~"; len: number } | null = null;
+  let open: OpenFence | null = null;
   for (const line of lines) {
-    if (open) {
-      out.push(line);
-      const closer = readFenceMarkerLoose(line);
-      if (
-        closer &&
-        closer.char === open.char &&
-        closer.len >= open.len &&
-        closer.info === ""
-      ) {
-        open = null;
-      }
-      continue;
-    }
-    const marker = readFenceMarkerLoose(line);
-    if (marker && !marker.info.includes("|")) {
-      open = { char: marker.char, len: marker.len };
+    const before = open;
+    open = fenceAfterLine(open, line, true);
+    if (before || open) {
       out.push(line);
       continue;
     }
@@ -259,9 +239,9 @@ export function dedentMisindentedMarkdownSteps(content: string): string {
 
 const INLINE_MATH_FENCE_INFO = /^(math|latex|tex)?$/i;
 
-function isFenceCloser(line: string, open: { char: "`" | "~"; len: number }): boolean {
-  const m = readFenceMarker(line);
-  return Boolean(m && m.char === open.char && m.len >= open.len && !m.info);
+function isFenceCloser(line: string, open: OpenFence): boolean {
+  const marker = readFenceMarker(line);
+  return Boolean(marker && closesFence(marker, open));
 }
 
 function appendInlineMath(out: string[], latex: string): void {

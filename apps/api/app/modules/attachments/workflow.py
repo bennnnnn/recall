@@ -10,13 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.redis import get_redis_client
+from app.exceptions import DomainError
 from app.gateways.storage_gateway import (
     LocalStorageGateway,
     StorageUnavailableError,
     get_storage_gateway,
 )
 from app.models.orm import Attachment, User
-from app.models.schemas import AttachmentListItemOut, AttachmentListOut, AttachmentOut
+from app.models.schemas.page import Page
 from app.modules.attachments import chunks_repository as chunks_repo
 from app.modules.attachments import repository as attachments_repo
 from app.modules.attachments.content import (
@@ -27,20 +28,18 @@ from app.modules.attachments.content import (
 from app.modules.attachments.content_types import bytes_match_claimed, is_image_content_type
 from app.modules.attachments.lifecycle import delete_storage_keys, enqueue_failed_storage_deletes
 from app.modules.attachments.markers import strip_attachment_from_content
-from app.modules.attachments.quota import has_current_upload_reservation
+from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
+from app.modules.attachments.schemas import AttachmentListItemOut, AttachmentOut
 from app.modules.attachments.thumbnails import thumbnail_bytes, thumbnail_edge
 from app.modules.attachments.upload import AttachmentUploadError, cancel_pending_upload
-from app.repositories import messages as messages_repo
+from app.modules.chat import history as chat_history
 from app.services.quota import counters
 
 logger = logging.getLogger(__name__)
 
 
-class AttachmentWorkflowError(Exception):
-    def __init__(self, status_code: int, detail: str) -> None:
-        super().__init__(detail)
-        self.status_code = status_code
-        self.detail = detail
+class AttachmentWorkflowError(DomainError):
+    """An attachment read, upload or delete refusal."""
 
 
 @dataclass(frozen=True)
@@ -51,12 +50,12 @@ class FileAccess:
     body: bytes | None = None
 
 
-async def _refund_image(
+async def _refund_upload(
     user: User,
     row: Attachment,
 ) -> None:
-    if is_image_content_type(row.content_type) and has_current_upload_reservation(row):
-        await counters.refund("image_upload", get_redis_client(), user.id)
+    if has_current_upload_reservation(row):
+        await counters.refund(upload_counter(row.content_type), get_redis_client(), user.id)
 
 
 async def _verified_row(
@@ -66,12 +65,17 @@ async def _verified_row(
     attachment_id: UUID,
 ):
     row = await attachments_repo.get_by_id(session, attachment_id, user.id)
+    # End the read before any storage I/O: a thumbnail (R2 reads, a resize queued two at
+    # a time, an R2 write) held this pooled connection idle in transaction throughout.
+    await session.commit()
     if row is None:
-        raise AttachmentWorkflowError(404, "Not found")
+        raise AttachmentWorkflowError("Not found", status_code=404)
     gateway = get_storage_gateway(settings)
     if row.verified_at is None:
         if isinstance(gateway, LocalStorageGateway):
-            raise AttachmentWorkflowError(409, "The attachment has not finished uploading")
+            raise AttachmentWorkflowError(
+                "The attachment has not finished uploading", status_code=409
+            )
         error, removed = await ensure_verified_or_purge(
             gateway,
             session,
@@ -82,8 +86,8 @@ async def _verified_row(
         )
         if error:
             if removed:
-                await _refund_image(user, row)
-            raise AttachmentWorkflowError(400, error)
+                await _refund_upload(user, row)
+            raise AttachmentWorkflowError(error, status_code=400)
     return row, gateway
 
 
@@ -96,16 +100,17 @@ async def list_attachments(
     source: str | None,
     q: str | None,
     limit: int,
-    offset: int,
-) -> AttachmentListOut:
-    rows, has_more = await attachments_repo.list_for_gallery(
+    cursor: str | None,
+) -> Page[AttachmentListItemOut]:
+    # The cursor follows the last row read, a row dropped below for a lost file included.
+    rows, next_cursor = await attachments_repo.list_for_gallery(
         session,
         user.id,
         category=category,
         source=source,
         q=q,
         limit=limit,
-        offset=offset,
+        cursor=cursor,
     )
     message_ids = [row.message_id for row in rows if row.message_id is not None]
     chat_meta = await attachments_repo.chat_meta_for_message_ids(session, message_ids)
@@ -137,7 +142,7 @@ async def list_attachments(
                 chat_title=chat_title,
             )
         )
-    return AttachmentListOut(items=items, has_more=has_more)
+    return Page(items=items, next_cursor=next_cursor)
 
 
 async def delete_attachment(
@@ -149,12 +154,14 @@ async def delete_attachment(
     """Cancel a pending upload or remove a Library item (bytes, row, chat marker)."""
     row = await attachments_repo.get_by_id(session, attachment_id, user.id)
     if row is None:
-        raise AttachmentWorkflowError(404, "Not found")
+        raise AttachmentWorkflowError("Not found", status_code=404)
     if row.message_id is None:
         try:
             await cancel_pending_upload(session, settings, user=user, attachment_id=attachment_id)
         except AttachmentUploadError as exc:
-            raise AttachmentWorkflowError(exc.status_code, exc.detail) from exc
+            raise AttachmentWorkflowError(
+                exc.message, status_code=exc.status_code, code=exc.code
+            ) from exc
         return
     await _delete_library_attachment(session, settings, user, row)
 
@@ -168,7 +175,7 @@ async def _delete_library_attachment(
     message_id = row.message_id
     storage_key = row.storage_key
     if message_id is not None:
-        message = await messages_repo.get_for_user(session, message_id, user.id)
+        message = await chat_history.message_for_user(session, message_id, user.id)
         if message is not None:
             next_content = strip_attachment_from_content(message.content, row.id)
             if next_content:
@@ -208,12 +215,12 @@ async def store_local_upload(
 ) -> None:
     row = await attachments_repo.get_by_id(session, attachment_id, user.id, for_update=True)
     if row is None:
-        raise AttachmentWorkflowError(404, "Not found")
+        raise AttachmentWorkflowError("Not found", status_code=404)
     gateway = get_storage_gateway(settings)
     if not isinstance(gateway, LocalStorageGateway):
-        raise AttachmentWorkflowError(501, "Use presigned upload")
+        raise AttachmentWorkflowError("Use presigned upload", status_code=501)
     if row.message_id is not None:
-        raise AttachmentWorkflowError(409, "Attachment is already linked to a message")
+        raise AttachmentWorkflowError("Attachment is already linked to a message", status_code=409)
 
     cap = min(MAX_ATTACHMENT_SIZE, max(row.size_bytes, 0))
     detail: str | None = None
@@ -232,7 +239,7 @@ async def store_local_upload(
     if row.verified_at is not None:
         if detail is None and await gateway.read_bytes(row.storage_key) == data:
             return
-        raise AttachmentWorkflowError(409, "The attachment has already been uploaded")
+        raise AttachmentWorkflowError("The attachment has already been uploaded", status_code=409)
     if detail:
         removed = await purge_invalid_upload(
             gateway,
@@ -241,8 +248,8 @@ async def store_local_upload(
             storage_key=row.storage_key,
         )
         if removed:
-            await _refund_image(user, row)
-        raise AttachmentWorkflowError(400, detail)
+            await _refund_upload(user, row)
+        raise AttachmentWorkflowError(detail, status_code=400)
 
     await gateway.write_bytes(row.storage_key, data)
     await attachments_repo.mark_verified(session, row.id)
@@ -255,12 +262,15 @@ async def confirm_upload(
     attachment_id: UUID,
 ) -> None:
     row = await attachments_repo.get_by_id(session, attachment_id, user.id)
+    await session.commit()  # the check below downloads the whole object: no transaction open
     if row is None:
-        raise AttachmentWorkflowError(404, "Not found")
+        raise AttachmentWorkflowError("Not found", status_code=404)
     gateway = get_storage_gateway(settings)
     if isinstance(gateway, LocalStorageGateway):
         if row.verified_at is None:
-            raise AttachmentWorkflowError(409, "The attachment has not finished uploading")
+            raise AttachmentWorkflowError(
+                "The attachment has not finished uploading", status_code=409
+            )
         return
     error, removed = await ensure_verified_or_purge(
         gateway,
@@ -272,8 +282,8 @@ async def confirm_upload(
     )
     if error:
         if removed:
-            await _refund_image(user, row)
-        raise AttachmentWorkflowError(400, error)
+            await _refund_upload(user, row)
+        raise AttachmentWorkflowError(error, status_code=400)
 
 
 async def _drop_row_for_missing_file(session: AsyncSession, attachment_id: UUID) -> None:
@@ -301,10 +311,10 @@ async def get_file_access(
             raise
         except Exception:
             logger.exception("Thumbnail resize failed attachment_id=%s", attachment_id)
-            raise AttachmentWorkflowError(422, "Could not resize image") from None
+            raise AttachmentWorkflowError("Could not resize image", status_code=422) from None
         if thumb is None:
             await _drop_row_for_missing_file(session, row.id)
-            raise AttachmentWorkflowError(404, "File missing")
+            raise AttachmentWorkflowError("File missing", status_code=404)
         body, content_type = thumb
         return FileAccess(content_type=content_type, body=body)
     if isinstance(gateway, LocalStorageGateway):
@@ -316,7 +326,7 @@ async def get_file_access(
                 row.storage_key,
             )
             await _drop_row_for_missing_file(session, row.id)
-            raise AttachmentWorkflowError(404, "File missing")
+            raise AttachmentWorkflowError("File missing", status_code=404)
         return FileAccess(content_type=row.content_type, local_path=path)
     return FileAccess(
         content_type=row.content_type,
@@ -341,7 +351,7 @@ async def get_download(
         try:
             indexed = await chunks_repo.has_chunks_for_attachment(session, user.id, attachment_id)
         except Exception:
-            logger.debug("attachment indexed probe failed id=%s", attachment_id, exc_info=True)
+            logger.warning("attachment indexed probe failed id=%s", attachment_id, exc_info=True)
             indexed = False
     return AttachmentOut(
         id=row.id,

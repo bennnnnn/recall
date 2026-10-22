@@ -6,13 +6,7 @@ import { formatAssistantMathExpr } from "@/lib/math/formatInput";
 jest.mock("@/components/LinkPreviewCard", () => ({
   LinkPreviewCard: "LinkPreviewCard",
 }));
-jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  selectionAsync: jest.fn(),
-}));
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
   writeAsStringAsync: jest.fn(),
@@ -64,7 +58,6 @@ describe("MarkdownContent math rendering", () => {
     expect(getByText(/Since there are four triangles/)).toBeOnTheScreen();
     expect(queryByText(/\\sqrt|\\frac|\\text/)).toBeNull();
   });
-
 
   it("renders the exact H22 explanation fractions without invented pi parentheses", async () => {
     const { getByText, getAllByText, getAllByTestId, queryByText } = await render(

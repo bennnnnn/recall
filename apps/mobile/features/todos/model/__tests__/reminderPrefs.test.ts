@@ -35,7 +35,7 @@ describe("reminderPrefs", () => {
     (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
   });
 
-  it("clearReminderLeadPrefs deletes the file and legacy Keychain key", async () => {
+  it("clearReminderLeadPrefs deletes the file", async () => {
     getInfoAsync.mockResolvedValue({ exists: true });
     readAsStringAsync.mockResolvedValue("15");
     await getReminderLeadMinutes();
@@ -44,7 +44,6 @@ describe("reminderPrefs", () => {
     expect(deleteAsync).toHaveBeenCalledWith("file:///docs/recall.reminder-lead-minutes.txt", {
       idempotent: true,
     });
-    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("reminder_lead_minutes");
 
     getInfoAsync.mockResolvedValue({ exists: false });
     await expect(getReminderLeadMinutes()).resolves.toBe(10);
@@ -59,13 +58,9 @@ describe("reminderPrefs", () => {
     expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
   });
 
-  it("migrates a legacy Keychain lead time onto the filesystem", async () => {
-    (SecureStore.getItemAsync as jest.Mock).mockResolvedValue("15");
-    await expect(getReminderLeadMinutes()).resolves.toBe(15);
-    expect(writeAsStringAsync).toHaveBeenCalledWith(
-      "file:///docs/recall.reminder-lead-minutes.txt",
-      "15",
-    );
+  it("reads the default, not the Keychain, when no file exists (DEAD-07)", async () => {
+    await expect(getReminderLeadMinutes()).resolves.toBe(10);
+    expect(SecureStore.getItemAsync).not.toHaveBeenCalled();
   });
 });
 

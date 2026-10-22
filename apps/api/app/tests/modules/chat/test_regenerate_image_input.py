@@ -21,6 +21,7 @@ from app.modules.chat.turn_prep.context import (
 )
 from app.modules.chat.turn_prep.regenerate_vision import inject_regenerated_image_content
 from app.modules.chat.turn_prep.request import ClientGeoContext
+from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import FakeSessionCM, turn_deps
 
 _MODULE = "app.modules.chat.turn_prep.regenerate_vision"
@@ -120,7 +121,7 @@ async def test_unavailable_current_image_gets_honest_note_without_fabricated_vis
     messages = [{"role": "user", "content": "Solve this image."}]
     result, _lookup, storage, *_ = await _inject(messages, [uid], rows)
     assert not result
-    assert "not available to look at again" in messages[-1]["content"]
+    assert "not available to look at again" in messages[-1]["content"]  # safety phrase
     assert "Do not guess" in messages[-1]["content"]
     if kind != "unreadable":
         storage.assert_not_called()
@@ -165,7 +166,7 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
     )
     if with_image:
         caption += f"\n\n[Image: /attachments/{uid}/file]"
-    last_user = SimpleNamespace(id=uuid4(), content=caption)
+    last_user = SimpleNamespace(id=uuid4(), role="user", content=caption)
     previous = SimpleNamespace(
         id=uuid4(), role="assistant", content="Original successful response", model="free-chat"
     )
@@ -187,7 +188,6 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
             ],
             stats=PromptStats(),
             instant_reply=None,
-            search_sources=[],
             local_places=False,
             max_out=100,
             fallback_models=[],
@@ -205,12 +205,12 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
         session_factory=FakeSessionCM,
         users={"get_by_id": AsyncMock(return_value=user)},
         chats={"get_by_id": AsyncMock(return_value=chat)},
+        # The window regenerate reads once: the user's line, then the reply to replace.
         messages={
-            "get_last": AsyncMock(return_value=previous),
-            "get_last_user": AsyncMock(return_value=last_user),
+            "list_recent": AsyncMock(return_value=[last_user, previous]),
             "count_for_chat": AsyncMock(return_value=2),
         },
-        plan={"resolve_regenerate_model": lambda *_args: "free-chat"},
+        model_choice={"resolve_regenerate_model": lambda *_args: "free-chat"},
         quota={"daily_limit_for_user": lambda *_args: 10000},
     )
     lookup = AsyncMock(return_value=[_row(uid)])
@@ -219,10 +219,6 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
     with (
         patch(f"{entry}.turn_resources", resources),
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
-        patch(
-            "app.modules.chat.turn_load._classify_turn_mode",
-            AsyncMock(return_value=MagicMock()),
-        ),
         patch(
             "app.modules.chat.turn_intercepts.try_image_lookup_for_turn",
             AsyncMock(return_value=False),
@@ -241,7 +237,7 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
         result = [
             token
             async for token in stream_entry.stream_regenerate_response(
-                deps, AsyncMock(), _SETTINGS, user_id=owner, chat_id=chat_id
+                deps, redis_mock(), _SETTINGS, user_id=owner, chat_id=chat_id
             )
         ]
     assert result == ["Regenerated answer"]

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.modules.physics.display import latex_factor
-from app.modules.physics.solvers.common import si_factor
+from app.modules.physics.solvers.si import si_factor
 from app.modules.physics.working_steps import answer_parts, carried_to_answer
 
 

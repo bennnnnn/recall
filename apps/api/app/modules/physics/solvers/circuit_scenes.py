@@ -15,7 +15,7 @@ from app.modules.physics.schemas import (
     CircuitSpec,
     SimulationBlockSpec,
 )
-from app.modules.physics.solvers.common import _RESISTOR_KEY_RE
+from app.modules.physics.solvers.resistor_network import RESISTOR_KEY_RE
 
 _SUBSCRIPTS = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
 
@@ -130,7 +130,7 @@ def circuit_scene(op: str, p: dict[str, float], answer: float) -> list[Simulatio
 
 
 def _network(op: str, p: dict[str, float], total: float) -> list[SimulationBlockSpec]:
-    keys = sorted(key for key in p if _RESISTOR_KEY_RE.fullmatch(key))
+    keys = sorted(key for key in p if RESISTOR_KEY_RE.fullmatch(key))
     series = op == "series_resistance"
     if len(keys) < 2 or len(keys) > (6 if series else 4):
         return []

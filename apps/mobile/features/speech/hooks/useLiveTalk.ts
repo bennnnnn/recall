@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from "react";
 import { AppState, BackHandler, Linking } from "react-native";
 
 import { useDrawer } from "@/contexts/DrawerContext";
@@ -26,11 +34,24 @@ import {
 } from "@/features/speech/model/realtimeVoice";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { confirmDialog } from "@/ui/overlay/dialogs";
-import type { ChatTurnHost } from "@/features/chat/model/turnHost";
 
-type Options = ChatTurnHost & {
+/**
+ * What live talk takes from the chat screen it runs on: the chat a turn lands in and
+ * how its bubbles show. Speech owns this shape, so it never imports the chat feature
+ * (code-health audit ARCH-10).
+ */
+type Options = {
+  token: string | null;
+  chatId: string | null;
+  /** The open chat's id, or a new chat made the open one; null when none could be made. */
+  ensureChatId: () => Promise<string | null>;
+  setMessages: Dispatch<SetStateAction<Message[]>>;
+  isOffline: boolean;
   onUpgrade: () => void;
+  onScrollToLatest: () => void;
+  newMessageCountRef: MutableRefObject<number>;
   onFirstReply: (chatId?: string | null) => void;
+  t: (key: string) => string;
 };
 
 type CompletedTurn = {
@@ -46,12 +67,8 @@ const REALTIME_TRANSCRIPT_GRACE_MS = 350;
 export function useLiveTalk({
   token,
   chatId,
-  setChatId,
-  setChatTitle,
+  ensureChatId,
   setMessages,
-  draft,
-  router,
-  selectedModel,
   isOffline,
   onUpgrade,
   onScrollToLatest,
@@ -108,25 +125,6 @@ export function useLiveTalk({
     },
     [feedback, onUpgrade, t],
   );
-
-  const { creatingRef, prepareDraftChat, skipLoadForChatIdRef, draftChatIdRef, setDraftChatId } = draft;
-  const ensureChatId = useCallback(async (): Promise<string | null> => {
-    if (chatId) return chatId;
-    creatingRef.current = true;
-    try {
-      const id = await prepareDraftChat(selectedModel);
-      if (!id) return null;
-      skipLoadForChatIdRef.current = id;
-      setChatTitle(null);
-      setChatId(id);
-      draftChatIdRef.current = null;
-      setDraftChatId(null);
-      router.setParams({ chatId: id });
-      return id;
-    } finally {
-      creatingRef.current = false;
-    }
-  }, [chatId, creatingRef, prepareDraftChat, skipLoadForChatIdRef, draftChatIdRef, setDraftChatId, router, selectedModel, setChatId, setChatTitle]);
 
   const applyEvent = useCallback(
     (event: LiveTalkSpeakEvent, turnId = turnIdRef.current) => {

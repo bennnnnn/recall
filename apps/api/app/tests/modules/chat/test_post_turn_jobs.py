@@ -9,10 +9,11 @@ from uuid import UUID
 
 import pytest
 
+from app.core import jobs
 from app.core.config import Settings
+from app.core.jobs import worker
 from app.modules.chat import post_turn
 from app.modules.chat.turn_prep import StreamContext
-from app.tests.modules.chat.chat_test_support import FakeSessionCM
 
 _USER = UUID(int=1)
 _CHAT = UUID(int=2)
@@ -44,21 +45,12 @@ async def _enqueued(ctx: StreamContext, *, spend_capped: bool = False) -> list[t
     async def enqueue(_redis: object, name: str, payload: dict[str, str], dedupe_key=None):
         calls.append((name, dedupe_key))
 
-    settings = Settings(
-        reminder_proposals_enabled=False,
-        history_compression_enabled=True,
-        chat_history_rag_enabled=True,
-    )
+    settings = Settings(history_compression_enabled=True, chat_history_rag_enabled=True)
     with (
         patch("app.core.jobs.enqueue", enqueue),
         patch(
             "app.modules.chat.post_turn.quota_service.global_spend_exceeded",
             AsyncMock(return_value=spend_capped),
-        ),
-        patch("app.modules.chat.post_turn.SessionLocal", FakeSessionCM),
-        patch(
-            "app.modules.todos.build_todo_sync_transcript",
-            AsyncMock(return_value="User: earlier\nAssistant: earlier"),
         ),
     ):
         await post_turn.enqueue_post_turn_jobs(AsyncMock(), settings, ctx, _REPLY)
@@ -67,16 +59,37 @@ async def _enqueued(ctx: StreamContext, *, spend_capped: bool = False) -> list[t
 
 @pytest.mark.asyncio
 async def test_post_turn_jobs_enqueue_in_declared_order() -> None:
-    assert await _enqueued(_turn()) == [
+    enqueued = await _enqueued(_turn())
+    compress = enqueued[3][1]
+    assert compress.startswith(f"compress:{_CHAT}:")
+    assert enqueued == [
         ("memory", f"memory:{_ASSISTANT}"),
         ("lesson_progress", f"lesson_progress:{_ASSISTANT}"),
-        ("todos", f"todosync:{_CHAT}:{_ASSISTANT}"),
         ("topic", f"topic:{_CHAT}"),
-        ("compress", f"compress:{_CHAT}"),
+        ("compress", compress),
         # A turn's documents are not here: persist_user_turn queues them when the
         # user's message commits (test_turn_prep_persist.py).
         ("message_index", f"message_index:{_ASSISTANT}"),
     ]
+
+
+@pytest.mark.asyncio
+async def test_a_chat_is_compressed_again_after_its_first_run(fake_redis) -> None:
+    # Turn 1's run folds nothing. A fixed key then marked compress done for 24 h, so the
+    # later run with messages to fold was acknowledged without running.
+    keys = [dict(await _enqueued(_turn()))["compress"] for _ in range(2)]
+    runs: list[str] = []
+
+    async def compress(_settings: Settings, _payload: dict[str, Any]) -> None:
+        runs.append("ran")
+
+    jobs.register("compress-each-turn", compress)
+    await worker._ensure_group(fake_redis)
+    for key in keys:
+        fields = {"type": "compress-each-turn", "payload": "{}", "dedupe_key": key}
+        entry = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
+        await worker._process_entries(fake_redis, Settings(), [(entry, fields)])
+    assert runs == ["ran", "ran"]
 
 
 @pytest.mark.asyncio

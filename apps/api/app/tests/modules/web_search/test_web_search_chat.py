@@ -4,13 +4,14 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat import chats_repository, messages_repository
 from app.modules.chat.prompt_builder import build_prompt_messages
+from app.modules.web_search.formatting import WEB_SEARCH_HINT
 
 
 @pytest.mark.asyncio
 async def test_build_prompt_includes_web_search_hint():
     user = MagicMock()
-    user.response_style = "balanced"
     user.memory_enabled = True
     user.locale = "en"
     user.timezone = "UTC"
@@ -19,19 +20,20 @@ async def test_build_prompt_includes_web_search_hint():
 
     with (
         patch(
-            "app.modules.memory.get_memory_block",
+            "app.modules.memory.retrieval.get_memory_block",
             AsyncMock(return_value=""),
         ),
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch.object(messages_repository, "list_recent", return_value=[]),
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
-        patch(
-            "app.repositories.chats.get_by_id",
+        patch.object(
+            chats_repository,
+            "get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
         messages = await build_prompt_messages(user, uuid4(), Settings())
 
-    assert "Web search results" in messages[0]["content"]
+    assert WEB_SEARCH_HINT in messages[0]["content"]

@@ -39,10 +39,6 @@ jest.mock("@/lib/theme", () => {
   return { ...actual, useTheme: () => actual.lightTheme };
 });
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
 jest.mock("@/lib/skiaAvailability", () => ({
   isSkiaAvailable: () => mockSkiaAvailable,
 }));

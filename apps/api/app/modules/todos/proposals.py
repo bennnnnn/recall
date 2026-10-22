@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import UUID, uuid4
@@ -22,16 +23,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.timezone import resolve_timezone
+from app.exceptions import DomainError
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.models import TodoItem
 from app.modules.todos.recurrence import next_recurring_due
 from app.modules.todos.write_log import PlannedWrite
-from app.repositories import messages as messages_repo
+from app.services.md_fence_scan import map_fence_blocks, strip_closed_fences
 
 logger = logging.getLogger(__name__)
 
 PROPOSAL_TTL_SECONDS = 24 * 60 * 60
 FENCE_LANG = "reminder_proposal"
-_FENCE_RE = re.compile(r"```reminder_proposal[ \t]*\n(.*?)\n?```", re.DOTALL)
 _MESSAGE_SCAN_LIMIT = 30
 # Only these row fields are ever written from a stored proposal.
 _WRITABLE = frozenset(
@@ -52,11 +54,8 @@ _TIMES = frozenset({"due_at", "notification_sent_at", "email_sent_at"})
 CardAction = Literal["add", "complete", "uncheck", "delete", "set_due", "clear_due", "move"]
 
 
-class ProposalError(Exception):
-    def __init__(self, detail: str, *, status_code: int = 400) -> None:
-        super().__init__(detail)
-        self.detail = detail
-        self.status_code = status_code
+class ProposalError(DomainError):
+    """A reminder card that can no longer be confirmed."""
 
 
 class CardItem(BaseModel):
@@ -201,7 +200,23 @@ def _upcoming(fields: dict[str, Any], user_timezone: str | None) -> dict[str, An
     return {**fields, "due_at": next_recurring_due(due, rule, now=now, timezone=user_timezone)}
 
 
-async def _apply(session: AsyncSession, user_id: UUID, stored: _Stored) -> None:
+@dataclass(frozen=True)
+class ConfirmedProposal:
+    """What a tap saved: the card's lines, and the rows it wrote and deleted, which the
+    phone applies instead of reading its whole list again (code-health audit NET-16).
+    ``rows`` is None for a tap that found the card already saved (another device)."""
+
+    items: list[CardItem]
+    rows: list[TodoItem] | None = None
+    deleted_ids: list[UUID] = field(default_factory=list)
+
+
+async def _apply(
+    session: AsyncSession, user_id: UUID, stored: _Stored
+) -> tuple[list[UUID], list[UUID]]:
+    """Make the writes; the ids written and the ids deleted."""
+    written: list[UUID] = []
+    deleted: list[UUID] = []
     for write in stored.writes:
         fields = _row_fields(write.fields)
         if write.kind == "create":
@@ -210,7 +225,10 @@ async def _apply(session: AsyncSession, user_id: UUID, stored: _Stored) -> None:
                 # A savepoint, so an open reminder already saved at that time
                 # (a second device, an earlier tap) skips only this row.
                 async with session.begin_nested():
-                    await todos_repo.create(session, user_id=user_id, commit=False, **fields)
+                    created = await todos_repo.create(
+                        session, user_id=user_id, commit=False, **fields
+                    )
+                written.append(created.id)
             except IntegrityError as exc:
                 if not todos_repo.is_open_content_due_conflict(exc):
                     raise
@@ -219,40 +237,45 @@ async def _apply(session: AsyncSession, user_id: UUID, stored: _Stored) -> None:
         if write.kind == "delete":
             if row is not None:
                 await todos_repo.delete_by_id(session, write.todo_id, user_id, commit=False)
+                deleted.append(write.todo_id)
             continue
         if row is None:
             raise ProposalError(f"{write.title} is no longer in your to-dos.", status_code=409)
         if "due_at" in fields:
             fields = _upcoming(fields, stored.user_timezone)
         await todos_repo.update(session, row, commit=False, **fields)
+        written.append(row.id)
     await session.commit()
+    return written, deleted
 
 
 def mark_saved(content: str, proposal_id: str) -> str:
     """The reply with this proposal's card marked saved."""
 
-    def replace(match: re.Match[str]) -> str:
+    def replace(body: str) -> str:
         try:
-            card = json.loads(match.group(1))
+            card = json.loads(body)
         except json.JSONDecodeError:
-            return match.group(0)
-        if not isinstance(card, dict) or card.get("proposal_id") != proposal_id:
-            return match.group(0)
-        card["status"] = "saved"
-        return f"```{FENCE_LANG}\n{json.dumps(card, ensure_ascii=False)}\n```"
+            card = None
+        if isinstance(card, dict) and card.get("proposal_id") == proposal_id:
+            card["status"] = "saved"
+            body = json.dumps(card, ensure_ascii=False)
+        return f"```{FENCE_LANG}\n{body.strip()}\n```"
 
-    return _FENCE_RE.sub(replace, content)
+    return map_fence_blocks(content, lambda _fence, body: replace(body), lang=FENCE_LANG)
 
 
 async def _mark_saved_in_chat(session: AsyncSession, chat_id: UUID, proposal_id: str) -> None:
-    messages = await messages_repo.list_recent(session, chat_id, limit=_MESSAGE_SCAN_LIMIT)
-    for message in messages:
-        if message.role != "assistant" or proposal_id not in (message.content or ""):
-            continue
-        updated = mark_saved(message.content, proposal_id)
-        if updated != message.content:
-            await messages_repo.update_content(session, message, updated)
-        return
+    # Here, not at the top: chat's service loads the stream's modules, which read to-dos.
+    from app.modules.chat import service as chat_service
+
+    await chat_service.edit_recent_reply(
+        session,
+        chat_id,
+        containing=proposal_id,
+        edit=lambda content: mark_saved(content, proposal_id),
+        scan=_MESSAGE_SCAN_LIMIT,
+    )
 
 
 async def confirm_proposal(
@@ -261,7 +284,7 @@ async def confirm_proposal(
     *,
     user_id: UUID,
     proposal_id: str,
-) -> list[CardItem]:
+) -> ConfirmedProposal:
     """Make the card's writes. A second tap returns the same items."""
     key = _key(user_id, proposal_id)
     lock_key = f"{key}:confirm"
@@ -272,14 +295,16 @@ async def confirm_proposal(
         if raw is None:
             saved = await redis.get(_saved_key(user_id, proposal_id))
             if saved is not None:
-                return [CardItem.model_validate(item) for item in json.loads(saved)]
+                return ConfirmedProposal(
+                    items=[CardItem.model_validate(item) for item in json.loads(saved)]
+                )
             raise ProposalError("This expired. Ask again.", status_code=410)
         try:
             stored = _Stored.model_validate_json(raw)
         except ValidationError as exc:
             raise ProposalError("This expired. Ask again.", status_code=410) from exc
         try:
-            await _apply(session, user_id, stored)
+            written, deleted = await _apply(session, user_id, stored)
         except ProposalError:
             await session.rollback()
             raise
@@ -288,6 +313,7 @@ async def confirm_proposal(
             # Nothing was saved: the same card can be tapped again.
             await redis.set(key, raw, ex=PROPOSAL_TTL_SECONDS)
             raise
+        rows = await todos_repo.list_by_ids(session, user_id, written)
         items_json = json.dumps([item.model_dump(mode="json") for item in stored.items])
         await redis.set(_saved_key(user_id, proposal_id), items_json, ex=PROPOSAL_TTL_SECONDS)
         try:
@@ -295,10 +321,7 @@ async def confirm_proposal(
         except Exception:
             await session.rollback()
             logger.exception("Could not mark reminder card saved proposal_id=%s", proposal_id)
-        from app.modules.home import service as home_service
-
-        await home_service.invalidate_home_cache(user_id)
-        return stored.items
+        return ConfirmedProposal(items=stored.items, rows=rows, deleted_ids=deleted)
     finally:
         try:
             await redis.delete(lock_key)
@@ -310,10 +333,10 @@ def strip_cards(text: str) -> str:
     """Drop cards from model output: only the server writes one, with a stored id."""
     if f"```{FENCE_LANG}" not in text:
         return text
-    return re.sub(r"\n{3,}", "\n\n", _FENCE_RE.sub("", text)).strip()
+    return re.sub(r"\n{3,}", "\n\n", strip_closed_fences(text, FENCE_LANG)).strip()
 
 
-def cards_as_text(content: str) -> str:
+def reminder_cards_as_text(content: str) -> str:
     """A past reply's cards as the app's result lines, for the model's history.
 
     The model never sees card JSON it could copy. A card not yet tapped says so:
@@ -323,9 +346,9 @@ def cards_as_text(content: str) -> str:
         return content
     from app.modules.todos.reminder_writes import result_prefix
 
-    def replace(match: re.Match[str]) -> str:
+    def replace(body: str) -> str:
         try:
-            card = json.loads(match.group(1))
+            card = json.loads(body)
             items = [CardItem.model_validate(item) for item in card.get("items", [])]
         except (json.JSONDecodeError, ValidationError, AttributeError):
             return ""
@@ -339,7 +362,7 @@ def cards_as_text(content: str) -> str:
             return text
         return f"Card offered, not yet tapped — {text}"
 
-    return _FENCE_RE.sub(replace, content)
+    return map_fence_blocks(content, lambda _fence, body: replace(body), lang=FENCE_LANG)
 
 
 def is_card_line(line: str, writes: list[PlannedWrite]) -> bool:

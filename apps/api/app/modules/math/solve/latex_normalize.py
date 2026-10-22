@@ -1,6 +1,6 @@
 """LaTeX and school shorthand rewritten as SymPy text.
 
-``_normalize_latex_to_sympy`` runs every rewrite, the Unicode glyphs of ``unicode_normalize.py``
+``normalize_latex_to_sympy`` runs every rewrite, the Unicode glyphs of ``unicode_normalize.py``
 included, so pasted, OCR and math-keyboard homework can pass the safe-character gate in
 ``parse.py``.
 """
@@ -352,7 +352,7 @@ def _rewrite_log_bases(s: str) -> str:
     return s
 
 
-def _normalize_latex_to_sympy(expr: str) -> str:
+def normalize_latex_to_sympy(expr: str) -> str:
     """Expand common LaTeX so pasted/OCR homework can pass the safe-char gate."""
     s = _strip_math_dollar_delims(expr)
     s = _rewrite_inverse_functions(s)

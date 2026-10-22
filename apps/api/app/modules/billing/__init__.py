@@ -6,7 +6,21 @@ The package stays lazy so importing it does not load RevenueCat or the webhook.
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.modules.billing.entitlements import (
+        allowance as allowance,
+    )
+    from app.modules.billing.entitlements import (
+        can_use as can_use,
+    )
+    from app.modules.billing.entitlements import (
+        is_paid as is_paid,
+    )
+    from app.modules.billing.entitlements import (
+        plan_of as plan_of,
+    )
 
 _EXPORTS = {
     "allowance": ("entitlements", "allowance"),

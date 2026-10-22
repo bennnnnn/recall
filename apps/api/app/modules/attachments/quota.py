@@ -3,6 +3,15 @@
 from datetime import UTC, datetime
 
 from app.models.orm import Attachment
+from app.modules.attachments.content_types import IMAGE_CONTENT_TYPES, normalize_content_type
+from app.services.quota.counters import CounterName
+
+
+def upload_counter(content_type: str) -> CounterName:
+    """The daily slot an upload of this type takes: images and documents count apart."""
+    if normalize_content_type(content_type) in IMAGE_CONTENT_TYPES:
+        return "image_upload"
+    return "document_upload"
 
 
 def has_current_upload_reservation(row: Attachment) -> bool:

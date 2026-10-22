@@ -14,15 +14,34 @@ import json
 import logging
 import re
 
+from app.modules.physics.part_answers import land_part_cards
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.services.answer_check import asks_without_answering, correction_line, stated_verdict
-from app.services.answer_fence import land_answer_card
-from app.services.md_fence_scan import close_unclosed_fences, strip_closed_fences
-from app.services.part_answers import land_part_cards
+from app.services.answer_fence import ANSWER_FENCE_LANGS, land_answer_card
+from app.services.md_fence_scan import (
+    block_end,
+    close_unclosed_fences,
+    iter_fences,
+    strip_closed_fences,
+)
 from app.services.solving import VerifiedPhysicsBlock
 from app.services.workout import as_formula_heading
 
 logger = logging.getLogger(__name__)
+
+_PICTURE_FENCE_LANGS = ("graph", "simulation", "geometry")
+_DIAGRAM_FAILED = "*Could not render that diagram.*"
+
+
+def _has_picture_fence(content: str) -> bool:
+    return any(fence.lang in _PICTURE_FENCE_LANGS for fence in iter_fences(content))
+
+
+def _without_model_result_fences(content: str) -> str:
+    """The prose: the model's own cards and pictures go; only the solver's ship."""
+    for language in (*ANSWER_FENCE_LANGS, *_PICTURE_FENCE_LANGS):
+        content = strip_closed_fences(content, language)
+    return content.strip()
 
 
 def _canonical_specs(verified: VerifiedPhysicsBlock) -> list[dict[str, object]]:
@@ -44,16 +63,11 @@ def validate_physics_fences(
     ``correct`` adds a correction line above the card when the prose states a
     different final value; the server never corrects its own (instant) text.
     """
-    had_visual_fence = any(
-        f"```{language}" in content for language in ("graph", "simulation", "geometry")
-    )
-    cleaned = content
-    for language in ("answer", "result", "final", "graph", "simulation", "geometry"):
-        cleaned = strip_closed_fences(cleaned, language)
-    cleaned = cleaned.strip()
+    had_visual_fence = _has_picture_fence(content)
+    cleaned = _without_model_result_fences(content)
     if verified is None:
         if had_visual_fence and not cleaned:
-            return "*Could not render that diagram.*"
+            return _DIAGRAM_FAILED
         return cleaned
     extras: list[str] = []
     answer = (verified.display_answer or verified.canonical_answer or "").strip()
@@ -87,10 +101,9 @@ def _with_pictures(text: str, pictures: list[str]) -> str:
     """The solve's pictures under its last answer card when another request's section
     follows it ("…, and also tell me a joke": the graph under the joke read as the
     joke's); otherwise at the end, as ever."""
-    card = text.rfind("```answer")
-    closer = text.find("\n```", card + 3) if card >= 0 else -1
-    if pictures and closer >= 0 and _LATER_SECTION.search(text, closer):
-        end = closer + len("\n```")
+    cards = [fence for fence in iter_fences(text) if fence.closed and fence.lang == "answer"]
+    end = block_end(text, cards[-1]) if cards else -1
+    if pictures and end >= 0 and _LATER_SECTION.search(text, end):
         return f"{text[:end]}\n\n" + "\n\n".join(pictures) + text[end:]
     return "\n\n".join(part for part in (text, *pictures) if part).strip()
 
@@ -126,11 +139,5 @@ def replace_unclosed_physics_fences_safe(
         return validate_physics_fences(closed, verified=verified)
     except Exception:
         logger.warning("physics fence finalization failed; keeping prose only", exc_info=True)
-        cleaned = closed
-        had_visual = any(
-            f"```{language}" in cleaned for language in ("graph", "simulation", "geometry")
-        )
-        for language in ("answer", "result", "final", "graph", "simulation", "geometry"):
-            cleaned = strip_closed_fences(cleaned, language)
-        cleaned = cleaned.strip()
-        return cleaned or ("*Could not render that diagram.*" if had_visual else "")
+        cleaned = _without_model_result_fences(closed)
+        return cleaned or (_DIAGRAM_FAILED if _has_picture_fence(closed) else "")

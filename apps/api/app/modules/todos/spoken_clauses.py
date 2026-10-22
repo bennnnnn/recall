@@ -65,9 +65,9 @@ async def pending_add(session: AsyncSession, chat_id: UUID, current: str) -> Spo
 
     In "call mom at 5pm and pay rent on friday", that is the rent.
     """
-    from app.repositories import messages as messages_repo
+    from app.modules.chat import history as chat_history
 
-    rows = await messages_repo.list_recent(session, chat_id, limit=8)
+    rows = await chat_history.recent_messages(session, chat_id, limit=8)
     skipped_current = False
     for message in reversed(rows):
         if getattr(message, "role", None) != "user":

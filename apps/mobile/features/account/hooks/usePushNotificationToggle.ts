@@ -87,7 +87,7 @@ export function usePushNotificationToggle({
         return;
       }
 
-      const granted = await ensureNotificationPermission(token);
+      const granted = await ensureNotificationPermission();
       if (!sameAccount()) return;
       if (!granted) {
         await setDenied();

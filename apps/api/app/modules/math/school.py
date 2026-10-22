@@ -39,7 +39,7 @@ from sympy import (
 )
 
 from app.modules.math.schemas import MathExprResult
-from app.modules.math.solve import MathServiceError, _parse_expression
+from app.modules.math.solve import SolveServiceError, parse_expression
 
 logger = logging.getLogger(__name__)
 
@@ -59,16 +59,16 @@ def _defined_value_latex(value: Any) -> str:
     if value is nan or value is zoo or value.has(nan, zoo):
         return UNDEFINED_LATEX
     if value.has(oo, -oo):
-        raise MathServiceError("result is not a finite number")
+        raise SolveServiceError("result is not a finite number")
     return format_verified_latex(value)
 
 
 def evaluate_arithmetic(expr: str) -> str:
-    parsed = _parse_expression(expr, ["x"])
+    parsed = parse_expression(expr, ["x"])
     if isinstance(parsed, tuple):
-        raise MathServiceError("not a numeric arithmetic expression")
+        raise SolveServiceError("not a numeric arithmetic expression")
     if parsed.free_symbols:
-        raise MathServiceError("arithmetic expression still has variables")
+        raise SolveServiceError("arithmetic expression still has variables")
     return _defined_value_latex(simplify(parsed))
 
 
@@ -79,47 +79,47 @@ def percent_of(rate: float, base: float) -> str:
 
 def _format_school_number(value: float) -> str:
     if not math.isfinite(value):
-        raise MathServiceError("result is not a finite number")
+        raise SolveServiceError("result is not a finite number")
     return f"{value:.12g}"
 
 
 def percent_increase(base: float, rate: float) -> str:
     if not math.isfinite(base) or not math.isfinite(rate):
-        raise MathServiceError("percent change needs finite numbers")
+        raise SolveServiceError("percent change needs finite numbers")
     return _format_school_number(base * (1.0 + rate / 100.0))
 
 
 def percent_decrease(base: float, rate: float) -> str:
     if not math.isfinite(base) or not math.isfinite(rate):
-        raise MathServiceError("percent change needs finite numbers")
+        raise SolveServiceError("percent change needs finite numbers")
     return _format_school_number(base * (1.0 - rate / 100.0))
 
 
 def percent_is(part: float, whole: float) -> str:
     if not math.isfinite(part) or not math.isfinite(whole):
-        raise MathServiceError("percent-is needs finite numbers")
+        raise SolveServiceError("percent-is needs finite numbers")
     if whole == 0:
-        raise MathServiceError("cannot take a percent of zero")
+        raise SolveServiceError("cannot take a percent of zero")
     return _format_school_number((part / whole) * 100.0)
 
 
 def split_ratio(total: float, parts: list[float]) -> str:
     if not math.isfinite(total) or any(not math.isfinite(part) for part in parts):
-        raise MathServiceError("ratio split needs finite numbers")
+        raise SolveServiceError("ratio split needs finite numbers")
     if len(parts) < 2:
-        raise MathServiceError("ratio split needs at least two parts")
+        raise SolveServiceError("ratio split needs at least two parts")
     if any(part < 0 for part in parts):
-        raise MathServiceError("ratio parts cannot be negative")
+        raise SolveServiceError("ratio parts cannot be negative")
     weight = sum(parts)
     if weight <= 0:
-        raise MathServiceError("ratio parts must sum to more than zero")
+        raise SolveServiceError("ratio parts must sum to more than zero")
     shares = [total * part / weight for part in parts]
     return ":".join(_format_school_number(share) for share in shares)
 
 
 def _term_fraction(value: float) -> Fraction:
     if not math.isfinite(value):
-        raise MathServiceError("sequence terms must be finite")
+        raise SolveServiceError("sequence terms must be finite")
     return Fraction(str(value))
 
 
@@ -145,16 +145,16 @@ def _progression(
 def is_ap_or_gp(terms: list[float]) -> bool:
     try:
         return _progression(terms) is not None
-    except MathServiceError:
+    except SolveServiceError:
         return False
 
 
 def sequence_nth(terms: list[float], n: int) -> str:
     if n < 1:
-        raise MathServiceError("sequence index must be a positive term number")
+        raise SolveServiceError("sequence index must be a positive term number")
     kind = _progression(terms)
     if kind is None:
-        raise MathServiceError("list is not an arithmetic or geometric sequence")
+        raise SolveServiceError("list is not an arithmetic or geometric sequence")
     op, first, step = kind
     if op == "ap":
         value = first + (n - 1) * step
@@ -165,10 +165,10 @@ def sequence_nth(terms: list[float], n: int) -> str:
 
 def sequence_sum(terms: list[float], n: int) -> str:
     if n < 1:
-        raise MathServiceError("sequence length must be a positive term count")
+        raise SolveServiceError("sequence length must be a positive term count")
     kind = _progression(terms)
     if kind is None:
-        raise MathServiceError("list is not an arithmetic or geometric sequence")
+        raise SolveServiceError("list is not an arithmetic or geometric sequence")
     op, first, step = kind
     if op == "ap":
         value = n * (2 * first + (n - 1) * step) / 2
@@ -181,20 +181,20 @@ def sequence_sum(terms: list[float], n: int) -> str:
 
 def simple_interest(principal: float, rate: float, years: int) -> str:
     if not math.isfinite(principal) or not math.isfinite(rate) or years < 1:
-        raise MathServiceError("interest needs a finite principal, rate, and positive years")
+        raise SolveServiceError("interest needs a finite principal, rate, and positive years")
     return _format_school_number(principal * (rate / 100.0) * years)
 
 
 def compound_interest(principal: float, rate: float, years: int) -> str:
     if not math.isfinite(principal) or not math.isfinite(rate) or years < 1:
-        raise MathServiceError("interest needs a finite principal, rate, and positive years")
+        raise SolveServiceError("interest needs a finite principal, rate, and positive years")
     amount = principal * ((1.0 + rate / 100.0) ** years)
     return _format_school_number(amount - principal)
 
 
 def compound_amount(principal: float, rate: float, years: int) -> str:
     if not math.isfinite(principal) or not math.isfinite(rate) or years < 1:
-        raise MathServiceError("interest needs a finite principal, rate, and positive years")
+        raise SolveServiceError("interest needs a finite principal, rate, and positive years")
     return _format_school_number(principal * ((1.0 + rate / 100.0) ** years))
 
 
@@ -217,20 +217,20 @@ def set_difference(left: list[float], right: list[float]) -> str:
 
 def work_together(hours_a: float, hours_b: float) -> str:
     if hours_a <= 0 or hours_b <= 0:
-        raise MathServiceError("work-together needs two positive times")
+        raise SolveServiceError("work-together needs two positive times")
     return _format_school_number((hours_a * hours_b) / (hours_a + hours_b))
 
 
 def mixture_percent(vol_a: float, pct_a: float, vol_b: float, pct_b: float) -> str:
     total = vol_a + vol_b
     if vol_a < 0 or vol_b < 0 or total <= 0:
-        raise MathServiceError("mixture needs two non-negative volumes")
+        raise SolveServiceError("mixture needs two non-negative volumes")
     return _format_school_number((vol_a * pct_a + vol_b * pct_b) / total)
 
 
 def twice_as_many(total: float) -> str:
     if total <= 0:
-        raise MathServiceError("twice-as-many needs a positive total")
+        raise SolveServiceError("twice-as-many needs a positive total")
     small = total / 3.0
     large = 2.0 * total / 3.0
     return f"{_format_school_number(small)} and {_format_school_number(large)}"
@@ -241,8 +241,8 @@ def analyze_identity(lhs: str, rhs: str) -> tuple[bool, str | None, str | None]:
     from app.modules.math.solve.discrete import guess_variables
 
     names = list(dict.fromkeys([*guess_variables(f"{lhs} {rhs}"), "theta", "x", "y", "t"]))
-    left = _parse_expression(lhs, names, real=True)
-    right = _parse_expression(rhs, names, real=True)
+    left = parse_expression(lhs, names, real=True)
+    right = parse_expression(rhs, names, real=True)
     difference = simplify(trigsimp(expand_trig(expand(left - right))))
     if difference == 0:
         return True, None, None
@@ -281,7 +281,7 @@ def _fraction_set(values: list[float]) -> set[Fraction]:
 def simplify_ratio(a: float, b: float) -> str:
 
     if not math.isfinite(a) or not math.isfinite(b) or (a == 0 and b == 0):
-        raise MathServiceError("Ratio needs finite values that are not both zero")
+        raise SolveServiceError("Ratio needs finite values that are not both zero")
     left, right = Rational(str(a)), Rational(str(b))
     scale = ilcm(left.q, right.q)
     numerator, denominator = int(left * scale), int(right * scale)
@@ -292,7 +292,7 @@ def simplify_ratio(a: float, b: float) -> str:
 def evaluate_trig_degrees(func: str, degrees: float) -> str:
     table = {"sin": sin, "cos": cos, "tan": tan, "sec": sec, "csc": csc, "cot": cot}
     if func not in table:
-        raise MathServiceError(f"unsupported trig function {func}")
+        raise SolveServiceError(f"unsupported trig function {func}")
     return _defined_value_latex(simplify(table[func](nsimplify(degrees) * pi / 180)))
 
 
@@ -318,7 +318,7 @@ def vector_magnitude(vec: list[float]) -> str:
 
 def vector_dot(a: list[float], b: list[float]) -> str:
     if len(a) != len(b):
-        raise MathServiceError("dot product needs matching dimension")
+        raise SolveServiceError("dot product needs matching dimension")
     return f"{sum(x * y for x, y in zip(a, b, strict=True)):g}"
 
 
@@ -327,7 +327,7 @@ def vector_cross(a: list[float], b: list[float]) -> str:
         a = [a[0], a[1], 0.0]
         b = [b[0], b[1], 0.0]
     if len(a) != 3 or len(b) != 3:
-        raise MathServiceError("cross product needs 2D or 3D vectors")
+        raise SolveServiceError("cross product needs 2D or 3D vectors")
     cx = a[1] * b[2] - a[2] * b[1]
     cy = a[2] * b[0] - a[0] * b[2]
     cz = a[0] * b[1] - a[1] * b[0]
@@ -336,7 +336,7 @@ def vector_cross(a: list[float], b: list[float]) -> str:
 
 def binomial_pmf(n: int, k: int, p: float) -> str:
     if not (0 <= k <= n) or not (0.0 <= p <= 1.0):
-        raise MathServiceError("invalid binomial parameters")
+        raise SolveServiceError("invalid binomial parameters")
     coeff = int(factorial(n) / (factorial(k) * factorial(n - k)))
     value = coeff * (p**k) * ((1.0 - p) ** (n - k))
     return f"{value:g}"
@@ -344,15 +344,15 @@ def binomial_pmf(n: int, k: int, p: float) -> str:
 
 def expected_value(values: list[float], probs: list[float] | None) -> str:
     if not values:
-        raise MathServiceError("expected value needs data")
+        raise SolveServiceError("expected value needs data")
     if probs is None:
         return f"{sum(values) / len(values):g}"
     if len(probs) != len(values):
-        raise MathServiceError("values and probabilities must match")
+        raise SolveServiceError("values and probabilities must match")
     if any(probability < 0 or probability > 1 for probability in probs):
-        raise MathServiceError("probabilities must be between 0 and 1")
+        raise SolveServiceError("probabilities must be between 0 and 1")
     if not math.isclose(sum(probs), 1.0, rel_tol=0.0, abs_tol=1e-9):
-        raise MathServiceError("probabilities must sum to 1")
+        raise SolveServiceError("probabilities must sum to 1")
     return f"{sum(v * p for v, p in zip(values, probs, strict=True)):g}"
 
 
@@ -376,7 +376,7 @@ def _imaginary_unit_to_sympy(expr: str) -> str:
 
 
 def evaluate_complex(expr: str) -> str:
-    parsed = _parse_expression(_imaginary_unit_to_sympy(expr), ["x"])
+    parsed = parse_expression(_imaginary_unit_to_sympy(expr), ["x"])
     value = simplify(parsed)
     if not getattr(value, "free_symbols", None) and _defined_value_latex(value) == UNDEFINED_LATEX:
         return UNDEFINED_LATEX
@@ -391,9 +391,9 @@ def taylor_series(
     "cos x to 4 terms" means four non-zero terms (up to x^6), not order 3. A
     series about 0 is written in ascending powers, as textbooks write it.
     """
-    parsed = _parse_expression(expr, [variable])
+    parsed = parse_expression(expr, [variable])
     var = Symbol(variable)
-    pt = _parse_expression(point, [variable])
+    pt = parse_expression(point, [variable])
     out = series(parsed, var, pt, order + 1).removeO()
     if nonzero_terms is not None:
         for longer in range(nonzero_terms, 31):
@@ -407,7 +407,7 @@ def taylor_series(
 
 
 def partial_derivative(expr: str, variable: str) -> MathExprResult:
-    parsed = _parse_expression(expr, [variable])
+    parsed = parse_expression(expr, [variable])
     out = diff(parsed, Symbol(variable))
     tex = str(latex(out))
     return MathExprResult(result=tex, latex=tex, solved=True)
@@ -416,14 +416,14 @@ def partial_derivative(expr: str, variable: str) -> MathExprResult:
 def critical_points(expr: str, variable: str = "x") -> MathExprResult:
     """Solve ``f'(x) = 0`` for polynomial/elementary ``f``."""
     if not (expr or "").strip():
-        raise MathServiceError("could not find critical points")
+        raise SolveServiceError("could not find critical points")
     sym = Symbol(variable)
-    parsed = _parse_expression(expr, [variable])
+    parsed = parse_expression(expr, [variable])
     deriv = diff(parsed, sym)
     try:
         sols = solve(deriv, sym)
     except Exception as exc:
-        raise MathServiceError("could not find critical points") from exc
+        raise SolveServiceError("could not find critical points") from exc
     if not sols:
         tex = r"\emptyset"
     else:
@@ -432,7 +432,7 @@ def critical_points(expr: str, variable: str = "x") -> MathExprResult:
 
 
 def evaluate_trig_expr(expr: str) -> str:
-    parsed = _parse_expression(expr.replace("\u00b0", "*pi/180"), ["x"])
+    parsed = parse_expression(expr.replace("\u00b0", "*pi/180"), ["x"])
     if parsed.free_symbols:
-        raise MathServiceError("trig evaluation still has variables")
+        raise SolveServiceError("trig evaluation still has variables")
     return _defined_value_latex(simplify(parsed))

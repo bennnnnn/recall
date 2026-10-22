@@ -1,48 +1,192 @@
 """Public attachment operations for other product modules.
 
-Other modules may import this file. They may not import the repository or
-the extractor directly.
+Other modules may import this file. They may not import the repository or the
+extractor directly, and they do not compose its writes: each operation here says what
+it does to the user's files (code-health audit ARCH-05). One that takes the caller's
+session and says "no commit" joins the caller's unit of work, which commits it or rolls
+it back.
 """
 
 from __future__ import annotations
 
-import functools
-from collections.abc import Awaitable, Callable
-from types import ModuleType
-from typing import Any
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Literal
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.attachment_limits import MAX_ATTACHMENT_SIZE as MAX_ATTACHMENT_SIZE
-from app.modules.attachments import chunks_repository as _chunks_repo
+from app.core.config import Settings
+from app.models.orm import Attachment
 from app.modules.attachments import jobs as _jobs
 from app.modules.attachments import lifecycle as _lifecycle
-from app.modules.attachments import repository as attachments_repo
+from app.modules.attachments import rag as _rag
+from app.modules.attachments import repository as _repo
 from app.modules.attachments.content_types import bytes_match_claimed as bytes_match_claimed
 from app.modules.attachments.content_types import is_image_content_type as is_image_content_type
 from app.modules.attachments.content_types import (
     normalize_content_type as normalize_content_type,
 )
+from app.modules.attachments.models import ORIGINAL_FILENAME_MAX_CHARS
 
 
-def _call_through(module: ModuleType, name: str) -> Callable[..., Awaitable[Any]]:
-    """Look ``module.name`` up on every call, so a patch on the owning file applies."""
-    target = getattr(module, name)
+@dataclass(frozen=True, slots=True)
+class StoredImage:
+    """Image bytes the server put in storage and checked itself."""
 
-    @functools.wraps(target)
-    async def call(*args: Any, **kwargs: Any) -> Any:
-        return await getattr(module, name)(*args, **kwargs)
+    attachment_id: UUID
+    storage_key: str
+    content_type: str
+    size_bytes: int
 
-    return call
+
+@dataclass(frozen=True, slots=True)
+class ReferenceCopy:
+    """A private copy of a reference image, its bytes already stored under ``storage_key``."""
+
+    source: Attachment
+    attachment_id: UUID
+    storage_key: str
 
 
-create_pending = _call_through(attachments_repo, "create_pending")
-enqueue_index_jobs = _call_through(_jobs, "enqueue_index_jobs")
-get_by_id = _call_through(attachments_repo, "get_by_id")
-get_by_ids = _call_through(attachments_repo, "get_by_ids")
-has_chunks_for_chat = _call_through(_chunks_repo, "has_chunks_for_chat")
-hide_from_gallery = _call_through(attachments_repo, "hide_from_gallery")
-insert_verified_clone = _call_through(attachments_repo, "insert_verified_clone")
-link_to_message = _call_through(attachments_repo, "link_to_message")
-list_for_message_ids = _call_through(attachments_repo, "list_for_message_ids")
-list_for_user = _call_through(attachments_repo, "list_for_user")
-mark_verified = _call_through(attachments_repo, "mark_verified")
-purge_attachments_for_user = _call_through(_lifecycle, "purge_attachments_for_user")
+async def add_server_images(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    images: Sequence[StoredImage],
+    source: Literal["generated", "search"],
+    label: str,
+    message_id: UUID | None = None,
+    in_library: bool = True,
+) -> None:
+    """Rows for images the server made or fetched; no commit.
+
+    They are verified at once, so ``/file`` never downloads them again to check, and with
+    ``message_id`` they are already on that message. ``label`` (the prompt or the search)
+    names them in the Library.
+    """
+    filename = label.replace("\n", " ").strip()[:ORIGINAL_FILENAME_MAX_CHARS] or None
+    for image in images:
+        await _repo.insert_verified(
+            session,
+            attachment_id=image.attachment_id,
+            user_id=user_id,
+            storage_key=image.storage_key,
+            content_type=image.content_type,
+            size_bytes=image.size_bytes,
+            source=source,
+            original_filename=filename,
+            library_visible=in_library,
+            message_id=message_id,
+        )
+
+
+async def add_reference_copies(
+    session: AsyncSession, *, message_id: UUID, copies: Sequence[ReferenceCopy]
+) -> None:
+    """Hidden copies of reference images on the user's message; no commit.
+
+    Each is its own row over its own bytes, so an edit or a regenerate still finds its
+    reference after the original is deleted.
+    """
+    for copy in copies:
+        await _repo.insert_verified_clone(
+            session,
+            src=copy.source,
+            new_id=copy.attachment_id,
+            storage_key=copy.storage_key,
+            message_id=message_id,
+        )
+
+
+async def claim_profile_photo(session: AsyncSession, attachment_id: UUID, user_id: UUID) -> bool:
+    """Take the user's upload for their profile photo; no commit.
+
+    Only a finished image upload that no message carries qualifies; it is locked and
+    leaves the Library. False when it does not qualify.
+    """
+    photo = await _repo.get_by_id(session, attachment_id, user_id, for_update=True)
+    if (
+        photo is None
+        or photo.verified_at is None
+        or photo.message_id is not None
+        or photo.source != "upload"
+        or not is_image_content_type(photo.content_type)
+        or not 0 < photo.size_bytes <= MAX_ATTACHMENT_SIZE
+    ):
+        return False
+    await _repo.hide_from_gallery(session, photo)
+    return True
+
+
+async def link_to_message(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    attachment_ids: list[UUID],
+    message_id: UUID,
+    commit: bool = True,
+) -> int:
+    """Join the user's attachments to the message just created; how many were joined."""
+    return await _repo.link_to_message(
+        session,
+        user_id=user_id,
+        attachment_ids=attachment_ids,
+        message_id=message_id,
+        commit=commit,
+    )
+
+
+async def mark_verified_many(session: AsyncSession, attachment_ids: list[UUID]) -> None:
+    """Record that these uploads' bytes matched their declared type and size; commits."""
+    await _repo.mark_verified_many(session, attachment_ids)
+
+
+async def get_by_ids(
+    session: AsyncSession, attachment_ids: list[UUID], user_id: UUID
+) -> list[Attachment]:
+    """The user's attachments among these ids, in no particular order."""
+    return await _repo.get_by_ids(session, attachment_ids, user_id)
+
+
+async def list_for_message_ids(session: AsyncSession, message_ids: list[UUID]) -> list[Attachment]:
+    """The attachments these messages carry."""
+    return await _repo.list_for_message_ids(session, message_ids)
+
+
+async def list_for_user(
+    session: AsyncSession, user_id: UUID, *, limit: int | None = None
+) -> list[Attachment]:
+    """Every attachment the user owns, sent or not, oldest first (the data export)."""
+    return await _repo.list_for_user(session, user_id, limit=limit)
+
+
+async def chat_has_document_chunks(user_id: UUID, chat_id: UUID) -> bool:
+    """Whether this chat has searchable document text."""
+    return await _rag.chat_has_document_chunks(user_id, chat_id)
+
+
+async def enqueue_index_jobs(
+    settings: Settings, *, user_id: UUID, chat_id: UUID, attachment_ids: list[str]
+) -> None:
+    """Index a turn's documents once its user message committed; never raises."""
+    await _jobs.enqueue_index_jobs(
+        settings, user_id=user_id, chat_id=chat_id, attachment_ids=attachment_ids
+    )
+
+
+async def purge_attachments_for_user(
+    session: AsyncSession, settings: Settings, user_id: UUID
+) -> int:
+    """Delete a deleted account's stored bytes, then their rows; how many were removed."""
+    return await _lifecycle.purge_attachments_for_user(session, settings, user_id)
+
+
+async def delete_user_rows(session: AsyncSession, user_id: UUID) -> None:
+    """The rows left of a deleted account's attachments; no commit (``account.lifecycle``).
+
+    ``purge_attachments_for_user`` deleted the bytes and their rows first; a row whose
+    bytes failed to delete goes here, its key already queued for the storage retry.
+    """
+    await _repo.delete_all_for_user(session, user_id)

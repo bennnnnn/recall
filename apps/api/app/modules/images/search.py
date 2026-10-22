@@ -1,6 +1,6 @@
 """Reference-photo lookup — search + SSRF-safe mirror + chat persistence.
 
-Separate product path from ``image_generation.py`` (AI creation). Finds a
+Separate product path from ``generation.py`` (AI creation). Finds a
 real photo via Tavily image search, mirrors the bytes into Recall's own
 storage (SSRF-safe fetch, size/type validated exactly like any other
 attachment upload), and attaches it to the chat as an ``[Image: …]`` marker
@@ -9,6 +9,7 @@ attachment upload), and attaches it to the chat as an ``[Image: …]`` marker
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from uuid import UUID
 
@@ -18,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
+from app.exceptions import DomainError
 from app.gateways import image_search_gateway, safe_fetch
 from app.gateways.storage_gateway import (
     StorageGateway,
@@ -25,15 +27,16 @@ from app.gateways.storage_gateway import (
     get_storage_gateway,
 )
 from app.models.orm import Message, User
-from app.modules.attachments import service as attachments_repo
+from app.modules.attachments import service as attachments_service
 from app.modules.attachments.service import (
     MAX_ATTACHMENT_SIZE,
+    StoredImage,
     bytes_match_claimed,
     is_image_content_type,
     normalize_content_type,
 )
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
+from app.modules.chat import history as chat_history
+from app.modules.chat import turn_record
 from app.services import quota as quota_service
 from app.services.quota import counters
 
@@ -52,13 +55,8 @@ _FETCH_HEADERS = {
 }
 
 
-class ImageSearchError(Exception):
-    """Domain failure for reference-photo lookup; router maps status_code → HTTP."""
-
-    def __init__(self, detail: str, *, status_code: int) -> None:
-        self.detail = detail
-        self.status_code = status_code
-        super().__init__(detail)
+class ImageSearchError(DomainError):
+    """A reference-photo lookup refusal."""
 
 
 async def _rollback_written_bytes(gateway: StorageGateway, storage_keys: list[str]) -> None:
@@ -115,20 +113,31 @@ async def _fetch_candidates(
     *,
     max_images: int,
 ) -> list[tuple[bytes, str]]:
+    """The first ``max_images`` usable photos, fetched side by side under one deadline.
+
+    One after another, a slow host used its whole 8 s before the next candidate was
+    tried, so an answer photo (which waits 6 s) went out empty even when the next
+    candidate would have arrived at once.
+    """
+    deadline = settings.image_search_fetch_timeout_seconds
     fetched: list[tuple[bytes, str]] = []
-    async with httpx.AsyncClient(
-        timeout=settings.image_search_fetch_timeout_seconds, follow_redirects=False
-    ) as client:
-        for hit in hits:
-            if len(fetched) >= max_images:
-                break
-            # One slow candidate gets the fetch timeout in all, then the next is tried.
-            result = await _fetch_one_image(
-                client, hit, deadline_seconds=settings.image_search_fetch_timeout_seconds
-            )
-            if result is not None:
-                fetched.append(result)
-    return fetched
+    async with safe_fetch.fetch_client(deadline) as client:
+        pending = {
+            asyncio.create_task(_fetch_one_image(client, hit, deadline_seconds=deadline))
+            for hit in hits
+        }
+        try:
+            async with asyncio.timeout(deadline):
+                while pending and len(fetched) < max_images:
+                    done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                    fetched.extend(found for task in done if (found := task.result()) is not None)
+        except TimeoutError:
+            logger.info("Reference-photo candidates ran past %ss", deadline)
+        finally:
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+    return fetched[:max_images]
 
 
 async def _find_photos(
@@ -146,46 +155,56 @@ async def _find_photos(
     return fetched
 
 
-async def _store_photos(
-    session: AsyncSession,
+async def _upload_photos(
     gateway: StorageGateway,
     user: User,
     fetched: list[tuple[bytes, str]],
     *,
-    label: str,
     written_keys: list[str],
-) -> list[UUID]:
-    """Write the photos and their pending attachment rows (not yet linked); no commit."""
-    attachment_ids: list[UUID] = []
+) -> list[StoredImage]:
+    """Write the photos' bytes to storage, with no database transaction open."""
+    stored: list[StoredImage] = []
     for data, content_type in fetched:
         presigned = await gateway.presign_upload(
             user_id=str(user.id),
             content_type=content_type,
             size_bytes=len(data),
         )
-        attachment_id = UUID(presigned.attachment_id)
         await gateway.write_bytes(presigned.storage_key, data)
         written_keys.append(presigned.storage_key)
-        await attachments_repo.create_pending(
-            session,
-            attachment_id=attachment_id,
-            user_id=user.id,
-            storage_key=presigned.storage_key,
-            content_type=content_type,
-            size_bytes=len(data),
-            source="search",
-            original_filename=(label.replace("\n", " ").strip()[:255] or None),
-            library_visible=False,
-            commit=False,
+        stored.append(
+            StoredImage(
+                attachment_id=UUID(presigned.attachment_id),
+                storage_key=presigned.storage_key,
+                content_type=content_type,
+                size_bytes=len(data),
+            )
         )
-        attachment_ids.append(attachment_id)
-    return attachment_ids
+    return stored
 
 
-async def _mark_verified(session: AsyncSession, attachment_ids: list[UUID]) -> None:
-    for attachment_id in attachment_ids:
-        # Bytes were fetched and validated here — skip /file re-download.
-        await attachments_repo.mark_verified(session, attachment_id, commit=False)
+async def _add_photo_rows(
+    session: AsyncSession,
+    user: User,
+    stored: list[StoredImage],
+    *,
+    label: str,
+    message_id: UUID | None,
+) -> None:
+    """The stored photos' rows, kept out of the Library; no commit.
+
+    Inserted after every upload finished: the R2 writes for photos two and three used
+    to run inside the transaction holding photo one's row.
+    """
+    await attachments_service.add_server_images(
+        session,
+        user_id=user.id,
+        images=stored,
+        source="search",
+        label=label,
+        message_id=message_id,
+        in_library=False,
+    )
 
 
 async def search_and_attach_for_chat(
@@ -207,7 +226,7 @@ async def search_and_attach_for_chat(
     with no DB session held.
     """
     if not settings.image_search_enabled:
-        raise ImageSearchError("Not available", status_code=404)
+        raise ImageSearchError("Not available", status_code=404, code="not_available")
     if not settings.attachments_enabled:
         raise ImageSearchError("Attachments are disabled", status_code=503)
 
@@ -216,7 +235,7 @@ async def search_and_attach_for_chat(
         raise ImageSearchError("Query is required", status_code=400)
 
     async with SessionLocal() as session:
-        chat = await chats_repo.get_by_id(session, chat_id, user.id)
+        chat = await chat_history.get_chat(session, chat_id, user.id)
         if chat is None:
             raise ImageSearchError("Chat not found", status_code=404)
 
@@ -229,12 +248,14 @@ async def search_and_attach_for_chat(
         raise ImageSearchError(
             quota_service.IMAGE_SEARCH_SPEND_CAP_MESSAGE,
             status_code=429,
+            code="spend_cap",
         )
     day = await counters.reserve("image_search", redis, user, settings)
     if not day:
         raise ImageSearchError(
             counters.limit_message("image_search", user),
             status_code=429,
+            code="daily_limit",
         )
 
     written_keys: list[str] = []
@@ -243,53 +264,38 @@ async def search_and_attach_for_chat(
         fetched = await _find_photos(
             settings, cleaned, max_images=settings.image_search_max_results
         )
+        stored = await _upload_photos(gateway, user, fetched, written_keys=written_keys)
         async with SessionLocal() as session:
-            attachment_ids = await _store_photos(
-                session, gateway, user, fetched, label=cleaned, written_keys=written_keys
-            )
-
+            prior_count = await turn_record.count_messages(session, chat_id)
             if create_user_message:
                 bubble = (user_message_content or f"{_USER_MESSAGE_PREFIX}{cleaned}").strip()
                 if not bubble:
                     bubble = f"{_USER_MESSAGE_PREFIX}{cleaned}"
-                user_message = await messages_repo.create(
-                    session,
-                    chat_id=chat_id,
-                    user_id=user.id,
-                    role="user",
-                    content=bubble,
-                    commit=False,
+                user_message = await turn_record.add_turn_message(
+                    session, chat_id=chat_id, user_id=user.id, role="user", content=bubble
                 )
             else:
-                existing = await messages_repo.get_last_user(session, chat_id)
+                existing = await chat_history.last_user_message(session, chat_id)
                 if existing is None:
                     raise ImageSearchError("No user message to attach image to", status_code=404)
                 user_message = existing
 
             markers = "\n".join(
-                f"[Image: /attachments/{attachment_id}/file]" for attachment_id in attachment_ids
+                f"[Image: /attachments/{photo.attachment_id}/file]" for photo in stored
             )
-            assistant_message = await messages_repo.create(
+            assistant_message = await turn_record.add_turn_message(
                 session,
                 chat_id=chat_id,
                 user_id=user.id,
                 role="assistant",
                 content=markers,
                 model=_IMAGE_SEARCH_MODEL_ALIAS,
-                commit=False,
             )
-            linked = await attachments_repo.link_to_message(
-                session,
-                user_id=user.id,
-                attachment_ids=attachment_ids,
-                message_id=assistant_message.id,
-                commit=False,
+            await _add_photo_rows(
+                session, user, stored, label=cleaned, message_id=assistant_message.id
             )
-            if linked != len(attachment_ids):
-                raise ImageSearchError("Could not link reference photo", status_code=500)
-            await _mark_verified(session, attachment_ids)
-            # Persist the turn atomically. If any link fails, session close
-            # rolls back rows before byte cleanup.
+            # Persist the turn atomically. If a write fails, session close rolls
+            # back rows before byte cleanup.
             await session.commit()
     except BaseException:
         # Any failure, an ImageSearchError or a cancellation too: drop the
@@ -302,7 +308,17 @@ async def search_and_attach_for_chat(
         await quota_service.record_global_spend(redis, quota_service.IMAGE_SEARCH_SPEND_USD)
     except Exception:
         logger.exception("record_global_spend failed after photo lookup")
-
+    if create_user_message:
+        # As a typed turn's: its title, memory and indexing (code-health audit ARCH-08).
+        await turn_record.finish_turn(
+            redis,
+            settings,
+            user=user,
+            chat_id=chat_id,
+            user_message=user_message.content,
+            assistant=assistant_message,
+            prior_count=prior_count,
+        )
     return user_message, assistant_message
 
 
@@ -329,11 +345,9 @@ async def photos_for_answer(settings: Settings, *, user: User, query: str) -> li
     written_keys: list[str] = []
     try:
         fetched = await _find_photos(settings, cleaned, max_images=1)
+        stored = await _upload_photos(gateway, user, fetched, written_keys=written_keys)
         async with SessionLocal() as session:
-            attachment_ids = await _store_photos(
-                session, gateway, user, fetched, label=cleaned, written_keys=written_keys
-            )
-            await _mark_verified(session, attachment_ids)
+            await _add_photo_rows(session, user, stored, label=cleaned, message_id=None)
             await session.commit()
     except ImageSearchError:
         await _rollback_written_bytes(gateway, written_keys)
@@ -353,4 +367,4 @@ async def photos_for_answer(settings: Settings, *, user: User, query: str) -> li
         await quota_service.record_global_spend(redis, quota_service.IMAGE_SEARCH_SPEND_USD)
     except Exception:
         logger.exception("record_global_spend failed after answer photo")
-    return attachment_ids
+    return [photo.attachment_id for photo in stored]

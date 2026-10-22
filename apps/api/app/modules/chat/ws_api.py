@@ -17,13 +17,13 @@ from pydantic import ValidationError
 from redis.asyncio import Redis
 from starlette.websockets import WebSocketState
 
-from app.core import access_tokens, chat_rate_limit, shutdown
+from app.core import access_tokens, chat_rate_limit, shutdown, user_cache
 from app.core.client_ip import client_ip_from_websocket
 from app.core.config import Settings, get_settings
+from app.core.log_context import bound_log_ids
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
-from app.exceptions import RedisUnavailableError
-from app.gateways.google_auth import GoogleAuthError
+from app.exceptions import AuthenticationError, RedisUnavailableError
 from app.models.schemas import ChatMessageRequest
 from app.modules.chat import stream_entry, turn_deps
 from app.modules.chat.stream_events import (
@@ -52,8 +52,6 @@ router = APIRouter(tags=["websocket"])
 _WS_MSG_WINDOW_SECONDS = 60
 _WS_CONNECT_RATE_LIMIT = 30
 _WS_HANDSHAKE_RATE_LIMIT = 60  # unauthenticated connects per IP per minute
-# Drop sockets that connect but never send the auth frame (resource leak).
-_WS_AUTH_TIMEOUT_SECONDS = 10.0
 _CHARGEABLE_WS_TYPES = frozenset({"message", "regenerate"})
 
 
@@ -197,6 +195,8 @@ async def _handle_message(
             settings,
             user_id=user_id,
             chat_id=chat_id,
+            # The turn checks the cached row is current before trusting it.
+            user=user_cache.cached_copy(user_id),
             content=request.content,
             model_alias=request.model,
             attachment_ids=request.attachment_ids,
@@ -236,9 +236,10 @@ async def _authenticate(
 ) -> tuple[UUID, str, str | None] | None:
     """The auth frame's user, token and time zone; None once the socket is refused."""
     try:
+        # A socket that connects and never sends the auth frame is dropped.
         auth_message = await asyncio.wait_for(
             websocket.receive_json(),
-            timeout=_WS_AUTH_TIMEOUT_SECONDS,
+            timeout=settings.ws_auth_timeout_seconds,
         )
         if not isinstance(auth_message, dict):
             await websocket.send_json({"type": "error", "message": "Unauthorized"})
@@ -269,7 +270,7 @@ async def _authenticate(
         # 1013 Try Again Later — client should back off, not treat as auth failure.
         await websocket.close(code=1013)
         return None
-    except (GoogleAuthError, json.JSONDecodeError, KeyError, TypeError, AttributeError):
+    except (AuthenticationError, json.JSONDecodeError, KeyError, TypeError, AttributeError):
         await safe_send_json(websocket, {"type": "error", "message": "Unauthorized"})
         await websocket.close()
         return None
@@ -302,7 +303,10 @@ async def chat_websocket(
         await websocket.close()
         return
 
-    with user_socket_slot(user_id, settings.ws_max_sockets_per_user) as admitted:
+    with (
+        bound_log_ids(user_id=user_id),
+        user_socket_slot(user_id, settings.ws_max_sockets_per_user) as admitted,
+    ):
         if not admitted:
             logger.warning("Chat socket cap reached user_id=%s chat_id=%s", user_id, chat_id)
             await close_quietly(websocket, WS_TOO_MANY_SOCKETS_CLOSE_CODE)
@@ -398,7 +402,7 @@ async def _dispatch(conn: _ChatSocket, payload: dict[str, Any]) -> bool:
         )
         await websocket.close(code=1013)
         return False
-    except GoogleAuthError:
+    except AuthenticationError:
         await safe_send_json(websocket, {"type": "error", "message": "Unauthorized"})
         await websocket.close(code=1008)
         return False

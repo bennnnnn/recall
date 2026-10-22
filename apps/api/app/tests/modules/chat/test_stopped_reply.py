@@ -42,7 +42,6 @@ def _deps() -> tuple[Any, MagicMock, MagicMock]:
 
     todos = MagicMock()
     todos.materialize_reminder_fences = AsyncMock(side_effect=_passthrough)
-    todos.transcript_implies_todo_sync = MagicMock(return_value=False)
     math_fence = MagicMock()
     math_fence.needs_math_fence_validate = MagicMock(return_value=True)
     math_fence.validate_math_fences_worker = MagicMock(
@@ -168,7 +167,7 @@ def _saved_text(finalize: AsyncMock) -> str:
     """The reply text the turn handed to the DB finalize."""
     call = finalize.await_args
     assert call is not None
-    return str(call.args[2])
+    return str(call.kwargs["assistant_text"])
 
 
 async def _stop_after_two_tokens(

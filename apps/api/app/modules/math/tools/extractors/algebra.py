@@ -327,11 +327,9 @@ def _extract_system_intent(cleaned: str) -> MathIntent | None:
     # it would certify whatever the values are.
     if all(already_solved(lhs, rhs) for lhs, rhs in eq_pairs) or lists_alternatives(cleaned):
         return None
-    # BUG FIX (most severe correctness bug found in the audit): this
-    # used to fall through to the single-equation branch below, which
-    # only ever looked at the FIRST clause and answered with the same
-    # "verified, do NOT recompute" confidence as a fully correct
-    # response — silently discarding every other equation in the system.
+    # A system is solved as a system: the single-equation branch below reads only the
+    # first clause, and would answer the others' question with full "verified"
+    # confidence while ignoring them.
     all_text = " ".join(f"{lhs} {rhs}" for lhs, rhs in eq_pairs)
     defined = [name for lhs, _ in eq_pairs if (name := math_solve.defined_variable(lhs))]
     variables = [*dict.fromkeys(defined), *math_solve.guess_variables(all_text)]

@@ -11,6 +11,8 @@ from fastapi.testclient import TestClient
 from app.core.db import Base
 from app.main import app
 
+from .boundary_support import served_paths
+
 REPO_ROOT = Path(__file__).resolve().parents[5]
 MOBILE_ROOT = REPO_ROOT / "apps" / "mobile"
 MIGRATION = REPO_ROOT / "apps" / "api" / "alembic" / "versions" / "0099_drop_learning.py"
@@ -40,7 +42,8 @@ def test_orm_metadata_has_no_learning_tables() -> None:
 
 
 def test_projects_http_routes_are_absent() -> None:
-    paths = {getattr(route, "path", "") for route in app.routes}
+    paths = served_paths()
+    assert "/chats" in paths  # the check sees the live routes
     assert not any(path == "/projects" or path.startswith("/projects/") for path in paths)
     client = TestClient(app)
     assert client.get("/projects").status_code == 404

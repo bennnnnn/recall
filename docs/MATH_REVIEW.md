@@ -60,7 +60,7 @@ Regression tests: `app/tests/modules/math/test_math_review_regressions.py` and
 | **Detected, unverified** | The math gate fires but no extractor matches, or SymPy declines | The model, told not to claim verification |
 | **Not math** | The gate misses | The model, with the general prompt and no math notation contract |
 
-Which model writes the reply (Auto, `services/routing.py`, `models/model_catalog.py`):
+Which model writes the reply (Auto, `modules/chat/model_routing/`, `models/model_catalog.py`):
 
 | Turn | Pro | Free |
 |---|---|---|
@@ -481,7 +481,7 @@ MT18.
 ```bash
 cd apps/api
 uv sync --frozen
-MATH_SOLVE_TIMEOUT_SECONDS=20 uv run pytest app/tests/modules/math -q \
+STEM_SOLVE_TIMEOUT_SECONDS=20 uv run pytest app/tests/modules/math -q \
   --cov=app/modules/math --cov-report=term          # 3525 passed, 88%
 ```
 

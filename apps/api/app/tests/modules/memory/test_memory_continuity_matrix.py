@@ -5,10 +5,14 @@ from datetime import UTC, datetime
 import pytest
 
 from app.core.config import Settings
+from app.gateways import litellm_gateway, mock_llm
 from app.models.orm import Memory
 from app.modules.chat.prompt_constants import writing_request_kind
-from app.modules.memory import is_memory_candidate, select_memories_semantic
 from app.modules.memory import llm as memory_llm
+from app.modules.memory.schemas import MemoryFactUpdateResult
+from app.modules.memory.selection import select_memories_semantic
+from app.modules.memory.text import is_memory_candidate
+from app.tests.modules.memory.scoring import scored
 
 CURRENT_EMPLOYER_QUERIES = [
     "I work at Uber but I want to move to Google",
@@ -159,8 +163,7 @@ def test_current_employer_remains_available_for_related_google_questions(query: 
     unrelated = _memory("fact", "Bini enjoys landscape photography", "[0,1]")
 
     selected = select_memories_semantic(
-        [current_job, unrelated],
-        [1.0, 0.0],
+        scored([current_job, unrelated], [1.0, 0.0]),
         settings,
         query_text=query,
         with_profile=True,
@@ -180,7 +183,9 @@ def test_job_and_city_stay_out_of_an_unrelated_question() -> None:
     concise = _memory("preference", "Bini prefers concise answers", "[0,1]")
 
     selected = select_memories_semantic(
-        [name, job, city, concise], [1.0, 0.0], settings, query_text="what should I cook tonight?"
+        scored([name, job, city, concise], [1.0, 0.0]),
+        settings,
+        query_text="what should I cook tonight?",
     )
 
     assert selected == [name, concise]
@@ -209,9 +214,9 @@ async def test_extractor_prompt_preserves_current_employer_when_target_is_aspira
         captured.update(kwargs)
         return None
 
-    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(mock_llm, "should_mock_llm", lambda _settings: False)
     monkeypatch.setattr(
-        memory_llm.litellm_gateway,
+        litellm_gateway,
         "complete_structured",
         fake_complete_structured,
     )
@@ -249,9 +254,9 @@ async def test_extractor_prompt_keeps_everyday_profile_facts_normal(
         captured.update(kwargs)
         return None
 
-    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(mock_llm, "should_mock_llm", lambda _settings: False)
     monkeypatch.setattr(
-        memory_llm.litellm_gateway,
+        litellm_gateway,
         "complete_structured",
         fake_complete_structured,
     )
@@ -268,9 +273,15 @@ async def test_extractor_prompt_keeps_everyday_profile_facts_normal(
     # Profile is not described as "identity", so job and place facts are not
     # labelled with the sensitive identity category and dropped.
     assert "own identity" not in system_prompt
-    assert "normal: name, job, employer, school, city, home country, languages" in system_prompt
-    assert "identity: gender identity, immigration status, or disability" in system_prompt
-    assert "building a dating app or a health tracker is a normal project fact" in system_prompt
+    assert (
+        "normal: name, job, employer, school, city, home country, languages" in system_prompt
+    )  # safety phrase
+    assert (
+        "identity: gender identity, immigration status, or disability" in system_prompt
+    )  # safety phrase
+    assert (
+        "building a dating app or a health tracker is a normal project fact" in system_prompt
+    )  # safety phrase
 
 
 @pytest.mark.asyncio
@@ -283,8 +294,8 @@ async def test_extractor_prompt_keeps_how_the_user_wants_to_be_taught(
         captured.update(kwargs)
         return None
 
-    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
-    monkeypatch.setattr(memory_llm.litellm_gateway, "complete_structured", fake_complete_structured)
+    monkeypatch.setattr(mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(litellm_gateway, "complete_structured", fake_complete_structured)
     preference = (
         "When teaching me, explain one concept at a time, use practical examples, and ask me "
         "to solve a short exercise before moving on."
@@ -315,8 +326,8 @@ async def test_extractor_prompt_lets_old_chats_only_fill_gaps(
         captured.update(kwargs)
         return None
 
-    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
-    monkeypatch.setattr(memory_llm.litellm_gateway, "complete_structured", fake_complete_structured)
+    monkeypatch.setattr(mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(litellm_gateway, "complete_structured", fake_complete_structured)
 
     await memory_llm.revise_memory_facts(
         Settings(), "User: I live in Paris", from_history=from_history
@@ -342,8 +353,8 @@ async def test_instruct_prompt_names_the_open_document_and_asks_for_a_reply(
         captured.update(kwargs)
         return None
 
-    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
-    monkeypatch.setattr(memory_llm.litellm_gateway, "complete_structured", fake_complete_structured)
+    monkeypatch.setattr(mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(litellm_gateway, "complete_structured", fake_complete_structured)
 
     await memory_llm.instruct_memory(
         Settings(),
@@ -365,9 +376,8 @@ async def test_instruct_prompt_names_the_open_document_and_asks_for_a_reply(
 
 
 def test_memory_op_salvage_keeps_the_reply() -> None:
-    from app.gateways.structured_completion import _parse_memory_facts_partial
 
-    parsed = _parse_memory_facts_partial(
+    parsed = MemoryFactUpdateResult.salvage_partial(
         {
             "ops": [
                 {"op": "add", "type": "fact", "text": "User likes tea", "confidence": 0.9},
@@ -380,6 +390,6 @@ def test_memory_op_salvage_keeps_the_reply() -> None:
     assert [op.text for op in parsed.ops] == ["User likes tea"]
     assert parsed.reply == "Saved that you like tea."
     # A reply alone is still an answer; nothing at all is a failure.
-    only_reply = _parse_memory_facts_partial({"ops": [], "reply": "Nothing to change."})
+    only_reply = MemoryFactUpdateResult.salvage_partial({"ops": [], "reply": "Nothing to change."})
     assert only_reply is not None and only_reply.reply == "Nothing to change."
-    assert _parse_memory_facts_partial({"ops": [{"op": "bad"}]}) is None
+    assert MemoryFactUpdateResult.salvage_partial({"ops": [{"op": "bad"}]}) is None

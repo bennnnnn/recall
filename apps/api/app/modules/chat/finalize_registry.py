@@ -178,13 +178,3 @@ async def wait_for_pending_finalize(
     logger.warning("Pending turn finalize marker still set after wait chat_id=%s", chat_id)
     if require_complete:
         raise ChatBusyError("Still saving the previous response. Please retry shortly.")
-
-
-def pending_finalize_count() -> int:
-    """Test/introspection helper."""
-    return len(_pending)
-
-
-def inflight_stream_count() -> int:
-    """Test/introspection helper."""
-    return len(_inflight)

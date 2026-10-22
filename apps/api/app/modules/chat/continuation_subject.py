@@ -11,9 +11,10 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
+from app.core.readings import reading
 from app.modules.chat.prompt_constants.routing import is_lightweight_chat_turn
 from app.modules.chat.prompt_constants.writing_kind import is_writing_deliverable_request
-from app.services.problem_followup import adjacent_problem
+from app.services.problem_followup import adjacent_problem, message_role_content
 from app.services.text_normalize import collapse_ws
 
 _MAX_CHARS = 80
@@ -142,7 +143,9 @@ _STATISTICS_CUES = (
     "sample mean",
     "variance",
 )
-_BIOLOGY_CUES = (
+# Biology has no solver: these name a biology line, for its presentation hint and its
+# follow-up questions.
+BIOLOGY_CUES = (
     "dilution",
     "punnett",
     "hardy-weinberg",
@@ -151,6 +154,8 @@ _BIOLOGY_CUES = (
     "enzyme kinetics",
     "michaelis",
     "population growth",
+    "photosynthesis",
+    "mitosis",
 )
 
 
@@ -197,36 +202,35 @@ def is_new_problem_request(text: str | None) -> bool:
 
 
 def classify_presentation_subject(text: str | None) -> str | None:
-    """Subject of this text, or None when it does not name one."""
+    """Subject of this text, or None when it does not name one.
+
+    Which STEM subject a line is, is ``detect_subject``'s alone: the prompt pack follows
+    the subject whose solver answers it. "h = 20t - 5t^2, find the maximum height" is
+    solved by maths and got physics' pack when this asked physics first (code-health
+    audit DUP-05). Statistics and biology have no solver: their cues name only a line no
+    solver claimed.
+    """
     if not text or not text.strip():
         return None
     from app.modules.chat.prompt_constants.coding import has_code_syntax
-    from app.modules.chemistry.request import is_chemistry_question
-    from app.modules.math.tools.prompt import needs_symbolic_math
-    from app.modules.physics.extract import needs_physics
+    from app.services.subject_solving import detect_subject
 
-    # Pasted code gets code ink, not the maths pack: `i <= 3` is a loop bound.
-    if has_code_syntax(text):
-        return None
-    if needs_physics(text):
-        return "physics"
-    if is_chemistry_question(text):
-        return "chemistry"
+    subject = detect_subject(text)
+    # Pasted code gets code ink: `i <= 3` is a loop bound, `variance` a variable.
+    if subject is not None or has_code_syntax(text):
+        return subject
     if _has_phrase(text, _STATISTICS_CUES):
         return "statistics"
-    if _has_digit(text) and _has_phrase(text, _BIOLOGY_CUES):
+    if _has_digit(text) and _has_phrase(text, BIOLOGY_CUES):
         return "biology"
-    if needs_symbolic_math(text):
-        return "math"
     return None
 
 
 def blocks_math_followup(text: str) -> bool:
     """Physics and chemistry problems are not replayed through the math solver."""
-    from app.modules.chemistry.request import is_chemistry_question
-    from app.modules.physics.extract import needs_physics
+    from app.services.subject_solving import detect_subject
 
-    return needs_physics(text) or is_chemistry_question(text)
+    return detect_subject(text) in {"physics", "chemistry"}
 
 
 def chemistry_working_followup_problem(query: str | None, recent: Sequence[Any]) -> str | None:
@@ -244,11 +248,25 @@ def chemistry_working_followup_problem(query: str | None, recent: Sequence[Any])
     return adjacent_problem(recent, is_chemistry_question)
 
 
+def exchange_pairs(messages: Sequence[Any]) -> tuple[tuple[str, str], ...]:
+    """The user and assistant lines of an exchange as ``(role, content)`` pairs."""
+    pairs: list[tuple[str, str]] = []
+    for message in messages:
+        role, content = message_role_content(message)
+        if role in {"user", "assistant"} and content is not None:
+            pairs.append((role, content))
+    return tuple(pairs)
+
+
+@reading(declined=None)
 def effective_presentation_subject(
     query: str | None,
     prior_messages: Sequence[tuple[str, str]] | None = None,
 ) -> str | None:
-    """Subject hints for this turn, including a pure continuation."""
+    """Subject hints for this turn, including a pure continuation.
+
+    A reading (``core/readings``): pass ``prior_messages`` as ``exchange_pairs`` gives it.
+    """
     if not query or not query.strip():
         return None
     own = classify_presentation_subject(query)

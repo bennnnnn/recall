@@ -1,3 +1,4 @@
+import { isAbortError } from "@/lib/api/abort";
 import { request } from "@/lib/api/client";
 import i18n from "@/lib/i18n";
 import { readRecordingBase64, speechUploadFromUri } from "@/lib/speech/voiceAudio";
@@ -95,7 +96,7 @@ export async function transcribeSpeech(
     if (!text) throw new Error("transcribe_empty");
     return text;
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
+    if (isAbortError(error)) {
       throw new Error("Transcription timed out. Check your connection.");
     }
     throw error;

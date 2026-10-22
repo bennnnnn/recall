@@ -11,7 +11,7 @@ from app.modules.physics.display import plain_number
 from app.modules.physics.givens import unit_dimension, unit_expression
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import PhysicsResult
-from app.modules.physics.solvers.common import QuantityResult
+from app.modules.physics.solvers.results import QuantityResult
 
 
 def _in_the_asked_unit(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsResult:

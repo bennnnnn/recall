@@ -13,11 +13,12 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.models import model_catalog
 from app.modules.chat.turn_prep.attachments import _AttachmentProcessResult
 from app.modules.chat.turn_prep.context import await_user_message_persist
 from app.modules.chat.turn_prep.persist import UserTurn, turn_model
 from app.modules.chat.turn_prep.vision import inject_turn_images
-from app.services import model_catalog
+from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import prompt_bundle
 
 _SETTINGS = Settings(attachments_enabled=True, mock_llm_enabled=True, openrouter_api_key="")
@@ -138,7 +139,7 @@ async def test_a_resent_photo_moves_the_turn_and_its_backups_to_image_readers() 
             content="and the colour?",
             model_alias=None,
             settings=_SETTINGS,
-            redis=AsyncMock(),
+            redis=redis_mock(),
             reserved_tokens=100,
             user=user,
             chat=_stand_in(id=uuid4()),

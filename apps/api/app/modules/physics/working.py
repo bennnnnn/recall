@@ -11,7 +11,7 @@ from dataclasses import replace
 from app.modules.physics.catalog import CATALOG, matching_variant
 from app.modules.physics.display import typeset_numbers
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import PhysicsResult
+from app.modules.physics.solvers.results import PhysicsResult
 from app.services.solving import SolveServiceError
 
 _DECIMAL_VALUE = re.compile(r"(?<![\d.])([+-]?\d+\.\d+)(?![\d.])")

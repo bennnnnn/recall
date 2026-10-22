@@ -11,28 +11,12 @@ from dataclasses import dataclass
 from typing import Literal
 
 from app.core.validation import LOCALE_NAMES
+from app.modules.account.model_words import brand_model, model_ids, tier_model
 from app.services.draft_fences import has_draft
 from app.services.response_tone import TONE_IDS
 
 # "memory" is a reset the chat proposes ("off" or "clear"); see settings_proposal.
 SettingsField = Literal["appearance", "default_model", "response_tone", "locale", "memory"]
-
-# Product aliases the composer / Settings use — not provider names.
-_MODEL_NICKNAMES: dict[str, str] = {
-    "auto": "auto",
-    "automatic": "auto",
-    "flash": "free-chat",
-    "free": "free-chat",
-    "fast": "free-chat",
-    "pro": "smart-chat",
-    "smart": "smart-chat",
-    "plus": "smart-chat",
-    "gpt": "gpt-6-luna",
-    "chatgpt": "gpt-6-luna",
-    "qwen": "qwen-3.7-flash",
-}
-
-_MODEL_IDS = frozenset({"auto", "free-chat", "smart-chat", "gpt-6-luna", "qwen-3.7-flash"})
 
 _TONE_NICKNAMES: dict[str, str] = {
     "funny": "funny",
@@ -203,9 +187,13 @@ def _has_settings_noun(tokens: list[str]) -> bool:
 
 
 # "Change the language of this paragraph to French" or "make the email's tone
-# formal" is about a piece of text, not the app's settings.
+# formal" is about a piece of text, not the app's settings; "change my name to
+# Claude" is about the user's profile, which no chat line sets.
 _CONTENT_TARGETS = frozenset(
     {
+        "name",
+        "nickname",
+        "username",
         "paragraph",
         "paragraphs",
         "sentence",
@@ -349,19 +337,23 @@ def _extract_appearance(tokens: list[str]) -> str | None:
 
 def _extract_model(tokens: list[str]) -> str | None:
     for index, token in enumerate(tokens):
-        if token in _MODEL_IDS:
+        if token in model_ids():
             return token
-        nick = _MODEL_NICKNAMES.get(token)
-        if nick is None:
+        named = tier_model(token)
+        brand = named is None
+        if brand:
+            named = brand_model(tokens, index)
+        if named is None:
             continue
         nxt = tokens[index + 1] if index + 1 < len(tokens) else ""
         prev = tokens[index - 1] if index > 0 else ""
         if nxt in {"model", "mode", "chat"} or prev in {"model", "to", "use", "on"}:
-            return nick
-        if token in _MODEL_NICKNAMES and (
+            return named
+        # A brand is a name too ("call me Claude"): it counts only in a model's place.
+        if not brand and (
             _has_change_cue(tokens) or _has_settings_noun(tokens) or len(tokens) <= 3
         ):
-            return nick
+            return named
     return None
 
 

@@ -7,8 +7,8 @@ from uuid import uuid4
 import pytest
 
 from app.models.orm import TodoItem
+from app.modules.todos.occurrences import TodoScheduleSnapshot
 from app.modules.todos.schedule_repository import (
-    TodoScheduleSnapshot,
     advance_schedules_if_current,
     update_schedule_if_current,
 )

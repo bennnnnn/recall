@@ -9,6 +9,7 @@ from app.models.orm import Attachment, User
 from app.models.schemas import UserOut
 from app.modules.account import lifecycle as account_lifecycle
 from app.modules.account import service as auth
+from app.modules.attachments import repository as attachments_repository
 
 
 def _user() -> User:
@@ -54,10 +55,9 @@ async def test_profile_rejects_unusable_photo_without_saving_name(override):
     session = AsyncMock()
     with (
         patch.object(
-            account_lifecycle.attachments_service, "get_by_id", AsyncMock(return_value=photo)
+            attachments_repository, "get_by_id", AsyncMock(return_value=photo)
         ) as get_photo,
         patch.object(account_lifecycle.users_repo, "update", AsyncMock()) as update,
-        patch.object(account_lifecycle.home_service, "invalidate_home_cache", AsyncMock()) as cache,
     ):
         with pytest.raises(ValueError, match="uploaded photo"):
             await account_lifecycle.update_account(
@@ -68,7 +68,6 @@ async def test_profile_rejects_unusable_photo_without_saving_name(override):
             )
     get_photo.assert_awaited_once_with(session, attachment_id, user.id, for_update=True)
     update.assert_not_awaited()
-    cache.assert_not_awaited()
     session.commit.assert_not_awaited()
     session.rollback.assert_awaited_once()
     assert user.name == "Before"
@@ -79,12 +78,7 @@ async def test_profile_save_rolls_back_without_cache_invalidation_on_commit_fail
     photo = _photo(user)
     session = AsyncMock()
     session.commit.side_effect = RuntimeError("commit failed")
-    with (
-        patch.object(
-            account_lifecycle.attachments_service, "get_by_id", AsyncMock(return_value=photo)
-        ),
-        patch.object(account_lifecycle.home_service, "invalidate_home_cache", AsyncMock()) as cache,
-    ):
+    with patch.object(attachments_repository, "get_by_id", AsyncMock(return_value=photo)):
         with pytest.raises(RuntimeError, match="commit failed"):
             await account_lifecycle.update_account(
                 session,
@@ -93,7 +87,6 @@ async def test_profile_save_rolls_back_without_cache_invalidation_on_commit_fail
                 {"name": "After", "avatar_url": f"/attachments/{photo.id}/file"},
             )
     session.rollback.assert_awaited_once()
-    cache.assert_not_awaited()
 
 
 @pytest.mark.parametrize("custom", [True, False])
@@ -113,7 +106,6 @@ async def test_google_login_preserves_uploaded_photo_and_refreshes_provider_phot
         name=user.name,
         avatar_url=user.avatar_url,
         default_model="free-chat",
-        response_style="balanced",
         memory_enabled=True,
         created_at=datetime.now(UTC),
     )
@@ -147,7 +139,6 @@ async def test_provider_login_only_fills_a_blank_saved_name(provider, saved_name
         name=saved_name,
         avatar_url=user.avatar_url,
         default_model="free-chat",
-        response_style="balanced",
         memory_enabled=True,
         created_at=datetime.now(UTC),
     )

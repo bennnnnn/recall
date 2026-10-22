@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.number_text import DECIMAL_LITERAL
 from app.services.text_match import word_index
 
@@ -102,7 +102,7 @@ def _block_work_together(intent: MathIntent, lines: list[str]) -> VerifiedMathBl
         return None
     answer = math_school.work_together(intent.percent_base, intent.percent_rate)
     lines.append(f"Together: {intent.percent_base:g} h and {intent.percent_rate:g} h → {answer}")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)
 
 
 def _block_mixture(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
@@ -112,7 +112,7 @@ def _block_mixture(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | 
         intent.vec_a[0], intent.vec_b[0], intent.vec_a[1], intent.vec_b[1]
     )
     lines.append(f"Mixture: {answer}%")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)
 
 
 def _block_twice_as_many(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
@@ -120,4 +120,4 @@ def _block_twice_as_many(intent: MathIntent, lines: list[str]) -> VerifiedMathBl
         return None
     answer = math_school.twice_as_many(intent.percent_base)
     lines.append(f"Parts: {answer}")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)

@@ -7,16 +7,18 @@ from collections.abc import Sequence
 
 from app.modules.physics.ask import ask_clause, asked_phrases
 from app.modules.physics.catalog.suvat import TWO_BODIES
-from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
-    _NUMBER,
-    _VELOCITY_UNIT_PATTERN,
-    _find_value_with_specific_unit,
-    _ordered_values,
-    _strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
+)
+from app.modules.physics.extractors.stated_values import (
+    find_value_with_specific_unit,
+    ordered_values,
+)
+from app.modules.physics.extractors.unit_patterns import (
+    LENGTH_UNIT_PATTERN,
+    NUMBER,
+    VELOCITY_UNIT_PATTERN,
 )
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.words import word_pattern
@@ -53,7 +55,7 @@ _AT_REST_START_RE = re.compile(
 # That is v, and a question for v that states it has nothing left to solve.
 _FINAL_SPEED_RE = re.compile(
     r"\b(?:reach(?:es|ed|ing)?|final\s+(?:speed|velocity)(?:\s+(?:of|is))?|up\s+to|until\s+it\s+reaches)"
-    rf"\s+(?:a\s+(?:speed|velocity)\s+of\s+)?{_NUMBER}\s*(?:{_VELOCITY_UNIT_PATTERN})",
+    rf"\s+(?:a\s+(?:speed|velocity)\s+of\s+)?{NUMBER}\s*(?:{VELOCITY_UNIT_PATTERN})",
     re.IGNORECASE,
 )
 
@@ -169,12 +171,12 @@ _SUVAT_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _SUVAT_CUES, _SUVAT_CUE_RES):
+    if not has_cue(lower, _SUVAT_CUES, _SUVAT_CUE_RES):
         return None
     # Two moving bodies' speeds are not one body's u and v.
     if any(word_pattern(phrase).search(lower) for phrase in TWO_BODIES):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
 
     clause = ask_clause(cleaned)
@@ -203,7 +205,7 @@ def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
     # --- the two velocities, bound by written order -------------------------
     # "from 10 m/s to 30 m/s" reads left to right; a stated rest state at
     # either end fills the slot that has no number of its own.
-    velocities = _ordered_values(cleaned, _VELOCITY_UNIT_PATTERN)
+    velocities = ordered_values(cleaned, VELOCITY_UNIT_PATTERN)
     if (
         len(velocities) > 1
         and re.search(r"\b(?:from|initial(?:ly)?)\b", cleaned, re.IGNORECASE) is None
@@ -232,7 +234,7 @@ def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
     # --- acceleration -------------------------------------------------------
     # "decelerates at 4 m/s^2" states a magnitude and a direction separately;
     # the sign lives in the word, not the number.
-    accel = _find_value_with_specific_unit(
+    accel = find_value_with_specific_unit(
         cleaned,
         r"m/s\^?2|m/s2",
         ("acceleration", "accelerates", "accelerating", "deceleration", "decelerates", "rate"),
@@ -244,10 +246,10 @@ def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
         params["a"], units["a"] = value, unit or "m/s^2"
 
     # --- time and distance --------------------------------------------------
-    times = _ordered_values(cleaned, _SUVAT_TIME_UNITS)
+    times = ordered_values(cleaned, _SUVAT_TIME_UNITS)
     if times:
         params["t"], units["t"] = times[0]
-    distances = _ordered_values(cleaned, _LENGTH_UNIT_PATTERN)
+    distances = ordered_values(cleaned, LENGTH_UNIT_PATTERN)
     if distances:
         params["d"], units["d"] = distances[0]
 
@@ -261,10 +263,11 @@ def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
             return None
         return PhysicsIntent(
             kind="suvat",
-            physics_op=listed[0],  # type: ignore[arg-type]
+            physics_op=listed[0],
             physics_params=params,
             physics_units=units,
             operation="solve",
+            # The ids are catalog strings; the model validates each one.
             requested_ops=listed,  # type: ignore[arg-type]
         )
 
@@ -276,7 +279,7 @@ def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
 
     return PhysicsIntent(
         kind="suvat",
-        physics_op=unknown,  # type: ignore[arg-type]
+        physics_op=unknown,
         physics_params=params,
         physics_units=units,
         operation="solve",

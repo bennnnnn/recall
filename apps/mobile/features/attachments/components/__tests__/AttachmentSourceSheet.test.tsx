@@ -5,12 +5,6 @@ import { AttachmentSourceSheet } from "@/features/attachments/components/Attachm
 import { Layer } from "@/lib/layer";
 import { Space } from "@/lib/space";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
 jest.mock("@/lib/reduceMotion", () => ({
   useReduceMotion: () => false,
 }));
@@ -18,10 +12,6 @@ jest.mock("@/lib/reduceMotion", () => ({
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
   selection: jest.fn(),
-}));
-
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 describe("AttachmentSourceSheet", () => {

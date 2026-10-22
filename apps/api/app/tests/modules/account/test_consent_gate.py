@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
 from app.main import create_app
+from app.tests.fakes import redis_mock
 
 pytestmark = pytest.mark.usefixtures("consent_enforced")
 
@@ -26,7 +27,6 @@ _AGREED = datetime(2026, 10, 19, 9, 0, tzinfo=UTC)
 _ROUTES = [
     ("post", "/speech/transcribe", {"audio_base64": "AAAA", "filename": "a.m4a"}),
     ("post", "/speech/tts", {"text": "hello"}),
-    ("post", "/speech/tts/stream", {"text": "hello"}),
     ("post", "/speech/live/session", {}),
     ("post", "/speech/live/tool", {"call_id": "call-123456", "name": "web_search"}),
     ("post", "/math/scan/read", None),
@@ -43,7 +43,7 @@ def _client(
     async def refresh(row: Any, attribute_names: list[str] | None = None) -> None:
         row.ai_data_consent_at = stored_consent
 
-    session = SimpleNamespace(refresh=AsyncMock(side_effect=refresh))
+    session = SimpleNamespace(refresh=AsyncMock(side_effect=refresh), commit=AsyncMock())
 
     async def db() -> Any:
         yield session
@@ -94,10 +94,52 @@ def test_consent_given_on_another_machine_lets_the_request_through(
 
 
 @pytest.mark.asyncio
-async def test_an_account_that_agreed_is_not_read_again() -> None:
+async def test_an_account_that_agreed_is_not_read_again(fake_redis) -> None:
     from app.modules.account.consent import get_consented_user
 
     user = SimpleNamespace(id=uuid4(), ai_data_consent_at=_AGREED)
     session = SimpleNamespace(refresh=AsyncMock())
-    assert await get_consented_user(user=user, session=session) is user  # type: ignore[arg-type]
+    assert await get_consented_user(user=user, session=session, redis=fake_redis) is user  # type: ignore[arg-type]
     session.refresh.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_withdrawal_on_another_machine_is_honoured_at_once(fake_redis) -> None:
+    """The cached row said yes for up to a minute after a withdrawal elsewhere."""
+    from app.core import user_cache
+    from app.modules.account.consent import get_consented_user
+
+    user = SimpleNamespace(id=uuid4(), ai_data_consent_at=_AGREED)
+
+    async def withdrawn(row: Any, attribute_names: list[str] | None = None) -> None:
+        row.ai_data_consent_at = None
+
+    session = SimpleNamespace(refresh=AsyncMock(side_effect=withdrawn), commit=AsyncMock())
+    await user_cache.bump_generation(fake_redis, user.id)  # another machine's PATCH /auth/me
+    user_cache.forget_user(user.id)  # this machine noted the old generation
+    from app.modules.account.consent import ConsentRefusedError
+
+    with pytest.raises(ConsentRefusedError) as refused:
+        await get_consented_user(user=user, session=session, redis=fake_redis)  # type: ignore[arg-type]
+    assert (refused.value.status_code, refused.value.code) == (403, "consent_required")
+
+
+@pytest.mark.asyncio
+async def test_the_re_read_ends_its_transaction_before_the_route_runs() -> None:
+    """A stream after the gate must not hold the re-read's connection idle in transaction."""
+    from app.modules.account.consent import get_consented_user
+
+    calls: list[str] = []
+
+    async def refresh(row: Any, attribute_names: list[str] | None = None) -> None:
+        calls.append("refresh")
+        row.ai_data_consent_at = _AGREED
+
+    async def commit() -> None:
+        calls.append("commit")
+
+    user = SimpleNamespace(id=uuid4(), ai_data_consent_at=None)
+    session = SimpleNamespace(refresh=refresh, commit=commit)
+    with patch("app.modules.account.consent.remember_read"):
+        assert await get_consented_user(user=user, session=session, redis=redis_mock()) is user  # type: ignore[arg-type]
+    assert calls == ["refresh", "commit"]

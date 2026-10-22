@@ -28,5 +28,19 @@ __all__ = [
     "validate_smiles",
 ]
 
-# Seams the chat turn uses: question detection, follow-ups, and post-stream fences.
-_MODULE_EXPORTS = ("context", "fence", "followup", "reply_policy", "request")
+# Seams the chat turn uses: question detection, follow-ups, and post-stream fences; and
+# what the subject dispatcher (services/subject_solving) reads: the reading, the
+# extracted intent, the verified block and the direct reply.
+_MODULE_EXPORTS = (
+    "block",
+    "context",
+    "direct",
+    "extract",
+    "fence",
+    "followup",
+    "input_text",
+    "reading",
+    "reply_policy",
+    "request",
+    "species",
+)

@@ -7,18 +7,13 @@ import { StyleSheet, Text } from "react-native";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { makeMdMath } from "@/components/markdown/markdownContentStyles";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
+import { runRule } from "@/components/markdown/__tests__/support/runRule";
 import { lightTheme } from "@/lib/theme";
 
 jest.mock("@/components/LinkPreviewCard", () => ({
   LinkPreviewCard: "LinkPreviewCard",
 }));
-jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
-jest.mock("expo-haptics", () => ({
-  impactAsync: jest.fn(),
-  notificationAsync: jest.fn(),
-  selectionAsync: jest.fn(),
-}));
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
   writeAsStringAsync: jest.fn(),
@@ -55,7 +50,9 @@ describe("markdown paragraph wrap", () => {
 
   it("renders a list paragraph as Text, not a View", () => {
     const { rules } = makeRenderRules(lightTheme);
-    const element = rules.paragraph(
+    const element = runRule(
+      rules,
+      "paragraph",
       { key: "p1" },
       [
         <Text key="a">An </Text>,
@@ -64,7 +61,7 @@ describe("markdown paragraph wrap", () => {
       [],
       { body: {}, text: {}, paragraphRun: {} },
     );
-    expect(element?.type).toBe(Text);
+    expect(element.type).toBe(Text);
   });
 
   it("still parses mixed bold/italic list copy", async () => {
@@ -79,25 +76,29 @@ describe("markdown paragraph wrap", () => {
 
   it("lifts a stacked fraction out of the paragraph Text", () => {
     const { rules } = makeRenderRules(lightTheme);
-    const element = rules.paragraph(
+    const element = runRule(
+      rules,
+      "paragraph",
       { key: "p-frac", content: "x = $\\frac{5+1}{2}$" },
       [<Text key="t">x = </Text>],
       [],
       { body: {}, text: {}, paragraphRun: { marginBottom: 8 } },
     );
-    expect(element?.props.testID).toBe("md-math-inline-wrap");
-    expect(element?.type).not.toBe(Text);
+    expect(element.props.testID).toBe("md-math-inline-wrap");
+    expect(element.type).not.toBe(Text);
   });
 
   it("leaves a gap under a paragraph so the next line is not tucked into superscripts", async () => {
     const { rules } = makeRenderRules(lightTheme);
-    const element = rules.paragraph(
+    const element = runRule(
+      rules,
+      "paragraph",
       { key: "p2", content: "a^2(1+9+81)" },
       [<Text key="t">Terms</Text>],
       [],
       { body: { fontSize: 16, lineHeight: 28 }, text: {}, paragraphRun: { marginBottom: 8 } },
     );
-    expect(StyleSheet.flatten(element?.props.style)).toEqual(
+    expect(StyleSheet.flatten(element.props.style)).toEqual(
       expect.objectContaining({ lineHeight: 34 }),
     );
   });

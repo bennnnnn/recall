@@ -6,7 +6,7 @@ import re
 
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school._parse import (
     _count_char,
 )
@@ -172,7 +172,7 @@ def _block_present_value(intent: MathIntent, lines: list[str]) -> VerifiedMathBl
         return None
     answer = math_formulas.present_value(intent.percent_base, intent.percent_rate, intent.combo_n)
     lines.append(f"Present value = {answer}")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)
 
 
 def _block_interest(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
@@ -189,4 +189,4 @@ def _block_interest(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock |
         answer = math_school.compound_interest(principal, rate, years)
         label = "Compound interest"
     lines.append(f"{label} on {principal:g} at {rate:g}% for {years} years = {answer}")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)

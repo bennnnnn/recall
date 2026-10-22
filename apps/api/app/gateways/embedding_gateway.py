@@ -11,6 +11,7 @@ from uuid import UUID
 
 from litellm import aembedding
 
+from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.redis import get_redis_client
 from app.gateways import llm_spend, mock_llm
@@ -57,7 +58,7 @@ async def _embed_request(settings: Settings, texts: list[str]) -> list[list[floa
     if not api_key:
         return None
 
-    kwargs: dict = {"api_key": api_key}
+    kwargs: dict[str, Any] = {"api_key": api_key}
     if route.api_base:
         kwargs["api_base"] = route.api_base
 
@@ -111,19 +112,8 @@ async def embed_many(
                 return list(vectors)
             return [await embed_text(settings, text) for text in batch]
 
-    results = await asyncio.gather(*(_batch(batch) for batch in batches))
+    results = await gather_or_cancel(*(_batch(batch) for batch in batches))
     return [vector for batch in results for vector in batch]
-
-
-def cosine_similarity(a: list[float], b: list[float]) -> float:
-    if not a or not b or len(a) != len(b):
-        return 0.0
-    dot = sum(x * y for x, y in zip(a, b, strict=True))
-    norm_a = sum(x * x for x in a) ** 0.5
-    norm_b = sum(x * x for x in b) ** 0.5
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot / (norm_a * norm_b)
 
 
 def parse_embedding(raw: str | None) -> list[float] | None:
@@ -149,20 +139,39 @@ async def get_or_embed_query(
     *,
     embed_timeout: float | None = None,
 ) -> list[float] | None:
-    """Embed ``query`` once per (user, query) using a shared Redis cache.
+    """Embed ``query`` once per (user, query): a shared Redis cache, and one request in
+    flight per process.
 
-    Memory semantic recall and attachment RAG both need the query embedding
-    on a chat turn; previously each called :func:`embed_text` independently —
-    two paid HTTP calls on a cache miss. This reads the ``memembed:`` cache
-    first, embeds on a miss, and writes the cache so the second caller (or
-    the next turn) hits. Cache failures degrade to a direct embed (never
-    block the turn on Redis). ``embed_timeout`` bounds only the live embed
-    call, not the cache reads.
+    Memory recall, chat-history recall and document search start together on a turn, and
+    each used to miss the cache before any had embedded: two or three paid requests for
+    one question. Now concurrent callers await the same request. ``embed_timeout`` bounds
+    how long this caller waits for it; the request itself runs on (bounded by
+    ``background_llm_timeout_seconds``) and fills the cache for the next turn. Cache
+    failures degrade to a direct embed (never block the turn on Redis).
     """
     q = query.strip()
     if not q:
         return None
     key = _embed_cache_key(user_id, q)
+    flight_key = (asyncio.get_running_loop(), key)
+    task = _in_flight.get(flight_key)
+    if task is None:
+        task = asyncio.ensure_future(_cached_or_embedded(settings, key, q))
+        _in_flight[flight_key] = task
+        task.add_done_callback(lambda _done: _in_flight.pop(flight_key, None))
+    try:
+        # asyncio.timeout(None) disables the timeout: the warm path waits it out.
+        async with asyncio.timeout(embed_timeout):
+            return await asyncio.shield(task)
+    except TimeoutError:
+        logger.debug("Embed call outlasted this caller's wait")
+        return None
+
+
+_in_flight: dict[tuple[asyncio.AbstractEventLoop, str], asyncio.Future[list[float] | None]] = {}
+
+
+async def _cached_or_embedded(settings: Settings, key: str, query: str) -> list[float] | None:
     try:
         cached = await get_redis_client().get(key)
         if cached is not None:
@@ -173,10 +182,7 @@ async def get_or_embed_query(
     except Exception:
         logger.debug("Embed cache read failed; falling back to live embed", exc_info=True)
     try:
-        # asyncio.timeout(None) disables the timeout, so a single path covers
-        # both the bounded (RAG/memory live) and unbounded (warm) cases.
-        async with asyncio.timeout(embed_timeout):
-            vec = await embed_text(settings, q)
+        vec = await embed_text(settings, query)
     except Exception:
         logger.debug("Embed call failed", exc_info=True)
         return None

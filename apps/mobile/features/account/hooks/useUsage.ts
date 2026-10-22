@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState } from "react-native";
 import { useFocusEffect } from "expo-router";
 
-import { useAuthToken } from "@/contexts/AuthContext";
+import { useAccountSession } from "@/contexts/accountSession";
 import type { Usage } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import {
@@ -10,9 +9,10 @@ import {
   getCachedUsage,
   invalidateUsageCache,
 } from "@/lib/cache/usageCache";
+import { useOnForeground } from "@/lib/foregroundRefresh";
 
 type UsageState = {
-  token: string | null;
+  account: string | null;
   generation: number;
   usage: Usage | null;
   loading: boolean;
@@ -23,18 +23,19 @@ function todayUsage(usage: Usage | null | undefined): Usage | null {
   return usage?.date === new Date().toISOString().slice(0, 10) ? usage : null;
 }
 
+/** Today's usage, kept per account: the hourly token rotation reads nothing again (NET-11). */
 export function useUsage() {
-  const token = useAuthToken();
+  const { account, getToken } = useAccountSession();
   const generation = getSessionGeneration();
-  const tokenRef = useRef(token);
-  tokenRef.current = token;
+  const accountRef = useRef(account);
+  accountRef.current = account;
   const mountedRef = useRef(false);
   const requestRef = useRef(0);
   const [state, setState] = useState<UsageState>(() => ({
-    token,
+    account,
     generation,
-    usage: token ? todayUsage(getCachedUsage(token)) : null,
-    loading: Boolean(token),
+    usage: account ? todayUsage(getCachedUsage(account)) : null,
+    loading: Boolean(account),
     error: false,
   }));
 
@@ -48,26 +49,27 @@ export function useUsage() {
 
   const refresh = useCallback(async (opts?: { force?: boolean }) => {
     const isCurrent = () =>
-      mountedRef.current && tokenRef.current === token && generation === getSessionGeneration();
-    if (!token || !isCurrent()) return;
+      mountedRef.current && accountRef.current === account && generation === getSessionGeneration();
+    const token = getToken();
+    if (!account || !token || !isCurrent()) return;
     const request = ++requestRef.current;
-    const cached = getCachedUsage(token);
+    const cached = getCachedUsage(account);
     setState((previous) => ({
-      token,
+      account,
       generation,
-      usage: previous.token === token && previous.generation === generation
+      usage: previous.account === account && previous.generation === generation
         ? todayUsage(previous.usage)
         : todayUsage(cached),
       loading: true,
       error: false,
     }));
-    const data = await fetchTodayUsage(token, {
+    const data = await fetchTodayUsage(account, token, {
       force: opts?.force || Boolean(cached && !todayUsage(cached)),
     });
     if (!isCurrent() || request !== requestRef.current) return;
     const currentUsage = todayUsage(data);
-    setState({ token, generation, usage: currentUsage, loading: false, error: !currentUsage });
-  }, [token, generation]);
+    setState({ account, generation, usage: currentUsage, loading: false, error: !currentUsage });
+  }, [account, generation, getToken]);
 
   useFocusEffect(
     useCallback(() => {
@@ -76,20 +78,15 @@ export function useUsage() {
   );
 
   useEffect(() => {
-    if (!token) {
-      invalidateUsageCache();
-      return;
-    }
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") void refresh();
-    });
-    return () => subscription.remove();
-  }, [refresh, token]);
+    if (!account) invalidateUsageCache();
+  }, [account]);
+  // The usage cache reads again past FOREGROUND_STALE_MS.usage.
+  useOnForeground(() => void refresh(), Boolean(account));
 
-  const isCurrentState = state.token === token && state.generation === generation;
+  const isCurrentState = state.account === account && state.generation === generation;
   return {
     usage: isCurrentState ? todayUsage(state.usage) : null,
-    loading: isCurrentState ? state.loading : Boolean(token),
+    loading: isCurrentState ? state.loading : Boolean(account),
     error: isCurrentState && state.error,
     refresh,
   };

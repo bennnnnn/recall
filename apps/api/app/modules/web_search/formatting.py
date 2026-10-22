@@ -13,8 +13,7 @@ from app.modules.web_search.patterns import (
     _PRICE_RE,
 )
 from app.services.md_fence_scan import (
-    is_fence_closer,
-    next_fence_marker_line,
+    iter_fences,
     strip_closed_fences,
 )
 
@@ -32,8 +31,9 @@ def _extract_price_from_snippet(snippet: str) -> str | None:
 
 
 WEB_SEARCH_HINT = (
-    "Live web search may be injected immediately before the user's latest message. "
-    "When a **Web search results** block is present, ground your answer in those results "
+    "Live web search results come as a **Web search results** block just before the "
+    "user's latest message, or as the web_search tool's result. "
+    "When either is present, ground your answer in those results "
     "(scores, dates, headlines, facts). If none of them answers the question, say so "
     'plainly ("The results I found don\'t cover that") instead of stretching an '
     "off-topic result or filling in from memory. "
@@ -61,8 +61,9 @@ WEB_SEARCH_HINT = (
     "failed, say the search didn't work just now, not that nothing exists. "
     "Do NOT add a separate Sources section — the app renders source cards. "
     "Never role-play searching. "
-    "If no **Web search results** block is in this prompt, do not claim you searched the "
-    "live web — answer from knowledge or say you don't have live results. "
+    "If neither is in this prompt, do not claim you searched the live web: call the "
+    "web_search tool when it is offered, else answer from knowledge or say you don't have "
+    "live results. "
     "Recall does search the web when the user asks: never say you can't browse, can't "
     "search or have no internet access. If the user asked for a search and no results "
     "came with this turn, say you couldn't find it this time and ask them to name the "
@@ -257,8 +258,8 @@ def _sanitize_fence_json_text(value: str) -> str:
 
 
 def _parse_sources_json(raw: str) -> list[dict[str, str]]:
-    text = raw.strip()
-    text = re.sub(r"\s*```+\s*$", "", text).strip()
+    # A closer the model left glued to the JSON.
+    text = raw.strip().rstrip("`").strip()
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError:
@@ -285,29 +286,12 @@ def _strip_bare_source_array_fences(text: str) -> str:
     """Drop unlabeled ``` fences whose body is a sources JSON array."""
     pieces: list[str] = []
     index = 0
-    while True:
-        marker = next_fence_marker_line(text, index)
-        if marker is None:
-            pieces.append(text[index:])
-            break
-        start, after_opener, stripped = marker
-        lang = stripped.lstrip("`").strip()
-        if lang:
-            pieces.append(text[index:after_opener])
-            index = after_opener
-            continue
-        closer = next_fence_marker_line(text, after_opener)
-        if closer is None or not is_fence_closer(closer[2]):
-            pieces.append(text[index:after_opener])
-            index = after_opener
-            continue
-        body = text[after_opener : closer[0]]
-        if _parse_sources_json(body):
-            pieces.append(text[index:start])
-            index = closer[1]
-            continue
-        pieces.append(text[index : closer[1]])
-        index = closer[1]
+    for fence in iter_fences(text):
+        body = text[fence.body_start : fence.body_end]
+        if fence.closed and not fence.opener.info and _parse_sources_json(body):
+            pieces.append(text[index : fence.start])
+            index = fence.end
+    pieces.append(text[index:])
     return "".join(pieces)
 
 

@@ -7,9 +7,8 @@ instead, which lazily creates one client per distinct timeout/retry policy and
 reuses it for the life of the process; process shutdown closes them all.
 
 A new gateway does the same: one named timeout constant (or a setting) and
-this client. The exceptions open their own client on purpose: a download
-through ``safe_fetch`` (it checks every redirect hop itself) and the image
-generation call (``image_gateway``), whose tests drive both clients together.
+this client. A download through ``safe_fetch`` opens its own
+(``safe_fetch.fetch_client``): it checks every redirect hop itself.
 """
 
 from __future__ import annotations

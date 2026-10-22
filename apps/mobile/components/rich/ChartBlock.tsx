@@ -13,13 +13,14 @@ import { CopyButton } from "@/components/CopyButton";
 import { useWebPreviewHeight } from "@/components/rich/useWebPreviewHeight";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
-import { buildVegaHtml } from "@/lib/chartPreviewHtml";
+import { buildVegaHtml, VEGA_LIBRARIES } from "@/lib/chartPreviewHtml";
 import { CHART_HEIGHT_EPSILON_PX, CHART_PREVIEW_HEIGHT } from "@/lib/chartPreviewHeight";
 import { CODE_FONT } from "@/lib/fonts";
 import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
+import { useVendorTexts } from "@/lib/vendorAssets";
 import {
   getPreviewWebView,
   STATIC_HTML_ORIGIN_WHITELIST,
@@ -42,17 +43,20 @@ export function ChartBlock({ content }: Props) {
     });
 
   const plotWidth = viewWidth > 0 ? viewWidth - 16 : 320;
-  const vegaHtml = useMemo(
-    () => buildVegaHtml(content, theme, plotWidth),
-    [content, theme, plotWidth],
-  );
-  const source = useMemo(() => ({ html: vegaHtml }), [vegaHtml]);
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInlineChart = previewWebView?.mode === "rnc";
-  const { canMount, onLoaded } = useDeferredWebViewMount(
+  const libraries = useVendorTexts(VEGA_LIBRARIES, Boolean(WebView) && canRenderInlineChart);
+  const vegaHtml = useMemo(
+    () => (libraries.texts ? buildVegaHtml(content, theme, plotWidth, libraries.texts) : ""),
+    [content, theme, plotWidth, libraries.texts],
+  );
+  const source = useMemo(() => ({ html: vegaHtml }), [vegaHtml]);
+  const { canMount: canMountWebView, onLoaded } = useDeferredWebViewMount(
     Boolean(WebView) && canRenderInlineChart,
   );
+  const canMount = canMountWebView && Boolean(vegaHtml);
+  const chartError = renderError ?? (libraries.failed ? t("rich.chart_error") : null);
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(vegaHtml);
 
   const handleOpenVegaEditor = useCallback(async () => {
@@ -117,11 +121,11 @@ export function ChartBlock({ content }: Props) {
       }
     >
       <View style={[s.previewBox, { height }]}>
-        {renderError ? (
+        {chartError ? (
           <View style={[s.previewPlaceholder, { height }]}>
             <Icon name="alert-circle" size={IconSize.sm} color={theme.danger} />
             <Text style={[s.previewPlaceholderText, { color: theme.danger }]}>
-              {renderError}
+              {chartError}
             </Text>
           </View>
         ) : WebView && canRenderInlineChart ? (

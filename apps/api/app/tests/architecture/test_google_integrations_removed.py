@@ -23,6 +23,8 @@ from app.modules.chat.prompt_constants import (
 from app.modules.chat.stream_status import StreamStatusPhase
 from app.modules.todos import TODO_HINT
 
+from .boundary_support import served_paths
+
 REPO_ROOT = Path(__file__).resolve().parents[5]
 APP_ROOT = REPO_ROOT / "apps" / "api" / "app"
 MIGRATION = REPO_ROOT / "apps" / "api" / "alembic" / "versions" / "0106_drop_google_integrations.py"
@@ -76,7 +78,8 @@ def test_orm_metadata_has_no_integration_schema() -> None:
 
 
 def test_integration_http_routes_are_absent() -> None:
-    paths = {getattr(route, "path", "") for route in app.routes}
+    paths = served_paths()
+    assert "/chats" in paths  # the check sees the live routes
     assert not any(path.startswith("/integrations") for path in paths)
     client = TestClient(app)
     assert client.get("/integrations/google-calendar/status").status_code == 404
@@ -107,10 +110,14 @@ def test_stream_has_no_calendar_or_inbox_status() -> None:
 
 
 def test_prompts_say_recall_has_no_calendar_or_inbox() -> None:
-    assert "does not connect to the user's calendar or email inbox" in PRIVACY_HINT
-    assert "does not connect to calendars or email inboxes" in CAPABILITIES_FORMAT_HINT
-    assert "does not connect to the user's calendar or email" in DAY_PLANNING_ANSWER_HINT
-    assert "does not connect to any calendar" in TODO_HINT
+    assert "does not connect to the user's calendar or email inbox" in PRIVACY_HINT  # safety phrase
+    assert (
+        "does not connect to calendars or email inboxes" in CAPABILITIES_FORMAT_HINT
+    )  # safety phrase
+    assert (
+        "does not connect to the user's calendar or email" in DAY_PLANNING_ANSWER_HINT
+    )  # safety phrase
+    assert "does not connect to any calendar" in TODO_HINT  # safety phrase
 
 
 def test_no_runtime_code_points_users_to_connect_google() -> None:

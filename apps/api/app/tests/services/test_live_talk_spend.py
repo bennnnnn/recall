@@ -19,7 +19,7 @@ class _Clock(datetime):
     current = _MINT
 
     @classmethod
-    def now(cls, tz=None):  # type: ignore[override]
+    def now(cls, tz=None):
         return cls.current
 
 

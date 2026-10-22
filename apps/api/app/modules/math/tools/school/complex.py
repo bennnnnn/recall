@@ -9,7 +9,7 @@ from app.core.config import Settings
 from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.text_match import word_index
 
 # ``i^23`` is a power of the imaginary unit, as in ``(1 + i)/(1 - i)``; read as a
@@ -99,14 +99,14 @@ def _verified_block_complex(
     lines.append(f"Result: {answer}")
     working = _binomial_working(intent.expr) if intent.school_op == "eval" else None
     if working is None:
-        return _finish_with_answer(lines, answer)
+        return finish_with_answer(lines, answer)
 
     from app.services.workout import math_line
 
     lines.append(f"Working: ${working}$ (i^2 = -1)")
     note = "using $i^2 = -1$" if "i^{2}" in working else None
     return replace(
-        _finish_with_answer(lines, answer),
+        finish_with_answer(lines, answer),
         worked_reply=f"{math_line(working, note)}\n\n```answer\n{answer}\n```\n",
     )
 

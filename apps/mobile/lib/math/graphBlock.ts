@@ -1,6 +1,6 @@
 /** Bounds, ticks, axis formatting and point mapping for ```graph blocks. */
 import { defaultInteractiveBounds, type GraphView } from "@/lib/math/graphViewport";
-import { niceStepW } from "@/lib/math/graphWorklets";
+import { mapPointW, niceStepW } from "@/lib/math/graphWorklets";
 import { toSuperscript } from "@/lib/unicodeSupSub";
 import {
   type NumberLineInterval,
@@ -484,6 +484,7 @@ export function formatGraphExpr(expr: string): string {
   return stripped;
 }
 
+/** `mapPointW` on the JS thread, with the chart's default padding. */
 export function mapGraphPoint(
   x: number,
   y: number,
@@ -492,15 +493,7 @@ export function mapGraphPoint(
   height: number,
   pad = 28,
 ): { px: number; py: number } {
-  const innerW = width - pad * 2;
-  const innerH = height - pad * 2;
-  const px =
-    pad + ((x - bounds.xMin) / (bounds.xMax - bounds.xMin || 1)) * innerW;
-  const py =
-    pad +
-    innerH -
-    ((y - bounds.yMin) / (bounds.yMax - bounds.yMin || 1)) * innerH;
-  return { px, py };
+  return mapPointW(x, y, bounds, width, height, pad);
 }
 
 export function graphPolylinePoints(

@@ -1,4 +1,5 @@
 import { reportChatTurnOutcome } from "@/features/chat/model/latencyReporter";
+import { CHAT_EVENT_SAMPLE_RATE } from "@/features/chat/model/chatEventSample";
 import {
   beginTurnOutcome,
   completionFromDone,
@@ -20,6 +21,24 @@ describe("chat_turn_outcome (O10.1)", () => {
     reportTurnOutcome("complete");
     await settle();
     report.mockClear();
+    // Every turn in the sample unless a case says otherwise.
+    jest.spyOn(Math, "random").mockReturnValue(0);
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("reports one turn in five (NET-15)", async () => {
+    jest.spyOn(Math, "random").mockReturnValue(CHAT_EVENT_SAMPLE_RATE);
+    beginTurnOutcome();
+    reportTurnOutcome("complete");
+    await settle();
+    expect(report).not.toHaveBeenCalled();
+    jest.spyOn(Math, "random").mockReturnValue(CHAT_EVENT_SAMPLE_RATE - 0.01);
+    beginTurnOutcome();
+    reportTurnOutcome("complete");
+    await settle();
+    expect(report).toHaveBeenCalledTimes(1);
   });
 
   it("names the first tool the turn showed and a clean finish", async () => {

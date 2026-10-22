@@ -3,17 +3,31 @@
 A read that fails, or a turn whose query embed is unavailable, is reported on the
 ``MemoryLoadReport`` the caller passes, so the reply can say "I couldn't load your
 saved memory just now" instead of "I don't have that saved".
+
+Selection, the cache and the background spawner are called through their modules, so
+a test patches the module that defines a name (``selection.format_memory_block``) and
+reaches this code too.
 """
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Literal, cast
+from typing import Literal, cast
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import background_tasks
 from app.core.config import Settings
+from app.core.redis import get_redis_client
 from app.models.orm import Memory, User
+from app.modules.memory import cache, selection
+from app.modules.memory.switch import memory_switch_on
+from app.modules.memory.text import (
+    is_diet_health_memory_text,
+    is_food_or_diet_query,
+    is_sensitive_memory_text,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +51,6 @@ class MemoryLoadReport:
             self.status = status
 
 
-def _profile_kwargs(with_profile: bool) -> dict[str, bool]:
-    """Pass the profile flag only when set, so seams patched in tests stay compatible."""
-    return {"with_profile": True} if with_profile else {}
-
-
 def _log_inject(user_id: UUID, block: str) -> str:
     logger.info(
         "memory_inject user_id=%s facts=%s packed_chars=%s",
@@ -53,7 +62,6 @@ def _log_inject(user_id: UUID, block: str) -> str:
 
 
 async def semantic_memories_from_vec(
-    seams: Any,
     session: AsyncSession,
     user: User,
     settings: Settings,
@@ -64,22 +72,17 @@ async def semantic_memories_from_vec(
 ) -> list[Memory]:
     from app.modules.memory import repository as memories_repo
 
-    all_memories = await memories_repo.list_for_user(session, user.id)
+    scored = await memories_repo.list_scored_for_user(session, user.id, query_vec)
     # Nothing near the question means nothing to add: never the whole store.
-    return cast(
-        list[Memory],
-        seams.select_memories_semantic(
-            all_memories,
-            query_vec,
-            settings,
-            query_text=query_text,
-            with_profile=with_profile,
-        ),
+    return selection.select_memories_semantic(
+        scored,
+        settings,
+        query_text=query_text,
+        with_profile=with_profile,
     )
 
 
 async def load_relevant_memories(
-    seams: Any,
     session: AsyncSession,
     user: User,
     settings: Settings,
@@ -91,32 +94,26 @@ async def load_relevant_memories(
     report: MemoryLoadReport | None = None,
 ) -> list[Memory]:
     """Facts for the prompt: by vector, by shared words (``lexical``), or by priority."""
-    if not user.memory_enabled:
+    if not memory_switch_on(user):
         return []
     from app.modules.memory import repository as memories_repo
 
     try:
         if query_vec is not None:
-            return cast(
-                list[Memory],
-                await seams._semantic_memories_from_vec(
-                    session,
-                    user,
-                    settings,
-                    query_vec,
-                    query_text=query_text,
-                    with_profile=with_profile,
-                ),
+            return await semantic_memories_from_vec(
+                session,
+                user,
+                settings,
+                query_vec,
+                query_text=query_text,
+                with_profile=with_profile,
             )
         all_memories = await memories_repo.list_for_user(session, user.id)
         if lexical:
-            return cast(
-                list[Memory],
-                seams.select_memories_lexical(
-                    all_memories, settings, query_text=query_text, with_profile=with_profile
-                ),
+            return selection.select_memories_lexical(
+                all_memories, settings, query_text=query_text, with_profile=with_profile
             )
-        return cast(list[Memory], seams.select_memories_for_prompt(all_memories, settings))
+        return selection.select_memories_for_prompt(all_memories, settings)
     except Exception:
         logger.warning("Memory retrieval failed for user_id=%s", user.id, exc_info=True)
         if report is not None:
@@ -125,7 +122,6 @@ async def load_relevant_memories(
 
 
 def filter_surface_memories(
-    seams: Any,
     memories: list[Memory],
     *,
     exclude_sensitive: bool,
@@ -133,22 +129,20 @@ def filter_surface_memories(
 ) -> list[Memory]:
     if not exclude_sensitive:
         return memories
-    keep_diet = bool(query_text) and seams.is_food_or_diet_query(query_text)
+    keep_diet = bool(query_text) and is_food_or_diet_query(query_text or "")
     kept: list[Memory] = []
     for memory in memories:
-        sensitivity = str(getattr(memory, "sensitivity", "") or "")
-        tagged = sensitivity not in ("", "normal")
-        sensitive = tagged or seams.is_sensitive_memory_text(memory.text)
+        tagged = (memory.sensitivity or "normal") != "normal"
+        sensitive = tagged or is_sensitive_memory_text(memory.text)
         if not sensitive:
             kept.append(memory)
             continue
-        if keep_diet and seams.is_diet_health_memory_text(memory.text):
+        if keep_diet and is_diet_health_memory_text(memory.text):
             kept.append(memory)
     return kept
 
 
 async def semantic_block_from_vec(
-    seams: Any,
     session: AsyncSession,
     user: User,
     settings: Settings,
@@ -159,28 +153,22 @@ async def semantic_block_from_vec(
     with_profile: bool = False,
     report: MemoryLoadReport | None = None,
 ) -> str:
-    memories = await seams.load_relevant_memories(
+    memories = await load_relevant_memories(
         session,
         user,
         settings,
         query_vec=query_vec,
         query_text=query_text,
+        with_profile=with_profile,
         report=report,
-        **_profile_kwargs(with_profile),
     )
     memories = filter_surface_memories(
-        seams,
-        memories,
-        exclude_sensitive=exclude_sensitive,
-        query_text=query_text,
+        memories, exclude_sensitive=exclude_sensitive, query_text=query_text
     )
-    return cast(
-        str, seams.format_memory_block(memories, max_chars=settings.memory_inject_max_chars)
-    )
+    return selection.format_memory_block(memories, max_chars=settings.memory_inject_max_chars)
 
 
 async def warm_semantic_memory_cache(
-    seams: Any,
     settings: Settings,
     user_id: UUID,
     query_text: str,
@@ -200,14 +188,14 @@ async def warm_semantic_memory_cache(
         query_vec = await embedding_gateway.get_or_embed_query(settings, user_id, cleaned)
         if not query_vec:
             return
-        redis = seams.get_redis_client()
-        gen_before = await redis.get(seams._memory_generation_key(user_id))
+        redis = get_redis_client()
+        gen_before = await redis.get(cache.memory_generation_key(user_id))
         async with SessionLocal() as session:
             user = await users_repo.get_by_id(session, user_id)
-            if user is None or not user.memory_enabled:
+            if user is None or not memory_switch_on(user):
                 return
             report = MemoryLoadReport()
-            block = await seams._semantic_block_from_vec(
+            block = await semantic_block_from_vec(
                 session,
                 user,
                 settings,
@@ -217,23 +205,22 @@ async def warm_semantic_memory_cache(
                 with_profile=with_profile,
                 report=report,
             )
-            gen_after = await redis.get(seams._memory_generation_key(user_id))
+            gen_after = await redis.get(cache.memory_generation_key(user_id))
             if gen_before != gen_after or report.status != "ok":
                 return
-            query_key = seams._memory_query_scoped_key(
+            query_key = cache.memory_query_scoped_key(
                 user_id,
                 gen_before,
                 cleaned,
                 exclude_sensitive=exclude_sensitive,
                 with_profile=with_profile,
             )
-            await seams._write_query_block_cache(query_key, block, settings)
+            await cache.write_query_block_cache(query_key, block, settings)
     except Exception:
         logger.debug("Background semantic memory warm failed", exc_info=True)
 
 
 async def get_memory_block(
-    seams: Any,
     session: AsyncSession,
     user: User,
     settings: Settings,
@@ -243,24 +230,22 @@ async def get_memory_block(
     scope: MemoryScope = "query",
     report: MemoryLoadReport | None = None,
 ) -> str:
-    """Return the scoped prompt memory block, using semantic cache when enabled."""
-    if not user.memory_enabled:
+    """The memory block for one prompt; ``report`` says if it loaded in full."""
+    if not memory_switch_on(user):
         return ""
     report = report if report is not None else MemoryLoadReport()
     if scope == "work":
         return await _cached_block(
-            seams,
             session,
             user,
             settings,
             suffix="w",
             exclude_sensitive=exclude_sensitive,
             report=report,
-            select=lambda rows: seams.select_work_memories(rows, settings),
+            select=lambda rows: selection.select_work_memories(rows, settings),
         )
     if scope == "self" or not (query_text and settings.semantic_memory_enabled):
         return await _cached_block(
-            seams,
             session,
             user,
             settings,
@@ -270,7 +255,6 @@ async def get_memory_block(
             select=None,
         )
     return await _query_block(
-        seams,
         session,
         user,
         settings,
@@ -282,7 +266,6 @@ async def get_memory_block(
 
 
 async def _query_block(
-    seams: Any,
     session: AsyncSession,
     user: User,
     settings: Settings,
@@ -292,19 +275,18 @@ async def _query_block(
     with_profile: bool,
     report: MemoryLoadReport,
 ) -> str:
-    redis = seams.get_redis_client()
-    profile = _profile_kwargs(with_profile)
+    redis = get_redis_client()
     try:
-        generation = await redis.get(seams._memory_generation_key(user.id))
+        generation = await redis.get(cache.memory_generation_key(user.id))
     except Exception:
         logger.debug("Memory generation read failed", exc_info=True)
         generation = None
-    query_key = seams._memory_query_scoped_key(
+    query_key = cache.memory_query_scoped_key(
         user.id,
         generation,
         query_text,
         exclude_sensitive=exclude_sensitive,
-        **profile,
+        with_profile=with_profile,
     )
     try:
         cached = await redis.get(query_key)
@@ -322,50 +304,47 @@ async def _query_block(
         embed_timeout=settings.memory_query_embed_timeout_seconds,
     )
     if query_vec is not None:
-        block = await seams._semantic_block_from_vec(
+        block = await semantic_block_from_vec(
             session,
             user,
             settings,
             query_vec,
             exclude_sensitive=exclude_sensitive,
             query_text=query_text,
+            with_profile=with_profile,
             report=report,
-            **profile,
         )
         # A failed read is never cached: the next turn tries again.
         if report.status == "ok":
-            await seams._write_query_block_cache(query_key, block, settings)
-        return _log_inject(user.id, cast(str, block))
+            await cache.write_query_block_cache(query_key, block, settings)
+        return _log_inject(user.id, block)
 
     logger.warning(
         "Memory query embed unavailable; matching facts by words user_id=%s",
         user.id,
     )
     report.degrade("partial")
-    memories = await seams.load_relevant_memories(
+    memories = await load_relevant_memories(
         session,
         user,
         settings,
         query_text=query_text,
         lexical=True,
+        with_profile=with_profile,
         report=report,
-        **profile,
     )
     memories = filter_surface_memories(
-        seams,
-        memories,
-        exclude_sensitive=exclude_sensitive,
-        query_text=query_text,
+        memories, exclude_sensitive=exclude_sensitive, query_text=query_text
     )
     # Not cached: the warm below stores the real block for this same key.
-    block = seams.format_memory_block(memories, max_chars=settings.memory_inject_max_chars)
-    warm_task = seams.create_background_task(
-        seams._warm_semantic_memory_cache(
+    block = selection.format_memory_block(memories, max_chars=settings.memory_inject_max_chars)
+    warm_task = background_tasks.create_background_task(
+        warm_semantic_memory_cache(
             settings,
             user.id,
             query_text,
             exclude_sensitive=exclude_sensitive,
-            **profile,
+            with_profile=with_profile,
         ),
         name="warm_semantic_memory_cache",
     )
@@ -376,11 +355,10 @@ async def _query_block(
             else None
         )
     )
-    return _log_inject(user.id, cast(str, block))
+    return _log_inject(user.id, block)
 
 
 async def _cached_block(
-    seams: Any,
     session: AsyncSession,
     user: User,
     settings: Settings,
@@ -388,11 +366,11 @@ async def _cached_block(
     suffix: str,
     exclude_sensitive: bool,
     report: MemoryLoadReport,
-    select: Any,
+    select: Callable[[list[Memory]], list[Memory]] | None,
 ) -> str:
     """A block that does not depend on the question: everything, or the work scope."""
-    redis = seams.get_redis_client()
-    key = seams._memory_block_key(user.id)
+    redis = get_redis_client()
+    key = cache.memory_block_key(user.id)
     cache_key = f"{key}:{suffix}" if suffix else key
     if exclude_sensitive:
         cache_key = f"{cache_key}{'x' if suffix else ':x'}"
@@ -404,7 +382,7 @@ async def _cached_block(
         logger.debug("Memory block cache read failed", exc_info=True)
 
     if select is None:
-        memories = await seams.load_relevant_memories(session, user, settings, report=report)
+        memories = await load_relevant_memories(session, user, settings, report=report)
     else:
         from app.modules.memory import repository as memories_repo
 
@@ -414,11 +392,11 @@ async def _cached_block(
             logger.warning("Memory retrieval failed for user_id=%s", user.id, exc_info=True)
             report.degrade("unavailable")
             memories = []
-    memories = filter_surface_memories(seams, memories, exclude_sensitive=exclude_sensitive)
-    block = seams.format_memory_block(memories, max_chars=settings.memory_inject_max_chars)
+    memories = filter_surface_memories(memories, exclude_sensitive=exclude_sensitive)
+    block = selection.format_memory_block(memories, max_chars=settings.memory_inject_max_chars)
     if report.status == "ok":
         try:
             await redis.set(cache_key, block, ex=settings.memory_cache_ttl)
         except Exception:
             logger.debug("Memory block cache write failed", exc_info=True)
-    return _log_inject(user.id, cast(str, block))
+    return _log_inject(user.id, block)

@@ -8,7 +8,7 @@ from app.modules.math import function_analysis
 from app.modules.math import match as math_match
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MatrixInput
-from app.modules.math.solve import MathServiceError
+from app.modules.math.solve import SolveServiceError
 from app.modules.math.tools import _build_verified_block, extract_math_intent
 from app.modules.math.tools.direct import maybe_direct_math_reply
 
@@ -22,7 +22,7 @@ def test_function_domain_and_range_are_verified() -> None:
 
 def test_inverse_function_refuses_multivalued_full_domain() -> None:
     assert function_analysis.inverse_function("2*x+3") == r"\frac{x}{2} - \frac{3}{2}"
-    with pytest.raises(MathServiceError, match="not single-valued"):
+    with pytest.raises(SolveServiceError, match="not single-valued"):
         function_analysis.inverse_function("x^2")
 
 
@@ -110,7 +110,7 @@ def test_bivariate_statistics_require_two_explicit_equal_lists() -> None:
     reply = maybe_direct_math_reply(block, query)
     assert reply is not None and "3 values versus 2" in reply
 
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         math_solve.compute_bivariate_statistics("correlation", [1, 1], [2, 3])
 
 
@@ -169,7 +169,7 @@ def test_square_matrix_rules_remain_strict() -> None:
             rows=[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
         )
 
-    with pytest.raises(MathServiceError, match="not diagonalizable"):
+    with pytest.raises(SolveServiceError, match="not diagonalizable"):
         math_solve.compute_matrix(
             MatrixInput(operation="diagonalize", rows=[[1.0, 1.0], [0.0, 1.0]])
         )

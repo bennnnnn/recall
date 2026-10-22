@@ -11,11 +11,13 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from app.modules.chat import chats_repository as chats_repo
+from app.modules.chat import messages_repository as messages_repo
 from app.modules.todos import proposals, write_log
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.models import TodoItem
+from app.modules.todos.prompt_hint import TODO_HINT
 from app.modules.todos.reminder_fences import materialize_reminder_fences
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
 from app.repositories import users as users_repo
 
 _CARD = re.compile(r"```reminder_proposal\n(.*?)\n```", re.DOTALL)
@@ -86,13 +88,17 @@ async def test_spoken_reminder_is_a_card_until_tapped(db_session, fake_redis):
     assert "Set:" not in text
     assert await _rows(db_session, user.id) == []
 
-    items = await proposals.confirm_proposal(
+    confirmed = await proposals.confirm_proposal(
         db_session, fake_redis, user_id=user.id, proposal_id=card["proposal_id"]
     )
-    assert [item.action for item in items] == ["add"]
+    assert [item.action for item in confirmed.items] == ["add"]
     rows = await _rows(db_session, user.id)
     assert [row.content.lower() for row in rows] == ["call mom"]
     assert rows[0].due_at is not None and rows[0].due_at.hour == 18
+    # The phone applies the saved row instead of reading its list again (NET-16).
+    assert confirmed.rows is not None
+    assert [row.id for row in confirmed.rows] == [rows[0].id]
+    assert confirmed.deleted_ids == []
 
 
 @pytest.mark.asyncio
@@ -110,7 +116,9 @@ async def test_second_tap_saves_once_and_the_chat_shows_it_saved(db_session, fak
         db_session, fake_redis, user_id=user.id, proposal_id=proposal_id
     )
 
-    assert [item.title for item in again] == [item.title for item in first]
+    assert [item.title for item in again.items] == [item.title for item in first.items]
+    # Already saved: the phone reads its list instead.
+    assert again.rows is None
     assert len(await _rows(db_session, user.id)) == 1
     [message] = await messages_repo.list_recent(db_session, chat.id, limit=5)
     assert _card(message.content)["status"] == "saved"
@@ -205,14 +213,18 @@ async def test_a_change_to_a_saved_reminder_waits_for_the_tap(
     [row] = await _rows(db_session, user.id)
     assert row.id == saved.id and row.checked is False
 
-    await proposals.confirm_proposal(
+    confirmed = await proposals.confirm_proposal(
         db_session, fake_redis, user_id=user.id, proposal_id=card["proposal_id"]
     )
     rows = await _rows(db_session, user.id)
     if action == "delete":
         assert rows == []
+        assert confirmed.deleted_ids == [saved.id]
+        assert confirmed.rows == []
     else:
         assert rows[0].checked is True
+        assert confirmed.rows is not None
+        assert [(row.id, row.checked) for row in confirmed.rows] == [(saved.id, True)]
 
 
 @pytest.mark.asyncio
@@ -311,7 +323,7 @@ async def test_without_confirm_the_reminder_is_saved_at_once(db_session, fake_re
 
 
 def test_recorded_update_leaves_the_loaded_row_alone() -> None:
-    row = todos_repo.TodoItem(id=uuid4(), content="Gym", checked=False, topic="Reminders")
+    row = TodoItem(id=uuid4(), content="Gym", checked=False, topic="Reminders")
     with write_log.recording() as writes:
         planned = write_log.plan_update(writes, row, {"checked": True})
     assert row.checked is False
@@ -320,7 +332,7 @@ def test_recorded_update_leaves_the_loaded_row_alone() -> None:
 
 
 def test_deleting_a_row_planned_this_turn_drops_its_create() -> None:
-    todo = todos_repo.TodoItem(content="Gym", topic="Reminders")
+    todo = TodoItem(content="Gym", topic="Reminders")
     with write_log.recording() as writes:
         write_log.plan_create(writes, todo)
         assert write_log.plan_delete(writes, todo.id, None) is True
@@ -376,7 +388,7 @@ def test_history_reads_a_card_as_its_result_line(status, expected) -> None:
     }
     if status:
         card["status"] = status
-    text = proposals.cards_as_text(f"Sure.\n\n{_fence(card)}")
+    text = proposals.reminder_cards_as_text(f"Sure.\n\n{_fence(card)}")
     assert text == f"Sure.\n\n{expected}"
     assert "proposal_id" not in text
 
@@ -391,7 +403,7 @@ def test_history_names_each_kind_of_change() -> None:
             {"action": "move", "title": "Walk", "topic": "Health"},
         ],
     }
-    assert proposals.cards_as_text(_fence(card)) == (
+    assert proposals.reminder_cards_as_text(_fence(card)) == (
         "Done: Rent.\nDeleted: Gym.\nMoved: Walk — to Health."
     )
 
@@ -434,7 +446,7 @@ async def test_a_bare_clock_already_past_is_offered_for_tomorrow(db_session, fak
     text = await _nairobi_turn(
         db_session, fake_redis, "remind me to plate the dinner at 7pm", _PAST_FENCE
     )
-    assert "```reminder\n" not in text
+    assert TODO_HINT not in text
     item = _card(text)["items"][0]
     assert item["title"] == "Plate the dinner"
     assert item["due_at"] == "2026-10-19T16:00:00Z"

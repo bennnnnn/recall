@@ -10,7 +10,8 @@ import math
 
 from app.modules.physics.display import latex_given, latex_number, latex_unit
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 TWO_STAGE_OPERATIONS = frozenset({"two_stage_distance", "two_stage_time"})
@@ -22,7 +23,7 @@ def _q(value: float, unit: str, *, given: bool = False) -> str:
 
 
 def solve_two_stage(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     stated = set(intent.physics_params or {})
     a1, t1, v = p.get("a1"), p.get("t1"), p.get("v_top")
     formulas: list[str] = []

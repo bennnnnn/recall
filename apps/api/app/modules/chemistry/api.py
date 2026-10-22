@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request
 
 from app.core.config import Settings
 from app.core.deps import get_settings_dep
@@ -10,7 +10,7 @@ from app.models.orm import User
 from app.models.schemas.scan import ScanReadingOut
 from app.modules.account.consent import get_consented_user
 from app.modules.chemistry.read import read_chemistry_problem
-from app.services.scan_read import ScanPhoto, read_scan
+from app.services.scan_read import ScanPhoto, ScanRefusedError, read_scan
 
 router = APIRouter(prefix="/chemistry", tags=["chemistry"])
 
@@ -22,7 +22,7 @@ async def read_chemistry_scan(
     settings: Settings = Depends(get_settings_dep),
 ) -> ScanReadingOut:
     if not settings.chemistry_enabled:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
+        raise ScanRefusedError("Not available", status_code=404, code="not_available")
 
     async def read(photo: ScanPhoto, seconds_left: float) -> str:
         return await read_chemistry_problem(

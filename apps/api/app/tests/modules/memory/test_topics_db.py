@@ -210,11 +210,12 @@ async def test_clearing_all_memory_removes_area_titles(db_session):
         active_cap=150,
     )
     await db_session.flush()
+    areas = select(MemoryArea).where(MemoryArea.user_id == user.id)
+    assert (await db_session.execute(areas)).scalars().all() != []
 
     await memories_repo.delete_all_for_user(db_session, user.id)
 
-    rows = await db_session.execute(select(MemoryArea).where(MemoryArea.user_id == user.id))
-    assert rows.scalars().all() == []
+    assert (await db_session.execute(areas)).scalars().all() == []
 
 
 @pytest.mark.asyncio

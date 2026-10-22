@@ -2,12 +2,11 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import type { TextInput } from "react-native";
 
 import { api, type SearchResult } from "@/lib/api";
+import { isAbortError } from "@/lib/api/abort";
 import { getSessionGeneration } from "@/lib/auth";
 import {
   DRAWER_SEARCH_DEBOUNCE_MS,
   DRAWER_SEARCH_PAGE_SIZE,
-  hasMoreDrawerSearchResults,
-  isAbortError,
   isValidDrawerSearchQuery,
   mergeDrawerSearchResults,
 } from "@/features/search/model/drawerSearchLogic";
@@ -19,12 +18,13 @@ type SearchCycle = {
   open: boolean;
   query: string;
   pending: boolean;
-  nextOffset: number;
+  /** Where the next page starts; the server names it after the last hit read. */
+  nextCursor: string | null;
   hasMore: boolean;
   results: SearchResult[];
 };
 function emptyCycle(view: View): SearchCycle {
-  return { view, open: false, query: "", pending: false, nextOffset: 0, hasMore: false, results: [] };
+  return { view, open: false, query: "", pending: false, nextCursor: null, hasMore: false, results: [] };
 }
 function emptySnapshot(cycle: SearchCycle) {
   return { cycle, searchOpen: false, searchQuery: "", searchResults: [] as SearchResult[], searchLoading: false, searchError: false, loadingMore: false, loadingMoreError: false, hasMore: false };
@@ -89,17 +89,18 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
     const accessToken = tokenRef.current;
     if (!accessToken || !current(cycle) || cycle.pending || !isValidDrawerSearchQuery(cycle.query)) return;
     if (append && !cycle.hasMore) return;
-    const offset = append ? cycle.nextOffset : 0;
+    const cursor = append ? cycle.nextCursor ?? undefined : undefined;
     const controller = new AbortController();
     controllerRef.current = controller;
     cycle.pending = true;
     setSnapshot((prev) => prev.cycle === cycle ? { ...prev, searchLoading: !append, loadingMore: append, searchError: false, loadingMoreError: false } : prev);
     try {
-      const data = await api.search(accessToken, cycle.query, DRAWER_SEARCH_PAGE_SIZE, { signal: controller.signal }, offset);
+      const data = await api.search(accessToken, cycle.query, DRAWER_SEARCH_PAGE_SIZE, { signal: controller.signal }, cursor);
       if (!current(cycle)) return;
-      cycle.results = mergeDrawerSearchResults(append ? cycle.results : [], data.results);
-      cycle.nextOffset = offset + data.results.length;
-      cycle.hasMore = hasMoreDrawerSearchResults(cycle.nextOffset, data.total, data.results.length);
+      cycle.results = mergeDrawerSearchResults(append ? cycle.results : [], data.items);
+      cycle.nextCursor = data.next_cursor;
+      // An empty page or a cursor that did not move ends the list, whatever else it says.
+      cycle.hasMore = data.next_cursor !== null && data.items.length > 0 && data.next_cursor !== cursor;
       setSnapshot((prev) => prev.cycle === cycle ? { ...prev, searchResults: cycle.results, hasMore: cycle.hasMore } : prev);
     } catch (error: unknown) {
       if (current(cycle) && !isAbortError(error)) {

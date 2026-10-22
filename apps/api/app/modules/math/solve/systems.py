@@ -9,7 +9,7 @@ from sympy import Eq, Symbol, latex, simplify, solve
 
 from app.modules.math.schemas import MathSystemSolveResult, SystemOfEquationsInput
 from app.modules.math.solve.equations import _reject_high_degree
-from app.modules.math.solve.parse import MathServiceError, _parse_expression
+from app.modules.math.solve.parse import SolveServiceError, parse_expression
 
 
 def _classify_system_no_solution(pairs: list[tuple[Any, Any]]) -> Literal["none", "infinite"]:
@@ -32,8 +32,8 @@ def solve_system(data: SystemOfEquationsInput) -> MathSystemSolveResult:
     parsed_pairs: list[tuple[Any, Any]] = []
     step_lines: list[str] = []
     for i, (lhs_raw, rhs_raw) in enumerate(data.equations, start=1):
-        lhs = _parse_expression(lhs_raw, data.variables)
-        rhs = _parse_expression(rhs_raw, data.variables)
+        lhs = parse_expression(lhs_raw, data.variables)
+        rhs = parse_expression(rhs_raw, data.variables)
         _reject_high_degree(lhs, rhs, data.variables)
         equations.append(Eq(lhs, rhs))
         parsed_pairs.append((lhs, rhs))
@@ -42,7 +42,7 @@ def solve_system(data: SystemOfEquationsInput) -> MathSystemSolveResult:
     try:
         raw_solutions = solve(equations, syms, dict=True)
     except Exception as exc:
-        raise MathServiceError("Could not solve system of equations") from exc
+        raise SolveServiceError("Could not solve system of equations") from exc
 
     solutions: list[dict[str, str]] = [
         {str(sym): latex(val) for sym, val in sol.items()} for sol in raw_solutions

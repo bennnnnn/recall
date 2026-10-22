@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 
 
 def _attach_picture(
@@ -30,4 +30,4 @@ def _block_teaching(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock |
     if picture is None:
         return None
     lines.append(picture.speech)
-    return _attach_picture(_finish_with_answer(lines, picture.answer), picture, intent, direct=True)
+    return _attach_picture(finish_with_answer(lines, picture.answer), picture, intent, direct=True)

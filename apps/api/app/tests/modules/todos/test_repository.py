@@ -1,11 +1,9 @@
 """Tests for app.modules.todos.repository."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
-
-from app.modules.todos import repository as repo
 
 
 def _todo(todo_id, *, sort_order=None, topic="General"):
@@ -16,91 +14,74 @@ def _todo(todo_id, *, sort_order=None, topic="General"):
     return item
 
 
-@pytest.fixture
-def fake_session():
-    return AsyncMock()
+# ── todos repository ────────────────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_reorder_returns_empty_list_without_querying(fake_session):
-    result = await repo.reorder(fake_session, uuid4(), [])
+async def test_todos_repo_create():
+    from app.modules.todos.repository import create
 
-    assert result == []
-    fake_session.execute.assert_not_called()
-    fake_session.commit.assert_not_called()
+    todo_mock = MagicMock()
+    session = AsyncMock()
+    session.add = MagicMock()
+    session.commit = AsyncMock()
+    session.refresh = AsyncMock()
 
-
-@pytest.mark.asyncio
-async def test_reorder_bulk_fetches_and_commits_once(fake_session):
-    user_id = uuid4()
-    id_a, id_b = uuid4(), uuid4()
-    todo_a, todo_b = _todo(id_a), _todo(id_b)
-
-    fetch_result = MagicMock()
-    fetch_result.scalars.return_value.all.return_value = [todo_a, todo_b]
-    refresh_result = MagicMock()
-    refresh_result.scalars.return_value.all.return_value = [todo_a, todo_b]
-    fake_session.execute = AsyncMock(side_effect=[fetch_result, refresh_result])
-
-    updated = await repo.reorder(fake_session, user_id, [(id_a, 2, "work"), (id_b, 1, None)])
-
-    assert [t.id for t in updated] == [id_a, id_b]
-    assert todo_a.sort_order == 2
-    assert todo_a.topic == "work"
-    assert todo_b.sort_order == 1
-    assert todo_b.topic == "General"  # untouched — topic was None in the request
-    # Exactly one commit for the whole batch, not one per item.
-    fake_session.commit.assert_awaited_once()
-    assert fake_session.execute.await_count == 2
+    with (
+        patch("app.modules.todos.repository.next_sort_order", AsyncMock(return_value=1)),
+        patch("app.modules.todos.repository.TodoItem", return_value=todo_mock),
+    ):
+        result = await create(session, user_id=uuid4(), content="Task 1")
+    assert result is todo_mock
+    session.add.assert_called_once()
+    session.commit.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_reorder_skips_ids_not_found_or_owned_by_another_user(fake_session):
-    user_id = uuid4()
-    id_a, missing_id = uuid4(), uuid4()
-    todo_a = _todo(id_a)
+async def test_todos_repo_create_commit_false_flushes_without_commit():
+    from app.modules.todos.repository import create
 
-    fetch_result = MagicMock()
-    fetch_result.scalars.return_value.all.return_value = [todo_a]
-    refresh_result = MagicMock()
-    refresh_result.scalars.return_value.all.return_value = [todo_a]
-    fake_session.execute = AsyncMock(side_effect=[fetch_result, refresh_result])
+    todo_mock = MagicMock()
+    session = AsyncMock()
+    session.add = MagicMock()
+    session.commit = AsyncMock()
+    session.flush = AsyncMock()
+    session.refresh = AsyncMock()
 
-    updated = await repo.reorder(fake_session, user_id, [(id_a, 1, None), (missing_id, 2, None)])
-
-    assert [t.id for t in updated] == [id_a]
-    fake_session.commit.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_delete_by_topic_matches_topic_exactly(fake_session):
-    from sqlalchemy.dialects import postgresql
-
-    captured: dict = {}
-    result = MagicMock()
-    result.rowcount = 1
-
-    async def _capture(stmt):
-        captured["stmt"] = stmt
-        return result
-
-    fake_session.execute = _capture
-    n = await repo.delete_by_topic(fake_session, uuid4(), "Groceries")
-
-    assert n == 1
-    compiled = captured["stmt"].compile(dialect=postgresql.dialect())
-    assert "lower(" not in str(compiled).lower()
-    fake_session.commit.assert_awaited_once()
+    with (
+        patch("app.modules.todos.repository.next_sort_order", AsyncMock(return_value=1)),
+        patch("app.modules.todos.repository.TodoItem", return_value=todo_mock),
+    ):
+        result = await create(session, user_id=uuid4(), content="Task 1", commit=False)
+    assert result is todo_mock
+    session.add.assert_called_once()
+    session.flush.assert_awaited_once()
+    session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_reorder_no_matches_skips_commit(fake_session):
-    fetch_result = MagicMock()
-    fetch_result.scalars.return_value.all.return_value = []
-    fake_session.execute = AsyncMock(return_value=fetch_result)
+async def test_todos_repo_update_unchecks():
+    from app.modules.todos.repository import update
 
-    updated = await repo.reorder(fake_session, uuid4(), [(uuid4(), 1, None)])
+    todo = MagicMock()
+    todo.checked = True
+    session = AsyncMock()
+    session.commit = AsyncMock()
+    session.refresh = AsyncMock()
 
-    assert updated == []
-    fake_session.commit.assert_not_called()
-    fake_session.execute.assert_awaited_once()
+    updated = await update(session, todo, checked=False)
+    assert updated.checked is False
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_todos_repo_delete_not_found():
+    from app.modules.todos.repository import delete_by_id
+
+    session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.rowcount = 0
+    session.execute = AsyncMock(return_value=mock_result)
+
+    result = await delete_by_id(session, uuid4(), uuid4())
+    assert result is False

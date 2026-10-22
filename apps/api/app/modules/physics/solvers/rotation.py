@@ -5,13 +5,10 @@ momentum. Constant-alpha, rolling and parallel-axis operations go to rotational_
 from __future__ import annotations
 
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    _latex_num,
-    _params_in_si,
-)
+from app.modules.physics.solvers.arithmetic import latex_num
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
 from app.modules.physics.solvers.rotational_dynamics import solve_rotational_dynamics
+from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 
@@ -30,7 +27,7 @@ def solve_rotation(intent: PhysicsIntent) -> PhysicsResult:
     }:
         return solve_rotational_dynamics(intent)
 
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     op = intent.physics_op or ""
 
     if op == "moment_of_inertia":
@@ -39,12 +36,12 @@ def solve_rotation(intent: PhysicsIntent) -> PhysicsResult:
         return PhysicsResult(
             answer=(
                 rf"I = {factor:g} m r^2 = {factor:g} \cdot {p['m']:g} \cdot "
-                rf"{_latex_num(p['r'], square=True)} \approx {value:.2f} "
+                rf"{latex_num(p['r'], square=True)} \approx {value:.2f} "
                 rf"\text{{ kg}}\,\text{{m}}^2"
             ),
             formulas=(rf"I = {factor:g} m r^2",),
             substitutions=(
-                rf"I = {factor:g} \cdot {p['m']:g} \cdot {_latex_num(p['r'], square=True)}",
+                rf"I = {factor:g} \cdot {p['m']:g} \cdot {latex_num(p['r'], square=True)}",
             ),
             quantities=(QuantityResult("", value, "kg*m^2"),),
         )
@@ -66,11 +63,11 @@ def solve_rotation(intent: PhysicsIntent) -> PhysicsResult:
         return PhysicsResult(
             answer=(
                 rf"E_k = \tfrac{{1}}{{2}} I \omega^2 = 0.5 \cdot {p['inertia']:g} \cdot "
-                rf"{_latex_num(p['omega'], square=True)} \approx {value:.2f} \text{{ J}}"
+                rf"{latex_num(p['omega'], square=True)} \approx {value:.2f} \text{{ J}}"
             ),
             formulas=(r"E_k = \tfrac{1}{2} I \omega^2",),
             substitutions=(
-                rf"E_k = 0.5 \cdot {p['inertia']:g} \cdot {_latex_num(p['omega'], square=True)}",
+                rf"E_k = 0.5 \cdot {p['inertia']:g} \cdot {latex_num(p['omega'], square=True)}",
             ),
             quantities=(QuantityResult("", value, "J"),),
         )

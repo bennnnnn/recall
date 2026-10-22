@@ -2,7 +2,7 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 import { type ImageProps, StyleSheet } from "react-native";
 import * as Reanimated from "react-native-reanimated";
 
-import { ChatMessageImage } from "@/components/ChatMessageImage";
+import { ChatMessageImage } from "@/features/attachments/components/ChatMessageImage";
 import { ComposerAttachmentPreview } from "@/features/attachments/components/ComposerAttachmentPreview";
 import { fitAttachmentImage } from "@/features/attachments/model/attachmentImageSize";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
@@ -14,7 +14,6 @@ jest.mock("@/features/attachments/components/AttachmentImageViewer", () => {
   const { View: MockView } = jest.requireActual("react-native");
   return { AttachmentImageViewer: ({ visible }: { visible: boolean }) => visible ? <MockView testID="image-viewer" /> : null };
 });
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => "test-token" }));
 jest.mock("@/features/attachments/model/attachmentUri", () => ({
   resolveAttachmentUri: jest.fn(({ localUri, path, attachmentId }: { localUri?: string; path?: string; attachmentId?: string }) => localUri || path || (attachmentId ? `https://api.test/attachments/${attachmentId}/file` : null)),

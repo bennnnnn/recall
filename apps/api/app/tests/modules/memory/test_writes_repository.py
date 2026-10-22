@@ -54,7 +54,9 @@ async def test_conditional_section_update_requires_owned_current_snapshot(memory
             )
         },
     )
-    sync_session.refresh(row)
+    sync_session.refresh(
+        row, attribute_names=["text", "embedding", "embedding_json", "embedding_text_hash"]
+    )
     assert row.text == ("New fact" if change == "new_text" else "Old fact")
     assert (row.embedding is None) == (change == "new_text")
     assert row.embedding_json == (None if change == "new_text" else "[0.1]")

@@ -8,6 +8,7 @@ from app.modules.chemistry.block import VerifiedChemistry
 from app.modules.chemistry.fence import assemble_chemistry_reply
 from app.modules.chemistry.notation import typeset
 from app.modules.chemistry.solvers.types import ChemistryResult
+from app.services.student_claim import has_stated_result
 from app.services.workout import Workout, formula_name, render_workout, text_line
 
 
@@ -47,8 +48,12 @@ def maybe_direct_chemistry_reply(
     has_image_attachment: bool,
     user_text: str = "",
 ) -> str | None:
-    """Use exact output for typed text, and for a photo whose reading was confirmed."""
-    if verified is None:
+    """Use exact output for typed text, and for a photo whose reading was confirmed.
+
+    Not when the student stated a result to check: the model answers whether it is
+    right, with the verified answer beside it.
+    """
+    if verified is None or has_stated_result(user_text):
         return None
     if has_image_attachment:
         from app.modules.chemistry.reading import confirmed_chemistry_reading

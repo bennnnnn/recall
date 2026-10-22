@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * Builds lib/licenses.generated.json — the open-source packages the app
- * ships (package.json "dependencies", the web libraries inlined in
- * lib/vendor, and the Lucide drawings) with their versions and licenses —
+ * ships (package.json "dependencies", the web libraries in assets/vendor, and
+ * the Lucide drawings) with their versions and licenses —
  * for Settings → Help & about → Open-source licenses.
  *
  * It runs on every `pnpm install` (postinstall), so the list always matches
@@ -27,7 +27,7 @@ function installed(name) {
   return { name, version: pkg.version, license: licenseOf(pkg) };
 }
 
-// Inlined by scripts that write lib/vendor; versions come from its manifest.
+// Shipped as assets by scripts/vendor-cdn.mjs; versions come from lib/vendor/manifest.json.
 const { versions: vendored } = JSON.parse(
   readFileSync(join(root, "lib", "vendor", "manifest.json"), "utf8"),
 );

@@ -31,7 +31,8 @@ import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from app.services.md_fence_scan import map_closed_fences
+from app.services.md_fence_scan import fence_lang as fence_lang
+from app.services.md_fence_scan import map_closed_fences, read_fence_marker
 
 VERIFIED_ANSWER_MARKER = "verified: true"
 CHEMISTRY_NOTATION_LINE = "notation: chemistry"
@@ -77,8 +78,6 @@ def verified_answer_fence(body: str) -> str:
 
 # --- A lenient fence scan for model text -------------------------------------------------
 
-_OPENER = re.compile(r"(?P<tick>`{3,}|~{3,})(?P<info>.*)")
-
 
 @dataclass(frozen=True)
 class _Fence:
@@ -98,29 +97,27 @@ def _line_prefix(line: str) -> tuple[str, str]:
     return line[:index], line[index:]
 
 
-def fence_lang(info: str) -> str:
-    """The phone's ``parseFenceLang``: first word, cut at ``{ : [``, lower case."""
-    words = info.strip().split()
-    if not words:
-        return ""
-    return re.split(r"[{:\[]", words[0], maxsplit=1)[0].lower()
-
-
 def _opener(line: str) -> tuple[str, str, str] | None:
-    prefix, rest = _line_prefix(line)
-    match = _OPENER.fullmatch(rest.rstrip("\r"))
-    if match is None:
+    """(prefix, tick, info) of a fence opener, on the shared lenient grammar.
+
+    ``info`` is as written ("``` answer" keeps its space), so a fence is canonical
+    only when it is spelled exactly ```answer.
+    """
+    marker = read_fence_marker(line, lenient=True)
+    if marker is None:
         return None
-    tick, info = match.group("tick"), match.group("info")
-    if tick[0] == "`" and "`" in info:
-        return None  # ```inline``` code on one line, not a fence
-    return prefix, tick, info
+    tick = marker.char * marker.length
+    return marker.prefix, tick, line.rstrip("\r")[len(marker.prefix) + len(tick) :]
 
 
 def _closes(line: str, tick: str) -> bool:
-    _prefix, rest = _line_prefix(line)
-    run = rest.strip()
-    return len(run) >= len(tick) and run == tick[0] * len(run)
+    marker = read_fence_marker(line, lenient=True)
+    return (
+        marker is not None
+        and not marker.info
+        and marker.char == tick[0]
+        and (marker.length >= len(tick))
+    )
 
 
 def _scan(lines: list[str]) -> tuple[list[_Fence], dict[int, str]]:

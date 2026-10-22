@@ -3,8 +3,6 @@ import * as SecureStore from "expo-secure-store";
 export { clearOnboarded, getOnboarded, setOnboarded } from "@/lib/onboarding";
 
 const SESSION_KEY = "recall_session_v1";
-const LEGACY_ACCESS_KEY = "recall_access_token";
-const LEGACY_REFRESH_KEY = "recall_refresh_token";
 
 type TokenPair = { accessToken: string; refreshToken: string | null };
 
@@ -55,13 +53,6 @@ function withStorage<T>(operation: () => Promise<T>): Promise<T> {
   return pending;
 }
 
-async function deleteLegacyTokens(): Promise<void> {
-  await Promise.all([
-    SecureStore.deleteItemAsync(LEGACY_ACCESS_KEY),
-    SecureStore.deleteItemAsync(LEGACY_REFRESH_KEY),
-  ]);
-}
-
 function parseTokenPair(value: string): TokenPair | null {
   const pair: unknown = JSON.parse(value);
   if (pair === null) return null;
@@ -80,24 +71,10 @@ function parseTokenPair(value: string): TokenPair | null {
 
 async function readTokenPair(generation: number): Promise<TokenPair | null> {
   const stored = await SecureStore.getItemAsync(SESSION_KEY);
-  // A JSON null record is an authoritative sign-out, including when removal
-  // of an older build's separate token records was interrupted.
-  if (stored !== null) {
-    const pair = parseTokenPair(stored);
-    if (pair && generation === sessionGeneration) sessionAccessTokens.add(pair.accessToken);
-    return pair;
-  }
-  const [accessToken, refreshToken] = await Promise.all([
-    SecureStore.getItemAsync(LEGACY_ACCESS_KEY),
-    SecureStore.getItemAsync(LEGACY_REFRESH_KEY),
-  ]);
-  if (!accessToken) return null;
-  const pair = { accessToken, refreshToken };
-  if (generation === sessionGeneration) {
-    await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(pair));
-    await deleteLegacyTokens();
-    if (generation === sessionGeneration) sessionAccessTokens.add(accessToken);
-  }
+  // A JSON null record is an authoritative sign-out.
+  if (stored === null) return null;
+  const pair = parseTokenPair(stored);
+  if (pair && generation === sessionGeneration) sessionAccessTokens.add(pair.accessToken);
   return pair;
 }
 
@@ -139,13 +116,8 @@ export function clearToken(): Promise<void> {
       await SecureStore.setItemAsync(SESSION_KEY, "null");
     } catch {
       // Deletion can still work when a write is unavailable (for example a
-      // full store). Only report success when all credential records are gone.
-      await Promise.all([
-        SecureStore.deleteItemAsync(SESSION_KEY),
-        deleteLegacyTokens(),
-      ]);
-      return;
+      // full store). Only report success when the credential record is gone.
+      await SecureStore.deleteItemAsync(SESSION_KEY);
     }
-    await deleteLegacyTokens();
   });
 }

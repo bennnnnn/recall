@@ -1,5 +1,6 @@
 import { request } from "@/lib/api/client";
-import { isConsentRequiredBody, setConsentRequiredHandler } from "@/lib/api/consentRefusal";
+import { readErrorBody } from "@/lib/api/errorBody";
+import { CONSENT_REQUIRED_CODE, setConsentRequiredHandler } from "@/lib/api/consentRefusal";
 
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "http://test.local" }));
 
@@ -37,7 +38,8 @@ describe("a consent_required refusal", () => {
     mockFetch.mockResolvedValueOnce(new Response(CONSENT_BODY, { status: 403 }));
     await expect(request("/speech/transcribe", "tok")).rejects.toMatchObject({
       status: 403,
-      message: CONSENT_BODY,
+      code: "consent_required",
+      message: "Agree to how Recall uses outside AI services.",
     });
     await flush();
     expect(opened).toHaveBeenCalledTimes(1);
@@ -59,6 +61,6 @@ describe("a consent_required refusal", () => {
     ["not json", false],
     ["null", false],
   ])("reads %s as a consent refusal: %s", (body, expected) => {
-    expect(isConsentRequiredBody(body)).toBe(expected);
+    expect(readErrorBody(body).code === CONSENT_REQUIRED_CODE).toBe(expected);
   });
 });

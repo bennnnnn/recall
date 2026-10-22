@@ -1,14 +1,11 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
-import { SettingsFieldSheet } from "@/features/account/components/SettingsFieldSheet";
+import { FieldSheet } from "@/ui/overlay/FieldSheet";
 import { SettingsMenuRow, SettingsSwitchRow } from "@/features/account/components/settingsUi";
 
 jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn() } }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: "token" }) }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
 jest.mock("@/ui/overlay/Sheet", () => {
   const { View: RNView } = jest.requireActual("react-native") as typeof import("react-native");
   return {
@@ -102,7 +99,7 @@ describe("settings action feedback", () => {
 
   it("locks the field editor while its save is pending", async () => {
     const { getByLabelText, getByPlaceholderText } = await render(
-      <SettingsFieldSheet
+      <FieldSheet
         visible
         title="Name"
         value="Ada"

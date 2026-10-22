@@ -14,7 +14,7 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules import web_search as web_search_service
 from app.modules.account import profile as profile_service
-from app.modules.chat.continuation_subject import is_resume_request
+from app.modules.chat.continuation_subject import exchange_pairs, is_resume_request
 from app.modules.chat.json_output import JSON_OUTPUT_HINT, is_json_request
 from app.modules.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
@@ -70,8 +70,8 @@ from app.modules.chat.prompt_profile import (
     format_user_profile_block,
     should_include_profile_email,
 )
-from app.modules.chat.prompt_window import FollowupSubject
 from app.modules.chat.turn_plan import TurnPlan
+from app.modules.chat.turn_prep.followups import FollowupSubject
 from app.modules.chemistry.followup import CHEMISTRY_FOLLOWUP_HINT
 from app.modules.math.followup import MATH_FOLLOWUP_HINT
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
@@ -123,7 +123,7 @@ class PromptTurn:
     @property
     def length_hint(self) -> str:
         # No account-wide length: each message says how long it wants ("briefly",
-        # "in detail"). A stored users.response_style from an older app is ignored.
+        # "in detail").
         if self.lightweight:
             return STYLE_HINTS["short"]
         return STYLE_HINTS["detailed" if reply_length(self.query) == "detailed" else "balanced"]
@@ -177,11 +177,7 @@ def _style_hints(turn: PromptTurn) -> list[str]:
         lesson=lesson,
         outline_pick=outline_pick,
         lesson_after_gap=after_gap,
-        prior_messages=[
-            (message.role, message.content)
-            for message in turn.exchange
-            if message.role in {"user", "assistant"} and isinstance(message.content, str)
-        ],
+        prior_messages=exchange_pairs(turn.exchange),
         multi=turn.multi,
     )
 
@@ -261,7 +257,7 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
     PromptSection(
         _always,
         lambda t: [
-            response_tone_service.tone_hint(getattr(t.user, "response_tone", None)),
+            response_tone_service.tone_hint(t.user.response_tone),
             TONE_FORMAT_GUARD,
         ],
     ),
@@ -272,7 +268,7 @@ PROMPT_SECTIONS: tuple[PromptSection, ...] = (
     PromptSection(lambda t: not t.lightweight, lambda _t: [FACT_GROUNDING_HINT]),
     PromptSection(
         # The user's own choice, not a server without search: only then point to Settings.
-        lambda t: not t.lightweight and getattr(t.user, "web_search_enabled", True) is False,
+        lambda t: not t.lightweight and t.user.web_search_enabled is False,
         lambda _t: [WEB_SEARCH_OFF_HINT],
     ),
     PromptSection(_always, lambda t: _present(custom_instructions_block(t.user))),

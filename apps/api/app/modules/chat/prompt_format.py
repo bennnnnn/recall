@@ -214,7 +214,7 @@ def _style_turn(
     lesson: int | None,
     outline_pick: bool = False,
     lesson_after_gap: bool = False,
-    prior_messages: list[tuple[str, str]] | None,
+    prior_messages: Sequence[tuple[str, str]] | None,
     multi: bool = False,
 ) -> StyleTurn:
     query = query_text or ""
@@ -450,7 +450,7 @@ def _style_format_hints(
     lesson: int | None = None,
     outline_pick: bool = False,
     lesson_after_gap: bool = False,
-    prior_messages: list[tuple[str, str]] | None = None,
+    prior_messages: Sequence[tuple[str, str]] | None = None,
     multi: bool = False,
 ) -> list[str]:
     """Clarification / day-planning / response-format hints for non-quiz turns.

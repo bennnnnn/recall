@@ -1,5 +1,6 @@
 import { looksLikeMarkdownListProse } from "@/lib/markdown/preprocessNormalize";
-import { applyOutsideFences, mapClosedFences } from "@/lib/mdFenceScan";
+import { parseFenceLang } from "@/lib/codeHighlight";
+import { applyOutsideFences, mapClosedFences, readFenceMarker } from "@/lib/mdFenceScan";
 
 const BLOCK_MATH_RE = /\$\$([\s\S]+?)\$\$/g;
 const BLOCK_MATH_BRACKET_RE = /\\\[([\s\S]+?)\\\]/g;
@@ -75,14 +76,14 @@ export function unwrapCorruptedMathFences(content: string): string {
 
 /** Repair list lines truncated by a prior bad ($$) → math-fence split. */
 export function repairCorruptedPriceTierMarkdown(content: string): string {
-  let out = content.replace(
-    /```(?:math)?\n\s*\$\)?\s*\n```/gi,
-    "",
-  );
-  out = out.replace(
-    /```(?:math)?\n\s*\$\)?\s*\n([\s\S]*?)```/gi,
-    (_full, body: string) => `\n\n${String(body).replace(PRICE_TIER_ARTIFACT_STRIP_RE, "")}\n\n`,
-  );
+  // A bare or ```math fence whose first line is a stray `$` / `$)`: its rest was the list.
+  const out = mapClosedFences(content, (info, body, original) => {
+    const lang = parseFenceLang(info);
+    const [first = "", ...rest] = body.split("\n");
+    if ((lang !== "" && lang !== "math") || !/^\s*\$\)?\s*$/.test(first)) return original;
+    const list = rest.join("\n");
+    return list.trim() ? `\n\n${list.replace(PRICE_TIER_ARTIFACT_STRIP_RE, "")}\n\n` : "";
+  });
 
   const lines = out.split("\n");
   const fixed: string[] = [];
@@ -90,7 +91,7 @@ export function repairCorruptedPriceTierMarkdown(content: string): string {
     let line = lines[i];
     if (/\(\s*$/.test(line) && !/\(\s*\$/.test(line)) {
       const next = lines[i + 1]?.trim() ?? "";
-      if (/^\d+\.\s/.test(next) || next.startsWith("```") || next.startsWith("###")) {
+      if (/^\d+\.\s/.test(next) || readFenceMarker(next) != null || next.startsWith("###")) {
         line = line.replace(/\(\s*$/, "($$$)");
       }
     }

@@ -12,6 +12,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.attachments.rag import chunk_text
 from app.modules.chat.history_rag import (
+    HistoryEmbeddingUnavailable,
     embed_query_for_prompt,
     index_message,
     index_turn_messages,
@@ -143,15 +144,6 @@ async def test_retrieve_for_prompt_wraps_hits_and_excludes():
             "app.modules.chat.history_rag.chunks_repo.search_semantic",
             AsyncMock(return_value=[row]),
         ) as search,
-        patch(
-            "app.modules.chat.history_rag.embedding_gateway.parse_embedding",
-            return_value=[0.1] * 8,
-        ),
-        patch(
-            "app.modules.chat.history_rag.embedding_gateway.cosine_similarity",
-            return_value=0.9,
-        ),
-        patch("app.modules.chat.history_rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             Settings(chat_history_rag_enabled=True, mock_llm_enabled=True),
@@ -160,7 +152,7 @@ async def test_retrieve_for_prompt_wraps_hits_and_excludes():
             exclude_message_ids=exclude,
         )
     assert "earlier chats" in block
-    assert "not this conversation and not saved memory" in block
+    assert "not this conversation and not saved memory" in block  # safety phrase
     assert "blue couch" in block
     assert "not the full history" in block
     assert search.await_args.kwargs["exclude_message_ids"] == exclude
@@ -207,15 +199,6 @@ async def test_retrieve_for_prompt_uses_precomputed_vec_without_reembed():
             "app.modules.chat.history_rag.chunks_repo.search_semantic",
             AsyncMock(return_value=[row]),
         ) as search,
-        patch(
-            "app.modules.chat.history_rag.embedding_gateway.parse_embedding",
-            return_value=[0.1] * 8,
-        ),
-        patch(
-            "app.modules.chat.history_rag.embedding_gateway.cosine_similarity",
-            return_value=0.9,
-        ),
-        patch("app.modules.chat.history_rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             Settings(chat_history_rag_enabled=True, mock_llm_enabled=True),
@@ -233,21 +216,19 @@ async def test_retrieve_for_prompt_uses_precomputed_vec_without_reembed():
 @pytest.mark.asyncio
 async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent():
     """Recent-window load must not sit behind the RAG query embed."""
-    import time
-
     from app.modules.chat.prompt_builder import _load_context_blocks
 
+    recent_read = asyncio.Event()
+
     async def slow_embed(*_args, **_kwargs):
-        await asyncio.sleep(0.2)
+        # Finishes only once the recent window is read: awaited first, it times out.
+        await asyncio.wait_for(recent_read.wait(), timeout=1)
         return [0.2]
 
-    recent_at: dict[str, float] = {}
-
     async def fast_recent(*_args, **_kwargs):
-        recent_at["t"] = time.perf_counter()
+        recent_read.set()
         return []
 
-    t0 = time.perf_counter()
     user = MagicMock()
     user.id = uuid4()
     with (
@@ -269,7 +250,6 @@ async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent(
             client_timezone=None,
             history_rag=True,
         )
-    assert recent_at["t"] - t0 < 0.1
     assert blocks.history_rag_query_vec == [0.2]
 
 
@@ -310,7 +290,6 @@ async def test_build_prompt_uses_gathered_history_embedding_once(
         id=uuid4(),
         email="test@example.com",
         location_enabled=False,
-        response_style="balanced",
         response_tone="casual",
         locale="en",
         timezone="UTC",
@@ -323,10 +302,10 @@ async def test_build_prompt_uses_gathered_history_embedding_once(
     embed = AsyncMock(return_value=query_vec)
     row = MagicMock(text="User: We chose the blue couch.")
     with (
-        patch("app.modules.chat.prompt_builder.SessionLocal", _session_cm()),
+        patch("app.modules.attachments.rag.SessionLocal", _session_cm()),
         patch("app.modules.chat.prompt_context.SessionLocal", _session_cm()),
         patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
-        patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
+        patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value=None)),
         patch("app.modules.chat.history_rag.chunks_repo.has_chunks_for_user", probe),
         patch("app.modules.chat.history_rag.embedding_gateway.get_or_embed_query", embed),
@@ -376,18 +355,18 @@ async def test_index_message_uses_short_lived_session():
         live += 1
         max_live = max(max_live, live)
         try:
-            yield MagicMock()
+            yield AsyncMock()
         finally:
             live -= 1
 
-    async def _embed(*_a, **_k):
+    async def _embed(_settings, texts, **_k):
         assert live == 0
-        return [0.1] * 8
+        return [[0.1] * 1536 for _ in texts]
 
     with (
         patch("app.modules.chat.history_rag.SessionLocal", _cm),
         patch(
-            "app.modules.chat.history_rag.embedding_gateway.embed_text",
+            "app.modules.chat.history_rag.embedding_gateway.embed_many",
             _embed,
         ),
         patch(
@@ -404,10 +383,10 @@ async def test_index_message_uses_short_lived_session():
 
 
 @pytest.mark.asyncio
-async def test_index_message_stores_failed_piece_as_null_under_shared_concurrency():
-    """Pieces embed under the shared ``embedding_concurrency`` (the gateway caps requests in
-    flight); a piece whose embed failed is still stored, in its place, with a null vector
-    (search skips it)."""
+async def test_a_failed_piece_stores_nothing_and_the_job_retries():
+    """Pieces embed under the shared ``embedding_concurrency``. A piece whose embed failed
+    used to be stored with a null vector and counted as indexed while search skipped it,
+    a permanent hole in recall; now nothing is stored and the job retries later."""
     settings = Settings(
         chat_history_rag_enabled=True,
         chat_history_rag_chunk_chars=30,
@@ -426,7 +405,7 @@ async def test_index_message_stores_failed_piece_as_null_under_shared_concurrenc
 
     async def _embed_many(_settings, texts, *, concurrency):
         seen["texts"], seen["concurrency"] = texts, concurrency
-        return [None if text == pieces[1] else [float(len(text))] for text in texts]
+        return [None if text == pieces[1] else [0.5] * 1536 for text in texts]
 
     with (
         patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
@@ -434,15 +413,12 @@ async def test_index_message_stores_failed_piece_as_null_under_shared_concurrenc
         patch(
             "app.modules.chat.history_rag.chunks_repo.replace_chunks", AsyncMock()
         ) as replace_mock,
+        pytest.raises(HistoryEmbeddingUnavailable),
     ):
-        count = await index_message(settings, user_id=uuid4(), message=message)
+        await index_message(settings, user_id=uuid4(), message=message)
 
-    assert count == len(pieces)
     assert seen == {"texts": pieces, "concurrency": 2}
-    assert replace_mock.call_args.kwargs["chunks"] == [
-        (index, piece, None if index == 1 else [float(len(piece))])
-        for index, piece in enumerate(pieces)
-    ]
+    replace_mock.assert_not_awaited()
 
 
 async def _index_a_turn(*, edited_at: datetime | None = None, memory_on: bool = True) -> int:
@@ -474,8 +450,8 @@ async def _index_a_turn(*, edited_at: datetime | None = None, memory_on: bool = 
             AsyncMock(return_value=account),
         ),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.count_for_user",
-            AsyncMock(return_value=0),
+            "app.modules.chat.history_rag.chunks_repo.has_chunks_for_user",
+            AsyncMock(return_value=False),
         ),
         patch(
             "app.modules.chat.history_rag.messages_repo.get_by_id",
@@ -486,8 +462,8 @@ async def _index_a_turn(*, edited_at: datetime | None = None, memory_on: bool = 
             AsyncMock(return_value=user_msg),
         ),
         patch(
-            "app.modules.chat.history_rag.index_message",
-            AsyncMock(return_value=1),
+            "app.modules.chat.history_rag._embed_and_store",
+            AsyncMock(side_effect=lambda _settings, _user, messages: len(messages)),
         ) as index_one,
         patch(
             "app.modules.chat.history_rag.messages_repo.list_recent_for_user",
@@ -509,7 +485,9 @@ async def _index_a_turn(*, edited_at: datetime | None = None, memory_on: bool = 
         assert count == 0
         index_one.assert_not_awaited()
         return count
-    indexed = {call.kwargs["message"].id for call in index_one.await_args_list}
+    # The turn's two lines go in one embedding request.
+    assert {m.id for m in index_one.await_args_list[0].args[2]} == {user_msg.id, assistant.id}
+    indexed = {m.id for call in index_one.await_args_list for m in call.args[2]}
     assert user_msg.id in indexed and assistant.id in indexed
     # After "clear all", the backfill skips what was said before it (M13).
     assert (older.id in indexed) is (edited_at is None)

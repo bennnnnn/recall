@@ -20,7 +20,6 @@ jest.mock("@/ui/overlay/dialogs", () => ({
   confirmDialog: jest.fn(async () => true),
   alertDialog: jest.fn(async () => undefined),
 }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 jest.mock("expo-router", () => {
   const { useEffect } = jest.requireActual<typeof import("react")>("react");
   return {

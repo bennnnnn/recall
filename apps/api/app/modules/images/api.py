@@ -25,19 +25,16 @@ async def generate_image(
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> ImageGenerateOut:
-    try:
-        original = (body.user_message or "").strip() or None
-        user_message, assistant_message = await image_generation_service.generate_for_chat(
-            settings,
-            user=user,
-            chat_id=body.chat_id,
-            prompt=body.prompt,
-            aspect_ratio=body.aspect_ratio,
-            user_message_content=original,
-            reference_attachment_ids=body.reference_attachment_ids,
-        )
-    except image_generation_service.ImageGenerationError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    original = (body.user_message or "").strip() or None
+    user_message, assistant_message = await image_generation_service.generate_for_chat(
+        settings,
+        user=user,
+        chat_id=body.chat_id,
+        prompt=body.prompt,
+        aspect_ratio=body.aspect_ratio,
+        user_message_content=original,
+        reference_attachment_ids=body.reference_attachment_ids,
+    )
 
     return ImageGenerateOut(
         user_message=MessageOut.model_validate(user_message),

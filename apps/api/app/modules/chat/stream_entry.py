@@ -14,12 +14,14 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
+from app.core import readings
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError
 from app.models.orm import Chat, User
 from app.modules.account import profile as profile_service
 from app.modules.attachments.markers import image_attachment_ids_from_text
 from app.modules.billing import plan as plan_service
+from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.stream_pipeline import stream_and_finalize
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
@@ -47,7 +49,6 @@ from app.modules.chat.turn_resources import (
     wrap_stream_status,
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
-from app.services.thinking_effort import thinking_level
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +109,7 @@ async def stream_chat_response(
     content = content.strip()
     if not content and not attachment_ids:
         raise ChatNotFoundError("Message cannot be empty.")
+    readings.begin_turn()
     timing = TurnTimingTracker()
     timing.mark_phase("turn_start")
     status = wrap_stream_status(timing, on_status)
@@ -225,6 +227,7 @@ async def stream_regenerate_response(
     on_status: StreamStatusFn | None = None,
     on_reasoning: StreamReasoningFn | None = None,
 ) -> AsyncIterator[str]:
+    readings.begin_turn()
     timing = TurnTimingTracker()
     timing.mark_phase("turn_start")
     status = wrap_stream_status(timing, on_status)
@@ -281,6 +284,9 @@ async def stream_regenerate_response(
             omit_message_ids=turn.omit_message_ids,
             turn_mode=turn.turn_mode,
             has_image_attachment=bool(current_image_ids),
+            recent_messages=turn.recent,
+            prior_count=turn.prior_count,
+            unhealthy_models=turn.unhealthy,
         )
         bundle = await build_stream_prompt_context(request, settings, redis)
         if current_image_ids:

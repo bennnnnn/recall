@@ -181,24 +181,6 @@ def _team_score_queries(team: str) -> list[str]:
     ]
 
 
-def _hit_mentions_team(hit: WebSearchHit, team: str) -> bool:
-    needle = team.strip().lower()
-    if not needle:
-        return False
-    blob = f"{hit.title} {hit.snippet}".lower()
-    return needle in blob
-
-
-def _prioritize_team_hits(hits: list[WebSearchHit], team: str) -> list[WebSearchHit]:
-    if not hits or not team.strip():
-        return hits
-    matched = [hit for hit in hits if _hit_mentions_team(hit, team)]
-    if not matched:
-        return hits
-    rest = [hit for hit in hits if hit not in matched]
-    return matched + rest
-
-
 def _is_team_specific_sports_query(cleaned: str) -> bool:
     if _WORLD_CUP.search(cleaned):
         return False

@@ -12,7 +12,7 @@ from dataclasses import replace
 from fractions import Fraction
 
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.workout import math_line
 
 _CHANCE = re.compile(r"\b(?:probability|chance|likelihood)\b", re.IGNORECASE)
@@ -175,6 +175,6 @@ def single_draw_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock
     # The simplified value is the answer's, on its own line.
     rows.append(math_line(rf"P = \frac{{{favourable}}}{{{total}}}", "favourable over all outcomes"))
     lines.append(f"P = {favourable}/{total} = {probability}")
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     shown = "  \n".join(rows)
     return replace(block, worked_reply=f"{shown}\n\n```answer\n{answer}\n```\n")

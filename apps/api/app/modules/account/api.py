@@ -1,3 +1,4 @@
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -16,6 +17,8 @@ from app.core.deps import (
 )
 from app.core.dev_guards import is_loopback_ip, require_dev_privilege_access
 from app.core.rate_limit import allow_request_fail_closed
+from app.core.redis_lock import acquire_lock, release_lock
+from app.exceptions import AuthenticationError
 from app.models.orm import User
 from app.models.schemas import (
     AccountDeleteRequest,
@@ -77,14 +80,6 @@ async def _enforce_login_rate_limit(
         )
 
 
-def _account_exists_http(exc: auth_service.AccountExistsError) -> HTTPException:
-    """409 with a code the app turns into "sign in with Apple/Google instead"."""
-    return HTTPException(
-        status_code=status.HTTP_409_CONFLICT,
-        detail={"code": "account_exists", "sign_in_with": exc.sign_in_with, "message": str(exc)},
-    )
-
-
 @router.post("/google", response_model=AuthResponse)
 async def google_login(
     body: GoogleAuthRequest,
@@ -110,9 +105,7 @@ async def google_login(
             detail=str(exc),
             headers={"Retry-After": "5"},
         ) from exc
-    except auth_service.AccountExistsError as exc:
-        raise _account_exists_http(exc) from exc
-    except auth_service.GoogleAuthError as exc:
+    except AuthenticationError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)
 
@@ -137,9 +130,7 @@ async def apple_login(
             device_label=body.device_label,
             platform=body.platform,
         )
-    except auth_service.AccountExistsError as exc:
-        raise _account_exists_http(exc) from exc
-    except auth_service.GoogleAuthError as exc:
+    except AuthenticationError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)
 
@@ -176,7 +167,7 @@ async def dev_login(
             device_label=body.device_label,
             platform=body.platform,
         )
-    except auth_service.GoogleAuthError as exc:
+    except AuthenticationError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)
 
@@ -231,7 +222,7 @@ async def refresh_session(
             device_label=body.device_label,
             platform=body.platform,
         )
-    except auth_service.GoogleAuthError as exc:
+    except AuthenticationError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(
         request,
@@ -250,6 +241,7 @@ async def logout(
     request: Request,
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
+    session: AsyncSession = Depends(get_db),
 ) -> Response:
     cookie_refresh = web_session.cookie_value(request, web_session.REFRESH_COOKIE)
     refresh_token = body.refresh_token or cookie_refresh
@@ -266,12 +258,14 @@ async def logout(
         access_token = auth_header[7:]
     try:
         await account_lifecycle.logout(
+            session,
             redis,
             settings,
             access_token=access_token,
             refresh_token=refresh_token,
+            expo_push_token=body.expo_push_token,
         )
-    except auth_service.GoogleAuthError as exc:
+    except AuthenticationError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     if web_session.is_web_origin(request, settings):
@@ -356,11 +350,11 @@ async def logout_all(
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
+    session: AsyncSession = Depends(get_db),
 ) -> Response:
-    access_token = _bearer_access_token(request)
-    await tokens_service.purge_user_sessions(redis, user.id, settings)
-    if access_token:
-        await tokens_service.revoke_access_token(redis, access_token, settings)
+    await account_lifecycle.logout_everywhere(
+        session, redis, settings, user.id, access_token=_bearer_access_token(request)
+    )
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     if web_session.is_web_origin(request, settings):
         web_session.clear_web_session_cookies(response, settings)
@@ -392,12 +386,9 @@ async def confirm_settings_proposal(
     redis: Redis = Depends(get_redis),
     settings: Settings = Depends(get_settings_dep),
 ) -> SettingsConfirmOut:
-    try:
-        result = await settings_proposal_service.confirm_proposal(
-            session, redis, user, settings, proposal_id
-        )
-    except settings_proposal_service.SettingsProposalError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    result = await settings_proposal_service.confirm_proposal(
+        session, redis, user, settings, proposal_id
+    )
     return SettingsConfirmOut(
         user=UserOut.model_validate(result["user"]),
         appearance=result.get("appearance"),
@@ -435,14 +426,35 @@ async def sync_subscription(
     return UserOut.model_validate(updated)
 
 
+# One export at a time per user, and a few an hour: each reads up to a million rows.
+_EXPORTS_PER_HOUR = 3
+_EXPORT_LOCK_TTL_SECONDS = 600
+
+
 @router.get("/me/export")
 async def export_me(
     user: User = Depends(get_current_user),
+    redis: Redis = Depends(get_redis),
 ) -> StreamingResponse:
-    return StreamingResponse(
-        export_service.iter_export_json(user),
-        media_type="application/json",
+    allowed = await allow_request_fail_closed(
+        redis, f"rate:export:{user.id}", limit=_EXPORTS_PER_HOUR, window_seconds=3600
     )
+    lock_key = f"export:running:{user.id}"
+    token = await acquire_lock(redis, lock_key, _EXPORT_LOCK_TTL_SECONDS) if allowed else None
+    if token is None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="An export is already running or was just made. Try again later.",
+        )
+
+    async def body() -> AsyncIterator[str]:
+        try:
+            async for chunk in export_service.iter_export_json(user):
+                yield chunk
+        finally:
+            await release_lock(redis, lock_key, token)
+
+    return StreamingResponse(body(), media_type="application/json")
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)

@@ -12,7 +12,7 @@ import re
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.function_def import peel_function_definition
-from app.modules.math.tools.request_text import _strip_trailing_filler
+from app.modules.math.tools.request_text import strip_trailing_filler
 from app.services.number_text import DECIMAL_LITERAL
 
 # "find dy/dx if x^2 + y^2 = 25": an equation in x and y, so implicit, without the word.
@@ -28,7 +28,7 @@ def _dy_dx_given_intent(cleaned: str) -> MathIntent | None:
     if found is None:
         return None
     lhs = math_expr_or_none(found["lhs"].strip())
-    rhs = math_expr_or_none(_strip_trailing_filler(found["rhs"].strip()))
+    rhs = math_expr_or_none(strip_trailing_filler(found["rhs"].strip()))
     if not lhs or not rhs or lhs.replace(" ", "") == "y":
         # "find dy/dx if y = x^2" is ordinary differentiation.
         return None
@@ -69,7 +69,7 @@ def extract_implicit_intent(cleaned: str) -> MathIntent | None:
             raw_lhs = cleaned[idx + len(cue) : eq]
             break
     lhs = math_expr_or_none(raw_lhs.strip())
-    rhs = math_expr_or_none(_strip_trailing_filler(cleaned[eq + 1 :].strip()))
+    rhs = math_expr_or_none(strip_trailing_filler(cleaned[eq + 1 :].strip()))
     if not lhs or not rhs:
         return None
     return MathIntent(

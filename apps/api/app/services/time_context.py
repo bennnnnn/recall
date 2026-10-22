@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from app.core.timezone import DEFAULT_TIMEZONE, resolve_timezone
 from app.services.calendar_facts import calendar_lines
 from app.services.calendar_facts import correct_weekday_dates as correct_weekday_dates
+from app.services.number_text import count_word_pattern, number_word_value
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 __all__ = ["DEFAULT_TIMEZONE", "resolve_timezone"]
@@ -349,28 +350,16 @@ def model_denies_clock(text: str) -> bool:
     return any(mark in lowered for mark in _MODEL_CLOCK_DENIALS)
 
 
-_DAY_COUNTS = {
-    "one": 1,
-    "two": 2,
-    "three": 3,
-    "four": 4,
-    "five": 5,
-    "six": 6,
-    "seven": 7,
-    "eight": 8,
-    "nine": 9,
-    "ten": 10,
-}
 # Whole message only, after collapse_ws. No `.+` (CodeQL py/polynomial-redos).
 _RELATIVE_DAY = re.compile(
     r"^(?:and |what about )?"
-    r"(?P<count>\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten) "
+    rf"(?P<count>\d{{1,3}}|{count_word_pattern()}) "
     r"days? "
     r"(?P<direction>ago|before|after(?: today)?|later|from now|from today)$",
     re.IGNORECASE,
 )
 _IN_DAYS = re.compile(
-    r"^in (?P<count>\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten) days?$",
+    rf"^in (?P<count>\d{{1,3}}|{count_word_pattern()}) days?$",
     re.IGNORECASE,
 )
 _PAST_DIRECTIONS = frozenset({"ago", "before"})
@@ -380,7 +369,7 @@ def _day_count(raw: str) -> int | None:
     if raw.isdigit():
         count = int(raw)
         return count if 1 <= count <= 366 else None
-    return _DAY_COUNTS.get(raw.lower())
+    return number_word_value(raw)
 
 
 def relative_day_offset(text: str) -> int | None:

@@ -11,8 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import jobs
 from app.models.orm import Chat, Memory, User
-from app.modules import memory as memory_service
+from app.modules.memory import consolidation
 from app.modules.memory import repository as memories_repo
+from app.modules.memory.switch import memory_switch_on
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +37,14 @@ async def request_consolidation(
     skip_if_already_queued: bool,
 ) -> str:
     memory_list = list(memories)
-    if not user.memory_enabled or not memory_list:
+    if not memory_switch_on(user) or not memory_list:
         return "skipped"
 
     lock_key = _lock_key(user.id)
     if skip_if_already_queued and await redis.exists(lock_key):
         return "in_progress"
 
-    if not memory_service.facts_need_consolidation(memory_list):
+    if not consolidation.facts_need_consolidation(memory_list):
         return "skipped"
 
     acquired = await redis.set(
@@ -61,22 +62,6 @@ async def request_consolidation(
         dedupe_key=jobs.unique_dedupe_key(f"memory_consolidate:{user.id}"),
     )
     return "queued"
-
-
-async def request_user_consolidation(
-    session: AsyncSession,
-    redis: Redis,
-    user: User,
-) -> str:
-    if not user.memory_enabled:
-        return "skipped"
-    memories = await memories_repo.list_for_user(session, user.id)
-    return await request_consolidation(
-        redis,
-        user,
-        memories,
-        skip_if_already_queued=False,
-    )
 
 
 async def list_user_memories(

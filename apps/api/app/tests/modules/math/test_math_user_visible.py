@@ -10,6 +10,7 @@ from app.modules.math import match as math_match
 from app.modules.math import tools as math_tools
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.unit_conversion import convert_unit
+from app.services.solving import VERIFIED_MATH_BEGIN
 
 _SETTINGS = Settings(math_tools_enabled=True, mcp_tool_loop_enabled=True)
 
@@ -160,7 +161,7 @@ def test_convert_32_f_to_c_string_is_zero() -> None:
 
 def test_verified_inject_is_delimited_data_only() -> None:
     _intent, block = _block("7*8")
-    assert "[BEGIN VERIFIED MATH]" in block.text
+    assert VERIFIED_MATH_BEGIN in block.text
     assert "[END VERIFIED MATH]" in block.text
     assert "COPYING" not in block.text
     assert "Couldn't verify" not in block.text

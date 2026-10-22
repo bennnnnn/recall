@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import json
 import logging
 from typing import Any
 
@@ -16,6 +15,7 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
+from app.gateways.model_output import parse_model_json
 from app.models.model_catalog import vision_alias, vision_backup_alias
 from app.modules.math.schemas import MathImageExtract
 
@@ -218,12 +218,9 @@ async def vision_extract_equation(
 
 def _read_extract(response: Any) -> MathImageExtract | None:
     """The equation in a photo reply, None when it holds none; raises on malformed JSON."""
-    raw = (response.choices[0].message.content or "{}").strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    data_obj = json.loads(raw.strip())
+    # The shared reader escapes the LaTeX an exact transcription holds (``\frac`` read as
+    # a form feed, ``\sqrt`` failed the extract over to the backup model).
+    data_obj = parse_model_json(response.choices[0].message.content or "{}")
     # Vision models sometimes wrap the object in a one-element array.
     if isinstance(data_obj, list):
         if len(data_obj) != 1 or not isinstance(data_obj[0], dict):

@@ -163,7 +163,7 @@ def test_extract_text_from_legacy_doc_returns_none():
 
 
 @pytest.mark.asyncio
-async def test_extract_text_details_async_offloads_to_thread(monkeypatch):
+async def test_extract_text_details_async_runs_in_a_document_worker(monkeypatch):
     import threading
 
     from app.modules.attachments.content import ExtractedText, extract_text_details_async
@@ -175,7 +175,7 @@ async def test_extract_text_details_async_offloads_to_thread(monkeypatch):
         seen_thread["thread"] = threading.current_thread()
         return ExtractedText(text="extracted")
 
-    monkeypatch.setattr("app.modules.attachments.content.extract_text_details", spy)
+    monkeypatch.setattr("app.modules.attachments.text_extract.extract_text_details", spy)
 
     result = await extract_text_details_async("text/plain", b"hi", Settings())
 
@@ -192,7 +192,7 @@ async def test_extract_text_details_async_times_out_gracefully(monkeypatch):
         time.sleep(0.5)
         return "should never be returned"
 
-    monkeypatch.setattr("app.modules.attachments.content.extract_text_details", slow_extract)
+    monkeypatch.setattr("app.modules.attachments.text_extract.extract_text_details", slow_extract)
 
     from app.modules.attachments.content import extract_text_details_async
 
@@ -553,3 +553,39 @@ async def test_format_attachment_lines_discloses_truncated_excerpt():
     assert "[File note:" in lines[1]
     assert "25 pages" in lines[1]
     assert "hello" in lines[1]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["slow", "busy"])
+async def test_a_file_not_read_in_time_is_not_called_a_scan(failure: str) -> None:
+    """A parse past the turn's budget (or no free worker) is a slow file, not a scanned PDF."""
+    import time
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from app.core.sympy_executor import WorkerBusyError
+    from app.modules.attachments.content import format_attachment_lines
+
+    def slow_parse(*_args: object, **_kwargs: object) -> None:
+        time.sleep(1)
+
+    async def busy(*_args: object, **_kwargs: object) -> None:
+        raise WorkerBusyError("no document worker free")
+
+    target = (
+        patch("app.modules.attachments.text_extract.extract_text_details", slow_parse)
+        if failure == "slow"
+        else patch("app.modules.attachments.content.run_document", busy)
+    )
+    with target:
+        lines, _is_image = await format_attachment_lines(
+            MagicMock(read_bytes=AsyncMock()),
+            attachment_id="550e8400-e29b-41d4-a716-446655440000",
+            content_type="application/pdf",
+            storage_key="key",
+            size_bytes=5,
+            settings=Settings(attachment_extract_timeout_seconds=0.1),
+            data=b"%PDF-1.4",
+        )
+
+    assert "could not read it in time" in lines[1]
+    assert "scanned" not in lines[1]

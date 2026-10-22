@@ -1,12 +1,13 @@
 import { act, renderHook } from "@testing-library/react-native";
 
 import { useSettingsProposal } from "@/hooks/useSettingsProposal";
+import { onAppEvent } from "@/lib/appEvents";
 
 const mockConfirm = jest.fn();
 const mockMergeUser = jest.fn();
 const mockSetPreference = jest.fn(async () => {});
-const mockInvalidateDocuments = jest.fn();
-const mockInvalidateList = jest.fn();
+const memoryChanged = jest.fn();
+onAppEvent("memoryChanged", memoryChanged);
 
 jest.mock("@/lib/api", () => ({
   api: { confirmSettingsProposal: (...args: unknown[]) => mockConfirm(...args) },
@@ -18,12 +19,6 @@ jest.mock("@/contexts/AppearanceContext", () => ({
   useAppearance: () => ({ setPreference: mockSetPreference }),
 }));
 jest.mock("@/lib/cachedUser", () => ({ writeCachedUser: jest.fn(async () => {}) }));
-jest.mock("@/features/memory/model/memoryDocumentsCache", () => ({
-  invalidateMemoryDocuments: () => mockInvalidateDocuments(),
-}));
-jest.mock("@/features/memory/model/memoryListCache", () => ({
-  invalidateMemoriesCache: () => mockInvalidateList(),
-}));
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -50,8 +45,8 @@ describe("useSettingsProposal", () => {
 
     expect(ok).toBe(true);
     expect(mockConfirm).toHaveBeenCalledWith("token-a", "m1");
-    expect(mockInvalidateDocuments).toHaveBeenCalled();
-    expect(mockInvalidateList).toHaveBeenCalled();
+    // The memory caches follow the event; this hook no longer edits them (ARCH-10).
+    expect(memoryChanged).toHaveBeenCalledTimes(1);
   });
 
   it("leaves memory caches alone for an appearance change", async () => {
@@ -70,6 +65,6 @@ describe("useSettingsProposal", () => {
       await result.current.confirm();
     });
     expect(mockSetPreference).toHaveBeenCalledWith("dark");
-    expect(mockInvalidateDocuments).not.toHaveBeenCalled();
+    expect(memoryChanged).not.toHaveBeenCalled();
   });
 });

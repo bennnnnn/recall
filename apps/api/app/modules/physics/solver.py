@@ -8,12 +8,6 @@ from dataclasses import replace
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.circuits import solve_circuit
 from app.modules.physics.solvers.circular import solve_circular
-from app.modules.physics.solvers.common import (
-    _PARAM_SI_DIMENSIONS,
-    PhysicsResult,
-    _params_in_si,
-    _to_si,
-)
 from app.modules.physics.solvers.energy import solve_energy
 from app.modules.physics.solvers.fluids import solve_fluids
 from app.modules.physics.solvers.forces import solve_force
@@ -28,49 +22,25 @@ from app.modules.physics.solvers.optics import solve_optics
 from app.modules.physics.solvers.oscillations import solve_spring
 from app.modules.physics.solvers.projectile import solve_projectile
 from app.modules.physics.solvers.relation import solve_expression
+from app.modules.physics.solvers.results import PhysicsResult
 from app.modules.physics.solvers.rotation import solve_rotation
 from app.modules.physics.solvers.school_extensions import SCHOOL_SOLVERS
+from app.modules.physics.solvers.si import params_in_si
 from app.modules.physics.solvers.suvat import solve_suvat
 from app.modules.physics.solvers.thermal import solve_thermal
 from app.modules.physics.solvers.torque import solve_torque
 from app.modules.physics.solvers.waves import solve_waves
 from app.services.solving import SolveServiceError
 
-__all__ = [
-    "PHYSICS_SOLVERS",
-    "_PARAM_SI_DIMENSIONS",
-    "PhysicsResult",
-    "_params_in_si",
-    "_to_si",
-    "solve_circuit",
-    "solve_circular",
-    "solve_energy",
-    "solve_fluids",
-    "solve_force",
-    "solve_friction",
-    "solve_gravitation",
-    "solve_kinematics",
-    "solve_magnetism",
-    "solve_materials",
-    "solve_modern",
-    "solve_momentum",
-    "solve_optics",
-    "solve_physics",
-    "solve_projectile",
-    "solve_rotation",
-    "solve_spring",
-    "solve_suvat",
-    "solve_thermal",
-    "solve_torque",
-    "solve_waves",
-]
+# What callers import; the subject solvers stay reachable as module attributes for tests.
+__all__ = ["PHYSICS_SOLVERS", "PhysicsResult", "solve_physics"]
 
 
 def _accepts_si_params(
     fn: Callable[[dict[str, float]], PhysicsResult],
 ) -> Callable[[PhysicsIntent], PhysicsResult]:
     def run(intent: PhysicsIntent) -> PhysicsResult:
-        return fn(_params_in_si(intent))
+        return fn(params_in_si(intent))
 
     return run
 
@@ -147,7 +117,7 @@ def solve_physics(intent: PhysicsIntent) -> PhysicsResult:
     result = attach_recorded_working(solver(intent), intent)
     # A law solved as arithmetic has no solver of its own to draw it.
     if result.quantities and not result.simulation_specs and not result.graph_specs:
-        scene = catalog_scene(intent, _params_in_si(intent), result.quantities[0].value)
+        scene = catalog_scene(intent, params_in_si(intent), result.quantities[0].value)
         if scene:
             result = replace(result, simulation_specs=scene)
     return result

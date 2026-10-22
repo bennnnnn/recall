@@ -1,23 +1,16 @@
 from contextlib import ExitStack, contextmanager
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
-from app.modules import memory as memory_service
 from app.modules.memory import instruct as instruct_service
-from app.modules.memory.extraction_workflow import MemorySnapshot
+from app.modules.memory import locks
+from app.modules.memory.pass_writes import MemorySnapshot
+from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.modules.memory.writes_repository import MemoryFactWrite
-
-
-class _SessionCM:
-    async def __aenter__(self):
-        return AsyncMock()
-
-    async def __aexit__(self, *args):
-        return None
+from app.tests.fakes import FakeSessionCM
 
 
 def _snapshot(*, enabled: bool = True) -> MemorySnapshot:
@@ -50,12 +43,10 @@ def _patches(*, result, snapshot=None, lock="token", applied_ops=None):
     release = AsyncMock()
     with ExitStack() as stack:
         stack.enter_context(
-            patch.object(memory_service, "acquire_memory_write_lock", AsyncMock(return_value=lock))
+            patch.object(locks, "acquire_memory_write_lock", AsyncMock(return_value=lock))
         )
-        stack.enter_context(patch.object(memory_service, "release_memory_write_lock", release))
-        stack.enter_context(
-            patch("app.modules.memory.instruct.SessionLocal", MagicMock(side_effect=_SessionCM))
-        )
+        stack.enter_context(patch.object(locks, "release_memory_write_lock", release))
+        stack.enter_context(patch("app.modules.memory.instruct.SessionLocal", FakeSessionCM()))
         stack.enter_context(
             patch(
                 "app.modules.memory.instruct.load_memory_snapshot",
@@ -179,7 +170,7 @@ async def test_memory_off_raises_before_calling_the_model():
 @pytest.mark.asyncio
 async def test_busy_memory_raises_without_calling_the_model():
     with _patches(result=None, lock=None) as (_, instruct, release):
-        with pytest.raises(memory_service.MemoryWriteLockBusyError):
+        with pytest.raises(locks.MemoryWriteLockBusyError):
             await instruct_service.apply_memory_instruction(
                 Settings(), user_id=uuid4(), instruction="Remember I like tea"
             )

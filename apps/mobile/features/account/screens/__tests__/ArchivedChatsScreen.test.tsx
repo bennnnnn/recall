@@ -7,12 +7,6 @@ const mockListChats = jest.fn();
 const mockDeleteChat = jest.fn();
 const mockDestructive = jest.fn();
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ bottom: 0 }),
-}));
 jest.mock("expo-router", () => {
   const React = jest.requireActual<typeof import("react")>("react");
   return {
@@ -26,8 +20,16 @@ jest.mock("@/contexts/AuthContext", () => ({
 jest.mock("@/contexts/actionFeedbackCore", () => ({
   useActionFeedbackOptional: () => null,
 }));
-jest.mock("@/lib/cache/chatListCache", () => ({
+// The drawer's chat list cache, as its contract reads: the list, or the error.
+jest.mock("@/features/chat/model/chatListCache", () => ({
   invalidateChatListCache: jest.fn(),
+  fetchChatList: async (...args: unknown[]) => {
+    try {
+      return { data: await mockListChats(...args), error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
 }));
 jest.mock("@/lib/api", () => ({
   api: {

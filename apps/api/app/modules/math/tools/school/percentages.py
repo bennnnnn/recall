@@ -8,7 +8,7 @@ from fractions import Fraction
 
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school._parse import (
     _count_char,
     _exactly_n_numbers,
@@ -357,7 +357,7 @@ def _block_percent(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | 
         return None
     answer = math_school.percent_of(intent.percent_rate, intent.percent_base)
     lines.append(f"{intent.percent_rate:g}% of {intent.percent_base:g} = {answer}")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)
 
 
 def _block_percent_chain(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
@@ -398,7 +398,7 @@ def _block_percent_change(intent: MathIntent, lines: list[str]) -> VerifiedMathB
         answer = math_school.percent_decrease(intent.percent_base, intent.percent_rate)
         verb = "decreased"
     lines.append(f"{intent.percent_base:g} {verb} by {intent.percent_rate:g}% = {answer}")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)
 
 
 def _block_percent_is(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
@@ -406,13 +406,13 @@ def _block_percent_is(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock
         return None
     answer = math_school.percent_is(intent.percent_rate, intent.percent_base)
     lines.append(f"{intent.percent_rate:g} is {answer}% of {intent.percent_base:g}")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)
 
 
 def _with_working(lines: list[str], working: str, answer: str) -> VerifiedMathBlock:
     """The working on one line, then the answer alone."""
     lines.append(f"Working: ${working}$")
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     return replace(block, worked_reply=f"{math_line(working)}\n\n```answer\n{answer}\n```\n")
 
 

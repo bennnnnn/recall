@@ -15,13 +15,9 @@ from app.modules.physics.schemas import (
     SimulationBody,
     SimulationTether,
 )
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    _latex_num,
-    _params_in_si,
-    gravity_of,
-)
+from app.modules.physics.solvers.arithmetic import latex_num
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import gravity_of, params_in_si
 from app.services.solving import SolveServiceError
 
 _SAMPLES = 100
@@ -151,7 +147,7 @@ def _motion(
 
 
 def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
+    p = params_in_si(intent)
     op = intent.physics_op or "spring_force"
 
     # A pendulum has a length, not a spring constant, so it is answered before
@@ -255,10 +251,10 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
         return PhysicsResult(
             answer=(
                 rf"U = \tfrac{{1}}{{2}} k x^2 = 0.5 \cdot {k:g} \cdot "
-                rf"{_latex_num(x, square=True)} \approx {u_val:.2f} \text{{ J}}"
+                rf"{latex_num(x, square=True)} \approx {u_val:.2f} \text{{ J}}"
             ),
             formulas=(r"U = \tfrac{1}{2} k x^2",),
-            substitutions=(rf"E_s = 0.5 \cdot {k:g} \cdot {_latex_num(x, square=True)}",),
+            substitutions=(rf"E_s = 0.5 \cdot {k:g} \cdot {latex_num(x, square=True)}",),
             quantities=(QuantityResult("", u_val, "J"),),
         )
 

@@ -37,7 +37,7 @@ const mockAdoptComposerThread = jest.fn();
 const mockStashFailedDraftForThread = jest.fn();
 let mockThreadKey = "new";
 const mockResetForNewSession = jest.fn();
-jest.mock("@/contexts/ComposerDraftContext", () => ({
+jest.mock("@/features/chat/context/ComposerDraftContext", () => ({
   useComposerDraftApi: () => ({
     setInput: mockSetInput,
     inputRef,
@@ -128,6 +128,7 @@ function Probe({
   messages = [],
   imageGenerating,
   draft,
+  beforeSend,
 }: {
   offline?: boolean;
   chatLoading?: boolean;
@@ -142,6 +143,7 @@ function Probe({
   messages?: Message[];
   imageGenerating?: boolean;
   draft?: Record<string, unknown>;
+  beforeSend?: () => Promise<void>;
 }) {
   const result = useChatSend({
     token,
@@ -172,6 +174,7 @@ function Probe({
     onOfflineBlocked,
     onGenerateImage,
     imageGenerating,
+    beforeSend,
   });
   useLayoutEffect(() => { current = result; });
   return <Text>send</Text>;
@@ -505,6 +508,34 @@ describe("useChatSend", () => {
     );
     expect(current.pendingOutboundId).toBeNull();
     expect(current.sendPhase).toBe("idle");
+  });
+
+  it("sends from a window only after the newest page is back, and once (NET-18)", async () => {
+    inputRef.current = "and then?";
+    let back: () => void = () => undefined;
+    const beforeSend = jest.fn(() => new Promise<void>((resolve) => { back = resolve; }));
+    const setMessages = jest.fn();
+    const sendMessage = jest.fn();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} setMessages={setMessages} beforeSend={beforeSend} />);
+    });
+    let sendPromise: Promise<void> = Promise.resolve();
+    await act(async () => {
+      sendPromise = current.handleSend();
+      await Promise.resolve();
+    });
+    expect(beforeSend).toHaveBeenCalledTimes(1);
+    expect(setMessages).not.toHaveBeenCalled();
+    // A second tap while the newest page loads sends nothing.
+    await act(async () => { await current.handleSend(); });
+    expect(beforeSend).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      back();
+      await sendPromise;
+    });
+    expect(setMessages).toHaveBeenCalledTimes(1);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
   });
 
   it("leaves the draft untouched when geo is cancelled", async () => {
@@ -1114,38 +1145,38 @@ describe("useChatSend math scans", () => {
     mockReadScan.mockRejectedValueOnce(new Error("offline"));
     await expect(current.readScan(scan, "math", controller.signal)).resolves.toBeNull();
     mockReadScan.mockRejectedValueOnce(
-      new ApiRequestError(429, JSON.stringify({ detail: "Too many scans in a row. Try again in a few minutes." })),
+      new ApiRequestError(429, JSON.stringify({ detail: { code: "scan_rate_limited", message: "Too many scans." } })),
     );
     await expect(current.readScan(scan, "math", controller.signal)).resolves.toEqual({
       error: "chat.scan_rate_limit",
     });
     mockReadScan.mockRejectedValueOnce(
-      new ApiRequestError(413, JSON.stringify({ detail: "Image too large" })),
+      new ApiRequestError(413, JSON.stringify({ detail: { code: "image_too_large", message: "Image too large" } })),
     );
     await expect(current.readScan(scan, "math", controller.signal)).resolves.toEqual({
       error: "chat.scan_too_large",
     });
     // Every subject names the same refusals: an oversized chemistry or physics photo too.
     mockReadScan.mockRejectedValueOnce(
-      new ApiRequestError(413, JSON.stringify({ detail: "Image too large" })),
+      new ApiRequestError(413, JSON.stringify({ detail: { code: "image_too_large", message: "Image too large" } })),
     );
     await expect(current.readScan(scan, "chemistry", controller.signal)).resolves.toEqual({
       error: "chat.scan_too_large",
     });
     mockReadScan.mockRejectedValueOnce(
-      new ApiRequestError(404, JSON.stringify({ detail: "Not available" })),
+      new ApiRequestError(404, JSON.stringify({ detail: { code: "not_available", message: "Not available" } })),
     );
     await expect(current.readScan(scan, "physics", controller.signal)).resolves.toEqual({
       error: "chat.scan_unavailable",
     });
     mockReadScan.mockRejectedValueOnce(
-      new ApiRequestError(429, JSON.stringify({ detail: "Too many scans in a row. Try again in a few minutes." })),
+      new ApiRequestError(429, JSON.stringify({ detail: { code: "scan_rate_limited", message: "Too many scans." } })),
     );
     await expect(current.readScan(scan, "chemistry", controller.signal)).resolves.toEqual({
       error: "chat.scan_rate_limit",
     });
     mockReadScan.mockRejectedValueOnce(
-      new ApiRequestError(404, JSON.stringify({ detail: "Not available" })),
+      new ApiRequestError(404, JSON.stringify({ detail: { code: "not_available", message: "Not available" } })),
     );
     await expect(current.readScan(scan, "chemistry", controller.signal)).resolves.toEqual({
       error: "chat.scan_unavailable",

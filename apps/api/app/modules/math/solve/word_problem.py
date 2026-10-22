@@ -34,10 +34,10 @@ class WordSolution:
 
 
 def _parse(text: str, names: list[str], *, evaluate: bool = True) -> Any | None:
-    from app.modules.math.solve.parse import _parse_expression
+    from app.modules.math.solve.parse import parse_expression
 
     with sympy_decline() as declined:
-        parsed = _parse_expression(text, names, evaluate=evaluate)
+        parsed = parse_expression(text, names, evaluate=evaluate)
     if declined:
         return None
     # xreplace rebuilds (and so evaluates) the tree; an as-written parse keeps

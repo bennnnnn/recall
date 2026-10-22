@@ -15,6 +15,7 @@ from dataclasses import asdict, dataclass, field
 
 from redis.asyncio import Redis
 
+from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.redis import get_redis_client
 from app.gateways import web_search_gateway
@@ -136,7 +137,7 @@ async def _run_search(
     # Without one: one reservation for this call's fanned-out queries only.
     if budget is None:
         budget = TurnTavilyBudget(settings=settings, user=user)
-    results = await asyncio.gather(
+    results = await gather_or_cancel(
         *(
             _search_with_cache(
                 settings, query, max_results=limit, budget=budget, user=user, redis=redis

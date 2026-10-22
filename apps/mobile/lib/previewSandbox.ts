@@ -214,13 +214,11 @@ function replaceUntilStable(input: string, pattern: RegExp, replacement: string)
  * title) with equal-length whitespace, preserving the string's length so
  * indices found in the result stay valid against the original string.
  *
- * BUG FIX (was a confirmed sandbox escape): injectPreviewCsp() used to find
- * "the <head>" with a plain textual `.search()` — no HTML/JS-context
- * awareness. A document that puts a decoy `<head` inside a <script> comment
- * (or <style>/HTML comment/<textarea>/<title>) BEFORE the real <head> tag
- * got its CSP <meta> spliced into that inert block instead of the real
- * document — where it's never parsed as a tag — leaving the actual <head>
- * with no CSP at all.
+ * injectPreviewCsp() finds the real <head> with these regions blanked: a document
+ * that puts a decoy `<head` inside a <script> comment (or <style>, an HTML comment,
+ * <textarea> or <title>) before the real tag would otherwise get its CSP <meta>
+ * spliced into that inert text, never parsed as a tag, leaving the document with no
+ * CSP at all (a sandbox escape).
  */
 function maskRawTextRegions(html: string): string {
   return html.replace(RAW_TEXT_REGION_RE, (match) => " ".repeat(match.length));

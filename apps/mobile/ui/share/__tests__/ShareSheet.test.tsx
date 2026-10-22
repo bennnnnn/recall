@@ -6,7 +6,6 @@ const mockPresent = jest.fn();
 const mockCopy = jest.fn();
 jest.mock("@/lib/share", () => ({ presentShareSheet: (...args: unknown[]) => mockPresent(...args) }));
 jest.mock("expo-clipboard", () => ({ setStringAsync: (...args: unknown[]) => mockCopy(...args) }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
 const hidden = { includeHiddenElements: true };
 const labels = {

@@ -4,12 +4,9 @@ from __future__ import annotations
 
 import math
 
-from app.modules.physics.solvers.common import (
-    PhysicsResult,
-    QuantityResult,
-    _latex_num,
-    one_unknown,
-)
+from app.modules.physics.solvers.arithmetic import latex_num
+from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
+from app.modules.physics.solvers.si import one_unknown
 from app.services.solving import SolveServiceError
 
 
@@ -137,7 +134,7 @@ def _parallel_axis(params: dict[str, float]) -> PhysicsResult:
         value = params["inertia_cm"] + params["m"] * params["d"] ** 2
         answer = (
             rf"I = I_{{cm}} + Md^2 = {params['inertia_cm']:g} + "
-            rf"{params['m']:g} \cdot {_latex_num(params['d'], square=True)} "
+            rf"{params['m']:g} \cdot {latex_num(params['d'], square=True)} "
             rf"\approx {value:.2f} \text{{ kg}}\,\text{{m}}^2"
         )
         return PhysicsResult(
@@ -145,7 +142,7 @@ def _parallel_axis(params: dict[str, float]) -> PhysicsResult:
             formulas=(r"I = I_{cm} + Md^2",),
             substitutions=(
                 rf"I = {params['inertia_cm']:g} + {params['m']:g} \cdot "
-                rf"{_latex_num(params['d'], square=True)}",
+                rf"{latex_num(params['d'], square=True)}",
             ),
             quantities=(QuantityResult("", value, "kg*m^2"),),
         )
@@ -157,7 +154,7 @@ def _parallel_axis(params: dict[str, float]) -> PhysicsResult:
             formulas=(r"I_{cm} = I - Md^2",),
             substitutions=(
                 rf"I_{{cm}} = {params['inertia']:g} - {params['m']:g} \cdot "
-                rf"{_latex_num(params['d'], square=True)}",
+                rf"{latex_num(params['d'], square=True)}",
             ),
             quantities=(QuantityResult("", value, "kg*m^2"),),
         )
@@ -173,7 +170,7 @@ def _parallel_axis(params: dict[str, float]) -> PhysicsResult:
             formulas=(r"M = \frac{I - I_{cm}}{d^2}",),
             substitutions=(
                 rf"M = \frac{{{params['inertia']:g} - {params['inertia_cm']:g}}}"
-                rf"{{{_latex_num(params['d'], square=True)}}}",
+                rf"{{{latex_num(params['d'], square=True)}}}",
             ),
             quantities=(QuantityResult("", value, "kg"),),
         )

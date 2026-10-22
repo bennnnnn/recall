@@ -8,21 +8,22 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
+from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models.orm import Chat, User
 from app.modules import memory as memory_service
 from app.modules import todos as todos_service
 from app.modules.attachments import rag as attachment_rag_service
+from app.modules.chat import chats_repository as chats_repo
 from app.modules.chat import history_rag as chat_history_rag_service
-from app.modules.chat.prompt_constants import is_broad_self_question
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
-from app.services.context_window import (
+from app.modules.chat import messages_repository as messages_repo
+from app.modules.chat.context_window import (
     UNSUMMARIZED_GAP_MAX_MESSAGES,
     messages_within_token_budget,
     unsummarized_gap_bounds,
 )
+from app.modules.chat.prompt_constants import is_broad_self_question
 
 if TYPE_CHECKING:
     from app.modules.memory import MemoryScope
@@ -186,7 +187,7 @@ def _memory_hints(memory_block: str) -> list[str]:
 async def _slim_blocks(reads: _ContextReads, chat: Chat | None) -> _PromptContextBlocks:
     """A slim turn without memory: the recent window, and the history embed if asked."""
     if reads.history_rag:
-        recent_all, history_rag_query_vec = await asyncio.gather(
+        recent_all, history_rag_query_vec = await gather_or_cancel(
             reads.recent(pooled=False),
             reads.history_rag_embed(),
         )
@@ -205,7 +206,7 @@ async def _slim_blocks(reads: _ContextReads, chat: Chat | None) -> _PromptContex
 
 async def _slim_memory_blocks(reads: _ContextReads, chat: Chat | None) -> _PromptContextBlocks:
     """A slim turn that recalls: memory too, capped to whole facts."""
-    recent_all, memory_block, history_rag_query_vec = await asyncio.gather(
+    recent_all, memory_block, history_rag_query_vec = await gather_or_cancel(
         reads.recent(pooled=False),
         reads.memory_block(),
         reads.history_rag_embed(),
@@ -230,7 +231,7 @@ async def _full_blocks(reads: _ContextReads, chat: Chat | None) -> _PromptContex
         recent_all,
         attachment_rag_block,
         history_rag_query_vec,
-    ) = await asyncio.gather(
+    ) = await gather_or_cancel(
         reads.memory_block(),
         reads.todos_section(),
         reads.recent(pooled=True),
@@ -310,12 +311,15 @@ async def _load_unsummarized_gap(
     recent_limit: int,
     token_budget: int,
     current_user_message_id: UUID | None,
+    prior_count: int | None = None,
 ) -> list[Any]:
     """Messages after the summary and before the messages the prompt kept.
 
     ``tail`` is that kept list. A synthetic current user row can push one
     stored message out of a full window; that row is included here, then the
     whole gap is cut to the tokens the recent window did not already use.
+    ``prior_count`` is the chat's count read with the window; without it the chat is
+    counted here (a count that could race the current line's insert).
     """
     tail_ids = {message.id for message in tail}
     dropped = [
@@ -330,9 +334,11 @@ async def _load_unsummarized_gap(
         created_at = getattr(oldest, "created_at", None)
         oldest_id = getattr(oldest, "id", None)
         if created_at is not None and oldest_id is not None:
-            summarized = int(getattr(chat, "summary_message_count", 0) or 0)
+            summarized = (chat.summary_message_count or 0) if chat is not None else 0
             async with SessionLocal() as session:
-                total = await messages_repo.count_for_chat(session, chat_id)
+                total = prior_count
+                if total is None:
+                    total = await messages_repo.count_for_chat(session, chat_id)
                 bounds = unsummarized_gap_bounds(
                     total=total,
                     summarized=summarized,

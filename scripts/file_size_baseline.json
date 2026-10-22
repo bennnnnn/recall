@@ -2,7 +2,7 @@
   "_doc": "Files over 500 lines (docs/ENGINEERING_STANDARDS.md). 'lines' is a ceiling: the file may shrink, never grow. Tickets are in docs/ENGINEERING_STANDARDS_TICKETS.md. After a split, run scripts/check_file_sizes.py --update.",
   "files": {
     "apps/api/app/modules/chat/calculation_layout.py": {
-      "lines": 549,
+      "lines": 542,
       "why": "Over 500 before the standards; one algorithm, held to its twin by docs/fixtures/presentation_cases.json (ES-06); split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/chat/prompt_constants/format.py": {
@@ -50,7 +50,7 @@
       "why": "Exception: Law catalog; all data"
     },
     "apps/api/app/modules/math/fence.py": {
-      "lines": 642,
+      "lines": 636,
       "why": "Over 500 before the standards; tracked in ES-22"
     },
     "apps/api/app/modules/math/match/calculus.py": {
@@ -66,7 +66,7 @@
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/math/solve/graph.py": {
-      "lines": 584,
+      "lines": 550,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/math/solve/key_steps.py": {
@@ -87,10 +87,6 @@
     },
     "apps/api/app/modules/math/tools/block/geometry.py": {
       "lines": 532,
-      "why": "Over 500 before the standards; split by responsibility after the ticketed files"
-    },
-    "apps/api/app/modules/math/tools/direct.py": {
-      "lines": 501,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/math/tools/extractors/geometry.py": {
@@ -142,19 +138,15 @@
       "why": "Exception: Regex pattern table plus thin predicates; the phone twin is under ES-07"
     },
     "apps/api/app/services/answer_check.py": {
-      "lines": 597,
+      "lines": 595,
       "why": "Over 500 before the standards; tracked in ES-01"
     },
     "apps/api/app/services/answer_fence.py": {
-      "lines": 572,
-      "why": "Over 500 before the standards; split by responsibility after the ticketed files"
-    },
-    "apps/api/app/services/routing.py": {
-      "lines": 582,
+      "lines": 569,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/api/app/services/time_context.py": {
-      "lines": 610,
+      "lines": 599,
       "why": "Over 500 before the standards; tracked in ES-04"
     },
     "apps/mobile/components/MathEquationScanner.tsx": {
@@ -169,20 +161,12 @@
       "lines": 677,
       "why": "Over 500 before the standards; ES-38 split DraftPiece; split by responsibility after the ticketed files"
     },
-    "apps/mobile/features/chat/hooks/useChat.ts": {
-      "lines": 581,
-      "why": "Over 500 before the standards; split by responsibility after the ticketed files"
-    },
-    "apps/mobile/features/chat/hooks/useChatRouteLoader.ts": {
-      "lines": 533,
-      "why": "Over 500 before the standards; split by responsibility after the ticketed files"
-    },
     "apps/mobile/features/chat/hooks/useChatSend.ts": {
-      "lines": 511,
+      "lines": 509,
       "why": "Over 500 before the standards; tracked in ES-05"
     },
     "apps/mobile/features/chat/screens/ChatScreen.tsx": {
-      "lines": 571,
+      "lines": 551,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/mobile/lib/codeTokenize.ts": {
@@ -190,7 +174,7 @@
       "why": "Exception: Prism grammar registration: Metro needs about 47 literal `require`s in one module"
     },
     "apps/mobile/lib/markdown/calculationLayout.ts": {
-      "lines": 532,
+      "lines": 522,
       "why": "Over 500 before the standards; one algorithm, held to its twin by docs/fixtures/presentation_cases.json (ES-06); split by responsibility after the ticketed files"
     },
     "apps/mobile/lib/math/draftSlots.ts": {
@@ -198,7 +182,7 @@
       "why": "Exception: One draft-node parser and editor"
     },
     "apps/mobile/lib/math/graphBlock.ts": {
-      "lines": 522,
+      "lines": 515,
       "why": "Over 500 before the standards; tracked in ES-40"
     },
     "apps/mobile/lib/math/keyboardCatalog.ts": {
@@ -206,19 +190,15 @@
       "why": "Exception: Key and accessibility tables (321 lines of data)"
     },
     "apps/mobile/lib/math/latexParse.ts": {
-      "lines": 510,
+      "lines": 508,
       "why": "Exception: One parser; ES-38 split its one long function"
     },
     "apps/mobile/lib/math/layout.ts": {
       "lines": 533,
       "why": "Exception: One layout algorithm; ES-38 split `measureSegment` and moved the tree checks out"
     },
-    "apps/mobile/lib/physics/circuit.ts": {
-      "lines": 511,
-      "why": "Exception: One diagram's parsing and layout; tested by `circuit.test.ts`"
-    },
     "apps/mobile/lib/physics/optics.ts": {
-      "lines": 649,
+      "lines": 599,
       "why": "Exception: One diagram's parsing and pure geometry; tested by `optics.test.ts`"
     }
   }

@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 
+from app.core.readings import reading
 from app.modules.physics.registry import (
     PHYSICS_CUE_RES,
     PHYSICS_CUES,
@@ -103,6 +104,7 @@ def _named_symbol_request(text: str) -> str | None:
     return named_symbol_request(text, lambda request: _extract_physics_intent(request) is not None)
 
 
+@reading(declined=False)
 @lru_cache(maxsize=_CACHE_SIZE)
 def needs_physics(text: str) -> bool:
     """True for a verified template or an unmistakable physics-only request."""
@@ -188,6 +190,7 @@ def _answers_another_kind(intent: PhysicsIntent) -> bool:
     return not set(intent.asked) <= produced
 
 
+@reading(declined=None)
 @lru_cache(maxsize=_CACHE_SIZE)
 def _extract_physics_intent(text: str) -> PhysicsIntent | None:
     from app.modules.physics.request import complete_physics_intent, prepare_physics_request

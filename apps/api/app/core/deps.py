@@ -7,8 +7,7 @@ from app.core import access_tokens, user_cache
 from app.core.config import Settings, get_settings
 from app.core.db import get_db
 from app.core.redis import get_redis_client
-from app.exceptions import RedisUnavailableError
-from app.gateways.google_auth import GoogleAuthError
+from app.exceptions import AuthenticationError, RedisUnavailableError
 from app.models.orm import User
 from app.repositories import users as users_repo
 
@@ -44,7 +43,7 @@ async def get_current_user(
         user_id = await access_tokens.verify_access_token(redis, credentials.credentials, settings)
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
-    except GoogleAuthError as exc:
+    except AuthenticationError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
     # Per-process cache of the last loaded row (core/user_cache.py).
@@ -55,10 +54,15 @@ async def get_current_user(
     if cached is not None:
         return cached
 
+    generation = await user_cache.read_generation(redis, user_id)
     user = await users_repo.get_by_id(session, user_id)
+    # End the read now. FastAPI closes the request's session only after the response is sent,
+    # so an SSE reply or a slow upload kept this connection idle in transaction throughout.
+    # Nothing else has used the session yet, and expire_on_commit=False keeps the row loaded.
+    await session.commit()
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-    user_cache.remember_user(user)
+    user_cache.remember_read(user, generation)
     return user
 
 

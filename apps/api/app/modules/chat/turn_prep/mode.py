@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
-from uuid import UUID
+from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.orm import Chat
 from app.modules.chat.prompt_constants import (
     could_continue_draft,
     draft_followup,
@@ -23,7 +21,6 @@ from app.modules.chat.prompt_constants import (
     profile_question_to_answer,
 )
 from app.modules.memory import is_food_or_diet_query
-from app.repositories import messages as messages_repo
 from app.services import day_planning as day_planning_service
 from app.services.subject_solving import detect_subject
 from app.services.text_normalize import collapse_ws
@@ -131,16 +128,12 @@ def _turn_needs_rich_context(
     return False
 
 
-async def _prior_user_texts(
-    session: AsyncSession,
-    chat_id: UUID,
-    content: str,
-) -> list[str]:
-    """User lines before this turn. The current line may already be stored."""
-    recent = await messages_repo.list_recent(session, chat_id, limit=8)
+def _prior_user_texts(recent: Sequence[Any], content: str) -> list[str]:
+    """User lines among the last eight messages before this turn. The current line may
+    already be stored."""
     users = [
         message.content
-        for message in recent
+        for message in recent[-8:]
         if message.role == "user" and isinstance(message.content, str)
     ]
     if users and collapse_ws(users[-1]) == collapse_ws(content):
@@ -152,14 +145,13 @@ async def _prior_user_texts(
 _DRAFT_HISTORY = 6
 
 
-async def _continues_a_draft(session: AsyncSession, chat_id: UUID, content: str) -> bool:
-    """ "Email" or "make it shorter" after a draft: one short history read decides."""
+def _continues_a_draft(recent: Sequence[Any], content: str) -> bool:
+    """ "Email" or "make it shorter" after a draft."""
     if not could_continue_draft(content):
         return False
-    recent = await messages_repo.list_recent(session, chat_id, limit=_DRAFT_HISTORY + 1)
     prior = [
         (message.role, message.content)
-        for message in recent
+        for message in recent[-(_DRAFT_HISTORY + 1) :]
         if message.role in {"user", "assistant"} and isinstance(message.content, str)
     ]
     # The current line may already be stored.
@@ -168,28 +160,28 @@ async def _continues_a_draft(session: AsyncSession, chat_id: UUID, content: str)
     return draft_followup(content, prior) is not None
 
 
-async def _classify_turn_mode(
-    session: AsyncSession,
-    chat: Chat,
-    content: str,
-) -> _TurnMode:
+def _last_assistant(recent: Sequence[Any]) -> str | None:
+    for message in reversed(recent):
+        if message.role == "assistant" and isinstance(message.content, str):
+            return message.content
+    return None
+
+
+def classify_turn_mode(recent: Sequence[Any], content: str) -> _TurnMode:
     """Classify lightweight/rich-context/day-planning modes for a turn.
 
-    Short replies (yes / no / got it) load the last assistant only when
-    needed so ``hi`` / ``thanks`` never pay that round trip.
+    ``recent`` is the window the turn already loaded, oldest first: a short reply
+    ("yes", "no") is read against the last assistant line in it, and a draft follow-up
+    against the drafts in it. Each of those used to read the messages again.
     """
     minimal_personal = is_broad_self_question(content)
     day_planning = day_planning_service.is_day_planning_question(content)
     day_reflection = day_planning_service.is_day_reflection_question(content)
-    prior_assistant: str | None = None
-    if is_short_reply(content):
-        prior = await messages_repo.get_last_assistant(session, chat.id)
-        if prior is not None:
-            prior_assistant = prior.content
+    prior_assistant = _last_assistant(recent) if is_short_reply(content) else None
     lightweight = is_lightweight_chat_turn(content, prior_assistant=prior_assistant)
     profile_followup = False
     if is_profile_recall_pushback(content):
-        prior_users = await _prior_user_texts(session, chat.id, content)
+        prior_users = _prior_user_texts(recent, content)
         profile_followup = profile_question_to_answer(content, prior_users) is not None
     rich_context = _turn_needs_rich_context(
         content,
@@ -199,7 +191,7 @@ async def _classify_turn_mode(
     if not rich_context and not lightweight:
         # A change to a draft needs what the draft had: memory for names, and
         # the profile it is signed with. A slim turn signed it "[Your Name]".
-        rich_context = await _continues_a_draft(session, chat.id, content)
+        rich_context = _continues_a_draft(recent, content)
     advice_memory = (
         (
             is_personal_advice_question(content)

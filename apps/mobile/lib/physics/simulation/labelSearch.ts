@@ -2,6 +2,7 @@
  * Keeping labels clear across the frames the layout checks: the side a
  * body's label takes, and how far every other label is nudged.
  */
+import { boxesOverlap } from "@/lib/physics/boxes";
 import { type SimulationBody } from "@/lib/physics/simulation/spec";
 import {
   bodyLabelOffset,
@@ -12,15 +13,6 @@ import {
   type Segment,
 } from "@/lib/physics/simulation/labels";
 import { type ScreenPoint } from "@/lib/physics/simulation/viewport";
-
-function boxesOverlap(a: LabelBox, b: LabelBox, gap = 0): boolean {
-  return (
-    a.x < b.x + b.width + gap &&
-    b.x < a.x + a.width + gap &&
-    a.y < b.y + b.height + gap &&
-    b.y < a.y + a.height + gap
-  );
-}
 
 /** Room kept between a label and another arrow's line, in px. */
 const LINE_CLEARANCE = 4;

@@ -9,7 +9,7 @@ from typing import NamedTuple
 from app.core.config import Settings
 from app.modules.math import match as mtm
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.extractors.readings import read
 from app.modules.math.tools.function_def import substituted_eval_expr
 from app.modules.math.tools.school.arithmetic_expression import expression_block
@@ -352,7 +352,7 @@ def _written_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | 
 
             lines.append(f"Verified {arithmetic_work.operation} procedure:")
             lines.extend(arithmetic_work.explanations)
-            block = _finish_with_answer(lines, final_answer(arithmetic_work))
+            block = finish_with_answer(lines, final_answer(arithmetic_work))
             return replace(
                 block,
                 canonical_fences=[arithmetic_work.model_dump()],

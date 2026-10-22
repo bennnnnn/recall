@@ -4,7 +4,7 @@ import { act, render, waitFor } from "@testing-library/react-native";
 
 import { useChatRouteLoader } from "@/features/chat/hooks/useChatRouteLoader";
 import { api, type Message } from "@/lib/api";
-import { getCachedChat } from "@/lib/cache/chatListCache";
+import { getCachedChat } from "@/features/chat/model/chatListCache";
 import { clearCachedChatMessages, readCachedChatMessages, writeCachedChatMessages } from "@/features/chat/model/messageCache";
 
 
@@ -12,7 +12,7 @@ let mockSession = 0;
 let mockRevision = 0;
 let mockChatChange: ((id: string, patch: Record<string, unknown> | null) => void) | undefined;
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
-jest.mock("@/lib/drawer", () => ({
+jest.mock("@/features/chat/drawer/drawer", () => ({
   getChatMutationRevision: () => mockRevision,
   subscribeChatChanges: (fn: typeof mockChatChange) => { mockChatChange = fn; return () => { mockChatChange = undefined; }; },
   removeChatGlobal: jest.fn(),
@@ -32,7 +32,7 @@ jest.mock("@/lib/api", () => ({
     listMessages: jest.fn(),
   },
 }));
-jest.mock("@/lib/cache/chatListCache", () => ({
+jest.mock("@/features/chat/model/chatListCache", () => ({
   getCachedChat: jest.fn(() => undefined),
 }));
 jest.mock("@/features/chat/model/messageCache", () => ({

@@ -19,14 +19,14 @@ from app.modules import web_search as web_search_service
 from app.modules.account import profile as profile_service
 from app.modules.account import settings_proposal as settings_proposal_service
 from app.modules.account.settings_intent import extract_settings_changes
+from app.modules.chat import recurring_pay as recurring_pay_service
 from app.modules.chat.prompt_constants.routing import profile_question_to_answer
-from app.modules.chat.prompt_memory import memory_switch_on
 from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chat.turn_prep.clauses import request_body
 from app.modules.chat.turn_prep.followups import SubjectFollowup
 from app.modules.chat.turn_prep.request import ClientGeoContext, TurnIdentity, TurnRequest
 from app.modules.memory.profile_reply import reply_for_profile_question
-from app.services import recurring_pay as recurring_pay_service
+from app.modules.memory.switch import memory_switch_on
 from app.services import time_context as time_context_service
 from app.services.text_normalize import collapse_ws
 
@@ -128,18 +128,13 @@ async def _profile_reply(asked: str, identity: TurnIdentity) -> str | None:
         return None
     try:
         async with SessionLocal() as session:
-            rows = await memory_service.list_for_user(
-                session,
-                user.id,
-                include_muted=False,
-                include_superseded=False,
-            )
+            facts = await memory_service.active_fact_texts(session, user.id)
     except Exception:
         logger.warning("Profile reply memory read failed user_id=%s", user.id, exc_info=True)
         return None
     return reply_for_profile_question(
         asked,
-        [row.text for row in rows],
+        facts,
         location=profile_service.user_location_label(user),
     )
 

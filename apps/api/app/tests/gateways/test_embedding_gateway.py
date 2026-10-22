@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.gateways import embedding_gateway
+from app.gateways import embedding_gateway, llm_spend
 
 _EMBED_TEXT = "app.gateways.embedding_gateway.embed_text"
 _LIVE: dict[str, Any] = {"mock_llm_enabled": False, "openrouter_api_key": "test-key"}
@@ -58,7 +58,7 @@ async def _embed_many(provider: _Provider, texts: list[str], **kwargs: Any) -> A
     concurrency = kwargs.pop("concurrency", 8)
     with (
         patch.object(embedding_gateway, "aembedding", provider),
-        patch.object(embedding_gateway.llm_spend, "meter_model_call"),
+        patch.object(llm_spend, "meter_model_call"),
     ):
         return await embedding_gateway.embed_many(
             _settings(**kwargs), texts, concurrency=concurrency
@@ -149,7 +149,7 @@ async def test_a_short_answer_counts_as_a_failed_request():
     response = SimpleNamespace(data=[{"embedding": [1.0], "index": 0}], usage=None)
     with (
         patch.object(embedding_gateway, "aembedding", AsyncMock(return_value=response)),
-        patch.object(embedding_gateway.llm_spend, "meter_model_call"),
+        patch.object(llm_spend, "meter_model_call"),
     ):
         result = await embedding_gateway.embed_many(_settings(), ["a", "b"], concurrency=2)
 

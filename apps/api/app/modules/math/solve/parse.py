@@ -18,9 +18,10 @@ from sympy.parsing.sympy_parser import (
 from app.core.config import get_settings
 from app.core.sympy_notation import use_school_log_notation
 from app.modules.math.schemas import EquationInput
-from app.modules.math.solve.latex_normalize import _normalize_latex_to_sympy
+from app.modules.math.solve.latex_normalize import normalize_latex_to_sympy
+from app.modules.math.solve.number_size import reject_huge_numbers
 from app.modules.math.solve.written_names import lone_quantity, reject_unwritten_symbols
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +105,7 @@ def _lift_glued_exponents(text: str) -> str:
 
 def _normalize_expr(text: str) -> str:
     s = text.strip()
-    s = _normalize_latex_to_sympy(s)
+    s = normalize_latex_to_sympy(s)
     # Lift `x2` before `^` becomes `**`, so a real caret (`x2^3`) is not
     # reread as a glued exponent.
     s = _lift_glued_exponents(s)
@@ -126,7 +127,7 @@ _LONG_EXPONENT = re.compile(r"\d[eE][+-]?\d{4}")
 
 
 def _reject_unsafe_expr(normalized: str) -> None:
-    """BUG FIX (was a live RCE): parse_expr/sympify evaluate the input via
+    """Refuse what could run code: parse_expr/sympify evaluate the input via
     Python's eval() internally. Restricting local_dict to declared variable
     names (as this module already did) only stops BARE names from resolving
     to something dangerous via auto_symbol — it does nothing to stop
@@ -150,18 +151,18 @@ def _reject_unsafe_expr(normalized: str) -> None:
     eval() in the API process.
     """
     if "__" in normalized:
-        raise MathServiceError("Invalid expression")
+        raise SolveServiceError("Invalid expression")
     if _LONG_EXPONENT.search(normalized):  # 1e-1000000 is beyond any number a student means
-        raise MathServiceError("Number out of range")
+        raise SolveServiceError("Number out of range")
     if "[" in normalized or "]" in normalized:
-        raise MathServiceError("Invalid expression")
+        raise SolveServiceError("Invalid expression")
     if "." in _DECIMAL_NUMBER.sub("", normalized):
-        raise MathServiceError("Invalid expression")
+        raise SolveServiceError("Invalid expression")
     if not _SAFE_EXPR_CHARS.match(normalized):
-        raise MathServiceError("Invalid expression")
+        raise SolveServiceError("Invalid expression")
 
 
-def _parse_expression(
+def parse_expression(
     expr: str,
     variable_names: list[str] | None = None,
     *,
@@ -170,11 +171,13 @@ def _parse_expression(
 ):
     normalized = _normalize_expr(expr)
     if len(normalized) > get_settings().math_max_expr_length:
-        raise MathServiceError("Expression too long")
+        raise SolveServiceError("Expression too long")
     _reject_unsafe_expr(normalized)
     local_dict = dict(_LOCALS)
     for name in [*(variable_names or []), *lone_quantity(expr)]:
         local_dict[name] = Symbol(name, real=True) if real else Symbol(name)
+    if evaluate:
+        reject_huge_numbers(normalized, local_dict, _TRANSFORMATIONS)
     try:
         parsed = parse_expr(
             normalized,
@@ -183,11 +186,11 @@ def _parse_expression(
             evaluate=evaluate,
         )
     except Exception as exc:
-        raise MathServiceError(f"Could not parse expression: {expr}") from exc
+        raise SolveServiceError(f"Could not parse expression: {expr}") from exc
     if not isinstance(parsed, Basic | tuple):
         # A bare SymPy name parses to what it names (``Q``, ``CC``, ``limit``, the class ``O``)
         # and ``x == 1`` to a bool: neither is an expression. ``2, 3`` stays a tuple.
-        raise MathServiceError(f"Could not parse expression: {expr}")
+        raise SolveServiceError(f"Could not parse expression: {expr}")
     reject_unwritten_symbols(expr, parsed)
     return parsed
 
@@ -199,6 +202,6 @@ def _expr_needs_real_domain(*parts: str) -> bool:
 
 def parse_equation(data: EquationInput) -> tuple[Any, Any, list[Any]]:
     real = _expr_needs_real_domain(data.lhs, data.rhs)
-    lhs = _parse_expression(data.lhs, data.variables, real=real)
-    rhs = _parse_expression(data.rhs, data.variables, real=real)
+    lhs = parse_expression(data.lhs, data.variables, real=real)
+    rhs = parse_expression(data.rhs, data.variables, real=real)
     return Eq(lhs, rhs), lhs, rhs

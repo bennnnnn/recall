@@ -3,28 +3,26 @@ import { AccessibilityInfo, AppState } from "react-native";
 import { act, cleanup, render } from "@testing-library/react-native";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { streamChatMessageSse, streamChatRegenerateSse } from "@/features/chat/model/sse";
+import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import {
-  DROPPED_TURN_POLL_MS,
+  DROPPED_TURN_MAX_WAIT_MS,
   DROPPED_TURN_POLLS,
+  DROPPED_TURN_PROBE_ROWS,
   SSE_DROPPED_TURN_POLLS,
 } from "@/features/chat/model/turnReconcile";
-import { WS_FIRST_EVENT_TIMEOUT_MS } from "@/features/chat/model/wsConnect";
+import { STREAM_IDLE_TIMEOUT_MS, WS_FIRST_EVENT_TIMEOUT_MS } from "@/features/chat/model/wsConnect";
 import { getStreamingDraft, resetStreamingDraftStore } from "@/lib/streamingDraftStore";
 
 const SERVER_USER_ID = "0190a000-0000-7000-8000-000000000001";
 const SERVER_REPLY_ID = "0190a000-0000-7000-8000-000000000002";
 
-/** Let a dropped turn's reloads run out (each waits DROPPED_TURN_POLL_MS). */
+/** Let a dropped turn's reloads run out (each waits at most DROPPED_TURN_MAX_WAIT_MS). */
 async function waitOutReconcile(polls = DROPPED_TURN_POLLS) {
   for (let poll = 0; poll < polls; poll += 1) {
-    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_MAX_WAIT_MS); });
   }
 }
 
-jest.mock("react-i18next", () => {
-  const t = (key: string) => key;
-  return { useTranslation: () => ({ t }) };
-});
 jest.mock("@/lib/api", () => ({
   chatWebSocketUrl: (id: string) => `wss://test/${id}`,
   api: { listMessages: jest.fn() },
@@ -35,7 +33,6 @@ jest.mock("@/features/chat/model/sse", () => ({
   streamChatMessageSse: jest.fn(),
   streamChatRegenerateSse: jest.fn(),
   shouldAbortPriorSse: (previous: string, next: string) => previous === next,
-  isSseAbortError: (error: Error) => error.name === "AbortError",
 }));
 
 class FakeSocket {
@@ -57,6 +54,11 @@ let current: ReturnType<typeof useChat>;
 const onError = jest.fn();
 let mockSessionGeneration = 0;
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSessionGeneration }));
+// One object, as the provider keeps it.
+const mockAccountSession = { account: "user-1:0", getToken: () => "token" };
+jest.mock("@/contexts/accountSession", () => ({
+  useAccountSession: () => mockAccountSession,
+}));
 function Probe({ chatId, token = "token" }: { chatId: string; token?: string }) {
   const chat = useChat(token, chatId, { onError });
   React.useLayoutEffect(() => { current = chat; });
@@ -84,21 +86,21 @@ async function sendAndStream(socket: FakeSocket, text = "reply") {
 }
 
 describe("useChat transport lifecycle", () => {
-  const originalSocket = global.WebSocket;
+  const originalSocket = globalThis.WebSocket;
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     listMessages.mockReset();
     FakeSocket.instances = [];
     mockSessionGeneration = 0;
-    global.WebSocket = FakeSocket as unknown as typeof WebSocket;
+    globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
     resetStreamingDraftStore();
   });
   afterEach(async () => {
     await cleanup();
     jest.clearAllTimers();
     jest.useRealTimers();
-    global.WebSocket = originalSocket;
+    globalThis.WebSocket = originalSocket;
   });
 
   it("surfaces an SSE transport AbortError without replaying uncertain delivery", async () => {
@@ -223,7 +225,11 @@ describe("useChat transport lifecycle", () => {
     await act(async () => {
       await current.sendMessage("slow math");
       socket.emit(type === "status" ? { type, phase: "solving_math" } : { type });
-      jest.advanceTimersByTime(5 * 60_000);
+      // Five quiet minutes, with the server's keepalive every 15 s.
+      for (let tick = 0; tick < 20; tick += 1) {
+        jest.advanceTimersByTime(15_000);
+        socket.emit({ type: "keepalive" });
+      }
     });
     expect(current.streaming).toBe(true);
     expect(socket.close).not.toHaveBeenCalled();
@@ -357,10 +363,31 @@ describe("useChat transport lifecycle", () => {
     const socket = await openSocket();
     await sendAndStream(socket, "partial");
     await act(async () => { socket.onclose(); });
-    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_MAX_WAIT_MS); });
     expect(current.streaming).toBe(false);
     expect(current.messages).toEqual(saved);
+    // A few rows per poll; the whole page once, to settle.
+    expect(listMessages.mock.calls.map(([, , opts]) => opts.limit)).toEqual([
+      DROPPED_TURN_PROBE_ROWS, MESSAGE_PAGE_SIZE,
+    ]);
     expect(current.rejectedSend).toBeNull();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("reloads the chat for the saved reply when a turn goes quiet past the idle deadline", async () => {
+    const saved = [
+      { id: SERVER_USER_ID, role: "user" as const, content: "question", model: null, created_at: "t1" },
+      { id: SERVER_REPLY_ID, role: "assistant" as const, content: "whole reply", model: "free-chat", created_at: "t2" },
+    ];
+    listMessages.mockResolvedValue({ messages: saved, has_more: false });
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await sendAndStream(socket, "partial");
+    await act(async () => { await jest.advanceTimersByTimeAsync(STREAM_IDLE_TIMEOUT_MS); });
+    expect(socket.close).toHaveBeenCalled();
+    await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_MAX_WAIT_MS); });
+    expect(current.streaming).toBe(false);
+    expect(current.messages).toEqual(saved);
     expect(onError).not.toHaveBeenCalled();
   });
 
@@ -997,7 +1024,7 @@ describe("useChat transport lifecycle", () => {
 });
 
 describe("useChat socket while the app is in the background", () => {
-  const originalSocket = global.WebSocket;
+  const originalSocket = globalThis.WebSocket;
   const addListener = AppState.addEventListener as unknown as jest.Mock;
   const defaultAddListener = addListener.getMockImplementation();
   const appStateHandlers = new Set<(state: string) => void>();
@@ -1013,7 +1040,7 @@ describe("useChat socket while the app is in the background", () => {
     listMessages.mockReset();
     FakeSocket.instances = [];
     mockSessionGeneration = 0;
-    global.WebSocket = FakeSocket as unknown as typeof WebSocket;
+    globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
     resetStreamingDraftStore();
     appStateHandlers.clear();
     addListener.mockImplementation((event: string, handler: (state: string) => void) => {
@@ -1026,7 +1053,7 @@ describe("useChat socket while the app is in the background", () => {
     await cleanup();
     jest.clearAllTimers();
     jest.useRealTimers();
-    global.WebSocket = originalSocket;
+    globalThis.WebSocket = originalSocket;
     addListener.mockImplementation(defaultAddListener);
   });
 

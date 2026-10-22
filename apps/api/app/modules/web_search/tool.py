@@ -18,6 +18,7 @@ from app.modules.web_search.query_builders import (
 )
 from app.modules.web_search.recency import anchor_recency_to_year
 from app.modules.web_search.search_cache import run_cached_search
+from app.services.number_text import NUMBER_WORDS
 from app.services.prompt_safety import wrap_untrusted
 
 # The tool result the model reads: a search that errored is not one that found nothing.
@@ -31,18 +32,8 @@ _SEARCH_FAILED = (
     "from memory as checked."
 )
 
-_COUNT_WORDS = {
-    "one": 1,
-    "two": 2,
-    "three": 3,
-    "four": 4,
-    "five": 5,
-    "six": 6,
-    "seven": 7,
-    "eight": 8,
-    "nine": 9,
-    "ten": 10,
-}
+# A small explicit list size: one to ten, from number_text's one table.
+_COUNT_WORDS = {word: value for word, value in NUMBER_WORDS.items() if 1 <= value <= 10}
 
 
 def _requested_news_count(text: str) -> int | None:
@@ -68,10 +59,18 @@ class WebSearchAdapter:
 
     def describe(self) -> str:
         return (
-            "Search the web for current information. Call it whenever the user asks you "
-            "to search, look something up, google it or check online, and for facts that "
-            "change. The query must stand alone: spell out who or what the conversation "
-            "is about (a full name, a place), never 'it', 'her' or 'do a search'."
+            "Search the web for current information. Call it before you write anything "
+            "when the answer may have changed since you were trained: who holds an office "
+            "or a title, winners, results and scores, records and rankings, prices, rates "
+            "and figures that move (a population, a statistic), releases and versions, "
+            "news, events and schedules, laws and rules, and anything about this year or "
+            "the latest. Call it whenever the user asks you to search, look something up, "
+            "google it or check online. Do not call it for what stays true (definitions, "
+            "history, science, maths, how things work, code, writing), for what the user "
+            "told you about themselves, or for the date or time anywhere (the prompt has the "
+            "user's clock). The query must stand alone: spell out who or what "
+            "the conversation is about (a full name, a place), never 'it', 'her' or 'do a "
+            "search'."
         )
 
     def to_openai_tool(self) -> dict[str, Any]:

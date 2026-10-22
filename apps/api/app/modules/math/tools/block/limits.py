@@ -9,7 +9,7 @@ from app.core.config import Settings
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.declines import sympy_decline
-from app.modules.math.tools.block.canonical import _finish_with_answer
+from app.modules.math.tools.block.canonical import finish_with_answer
 from app.services.solving import VerifiedMathBlock
 from app.services.workout import Workout, math_line, render_workout
 
@@ -32,7 +32,7 @@ def _verified_block_limit(
             "This limit is infinite — preserve its sign, do not treat it as an ordinary "
             "finite number."
         )
-    block = _finish_with_answer(lines, limit_out.latex)
+    block = finish_with_answer(lines, limit_out.latex)
     if limit_out.is_infinite or intent.limit_direction not in (None, "+-"):
         return block  # a one-sided or infinite limit keeps the answer card alone
     working = _limit_working(intent, limit_out.latex)
@@ -44,13 +44,13 @@ def _limit_working(intent: MathIntent, answer: str) -> str | None:
     from sympy import Expr, Symbol, cancel, diff, factor, latex, limit, nan, simplify, zoo
 
     with sympy_decline() as declined:
-        expr = math_solve._parse_expression(intent.expr or "", [intent.variable])
+        expr = math_solve.parse_expression(intent.expr or "", [intent.variable])
         written = str(intent.limit_point).strip().lower().replace("∞", "oo")
         # "infinity" is how the request names it; the parser would read a symbol.
         written = {"infinity": "oo", "+infinity": "oo", "-infinity": "-oo", "inf": "oo"}.get(
             written, written
         )
-        point = math_solve._parse_expression(written, [])
+        point = math_solve.parse_expression(written, [])
         if not (isinstance(expr, Expr) and isinstance(point, Expr)):
             return None  # ``(1, 2)``, ``True`` or a bare SymPy name has no limit to work
         symbol = next(

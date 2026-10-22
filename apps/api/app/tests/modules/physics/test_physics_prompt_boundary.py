@@ -10,13 +10,14 @@ from app.modules.physics.reply_policy import (
     PHYSICS_REPLY_POLICY,
     PHYSICS_SHORT_HINT,
 )
-from app.services.workout import SELF_CHECK_PROMPT_RULE
+from app.services.solving import VERIFIED_MATH_BEGIN
+from app.services.workout import PHYSICS_WORKOUT_PROMPT_SHORT, SELF_CHECK_PROMPT_RULE
 
 
 def test_physics_prompt_names_its_subject_and_not_math() -> None:
     assert "This is a physics problem" in PHYSICS_INTENT_HINT
     assert "[BEGIN VERIFIED PHYSICS]" in PHYSICS_INTENT_HINT
-    assert "[BEGIN VERIFIED MATH]" not in PHYSICS_INTENT_HINT
+    assert VERIFIED_MATH_BEGIN not in PHYSICS_INTENT_HINT
 
 
 def test_math_prompt_contains_no_physics_policy() -> None:
@@ -28,7 +29,7 @@ def test_math_prompt_contains_no_physics_policy() -> None:
 
 def test_physics_prompt_cannot_claim_an_unverified_result() -> None:
     lower = PHYSICS_INTENT_HINT.lower()
-    assert "if no verified block is present, do not claim verification" in lower
+    assert "if no verified block is present, do not claim verification" in lower  # safety phrase
     assert "never end on that heading" in lower
     assert "do not recompute" in lower
 
@@ -53,8 +54,8 @@ def test_physics_working_contract_is_explicit_and_ordered() -> None:
     assert "governing law's name" in PHYSICS_REPLY_POLICY
     # The law's own name heads its formulas; a converted given keeps one line.
     for policy in (PHYSICS_INTENT_HINT, PHYSICS_REPLY_POLICY):
-        assert "**Constant acceleration**" in policy
-        assert "carried step by step to the final value" in policy
+        assert PHYSICS_WORKOUT_PROMPT_SHORT in policy
+        assert PHYSICS_WORKOUT_PROMPT_SHORT in policy
     assert "each value or equation on its own" in PHYSICS_REPLY_POLICY
 
 

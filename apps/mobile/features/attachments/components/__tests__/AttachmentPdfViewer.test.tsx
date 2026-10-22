@@ -5,13 +5,14 @@ import { AttachmentPdfViewer } from "@/features/attachments/components/Attachmen
 import { ensureLocalAttachmentFile } from "@/features/attachments/model/downloadChatAttachment";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+// One object, as the provider keeps it: a new getter per render re-runs every effect.
+const mockAccountSession = { account: "user-1:0", getToken: () => "tok" };
+jest.mock("@/contexts/accountSession", () => ({
+  useAccountSession: () => mockAccountSession,
 }));
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+jest.mock("@/contexts/AuthContext", () => ({
+  useAuthToken: () => "tok",
 }));
-jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => "tok" }));
 jest.mock("@/features/attachments/model/attachmentUri", () => ({
   resolveAttachmentUri: ({ attachmentId }: { attachmentId?: string }) => `https://api.test/attachments/${attachmentId}/file`,
 }));
@@ -25,6 +26,9 @@ jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
   EncodingType: { Base64: "base64" },
   readAsStringAsync: jest.fn(async () => "QUJD"),
+}));
+jest.mock("@/lib/vendorAssets", () => ({
+  loadVendorTexts: jest.fn(async () => ({ pdf: "/*pdf.js*/", pdfWorker: "/*pdf.worker*/" })),
 }));
 jest.mock("@/lib/pdfPreviewHtml", () => ({
   ...jest.requireActual("@/lib/pdfPreviewHtml"),

@@ -16,7 +16,7 @@ from app.modules.math.tools.block.calculus_applications import (
     _CALCULUS_APPLICATION_OPS,
     _verified_calculus_application,
 )
-from app.modules.math.tools.block.canonical import _finish_with_answer
+from app.modules.math.tools.block.canonical import finish_with_answer
 from app.modules.math.tools.block.derivatives import (
     _derivative_at_point,
     _higher_derivative_at_point,
@@ -97,7 +97,7 @@ def _finish_operation(
         lines.extend(out.steps)
     else:
         lines.append(f"Result: {answer}")
-    return _finish_with_answer(lines, answer, key_steps=trace, given_latex=given)
+    return finish_with_answer(lines, answer, key_steps=trace, given_latex=given)
 
 
 def _simplify(
@@ -170,7 +170,7 @@ def _integrate(
     if intent.integral_lower is None and _is_log_over_x_integral(expr, intent.variable):
         answer = rf"\ln\left|\ln\left({intent.variable}\right)\right| + C"
         direct = _log_over_x_reply(intent.variable, answer)
-        return replace(_finish_with_answer(lines, answer), direct_reply=direct)
+        return replace(finish_with_answer(lines, answer), direct_reply=direct)
     if intent.integral_lower is None:
         # The service computes one antiderivative; the user's indefinite
         # integral asks for the family, including on the direct reply path.
@@ -199,9 +199,9 @@ def _simplification_direct_reply(intent: MathIntent, answer: str) -> str:
     from sympy import Eq, Symbol, latex, preorder_traversal, solve
 
     names = math_solve.guess_variables(intent.expr or "") or [intent.variable]
-    original = math_solve._parse_expression(intent.expr or "", names, evaluate=False)
-    display_original = math_solve._parse_expression(intent.expr or "", names)
-    parsed = math_solve._parse_expression(intent.expr or "", names, real=True)
+    original = math_solve.parse_expression(intent.expr or "", names, evaluate=False)
+    display_original = math_solve.parse_expression(intent.expr or "", names)
+    parsed = math_solve.parse_expression(intent.expr or "", names, real=True)
     restrictions: list[str] = []
     seen_symmetric: set[tuple[str, str]] = set()
     denominator_bases = [
@@ -265,4 +265,4 @@ def _verified_function_analysis(intent: MathIntent, lines: list[str]) -> Verifie
             return None
         answer = function_analysis.compose_functions(intent.expr, intent.expr2, intent.variable)
         lines.append(f"Composition: {answer}")
-    return _finish_with_answer(lines, answer)
+    return finish_with_answer(lines, answer)

@@ -452,7 +452,7 @@ def test_format_search_block_includes_links():
 def test_format_search_empty_block_forbids_roleplay():
     block = format_search_empty_block(["top news today"])
     assert "returned no usable results" in block
-    assert "could not verify that live" in block
+    assert "could not verify that live" in block  # safety phrase
     assert "Do NOT invent tournament schedules" in block
 
 
@@ -510,21 +510,6 @@ def test_format_sources_fence_sanitizes_backticks_in_snippets():
 def test_mock_search_results_respects_limit():
     hits = mock_search_results("query", max_results=1)
     assert len(hits) == 1
-
-
-def test_prioritize_team_hits():
-    from app.modules.web_search.query_builders import _prioritize_team_hits
-
-    hits = [
-        WebSearchHit(title="World Cup group stage", url="https://a.com", snippet="Brazil vs Spain"),
-        WebSearchHit(
-            title="Ethiopia latest", url="https://b.com", snippet="Ethiopia national team"
-        ),
-        WebSearchHit(title="Other", url="https://c.com", snippet="generic"),
-    ]
-    ordered = _prioritize_team_hits(hits, "Ethiopia")
-    assert ordered[0].title == "Ethiopia latest"
-    assert ordered[1].title == "World Cup group stage"
 
 
 def test_format_places_fence():

@@ -17,6 +17,7 @@ import pytest
 from app.services.solving import (
     VERIFIED_MATH_BEGIN,
     VERIFIED_MATH_END,
+    VERIFIED_PHYSICS_END,
     strip_verified_solve_markers,
     wrap_verified_math,
 )
@@ -39,7 +40,7 @@ def test_markers_never_survive(reply: str) -> None:
     assert VERIFIED_MATH_BEGIN not in out
     assert VERIFIED_MATH_END not in out
     assert "BEGIN VERIFIED" not in out
-    assert "END VERIFIED" not in out
+    assert VERIFIED_PHYSICS_END not in out
 
 
 def test_the_answer_between_the_markers_is_kept() -> None:

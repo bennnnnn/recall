@@ -1,7 +1,7 @@
 """When a memory section needs rewriting, and whether a rewrite is acceptable.
 
 Policy only — the LLM call and the DB write live in
-background/memory_consolidation.py. Kept apart from the caching and locking
+consolidation_workflow.py. Kept apart from the caching and locking
 machinery so the rules can be read and tested on their own.
 """
 
@@ -11,10 +11,8 @@ from collections.abc import Iterable
 from typing import Any
 
 from app.modules.memory.fact_quality import FactView, texts_to_drop
-from app.modules.memory.text import (
-    merge_diet_facts,
-    normalize_memory_text,
-)
+from app.modules.memory.ops import normalize_memory_text
+from app.modules.memory.text import merge_diet_facts
 
 logger = logging.getLogger(__name__)
 
@@ -120,11 +118,9 @@ def consolidation_rewrite_preserves_facts(
 ) -> bool:
     """True when enough prior anchors appear in the rewritten summary.
 
-    BUG FIX (off-by-one): the safety gate is meant to reject a merge that
-    drops >= 20% of anchors (the default `min_preserved_ratio=0.8`). A `>=`
-    comparison here accepted a merge that preserved exactly 80% — i.e.
-    dropped exactly 20% — when the spec says that boundary should be
-    rejected too. Strict `>` closes it.
+    The gate rejects a merge that drops 20% of the anchors or more (the default
+    ``min_preserved_ratio=0.8``): keeping exactly 80% is a rejection too, hence the
+    strict ``>``.
     """
     anchors = extract_consolidation_anchors(prior)
     if len(anchors) < 2:

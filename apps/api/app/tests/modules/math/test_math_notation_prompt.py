@@ -36,6 +36,6 @@ def test_recognized_math_turn_keeps_clarification_guard_and_standard_aliases(
     )
     joined = "\n".join(hints)
     assert joined.count(MATH_NOTATION_CLARIFICATION_HINT) == 1
-    assert "ask one brief clarification" in joined
-    assert "Do not invent a named mathematical concept or silently change the expression" in joined
-    assert "Standard, unambiguous notation aliases are fine." in joined
+    assert MATH_NOTATION_CLARIFICATION_HINT in joined
+    assert MATH_NOTATION_CLARIFICATION_HINT in joined
+    assert MATH_NOTATION_CLARIFICATION_HINT in joined

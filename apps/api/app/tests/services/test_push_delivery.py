@@ -1,5 +1,6 @@
 """Push cycle delivery, receipts, and token rebinding."""
 
+import time
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -9,21 +10,23 @@ import pytest
 from app.core.config import Settings
 from app.models.orm import User
 from app.modules.notifications import push as push_service
+from app.modules.todos import due_reminders
+from app.tests.fakes import fake_session, redis_mock
 from app.tests.services.push_cycle_support import run_push_cycle
 
 
 @pytest.fixture
 def schedule_write():
     with patch.object(
-        push_service, "update_schedule_if_current", AsyncMock(return_value=True)
+        due_reminders, "update_schedule_if_current", AsyncMock(return_value=True)
     ) as write:
         yield write
 
 
 @pytest.mark.asyncio
 async def test_run_push_cycle_skips_expo_in_dev_mock():
-    session = AsyncMock()
-    redis = AsyncMock()
+    session = fake_session()
+    redis = redis_mock()
     settings = Settings(
         mock_llm_enabled=True,
         environment="development",
@@ -57,8 +60,8 @@ def _users_execute_result(users):
 
 @pytest.mark.asyncio
 async def test_run_push_cycle_disabled():
-    session = AsyncMock()
-    redis = AsyncMock()
+    session = fake_session()
+    redis = redis_mock()
     settings = Settings(push_enabled=False)
 
     count = await run_push_cycle(session, redis, settings)
@@ -67,8 +70,8 @@ async def test_run_push_cycle_disabled():
 
 @pytest.mark.asyncio
 async def test_run_push_cycle_sends_expo_in_production():
-    session = AsyncMock()
-    redis = AsyncMock()
+    session = fake_session()
+    redis = redis_mock()
     settings = Settings(
         push_enabled=True,
         mock_llm_enabled=False,
@@ -105,8 +108,8 @@ async def test_run_push_cycle_sends_expo_in_production():
 
 @pytest.mark.asyncio
 async def test_run_push_cycle_marks_todo_sent_only_after_expo_ok(schedule_write):
-    session = AsyncMock()
-    redis = AsyncMock()
+    session = fake_session()
+    redis = redis_mock()
     settings = Settings(
         push_enabled=True,
         mock_llm_enabled=False,
@@ -244,8 +247,8 @@ async def test_finalize_advances_recurring_todo_and_clears_sent(schedule_write):
 
 @pytest.mark.asyncio
 async def test_run_push_cycle_does_not_mark_todo_when_expo_fails():
-    session = AsyncMock()
-    redis = AsyncMock()
+    session = fake_session()
+    redis = redis_mock()
     settings = Settings(
         push_enabled=True,
         mock_llm_enabled=False,
@@ -286,90 +289,83 @@ async def test_run_push_cycle_does_not_mark_todo_when_expo_fails():
 
 
 @pytest.mark.asyncio
-async def test_enqueue_push_receipts_stores_ticket_and_token():
-    redis = AsyncMock()
-    pipe = MagicMock()
-    pipe.set = MagicMock()
-    pipe.zadd = MagicMock()
-    pipe.execute = AsyncMock()
-    redis.pipeline = MagicMock(return_value=pipe)
-
-    with patch("app.modules.notifications.push.time.time", return_value=1000.0):
-        await push_service.enqueue_push_receipts(
-            redis,
-            [("ticket-1", "ExponentPushToken[abc]")],
-        )
-
-    pipe.set.assert_called_once()
-    pipe.zadd.assert_called_once_with(
-        push_service.RECEIPT_PENDING_ZSET,
-        {"ticket-1": 1000.0},
-    )
-    pipe.execute.assert_awaited_once()
+async def test_enqueue_push_receipts_stores_ticket_and_token(fake_redis):
+    before = time.time()
+    await push_service.enqueue_push_receipts(fake_redis, [("ticket-1", "ExponentPushToken[abc]")])
+    assert await fake_redis.zscore(push_service.RECEIPT_PENDING_ZSET, "ticket-1") >= before
+    assert await fake_redis.get("recall:push:receipt:token:ticket-1") == "ExponentPushToken[abc]"
 
 
 @pytest.mark.asyncio
-async def test_poll_deferred_push_receipts_prunes_invalid_token():
-    session = AsyncMock()
-    redis = AsyncMock()
-    redis.zrangebyscore = AsyncMock(side_effect=[[], ["ticket-1"]])
-    redis.get = AsyncMock(return_value=b"ExponentPushToken[dead]")
-    redis.delete = AsyncMock()
-    redis.zrem = AsyncMock()
+async def test_pending_receipts_are_bounded(fake_redis):
+    """The set had no bound: an Expo receipts outage grew it without limit."""
+    tickets = [(f"ticket-{i}", f"ExponentPushToken[{i}]") for i in range(15)]
+    with patch.object(push_service, "RECEIPT_PENDING_MAX", 10):
+        await push_service.enqueue_push_receipts(fake_redis, tickets)
+    assert await fake_redis.zcard(push_service.RECEIPT_PENDING_ZSET) == 10
 
+
+async def _ready_ticket(redis, ticket_id: str, token: str, *, at: float) -> None:
+    await redis.zadd(push_service.RECEIPT_PENDING_ZSET, {ticket_id: at})
+    await redis.set(f"recall:push:receipt:token:{ticket_id}", token)
+
+
+@pytest.mark.asyncio
+async def test_poll_deferred_push_receipts_prunes_invalid_token(fake_redis):
+    session = fake_session()
+    await _ready_ticket(fake_redis, "ticket-1", "ExponentPushToken[dead]", at=1_000.0)
+    receipts = {"ticket-1": {"status": "error", "details": {"error": "DeviceNotRegistered"}}}
     with (
         patch(
             "app.modules.notifications.push.expo_push_gateway.fetch_push_receipts",
-            AsyncMock(
-                return_value={
-                    "ticket-1": {
-                        "status": "error",
-                        "details": {"error": "DeviceNotRegistered"},
-                    }
-                }
-            ),
+            AsyncMock(return_value=receipts),
         ),
-        patch.object(
-            push_service.push_repo,
-            "delete_by_token",
-            AsyncMock(),
-        ) as delete_mock,
-        patch("app.modules.notifications.push.time.time", return_value=10_000.0),
+        patch.object(push_service.push_repo, "delete_by_token", AsyncMock()) as delete_mock,
     ):
-        await push_service.poll_deferred_push_receipts(session, redis)
+        await push_service.poll_deferred_push_receipts(session, fake_redis, now=10_000.0)
 
     delete_mock.assert_awaited_once_with(session, "ExponentPushToken[dead]")
     session.commit.assert_awaited_once()
+    assert await fake_redis.zcard(push_service.RECEIPT_PENDING_ZSET) == 0
+    assert await fake_redis.get("recall:push:receipt:token:ticket-1") is None
 
 
 @pytest.mark.asyncio
-async def test_poll_deferred_push_receipts_keeps_pending_receipts():
-    session = AsyncMock()
-    redis = AsyncMock()
-    redis.zrangebyscore = AsyncMock(side_effect=[[], ["ticket-1"]])
-    redis.get = AsyncMock()
-    redis.delete = AsyncMock()
-    redis.zrem = AsyncMock()
-
+async def test_poll_deferred_push_receipts_keeps_pending_receipts(fake_redis):
+    session = fake_session()
+    await _ready_ticket(fake_redis, "ticket-1", "ExponentPushToken[ok]", at=1_000.0)
     with (
         patch(
             "app.modules.notifications.push.expo_push_gateway.fetch_push_receipts",
             AsyncMock(return_value={"ticket-1": {"status": "pending"}}),
         ),
         patch.object(push_service.push_repo, "delete_by_token", AsyncMock()) as delete_mock,
-        patch("app.modules.notifications.push.time.time", return_value=10_000.0),
     ):
-        await push_service.poll_deferred_push_receipts(session, redis)
+        await push_service.poll_deferred_push_receipts(session, fake_redis, now=10_000.0)
 
     delete_mock.assert_not_awaited()
-    redis.zrem.assert_not_awaited()
     session.commit.assert_not_awaited()
+    assert await fake_redis.zcard(push_service.RECEIPT_PENDING_ZSET) == 1
+
+
+@pytest.mark.asyncio
+async def test_receipt_polling_reads_a_bounded_batch(fake_redis):
+    """Polling every ready ticket at once let one Expo outage delay every reminder."""
+    for i in range(12):
+        await _ready_ticket(fake_redis, f"ticket-{i}", f"ExponentPushToken[{i}]", at=1_000.0)
+    fetch = AsyncMock(return_value={})
+    with (
+        patch("app.modules.notifications.push.expo_push_gateway.fetch_push_receipts", fetch),
+        patch.object(push_service, "RECEIPT_POLL_BATCH", 5),
+    ):
+        await push_service.poll_deferred_push_receipts(AsyncMock(), fake_redis, now=10_000.0)
+    assert len(fetch.await_args.args[0]) == 5
 
 
 @pytest.mark.asyncio
 async def test_run_push_cycle_enqueues_receipt_tickets():
-    session = AsyncMock()
-    redis = AsyncMock()
+    session = fake_session()
+    redis = redis_mock()
     settings = Settings(
         push_enabled=True,
         mock_llm_enabled=False,
@@ -420,8 +416,8 @@ async def test_run_push_cycle_enqueues_receipt_tickets():
 @pytest.mark.asyncio
 async def test_run_push_cycle_marks_sent_on_ticket_without_receipt_poll(schedule_write):
     """Ticket accept marks delivery; receipt polling is deferred for token pruning only."""
-    session = AsyncMock()
-    redis = AsyncMock()
+    session = fake_session()
+    redis = redis_mock()
     settings = Settings(
         push_enabled=True,
         mock_llm_enabled=False,
@@ -491,7 +487,7 @@ def test_append_outbound_dedupes_duplicate_tokens():
 async def test_upsert_prunes_stale_tokens_for_device():
     from app.repositories import push_tokens as repo
 
-    session = AsyncMock()
+    session = fake_session()
     user_id = uuid4()
     existing = MagicMock()
     existing.user_id = user_id
@@ -515,7 +511,7 @@ async def test_upsert_rejects_cross_user_rebind_without_device_id():
     from app.exceptions import PushTokenBindError
     from app.repositories import push_tokens as repo
 
-    session = AsyncMock()
+    session = fake_session()
     prior = MagicMock()
     prior.user_id = uuid4()
     prior.device_id = "device-a"
@@ -536,7 +532,7 @@ async def test_upsert_rejects_cross_user_rebind_with_mismatched_device():
     from app.exceptions import PushTokenBindError
     from app.repositories import push_tokens as repo
 
-    session = AsyncMock()
+    session = fake_session()
     prior = MagicMock()
     prior.user_id = uuid4()
     prior.device_id = "device-a"
@@ -558,7 +554,7 @@ async def test_upsert_rejects_cross_user_rebind_of_a_row_without_device_id():
     from app.exceptions import PushTokenBindError
     from app.repositories import push_tokens as repo
 
-    session = AsyncMock()
+    session = fake_session()
     owner = uuid4()
     prior = MagicMock()
     prior.user_id = owner
@@ -582,7 +578,7 @@ async def test_upsert_rejects_cross_user_rebind_of_a_row_without_device_id():
 async def test_upsert_allows_cross_user_rebind_with_matching_device():
     from app.repositories import push_tokens as repo
 
-    session = AsyncMock()
+    session = fake_session()
     prior_user = uuid4()
     new_user = uuid4()
     prior = MagicMock()

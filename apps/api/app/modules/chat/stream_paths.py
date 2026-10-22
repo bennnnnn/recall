@@ -1,23 +1,25 @@
 """How a turn's reply text is produced: an instant reply, the tool loop, the model stream.
 
 ``stream_pipeline.stream_and_finalize`` picks the paths for a turn and
-finalizes the text they produce.
+finalizes the text they produce. A turn the tool loop leaves alone offers the reply's
+own model call ``web_search`` (``tool_loop.reply_calls``): a call runs, and a second
+model call writes the answer from its results.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-import time
-from collections.abc import AsyncIterator, Callable
-from contextlib import suppress
-from dataclasses import dataclass, replace
+from collections.abc import AsyncGenerator, AsyncIterator, Callable
+from contextlib import aclosing, suppress
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from redis.asyncio import Redis
 
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
+from app.gateways.litellm_gateway import StreamAttempt
 from app.models.orm import User
 from app.modules.chat import tool_loop
 from app.modules.chat.stream_accum import StreamAccum
@@ -25,7 +27,8 @@ from app.modules.chat.stream_events import clear_task_cancellation
 from app.modules.chat.stream_scaffold import ScaffoldFilter
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.tool_gate import should_classify_tool_web_search
-from app.modules.chat.tool_loop.parts import classified_live_parts, open_parts, turn_plan
+from app.modules.chat.tool_loop import reply_calls
+from app.modules.chat.tool_loop.parts import open_parts, searchable_parts, turn_plan
 from app.modules.chat.tool_loop.rounds import ToolRoundsOutcome
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -104,6 +107,21 @@ class _LoopGate:
             user=user,
         )
 
+    def reply_tools(self, settings: Settings, prompt: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """The tools the reply's model call may use, when the tool loop leaves the turn."""
+        return reply_calls.reply_tools(
+            settings,
+            reply_calls.ReplyTurn(
+                content=self.content,
+                lightweight=self.lightweight,
+                has_instant_reply=self.has_instant_reply,
+                has_verified_math=self.has_verified_math,
+                has_search_sources=self.has_search_sources,
+                prior_user_messages=collect_prior_user_messages(prompt, self.content) or None,
+                prior_assistant=last_assistant_content(prompt),
+            ),
+        )
+
     def may_classify(self, settings: Settings, user: User | None) -> bool:
         return should_classify_tool_web_search(
             self.content,
@@ -116,18 +134,16 @@ class _LoopGate:
         )
 
 
-async def _web_verdict(
+def _web_verdict(
     settings: Settings, ctx: StreamContext, gate: _LoopGate
 ) -> tuple[bool | None, list[str] | None]:
-    """Whether the turn needs live results, when only a classifier can say, and
-    the requests to search: the prefetched verdict, or each request of the message
-    classified for itself (``tool_loop.parts``). ``(None, None)``: no classifier."""
+    """Whether the turn needs live results when that alone decides the loop, and the
+    requests to search: each request of the message read for itself
+    (``tool_loop.parts``). ``(None, None)``: the verdict cannot change the gate."""
     if not gate.may_classify(settings, ctx.user):
         return None, None
-    if isinstance(ctx.web_search_classified, bool):
-        return ctx.web_search_classified, None
     prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
-    found = await classified_live_parts(
+    found = searchable_parts(
         open_parts(gate.content, has_verified_math=gate.has_verified_math, settings=settings),
         settings,
         prior_user_messages=collect_prior_user_messages(prompt, gate.content) or None,
@@ -173,8 +189,10 @@ async def run_tool_loop_path(
     # Sync heuristic first (math / news). Classifier only when
     # that gate is weak so we do not add an LLM round to already-needed turns.
     if not gate.needs_loop(settings, ctx.user):
-        web_search_flag, search_parts = await _web_verdict(settings, ctx, gate)
+        web_search_flag, search_parts = _web_verdict(settings, ctx, gate)
         if not gate.needs_loop(settings, ctx.user, web_search=web_search_flag):
+            prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
+            ctx.reply_tools = gate.reply_tools(settings, prompt)
             return
     rounds = await tool_loop.run_tool_rounds(
         settings=settings,
@@ -220,6 +238,18 @@ def _with_tool_verified(server: Any, tool: Any) -> Any:
     return replace(server, canonical_fences=[*server.canonical_fences, *extra])
 
 
+@dataclass
+class _ReplyRound:
+    """One model call of the reply: the tools it carries, and what it leaves behind."""
+
+    tools: list[dict[str, Any]]
+    # Goes out before the call's first token: a break after the text the call
+    # before it wrote ahead of its search.
+    lead: str = ""
+    meta: dict[str, str] = field(default_factory=dict)
+    calls: list[dict[str, Any]] = field(default_factory=list)
+
+
 async def run_llm_token_stream(
     deps: ChatTurnDeps,
     redis: Redis,
@@ -233,10 +263,8 @@ async def run_llm_token_stream(
     accum: StreamAccum,
     on_status: StreamStatusFn | None = None,
 ) -> AsyncIterator[str]:
-    stream_meta: dict[str, str] = {}
+    """The model's reply. A call it makes to its tool runs, and one more call answers."""
     requested_model = ctx.model
-    started = time.perf_counter()
-    stream_ok = False
     scaffold = ScaffoldFilter()
     if on_status is not None:
         # The model is writing now: a tool or search label must not linger.
@@ -245,6 +273,74 @@ async def run_llm_token_stream(
         # Reserve top-up and the tool loop have finished. The interval from
         # here includes gateway routing/retries, not only upstream inference.
         ctx.timing.mark_phase("gateway_request_start")
+    reply_round = _ReplyRound(tools=list(ctx.reply_tools))
+    try:
+        while True:
+            written = len(accum.parts)
+            async with aclosing(
+                _stream_round(
+                    deps,
+                    redis,
+                    settings,
+                    ctx,
+                    reply_round,
+                    usage=usage,
+                    should_cancel=should_cancel,
+                    on_reasoning=on_reasoning,
+                    accum=accum,
+                    scaffold=scaffold,
+                )
+            ) as tokens:
+                async for visible in tokens:
+                    yield visible
+            if resolved := reply_round.meta.get("model_alias"):
+                ctx.model = resolved
+            # Only a call that carried tools leads to another: one search a turn.
+            if not (reply_round.tools and reply_round.calls) or accum.was_cancelled:
+                break
+            text_before = "".join(accum.parts[written:])
+            await _answer_reply_calls(
+                settings,
+                redis,
+                ctx,
+                reply_round.calls,
+                text_before,
+                on_status=on_status,
+                should_cancel=should_cancel,
+            )
+            if should_cancel and should_cancel():
+                accum.mark_user_stop()
+                break
+            reply_round = _ReplyRound(tools=[], lead="\n\n" if text_before.strip() else "")
+        if not accum.was_cancelled and (tail := scaffold.flush()):
+            accum.shown.append(tail)
+            yield tail
+        finish = reply_round.meta.get("finish_reason")
+        if finish in _INCOMPLETE_FINISH_REASONS and not accum.was_cancelled:
+            accum.mark_truncated()
+    except asyncio.CancelledError:
+        clear_task_cancellation()
+        accum.mark_user_stop()
+        raise
+    if outcome is not None and ctx.model != requested_model:
+        outcome.fallback_used = True
+
+
+async def _stream_round(
+    deps: ChatTurnDeps,
+    redis: Redis,
+    settings: Settings,
+    ctx: StreamContext,
+    reply_round: _ReplyRound,
+    *,
+    usage: dict[str, int],
+    should_cancel: Callable[[], bool] | None,
+    on_reasoning: StreamReasoningFn | None,
+    accum: StreamAccum,
+    scaffold: ScaffoldFilter,
+) -> AsyncGenerator[str]:
+    """One model call's tokens, added to the reply; its tool calls land on the round."""
+    attempts: list[StreamAttempt] = []
     llm_stream = deps.llm.stream_chat_completion(
         settings=settings,
         model_alias=ctx.model,
@@ -252,9 +348,12 @@ async def run_llm_token_stream(
         max_tokens=ctx.max_output_tokens,
         usage=usage,
         fallback_aliases=ctx.fallback_models,
-        stream_meta=stream_meta,
+        stream_meta=reply_round.meta,
         on_reasoning=on_reasoning,
         thinking=ctx.thinking,
+        attempts=attempts,
+        tools=reply_round.tools or None,
+        tool_calls=reply_round.calls,
     )
     try:
         async for token in llm_stream:
@@ -266,10 +365,11 @@ async def run_llm_token_stream(
                 # token. No token goes out before it has: a reply to a message
                 # that never saved would be neither stored nor charged. The
                 # model did answer, so a failed save is not its health sample.
-                stream_ok = True
                 await await_user_message_persist(ctx)
                 if ctx.timing is not None:
                     ctx.timing.mark_first_token()
+            if reply_round.lead:
+                token, reply_round.lead = reply_round.lead + token, ""
             accum.parts.append(token)
             if ctx.answer_photo is not None and ctx.answer_photo.watching:
                 ctx.answer_photo.feed("".join(accum.parts))
@@ -283,13 +383,6 @@ async def run_llm_token_stream(
             if should_cancel and should_cancel():
                 accum.mark_user_stop()
                 break
-        if not accum.was_cancelled and (tail := scaffold.flush()):
-            accum.shown.append(tail)
-            yield tail
-        stream_ok = bool(accum.parts) or accum.was_cancelled
-        finish = stream_meta.get("finish_reason")
-        if finish in _INCOMPLETE_FINISH_REASONS and not accum.was_cancelled:
-            accum.mark_truncated()
     except asyncio.CancelledError:
         clear_task_cancellation()
         accum.mark_user_stop()
@@ -306,18 +399,43 @@ async def run_llm_token_stream(
                 )
             else:
                 await close()
-        if not accum.was_cancelled:
-            try:
-                await model_health_service.record_sample(
-                    redis,
-                    stream_meta.get("model_alias") or requested_model,
-                    latency_ms=(time.perf_counter() - started) * 1000,
-                    success=stream_ok,
-                )
-            except Exception:
-                logger.debug("model health sample failed", exc_info=True)
-    resolved = stream_meta.get("model_alias")
-    if resolved:
-        ctx.model = resolved
-    if outcome is not None and resolved and resolved != requested_model:
-        outcome.fallback_used = True
+        # One sample per alias the gateway tried, timed to its first content.
+        await model_health_service.record_attempts(redis, attempts)
+
+
+async def _answer_reply_calls(
+    settings: Settings,
+    redis: Redis,
+    ctx: StreamContext,
+    calls: list[dict[str, Any]],
+    text_before: str,
+    *,
+    on_status: StreamStatusFn | None,
+    should_cancel: Callable[[], bool] | None,
+) -> None:
+    """Run the reply's tool calls; the next model call reads their results.
+
+    The pages a search found become the turn's sources, so the reply gets their chips.
+    A search that breaks leaves the prompt as it was: the reply answers without it.
+    """
+    try:
+        answered = await reply_calls.answer_reply_calls(
+            settings=settings,
+            messages=ctx.prompt_messages,
+            calls=calls,
+            text_before=text_before,
+            user=ctx.user,
+            redis=redis,
+            chat_id=ctx.chat_id,
+            user_timezone=ctx.user_timezone,
+            user_text=ctx.user_message_content,
+            user_location=ctx.search_location,
+            on_status=on_status,
+            should_cancel=should_cancel,
+        )
+    except Exception:
+        logger.exception("Reply tool calls failed chat_id=%s; answering without them", ctx.chat_id)
+        return
+    ctx.prompt_messages = answered.messages
+    if answered.search_hits and not ctx.search_sources:
+        ctx.search_sources = answered.search_hits

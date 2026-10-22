@@ -98,7 +98,7 @@ def _is_log_over_x_integral(expr: str, variable: str) -> bool:
 
     sym = Symbol(variable, real=True)
     with sympy_decline():
-        parsed = math_solve._parse_expression(expr, [variable], real=True)
+        parsed = math_solve.parse_expression(expr, [variable], real=True)
         return isinstance(parsed, Expr) and bool(simplify(parsed - 1 / (sym * log(sym))) == 0)
     return False
 
@@ -124,7 +124,7 @@ def _log_over_x_reply(var: str, answer: str) -> str:
 def _definite_integral_reply(intent: MathIntent, expr: str, answer: str) -> str:
     from sympy import latex
 
-    parsed = math_solve._parse_expression(expr, [intent.variable], real=True)
+    parsed = math_solve.parse_expression(expr, [intent.variable], real=True)
     integrand = rf"\left({latex(parsed)}\right)" if parsed.is_Add else latex(parsed)
     low_tex, high_tex = _bound_tex(intent.integral_lower), _bound_tex(intent.integral_upper)
     integral = f"\\int_{{{low_tex}}}^{{{high_tex}}} {integrand}\\,d{intent.variable}"
@@ -146,7 +146,7 @@ def _bound_tex(bound: object) -> str:
     from sympy import latex
 
     with sympy_decline():
-        return str(latex(math_solve._parse_expression(str(bound), [], real=True)))
+        return str(latex(math_solve.parse_expression(str(bound), [], real=True)))
     return str(bound)
 
 
@@ -158,8 +158,8 @@ def _fundamental_theorem_working(intent: MathIntent, parsed: Any, integral: str)
         (s for s in parsed.free_symbols if str(s) == intent.variable), Symbol(intent.variable)
     )
     with sympy_decline() as declined:
-        low = math_solve._parse_expression(str(intent.integral_lower), [], real=True)
-        high = math_solve._parse_expression(str(intent.integral_upper), [], real=True)
+        low = math_solve.parse_expression(str(intent.integral_lower), [], real=True)
+        high = math_solve.parse_expression(str(intent.integral_upper), [], real=True)
         if any(not isinstance(bound, Expr) or bound.has(oo, -oo, zoo) for bound in (low, high)):
             return None
         from app.modules.math.solve.calculus import _absolute_logs
@@ -208,7 +208,7 @@ def _unbounded_at_an_endpoint(parsed: Any, intent: MathIntent) -> bool:
     )
     for bound in (intent.integral_lower, intent.integral_upper):
         with sympy_decline() as declined:
-            point = math_solve._parse_expression(str(bound), [], real=True)
+            point = math_solve.parse_expression(str(bound), [], real=True)
             value = parsed.subs(symbol, point)
         if declined:  # an unreadable bound is not evidence either way
             continue

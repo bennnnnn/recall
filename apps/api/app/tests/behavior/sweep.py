@@ -45,6 +45,7 @@ from uuid import uuid4
 
 from app.models.orm import User
 from app.modules.account.settings_intent import extract_settings_changes
+from app.modules.chat import messages_repository
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -54,6 +55,7 @@ from app.modules.todos import write_log
 from app.modules.todos.reply_check import NEED_A_TIME
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.harness import USER_TIMEZONE, battery_settings, route_case
+from app.tests.fakes import fake_session
 
 CORPUS = Path(__file__).with_name("sweep_corpus")
 
@@ -168,7 +170,7 @@ def load(paths: list[Path] | None = None) -> list[Entry]:
 
 @asynccontextmanager
 async def _session() -> Any:
-    yield AsyncMock()
+    yield fake_session()
 
 
 def _user(*, pro: bool) -> User:
@@ -177,7 +179,6 @@ def _user(*, pro: bool) -> User:
         name="Bini",
         email="bini@example.com",
         plan="pro" if pro else "free",
-        response_style="balanced",
         response_tone="casual",
         locale="en",
         timezone=USER_TIMEZONE,
@@ -250,9 +251,6 @@ def _stores(outcome: Outcome, user: User) -> Iterator[None]:
             ("get_open_dated_duplicate", AsyncMock(return_value=None)),
         ):
             stack.enter_context(patch(f"{repo}.{name}", value))
-        stack.enter_context(
-            patch("app.modules.home.service.invalidate_home_cache", AsyncMock(return_value=None))
-        )
         yield
 
 
@@ -350,8 +348,9 @@ async def _run_entry(entry: Entry) -> Outcome:
     with (
         _stores(outcome, user),
         patch("app.core.sympy_executor.run_sympy", _inline),
-        patch(
-            "app.repositories.messages.list_recent",
+        patch.object(
+            messages_repository,
+            "list_recent",
             AsyncMock(
                 return_value=[
                     *rows,

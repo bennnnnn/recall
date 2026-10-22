@@ -12,9 +12,9 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.models.orm import Chat, Message
 from app.models.schemas import ChatOut, SearchResultItem
+from app.modules.chat import chats_repository as chats_repo
 from app.modules.chat import service as chats_service
-from app.repositories import chats as chats_repo
-from app.services import topic
+from app.modules.chat import titles as topic
 
 
 @pytest.fixture
@@ -34,8 +34,7 @@ def metadata_session():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("scoped", [False, True])
-async def test_topic_preserves_manual_rename_after_stale_read(metadata_session, scoped):
+async def test_topic_preserves_manual_rename_after_stale_read(metadata_session):
     sync_session, session = metadata_session
     owner_id = uuid4()
     chat = Chat(user_id=owner_id, model="auto", title=None)
@@ -56,18 +55,12 @@ async def test_topic_preserves_manual_rename_after_stale_read(metadata_session, 
     session.__aenter__.return_value = session
     with (
         patch.object(topic, "SessionLocal", return_value=session),
-        patch.object(
-            topic.chat_titles, "generate_title", AsyncMock(return_value="Generated title")
-        ),
-        patch.object(topic, "_release_topic_dedupe", AsyncMock()),
+        patch.object(topic, "generate_title", AsyncMock(return_value="Generated title")),
     ):
-        await topic.generate_chat_title(
-            Settings(),
-            chat_id,
-            "User question",
-            "Assistant answer",
-            user_id=owner_id if scoped else None,
+        applied = await topic.generate_chat_title(
+            Settings(), chat_id, "User question", "Assistant answer", user_id=owner_id
         )
+    assert applied is False
 
     sync_session.expire_all()
     assert sync_session.get(Chat, chat_id).title == "My chosen title"

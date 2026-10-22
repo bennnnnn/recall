@@ -1,4 +1,5 @@
 import { getSessionGeneration } from "@/lib/auth";
+import { emitAppEvent } from "@/lib/appEvents";
 import { api } from "@/lib/api";
 import {
   fetchGalleryPage,
@@ -45,6 +46,15 @@ describe("galleryListCache", () => {
     invalidateGalleryCache();
   });
 
+  it.each([
+    ["chats are deleted", () => emitAppEvent("chatsDeleted", { chatIds: ["chat-1"] })],
+    ["a picture is saved into a chat", () => emitAppEvent("attachmentAdded", { chatId: "chat-1" })],
+  ])("reads again when %s elsewhere (ARCH-10)", (_, announce) => {
+    setGalleryPage("all", "", sample);
+    announce();
+    expect(isGalleryPageFresh("all", "")).toBe(false);
+  });
+
   it("returns a fresh page without refetching", async () => {
     setGalleryPage("all", "", sample);
     expect(isGalleryPageFresh("all", "")).toBe(true);
@@ -80,31 +90,31 @@ it("does not repopulate an invalidated cache from an earlier request", async () 
   listAttachments.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
   const loading = fetchGalleryPage("token", "all", "");
   invalidateGalleryCache();
-  finish({ items: sample.items, has_more: false });
+  finish({ items: sample.items, next_cursor: null });
   await loading;
   expect(getCachedGalleryPage("all", "")).toBeUndefined();
 });
 
 it("does not let an earlier next page replace a refreshed first page", async () => {
-  setGalleryPage("all", "", { ...sample, hasMore: true });
+  setGalleryPage("all", "", { ...sample, hasMore: true }, "after-a");
   let finish!: (value: unknown) => void;
   listAttachments.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
   const more = fetchGalleryNextPage("token", "all", "");
-  listAttachments.mockResolvedValueOnce({ items: [{ ...sample.items[0], id: "fresh" }], has_more: false });
+  listAttachments.mockResolvedValueOnce({ items: [{ ...sample.items[0], id: "fresh" }], next_cursor: null });
   await fetchGalleryPage("token", "all", "", { force: true });
-  finish({ items: [{ ...sample.items[0], id: "older" }], has_more: false });
+  finish({ items: [{ ...sample.items[0], id: "older" }], next_cursor: null });
   await more;
   expect(getCachedGalleryPage("all", "")?.items.map((row) => row.id)).toEqual(["fresh"]);
 });
 
 it("does not restore a deleted item when an earlier next page completes", async () => {
-  setGalleryPage("all", "", { ...sample, hasMore: true });
+  setGalleryPage("all", "", { ...sample, hasMore: true }, "after-a");
   let finish!: (value: unknown) => void;
   listAttachments.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
   const more = fetchGalleryNextPage("token", "all", "");
   removeCachedGalleryItem("a");
-  listAttachments.mockResolvedValueOnce({ items: [{ ...sample.items[0], id: "b" }], has_more: false });
-  finish({ items: [{ ...sample.items[0], id: "b" }], has_more: false });
+  listAttachments.mockResolvedValueOnce({ items: [{ ...sample.items[0], id: "b" }], next_cursor: null });
+  finish({ items: [{ ...sample.items[0], id: "b" }], next_cursor: null });
   await more;
   expect(getCachedGalleryPage("all", "")?.items.map((row) => row.id)).toEqual(["b"]);
 });
@@ -115,32 +125,41 @@ it("never exposes a previous account's cached Library page", () => {
   expect(getCachedGalleryPage("all", "")).toBeUndefined();
 });
 
-it("advances the next offset even when a shifting page contains duplicate rows", async () => {
-  invalidateGalleryCache();
-  setGalleryPage("all", "", { ...sample, hasMore: true });
-  listAttachments.mockResolvedValueOnce({ items: sample.items, has_more: true });
-  await fetchGalleryNextPage("token", "all", "");
-  listAttachments.mockResolvedValueOnce({ items: [], has_more: false });
-  await fetchGalleryNextPage("token", "all", "");
-  expect(listAttachments.mock.calls.at(-1)?.[1].offset).toBe(2);
-});
-
-it("refetches a shifted offset when a loaded file is deleted before the next query runs", async () => {
+it("reads each next page from the cursor the server named", async () => {
   invalidateGalleryCache();
   listAttachments.mockReset();
   const row = (id: string) => ({ ...sample.items[0]!, id });
-  setGalleryPage("all", "", { items: [row("a")], hasMore: true });
+  setGalleryPage("all", "", { items: [row("a")], hasMore: true }, "after-a");
+  listAttachments.mockResolvedValueOnce({ items: [row("b")], next_cursor: "after-b" });
+  await fetchGalleryNextPage("token", "all", "");
+  listAttachments.mockResolvedValueOnce({ items: [row("c")], next_cursor: null });
+  await fetchGalleryNextPage("token", "all", "");
+  expect(listAttachments.mock.calls.map((call) => call[1].cursor)).toEqual(["after-a", "after-b"]);
+  expect(getCachedGalleryPage("all", "")).toEqual({ items: [row("a"), row("b"), row("c")], hasMore: false });
+});
+
+it("keeps reading from the same row when a loaded file is deleted meanwhile (CLAR-12)", async () => {
+  invalidateGalleryCache();
+  listAttachments.mockReset();
+  const row = (id: string) => ({ ...sample.items[0]!, id });
+  setGalleryPage("all", "", { items: [row("a")], hasMore: true }, "after-a");
   let finish!: (value: unknown) => void;
   listAttachments.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
   const more = fetchGalleryNextPage("token", "all", "");
-  expect(listAttachments.mock.calls[0][1].offset).toBe(1);
   removeCachedGalleryItem("a");
-  // DELETE wins on the server. The old offset of 1 now starts at c, skipping b.
-  listAttachments.mockResolvedValueOnce({ items: [row("b"), row("c")], has_more: false });
-  finish({ items: [row("c")], has_more: false });
+  // An offset would now start past b; the cursor still names a, so b is read.
+  finish({ items: [row("b"), row("c")], next_cursor: null });
   expect((await more).data?.items.map((item) => item.id)).toEqual(["b", "c"]);
-  expect(listAttachments.mock.calls[1][1].offset).toBe(0);
-  expect(getCachedGalleryPage("all", "")?.items.map((item) => item.id)).toEqual(["b", "c"]);
+  expect(listAttachments).toHaveBeenCalledTimes(1);
+  expect(listAttachments.mock.calls[0][1].cursor).toBe("after-a");
+});
+
+it("stops when the server's cursor does not move", async () => {
+  invalidateGalleryCache();
+  listAttachments.mockReset();
+  setGalleryPage("all", "", { ...sample, hasMore: true }, "after-a");
+  listAttachments.mockResolvedValueOnce({ items: sample.items, next_cursor: "after-a" });
+  expect((await fetchGalleryNextPage("token", "all", "")).data?.hasMore).toBe(false);
 });
 
 it("keeps at most twenty searches, dropping the least recently used", () => {

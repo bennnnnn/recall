@@ -26,7 +26,7 @@ import httpx
 from redis.asyncio import Redis
 
 from app.core.config import Settings
-from app.gateways.safe_fetch import fetch_safely
+from app.gateways.safe_fetch import fetch_client, fetch_safely
 
 logger = logging.getLogger(__name__)
 
@@ -80,10 +80,7 @@ async def fetch_link_preview(url: str) -> dict[str, str | None]:
     description: str | None = None
 
     try:
-        async with httpx.AsyncClient(
-            timeout=httpx.Timeout(_LINK_PREVIEW_READ_TIMEOUT_SECONDS),
-            follow_redirects=False,
-        ) as client:
+        async with fetch_client(httpx.Timeout(_LINK_PREVIEW_READ_TIMEOUT_SECONDS)) as client:
             # SSRF-safe fetch: DNS pinning + per-hop re-validation of every
             # redirect target, all inside one overall deadline.
             resp = await fetch_safely(

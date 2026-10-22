@@ -6,12 +6,13 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.exceptions import AttachmentValidationError, ChatBusyError, ChatNotFoundError
 from app.gateways.storage_gateway import StorageGateway, StorageUnavailableError
 from app.models.orm import Attachment, User
-from app.modules.attachments.quota import has_current_upload_reservation
+from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_prep.camera_math import camera_math_extract
 from app.modules.math.schemas import MathImageExtract
@@ -48,7 +49,7 @@ class _AttachmentProcessResult:
     image_attachments: list[tuple[str, str]]
     image_math_extract: MathImageExtract | None
     gateway: Any | None
-    # storage_key → bytes loaded once during verify (or first read this turn)
+    # An image's bytes by storage key, read once this turn (documents' are dropped).
     bytes_by_key: dict[str, bytes]
     # Ids to persist/link. None = caller keeps the request list (no attachments).
     resolved_attachment_ids: list[UUID] | None = None
@@ -109,11 +110,8 @@ async def _process_attachment_inputs(
         await on_status("reading_files")
 
     gateway = get_storage_gateway(settings)
-    bytes_by_key = await _verify_turn_attachments(
-        gateway, attachment_rows, redis=redis, user_id=user_id
-    )
-    attachment_lines, image_attachments = await _format_turn_attachments(
-        gateway, attachment_rows, settings=settings, bytes_by_key=bytes_by_key
+    attachment_lines, image_attachments, bytes_by_key = await _read_turn_attachments(
+        gateway, attachment_rows, settings=settings, redis=redis, user_id=user_id
     )
     user_content = _with_attachment_markers(content, attachment_lines)
     image_math_extract, content = await camera_math_extract(
@@ -200,92 +198,92 @@ async def _load_turn_attachments(
     return user, attachment_rows, resolved_ids
 
 
-async def _verify_turn_attachments(
-    gateway: StorageGateway,
-    attachment_rows: list[Attachment],
-    *,
-    redis: Redis,
-    user_id: UUID,
-) -> dict[str, bytes]:
-    """Check each unverified upload's bytes once; a bad one is purged and refuses the turn.
-
-    Returns the bytes read, by storage key, so formatting and vision do not download again.
-    """
-    from app.modules.attachments import content as attachment_content_service
-    from app.modules.attachments import service as attachments_service
-
-    # One download per storage_key this turn — reuse for format / OCR / vision.
-    bytes_by_key: dict[str, bytes] = {}
-    if attachment_rows:
-        unverified = [row for row in attachment_rows if row.verified_at is None]
-        if unverified:
-            verified = await asyncio.gather(
-                *[
-                    attachment_content_service.verify_uploaded_bytes(
-                        gateway,
-                        content_type=row.content_type,
-                        storage_key=row.storage_key,
-                        declared_size=row.size_bytes,
-                    )
-                    for row in unverified
-                ]
-            )
-            for row, (data, error) in zip(unverified, verified, strict=True):
-                if error:
-                    async with SessionLocal() as purge_session:
-                        removed = await attachment_content_service.purge_invalid_upload(
-                            gateway,
-                            purge_session,
-                            attachment_id=row.id,
-                            storage_key=row.storage_key,
-                        )
-                    if (
-                        removed
-                        and attachment_content_service.is_image_content_type(row.content_type)
-                        and has_current_upload_reservation(row)
-                    ):
-                        from app.services.quota import counters
-
-                        await counters.refund("image_upload", redis, user_id)
-                    raise AttachmentValidationError(error)
-                if data:
-                    bytes_by_key[row.storage_key] = data
-                    async with SessionLocal() as verify_session:
-                        await attachments_service.mark_verified(verify_session, row.id)
-    return bytes_by_key
+# Files read at once. Ten 10 MiB documents were downloaded together and their bytes
+# kept to the end of the turn, past 100 MiB plus their parse trees on a machine with
+# well under a gigabyte to spare.
+_FILES_AT_ONCE = 2
 
 
-async def _format_turn_attachments(
+async def _read_turn_attachments(
     gateway: StorageGateway,
     attachment_rows: list[Attachment],
     *,
     settings: Settings,
-    bytes_by_key: dict[str, bytes],
-) -> tuple[list[str], list[tuple[str, str]]]:
-    """Every row's lines (a marker, and a document's excerpt), and the images in row order."""
-    from app.modules.attachments import content as attachment_content_service
+    redis: Redis,
+    user_id: UUID,
+) -> tuple[list[str], list[tuple[str, str]], dict[str, bytes]]:
+    """Each row's lines (a marker, and a document's excerpt) and the images, in row order.
 
-    image_attachments: list[tuple[str, str]] = []
-    attachment_lines: list[str] = []
-    formatted = await asyncio.gather(
-        *(
-            attachment_content_service.format_attachment_lines(
+    A file is read once: an unverified upload's bytes are checked, then formatted, two
+    files at a time. A document's bytes are dropped once its excerpt is taken; an image's
+    are returned by storage key for vision. A bad upload is purged and refuses the turn,
+    cancelling the other reads. Verified rows are marked in one statement at the end.
+    """
+    from app.modules.attachments import content as attachment_content_service
+    from app.modules.attachments import service as attachments_service
+
+    slots = asyncio.Semaphore(_FILES_AT_ONCE)
+    image_bytes: dict[str, bytes] = {}
+    verified: list[UUID] = []
+
+    async def read(row: Attachment) -> tuple[list[str], bool]:
+        async with slots:
+            data: bytes | None = None
+            if row.verified_at is None:
+                data, error = await attachment_content_service.verify_uploaded_bytes(
+                    gateway,
+                    content_type=row.content_type,
+                    storage_key=row.storage_key,
+                    declared_size=row.size_bytes,
+                )
+                if error:
+                    await _refuse_bad_upload(gateway, row, error, redis=redis, user_id=user_id)
+                if data:
+                    verified.append(row.id)
+            lines, is_image = await attachment_content_service.format_attachment_lines(
                 gateway,
                 attachment_id=str(row.id),
                 content_type=row.content_type,
                 storage_key=row.storage_key,
                 size_bytes=row.size_bytes,
                 settings=settings,
-                data=bytes_by_key.get(row.storage_key),
+                data=data,
             )
-            for row in attachment_rows
-        )
-    )
+            if is_image and data:
+                image_bytes[row.storage_key] = data
+            return lines, is_image
+
+    formatted = await gather_or_cancel(*(read(row) for row in attachment_rows))
+    if verified:
+        async with SessionLocal() as session:
+            await attachments_service.mark_verified_many(session, verified)
+    image_attachments: list[tuple[str, str]] = []
+    attachment_lines: list[str] = []
     for row, (lines, is_image) in zip(attachment_rows, formatted, strict=True):
         if is_image:
             image_attachments.append((row.content_type, row.storage_key))
         attachment_lines.extend(lines)
-    return attachment_lines, image_attachments
+    return attachment_lines, image_attachments, image_bytes
+
+
+async def _refuse_bad_upload(
+    gateway: StorageGateway, row: Attachment, error: str, *, redis: Redis, user_id: UUID
+) -> None:
+    """Purge an upload whose bytes failed their check, refund its slot, refuse the turn."""
+    from app.modules.attachments import content as attachment_content_service
+
+    async with SessionLocal() as purge_session:
+        removed = await attachment_content_service.purge_invalid_upload(
+            gateway,
+            purge_session,
+            attachment_id=row.id,
+            storage_key=row.storage_key,
+        )
+    if removed and has_current_upload_reservation(row):
+        from app.services.quota import counters
+
+        await counters.refund(upload_counter(row.content_type), redis, user_id)
+    raise AttachmentValidationError(error)
 
 
 def _with_attachment_markers(user_content: str, attachment_lines: list[str]) -> str:

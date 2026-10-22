@@ -1,52 +1,36 @@
-"""HTTP-facing todos CRUD (create/update/delete + home cache invalidate)."""
+"""HTTP-facing todos CRUD (create/update/delete)."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import DomainError
 from app.models.orm import TodoItem, User
-from app.modules.home import service as home_service
+from app.modules.chat import history as chat_history
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.occurrences import TodoScheduleSnapshot
 from app.modules.todos.recurrence import (
     RecurrenceRule,
     is_recurrence_rule,
     next_recurring_due,
     snap_first_due,
 )
-from app.modules.todos.schedule_repository import TodoScheduleSnapshot, advance_schedules_if_current
-from app.repositories import chats as chats_repo
+from app.modules.todos.schedule_repository import advance_schedules_if_current
 from app.services.time_context import normalize_due_at
 
 
-class TodosError(Exception):
-    def __init__(self, detail: str, *, status_code: int) -> None:
-        self.detail = detail
-        self.status_code = status_code
-        super().__init__(detail)
+class TodosError(DomainError):
+    """A to-do refusal."""
 
 
 def _reminder_pushes_on(user: User) -> bool:
     """Reminder pushes reach this user; when they do not, listing advances recurring ones."""
     return bool(user.push_notifications_enabled and user.push_reminders_enabled)
-
-
-async def list_todos(
-    session: AsyncSession, user: User, *, limit: int = 1000, offset: int = 0
-) -> list[TodoItem]:
-    items = await todos_repo.list_for_user(session, user.id, limit=limit, offset=offset)
-    if not _reminder_pushes_on(user) and await _advance_past_recurring(
-        session, items, timezone=user.timezone
-    ):
-        # Reload both successful advances and concurrent edits/deletions.
-        items = await todos_repo.list_for_user(
-            session, user.id, limit=limit, offset=offset, populate_existing=True
-        )
-        await home_service.invalidate_home_cache(user.id)
-    return items
 
 
 async def list_todos_page(
@@ -55,23 +39,27 @@ async def list_todos_page(
     *,
     limit: int = 1000,
     cursor: UUID | None = None,
+    completed_since: datetime | None = None,
 ) -> tuple[list[TodoItem], UUID | None]:
+    """A page of the user's to-dos; with ``completed_since``, older completed ones are left out."""
     user_id = user.id
-    selected = await todos_repo.list_after_id(session, user_id, limit=limit + 1, cursor=cursor)
+    selected = await todos_repo.list_after_id(
+        session, user_id, limit=limit + 1, cursor=cursor, completed_since=completed_since
+    )
     items = selected[:limit]
     page_ids = [item.id for item in items]
     # Preserve this boundary even when catch-up races a deletion of the last row.
     next_cursor = page_ids[-1] if len(selected) > limit else None
-    if not _reminder_pushes_on(user) and await _advance_past_recurring(
+    if not _reminder_pushes_on(user) and await advance_past_recurring(
         session, items, timezone=user.timezone
     ):
         items = await todos_repo.list_by_ids(session, user_id, page_ids)
-        await home_service.invalidate_home_cache(user_id)
     return items, next_cursor
 
 
-async def list_topics(session: AsyncSession, user: User) -> list[str]:
-    return await todos_repo.list_topics(session, user.id)
+async def has_older_completed(session: AsyncSession, user: User, since: datetime) -> bool:
+    """The user has completed to-dos last changed before ``since`` (a page left them out)."""
+    return await todos_repo.has_completed_before(session, user.id, since)
 
 
 async def create_todo(
@@ -85,7 +73,7 @@ async def create_todo(
     recurrence_rule: RecurrenceRule | None = None,
 ) -> TodoItem:
     if chat_id is not None:
-        chat = await chats_repo.get_by_id(session, chat_id, user.id)
+        chat = await chat_history.get_chat(session, chat_id, user.id)
         if chat is None:
             raise TodosError("Chat not found", status_code=400)
     normalized_due = normalize_due_at(due_at, user.timezone)
@@ -113,25 +101,14 @@ async def create_todo(
         if existing is None:
             raise
         return existing
-    await home_service.invalidate_home_cache(user.id)
     return item
-
-
-async def reorder_todos(
-    session: AsyncSession,
-    user: User,
-    items: list[tuple[UUID, int, str | None]],
-) -> list[TodoItem]:
-    reordered = await todos_repo.reorder(session, user.id, items)
-    await home_service.invalidate_home_cache(user.id)
-    return reordered
 
 
 async def update_todo(
     session: AsyncSession,
     user: User,
     todo_id: UUID,
-    fields: dict,
+    fields: dict[str, Any],
 ) -> TodoItem:
     item = await todos_repo.get_by_id(session, todo_id, user.id)
     if not item:
@@ -153,17 +130,20 @@ async def update_todo(
     if due is not None and is_recurrence_rule(rule):
         patch["due_at"] = snap_first_due(due, rule, timezone=user.timezone)
     updated = await todos_repo.update(session, item, **patch)
-    await home_service.invalidate_home_cache(user.id)
     return updated
 
 
-async def _advance_past_recurring(
+async def advance_past_recurring(
     session: AsyncSession,
     items: list[TodoItem],
     *,
     timezone: str | None,
     now: datetime | None = None,
 ) -> bool:
+    """Move each overdue recurring item to its next occurrence; commits. Whether any moved.
+
+    Only an item still as it was read moves (``advance_schedules_if_current``).
+    """
     when = now or datetime.now(UTC)
     advances = []
     for item in items:
@@ -193,11 +173,3 @@ async def delete_todo(session: AsyncSession, user: User, todo_id: UUID) -> None:
     deleted = await todos_repo.delete_by_id(session, todo_id, user.id)
     if not deleted:
         raise TodosError("Todo not found", status_code=404)
-    await home_service.invalidate_home_cache(user.id)
-
-
-async def delete_topic(session: AsyncSession, user: User, topic: str) -> None:
-    removed = await todos_repo.delete_by_topic(session, user.id, topic)
-    if not removed:
-        raise TodosError("List not found", status_code=404)
-    await home_service.invalidate_home_cache(user.id)

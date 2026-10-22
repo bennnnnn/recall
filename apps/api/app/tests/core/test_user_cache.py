@@ -20,7 +20,7 @@ def test_user_cache_forgets_users_nobody_reads_again(monkeypatch):
     process: an entry left only when that user was read again after the TTL."""
     user_cache.clear()
     now = [time.monotonic()]
-    monkeypatch.setattr(time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(user_cache._user_cache, "clock", lambda: now[0])
     for _ in range(50):
         user_cache.remember_user(_user())
     now[0] += user_cache.USER_CACHE_TTL_SECONDS + 1

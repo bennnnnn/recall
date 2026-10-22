@@ -1,5 +1,6 @@
 """Tests for token-budget history compression."""
 
+from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -7,17 +8,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.chat import compaction
-
-
-class _SessionCM:
-    def __init__(self, session):
-        self._session = session
-
-    async def __aenter__(self):
-        return self._session
-
-    async def __aexit__(self, *args):
-        return False
+from app.tests.fakes import FakeSessionCM, redis_mock
 
 
 def _msg(content="x"):
@@ -29,7 +20,7 @@ def _msg(content="x"):
 
 def _fake_redis(*, acquired: bool = True) -> AsyncMock:
     """Matches the redis_lock (SET NX EX + Lua compare-and-delete) contract."""
-    redis = AsyncMock()
+    redis = redis_mock()
     redis.set = AsyncMock(return_value=acquired)
     redis.eval = AsyncMock(return_value=1)
     return redis
@@ -45,7 +36,7 @@ async def test_compress_noop_when_tail_fits_budget():
     redis = _fake_redis()
     with (
         patch("app.modules.chat.compaction.get_redis_client", return_value=redis),
-        patch("app.modules.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
+        patch("app.modules.chat.compaction.SessionLocal", FakeSessionCM(session)),
         patch(
             "app.modules.chat.compaction.messages_repo.count_for_chat", AsyncMock(return_value=10)
         ),
@@ -74,7 +65,7 @@ async def test_compress_summarizes_when_over_window_cap():
     redis = _fake_redis()
     with (
         patch("app.modules.chat.compaction.get_redis_client", return_value=redis),
-        patch("app.modules.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
+        patch("app.modules.chat.compaction.SessionLocal", FakeSessionCM(session)),
         patch(
             "app.modules.chat.compaction.messages_repo.count_for_chat", AsyncMock(return_value=60)
         ),
@@ -113,7 +104,7 @@ async def test_compress_runs_under_token_pressure_before_full_batch():
     redis = _fake_redis()
     with (
         patch("app.modules.chat.compaction.get_redis_client", return_value=redis),
-        patch("app.modules.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
+        patch("app.modules.chat.compaction.SessionLocal", FakeSessionCM(session)),
         patch(
             "app.modules.chat.compaction.messages_repo.count_for_chat", AsyncMock(return_value=11)
         ),
@@ -146,6 +137,82 @@ async def test_compress_runs_under_token_pressure_before_full_batch():
     session.commit.assert_awaited()
 
 
+def _over_window_patches(session, summarize):
+    return (
+        patch("app.modules.chat.compaction.get_redis_client", return_value=_fake_redis()),
+        patch("app.modules.chat.compaction.SessionLocal", FakeSessionCM(session)),
+        patch(
+            "app.modules.chat.compaction.messages_repo.count_for_chat", AsyncMock(return_value=60)
+        ),
+        patch(
+            "app.modules.chat.compaction.messages_repo.list_recent",
+            AsyncMock(return_value=[_msg() for _ in range(40)]),
+        ),
+        patch(
+            "app.modules.chat.compaction.messages_repo.list_range",
+            AsyncMock(return_value=[_msg("a"), _msg("b")]),
+        ),
+        patch("app.modules.chat.compaction.summarize_conversation", summarize),
+    )
+
+
+_OVER_WINDOW = Settings(
+    recent_message_window=40, context_token_budget=6000, history_summary_batch=10
+)
+
+
+class _TrackedSessionCM(FakeSessionCM):
+    open = 0
+
+    async def __aenter__(self):
+        type(self).open += 1
+        return await super().__aenter__()
+
+    async def __aexit__(self, *args):
+        type(self).open -= 1
+        return False
+
+
+@pytest.mark.asyncio
+async def test_the_summary_model_runs_with_no_session_open():
+    session = AsyncMock()
+    chat = MagicMock(summary=None, summary_message_count=0)
+    session.get = AsyncMock(return_value=chat)
+    open_during_model: list[int] = []
+
+    async def summarize(*_args):
+        open_during_model.append(_TrackedSessionCM.open)
+        return "SUMMARY"
+
+    with ExitStack() as stack:
+        for each in _over_window_patches(session, summarize):
+            stack.enter_context(each)
+        stack.enter_context(
+            patch("app.modules.chat.compaction.SessionLocal", lambda: _TrackedSessionCM(session))
+        )
+        await compaction.compress_chat_history(_OVER_WINDOW, uuid4())
+    assert open_during_model == [0]
+    assert chat.summary == "SUMMARY"
+
+
+@pytest.mark.asyncio
+async def test_a_summary_folded_elsewhere_meanwhile_is_not_overwritten():
+    session = AsyncMock()
+    chat = MagicMock(summary=None, summary_message_count=0)
+    session.get = AsyncMock(return_value=chat)
+
+    async def summarize(*_args):
+        chat.summary, chat.summary_message_count = "NEWER", 20  # another run saved first
+        return "STALE"
+
+    with ExitStack() as stack:
+        for each in _over_window_patches(session, summarize):
+            stack.enter_context(each)
+        await compaction.compress_chat_history(_OVER_WINDOW, uuid4())
+    assert chat.summary == "NEWER"
+    session.commit.assert_not_awaited()
+
+
 @pytest.mark.asyncio
 async def test_compress_missing_chat_is_noop():
     session = AsyncMock()
@@ -153,7 +220,7 @@ async def test_compress_missing_chat_is_noop():
     redis = _fake_redis()
     with (
         patch("app.modules.chat.compaction.get_redis_client", return_value=redis),
-        patch("app.modules.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
+        patch("app.modules.chat.compaction.SessionLocal", FakeSessionCM(session)),
         patch("app.modules.chat.compaction.messages_repo.count_for_chat", AsyncMock()) as count,
     ):
         await compaction.compress_chat_history(Settings(), uuid4())
@@ -169,7 +236,7 @@ async def test_compress_skips_when_another_worker_holds_the_lock():
     redis = _fake_redis(acquired=False)
     with (
         patch("app.modules.chat.compaction.get_redis_client", return_value=redis),
-        patch("app.modules.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
+        patch("app.modules.chat.compaction.SessionLocal", FakeSessionCM(session)),
         patch("app.modules.chat.compaction.messages_repo.count_for_chat", AsyncMock()) as count,
     ):
         await compaction.compress_chat_history(Settings(), uuid4())
@@ -179,7 +246,7 @@ async def test_compress_skips_when_another_worker_holds_the_lock():
 
 
 def test_summary_system_prompt_preserves_uncertainty():
-    from app.services.context_window import SUMMARY_SYSTEM_PROMPT
+    from app.modules.chat.context_window import SUMMARY_SYSTEM_PROMPT
 
     assert "considering" in SUMMARY_SYSTEM_PROMPT
     assert "uses Postgres" in SUMMARY_SYSTEM_PROMPT

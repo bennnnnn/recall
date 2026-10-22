@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.modules.math.schemas import EquationInput, MathIntent
-from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.workout import Workout, math_line, render_workout, text_line
 
 
@@ -76,8 +76,8 @@ def bounded_equation_block(
         low = nsimplify(lower, rational=True) * pi / 180
         high = nsimplify(upper, rational=True) * pi / 180
     else:
-        low = math_solve._parse_expression(lower, [])
-        high = math_solve._parse_expression(upper, [])
+        low = math_solve.parse_expression(lower, [])
+        high = math_solve.parse_expression(upper, [])
     domain = Interval(
         low,
         high,
@@ -132,7 +132,7 @@ def bounded_equation_block(
             f"Solutions in the domain: {answer}",
         ]
     )
-    block = _finish_with_answer(lines, answer)
+    block = finish_with_answer(lines, answer)
     return VerifiedMathBlock(
         text=block.text,
         canonical_fence=block.canonical_fence,

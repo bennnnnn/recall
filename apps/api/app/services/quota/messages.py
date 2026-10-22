@@ -16,6 +16,12 @@ IMAGE_LIMIT_EXCEEDED_MESSAGE_FREE = (
 IMAGE_LIMIT_EXCEEDED_MESSAGE_PAID = (
     "You've reached today's image upload limit. Try again after midnight UTC."
 )
+DOCUMENT_LIMIT_EXCEEDED_MESSAGE_FREE = (
+    "You've reached today's file upload limit. Upgrade for more — or try again after midnight UTC."
+)
+DOCUMENT_LIMIT_EXCEEDED_MESSAGE_PAID = (
+    "You've reached today's file upload limit. Try again after midnight UTC."
+)
 
 SPEECH_LIMIT_EXCEEDED_MESSAGE = (
     "You've reached today's voice transcription limit. Try again after midnight UTC."

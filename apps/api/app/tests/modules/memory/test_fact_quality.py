@@ -9,8 +9,8 @@ import pytest
 
 from app.modules.chat.prompt_constants.routing import profile_question_to_answer
 from app.modules.chat.turn_prep.instant import _profile_reply
-from app.modules.memory.extraction_workflow import writes_from_ops
 from app.modules.memory.fact_quality import FactView, is_one_off_schedule_fact, texts_to_drop
+from app.modules.memory.pass_writes import writes_from_ops
 from app.modules.memory.profile_reply import reply_for_profile_question
 from app.modules.memory.schemas import MemoryFactOp
 
@@ -96,7 +96,7 @@ async def test_instant_profile_reply_follows_the_memory_switch(memory_on):
     rows = AsyncMock(return_value=[SimpleNamespace(text="User is from Ethiopia")])
     with (
         patch("app.modules.chat.turn_prep.instant.SessionLocal", _Session),
-        patch("app.modules.memory.list_for_user", rows),
+        patch("app.modules.memory.repository.list_for_user", rows),
     ):
         reply = await _profile_reply("where am I from?", identity)
     assert reply == ("You're from Ethiopia." if memory_on else None)
@@ -108,7 +108,10 @@ async def test_instant_profile_reply_does_not_deny_on_a_failed_read():
     identity = SimpleNamespace(user=SimpleNamespace(id=uuid4(), memory_enabled=True))
     with (
         patch("app.modules.chat.turn_prep.instant.SessionLocal", _Session),
-        patch("app.modules.memory.list_for_user", AsyncMock(side_effect=RuntimeError("db down"))),
+        patch(
+            "app.modules.memory.repository.list_for_user",
+            AsyncMock(side_effect=RuntimeError("db down")),
+        ),
     ):
         assert await _profile_reply("where do I live?", identity) is None
 

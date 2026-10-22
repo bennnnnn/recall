@@ -1173,5 +1173,37 @@
   ],
   "reply": "Then start the popcorn at 6:15 and dim the lights at 6:25.",
   "expect": "answer"
+ },
+ {
+  "id": "td-120",
+  "area": "settings",
+  "prompt": "switch to GLM",
+  "history": [],
+  "reply": "Sure. Tap Confirm to make GLM 5.3 Flash your default model.",
+  "expect": "settings"
+ },
+ {
+  "id": "td-121",
+  "area": "lookalike",
+  "prompt": "Change my name to Claude",
+  "history": [],
+  "reply": "I can't change your profile name from chat. You can edit it in Settings → Profile.",
+  "expect": "answer"
+ },
+ {
+  "id": "td-122",
+  "area": "lookalike",
+  "prompt": "call me Claude",
+  "history": [],
+  "reply": "Got it, Claude.",
+  "expect": "answer"
+ },
+ {
+  "id": "td-123",
+  "area": "lookalike",
+  "prompt": "my friend claude is visiting this weekend, any ideas?",
+  "history": [],
+  "reply": "A few ideas: a long walk somewhere new, a cooking night, or a local market.",
+  "expect": "answer"
  }
 ]

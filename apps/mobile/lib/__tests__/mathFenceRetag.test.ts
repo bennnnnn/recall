@@ -228,8 +228,8 @@ describe("mathFenceRetag", () => {
   it("BUG FIX regression: does not retag a nested fence inside another fence's body", () => {
     // A ```markdown fence containing a ```latex example inside its body —
     // the old regex approach would match the inner ```latex and retag it,
-    // breaking the outer ```markdown fence. The line-by-line scanner tracks
-    // fence depth and only retags top-level fences.
+    // breaking the outer ```markdown fence. Fences are read as the renderer
+    // reads them: a ```latex line inside an open fence is its content.
     const input = "```markdown\nText\n```latex\nx^2\n```\nMore\n```";
     const out = retagMathAndDiagramFences(input);
     // The outer fence stays ```markdown (not retagged).

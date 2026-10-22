@@ -22,7 +22,6 @@ def _fake_auth() -> AuthResponse:
             default_model="auto",
             plan="free",
             enabled_models=None,
-            response_style="balanced",
             memory_enabled=True,
             created_at=datetime(2024, 1, 1),
         ),

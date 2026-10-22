@@ -2,10 +2,11 @@ import { Pressable, StyleSheet, View } from "react-native";
 import Svg, { Rect } from "react-native-svg";
 import { useTranslation } from "react-i18next";
 
-import { COMPOSER_CONTROL_SIZE } from "@/features/chat/model/composerLogic";
 import { useTheme } from "@/lib/theme";
 
 type Props = {
+  /** The composer's control size: the button sits in its row. */
+  size: number;
   disabled?: boolean;
   onPress: () => void;
 };
@@ -34,13 +35,14 @@ function LiveTalkWaveformIcon({ size = 18, color }: { size?: number; color: stri
   );
 }
 
-export function LiveTalkButton({ disabled, onPress }: Props) {
+export function LiveTalkButton({ size, disabled, onPress }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
+  const box = { width: size, height: size };
 
   return (
     <Pressable
-      style={[styles.hit, disabled && styles.dim]}
+      style={[styles.hit, box, disabled && styles.dim]}
       onPress={onPress}
       disabled={disabled}
       hitSlop={8}
@@ -48,7 +50,7 @@ export function LiveTalkButton({ disabled, onPress }: Props) {
       accessibilityLabel={t("chat.live_talk_a11y")}
       testID="live-talk-button"
     >
-      <View style={styles.btn}>
+      <View style={[styles.btn, box]}>
         <LiveTalkWaveformIcon size={24} color={theme.text} />
       </View>
     </Pressable>
@@ -57,15 +59,11 @@ export function LiveTalkButton({ disabled, onPress }: Props) {
 
 const styles = StyleSheet.create({
   hit: {
-    width: COMPOSER_CONTROL_SIZE,
-    height: COMPOSER_CONTROL_SIZE,
     alignItems: "center",
     justifyContent: "center",
   },
   dim: { opacity: 0.55 },
   btn: {
-    width: COMPOSER_CONTROL_SIZE,
-    height: COMPOSER_CONTROL_SIZE,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "transparent",

@@ -62,7 +62,7 @@ async def test_generate_image_openrouter_b64_json():
 
     with (
         patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
-        patch("app.gateways.image_gateway.httpx.AsyncClient", return_value=mock_client),
+        patch("app.gateways.image_gateway.get_pooled_client", return_value=mock_client),
     ):
         result = await generate_image(settings, prompt="sunset over mountains", aspect_ratio="16:9")
 
@@ -90,7 +90,7 @@ async def test_edit_sends_real_reference_bytes():
     client = _mock_http_client(post=AsyncMock(return_value=response))
     with (
         patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
-        patch("app.gateways.image_gateway.httpx.AsyncClient", return_value=client),
+        patch("app.gateways.image_gateway.get_pooled_client", return_value=client),
     ):
         result = await generate_image(
             Settings(openrouter_api_key="test-key"),
@@ -113,7 +113,7 @@ async def test_reference_lookup_rejects_another_users_image_before_reading_stora
 
     gateway = AsyncMock()
     with patch(
-        "app.modules.images.generation.attachments_repo.get_by_ids", AsyncMock(return_value=[])
+        "app.modules.images.generation.attachments_service.get_by_ids", AsyncMock(return_value=[])
     ):
         with pytest.raises(ImageGenerationError, match="Reference image not found"):
             await load_reference_images(gateway, user_id=uuid4(), attachment_ids=[uuid4()])
@@ -146,10 +146,8 @@ async def test_generate_image_openrouter_url_response_is_fetched_ssrf_safely():
 
     with (
         patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
-        patch(
-            "app.gateways.image_gateway.httpx.AsyncClient",
-            side_effect=[post_client, get_client],
-        ),
+        patch("app.gateways.image_gateway.get_pooled_client", return_value=post_client),
+        patch("app.gateways.safe_fetch.fetch_client", return_value=get_client),
         patch(
             "app.gateways.safe_fetch.resolve_external_host",
             AsyncMock(return_value=("cdn.example.com", "93.184.216.34")),
@@ -192,7 +190,7 @@ async def test_generate_image_openrouter_b64_json_rejects_oversized_payload():
 
     with (
         patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
-        patch("app.gateways.image_gateway.httpx.AsyncClient", return_value=mock_client),
+        patch("app.gateways.image_gateway.get_pooled_client", return_value=mock_client),
     ):
         result = await generate_image(settings, prompt="sunset over mountains")
 
@@ -226,10 +224,8 @@ async def test_generate_image_openrouter_url_response_rejects_oversized_payload(
 
     with (
         patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
-        patch(
-            "app.gateways.image_gateway.httpx.AsyncClient",
-            side_effect=[post_client, get_client],
-        ),
+        patch("app.gateways.image_gateway.get_pooled_client", return_value=post_client),
+        patch("app.gateways.safe_fetch.fetch_client", return_value=get_client),
         patch(
             "app.gateways.safe_fetch.resolve_external_host",
             AsyncMock(return_value=("cdn.example.com", "93.184.216.34")),
@@ -266,10 +262,8 @@ async def test_generate_image_openrouter_url_response_normalizes_content_type_ca
 
     with (
         patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
-        patch(
-            "app.gateways.image_gateway.httpx.AsyncClient",
-            side_effect=[post_client, get_client],
-        ),
+        patch("app.gateways.image_gateway.get_pooled_client", return_value=post_client),
+        patch("app.gateways.safe_fetch.fetch_client", return_value=get_client),
         patch(
             "app.gateways.safe_fetch.resolve_external_host",
             AsyncMock(return_value=("cdn.example.com", "93.184.216.34")),
@@ -298,7 +292,7 @@ async def test_generate_image_openrouter_url_response_blocks_private_ip():
 
     with (
         patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
-        patch("app.gateways.image_gateway.httpx.AsyncClient", return_value=post_client),
+        patch("app.gateways.image_gateway.get_pooled_client", return_value=post_client),
     ):
         result = await generate_image(settings, prompt="sunset over mountains")
 

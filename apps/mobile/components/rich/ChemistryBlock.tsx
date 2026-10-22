@@ -20,6 +20,7 @@ import { CODE_FONT } from "@/lib/fonts";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { useVendorTexts } from "@/lib/vendorAssets";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
 import {
@@ -31,6 +32,7 @@ import {
 type Props = { content: string };
 
 const PREVIEW_HEIGHT = 160;
+const SMILES_LIBRARY = ["smilesDrawer"] as const;
 
 const ERROR_KEY: Record<SmilesDrawerError, string> = {
   unavailable: "rich.chemistry_renderer_unavailable",
@@ -44,17 +46,19 @@ export function Chemistry2DView({ smiles }: { smiles: string }) {
   const s = useMemo(() => makeStyles(theme), [theme]);
   // Keyed by the SMILES it failed on, so a new structure starts clean without an effect.
   const [failure, setFailure] = useState<{ smiles: string; code: SmilesDrawerError } | null>(null);
-  const renderError = failure?.smiles === smiles ? failure.code : null;
+  const failed = failure?.smiles === smiles ? failure.code : null;
 
-  const html = useMemo(
-    () => (smiles ? buildSmilesDrawerHtml(smiles, theme) : ""),
-    [smiles, theme],
-  );
-  const webSource = useMemo(() => ({ html }), [html]);
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInline = previewWebView?.mode === "rnc" && Boolean(smiles);
-  const { canMount, onLoaded } = useDeferredWebViewMount(Boolean(WebView) && canRenderInline);
+  const library = useVendorTexts(SMILES_LIBRARY, Boolean(WebView) && canRenderInline);
+  const html = useMemo(
+    () => (smiles && library.texts ? buildSmilesDrawerHtml(smiles, theme, library.texts.smilesDrawer) : ""),
+    [smiles, theme, library.texts],
+  );
+  const webSource = useMemo(() => ({ html }), [html]);
+  const { canMount: canMountWebView, onLoaded } = useDeferredWebViewMount(Boolean(WebView) && canRenderInline);
+  const canMount = canMountWebView && Boolean(html);
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(html);
 
   const handleWebViewMessage = useCallback(
@@ -69,6 +73,7 @@ export function Chemistry2DView({ smiles }: { smiles: string }) {
     setFailure({ smiles, code: "render" });
   }, [smiles]);
 
+  const renderError = failed ?? (library.failed ? "unavailable" : null);
   if (renderError) {
     return (
       <View style={s.previewBox}>

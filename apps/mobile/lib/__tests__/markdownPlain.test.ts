@@ -127,9 +127,17 @@ describe("markdownPlain", () => {
   });
 });
 
+// The KaTeX stylesheet is read from its asset at print time (DEAD-03); a stand-in will do.
+const printHtml = (title: string, markdown: string) =>
+  markdownToStructuredPrintHtml(title, markdown, "/* print stylesheet */");
+
 describe("markdownToStructuredPrintHtml", () => {
+  it("puts the stylesheet it is given in the page", () => {
+    expect(printHtml("Note", "Hi")).toContain("<style>/* print stylesheet */");
+  });
+
   it("keeps code fences as pre blocks", () => {
-    const html = markdownToStructuredPrintHtml("Note", "Intro\n\n```js\nconst x = 1;\n```\n\nDone");
+    const html = printHtml("Note", "Intro\n\n```js\nconst x = 1;\n```\n\nDone");
     expect(html).toContain("<pre><code");
     expect(html).toContain("const x = 1;");
     expect(html).toContain("<p>Intro</p>");
@@ -137,7 +145,7 @@ describe("markdownToStructuredPrintHtml", () => {
   });
 
   it("renders headings and lists", () => {
-    const html = markdownToStructuredPrintHtml(
+    const html = printHtml(
       "Guide",
       "## Section\n\n- one\n- two\n\n1. first\n2. second",
     );
@@ -149,7 +157,7 @@ describe("markdownToStructuredPrintHtml", () => {
   });
 
   it("renders math fences with KaTeX instead of raw pre blocks", () => {
-    const html = markdownToStructuredPrintHtml(
+    const html = printHtml(
       "Math",
       "Answer:\n\n```math\nx^2 + 1 = 0\n```\n",
     );
@@ -159,20 +167,20 @@ describe("markdownToStructuredPrintHtml", () => {
   });
 
   it("renders inline $math$ with KaTeX", () => {
-    const html = markdownToStructuredPrintHtml("Inline", "Solve $x^2=4$ next.");
+    const html = printHtml("Inline", "Solve $x^2=4$ next.");
     expect(html).toContain("katex");
     expect(html).toContain("math-inline");
     expect(html).not.toContain("$x^2=4$");
   });
 
   it("converts $$ block math via preprocess before printing", () => {
-    const html = markdownToStructuredPrintHtml("Display", "See\n\n$$\\frac{a}{b}$$\n");
+    const html = printHtml("Display", "See\n\n$$\\frac{a}{b}$$\n");
     expect(html).toContain("katex");
     expect(html).toContain("math-block");
   });
 
   it("keeps hyphenated fence langs and prints GFM tables plus links", () => {
-    const html = markdownToStructuredPrintHtml(
+    const html = printHtml(
       "Note",
       "See [docs](https://example.com).\n\n```vega-lite\n{}\n```\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n",
     );

@@ -18,6 +18,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 | Pick one of several from a row | `overlay/SelectMenu` (checked popover) | expanding options inline |
 | Pick one of two to four in place | `controls/SegmentedControl` | a row of hand-made chips |
 | A form, the attach sources, sharing | `overlay/Sheet` | a raw `Modal` |
+| Edit one text value (a profile field, a memory) | `overlay/FieldSheet` (title, hint, Save) | a hand-built sheet with a field |
 | A full-screen viewer (photo, PDF, scanner) | `overlay/FullScreenModal` | a raw `Modal` |
 | A time | `pickers/TimePickerDialog` (Android clock: dial, AM/PM, keyboard entry) | `@react-native-community/datetimepicker` |
 | A date (month grid, year list, min/max) | `pickers/DatePickerDialog` | the native picker |

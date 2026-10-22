@@ -2,18 +2,8 @@ import { fireEvent, render } from "@testing-library/react-native";
 
 import { GalleryItemActionsMenu } from "@/features/attachments/components/GalleryItemActionsMenu";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
 jest.mock("@/lib/reduceMotion", () => ({
   useReduceMotion: () => false,
-}));
-
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 describe("GalleryItemActionsMenu", () => {

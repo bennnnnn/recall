@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from datetime import tzinfo as TzInfo
 from typing import cast
 
-from app.modules.todos.schemas import RecurrenceRule
+from app.modules.todos.schemas import TODO_TEXT_MAX_CHARS, RecurrenceRule
 from app.modules.todos.spoken_filler import FILLER_WORDS, without_lead_filler
 from app.modules.todos.spoken_when import (
     due_on_day,
@@ -222,7 +222,11 @@ def parse_spoken_add(user_text: str | None) -> SpokenAdd | None:
     ):
         return None
     return SpokenAdd(
-        title=title[:500], day=when.day, repeat=repeat, hour=when.hour, minute=when.minute
+        title=title[:TODO_TEXT_MAX_CHARS],
+        day=when.day,
+        repeat=repeat,
+        hour=when.hour,
+        minute=when.minute,
     )
 
 

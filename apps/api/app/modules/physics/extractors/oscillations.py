@@ -5,17 +5,13 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from app.modules.physics.extractors.common import (
-    _DECIMAL,
-    _G_DEFAULT,
-    _LENGTH_UNIT_PATTERN,
-    _detect_gravity,
-    _find_value_with_specific_unit,
-    _strip_param_assignments,
-)
+from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
-    _has_cue,
+    has_cue,
 )
+from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.extractors.surface_gravity import EARTH_G, detect_gravity
+from app.modules.physics.extractors.unit_patterns import DECIMAL, LENGTH_UNIT_PATTERN
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -62,23 +58,23 @@ def _extract_pendulum_intent(cleaned: str) -> PhysicsIntent | None:
     # would answer with the simple-pendulum length.
     if "physical pendulum" in lower or "conical pendulum" in lower or "compound pendulum" in lower:
         return None
-    if not _has_cue(lower, (), _PENDULUM_CUE_RES):
+    if not has_cue(lower, (), _PENDULUM_CUE_RES):
         return None
     if not _PENDULUM_PERIOD_RE.search(cleaned):
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
 
-    length = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("pendulum", "length", "long", "string", "cord")
+    length = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, ("pendulum", "length", "long", "string", "cord")
     )
     if length is None:
         return None
 
     params: dict[str, float] = {"L": length[0]}
     units: dict[str, str] = {"L": length[1] or "m"}
-    gravity = _detect_gravity(cleaned)
-    if gravity != _G_DEFAULT:
+    gravity = detect_gravity(cleaned)
+    if gravity != EARTH_G:
         params["g"], units["g"] = gravity, "m/s^2"
     return PhysicsIntent(
         kind="spring",
@@ -111,25 +107,25 @@ _MOTION_ASK_RE = re.compile(
 _SHM_TIME_UNITS = r"seconds?|secs?|sec|s|milliseconds?|ms|minutes?|mins?|min"
 
 _ANGULAR_FREQ_RE = re.compile(
-    rf"({_DECIMAL})\s*(?:rad(?:ians?)?\s*(?:/|per)\s*s(?:ec(?:ond)?s?)?)",
+    rf"({DECIMAL})\s*(?:rad(?:ians?)?\s*(?:/|per)\s*s(?:ec(?:ond)?s?)?)",
     re.IGNORECASE,
 )
 
 
 def _extract_shm_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, (), _SHM_CUE_RES):
+    if not has_cue(lower, (), _SHM_CUE_RES):
         return None
     # f = 1/T is the same arithmetic for an oscillator and a wave, but the kind
     # should say which was asked about. Waves runs later, so defer explicitly.
     if "wave" in lower:
         return None
-    if has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(strip_param_assignments(cleaned)):
         return None
 
     if _SHM_MAX_SPEED_RE.search(cleaned):
-        amplitude = _find_value_with_specific_unit(
-            cleaned, _LENGTH_UNIT_PATTERN, ("amplitude",), require_keyword=True
+        amplitude = find_value_with_specific_unit(
+            cleaned, LENGTH_UNIT_PATTERN, ("amplitude",), require_keyword=True
         )
         omega = _ANGULAR_FREQ_RE.search(cleaned)
         if amplitude is None or omega is None:
@@ -142,7 +138,7 @@ def _extract_shm_intent(cleaned: str) -> PhysicsIntent | None:
             operation="solve",
         )
 
-    period = _find_value_with_specific_unit(
+    period = find_value_with_specific_unit(
         cleaned, _SHM_TIME_UNITS, ("period",), require_keyword=True
     )
     if period is None:
@@ -158,7 +154,7 @@ def _extract_shm_intent(cleaned: str) -> PhysicsIntent | None:
 
 def _extract_spring_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _SPRING_CUES, _SPRING_CUE_RES):
+    if not has_cue(lower, _SPRING_CUES, _SPRING_CUE_RES):
         return None
     # Conservation and the work-energy theorem name a speed, not ½kx².
     # The energy extractor owns those sentences.
@@ -171,14 +167,14 @@ def _extract_spring_intent(cleaned: str) -> PhysicsIntent | None:
     # Strip "k = 200" before the algebra check: it is a known, not an equation
     # to solve. Without this the whole question is read as algebra — which is
     # what happened before this extractor existed.
-    if has_equation(_strip_param_assignments(_SPRING_K_RE.sub("", cleaned))):
+    if has_equation(strip_param_assignments(_SPRING_K_RE.sub("", cleaned))):
         return None
     # A speed or an acceleration is asked, which none of the laws below give:
     # "oscillates with amplitude 5 cm. max speed?" was answered with the period.
     if _MOTION_ASK_RE.search(cleaned):
         return None
 
-    k_match = _find_value_with_specific_unit(cleaned, r"N/m")
+    k_match = find_value_with_specific_unit(cleaned, r"N/m")
     if k_match is not None:
         k: float | None = k_match[0]
     else:
@@ -187,11 +183,11 @@ def _extract_spring_intent(cleaned: str) -> PhysicsIntent | None:
     if k is None:
         return None
 
-    displacement = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, _DISPLACEMENT_KEYWORDS
+    displacement = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, _DISPLACEMENT_KEYWORDS
     )
     # "A 250 g mass hangs on a spring" is a mass in grams.
-    mass = _find_value_with_specific_unit(
+    mass = find_value_with_specific_unit(
         cleaned, r"kg|mg|g|grams?|lb|lbs|oz", ("mass", "object", "body", "block")
     )
 
