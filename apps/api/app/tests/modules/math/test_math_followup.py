@@ -20,6 +20,7 @@ from app.modules.math.followup import (
     restated_math_problem,
 )
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.tests.modules.chat.chat_test_support import system_prompt
 
 _EQUATION_ASK = "Solve 2x + 7 = 19"
 _EQUATION_RESULT = "x = 6"
@@ -271,20 +272,23 @@ async def test_actual_how_examples_keep_prior_result_and_final_scoped_policy(
 ) -> None:
     recent = _exchange(question, result)
     prepared = await _prompt("how", recent, style)
-    assert prepared[0]["content"].endswith(f"{MATH_REPLY_POLICY}\n\n{MATH_FOLLOWUP_HINT}")
+    assert prepared[1]["content"].endswith(f"{MATH_REPLY_POLICY}\n\n{MATH_FOLLOWUP_HINT}")
+    # The math pack's own closing copy goes: the policy is stated once, last.
+    assert system_prompt(prepared).count(MATH_REPLY_POLICY) == 1
     assert prepared[-2] == {"role": "user", "content": question}
     assert prepared[-1] == {"role": "assistant", "content": f"Previous result:\n\\[\n{result}\n\\]"}
-    assert "unrequested comparisons, unit conversions" in prepared[0]["content"]
-    assert "not fresh solver verification" in prepared[0]["content"]
+    assert "unrequested comparisons, unit conversions" in system_prompt(prepared)
+    assert "not fresh solver verification" in system_prompt(prepared)
     assert recent[-1].content == f"```answer\n{result}\n```"
-    assert all("```answer" not in item["content"] for item in prepared[1:])
+    history = [item for item in prepared if item["role"] != "system"]
+    assert all("```answer" not in item["content"] for item in history)
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("query", ["prove it", "hint only", "give examples"])
 async def test_followup_policy_preserves_requested_proof_hint_and_examples(query: str) -> None:
     prepared = await _prompt(query, _exchange())
-    policy = prepared[0]["content"]
+    policy = prepared[1]["content"]
     assert policy.endswith(MATH_FOLLOWUP_HINT)
     assert "proof, hint, or examples keeps its requested scope" in policy
     assert "a hint must not reveal the solution" in policy
@@ -298,16 +302,16 @@ async def test_previous_nonmath_exchange_does_not_gain_policy_from_older_math() 
         _message("assistant", "Water vapor condenses."),
     ]
     prepared = await _prompt("how", recent)
-    assert MATH_FOLLOWUP_HINT not in prepared[0]["content"]
-    assert MATH_REPLY_POLICY not in prepared[0]["content"]
-    assert prepared[2]["content"] == f"Answer: {_EQUATION_RESULT}\n"
+    assert MATH_FOLLOWUP_HINT not in system_prompt(prepared)
+    assert MATH_REPLY_POLICY not in system_prompt(prepared)
+    assert prepared[3]["content"] == f"Answer: {_EQUATION_RESULT}\n"
     assert prepared[-1]["content"] == "Water vapor condenses."
 
 
 @pytest.mark.asyncio
 async def test_nonreferential_question_reads_the_answer_as_a_plain_line() -> None:
     prepared = await _prompt("how do I cook rice?", _exchange())
-    assert MATH_FOLLOWUP_HINT not in prepared[0]["content"]
+    assert MATH_FOLLOWUP_HINT not in system_prompt(prepared)
     assert prepared[-1]["content"] == f"Answer: {_EQUATION_RESULT}\n"
 
 
@@ -320,7 +324,7 @@ async def test_followup_never_reintroduces_geometry_graph_or_tool_payloads() -> 
         ),
     ]
     prepared = await _prompt("how", recent)
-    assert prepared[0]["content"].endswith(MATH_FOLLOWUP_HINT)
+    assert prepared[1]["content"].endswith(MATH_FOLLOWUP_HINT)
     assert prepared[-1]["content"].strip() == "Area is 12."
     assert "width" not in prepared[-1]["content"]
     assert "points" not in prepared[-1]["content"]
@@ -330,7 +334,7 @@ async def test_followup_never_reintroduces_geometry_graph_or_tool_payloads() -> 
 async def test_regenerated_how_keeps_prior_result_and_persisted_current_user() -> None:
     recent = [*_exchange(), _message("user", "how"), _message("assistant", "Old explanation")]
     prepared = await _prompt("how", recent, omit_message_ids={recent[-1].id})
-    assert prepared[0]["content"].endswith(MATH_FOLLOWUP_HINT)
+    assert prepared[1]["content"].endswith(MATH_FOLLOWUP_HINT)
     assert prepared[-2] == {
         "role": "assistant",
         "content": f"Previous result:\n\\[\n{_EQUATION_RESULT}\n\\]",
@@ -344,7 +348,7 @@ async def test_unrelated_omission_does_not_strip_an_incomplete_current_user() ->
     older = _message("assistant", "Older answer")
     recent = [older, *_exchange(), _message("user", "how")]
     prepared = await _prompt("how", recent, omit_message_ids={older.id})
-    assert MATH_FOLLOWUP_HINT not in prepared[0]["content"]
+    assert MATH_FOLLOWUP_HINT not in system_prompt(prepared)
     assert prepared[-2]["content"] == f"Answer: {_EQUATION_RESULT}\n"
     assert prepared[-1] == {"role": "user", "content": "how"}
 
@@ -353,7 +357,7 @@ async def test_unrelated_omission_does_not_strip_an_incomplete_current_user() ->
 async def test_explicit_current_user_id_keeps_the_previous_completed_math_exchange() -> None:
     recent = [*_exchange(), _message("user", "how")]
     prepared = await _prompt("how", recent, current_user_message_id=recent[-1].id)
-    assert prepared[0]["content"].endswith(MATH_FOLLOWUP_HINT)
+    assert prepared[1]["content"].endswith(MATH_FOLLOWUP_HINT)
     assert prepared[-2]["content"] == f"Previous result:\n\\[\n{_EQUATION_RESULT}\n\\]"
     assert prepared[-1] == {"role": "user", "content": "how"}
 
@@ -368,7 +372,7 @@ async def test_matching_query_without_current_turn_identity_is_not_sufficient(
         None if identity == "missing" else (uuid4() if identity == "different" else recent[0].id)
     )
     prepared = await _prompt("how", recent, current_user_message_id=message_id)
-    assert MATH_FOLLOWUP_HINT not in prepared[0]["content"]
+    assert MATH_FOLLOWUP_HINT not in system_prompt(prepared)
     assert prepared[-2]["content"] == f"Answer: {_EQUATION_RESULT}\n"
 
 
@@ -376,7 +380,7 @@ async def test_matching_query_without_current_turn_identity_is_not_sufficient(
 async def test_current_turn_id_with_changed_content_does_not_hijack_previous_math() -> None:
     recent = [*_exchange(), _message("user", "how do I cook rice?")]
     prepared = await _prompt("how", recent, current_user_message_id=recent[-1].id)
-    assert MATH_FOLLOWUP_HINT not in prepared[0]["content"]
+    assert MATH_FOLLOWUP_HINT not in system_prompt(prepared)
 
 
 def test_do_it_solves_the_equation_the_assistant_just_offered() -> None:

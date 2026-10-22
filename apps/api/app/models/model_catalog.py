@@ -64,6 +64,10 @@ class ChatModel:
     supports_tools: bool = False  # OpenAI-style tool calls with tool_choice "required"
     json_mode: bool = False  # honours response_format json_object
     context_tokens: int = 0  # context window; 0 for a model that takes no chat prompt
+    # Reuses a repeated prompt prefix only up to a cache_control mark the request sets
+    # (Anthropic's prompt-caching docs: Haiku 5.5 from 512 tokens). Providers that cache
+    # an identical prefix on their own need no mark (OpenRouter's prompt-caching guide).
+    cache_breakpoints: bool = False
 
 
 def _or(
@@ -87,6 +91,7 @@ def _or(
     supports_tools: bool = False,
     json_mode: bool = False,
     context_tokens: int = 0,
+    cache_breakpoints: bool = False,
 ) -> ChatModel:
     """OpenRouter-backed catalog entry (``openrouter_slug`` = OpenRouter model id)."""
     return ChatModel(
@@ -111,6 +116,7 @@ def _or(
         supports_tools=supports_tools,
         json_mode=json_mode,
         context_tokens=context_tokens,
+        cache_breakpoints=cache_breakpoints,
     )
 
 
@@ -149,6 +155,7 @@ CATALOG: tuple[ChatModel, ...] = (
         thinking_off="none",
         thinking_on="low",
         thinking_escalate="medium",
+        cache_breakpoints=True,
         **_HAIKU,
     ),
     _or(
@@ -274,6 +281,7 @@ CATALOG: tuple[ChatModel, ...] = (
         output_price_per_m=0.50,
         selectable=False,
         thinking_off="none",
+        cache_breakpoints=True,
         **_HAIKU,
     ),
     _or(

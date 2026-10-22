@@ -27,6 +27,7 @@ from app.modules.chat.prompt_constants import (
     is_teaching_request,
 )
 from app.modules.chat.prompt_format import _style_format_hints
+from app.tests.modules.chat.chat_test_support import system_prompt
 
 TEACHING_PREFERENCE = (
     "When teaching me, explain one concept at a time, use practical examples, and ask me to "
@@ -160,7 +161,7 @@ async def _system_prompt(query: str, *, memory: str = "", advice_memory: bool = 
             advice_memory=advice_memory,
             current_user_message_id=current.id,
         )
-    return messages[0]["content"]
+    return system_prompt(messages)
 
 
 @pytest.mark.asyncio

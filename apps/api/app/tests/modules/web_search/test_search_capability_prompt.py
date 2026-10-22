@@ -10,7 +10,7 @@ import pytest
 from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
 from app.modules.chat.prompt_constants import PHOTO_LOOKUP_HINT
-from app.modules.chat.prompt_sections import _integration_hints
+from app.modules.chat.prompt_sections import lookup_hints
 from app.modules.web_search import WEB_SEARCH_HINT
 
 
@@ -21,18 +21,7 @@ def _awaited(mock: AsyncMock) -> Any:
 
 
 def _hints(**settings) -> str:
-    parts = _integration_hints(
-        settings=Settings(**settings),
-        query_text="Show me her image",
-        local_tz="UTC",
-        user_locale="en",
-        location_for_context=None,
-        prompt_location=None,
-        memory_block="",
-        attachment_rag_block="",
-        todos_section=None,
-    )
-    return "\n".join(parts)
+    return "\n".join(lookup_hints(Settings(**settings)))
 
 
 def test_search_hint_forbids_claiming_no_browsing() -> None:

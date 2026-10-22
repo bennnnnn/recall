@@ -27,6 +27,7 @@ from app.modules.chat.prompt_constants import (
 )
 from app.modules.chat.prompt_constants.lesson_flow import OUTLINE_PICK_HINT, lesson_continue_hint
 from app.modules.chat.prompt_format import _style_format_hints
+from app.tests.modules.chat.chat_test_support import system_prompt
 
 LESSON_ONE = (
     "Let's learn Python dictionaries 🐍 — the structure behind every JSON body your API returns.\n\n"
@@ -403,7 +404,7 @@ async def _system_prompt(recent, query):
             rich_context=False,
             current_user_message_id=recent[-1].id,
         )
-    return messages[0]["content"]
+    return system_prompt(messages)
 
 
 @pytest.mark.asyncio

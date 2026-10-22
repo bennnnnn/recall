@@ -18,6 +18,7 @@ from app.modules.chat.turn_prep.prepare import prepare_chat_turn
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.math.followup import MATH_FOLLOWUP_HINT
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.tests.modules.chat.chat_test_support import system_prompt
 
 _QUERY = "Sum 1/n^2 from n=1 to infinity"
 _RESULT = r"\frac{\pi^{2}}{6}"
@@ -120,7 +121,7 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
             timeout=2,
         )
         try:
-            assert context.prompt_messages[0]["content"].endswith(
+            assert context.prompt_messages[1]["content"].endswith(
                 f"{MATH_REPLY_POLICY}\n\n{MATH_FOLLOWUP_HINT}"
             )
             assert context.prompt_messages[-2] == {
@@ -128,9 +129,8 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
                 "content": f"Previous result:\n\\[\n{_RESULT}\n\\]",
             }
             assert context.prompt_messages[-1] == {"role": "user", "content": "how"}
-            assert (
-                "show the calculation or mathematical argument"
-                in context.prompt_messages[0]["content"]
+            assert "show the calculation or mathematical argument" in system_prompt(
+                context.prompt_messages
             )
             if overlap:
                 assert persisted_ids == []

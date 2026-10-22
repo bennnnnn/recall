@@ -31,6 +31,10 @@ class LlmSettings(BaseModel):
     # environment overrides aligned with this 8192 default; lower legacy caps
     # can cut advanced derivations off mid-step.
     max_output_tokens: int = 8192
+    # Send the chat prompt's stable system message with a cache_control mark to the
+    # models that cache only a marked prefix (catalog cache_breakpoints: Claude). Off
+    # sends it unmarked; providers that reuse a repeated prefix on their own still do.
+    prompt_cache_breakpoints_enabled: bool = True
     # Provider embedding-input char cap (embedding_gateway.embed_text). Was a
     # bare `text[:8000]` inline in the gateway; every other tunable in this
     # codebase lives in Settings, so don't reintroduce an inline magic number

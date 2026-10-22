@@ -24,7 +24,13 @@ from app.modules.chat.prompt_memory import (
     memory_switch_on,
     recalls_shared_past,
 )
-from app.modules.chat.prompt_sections import NEARBY_CONTRACTS, PROMPT_SECTIONS, PromptTurn
+from app.modules.chat.prompt_repeats import last_policy_parts, policies_once
+from app.modules.chat.prompt_sections import (
+    NEARBY_CONTRACTS,
+    STABLE_SECTIONS,
+    TURN_SECTIONS,
+    PromptTurn,
+)
 from app.modules.chat.prompt_window import (
     PromptWindow,
     followup_subject,
@@ -173,13 +179,15 @@ async def inject_web_and_tools(
 ) -> list[dict[str, str]]:
     """Inject web → math blocks in the historical order.
 
-    Mutation order is what keeps prompt shape stable; fetch order is irrelevant.
+    Mutation order is what keeps prompt shape stable; fetch order is irrelevant. A
+    solve block closes with its subject's reply policy, so the system prompt's copy
+    goes (``prompt_repeats``).
     """
     updated = prompt_messages
     if web_block:
         updated = inject_before_last_user(updated, web_block)
     if math_block:
-        updated = inject_before_last_user(updated, math_block)
+        updated = policies_once(inject_before_last_user(updated, math_block))
     return updated
 
 
@@ -302,10 +310,14 @@ async def build_prompt_messages(
     """Assemble system + recent messages for a chat turn.
 
     Context loading uses short-lived sessions so embeds cannot pin a caller
-    connection across the concurrent gather. The system prompt is
-    ``PROMPT_SECTIONS``; the history is ``prompt_window``. ``turn_plan``: the message's
-    separate requests, when it holds more than one (``turn_prep.intents``). ``stats``,
-    when given, is filled with what the prompt drew on.
+    connection across the concurrent gather. The system prompt is two messages: the
+    first is ``STABLE_SECTIONS``, the same text on every turn for this user (who Recall
+    is, the tone and unclear-message rules, their own instructions and language), which
+    the gateway marks for providers that cache only a marked prefix; the second is
+    ``TURN_SECTIONS``, everything that depends on the turn. The history is
+    ``prompt_window``. ``turn_plan``: the message's separate requests, when it holds
+    more than one (``turn_prep.intents``). ``stats``, when given, is filled with what
+    the prompt drew on.
     """
     plan = await _context_plan(
         user,
@@ -381,11 +393,16 @@ async def build_prompt_messages(
         ),
         recalls_shared_past=plan.recalls_shared_past,
     )
+    # A subject's reply policy stated twice keeps its copy closest to the user turn.
+    stable, turn_context, nearby = last_policy_parts(
+        render_rules(STABLE_SECTIONS, turn),
+        render_rules(TURN_SECTIONS, turn),
+        render_rules(NEARBY_CONTRACTS, turn),
+    )
     messages = [
-        {"role": "system", "content": "\n\n".join(render_rules(PROMPT_SECTIONS, turn))},
+        *({"role": "system", "content": "\n\n".join(parts)} for parts in (stable, turn_context)),
         *history_messages(window, math_followup=followup == "math"),
     ]
-    nearby = render_rules(NEARBY_CONTRACTS, turn)
     if nearby:
         messages = inject_before_last_user(messages, "\n\n".join(nearby))
     return messages

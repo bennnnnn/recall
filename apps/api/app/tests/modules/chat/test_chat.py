@@ -20,6 +20,7 @@ from app.modules.chat.prompt_profile import (
 )
 from app.modules.chat.turn_prep import resolve_client_geo
 from app.services.context_window import estimate_tokens
+from app.tests.modules.chat.chat_test_support import system_prompt
 
 
 def test_resolve_client_geo_ignores_client_when_location_disabled():
@@ -108,7 +109,7 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
             query_text="Send an email to my wife about PTO",
         )
 
-    system = messages[0]["content"]
+    system = system_prompt(messages)
     assert "Email and message drafting" in system
     assert "send-ready draft" in system.lower()
     assert "cannot send email or SMS" in system.lower() or "Never say you sent" in system
@@ -149,7 +150,7 @@ async def test_build_prompt_includes_comparison_table_hint():
             query_text="Python vs java",
         )
 
-    system = messages[0]["content"]
+    system = system_prompt(messages)
     # Technical compares get a table plus code only where it adds information.
     assert "This turn is X vs Y" in system
     assert "tagged code fences" in system
@@ -196,7 +197,7 @@ async def test_build_prompt_includes_chart_vega_hint():
             ),
         )
 
-    system = messages[0]["content"]
+    system = system_prompt(messages)
     assert "This turn is a numeric chart" in system
     assert "```chart" in system
     assert "you CAN draw this chart" in system
@@ -241,7 +242,7 @@ async def test_build_prompt_includes_mermaid_layout_hint():
             ),
         )
 
-    system = messages[0]["content"]
+    system = system_prompt(messages)
     assert "This turn is a flowchart" in system
     assert "```mermaid" in system
     assert "joke setup" in system
@@ -542,7 +543,7 @@ async def test_build_prompt_injects_custom_instructions():
     ):
         messages = await build_prompt_messages(user, uuid4(), Settings())
 
-    system = messages[0]["content"]
+    system = system_prompt(messages)
     assert "User's personal instructions:" in system
     assert "Always answer in bullet points and cite sources." in system
     assert "[BEGIN USER PREFERENCES]" in system
@@ -665,7 +666,7 @@ async def test_build_prompt_omits_custom_instructions_block_when_empty():
     ):
         messages = await build_prompt_messages(user, uuid4(), Settings())
 
-    system = messages[0]["content"]
+    system = system_prompt(messages)
     assert "User's personal instructions:" not in system
 
 
@@ -706,16 +707,16 @@ async def test_build_prompt_includes_memory_and_ignores_a_stored_style():
         messages = await build_prompt_messages(user, uuid4(), Settings())
 
     assert messages[0]["role"] == "system"
-    assert "Biniyam Mecuriaw" in messages[0]["content"]
+    assert "Biniyam Mecuriaw" in system_prompt(messages)
     # Account email is gated to email/tool intents — omitted on a plain "Hi".
-    assert "bmecuriaw@gmail.com" not in messages[0]["content"]
-    assert "The block below is the user's saved memory" in messages[0]["content"]
+    assert "bmecuriaw@gmail.com" not in system_prompt(messages)
+    assert "The block below is the user's saved memory" in system_prompt(messages)
     # A stored response_style from an older app is ignored: length follows the message.
-    assert "response length: short" not in messages[0]["content"].lower()
-    assert "response length: fit the question" in messages[0]["content"].lower()
-    assert "**HTML UI**" not in messages[0]["content"]
-    assert "Python" in messages[0]["content"]
-    assert "clarifying questions" in messages[0]["content"].lower()
+    assert "response length: short" not in system_prompt(messages).lower()
+    assert "response length: fit the question" in system_prompt(messages).lower()
+    assert "**HTML UI**" not in system_prompt(messages)
+    assert "Python" in system_prompt(messages)
+    assert "clarifying questions" in system_prompt(messages).lower()
     assert messages[-1] == {"role": "user", "content": "Hi"}
 
 
@@ -837,10 +838,10 @@ async def test_build_prompt_includes_response_tone():
     ):
         messages = await build_prompt_messages(user, uuid4(), Settings())
 
-    assert "Tone: PROFESSIONAL" in messages[0]["content"]
-    assert "Privacy:" in messages[0]["content"]
-    assert "'Who am I?'" in messages[0]["content"]
-    assert "Never include email" in messages[0]["content"]
+    assert "Tone: PROFESSIONAL" in system_prompt(messages)
+    assert "Privacy:" in system_prompt(messages)
+    assert "'Who am I?'" in system_prompt(messages)
+    assert "Never include email" in system_prompt(messages)
 
 
 @pytest.mark.asyncio
@@ -876,7 +877,7 @@ async def test_build_prompt_includes_locale_hint_for_amharic():
     ):
         messages = await build_prompt_messages(user, uuid4(), Settings())
 
-    system = messages[0]["content"]
+    system = system_prompt(messages)
     assert "Amharic" in system
     assert "locale code: am" in system
     assert "switch languages" in system.lower() or "switch language" in system.lower()
@@ -1075,7 +1076,7 @@ async def test_build_prompt_minimal_for_who_am_i():
             chat=chat,
         )
 
-    system = messages[0]["content"]
+    system = system_prompt(messages)
     memory_mock.assert_awaited_once()
     assert history_embed.await_args.kwargs["query"].startswith("Personal details the user stated")
     assert "Binalfew" in system
@@ -1126,7 +1127,7 @@ async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
     recent_mock.assert_awaited()
     memory_mock.assert_not_awaited()
     todos_mock.assert_not_awaited()
-    system = messages[0]["content"]
+    system = system_prompt(messages)
     assert "Dev" in system
     assert "short social turn" in system
     assert "MEMORY SHOULD NOT LOAD" not in system
@@ -1180,7 +1181,7 @@ async def test_build_prompt_casual_chitchat_loads_memory_without_integrations():
     recent_mock.assert_awaited()
     memory_mock.assert_not_awaited()
     todos_mock.assert_not_awaited()
-    system = messages[0]["content"]
+    system = system_prompt(messages)
     assert "Dev" in system
     assert "short social turn" not in system
     assert "Prefers warm but concise replies" not in system
@@ -1230,7 +1231,7 @@ async def test_build_prompt_advice_loads_memory_not_integrations():
     memory_mock.assert_awaited()
     assert memory_mock.await_args.kwargs["exclude_sensitive"] is True
     todos_mock.assert_not_awaited()
-    system = messages[0]["content"]
+    system = system_prompt(messages)
     assert "Prefers vegetarian food" in system
     assert "[BEGIN UNTRUSTED CONTENT — saved memory]" in system
     assert "personal recommendation" in system
@@ -1280,7 +1281,7 @@ async def test_build_prompt_teaching_uses_a_known_detail_in_examples():
 
     memory_mock.assert_awaited()
     todos_mock.assert_not_awaited()
-    system = messages[0]["content"]
+    system = system_prompt(messages)
     assert "User speaks Amharic" in system
     assert "country they actually have" in system
     assert "personal recommendation" not in system
@@ -1326,7 +1327,7 @@ async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
 
     memory_mock.assert_awaited()
     todos_mock.assert_not_awaited()
-    system = messages[0]["content"]
+    system = system_prompt(messages)
     assert "Building Recall" in system
     assert "capabilities overview" in system.lower()
     assert "Never emit ```email" in system
@@ -1404,7 +1405,7 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
             rich_context=False,  # would normally skip RAG, but chunks exist
         )
 
-    system = messages[0]["content"]
+    system = system_prompt(messages)
     assert rag_block in system
     rag_mock.assert_awaited_once()
 
@@ -1467,7 +1468,7 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
 
     has_chunks.assert_not_awaited()
     rag_mock.assert_not_awaited()
-    assert "SHOULD NOT APPEAR" not in messages[0]["content"]
+    assert "SHOULD NOT APPEAR" not in system_prompt(messages)
 
 
 @pytest.mark.asyncio
