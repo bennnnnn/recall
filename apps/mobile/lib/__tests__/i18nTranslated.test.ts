@@ -88,7 +88,8 @@ const SAME_WORD: Record<Locale, readonly string[]> = {
     "chat.math_converter_cat_force",
     "chat.math_converter_cat_volume",
     "chat.math_scan_subject_math", // Maths
-    "chat.sources_count",
+    "chat.sources_count_one",
+    "chat.sources_count_other",
     "chat.sources_title",
     "picker.minute",
     "preview.code_tab",

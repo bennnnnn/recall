@@ -2,6 +2,7 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
 import en from "./en.json";
+import { installPluralRules } from "./pluralRules";
 
 type LocaleBundle = typeof en;
 
@@ -49,6 +50,9 @@ export function startLocale(lng: string): void {
   const code = addLocale(lng);
   if (code !== i18n.language) void i18n.changeLanguage(code);
 }
+
+// Before init: i18next reads the plural rules when it first counts.
+installPluralRules();
 
 i18n.use(initReactI18next).init({
   resources: { en: { translation: en } },

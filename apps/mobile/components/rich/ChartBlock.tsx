@@ -64,11 +64,6 @@ export function ChartBlock({ content }: Props) {
     <VisualCard
       label={t("rich.chart")}
       icon="bar-chart"
-      headerRight={
-        <Text style={s.lineCount}>
-          {t("rich.lines_count", { count: content.trim().split("\n").length })}
-        </Text>
-      }
       onLayout={(e) => {
         const w = Math.floor(e.nativeEvent.layout.width);
         if (w > 0 && Math.abs(w - viewWidth) > CHART_HEIGHT_EPSILON_PX) setViewWidth(w);
@@ -164,7 +159,6 @@ export function ChartBlock({ content }: Props) {
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    lineCount: { ...Type.meta, color: t.textTertiary },
     // The page paints its background once its chart arrives; until then the card's shows.
     webview: { backgroundColor: "transparent" },
     previewBox: {
