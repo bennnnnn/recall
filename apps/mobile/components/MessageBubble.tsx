@@ -24,8 +24,8 @@ import { Message } from "@/lib/api";
 import { selection } from "@/lib/haptics";
 import { SENDING_LABEL_DELAY_MS } from "@/features/chat/model/messageLogic";
 import { useAssistantMessageContent } from "@/hooks/useAssistantMessageContent";
-import { useStreamLayoutHold } from "@/hooks/useStreamLayoutHold";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
+import { messageListKey } from "@/lib/messageListLayout";
 import {
   isProgressStreamPhase,
   shouldShowWaitingIndicator,
@@ -85,13 +85,11 @@ export const MessageBubble = React.memo(function MessageBubble({
   const [showSendingLabel, setShowSendingLabel] = useState(false);
   const [showUserActions, setShowUserActions] = useState(false);
   const isUser = message.role === "user";
-  const holdStreamLayout = useStreamLayoutHold({
-    isGenerating,
-    isUser,
-    renderKey: message.renderKey,
-  });
   const isStreaming = isGenerating;
-  const layoutFrozen = isStreaming || holdStreamLayout;
+  // A reply's chrome (sources, cards, places, pictures) waits for its text to
+  // finish. The row is the same one before and after, so it lands in the same
+  // frame as the action row, and the list follows the growth in that frame.
+  const layoutFrozen = isStreaming;
 
   const userCopyText = isUser ? userMessageCopyText(message.content) : "";
   const canRevealUserActions = isUser && userCopyText.length > 0;
@@ -235,7 +233,9 @@ export const MessageBubble = React.memo(function MessageBubble({
                   resetKey={markdownResetKey}
                   content={markdownContent}
                 >
+                  {/* A row reused for another message starts afresh; renderKey survives `done`. */}
                   <ReplyMarkdown
+                    key={messageListKey(message)}
                     content={markdownContent}
                     streaming={markdownStreamMode}
                     presented={markdownPresented}

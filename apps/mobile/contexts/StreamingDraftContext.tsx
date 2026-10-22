@@ -20,12 +20,30 @@ export function StreamingDraftProvider({ children }: { children: React.ReactNode
  * (~60fps); consumers re-render at the shared ~30fps stream cadence instead,
  * and downstream (row, markdown) parse immediately off this snapshot. A null
  * draft (stream end/reset) flushes immediately so the tail never lags.
+ *
+ * Every chat row calls this; only the row a reply streams into is `enabled`,
+ * so the others never subscribe and never re-render for the draft.
  */
-export function useStreamingDraft(): StreamingDraft | null {
-  const [snapshot, setSnapshot] = useState<StreamingDraft | null>(() => getStreamingDraft());
+export function useStreamingDraft(enabled = true): StreamingDraft | null {
+  const [snapshot, setSnapshot] = useState<StreamingDraft | null>(() =>
+    enabled ? getStreamingDraft() : null,
+  );
+  // A row that goes live again (a reused list cell, the next turn) starts
+  // from the store in the render it goes live, never from the draft it held
+  // in an earlier live stretch.
+  const [liveAt, setLiveAt] = useState(enabled);
+  let current = snapshot;
+  if (liveAt !== enabled) {
+    current = enabled ? getStreamingDraft() : null;
+    setLiveAt(enabled);
+    setSnapshot(current);
+  }
   const lastFlushRef = useRef(0);
 
   useEffect(() => {
+    if (!enabled) return;
+    lastFlushRef.current = 0;
+    setSnapshot(getStreamingDraft());
     let timer: ReturnType<typeof setTimeout> | null = null;
     const unsubscribe = subscribeStreamingDraft(() => {
       const next = getStreamingDraft();
@@ -56,7 +74,7 @@ export function useStreamingDraft(): StreamingDraft | null {
       unsubscribe();
       if (timer) clearTimeout(timer);
     };
-  }, []);
+  }, [enabled]);
 
-  return snapshot;
+  return enabled ? current : null;
 }

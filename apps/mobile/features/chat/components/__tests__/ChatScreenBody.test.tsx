@@ -98,6 +98,14 @@ const message: Message = {
   model: "free-chat",
   created_at: "2026-09-19T00:00:00Z",
 };
+const listScroll = {
+  onContentSizeChange: jest.fn(),
+  onListLayout: jest.fn(),
+  onLayoutCommit: jest.fn(),
+  onReaderScrollBegin: jest.fn(),
+  onReaderScrollEndDrag: jest.fn(),
+  hidden: false,
+};
 const renderItem = jest.fn(({ item }: { item: Message }) => <Text>{item.content}</Text>);
 const onScroll = jest.fn();
 const onScrollEnd = jest.fn();
@@ -126,6 +134,7 @@ const baseProps: ChatScreenBodyProps = {
     onLoadOlder,
     onScroll,
     onScrollEnd,
+    scroll: listScroll,
     header: null,
   },
   composer: {
@@ -192,8 +201,8 @@ describe("ChatScreenBody", () => {
         onLoadOlder,
         onScroll,
         onScrollEnd,
+        scroll: listScroll,
         headerInset: 72,
-        streamActive: false,
       }),
     );
 
@@ -215,12 +224,11 @@ describe("ChatScreenBody", () => {
         onLoadOlder,
         onScroll,
         onScrollEnd,
-        streamActive: true,
       }),
     );
   });
 
-  it("shows a busy Send, not Stop, while a send is on its way; the list still follows the dots", async () => {
+  it("shows a busy Send, not Stop, while a send is on its way", async () => {
     const { getByTestId } = await render(
       <ChatScreenBody
         {...baseProps}
@@ -229,7 +237,6 @@ describe("ChatScreenBody", () => {
     );
     expect(getByTestId("composer-idle")).toBeTruthy();
     expect(mockChatComposer).toHaveBeenLastCalledWith(expect.objectContaining({ streaming: false, sendBusy: true }));
-    expect(mockChatMessageList).toHaveBeenLastCalledWith(expect.objectContaining({ streamActive: true }));
   });
 
   it("offers Send, not Stop, once the reply's text is in and only its save is left", async () => {
@@ -240,8 +247,6 @@ describe("ChatScreenBody", () => {
       />,
     );
     expect(getByTestId("composer-idle")).toBeTruthy();
-    // The list still treats the reply as live until its done lands.
-    expect(mockChatMessageList).toHaveBeenLastCalledWith(expect.objectContaining({ streamActive: true }));
   });
 
   it("lays the list out at rest and lets the keyboard spacer and lifted chrome follow the keyboard", async () => {

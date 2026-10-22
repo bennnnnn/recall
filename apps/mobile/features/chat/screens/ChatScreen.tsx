@@ -31,7 +31,7 @@ import { useChatLayoutMetrics } from "@/features/chat/hooks/useChatLayoutMetrics
 import { useChatMessageList } from "@/features/chat/hooks/useChatMessageList";
 import { useChatRegenerate } from "@/features/chat/hooks/useChatRegenerate";
 import { useChatRouteLoader } from "@/features/chat/hooks/useChatRouteLoader";
-import { useChatScroll } from "@/features/chat/hooks/useChatScroll";
+import { useChatScroll, useScrollHoldForHighlight } from "@/features/chat/hooks/useChatScroll";
 import { useChatSend } from "@/features/chat/hooks/useChatSend";
 import { useLiveTalk } from "@/features/speech/hooks/useLiveTalk";
 import { useDraftChat } from "@/features/chat/hooks/useDraftChat";
@@ -152,6 +152,7 @@ function ChatScreen() {
     highlightedMessageId,
     startNewChat,
   } = routeLoader;
+  useScrollHoldForHighlight(scroll.holdForHighlight, highlightedMessageId !== null && !llmBusy);
 
   const chatActions = useChatActions({
     token,
@@ -353,8 +354,7 @@ function ChatScreen() {
     scrollToLatest,
     handleScroll,
     handleScrollEnd,
-    handleContentSizeChange,
-    handleListLayout,
+    listScroll,
   } = scroll;
 
   const { draftChatId } = draft;
@@ -455,8 +455,7 @@ function ChatScreen() {
       loadOlderMessages,
       handleScroll,
       handleScrollEnd,
-      handleContentSizeChange,
-      handleListLayout,
+      listScroll,
     },
     handleSend,
     showScrollToBottom,

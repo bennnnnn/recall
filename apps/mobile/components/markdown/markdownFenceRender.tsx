@@ -22,6 +22,7 @@ import {
   shouldHideCopyOnCodeFallback,
 } from "@/lib/fenceDispatch";
 import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
+import { useReplyStreaming } from "@/components/markdown/ReplyStreaming";
 import { useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
@@ -57,12 +58,17 @@ function neverCodeBlockFallback(key: string, content: string) {
   return <NeverCodeBlockFallback key={key} content={content} />;
 }
 
+/** A streaming reply is not yet the server's final text: its answer has no check until it settles. */
+function FenceAnswerBlock({ content }: { content: string }) {
+  const streaming = useReplyStreaming();
+  return <AnswerBlock content={content} settled={!streaming} />;
+}
+
 function renderFenceInner(
   key: string,
   lang: string,
   content: string,
   tokenIndex?: number,
-  streaming = false,
 ) {
   const decision = classifyFence(lang, content);
 
@@ -73,7 +79,7 @@ function renderFenceInner(
   }
 
   if (decision.kind === "answer") {
-    return <AnswerBlock key={key} content={content} settled={!streaming} />;
+    return <FenceAnswerBlock key={key} content={content} />;
   }
 
   if (decision.kind === "math") {
@@ -116,23 +122,18 @@ function renderFenceInner(
   );
 }
 
-/** Render rule for a settled reply (the markdown library passes more arguments). */
-export function renderSettledFence(node: FenceNode) {
+/** The fence render rule (the markdown library passes more arguments). */
+export function fenceRule(node: FenceNode) {
   return renderFence(node);
 }
 
-/** Render rule for a reply that is still streaming: never an answer check. */
-export function renderStreamingFence(node: FenceNode) {
-  return renderFence(node, { streaming: true });
-}
-
-export function renderFence(node: FenceNode, options: { streaming?: boolean } = {}) {
+export function renderFence(node: FenceNode) {
   const lang = parseFenceLang(node.sourceInfo?.trim() || "");
   const content = node.content.replace(/\n$/, "").trim();
   if (!content) return null;
 
   try {
-    return renderFenceInner(node.key, lang, content, node.tokenIndex, options.streaming);
+    return renderFenceInner(node.key, lang, content, node.tokenIndex);
   } catch (error) {
     if (__DEV__) {
       console.warn("[MarkdownContent] fence render failed", error);

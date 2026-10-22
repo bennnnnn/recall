@@ -25,6 +25,7 @@ import type {
 } from "@/features/chat/components/ChatScreenBody";
 import type { ChatScreenStyles } from "@/features/chat/components/chatScreenStyles";
 import type { useChatLayoutMetrics } from "@/features/chat/hooks/useChatLayoutMetrics";
+import type { ChatListScroll } from "@/features/chat/hooks/useChatScroll";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
 import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
@@ -76,8 +77,7 @@ type UseChatScreenBodyPropsParams = {
     loadOlderMessages: () => Promise<void>;
     handleScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
     handleScrollEnd: () => void;
-    handleContentSizeChange?: (width: number, height: number) => void;
-    handleListLayout?: (height: number) => void;
+    listScroll?: ChatListScroll;
   };
   handleSend: (prompt?: string) => void | Promise<void>;
   showScrollToBottom: boolean;
@@ -156,8 +156,7 @@ export function useChatScreenBodyProps({
     loadOlderMessages,
     handleScroll,
     handleScrollEnd,
-    handleContentSizeChange,
-    handleListLayout,
+    listScroll,
   },
   handleSend,
   showScrollToBottom,
@@ -345,8 +344,7 @@ export function useChatScreenBodyProps({
       onLoadOlder,
       onScroll: handleScroll,
       onScrollEnd: handleScrollEnd,
-      onContentSizeChange: handleContentSizeChange,
-      onListLayout: handleListLayout,
+      scroll: listScroll,
       header: listHeader,
     }),
     [
@@ -360,8 +358,7 @@ export function useChatScreenBodyProps({
       onLoadOlder,
       handleScroll,
       handleScrollEnd,
-      handleContentSizeChange,
-      handleListLayout,
+      listScroll,
       listHeader,
     ],
   );
