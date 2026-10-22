@@ -107,11 +107,12 @@ def _closing(lhs: str, reduction: Reduction | None, part: tuple[str, float]) -> 
     if reduction is None:
         return None
     middle = list(reduction.rows)
-    if _same(reduction.value, verified):
-        return [*middle, f"{lhs} = {shown}"]
-    if reduction.value < 0 < verified and _same(-reduction.value, verified):
-        return [*middle, f"{lhs} = -{shown}"]
+    # A row for 1/R_p ends on R_p, even when the two are equal (two 2 Ω in parallel).
     reciprocal = _RECIPROCAL.fullmatch(lhs)
+    if reciprocal is None and _same(reduction.value, verified):
+        return [*middle, f"{lhs} = {shown}"]
+    if reciprocal is None and reduction.value < 0 < verified and _same(-reduction.value, verified):
+        return [*middle, f"{lhs} = -{shown}"]
     if reciprocal is not None and reduction.value and _same(1 / reduction.value, verified):
         value, of = latex_given(reduction.value), reciprocal.group("of")
         return [*middle, f"{lhs} = {value}", rf"{of} = \frac{{1}}{{{value}}}", f"{of} = {shown}"]
@@ -162,8 +163,10 @@ def carried_to_answer(rows: Sequence[str], latex_answer: str | None) -> list[str
                 break
         else:
             if reduction is None and len(worked) == 1 and len(parts) == 1:
-                # Past reading, but the one law gives the one answer.
-                after[at] = [f"{lhs} = {parts[0][0]}"]
+                # Past reading, but the one law gives the one answer (R_p, not 1/R_p).
+                reciprocal = _RECIPROCAL.fullmatch(lhs)
+                named = lhs if reciprocal is None else reciprocal.group("of")
+                after[at] = [f"{named} = {parts[0][0]}"]
     out: list[str] = []
     for at, row in enumerate(rows):
         out.append(row)
