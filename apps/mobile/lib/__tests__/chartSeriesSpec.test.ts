@@ -29,6 +29,19 @@ describe("parseChartBody", () => {
   it.each(["x^2 over [-5, 5]", "{not json}", ""])("is null for %j", (body) => {
     expect(parseChartBody(body)).toBeNull();
   });
+
+  it("reads the object a model closed early and wrote past", () => {
+    // A histogram reply: one `}` too many, then a "config" outside the object.
+    const body = '{"mark":"bar","encoding":{"y":{"aggregate":"count"}}}},"config":{"view":{}}}';
+    expect(parseChartBody(body)).toEqual({ mark: "bar", encoding: { y: { aggregate: "count" } } });
+  });
+
+  it("does not count braces inside strings", () => {
+    expect(parseChartBody('Scores\n{"title":"a } b","mark":"bar"} and a stray }')).toEqual({
+      title: "a } b",
+      mark: "bar",
+    });
+  });
 });
 
 describe("seriesChartToVegaLite", () => {
@@ -53,6 +66,42 @@ describe("seriesChartToVegaLite", () => {
       ],
     });
     expect(spec).toMatchObject({ mark: "point", encoding: { color: { field: "series" } } });
+  });
+
+  it("draws a best-fit series as a line over the scattered points", () => {
+    // A scatter reply: the second series says "type": "line"; it drew as two stray points.
+    const spec = seriesChartToVegaLite({
+      type: "scatter",
+      title: "Experiment",
+      x_axis: { label: "time (s)" },
+      y_axis: { label: "distance (m)" },
+      series: [
+        { name: "Data points", points: [[1, 2.1], [2, 3.9], [3, 6.2]] },
+        { name: "Best-fit line", points: [[0, 0.06], [6, 12.12]], type: "line" },
+      ],
+    });
+    expect(spec).toMatchObject({
+      title: "Experiment",
+      encoding: {
+        x: { title: "time (s)", type: "quantitative" },
+        y: { title: "distance (m)" },
+        color: { field: "series" },
+      },
+      layer: [
+        { mark: "point", transform: [{ filter: { field: "series", oneOf: ["Data points"] } }] },
+        { mark: "line", transform: [{ filter: { field: "series", oneOf: ["Best-fit line"] } }] },
+      ],
+    });
+    expect(spec).not.toHaveProperty("mark");
+  });
+
+  it("leaves a series given as a formula for the server", () => {
+    expect(
+      seriesChartToVegaLite({
+        type: "line",
+        series: [{ name: "sin", type: "function", fn: "sin(x)", domain: [0, 6.2832] }],
+      }),
+    ).toBeNull();
   });
 
   it.each([

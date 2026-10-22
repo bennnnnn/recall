@@ -15,9 +15,10 @@ from app.services.glyphs import (
 # Do NOT widen `_SAFE_EXPR_CHARS`; map glyphs here instead.
 # Escapes (not literals) keep RUF001 from flagging lookalike punctuation.
 # The operators are the shared table (services/glyphs.py); π and ∞ are the solver's own.
+# π is bracketed so a letter beside it stays a factor: "sin(πx)" was the one name "pix".
 _UNICODE_OP_SUBS: tuple[tuple[str, str], ...] = (
     *OPERATOR_GLYPHS.items(),
-    ("\u03c0", "pi"),  # π
+    ("\u03c0", "(pi)"),  # π
     ("\u221e", "oo"),  # ∞
 )
 

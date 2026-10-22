@@ -180,3 +180,13 @@ jestGlobals.mock("expo-image", () => {
   Image.displayName = "ExpoImageMock";
   return { Image };
 });
+
+// expo-linear-gradient is a native view (expo-modules-core) that cannot load
+// here; markdown tables fade their clipped edge with it, so every reply render
+// reaches it. A plain View keeps the gradient's props for assertions.
+jestGlobals.mock("expo-linear-gradient", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  const LinearGradient = (props) => React.createElement(View, props);
+  return { LinearGradient };
+});

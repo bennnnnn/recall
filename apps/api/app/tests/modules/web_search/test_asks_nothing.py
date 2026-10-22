@@ -15,6 +15,11 @@ from app.modules.web_search.asks_nothing import asks_nothing_to_look_up
         "Teach me something new today",
         "What should I cook for dinner tonight with chicken and rice?",
         "What a day today, so much happened",
+        # Sample, mock or example data is made up on the spot.
+        "Give me sample CSV data for 5 students with name, grade and score",
+        "give me mock API responses for a login endpoint",
+        "show me sample SQL inserts for a library app",
+        "give me test data for a signup form",
     ],
 )
 def test_asks_nothing_to_look_up_statements_and_requests_to_make(text):
@@ -34,6 +39,8 @@ def test_asks_nothing_to_look_up_statements_and_requests_to_make(text):
         "I want the latest news on the AI Act",
         "Write a summary of today's news",
         "Is it going to rain tonight in London?",
+        "give me test results for the 2024 national exam in Ethiopia",
+        "give me the sample size of the Framingham study",
     ],
 )
 def test_asks_nothing_to_look_up_keeps_lookups(text):

@@ -8,7 +8,8 @@
 import { previewPageStartScript, type PreviewPage } from "@/lib/previewPage";
 import { CHART_PREVIEW_CSP, injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
 import type { Theme } from "@/lib/theme";
-import { parseChartBody, seriesChartToVegaLite } from "@/lib/chartSeriesSpec";
+import { isRecord, parseChartBody } from "@/lib/chartSeriesSpec";
+import { asVegaSpec } from "@/lib/chartSpec";
 
 type ChartPreviewTheme = Pick<
   Theme,
@@ -87,6 +88,33 @@ function setHorizontalBandHeight(spec: Record<string, unknown>): void {
   spec.height = Math.min(BAND_HEIGHT_MAX, Math.max(BAND_HEIGHT_MIN, n * BAND_PX));
 }
 
+/** The end field a spec's `bin` transform writes beside `start`, if it has one. */
+function binEndField(spec: Record<string, unknown>, start: unknown): string | undefined {
+  const steps = Array.isArray(spec.transform) ? spec.transform : [];
+  for (const step of steps) {
+    if (!isRecord(step) || !("bin" in step)) continue;
+    const as = step.as;
+    if (Array.isArray(as) && as[0] === start && typeof as[1] === "string") return as[1];
+    if (typeof as === "string" && as === start) return `${as}_end`;
+  }
+  return undefined;
+}
+
+/**
+ * Bars a model pre-binned (`"bin": "binned"`) need the bin's end on x2 / y2; without
+ * it Vega-Lite drew no bars at all. The end comes from the spec's own bin transform,
+ * or the channel draws plain bars at each bin's start.
+ */
+function pairBinnedEdges(spec: Record<string, unknown>, enc: Record<string, unknown>): void {
+  for (const axis of ["x", "y"] as const) {
+    const ch = enc[axis];
+    if (!isRecord(ch) || ch.bin !== "binned" || enc[`${axis}2`] !== undefined) continue;
+    const end = binEndField(spec, ch.field);
+    if (end) enc[`${axis}2`] = { field: end };
+    else delete ch.bin;
+  }
+}
+
 function normalizeUnit(spec: Record<string, unknown>): void {
   preferHorizontalCategoryBars(spec);
   const encoding = spec.encoding;
@@ -94,6 +122,10 @@ function normalizeUnit(spec: Record<string, unknown>): void {
     const enc = encoding as Record<string, unknown>;
     applyNominalSort(enc, "x");
     applyNominalSort(enc, "y");
+    // The card shows no tooltips, and a tooltip's bad format string threw inside
+    // Vega's dataflow and left the chart blank.
+    delete enc.tooltip;
+    pairBinnedEdges(spec, enc);
   }
   setHorizontalBandHeight(spec);
 }
@@ -120,8 +152,7 @@ function specPayloadForEmbed(raw: string): string {
   const parsed = parseChartBody(raw);
   if (parsed === null) return raw;
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return JSON.stringify(parsed);
-  const record = parsed as Record<string, unknown>;
-  const spec = seriesChartToVegaLite(record) ?? record;
+  const spec = asVegaSpec(parsed as Record<string, unknown>);
   normalizeChartSpec(spec);
   return JSON.stringify(spec);
 }
@@ -139,6 +170,20 @@ const START = `function (config) {
     var el = document.getElementById('error');
     el.textContent = 'Chart error: ' + msg;
     el.style.display = 'block';
+  }
+  // Data marks (not axes, legends or titles) with a position on the plot.
+  function drawnMarks(mark) {
+    var n = 0;
+    var items = (mark && mark.items) || [];
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      if (mark.role === 'mark' && mark.marktype !== 'group') {
+        if (typeof item.x === 'number' && isFinite(item.x) && typeof item.y === 'number' && isFinite(item.y)) n++;
+      }
+      var kids = item.items || [];
+      for (var k = 0; k < kids.length; k++) n += drawnMarks(kids[k]);
+    }
+    return n;
   }
   function reportSize() {
     var svg = document.querySelector('#chart svg');
@@ -183,7 +228,13 @@ const START = `function (config) {
       theme: config.vegaTheme,
       config: themedConfig,
       loader: loader,
-    }).then(function() {
+    }).then(function(result) {
+      // A spec Vega accepts can still draw nothing (bars with no x, a dataflow that
+      // threw): the card shows its data instead of an empty plot.
+      if (result && result.view && !drawnMarks(result.view.scenegraph().root)) {
+        reportError('No data marks were drawn.');
+        return;
+      }
       requestAnimationFrame(reportSize);
     }).catch(function(err) { reportError(err && err.message ? err.message : String(err)); });
   } catch (e) {

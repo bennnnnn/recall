@@ -17,6 +17,7 @@ export type TextWithMathSegments = {
   /** The cleaned text; a prose-only run prints this, not its parts. */
   content: string;
   parts: InlineMathPart[];
+  /** Line height of the Text runs, from the math drawn inside them; formulas hosted as Views size themselves. */
   runHeight: number | undefined;
   /**
    * prose: one Text of `content`. inline: one Text of `parts`. display: `runs` with each heavy
@@ -30,7 +31,10 @@ function replaceHtmlBreaks(text: string): string {
   return text.replace(/<br\s*\/?>/gi, "\n");
 }
 
-/** Cuts `parts` at each formula `isFormula` picks; punctuation right after one joins it. */
+/** What closes on a formula: brackets and quotes, then punctuation (`).`, `,`, `”`). */
+const FORMULA_TAIL_RE = /^[ \t]*([)\]”’»]*[,.;:!?]*)/;
+
+/** Cuts `parts` at each formula `isFormula` picks; the closing marks right after one join it. */
 function mathRuns(
   parts: InlineMathPart[],
   isFormula: (latex: string) => boolean,
@@ -51,8 +55,8 @@ function mathRuns(
     }
     flushInline();
     const next = parts[i + 1];
-    const punctuationMatch = next?.type === "text"
-      ? /^[ \t]*([,.;:!?]+)/.exec(next.value) : null;
+    const tail = next?.type === "text" ? FORMULA_TAIL_RE.exec(next.value) : null;
+    const punctuationMatch = tail?.[1] ? tail : null;
     const punctuation = punctuationMatch?.[1] ?? "";
     runs.push({
       type: "formula",
@@ -94,8 +98,11 @@ export function segmentTextWithMath(text: string): TextWithMathSegments {
     }
   }
   const parts = splitInlineMath(content);
+  // A display formula or a math View sits outside the Text runs; only maths
+  // drawn inside them may raise their line height, or every prose line of
+  // the paragraph spreads to the tallest formula's height.
   const runHeight = parts.reduce<number | undefined>((acc, p) => {
-    if (p.type !== "math") return acc;
+    if (p.type !== "math" || isHeavyInlineMath(p.value) || latexHasNestedMathView(p.value)) return acc;
     const h = mathRunLineHeight(p.value);
     if (h == null) return acc;
     return acc == null ? h : Math.max(acc, h);

@@ -84,10 +84,12 @@ EXPECTS = {
     *TODO_EXPECTS,
 }
 # Areas whose turns never need the live web.
-NO_SEARCH_AREAS = {"math", "physics", "chemistry", "writing", "code", "chitchat", "statement"}
-# Asks nothing to look up ("great job today", "teach me something today"): not
-# even a model round that may choose to search.
-NO_SEARCH_ROUND_AREAS = {"statement"}
+NO_SEARCH_AREAS = {
+    "math", "physics", "chemistry", "writing", "code", "chitchat", "statement", "made data",
+}  # fmt: skip
+# Asks nothing to look up ("great job today", "teach me something today", "give me
+# sample CSV data"): not even a model round that may choose to search.
+NO_SEARCH_ROUND_AREAS = {"statement", "made data"}
 STEM_AREAS = {"math", "physics", "chemistry"}
 # Messages with separate requests, and look-alikes that are one request.
 MULTI_AREAS = {"multi"}
@@ -104,6 +106,9 @@ LOOKALIKE_HINTS = {
     "correction lookalike": "correction",
     "detail lookalike": "detail",
     "continue lookalike": "continue",
+    "chart lookalike": "chart",
+    "quiz lookalike": "quiz",
+    "checklist lookalike": "checklist",
 }
 # Reminders already saved, so "mark call mom as done" has something to find.
 SEEDED = ("call mom", "dentist appointment", "gym", "pay rent", "read", "water the plants")

@@ -28,5 +28,7 @@
   {"id": "il-27", "area": "lookalike", "prompt": "how many miles is a 5k run?", "expect": "not_subject"},
   {"id": "il-28", "area": "lookalike", "prompt": "the half-life of my motivation is about ten minutes today", "expect": "not_subject"},
   {"id": "il-29", "area": "lookalike", "prompt": "the pressure in my head is through the roof today", "expect": "not_subject"},
-  {"id": "il-30", "area": "lookalike", "prompt": "how many minutes in a good nap", "expect": "not_subject"}
+  {"id": "il-30", "area": "lookalike", "prompt": "how many minutes in a good nap", "expect": "not_subject"},
+  {"id": "il-31", "area": "lookalike", "prompt": "Draw a circuit board doodle for my slides and find a font that matches it", "expect": "not_subject"},
+  {"id": "il-32", "area": "lookalike", "prompt": "I ran 5 km this morning and find it hard to stretch after, any tips?", "expect": "not_subject"}
 ]

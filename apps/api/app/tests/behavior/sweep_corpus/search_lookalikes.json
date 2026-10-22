@@ -481,5 +481,47 @@
   "prompt": "search for the best coffee shops open now near Bole",
   "reply": "Here's what I found from current sources: the details are below, with links.",
   "expect": "search"
+ },
+ {
+  "id": "sl-070",
+  "area": "made data",
+  "prompt": "Give me sample CSV data for 5 students with name, grade and score",
+  "reply": "```csv\nname,grade,score\nAbebe,10,88\nHana,11,92\nDawit,10,75\nSara,12,81\nLiya,11,95\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-071",
+  "area": "made data",
+  "prompt": "give me mock API responses for a login endpoint",
+  "reply": "Success:\n\n```json\n{\"token\": \"abc123\", \"user\": {\"id\": 1}}\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-072",
+  "area": "made data",
+  "prompt": "give me dummy data for a products table, 3 rows",
+  "reply": "| id | name | price |\n|---|---|---|\n| 1 | Mug | 8.50 |\n| 2 | Pen | 1.20 |\n| 3 | Lamp | 24.00 |",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-073",
+  "area": "made data",
+  "prompt": "show me sample SQL inserts for a library app",
+  "reply": "```sql\nINSERT INTO books (title, author) VALUES ('Fikir Eske Mekabir', 'Haddis Alemayehu');\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-074",
+  "area": "made data",
+  "prompt": "give me fake names and emails for testing",
+  "reply": "- Abel Tesfaye — abel@example.com\n- Mimi Bekele — mimi@example.com",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-075",
+  "area": "search",
+  "prompt": "give me test results for the 2024 national exam in Ethiopia",
+  "reply": "In 2024, about 5.4% of students who sat the national exam passed.",
+  "expect": "search"
  }
 ]

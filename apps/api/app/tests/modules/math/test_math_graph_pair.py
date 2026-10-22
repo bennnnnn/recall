@@ -19,6 +19,9 @@ class TestGraphExprPairSignal:
             ("compare y=x^2 and y=2x", ("x^2", "2x")),
             ("plot x^2 and 2x together", ("x^2", "2x")),
             ("graph y=x^2 and y=2x on the same graph.", ("x^2", "2x")),
+            # π is part of an expression: "from 0 to 2π" once failed the whole pair.
+            ("Graph y = sin(x) and y = cos(x) from 0 to 2π", ("sin(x)", "cos(x) from 0 to 2π")),
+            ("plot sin(πx) and cos(πx)", ("sin(πx)", "cos(πx)")),
         ],
     )
     def test_matches_two_function_asks(self, text, expected):
@@ -46,6 +49,24 @@ class TestAugmentPromptMessagesForGraphPair:
         assert fence["expr2"] is not None
         assert fence["points2"]
         assert len(fence["points2"]) > 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "text, x_max",
+        [
+            ("Graph y = sin(x) and y = cos(x) from 0 to 2π", 6.2832),
+            ("plot sin(πx) and cos(πx) from 0 to 2", 2.0),
+        ],
+    )
+    async def test_pi_in_a_pair_still_draws_both_curves(self, text, x_max):
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
+        messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
+        _, verified = await augment_prompt_messages(messages, text, settings)
+        assert verified is not None
+        fence = verified.canonical_fence
+        assert fence is not None and fence["points"] and fence["points2"]
+        assert fence["x_min"] == 0
+        assert fence["x_max"] == pytest.approx(x_max, abs=1e-3)
 
     @pytest.mark.asyncio
     async def test_single_function_ask_is_unaffected(self):

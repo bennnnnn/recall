@@ -250,18 +250,27 @@ NON_IMAGE_WORDS = frozenset(
     },
 )
 
-NON_IMAGE_DRAW_WORDS = frozenset(
+# Diagrams named by one word: the app draws them (```mermaid, ```chart, ```graph).
+DIAGRAM_WORDS = frozenset(
+    {
+        "diagram",
+        "diagrams",
+        "chart",
+        "charts",
+        "graph",
+        "graphs",
+        "plot",
+        "flowchart",
+        "flowcharts",
+    },
+)
+
+NON_IMAGE_DRAW_WORDS = DIAGRAM_WORDS | frozenset(
     {
         "conclusion",
         "inference",
         "boundary",
         "line",
-        "diagram",
-        "chart",
-        "graph",
-        "plot",
-        "flowchart",
-        "flowcharts",
         # Verified ```geometry / ```smiles — not AI images.
         "triangle",
         "triangles",

@@ -131,6 +131,33 @@ describe("QuizCard", () => {
     expect(view.getByText(/Two letters/)).toBeTruthy();
   });
 
+  it("draws a flashcard: the front, with the back behind Show answer", async () => {
+    const card = JSON.stringify({
+      label: "Card 1",
+      question: "hablar",
+      explanation: "to speak. Hablo español.",
+    });
+    const view = await render(<QuizCard content={card} />);
+    expect(view.getByText("Card 1")).toBeTruthy();
+    expect(view.getByText("hablar")).toBeTruthy();
+    expect(view.queryByText("to speak. Hablo español.")).toBeNull();
+    await fireEvent.press(view.getByText("rich.quiz_show_answer"));
+    expect(view.getByText("to speak. Hablo español.")).toBeTruthy();
+  });
+
+  it("checks a true/false question", async () => {
+    const tf = JSON.stringify({
+      question: "The Battle of Hastings was in 1066.",
+      options: ["True", "False"],
+      answer: 0,
+      explanation: "William of Normandy won it in October 1066.",
+    });
+    const view = await render(<QuizCard content={tf} />);
+    await fireEvent.press(view.getByText("False"));
+    await fireEvent.press(view.getByText("rich.quiz_check"));
+    expect(view.getByText("rich.quiz_wrong")).toBeTruthy();
+  });
+
   it("shows a question written as plain text", async () => {
     const view = await render(<QuizCard content="Which loop prints 1 to 5?" />);
     expect(view.getByText("Which loop prints 1 to 5?")).toBeTruthy();

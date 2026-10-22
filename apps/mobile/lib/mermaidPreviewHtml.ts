@@ -32,11 +32,23 @@ const START = `function (config) {
   }
   var el = document.getElementById('diagram');
   el.textContent = config.source;
+  // A card fits the diagram to its width; the full-screen view draws it at
+  // its own size, to pan and pinch.
+  var fit = !config.natural;
   mermaid.initialize({
     startOnLoad: false,
     theme: config.theme,
     securityLevel: 'strict',
-    flowchart: { useMaxWidth: true, htmlLabels: false },
+    flowchart: { useMaxWidth: fit, htmlLabels: false },
+    sequence: { useMaxWidth: fit },
+    er: { useMaxWidth: fit },
+    class: { useMaxWidth: fit },
+    state: { useMaxWidth: fit },
+    gantt: { useMaxWidth: fit },
+    pie: { useMaxWidth: fit },
+    mindmap: { useMaxWidth: fit },
+    timeline: { useMaxWidth: fit },
+    journey: { useMaxWidth: fit },
   });
   mermaid.run({ nodes: [el] }).then(function() {
     requestAnimationFrame(reportSize);
@@ -62,7 +74,9 @@ export function buildMermaidPageHtml(mermaidJs: string): string {
 <style>
   body { margin: 0; padding: 8px; font-family: -apple-system, sans-serif; background: var(--bg); }
   #err { color: var(--danger); font-size: 12px; display: none; white-space: pre-wrap; padding: 8px; }
-  #diagram { display: flex; justify-content: center; }
+  #diagram { display: flex; }
+  /* Centred while it fits; a wider diagram starts at its left edge and scrolls. */
+  #diagram svg { flex-shrink: 0; margin: 0 auto; }
 </style>
 </head>
 <body>
@@ -84,12 +98,19 @@ type MermaidPreviewConfig = {
   source: string;
   theme: "dark" | "neutral";
   colors: { bg: string; danger: string };
+  /** Draw at the diagram's own size instead of fitting the width (full screen). */
+  natural: boolean;
 };
 
-export function mermaidPreviewConfig(source: string, theme: MermaidPreviewTheme): MermaidPreviewConfig {
+export function mermaidPreviewConfig(
+  source: string,
+  theme: MermaidPreviewTheme,
+  { natural = false }: { natural?: boolean } = {},
+): MermaidPreviewConfig {
   return {
     source: source.trim(),
     theme: theme.isDark ? "dark" : "neutral",
     colors: { bg: theme.bg, danger: theme.danger },
+    natural,
   };
 }

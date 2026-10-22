@@ -1,7 +1,9 @@
 import {
   codeLanguageLabel,
+  diffLineKinds,
   fenceUsesSyntaxColor,
   groupTokensByLine,
+  isDiffFence,
   isHtmlFenceLang,
   looksLikeHtmlPage,
   normalizeLang,
@@ -120,5 +122,49 @@ describe("resolveTokenColor", () => {
 
   it("remaps the near-black plain token so code is visible on a dark panel", () => {
     expect(resolveTokenColor(TOKEN_COLORS.plain, true)).toBe("#E6E6E6");
+  });
+});
+
+describe("diff fences", () => {
+  it("knows a diff or patch fence", () => {
+    expect(isDiffFence("diff")).toBe(true);
+    expect(isDiffFence("patch")).toBe(true);
+    expect(isDiffFence("python")).toBe(false);
+    expect(isDiffFence("")).toBe(false);
+  });
+
+  it("reads each line's role, file headers only before a hunk", () => {
+    const lines = [
+      "diff --git a/f.py b/f.py",
+      "index 3b18e51..a1b2c3d 100644",
+      "--- a/f.py",
+      "+++ b/f.py",
+      "@@ -1,4 +1,4 @@",
+      " def f(xs):",
+      "-    count = 0",
+      "+    total = 0",
+      "--- a removed SQL comment",
+      "",
+    ];
+    expect(diffLineKinds(lines)).toEqual([
+      "header",
+      "header",
+      "header",
+      "header",
+      "hunk",
+      null,
+      "removed",
+      "added",
+      "removed",
+      null,
+    ]);
+  });
+
+  it("colors a model's bare diff with no headers", () => {
+    expect(diffLineKinds(["def f(xs):", "-    count = 0", "+    total = 0"])).toEqual([
+      null,
+      "removed",
+      "added",
+    ]);
   });
 });

@@ -9,6 +9,11 @@ from app.modules.chat.prompt_constants.capabilities import (
     PHOTO_LOOKUP_HINT,
     is_capabilities_question,
 )
+from app.modules.chat.prompt_constants.chart import CHART_FORMAT_HINT, is_chart_question
+from app.modules.chat.prompt_constants.checklist import (
+    CHECKLIST_FORMAT_HINT,
+    is_checklist_request,
+)
 from app.modules.chat.prompt_constants.coding import (
     CODE_INK_REMINDER,
     code_question_hint,
@@ -21,29 +26,32 @@ from app.modules.chat.prompt_constants.conversation import (
     is_correction,
     is_social_opener,
 )
+from app.modules.chat.prompt_constants.diagrams import (
+    DIAGRAM_KIND_HINT,
+    MERMAID_FORMAT_HINT,
+    SEQUENCE_FORMAT_HINT,
+    is_diagram_kind_question,
+    is_mermaid_question,
+    is_sequence_diagram_question,
+    mermaid_format_hint,
+)
 from app.modules.chat.prompt_constants.format import (
     BIOLOGY_PRESENTATION_HINT,
     CALLOUT_FORMAT_HINT,
-    CHART_FORMAT_HINT,
     COMPACT_RESPONSE_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
     FORMAT_CONTRACT,
     HOWTO_FORMAT_HINT,
-    MERMAID_FORMAT_HINT,
     QUOTE_FORMAT_HINT,
-    SEQUENCE_FORMAT_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STATISTICS_PRESENTATION_HINT,
     STEPS_FORMAT_HINT,
     TONE_FORMAT_GUARD,
     UNIVERSAL_FORMAT_BASELINE,
     is_callout_question,
-    is_chart_question,
     is_comparison_question,
     is_howto_question,
-    is_mermaid_question,
     is_quote_question,
-    is_sequence_diagram_question,
     is_structured_comparison_question,
     is_task_howto,
 )
@@ -65,6 +73,7 @@ from app.modules.chat.prompt_constants.lesson_flow import (
     outline_awaits_pick,
 )
 from app.modules.chat.prompt_constants.math import MATH_FENCE_SAFETY_HINT
+from app.modules.chat.prompt_constants.practice import QUIZ_FORMAT_HINT, is_practice_request
 from app.modules.chat.prompt_constants.privacy import (
     ADVICE_PERSONALIZE_HINT,
     BROAD_SELF_ANSWER_HINT,
@@ -144,6 +153,7 @@ __all__ = [
     "CAPABILITIES_FORMAT_HINT",
     "CAREER_PERSONALIZE_HINT",
     "CHART_FORMAT_HINT",
+    "CHECKLIST_FORMAT_HINT",
     "CLARIFICATION_HINT",
     "CODE_INK_REMINDER",
     "COMPACT_RESPONSE_FORMAT_HINT",
@@ -153,6 +163,7 @@ __all__ = [
     "COPY_DELIVERABLE_HINT",
     "CORRECTION_HINT",
     "DAY_PLANNING_ANSWER_HINT",
+    "DIAGRAM_KIND_HINT",
     "EXAMPLE_PERSONALIZE_HINT",
     "FACT_GROUNDING_HINT",
     "FORMAT_CONTRACT",
@@ -170,6 +181,7 @@ __all__ = [
     "PHOTO_LOOKUP_HINT",
     "PRIVACY_HINT",
     "PROFILE_FACT_HINT",
+    "QUIZ_FORMAT_HINT",
     "QUOTE_FORMAT_HINT",
     "SEQUENCE_FORMAT_HINT",
     "SHORT_RESPONSE_FORMAT_HINT",
@@ -202,8 +214,10 @@ __all__ = [
     "is_capabilities_question",
     "is_career_personal_question",
     "is_chart_question",
+    "is_checklist_request",
     "is_comparison_question",
     "is_correction",
+    "is_diagram_kind_question",
     "is_email_or_message_request",
     "is_howto_question",
     "is_learning_plan_request",
@@ -211,6 +225,7 @@ __all__ = [
     "is_mermaid_question",
     "is_personal_advice_question",
     "is_personal_disclosure_turn",
+    "is_practice_request",
     "is_profile_fact_question",
     "is_profile_recall_pushback",
     "is_programming_turn",
@@ -228,6 +243,7 @@ __all__ = [
     "is_writing_deliverable_request",
     "learning_plan_daily_contract",
     "lesson_step",
+    "mermaid_format_hint",
     "needs_rich_context",
     "outline_awaits_pick",
     "prior_looks_like_offer",

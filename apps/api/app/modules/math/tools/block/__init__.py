@@ -153,3 +153,27 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
     except Exception:
         logger.exception("math_tools failed")
         return None
+
+
+def verified_curves(
+    exprs: tuple[str, ...], x_min: float | None, x_max: float | None, settings: Settings
+) -> dict[str, object] | None:
+    """The ```graph spec for one or two curves y = f(x), sampled as "graph …" samples them.
+
+    For a formula that reached the reply some other way (a model's chart of ``sin(x)``):
+    the same builder, so the curve is SymPy's and never the phone's. None when SymPy
+    cannot read or sample it.
+    """
+    if not 1 <= len(exprs) <= 2:
+        return None
+    intent = MathIntent(
+        kind="graph" if len(exprs) == 1 else "graph_pair",
+        expr=exprs[0],
+        expr2=exprs[1] if len(exprs) == 2 else None,
+        operation="graph",
+        graph_x_min=x_min,
+        graph_x_max=x_max,
+    )
+    block = _build_verified_block(intent, settings)
+    fence = block.canonical_fence if block is not None else None
+    return fence if isinstance(fence, dict) and fence.get("points") else None

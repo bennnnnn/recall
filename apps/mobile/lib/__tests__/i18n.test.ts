@@ -3,6 +3,7 @@ import {
   STANDARD_DOCUMENT_KEYS,
 } from "@/features/memory/model/memoryDocuments";
 import i18n, { ensureLocale, startLocale } from "@/lib/i18n";
+import { PLURAL_CATEGORIES } from "@/lib/i18n/pluralRules";
 import en from "@/lib/i18n/en.json";
 import am from "@/lib/i18n/am.json";
 import de from "@/lib/i18n/de.json";
@@ -14,16 +15,54 @@ import ru from "@/lib/i18n/ru.json";
 import tr from "@/lib/i18n/tr.json";
 
 const LOCALES = { am, de, es, fr, it: itLocale, pt, ru, tr } as const;
-const EN_KEYS = Object.keys(en).sort();
+const PLURAL_SUFFIX = /_(one|few|many|other)$/;
+
+/**
+ * A counted string's form: `chat.sources_count_one` is `chat.sources_count`
+ * in the `one` form. A counted string always has an `_other` form, which
+ * keeps a plain key such as `todos.delete_many` out.
+ */
+function pluralForm(bundle: object, key: string): { base: string; form: string } | null {
+  const match = PLURAL_SUFFIX.exec(key);
+  if (!match) return null;
+  const base = key.slice(0, match.index);
+  return `${base}_other` in bundle ? { base, form: match[1] ?? "" } : null;
+}
+
+/** Keys with one entry per counted string. */
+function baseKeys(bundle: object): string[] {
+  return [...new Set(Object.keys(bundle).map((key) => pluralForm(bundle, key)?.base ?? key))].sort();
+}
+
+/** Each counted string's plural forms, by its base key. */
+function pluralForms(bundle: object): Map<string, string[]> {
+  const forms = new Map<string, string[]>();
+  for (const key of Object.keys(bundle)) {
+    const plural = pluralForm(bundle, key);
+    if (plural) forms.set(plural.base, [...(forms.get(plural.base) ?? []), plural.form]);
+  }
+  return forms;
+}
+
+const EN_KEYS = baseKeys(en);
 
 describe("i18n locale files", () => {
   for (const [code, bundle] of Object.entries(LOCALES)) {
     it(`${code}.json has every en.json key`, () => {
-      const keys = Object.keys(bundle).sort();
+      const keys = baseKeys(bundle);
       const missing = EN_KEYS.filter((k) => !keys.includes(k));
       const extra = keys.filter((k) => !EN_KEYS.includes(k));
       expect(missing).toEqual([]);
       expect(extra).toEqual([]);
+    });
+  }
+
+  // A language counts with its own forms: Russian has four, English two.
+  for (const [code, bundle] of Object.entries({ en, ...LOCALES })) {
+    it(`${code}.json gives each counted string exactly ${code}'s plural forms`, () => {
+      const want = [...(PLURAL_CATEGORIES[code] ?? [])].sort();
+      const wrong = [...pluralForms(bundle)].filter(([, forms]) => forms.sort().join() !== want.join());
+      expect(wrong).toEqual([]);
     });
   }
 });
@@ -73,6 +112,24 @@ describe("i18n runtime", () => {
 
     startLocale("not-a-locale");
     expect(i18n.language).toBe("en");
+  });
+
+  it("counts in each language's plural forms", async () => {
+    await ensureLocale("en");
+    expect(i18n.t("chat.sources_count", { count: 1 })).toBe("1 source");
+    expect(i18n.t("chat.sources_count", { count: 3 })).toBe("3 sources");
+    await ensureLocale("ru");
+    const ruSources = [1, 2, 5, 11, 21, 22, 25].map((count) => i18n.t("chat.sources_count", { count }));
+    expect(ruSources).toEqual([
+      "1 источник",
+      "2 источника",
+      "5 источников",
+      "11 источников",
+      "21 источник",
+      "22 источника",
+      "25 источников",
+    ]);
+    await ensureLocale("en");
   });
 
   it("does not announce a change to the language already in use", async () => {

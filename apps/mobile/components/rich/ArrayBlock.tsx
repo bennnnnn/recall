@@ -6,7 +6,7 @@ import {
   PARAGRAPH_GAP,
 } from "@/components/markdown/markdownContentStyles";
 import { ChipText } from "@/components/rich/ChipText";
-import { CODE_FONT } from "@/lib/fonts";
+import { CODE_FACE } from "@/lib/fonts";
 import i18n from "@/lib/i18n";
 import { isUnfinishedJson } from "@/lib/jsonFence";
 import {
@@ -155,7 +155,7 @@ function makeStyles(t: Theme) {
     caption: { ...Type.h3, ...Weight.bold, color: t.text, textAlign: "center" },
     note: { ...Type.body, color: t.text },
     chip: inlineCodeTextStyle(t),
-    values: { ...Type.body, fontFamily: CODE_FONT, color: t.text },
+    values: { ...Type.body, ...CODE_FACE, color: t.text },
     plain: { marginBottom: PARAGRAPH_GAP },
   });
 }

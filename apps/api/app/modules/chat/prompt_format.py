@@ -20,6 +20,7 @@ from app.modules.chat.prompt_constants import (
     CALLOUT_FORMAT_HINT,
     CAPABILITIES_FORMAT_HINT,
     CHART_FORMAT_HINT,
+    CHECKLIST_FORMAT_HINT,
     CLARIFICATION_HINT,
     COMPACT_RESPONSE_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
@@ -30,14 +31,13 @@ from app.modules.chat.prompt_constants import (
     HOWTO_FORMAT_HINT,
     LEARNING_PLAN_HINT,
     MATH_FENCE_SAFETY_HINT,
-    MERMAID_FORMAT_HINT,
     MIXED_LENGTH_HINT,
     NEW_PROBLEM_HINT,
     NON_DRAFT_TURN_HINT,
     PERSONAL_DISCLOSURE_HINT,
     PRIVACY_HINT,
+    QUIZ_FORMAT_HINT,
     QUOTE_FORMAT_HINT,
-    SEQUENCE_FORMAT_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STANDING_PREFERENCE_HINT,
     STEPS_FORMAT_HINT,
@@ -55,14 +55,15 @@ from app.modules.chat.prompt_constants import (
     is_callout_question,
     is_capabilities_question,
     is_chart_question,
+    is_checklist_request,
     is_howto_question,
     is_learning_plan_request,
     is_lightweight_chat_turn,
     is_mermaid_question,
     is_personal_disclosure_turn,
+    is_practice_request,
     is_programming_turn,
     is_quote_question,
-    is_sequence_diagram_question,
     is_short_confirmation,
     is_social_opener,
     is_standing_preference,
@@ -71,6 +72,7 @@ from app.modules.chat.prompt_constants import (
     is_teaching_request,
     is_walkthrough_request,
     learning_plan_daily_contract,
+    mermaid_format_hint,
     programming_lesson_contract,
     reply_length,
     writing_format_hint,
@@ -132,10 +134,9 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return None
     if is_chart_question(query_text):
         return CHART_FORMAT_HINT
-    if is_sequence_diagram_question(query_text):
-        return SEQUENCE_FORMAT_HINT
-    if is_mermaid_question(query_text):
-        return MERMAID_FORMAT_HINT
+    diagram_hint = mermaid_format_hint(query_text)
+    if diagram_hint:
+        return diagram_hint
     # Pasted code with "explain this" or "why does it fail" is about that code,
     # line by line, even when it says "walk me through" or "teach me".
     code_hint = code_question_hint(query_text)
@@ -151,8 +152,14 @@ def _layout_format_hint(query_text: str | None) -> str | None:
     # A task ("walk me through changing a tire") is not one: it keeps how-to steps.
     if is_walkthrough_request(query_text):
         return WALKTHROUGH_HINT
+    # "Quiz me on the differences between X and Y" is cards, not a table.
+    if is_practice_request(query_text):
+        return QUIZ_FORMAT_HINT
     if is_structured_comparison_question(query_text):
         return COMPARISON_FORMAT_HINT
+    # Before how-to: "a step-by-step moving checklist" is items to tick, not steps.
+    if is_checklist_request(query_text):
+        return CHECKLIST_FORMAT_HINT
     if is_quote_question(query_text):
         return QUOTE_FORMAT_HINT
     if is_callout_question(query_text):

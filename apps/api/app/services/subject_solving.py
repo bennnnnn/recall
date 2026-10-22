@@ -187,7 +187,11 @@ def _subject_of_text(
     if chemistry_enabled and _chemistry_shaped(text):
         return "chemistry"
     if needs_symbolic_math(text, has_image_attachment=has_image_attachment):
-        return "math"
+        from app.modules.chat import chart_names_no_curve
+
+        # A scatter plot of the user's own numbers is a chart, not an unverified maths
+        # turn whose note forbids drawing it ("Here's your scatter plot", and none).
+        return None if chart_names_no_curve(text) else "math"
     if not chemistry_enabled:
         return None
     from app.modules.chemistry.request import is_chemistry_question

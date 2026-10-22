@@ -32,7 +32,6 @@ const KEPT_EVERYWHERE = new Set([
   "settings.sign_in_apple", // sign-in providers
   "settings.sign_in_google",
   "settings.sign_in_dev", // development builds only
-  "rich.mermaid_live", // the editor's name
   "chat.live_talk_a11y", // Live talk is the feature's name in every locale
   "settings.live_talk_minutes",
   "upgrade.feature_live_talk_plain",
@@ -88,7 +87,8 @@ const SAME_WORD: Record<Locale, readonly string[]> = {
     "chat.math_converter_cat_force",
     "chat.math_converter_cat_volume",
     "chat.math_scan_subject_math", // Maths
-    "chat.sources_count",
+    "chat.sources_count_one",
+    "chat.sources_count_other",
     "chat.sources_title",
     "picker.minute",
     "preview.code_tab",

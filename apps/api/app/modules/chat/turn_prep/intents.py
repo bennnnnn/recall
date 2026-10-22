@@ -43,6 +43,13 @@ _REMINDER = re.compile(
     r"^(?:remind me|set (?:a |an )?(?:reminder|alarm)|add (?:a )?(?:reminder|todo|to-do))\b",
     re.IGNORECASE,
 )
+# A calculation asked of the problem just stated: "find the total current", "work out
+# how fast it lands". "Find me a book" is a request of its own.
+_WORKS_ON_PROBLEM = re.compile(
+    r"^(?:then\s+)?(?:find(?!\s+(?:me|us)\b)|calculate|compute|determine|work\s+out|"
+    r"evaluate|estimate|how\s+(?:fast|far|long|high|deep|tall))\b",
+    re.IGNORECASE,
+)
 
 
 def part_kind(text: str, *, chemistry_enabled: bool = True) -> PartKind:
@@ -64,15 +71,39 @@ def part_kind(text: str, *, chemistry_enabled: bool = True) -> PartKind:
     return "ask"
 
 
-def _keeps_cut(clause: Clause, kind: PartKind, last: Clause, last_kind: PartKind) -> bool:
+def _continues_solve(
+    clause: Clause, kind: PartKind, last: Clause, last_kind: PartKind, *, chemistry_enabled: bool
+) -> bool:
+    """ "Two 3 Ω resistors in parallel across 9 V, and find the total current": a
+    calculation with no numbers of its own needs the physics givens before it. Solved
+    apart, the first half's parallel resistance answered a question about the current.
+    A physics solve reads its asked quantity from the whole question; a maths command
+    ("graph y = x^2") is its own request."""
+    body = request_body(clause.text)
+    return (
+        last_kind == "solve"
+        and kind == "ask"
+        and _WORKS_ON_PROBLEM.match(body) is not None
+        and not any(ch.isdigit() for ch in body)
+        and detect_subject(request_body(last.text), chemistry_enabled=chemistry_enabled)
+        == "physics"
+    )
+
+
+def _keeps_cut(
+    clause: Clause, kind: PartKind, last: Clause, last_kind: PartKind, *, chemistry_enabled: bool
+) -> bool:
     """A strong cut stands. A weaker one never splits one subject ("the weather in Paris
-    and the best museum in Paris"). It stands for a request another path owns, or an open
-    question after one ("switch to dark mode and tell me a joke"). Two open questions
-    need a sentence or comma between them and a later one that stands on its own words:
-    "what should I pack" and "who scored the goals" lean on the question before."""
+    and the best museum in Paris"), nor a physics problem from what it asks. It
+    stands for a request another path owns, or an open question after one ("switch to
+    dark mode and tell me a joke"). Two open questions need a sentence or comma between
+    them and a later one that stands on its own words: "what should I pack" and "who
+    scored the goals" lean on the question before."""
     if clause.cut == Cut.STRONG:
         return True
-    if clause.topics & last.topics:
+    if clause.topics & last.topics or _continues_solve(
+        clause, kind, last, last_kind, chemistry_enabled=chemistry_enabled
+    ):
         return False
     if kind != last_kind and (kind != "ask" or last_kind in _OWNED_KINDS):
         return True
@@ -91,7 +122,7 @@ def plan_turn(text: str, *, chemistry_enabled: bool = True) -> TurnPlan:
     merged: list[tuple[Clause, PartKind]] = []
     for clause in split.clauses:
         kind = part_kind(clause.text, chemistry_enabled=chemistry_enabled)
-        if not merged or _keeps_cut(clause, kind, *merged[-1]):
+        if not merged or _keeps_cut(clause, kind, *merged[-1], chemistry_enabled=chemistry_enabled):
             merged.append((clause, kind))
             continue
         last, _ = merged.pop()

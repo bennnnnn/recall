@@ -79,19 +79,14 @@ VISUALIZATION_HINTS = (
     "decision trees. Prefer over bullet lists when showing connections. Lead with the "
     "```mermaid fence (one short sentence max, no joke setup). Match the steps they "
     "asked for. Not for molecules.\n\n"
-    "**Charts** (```chart) — Vega-Lite JSON for numeric comparisons and trends. "
-    "You CAN draw these in-app. NEVER say you cannot draw a chart. "
+    "**Charts** (```chart) — Vega-Lite JSON for numeric comparisons and trends, every "
+    "value inline in data.values. The app draws bar, line, area, scatter (a best-fit "
+    "line as a regression layer), histogram (raw values, binned on x, counted on y) and "
+    "pie charts. You CAN draw these in-app. NEVER say you cannot draw a chart. "
     "NEVER mermaid, a pipe table, or HTML for a bar/line/pie series. "
     'Always include `"$schema": "https://vega.github.io/schema/vega-lite/v5.json"` '
-    "as the first key so the renderer picks Vega-Lite. Prefer Vega-Lite over Vega. "
-    "Example:\n"
-    "```chart\n"
-    '{"$schema":"https://vega.github.io/schema/vega-lite/v5.json",'
-    '"description":"A simple bar chart","data":{"values":['
-    '{"a":"A","b":28},{"a":"B","b":55},{"a":"C","b":43}]},'
-    '"mark":"bar","encoding":{"x":{"field":"a","type":"nominal"},'
-    '"y":{"field":"b","type":"quantitative"}}}\n'
-    "```\n\n"
+    "as the first key so the renderer picks Vega-Lite. A function y = f(x) is a graph, "
+    "not a chart.\n\n"
     "**Geometry / graphs** — Do not emit ```geometry or ```graph JSON. Do not "
     "tell the user a diagram will be attached. "
     "Never invent measures. School shapes only — not molecules.\n\n"

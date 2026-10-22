@@ -120,7 +120,8 @@ const FENCE_TABLE = [
     owner: "model", body: "data",
   },
   {
-    // A lesson's "Your turn": options checked on the phone, nothing sent.
+    // Practice: a lesson's "Your turn", a quiz, true/false or a flashcard (no
+    // options: the back behind Show answer). Checked on the phone, nothing sent.
     id: "quiz",
     langs: ["quiz"],
     structured: true,
