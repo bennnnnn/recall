@@ -319,8 +319,10 @@ async def test_a_unit_that_dies_twice_raises_the_second_failure(
         if len(runs) == 2:
             # The new connection dies before its first statement too.
             raw = await (await session.connection()).get_raw_connection()
-            pid = await raw.driver_connection.fetchval("SELECT pg_backend_pid()")
-            await _end_on_the_server(int(pid), raw.driver_connection)
+            driver = raw.driver_connection
+            assert driver is not None
+            pid = await driver.fetchval("SELECT pg_backend_pid()")
+            await _end_on_the_server(int(pid), driver)
         await session.execute(text("SELECT 1"))
 
     with pytest.raises(exc.DBAPIError):

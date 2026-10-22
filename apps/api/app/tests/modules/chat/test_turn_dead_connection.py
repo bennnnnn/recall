@@ -97,6 +97,7 @@ async def _pool_holds_a_dead_connection(monkeypatch: pytest.MonkeyPatch) -> int:
     async with engine.connect() as conn:
         pid = int((await conn.execute(text("SELECT pg_backend_pid()"))).scalar_one())
         driver = (await conn.get_raw_connection()).driver_connection
+        assert driver is not None
     dsn = make_url(get_settings().database_url).set(drivername="postgresql")
     killer = await asyncpg.connect(dsn.render_as_string(hide_password=False))
     try:

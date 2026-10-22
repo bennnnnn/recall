@@ -66,7 +66,7 @@ async def test_a_change_redis_cannot_publish_answers_503_and_its_retry_publishes
     monkeypatch.setattr(user_cache, "_PUBLISH_BACKOFF_SECONDS", 0)
     assert await _plan_served(world) == "free"
     before = await world.redis.get(user_cache.generation_key(world.a.id))
-    real_bump = user_cache.bump_generation
+    real_bump = bump_generation
 
     async def redis_down(*_args: object, **_kwargs: object) -> str:
         raise RedisConnectionError("down")

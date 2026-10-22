@@ -99,7 +99,7 @@ async def test_concurrent_turns_split_what_is_left(server: Redis, user: str) -> 
     )
 
     assert sum(taken) == 1_000
-    assert int(await server.get(key)) == _LIMIT
+    assert int(await server.get(key) or 0) == _LIMIT
 
 
 async def test_a_settle_racing_a_reserve_always_adds_up(server: Redis, user: str) -> None:
@@ -118,4 +118,4 @@ async def test_a_settle_racing_a_reserve_always_adds_up(server: Redis, user: str
         )
 
         assert granted in (0, 5_000)
-        assert int(await server.get(key)) == 95_000 + granted
+        assert int(await server.get(key) or 0) == 95_000 + granted

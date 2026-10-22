@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, MutableMapping
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -178,7 +178,7 @@ class _Socket:
 
     trips: _Trips
     inbox: asyncio.Queue[dict[str, Any]] = field(default_factory=asyncio.Queue)
-    outbox: asyncio.Queue[dict[str, Any]] = field(default_factory=asyncio.Queue)
+    outbox: asyncio.Queue[MutableMapping[str, Any]] = field(default_factory=asyncio.Queue)
 
     @staticmethod
     def scope(chat_id: UUID) -> dict[str, Any]:
@@ -199,7 +199,7 @@ class _Socket:
             self.trips.start()
         return message
 
-    async def send(self, message: dict[str, Any]) -> None:
+    async def send(self, message: MutableMapping[str, Any]) -> None:
         """What the app sent (ASGI)."""
         await self.outbox.put(message)
 
@@ -284,7 +284,7 @@ async def turns(
     fake = user_generation_redis
     core_redis.get_redis_client.cache_clear()
     monkeypatch.setattr(redis_asyncio, "from_url", lambda *_a, **_k: fake)
-    assert user_cache.get_redis_client() is fake
+    assert user_cache.get_redis_client() is fake  # type: ignore[attr-defined]
     await engine.dispose(close=False)
 
     trips = _Trips()
