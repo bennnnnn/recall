@@ -15,7 +15,11 @@ jest.mock("react-native", () => ({
   Share: { share: jest.fn() },
 }));
 
+jest.mock("@/lib/shareFile", () => ({ shareLocalFile: jest.fn() }));
+
 import { formatExportJsonForShare, shareAccountExport } from "@/lib/exportData";
+
+const { shareLocalFile } = jest.requireMock<typeof import("@/lib/shareFile")>("@/lib/shareFile");
 
 describe("formatExportJsonForShare", () => {
   it("pretty-prints small valid JSON", () => {
@@ -41,7 +45,7 @@ describe("shareAccountExport", () => {
     jest.clearAllMocks();
   });
 
-  it("writes to cache and shares the file url", async () => {
+  it("writes to cache and hands the file to the share sheet on every platform", async () => {
     await shareAccountExport('{"ok":true}');
 
     expect(writeAsStringAsync).toHaveBeenCalledWith(
@@ -49,9 +53,16 @@ describe("shareAccountExport", () => {
       '{"ok":true}',
       { encoding: EncodingType.UTF8 },
     );
-    expect(Share.share).toHaveBeenCalledWith({
-      url: expect.stringMatching(/^\/cache\/recall-export-\d+\.json$/),
-      title: "recall-export.json",
-    });
+    // React Native's Share ignores `url` on Android: the file must go through shareLocalFile.
+    expect(shareLocalFile).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/cache\/recall-export-\d+\.json$/),
+      { title: "recall-export.json", mimeType: "application/json" },
+    );
+    expect(Share.share).not.toHaveBeenCalled();
+  });
+
+  it("lets a build that cannot share files fail, so the screen can say so", async () => {
+    (shareLocalFile as jest.Mock).mockRejectedValueOnce(new Error("Sharing files needs an app update."));
+    await expect(shareAccountExport("{}")).rejects.toThrow("app update");
   });
 });
