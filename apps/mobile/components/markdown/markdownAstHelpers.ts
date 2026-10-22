@@ -280,6 +280,17 @@ export function taskChecked(node: AstNode): boolean | null {
   return isTaskCheckboxChecked(checkbox);
 }
 
+/**
+ * The item's list holds an open task (`- [ ]`), so it is a checklist and a
+ * done item is a ticked box. A list of done items only is a run of
+ * verified checks (`- [x] For x = 2: …`), which keeps its trailing tick.
+ */
+export function listHasOpenTask(parent: unknown): boolean {
+  if (!Array.isArray(parent) || parent.length === 0) return false;
+  const list = parent[0] as AstNode;
+  return (list.children ?? []).some((item) => taskChecked(item) === false);
+}
+
 export function detectStandaloneLink(node: AstNode): string | null {
   let kids = node.children ?? [];
   // markdown-display flattens inlines then wraps them in `textgroup`.

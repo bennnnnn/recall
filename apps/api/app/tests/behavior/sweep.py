@@ -104,6 +104,7 @@ LOOKALIKE_HINTS = {
     "correction lookalike": "correction",
     "detail lookalike": "detail",
     "continue lookalike": "continue",
+    "checklist lookalike": "checklist",
 }
 # Reminders already saved, so "mark call mom as done" has something to find.
 SEEDED = ("call mom", "dentist appointment", "gym", "pay rent", "read", "water the plants")

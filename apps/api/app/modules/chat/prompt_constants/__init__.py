@@ -9,6 +9,10 @@ from app.modules.chat.prompt_constants.capabilities import (
     PHOTO_LOOKUP_HINT,
     is_capabilities_question,
 )
+from app.modules.chat.prompt_constants.checklist import (
+    CHECKLIST_FORMAT_HINT,
+    is_checklist_request,
+)
 from app.modules.chat.prompt_constants.coding import (
     CODE_INK_REMINDER,
     code_question_hint,
@@ -144,6 +148,7 @@ __all__ = [
     "CAPABILITIES_FORMAT_HINT",
     "CAREER_PERSONALIZE_HINT",
     "CHART_FORMAT_HINT",
+    "CHECKLIST_FORMAT_HINT",
     "CLARIFICATION_HINT",
     "CODE_INK_REMINDER",
     "COMPACT_RESPONSE_FORMAT_HINT",
@@ -202,6 +207,7 @@ __all__ = [
     "is_capabilities_question",
     "is_career_personal_question",
     "is_chart_question",
+    "is_checklist_request",
     "is_comparison_question",
     "is_correction",
     "is_email_or_message_request",
