@@ -131,7 +131,7 @@ def counted_resistors(text: str) -> tuple[int, float] | None:
     return number_word_value(found[0].group(1)) or 0, float(found[0].group(2))
 
 
-def _resistor_values(text: str) -> list[float]:
+def resistor_values(text: str) -> list[float]:
     """Every resistance in a network, however the units are distributed.
 
     A count word repeats its value: "three 9 Ω resistors" are 9, 9 and 9 Ω.

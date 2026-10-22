@@ -325,7 +325,8 @@ def test_series_voltage_asked_as_current_is_ohms_law() -> None:
         "A 4.00 ohm resistor and a 12.0 ohm resistor are in series across 8.00 V. Find the current."
     )
     intent = extract_physics_intent(text)
-    assert isinstance(intent, PhysicsIntent) and intent.physics_op == "current"
+    assert isinstance(intent, PhysicsIntent) and intent.physics_op == "series_current"
+    assert intent.physics_params == {"R1": 4.0, "R2": 12.0, "V": 8.0}
     assert _verified_answer(text) == "0.5 A"
 
 
@@ -336,7 +337,8 @@ def test_parallel_voltage_asked_as_current_is_ohms_law() -> None:
         "Find the current."
     )
     intent = extract_physics_intent(text)
-    assert isinstance(intent, PhysicsIntent) and intent.physics_op == "current"
+    assert isinstance(intent, PhysicsIntent) and intent.physics_op == "parallel_current"
+    assert intent.physics_params == {"R1": 4.0, "R2": 12.0, "V": 12.0}
     assert _verified_answer(text) == "4 A"
 
 

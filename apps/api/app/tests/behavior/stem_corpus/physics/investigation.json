@@ -289,5 +289,9 @@
   {"id": "q27", "area": "kinematics", "prompt": "a runner does one full lap of a 400 m track in 80 s. what is her average velocity?", "expect": "answer", "answer": [0.0, "m/s"], "note": "displacement 0; average speed 5 m/s"},
   {"id": "q28", "area": "kinematics", "prompt": "I walk 3 km east then 4 km north. what's my displacement?", "expect": "answer", "answer": [5.0, "km"]},
   {"id": "q29", "area": "waves", "prompt": "A car moving at 20 m/s sounds a 600 Hz horn while approaching a cyclist moving toward it at 5 m/s. what frequency does the cyclist hear?", "expect": "answer", "answer": [646.44, "Hz"], "note": "doc: both moving declines"},
-  {"id": "q30", "area": "explain", "prompt": "is 9.81 m/s^2 the same everywhere on earth?", "expect": "explain"}
+  {"id": "q30", "area": "explain", "prompt": "is 9.81 m/s^2 the same everywhere on earth?", "expect": "explain"},
+  {"id": "l18", "area": "electricity", "prompt": "A 4 ohm resistor is in series with a parallel pair of 6 ohm and 3 ohm resistors across a 12 V battery. Find the current.", "expect": "answer", "answer": [2.0, "A"], "visual": "circuit", "note": "4 + (6 ∥ 3) = 6 Ω; the schematic nests the pair on the series wire"},
+  {"id": "l19", "area": "electricity", "prompt": "Draw a circuit where a 2 Ω resistor is in series with three 6 Ω resistors in parallel, connected to a 16 V battery, and find the current", "expect": "answer", "answer": [4.0, "A"], "visual": "circuit"},
+  {"id": "x-d16", "area": "decline", "prompt": "A 4 Ω resistor is in series with a 6 Ω resistor, and a 12 Ω resistor is in parallel with both. Find the total resistance.", "expect": "decline", "note": "(4 + 6) ∥ 12, not 4 + (6 ∥ 12): another shape, read by no rule"},
+  {"id": "x-d17", "area": "decline", "prompt": "A 4 Ω and a 6 Ω resistor are in series, and that pair is in parallel with a 12 Ω resistor. Total resistance?", "expect": "decline"}
 ]
