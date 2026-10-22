@@ -27,7 +27,7 @@ export default function AiConsentScreen() {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const { busy, agree, decline } = useAiConsentActions();
+  const { busy, agree, decline, deleteAccount } = useAiConsentActions();
 
   if (!token) return <Redirect href="/login" />;
   if (!needsAiDataConsent(user)) return <Redirect href="/" />;
@@ -90,6 +90,15 @@ export default function AiConsentScreen() {
             variant="ghost"
             loading={busy === "decline"}
             loadingLabel={t("onboarding.consent_decline")}
+            disabled={busy !== null}
+            style={s.cta}
+          />
+          <Button
+            title={t("onboarding.consent_delete")}
+            onPress={() => void deleteAccount()}
+            variant="ghost"
+            loading={busy === "delete"}
+            loadingLabel={t("onboarding.consent_delete")}
             disabled={busy !== null}
             style={s.cta}
           />

@@ -2,6 +2,8 @@ import Constants from "expo-constants";
 import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
 
+import { isExpoGo } from "@/lib/expoRuntime";
+
 type AppleAuthModule = typeof import("expo-apple-authentication");
 
 let appleModule: AppleAuthModule | null | undefined;
@@ -25,10 +27,12 @@ function isAppleSignInPlatform(): boolean {
 
 /**
  * Show the Apple button on iOS; check availability when the user taps. A
- * `pnpm ios:sim` build leaves Sign in with Apple out, so it has no button.
+ * `pnpm ios:sim` build leaves Sign in with Apple out, so it has no button. Expo Go
+ * has none either: Apple signs its token for Expo Go's own bundle id
+ * (host.exp.Exponent), which our server rightly refuses.
  */
 export function shouldShowAppleSignInButton(): boolean {
-  if (!isAppleSignInPlatform()) return false;
+  if (!isAppleSignInPlatform() || isExpoGo()) return false;
   const extra = Constants.expoConfig?.extra as { appleSignIn?: boolean } | undefined;
   return extra?.appleSignIn !== false;
 }
