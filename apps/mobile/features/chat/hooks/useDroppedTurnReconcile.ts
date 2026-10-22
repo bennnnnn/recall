@@ -31,7 +31,7 @@ export function useDroppedTurnReconcile({
   streamingRef,
 }: Options) {
   return useCallback(
-    (settle: (result: DroppedTurnResult) => void, polls?: number) => {
+    (settle: (result: DroppedTurnResult) => void, polls?: number, pollMs?: (poll: number) => number) => {
       if (!token || !chatId) {
         settle({ state: "unknown", page: null });
         return;
@@ -44,6 +44,7 @@ export function useDroppedTurnReconcile({
         stillWaiting: () =>
           isCurrentView() && sendAttemptRef.current === attempt && streamingRef.current,
         polls,
+        pollMs,
       }).then((result) => {
         if (result) settle(result);
       });

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import suppress
 from typing import Any
 from uuid import UUID
@@ -19,15 +19,18 @@ from app.core.chat_rate_limit import allow_chat_message
 from app.core.config import Settings, get_settings
 from app.core.deps import get_current_user
 from app.core.redis import get_redis_client
+from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.models.schemas import ChatMessageRequest
 from app.modules.chat import stream_entry
+from app.modules.chat.client_message import UNNAMED, ClientMessageClaim, claim_client_message
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
     SERVER_RESTARTING_MESSAGE,
     StreamEndEvent,
     await_finalize_commit,
+    build_duplicate_event,
     build_reasoning_event,
     build_start_event,
     build_status_event,
@@ -54,6 +57,8 @@ _TokenStream = Callable[
     [TurnOutcome, StreamStatusFn, StreamReasoningFn, Callable[[], bool]],
     AsyncIterator[str],
 ]
+# A message's claim on its client_message_id; None when an earlier send took it.
+_ClaimMessage = Callable[[], Awaitable[ClientMessageClaim | None]]
 
 
 async def require_chat_rate_limit(user: User = Depends(get_current_user)) -> Redis:
@@ -77,12 +82,23 @@ def _sse(payload: dict[str, Any]) -> str:
     return f"data: {json.dumps(payload, separators=(',', ':'))}\n\n"
 
 
+async def _until_done(producer: asyncio.Task[None]) -> None:
+    """Wait for the producer without passing this task's cancellation on to it.
+
+    Starlette cancels a disconnected client's response at every await, and
+    ``await producer`` forwarded each of those: a second cancel lands in the
+    turn's own cleanup (the user row's save, the partial reply).
+    """
+    await asyncio.wait({producer})
+
+
 async def _stream_tokens_sse(
     *,
     chat_id: UUID,
     stream_factory: _TokenStream,
     request: Request,
     cancel_event: asyncio.Event | None = None,
+    claim_message: _ClaimMessage | None = None,
 ) -> AsyncIterator[str]:
     outcome = TurnOutcome()
     event_queue: asyncio.Queue[tuple[str, str, str | None] | None] = asyncio.Queue()
@@ -95,7 +111,22 @@ async def _stream_tokens_sse(
             turn_error_payload(None, user_message_saved=False, message=SERVER_RESTARTING_MESSAGE)
         )
         return
-    yield _sse(build_start_event())
+    # Claimed here, once the response is under way, so a request whose client
+    # left before it began holds no claim. Every exit below settles it.
+    try:
+        claim = UNNAMED if claim_message is None else await claim_message()
+    except RedisUnavailableError as unavailable:
+        yield _sse(turn_error_payload(unavailable, user_message_saved=False))
+        return
+    if claim is None:
+        yield _sse(build_duplicate_event())
+        return
+    try:
+        yield _sse(build_start_event())
+    except GeneratorExit:
+        # The client left before the turn began: nothing ran.
+        claim.settle_after(None, outcome)
+        raise
 
     async def on_status(phase: str, detail: str | None = None) -> None:
         await event_queue.put(("status", phase, detail))
@@ -180,8 +211,7 @@ async def _stream_tokens_sse(
         if cancel_event.is_set():
             # Disconnect already cancelled the producer. A second cancel
             # lands in the partial-reply save and drops the text.
-            with suppress(asyncio.CancelledError):
-                await producer
+            await _until_done(producer)
             if not shutdown.stopping():
                 return
             # The server stopped the turn; the client is still here to be told.
@@ -195,8 +225,7 @@ async def _stream_tokens_sse(
                 )
                 return
 
-        with suppress(asyncio.CancelledError):
-            await producer
+        await _until_done(producer)
         if producer.cancelled():
             return
         if (exc := producer.exception()) is not None:
@@ -221,9 +250,12 @@ async def _stream_tokens_sse(
         clear_task_cancellation()
         cancel_event.set()
         cancel_producer_once()
+        # Settled off this task once the producer is done: a disconnected
+        # client's response is cancelled again at every await below.
+        claim.settle_after(producer, outcome)
         if not producer.done():
-            with suppress(asyncio.CancelledError, Exception):
-                await producer
+            with suppress(asyncio.CancelledError):
+                await _until_done(producer)
         # M10: if the SSE transport failed mid-stream (client disconnect,
         # proxy drop) the success-path finalize await above never ran, so
         # the background DB commit that persists the partial assistant
@@ -272,6 +304,9 @@ async def stream_message_sse(
         _stream_tokens_sse(
             chat_id=chat_id,
             request=request,
+            claim_message=lambda: claim_client_message(
+                redis, user_id=user.id, chat_id=chat_id, client_message_id=body.client_message_id
+            ),
             stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
                 stream_entry.stream_chat_response(
                     default_deps(),

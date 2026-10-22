@@ -22,11 +22,13 @@ from app.exceptions import (
     QuotaExceededError,
 )
 from app.gateways.litellm_gateway import ModelUnavailableError
+from app.modules.chat.client_message import UNNAMED, ClientMessageClaim
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
     StreamEndEvent,
     await_finalize_commit,
+    build_pong_event,
     build_start_event,
     build_token_event,
     clear_task_cancellation,
@@ -61,6 +63,7 @@ async def stream_over_ws(
     outcome: TurnOutcome,
     chat_id: UUID | None = None,
     frame_budget: FrameBudget | None = None,
+    claim: ClientMessageClaim = UNNAMED,
 ) -> None:
     async def run_stream() -> None:
         sent_tokens = 0
@@ -173,7 +176,9 @@ async def stream_over_ws(
                 if msg.get("type") == "cancel":
                     outcome.client_shown_chars = client_shown_chars(msg)
                     stop()
-                elif msg.get("type") != "ping":
+                elif msg.get("type") == "ping":
+                    await safe_send_json(websocket, build_pong_event())
+                else:
                     await safe_send_json(
                         websocket,
                         turn_error_payload(ChatBusyError(), user_message_saved=False),
@@ -197,6 +202,12 @@ async def stream_over_ws(
             except asyncio.CancelledError:
                 pass
     finally:
+        # The producer is done unless an error cut the loop above short; then
+        # the claim is settled once it is.
+        if producer.done():
+            await claim.settle(outcome)
+        else:
+            claim.settle_after(producer, outcome)
         # Same as SSE M10: client close must not orphan the DB commit that
         # persists the (partial) assistant row and enqueues the title job.
         await persist_finalize_if_pending(outcome)
@@ -209,11 +220,22 @@ async def run_chat_stream(
     stream_factory: Callable[[TurnOutcome], AsyncIterator[str]],
     chat_id: UUID | None = None,
     frame_budget: FrameBudget | None = None,
+    claim: ClientMessageClaim = UNNAMED,
 ) -> None:
+    """One turn: ``start``, then the stream, which settles the message's ``claim``."""
     cancel_event.clear()
-    if not await safe_send_json(websocket, build_start_event()):
-        return
     outcome = TurnOutcome()
+    try:
+        started = await safe_send_json(websocket, build_start_event())
+    except BaseException:
+        claim.settle_after(None, outcome)
+        raise
+    if not started and claim.key is None:
+        # A client gone before ``start`` gets no turn.
+        return
+    # A named message runs even when its client is gone: the phone may have sent
+    # it again meanwhile (and been told ``duplicate``), and it follows this turn
+    # by reloading the chat. The claim keeps any other send of it from running.
     try:
         await stream_over_ws(
             websocket,
@@ -222,6 +244,7 @@ async def run_chat_stream(
             outcome,
             chat_id,
             frame_budget,
+            claim,
         )
     except Exception as exc:
         if not isinstance(exc, EXPECTED_TURN_ERRORS):

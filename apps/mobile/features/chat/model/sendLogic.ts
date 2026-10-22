@@ -31,6 +31,8 @@ export type PendingSend = {
   dispatched: boolean;
   /** The server sent `start`: it owns this turn, so a dropped connection is never replayed. */
   accepted?: boolean;
+  /** The message's name on every send of it (a replay, Retry): the server runs one turn per name. */
+  clientMessageId?: string;
 };
 
 export type RejectedSend = PendingSend & { reason: "send_rejected" | "attachment_rejected" };

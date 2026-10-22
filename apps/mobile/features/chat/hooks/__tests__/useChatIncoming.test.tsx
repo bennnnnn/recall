@@ -11,6 +11,13 @@ import {
   type RejectedSend,
 } from "@/features/chat/hooks/useChatIncoming";
 import { clearPendingChatTtft, markChatFirstToken } from "@/features/chat/model/latency";
+import {
+  DROPPED_TURN_POLL_MS,
+  DUPLICATE_TURN_POLLS,
+  duplicateTurnPollMs,
+} from "@/features/chat/model/turnReconcile";
+import type { ChatWsFallbackSignal, ChatWsTransport } from "@/features/chat/model/wsTransport";
+import { api } from "@/lib/api";
 import { setConsentRequiredHandler } from "@/lib/api/consentRefusal";
 
 jest.mock("@/features/chat/model/sse", () => ({
@@ -76,7 +83,10 @@ async function setup(start: { messages?: Message[]; streaming?: boolean; draft?:
   const send = async (payload: ChatSsePayload, ttftTurnId: string | null = "turn-1") => {
     await act(async () => { result.current.handleChatPayloadForChat("chat-1", payload, ttftTurnId); });
   };
-  return { args, cue, send, messages: () => messages };
+  const fallback = async (transport: ChatWsTransport, signal: ChatWsFallbackSignal) => {
+    await act(async () => { result.current.handleWsFallback(transport, signal); });
+  };
+  return { args, cue, send, fallback, messages: () => messages };
 }
 
 const pending = (): PendingSend => ({
@@ -401,5 +411,136 @@ describe("useChatIncomingEvents handleChatPayloadForChat", () => {
     await send({ type: "done", message_id: "m-1" });
     expect(args.setStreaming).not.toHaveBeenCalled();
     expect(args.setMessages).not.toHaveBeenCalled();
+  });
+});
+
+describe("useChatIncomingEvents after a dead socket or a resend", () => {
+  const listMessages = api.listMessages as jest.Mock;
+  const transport = {} as ChatWsTransport;
+  const SAVED_USER = { id: "0190a000-0000-7000-8000-000000000001", role: "user" as const, content: "hello", model: null, created_at: "t1" };
+  const SAVED_REPLY = { id: "0190a000-0000-7000-8000-000000000002", role: "assistant" as const, content: "the answer", model: null, created_at: "t2" };
+
+  async function poll(times = 1) {
+    for (let i = 0; i < times; i += 1) {
+      await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+    }
+  }
+
+  /** Polls `from` up to `to` of a turn followed after `duplicate` (they slow down as they go). */
+  async function followPolls(to: number, from = 0) {
+    for (let i = from; i < to; i += 1) {
+      await act(async () => { await jest.advanceTimersByTimeAsync(duplicateTurnPollMs(i)); });
+    }
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers({ now: NOW });
+    listMessages.mockReset();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  async function deadSocketSetup(idempotent: boolean | undefined) {
+    const ctx = await setup({ messages: [streamingBubble] });
+    ctx.args.currentSocket.mockReturnValue(transport as never);
+    const retry = jest.fn(async () => {});
+    ctx.args.wsAuthFallbackRef.current = { transport, retry, idempotent } as never;
+    ctx.args.pendingSendRef.current = { ...pending(), clientMessageId: "name-1" };
+    return { ...ctx, retry };
+  }
+
+  it("replays a named message when a probe finds its socket dead before start", async () => {
+    const { args, fallback, retry } = await deadSocketSetup(true);
+    await fallback(transport, { reason: "unresponsive", duringTurn: true });
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(args.wsAuthFallbackRef.current).toBeNull();
+    expect(args.pendingSendRef.current?.clientMessageId).toBe("name-1");
+    expect(args.setStreaming).not.toHaveBeenCalled();
+    expect(args.reportError).not.toHaveBeenCalled();
+  });
+
+  it("gives up an unacknowledged regenerate on a dead socket instead of replaying it", async () => {
+    const { args, cue, fallback, retry } = await deadSocketSetup(undefined);
+    await fallback(transport, { reason: "unresponsive", duringTurn: true });
+    expect(retry).not.toHaveBeenCalled();
+    expect(args.restoreRegenerateBackup).toHaveBeenCalledTimes(1);
+    expect(args.queueUnsavedSend).not.toHaveBeenCalled();
+    expect(args.reportError).toHaveBeenCalledWith("chat.error_unreachable");
+    expect(cue.error).toHaveBeenCalledTimes(1);
+  });
+
+  it("follows a turn the server took when its socket dies mid-reply", async () => {
+    listMessages.mockResolvedValue({ messages: [SAVED_USER, SAVED_REPLY], has_more: false });
+    const { args, fallback, retry, messages } = await deadSocketSetup(true);
+    args.wsAuthFallbackRef.current = null;
+    args.pendingSendRef.current!.accepted = true;
+    await fallback(transport, { reason: "unresponsive", duringTurn: true });
+    expect(retry).not.toHaveBeenCalled();
+    await poll();
+    expect(listMessages).toHaveBeenCalledTimes(1);
+    expect(messages()).toEqual([SAVED_USER, SAVED_REPLY]);
+    expect(args.reportError).not.toHaveBeenCalled();
+  });
+
+  it("follows the earlier send on duplicate instead of asking for a second turn", async () => {
+    listMessages
+      .mockResolvedValueOnce({ messages: [SAVED_USER], has_more: false })
+      .mockResolvedValue({ messages: [SAVED_USER, SAVED_REPLY], has_more: false });
+    const { args, send, messages } = await deadSocketSetup(true);
+    await send({ type: "duplicate" });
+    expect(args.pendingSendRef.current).toBeNull();
+    expect(args.wsAuthFallbackRef.current).toBeNull();
+    expect(args.setStreaming).not.toHaveBeenCalled();
+    await followPolls(2);
+    expect(listMessages).toHaveBeenCalledTimes(2);
+    expect(messages()).toEqual([SAVED_USER, SAVED_REPLY]);
+    expect(args.setStreaming).toHaveBeenCalledWith(false);
+    expect(args.queueUnsavedSend).not.toHaveBeenCalled();
+    expect(args.reportError).not.toHaveBeenCalled();
+  });
+
+  it("follows a long turn for minutes, not the 30 s of a dropped socket", async () => {
+    listMessages
+      .mockResolvedValueOnce({ messages: [SAVED_USER], has_more: false })
+      .mockResolvedValueOnce({ messages: [SAVED_USER], has_more: false })
+      .mockResolvedValueOnce({ messages: [SAVED_USER], has_more: false })
+      .mockResolvedValueOnce({ messages: [SAVED_USER], has_more: false })
+      .mockResolvedValueOnce({ messages: [SAVED_USER], has_more: false })
+      .mockResolvedValueOnce({ messages: [SAVED_USER], has_more: false })
+      .mockResolvedValueOnce({ messages: [SAVED_USER], has_more: false })
+      .mockResolvedValue({ messages: [SAVED_USER, SAVED_REPLY], has_more: false });
+    const { args, send, messages } = await deadSocketSetup(true);
+    await send({ type: "duplicate" });
+    await followPolls(8);
+    expect(jest.now() - NOW).toBeGreaterThan(60_000);
+    expect(messages()).toEqual([SAVED_USER, SAVED_REPLY]);
+    expect(args.reportError).not.toHaveBeenCalled();
+  });
+
+  it("offers Retry under a new name when the duplicate's message never shows up", async () => {
+    listMessages.mockResolvedValue({ messages: [], has_more: false });
+    const { args, send } = await deadSocketSetup(true);
+    await send({ type: "duplicate" });
+    await followPolls(DUPLICATE_TURN_POLLS - 1);
+    expect(args.queueUnsavedSend).not.toHaveBeenCalled();
+    await followPolls(DUPLICATE_TURN_POLLS, DUPLICATE_TURN_POLLS - 1);
+    expect(listMessages).toHaveBeenCalledTimes(DUPLICATE_TURN_POLLS);
+    // The server's hold on the old name can outlive a machine that died.
+    expect(args.queueUnsavedSend).toHaveBeenCalledWith(
+      expect.objectContaining({ content: "hello", clientMessageId: undefined }),
+      "send_rejected",
+    );
+    expect(args.reportError).toHaveBeenCalledWith("chat.error_unreachable", "send_rejected");
+  });
+
+  it("ignores a duplicate that arrives after Stop", async () => {
+    const { args, send } = await deadSocketSetup(true);
+    args.streamingRef.current = false;
+    await send({ type: "duplicate" });
+    await poll();
+    expect(listMessages).not.toHaveBeenCalled();
+    expect(args.pendingSendRef.current?.clientMessageId).toBe("name-1");
   });
 });

@@ -35,6 +35,8 @@ _BUILDERS = {
         "abc",
         ["Why is the force the product of mass and acceleration?"],
     ),
+    "duplicate": lambda: stream_events.build_duplicate_event(),
+    "pong": lambda: stream_events.build_pong_event(),
 }
 
 

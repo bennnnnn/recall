@@ -8,6 +8,8 @@ import { restoreAssistantMessage } from "@/features/chat/model/regenerateLogic";
 import { replaceStreamingMessageWithPartial } from "@/features/chat/model/partialStream";
 import type { PendingSend } from "@/features/chat/model/sendLogic";
 import {
+  DUPLICATE_TURN_POLLS,
+  duplicateTurnPollMs,
   mergeReconciledPage,
   SSE_DROPPED_TURN_POLLS,
   type DroppedTurnResult,
@@ -106,14 +108,6 @@ export function useChatIncomingEvents({
     ],
   );
 
-  const handleChatPayloadForChat = useCallback(
-    (boundChatId: string | null, payload: ChatSsePayload, ttftTurnId?: string | null) => {
-      if (!isCurrentView() || viewingChatIdRef.current !== boundChatId) return;
-      handleChatPayload(payload, ttftTurnId);
-    },
-    [handleChatPayload, isCurrentView, viewingChatIdRef],
-  );
-
   const preservePartialStream = useCallback((): boolean => {
     const draft = streamingDraftRef.current;
     const partial = (draft?.content ?? assistantBufferRef.current).trim();
@@ -180,7 +174,11 @@ export function useChatIncomingEvents({
   /** Keep the bubble up and reload the chat until the reply lands; `settleLost`
    * runs only when it does not, told whether the message is in the chat. */
   const followTakenSend = useCallback(
-    (settleLost: (messageSaved: boolean) => void, polls?: number) => {
+    (
+      settleLost: (messageSaved: boolean) => void,
+      polls?: number,
+      pollMs?: (poll: number) => number,
+    ) => {
       reconcileDroppedTurn((result: DroppedTurnResult) => {
         if (result.state === "answered" && result.page) {
           settleWithServerPage(result.page);
@@ -188,7 +186,7 @@ export function useChatIncomingEvents({
         }
         // Replay only what a reload showed is not in the chat.
         settleLost(result.state !== "missing");
-      }, polls);
+      }, polls, pollMs);
     },
     [reconcileDroppedTurn, settleWithServerPage],
   );
@@ -261,6 +259,34 @@ export function useChatIncomingEvents({
     updateStreamingDraft,
   ]);
 
+  /** `duplicate`: an earlier send of this message reached the server, which runs
+   * that turn. Follow it until its reply lands (minutes, for a long turn); no
+   * second turn is asked for. */
+  const followDuplicateSend = useCallback(() => {
+    if (!streamingRef.current) return;
+    const pending = pendingSendRef.current;
+    pendingSendRef.current = null;
+    wsAuthFallbackRef.current = null;
+    // Minutes without the message in the chat: that send never saved, and the
+    // server's hold on its name can outlive a machine that died. Retry sends
+    // it under a new name.
+    const renamed = pending && { ...pending, clientMessageId: undefined };
+    followTakenSend(
+      (messageSaved) => settleDroppedSocketTurn(messageSaved ? pending : renamed, messageSaved),
+      DUPLICATE_TURN_POLLS,
+      duplicateTurnPollMs,
+    );
+  }, [followTakenSend, pendingSendRef, settleDroppedSocketTurn, streamingRef, wsAuthFallbackRef]);
+
+  const handleChatPayloadForChat = useCallback(
+    (boundChatId: string | null, payload: ChatSsePayload, ttftTurnId?: string | null) => {
+      if (!isCurrentView() || viewingChatIdRef.current !== boundChatId) return;
+      if (payload.type === "duplicate") followDuplicateSend();
+      else handleChatPayload(payload, ttftTurnId);
+    },
+    [followDuplicateSend, handleChatPayload, isCurrentView, viewingChatIdRef],
+  );
+
   const handleWsFallback = useCallback((
     transport: ChatWsTransport,
     signal: ChatWsFallbackSignal,
@@ -292,7 +318,18 @@ export function useChatIncomingEvents({
       }
     }
 
-    if (signal.reason === "first_event_timeout") {
+    // A probe found the socket dead before `start`: the send may or may not have
+    // arrived. A message carries its name, so the server runs a replay of it once.
+    const armed = wsAuthFallbackRef.current;
+    const unacknowledged =
+      signal.reason === "unresponsive" && signal.duringTurn && armed?.transport === transport;
+    if (unacknowledged && armed.idempotent) {
+      wsAuthFallbackRef.current = null;
+      void armed.retry();
+      return;
+    }
+
+    if (signal.reason === "first_event_timeout" || unacknowledged) {
       // No event does not prove the server missed the request. Retain the user
       // bubble and never replay this uncertain turn.
       wsAuthFallbackRef.current = null;

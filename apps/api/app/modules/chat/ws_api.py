@@ -1,7 +1,9 @@
 """The chat WebSocket: handshake limits, auth, then one frame at a time.
 
 A message or regenerate frame becomes a turn (``ws_turn``); the socket's own
-limits (frames, sockets per user, idle time) are ``ws_limits``.
+limits (frames, sockets per user, idle time) are ``ws_limits``. A ping is
+answered with a pong, and a message the server already took (its
+``client_message_id``) with ``duplicate`` instead of a second turn.
 """
 
 import asyncio
@@ -26,8 +28,11 @@ from app.exceptions import RedisUnavailableError
 from app.gateways.google_auth import GoogleAuthError
 from app.models.schemas import ChatMessageRequest
 from app.modules.chat import stream_entry, turn_deps
+from app.modules.chat.client_message import claim_client_message
 from app.modules.chat.stream_events import (
     SERVER_RESTARTING_MESSAGE,
+    build_duplicate_event,
+    build_pong_event,
     build_reasoning_event,
     build_status_event,
     turn_error_payload,
@@ -190,6 +195,19 @@ async def _handle_message(
         )
         return
 
+    try:
+        claim = await claim_client_message(
+            redis, user_id=user_id, chat_id=chat_id, client_message_id=request.client_message_id
+        )
+    except RedisUnavailableError as exc:
+        await safe_send_json(websocket, turn_error_payload(exc, user_message_saved=False))
+        return
+    if claim is None:
+        # A resend of a message an earlier turn took (its socket died before the
+        # phone heard ``start``): the phone follows that turn instead.
+        await safe_send_json(websocket, build_duplicate_event())
+        return
+
     def _message_stream(outcome: TurnOutcome) -> AsyncIterator[str]:
         return stream_entry.stream_chat_response(
             turn_deps.default_deps(),
@@ -213,6 +231,7 @@ async def _handle_message(
         stream_factory=_message_stream,
         chat_id=chat_id,
         frame_budget=frame_budget,
+        claim=claim,
     )
 
 
@@ -376,6 +395,11 @@ async def _dispatch(conn: _ChatSocket, payload: dict[str, Any]) -> bool:
     msg_type = payload.get("type")
     if msg_type == "cancel":
         conn.cancel_event.set()
+        return True
+    if msg_type == "ping":
+        # Counted by the frame budget like any frame; the phone pings on connect
+        # and when a send goes unanswered, never to keep an idle socket open.
+        await safe_send_json(websocket, build_pong_event())
         return True
     if msg_type not in _CHARGEABLE_WS_TYPES:
         return True

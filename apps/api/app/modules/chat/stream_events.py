@@ -129,6 +129,21 @@ def build_reasoning_event(content: str) -> dict[str, Any]:
     return {"type": "reasoning", "content": content}
 
 
+def build_duplicate_event() -> dict[str, Any]:
+    """In place of ``start``: an earlier send of this message (its ``client_message_id``)
+    already reached a turn. No second turn runs; the client follows the first."""
+    return {"type": "duplicate"}
+
+
+def build_pong_event() -> dict[str, Any]:
+    """The socket's answer to a client ``ping`` (WebSocket only): the connection is alive.
+
+    The phone pings once on connect (an answer says this server can be probed) and
+    again when a send goes unanswered.
+    """
+    return {"type": "pong"}
+
+
 class StreamEndEvent(BaseModel):
     """The token stream is done; ``done`` waits on the commit.
 

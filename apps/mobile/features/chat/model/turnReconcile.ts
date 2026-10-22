@@ -12,6 +12,18 @@ export const DROPPED_TURN_POLL_MS = 2_000;
 export const DROPPED_TURN_POLLS = 15;
 /** A dropped SSE stream: the server stopped the turn and saved what it had at once. */
 export const SSE_DROPPED_TURN_POLLS = 3;
+/**
+ * A resend the server answered `duplicate`: the turn it already took exists
+ * and may be long (reasoning, tools, a picture), so it is followed for about
+ * five minutes, polled less often as it goes (`duplicateTurnPollMs`).
+ */
+export const DUPLICATE_TURN_POLLS = 24;
+const DUPLICATE_TURN_POLL_MAX_MS = 15_000;
+
+/** The wait before poll `poll` (from 0) of a turn followed after `duplicate`. */
+export function duplicateTurnPollMs(poll: number): number {
+  return Math.min(DROPPED_TURN_POLL_MS * 1.5 ** poll, DUPLICATE_TURN_POLL_MAX_MS);
+}
 
 const SERVER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -58,17 +70,20 @@ export async function pollDroppedTurn({
   known,
   stillWaiting,
   polls = DROPPED_TURN_POLLS,
+  pollMs = () => DROPPED_TURN_POLL_MS,
   wait = sleep,
 }: {
   fetchPage: () => Promise<Message[]>;
   known: ReadonlySet<string>;
   stillWaiting: () => boolean;
   polls?: number;
+  /** The wait before each poll (from 0). */
+  pollMs?: (poll: number) => number;
   wait?: (ms: number) => Promise<void>;
 }): Promise<DroppedTurnResult | null> {
   let last: DroppedTurnResult = { state: "unknown", page: null };
   for (let poll = 0; poll < polls; poll += 1) {
-    await wait(DROPPED_TURN_POLL_MS);
+    await wait(pollMs(poll));
     if (!stillWaiting()) return null;
     try {
       const page = await fetchPage();
