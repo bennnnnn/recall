@@ -4,6 +4,8 @@ type DeviceGeo = {
   label: string | null;
   latitude: number;
   longitude: number;
+  /** A quick read's place name that missed its wait: the lookup's own result, when it ends. */
+  lateLabel?: Promise<string | null>;
 };
 
 type DeviceGeoRequestResult =
@@ -59,18 +61,24 @@ async function runWithLocationPermission<T>(
   }
 }
 
-/** A fix this recent and this close answers "near me" or "where am I" without a new one. */
-const RECENT_FIX_MAX_AGE_MS = 5 * 60_000;
+/**
+ * A fix this recent and this precise answers "near me" or "where am I" without
+ * a new one. Accuracy is not distance moved: two minutes on foot is a few hundred
+ * metres, so a fix taken faster than a brisk walk is not reused at all.
+ */
+const RECENT_FIX_MAX_AGE_MS = 2 * 60_000;
 const RECENT_FIX_ACCURACY_M = 500;
+const RECENT_FIX_MAX_SPEED_MPS = 2;
 /** With no recent fix, how long a send waits for a new one before going without. */
 const NEW_FIX_TIMEOUT_MS = 5_000;
 /** The place name is a nicety: coordinates alone serve the server. */
 const PLACE_NAME_TIMEOUT_MS = 1_500;
+const NAME_PENDING = Symbol("place name pending");
 
-/** `work`'s value, or null once `ms` pass first. */
-function within<T>(work: Promise<T>, ms: number): Promise<T | null> {
+/** `work`'s value, or `fallback` once `ms` pass first. */
+function within<T, F>(work: Promise<T>, ms: number, fallback: F): Promise<T | F> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => resolve(null), ms);
+    const timer = setTimeout(() => resolve(fallback), ms);
     work.then(
       (value) => { clearTimeout(timer); resolve(value); },
       (error: unknown) => { clearTimeout(timer); reject(error); },
@@ -80,10 +88,12 @@ function within<T>(work: Promise<T>, ms: number): Promise<T | null> {
 
 async function recentFix(Location: ExpoLocationModule) {
   try {
-    return await Location.getLastKnownPositionAsync({
+    const fix = await Location.getLastKnownPositionAsync({
       maxAge: RECENT_FIX_MAX_AGE_MS,
       requiredAccuracy: RECENT_FIX_ACCURACY_M,
     });
+    // Speed is null, or negative on iOS, when the fix does not know it.
+    return fix && (fix.coords.speed ?? 0) > RECENT_FIX_MAX_SPEED_MPS ? null : fix;
   } catch {
     return null;
   }
@@ -93,11 +103,9 @@ async function placeName(
   Location: ExpoLocationModule,
   latitude: number,
   longitude: number,
-  quick: boolean,
 ): Promise<string | null> {
   try {
-    const lookup = Location.reverseGeocodeAsync({ latitude, longitude });
-    const place = (quick ? await within(lookup, PLACE_NAME_TIMEOUT_MS) : await lookup)?.[0];
+    const place = (await Location.reverseGeocodeAsync({ latitude, longitude }))[0];
     if (!place) return null;
     const parts = [place.city, place.region, place.country].filter(
       (p): p is string => Boolean(p?.trim()),
@@ -111,16 +119,20 @@ async function placeName(
 
 /**
  * A new fix, or for a `quick` read (a chat send) a recent one when there is
- * one, and null when none comes within `NEW_FIX_TIMEOUT_MS`.
+ * one, and null when none comes within `NEW_FIX_TIMEOUT_MS`. A quick read's
+ * place name that is slower than `PLACE_NAME_TIMEOUT_MS` comes as `lateLabel`.
  */
 async function readDeviceGeo(Location: ExpoLocationModule, quick: boolean): Promise<DeviceGeo | null> {
   const newFix = () => Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
   const pos = quick
-    ? (await recentFix(Location)) ?? (await within(newFix(), NEW_FIX_TIMEOUT_MS))
+    ? (await recentFix(Location)) ?? (await within(newFix(), NEW_FIX_TIMEOUT_MS, null))
     : await newFix();
   if (!pos) return null;
   const { latitude, longitude } = pos.coords;
-  return { label: await placeName(Location, latitude, longitude, quick), latitude, longitude };
+  const naming = placeName(Location, latitude, longitude);
+  const label = quick ? await within(naming, PLACE_NAME_TIMEOUT_MS, NAME_PENDING) : await naming;
+  if (label === NAME_PENDING) return { label: null, latitude, longitude, lateLabel: naming };
+  return { label, latitude, longitude };
 }
 
 /**

@@ -9,7 +9,7 @@ import {
   SSE_DROPPED_TURN_POLLS,
 } from "@/features/chat/model/turnReconcile";
 import { WS_FIRST_EVENT_TIMEOUT_MS } from "@/features/chat/model/wsConnect";
-import { REPLY_SAVE_GRACE_MS } from "@/features/chat/hooks/useTurnStart";
+import { REPLY_SAVE_GRACE_MS, type DotsTicket } from "@/features/chat/hooks/useTurnStart";
 import { getStreamingDraft, resetStreamingDraftStore } from "@/lib/streamingDraftStore";
 
 const SERVER_USER_ID = "0190a000-0000-7000-8000-000000000001";
@@ -878,9 +878,12 @@ describe("useChat transport lifecycle", () => {
       contentType: "application/pdf", existingAttachmentId: "rejected-id",
     } };
     const error = { type: "error", code: "attachment_rejected", message: "File unavailable" };
-    (streamChatMessageSse as jest.Mock).mockImplementationOnce(async ({ onEvent }) => {
-      onEvent({ type: "start" }); onEvent(error);
-    });
+    // Queued only when SSE will take it: a leftover would answer a later test's send.
+    if (transport === "sse") {
+      (streamChatMessageSse as jest.Mock).mockImplementationOnce(async ({ onEvent }) => {
+        onEvent({ type: "start" }); onEvent(error);
+      });
+    }
     await render(<Probe chatId="a" />);
     const socket = transport === "ws" ? await openSocket() : null;
     await act(async () => {
@@ -982,20 +985,20 @@ describe("useChat transport lifecycle", () => {
     const sentTypes = (socket: FakeSocket) =>
       socket.send.mock.calls.map(([data]) => JSON.parse(data).type).filter(Boolean);
 
-    async function paint() {
-      let dots: (() => boolean) | null = null;
+    async function paint(row = bubble) {
+      let dots: DotsTicket | null = null;
       await act(async () => {
-        current.setMessages([bubble]);
+        current.setMessages([row]);
         dots = current.sendStart.beginDots();
       });
-      return dots as (() => boolean) | null;
+      return dots as DotsTicket | null;
     }
 
     it("go up under the painted bubble and stay for its send", async () => {
       await render(<Probe chatId="a" />);
       const socket = await openSocket();
       const dots = await paint();
-      expect(dots?.()).toBe(true);
+      expect(dots?.current()).toBe(true);
       expect(current.streaming).toBe(true);
       expect(current.messages.map((message) => message.id)).toEqual(["local-1", "streaming"]);
       expect(sentTypes(socket)).toEqual([]);
@@ -1023,7 +1026,7 @@ describe("useChat transport lifecycle", () => {
       await act(async () => { socket.emit({ type: "stream_end" }); });
       expect(current.sendStart.beginDots()).toBeNull();
       await act(async () => { socket.emit({ type: "done", message_id: "saved", final_content: "reply" }); });
-      let dots: (() => boolean) | null = null;
+      let dots: DotsTicket | null = null;
       await act(async () => { dots = current.sendStart.beginDots(); });
       expect(dots).not.toBeNull();
     });
@@ -1032,8 +1035,8 @@ describe("useChat transport lifecycle", () => {
       await render(<Probe chatId="a" />);
       const socket = await openSocket();
       const dots = await paint();
-      await act(async () => { current.sendStart.cancelDots(); });
-      expect(dots?.()).toBe(false);
+      await act(async () => { dots?.cancel(); });
+      expect(dots?.current()).toBe(false);
       expect(current.streaming).toBe(false);
       expect(current.messages.map((message) => message.id)).toEqual(["local-1"]);
       await act(async () => { await current.sendMessage("next"); });
@@ -1046,9 +1049,59 @@ describe("useChat transport lifecycle", () => {
       await openSocket();
       const dots = await paint();
       await act(async () => { current.stopGeneration(); });
-      expect(dots?.()).toBe(false);
+      expect(dots?.current()).toBe(false);
       expect(current.streaming).toBe(false);
       expect(current.messages.map((message) => message.id)).toEqual(["local-1"]);
+    });
+
+    it("taken down late from a chat left behind, leave the next chat's dots and send alone", async () => {
+      // A's send waits on a slow upload; the user opens B and sends there first.
+      const view = await render(<Probe chatId="a" />);
+      await openSocket();
+      const inA = await paint({ ...bubble, id: "local-a" });
+      await act(async () => { view.rerender(<Probe chatId="b" />); });
+      const socketB = await openSocket();
+      const inB = await paint({ ...bubble, id: "local-b", content: "question in b" });
+      await act(async () => { inA?.cancel(); });
+      expect(inB?.current()).toBe(true);
+      expect(current.streaming).toBe(true);
+      let sent: boolean | undefined;
+      await act(async () => {
+        sent = await current.sendMessage("question in b", { skipUserBubble: true, trackSendingMessageId: "local-b" });
+      });
+      expect(sent).toBe(true);
+      expect(sentTypes(socketB)).toEqual(["message"]);
+      expect(current.messages.map((message) => message.id)).toEqual(["local-b", "streaming"]);
+    });
+
+    it("are not borrowed: a send with none of its own is refused while another turn runs, and says so", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      await sendAndStream(socket);
+      await act(async () => {
+        socket.emit({ type: "stream_end" });
+        socket.emit({ type: "done", message_id: "saved", final_content: "reply" });
+      });
+      // A waiting send's upload ends after Regenerate was tapped.
+      await act(async () => { current.beginRegenerateUi(); });
+      let sent: boolean | undefined;
+      await act(async () => {
+        sent = await current.sendMessage("next", { skipUserBubble: true, trackSendingMessageId: "local-2" });
+      });
+      expect(sent).toBe(false);
+      expect(sentTypes(socket)).toEqual(["message"]);
+      expect(current.messages.some((message) => message.id === "local-2")).toBe(false);
+    });
+
+    it("go up with a painted bubble put back when a reload took it away", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      await act(async () => {
+        await current.sendMessage("question", { skipUserBubble: true, trackSendingMessageId: "local-1" });
+      });
+      expect(current.messages.map((message) => message.id)).toEqual(["local-1", "streaming"]);
+      expect(current.messages[0]).toMatchObject({ role: "user", content: "question" });
+      expect(sentTypes(socket)).toEqual(["message"]);
     });
 
     it("leave a stopped turn's socket first, so its late frames reach nothing", async () => {
@@ -1071,6 +1124,10 @@ describe("useChat transport lifecycle", () => {
 
   describe("a send made while the last reply saves", () => {
     const next = { id: "local-2", role: "user" as const, content: "next", model: null, created_at: "later" };
+    const savedTurn = [
+      { id: SERVER_USER_ID, role: "user" as const, content: "question", model: null, created_at: "t1" },
+      { id: SERVER_REPLY_ID, role: "assistant" as const, content: "reply, checked", model: null, created_at: "t2" },
+    ];
     const messageFrames = (socket: FakeSocket) =>
       socket.send.mock.calls.map(([data]) => JSON.parse(data)).filter((frame) => frame.type === "message");
 
@@ -1148,10 +1205,12 @@ describe("useChat transport lifecycle", () => {
       });
       await act(async () => { await queued.waiting; });
       expect(onError).toHaveBeenCalledWith("Failed to save the response. Please retry.", undefined);
-      expect(current.messages[1]).toMatchObject({ content: "reply", generationStopped: true });
+      // The reply says so itself: the banner goes when the next turn starts.
+      expect(current.messages[1]).toMatchObject({ content: "reply", replyNotSaved: true });
+      expect(current.messages[1].generationStopped).toBeUndefined();
       expect(current.messages[2].id).toBe("local-2");
       // As after any reply kept partial, the next turn takes a new socket.
-      let sending!: Promise<void>;
+      let sending!: Promise<boolean>;
       await act(async () => {
         sending = current.sendMessage("next", { skipUserBubble: true, trackSendingMessageId: "local-2" });
       });
@@ -1162,19 +1221,27 @@ describe("useChat transport lifecycle", () => {
       expect(current.streaming).toBe(true);
     });
 
-    it("settles a reply whose done never comes after the grace, on a new socket", async () => {
+    it("reloads a reply whose done never comes after the grace, then goes out on a new socket", async () => {
+      listMessages.mockResolvedValue({ messages: savedTurn, has_more: false });
       await render(<Probe chatId="a" />);
       const old = await openSocket();
       const queued = await paintWhileSaving(old);
       await act(async () => { jest.advanceTimersByTime(REPLY_SAVE_GRACE_MS - 1); });
       expect(queued.settled()).toBe(false);
       await act(async () => { jest.advanceTimersByTime(1); });
-      await act(async () => { await queued.waiting; });
+      // The quiet connection is left, and the chat reloads until the saved reply is in.
       expect(old.close).toHaveBeenCalled();
+      expect(queued.settled()).toBe(false);
+      await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+      await act(async () => { await queued.waiting; });
+      expect(listMessages).toHaveBeenCalledTimes(1);
       expect(current.finalizing).toBe(false);
-      expect(current.messages[1]).toMatchObject({ id: expect.stringMatching(/^streamed-/), content: "reply" });
+      // The saved reply (its checked text, not the raw stream) above the waiting bubble.
+      expect(current.messages.map((message) => message.id)).toEqual([SERVER_USER_ID, SERVER_REPLY_ID, "local-2"]);
+      expect(current.messages[1].content).toBe("reply, checked");
+      expect(onError).not.toHaveBeenCalled();
 
-      let sending!: Promise<void>;
+      let sending!: Promise<boolean>;
       await act(async () => {
         sending = current.sendMessage("next", { skipUserBubble: true, trackSendingMessageId: "local-2" });
       });
@@ -1189,6 +1256,47 @@ describe("useChat transport lifecycle", () => {
       expect(messageFrames(fresh).map((frame) => frame.content)).toEqual(["next"]);
       expect(current.streaming).toBe(true);
       expect(current.messages.some((message) => message.id === "saved-1")).toBe(false);
+    });
+
+    it("reloads a reply that streamed no text (a photo answer) rather than dropping it", async () => {
+      listMessages.mockResolvedValue({ messages: savedTurn, has_more: false });
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      await act(async () => {
+        await current.sendMessage("question");
+        socket.emit({ type: "start" });
+        jest.advanceTimersByTime(20);
+      });
+      await act(async () => { socket.emit({ type: "stream_end" }); });
+      let waiting!: Promise<void>;
+      await act(async () => {
+        current.setMessages((rows) => [...rows, next]);
+        waiting = current.sendStart.whenReplySettled("local-2");
+      });
+      await act(async () => { jest.advanceTimersByTime(REPLY_SAVE_GRACE_MS); });
+      await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+      await act(async () => { await waiting; });
+      expect(current.messages.map((message) => message.id)).toEqual([SERVER_USER_ID, SERVER_REPLY_ID, "local-2"]);
+    });
+
+    it("keeps the waiting bubble when the connection drops while the reply saves", async () => {
+      listMessages.mockResolvedValue({ messages: savedTurn, has_more: false });
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      const queued = await paintWhileSaving(socket);
+      await act(async () => { socket.onclose(); });
+      await act(async () => { await jest.advanceTimersByTimeAsync(DROPPED_TURN_POLL_MS); });
+      await act(async () => { await queued.waiting; });
+      expect(queued.settled()).toBe(true);
+      expect(current.messages.map((message) => message.id)).toEqual([SERVER_USER_ID, SERVER_REPLY_ID, "local-2"]);
+
+      // A dropped socket sends the next turn over SSE, under the bubble it kept.
+      (streamChatMessageSse as jest.Mock).mockResolvedValueOnce(undefined);
+      await sendNext();
+      expect(streamChatMessageSse).toHaveBeenCalledWith(expect.objectContaining({ content: "next" }));
+      expect(current.messages.map((message) => message.id)).toEqual([
+        SERVER_USER_ID, SERVER_REPLY_ID, "local-2", "streaming",
+      ]);
     });
 
     it("waits for a regenerated reply's done the same way", async () => {
@@ -1218,6 +1326,37 @@ describe("useChat transport lifecycle", () => {
       await act(async () => { await waiting; });
       expect(current.messages.map((message) => message.id)).toEqual([expect.stringMatching(/^local-/), "saved-again"]);
       expect(current.messages[1].content).toBe("better answer");
+    });
+
+    it("puts a regenerated reply's old answer back above the waiting bubble when its save fails", async () => {
+      await render(<Probe chatId="a" />);
+      const socket = await openSocket();
+      await act(async () => {
+        current.setMessages([
+          { id: "u1", role: "user", content: "q1", model: null, created_at: "t1" },
+          { id: "r1", role: "assistant", content: "old answer", model: null, created_at: "t2" },
+        ]);
+      });
+      await act(async () => {
+        current.beginRegenerateUi();
+        await current.regenerateResponse();
+        socket.emit({ type: "start" });
+        socket.emit({ type: "token", content: "new answer" });
+        jest.advanceTimersByTime(20);
+        socket.emit({ type: "stream_end" });
+      });
+      let waiting!: Promise<void>;
+      await act(async () => {
+        current.setMessages((rows) => [...rows, next]);
+        waiting = current.sendStart.whenReplySettled("local-2");
+      });
+      await act(async () => {
+        socket.emit({ type: "error", message: "Failed to save the response. Please retry.", user_message_saved: true });
+      });
+      await act(async () => { await waiting; });
+      expect(current.messages.map((message) => `${message.id}:${message.content}`)).toEqual([
+        "u1:q1", "r1:old answer", "local-2:next",
+      ]);
     });
 
     it("waits for nothing after Stop", async () => {

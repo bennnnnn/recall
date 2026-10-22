@@ -14,20 +14,30 @@ import type { StreamingDraft } from "@/lib/streamingDraftStore";
  * After `stream_end` a reply's text is all here and only its save is left, which
  * takes a tenth of a second; the server stops waiting on it after 10 s and sends
  * `done` anyway (stream_events.DONE_COMMIT_WAIT_SECONDS). A send still waiting
- * past this settles the reply itself rather than wait on a connection gone quiet.
+ * past this leaves that quiet connection and reloads the chat for the saved
+ * reply, as after a drop, rather than wait on it.
  */
 export const REPLY_SAVE_GRACE_MS = 12_000;
+
+/** Typing dots one send raised with its bubble, before the send went out. */
+export type DotsTicket = {
+  /** Still this send's: no Stop, other turn or other view has taken them down. */
+  current: () => boolean;
+  /**
+   * Takes these dots down: the send went to image generation, or nowhere. A
+   * no-op once they are not this send's, so a late call (say from a chat the
+   * user has left) never touches another send's dots.
+   */
+  cancel: () => void;
+};
 
 /** What the composer sees of a turn before it goes out. */
 export type SendTurnStart = {
   /**
-   * Typing dots under a bubble just painted, in the same frame. The guard turns
-   * false once Stop, another turn or a new view takes them down. Null when they
+   * Typing dots under a bubble just painted, in the same frame. Null when they
    * cannot go up yet: no chat is open, or a reply is still streaming or saving.
    */
-  beginDots: () => (() => boolean) | null;
-  /** Takes the dots down: the send went to image generation, or nowhere. */
-  cancelDots: () => void;
+  beginDots: () => DotsTicket | null;
   /**
    * Resolves once no reply streams or saves: a send made after the last reply's
    * `stream_end` goes out after its `done`, so that `done` never lands on the new
@@ -51,7 +61,7 @@ type Options = {
   appendStreamingPlaceholder: () => void;
   clearStreamingBubble: () => void;
   dropSocket: () => void;
-  /** Settle a saving reply as its `done` would without an id, the server's own fallback. */
+  /** A saving reply whose `done` never came: leave its connection and reload the chat for it. */
   settleUnconfirmedReply: () => void;
 };
 
@@ -128,35 +138,37 @@ export function useTurnStart({
     stoppedStreamedIdRef.current = null;
   }, [stoppedStreamedIdRef, dropSocket]);
 
-  const beginDots = useCallback(() => {
+  const beginDots = useCallback((): DotsTicket | null => {
     if (!canStart || !isCurrentView() || streamingRef.current || finalizingRef.current) return null;
     const attempt = ++sendAttemptRef.current;
     earlyDotsRef.current = attempt;
     leaveStoppedTurn();
     showDots();
-    return () => isCurrentView() && sendAttemptRef.current === attempt;
-  }, [canStart, isCurrentView, streamingRef, finalizingRef, sendAttemptRef, leaveStoppedTurn, showDots]);
+    const current = () => isCurrentView() && sendAttemptRef.current === attempt;
+    const cancel = () => {
+      if (earlyDotsRef.current === attempt) earlyDotsRef.current = null;
+      if (!current()) return;
+      sendAttemptRef.current += 1;
+      setStreaming(false);
+      streamingRef.current = false;
+      clearStreamingBubble();
+    };
+    return { current, cancel };
+  }, [
+    canStart, isCurrentView, streamingRef, finalizingRef, sendAttemptRef, leaveStoppedTurn, showDots, setStreaming,
+    clearStreamingBubble,
+  ]);
 
-  const cancelDots = useCallback(() => {
-    const attempt = earlyDotsRef.current;
-    earlyDotsRef.current = null;
-    if (attempt === null || attempt !== sendAttemptRef.current || !isCurrentView()) return;
-    sendAttemptRef.current += 1;
-    setStreaming(false);
-    streamingRef.current = false;
-    clearStreamingBubble();
-  }, [sendAttemptRef, isCurrentView, setStreaming, streamingRef, clearStreamingBubble]);
-
-  /** True when this send's dots are already up: its dispatch keeps them. */
+  /** True when the dots up now are this dispatch's (the attempt that raised them is still the latest). */
   const takeEarlyDots = useCallback(() => {
-    const attempt = earlyDotsRef.current;
-    earlyDotsRef.current = null;
-    return attempt !== null && attempt === sendAttemptRef.current;
+    const mine = earlyDotsRef.current !== null && earlyDotsRef.current === sendAttemptRef.current;
+    if (mine) earlyDotsRef.current = null;
+    return mine;
   }, [sendAttemptRef]);
 
   const sendStart = useMemo<SendTurnStart>(
-    () => ({ beginDots, cancelDots, whenReplySettled }),
-    [beginDots, cancelDots, whenReplySettled],
+    () => ({ beginDots, whenReplySettled }),
+    [beginDots, whenReplySettled],
   );
   return { showDots, leaveStoppedTurn, takeEarlyDots, sendStart };
 }

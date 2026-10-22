@@ -133,6 +133,8 @@ function unsavedReason(payload: ChatSsePayload): RejectedSend["reason"] | null {
 }
 
 const error: ChatEventHandler = (payload, ctx, ttftTurnId) => {
+  // After `stream_end` only the save was left: the reply came whole and failed to save.
+  const saveFailed = ctx.finalizingRef.current;
   ctx.streamCueRef.current.error();
   reportTurnOutcome("error", typeof payload.code === "string" ? payload.code : undefined);
   // No consent to outside AI on the account: the consent screen opens, and the
@@ -174,7 +176,8 @@ const error: ChatEventHandler = (payload, ctx, ttftTurnId) => {
               id: keptId,
               content: partial,
               search_sources: draft?.search_sources ?? m.search_sources,
-              generationStopped: true,
+              // Said on the reply itself, where it outlasts the banner the next turn clears.
+              ...(saveFailed ? { replyNotSaved: true } : { generationStopped: true }),
             }
           : m,
       );
@@ -244,6 +247,7 @@ const CHAT_EVENT_HANDLERS: Record<ChatEventType, ChatEventHandler> = {
     ctx.pendingSendRef.current = null;
     noteTurnSendReady();
     ctx.setFinalizing(true);
+    ctx.finalizingRef.current = true;
     if (typeof payload.resolved_model === "string" && payload.resolved_model) {
       ctx.setMessages((prev) => applyStreamEndModel(prev, payload.resolved_model));
     }

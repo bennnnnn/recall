@@ -93,6 +93,7 @@ describe("chat_turn_outcome (O10.1)", () => {
       setMessages: jest.fn(),
       updateStreamingDraft: jest.fn(),
       streamingRef: { current: true },
+      finalizingRef: { current: false },
       streamCueRef: { current: { activity: jest.fn() } },
       pendingSendRef: { current: null },
       assistantBufferRef: { current: "" },
@@ -104,6 +105,8 @@ describe("chat_turn_outcome (O10.1)", () => {
     applyChatEvent({ type: "token", content: "lo" }, ctx);
     now.mockReturnValue(1_350);
     applyChatEvent({ type: "stream_end" }, ctx);
+    // Saving from this frame on: a send now waits on it at once, not after a render.
+    expect(ctx.finalizingRef.current).toBe(true);
     now.mockReturnValue(9_000);
     noteTurnSendReady();
     expect(turnOutcomeProperties("complete").send_ready_bucket).toBe("250_499");

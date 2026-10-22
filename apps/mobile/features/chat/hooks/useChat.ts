@@ -166,26 +166,18 @@ export function useChat(
     regenerateUiActiveRef.current = false;
     const backup = regenerateBackupRef.current;
     regenerateBackupRef.current = null;
+    // Into the replacement's place, so a message sent meanwhile stays below it.
+    setMessages((prev) => restoreAssistantMessage(prev, backup));
     clearStreamingBubble();
     setStreaming(false);
     setFinalizing(false);
     streamingRef.current = false;
     finalizingRef.current = false;
-    if (backup) {
-      setMessages((prev) => restoreAssistantMessage(prev, backup));
-    }
   }, [clearStreamingBubble, isCurrentView]);
 
   const appendStreamingPlaceholder = useCallback(() => {
     setMessages((prev) => withStreamingPlaceholder(prev));
   }, []);
-  const { showDots, leaveStoppedTurn, takeEarlyDots, sendStart } = useTurnStart({
-    canStart: Boolean(token && chatId), isCurrentView, streaming, finalizing, streamingRef, finalizingRef,
-    sendAttemptRef, stoppedStreamedIdRef, setStreaming, setSendingMessageId, updateStreamingDraft,
-    appendStreamingPlaceholder, clearStreamingBubble, dropSocket,
-    // A late `done` then reaches nothing: the socket and stream it would come on are closed.
-    settleUnconfirmedReply: () => { dropSocket(); abortSse(); payloadHandlerRef.current(chatId, { type: "done" }); },
-  });
 
   /** Server never saved this user turn — drop the optimistic bubble and keep Retry. */
   const queueUnsavedSend = useCallback((pending: PendingSend, reason: RejectedSend["reason"]) => {
@@ -263,6 +255,7 @@ export function useChat(
     handleWsFallback,
     handleSendFailure,
     handleRegenerateFailure,
+    reconcileUnconfirmedReply,
   } = useChatIncomingEvents({
     t,
     token,
@@ -300,6 +293,13 @@ export function useChat(
     viewingChatIdRef,
     rejectedSendsRef,
   });
+  const { showDots, leaveStoppedTurn, takeEarlyDots, sendStart } = useTurnStart({
+    canStart: Boolean(token && chatId), isCurrentView, streaming, finalizing, streamingRef, finalizingRef,
+    sendAttemptRef, stoppedStreamedIdRef, setStreaming, setSendingMessageId, updateStreamingDraft,
+    appendStreamingPlaceholder, clearStreamingBubble, dropSocket,
+    // A late `done` then reaches nothing: the socket and stream it would come on are closed.
+    settleUnconfirmedReply: () => { dropSocket(); abortSse(); reconcileUnconfirmedReply(); },
+  });
 
   const ensureConnected = useCallback(async () => {
     try {
@@ -309,37 +309,36 @@ export function useChat(
     }
   }, [connectTransport, reportError, t]);
 
+  /** False only when refused before anything showed; past that, whatever ends the turn owns its bubble. */
   const dispatchSend = useCallback(
     async (
       content: string,
       options?: SendMessageOptions,
       rejectedRetry?: RejectedSend,
-    ) => {
+    ): Promise<boolean> => {
       const keepDots = takeEarlyDots();
       const busy = streamingRef.current || finalizingRef.current;
-      if (!token || !chatId || !isCurrentView() || (busy && !keepDots)) return;
+      if (!token || !chatId || !isCurrentView() || (busy && !keepDots)) return false;
       streamCueRef.current.reset();
       const attempt = ++sendAttemptRef.current;
       leaveStoppedTurn();
 
-      let trackedId = options?.trackSendingMessageId ?? null;
-      if (!options?.skipUserBubble) {
-        const localId = `local-${Date.now()}-${attempt}`;
-        trackedId = localId;
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: localId,
-            role: "user",
-            content,
-            model: null,
-            local_image_uri: options?.localImageUri ?? null,
-            local_file_uri: options?.localFileUri ?? null,
-            local_file_name: options?.localFileName ?? null,
-            local_file_content_type: options?.localFileContentType ?? null,
-            created_at: new Date().toISOString(),
-          },
-        ]);
+      // Its own bubble, or the one painted at the tap again if a reload took it away.
+      const bubbleId = options?.skipUserBubble ? options.trackSendingMessageId : `local-${Date.now()}-${attempt}`;
+      const trackedId = bubbleId ?? null;
+      if (bubbleId) {
+        const bubble: Message = {
+          id: bubbleId,
+          role: "user",
+          content,
+          model: null,
+          local_image_uri: options?.localImageUri ?? null,
+          local_file_uri: options?.localFileUri ?? null,
+          local_file_name: options?.localFileName ?? null,
+          local_file_content_type: options?.localFileContentType ?? null,
+          created_at: new Date().toISOString(),
+        };
+        setMessages((prev) => (prev.some((message) => message.id === bubbleId) ? prev : [...prev, bubble]));
       }
       pendingSendRef.current = {
         content,
@@ -365,7 +364,7 @@ export function useChat(
       showDots(options?.attachmentIds?.length ? "reading_files" : undefined);
 
       await ensureConnected();
-      if (!isCurrentView() || sendAttemptRef.current !== attempt) return;
+      if (!isCurrentView() || sendAttemptRef.current !== attempt) return true;
       if (rejectedRetry) {
         // Keep recovery available while the handshake is pending: navigation
         // can still prevent dispatch. Consume it only when sending can begin.
@@ -385,7 +384,7 @@ export function useChat(
           clientGeo: options?.clientGeo,
           ttftTurnId: trackedId,
         });
-        return;
+        return true;
       }
 
       wsAuthFallbackRef.current = {
@@ -403,6 +402,7 @@ export function useChat(
         model: options?.model ?? null,
         ...clientGeoWsFields(options?.clientGeo),
       });
+      return true;
     },
     [token, chatId, ensureConnected, takeEarlyDots, leaveStoppedTurn, showDots, sendViaSse, isCurrentView, currentSocket],
   );
@@ -528,9 +528,7 @@ export function useChat(
       const streamingMsg = prev.find((m) => m.id === "streaming");
       if (!streamingMsg) return prev;
       const content = draft?.content ?? streamingMsg.content;
-      if (!content.trim()) {
-        return restoreAssistantMessage(prev.filter((m) => m.id !== "streaming"), backup);
-      }
+      if (!content.trim()) return restoreAssistantMessage(prev, backup);
       return prev.map((m) =>
         m.id === "streaming"
           ? {

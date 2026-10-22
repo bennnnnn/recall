@@ -108,7 +108,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   time/location answers skip a database checkout.
 - ✅ **Stop generation** — cancel mid-stream (send button becomes a stop button, until the
   reply's text is all in: at `stream_end` Send works again, and a turn sent then goes out
-  once that reply's `done` lands); the partial reply
+  once that reply's `done` lands, or once a reload finds the saved reply when no `done`
+  comes in 12 s; a reply whose save fails then says “This reply wasn’t saved.”); the partial reply
   is kept and marked incomplete (same “Generation stopped.” footer as a provider
   drop or token-limit cut). The kept text never changes after Stop: the cancel frame
   says how much the phone drew (`shown_chars`), the server saves that text made safe

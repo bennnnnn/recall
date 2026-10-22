@@ -213,13 +213,7 @@ export function useChatIncomingEvents({
     setMessages((prev) => {
       const streamingMsg = prev.find((m) => m.id === "streaming");
       if (!streamingMsg) return prev;
-      if (!hadContent) {
-        const withoutStreaming = prev.filter((m) => m.id !== "streaming");
-        if (failedRegenerateBackup) {
-          return restoreAssistantMessage(withoutStreaming, failedRegenerateBackup);
-        }
-        return withoutStreaming;
-      }
+      if (!hadContent) return restoreAssistantMessage(prev, failedRegenerateBackup);
       return prev.map((m) =>
         m.id === "streaming"
           ? {
@@ -260,6 +254,21 @@ export function useChatIncomingEvents({
     ttftTurnIdRef,
     updateStreamingDraft,
   ]);
+
+  /**
+   * A reply past `stream_end` whose `done` never came (its connection gone quiet):
+   * the server has the turn, so reload the chat until the saved reply lands, as
+   * after a drop. A regenerated reply has no new message to find there; it settles
+   * as a dropped one at once.
+   */
+  const reconcileUnconfirmedReply = useCallback(() => {
+    if (!finalizingRef.current) return;
+    if (regenerateBackupRef.current) {
+      settleDroppedSocketTurn(null, true);
+      return;
+    }
+    followTakenSend((messageSaved) => settleDroppedSocketTurn(null, messageSaved));
+  }, [finalizingRef, regenerateBackupRef, settleDroppedSocketTurn, followTakenSend]);
 
   const handleWsFallback = useCallback((
     transport: ChatWsTransport,
@@ -418,5 +427,6 @@ export function useChatIncomingEvents({
     handleWsFallback,
     handleSendFailure,
     handleRegenerateFailure,
+    reconcileUnconfirmedReply,
   };
 }

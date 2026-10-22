@@ -61,8 +61,9 @@ function ChatScreen() {
   const draft = useDraftChat({ token, chatId });
   const { isPaid, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
   useHomeRefreshOnChatFocus(routeChatId, chatId);
-  const { chatError, handleChatError, handleStreamBusy, dismissChatError, handleRejectedSendChange } =
-    useChatErrorHandlers(isPaid);
+  const {
+    chatError, handleChatError, handleStreamBusy, dismissChatError, dismissBusyNotice, handleRejectedSendChange,
+  } = useChatErrorHandlers(isPaid);
   const activeChatId = draft.activeChatId;
 
   const onFirstReplyRef = useRef<(id?: string | null) => Promise<void>>(async () => {});
@@ -240,7 +241,9 @@ function ChatScreen() {
 
   const quotaNudge = useChatStreamLifecycle({
     streamActive,
+    replySaving: finalizing,
     dismissChatError,
+    dismissBusyNotice,
     token,
     isPaid,
   });

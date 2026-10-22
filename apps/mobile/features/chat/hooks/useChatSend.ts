@@ -45,7 +45,8 @@ type ChatSendPhase =
   | "uploading"
   | "creating";
 
-type SendMessageFn = (text: string, opts?: SendMessageOptions) => void;
+/** False when the chat refused the send before showing it. */
+type SendMessageFn = (text: string, opts?: SendMessageOptions) => Promise<boolean>;
 
 /** A send waiting for its new chat's id; dropped if the view moves on first. */
 type PendingChatSend = ReturnType<typeof buildPendingSendAfterCreate> & {
@@ -198,6 +199,10 @@ export function useChatSend({
     applyQueued();
     return subscribeComposerAttachmentQueue(applyQueued);
   }, [composerThread, token, session, replacePendingAttachment]);
+  const restoreFailedSend = useRestoreFailedSend({
+    token, setMessages, newMessageCountRef, pendingAttachmentRef, setPendingAttachment,
+    stashAttachmentForThread, setPendingOutboundId, sendInFlightRef, setSendPhase, t,
+  });
   useEffect(() => {
     if (
       pendingSend &&
@@ -231,7 +236,7 @@ export function useChatSend({
         model,
       } = pendingSend;
       setPendingSend(null);
-      sendMessage(text, {
+      const sending = sendMessage(text, {
         skipUserBubble,
         trackSendingMessageId,
         attachmentIds,
@@ -246,8 +251,24 @@ export function useChatSend({
       setPendingOutboundId(null);
       sendInFlightRef.current = false;
       setSendPhase("idle");
+      // Refused before it showed: the draft comes back to the new chat's composer.
+      const isCurrentSession = () => session === getSessionGeneration();
+      const turn: SendTurn = {
+        text: composerDraft.text.trim(),
+        composerText: composerDraft.text,
+        attachment: composerDraft.attachment,
+        threadKey: chatId,
+        isCurrentSession,
+        isCurrentView: () => isCurrentSession() && getThreadKey() === chatId,
+      };
+      void sending.then((sent) => {
+        if (!sent) restoreFailedSend(turn, trackSendingMessageId, composerDraft.attachment);
+      });
     }
-  }, [chatId, routeChatId, session, pendingSend, sendMessage, stashFailedDraftForThread, stashAttachmentForThread, getThreadKey]);
+  }, [
+    chatId, routeChatId, session, pendingSend, sendMessage, stashFailedDraftForThread, stashAttachmentForThread,
+    getThreadKey, restoreFailedSend,
+  ]);
 
   /** Clears the composer and paints the user's bubble, with typing dots when they can go up. */
   const paintUserTurn = useCallback((text: string, attached: PendingAttachment | null, tappedAt: number) => {
@@ -274,13 +295,8 @@ export function useChatSend({
     ]);
     newMessageCountRef.current += 1;
     requestAnimationFrame(() => markChatBubblePainted(optimisticId));
-    return { optimisticId, dotsCurrent: sendStart.beginDots() };
+    return { optimisticId, dots: sendStart.beginDots() };
   }, [setInput, setPendingAttachment, setMessages, newMessageCountRef, sendStart]);
-
-  const restoreFailedSend = useRestoreFailedSend({
-    token, setMessages, newMessageCountRef, pendingAttachmentRef, setPendingAttachment,
-    stashAttachmentForThread, setPendingOutboundId, sendInFlightRef, setSendPhase,
-  });
 
   /** A send to a chat that does not exist yet: it waits for the new chat's id. */
   const sendToNewChat = useCallback(

@@ -3,7 +3,7 @@ import { useCallback, type MutableRefObject } from "react";
 import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
 import { useActionFeedbackOptional } from "@/contexts/ActionFeedbackContext";
 import type { SendTurn } from "@/features/chat/hooks/useRestoreFailedSend";
-import type { SendTurnStart } from "@/features/chat/hooks/useTurnStart";
+import type { DotsTicket, SendTurnStart } from "@/features/chat/hooks/useTurnStart";
 import { uploadSendAttachment } from "@/features/chat/hooks/useSendAttachment";
 import { buildPendingSendAfterCreate, type SendMessageOptions } from "@/features/chat/model/sendLogic";
 import { clearPendingChatTtft } from "@/features/chat/model/latency";
@@ -19,13 +19,13 @@ import type { Message, User } from "@/lib/api";
 /** A send whose bubble, and typing dots when they could go up, are on screen. */
 export type PaintedSend = SendTurn & {
   optimisticId: string;
-  /** Whether the dots that went up with the bubble are still this send's; null when none did. */
-  dotsCurrent: (() => boolean) | null;
+  /** The typing dots that went up with the bubble; null when none could. */
+  dots: DotsTicket | null;
   /** The composer view at the tap; a new chat's send is dropped if the view moves on first. */
   version: number;
 };
 
-type SendPhase = "idle" | "uploading" | "creating";
+type SendPhase = "idle" | "preparing" | "uploading" | "creating";
 type PendingChatSend = ReturnType<typeof buildPendingSendAfterCreate>;
 
 type Options = {
@@ -35,7 +35,8 @@ type Options = {
   selectedModel: string;
   imageGenerating: boolean;
   onGenerateImage?: (request: ImageGenSubmit) => void;
-  sendMessage: (text: string, opts?: SendMessageOptions) => void;
+  /** False when the chat refused the send before showing it (say, a regenerate began). */
+  sendMessage: (text: string, opts?: SendMessageOptions) => Promise<boolean>;
   sendStart: SendTurnStart;
   updateUser: (patch: Partial<User>) => Promise<void>;
   /** The profile's location switch is already on: the turn need not wait for it to save. */
@@ -53,13 +54,24 @@ type Options = {
 };
 
 /**
+ * Everything a painted send waits on before it is handed over, in one place. With
+ * no dots at the tap the last reply was still saving (after its `stream_end`): the
+ * send goes after that reply's `done`. Another wait joins this list as one more
+ * promise.
+ */
+function dispatchGates(send: PaintedSend, sendStart: SendTurnStart): Promise<unknown> {
+  const gates: Promise<void>[] = [];
+  if (!send.dots) gates.push(sendStart.whenReplySettled(send.optimisticId));
+  return Promise.all(gates);
+}
+
+/**
  * Where a send goes once its bubble is painted: the server reads whether it is a
  * picture (POST /images/intent) while the bubble is already up, then a picture is
  * handed to image generation under that bubble, and anything else goes to chat
- * once its location, file and drafts are ready. A send made while the last reply
- * only saves (after its `stream_end`) does all that at once and goes out after
- * that reply's `done`. A send stopped on the way takes its bubble and dots back
- * and returns the draft, so nothing is lost or left behind.
+ * once its location, file and drafts are ready. Either way it waits on its
+ * `dispatchGates` meanwhile. A send stopped or refused on the way takes its bubble
+ * and dots back and returns the draft, so nothing is lost or left behind.
  */
 export function useChatSendRoute({
   token,
@@ -100,7 +112,7 @@ export function useChatSendRoute({
         }
         feedback?.error(t("chat.restore_draft_blocked"));
       };
-      sendStart.cancelDots();
+      send.dots?.cancel();
       // A picture has no first token: its time-to-first-token sample is dropped.
       clearPendingChatTtft(send.optimisticId);
       onGenerateImage?.({
@@ -119,21 +131,26 @@ export function useChatSendRoute({
     },
     [
       getThreadKey, stashFailedDraftForThread, pendingAttachmentRef, inputRef, setInput, setPendingAttachment,
-      feedback, t, sendStart, onGenerateImage, setPendingOutboundId, sendInFlightRef, setSendPhase,
+      feedback, t, onGenerateImage, setPendingOutboundId, sendInFlightRef, setSendPhase,
     ],
   );
 
   return useCallback(
     async (send: PaintedSend) => {
       const drafts = flushEmailDrafts();
-      // No dots could go up while the last reply saves: hand over after its `done`.
-      const replySettled = send.dotsCurrent ? null : sendStart.whenReplySettled(send.optimisticId);
+      // Started now, so a bubble that waits says "Sending" from the first beat.
+      const gates = dispatchGates(send, sendStart);
       let attached = send.attachment;
       const giveBack = () => {
-        sendStart.cancelDots();
+        send.dots?.cancel();
         restoreFailedSend(send, send.optimisticId, attached);
       };
-      const stillSending = () => send.isCurrentView() && (send.dotsCurrent?.() ?? true);
+      const stillSending = () => send.isCurrentView() && (send.dots?.current() ?? true);
+      /** The last check before either hand-over: every gate open, and the send still stands. */
+      const clearToHandOver = async () => {
+        await gates;
+        return stillSending();
+      };
 
       const deciding = resolveSendIntercept({
         text: send.text,
@@ -148,8 +165,7 @@ export function useChatSendRoute({
       const intercept = deciding instanceof Promise ? await deciding : deciding;
       if (intercept.kind === "drop" || intercept.kind === "stale" || !stillSending()) return giveBack();
       if (intercept.kind === "generate") {
-        await replySettled;
-        if (!stillSending()) return giveBack();
+        if (!(await clearToHandOver())) return giveBack();
         return handToImageGeneration(intercept, send, drafts);
       }
 
@@ -164,9 +180,10 @@ export function useChatSendRoute({
       };
       const geo = await resolveClientGeoForQuery(authToken, send.text, t, persistLocation);
       if (!geo.ok || !stillSending()) return giveBack();
+      // The fix is in: "Locating…" gives way to the upload, or to nothing.
+      setSendPhase(attached ? "uploading" : "preparing");
       let attachmentIds: string[] | undefined;
       if (attached) {
-        setSendPhase("uploading");
         try {
           ({ ids: attachmentIds, attachment: attached } = await uploadSendAttachment(authToken, attached));
         } catch (error) {
@@ -175,9 +192,7 @@ export function useChatSendRoute({
           return;
         }
       }
-      if (!(await drafts)) return giveBack();
-      await replySettled;
-      if (!stillSending()) return giveBack();
+      if (!(await drafts) || !(await clearToHandOver())) return giveBack();
 
       const pending = buildPendingSendAfterCreate({
         text: send.text,
@@ -189,10 +204,11 @@ export function useChatSendRoute({
         model: selectedModel,
       });
       if (!chatId) return sendToNewChat(send, pending, giveBack);
-      sendMessage(pending.text, pending);
+      const sending = sendMessage(pending.text, pending);
       setPendingOutboundId(null);
       sendInFlightRef.current = false;
       setSendPhase("idle");
+      if (!(await sending)) giveBack();
     },
     [
       chatId, messages, onGenerateImage, imageGenerating, token, sendStart, restoreFailedSend, handToImageGeneration,

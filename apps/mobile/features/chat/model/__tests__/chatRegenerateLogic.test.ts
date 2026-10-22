@@ -43,4 +43,20 @@ describe("chatRegenerateLogic", () => {
       assistant,
     ]);
   });
+
+  const streaming: Message = { ...assistant, id: "streaming", content: "" };
+
+  it("restoreAssistantMessage puts the backup where its replacement streamed, above a message sent since", () => {
+    const sentSince: Message = { ...user, id: "local-2", content: "next" };
+    expect(restoreAssistantMessage([user, streaming, sentSince], assistant)).toEqual([
+      user,
+      assistant,
+      sentSince,
+    ]);
+  });
+
+  it("restoreAssistantMessage drops the streaming row, with or without a backup to put back", () => {
+    expect(restoreAssistantMessage([user, streaming], null)).toEqual([user]);
+    expect(restoreAssistantMessage([user, assistant, streaming], assistant)).toEqual([user, assistant]);
+  });
 });

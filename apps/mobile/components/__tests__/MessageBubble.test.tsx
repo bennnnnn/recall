@@ -330,3 +330,19 @@ describe("MessageBubble markdown presentation", () => {
     expect(view.getByTestId("markdown")).toBeTruthy();
   });
 });
+
+describe("MessageBubble footer under a cut-short reply", () => {
+  it.each([
+    [{ generationStopped: true }, "chat.generation_stopped"],
+    [{ replyNotSaved: true }, "chat.reply_not_saved"],
+  ])("says what happened to a reply marked %o", async (mark, label) => {
+    const view = await render(<MessageBubble message={{ ...assistantMessage, ...mark }} />);
+    expect(view.getByText(label)).toBeTruthy();
+  });
+
+  it("says nothing under a whole, saved reply", async () => {
+    const view = await render(<MessageBubble message={assistantMessage} />);
+    expect(view.queryByText("chat.generation_stopped")).toBeNull();
+    expect(view.queryByText("chat.reply_not_saved")).toBeNull();
+  });
+});
