@@ -199,10 +199,10 @@ async def _todo_action_delete(state: _TodoApplyState, action: TodoActionItem) ->
         state.items = [i for i in state.items if i.id != item.id]
         return 1
     logger.warning(
-        "Todo delete missed: user_id=%s topic=%s content=%r",
+        "Todo delete missed: user_id=%s topic=%s content_chars=%d",
         state.user_id,
         action.topic,
-        (action.content or "")[:120],
+        len(action.content or ""),
     )
     return 0
 

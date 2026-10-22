@@ -135,6 +135,7 @@ const NO_ACCOUNT_DATA = [
   "lib/haptics.ts#unavailableOn",
   "lib/math/svgMath.ts#rendererImpl",
   "lib/math/svgMath.ts#rendererPromise",
+  "lib/networkProbe.ts#netInfoConfigured",
   "lib/pdfPreviewHtml.ts#viewerHtml",
   "lib/purchases.ts#purchasesModule",
   "lib/pushNotifications.ts#androidChannelReady",

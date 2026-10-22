@@ -202,10 +202,10 @@ async def create_one(state: ReminderWrites, draft: ReminderFence) -> tuple[str, 
         ), True
     state.existing.append(new_todo)
     logger.info(
-        "To-do fence applied: user_id=%s chat_id=%s title=%s",
+        "To-do fence applied: user_id=%s chat_id=%s title_chars=%d",
         state.user_id,
         state.chat_id,
-        title[:80],
+        len(title),
     )
     return format_schedule_result(
         action="add",

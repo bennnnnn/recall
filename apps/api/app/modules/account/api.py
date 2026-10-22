@@ -250,6 +250,7 @@ async def logout(
     request: Request,
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
+    session: AsyncSession = Depends(get_db),
 ) -> Response:
     cookie_refresh = web_session.cookie_value(request, web_session.REFRESH_COOKIE)
     refresh_token = body.refresh_token or cookie_refresh
@@ -266,10 +267,12 @@ async def logout(
         access_token = auth_header[7:]
     try:
         await account_lifecycle.logout(
+            session,
             redis,
             settings,
             access_token=access_token,
             refresh_token=refresh_token,
+            expo_push_token=body.expo_push_token,
         )
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
@@ -356,11 +359,11 @@ async def logout_all(
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
+    session: AsyncSession = Depends(get_db),
 ) -> Response:
-    access_token = _bearer_access_token(request)
-    await tokens_service.purge_user_sessions(redis, user.id, settings)
-    if access_token:
-        await tokens_service.revoke_access_token(redis, access_token, settings)
+    await account_lifecycle.logout_everywhere(
+        session, redis, settings, user.id, access_token=_bearer_access_token(request)
+    )
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     if web_session.is_web_origin(request, settings):
         web_session.clear_web_session_cookies(response, settings)

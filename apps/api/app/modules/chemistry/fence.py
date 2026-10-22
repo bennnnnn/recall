@@ -59,8 +59,11 @@ def _extract_smiles_from_fence(body: str) -> tuple[str | None, str]:
             continue
         try:
             props = chemistry_service.validate_smiles(raw)
-        except Exception:
-            logger.info("chemistry fence line validation failed for %r", raw, exc_info=True)
+        except Exception as exc:
+            # Not the line, nor the traceback: a validation error quotes its input.
+            logger.info(
+                "chemistry fence line validation failed: %s chars=%d", type(exc).__name__, len(raw)
+            )
             continue
         if props.valid:
             caption = "\n".join(lines[:idx] + lines[idx + 1 :]).strip()

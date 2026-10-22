@@ -561,6 +561,44 @@ async def test_get_current_user_from_valid_token():
 
 
 @pytest.mark.asyncio
+async def test_get_current_user_returns_its_connection_before_the_route_runs():
+    """A cache miss reads the row, then ends that transaction: the request's session stays
+    open until the response is sent, and an SSE reply held the connection idle in
+    transaction for the whole stream."""
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, patch
+
+    from fastapi.security import HTTPAuthorizationCredentials
+    from sqlalchemy import text
+
+    from app.core.db import SessionLocal, engine
+    from app.core.deps import get_current_user
+
+    uid = uuid4()
+    settings = Settings(jwt_secret="super-secret-key-that-is-at-least-32-chars!!")
+    creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="tok")
+
+    async def read_row(session, user_id):
+        await session.execute(text("SELECT 1"))  # the miss's SELECT checks out a connection
+        return SimpleNamespace(id=user_id)
+
+    await engine.dispose(close=False)
+    try:
+        async with SessionLocal() as session:
+            with (
+                patch(
+                    "app.core.deps.access_tokens.verify_access_token", AsyncMock(return_value=uid)
+                ),
+                patch("app.core.deps.users_repo.get_by_id", read_row),
+            ):
+                user = await get_current_user(creds, settings, AsyncMock(), session)
+            assert user.id == uid
+            assert engine.pool.checkedout() == 0
+    finally:
+        await engine.dispose(close=False)
+
+
+@pytest.mark.asyncio
 async def test_get_current_user_not_found_raises_401():
     from unittest.mock import AsyncMock, patch
     from uuid import uuid4

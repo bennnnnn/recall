@@ -259,6 +259,8 @@ class AuthSessionListOut(BaseModel):
 
 class LogoutRequest(BaseModel):
     refresh_token: str | None = None
+    # This device's Expo push token: logout forgets it, so the account's reminders stop.
+    expo_push_token: str | None = Field(default=None, min_length=8, max_length=512)
 
 
 class AccountDeleteRequest(BaseModel):

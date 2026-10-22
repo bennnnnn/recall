@@ -72,7 +72,7 @@ async def send_email(
     """
     to_label = _recipient_log_label(to)
     if not settings.email_enabled:
-        logger.debug("Transactional email disabled; skipping to=%s subject=%r", to_label, subject)
+        logger.debug("Transactional email disabled; skipping to=%s", to_label)
         return False
     if not to.strip():
         logger.warning("Transactional email skipped: empty recipient")
@@ -81,18 +81,16 @@ async def send_email(
     if not is_configured(settings):
         if not _mocks_without_provider(settings):
             logger.warning(
-                "Transactional email not sent (RESEND_API_KEY is not set) to=%s subject=%r",
-                to_label,
-                subject,
+                "Transactional email not sent (RESEND_API_KEY is not set) to=%s", to_label
             )
             return False
-        # Dev / no-provider path: log that the flow ran, but NOT the body —
-        # transactional emails (welcome, receipts, reminders) contain PII and
-        # recipient-specific content that shouldn't sit in INFO logs.
+        # Dev / no-provider path: log that the flow ran, but not the subject or
+        # body. A reminder email's subject is the reminder itself, and
+        # transactional emails carry PII that shouldn't sit in INFO logs.
         logger.info(
-            "MOCK transactional email to=%s subject=%r chars=%d",
+            "MOCK transactional email to=%s subject_chars=%d chars=%d",
             to_label,
-            subject,
+            len(subject),
             len(text),
         )
         return True
@@ -116,5 +114,5 @@ async def send_email(
         response.raise_for_status()
         return True
     except Exception:
-        logger.exception("Transactional email send failed to=%s subject=%r", to_label, subject)
+        logger.exception("Transactional email send failed to=%s", to_label)
         return False
