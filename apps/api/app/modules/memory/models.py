@@ -16,6 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy import text as sql_text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.engine.default import DefaultExecutionContext
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -50,6 +51,23 @@ class Memory(Base):
         # on `embedding` so autogenerate knows an index with this name exists here and
         # won't propose dropping it.
         Index("ix_memories_embedding", "embedding"),
+        # Message, chat and fact deletes (FK SET NULL): without these each deleted row
+        # scanned the whole table (migration 0116).
+        Index(
+            "ix_memories_source_message",
+            "source_message_id",
+            postgresql_where=sql_text("source_message_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_memories_source_chat",
+            "source_chat_id",
+            postgresql_where=sql_text("source_chat_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_memories_superseded_by",
+            "superseded_by_id",
+            postgresql_where=sql_text("superseded_by_id IS NOT NULL"),
+        ),
         CheckConstraint(
             "type IN ('profile', 'preference', 'project', 'fact', 'focus')",
             name="ck_memories_type",
