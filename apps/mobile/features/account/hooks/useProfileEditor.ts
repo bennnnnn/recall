@@ -23,13 +23,15 @@ type Editor = {
   visible: boolean;
   name: string;
   photo: PendingAttachment | null;
+  /** Save clears the current photo, so the initials show. */
+  removePhoto: boolean;
   saving: boolean;
   picking: boolean;
   error: string | null;
 };
 
 function emptyEditor(owner: Owner, revision: number): Editor {
-  return { owner, revision, visible: false, name: "", photo: null,
+  return { owner, revision, visible: false, name: "", photo: null, removePhoto: false,
     saving: false, picking: false, error: null };
 }
 
@@ -108,7 +110,7 @@ export function useProfileEditor() {
       }
       if (photo) {
         if (editor.current.photo) discardProfilePhoto(editor.current.photo);
-        publish({ ...editor.current, photo });
+        publish({ ...editor.current, photo, removePhoto: false });
       }
     } catch (error) {
       if (!isCurrent(revision)) return;
@@ -137,16 +139,23 @@ export function useProfileEditor() {
     }
   }, [isCurrent, publish, t]);
 
+  const removePhoto = useCallback(() => {
+    const current = editor.current;
+    if (!isCurrent(current.revision) || current.saving || current.picking) return;
+    if (current.photo) discardProfilePhoto(current.photo);
+    publish({ ...current, photo: null, removePhoto: true, error: null });
+  }, [isCurrent, publish]);
+
   const save = useCallback(async () => {
     const current = editor.current;
-    const { revision, photo } = current;
+    const { revision, photo, removePhoto: clearPhoto } = current;
     if (!token || !isCurrent(revision) || current.saving || current.picking) return;
     const name = sanitizeDisplayName(current.name);
     if (!name) {
       publish({ ...current, error: t("settings.name_invalid") });
       return;
     }
-    if (!photo && name === sanitizeDisplayName(user?.name ?? "")) {
+    if (!photo && !clearPhoto && name === sanitizeDisplayName(user?.name ?? "")) {
       dismiss();
       return;
     }
@@ -166,7 +175,8 @@ export function useProfileEditor() {
         cancelUpload();
         return;
       }
-      await updateUser({ name, ...(uploadedId ? { avatar_url: `/attachments/${uploadedId}/file` } : {}) });
+      const avatar = uploadedId ? { avatar_url: `/attachments/${uploadedId}/file` } : clearPhoto ? { avatar_url: null } : {};
+      await updateUser({ name, ...avatar });
       if (isCurrent(revision)) dismiss();
     } catch {
       cancelUpload();
@@ -180,6 +190,6 @@ export function useProfileEditor() {
 
   const current = state.owner === owner ? state : emptyEditor(owner, state.revision);
   return { visible: current.visible, name: current.name, setName, photo: current.photo,
-    saving: current.saving, picking: current.picking, error: current.error,
-    open, close, choosePhoto, save };
+    photoRemoved: current.removePhoto, saving: current.saving, picking: current.picking,
+    error: current.error, open, close, choosePhoto, removePhoto, save };
 }

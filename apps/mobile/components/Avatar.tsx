@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 
@@ -7,7 +7,7 @@ import { attachmentRequestHeaders, resolveAttachmentUri } from "@/features/attac
 import { Theme, useTheme } from "@/lib/theme";
 import { Weight } from "@/lib/type";
 
-/** Google profile picture when available, otherwise the user's initials. */
+/** The profile picture when it loads, otherwise the user's initials (also when it fails). */
 export function Avatar({
   name,
   uri,
@@ -22,8 +22,10 @@ export function Avatar({
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const dim = { width: size, height: size, borderRadius: size / 2 };
+  // A photo that fails (deleted, expired, offline) falls back to the initials, not a blank circle.
+  const [failedUri, setFailedUri] = useState<string | null>(null);
 
-  if (uri) {
+  if (uri && uri !== failedUri) {
     const resolvedUri = resolveAttachmentUri({ path: uri }) ?? uri;
     return (
       <Image
@@ -32,6 +34,7 @@ export function Avatar({
         style={[dim, { backgroundColor: theme.surface }]}
         contentFit="cover"
         cachePolicy="memory-disk"
+        onError={() => setFailedUri(uri)}
       />
     );
   }

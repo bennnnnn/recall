@@ -104,6 +104,20 @@ it("normalizes a name-only edit without replacing the photo", async () => {
   expect(editor.visible).toBe(false);
 });
 
+it("removes the photo on Save, and a new pick undoes the removal", async () => {
+  await setup();
+  await act(async () => { editor.removePhoto(); });
+  expect(editor.photoRemoved).toBe(true);
+  await selectPhoto();
+  expect(editor.photoRemoved).toBe(false);
+  await act(async () => { editor.removePhoto(); });
+  expect(discardProfilePhoto).toHaveBeenCalledWith(PHOTO);
+  await act(async () => { await editor.save(); });
+  expect(uploadChatAttachment).not.toHaveBeenCalled();
+  expect(mockUpdateUser).toHaveBeenCalledWith({ name: "Ada", avatar_url: null });
+  expect(editor.visible).toBe(false);
+});
+
 it("only previews selections and releases previews on replacement, cancel, and unmount", async () => {
   const view = await setup();
   const replacement = { ...PHOTO, localUri: "file:///replacement.jpg" };
