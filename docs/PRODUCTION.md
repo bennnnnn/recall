@@ -86,8 +86,9 @@ their next request.
 - If Redis refuses a change's new generation (after three tries), the request
   answers `503` + `Retry-After` although the change is saved. While Redis is
   down every request is refused anyway. Once it is back, other machines can
-  serve the old row until the change is repeated (the phone's retry, a
-  RevenueCat redelivery, a retried job) or for at most 5 minutes.
+  serve the old row until the change is made again (the phone does not retry a
+  503 by itself, so the user does, after the error; a RevenueCat redelivery; a
+  retried job) or for at most 5 minutes.
 
 ---
 
