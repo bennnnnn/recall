@@ -9,6 +9,7 @@ from app.modules.chat.prompt_constants.capabilities import (
     PHOTO_LOOKUP_HINT,
     is_capabilities_question,
 )
+from app.modules.chat.prompt_constants.chart import CHART_FORMAT_HINT, is_chart_question
 from app.modules.chat.prompt_constants.coding import (
     CODE_INK_REMINDER,
     code_question_hint,
@@ -24,7 +25,6 @@ from app.modules.chat.prompt_constants.conversation import (
 from app.modules.chat.prompt_constants.format import (
     BIOLOGY_PRESENTATION_HINT,
     CALLOUT_FORMAT_HINT,
-    CHART_FORMAT_HINT,
     COMPACT_RESPONSE_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
     FORMAT_CONTRACT,
@@ -38,7 +38,6 @@ from app.modules.chat.prompt_constants.format import (
     TONE_FORMAT_GUARD,
     UNIVERSAL_FORMAT_BASELINE,
     is_callout_question,
-    is_chart_question,
     is_comparison_question,
     is_howto_question,
     is_mermaid_question,

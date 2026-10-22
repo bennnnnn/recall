@@ -19,7 +19,11 @@ from app.modules.chat.finalize_passes import (
     OnError,
     run_finalize_passes,
 )
-from app.modules.chat.finalize_subjects import check_math_fences, recover_math_fences
+from app.modules.chat.finalize_subjects import (
+    check_math_fences,
+    draw_formula_charts,
+    recover_math_fences,
+)
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.tests.modules.chat.chat_test_support import turn_deps
@@ -81,6 +85,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "chemistry_fences",
         "physics_fences",
         "math_fences",
+        "formula_charts",
         "server_answer_cards",
         "unverified_notes",
         "working_check",
@@ -99,9 +104,10 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "presentation",
         "clock",
     ]
-    # Only the subject fence passes, the chemistry enrichment, the closer strip and
-    # the two checks that only ever narrow the reply (search links, requested JSON)
-    # go on after a failure; every other pass falls back to the last committed text.
+    # Only the subject fence passes, the chemistry enrichment, the closer strip, the
+    # formula charts (left for the phone's note) and the two checks that only ever
+    # narrow the reply (search links, requested JSON) go on after a failure; every
+    # other pass falls back to the last committed text.
     kept = {name: (log_as, rewrite is not None) for name, log_as, rewrite in order if log_as}
     assert kept == {
         "generic_closer": ("generic_closer", False),
@@ -111,6 +117,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "physics_fences": ("validate_math_fences", True),
         "math_fences": ("validate_math_fences", True),
         "chemistry_enrich": ("enrich_chemistry_fences", False),
+        "formula_charts": ("formula_charts", False),
     }
 
 
@@ -242,3 +249,25 @@ async def test_the_maths_pass_runs_the_turns_own_math_fence(
 
     assert await check_math_fences(state) == "checked"
     assert recover_math_fences(state) == "recovered"
+
+
+@pytest.mark.asyncio
+async def test_a_formula_chart_is_drawn_by_sympy_and_a_data_chart_is_left_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def inline(fn: Any, *args: Any, **_kwargs: Any) -> Any:
+        return fn(*args)
+
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", inline)
+    formula = (
+        "Both curves:\n\n```chart\n"
+        '{"type":"function","series":[{"name":"sin","fn":"sin(x)"},{"name":"cos","fn":"cos(x)"}],'
+        '"domain":[0,6.2832]}\n```\n\nThey cross twice.'
+    )
+    drawn = await draw_formula_charts(_state(formula))
+    assert "```chart" not in drawn
+    assert '```graph\n{"type":"function","expr":"sin(x)"' in drawn
+    assert drawn.startswith("Both curves:") and drawn.endswith("They cross twice.")
+
+    data = '```chart\n{"mark":"bar","data":{"values":[{"a":1}]}}\n```'
+    assert await draw_formula_charts(_state(data)) == data

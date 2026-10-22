@@ -38,6 +38,7 @@ from app.modules.chat.finalize_subjects import (
     check_math_fences,
     check_physics_fences,
     check_working,
+    draw_formula_charts,
     enrich_chemistry_fences,
     fallback_text,
     mark_server_cards,
@@ -152,6 +153,8 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         check_math_fences,
         OnError(log_as=_SUBJECT_FENCES_STEP, rewrite=recover_math_fences),
     ),
+    # After the maths pass: it strips a ```graph that no solver wrote.
+    FinalizePass("formula_charts", draw_formula_charts, OnError(log_as="formula_charts")),
     FinalizePass("server_answer_cards", mark_server_cards, FALL_BACK),
     FinalizePass("unverified_notes", append_unverified_notes, FALL_BACK),
     FinalizePass("working_check", check_working, FALL_BACK),

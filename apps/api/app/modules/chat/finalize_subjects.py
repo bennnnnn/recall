@@ -16,6 +16,7 @@ from app.core import sympy_executor
 from app.modules.chat.working_check import is_worked_solution, working_note
 from app.modules.chemistry import fence as chemistry_fence
 from app.modules.chemistry.context import append_unverified_chemistry_note
+from app.modules.math import chart_formula
 from app.modules.math.fence import append_unverified_math_note
 from app.modules.math.text_plot import strip_text_plots_on_graph_turn
 from app.modules.physics import fence as physics_fence
@@ -152,6 +153,20 @@ async def check_math_fences(state: FinalizeState) -> str:
         if state.on_status is not None:
             # The check is over: its label must not stay up while the reply saves.
             await state.on_status("finishing")
+
+
+async def draw_formula_charts(state: FinalizeState) -> str:
+    """A chart the model wrote as a formula (``"fn": "sin(x)"``): the phone never
+    evaluates one, so SymPy samples it into a ```graph, or a note takes its place.
+    After the maths pass, which would strip a ```graph no solver wrote."""
+    if not chart_formula.has_formula_chart(state.text):
+        return state.text
+    return await sympy_executor.run_sympy(
+        chart_formula.formula_charts_to_graphs,
+        state.text,
+        state.settings,
+        timeout=state.settings.stem_solve_timeout_seconds,
+    )
 
 
 def recover_math_fences(state: FinalizeState) -> str:

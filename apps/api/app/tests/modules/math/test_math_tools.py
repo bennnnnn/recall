@@ -117,7 +117,7 @@ def test_glued_please_is_equation_not_graph() -> None:
 
 
 def test_glued_graph_is_not_a_vega_chart_question() -> None:
-    from app.modules.chat.prompt_constants.format import is_chart_question
+    from app.modules.chat.prompt_constants.chart import is_chart_question
 
     assert is_chart_question("X=6graph") is False
 

@@ -166,6 +166,20 @@ CASES: tuple[Case, ...] = (
         "A graph of the parabola with roots 1 and 3 and vertex (2, −1).",
     ),
     Case(
+        "math-graph-pair-pi",
+        "math",
+        "Graph y = sin(x) and y = cos(x) from 0 to 2π",
+        Expect(subject="math", solved=True, no_hints=("chart",)),
+        "One verified graph with both curves on [0, 2π]; no chart fence.",
+    ),
+    Case(
+        "math-line-graph-curve",
+        "math",
+        "draw the line graph of y = 2x+1",
+        Expect(subject="math", solved=True, no_hints=("chart",)),
+        "A verified graph of the line, not a chart of made-up points.",
+    ),
+    Case(
         "math-percent",
         "math",
         "what is 15% of 240",
@@ -946,6 +960,28 @@ CASES: tuple[Case, ...] = (
         "make a bar chart of the population of the 5 largest countries",
         Expect(hints=("chart",)),
         "A bar chart of the five, with the year of the figures.",
+    ),
+    Case(
+        "format-scatter-fit",
+        "format",
+        "Plot this experiment as a scatter plot with a best-fit line: "
+        "x = 1,2,3,4,5 and y = 2.1,3.9,6.2,7.8,10.1",
+        Expect(hints=("chart",), subject=NONE, image_gen=False),
+        "A scatter chart of the five points with a regression-line layer.",
+    ),
+    Case(
+        "format-histogram",
+        "format",
+        "Make a histogram of these test scores: 55, 62, 68, 70, 71, 75, 78, 80, 82, 85, 88, 90, 95",
+        Expect(hints=("chart",), subject=NONE),
+        "A histogram: the raw scores binned on x, counts on y.",
+    ),
+    Case(
+        "format-line-graph-data",
+        "format",
+        "make a line graph of my monthly sales: jan 10, feb 12, mar 9, apr 15",
+        Expect(hints=("chart",), subject=NONE),
+        "A line chart of the four months in order.",
     ),
     Case(
         "format-flowchart",

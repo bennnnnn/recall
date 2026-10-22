@@ -6,7 +6,7 @@
       "why": "Over 500 before the standards; one algorithm, held to its twin by docs/fixtures/presentation_cases.json (ES-06); split by responsibility after the ticketed files"
     },
     "apps/api/app/modules/chat/prompt_constants/format.py": {
-      "lines": 594,
+      "lines": 509,
       "why": "Exception: Prompt copy (66% text); the functions are classifiers keyed to that copy"
     },
     "apps/api/app/modules/chat/prompt_constants/routing.py": {

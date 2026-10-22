@@ -16,8 +16,8 @@ from app.modules.chat.prompt_constants import (
     needs_rich_context,
 )
 from app.modules.chat.prompt_constants.capabilities import CAPABILITIES_FORMAT_HINT
+from app.modules.chat.prompt_constants.chart import CHART_FORMAT_HINT
 from app.modules.chat.prompt_constants.format import (
-    CHART_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
     FORMAT_CONTRACT,
     MERMAID_FORMAT_HINT,
@@ -297,6 +297,22 @@ def test_is_comparison_question(text, expected):
         ("draw a line chart of my scores", True),
         ("pie chart of market share", True),
         ("make a bar chart of monthly rainfall", True),
+        # A plot of data named by its kind.
+        (
+            "Plot this experiment as a scatter plot with a best-fit line: "
+            "x = 1,2,3,4,5 and y = 2.1,3.9,6.2,7.8,10.1",
+            True,
+        ),
+        ("scatterplot of study hours vs score: 1 50, 2 60, 3 70", True),
+        ("make a bar graph of my grades: math 90, art 75", True),
+        ("make a line graph of my monthly sales: jan 10, feb 12, mar 9", True),
+        ("Make a histogram of these test scores: 55, 62, 68, 70", True),
+        # A curve is maths' graph, and a definition is not a request.
+        ("draw the line graph of y = 2x+1", False),
+        ("plot f(x) = x^2 as a line graph", False),
+        ("graph y = x^2", False),
+        ("what is a scatter plot?", False),
+        ("What's a line graph", False),
         ("Draw a mermaid flowchart of making coffee", False),
         ("Make a flowchart of user login", False),
         ("Compare Python vs Java", False),
