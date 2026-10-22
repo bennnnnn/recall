@@ -5,6 +5,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 
 import type { IconName } from "@/ui/icons/names";
 
+import { useComposerDraftApiOptional } from "@/contexts/ComposerDraftContext";
 import { api, type Chat, type Message } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/client";
 import { getSessionGeneration } from "@/lib/auth";
@@ -26,6 +27,7 @@ import {
 } from "@/features/chat/model/messageCache";
 import { mergeLocalAttachmentUris, mergeOpenedPage, paintCachedThread } from "@/features/chat/model/messageMerge";
 import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
+import { beginOpenedPageRead, type OpenedPageRead } from "@/features/chat/model/openedPage";
 import {
   chatHasThreadContent,
   markChatHasAssistant,
@@ -38,7 +40,7 @@ import { getChatMutationRevision, removeChatGlobal, subscribeChatChanges } from 
 import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import { useChatHighlightScroll } from "@/features/chat/hooks/useChatHighlightScroll";
 import { useChatOlderMessages } from "@/features/chat/hooks/useChatOlderMessages";
-import { syncedAt, useChatPageCacheWriter, type ChatPageSync } from "@/features/chat/hooks/useChatPageCacheWriter";
+import { useChatPageCacheWriter, type ChatPageSync } from "@/features/chat/hooks/useChatPageCacheWriter";
 import { useChatTitlePolling } from "@/features/chat/hooks/useChatTitlePolling";
 
 type Router = ReturnType<typeof useRouter>;
@@ -111,6 +113,7 @@ export function useChatRouteLoader({
   const [archived, setArchived] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [pageSync, setPageSync] = useState<ChatPageSync | null>(null);
+  const composer = useComposerDraftApiOptional();
   const session = getSessionGeneration();
   const signedIn = Boolean(token);
   const viewRef = useRef({ session, routeChatId, version: 0 });
@@ -265,7 +268,7 @@ export function useChatRouteLoader({
         setHasMoreOlder(page.has_more);
         const fetchedAt = Date.now();
         lastSilentFetchAtRef.current.set(openChatId, fetchedAt);
-        setPageSync(syncedAt(openChatId, fetchedAt));
+        setPageSync({ chatId: openChatId, fetchedAt });
       } catch {
         /* keep existing messages on silent refetch failure */
       }
@@ -341,6 +344,7 @@ export function useChatRouteLoader({
 
   useEffect(() => {
     resetOlder();
+    setPageSync(null);
     if (!token) {
       setChatLoading(false);
       return;
@@ -363,6 +367,7 @@ export function useChatRouteLoader({
     priorRouteChatIdRef.current = openChatId;
 
     let cancelled = false;
+    let opened: OpenedPageRead | null = null;
     const version = viewRef.current.version;
     const isCurrent = () => !cancelled && session === getSessionGeneration() && version === viewRef.current.version;
     (async () => {
@@ -384,7 +389,7 @@ export function useChatRouteLoader({
         setChatLoading(false);
         // The chat this view just created holds nothing but what it shows.
         lastSilentFetchAtRef.current.set(openChatId, Date.now());
-        setPageSync(syncedAt(openChatId, Date.now()));
+        setPageSync({ chatId: openChatId, fetchedAt: Date.now() });
         return;
       }
       const showCachedPage = (cached: CachedChatPage | null, listed = getCachedChat(openChatId)) => {
@@ -405,13 +410,16 @@ export function useChatRouteLoader({
         showCachedPage(kept, listed);
         const fetchedAt = cachedChatPageFetchedAt(kept) ?? Date.now();
         lastSilentFetchAtRef.current.set(openChatId, fetchedAt);
-        setPageSync(syncedAt(openChatId, fetchedAt));
+        setPageSync({ chatId: openChatId, fetchedAt });
         setChatLoading(false);
         if (!listed.title && kept.messages.length > 0) pollForTitle(token, openChatId);
         return;
       }
       setChatLoading(true);
       setHasMoreOlder(false);
+      // Send works once the cached page is painted; a turn sent before the page lands waits for it.
+      const read = beginOpenedPageRead(openChatId);
+      opened = read;
       try {
         // Stale-while-revalidate: keep the previous thread painted during the
         // (fast) cache read, then swap in one shot — no blank flash on open.
@@ -430,23 +438,21 @@ export function useChatRouteLoader({
         setChatId(chat.id);
         const currentChat = revision === getChatMutationRevision(openChatId) ? chat : getCachedChat(openChatId);
         applyMetadata(currentChat);
-        // Send works on the painted page: what it sent meanwhile stays after the page.
-        const outcome = { recheck: false };
-        setMessages((prev) => {
-          const merged = mergeOpenedPage(prev, page.messages, painted);
-          outcome.recheck = merged.recheck;
-          return merged.messages;
-        });
-        setHasMoreOlder(page.has_more);
-        const fetchedAt = Date.now();
-        lastSilentFetchAtRef.current.set(openChatId, fetchedAt);
-        setPageSync({ chatId: openChatId, fetchedAt, outcome });
+        // A turn that went out before the page landed may be in it: the view then stays unsynced.
+        if (read.release()) {
+          setMessages((prev) => mergeOpenedPage(prev, page.messages, painted));
+          setHasMoreOlder(page.has_more);
+          const fetchedAt = Date.now();
+          lastSilentFetchAtRef.current.set(openChatId, fetchedAt);
+          setPageSync({ chatId: openChatId, fetchedAt });
+        }
         if (currentChat && !currentChat.title && page.messages.length > 0) {
           pollForTitle(token, openChatId);
         }
       } catch (error) {
         if (isCurrent()) {
           if (error instanceof ApiRequestError && error.status === 404) {
+            read.chatGone(composer);
             removeChatGlobal(openChatId);
             void clearCachedChatMessages(openChatId);
             startNewChat({ force: true });
@@ -454,11 +460,15 @@ export function useChatRouteLoader({
           showActionBanner(t("common.error"), "alert-circle");
         }
       } finally {
+        // A read that failed lets a turn waiting for it go out.
+        if (isCurrent()) read.release();
         if (isCurrent()) setChatLoading(false);
       }
     })();
     return () => {
       cancelled = true;
+      // Left before the page landed: a turn waiting for it goes back to this chat's composer (not past sign-out).
+      opened?.cancel(session === getSessionGeneration() ? composer : null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signedIn, session, routeChatId]);
@@ -480,17 +490,6 @@ export function useChatRouteLoader({
       };
     }, [token, routeChatId, chatLoading, silentRefetchChat, turnBusy]),
   );
-
-  // The page may have held the saved copy of a message sent meanwhile: read the chat once the turn settles.
-  const recheckChatId = pageSync?.outcome.recheck ? pageSync.chatId : null;
-  useEffect(() => {
-    if (!recheckChatId || recheckChatId !== chatId || streaming) return;
-    let cancelled = false;
-    void silentRefetchChat(recheckChatId, () => cancelled, { force: true });
-    return () => {
-      cancelled = true;
-    };
-  }, [recheckChatId, chatId, streaming, silentRefetchChat]);
 
   useChatPageCacheWriter({ chatId, routeChatId, messages, busy: streaming, hasMoreOlder, sync: pageSync });
 

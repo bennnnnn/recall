@@ -773,9 +773,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Drawer** — custom slide-in: search, New chat, chat history, profile + settings.
   A cold start shows the chats the account had last time while the list is read again.
 - ✅ **Opening a chat** — the last page shows at once (kept after every finished turn) and Send
-  works on it; a message sent before the server's page lands stays below it, once. A chat
-  reopened within 20s, with the app in the foreground and its drawer row unchanged, is not
-  read again; rows the server's page left unchanged are not redrawn.
+  works on it: a message sent before the server's page lands shows at once and goes out once
+  that page is in (at most 4 s later), so it shows once, below the page. Left before then, it goes
+  back to that chat's composer unsent (to New Chat's if the chat was deleted elsewhere). A chat
+  reopened within 20 s of this phone keeping its page is not read again, unless the app went to
+  the background since or the drawer's last read of the chat list (once per session, or on pull
+  to refresh) shows the chat changed; rows the server's page left unchanged are not redrawn.
 - ✅ **Chat screen** — single-purpose composer, top-right `＋` (new) and `⋯` (Share / Rename /
   Pin / Delete).
 - ✅ **States** — login, loading, empty chat ("How can I help?"), empty memory, drawer offline/retry.

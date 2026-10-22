@@ -236,63 +236,59 @@ describe("mergeOpenedPage", () => {
 
   it("keeps a message sent on the painted page after the page, once", () => {
     const merged = mergeOpenedPage([...cached, sent, streaming], fresh(cached), painted);
-    expect(merged.messages.map((m) => m.id)).toEqual([uuid(1), uuid(2), "local-9", "streaming"]);
-    expect(merged.messages[0]).toBe(cached[0]);
-    expect(merged.recheck).toBe(false);
+    expect(merged.map((m) => m.id)).toEqual([uuid(1), uuid(2), "local-9", "streaming"]);
+    expect(merged[0]).toBe(cached[0]);
   });
 
   it("puts turns the cache lacked before the message sent meanwhile", () => {
     const page = [...fresh(cached), row(uuid(3), "user", "From the laptop"), row(uuid(4), "assistant", "Answer")];
     const merged = mergeOpenedPage([...cached, sent, streaming], page, painted);
-    expect(merged.messages.map((m) => m.id)).toEqual([uuid(1), uuid(2), uuid(3), uuid(4), "local-9", "streaming"]);
-    expect(merged.recheck).toBe(false);
+    expect(merged.map((m) => m.id)).toEqual([uuid(1), uuid(2), uuid(3), uuid(4), "local-9", "streaming"]);
   });
 
-  it("leaves out the saved copy of the message sent meanwhile and asks to read the chat again", () => {
-    const page = [...fresh(cached), row(uuid(3), "user", "Next question")];
-    const merged = mergeOpenedPage([...cached, sent, streaming], page, painted);
-    expect(merged.messages.map((m) => m.id)).toEqual([uuid(1), uuid(2), "local-9", "streaming"]);
-    expect(merged.recheck).toBe(true);
+  // The sent turn waits for the page, so the page's rows are never matched to it by their words.
+  it("shows a turn the cache lacked even when it has the words of the message sent meanwhile", () => {
+    const words = row("local-9", "user", "ok");
+    const page = [...fresh(cached), row(uuid(3), "user", "ok"), row(uuid(4), "assistant", "Great, next step")];
+    const merged = mergeOpenedPage([...cached, words, streaming], page, painted);
+    expect(merged.map((m) => m.id)).toEqual([uuid(1), uuid(2), uuid(3), uuid(4), "local-9", "streaming"]);
   });
 
-  it("leaves out the saved copy and its reply when the page got both before the reply landed here", () => {
-    const page = [...fresh(cached), row(uuid(3), "user", "Next question"), row(uuid(4), "assistant", "Reply")];
-    const merged = mergeOpenedPage([...cached, sent, streaming], page, painted);
-    expect(merged.messages.map((m) => m.id)).toEqual([uuid(1), uuid(2), "local-9", "streaming"]);
-    expect(merged.recheck).toBe(true);
-  });
-
-  it("shows an unanswered message with other text, and still asks to read the chat again", () => {
+  it("shows an unanswered message from another device before the one sent here", () => {
     const page = [...fresh(cached), row(uuid(3), "user", "Typed on the laptop")];
     const merged = mergeOpenedPage([...cached, sent, streaming], page, painted);
-    expect(merged.messages.map((m) => m.id)).toEqual([uuid(1), uuid(2), uuid(3), "local-9", "streaming"]);
-    expect(merged.recheck).toBe(true);
+    expect(merged.map((m) => m.id)).toEqual([uuid(1), uuid(2), uuid(3), "local-9", "streaming"]);
   });
 
   it("drops a sent bubble the page holds with the reply that already landed", () => {
     const reply = row(uuid(4), "assistant", "Reply");
     const page = [...fresh(cached), row(uuid(3), "user", "Next question"), { ...reply }];
     const merged = mergeOpenedPage([...cached, sent, reply], page, painted);
-    expect(merged.messages.map((m) => m.id)).toEqual([uuid(1), uuid(2), uuid(3), uuid(4)]);
-    expect(merged.messages[3]).toBe(reply);
+    expect(merged.map((m) => m.id)).toEqual([uuid(1), uuid(2), uuid(3), uuid(4)]);
+    expect(merged[3]).toBe(reply);
   });
 
   it("keeps a reply being regenerated out of the page", () => {
     const merged = mergeOpenedPage([cached[0], streaming], fresh(cached), painted);
-    expect(merged.messages.map((m) => m.id)).toEqual([uuid(1), "streaming"]);
+    expect(merged.map((m) => m.id)).toEqual([uuid(1), "streaming"]);
   });
 
   it("swaps sent bubbles a kept page painted for their saved rows", () => {
     const keptRows = [row("local-1", "user", "Hi"), row(uuid(2), "assistant", "Hello")];
     const page = [row(uuid(1), "user", "Hi"), row(uuid(2), "assistant", "Hello")];
     const merged = mergeOpenedPage(keptRows, page, new Set(keptRows.map((m) => m.id)));
-    expect(merged.messages.map((m) => m.id)).toEqual([uuid(1), uuid(2)]);
-    expect(merged.messages[1]).toBe(keptRows[1]);
+    expect(merged.map((m) => m.id)).toEqual([uuid(1), uuid(2)]);
+    expect(merged[1]).toBe(keptRows[1]);
   });
 
   it("is the page when nothing was painted or sent", () => {
     const page = fresh(cached);
-    expect(mergeOpenedPage([], page, new Set())).toEqual({ messages: page, recheck: false });
+    expect(mergeOpenedPage([], page, new Set())).toEqual(page);
+  });
+
+  it("is the shown thread itself when the page left every row as it was", () => {
+    const shown = [...cached];
+    expect(mergeOpenedPage(shown, fresh(cached), painted)).toBe(shown);
   });
 });
 

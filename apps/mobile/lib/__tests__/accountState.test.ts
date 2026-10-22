@@ -87,6 +87,7 @@ const IN_FLIGHT = [
   "features/chat/model/draftLogic.ts#emptyChatChecks",
   "features/chat/model/latency.ts#pending",
   "features/chat/model/mutationLock.ts#pendingMutations",
+  "features/chat/model/openedPage.ts#openReads",
   "features/chat/model/turnOutcome.ts#open",
   "features/chat/model/turnOutcome.ts#tool",
   "features/drafts/model/emailDraftFlush.ts#flushers",

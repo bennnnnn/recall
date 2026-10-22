@@ -12,6 +12,7 @@ import { publishStreamingDraft, type StreamingDraft } from "@/lib/streamingDraft
 import { popLastAssistantMessage, restoreAssistantMessage } from "@/features/chat/model/regenerateLogic";
 import { reportTurnOutcome } from "@/features/chat/model/turnOutcome";
 import { withStreamingPlaceholder } from "@/features/chat/model/partialStream";
+import { whenOpenedPageSettled } from "@/features/chat/model/openedPage";
 import type { ChatWsFallbackSignal, ChatWsTransport } from "@/features/chat/model/wsTransport";
 import type {
   ComposerSendDraft,
@@ -293,13 +294,12 @@ export function useChat(
     rejectedSendsRef,
   });
 
+  // A turn on a chat whose page is still being read waits for it (openedPage.ts); false: it must not go out.
   const ensureConnected = useCallback(async () => {
-    try {
-      await connectTransport();
-    } catch {
-      reportError(t("chat.error_unreachable"));
-    }
-  }, [connectTransport, reportError, t]);
+    const opened = whenOpenedPageSettled(chatId, pendingSendRef.current);
+    try { await connectTransport(); } catch { reportError(t("chat.error_unreachable")); }
+    return opened;
+  }, [chatId, connectTransport, reportError, t]);
 
   const dispatchSend = useCallback(
     async (
@@ -370,7 +370,7 @@ export function useChat(
         setSendingMessageId(trackedId);
       }
 
-      await ensureConnected();
+      if (!(await ensureConnected())) return;
       if (!isCurrentView() || sendAttemptRef.current !== attempt) return;
       if (rejectedRetry) {
         // Keep recovery available while the handshake is pending: navigation
@@ -482,7 +482,7 @@ export function useChat(
       }
       const attempt = ++sendAttemptRef.current;
 
-      await ensureConnected();
+      if (!(await ensureConnected())) return;
       if (!isCurrentView() || sendAttemptRef.current !== attempt) return;
       const transport = currentSocket();
       if (!transport?.isOpen() || transport.shouldUseSse()) {

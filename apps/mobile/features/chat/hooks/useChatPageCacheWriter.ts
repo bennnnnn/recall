@@ -8,20 +8,11 @@ import {
   markCachedChatPageStale,
 } from "@/features/chat/model/messageCache";
 
-/**
- * The server read the shown thread rests on. `outcome.recheck` is filled in by
- * the merge that applied the page; while it holds, the thread may differ from
- * the server and is not kept.
- */
+/** The server read the shown thread rests on; none until this open's read lands. */
 export type ChatPageSync = {
   chatId: string;
   fetchedAt: number;
-  outcome: { recheck: boolean };
 };
-
-export function syncedAt(chatId: string, fetchedAt: number): ChatPageSync {
-  return { chatId, fetchedAt, outcome: { recheck: false } };
-}
 
 type Options = {
   chatId: string | null;
@@ -43,7 +34,7 @@ type Options = {
 export function useChatPageCacheWriter({ chatId, routeChatId, messages, busy, hasMoreOlder, sync }: Options) {
   useEffect(() => {
     if (!chatId || chatId !== routeChatId) return;
-    if (busy || sync?.chatId !== chatId || sync.outcome.recheck || !isSettledThread(messages)) {
+    if (busy || sync?.chatId !== chatId || !isSettledThread(messages)) {
       markCachedChatPageStale(chatId);
       return;
     }

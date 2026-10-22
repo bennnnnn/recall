@@ -55,7 +55,9 @@ disk for a cold start (the drawer's chats, `lib/cache/chatListFile.ts`) goes bac
 `seed`: shown at once, never fresh, so the screen still reads it; its file names the account
 that wrote it. An open chat's settled thread is kept by `features/chat/model/messageCache.ts`
 (memory at once, the file when idle) so the next open paints it, and a reopen within the stale
-window skips the read.
+window skips the read. Send works on that painted page; a turn sent before the chat's page lands
+waits for it (`whenOpenedPageSettled`, `features/chat/model/openedPage.ts`), so the page never
+holds the new turn.
 
 A module-level value that components read with `useSyncExternalStore` is a
 `createValueStore` (or `createListenerSet` for plain notifications) from `lib/listenerSet.ts`.
