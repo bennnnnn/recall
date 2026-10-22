@@ -104,6 +104,11 @@ def test_a_sources_fence_goes_unless_the_server_searched() -> None:
         ("\\\\e.test\\x", False),
         ("javascript:alert(1)", False),
         (" https://e.test/x", False),
+        ("a+b.c-d:x", False),
+        ("1http://e.test/x", True),
+        ("img/a:b.png", True),
+        # Letters with no colon end: the scan stays linear however long the run.
+        ("A" * 100_000, True),
     ],
 )
 def test_loads_nothing(url: str, inert: bool) -> None:
