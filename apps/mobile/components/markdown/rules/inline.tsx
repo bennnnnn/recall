@@ -1,5 +1,5 @@
 import { Fragment, ReactNode } from "react";
-import { Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { Text, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 
 import {
   type AstNode,
@@ -14,6 +14,7 @@ import type {
   MdTableStyles,
   StyleMap,
 } from "@/components/markdown/markdownContentStyles";
+import { InlineFlow } from "@/components/markdown/rules/inlineFlow";
 import { markdownHasNestedMathView } from "@/lib/markdown/preprocess";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
 import { mathRunLineHeight } from "@/lib/math/text";
@@ -23,7 +24,7 @@ import { Italic } from "@/lib/type";
  * Stacked frac/sqrt and raised scripts are sized Views. A Text ancestor on
  * iOS gives that View a 0×0 text attachment, and it also drops translateY
  * on a nested Text, so an exponent sits on the baseline. Use a wrapping
- * row instead; keep Text when the run is only prose.
+ * row whose words flow around the formula; keep Text when the run is only prose.
  */
 export function wrapInlineChildren(
   node: AstNode,
@@ -33,9 +34,9 @@ export function wrapInlineChildren(
 ): React.ReactElement {
   if (markdownHasNestedMathView(astText(node)) || isHeavyInlineMath(astText(node))) {
     return (
-      <View key={node.key} testID="md-math-inline-wrap" style={wrapStyle}>
+      <InlineFlow key={node.key} testID="md-math-inline-wrap" style={wrapStyle}>
         {children}
-      </View>
+      </InlineFlow>
     );
   }
   return (

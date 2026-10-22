@@ -1,9 +1,8 @@
 import { Fragment, ReactNode } from "react";
-import { Text, View, type StyleProp, type TextStyle } from "react-native";
+import { Text, type StyleProp, type TextStyle } from "react-native";
 
 import { splitStreamCaret, StreamingCursor } from "@/components/StreamingCursor";
 import { MathText } from "@/components/rich/MathText";
-import { MathBlock } from "@/components/rich/MathView";
 import {
   inPlainBlockquote,
   inTableCell,
@@ -15,6 +14,7 @@ import type {
   MdTableStyles,
   StyleMap,
 } from "@/components/markdown/markdownContentStyles";
+import { DisplayRow, InlineFlow } from "@/components/markdown/rules/inlineFlow";
 import {
   segmentTextWithMath,
   type MathTextRun,
@@ -49,7 +49,10 @@ export function withGreenTicks(
   );
 }
 
-/** Prose runs between display formulas; a run holding a nested math View becomes a wrapping row. */
+/**
+ * Prose runs between display formulas, each formula a row of its own. In a
+ * paragraph's flow the prose shares lines with its bold and linked neighbours.
+ */
 function displayRuns(
   nodeKey: string,
   runs: MathTextRun[],
@@ -60,7 +63,7 @@ function displayRuns(
 ): ReactNode[] {
   return runs.map((run, index) => {
     if (run.type === "formula") {
-      return <MathBlock key={`${nodeKey}-m-${run.at}`} latex={run.latex} />;
+      return <DisplayRow key={`${nodeKey}-m-${run.at}`} latex={run.latex} />;
     }
     const key = `${nodeKey}-inline-${index}`;
     const nested = run.parts.some(
@@ -71,7 +74,7 @@ function displayRuns(
       ? <MathText scrollOverflow key={`${key}-${i}`} latex={part.value} />
       : <Text key={`${key}-${i}`} style={base} selectable>{withGreenTicks(part.value, tickColor, key)}</Text>);
     return nested
-      ? <View key={key} style={mdMath.inlineWrap}>{children}{caret}</View>
+      ? <InlineFlow key={key} style={mdMath.inlineWrap}>{children}{caret}</InlineFlow>
       : <Text key={key} style={base} selectable>{children}{caret}</Text>;
   });
 }
@@ -165,11 +168,7 @@ function renderTextWithMath(
   if (segments.layout === "display") {
     const runs = displayRuns(node.key, segments.runs, base, mdMath, tickColor, takeCaret);
     if (caretLeft) runs.push(takeCaret());
-    return (
-      <View key={node.key} testID="md-heavy-math-run" style={{ width: "100%" }}>
-        {runs}
-      </View>
-    );
+    return <Fragment key={node.key}>{runs}</Fragment>;
   }
 
   if (segments.layout === "nested") {
