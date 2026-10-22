@@ -208,6 +208,7 @@
   "chat.status.composing": "Составляю ответ…",
   "chat.status.finding_photo": "Ищу фото…",
   "chat.status.finding_photo_detail": "Ищу фото — «{{detail}}»",
+  "chat.status.answer_photo": "Ищу фото…",
   "chat.status.image_gen": "Делаю набросок",
   "chat.status.image_gen_1": "Выстраиваю сцену",
   "chat.status.image_gen_2": "Добавляю детали",

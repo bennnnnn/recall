@@ -14,9 +14,13 @@ THINK_MAX_OPEN_BUFFER = 65_536
 # How much of a reply's start to hold for a model that has ended untagged
 # reasoning with a lone closing tag ("Simple question.</think>2 + 2 = 4"): text
 # before such a tag, inside this window, is that reasoning and is dropped. The
-# leak happens when the provider did not split the reasoning off, so the hold
-# ends as soon as reasoning arrives on its own channel (``reasoning_streamed``).
+# leak happens when the provider did not split the reasoning off, so once
+# reasoning arrives on its own channel ahead of any text, the text that follows
+# is most likely the answer and only its first sentence or two is held
+# (``reasoning_streamed``): a provider that split only part of it off still
+# leaks the rest there.
 STRAY_THINK_LEAD_HOLD = 400
+STRAY_THINK_SHORT_HOLD = 160
 # Held back at the end of the buffer so a tag split across chunks cannot leak.
 _TAG_TAIL = len(THINK_CLOSE) - 1
 
@@ -29,8 +33,7 @@ class ThinkStripper:
     A closing tag with no opening one is never shown; before any visible text
     has gone out, the text ahead of it is reasoning and is dropped too.
     ``lead_hold`` holds that many characters of the reply's start so a lone
-    closing tag can still arrive in time, until ``reasoning_streamed`` says it
-    cannot.
+    closing tag can still arrive in time; ``reasoning_streamed`` shortens it.
     """
 
     def __init__(self, *, lead_hold: int = 0) -> None:
@@ -53,16 +56,16 @@ class ThinkStripper:
             return True
         return not self._released and self._lead_hold > 0 and bool(self._buf.strip())
 
-    def reasoning_streamed(self) -> str:
-        """The provider sends this reply's reasoning on its own channel.
+    def reasoning_streamed(self) -> None:
+        """The provider sent reasoning on its own channel.
 
-        Its text is then the answer, never reasoning that ends in a lone closing
-        tag, so the start is no longer held. Returns the text that releases.
+        Before any text, the text to come is most likely the answer: its hold
+        shrinks to ``STRAY_THINK_SHORT_HOLD``, still long enough to catch the end
+        of reasoning the provider did not split off. Text already held came
+        before that reasoning and keeps the whole hold.
         """
-        if self._lead_hold == 0:
-            return ""
-        self._lead_hold = 0
-        return self.feed("")
+        if not self._released and not self._buf.strip():
+            self._lead_hold = min(self._lead_hold, STRAY_THINK_SHORT_HOLD)
 
     def feed(self, chunk: str) -> str:
         self._buf += chunk

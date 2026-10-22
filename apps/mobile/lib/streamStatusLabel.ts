@@ -6,11 +6,13 @@ const STREAM_STATUS_ROTATE_MS = 3200;
 const STATUS_DETAIL_MAX_CHARS = 44;
 
 /** Fake agent-progress chips. ChatGPT only labels long tools (search, files,
- *  image gen, …). Ordinary wait is typing dots — same as our TTS path. */
+ *  image gen, …). Ordinary wait is typing dots — same as our TTS path.
+ *  `finishing` ends a step after the reply's text (the check, a photo): no label. */
 const THEATER_STREAM_PHASES = new Set([
   "preparing",
   "remembering",
   "composing",
+  "finishing",
 ]);
 
 /** Real work the server reports as it happens: the model reasoning, the answer

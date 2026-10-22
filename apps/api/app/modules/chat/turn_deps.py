@@ -148,6 +148,7 @@ class ChatModel(Protocol):
         thinking: bool | str | None = ...,
         attempts: list[StreamAttempt] | None = ...,
         on_thinking: Callable[[], Awaitable[None]] | None = ...,
+        may_try: Callable[[str], Awaitable[bool]] | None = ...,
     ) -> AsyncIterator[str]: ...
 
 

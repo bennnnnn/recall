@@ -39,8 +39,9 @@ def __getattr__(name: str) -> Any:
     return value
 
 
-# Seams the chat turn uses: detection, follow-ups, camera reads, post-stream fences, and the
-# tool loop's check that a sympy call is the problem the user wrote.
+# Seams the chat turn uses: detection, follow-ups, camera reads, post-stream fences, the
+# tool loop's check that a sympy call is the problem the user wrote, and the record of a
+# pre-solve that ran out of time (so the tool loop does not solve it again).
 _MODULE_EXPORTS = (
     "fence",
     "followup",
@@ -52,4 +53,5 @@ _MODULE_EXPORTS = (
     "tool_check",
     "tools.extract",
     "tools.prompt",
+    "tools.solve_timeouts",
 )

@@ -70,10 +70,12 @@ async def prepare_chat_turn(
     resolved_model: str | None = None,
     on_user_saved: Callable[[], None] | None = None,
     unhealthy: frozenset[str] | None = None,
+    half_open: frozenset[str] = frozenset(),
 ) -> StreamContext:
     """``on_user_saved`` runs once the user's row has committed (an error after
-    that point must not offer to resend the message). ``unhealthy`` is the model
-    health the load read (None: read it again for the backups)."""
+    that point must not offer to resend the message). ``unhealthy`` and
+    ``half_open`` are the model health the load read (None: read it again for
+    the backups)."""
     attachments = await _process_attachments(
         user_id=user_id,
         user=user,
@@ -142,6 +144,7 @@ async def prepare_chat_turn(
         recent_messages=history,
         current_user_message_id=turn.message_id,
         unhealthy_models=unhealthy,
+        half_open_models=half_open,
     )
     persist: asyncio.Task[None] | None = None
     if history is None:
@@ -246,6 +249,8 @@ def _stream_context(
         prior_count=prior_count,
         timing=timing,
         user_message_persist=persist,
+        # The user's own pick runs whatever its health; Auto's claims its probe.
+        model_named=plan_service.is_explicit_pick(turn.model_alias) and model == turn.model_alias,
         thinking=thinking_level(
             turn.content,
             prior_user=prior_user,

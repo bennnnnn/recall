@@ -24,6 +24,10 @@ StreamStatusPhase = Literal[
     "planning",
     # The streamed reply's answer is being checked before it saves.
     "checking",
+    # The reply has streamed; the real photo above it is still being found.
+    "answer_photo",
+    # The step after the reply's text has ended: no label while the reply saves.
+    "finishing",
 ]
 
 _SUBJECT_STATUS_PHASE: dict[Literal["math", "physics", "chemistry"], StreamStatusPhase] = {
@@ -104,20 +108,26 @@ async def announced_if_slow[T](
     phase: StreamStatusPhase,
     *,
     after_seconds: float | None = None,
+    then: StreamStatusPhase | None = None,
 ) -> T:
     """Await ``work``, sending ``phase`` only once it has run ``after_seconds``
-    (``SLOW_STEP_SECONDS`` by default)."""
+    (``SLOW_STEP_SECONDS`` by default), and ``then`` once it ends, when ``phase``
+    went out: a label must not outlive its step."""
     if on_status is None:
         return await work
     task = asyncio.ensure_future(work)
+    announced = False
     try:
         wait = SLOW_STEP_SECONDS if after_seconds is None else after_seconds
         done, _pending = await asyncio.wait({task}, timeout=wait)
         if not done:
             await on_status(phase)
+            announced = True
         return await task
     finally:
         if not task.done():
             task.cancel()
             with suppress(asyncio.CancelledError, Exception):
                 await task
+        if announced and then is not None:
+            await on_status(then)

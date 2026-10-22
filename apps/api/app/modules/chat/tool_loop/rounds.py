@@ -70,6 +70,7 @@ async def run_tool_rounds(
     user_location: str | None = None,
     has_verified_math: bool = False,
     search_parts: list[str] | None = None,
+    skip_tools: frozenset[str] = frozenset(),
 ) -> ToolRoundsOutcome:
     """Mutate a copy of *messages* through up to ``mcp_tool_loop_max_rounds`` tool rounds.
 
@@ -80,6 +81,7 @@ async def run_tool_rounds(
     ``has_verified_math``: the server already solved the turn's maths part.
     ``search_parts``: the requests a classifier said need live results, when the
     message holds more than one (``tool_loop.parts``); each is searched for itself.
+    ``skip_tools``: tools the turn already spent (``selection.spent_tools``).
     """
     if not settings.mcp_tool_loop_enabled:
         return ToolRoundsOutcome(messages, None, None, [])
@@ -87,7 +89,7 @@ async def run_tool_rounds(
     # The caller's text is the user's own words; the prompt's last user
     # message can also carry attached file text.
     own_text = user_text if user_text is not None else _last_user_content(messages)
-    tools = _tools_for_user(settings, user, user_text=own_text)
+    tools = _tools_for_user(settings, user, user_text=own_text, skip_tools=skip_tools)
     if not tools:
         return ToolRoundsOutcome(messages, None, None, [])
 
@@ -113,6 +115,7 @@ async def run_tool_rounds(
         user,
         web_search=web_search,
         has_verified_math=has_verified_math,
+        skip_tools=skip_tools,
     ):
         working, hits = await _force_web_search_if_needed(
             settings=settings,

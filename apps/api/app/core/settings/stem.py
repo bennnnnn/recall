@@ -44,9 +44,10 @@ class StemSettings(BaseModel):
     math_word_problems_enabled: bool = True
     math_word_problem_timeout_seconds: float = 3.0
     # The word-problem translation and the extraction above run side by side;
-    # this bounds them together. It covers the longer of the two (two 3 s
-    # translation attempts), so it only stops a call that outlives its own.
-    math_model_intent_budget_seconds: float = 6.0
+    # this bounds them together. It sits a little above the longer of the two
+    # (two 3 s translation attempts), so it only stops a call that outlives its
+    # own timeout; a finished extraction is used when the translation runs long.
+    math_model_intent_budget_seconds: float = 7.0
     # POST /{math,physics,chemistry}/scan/read runs OCR (Mathpix, then vision)
     # so the student can confirm what the camera read before it is solved.
     # Per user, per hour, shared by every subject's reader.

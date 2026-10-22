@@ -244,6 +244,11 @@ const CHAT_EVENT_HANDLERS: Record<ChatEventType, ChatEventHandler> = {
   stream_end: (payload, ctx) => {
     ctx.pendingSendRef.current = null;
     ctx.setFinalizing(true);
+    const draft = ctx.streamingDraftRef.current;
+    if (draft?.status !== undefined) {
+      // The reply is whole: a label from its last step must not outlive it.
+      ctx.updateStreamingDraft({ content: draft.content, search_sources: draft.search_sources });
+    }
     if (typeof payload.resolved_model === "string" && payload.resolved_model) {
       ctx.setMessages((prev) => applyStreamEndModel(prev, payload.resolved_model));
     }

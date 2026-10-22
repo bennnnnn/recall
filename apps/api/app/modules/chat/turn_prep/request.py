@@ -47,9 +47,11 @@ class TurnRequest:
     probe_attachment_rag: bool = True
     recent_messages: list[Any] | None = None
     current_user_message_id: UUID | None = None
-    # Models whose provider is failing, as read when the turn loaded; None reads
-    # them again for the backups.
+    # Models whose breaker is open and cooling down, as read when the turn
+    # loaded; None reads model health again for the backups.
     unhealthy_models: frozenset[str] | None = None
+    # Open models past their cool-down, read with ``unhealthy_models``.
+    half_open_models: frozenset[str] = frozenset()
 
 
 @dataclass

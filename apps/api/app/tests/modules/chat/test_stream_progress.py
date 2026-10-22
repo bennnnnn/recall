@@ -1,4 +1,7 @@
-"""Real progress the phone can show: thinking (from its start), checking, a slow tool round."""
+"""Real progress the phone can show: thinking (from its start), checking, a slow tool round.
+
+A label for a step after the reply's text (the answer check, its photo) is cleared
+with ``finishing`` once that step ends, so it never outlives it."""
 
 from __future__ import annotations
 
@@ -90,6 +93,66 @@ async def test_a_slow_step_is_announced_once_while_it_runs() -> None:
 
     assert await announced_if_slow(slow(), statuses, "planning", after_seconds=0.05) == "done"
     assert statuses.phases == ["planning"]
+
+
+@pytest.mark.asyncio
+async def test_an_announced_step_is_cleared_when_it_ends() -> None:
+    statuses = Statuses()
+
+    async def slow() -> str:
+        await asyncio.sleep(0.15)
+        return "done"
+
+    async def fails() -> str:
+        await asyncio.sleep(0.15)
+        raise RuntimeError("no photo")
+
+    got = await announced_if_slow(
+        slow(), statuses, "answer_photo", after_seconds=0.05, then="finishing"
+    )
+    assert got == "done"
+    with pytest.raises(RuntimeError):
+        await announced_if_slow(
+            fails(), statuses, "answer_photo", after_seconds=0.05, then="finishing"
+        )
+    assert statuses.phases == ["answer_photo", "finishing", "answer_photo", "finishing"]
+
+
+@pytest.mark.asyncio
+async def test_a_quick_step_sends_no_clearing_status() -> None:
+    statuses = Statuses()
+
+    async def quick() -> str:
+        return "done"
+
+    await announced_if_slow(quick(), statuses, "answer_photo", after_seconds=0.2, then="finishing")
+    assert statuses.sent == []
+
+
+@pytest.mark.asyncio
+async def test_a_slow_answer_photo_is_its_own_phase_and_is_cleared() -> None:
+    from app.modules.chat.finalize_text import attach_answer_photo
+
+    statuses = Statuses()
+
+    class SlowPhoto:
+        watching = False
+
+        async def attach(self, text: str) -> tuple[str, list[Any]]:
+            await asyncio.sleep(0.15)
+            return text, []
+
+    state = MagicMock(
+        ctx=MagicMock(answer_photo=SlowPhoto()),
+        text="An ear has three parts.",
+        was_cancelled=False,
+        should_cancel=None,
+        on_status=statuses,
+    )
+    with patch("app.modules.chat.stream_status.SLOW_STEP_SECONDS", 0.05):
+        assert await attach_answer_photo(state) == "An ear has three parts."
+    # Not "finding_photo": that names the tool round, which analytics counts as a tool.
+    assert statuses.phases == ["answer_photo", "finishing"]
 
 
 @pytest.mark.asyncio
@@ -228,7 +291,7 @@ async def test_a_turn_that_never_thinks_shows_no_thinking(stream_offline_io: Non
 
 
 @pytest.mark.asyncio
-async def test_the_answer_check_is_announced_before_it_runs(
+async def test_the_answer_check_is_announced_while_it_runs_and_cleared_after(
     stream_offline_io: None, thread_sympy_executor: None
 ) -> None:
     statuses = Statuses()
@@ -237,7 +300,7 @@ async def test_the_answer_check_is_announced_before_it_runs(
         yield "So $x = 4$.\n\n```answer\nx = 4\n```"
 
     await _turn(fake_stream, statuses)
-    assert statuses.phases == ["composing", "checking"]
+    assert statuses.phases == ["composing", "checking", "finishing"]
 
 
 @pytest.mark.asyncio

@@ -32,6 +32,16 @@ describe("chat_turn_outcome (O10.1)", () => {
     expect(report).toHaveBeenCalledWith({ completion: "complete", error_code: "none", tool: "searching" });
   });
 
+  it("does not count the photo found above a finished reply as the turn's tool", async () => {
+    beginTurnOutcome();
+    noteTurnActivity("composing");
+    noteTurnActivity("answer_photo");
+    noteTurnActivity("finishing");
+    reportTurnOutcome(completionFromDone(undefined));
+    await settle();
+    expect(report).toHaveBeenCalledWith({ completion: "complete", error_code: "none", tool: "none" });
+  });
+
   it("reports a turn once, whatever frames follow", async () => {
     beginTurnOutcome();
     reportTurnOutcome("stopped");

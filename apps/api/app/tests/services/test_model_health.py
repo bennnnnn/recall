@@ -1,4 +1,5 @@
-"""Model health: one Redis round trip per read or write, and a breaker that half-opens."""
+"""Model health: one Redis round trip per read or write, a breaker per provider model
+that half-opens, and a probe that only the turn trying the model claims."""
 
 from __future__ import annotations
 
@@ -39,9 +40,13 @@ class _CountingRedis:
         return pipe
 
 
+def _probe_key(alias: str) -> str:
+    return f"recall:model_health:probe:{model_health._model_of(alias)}"
+
+
 async def _store(redis: Any, alias: str, *samples: tuple[bool, int, float]) -> None:
     """Samples with their own timestamps: (ok, latency ms, recorded at)."""
-    key = f"recall:model_health:samples:{alias}"
+    key = f"recall:model_health:samples:{model_health._model_of(alias)}"
     for ok, ms, at in samples:
         await redis.zadd(key, {f"{int(ok)}|{ms}|{int(at * 1e9)}": at})
 
@@ -113,10 +118,26 @@ async def test_every_model_is_read_in_one_round_trip() -> None:
         "glm-5.2",
         "gpt-6-luna",
         "qwen-3.7-flash",
+        "vision-chat",
+        "fallback-vision-model",
     ]
-    found = await model_health.unhealthy_aliases(redis, _SETTINGS, aliases)  # type: ignore[arg-type]
-    assert found == frozenset()
+    found = await model_health.read_breakers(redis, _SETTINGS, aliases)  # type: ignore[arg-type]
+    assert found == model_health.Breakers()
     assert redis.round_trips == 1
+
+
+@pytest.mark.asyncio
+async def test_aliases_on_one_provider_model_share_its_breaker() -> None:
+    redis = _redis()
+    # The photo lane runs the everyday lane's model: its failures are the lane's.
+    await model_health.record_samples(
+        redis, [HealthSample("vision-chat", latency_ms=900, success=False) for _ in range(3)]
+    )
+    found = await model_health.read_breakers(
+        redis, _SETTINGS, ["qwen-3.7-flash", "vision-chat", "glm-5.2"]
+    )
+    assert found.cooling == {"qwen-3.7-flash", "vision-chat"}
+    assert (await _health(redis, "qwen-3.7-flash")).sample_count == 3
 
 
 @pytest.mark.asyncio
@@ -149,41 +170,77 @@ async def test_unreadable_health_is_all_healthy() -> None:
     pipe = MagicMock()
     pipe.execute = AsyncMock(side_effect=RuntimeError("down"))
     redis.pipeline.return_value = pipe
-    assert await model_health.unhealthy_aliases(redis, _SETTINGS, ["smart-chat"]) == frozenset()
+    found = await model_health.read_breakers(redis, _SETTINGS, ["smart-chat"])
+    assert found == model_health.Breakers()
 
 
 @pytest.mark.asyncio
-async def test_an_open_model_stays_open_through_its_cool_down() -> None:
+async def test_an_open_model_cools_down_before_it_is_half_open() -> None:
     redis = _redis()
-    now = time.time()
-    await _store(redis, "smart-chat", (False, 50, now - 5))
-    found = await model_health.unhealthy_aliases(redis, _SETTINGS, ["smart-chat", "glm-5.2"])
-    assert found == frozenset({"smart-chat"})
+    await _store(redis, "smart-chat", (False, 50, time.time() - 5))
+    found = await model_health.read_breakers(redis, _SETTINGS, ["smart-chat", "glm-5.2"])
+    assert found == model_health.Breakers(cooling=frozenset({"smart-chat"}))
 
 
 @pytest.mark.asyncio
-async def test_after_its_cool_down_one_turn_may_try_an_open_model() -> None:
+async def test_after_its_cool_down_an_open_model_is_half_open_and_reading_claims_nothing() -> None:
     redis = _redis()
     await _store(redis, "smart-chat", (False, 50, time.time() - 31))
     aliases = ["smart-chat", "glm-5.2"]
-    # The first turn claims the probe and may use it; the next still skips it.
-    assert await model_health.unhealthy_aliases(redis, _SETTINGS, aliases) == frozenset()
-    assert await model_health.unhealthy_aliases(redis, _SETTINGS, aliases) == {"smart-chat"}
+    half_open = model_health.Breakers(half_open=frozenset({"smart-chat"}))
+    # Every turn reads it half-open; none has used up its probe by reading.
+    assert await model_health.read_breakers(redis, _SETTINGS, aliases) == half_open
+    assert await model_health.read_breakers(redis, _SETTINGS, aliases) == half_open
+    assert await redis.exists(_probe_key("smart-chat")) == 0
 
 
 @pytest.mark.asyncio
-async def test_the_probe_decides_the_breaker() -> None:
+async def test_one_turn_at_a_time_claims_the_probe() -> None:
+    redis = _redis()
+    assert await model_health.claim_probe(redis, _SETTINGS, "smart-chat") is True
+    assert await model_health.claim_probe(redis, _SETTINGS, "smart-chat") is False
+    # Another model's probe is its own.
+    assert await model_health.claim_probe(redis, _SETTINGS, "glm-5.2") is True
+
+
+@pytest.mark.asyncio
+async def test_the_probe_outlasts_a_try_that_waits_out_its_provider() -> None:
+    redis = _redis()
+    settings = Settings(
+        model_health_cooldown_seconds=30,
+        chat_stream_connect_timeout_seconds=15,
+        chat_stream_timeout_seconds=45,
+    )
+    assert model_health.probe_ttl_seconds(settings) == 60
+    assert await model_health.claim_probe(redis, settings, "smart-chat")
+    assert 55 < await redis.ttl(_probe_key("smart-chat")) <= 60
+    # A cool-down longer than one try still bounds it.
+    assert model_health.probe_ttl_seconds(Settings(model_health_cooldown_seconds=120)) == 120
+
+
+@pytest.mark.asyncio
+async def test_a_claim_that_cannot_be_made_counts_as_lost() -> None:
+    redis = MagicMock()
+    redis.set = AsyncMock(side_effect=RuntimeError("down"))
+    assert await model_health.claim_probe(redis, _SETTINGS, "smart-chat") is False
+
+
+@pytest.mark.asyncio
+async def test_the_probes_sample_decides_the_breaker() -> None:
     redis = _redis()
     await _store(redis, "smart-chat", (False, 50, time.time() - 31))
-    assert await model_health.unhealthy_aliases(redis, _SETTINGS, ["smart-chat"]) == frozenset()
-    # The probe failed: open again, for a fresh cool-down.
+    assert await model_health.claim_probe(redis, _SETTINGS, "smart-chat")
+    # The probe failed: open again for a fresh cool-down, and the probe is free
+    # for the turn after it.
     await model_health.record_samples(redis, [HealthSample("smart-chat", 3000, success=False)])
-    await redis.delete("recall:model_health:probe:smart-chat")
-    assert await model_health.unhealthy_aliases(redis, _SETTINGS, ["smart-chat"]) == {"smart-chat"}
+    found = await model_health.read_breakers(redis, _SETTINGS, ["smart-chat"])
+    assert found == model_health.Breakers(cooling=frozenset({"smart-chat"}))
+    assert await redis.exists(_probe_key("smart-chat")) == 0
     # A later probe answered: closed for every turn.
     await model_health.record_samples(redis, [HealthSample("smart-chat", 600, success=True)])
-    assert await model_health.unhealthy_aliases(redis, _SETTINGS, ["smart-chat"]) == frozenset()
-    assert await model_health.unhealthy_aliases(redis, _SETTINGS, ["smart-chat"]) == frozenset()
+    assert await model_health.read_breakers(redis, _SETTINGS, ["smart-chat"]) == (
+        model_health.Breakers()
+    )
 
 
 @pytest.mark.asyncio

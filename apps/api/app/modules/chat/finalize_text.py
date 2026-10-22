@@ -45,7 +45,7 @@ async def attach_answer_photo(state: FinalizeState) -> str:
             photo.cancel()
         return strip_photo_fences(state.text)
     text, ctx.answer_photo_ids = await announced_if_slow(
-        photo.attach(state.text), state.on_status, "finding_photo"
+        photo.attach(state.text), state.on_status, "answer_photo", then="finishing"
     )
     if ctx.answer_photo_ids:
         state.committed = fallback_text(text, server_text=state.server_text)

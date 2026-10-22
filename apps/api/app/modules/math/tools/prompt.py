@@ -30,6 +30,7 @@ from app.modules.math.tools.extract import (
 )
 from app.modules.math.tools.function_def import has_assignment_evaluation_request
 from app.modules.math.tools.llm_extract import llm_extract_math_intent
+from app.modules.math.tools.solve_timeouts import note as note_solve_timeout
 from app.services.solving import VERIFIED_MATH_BEGIN, VERIFIED_MATH_END
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 
@@ -392,8 +393,10 @@ async def _model_math_intent(
     bounded structured extraction on a fast alias, whose candidate still has to
     survive SymPy. Both start at once under one budget, so the extraction no
     longer waits out a translation that finds nothing (up to 6 s); when the
-    translation wins, the extraction is dropped. Gate-miss and regex-hit turns
-    never get here.
+    translation wins, the extraction is dropped. That costs one small extraction
+    call on word problems the translation reads; gate-miss and regex-hit turns
+    never get here. A translation still running when the budget ends gives way
+    to an extraction that has finished.
     """
     from app.modules.math.tools.word_problem import word_problem_intent
 
@@ -408,6 +411,8 @@ async def _model_math_intent(
             return await extract
     except TimeoutError:
         logger.warning("math model helpers ran past their %ss budget", budget)
+        if extract.done() and not extract.cancelled() and extract.exception() is None:
+            return extract.result()
         return None
     finally:
         # Dropped (or finished): either way nothing is left running or unread.
@@ -468,6 +473,7 @@ async def _build_verified_block_async(
             settings.math_solve_timeout_seconds,
             intent.kind,
         )
+        note_solve_timeout(intent.kind)
         return None
     except math_solve.MathServiceError as exc:
         # Sync builder also catches this; keep the async boundary honest if a

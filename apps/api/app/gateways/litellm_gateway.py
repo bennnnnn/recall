@@ -12,10 +12,12 @@ from app.core.config import Settings
 from app.gateways import llm_spend, mock_llm
 from app.gateways.reasoning import reasoning_body
 from app.gateways.stream_signals import (
-    FirstReplyCaps,
+    REQUEST_FAULT,
     FirstReplyWatch,
     StreamAttempt,
-    first_reply_caps,
+    first_reply_cap,
+    prompt_shape,
+    provider_fault,
     reasoning_delta,
 )
 
@@ -43,16 +45,21 @@ class ModelUnavailableError(Exception):
         *,
         code: str = "model_unavailable",
         failed_alias: str | None = None,
+        cause: str | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message
         self.code = code
         self.failed_alias = failed_alias
+        # Why the model call failed (``stream_signals.StreamAttempt.cause``).
+        self.cause = cause
 
     @classmethod
-    def for_alias(cls, alias: str, *, code: str = "model_unavailable") -> Self:
+    def for_alias(
+        cls, alias: str, *, code: str = "model_unavailable", cause: str | None = None
+    ) -> Self:
         """The user-facing "model isn't responding" error for one failed alias."""
-        return cls(_CHAT_MODEL_UNAVAILABLE_MSG, code=code, failed_alias=alias)
+        return cls(_CHAT_MODEL_UNAVAILABLE_MSG, code=code, failed_alias=alias, cause=cause)
 
 
 _CHAT_MODEL_UNAVAILABLE_MSG = (
@@ -132,7 +139,7 @@ def _litellm_kwargs(
     kwargs: dict[str, Any] = {}
     api_key = getattr(settings, route.api_key_field, "")
     if not api_key:
-        raise ModelUnavailableError.for_alias(route.id)
+        raise ModelUnavailableError.for_alias(route.id, cause=REQUEST_FAULT)
     kwargs["api_key"] = api_key
     if route.api_base:
         kwargs["api_base"] = route.api_base
@@ -197,12 +204,14 @@ async def stream_chat_completion(
     thinking: bool | str | None = None,
     attempts: list[StreamAttempt] | None = None,
     on_thinking: Callable[[], Awaitable[None]] | None = None,
+    may_try: Callable[[str], Awaitable[bool]] | None = None,
 ) -> AsyncIterator[str]:
     """Stream one reply, moving down ``fallback_aliases`` until a model answers.
 
     ``attempts`` gets one record per model tried, in order: which failed (before
     its text, or partway), and how fast each provider started. ``on_thinking``
-    runs when a model is seen reasoning before any of its text.
+    runs when a model is seen reasoning before any of its text. ``may_try`` is
+    asked before each model but the last; False passes it by untried.
     """
     if mock_llm.should_mock_llm(settings):
         logger.info("Using mock LLM stream for alias=%s", model_alias)
@@ -213,9 +222,15 @@ async def stream_chat_completion(
         return
 
     aliases = [model_alias, *(fallback_aliases or [])]
+    shape = prompt_shape(messages)
     last_error: ModelUnavailableError | None = None
 
     for index, alias in enumerate(aliases):
+        has_next = index < len(aliases) - 1
+        if has_next and may_try is not None and not await may_try(alias):
+            # A recovering model that another turn is trying (model health's probe).
+            logger.info("Chat stream %s passed over: another turn is trying it", alias)
+            continue
         # Buffer until the first non-whitespace token so whitespace-only
         # "success" streams (common flaky provider quirk) still fall through
         # to the next alias instead of locking in an empty reply.
@@ -225,7 +240,7 @@ async def stream_chat_completion(
         # daily quota. Tool-loop usage already lives on `usage`; only merge
         # the attempt that actually produced content.
         attempt_usage: dict[str, int] = {}
-        caps = first_reply_caps(settings, alias, thinking, has_next=index < len(aliases) - 1)
+        cap = first_reply_cap(settings, alias, thinking, has_next=has_next, prompt=shape)
         attempt = StreamAttempt(alias)
         if attempts is not None:
             attempts.append(attempt)
@@ -241,8 +256,7 @@ async def stream_chat_completion(
                 on_reasoning=on_reasoning,
                 stream_meta=stream_meta,
                 thinking=thinking,
-                first_content_timeout_seconds=caps.text,
-                first_signal_timeout_seconds=caps.signal,
+                first_content_timeout_seconds=cap,
                 attempt=attempt,
                 on_thinking=on_thinking,
             ):
@@ -265,20 +279,18 @@ async def stream_chat_completion(
             logger.warning(
                 "Chat stream %s returned no content%s",
                 alias,
-                f"; retrying with fallback {aliases[index + 1]}"
-                if index < len(aliases) - 1
-                else "",
+                f"; retrying with fallback {aliases[index + 1]}" if has_next else "",
             )
-            raise ModelUnavailableError.for_alias(alias)
+            raise ModelUnavailableError.for_alias(alias, cause="empty")
         except ModelUnavailableError as exc:
             last_error = exc
-            attempt.end(failed=True)
+            attempt.end(failed=True, cause=exc.cause)
             # Mid-stream failure: client already has partial tokens — falling
             # back would concatenate partial + full into one persisted reply.
             if started:
                 _merge_attempt_usage(usage, attempt_usage)
                 raise
-            if index < len(aliases) - 1:
+            if has_next:
                 logger.warning(
                     "Chat stream %s unavailable; retrying with fallback %s",
                     alias,
@@ -288,7 +300,7 @@ async def stream_chat_completion(
             failed = exc.failed_alias or alias
             if stream_meta is not None:
                 stream_meta["model_alias"] = failed
-            raise ModelUnavailableError.for_alias(failed) from exc
+            raise ModelUnavailableError.for_alias(failed, cause=exc.cause) from exc
 
     if last_error is not None:
         raise last_error
@@ -329,11 +341,11 @@ def _read_chunk(
         stream_meta["finish_reason"] = str(reason)
     delta = getattr(choices[0], "delta", None)
     reasoning = reasoning_delta(delta)
-    # Reasoning on its own channel: the held start of the reply is the answer.
-    text = stripper.reasoning_streamed() if reasoning else ""
+    if reasoning:
+        # Text after reasoning on its own channel is most likely the answer.
+        stripper.reasoning_streamed()
     content = getattr(delta, "content", None) or "" if delta is not None else ""
-    if content:
-        text += stripper.feed(content)
+    text = stripper.feed(content) if content else ""
     return _ChunkRead(text, reasoning or stripper.holding_thought, reasoning or bool(content))
 
 
@@ -355,19 +367,18 @@ async def _stream_chat_once(
     on_reasoning: Callable[[str], Awaitable[None]] | None = None,
     stream_meta: dict[str, str] | None = None,
     first_content_timeout_seconds: float | None = None,
-    first_signal_timeout_seconds: float | None = None,
     thinking: bool | str | None = None,
     attempt: StreamAttempt | None = None,
     on_thinking: Callable[[], Awaitable[None]] | None = None,
 ) -> AsyncIterator[str]:
+    """One model's stream. ``first_content_timeout_seconds`` caps the wait for its
+    first text or reasoning (``stream_signals.first_reply_cap``)."""
     route = resolve_route(model_alias)
     kwargs = _litellm_kwargs(settings, route, latency_sensitive=True, thinking=thinking)
     stripper = ThinkStripper(lead_hold=STRAY_THINK_LEAD_HOLD if route.stray_think_guard else 0)
     # Signature kept so WS/SSE callers stay unchanged; CoT is not forwarded.
     _ = on_reasoning
-    watch = FirstReplyWatch(
-        FirstReplyCaps(signal=first_signal_timeout_seconds, text=first_content_timeout_seconds)
-    )
+    watch = FirstReplyWatch(first_content_timeout_seconds)
     response = None
     try:
         # A first-reply cap also bounds the wait for the stream to open.
@@ -392,15 +403,16 @@ async def _stream_chat_once(
             except StopAsyncIteration:
                 return None
 
-        def stop_reason() -> str | None:
+        def stop_reason() -> tuple[str, str] | None:
+            """(what ran out, the failure's cause), or None while the stream may go on."""
             if time.monotonic() >= deadline:
-                return f"wall-clock {max_seconds}s"
-            return watch.expired()
+                return f"wall-clock {max_seconds}s", "timeout"
+            cap = watch.expired()
+            return (cap, "cap") if cap is not None else None
 
         while True:
             if (stop := stop_reason()) is not None:
-                logger.warning("LiteLLM stream for alias=%s gave up: %s", model_alias, stop)
-                raise ModelUnavailableError.for_alias(model_alias)
+                raise _gave_up(model_alias, *stop)
             remaining = deadline - time.monotonic()
             try:
                 chunk = await asyncio.wait_for(
@@ -408,12 +420,8 @@ async def _stream_chat_once(
                     timeout=watch.bound(min(idle_seconds, remaining)),
                 )
             except TimeoutError as exc:
-                logger.warning(
-                    "LiteLLM stream for alias=%s gave up: %s",
-                    model_alias,
-                    stop_reason() or f"idle {idle_seconds}s",
-                )
-                raise ModelUnavailableError.for_alias(model_alias) from exc
+                stop = stop_reason() or (f"idle {idle_seconds}s", "timeout")
+                raise _gave_up(model_alias, *stop) from exc
             if chunk is None:
                 break
             read = _read_chunk(chunk, usage=usage, stream_meta=stream_meta, stripper=stripper)
@@ -428,17 +436,19 @@ async def _stream_chat_once(
             yield tail
     except TimeoutError as exc:
         # Only the wait for the stream to open raises one here.
+        cap = watch.expired()
         logger.warning(
             "LiteLLM stream for alias=%s did not open: %s",
             model_alias,
-            watch.expired() or f"connect {settings.chat_stream_connect_timeout_seconds}s",
+            cap or f"connect {settings.chat_stream_connect_timeout_seconds}s",
         )
-        raise ModelUnavailableError.for_alias(model_alias) from exc
+        cause = "cap" if cap is not None else "timeout"
+        raise ModelUnavailableError.for_alias(model_alias, cause=cause) from exc
     except ModelUnavailableError:
         raise
     except Exception as exc:
         logger.exception("LiteLLM streaming failed for alias=%s", model_alias)
-        raise ModelUnavailableError.for_alias(model_alias) from exc
+        raise ModelUnavailableError.for_alias(model_alias, cause=provider_fault(exc)) from exc
     finally:
         close = getattr(response, "aclose", None)
         if close is not None:
@@ -454,6 +464,11 @@ async def _stream_chat_once(
             else:
                 with suppress(Exception):
                     await close()
+
+
+def _gave_up(model_alias: str, ran_out: str, cause: str) -> ModelUnavailableError:
+    logger.warning("LiteLLM stream for alias=%s gave up: %s", model_alias, ran_out)
+    return ModelUnavailableError.for_alias(model_alias, cause=cause)
 
 
 async def complete_text(

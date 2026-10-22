@@ -24,6 +24,7 @@ const t = ((key: string, options?: { detail?: string; seconds?: number }) => {
     "chat.status.composing": "Writing a reply…",
     "chat.status.finding_photo": "Finding a photo…",
     "chat.status.finding_photo_detail": "Finding a photo — “{{detail}}”",
+    "chat.status.answer_photo": "Finding a photo…",
     "chat.status.unknown": "missing",
   };
   const raw = map[key];
@@ -147,7 +148,13 @@ describe("progressStreamLabel", () => {
 
   it("reads any other phase as its own label at once, and theater as nothing", () => {
     expect(progressStreamLabel(t, "finding_photo", 0)).toBe("Finding a photo…");
+    expect(progressStreamLabel(t, "answer_photo", 0)).toBe("Finding a photo…");
     expect(progressStreamLabel(t, "composing", 5000)).toBeNull();
+  });
+
+  it("shows nothing once the reply's last step has finished", () => {
+    expect(streamStatusLabels(t, "finishing")).toEqual([]);
+    expect(progressStreamLabel(t, "finishing", 5000)).toBeNull();
   });
 
   it("knows which phases are progress", () => {

@@ -45,8 +45,10 @@ class NewTurn:
     prior_count: int
     turn_mode: _TurnMode
     model: str
-    # Chat models whose provider is failing; routing above already skipped them.
+    # Chat models whose breaker is open and cooling down; routing above skipped them.
     unhealthy: frozenset[str] = frozenset()
+    # Open models past their cool-down: tried only by a turn that claims their probe.
+    half_open: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -235,8 +237,8 @@ async def load_new_turn(
     if obvious_greeting:
         await wait_for_pending_finalize(chat_id, redis, require_complete=True)
         timing.mark_phase("previous_finalize_ready")
-        (loaded_user, daily_limit, loaded_chat), unhealthy = await asyncio.gather(
-            load_account(), _unhealthy_models(redis, settings)
+        (loaded_user, daily_limit, loaded_chat), health = await asyncio.gather(
+            load_account(), _model_breakers(redis, settings)
         )
         recent: list[Any] = []
         prior_count = 0
@@ -245,11 +247,11 @@ async def load_new_turn(
         (
             (loaded_user, daily_limit, loaded_chat),
             (recent, prior_count),
-            unhealthy,
+            health,
         ) = await asyncio.gather(
             load_account(),
             _load_history_after_finalize(deps, redis, settings, timing, chat_id),
-            _unhealthy_models(redis, settings),
+            _model_breakers(redis, settings),
         )
     # Only short confirmation turns touch the DB here; ordinary lightweight
     # greetings classify synchronously, so opening a fresh AsyncSession has no
@@ -265,7 +267,7 @@ async def load_new_turn(
         prior_user=prior_user,
         prior_model=prior_model,
         lesson_active=active_lesson_step(recent) is not None,
-        unhealthy=unhealthy,
+        unhealthy=health.cooling,
     )
     timing.mark_phase("user_quota")
     return NewTurn(
@@ -276,15 +278,19 @@ async def load_new_turn(
         prior_count=prior_count,
         turn_mode=turn_mode,
         model=model,
-        unhealthy=unhealthy,
+        unhealthy=health.cooling,
+        half_open=health.half_open,
     )
 
 
-async def _unhealthy_models(redis: Redis, settings: Settings) -> frozenset[str]:
-    """Chat models whose provider is failing, read beside the account (the pool
-    needs the user, so every selectable model is read)."""
+async def _model_breakers(redis: Redis, settings: Settings) -> model_health.Breakers:
+    """The open breakers among the models a turn may run on, read beside the
+    account (the pool needs the user, so every selectable model and the photo
+    lanes are read). A half-open model is routed to like a healthy one; the turn
+    claims its probe only right before it tries it (``stream_paths``)."""
     aliases = [model.id for model in model_catalog.selectable_models()]
-    return await model_health.unhealthy_aliases(redis, settings, aliases)
+    aliases += [model_catalog.vision_alias(), model_catalog.vision_backup_alias()]
+    return await model_health.read_breakers(redis, settings, aliases)
 
 
 async def load_regenerate_turn(

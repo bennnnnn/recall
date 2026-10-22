@@ -190,6 +190,20 @@ describe("useChatIncomingEvents handleChatPayloadForChat", () => {
     expect(cue.activity).not.toHaveBeenCalled();
   });
 
+  it("stream_end drops a label left over from the reply's last step", async () => {
+    const sources = [{ title: "Ear", url: "https://example.com/ear" }];
+    const { args, send } = await setup({
+      draft: { content: "So x = 4.", search_sources: sources, status: "checking", statusStartedAt: NOW - 1500 },
+    });
+    await send({ type: "stream_end" });
+    expect(args.updateStreamingDraft).toHaveBeenLastCalledWith({ content: "So x = 4.", search_sources: sources });
+    expect(args.streamingDraftRef.current?.status).toBeUndefined();
+    // Nothing to drop: the draft is left alone.
+    args.updateStreamingDraft.mockClear();
+    await send({ type: "stream_end" });
+    expect(args.updateStreamingDraft).not.toHaveBeenCalled();
+  });
+
   it("done settles the turn, merges the reply and runs the first-reply callback once", async () => {
     const { args, cue, send, messages } = await setup({
       messages: [streamingBubble],

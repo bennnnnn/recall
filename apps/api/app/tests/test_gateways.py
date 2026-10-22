@@ -673,31 +673,65 @@ async def test_reasoning_primary_gets_visible_content_deadline_when_fallback_exi
     assert calls == [("smart-chat", 0.05), ("free-chat", None)]
 
 
+class _HiddenReasoningStream:
+    """Reasoning chunks every 10 ms; then the answer, after ``answer_after`` of them."""
+
+    def __init__(self, answer_after: int | None = None) -> None:
+        self._sent = 0
+        self._answer_after = answer_after
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        await asyncio.sleep(0.01)
+        self._sent += 1
+        if self._answer_after is not None and self._sent > self._answer_after + 1:
+            raise StopAsyncIteration
+        delta = MagicMock()
+        answering = self._answer_after is not None and self._sent > self._answer_after
+        delta.content = "x = 2 or x = -2" if answering else ""
+        delta.reasoning_content = "" if answering else "still thinking"
+        choice = MagicMock()
+        choice.delta = delta
+        choice.finish_reason = None
+        chunk = MagicMock()
+        chunk.choices = [choice]
+        chunk.usage = None
+        return chunk
+
+
 @pytest.mark.asyncio
-async def test_stream_chat_once_times_out_reasoning_without_visible_content():
+async def test_stream_chat_once_lets_a_model_streaming_its_reasoning_think():
+    """Reasoning that streams ends the first-reply cap; the answer comes after it."""
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
-
-    class HiddenReasoningStream:
-        def __aiter__(self):
-            return self
-
-        async def __anext__(self):
-            await asyncio.sleep(0.01)
-            delta = MagicMock()
-            delta.content = ""
-            delta.reasoning_content = "still thinking"
-            choice = MagicMock()
-            choice.delta = delta
-            chunk = MagicMock()
-            chunk.choices = [choice]
-            chunk.usage = None
-            return chunk
-
     with patch(
         "app.gateways.litellm_gateway.acompletion",
-        AsyncMock(return_value=HiddenReasoningStream()),
+        AsyncMock(return_value=_HiddenReasoningStream(answer_after=20)),
     ):
-        with pytest.raises(litellm_gateway.ModelUnavailableError):
+        tokens = [
+            token
+            async for token in litellm_gateway._stream_chat_once(
+                settings=settings,
+                model_alias="smart-chat",
+                messages=[{"role": "user", "content": "solve x^2 = 4"}],
+                max_tokens=20,
+                first_content_timeout_seconds=0.05,
+            )
+        ]
+    assert "".join(tokens) == "x = 2 or x = -2"
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_once_still_bounds_endless_reasoning_by_the_wall_clock():
+    settings = Settings(
+        mock_llm_enabled=False, openrouter_api_key="sk-or-test", chat_stream_max_seconds=1
+    )
+    with patch(
+        "app.gateways.litellm_gateway.acompletion",
+        AsyncMock(return_value=_HiddenReasoningStream()),
+    ):
+        with pytest.raises(litellm_gateway.ModelUnavailableError) as raised:
             async for _ in litellm_gateway._stream_chat_once(
                 settings=settings,
                 model_alias="smart-chat",
@@ -706,6 +740,7 @@ async def test_stream_chat_once_times_out_reasoning_without_visible_content():
                 first_content_timeout_seconds=0.05,
             ):
                 pass
+    assert raised.value.cause == "timeout"
 
 
 @pytest.mark.asyncio

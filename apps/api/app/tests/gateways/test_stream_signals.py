@@ -13,7 +13,19 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway
-from app.gateways.think_stripper import STRAY_THINK_LEAD_HOLD, THINK_CLOSE, ThinkStripper
+from app.gateways.stream_signals import (
+    PromptShape,
+    StreamAttempt,
+    first_reply_cap,
+    prompt_shape,
+    provider_fault,
+)
+from app.gateways.think_stripper import (
+    STRAY_THINK_LEAD_HOLD,
+    STRAY_THINK_SHORT_HOLD,
+    THINK_CLOSE,
+    ThinkStripper,
+)
 
 _SETTINGS = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
 
@@ -71,22 +83,30 @@ def stream_once(alias: str, provider: FakeStream, **kwargs: Any) -> AsyncIterato
 # ── the think hold ─────────────────────────────────────────────────────────────
 
 
-def test_the_hold_ends_when_reasoning_streams_on_its_own_channel() -> None:
+def test_text_held_before_channel_reasoning_keeps_the_whole_hold() -> None:
     stripper = ThinkStripper(lead_hold=STRAY_THINK_LEAD_HOLD)
     assert stripper.feed("Paris is the capital of France.") == ""
+    stripper.reasoning_streamed()
+    # Text that came before the reasoning may itself be leaked reasoning.
     assert stripper.holding_thought
-    released = stripper.reasoning_streamed()
-    assert released == "Paris is the capital of "
-    assert not stripper.holding_thought
-    assert stripper.feed(" Its river") + stripper.flush() == "France. Its river"
+    assert stripper.feed(" " * (STRAY_THINK_SHORT_HOLD + 1)) == ""
 
 
-def test_after_reasoning_streams_the_start_is_never_held() -> None:
+def test_channel_reasoning_before_any_text_shortens_the_hold() -> None:
     stripper = ThinkStripper(lead_hold=STRAY_THINK_LEAD_HOLD)
-    assert stripper.reasoning_streamed() == ""
-    assert stripper.feed("The answer is 4, since 2 + 2 = 4.") == "The answer is 4, since 2 +"
-    # A lone closing tag is still never shown.
-    assert stripper.feed(f"{THINK_CLOSE} Done.") + stripper.flush() == " 2 = 4. Done."
+    stripper.reasoning_streamed()
+    assert stripper.feed("The answer is 4, since 2 + 2 = 4.") == ""
+    tail = " It always has been." * 8
+    released = stripper.feed(tail)
+    assert released
+    assert released + stripper.flush() == f"The answer is 4, since 2 + 2 = 4.{tail}"
+
+
+def test_a_lone_closing_tag_inside_the_short_hold_still_drops_leaked_reasoning() -> None:
+    stripper = ThinkStripper(lead_hold=STRAY_THINK_LEAD_HOLD)
+    stripper.reasoning_streamed()
+    assert stripper.feed("Simple question.") == ""
+    assert stripper.feed(f"{THINK_CLOSE}2 + 2 = 4") + stripper.flush() == "2 + 2 = 4"
 
 
 def test_a_think_block_is_a_held_thought() -> None:
@@ -99,30 +119,62 @@ def test_a_think_block_is_a_held_thought() -> None:
 
 def test_without_a_hold_nothing_is_a_held_thought() -> None:
     stripper = ThinkStripper()
-    stripper.feed("Hello")
+    stripper.reasoning_streamed()
+    assert stripper.feed("Hello there") == "Hell"
     assert not stripper.holding_thought
-    assert stripper.reasoning_streamed() == ""
+
+
+async def _glm_reply(*chunks: SimpleNamespace) -> str:
+    provider = _ready(*chunks)
+    with patch.object(litellm_gateway, "acompletion", AsyncMock(return_value=provider)):
+        tokens = [
+            token
+            async for token in litellm_gateway.stream_chat_completion(
+                settings=_SETTINGS,
+                model_alias="glm-5.3-flash",
+                messages=[{"role": "user", "content": "what is 2 + 2?"}],
+                max_tokens=50,
+                thinking="off",
+            )
+        ]
+    return "".join(tokens)
 
 
 @pytest.mark.asyncio
-async def test_a_guarded_model_with_channel_reasoning_shows_its_answer_at_once() -> None:
-    provider = FakeStream(
-        [chunk(reasoning="Capital of France."), chunk(content="Paris is the capital of France.")]
-    )
+@pytest.mark.parametrize(
+    "chunks",
+    [
+        # No reasoning channel: the whole reasoning leaked into the text.
+        [chunk(content="Simple question."), chunk(content=f"{THINK_CLOSE}2 + 2 = 4")],
+        # Reasoning on its channel first, then the rest of it leaked into the text.
+        [
+            chunk(reasoning="User asks a sum."),
+            chunk(content="Simple question."),
+            chunk(content=f"{THINK_CLOSE}2 + 2 = 4"),
+        ],
+        # Leaked text first, then reasoning on its channel.
+        [
+            chunk(content="Simple question."),
+            chunk(reasoning="more thought"),
+            chunk(content=f"{THINK_CLOSE}2 + 2 = 4"),
+        ],
+    ],
+    ids=["no-channel", "reasoning-first", "text-first"],
+)
+async def test_a_guarded_model_never_shows_leaked_reasoning(chunks: list[SimpleNamespace]) -> None:
+    assert await _glm_reply(*chunks) == "2 + 2 = 4"
+
+
+@pytest.mark.asyncio
+async def test_a_guarded_model_with_channel_reasoning_shows_its_answer_early() -> None:
+    answer = "Paris is the capital of France, and it sits on the Seine. " * 3
+    provider = FakeStream([chunk(reasoning="Capital of France."), chunk(content=answer)])
     tokens = stream_once("glm-5.3-flash", provider)
-    # Not held for the stray-tag window: the text arrives while the stream is open.
+    # Past the short hold, the text arrives while the stream is still open.
     first = await asyncio.wait_for(anext(tokens), 1)
-    assert first == "Paris is the capital of "
+    assert answer.startswith(first) and first
     provider.finish.set()
-    assert first + "".join([token async for token in tokens]) == "Paris is the capital of France."
-
-
-@pytest.mark.asyncio
-async def test_a_guarded_model_still_drops_a_leaked_start_without_channel_reasoning() -> None:
-    provider = FakeStream([chunk(content="Simple question."), chunk(content=f"{THINK_CLOSE}4")])
-    provider.finish.set()
-    tokens = [token async for token in stream_once("glm-5.3-flash", provider)]
-    assert "".join(tokens) == "4"
+    assert first + "".join([token async for token in tokens]) == answer
 
 
 @pytest.mark.asyncio
@@ -140,45 +192,68 @@ async def test_a_guarded_model_holds_a_clean_start_until_the_stream_ends() -> No
 
 
 @pytest.mark.parametrize(
-    "alias, thinking, has_next, signal, text",
+    "alias, thinking, has_next, cap",
     [
         # Auto's everyday lane: no thinking, first text in about a second.
-        ("qwen-3.7-flash", "off", True, 3.0, None),
-        ("gpt-6-luna", "off", True, 3.0, None),
-        ("free-chat", False, True, 3.0, None),
-        # A fast model asked to think gets no signal cap: it may think silently.
-        ("free-chat", "hard", True, None, None),
+        ("qwen-3.7-flash", "off", True, 3.0),
+        ("gpt-6-luna", "off", True, 3.0),
+        ("free-chat", False, True, 3.0),
+        # A fast model asked to think gets no cap: it may think silently.
+        ("free-chat", "hard", True, None),
         # The free plan's hard and maths lane always thinks, and streams it.
-        ("glm-5.3-flash", "off", True, 4.0, None),
-        ("glm-5.3-flash", "escalate", True, 4.0, None),
-        # Paid reasoning lanes keep the silent-thought cap on visible text.
-        ("smart-chat", "hard", True, None, 8.0),
-        ("glm-5.2", "hard", True, None, 8.0),
+        ("glm-5.3-flash", "off", True, 4.0),
+        ("glm-5.3-flash", "escalate", True, 4.0),
+        # Paid reasoning lanes: their first text, or the reasoning ahead of it.
+        ("smart-chat", "hard", True, 8.0),
+        ("glm-5.2", "hard", True, 8.0),
         # The photo lane reads an image first; it is not the everyday lane.
-        ("vision-chat", "off", True, None, None),
+        ("vision-chat", "off", True, None),
         # The last model in the chain is never capped.
-        ("qwen-3.7-flash", "off", False, None, None),
-        ("glm-5.3-flash", "off", False, None, None),
-        ("smart-chat", "hard", False, None, None),
+        ("qwen-3.7-flash", "off", False, None),
+        ("glm-5.3-flash", "off", False, None),
+        ("smart-chat", "hard", False, None),
     ],
 )
-def test_first_reply_caps_by_lane(
-    alias: str, thinking: str | bool, has_next: bool, signal: float | None, text: float | None
+def test_first_reply_cap_by_lane(
+    alias: str, thinking: str | bool, has_next: bool, cap: float | None
 ) -> None:
-    from app.gateways.stream_signals import first_reply_caps
+    assert first_reply_cap(_SETTINGS, alias, thinking, has_next=has_next) == cap
 
-    caps = first_reply_caps(_SETTINGS, alias, thinking, has_next=has_next)
-    assert (caps.signal, caps.text) == (signal, text)
+
+def test_a_request_with_an_image_is_not_capped() -> None:
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "what is this?"},
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}},
+            ],
+        }
+    ]
+    shape = prompt_shape(messages)
+    assert shape == PromptShape(chars=len("what is this?"), has_image=True)
+    assert first_reply_cap(_SETTINGS, "qwen-3.7-flash", "off", has_next=True, prompt=shape) is None
+
+
+def test_a_long_prompt_gets_a_longer_cap() -> None:
+    ordinary = prompt_shape([{"role": "system", "content": "x" * 24_000}])
+    long = prompt_shape([{"role": "system", "content": "x" * 24_000}, {"content": "y" * 80_000}])
+    assert first_reply_cap(_SETTINGS, "qwen-3.7-flash", "off", has_next=True, prompt=ordinary) == 3
+    # A second more for each 40k characters past an ordinary prompt.
+    assert first_reply_cap(_SETTINGS, "qwen-3.7-flash", "off", has_next=True, prompt=long) == 5
 
 
 def _fast_caps(**overrides: Any) -> Settings:
     return Settings(
-        mock_llm_enabled=False,
-        openrouter_api_key="sk-or-test",
-        chat_stream_first_text_timeout_seconds=0.15,
-        chat_stream_first_thought_timeout_seconds=0.15,
-        chat_stream_timeout_seconds=30,
-        **overrides,
+        **{
+            "mock_llm_enabled": False,
+            "openrouter_api_key": "sk-or-test",
+            "chat_stream_first_text_timeout_seconds": 0.15,
+            "chat_stream_first_thought_timeout_seconds": 0.15,
+            "chat_stream_first_content_timeout_seconds": 0.15,
+            "chat_stream_timeout_seconds": 30,
+            **overrides,
+        }
     )
 
 
@@ -191,7 +266,16 @@ def _chain(*providers: FakeStream) -> AsyncMock:
     return AsyncMock(side_effect=acompletion)
 
 
-async def _reply(alias: str, fallbacks: list[str], fake: AsyncMock, settings: Settings) -> str:
+async def _reply(
+    alias: str,
+    fallbacks: list[str],
+    fake: AsyncMock,
+    settings: Settings,
+    *,
+    thinking: str = "off",
+    attempts: list[StreamAttempt] | None = None,
+    may_try: Any = None,
+) -> str:
     meta: dict[str, str] = {}
     with patch.object(litellm_gateway, "acompletion", fake):
         tokens = [
@@ -203,7 +287,9 @@ async def _reply(alias: str, fallbacks: list[str], fake: AsyncMock, settings: Se
                 max_tokens=50,
                 fallback_aliases=fallbacks,
                 stream_meta=meta,
-                thinking="off",
+                thinking=thinking,
+                attempts=attempts,
+                may_try=may_try,
             )
         ]
     return f"{meta['model_alias']}: {''.join(tokens)}"
@@ -258,6 +344,23 @@ async def test_a_thinking_model_is_not_capped_once_it_streams_reasoning() -> Non
 
 
 @pytest.mark.asyncio
+async def test_a_paid_reasoning_model_streaming_its_reasoning_is_not_abandoned() -> None:
+    thinking = [chunk(reasoning="step") for _ in range(6)]
+    provider = _ready(*thinking, chunk(content="So x = 4."), delay=0.05)
+    reply = await _reply("smart-chat", ["glm-5.2"], _chain(provider), _fast_caps(), thinking="hard")
+    assert reply == "smart-chat: So x = 4."
+
+
+@pytest.mark.asyncio
+async def test_a_silent_paid_reasoning_model_gives_way_after_its_cap() -> None:
+    fake = _chain(FakeStream([]), _ready(chunk(content="So x = 4.")))
+    started = time.monotonic()
+    reply = await _reply("smart-chat", ["glm-5.2"], fake, _fast_caps(), thinking="hard")
+    assert reply == "glm-5.2: So x = 4."
+    assert time.monotonic() - started < 2.0
+
+
+@pytest.mark.asyncio
 async def test_a_silent_thinking_model_gives_way_after_the_first_thought_cap() -> None:
     fake = _chain(FakeStream([]), _ready(chunk(content="The answer is 4.")))
     started = time.monotonic()
@@ -290,13 +393,44 @@ async def test_the_last_model_in_the_chain_is_not_capped() -> None:
     assert reply == "qwen-3.7-flash: Late, but here."
 
 
+# ── a recovering model's probe ─────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_a_model_another_turn_is_trying_is_passed_by_untried() -> None:
+    asked: list[str] = []
+
+    async def may_try(alias: str) -> bool:
+        asked.append(alias)
+        return alias != "qwen-3.7-flash"
+
+    attempts: list[StreamAttempt] = []
+    fake = _chain(_ready(chunk(content="Hello there, friend.")))
+    reply = await _reply(
+        "qwen-3.7-flash", ["free-chat"], fake, _fast_caps(), attempts=attempts, may_try=may_try
+    )
+    assert reply == "free-chat: Hello there, friend."
+    assert fake.await_count == 1
+    assert [a.alias for a in attempts] == ["free-chat"]
+    # The last model is tried whatever the gate says, so it is not asked.
+    assert asked == ["qwen-3.7-flash"]
+
+
+@pytest.mark.asyncio
+async def test_the_last_model_is_tried_whatever_the_probe_says() -> None:
+    async def may_try(_alias: str) -> bool:
+        return False
+
+    fake = _chain(_ready(chunk(content="Hello there, friend.")))
+    reply = await _reply("qwen-3.7-flash", [], fake, _fast_caps(), may_try=may_try)
+    assert reply == "qwen-3.7-flash: Hello there, friend."
+
+
 # ── what each model tried did ──────────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
 async def test_each_model_tried_is_recorded_with_its_outcome() -> None:
-    from app.gateways.stream_signals import StreamAttempt
-
     attempts: list[StreamAttempt] = []
     fake = _chain(FakeStream([]), _ready(chunk(content="Hello there, friend.")))
     with patch.object(litellm_gateway, "acompletion", fake):
@@ -324,8 +458,6 @@ async def test_each_model_tried_is_recorded_with_its_outcome() -> None:
 
 @pytest.mark.asyncio
 async def test_a_reply_that_fails_partway_is_recorded_as_failed() -> None:
-    from app.gateways.stream_signals import StreamAttempt
-
     attempts: list[StreamAttempt] = []
     broken = FakeStream([chunk(content="The first half of it")], error=RuntimeError("reset"))
     with patch.object(litellm_gateway, "acompletion", _chain(broken)):
@@ -341,6 +473,76 @@ async def test_a_reply_that_fails_partway_is_recorded_as_failed() -> None:
             ):
                 pass
     assert [(a.alias, a.failed) for a in attempts] == [("qwen-3.7-flash", True)]
+
+
+class _ProviderError(Exception):
+    def __init__(self, status_code: int | None) -> None:
+        super().__init__(f"provider said {status_code}")
+        self.status_code = status_code
+
+
+@pytest.mark.parametrize(
+    "error, cause",
+    [
+        (_ProviderError(400), "request"),
+        (_ProviderError(401), "request"),
+        (_ProviderError(403), "request"),
+        (_ProviderError(413), "request"),
+        (_ProviderError(408), "timeout"),
+        (TimeoutError(), "timeout"),
+        (_ProviderError(429), "rate_limit"),
+        (_ProviderError(500), "server"),
+        (_ProviderError(503), "server"),
+        (_ProviderError(None), "connection"),
+        (ConnectionResetError(), "connection"),
+    ],
+)
+def test_provider_fault(error: BaseException, cause: str) -> None:
+    assert provider_fault(error) == cause
+
+
+async def _attempts_for(*providers: Any, settings: Settings | None = None) -> list[StreamAttempt]:
+    queue = list(providers)
+
+    async def acompletion(**_kwargs: Any) -> FakeStream:
+        step = queue.pop(0)
+        if isinstance(step, BaseException):
+            raise step
+        return step
+
+    attempts: list[StreamAttempt] = []
+    await _reply(
+        "qwen-3.7-flash",
+        ["free-chat"],
+        AsyncMock(side_effect=acompletion),
+        settings or _fast_caps(),
+        attempts=attempts,
+    )
+    return attempts
+
+
+@pytest.mark.asyncio
+async def test_a_request_the_provider_refused_is_not_the_models_failure() -> None:
+    attempts = await _attempts_for(_ProviderError(413), _ready(chunk(content="Hello there.")))
+    refused, answered = attempts
+    assert (refused.failed, refused.cause, refused.model_failed) == (True, "request", False)
+    assert (answered.failed, answered.model_failed) == (False, False)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "first, cause",
+    [
+        (_ProviderError(503), "server"),
+        (_ProviderError(429), "rate_limit"),
+        (FakeStream([]), "cap"),
+        (_ready(chunk(content="   ")), "empty"),
+    ],
+    ids=["server", "rate-limit", "cap", "empty"],
+)
+async def test_the_models_own_failures_count_against_it(first: Any, cause: str) -> None:
+    attempts = await _attempts_for(first, _ready(chunk(content="Hello there.")))
+    assert (attempts[0].failed, attempts[0].cause, attempts[0].model_failed) == (True, cause, True)
 
 
 # ── the thinking signal ────────────────────────────────────────────────────────

@@ -180,16 +180,23 @@ def image_turn_model(
     An explicit pick that reads images keeps the turn. Auto's hard lanes take the
     strongest healthy image reader above the everyday tier in the user's pool, so
     a hard question about a photo still gets a model that thinks. Everything else
-    goes to the photo lane (``model_catalog.vision_alias``).
+    goes to the photo lane (``model_catalog.vision_alias``), or, while its breaker
+    is open, straight to the backup it would fall back to.
     """
     vision = model_catalog.vision_alias()
+    lane = vision
+    if vision in unhealthy:
+        backups = chat_fallback_models(
+            user, settings, vision, max_fallbacks=1, unhealthy=unhealthy, needs_vision=True
+        )
+        lane = backups[0] if backups else vision
     if explicit:
-        return routed if model_catalog.reads_images(routed) else vision
+        return routed if model_catalog.reads_images(routed) else lane
     if routed == vision or routed not in model_catalog.known_ids():
-        return vision
+        return lane
     everyday = model_catalog.tier_rank(model_catalog.get(model_catalog.auto_fast_alias()))
     if model_catalog.tier_rank(model_catalog.get(routed)) <= everyday:
-        return vision
+        return lane
     readers = [
         model_id
         for model_id in model_pool(user, settings)
@@ -197,7 +204,7 @@ def image_turn_model(
         and model_catalog.reads_images(model_id)
         and model_catalog.tier_rank(model_catalog.get(model_id)) > everyday
     ]
-    return routing.pick_strongest_from_pool(readers) if readers else vision
+    return routing.pick_strongest_from_pool(readers) if readers else lane
 
 
 def resolve_regenerate_model(

@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import suppress
 from dataclasses import dataclass, replace
 from typing import Any
@@ -81,6 +81,8 @@ class _LoopGate:
     has_instant_reply: bool
     has_verified_math: bool
     has_search_sources: bool
+    # Tools the turn's pre-work already ran without an answer.
+    skip_tools: frozenset[str] = frozenset()
 
     @classmethod
     def of(cls, ctx: StreamContext) -> _LoopGate:
@@ -91,6 +93,10 @@ class _LoopGate:
             has_instant_reply=ctx.instant_reply is not None,
             has_verified_math=ctx.verified_subject is not None,
             has_search_sources=bool(sources),
+            skip_tools=tool_loop.spent_tools(
+                solve_timed_out=getattr(ctx, "solve_timed_out", False) is True,
+                photo_missed=getattr(ctx, "photo_missed", False) is True,
+            ),
         )
 
     def needs_loop(
@@ -105,6 +111,7 @@ class _LoopGate:
             web_search=web_search,
             settings=settings,
             user=user,
+            skip_tools=self.skip_tools,
         )
 
     def may_classify(self, settings: Settings, user: User | None) -> bool:
@@ -194,6 +201,7 @@ async def run_tool_loop_path(
         user_location=ctx.search_location,
         has_verified_math=gate.has_verified_math,
         search_parts=search_parts,
+        skip_tools=gate.skip_tools,
     )
     _apply_tool_rounds(ctx, rounds)
 
@@ -221,6 +229,22 @@ def _with_tool_verified(server: Any, tool: Any) -> Any:
     if not extra:
         return server
     return replace(server, canonical_fences=[*server.canonical_fences, *extra])
+
+
+def _probe_gate(
+    redis: Redis, settings: Settings, probe_models: frozenset[str]
+) -> Callable[[str], Awaitable[bool]] | None:
+    """Before a recovering model is tried, claim its probe: one turn at a time
+    tries it, and only a turn that does uses the probe up."""
+    if not isinstance(probe_models, frozenset) or not probe_models:
+        return None
+
+    async def may_try(alias: str) -> bool:
+        if alias not in probe_models:
+            return True
+        return await model_health_service.claim_probe(redis, settings, alias)
+
+    return may_try
 
 
 async def run_llm_token_stream(
@@ -262,6 +286,7 @@ async def run_llm_token_stream(
         thinking=ctx.thinking,
         attempts=attempts,
         on_thinking=thinking_status(on_status, started),
+        may_try=_probe_gate(redis, settings, ctx.probe_models),
     )
     try:
         async for token in llm_stream:

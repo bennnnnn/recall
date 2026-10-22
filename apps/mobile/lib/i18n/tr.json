@@ -208,6 +208,7 @@
   "chat.status.composing": "Yanıt yazılıyor…",
   "chat.status.finding_photo": "Fotoğraf aranıyor…",
   "chat.status.finding_photo_detail": "Fotoğraf aranıyor — “{{detail}}”",
+  "chat.status.answer_photo": "Fotoğraf aranıyor…",
   "chat.status.image_gen": "Taslak çiziliyor",
   "chat.status.image_gen_1": "Sahne kuruluyor",
   "chat.status.image_gen_2": "Ayrıntılar ekleniyor",

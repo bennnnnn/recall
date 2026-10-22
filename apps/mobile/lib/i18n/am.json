@@ -208,6 +208,7 @@
   "chat.status.composing": "Composing a reply…",
   "chat.status.finding_photo": "ፎቶ በመፈለግ ላይ…",
   "chat.status.finding_photo_detail": "ፎቶ በመፈለግ ላይ — “{{detail}}”",
+  "chat.status.answer_photo": "ፎቶ በመፈለግ ላይ…",
   "chat.status.image_gen": "ረቂቅ በመሳል ላይ",
   "chat.status.image_gen_1": "ትዕይንቱን በማዘጋጀት ላይ",
   "chat.status.image_gen_2": "ዝርዝሮችን በመጨመር ላይ",

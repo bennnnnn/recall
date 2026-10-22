@@ -140,13 +140,18 @@ async def check_math_fences(state: FinalizeState) -> str:
         # The reply has streamed; this check (up to the SymPy timeout) runs
         # before it saves, while the phone still shows it as working.
         await state.on_status("checking")
-    # Through the module: tests swap the SymPy pool for an inline runner there.
-    return await sympy_executor.run_sympy(
-        math_fence.validate_math_fences_worker,
-        state.text,
-        verified,
-        timeout=state.settings.math_solve_timeout_seconds,
-    )
+    try:
+        # Through the module: tests swap the SymPy pool for an inline runner there.
+        return await sympy_executor.run_sympy(
+            math_fence.validate_math_fences_worker,
+            state.text,
+            verified,
+            timeout=state.settings.math_solve_timeout_seconds,
+        )
+    finally:
+        if state.on_status is not None:
+            # The check is over: its label must not stay up while the reply saves.
+            await state.on_status("finishing")
 
 
 def recover_math_fences(state: FinalizeState) -> str:

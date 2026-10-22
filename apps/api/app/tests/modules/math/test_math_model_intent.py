@@ -115,6 +115,29 @@ async def test_both_helpers_share_one_budget(monkeypatch: pytest.MonkeyPatch) ->
 
 
 @pytest.mark.asyncio
+async def test_a_finished_extraction_is_kept_when_the_translation_runs_long(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: the budget threw away an extraction that had finished, because
+    the translation beside it (two slow routes) was still running."""
+    _helpers(
+        monkeypatch,
+        translated=None,
+        extracted=_EQUATION,
+        translate_seconds=0.5,
+        extract_seconds=0.05,
+    )
+    settings = _settings(math_model_intent_budget_seconds=0.3)
+    assert await math_prompt._model_math_intent("text", settings, word_problem=True) is _EQUATION
+
+
+def test_the_budget_outlasts_two_translation_attempts() -> None:
+    settings = Settings()
+    two_tries = 2 * settings.math_word_problem_timeout_seconds
+    assert two_tries < settings.math_model_intent_budget_seconds <= two_tries + 1.5
+
+
+@pytest.mark.asyncio
 async def test_a_photographed_problem_skips_the_translation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

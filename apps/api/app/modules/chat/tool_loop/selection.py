@@ -56,6 +56,16 @@ def _has_whole_word(lower: str, word: str) -> bool:
         start = idx + 1
 
 
+def spent_tools(*, solve_timed_out: bool, photo_missed: bool) -> frozenset[str]:
+    """The tools a turn's own pre-work already ran without an answer, which its
+    loop does not offer again: SymPy that ran out of time on the problem, a photo
+    search that found none. Either would only fail the same way a round later."""
+    spent = {"sympy"} if solve_timed_out else set()
+    if photo_missed:
+        spent.add("search_image")
+    return frozenset(spent)
+
+
 def leftover_math_after_verified(content: str) -> bool:
     """Heuristic SymPy took one clause; the user still asked for another.
 
@@ -82,6 +92,7 @@ def turn_needs_tool_loop(
     web_search: bool | None = None,
     settings: Settings | None = None,
     user: User | None = None,
+    skip_tools: frozenset[str] = frozenset(),
 ) -> bool:
     """True when a pre-stream ``complete_with_tools`` round is worth the TTFT cost.
 
@@ -92,6 +103,7 @@ def turn_needs_tool_loop(
     or Pro image gen.
 
     ``web_search``: optional classifier override (None = sync heuristic).
+    ``skip_tools``: tools the turn already spent (``spent_tools``), no reason to loop.
     """
     if settings is not None and not settings.mcp_tool_loop_enabled:
         return False
@@ -106,7 +118,7 @@ def turn_needs_tool_loop(
     # complete-request audit correctly declined the partial deterministic
     # intent. Requiring a second extraction here would turn that safe decline
     # into a silent "no tools" result.
-    if leftover_math_after_verified(text):
+    if "sympy" not in skip_tools and leftover_math_after_verified(text):
         return True
     # A verified solve closes its own request only: "solve 2x + 5 = 17 and also
     # what's the weather in Paris" still needs the weather searched.
@@ -117,7 +129,7 @@ def turn_needs_tool_loop(
         return True
     if web_search is not False and not has_search_sources and live_parts(parts):
         return True
-    return any(_needs_non_web_tool(part, settings, user) for part in parts)
+    return any(_needs_non_web_tool(part, settings, user, skip_tools) for part in parts)
 
 
 def _user_asks_for_image(text: str, settings: Settings) -> bool:
@@ -135,16 +147,22 @@ def _user_asks_for_image(text: str, settings: Settings) -> bool:
     )
 
 
-def _needs_non_web_tool(text: str, settings: Settings | None, user: User | None) -> bool:
+def _needs_non_web_tool(
+    text: str,
+    settings: Settings | None,
+    user: User | None,
+    skip_tools: frozenset[str] = frozenset(),
+) -> bool:
     """Math, a photo lookup, or image generation still needs a tool-selection round."""
     from app.modules.images.lookup_intent import extract_image_lookup_query
     from app.modules.math.tools.prompt import needs_symbolic_math
 
-    if leftover_math_after_verified(text):
+    sympy_on = "sympy" not in skip_tools
+    if sympy_on and leftover_math_after_verified(text):
         return True
     from app.modules.chat import has_code_syntax
 
-    math_on = settings is None or settings.math_tools_enabled
+    math_on = sympy_on and (settings is None or settings.math_tools_enabled)
     # A pasted traceback or loop is code to read, not an equation for SymPy.
     if math_on and not has_code_syntax(text) and needs_symbolic_math(text):
         from app.modules.math.tools.extract import extract_math_intent
@@ -157,7 +175,9 @@ def _needs_non_web_tool(text: str, settings: Settings | None, user: User | None)
     # so its disjoint trigger phrasing (show / let … see / what does … look
     # like) never competes with generation's own verbs — see
     # image_lookup_intent's module docstring.
-    lookup_on = settings is None or settings.image_search_enabled
+    lookup_on = "search_image" not in skip_tools and (
+        settings is None or settings.image_search_enabled
+    )
     if lookup_on and extract_image_lookup_query(text):
         return True
     image_on = settings is None or settings.image_generation_enabled
@@ -179,12 +199,13 @@ def _search_before_the_model(
     *,
     web_search: bool | None,
     has_verified_math: bool = False,
+    skip_tools: frozenset[str] = frozenset(),
 ) -> bool:
     """True when the reply only needs sources, so the selection model can be skipped."""
     if not settings.web_search_enabled or not user_text:
         return False
     parts = open_parts(user_text, has_verified_math=has_verified_math, settings=settings)
-    if any(_needs_non_web_tool(part, settings, user) for part in parts or [user_text]):
+    if any(_needs_non_web_tool(part, settings, user, skip_tools) for part in parts or [user_text]):
         return False
     if web_search is True:
         return True
@@ -194,14 +215,22 @@ def _search_before_the_model(
 
 
 def _tools_for_user(
-    settings: Settings, user: User | None, *, user_text: str = ""
+    settings: Settings,
+    user: User | None,
+    *,
+    user_text: str = "",
+    skip_tools: frozenset[str] = frozenset(),
 ) -> list[dict[str, Any]]:
-    """OpenAI tool payloads for this turn.
+    """OpenAI tool payloads for this turn, less the ones it already spent.
 
     Image generation is offered only when it is on, in the user's plan, and
     *user_text* (the user's own message) asks for a picture.
     """
-    tools = mcp_registry.build_openai_tools()
+    tools = [
+        tool
+        for tool in mcp_registry.build_openai_tools()
+        if (tool.get("function") or {}).get("name") not in skip_tools
+    ]
     if not settings.image_search_enabled or turn_plan(user_text, settings).multi:
         # A photo ends the turn, and a message with more than one request must
         # still get its other answers: its photo comes above the reply instead.

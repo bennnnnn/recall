@@ -208,6 +208,7 @@
   "chat.status.composing": "Rédaction de la réponse…",
   "chat.status.finding_photo": "Recherche d’une photo…",
   "chat.status.finding_photo_detail": "Recherche d’une photo — « {{detail}} »",
+  "chat.status.answer_photo": "Recherche d’une photo…",
   "chat.status.image_gen": "Premier croquis",
   "chat.status.image_gen_1": "Mise en place de la scène",
   "chat.status.image_gen_2": "Ajout des détails",
