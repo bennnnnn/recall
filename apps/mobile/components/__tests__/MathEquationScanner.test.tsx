@@ -2,7 +2,7 @@ import React from "react";
 import { Dimensions } from "react-native";
 import { deleteAsync } from "expo-file-system/legacy";
 
-import { pickImageDocument } from "@/features/attachments/model/attachments";
+import { pickFromPhotoLibrary, pickImageDocument } from "@/features/attachments/model/attachments";
 import { act, fireEvent, render, within } from "@testing-library/react-native";
 
 import { MathEquationScanner } from "@/components/MathEquationScanner";
@@ -88,6 +88,7 @@ jest.mock("expo-linear-gradient", () => {
 });
 
 jest.mock("@/features/attachments/model/attachments", () => ({
+  pickFromPhotoLibrary: jest.fn(async () => null),
   pickImageDocument: jest.fn(async () => null),
   NativePickerBusyError: class extends Error {},
   NativePickerTimeoutError: class extends Error {},
@@ -144,7 +145,7 @@ describe("MathEquationScanner", () => {
 
   it("keeps the shutter disc while the photo library is opening", async () => {
     let release: (picked: null) => void = () => undefined;
-    jest.mocked(pickImageDocument).mockImplementation(
+    jest.mocked(pickFromPhotoLibrary).mockImplementation(
       () =>
         new Promise((resolve) => {
           release = resolve;
@@ -160,7 +161,7 @@ describe("MathEquationScanner", () => {
     await act(async () => {
       release(null);
     });
-    jest.mocked(pickImageDocument).mockResolvedValue(null);
+    jest.mocked(pickFromPhotoLibrary).mockResolvedValue(null);
   });
 
   it("shows a live crop frame with the selector and torch beside the shutter", async () => {
@@ -283,6 +284,40 @@ describe("MathEquationScanner", () => {
     expect(getByLabelText("chat.math_scan_allow_camera")).toBeTruthy();
   });
 
+  it("without the camera, reads an image from Photos or from Files", async () => {
+    jest.mocked(pickFromPhotoLibrary).mockClear();
+    jest.mocked(pickImageDocument).mockClear();
+    mockPermission.granted = false;
+    const view = await render(
+      <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+    );
+    await act(async () => {
+      fireEvent.press(view.getByTestId("math-scanner-permission-photos"));
+    });
+    expect(pickFromPhotoLibrary).toHaveBeenCalledTimes(1);
+    expect(pickImageDocument).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.press(view.getByTestId("math-scanner-permission-files"));
+    });
+    expect(pickImageDocument).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens Photos on a tap and Files on a long press of the library button", async () => {
+    jest.mocked(pickFromPhotoLibrary).mockClear();
+    jest.mocked(pickImageDocument).mockClear();
+    const view = await render(
+      <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+    );
+    await act(async () => {
+      fireEvent.press(view.getByTestId("math-scanner-photos"));
+    });
+    expect(pickFromPhotoLibrary).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      fireEvent(view.getByTestId("math-scanner-photos"), "longPress");
+    });
+    expect(pickImageDocument).toHaveBeenCalledTimes(1);
+  });
+
   it("crops the live camera frame immediately instead of requiring a second Solve tap", async () => {
     const onCaptured = jest.fn();
     const { getByTestId, getByLabelText, queryByTestId } = await render(
@@ -338,7 +373,7 @@ describe("imported math scanner photos", () => {
     mockPermission.granted = true;
     mockPermission.canAskAgain = true;
     jest.spyOn(Dimensions, "get").mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 1 });
-    jest.mocked(pickImageDocument).mockResolvedValue({
+    jest.mocked(pickFromPhotoLibrary).mockResolvedValue({
       localUri: "file:///landscape.png", contentType: "image/png", fileName: "landscape.png", kind: "image",
     });
     jest.mocked(cropScanImage).mockClear();
@@ -672,7 +707,7 @@ describe("scanner sessions and scan files", () => {
     jest.mocked(cropScanImage).mockClear();
     jest.mocked(deleteAsync).mockClear();
     mockScanImages();
-    jest.mocked(pickImageDocument).mockResolvedValue({
+    jest.mocked(pickFromPhotoLibrary).mockResolvedValue({
       localUri: "file:///landscape.png", contentType: "image/png", fileName: "landscape.png", kind: "image",
     });
   });

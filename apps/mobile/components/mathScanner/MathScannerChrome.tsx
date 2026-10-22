@@ -48,7 +48,9 @@ type Props = {
   onClose: () => void;
   onSubjectChange: (subject: ScannerSubject) => void;
   onToggleTorch: () => void;
-  onOpenLibrary: () => void;
+  /** Tap: the Photos picker. Long press (or the screen-reader action): the Files picker. */
+  onOpenPhotos: () => void;
+  onOpenFiles: () => void;
   onCapture: () => void;
   onRetake: () => void;
   onSolve: () => void;
@@ -68,7 +70,8 @@ export function MathScannerChrome({
   onClose,
   onSubjectChange,
   onToggleTorch,
-  onOpenLibrary,
+  onOpenPhotos,
+  onOpenFiles,
   onCapture,
   onRetake,
   onSolve,
@@ -160,14 +163,20 @@ export function MathScannerChrome({
           <View style={s.controls}>
             <GHPressable
               style={s.photosBtn}
-              onPress={onOpenLibrary}
+              onPress={onOpenPhotos}
+              onLongPress={onOpenFiles}
               disabled={busy}
               testID="math-scanner-photos"
               accessibilityRole="button"
               accessibilityState={{ disabled: busy }}
               accessibilityLabel={t("chat.math_scan_photos_a11y")}
+              accessibilityHint={t("chat.math_scan_files_hint")}
+              accessibilityActions={[{ name: "files", label: t("chat.math_scan_files_a11y") }]}
+              onAccessibilityAction={(event) => {
+                if (event.nativeEvent.actionName === "files") onOpenFiles();
+              }}
             >
-              <Icon name="folder-open" size={IconSize.md} color={theme.onMedia} />
+              <Icon name="image" size={IconSize.md} color={theme.onMedia} />
             </GHPressable>
             <GHPressable
               onPressIn={() => {
