@@ -9,7 +9,7 @@ from app.modules.chat.prompt_constants import (
     CLARIFY_CARD_HINT,
     COMPARISON_FORMAT_HINT,
 )
-from app.modules.chat.prompt_constants.clarify import names_its_purpose
+from app.modules.chat.prompt_constants.clarify import RANKING_FORMAT_HINT, names_its_purpose
 from app.modules.chat.prompt_format import _style_format_hints
 
 
@@ -68,7 +68,10 @@ def test_a_turn_with_its_own_shape_does_not_ask(query: str) -> None:
 )
 def test_a_best_question_that_says_what_it_is_for_does_not_ask(query: str) -> None:
     assert names_its_purpose(query)
-    assert CLARIFY_CARD_HINT not in _hints(query)
+    hints = _hints(query)
+    assert CLARIFY_CARD_HINT not in hints
+    # Answered as picks: the reply came back as four paragraphs of countries.
+    assert RANKING_FORMAT_HINT in hints
 
 
 @pytest.mark.parametrize(
@@ -83,6 +86,20 @@ def test_a_best_question_that_says_what_it_is_for_does_not_ask(query: str) -> No
 )
 def test_a_best_question_without_a_purpose_names_none(query: str) -> None:
     assert not names_its_purpose(query)
+    assert RANKING_FORMAT_HINT not in _hints(query)
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "compare the best laptops for coding in a table",
+        "best countries for business in one paragraph",
+        "best laptops for coding vs gaming",
+        "chart the best countries for business by tax rate",
+    ],
+)
+def test_a_shape_they_asked_for_wins_over_the_ranking_list(query: str) -> None:
+    assert RANKING_FORMAT_HINT not in _hints(query)
 
 
 def test_a_multi_part_message_does_not_ask() -> None:

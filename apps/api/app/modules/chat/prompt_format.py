@@ -81,7 +81,7 @@ from app.modules.chat.prompt_constants import (
     writing_request_kind,
 )
 from app.modules.chat.prompt_constants.answer_subject import asked_about_subject, subject_photo_hint
-from app.modules.chat.prompt_constants.clarify import names_its_purpose
+from app.modules.chat.prompt_constants.clarify import names_its_purpose, ranking_layout
 from app.modules.chat.prompt_constants.lesson_flow import lesson_turn_hint
 from app.modules.chat.prompt_constants.visuals import (
     ANSWER_PHOTO_HINT,
@@ -132,13 +132,11 @@ def _layout_format_hint(query_text: str | None, *, picks: bool = False) -> str |
         return None
     if is_chart_question(query_text):
         return CHART_FORMAT_HINT
-    diagram_hint = mermaid_format_hint(query_text)
-    if diagram_hint:
+    if diagram_hint := mermaid_format_hint(query_text):
         return diagram_hint
     # Pasted code with "explain this" or "why does it fail" is about that code,
     # line by line, even when it says "walk me through" or "teach me".
-    code_hint = code_question_hint(query_text)
-    if code_hint:
+    if code_hint := code_question_hint(query_text):
         return code_hint
     # Explicit "teach me" intent owns the interaction shape. A topic may also
     # contain "vs" / "difference between", but the user asked for a lesson, not
@@ -167,6 +165,8 @@ def _layout_format_hint(query_text: str | None, *, picks: bool = False) -> str |
     # A solver owns the shape of "how do I solve 2x + 5 = 17".
     if is_task_howto(query_text) and detect_subject(query_text) is None:
         return STEPS_FORMAT_HINT
+    if ranking := ranking_layout(query_text):  # "the best countries for business": picks
+        return ranking
     return None
 
 

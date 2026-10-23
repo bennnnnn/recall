@@ -24,6 +24,17 @@ _PURPOSE = re.compile(
 )
 
 
+# A "best X for Y" question, answered without asking: the picks as a list, not paragraphs.
+RANKING_FORMAT_HINT = (
+    "This asks for the best picks for a purpose it names. Answer now and ask nothing: at "
+    "most one short lead line, then a numbered list of the 5-8 strongest picks, best "
+    "first, each opening with its **bold name**, then a dash and one or two short "
+    "sentences on why it fits that purpose. Group the picks under 2-3 short ### headings "
+    "only when they fall into clear kinds. Never paragraphs of picks. End with at most one "
+    "short line offering to narrow it down (their budget, situation or place)."
+)
+
+
 def names_its_purpose(text: str) -> bool:
     """A "best X" question that says what it is for, which has a good general answer.
 
@@ -94,3 +105,18 @@ CLARIFY_UNANSWERED_HINT = (
     "nothing more: no card and no questions; for anything they did not say, assume a "
     "sensible default and say it in one short line. If it is a new question, answer that."
 )
+
+
+# A shape the user asked for wins over the ranked list: "in a table", "one paragraph".
+_SHAPE_ASKED = re.compile(
+    r"\b(?:tables?|charts?|graphs?|grid|paragraphs?|essay|bullet\s+points?|compar\w*|vs\.?"
+    r"|versus|maps?|one\s+(?:line|sentence|word))\b",
+    re.IGNORECASE,
+)
+
+
+def ranking_layout(text: str) -> str | None:
+    """The ranked-picks layout for a "best X for Y" question that asks for no other shape."""
+    if names_its_purpose(text) and _SHAPE_ASKED.search(text) is None:
+        return RANKING_FORMAT_HINT
+    return None
