@@ -11,6 +11,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.core.background_tasks import drain_background_tasks
 from app.core.config import Settings
 from app.exceptions import QuotaExceededError, SpendCapReachedError
 from app.modules.chat import (
@@ -339,3 +340,80 @@ async def test_regenerate_reads_back_a_lost_usage_counter_in_its_load_session(fa
 
     assert len(sessions) == 1
     assert await _used(fake_redis, user) == 4_321 + reserved
+
+
+def _slow_after(call):
+    """``call`` whose reply takes a moment after Redis applied it, as on a network."""
+
+    async def slow(*args, **kwargs):
+        result = await call(*args, **kwargs)
+        await asyncio.sleep(0.05)
+        return result
+
+    return slow
+
+
+def _slow_before(call):
+    """``call`` that takes a moment to reach Redis: a cancel can land before it does."""
+
+    async def slow(*args, **kwargs):
+        await asyncio.sleep(0.05)
+        return await call(*args, **kwargs)
+
+    return slow
+
+
+@pytest.mark.parametrize("stopped_in", ["reserve", "top_up", "refund"])
+async def test_a_stop_while_redis_answers_leaks_no_reserved_tokens(
+    fake_redis, stopped_in: str
+) -> None:
+    """Regression: a Stop that cancelled the turn while Redis granted its tokens left
+    the grant in the day's total with no turn holding it; nothing refunded it."""
+    user = _user()
+    quota: dict[str, object] = {}
+    if stopped_in in ("reserve", "top_up"):
+        quota["reserve_usage_up_to"] = _slow_after(quota_service.reserve_usage_up_to)
+    else:
+        quota["refund_usage"] = _slow_before(quota_service.refund_usage)
+    deps = turn_deps(
+        session_factory=FakeSessionCM,
+        locks={"acquire_lock": AsyncMock(return_value="tok"), "release_lock": AsyncMock()},
+        quota=quota,
+    )
+    waiting = asyncio.Event()
+
+    async def turn() -> None:
+        async with turn_resources.turn_resources(
+            deps, fake_redis, user_id=user.id, chat_id=uuid4()
+        ) as res:
+            if stopped_in == "reserve":
+                waiting.set()
+            await res.reserve(
+                user=user,
+                content="hi",
+                model="free-chat",
+                settings=_SETTINGS,
+                daily_limit=_LIMIT,
+                max_output=_SETTINGS.max_output_tokens,
+            )
+            if stopped_in == "top_up":
+                waiting.set()
+                with patch.object(
+                    turn_resources, "prompt_weighted_reserve_tokens", return_value=5_000
+                ):
+                    await turn_resources.top_up_reserve_for_prompt(
+                        res, settings=_SETTINGS, ctx=_ctx(user, 0), daily_limit=_LIMIT
+                    )
+            if stopped_in == "refund":
+                waiting.set()
+                await res.refund()
+
+    running = asyncio.create_task(turn())
+    await waiting.wait()
+    await asyncio.sleep(0.01)
+    running.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await running
+    await drain_background_tasks()
+
+    assert await _used(fake_redis, user) == 0

@@ -142,6 +142,11 @@ def phrase_names_fact(phrase: str, fact_text: str) -> bool:
     return not _inside_longer_name(fact_words, stems, wanted)
 
 
+def names_nothing(phrase: str) -> bool:
+    """True when the phrase has no word of its own: "please", "it again"."""
+    return all(word.lower() in _STOP_WORDS for word in _words(phrase))
+
+
 def _inside_longer_name(words: list[str], stems: list[str], wanted: set[str]) -> bool:
     for index, stem in enumerate(stems):
         if stem not in wanted:

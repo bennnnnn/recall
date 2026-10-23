@@ -1,5 +1,7 @@
 """Tests for token estimation + token-budget window selection."""
 
+import pytest
+
 from app.modules.chat.context_window import (
     cap_summary,
     compute_history_split,
@@ -137,8 +139,28 @@ def test_trim_and_cap_summary():
     long = "word " * 500
     trimmed = trim_message_for_summary(long, max_chars=100)
     assert "[truncated]" in trimmed
+    assert len(trimmed) <= 100
     capped = cap_summary("x" * 7000, max_chars=100)
     assert capped.endswith("...")
+
+
+_CV = "Here is my CV:\n" + "Led backend projects in Go; shipped payment systems. " * 30
+
+
+@pytest.mark.parametrize(
+    ("message", "kept"),
+    [
+        # The ask after a paste is what the summary must hold.
+        (f"{_CV}\nI'm applying to Stripe for the senior role, deadline Friday.", "Stripe"),
+        # So is the instruction before one.
+        (f"Rewrite this for a Stripe application, keep it to one page.\n{_CV}", "Stripe"),
+    ],
+)
+def test_a_long_message_keeps_its_start_and_end_for_the_summary(message, kept):
+    trimmed = trim_message_for_summary(message)
+    assert len(trimmed) <= 1200 < len(message)
+    assert kept in trimmed
+    assert "[truncated]" in trimmed
 
 
 # ── estimate_tokens — O(1) ────────────────────────────────────────────────────

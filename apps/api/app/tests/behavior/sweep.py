@@ -15,8 +15,10 @@ in front raises the programming errors a decline would hide (``math/solve/declin
 "instant" (the server answers without the model: the date, the time),
 "photo", "search", "image_gen", "save" (a reminder is saved), "ask_time",
 "change" (done / delete / move), "read" (the reminder list), "settings",
-"memory", "todo" (any of the reminder outcomes). A list asks for every outcome on
-the one turn: ``["search", "answer"]`` is a message with a live part and another
+"memory", "todo" (any of the reminder outcomes), "todo_screen" (a to-do change asked in
+another language: nothing saved or changed, the Open To-do button instead). A list asks
+for every outcome on the one turn: ``["search", "answer"]`` is a message with a live part
+and another
 answered beside it ("image_gen" and "settings" there are the picture or card a
 multi-part reply carries). Area "multi" must be read as more than one request and
 "multi lookalike" as one.
@@ -53,6 +55,7 @@ from app.modules.chat.turn_prep import StreamContext
 from app.modules.memory import is_explicit_memory_command
 from app.modules.todos import write_log
 from app.modules.todos.reply_check import NEED_A_TIME
+from app.services.md_fence_scan import without_fences
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.harness import USER_TIMEZONE, battery_settings, route_case
 from app.tests.fakes import fake_session
@@ -81,6 +84,7 @@ EXPECTS = {
     "image_gen",
     "settings",
     "memory",
+    "todo_screen",
     *TODO_EXPECTS,
 }
 # Areas whose turns never need the live web.
@@ -116,6 +120,10 @@ LOOKALIKE_HINTS = {
     "money lookalike": "money",
     # "I don't understand why she left" is not a topic to be taught.
     "walkthrough lookalike": "walkthrough",
+    # "My resume got rejected, what am I doing wrong?" asks for advice, not a résumé.
+    "record lookalike": "personal_record",
+    # "Should I tell my boss I'm pregnant?" asks for advice, not a message to send.
+    "draft lookalike": "email",
 }
 # Reminders already saved, so "mark call mom as done" has something to find.
 SEEDED = ("call mom", "dentist appointment", "gym", "pay rent", "read", "water the plants")
@@ -479,6 +487,15 @@ def _judge_expect(outcome: Outcome, expect: str) -> list[str]:
         problems.append("not read as a settings change")
     elif expect == "memory" and not outcome.memory_command:
         problems.append("not read as a memory command")
+    elif expect == "todo_screen":
+        if outcome.saved or outcome.changed:
+            problems.append("changed reminders from a message in another language")
+        if canned:
+            problems.append(f"reply replaced by {canned!r}")
+        if "```todo_link" not in final:
+            problems.append(f"no Open To-do button (reply: {final[:70]!r})")
+        elif not without_fences(final).strip():
+            problems.append("an Open To-do button with no line saying what it is for")
     elif expect == "save" and not outcome.saved:
         problems.append(f"no reminder saved (reply: {final[:70]!r})")
     elif expect == "ask_time" and (outcome.saved or "?" not in final):

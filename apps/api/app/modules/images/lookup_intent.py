@@ -149,6 +149,60 @@ def is_reference_subject(subject: str) -> bool:
     return bool(words) and _fold_token(words[0]) in _REFERENCE_HEADS
 
 
+# "Show the vertex" after a graph asks for a feature of the graph the app draws, not a
+# photo to search for. Only a subject made of these words and the filler below counts:
+# "the roots of a mangrove tree" still wants a photo.
+_GRAPH_FEATURES = frozenset(
+    {
+        "vertex",
+        "vertices",
+        "intercept",
+        "intercepts",
+        "x-intercept",
+        "x-intercepts",
+        "y-intercept",
+        "y-intercepts",
+        "root",
+        "roots",
+        "zero",
+        "zeros",
+        "zeroes",
+        "asymptote",
+        "asymptotes",
+        "slope",
+        "gradient",
+        "maximum",
+        "minimum",
+        "maxima",
+        "minima",
+        "extrema",
+        "domain",
+        "range",
+        "tangent",
+        "intersection",
+        "intersections",
+        "inflection",
+        "turning",
+        "critical",
+        "points",
+        "axis",
+        "symmetry",
+        "period",
+        "amplitude",
+    }
+)
+_GRAPH_FEATURE_FILLER = frozenset(
+    {"the", "a", "an", "its", "of", "and", "both", "all", "this", "that", "it", "point", "line"}
+    | {"graph", "parabola", "curve", "function", "equation", "x", "y"}
+)
+
+
+def _names_graph_features(folded: list[str]) -> bool:
+    return any(w in _GRAPH_FEATURES for w in folded) and all(
+        w in _GRAPH_FEATURES or w in _GRAPH_FEATURE_FILLER for w in folded
+    )
+
+
 def _clean_subject(raw: str) -> str | None:
     # "a habesha kemis, i want to describe it in my caption": the reason is not the subject.
     reason = _REASON_CLAUSE.search(raw)
@@ -171,6 +225,8 @@ def _clean_subject(raw: str) -> str | None:
     if folded[0] in _DEICTICS and len(folded) > 1 and folded[1] in _NOT_A_NOUN:
         return None
     if any(w in LOOKUP_NON_IMAGE_WORDS or w in _EXPLANATION_CUES for w in folded):
+        return None
+    if _names_graph_features(folded):
         return None
     # "show me the bug (again)" is about code; "show me a bed bug" wants a photo.
     if folded[0] in DUAL_USE_WORDS and all(w in _NOT_A_NOUN for w in folded[1:]):

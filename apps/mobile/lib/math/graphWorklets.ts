@@ -155,13 +155,8 @@ export function formatTickW(n: number): string {
   return Object.is(n, -0) ? "0" : String(Number(n.toPrecision(12)));
 }
 
-/** Short "(2.5, 6.25)" callout formatting — 2 decimals max, trailing zeros trimmed. */
-export function formatShortW(n: number): string {
-  "worklet";
-  if (!Number.isFinite(n)) return "";
-  const r = Math.round(n * 100) / 100;
-  return Object.is(r, -0) ? "0" : String(r);
-}
+/** Most ticks a π axis labels: "3π/2" is wider than "3". */
+const PI_TICK_MAX = 7;
 
 /** Even ticks inside a view window (e.g. −6, −4, …, 6). */
 export function axisTicksW(min: number, max: number): number[] {
@@ -181,6 +176,43 @@ export function axisTicksW(min: number, max: number): number[] {
     ticks.push(n);
   }
   return ticks;
+}
+
+/**
+ * Ticks at multiples of π (π/4, π/2, π, 2π…) for an x-range the learner gave in π
+ * ("from 0 to 2π"). A window narrower than π/2 falls back to even ticks.
+ */
+export function piTicksW(min: number, max: number): number[] {
+  "worklet";
+  const span = max - min;
+  if (!(span >= Math.PI / 2) || !Number.isFinite(span)) return axisTicksW(min, max);
+  let step = Math.PI / 4;
+  while (Math.floor(max / step + 1e-9) - Math.ceil(min / step - 1e-9) + 1 > PI_TICK_MAX) step *= 2;
+  const ticks: number[] = [];
+  for (let k = Math.ceil(min / step - 1e-9); k * step <= max + 1e-9; k += 1) ticks.push(k * step);
+  return ticks;
+}
+
+/** ``π/2``, ``π``, ``3π/2``, ``-π``: a tick from piTicksW as written in class. */
+export function formatPiTickW(n: number): string {
+  "worklet";
+  for (const denominator of [1, 2, 4, 8]) {
+    const numerator = Math.round((n / Math.PI) * denominator);
+    if (Math.abs((n / Math.PI) * denominator - numerator) > 1e-6) continue;
+    if (numerator === 0) return "0";
+    const coefficient =
+      numerator === 1 ? "π" : numerator === -1 ? "-π" : `${numerator}π`;
+    return denominator === 1 ? coefficient : `${coefficient}/${denominator}`;
+  }
+  return formatTickW(n);
+}
+
+/** Short "(2.5, 6.25)" callout formatting — 2 decimals max, trailing zeros trimmed. */
+export function formatShortW(n: number): string {
+  "worklet";
+  if (!Number.isFinite(n)) return "";
+  const r = Math.round(n * 100) / 100;
+  return Object.is(r, -0) ? "0" : String(r);
 }
 
 /** Nearest sampled point to a data-space x, or null when the series is empty. */

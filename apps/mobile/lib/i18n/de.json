@@ -981,6 +981,7 @@
   "todos.delete_many": "{{count}} Aufgaben löschen?",
   "todos.filter_empty": "Nichts in dieser Ansicht",
   "todos.menu": "Aufgabenmenü",
+  "todos.open_from_chat": "Aufgaben öffnen",
   "todos.menu_all": "Alle Aufgaben",
   "todos.menu_completed": "Erledigt",
   "todos.menu_open": "Offen",

@@ -8,7 +8,9 @@ maths turn got no guardrail against raw ```latex/```tex/```copy fences. The comp
 
 from __future__ import annotations
 
-from app.modules.chat.prompt_constants import MATH_FENCE_SAFETY_HINT
+import pytest
+
+from app.modules.chat.prompt_constants import MATH_FENCE_SAFETY_HINT, UNIVERSAL_FORMAT_BASELINE
 from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.math.reply_policy import MATH_TUTORING_HINT, SHORT_MATH_SAFETY_HINT
 
@@ -109,7 +111,26 @@ def test_funny_tone_does_not_pad_one_line_arithmetic() -> None:
     assert "one line" in funny
     assert "```tip" not in funny
     assert "occasional emoji" not in funny
-    assert "Do not add emoji" in funny
+
+
+# The format baseline mirrors the user's emoji; no tone may forbid that outright.
+def test_no_tone_forbids_emoji_the_user_used() -> None:
+    from app.services.response_tone import TONE_HINTS
+
+    for tone, hint in TONE_HINTS.items():
+        for sentence in hint.split(". "):
+            if "emoji" in sentence:
+                assert "unless" in sentence, tone
+
+
+# "Lead with the answer" and the tips list must not turn "I just got laid off" into a listicle.
+@pytest.mark.parametrize(
+    "query", ["I just got laid off and I'm freaking out", "my dog died this morning"]
+)
+def test_a_painful_message_is_acknowledged_before_the_help(query: str) -> None:
+    hints = _style_format_hints(query_text=query, is_day_plan=False, minimal_personal_context=False)
+    assert UNIVERSAL_FORMAT_BASELINE in hints
+    assert "acknowledges" in UNIVERSAL_FORMAT_BASELINE
 
 
 def test_rich_math_turn_keeps_full_math_solver_hint():

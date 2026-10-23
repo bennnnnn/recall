@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useTranslation } from "react-i18next";
 
 import type { Message } from "@/lib/api";
+import { onAppEvent } from "@/lib/appEvents";
 import { getSessionGeneration } from "@/lib/auth";
 import { useChatTransport } from "@/features/chat/hooks/useChatTransport";
 import { useChatTurnActions } from "@/features/chat/hooks/useChatTurnActions";
@@ -9,6 +10,7 @@ import { useDroppedTurnReconcile } from "@/features/chat/hooks/useDroppedTurnRec
 import { useStreamingDraftPublisher } from "@/features/chat/hooks/useStreamingDraftPublisher";
 import { useTurnStart } from "@/features/chat/hooks/useTurnStart";
 import { headRejectedSend, initialChatTurnState, type ChatTurnEvent } from "@/features/chat/model/chatTurnCore";
+import { withoutDeletedAttachment } from "@/features/chat/model/deletedAttachment";
 import { runChatTurnCommands, type ChatTurnEffects } from "@/features/chat/model/chatTurnEffects";
 import { reduceChatTurn } from "@/features/chat/model/chatTurnState";
 import { popLastAssistantMessage } from "@/features/chat/model/regenerateLogic";
@@ -143,6 +145,12 @@ export function useChat(token: string | null, chatId: string | null, options: Us
     detach();
     step({ type: "view_changed", chatId, session: sessionGeneration });
   }, [viewIdentity, chatId, sessionGeneration, detach, step]);
+
+  // A photo or file deleted from Library leaves the open chat as it left the server's copy.
+  useEffect(() => onAppEvent("attachmentDeleted", ({ attachmentId, chatId: holder }) => {
+    if (holder !== chatId || !isCurrentView()) return;
+    setMessages((previous) => withoutDeletedAttachment(previous, attachmentId));
+  }), [chatId, isCurrentView]);
 
   const onUnreachable = useCallback(() => effects.current?.onError?.(t("chat.error_unreachable")), [t]);
   const actions = useChatTurnActions({

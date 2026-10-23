@@ -128,6 +128,34 @@ def test_claims_inside_code_are_untouched() -> None:
     assert strip_verification_claims(text) == text
 
 
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (
+            "Subtract 5 then divide by 2: $x = 7$. ✅ Verified with SymPy.",
+            "Subtract 5 then divide by 2: $x = 7$.",
+        ),
+        ("$x = 7$ ✓ Checked", "$x = 7$"),
+        ("$x = 7$. ✅ **Verified.** Now plug it back in.", "$x = 7$. Now plug it back in."),
+    ],
+)
+def test_a_check_mark_claim_goes(text: str, expected: str) -> None:
+    assert strip_verification_claims(text) == expected
+
+
+# A check mark that leads an ordinary line is the user's own status, not a claim.
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Your trip so far:\n\n- ✅ Checked in online\n- ✅ Confirmed by the hotel\n- Print the pass",
+        "Status:\n\n1. ✔ Verified email address\n2. ✔ Checked spam folder\n3. Reset password",
+        "✅ Confirmed: the museum is open on Mondays.",
+    ],
+)
+def test_everyday_check_mark_lines_stay(text: str) -> None:
+    assert strip_verification_claims(text) == text
+
+
 def test_marker_constant_matches_the_phone() -> None:
     assert VERIFIED_ANSWER_MARKER == "verified: true"
 

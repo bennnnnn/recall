@@ -1019,6 +1019,9 @@ def _saving_turns(release: dict, contents: list[str]):
 
     async def fake_stream(*args, content="", outcome=None, **kwargs):
         contents.append(content)
+        if outcome is not None:
+            # A real turn saves the user's row before it waits on the model.
+            outcome.mark_user_message_saved()
         if len(contents) > 1:
             # Long enough for a Stop already sent to reach this turn first.
             await asyncio.sleep(0.2)

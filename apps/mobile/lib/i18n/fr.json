@@ -984,6 +984,7 @@
   "todos.delete_many": "Supprimer {{count}} tâches ?",
   "todos.filter_empty": "Rien dans cette vue",
   "todos.menu": "Menu des tâches",
+  "todos.open_from_chat": "Ouvrir Tâches",
   "todos.menu_all": "Toutes les tâches",
   "todos.menu_completed": "Terminées",
   "todos.menu_open": "Non terminées",

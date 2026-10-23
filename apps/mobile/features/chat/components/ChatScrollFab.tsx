@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { CountBadge } from "@/ui/feedback/CountBadge";
 import { Theme, useTheme } from "@/lib/theme";
 import { formatScrollAwayBadge } from "@/features/chat/model/scrollLogic";
+import { tap } from "@/lib/haptics";
 import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { useBottomLiftStyle } from "@/ui/hooks/useBottomLiftStyle";
@@ -36,7 +37,10 @@ export function ChatScrollFab({ visible, bottomOffset, lift, scrollAwayCount, on
     >
       <Pressable
         style={s.button}
-        onPress={onPress}
+        onPress={() => {
+          tap();
+          onPress();
+        }}
         accessibilityRole="button"
         accessibilityLabel={t("chat.scroll_to_latest")}
       >

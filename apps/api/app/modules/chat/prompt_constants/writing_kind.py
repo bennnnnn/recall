@@ -6,20 +6,18 @@ only to decide whether a draft should load profile context.
 
 import re
 
-from app.modules.chat.prompt_constants.locale_cues import (
-    has_locale_cue,
-    is_bare_locale_cue,
-    starts_with_locale_cue,
-)
+from app.modules.chat.prompt_constants.writing_locales import locale_draft_kind
 from app.services.text_normalize import collapse_ws
 
 # The words that name what an email or message is for may stand between the
 # verb and the noun: "write a resignation email", "a follow-up email".
 _DRAFT_PURPOSE_WORDS = r"(?:[a-z]+(?:-[a-z]+)? ){0,2}"
+# Who it goes to may stand between "send" and the draft: "send my boss an email".
+_SEND_TO = r"(?:(?:me|him|her|them|us) |(?:my |our )?[a-z'-]+ (?=an? ))?"
 
 _EMAIL_WRITING = re.compile(
     r"\b(?:"
-    r"send (?:me )?(?:an? )?email|"
+    r"send " + _SEND_TO + r"(?:an? )?email|"
     r"email (?:to|my)|"
     r"(?:write|draft|compose) (?:me )?(?:an? |the )?" + _DRAFT_PURPOSE_WORDS + r"e-?mail|"
     r"(?:reply|respond|answer)(?: back)?(?: to)? (?:this|that|the|her|his|their|my|an?) e-?mail"
@@ -29,7 +27,7 @@ _EMAIL_WRITING = re.compile(
 
 _MESSAGE_WRITING = re.compile(
     r"\b(?:"
-    r"send (?:me )?(?:a )?" + _DRAFT_PURPOSE_WORDS + r"(?:text|message)|"
+    r"send " + _SEND_TO + r"(?:a )?" + _DRAFT_PURPOSE_WORDS + r"(?:text|message)|"
     r"(?:write|draft|compose) (?:me )?(?:an? )?"
     + _DRAFT_PURPOSE_WORDS
     + r"(?:text|message|sms|reply)|"
@@ -39,6 +37,17 @@ _MESSAGE_WRITING = re.compile(
     r"(?:message|text|dm|sms|whatsapp)|"
     r"respond to (?:this|that|it|her|him|them)\b"
     r")\b",
+    re.IGNORECASE,
+)
+
+# "Tell my landlord the heater is broken", "let my team know we moved to 3pm":
+# Recall cannot pass it on, so it is a message to send. "Should I tell my boss
+# I'm pregnant?" asks for advice: the line has to start with the request.
+_TELL_RECIPIENT = re.compile(
+    r"^(?:(?:(?:can|could|would|will) you|please)[,\s]+)*"
+    r"(?:tell my [a-z'-]+(?: [a-z'-]+)? (?:that \w|(?:the|my|our|his|her|their|i|i'm|i'll|"
+    r"i've|we|we're|we'll|it|it's|he|she|they|there)\b)|"
+    r"let my [a-z'-]+(?: [a-z'-]+)? know\b)",
     re.IGNORECASE,
 )
 
@@ -118,7 +127,11 @@ _PROSE_WRITING = re.compile(
     r"\d+(?:[- ](?:word|paragraph|page))?)\s+){0,3}"
     r"(?:paragraph|essay|article|story|poem|cover\s+letter|letter|statement|"
     r"announcement|description|script|outline|r[eé]sum[eé]s?|cv|biograph(?:y|ies)|"
-    r"bio)\b",
+    r"bio)\b|"
+    # The user's own record: "write my resume", "make a CV for a nurse", "polish my cover letter".
+    r"\b(?:write|draft|compose|rewrite|create|make|build|prepare|redo|polish|improve)"
+    r"(?: me| up)?\s+(?:(?:an?|one|the|my)\s+)?(?:(?:new|short|professional|simple|basic|"
+    r"good|better|strong)\s+)?(?:cover\s+letter|r[eé]sum[eé]|cv)\b",
     re.IGNORECASE,
 )
 
@@ -157,7 +170,7 @@ _REWRITE_WRITING = re.compile(
 )
 # A message or email pasted after a colon, on its own lines, or in quotes is
 # what a reply answers or a rewrite changes.
-_PASTED_TEXT = re.compile(r":\s*\S+(?:\s+\S+){2,}|\n\s*\S|[\"\u201c]")
+PASTED_TEXT = re.compile(r":\s*\S+(?:\s+\S+){2,}|\n\s*\S|[\"\u201c]")
 
 
 def _is_rewrite(cleaned: str, written: str) -> bool:
@@ -172,7 +185,7 @@ def _is_rewrite(cleaned: str, written: str) -> bool:
         return False
     target = (match.group("object") or match.group("short_object") or "").lower()
     if target in {"this", "it", "that", "the", "my"}:
-        return _PASTED_TEXT.search(written) is not None
+        return PASTED_TEXT.search(written) is not None
     return True
 
 
@@ -196,7 +209,7 @@ def _starts_direct_writing_request(text: str) -> bool:
         _TRANSLATION_WRITING.search(candidate)
         or _UNSPACED_TRANSLATION_COMMAND.search(candidate)
         or _EDIT_WRITING.search(candidate)
-        or starts_with_locale_cue(candidate, "writing")
+        or locale_draft_kind(candidate) is not None
     ):
         return True
     prefix = _DIRECT_REQUEST_PREFIX.match(candidate)
@@ -369,8 +382,12 @@ def writing_request_kind(text: str) -> str | None:
     ):
         if match := pattern.search(cleaned):
             shape_matches.append((match.start(), priority, kind))
-    if starts_with_locale_cue(cleaned, "writing"):
-        shape_matches.append((0, 0, "email"))
+    if _TELL_RECIPIENT.match(cleaned):
+        shape_matches.append((0, 1, "message"))
+    # "Escribe un correo a mi jefe…", "patronuma bir e-posta yaz".
+    locale_kind = locale_draft_kind(cleaned)
+    if locale_kind is not None:
+        shape_matches.append((0, -1, locale_kind))
     if shape_matches:
         return min(shape_matches)[2]
     return None
@@ -384,105 +401,3 @@ def is_writing_deliverable_request(text: str) -> bool:
 def is_email_or_message_request(text: str) -> bool:
     """True only when recipient/profile context can improve a direct draft."""
     return writing_request_kind(text) in {"email", "message"}
-
-
-_WRITING_PURPOSE_MARKERS = (
-    " about ",
-    " regarding ",
-    " saying ",
-    " that says ",
-    " to say ",
-    " letting ",
-    " because ",
-    " asking ",
-    " subject",
-    " i will ",
-    " i'll ",
-    " i'm ",
-    " i am ",
-    " pto",
-    " running late",
-    " be late",
-    " follow-up",
-    " follow up",
-    " apology",
-    " thank",
-    " requesting ",
-    " request for ",
-    " inviting ",
-    " invite ",
-    " announcing ",
-    " announce ",
-    " comparing ",
-    " covering ",
-    " explaining ",
-    " promoting ",
-    " celebrating ",
-    " sharing ",
-    " birthday",
-    " congratulat",
-    " vacation",
-    " time off",
-    " meeting",
-    " reschedul",
-    " cancell",
-    " checking in",
-    " check-in",
-    " update",
-    " news",
-    # The kind of email or message is its purpose.
-    " resignation",
-    " resign",
-    " quit",
-    " complaint",
-    " complain",
-    " reminder",
-    " remind",
-    " invitation",
-    " welcome",
-    " introduc",
-    " farewell",
-    " goodbye",
-    " condolence",
-    " sympathy",
-    " refund",
-    " inquiry",
-    " enquiry",
-    " recommendation",
-    " reference",
-    " sick",
-    " sorry",
-    " wishing",
-    " get well",
-    " good luck",
-    " congrats",
-    " happy ",
-    " anniversary",
-    " graduation",
-    " wedding",
-    " opening",
-    " launch",
-    " sale",
-    " hiring",
-    " job",
-)
-
-# What a post or caption shows: "a caption for a beach sunset photo".
-_SOCIAL_SUBJECT_MARKERS = (" for a ", " for an ", " for the ", " for our ", " of a ", " of my ")
-
-
-def is_underspecified_writing_request(text: str) -> bool:
-    """True for a bare sendable draft ask, not a supplied writing task."""
-    kind = writing_request_kind(text)
-    if kind not in {"email", "message", "social"}:
-        return False
-    cleaned = f" {collapse_ws(text).lower()} "
-    if '"' in cleaned or "\u201c" in cleaned or _PASTED_TEXT.search(text):
-        return False
-    if kind == "social" and any(marker in cleaned for marker in _SOCIAL_SUBJECT_MARKERS):
-        return False
-    # Localized writing cues are stored as complete bare requests. Any text
-    # beyond the cue is user-supplied purpose/content and should be drafted.
-    if has_locale_cue(text, "writing"):
-        return is_bare_locale_cue(text, "writing")
-    return not any(marker in cleaned for marker in _WRITING_PURPOSE_MARKERS)

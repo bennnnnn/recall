@@ -8,6 +8,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import presence_cache
 from app.core.config import Settings
 from app.core.redis import get_redis_client
 from app.exceptions import DomainError
@@ -174,9 +175,13 @@ async def _delete_library_attachment(
 ) -> None:
     message_id = row.message_id
     storage_key = row.storage_key
+    # A document's chunks go with its row: the chat may have no indexed file left.
+    indexed_in: UUID | None = None
     if message_id is not None:
         message = await chat_history.message_for_user(session, message_id, user.id)
         if message is not None:
+            if not is_image_content_type(row.content_type):
+                indexed_in = message.chat_id
             next_content = strip_attachment_from_content(message.content, row.id)
             if next_content:
                 message.content = next_content
@@ -184,6 +189,10 @@ async def _delete_library_attachment(
                 await session.delete(message)
     await attachments_repo.delete_rows(session, [row.id], commit=False)
     await session.commit()
+    if indexed_in is not None:
+        # Else the chat's remembered "has documents" kept every turn embedding its
+        # question and telling the model no excerpt of the deleted file matched.
+        await presence_cache.forget_presence(presence_cache.documents_key(indexed_in))
     failed = await delete_storage_keys(settings, [storage_key] if storage_key else [])
     await enqueue_failed_storage_deletes(failed)
 

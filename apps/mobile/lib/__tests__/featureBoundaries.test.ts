@@ -82,6 +82,7 @@ const PUBLIC: Record<string, readonly string[]> = {
   suggestions: ["components/RelatedPromptLines.tsx"],
   todos: [
     "components/ReminderProposalCard.tsx",
+    "components/TodoLinkButton.tsx",
     "context/TodosContext.tsx",
     "hooks/useReminderBadgeCount.ts",
     "model/dueDate.ts",
@@ -92,6 +93,7 @@ const PUBLIC: Record<string, readonly string[]> = {
     "model/reminderProposal.ts",
     "model/reminderSeen.ts",
     "model/reminderTiming.ts",
+    "model/todoLink.ts",
     "model/todoReminders.ts",
   ],
 };
@@ -103,7 +105,7 @@ const SHARED_ENTRIES: Record<string, string> = {
   "hooks/useBootstrapSync.ts": "start-up reads each feature's server-held preferences",
   "components/rich/RichFence.tsx": "renders each fence; the email fence is the drafts card",
   "lib/richBlocks.ts": "reads each rich block; an email draft is sanitized by drafts",
-  "lib/markdown/assistantMessageContent.ts": "a reply's reminder card is a todos fence",
+  "lib/markdown/assistantMessageContent.ts": "a reply's reminder card and To-do button are todos fences",
   "components/Avatar.tsx": "the profile photo is an attachment",
   "components/MathEquationScanner.tsx": "the scanner picks its photo with the attachment picker",
   "components/mathScanner/useScanReview.ts": "the scanner reads its photo with the attachment picker",

@@ -19,7 +19,7 @@ import {
 } from "@/lib/accentPrefs";
 import { setAccentSnapshot, useAccentPreference } from "@/lib/accentRuntime";
 import { useResolvedColorScheme } from "@/lib/colorScheme";
-import { hapticsEnabled, setHapticsEnabledSnapshot, subscribeHaptics } from "@/lib/haptics";
+import { hapticsEnabled, selection, setHapticsEnabledSnapshot, subscribeHaptics } from "@/lib/haptics";
 import { getHapticsPreference, setHapticsPreference } from "@/lib/hapticsPrefs";
 
 export function AppearanceProvider({ children }: { children: ReactNode }) {
@@ -66,6 +66,8 @@ export function useHaptics() {
   const enabled = useSyncExternalStore(subscribeHaptics, hapticsEnabled, hapticsEnabled);
   const setEnabled = useCallback(async (next: boolean) => {
     setHapticsEnabledSnapshot(next);
+    // The switch's own tick played while haptics were still off: turning them on is felt.
+    if (next) selection();
     await setHapticsPreference(next);
   }, []);
   return { enabled, setEnabled };

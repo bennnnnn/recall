@@ -15,8 +15,8 @@ const RELATION = /[=<>\u2264\u2265]/;
 /**
  * The message a confirmed scan sends as ordinary text, so the whole text
  * pipeline (lessons, systems, word problems) sees it. Relations on separate
- * lines join with commas ("x+y=5, x-y=1") so a system reads as one problem;
- * any other lines join with spaces.
+ * lines join with commas ("x+y=5, x-y=1") so a system reads as one problem,
+ * also under the instruction printed above it; any other lines join with spaces.
  */
 export function mathScanSolveMessage(reading: string): string {
   const lines = reading
@@ -24,6 +24,9 @@ export function mathScanSolveMessage(reading: string): string {
     .map((line) => line.trim())
     .filter(Boolean);
   if (lines.length === 0) return "";
-  const joined = lines.every((line) => RELATION.test(line)) ? lines.join(", ") : lines.join(" ");
+  const joined = lines.reduce((text, line, i) => {
+    const between = RELATION.test(line) && RELATION.test(lines[i - 1]) ? ", " : " ";
+    return `${text}${between}${line}`;
+  });
   return `${MATH_SCAN_SOLVE_PREFIX} ${joined}`;
 }

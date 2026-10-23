@@ -1158,5 +1158,178 @@
   "prompt": "write a meeting recap email: we decided to move the launch to Nov 3, Sam will update the pricing page, Priya will finish the onboarding emails by next wed, next sync is thursday 11am",
   "reply": "```email\nSubject: Recap – launch planning sync\n\nHi all,\n\nThanks for joining today. Here's a quick recap.\n\nDecisions\n- Launch date set: November 3 (moved from the original date)\n\nAction items\n- Sam: update the pricing page\n- Priya: finish the onboarding emails by next Wednesday\n\nNext sync: Thursday at 11am\n\nLet me know if I missed anything.\n\nBest,\n[Your name]\n```",
   "expect": "answer"
+ },
+ {
+  "id": "wr-101",
+  "area": "writing",
+  "prompt": "text my landlord that the heater is broken",
+  "reply": "```message\nHi, the heater in my apartment stopped working last night. Could you send someone to take a look today or tomorrow? Thanks!\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-102",
+  "area": "writing",
+  "prompt": "text my landlord that the rent will be late, I'll pay on the 3rd",
+  "reply": "```message\nHi, just a heads-up that this month's rent will be a little late. I'll pay it in full on the 3rd. Sorry for the delay, and thanks for understanding!\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-103",
+  "area": "writing",
+  "prompt": "send my boss an email asking for Friday off",
+  "reply": "```email\nSubject: Friday off request\n\nHi Sara,\n\nCould I take this Friday off? My tasks for the week will be wrapped up by Thursday, and I'll make sure nothing is left waiting.\n\nThanks,\nBini\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-104",
+  "area": "writing",
+  "prompt": "message my boss I'll be late tomorrow at 9, dentist appointment",
+  "reply": "```message\nHi Sara, I have a dentist appointment tomorrow morning at 9, so I'll be in a bit late, around 10:30. Thanks!\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-105",
+  "area": "writing",
+  "prompt": "write an instagram caption for my beach photo",
+  "reply": "```instagram\nSalt in the air, sand on my feet, nowhere else to be.\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-106",
+  "area": "writing",
+  "prompt": "rent will be 3 days late, I'll pay on the 5th",
+  "history": [
+   [
+    "user",
+    "write a message to my landlord"
+   ],
+   [
+    "assistant",
+    "Sure, what should the message say?"
+   ]
+  ],
+  "reply": "```message\nHi, just letting you know this month's rent will be about 3 days late. I'll pay it in full on the 5th. Sorry for the delay and thanks for understanding!\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-107",
+  "area": "writing",
+  "prompt": "the heater stopped working and the kitchen tap is leaking",
+  "history": [
+   [
+    "user",
+    "write a message to my landlord"
+   ],
+   [
+    "assistant",
+    "Sure, what should the message say?"
+   ]
+  ],
+  "reply": "```message\nHi, the heater in my apartment stopped working and the kitchen tap is leaking. Could you send someone to take a look this week? Thanks!\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-108",
+  "area": "writing",
+  "prompt": "translate to spanish",
+  "history": [
+   [
+    "user",
+    "write an email to my boss asking for Friday off"
+   ],
+   [
+    "assistant",
+    "```email\nSubject: Friday off\n\nHi Sara,\n\nCould I take this Friday off for a family event? My work for the week will be done by Thursday.\n\nThanks,\nBini\n```"
+   ]
+  ],
+  "reply": "```email\nAsunto: Viernes libre\n\nHola Sara:\n\n¿Podría tomarme este viernes libre por un evento familiar? Tendré listo el trabajo de la semana el jueves.\n\nGracias,\nBini\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-109",
+  "area": "writing",
+  "prompt": "now in French",
+  "history": [
+   [
+    "user",
+    "write an email to my boss asking for Friday off"
+   ],
+   [
+    "assistant",
+    "```email\nSubject: Friday off\n\nHi Sara,\n\nCould I take this Friday off for a family event? My work for the week will be done by Thursday.\n\nThanks,\nBini\n```"
+   ]
+  ],
+  "reply": "```email\nObjet : Vendredi de congé\n\nBonjour Sara,\n\nPourrais-je prendre ce vendredi pour un événement familial ? Mon travail de la semaine sera terminé jeudi.\n\nMerci,\nBini\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-110",
+  "area": "writing",
+  "prompt": "write my resume",
+  "reply": "I can build it from what I know: you're a registered nurse at St. Paul's Hospital. To finish it I need two things: where you studied (and the year), and the roles you held before St. Paul's with their dates.",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-111",
+  "area": "writing",
+  "prompt": "make a CV for a nurse, I have 5 years in the ICU at Black Lion Hospital and a BSc from Addis Ababa University",
+  "reply": "**Bini Tesfaye**\nRegistered Nurse\n\n## Experience\n**ICU Nurse**, Black Lion Hospital (5 years)\n- Cared for critically ill adult patients in a busy intensive care unit\n\n## Education\n**BSc in Nursing**, Addis Ababa University",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-112",
+  "area": "record lookalike",
+  "prompt": "my resume got rejected again, what am I doing wrong?",
+  "reply": "Hard to say without seeing it, but the usual culprits are a summary that could fit anyone, duties instead of results, and no keywords from the job post. If you paste it, I'll point at the exact lines.",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-113",
+  "area": "writing",
+  "prompt": "remind me to update my resume on sunday at 10am",
+  "reply": "Set: update your resume, Sunday at 10:00 AM.",
+  "expect": "save"
+ },
+ {
+  "id": "wr-114",
+  "area": "record lookalike",
+  "prompt": "what should a cover letter for a nursing job include?",
+  "reply": "Keep it to one page: which role you want and why that hospital, two or three results from your clinical work (the unit, the patients, what changed), and a closing line asking for an interview.",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-115",
+  "area": "writing",
+  "prompt": "tell my landlord the heater is broken again",
+  "reply": "```message\nHi, the heater in my apartment has stopped working again. Could you send someone to fix it this week? Thanks!\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-116",
+  "area": "writing",
+  "prompt": "let my team know the standup moves to 10am tomorrow",
+  "reply": "```message\nHi team, heads-up: tomorrow's standup moves to 10am. Same link as usual.\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-117",
+  "area": "draft lookalike",
+  "prompt": "should I tell my boss I'm pregnant before my 12 week scan?",
+  "reply": "There's no rule that says you have to tell them that early. Many people wait until after the 12-week scan, unless the job has physical risks or you need time off for appointments, in which case telling HR or your manager sooner gets you the protections you're entitled to.",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-118",
+  "area": "draft lookalike",
+  "prompt": "how do I tell my boss I'm quitting without burning bridges",
+  "reply": "Tell them in person (or on a call) before anyone else hears it, lead with thanks, give the notice your contract asks for, and offer to help hand over your work. Keep the reason short and positive.",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-119",
+  "area": "draft lookalike",
+  "prompt": "tell my kids a bedtime story about a dragon who is afraid of the dark",
+  "reply": "Once upon a time, in a cave high above the village, lived a little dragon named Pip who was afraid of the dark...",
+  "expect": "answer"
  }
 ]

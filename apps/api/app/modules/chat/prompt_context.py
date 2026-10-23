@@ -322,19 +322,22 @@ async def _load_unsummarized_gap(
     counted here (a count that could race the current line's insert).
     """
     tail_ids = {message.id for message in tail}
+    persisted = _persisted_messages(window, current_user_message_id)
+    summarized = (chat.summary_message_count or 0) if chat is not None else 0
+    # A loaded row the budget left out may already be in the summary: long replies
+    # kept the tail short when the summary was written, and it folded them in.
+    first = prior_count - len(persisted) if prior_count is not None else None
     dropped = [
         message
-        for message in _persisted_messages(window, current_user_message_id)
-        if message.id not in tail_ids
+        for index, message in enumerate(persisted)
+        if message.id not in tail_ids and (first is None or first + index >= summarized)
     ]
     older: list[Any] = []
-    persisted = _persisted_messages(window, current_user_message_id)
     if chat is not None and len(persisted) >= recent_limit and persisted:
         oldest = persisted[0]
         created_at = getattr(oldest, "created_at", None)
         oldest_id = getattr(oldest, "id", None)
         if created_at is not None and oldest_id is not None:
-            summarized = (chat.summary_message_count or 0) if chat is not None else 0
             async with SessionLocal() as session:
                 total = prior_count
                 if total is None:

@@ -3,6 +3,7 @@ import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 
 import { useChatScroll } from "@/features/chat/hooks/useChatScroll";
 import { MOMENTUM_WAIT_MS } from "@/features/chat/hooks/useReaderDrag";
+import { tap } from "@/lib/haptics";
 
 /** The keyboard never moves in these tests. */
 const NO_KEYBOARD_STEPS = { subscribe: () => () => {} };
@@ -357,4 +358,15 @@ describe("useChatScroll keyboard steps", () => {
     expect(fake.list.scrollToEnd).not.toHaveBeenCalled();
     expect(fake.scroller.scrollToEnd).not.toHaveBeenCalled();
   });
+});
+
+// Image generation and live talk call it after every picture and voice turn: no haptic
+// there. The scroll button's press plays its own (ChatScrollFab).
+it("scrolls to the latest message without a haptic of its own", async () => {
+  jest.mocked(tap).mockClear();
+  const fake = fakeList(2000);
+  const { result } = await mountScroll(fake, { chatId: "chat-a", messagesLength: 4, streamActive: false });
+  await act(async () => { result.current.scrollToLatest(); });
+  expect(fake.list.scrollToEnd).toHaveBeenCalled();
+  expect(tap).not.toHaveBeenCalled();
 });

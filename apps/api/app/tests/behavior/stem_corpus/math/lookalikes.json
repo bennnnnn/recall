@@ -65,5 +65,8 @@
   {"id": "L64", "area": "lookalike", "prompt": "wait 30 sec", "expect": "not_math"},
   {"id": "L65", "area": "lookalike", "prompt": "set a timer for 10 sec", "expect": "not_math"},
   {"id": "L66", "area": "lookalike", "prompt": "be back in a sec 2 min", "expect": "not_math"},
-  {"id": "L67", "area": "lookalike", "prompt": "the cotton costs 3 dollars", "expect": "not_math"}
+  {"id": "L67", "area": "lookalike", "prompt": "the cotton costs 3 dollars", "expect": "not_math"},
+  {"id": "L68", "area": "lookalike", "prompt": "how many intercepts did our defense have this season?", "expect": "not_math"},
+  {"id": "L69", "area": "lookalike", "prompt": "what does the intercept mean in my regression output?", "expect": "not_math"},
+  {"id": "L70", "area": "lookalike", "prompt": "show me where the vertex is on this roof truss design", "expect": "not_math"}
 ]

@@ -103,7 +103,7 @@ export function useChatSendRoute({
   const handToImageGeneration = useCallback(
     (intercept: Extract<SendIntercept, { kind: "generate" }>, send: PaintedSend, drafts: Promise<boolean>) => {
       const restoreImageDraft = () => {
-        if (!send.isCurrentSession()) return;
+        if (!send.isCurrentSession() || send.leavesComposer) return;
         if (!send.isCurrentView() || getThreadKey() !== send.threadKey) {
           stashFailedDraftForThread(send.threadKey, send.composerText);
           return;

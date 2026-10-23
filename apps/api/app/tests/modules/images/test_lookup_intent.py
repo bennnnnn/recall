@@ -22,6 +22,8 @@ from app.modules.images.lookup_intent import extract_image_lookup_query
         ("what does a golden retriever look like", "golden retriever"),
         ("What does a golden retriever look like?", "golden retriever"),
         ("what do octopuses look like", "octopuses"),
+        # A feature word about something to see is still a photo.
+        ("show me the roots of a mangrove tree", "roots of a mangrove tree"),
     ],
 )
 def test_extracts_lookup_subject(text: str, expected: str) -> None:
@@ -69,6 +71,16 @@ def test_extracts_lookup_subject(text: str, expected: str) -> None:
         "show the forces acting on a hanging mass",
         "show me a free-body diagram of a box on a ramp",
         "show me a right triangle",
+        # A feature of the graph on screen: maths the app draws, not a photo.
+        "show the vertex",
+        "show the intercepts",
+        "show me the roots",
+        "show me the asymptotes",
+        "show the slope",
+        "show me the axis of symmetry",
+        "show me the maximum and minimum",
+        "show me the x-intercepts of the parabola",
+        "show me the turning points of the graph",
     ],
 )
 def test_rejects_non_lookup_or_non_image_subjects(text: str) -> None:

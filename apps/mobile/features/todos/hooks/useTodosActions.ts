@@ -4,6 +4,7 @@ import { Linking } from "react-native";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, type RecurrenceRule, type Todo } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
+import { notifyDestructive } from "@/lib/haptics";
 import { toDueAtIso } from "@/features/todos/model/dueDate";
 import { allowReminderAlerts, shouldTellAlertsOff } from "@/features/todos/model/reminderAlerts";
 import { markReminderIdsSeen } from "@/features/todos/model/reminderSeen";
@@ -190,10 +191,11 @@ export function useTodosActions({ token, userId, todos, getTodos,
       destructive: true,
     }).then(async (ok) => {
       if (!ok) return;
-      await mutateRow(todo.id, () => null, async () => {
+      const deleted = await mutateRow(todo.id, () => null, async () => {
         await api.deleteTodo(token, todo.id);
         return null;
       }, "todos.error_delete");
+      if (deleted) notifyDestructive();
     });
   }, [token, canAct, owner, latestTodo, t, mutateRow]);
 
@@ -266,12 +268,16 @@ export function useTodosActions({ token, userId, todos, getTodos,
 
   const handleDeleteMany = useCallback(async (ids: string[]) => {
     if (!token) return;
+    let deletedAll = ids.length > 0;
     for (const id of ids) {
-      await mutateRow(id, () => null, async () => {
+      const deleted = await mutateRow(id, () => null, async () => {
         await api.deleteTodo(token, id);
         return null;
       }, "todos.error_delete");
+      deletedAll &&= deleted;
     }
+    // One haptic for the batch; a failure already says so.
+    if (deletedAll) notifyDestructive();
   }, [token, mutateRow]);
 
   return {

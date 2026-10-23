@@ -191,5 +191,104 @@
     "history": [],
     "reply": "Got it. Want help planning what to cover instead?",
     "expect": "answer"
+  },
+  {
+    "id": "mc-024",
+    "area": "memory",
+    "prompt": "Remember, I'm allergic to peanuts.",
+    "history": [],
+    "reply": "Noted, I'll remember that you're allergic to peanuts and keep it out of recipes.",
+    "expect": "memory"
+  },
+  {
+    "id": "mc-025",
+    "area": "memory",
+    "prompt": "remember: my wife's name is Sara",
+    "history": [],
+    "reply": "Got it, your wife's name is Sara.",
+    "expect": "memory"
+  },
+  {
+    "id": "mc-026",
+    "area": "memory",
+    "prompt": "Remember I've got a gluten intolerance",
+    "history": [],
+    "reply": "Got it, I'll keep meals gluten-free for you.",
+    "expect": "memory"
+  },
+  {
+    "id": "mc-027",
+    "area": "memory",
+    "prompt": "Save to memory that I'm lactose intolerant",
+    "history": [],
+    "reply": "Saved: you're lactose intolerant.",
+    "expect": "memory"
+  },
+  {
+    "id": "mc-028",
+    "area": "memory",
+    "prompt": "add this to your memory: I take insulin twice a day",
+    "history": [],
+    "reply": "Got it, I'll keep that in mind.",
+    "expect": "memory"
+  },
+  {
+    "id": "mc-029",
+    "area": "lookalike",
+    "prompt": "Remember, the answer has to be in centimetres. What's the perimeter of a 3 by 4 rectangle?",
+    "history": [],
+    "reply": "The perimeter is 2 × (3 + 4) = **14 cm**.",
+    "expect": "answer"
+  },
+  {
+    "id": "mc-030",
+    "area": "lookalike",
+    "prompt": "Remember, remember the fifth of November: where is that rhyme from?",
+    "history": [],
+    "reply": "It's an English folk verse about the Gunpowder Plot of 1605, when Guy Fawkes was caught guarding explosives under the House of Lords.",
+    "expect": "answer"
+  },
+  {
+    "id": "mc-031",
+    "area": "lookalike",
+    "prompt": "how do I save to memory instead of disk on an Arduino?",
+    "history": [],
+    "reply": "Keep the values in a variable or array in RAM instead of writing them to EEPROM or an SD card; they are lost when the board loses power.",
+    "expect": "answer"
+  },
+  {
+    "id": "mc-032",
+    "area": "lookalike",
+    "prompt": "Remember when I asked you about Lisbon?",
+    "history": [],
+    "reply": "I can't find that conversation. What would you like to know about Lisbon?",
+    "expect": "answer"
+  },
+  {
+    "id": "mc-033",
+    "area": "memory",
+    "prompt": "what was the hotel I mentioned earlier?",
+    "history": [
+      ["user", "We're staying at the Memmo Alfama in Lisbon, any tips for the area?"],
+      ["assistant", "Great pick: Alfama is walkable, hilly and full of fado bars."]
+    ],
+    "reply": "The **Memmo Alfama** in Lisbon.",
+    "expect": "answer"
+  },
+  {
+    "id": "mc-034",
+    "area": "lookalike",
+    "prompt": "I said hello to my neighbour and he ignored me, what should I do?",
+    "history": [],
+    "reply": "He may not have heard you. Try once more when you see him; if he still ignores you, keep it polite and don't take it personally.",
+    "expect": "answer"
+  },
+  {
+    "id": "mc-035",
+    "area": "lookalike",
+    "prompt": "When I said no to my friend she got upset, was I wrong?",
+    "history": [],
+    "reply": "Not necessarily. Saying no is fair; it can help to tell her why and what you can do instead.",
+    "expect": "answer"
   }
 ]

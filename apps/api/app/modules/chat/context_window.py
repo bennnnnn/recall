@@ -13,6 +13,7 @@ from app.services.md_fence_scan import iter_fences
 
 _SUMMARY_MAX_CHARS = 6000
 _SUMMARY_MESSAGE_MAX_CHARS = 1200
+_TRIM_MARK = " … [truncated] … "
 
 SUMMARY_SYSTEM_PROMPT = (
     "You compress a conversation into a concise running summary so an assistant can "
@@ -208,10 +209,13 @@ def messages_within_token_budget(
 
 
 def trim_message_for_summary(content: str, max_chars: int = _SUMMARY_MESSAGE_MAX_CHARS) -> str:
+    """A long message keeps its start and its end: a pasted CV, then the ask after it."""
     text = content.strip()
     if len(text) <= max_chars:
         return text
-    return f"{text[: max_chars - 20].rstrip()}… [truncated]"
+    keep = max(0, max_chars - len(_TRIM_MARK))
+    head = keep // 2
+    return f"{text[:head].rstrip()}{_TRIM_MARK}{text[len(text) - (keep - head) :].lstrip()}"
 
 
 def cap_summary(text: str, max_chars: int = _SUMMARY_MAX_CHARS) -> str:

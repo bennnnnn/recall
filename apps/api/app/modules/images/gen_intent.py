@@ -82,15 +82,59 @@ def fold_token(word: str) -> str:
 
 
 def has_non_image_subject(subject: str) -> bool:
-    words = subject.split()
-    for i, word in enumerate(words):
-        key = fold_token(word)
-        if key in NON_IMAGE_WORDS:
+    words = [fold_token(word) for word in subject.split()]
+    for i, key in enumerate(words):
+        if key in NON_IMAGE_WORDS and not _names_what_the_art_is_for(words, i):
             return True
-        nxt = fold_token(words[i + 1]) if i + 1 < len(words) else ""
-        if key == "pull" and nxt in {"request", "requests"}:
+        nxt = words[i + 1] if i + 1 < len(words) else ""
+        if (key, nxt.removesuffix("s")) in _NON_IMAGE_PAIRS:
             return True
     return False
+
+
+# Two words naming something written: "a pull request", "a cover letter", "a random number".
+_NON_IMAGE_PAIRS = frozenset({("pull", "request"), ("cover", "letter"), ("random", "number")})
+
+
+# Pictures made for something: "a poster for my event", "an app logo".
+_ART_FOR_NOUNS = frozenset(
+    {
+        "logo",
+        "logos",
+        "icon",
+        "icons",
+        "poster",
+        "posters",
+        "banner",
+        "banners",
+        "sticker",
+        "stickers",
+        "mascot",
+        "mascots",
+        "flyer",
+        "flyers",
+        "thumbnail",
+        "thumbnails",
+        "wallpaper",
+        "wallpapers",
+    }
+)
+# "A logo for my site in html" asks for markup, not a picture.
+_MARKUP_WORDS = frozenset({"html", "css", "javascript", "typescript"})
+
+
+def _names_what_the_art_is_for(words: list[str], i: int) -> bool:
+    """``app`` in "an app logo" or "a logo for my app": what the picture is for, not the ask."""
+    if any(word in _MARKUP_WORDS for word in words):
+        return False
+    if i + 1 < len(words) and words[i + 1] in _ART_FOR_NOUNS:
+        return True
+    before = words[:i]
+    if "for" not in before:
+        return False
+    purpose = len(before) - 1 - before[::-1].index("for")
+    # "A cover image for my presentation": a picture noun heads the request too.
+    return any(word in _ART_FOR_NOUNS or word in IMAGE_NOUNS for word in words[:purpose])
 
 
 def has_non_image_draw(subject: str) -> bool:
@@ -227,6 +271,31 @@ def _match_draw_me(tokens: list[str]) -> str | None:
     return clean_prompt(subject)
 
 
+# "Draw up a contract", "draw on my experience", "draw conclusions from the data":
+# with one of these next, "draw" writes, uses or infers something rather than draws it.
+_DRAW_NOT_A_PICTURE = frozenset(
+    {
+        "up",
+        "on",
+        "upon",
+        "from",
+        "near",
+        "nearer",
+        "closer",
+        "back",
+        "away",
+        "together",
+        "conclusions",
+        "inferences",
+        "boundaries",
+        "attention",
+        "inspiration",
+        "lots",
+        "straws",
+    }
+)
+
+
 def _make_is_not_a_picture(subject: str) -> bool:
     words = [fold_token(word) for word in subject.split()]
     words = [word for word in words if word and word not in MAKE_IDIOM_FILLER]
@@ -243,6 +312,8 @@ def _match_short_create(tokens: list[str]) -> str | None:
         return None
     verb = tokens[0].lower()
     if verb not in VERBS_DRAW and verb not in VERBS_IMAGE:
+        return None
+    if verb == "draw" and fold_token(tokens[1]) in _DRAW_NOT_A_PICTURE:
         return None
     i = 1
     if i < len(tokens) and tokens[i].lower() == "me":

@@ -981,6 +981,7 @@
   "todos.delete_many": "{{count}} görev silinsin mi?",
   "todos.filter_empty": "Bu görünümde bir şey yok",
   "todos.menu": "Görev menüsü",
+  "todos.open_from_chat": "Yapılacakları aç",
   "todos.menu_all": "Tüm görevler",
   "todos.menu_completed": "Tamamlanan",
   "todos.menu_open": "Tamamlanmayan",

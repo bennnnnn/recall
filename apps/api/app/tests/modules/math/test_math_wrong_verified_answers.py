@@ -61,6 +61,22 @@ def _history(*turns: str) -> tuple[tuple[str, str], ...]:
         ("find the y-intercept of y = x^2 - 6x + 5", r"\left(0, 5\right)"),
         ("find the x-intercept of 2x + 3y = 6", r"\left(3, 0\right)"),
         ("find the x-intercepts of y = x^2 - 5x + 6", r"\left(2, 0\right),\ \left(3, 0\right)"),
+        # Both axes: "show the intercepts" was no maths at all, "find the intercepts" unsolved.
+        (
+            "show the intercepts of y = x^2 - 5x + 6",
+            r"\text{x-intercepts } \left(2, 0\right),\ \left(3, 0\right);\ "
+            r"\text{y-intercept } \left(0, 6\right)",
+        ),
+        (
+            "what are the intercepts of y=x^2-5x+6",
+            r"\text{x-intercepts } \left(2, 0\right),\ \left(3, 0\right);\ "
+            r"\text{y-intercept } \left(0, 6\right)",
+        ),
+        (
+            "find the x- and y-intercepts of 2x + 3y = 6",
+            r"\text{x-intercept } \left(3, 0\right);\ \text{y-intercept } \left(0, 2\right)",
+        ),
+        ("show the vertex of y = x^2 - 4x + 3", r"\left(2, -1\right)"),
         ("find the discriminant of 3x^2+2x+1=0", r"b^{2} - 4ac = -8"),
         ("discriminant of 3x^2 + 2x + 1", r"b^{2} - 4ac = -8"),
         ("what is the sum of the roots of x^2 - 5x + 6 = 0", r"x_{1} + x_{2} = 5"),
@@ -100,6 +116,8 @@ async def test_a_feature_of_an_equation_is_answered_not_solved_for_x(
         "find the sum of the roots of x^2 + 2x + 1 = 0",
         "find k so that kx^2 + 4x + 1 = 0 has exactly one solution",
         "find the y-intercept of x = 4",
+        # No real x-intercept: both axes are not verified, never half of them.
+        "find the intercepts of y = x^2 + 1",
         "what is the domain of the solution of x^2 = 4",
     ],
 )
@@ -725,5 +743,65 @@ async def test_letters_that_are_not_unknowns_are_never_solved_for(text: str) -> 
     ],
 )
 async def test_a_defined_e_and_e_notation_read_as_written(text: str, answer: str) -> None:
+    canonical, _reply = await _verified(text)
+    assert canonical == answer
+
+
+# --- L. a mixed number is one number ------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Read as 2 * 1/2, these verified x = 4 and x = 10.
+        ("solve x + 2 1/2 = 5", r"x = \frac{5}{2}"),
+        ("solve 2 1/2 x = 10", "x = 4"),
+        ("solve x - 1 3/4 = 2", r"x = \frac{15}{4}"),
+        # A power's digit starts no mixed number: x^2 times a half.
+        ("solve x^2 1/2 = 8", r"x = \pm 4"),
+        # As a glyph or from the maths keyboard: these verified 7/4 and x = 4.
+        ("what is 2½ + 1¾", r"\frac{17}{4}"),
+        ("solve x + 2½ = 5", r"x = \frac{5}{2}"),
+        (r"what is $2\frac{1}{2} + 1\frac{3}{4}$", r"\frac{17}{4}"),
+        (r"solve $x + 2\frac{1}{2} = 5$", r"x = \frac{5}{2}"),
+        # A coefficient on a fraction with an unknown stays a product.
+        (r"solve $2\frac{x}{3} = 4$", "x = 6"),
+    ],
+)
+async def test_a_mixed_number_in_an_equation_is_one_number(text: str, answer: str) -> None:
+    canonical, _reply = await _verified(text)
+    assert canonical == answer
+
+
+# --- M. a logarithm is never dropped from its equation -----------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "text",
+    [
+        # These verified x = 2 for (x+1) = 3 and x = 1/2 for 2(x+1) = 3; the answer is 7.
+        "solve log base 2 of (x+1) = 3",
+        "solve log_(2)(x+1)=3",
+        "solve log _2(x+1)=3",
+    ],
+)
+async def test_an_equation_without_its_logarithm_is_not_verified(text: str) -> None:
+    canonical, reply = await _verified(text)
+    assert canonical is None
+    assert reply is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("solve log_2(x+1)=3", "x = 7"),
+        ("solve log2(x+1)=3", "x = 7"),
+        ("solve log(x) + log(x-3) = 1", "x = 5"),
+    ],
+)
+async def test_a_logarithm_the_reader_keeps_is_still_solved(text: str, answer: str) -> None:
     canonical, _reply = await _verified(text)
     assert canonical == answer

@@ -518,11 +518,11 @@ _CHECKER = (
     r"symbolic\s+(?:math|algebra)|a\s+computer\s+algebra\s+system|a\s+cas|"
     r"the\s+cas|the\s+server|the\s+app)"
 )
-# ✅ Verified with SymPy. / ✓ Checked
+# ✅ Verified with SymPy. / ✓ Checked, ending its sentence or line: "✅ Checked in online" stays.
 _EMOJI_CLAIM = re.compile(
-    rf"[ \t]*[{_CHECK_MARKS}]️?[ \t]*(?:\*\*|__|\*|_)?[ \t]*{_CLAIM_VERB}\b"
-    rf"(?:[ \t]+(?:with|by|using|via|in)[ \t]+(?:{_CHECKER}|[A-Za-z][\w.-]*))?"
-    r"[ \t]*(?:\*\*|__|\*|_)?[ \t]*[.!]?(?:\*\*|__|\*|_)?",
+    rf"[ \t]*[{_CHECK_MARKS}]️?[ \t]*(?:\*\*|__|\*|_)?[ \t]*{_CLAIM_VERB}\b(?:[ \t]+(?:"
+    rf"(?:with|by|using|via|in)[ \t]+{_CHECKER}|(?:with|using|via)[ \t]+[A-Za-z][\w.-]*))?"
+    r"[ \t]*(?:\*\*|__|\*|_)?[ \t]*(?:[.!](?:\*\*|__|\*|_)?(?=\s|$)|(?=[ \t]*(?:\n|$)))",
     re.IGNORECASE,
 )
 # (verified) / (verified with SymPy) / [checked]

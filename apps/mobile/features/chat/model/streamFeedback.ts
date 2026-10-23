@@ -1,4 +1,4 @@
-import { notifyWarning, selection, tap } from "@/lib/haptics";
+import { notifyError, selection, tap } from "@/lib/haptics";
 
 type StreamCue = "activity" | "complete" | "stopped" | "error";
 
@@ -6,7 +6,7 @@ type StreamCue = "activity" | "complete" | "stopped" | "error";
 export function playStreamCue(cue: StreamCue): void {
   if (cue === "activity") selection();
   else if (cue === "complete" || cue === "stopped") tap();
-  else notifyWarning();
+  else notifyError();
 }
 
 export function createStreamCueGate() {

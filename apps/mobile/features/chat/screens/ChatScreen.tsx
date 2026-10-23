@@ -256,6 +256,7 @@ function ChatScreen() {
     attachSheetOpen,
     setAttachSheetOpen,
     handleSend,
+    sendTappedLine,
     restoreComposerDraft,
     handlePickAttachment,
     handleAttachmentSheetSelect,
@@ -356,8 +357,6 @@ function ChatScreen() {
     selectedModel,
   });
 
-  const onSelectSuggestion = useCallback((prompt: string) => handleSend(prompt), [handleSend]);
-
   const { headerTitleLabel, renderItem } = useChatMessageList({
     messages,
     streaming,
@@ -369,7 +368,7 @@ function ChatScreen() {
     regenerateResponse: handleRegenerate,
     regenerating,
     handleFeedback,
-    onSelectSuggestion: user?.follow_up_suggestions_enabled === false ? undefined : onSelectSuggestion,
+    onSelectSuggestion: user?.follow_up_suggestions_enabled === false ? undefined : sendTappedLine,
     imageGenerating: imageGen.generating,
     onRetryImageGen: imageGen.retry,
   });
@@ -488,7 +487,7 @@ function ChatScreen() {
   if (!token) return <Redirect href="/login" />;
 
   return (
-    <ChatReplyProviders saveEmailDraft={handleSaveEmailDraft} send={onSelectSuggestion} busy={streamActive || regenerating}>
+    <ChatReplyProviders saveEmailDraft={handleSaveEmailDraft} send={sendTappedLine} busy={streamActive || regenerating}>
       <View style={{ flex: 1 }}>
         <ChatScreenBody {...chatScreenBodyProps} />
         <LazyLiveTalkOverlay

@@ -14,13 +14,8 @@ jest.mock("@/lib/haptics", () => ({ notifyWarning: jest.fn() }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
 jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableError: jest.fn() }));
 
-it.each([
-  [true, "chat.image_daily_limit_paid"],
-  [false, "chat.image_daily_limit_free"],
-])("names the picture's own limit, not the chat allowance (isPaid %p)", async (isPaid, message) => {
-  (api.generateImage as jest.Mock).mockRejectedValueOnce(
-    new ApiRequestError(429, JSON.stringify({ detail: { code: "daily_limit", message: "Image limit." } })),
-  );
+async function failedRow(isPaid: boolean, error: Error): Promise<Message | undefined> {
+  (api.generateImage as jest.Mock).mockRejectedValueOnce(error);
   const updates: React.SetStateAction<Message[]>[] = [];
   const { result } = await renderHook(() => useChatImageGeneration({
     token: "tok",
@@ -36,5 +31,30 @@ it.each([
   }));
   await act(async () => { await result.current.submitPrompt({ prompt: "cat", userMessage: "Draw a cat" }); });
   const rows = updates.reduce<Message[]>((list, update) => (typeof update === "function" ? update(list) : update), []);
-  expect(rows.at(-1)).toMatchObject({ image_gen_failure: "failed", image_gen_error: message });
+  return rows.at(-1);
+}
+
+const refusal = (status: number, code: string, message: string) =>
+  new ApiRequestError(status, JSON.stringify({ detail: { code, message } }));
+
+it.each([
+  [true, "chat.image_daily_limit_paid"],
+  [false, "chat.image_daily_limit_free"],
+])("names the picture's own limit, not the chat allowance (isPaid %p)", async (isPaid, message) => {
+  const row = await failedRow(isPaid, refusal(429, "daily_limit", "Image limit."));
+  // Retry would meet the same cap until tomorrow: the card offers none.
+  expect(row).toMatchObject({ image_gen_failure: "failed", image_gen_error: message, image_gen_refused: true });
+});
+
+it("offers no Retry for a picture the content rules refused", async () => {
+  const row = await failedRow(true, refusal(422, "content_blocked", "Blocked."));
+  expect(row).toMatchObject({ image_gen_error: "chat.image_content_blocked", image_gen_refused: true });
+});
+
+it.each([
+  ["a provider failure", new ApiRequestError(502, JSON.stringify({ detail: "Could not generate image" }))],
+  ["a dropped connection", new Error("Network request failed")],
+])("keeps Retry after %s", async (_label, error) => {
+  const row = await failedRow(true, error);
+  expect(row).toMatchObject({ image_gen_failure: "failed", image_gen_refused: undefined });
 });

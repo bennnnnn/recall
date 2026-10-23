@@ -135,6 +135,7 @@ const mockSend = {
   attachSheetOpen: false,
   setAttachSheetOpen: mockNoop,
   handleSend: mockAsyncNoop,
+  sendTappedLine: mockAsyncNoop,
   restoreComposerDraft: mockNoop,
   handlePickAttachment: mockNoop,
   handleAttachmentSheetSelect: mockAsyncNoop,

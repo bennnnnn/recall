@@ -18,10 +18,11 @@ from app.modules.memory.commands import (
     is_memory_correction,
     memory_reset_request,
     mute_requests,
+    remember_requests,
 )
 from app.modules.memory.fact_quality import FactView, is_one_off_schedule_fact, texts_to_drop
 from app.modules.memory.facts import should_skip_sensitive_persist
-from app.modules.memory.forget_match import phrase_names_fact
+from app.modules.memory.forget_match import names_nothing, phrase_names_fact
 from app.modules.memory.name_claim import is_unclaimed_user_name
 from app.modules.memory.ops import EXPLICIT_IMPORTANCE, MODEL_IMPORTANCE_MAX, normalize_memory_text
 from app.modules.memory.schemas import MemoryFactOp
@@ -77,8 +78,13 @@ def compose_writes(
     chat_id: UUID,
     from_history: bool,
     min_confidence: float,
+    earlier: str = "",
 ) -> tuple[list[MemoryFactWrite], int]:
-    """Every write a pass makes, from the model's ops and the user's own words; no IO."""
+    """Every write a pass makes, from the model's ops and the user's own words; no IO.
+
+    ``earlier`` is the exchange before ``lines``: a lone "forget that" drops what the
+    line before it asked to remember.
+    """
     writes, skipped = writes_from_ops(
         ops,
         chat_id=chat_id,
@@ -91,6 +97,7 @@ def compose_writes(
     if asks.forget and not from_history and not any(write.op == "delete" for write in writes):
         writes.extend(
             named_forget_deletes(lines, existing_facts=snapshot.existing_facts, chat_id=chat_id)
+            or _forget_points_back(lines, earlier, snapshot.existing_facts, chat_id)
         )
     if asks.mute and not from_history and not any(write.op == "mute" for write in writes):
         writes.extend(
@@ -215,6 +222,32 @@ def named_forget_deletes(
 ) -> list[MemoryFactWrite]:
     """Delete stored facts the user named when the model returned no delete."""
     return _named_fact_ops("delete", forget_requests(transcript), existing_facts, chat_id)
+
+
+def _forget_points_back(
+    lines: str, earlier: str, existing_facts: dict[UUID, str], chat_id: UUID
+) -> list[MemoryFactWrite]:
+    """ "Remember I'm vegetarian", then "Actually, forget that": delete what it remembered.
+
+    Only for one line that names nothing; a line that names a fact the store lacks
+    ("forget my old address") deletes nothing. The earlier line must be the remember
+    and nothing else: after "Remember I'm vegetarian, and suggest a dinner", "that" may
+    be the dinner, and the model decides.
+    """
+    said = [line for line in lines.splitlines() if line.strip()]
+    if len(said) != 1 or not all(names_nothing(phrase) for phrase in forget_requests(lines)):
+        return []
+    asked: list[str] = []
+    for line in earlier.splitlines():
+        if not line.startswith("User:"):
+            continue
+        body = line.removeprefix("User:").strip().rstrip(" .!")
+        asked.extend(
+            phrase
+            for phrase in remember_requests(body)
+            if body.casefold().endswith(phrase.casefold())
+        )
+    return _named_fact_ops("delete", asked, existing_facts, chat_id)
 
 
 def named_mute_ops(

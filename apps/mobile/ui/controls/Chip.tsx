@@ -9,6 +9,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
+import { selection } from "@/lib/haptics";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
@@ -118,6 +119,14 @@ export function Chip({
     style,
   ];
 
+  // A filter is a selection, like a segment: one tick when the choice changes.
+  const press = variant === "filter" && onPress
+    ? () => {
+        if (!selected || accessibilityRole === "checkbox") selection();
+        onPress();
+      }
+    : onPress;
+
   if (!onPress && !onLongPress) {
     return (
       <View
@@ -133,7 +142,7 @@ export function Chip({
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={press}
       onLongPress={onLongPress}
       disabled={disabled}
       style={({ pressed }) => [...shape, pressed && s.pressed]}

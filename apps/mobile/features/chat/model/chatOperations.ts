@@ -12,7 +12,7 @@ import { beginChatMutation } from "@/features/chat/model/mutationLock";
 import { sanitizeManualChatTitle } from "@/features/chat/model/title";
 import { api, type Chat } from "@/lib/api";
 import { emitAppEvent } from "@/lib/appEvents";
-import { notifyDestructive, tap } from "@/lib/haptics";
+import { notifyDestructive } from "@/lib/haptics";
 import type { IconName } from "@/ui/icons/names";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 
@@ -86,7 +86,6 @@ export async function setChatPinned(
   if (chat.archived) return;
   const release = beginChatMutation(ctx.session, [chat.id]);
   if (!release) return;
-  tap();
   apply(ctx, chat.id, { pinned });
   try {
     const saved = await api.setPin(ctx.token, chat.id, pinned);
@@ -115,7 +114,6 @@ export async function setChatArchived(
 ): Promise<void> {
   const release = beginChatMutation(ctx.session, [chat.id]);
   if (!release) return;
-  tap();
   apply(ctx, chat.id, archived ? { archived, pinned: false } : { archived });
   try {
     const saved = await api.setArchive(ctx.token, chat.id, archived);

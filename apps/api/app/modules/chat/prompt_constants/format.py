@@ -140,6 +140,8 @@ def is_callout_question(text: str) -> bool:
     return bool(_CALLOUT_TURN.search(cleaned))
 
 
+# A plan over weeks or phases. "From scratch" stays here: "learn Python from
+# scratch" is a roadmap, and the hint says one task is still one list of steps.
 _HOWTO_TURN = re.compile(
     r"(?:"
     r"\b\d+[\s-]?week(?:s)?\s+plan\b|"
@@ -148,40 +150,38 @@ _HOWTO_TURN = re.compile(
     r"\b(?:learning|study)\s+plan\b|"
     r"\bplan\s+to\s+learn\b|"
     r"\bfrom scratch\b|"
-    r"\bhow (?:do i|to) (?:set up|setup|install|configure|build)\b|"
-    r"\bwalk\s+me\s+through\b|"
-    r"\bstep[\s-]?by[\s-]?step\b|"
     r"\bplan\s+de\s+\d+[\s-]?(?:semana|semanas|semaine|semaines)\b|"
-    r"\b\d+[\s-]?wochen[\s-]?plan\b|"
-    r"\bpaso\s+a\s+paso\b|"
-    r"\b(?:etape|étape)\s+par\s+(?:etape|étape)\b|"
-    r"\bschritt[\s-]?f[uü]r[\s-]?schritt\b"
+    r"\b\d+[\s-]?wochen[\s-]?plan\b"
     r")",
     re.IGNORECASE,
 )
 
 HOWTO_FORMAT_HINT = (
-    "This turn is a how-to, roadmap, or N-week learning plan.\n"
+    "This turn is a roadmap or an N-week plan.\n"
     "Do not write a joke setup. Prefer lists over a pipe table—a week-by-week plan "
     "is normally not a schedule grid. If the user explicitly asks for a compact table, "
     "honor that request and keep it to 2-3 columns.\n"
     "Use ## headings per week or phase. Under each: a one-line goal, then "
     "numbered steps or short bullets. Keep vocab/phrases in bullets, not table "
-    "columns."
+    "columns. One task (make bread from scratch) is not a plan: one numbered list of "
+    "steps, no headings."
 )
 
 
-def is_howto_question(text: str) -> bool:
-    """True for learning plans / how-tos that must stay lists, not schedule tables."""
-    cleaned = text.strip()
-    if not cleaned:
-        return False
-    if (
+def _owned_by_another_layout(cleaned: str) -> bool:
+    """A compare, chart, flowchart or callout ask keeps that layout over a how-to's."""
+    return (
         is_comparison_question(cleaned)
         or is_chart_question(cleaned)
         or is_mermaid_question(cleaned)
         or is_callout_question(cleaned)
-    ):
+    )
+
+
+def is_howto_question(text: str) -> bool:
+    """True for learning plans / roadmaps that must stay lists, not schedule tables."""
+    cleaned = text.strip()
+    if not cleaned or _owned_by_another_layout(cleaned):
         return False
     return bool(_HOWTO_TURN.search(cleaned))
 
@@ -197,11 +197,28 @@ _TASK_HOWTO = re.compile(
     r"|get\s+over|be\s+(?:happy|confident|happier)|love|say|pronounce|spell)\b)[^\W\d_]",
     re.IGNORECASE,
 )
+# Asked for as steps anywhere in the message: "walk me through changing a tire",
+# "install Python step by step", "receta de pan paso a paso".
+_STEPWISE_TURN = re.compile(
+    r"(?:"
+    r"\bhow (?:do i|to) (?:set up|setup|install|configure|build)\b|"
+    r"\bwalk\s+me\s+through\b|"
+    r"\bstep[\s-]?by[\s-]?step\b|"
+    r"\bpaso\s+a\s+paso\b|"
+    r"\b(?:etape|étape)\s+par\s+(?:etape|étape)\b|"
+    r"\bschritt[\s-]?f[uü]r[\s-]?schritt\b"
+    r")",
+    re.IGNORECASE,
+)
 
 STEPS_FORMAT_HINT = (
     "This is a how-to task. Give numbered steps, one action each, in the order they are done. "
     "Put what is needed (ingredients, tools, documents) first as a short list when there is "
-    "any, and add a one-line tip at the end only if it helps. No headings for a short task."
+    "any. A warning or a must-do-first (back up, switch off the power) goes just before the "
+    "step it applies to, never after it. Add a one-line tip at the end only if it helps. "
+    "No headings for a short task. A goal reached in several independent ways rather than "
+    "one sequence (save money, sleep better) takes the ways layout instead: numbered items, "
+    "each opening with a bold label."
 )
 
 
@@ -210,7 +227,9 @@ def is_task_howto(text: str) -> bool:
     cleaned = text.strip()
     if not cleaned or len(cleaned) > 300:
         return False
-    return _TASK_HOWTO.search(cleaned) is not None
+    if _TASK_HOWTO.search(cleaned) is not None:
+        return True
+    return _STEPWISE_TURN.search(cleaned) is not None and not _owned_by_another_layout(cleaned)
 
 
 _QUOTE_TURN = re.compile(
@@ -357,6 +376,9 @@ _UNIVERSAL_FORMAT_CORE = (
     "By default, keep paragraphs to 2-3 sentences; an explicitly requested prose length or "
     "shape wins. Avoid 3+ consecutive blank lines. "
     "Lead with the answer; explanation after. No intro paragraph before the conclusion. "
+    "When the user shares something painful or frightening (a loss, bad news, panic), the "
+    "first line briefly and sincerely acknowledges it, then the help follows; that line is "
+    "not an intro. "
     "Never use decorative headings (Introduction, Background, Overview, Conclusion, "
     '"Let\'s dive in"). Headings only when they group real sections. '
     "Do not decorate with emoji unless the user used them. "

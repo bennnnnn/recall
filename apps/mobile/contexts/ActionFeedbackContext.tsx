@@ -16,7 +16,7 @@ import {
   type ActionFeedbackOptions,
   type ActionFeedbackTone,
 } from "@/contexts/actionFeedbackCore";
-import { notifySuccess, notifyWarning } from "@/lib/haptics";
+import { notifyError, notifySuccess, notifyWarning } from "@/lib/haptics";
 import type { IconName } from "@/ui/icons/names";
 
 type FeedbackItem = {
@@ -59,6 +59,7 @@ export function ActionFeedbackProvider({
     });
     if (options.haptic === false || tone === "info") return;
     if (tone === "success") notifySuccess();
+    else if (tone === "error") notifyError();
     else notifyWarning();
   }, []);
 

@@ -22,6 +22,7 @@ from app.modules.chat.prompt_constants import (
 from app.modules.chat.prompt_constants.writing import (
     EMAIL_ASK_PURPOSE_HINT,
     EMAIL_DRAFT_HINT,
+    PERSONAL_RECORD_HINT,
     REWRITE_HINT,
     SOCIAL_DRAFT_HINT,
     TRANSLATION_FORMAT_HINT,
@@ -54,6 +55,14 @@ def _hints(text: str, prior: tuple[str, str] | None = None) -> list[str]:
         ("answer this email: Hi Ben, can you join the client call on Monday?", "email"),
         ("write a resignation email", "email"),
         ("write a follow-up email after my job interview", "email"),
+        # The recipient between "send" and the draft.
+        ("send my boss an email asking for Friday off", "email"),
+        ("send Sara a text saying I'm running late", "message"),
+        ("send my mom a message about dinner on Sunday", "message"),
+        # Recall cannot pass it on: a message for the user to send.
+        ("tell my landlord the heater is broken", "message"),
+        ("can you tell my boss I'm sick today", "message"),
+        ("let my team know that we moved the sync to 3pm", "message"),
         ("write a post for facebook about my new bakery opening", "social"),
         ("make a facebook post announcing our garage sale this weekend", "social"),
         ("make this more professional: hey can u send me the files asap", "rewrite"),
@@ -77,6 +86,11 @@ def test_everyday_writing_asks_read_as_their_deliverable(text: str, kind: str) -
         # Nothing pasted: "it" is the previous reply, not new text to send.
         "make it shorter",
         "make it rain",
+        # Advice, a story, a fortune: nothing to pass on.
+        "should I tell my boss I'm pregnant?",
+        "how do I tell my boss I'm quitting",
+        "tell my kids a bedtime story",
+        "tell my fortune",
     ],
 )
 def test_questions_and_bare_changes_are_not_new_drafts(text: str) -> None:
@@ -93,6 +107,17 @@ def test_questions_and_bare_changes_are_not_new_drafts(text: str) -> None:
         ("write an instagram caption for a beach sunset photo", False),
         ("reply to this email: Dear customer, your order has been delayed by 3 days.", False),
         ("write a text to my friend saying sorry I missed her party", False),
+        # What to say follows the recipient, with or without "that".
+        ("text my landlord that the heater is broken", False),
+        ("message my landlord the heater is broken", False),
+        ("text my wife we're out of milk", False),
+        ("email my boss my availability for next week", False),
+        ("write a message to my landlord", True),
+        ("write a message to my mom and my dad", True),
+        ("write an email to my professor in Spanish", True),
+        ("write a text that I can send to my mom", True),
+        # What the caption shows.
+        ("write an instagram caption for my beach photo", False),
     ],
 )
 def test_only_a_bare_draft_ask_asks_what_to_say(text: str, bare: bool) -> None:
@@ -113,6 +138,28 @@ def test_drafts_get_their_contract_and_never_the_no_draft_rule(text: str, hint: 
     parts = _hints(text)
     assert hint in parts
     assert NON_DRAFT_TURN_HINT not in parts
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "write my resume",
+        "help me write my resume",
+        "make a CV for a nurse",
+        "make my resume",
+        "can you make me a resume",
+        "polish my cover letter",
+        "write a cover letter for this job",
+    ],
+)
+def test_the_users_own_record_gets_only_the_facts_they_have(text: str) -> None:
+    # "write my resume" was no writing ask: the general layout, a photo offer and
+    # the no-draft rule, but no rule against an invented employer or degree.
+    assert writing_request_kind(text) == "prose"
+    parts = _hints(text)
+    assert PERSONAL_RECORD_HINT in parts
+    assert NON_DRAFT_TURN_HINT not in parts
+    assert FORMAT_CONTRACT not in parts
 
 
 def test_a_reply_to_an_unanswered_ask_offers_yes_and_no_drafts() -> None:
@@ -146,6 +193,11 @@ def test_a_proofread_is_a_writing_request_without_a_draft_fence() -> None:
         ("make it an email", _TEXT_DRAFT, "email"),
         ("as a text", _EMAIL_DRAFT, "message"),
         ("make it a facebook post", _TEXT_DRAFT, "facebook"),
+        # Nothing new to translate: the draft, in that language.
+        ("translate to Spanish", _EMAIL_DRAFT, "email"),
+        ("now in French", _EMAIL_DRAFT, "email"),
+        ("in French please", _TEXT_DRAFT, "message"),
+        ("ok now make it shorter", _TEXT_DRAFT, "message"),
     ],
 )
 def test_a_change_to_the_previous_draft_returns_that_draft_revised(
@@ -171,6 +223,8 @@ def test_a_change_to_the_previous_draft_returns_that_draft_revised(
         ("tell me more about the second one", _LIST_ANSWER),
         ("email marketing tips", _TEXT_DRAFT),
         ("what is email", _TEXT_DRAFT),
+        # New text to translate is a translation, not the draft.
+        ("translate to Spanish: Where is the train station?", _TEXT_DRAFT),
     ],
 )
 def test_other_follow_ups_are_not_draft_revisions(text: str, prior: str) -> None:
@@ -212,6 +266,58 @@ def test_a_short_answer_goes_on_with_the_message_asked_for_earlier(text: str) ->
     )
     assert draft_followup_hint("message", drafted=False) in parts
     assert NON_DRAFT_TURN_HINT not in parts
+
+
+_ASKED_WHAT_TO_SAY = [
+    ("user", "write a message to my landlord"),
+    ("assistant", "Sure, what should the message say?"),
+]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "the heater stopped working and the kitchen tap is leaking",
+        "rent will be 3 days late, I'll pay on the 5th",
+        "can he send someone to fix the heater this week",
+    ],
+)
+def test_the_answer_to_what_to_say_is_the_draft(text: str) -> None:
+    # It was told "This turn is not an explicit writing request ... do not create
+    # a message fence", so the draft the user was asked about lost its card.
+    assert draft_followup(text, _ASKED_WHAT_TO_SAY) == ("message", False)
+    parts = _style_format_hints(
+        query_text=text,
+        is_day_plan=False,
+        minimal_personal_context=False,
+        prior_messages=_ASKED_WHAT_TO_SAY,
+    )
+    assert draft_followup_hint("message", drafted=False) in parts
+    assert NON_DRAFT_TURN_HINT not in parts
+
+
+@pytest.mark.parametrize(
+    ("text", "prior"),
+    [
+        ("never mind", _ASKED_WHAT_TO_SAY),
+        ("thanks", _ASKED_WHAT_TO_SAY),
+        ("what should I say?", _ASKED_WHAT_TO_SAY),
+        ("write a poem about the sea", _ASKED_WHAT_TO_SAY),
+        # The reply answered; it did not ask what the draft should say.
+        (
+            "the heater stopped working",
+            [("user", "write a message to my landlord"), ("assistant", _TEXT_DRAFT)],
+        ),
+        (
+            "the heater stopped working",
+            [("user", "what is a landlord"), ("assistant", "Who owns the place you rent?")],
+        ),
+    ],
+)
+def test_other_lines_after_the_question_are_not_its_answer(
+    text: str, prior: list[tuple[str, str]]
+) -> None:
+    assert draft_followup(text, prior) != ("message", False)
 
 
 def test_send_and_write_the_message_are_draft_requests_never_refused() -> None:

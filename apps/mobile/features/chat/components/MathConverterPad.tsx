@@ -76,8 +76,8 @@ export const MathConverterPad = memo(function MathConverterPad({
     setPickerFor(null);
   };
 
+  // Send and Stop play their own haptic (the composer's send, the turn's stopped cue).
   const ask = () => {
-    buzz();
     if (streaming) {
       onStop();
       return;

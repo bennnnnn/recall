@@ -47,10 +47,12 @@ export function imageGenUserBubble(userMessage: string, prompt: string): string 
   return userMessage.trim() || prompt.trim();
 }
 
+/** `refused`: the server will refuse a retry the same way, so the card offers none. */
 export function applyImageGenFailure(
   messages: readonly Message[],
   outcome: ImageGenFailure,
   errorText?: string,
+  refused = false,
 ): Message[] {
   return messages.map((row) =>
     row.id === IMAGE_GEN_PENDING_ASSISTANT_ID
@@ -60,6 +62,7 @@ export function applyImageGenFailure(
           content: "",
           image_gen_failure: outcome,
           image_gen_error: errorText,
+          image_gen_refused: refused || undefined,
         }
       : row,
   );
@@ -74,6 +77,7 @@ export function restoreImageGenPending(messages: readonly Message[]): Message[] 
           content: "",
           image_gen_failure: undefined,
           image_gen_error: undefined,
+          image_gen_refused: undefined,
         }
       : row,
   );

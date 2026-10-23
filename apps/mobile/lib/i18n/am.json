@@ -981,6 +981,7 @@
   "todos.delete_many": "{{count}} ተግባሮች ይሰረዙ?",
   "todos.filter_empty": "በዚህ እይታ ምንም የለም",
   "todos.menu": "የተግባር ምናሌ",
+  "todos.open_from_chat": "የሚደረጉን ክፈት",
   "todos.menu_all": "ሁሉም ተግባሮች",
   "todos.menu_completed": "የተጠናቀቁ",
   "todos.menu_open": "ያልተጠናቀቁ",

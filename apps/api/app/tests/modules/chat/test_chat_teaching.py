@@ -15,6 +15,7 @@ from app.modules.chat.prompt_constants import (
     LEARNING_PLAN_HINT,
     PERSONAL_DISCLOSURE_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
+    STEPS_FORMAT_HINT,
     TEACHING_HINT,
     WALKTHROUGH_HINT,
     active_lesson_step,
@@ -314,16 +315,35 @@ def test_an_explicit_learning_plan_is_not_crushed_to_short_prose():
     assert SHORT_RESPONSE_FORMAT_HINT not in hints
 
 
-def test_procedure_keeps_the_howto_layout():
-    hints = _hints("How to install python step by step")
-    assert HOWTO_FORMAT_HINT in hints
+# A task asked for step by step is one list of steps, not a plan of weeks or phases.
+@pytest.mark.parametrize(
+    "query",
+    [
+        "How to install python step by step",
+        "how do I set up my new printer",
+        "how to make jollof rice step by step",
+        "receta de pan paso a paso",
+    ],
+)
+def test_procedure_gets_numbered_steps_not_a_plan(query: str):
+    hints = _hints(query)
+    assert STEPS_FORMAT_HINT in hints
+    assert HOWTO_FORMAT_HINT not in hints
     assert TEACHING_HINT not in hints
 
 
-def test_walk_me_through_procedure_is_a_howto_not_an_interactive_lesson():
+def test_walk_me_through_procedure_is_steps_not_an_interactive_lesson():
     hints = _hints("Walk me through changing a tire")
-    assert HOWTO_FORMAT_HINT in hints
+    assert STEPS_FORMAT_HINT in hints
+    assert HOWTO_FORMAT_HINT not in hints
     assert TEACHING_HINT not in hints
+
+
+# A solver owns a worked problem's layout: no week or phase headings beside it.
+def test_a_step_by_step_problem_gets_no_plan_layout():
+    hints = _hints("explain step by step how to integrate x^2 sin(x)")
+    assert HOWTO_FORMAT_HINT not in hints
+    assert STEPS_FORMAT_HINT not in hints
 
 
 def test_brevity_request_is_not_a_lesson():

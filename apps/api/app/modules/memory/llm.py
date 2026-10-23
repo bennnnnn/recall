@@ -68,6 +68,25 @@ _SENSITIVITY_RULES = (
 )
 
 
+def _extract_input(
+    existing_block: str, areas_block: str, transcript: str, *, from_history: bool, earlier: str
+) -> str:
+    """The saved facts, then the lines to read; ``earlier`` is the exchange before them."""
+    before = (
+        "Just before (already read; only says what 'that' or 'this' points at, "
+        f"never a source of facts):\n{wrap_untrusted('earlier exchange', earlier)}\n\n"
+        if earlier
+        else ""
+    )
+    return (
+        f"Existing facts JSON:\n{existing_block}\n\n"
+        f"Existing areas JSON:\n{areas_block}\n\n"
+        f"{before}"
+        f"{'Earlier conversation' if from_history else 'New conversation'}:\n"
+        f"{wrap_untrusted('conversation transcript', transcript)}"
+    )
+
+
 async def revise_memory_facts(
     settings: Settings,
     transcript: str,
@@ -75,6 +94,7 @@ async def revise_memory_facts(
     existing_facts: list[dict[str, Any]] | None = None,
     existing_areas: list[dict[str, Any]] | None = None,
     from_history: bool = False,
+    earlier: str = "",
 ) -> MemoryFactUpdateResult | None:
     if mock_llm.should_mock_llm(settings):
         return await offline_memory_facts(transcript, existing_facts or [])
@@ -145,7 +165,8 @@ async def revise_memory_facts(
                 "and adds Google as a career goal; it must not claim the user works at Google.\n"
                 "- If the User line explicitly asks to remember a fact, add it.\n"
                 "- If the User line explicitly asks to forget a fact, op=delete with "
-                "match_text of that fact (empty the fact if nothing remains).\n"
+                "match_text of that fact (empty the fact if nothing remains). A bare "
+                "'forget that' means the fact the exchange just before stated or used.\n"
                 "- If the User line asks you to stop using or mentioning a saved fact "
                 "('stop mentioning my job', 'don't bring up my divorce again'), op=mute "
                 "with match_text of each fact it covers; muting keeps the fact but stops "
@@ -169,11 +190,8 @@ async def revise_memory_facts(
         },
         {
             "role": "user",
-            "content": (
-                f"Existing facts JSON:\n{existing_block}\n\n"
-                f"Existing areas JSON:\n{areas_block}\n\n"
-                f"{'Earlier conversation' if from_history else 'New conversation'}:\n"
-                f"{wrap_untrusted('conversation transcript', transcript)}"
+            "content": _extract_input(
+                existing_block, areas_block, transcript, from_history=from_history, earlier=earlier
             ),
         },
     ]

@@ -35,7 +35,11 @@ from app.modules.chat.prompt_window import (
 )
 from app.modules.chat.stream_status import StreamStatusFn, status_phase_for_subject
 from app.modules.chat.turn_plan import TurnPlan
-from app.modules.chat.turn_prep.followups import read_prompt_inputs, role_content_dicts
+from app.modules.chat.turn_prep.followups import (
+    FollowupSubject,
+    read_prompt_inputs,
+    role_content_dicts,
+)
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.extract import is_graph_followup
 from app.modules.memory.switch import memory_switch_on
@@ -261,6 +265,23 @@ def _assemble(
     return messages
 
 
+async def _read_prompt_inputs(
+    settings: Settings, query_text: str | None, window: PromptWindow, turn_plan: TurnPlan | None
+) -> FollowupSubject | None:
+    """Read off the event loop, in the SymPy pool: the readers behind it parse with SymPy.
+
+    Each request of a multi-part message is read too: its own layout asks its subject.
+    """
+    parts = turn_plan.texts() if turn_plan is not None and turn_plan.multi else ()
+    return await read_off_loop(
+        read_prompt_inputs,
+        query_text,
+        role_content_dicts(window.exchange),
+        parts,
+        timeout=settings.subject_read_timeout_seconds,
+    )
+
+
 async def build_prompt_messages(
     user: User,
     chat_id: UUID,
@@ -331,13 +352,7 @@ async def build_prompt_messages(
         current_user_message_id=current_user_message_id,
         prior_count=prior_count if recent_messages is not None else None,
     )
-    # Read off the event loop, in the SymPy pool: the readers behind it parse with SymPy.
-    followup = await read_off_loop(
-        read_prompt_inputs,
-        query_text,
-        role_content_dicts(window.exchange),
-        timeout=settings.subject_read_timeout_seconds,
-    )
+    followup = await _read_prompt_inputs(settings, query_text, window, turn_plan)
     chat_history_rag_block = await _history_rag_block(
         settings,
         user,

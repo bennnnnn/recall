@@ -93,6 +93,8 @@ async def test_memory_off_stops_saved_facts_and_past_chat_recall():
         ("what do you know about me?", "self"),
         ("what's my job?", "profile"),
         ("should I ask for a promotion?", "profile"),
+        # A cover letter is written from the saved job and skills.
+        ("write a cover letter for the data analyst job", "profile"),
         ("what should I cook tonight?", "query"),
     ],
 )
@@ -101,7 +103,14 @@ async def test_personal_turns_pick_how_much_memory_to_read(text, scope):
     assert plan.memory_scope == scope
 
 
-async def _system_prompt(text: str, *, memory: bool = True, status: str = "ok", block: str = ""):
+async def _system_prompt(
+    text: str,
+    *,
+    memory: bool = True,
+    status: str = "ok",
+    block: str = "",
+    recent: list[SimpleNamespace] | None = None,
+):
     user = _user(memory=memory)
     chat = Chat(id=uuid4(), user_id=user.id, title=None)
 
@@ -109,7 +118,7 @@ async def _system_prompt(text: str, *, memory: bool = True, status: str = "ok", 
         return _PromptContextBlocks(
             memory_block=block,
             todos_section=None,
-            recent_all=[],
+            recent_all=recent or [],
             attachment_rag_block="",
             chat=chat,
             memory_status=status,
@@ -190,6 +199,46 @@ async def test_a_recalled_past_with_no_record_is_not_invented():
     # The news last week is not a conversation the user had with Recall.
     news = await _system_prompt("what happened in the news last week?")
     assert prompt_memory.NO_PAST_RECORD_HINT not in news
+
+
+@pytest.mark.asyncio
+async def test_no_past_record_still_answers_from_this_conversation():
+    """The budget said a few messages up is "earlier" too: no other chat holds it, and the
+    note must not tell the model to say it can't find what the history shows."""
+    said = "For the Lisbon trip my budget is 1500 euros, flights included."
+    recent = [
+        SimpleNamespace(id=uuid4(), role="user", content=said),
+        SimpleNamespace(id=uuid4(), role="assistant", content="That works for five days."),
+    ]
+    system = await _system_prompt("what did I say earlier about the budget?", recent=recent)
+    assert prompt_memory.NO_PAST_RECORD_HINT in system
+    assert "Answer from this conversation" in system  # safety phrase
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "recalls"),
+    [
+        # A detail said earlier in this chat: a long chat may hold it only in its summary,
+        # so the turn also searches the chat's older messages.
+        ("what was the hotel I mentioned earlier?", True),
+        ("can you remind me what I said about the deadline?", True),
+        ("what restaurant did I say I liked?", True),
+        ("what was that recipe you gave me earlier?", True),
+        ("earlier I mentioned a book, what was it?", True),
+        ("what were the three options I listed before?", True),
+        # Talk about something said elsewhere.
+        ("I said hello to my neighbour and he ignored me, what should I do?", False),
+        ("When I said no to my friend she got upset, was I wrong?", False),
+        ("Who said 'I think therefore I am'?", False),
+        ("what did the article say about inflation?", False),
+    ],
+)
+async def test_asking_what_was_said_earlier_searches_the_chat(text, recalls):
+    plan = await _plan(text)
+    assert plan.recalls_shared_past is recalls
+    assert plan.history_rag is recalls
+    assert plan.load_memory is recalls
 
 
 def test_the_saved_memory_block_says_it_may_be_stale():

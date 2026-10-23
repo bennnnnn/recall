@@ -428,6 +428,7 @@ const CONTROL_LANGS: ReadonlySet<string> = new Set([
   "calendar_proposal",
   "settings_proposal",
   "reminder_proposal",
+  "todo_link",
   "photo",
 ]);
 

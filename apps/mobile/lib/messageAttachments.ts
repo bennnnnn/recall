@@ -145,6 +145,32 @@ export function parseUserMessageContent(content: string): ParsedUserMessageConte
 }
 
 /**
+ * The message without this attachment's markers (and a file's excerpt after its
+ * marker), as the server leaves it when the attachment is deleted; empty when the
+ * server deleted the row. Null when the message never showed the attachment.
+ */
+export function stripAttachmentMarkers(content: string, attachmentId: string): string | null {
+  const id = attachmentId.toLowerCase();
+  const kept: string[] = [];
+  let found = false;
+  let inFileExcerpt = false;
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    const isFile = FILE_MARKER.test(trimmed);
+    const isMarker = isFile || IMAGE_MARKER.test(trimmed);
+    if (inFileExcerpt && !isMarker) continue;
+    inFileExcerpt = false;
+    if (isMarker && attachmentIdFromRef(trimmed)?.toLowerCase() === id) {
+      found = true;
+      inFileExcerpt = isFile;
+      continue;
+    }
+    kept.push(line);
+  }
+  return found ? kept.join("\n").trim() : null;
+}
+
+/**
  * A marker naming another host was written by the model (or text injected into
  * it), not the server: its URL can carry the user's data. It becomes a markdown
  * image, which waits for a tap (imageUriPolicy); anything but https is dropped.

@@ -11,10 +11,17 @@ from typing import Literal
 
 MemoryReset = Literal["clear", "off"]
 
+# "Save to memory that I'm allergic to peanuts", "add this to your memory: …".
+_SAVE_TO_MEMORY = tuple(
+    f"{verb} {what}to {whose}memory"
+    for verb in ("save", "add")
+    for what in ("", "this ", "that ", "it ")
+    for whose in ("", "your ")
+)
 _MEMORY_COMMAND_MARKERS = (
     "remember this",
     "remember that",
-    "remember i'm",
+    "remember i'",
     "remember im ",
     "remember i ",
     "remember my ",
@@ -31,6 +38,7 @@ _MEMORY_COMMAND_MARKERS = (
     "stop remembering",
     "don't remember",
     "do not remember",
+    *_SAVE_TO_MEMORY,
 )
 
 _FORGET_MARKERS = (
@@ -189,7 +197,7 @@ _REMEMBER_MARKERS = frozenset(
     {
         "remember this",
         "remember that",
-        "remember i'm",
+        "remember i'",
         "remember im ",
         "remember i ",
         "remember my ",
@@ -305,6 +313,11 @@ def forget_requests(text: str) -> list[str]:
     return _named_after(text, _FORGET_MARKERS, forget=True)
 
 
+def remember_requests(text: str) -> list[str]:
+    """What each "remember …" instruction names: "remember I'm vegetarian" → "vegetarian"."""
+    return _named_after(text, tuple(_REMEMBER_MARKERS), forget=False)
+
+
 def mute_requests(text: str) -> list[str]:
     """What each "stop mentioning …" instruction names: "my job"."""
     if not is_explicit_mute_command(text):
@@ -373,7 +386,12 @@ def is_memory_correction(text: str) -> bool:
 
 
 def _fold_quotes(text: str | None) -> str:
-    return (text or "").lower().replace("\u2019", "'").replace("\u2018", "'")
+    lowered = (text or "").lower().replace("\u2019", "'").replace("\u2018", "'")
+    # "Remember, I'm allergic to peanuts" and "remember: my wife is Sara" ask what
+    # "remember I'm …" asks.
+    for mark in ("remember, ", "remember: ", "remember,", "remember:"):
+        lowered = lowered.replace(mark, "remember ")
+    return lowered
 
 
 def _has_phrase(lowered: str, phrase: str) -> bool:

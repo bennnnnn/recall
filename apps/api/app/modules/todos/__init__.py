@@ -19,6 +19,18 @@ if TYPE_CHECKING:
     from app.modules.todos.actions import (
         apply_todo_actions as apply_todo_actions,
     )
+    from app.modules.todos.chat_language import (
+        TODO_LINK_FENCE as TODO_LINK_FENCE,
+    )
+    from app.modules.todos.chat_language import (
+        message_language as message_language,
+    )
+    from app.modules.todos.chat_language import (
+        todo_screen_line as todo_screen_line,
+    )
+    from app.modules.todos.chat_language import (
+        writes_todos_in_todo_screen as writes_todos_in_todo_screen,
+    )
     from app.modules.todos.classification import (
         query_implies_todos as query_implies_todos,
     )
@@ -81,6 +93,10 @@ _EXPORTS = {
     "materialize_reminder_fences": ("reminder_fences", "materialize_reminder_fences"),
     "reminder_cards_as_text": ("proposals", "reminder_cards_as_text"),
     "query_implies_todos": ("classification", "query_implies_todos"),
+    "TODO_LINK_FENCE": ("chat_language", "TODO_LINK_FENCE"),
+    "message_language": ("chat_language", "message_language"),
+    "todo_screen_line": ("chat_language", "todo_screen_line"),
+    "writes_todos_in_todo_screen": ("chat_language", "writes_todos_in_todo_screen"),
     "select_todos_for_prompt": ("prompt_context", "select_todos_for_prompt"),
     "TodoEmailSnapshot": ("occurrences", "TodoEmailSnapshot"),
     "EMAIL_REMINDERS": ("due_reminders", "EMAIL_REMINDERS"),

@@ -1,12 +1,14 @@
 """Tests for token-budget history compression."""
 
 from contextlib import ExitStack
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
 from app.core.config import Settings
+from app.models.orm import Chat
 from app.modules.chat import compaction
 from app.tests.fakes import FakeSessionCM, redis_mock
 
@@ -283,3 +285,41 @@ async def test_summary_generations_keep_undecided_redis():
             assert "considering Redis" in prior
             assert "uses Redis" not in prior
     assert generations == []
+
+
+def _rows(count: int) -> list[SimpleNamespace]:
+    """A chat whose replies are long: the user's short lines, each answered at length."""
+    return [
+        SimpleNamespace(
+            id=uuid4(),
+            role="user" if index % 2 == 0 else "assistant",
+            content=f"question {index}" if index % 2 == 0 else "word " * 1000,
+        )
+        for index in range(count)
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("summarized", "gap"), [(0, [2, 3]), (2, [2, 3]), (4, [])])
+async def test_the_prompt_gap_never_repeats_what_the_summary_folded(summarized, gap):
+    """Long replies keep the verbatim tail short, so the summary folds the rows just
+    before it. Rows the summary holds must not come back as the gap between them."""
+    from app.modules.chat.prompt_window import load_prompt_window
+
+    rows = _rows(12)
+    current = SimpleNamespace(id=uuid4(), role="user", content="what did we cover?")
+    chat = Chat(id=uuid4(), user_id=uuid4(), summary="Facts: …", summary_message_count=summarized)
+
+    window = await load_prompt_window(
+        chat.id,
+        chat,
+        [*rows, current],
+        Settings(),
+        query_text=current.content,
+        omit_message_ids=None,
+        current_user_message_id=current.id,
+        prior_count=len(rows),
+    )
+
+    assert [m.id for m in window.recent] == [m.id for m in rows[4:]] + [current.id]
+    assert [rows.index(m) for m in window.gap] == gap

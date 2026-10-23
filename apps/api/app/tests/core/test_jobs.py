@@ -309,6 +309,23 @@ async def test_handle_memory_delegates():
 
 
 @pytest.mark.asyncio
+async def test_handle_memory_retries_a_failed_model_pass_later():
+    """A chat's last line ("remember I'm allergic to peanuts") has no next turn to retry it."""
+    with (
+        _patch_session(),
+        patch(
+            "app.background.handlers.memory_extraction.extract_and_store_memories",
+            AsyncMock(return_value="model_failed"),
+        ),
+        pytest.raises(RuntimeError, match="retrying"),
+    ):
+        await job_handlers._handle_memory(
+            Settings(),
+            {"user_id": str(uuid4()), "chat_id": str(uuid4()), "transcript": "t"},
+        )
+
+
+@pytest.mark.asyncio
 async def test_handle_memory_retries_skipped_lock_with_backoff():
     payload = {
         "user_id": str(uuid4()),

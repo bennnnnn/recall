@@ -51,6 +51,13 @@ describe("suggestionToSend", () => {
     );
   });
 
+  // The server keeps these for "3+4" (related_questions._prepare_question); all three show.
+  it("keeps a short follow-up that names its numbers", () => {
+    expect(suggestionToSend("What is 3 + 5?")).toBe("What is 3 + 5?");
+    expect(suggestionToSend("Why does 3 + 4 equal 7?")).toBe("Why does 3 + 4 equal 7?");
+    expect(suggestionToSend("Why 3?")).toBeNull();
+  });
+
   it("drops a fragment and a number glued to a letter or a radical", () => {
     expect(suggestionToSend("How")).toBeNull();
     expect(suggestionToSend("Education level")).toBeNull();
