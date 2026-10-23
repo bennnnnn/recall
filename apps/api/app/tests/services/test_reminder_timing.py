@@ -38,6 +38,27 @@ def test_should_notify_todo(due_offset_min, lead, expected):
     assert should_notify_todo(due, now=now, lead_minutes=lead) is expected
 
 
+@pytest.mark.parametrize(
+    "set_offset_min, now_offset_min, expected",
+    [
+        # Set 3 minutes before it is due, lead 10: not at once, but when due.
+        (-3, -3, False),
+        (-3, -1, False),
+        (-3, 0, True),
+        # Set long before: the lead time still applies.
+        (-120, -10, True),
+        (-120, -11, False),
+    ],
+)
+def test_a_reminder_set_inside_its_lead_window_fires_when_due(
+    set_offset_min: int, now_offset_min: int, expected: bool
+) -> None:
+    due = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
+    set_at = due + timedelta(minutes=set_offset_min)
+    now = due + timedelta(minutes=now_offset_min)
+    assert should_notify_todo(due, now=now, lead_minutes=10, set_at=set_at) is expected
+
+
 def test_should_notify_todo_ignores_stale_overdue():
     now = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
     due = now - timedelta(hours=72)

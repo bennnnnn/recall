@@ -67,6 +67,9 @@ def _rows(sync_session, *, count=1):
             checked=False,
             due_at=NOW + timedelta(minutes=5),
             recurrence_rule=None,
+            # Set well before its lead window, so the lead time applies.
+            created_at=NOW - timedelta(hours=2),
+            updated_at=NOW - timedelta(hours=2),
         )
         for index in range(count)
     ]
