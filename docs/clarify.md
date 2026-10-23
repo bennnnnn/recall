@@ -104,6 +104,7 @@ plain prose. JSON, one object; this is what the server keeps:
 | What the card reads from the chat: the send path, busy, newest reply, the answer | `apps/mobile/components/rich/clarifyContext.tsx`, provided by `features/chat/components/ChatReplyProviders.tsx` and `MessageBubble.tsx` |
 
 On the phone a card can be answered only on the newest reply while nothing streams (while a
-reply streams or saves, the button shows but does nothing). Once answered it stays read-only
+reply streams or saves, the button shows but does nothing). A send the chat refuses before it
+goes out (offline) leaves the card live, so the button works again. Once answered it stays read-only
 with the picks ticked, read back from the user message after it, so no store is needed across
 list recycling or a restart. Copy and Read aloud give each question with its choices.

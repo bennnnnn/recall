@@ -356,12 +356,7 @@ function ChatScreen() {
     selectedModel,
   });
 
-  const onSelectSuggestion = useCallback(
-    (prompt: string) => {
-      void handleSend(prompt);
-    },
-    [handleSend],
-  );
+  const onSelectSuggestion = useCallback((prompt: string) => handleSend(prompt), [handleSend]);
 
   const { headerTitleLabel, renderItem } = useChatMessageList({
     messages,

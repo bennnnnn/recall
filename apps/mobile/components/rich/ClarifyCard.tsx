@@ -66,7 +66,10 @@ export function ClarifyCard({ content }: Props) {
   const send = () => {
     if (!live || !actions) return;
     setSent(true);
-    actions.send(clarifyMessage(card, chosen));
+    // Refused before it went out (offline): the card stays live to send again.
+    void actions.send(clarifyMessage(card, chosen)).then((went) => {
+      if (!went) setSent(false);
+    });
   };
 
   return (

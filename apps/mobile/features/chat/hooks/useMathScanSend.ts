@@ -25,7 +25,7 @@ type Options = {
   /** Puts the scan's photo in the composer, freeing the file it replaces. */
   replacePendingAttachment: (next: PendingAttachment | null) => void;
   setMathScannerOpen: (open: boolean) => void;
-  handleSend: (overrideText?: string) => Promise<void>;
+  handleSend: (overrideText?: string) => Promise<unknown>;
 };
 
 /** What the math scanner hands the composer: a captured photo, a read-back, or a confirmed reading to solve. */

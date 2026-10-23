@@ -327,8 +327,9 @@ export function useChatSend({
     restoreFailedSend, sendToNewChat,
   });
 
+  /** False when the send was refused before its bubble painted (offline, another send preparing). */
   const handleSend = useCallback(
-    async (overrideText?: string) => {
+    async (overrideText?: string): Promise<boolean> => {
       const tappedAt = Date.now();
       const version = viewRef.current.version;
       const composerText = overrideText ?? inputRef.current;
@@ -350,7 +351,7 @@ export function useChatSend({
       // Alert feels unfinished without a send queue — use a soft toast instead.
       if (verdict === "offline") notifyOfflineSendBlocked({ warn: notifyWarning, showToast: onOfflineBlocked });
       if (verdict === "streaming") onStreamBusy?.();
-      if (verdict !== "send") return;
+      if (verdict !== "send") return false;
       tap();
       if (beforeSend) {
         sendInFlightRef.current = true;
@@ -372,6 +373,7 @@ export function useChatSend({
       setSendPhase(queryNeedsClientGeo(text) ? "locating" : turn.attachment ? "uploading" : "preparing");
       const painted = paintUserTurn(text, turn.attachment, tappedAt);
       await routeSend({ ...turn, ...painted, version });
+      return true;
     },
     [
       session, inputRef, chatLoading, chatId, routeChatId, isOffline, streaming, pendingAttachmentRef,

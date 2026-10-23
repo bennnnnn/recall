@@ -7,8 +7,8 @@ import type { EmailDraft } from "@/lib/richBlocks";
 type Props = {
   /** Saves an edited email card on its message. */
   saveEmailDraft: (messageId: string, draft: EmailDraft) => Promise<boolean>;
-  /** Sends a user message through the chat's send path (a clarify card's picks). */
-  send: (text: string) => void;
+  /** Sends a user message through the chat's send path (a clarify card's picks); false when refused. */
+  send: (text: string) => Promise<boolean>;
   /** A reply is streaming or saving: cards that send wait. */
   busy: boolean;
   children: ReactNode;

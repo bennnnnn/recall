@@ -219,6 +219,25 @@ describe("useChatSend", () => {
     expect(onOfflineBlocked).toHaveBeenCalledTimes(1);
   });
 
+  // A clarify card's button stays live when its picks did not go out.
+  it("says whether the send went out: not offline, yes once its bubble painted", async () => {
+    await act(async () => {
+      render(<Probe offline />);
+    });
+    let went: boolean | undefined;
+    await act(async () => {
+      went = await current.handleSend("Main priority: Safety.");
+    });
+    expect(went).toBe(false);
+    await act(async () => {
+      render(<Probe chatId="chat-1" />);
+    });
+    await act(async () => {
+      went = await current.handleSend("Main priority: Safety.");
+    });
+    expect(went).toBe(true);
+  });
+
   it("draws the server's prompt from the composer", async () => {
     inputRef.current = "Generate an image of a lighthouse";
     mockImageIntent.mockResolvedValue(verdict({ generate_prompt: "a lighthouse" }));
@@ -293,7 +312,7 @@ describe("useChatSend", () => {
   it("claims the double-send guard in the tap's own tick for a plain send", async () => {
     const sendMessage = sent();
     await render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
-    let first!: Promise<void>;
+    let first!: Promise<boolean>;
     await act(async () => {
       first = current.handleSend();
       // A second tap before the first one yields to anything.
@@ -336,7 +355,7 @@ describe("useChatSend", () => {
     const view = await render(
       <Probe chatId="chat-1" routeChatId="chat-1" sendMessage={sendMessage} />,
     );
-    let sending!: Promise<void>;
+    let sending!: Promise<boolean>;
     await act(async () => {
       sending = current.handleSend();
       await Promise.resolve();
@@ -366,7 +385,7 @@ describe("useChatSend", () => {
     const view = await render(
       <Probe chatId="chat-1" routeChatId="chat-1" sendMessage={sendMessage} />,
     );
-    let sending!: Promise<void>;
+    let sending!: Promise<boolean>;
     await act(async () => {
       sending = current.handleSend();
       await Promise.resolve();
@@ -503,7 +522,7 @@ describe("useChatSend", () => {
       render(<Probe chatId="chat-1" sendMessage={sendMessage} setMessages={setMessages} />);
     });
 
-    let sendPromise: Promise<void> = Promise.resolve();
+    let sendPromise: Promise<boolean> = Promise.resolve(true);
     await act(async () => {
       sendPromise = current.handleSend();
       await Promise.resolve();
@@ -541,7 +560,7 @@ describe("useChatSend", () => {
     await act(async () => {
       render(<Probe chatId="chat-1" sendMessage={sendMessage} setMessages={setMessages} beforeSend={beforeSend} />);
     });
-    let sendPromise: Promise<void> = Promise.resolve();
+    let sendPromise: Promise<boolean> = Promise.resolve(true);
     await act(async () => {
       sendPromise = current.handleSend();
       await Promise.resolve();
@@ -610,7 +629,7 @@ describe("useChatSend", () => {
       });
     });
 
-    let sendPromise: Promise<void> = Promise.resolve();
+    let sendPromise: Promise<boolean> = Promise.resolve(true);
     await act(async () => {
       sendPromise = current.handleSend();
       await Promise.resolve();
@@ -658,7 +677,7 @@ describe("useChatSend", () => {
     mockThreadKey = "chat-1";
     const view = await render(<Probe chatId="chat-1" routeChatId="chat-1" />);
     await act(async () => { current.setPendingAttachment(report); });
-    let sending!: Promise<void>;
+    let sending!: Promise<boolean>;
     await act(async () => { sending = current.handleSend(); });
 
     await view.rerender(<Probe chatId="chat-1" routeChatId="chat-2" />);
@@ -731,7 +750,7 @@ describe("useChatSend", () => {
       render(<Probe chatId="chat-1" routeChatId="chat-1" />),
     );
 
-    let sendPromise: Promise<void> = Promise.resolve();
+    let sendPromise: Promise<boolean> = Promise.resolve(true);
     await act(async () => {
       sendPromise = current.handleSend();
       await Promise.resolve();
@@ -764,7 +783,7 @@ describe("useChatSend", () => {
       render(<Probe chatId="chat-1" sendMessage={sent()} />);
     });
 
-    let sendPromise: Promise<void> = Promise.resolve();
+    let sendPromise: Promise<boolean> = Promise.resolve(true);
     await act(async () => {
       sendPromise = current.handleSend();
       await Promise.resolve();
@@ -813,7 +832,7 @@ describe("useChatSend", () => {
     resolveGeo.mockReturnValue(new Promise((resolve) => { finishGeo = resolve; }));
     const sendMessage = sent();
     const view = await render(<Probe chatId="chat-1" routeChatId="chat-1" sendMessage={sendMessage} />);
-    let sending!: Promise<void>;
+    let sending!: Promise<boolean>;
     await act(async () => {
       sending = current.handleSend();
       await Promise.resolve();
@@ -833,7 +852,7 @@ describe("useChatSend", () => {
     let finishCreate!: (id: string) => void;
     const prepareDraftChat = jest.fn(() => new Promise((resolve) => { finishCreate = resolve; }));
     const view = await render(<Probe prepareDraftChat={prepareDraftChat} />);
-    let sending!: Promise<void>;
+    let sending!: Promise<boolean>;
     await act(async () => {
       sending = current.handleSend();
       await Promise.resolve();
@@ -964,7 +983,7 @@ it.each(["newer message", ""])("preserves a newer attachment and draft (%s) when
   await render(<Probe chatId="chat-1" routeChatId="chat-1" />);
   inputRef.current = "older message";
   await act(async () => { current.setPendingAttachment(oldAttachment); });
-  let sending!: Promise<void>;
+  let sending!: Promise<boolean>;
   await act(async () => { sending = current.handleSend(); });
   inputRef.current = newDraft;
   await act(async () => { current.setPendingAttachment(newAttachment); });
@@ -982,7 +1001,7 @@ it("does not restore the previous account's failed attachment or text", async ()
   await act(async () => {
     current.setPendingAttachment({ localUri: "file://private.pdf", contentType: "application/pdf", fileName: "private.pdf", kind: "file" });
   });
-  let sending!: Promise<void>;
+  let sending!: Promise<boolean>;
   await act(async () => { sending = current.handleSend(); });
   (getSessionGeneration as jest.Mock).mockReturnValue(1);
   await view.rerender(<Probe chatId="chat-1" routeChatId="chat-1" token="other-account" />);
@@ -1007,7 +1026,7 @@ it("continues an attachment send through an access-token refresh in the same ses
   await act(async () => {
     current.setPendingAttachment({ localUri: "file://report.pdf", contentType: "application/pdf", fileName: "report.pdf", kind: "file" });
   });
-  let sending!: Promise<void>;
+  let sending!: Promise<boolean>;
   await act(async () => { sending = current.handleSend(); });
   await view.rerender(<Probe chatId="chat-1" routeChatId="chat-1" token="refreshed" sendMessage={sendMessage} />);
   await act(async () => { finish("uploaded-id"); await sending; });
@@ -1512,7 +1531,7 @@ describe("useChatSend send steps", () => {
     };
     mockThreadKey = "new";
     const view = await render(<Probe draft={draft} />);
-    let sending!: Promise<void>;
+    let sending!: Promise<boolean>;
     await act(async () => {
       sending = current.handleSend();
       await Promise.resolve();
@@ -1566,7 +1585,7 @@ describe("useChatSend send steps", () => {
     const setMessages = jest.fn();
     const sendMessage = sent();
     await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={sendMessage} />);
-    let sending!: Promise<void>;
+    let sending!: Promise<boolean>;
     await act(async () => { sending = current.handleSend(); });
 
     expect(setMessages).toHaveBeenCalledTimes(1);
@@ -1610,7 +1629,7 @@ describe("useChatSend send steps", () => {
     const setMessages = jest.fn();
     const sendMessage = sent();
     await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={sendMessage} />);
-    let sending!: Promise<void>;
+    let sending!: Promise<boolean>;
     await act(async () => { sending = current.handleSend(); });
     dotsUp = false;
     await act(async () => { answer(verdict()); await sending; });
@@ -1640,7 +1659,7 @@ describe("useChatSend send steps", () => {
     const setMessages = jest.fn();
     const sendMessage = sent();
     await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={sendMessage} />);
-    let sending!: Promise<void>;
+    let sending!: Promise<boolean>;
     await act(async () => { sending = current.handleSend(); });
     // The bubble is up and the composer free; the turn waits, its bubble saying so.
     const [bubble] = setMessages.mock.calls[0][0]([]);
@@ -1660,7 +1679,7 @@ describe("useChatSend send steps", () => {
     let replySaved!: () => void;
     whenReplySettled.mockReturnValueOnce(new Promise<void>((resolve) => { replySaved = resolve; }));
     await render(<Probe chatId="chat-1" />);
-    let sending!: Promise<void>;
+    let sending!: Promise<boolean>;
     await act(async () => { sending = current.handleSend(); });
     expect(onGenerateImage).not.toHaveBeenCalled();
     await act(async () => { replySaved(); await sending; });
@@ -1691,7 +1710,7 @@ describe("useChatSend send steps", () => {
     await render(
       <Probe chatId="chat-1" sendMessage={sendMessage} updateUser={updateUser} locationEnabled={locationEnabled} />,
     );
-    let sending!: Promise<void>;
+    let sending!: Promise<boolean>;
     await act(async () => { sending = current.handleSend(); });
     expect(updateUser).toHaveBeenCalledWith({ location: "Oakland, CA", location_enabled: true });
     // The fix rides with the turn; only switching location on must save first,
@@ -1773,7 +1792,7 @@ describe("useChatSend send steps", () => {
     const sendMessage = jest.fn(() => new Promise<boolean>((resolve) => { stop = resolve; }));
     const setMessages = jest.fn();
     await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={sendMessage} />);
-    let sending!: Promise<void>;
+    let sending!: Promise<boolean>;
     await act(async () => { sending = current.handleSend(); });
     // Handed over and waiting: Send is idle again, so Stop shows.
     expect(sendMessage).toHaveBeenCalledWith("next question", expect.anything());
@@ -1796,7 +1815,7 @@ describe("useChatSend send steps", () => {
     resolveGeo.mockReturnValue(new Promise((resolve) => { finishGeo = resolve; }));
     inputRef.current = "coffee near me";
     await render(<Probe chatId="chat-1" />);
-    let sending!: Promise<void>;
+    let sending!: Promise<boolean>;
     await act(async () => { sending = current.handleSend(); });
     inputRef.current = "follow-up";
     await act(async () => { finishGeo({ ok: false }); await sending; });
@@ -1815,7 +1834,7 @@ describe("useChatSend send steps", () => {
     inputRef.current = "coffee near me";
     const sendMessage = sent();
     await render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
-    let sending!: Promise<void>;
+    let sending!: Promise<boolean>;
     await act(async () => { sending = current.handleSend(); });
     expect(current.sendPhase).toBe("locating");
     await act(async () => { finishGeo({ ok: true, clientGeo: null }); });
@@ -1835,7 +1854,7 @@ describe("useChatSend send steps", () => {
     inputRef.current = "where is this near me";
     await render(<Probe chatId="chat-1" />);
     await act(async () => { current.setPendingAttachment(image); });
-    let sending!: Promise<void>;
+    let sending!: Promise<boolean>;
     await act(async () => { sending = current.handleSend(); });
     expect(current.sendPhase).toBe("locating");
     // The photo left the composer with the bubble.

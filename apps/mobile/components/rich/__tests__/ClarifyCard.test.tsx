@@ -62,6 +62,8 @@ type Setup = {
   busy?: boolean;
   streaming?: boolean;
   provider?: boolean;
+  /** Whether the chat took the send (false: offline, say). */
+  accepted?: boolean;
 };
 
 async function setup({
@@ -71,8 +73,9 @@ async function setup({
   busy = false,
   streaming = false,
   provider = true,
+  accepted = true,
 }: Setup = {}) {
-  const send = jest.fn();
+  const send = jest.fn(async (_text: string) => accepted);
   let tree: ReactNode = (
     <ClarifyMessageScope latest={latest} nextUserText={nextUserText}>
       <ReplyStreaming value={streaming}>
@@ -148,6 +151,16 @@ describe("ClarifyCard", () => {
     expect(checked(view, "🌿 Quality of life")).toBe(true);
     await fireEvent.press(view.getByText("🛡️ Safety"));
     expect(checked(view, "🛡️ Safety")).toBe(false);
+  });
+
+  it("stays live when the chat refused the send, so the picks can go once it can", async () => {
+    const { view, send } = await setup({ accepted: false });
+    await fireEvent.press(view.getByText("🛡️ Safety"));
+    await fireEvent.press(view.getByText("Find my best country"));
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(checked(view, "🛡️ Safety")).toBe(true);
+    await fireEvent.press(view.getByText("Find my best country"));
+    expect(send).toHaveBeenCalledTimes(2);
   });
 
   it("ticks the picks a later message sent, read-only", async () => {

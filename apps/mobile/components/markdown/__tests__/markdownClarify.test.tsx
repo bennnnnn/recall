@@ -56,7 +56,7 @@ describe("a reply that asks with a clarify card", () => {
   });
 
   it("draws the card under the question once the reply is complete, and sends the picks", async () => {
-    const send = jest.fn();
+    const send = jest.fn(async (_text: string) => true);
     const view = await render(
       <ClarifyActionsProvider send={send} busy={false}>
         <ClarifyMessageScope latest nextUserText={null}>
