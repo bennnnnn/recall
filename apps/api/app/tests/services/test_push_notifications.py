@@ -40,6 +40,7 @@ async def test_process_todo_reminders_due_soon():
     todo.id = uuid4()
     todo.content = "Call dentist"
     todo.due_at = now + timedelta(minutes=5)
+    todo.updated_at = now - timedelta(hours=1)
     todo.notification_sent_at = None
 
     user = make_user()
@@ -82,6 +83,7 @@ async def test_process_todo_reminders_skips_quiet_hours():
     todo.id = uuid4()
     todo.content = "Call dentist"
     todo.due_at = now + timedelta(minutes=5)
+    todo.updated_at = now - timedelta(hours=1)
     todo.notification_sent_at = None
 
     user = make_user()
@@ -116,6 +118,7 @@ async def test_process_todo_reminders_respects_user_lead():
     todo.id = uuid4()
     todo.content = "Stretch"
     todo.due_at = now + timedelta(minutes=20)
+    todo.updated_at = now - timedelta(hours=1)
     todo.notification_sent_at = None
 
     user = make_user()
@@ -167,6 +170,7 @@ async def test_process_todo_reminders_logs_when_user_has_no_token(caplog):
     todo.id = uuid4()
     todo.content = "Call dentist"
     todo.due_at = now + timedelta(minutes=5)
+    todo.updated_at = now - timedelta(hours=1)
     todo.notification_sent_at = None
     todo.recurrence_rule = None
 
@@ -210,6 +214,7 @@ async def test_process_todo_reminders_advances_tokenless_overdue_recurring():
     todo.id = uuid4()
     todo.content = "Standup"
     todo.due_at = now - timedelta(minutes=5)
+    todo.updated_at = now - timedelta(hours=1)
     todo.notification_sent_at = None
     todo.recurrence_rule = "daily"
 
