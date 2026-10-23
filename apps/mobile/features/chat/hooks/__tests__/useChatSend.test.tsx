@@ -1385,6 +1385,37 @@ describe("useChatSend send steps", () => {
     expect(sendMessage).not.toHaveBeenCalled();
   });
 
+  it("sends a tapped line without the composer's half-typed draft or file", async () => {
+    // Regression: a follow-up row or a clarify card's answer cleared the draft and sent the file with it.
+    inputRef.current = "half typed";
+    const sendMessage = sent();
+    await render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    await act(async () => { current.setPendingAttachment(file); });
+    mockSetInput.mockClear();
+    await act(async () => { await current.handleSend("Tell me more", { leaveComposer: true }); });
+    expect(sendMessage).toHaveBeenCalledWith("Tell me more", expect.objectContaining({
+      attachmentIds: undefined, localFileUri: null, composerDraft: { text: "Tell me more", attachment: null },
+    }));
+    expect(uploadAttachment).not.toHaveBeenCalled();
+    expect(mockSetInput).not.toHaveBeenCalled();
+    expect(current.pendingAttachment).toEqual(file);
+  });
+
+  it("takes back a refused tapped line without touching the composer", async () => {
+    inputRef.current = "half typed";
+    const setMessages = jest.fn();
+    await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={jest.fn(async () => false)} />);
+    await act(async () => { current.setPendingAttachment(file); });
+    mockSetInput.mockClear();
+    await act(async () => { await current.handleSend("Tell me more", { leaveComposer: true }); });
+    const [bubble] = setMessages.mock.calls[0][0]([]);
+    expect(setMessages.mock.calls.at(-1)?.[0]([bubble])).toEqual([]);
+    expect(mockSetInput).not.toHaveBeenCalled();
+    expect(mockFeedbackError).not.toHaveBeenCalled();
+    expect(current.pendingAttachment).toEqual(file);
+    expect(current.sendPhase).toBe("idle");
+  });
+
   it("sends a draw request with a file attached as chat", async () => {
     inputRef.current = "draw me a cat";
     uploadAttachment.mockResolvedValue("att-1");

@@ -15,6 +15,8 @@ export type SendTurn = {
   threadKey: string;
   isCurrentSession: () => boolean;
   isCurrentView: () => boolean;
+  /** A tapped line (a follow-up, a card's answer): the composer's draft and file never went with it. */
+  leavesComposer?: boolean;
 };
 
 type Options = {
@@ -62,13 +64,15 @@ export function useRestoreFailedSend({
         stashAttachmentForThread(turn.threadKey, getThreadKey(), attached);
       };
       if (!turn.isCurrentView()) {
-        stash();
+        if (!turn.leavesComposer) stash();
         return;
       }
       setPendingOutboundId(null);
       setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
       newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 1);
-      if (getThreadKey() !== turn.threadKey) {
+      if (turn.leavesComposer) {
+        // Nothing of the composer's went: only the bubble comes back.
+      } else if (getThreadKey() !== turn.threadKey) {
         stash();
       } else if (!pendingAttachmentRef.current && shouldRestoreFailedSend(inputRef.current, turn.composerText)) {
         setInput(turn.composerText);

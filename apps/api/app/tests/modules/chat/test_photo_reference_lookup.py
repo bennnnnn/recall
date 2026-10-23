@@ -12,6 +12,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.images.lookup_intent import extract_image_lookup_query, is_reference_subject
+from app.tests.fakes import make_user
 from app.tests.modules.chat.chat_test_support import turn_deps
 
 
@@ -255,3 +256,98 @@ async def test_regenerating_a_reference_lookup_reads_history_without_the_old_pho
     turns = _awaited(resolve).kwargs["turns"]
     assert ("assistant", "[Image: /a/file]") not in turns
     assert _awaited(search_and_attach).kwargs["query"] == "Jeanne Calment"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["photo", "picture"])
+async def test_a_stop_held_for_the_users_row_cuts_off_a_photo_or_picture(kind: str) -> None:
+    """A new message holds a Stop's hard cancel until its row is saved; a photo or a
+    picture saves that row only with its reply, so the Stop reaches it before it runs."""
+    from app.modules.chat.turn_intercepts import intercept_new_turn
+
+    user = make_user()
+    order: list[str] = []
+    found = _found(uuid4())
+
+    async def work(*_args: Any, **_kwargs: Any) -> Any:
+        order.append(kind)
+        return await found()
+
+    outcome = TurnOutcome()
+    outcome.hold_stops()
+    outcome.stop_when_safe(lambda: order.append("stop"))
+    deps = turn_deps(
+        image_search={"search_and_attach_for_chat": work},
+        image_generation={"generate_for_chat": work},
+        plan={"can_use": MagicMock(return_value=True)},
+    )
+    content = "Show me a photo of the Eiffel Tower" if kind == "photo" else "Draw a black cat"
+    handled = await intercept_new_turn(
+        deps,
+        Settings(image_search_enabled=kind == "photo"),
+        user=user,
+        chat_id=uuid4(),
+        content=content,
+        outcome=outcome,
+        recent_messages=[],
+        prior_count=0,
+    )
+
+    assert handled is True
+    assert order == ["stop", kind]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("regenerate", [False, True])
+@pytest.mark.parametrize(
+    "kind, content, phase",
+    [
+        ("photo", "Show me a photo of the Eiffel Tower", "finding_photo"),
+        ("picture", "Draw a black cat", "image_gen"),
+    ],
+)
+async def test_a_photo_or_picture_on_the_chat_path_says_so_before_it_runs(
+    kind: str, content: str, phase: str, regenerate: bool
+) -> None:
+    """Regression: the tool loop's photo or picture put up its label, the same work
+    on the chat path did not: plain typing dots for the seconds it took."""
+    from app.modules.chat.turn_intercepts import intercept_new_turn, intercept_regenerate
+    from app.modules.chat.turn_prep import RegenerateBackup
+
+    order: list[str] = []
+    found = _found(uuid4())
+
+    async def work(*_args: Any, **_kwargs: Any) -> Any:
+        order.append(kind)
+        return await found()
+
+    async def on_status(
+        phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+    ) -> None:
+        order.append(f"{phase}: {detail}")
+
+    deps = turn_deps(
+        image_search={"search_and_attach_for_chat": work},
+        image_generation={"generate_for_chat": work, "image_reference_ids": lambda _c: []},
+        plan={"can_use": MagicMock(return_value=True)},
+    )
+    settings = Settings(image_search_enabled=kind == "photo")
+    turn: dict[str, Any] = {
+        "user": make_user(),
+        "chat_id": uuid4(),
+        "content": content,
+        "outcome": TurnOutcome(),
+    }
+    if regenerate:
+        model = "image-search-model" if kind == "photo" else "image-gen-model"
+        backup = RegenerateBackup(content="[Image]", model=model, message_id=uuid4())
+        handled = await intercept_regenerate(
+            deps, settings, **turn, backup=backup, on_status=on_status
+        )
+    else:
+        handled = await intercept_new_turn(
+            deps, settings, **turn, recent_messages=[], prior_count=0, on_status=on_status
+        )
+
+    assert handled is True
+    assert len(order) == 2 and order[0].startswith(f"{phase}: ") and order[1] == kind

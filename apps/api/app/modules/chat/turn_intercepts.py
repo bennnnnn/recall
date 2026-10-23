@@ -13,6 +13,7 @@ from app.core.config import Settings
 from app.exceptions import ChatServiceError, SpendCapReachedError, TurnRefusedError
 from app.models.orm import Message, User
 from app.modules.attachments.markers import strip_attachment_from_content
+from app.modules.chat.stream_status import StreamStatusFn, StreamStatusPhase, clip_status_detail
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import RegenerateBackup
@@ -55,6 +56,21 @@ async def _replace_old_assistant(
         if old is not None and old.role == "assistant":
             await deps.attachments.purge_attachments_for_messages(session, settings, [old.id])
             await deps.messages.delete_message(session, old)
+
+
+async def _starting(
+    outcome: TurnOutcome | None,
+    on_status: StreamStatusFn | None,
+    phase: StreamStatusPhase,
+    detail: str,
+) -> None:
+    """A photo or a picture is under way. Stop cuts it off as it did (the user's row
+    comes with its reply), and its label goes up as the tool loop's does: the typing
+    dots alone sat there for the seconds it takes."""
+    if outcome is not None:
+        outcome.mark_stop_safe()
+    if on_status is not None:
+        await on_status(phase, clip_status_detail(detail))
 
 
 def _record(outcome: TurnOutcome | None, message: Message, default_model: str) -> None:
@@ -108,6 +124,7 @@ async def try_image_gen_for_turn(
     replace_assistant_id: UUID | None = None,
     skip_revision_lookup: bool = False,
     recent_messages: list[Any] | None = None,
+    on_status: StreamStatusFn | None = None,
 ) -> bool:
     if not deps.plan.can_use(user, "image_generation", settings):
         return False
@@ -123,6 +140,7 @@ async def try_image_gen_for_turn(
     )
     if not image_prompt:
         return False
+    await _starting(outcome, on_status, "image_gen", image_prompt)
     try:
         _user_msg, asst_msg = await deps.image_generation.generate_for_chat(
             settings,
@@ -196,6 +214,7 @@ async def try_image_lookup_for_turn(
     replace_assistant_id: UUID | None = None,
     recent_messages: list[Any] | None = None,
     misses: set[str] | None = None,
+    on_status: StreamStatusFn | None = None,
 ) -> bool:
     """Deterministic reference-photo lookup intercept ("show me an ear").
 
@@ -221,6 +240,7 @@ async def try_image_lookup_for_turn(
         if not query:
             return False
     query = dated_lookup_query(query, datetime.now(UTC).year)
+    await _starting(outcome, on_status, "finding_photo", query)
     try:
         _user_msg, asst_msg = await deps.image_search.search_and_attach_for_chat(
             settings,
@@ -283,6 +303,7 @@ async def intercept_new_turn(
     recent_messages: list[Any],
     prior_count: int,
     misses: set[str] | None = None,
+    on_status: StreamStatusFn | None = None,
 ) -> bool:
     """A new message answered by a photo or a picture; True when one stored the reply.
 
@@ -298,6 +319,7 @@ async def intercept_new_turn(
         create_user_message=True,
         recent_messages=recent_messages,
         misses=misses,
+        on_status=on_status,
     ):
         return True
     # A photo was asked for and none came back: the model answers in words. A
@@ -315,6 +337,7 @@ async def intercept_new_turn(
         create_user_message=True,
         skip_revision_lookup=prior_count == 0,
         recent_messages=recent_messages,
+        on_status=on_status,
     )
 
 
@@ -343,6 +366,7 @@ async def intercept_regenerate(
     backup: RegenerateBackup | None,
     outcome: TurnOutcome | None,
     misses: set[str] | None = None,
+    on_status: StreamStatusFn | None = None,
 ) -> bool:
     """Regenerating a photo or a picture makes another; True when one replaced the reply.
 
@@ -360,6 +384,7 @@ async def intercept_regenerate(
             create_user_message=False,
             replace_assistant_id=replace_id,
             misses=misses,
+            on_status=on_status,
         ):
             return True
     return await try_image_gen_for_turn(
@@ -371,4 +396,5 @@ async def intercept_regenerate(
         outcome=outcome,
         create_user_message=False,
         replace_assistant_id=replace_id,
+        on_status=on_status,
     )

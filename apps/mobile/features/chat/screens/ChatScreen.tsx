@@ -356,7 +356,11 @@ function ChatScreen() {
     selectedModel,
   });
 
-  const onSelectSuggestion = useCallback((prompt: string) => handleSend(prompt), [handleSend]);
+  // A tapped line (a follow-up, a clarify card's picks) leaves the half-typed draft and file.
+  const onSelectSuggestion = useCallback(
+    (prompt: string) => handleSend(prompt, { leaveComposer: true }),
+    [handleSend],
+  );
 
   const { headerTitleLabel, renderItem } = useChatMessageList({
     messages,
