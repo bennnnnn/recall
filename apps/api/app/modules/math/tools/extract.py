@@ -174,11 +174,29 @@ def _numeric_statement(text: str, intent: MathIntent) -> bool:
 @reading(declined=None)
 def extract_math_intent(text: str) -> MathIntent | None:
     intent = _extract_math_intent_any(text)
+    if intent is None or (intent.kind == "graph" and not intent.expr):
+        intent = _heard_math_intent(text) or intent
     if intent is None or _numeric_statement(text, intent):
         return None
     if intent.kind == "point":
         intent.plot_point = literal_plot_point(text)
     return intent
+
+
+def _heard_math_intent(text: str) -> MathIntent | None:
+    """The reading of maths said in words ("what is 3 squared", "graph y equals x
+    squared", match/spoken.py), when the written text gave none (or a graph with no
+    function). Kept only when it reads: "plus I'm over it" stays chat."""
+    from app.modules.math.match.spoken import spoken_math_to_plain
+
+    spoken = spoken_math_to_plain(text)
+    if spoken == text:
+        return None
+    heard = _extract_math_intent_any(spoken)
+    if heard is None or (heard.kind == "graph" and not heard.expr):
+        return None
+    heard._request_text = text.strip()
+    return heard
 
 
 def _extract_math_intent_any(text: str) -> MathIntent | None:

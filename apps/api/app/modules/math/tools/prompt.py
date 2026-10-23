@@ -146,6 +146,14 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
         plain, has_image_attachment=has_image_attachment
     ):
         return True
+    # Maths said in words ("what is 3 squared"), in its symbols (match/spoken.py).
+    from app.modules.math.match.spoken import spoken_math_to_plain
+
+    spoken = spoken_math_to_plain(math_text)
+    if spoken != math_text and math_match.needs_symbolic(
+        spoken, has_image_attachment=has_image_attachment
+    ):
+        return True
     # An algebra word problem states no equation; the translation is tried
     # only after every extractor has passed on it.
     if has_image_attachment:

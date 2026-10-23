@@ -485,5 +485,61 @@
   "prompt": "Is iron a good supplement to 20 minutes of sun a day in winter?",
   "reply": "Sunlight helps your body make vitamin D, not iron, so they do different jobs. Take iron only if a blood test shows you're low; ask about vitamin D for winter instead.",
   "expect": "answer"
+ },
+ {
+  "id": "ml-064",
+  "area": "math lookalike",
+  "prompt": "plus I'm over it, honestly",
+  "reply": "Fair enough. Want to talk about what's next instead?",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-065",
+  "area": "math lookalike",
+  "prompt": "times are tough right now",
+  "reply": "That sounds hard. Is there one thing that would help most this week?",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-066",
+  "area": "math lookalike",
+  "prompt": "that equals trouble with my boss",
+  "reply": "Sounds stressful. Want help planning what to say?",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-067",
+  "area": "math lookalike",
+  "prompt": "she's over thirty and still loves cartoons",
+  "reply": "Nothing wrong with that; plenty of adults do.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-068",
+  "area": "math lookalike",
+  "prompt": "it was two times better than last year",
+  "reply": "That's a big jump. What changed?",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-069",
+  "area": "math lookalike",
+  "prompt": "my score went from three to five",
+  "reply": "Nice improvement! What helped?",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-070",
+  "area": "math lookalike",
+  "prompt": "I'll be there in five minutes",
+  "reply": "Got it, see you soon.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-071",
+  "area": "math lookalike",
+  "prompt": "which one is bigger, the blue box or the red one?",
+  "reply": "I can't see them, but if you tell me their sizes I can compare.",
+  "expect": "answer"
  }
 ]

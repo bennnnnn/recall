@@ -35,5 +35,14 @@
   {"id": "n34", "area": "notation", "prompt": "csc 30", "expect": "answer", "check": ["num", "2"], "note": "degrees, as sin 30 is"},
   {"id": "n35", "area": "notation", "prompt": "$20\\%$ of 50", "expect": "answer", "check": ["num", "10"], "note": "the keyboard's percent key types \\%"},
   {"id": "n36", "area": "notation", "prompt": "$\\ln(e)$", "expect": "answer", "check": ["num", "1"], "note": "the keypad's e is a number"},
-  {"id": "n37", "area": "notation", "prompt": "$f(x)=x^{3}$, find $f^{\\prime}(x)$", "expect": "answer", "check": ["expr", "3*x**2"], "note": "the keyboard's prime key types ^{\\prime}"}
+  {"id": "n37", "area": "notation", "prompt": "$f(x)=x^{3}$, find $f^{\\prime}(x)$", "expect": "answer", "check": ["expr", "3*x**2"], "note": "the keyboard's prime key types ^{\\prime}"},
+  {"id": "n38", "area": "notation", "prompt": "what is 3 squared", "expect": "answer", "check": ["num", "9"], "note": "said in words (match/spoken.py)"},
+  {"id": "n39", "area": "notation", "prompt": "what is 5 cubed", "expect": "answer", "check": ["num", "125"], "note": "said in words (match/spoken.py)"},
+  {"id": "n40", "area": "notation", "prompt": "solve x squared minus 4 equals 0", "expect": "answer", "check": ["nums", ["2", "-2"]], "note": "said in words (match/spoken.py)"},
+  {"id": "n41", "area": "notation", "prompt": "what is seven plus eight", "expect": "answer", "check": ["num", "15"], "note": "said in words (match/spoken.py)"},
+  {"id": "n42", "area": "notation", "prompt": "what is 15 percent of 80", "expect": "answer", "check": ["num", "12"], "note": "said in words (match/spoken.py)"},
+  {"id": "n43", "area": "notation", "prompt": "what is 3 over 4 plus 1 over 4", "expect": "answer", "check": ["num", "1"], "note": "said in words (match/spoken.py)"},
+  {"id": "n44", "area": "notation", "prompt": "what is negative 5 plus 3", "expect": "answer", "check": ["num", "-2"], "note": "said in words (match/spoken.py)"},
+  {"id": "n45", "area": "notation", "prompt": "what is 2 to the third power", "expect": "answer", "check": ["num", "8"], "note": "said in words (match/spoken.py)"},
+  {"id": "n46", "area": "notation", "prompt": "square root of one hundred", "expect": "answer", "check": ["num", "10"], "note": "said in words (match/spoken.py)"}
 ]
