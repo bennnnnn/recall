@@ -54,6 +54,10 @@ def _hints(text: str, prior: tuple[str, str] | None = None) -> list[str]:
         ("answer this email: Hi Ben, can you join the client call on Monday?", "email"),
         ("write a resignation email", "email"),
         ("write a follow-up email after my job interview", "email"),
+        # The recipient between "send" and the draft.
+        ("send my boss an email asking for Friday off", "email"),
+        ("send Sara a text saying I'm running late", "message"),
+        ("send my mom a message about dinner on Sunday", "message"),
         ("write a post for facebook about my new bakery opening", "social"),
         ("make a facebook post announcing our garage sale this weekend", "social"),
         ("make this more professional: hey can u send me the files asap", "rewrite"),
@@ -93,6 +97,17 @@ def test_questions_and_bare_changes_are_not_new_drafts(text: str) -> None:
         ("write an instagram caption for a beach sunset photo", False),
         ("reply to this email: Dear customer, your order has been delayed by 3 days.", False),
         ("write a text to my friend saying sorry I missed her party", False),
+        # What to say follows the recipient, with or without "that".
+        ("text my landlord that the heater is broken", False),
+        ("message my landlord the heater is broken", False),
+        ("text my wife we're out of milk", False),
+        ("email my boss my availability for next week", False),
+        ("write a message to my landlord", True),
+        ("write a message to my mom and my dad", True),
+        ("write an email to my professor in Spanish", True),
+        ("write a text that I can send to my mom", True),
+        # What the caption shows.
+        ("write an instagram caption for my beach photo", False),
     ],
 )
 def test_only_a_bare_draft_ask_asks_what_to_say(text: str, bare: bool) -> None:

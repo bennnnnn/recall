@@ -4,6 +4,8 @@
 "email my boss about PTO" has its purpose and is drafted now.
 """
 
+import re
+
 from app.modules.chat.prompt_constants.locale_cues import has_locale_cue, is_bare_locale_cue
 from app.modules.chat.prompt_constants.writing_kind import PASTED_TEXT, writing_request_kind
 from app.services.text_normalize import collapse_ws
@@ -90,7 +92,24 @@ _WRITING_PURPOSE_MARKERS = (
 )
 
 # What a post or caption shows: "a caption for a beach sunset photo".
-_SOCIAL_SUBJECT_MARKERS = (" for a ", " for an ", " for the ", " for our ", " of a ", " of my ")
+_SOCIAL_SUBJECT_MARKERS = (
+    " for a ",
+    " for an ",
+    " for the ",
+    " for our ",
+    " for my ",
+    " of a ",
+    " of my ",
+)
+
+# "Text my landlord that the heater is broken", "message my wife we're out of
+# milk": what to say follows the recipient, with or without "that".
+_SAYS_AFTER_RECIPIENT = re.compile(
+    r"\bmy [a-z'-]+(?: (?!(?:and|or|in)\b)[a-z'-]+)? "
+    r"(?:that \w|(?:the|my|our|his|her|their|i|i'm|i'll|i've|i'd|we|we're|we'll|it|it's|"
+    r"he|she|they|there)\b)",
+    re.IGNORECASE,
+)
 
 
 def is_underspecified_writing_request(text: str) -> bool:
@@ -107,4 +126,6 @@ def is_underspecified_writing_request(text: str) -> bool:
     # beyond the cue is user-supplied purpose/content and should be drafted.
     if has_locale_cue(text, "writing"):
         return is_bare_locale_cue(text, "writing")
+    if _SAYS_AFTER_RECIPIENT.search(cleaned):
+        return False
     return not any(marker in cleaned for marker in _WRITING_PURPOSE_MARKERS)

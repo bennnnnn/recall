@@ -12,10 +12,12 @@ from app.services.text_normalize import collapse_ws
 # The words that name what an email or message is for may stand between the
 # verb and the noun: "write a resignation email", "a follow-up email".
 _DRAFT_PURPOSE_WORDS = r"(?:[a-z]+(?:-[a-z]+)? ){0,2}"
+# Who it goes to may stand between "send" and the draft: "send my boss an email".
+_SEND_TO = r"(?:(?:me|him|her|them|us) |(?:my |our )?[a-z'-]+ (?=an? ))?"
 
 _EMAIL_WRITING = re.compile(
     r"\b(?:"
-    r"send (?:me )?(?:an? )?email|"
+    r"send " + _SEND_TO + r"(?:an? )?email|"
     r"email (?:to|my)|"
     r"(?:write|draft|compose) (?:me )?(?:an? |the )?" + _DRAFT_PURPOSE_WORDS + r"e-?mail|"
     r"(?:reply|respond|answer)(?: back)?(?: to)? (?:this|that|the|her|his|their|my|an?) e-?mail"
@@ -25,7 +27,7 @@ _EMAIL_WRITING = re.compile(
 
 _MESSAGE_WRITING = re.compile(
     r"\b(?:"
-    r"send (?:me )?(?:a )?" + _DRAFT_PURPOSE_WORDS + r"(?:text|message)|"
+    r"send " + _SEND_TO + r"(?:a )?" + _DRAFT_PURPOSE_WORDS + r"(?:text|message)|"
     r"(?:write|draft|compose) (?:me )?(?:an? )?"
     + _DRAFT_PURPOSE_WORDS
     + r"(?:text|message|sms|reply)|"

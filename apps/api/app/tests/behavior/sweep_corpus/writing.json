@@ -1158,5 +1158,40 @@
   "prompt": "write a meeting recap email: we decided to move the launch to Nov 3, Sam will update the pricing page, Priya will finish the onboarding emails by next wed, next sync is thursday 11am",
   "reply": "```email\nSubject: Recap – launch planning sync\n\nHi all,\n\nThanks for joining today. Here's a quick recap.\n\nDecisions\n- Launch date set: November 3 (moved from the original date)\n\nAction items\n- Sam: update the pricing page\n- Priya: finish the onboarding emails by next Wednesday\n\nNext sync: Thursday at 11am\n\nLet me know if I missed anything.\n\nBest,\n[Your name]\n```",
   "expect": "answer"
+ },
+ {
+  "id": "wr-101",
+  "area": "writing",
+  "prompt": "text my landlord that the heater is broken",
+  "reply": "```message\nHi, the heater in my apartment stopped working last night. Could you send someone to take a look today or tomorrow? Thanks!\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-102",
+  "area": "writing",
+  "prompt": "text my landlord that the rent will be late, I'll pay on the 3rd",
+  "reply": "```message\nHi, just a heads-up that this month's rent will be a little late. I'll pay it in full on the 3rd. Sorry for the delay, and thanks for understanding!\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-103",
+  "area": "writing",
+  "prompt": "send my boss an email asking for Friday off",
+  "reply": "```email\nSubject: Friday off request\n\nHi Sara,\n\nCould I take this Friday off? My tasks for the week will be wrapped up by Thursday, and I'll make sure nothing is left waiting.\n\nThanks,\nBini\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-104",
+  "area": "writing",
+  "prompt": "message my boss I'll be late tomorrow at 9, dentist appointment",
+  "reply": "```message\nHi Sara, I have a dentist appointment tomorrow morning at 9, so I'll be in a bit late, around 10:30. Thanks!\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-105",
+  "area": "writing",
+  "prompt": "write an instagram caption for my beach photo",
+  "reply": "```instagram\nSalt in the air, sand on my feet, nowhere else to be.\n```",
+  "expect": "answer"
  }
 ]
