@@ -74,6 +74,28 @@ _BARE_RE = re.compile(
 )
 _EVENING = re.compile(r"\b(?:tonight|evening|night|afternoon)\b", re.IGNORECASE)
 _MORNING = re.compile(r"\bmorning\b", re.IGNORECASE)
+# "in 3 minutes", "in an hour and a half", "20 mins from now": a time from now.
+_COUNT_WORDS = {
+    "a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+    "fifteen": 15, "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "ninety": 90,
+}  # fmt: skip
+_UNIT_MINUTES = {"min": 1, "hour": 60, "hr": 60, "day": 1440, "week": 10080, "wk": 10080}
+_COUNT = r"(?P<n>\d{1,3}(?:\.\d{1,2})?|(?:a\s+)?couple(?:\s+of)?|" + "|".join(_COUNT_WORDS) + r")"
+_UNIT = r"(?P<unit>min(?:ute)?s?|hours?|hrs?|days?|weeks?|wks?)\b"
+_SPAN = (
+    r"(?:(?P<half>half\s+an?\s+hour)|"
+    + _COUNT
+    + r"\s*"
+    + _UNIT
+    + r"(?P<and_half>\s+and\s+a\s+half)?)"
+)
+_AFTER_RE = re.compile(
+    r"\b(?:in|after)\s+" + _SPAN + r"|\b" + _SPAN.replace("?P<", "?P<f_") + r"\s+from\s+now\b",
+    re.IGNORECASE,
+)
+# A year at most, so a stray "in 900 weeks" is not a reminder.
+_MAX_AFTER_MINUTES = 366 * 1440
 
 
 @dataclass
@@ -84,13 +106,35 @@ class SpokenWhen:
     hour: int | None = None
     minute: int | None = None
     spans: list[tuple[int, int]] = field(default_factory=list)
+    # "in 3 minutes": minutes from now, read only when no day or clock is named.
+    after_minutes: int | None = None
 
 
 def find_when(text: str) -> SpokenWhen:
     found = SpokenWhen()
     _find_day(text, found)
     _find_clock(text, found)
+    if found.day is None and found.hour is None:
+        _find_after(text, found)
     return found
+
+
+def _find_after(text: str, found: SpokenWhen) -> None:
+    match = _AFTER_RE.search(text)
+    if match is None:
+        return
+    groups = {key.removeprefix("f_"): value for key, value in match.groupdict().items() if value}
+    if "half" in groups:
+        minutes = 30.0
+    else:
+        raw = groups["n"].lower()
+        count = 2.0 if "couple" in raw else float(_COUNT_WORDS.get(raw, 0) or raw)
+        unit = groups["unit"].lower()
+        per = next(value for key, value in _UNIT_MINUTES.items() if unit.startswith(key))
+        minutes = (count + (0.5 if "and_half" in groups else 0)) * per
+    if 1 <= minutes <= _MAX_AFTER_MINUTES:
+        found.after_minutes = round(minutes)
+        found.spans.append(match.span())
 
 
 def _find_day(text: str, found: SpokenWhen) -> None:

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from datetime import tzinfo as TzInfo
 from typing import cast
 
@@ -153,16 +153,22 @@ class SpokenAdd:
     repeat: RecurrenceRule | None
     hour: int | None
     minute: int | None
+    # "in 3 minutes": the reminder is due that long after the message.
+    after_minutes: int | None = None
 
 
 def user_named_a_clock(user_text: str | None) -> bool:
     """True when this message states a time. A model-picked hour does not count.
 
-    "tonight at 9" states one; a bare "at 9" with no part of the day does not.
+    "tonight at 9" states one; a bare "at 9" with no part of the day does not; "in 3
+    minutes" does, as a time from now.
     """
     if not user_text:
         return False
-    return bool(_USER_CLOCK_RE.search(user_text)) or find_when(user_text).hour is not None
+    if _USER_CLOCK_RE.search(user_text):
+        return True
+    when = find_when(user_text)
+    return when.hour is not None or when.after_minutes is not None
 
 
 def chat_add_needs_a_stated_time(user_text: str | None, due_at: datetime | None) -> bool:
@@ -227,6 +233,7 @@ def parse_spoken_add(user_text: str | None) -> SpokenAdd | None:
         repeat=repeat,
         hour=when.hour,
         minute=when.minute,
+        after_minutes=when.after_minutes,
     )
 
 
@@ -255,16 +262,31 @@ def due_for_add(
     hour: int | None = None,
     minute: int | None = None,
 ) -> datetime | None:
-    """The instant they named. None when the day or the clock is missing."""
-    clock_hour = add.hour if hour is None else hour
-    clock_minute = add.minute if minute is None else minute
-    if add.day is None or clock_hour is None or clock_minute is None:
-        return None
+    """The instant they named. None when the day or the clock is missing.
+
+    "In 3 minutes" is three minutes after now, on the user's clock.
+    """
     from app.services import time_context as time_context_service
 
     tz = time_context_service.resolve_timezone(user_timezone)
     when = now.astimezone(tz) if now is not None else _now(tz)
+    if add.after_minutes is not None and hour is None and minute is None:
+        return (when + timedelta(minutes=add.after_minutes)).replace(microsecond=0)
+    clock_hour = add.hour if hour is None else hour
+    clock_minute = add.minute if minute is None else minute
+    if add.day is None or clock_hour is None or clock_minute is None:
+        return None
     return due_on_day(add.day, clock_hour, clock_minute, when)
+
+
+def relative_due(
+    user_text: str | None, *, user_timezone: str | None, now: datetime | None = None
+) -> datetime | None:
+    """When "remind me to stretch in 3 minutes" is due, or None without a time from now."""
+    add = parse_spoken_add(user_text)
+    if add is None or add.after_minutes is None:
+        return None
+    return due_for_add(add, user_timezone=user_timezone, now=now)
 
 
 def day_for_a_bare_clock(

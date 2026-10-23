@@ -146,6 +146,34 @@ def without_claims(text: str, titles: Iterable[str] = ()) -> str:
     return "" if _ACK_ONLY_RE.fullmatch(_plain(body)) else body
 
 
+# "When should I remind you?", "What time works?": a question the card already answers.
+_ASKS_WHEN_RE = re.compile(r"\b(?:when|what time|which day)\b", re.IGNORECASE)
+
+
+def without_when_questions(text: str) -> str:
+    """The reply without a question asking when, once the app's card holds the time.
+
+    "Remind me to stretch in 3 minutes" answered "When should I remind you?" above
+    a card due in three minutes contradicted itself. Code is left alone.
+    """
+    kept: list[str] = []
+    for line, fence in zip(text.split("\n"), line_fences(text), strict=True):
+        sentences = _SENTENCE_RE.split(line) if fence is None else [line]
+        left = [
+            part
+            for part in sentences
+            if fence is not None or not (part.rstrip().endswith("?") and _ASKS_WHEN_RE.search(part))
+        ]
+        if left == sentences:
+            kept.append(line)
+            continue
+        joined = " ".join(left).strip()
+        if _WORD_RE.search(joined) and not _ACK_ONLY_RE.fullmatch(_plain(joined)):
+            kept.append(joined)
+    body = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
+    return "" if _ACK_ONLY_RE.fullmatch(_plain(body)) else body
+
+
 def is_claim(sentence: str, titles: Iterable[str] = ()) -> bool:
     """One sentence that says a reminder change happened (see the module doc)."""
     plain = _plain(sentence)
