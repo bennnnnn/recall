@@ -100,6 +100,36 @@ async def test_search_images_drops_non_https_urls():
 
 
 @pytest.mark.asyncio
+async def test_search_images_skips_watermarked_stock_previews():
+    """Live: a stock preview with "shutterstock.com · 2649692539" on it sat above an answer."""
+    settings = Settings(image_search_enabled=True, tavily_api_key="test-key")
+    payload = {
+        "results": [{"url": "https://example.org/skeleton", "title": "Skeletons"}],
+        "images": [
+            "https://www.shutterstock.com/image-vector/cute-skeleton-260nw-2649692539.jpg",
+            "https://media.gettyimages.com/id/1/skeleton.jpg",
+            "https://t3.ftcdn.net/jpg/01/skeleton.jpg",
+            "https://thumbs.dreamstime.com/b/skeleton.jpg",
+            "https://upload.wikimedia.org/wikipedia/commons/skeleton.png",
+            # A name that only contains a stock word is not that host.
+            "https://notshutterstock.com.example.org/skeleton.png",
+        ],
+    }
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    response.json.return_value = payload
+    client = AsyncMock()
+    client.post = AsyncMock(return_value=response)
+
+    with patch("app.gateways.image_search_gateway.get_pooled_client", return_value=client):
+        hits = await search_images(settings, "a cartoon skeleton", max_results=3)
+    assert [hit.image_url for hit in hits] == [
+        "https://upload.wikimedia.org/wikipedia/commons/skeleton.png",
+        "https://notshutterstock.com.example.org/skeleton.png",
+    ]
+
+
+@pytest.mark.asyncio
 async def test_search_images_respects_max_results():
     settings = Settings(image_search_enabled=True, tavily_api_key="test-key")
     payload = {

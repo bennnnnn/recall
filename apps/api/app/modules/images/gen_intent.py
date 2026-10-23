@@ -81,8 +81,13 @@ def fold_token(word: str) -> str:
     return word.lower().strip(".,!?;:\"'()[]")
 
 
-def has_non_image_subject(subject: str) -> bool:
+def has_non_image_subject(subject: str, *, drawn: bool = False) -> bool:
+    """A subject that is not a picture: a task, notes, code. With a ``drawn`` verb
+    (draw, paint, illustrate), what follows "for" is what the picture is for: "draw me a
+    cute cartoon skeleton for my notes" drew nothing, as if the notes were the subject."""
     words = [fold_token(word) for word in subject.split()]
+    if drawn and "for" in words[1:]:
+        words = words[: words.index("for", 1)]
     for i, key in enumerate(words):
         if key in NON_IMAGE_WORDS and not _names_what_the_art_is_for(words, i):
             return True
@@ -266,7 +271,7 @@ def _match_draw_me(tokens: list[str]) -> str | None:
     if i >= len(tokens):
         return None
     subject = join_subject(tokens[i:])
-    if has_non_image_subject(subject) or has_non_image_draw(subject):
+    if has_non_image_subject(subject, drawn=True) or has_non_image_draw(subject):
         return None
     return clean_prompt(subject)
 
@@ -339,7 +344,8 @@ def _match_short_create(tokens: list[str]) -> str | None:
         and not any(part.lower() in IMAGE_NOUNS for part in subject_parts)
     ):
         return None
-    if has_non_image_subject(subject) or has_non_image_draw(subject):
+    drawn = verb in VERBS_DRAW
+    if has_non_image_subject(subject, drawn=drawn) or has_non_image_draw(subject):
         return None
     return clean_prompt(subject)
 
