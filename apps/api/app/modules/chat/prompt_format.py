@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from app.modules.chat.clarify_turn import last_reply_card
+from app.modules.chat.clarify_turn import answers_last_card, last_reply_card
 from app.modules.chat.continuation_subject import (
     effective_presentation_subject,
     is_new_problem_request,
@@ -122,11 +122,9 @@ def _viz_intent(query_text: str | None) -> bool:
     )
 
 
-def _layout_format_hint(query_text: str | None) -> str | None:
+def _layout_format_hint(query_text: str | None, *, picks: bool = False) -> str | None:
     """Turn-specific layout that must win over compact prose."""
-    if not query_text:
-        return None
-    if is_brevity_request(query_text):
+    if not query_text or is_brevity_request(query_text):
         return None
     # A requested deliverable owns its shape. For example, "write a LinkedIn
     # post comparing X and Y" is a post—not a comparison table with a post
@@ -157,7 +155,7 @@ def _layout_format_hint(query_text: str | None) -> str | None:
     # "Quiz me on the differences between X and Y" is cards, not a table.
     if is_practice_request(query_text):
         return QUIZ_FORMAT_HINT
-    if is_structured_comparison_question(query_text):
+    if not picks and is_structured_comparison_question(query_text):
         return COMPARISON_FORMAT_HINT
     # Before how-to: "a step-by-step moving checklist" is items to tick, not steps.
     if is_checklist_request(query_text):
@@ -211,6 +209,7 @@ class StyleTurn:
     # Several requests: each one's shape is in the multi-part contract, not the turn's.
     multi: bool = False
     after_card: bool = False  # it answers the last reply's card: it never asks again
+    picks: bool = False  # the card's picks: its closing "compare …" asks no table
 
 
 def _style_turn(
@@ -265,6 +264,7 @@ def _style_turn(
         subject=effective_presentation_subject(query_text, prior_messages),
         multi=multi,
         after_card=last_reply_card(prior_messages) is not None,
+        picks=answers_last_card(query_text, prior_messages),
     )
 
 
@@ -315,7 +315,7 @@ def _format_pack(turn: StyleTurn) -> list[str]:
     if turn.writing:
         return [UNIVERSAL_FORMAT_BASELINE, turn.writing]
     viz = [VISUALIZATION_HINTS] if turn.viz_intent else []
-    layout = None if turn.multi else _layout_format_hint(turn.query)
+    layout = None if turn.multi else _layout_format_hint(turn.query, picks=turn.picks)
     return [UNIVERSAL_FORMAT_BASELINE, FORMAT_CONTRACT, *viz, *_present(layout)]
 
 

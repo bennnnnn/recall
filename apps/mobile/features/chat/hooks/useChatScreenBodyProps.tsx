@@ -73,7 +73,7 @@ type UseChatScreenBodyPropsParams = {
     handleScrollEnd: () => void;
     listScroll?: ChatListScroll;
   };
-  handleSend: (prompt?: string) => void | Promise<void>;
+  handleSend: (prompt?: string) => void | Promise<unknown>;
   showScrollToBottom: boolean;
   scrollAwayCount: number;
   scrollToLatest: () => void;

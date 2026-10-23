@@ -126,16 +126,19 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Per-thread composer drafts** — text is saved per chat (and a separate New Chat slot).
   Opening another thread restores that draft and clears attachment and in-progress
   dictation so they cannot send into the wrong conversation.
-- 🚧 **Clarifying questions as a tap card** ([docs/clarify.md](./docs/clarify.md)) — when an
-  answer depends on something only the user knows (level, goal, budget) and memory and the
-  chat do not say, Recall asks with a `clarify` card: 1-3 questions, 2-4 choices each, plus
-  Other…, Submit and Skip. It asks first only when any answer would be a guess ("plan my
-  week"); otherwise it answers and may offer the card to tailor it. Never for facts,
-  problems, greetings, reminders, pictures or drafts with a purpose. The server checks the
-  card before it is saved (`chat/clarify_card.py`, `finalize_text.settle_clarify`), shows
-  it to the model in history as one "Asked:" line, and the next message (the picks as
-  "Label: pick" lines, a skip, or anything typed) gets what to answer
-  (`chat/clarify_turn.py`). Server side shipped; the phone card is next.
+- ✅ **Clarifying questions as a tap card, like ChatGPT** ([docs/clarify.md](./docs/clarify.md)) —
+  when the best answer depends on what the user means or wants ("What is the best country?")
+  and memory and the chat do not say, Recall starts the answer (the strongest few options,
+  one bold line each), asks "**But let me ask you one thing.** What do you mean by *best*?",
+  and ends on a `clarify` card: 1-3 questions, 2-8 emoji-led choices each, the first one
+  picked, and one full-width button named for what it does ("Find my best country"). The
+  button sends one sentence ("Recommend the best country for me. Main priority: Making money.
+  Geographic preference: Anywhere. Compare the strongest options…"), and the next reply opens
+  with a direct recommendation for the user, then the full answer. Typing instead also works.
+  Never for facts, problems, greetings, reminders, pictures or drafts with a purpose. The
+  server checks the card before it is saved (`chat/clarify_card.py`,
+  `finalize_text.settle_clarify`), shows it to the model in history as one "Asked:" line, and
+  gives the next message what to answer (`chat/clarify_turn.py`).
 - ✅ **Teach-me lessons (ChatGPT's lesson shape)** — “teach me X”, “help me learn X”,
   “I want to learn X” (and the teach verbs in the other app languages) and “help me
   understand two sum” / “walk me through quicksort”. One idea (“teach me Python

@@ -5,8 +5,8 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
  * (a shared transcript, a test) there is no provider and every card is read-only.
  */
 type ClarifyActions = {
-  /** Sends a user message through the chat's own send path. */
-  send: (text: string) => void;
+  /** Sends a user message through the chat's own send path; false when it refused (offline). */
+  send: (text: string) => Promise<boolean>;
   /** A reply is streaming or saving: no card may send now. */
   busy: boolean;
 };

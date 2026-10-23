@@ -243,6 +243,28 @@ async def test_a_stopped_or_cut_off_reply_gets_no_follow_ups(
     complete.assert_not_called()
 
 
+COUNTRY = "What is the best country to live in?"
+COUNTRY_ASKS = (
+    "🇨🇭 **Switzerland — best for quality of life**: high wages, safety and healthcare.\n"
+    "🇸🇬 **Singapore — best for making money**: low taxes and a strong job market.\n"
+    "🇳🇴 **Norway — best for social support**: free education and generous welfare.\n\n"
+    "**But let me ask you one thing.**\n\nWhat do you mean by *best*?\n\n```clarify\n"
+    '{"request":"Recommend the best country for me.","questions":[{"id":"priority",'
+    '"label":"Main priority","question":"What matters most to you?","options":'
+    '["💰 Making money","🌿 Quality of life","🛡️ Safety"]},{"id":"region","label":"Region",'
+    '"question":"Which region are you considering?","options":["🌍 Anywhere","🇪🇺 Europe",'
+    '"🌎 The Americas"]}],"closing":"Compare the strongest options with practical pros and '
+    'cons.","submit":"Find my best country"}\n```'
+)
+
+
+def test_a_reply_that_asks_with_the_new_card_gets_no_follow_ups() -> None:
+    # The card waits for the picks; questions under it would compete with it.
+    from app.modules.chat.related_questions import follow_up_topic
+
+    assert follow_up_topic(COUNTRY, COUNTRY_ASKS, None, allow_general=True) is None
+
+
 def _page_rows(assistant_id):
     now = datetime.now(UTC)
     return [

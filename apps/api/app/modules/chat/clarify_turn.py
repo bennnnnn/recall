@@ -1,21 +1,18 @@
 """A clarify card in the chat history, and the turn that answers it (docs/clarify.md).
 
 The model reads an earlier card as one line ("Asked: …"), not JSON it might copy. The
-message right after a card is the user's picks (one "Label: pick" line per question,
-written by the phone), a skip, or something typed instead: each gets the hint that says
-what to answer now.
+message right after a card is the user's picks (the card's request, each question's label
+with its pick, then its closing, written by the phone) or something typed instead: each
+gets the hint that says what to answer now.
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 
 from app.modules.chat.clarify_card import CLARIFY_FENCE, ClarifyCard, read_card
-from app.modules.chat.prompt_constants.clarify import (
-    CLARIFY_PICKS_AFTER_HINT,
-    CLARIFY_PICKS_FIRST_HINT,
-    CLARIFY_UNANSWERED_HINT,
-)
+from app.modules.chat.prompt_constants.clarify import CLARIFY_PICKS_HINT, CLARIFY_UNANSWERED_HINT
 from app.services.md_fence_scan import iter_fences
 
 
@@ -39,21 +36,21 @@ def card_as_line(body: str) -> str:
     card = read_card(body)
     if card is None:
         return ""
-    asked = "; ".join(f"{q.question} [{' / '.join(q.options)}]" for q in card.questions)
+    asked = "; ".join(f"{q.question} [{' / '.join(q.values)}]" for q in card.questions)
     return f"Asked: {asked}\n"
 
 
+def _picked(message: str, label: str) -> bool:
+    # The pick is on the label's own line: "Label:" then a blank line is no pick.
+    pattern = rf"(?<!\w){re.escape(label)}[^\S\n]*:[^\S\n]*\S"
+    return re.search(pattern, message, re.IGNORECASE) is not None
+
+
 def answers_card(message: str, card: ClarifyCard) -> bool:
-    """Every line is "Label: pick" for one of the card's labels: the phone sent the picks."""
-    labels = {question.label.casefold() for question in card.questions}
-    lines = [line.strip() for line in message.splitlines() if line.strip()]
-    if not lines:
-        return False
-    for line in lines:
-        label, colon, pick = line.partition(":")
-        if not colon or not pick.strip() or label.strip().casefold() not in labels:
-            return False
-    return True
+    """Every question's label is in the message with a pick after it ("Main priority:
+    Making money"): the phone sent the picks. One "Label: pick" line per question, the
+    shape older phones send, reads the same."""
+    return all(_picked(message, question.label) for question in card.questions)
 
 
 def last_reply_card(prior: Sequence[tuple[str, str]] | None) -> ClarifyCard | None:
@@ -64,11 +61,15 @@ def last_reply_card(prior: Sequence[tuple[str, str]] | None) -> ClarifyCard | No
     return None
 
 
+def answers_last_card(query: str | None, prior: Sequence[tuple[str, str]] | None) -> bool:
+    """The message is the picks for the card the conversation's last reply asked with."""
+    card = last_reply_card(prior)
+    return card is not None and bool(query) and answers_card(query or "", card)
+
+
 def clarify_reply_hint(query: str | None, prior: Sequence[tuple[str, str]] | None) -> str | None:
     """What this turn answers when the last reply asked with a card; None otherwise."""
     card = last_reply_card(prior)
     if card is None or not query or not query.strip():
         return None
-    if answers_card(query, card):
-        return CLARIFY_PICKS_FIRST_HINT if card.when == "first" else CLARIFY_PICKS_AFTER_HINT
-    return CLARIFY_UNANSWERED_HINT
+    return CLARIFY_PICKS_HINT if answers_card(query, card) else CLARIFY_UNANSWERED_HINT

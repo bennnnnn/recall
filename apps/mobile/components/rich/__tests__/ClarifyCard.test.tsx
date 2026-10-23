@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { ClarifyCard } from "@/components/rich/ClarifyCard";
 import { ClarifyActionsProvider, ClarifyMessageScope } from "@/components/rich/clarifyContext";
 import { ReplyStreaming } from "@/components/markdown/ReplyStreaming";
+import { selection } from "@/lib/haptics";
 
 jest.mock("@/lib/i18n", () => ({
   __esModule: true,
@@ -15,6 +16,29 @@ jest.mock("@/lib/i18n", () => ({
 jest.mock("@/lib/haptics", () => ({ selection: jest.fn() }));
 jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 
+const COUNTRY = JSON.stringify({
+  questions: [
+    {
+      id: "priority",
+      label: "Main priority",
+      question: "What matters most to you?",
+      options: ["💰 Making money", "🌿 Quality of life", "🛡️ Safety"],
+      values: ["Making money", "Quality of life", "Safety"],
+    },
+    {
+      id: "region",
+      label: "Geographic preference",
+      question: "Which region are you considering?",
+      options: ["🌍 Anywhere", "🇪🇺 Europe", "🌎 The Americas"],
+      values: ["Anywhere", "Europe", "The Americas"],
+    },
+  ],
+  request: "Recommend the best country for me.",
+  closing: "Compare the strongest options with practical pros and cons.",
+  submit: "Find my best country",
+});
+
+// A card saved before cards had a button of their own.
 const INTEGRALS = JSON.stringify({
   when: "first",
   questions: [
@@ -25,28 +49,12 @@ const INTEGRALS = JSON.stringify({
       options: ["No, never", "A little", "Yes, I'm revising"],
       multi: false,
     },
-    {
-      id: "goal",
-      label: "What it's for",
-      question: "What do you need it for?",
-      options: ["An exam", "A class", "Curiosity"],
-      multi: false,
-    },
   ],
 });
 
-const LAPTOP = JSON.stringify({
-  when: "first",
-  questions: [
-    {
-      id: "use",
-      label: "Used for",
-      question: "What will you use it for?",
-      options: ["Games", "Work", "Study"],
-      multi: true,
-    },
-  ],
-});
+const PICKS =
+  "Recommend the best country for me. Main priority: Making money. Geographic preference: " +
+  "Anywhere. Compare the strongest options with practical pros and cons.";
 
 type Setup = {
   content?: string;
@@ -55,17 +63,20 @@ type Setup = {
   busy?: boolean;
   streaming?: boolean;
   provider?: boolean;
+  /** Whether the chat took the send (false: offline, say). */
+  accepted?: boolean;
 };
 
 async function setup({
-  content = INTEGRALS,
+  content = COUNTRY,
   latest = true,
   nextUserText = null,
   busy = false,
   streaming = false,
   provider = true,
+  accepted = true,
 }: Setup = {}) {
-  const send = jest.fn();
+  const send = jest.fn(async (_text: string) => accepted);
   let tree: ReactNode = (
     <ClarifyMessageScope latest={latest} nextUserText={nextUserText}>
       <ReplyStreaming value={streaming}>
@@ -85,108 +96,129 @@ async function setup({
 }
 
 function checked(view: Awaited<ReturnType<typeof setup>>["view"], label: string): boolean {
-  return view.getByRole(/radio|checkbox/, { name: label }).props.accessibilityState?.checked === true;
+  return view.getByRole("radio", { name: label }).props.accessibilityState?.checked === true;
 }
 
 describe("ClarifyCard", () => {
-  it("shows every question with its choices and Other…", async () => {
+  it("shows every question with its choices, the first one picked, and its own button", async () => {
     const { view } = await setup();
-    expect(view.getByText("Have you studied integrals before?")).toBeTruthy();
-    expect(view.getByText("Yes, I'm revising")).toBeTruthy();
-    expect(view.getAllByText("clarify.other")).toHaveLength(2);
-    expect(view.getByText("clarify.badge")).toBeTruthy();
+    expect(view.getByText("What matters most to you?")).toBeTruthy();
+    expect(view.getByText("🌎 The Americas")).toBeTruthy();
+    expect(checked(view, "💰 Making money")).toBe(true);
+    expect(checked(view, "🌍 Anywhere")).toBe(true);
+    expect(checked(view, "🛡️ Safety")).toBe(false);
+    expect(view.getByText("Find my best country")).toBeTruthy();
   });
 
-  it("sends the picks as one Label: pick line per question", async () => {
+  it("sends the likeliest picks at once", async () => {
     const { view, send } = await setup();
-    await fireEvent.press(view.getByText("clarify.submit"));
-    expect(send).not.toHaveBeenCalled();
-    await fireEvent.press(view.getByText("No, never"));
-    await fireEvent.press(view.getByText("clarify.submit"));
-    expect(send).not.toHaveBeenCalled();
-    await fireEvent.press(view.getByText("An exam"));
-    await fireEvent.press(view.getByText("clarify.submit"));
-    expect(send).toHaveBeenCalledWith("Studied it before: No, never\nWhat it's for: An exam");
+    await fireEvent.press(view.getByText("Find my best country"));
+    expect(send).toHaveBeenCalledWith(PICKS);
   });
 
-  it("lets a single-choice question change its pick", async () => {
+  it("sends the request, each label with its pick, then the closing", async () => {
+    const { view, send } = await setup();
+    await fireEvent.press(view.getByText("🛡️ Safety"));
+    await fireEvent.press(view.getByText("🇪🇺 Europe"));
+    await fireEvent.press(view.getByText("Find my best country"));
+    expect(send).toHaveBeenCalledWith(
+      "Recommend the best country for me. Main priority: Safety. Geographic preference: Europe. " +
+        "Compare the strongest options with practical pros and cons.",
+    );
+  });
+
+  it("ticks only when the pick changes", async () => {
+    jest.mocked(selection).mockClear();
     const { view } = await setup();
-    await fireEvent.press(view.getByText("A little"));
-    await fireEvent.press(view.getByText("No, never"));
-    expect(checked(view, "No, never")).toBe(true);
-    expect(checked(view, "A little")).toBe(false);
+    // Already picked: the card starts on the first choice.
+    await fireEvent.press(view.getByText("💰 Making money"));
+    expect(selection).not.toHaveBeenCalled();
+    await fireEvent.press(view.getByText("🛡️ Safety"));
+    await fireEvent.press(view.getByText("🛡️ Safety"));
+    expect(selection).toHaveBeenCalledTimes(1);
   });
 
-  it("joins several picks on a multi-choice question", async () => {
-    const { view, send } = await setup({ content: LAPTOP });
-    await fireEvent.press(view.getByText("Study"));
-    await fireEvent.press(view.getByText("Games"));
-    await fireEvent.press(view.getByText("Work"));
-    await fireEvent.press(view.getByText("Work"));
+  it("keeps one pick per question", async () => {
+    const { view } = await setup();
+    await fireEvent.press(view.getByText("🌿 Quality of life"));
+    await fireEvent.press(view.getByText("🛡️ Safety"));
+    expect(checked(view, "🛡️ Safety")).toBe(true);
+    expect(checked(view, "🌿 Quality of life")).toBe(false);
+    expect(checked(view, "💰 Making money")).toBe(false);
+    expect(checked(view, "🌍 Anywhere")).toBe(true);
+  });
+
+  it("labels the button Submit when the card names none", async () => {
+    const { view, send } = await setup({ content: INTEGRALS });
     await fireEvent.press(view.getByText("clarify.submit"));
-    expect(send).toHaveBeenCalledWith("Used for: Games, Study");
+    expect(send).toHaveBeenCalledWith("Studied it before: No, never.");
   });
 
-  it("opens a field for Other… and sends the typed answer", async () => {
+  it("sends once, then stays read-only with the picks ticked and no button", async () => {
     const { view, send } = await setup();
-    const [levelOther] = view.getAllByText("clarify.other");
-    await fireEvent.press(levelOther!);
-    const field = view.getByPlaceholderText("clarify.other_placeholder");
-    await fireEvent.press(view.getByText("A class"));
-    await fireEvent.press(view.getByText("clarify.submit"));
-    expect(send).not.toHaveBeenCalled();
-    await fireEvent.changeText(field, "Years ago,\nin school");
-    await fireEvent.press(view.getByText("clarify.submit"));
-    expect(send).toHaveBeenCalledWith("Studied it before: Years ago, in school\nWhat it's for: A class");
-  });
-
-  it("sends Just answer on Skip", async () => {
-    const { view, send } = await setup();
-    await fireEvent.press(view.getByText("clarify.skip"));
-    expect(send).toHaveBeenCalledWith("clarify.skip_message");
-  });
-
-  it("sends once, then stays read-only with the picks ticked", async () => {
-    const { view, send } = await setup();
-    await fireEvent.press(view.getByText("A little"));
-    await fireEvent.press(view.getByText("Curiosity"));
-    await fireEvent.press(view.getByText("clarify.submit"));
+    await fireEvent.press(view.getByText("🌿 Quality of life"));
+    await fireEvent.press(view.getByText("Find my best country"));
     expect(send).toHaveBeenCalledTimes(1);
-    expect(view.queryByText("clarify.submit")).toBeNull();
-    expect(view.queryByText("clarify.skip")).toBeNull();
-    expect(checked(view, "A little")).toBe(true);
-    await fireEvent.press(view.getByText("No, never"));
-    expect(checked(view, "No, never")).toBe(false);
+    expect(view.queryByText("Find my best country")).toBeNull();
+    expect(checked(view, "🌿 Quality of life")).toBe(true);
+    await fireEvent.press(view.getByText("🛡️ Safety"));
+    expect(checked(view, "🛡️ Safety")).toBe(false);
+  });
+
+  it("stays live when the chat refused the send, so the picks can go once it can", async () => {
+    const { view, send } = await setup({ accepted: false });
+    await fireEvent.press(view.getByText("🛡️ Safety"));
+    await fireEvent.press(view.getByText("Find my best country"));
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(checked(view, "🛡️ Safety")).toBe(true);
+    await fireEvent.press(view.getByText("Find my best country"));
+    expect(send).toHaveBeenCalledTimes(2);
   });
 
   it("ticks the picks a later message sent, read-only", async () => {
     const { view, send } = await setup({
       latest: false,
-      nextUserText: "Studied it before: Yes, I'm revising\nWhat it's for: my own project",
+      nextUserText: PICKS.replace("Making money", "Safety").replace("Anywhere", "The Americas"),
     });
-    expect(view.queryByText("clarify.submit")).toBeNull();
-    expect(checked(view, "Yes, I'm revising")).toBe(true);
-    expect(view.getByText("clarify.other_answer|my own project")).toBeTruthy();
-    await fireEvent.press(view.getByText("No, never"));
+    expect(view.queryByText("Find my best country")).toBeNull();
+    expect(checked(view, "🛡️ Safety")).toBe(true);
+    expect(checked(view, "🌎 The Americas")).toBe(true);
+    expect(checked(view, "💰 Making money")).toBe(false);
+    await fireEvent.press(view.getByText("💰 Making money"));
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("is read-only after a skip, with nothing ticked", async () => {
-    const { view } = await setup({ nextUserText: "Just answer" });
-    expect(view.queryByText("clarify.submit")).toBeNull();
+  it("ticks the lines an older phone sent", async () => {
+    const { view } = await setup({ content: INTEGRALS, latest: false, nextUserText: "Studied it before: A little" });
+    expect(checked(view, "A little")).toBe(true);
     expect(checked(view, "No, never")).toBe(false);
+  });
+
+  it("is read-only with nothing ticked when something was typed instead", async () => {
+    const { view } = await setup({ nextUserText: "Just answer" });
+    expect(view.queryByText("Find my best country")).toBeNull();
+    expect(checked(view, "💰 Making money")).toBe(false);
+  });
+
+  it.each([
+    ["while a reply is streaming or saving", { busy: true }],
+    ["while its own reply is still streaming", { streaming: true }],
+  ])("shows its button but cannot be answered %s", async (_name, options) => {
+    const { view, send } = await setup(options);
+    await fireEvent.press(view.getByText("Find my best country"));
+    await fireEvent.press(view.getByText("🛡️ Safety"));
+    expect(checked(view, "🛡️ Safety")).toBe(false);
+    expect(send).not.toHaveBeenCalled();
   });
 
   it.each([
     ["on an older reply", { latest: false }],
-    ["while a reply is streaming or saving", { busy: true }],
-    ["while its own reply is still streaming", { streaming: true }],
     ["outside a chat", { provider: false }],
-  ])("cannot be answered %s", async (_name, options) => {
+  ])("has no button and cannot be answered %s", async (_name, options) => {
     const { view, send } = await setup(options);
-    expect(view.queryByText("clarify.submit")).toBeNull();
-    await fireEvent.press(view.getByText("No, never"));
-    expect(checked(view, "No, never")).toBe(false);
+    expect(view.queryByText("Find my best country")).toBeNull();
+    await fireEvent.press(view.getByText("🛡️ Safety"));
+    expect(checked(view, "🛡️ Safety")).toBe(false);
     expect(send).not.toHaveBeenCalled();
   });
 
