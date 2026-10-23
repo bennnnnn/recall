@@ -139,9 +139,8 @@ async def stream_chat_response(
     skip_usage_seed: bool = False,
     resources: TurnResources | None = None,
 ) -> AsyncIterator[str]:
-    """``user`` is the transport's current copy of the user, if it has one;
-    ``user_generation`` is the generation it read (``core/user_cache``), under
-    which a row this turn reads instead is kept for the next turn."""
+    """``user``: the transport's current copy of the user, if any; ``user_generation``: the
+    generation it read (``core/user_cache``), under which a row read instead is kept."""
     content = content.strip()
     if not content and not attachment_ids:
         raise ChatNotFoundError("Message cannot be empty.")
@@ -180,6 +179,7 @@ async def stream_chat_response(
             recent_messages=turn.recent,
             prior_count=turn.prior_count,
             misses=misses,
+            on_status=status,
         ):
             await res.refund()
             return
@@ -268,8 +268,7 @@ async def stream_regenerate_response(
             deps, redis, settings, user_id=user_id, chat_id=chat_id, model_alias=model_alias
         )
         if outcome is not None:
-            # The message being answered again is in the chat (it just loaded).
-            outcome.mark_user_message_saved()
+            outcome.mark_user_message_saved()  # The message answered again just loaded.
         settings = profile_service.settings_for_user(settings, turn.user)
         misses: set[str] = set()
         if await intercept_regenerate(
@@ -281,6 +280,7 @@ async def stream_regenerate_response(
             backup=turn.backup,
             outcome=outcome,
             misses=misses,
+            on_status=status,
         ):
             return
         current_image_ids, model = _regenerate_images(turn, settings, model_alias)

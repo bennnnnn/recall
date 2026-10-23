@@ -1,4 +1,5 @@
-"""Stop at each phase of a real turn, over the socket and over SSE.
+"""Stop at each phase of a real turn, over the socket and over SSE, and what the
+phone is shown meanwhile.
 
 The real chat path end to end: auth, the turn, the mock model, the database and
 (fake) Redis. A Stop must never take back the message the phone still shows, must
@@ -14,6 +15,7 @@ from collections.abc import AsyncIterator, MutableMapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock
 from uuid import UUID, uuid4
 
 import httpx
@@ -373,3 +375,21 @@ def test_the_chats_first_reply_names_it(
 
     recent = None if roles is None else [SimpleNamespace(role=role) for role in roles]
     assert _first_reply(recent, prior_count) is names_it
+
+
+async def test_ws_photo_lookup_on_the_chat_path_puts_up_its_label(
+    chat: _Chat, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: "show me an ear" sent no status while the photo was looked up, so
+    the phone showed bare typing dots for seconds; the tool loop's lookup says so."""
+    from app.modules.images import search as image_search
+
+    # The lookup finds no photo it can use: the model answers in words after it.
+    monkeypatch.setattr(image_search, "_fetch_candidates", AsyncMock(return_value=[]))
+    sock = await chat.socket()
+    sock.put(_message("Show me a photo of the Eiffel Tower"))
+    await sock.until("done")
+
+    statuses = [f.get("phase") for f in sock.frames if f["type"] == "status"]
+    assert statuses[:2] == ["finding_photo", "composing"]
+    await sock.close()
