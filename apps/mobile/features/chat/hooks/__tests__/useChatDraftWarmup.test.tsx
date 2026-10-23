@@ -9,6 +9,8 @@ import { useChatDraftWarmup } from "@/features/chat/hooks/useChatDraftWarmup";
 type Props = { chatId: string | null; draftChatId?: string | null; streaming?: boolean };
 
 const connect = jest.fn();
+let mockFocused = true;
+jest.mock("expo-router", () => ({ useNavigation: () => ({ isFocused: () => mockFocused }) }));
 const SIGNED_IN = { account: "account-1", getToken: () => "token" };
 let setInput: (text: string) => void = () => {};
 
@@ -24,6 +26,7 @@ describe("useChatDraftWarmup", () => {
 
   beforeEach(() => {
     connect.mockClear();
+    mockFocused = true;
     keyboardListeners.clear();
     jest.spyOn(Keyboard, "addListener").mockImplementation(((event: string, listener: () => void) => {
       const listeners = keyboardListeners.get(event) ?? new Set();
@@ -50,6 +53,13 @@ describe("useChatDraftWarmup", () => {
     const event = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     await act(async () => { for (const listener of keyboardListeners.get(event) ?? []) listener(); });
   };
+
+  it("ignores a keyboard on another screen stacked over the chat", async () => {
+    await renderScreen({ chatId: "chat-1" });
+    mockFocused = false;
+    await showKeyboard();
+    expect(connect).not.toHaveBeenCalled();
+  });
 
   it("opens an open chat's socket when the keyboard comes up, each time", async () => {
     await renderScreen({ chatId: "chat-1" });

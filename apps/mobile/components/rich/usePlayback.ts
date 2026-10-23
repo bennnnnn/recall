@@ -17,6 +17,13 @@ import {
 import { playbackStart, remainingPlaybackDuration } from "@/lib/animationPlayback";
 import { Motion, useReduceMotionSetting } from "@/lib/motion";
 
+/**
+ * Laps a looping figure runs after the first, then it rests on Play. Looping for ever,
+ * an orbit or a wave redrew its canvas every frame for as long as the chat stayed
+ * mounted, seen or not: under Settings, or scrolled just out of view.
+ */
+export const LOOP_LAPS = 3;
+
 type Options = {
   /** One pass, start to end, in ms. */
   duration: number;
@@ -66,7 +73,11 @@ export function usePlayback({ duration, animated, autoplay, loop, resetKey }: Op
         withTiming(1, { duration: rest, easing }),
         withRepeat(
           withSequence(withTiming(0, { duration: 0 }), withTiming(1, { duration, easing })),
-          -1,
+          LOOP_LAPS,
+          false,
+          (finished) => {
+            if (finished) runOnJS(markStopped)();
+          },
         ),
       );
       return;

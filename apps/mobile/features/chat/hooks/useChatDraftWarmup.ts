@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Keyboard, Platform } from "react-native";
+import { useNavigation } from "expo-router";
 
 import { useAccountSession } from "@/contexts/accountSession";
 import { useComposerDraftActivity } from "@/features/chat/context/ComposerDraftContext";
@@ -22,6 +23,7 @@ type Options = {
 export function useChatDraftWarmup({ chatId, streaming, draftChatId, connect }: Options) {
   const { account } = useAccountSession();
   const composing = useComposerDraftActivity();
+  const navigation = useNavigation();
 
   useEffect(() => {
     if (!shouldWarmDraftSocket({ account, draftChatId, chatId, streaming })) return;
@@ -34,7 +36,11 @@ export function useChatDraftWarmup({ chatId, streaming, draftChatId, connect }: 
 
   useEffect(() => {
     const event = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const sub = Keyboard.addListener(event, () => void connect());
+    // Chat stays mounted under To-do, Memory and Settings: a keyboard there is no send
+    // coming, and it opened a socket that then idled for five minutes.
+    const sub = Keyboard.addListener(event, () => {
+      if (navigation.isFocused()) void connect();
+    });
     return () => sub.remove();
-  }, [connect]);
+  }, [connect, navigation]);
 }

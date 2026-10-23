@@ -6,7 +6,12 @@ import { AppState } from "react-native";
 
 import { newAccountFile } from "@/lib/accountFiles";
 import { requestRaw } from "@/lib/api/client";
-import { playbackStatusFinished } from "@/features/speech/model/cloudPlayback";
+import {
+  applySpeechRate,
+  PLAYBACK_POLL_MS,
+  PLAYBACK_STATUS_MS,
+  playbackStatusFinished,
+} from "@/features/speech/model/cloudPlayback";
 import { markdownToSpeechText } from "@/lib/markdown/plain";
 import { readAloudPart } from "@/features/speech/model/readAloudLength";
 import { splitTtsChunks } from "@/features/speech/model/ttsLead";
@@ -234,7 +239,7 @@ function waitUntilPlaybackEnds(player: PlaybackHandle, maxMs = CLOUD_PLAYBACK_MA
       ) {
         finish();
       }
-    }, 50);
+    }, PLAYBACK_POLL_MS);
     const timer = setTimeout(finish, maxMs);
   });
 }
@@ -248,15 +253,22 @@ async function playCloudBase64(
   const Audio = loadExpoAudio();
   if (!Audio || !cacheDirectory) return { ok: false, reason: "unavailable" };
   if (!isCurrentSpeak(generation)) return { ok: true };
+  let written: string | null = null;
   try {
     // Only stop the previous clip — never abort this utterance's fetches.
     stopCloudPlayer();
     stopDeviceSpeech();
     const path = newAccountFile("speech", contentType.includes("wav") ? "wav" : "mp3");
+    written = path;
     await writeAsStringAsync(path, audioBase64, { encoding: EncodingType.Base64 });
-    if (!isCurrentSpeak(generation)) return { ok: true };
-    const player = Audio.createAudioPlayer(path, { updateInterval: 50 }) as PlaybackHandle;
-    applySpeechRate(player);
+    if (!isCurrentSpeak(generation)) {
+      discardClip(path);
+      return { ok: true };
+    }
+    const player = Audio.createAudioPlayer(path, {
+      updateInterval: PLAYBACK_STATUS_MS,
+    }) as PlaybackHandle;
+    applySpeechRate(player, currentSpeechRate());
     const release = () => {
       try {
         player.pause();
@@ -283,20 +295,13 @@ async function playCloudBase64(
     }
     return { ok: true };
   } catch {
+    if (written) discardClip(written);
     return { ok: false, reason: "error" };
   }
 }
 
-/** Read-aloud speed (Settings → Voice); the voice keeps its pitch. */
-function applySpeechRate(player: PlaybackHandle): void {
-  const rate = currentSpeechRate();
-  if (rate === 1) return;
-  try {
-    player.shouldCorrectPitch = true;
-    player.setPlaybackRate?.(rate, "high");
-  } catch {
-    /* plays at normal speed */
-  }
+function discardClip(path: string): void {
+  void deleteAsync(path, { idempotent: true }).catch(() => undefined);
 }
 
 async function beginDeviceSpeech(

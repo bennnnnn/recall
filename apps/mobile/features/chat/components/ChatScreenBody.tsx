@@ -77,7 +77,7 @@ export interface ChatScreenComposerProps {
   voiceAvailable: boolean;
   voiceRecording: boolean;
   voiceTranscribing: boolean;
-  voiceMeterLevel: number;
+  voiceMeterLevel: SharedValue<number>;
   onVoicePress?: () => void;
   onCancelVoice?: () => void;
   onLiveTalkPress?: () => void;

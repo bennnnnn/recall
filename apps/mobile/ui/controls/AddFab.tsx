@@ -22,6 +22,9 @@ import { IconSize } from "../icons/sizes";
 import { FAB_SIZE, fabBottom } from "./addFabLayout";
 
 const WAVE_MS = 1800;
+/** Rings a visit shows, then the button rests: pulsing for ever kept the To-do screen
+ * redrawing every frame while it sat open (and kept a ProMotion screen at full rate). */
+const WAVE_PULSES = 3;
 
 type Props = {
   onPress: () => void;
@@ -71,7 +74,7 @@ function FabWave({ color }: { color: string }) {
     const pulse = () =>
       withRepeat(
         withTiming(1, { duration: WAVE_MS, easing: Easing.out(Easing.ease) }),
-        -1,
+        WAVE_PULSES,
         false,
       );
     first.value = pulse();

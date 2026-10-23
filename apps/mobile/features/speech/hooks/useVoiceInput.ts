@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSharedValue } from "react-native-reanimated";
 
 import { transcribeSpeech } from "@/lib/api";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -50,7 +51,9 @@ export function useVoiceInput({
   const transcribeAbortRef = useRef<AbortController | null>(null);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
-  const [meterLevel, setMeterLevel] = useState(0.12);
+  // The live level, every 60 ms while dictating: a shared value only the waveform reads.
+  // As state it re-rendered the whole chat screen 16 times a second.
+  const meterLevel = useSharedValue(0.12);
   const [voiceInputAvailable, setVoiceInputAvailable] = useState(false);
 
   useEffect(() => {
@@ -71,14 +74,14 @@ export function useVoiceInput({
     meterUnsubRef.current?.();
     meterUnsubRef.current = null;
     setRecording(false);
-    setMeterLevel(0.12);
+    meterLevel.set(0.12);
     if (!active) return null;
     try {
       return await active.stop();
     } catch {
       return null;
     }
-  }, []);
+  }, [meterLevel]);
 
   const startRecording = useCallback(async (): Promise<boolean> => {
     // `recording` only turns true once the native recorder runs, so a second
@@ -116,7 +119,7 @@ export function useVoiceInput({
       recordingRef.current = next;
       meterUnsubRef.current?.();
       meterUnsubRef.current = next.subscribeMetering((level) => {
-        setMeterLevel(level);
+        meterLevel.set(level);
         if (level >= VOICE_SPEECH_LEVEL) speechSamplesRef.current += 1;
       });
       setRecording(true);
@@ -133,7 +136,7 @@ export function useVoiceInput({
     } finally {
       startingRef.current = false;
     }
-  }, [token, recording, transcribing, t, showUnavailable, feedback]);
+  }, [token, recording, transcribing, t, showUnavailable, feedback, meterLevel]);
 
   const finishRecording = useCallback(async (): Promise<string | null> => {
     if (!token) return null;

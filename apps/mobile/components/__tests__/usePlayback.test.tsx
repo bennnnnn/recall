@@ -6,7 +6,7 @@
 import { act, renderHook } from "@testing-library/react-native";
 import { withRepeat, withTiming } from "react-native-reanimated";
 
-import { usePlayback } from "@/components/rich/usePlayback";
+import { LOOP_LAPS, usePlayback } from "@/components/rich/usePlayback";
 
 jest.mock("react-native-reanimated", () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest.mock factories cannot import
@@ -78,9 +78,20 @@ describe("usePlayback", () => {
     expect(withRepeat).not.toHaveBeenCalled();
   });
 
-  it("goes round again for periodic motion", async () => {
-    await renderHook(() => usePlayback({ ...BASE, loop: true }));
-    expect(withRepeat).toHaveBeenCalledWith(expect.anything(), -1);
+  it("goes round a few times for periodic motion, then rests on Play", async () => {
+    const hook = await renderHook(() => usePlayback({ ...BASE, loop: true }));
+    // Never for ever: a looping figure kept drawing while the chat was covered.
+    expect(withRepeat).toHaveBeenCalledWith(
+      expect.anything(),
+      LOOP_LAPS,
+      false,
+      expect.any(Function),
+    );
+    expect(hook.result.current.isPlaying).toBe(true);
+
+    const [, , , onDone] = jest.mocked(withRepeat).mock.calls.at(-1)!;
+    await act(() => onDone?.(true));
+    expect(hook.result.current.isPlaying).toBe(false);
   });
 
   it("holds the end state otherwise, and shows Play again when it gets there", async () => {

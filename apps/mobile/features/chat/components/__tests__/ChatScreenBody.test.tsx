@@ -1,3 +1,4 @@
+import type { SharedValue } from "react-native-reanimated";
 import React from "react";
 import { Text } from "react-native";
 import { render } from "@testing-library/react-native";
@@ -148,7 +149,7 @@ const baseProps: ChatScreenBodyProps = {
     voiceAvailable: true,
     voiceRecording: false,
     voiceTranscribing: false,
-    voiceMeterLevel: 0.12,
+    voiceMeterLevel: { value: 0.12 } as SharedValue<number>,
   },
   chrome: {
     actionBanner: null,

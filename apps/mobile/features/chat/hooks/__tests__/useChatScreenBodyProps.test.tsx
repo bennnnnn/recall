@@ -1,3 +1,4 @@
+import type { SharedValue } from "react-native-reanimated";
 import React from "react";
 import { Text } from "react-native";
 import { render, renderHook } from "@testing-library/react-native";
@@ -7,6 +8,9 @@ import { DrawerProvider } from "@/contexts/DrawerContext";
 import { useChatScreenBodyProps } from "@/features/chat/hooks/useChatScreenBodyProps";
 import type { Message } from "@/lib/api";
 import { lightTheme } from "@/lib/theme";
+
+// One shared value for the screen's life, as the voice hook keeps it.
+const METER = { value: 0.12 } as SharedValue<number>;
 
 const mockChatHeader = jest.fn();
 
@@ -140,7 +144,7 @@ function useHarness(streaming: boolean, messages: Message[], replySaving = false
       voiceAvailable: true,
       voiceRecording: false,
       voiceTranscribing: false,
-      voiceMeterLevel: 0.12,
+      voiceMeterLevel: METER,
       toggleVoiceInput,
     },
   });

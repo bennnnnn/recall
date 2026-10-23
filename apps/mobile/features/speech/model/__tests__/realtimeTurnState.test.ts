@@ -155,3 +155,15 @@ describe("reduceRealtimeTurn: turn rules", () => {
     expect(state.userMuted).toBe(false);
   });
 });
+
+describe("reduceRealtimeTurn: a failed connection", () => {
+  it.each(["peer_failed", "channel_failed"] as const)("%s is a fatal error, so the session closes", (type) => {
+    const { commands } = run(replying(true), { type, message: "network lost" });
+    expect(commands).toContainEqual({ type: "emit", event: { type: "error", message: "network lost", fatal: true } });
+  });
+
+  it("a server error event is not fatal: the session goes on", () => {
+    const { commands } = run(replying(true), server({ type: "error", error: { message: "rate limited" } }));
+    expect(commands).toContainEqual({ type: "emit", event: { type: "error", message: "rate limited" } });
+  });
+});

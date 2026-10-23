@@ -1,3 +1,4 @@
+import type { SharedValue } from "react-native-reanimated";
 import { act, render } from "@testing-library/react-native";
 
 import HomeScreen from "@/features/chat/screens/ChatScreen";
@@ -169,7 +170,7 @@ const mockDictation = {
   voiceInputAvailable: false,
   voiceRecording: false,
   voiceTranscribing: false,
-  voiceMeterLevel: 0,
+  voiceMeterLevel: { value: 0 } as SharedValue<number>,
   toggleVoiceInput: mockAsyncNoop,
   cancelVoiceInput: mockNoop,
 };
