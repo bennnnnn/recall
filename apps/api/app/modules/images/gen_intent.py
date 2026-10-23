@@ -87,9 +87,13 @@ def has_non_image_subject(subject: str) -> bool:
         if key in NON_IMAGE_WORDS and not _names_what_the_art_is_for(words, i):
             return True
         nxt = words[i + 1] if i + 1 < len(words) else ""
-        if key == "pull" and nxt in {"request", "requests"}:
+        if (key, nxt.removesuffix("s")) in _NON_IMAGE_PAIRS:
             return True
     return False
+
+
+# Two words naming something written: "a pull request", "a cover letter", "a random number".
+_NON_IMAGE_PAIRS = frozenset({("pull", "request"), ("cover", "letter"), ("random", "number")})
 
 
 # Pictures made for something: "a poster for my event", "an app logo".
@@ -129,7 +133,8 @@ def _names_what_the_art_is_for(words: list[str], i: int) -> bool:
     if "for" not in before:
         return False
     purpose = len(before) - 1 - before[::-1].index("for")
-    return any(word in _ART_FOR_NOUNS for word in words[:purpose])
+    # "A cover image for my presentation": a picture noun heads the request too.
+    return any(word in _ART_FOR_NOUNS or word in IMAGE_NOUNS for word in words[:purpose])
 
 
 def has_non_image_draw(subject: str) -> bool:

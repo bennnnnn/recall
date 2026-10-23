@@ -138,5 +138,33 @@
     "prompt": "make a logo for my website in html",
     "reply": "Here's a simple text logo in HTML and CSS:\n\n```html\n<div class=\"logo\"><span>Bean</span>There</div>\n<style>\n.logo { font: 700 32px system-ui; color: #3b2a1a; }\n.logo span { color: #c47a2c; }\n</style>\n```",
     "expect": "answer"
+  },
+  {
+    "id": "media-021",
+    "area": "writing",
+    "prompt": "make me a cover letter for a barista job",
+    "reply": "Dear Hiring Manager,\n\nI'd love to join your team as a barista. I spent two years at a busy café pulling espresso, steaming milk and keeping the queue moving with a smile, and I care about getting each cup right.\n\nI'm reliable, quick to learn your menu, and happy to take early shifts.\n\nThank you for considering me.\n\nBest regards,\n[Your name]",
+    "expect": "answer"
+  },
+  {
+    "id": "media-022",
+    "area": "writing",
+    "prompt": "make a budget for my wedding",
+    "reply": "Here's a starting split for a wedding budget:\n\n| Item | Share |\n|---|---|\n| Venue and food | 45% |\n| Clothes | 10% |\n| Photos and video | 10% |\n| Music | 8% |\n| Decor and flowers | 10% |\n| Rings | 7% |\n| Buffer | 10% |\n\nTell me your total and guest count and I'll put numbers on it.",
+    "expect": "answer"
+  },
+  {
+    "id": "media-023",
+    "area": "writing",
+    "prompt": "create slides about climate change",
+    "reply": "**Slide 1: Climate change in one minute**\n- The planet is about 1.2 °C warmer than in 1850\n\n**Slide 2: Why**\n- Burning coal, oil and gas adds CO₂\n\n**Slide 3: What it does**\n- Hotter summers, heavier rain, rising seas\n\n**Slide 4: What helps**\n- Clean power, efficient homes, less waste",
+    "expect": "answer"
+  },
+  {
+    "id": "media-024",
+    "area": "chitchat",
+    "prompt": "generate a random number between 1 and 100",
+    "reply": "**47**",
+    "expect": "answer"
   }
 ]
