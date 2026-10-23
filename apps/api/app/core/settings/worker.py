@@ -29,3 +29,9 @@ class WorkerSettings(BaseModel):
     # Rows deleted per statement, and per cycle, so a backlog drains in steps.
     analytics_retention_delete_batch: int = 5_000
     analytics_retention_max_deletes_per_cycle: int = 200_000
+    # Hourly data retention: drafts never sent to, and daily usage rows past a year.
+    data_retention_interval_seconds: int = 3600
+    abandoned_draft_chat_hours: int = 168
+    usage_daily_retention_days: int = 400
+    data_retention_delete_batch: int = 1_000
+    data_retention_max_deletes_per_cycle: int = 50_000

@@ -417,3 +417,8 @@ async def edit_recent_reply(
         await messages_repo.update_content(session, message, updated)
         return True
     return False
+
+
+async def delete_abandoned_drafts(session: AsyncSession, cutoff: datetime, *, limit: int) -> int:
+    """Chats never sent to, older than ``cutoff`` (data retention); no commit."""
+    return await chats_repo.delete_abandoned_drafts(session, cutoff, limit=limit)

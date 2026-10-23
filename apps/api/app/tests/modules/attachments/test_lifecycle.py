@@ -499,6 +499,7 @@ async def test_reap_orphan_attachments_continues_when_storage_delete_fails():
 
     gateway = MagicMock()
     gateway.delete_bytes = delete_bytes
+    gateway.delete_prefix = AsyncMock()
 
     async def delete_unlinked(_session, ids, *, orphan_only):
         assert orphan_only
@@ -541,3 +542,98 @@ async def test_sweep_user_storage_deletes_user_prefix():
         deleted = await attachment_lifecycle.sweep_user_storage(Settings(), user_id)
     assert deleted == 3
     gateway.delete_prefix.assert_awaited_once_with(f"{user_id}/")
+
+
+def _orphans(count: int) -> list[MagicMock]:
+    rows = []
+    for index in range(count):
+        row = MagicMock()
+        row.id = uuid4()
+        row.storage_key = f"user/file-{index}-{uuid4()}"
+        row.content_type = "application/pdf"
+        rows.append(row)
+    return rows
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("batches", "expected_lists", "expected_reaped"),
+    [
+        # Full batches go on until a short one: a backlog drains in one cycle.
+        ([2, 2, 1], 3, 5),
+        # The cycle's cap holds even when every batch is full.
+        ([2, 2, 2, 2], 3, 6),
+    ],
+)
+async def test_reap_orphan_attachments_runs_batches_while_they_are_full(
+    batches: list[int], expected_lists: int, expected_reaped: int
+):
+    settings = Settings(attachment_orphan_reap_limit=2, attachment_orphan_reap_batches_per_cycle=3)
+    lists = [_orphans(count) for count in batches]
+    gateway = MagicMock()
+    gateway.delete_bytes = AsyncMock()
+
+    async def _delete_unlinked(session, ids, *, orphan_only):
+        rows = next(batch for batch in lists if batch and batch[0].id in ids)
+        return [row.storage_key for row in rows]
+
+    with (
+        patch(
+            "app.modules.attachments.lifecycle.attachments_repo.list_orphans",
+            AsyncMock(side_effect=lists),
+        ) as list_orphans,
+        patch(
+            "app.modules.attachments.lifecycle.attachments_repo.delete_unlinked_returning",
+            side_effect=_delete_unlinked,
+        ),
+        patch("app.modules.attachments.lifecycle.get_storage_gateway", return_value=gateway),
+        patch(
+            "app.modules.attachments.lifecycle.retry_pending_storage_deletes",
+            AsyncMock(return_value=0),
+        ),
+    ):
+        reaped = await attachment_lifecycle.reap_orphan_attachments(settings)
+
+    assert list_orphans.await_count == expected_lists
+    assert reaped == expected_reaped
+
+
+@pytest.mark.asyncio
+async def test_reap_orphan_attachments_stops_when_a_full_batch_removes_nothing():
+    settings = Settings(attachment_orphan_reap_limit=2, attachment_orphan_reap_batches_per_cycle=5)
+    with (
+        patch(
+            "app.modules.attachments.lifecycle.attachments_repo.list_orphans",
+            AsyncMock(return_value=_orphans(2)),
+        ) as list_orphans,
+        patch(
+            "app.modules.attachments.lifecycle.attachments_repo.delete_unlinked_returning",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.modules.attachments.lifecycle.retry_pending_storage_deletes",
+            AsyncMock(return_value=0),
+        ),
+    ):
+        reaped = await attachment_lifecycle.reap_orphan_attachments(settings)
+
+    assert reaped == 0
+    assert list_orphans.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_a_failed_thumbnail_delete_is_queued_for_the_retry():
+    gateway = MagicMock()
+    gateway.delete_bytes = AsyncMock()
+    gateway.delete_prefix = AsyncMock(side_effect=RuntimeError("r2 down"))
+    with (
+        patch("app.modules.attachments.lifecycle.get_storage_gateway", return_value=gateway),
+        patch(
+            "app.modules.attachments.lifecycle.enqueue_failed_storage_deletes", AsyncMock()
+        ) as enqueue,
+    ):
+        failed = await attachment_lifecycle.delete_storage_keys(Settings(), ["u/a", "u/b"])
+
+    # The objects went; their thumbnails did not, so both keys wait for the retry.
+    assert failed == []
+    enqueue.assert_awaited_once_with(["u/a", "u/b"])

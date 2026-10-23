@@ -94,6 +94,9 @@ async def _embed_and_store(settings: Settings, user_id: UUID, messages: list[Mes
                 commit=False,
             )
             stored += len(pieces)
+        await chunks_repo.prune_beyond_window(
+            session, user_id, window=settings.chat_history_rag_search_window
+        )
         await session.commit()
     if stored:
         await presence_cache.mark_present(presence_cache.history_key(user_id))

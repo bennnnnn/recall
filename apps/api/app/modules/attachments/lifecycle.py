@@ -68,10 +68,16 @@ async def delete_storage_keys(settings: Settings, storage_keys: list[str]) -> li
         *(gateway.delete_bytes(key) for key in storage_keys),
         return_exceptions=True,
     )
-    # An object's stored thumbnails go with it (best-effort: each logs its own failure).
-    await asyncio.gather(
+    # An object's stored thumbnails go with it. A failed one is queued: the retry
+    # deletes the (gone) object again, then its thumbnails.
+    thumbs = await asyncio.gather(
         *(delete_thumbnails(gateway, key) for key in storage_keys), return_exceptions=True
     )
+    thumbs_failed = [
+        key for key, done in zip(storage_keys, thumbs, strict=True) if done is not True
+    ]
+    if thumbs_failed:
+        await enqueue_failed_storage_deletes(thumbs_failed)
     failed: list[str] = []
     for key, result in zip(storage_keys, results, strict=False):
         if isinstance(result, Exception):
@@ -201,8 +207,26 @@ async def reap_orphan_attachments(settings: Settings) -> int:
     refunded — without this, an abandoned presign (never sent/confirmed)
     permanently consumes a slot the user can never get back, eventually
     locking them out of image uploads for the day.
+
+    A cycle runs batches while they come back full, up to
+    ``attachment_orphan_reap_batches_per_cycle``: one batch an hour cleared at most
+    2,400 a day, fewer than one "delete all chats" by a heavy photo user leaves.
     """
     await retry_pending_storage_deletes(settings)
+    reaped = 0
+    for _ in range(max(1, settings.attachment_orphan_reap_batches_per_cycle)):
+        listed, removed = await _reap_orphan_batch(settings)
+        reaped += removed
+        # A short batch is the end; one that removed nothing would list the same rows.
+        if listed < settings.attachment_orphan_reap_limit or not removed:
+            break
+    if reaped:
+        logger.info("Reaped %d orphan attachment(s)", reaped)
+    return reaped
+
+
+async def _reap_orphan_batch(settings: Settings) -> tuple[int, int]:
+    """One batch: (orphans listed, rows removed with their bytes)."""
     async with SessionLocal() as session:
         orphans = await attachments_repo.list_orphans(
             session,
@@ -211,7 +235,7 @@ async def reap_orphan_attachments(settings: Settings) -> int:
             limit=settings.attachment_orphan_reap_limit,
         )
     if not orphans:
-        return 0
+        return 0, 0
 
     # DB-first: delete rows that are still unlinked. This returns the storage
     # keys of rows actually removed — a row linked between list and delete
@@ -222,7 +246,7 @@ async def reap_orphan_attachments(settings: Settings) -> int:
             session, ids_to_delete, orphan_only=True
         )
     if not removed_keys:
-        return 0
+        return len(orphans), 0
 
     # Storage cleanup for confirmed-removed rows only.
     removed_set = set(removed_keys)
@@ -241,8 +265,7 @@ async def reap_orphan_attachments(settings: Settings) -> int:
                     logger.warning(
                         "Upload quota refund failed user_id=%s", row.user_id, exc_info=True
                     )
-    logger.info("Reaped %d orphan attachment(s)", len(removed_keys))
-    return len(removed_keys)
+    return len(orphans), len(removed_keys)
 
 
 async def sweep_user_storage(settings: Settings, user_id: UUID) -> int:

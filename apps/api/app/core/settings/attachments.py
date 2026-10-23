@@ -68,6 +68,8 @@ class AttachmentSettings(BaseModel):
     # Bounded reaper batch — the scheduler re-runs, so a limit drains over time
     # instead of loading every orphan in the system into memory.
     attachment_orphan_reap_limit: int = 100
+    # Batches one cycle may run while they come back full (a backlog drains in hours).
+    attachment_orphan_reap_batches_per_cycle: int = 20
 
     # Object storage for attachments. ``local`` writes to disk (dev);
     # ``r2`` presigns Cloudflare R2 (S3-compatible) URLs so the client uploads/

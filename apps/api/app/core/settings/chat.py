@@ -14,7 +14,7 @@ class ChatContextSettings(BaseModel):
     chat_history_rag_chunk_overlap: int = 120
     chat_history_rag_max_chunks_per_message: int = 6
     # A search ranks the user's newest chunks only (exactly, no vector index); older
-    # chunks are kept with their chat.
+    # chunks are deleted as new ones are stored (``chunks_repository.prune_beyond_window``).
     chat_history_rag_search_window: int = 2000
     recent_message_window: int = 20  # hard cap on verbatim messages
     link_preview_cache_ttl: int = 3600
