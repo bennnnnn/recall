@@ -93,6 +93,8 @@ async def test_memory_off_stops_saved_facts_and_past_chat_recall():
         ("what do you know about me?", "self"),
         ("what's my job?", "profile"),
         ("should I ask for a promotion?", "profile"),
+        # A cover letter is written from the saved job and skills.
+        ("write a cover letter for the data analyst job", "profile"),
         ("what should I cook tonight?", "query"),
     ],
 )

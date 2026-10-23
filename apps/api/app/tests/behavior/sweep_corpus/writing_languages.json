@@ -881,5 +881,71 @@
   "history": [],
   "reply": "Moved: **pay rent** — Sunday, Nov 1, 9:00 AM.",
   "expect": "change"
+ },
+ {
+  "id": "w2-081",
+  "area": "writing",
+  "prompt": "escríbele a mi jefe un correo diciendo que mañana llegaré tarde a las 10 por una cita médica",
+  "history": [],
+  "reply": "```email\nAsunto: Llegada tarde mañana\n\nHola Sara:\n\nMañana tengo una cita médica, así que llegaré a la oficina hacia las 10.\n\nGracias,\nBini\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "w2-082",
+  "area": "writing",
+  "prompt": "hazlo más corto",
+  "history": [
+   [
+    "user",
+    "escribe un correo a mi jefe pidiendo el viernes libre"
+   ],
+   [
+    "assistant",
+    "```email\nAsunto: Viernes libre\n\nHola Sara:\n\n¿Podría tomarme este viernes libre por un evento familiar? Dejaré mis tareas al día el jueves.\n\nGracias,\nBini\n```"
+   ]
+  ],
+  "reply": "```email\nAsunto: Viernes libre\n\nHola Sara:\n\n¿Puedo tomarme el viernes libre?\n\nGracias,\nBini\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "w2-083",
+  "area": "writing",
+  "prompt": "añade que vuelvo el lunes a las 9",
+  "history": [
+   [
+    "user",
+    "escribe un correo a mi jefe pidiendo el viernes libre"
+   ],
+   [
+    "assistant",
+    "```email\nAsunto: Viernes libre\n\nHola Sara:\n\n¿Podría tomarme este viernes libre por un evento familiar? Dejaré mis tareas al día el jueves.\n\nGracias,\nBini\n```"
+   ]
+  ],
+  "reply": "```email\nAsunto: Viernes libre\n\nHola Sara:\n\n¿Podría tomarme este viernes libre por un evento familiar? Vuelvo el lunes a las 9.\n\nGracias,\nBini\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "w2-084",
+  "area": "writing",
+  "prompt": "écris un email à mon patron pour demander mon vendredi",
+  "history": [],
+  "reply": "```email\nObjet : Demande de congé vendredi\n\nBonjour Sara,\n\nPourrais-je prendre ce vendredi ? Mon travail de la semaine sera terminé jeudi.\n\nMerci,\nBini\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "w2-085",
+  "area": "writing",
+  "prompt": "Schreib meinem Vermieter eine Nachricht, dass die Heizung seit gestern kaputt ist",
+  "history": [],
+  "reply": "```message\nHallo Herr Weber, die Heizung in meiner Wohnung ist seit gestern kaputt. Könnten Sie bitte jemanden vorbeischicken? Danke!\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "w2-086",
+  "area": "writing",
+  "prompt": "ev sahibime kaloriferin bozulduğunu söyleyen bir mesaj yaz",
+  "history": [],
+  "reply": "```message\nMerhaba, dairemdeki kalorifer bozuldu. Bu hafta birini gönderebilir misiniz? Teşekkürler!\n```",
+  "expect": "answer"
  }
 ]

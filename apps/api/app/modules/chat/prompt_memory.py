@@ -89,7 +89,7 @@ _NAMES_OUR_CONVERSATION = re.compile(
 )
 # Career asks read memory with the profile document, so the current job stays.
 _OWN_CAREER = re.compile(
-    r"\b(?:career|employer|recruiter|candidacy|promotion|interview\w*|resume|cv|"
+    r"\b(?:career|employer|recruiter|candidacy|promotion|interview\w*|resume|cv|cover letters?|"
     r"(?:my|current) (?:job|role|company|work|experience|background|skills|profile|"
     r"responsibilities))\b",
     re.IGNORECASE,

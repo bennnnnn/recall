@@ -42,6 +42,8 @@ from app.modules.chat.prompt_constants.multi_part import MULTI_PART_MARKER
 from app.modules.chat.prompt_constants.writing import (
     EMAIL_ASK_PURPOSE_HINT,
     EMAIL_DRAFT_HINT,
+    NON_DRAFT_TURN_HINT,
+    PERSONAL_RECORD_HINT,
     SOCIAL_DRAFT_HINT,
 )
 from app.modules.chat.prompt_context import _PromptContextBlocks
@@ -98,6 +100,13 @@ HINTS: dict[str, str] = {
     "email": EMAIL_DRAFT_HINT,
     "ask_purpose": EMAIL_ASK_PURPOSE_HINT,
     "social": SOCIAL_DRAFT_HINT,
+    # A cover letter, résumé or bio: only facts the user gave or memory holds.
+    "personal_record": PERSONAL_RECORD_HINT,
+    # "Do not create an email, message ... fence": the turn is no draft.
+    "no_draft": NON_DRAFT_TURN_HINT,
+    # The draft asked for earlier, written or changed on this turn.
+    "draft_revision": "This turn changes the draft you wrote earlier",
+    "draft_now": "and this turn says what it should say or how to change it",
     "brevity": pc.BREVITY_REQUEST_HINT,
     "capabilities": pc.CAPABILITIES_FORMAT_HINT,
     "lightweight": pc.LIGHTWEIGHT_REPLY_HINT,

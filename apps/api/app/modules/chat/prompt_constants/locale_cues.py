@@ -18,7 +18,6 @@ CueGroup = Literal[
     "calendar",
     "email",
     "memory",
-    "writing",
     "advice",
 ]
 
@@ -137,30 +136,6 @@ _CUES: dict[CueGroup, tuple[str, ...]] = {
         "ምን ታስታውሳለህ",
         "ስለ እኔ ምን ታውቃለህ",
     ),
-    "writing": (
-        "escribeme un correo",
-        "escríbeme un correo",
-        "redacta un correo",
-        "escribe un email",
-        "escribe un correo",
-        "écris un mail",
-        "ecris un mail",
-        "rédige un email",
-        "redige un email",
-        "schreib eine email",
-        "schreib mir eine email",
-        "scrivimi una email",
-        "scrivi una email",
-        "escreve um email",
-        "escreva um e-mail",
-        "escreva um email",
-        "напиши письмо",
-        "напиши email",
-        "bir e-posta yaz",
-        "bir email yaz",
-        "ኢሜይል ጻፍ",
-        "ደብዳቤ ጻፍ",
-    ),
     "advice": (
         "qué debería comer",
         "que deberia comer",
@@ -192,7 +167,6 @@ _ALL_GROUPS: tuple[CueGroup, ...] = (
     "calendar",
     "email",
     "memory",
-    "writing",
 )
 
 
@@ -202,32 +176,6 @@ def has_locale_cue(text: str, group: CueGroup) -> bool:
     if not folded:
         return False
     return any(cue in folded for cue in _CUES[group])
-
-
-def starts_with_locale_cue(text: str, group: CueGroup) -> bool:
-    """True when a localized cue starts the request, not quoted later content."""
-    folded = text.casefold().lstrip()
-    if not folded:
-        return False
-    return any(
-        folded == cue
-        or (folded.startswith(cue) and folded[len(cue) : len(cue) + 1] in " \t,.:;!?¿¡")
-        for cue in _CUES[group]
-    )
-
-
-def is_bare_locale_cue(text: str, group: CueGroup) -> bool:
-    """True when a localized cue is the whole request, aside from punctuation.
-
-    This distinguishes a bare ``escribeme un correo`` (ask what it should say)
-    from ``escribeme un correo diciendo ...`` (the purpose is already present).
-    A substring-only check cannot make that distinction and caused non-English
-    draft requests to be interviewed after they had supplied the content.
-    """
-    folded = " ".join(text.casefold().split()).strip(".!?¿¡…،؟")
-    if not folded:
-        return False
-    return any(folded == cue for cue in _CUES[group])
 
 
 def has_any_personal_locale_cue(text: str) -> bool:
