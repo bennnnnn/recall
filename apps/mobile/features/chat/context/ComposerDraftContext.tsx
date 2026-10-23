@@ -13,6 +13,7 @@ import {
 } from "react";
 
 import { subscribeComposerDraftReset } from "@/features/chat/model/composerDraftReset";
+import { isSendEcho, type ClearedText } from "@/features/chat/model/composerSendEcho";
 import {
   COMPOSER_NEW_THREAD_KEY,
   adoptNewComposerThread,
@@ -24,6 +25,8 @@ import { useLatestRef } from "@/lib/latestRef";
 
 type ComposerDraftApi = {
   setInput: Dispatch<SetStateAction<string>>;
+  /** What the user typed; a cleared message autocorrect gives back is dropped. */
+  typeInput: (text: string) => void;
   inputRef: MutableRefObject<string>;
   switchThread: (nextKey: string) => void;
   adoptComposerThread: (nextKey: string) => void;
@@ -44,9 +47,26 @@ const ComposerDraftActivityContext = createContext(false);
 
 /** Owns composer text so keystrokes do not re-render ChatScreen / the message list. */
 export function ComposerDraftProvider({ children }: { children: ReactNode }) {
-  const [input, setInput] = useState("");
+  const [input, setInputState] = useState("");
   const [revision, setRevision] = useState(0);
   const inputRef = useLatestRef(input);
+  const clearedRef = useRef<ClearedText | null>(null);
+  // A clear remembers what it cleared, so the keyboard's late correction of it is dropped.
+  const setInput = useCallback<Dispatch<SetStateAction<string>>>(
+    (next) => {
+      if (next === "" && inputRef.current) clearedRef.current = { text: inputRef.current, at: Date.now() };
+      setInputState(next);
+    },
+    [inputRef],
+  );
+  const typeInput = useCallback(
+    (text: string) => {
+      if (isSendEcho(clearedRef.current, text, Date.now())) return;
+      clearedRef.current = null;
+      setInputState(text);
+    },
+    [],
+  );
   const draftsRef = useRef(new Map<string, string>());
   const threadKeyRef = useRef(COMPOSER_NEW_THREAD_KEY);
 
@@ -58,13 +78,14 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
     inputRef.current = "";
     setInput("");
     setRevision((value) => value + 1);
-  }, [inputRef]);
+  }, [inputRef, setInput]);
 
   useEffect(() => subscribeComposerDraftReset(resetForNewSession), [resetForNewSession]);
 
   const api = useMemo<ComposerDraftApi>(
     () => ({
       setInput,
+      typeInput,
       inputRef,
       switchThread: (nextKey: string) => {
         const fromKey = threadKeyRef.current;
@@ -94,7 +115,7 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
       resetForNewSession,
       getThreadKey: () => threadKeyRef.current,
     }),
-    [resetForNewSession, inputRef],
+    [resetForNewSession, inputRef, setInput, typeInput],
   );
   const value = useMemo<ComposerDraftValue>(() => ({ input, revision }), [input, revision]);
   const hasContent = input.length > 0;
