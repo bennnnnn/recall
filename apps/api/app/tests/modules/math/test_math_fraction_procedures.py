@@ -108,3 +108,44 @@ def test_fraction_direct_reply_and_fence_use_only_canonical_trace() -> None:
     )
     assert '"answer":"\\\\frac{5}{6}"' in cleaned
     assert '"answer":"999"' not in cleaned
+
+
+def test_equal_denominators_skip_the_common_denominator_rewrite() -> None:
+    # "1/2, 3/2 = 1/2, 3/2" rewrote the sum to itself; the denominators already match.
+    spec = _work("Show steps: 1/2 + 3/2")
+
+    assert [step.kind for step in spec.steps] == ["combine", "gcd"]
+    assert "already the same" in spec.steps[0].explanation
+    assert spec.steps[0].expression == r"\frac{1 + 3}{2}"
+    assert spec.steps[0].result == r"\frac{4}{2}"
+    assert spec.steps[1].result == spec.answer == "2"
+
+
+def test_unequal_denominators_rewrite_the_sum_not_a_list() -> None:
+    spec = _work("Show steps: 1/2 + 1/3")
+
+    rewrite = spec.steps[0]
+    assert rewrite.kind == "common_denominator"
+    assert rewrite.expression == r"\frac{1}{2} + \frac{1}{3}"
+    assert rewrite.result == r"\frac{3}{6} + \frac{2}{6}"
+    assert [step.kind for step in spec.steps] == ["common_denominator", "combine"]
+
+
+@pytest.mark.parametrize("symbol", ["+", "-"])
+@pytest.mark.parametrize("first", ["1/2", "3/4", "5/6", "2/3", "1/4", "7/8"])
+@pytest.mark.parametrize("second", ["1/2", "1/4", "1/3", "1/6", "3/8"])
+def test_every_fraction_step_changes_something(symbol: str, first: str, second: str) -> None:
+    question = f"Show steps: {first} {symbol} {second}"
+    intent = extract_math_intent(question)
+    if intent is None or (symbol == "-" and Fraction(first) < Fraction(second)):
+        return
+    spec = _work(question)
+    for step in spec.steps:
+        assert step.expression != step.result, (question, step)
+        assert ",\\ " not in step.expression + step.result, (question, step)
+    expected = (
+        Fraction(first) + Fraction(second)
+        if symbol == "+"
+        else (Fraction(first) - Fraction(second))
+    )
+    assert Fraction(spec.exact_numerator or 0, spec.exact_denominator or 1) == expected
