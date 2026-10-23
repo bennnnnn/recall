@@ -466,5 +466,12 @@
   "prompt": "is a 15% tip enough in New York?",
   "reply": "In New York, 18–20% is the usual tip at a sit-down restaurant.",
   "expect": "answer"
+ },
+ {
+  "id": "rg-083",
+  "area": "chitchat",
+  "prompt": "whats 72 fahrenheit in celsius",
+  "reply": "72°F is about **22.2°C**, a comfortable room temperature.\n\n```chart\ntype: scatter\ntitle: \"Temperature\"\ndata: |\n  Fahrenheit | Celsius\n  ---------- | -------\n  32         | 0\n  72         | 22.2\n```\n\nTo convert, subtract 32 from the Fahrenheit reading, then multiply what is left by 5 and divide by 9: $C = \\frac{5}{9}(72 - 32)$, so $C \\approx 22.2^\\circ\\text{C}$. Water freezes at 32°F and boils at 212°F, which helps when you check an answer.",
+  "expect": "answer"
  }
 ]

@@ -48,6 +48,7 @@ from uuid import uuid4
 from app.models.orm import User
 from app.modules.account.settings_intent import extract_settings_changes
 from app.modules.chat import messages_repository
+from app.modules.chat.chart_sanitize import chart_is_drawable
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -55,7 +56,7 @@ from app.modules.chat.turn_prep import StreamContext
 from app.modules.memory import is_explicit_memory_command
 from app.modules.todos import write_log
 from app.modules.todos.reply_check import NEED_A_TIME
-from app.services.md_fence_scan import without_fences
+from app.services.md_fence_scan import iter_closed_fences, without_fences
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.harness import USER_TIMEZONE, battery_settings, route_case
 from app.tests.fakes import fake_session
@@ -392,7 +393,9 @@ async def _run_entry(entry: Entry) -> Outcome:
             assistant_parts=[entry.reply],
             should_cancel=None,
         )
-    outcome.problems = judge(outcome) + claims_above_a_pending_card(outcome.final)
+    outcome.problems = (
+        judge(outcome) + claims_above_a_pending_card(outcome.final) + undrawn_charts(outcome.final)
+    )
     return outcome
 
 
@@ -523,6 +526,15 @@ _PENDING_CARD_CLAIM = re.compile(
     r"|^\W*(?:done|all set)\b",
     re.IGNORECASE | re.MULTILINE,
 )
+
+
+def undrawn_charts(final: str) -> list[str]:
+    """A ```chart the phone cannot draw ("Could not render that chart") never ships."""
+    return [
+        "a chart the phone cannot draw"
+        for _start, _end, body in iter_closed_fences(final, "chart")
+        if not chart_is_drawable(body)
+    ]
 
 
 def claims_above_a_pending_card(final: str) -> list[str]:
