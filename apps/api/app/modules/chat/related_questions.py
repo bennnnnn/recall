@@ -12,7 +12,7 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
-from app.modules.chat.clarify_turn import card_in_reply
+from app.modules.chat.clarify_card import CLARIFY_FENCE
 from app.modules.chat.continuation_subject import (
     BIOLOGY_CUES,
     is_new_problem_request,
@@ -23,7 +23,7 @@ from app.modules.chat.prompt_constants.routing import (
     is_personal_disclosure_turn,
 )
 from app.modules.chat.prompt_constants.writing_kind import writing_request_kind
-from app.services.md_fence_scan import read_fence_marker
+from app.services.md_fence_scan import iter_fences, read_fence_marker
 from app.services.problem_followup import message_role_content
 from app.services.subject_solving import detect_subject
 from app.services.text_normalize import collapse_ws
@@ -37,7 +37,8 @@ _VAGUE_WHAT_IF = re.compile(
     r"^what\s+if\s+(?:it|that|this|they)\s+(?:was|were|is|are)\s+[-+]?\d[\d.,]*\s*\??$",
     re.IGNORECASE,
 )
-_WORD = re.compile(r"[A-Za-z]{2,}")
+# A word in any script: "Какой", "ዶሮ" and "pâte" count as words, not only ASCII.
+_WORD = re.compile(r"[^\W\d_]{2,}")
 _MATH_SPAN = re.compile(r"\$([^$\n]+)\$")
 # A digit glued to a radical (`^5\sqrt{x}`) or to a variable (`x5`).
 _GLUED_RADICAL = re.compile(r"\^\s*\d+\s*\\sqrt")
@@ -77,7 +78,10 @@ _FOLLOW_UP_LEADS = frozenset(
         "if",
     }
 )
-_CONTENT_WORD = re.compile(r"[a-z]{5,}")
+# Lower-case Latin letters with their accents (casefolded text): "pâte" is one word, not
+# "p" and "te", and "différence" is not "rence".
+_LATIN = "a-zß-öø-ÿ\u0100-\u017f"
+_CONTENT_WORD = re.compile(rf"[{_LATIN}]{{5,}}")
 _UNIT_TOKEN = re.compile(r"[a-z]+/[a-z]+")
 
 
@@ -296,7 +300,7 @@ _STOP_WORDS = frozenset(
         "your",
     }
 )
-_TOPIC_WORD = re.compile(r"[a-z]{4,}")
+_TOPIC_WORD = re.compile(rf"[{_LATIN}]{{4,}}")
 
 
 def _keep_question(
@@ -343,8 +347,9 @@ def topic_anchors(question: str, excerpt: str) -> set[str]:
     """Words that keep a general follow-up on the user's topic.
 
     The question's words, and the reply's longer words: "Can I use whole wheat
-    flour?" stays with a sourdough answer that mentions flour. A question in a
-    script without Latin letters has none, and the check stays off.
+    flour?" stays with a sourdough answer that mentions flour. A four-letter reply
+    word counts when it has an accent ("pâte"): no English function word does. A
+    question in a script without Latin letters has none, and the check stays off.
     """
     asked = {
         word
@@ -354,7 +359,9 @@ def topic_anchors(question: str, excerpt: str) -> set[str]:
     if not asked:
         return set()
     replied = {
-        word for word in _CONTENT_WORD.findall(excerpt.casefold()) if word not in _STOP_WORDS
+        word
+        for word in _TOPIC_WORD.findall(excerpt.casefold())
+        if (len(word) >= 5 or not word.isascii()) and word not in _STOP_WORDS
     }
     return asked | replied
 
@@ -433,6 +440,11 @@ def general_question(question: str, answer: str) -> bool:
     return len(answer_excerpt(answer)) >= _GENERAL_MIN_ANSWER_CHARS
 
 
+# A card the user answers with a tap is the reply's next step: a clarify card's
+# picks, or a reminder to confirm. Follow-up questions under it would compete.
+_AWAITS_A_TAP = frozenset({CLARIFY_FENCE, "reminder_proposal"})
+
+
 def follow_up_topic(
     question: str,
     answer: str,
@@ -442,10 +454,11 @@ def follow_up_topic(
 ) -> tuple[str, str | None] | None:
     """("subject", problem) or ("general", None); None makes no call.
 
-    A reply that ends on a clarify card has its follow-up already: the card's
-    questions. Suggestions under it only repeated them ("What is your budget?").
+    A reply that ends on a card waiting for a tap has its follow-up already: a clarify
+    card's questions, a reminder to confirm. Suggestions under it only repeated them
+    ("What is your budget?").
     """
-    if card_in_reply(answer) is not None:
+    if any(fence.lang in _AWAITS_A_TAP for fence in iter_fences(answer)):
         return None
     problem = thread_problem(question, prior)
     if problem is not None:

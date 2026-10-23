@@ -105,17 +105,20 @@ def role_content_dicts(messages: Sequence[Any]) -> list[dict[str, str]]:
 
 
 def read_prompt_inputs(
-    query_text: str | None, exchange: list[dict[str, str]]
+    query_text: str | None,
+    exchange: list[dict[str, str]],
+    part_texts: tuple[str, ...] = (),
 ) -> FollowupSubject | None:
     """What the prompt's sections read of the query and the last exchange, in a pool worker.
 
     Returns ``followup_subject``. The query's subject (the memory scope and the task
-    rules ask it) and the presentation subject the style hints read are kept for the
-    turn (``core/readings``).
+    rules ask it), each request's subject (a part's own layout asks it) and the
+    presentation subject the style hints read are kept for the turn (``core/readings``).
     """
     from app.services.subject_solving import detect_subject
 
-    if query_text:
-        detect_subject(query_text)
+    for text in dict.fromkeys((query_text, *part_texts)):
+        if text:
+            detect_subject(text)
     effective_presentation_subject(query_text, exchange_pairs(exchange))
     return followup_subject(query_text, exchange)

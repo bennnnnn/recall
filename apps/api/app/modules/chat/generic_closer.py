@@ -35,7 +35,8 @@ _CLOSER = re.compile(
     r"|(?:there's |there is )?anything else (?:i can (?:help (?:you )?with|do for you)|you need)"
     r"|i can help with anything else))?"
     rf"|if you have {_QUESTIONS},? (?:feel free to ask|(?:just )?let me know|(?:just )?ask)"
-    r"|is there anything else (?:i can help (?:you )?with|you(?:'d| would) like to know)"
+    r"|(?:is there )?anything else (?:i can (?:help (?:you )?with|do for you)"
+    r"|you(?:'d| would) like to know)"
 )
 # Words that mean the user asked about (or for) such a line themselves.
 _ASKED_ABOUT = ("hope this helps", "let me know", "feel free", "any other questions")
@@ -98,9 +99,13 @@ def _without_last_closer(body: str) -> str | None:
     cut = 0
     for match in _SENTENCE_BREAK.finditer(line):
         cut = match.end()
+    # "Happy cooking! 🇳🇬 Let me know…": the emoji stays with the sentence before it.
+    while cut < len(line) and (line[cut] == " " or EMOJI.fullmatch(line[cut])):
+        cut += 1
     if not _is_closer(line[cut:]):
         return None
-    rest = line[:cut].rstrip()
+    # Emoji alone is not a sentence left to keep.
+    rest = line[:cut].rstrip() if _without_trailing_emoji(line[:cut]) else ""
     kept = "\n".join(part for part in (head, rest) if part)
     lines = kept.rstrip().split("\n")
     while lines and lines[-1].strip() in _RULES:

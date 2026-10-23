@@ -49,6 +49,24 @@ describe("RelatedPromptLines", () => {
   });
 });
 
+describe("RelatedPromptLines in other scripts", () => {
+  it("offers follow-ups written in Russian, Amharic and French", async () => {
+    const prompts = [
+      "Какой рис лучше всего подходит для плова?",
+      "ዶሮ ወጥ ምን ያህል ጊዜ ይበስላል?",
+      "Combien de temps faut-il pétrir la pâte ?",
+    ];
+    const onSelect = jest.fn();
+    const { getAllByRole, getByLabelText } = await render(
+      <RelatedPromptLines prompts={prompts} onSelect={onSelect} />,
+    );
+
+    expect(getAllByRole("button")).toHaveLength(3);
+    fireEvent.press(getByLabelText(prompts[1]!));
+    expect(onSelect).toHaveBeenCalledWith(prompts[1]);
+  });
+});
+
 describe("RelatedPromptLines underline", () => {
   it("draws dots across the words' width once it is measured", async () => {
     const { getByTestId } = await render(

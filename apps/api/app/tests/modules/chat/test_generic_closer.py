@@ -29,6 +29,14 @@ ANSWER = "Water boils at **100 °C** at sea level."
             "further clarification.",
             "```python\nprint(1)\n```",
         ),
+        (f"{ANSWER}\n\nAnything else I can help with?", ANSWER),
+        # The user wrote emoji, so the reply did: the flag stays with its own sentence.
+        (
+            f"{ANSWER}\n\nHappy cooking! 🇳🇬 Let me know if you have any other questions! 😊",
+            f"{ANSWER}\n\nHappy cooking! 🇳🇬",
+        ),
+        (f"{ANSWER} 👨‍👩‍👧 Hope this helps!", f"{ANSWER} 👨‍👩‍👧"),
+        (f"{ANSWER}\n\n😊 Hope this helps!", ANSWER),
     ],
 )
 def test_a_generic_closer_on_the_last_line_comes_off(reply: str, kept: str) -> None:
