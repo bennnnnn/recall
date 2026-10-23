@@ -29,6 +29,7 @@ from app.core.db import SessionLocal, engine
 from app.gateways import mock_llm, storage_gateway
 from app.models.orm import Message, User
 from app.modules.chat import finalize_registry, stream_entry, ws_api
+from app.modules.chat import stream_pipeline as pipeline
 from app.repositories import usage as usage_repo
 from app.services.quota import get_daily_usage, utc_today
 
@@ -285,3 +286,33 @@ async def test_sse_client_gone_before_the_message_saves_keeps_the_message(
     assert [event["type"] for event in events] == ["start"]
     assert await chat.rows() == [("user", "Explain black holes", None)]
     assert await chat.settled() == (0, 0, False)
+
+
+async def test_ws_stop_after_stream_end_still_sends_done(
+    chat: _Chat, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: a Stop that crossed ``stream_end`` on the wire cancelled the wait on
+    the reply's commit, so ``done`` never came: the phone kept the reply under a local
+    id (feedback on it never saved) and got no follow-up questions."""
+    commit = pipeline.finalize_stream_turn_db
+    saving = asyncio.Event()
+
+    async def slow_commit(*args: Any, **kwargs: Any) -> None:
+        saving.set()
+        await asyncio.sleep(0.2)
+        await commit(*args, **kwargs)
+
+    monkeypatch.setattr(pipeline, "finalize_stream_turn_db", slow_commit)
+    sock = await chat.socket()
+    sock.put(_message("hello there"))
+    await sock.until("stream_end")
+    await saving.wait()
+    sock.put({"type": "cancel", "shown_chars": 3})
+    done = await sock.until("done")
+
+    rows = await chat.rows()
+    assert rows[-1][0] == "assistant" and done["message_id"]
+    assert sock.kinds()[-2:] == ["stream_end", "done"]
+    used, in_db, locked = await chat.settled()
+    assert used == in_db > 0 and not locked
+    await sock.close()

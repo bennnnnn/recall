@@ -167,11 +167,11 @@ async def stream_over_ws(
     heartbeat = asyncio.create_task(keep_alive())
 
     def stop() -> None:
-        """The user's Stop; a server shutdown runs the same one."""
+        """The user's Stop (a server shutdown runs the same one): it cuts an in-flight
+        model wait short, but not the wait for ``done`` that is all ``stream_end`` leaves."""
         cancel_event.set()
-        # Interrupt in-flight LiteLLM wait, not only between tokens: once the
-        # turn's user row is saved (``TurnOutcome.stop_when_safe``).
-        outcome.stop_when_safe(producer.cancel)
+        if not text_complete.is_set():
+            outcome.stop_when_safe(producer.cancel)
 
     if chat_id is not None:
         # GET /messages waits on the producer so a New-chat leave can still
