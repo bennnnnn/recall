@@ -9,7 +9,7 @@ import {
   type ReminderProposal,
 } from "@/features/todos/model/reminderProposal";
 import { api, type Todo } from "@/lib/api";
-import { notifyDestructive, notifySuccess, notifyWarning } from "@/lib/haptics";
+import { notifyDestructive, notifyError, notifySuccess } from "@/lib/haptics";
 
 type ReminderProposalError = "expired" | "changed" | "failed";
 
@@ -49,7 +49,7 @@ export function useReminderProposal(proposal: ReminderProposal) {
       // ApiRequestError carries the HTTP status: 410 expired, 409 changed since.
       const status = (caught as { status?: unknown } | null)?.status;
       setError(status === 410 ? "expired" : status === 409 ? "changed" : "failed");
-      notifyWarning();
+      notifyError();
     } finally {
       setBusy(false);
     }

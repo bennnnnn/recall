@@ -79,10 +79,18 @@ export function notifySuccess(): void {
   });
 }
 
-/** Validation, a failed send, or a confirmed destructive action. */
+/** Validation, a blocked action (offline), or a confirmed destructive action. */
 export function notifyWarning(): void {
   play({
     ios: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning),
+    android: (api) => (api >= 30 ? Haptics.AndroidHaptics.Reject : Haptics.AndroidHaptics.Long_Press),
+  });
+}
+
+/** Something failed: a reply, a save, a delete. Not what a confirmed delete feels like. */
+export function notifyError(): void {
+  play({
+    ios: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
     android: (api) => (api >= 30 ? Haptics.AndroidHaptics.Reject : Haptics.AndroidHaptics.Long_Press),
   });
 }

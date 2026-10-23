@@ -2,13 +2,13 @@ import { act, renderHook } from "@testing-library/react-native";
 
 import { applySavedRows, useReminderProposal } from "@/features/todos/hooks/useReminderProposal";
 import { api, type Todo } from "@/lib/api";
-import { notifyDestructive, notifySuccess, notifyWarning, tap } from "@/lib/haptics";
+import { notifyDestructive, notifyError, notifySuccess, tap } from "@/lib/haptics";
 
 jest.mock("@/lib/api", () => ({ api: { confirmReminderProposal: jest.fn() } }));
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
   notifySuccess: jest.fn(),
-  notifyWarning: jest.fn(),
+  notifyError: jest.fn(),
   notifyDestructive: jest.fn(),
 }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: "tok" }) }));
@@ -62,7 +62,7 @@ it("reads the list when another device saved the card first", async () => {
   expect(mockTodos.setTodos).not.toHaveBeenCalled();
 });
 
-const haptics = [tap, notifySuccess, notifyWarning, notifyDestructive];
+const haptics = [tap, notifySuccess, notifyError, notifyDestructive];
 const hapticCount = () => haptics.reduce((sum, fn) => sum + jest.mocked(fn).mock.calls.length, 0);
 
 it.each([
@@ -85,6 +85,6 @@ it("says a failed save with a haptic and no success", async () => {
   const { result } = await renderHook(() => useReminderProposal(proposal));
   await act(async () => { await result.current.confirm(); });
   expect(result.current.error).toBe("expired");
-  expect(notifyWarning).toHaveBeenCalledTimes(1);
+  expect(notifyError).toHaveBeenCalledTimes(1);
   expect(notifySuccess).not.toHaveBeenCalled();
 });

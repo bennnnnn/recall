@@ -5,7 +5,7 @@ import {
   ActionFeedbackProvider,
   useActionFeedback,
 } from "@/contexts/ActionFeedbackContext";
-import { notifySuccess } from "@/lib/haptics";
+import { notifyError, notifySuccess, notifyWarning } from "@/lib/haptics";
 
 jest.mock("@/ui/feedback/ActionBanner", () => {
   const { Text: RNText } = jest.requireActual("react-native") as typeof import("react-native");
@@ -18,6 +18,7 @@ jest.mock("@/ui/feedback/ActionBanner", () => {
 jest.mock("@/lib/haptics", () => ({
   notifySuccess: jest.fn(),
   notifyWarning: jest.fn(),
+  notifyError: jest.fn(),
 }));
 
 function Harness() {
@@ -43,6 +44,33 @@ describe("ActionFeedbackProvider", () => {
 
     expect(getByText("success:Saved")).toBeOnTheScreen();
     expect(notifySuccess).toHaveBeenCalledTimes(1);
+  });
+
+  // A failure must not feel like a confirmed delete (notifyDestructive is a warning).
+  it.each([
+    ["error", notifyError],
+    ["warning", notifyWarning],
+  ] as const)("plays the %s haptic for a toast of that tone", async (tone, played) => {
+    function Toast() {
+      const feedback = useActionFeedback();
+      return (
+        <Pressable accessibilityRole="button" onPress={() => feedback[tone]("Could not delete")}>
+          <Text>Trigger</Text>
+        </Pressable>
+      );
+    }
+    jest.clearAllMocks();
+    const view = await render(
+      <ActionFeedbackProvider>
+        <Toast />
+      </ActionFeedbackProvider>,
+    );
+    await act(async () => {
+      fireEvent.press(view.getByRole("button"));
+    });
+    expect(played).toHaveBeenCalledTimes(1);
+    const others = [notifyError, notifyWarning, notifySuccess].filter((fn) => fn !== played);
+    for (const fn of others) expect(fn).not.toHaveBeenCalled();
   });
 
   it("shows the screen's toasts in a provider mounted over it (a full-screen viewer) while it is open", async () => {

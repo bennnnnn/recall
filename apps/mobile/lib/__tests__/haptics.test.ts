@@ -31,6 +31,7 @@ import { Platform } from "react-native";
 import {
   impactMedium,
   notifyDestructive,
+  notifyError,
   notifySuccess,
   notifyWarning,
   hapticsEnabled,
@@ -66,6 +67,7 @@ describe("haptics", () => {
     ["impactMedium", impactMedium, mockImpactAsync, "medium"],
     ["notifySuccess", notifySuccess, mockNotificationAsync, "success"],
     ["notifyWarning", notifyWarning, mockNotificationAsync, "warning"],
+    ["notifyError", notifyError, mockNotificationAsync, "error"],
   ] as const)("%s plays the iOS feedback generator", async (_name, play, native, arg) => {
     play();
     await flush();
@@ -86,6 +88,8 @@ describe("haptics", () => {
     ["notifySuccess before Android 11", notifySuccess, 29, "virtual-key"],
     ["notifyWarning", notifyWarning, 30, "reject"],
     ["notifyWarning before Android 11", notifyWarning, 29, "long-press"],
+    ["notifyError", notifyError, 30, "reject"],
+    ["notifyError before Android 11", notifyError, 29, "long-press"],
   ] as const)("%s plays the Android system haptic", async (_name, play, api, constant) => {
     onDevice("android", api);
     play();
