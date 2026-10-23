@@ -1387,5 +1387,46 @@
   "prompt": "what's happening in the world today",
   "reply": "Here are today's top stories from the results above.",
   "expect": "search"
+ },
+ {
+  "id": "sp-147",
+  "area": "photo",
+  "prompt": "show the vertex",
+  "history": [
+   [
+    "user",
+    "graph y = x^2 - 5x + 6"
+   ],
+   [
+    "assistant",
+    "Here's the parabola y = x² − 5x + 6. It opens upward and crosses the x-axis twice."
+   ]
+  ],
+  "reply": "The vertex is at **(2.5, −0.25)**, the lowest point of the parabola.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-148",
+  "area": "photo",
+  "prompt": "show me the roots",
+  "history": [
+   [
+    "user",
+    "graph y = x^2 - 5x + 6"
+   ],
+   [
+    "assistant",
+    "Here's the parabola y = x² − 5x + 6. It opens upward and crosses the x-axis twice."
+   ]
+  ],
+  "reply": "The roots are **x = 2** and **x = 3**, where the curve crosses the x-axis.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-149",
+  "area": "photo",
+  "prompt": "show me the roots of a mangrove tree",
+  "reply": "Here are **mangrove roots**: arching prop roots that hold the tree above the water, and pencil-like roots that poke up from the mud to breathe.",
+  "expect": "photo"
  }
 ]
