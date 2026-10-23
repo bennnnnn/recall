@@ -430,7 +430,8 @@ def test_universal_format_baseline_pins_answer_first_and_no_decoration():
     assert "Never use decorative headings" in UNIVERSAL_FORMAT_BASELINE
     assert "Introduction, Background, Overview, Conclusion" in UNIVERSAL_FORMAT_BASELINE
     assert "Let's dive in" in UNIVERSAL_FORMAT_BASELINE
-    assert "Do not decorate with emoji unless the user used them." in UNIVERSAL_FORMAT_BASELINE
+    # Emoji follow the user's setting (``response_tone.emoji_hint``), not a baseline ban.
+    assert "emoji" not in UNIVERSAL_FORMAT_BASELINE.lower()
     assert "[OpenAI docs](url)" in UNIVERSAL_FORMAT_BASELINE
     assert "not raw URLs" in UNIVERSAL_FORMAT_BASELINE
     assert "Do not restate the question." in UNIVERSAL_FORMAT_BASELINE

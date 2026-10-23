@@ -66,6 +66,7 @@ _PROFILE_FIELDS = (
     "default_model",
     "enabled_models",
     "response_tone",
+    "emoji_use",
     "custom_instructions",
     "locale",
     "timezone",

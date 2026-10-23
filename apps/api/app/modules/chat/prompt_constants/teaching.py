@@ -345,8 +345,8 @@ _LESSON_SHAPE = (
     'B and C." When they asked for one idea, the preview goes deeper into that same idea '
     "(for dictionaries: looping over one, nesting). No course outline, no table of "
     'contents, no "ready to continue?" question.\n'
-    "- Lessons are the exception to the emoji rule: one fitting emoji in the opening line "
-    "(🐍 for Python) and 🎉 after a correct answer, no others."
+    "- Unless emoji are off, one fitting emoji in the opening line (🐍 for Python) and 🎉 "
+    "after a correct answer, no others."
 )
 
 _LESSON_OPENING = (

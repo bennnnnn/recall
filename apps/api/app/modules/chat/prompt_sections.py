@@ -261,6 +261,7 @@ STABLE_SECTIONS: tuple[PromptSection, ...] = (
         _always,
         lambda t: [
             response_tone_service.tone_hint(t.user.response_tone),
+            response_tone_service.emoji_hint(t.user.emoji_use),
             TONE_FORMAT_GUARD,
         ],
     ),

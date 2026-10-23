@@ -40,6 +40,34 @@ def test_me_patch_updates_user():
     assert r.status_code == 200
 
 
+@pytest.mark.parametrize("level", ["off", "some", "more"])
+def test_me_patch_sets_how_many_emoji_replies_use(level: str):
+    user = api_user()
+    update = AsyncMock(return_value=user)
+
+    with patch("app.modules.account.lifecycle.users_repo.update", update):
+        r = TestClient(app_with_user(user)).patch(
+            "/auth/me", headers={"Authorization": "Bearer tok"}, json={"emoji_use": level}
+        )
+    assert r.status_code == 200
+    assert update.await_args is not None and update.await_args.kwargs["emoji_use"] == level
+    assert r.json()["emoji_use"] == "some"
+
+
+def test_me_patch_refuses_an_emoji_level_that_does_not_exist():
+    r = TestClient(app_with_user(api_user())).patch(
+        "/auth/me", headers={"Authorization": "Bearer tok"}, json={"emoji_use": "lots"}
+    )
+    assert r.status_code == 422
+
+
+def test_emoji_use_starts_at_a_few_for_every_account():
+    from app.models.orm import User
+
+    column = User.__table__.c.emoji_use
+    assert column.default.arg == "some" and column.server_default.arg == "some"
+
+
 def test_me_patch_invalidates_memory_cache_on_toggle():
     user = api_user()
     user.memory_enabled = True

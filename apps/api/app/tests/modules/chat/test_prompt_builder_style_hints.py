@@ -78,7 +78,6 @@ def test_rich_turn_injects_universal_format_baseline():
     assert UNIVERSAL_FORMAT_BASELINE in parts
     joined = "\n".join(parts)
     assert "Lead with the answer; explanation after." in joined
-    assert "Do not decorate with emoji unless the user used them." in joined
     assert "[OpenAI docs](url)" in joined
     assert "do not add sections just to look structured" in joined
 
@@ -113,14 +112,53 @@ def test_funny_tone_does_not_pad_one_line_arithmetic() -> None:
     assert "occasional emoji" not in funny
 
 
-# The format baseline mirrors the user's emoji; no tone may forbid that outright.
-def test_no_tone_forbids_emoji_the_user_used() -> None:
+# The emoji setting alone decides emoji; a tone that named them contradicted it.
+def test_no_tone_speaks_about_emoji() -> None:
     from app.services.response_tone import TONE_HINTS
 
     for tone, hint in TONE_HINTS.items():
-        for sentence in hint.split(". "):
-            if "emoji" in sentence:
-                assert "unless" in sentence, tone
+        assert "emoji" not in hint.lower(), tone
+
+
+@pytest.mark.parametrize(
+    ("level", "says"),
+    [
+        ("off", "Emoji: none."),
+        ("some", "Emoji: a few"),
+        ("more", "Emoji: plenty"),
+        (None, "Emoji: a few"),
+        ("unknown", "Emoji: a few"),
+    ],
+)
+def test_the_emoji_setting_picks_one_line(level: str | None, says: str) -> None:
+    from app.services.response_tone import emoji_hint
+
+    assert emoji_hint(level).startswith(says)
+
+
+@pytest.mark.parametrize("level", ["some", "more"])
+def test_emoji_stay_out_of_what_is_read_exactly(level: str) -> None:
+    from app.services.response_tone import emoji_hint
+
+    hint = emoji_hint(level)
+    for place in ("maths", "code", "fenced card", "worked maths", "draft", "painful"):
+        assert place in hint, (level, place)
+
+
+@pytest.mark.parametrize("level", ["off", "some", "more"])
+def test_every_turn_carries_the_users_emoji_setting(level: str) -> None:
+    from types import SimpleNamespace
+    from typing import cast
+
+    from app.modules.chat.prompt_sections import STABLE_SECTIONS, PromptTurn
+    from app.services.response_tone import emoji_hint
+
+    user = SimpleNamespace(
+        response_tone="casual", emoji_use=level, custom_instructions=None, locale="en"
+    )
+    turn = cast("PromptTurn", SimpleNamespace(user=user))
+    texts = [text for section in STABLE_SECTIONS[:2] for text in section.render(turn)]
+    assert emoji_hint(level) in texts
 
 
 # "Lead with the answer" and the tips list must not turn "I just got laid off" into a listicle.

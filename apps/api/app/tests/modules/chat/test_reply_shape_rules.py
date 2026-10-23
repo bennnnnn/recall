@@ -25,8 +25,7 @@ def test_headings_rule_does_not_contradict_the_short_how_to() -> None:
     assert "learning plan / how-to leads with ## headings" not in TONE_FORMAT_GUARD
 
 
-def test_a_greeting_gets_no_emoji_or_offer_unless_the_user_used_one() -> None:
-    assert "No emoji unless the user used one" in LIGHTWEIGHT_REPLY_HINT
+def test_a_greeting_gets_no_closing_offer() -> None:
     assert "no closing offer" in LIGHTWEIGHT_REPLY_HINT
 
 

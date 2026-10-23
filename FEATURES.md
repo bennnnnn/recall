@@ -774,8 +774,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Experience** — Appearance (System / Light / Dark), Accent color, Language and
   Haptics, all on the Settings page itself. Appearance, accent and haptics are saved on
   the device; Haptics off silences every `lib/haptics` call.
-- ✅ **Personalization** — tone labels and custom instructions. Stored tone ids stay
-  `soft` / `casual` / `professional` / `funny`. There is no response-length setting:
+- ✅ **Personalization** — tone labels, emoji and custom instructions. Stored tone ids stay
+  `soft` / `casual` / `professional` / `funny`. Emoji (`users.emoji_use`: `off` /
+  `some` / `more`, every account starts at `some`) is the one emoji rule in the prompt
+  (`services/response_tone.emoji_hint`): a few lead headings and list labels, never in
+  numbers, maths, code, cards, a worked solution, a draft or a painful reply; no tone
+  speaks about emoji. There is no response-length setting:
   each message sets its own ("briefly", "in detail"), and how hard a turn thinks is
   automatic (`modules/chat/model_routing/thinking.py`). The old `users.response_style` column is
   neither read nor returned, and goes in a later release (docs/ROLLBACK.md).

@@ -34,6 +34,8 @@ export type User = {
    * Absent only from an older server, which the consent gate lets through. */
   ai_data_consent_at?: string | null;
   response_tone: string;
+  /** How many emoji replies use: "off", "some" (the default) or "more". */
+  emoji_use?: string;
   memory_enabled: boolean;
   memory_include_sensitive?: boolean;
   push_notifications_enabled: boolean;
