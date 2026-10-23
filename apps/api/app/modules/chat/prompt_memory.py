@@ -50,10 +50,11 @@ MEMORY_PARTIAL_HINT = (
     "is not listed, say you couldn't check all of their saved memory just now, not that it "
     "isn't saved."
 )
+# "Earlier" may be this conversation: the budget said ten messages up is in the history.
 NO_PAST_RECORD_HINT = (
-    "No earlier chat about this was found. If saved memory doesn't answer it either, do not "
-    "invent what was said or decided before: say you can't find it and ask the user to "
-    "remind you."
+    "No earlier chat about this was found. Answer from this conversation or saved memory "
+    "when either has it; if neither does, do not invent what was said or decided before: "
+    "say you can't find it and ask the user to remind you."
 )
 
 # "My app", "our backend": the user's own software.
