@@ -118,6 +118,8 @@ LOOKALIKE_HINTS = {
     "checklist lookalike": "checklist",
     # "Label: value" lines with no card before them are not picks.
     "clarify lookalike": "clarify_picks",
+    # "The best countries for business" says what it is for: answered, not asked.
+    "purpose given": "clarify",
     "money lookalike": "money",
     # "I don't understand why she left" is not a topic to be taught.
     "walkthrough lookalike": "walkthrough",

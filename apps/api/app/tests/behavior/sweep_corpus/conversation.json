@@ -564,5 +564,33 @@
   ],
   "reply": "Of those three, Singapore has the lowest income tax rates.",
   "expect": "answer"
+ },
+ {
+  "id": "cv-059",
+  "area": "purpose given",
+  "prompt": "What are the best countries for business",
+  "reply": "1. 🇸🇬 **Singapore** — low taxes, fast setup and strong IP law.\n2. 🇦🇪 **UAE** — 0% income tax in free zones.\n3. 🇺🇸 **United States** — the biggest market and easy Delaware setup.\n\nWant me to narrow it down for your kind of business?",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-060",
+  "area": "purpose given",
+  "prompt": "best laptop for coding",
+  "reply": "1. 💻 **MacBook Air M4** — long battery life and a great screen.\n2. 🐧 **Lenovo ThinkPad X1 Carbon** — the best keyboard, runs Linux well.\n\nTell me your budget and I can narrow it down.",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-061",
+  "area": "purpose given",
+  "prompt": "what's the best way to learn Spanish",
+  "reply": "1. 🗣️ **Speak early** — a weekly conversation partner beats months of drills.\n2. 📱 **Daily practice** — 15 minutes a day with an app keeps it going.",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-062",
+  "area": "purpose given",
+  "prompt": "best phone under $500",
+  "reply": "1. 📱 **Google Pixel 9a** — the best camera at the price.\n2. 🍏 **iPhone 16e** — the cheapest way into iOS.",
+  "expect": "answer"
  }
 ]

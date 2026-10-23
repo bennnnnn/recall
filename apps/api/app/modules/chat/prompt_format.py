@@ -80,10 +80,8 @@ from app.modules.chat.prompt_constants import (
     writing_format_hint,
     writing_request_kind,
 )
-from app.modules.chat.prompt_constants.answer_subject import (
-    asked_about_subject,
-    subject_photo_hint,
-)
+from app.modules.chat.prompt_constants.answer_subject import asked_about_subject, subject_photo_hint
+from app.modules.chat.prompt_constants.clarify import names_its_purpose
 from app.modules.chat.prompt_constants.lesson_flow import lesson_turn_hint
 from app.modules.chat.prompt_constants.visuals import (
     ANSWER_PHOTO_HINT,
@@ -352,10 +350,12 @@ def _answer_photo(turn: StyleTurn) -> list[str]:
 
 
 def _may_ask_with_card(turn: StyleTurn) -> bool:
-    """An unshaped turn (no greeting, draft, code, lesson, problem), not a card's answer."""
+    """An unshaped turn (no greeting, draft, code, lesson, problem), not a card's answer,
+    and not a "best X for Y" question, which already says what it is for."""
     shaped = turn.compact or turn.multi or turn.writing or turn.code_hint or turn.lesson_hint
     lesson = turn.teaching or turn.learning_plan or turn.subject in _NO_PHOTO_SUBJECTS
-    return bool(turn.query) and not shaped and not lesson and not turn.after_card
+    answerable = turn.after_card or names_its_purpose(turn.query)
+    return bool(turn.query) and not shaped and not lesson and not answerable
 
 
 HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (

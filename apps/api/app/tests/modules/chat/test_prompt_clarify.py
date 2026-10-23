@@ -9,6 +9,7 @@ from app.modules.chat.prompt_constants import (
     CLARIFY_CARD_HINT,
     COMPARISON_FORMAT_HINT,
 )
+from app.modules.chat.prompt_constants.clarify import names_its_purpose
 from app.modules.chat.prompt_format import _style_format_hints
 
 
@@ -49,6 +50,39 @@ def test_an_open_question_may_ask_with_a_card(query: str) -> None:
 )
 def test_a_turn_with_its_own_shape_does_not_ask(query: str) -> None:
     assert CLARIFY_CARD_HINT not in _hints(query)
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # Asked with a card after three suggestions: business was the "best for what".
+        "What are the best countries for business",
+        "best laptop for coding",
+        "best phone under $500",
+        "what's the best way to learn Spanish",
+        "best country to live in",
+        "top universities for computer science",
+        "which laptop should I buy for video editing",
+        "best restaurants in Paris",
+    ],
+)
+def test_a_best_question_that_says_what_it_is_for_does_not_ask(query: str) -> None:
+    assert names_its_purpose(query)
+    assert CLARIFY_CARD_HINT not in _hints(query)
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "What is the best country?",
+        "What's the best country for me?",
+        "which laptop should I buy?",
+        "best country in the world",
+        "who is the best footballer ever",
+    ],
+)
+def test_a_best_question_without_a_purpose_names_none(query: str) -> None:
+    assert not names_its_purpose(query)
 
 
 def test_a_multi_part_message_does_not_ask() -> None:
