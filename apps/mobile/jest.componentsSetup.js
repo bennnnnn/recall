@@ -122,8 +122,17 @@ jestGlobals.mock("expo-haptics", () => ({
   impactAsync: () => Promise.resolve(),
   notificationAsync: () => Promise.resolve(),
   selectionAsync: () => Promise.resolve(),
+  performAndroidHapticsAsync: () => Promise.resolve(),
   ImpactFeedbackStyle: { Light: "light", Medium: "medium", Heavy: "heavy" },
   NotificationFeedbackType: { Success: "success", Warning: "warning", Error: "error" },
+  AndroidHaptics: {
+    Confirm: "confirm",
+    Reject: "reject",
+    Clock_Tick: "clock-tick",
+    Long_Press: "long-press",
+    Virtual_Key: "virtual-key",
+    Segment_Tick: "segment-tick",
+  },
 }));
 
 // expo-clipboard is a native module (expo-modules-core EventEmitter) that

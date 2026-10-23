@@ -153,7 +153,6 @@ const NO_ACCOUNT_DATA = [
   "lib/google-auth.ts#configured",
   "lib/google-auth.ts#googleModule",
   "lib/haptics.ts#enabled",
-  "lib/haptics.ts#unavailableOn",
   "lib/launchSplash.ts#deadlinePassed",
   "lib/launchSplash.ts#hidden",
   "lib/launchSplash.ts#ready",
