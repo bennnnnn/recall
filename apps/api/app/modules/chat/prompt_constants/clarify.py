@@ -6,12 +6,43 @@ writes (``chat/clarify_card.py``) and reads the user's picks on the next turn
 (``chat/clarify_turn.py``).
 """
 
+import re
+
+# A ranking ask: "the best countries", "top universities", "which laptop should I buy".
+_RANKING = re.compile(
+    r"\b(?:best|top|ideal|greatest|recommended)\b|\b(?:which|what)\b[^.?!]{0,40}?\bshould\s+"
+    r"(?:i|we)\s+(?:buy|get|choose|pick|use|learn|try|visit|move\s+to)\b",
+    re.IGNORECASE,
+)
+# What it is for, after the ranking word: "for business", "to live in", "under $500",
+# "in Paris". "For me", "in the world" or "ever" name no purpose: the user's own wants
+# are still unknown, and the card may ask them.
+_PURPOSE = re.compile(
+    r"\b(?:for|to|under|below|within|in)\s+(?!(?:me|us|myself|ourselves|the\s+world|general"
+    r"|my\s+(?:needs|situation|case|life))\b)[\w$€£]",
+    re.IGNORECASE,
+)
+
+
+def names_its_purpose(text: str) -> bool:
+    """A "best X" question that says what it is for, which has a good general answer.
+
+    "What are the best countries for business" got a card asking what mattered most and
+    what kind of business, after three suggestions: business was the answer to "best for
+    what". "What is the best country?" and "the best laptop for me" still may ask.
+    """
+    ranking = _RANKING.search(text)
+    return ranking is not None and _PURPOSE.search(text, ranking.end()) is not None
+
+
 CLARIFY_CARD_HINT = (
     "Asking the user: when the best answer depends on what they mean or want (what 'best' "
     "means to them, their goal, budget, level or situation) and neither memory nor this "
     "chat says it, ask with the tap card; never write those questions as prose, a list, or "
     "choices in parentheses. Ask only when their picks would change the answer in a real "
-    "way: when a good general answer exists, give it in full and do not ask. Never for a "
+    "way: when a good general answer exists, give it in full and do not ask; a question "
+    "that says what it is for ('the best countries for business', 'a laptop for coding', "
+    "'a phone under $500') has one. Never for a "
     "plain fact, a sum or a maths, physics or chemistry problem, a greeting, a reminder, a "
     "picture, or a draft whose purpose they gave. A reply that asks has three parts. First "
     "a short useful start: the strongest few options, each its own paragraph with a bold "
