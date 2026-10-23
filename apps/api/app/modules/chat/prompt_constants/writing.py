@@ -10,6 +10,7 @@ from app.modules.chat.prompt_constants.writing_kind import (
     is_writing_deliverable_request,
     writing_request_kind,
 )
+from app.modules.chat.prompt_constants.writing_locales import is_locale_draft_change
 from app.modules.chat.prompt_constants.writing_purpose import is_underspecified_writing_request
 from app.services.draft_fences import draft_langs
 from app.services.text_normalize import collapse_ws
@@ -237,7 +238,7 @@ def could_continue_draft(text: str | None) -> bool:
         return False
     if kind in _KIND_FENCE:
         return is_underspecified_writing_request(cleaned)
-    return _DRAFT_FOLLOWUP.search(cleaned) is not None
+    return _DRAFT_FOLLOWUP.search(cleaned) is not None or is_locale_draft_change(cleaned)
 
 
 def draft_followup(

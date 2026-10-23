@@ -6,7 +6,7 @@ only to decide whether a draft should load profile context.
 
 import re
 
-from app.modules.chat.prompt_constants.locale_cues import starts_with_locale_cue
+from app.modules.chat.prompt_constants.writing_locales import locale_draft_kind
 from app.services.text_normalize import collapse_ws
 
 # The words that name what an email or message is for may stand between the
@@ -198,7 +198,7 @@ def _starts_direct_writing_request(text: str) -> bool:
         _TRANSLATION_WRITING.search(candidate)
         or _UNSPACED_TRANSLATION_COMMAND.search(candidate)
         or _EDIT_WRITING.search(candidate)
-        or starts_with_locale_cue(candidate, "writing")
+        or locale_draft_kind(candidate) is not None
     ):
         return True
     prefix = _DIRECT_REQUEST_PREFIX.match(candidate)
@@ -371,8 +371,10 @@ def writing_request_kind(text: str) -> str | None:
     ):
         if match := pattern.search(cleaned):
             shape_matches.append((match.start(), priority, kind))
-    if starts_with_locale_cue(cleaned, "writing"):
-        shape_matches.append((0, 0, "email"))
+    # "Escribe un correo a mi jefe…", "patronuma bir e-posta yaz".
+    locale_kind = locale_draft_kind(cleaned)
+    if locale_kind is not None:
+        shape_matches.append((0, -1, locale_kind))
     if shape_matches:
         return min(shape_matches)[2]
     return None

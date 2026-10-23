@@ -6,8 +6,11 @@
 
 import re
 
-from app.modules.chat.prompt_constants.locale_cues import has_locale_cue, is_bare_locale_cue
 from app.modules.chat.prompt_constants.writing_kind import PASTED_TEXT, writing_request_kind
+from app.modules.chat.prompt_constants.writing_locales import (
+    is_bare_locale_draft,
+    locale_draft_kind,
+)
 from app.services.text_normalize import collapse_ws
 
 _WRITING_PURPOSE_MARKERS = (
@@ -122,10 +125,9 @@ def is_underspecified_writing_request(text: str) -> bool:
         return False
     if kind == "social" and any(marker in cleaned for marker in _SOCIAL_SUBJECT_MARKERS):
         return False
-    # Localized writing cues are stored as complete bare requests. Any text
-    # beyond the cue is user-supplied purpose/content and should be drafted.
-    if has_locale_cue(text, "writing"):
-        return is_bare_locale_cue(text, "writing")
+    # In another language, a draft named with no more than a recipient is bare.
+    if locale_draft_kind(text) is not None:
+        return is_bare_locale_draft(text)
     if _SAYS_AFTER_RECIPIENT.search(cleaned):
         return False
     return not any(marker in cleaned for marker in _WRITING_PURPOSE_MARKERS)
