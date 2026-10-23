@@ -50,6 +50,7 @@ from app.modules.web_search.patterns import (
     is_weather_request,
     is_word_problem,
 )
+from app.modules.web_search.place_answer import question_in_given_place
 from app.modules.web_search.subject import (
     _prior_searchable_topic,
     resolve_search_subject,
@@ -250,6 +251,10 @@ def needs_web_search(
     prior_assistant: str | None = None,
 ) -> bool:
     """Sync gate: skip + fast-path + heuristic (tests and legacy callers)."""
+    # "I'm in Indianapolis" after "I don't have your location yet": the earlier question there.
+    prior = prior_user_messages[-1] if prior_user_messages else None
+    if question_in_given_place(text, prior, prior_assistant) is not None:
+        return True
     if web_search_skip(
         text, prior_user_messages=prior_user_messages, prior_assistant=prior_assistant
     ):

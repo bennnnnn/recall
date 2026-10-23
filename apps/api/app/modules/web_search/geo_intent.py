@@ -24,6 +24,7 @@ from app.modules.web_search.patterns import (
     is_weather_request,
     non_geographic_nearest,
 )
+from app.modules.web_search.place_answer import LOCATION_ASK_OPENING
 
 _LOCATIONLESS_WEATHER = re.compile(
     r"^\s*(?:what(?:'s|\s+is)\s+(?:the\s+)?weather(?:\s+like)?"
@@ -148,9 +149,12 @@ def is_short_letter_answer(text: str) -> bool:
 
 
 def format_location_not_set_answer() -> str:
-    """No user location for a geo query — ask to enable location instead of guessing."""
+    """No user location for a geo query: ask where they are instead of guessing.
+
+    Naming a place next answers the question there (``place_answer``).
+    """
     return (
-        "I don't have your location yet, so I can't answer nearby or distance questions "
-        "accurately.\n\n"
-        "Turn on **Location** in **Settings** (or allow location when prompted), then ask again."
+        f"{LOCATION_ASK_OPENING}, so I can't answer that for where you are.\n\n"
+        "Tell me the city, or turn on **Location** in **Settings** (or allow location "
+        "when prompted)."
     )

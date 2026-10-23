@@ -20,6 +20,7 @@ from app.modules.web_search.patterns import (
     asks_for_prior_subject,
     collapse_ws,
 )
+from app.modules.web_search.place_answer import question_in_given_place
 from app.modules.web_search.query_builders import (
     anchor_news_query_to_today,
     anchor_to_location,
@@ -54,6 +55,13 @@ _REFERENCE_WORDS = frozenset(
 
 def _fold(word: str) -> str:
     return word.lower().strip(".,!?;:\"'()[]")
+
+
+def _last_assistant_text(messages: list[dict[str, Any]]) -> str | None:
+    for message in reversed(messages):
+        if message.get("role") == "assistant" and isinstance(message.get("content"), str):
+            return str(message["content"])
+    return None
 
 
 def points_back(text: str, prior_user_messages: list[str] | None) -> bool:
@@ -91,6 +99,12 @@ async def search_queries_for_turn(
             subject = anchor_recency_to_year(subject, cleaned, user_timezone)
         return [subject]
     priors = collect_prior_user_messages(messages, user_text)
+    # A place named after "I don't have your location yet" asks the earlier question there.
+    asked_there = question_in_given_place(
+        cleaned, priors[-1] if priors else None, _last_assistant_text(messages)
+    )
+    if asked_there is not None:
+        return [asked_there]
     if points_back(cleaned, priors):
         resolved = await resolve_reference(
             settings,
