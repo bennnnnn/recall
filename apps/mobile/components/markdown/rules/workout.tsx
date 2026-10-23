@@ -224,7 +224,7 @@ export function renderWorkoutSection(
               testID="workout-answer"
               style={{
                 alignItems: "center",
-                backgroundColor: t.elevated,
+                backgroundColor: t.bg,
                 borderWidth: 1,
                 borderColor: t.border,
                 borderRadius: Radius.md,

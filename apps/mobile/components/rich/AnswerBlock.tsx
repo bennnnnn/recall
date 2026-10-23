@@ -236,13 +236,13 @@ const makeStyles = (t: Theme) =>
       ...Weight.semibold,
       color: t.assistantText,
     },
-    // The same white, bordered box as a written-out answer (workout-answer).
-    // The answer sits centred in the box; the box itself needs no side rule.
+    // The same bordered box as a written-out answer (workout-answer): the page's own
+    // background inside a thin border. The answer sits centred; no side rule.
     box: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: t.elevated,
+      backgroundColor: t.bg,
       borderWidth: 1,
       borderColor: t.border,
       borderRadius: Radius.md,
