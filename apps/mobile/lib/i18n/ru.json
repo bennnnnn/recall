@@ -816,6 +816,8 @@
   "settings.live_talk_minutes_left": "Осталось {{count}} из {{limit}} мин в этом месяце",
   "settings.location_denied": "Разрешите доступ к геопозиции в настройках устройства, чтобы пользоваться этим.",
   "settings.location_expo_go": "Для геопозиции нужна dev-сборка — в Expo Go она недоступна.",
+  "settings.mail_copied": "Почтовое приложение не найдено. Мы скопировали {{email}} — вставьте адрес в любое почтовое приложение.",
+  "settings.mail_copied_report": "Почтовое приложение не найдено. Мы скопировали {{email}} и подробности отчёта — вставьте их в любое почтовое приложение.",
   "settings.manage_subscription": "Управление подпиской",
   "settings.memory": "Память",
   "settings.memory_clear_all": "Удалить все воспоминания",

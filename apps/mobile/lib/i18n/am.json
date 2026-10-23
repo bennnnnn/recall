@@ -810,6 +810,8 @@
   "settings.live_talk_minutes_left": "በዚህ ወር ከ{{limit}} ደቂቃ {{count}} ቀርቷል",
   "settings.location_denied": "ይህን ለመጠቀም በመሣሪያዎ ቅንብሮች ውስጥ የአካባቢ መዳረሻ ይፍቀዱ።",
   "settings.location_expo_go": "አካባቢ ዴቭ ቢልድ ይፈልጋል — በExpo Go ውስጥ አይገኝም።",
+  "settings.mail_copied": "የኢሜይል መተግበሪያ አልተገኘም። {{email}}ን ገልብጠናል፤ በማንኛውም የኢሜይል መተግበሪያ ውስጥ መለጠፍ ይችላሉ።",
+  "settings.mail_copied_report": "የኢሜይል መተግበሪያ አልተገኘም። {{email}}ን እና የሪፖርቱን ዝርዝሮች ገልብጠናል፤ በማንኛውም የኢሜይል መተግበሪያ ውስጥ መለጠፍ ይችላሉ።",
   "settings.manage_subscription": "ደንበኝነትን አስተዳድር",
   "settings.memory": "ማህደረ ትውስታ",
   "settings.memory_clear_all": "ሁሉንም ትውስታዎች አጽዳ",

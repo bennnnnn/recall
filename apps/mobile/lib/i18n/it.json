@@ -813,6 +813,8 @@
   "settings.live_talk_minutes_left": "{{count}} di {{limit}} min rimasti questo mese",
   "settings.location_denied": "Consenti l’accesso alla posizione nelle Impostazioni del dispositivo per usare questa funzione.",
   "settings.location_expo_go": "La posizione richiede una build di sviluppo — non è disponibile in Expo Go.",
+  "settings.mail_copied": "Nessuna app di posta trovata. Abbiamo copiato {{email}}: incollalo in qualsiasi app di posta.",
+  "settings.mail_copied_report": "Nessuna app di posta trovata. Abbiamo copiato {{email}} e i dettagli della segnalazione: incollali in qualsiasi app di posta.",
   "settings.manage_subscription": "Gestisci abbonamento",
   "settings.memory": "Memoria",
   "settings.memory_clear_all": "Cancella tutti i ricordi",

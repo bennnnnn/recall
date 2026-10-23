@@ -813,6 +813,8 @@
   "settings.live_talk_minutes_left": "{{count}} de {{limit}} min restantes este mês",
   "settings.location_denied": "Permita o acesso à localização nos Ajustes do seu aparelho para usar isso.",
   "settings.location_expo_go": "A localização requer um build de desenvolvimento — não está disponível no Expo Go.",
+  "settings.mail_copied": "Nenhum app de e-mail encontrado. Copiamos {{email}} para você colar em qualquer app de e-mail.",
+  "settings.mail_copied_report": "Nenhum app de e-mail encontrado. Copiamos {{email}} e os detalhes do relatório para você colar em qualquer app de e-mail.",
   "settings.manage_subscription": "Gerenciar assinatura",
   "settings.memory": "Memória",
   "settings.memory_clear_all": "Apagar todas as memórias",

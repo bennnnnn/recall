@@ -8,23 +8,29 @@ import {
   useSettingsAction,
 } from "@/features/account/components/settingsUi";
 import { openSettingsLink } from "@/features/account/model/openSettingsLink";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
 import { appVersion, versionLabel } from "@/lib/appVersion";
 import { planNameKey, planOf } from "@/lib/plan";
 import { config } from "@/lib/config";
 import { useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
+import { useCopyText } from "@/ui/share/useCopyText";
 
 /**
  * Settings → Help: write to support, report a problem, send feedback. Each is an email
  * to the configured support address; a build without one says so instead of opening
- * a share sheet that reaches nobody.
+ * a share sheet that reaches nobody. With no mail app, the address (and a report's
+ * details) is copied for any email app instead.
  */
 export default function HelpScreen() {
   const { user } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
   const action = useSettingsAction();
+  const feedback = useActionFeedbackOptional();
+  const { copy } = useCopyText();
   const app = appVersion();
 
   /** What support needs to know, without anything from the user's chats. */
@@ -40,11 +46,15 @@ export default function HelpScreen() {
 
   const write = (email: string, titleKey: string) => {
     const title = t(titleKey);
-    const subject = encodeURIComponent(`${t("settings.contact_support_subject")}: ${title}`);
-    const body = encodeURIComponent(reportBody(title));
-    void action.run("mail", () => openSettingsLink(`mailto:${email}?subject=${subject}&body=${body}`), {
-      errorKey: "settings.link_failed",
-    });
+    const subject = `${t("settings.contact_support_subject")}: ${title}`;
+    const body = reportBody(title);
+    const report = titleKey !== "settings.contact_support";
+    const mailto = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    void action.run("mail", async () => {
+      if (await openSettingsLink(mailto).then(() => true, () => false)) return;
+      if (!(await copy(report ? [email, "", subject, "", body].join("\n") : email))) throw new Error("copy_failed");
+      reportRecoverableWarning(feedback, t(report ? "settings.mail_copied_report" : "settings.mail_copied", { email }));
+    }, { errorKey: "settings.link_failed" });
   };
 
   const supportEmail = config.supportEmail;

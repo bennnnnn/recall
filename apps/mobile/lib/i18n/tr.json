@@ -810,6 +810,8 @@
   "settings.live_talk_minutes_left": "Bu ay {{limit}} dakikanın {{count}} dakikası kaldı",
   "settings.location_denied": "Bunu kullanmak için cihazının Ayarlar'ında konum erişimine izin ver.",
   "settings.location_expo_go": "Konum için geliştirme derlemesi gerekir — Expo Go'da kullanılamaz.",
+  "settings.mail_copied": "E-posta uygulaması bulunamadı. {{email}} adresini kopyaladık; herhangi bir e-posta uygulamasına yapıştırabilirsiniz.",
+  "settings.mail_copied_report": "E-posta uygulaması bulunamadı. {{email}} adresini ve rapor ayrıntılarını kopyaladık; herhangi bir e-posta uygulamasına yapıştırabilirsiniz.",
   "settings.manage_subscription": "Aboneliği yönet",
   "settings.memory": "Hafıza",
   "settings.memory_clear_all": "Tüm hatıraları temizle",
