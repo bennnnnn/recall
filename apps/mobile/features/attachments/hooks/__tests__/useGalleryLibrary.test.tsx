@@ -5,6 +5,7 @@ import { useGalleryLibrary } from "@/features/attachments/hooks/useGalleryLibrar
 import type { AttachmentListItem } from "@/lib/api";
 import { pendingFromLibraryItem } from "@/features/attachments/model/pendingFromLibraryItem";
 import { queueComposerAttachment } from "@/features/attachments/model/pendingComposerAttachment";
+import { selection, tap } from "@/lib/haptics";
 
 let mockSession = 0;
 const mockBack = jest.fn();
@@ -200,4 +201,12 @@ describe("visible feedback instead of silent no-ops", () => {
     await act(async () => { finish(pending); await selecting; });
     expect(current.busyItemId).toBeNull();
   });
+});
+
+it("opens an item's actions on long-press with the tap every long-press menu uses", async () => {
+  await render(<Probe />);
+  await act(async () => { current.openActions(item, { x: 10, y: 20 }); });
+  expect(current.actionItem?.id).toBe("one");
+  expect(tap).toHaveBeenCalledTimes(1);
+  expect(selection).not.toHaveBeenCalled();
 });

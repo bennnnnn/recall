@@ -24,7 +24,7 @@ import {
   setGalleryLayout as persistGalleryLayout,
   type GalleryLayout,
 } from "@/features/attachments/model/galleryLayout";
-import { selection, tap } from "@/lib/haptics";
+import { tap } from "@/lib/haptics";
 import { queueComposerAttachment } from "@/features/attachments/model/pendingComposerAttachment";
 import { pendingFromLibraryItem } from "@/features/attachments/model/pendingFromLibraryItem";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
@@ -213,7 +213,7 @@ export function useGalleryLibrary(
 
   const openActions = useCallback(
     (item: AttachmentListItem, point?: { x: number; y: number }) => {
-      selection();
+      tap();
       setActionPoint(point ?? null);
       setActionItem(item);
     },

@@ -22,7 +22,7 @@ import {
   UserActions,
 } from "@/features/chat/components/MessageActions";
 import { Message } from "@/lib/api";
-import { selection } from "@/lib/haptics";
+import { tap } from "@/lib/haptics";
 import { SENDING_LABEL_DELAY_MS } from "@/features/chat/model/messageLogic";
 import { useAssistantMessageContent } from "@/hooks/useAssistantMessageContent";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
@@ -162,7 +162,7 @@ export const MessageBubble = React.memo(function MessageBubble({
           <Pressable
             onLongPress={() => {
               if (!canRevealUserActions) return;
-              selection();
+              tap();
               setShowUserActions(true);
             }}
             onPress={() => {
