@@ -66,7 +66,11 @@ def percent_cue(cleaned: str, lower: str) -> bool:
         return True
     if cleaned.count("%") == 2 and _has_word(lower, ("mix", "mixed", "mixture")):
         return True
-    return "%" in cleaned and _has_word(lower, ("tax", "tip", "discount", "off", "markup"))
+    # The charges ``tools/school/charges.py`` reads: "20% VAT on £50", "a 15% gratuity".
+    charge = _has_word(lower, ("vat", "gratuity")) or "service charge" in lower
+    return "%" in cleaned and (
+        charge or _has_word(lower, ("tax", "tip", "discount", "off", "markup"))
+    )
 
 
 def everyday_cue(cleaned: str, lower: str) -> bool:
