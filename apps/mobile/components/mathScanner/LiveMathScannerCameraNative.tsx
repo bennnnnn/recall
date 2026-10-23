@@ -18,9 +18,10 @@ import {
   useTextRecognition,
   type RegionOfInterest,
 } from "react-native-vision-camera-mlkit";
-import { scheduleOnRN } from "react-native-worklets";
+import { createSynchronizable, scheduleOnRN } from "react-native-worklets";
 
 import { type ScanRegion, viewRegionToImageRegion } from "@/lib/math/scannerRegion";
+import { LIVE_READ_INTERVAL_MS, shouldReadFrame } from "@/lib/scanner/frameThrottle";
 import { hasUsefulScannerText, normalizeLiveText } from "@/lib/scanner/liveText";
 
 export type LiveScannerDetection = {
@@ -109,6 +110,9 @@ export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, L
       roi,
       scaleFactor: 0.92,
     });
+    // When the camera thread last read a frame; it checks and sets this frame to frame,
+    // as VisionCamera's own async runner keeps its busy flag.
+    const lastReadAt = useMemo(() => createSynchronizable(0), []);
     const lastTextRef = useRef("");
     const stableCountRef = useRef(0);
     const lastDetectionKeyRef = useRef("");
@@ -149,6 +153,9 @@ export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, L
       onFrame(frame) {
         "worklet";
         try {
+          const now = Date.now();
+          if (!shouldReadFrame(lastReadAt.getDirty(), now, LIVE_READ_INTERVAL_MS)) return;
+          lastReadAt.setBlocking(now);
           const result = textRecognition(frame, { outputOrientation: "portrait" });
           scheduleOnRN(publishFrameText, result.text, frame.width, frame.height);
         } finally {
