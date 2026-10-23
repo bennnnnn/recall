@@ -144,6 +144,11 @@ _SOLVED_REGION_OPS = {
 
 # ``f(x)``, ``g(t)``: a single-letter function of a single-letter variable.
 _FUNCTION_NOTATION = re.compile(r"(?<![A-Za-z\\])[a-zA-Z]\s*\(\s*[a-zA-Z]\s*\)")
+# Prose before an equation that ends inside a function call: the equation's left side was
+# cut out of ``log_(2)(x+1)`` or ``log _2(x+1)``, so its "equation" is 2(x+1) = 3.
+_CUT_FROM_A_CALL = re.compile(
+    r"(?:[_^]|\b(?:log|ln|lg|sin|cos|tan|sec|csc|cot|sqrt|exp))\s*$", re.IGNORECASE
+)
 
 _FUNCTION_NAMES = re.compile(
     r"\b(?:sqrt|cbrt|sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|log|ln|exp|abs|pi)\b",
@@ -262,7 +267,7 @@ def _intent_from_free_standing_equation(text: str) -> MathIntent | None:
     # after the equation is the equation.
     if not marked and suffix.strip(" .!?"):
         return None
-    if has_math_keyword(prefix.lower()):
+    if has_math_keyword(prefix.lower()) or _CUT_FROM_A_CALL.search(prefix):
         return None
     intent = _extract_math_intent(problem)
     if intent is not None and request_consumption_complete(problem, intent):

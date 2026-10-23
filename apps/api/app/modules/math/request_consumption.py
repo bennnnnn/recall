@@ -14,6 +14,8 @@ _ADDITIONAL_OPERATION = re.compile(
     re.IGNORECASE,
 )
 _TRIG_CALL = re.compile(r"\b(?:sin|cos|tan|sec|csc|cot)\s*\(", re.IGNORECASE)
+# ``log``, ``ln``, ``lg`` as written, with or without a bracket ("log base 2 of x").
+_LOG_TERM = re.compile(r"\b(?:log|ln|lg)(?![a-z])", re.IGNORECASE)
 _MEAN_AND_SPREAD = re.compile(
     r"\b(?:find|calculate|compute|determine|give|what\s+(?:is|are))\b"
     r"[^.?!]{0,30}\b(?:mean\b[^.?!]{0,30}\b(?:and|plus)\b[^.?!]{0,20}"
@@ -219,6 +221,9 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
     )
     if source_trig_calls > len(_TRIG_CALL.findall(intent_text)):
         leftovers.append("unconsumed trigonometric term")
+    if len(_LOG_TERM.findall(text)) > len(_LOG_TERM.findall(intent_text)):
+        # "log base 2 of (x+1) = 3" kept only (x+1) = 3 and verified x = 2.
+        leftovers.append("unconsumed logarithm")
     root_request_text = _NAMED_RADICAL.sub("", text)
     if _GRAPH_REQUEST.search(text) and _ROOT_OUTPUT_REQUEST.search(root_request_text):
         # A graph intent has no typed roots result and a roots intent has no

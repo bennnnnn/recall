@@ -765,3 +765,36 @@ async def test_a_defined_e_and_e_notation_read_as_written(text: str, answer: str
 async def test_a_mixed_number_in_an_equation_is_one_number(text: str, answer: str) -> None:
     canonical, _reply = await _verified(text)
     assert canonical == answer
+
+
+# --- M. a logarithm is never dropped from its equation -----------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "text",
+    [
+        # These verified x = 2 for (x+1) = 3 and x = 1/2 for 2(x+1) = 3; the answer is 7.
+        "solve log base 2 of (x+1) = 3",
+        "solve log_(2)(x+1)=3",
+        "solve log _2(x+1)=3",
+    ],
+)
+async def test_an_equation_without_its_logarithm_is_not_verified(text: str) -> None:
+    canonical, reply = await _verified(text)
+    assert canonical is None
+    assert reply is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("solve log_2(x+1)=3", "x = 7"),
+        ("solve log2(x+1)=3", "x = 7"),
+        ("solve log(x) + log(x-3) = 1", "x = 5"),
+    ],
+)
+async def test_a_logarithm_the_reader_keeps_is_still_solved(text: str, answer: str) -> None:
+    canonical, _reply = await _verified(text)
+    assert canonical == answer
