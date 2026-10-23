@@ -9,7 +9,7 @@ import type { Todo } from "@/lib/api";
 import { formatClockTime, formatMonthDayYear, formatShortWeekdayDate } from "@/lib/datetime/format";
 import { categoryText } from "@/features/todos/model/todoCategories";
 import type { TodoSection } from "@/features/todos/model/todoListRows";
-import { notifyWarning, selection } from "@/lib/haptics";
+import { selection } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 import { IconSize } from "@/ui/icons/sizes";
 
@@ -57,10 +57,8 @@ export const TodoRow = memo(function TodoRow({
     if (selecting) onSelect?.(todo);
     else onToggle(todo);
   };
-  const handleDelete = () => {
-    notifyWarning();
-    onDelete(todo);
-  };
+  // Delete asks first; the haptic plays once the delete lands (useTodosActions).
+  const handleDelete = () => onDelete(todo);
   const marked = selecting ? selected : todo.checked;
 
   const meta = (() => {
