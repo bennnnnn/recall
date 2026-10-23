@@ -323,4 +323,6 @@ async def finalize_stream_turn_db(
     finally:
         await clear_pending_finalize(redis, ctx.chat_id)
         if committed and pending_storage_keys:
-            await deps.attachments.delete_storage_keys(settings, pending_storage_keys)
+            # The replaced reply's rows are gone: a failed delete only the queue retries.
+            failed = await deps.attachments.delete_storage_keys(settings, pending_storage_keys)
+            await deps.attachments.enqueue_failed_storage_deletes(failed)

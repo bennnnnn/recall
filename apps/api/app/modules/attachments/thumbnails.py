@@ -127,9 +127,11 @@ async def thumbnail_bytes(
     return body, content_type
 
 
-async def delete_thumbnails(gateway: StorageGateway, storage_key: str) -> None:
-    """Best-effort: an account wipe sweeps the user's prefix for anything left."""
+async def delete_thumbnails(gateway: StorageGateway, storage_key: str) -> bool:
+    """Best-effort; False when the delete failed (the caller queues a retry)."""
     try:
         await gateway.delete_prefix(thumbnail_prefix(storage_key))
     except Exception:
         logger.warning("Thumbnail delete failed storage_key=%s", storage_key, exc_info=True)
+        return False
+    return True

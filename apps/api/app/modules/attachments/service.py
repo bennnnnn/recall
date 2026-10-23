@@ -183,6 +183,11 @@ async def purge_attachments_for_user(
     return await _lifecycle.purge_attachments_for_user(session, settings, user_id)
 
 
+async def queue_storage_deletes(storage_keys: list[str]) -> None:
+    """Objects whose delete failed and that no row names any more: the reaper retries them."""
+    await _lifecycle.enqueue_failed_storage_deletes(storage_keys)
+
+
 async def delete_user_rows(session: AsyncSession, user_id: UUID) -> None:
     """The rows left of a deleted account's attachments; no commit (``account.lifecycle``).
 

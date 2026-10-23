@@ -2,7 +2,7 @@ from datetime import date
 from typing import NamedTuple
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -89,3 +89,12 @@ async def reset_for_date(session: AsyncSession, user_id: UUID, day: date) -> Non
         sa_delete(UsageDaily).where(UsageDaily.user_id == user_id, UsageDaily.date == day)
     )
     await session.commit()
+
+
+async def delete_before(session: AsyncSession, day: date, *, limit: int) -> int:
+    """Delete up to ``limit`` daily usage rows older than ``day``; quota reads today's only."""
+    old = select(UsageDaily.user_id, UsageDaily.date).where(UsageDaily.date < day).limit(limit)
+    result = await session.execute(
+        delete(UsageDaily).where(tuple_(UsageDaily.user_id, UsageDaily.date).in_(old))
+    )
+    return int(getattr(result, "rowcount", 0) or 0)

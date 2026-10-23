@@ -59,10 +59,9 @@ class ImageGenerationError(DomainError):
 
 
 async def _rollback_written_bytes(gateway: StorageGateway, storage_key: str | None) -> None:
-    """Delete object storage if persist failed after write_bytes.
+    """Delete an object that persisting never named (the reaper sees rows only), or queue it.
 
-    The orphan reaper only sees attachment rows. A write with no row (or a
-    failed persist) would leak the object forever without this rollback.
+    Without this an object written before a failed persist leaked for ever.
     """
     if not storage_key:
         return
@@ -70,6 +69,7 @@ async def _rollback_written_bytes(gateway: StorageGateway, storage_key: str | No
         await gateway.delete_bytes(storage_key)
     except Exception:
         logger.exception("Failed to delete orphaned generated image %s", storage_key)
+        await attachments_service.queue_storage_deletes([storage_key])
 
 
 def normalize_aspect_ratio(value: str | None) -> AspectRatio | None:

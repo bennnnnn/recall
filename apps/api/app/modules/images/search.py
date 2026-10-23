@@ -75,11 +75,15 @@ async def _rollback_written_bytes(gateway: StorageGateway, storage_keys: list[st
     The orphan reaper only sees attachment rows. A write with no row (or a
     failed persist) would leak the object forever without this rollback.
     """
+    failed: list[str] = []
     for key in storage_keys:
         try:
             await gateway.delete_bytes(key)
         except Exception:
             logger.exception("Failed to delete orphaned reference-photo bytes %s", key)
+            failed.append(key)
+    # No row will ever name them: only the retry queue finds them again.
+    await attachments_service.queue_storage_deletes(failed)
 
 
 async def _fetch_one_image(

@@ -165,6 +165,35 @@ async def test_a_search_reads_only_the_newest_window(db_session) -> None:
     assert len(rows) == 5
 
 
+async def test_chunks_beyond_the_search_window_are_deleted(db_session) -> None:
+    user, other = await _user(db_session), await _user(db_session)
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+    for owner in (user, other):
+        chat, message = await _chat_with_message(db_session, owner.id)
+        for index in range(8):
+            db_session.add(
+                _chunk(
+                    owner.id,
+                    chat.id,
+                    message.id,
+                    index,
+                    _vector(300 + index),
+                    created_at=base + timedelta(days=index),
+                )
+            )
+    await db_session.flush()
+
+    await chunks_repo.prune_beyond_window(db_session, user.id, window=5)
+
+    kept = await db_session.execute(
+        select(MessageChunk.user_id, MessageChunk.chunk_index).order_by(MessageChunk.chunk_index)
+    )
+    rows = kept.all()
+    # The user's newest five stay; another user's chunks are not touched.
+    assert sorted(i for owner, i in rows if owner == user.id) == [3, 4, 5, 6, 7]
+    assert len([i for owner, i in rows if owner == other.id]) == 8
+
+
 async def test_chunks_are_stored_without_the_json_copy(db_session) -> None:
     user = await _user(db_session)
     chat, message = await _chat_with_message(db_session, user.id)

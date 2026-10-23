@@ -370,3 +370,22 @@ async def delete_all_for_user(
         await session.flush()
     forget_user_chats(user_id)
     return int(result.rowcount or 0)
+
+
+async def delete_abandoned_drafts(session: AsyncSession, cutoff: datetime, *, limit: int) -> int:
+    """Delete up to ``limit`` chats made before ``cutoff`` that never got a message.
+
+    The phone makes a chat on the first keystroke and drops it unsent with a best-effort
+    delete; a killed app or a failed delete left a row the user can neither see nor
+    delete. A file belongs to a message, so a chat with none holds no stored bytes.
+    """
+    abandoned = (
+        select(Chat.id)
+        .where(Chat.created_at < cutoff)
+        .where(~exists().where(Message.chat_id == Chat.id))
+        .limit(limit)
+    )
+    result = cast(
+        CursorResult[Any], await session.execute(delete(Chat).where(Chat.id.in_(abandoned)))
+    )
+    return result.rowcount or 0

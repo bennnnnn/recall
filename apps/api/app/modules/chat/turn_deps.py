@@ -252,6 +252,8 @@ class AttachmentCleanup(Protocol):
         self, settings: Settings, storage_keys: list[str]
     ) -> list[str]: ...
 
+    async def enqueue_failed_storage_deletes(self, keys: list[str]) -> None: ...
+
 
 class AttachmentLinks(Protocol):
     """A reply's photo, stored while it streamed, joined to the saved reply."""

@@ -70,6 +70,22 @@ async def replace_chunks(
         await session.flush()
 
 
+async def prune_beyond_window(session: AsyncSession, user_id: UUID, *, window: int) -> None:
+    """Delete the user's chunks older than their newest ``window``: no search reads them.
+
+    Every turn stores up to a dozen chunks (a 1536-dim vector each, about 7 KB with its
+    text), ten times the size of the messages themselves, and a search ranks only the
+    newest ``window``. Kept with their chat, a user's older chunks grew for ever.
+    """
+    older = (
+        select(MessageChunk.id)
+        .where(MessageChunk.user_id == user_id)
+        .order_by(MessageChunk.created_at.desc())
+        .offset(window)
+    )
+    await session.execute(delete(MessageChunk).where(MessageChunk.id.in_(older)))
+
+
 async def search_semantic(
     session: AsyncSession,
     user_id: UUID,

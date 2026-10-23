@@ -149,7 +149,7 @@ async def test_cancel_pending_uses_committed_unlinked_delete_before_storage(remo
         patch.object(
             attachment_lifecycle,
             "get_storage_gateway",
-            return_value=MagicMock(delete_bytes=delete_bytes),
+            return_value=MagicMock(delete_bytes=delete_bytes, delete_prefix=AsyncMock()),
         ),
         patch.object(
             attachment_lifecycle, "enqueue_failed_storage_deletes", AsyncMock()

@@ -28,7 +28,7 @@ Everything a turn or a request must agree on across machines lives in Redis or P
 | Memory, home, link-preview, web-search, query-embedding and follow-up caches; model health | Redis, keyed by user or query, with TTLs | Where a write must invalidate one, it bumps a Redis generation key (`core/cache_generation.py`), so every machine sees it |
 | Memory writes | Redis lock per user (`modules/memory/locks.py`) plus Postgres row locks (user row first) | A busy lock re-enqueues the job with a backoff |
 | Background jobs | One Redis Stream `recall:jobs`, consumer group `workers` (`core/jobs/`) | Each worker has its own consumer name; entries are leased and reclaimed after 60 s idle; `jobdone:<key>` dedupe keeps a job from running twice; a failure retries later from `recall:jobs:delayed` (six attempts over about 50 minutes) before the DLQ; poison entries and timeouts go to the DLQ; the worker trims only delivered, acked entries, and `JOBS_STREAM_MAX_LEN` drops the oldest only when no worker reads for long (the queue metrics warn first) |
-| Periodic schedulers (push, reminder email, orphan reaper, billing reconcile) | Every worker runs every loop; a Redis lock per cycle lets one run it (`background/periodic.py`) | Adding workers adds lock attempts, not duplicate sends |
+| Periodic schedulers (push, reminder email, orphan reaper, billing reconcile, retention) | Every worker runs every loop; a Redis lock per cycle lets one run it (`background/periodic.py`) | Adding workers adds lock attempts, not duplicate sends |
 | Files | R2 presigned URLs | Production refuses local storage (`validate_production_settings`) |
 | Deploys | Blue-green, then SIGINT: in-flight turns stop and save, locks release | Two workers overlap for a moment; leases, dedupe and scheduler locks cover it |
 
@@ -119,8 +119,9 @@ plugs in.
 10. **Save replies durably** if losing an unsaved reply on a machine crash matters: hand the
     finalize to a job instead of an in-process task. Seams: `modules/chat/stream_pipeline.py`,
     `core/jobs/`.
-11. **Raise the orphan reaper batch** if uploads outpace it: it removes up to
-    `ATTACHMENT_ORPHAN_REAP_LIMIT` (100) rows an hour. Seam:
+11. **Raise the orphan reaper batches** if uploads outpace it: an hourly cycle runs
+    batches of `ATTACHMENT_ORPHAN_REAP_LIMIT` (100) while they come back full, up to
+    `ATTACHMENT_ORPHAN_REAP_BATCHES_PER_CYCLE` (20), so 2,000 rows an hour. Seam:
     `core/settings/attachments.py`.
 
 Provider limits (OpenRouter, Tavily, Expo, Resend, RevenueCat) are per API key and do not
@@ -130,8 +131,10 @@ grow with machines; raise them with the provider.
 
 | Table | Kept | Read |
 |---|---|---|
-| `message_chunks` (chat-history recall) | As long as the chat, at most 6 chunks a message | A search ranks the user's newest `CHAT_HISTORY_RAG_SEARCH_WINDOW` (2,000) chunks exactly; no vector index (a global HNSW filters by user only after its scan and found nothing for most users) |
+| `message_chunks` (chat-history recall) | The user's newest `CHAT_HISTORY_RAG_SEARCH_WINDOW` (2,000); older ones are deleted as a turn stores new ones (`chunks_repository.prune_beyond_window`) | A search ranks the user's newest `CHAT_HISTORY_RAG_SEARCH_WINDOW` (2,000) chunks exactly; no vector index (a global HNSW filters by user only after its scan and found nothing for most users) |
 | `attachment_chunks` (document questions) | As long as the attachment | A search ranks the chat's newest `ATTACHMENT_RAG_SEARCH_WINDOW` (2,000) chunks exactly |
 | `memories` | 150 active facts a user | Similarity is computed in SQL; no vector leaves Postgres |
+| `chats` with no message | `ABANDONED_DRAFT_CHAT_HOURS` (168) | Never listed; the hourly data-retention cycle (`background/data_retention_scheduler.py`) deletes them in batches |
+| `usage_daily` | `USAGE_DAILY_RETENTION_DAYS` (400) | Quota reads today's row; the same cycle deletes older ones |
 | `product_events` | `ANALYTICS_EVENT_RETENTION_DAYS` (90) | An hourly worker cycle counts each older day into `product_event_daily` (events and distinct accounts per bucket, no user ids), then deletes it in batches |
 | `messages` search | Kept | Substring match through a trigram index that leads with `user_id`; three characters at least; "has more" from one extra row, never a count |
