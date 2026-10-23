@@ -20,12 +20,19 @@ jest.mock("@/lib/haptics", () => ({
 }));
 jest.mock("react-native-gesture-handler/ReanimatedSwipeable", () => {
   const { View: MockView } = jest.requireActual<typeof import("react-native")>("react-native");
-  return ({ children, renderRightActions }: { children: React.ReactNode; renderRightActions: () => React.ReactNode }) => (
-    <MockView>
-      {children}
-      {renderRightActions()}
-    </MockView>
-  );
+  /** The row and its swipe actions, both on screen. */
+  function MockSwipeable({ children, renderRightActions }: {
+    children: React.ReactNode;
+    renderRightActions: () => React.ReactNode;
+  }) {
+    return (
+      <MockView>
+        {children}
+        {renderRightActions()}
+      </MockView>
+    );
+  }
+  return MockSwipeable;
 });
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 jest.mock("@/lib/i18n", () => ({ __esModule: true, default: { t: (key: string) => key }, ensureLocale: jest.fn() }));
