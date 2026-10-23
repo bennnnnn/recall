@@ -2167,7 +2167,7 @@ async def test_build_todos_system_section_returns_hint_and_block():
 async def test_a_turn_in_another_language_is_told_it_only_reads_to_dos(
     query: str, locale: str, read_only: bool
 ) -> None:
-    from app.modules.todos.prompt_hint import TODO_READ_ONLY_TURN
+    from app.modules.todos.prompt_hint import TODO_READ_ONLY_HINT
 
     user = MagicMock(id=uuid4(), timezone="UTC", locale=locale)
     with patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[_item("Task")])):
@@ -2175,4 +2175,6 @@ async def test_a_turn_in_another_language_is_told_it_only_reads_to_dos(
             fake_session(), user, Settings(), query_text=query
         )
     assert section is not None
-    assert (TODO_READ_ONLY_TURN in section) is read_only
+    # A read-only turn is never taught the write fence; an English one is.
+    assert section.startswith(TODO_READ_ONLY_HINT if read_only else TODO_HINT)
+    assert ("```reminder" in section) is not read_only

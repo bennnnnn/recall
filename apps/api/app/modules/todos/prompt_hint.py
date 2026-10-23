@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-TODO_HINT = (
+# Reading the list: every turn that loads it gets this.
+TODO_READ_HINT = (
     "Recall **To-do** holds tasks with an optional date and time. A plain to-do has no "
     "date. A dated to-do can repeat and can fire a device notification, not email.\n\n"
     "When they ask about tasks, to-dos, reminders, or what is due → use **To-do** below. "
@@ -19,6 +20,9 @@ TODO_HINT = (
     "Proactively nudge overdue or due-soon open reminders only when the conversation is "
     "about reminders, planning, or productivity — not in general or identity questions.\n"
     "When a dated item appears under ### Today, say it is due today — never call it tomorrow.\n"
+)
+# Writing from chat: English turns only.
+_TODO_WRITE_HINT = (
     "To-do writes via chat, from a message written in English only — REQUIRED fence (the "
     "app only saves from this fence). "
     "Emit the fence first, before any other text. One fence per item. "
@@ -58,16 +62,23 @@ TODO_HINT = (
     "Yapılacaklar, የሚደረጉ), then an empty ```todo_link fence last, which the app shows as "  # noqa: RUF001 - the Turkish name for To-do has a dotless i
     "a button that opens the list. Never say it was added or changed. Questions about "
     "their to-dos are answered from **To-do** in every language.\n"
+)
+_TODO_DATES_HINT = (
     "Parse relative dates using the user's local time in the prompt. Do not invent dates. "
     "Call this feature To-do, not Schedule or Calendar."
 )
+TODO_HINT = TODO_READ_HINT + _TODO_WRITE_HINT + _TODO_DATES_HINT
 
-# Added for a turn whose to-dos chat may only read (modules/todos/chat_language).
+# A turn whose to-dos chat may only read (modules/todos/chat_language): it is never
+# taught the write fence, so it has nothing to ask a time for or to claim.
 TODO_READ_ONLY_TURN = (
-    "This turn can only read the user's to-dos: their message is not in English, and chat "
-    "adds and changes to-dos only from English. If it asks to add, change, complete or "
-    "delete one, do not ask when, for a time or for any detail, and do not offer to do it: "
-    "write one short line in their language saying they can do it themselves in their "
-    "To-do list, then an empty ```todo_link fence last. Never say it was added or changed. "
-    "Questions about their to-dos are answered from **To-do** as usual."
+    "This chat can only read the user's to-dos: their message is not in English, and to-dos "
+    "are added and changed only by the user, in the app's To-do list. You cannot add, "
+    "change, complete or delete one, and nothing you write saves one. When they ask to, "
+    "do not ask when, for a time or for any detail, and do not offer to do it: write one "
+    "short line in their language saying they can do it themselves in their To-do list "
+    "(in the app: Tareas, Tâches, Aufgaben, Attività, Tarefas, Задачи, Yapılacaklar, "  # noqa: RUF001 - the Turkish name for To-do has a dotless i
+    "የሚደረጉ), then an empty ```todo_link fence last, which the app shows as a button "
+    "that opens the list. Never say a to-do was added, changed, set or updated.\n"
 )
+TODO_READ_ONLY_HINT = TODO_READ_HINT + TODO_READ_ONLY_TURN + _TODO_DATES_HINT
