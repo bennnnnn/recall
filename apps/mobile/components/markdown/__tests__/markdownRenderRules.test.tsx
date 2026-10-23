@@ -557,7 +557,7 @@ describe("markdown render rules", () => {
     expect(within(body).getAllByTestId("workout-line")).toHaveLength(3);
     const box = getByTestId("workout-answer");
     expect(StyleSheet.flatten(box.props.style)).toMatchObject({
-      backgroundColor: lightTheme.elevated,
+      backgroundColor: lightTheme.bg,
       borderWidth: 1,
       borderColor: lightTheme.border,
     });
