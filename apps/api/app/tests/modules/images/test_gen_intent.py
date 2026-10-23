@@ -279,3 +279,37 @@ def test_image_gen_revision_context_skips_lookup_photos() -> None:
     )
     assert last_only is False
     assert subject is None
+
+
+@pytest.mark.parametrize(
+    ("text", "subject"),
+    [
+        # Live: "for my notes" drew nothing, as if the notes were what to draw.
+        (
+            "can you draw me a cute cartoon skeleton for my notes",
+            "cute cartoon skeleton for my notes",
+        ),
+        ("draw a cat for my presentation", "cat for my presentation"),
+        ("draw a cute owl for my class notes", "cute owl for my class notes"),
+    ],
+)
+def test_a_drawing_for_a_purpose_is_still_a_drawing(text: str, subject: str) -> None:
+    assert extract_image_gen_prompt(text) == subject
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # "Make" and "create" often write: the notes, plan or quiz stays the subject.
+        "make a mnemonic for my notes",
+        "create a summary for my notes",
+        "make me a study plan for my exam",
+        "make a quiz for my students",
+        # "Draw up" and "draw conclusions" never draw.
+        "draw up notes for my meeting",
+        "draw conclusions for my report",
+        "draw me a plan for my week",
+    ],
+)
+def test_written_work_for_a_purpose_is_not_a_drawing(text: str) -> None:
+    assert extract_image_gen_prompt(text) is None

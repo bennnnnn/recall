@@ -967,5 +967,19 @@
   "history": [],
   "reply": "Here's your winding mountain road at sunset.",
   "expect": "image_gen"
+ },
+ {
+  "id": "hi-104",
+  "area": "image",
+  "prompt": "can you draw me a cute cartoon skeleton for my notes",
+  "reply": "Here is a friendly skeleton you can sketch into your notes.",
+  "expect": "image_gen"
+ },
+ {
+  "id": "hi-105",
+  "area": "lookalike",
+  "prompt": "make a mnemonic for my notes",
+  "reply": "Try: Some Lovers Try Positions That They Can't Handle, for the carpal bones.",
+  "expect": "answer"
  }
 ]

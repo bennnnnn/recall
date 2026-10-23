@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 from app.core.config import Settings
 from app.gateways.http_client import get_pooled_client
@@ -54,6 +55,21 @@ def _top_result_source(data: dict[str, object]) -> tuple[str, str]:
     )
 
 
+# Stock libraries serve watermarked previews: "a cute cartoon skeleton" showed one with
+# "shutterstock.com · 2649692539" across it. Their sites and image CDNs are skipped.
+_STOCK_HOSTS = (
+    "shutterstock.com", "gettyimages.com", "gettyimages.co.uk", "istockphoto.com",
+    "alamy.com", "dreamstime.com", "depositphotos.com", "123rf.com", "ftcdn.net",
+    "stock.adobe.com", "vectorstock.com", "canstockphoto.com", "bigstockphoto.com",
+    "pond5.com", "agefotostock.com", "stockfresh.com", "featurepics.com",
+)  # fmt: skip
+
+
+def _is_stock_preview(url: str) -> bool:
+    host = (urlsplit(url).hostname or "").lower()
+    return any(host == stock or host.endswith(f".{stock}") for stock in _STOCK_HOSTS)
+
+
 def _hit_from_image_item(
     item: object, *, source_url: str, source_title: str
 ) -> ImageSearchHit | None:
@@ -67,6 +83,8 @@ def _hit_from_image_item(
     # https-only: Tavily can surface http image URLs from older pages, and
     # the server-side mirror fetch (safe_fetch) only trusts https sources.
     if not url.lower().startswith("https://"):
+        return None
+    if _is_stock_preview(url):
         return None
     return ImageSearchHit(
         image_url=url,
