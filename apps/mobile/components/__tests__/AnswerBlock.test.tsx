@@ -31,7 +31,7 @@ describe("AnswerBlock", () => {
     mockFormula.mockClear();
   });
 
-  it("draws the worked layout's Answer section: heading, then the value in a white, bordered box", async () => {
+  it("draws the worked layout's Answer section: heading, then the value in a bordered box", async () => {
     const { getByTestId, getByText, queryByTestId } = await render(
       <AnswerBlock content={"label: answer\nverified: true\nx = 0"} />,
     );
@@ -44,7 +44,7 @@ describe("AnswerBlock", () => {
     expect(queryByTestId("answer-rule")).toBeNull();
     const box = getByTestId("answer-box");
     expect(StyleSheet.flatten(box.props.style)).toMatchObject({
-      backgroundColor: lightTheme.elevated,
+      backgroundColor: lightTheme.bg,
       borderWidth: 1,
       borderColor: lightTheme.border,
       flexDirection: "row",
@@ -65,7 +65,7 @@ describe("AnswerBlock", () => {
     );
     expect(getByText("Answer")).toBeOnTheScreen();
     expect(StyleSheet.flatten(getByTestId("answer-box").props.style).backgroundColor).toBe(
-      lightTheme.elevated,
+      lightTheme.bg,
     );
     expect(queryByTestId("answer-success-check")).toBeNull();
   });
@@ -91,10 +91,10 @@ describe("AnswerBlock", () => {
     expect(mockFormula).not.toHaveBeenCalled();
   });
 
-  it("is white with a thin grey border, like a written-out answer, not a coloured fill", async () => {
+  it("shows the page background inside a thin grey border, like a written-out answer", async () => {
     const { getByTestId } = await render(<AnswerBlock content="x = 1" />);
     expect(StyleSheet.flatten(getByTestId("answer-box").props.style)).toMatchObject({
-      backgroundColor: lightTheme.elevated,
+      backgroundColor: lightTheme.bg,
       borderWidth: 1,
       borderColor: lightTheme.border,
     });

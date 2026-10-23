@@ -89,7 +89,7 @@ export function ClarifyCard({ content }: Props) {
       {asking ? (
         <Button
           title={card.submit || i18n.t("clarify.submit")}
-          variant="contrast"
+          variant="bubble"
           size="lg"
           onPress={send}
           disabled={!live}

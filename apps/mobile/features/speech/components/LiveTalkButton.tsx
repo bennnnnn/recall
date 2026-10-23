@@ -50,7 +50,11 @@ export function LiveTalkButton({ size, disabled, onPress }: Props) {
       accessibilityLabel={t("chat.live_talk_a11y")}
       testID="live-talk-button"
     >
-      <View style={[styles.btn, box]}>
+      {/* The user's bubble tint as a filled circle, so it follows their accent. */}
+      <View
+        testID="live-talk-circle"
+        style={[styles.btn, box, { borderRadius: size / 2, backgroundColor: theme.userBubble }]}
+      >
         <LiveTalkWaveformIcon size={24} color={theme.text} />
       </View>
     </Pressable>
@@ -66,6 +70,5 @@ const styles = StyleSheet.create({
   btn: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "transparent",
   },
 });

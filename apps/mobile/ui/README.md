@@ -26,7 +26,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 | Share a chat or a summary | `share/ShareSheet` (preview card, Share / Copy / PDF) | `Share.share` straight from a menu |
 | Copy text with a check mark | `share/useCopyText` (one timing, success haptic, a refused copy reported) | `Clipboard.setStringAsync` plus a timer in the component |
 | Back, close, menu, ⋮ in a header | `controls/HeaderButton` (`plate`, `plain` in a `HeaderButtonGroup`, `media` over photos); `StackBackButton` in stacks | a hand-styled circle |
-| A labelled action | `controls/Button` (pill; `sm` 36 / `md` 44 / `lg` 52; optional icon; `media` is the white pill over a photo, like the viewer's Share; `contrast` is the text-coloured pill for a card's one action, like a clarify card's button) | a `Pressable` styled as a button |
+| A labelled action | `controls/Button` (pill; `sm` 36 / `md` 44 / `lg` 52; optional icon; `media` is the white pill over a photo, like the viewer's Share; `bubble` is the user's message-bubble tint, following their accent, for a card's one action, like a clarify card's button) | a `Pressable` styled as a button |
 | An icon-only action inside content | `controls/IconButton` | a `Pressable` around `Icon` |
 | Suggestions, filters, picked values, facts | `controls/Chip` (`assist`, `filter`, `input`, `tag`) | per-feature chip styles |
 | Any list row | `list/ListRow` in a `list/ListGroup` (grouped) or on its own (plain; `ListSeparator appearance="plain"` draws the line between plain rows) | per-feature row styles |
