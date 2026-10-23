@@ -10,6 +10,7 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
+from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.exceptions import (
     ChatBusyError,
@@ -81,7 +82,13 @@ class TurnResources:
         if self._refunded or self.reserved_tokens <= 0:
             return
         self._refunded = True
-        await self.deps.quota.refund_usage(self.redis, str(self.user_id), self.reserved_tokens)
+        # Marked refunded, it is never tried again: it runs to the end even when a
+        # Stop cancels the turn meanwhile.
+        refunding = create_background_task(
+            self.deps.quota.refund_usage(self.redis, str(self.user_id), self.reserved_tokens),
+            name="turn_quota_refund",
+        )
+        await asyncio.shield(refunding)
 
     def mark_settled(self) -> None:
         """The turn's finalize now settles the reservation (actual usage, or its
@@ -235,10 +242,44 @@ async def top_up_reserve_for_prompt(
     )
     extra = needed - res.reserved_tokens
     if extra > 0:
-        res.reserved_tokens += await res.deps.quota.reserve_usage_up_to(
-            res.redis, str(res.user_id), extra, daily_limit=daily_limit
+        res.reserved_tokens += await _reserve_up_to(
+            res.deps, res.redis, res.user_id, extra, daily_limit=daily_limit
         )
     ctx.reserved_tokens = res.reserved_tokens
+
+
+async def _reserve_up_to(
+    deps: ChatTurnDeps, redis: Redis, user_id: UUID, wanted: int, *, daily_limit: int
+) -> int:
+    """``reserve_usage_up_to`` for a turn; what Redis grants after the turn is cancelled
+    goes back.
+
+    A Stop can cancel the turn while Redis answers: the grant then sat in the day's
+    total with no turn holding it, and nothing refunded it.
+    """
+    reserving = asyncio.ensure_future(
+        deps.quota.reserve_usage_up_to(redis, str(user_id), wanted, daily_limit=daily_limit)
+    )
+    try:
+        return await asyncio.shield(reserving)
+    except asyncio.CancelledError:
+        create_background_task(
+            _give_back(deps, redis, user_id, reserving), name="turn_quota_give_back"
+        )
+        raise
+
+
+async def _give_back(
+    deps: ChatTurnDeps, redis: Redis, user_id: UUID, reserving: asyncio.Future[int]
+) -> None:
+    try:
+        granted = await reserving
+    except Exception:
+        return  # A reserve that failed took nothing (it logs its own failure).
+    try:
+        await deps.quota.refund_usage(redis, str(user_id), granted)
+    except Exception:
+        logger.warning("Stopped turn's tokens not given back user_id=%s", user_id, exc_info=True)
 
 
 async def reserve_turn_quota(
@@ -278,9 +319,7 @@ async def reserve_turn_quota(
         max_output=max_output,
         vision_extra=vision_extra,
     )
-    reserved = await deps.quota.reserve_usage_up_to(
-        redis, str(user.id), wanted, daily_limit=daily_limit
-    )
+    reserved = await _reserve_up_to(deps, redis, user.id, wanted, daily_limit=daily_limit)
     if reserved <= 0:
         raise QuotaExceededError(quota_exceeded_message(user))
     return reserved
