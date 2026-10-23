@@ -114,7 +114,8 @@ function spaceDelimitedMath(text: string): string {
  */
 export function suggestionToSend(text: string): string | null {
   const cleaned = text.replace(/\s+/g, " ").trim();
-  const words = cleaned.match(/[A-Za-z]{2,}/g);
+  // Letters in any script: a Russian or Amharic follow-up is a question too.
+  const words = cleaned.match(/\p{L}{2,}/gu);
   if (!cleaned.endsWith("?") || (words?.length ?? 0) < MIN_QUESTION_WORDS) return null;
   if (!mathStaysApart(cleaned)) return null;
   return spaceDelimitedMath(repairDelimitedMath(cleaned));

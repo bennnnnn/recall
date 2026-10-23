@@ -7,7 +7,8 @@ from __future__ import annotations
 
 SHAPE = (
     "Each one is a single short question in the user's own voice, as they would "
-    "type it: 3 to 9 words, at most 60 characters, ending with ?. One sentence, no "
+    "type it, in the language they wrote in: 3 to 9 words, at most 60 characters, "
+    "ending with ?. One sentence, no "
     "preamble, no number, no label, no quote marks. "
     "Do not ask what the reply already explained, and do not repeat the user's "
     "question or one they asked before. "
@@ -36,7 +37,7 @@ GENERAL_SYSTEM = (
     "You write up to five follow-up questions the user is likely to tap next, best first, "
     "about exactly what they just asked. Each digs one step further into the same "
     "topic: a detail the reply only touched on, the usual next step, or a likely "
-    '"what if". Stay on their topic and in the language they wrote in. '
+    '"what if". Stay on their topic. '
     "Return an empty list when nothing would help: small talk, a personal update, "
     "a message or text they asked you to write, a reminder or a setting. "
     f"{SHAPE}"
