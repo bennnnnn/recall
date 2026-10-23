@@ -239,11 +239,16 @@ _HOW_MANY = {1: "one thing", 2: "a couple of things"}
 def _fit_lead_in(prose: str, questions: int) -> str:
     lines = prose.split("\n")
     for index in range(len(lines) - 1, -1, -1):
-        if _LEAD_IN.fullmatch(lines[index].strip()):
-            after_options = any("**" in line for line in lines[:index])
-            opener = "But let me" if after_options else "Let me"
-            lines[index] = f"**{opener} ask you {_HOW_MANY.get(questions, 'a few things')}.**"
-            break
+        line = lines[index].strip()
+        # Alone on its line, or opening it ("**…one thing.** I need to know your budget.").
+        lead_in = _LEAD_IN.match(line)
+        if lead_in is None:
+            continue
+        after_options = any("**" in earlier for earlier in lines[:index])
+        opener = "But let me" if after_options else "Let me"
+        fitted = f"**{opener} ask you {_HOW_MANY.get(questions, 'a few things')}.**"
+        lines[index] = fitted + line[lead_in.end() :]
+        break
     return "\n".join(lines)
 
 

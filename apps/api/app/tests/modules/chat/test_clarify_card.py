@@ -374,6 +374,14 @@ def test_the_lead_in_fits_the_start_and_the_card(before: str, questions: int, le
     assert settled.lower().count("let me ask you") == 1
 
 
+def test_a_lead_in_that_opens_its_line_fits_too() -> None:
+    # Live: the model went on after the bold lead-in on the same line.
+    text = "I need more detail.\n\n**But let me ask you one thing.** Your use and budget?\n\n"
+    text += f"```clarify\n{_card_body(_PRIORITY, _LEVEL)}\n```"
+    settled = settle_clarify_cards(text, allowed=True)
+    assert "**Let me ask you a couple of things.** Your use and budget?" in settled
+
+
 def test_a_card_written_in_a_json_fence_is_shown_as_the_card() -> None:
     # Live: the model fenced the card as ```json and the user would have seen raw JSON.
     text = f"It depends.\n\n**Let me ask you one thing.**\n\n```json\n{_card_body(_PRIORITY)}\n```"
