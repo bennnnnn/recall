@@ -23,7 +23,7 @@ const host = () => ({
   ensureChatId: jest.fn(async (): Promise<string | null> => "chat"),
   uploadReference: async (token: string, attachment: PendingAttachment) =>
     ({ ids: [await uploadChatAttachment(token, attachment)] }),
-  failureMessage: (message: string) => message,
+  describeFailure: (message: string) => ({ message, retryable: true }),
 });
 jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableError: jest.fn() }));
 
@@ -232,11 +232,13 @@ describe("image generation submit steps", () => {
 
   it("words a failure the way the chat does", async () => {
     (api.generateImage as jest.Mock).mockRejectedValueOnce(new Error("raw provider text"));
-    const failureMessage = jest.fn(() => "chat.error_generic");
-    const { submit, replay } = await setup({ failureMessage });
+    const describeFailure = jest.fn(() => ({ message: "chat.error_generic", retryable: true }));
+    const { submit, replay } = await setup({ describeFailure });
     await submit({ prompt: "cat", userMessage: "Draw a cat" });
-    expect(failureMessage).toHaveBeenCalledWith("raw provider text", undefined);
-    expect(replay().at(-1)).toMatchObject({ image_gen_failure: "failed", image_gen_error: "chat.error_generic" });
+    expect(describeFailure).toHaveBeenCalledWith("raw provider text", undefined);
+    expect(replay().at(-1)).toMatchObject({
+      image_gen_failure: "failed", image_gen_error: "chat.error_generic", image_gen_refused: undefined,
+    });
   });
 
   it("sends known reference ids without uploading", async () => {
@@ -295,12 +297,15 @@ describe("image generation submit steps", () => {
     (api.generateImage as jest.Mock).mockRejectedValueOnce(
       new ApiRequestError(429, JSON.stringify({ detail: { code: "daily_limit", message: "Image limit." } })),
     );
-    const failureMessage = jest.fn(() => "chat.quota_exceeded_free");
-    const { submit, replay, options } = await setup({ failureMessage });
+    const describeFailure = jest.fn(() => ({ message: "chat.quota_exceeded_free", retryable: false }));
+    const { submit, replay, options } = await setup({ describeFailure });
     await submit({ prompt: "cat", userMessage: "Draw a cat" });
     expect(options.onOpenUpgrade).not.toHaveBeenCalled();
-    expect(failureMessage).toHaveBeenCalledWith("Image limit.", "daily_limit");
-    expect(replay().at(-1)).toMatchObject({ image_gen_failure: "failed", image_gen_error: "chat.quota_exceeded_free" });
+    expect(describeFailure).toHaveBeenCalledWith("Image limit.", "daily_limit");
+    // A retry would meet the same cap: the card says why and offers none.
+    expect(replay().at(-1)).toMatchObject({
+      image_gen_failure: "failed", image_gen_error: "chat.quota_exceeded_free", image_gen_refused: true,
+    });
   });
 
   it("retries a failed turn in place", async () => {
