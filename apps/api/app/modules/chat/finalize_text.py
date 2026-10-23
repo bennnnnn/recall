@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app.modules.chat.chart_sanitize import sanitize_chart_fences
 from app.modules.chat.clarify_card import CLARIFY_FENCE, NEVER_WITH_CARD, settle_clarify_cards
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.mermaid_sanitize import sanitize_mermaid_fences
@@ -110,7 +111,7 @@ def normalize_prose(state: FinalizeState) -> str:
 
 
 def sanitize_fences(state: FinalizeState) -> str:
-    return sanitize_places_fences(sanitize_mermaid_fences(state.text))
+    return sanitize_places_fences(sanitize_mermaid_fences(sanitize_chart_fences(state.text)))
 
 
 def present_markdown(state: FinalizeState) -> str:
