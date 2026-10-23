@@ -146,6 +146,39 @@ function axisTitle(spec: JsonRecord, axis: "x" | "y"): string | undefined {
   );
 }
 
+// A box plot by any of the names models give it.
+const BOX_TYPES = new Set(["box", "boxplot", "box plot", "box-plot", "box and whisker", "box-and-whisker"]);
+
+/**
+ * `{"type": "boxplot", "series": [{"name", "values": [numbers]}]}` as a Vega-Lite box plot,
+ * one box per series. Vega-Lite works out the quartiles and whiskers from the raw values.
+ */
+function boxSeriesToVegaLite(spec: JsonRecord, series: unknown[]): JsonRecord | null {
+  const values: { group: string; value: number }[] = [];
+  for (const [index, entry] of series.entries()) {
+    if (!isRecord(entry) || !Array.isArray(entry.values)) return null;
+    const group = text(entry.name) ?? `Series ${index + 1}`;
+    for (const value of entry.values) {
+      if (typeof value !== "number" || !Number.isFinite(value)) return null;
+      values.push({ group, value });
+    }
+  }
+  if (values.length === 0) return null;
+  const title = text(spec.title);
+  return {
+    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+    ...(title ? { title } : {}),
+    data: { values },
+    mark: { type: "boxplot", extent: 1.5 },
+    encoding: {
+      ...(series.length > 1
+        ? { x: { field: "group", type: "nominal", sort: null, title: axisTitle(spec, "x") ?? null } }
+        : {}),
+      y: { field: "value", type: "quantitative", title: axisTitle(spec, "y") ?? "value" },
+    },
+  };
+}
+
 /**
  * `{"type", "title", "xLabel", "yLabel", "series": [{"name", "type"?, "points": [[x, y], …]}]}`
  * (axis labels may also come as `"x_axis": {"label"}`) as Vega-Lite. Null for anything
@@ -156,6 +189,7 @@ export function seriesChartToVegaLite(spec: JsonRecord): JsonRecord | null {
   if ("mark" in spec || "layer" in spec || "$schema" in spec || "data" in spec) return null;
   const series = spec.series;
   if (!Array.isArray(series) || series.length === 0) return null;
+  if (BOX_TYPES.has(String(spec.type ?? "").toLowerCase())) return boxSeriesToVegaLite(spec, series);
   const chartMark = seriesMark(spec.type, "line");
   const values: SeriesValue[] = [];
   const marks = new Map<string, string>();

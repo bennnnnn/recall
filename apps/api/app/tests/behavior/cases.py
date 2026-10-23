@@ -992,6 +992,13 @@ CASES: tuple[Case, ...] = (
         "A histogram: the raw scores binned on x, counts on y.",
     ),
     Case(
+        "format-box-plot",
+        "format",
+        "Make a box plot of these test scores: 55, 62, 68, 70, 71, 75, 78, 80, 82, 85, 88, 90, 95",
+        Expect(hints=("chart",), subject=NONE),
+        "A box plot from the raw scores; the app computes the quartiles.",
+    ),
+    Case(
         "format-line-graph-data",
         "format",
         "make a line graph of my monthly sales: jan 10, feb 12, mar 9, apr 15",

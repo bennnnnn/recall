@@ -82,5 +82,26 @@
   "prompt": "how do I read a pie graph?",
   "reply": "Each slice is one part of the whole. The bigger the slice, the bigger that share; the slices together make 100%.",
   "expect": "answer"
+ },
+ {
+  "id": "ch-013",
+  "area": "chart lookalike",
+  "prompt": "I have a box of plots for my garden, what should I plant in early spring?",
+  "reply": "Peas, spinach, lettuce and radishes all handle cool soil, so they are good first crops for your plots.",
+  "expect": "answer"
+ },
+ {
+  "id": "ch-014",
+  "area": "chart lookalike",
+  "prompt": "help me plot the boxes in my moving truck so the heavy ones go first",
+  "reply": "Load the heaviest boxes against the front wall, then stack lighter ones on top, and fill gaps with soft items.",
+  "expect": "answer"
+ },
+ {
+  "id": "ch-015",
+  "area": "chart lookalike",
+  "prompt": "what is a box plot used for?",
+  "reply": "A box plot shows how data spread out: the middle half of the values sits in the box, and the whiskers reach toward the extremes.",
+  "expect": "answer"
  }
 ]
