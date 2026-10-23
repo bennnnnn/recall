@@ -513,5 +513,22 @@
   ],
   "reply": "Sorry about that: 2 + 2 is 4. Which part was unclear?",
   "expect": "answer"
+ },
+ {
+  "id": "cv-056",
+  "area": "clarify answer",
+  "prompt": "Primary focus: Finish my thesis",
+  "history": [
+   [
+    "user",
+    "plan my week"
+   ],
+   [
+    "assistant",
+    "To build a plan that fits, one quick question:\n\n```clarify\n{\"when\": \"first\", \"questions\": [{\"id\": \"focus\", \"label\": \"Primary focus\", \"question\": \"What is the main goal for your week?\", \"options\": [\"Work projects\", \"Study or exams\", \"Health and fitness\", \"Rest\"], \"multi\": false}]}\n```"
+   ]
+  ],
+  "reply": "Got it! A couple more questions so the plan is realistic:\n\n```clarify\n{\"when\": \"first\", \"questions\": [{\"id\": \"hours\", \"label\": \"Hours per week\", \"question\": \"How many hours a week can you give the thesis?\", \"options\": [\"Under 10\", \"10-20\", \"Over 20\"], \"multi\": false}, {\"id\": \"deadline\", \"label\": \"Deadline\", \"question\": \"When is it due?\", \"options\": [\"This month\", \"Next month\", \"Later\"], \"multi\": false}]}\n```",
+  "expect": "answer"
  }
 ]

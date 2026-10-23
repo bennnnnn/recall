@@ -4,6 +4,8 @@ import HelpScreen from "@/features/account/screens/HelpScreen";
 
 const mockOpenUrl = jest.fn();
 const mockReportError = jest.fn();
+const mockReportWarning = jest.fn();
+const mockSetString = jest.fn(async (_text: string) => true);
 const mockConfig: { supportEmail: string | null } = { supportEmail: null };
 
 jest.mock("expo-constants", () => ({ expoConfig: { version: "2.3.4" } }));
@@ -24,7 +26,10 @@ jest.mock("@/lib/legalUrls", () => ({
 }));
 jest.mock("@/lib/reportRecoverableError", () => ({
   reportRecoverableError: (...args: unknown[]) => mockReportError(...args),
+  reportRecoverableWarning: (...args: unknown[]) => mockReportWarning(...args),
 }));
+jest.mock("expo-clipboard", () => ({ setStringAsync: (text: string) => mockSetString(text) }));
+jest.mock("@/lib/haptics", () => ({ notifySuccess: jest.fn() }));
 jest.mock("@/lib/linkSchemePolicy", () => ({
   openAllowedUrl: (...args: unknown[]) => mockOpenUrl(...args),
 }));
@@ -59,12 +64,43 @@ it("says support is not set up, instead of a share sheet that reaches nobody", a
   expect(view.queryByText("settings.send_feedback")).toBeNull();
 });
 
-it("says so when the mail app cannot be opened", async () => {
+it("copies the address for any email app when no mail app opens", async () => {
   mockConfig.supportEmail = "help@recall.test";
   mockOpenUrl.mockResolvedValue(false);
+  const view = await render(<HelpScreen />);
+  await act(async () => {
+    fireEvent.press(view.getByText("settings.contact_support"));
+  });
+  expect(mockSetString).toHaveBeenCalledWith("help@recall.test");
+  expect(mockReportWarning).toHaveBeenCalledWith(null, "settings.mail_copied");
+  expect(mockReportError).not.toHaveBeenCalled();
+});
+
+it.each(["settings.report_problem", "settings.send_feedback"])(
+  "%s copies the address with the subject and the version, when no mail app opens",
+  async (row) => {
+    mockConfig.supportEmail = "help@recall.test";
+    mockOpenUrl.mockResolvedValue(false);
+    const view = await render(<HelpScreen />);
+    await act(async () => {
+      fireEvent.press(view.getByText(row));
+    });
+    const copied = mockSetString.mock.calls[0]![0];
+    expect(copied.startsWith("help@recall.test\n\n")).toBe(true);
+    expect(copied).toContain(`settings.contact_support_subject: ${row}`);
+    expect(copied).toContain("settings.about_version: 2.3.4");
+    expect(mockReportWarning).toHaveBeenCalledWith(null, "settings.mail_copied_report");
+  },
+);
+
+it("says it could not open mail when the copy fails too", async () => {
+  mockConfig.supportEmail = "help@recall.test";
+  mockOpenUrl.mockResolvedValue(false);
+  mockSetString.mockRejectedValueOnce(new Error("denied"));
   const view = await render(<HelpScreen />);
   await act(async () => {
     fireEvent.press(view.getByText("settings.report_problem"));
   });
   expect(mockReportError).toHaveBeenCalledWith(null, "settings.link_failed");
+  expect(mockReportWarning).not.toHaveBeenCalled();
 });

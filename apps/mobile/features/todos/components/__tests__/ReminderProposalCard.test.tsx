@@ -1,3 +1,4 @@
+import { Linking } from "react-native";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
 import { ReminderProposalCard } from "@/features/todos/components/ReminderProposalCard";
@@ -18,6 +19,10 @@ jest.mock("@/features/todos/context/TodosContext", () => ({
 }));
 jest.mock("@/lib/api", () => ({ api: { confirmReminderProposal: jest.fn() } }));
 jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => "America/New_York" }));
+const mockAllowAlerts = jest.fn(async () => "on" as "on" | "off");
+jest.mock("@/features/todos/model/reminderAlerts", () => ({
+  allowReminderAlerts: () => mockAllowAlerts(),
+}));
 
 const confirm = api.confirmReminderProposal as jest.Mock;
 
@@ -49,6 +54,28 @@ describe("ReminderProposalCard", () => {
     expect(confirm).toHaveBeenCalledWith("token", "a1");
     expect(mockRefresh).toHaveBeenCalledWith({ silent: true, force: true });
     expect(view.queryByText("todos.proposal_add")).toBeNull();
+  });
+
+  it("says the alert is off, with a way to settings, when the user said no", async () => {
+    confirm.mockResolvedValue({ items: [] });
+    mockAllowAlerts.mockResolvedValueOnce("off");
+    const openSettings = jest.spyOn(Linking, "openSettings").mockResolvedValue(undefined);
+    const view = await render(<ReminderProposalCard proposal={add("off1")} />);
+    await fireEvent.press(view.getByText("todos.proposal_add"));
+
+    await waitFor(() => expect(view.getByText("todos.alerts_off")).toBeTruthy());
+    expect(view.getByText("todos.proposal_done_add")).toBeTruthy();
+    await fireEvent.press(view.getByText("todos.alerts_open_settings"));
+    expect(openSettings).toHaveBeenCalled();
+  });
+
+  it("says nothing about alerts when they are on", async () => {
+    confirm.mockResolvedValue({ items: [] });
+    const view = await render(<ReminderProposalCard proposal={add("on1")} />);
+    await fireEvent.press(view.getByText("todos.proposal_add"));
+    await waitFor(() => expect(view.getByText("todos.proposal_done_add")).toBeTruthy());
+    expect(mockAllowAlerts).toHaveBeenCalledTimes(1);
+    expect(view.queryByText("todos.alerts_off")).toBeNull();
   });
 
   it("names a repeat beside the time", async () => {

@@ -36,7 +36,9 @@ async function namedCopy(printed: string, name: string): Promise<string | null> 
     await removeQuietly(named);
     await copyAsync({ from: printed, to: named });
     return named;
-  } catch {
+  } catch (error) {
+    // The share still works, under expo-print's UUID name; say why in development.
+    if (typeof __DEV__ !== "undefined" && __DEV__) console.warn("[pdf] named copy failed", error);
     return null;
   }
 }

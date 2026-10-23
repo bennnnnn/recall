@@ -100,6 +100,7 @@ async def generate_title(
                 "Plain text only — no markdown, no asterisks, no quotes. "
                 "Never copy the user's message verbatim. "
                 "Never use generic labels like 'New chat', 'Untitled', or 'Chat'. "
+                "Keep times, dates and numbers exactly as written (4:14 AM, 3.5%, 300k). "
                 "Greetings (hi, hello, good morning) get a short topic label such as Greeting."
             ),
         },

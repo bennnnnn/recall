@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodosOptional } from "@/features/todos/context/TodosContext";
+import { allowReminderAlerts } from "@/features/todos/model/reminderAlerts";
 import {
   isProposalSaved,
   markProposalSaved,
@@ -27,6 +28,7 @@ export function useReminderProposal(proposal: ReminderProposal) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(() => isProposalSaved(proposal));
   const [error, setError] = useState<ReminderProposalError | null>(null);
+  const [alertsOff, setAlertsOff] = useState(false);
 
   const confirm = async () => {
     if (!token || busy || done) return;
@@ -36,6 +38,10 @@ export function useReminderProposal(proposal: ReminderProposal) {
       const saved = await api.confirmReminderProposal(token, proposal.proposalId);
       markProposalSaved(proposal.proposalId);
       setDone(true);
+      // Ask before the rows land, so the reminder sync that follows may schedule its alert.
+      if (proposal.items.some((item) => item.dueAt && (item.action === "add" || item.action === "set_due"))) {
+        setAlertsOff((await allowReminderAlerts()) === "off");
+      }
       // The rows the tap wrote, applied as they are (code-health audit NET-16); a card
       // another device saved first sends none, and the list is read again.
       if (saved.todos) todos?.setTodos((rows) => applySavedRows(rows, saved.todos ?? [], saved.deleted_ids));
@@ -49,5 +55,5 @@ export function useReminderProposal(proposal: ReminderProposal) {
     }
   };
 
-  return { busy, done: done || isProposalSaved(proposal), error, confirm };
+  return { busy, done: done || isProposalSaved(proposal), error, alertsOff, confirm };
 }

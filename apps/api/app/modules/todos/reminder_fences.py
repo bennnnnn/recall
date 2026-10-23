@@ -33,13 +33,15 @@ from app.modules.todos.reply_check import (
     edits_prior_reply,
     reply_when_nothing_saved,
 )
-from app.modules.todos.reply_claims import without_claims
+from app.modules.todos.reply_claims import without_claims, without_when_questions
 from app.modules.todos.spoken_add import (
     SpokenAdd,
     chat_add_needs_a_stated_time,
     due_for_add,
     due_is_past,
+    parse_spoken_add,
     passed_time_reply,
+    relative_due,
 )
 from app.modules.todos.spoken_apply import apply_spoken_change, format_reminder_reading
 from app.modules.todos.spoken_change import (
@@ -264,7 +266,7 @@ async def _match_spoken_add(turn: _Turn, spans: _Spans) -> tuple[str, int] | Non
         if title is None:
             return None
         stated = replace(stated, title=title)
-    if stated.day is None or stated.hour is None:
+    if stated.after_minutes is None and (stated.day is None or stated.hour is None):
         return None
     if _upcoming_due(stated, turn.user_timezone) is None:
         return passed_time_reply(), 0
@@ -293,7 +295,7 @@ def _past_fence_title(spans: _Spans, user_timezone: str | None) -> str | None:
 
 async def _save_user_remind(turn: _Turn) -> tuple[str, int]:
     """No fence: save an explicit "remind me … at 6pm", or pass on no false claim."""
-    draft = explicit_user_remind(turn.user_text, turn.user_timezone)
+    draft = _user_remind(turn)
     if draft is None:
         # Right after a reply about saved reminders, "Moved **gym** to Sunday"
         # with nothing moved is a false claim.
@@ -354,6 +356,10 @@ async def _apply_fence(turn: _Turn, state: ReminderWrites, body: str) -> _FenceR
         return await _apply_invalid_fence(turn, state)
     if draft.action == "add" and chat_add_needs_a_stated_time(turn.user_text, draft.due_at):
         return await _apply_stated_clock(turn, state)
+    # "In 3 minutes" is the server's arithmetic on the user's clock, not the model's.
+    after = relative_due(turn.user_text, user_timezone=turn.user_timezone)
+    if draft.action == "add" and after is not None:
+        draft = draft.model_copy(update={"due_at": after})
     if (
         draft.action == "add"
         and turn.user_text is not None
@@ -371,7 +377,7 @@ async def _apply_fence(turn: _Turn, state: ReminderWrites, body: str) -> _FenceR
 
 async def _apply_invalid_fence(turn: _Turn, state: ReminderWrites) -> _FenceResult:
     """An invalid fence saves the user's explicit "remind me … at 6pm", or asks when."""
-    fallback = explicit_user_remind(turn.user_text, turn.user_timezone)
+    fallback = _user_remind(turn)
     if fallback is None:
         return _FenceResult(invalid=True)
     line, ok = await create_one(state, fallback)
@@ -383,12 +389,22 @@ async def _apply_stated_clock(turn: _Turn, state: ReminderWrites) -> _FenceResul
 
     Otherwise nothing is saved, and the reply asks when.
     """
-    fallback = explicit_user_remind(turn.user_text, turn.user_timezone)
+    fallback = _user_remind(turn)
     due_at = fallback.due_at if fallback is not None else None
     if fallback is None or due_at is None or due_is_past(due_at, user_timezone=turn.user_timezone):
         return _FenceResult()
     line, ok = await create_one(state, fallback)
     return _FenceResult(line=line, ok=ok)
+
+
+def _user_remind(turn: _Turn) -> ReminderFence | None:
+    """The reminder the user's own words state: "… at 6pm", or "… in 3 minutes"."""
+    stated = explicit_user_remind(turn.user_text, turn.user_timezone)
+    if stated is not None:
+        return stated
+    after = relative_due(turn.user_text, user_timezone=turn.user_timezone)
+    add = parse_spoken_add(turn.user_text) if after is not None else None
+    return None if add is None else ReminderFence(action="add", title=add.title, due_at=after)
 
 
 def _render(text: str, spans: _Spans, in_place: list[str], result_lines: list[str]) -> str:
@@ -419,7 +435,8 @@ async def _save_spoken_adds(turn: _Turn, spans: _Spans, adds: list[SpokenAdd]) -
     state = turn.writes()
     lines: list[str] = []
     for add in adds[:MAX_TODO_ACTIONS_PER_TURN]:
-        due = _upcoming_due(add, turn.user_timezone) if add.hour is not None else None
+        timed = add.hour is not None or add.after_minutes is not None
+        due = _upcoming_due(add, turn.user_timezone) if timed else None
         if due is None:
             lines.append(_ASK_WHEN_FOR.format(title=add.title))
             continue
@@ -429,5 +446,7 @@ async def _save_spoken_adds(turn: _Turn, spans: _Spans, adds: list[SpokenAdd]) -
         lines.append(line)
         state.applied += 1 if ok else 0
     answer = _render(turn.assistant_text, spans, [""] * len(spans), [])
+    if state.applied:
+        answer = without_when_questions(answer)
     titles = [add.title for add in adds]
     return _render(without_claims(answer, titles), [], [], lines), state.applied

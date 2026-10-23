@@ -127,6 +127,9 @@ def fix_clock(state: FinalizeState) -> str:
 def _turn_may_ask(state: FinalizeState) -> bool:
     """Whether this turn may end with a card (docs/clarify.md, "Never")."""
     ctx = state.ctx
+    # The turn after a card answers; asking again ignored the user's picks.
+    if ctx.after_card:
+        return False
     # A maths, physics or chemistry problem, solved or declined, is answered, not asked.
     if state.server_text or ctx.verified_subject is not None or ctx.solver_unverified:
         return False
@@ -140,7 +143,8 @@ def settle_clarify(state: FinalizeState) -> str:
     """The finalize pass: one checked card, or none."""
     if CLARIFY_FENCE not in state.text:
         return state.text
-    text = settle_clarify_cards(state.text, allowed=_turn_may_ask(state))
+    allowed = _turn_may_ask(state)
+    text = settle_clarify_cards(state.text, allowed=allowed, after_card=state.ctx.after_card)
     if text != state.text:
         state.committed = fallback_text(text, server_text=state.server_text)
     return text

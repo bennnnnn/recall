@@ -31,19 +31,21 @@ CLARIFY_CARD_HINT = (
 CLARIFY_PICKS_FIRST_HINT = (
     "The user's message answers the clarify card your last reply asked: each line is a "
     "question's label and what they picked. Now answer the request they made before the "
-    "card, in full, built around these details. Do not ask again and do not list their "
-    "picks back to them."
+    "card, in full, built around these details. Ask nothing more: no card, no questions, "
+    "no 'tell me more'. Where something is still unknown, assume a sensible default, say "
+    "it in one short line, and give the whole answer now. Do not list their picks back."
 )
 CLARIFY_PICKS_AFTER_HINT = (
     "The user's message answers the clarify card under your last answer: each line is a "
     "question's label and what they picked. Answer their request again, fitted to these "
-    "details: a complete, clear answer on its own, not a patch on the last one. Do not ask "
-    "again."
+    "details: a complete, clear answer on its own, not a patch on the last one. Ask nothing "
+    "more: no card and no questions; assume a sensible default for anything still unknown "
+    "and say it in one short line."
 )
 # Skip ("Just answer", in their language) or anything typed instead of tapping.
 CLARIFY_UNANSWERED_HINT = (
     "Your last reply asked with a clarify card. If this message answers it in other words "
-    "or says to skip or just answer, answer the request from before the card now, with your "
-    "best general reading for anything they did not say, and do not ask again. If it is a "
-    "new question, answer that."
+    "or says to skip or just answer, answer the request from before the card now. Ask "
+    "nothing more: no card and no questions; for anything they did not say, assume a "
+    "sensible default and say it in one short line. If it is a new question, answer that."
 )

@@ -12,6 +12,7 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
+from app.modules.chat.clarify_turn import card_in_reply
 from app.modules.chat.continuation_subject import (
     BIOLOGY_CUES,
     is_new_problem_request,
@@ -439,7 +440,13 @@ def follow_up_topic(
     *,
     allow_general: bool,
 ) -> tuple[str, str | None] | None:
-    """("subject", problem) or ("general", None); None makes no call."""
+    """("subject", problem) or ("general", None); None makes no call.
+
+    A reply that ends on a clarify card has its follow-up already: the card's
+    questions. Suggestions under it only repeated them ("What is your budget?").
+    """
+    if card_in_reply(answer) is not None:
+        return None
     problem = thread_problem(question, prior)
     if problem is not None:
         return "subject", problem
