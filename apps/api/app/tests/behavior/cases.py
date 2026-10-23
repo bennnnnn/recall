@@ -970,6 +970,13 @@ CASES: tuple[Case, ...] = (
         "Numbered steps.",
     ),
     Case(
+        "format-howto-walkthrough",
+        "format",
+        "walk me through changing a flat tire",
+        Expect(hints=("steps",), no_hints=("howto", "teaching")),
+        "Numbered steps in order, the safety step before the jack; no week or phase headings.",
+    ),
+    Case(
         "format-howto-feeling",
         "format",
         "how do I know if I'm ready to change jobs",
@@ -1554,7 +1561,7 @@ CASES: tuple[Case, ...] = (
         "multi-compare-and-install",
         "multi-intent",
         "compare python and javascript, and how do I install node on mac?",
-        Expect(hints=("multi_intent", "comparison", "howto")),
+        Expect(hints=("multi_intent", "comparison", "steps"), no_hints=("howto",)),
         "### A python/javascript compare table, then ### numbered install steps.",
     ),
     Case(
