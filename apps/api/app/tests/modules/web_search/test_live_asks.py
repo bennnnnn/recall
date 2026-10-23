@@ -13,6 +13,7 @@ from app.modules.web_search.live_asks import (
     asks_for_a_price,
     asks_for_entry_rules,
     asks_for_job_listings,
+    asks_if_released,
 )
 
 
@@ -131,3 +132,58 @@ def test_visa_rules_search_at_once(text: str) -> None:
 )
 def test_visa_lookalikes_are_not_rules(text: str) -> None:
     assert not asks_for_entry_rules(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Answered "the current model is the iPhone 16" from training data.
+        "Is iPhone 19 out?",
+        "Is the iPhone 17 out yet?",
+        "has gta 6 been released",
+        "has GTA 6 come out yet",
+        "did season 5 of stranger things drop",
+        "when does iphone 19 come out",
+        "When will Windows 12 be released?",
+        "when is the new Zelda coming out",
+        "is Grand Theft Auto VI out",
+        "GTA 6 release date",
+        "release date of the iPhone 19",
+        "is the new Kendrick album out",
+        "when is Avatar 3 coming out",
+        "is ios 27 out yet",
+        "Is GPT-6 available yet?",
+        "has the Switch 2 launched",
+        "is Stranger Things season 5 out on netflix yet",
+        "Are the AirPods Pro 3 out?",
+    ],
+)
+def test_release_questions_search_at_once(text: str) -> None:
+    assert asks_if_released(text)
+    assert web_search_fast_yes(text)
+    assert needs_web_search(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "is the power out",
+        "is the moon out tonight",
+        "Is Tom out yet?",
+        "Is Dad out?",
+        "is my order out for delivery",
+        "is it out yet",
+        "are my exam results out",
+        "is the cake out yet",
+        "when does school get out",
+        "when is mom coming out",
+        "has the baby come out yet",
+        "is he out of surgery",
+        "when does the sun come out",
+        "is 5 out of 10 good",
+        "is the tide out at 6",
+        "is Tom out on bail",
+    ],
+)
+def test_out_that_is_not_a_release_is_not_one(text: str) -> None:
+    assert not asks_if_released(text)
