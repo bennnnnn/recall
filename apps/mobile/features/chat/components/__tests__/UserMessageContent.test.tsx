@@ -224,3 +224,25 @@ describe("UserMessageContent attachments", () => {
     expect(await findByText("pdf:Lease 2026.pdf")).toBeOnTheScreen();
   });
 });
+
+describe("line breaks the user typed", () => {
+  it("keeps two typed lines on two lines", async () => {
+    const view = await render(
+      <UserMessageContent
+        message={userMessage("Budget range: $1,200 - $2,500\nPrimary use: Programming & development")}
+      />,
+    );
+    // A hard break between the two: Markdown's soft break would join them with a space.
+    const pieces: string[] = [];
+    const walk = (node: unknown): void => {
+      if (typeof node === "string") pieces.push(node);
+      else if (Array.isArray(node)) node.forEach(walk);
+      else if (node && typeof node === "object" && "children" in node) {
+        walk((node as { children: unknown }).children);
+      }
+    };
+    walk(view.toJSON());
+    const text = pieces.join("");
+    expect(text).toContain("Budget range: $1,200 - $2,500\nPrimary use: Programming & development");
+  });
+});
