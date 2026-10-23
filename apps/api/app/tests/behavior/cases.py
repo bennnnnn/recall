@@ -117,6 +117,22 @@ _AVERAGE_CODE = (
     ),
 )
 
+# A reply that starts an answer and asks what "best" means with a tap card.
+_BEST_COUNTRY = (
+    ("user", "What is the best country"),
+    (
+        "assistant",
+        "Strong contenders: Switzerland, Norway, Singapore.\n\n**But let me ask you one "
+        "thing.**\n\nWhat do you mean by *best*?\n\n```clarify\n"
+        '{"request":"Recommend the best country for me.","questions":[{"id":"priority",'
+        '"label":"Main priority","question":"What matters most to you?","options":'
+        '["💰 Making money","🌿 Quality of life","🛡️ Safety"]},{"id":"region","label":'
+        '"Geographic preference","question":"Which region are you considering?","options":'
+        '["🌍 Anywhere","🇪🇺 Europe","🌎 The Americas"]}],"closing":"Compare the strongest '
+        'options with practical pros and cons.","submit":"Find my best country"}\n```',
+    ),
+)
+
 CASES: tuple[Case, ...] = (
     # ── Math ────────────────────────────────────────────────────────────────
     Case(
@@ -1064,10 +1080,19 @@ CASES: tuple[Case, ...] = (
     Case(
         "clarify-vague-ask",
         "format",
+        "What is the best country",
+        Expect(hints=("clarify",), image_gen=False),
+        "The strongest few countries, one bold line each with a short why, then a bold "
+        "'But let me ask you one thing.', what 'best' means to them, and a tap card (main "
+        "priority, region) with a 'Find my best country' button; never questions in prose.",
+    ),
+    Case(
+        "clarify-vague-study",
+        "format",
         "how can I understand integrals",
         Expect(hints=("clarify",), image_gen=False),
-        "May ask with a tap card (level, goal) before or after a short explanation; never a "
-        "list of questions in prose.",
+        "May ask with a tap card (level, goal) after a short start; never a list of questions "
+        "in prose.",
     ),
     Case(
         "clarify-not-on-a-problem",
@@ -1093,6 +1118,17 @@ CASES: tuple[Case, ...] = (
     Case(
         "clarify-picks-answer-the-card",
         "format",
+        "Recommend the best country for me. Main priority: Making money. Geographic "
+        "preference: Anywhere. Compare the strongest options with practical pros and cons.",
+        Expect(hints=("clarify_picks",), no_hints=("clarify_unanswered",), lightweight=False),
+        "Opens with the one country that fits best for making money and why (using memory when "
+        "it fits), then the top options ranked, each with what it is best for, pros and cons; "
+        "no new card.",
+        history=_BEST_COUNTRY,
+    ),
+    Case(
+        "clarify-picks-from-an-older-phone",
+        "format",
         "Studied it before: No, never",
         Expect(hints=("clarify_picks",), no_hints=("clarify_unanswered",), lightweight=False),
         "The whole answer to how to understand integrals, pitched at a beginner; no new card.",
@@ -1109,14 +1145,8 @@ CASES: tuple[Case, ...] = (
         "format",
         "Just answer",
         Expect(hints=("clarify_unanswered",), lightweight=False),
-        "A general answer to how to understand integrals; no new card.",
-        history=(
-            ("user", "how can I understand integrals"),
-            (
-                "assistant",
-                'Two quick questions:\n\n```clarify\n{"when":"first","questions":[{"id":"level","label":"Studied it before","question":"Have you studied integrals before?","options":["No, never","A little","Yes, I\'m revising"],"multi":false}]}\n```',
-            ),
-        ),
+        "A general answer to which country is best, with the strongest options; no new card.",
+        history=_BEST_COUNTRY,
     ),
     Case(
         "format-in-detail",

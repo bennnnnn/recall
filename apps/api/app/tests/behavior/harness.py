@@ -32,10 +32,7 @@ from app.modules.chat import prompt_memory
 from app.modules.chat.json_output import JSON_OUTPUT_HINT
 from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.model_routing.route import last_user_turn
-from app.modules.chat.prompt_constants.clarify import (
-    CLARIFY_PICKS_FIRST_HINT,
-    CLARIFY_UNANSWERED_HINT,
-)
+from app.modules.chat.prompt_constants.clarify import CLARIFY_PICKS_HINT, CLARIFY_UNANSWERED_HINT
 from app.modules.chat.prompt_constants.coding import (
     CODE_DEBUG_HINT,
     CODE_EXPLAIN_HINT,
@@ -91,7 +88,7 @@ HINTS: dict[str, str] = {
     "diagram": pc.DIAGRAM_KIND_HINT,
     "quiz": pc.QUIZ_FORMAT_HINT,
     "clarify": pc.CLARIFY_CARD_HINT,
-    "clarify_picks": CLARIFY_PICKS_FIRST_HINT,
+    "clarify_picks": CLARIFY_PICKS_HINT,
     "clarify_unanswered": CLARIFY_UNANSWERED_HINT,
     # Any money turn; its reply rules; asking for the rate; no checked average for "rates now".
     "money": MONEY_HEADER,

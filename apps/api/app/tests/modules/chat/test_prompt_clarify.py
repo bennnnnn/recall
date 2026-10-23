@@ -21,6 +21,7 @@ def _hints(query: str, *, multi: bool = False) -> list[str]:
     "query",
     [
         "how can I understand integrals",
+        "What is the best country",
         "which laptop should I buy",
         "plan my week",
         "help me understand recursion",

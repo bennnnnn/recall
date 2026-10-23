@@ -447,5 +447,39 @@
   ],
   "reply": "A double integral adds up a function over an area instead of along a line.",
   "expect": "answer"
+ },
+ {
+  "id": "cv-050",
+  "area": "clarify lookalike",
+  "prompt": "Main priority: not sure yet, what do most people pick?",
+  "history": [
+   [
+    "user",
+    "What is the best country"
+   ],
+   [
+    "assistant",
+    "Strong contenders: Switzerland, Norway, Singapore.\n\n**But let me ask you one thing.**\n\nWhat do you mean by *best*?\n\n```clarify\n{\"request\":\"Recommend the best country for me.\",\"questions\":[{\"id\":\"priority\",\"label\":\"Main priority\",\"question\":\"What matters most to you?\",\"options\":[\"💰 Making money\",\"🌿 Quality of life\",\"🛡️ Safety\"]},{\"id\":\"region\",\"label\":\"Geographic preference\",\"question\":\"Which region are you considering?\",\"options\":[\"🌍 Anywhere\",\"🇪🇺 Europe\",\"🌎 The Americas\"]}],\"closing\":\"Compare the strongest options with practical pros and cons.\",\"submit\":\"Find my best country\"}\n```"
+   ]
+  ],
+  "reply": "Most people weigh quality of life first, then cost of living and job prospects.",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-051",
+  "area": "clarify lookalike",
+  "prompt": "which one has the lowest taxes?",
+  "history": [
+   [
+    "user",
+    "What is the best country"
+   ],
+   [
+    "assistant",
+    "Strong contenders: Switzerland, Norway, Singapore.\n\n**But let me ask you one thing.**\n\nWhat do you mean by *best*?\n\n```clarify\n{\"request\":\"Recommend the best country for me.\",\"questions\":[{\"id\":\"priority\",\"label\":\"Main priority\",\"question\":\"What matters most to you?\",\"options\":[\"💰 Making money\",\"🌿 Quality of life\",\"🛡️ Safety\"]},{\"id\":\"region\",\"label\":\"Geographic preference\",\"question\":\"Which region are you considering?\",\"options\":[\"🌍 Anywhere\",\"🇪🇺 Europe\",\"🌎 The Americas\"]}],\"closing\":\"Compare the strongest options with practical pros and cons.\",\"submit\":\"Find my best country\"}\n```"
+   ]
+  ],
+  "reply": "Of those three, Singapore has the lowest income tax rates.",
+  "expect": "answer"
  }
 ]

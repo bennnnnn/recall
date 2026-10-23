@@ -1,86 +1,105 @@
 # Clarifying questions: a card the user answers with a tap
 
-People rarely ask in full the first time ("how can I understand integrals?"). When the answer
-depends on something only the user knows (their level, their goal, their budget), Recall asks
-with a card of choices instead of a paragraph of questions. The user taps, presses **Submit**, and
-the picks go back as their next message; Recall then answers with them in mind. Decided with the
-user on 2026-10-22.
+People rarely ask in full the first time ("What is the best country?"). When the best answer
+depends on what the user means or wants (what "best" means to them, their goal, budget, level),
+Recall starts the answer, then asks with a card of choices instead of a paragraph of questions.
+The user taps, presses the card's button, and the picks go back as their next message; Recall
+then answers with them in mind. It works like ChatGPT's; decided with the user on 2026-10-23
+(replacing the first/after card of 2026-10-22).
 
-## When Recall asks
+## The reply that asks
 
-- **First, only when stuck.** If any answer would be a guess ("plan my week", "which laptop
-  should I buy", "how can I understand x" with nothing about the person), the reply is one short
-  sentence and the card; no answer yet.
-- **After, to tailor.** If a good general answer exists, Recall answers it, and may put the card
-  under the reply when the picks would change the answer in a real way ("Want this fitted to
-  you?"). The picks bring a fuller, specific answer that restates the whole thing clearly, not a
-  patch on the first one.
-- **Never** for a plain fact, a sum or a solved STEM problem, a greeting, a reminder, a picture,
-  a draft whose purpose was given, or a message that is merely garbled (that keeps its one-line
-  "did you mean…?" reply, `prompt_constants/unclear.py`).
-- One card per reply, 1 to 3 questions, 2 to 4 choices each. Memory, the chat so far and the
-  question itself come first: Recall never asks what it already knows.
+Three parts, in this order:
+
+1. **A short useful start.** The strongest few options, one bold line each with a short why
+   ("🇨🇭 **Switzerland — best for quality of life**"). When anything more would be a guess
+   ("plan my week"), one short sentence instead.
+2. **The ask.** A bold lead-in on its own line (**But let me ask you one thing.**), then one
+   short line naming what Recall needs (What do you mean by *best*?).
+3. **The card**, last.
+
+Recall asks only when the picks would change the answer in a real way. When a good general
+answer exists it gives it in full and does not ask. **Never** for a plain fact, a sum or a
+STEM problem, a greeting, a reminder, a picture, a draft whose purpose was given, or a message
+that is merely garbled (that keeps its one-line "did you mean…?" reply,
+`prompt_constants/unclear.py`). Memory, the chat so far and the question itself come first:
+Recall never asks what it already knows.
 
 ## The card
 
-- Each question shows its choices; a question may allow several picks.
-- Every question ends with **Other…**, which opens a short text field.
-- **Submit** is enabled once every question has an answer. **Skip** sends "Just answer" (in
-  the app's language) and Recall answers with its best general reading. Typing a normal
-  message instead also skips. The server needs no word list for it: any message after a
-  card that is not the picks gets the same hint (answer the request now, do not ask again;
-  a new question is answered as asked).
-- After Submit or Skip the card stays, read-only, with the picks ticked.
+- One to three questions, each a bold question and 2 to 8 choices, one pick per question.
+  Choices usually start with an emoji ("💰 Making money").
+- The first choice of each question is picked when the card appears (the model puts the
+  likeliest first), so the button works at once.
+- One full-width button named for what it does ("Find my best country"); "Submit" when the
+  card names none. No Other or Skip: typing a normal message instead works, and the server
+  needs no word list for it (any message after a card that is not the picks gets the same
+  hint: answer the request now with the best general reading, or answer the new question).
+- After the button the card stays, read-only, with the picks ticked and no button. A card
+  answered by typing shows nothing ticked.
 
 ## What is sent
 
-The picks are the user's next message, a normal bubble, one line per question:
+The picks are the user's next message, a normal bubble, one paragraph: the card's `request`,
+then `Label: value.` for each question, then its `closing`:
 
 ```
-Studied it before: No, never
-What it's for: An exam next week
+Recommend the best country for me. Main priority: Making money. Geographic preference: Anywhere. Compare the strongest options with practical pros and cons.
 ```
 
-The phone writes it from the card (question label, then the picked choices or the typed text) in
-the user's language. The server knows it answers the card because the previous assistant reply
-holds the card; its prompt then says: answer the original request with these details, in full.
+The phone writes it from the card. The server knows it answers the card because the previous
+assistant reply holds the card and every question's label is in the message with a pick after
+it (one `Label: pick` line per question, what older phones sent, reads the same). Its prompt
+then says: open with a direct recommendation tied to the picks (and to memory when it fits),
+then the complete answer the message asks for; no picks listed back, no new card.
 
 ## The `clarify` fence
 
 Written by the model, checked and normalised by the server before it is saved (Pydantic): a
-card that breaks the rules is removed, and a "first" reply that is left with no question becomes
-plain prose. JSON, one object:
+card that breaks the rules is removed, and a reply left with no question gets the questions as
+plain prose. JSON, one object; this is what the server keeps:
 
 ```json
 {
-  "when": "first",
   "questions": [
-    {"id": "level", "label": "Studied it before", "question": "Have you studied integrals before?",
-     "options": ["No, never", "A little", "Yes, I'm revising"], "multi": false},
-    {"id": "goal", "label": "What it's for", "question": "What do you need it for?",
-     "options": ["An exam", "A class", "Curiosity"], "multi": false}
-  ]
+    {"id": "priority", "label": "Main priority", "question": "What matters most to you?",
+     "options": ["💰 Making money", "🌿 Quality of life", "🛡️ Safety"],
+     "values": ["Making money", "Quality of life", "Safety"]},
+    {"id": "region", "label": "Geographic preference", "question": "Which region are you considering?",
+     "options": ["🌍 Anywhere", "🇪🇺 Europe", "🌎 The Americas"],
+     "values": ["Anywhere", "Europe", "The Americas"]}
+  ],
+  "request": "Recommend the best country for me.",
+  "closing": "Compare the strongest options with practical pros and cons.",
+  "submit": "Find my best country"
 }
 ```
 
-- `when` is `first` (no answer yet) or `after` (under an answer).
+- `options` are drawn as written; `values` are what the message says. The model writes only
+  `options`; the server adds `values` by taking the leading emoji off each one.
 - `label` is the short name used in the sent message; `question` is what the card shows.
-- Text is in the user's language; the phone adds Other…, Submit and Skip from i18n.
-- In the chat history the model reads a card as one compact line ("Asked: Have you studied
-  integrals before? [No, never / A little / Yes, I'm revising] …"), so the next message makes sense.
+- `request`, `closing` and `submit` are optional; one too long to show is dropped, not the card.
+- More than three questions keeps the first three, more than eight choices the first eight;
+  repeats (the same value, any case) are dropped. A question left with fewer than two choices
+  makes the card invalid.
+- Text is in the user's language.
+- Cards saved before 2026-10-23 (`when`, `multi`, up to four choices, no `values`) still read:
+  `when` and `multi` are ignored, each value is its option, and the button says "Submit".
+- In the chat history the model reads a card as one compact line ("Asked: What matters most to
+  you? [Making money / Quality of life / Safety]; …"), so the next message makes sense.
 
 ## Where it lives
 
 | Part | Path |
 |------|------|
-| When to ask, the card's shape, the next turn's hints (prompt) | `apps/api/app/modules/chat/prompt_constants/clarify.py` |
+| When to ask, the reply's shape, the card's shape, the next turn's hints (prompt) | `apps/api/app/modules/chat/prompt_constants/clarify.py` |
 | Check and normalise the fence (finalize pass `clarify_card`) | `apps/api/app/modules/chat/clarify_card.py`, `finalize_text.settle_clarify` |
 | The card in history, and the turn after a card | `apps/api/app/modules/chat/clarify_turn.py` (read by `prompt_window.py`, `prompt_sections.py`, `turn_prep/mode.py`) |
-| The card | `apps/mobile/components/rich/ClarifyCard.tsx` |
-| The sent message, and a sent message read back onto its card | `apps/mobile/lib/clarify/clarifyCard.ts` |
+| The card | `apps/mobile/components/rich/ClarifyCard.tsx` (button: `ui/controls/Button` `contrast`) |
+| The first picks, the sent message, and a sent message read back onto its card | `apps/mobile/lib/clarify/clarifyCard.ts` |
 | What the card reads from the chat: the send path, busy, newest reply, the answer | `apps/mobile/components/rich/clarifyContext.tsx`, provided by `features/chat/components/ChatReplyProviders.tsx` and `MessageBubble.tsx` |
 
-On the phone a card is live only on the newest reply while nothing streams. Once answered it
-stays read-only with the picks ticked, read back from the user message after it, so no store is
-needed across list recycling or a restart. Copy and Read aloud give each question with its
-choices.
+On the phone a card can be answered only on the newest reply while nothing streams (while a
+reply streams or saves, the button shows but does nothing). Once answered it stays read-only
+with the picks ticked, read back from the user message after it, so no store is needed across
+list recycling or a restart. Copy and Read aloud give each question with its choices.

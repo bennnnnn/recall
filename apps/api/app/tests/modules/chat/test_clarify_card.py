@@ -18,7 +18,14 @@ from app.modules.chat.turn_prep import StreamContext
 from app.services.md_fence_scan import iter_fences
 from app.tests.modules.chat.chat_test_support import turn_deps
 
-_ASK = "Before I explain, two quick questions so I can pitch it right:"
+_ASK = "But let me ask you one thing. What do you mean by *best*?"
+_PRIORITY = {
+    "id": "priority",
+    "label": "Main priority",
+    "question": "What matters most to you?",
+    "options": ["💰 Making money", "🌿 Quality of life", "🛡️ Safety", "🎓 Education"],
+}
+_PRIORITY_VALUES = ["Making money", "Quality of life", "Safety", "Education"]
 _LEVEL = {
     "id": "level",
     "label": "Studied it before",
@@ -46,15 +53,32 @@ def _card(text: str) -> dict[str, Any] | None:
     return None
 
 
+def _values(question: dict[str, Any]) -> dict[str, Any]:
+    return {**question, "values": question["options"]}
+
+
 def test_a_valid_card_is_kept_last_in_its_normal_shape() -> None:
-    text = f"{_ASK}\n\n{_fence({'when': 'first', 'questions': [_LEVEL, _GOAL]})}"
-    settled = settle_clarify_cards(text, allowed=True)
+    card = {
+        "request": "Recommend the best country for me.",
+        "questions": [_PRIORITY, _LEVEL],
+        "closing": "Compare the strongest options with practical pros and cons.",
+        "submit": "Find my best country",
+    }
+    settled = settle_clarify_cards(f"{_ASK}\n\n{_fence(card)}", allowed=True)
     assert settled.startswith(_ASK)
     assert settled.rstrip().endswith("```")
     assert _card(settled) == {
-        "when": "first",
-        "questions": [{**_LEVEL, "multi": False}, {**_GOAL, "multi": False}],
+        "questions": [{**_PRIORITY, "values": _PRIORITY_VALUES}, _values(_LEVEL)],
+        "request": "Recommend the best country for me.",
+        "closing": "Compare the strongest options with practical pros and cons.",
+        "submit": "Find my best country",
     }
+
+
+def test_an_older_card_reads_without_its_when_and_multi() -> None:
+    card = read_card(json.dumps({"when": "after", "questions": [{**_GOAL, "multi": True}]}))
+    assert card is not None
+    assert card.model_dump(exclude_defaults=True) == {"questions": [_values(_GOAL)]}
 
 
 @pytest.mark.parametrize(
@@ -63,7 +87,21 @@ def test_a_valid_card_is_kept_last_in_its_normal_shape() -> None:
         # Trimmed, repeats dropped whatever their case, blanks dropped.
         (
             {**_LEVEL, "options": [" No, never ", "A little", "a little", "", "Yes"]},
-            {**_LEVEL, "options": ["No, never", "A little", "Yes"], "multi": False},
+            _values({**_LEVEL, "options": ["No, never", "A little", "Yes"]}),
+        ),
+        # The same choice with and without its emoji is one choice.
+        (
+            {**_GOAL, "options": ["📝 An exam", "An exam", "A class"]},
+            {**_GOAL, "options": ["📝 An exam", "A class"], "values": ["An exam", "A class"]},
+        ),
+        # Flags, joined emoji and variation selectors leave the words; an emoji alone stays.
+        (
+            {**_GOAL, "options": ["🇨🇭 Switzerland", "👨‍👩‍👧 Family", "🛡️Safety", "🌍"]},
+            {
+                **_GOAL,
+                "options": ["🇨🇭 Switzerland", "👨‍👩‍👧 Family", "🛡️Safety", "🌍"],
+                "values": ["Switzerland", "Family", "Safety", "🌍"],
+            },
         ),
         # No id or label: the place and the question name it.
         (
@@ -73,24 +111,31 @@ def test_a_valid_card_is_kept_last_in_its_normal_shape() -> None:
                 "label": "Which do you prefer",
                 "question": "Which do you prefer?",
                 "options": ["Video", "Text"],
-                "multi": False,
+                "values": ["Video", "Text"],
             },
         ),
-        ({**_GOAL, "multi": True}, {**_GOAL, "multi": True}),
-        # Only a real true picks several.
-        ({**_GOAL, "multi": "yes"}, {**_GOAL, "multi": False}),
     ],
 )
 def test_read_card_normalises_a_question(question: dict[str, Any], normal: dict[str, Any]) -> None:
-    card = read_card(json.dumps({"when": "first", "questions": [question]}))
+    card = read_card(json.dumps({"questions": [question]}))
     assert card is not None
     assert card.model_dump()["questions"] == [normal]
 
 
 def test_read_card_keeps_the_first_three_questions() -> None:
     questions = [{**_GOAL, "id": f"q{i}"} for i in range(5)]
-    card = read_card(json.dumps({"when": "first", "questions": questions}))
+    card = read_card(json.dumps({"questions": questions}))
     assert card is not None and [q.id for q in card.questions] == ["q0", "q1", "q2"]
+
+
+def test_text_too_long_to_show_is_dropped_not_the_card() -> None:
+    card = read_card(
+        json.dumps(
+            {"request": "x" * 201, "closing": "Short.", "submit": "y" * 41, "questions": [_GOAL]}
+        )
+    )
+    assert card is not None
+    assert (card.request, card.closing, card.submit) == ("", "Short.", "")
 
 
 @pytest.mark.parametrize(
@@ -98,14 +143,14 @@ def test_read_card_keeps_the_first_three_questions() -> None:
     [
         "not json",
         "[]",
-        json.dumps({"when": "first"}),
-        json.dumps({"when": "first", "questions": []}),
-        json.dumps({"when": "first", "questions": ["a question"]}),
-        # One choice is not a choice, even after a too-long one is dropped.
-        json.dumps({"when": "first", "questions": [{**_LEVEL, "options": ["Yes", "yes"]}]}),
-        json.dumps({"when": "first", "questions": [{**_LEVEL, "question": " "}]}),
-        json.dumps({"when": "first", "questions": [{**_LEVEL, "options": ["x" * 81, "y"]}]}),
-        json.dumps({"when": "first", "questions": [{**_LEVEL, "label": "x" * 61}]}),
+        json.dumps({"submit": "Go"}),
+        json.dumps({"questions": []}),
+        json.dumps({"questions": ["a question"]}),
+        # One choice is not a choice, even after a repeat is dropped.
+        json.dumps({"questions": [{**_LEVEL, "options": ["Yes", "yes"]}]}),
+        json.dumps({"questions": [{**_LEVEL, "question": " "}]}),
+        json.dumps({"questions": [{**_LEVEL, "options": ["x" * 81, "y"]}]}),
+        json.dumps({"questions": [{**_LEVEL, "label": "x" * 61}]}),
     ],
 )
 def test_read_card_refuses_a_card_that_breaks_the_rules(body: str) -> None:
@@ -115,8 +160,8 @@ def test_read_card_refuses_a_card_that_breaks_the_rules(body: str) -> None:
 @pytest.mark.parametrize(
     ("options", "kept"),
     [
-        # Five choices keep the first four: the card's Other... covers the fifth.
-        (["Work", "Study", "Chores", "Fitness", "Social"], ["Work", "Study", "Chores", "Fitness"]),
+        # Ten choices keep the first eight.
+        ([f"Choice {i}" for i in range(10)], [f"Choice {i}" for i in range(8)]),
         # A choice too long to tap is dropped, not the whole card.
         (["x" * 81, "Yes", "No"], ["Yes", "No"]),
     ],
@@ -124,7 +169,7 @@ def test_read_card_refuses_a_card_that_breaks_the_rules(body: str) -> None:
 def test_read_card_trims_choices_instead_of_dropping_the_card(
     options: list[str], kept: list[str]
 ) -> None:
-    card = read_card(json.dumps({"when": "first", "questions": [{**_LEVEL, "options": options}]}))
+    card = read_card(json.dumps({"questions": [{**_LEVEL, "options": options}]}))
     assert card is not None and card.questions[0].options == kept
 
 
@@ -132,27 +177,15 @@ def test_a_dropped_card_logs_its_reason_not_its_text(caplog: pytest.LogCaptureFi
     secret = "my salary is 4000"
     with caplog.at_level("INFO", logger="app.modules.chat.clarify_card"):
         assert (
-            read_card(
-                json.dumps(
-                    {"when": "first", "questions": [{**_LEVEL, "question": " ", "label": secret}]}
-                )
-            )
+            read_card(json.dumps({"questions": [{**_LEVEL, "question": " ", "label": secret}]}))
             is None
         )
     assert "clarify card dropped" in caplog.text and secret not in caplog.text
 
 
-@pytest.mark.parametrize(("prose_words", "when"), [(5, "first"), (60, "after")])
-def test_a_card_with_no_when_is_first_unless_it_follows_an_answer(
-    prose_words: int, when: str
-) -> None:
-    card = read_card(json.dumps({"questions": [_LEVEL]}), prose_words=prose_words)
-    assert card is not None and card.when == when
-
-
 def test_one_card_only_and_it_moves_under_the_answer() -> None:
-    second = {"when": "after", "questions": [_GOAL]}
-    text = f"{_fence({'when': 'after', 'questions': [_LEVEL]})}\n\n{_ANSWER}\n\n{_fence(second)}"
+    second = {"questions": [_GOAL]}
+    text = f"{_fence({'questions': [_LEVEL]})}\n\n{_ANSWER}\n\n{_fence(second)}"
     settled = settle_clarify_cards(text, allowed=True)
     assert settled.count("```clarify") == 1
     assert settled.startswith(_ANSWER)
@@ -160,7 +193,7 @@ def test_one_card_only_and_it_moves_under_the_answer() -> None:
 
 
 def test_a_broken_card_on_an_ask_keeps_its_questions_as_prose() -> None:
-    broken = {"when": "first", "questions": [{**_LEVEL, "options": ["Only one"]}, _GOAL]}
+    broken = {"questions": [{**_LEVEL, "options": ["Only one"]}, _GOAL]}
     settled = settle_clarify_cards(f"{_ASK}\n\n{_fence(broken)}", allowed=True)
     assert "```clarify" not in settled
     assert settled == (
@@ -174,12 +207,12 @@ def test_unreadable_json_leaves_the_sentence() -> None:
 
 
 def test_a_card_under_an_answer_that_cannot_be_shown_leaves_the_answer() -> None:
-    broken = {"when": "after", "questions": [{**_GOAL, "options": ["Only"]}]}
+    broken = {"questions": [{**_GOAL, "options": ["Only"]}]}
     assert settle_clarify_cards(f"{_ANSWER}\n\n{_fence(broken)}", allowed=False) == _ANSWER
 
 
 def test_a_turn_that_may_not_ask_keeps_the_questions_as_prose() -> None:
-    text = f"{_ASK}\n\n{_fence({'when': 'first', 'questions': [_LEVEL]})}"
+    text = f"{_ASK}\n\n{_fence({'questions': [_LEVEL]})}"
     settled = settle_clarify_cards(text, allowed=False)
     assert "```clarify" not in settled
     assert "- Have you studied integrals before? (No, never / A little" in settled
@@ -215,7 +248,7 @@ def _state(raw: str, **ctx: Any) -> FinalizeState:
     )
 
 
-_ASKED = f"{_ASK}\n\n{_fence({'when': 'first', 'questions': [_LEVEL, _GOAL]})}"
+_ASKED = f"{_ASK}\n\n{_fence({'questions': [_PRIORITY, _GOAL]})}"
 
 
 @pytest.mark.parametrize(
@@ -249,7 +282,7 @@ async def test_every_finalize_pass_leaves_a_valid_card_whole() -> None:
     state = _state(_ASKED)
     assert await run_finalize_passes(state)
     card = _card(state.text)
-    assert card is not None and [q["id"] for q in card["questions"]] == ["level", "goal"]
+    assert card is not None and [q["id"] for q in card["questions"]] == ["priority", "goal"]
     assert state.text.startswith(_ASK)
 
 

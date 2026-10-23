@@ -1,13 +1,36 @@
 import {
   answersFromMessage,
-  canSubmitClarify,
   clarifyMessage,
   clarifyText,
+  initialClarifyAnswers,
   parseClarifyCard,
   type ClarifyCard,
 } from "@/lib/clarify/clarifyCard";
 
-// The integrals card from docs/clarify.md.
+// The best-country card from docs/clarify.md, as the server keeps it.
+const COUNTRY = JSON.stringify({
+  questions: [
+    {
+      id: "priority",
+      label: "Main priority",
+      question: "What matters most to you?",
+      options: ["💰 Making money", "🌿 Quality of life", "🛡️ Safety"],
+      values: ["Making money", "Quality of life", "Safety"],
+    },
+    {
+      id: "region",
+      label: "Geographic preference",
+      question: "Which region are you considering?",
+      options: ["🌍 Anywhere", "🇪🇺 Europe", "🌎 The Americas"],
+      values: ["Anywhere", "Europe", "The Americas"],
+    },
+  ],
+  request: "Recommend the best country for me.",
+  closing: "Compare the strongest options with practical pros and cons.",
+  submit: "Find my best country",
+});
+
+// A card saved before cards had values, a request or a button.
 const INTEGRALS = JSON.stringify({
   when: "first",
   questions: [
@@ -18,17 +41,10 @@ const INTEGRALS = JSON.stringify({
       options: ["No, never", "A little", "Yes, I'm revising"],
       multi: false,
     },
-    {
-      id: "goal",
-      label: "What it's for",
-      question: "What do you need it for?",
-      options: ["An exam", "A class", "Curiosity"],
-      multi: false,
-    },
   ],
 });
 
-function card(content = INTEGRALS): ClarifyCard {
+function card(content = COUNTRY): ClarifyCard {
   const parsed = parseClarifyCard(content);
   if (!parsed) throw new Error("expected a card");
   return parsed;
@@ -37,28 +53,32 @@ function card(content = INTEGRALS): ClarifyCard {
 describe("parseClarifyCard", () => {
   it("reads the card the server keeps", () => {
     const parsed = card();
-    expect(parsed.when).toBe("first");
-    expect(parsed.questions.map((q) => q.label)).toEqual(["Studied it before", "What it's for"]);
-    expect(parsed.questions[0]!.options).toEqual(["No, never", "A little", "Yes, I'm revising"]);
-    expect(parsed.questions[0]!.multi).toBe(false);
+    expect(parsed.questions.map((q) => q.label)).toEqual(["Main priority", "Geographic preference"]);
+    expect(parsed.questions[0]!.options).toEqual(["💰 Making money", "🌿 Quality of life", "🛡️ Safety"]);
+    expect(parsed.questions[0]!.values).toEqual(["Making money", "Quality of life", "Safety"]);
+    expect(parsed).toMatchObject({
+      request: "Recommend the best country for me.",
+      closing: "Compare the strongest options with practical pros and cons.",
+      submit: "Find my best country",
+    });
   });
 
-  it("fills a missing id or label and reads an unknown when as first", () => {
-    const parsed = card(
-      JSON.stringify({
-        when: "later",
-        questions: [{ question: "Which OS?", options: ["iOS", "Android"] }],
-      }),
-    );
-    expect(parsed.when).toBe("first");
-    expect(parsed.questions[0]).toMatchObject({ id: "q1", label: "Which OS?", multi: false });
+  it("reads an older card: each value is its option, and no request, closing or button", () => {
+    const parsed = card(INTEGRALS);
+    expect(parsed.questions[0]!.values).toEqual(parsed.questions[0]!.options);
+    expect(parsed).toMatchObject({ request: "", closing: "", submit: "" });
   });
 
-  it("keeps an after card", () => {
+  it("says the options when the values do not fit them", () => {
     const parsed = card(
-      JSON.stringify({ when: "after", questions: [{ label: "OS", question: "Which?", options: ["a", "b"] }] }),
+      JSON.stringify({ questions: [{ label: "L", question: "Q?", options: ["a", "b"], values: ["a", ""] }] }),
     );
-    expect(parsed.when).toBe("after");
+    expect(parsed.questions[0]!.values).toEqual(["a", "b"]);
+  });
+
+  it("fills a missing id or label", () => {
+    const parsed = card(JSON.stringify({ questions: [{ question: "Which OS?", options: ["iOS", "Android"] }] }));
+    expect(parsed.questions[0]).toMatchObject({ id: "q1", label: "Which OS?" });
   });
 
   it("drops blank and repeated options, and gives repeated ids new ones", () => {
@@ -74,9 +94,15 @@ describe("parseClarifyCard", () => {
     expect(parsed.questions.map((q) => q.id)).toEqual(["q1", "q2"]);
   });
 
+  it("keeps eight options", () => {
+    const options = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    const parsed = card(JSON.stringify({ questions: [{ label: "L", question: "Q?", options }] }));
+    expect(parsed.questions[0]!.options).toEqual(options);
+  });
+
   it.each([
     ["not JSON", "Have you studied integrals before?"],
-    ["no questions", JSON.stringify({ when: "first", questions: [] })],
+    ["no questions", JSON.stringify({ questions: [] })],
     [
       "four questions",
       JSON.stringify({
@@ -85,8 +111,8 @@ describe("parseClarifyCard", () => {
     ],
     ["one option", JSON.stringify({ questions: [{ label: "L", question: "Q?", options: ["a"] }] })],
     [
-      "five options",
-      JSON.stringify({ questions: [{ label: "L", question: "Q?", options: ["a", "b", "c", "d", "e"] }] }),
+      "nine options",
+      JSON.stringify({ questions: [{ label: "L", question: "Q?", options: "abcdefghi".split("") }] }),
     ],
     ["no question text", JSON.stringify({ questions: [{ label: "L", options: ["a", "b"] }] })],
     ["a question that is not an object", JSON.stringify({ questions: ["Q?"] })],
@@ -95,120 +121,83 @@ describe("parseClarifyCard", () => {
   });
 });
 
-describe("clarifyMessage", () => {
-  it("writes one Label: pick line per question, as the server reads it", () => {
-    const parsed = card();
-    const message = clarifyMessage(parsed, {
-      level: { picked: ["No, never"], other: null },
-      goal: { picked: ["An exam"], other: null },
-    });
-    expect(message).toBe("Studied it before: No, never\nWhat it's for: An exam");
-  });
-
-  it("joins several picks in the card's order, then the typed text on one line", () => {
-    const parsed = card(
-      JSON.stringify({
-        questions: [
-          { id: "use", label: "Used for", question: "What for?", options: ["Games", "Work", "Study"], multi: true },
-        ],
-      }),
-    );
-    const message = clarifyMessage(parsed, {
-      use: { picked: ["Study", "Games"], other: "  video\n editing " },
-    });
-    expect(message).toBe("Used for: Games, Study, video editing");
-  });
-
-  it("uses Other… text alone when nothing else is picked", () => {
-    const parsed = card();
-    const message = clarifyMessage(parsed, {
-      level: { picked: [], other: "I took calculus years ago" },
-      goal: { picked: ["Curiosity"], other: null },
-    });
-    expect(message).toBe("Studied it before: I took calculus years ago\nWhat it's for: Curiosity");
+describe("initialClarifyAnswers", () => {
+  it("starts every question on its first choice", () => {
+    expect(initialClarifyAnswers(card())).toEqual({ priority: 0, region: 0 });
   });
 });
 
-describe("canSubmitClarify", () => {
-  it("needs an answer for every question", () => {
-    const parsed = card();
-    expect(canSubmitClarify(parsed, {})).toBe(false);
-    expect(canSubmitClarify(parsed, { level: { picked: ["A little"], other: null } })).toBe(false);
-    expect(
-      canSubmitClarify(parsed, {
-        level: { picked: ["A little"], other: null },
-        goal: { picked: [], other: "   " },
-      }),
-    ).toBe(false);
-    expect(
-      canSubmitClarify(parsed, {
-        level: { picked: ["A little"], other: null },
-        goal: { picked: [], other: "A job interview" },
-      }),
-    ).toBe(true);
+describe("clarifyMessage", () => {
+  it("writes the request, each label with its pick, then the closing, as the server reads it", () => {
+    expect(clarifyMessage(card(), { priority: 0, region: 0 })).toBe(
+      "Recommend the best country for me. Main priority: Making money. Geographic preference: " +
+        "Anywhere. Compare the strongest options with practical pros and cons.",
+    );
+  });
+
+  it("says the picked value, without its emoji", () => {
+    expect(clarifyMessage(card(), { priority: 2, region: 1 })).toContain(
+      "Main priority: Safety. Geographic preference: Europe.",
+    );
+  });
+
+  it("sends the first choice for a question with no pick", () => {
+    expect(clarifyMessage(card(), { region: 2 })).toContain(
+      "Main priority: Making money. Geographic preference: The Americas.",
+    );
+  });
+
+  it("adds no full stop after a pick that ends a sentence, nor an empty request", () => {
+    const parsed = card(
+      JSON.stringify({ questions: [{ label: "Ready", question: "Ready?", options: ["Yes!", "Not yet"] }] }),
+    );
+    expect(clarifyMessage(parsed, { q1: 0 })).toBe("Ready: Yes!");
   });
 });
 
 describe("answersFromMessage", () => {
-  it("reads the sent picks back onto the card", () => {
+  it("round-trips what the button sends", () => {
     const parsed = card();
-    expect(answersFromMessage(parsed, "Studied it before: Yes, I'm revising\nWhat it's for: An exam")).toEqual({
-      level: { picked: ["Yes, I'm revising"], other: null },
-      goal: { picked: ["An exam"], other: null },
-    });
+    const answers = { priority: 1, region: 2 };
+    expect(answersFromMessage(parsed, clarifyMessage(parsed, answers))).toEqual(answers);
   });
 
-  it("reads a typed answer as Other…", () => {
-    const parsed = card();
-    expect(answersFromMessage(parsed, "studied it before: a long time ago\nWhat it's for: A class")).toEqual({
-      level: { picked: [], other: "a long time ago" },
-      goal: { picked: ["A class"], other: null },
-    });
+  it("reads the one line per question older phones sent", () => {
+    expect(answersFromMessage(card(INTEGRALS), "Studied it before: Yes, I'm revising")).toEqual({ level: 2 });
   });
 
-  it("reads several picks back, an option with a comma in it too, then the typed rest", () => {
+  it("reads the longest choice a pick starts with", () => {
     const parsed = card(
-      JSON.stringify({
-        questions: [
-          {
-            id: "pick",
-            label: "Picked",
-            question: "Which?",
-            options: ["Yes, I'm revising", "Yes", "Maybe"],
-            multi: true,
-          },
-        ],
-      }),
+      JSON.stringify({ questions: [{ id: "p", label: "Picked", question: "Which?", options: ["Yes", "Yes, a lot"] }] }),
     );
-    expect(answersFromMessage(parsed, "Picked: Yes, I'm revising, Maybe, something else")).toEqual({
-      pick: { picked: ["Yes, I'm revising", "Maybe"], other: "something else" },
+    expect(answersFromMessage(parsed, "Picked: yes, a lot. Thanks.")).toEqual({ p: 1 });
+    expect(answersFromMessage(parsed, "Picked: Yes. Thanks.")).toEqual({ p: 0 });
+    expect(answersFromMessage(parsed, "Picked: Yesterday")).toEqual({});
+  });
+
+  it("leaves a pick that is none of the choices unticked", () => {
+    expect(answersFromMessage(card(), "Main priority: Family. Geographic preference: Europe.")).toEqual({
+      region: 1,
     });
   });
 
   it.each([
-    ["Skip", "Just answer"],
-    ["a new question", "What about derivatives?"],
-    ["a line that names no question", "Studied it before: No, never\nBudget: $500"],
-    ["an empty value", "Studied it before:"],
+    ["anything typed instead", "Just answer"],
+    ["a new question", "What about Canada?"],
+    ["a label missing", "Main priority: Safety."],
+    ["a label inside another word", "Submain priority: Safety. Geographic preference: Europe."],
+    ["an empty pick", "Main priority: Safety. Geographic preference:"],
+    ["a pick only on the next line", "Main priority:\nGeographic preference: Europe"],
   ])("is null for %s", (_name, message) => {
     expect(answersFromMessage(card(), message)).toBeNull();
-  });
-
-  it("round-trips what Submit sends", () => {
-    const parsed = card();
-    const answers = {
-      level: { picked: ["A little"], other: null },
-      goal: { picked: [], other: "A job interview" },
-    };
-    expect(answersFromMessage(parsed, clarifyMessage(parsed, answers))).toEqual(answers);
   });
 });
 
 describe("clarifyText", () => {
-  it("is each question with its choices", () => {
+  it("is each question with its choices, without emoji", () => {
     expect(clarifyText(card())).toBe(
-      "Have you studied integrals before? (No, never / A little / Yes, I'm revising)\n" +
-        "What do you need it for? (An exam / A class / Curiosity)",
+      "What matters most to you? (Making money / Quality of life / Safety)\n" +
+        "Which region are you considering? (Anywhere / Europe / The Americas)",
     );
   });
 });

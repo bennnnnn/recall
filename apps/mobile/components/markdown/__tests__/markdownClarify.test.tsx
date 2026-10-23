@@ -13,14 +13,18 @@ jest.mock("@/components/LinkPreviewCard", () => {
 
 const CARD =
   "```clarify\n" +
-  '{"when":"first","questions":[{"id":"level","label":"Studied it before",' +
-  '"question":"Have you studied integrals before?","options":["No, never","A little",' +
-  '"Yes, I\'m revising"],"multi":false},{"id":"goal","label":"What it\'s for",' +
-  '"question":"What do you need it for?","options":["An exam","A class","Curiosity"],' +
-  '"multi":false}]}\n```';
+  '{"questions":[{"id":"priority","label":"Main priority","question":"What matters most to you?",' +
+  '"options":["💰 Making money","🌿 Quality of life","🛡️ Safety"],"values":["Making money",' +
+  '"Quality of life","Safety"]},{"id":"region","label":"Geographic preference",' +
+  '"question":"Which region are you considering?","options":["🌍 Anywhere","🇪🇺 Europe"],' +
+  '"values":["Anywhere","Europe"]}],"request":"Recommend the best country for me.",' +
+  '"closing":"Compare the strongest options with practical pros and cons.",' +
+  '"submit":"Find my best country"}\n```';
 
-/** A reply that asks first: one sentence, then the card (docs/clarify.md). */
-const REPLY = `Before I explain, two quick questions so I can pitch it right:\n\n${CARD}`;
+/** A reply that starts an answer, asks what "best" means, then the card (docs/clarify.md). */
+const REPLY =
+  "🇨🇭 **Switzerland — best for quality of life**\n\n**But let me ask you one thing.**\n\n" +
+  `What do you mean by *best*?\n\n${CARD}`;
 
 function visibleText(view: ReturnType<typeof render> extends Promise<infer R> ? R : never): string {
   const parts: string[] = [];
@@ -51,7 +55,7 @@ describe("a reply that asks with a clarify card", () => {
     }
   });
 
-  it("draws the card under the sentence once the reply is complete, and sends the picks", async () => {
+  it("draws the card under the question once the reply is complete, and sends the picks", async () => {
     const send = jest.fn();
     const view = await render(
       <ClarifyActionsProvider send={send} busy={false}>
@@ -61,18 +65,20 @@ describe("a reply that asks with a clarify card", () => {
       </ClarifyActionsProvider>,
     );
     const shown = visibleText(view);
-    expect(shown).toContain("Before I explain, two quick questions");
-    expect(shown).toContain("Have you studied integrals before?");
+    expect(shown).toContain("But let me ask you one thing.");
+    expect(shown).toContain("What matters most to you?");
     expect(shown).not.toContain('"questions"');
-    await fireEvent.press(view.getByText("A little"));
-    await fireEvent.press(view.getByText("An exam"));
-    await fireEvent.press(view.getByText("Submit"));
-    expect(send).toHaveBeenCalledWith("Studied it before: A little\nWhat it's for: An exam");
+    await fireEvent.press(view.getByText("🛡️ Safety"));
+    await fireEvent.press(view.getByText("Find my best country"));
+    expect(send).toHaveBeenCalledWith(
+      "Recommend the best country for me. Main priority: Safety. Geographic preference: Anywhere. " +
+        "Compare the strongest options with practical pros and cons.",
+    );
   });
 
   it("copies the questions and their choices, not the JSON", () => {
     const copied = markdownToCopyText(REPLY);
-    expect(copied).toContain("Have you studied integrals before? (No, never / A little / Yes, I'm revising)");
+    expect(copied).toContain("What matters most to you? (Making money / Quality of life / Safety)");
     expect(copied).not.toContain('"questions"');
   });
 });
