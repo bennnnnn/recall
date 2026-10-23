@@ -1,5 +1,5 @@
 import React from "react";
-import { Alert, Text } from "react-native";
+import { Alert, Linking, Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { useTodosActions } from "@/features/todos/hooks/useTodosActions";
@@ -24,6 +24,13 @@ jest.mock("@/features/todos/model/todoReminders", () => ({
 
 jest.mock("@/features/todos/model/reminderSeen", () => ({
   markReminderIdsSeen: jest.fn(),
+}));
+
+const mockAllowAlerts = jest.fn(async () => "on" as "on" | "off");
+const mockShouldTell = jest.fn(() => true);
+jest.mock("@/features/todos/model/reminderAlerts", () => ({
+  allowReminderAlerts: () => mockAllowAlerts(),
+  shouldTellAlertsOff: () => mockShouldTell(),
 }));
 
 jest.mock("@/lib/api", () => ({
@@ -222,5 +229,74 @@ describe("useTodosActions reminders", () => {
       due_at: null,
       recurrence_rule: null,
     });
+  });
+});
+
+describe("useTodosActions alerts", () => {
+  const due = new Date("2026-08-24T18:00:00.000Z");
+  const alertsOffDialog = () =>
+    (Alert.alert as jest.Mock).mock.calls.find((call) => call[0] === "todos.alerts_off_title");
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    (api.createTodo as jest.Mock).mockResolvedValue(todo({ id: "s1", content: "Call mom", due_at: due.toISOString() }));
+  });
+
+  it("asks for alerts before a dated reminder lands, and not for a plain to-do", async () => {
+    const order: string[] = [];
+    mockAllowAlerts.mockImplementationOnce(async () => {
+      order.push("ask");
+      return "on";
+    });
+    setTodos.mockImplementation(() => {
+      order.push("rows");
+    });
+    await act(async () => {
+      render(<Probe todos={[]} />);
+    });
+    await act(async () => {
+      await actions.handleCreateTodo("Call mom", due, jest.fn());
+      await actions.handleCreateTodo("Buy milk", null, jest.fn());
+    });
+    expect(order[0]).toBe("ask");
+    expect(mockAllowAlerts).toHaveBeenCalledTimes(1);
+    expect(alertsOffDialog()).toBeUndefined();
+    setTodos.mockReset();
+  });
+
+  it("tells a user who said no, with a way to Settings, and still saves", async () => {
+    mockAllowAlerts.mockResolvedValue("off");
+    const openSettings = jest.spyOn(Linking, "openSettings").mockResolvedValue(undefined);
+    await act(async () => {
+      render(<Probe todos={[]} />);
+    });
+    await act(async () => {
+      await actions.handleCreateTodo("Call mom", due, jest.fn());
+    });
+    expect(api.createTodo).toHaveBeenCalled();
+    const dialog = alertsOffDialog();
+    expect(dialog?.[1]).toBe("todos.alerts_off");
+    const open = (dialog?.[2] as { text: string; onPress: () => void }[]).find(
+      (action) => action.text === "todos.alerts_open_settings",
+    );
+    await act(async () => {
+      open?.onPress();
+    });
+    expect(openSettings).toHaveBeenCalled();
+  });
+
+  it("does not tell again once told this session", async () => {
+    mockAllowAlerts.mockResolvedValue("off");
+    mockShouldTell.mockReturnValue(false);
+    await act(async () => {
+      render(<Probe todos={[]} />);
+    });
+    await act(async () => {
+      await actions.handleCreateTodo("Call mom", due, jest.fn());
+    });
+    expect(api.createTodo).toHaveBeenCalled();
+    expect(alertsOffDialog()).toBeUndefined();
+    mockShouldTell.mockReturnValue(true);
   });
 });

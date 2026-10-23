@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Linking, StyleSheet, Text, View } from "react-native";
 import { type TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
@@ -41,7 +41,7 @@ export function ReminderProposalCard({ proposal }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const { busy, done, error, confirm } = useReminderProposal(proposal);
+  const { busy, done, error, alertsOff, confirm } = useReminderProposal(proposal);
   const action = proposalAction(proposal);
 
   return (
@@ -66,7 +66,20 @@ export function ReminderProposalCard({ proposal }: Props) {
           <Icon name="check-circle-filled" size={IconSize.sm} color={theme.primary} />
           <Text style={s.doneText}>{t(`todos.proposal_done_${action}`)}</Text>
         </View>
-      ) : (
+      ) : null}
+      {done && alertsOff ? (
+        <View style={s.alertsOff}>
+          <Text style={s.detail}>{t("todos.alerts_off")}</Text>
+          <Button
+            title={t("todos.alerts_open_settings")}
+            variant="secondary"
+            size="sm"
+            onPress={() => void Linking.openSettings()}
+            style={s.button}
+          />
+        </View>
+      ) : null}
+      {done ? null : (
         <Button
           title={t(`todos.proposal_${action}`)}
           variant={action === "delete" ? "destructive" : "primary"}
@@ -112,5 +125,6 @@ function makeStyles(t: Theme) {
     button: { alignSelf: "flex-start" },
     doneRow: { flexDirection: "row", alignItems: "center", gap: Space.xs },
     doneText: { ...Type.secondary, ...Weight.semibold, color: t.primary },
+    alertsOff: { gap: Space.xs },
   });
 }

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Linking } from "react-native";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, type RecurrenceRule, type Todo } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { toDueAtIso } from "@/features/todos/model/dueDate";
+import { allowReminderAlerts, shouldTellAlertsOff } from "@/features/todos/model/reminderAlerts";
 import { markReminderIdsSeen } from "@/features/todos/model/reminderSeen";
 import { buildOptimisticTodo, removeTodoById, replaceTodoById } from "@/features/todos/model/optimisticTodo";
 import { beginTodoMutation, getTodoMutationState } from "@/features/todos/model/todoMutationState";
@@ -67,6 +69,19 @@ export function useTodosActions({ token, userId, todos, getTodos,
     if (feedback) feedback.error(t(bodyKey));
     else void alertDialog({ title: t("todos.error"), message: t(bodyKey) });
   }, [canAct, feedback, t]);
+
+  // A to-do with a time asks for alerts before it saves, so its reminder sync may schedule;
+  // a user who said no is told once per session, with a way to Settings, without holding the save.
+  const askForAlerts = useCallback(async (dueIso: string | null) => {
+    if (!dueIso || (await allowReminderAlerts()) === "on" || !shouldTellAlertsOff()) return;
+    void confirmDialog({
+      title: t("todos.alerts_off_title"),
+      message: t("todos.alerts_off"),
+      confirmLabel: t("todos.alerts_open_settings"),
+    }).then((open) => {
+      if (open) void Linking.openSettings();
+    });
+  }, [t]);
   const latestTodo = useCallback((id: string) => (getTodos?.() ?? todosRef.current).find((item) => item.id === id), [getTodos]);
   const applyTodos = useCallback((update: (rows: Todo[]) => Todo[]) => {
     if (isSameOwner()) setTodos(update);
@@ -118,6 +133,8 @@ export function useTodosActions({ token, userId, todos, getTodos,
       return;
     }
     const dueIso = dueDate ? toDueAtIso(dueDate) : null;
+    await askForAlerts(dueIso);
+    if (!canAct()) return;
     const recurrenceRule = dueIso ? recurrence : null;
     const nextTopic = topic.trim() || DEFAULT_TOPIC;
     const optimistic = buildOptimisticTodo({
@@ -149,7 +166,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
     } finally {
       release();
     }
-  }, [token, canAct, reportError, owner, applyTodos, isSameOwner, markSeenIds, userId, reconcile]);
+  }, [token, canAct, reportError, owner, applyTodos, isSameOwner, markSeenIds, userId, reconcile, askForAlerts]);
 
   const handleToggle = useCallback(async (todo: Todo) => {
     if (!token) return;
@@ -211,6 +228,10 @@ export function useTodosActions({ token, userId, todos, getTodos,
       return false;
     }
     const dueIso = date ? toDueAtIso(date) : null;
+    if (dueIso && dueIso !== todo.due_at) {
+      await askForAlerts(dueIso);
+      if (!canAct()) return false;
+    }
     const recurrenceRule = dueIso ? recurrence : null;
     const nextTopic = topic.trim() || DEFAULT_TOPIC;
     const saved = await mutateRow(todo.id, (snapshot) => ({
@@ -228,7 +249,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
       }), "todos.error_due");
     if (saved && closeOnSave && editorRef.current.value?.id === todo.id) setEditingTodo(null);
     return saved;
-  }, [token, canAct, owner, reportError, mutateRow, setEditingTodo]);
+  }, [token, canAct, owner, reportError, mutateRow, setEditingTodo, askForAlerts]);
 
   const handleMarkDone = useCallback(async (ids: string[]) => {
     if (!token) return;
