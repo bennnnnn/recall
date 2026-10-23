@@ -141,10 +141,10 @@ from app.modules.chat.prompt_constants.writing import (
 )
 from app.modules.chat.prompt_constants.writing_kind import (
     is_email_or_message_request,
-    is_underspecified_writing_request,
     is_writing_deliverable_request,
     writing_request_kind,
 )
+from app.modules.chat.prompt_constants.writing_purpose import is_underspecified_writing_request
 
 __all__ = [
     "ADVICE_PERSONALIZE_HINT",

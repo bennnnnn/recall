@@ -7,10 +7,10 @@ from app.modules.chat.prompt_constants.format import is_comparison_question
 from app.modules.chat.prompt_constants.routing import is_lightweight_chat_turn
 from app.modules.chat.prompt_constants.writing_kind import (
     _DIRECT_REQUEST_INTRO,
-    is_underspecified_writing_request,
     is_writing_deliverable_request,
     writing_request_kind,
 )
+from app.modules.chat.prompt_constants.writing_purpose import is_underspecified_writing_request
 from app.services.draft_fences import draft_langs
 from app.services.text_normalize import collapse_ws
 
