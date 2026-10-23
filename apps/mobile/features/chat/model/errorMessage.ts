@@ -1,4 +1,20 @@
-type ChatErrorKind = "quota" | "model_unavailable" | "busy" | "send_rejected" | "attachment_rejected" | "generic";
+type ChatErrorKind =
+  | "quota"
+  | "model_unavailable"
+  | "busy"
+  | "send_rejected"
+  | "attachment_rejected"
+  /** Said and dismissed: nothing to retry or buy (a refused picture, a paid plan's cap). */
+  | "notice"
+  | "generic";
+
+/**
+ * The code a refusal is worded by. A `daily_limit` names its feature: a picture's own
+ * cap is not the day's chat allowance running out.
+ */
+export function refusalCode(code: string | undefined, feature: unknown): string | undefined {
+  return code === "daily_limit" && feature === "image_generation" ? "image_daily_limit" : code;
+}
 
 export type ResolvedChatError = {
   kind: ChatErrorKind;
@@ -25,7 +41,15 @@ export function resolveChatError(options: {
   if (options.code === "model_unavailable") {
     return { kind: "model_unavailable", message: options.t("chat.model_unavailable") };
   }
-  // An image's daily limit is the plan's limit too.
+  if (options.code === "image_daily_limit") {
+    // A free plan can buy more pictures; a paid one waits for tomorrow.
+    return options.isPaid
+      ? { kind: "notice", message: options.t("chat.image_daily_limit_paid") }
+      : { kind: "quota", message: options.t("chat.image_daily_limit_free") };
+  }
+  if (options.code === "content_blocked") {
+    return { kind: "notice", message: options.t("chat.image_content_blocked") };
+  }
   if (options.code === "quota_exceeded" || options.code === "daily_limit") {
     return {
       kind: "quota",

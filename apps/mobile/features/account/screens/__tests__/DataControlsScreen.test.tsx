@@ -135,6 +135,19 @@ it("exports only after a confirmation that says what the file holds", async () =
   );
 });
 
+it.each([
+  ["a refused export (one running, or a few an hour)", { status: 429, code: "export_busy" }, "settings.export_busy"],
+  ["any other failure", { status: 500, code: null }, "settings.export_failed"],
+])("says why an export did not happen: %s", async (_name, refusal, words) => {
+  const { ApiRequestError } = jest.requireActual("@/lib/api/errorBody");
+  const detail = refusal.code ? { code: refusal.code, message: "x" } : "x";
+  mockConfirm.mockResolvedValue(true);
+  mockExport.mockRejectedValueOnce(new ApiRequestError(refusal.status, JSON.stringify({ detail })));
+  const view = await render(<DataControlsScreen />);
+  await fireEvent.press(view.getByText("settings.export"));
+  await waitFor(() => expect(mockReportError).toHaveBeenCalledWith(null, words));
+});
+
 it("shows the export in progress with a way to cancel it", async () => {
   mockProgress = "exporting";
   const view = await render(<DataControlsScreen />);

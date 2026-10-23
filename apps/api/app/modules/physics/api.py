@@ -10,10 +10,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request
 
 from app.core.config import Settings
+from app.core.consent import get_consented_user
 from app.core.deps import get_settings_dep
 from app.models.orm import User
 from app.models.schemas.scan import ScanReadingOut
-from app.modules.account.consent import get_consented_user
 from app.modules.physics.read import read_physics_problem
 from app.services.scan_read import ScanPhoto, ScanRefusedError, read_scan
 

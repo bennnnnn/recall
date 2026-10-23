@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import user_cache
 from app.core.config import Settings
+from app.exceptions import DomainError
 from app.gateways import revenuecat_gateway
 from app.models.orm import User
 from app.modules.billing.entitlements import PLANS, plan_from_entitlements
@@ -80,13 +81,27 @@ async def resolve_plan_from_revenuecat(settings: Settings, app_user_id: str) -> 
     return _plan_from_revenuecat_payload(payload, settings)
 
 
+class StoreUnreachableError(DomainError):
+    """503 ``store_unreachable``: RevenueCat did not answer, so the plan is unknown."""
+
+    status_code = 503
+    default_code = "store_unreachable"
+
+
 async def sync_user_plan_from_revenuecat(
     session: AsyncSession,
     user: User,
     settings: Settings,
 ) -> User:
+    """The user with the plan RevenueCat grants now.
+
+    A store that does not answer is a 503, not the unchanged user: after a purchase
+    the phone then says the plan will update shortly instead of closing on "Free".
+    """
     plan = await resolve_plan_from_revenuecat(settings, str(user.id))
-    if plan is None or plan == user.plan:
+    if plan is None:
+        raise StoreUnreachableError("Couldn't reach the store to check your plan. Try again.")
+    if plan == user.plan:
         return user
     updated = await users_repo.update(session, user, plan=plan)
     logger.info("Updated plan from RevenueCat user=%s plan=%s", user.id, plan)

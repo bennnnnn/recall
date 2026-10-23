@@ -94,6 +94,19 @@ class ChatNotFoundError(ChatServiceError):
     pass
 
 
+class TurnRefusedError(ChatServiceError):
+    """A turn a feature refused with its own code ("daily_limit", "content_blocked").
+
+    The chat transports send that code and any ``fields`` (``feature``) on the error
+    event, so the phone says which limit it was instead of "out of messages".
+    """
+
+    def __init__(self, message: str, *, code: str, **fields: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.fields = fields
+
+
 class ChatBusyError(ChatServiceError):
     """Another turn is already preparing/streaming on this chat.
 
@@ -115,7 +128,7 @@ class ConsentRequiredError(ChatServiceError):
     """The account has not agreed to what goes to outside AI services, or withdrew.
 
     Chat transports send ``code: "consent_required"`` and HTTP answers 403 with
-    the same code; the phone opens its consent screen (``modules/account/consent.py``).
+    the same code; the phone opens its consent screen (``core/consent.py``).
     """
 
     code = "consent_required"

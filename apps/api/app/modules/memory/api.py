@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.consent import get_consented_user
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.rate_limit import allow_request_fail_closed
@@ -99,7 +100,8 @@ async def delete_memory_document(
 @router.post("/instruct", response_model=MemoryInstructOut)
 async def instruct_memory(
     body: MemoryInstructIn,
-    user: User = Depends(get_current_user),
+    # The instruction is read by an outside model: only with AI data consent.
+    user: User = Depends(get_consented_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> MemoryInstructOut:

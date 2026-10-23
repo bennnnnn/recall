@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.core.consent import get_consented_user
 from app.core.db import SessionLocal
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.rate_limit import allow_request_fail_closed
@@ -19,7 +20,6 @@ from app.gateways import openai_speech_gateway
 from app.models.orm import User
 from app.models.schemas import MessageOut
 from app.models.schemas.text import UserText
-from app.modules.account.consent import get_consented_user
 from app.modules.speech import live_talk as live_talk_service
 from app.modules.speech.gates import (
     SpeechRefusedError,

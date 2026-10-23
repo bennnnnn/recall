@@ -297,3 +297,42 @@ async def test_generate_image_openrouter_url_response_blocks_private_ip():
         result = await generate_image(settings, prompt="sunset over mountains")
 
     assert result is None
+
+
+def _refusing_client(status_code: int, body: str):
+    response = MagicMock()
+    response.status_code = status_code
+    response.text = body
+    response.raise_for_status = MagicMock(side_effect=RuntimeError(f"HTTP {status_code}"))
+    return _mock_http_client(post=AsyncMock(return_value=response))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("status_code", "body", "blocked"),
+    [
+        (400, '{"error":{"code":"content_policy_violation","message":"..."}}', True),
+        (403, '{"error":{"message":"Your prompt was flagged by moderation"}}', True),
+        (400, '{"error":{"message":"invalid aspect ratio"}}', False),
+        (500, '{"error":{"message":"content_policy is down"}}', False),
+    ],
+)
+async def test_a_content_refusal_is_told_apart_from_a_failure(
+    status_code: int, body: str, blocked: bool
+) -> None:
+    """A provider's content refusal is said as one ("content_blocked"), not "couldn't make it"."""
+    from app.gateways.image_gateway import ImageContentBlockedError
+
+    settings = Settings(openrouter_api_key="test-key", image_generation_enabled=True)
+    with (
+        patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
+        patch(
+            "app.gateways.image_gateway.get_pooled_client",
+            return_value=_refusing_client(status_code, body),
+        ),
+    ):
+        if blocked:
+            with pytest.raises(ImageContentBlockedError):
+                await generate_image(settings, prompt="a forbidden thing")
+        else:
+            assert await generate_image(settings, prompt="a cat") is None

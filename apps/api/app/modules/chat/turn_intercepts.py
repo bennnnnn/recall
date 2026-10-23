@@ -10,7 +10,7 @@ from typing import Any
 from uuid import UUID
 
 from app.core.config import Settings
-from app.exceptions import ChatServiceError, QuotaExceededError
+from app.exceptions import ChatServiceError, SpendCapReachedError, TurnRefusedError
 from app.models.orm import Message, User
 from app.modules.attachments.markers import strip_attachment_from_content
 from app.modules.chat.turn_deps import ChatTurnDeps
@@ -134,10 +134,14 @@ async def try_image_gen_for_turn(
             reference_attachment_ids=reference_ids,
         )
     except ImageGenerationError as exc:
-        if exc.status_code == 429:
-            raise QuotaExceededError(exc.detail) from exc
+        if exc.code == "spend_cap":
+            raise SpendCapReachedError(exc.message) from exc
         if exc.status_code in (403, 404):
             return False
+        if exc.code in ("daily_limit", "content_blocked"):
+            # The picture's own limit or the provider's refusal: said as such, not as
+            # the user's chat quota being spent.
+            raise TurnRefusedError(exc.message, code=exc.code, feature="image_generation") from exc
         raise ChatServiceError(exc.detail) from exc
 
     await _replace_old_assistant(
@@ -227,9 +231,8 @@ async def try_image_lookup_for_turn(
             create_user_message=create_user_message,
         )
     except ImageSearchError as exc:
-        if exc.status_code == 429:
-            raise QuotaExceededError(exc.detail) from exc
-        if exc.status_code in (404, 502, 503):
+        # At the photo cap (or the spend cap) the turn is answered in words instead.
+        if exc.status_code in (404, 429, 502, 503):
             if misses is not None:
                 misses.add("photo")
             return False

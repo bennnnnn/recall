@@ -951,5 +951,21 @@
   "history": [],
   "reply": "Here's your treasure map for the pirate party.",
   "expect": "image_gen"
+ },
+ {
+  "id": "hi-102",
+  "area": "image",
+  "prompt": "draw the learning curve for a new language",
+  "history": [],
+  "reply": "```chart\n{}\n```\nSample data: fast gains in the first months, then a long plateau.",
+  "expect": "answer"
+ },
+ {
+  "id": "hi-103",
+  "area": "image",
+  "prompt": "draw a winding mountain road with sharp curves at sunset",
+  "history": [],
+  "reply": "Here's your winding mountain road at sunset.",
+  "expect": "image_gen"
  }
 ]

@@ -79,5 +79,36 @@
    "code": "daily_limit",
    "message": "You've reached today's image upload limit. Upgrade for more — or try again after midnight UTC."
   }
+ },
+ "dictation_daily_limit": {
+  "status": 429,
+  "detail": {
+   "code": "daily_limit",
+   "message": "You've reached today's voice transcription limit. Try again after midnight UTC.",
+   "feature": "speech_transcription"
+  }
+ },
+ "dictation_rate_limited": {
+  "status": 429,
+  "detail": {
+   "code": "speech_rate_limited",
+   "message": "Too many voice requests. Please wait a moment and try again."
+  }
+ },
+ "image_daily_limit": {
+  "status": 429,
+  "detail": {
+   "code": "daily_limit",
+   "message": "No more pictures today.",
+   "feature": "image_generation"
+  }
+ },
+ "image_content_blocked": {
+  "status": 422,
+  "detail": {
+   "code": "content_blocked",
+   "message": "That picture can't be made.",
+   "feature": "image_generation"
+  }
  }
 }

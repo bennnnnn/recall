@@ -34,7 +34,7 @@ from app.modules.images.gen_intent_words import (
     VERBS_DRAW,
     VERBS_IMAGE,
 )
-from app.services.diagram_kinds import names_diagram_kind
+from app.services.diagram_kinds import names_diagram_kind, names_idea_curve
 
 if TYPE_CHECKING:
     from app.services.subject_solving import SubjectName
@@ -111,7 +111,11 @@ def names_a_diagram(subject: str) -> bool:
     words = [fold_token(word) for word in subject.split()]
     if any(word in _ART_WORDS for word in words):
         return False
-    return names_diagram_kind(subject) or any(word in DIAGRAM_WORDS for word in words)
+    return (
+        names_diagram_kind(subject)
+        or names_idea_curve(subject)
+        or any(word in DIAGRAM_WORDS for word in words)
+    )
 
 
 _ART_WORDS = frozenset(

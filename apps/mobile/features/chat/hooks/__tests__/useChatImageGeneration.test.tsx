@@ -15,9 +15,9 @@ jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: (
 jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableError: jest.fn() }));
 
 it.each([
-  [true, "chat.quota_exceeded_pro"],
-  [false, "chat.quota_exceeded_free"],
-])("names the plan's limit when the image quota runs out (isPaid %p)", async (isPaid, message) => {
+  [true, "chat.image_daily_limit_paid"],
+  [false, "chat.image_daily_limit_free"],
+])("names the picture's own limit, not the chat allowance (isPaid %p)", async (isPaid, message) => {
   (api.generateImage as jest.Mock).mockRejectedValueOnce(
     new ApiRequestError(429, JSON.stringify({ detail: { code: "daily_limit", message: "Image limit." } })),
   );

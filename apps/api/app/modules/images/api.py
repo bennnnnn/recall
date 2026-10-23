@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.config import Settings
-from app.core.deps import get_current_user, get_settings_dep
+from app.core.consent import get_consented_user
+from app.core.deps import get_settings_dep
 from app.models.orm import User
 from app.models.schemas.chats import MessageOut
 from app.modules.account import profile as profile_service
@@ -22,7 +23,7 @@ router = APIRouter(prefix="/images", tags=["images"])
 @router.post("/generate", response_model=ImageGenerateOut)
 async def generate_image(
     body: ImageGenerateIn,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_consented_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> ImageGenerateOut:
     original = (body.user_message or "").strip() or None
@@ -45,7 +46,7 @@ async def generate_image(
 @router.post("/intent", response_model=ImageIntentOut)
 async def image_intent(
     body: ImageIntentIn,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_consented_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> ImageIntentOut:
     """How the phone's composer sends a turn: a photo lookup, a picture, or chat.

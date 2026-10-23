@@ -17,6 +17,7 @@ import { getDeviceLocationLabel } from "@/lib/deviceLocation";
 import { canUseDeviceLocation } from "@/lib/expoRuntime";
 import { useDataControls } from "@/features/account/hooks/useDataControls";
 import { api, withdrawAiDataSharing } from "@/lib/api";
+import { ApiRequestError } from "@/lib/api/errorBody";
 import { invalidateChatListCache } from "@/features/chat/model/chatListCache";
 import { writeCachedUser } from "@/lib/cachedUser";
 import { formatMonthDayYear } from "@/lib/datetime/format";
@@ -57,7 +58,9 @@ export default function DataControlsScreen() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       if (!message.toLowerCase().includes("cancel")) {
-        reportRecoverableError(feedback, t("settings.export_failed"));
+        // A few exports an hour, one at a time: say so rather than "failed".
+        const busy = error instanceof ApiRequestError && error.code === "export_busy";
+        reportRecoverableError(feedback, t(busy ? "settings.export_busy" : "settings.export_failed"));
       }
     }
   };

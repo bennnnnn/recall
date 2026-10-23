@@ -19,6 +19,12 @@ def should_mock_llm(settings: Settings) -> bool:
     return settings.mock_llm_enabled and not has_key
 
 
+def should_mock_search(settings: Settings) -> bool:
+    """Mock mode fakes web and photo search only when there is no Tavily key to search with,
+    the way the chat model fakes only without its own key. With a key, search is real."""
+    return settings.mock_llm_enabled and not settings.tavily_api_key.strip()
+
+
 # 1x1 PNG — valid image bytes for mock image generation in dev.
 _MOCK_PNG_BYTES = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"

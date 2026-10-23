@@ -108,7 +108,7 @@ def test_speech_route_rate_limits_per_user_and_minute(path):
         rate_key = asyncio.run(fake_redis.get(f"{rate_prefix}:{user.id}"))
     assert first.status_code == 200
     assert second.status_code == 429
-    assert second.json()["detail"] == {"code": "rate_limited", "message": rate_message}
+    assert second.json()["detail"] == {"code": "speech_rate_limited", "message": rate_message}
     assert rate_key == "2"
 
 
@@ -147,6 +147,7 @@ def test_speech_route_refuses_past_the_days_cap(path, cap_setting, counter):
     assert second.json()["detail"] == {
         "code": "daily_limit",
         "message": counters.limit_message(counter, user),
+        "feature": counter,
     }
 
 
@@ -215,7 +216,7 @@ def test_live_talk_mint_rate_limits_per_user_and_minute():
     assert first.status_code == 200
     assert second.status_code == 429
     assert second.json()["detail"] == {
-        "code": "rate_limited",
+        "code": "speech_rate_limited",
         "message": quota_service.LIVE_TALK_RATE_LIMIT_MESSAGE,
     }
     assert rate_key == "2"

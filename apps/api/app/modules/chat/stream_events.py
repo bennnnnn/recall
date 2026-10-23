@@ -24,6 +24,7 @@ from app.exceptions import (
     QuotaExceededError,
     RedisUnavailableError,
     SpendCapReachedError,
+    TurnRefusedError,
     UnknownModelOverrideError,
 )
 from app.gateways.litellm_gateway import ModelUnavailableError
@@ -400,6 +401,8 @@ def error_payload_for_exception(exc: BaseException) -> dict[str, Any]:
         return {"type": "error", "code": "spend_cap", "message": exc.message}
     if isinstance(exc, ConsentRequiredError):
         return {"type": "error", "code": exc.code, "message": exc.message}
+    if isinstance(exc, TurnRefusedError):
+        return {"type": "error", "code": exc.code, "message": exc.message, **exc.fields}
     if isinstance(exc, ChatServiceError):
         return {"type": "error", "message": exc.message}
     if isinstance(exc, ModelUnavailableError):
