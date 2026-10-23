@@ -543,7 +543,8 @@ def test_format_location_not_set_answer_prompts_to_enable():
     answer = format_location_not_set_answer()
     assert "location" in answer.lower()
     assert "Settings" in answer
-    assert "nearby" in answer.lower()
+    # It invites the city: naming one answers the question there.
+    assert "Tell me the city" in answer
 
 
 def test_places_payload_extracts_price():

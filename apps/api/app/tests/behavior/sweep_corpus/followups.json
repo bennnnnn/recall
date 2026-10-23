@@ -1665,5 +1665,73 @@
   ],
   "reply": "Do you mean another sum for tomorrow, or something else?",
   "expect": "answer"
+ },
+ {
+  "id": "hf-098",
+  "area": "search",
+  "prompt": "im in indianapolis",
+  "history": [
+   [
+    "user",
+    "is it gonna rain tonight"
+   ],
+   [
+    "assistant",
+    "I don't have your location yet, so I can't answer that for where you are.\n\nTell me the city, or turn on **Location** in **Settings** (or allow location when prompted)."
+   ]
+  ],
+  "reply": "Yes, rain is likely in Indianapolis tonight, about a 70% chance after 9 PM.",
+  "expect": "search"
+ },
+ {
+  "id": "hf-099",
+  "area": "places",
+  "prompt": "Indianapolis",
+  "history": [
+   [
+    "user",
+    "best coffee near me"
+   ],
+   [
+    "assistant",
+    "I don't have your location yet, so I can't answer that for where you are.\n\nTell me the city, or turn on **Location** in **Settings** (or allow location when prompted)."
+   ]
+  ],
+  "reply": "A few well-rated coffee shops in Indianapolis: …",
+  "expect": "search"
+ },
+ {
+  "id": "hf-100",
+  "area": "chitchat",
+  "prompt": "im in indianapolis",
+  "history": [
+   [
+    "user",
+    "hi"
+   ],
+   [
+    "assistant",
+    "Hey! How's your day going?"
+   ]
+  ],
+  "reply": "Nice! Visiting or based there?",
+  "expect": "answer"
+ },
+ {
+  "id": "hf-101",
+  "area": "chitchat",
+  "prompt": "how do I turn it on?",
+  "history": [
+   [
+    "user",
+    "is it gonna rain tonight"
+   ],
+   [
+    "assistant",
+    "I don't have your location yet, so I can't answer that for where you are.\n\nTell me the city, or turn on **Location** in **Settings** (or allow location when prompted)."
+   ]
+  ],
+  "reply": "Open **Settings**, then **Data controls**, and turn on **Location**.",
+  "expect": "answer"
  }
 ]
