@@ -64,6 +64,7 @@ from app.modules.chat.finalize_text import (
 )
 from app.modules.chat.generic_closer import strip_generic_closer
 from app.modules.chat.json_output import check_requested_json
+from app.modules.chat.meta_notes import unwrap_meta_notes
 from app.modules.chat.reply_labels import one_answer_label
 from app.modules.chat.search_links import unlink_unretrieved_links
 from app.modules.chat.stream_status import StreamStatusFn
@@ -138,6 +139,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("untrusted_media", neutralize_untrusted_media, FALL_BACK),
     FinalizePass("search_links", unlink_unretrieved_links, OnError(log_as="search_links")),
     FinalizePass("generic_closer", strip_generic_closer, OnError(log_as="generic_closer")),
+    FinalizePass("meta_notes", lambda s: unwrap_meta_notes(s.text), OnError(log_as="meta_notes")),
     FinalizePass("answer_photo", attach_answer_photo, FALL_BACK),
     FinalizePass("reply_picture", attach_reply_picture, FALL_BACK),
     FinalizePass(
@@ -196,6 +198,7 @@ STOPPED_REPLY_PASSES = frozenset(
         "prepare_model_reply",
         "answer_labels",
         "untrusted_media",
+        "meta_notes",
         "answer_photo",
         "server_answer_cards",
         "text_plots",

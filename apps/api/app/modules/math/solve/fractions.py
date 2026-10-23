@@ -46,6 +46,62 @@ def _finish(
     )
 
 
+def _add_or_subtract(
+    a: int, b: int, c: int, d: int, *, subtract: bool
+) -> tuple[Fraction, list[FractionStep]] | None:
+    """Rewrite over the least common denominator, combine, then simplify.
+
+    Each step changes something: equal denominators skip the rewrite ("1/2, 3/2 =
+    1/2, 3/2" said nothing), and a result in lowest terms needs no simplify step.
+    """
+    common = lcm(b, d)
+    left, right = a * (common // b), c * (common // d)
+    combined = left - right if subtract else left + right
+    if combined < 0:
+        return None
+    symbol, verb = ("-", "Subtract") if subtract else ("+", "Add")
+    steps: list[FractionStep] = []
+    if b == d:
+        explanation = (
+            f"The denominators are already the same, so {verb.lower()} the numerators "
+            f"and keep the denominator {common}."
+        )
+    else:
+        steps.append(
+            FractionStep(
+                kind="common_denominator",
+                explanation=f"Rewrite both fractions over the least common denominator {common}.",
+                expression=rf"\frac{{{a}}}{{{b}}} {symbol} \frac{{{c}}}{{{d}}}",
+                result=rf"\frac{{{left}}}{{{common}}} {symbol} \frac{{{right}}}{{{common}}}",
+            )
+        )
+        explanation = f"{verb} the numerators and keep the denominator {common}."
+    value = Fraction(combined, common)
+    divisor = gcd(combined, common)
+    # 4/2 is shown, then simplified; 0/4 is 0 at once.
+    simplifies = combined > 0 and divisor > 1
+    steps.append(
+        FractionStep(
+            kind="combine",
+            explanation=explanation,
+            expression=rf"\frac{{{left} {symbol} {right}}}{{{common}}}",
+            result=_latex(combined, common)
+            if simplifies
+            else _latex(value.numerator, value.denominator),
+        )
+    )
+    if simplifies:
+        steps.append(
+            FractionStep(
+                kind="gcd",
+                explanation=f"Simplify: divide the top and bottom by {divisor}.",
+                expression=rf"\frac{{{combined}\div {divisor}}}{{{common}\div {divisor}}}",
+                result=_latex(value.numerator, value.denominator),
+            )
+        )
+    return value, steps
+
+
 def _binary(intent: MathIntent) -> FractionWorkSpec | None:
     operands = intent.fraction_operands or []
     if len(operands) != 2:
@@ -59,32 +115,11 @@ def _binary(intent: MathIntent) -> FractionWorkSpec | None:
     op = intent.school_op
     steps: list[FractionStep] = []
     if op in {"fraction_add", "fraction_subtract"}:
-        common = lcm(b, d)
-        left_scaled, right_scaled = a * (common // b), c * (common // d)
-        steps.append(
-            FractionStep(
-                kind="common_denominator",
-                explanation=f"Use the least common denominator {common}.",
-                expression=rf"\frac{{{a}}}{{{b}}},\ \frac{{{c}}}{{{d}}}",
-                result=rf"\frac{{{left_scaled}}}{{{common}}},\ \frac{{{right_scaled}}}{{{common}}}",
-            )
-        )
-        combined = (
-            left_scaled + right_scaled if op == "fraction_add" else left_scaled - right_scaled
-        )
-        if combined < 0:
+        added = _add_or_subtract(a, b, c, d, subtract=op == "fraction_subtract")
+        if added is None:
             return None
-        value = Fraction(combined, common)
-        symbol = "+" if op == "fraction_add" else "-"
-        steps.append(
-            FractionStep(
-                kind="combine",
-                explanation="Combine the numerators and keep the common denominator.",
-                expression=rf"\frac{{{left_scaled} {symbol} {right_scaled}}}{{{common}}}",
-                result=_latex(value.numerator, value.denominator),
-            )
-        )
-        operation = "add" if op == "fraction_add" else "subtract"
+        value, steps = added
+        operation = "subtract" if op == "fraction_subtract" else "add"
         return _finish(operation, operands, value, steps)
     if op == "fraction_multiply":
         value = left * right
