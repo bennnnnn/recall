@@ -85,6 +85,7 @@ async def load_memory_snapshot(
             )
             for memory in existing
         ),
+        user_timezone=user.timezone,
     )
 
 
@@ -254,6 +255,8 @@ async def _ask_model(
         existing_areas=read.snapshot.prompt_areas,
         from_history=from_history,
         earlier=read.earlier,
+        # An earlier chat's "next Friday" was said on another day: no date places it.
+        today=None if from_history else memory_llm.local_today(read.snapshot.user_timezone),
     )
     if result is not None:
         if not from_history:
