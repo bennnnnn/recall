@@ -2,6 +2,7 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from app.core.config import Settings
@@ -80,6 +81,32 @@ def _mock_http_client(**kwargs):
     return client
 
 
+def _streaming_get_client(body: bytes, content_type: str):
+    """A fetch client whose GET streams ``body``: the download reads at most a byte past
+    the size cap, so it streams instead of buffering the whole response."""
+    response = MagicMock()
+    response.status_code = 200
+    response.headers = {"content-type": content_type}
+    response.request = httpx.Request("GET", "https://93.184.216.34/out.png")
+
+    async def aiter_bytes():
+        for start in range(0, len(body), 1 << 20):
+            yield body[start : start + (1 << 20)]
+
+    response.aiter_bytes = aiter_bytes
+
+    class _Stream:
+        async def __aenter__(self):
+            return response
+
+        async def __aexit__(self, *args):
+            return None
+
+    client = _mock_http_client(get=AsyncMock())
+    client.stream = MagicMock(return_value=_Stream())
+    return client
+
+
 @pytest.mark.asyncio
 async def test_edit_sends_real_reference_bytes():
     import base64
@@ -137,12 +164,7 @@ async def test_generate_image_openrouter_url_response_is_fetched_ssrf_safely():
     post_client = _mock_http_client(post=AsyncMock(return_value=post_response))
 
     png = b"\x89PNG\r\n\x1a\n"
-    get_response = MagicMock()
-    get_response.status_code = 200
-    get_response.headers = {"content-type": "image/png"}
-    get_response.content = png
-    get_response.raise_for_status = MagicMock()
-    get_client = _mock_http_client(get=AsyncMock(return_value=get_response))
+    get_client = _streaming_get_client(png, "image/png")
 
     with (
         patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
@@ -156,9 +178,10 @@ async def test_generate_image_openrouter_url_response_is_fetched_ssrf_safely():
         result = await generate_image(settings, prompt="sunset over mountains")
 
     assert result == (png, "image/png")
-    call = get_client.get.await_args
+    get_client.get.assert_not_awaited()
+    call = get_client.stream.call_args
     # The request must go out to the pinned IP, not the raw hostname.
-    assert call.args[0] == "https://93.184.216.34/out.png"
+    assert call.args[:2] == ("GET", "https://93.184.216.34/out.png")
     assert call.kwargs["headers"]["Host"] == "cdn.example.com"
 
 
@@ -215,12 +238,7 @@ async def test_generate_image_openrouter_url_response_rejects_oversized_payload(
     post_client = _mock_http_client(post=AsyncMock(return_value=post_response))
 
     oversized = b"\x89PNG\r\n\x1a\n" + b"0" * MAX_ATTACHMENT_SIZE
-    get_response = MagicMock()
-    get_response.status_code = 200
-    get_response.headers = {"content-type": "image/png"}
-    get_response.content = oversized
-    get_response.raise_for_status = MagicMock()
-    get_client = _mock_http_client(get=AsyncMock(return_value=get_response))
+    get_client = _streaming_get_client(oversized, "image/png")
 
     with (
         patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
@@ -253,12 +271,7 @@ async def test_generate_image_openrouter_url_response_normalizes_content_type_ca
     post_client = _mock_http_client(post=AsyncMock(return_value=post_response))
 
     png = b"\x89PNG\r\n\x1a\n"
-    get_response = MagicMock()
-    get_response.status_code = 200
-    get_response.headers = {"content-type": "Image/PNG; charset=binary"}
-    get_response.content = png
-    get_response.raise_for_status = MagicMock()
-    get_client = _mock_http_client(get=AsyncMock(return_value=get_response))
+    get_client = _streaming_get_client(png, "Image/PNG; charset=binary")
 
     with (
         patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),

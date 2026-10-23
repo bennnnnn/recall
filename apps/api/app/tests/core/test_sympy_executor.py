@@ -278,6 +278,61 @@ async def test_a_solve_error_keeps_the_worker():
 
 
 @pytest.mark.asyncio
+async def test_a_worker_is_replaced_after_its_share_of_jobs():
+    """A long-lived worker's caches grew for days: after N jobs it is swapped for a new one."""
+    executor = ProcessPoolSympyExecutor(max_workers=1, recycle_after_jobs=2)
+    set_sympy_executor(executor)
+    try:
+        first = await run_sympy(_echo_pid, timeout=10)
+        assert await run_sympy(_echo_pid, timeout=10) == first
+        # The second job was the worker's last: the next one runs in its replacement.
+        third = await run_sympy(_echo_pid, timeout=20)
+        assert third != first
+        assert await run_sympy(_echo_pid, timeout=10) == third
+    finally:
+        executor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_spent_slot_is_replaced_and_warmed_before_it_frees():
+    """The recycle path alone, with no processes (a full semaphore table runs in-process)."""
+    executor = ProcessPoolSympyExecutor(max_workers=1, recycle_after_jobs=2)
+    calls: list[str] = []
+    old_pool, new_pool = object(), object()
+    executor._slots[0] = old_pool
+
+    async def kill(slot: int) -> None:
+        calls.append("kill")
+        executor._slots[slot] = None
+
+    def ensure(slot: int) -> object:
+        calls.append("ensure")
+        executor._slots[slot] = new_pool
+        return new_pool
+
+    async def warm(slot: int, pool: object) -> None:
+        calls.append("warm")
+        assert pool is new_pool
+
+    executor._kill_slot_async = kill
+    executor._ensure_slot = ensure
+    executor._warm_slot = warm
+    free = executor._free_queue()
+    await free.get()
+
+    executor._release_slot(0)
+    assert free.qsize() == 1 and calls == []
+    await free.get()
+    executor._release_slot(0)
+    # The second job was the worker's last: the slot frees only once its replacement is warm.
+    assert free.qsize() == 0
+    await asyncio.gather(*executor._draining)
+    assert calls == ["kill", "ensure", "warm"]
+    assert free.qsize() == 1
+    assert executor._jobs == [0]
+
+
+@pytest.mark.asyncio
 async def test_concurrent_call_queued_behind_single_worker():
     """max_workers=1 means a second call queues behind the first. This
     verifies the bound — SymPy can't run N concurrent solves and exhaust the

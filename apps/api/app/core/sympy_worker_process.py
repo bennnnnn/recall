@@ -6,13 +6,15 @@ imports only this module's callables, so nothing here may import the web stack.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import multiprocessing as mp
 import multiprocessing.connection as mp_connection
 import os
 import threading
+import time
 from collections.abc import Callable
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import Future, ProcessPoolExecutor
 from typing import Any
 
 logger = logging.getLogger("app.core.sympy_executor")
@@ -26,6 +28,23 @@ MP_CONTEXT = mp.get_context("spawn")
 
 # How often a worker re-checks its parent pid (see exit_with_parent).
 _PARENT_POLL_SECONDS = 1.0
+# A submitted job usually starts within a millisecond. Polling from half a millisecond,
+# backing off to 10 ms, keeps a message read on the turn's path from waiting a whole
+# 10 ms poll for nothing (every pool call paid it).
+_FIRST_POLL_SECONDS = 0.0005
+_QUEUE_POLL_SECONDS = 0.01
+
+
+async def wait_until_started(future: Future[Any], limit: float) -> bool:
+    """Wait until the pool runs ``future`` (or it already finished); False after ``limit`` s."""
+    deadline = time.monotonic() + limit
+    delay = _FIRST_POLL_SECONDS
+    while not future.running() and not future.done():
+        if time.monotonic() >= deadline:
+            return False
+        await asyncio.sleep(delay)
+        delay = min(delay * 2, _QUEUE_POLL_SECONDS)
+    return True
 
 
 def exit_with_parent() -> None:

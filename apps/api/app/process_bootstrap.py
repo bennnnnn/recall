@@ -18,7 +18,7 @@ from app.core.config import Settings, validate_production_settings
 from app.core.db import engine, warmup_db_pool
 from app.core.document_executor import shutdown_document_executor
 from app.core.logging import setup_logging
-from app.core.redis import get_redis_client
+from app.core.redis import get_jobs_redis_client, get_redis_client
 from app.core.saturation import start_saturation_monitor, stop_saturation_monitor
 from app.core.sentry import init_sentry
 from app.core.sympy_executor import shutdown_sympy_executor, warm_sympy_pool
@@ -132,4 +132,7 @@ async def shutdown_process(
     blocking.shutdown()
     await engine.dispose()
     await get_redis_client().aclose()
+    # The worker's long-poll client (the API never makes one).
+    if get_jobs_redis_client.cache_info().currsize:
+        await get_jobs_redis_client().aclose()
     await aclose_pooled_clients()

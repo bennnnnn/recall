@@ -11,17 +11,10 @@ shared default thread pool:
    running the bad SymPy call until it finishes (or forever), leaking the
    thread and its CPU.
 
-This module provides dedicated, bounded ``ProcessPoolExecutor`` slots so
-SymPy work is isolated and a runaway can be SIGTERM'd without killing
-siblings. The executor is injectable so tests can swap in a thread-based
-variant (which preserves monkeypatching of module-level functions, since the
-subprocess can't resolve test-local patches).
-
-Uses the ``spawn`` start method (not ``fork``) so the worker doesn't inherit
-the parent's threads/locks — the API process is multi-threaded (asyncio +
-thread pool) and ``fork`` in a multi-threaded process can deadlock in the
-child. The first call on a slot pays a one-time SymPy-import cost in the
-fresh worker; subsequent calls reuse that worker.
+This module provides dedicated, bounded ``ProcessPoolExecutor`` slots so SymPy work is
+isolated and a runaway can be SIGTERM'd without killing siblings. Tests inject a
+thread-based variant (a subprocess can't see test-local patches). How a worker starts
+(``spawn``), runs a job and is reaped is ``sympy_worker_process``.
 """
 
 from __future__ import annotations
@@ -37,7 +30,13 @@ from typing import Any, TypeVar
 
 from app.core.blocking import run_blocking
 from app.core.log_context import current_log_ids
-from app.core.sympy_worker_process import MP_CONTEXT, exit_with_parent, reap_pool, sympy_worker
+from app.core.sympy_worker_process import (
+    MP_CONTEXT,
+    exit_with_parent,
+    reap_pool,
+    sympy_worker,
+    wait_until_started,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,11 +51,9 @@ _MAX_SYMPY_WORKERS = 8
 # SymPy import). That is not "queued behind another request" and must not
 # share the 2s interactive wait.
 _SPAWN_WAIT_SECONDS = 20.0
-# A submitted job usually starts within a millisecond. Polling from half a millisecond,
-# backing off to 10 ms, keeps a message read on the turn's path from waiting a whole
-# 10 ms poll for nothing (every pool call paid it).
-_FIRST_POLL_SECONDS = 0.0005
-_QUEUE_POLL_SECONDS = 0.01
+# A worker is replaced (warm before its slot frees) after this many jobs: SymPy's caches
+# and the readers' filled one for days, with nothing to restart it short of a timeout.
+DEFAULT_SYMPY_RECYCLE_AFTER_JOBS = 500
 
 
 class WorkerBusyError(TimeoutError):
@@ -69,18 +66,6 @@ class WorkerBusyError(TimeoutError):
 
 def _clamp_workers(max_workers: int) -> int:
     return max(1, min(max_workers, _MAX_SYMPY_WORKERS))
-
-
-async def wait_until_started(future: Future[Any], limit: float) -> bool:
-    """Wait until the pool runs ``future`` (or it already finished); False after ``limit`` s."""
-    deadline = time.monotonic() + limit
-    delay = _FIRST_POLL_SECONDS
-    while not future.running() and not future.done():
-        if time.monotonic() >= deadline:
-            return False
-        await asyncio.sleep(delay)
-        delay = min(delay * 2, _QUEUE_POLL_SECONDS)
-    return True
 
 
 class BoundedSympyExecutor:
@@ -124,8 +109,11 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         *,
         queue_wait_seconds: float = DEFAULT_SYMPY_QUEUE_WAIT_SECONDS,
         per_user: bool = True,
+        recycle_after_jobs: int = DEFAULT_SYMPY_RECYCLE_AFTER_JOBS,
     ) -> None:
         self._max_workers = _clamp_workers(max_workers)
+        self._recycle_after = max(1, recycle_after_jobs)
+        self._jobs = [0] * self._max_workers
         self._queue_wait_seconds = queue_wait_seconds
         # One job per user at a time (below). The document pool turns it off: a turn reads
         # its own files side by side, and each parse is killed at its deadline anyway.
@@ -262,6 +250,27 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         if pool is not None:
             await run_blocking("processes", reap_pool, pool)
 
+    def _release_slot(self, slot: int) -> None:
+        """Free ``slot``; a worker that has run its share of jobs is replaced and warmed first."""
+        self._jobs[slot] += 1
+        if self._jobs[slot] < self._recycle_after or self._slots[slot] is None:
+            self._free_queue().put_nowait(slot)
+            return
+        self._jobs[slot] = 0
+
+        async def replace() -> None:
+            try:
+                await self._kill_slot_async(slot)
+                await self._warm_slot(slot, self._ensure_slot(slot))
+            except Exception:  # the next job starts it cold
+                logger.warning("sympy worker recycle failed", exc_info=True)
+            finally:
+                self._free_queue().put_nowait(slot)
+
+        task = asyncio.get_running_loop().create_task(replace(), name="sympy_recycle")
+        self._draining.add(task)
+        task.add_done_callback(self._draining.discard)
+
     def _kill_all_slots(self) -> None:
         for i in range(self._max_workers):
             self._kill_slot(i)
@@ -338,7 +347,7 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         finally:
             if not handed_off:
                 if slot is not None:
-                    self._free_queue().put_nowait(slot)
+                    self._release_slot(slot)
                 self._release_owner(owner)
 
     async def _start(
@@ -385,7 +394,7 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
             except BaseException:  # the result, or the job's error, has no caller left
                 logger.debug("sympy job finished after its caller left", exc_info=True)
             finally:
-                self._free_queue().put_nowait(slot)
+                self._release_slot(slot)
                 self._release_owner(owner)
 
         task = asyncio.get_running_loop().create_task(finish(), name="sympy_finish")
