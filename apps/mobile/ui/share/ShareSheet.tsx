@@ -220,10 +220,7 @@ export function ShareSheet({
             <IconButton
               name={copied ? "check" : "copy"}
               color={copied ? theme.success : theme.textSecondary}
-              onPress={() => {
-                tap();
-                void copy();
-              }}
+              onPress={() => void copy()}
               accessibilityLabel={copied ? labels.copied : labels.copyText}
               testID={`${testID}-card-copy`}
             />
@@ -239,7 +236,8 @@ export function ShareSheet({
             <Pressable
               key={action.key}
               onPress={() => {
-                tap();
+                // Copy plays its own success haptic (useCopyText).
+                if (action.key !== "copy") tap();
                 action.onPress();
               }}
               disabled={busy != null}

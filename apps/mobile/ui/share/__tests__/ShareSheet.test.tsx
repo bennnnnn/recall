@@ -1,11 +1,14 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
 
+import { notifySuccess, tap } from "@/lib/haptics";
+
 import { ShareSheet } from "../ShareSheet";
 
 const mockPresent = jest.fn();
 const mockCopy = jest.fn();
 jest.mock("@/lib/share", () => ({ presentShareSheet: (...args: unknown[]) => mockPresent(...args) }));
 jest.mock("expo-clipboard", () => ({ setStringAsync: (...args: unknown[]) => mockCopy(...args) }));
+jest.mock("@/lib/haptics", () => ({ tap: jest.fn(), notifySuccess: jest.fn() }));
 
 const hidden = { includeHiddenElements: true };
 const labels = {
@@ -71,6 +74,22 @@ it("copies the text once and shows a check", async () => {
   await fireEvent.press(view.getByTestId("share-sheet-card-copy", hidden));
   expect(mockCopy).toHaveBeenCalledTimes(2);
   expect(load).toHaveBeenCalledTimes(1);
+});
+
+it.each(["share-sheet-copy", "share-sheet-card-copy"])("%s plays one success haptic, as every copy does", async (testID) => {
+  const { view } = await open();
+  await fireEvent.press(view.getByTestId(testID, hidden));
+  expect(mockCopy).toHaveBeenCalledTimes(1);
+  expect(notifySuccess).toHaveBeenCalledTimes(1);
+  expect(tap).not.toHaveBeenCalled();
+});
+
+it("taps once for Share and PDF", async () => {
+  const { view } = await open();
+  await fireEvent.press(view.getByTestId("share-sheet-share", hidden));
+  await fireEvent.press(view.getByTestId("share-sheet-pdf", hidden));
+  expect(tap).toHaveBeenCalledTimes(2);
+  expect(notifySuccess).not.toHaveBeenCalled();
 });
 
 it("makes a PDF and says so inline when it fails", async () => {
