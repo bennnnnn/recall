@@ -19,7 +19,8 @@ TODO_HINT = (
     "Proactively nudge overdue or due-soon open reminders only when the conversation is "
     "about reminders, planning, or productivity — not in general or identity questions.\n"
     "When a dated item appears under ### Today, say it is due today — never call it tomorrow.\n"
-    "To-do writes via chat — REQUIRED fence (the app only saves from this fence). "
+    "To-do writes via chat, from a message written in English only — REQUIRED fence (the "
+    "app only saves from this fence). "
     "Emit the fence first, before any other text. One fence per item. "
     "A chat to-do needs a date and a clock the user actually said, or a time from now "
     "('in 20 minutes', 'in 2 hours'); the app works that out from their clock. If they "
@@ -50,6 +51,12 @@ TODO_HINT = (
     'Bulk delete overdue ("delete overdue") — emit one delete fence per overdue item. '
     "Bulk moves of every reminder due today still sync after your reply; do not invent "
     "which items remain.\n"
+    "A message in another language that asks to add, change, complete or delete a to-do "
+    "gets no reminder fence: one short line in their language saying they can do it in "
+    "their To-do list (in the app: Tareas, Tâches, Aufgaben, Attività, Tarefas, Задачи, "
+    "Yapılacaklar, የሚደረጉ), then an empty ```todo_link fence last, which the app shows as "  # noqa: RUF001 - the Turkish name for To-do has a dotless i
+    "a button that opens the list. Never say it was added or changed. Questions about "
+    "their to-dos are answered from **To-do** in every language.\n"
     "Parse relative dates using the user's local time in the prompt. Do not invent dates. "
     "Call this feature To-do, not Schedule or Calendar."
 )

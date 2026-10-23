@@ -87,3 +87,60 @@ async def test_the_list_is_flagged_changed_only_when_rows_were_written(
         deps, AsyncMock(), Settings(), cast(StreamContext, ctx), "Done.", outcome
     )
     assert outcome.todos_changed is changed
+
+
+def _ctx(message: str) -> StreamContext:
+    return cast(
+        StreamContext,
+        SimpleNamespace(
+            user=MagicMock(timezone="UTC"),
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            user_timezone="UTC",
+            user_message_content=message,
+            prompt_messages=[],
+            skip_memory_jobs=True,
+        ),
+    )
+
+
+_SPANISH = "recuérdame mañana a las 9 llamar a mamá"
+_LINK = "```todo_link\n```"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        # The model wrote a reminder anyway: no card, the To-do button instead.
+        (
+            'Claro.\n\n```reminder\n{"title": "Llamar a mamá", "due_at": "2026-10-24T09:00:00"}\n```',
+            f"Claro.\n\n{_LINK}",
+        ),
+        ('```reminder\n{"title": "Llamar a mamá"}\n```', _LINK),
+        # The model already offered the button: it stays, once, last.
+        (f"Puedes añadirlo en Tareas.\n\n{_LINK}", f"Puedes añadirlo en Tareas.\n\n{_LINK}"),
+        # A read of the list is left as it is.
+        ("Hoy tienes: llamar a mamá.", "Hoy tienes: llamar a mamá."),
+    ],
+)
+async def test_a_message_in_another_language_gets_the_todo_button_not_a_card(
+    reply: str, kept: str
+) -> None:
+    materialize = AsyncMock(return_value=("unused", 1))
+    deps = turn_deps(todos={"materialize_reminder_fences": materialize})
+    text = await apply_reminder_pass(deps, AsyncMock(), Settings(), _ctx(_SPANISH), reply, None)
+    # Exactly the kept reply: never the English "when?" the reminder pass answers with.
+    assert text == kept
+    materialize.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_an_english_message_still_reaches_the_reminder_pass() -> None:
+    materialize = AsyncMock(return_value=("Saved.", 1))
+    deps = turn_deps(todos={"materialize_reminder_fences": materialize})
+    text = await apply_reminder_pass(
+        deps, AsyncMock(), Settings(), _ctx("remind me to call mom at 9"), _CLOSED, None
+    )
+    assert text == "Saved."
+    materialize.assert_awaited_once()

@@ -1,0 +1,86 @@
+[
+ {
+  "id": "tl-001",
+  "area": "todo language",
+  "prompt": "recuérdame mañana a las 9 llamar a mamá",
+  "reply": "Claro.\n\n```reminder\n{\"title\": \"Llamar a mamá\", \"due_at\": \"2026-10-24T09:00:00\"}\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "tl-002",
+  "area": "todo language",
+  "prompt": "agrega comprar pan a mi lista",
+  "reply": "Puedes añadirlo en **Tareas**.\n\n```todo_link\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "tl-003",
+  "area": "todo language",
+  "prompt": "rappelle-moi demain à 9h d'appeler ma mère",
+  "reply": "Tu peux l'ajouter dans **Tâches**.\n\n```todo_link\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "tl-004",
+  "area": "todo language",
+  "prompt": "erinnere mich morgen um 9 Uhr an den Zahnarzt",
+  "reply": "```reminder\n{\"title\": \"Zahnarzt\", \"due_at\": \"2026-10-24T09:00:00\"}\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "tl-005",
+  "area": "todo language",
+  "prompt": "ricordami domani alle 9 di chiamare la mamma",
+  "reply": "Puoi aggiungerlo in **Attività**.\n\n```todo_link\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "tl-006",
+  "area": "todo language",
+  "prompt": "lembra-me amanhã às 9 de ligar para a minha mãe",
+  "reply": "Podes adicioná-lo em **Tarefas**.\n\n```todo_link\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "tl-007",
+  "area": "todo language",
+  "prompt": "напомни завтра в 9 позвонить маме",
+  "reply": "Добавить это можно в **Задачах**.\n\n```todo_link\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "tl-008",
+  "area": "todo language",
+  "prompt": "yarın saat 9'da annemi aramayı hatırlat",
+  "reply": "```reminder\n{\"title\": \"Annemi ara\", \"due_at\": \"2026-10-24T09:00:00\"}\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "tl-009",
+  "area": "todo language",
+  "prompt": "ነገ 9 ሰዓት እናቴን እንድደውል አስታውሰኝ",
+  "reply": "በ**የሚደረጉ** ውስጥ ማከል ይችላሉ።\n\n```todo_link\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "tl-010",
+  "area": "todo language",
+  "prompt": "¿qué tengo hoy?",
+  "reply": "Hoy tienes **call mom** a las 17:00.",
+  "expect": "read"
+ },
+ {
+  "id": "tl-011",
+  "area": "todo language",
+  "prompt": "remind me to call Getachew ነገ at 10am",
+  "reply": "```reminder\n{\"title\": \"Call Getachew\", \"due_at\": \"2026-10-24T10:00:00\"}\n```",
+  "expect": "save"
+ },
+ {
+  "id": "tl-012",
+  "area": "todo language",
+  "prompt": "remind me to fly to Los Angeles tomorrow at 7am",
+  "reply": "```reminder\n{\"title\": \"Fly to Los Angeles\", \"due_at\": \"2026-10-24T07:00:00\"}\n```",
+  "expect": "save"
+ }
+]

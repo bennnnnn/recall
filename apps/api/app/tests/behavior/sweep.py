@@ -15,8 +15,10 @@ in front raises the programming errors a decline would hide (``math/solve/declin
 "instant" (the server answers without the model: the date, the time),
 "photo", "search", "image_gen", "save" (a reminder is saved), "ask_time",
 "change" (done / delete / move), "read" (the reminder list), "settings",
-"memory", "todo" (any of the reminder outcomes). A list asks for every outcome on
-the one turn: ``["search", "answer"]`` is a message with a live part and another
+"memory", "todo" (any of the reminder outcomes), "todo_screen" (a to-do change asked in
+another language: nothing saved or changed, the Open To-do button instead). A list asks
+for every outcome on the one turn: ``["search", "answer"]`` is a message with a live part
+and another
 answered beside it ("image_gen" and "settings" there are the picture or card a
 multi-part reply carries). Area "multi" must be read as more than one request and
 "multi lookalike" as one.
@@ -81,6 +83,7 @@ EXPECTS = {
     "image_gen",
     "settings",
     "memory",
+    "todo_screen",
     *TODO_EXPECTS,
 }
 # Areas whose turns never need the live web.
@@ -483,6 +486,13 @@ def _judge_expect(outcome: Outcome, expect: str) -> list[str]:
         problems.append("not read as a settings change")
     elif expect == "memory" and not outcome.memory_command:
         problems.append("not read as a memory command")
+    elif expect == "todo_screen":
+        if outcome.saved or outcome.changed:
+            problems.append("changed reminders from a message in another language")
+        if canned:
+            problems.append(f"reply replaced by {canned!r}")
+        if "```todo_link" not in final:
+            problems.append(f"no Open To-do button (reply: {final[:70]!r})")
     elif expect == "save" and not outcome.saved:
         problems.append(f"no reminder saved (reply: {final[:70]!r})")
     elif expect == "ask_time" and (outcome.saved or "?" not in final):

@@ -13,10 +13,11 @@ import logging
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.modules import todos as todos_service
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
-from app.services.md_fence_scan import last_fence
+from app.services.md_fence_scan import iter_fences, last_fence, strip_closed_fences
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,10 @@ async def apply_reminder_pass(
 
     A failure keeps the text it was given: every pass before this one succeeded.
     """
+    # A message in another language makes its to-do changes in To-do: the server reads
+    # a change against the user's words in English (docs: modules/todos/chat_language).
+    if todos_service.writes_todos_in_todo_screen(ctx.user_message_content):
+        return offer_todo_screen(text)
     try:
         given = text
         text, created = await _materialize(deps, redis, settings, ctx, text)
@@ -63,6 +68,21 @@ async def apply_reminder_pass(
     except Exception:
         logger.exception("Reminder pass failed; keeping the finished reply")
     return text
+
+
+def offer_todo_screen(text: str) -> str:
+    """The reply with no reminder change: the To-do button last when it asked for one.
+
+    A ```reminder fence the model wrote anyway would have been read against English
+    words and answered "When should I remind you?"; it becomes the button.
+    """
+    link = todos_service.TODO_LINK_FENCE
+    if not any(fence.lang in (_REMINDER_FENCE_LANG, link) for fence in iter_fences(text)):
+        return text
+    kept = drop_cut_reminder_fence(text)
+    kept = strip_closed_fences(strip_closed_fences(kept, _REMINDER_FENCE_LANG), link).strip()
+    button = f"```{link}\n```"
+    return f"{kept}\n\n{button}" if kept else button
 
 
 async def _materialize(
