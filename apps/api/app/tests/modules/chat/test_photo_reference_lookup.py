@@ -12,6 +12,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.images.lookup_intent import extract_image_lookup_query, is_reference_subject
+from app.tests.fakes import make_user
 from app.tests.modules.chat.chat_test_support import turn_deps
 
 
@@ -255,3 +256,42 @@ async def test_regenerating_a_reference_lookup_reads_history_without_the_old_pho
     turns = _awaited(resolve).kwargs["turns"]
     assert ("assistant", "[Image: /a/file]") not in turns
     assert _awaited(search_and_attach).kwargs["query"] == "Jeanne Calment"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["photo", "picture"])
+async def test_a_stop_held_for_the_users_row_cuts_off_a_photo_or_picture(kind: str) -> None:
+    """A new message holds a Stop's hard cancel until its row is saved; a photo or a
+    picture saves that row only with its reply, so the Stop reaches it before it runs."""
+    from app.modules.chat.turn_intercepts import intercept_new_turn
+
+    user = make_user()
+    order: list[str] = []
+    found = _found(uuid4())
+
+    async def work(*_args: Any, **_kwargs: Any) -> Any:
+        order.append(kind)
+        return await found()
+
+    outcome = TurnOutcome()
+    outcome.hold_stops()
+    outcome.stop_when_safe(lambda: order.append("stop"))
+    deps = turn_deps(
+        image_search={"search_and_attach_for_chat": work},
+        image_generation={"generate_for_chat": work},
+        plan={"can_use": MagicMock(return_value=True)},
+    )
+    content = "Show me a photo of the Eiffel Tower" if kind == "photo" else "Draw a black cat"
+    handled = await intercept_new_turn(
+        deps,
+        Settings(image_search_enabled=kind == "photo"),
+        user=user,
+        chat_id=uuid4(),
+        content=content,
+        outcome=outcome,
+        recent_messages=[],
+        prior_count=0,
+    )
+
+    assert handled is True
+    assert order == ["stop", kind]

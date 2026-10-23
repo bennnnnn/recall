@@ -217,6 +217,8 @@ async def _handle_message(
     )
 
     def _message_stream(outcome: TurnOutcome) -> AsyncIterator[str]:
+        # A Stop waits for the message's row (``TurnOutcome.hold_stops``).
+        outcome.hold_stops()
         return stream_entry.stream_chat_response(
             turn_deps.default_deps(),
             redis,

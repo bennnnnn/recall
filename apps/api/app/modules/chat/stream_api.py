@@ -218,7 +218,7 @@ async def _turn_sse_lines(
         if producer_cancelled or producer is None or producer.done():
             return
         producer_cancelled = True
-        producer.cancel()
+        outcome.stop_when_safe(producer.cancel)
 
     async def watch_disconnect() -> None:
         """SSE is one-way, so a client's only way to stop generation is
@@ -355,6 +355,31 @@ async def stream_message_sse(
     settings: Settings = Depends(get_settings),
     redis: Redis = Depends(require_chat_rate_limit),
 ) -> StreamingResponse:
+    def message_turn(
+        outcome: TurnOutcome,
+        on_status: StreamStatusFn,
+        on_reasoning: StreamReasoningFn,
+        should_cancel: Callable[[], bool],
+    ) -> AsyncIterator[str]:
+        # A Stop waits for the message's row (``TurnOutcome.hold_stops``).
+        outcome.hold_stops()
+        return stream_entry.stream_chat_response(
+            default_deps(),
+            redis,
+            settings,
+            user_id=user.id,
+            chat_id=chat_id,
+            content=body.content,
+            model_alias=body.model,
+            attachment_ids=body.attachment_ids or None,
+            should_cancel=should_cancel,
+            outcome=outcome,
+            on_status=on_status,
+            on_reasoning=on_reasoning,
+            user=user,
+            **_client_geo(body),
+        )
+
     return _sse_response(
         _stream_tokens_sse(
             chat_id=chat_id,
@@ -363,24 +388,7 @@ async def stream_message_sse(
                 redis, user_id=user.id, chat_id=chat_id, client_message_id=body.client_message_id
             ),
             user_id=user.id,
-            stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
-                stream_entry.stream_chat_response(
-                    default_deps(),
-                    redis,
-                    settings,
-                    user_id=user.id,
-                    chat_id=chat_id,
-                    content=body.content,
-                    model_alias=body.model,
-                    attachment_ids=body.attachment_ids or None,
-                    should_cancel=should_cancel,
-                    outcome=outcome,
-                    on_status=on_status,
-                    on_reasoning=on_reasoning,
-                    user=user,
-                    **_client_geo(body),
-                )
-            ),
+            stream_factory=message_turn,
         )
     )
 

@@ -57,6 +57,12 @@ async def _replace_old_assistant(
             await deps.messages.delete_message(session, old)
 
 
+def _stop_safe(outcome: TurnOutcome | None) -> None:
+    """Stop cuts the photo or picture off as it did; the user's row comes with its reply."""
+    if outcome is not None:
+        outcome.mark_stop_safe()
+
+
 def _record(outcome: TurnOutcome | None, message: Message, default_model: str) -> None:
     if outcome is not None:
         outcome.message_id = str(message.id)
@@ -123,6 +129,7 @@ async def try_image_gen_for_turn(
     )
     if not image_prompt:
         return False
+    _stop_safe(outcome)
     try:
         _user_msg, asst_msg = await deps.image_generation.generate_for_chat(
             settings,
@@ -221,6 +228,7 @@ async def try_image_lookup_for_turn(
         if not query:
             return False
     query = dated_lookup_query(query, datetime.now(UTC).year)
+    _stop_safe(outcome)
     try:
         _user_msg, asst_msg = await deps.image_search.search_and_attach_for_chat(
             settings,

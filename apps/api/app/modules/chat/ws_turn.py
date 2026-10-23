@@ -169,9 +169,9 @@ async def stream_over_ws(
     def stop() -> None:
         """The user's Stop; a server shutdown runs the same one."""
         cancel_event.set()
-        # Interrupt in-flight LiteLLM wait, not only between tokens.
-        if not producer.done():
-            producer.cancel()
+        # Interrupt in-flight LiteLLM wait, not only between tokens: once the
+        # turn's user row is saved (``TurnOutcome.stop_when_safe``).
+        outcome.stop_when_safe(producer.cancel)
 
     if chat_id is not None:
         # GET /messages waits on the producer so a New-chat leave can still
