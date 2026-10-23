@@ -153,6 +153,14 @@ describe("clarifyMessage", () => {
     );
     expect(clarifyMessage(parsed, { q1: 0 })).toBe("Ready: Yes!");
   });
+
+  // "Not sure yet…." and Amharic "አውሮፓ።." read as typos.
+  it.each(["Not sure yet…", "አውሮፓ።", "የትኛው፧"])("adds no full stop after %s", (pick) => {
+    const parsed = card(
+      JSON.stringify({ questions: [{ label: "Pick", question: "Which?", options: [pick, "Other"] }] }),
+    );
+    expect(clarifyMessage(parsed, { q1: 0 })).toBe(`Pick: ${pick}`);
+  });
 });
 
 describe("answersFromMessage", () => {

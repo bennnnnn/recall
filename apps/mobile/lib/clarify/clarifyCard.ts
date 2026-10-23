@@ -38,8 +38,8 @@ export type ClarifyAnswers = Record<string, number>;
 const MAX_QUESTIONS = 3;
 const MIN_OPTIONS = 2;
 const MAX_OPTIONS = 8;
-// A pick that already ends a sentence takes no full stop of its own.
-const SENTENCE_END = /[.!?。！？]$/;
+// A pick that already ends a sentence takes no full stop of its own (Amharic ends with ። or ፧).
+const SENTENCE_END = /[.!?…。！？።፧]$/;
 
 /** One line of text: trimmed, runs of whitespace (newlines too) as one space. */
 function oneLine(value: unknown): string {
