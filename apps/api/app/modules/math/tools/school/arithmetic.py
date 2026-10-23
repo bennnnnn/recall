@@ -151,6 +151,11 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
         return MathIntent(kind="arithmetic", school_op="eval", expr=substituted, operation="solve")
     if mtm.has_equation(cleaned):
         return None
+    from app.modules.math.tools.school.charges import extract_charge_intent
+
+    charge = read(extract_charge_intent, cleaned)
+    if charge is not None:
+        return charge
     percent = _extract_percent_or_ratio(cleaned)
     if percent is not None:
         return percent
@@ -220,6 +225,12 @@ def _change_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | N
     return change_block(intent, lines)
 
 
+def _charge_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
+    from app.modules.math.tools.school.charges import charge_block
+
+    return charge_block(intent, lines)
+
+
 # One block per school op. An intent without the fields its op's block reads goes on to
 # the expression it carries (``arithmetic_expression.py``).
 _ARITHMETIC_BLOCKS: dict[str, _OpBlock] = {
@@ -260,6 +271,7 @@ _ARITHMETIC_BLOCKS: dict[str, _OpBlock] = {
     "work_together": _OpBlock(_rate_and_base, _block_work_together),
     "mixture": _OpBlock(lambda i: bool(i.vec_a and i.vec_b and len(i.vec_a) == 2), _block_mixture),
     "change_from_payment": _OpBlock(_always, _change_block),
+    "percent_charge": _OpBlock(_always, _charge_block),
     "twice_as_many": _OpBlock(lambda i: i.percent_base is not None, _block_twice_as_many),
 }
 

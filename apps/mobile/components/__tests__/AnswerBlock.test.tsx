@@ -83,6 +83,15 @@ describe("AnswerBlock", () => {
     expect(unmarked.queryByTestId("answer-success-check")).toBeNull();
   });
 
+  it.each([
+    ["\\$7.20", "Answer: $7.20"],
+    ["\u00a310.00", "Answer: \u00a310.00"],
+  ])("draws money with its sign: %s", async (body, label) => {
+    // A tip or tax the server verified (apps/api/.../school/charges.py).
+    const { getByLabelText } = await render(<AnswerBlock content={`verified: true\n${body}`} />);
+    expect(getByLabelText(label)).toBeOnTheScreen();
+  });
+
   it("keeps light finals on MathText (no display-math renderer)", async () => {
     const { getByLabelText } = await render(
       <AnswerBlock content={String.raw`x = \pm 2`} />,
