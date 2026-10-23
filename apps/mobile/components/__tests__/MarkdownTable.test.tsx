@@ -15,6 +15,7 @@ import {
   TABLE_MAX_COL_WIDTH,
   TABLE_MIN_COL_WIDTH,
   tableColumnText,
+  TABLE_PEEK,
   tableColumnWidths,
   type TableColumnText,
 } from "@/components/markdown/tableLayout";
@@ -66,9 +67,33 @@ describe("tableColumnWidths", () => {
     // Equal thirds gave "Customization" 168 pt; it needs about 128.
     expect(label).toBeLessThan(140);
     expect(label).toBeLessThan((label + ios + android) / 4);
-    expect(ios).toBe(TABLE_MAX_COL_WIDTH);
+    // The edge cut iOS: it narrows so Android's start shows, a sign the row scrolls.
+    expect(label + ios).toBe(358 - TABLE_PEEK);
     expect(android).toBe(TABLE_MAX_COL_WIDTH);
     expect(label + ios + android).toBeGreaterThan(358);
+  });
+
+  it("shows the next column's start at the edge of a two-sided comparison", () => {
+    // Live: "Feature | Mitosis | Meiosis" showed Mitosis cut at the edge and no Meiosis.
+    const columns: TableColumnText[] = [
+      { longest: 19, longestWord: 9 },
+      { longest: 43, longestWord: 12 },
+      { longest: 43, longestWord: 12 },
+    ];
+    const [feature, mitosis, meiosis] = tableColumnWidths(columns, 384);
+    expect(feature + mitosis).toBe(384 - TABLE_PEEK);
+    expect(mitosis).toBeGreaterThanOrEqual(12 * 8);
+    expect(meiosis).toBe(TABLE_MAX_COL_WIDTH);
+  });
+
+  it("keeps a column's floor even when the next one cannot peek", () => {
+    // The edge (250 - 48) cuts the first column, but its longest word needs 240.
+    const [first, second] = tableColumnWidths(
+      [{ longest: 30, longestWord: 30 }, { longest: 30, longestWord: 30 }],
+      250,
+    );
+    expect(first).toBe(TABLE_MAX_COL_WIDTH);
+    expect(second).toBe(TABLE_MAX_COL_WIDTH);
   });
 
   it("stretches a table that fits to the full width", () => {

@@ -241,8 +241,8 @@ function ChatScreen() {
     onStreamBusy: handleStreamBusy,
     onOfflineBlocked: notifyOfflineBlocked,
     isOffline,
-    // A send from a window around an old search hit goes to the newest page first.
-    beforeSend: newerPage ? jumpToLatest : undefined,
+    // A send shows the newest message, scrolled up or not; from an old search hit's window, the newest page first.
+    beforeSend: newerPage ? () => jumpToLatest().then(scroll.scrollToLatest) : async () => scroll.scrollToLatest(),
     imageGenerating: imageGen.generating,
     onGenerateImage: (request) => void imageGen.submitPrompt(request),
   });
