@@ -220,7 +220,6 @@ export function ConversationList() {
   }, [bulkDeleteChats, selectedChats, exitSelectionMode]);
 
   const handleSelectFromMenu = useCallback(() => {
-    tap();
     const chatId = menuChat?.id;
     closeMenu();
     closeSearch();
@@ -296,26 +295,11 @@ export function ConversationList() {
         pinned={menuChat?.pinned ?? false}
         archived={menuChat?.archived ?? false}
         onClose={closeMenu}
-        onShare={() => {
-          tap();
-          openShareChat();
-        }}
-        onRename={() => {
-          tap();
-          openRenameFromMenu();
-        }}
-        onTogglePin={() => {
-          tap();
-          void togglePinChat();
-        }}
-        onToggleArchive={() => {
-          tap();
-          void toggleArchiveChat();
-        }}
-        onDelete={() => {
-          tap();
-          confirmDeleteChat();
-        }}
+        onShare={openShareChat}
+        onRename={openRenameFromMenu}
+        onTogglePin={() => void togglePinChat()}
+        onToggleArchive={() => void toggleArchiveChat()}
+        onDelete={confirmDeleteChat}
         onSelectChats={handleSelectFromMenu}
       />
       <ChatShareSheet
