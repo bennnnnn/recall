@@ -341,3 +341,48 @@ async def test_an_unclosed_card_is_closed_then_read() -> None:
     state = _state(_ASKED.removesuffix("\n```"))
     assert await run_finalize_passes(state)
     assert _card(state.text) is not None
+
+
+def _card_body(*questions: dict[str, Any]) -> str:
+    return json.dumps(
+        {
+            "questions": list(questions),
+            "request": "Recommend a laptop for me.",
+            "closing": "Compare the options.",
+            "submit": "Find my laptop",
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    ("before", "questions", "lead_in"),
+    [
+        # Live: no options before it and two questions, yet "But … one thing".
+        ("To recommend the best laptop, I need to know more.", 2, "**Let me ask you a couple of things.**"),
+        ("To plan your week, I need one detail.", 1, "**Let me ask you one thing.**"),
+        # After the strongest options, the "But" reads right.
+        ("🇨🇭 **Switzerland — quality of life**\n\n🇸🇬 **Singapore — safety**", 1, "**But let me ask you one thing.**"),
+        ("🇨🇭 **Switzerland — quality of life**", 3, "**But let me ask you a few things.**"),
+    ],
+)  # fmt: skip
+def test_the_lead_in_fits_the_start_and_the_card(before: str, questions: int, lead_in: str) -> None:
+    asked = [_PRIORITY, _LEVEL, _GOAL][:questions]
+    text = f"{before}\n\n**But let me ask you one thing.**\n\nWhat matters most?\n\n"
+    text += f"```clarify\n{_card_body(*asked)}\n```"
+    settled = settle_clarify_cards(text, allowed=True)
+    assert lead_in in settled
+    assert settled.lower().count("let me ask you") == 1
+
+
+def test_a_card_written_in_a_json_fence_is_shown_as_the_card() -> None:
+    # Live: the model fenced the card as ```json and the user would have seen raw JSON.
+    text = f"It depends.\n\n**Let me ask you one thing.**\n\n```json\n{_card_body(_PRIORITY)}\n```"
+    settled = settle_clarify_cards(text, allowed=True)
+    assert "```json" not in settled
+    assert "```clarify" in settled
+
+
+def test_a_json_answer_the_user_asked_for_stays_code() -> None:
+    quiz = json.dumps({"questions": [{"question": "2 + 2?", "options": ["3", "4"]}]})
+    text = f"Here is your quiz:\n\n```json\n{quiz}\n```"
+    assert settle_clarify_cards(text, allowed=True) == text
