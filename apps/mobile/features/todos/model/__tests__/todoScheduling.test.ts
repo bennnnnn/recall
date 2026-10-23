@@ -8,6 +8,8 @@ const todo: Todo = { id: "t1", content: "Flight", topic: "Reminders", checked: f
   due_at: "2099-01-01T12:00:00Z", created_at: "2026-09-01T00:00:00Z",
   updated_at: "2026-09-01T00:00:00Z", sort_order: null, chat_id: null };
 jest.mock("react-native", () => ({ Platform: { OS: "ios" } }));
+let mockExpoGo = false;
+jest.mock("@/lib/expoRuntime", () => ({ isExpoGo: () => mockExpoGo }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/lib/pushNotifications", () => ({ ensureNotificationPermission: jest.fn(async () => true) }));
 jest.mock("@/features/todos/model/reminderPrefs", () => ({ getReminderLeadMs: jest.fn(async () => 600_000) }));
@@ -18,7 +20,7 @@ jest.mock("expo-notifications", () => ({
   SchedulableTriggerInputTypes: { DATE: "date" },
 }));
 beforeEach(async () => {
-  jest.clearAllMocks(); mockSession = 1; scheduled.clear();
+  jest.clearAllMocks(); mockSession = 1; scheduled.clear(); mockExpoGo = false;
   jest.mocked(Notifications.getPermissionsAsync).mockResolvedValue({ status: "granted" } as never);
   jest.mocked(Notifications.getAllScheduledNotificationsAsync).mockImplementation(async () =>
     [...scheduled.keys()].map((identifier) => ({ identifier })) as never);
@@ -33,6 +35,17 @@ it("never requests OS permission from background synchronization", async () => {
   await syncTodoReminders([todo], { remotePush: false });
   expect(ensureNotificationPermission).not.toHaveBeenCalled();
   expect(Notifications.getPermissionsAsync).toHaveBeenCalled();
+});
+
+it.each([
+  [false, "recall_notify.wav"],
+  [true, "default"],
+])("a reminder in Expo Go %s plays %s, never a sound Expo Go lacks", async (expoGo, sound) => {
+  mockExpoGo = expoGo;
+  await syncTodoReminders([todo], { remotePush: false });
+  expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+    expect.objectContaining({ content: expect.objectContaining({ sound }) }),
+  );
 });
 
 it("waits for an already-started native schedule before cancelling on signout", async () => {
