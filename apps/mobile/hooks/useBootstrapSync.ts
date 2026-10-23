@@ -140,7 +140,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
       cleanup =
         (await registerPlanChangeListener(() => {
           if (!active()) return;
-          // M3: merge only the plan field — setUser replaces the entire
+          // M3: merge only the plan's fields — setUser replaces the entire
           // user object and bypasses the generation guard in updateUser,
           // so a slow sync can overwrite an in-flight profile patch (e.g.
           // timezone toggle snaps back).
@@ -150,8 +150,10 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
             .syncSubscription(current)
             .then((updated) => {
               if (!active()) return;
+              // The plan and what it unlocks travel together, or locks stay wrong
+              // until the next /auth/me.
               setUser((prev) => prev?.id === userId
-                ? { ...prev, plan: updated.plan } : prev);
+                ? { ...prev, plan: updated.plan, features: updated.features } : prev);
             })
             .catch(() => {});
         })) ?? undefined;

@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -251,9 +252,22 @@ class AppleAuthRequest(DeviceSessionIn):
     nonce: str | None = Field(default=None, max_length=256)
 
 
+# One address: something before an @, a dotted domain after it, no spaces. Not a
+# deliverability check (dev addresses use .local), only enough to refuse "not-an-email".
+_EMAIL_SHAPE = re.compile(r"[^@\s]+@[^@\s.]+(?:\.[^@\s.]+)+")
+
+
 class DevAuthRequest(DeviceSessionIn):
-    email: UserText = "dev@recall.local"
+    email: UserText = Field(default="dev@recall.local", max_length=254)
     name: UserText = "bini"
+
+    @field_validator("email")
+    @classmethod
+    def _is_an_email(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not _EMAIL_SHAPE.fullmatch(cleaned):
+            raise ValueError("not an email address")
+        return cleaned
 
 
 class AuthResponse(BaseModel):

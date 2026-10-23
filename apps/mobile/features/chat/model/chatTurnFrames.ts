@@ -11,6 +11,7 @@ import {
   relatedPromptsFromEvent,
   shouldIgnoreStoppedStreamEvent,
 } from "@/features/chat/model/socketReduce";
+import { refusalCode } from "@/features/chat/model/errorMessage";
 import { completionFromDone } from "@/features/chat/model/turnOutcome";
 import { DUPLICATE_TURN_POLLS, duplicateTurnPollMs } from "@/features/chat/model/turnReconcile";
 import {
@@ -70,7 +71,7 @@ function onError(s: ChatTurnState, out: Out, payload: ChatSsePayload, ttftTurnId
   // After `stream_end` only the save was left: the reply came whole and failed to save.
   const saveFailed = s.phase === "finalizing";
   cue(out, "error");
-  const code = typeof payload.code === "string" ? payload.code : undefined;
+  const code = typeof payload.code === "string" ? refusalCode(payload.code, payload.feature) : undefined;
   out.push({ type: "outcome", outcome: "report", completion: "error", code });
   // No consent to outside AI: the consent screen opens, the unsaved message waits as Retry.
   if (payload.code === CONSENT_REQUIRED_CODE) out.push({ type: "consent_required" });

@@ -28,12 +28,9 @@ _ROOTS = frozenset({"app.services.mcp"})
 _UPWARD = {
     ("modules.account", "modules.chat"): "the export reads the chats; deletion removes them",
     ("modules.attachments", "modules.chat"): "a file's message is checked through chat.history",
-    ("modules.chemistry", "modules.account"): "the scan endpoint checks the AI-data consent",
     ("modules.images", "modules.chat"): "a picture or photo turn saves through chat.turn_record",
-    ("modules.math", "modules.account"): "the scan endpoint checks the AI-data consent",
     ("modules.math", "modules.chat"): "a follow-up reads chat's light-turn cue",
     ("modules.memory", "modules.chat"): "the backlog reads user lines; forgetting drops snippets",
-    ("modules.physics", "modules.account"): "the scan endpoint checks the AI-data consent",
     ("modules.physics", "modules.chat"): "a direct reply is presented as chat presents one",
     ("modules.speech", "modules.chat"): "a voice turn saves through chat.turn_record",
     ("modules.todos", "modules.chat"): "a to-do names its chat; a tapped card edits its reply",

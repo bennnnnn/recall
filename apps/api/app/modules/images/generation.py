@@ -259,6 +259,7 @@ class _ReservedQuota:
                 counters.limit_message("image_generation", self.user),
                 status_code=429,
                 code="daily_limit",
+                feature="image_generation",
             )
 
     async def __aexit__(
@@ -307,12 +308,20 @@ async def _generate_and_store(
 ) -> _StoredImage:
     """Call the provider, check the image, and write it (and reference copies) to storage."""
     # Provider HTTP — no DB session held.
-    generated = await generate_image(
-        settings,
-        prompt=prompt,
-        aspect_ratio=aspect_ratio,
-        reference_images=[(raw, row.content_type) for row, raw in references] or None,
-    )
+    try:
+        generated = await generate_image(
+            settings,
+            prompt=prompt,
+            aspect_ratio=aspect_ratio,
+            reference_images=[(raw, row.content_type) for row, raw in references] or None,
+        )
+    except image_gateway.ImageContentBlockedError as exc:
+        raise ImageGenerationError(
+            "That picture can't be made: it breaks the image service's content rules.",
+            status_code=422,
+            code="content_blocked",
+            feature="image_generation",
+        ) from exc
     image_bytes, content_type = _checked_image(generated)
 
     presigned = await written.gateway.presign_upload(

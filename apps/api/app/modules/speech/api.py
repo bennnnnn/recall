@@ -7,11 +7,11 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.core.config import Settings
+from app.core.consent import get_consented_user
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.redis import get_redis_client
 from app.core.request_limits import reject_oversized
 from app.models.orm import User
-from app.modules.account.consent import get_consented_user
 from app.modules.speech import live_talk as live_talk_service
 from app.modules.speech import service as speech_service
 from app.modules.speech.gates import (

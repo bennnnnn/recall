@@ -213,7 +213,11 @@ async def index_attachment(
         return 0
 
     async with SessionLocal() as session:
-        row = await attachments_repo.get_by_id(session, attachment_id, user_id)
+        # Indexing OCRs and embeds with outside models: a consent withdrawn after the turn
+        # queued the file stops it here.
+        row = await attachments_repo.get_by_id(
+            session, attachment_id, user_id, owner_consented=True
+        )
         if row is None or row.verified_at is None or not is_indexable_attachment(row):
             return 0
         storage_key = row.storage_key

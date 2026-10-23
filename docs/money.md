@@ -15,6 +15,7 @@ as a slider moves by **evaluating** the formula the server sent; it never solves
 |------|------|
 | Products, formulas, defaults, slider ranges (data, not code paths) | `apps/api/app/modules/money/catalog.py` |
 | Reading a request (product, amount, rate, term, payment, currency, country) | `apps/api/app/modules/money/read.py` |
+| The card's currency and the country a rate search names | `apps/api/app/modules/money/currencies.py` |
 | Numbers for the asked values, the prompt block and the note | `apps/api/app/modules/money/solve.py`, `block.py`, `note.py` |
 | Today's average rate: one web search, one checked structured read, cached | `apps/api/app/modules/money/rates.py` |
 | The calculator fence and its self-check | `apps/api/app/modules/money/fence.py`, `schemas.py` |
@@ -108,7 +109,9 @@ The server appends it after the reply; the model never writes one. JSON, one obj
   payment that never pays off) shows the readout's `never_key` text, or a dash.
 - `marker` is optional: today's average on the rate slider, with its date, the source's title
   and, optionally, `source_url` (the page the rate came from).
-- `currency` is "" when the request named none; the phone then shows plain numbers, no symbol.
+- `currency` is the one the request named, else the user's saved place's, else USD when no
+  place is saved (`currencies.currency_for`). It is "" only for a saved place the list does not
+  know; the phone then shows plain numbers, no symbol.
 - Labels are i18n keys the phone translates; there is no English text in the fence.
 - The server checks every tree before sending: only the closed operations and declared names,
   finite at the asked values and at every corner of the control ranges where the formula is

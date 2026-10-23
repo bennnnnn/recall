@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -37,26 +36,6 @@ _TOP_RESULTS = 5
 _READ_MAX_TOKENS = 96
 # The read runs while the reply streams; past this it is dropped, never waited on.
 _READ_TIMEOUT_SECONDS = 4.0
-# Where a currency is spent: the country a search for its rates names.
-_CURRENCY_COUNTRY = {
-    "EUR": "the euro area",
-    "GBP": "the United Kingdom",
-    "ETB": "Ethiopia",
-    "INR": "India",
-    "NGN": "Nigeria",
-    "KES": "Kenya",
-    "JPY": "Japan",
-    "CAD": "Canada",
-    "AUD": "Australia",
-}
-_DEFAULT_COUNTRY = "the United States"
-# A saved place in the US: the country named, or a state code after a comma ("Austin, TX").
-_US_PLACE = re.compile(
-    r"\b(?:united\s+states|usa|u\.s\.a?\.?)\b|,\s*(?:A[LKZR]|C[AOT]|D[EC]|FL|GA|HI|I[ADLN]|"
-    r"K[SY]|LA|M[ADEINOST]|N[CDEHJMVY]|O[HKR]|PA|RI|S[CD]|T[NX]|UT|V[AT]|W[AIVY])\s*$",
-    re.I,
-)
-
 _READ_INSTRUCTIONS = (
     "You read one interest rate out of web search results. Use only a rate a result "
     "states, for the product and country asked, with the date that result gives for it "
@@ -87,17 +66,6 @@ class RateReading(BaseModel):
     rate_percent: float | None = Field(default=None, ge=0, le=100)
     as_of: str | None = Field(default=None, max_length=32)
     source_url: str | None = Field(default=None, max_length=2048)
-
-
-def country_for(currency: str, location: str | None) -> str:
-    """The country a rate search names: the currency's, the saved place's, or the US."""
-    if currency in _CURRENCY_COUNTRY:
-        return _CURRENCY_COUNTRY[currency]
-    if location:
-        if _US_PLACE.search(location):
-            return _DEFAULT_COUNTRY
-        return location.rsplit(",", 1)[-1].strip() or _DEFAULT_COUNTRY
-    return _DEFAULT_COUNTRY
 
 
 def search_query(lookup: RateLookup, bucket: float | None, country: str) -> str:

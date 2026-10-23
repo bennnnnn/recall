@@ -310,6 +310,9 @@ async def test_build_export_structure(_empty_product_events_for_exports):
     assert data["todos"][0]["content"] == "buy milk"
     assert "project_id" not in data["todos"][0]
     assert "projects" not in data
+    # Nothing hit a cap; the notes say how long attachment links work.
+    assert data["truncated"] == []
+    assert "10 minutes" in data["notes"][0]
     assert "learning_practice_events" not in data
     assert data["attachments"] == []
     assert data["product_events"][0]["name"] == "paywall_viewed"
@@ -527,6 +530,9 @@ async def test_build_export_caps_memories():
         data = await _export(session, user)
 
     assert [memory["text"] for memory in data["memories"]] == ["a", "b"]
+    # The cap cut the list: the file says so, so a reader knows it is not complete.
+    assert data["truncated"] == ["memories"]
+    assert any("truncated" in note for note in data["notes"])
 
 
 @pytest.mark.asyncio

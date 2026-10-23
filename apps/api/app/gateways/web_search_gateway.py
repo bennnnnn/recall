@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from app.core.blocking import has_room, run_blocking
 from app.core.config import Settings
 from app.gateways.http_client import get_pooled_client
+from app.gateways.mock_llm import should_mock_search
 
 logger = logging.getLogger(__name__)
 
@@ -220,9 +221,10 @@ async def search_web(
     if not settings.web_search_enabled:
         return []
 
-    # Mock mode (development without keys, and the tests) searches nothing real: it ran
-    # DuckDuckGo first, so a test could reach the internet before getting mock results.
-    if settings.mock_llm_enabled:
+    # Mock mode without a Tavily key (development without keys, and the tests) searches
+    # nothing real: it ran DuckDuckGo first, so a test could reach the internet before
+    # getting mock results. With a key, mock mode searches for real.
+    if should_mock_search(settings):
         return mock_search_results(cleaned, max_results=limit)
 
     # Tavily is the search of record: when it errored, DuckDuckGo finding nothing

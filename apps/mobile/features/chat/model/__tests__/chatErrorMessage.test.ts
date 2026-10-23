@@ -1,4 +1,4 @@
-import { resolveChatError } from "@/features/chat/model/errorMessage";
+import { refusalCode, resolveChatError } from "@/features/chat/model/errorMessage";
 
 describe("chatErrorMessage", () => {
   const t = (key: string) => key;
@@ -34,6 +34,27 @@ describe("chatErrorMessage", () => {
     expect(
       resolveChatError({ message: "You've used up today's free limit.", isPaid: false, t }).kind,
     ).toBe("generic");
+  });
+
+  it("says a picture's own limit, with an upgrade only where the plan can buy more", () => {
+    expect(refusalCode("daily_limit", "image_generation")).toBe("image_daily_limit");
+    expect(refusalCode("daily_limit", "speech_transcription")).toBe("daily_limit");
+    expect(refusalCode("busy", undefined)).toBe("busy");
+    expect(resolveChatError({ message: "x", code: "image_daily_limit", isPaid: false, t })).toEqual({
+      kind: "quota",
+      message: "chat.image_daily_limit_free",
+    });
+    expect(resolveChatError({ message: "x", code: "image_daily_limit", isPaid: true, t })).toEqual({
+      kind: "notice",
+      message: "chat.image_daily_limit_paid",
+    });
+  });
+
+  it("says a refused picture is the content rules, with nothing to retry", () => {
+    expect(resolveChatError({ message: "Blocked.", code: "content_blocked", isPaid: false, t })).toEqual({
+      kind: "notice",
+      message: "chat.image_content_blocked",
+    });
   });
 
   it("falls back for an empty message", () => {

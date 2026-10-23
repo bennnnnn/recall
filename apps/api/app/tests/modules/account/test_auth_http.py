@@ -1,3 +1,5 @@
+import pytest
+
 """/auth over HTTP: the signed-in profile, its settings, and dev login."""
 
 from datetime import UTC, datetime
@@ -301,6 +303,22 @@ def test_dev_login():
         )
     assert r.status_code == 200
     assert r.json()["access_token"] == "fake-token"
+
+
+@pytest.mark.parametrize("email", ["not-an-email", "a@b", "a b@c.com", "@x.com", ""])
+def test_dev_login_refuses_what_is_not_an_email(email: str):
+    """Dev login made an account for "not-an-email"; it takes only an address's shape."""
+    app = create_app()
+    from app.core.deps import get_settings_dep
+
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(dev_auth_enabled=True)
+    with (
+        patch("app.modules.account.api.auth_service.login_dev", AsyncMock()) as login,
+        patch("app.modules.account.api.allow_request_fail_closed", AsyncMock(return_value=True)),
+    ):
+        r = TestClient(app).post("/auth/dev", json={"email": email, "name": "X"})
+    assert r.status_code == 422
+    login.assert_not_awaited()
 
 
 def test_dev_login_disabled_returns_403():

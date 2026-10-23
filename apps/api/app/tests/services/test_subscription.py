@@ -7,6 +7,7 @@ import pytest
 from app.core.config import Settings
 from app.gateways import revenuecat_gateway
 from app.modules.billing import subscription as subscription_service
+from app.tests.fakes import make_user
 
 
 def test_entitlement_active_lifetime():
@@ -98,6 +99,22 @@ async def test_sync_user_plan_from_revenuecat_upgrades():
             )
     assert updated.plan == "pro"
     update.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_sync_user_plan_when_the_store_does_not_answer_is_a_503():
+    """No answer is not "still free": the phone then says the plan will update shortly."""
+    user = make_user(plan="free")
+    settings = Settings(revenuecat_secret_key="sk_test")
+    with (
+        patch(
+            "app.modules.billing.subscription.revenuecat_gateway.fetch_subscriber",
+            AsyncMock(return_value=None),
+        ),
+        pytest.raises(subscription_service.StoreUnreachableError) as caught,
+    ):
+        await subscription_service.sync_user_plan_from_revenuecat(AsyncMock(), user, settings)
+    assert (caught.value.status_code, caught.value.code) == (503, "store_unreachable")
 
 
 @pytest.mark.asyncio

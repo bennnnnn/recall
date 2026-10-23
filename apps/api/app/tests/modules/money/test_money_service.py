@@ -64,6 +64,19 @@ async def test_the_country_follows_the_currency(monkeypatch) -> None:
     assert calls == [("mortgage", 20, "Ethiopia")]
 
 
+async def test_a_card_with_no_currency_named_uses_the_saved_place(monkeypatch) -> None:
+    """ "I owe 5000 on my card" names no currency: the card is not left without one."""
+    _lookup(monkeypatch, None)
+    text = "I owe 5000 on my credit card at 22% APR and pay 200 a month"
+    settings = Settings()
+    for location, currency in ((None, "USD"), ("Addis Ababa, Ethiopia", "ETB")):
+        turn = await service.prepare_money_turn(text, settings, None, user=None, location=location)
+        assert turn is not None and turn.request.currency == currency
+        assert f"Currency: {currency}." in turn.block
+        reply = await service.finish_money_reply(turn, "About 34 months.", settings)
+        assert f'"currency":"{currency}"' in reply
+
+
 async def test_a_late_average_is_left_out(monkeypatch) -> None:
     _lookup(monkeypatch, average(), delay=10)
     monkeypatch.setattr(service, "_FINISH_WAIT_SECONDS", 0.01)

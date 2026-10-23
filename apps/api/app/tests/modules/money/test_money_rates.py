@@ -10,7 +10,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.money import rates
 from app.modules.money.catalog import RateLookup, product
-from app.modules.money.rates import RateReading, checked, country_for, current_average
+from app.modules.money.rates import RateReading, checked, current_average
 from app.tests.modules.money.money_support import HITS, TODAY
 
 
@@ -64,23 +64,6 @@ def test_checked_drops_a_reading_that_fails(reading: RateReading | None) -> None
 def test_a_malformed_reading_never_validates() -> None:
     with pytest.raises(ValueError):
         RateReading.model_validate({"found": "maybe", "rate_percent": "six"})
-
-
-@pytest.mark.parametrize(
-    ("currency", "location", "country"),
-    [
-        ("", None, "the United States"),
-        ("USD", "Austin, TX", "the United States"),
-        ("", "Seattle, Washington, United States", "the United States"),
-        ("", "Addis Ababa, Ethiopia", "Ethiopia"),
-        ("ETB", None, "Ethiopia"),
-        ("GBP", "Austin, TX", "the United Kingdom"),
-    ],
-)
-def test_country_for_names_the_country_searched(
-    currency: str, location: str | None, country: str
-) -> None:
-    assert country_for(currency, location) == country
 
 
 def test_the_term_picks_the_nearest_published_bucket() -> None:

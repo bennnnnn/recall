@@ -47,6 +47,11 @@ def test_mermaid_format_hint_names_the_diagram(text: str, hint: str | None) -> N
         ("Draw an org chart for a small startup", False),
         ("make a gantt chart for my project", False),
         ("Make a bar chart of this data: Mon 12, Tue 19", True),
+        # An idea's curve is a chart with sample data; a formula's is maths'.
+        ("draw the learning curve for a new language", True),
+        ("draw a growth curve for my startup", True),
+        ("draw the curve y = x^2", False),
+        ("draw a winding mountain road with sharp curves", False),
         ("draw a chart of my sales by month", True),
     ],
 )

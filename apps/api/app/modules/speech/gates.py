@@ -61,7 +61,9 @@ async def require_speech_rate(redis: Redis, settings: Settings, key: str, messag
         redis, key, limit=rate_limit, window_seconds=_RATE_WINDOW_SECONDS
     )
     if not allowed:
-        raise SpeechRefusedError(message, status_code=status.HTTP_429_TOO_MANY_REQUESTS)
+        raise SpeechRefusedError(
+            message, status_code=status.HTTP_429_TOO_MANY_REQUESTS, code="speech_rate_limited"
+        )
 
 
 async def reserve_day_or_raise(
@@ -74,6 +76,7 @@ async def reserve_day_or_raise(
             counters.limit_message(counter, user),
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             code="daily_limit",
+            feature=counter,
         )
     return day
 

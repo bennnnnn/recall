@@ -18,7 +18,7 @@ from app.core.deps import (
 from app.core.dev_guards import is_loopback_ip, require_dev_privilege_access
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis_lock import acquire_lock, release_lock
-from app.exceptions import AuthenticationError
+from app.exceptions import AuthenticationError, DomainError
 from app.models.orm import User
 from app.models.schemas import (
     AccountDeleteRequest,
@@ -442,9 +442,10 @@ async def export_me(
     lock_key = f"export:running:{user.id}"
     token = await acquire_lock(redis, lock_key, _EXPORT_LOCK_TTL_SECONDS) if allowed else None
     if token is None:
-        raise HTTPException(
+        raise DomainError(
+            "An export is already running or was just made. Try again later.",
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="An export is already running or was just made. Try again later.",
+            code="export_busy",
         )
 
     async def body() -> AsyncIterator[str]:

@@ -29,6 +29,24 @@ async def test_search_images_no_key_no_mock_returns_empty():
 
 
 @pytest.mark.asyncio
+async def test_search_images_with_a_key_searches_for_real_in_mock_mode():
+    """Mock mode fakes photo search only without a key, like web search and the chat model."""
+    settings = Settings(image_search_enabled=True, tavily_api_key="test-key", mock_llm_enabled=True)
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    response.json.return_value = {
+        "results": [{"url": "https://en.wikipedia.org/wiki/Ear", "title": "Ear"}],
+        "images": ["https://en.wikipedia.org/ear.jpg"],
+    }
+    client = AsyncMock()
+    client.post = AsyncMock(return_value=response)
+    with patch("app.gateways.image_search_gateway.get_pooled_client", return_value=client):
+        hits = await search_images(settings, "an ear")
+    client.post.assert_awaited_once()
+    assert [hit.image_url for hit in hits] == ["https://en.wikipedia.org/ear.jpg"]
+
+
+@pytest.mark.asyncio
 async def test_search_images_parses_tavily_response():
     settings = Settings(image_search_enabled=True, tavily_api_key="test-key")
     payload = {

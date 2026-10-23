@@ -288,6 +288,7 @@ async def test_generate_for_chat_at_the_daily_cap_refuses_and_keeps_the_count(tu
         429,
         counters.limit_message("image_generation", turn.user),
     )
+    assert (error.code, error.fields) == ("daily_limit", {"feature": "image_generation"})
     assert await turn.slot() == "15"
     assert "provider" not in turn.names()
 
@@ -314,6 +315,20 @@ async def test_generate_for_chat_a_refused_result_gives_the_slot_back(
     error = await _refused(turn)
 
     assert (error.status_code, error.detail) == (status, detail)
+    assert await turn.slot() == "0"
+    assert "presign" not in turn.names()
+
+
+async def test_generate_for_chat_a_content_refusal_is_said_and_gives_the_slot_back(turn):
+    """The provider refused the prompt: "content_blocked", not "Could not generate image"."""
+    from app.gateways.image_gateway import ImageContentBlockedError
+
+    turn.generated = ImageContentBlockedError("model")
+
+    error = await _refused(turn)
+
+    assert (error.status_code, error.code) == (422, "content_blocked")
+    assert error.fields == {"feature": "image_generation"}
     assert await turn.slot() == "0"
     assert "presign" not in turn.names()
 

@@ -59,6 +59,16 @@ class ImageSearchError(DomainError):
     """A reference-photo lookup refusal."""
 
 
+def _photo_limit_refusal(user: User) -> ImageSearchError:
+    """Today's photo lookups are used up: 429 ``daily_limit``, naming the feature."""
+    return ImageSearchError(
+        counters.limit_message("image_search", user),
+        status_code=429,
+        code="daily_limit",
+        feature="photo_lookup",
+    )
+
+
 async def _rollback_written_bytes(gateway: StorageGateway, storage_keys: list[str]) -> None:
     """Delete object storage if persist failed after write_bytes.
 
@@ -252,11 +262,7 @@ async def search_and_attach_for_chat(
         )
     day = await counters.reserve("image_search", redis, user, settings)
     if not day:
-        raise ImageSearchError(
-            counters.limit_message("image_search", user),
-            status_code=429,
-            code="daily_limit",
-        )
+        raise _photo_limit_refusal(user)
 
     written_keys: list[str] = []
     try:

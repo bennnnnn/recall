@@ -9,6 +9,8 @@ import { accountExistsProvider } from "@/features/auth/model/accountExists";
 import { ApiRequestError } from "@/lib/api/client";
 import { CONSENT_REQUIRED_CODE } from "@/lib/api/consentRefusal";
 import { scanFailureMessage } from "@/lib/scanner/scanReadError";
+import { refusalCode, resolveChatError } from "@/features/chat/model/errorMessage";
+import { voiceRefusalKey } from "@/features/speech/model/voiceRefusal";
 
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "http://test.local" }));
 jest.mock("@/lib/auth", () => ({
@@ -63,4 +65,21 @@ it.each([
   const failure = presignFailure(refused(name));
   expect(failure).toBeInstanceOf(AttachmentError);
   expect((failure as AttachmentError).reason).toBe(reason);
+});
+
+it.each([
+  ["image_daily_limit", false, "quota", "chat.image_daily_limit_free"],
+  ["image_daily_limit", true, "notice", "chat.image_daily_limit_paid"],
+  ["image_content_blocked", false, "notice", "chat.image_content_blocked"],
+])("words a refused picture: %s (paid %s)", (name, isPaid, kind, words) => {
+  const error = refused(name);
+  const code = refusalCode(error.code ?? undefined, error.fields.feature);
+  expect(resolveChatError({ message: error.message, code, isPaid, t })).toEqual({ kind, message: words });
+});
+
+it.each([
+  ["dictation_daily_limit", "chat.voice_daily_limit"],
+  ["dictation_rate_limited", "chat.voice_rate_limited"],
+])("words a refused dictation: %s", (name, words) => {
+  expect(voiceRefusalKey(refused(name))).toBe(words);
 });

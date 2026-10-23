@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from redis.asyncio import Redis
 
@@ -20,9 +20,10 @@ from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.models.orm import User
 from app.modules.money.block import money_block
+from app.modules.money.currencies import country_for, currency_for
 from app.modules.money.fence import calculator_fence
 from app.modules.money.note import market_note
-from app.modules.money.rates import MarketRate, country_for, current_average
+from app.modules.money.rates import MarketRate, current_average
 from app.modules.money.read import MoneyRequest, read_money_request
 from app.modules.money.solve import Worked, rate_name, work
 
@@ -60,6 +61,8 @@ async def prepare_money_turn(
     request = read_money_request(text)
     if request is None:
         return None
+    # The card and the prompt use one currency: the one named, else the user's place's.
+    request = replace(request, currency=currency_for(request.currency, location))
     product = request.product
     term = request.values.get("years", request.values.get("months"))
     if term is None:

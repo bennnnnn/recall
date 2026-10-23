@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { transcribeSpeech } from "@/lib/api";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { voiceRefusalKey } from "@/features/speech/model/voiceRefusal";
 import {
   deleteVoiceRecording,
   isVoiceInputAvailable,
@@ -161,7 +162,10 @@ export function useVoiceInput({
         return null;
       }
       const message = error instanceof Error ? error.message : "";
-      if (/network request failed|failed to fetch|timeout|timed out|could not reach/i.test(message)) {
+      const refusal = voiceRefusalKey(error);
+      if (refusal) {
+        reportRecoverableError(feedback, t(refusal));
+      } else if (/network request failed|failed to fetch|timeout|timed out|could not reach/i.test(message)) {
         reportRecoverableError(feedback, t("chat.voice_network_failed"));
       } else if (message.includes("recording_empty")) {
         reportRecoverableError(feedback, t("chat.voice_recording_empty"));

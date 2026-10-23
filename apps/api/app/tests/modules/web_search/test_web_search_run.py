@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -12,6 +12,35 @@ async def test_search_web_uses_mock_without_api_key():
     hits = await search_web(settings, "test query")
     assert len(hits) == 1
     assert "Mock search" in hits[0].title
+
+
+@pytest.mark.asyncio
+async def test_search_web_with_a_key_searches_for_real_in_mock_mode():
+    """Mock mode fakes search only without a key, like the chat model (should_mock_llm)."""
+    settings = Settings(
+        mock_llm_enabled=True, tavily_api_key="test-key", web_search_fallback_enabled=False
+    )
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    response.json.return_value = {
+        "results": [
+            {
+                "title": "Freddie Mac PMMS",
+                "url": "https://www.freddiemac.com/pmms",
+                "content": "6.27%",
+            }
+        ]
+    }
+    client = AsyncMock()
+    client.post = AsyncMock(return_value=response)
+    with patch("app.gateways.web_search_gateway.get_pooled_client", return_value=client):
+        hits = await search_web(settings, "mortgage rates this week")
+    client.post.assert_awaited_once()
+    assert hits == [
+        WebSearchHit(
+            title="Freddie Mac PMMS", url="https://www.freddiemac.com/pmms", snippet="6.27%"
+        )
+    ]
 
 
 @pytest.mark.asyncio

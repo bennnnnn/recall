@@ -13,7 +13,7 @@ import json
 import re
 from pathlib import Path
 
-from app.services.diagram_kinds import names_diagram_kind
+from app.services.diagram_kinds import names_diagram_kind, names_idea_curve
 
 CHART_SHAPES: dict[str, dict[str, object]] = json.loads(
     Path(__file__).with_name("chart_shapes.json").read_text(encoding="utf-8")
@@ -42,6 +42,11 @@ _PLOT_REQUEST = re.compile(
     + r"|\b"
     + _PLOT_KIND
     + r"\s+(?:of|for|with|from|showing)\b",
+    re.IGNORECASE,
+)
+# The verb that asks for a drawing; what follows it may name a curve of an idea.
+_DRAW_VERB = re.compile(
+    r"\b(?:make|draw|create|plot|show|give|build|render|generate|sketch)\b(?:\s+(?:me|us)\b)?",
     re.IGNORECASE,
 )
 # "a line graph of my sales" is a chart; "the line graph of y = 2x + 1" is a curve.
@@ -132,6 +137,10 @@ def is_chart_question(text: str) -> bool:
     if names_diagram_kind(cleaned):
         return False
     if _CHART_TURN.search(cleaned):
+        return True
+    # "Draw the learning curve": an idea's curve, as a chart with sample data.
+    asked = _DRAW_VERB.search(cleaned)
+    if asked is not None and names_idea_curve(cleaned[asked.end() :]):
         return True
     if not _PLOT_REQUEST.search(cleaned):
         return False
