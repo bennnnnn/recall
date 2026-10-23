@@ -24,13 +24,16 @@ from app.modules.math.solve.unicode_normalize import (
 
 # Shallow LaTeX → SymPy-ish text. Nested \frac needs repeated passes (capped).
 _LATEX_FRAC_RE = re.compile(r"\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}")
-# A whole number written against a numeric fraction is a mixed number: 2½ and
-# 2\frac{1}{2} are two and a half, never 2 * 1/2. A power's or a decimal's digits
-# (x^2½, 0.2½) start none.
+# A whole number written against a numeric fraction that stands alone is a mixed
+# number: 2½ and 2\frac{1}{2} are two and a half, never 2 * 1/2. A power's or a
+# decimal's digits (x^2½, 0.2½) start none, and a fraction with a factor after it
+# (the keyboard's 44\frac{2}{2}4, 2½x) stays a product.
 _MIXED_GLYPH_RE = re.compile(
-    r"(?<![\w.^}])(\d+)\s*([" + "".join(glyph for glyph, _ in _UNICODE_VULGAR) + "])"
+    r"(?<![\w.^}])(\d+)\s*([" + "".join(glyph for glyph, _ in _UNICODE_VULGAR) + r"])(?![\w(])"
 )
-_MIXED_LATEX_RE = re.compile(r"(?<![\w.^}])(\d+)\s*\\[dt]?frac\s*\{\s*(\d+)\s*\}\s*\{\s*(\d+)\s*\}")
+_MIXED_LATEX_RE = re.compile(
+    r"(?<![\w.^}])(\d+)\s*\\[dt]?frac\s*\{\s*(\d+)\s*\}\s*\{\s*(\d+)\s*\}(?![\w(])"
+)
 _VULGAR_VALUE = dict(_UNICODE_VULGAR)
 _LATEX_ABS_LEFT_RIGHT_RE = re.compile(
     # The bars may sit on different lines: [^\x00] crosses newlines, as "." did under DOTALL.
