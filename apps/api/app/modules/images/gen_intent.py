@@ -227,6 +227,31 @@ def _match_draw_me(tokens: list[str]) -> str | None:
     return clean_prompt(subject)
 
 
+# "Draw up a contract", "draw on my experience", "draw conclusions from the data":
+# with one of these next, "draw" writes, uses or infers something rather than draws it.
+_DRAW_NOT_A_PICTURE = frozenset(
+    {
+        "up",
+        "on",
+        "upon",
+        "from",
+        "near",
+        "nearer",
+        "closer",
+        "back",
+        "away",
+        "together",
+        "conclusions",
+        "inferences",
+        "boundaries",
+        "attention",
+        "inspiration",
+        "lots",
+        "straws",
+    }
+)
+
+
 def _make_is_not_a_picture(subject: str) -> bool:
     words = [fold_token(word) for word in subject.split()]
     words = [word for word in words if word and word not in MAKE_IDIOM_FILLER]
@@ -243,6 +268,8 @@ def _match_short_create(tokens: list[str]) -> str | None:
         return None
     verb = tokens[0].lower()
     if verb not in VERBS_DRAW and verb not in VERBS_IMAGE:
+        return None
+    if verb == "draw" and fold_token(tokens[1]) in _DRAW_NOT_A_PICTURE:
         return None
     i = 1
     if i < len(tokens) and tokens[i].lower() == "me":

@@ -82,5 +82,33 @@
     "prompt": "is my photo backup safe if I lose my phone?",
     "reply": "If backup is on, yes: your photos are copied to the cloud account, so a new phone signed into the same account downloads them again. Check two things now: that backup has finished recently, and that you can sign into that account without the lost phone (a recovery email or a second device).",
     "expect": "answer"
+  },
+  {
+    "id": "media-013",
+    "area": "image",
+    "prompt": "draw up a contract for my tenant",
+    "reply": "Here's a simple residential lease you can adapt. *(Not legal advice: have a local lawyer check it.)*\n\n**RESIDENTIAL LEASE AGREEMENT**\n\n**Landlord:** [Name]  \n**Tenant:** [Name]  \n**Property:** [Address]\n\n1. **Term.** From [start date] to [end date].\n2. **Rent.** [Amount] per month, due on the [1st].\n3. **Deposit.** [Amount], returned within [30] days of move-out, less documented damage.\n4. **Repairs.** The tenant reports damage promptly; the landlord handles structural repairs.\n5. **Ending the lease.** Either party gives [30] days' written notice.\n\n**Signatures:** Landlord ______  Tenant ______",
+    "expect": "answer"
+  },
+  {
+    "id": "media-014",
+    "area": "image",
+    "prompt": "draw up a budget for my trip to Lalibela",
+    "reply": "Here's a starting budget for 4 days, per person:\n\n| Item | Cost (birr) |\n|---|---|\n| Return flight Addis–Lalibela | 9,000 |\n| Guesthouse, 3 nights | 4,500 |\n| Church ticket | 3,000 |\n| Guide | 1,500 |\n| Food | 2,400 |\n| **Total** | **20,400** |\n\nAdd about 10% for transport in town and tips.",
+    "expect": "answer"
+  },
+  {
+    "id": "media-015",
+    "area": "image",
+    "prompt": "draw on my nursing experience for this letter",
+    "reply": "Here's an opening that leads with your nursing experience:\n\n> Eight years on a busy surgical ward taught me to stay calm when three things need doing at once, to explain hard news plainly, and to notice the small change in a patient before it becomes a big one. I'd bring that same steadiness to your care coordination team.",
+    "expect": "answer"
+  },
+  {
+    "id": "media-016",
+    "area": "image",
+    "prompt": "draw conclusions from the survey results above",
+    "reply": "Three conclusions stand out:\n\n1. **Price is the main barrier**: 62% of people who did not buy named cost first.\n2. **Delivery time matters less than expected**: only 14% mentioned it.\n3. **Repeat buyers are loyal**: 81% of them would recommend you.\n\nSo a first-order discount is likely to move more people than faster delivery.",
+    "expect": "answer"
   }
 ]
