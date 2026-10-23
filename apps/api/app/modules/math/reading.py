@@ -45,6 +45,8 @@ _SYMBOLS = (
     ("\\beta", "β"),
     ("\\lambda", "λ"),
     ("\\degree", "°"),
+    ("\\rightarrow", "→"),
+    ("\\to", "→"),
     ("^\\circ", "°"),
     ("^{\\circ}", "°"),
 )
@@ -52,6 +54,10 @@ _SPACES = re.compile(r"\\(?:quad|qquad|[,;:! ])")
 _SIZING = re.compile(r"\\(?:left|right)\s*[.]|\\(?:left|right|big|Big|bigg|Bigg)(?![A-Za-z])\s*")
 _NAMED = re.compile(r"\\(arcsin|arccos|arctan|sin|cos|tan|sec|csc|cot|log|ln|exp|lim)(?![A-Za-z])")
 _INTEGRAL = re.compile(r"\\int(?![A-Za-z])")
+# Mathpix spaces a script from its function (``\log _{2}``); "log _2(x+1)" lost the log.
+_SPACED_SCRIPT = re.compile(r"(?<=[A-Za-z0-9)])\s+(?=[\^_][\w(])")
+# ``lim_(x → 0)`` is written ``lim x→0``, the way the limit reader reads it.
+_LIMIT = re.compile(r"\blim_\(([^()]*)\)")
 _ARRAY = re.compile(
     r"\\(?:begin|end)\s*\{(?:array|cases|aligned|align\*?|gathered)\}(?:\{[^{}]*\})?"
 )
@@ -113,6 +119,8 @@ def student_reading(source: str) -> str:
     text = _NAMED.sub(r"\1", text)
     text = _INTEGRAL.sub("∫", text)
     text = _SCRIPT.sub(_script, text)
+    text = _SPACED_SCRIPT.sub("", text)
+    text = _LIMIT.sub(lambda m: "lim " + re.sub(r"\s+", "", m.group(1)) + " ", text)
     text = text.replace("\\{", "").replace("\\}", "").replace("{", "").replace("}", "")
     text = text.replace("**", "^")
     text = _IMPLICIT_TIMES.sub(r"\1", text)

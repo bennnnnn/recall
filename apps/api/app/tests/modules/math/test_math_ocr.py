@@ -239,6 +239,11 @@ async def test_read_back_keeps_the_printed_condition() -> None:
         (r"\( 30^{\circ} \)", "30°"),
         (r"\( \frac{2}{3}^{2} \)", "(2/3)^2"),
         (r"\( \frac{2}{3} \div \frac{4}{5} \)", "2/3 ÷ 4/5"),
+        # A spaced script belongs to its function: "log _2(x+1)" solved 2(x+1) = 3.
+        (r"\( \log _{2}(x+1)=3 \)", "log_2(x+1)=3"),
+        (r"\( \sin ^{2} x+\cos ^{2} x=1 \)", "sin^2 x+cos^2 x=1"),
+        (r"\( \lim _{x \rightarrow 0} \frac{\sin x}{x} \)", "lim x→0 ((sin x)/x)"),
+        (r"\( \lim _{x \to \infty} \frac{3 x^{2}+1}{x^{2}-2} \)", "lim x→∞ ((3 x^2+1)/(x^2-2))"),
     ],
 )
 def test_student_reading_is_the_whole_problem_in_written_notation(
