@@ -215,7 +215,13 @@ jest.mock("@/features/chat/hooks/useChatDraftWarmup", () => ({ useChatDraftWarmu
 jest.mock("@/features/chat/hooks/useChatMessageList", () => ({ useChatMessageList: () => mockMessageList }));
 jest.mock("@/features/chat/hooks/useChatRegenerate", () => ({ useChatRegenerate: () => mockRegenerate }));
 jest.mock("@/features/chat/hooks/useChatRouteLoader", () => ({ useChatRouteLoader: () => mockRouteLoader }));
-jest.mock("@/features/chat/hooks/useChatSend", () => ({ useChatSend: () => mockSend }));
+const mockSendOptions: { beforeSend?: () => Promise<void> }[] = [];
+jest.mock("@/features/chat/hooks/useChatSend", () => ({
+  useChatSend: (options: { beforeSend?: () => Promise<void> }) => {
+    mockSendOptions.push(options);
+    return mockSend;
+  },
+}));
 jest.mock("@/features/speech/hooks/useLiveTalk", () => ({ useLiveTalk: () => mockLiveTalk }));
 jest.mock("@/features/chat/hooks/useDraftChat", () => ({ useDraftChat: () => mockDraft }));
 jest.mock("@/hooks/useModels", () => ({ useModels: () => mockModels }));
@@ -374,6 +380,18 @@ describe("ChatScreen renders", () => {
     const close = await rendersDuring([() => closeDrawer()]);
 
     expect({ open, close }).toEqual({ open: 0, close: 0 });
+  });
+});
+
+describe("ChatScreen sends", () => {
+  it("bring the newest message into view, even scrolled up with no newer page to load", async () => {
+    // Live: a send while scrolled up left the bubble and the reply below the screen.
+    await render(<HomeScreen />);
+    const beforeSend = mockSendOptions.at(-1)?.beforeSend;
+    expect(beforeSend).toEqual(expect.any(Function));
+    await act(async () => {
+      await beforeSend?.();
+    });
   });
 });
 

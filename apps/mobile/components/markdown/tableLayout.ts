@@ -5,7 +5,8 @@
  * longest word, so a word never breaks mid-letter) and a ceiling (so a long
  * description wraps instead of taking the screen). A short label column
  * therefore stays narrow beside a long one. A table that fits the viewport is
- * stretched to fill it; a wider one keeps its widths and pans.
+ * stretched to fill it; a wider one keeps its widths and pans, with the next
+ * column's start showing at the edge so it reads as one that scrolls.
  */
 import { type AstNode, astText } from "@/components/markdown/markdownAstHelpers";
 import { Space } from "@/lib/space";
@@ -46,10 +47,37 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+/** The narrowest a column draws: its longest word, so a word never breaks mid-letter. */
+function tableColumnFloor({ longestWord }: TableColumnText): number {
+  return clamp(longestWord * CHAR_WIDTH + CELL_PAD, TABLE_MIN_COL_WIDTH, TABLE_MAX_COL_WIDTH);
+}
+
 /** The width one column asks for before the table is fitted to the viewport. */
-function tableColumnNaturalWidth({ longest, longestWord }: TableColumnText): number {
-  const floor = clamp(longestWord * CHAR_WIDTH + CELL_PAD, TABLE_MIN_COL_WIDTH, TABLE_MAX_COL_WIDTH);
-  return clamp(longest * CHAR_WIDTH + CELL_PAD, floor, TABLE_MAX_COL_WIDTH);
+function tableColumnNaturalWidth(column: TableColumnText): number {
+  return clamp(column.longest * CHAR_WIDTH + CELL_PAD, tableColumnFloor(column), TABLE_MAX_COL_WIDTH);
+}
+
+/** How much of the next column a wide table shows at the viewport's edge. */
+export const TABLE_PEEK = 48;
+
+/**
+ * A wide table whose edge falls inside a column showed no hint of the columns after
+ * it: "Mitosis | Meiosis" showed Mitosis cut at the edge and no Meiosis at all. The
+ * column the edge cuts narrows, never below its floor, until the next one peeks in.
+ */
+function withNextColumnShowing(widths: number[], floors: number[], viewportWidth: number): number[] {
+  const edge = viewportWidth - TABLE_PEEK;
+  let start = 0;
+  for (let index = 0; index < widths.length - 1; index += 1) {
+    const width = widths[index]!;
+    if (start + width > edge) {
+      const room = Math.floor(edge - start);
+      if (room >= floors[index]! && room < width) return widths.map((w, i) => (i === index ? room : w));
+      return widths;
+    }
+    start += width;
+  }
+  return widths;
 }
 
 /**
@@ -60,7 +88,9 @@ function tableColumnNaturalWidth({ longest, longestWord }: TableColumnText): num
 export function tableColumnWidths(columns: TableColumnText[], viewportWidth: number): number[] {
   const natural = columns.map(tableColumnNaturalWidth);
   const total = natural.reduce((sum, w) => sum + w, 0);
-  if (total >= viewportWidth) return natural;
+  if (total >= viewportWidth) {
+    return withNextColumnShowing(natural, columns.map(tableColumnFloor), viewportWidth);
+  }
   const scale = viewportWidth / total;
   return natural.map((w) => Math.floor(w * scale));
 }
