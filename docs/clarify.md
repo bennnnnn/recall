@@ -14,7 +14,9 @@ Three parts, in this order:
 1. **A short useful start.** The strongest few options, one bold line each with a short why
    ("🇨🇭 **Switzerland — best for quality of life**"). When anything more would be a guess
    ("plan my week"), one short sentence instead.
-2. **The ask.** A bold lead-in on its own line (**But let me ask you one thing.**), then one
+2. **The ask.** A bold lead-in on its own line that fits the start and the card: **But let me
+   ask you one thing.** for one question, **But let me ask you a couple of things.** for two or
+   three, and no "But" when no options came before it (**Let me ask you one thing.**). Then one
    short line naming what Recall needs (What do you mean by *best*?).
 3. **The card**, last.
 

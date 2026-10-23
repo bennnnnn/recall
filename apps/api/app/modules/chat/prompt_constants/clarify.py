@@ -17,8 +17,11 @@ CLARIFY_CARD_HINT = (
     "a short useful start: the strongest few options, each its own paragraph with a bold "
     "line and a short why ('🇨🇭 **Switzerland — best for quality of life**'), or one short "
     "sentence when anything more would be a guess, as in 'plan my week'. Then a bold "
-    "lead-in on its own line, such as **But let me ask you one thing.**, and one short "
-    "line naming what you need (What do you mean by *best*?). Then the card, last: a "
+    "lead-in on its own line that fits the start and the card: after the start, **But let "
+    "me ask you one thing.** for one question, **But let me ask you a couple of things.** "
+    "for two or three; with no options before it, no 'But' (**Let me ask you one thing.**). "
+    "Then one short line naming what you need (What do you mean by *best*?). Then the "
+    "card, last: a "
     "```clarify fence holding one JSON object, for example "
     '{"request": "Recommend the best country for me.", "questions": [{"id": "priority", '
     '"label": "Main priority", "question": "What matters most to you?", "options": '
