@@ -12,7 +12,10 @@ from __future__ import annotations
 import re
 
 _DELIMITERS = re.compile(r"\\[()\[\]]|\$+")
-_LABEL = re.compile(r"^\s*(?:(?:Q|question\s*)?\d+\s*[.):]\s*)?(?:\(?[a-hivx]{1,3}\)\s*)?", re.I)
+# "1." numbers a question; the "1." of 1.5 is a decimal, not a label.
+_LABEL = re.compile(
+    r"^\s*(?:(?:Q|question\s*)?\d+\s*(?:[):]|\.(?!\d))\s*)?(?:\(?[a-hivx]{1,3}\)\s*)?", re.I
+)
 _BRACED = r"\{([^{}]*)\}"
 _FRAC = re.compile(r"\\[dt]?frac\s*" + _BRACED + r"\s*" + _BRACED)
 _SQRT_INDEX = re.compile(r"\\sqrt\s*\[\s*([^\]]+?)\s*\]\s*" + _BRACED)

@@ -226,6 +226,10 @@ async def test_read_back_keeps_the_printed_condition() -> None:
         (r"5.(a) Solve \( 2x+3=7 \)", "Solve 2x+3=7"),
         ("2*x**2+3*x-2=0", "2x^2+3x-2=0"),
         ("Abs(2*x-1) = 7", "|2x-1| = 7"),
+        # A leading decimal is the problem, not a question number: "1." of 1.5 stays.
+        (r"\( 1.5 x=6 \)", "1.5 x=6"),
+        (r"\( 12.5 \div 2.5 \)", "12.5 ÷ 2.5"),
+        (r"1. \( 0.5 x+2=3 \)", "0.5 x+2=3"),
     ],
 )
 def test_student_reading_is_the_whole_problem_in_written_notation(
