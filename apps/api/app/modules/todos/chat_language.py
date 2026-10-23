@@ -50,38 +50,43 @@ _ENGLISH_TODO = frozenset(
 )
 # Words of Spanish, French, German, Italian, Portuguese and Turkish that English
 # does not use: articles, pronouns, days, and the to-do and time words.
-_OTHER_LATIN = frozenset(
-    {
-        # Spanish
+_OTHER_LATIN_BY_LANGUAGE: dict[str, frozenset[str]] = {
+    "es": frozenset({
         "el", "los", "las", "del", "que", "qué", "mañana", "manana", "hoy", "recuérdame",
         "recuerdame", "recordatorio", "recordatorios", "añade", "anade", "agrega", "agregar",
         "borra", "borrar", "elimina", "eliminar", "quita", "mis", "lista", "tarea", "tareas",
         "llamar", "tengo", "pendientes", "lunes", "martes", "miércoles", "jueves", "viernes",
         "sábado",
-        # French
+    }),
+    "fr": frozenset({
         "les", "des", "une", "demain", "aujourd'hui", "rappelle-moi", "rappelle", "rappel",
         "rappels", "ajoute", "ajouter", "supprime", "supprimer", "mes", "pour", "avec",
         "tâche", "tâches", "liste", "appeler", "lundi", "mardi", "mercredi", "jeudi",
         "vendredi", "samedi", "dimanche",
-        # German
+    }),
+    "de": frozenset({
         "der", "das", "und", "eine", "morgen", "heute", "erinnere", "erinnerung",
         "erinnerungen", "füge", "hinzu", "lösche", "entferne", "mich", "meine", "für", "mit",
         "uhr", "aufgabe", "aufgaben", "anrufen", "montag", "dienstag", "mittwoch",
         "donnerstag", "freitag", "samstag", "sonntag",
-        # Italian
+    }),
+    "it": frozenset({
         "il", "gli", "della", "che", "domani", "oggi", "ricordami", "promemoria", "aggiungi",
         "cancella", "mia", "mie", "mio", "miei", "alle", "attività", "chiamare", "lunedì",
         "martedì", "mercoledì", "giovedì", "venerdì", "domenica",
-        # Portuguese
+    }),
+    "pt": frozenset({
         "uma", "amanhã", "amanha", "hoje", "lembra-me", "lembre-me", "lembrete", "lembretes",
         "adiciona", "adicione", "apaga", "apague", "minha", "minhas", "meu", "meus", "às",
         "tarefa", "tarefas", "ligar", "terça", "quarta", "quinta", "sexta",
-        # Turkish
+    }),
+    "tr": frozenset({
         "yarın", "bugün", "hatırlat", "hatirlat", "hatırlatıcı", "hatırlatma", "ekle", "sil",
         "benim", "için", "saat", "görev", "görevler", "görevlerim", "listeme", "listeye",
         "beni", "bana", "pazartesi", "salı", "çarşamba", "perşembe", "cuma", "cumartesi",
-    }
-)  # fmt: skip
+    }),
+}  # fmt: skip
+_OTHER_LATIN: frozenset[str] = frozenset().union(*_OTHER_LATIN_BY_LANGUAGE.values())
 _OTHER_LATIN_WORDS = 2
 
 
@@ -106,3 +111,39 @@ def writes_todos_in_todo_screen(text: str | None) -> bool:
     if _other_script(text):
         return True
     return len({word for word in words if word in _OTHER_LATIN}) >= _OTHER_LATIN_WORDS
+
+
+# The app's languages written in another script, by the Unicode name of their letters.
+_SCRIPT_LANGUAGE = (("CYRILLIC", "ru"), ("ETHIOPIC", "am"))
+# The line above the To-do button when a reply wrote none of its own. The screen is
+# named as the app names it in that language (mobile i18n ``todos.open_from_chat``).
+_TODO_SCREEN_LINE = {
+    "en": "You can add or change it in **To-do**.",
+    "es": "Puedes añadirlo o cambiarlo en **Tareas**.",
+    "fr": "Vous pouvez l'ajouter ou le modifier dans **Tâches**.",
+    "de": "Du kannst das unter **Aufgaben** hinzufügen oder ändern.",
+    "it": "Puoi aggiungerlo o modificarlo in **Attività**.",
+    "pt": "Você pode adicionar ou alterar isso em **Tarefas**.",
+    "tr": "**Yapılacaklar** bölümünden ekleyebilir veya değiştirebilirsiniz.",
+    "ru": "Добавить или изменить это можно в разделе **Задачи**.",
+    "am": "በ**የሚደረጉ** ውስጥ ማከል ወይም መቀየር ይችላሉ።",
+}
+
+
+def message_language(text: str | None) -> str | None:
+    """Which of the app's other languages ``text`` is written in; None when it can't tell."""
+    if not text:
+        return None
+    for char in text:
+        if char.isalpha() and not _is_latin(char):
+            name = unicodedata.name(char, "")
+            return next((code for script, code in _SCRIPT_LANGUAGE if script in name), None)
+    words = {word.casefold() for word in _WORD.findall(text)}
+    counts = {code: len(words & vocab) for code, vocab in _OTHER_LATIN_BY_LANGUAGE.items()}
+    code, count = max(counts.items(), key=lambda item: item[1])
+    return code if count else None
+
+
+def todo_screen_line(language: str | None) -> str:
+    """One line saying the change is made in To-do, in ``language`` (English otherwise)."""
+    return _TODO_SCREEN_LINE.get(language or "", _TODO_SCREEN_LINE["en"])

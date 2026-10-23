@@ -55,6 +55,7 @@ from app.modules.chat.turn_prep import StreamContext
 from app.modules.memory import is_explicit_memory_command
 from app.modules.todos import write_log
 from app.modules.todos.reply_check import NEED_A_TIME
+from app.services.md_fence_scan import without_fences
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.harness import USER_TIMEZONE, battery_settings, route_case
 from app.tests.fakes import fake_session
@@ -493,6 +494,8 @@ def _judge_expect(outcome: Outcome, expect: str) -> list[str]:
             problems.append(f"reply replaced by {canned!r}")
         if "```todo_link" not in final:
             problems.append(f"no Open To-do button (reply: {final[:70]!r})")
+        elif not without_fences(final).strip():
+            problems.append("an Open To-do button with no line saying what it is for")
     elif expect == "save" and not outcome.saved:
         problems.append(f"no reminder saved (reply: {final[:70]!r})")
     elif expect == "ask_time" and (outcome.saved or "?" not in final):

@@ -82,5 +82,19 @@
   "prompt": "remind me to fly to Los Angeles tomorrow at 7am",
   "reply": "```reminder\n{\"title\": \"Fly to Los Angeles\", \"due_at\": \"2026-10-24T07:00:00\"}\n```",
   "expect": "save"
+ },
+ {
+  "id": "tl-013",
+  "area": "todo language",
+  "prompt": "rappelle-moi demain à 9h d'appeler maman",
+  "reply": "```todo_link\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "tl-014",
+  "area": "todo language",
+  "prompt": "напомни мне завтра в 9 позвонить маме",
+  "reply": "```sources\n[{\"title\": \"Moscow time\", \"url\": \"https://time.example/moscow\"}]\n```\n\n```todo_link\n```",
+  "expect": "todo_screen"
  }
 ]

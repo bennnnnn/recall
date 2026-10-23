@@ -89,11 +89,11 @@ async def test_the_list_is_flagged_changed_only_when_rows_were_written(
     assert outcome.todos_changed is changed
 
 
-def _ctx(message: str) -> StreamContext:
+def _ctx(message: str, locale: str = "en") -> StreamContext:
     return cast(
         StreamContext,
         SimpleNamespace(
-            user=MagicMock(timezone="UTC"),
+            user=MagicMock(timezone="UTC", locale=locale),
             user_id=uuid4(),
             chat_id=uuid4(),
             user_timezone="UTC",
@@ -106,6 +106,7 @@ def _ctx(message: str) -> StreamContext:
 
 _SPANISH = "recuérdame mañana a las 9 llamar a mamá"
 _LINK = "```todo_link\n```"
+_ES_LINE = "Puedes añadirlo o cambiarlo en **Tareas**."
 
 
 @pytest.mark.asyncio
@@ -117,7 +118,14 @@ _LINK = "```todo_link\n```"
             'Claro.\n\n```reminder\n{"title": "Llamar a mamá", "due_at": "2026-10-24T09:00:00"}\n```',
             f"Claro.\n\n{_LINK}",
         ),
-        ('```reminder\n{"title": "Llamar a mamá"}\n```', _LINK),
+        # A reply with no words of its own still says, in Spanish, where to go.
+        ('```reminder\n{"title": "Llamar a mamá"}\n```', f"{_ES_LINE}\n\n{_LINK}"),
+        (_LINK, f"{_ES_LINE}\n\n{_LINK}"),
+        # A search the model made (the time zone) cites nothing above the button.
+        (
+            f'```sources\n[{{"title": "EAT", "url": "https://time.example"}}]\n```\n\n{_LINK}',
+            f"{_ES_LINE}\n\n{_LINK}",
+        ),
         # The model already offered the button: it stays, once, last.
         (f"Puedes añadirlo en Tareas.\n\n{_LINK}", f"Puedes añadirlo en Tareas.\n\n{_LINK}"),
         # A read of the list is left as it is.
@@ -133,6 +141,29 @@ async def test_a_message_in_another_language_gets_the_todo_button_not_a_card(
     # Exactly the kept reply: never the English "when?" the reminder pass answers with.
     assert text == kept
     materialize.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("message", "locale", "line"),
+    [
+        ("напомни завтра в 9 позвонить маме", "en", "Добавить или изменить это можно в разделе **Задачи**."),
+        ("ነገ 9 ሰዓት እናቴን እንድደውል አስታውሰኝ", "en", "በ**የሚደረጉ** ውስጥ ማከል ወይም መቀየር ይችላሉ።"),
+        ("rappelle-moi demain à 9h d'appeler maman", "en", "Vous pouvez l'ajouter ou le modifier dans **Tâches**."),
+        ("erinnere mich morgen um 9 Uhr, Mama anzurufen", "es", "Du kannst das unter **Aufgaben** hinzufügen oder ändern."),
+        # A language the app has no line for: the user's own app language, then English.
+        ("ذكرني غدا الساعة 9 بالاتصال بأمي", "es", _ES_LINE),
+        ("ذكرني غدا الساعة 9 بالاتصال بأمي", "en", "You can add or change it in **To-do**."),
+    ],
+)  # fmt: skip
+async def test_the_line_above_a_bare_button_is_in_the_message_s_language(
+    message: str, locale: str, line: str
+) -> None:
+    deps = turn_deps(todos={"materialize_reminder_fences": AsyncMock()})
+    text = await apply_reminder_pass(
+        deps, AsyncMock(), Settings(), _ctx(message, locale), _LINK, None
+    )
+    assert text == f"{line}\n\n{_LINK}"
 
 
 @pytest.mark.asyncio
