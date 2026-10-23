@@ -85,6 +85,23 @@ def _x_intercepts(intent: MathIntent) -> _Solved | None:
     return workout, answer, [f"x-intercepts: {', '.join(str(root) for root in roots)}"]
 
 
+def _intercepts(intent: MathIntent) -> _Solved | None:
+    """Both axes: where y = 0, then where x = 0. Missing either, nothing is verified."""
+    crossing, meeting = _x_intercepts(intent), _y_intercept(intent)
+    if crossing is None or meeting is None:
+        return None
+    (x_work, x_answer, x_record), (y_work, y_answer, y_record) = crossing, meeting
+    workout = Workout(
+        given=x_work.given,
+        find=(math_line(r"\left(x, 0\right),\ \left(0, y\right)", "x- and y-intercepts"),),
+        formula=(*x_work.formula, *y_work.formula),
+        substitution=(*x_work.substitution, *y_work.substitution),
+    )
+    several = "s" if x_answer.count(r"\left(") > 1 else ""
+    answer = rf"\text{{x-intercept{several} }} {x_answer};\ \text{{y-intercept }} {y_answer}"
+    return workout, answer, [*x_record, *y_record]
+
+
 def _slope_of(intent: MathIntent) -> tuple[Any, Any, str] | None:
     """(slope, intercept, the line as given) for a non-vertical straight line."""
     line = _linear(intent)

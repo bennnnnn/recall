@@ -16,6 +16,7 @@ FEATURE_OPS = frozenset(
         "equation_axis",
         "equation_y_intercept",
         "equation_x_intercepts",
+        "equation_intercepts",
         "equation_discriminant",
         "equation_root_sum",
         "equation_root_product",
@@ -38,6 +39,15 @@ _FEATURES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("axis", re.compile(r"\b(?:the\s+)?(?:axis|line)\s+of\s+symmetry\b", re.I)),
     ("y_intercept", re.compile(r"\b(?:the\s+)?y[\s-]?intercepts?\b", re.I)),
     ("x_intercepts", re.compile(r"\b(?:the\s+)?x[\s-]?intercepts?\b", re.I)),
+    # Both axes: "the intercepts", "the x- and y-intercepts".
+    (
+        "intercepts",
+        re.compile(
+            r"(?:\b(?:x[\s-]*and[\s-]*y|y[\s-]*and[\s-]*x)[\s-]*|(?<![xy][\s-])(?<![\w-]))"
+            r"intercepts\b",
+            re.I,
+        ),
+    ),
     ("discriminant", re.compile(r"\b(?:the\s+)?discriminant\b", re.I)),
     (
         "root_sum",
@@ -99,6 +109,7 @@ _NUMBERED_POINT = re.compile(r"\(\s*-?\d")
 _FRAME_WORDS = frozenset(
     {
         "find",
+        "show",
         "the",
         "of",
         "what",
@@ -165,7 +176,9 @@ def extract_equation_feature_intent(cleaned: str) -> MathIntent | None:
     found = [(op, match) for op, pattern in _FEATURES if (match := pattern.search(body))]
     ops = {op for op, _ in found}
     if "slope_intercept" in ops:
-        ops -= {"slope", "y_intercept", "x_intercepts"}
+        ops -= {"slope", "y_intercept", "x_intercepts", "intercepts"}
+    if "intercepts" in ops:
+        ops -= {"y_intercept", "x_intercepts"}
     if "line_through" in ops:
         ops -= {"slope"}
     if len(ops) != 1:

@@ -8,6 +8,7 @@ from dataclasses import replace
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school.equation_features.lines import (
+    _intercepts,
     _line_through,
     _slope,
     _slope_intercept,
@@ -55,6 +56,7 @@ _SOLVERS = {
     "axis": _axis,
     "y_intercept": _y_intercept,
     "x_intercepts": _x_intercepts,
+    "intercepts": _intercepts,
     "discriminant": _discriminant,
     "root_sum": lambda intent: _roots_sum_or_product(intent, product=False),
     "root_product": lambda intent: _roots_sum_or_product(intent, product=True),

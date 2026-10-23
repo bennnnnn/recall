@@ -61,6 +61,22 @@ def _history(*turns: str) -> tuple[tuple[str, str], ...]:
         ("find the y-intercept of y = x^2 - 6x + 5", r"\left(0, 5\right)"),
         ("find the x-intercept of 2x + 3y = 6", r"\left(3, 0\right)"),
         ("find the x-intercepts of y = x^2 - 5x + 6", r"\left(2, 0\right),\ \left(3, 0\right)"),
+        # Both axes: "show the intercepts" was no maths at all, "find the intercepts" unsolved.
+        (
+            "show the intercepts of y = x^2 - 5x + 6",
+            r"\text{x-intercepts } \left(2, 0\right),\ \left(3, 0\right);\ "
+            r"\text{y-intercept } \left(0, 6\right)",
+        ),
+        (
+            "what are the intercepts of y=x^2-5x+6",
+            r"\text{x-intercepts } \left(2, 0\right),\ \left(3, 0\right);\ "
+            r"\text{y-intercept } \left(0, 6\right)",
+        ),
+        (
+            "find the x- and y-intercepts of 2x + 3y = 6",
+            r"\text{x-intercept } \left(3, 0\right);\ \text{y-intercept } \left(0, 2\right)",
+        ),
+        ("show the vertex of y = x^2 - 4x + 3", r"\left(2, -1\right)"),
         ("find the discriminant of 3x^2+2x+1=0", r"b^{2} - 4ac = -8"),
         ("discriminant of 3x^2 + 2x + 1", r"b^{2} - 4ac = -8"),
         ("what is the sum of the roots of x^2 - 5x + 6 = 0", r"x_{1} + x_{2} = 5"),
@@ -100,6 +116,8 @@ async def test_a_feature_of_an_equation_is_answered_not_solved_for_x(
         "find the sum of the roots of x^2 + 2x + 1 = 0",
         "find k so that kx^2 + 4x + 1 = 0 has exactly one solution",
         "find the y-intercept of x = 4",
+        # No real x-intercept: both axes are not verified, never half of them.
+        "find the intercepts of y = x^2 + 1",
         "what is the domain of the solution of x^2 = 4",
     ],
 )
