@@ -760,6 +760,13 @@ async def test_a_defined_e_and_e_notation_read_as_written(text: str, answer: str
         ("solve x - 1 3/4 = 2", r"x = \frac{15}{4}"),
         # A power's digit starts no mixed number: x^2 times a half.
         ("solve x^2 1/2 = 8", r"x = \pm 4"),
+        # As a glyph or from the maths keyboard: these verified 7/4 and x = 4.
+        ("what is 2½ + 1¾", r"\frac{17}{4}"),
+        ("solve x + 2½ = 5", r"x = \frac{5}{2}"),
+        (r"what is $2\frac{1}{2} + 1\frac{3}{4}$", r"\frac{17}{4}"),
+        (r"solve $x + 2\frac{1}{2} = 5$", r"x = \frac{5}{2}"),
+        # A coefficient on a fraction with an unknown stays a product.
+        (r"solve $2\frac{x}{3} = 4$", "x = 6"),
     ],
 )
 async def test_a_mixed_number_in_an_equation_is_one_number(text: str, answer: str) -> None:

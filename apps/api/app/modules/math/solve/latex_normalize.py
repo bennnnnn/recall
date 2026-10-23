@@ -24,6 +24,14 @@ from app.modules.math.solve.unicode_normalize import (
 
 # Shallow LaTeX → SymPy-ish text. Nested \frac needs repeated passes (capped).
 _LATEX_FRAC_RE = re.compile(r"\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}")
+# A whole number written against a numeric fraction is a mixed number: 2½ and
+# 2\frac{1}{2} are two and a half, never 2 * 1/2. A power's or a decimal's digits
+# (x^2½, 0.2½) start none.
+_MIXED_GLYPH_RE = re.compile(
+    r"(?<![\w.^}])(\d+)\s*([" + "".join(glyph for glyph, _ in _UNICODE_VULGAR) + "])"
+)
+_MIXED_LATEX_RE = re.compile(r"(?<![\w.^}])(\d+)\s*\\[dt]?frac\s*\{\s*(\d+)\s*\}\s*\{\s*(\d+)\s*\}")
+_VULGAR_VALUE = dict(_UNICODE_VULGAR)
 _LATEX_ABS_LEFT_RIGHT_RE = re.compile(
     # The bars may sit on different lines: [^\x00] crosses newlines, as "." did under DOTALL.
     r"\\(?:left|lvert)\s*\|\s*(?:(\S(?:[^\x00]*?\S)??)\s*)??\\(?:right|rvert)\s*\|"
@@ -358,6 +366,8 @@ def normalize_latex_to_sympy(expr: str) -> str:
     s = _rewrite_inverse_functions(s)
     for glyph, repl in _UNICODE_OP_SUBS:
         s = s.replace(glyph, repl)
+    s = _MIXED_GLYPH_RE.sub(lambda m: f"({m.group(1)}+{_VULGAR_VALUE[m.group(2)]})", s)
+    s = _MIXED_LATEX_RE.sub(r"(\1+(\2)/(\3))", s)
     for glyph, repl in _UNICODE_VULGAR:
         s = s.replace(glyph, repl)
     s = _rewrite_unicode_higher_roots(s)
