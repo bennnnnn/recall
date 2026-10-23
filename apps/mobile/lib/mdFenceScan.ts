@@ -159,14 +159,29 @@ export function stripClosedLangFence(text: string, lang: string): string {
   return mapClosedLangFence(text, lang, () => "");
 }
 
-/** The text without a last ``lang`` fence left open (a reply streaming or cut mid-fence). */
-export function stripUnclosedLangTail(text: string, lang: string): string {
-  const spans = scanFences(text);
-  const last = spans[spans.length - 1];
-  if (last == null || last.closed || parseFenceLang(last.info) !== lang.toLowerCase()) {
-    return text;
+/**
+ * The text without the fences ``drop`` picks, in one scan. A closed fence goes with its
+ * closer's line break; one left open (a reply streaming or cut mid-fence) is the last and
+ * takes the rest of the text.
+ */
+export function dropFences(text: string, drop: (span: FenceSpan) => boolean): string {
+  const pieces: string[] = [];
+  let cursor = 0;
+  for (const span of scanFences(text)) {
+    if (!drop(span)) continue;
+    pieces.push(text.slice(cursor, span.start));
+    cursor = span.closed ? afterFence(text, span) : text.length;
   }
-  return text.slice(0, last.start);
+  pieces.push(text.slice(cursor));
+  return pieces.join("");
+}
+
+/** The text without its ``lang`` fences: every closed one, and a last one left open. */
+export function stripLangFence(text: string, lang: string): string {
+  const want = lang.toLowerCase();
+  // A fence names its language in the text: with no mention there is nothing to scan for.
+  if (!text.toLowerCase().includes(want)) return text;
+  return dropFences(text, (span) => parseFenceLang(span.info) === want);
 }
 
 /**

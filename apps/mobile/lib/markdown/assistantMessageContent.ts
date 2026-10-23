@@ -69,6 +69,9 @@ const RETIRED_FENCE_LANGS: ReadonlySet<string> = new Set([
   "calendar_proposal",
 ]);
 
+/** One empty list, so a frozen reply's sources keep their identity flush to flush. */
+const NO_SOURCES: SearchSource[] = [];
+
 const UNVERIFIED_RESULT_LINE =
   /[ \t]*\*?I couldn't automatically verify this result\.\*?[ \t]*/g;
 
@@ -77,8 +80,12 @@ function stripUnverifiedResultLine(text: string): string {
   return text.replace(UNVERIFIED_RESULT_LINE, "").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+/** Any retired name in any case: a fence's language is read lower-cased. */
+const RETIRED_FENCE_NAME = new RegExp([...RETIRED_FENCE_LANGS].join("|"), "i");
+
 function stripRetiredFences(text: string): string {
-  if (!text.includes("```")) return text;
+  // Only old stored chats hold one; every other reply skips the line walk.
+  if (!text.includes("```") || !RETIRED_FENCE_NAME.test(text)) return text;
   return mapClosedFences(text, (info, _body, original) =>
     RETIRED_FENCE_LANGS.has(parseFenceLang(info)) ? "" : original,
   );
@@ -139,10 +146,12 @@ export function deriveAssistantMessageContent(
     assistantReplyIsTimeAnswer(content);
 
   const clockTimezone = showLiveClock ? extractClockTimezone(content) : "";
-  const searchSources = resolveSearchSources(
-    content,
-    liveSearchSources ?? storedSearchSources,
-  );
+  // While the layout is frozen the Sources row is hidden, and a reply's own
+  // sources fence comes at its end: reading the fence waits until then.
+  const attachedSources = liveSearchSources ?? storedSearchSources;
+  const searchSources = layoutFrozen
+    ? attachedSources ?? NO_SOURCES
+    : resolveSearchSources(content, attachedSources);
 
   const settingsProposals =
     !isUser && hasContent && !layoutFrozen ? parseSettingsProposals(content) : [];
