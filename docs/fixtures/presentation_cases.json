@@ -1062,6 +1062,42 @@
       "area": "calculation",
       "input": "x = 3 × 4 = 12",
       "expected": "$x = 3 × 4$  \n$x = 12$"
+    },
+    {
+      "id": "lead-lines-flags",
+      "area": "lead_lines",
+      "input": "Pick by what matters:\n\n🇨🇭 **Switzerland — best for quality of life** (high salaries)\n🇩🇪 **Germany — best for career growth** (strong economy)\n🇨🇦 **Canada — best for immigration** (clear path)\n\n**But let me ask you one thing.**",
+      "expected": "Pick by what matters:\n\n🇨🇭 **Switzerland — best for quality of life** (high salaries)\n\n🇩🇪 **Germany — best for career growth** (strong economy)\n\n🇨🇦 **Canada — best for immigration** (clear path)\n\n**But let me ask you one thing.**"
+    },
+    {
+      "id": "lead-lines-plain",
+      "area": "lead_lines",
+      "input": "**Pros:** fast and light\n**Cons:** short battery life",
+      "expected": "**Pros:** fast and light\n\n**Cons:** short battery life"
+    },
+    {
+      "id": "lead-lines-list-untouched",
+      "area": "lead_lines",
+      "input": "- **Python** for data\n- **JavaScript** for the web",
+      "expected": "- **Python** for data\n- **JavaScript** for the web"
+    },
+    {
+      "id": "lead-lines-single-untouched",
+      "area": "lead_lines",
+      "input": "**Note** the price\nchanges every week.",
+      "expected": "**Note** the price\nchanges every week."
+    },
+    {
+      "id": "lead-lines-code-untouched",
+      "area": "lead_lines",
+      "input": "```md\n**One** a\n**Two** b\n```",
+      "expected": "```md\n**One** a\n**Two** b\n```"
+    },
+    {
+      "id": "lead-lines-quote-untouched",
+      "area": "lead_lines",
+      "input": "> **One** a\n> **Two** b",
+      "expected": "> **One** a\n> **Two** b"
     }
   ]
 }
