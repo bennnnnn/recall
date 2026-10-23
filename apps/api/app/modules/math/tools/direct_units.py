@@ -17,7 +17,10 @@ def unit_direct_request(text: str) -> bool | None:
     """Require the whole request and existing extractor to agree, preserving case."""
     request = " ".join(text.split())
     if word_index(request.lower(), "convert") == -1:
-        return None
+        # "Whats 72 fahrenheit in celsius": that grammar reads the whole request.
+        from app.modules.math.match.units import asked_conversion
+
+        return True if asked_conversion(request) is not None else None
     if len(text) > 1000:
         return False
     if request.endswith((".", "?")):

@@ -236,6 +236,16 @@ def _extract_math_intent_any(text: str) -> MathIntent | None:
         if intent is not None and request_consumption_complete(stripped, intent):
             intent._request_text = text.strip()
             return intent
+    # Chat before the question: "ok cool. what is 2+2" (match/chatter.py). The
+    # question alone has no chat left, so this retries once.
+    from app.modules.math.match.chatter import question_after_chat
+
+    question = question_after_chat(normalized)
+    if question is not None:
+        intent = _extract_math_intent_any(question)
+        if intent is not None:
+            intent._request_text = text.strip()
+            return intent
     # A system longer than the solver allows must not fall through to the
     # first free-standing equation and certify that one clause.
     if oversized_system(normalized):

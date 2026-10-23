@@ -100,3 +100,35 @@ def strip_geometry_length_units(cleaned: str) -> str:
         start = unit[1]
     chunks.append(cleaned[start:])
     return "".join(chunks)
+
+
+# "72 fahrenheit in celsius", "what is 72°F in °C", "how much is 5 km in miles": the
+# whole message is one quantity and the unit to show it in. Only "convert … to" was
+# read, and "whats 72 fahrenheit in celsius" went to the model unchecked.
+_UNIT_WORD = r"[A-Za-zµμ°][A-Za-z0-9µμ°*/^._-]{0,63}"
+_ASKED_CONVERSION = re.compile(
+    r"(?:(?:what(?:'s|s|\s+is)|how\s+much\s+is|convert|change)\s+)?"
+    rf"(?P<n>-?{DECIMAL_LITERAL.pattern})\s*(?P<src>{_UNIT_WORD})\s+(?:to|in|into|as)\s+"
+    rf"(?P<dest>{_UNIT_WORD})\s*[?.!]*",
+    re.IGNORECASE,
+)
+_DEGREE_MARK = re.compile(r"\^\{?\\circ\}?")
+
+
+def asked_conversion(cleaned: str) -> tuple[float, str, str] | None:
+    """(quantity, unit, unit to show it in) when that is the whole message and the
+    converter knows both units: "72 degrees in here" and "3 apples in boxes" are not."""
+    from app.modules.math.solve import SolveServiceError
+    from app.modules.math.unit_conversion import convert_unit
+
+    match = _ASKED_CONVERSION.fullmatch(" ".join(cleaned.split()))
+    if match is None:
+        return None
+    src = _DEGREE_MARK.sub("°", match.group("src"))
+    # A unit never ends in the sentence's full stop: "to minutes." is "minutes".
+    dest = match.group("dest").rstrip(".")
+    try:
+        convert_unit(1.0, src, dest)
+    except SolveServiceError:
+        return None
+    return float(match.group("n")), src, dest

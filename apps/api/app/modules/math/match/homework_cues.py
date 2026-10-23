@@ -88,7 +88,11 @@ def everyday_cue(cleaned: str, lower: str) -> bool:
         return True
     if word_index(lower, "round") != -1 and ("decimal" in lower or "significant" in lower):
         return True
-    return "present value" in lower or ("convert" in lower and " to " in lower)
+    if "present value" in lower or ("convert" in lower and " to " in lower):
+        return True
+    from app.modules.math.match.units import asked_conversion
+
+    return asked_conversion(cleaned) is not None
 
 
 def sequence_cue(cleaned: str, lower: str) -> bool:

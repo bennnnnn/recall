@@ -7,6 +7,7 @@ import re
 from typing import Any
 
 from app.core.config import Settings
+from app.modules.math.match.units import asked_conversion
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
@@ -185,6 +186,31 @@ def extract_how_many_in_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+def extract_asked_conversion(cleaned: str) -> MathIntent | None:
+    """One quantity and the unit to show it in (``match.units.asked_conversion``)."""
+    asked = asked_conversion(cleaned)
+    if asked is None:
+        return None
+    value, src, dest = asked
+    return MathIntent(
+        kind="unit",
+        school_op="convert",
+        percent_base=value,
+        unit_from=src,
+        unit_to=dest,
+        operation="solve",
+    )
+
+
+def _shown(value: str) -> str:
+    """A conversion as people read it: exact when it ends within six decimals (1 mile
+    is 1.609344 km), else four significant figures (72 °F is 22.22 °C, not 22.22222222)."""
+    number = float(value)
+    if math.isclose(number, round(number, 6), rel_tol=0, abs_tol=1e-9):
+        return f"{round(number, 6):.10g}"
+    return f"{number:.4g}"
+
+
 def _extract_unit_intent(cleaned: str) -> MathIntent | None:
     from app.services.unit_text import QUANTITY_NUMBER
 
@@ -192,6 +218,9 @@ def _extract_unit_intent(cleaned: str) -> MathIntent | None:
     if how_many is not None:
         return how_many
     cleaned = _TEMPERATURE_WORDS.sub(r"\1", cleaned)
+    asked = read(extract_asked_conversion, cleaned)
+    if asked is not None:
+        return asked
     lower = cleaned.lower()
     if "convert" not in lower and " to " not in lower:
         return None
@@ -310,4 +339,4 @@ def _verified_block_unit(
             )
         ).removesuffix("\n\n**Answer**")
         return VerifiedMathBlock(text="\n".join(lines), direct_reply=direct)
-    return finish_with_answer(lines, format_quantity(answer, intent.unit_to))
+    return finish_with_answer(lines, format_quantity(_shown(answer), intent.unit_to))
