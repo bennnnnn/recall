@@ -372,10 +372,12 @@ def test_extract_roots_of_rewrites_to_equation(text: str, expected_lhs: str) -> 
     assert intent.rhs == "0"
 
 
-def test_english_calculus_does_not_verify() -> None:
-    """``x squared plus 3x`` must not be letter-producted into a derivative."""
-    text = "what's the derivative of x squared plus 3x"
-    assert math_tools.extract_math_intent(text) is None
+def test_english_calculus_reads_as_the_words_say() -> None:
+    """``x squared plus 3x`` was once letter-producted (``s*q*u*a*r*e*d``); it reads as
+    x^2 + 3x now that spoken maths becomes symbols (match/spoken.py)."""
+    intent = math_tools.extract_math_intent("what's the derivative of x squared plus 3x")
+    assert intent is not None and intent.operation == "differentiate"
+    assert intent.expr == "x^2 + 3x"
 
 
 def test_symbolic_calculus_still_extracts() -> None:
@@ -1702,7 +1704,7 @@ async def test_english_calculus_verifies_via_llm_extract_fallback(
 
 
 @pytest.mark.asyncio
-async def test_english_calculus_stays_unverified_when_llm_extract_finds_nothing(
+async def test_english_calculus_verifies_without_the_llm_extract(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from app.gateways import litellm_gateway
@@ -1717,7 +1719,7 @@ async def test_english_calculus_stays_unverified_when_llm_extract_finds_nothing(
     _out, verified = await augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
-    assert verified is None
+    assert verified is not None and verified.canonical_answer == "2 x + 3"
 
 
 @pytest.mark.asyncio
