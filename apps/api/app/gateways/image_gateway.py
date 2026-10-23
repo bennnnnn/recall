@@ -106,24 +106,7 @@ async def generate_via_openrouter(
                 return raw, media_type if isinstance(media_type, str) else "image/png"
         url = first.get("url")
         if isinstance(url, str) and url.startswith(("http://", "https://")):
-            async with safe_fetch.fetch_client(_GENERATE_TIMEOUT) as client:
-                img_resp = await safe_fetch.fetch_safely(
-                    client, url, deadline_seconds=_RESULT_DOWNLOAD_DEADLINE
-                )
-                img_resp.raise_for_status()
-                content_type = (
-                    img_resp.headers.get("content-type", "image/png").split(";")[0].strip().lower()
-                )
-                if img_resp.content:
-                    if len(img_resp.content) > MAX_ATTACHMENT_SIZE:
-                        logger.warning(
-                            "OpenRouter image generation URL response exceeds size cap "
-                            "model=%s bytes=%s",
-                            model,
-                            len(img_resp.content),
-                        )
-                        return None
-                    return img_resp.content, content_type or "image/png"
+            return await _download_result(url, model)
         logger.warning("OpenRouter image generation response missing image payload model=%s", model)
         return None
     except ImageContentBlockedError:
@@ -131,3 +114,31 @@ async def generate_via_openrouter(
     except Exception:
         logger.exception("Image generation failed model=%s prompt_len=%s", model, len(prompt))
         return None
+
+
+async def _download_result(url: str, model: str) -> tuple[bytes, str] | None:
+    """The image a provider returned as a URL; None when it is empty or over the size cap.
+
+    One byte past the cap is read, so an oversized body fails the check instead of the
+    whole body landing in memory first.
+    """
+    async with safe_fetch.fetch_client(_GENERATE_TIMEOUT) as client:
+        img_resp = await safe_fetch.fetch_safely(
+            client,
+            url,
+            deadline_seconds=_RESULT_DOWNLOAD_DEADLINE,
+            max_body_bytes=MAX_ATTACHMENT_SIZE + 1,
+        )
+    img_resp.raise_for_status()
+    content_type = img_resp.headers.get("content-type", "image/png").split(";")[0].strip().lower()
+    if not img_resp.content:
+        logger.warning("OpenRouter image generation response missing image payload model=%s", model)
+        return None
+    if len(img_resp.content) > MAX_ATTACHMENT_SIZE:
+        logger.warning(
+            "OpenRouter image generation URL response exceeds size cap model=%s bytes=%s",
+            model,
+            len(img_resp.content),
+        )
+        return None
+    return img_resp.content, content_type or "image/png"

@@ -17,8 +17,8 @@ from app.core.sympy_executor import (
     BoundedSympyExecutor,
     WorkerBusyError,
     _clamp_workers,
-    wait_until_started,
 )
+from app.core.sympy_worker_process import wait_until_started
 
 _T = TypeVar("_T")
 
