@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { ClarifyCard } from "@/components/rich/ClarifyCard";
 import { ClarifyActionsProvider, ClarifyMessageScope } from "@/components/rich/clarifyContext";
 import { ReplyStreaming } from "@/components/markdown/ReplyStreaming";
+import { selection } from "@/lib/haptics";
 
 jest.mock("@/lib/i18n", () => ({
   __esModule: true,
@@ -124,6 +125,17 @@ describe("ClarifyCard", () => {
       "Recommend the best country for me. Main priority: Safety. Geographic preference: Europe. " +
         "Compare the strongest options with practical pros and cons.",
     );
+  });
+
+  it("ticks only when the pick changes", async () => {
+    jest.mocked(selection).mockClear();
+    const { view } = await setup();
+    // Already picked: the card starts on the first choice.
+    await fireEvent.press(view.getByText("💰 Making money"));
+    expect(selection).not.toHaveBeenCalled();
+    await fireEvent.press(view.getByText("🛡️ Safety"));
+    await fireEvent.press(view.getByText("🛡️ Safety"));
+    expect(selection).toHaveBeenCalledTimes(1);
   });
 
   it("keeps one pick per question", async () => {

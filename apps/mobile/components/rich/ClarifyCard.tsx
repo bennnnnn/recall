@@ -60,6 +60,8 @@ export function ClarifyCard({ content }: Props) {
   const shown = nextUserText != null ? (sentAnswers ?? NONE) : chosen;
 
   const pick = (question: ClarifyQuestion, index: number) => {
+    // Tapping the choice already picked changes nothing: no tick.
+    if (chosen[question.id] === index) return;
     selection();
     setPicks((prev) => ({ ...prev, [question.id]: index }));
   };
