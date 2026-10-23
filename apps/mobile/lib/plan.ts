@@ -65,3 +65,13 @@ export function upgradeTargets(current: PlanId): PaidPlanId[] {
 export function planNameKey(plan: PlanId): `plans.${PlanId}` {
   return `plans.${plan}`;
 }
+
+/**
+ * The names of the models a paid plan unlocks, from the server's model list, so the
+ * paywall never names a model that does not exist or is free.
+ */
+export function premiumModelNames(
+  models: readonly { label: string; plan_access: string; available: boolean }[],
+): string[] {
+  return models.filter((model) => model.plan_access === "pro" && model.available).map((model) => model.label);
+}

@@ -19,13 +19,12 @@ import { isPdfContentType } from "@/lib/messageAttachments";
 
 type Props = {
   items: AttachmentListItem[];
-  pickMode: boolean;
   library: ReturnType<typeof useGalleryLibrary>;
   /** Loads the Library's next page when the viewer nears its last photo. */
   onLoadMore?: () => void;
 };
 
-export function GalleryMediaModals({ items, pickMode, library, onLoadMore }: Props) {
+export function GalleryMediaModals({ items, library, onLoadMore }: Props) {
   const viewerItem = library.viewerItem;
   const fileItem = library.fileItem;
   const { setViewerId } = library;
@@ -105,7 +104,7 @@ export function GalleryMediaModals({ items, pickMode, library, onLoadMore }: Pro
       />
 
       <GalleryItemActionsMenu
-        visible={!pickMode && library.actionItem != null}
+        visible={library.actionItem != null}
         anchorPoint={library.actionPoint}
         canOpenChat={Boolean(library.actionItem?.chat_id)}
         onClose={() => library.setActionItem(null)}

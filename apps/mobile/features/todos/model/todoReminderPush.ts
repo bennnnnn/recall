@@ -15,9 +15,13 @@ export function todoIdFromNotificationData(
   return typeof id === "string" && id.length > 0 ? id : null;
 }
 
-/** Server owns due-at while push is on; skip expo-notifications scheduling. */
+/**
+ * The server sends due reminders only to a device that registered a push token with it;
+ * the push setting alone says nothing about this device (Expo Go and a phone without
+ * permission never register one). Schedule on the device unless the server holds its token.
+ */
 export function shouldSyncLocalTodoReminders(
-  pushEnabled: boolean | null | undefined,
+  remotePushRegistered: boolean | null | undefined,
 ): boolean {
-  return pushEnabled !== true;
+  return remotePushRegistered !== true;
 }

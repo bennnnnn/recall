@@ -102,9 +102,9 @@ describe("ImageGenPlaceholder", () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it("falls back to the canceled copy when no message is given", async () => {
+  it("says the picture may still come, never that it was canceled, when the user stops waiting", async () => {
     const view = await render(<ImageGenPlaceholder outcome="canceled" />);
-    expect(view.getByText("Image generation canceled", hidden)).toBeOnTheScreen();
+    expect(view.getByText(/^Stopped waiting\. The picture may still appear/, hidden)).toBeOnTheScreen();
     expect(view.queryByText("Retry")).toBeNull();
   });
 

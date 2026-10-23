@@ -15,6 +15,7 @@ type FakePlayer = {
 };
 
 const mockPlayers: FakePlayer[] = [];
+let mockTtsModel = "speech-tts-model";
 const mockAppStateHandlers = new Set<(state: string) => void>();
 
 jest.mock("react-native", () => ({
@@ -69,7 +70,7 @@ jest.mock("@/features/speech/model/ttsPreference", () => ({
   TTS_DEVICE_MODEL: "device",
   TTS_QUALITY_MODEL: "speech-tts-model",
   TTS_FAST_MODEL: "speech-tts-fast-model",
-  getTtsModel: async () => "speech-tts-model",
+  getTtsModel: async () => mockTtsModel,
 }));
 jest.mock("@/features/speech/model/speechRate", () => ({
   getSpeechRate: async () => 1,
@@ -85,6 +86,7 @@ describe("cloud read-aloud lifetime", () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     mockPlayers.length = 0;
+    mockTtsModel = "speech-tts-model";
   });
   afterEach(() => {
     stopSpeaking();
@@ -141,5 +143,34 @@ describe("cloud read-aloud lifetime", () => {
     expect(mockPlayers).toHaveLength(2);
     mockPlayers[1].emit({ didJustFinish: true });
     await expect(speaking).resolves.toEqual({ ok: true });
+  });
+});
+
+describe("the on-device voice switch", () => {
+  const { requestRaw } = jest.requireMock<{ requestRaw: jest.Mock }>("@/lib/api/client");
+  const { speak } = jest.requireMock<{ speak: jest.Mock }>("expo-speech");
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPlayers.length = 0;
+  });
+  afterEach(() => {
+    stopSpeaking();
+    mockTtsModel = "speech-tts-model";
+  });
+
+  it("reads with the phone's voice for a paid user who switched it on", async () => {
+    mockTtsModel = "device";
+    void speakPlainText("hello", "en-US", { token: "tok", preferCloud: true });
+    await flush();
+    expect(requestRaw).not.toHaveBeenCalled();
+    expect(speak).toHaveBeenCalledWith("hello", expect.anything());
+  });
+
+  it("uses the cloud voice for a paid user who left it off", async () => {
+    void speakPlainText("hello", "en-US", { token: "tok", preferCloud: true });
+    await flush();
+    expect(requestRaw).toHaveBeenCalled();
+    expect(speak).not.toHaveBeenCalled();
   });
 });

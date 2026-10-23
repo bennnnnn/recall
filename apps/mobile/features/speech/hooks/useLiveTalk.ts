@@ -430,11 +430,6 @@ export function useLiveTalk({
     }
   }, [phase]);
 
-  const interrupt = useCallback(() => {
-    // v1 is half-duplex: interrupt_response is off and the mic is gated
-    // during playback. Kept for the existing UI contract.
-  }, []);
-
   const yieldToComposer = useCallback(() => {
     close();
   }, [close]);
@@ -476,7 +471,6 @@ export function useLiveTalk({
   return {
     visible,
     phase,
-    meterLevel: phase === "recording" ? 0.8 : phase === "speaking" ? 0.55 : 0.12,
     recording: phase === "recording",
     muted,
     open,
@@ -484,6 +478,5 @@ export function useLiveTalk({
     toggle,
     toggleMute,
     yieldToComposer,
-    interrupt,
   };
 }

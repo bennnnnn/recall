@@ -499,7 +499,6 @@ function ChatScreen() {
         <LazyLiveTalkOverlay
           visible={liveTalk.visible}
           phase={liveTalk.phase}
-          meterLevel={liveTalk.meterLevel}
           recording={liveTalk.recording}
           headerInset={layout.headerInset}
           composerClearance={layout.composerClearance}

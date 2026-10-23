@@ -65,6 +65,8 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "lib/onboarding.ts#writes": "clearOnboarded",
   "lib/purchases.ts#configuredAppUserId": "signOutRevenueCat",
   "lib/pushNotifications.ts#lastPushSync": "clearPushSyncRecord",
+  // clearPushSyncRecord sets it back to false.
+  "lib/pushRegistration.ts#registered": "clearPushSyncRecord",
   "lib/streamingDraftStore.ts#draft": "publishStreamingDraft",
   "lib/syncRecords.ts#locationRecord": "forgetSyncRecords",
   "lib/syncRecords.ts#pushRecord": "forgetSyncRecords",
@@ -164,6 +166,7 @@ const NO_ACCOUNT_DATA = [
   "lib/purchases.ts#purchasesModule",
   "lib/pushNotifications.ts#androidChannelReady",
   "lib/pushNotifications.ts#pushTokenFailureReported",
+  "lib/pushRegistration.ts#listeners",
   "lib/reduceMotion.ts#knownReduceMotion",
   "lib/scanner/switchCue.ts#activePlayer",
   "lib/scanner/switchCue.ts#cueEpoch",

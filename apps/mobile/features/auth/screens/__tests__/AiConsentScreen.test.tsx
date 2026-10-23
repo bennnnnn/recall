@@ -10,6 +10,8 @@ const mockSignOut = jest.fn();
 const mockWriteCachedUser = jest.fn();
 const mockOpenAllowedUrl = jest.fn();
 const mockFeedbackError = jest.fn();
+const mockDeleteAndSignOut = jest.fn();
+const mockConfirm = jest.fn();
 let mockAuth: {
   token: string | null;
   user: { id: string; ai_data_consent_at?: string | null } | null;
@@ -37,6 +39,12 @@ jest.mock("@/lib/api", () => ({
 }));
 jest.mock("@/lib/cachedUser", () => ({
   writeCachedUser: (user: unknown) => mockWriteCachedUser(user),
+}));
+jest.mock("@/hooks/useAccountDelete", () => ({
+  useAccountDelete: () => mockDeleteAndSignOut,
+}));
+jest.mock("@/ui/overlay/dialogs", () => ({
+  confirmDialog: (options: unknown) => mockConfirm(options),
 }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({
   useActionFeedbackOptional: () => ({ error: mockFeedbackError }),
@@ -105,6 +113,37 @@ describe("AiConsentScreen", () => {
 
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(mockAgree).not.toHaveBeenCalled();
+  });
+
+  it("lets someone who will not agree delete the account, after confirming", async () => {
+    mockConfirm.mockResolvedValue(true);
+    mockDeleteAndSignOut.mockResolvedValue("deleted");
+    const { getByText } = await render(<AiConsentScreen />);
+
+    await act(async () => {
+      fireEvent.press(getByText("onboarding.consent_delete"));
+    });
+
+    expect(mockConfirm).toHaveBeenCalledWith(expect.objectContaining({ title: "delete.title", destructive: true }));
+    expect(mockDeleteAndSignOut).toHaveBeenCalledTimes(1);
+    expect(mockAgree).not.toHaveBeenCalled();
+    expect(mockFeedbackError).not.toHaveBeenCalled();
+  });
+
+  it("deletes nothing when the confirm is cancelled, and says when deleting failed", async () => {
+    mockConfirm.mockResolvedValueOnce(false);
+    const { getByText } = await render(<AiConsentScreen />);
+    await act(async () => {
+      fireEvent.press(getByText("onboarding.consent_delete"));
+    });
+    expect(mockDeleteAndSignOut).not.toHaveBeenCalled();
+
+    mockConfirm.mockResolvedValueOnce(true);
+    mockDeleteAndSignOut.mockResolvedValueOnce("failed");
+    await act(async () => {
+      fireEvent.press(getByText("onboarding.consent_delete"));
+    });
+    expect(mockFeedbackError).toHaveBeenCalledWith("settings.delete_failed");
   });
 
   it("goes on to the chat when the account has already agreed", async () => {

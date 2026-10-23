@@ -24,6 +24,7 @@ import {
   type PlanInfo,
   planNameKey,
   planOf,
+  premiumModelNames,
   upgradeTargets,
 } from "@/lib/plan";
 import { Space } from "@/lib/space";
@@ -51,8 +52,18 @@ const NO_OFFER: PlanOffer = { packages: {}, unavailable: false };
 
 type FeatureLine = { icon: IconName; text: string };
 
+/** The paid models by name when the server's list is in, else a line that names none. */
+function modelsLine(models: readonly string[], t: Translate): string {
+  return models.length ? t("upgrade.feature_models_named", { models: models.join(", ") }) : t("upgrade.feature_models");
+}
+
 /** What a plan includes, with the server's numbers (the store owns the price). */
-function planFeatureLines(plan: PaidPlanId, info: PlanInfo | undefined, t: Translate): FeatureLine[] {
+function planFeatureLines(
+  plan: PaidPlanId,
+  info: PlanInfo | undefined,
+  models: readonly string[],
+  t: Translate,
+): FeatureLine[] {
   const lines: FeatureLine[] = [];
   const images = info?.allowances.daily_image_generations;
   if (plan === "pro") {
@@ -63,7 +74,7 @@ function planFeatureLines(plan: PaidPlanId, info: PlanInfo | undefined, t: Trans
       text: minutes ? t("upgrade.feature_live_talk", { count: minutes }) : t("upgrade.feature_live_talk_plain"),
     });
   } else {
-    lines.push({ icon: "zap", text: t("upgrade.feature_models") });
+    lines.push({ icon: "zap", text: modelsLine(models, t) });
     lines.push({ icon: "infinity", text: t("upgrade.feature_limits") });
     lines.push({ icon: "mic", text: t("upgrade.feature_voice") });
   }
@@ -83,6 +94,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
   const [offerAttempt, setOfferAttempt] = useState(0);
   const packages = offer.packages;
   const [catalog, setCatalog] = useState<PlanCatalog | null>(null);
+  const [premiumModels, setPremiumModels] = useState<string[]>([]);
   const [loadingOffer, setLoadingOffer] = useState(false);
   const [busy, setBusy] = useState<PaidPlanId | "restore" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -108,6 +120,14 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
       })
       .catch(() => {
         // The cards still show what each plan includes, without numbers.
+      });
+    void api
+      .listModels(token)
+      .then((models) => {
+        if (!cancelled) setPremiumModels(premiumModelNames(models));
+      })
+      .catch(() => {
+        // Without the list the models line names no model.
       });
     return () => {
       cancelled = true;
@@ -228,7 +248,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
               </Text>
             </View>
             <View style={s.featureList}>
-              {planFeatureLines(plan, planInfo(plan), t).map((line) => (
+              {planFeatureLines(plan, planInfo(plan), premiumModels, t).map((line) => (
                 <FeatureRow key={line.text} icon={line.icon} text={line.text} theme={theme} />
               ))}
             </View>
@@ -266,7 +286,8 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
           disabled={busy != null && busy !== "restore"}
         />
       ) : (
-        <Button title={t("upgrade.coming_soon")} onPress={onClose} style={s.primaryBtn} />
+        // A build with no store keys (Expo Go, a local build) cannot sell: say so, never "Coming soon".
+        <Text style={s.storeMissing}>{t("upgrade.store_not_in_build")}</Text>
       )}
       <Text style={s.subscriptionTerms}>{t("upgrade.subscription_terms")}</Text>
       <View style={s.legalLinks}>
@@ -382,6 +403,11 @@ const makeStyles = (theme: Theme) =>
     },
     primaryBtn: {
       marginTop: Space.xxs,
+    },
+    storeMissing: {
+      ...Type.secondary,
+      color: theme.textSecondary,
+      textAlign: "center",
     },
     subscriptionTerms: {
       ...Type.caption,

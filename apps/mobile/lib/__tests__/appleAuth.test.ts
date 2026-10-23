@@ -15,6 +15,9 @@ jest.mock("react-native", () => ({
   Platform: { OS: "ios" },
 }));
 
+let mockExpoGo = false;
+jest.mock("@/lib/expoRuntime", () => ({ isExpoGo: () => mockExpoGo }));
+
 const mockSignInAsync = jest.fn();
 const mockIsAvailable = jest.fn(async () => true);
 jest.mock("expo-apple-authentication", () => ({
@@ -99,5 +102,15 @@ describe("shouldShowAppleSignInButton", () => {
   it("hides it in a simulator build that left Sign in with Apple out", () => {
     setExtra({ appleSignIn: false });
     expect(shouldShowAppleSignInButton()).toBe(false);
+  });
+
+  it("hides it in Expo Go, whose Apple token the server refuses", () => {
+    setExtra({});
+    mockExpoGo = true;
+    try {
+      expect(shouldShowAppleSignInButton()).toBe(false);
+    } finally {
+      mockExpoGo = false;
+    }
   });
 });

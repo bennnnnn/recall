@@ -57,8 +57,8 @@ export default function LoginScreen() {
     (Platform.OS === "android" ? isGoogleWebClientConfigured() : isGoogleSignInConfigured());
   const showAppleLogin = shouldShowAppleSignInButton();
   const googleOnlyDevBuild = !isExpoGo() && showDevLogin && showGoogleLogin;
-  const expoGoIos = isExpoGo() && Platform.OS === "ios";
-  const expoGoAndroid = isExpoGo() && Platform.OS === "android";
+  // Expo Go signs in with neither Google nor Apple: dev login is the way in there.
+  const expoGo = isExpoGo();
   /** Another provider's sign-in dims this button; a press shows only while none is busy. */
   const providerStyle =
     (base: ViewStyle, provider: LoginProvider) => ({ pressed }: PressableStateCallbackType) => [
@@ -141,14 +141,13 @@ export default function LoginScreen() {
         </View>
 
         <View style={s.actions}>
-          {expoGoAndroid && showDevLogin ? (
+          {expoGo && showDevLogin ? (
             <>
-              {devBanner(t("login.dev_expo_hint"))}
+              {devBanner(t(Platform.OS === "ios" ? "login.dev_expo_ios_hint" : "login.dev_expo_hint"))}
               {devPrimaryLogin}
             </>
           ) : (
             <>
-              {expoGoIos ? devBanner(t("login.dev_expo_ios_hint")) : null}
               {showAppleLogin ? (
                 <Pressable
                   style={providerStyle(s.appleBtn, "apple")}
@@ -193,8 +192,6 @@ export default function LoginScreen() {
                 devSecondaryLogin
               ) : showDevLogin && !showGoogleLogin && !showAppleLogin ? (
                 devPrimaryLogin
-              ) : showDevLogin && expoGoIos ? (
-                devSecondaryLogin
               ) : null}
             </>
           )}

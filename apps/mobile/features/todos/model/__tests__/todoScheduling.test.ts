@@ -30,7 +30,7 @@ beforeEach(async () => {
 });
 
 it("never requests OS permission from background synchronization", async () => {
-  await syncTodoReminders([todo], { pushEnabled: false });
+  await syncTodoReminders([todo], { remotePush: false });
   expect(ensureNotificationPermission).not.toHaveBeenCalled();
   expect(Notifications.getPermissionsAsync).toHaveBeenCalled();
 });
@@ -43,7 +43,7 @@ it("waits for an already-started native schedule before cancelling on signout", 
     started(); await new Promise<void>((resolve) => { finish = resolve; });
     scheduled.set(item.identifier!, item.trigger); return item.identifier!;
   });
-  const old = syncTodoReminders([todo], { pushEnabled: false });
+  const old = syncTodoReminders([todo], { remotePush: false });
   await began;
   mockSession++;
   const clearing = cancelAllTodoReminders();
@@ -60,59 +60,59 @@ it("keeps the latest due date when native scheduling finishes out of order", asy
     started(); await new Promise<void>((resolve) => { finish = resolve; });
     scheduled.set(item.identifier!, item.trigger); return item.identifier!;
   });
-  const old = syncTodoReminders([todo], { pushEnabled: false });
+  const old = syncTodoReminders([todo], { remotePush: false });
   await began;
   const changed = { ...todo, due_at: "2099-01-02T12:00:00Z" };
-  const latest = syncTodoReminders([changed], { pushEnabled: false });
+  const latest = syncTodoReminders([changed], { remotePush: false });
   await Promise.resolve(); await Promise.resolve();
   finish();
   await Promise.all([old, latest]);
   expect(scheduled.get(todoNotificationId(todo.id))).toMatchObject({ date: new Date("2099-01-02T11:50:00Z") });
 });
 
-it("removes local reminders when remote push owns delivery", async () => {
+it("removes local reminders when the server holds this device's push token", async () => {
   scheduled.set(todoNotificationId(todo.id), {});
-  await syncTodoReminders([todo], { pushEnabled: true });
+  await syncTodoReminders([todo], { remotePush: true });
   expect(scheduled.size).toBe(0);
 });
 
 it("removes local reminders when the Reminders alert is switched off", async () => {
   scheduled.set(todoNotificationId(todo.id), {});
-  await syncTodoReminders([todo], { pushEnabled: false, remindersEnabled: false });
+  await syncTodoReminders([todo], { remotePush: false, remindersEnabled: false });
   expect(scheduled.size).toBe(0);
   expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
 });
 
 it("does not schedule unconfirmed optimistic reminders", async () => {
-  await syncTodoReminders([{ ...todo, id: "local-create" }], { pushEnabled: false });
+  await syncTodoReminders([{ ...todo, id: "local-create" }], { remotePush: false });
   expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
 });
 
 it("ignores a sync retained from an old account before touching the device", async () => {
   mockSession++;
   jest.mocked(Notifications.getAllScheduledNotificationsAsync).mockClear();
-  await syncTodoReminders([todo], { pushEnabled: false, session: mockSession - 1 });
+  await syncTodoReminders([todo], { remotePush: false, session: mockSession - 1 });
   expect(Notifications.getAllScheduledNotificationsAsync).not.toHaveBeenCalled();
   expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
 });
 
 it("does not prompt or schedule when notification permission is denied", async () => {
   jest.mocked(Notifications.getPermissionsAsync).mockResolvedValue({ status: "denied" } as never);
-  await syncTodoReminders([todo], { pushEnabled: false });
+  await syncTodoReminders([todo], { remotePush: false });
   expect(ensureNotificationPermission).not.toHaveBeenCalled();
   expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
 });
 
 it("does not repeat an unchanged reminder after another list refresh", async () => {
-  await syncTodoReminders([todo], { pushEnabled: false });
+  await syncTodoReminders([todo], { remotePush: false });
   scheduled.clear(); // The existing alert was already delivered.
-  await syncTodoReminders([todo], { pushEnabled: false });
+  await syncTodoReminders([todo], { remotePush: false });
   expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
 });
 
 it("allows a later job to retry after native scheduling fails", async () => {
   jest.mocked(Notifications.scheduleNotificationAsync).mockRejectedValueOnce(new Error("native unavailable"));
-  await expect(syncTodoReminders([todo], { pushEnabled: false })).rejects.toThrow("native unavailable");
-  await syncTodoReminders([todo], { pushEnabled: false });
+  await expect(syncTodoReminders([todo], { remotePush: false })).rejects.toThrow("native unavailable");
+  await syncTodoReminders([todo], { remotePush: false });
   expect(scheduled.has(todoNotificationId(todo.id))).toBe(true);
 });

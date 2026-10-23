@@ -6,6 +6,9 @@ import {
 import { Share } from "react-native";
 
 import { newAccountFile } from "@/lib/accountFiles";
+import { shareLocalFile } from "@/lib/shareFile";
+
+const EXPORT_TITLE = "recall-export.json";
 
 /** Pretty-print compact export JSON for sharing when the payload is small enough. */
 export function formatExportJsonForShare(raw: string): string {
@@ -20,14 +23,19 @@ export function formatExportJsonForShare(raw: string): string {
   }
 }
 
+/**
+ * The export as a file in the share sheet. React Native's Share sends a file only on iOS
+ * (Android ignores `url`, so nothing was shared there); shareLocalFile hands the file over
+ * on both, and throws on a build that cannot share files so the screen can say so.
+ */
 export async function shareAccountExport(payload: string): Promise<void> {
   const dir = cacheDirectory;
   if (!dir) {
-    await Share.share({ message: payload, title: "recall-export.json" });
+    await Share.share({ message: payload, title: EXPORT_TITLE });
     return;
   }
 
   const fileUri = newAccountFile("export", "json");
   await writeAsStringAsync(fileUri, payload, { encoding: EncodingType.UTF8 });
-  await Share.share({ url: fileUri, title: "recall-export.json" });
+  await shareLocalFile(fileUri, { title: EXPORT_TITLE, mimeType: "application/json" });
 }

@@ -29,7 +29,6 @@ const ENTER_SCALE = 0.16;
 type Props = {
   visible: boolean;
   phase: LiveTalkPhase;
-  meterLevel: number;
   recording: boolean;
   /** Leave this strip open so ChatHeader (hamburger / ⋮) stays tappable; the drawer hides the header. */
   headerInset: number;
@@ -41,7 +40,6 @@ type Props = {
 export function LiveTalkOverlay({
   visible,
   phase,
-  meterLevel,
   recording,
   headerInset,
   composerClearance,
@@ -97,7 +95,6 @@ export function LiveTalkOverlay({
     <LiveTalkOrb
       theme={theme}
       phase={phase}
-      meterLevel={meterLevel}
       recording={recording}
       reduceMotion={reduceMotion}
     />

@@ -36,7 +36,7 @@ export function SettingsProfileSheet({ editor, avatarUri, token }: Props) {
       <View style={s.body} testID="settings-profile-sheet">
         <EditableProfileAvatar
           name={editor.name}
-          uri={editor.photo?.localUri ?? avatarUri}
+          uri={editor.photo?.localUri ?? (editor.photoRemoved ? null : avatarUri)}
           token={token}
           size={144}
           icon="camera"
@@ -45,6 +45,17 @@ export function SettingsProfileSheet({ editor, avatarUri, token }: Props) {
           disabled={busy}
           busy={editor.picking}
         />
+        {editor.photo || (avatarUri && !editor.photoRemoved) ? (
+          <Pressable
+            onPress={editor.removePhoto}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: busy }}
+            style={({ pressed }) => [s.removePhoto, pressed && s.pressed]}
+          >
+            <Text style={s.removePhotoText}>{t("settings.remove_photo")}</Text>
+          </Pressable>
+        ) : null}
         <View style={s.nameField}>
           <Text style={s.nameLabel} accessible={false}>{t("settings.name_label")}</Text>
           <TextInput
@@ -134,6 +145,8 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
     },
     saveText: { ...Type.h1, color: theme.bg },
+    removePhoto: { alignSelf: "center", marginTop: Space.sm, minHeight: 44, justifyContent: "center", paddingHorizontal: Space.lg },
+    removePhotoText: { ...Type.body, color: theme.danger },
     cancel: { alignSelf: "center", marginTop: Space.sm, minHeight: 48, justifyContent: "center", paddingHorizontal: Space.lg },
     cancelText: { ...Type.body, ...Weight.semibold, color: theme.text },
     pressed: { opacity: 0.65 },

@@ -513,9 +513,12 @@ background, and runs the new code from the next launch.
 
 - [ ] Landing page live
 - [ ] Support URL for store listings
-- [ ] `SUPPORT_EMAIL` (Fly secret) set to a mailbox you read. The privacy policy, terms and
-      account-deletion pages show it as the contact; production boot logs a warning while it
-      is empty
+- [ ] `SUPPORT_EMAIL` (Fly secret) set to `support@recall.com`, a mailbox you read. The privacy
+      policy, terms and account-deletion pages show it as the contact; production boot logs a
+      warning while it is empty
+- [ ] `EXPO_PUBLIC_SUPPORT_EMAIL` (EAS environment variable) set to `support@recall.com` too.
+      Settings → Help's Contact support, Report a problem and Send feedback email it; a build
+      without it hides those rows and says support is not set up
 - [ ] Privacy policy + terms URLs for both stores: `https://<api-host>/legal/privacy` and
       `https://<api-host>/legal/terms`
 - [ ] Play Console → App content → Data safety → **Delete account URL**:

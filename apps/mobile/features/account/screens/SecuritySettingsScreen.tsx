@@ -14,14 +14,15 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useFocusedList } from "@/features/account/hooks/useFocusedList";
 import { api, type AuthSession } from "@/lib/api";
+import { formatClockTime, formatShortWeekdayDate } from "@/lib/datetime/format";
 import { notifyDestructive } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 
-function formatSeen(iso: string | null, t: (key: string) => string): string {
-  if (!iso) return t("settings.unknown_device");
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return t("settings.unknown_device");
-  return date.toLocaleString();
+/** "Last active Tue, Oct 21 · 3:04 PM" in the app's own date format; a missing time says so. */
+function formatSeen(iso: string | null, t: (key: string, options?: Record<string, unknown>) => string): string {
+  const date = iso ? new Date(iso) : null;
+  if (!date || Number.isNaN(date.getTime())) return t("settings.last_active_unknown");
+  return t("settings.last_active", { when: `${formatShortWeekdayDate(date)} · ${formatClockTime(date)}` });
 }
 
 async function readSessions(token: string): Promise<AuthSession[]> {

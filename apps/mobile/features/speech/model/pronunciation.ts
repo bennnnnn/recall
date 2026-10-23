@@ -11,7 +11,7 @@ import { markdownToSpeechText } from "@/lib/markdown/plain";
 import { readAloudPart } from "@/features/speech/model/readAloudLength";
 import { splitTtsChunks } from "@/features/speech/model/ttsLead";
 import { currentSpeechRate, getSpeechRate } from "@/features/speech/model/speechRate";
-import { getTtsModel, TTS_DEVICE_MODEL, TTS_FAST_MODEL, TTS_QUALITY_MODEL } from "@/features/speech/model/ttsPreference";
+import { getTtsModel, TTS_DEVICE_MODEL, TTS_FAST_MODEL } from "@/features/speech/model/ttsPreference";
 import { loadExpoAudio, preparePlaybackAudioMode } from "@/lib/speech/voiceAudio";
 
 export { readAloudIsCut } from "@/features/speech/model/readAloudLength";
@@ -453,11 +453,8 @@ export async function speakPlainText(
   const token = options?.token ?? null;
   await preparePlaybackAudioMode();
   if (!isCurrentSpeak(generation)) return { ok: true };
-  const cloudModel = options?.preferFast
-    ? TTS_FAST_MODEL
-    : options?.preferCloud && ttsModel === TTS_DEVICE_MODEL
-      ? TTS_QUALITY_MODEL
-      : ttsModel;
+  // "Use on-device voice" wins for every plan; `preferCloud` only falls back to the phone.
+  const cloudModel = ttsModel === TTS_DEVICE_MODEL ? ttsModel : options?.preferFast ? TTS_FAST_MODEL : ttsModel;
   const useCloud = Boolean(token) && cloudModel !== TTS_DEVICE_MODEL;
   if (!useCloud || !token) {
     return beginDeviceSpeech(plain, language, generation);

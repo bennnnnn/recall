@@ -17,7 +17,6 @@ jest.mock("expo-linear-gradient", () => {
 describe("LiveTalkOverlay", () => {
   const base = {
     visible: true,
-    meterLevel: 0.2,
     recording: false,
     headerInset: 96,
     composerClearance: 88,

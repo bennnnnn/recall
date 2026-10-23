@@ -226,6 +226,61 @@ describe("push gating on user.push_notifications_enabled", () => {
   });
 });
 
+describe("whether the server holds this device's token (local reminders follow it)", () => {
+  const { remotePushRegistered, subscribeRemotePushRegistered } =
+    jest.requireActual<typeof import("@/lib/pushRegistration")>("@/lib/pushRegistration");
+
+  beforeEach(async () => {
+    Platform.OS = "ios";
+    registerMock.mockClear();
+    registerMock.mockResolvedValue(undefined);
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted" });
+    (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted" });
+    (Notifications.getExpoPushTokenAsync as jest.Mock).mockResolvedValue({ data: "ExponentPushToken[abc]" });
+    await clearPushSyncRecord();
+  });
+
+  it("is true only after the server accepted the token, and tells subscribers", async () => {
+    const seen: boolean[] = [];
+    const stop = subscribeRemotePushRegistered(() => seen.push(remotePushRegistered()));
+    expect(remotePushRegistered()).toBe(false);
+    await registerRemotePushToken("tok", true);
+    expect(remotePushRegistered()).toBe(true);
+    stop();
+    expect(seen).toEqual([true]);
+  });
+
+  it("stays false when no token can be had: Expo Go, no project, a failed request", async () => {
+    (Notifications.getExpoPushTokenAsync as jest.Mock).mockRejectedValueOnce(new Error("no token"));
+    await expect(registerRemotePushToken("tok", true)).rejects.toThrow();
+    expect(remotePushRegistered()).toBe(false);
+    registerMock.mockRejectedValueOnce(new Error("offline"));
+    await expect(registerRemotePushToken("tok", true)).rejects.toThrow("offline");
+    expect(remotePushRegistered()).toBe(false);
+  });
+
+  it("goes false when push is switched off, permission is denied, or the user signs out", async () => {
+    await registerRemotePushToken("tok", true);
+    await unregisterRemotePushToken("tok");
+    expect(remotePushRegistered()).toBe(false);
+
+    await registerRemotePushToken("tok", true);
+    await registerRemotePushToken("tok", false);
+    expect(remotePushRegistered()).toBe(false);
+
+    await registerRemotePushToken("tok", true);
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
+    (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
+    await registerRemotePushToken("tok", true);
+    expect(remotePushRegistered()).toBe(false);
+
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted" });
+    await registerRemotePushToken("tok", true);
+    await clearPushSyncRecord();
+    expect(remotePushRegistered()).toBe(false);
+  });
+});
+
 describe("push re-sync on launch, token refresh and foreground", () => {
   const tokenMock = Notifications.getExpoPushTokenAsync as jest.Mock;
   const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -384,6 +439,13 @@ describe("push sync across a cold start", () => {
   });
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it("a sync an earlier launch made still counts as registered, so reminders are not doubled", async () => {
+    await launch("user-9");
+    const second = await launch("user-9");
+    expect(second.api.registerPushToken).not.toHaveBeenCalled();
+    expect(jest.requireActual<typeof import("@/lib/pushRegistration")>("@/lib/pushRegistration").remotePushRegistered()).toBe(true);
   });
 
   it("does not register again when this account synced within the last 12 hours", async () => {

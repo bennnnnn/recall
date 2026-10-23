@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react-native";
+import { act, render } from "@testing-library/react-native";
 
 import { Avatar } from "@/components/Avatar";
 
@@ -22,4 +22,15 @@ describe("profile photo loading", () => {
       expect(getByTestId("avatar-image").props.source).toEqual({ uri, headers: {} });
     },
   );
+});
+
+describe("a photo that will not load", () => {
+  it("shows the initials instead of a blank circle", async () => {
+    const view = await render(<Avatar name="Bini Mecuriaw" uri="https://provider.test/gone.jpg" />);
+    await act(async () => {
+      view.getByTestId("avatar-image").props.onError({ error: "404" });
+    });
+    expect(view.queryByTestId("avatar-image")).toBeNull();
+    expect(view.getByText("BM")).toBeOnTheScreen();
+  });
 });

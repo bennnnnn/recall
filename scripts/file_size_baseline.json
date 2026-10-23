@@ -158,7 +158,7 @@
       "why": "Over 500 before the standards; ES-38 split DraftPiece; split by responsibility after the ticketed files"
     },
     "apps/mobile/features/chat/screens/ChatScreen.tsx": {
-      "lines": 544,
+      "lines": 543,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/mobile/lib/codeTokenize.ts": {

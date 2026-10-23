@@ -12,7 +12,6 @@ import {
   type GestureResponderEvent,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -60,8 +59,6 @@ export default function GalleryScreen() {
   const { width } = useWindowDimensions();
   const grid = galleryGridLayout(width, Space.md, GRID_GAP);
   const thumbSize = grid.thumbSize;
-  const pickParam = useLocalSearchParams<{ pick?: string | string[] }>().pick;
-  const pickMode = (Array.isArray(pickParam) ? pickParam[0] : pickParam) === "1";
 
   const [filter, setFilter] = useState<GalleryFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -115,25 +112,16 @@ export default function GalleryScreen() {
       const isImage = galleryPressAction(item.content_type) === "view-image";
       const busy = busyItemId === item.id;
       const onPress = () => {
-        if (pickMode) {
-          void attachToComposer(item);
-          return;
-        }
         if (isImage) openImage(item);
         else void openFile(item);
       };
-      const onLongPress = (point: { x: number; y: number }) => {
-        if (!pickMode) openActions(item, point);
-      };
-      const hint = pickMode
-        ? t("gallery.use_in_chat")
-        : isImage
-          ? t("chat.image_view_a11y")
-          : t("gallery.open_file_a11y");
+      const onLongPress = (point: { x: number; y: number }) => openActions(item, point);
+      const hint = isImage ? t("chat.image_view_a11y") : t("gallery.open_file_a11y");
       // The long-press menu, for screen readers.
-      const accessibilityActions: AccessibilityActionInfo[] | undefined = pickMode
-        ? undefined
-        : galleryItemActions(item).map((action) => ({ name: action, label: actionLabels[action] }));
+      const accessibilityActions: AccessibilityActionInfo[] = galleryItemActions(item).map((action) => ({
+        name: action,
+        label: actionLabels[action],
+      }));
       const onAccessibilityAction = (event: AccessibilityActionEvent) => {
         const action = event.nativeEvent.actionName as GalleryItemAction;
         if (action === "use") void attachToComposer(item);
@@ -203,7 +191,6 @@ export default function GalleryScreen() {
       C,
       thumbSize,
       isGrid,
-      pickMode,
       busyItemId,
       actionLabels,
       attachToComposer,
@@ -300,7 +287,7 @@ export default function GalleryScreen() {
         />
       )}
 
-      <GalleryMediaModals items={items} pickMode={pickMode} library={library} onLoadMore={loadMore} />
+      <GalleryMediaModals items={items} library={library} onLoadMore={loadMore} />
     </View>
   );
 }

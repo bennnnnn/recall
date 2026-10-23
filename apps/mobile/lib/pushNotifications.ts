@@ -18,6 +18,7 @@ import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
 import { reportPushUnregisterFailed } from "@/lib/sentry";
 import { devicePushTokenFingerprint } from "@/lib/devicePushToken";
 import { forgetSyncRecords, recentSyncAt, recordSync } from "@/lib/syncRecords";
+import { setRemotePushRegistered } from "@/lib/pushRegistration";
 
 type AppRouter = {
   push: (href: unknown) => void;
@@ -128,15 +129,20 @@ export async function registerRemotePushToken(
   pushNotificationsEnabled: boolean,
   feedback?: ActionFeedbackApi | null,
 ): Promise<PushRegisterResult> {
-  if (!pushNotificationsEnabled) return "skipped";
+  if (!pushNotificationsEnabled) {
+    setRemotePushRegistered(false);
+    return "skipped";
+  }
   const granted = await ensureNotificationPermission();
   if (!granted) {
+    setRemotePushRegistered(false);
     await api.updateMe(apiToken, { push_notifications_enabled: false });
     return "disabled_permission";
   }
 
   const expoPushToken = await resolveExpoPushToken(feedback);
   if (!expoPushToken) {
+    setRemotePushRegistered(false);
     throw new Error("push_token_unavailable");
   }
 
@@ -147,6 +153,7 @@ export async function registerRemotePushToken(
     device_id: deviceId ?? undefined,
     ...(Platform.OS === "android" ? { android_channels: TONE_ANDROID_CHANNELS } : {}),
   });
+  setRemotePushRegistered(true);
   return "registered";
 }
 
@@ -168,6 +175,8 @@ export async function unregisterRemotePushToken(
   apiToken: string,
   feedback?: ActionFeedbackApi | null,
 ): Promise<boolean> {
+  // Off means the server stops sending, so the phone takes its reminders back now.
+  setRemotePushRegistered(false);
   const expoPushToken = await resolveExpoPushToken(feedback);
   if (!expoPushToken) return false;
   try {
@@ -207,6 +216,7 @@ function pushSyncIsFresh(session: number, account: string | undefined, enabled: 
 /** Sign-out: the next sign-in, whoever's, registers this device again. */
 export async function clearPushSyncRecord(): Promise<void> {
   lastPushSync = null;
+  setRemotePushRegistered(false);
   await forgetSyncRecords();
 }
 
@@ -241,7 +251,9 @@ export function attachPushForegroundSync(
     }
     if (pushSyncIsFresh(session, account, enabled)) {
       // Turning the permission off in Settings must still reach the server.
-      if (!enabled || (await getNotificationPermissionGranted())) return;
+      if (!enabled) return setRemotePushRegistered(false);
+      // A sync an earlier launch made: the server still holds this token.
+      if (await getNotificationPermissionGranted()) return setRemotePushRegistered(true);
     }
     lastPushSync = null;
     const remember = () => {

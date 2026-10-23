@@ -157,3 +157,33 @@ it("haptics only after confirmed session revocation succeeds", async () => {
   await act(async () => { pending.resolve(); });
   expect(mockDestructive).toHaveBeenCalledTimes(1);
 });
+
+it("says when a device was last active in the app's date format, or that it is unknown", async () => {
+  mockListSessions.mockResolvedValue({
+    sessions: [
+      {
+        id: "a",
+        device_label: "Old iPad",
+        platform: "ios",
+        created_at: "2026-09-19T12:00:00Z",
+        last_seen_at: null,
+        current: false,
+      },
+      {
+        id: "b",
+        device_label: "Pixel",
+        platform: "android",
+        created_at: "2026-09-19T12:00:00Z",
+        last_seen_at: "2026-09-19T12:00:00Z",
+        current: true,
+      },
+    ],
+  });
+  const ui = await render(<SecuritySettingsScreen />);
+  await act(async () => {});
+  // A device with a name but no time is not an "Unknown device".
+  expect(ui.getByText("Old iPad")).toBeTruthy();
+  expect(ui.getByText(/settings\.last_active_unknown/)).toBeTruthy();
+  expect(ui.queryByText("settings.unknown_device")).toBeNull();
+  expect(ui.getAllByText(/^settings\.last_active(?!_unknown)/)).toHaveLength(1);
+});
