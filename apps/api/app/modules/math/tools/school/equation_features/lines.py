@@ -85,7 +85,7 @@ def _x_intercepts(intent: MathIntent) -> _Solved | None:
     return workout, answer, [f"x-intercepts: {', '.join(str(root) for root in roots)}"]
 
 
-def _intercepts(intent: MathIntent) -> _Solved | None:
+def both_intercepts(intent: MathIntent) -> _Solved | None:
     """Both axes: where y = 0, then where x = 0. Missing either, nothing is verified."""
     crossing, meeting = _x_intercepts(intent), _y_intercept(intent)
     if crossing is None or meeting is None:
