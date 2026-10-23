@@ -44,6 +44,16 @@ type ChatSendPhase = "idle" | "locating" | "preparing" | "uploading" | "creating
 /** False when the chat refused the send before showing it, or Stop took it back before it went out. */
 type SendMessageFn = (text: string, opts?: SendMessageOptions) => Promise<boolean>;
 
+/** How `handleSend` treats the composer when it sends a given line instead of the composer's text. */
+type SendLineOptions = {
+  /**
+   * A tapped line (a follow-up, a card's answer) is not the composer's: its half-typed
+   * draft and file stay put. Without it the line stands in for the composer's text and
+   * takes its file (a math scan's photo goes with its reading).
+   */
+  leaveComposer?: boolean;
+};
+
 /** A send waiting for its new chat's id; dropped if the view moves on first. */
 type PendingChatSend = ReturnType<typeof buildPendingSendAfterCreate> & {
   chatId: string;
@@ -272,13 +282,15 @@ export function useChatSend({
     getThreadKey, restoreFailedSend,
   ]);
 
-  /** Clears the composer and paints the user's bubble, with typing dots when they can go up. */
-  const paintUserTurn = useCallback((text: string, attached: PendingAttachment | null, tappedAt: number) => {
+  /** Clears the composer (unless the line is not its own) and paints the user's bubble, with typing dots when they can go up. */
+  const paintUserTurn = useCallback((text: string, attached: PendingAttachment | null, tappedAt: number, leaveComposer = false) => {
     // Clear the composer immediately so the next draft can be typed.
     // Keep Send/Attach busy until the turn is accepted — an idle button
     // with sendInFlightRef set looked finished and ate the next tap.
-    setInput("");
-    setPendingAttachment(null);
+    if (!leaveComposer) {
+      setInput("");
+      setPendingAttachment(null);
+    }
     Keyboard.dismiss();
 
     const optimisticId = `local-${tappedAt}`;
@@ -328,11 +340,13 @@ export function useChatSend({
   });
 
   const handleSend = useCallback(
-    async (overrideText?: string) => {
+    async (overrideText?: string, options?: SendLineOptions) => {
       const tappedAt = Date.now();
       const version = viewRef.current.version;
       const composerText = overrideText ?? inputRef.current;
       const text = composerText.trim();
+      const leavesComposer = overrideText !== undefined && options?.leaveComposer === true;
+      const attachment = leavesComposer ? null : pendingAttachmentRef.current;
       const verdict = canSend({
         sendInFlight: sendInFlightRef.current,
         chatLoading,
@@ -341,7 +355,7 @@ export function useChatSend({
         isOffline,
         streaming,
         text,
-        hasAttachment: Boolean(pendingAttachmentRef.current),
+        hasAttachment: Boolean(attachment),
         token,
         creating: creatingRef.current,
         attachPicking: attachPickInFlightRef.current,
@@ -361,16 +375,17 @@ export function useChatSend({
       const turn: SendTurn = {
         text,
         composerText,
-        attachment: pendingAttachmentRef.current,
+        attachment,
         threadKey: getThreadKey(),
         isCurrentSession,
         isCurrentView: () => isCurrentSession() && viewRef.current.version === version,
+        leavesComposer,
       };
       // Paint first: the bubble, an empty composer and typing dots in this
       // frame, before any network call. Where the turn goes is decided after.
       sendInFlightRef.current = true;
       setSendPhase(queryNeedsClientGeo(text) ? "locating" : turn.attachment ? "uploading" : "preparing");
-      const painted = paintUserTurn(text, turn.attachment, tappedAt);
+      const painted = paintUserTurn(text, turn.attachment, tappedAt, leavesComposer);
       await routeSend({ ...turn, ...painted, version });
     },
     [

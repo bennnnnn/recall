@@ -358,7 +358,7 @@ function ChatScreen() {
 
   const onSelectSuggestion = useCallback(
     (prompt: string) => {
-      void handleSend(prompt);
+      void handleSend(prompt, { leaveComposer: true });
     },
     [handleSend],
   );
