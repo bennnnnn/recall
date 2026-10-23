@@ -114,6 +114,8 @@ LOOKALIKE_HINTS = {
     # "Label: value" lines with no card before them are not picks.
     "clarify lookalike": "clarify_picks",
     "money lookalike": "money",
+    # "I don't understand why she left" is not a topic to be taught.
+    "walkthrough lookalike": "walkthrough",
 }
 # Reminders already saved, so "mark call mom as done" has something to find.
 SEEDED = ("call mom", "dentist appointment", "gym", "pay rent", "read", "water the plants")

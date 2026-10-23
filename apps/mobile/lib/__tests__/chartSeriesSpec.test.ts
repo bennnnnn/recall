@@ -118,3 +118,27 @@ it("builds the Plot reply's chart as Vega-Lite instead of failing on its caption
   expect(spec).toContain('"mark":"line"');
   expect(spec).not.toContain("x^2 over");
 });
+
+describe("a box plot written as series", () => {
+  it("draws one box per series from the raw values", () => {
+    const spec = seriesChartToVegaLite({
+      type: "box plot",
+      series: [
+        { name: "Class A", values: [55, 62, 70] },
+        { name: "Class B", values: [61, 72, 93] },
+      ],
+    });
+    expect(spec?.mark).toEqual({ type: "boxplot", extent: 1.5 });
+    expect((spec?.data as { values: unknown[] }).values).toHaveLength(6);
+    expect((spec?.encoding as { x?: { field: string } }).x?.field).toBe("group");
+  });
+
+  it("draws a single box with no x axis", () => {
+    const spec = seriesChartToVegaLite({ type: "boxplot", series: [{ name: "Hours", values: [30, 35, 60] }] });
+    expect((spec?.encoding as Record<string, unknown>).x).toBeUndefined();
+  });
+
+  it("is not drawn when a value is not a number", () => {
+    expect(seriesChartToVegaLite({ type: "boxplot", series: [{ values: [1, "two", 3] }] })).toBeNull();
+  });
+});

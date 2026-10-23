@@ -102,9 +102,9 @@ describe("ImageGenPlaceholder", () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it("says the picture may still come, never that it was canceled, when the user stops waiting", async () => {
+  it("says a stopped picture won't count toward the day, since the server stops it too", async () => {
     const view = await render(<ImageGenPlaceholder outcome="canceled" />);
-    expect(view.getByText(/^Stopped waiting\. The picture may still appear/, hidden)).toBeOnTheScreen();
+    expect(view.getByText("Stopped. This picture won't count toward today's limit.", hidden)).toBeOnTheScreen();
     expect(view.queryByText("Retry")).toBeNull();
   });
 

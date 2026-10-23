@@ -2,11 +2,13 @@
 
 import asyncio
 from datetime import datetime
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import fakeredis.aioredis
 import pytest
+from fastapi import Request
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
@@ -15,6 +17,8 @@ from app.gateways.storage_gateway import LocalStorageGateway, PresignedUpload
 from app.main import create_app
 from app.models.orm import Chat, Message, User
 from app.modules.chat import messages_repository
+from app.modules.images import api as images_api
+from app.modules.images.schemas import ImageGenerateIn
 
 
 def _fake_user(*, plan: str = "pro") -> User:
@@ -323,3 +327,31 @@ def test_generate_image_deletes_storage_when_persist_fails(quota_clock):
     assert r.status_code == 500
     gateway.write_bytes.assert_awaited_once_with(storage_key, b"\x89PNG\r\n")
     gateway.delete_bytes.assert_awaited_once_with(storage_key)
+
+
+async def test_generate_image_stops_the_work_when_the_phone_cancels():
+    """The phone's Cancel closes the request: the generation is cancelled, which gives
+    the day's slot back and deletes anything stored (test_generate_for_chat)."""
+    stopped = asyncio.Event()
+
+    async def slow(*_args, **_kwargs):
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            stopped.set()
+            raise
+
+    class Gone:
+        async def is_disconnected(self) -> bool:
+            return True
+
+    with patch.object(images_api.image_generation_service, "generate_for_chat", slow):
+        response = await images_api.generate_image(
+            ImageGenerateIn(chat_id=uuid4(), prompt="a cat"),
+            request=cast(Request, Gone()),
+            user=_fake_user(),
+            settings=Settings(),
+        )
+
+    assert response.status_code == 499
+    assert stopped.is_set()

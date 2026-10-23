@@ -53,11 +53,20 @@ class Turn:
     earlier: list[Any] = field(default_factory=list)
     output_key: str | None = None
     slot_at_delete: list[str | None] = field(default_factory=list)
+    # A step that waits here until the test lets it go (to cancel the turn mid-step), and
+    # the signal that the turn has reached it.
+    pause: dict[str, asyncio.Event] = field(default_factory=dict)
+    reached: dict[str, asyncio.Event] = field(default_factory=dict)
 
     def step(self, *event: Any) -> None:
         self.events.append(event)
         if event[0] in self.fail:
             raise self.fail[event[0]]
+
+    async def held(self, name: str) -> None:
+        if name in self.pause:
+            self.reached[name].set()
+            await self.pause[name].wait()
 
     def owned_ref(self, **kw: Any) -> SimpleNamespace:
         row = SimpleNamespace(
@@ -83,6 +92,7 @@ class Turn:
                 turn.events.append(("session_exit", typ.__name__ if typ else None))
 
             async def commit(self) -> None:
+                await turn.held("commit")
                 turn.step("commit")
 
         class Gateway:
@@ -133,6 +143,7 @@ class Turn:
 
         async def provider(_settings: Any, **kw: Any) -> Any:
             turn.step("provider", kw["prompt"], kw["aspect_ratio"], kw["reference_images"])
+            await turn.held("provider")
             if isinstance(turn.generated, BaseException):
                 raise turn.generated
             return turn.generated
@@ -369,7 +380,45 @@ async def test_generate_for_chat_a_failure_after_the_reserve_refunds_and_deletes
     written = {"output": turn.output_key}
     written["ref"] = next((e[1] for e in turn.events if e[0] == "write_ref"), None)
     assert turn.deleted() == [written[name] for name in deleted]
-    assert "spend" not in turn.names()
+    # A provider call cut short may still be billed: only that one counts toward spend.
+    cut_short = fail_at == "provider" and isinstance(error, asyncio.CancelledError)
+    assert ("spend" in turn.names()) == cut_short
+
+
+async def _cancel_when(turn: Turn, step: str, **kwargs: Any) -> asyncio.Task[Any]:
+    """Run the turn, hold it at ``step``, and cancel it there (the phone's Cancel)."""
+    turn.pause[step], turn.reached[step] = asyncio.Event(), asyncio.Event()
+    task = asyncio.create_task(turn.run(**kwargs))
+    await turn.reached[step].wait()
+    task.cancel()
+    return task
+
+
+async def test_generate_for_chat_a_cancel_during_the_call_keeps_nothing_and_gives_the_slot_back(
+    turn,
+):
+    task = await _cancel_when(turn, "provider")
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert await turn.slot() == "0"
+    assert not {"presign", "write_output", "commit", "finish"} & set(turn.names())
+    # The provider may still bill the call: the global cap counts it, the user's day does not.
+    assert "spend" in turn.names()
+
+
+async def test_generate_for_chat_a_cancel_while_saving_lets_the_save_finish_and_keeps_it(turn):
+    task = await _cancel_when(turn, "commit", reference_attachment_ids=[turn.owned_ref().id])
+    await asyncio.sleep(0)
+    turn.pause["commit"].set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert "commit" in turn.names()
+    assert turn.deleted() == []
+    assert await turn.slot() == "1"
 
 
 async def test_generate_for_chat_a_regenerate_without_a_user_turn_rolls_back_and_refunds(turn):

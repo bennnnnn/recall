@@ -509,7 +509,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   via native SVG.
 - ✅ **Charts** — `chart` / `vega` / `vega-lite` fences render inline via a sandboxed WebView
   (Vega; needs a dev build). One contract: the chart hint shows bar, line, scatter with a
-  regression best-fit layer, histogram and pie (`prompt_constants/chart_shapes.json`, every one
+  regression best-fit layer, histogram, pie and box plot (`prompt_constants/chart_shapes.json`, every one
   drawn in the phone's tests); the phone also reads a `series` chart and a Chart.js config. Data
   must be inline: a body it cannot draw, or one Vega draws no marks for, shows a note, the data as
   a table and the source, never a blank card. A chart of a formula is sampled by SymPy into a

@@ -15,7 +15,8 @@ from __future__ import annotations
 
 import re
 
-from app.services.text_normalize import collapse_ws
+from app.modules.chat.prompt_constants.stuck import stuck_on_a_topic
+from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 # Asking to be taught, in the shipped UI languages. A task ("teach me how to
 # install Docker") keeps its how-to steps; see ``_PROCEDURE``.
@@ -276,7 +277,7 @@ def programming_lesson_contract(text: str) -> str:
 
 def is_learning_plan_request(text: str) -> bool:
     """True for bounded roadmaps/courses that should be delivered in full."""
-    cleaned = collapse_ws(text)
+    cleaned = straighten_apostrophes(collapse_ws(text))
     if not cleaned or len(cleaned) > 800:
         return False
     if _INTERNATIONAL_LEARNING_PLAN.search(cleaned):
@@ -386,11 +387,10 @@ TEACHING_HINT = (
     "goal.\n" + _LESSON_SHAPE
 )
 
-# "Help me understand two sum": one idea, explained in full now. A lesson
-# would teach step 1 and wait; a walkthrough builds to the answer in one reply.
+# "Help me understand two sum", or stuck on a topic ("I don't understand recursion",
+# stuck.py): one idea, explained in full now, building to the answer in one reply.
 _WALKTHROUGH = re.compile(
-    r"(?:\bhelp\s+me\s+understand|\bwalk\s+me\s+through|\bbreak\s+down"
-    r"|\bi\s+(?:don'?t|do\s+not|can'?t|cannot)\s+(?:get|understand))\s+"
+    r"(?:\bhelp\s+me\s+understand|\bwalk\s+me\s+through|\bbreak\s+down)\s+"
     r"(?!(?:it|this|that|what\s+you|you|why\s+you)\b)[^\W\d_]"
     r"|\bexplain\b[^.?!\n]{1,80}\bstep[- ]by[- ]step\b",
     re.IGNORECASE,
@@ -413,12 +413,12 @@ _TASK_OBJECT = re.compile(r"\b(?:how\s+(?:to|do\s+i|can\s+i)|[a-z]{3,}ing)\b", r
 
 def is_walkthrough_request(text: str) -> bool:
     """True for "help me understand X" / "walk me through X": a full explanation now."""
-    cleaned = collapse_ws(text)
+    cleaned = straighten_apostrophes(collapse_ws(text))
     if not cleaned or len(cleaned) > 400:
         return False
     match = _WALKTHROUGH.search(cleaned)
     if match is None:
-        return False
+        return stuck_on_a_topic(cleaned) and not _PROCEDURE.search(cleaned)
     rest = cleaned[match.start() :]
     first_object = rest.split()[3:4] if rest.lower().startswith("walk me through") else []
     if first_object and _TASK_OBJECT.fullmatch(first_object[0]):
@@ -428,7 +428,7 @@ def is_walkthrough_request(text: str) -> bool:
 
 def is_teaching_request(text: str) -> bool:
     """True for interactive tutoring, not a procedure or full learning roadmap."""
-    cleaned = collapse_ws(text)
+    cleaned = straighten_apostrophes(collapse_ws(text))
     if not cleaned or len(cleaned) > 400:
         return False
     if not _TEACH_TURN.search(cleaned):

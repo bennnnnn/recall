@@ -21,6 +21,16 @@ DATA_CHARTS = (
     "make a line graph of my monthly sales: jan 10, feb 12, mar 9",
     "Make a bar chart of this data: Mon 12, Tue 19, Wed 7, Thu 15, Fri 22",
     "Make a histogram of these test scores: 55, 62, 68, 70, 71, 75",
+    "Make a box plot of these test scores: 55, 62, 68, 70, 71, 75, 78, 80, 82, 85, 88, 90, 95",
+    "draw a box and whisker plot for class A: 55, 62, 70 and class B: 61, 72, 93",
+)
+# Box plot words that ask for no chart.
+NOT_CHARTS = (
+    "what is a box plot?",
+    "what is a box and whisker plot used for",
+    "I have a box of plots for my garden, what should I plant?",
+    "help me plot the boxes in my moving truck so the heavy ones go first",
+    "my box plot homework is due tomorrow",
 )
 CURVES = (
     "Graph y = sin(x) and y = cos(x) from 0 to 2π",
@@ -38,6 +48,13 @@ def test_a_chart_of_data_is_not_maths_and_gets_the_chart_contract(text: str) -> 
     assert CHART_FORMAT_HINT in hints
 
 
+@pytest.mark.parametrize("text", NOT_CHARTS)
+def test_box_plot_words_that_ask_for_no_chart_get_no_contract(text: str) -> None:
+    assert not chart_names_no_curve(text)
+    hints = _style_format_hints(query_text=text, is_day_plan=False, minimal_personal_context=False)
+    assert CHART_FORMAT_HINT not in hints
+
+
 @pytest.mark.parametrize("text", CURVES)
 def test_a_curve_stays_maths(text: str) -> None:
     assert not chart_names_no_curve(text)
@@ -52,7 +69,14 @@ def test_a_chart_with_a_statistic_to_find_stays_maths() -> None:
 
 
 def test_the_contract_names_every_shape_it_shows() -> None:
-    assert set(CHART_SHAPES) == {"bar", "line", "scatter with best-fit line", "histogram", "pie"}
+    assert set(CHART_SHAPES) == {
+        "bar",
+        "line",
+        "scatter with best-fit line",
+        "histogram",
+        "pie",
+        "box plot",
+    }
     for name, spec in CHART_SHAPES.items():
         assert f"{name}:\n```chart\n" in CHART_FORMAT_HINT
         assert spec["$schema"] == "https://vega.github.io/schema/vega-lite/v5.json"
