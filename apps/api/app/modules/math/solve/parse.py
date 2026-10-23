@@ -103,9 +103,15 @@ def _lift_glued_exponents(text: str) -> str:
     return "".join(out)
 
 
+# ``2 1/2`` is two and a half, never ``2 * 1/2``: x + 2 1/2 = 5 is x = 5/2. A power's,
+# a product's or a decimal's digits (``x^2 1/2``, ``0.2 1/2``) do not start one.
+_MIXED_NUMBER = re.compile(r"(?<![\w.^*/)])(\d+)\s+(\d+)\s*/\s*(\d+)(?![\d.])")
+
+
 def _normalize_expr(text: str) -> str:
     s = text.strip()
     s = normalize_latex_to_sympy(s)
+    s = _MIXED_NUMBER.sub(r"(\1+\2/\3)", s)
     # Lift `x2` before `^` becomes `**`, so a real caret (`x2^3`) is not
     # reread as a glued exponent.
     s = _lift_glued_exponents(s)

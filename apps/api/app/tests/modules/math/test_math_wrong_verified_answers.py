@@ -745,3 +745,23 @@ async def test_letters_that_are_not_unknowns_are_never_solved_for(text: str) -> 
 async def test_a_defined_e_and_e_notation_read_as_written(text: str, answer: str) -> None:
     canonical, _reply = await _verified(text)
     assert canonical == answer
+
+
+# --- L. a mixed number is one number ------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Read as 2 * 1/2, these verified x = 4 and x = 10.
+        ("solve x + 2 1/2 = 5", r"x = \frac{5}{2}"),
+        ("solve 2 1/2 x = 10", "x = 4"),
+        ("solve x - 1 3/4 = 2", r"x = \frac{15}{4}"),
+        # A power's digit starts no mixed number: x^2 times a half.
+        ("solve x^2 1/2 = 8", r"x = \pm 4"),
+    ],
+)
+async def test_a_mixed_number_in_an_equation_is_one_number(text: str, answer: str) -> None:
+    canonical, _reply = await _verified(text)
+    assert canonical == answer
