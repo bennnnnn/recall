@@ -70,22 +70,53 @@ def test_other_iphones_leave_the_iphone_19_sources() -> None:
     assert [hit.url for hit in kept] == [hit.url for hit in _IPHONE_19[:3]]
 
 
+# What the same question found on a later search: every hit names an iPhone, none the 19.
+_IPHONE_19_LATER = [
+    _IPHONE_19[3],
+    WebSearchHit(
+        "iPhone - Wikipedia",
+        "https://en.wikipedia.org/wiki/IPhone",
+        "| September 20, 2024 | iPhone 16 | Apple A18 | | September 19, 2025 | iPhone 17 |",
+    ),
+    WebSearchHit(
+        "Buy iPhone",
+        "https://www.apple.com/shop/buy-iphone",
+        "Explore All iPhone  iPhone Duo  iPhone 18 Pro  iPhone Air  iPhone 17  iPhone 16",
+    ),
+    _IPHONE_19[4],
+]
+
+
+def test_the_current_lineup_stays_when_no_hit_names_the_asked_model() -> None:
+    # Dropping every other number left no hit: "I couldn't verify that live right now".
+    kept = drop_other_models(_IPHONE_19_LATER, "Is iPhone 19 out")
+    assert [hit.title for hit in kept] == ["iPhone - Wikipedia", "Buy iPhone"]
+
+
+def test_every_hit_stays_when_all_would_go() -> None:
+    old = [_IPHONE_19[3], _IPHONE_19[4]]
+    assert drop_other_models(old, "Is iPhone 19 out") == old
+
+
 @pytest.mark.parametrize(
     ("model", "text", "other"),
     [
         (("iphone", "19"), "Apple to Release iPhone 6 Models Sept. 19", True),
-        (("gta", "6"), "GTA 5 online update", True),
-        (("python", "3.14"), "Python 3.13 released", True),
-        (("ios", "27"), "iOS 26.4 update", True),
-        (("iphone", "1"), "iPhone 16 review", True),
-        # The asked model, a point release of it, or no model at all.
+        (("iphone", "19"), "Apple iPhone 3GS Sold Out?", True),
+        (("iphone", "19"), "iPhone 16 review", True),
+        (("ios", "27"), "iOS 14 tips and tricks", True),
+        # A near or newer model, the asked one, a point release of it, or no model.
+        (("iphone", "19"), "iPhone 17 vs iPhone 18 Pro", False),
+        (("iphone", "19"), "Why Apple may skip to the iPhone 20", False),
+        (("gta", "6"), "GTA 5 online update", False),
+        (("python", "3.14"), "Python 3.13 released", False),
+        (("ios", "27"), "iOS 26.4 update", False),
         (("iphone", "19"), "the iPhone 19's design", False),
         (("iphone", "19"), "iPhone19 leaks", False),
         (("python", "3.14"), "Python 3.14.0 released", False),
         (("ios", "27"), "iOS 27.1 is out now", False),
         (("gta", "6"), "GTA VI trailer", False),
         (("iphone", "19"), "Apple's next iPhone arrives in September 2027", False),
-        (("iphone", "19"), "iPhone 18 and iPhone 19 compared", False),
     ],
 )
 def test_is_another_model(model: tuple[str, str], text: str, other: bool) -> None:

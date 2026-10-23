@@ -1,11 +1,13 @@
-"""A search hit about another model of the thing a release question names.
+"""A search hit about a much older model of the thing a release question names.
 
 "Is iPhone 19 out?" searched well, but two of its five sources were "Apple to Release
 iPhone 6 Models Sept. 19" (2014) and "Apple iPhone 3GS Sold Out? Nope!" (2009): the
-engine matched "iPhone", "19" and "out". A hit that names the asked product only with
-other numbers (iPhone 6, iPhone 3GS) is about another model and goes; one that names
-the asked model (a point release too: iOS 27.1 for iOS 27), or no model at all, stays.
-Years are not model numbers.
+engine matched "iPhone", "19" and "out". A hit whose every model of the asked product
+is more than two generations older (iPhone 6, iPhone 3GS) goes. A page about a near or
+newer model stays: Wikipedia's list ending at the iPhone 17 and Apple's store selling the
+iPhone 18 are how a reply knows the 19 is not out, and dropping them left none. So does
+a hit naming the asked model or no model; years are not model numbers. When every hit
+would go, all stay: a reply with sources beats "I couldn't verify that".
 """
 
 from __future__ import annotations
@@ -40,18 +42,25 @@ def _numbers_after(name: str, text: str) -> set[str]:
     return {number for number in pattern.findall(text) if not _YEAR.fullmatch(number)}
 
 
+# How many generations older a model may be and still say something about the asked one.
+_NEAR = 2
+
+
+def _generation(number: str) -> int:
+    return int(number.split(".", 1)[0])
+
+
 def is_another_model(hit: WebSearchHit, model: tuple[str, str]) -> bool:
-    """``hit`` names the asked product only with other numbers."""
+    """``hit`` names the asked product only with models over two generations older."""
     name, number = model
     numbers = _numbers_after(name, f"{hit.title}\n{hit.snippet}")
-    return bool(numbers) and not any(
-        said == number or said.startswith(f"{number}.") for said in numbers
-    )
+    return bool(numbers) and max(map(_generation, numbers)) < _generation(number) - _NEAR
 
 
 def drop_other_models(hits: list[WebSearchHit], query: str) -> list[WebSearchHit]:
-    """``hits`` without those about another model than the one ``query`` asks about."""
+    """``hits`` without those about a much older model than the one ``query`` asks about."""
     model = asked_model(query)
     if model is None:
         return hits
-    return [hit for hit in hits if not is_another_model(hit, model)]
+    kept = [hit for hit in hits if not is_another_model(hit, model)]
+    return kept or hits
