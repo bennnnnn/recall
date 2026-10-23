@@ -457,6 +457,55 @@ async def test_persist_live_talk_turn_materializes_clocked_reminder():
     assert "topic" in jobs
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("said", "locale", "saves"),
+    [
+        ("recuérdame mañana a las 5 llamar a mamá", "en", False),
+        ("напомни завтра в 5 позвонить маме", "en", False),
+        # No language of its own: a Spanish user's app language decides.
+        ("tomorrow 5pm dentist", "es", True),
+        ("dentista 17:00", "es", False),
+        ("dentista 17:00", "en", True),
+        ("remind me to call mom tomorrow at 5pm", "es", True),
+    ],
+)
+async def test_live_talk_in_another_language_only_reads_to_dos(
+    said: str, locale: str, saves: bool
+) -> None:
+    user = MagicMock(id=uuid4(), memory_enabled=False, timezone="UTC", locale=locale)
+    session = fake_session()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=None)
+    with (
+        patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
+        patch(
+            "app.modules.speech.live_talk.chat_history.get_chat",
+            AsyncMock(return_value=MagicMock()),
+        ),
+        patch.object(
+            messages_repository,
+            "create",
+            AsyncMock(side_effect=[MagicMock(id=uuid4()), MagicMock(id=uuid4(), content="Ok.")]),
+        ),
+        patch(
+            "app.modules.speech.live_talk.todos_service.materialize_reminder_fences",
+            AsyncMock(return_value=("Ok.", 0)),
+        ) as materialize,
+        patch("app.core.jobs.enqueue", AsyncMock()),
+    ):
+        await persist_live_talk_turn(
+            user=user,
+            chat_id=uuid4(),
+            user_text=said,
+            assistant_text="Ok.",
+            untitled=False,
+            settings=Settings(chat_history_rag_enabled=False),
+            redis=redis_mock(),
+        )
+    assert materialize.await_count == (1 if saves else 0)
+
+
 async def _persist_voice_turn(
     *, user_text: str, assistant_text: str, settings, memory=False, rows_before: int = 0
 ):

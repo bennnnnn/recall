@@ -96,5 +96,167 @@
   "prompt": "напомни мне завтра в 9 позвонить маме",
   "reply": "```sources\n[{\"title\": \"Moscow time\", \"url\": \"https://time.example/moscow\"}]\n```\n\n```todo_link\n```",
   "expect": "todo_screen"
+ },
+ {
+  "id": "tl-015",
+  "area": "todo language",
+  "history": [
+   [
+    "user",
+    "añade comprar leche a mis tareas"
+   ],
+   [
+    "assistant",
+    "¿Para cuándo quieres que lo añada?"
+   ]
+  ],
+  "prompt": "a las 5",
+  "reply": "```reminder\n{\"title\": \"Comprar leche\", \"due_at\": \"2026-10-24T17:00:00\"}\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "tl-016",
+  "area": "todo language",
+  "history": [
+   [
+    "user",
+    "напомни позвонить маме"
+   ],
+   [
+    "assistant",
+    "Во сколько?"
+   ]
+  ],
+  "prompt": "17:00",
+  "reply": "Хорошо.\n\n```reminder\n{\"title\": \"Позвонить маме\", \"due_at\": \"2026-10-24T17:00:00\"}\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "tl-017",
+  "area": "todo language",
+  "history": [
+   [
+    "user",
+    "remind me to buy milk tomorrow"
+   ],
+   [
+    "assistant",
+    "What time tomorrow?"
+   ]
+  ],
+  "prompt": "5pm",
+  "reply": "```reminder\n{\"title\": \"Buy milk\", \"due_at\": \"2026-10-24T17:00:00\"}\n```",
+  "expect": "save"
+ },
+ {
+  "id": "tl-018",
+  "area": "todo language",
+  "prompt": "añade sal a la receta",
+  "reply": "Añade una pizca de sal al final y prueba.",
+  "expect": "answer"
+ },
+ {
+  "id": "tl-019",
+  "area": "todo language",
+  "prompt": "ayúdame con mi tarea de matemáticas",
+  "reply": "Claro, ¿cuál es el ejercicio?",
+  "expect": "answer"
+ },
+ {
+  "id": "tl-020",
+  "area": "todo language",
+  "prompt": "añade un ejemplo a mi tarea",
+  "reply": "Aquí tienes un ejemplo: el agua hierve a 100 °C.",
+  "expect": "answer"
+ },
+ {
+  "id": "tl-021",
+  "area": "todo language",
+  "prompt": "pon música de mi lista",
+  "reply": "No puedo reproducir música, pero puedo sugerirte canciones.",
+  "expect": "answer"
+ },
+ {
+  "id": "tl-022",
+  "area": "todo language",
+  "prompt": "je me rappelle de mon enfance",
+  "reply": "C'est un beau souvenir ! Qu'est-ce qui t'a marqué ?",
+  "expect": "answer"
+ },
+ {
+  "id": "tl-023",
+  "area": "todo language",
+  "prompt": "ich erinnere mich an meine Kindheit",
+  "reply": "Das klingt schön! Was ist dir in Erinnerung geblieben?",
+  "expect": "answer"
+ },
+ {
+  "id": "tl-024",
+  "area": "todo language",
+  "prompt": "aggiungi sale alla pasta",
+  "reply": "Aggiungi il sale quando l'acqua bolle.",
+  "expect": "answer"
+ },
+ {
+  "id": "tl-025",
+  "area": "todo language",
+  "prompt": "você lembra de mim?",
+  "reply": "Lembro do que você me contou nesta conversa.",
+  "expect": "answer"
+ },
+ {
+  "id": "tl-026",
+  "area": "todo language",
+  "prompt": "çaya biraz şeker ekle",
+  "reply": "Afiyet olsun! Bir kaşık şeker yeterli.",
+  "expect": "answer"
+ },
+ {
+  "id": "tl-027",
+  "area": "todo language",
+  "prompt": "добавь условие в задачу",
+  "reply": "Добавим условие: скорость поезда 60 км/ч.",
+  "expect": "answer"
+ },
+ {
+  "id": "tl-028",
+  "area": "todo language",
+  "prompt": "ዝርዝር መረጃ ጨምር",
+  "reply": "እሺ፣ ተጨማሪ ዝርዝር ይኸውና።",
+  "expect": "answer"
+ },
+ {
+  "id": "tl-029",
+  "area": "todo language",
+  "history": [
+   [
+    "user",
+    "añade leche a mis tareas"
+   ],
+   [
+    "assistant",
+    "Puedes añadirlo o cambiarlo en **Tareas**.\n\n```todo_link\n```"
+   ]
+  ],
+  "prompt": "¿cuál es la capital de Francia?",
+  "reply": "La capital de Francia es **París**.",
+  "expect": "answer"
+ },
+ {
+  "id": "tl-030",
+  "area": "todo language",
+  "history": [
+   [
+    "user",
+    "añade leche a mis tareas"
+   ],
+   [
+    "assistant",
+    "Puedes añadirlo o cambiarlo en **Tareas**.\n\n```todo_link\n```"
+   ]
+  ],
+  "prompt": "mañana a las 5",
+  "reply": "Actualizado: leche mañana a las 17:00.",
+  "expect": "todo_screen"
  }
 ]

@@ -6,16 +6,20 @@ said, "mark it done", "remind me…"), and that reading is English. A message in
 another language reads its to-dos in chat; adding or changing one happens in the
 To-do screen, which the reply offers as a button (a ```todo_link fence).
 
-A message counts as another language only on positive evidence: letters of another
+A message counts as another language on positive evidence: letters of another
 script (Cyrillic, Ethiopic, …), or at least two words that only the app's other
 Latin-script languages use. Any English to-do word keeps it English, so "remind me
-to call Getachew ነገ at 10am" still saves.
+to call Getachew ነገ at 10am" still saves. A message with no language of its own
+("a las 5", "17:00", "sí") follows the chat: the user's previous message, then their
+app language. An answer to "¿cuándo?" never writes either.
 """
 
 from __future__ import annotations
 
 import re
 import unicodedata
+
+from app.core.validation import normalize_locale_code
 
 TODO_LINK_FENCE = "todo_link"
 
@@ -101,16 +105,35 @@ def _is_latin(char: str) -> bool:
         return False
 
 
-def writes_todos_in_todo_screen(text: str | None) -> bool:
-    """True when ``text`` is in another language: its to-do changes are made in To-do."""
+def writes_todos_in_todo_screen(
+    text: str | None, *, prior_user: str | None = None, locale: str | None = None
+) -> bool:
+    """True when the to-do changes ``text`` asks for are made in To-do, never in chat.
+
+    ``prior_user`` is the user's previous message and ``locale`` their app language:
+    a message with no language of its own takes the first of them that has one.
+    """
     if not text or not text.strip():
         return False
+    for said in (text, prior_user):
+        other = _is_other_language(said)
+        if other is not None:
+            return other
+    return normalize_locale_code(locale) != "en"
+
+
+def _is_other_language(text: str | None) -> bool | None:
+    """True for another language, False for English, None when ``text`` can't tell."""
+    if not text or not text.strip():
+        return None
     words = [word.casefold() for word in _WORD.findall(text)]
     if any(word in _ENGLISH_TODO for word in words):
         return False
     if _other_script(text):
         return True
-    return len({word for word in words if word in _OTHER_LATIN}) >= _OTHER_LATIN_WORDS
+    if len({word for word in words if word in _OTHER_LATIN}) >= _OTHER_LATIN_WORDS:
+        return True
+    return None
 
 
 # The app's languages written in another script, by the Unicode name of their letters.
@@ -146,4 +169,9 @@ def message_language(text: str | None) -> str | None:
 
 def todo_screen_line(language: str | None) -> str:
     """One line saying the change is made in To-do, in ``language`` (English otherwise)."""
-    return _TODO_SCREEN_LINE.get(language or "", _TODO_SCREEN_LINE["en"])
+    return _TODO_SCREEN_LINE.get(normalize_locale_code(language), _TODO_SCREEN_LINE["en"])
+
+
+def todo_screen_answer(language: str | None) -> str:
+    """The whole reply to a to-do change chat can't make: the line, then the button."""
+    return f"{todo_screen_line(language)}\n\n```{TODO_LINK_FENCE}\n```"

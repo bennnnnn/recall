@@ -89,7 +89,8 @@ async def test_the_list_is_flagged_changed_only_when_rows_were_written(
     assert outcome.todos_changed is changed
 
 
-def _ctx(message: str, locale: str = "en") -> StreamContext:
+def _ctx(message: str, locale: str = "en", prior: str | None = None) -> StreamContext:
+    earlier = [{"role": "user", "content": prior}, {"role": "assistant", "content": "?"}]
     return cast(
         StreamContext,
         SimpleNamespace(
@@ -98,7 +99,7 @@ def _ctx(message: str, locale: str = "en") -> StreamContext:
             chat_id=uuid4(),
             user_timezone="UTC",
             user_message_content=message,
-            prompt_messages=[],
+            prompt_messages=[*(earlier if prior else []), {"role": "user", "content": message}],
             skip_memory_jobs=True,
         ),
     )
@@ -113,10 +114,15 @@ _ES_LINE = "Puedes añadirlo o cambiarlo en **Tareas**."
 @pytest.mark.parametrize(
     ("reply", "kept"),
     [
-        # The model wrote a reminder anyway: no card, the To-do button instead.
+        # The model wrote a reminder anyway: no card, the server's line and button instead.
         (
             'Claro.\n\n```reminder\n{"title": "Llamar a mamá", "due_at": "2026-10-24T09:00:00"}\n```',
-            f"Claro.\n\n{_LINK}",
+            f"{_ES_LINE}\n\n{_LINK}",
+        ),
+        # Live, beside the button: "Done. I've added Buy milk…" for a change nothing made.
+        (
+            f"Ya está. He añadido **Comprar leche** para mañana a las 17:00.\n\n{_LINK}",
+            f"{_ES_LINE}\n\n{_LINK}",
         ),
         # A reply with no words of its own still says, in Spanish, where to go.
         ('```reminder\n{"title": "Llamar a mamá"}\n```', f"{_ES_LINE}\n\n{_LINK}"),
@@ -126,8 +132,8 @@ _ES_LINE = "Puedes añadirlo o cambiarlo en **Tareas**."
             f'```sources\n[{{"title": "EAT", "url": "https://time.example"}}]\n```\n\n{_LINK}',
             f"{_ES_LINE}\n\n{_LINK}",
         ),
-        # The model already offered the button: it stays, once, last.
-        (f"Puedes añadirlo en Tareas.\n\n{_LINK}", f"Puedes añadirlo en Tareas.\n\n{_LINK}"),
+        # The model already offered the button: the server's line says the same.
+        (f"Puedes añadirlo en Tareas.\n\n{_LINK}", f"{_ES_LINE}\n\n{_LINK}"),
         # A read of the list is left as it is.
         ("Hoy tienes: llamar a mamá.", "Hoy tienes: llamar a mamá."),
     ],
@@ -164,6 +170,30 @@ async def test_the_line_above_a_bare_button_is_in_the_message_s_language(
         deps, AsyncMock(), Settings(), _ctx(message, locale), _LINK, None
     )
     assert text == f"{line}\n\n{_LINK}"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("message", "prior", "locale"),
+    [
+        # The answer to "¿cuándo?" has no language of its own: the Spanish chat decides.
+        ("a las 5", "añade comprar leche a mis tareas", "en"),
+        ("17:00", "recuérdame llamar a mamá", "en"),
+        # A Spanish user's first message with no language of its own.
+        ("leche 17:00", None, "es"),
+    ],
+)
+async def test_an_answer_in_a_spanish_chat_never_writes_a_to_do(
+    message: str, prior: str | None, locale: str
+) -> None:
+    materialize = AsyncMock(return_value=("unused", 1))
+    deps = turn_deps(todos={"materialize_reminder_fences": materialize})
+    reply = '```reminder\n{"title": "Comprar leche", "due_at": "2026-10-24T17:00:00"}\n```'
+    text = await apply_reminder_pass(
+        deps, AsyncMock(), Settings(), _ctx(message, locale, prior), reply, None
+    )
+    assert text == f"{_ES_LINE}\n\n{_LINK}"
+    materialize.assert_not_called()
 
 
 @pytest.mark.asyncio
