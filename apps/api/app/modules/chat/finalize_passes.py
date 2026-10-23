@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.modules.chat.emoji_placement import place_reply_emoji
 from app.modules.chat.finalize_money import attach_money_card
 from app.modules.chat.finalize_parts import (
     add_settings_card,
@@ -140,6 +141,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("search_links", unlink_unretrieved_links, OnError(log_as="search_links")),
     FinalizePass("generic_closer", strip_generic_closer, OnError(log_as="generic_closer")),
     FinalizePass("meta_notes", lambda s: unwrap_meta_notes(s.text), OnError(log_as="meta_notes")),
+    FinalizePass("emoji_use", place_reply_emoji, OnError(log_as="emoji_use")),
     FinalizePass("answer_photo", attach_answer_photo, FALL_BACK),
     FinalizePass("reply_picture", attach_reply_picture, FALL_BACK),
     FinalizePass(
@@ -199,6 +201,7 @@ STOPPED_REPLY_PASSES = frozenset(
         "answer_labels",
         "untrusted_media",
         "meta_notes",
+        "emoji_use",
         "answer_photo",
         "server_answer_cards",
         "text_plots",
