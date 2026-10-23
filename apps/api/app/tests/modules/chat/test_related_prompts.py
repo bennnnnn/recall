@@ -454,6 +454,40 @@ async def test_drafts_reminders_updates_and_small_talk_get_no_follow_ups(
     complete.assert_not_called()
 
 
+_CLARIFY_FIRST = (
+    "Happy to help you pick one.\n\n```clarify\n"
+    '{"when":"first","questions":[{"id":"budget","label":"Budget","question":"What is your '
+    'budget?","options":["Under $500","$500 to $1,000","Over $1,000"],"multi":false},'
+    '{"id":"use","label":"Main use","question":"What will you mostly use it for?",'
+    '"options":["School and browsing","Gaming","Video editing"],"multi":false}]}\n```'
+)
+_REMINDER_CARD = (
+    f"{SOURDOUGH_REPLY}\n\nHere's the reminder: tap to save it.\n\n```reminder_proposal\n"
+    '{"proposal_id": "p1", "tz": "Africa/Nairobi", "items": [{"action": "add", '
+    '"title": "Feed the starter", "due_at": "2026-10-26T06:00:00Z", '
+    '"when": "Monday, Oct 26, 9:00 AM"}]}\n```'
+)
+
+
+@pytest.mark.parametrize(
+    ("question", "answer"),
+    [
+        ("Which laptop should I buy?", _CLARIFY_FIRST),
+        (SOURDOUGH, f"{SOURDOUGH_REPLY}\n\n{_CLARIFY_FIRST.split(chr(10), 2)[2]}"),
+        (f"{SOURDOUGH} Also add a reminder to feed it on Monday at 9am", _REMINDER_CARD),
+    ],
+    ids=["clarify-first", "clarify-after", "reminder-card"],
+)
+def test_a_card_waiting_for_a_tap_gets_no_follow_ups(question: str, answer: str) -> None:
+    from app.modules.chat.related_questions import follow_up_topic
+
+    assert follow_up_topic(question, answer, None, allow_general=True) is None
+    # The same reply without its card would get them.
+    plain = answer.split("```", 1)[0].strip()
+    if len(plain) > 280:
+        assert follow_up_topic(question, plain, None, allow_general=True) == ("general", None)
+
+
 async def test_a_short_reply_or_a_greeting_turn_gets_no_everyday_follow_ups(fake_redis) -> None:
     with patch(
         "app.modules.chat.related_prompts.complete_structured",

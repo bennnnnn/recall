@@ -12,6 +12,7 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
+from app.modules.chat.clarify_card import CLARIFY_FENCE
 from app.modules.chat.continuation_subject import (
     BIOLOGY_CUES,
     is_new_problem_request,
@@ -22,7 +23,7 @@ from app.modules.chat.prompt_constants.routing import (
     is_personal_disclosure_turn,
 )
 from app.modules.chat.prompt_constants.writing_kind import writing_request_kind
-from app.services.md_fence_scan import read_fence_marker
+from app.services.md_fence_scan import iter_fences, read_fence_marker
 from app.services.problem_followup import message_role_content
 from app.services.subject_solving import detect_subject
 from app.services.text_normalize import collapse_ws
@@ -439,6 +440,11 @@ def general_question(question: str, answer: str) -> bool:
     return len(answer_excerpt(answer)) >= _GENERAL_MIN_ANSWER_CHARS
 
 
+# A card the user answers with a tap is the reply's next step: a clarify card's
+# picks, or a reminder to confirm. Follow-up questions under it would compete.
+_AWAITS_A_TAP = frozenset({CLARIFY_FENCE, "reminder_proposal"})
+
+
 def follow_up_topic(
     question: str,
     answer: str,
@@ -447,6 +453,8 @@ def follow_up_topic(
     allow_general: bool,
 ) -> tuple[str, str | None] | None:
     """("subject", problem) or ("general", None); None makes no call."""
+    if any(fence.lang in _AWAITS_A_TAP for fence in iter_fences(answer)):
+        return None
     problem = thread_problem(question, prior)
     if problem is not None:
         return "subject", problem
