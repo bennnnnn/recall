@@ -52,11 +52,22 @@ TODO_HINT = (
     "Bulk moves of every reminder due today still sync after your reply; do not invent "
     "which items remain.\n"
     "A message in another language that asks to add, change, complete or delete a to-do "
-    "gets no reminder fence: one short line in their language saying they can do it in "
+    "gets no reminder fence and no question about when or what: one short line in their "
+    "language saying they can do it themselves in "
     "their To-do list (in the app: Tareas, Tâches, Aufgaben, Attività, Tarefas, Задачи, "
     "Yapılacaklar, የሚደረጉ), then an empty ```todo_link fence last, which the app shows as "  # noqa: RUF001 - the Turkish name for To-do has a dotless i
     "a button that opens the list. Never say it was added or changed. Questions about "
     "their to-dos are answered from **To-do** in every language.\n"
     "Parse relative dates using the user's local time in the prompt. Do not invent dates. "
     "Call this feature To-do, not Schedule or Calendar."
+)
+
+# Added for a turn whose to-dos chat may only read (modules/todos/chat_language).
+TODO_READ_ONLY_TURN = (
+    "This turn can only read the user's to-dos: their message is not in English, and chat "
+    "adds and changes to-dos only from English. If it asks to add, change, complete or "
+    "delete one, do not ask when, for a time or for any detail, and do not offer to do it: "
+    "write one short line in their language saying they can do it themselves in their "
+    "To-do list, then an empty ```todo_link fence last. Never say it was added or changed. "
+    "Questions about their to-dos are answered from **To-do** as usual."
 )

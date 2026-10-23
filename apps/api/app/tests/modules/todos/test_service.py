@@ -2149,3 +2149,30 @@ async def test_build_todos_system_section_returns_hint_and_block():
     assert "two todo features" not in section
     assert TODO_HINT in section
     assert "Task" in section
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("query", "locale", "read_only"),
+    [
+        ("añade comprar leche a mis tareas", "en", True),
+        ("напомни завтра позвонить маме", "en", True),
+        # A question is still answered from the list; the line says so.
+        ("¿qué tengo hoy?", "en", True),
+        # English writes, whatever the app language.
+        ("add milk to my tasks", "es", False),
+        ("show my tasks", "en", False),
+    ],
+)
+async def test_a_turn_in_another_language_is_told_it_only_reads_to_dos(
+    query: str, locale: str, read_only: bool
+) -> None:
+    from app.modules.todos.prompt_hint import TODO_READ_ONLY_TURN
+
+    user = MagicMock(id=uuid4(), timezone="UTC", locale=locale)
+    with patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[_item("Task")])):
+        section = await todos_service.build_todos_system_section(
+            fake_session(), user, Settings(), query_text=query
+        )
+    assert section is not None
+    assert (TODO_READ_ONLY_TURN in section) is read_only

@@ -96,5 +96,56 @@
   "prompt": "напомни мне завтра в 9 позвонить маме",
   "reply": "```sources\n[{\"title\": \"Moscow time\", \"url\": \"https://time.example/moscow\"}]\n```\n\n```todo_link\n```",
   "expect": "todo_screen"
+ },
+ {
+  "id": "tl-015",
+  "area": "todo language",
+  "history": [
+   [
+    "user",
+    "añade comprar leche a mis tareas"
+   ],
+   [
+    "assistant",
+    "¿Para cuándo quieres que lo añada?"
+   ]
+  ],
+  "prompt": "a las 5",
+  "reply": "```reminder\n{\"title\": \"Comprar leche\", \"due_at\": \"2026-10-24T17:00:00\"}\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "tl-016",
+  "area": "todo language",
+  "history": [
+   [
+    "user",
+    "напомни позвонить маме"
+   ],
+   [
+    "assistant",
+    "Во сколько?"
+   ]
+  ],
+  "prompt": "17:00",
+  "reply": "Хорошо.\n\n```reminder\n{\"title\": \"Позвонить маме\", \"due_at\": \"2026-10-24T17:00:00\"}\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "tl-017",
+  "area": "todo language",
+  "history": [
+   [
+    "user",
+    "remind me to buy milk tomorrow"
+   ],
+   [
+    "assistant",
+    "What time tomorrow?"
+   ]
+  ],
+  "prompt": "5pm",
+  "reply": "```reminder\n{\"title\": \"Buy milk\", \"due_at\": \"2026-10-24T17:00:00\"}\n```",
+  "expect": "save"
  }
 ]

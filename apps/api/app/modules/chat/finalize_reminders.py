@@ -55,11 +55,13 @@ async def apply_reminder_pass(
 
     A failure keeps the text it was given: every pass before this one succeeded.
     """
-    # A message in another language makes its to-do changes in To-do: the server reads
-    # a change against the user's words in English (docs: modules/todos/chat_language).
-    if todos_service.writes_todos_in_todo_screen(ctx.user_message_content):
-        language = todos_service.message_language(ctx.user_message_content)
-        return offer_todo_screen(text, language or (ctx.user.locale if ctx.user else None))
+    # Chat in another language only reads to-dos; changes are made in To-do: the server
+    # reads a change against the user's words in English (docs: modules/todos/chat_language).
+    message, prior = ctx.user_message_content, _prior_text(ctx, "user")
+    locale = ctx.user.locale if ctx.user else None
+    if todos_service.writes_todos_in_todo_screen(message, prior_user=prior, locale=locale):
+        language = todos_service.message_language(message) or todos_service.message_language(prior)
+        return offer_todo_screen(text, language or locale)
     try:
         given = text
         text, created = await _materialize(deps, redis, settings, ctx, text)

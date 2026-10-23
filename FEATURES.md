@@ -965,10 +965,14 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   and that reading is English. A message in another app language reads its to-dos in chat
   ("¿qué tengo hoy?" loads the list) but adds or changes them in To-do: the reply says so in
   one line and ends on an **Open To-do** button (` ```todo_link `). A ` ```reminder ` the
-  model writes anyway becomes the button, never the English "When should I remind you?".
-  The language is read per message (`todos/chat_language.py`): another script, or two
+  model writes anyway becomes the button, never the English "When should I remind you?";
+  a reply with no line of its own gets one from the server, in that language. The
+  language is read from the message (`todos/chat_language.py`): another script, or two
   words only Spanish, French, German, Italian, Portuguese or Turkish use; any English to-do
-  word keeps a mixed message English.
+  word keeps a mixed message English. A message with no language of its own ("a las 5",
+  "17:00", "sí") follows the user's previous message, then their app language, so the
+  answer to a question asked in Spanish never writes either. Live talk follows the same
+  rule: speech in another language never saves a reminder.
 - ✅ **LLM todo sync** — ` ```reminder ` fences and the spoken rules become reminder cards
   (above); with cards off they apply on persist (create + mutations), and a background job
   recovers missed writes from chat (dated items only). The job is off while cards are on,

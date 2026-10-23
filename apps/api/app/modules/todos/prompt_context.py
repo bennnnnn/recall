@@ -10,8 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.models.orm import TodoItem, User
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.chat_language import writes_todos_in_todo_screen
 from app.modules.todos.classification import query_implies_todos
-from app.modules.todos.prompt_hint import TODO_HINT
+from app.modules.todos.prompt_hint import TODO_HINT, TODO_READ_ONLY_TURN
 from app.modules.todos.repository import DEFAULT_TOPIC
 from app.services import day_planning as day_planning_service
 from app.services import time_context as time_context_service
@@ -276,4 +277,7 @@ async def build_todos_system_section(
     items = await todos_repo.list_for_user(session, user.id, limit=settings.todo_inject_limit)
     selected = select_todos_for_prompt(items, settings, query_text=query_text, user_timezone=tz)
     block = format_todos_block(selected, user_timezone=tz)
-    return f"{TODO_HINT}\n\n{block}" if block else TODO_HINT
+    hint = TODO_HINT
+    if writes_todos_in_todo_screen(query_text, locale=user.locale):
+        hint = f"{TODO_HINT}\n\n{TODO_READ_ONLY_TURN}"
+    return f"{hint}\n\n{block}" if block else hint

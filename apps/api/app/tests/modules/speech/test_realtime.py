@@ -30,7 +30,9 @@ def test_realtime_instructions_include_bounded_chat_history():
     assert "assistant: earlier answer" in prompt
     assert "Recent conversation context:" in prompt
     assert "UNTRUSTED CONTENT — memory" not in prompt
-    assert "Do not say you cannot create reminders." in prompt  # safety phrase
+    assert "In English, do not say you cannot create reminders." in prompt  # safety phrase
+    # Another language only reads to-dos: the voice points to To-do instead of asking when.
+    assert "In any other language the app only reads their to-dos" in prompt  # safety phrase
     assert "create reminders, or change settings" not in prompt
 
 
@@ -547,7 +549,7 @@ def test_realtime_session_injects_schedule_snapshot():
     assert r.status_code == 200
     instructions = mint.await_args.kwargs["instructions"]
     assert "Today: Call mom at 17:00" in instructions
-    assert "Do not say you cannot create reminders." in instructions  # safety phrase
+    assert "In English, do not say you cannot create reminders." in instructions  # safety phrase
 
 
 def test_realtime_session_mints_when_memory_load_returns_empty():

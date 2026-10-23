@@ -50,13 +50,16 @@ _LIVE_TALK_SCHEDULE_HINT = (
     "Recall Schedule holds the user's dated reminders. If they ask what's due or on their "
     "schedule, answer from the list below (or say it is empty). Do not invent items. "
     "Speak day names and clock times. "
-    "The app can save a reminder only when they say remind me … today, tomorrow, or a weekday "
-    "at an exact clock with am or pm (for example 5pm or 7:30 am). "
+    "The app can save a reminder only when they say, in English, remind me … today, tomorrow, "
+    "or a weekday at an exact clock with am or pm (for example 5pm or 7:30 am). "
     "Do not say the reminder is saved, set, or on their schedule. The app applies it after "
     "this turn and appends the result (or a failure). "
     "If they omit the clock or use a date that is not today, tomorrow, or a weekday, ask them "
     "to rephrase with a clock and am/pm, or to type it in chat. Never invent a time. "
-    "Do not say you cannot create reminders."
+    "In English, do not say you cannot create reminders. In any other language the app only "
+    "reads their to-dos: when they ask to add, change, complete or delete one, do not ask for "
+    "a time or details; say in their language that they can do it themselves in their To-do "
+    "list, and never say it was saved."
 )
 
 
@@ -290,6 +293,34 @@ async def load_live_talk_session_context(
     )
 
 
+async def _save_spoken_reminders(
+    session: AsyncSession, user: User, chat_id: UUID, assistant: str, said: str | None
+) -> str:
+    """The reply with the reminders the user said applied; the reply itself on failure.
+
+    Speech in another language only reads to-dos, as chat does: nothing is saved, and
+    the reply has already pointed them to To-do (docs: modules/todos/chat_language).
+    """
+    if todos_service.writes_todos_in_todo_screen(said, locale=user.locale):
+        return assistant
+    try:
+        # Its own savepoint: a reminder write that fails undoes only
+        # itself, and both message rows still commit after.
+        async with session.begin_nested():
+            updated, _applied = await todos_service.materialize_reminder_fences(
+                session,
+                user_id=user.id,
+                chat_id=chat_id,
+                assistant_text=assistant,
+                user_timezone=user.timezone,
+                user_text=said or None,
+            )
+        return updated
+    except Exception:
+        logger.exception("Live talk reminder materialize failed chat_id=%s", chat_id)
+        return assistant
+
+
 async def persist_live_talk_turn(
     *,
     user: User,
@@ -340,24 +371,12 @@ async def persist_live_talk_turn(
                     content=assistant_content,
                     model=LIVE_TALK_ALIAS,
                 )
-                tz = user.timezone
-                try:
-                    # Its own savepoint: a reminder write that fails undoes only
-                    # itself, and both message rows still commit below.
-                    async with session.begin_nested():
-                        updated, _applied = await todos_service.materialize_reminder_fences(
-                            session,
-                            user_id=user.id,
-                            chat_id=chat_id,
-                            assistant_text=assistant_content,
-                            user_timezone=tz,
-                            user_text=user_content or None,
-                        )
-                    if updated != assistant_content and assistant_message is not None:
-                        assistant_message.content = updated
-                        assistant_content = updated
-                except Exception:
-                    logger.exception("Live talk reminder materialize failed chat_id=%s", chat_id)
+                updated = await _save_spoken_reminders(
+                    session, user, chat_id, assistant_content, user_content
+                )
+                if updated != assistant_content:
+                    assistant_message.content = updated
+                    assistant_content = updated
             await session.commit()
             if user_message is not None:
                 await session.refresh(user_message)

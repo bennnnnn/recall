@@ -111,3 +111,26 @@ def test_an_unknown_language_gets_the_english_line() -> None:
     assert (
         todo_screen_line(None) == todo_screen_line("xx") == "You can add or change it in **To-do**."
     )
+
+
+@pytest.mark.parametrize(
+    ("text", "prior", "locale", "read_only"),
+    [
+        # An answer to a question asked in Spanish follows the chat: it never writes.
+        ("a las 5", "añade comprar leche a mis tareas", "en", True),
+        ("17:00", "recuérdame llamar a mamá", "en", True),
+        ("sí", "напомни позвонить маме", "en", True),
+        # With nothing earlier to go by, the app language decides.
+        ("17:00", "", "es", True),
+        ("17:00", None, "en", False),
+        # An English chat, or an English to-do word, still writes.
+        ("5pm", "remind me to call mom", "es", False),
+        ("remind me at 5pm", "recuérdame llamar a mamá", "es", False),
+        # A message with a language of its own decides alone.
+        ("recuérdame mañana a las 9", "remind me to call mom", "en", True),
+    ],
+)
+def test_a_message_with_no_language_of_its_own_follows_the_chat(
+    text: str, prior: str | None, locale: str, read_only: bool
+) -> None:
+    assert writes_todos_in_todo_screen(text, prior_user=prior, locale=locale) is read_only
