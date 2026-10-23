@@ -39,3 +39,26 @@ describe("sampled conic graph rendering", () => {
     }
   });
 });
+
+describe("what the card opens on", () => {
+  const plotted = () =>
+    mockPolyline.mock.calls.flatMap(([props]) =>
+      String(props.points).split(" ").map((point) => point.split(",").map(Number)),
+    );
+  const inPlot = ([px, py]: number[]) => px >= 16 && px <= 336 - 16 && py >= 16 && py <= 220 - 16;
+
+  it.each([
+    ["x = 8", { type: "vertical", expr: "x = 8", x: 8, y_min: -10, y_max: 10, x_min: 0, x_max: 16 }],
+    ["y = 7", {
+      type: "function",
+      expr: "7",
+      points: Array.from({ length: 96 }, (_, i) => [-10 + (20 * i) / 95, 7]),
+    }],
+  ])("draws %s inside the plot, not past its edge", async (_name, fence) => {
+    mockPolyline.mockClear();
+    await render(<FunctionGraphBlock content={JSON.stringify(fence)} />);
+    const points = plotted();
+    expect(points.length).toBeGreaterThan(1);
+    expect(points.some(inPlot)).toBe(true);
+  });
+});

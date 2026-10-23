@@ -1,11 +1,7 @@
 /** Bounds, ticks, axis formatting and point mapping for ```graph blocks. */
-import { defaultInteractiveBounds, type GraphView } from "@/lib/math/graphViewport";
 import { mapPointW, niceStepW } from "@/lib/math/graphWorklets";
 import { toSuperscript } from "@/lib/unicodeSupSub";
-import {
-  type NumberLineInterval,
-  type GraphSpec,
-} from "@/lib/math/graphSpec";
+import { type NumberLineInterval } from "@/lib/math/graphSpec";
 
 export function graphBounds(
   points: [number, number][],
@@ -335,27 +331,6 @@ export function functionPlotBounds(
   );
   if (isTallFeatureWindow(school, plotAspect)) return school;
   return equalScaleGraphBounds(school, plotAspect);
-}
-
-/**
- * Initial interactive viewport for a verified function graph.
- *
- * Ordinary graphs get the familiar adaptive school window. When the learner
- * explicitly asks for an x-domain, keep those exact horizontal endpoints and
- * use the sampled curve only to choose a readable vertical crop. The view is
- * still fully pinchable and pannable after it opens.
- */
-export function interactiveFunctionBounds(
-  spec: GraphSpec,
-  plotAspect: number,
-): GraphView {
-  const fallback = defaultInteractiveBounds(plotAspect);
-  if (spec.type !== "function" || !spec.domain_explicit) return fallback;
-  const xMin = Number(spec.x_min);
-  const xMax = Number(spec.x_max);
-  if (!Number.isFinite(xMin) || !Number.isFinite(xMax) || xMax <= xMin) return fallback;
-  const fitted = functionPlotBounds(spec.points, spec.points2, plotAspect);
-  return { ...fitted, xMin, xMax };
 }
 
 /** Expand a chosen window so one x unit and one y unit occupy equal pixels. */
