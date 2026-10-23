@@ -1,5 +1,6 @@
 import {
   answersFromMessage,
+  asksWithCard,
   canSubmitClarify,
   clarifyMessage,
   clarifyText,
@@ -210,5 +211,19 @@ describe("clarifyText", () => {
       "Have you studied integrals before? (No, never / A little / Yes, I'm revising)\n" +
         "What do you need it for? (An exam / A class / Curiosity)",
     );
+  });
+});
+
+describe("asksWithCard", () => {
+  it("is true for a reply that asks with a card", () => {
+    expect(asksWithCard(`Two quick questions:\n\n\`\`\`clarify\n${INTEGRALS}\n\`\`\``)).toBe(true);
+  });
+
+  it.each([
+    ["no card", "Integrals add up tiny pieces."],
+    ["a card that does not parse", "Q:\n\n```clarify\n{\"when\": \"first\"}\n```"],
+    ["a card still streaming", `Q:\n\n\`\`\`clarify\n${INTEGRALS}`],
+  ])("is false for %s", (_name, content) => {
+    expect(asksWithCard(content)).toBe(false);
   });
 });

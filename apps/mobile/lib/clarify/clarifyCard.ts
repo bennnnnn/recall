@@ -8,6 +8,7 @@
  * already normalised, and strict where a wrong shape would draw a broken card.
  */
 import { parseJsonRecord } from "@/lib/jsonFence";
+import { collectClosedFenceBodies } from "@/lib/mdFenceScan";
 
 export type ClarifyQuestion = {
   id: string;
@@ -95,6 +96,14 @@ function answerValues(question: ClarifyQuestion, answer: ClarifyAnswer | undefin
 }
 
 /** Every question has a pick, or "Other…" text that is not blank. */
+/**
+ * True when a reply asks with a card. Its follow-up is the card itself, so suggested
+ * questions under it ("What is your budget?") only repeat what it asks.
+ */
+export function asksWithCard(content: string): boolean {
+  return collectClosedFenceBodies(content, "clarify").some((body) => parseClarifyCard(body) !== null);
+}
+
 export function canSubmitClarify(card: ClarifyCard, answers: ClarifyAnswers): boolean {
   return card.questions.every((question) => answerValues(question, answers[question.id]).length > 0);
 }

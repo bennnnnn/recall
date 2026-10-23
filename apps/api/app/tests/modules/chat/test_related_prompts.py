@@ -584,3 +584,31 @@ def test_follow_up_suggestions_are_on_by_default_and_can_be_turned_off() -> None
     column = User.__table__.c.follow_up_suggestions_enabled
     assert column.default.arg is True and column.server_default is not None
     assert UserUpdate(follow_up_suggestions_enabled=False).follow_up_suggestions_enabled is False
+
+
+# The reply seen live, whose follow-ups only repeated the card's questions.
+_LAPTOP_CARD = (
+    "To give you a recommendation that actually fits your needs, I need to know what "
+    "you'll be doing with it and how much you're willing to spend. A student needs "
+    "something different than a video editor or a gamer.\n\n```clarify\n"
+    '{"when":"first","questions":[{"id":"budget","label":"Budget range","question":"What '
+    'is your budget?","options":["Under $600","$600 - $1,200","$1,200 - $2,500","No '
+    'limit"],"multi":false},{"id":"use","label":"Primary use","question":"What will you '
+    'primarily use the laptop for?","options":["Web browsing & office work","Programming '
+    '& development","Photo/video editing","Gaming"],"multi":false}]}\n```'
+)
+
+
+def test_a_reply_that_asks_with_a_card_gets_no_follow_ups() -> None:
+    from app.modules.chat.related_questions import follow_up_topic
+
+    question = "which laptop should I buy"
+    assert follow_up_topic(question, _LAPTOP_CARD, None, allow_general=True) is None
+    answered = (
+        "For programming on a mid-range budget, the **MacBook Air M3** is the best all-round "
+        "pick: it compiles fast, stays silent and lasts a full day on battery.\n\n"
+        "- **Windows alternative:** the Dell XPS 14 has a great keyboard and screen.\n"
+        "- **Budget pick:** a Lenovo IdeaPad with 16 GB of RAM handles most coding work.\n\n"
+        "Whichever you choose, get at least 16 GB of RAM and a 512 GB SSD."
+    )
+    assert follow_up_topic(question, answered, None, allow_general=True) is not None

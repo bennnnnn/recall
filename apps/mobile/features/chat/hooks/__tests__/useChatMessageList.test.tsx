@@ -155,3 +155,24 @@ describe("a reply's row from its first token to `done`", () => {
     await view.unmount();
   });
 });
+
+describe("follow-up questions", () => {
+  it("are not shown under a reply that asks with a card", async () => {
+    const card = JSON.stringify({
+      when: "first",
+      questions: [
+        { id: "budget", label: "Budget", question: "What is your budget?", options: ["Low", "High"], multi: false },
+      ],
+    });
+    const asks = {
+      ...live,
+      id: "m-2",
+      content: `Two quick questions:\n\n\`\`\`clarify\n${card}\n\`\`\``,
+      model: "free-chat",
+      related_prompts: ["What is your budget?"],
+    };
+    const view = await render(<Rows messages={[user, asks]} streaming={false} />);
+    expect(view.queryByTestId("related-prompts")).toBeNull();
+    await view.unmount();
+  });
+});
