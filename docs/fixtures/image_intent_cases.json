@@ -742,6 +742,19 @@
     {"text": "make it blue", "thread": "after_picture", "attached": true, "generate": "make it blue", "revision": true},
     {"text": "what's in this image?", "thread": "empty", "attached": true},
     {"text": "makeover ideas", "thread": "empty", "attached": true},
+    {"text": "make a caption for this photo", "thread": "empty", "attached": true},
+    {"text": "turn this into a table", "thread": "empty", "attached": true},
+    {"text": "make flashcards from this", "thread": "empty", "attached": true},
+    {"text": "make a quiz from this page", "thread": "empty", "attached": true},
+    {"text": "make notes from this", "thread": "empty", "attached": true},
+    {"text": "make a summary of this page", "thread": "empty", "attached": true},
+    {"text": "make a recipe from this", "thread": "empty", "attached": true},
+    {"text": "edit my essay", "thread": "empty", "attached": true},
+    {"text": "make a reminder from this flyer", "thread": "empty", "attached": true},
+    {"text": "turn this into a flowchart", "thread": "empty", "attached": true},
+    {"text": "turn this into an anime character", "thread": "empty", "attached": true, "generate": "turn this into an anime character", "revision": true},
+    {"text": "make it look like a Van Gogh painting", "thread": "empty", "attached": true, "generate": "make it look like a Van Gogh painting", "revision": true},
+    {"text": "make this a meme", "thread": "empty", "attached": true, "generate": "make this a meme", "revision": true},
     {"text": "show me an ear", "thread": "empty", "attached": true}
   ]
 }

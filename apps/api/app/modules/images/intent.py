@@ -16,7 +16,12 @@ from uuid import UUID
 
 from app.core.db import SessionLocal
 from app.modules.chat import history as chat_history
-from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject
+from app.modules.images.gen_intent import (
+    extract_image_gen_prompt,
+    has_non_image_subject,
+    names_a_diagram,
+    stem_subject,
+)
 from app.modules.images.gen_intent_thread import (
     could_be_image_revision,
     could_be_image_thread_followup,
@@ -71,9 +76,15 @@ def image_reference_ids(content: str) -> list[UUID]:
 
 
 def extract_attached_image_edit_prompt(text: str) -> str | None:
-    """``make it blue`` over an attached picture edits it; a question about it does not."""
+    """``make it blue`` over an attached picture edits it; a question about it does not.
+
+    Nor does text made from it: "turn this into a table", "make flashcards from this"
+    and "make a caption for this photo" read the photo and answer in words.
+    """
     cleaned = text.strip()
     if len(cleaned) > _MAX_ATTACHED_EDIT or _ATTACHED_EDIT.match(cleaned) is None:
+        return None
+    if has_non_image_subject(cleaned) or names_a_diagram(cleaned):
         return None
     return cleaned
 
