@@ -5,9 +5,11 @@ import { useTodosOptional } from "@/features/todos/context/TodosContext";
 import {
   isProposalSaved,
   markProposalSaved,
+  proposalAction,
   type ReminderProposal,
 } from "@/features/todos/model/reminderProposal";
 import { api, type Todo } from "@/lib/api";
+import { notifyDestructive, notifySuccess, notifyWarning } from "@/lib/haptics";
 
 type ReminderProposalError = "expired" | "changed" | "failed";
 
@@ -36,6 +38,9 @@ export function useReminderProposal(proposal: ReminderProposal) {
       const saved = await api.confirmReminderProposal(token, proposal.proposalId);
       markProposalSaved(proposal.proposalId);
       setDone(true);
+      // One haptic for the tap, when the card is saved (a delete, as every delete does).
+      if (proposalAction(proposal) === "delete") notifyDestructive();
+      else notifySuccess();
       // The rows the tap wrote, applied as they are (code-health audit NET-16); a card
       // another device saved first sends none, and the list is read again.
       if (saved.todos) todos?.setTodos((rows) => applySavedRows(rows, saved.todos ?? [], saved.deleted_ids));
@@ -44,6 +49,7 @@ export function useReminderProposal(proposal: ReminderProposal) {
       // ApiRequestError carries the HTTP status: 410 expired, 409 changed since.
       const status = (caught as { status?: unknown } | null)?.status;
       setError(status === 410 ? "expired" : status === 409 ? "changed" : "failed");
+      notifyWarning();
     } finally {
       setBusy(false);
     }
