@@ -59,17 +59,20 @@ _IMPLICIT_TIMES = re.compile(r"(\d)\s*\*\s*(?=[A-Za-z(])")
 _ABS_CALL = re.compile(r"\bAbs\(([^()]*)\)")
 _SQRT_CALL = re.compile(r"\bsqrt\(")
 _SIMPLE = re.compile(r"[A-Za-z0-9.]+")
+# One fraction part that needs no brackets: ``3``, ``x``, ``x^2``, ``x_1``.
+_SIMPLE_PART = re.compile(r"[A-Za-z0-9.]+(?:[\^_][A-Za-z0-9.]+)?")
 
 
 def _fraction(match: re.Match[str]) -> str:
     """``\\frac{1}{2}x`` is ``(1/2)x``; a fraction standing alone needs no brackets."""
     top, bottom = match.group(1).strip(), match.group(2).strip()
-    top = top if _SIMPLE.fullmatch(top) else f"({top})"
-    bottom = bottom if _SIMPLE.fullmatch(bottom) else f"({bottom})"
+    top = top if _SIMPLE_PART.fullmatch(top) else f"({top})"
+    bottom = bottom if _SIMPLE_PART.fullmatch(bottom) else f"({bottom})"
     before = match.string[: match.start()].rstrip()[-1:]
     after = match.string[match.end() :].lstrip()[:1]
+    # A power binds tighter than the bar: \frac{2}{3}^{2} is (2/3)^2.
     glued = (before and (before.isalnum() or before in ")^_")) or (
-        after and (after.isalnum() or after in "(\\")
+        after and (after.isalnum() or after in "(\\^")
     )
     return f"({top}/{bottom})" if glued else f"{top}/{bottom}"
 
@@ -93,15 +96,19 @@ def student_reading(source: str) -> str:
     text = _SIZING.sub("", text)
     text = _TEXT.sub(r"\1", text)
     text = _MATHBB.sub(lambda m: _BLACKBOARD[m.group(1)], text)
+    # Symbols first: a degree sign is written as a superscript (``^{\circ}``).
+    for latex, glyph in _SYMBOLS:
+        text = re.sub(re.escape(latex) + r"(?![A-Za-z])", glyph, text)
+    # Innermost groups first: the power in ``\frac{x^{2}-1}{x-1}`` is read before
+    # the fraction around it can be.
     for _ in range(4):
         before = text
+        text = _SCRIPT.sub(_script, text)
         text = _FRAC.sub(_fraction, text)
         text = _SQRT_INDEX.sub(_root, text)
         text = _SQRT.sub(lambda m: f"√({m.group(1).strip()})", text)
         if text == before:
             break
-    for latex, glyph in _SYMBOLS:
-        text = re.sub(re.escape(latex) + r"(?![A-Za-z])", glyph, text)
     text = _SPACES.sub(" ", text)
     text = _NAMED.sub(r"\1", text)
     text = _INTEGRAL.sub("∫", text)

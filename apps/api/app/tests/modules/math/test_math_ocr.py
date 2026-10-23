@@ -230,6 +230,15 @@ async def test_read_back_keeps_the_printed_condition() -> None:
         (r"\( 1.5 x=6 \)", "1.5 x=6"),
         (r"\( 12.5 \div 2.5 \)", "12.5 ÷ 2.5"),
         (r"1. \( 0.5 x+2=3 \)", "0.5 x+2=3"),
+        # A power inside a fraction or a root is read, not left as LaTeX.
+        (r"\( \frac{x^{2}-1}{x-1}=4 \)", "(x^2-1)/(x-1)=4"),
+        (r"\( \frac{3}{x^{2}}=12 \)", "3/x^2=12"),
+        (r"\( \sqrt{x^{2}+9}=5 \)", "√(x^2+9)=5"),
+        (r"\( \frac{\sqrt{x^{2}+1}}{x_{1}} \)", "(√(x^2+1))/x_1"),
+        (r"\( x^{\frac{3}{2}}=8 \)", "x^(3/2)=8"),
+        (r"\( 30^{\circ} \)", "30°"),
+        (r"\( \frac{2}{3}^{2} \)", "(2/3)^2"),
+        (r"\( \frac{2}{3} \div \frac{4}{5} \)", "2/3 ÷ 4/5"),
     ],
 )
 def test_student_reading_is_the_whole_problem_in_written_notation(
