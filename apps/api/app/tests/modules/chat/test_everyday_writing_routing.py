@@ -59,6 +59,10 @@ def _hints(text: str, prior: tuple[str, str] | None = None) -> list[str]:
         ("send my boss an email asking for Friday off", "email"),
         ("send Sara a text saying I'm running late", "message"),
         ("send my mom a message about dinner on Sunday", "message"),
+        # Recall cannot pass it on: a message for the user to send.
+        ("tell my landlord the heater is broken", "message"),
+        ("can you tell my boss I'm sick today", "message"),
+        ("let my team know that we moved the sync to 3pm", "message"),
         ("write a post for facebook about my new bakery opening", "social"),
         ("make a facebook post announcing our garage sale this weekend", "social"),
         ("make this more professional: hey can u send me the files asap", "rewrite"),
@@ -82,6 +86,11 @@ def test_everyday_writing_asks_read_as_their_deliverable(text: str, kind: str) -
         # Nothing pasted: "it" is the previous reply, not new text to send.
         "make it shorter",
         "make it rain",
+        # Advice, a story, a fortune: nothing to pass on.
+        "should I tell my boss I'm pregnant?",
+        "how do I tell my boss I'm quitting",
+        "tell my kids a bedtime story",
+        "tell my fortune",
     ],
 )
 def test_questions_and_bare_changes_are_not_new_drafts(text: str) -> None:

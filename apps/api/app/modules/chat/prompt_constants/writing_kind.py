@@ -40,6 +40,17 @@ _MESSAGE_WRITING = re.compile(
     re.IGNORECASE,
 )
 
+# "Tell my landlord the heater is broken", "let my team know we moved to 3pm":
+# Recall cannot pass it on, so it is a message to send. "Should I tell my boss
+# I'm pregnant?" asks for advice: the line has to start with the request.
+_TELL_RECIPIENT = re.compile(
+    r"^(?:(?:(?:can|could|would|will) you|please)[,\s]+)*"
+    r"(?:tell my [a-z'-]+(?: [a-z'-]+)? (?:that \w|(?:the|my|our|his|her|their|i|i'm|i'll|"
+    r"i've|we|we're|we'll|it|it's|he|she|they|there)\b)|"
+    r"let my [a-z'-]+(?: [a-z'-]+)? know\b)",
+    re.IGNORECASE,
+)
+
 # "How should I reply to 'we need to talk'?" asks for the reply itself when it
 # quotes or pastes the message; "how do I reply to emails faster" is advice.
 _REPLY_HOWTO = re.compile(
@@ -371,6 +382,8 @@ def writing_request_kind(text: str) -> str | None:
     ):
         if match := pattern.search(cleaned):
             shape_matches.append((match.start(), priority, kind))
+    if _TELL_RECIPIENT.match(cleaned):
+        shape_matches.append((0, 1, "message"))
     # "Escribe un correo a mi jefe…", "patronuma bir e-posta yaz".
     locale_kind = locale_draft_kind(cleaned)
     if locale_kind is not None:

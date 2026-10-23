@@ -1296,5 +1296,40 @@
   "prompt": "what should a cover letter for a nursing job include?",
   "reply": "Keep it to one page: which role you want and why that hospital, two or three results from your clinical work (the unit, the patients, what changed), and a closing line asking for an interview.",
   "expect": "answer"
+ },
+ {
+  "id": "wr-115",
+  "area": "writing",
+  "prompt": "tell my landlord the heater is broken again",
+  "reply": "```message\nHi, the heater in my apartment has stopped working again. Could you send someone to fix it this week? Thanks!\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-116",
+  "area": "writing",
+  "prompt": "let my team know the standup moves to 10am tomorrow",
+  "reply": "```message\nHi team, heads-up: tomorrow's standup moves to 10am. Same link as usual.\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-117",
+  "area": "draft lookalike",
+  "prompt": "should I tell my boss I'm pregnant before my 12 week scan?",
+  "reply": "There's no rule that says you have to tell them that early. Many people wait until after the 12-week scan, unless the job has physical risks or you need time off for appointments, in which case telling HR or your manager sooner gets you the protections you're entitled to.",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-118",
+  "area": "draft lookalike",
+  "prompt": "how do I tell my boss I'm quitting without burning bridges",
+  "reply": "Tell them in person (or on a call) before anyone else hears it, lead with thanks, give the notice your contract asks for, and offer to help hand over your work. Keep the reason short and positive.",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-119",
+  "area": "draft lookalike",
+  "prompt": "tell my kids a bedtime story about a dragon who is afraid of the dark",
+  "reply": "Once upon a time, in a cave high above the village, lived a little dragon named Pip who was afraid of the dark...",
+  "expect": "answer"
  }
 ]

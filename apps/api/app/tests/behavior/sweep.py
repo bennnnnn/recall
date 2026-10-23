@@ -116,6 +116,8 @@ LOOKALIKE_HINTS = {
     "walkthrough lookalike": "walkthrough",
     # "My resume got rejected, what am I doing wrong?" asks for advice, not a résumé.
     "record lookalike": "personal_record",
+    # "Should I tell my boss I'm pregnant?" asks for advice, not a message to send.
+    "draft lookalike": "email",
 }
 # Reminders already saved, so "mark call mom as done" has something to find.
 SEEDED = ("call mom", "dentist appointment", "gym", "pay rent", "read", "water the plants")
