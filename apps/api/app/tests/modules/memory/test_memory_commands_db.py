@@ -13,6 +13,7 @@ from sqlalchemy import select
 
 from app.core.config import Settings
 from app.models.orm import Chat, Memory, Message
+from app.models.schemas.common import MemorySensitivity
 from app.modules.memory.extraction_workflow import extract_and_store_memories
 from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.repositories import users as users_repo
@@ -95,7 +96,7 @@ async def _active(session, chat: Chat) -> list[str]:
     return sorted(rows.scalars())
 
 
-def _add(text: str, *, sensitivity: str = "normal") -> MemoryFactOp:
+def _add(text: str, *, sensitivity: MemorySensitivity = "normal") -> MemoryFactOp:
     return MemoryFactOp(
         op="add",
         topic="preferences",
