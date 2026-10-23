@@ -16,6 +16,8 @@ import { publishStreamingDraft } from "@/lib/streamingDraftStore";
 const mockMounts = new Map<string, number>();
 
 jest.mock("@/components/LinkPreviewCard", () => ({ LinkPreviewCard: "LinkPreviewCard" }));
+// The emoji setting is read from the signed-in user; these rows have none.
+jest.mock("@/contexts/AuthContext", () => ({ useAuthOptional: () => null }));
 jest.mock("@/features/chat/components/MessageActions", () => ({
   AssistantActions: () => null,
   UserActions: () => null,
