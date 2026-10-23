@@ -957,7 +957,7 @@
   "area": "image",
   "prompt": "draw the learning curve for a new language",
   "history": [],
-  "reply": "```chart\\n{}\\n```\\nSample data: fast gains in the first months, then a long plateau.",
+  "reply": "```chart\n{}\n```\nSample data: fast gains in the first months, then a long plateau.",
   "expect": "answer"
  },
  {

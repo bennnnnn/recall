@@ -22,6 +22,7 @@ from app.modules.account.email_authority import AccountExistsError
 from app.modules.account.settings_proposal import SettingsProposalError
 from app.modules.attachments.upload import AttachmentUploadError
 from app.modules.attachments.workflow import AttachmentWorkflowError
+from app.modules.billing.subscription import StoreUnreachableError
 from app.modules.chat.service import ChatsError
 from app.modules.images.generation import ImageGenerationError
 from app.modules.images.search import ImageSearchError
@@ -53,6 +54,7 @@ CASES: list[tuple[DomainError, int, str]] = [
     (ConsentRefusedError(), 403, "consent_required"),
     (AccountExistsError("apple"), 409, "account_exists"),
     (InvalidCursorError(), 422, "invalid_cursor"),
+    (StoreUnreachableError("The store did not answer"), 503, "store_unreachable"),
 ]  # fmt: skip
 
 
