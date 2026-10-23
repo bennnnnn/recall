@@ -230,17 +230,23 @@ def _forget_points_back(
     """ "Remember I'm vegetarian", then "Actually, forget that": delete what it remembered.
 
     Only for one line that names nothing; a line that names a fact the store lacks
-    ("forget my old address") deletes nothing.
+    ("forget my old address") deletes nothing. The earlier line must be the remember
+    and nothing else: after "Remember I'm vegetarian, and suggest a dinner", "that" may
+    be the dinner, and the model decides.
     """
     said = [line for line in lines.splitlines() if line.strip()]
     if len(said) != 1 or not all(names_nothing(phrase) for phrase in forget_requests(lines)):
         return []
-    asked = [
-        phrase
-        for line in earlier.splitlines()
-        if line.startswith("User:")
-        for phrase in remember_requests(line.removeprefix("User:").strip())
-    ]
+    asked: list[str] = []
+    for line in earlier.splitlines():
+        if not line.startswith("User:"):
+            continue
+        body = line.removeprefix("User:").strip().rstrip(" .!")
+        asked.extend(
+            phrase
+            for phrase in remember_requests(body)
+            if body.casefold().endswith(phrase.casefold())
+        )
     return _named_fact_ops("delete", asked, existing_facts, chat_id)
 
 

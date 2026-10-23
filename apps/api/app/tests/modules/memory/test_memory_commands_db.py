@@ -133,13 +133,23 @@ async def test_a_bare_forget_drops_what_the_line_before_remembered(db_session, m
 
 
 @pytest.mark.asyncio
-async def test_a_bare_forget_after_a_question_deletes_nothing(db_session, model):
+@pytest.mark.parametrize(
+    "lines",
+    [
+        # "That" is the recipe, not the saved fact.
+        ("Remember I'm vegetarian", "What's a good lentil recipe?"),
+        ("Remember I'm vegetarian, and suggest a dinner for tonight",),
+    ],
+)
+async def test_a_bare_forget_after_a_question_leaves_the_fact_to_the_model(
+    db_session, model, lines
+):
     chat = await _chat(db_session)
     model.ops = [_add("User is vegetarian")]
-    await _turn(db_session, chat, 1, "Remember I'm vegetarian")
-    await _turn(db_session, chat, 2, "What's a good lentil recipe?", "Try a dal.")
+    for minute, line in enumerate(lines, start=1):
+        await _turn(db_session, chat, minute, line, "Try a dal.")
 
-    await _turn(db_session, chat, 3, "forget that", "Sure.")
+    await _turn(db_session, chat, len(lines) + 1, "forget that, something with fish", "Sure.")
 
     assert await _active(db_session, chat) == ["User is vegetarian"]
     assert model.earlier[0] == ""  # an ordinary pass reads no earlier exchange
