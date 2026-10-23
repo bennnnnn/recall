@@ -5,7 +5,7 @@ the rest of the pass (backlog, sensitivity gate, writes) is the real code.
 """
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -164,3 +164,28 @@ async def test_an_asked_for_sensitive_fact_is_saved(db_session, model, line, sav
     await _turn(db_session, chat, 1, line)
 
     assert await _active(db_session, chat) == (["User is allergic to peanuts"] if saved else [])
+
+
+@pytest.mark.asyncio
+async def test_a_failed_pass_on_a_chats_last_line_is_saved_on_the_jobs_retry(db_session, model):
+    """No next turn will read "remember …" again: the job's own retry does."""
+    from app.background import handlers
+
+    chat = await _chat(db_session)
+    line = "Remember, I'm allergic to peanuts."
+    db_session.add(Message(chat_id=chat.id, user_id=chat.user_id, role="user", content=line))
+    await db_session.flush()
+    payload = {"user_id": str(chat.user_id), "chat_id": str(chat.id), "transcript": f"User: {line}"}
+
+    failed = AsyncMock(return_value=None)
+    with (
+        patch("app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts", failed),
+        pytest.raises(RuntimeError),
+    ):
+        await handlers._handle_memory(Settings(), payload)
+    assert await _active(db_session, chat) == []
+
+    model.ops = [_add("User is allergic to peanuts", sensitivity="health")]
+    await handlers._handle_memory(Settings(), payload)
+
+    assert await _active(db_session, chat) == ["User is allergic to peanuts"]
