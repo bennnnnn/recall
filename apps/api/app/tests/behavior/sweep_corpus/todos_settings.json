@@ -1205,5 +1205,56 @@
   "history": [],
   "reply": "A few ideas: a long walk somewhere new, a cooking night, or a local market.",
   "expect": "answer"
+ },
+ {
+  "id": "td-124",
+  "area": "todo",
+  "prompt": "actually make it 8",
+  "history": [
+   [
+    "user",
+    "remind me to study bio at 7pm tonight"
+   ],
+   [
+    "assistant",
+    "```reminder_proposal\n{\"proposal_id\": \"p-study\", \"tz\": \"Africa/Nairobi\", \"items\": [{\"action\": \"add\", \"title\": \"Study bio\", \"due_at\": \"2026-10-14T16:00:00Z\", \"when\": \"Wednesday, Oct 14, 7:00 PM\"}]}\n```"
+   ]
+  ],
+  "reply": "```reminder\n{\"action\": \"set_due\", \"title\": \"water the plants\", \"due_at\": \"2026-10-14T20:00:00\"}\n```",
+  "expect": "save"
+ },
+ {
+  "id": "td-125",
+  "area": "todo",
+  "prompt": "no not that one, the study one. 8pm",
+  "history": [
+   [
+    "user",
+    "remind me to study bio at 7pm tonight"
+   ],
+   [
+    "assistant",
+    "```reminder_proposal\n{\"proposal_id\": \"p-study\", \"tz\": \"Africa/Nairobi\", \"items\": [{\"action\": \"add\", \"title\": \"Study bio\", \"due_at\": \"2026-10-14T16:00:00Z\", \"when\": \"Wednesday, Oct 14, 7:00 PM\"}]}\n```"
+   ]
+  ],
+  "reply": "Updated: Study bio — Wednesday, Oct 14, 8:00 PM.",
+  "expect": "save"
+ },
+ {
+  "id": "td-126",
+  "area": "todo",
+  "prompt": "ok thanks",
+  "history": [
+   [
+    "user",
+    "remind me to study bio at 7pm tonight"
+   ],
+   [
+    "assistant",
+    "```reminder_proposal\n{\"proposal_id\": \"p-study\", \"tz\": \"Africa/Nairobi\", \"items\": [{\"action\": \"add\", \"title\": \"Study bio\", \"due_at\": \"2026-10-14T16:00:00Z\", \"when\": \"Wednesday, Oct 14, 7:00 PM\"}]}\n```"
+   ]
+  ],
+  "reply": "You're welcome!",
+  "expect": "answer"
  }
 ]

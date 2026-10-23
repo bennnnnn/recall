@@ -755,3 +755,29 @@ def test_a_lead_word_still_asks_for_a_reminder(user_text: str) -> None:
 def test_a_statement_with_always_is_not_a_request() -> None:
     reply = "Staying hydrated is easier with a bottle on your desk."
     assert reply_when_nothing_saved(reply, "I always forget to drink water") == reply
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        # Live: a reply said this while the reminder stayed at 7 PM.
+        "Updated: Study bio — Friday, Oct 23, 8:00 PM.",
+        "Changed: Study bio — Friday, Oct 23, 8:00 PM.",
+        "Rescheduled: gym — Thursday, 6:00 PM.",
+        "Completed: call mom — today.",
+    ],
+)
+def test_a_change_claimed_with_any_result_word_is_not_kept(claim: str) -> None:
+    reply = reply_when_nothing_saved(claim, "no not that one, the study one. 8pm")
+    assert reply == "I didn't change your reminders."
+
+
+def test_updated_above_an_edited_draft_is_not_a_claim() -> None:
+    # Sweep l2-046: "no, friday" edited an invitation; the reply opened "Updated:".
+    reply = "Updated:\n\n> Hey everyone! Party on Friday at 7pm, see you there."
+    assert reply_when_nothing_saved(reply, "no, friday") == reply
+
+
+def test_a_result_word_outside_reminder_talk_stays() -> None:
+    reply = "Python 3.13 is the newest.\n\nUpdated: October 2024 release notes."
+    assert reply_when_nothing_saved(reply, "what is the newest python?") == reply
