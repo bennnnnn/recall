@@ -181,6 +181,16 @@ function fitView(spec: GraphSpec, plotAspect: number): GraphView {
   return tall && !closed ? fitted : equalScaleGraphBounds(fitted, aspect);
 }
 
+/** The learner gave the x-range in π ("from 0 to 2π"): the x axis is labelled in π. */
+export function xAxisInPi(spec: GraphSpec): boolean {
+  if (spec.type !== "function" || !spec.domain_explicit) return false;
+  const ends = [Number(spec.x_min), Number(spec.x_max)];
+  return (
+    ends.some((x) => x !== 0) &&
+    ends.every((x) => Number.isFinite(x) && Math.abs((x * 2) / Math.PI - Math.round((x * 2) / Math.PI)) < 1e-9)
+  );
+}
+
 /**
  * Initial interactive viewport for a verified graph.
  *

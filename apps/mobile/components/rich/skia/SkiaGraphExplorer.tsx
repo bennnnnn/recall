@@ -79,6 +79,7 @@ export function SkiaGraphCanvas({
   verticalX,
   xName = "x",
   yName = "y",
+  xInPi = false,
   width,
   height,
   pad,
@@ -91,6 +92,8 @@ export function SkiaGraphCanvas({
   verticalX?: number;
   xName?: string;
   yName?: string;
+  /** Label x in multiples of π (an x-range given as 0…2π). */
+  xInPi?: boolean;
   width: number;
   height: number;
   pad: number;
@@ -114,8 +117,8 @@ export function SkiaGraphCanvas({
   );
 
   const chrome = useDerivedValue(
-    () => computeChrome(bounds.value, width, height, pad, font),
-    [width, height, pad, font],
+    () => computeChrome(bounds.value, width, height, pad, font, xInPi),
+    [width, height, pad, font, xInPi],
   );
 
   const seriesPaths = SERIES_INDICES.map((i) =>

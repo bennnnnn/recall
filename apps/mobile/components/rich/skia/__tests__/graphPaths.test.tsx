@@ -109,3 +109,11 @@ describe("graph explorer path builders", () => {
     }
   });
 });
+
+describe("an x-range given in π", () => {
+  it("labels the Skia x axis in π", () => {
+    const view = { xMin: 0, xMax: 2 * Math.PI, yMin: -2, yMax: 2 };
+    const chrome = computeChrome(view, 320, 240, 28, null, true);
+    expect(chrome.xLabels.map((label) => label.text)).toEqual(["π/2", "π", "3π/2", "2π"]);
+  });
+});

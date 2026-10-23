@@ -62,3 +62,29 @@ describe("what the card opens on", () => {
     expect(points.some(inPlot)).toBe(true);
   });
 });
+
+describe("an x-range given in π", () => {
+  const sine = Array.from({ length: 96 }, (_, i) => {
+    const x = (2 * Math.PI * i) / 95;
+    return [x, Math.sin(x)];
+  });
+
+  it("labels the x axis π/2, π, 3π/2, 2π for sin x from 0 to 2π", async () => {
+    const content = JSON.stringify({
+      type: "function", expr: "sin(x)", points: sine,
+      x_min: 0, x_max: 2 * Math.PI, domain_explicit: true,
+    });
+    const tree = JSON.stringify((await render(<FunctionGraphBlock content={content} />)).toJSON());
+    for (const label of ["π/2", "π", "3π/2", "2π"]) expect(tree).toContain(`"content":"${label}"`);
+    expect(tree).not.toContain('"content":"6"');
+  });
+
+  it("keeps numbers for a range not given in π", async () => {
+    const content = JSON.stringify({
+      type: "function", expr: "sin(x)", points: sine,
+      x_min: 0, x_max: 6, domain_explicit: true,
+    });
+    const tree = JSON.stringify((await render(<FunctionGraphBlock content={content} />)).toJSON());
+    expect(tree).not.toContain("π");
+  });
+});
