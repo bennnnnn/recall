@@ -156,7 +156,9 @@ _KIND_FENCE = {"email": "email", "message": "message", "social": "social"}
 # "add that I'll be back tomorrow", "another version", "translate it to Spanish",
 # or says what it is for: "asking money", "about her birthday", "send it".
 _DRAFT_FOLLOWUP = re.compile(
-    r"^" + _DIRECT_REQUEST_INTRO + r"(?:"
+    r"^(?:(?:ok(?:ay)?|now|and|also|then|great|perfect|nice|thanks|cool)[,!.]?\s+)*"
+    + _DIRECT_REQUEST_INTRO
+    + r"(?:"
     r"(?:make|keep|get) (?:it|this|that)\b|"
     r"(?:(?:a )?(?:bit|little|lot|much|way) )?(?:more|less) [a-z]+|"
     r"(?:shorter|longer|simpler|clearer|friendlier|warmer|softer|nicer|politer|"
@@ -169,7 +171,9 @@ _DRAFT_FOLLOWUP = re.compile(
     r"(?:give|write|show|send) (?:me )?(?:another|a different|a new|one more|more|other) "
     r"(?:versions?|ones?|drafts?|options?)|"
     r"translate (?:it|this|that)\b|"
-    r"(?:in|into) [a-z]+$|"
+    # "translate to Spanish", "now in French please": nothing new to translate.
+    r"translate (?:in)?to [a-z]+(?: please| pls)?[.!?]*$|"
+    r"(?:in|into) [a-z]+(?: (?:please|pls|instead|too))?[.!?]*$|"
     r"with(?:out)? (?:any |the |an? )?(?:emojis?|hashtags?|subject|greeting|signature)|"
     # What the draft is for, as the answer to "what should it say?"
     r"(?:it should |it'?s |tell (?:her|him|them) )?"
@@ -245,14 +249,58 @@ def draft_followup(
     post the user asked for, within the last three exchanges. A new draft request
     with its own purpose ("write a message to my mom saying...") starts over.
     """
-    if not prior_messages or not could_continue_draft(text):
+    if not prior_messages or not text:
         return None
-    switch = _FORMAT_SWITCH.match(collapse_ws(text or ""))
+    answered = _answers_draft_question(text, prior_messages)
+    if answered is not None:
+        return answered, False
+    if not could_continue_draft(text):
+        return None
+    switch = _FORMAT_SWITCH.match(collapse_ws(text))
     found = _draft_in_history(prior_messages)
     if found is None or switch is None:
         return found
     # "Email" after a text message: the same draft, now in an ```email fence.
     return _FORMAT_FENCE[switch.group(1).lower()], found[1]
+
+
+# An answer to "what should it say?" may run on: "the heater broke last night and…".
+_ANSWER_MAX_WORDS = 60
+# "Never mind" drops the draft, and "what should I say?" asks back: neither answers.
+_DROPS_DRAFT = re.compile(
+    r"^(?:never ?mind|forget (?:it|about it)|cancel|skip it|no thanks|nah|don'?t worry)\b",
+    re.IGNORECASE,
+)
+_ASKS_BACK = re.compile(r"^(?:what|how|why|which|who|where|when)\b.*\?$", re.IGNORECASE)
+
+
+def _answers_draft_question(text: str, prior_messages: Sequence[tuple[str, str]]) -> str | None:
+    """The fence of the draft the last reply asked about, when this line answers it.
+
+    "Write a message to my landlord", "What should it say?", then "the heater is
+    broken": whatever the user says next is what the draft says.
+    """
+    if len(prior_messages) < 2:
+        return None
+    (asker, asked), (replier, reply) = prior_messages[-2], prior_messages[-1]
+    if asker != "user" or replier != "assistant" or "?" not in reply:
+        return None
+    if draft_langs(reply) or len(reply) > _NEW_TOPIC_ANSWER_CHARS:
+        return None
+    kind = writing_request_kind(asked)
+    if kind not in _KIND_FENCE:
+        return None
+    cleaned = collapse_ws(text)
+    if (
+        not cleaned
+        or len(cleaned.split()) > _ANSWER_MAX_WORDS
+        or writing_request_kind(cleaned) is not None
+        or is_lightweight_chat_turn(cleaned)
+        or _DROPS_DRAFT.match(cleaned)
+        or _ASKS_BACK.match(cleaned)
+    ):
+        return None
+    return _KIND_FENCE[kind]
 
 
 def _draft_in_history(prior_messages: Sequence[tuple[str, str]]) -> tuple[str, bool] | None:

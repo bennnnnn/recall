@@ -7,7 +7,6 @@ from typing import Any
 
 from app.modules.chat.clarify_turn import card_in_reply
 from app.modules.chat.prompt_constants import (
-    could_continue_draft,
     draft_followup,
     is_broad_self_question,
     is_capabilities_question,
@@ -147,9 +146,7 @@ _DRAFT_HISTORY = 6
 
 
 def _continues_a_draft(recent: Sequence[Any], content: str) -> bool:
-    """ "Email" or "make it shorter" after a draft."""
-    if not could_continue_draft(content):
-        return False
+    """ "Email" or "make it shorter" after a draft, or what it says after "what should it say?"."""
     prior = [
         (message.role, message.content)
         for message in recent[-(_DRAFT_HISTORY + 1) :]
