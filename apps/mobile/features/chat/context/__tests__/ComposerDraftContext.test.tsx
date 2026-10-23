@@ -30,7 +30,43 @@ function ActivityProbe() {
   return <Text testID="activity">{active ? "active" : "empty"}</Text>;
 }
 
+function TypingProbe() {
+  const { setInput, typeInput } = useComposerDraftApi();
+  return (
+    <>
+      <Pressable testID="type" onPress={() => typeInput("im in indianapolis")} />
+      <Pressable testID="send" onPress={() => setInput("")} />
+      <Pressable testID="echo" onPress={() => typeInput("I\u2019m in Indianapolis")} />
+      <Pressable testID="new" onPress={() => typeInput("h")} />
+    </>
+  );
+}
+
 describe("ComposerDraftContext", () => {
+  it("drops autocorrect giving a sent message back, then takes typing again", async () => {
+    const now = jest.spyOn(Date, "now").mockReturnValue(10_000);
+    const view = await act(async () =>
+      render(
+        <ComposerDraftProvider>
+          <ValueProbe />
+          <TypingProbe />
+        </ComposerDraftProvider>,
+      ),
+    );
+    const draft = () => view.getByTestId("draft").props.children;
+    await act(async () => fireEvent.press(view.getByTestId("type")));
+    await act(async () => fireEvent.press(view.getByTestId("send")));
+    // The keyboard commits its correction of the cleared text as it goes down.
+    now.mockReturnValue(10_150);
+    await act(async () => fireEvent.press(view.getByTestId("echo")));
+    expect(draft()).toBe("");
+    // The next message typed is kept.
+    now.mockReturnValue(12_000);
+    await act(async () => fireEvent.press(view.getByTestId("new")));
+    expect(draft()).toBe("h");
+    now.mockRestore();
+  });
+
   it("updates the value subscriber without re-rendering the api subscriber", async () => {
     const onRender = jest.fn();
     const view = await act(async () =>

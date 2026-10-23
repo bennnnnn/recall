@@ -151,7 +151,7 @@ export const ChatComposer = memo(function ChatComposer({
   const draft = useComposerDraftValueOptional();
   const draftApi = useComposerDraftApiOptional();
   const input = draft?.input ?? "";
-  const onChangeInput = draftApi ? (text: string) => draftApi.setInput(text) : noopComposerInput;
+  const onChangeInput = draftApi ? draftApi.typeInput : noopComposerInput;
   const [scanHint, setScanHint] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const math = useMathKeyboardInsert({
