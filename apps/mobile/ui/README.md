@@ -73,6 +73,9 @@ closing the presenter takes the share menu down with it on iOS (`ShareSheet` doe
   (use `ListRow` with `switchValue`). Tests may still spy on `Alert`.
 - With no `DialogHost` mounted (tests, isolated hooks), `confirmDialog` and `alertDialog` fall
   back to `Alert.alert` with the old arguments.
+- Controls play their own haptic (`lib/haptics`): a `Menu` row, a `SegmentedControl` segment, a
+  filter `Chip`, a switch `ListRow`, picker steps, `Dialog` actions, `useCopyText`'s success. The
+  action behind them adds none, so one press is one haptic.
 
 ## Adding an icon
 
