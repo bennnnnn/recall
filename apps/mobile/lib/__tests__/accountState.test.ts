@@ -116,6 +116,7 @@ const IN_FLIGHT = [
 /** No account data: phone settings, native modules, players, listeners, counters, lookup tables. */
 const NO_ACCOUNT_DATA = [
   "components/CodeBlock.tsx#cachedTokenizer",
+  "components/CodeBlock.tsx#tokenStyles",
   "components/rich/LazyHeavyRich.tsx#simulationSizing",
   "components/rich/LazyHeavyRich.tsx#simulationSizingLoad",
   "components/markdown/LinkPreviewTrust.tsx#NO_PREVIEWS",
