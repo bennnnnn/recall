@@ -1,4 +1,4 @@
-"""What a chat line tells memory to do: mute, reset, correct (M10, M11, M9)."""
+"""What a chat line tells memory to do: remember, mute, reset, correct (M10, M11, M9)."""
 
 import pytest
 
@@ -9,6 +9,31 @@ from app.modules.memory.commands import (
     memory_reset_request,
     mute_requests,
 )
+
+
+@pytest.mark.parametrize(
+    ("text", "remember"),
+    [
+        ("Remember I'm vegetarian", True),
+        # A comma or colon after "remember" still asks; "I've" and "I'll" are the user.
+        ("Remember, I'm allergic to peanuts.", True),
+        ("remember: my wife's name is Sara", True),
+        ("Remember I've got a gluten intolerance", True),
+        ("Remember I'll need wheelchair access when I travel", True),
+        # The words people use for a memory feature.
+        ("Save to memory that I'm lactose intolerant", True),
+        ("add this to your memory: I take insulin twice a day", True),
+        ("Can you save that to your memory?", True),
+        # Talk, a question, or the task in hand.
+        ("Remember, the answer has to be in centimetres", False),
+        ("Remember, remember the fifth of November: where is that from?", False),
+        ("Remember when I asked you about Lisbon?", False),
+        ("how do I save to memory instead of disk on an Arduino?", False),
+        ("I can't remember the capital of Peru", False),
+    ],
+)
+def test_remember_commands_are_read_however_they_are_punctuated(text, remember):
+    assert is_explicit_memory_command(text) is remember
 
 
 @pytest.mark.parametrize(
