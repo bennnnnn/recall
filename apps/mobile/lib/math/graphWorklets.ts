@@ -158,6 +158,26 @@ export function formatTickW(n: number): string {
 /** Most ticks a π axis labels: "3π/2" is wider than "3". */
 const PI_TICK_MAX = 7;
 
+/** Even ticks inside a view window (e.g. −6, −4, …, 6). */
+export function axisTicksW(min: number, max: number): number[] {
+  "worklet";
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return [];
+  const step = niceStepW((max - min) / Math.max(1, tickCountW(min, max) - 1));
+  if (!Number.isFinite(step) || step <= 0) return [];
+  const start = Math.ceil((min - 1e-12) / step) * step;
+  const ticks: number[] = [];
+  const seen = new Set<string>();
+  for (let v = start, count = 0; count < 64 && v <= max + step * 1e-9; v += step, count += 1) {
+    const n = Math.abs(v) < step * 1e-9 ? 0 : Number(v.toPrecision(12));
+    if (n < min - 1e-9 || n > max + 1e-9) continue;
+    const key = formatTickW(n);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    ticks.push(n);
+  }
+  return ticks;
+}
+
 /**
  * Ticks at multiples of π (π/4, π/2, π, 2π…) for an x-range the learner gave in π
  * ("from 0 to 2π"). A window narrower than π/2 falls back to even ticks.
@@ -193,26 +213,6 @@ export function formatShortW(n: number): string {
   if (!Number.isFinite(n)) return "";
   const r = Math.round(n * 100) / 100;
   return Object.is(r, -0) ? "0" : String(r);
-}
-
-/** Even ticks inside a view window (e.g. −6, −4, …, 6). */
-export function axisTicksW(min: number, max: number): number[] {
-  "worklet";
-  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return [];
-  const step = niceStepW((max - min) / Math.max(1, tickCountW(min, max) - 1));
-  if (!Number.isFinite(step) || step <= 0) return [];
-  const start = Math.ceil((min - 1e-12) / step) * step;
-  const ticks: number[] = [];
-  const seen = new Set<string>();
-  for (let v = start, count = 0; count < 64 && v <= max + step * 1e-9; v += step, count += 1) {
-    const n = Math.abs(v) < step * 1e-9 ? 0 : Number(v.toPrecision(12));
-    if (n < min - 1e-9 || n > max + 1e-9) continue;
-    const key = formatTickW(n);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    ticks.push(n);
-  }
-  return ticks;
 }
 
 /** Nearest sampled point to a data-space x, or null when the series is empty. */

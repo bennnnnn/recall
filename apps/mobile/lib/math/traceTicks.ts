@@ -16,11 +16,11 @@ export type TraceTickState = {
   at: number;
 };
 
-export type TracedSample = { seriesIndex: number; index: number; y: number };
+type TracedSample = { seriesIndex: number; index: number; y: number };
 
 export const NO_TRACE: TraceTickState = { series: -1, index: -1, y: 0, rising: 0, at: -1e12 };
 /** Marks closer together than this read as a buzz. */
-export const MIN_TICK_GAP_MS = 90;
+const MIN_TICK_GAP_MS = 90;
 
 export function traceTickW(
   state: TraceTickState,

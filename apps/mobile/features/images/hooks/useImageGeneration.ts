@@ -51,7 +51,7 @@ type Options = {
   t: (key: string) => string;
 };
 
-export type ImageGenFailureText = { message: string; retryable: boolean };
+type ImageGenFailureText = { message: string; retryable: boolean };
 
 export type ImageGenSubmit = {
   prompt: string;
