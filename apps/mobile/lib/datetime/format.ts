@@ -29,15 +29,48 @@ export function formatShortWeekdayDate(date: Date, locale?: Locale, timeZone?: s
   });
 }
 
-/** The zone's short name at that instant ("EDT", "GMT+3"), or null for an unknown zone. */
+/**
+ * The zone's short name at that instant ("EDT", "GMT+3"), or null for an unknown zone.
+ *
+ * Hermes names a zone with no abbreviation (Africa/Nairobi) plain "GMT", which reads as
+ * three hours off; a bare GMT or UTC for a zone that is not at zero gets its offset.
+ */
 export function formatTimeZoneName(date: Date, timeZone: string, locale?: Locale): string | null {
   try {
     const formatter = new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: "short" });
     const parts = formatter.formatToParts(date);
-    return parts.find((part) => part.type === "timeZoneName")?.value ?? null;
+    const name = parts.find((part) => part.type === "timeZoneName")?.value ?? null;
+    if (name !== "GMT" && name !== "UTC") return name;
+    const minutes = zoneOffsetMinutes(date, timeZone);
+    return minutes === 0 ? name : offsetLabel(minutes);
   } catch {
     return null;
   }
+}
+
+/** Minutes the zone's wall clock is ahead of UTC at that instant. */
+function zoneOffsetMinutes(date: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+  }).formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value ?? 0);
+  const wall = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"));
+  const instant = Math.floor(date.getTime() / 60000) * 60000;
+  return Math.round((wall - instant) / 60000);
+}
+
+function offsetLabel(minutes: number): string {
+  const sign = minutes < 0 ? "-" : "+";
+  const hours = Math.floor(Math.abs(minutes) / 60);
+  const rest = Math.abs(minutes) % 60;
+  return `GMT${sign}${hours}${rest ? `:${String(rest).padStart(2, "0")}` : ""}`;
 }
 
 /** Abbreviated month and numeric day ("Aug 30"). */
