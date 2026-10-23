@@ -68,7 +68,9 @@ def strip_unrequested_recipient_placeholders(text: str, user_text: str) -> str:
             continue
         greeting = match.group("greeting")
         if greeting.casefold() == "dear":
-            greeting = "Hello"
+            # A cover letter to an unnamed reader opens "Dear Hiring Manager,".
+            hiring = "hiring manager" in match.group("label").casefold()
+            greeting = f"{greeting} Hiring Manager" if hiring else "Hello"
         out.append(f"{match.group('indent')}{greeting},{line[match.end() :]}")
     return "\n".join(out)
 

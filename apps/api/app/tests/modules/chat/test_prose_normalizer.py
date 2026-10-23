@@ -147,6 +147,13 @@ class TestRecipientPlaceholderCleanup:
 
         assert result == "```email\nHello,\n\nThanks.\n```"
 
+    def test_an_unnamed_hiring_manager_keeps_the_letters_greeting(self):
+        text = "```copy\nDear [Hiring Manager's Name],\n\nI am applying for the role.\n```"
+
+        result = strip_unrequested_recipient_placeholders(text, "write a cover letter")
+
+        assert result == "```copy\nDear Hiring Manager,\n\nI am applying for the role.\n```"
+
     def test_explicit_template_keeps_placeholder(self):
         text = "```message\nHi [Name], welcome!\n```"
 
