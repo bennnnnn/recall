@@ -1,9 +1,11 @@
 import {
+  dropFences,
   mapClosedFences,
   readFenceMarker,
   readFenceMarkerLoose,
   replaceFirstClosedFenceBody,
   scanFences,
+  stripLangFence,
 } from "@/lib/mdFenceScan";
 
 describe("replaceFirstClosedFenceBody", () => {
@@ -95,5 +97,35 @@ describe("scanFences", () => {
   it("finds nothing in prose", () => {
     expect(scanFences("no fences here\n\nat all")).toEqual([]);
     expect(scanFences("")).toEqual([]);
+  });
+});
+
+describe("stripLangFence", () => {
+  it("drops every closed fence of the language with its closer's line break", () => {
+    expect(stripLangFence("A\n```reminder\n{}\n```\nB\n```reminder\n{}\n```\n", "reminder")).toBe("A\nB\n");
+  });
+
+  it("drops a last fence of the language still streaming", () => {
+    expect(stripLangFence('A\n```reminder\n{}\n```\nB\n```reminder\n{"ti', "reminder")).toBe("A\nB\n");
+  });
+
+  it("keeps other languages, open or closed, and reads the language in any case", () => {
+    expect(stripLangFence("A\n```Reminder\n{}\n```\n```reminder_proposal\n{}\n```\n", "reminder")).toBe(
+      "A\n```reminder_proposal\n{}\n```\n",
+    );
+    expect(stripLangFence("A\n```python\nx = 1\n", "reminder")).toBe("A\n```python\nx = 1\n");
+  });
+
+  it("leaves a fence shown inside another block alone", () => {
+    const text = "~~~text\n```reminder\n{}\n```\n~~~\n";
+    expect(stripLangFence(text, "reminder")).toBe(text);
+  });
+});
+
+describe("dropFences", () => {
+  it("reads the rest of the text as before once a fence is dropped", () => {
+    const text = "```a\nx\n```\n```b\ny\n```\nend";
+    expect(dropFences(text, (span) => span.info === "a")).toBe("```b\ny\n```\nend");
+    expect(dropFences(text, () => false)).toBe(text);
   });
 });

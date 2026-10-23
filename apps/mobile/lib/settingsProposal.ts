@@ -1,8 +1,4 @@
-import {
-  collectClosedFenceBodies,
-  stripClosedLangFence,
-  stripUnclosedLangTail,
-} from "@/lib/mdFenceScan";
+import { collectClosedFenceBodies, stripLangFence } from "@/lib/mdFenceScan";
 
 type SettingsProposalField =
   | "appearance"
@@ -76,8 +72,7 @@ export function parseSettingsProposals(content: string): SettingsProposal[] {
 }
 
 export function stripSettingsProposalFences(content: string): string {
-  const closed = stripClosedLangFence(content, "settings_proposal");
-  return stripUnclosedLangTail(closed, "settings_proposal")
+  return stripLangFence(content, "settings_proposal")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }

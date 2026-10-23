@@ -100,6 +100,25 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.hasMarkdown).toBe(false);
   });
 
+  it("reads a reply's sources fence only once its layout settles", () => {
+    const content = 'Answer.\n\n```sources\n[{"title":"AP","url":"https://apnews.com/a"}]\n```';
+    const frozen = deriveAssistantMessageContent({ ...base, content, layoutFrozen: true });
+    expect(frozen.searchSources).toEqual([]);
+    // Flush to flush, the same empty list: nothing under the reply is told to redraw.
+    expect(deriveAssistantMessageContent({ ...base, content: `${content}\n`, layoutFrozen: true }).searchSources)
+      .toBe(frozen.searchSources);
+
+    const attached = [{ title: "DC", url: "https://example.com/dc" }];
+    expect(
+      deriveAssistantMessageContent({ ...base, content, layoutFrozen: true, liveSearchSources: attached })
+        .searchSources,
+    ).toBe(attached);
+
+    const settled = deriveAssistantMessageContent({ ...base, content });
+    expect(settled.searchSources).toEqual([{ title: "AP", url: "https://apnews.com/a" }]);
+    expect(settled.markdownContent).toBe("Answer.");
+  });
+
   it("hides Sources under a live clock even when search hits are attached", () => {
     const result = deriveAssistantMessageContent({
       ...base,

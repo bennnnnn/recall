@@ -30,9 +30,11 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [modalOpen, setModalOpen] = useState(false);
   const siblingFiles = useHtmlPreviewFiles();
+  // Bundled only for the open preview or the browser: while the reply streams,
+  // the other fences change around a closed block that nobody has opened.
   const previewHtml = useMemo(
-    () => bundleHtmlPreview(code, siblingFiles),
-    [code, siblingFiles],
+    () => (modalOpen ? bundleHtmlPreview(code, siblingFiles) : ""),
+    [modalOpen, code, siblingFiles],
   );
   const previewLabel = previewHasSiblingAssets(siblingFiles)
     ? t("preview.preview_html_bundled")
@@ -73,7 +75,7 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
             </TouchableOpacity>
             <TouchableOpacity
               style={s.iconBtn}
-              onPress={() => void openHtmlInBrowser(previewHtml)}
+              onPress={() => void openHtmlInBrowser(bundleHtmlPreview(code, siblingFiles))}
               activeOpacity={0.6}
               hitSlop={4}
               accessibilityRole="button"

@@ -20,6 +20,7 @@ import { stackBackOptions } from "@/ui/controls/StackBackButton";
 import { DialogHost } from "@/ui/overlay/DialogHost";
 import { preloadSimulationSizing } from "@/components/rich/LazyHeavyRich";
 import { useLaunchFonts } from "@/hooks/useLaunchFonts";
+import { sweepOldPickerCopies } from "@/lib/accountFiles";
 import { restoreLaunchPrefs } from "@/lib/launchPrefs";
 import { markLaunchReady } from "@/lib/launchSplash";
 import { useReduceMotion } from "@/lib/reduceMotion";
@@ -35,6 +36,8 @@ import { useTheme } from "@/lib/theme";
 
 // Before the first render: the user's appearance, accent and language.
 void restoreLaunchPrefs().then(() => markLaunchReady("prefs"));
+// Before anything can be picked, so a fresh pick is never in the listing.
+void sweepOldPickerCopies();
 
 const markSessionRestored = () => markLaunchReady("session");
 

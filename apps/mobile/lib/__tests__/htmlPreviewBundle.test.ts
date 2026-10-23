@@ -133,3 +133,25 @@ describe("advancePreviewFilesScan reads fences as the renderer does (audit DUP-0
     expect(next.files.map((f) => f.name)).toEqual(["index.html", "styles.css"]);
   });
 });
+
+describe("advancePreviewFilesScan keeps its files while they do not change", () => {
+  it("returns the same array while prose streams after the last fence", () => {
+    const first = advancePreviewFilesScan(null, "```html\n<p>a</p>\n```\n\nThe page");
+    const next = advancePreviewFilesScan(first, `${first.source} shows a heading.`);
+    expect(next.source).not.toBe(first.source);
+    expect(next.files).toBe(first.files);
+  });
+
+  it("keeps the array while a fence that is no preview file streams", () => {
+    const first = advancePreviewFilesScan(null, "```css\nbody{}\n```\n\n```python\nprint(1)\n");
+    const next = advancePreviewFilesScan(first, `${first.source}print(2)\n`);
+    expect(next.files).toBe(first.files);
+  });
+
+  it("hands out a new array once a file grows", () => {
+    const first = advancePreviewFilesScan(null, "```html\n<p>a</p>\n");
+    const next = advancePreviewFilesScan(first, `${first.source}<p>b</p>\n`);
+    expect(next.files).not.toBe(first.files);
+    expect(next.files[0].content).toBe("<p>a</p>\n<p>b</p>");
+  });
+});

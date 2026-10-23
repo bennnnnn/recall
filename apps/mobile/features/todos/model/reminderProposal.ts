@@ -11,11 +11,7 @@
 
 import type { RecurrenceRule } from "@/lib/api/types";
 import { RECURRENCE_RULES } from "@/lib/api/types";
-import {
-  collectClosedFenceBodies,
-  stripClosedLangFence,
-  stripUnclosedLangTail,
-} from "@/lib/mdFenceScan";
+import { collectClosedFenceBodies, stripLangFence } from "@/lib/mdFenceScan";
 
 export type ReminderProposalAction =
   | "add"
@@ -105,8 +101,7 @@ export function parseReminderProposals(content: string): ReminderProposal[] {
 
 export function stripReminderProposalFences(content: string): string {
   if (!content.includes("```reminder_proposal")) return content;
-  const closed = stripClosedLangFence(content, "reminder_proposal");
-  return stripUnclosedLangTail(closed, "reminder_proposal")
+  return stripLangFence(content, "reminder_proposal")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }

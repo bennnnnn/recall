@@ -1,6 +1,6 @@
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { memo, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, type TextStyle, View } from "react-native";
 
 import {
   codeLanguageLabel,
@@ -57,13 +57,17 @@ function useCodeTokenizer(enabled: boolean): typeof CodeTokenizeModule | null {
   return tokenizer;
 }
 
-function tokenStyle(color: string) {
-  return {
-    ...CODE_FACE,
-    fontSize: CODE_FONT_SIZE,
-    lineHeight: CODE_LINE_HEIGHT,
-    color,
-  };
+// One style object per ink, shared by every token drawn in it: a long block
+// would otherwise build one per token on every render.
+const tokenStyles = new Map<string, TextStyle>();
+
+function tokenStyle(color: string): TextStyle {
+  let style = tokenStyles.get(color);
+  if (!style) {
+    style = { ...CODE_FACE, fontSize: CODE_FONT_SIZE, lineHeight: CODE_LINE_HEIGHT, color };
+    tokenStyles.set(color, style);
+  }
+  return style;
 }
 
 /**
@@ -139,7 +143,10 @@ export function CodeBlock({
 
   // Syntax colors are saturated mid-tones that read on either background, but
   // the near-black "plain" color is invisible on a dark panel — remap it.
-  const colorFor = (c: string) => resolveTokenColor(c, t.isDark);
+  const colorFor = useCallback((c: string) => resolveTokenColor(c, t.isDark), [t.isDark]);
+  // Folded, the card shows CODE_COLLAPSED_LINES and the top of the next; the
+  // rest mount only when it opens.
+  const shownLines = collapsed ? lines.slice(0, CODE_COLLAPSED_LINES + 1) : lines;
 
   return (
     // Tagged fences name the language in the top corner. Teaching fences
@@ -184,7 +191,7 @@ export function CodeBlock({
               hasActions && { paddingRight: Space.md + (actionsWidth || ACTIONS_GUTTER) },
             ]}
           >
-            {lines.map((lineTokens, lineIdx) => (
+            {shownLines.map((lineTokens, lineIdx) => (
               <CodeLine
                 key={lineIdx}
                 tokens={lineTokens}
@@ -223,18 +230,37 @@ export function CodeBlock({
   );
 }
 
-/** One line: its tokens, or the whole line in its diff color on a tinted band. */
-function CodeLine({
-  tokens,
-  diffLine,
-  colorFor,
-  styles: s,
-}: {
+type CodeLineProps = {
   tokens: HighlightToken[];
   diffLine: ReturnType<typeof diffLineStyle>;
   colorFor: (color: string) => string;
   styles: ReturnType<typeof makeStyles>;
-}) {
+};
+
+/**
+ * Same tokens, same line. An open fence regroups its lines on every flush, so
+ * the arrays are new each time; only the line still being written draws again.
+ */
+function sameCodeLine(prev: CodeLineProps, next: CodeLineProps): boolean {
+  return (
+    prev.diffLine === next.diffLine &&
+    prev.colorFor === next.colorFor &&
+    prev.styles === next.styles &&
+    (prev.tokens === next.tokens ||
+      (prev.tokens.length === next.tokens.length &&
+        prev.tokens.every(
+          (token, i) => token.text === next.tokens[i].text && token.color === next.tokens[i].color,
+        )))
+  );
+}
+
+/** One line: its tokens, or the whole line in its diff color on a tinted band. */
+const CodeLine = memo(function CodeLine({
+  tokens,
+  diffLine,
+  colorFor,
+  styles: s,
+}: CodeLineProps) {
   return (
     <View
       testID={diffLine ? "code-block-diff-line" : undefined}
@@ -254,7 +280,7 @@ function CodeLine({
       )}
     </View>
   );
-}
+}, sameCodeLine);
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({

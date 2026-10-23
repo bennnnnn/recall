@@ -12,8 +12,9 @@ import { useLatestRef } from "@/lib/latestRef";
  * with their text drafts. A send in flight reads the ref, which never lags a render.
  *
  * `setPendingAttachment` hands the attachment on (a send took it) and never
- * cleans up; `replacePendingAttachment` is for a draft the user dropped or
- * replaced, whose copy and unlinked upload are discarded.
+ * cleans up: the sent bubble draws from its copy, which a later launch sweeps
+ * (`sweepOldPickerCopies`). `replacePendingAttachment` is for a draft the user
+ * dropped or replaced, whose copy and unlinked upload are discarded.
  */
 export function useSendAttachment(token: string | null) {
   const [pendingAttachment, setPendingAttachmentState] = useState<PendingAttachment | null>(null);

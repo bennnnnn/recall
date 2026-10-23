@@ -4,7 +4,7 @@
  * To-do screen, which the reply offers as a button (the server writes the fence:
  * apps/api/app/modules/todos/chat_language.py). The fence has no body.
  */
-import { collectClosedFenceBodies, stripClosedLangFence, stripUnclosedLangTail } from "@/lib/mdFenceScan";
+import { collectClosedFenceBodies, stripLangFence } from "@/lib/mdFenceScan";
 
 const LANG = "todo_link";
 
@@ -16,7 +16,7 @@ export function hasTodoLink(content: string): boolean {
 /** The reply's text without the fence, settled or still streaming. */
 export function stripTodoLinkFences(content: string): string {
   if (!content.includes("```todo_link")) return content;
-  return stripUnclosedLangTail(stripClosedLangFence(content, LANG), LANG)
+  return stripLangFence(content, LANG)
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }

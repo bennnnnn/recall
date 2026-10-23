@@ -1,7 +1,8 @@
+import { parseFenceLang } from "@/lib/codeHighlight";
 import {
   collectClosedFenceBodies,
+  dropFences,
   mapUnlabeledClosedFences,
-  stripClosedLangFence,
 } from "@/lib/mdFenceScan";
 
 export type SearchSource = {
@@ -70,12 +71,15 @@ export function resolveSearchSources(
 
 /** Remove ```sources fences and unlabeled source-JSON fences from visible markdown. */
 export function stripSearchSourcesFromContent(content: string): string {
-  let text = stripClosedLangFence(content, "sources");
-  text = mapUnlabeledClosedFences(text, (body, original) =>
-    parseSearchSourcesJson(body).length > 0 ? "" : original,
+  // One scan: dropping a closed fence leaves how the rest of the text reads unchanged.
+  const text = dropFences(
+    content,
+    (span) =>
+      span.closed &&
+      (parseFenceLang(span.info) === "sources" ||
+        (span.info === "" && parseSearchSourcesJson(span.body).length > 0)),
   );
-  text = text.replace(SOURCES_LABEL_RE, "").trimEnd();
-  return text.trimEnd();
+  return text.replace(SOURCES_LABEL_RE, "").trimEnd();
 }
 
 export function hostnameFromUrl(url: string): string {

@@ -187,12 +187,28 @@ export function advancePreviewFilesScan(
   const files = base.trailingOpen ? base.files.slice(0, -1) : base.files.slice();
   const used = new Set(files.map((file) => file.name.toLowerCase()));
   const result = collectPreviewFilesInto(markdown.slice(base.resumeFrom), files, used);
+  const previous = prev?.files ?? [];
   return {
     source: markdown,
     resumeFrom: base.resumeFrom + result.openFenceStart,
-    files: result.files,
+    // Prose streaming past the last fence changes no file: the same array keeps the
+    // preview-files context still, so closed HTML blocks do not render again each flush.
+    files: sameFiles(previous, result.files) ? previous : result.files,
     trailingOpen: result.trailingOpen,
   };
+}
+
+function sameFiles(a: readonly PreviewFile[], b: readonly PreviewFile[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((file, index) => {
+      const other = b[index];
+      return (
+        file === other ||
+        (file.kind === other.kind && file.name === other.name && file.content === other.content)
+      );
+    })
+  );
 }
 
 function attrValue(tag: string, attr: string): string | null {

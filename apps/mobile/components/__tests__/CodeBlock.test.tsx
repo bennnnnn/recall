@@ -98,6 +98,32 @@ describe("CodeBlock", () => {
     });
   });
 
+  describe("long blocks", () => {
+    const LONG = Array.from({ length: 30 }, (_, i) => `line ${i + 1}`).join("\n");
+
+    it("mounts only the lines a folded block shows, and the rest once it opens", async () => {
+      const { getByText, queryByText, getByLabelText } = await renderBlock({ code: LONG });
+      // Fourteen lines and the top of the fifteenth show above the fold.
+      expect(getByText("line 15")).toBeOnTheScreen();
+      expect(queryByText("line 16")).toBeNull();
+
+      await fireEvent.press(getByLabelText("common.show_more"));
+      expect(getByText("line 30")).toBeOnTheScreen();
+    });
+
+    it("draws every token of one ink with the same style object", async () => {
+      const { getByText } = await renderBlock({ code: LONG });
+      expect(getByText("line 2").props.style).toBe(getByText("line 1").props.style);
+    });
+
+    it("keeps the lines of an open fence as it grows", async () => {
+      const utils = await renderBlock({ code: "a = 1\nb = 2", streaming: true });
+      await utils.rerender(<CodeBlock code={"a = 1\nb = 2\nc = 3"} lang="python" streaming />);
+      expect(utils.getByText("a = 1")).toBeOnTheScreen();
+      expect(utils.getByText("c = 3")).toBeOnTheScreen();
+    });
+  });
+
   describe("diff fences", () => {
     const DIFF = ["def f(xs):", "-    count = 0", "+    total = 0", "     for x in xs:"].join("\n");
 
