@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -12,6 +13,7 @@ from uuid import UUID, uuid4
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.aio import finish_despite_cancel
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
@@ -142,7 +144,7 @@ async def generate_for_chat(
         reference_attachment_ids=reference_attachment_ids,
     )
     written = _WrittenBytes(gateway)
-    async with _ReservedQuota(redis, user, settings, undo=written.delete_all):
+    async with _ReservedQuota(redis, user, settings, undo=written.delete_all) as slot:
         cleaned = prompt.strip()
         if not cleaned:
             raise ImageGenerationError("Prompt is required", status_code=400)
@@ -155,7 +157,9 @@ async def generate_for_chat(
             references=references,
             copy_references=create_user_message,
         )
-        user_message, assistant_message, prior_count = await _persist_turn(
+        # A Cancel that lands while the turn saves lets the save finish: the picture is
+        # the user's then, and its slot is kept.
+        saving = _persist_turn(
             stored,
             user_id=user.id,
             chat_id=chat_id,
@@ -163,11 +167,11 @@ async def generate_for_chat(
             user_message_content=user_message_content,
             create_user_message=create_user_message,
         )
+        user_message, assistant_message, prior_count = await finish_despite_cancel(
+            saving, then=slot.keep
+        )
 
-    try:
-        await quota_service.record_global_spend(redis, quota_service.IMAGE_GEN_SPEND_USD)
-    except Exception:
-        logger.exception("record_global_spend failed after image generation")
+    await _record_spend(redis)
     if create_user_message:
         await turn_record.finish_turn(
             redis,
@@ -251,8 +255,13 @@ class _ReservedQuota:
         self.settings = settings
         self.undo = undo
         self.day: date | None = None
+        self.kept = False
 
-    async def __aenter__(self) -> None:
+    def keep(self) -> None:
+        """The picture is saved: nothing after this undoes it or gives the slot back."""
+        self.kept = True
+
+    async def __aenter__(self) -> _ReservedQuota:
         self.day = await counters.reserve("image_generation", self.redis, self.user, self.settings)
         if not self.day:
             raise ImageGenerationError(
@@ -261,11 +270,12 @@ class _ReservedQuota:
                 code="daily_limit",
                 feature="image_generation",
             )
+        return self
 
     async def __aexit__(
         self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: object
     ) -> None:
-        if exc is None:
+        if exc is None or self.kept:
             return
         await self.undo()
         if not (isinstance(exc, ImageGenerationError) and exc.status_code in _SLOT_KEPT_ON_STATUS):
@@ -315,6 +325,11 @@ async def _generate_and_store(
             aspect_ratio=aspect_ratio,
             reference_images=[(raw, row.content_type) for row, raw in references] or None,
         )
+    except asyncio.CancelledError:
+        # Cancelled mid-call, the provider may still finish and bill it: the global spend
+        # cap is a safety limit, so it counts the call. The user's day does not.
+        await finish_despite_cancel(_record_spend(get_redis_client()))
+        raise
     except image_gateway.ImageContentBlockedError as exc:
         raise ImageGenerationError(
             "That picture can't be made: it breaks the image service's content rules.",
@@ -339,6 +354,14 @@ async def _generate_and_store(
             reference_copies.append(ReferenceCopy(source, ref_id, ref_key))
     image = StoredImage(attachment_id, presigned.storage_key, content_type, len(image_bytes))
     return _StoredImage(image, reference_copies)
+
+
+async def _record_spend(redis: Redis) -> None:
+    """One picture toward the global daily spend cap; a failure is logged, not raised."""
+    try:
+        await quota_service.record_global_spend(redis, quota_service.IMAGE_GEN_SPEND_USD)
+    except Exception:
+        logger.exception("record_global_spend failed after image generation")
 
 
 def _checked_image(generated: tuple[bytes, str] | None) -> tuple[bytes, str]:
