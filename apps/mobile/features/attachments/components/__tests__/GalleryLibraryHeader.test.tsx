@@ -1,6 +1,7 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
 import { GalleryLibraryHeader } from "@/features/attachments/components/GalleryLibraryHeader";
+import { selection, tap } from "@/lib/haptics";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
 jest.mock("@/lib/theme", () => ({
@@ -10,6 +11,7 @@ jest.mock("@/lib/theme", () => ({
 
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
+  selection: jest.fn(),
 }));
 
 describe("GalleryLibraryHeader", () => {
@@ -30,6 +32,24 @@ describe("GalleryLibraryHeader", () => {
     expect(getByTestId("gallery-layout-toggle")).toBeTruthy();
     await fireEvent.press(getByTestId("gallery-layout-toggle"));
     expect(onToggleLayout).toHaveBeenCalled();
+  });
+
+  it("ticks once for a filter change, like every other picker", async () => {
+    const onFilterChange = jest.fn();
+    const { getByLabelText } = await render(
+      <GalleryLibraryHeader
+        filter="all"
+        searchQuery=""
+        layout="grid"
+        onSearchChange={jest.fn()}
+        onFilterChange={onFilterChange}
+        onToggleLayout={jest.fn()}
+      />,
+    );
+    await fireEvent.press(getByLabelText("gallery.filter.files"));
+    expect(onFilterChange).toHaveBeenCalledWith("files");
+    expect(selection).toHaveBeenCalledTimes(1);
+    expect(tap).not.toHaveBeenCalled();
   });
 
   it("keeps the layout toggle a 44pt kit button on the chips' line", async () => {

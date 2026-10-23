@@ -24,7 +24,7 @@ import { MEMORY_TEXT_MAX_LENGTH, stripMemoryAsOf } from "@/features/memory/model
 import type { Memory } from "@/features/memory/types";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { formatMonthDayYear } from "@/lib/datetime/format";
-import { tap } from "@/lib/haptics";
+import { notifyDestructive, tap } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -93,6 +93,7 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         reportRecoverableError(feedback, t(memoryFailureKey(done.failure, "memory.delete_failed")));
         return;
       }
+      notifyDestructive();
       router.back();
     });
   }, [document, t, title, deleteDocument, isCurrentView, feedback, router]);
@@ -112,6 +113,7 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         reportRecoverableError(feedback, t(memoryFailureKey(done.failure, "memory.delete_failed")));
         return;
       }
+      notifyDestructive();
       // The page is gone with its last fact.
       if (lastFact) router.back();
     });

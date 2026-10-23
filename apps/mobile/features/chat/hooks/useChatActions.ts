@@ -6,7 +6,6 @@ import { api, type Message } from "@/lib/api";
 import { patchCachedChatMessage } from "@/features/chat/model/messageCache";
 import { NothingToExportError } from "@/features/chat/model/nothingToExport";
 import { isShareCancelled } from "@/lib/shareCancelled";
-import { tap } from "@/lib/haptics";
 import { useChatManagementActions } from "@/features/chat/hooks/useChatManagementActions";
 import { fullEmailText } from "@/features/drafts/model/emailCompose";
 import { replaceFirstClosedFenceBody } from "@/lib/mdFenceScan";
@@ -167,40 +166,35 @@ export function useChatActions({
     setChatTitle, closeMenu, dismissActionBanner, showActionBanner, t,
   });
 
+  // The menu row plays the haptic; these handlers add none (one per tap).
   /** ⋮ Share opens the share sheet, which loads the transcript itself. */
   const onShareFromMenu = useCallback(() => {
-    tap();
     closeMenu();
     setShareVisible(true);
   }, [closeMenu]);
   const closeShare = useCallback(() => setShareVisible(false), []);
 
   const onExportPdfFromMenu = useCallback(() => {
-    tap();
     closeMenu();
     void handleExportPdf();
   }, [closeMenu, handleExportPdf]);
 
   const onRenameFromMenu = useCallback(() => {
-    tap();
     closeMenu();
     openRename();
   }, [closeMenu, openRename]);
 
   const onTogglePinFromMenu = useCallback(() => {
-    tap();
     closeMenu();
     void togglePin();
   }, [closeMenu, togglePin]);
 
   const onToggleArchiveFromMenu = useCallback(() => {
-    tap();
     closeMenu();
     void toggleArchive();
   }, [closeMenu, toggleArchive]);
 
   const onDeleteFromMenu = useCallback(() => {
-    tap();
     closeMenu();
     confirmDelete();
   }, [closeMenu, confirmDelete]);

@@ -18,6 +18,11 @@ let mockLoading = false;
 let mockError = false;
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
+const mockDestructive = jest.fn();
+jest.mock("@/lib/haptics", () => ({
+  ...jest.requireActual("@/lib/haptics"),
+  notifyDestructive: (...args: unknown[]) => mockDestructive(...args),
+}));
 const mockClearAll = jest.fn(async () => true);
 jest.mock("@/features/memory/hooks/useClearAllMemories", () => ({
   useClearAllMemories: () => ({ clearAll: mockClearAll, busy: false }),
@@ -183,6 +188,8 @@ describe("MemoryDocumentScreen", () => {
     expect(mockConfirm).toHaveBeenCalledWith(expect.objectContaining({ destructive: true }));
     expect(mockDeleteDocument).toHaveBeenCalledWith("area:recall");
     expect(mockRouter.back).toHaveBeenCalled();
+    // One destructive haptic once it is gone, as every delete plays.
+    expect(mockDestructive).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the page when delete is cancelled", async () => {
@@ -192,6 +199,7 @@ describe("MemoryDocumentScreen", () => {
     await flush();
     expect(mockDeleteDocument).not.toHaveBeenCalled();
     expect(mockRouter.back).not.toHaveBeenCalled();
+    expect(mockDestructive).not.toHaveBeenCalled();
   });
 
   it("edits one fact from its menu", async () => {
@@ -217,6 +225,17 @@ describe("MemoryDocumentScreen", () => {
     expect(mockDeleteFact).toHaveBeenCalledWith("f1");
     // Other facts remain, so the page stays open.
     expect(mockRouter.back).not.toHaveBeenCalled();
+    expect(mockDestructive).toHaveBeenCalledTimes(1);
+  });
+
+  it("plays no destructive haptic when a fact's delete fails", async () => {
+    mockDeleteFact.mockResolvedValue({ ok: false, failure: "failed" });
+    const ui = await render(<MemoryDocumentScreen />);
+    await fireEvent(ui.getByTestId("memory-fact-f1"), "longPress", { nativeEvent: { pageX: 5, pageY: 5 } });
+    await fireEvent.press(ui.getByTestId("menu-delete"));
+    await flush();
+    expect(mockFeedback.error).toHaveBeenCalled();
+    expect(mockDestructive).not.toHaveBeenCalled();
   });
 
   it("mutes a fact and shows it muted", async () => {

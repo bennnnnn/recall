@@ -12,7 +12,6 @@ import {
   shouldScrollToEndWhenPinned,
 } from "@/features/chat/model/scrollLogic";
 import { clearScheduledTimeout, scheduleTimeout } from "@/lib/scheduleTimeout";
-import { tap } from "@/lib/haptics";
 import type { KeyboardSteps } from "@/hooks/useKeyboardInset";
 import { useLatestRef } from "@/lib/latestRef";
 
@@ -232,8 +231,9 @@ export function useChatScroll({
 
   useEffect(() => () => clearScheduledTimeout(keyboardScrollTimerRef), []);
 
+  // No haptic: image generation and live talk call this after every picture and voice
+  // turn. The scroll button plays its own on press (ChatScrollFab).
   const scrollToLatest = useCallback(() => {
-    tap();
     listRef.current?.scrollToEnd({ animated: true });
     updateAtBottom(true);
   }, [updateAtBottom]);

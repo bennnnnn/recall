@@ -5,6 +5,7 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 import { MessageBubble } from "@/features/chat/components/MessageBubble";
 import { speakPlainText, stopSpeaking } from "@/features/speech/model/pronunciation";
 import type { Message } from "@/lib/api";
+import { selection, tap } from "@/lib/haptics";
 
 let mockShowLiveClock = false;
 let mockMarkdownPresented = false;
@@ -231,6 +232,14 @@ describe("MessageBubble copy feedback timers", () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it("opens a sent message's actions with the long-press tap every menu uses", async () => {
+    const view = await render(<MessageBubble message={userMessage} />);
+    await fireEvent(view.getByA11yHint("chat.user_message_actions_hint"), "longPress");
+    expect(view.getByLabelText("common.copy")).toBeTruthy();
+    expect(tap).toHaveBeenCalledTimes(1);
+    expect(selection).not.toHaveBeenCalled();
   });
 
   it("cleans up the user copy reset timer on unmount", async () => {

@@ -6,9 +6,11 @@ import { allowReminderAlerts } from "@/features/todos/model/reminderAlerts";
 import {
   isProposalSaved,
   markProposalSaved,
+  proposalAction,
   type ReminderProposal,
 } from "@/features/todos/model/reminderProposal";
 import { api, type Todo } from "@/lib/api";
+import { notifyDestructive, notifyError, notifySuccess } from "@/lib/haptics";
 
 type ReminderProposalError = "expired" | "changed" | "failed";
 
@@ -38,6 +40,9 @@ export function useReminderProposal(proposal: ReminderProposal) {
       const saved = await api.confirmReminderProposal(token, proposal.proposalId);
       markProposalSaved(proposal.proposalId);
       setDone(true);
+      // One haptic for the tap, when the card is saved (a delete, as every delete does).
+      if (proposalAction(proposal) === "delete") notifyDestructive();
+      else notifySuccess();
       // Ask before the rows land, so the reminder sync that follows may schedule its alert.
       if (proposal.items.some((item) => item.dueAt && (item.action === "add" || item.action === "set_due"))) {
         setAlertsOff((await allowReminderAlerts()) === "off");
@@ -50,6 +55,7 @@ export function useReminderProposal(proposal: ReminderProposal) {
       // ApiRequestError carries the HTTP status: 410 expired, 409 changed since.
       const status = (caught as { status?: unknown } | null)?.status;
       setError(status === 410 ? "expired" : status === 409 ? "changed" : "failed");
+      notifyError();
     } finally {
       setBusy(false);
     }

@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 
 import { IconButton } from "@/ui/controls/IconButton";
 import { SearchField } from "@/ui/controls/SearchField";
-import { tap } from "@/lib/haptics";
 import { type GalleryFilter } from "@/features/attachments/model/gallery";
 import { type GalleryLayout } from "@/features/attachments/model/galleryLayout";
 import { Space } from "@/lib/space";
@@ -64,10 +63,7 @@ export function GalleryLibraryHeader({
               accessibilityRole="radio"
               label={tab.label}
               selected={tab.key === filter}
-              onPress={() => {
-                tap();
-                onFilterChange(tab.key);
-              }}
+              onPress={() => onFilterChange(tab.key)}
             />
           ))}
         </ScrollView>
