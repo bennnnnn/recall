@@ -24,7 +24,7 @@ import {
   setGalleryLayout as persistGalleryLayout,
   type GalleryLayout,
 } from "@/features/attachments/model/galleryLayout";
-import { tap } from "@/lib/haptics";
+import { notifyDestructive, tap } from "@/lib/haptics";
 import { queueComposerAttachment } from "@/features/attachments/model/pendingComposerAttachment";
 import { pendingFromLibraryItem } from "@/features/attachments/model/pendingFromLibraryItem";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
@@ -173,6 +173,7 @@ export function useGalleryLibrary(
       try {
         await api.deleteAttachment(token, item.id);
         if (session !== getSessionGeneration()) return;
+        notifyDestructive();
         removeCachedGalleryItem(item.id);
         emitAppEvent("attachmentDeleted", { attachmentId: item.id, chatId: item.chat_id ?? null });
         if (!isCurrent(version)) return;

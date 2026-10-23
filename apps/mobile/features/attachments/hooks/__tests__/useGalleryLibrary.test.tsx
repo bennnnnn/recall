@@ -5,7 +5,7 @@ import { useGalleryLibrary } from "@/features/attachments/hooks/useGalleryLibrar
 import type { AttachmentListItem } from "@/lib/api";
 import { pendingFromLibraryItem } from "@/features/attachments/model/pendingFromLibraryItem";
 import { queueComposerAttachment } from "@/features/attachments/model/pendingComposerAttachment";
-import { selection, tap } from "@/lib/haptics";
+import { notifyDestructive, selection, tap } from "@/lib/haptics";
 
 let mockSession = 0;
 const mockBack = jest.fn();
@@ -37,7 +37,7 @@ jest.mock("@/features/chat/model/messageCache", () => ({ clearCachedChatMessages
 jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({ shareChatAttachment: jest.fn() }));
 let mockUri: string | null = "file://attachment";
 jest.mock("@/features/attachments/model/attachmentUri", () => ({ resolveAttachmentUri: () => mockUri }));
-jest.mock("@/lib/haptics", () => ({ selection: jest.fn(), tap: jest.fn() }));
+jest.mock("@/lib/haptics", () => ({ selection: jest.fn(), tap: jest.fn(), notifyDestructive: jest.fn() }));
 const item = { id: "one", content_type: "image/png" } as AttachmentListItem;
 const pending = { localUri: "file://image.png", fileName: "image.png", kind: "image", contentType: "image/png" };
 let current: ReturnType<typeof useGalleryLibrary>;
@@ -137,6 +137,19 @@ describe("the photo viewer follows the photo on screen", () => {
     expect(api.deleteAttachment).toHaveBeenCalledWith("token", "b");
     expect(removeItem).toHaveBeenCalledWith("b");
     expect(current.viewerItem?.id).toBe("c");
+  });
+
+  it("plays one destructive haptic once a delete lands, as a chat or a to-do does, and none when it fails", async () => {
+    const { api } = jest.requireMock("@/lib/api") as { api: { deleteAttachment: jest.Mock } };
+    api.deleteAttachment.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("offline"));
+    await render(<ViewerProbe />);
+    await act(async () => { current.confirmDelete(photos[0]); });
+    await act(async () => { await Promise.resolve(); });
+    expect(notifyDestructive).toHaveBeenCalledTimes(1);
+    await act(async () => { current.confirmDelete(photos[1]); });
+    await act(async () => { await Promise.resolve(); });
+    expect(api.deleteAttachment).toHaveBeenCalledTimes(2);
+    expect(notifyDestructive).toHaveBeenCalledTimes(1);
   });
 
   it("closes after deleting the only photo", async () => {
