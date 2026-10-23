@@ -523,5 +523,61 @@
   "prompt": "give me test results for the 2024 national exam in Ethiopia",
   "reply": "In 2024, about 5.4% of students who sat the national exam passed.",
   "expect": "search"
+ },
+ {
+  "id": "sl-076",
+  "area": "search",
+  "prompt": "Is iPhone 19 out?",
+  "reply": "Not yet. Here's what current sources say about the next iPhone, with links.",
+  "expect": "search"
+ },
+ {
+  "id": "sl-077",
+  "area": "search",
+  "prompt": "has gta 6 been released",
+  "reply": "Here's what current sources say about GTA 6's release, with links.",
+  "expect": "search"
+ },
+ {
+  "id": "sl-078",
+  "area": "search",
+  "prompt": "when is Avatar 3 coming out",
+  "reply": "Here's the release date current sources give, with links.",
+  "expect": "search"
+ },
+ {
+  "id": "sl-079",
+  "area": "chitchat",
+  "prompt": "is the power out on your end too? mine just flickered",
+  "reply": "I can't see your power, but a flicker often means a brief grid dip. Check whether neighbours lost power too.",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-080",
+  "area": "chitchat",
+  "prompt": "Is Dad out?",
+  "reply": "I can't see where your dad is. Want me to help you write him a quick message?",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-081",
+  "area": "chitchat",
+  "prompt": "is the cake out yet",
+  "reply": "I can't see your oven, but most cakes take 30 to 35 minutes. A toothpick should come out clean.",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-082",
+  "area": "chitchat",
+  "prompt": "when does school get out",
+  "reply": "It depends on your school. Most US schools let out between 2:30 and 3:30 pm.",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-083",
+  "area": "chitchat",
+  "prompt": "has the baby come out yet",
+  "reply": "I don't know, but I hope everyone is doing well! Want help with a message to the new parents?",
+  "expect": "answer"
  }
 ]

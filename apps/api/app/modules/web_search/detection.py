@@ -22,6 +22,7 @@ from app.modules.web_search.live_asks import (
     asks_for_a_price,
     asks_for_entry_rules,
     asks_for_job_listings,
+    asks_if_released,
 )
 from app.modules.web_search.officeholder import asks_who_holds_office
 from app.modules.web_search.patterns import (
@@ -159,6 +160,9 @@ def web_search_fast_yes(
         return True
     # Conditions and products change after training; no model call can know them.
     if is_weather_request(cleaned) or _NEW_PRODUCT.search(cleaned):
+        return True
+    # "Is iPhone 19 out?" was told the iPhone 16 was current, two models late.
+    if asks_if_released(cleaned):
         return True
     # So do officeholders: "who is the president of Ethiopia" was answered from memory.
     if asks_who_holds_office(cleaned):
