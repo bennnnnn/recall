@@ -24,7 +24,7 @@ from pydantic import (
     model_validator,
 )
 
-from app.services.md_fence_scan import iter_fences
+from app.services.md_fence_scan import Fence, iter_fences
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +203,55 @@ def _questions_only(body: str) -> str:
     return "\n".join(lines)
 
 
+def _holds_a_card(text: str, fence: Fence) -> bool:
+    """A ```clarify fence, or our card in a ```json or bare fence: shown as JSON otherwise.
+
+    Only the card has "request" and "submit" beside its questions, so a quiz's JSON the
+    user asked for stays code.
+    """
+    if fence.lang == CLARIFY_FENCE:
+        return True
+    if fence.lang not in ("json", ""):
+        return False
+    try:
+        raw = json.loads(text[fence.body_start : fence.body_end])
+    except ValueError:
+        return False
+    return (
+        isinstance(raw, dict)
+        and isinstance(raw.get("questions"), list)
+        and "request" in raw
+        and "submit" in raw
+    )
+
+
+# Our lead-in (prompt_constants/clarify.py) made to fit the card it introduces: "one thing"
+# over two questions, and a "But" with no options before it, read wrong. A reply in
+# another language follows the prompt's own rule.
+_LEAD_IN = re.compile(
+    r"\*\*(?:but\s+)?let\s+me\s+ask\s+you\s+(?:one\s+thing|a\s+couple\s+of\s+things|"
+    r"a\s+few\s+things)\.?\*\*",
+    re.IGNORECASE,
+)
+_HOW_MANY = {1: "one thing", 2: "a couple of things"}
+
+
+def _fit_lead_in(prose: str, questions: int) -> str:
+    lines = prose.split("\n")
+    for index in range(len(lines) - 1, -1, -1):
+        line = lines[index].strip()
+        # Alone on its line, or opening it ("**…one thing.** I need to know your budget.").
+        lead_in = _LEAD_IN.match(line)
+        if lead_in is None:
+            continue
+        after_options = any("**" in earlier for earlier in lines[:index])
+        opener = "But let me" if after_options else "Let me"
+        fitted = f"**{opener} ask you {_HOW_MANY.get(questions, 'a few things')}.**"
+        lines[index] = fitted + line[lead_in.end() :]
+        break
+    return "\n".join(lines)
+
+
 def settle_clarify_cards(text: str, *, allowed: bool, after_card: bool = False) -> str:
     """At most one valid card, last in the reply; none when the turn may not ask.
 
@@ -210,7 +259,7 @@ def settle_clarify_cards(text: str, *, allowed: bool, after_card: bool = False) 
     its questions as prose, so the user still knows what to answer. The turn after a
     card (``after_card``) keeps no questions at all: the user already answered.
     """
-    fences = [fence for fence in iter_fences(text) if fence.lang == CLARIFY_FENCE]
+    fences = [fence for fence in iter_fences(text) if _holds_a_card(text, fence)]
     if not fences:
         return text
     pieces: list[str] = []
@@ -225,6 +274,7 @@ def settle_clarify_cards(text: str, *, allowed: bool, after_card: bool = False) 
     if allowed:
         card = next((c for body in bodies if (c := read_card(body))), None)
         if card is not None:
+            prose = _fit_lead_in(prose, len(card.questions))
             return f"{prose}\n\n{card.fence()}" if prose else card.fence()
     if after_card:
         return _without_card_intro(prose)
