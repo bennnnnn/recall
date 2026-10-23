@@ -3,6 +3,7 @@ import {
   isPdfContentType,
   parseMessageImages,
   parseUserMessageContent,
+  stripAttachmentMarkers,
   stripLookupSourceCaption,
 } from "@/lib/messageAttachments";
 import { MATH_CAMERA_PROMPT } from "@/lib/math/cameraPrompt";
@@ -106,5 +107,28 @@ describe("[Image: …] markers load only Recall attachments", () => {
     const parsed = parseUserMessageContent("look [at] this\n[Image: https://evil.test/p.png]");
     expect(parsed.images).toEqual([]);
     expect(parsed.caption).toBe("look [at] this\n[Image: https://evil.test/p.png]");
+  });
+});
+
+describe("stripAttachmentMarkers mirrors the server's delete", () => {
+  const PDF = "0190a000-0000-7000-8000-0000000000cc";
+  const PHOTO = "0190a000-0000-7000-8000-0000000000dd";
+
+  it.each([
+    [
+      "a file and its excerpt",
+      `summarize this\n\n[File: /attachments/${PDF}/file]\n[File (application/pdf)]\nPage one text\n[Image: /attachments/${PHOTO}/file]`,
+      PDF,
+      `summarize this\n\n[Image: /attachments/${PHOTO}/file]`,
+    ],
+    ["the whole reply", `[Image: /attachments/${PHOTO}/file]`, PHOTO, ""],
+    ["an id in either case", `hi\n[Image: /attachments/${PHOTO.toUpperCase()}/file]`, PHOTO, "hi"],
+  ])("removes %s", (_label, content, id, expected) => {
+    expect(stripAttachmentMarkers(content, id)).toBe(expected);
+  });
+
+  it("is null for a message that never showed it, a mention in prose included", () => {
+    expect(stripAttachmentMarkers(`see /attachments/${PHOTO}/file`, PHOTO)).toBeNull();
+    expect(stripAttachmentMarkers(`[Image: /attachments/${PHOTO}/file]`, PDF)).toBeNull();
   });
 });
