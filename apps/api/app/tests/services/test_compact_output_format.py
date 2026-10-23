@@ -692,6 +692,9 @@ def test_plain_career_disclosure_gets_short_conversation_contract():
         "I work at Uber. Write an email to a Google recruiter",
         "I work at Uber; make me a transition plan",
         "Should I leave Uber for Google?",
+        # A topic they are stuck on asks to be taught.
+        "I'm confused about pointers in C",
+        "I’m lost with derivatives",
     ],
 )
 def test_personal_context_with_a_real_request_is_not_only_a_disclosure(query):

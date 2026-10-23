@@ -112,9 +112,7 @@ def field_title(field: SettingsField) -> str:
 
 def _current_value(user: User, field: SettingsField) -> str | None:
     if field == "default_model":
-        if plan_service.is_auto_enabled(user):
-            return "auto"
-        return user.default_model
+        return plan_service.chosen_model(user)
     if field == "response_tone":
         return user.response_tone
     if field == "locale":
@@ -283,18 +281,6 @@ async def _clear_memory(session: AsyncSession, user_id: UUID) -> None:
     await memory_service.delete_all_memories(session, user_id)
 
 
-def _enabled_models_for(user: User, settings: Settings, model_id: str) -> list[str]:
-    if model_id == plan_service.AUTO_ALIAS:
-        current = user.enabled_models
-        if current and plan_service.AUTO_ALIAS in current:
-            return list(current)
-        pool = plan_service.model_pool(user, settings)
-        return plan_service.validate_enabled_models_for_update(
-            user, [plan_service.AUTO_ALIAS, *pool], settings
-        ) or [plan_service.AUTO_ALIAS]
-    return plan_service.validate_enabled_models_for_update(user, [model_id], settings) or [model_id]
-
-
 async def confirm_proposal(
     session: AsyncSession,
     redis: Redis,
@@ -334,8 +320,7 @@ async def confirm_proposal(
                     await _clear_memory(session, user.id)
                 continue
             if item.field == "default_model":
-                fields["default_model"] = item.value
-                fields["enabled_models"] = _enabled_models_for(user, settings, item.value)
+                fields["enabled_models"] = plan_service.models_choosing(user, settings, item.value)
                 continue
             if item.field == "response_tone":
                 fields["response_tone"] = item.value

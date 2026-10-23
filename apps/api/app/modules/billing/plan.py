@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, TypeGuard
 
 from app.core.config import Settings
 from app.models import model_catalog
+from app.models.schemas.auth import chosen_model_id
 from app.modules.billing.entitlements import can_use, is_paid
 from app.services import model_health
 
@@ -76,6 +77,31 @@ def is_auto_enabled(user: User) -> bool:
     if user.enabled_models is None:
         return True
     return AUTO_ALIAS in user.enabled_models
+
+
+def chosen_model(user: User) -> str:
+    """The model a message uses: Auto, or the first model the user turned on."""
+    return chosen_model_id(user.enabled_models)
+
+
+def models_choosing(user: User, settings: Settings, model_id: str) -> list[str]:
+    """``enabled_models`` after choosing ``model_id``, the one rule for every chooser.
+
+    Auto keeps (or restores) the pool with Auto on. A model moves to the front with
+    Auto off and the rest of the pool kept, so the user's other switches survive.
+    """
+    if model_id == AUTO_ALIAS:
+        current = user.enabled_models
+        if current and AUTO_ALIAS in current:
+            return list(current)
+        pool = model_pool(user, settings)
+        return validate_enabled_models_for_update(user, [AUTO_ALIAS, *pool], settings) or [
+            AUTO_ALIAS
+        ]
+    if model_id not in allowed_model_ids(user, settings):
+        raise ValueError("That model isn't available on your plan.")
+    rest = [item for item in model_pool(user, settings) if item != model_id]
+    return validate_enabled_models_for_update(user, [model_id, *rest], settings) or [model_id]
 
 
 def model_pool(user: User, settings: Settings) -> list[str]:

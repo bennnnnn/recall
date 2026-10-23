@@ -211,3 +211,40 @@ def test_a_model_card_shows_the_name_settings_shows() -> None:
     assert change_label("default_model", "auto") == "Auto"
     for model in model_catalog.selectable_models():
         assert change_label("default_model", model.id) == model.label
+
+
+async def test_a_model_card_puts_the_model_first_and_keeps_the_pool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core.config import Settings
+    from app.modules.account import settings_proposal as svc
+
+    user = _user(enabled_models=["auto", "free-chat", "smart-chat", "glm-5.2"])
+    redis = redis_mock()
+    redis.getdel = AsyncMock(return_value=b'[{"field":"default_model","value":"glm-5.2"}]')
+    redis.get = AsyncMock(return_value=b'[{"field":"default_model","value":"glm-5.2"}]')
+    written: dict[str, object] = {}
+
+    async def update(_session: object, current: object, **fields: object) -> object:
+        written.update(fields)
+        return current
+
+    monkeypatch.setattr(svc.users_repo, "update", update)
+    await confirm_proposal(AsyncMock(), redis, user, Settings(), "pid")  # type: ignore[arg-type]
+
+    # Auto off, the chosen model first, the other switches kept; the copy is the repo's.
+    assert written["enabled_models"] == ["glm-5.2", "free-chat", "smart-chat"]
+    assert "default_model" not in written
+
+
+def test_a_model_card_reads_the_current_model_from_enabled_models() -> None:
+    from app.core.config import Settings
+
+    user = _user(default_model="auto", enabled_models=["smart-chat", "free-chat"])
+    apply, already, blocked = validate_changes(
+        user,  # type: ignore[arg-type]
+        Settings(),
+        [SettingsChange("default_model", "smart-chat")],
+    )
+    assert (apply, blocked) == ([], None)
+    assert [change.value for change in already] == ["smart-chat"]
