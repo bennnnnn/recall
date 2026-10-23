@@ -228,6 +228,20 @@ async def _build_beside_persist(
     return bundle, persist
 
 
+def _first_reply(recent: list[Any] | None, prior_count: int) -> bool:
+    """No reply in the chat yet: this turn's names it (the ``topic`` job).
+
+    A first message stopped before any text saves no reply and queues no title,
+    so the reply after it is the chat's first. Older rows than the window hold
+    are taken to include one.
+    """
+    if prior_count == 0:
+        return True
+    if recent is None or len(recent) < prior_count:
+        return False
+    return not any(getattr(message, "role", None) == "assistant" for message in recent)
+
+
 def _stream_context(
     bundle: TurnPromptBundle,
     turn: UserTurn,
@@ -252,6 +266,7 @@ def _stream_context(
         prior_count=prior_count,
         timing=timing,
         user_message_persist=persist,
+        run_title=_first_reply(turn.recent_messages, prior_count),
         # The user's own pick runs whatever its health; Auto's claims its probe.
         model_named=plan_service.is_explicit_pick(turn.model_alias) and model == turn.model_alias,
         thinking=thinking_level(

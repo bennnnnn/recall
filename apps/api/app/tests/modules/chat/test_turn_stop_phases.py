@@ -21,7 +21,7 @@ import pytest
 from sqlalchemy import select
 from starlette.websockets import WebSocket
 
-from app.core import access_tokens, user_cache
+from app.core import access_tokens, jobs, user_cache
 from app.core import redis as core_redis
 from app.core.background_tasks import drain_background_tasks
 from app.core.config import get_settings
@@ -163,6 +163,15 @@ class _Chat:
                 .order_by(Message.created_at)
             )
             return [(role, content, completion) for role, content, completion in result.all()]
+
+    async def jobs(self) -> list[str]:
+        """The post-turn jobs queued for this chat, in order."""
+        entries = await core_redis.get_jobs_redis_client().xrange(jobs.JOBS_STREAM) or []
+        return [
+            str(fields["type"])
+            for _id, fields in entries
+            if fields and str(self.chat_id) in str(fields["payload"])
+        ]
 
     async def settled(self) -> tuple[int, int, bool]:
         """Today's usage in Redis and in the database, and whether the chat is still locked."""
@@ -316,3 +325,51 @@ async def test_ws_stop_after_stream_end_still_sends_done(
     used, in_db, locked = await chat.settled()
     assert used == in_db > 0 and not locked
     await sock.close()
+
+
+async def test_a_chat_whose_first_message_was_stopped_is_named_by_its_first_reply(
+    chat: _Chat, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: only a chat's first turn queued its title. A first message stopped
+    before any text saved no reply (so no jobs), and the turns after it were not the
+    first: the chat stayed "New chat" until it was opened again."""
+    reached, release = _held_load(monkeypatch)
+    sock = await chat.socket()
+    sock.put(_message("Explain black holes"))
+    await reached.wait()
+    sock.put({"type": "cancel", "shown_chars": 0})
+    await asyncio.sleep(0.05)
+    release.set()
+    await finalize_registry.wait_for_inflight_stream(chat.chat_id)
+    assert await chat.jobs() == []
+
+    sock.put(_message("And neutron stars?"))
+    await sock.until("done")
+    sock.put(_message("How big do they get?"))
+    await sock.until("done")
+    await drain_background_tasks()
+
+    assert (await chat.jobs()).count("topic") == 1
+    await sock.close()
+
+
+@pytest.mark.parametrize(
+    "roles, prior_count, names_it",
+    [
+        ([], 0, True),  # the chat's first message
+        (["user"], 1, True),  # after a first message stopped before any text
+        (["user", "user"], 2, True),
+        (["user", "assistant"], 2, False),  # named by the first reply already
+        (["user"] * 3, 40, False),  # older rows than the window holds
+        (None, 3, False),  # no window read: only the first turn names it
+    ],
+)
+def test_the_chats_first_reply_names_it(
+    roles: list[str] | None, prior_count: int, names_it: bool
+) -> None:
+    from types import SimpleNamespace
+
+    from app.modules.chat.turn_prep.prepare import _first_reply
+
+    recent = None if roles is None else [SimpleNamespace(role=role) for role in roles]
+    assert _first_reply(recent, prior_count) is names_it
