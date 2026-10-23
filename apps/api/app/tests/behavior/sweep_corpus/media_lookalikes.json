@@ -110,5 +110,33 @@
     "prompt": "draw conclusions from the survey results above",
     "reply": "Three conclusions stand out:\n\n1. **Price is the main barrier**: 62% of people who did not buy named cost first.\n2. **Delivery time matters less than expected**: only 14% mentioned it.\n3. **Repeat buyers are loyal**: 81% of them would recommend you.\n\nSo a first-order discount is likely to move more people than faster delivery.",
     "expect": "answer"
+  },
+  {
+    "id": "media-017",
+    "area": "image",
+    "prompt": "make a poster for my event",
+    "reply": "Here's a bold poster for your event: big headline space at the top, a warm sunset gradient behind it, and room at the bottom for the date and place. Want it in a different style?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "media-018",
+    "area": "image",
+    "prompt": "make me a logo for my app",
+    "reply": "Here's a clean, modern app logo: a rounded square with a simple geometric mark in deep blue. Tell me your app's name and I can add it.",
+    "expect": "image_gen"
+  },
+  {
+    "id": "media-019",
+    "area": "image",
+    "prompt": "design a mascot for my game",
+    "reply": "Here's a friendly mascot for your game: a round little fox in an explorer's scarf, drawn in a bright cartoon style.",
+    "expect": "image_gen"
+  },
+  {
+    "id": "media-020",
+    "area": "code",
+    "prompt": "make a logo for my website in html",
+    "reply": "Here's a simple text logo in HTML and CSS:\n\n```html\n<div class=\"logo\"><span>Bean</span>There</div>\n<style>\n.logo { font: 700 32px system-ui; color: #3b2a1a; }\n.logo span { color: #c47a2c; }\n</style>\n```",
+    "expect": "answer"
   }
 ]

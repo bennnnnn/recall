@@ -82,15 +82,54 @@ def fold_token(word: str) -> str:
 
 
 def has_non_image_subject(subject: str) -> bool:
-    words = subject.split()
-    for i, word in enumerate(words):
-        key = fold_token(word)
-        if key in NON_IMAGE_WORDS:
+    words = [fold_token(word) for word in subject.split()]
+    for i, key in enumerate(words):
+        if key in NON_IMAGE_WORDS and not _names_what_the_art_is_for(words, i):
             return True
-        nxt = fold_token(words[i + 1]) if i + 1 < len(words) else ""
+        nxt = words[i + 1] if i + 1 < len(words) else ""
         if key == "pull" and nxt in {"request", "requests"}:
             return True
     return False
+
+
+# Pictures made for something: "a poster for my event", "an app logo".
+_ART_FOR_NOUNS = frozenset(
+    {
+        "logo",
+        "logos",
+        "icon",
+        "icons",
+        "poster",
+        "posters",
+        "banner",
+        "banners",
+        "sticker",
+        "stickers",
+        "mascot",
+        "mascots",
+        "flyer",
+        "flyers",
+        "thumbnail",
+        "thumbnails",
+        "wallpaper",
+        "wallpapers",
+    }
+)
+# "A logo for my site in html" asks for markup, not a picture.
+_MARKUP_WORDS = frozenset({"html", "css", "javascript", "typescript"})
+
+
+def _names_what_the_art_is_for(words: list[str], i: int) -> bool:
+    """``app`` in "an app logo" or "a logo for my app": what the picture is for, not the ask."""
+    if any(word in _MARKUP_WORDS for word in words):
+        return False
+    if i + 1 < len(words) and words[i + 1] in _ART_FOR_NOUNS:
+        return True
+    before = words[:i]
+    if "for" not in before:
+        return False
+    purpose = len(before) - 1 - before[::-1].index("for")
+    return any(word in _ART_FOR_NOUNS for word in words[:purpose])
 
 
 def has_non_image_draw(subject: str) -> bool:
