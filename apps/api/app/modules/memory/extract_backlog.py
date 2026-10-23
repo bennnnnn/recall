@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 
 _MEMORY_TRANSCRIPT_MAX_CHARS = 4000
 _MEMORY_EXTRACT_BACKLOG = 20
+# The user line and reply before a "forget that", each cut to this many characters.
+_EARLIER_EXCHANGE_MESSAGES = 2
+_EARLIER_LINE_MAX_CHARS = 600
 _CURSOR_TTL_SECONDS = 60 * 60 * 24 * 60
 # A failed model pass keeps the cursor so the next turn retries the same lines.
 # After this many failures in a row the lines are skipped, so one line the model
@@ -94,16 +97,7 @@ async def expand_memory_extract_transcript(
 
     Cursor is stamped by the caller only after the LLM pass succeeds.
     """
-    after_created_at: datetime | None = None
-    after_id: UUID | None = None
-    try:
-        raw = await get_redis_client().get(_cursor_key(user_id, chat_id))
-        if isinstance(raw, bytes):
-            raw = raw.decode()
-        after_created_at, after_id = parse_extract_cursor(raw if isinstance(raw, str) else None)
-    except Exception:
-        logger.debug("memory extract cursor read failed chat_id=%s", chat_id, exc_info=True)
-
+    after_created_at, after_id = await _read_cursor(user_id, chat_id)
     try:
         rows = await chat_history.user_lines_since(
             session,
@@ -125,6 +119,48 @@ async def expand_memory_extract_transcript(
         last = rows[-1]
         newest_cursor = format_extract_cursor(last.created_at, last.id)
     return cap_text_head_tail(built, _MEMORY_TRANSCRIPT_MAX_CHARS), newest_cursor
+
+
+async def exchange_before_unread(session: AsyncSession, *, user_id: UUID, chat_id: UUID) -> str:
+    """The exchange just before the pass's unread lines: what "forget that" points at.
+
+    Those lines were read by an earlier pass. They are context, never a source of
+    facts: "Remember I'm vegetarian", "Got it", then "Actually, forget that".
+    """
+    after_created_at, after_id = await _read_cursor(user_id, chat_id)
+    try:
+        unread = await chat_history.user_lines_since(
+            session,
+            chat_id,
+            after_created_at=after_created_at,
+            after_id=after_id,
+            limit=_MEMORY_EXTRACT_BACKLOG,
+        )
+        if not unread:
+            return ""
+        earlier = await chat_history.messages_before(
+            session, chat_id, unread[0], limit=_EARLIER_EXCHANGE_MESSAGES
+        )
+    except Exception:
+        logger.debug("memory extract earlier exchange failed chat_id=%s", chat_id, exc_info=True)
+        return ""
+    lines: list[str] = []
+    for message in earlier:
+        text = memory_extract_user_text(message.content)[:_EARLIER_LINE_MAX_CHARS].strip()
+        if text and message.role in ("user", "assistant"):
+            lines.append(f"{message.role.capitalize()}: {text}")
+    return "\n".join(lines)
+
+
+async def _read_cursor(user_id: UUID, chat_id: UUID) -> tuple[datetime | None, UUID | None]:
+    try:
+        raw = await get_redis_client().get(_cursor_key(user_id, chat_id))
+        if isinstance(raw, bytes):
+            raw = raw.decode()
+        return parse_extract_cursor(raw if isinstance(raw, str) else None)
+    except Exception:
+        logger.debug("memory extract cursor read failed chat_id=%s", chat_id, exc_info=True)
+        return None, None
 
 
 async def stamp_extract_cursor(user_id: UUID, chat_id: UUID, cursor: str) -> None:

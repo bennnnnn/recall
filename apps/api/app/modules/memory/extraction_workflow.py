@@ -12,8 +12,10 @@ from app.core.db import SessionLocal
 from app.modules.memory import llm as memory_llm
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
+from app.modules.memory.commands import is_explicit_forget_command
 from app.modules.memory.extract_backlog import (
     clear_failed_extract_passes,
+    exchange_before_unread,
     expand_memory_extract_transcript,
     history_chat_transcript,
     note_failed_extract_pass,
@@ -153,6 +155,8 @@ class _PassInput:
     lines: str
     # Where the live cursor moves once these lines are read; None for the history scan.
     cursor: str | None
+    # The exchange before these lines, read for a "forget that"; else empty.
+    earlier: str = ""
 
 
 async def _locked_pass(
@@ -188,6 +192,7 @@ async def _locked_pass(
         chat_id=chat_id,
         from_history=from_history,
         min_confidence=settings.memory_min_confidence,
+        earlier=read.earlier,
     )
     if writes:
         await apply_memory_facts(
@@ -219,6 +224,7 @@ async def _read_pass_input(
         if not snapshot.memory_enabled:
             return None
         cursor: str | None = None
+        earlier = ""
         if from_history:
             # Read under the write lock, so a hand edit cannot land
             # between this cut-off and the writes below.
@@ -230,7 +236,11 @@ async def _read_pass_input(
                 chat_id=chat_id,
                 fallback_transcript=transcript,
             )
-    return _PassInput(snapshot=snapshot, lines=without_reset_requests(lines), cursor=cursor)
+            if is_explicit_forget_command(lines):
+                earlier = await exchange_before_unread(session, user_id=user_id, chat_id=chat_id)
+    return _PassInput(
+        snapshot=snapshot, lines=without_reset_requests(lines), cursor=cursor, earlier=earlier
+    )
 
 
 async def _ask_model(
@@ -243,6 +253,7 @@ async def _ask_model(
         existing_facts=read.snapshot.prompt_facts,
         existing_areas=read.snapshot.prompt_areas,
         from_history=from_history,
+        earlier=read.earlier,
     )
     if result is not None:
         if not from_history:

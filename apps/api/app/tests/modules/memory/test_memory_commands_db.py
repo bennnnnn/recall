@@ -34,12 +34,14 @@ class _Reuse:
 
 
 class _MemoryModel:
-    """Returns the ops queued for the next pass."""
+    """Returns the ops queued for the next pass and records what each pass read."""
 
     def __init__(self) -> None:
         self.ops: list[MemoryFactOp] = []
+        self.earlier: list[str] = []
 
-    async def __call__(self, _settings, _transcript, **_kwargs):
+    async def __call__(self, _settings, _transcript, **kwargs):
+        self.earlier.append(kwargs.get("earlier", ""))
         ops, self.ops = self.ops, []
         return MemoryFactUpdateResult(ops=ops)
 
@@ -102,6 +104,45 @@ def _add(text: str, *, sensitivity: str = "normal") -> MemoryFactOp:
         confidence=0.95,
         sensitivity=sensitivity,
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("then", "kept"),
+    [
+        # "That" is what the line before asked to remember.
+        ("Actually, forget that.", []),
+        ("forget that please, I was joking", []),
+        # A forget that names something else leaves it alone.
+        ("Forget my old address", ["User is vegetarian"]),
+    ],
+)
+async def test_a_bare_forget_drops_what_the_line_before_remembered(db_session, model, then, kept):
+    chat = await _chat(db_session)
+    model.ops = [_add("User is vegetarian")]
+    await _turn(db_session, chat, 1, "Remember I'm vegetarian", "Got it, you're vegetarian.")
+    assert await _active(db_session, chat) == ["User is vegetarian"]
+
+    # The model names no fact: the line alone does not say what "that" is.
+    await _turn(db_session, chat, 2, then, "Done.")
+
+    assert await _active(db_session, chat) == kept
+    # The model is shown the exchange the line points back at.
+    assert "User: Remember I'm vegetarian" in model.earlier[-1]
+    assert "Assistant: Got it, you're vegetarian." in model.earlier[-1]
+
+
+@pytest.mark.asyncio
+async def test_a_bare_forget_after_a_question_deletes_nothing(db_session, model):
+    chat = await _chat(db_session)
+    model.ops = [_add("User is vegetarian")]
+    await _turn(db_session, chat, 1, "Remember I'm vegetarian")
+    await _turn(db_session, chat, 2, "What's a good lentil recipe?", "Try a dal.")
+
+    await _turn(db_session, chat, 3, "forget that", "Sure.")
+
+    assert await _active(db_session, chat) == ["User is vegetarian"]
+    assert model.earlier[0] == ""  # an ordinary pass reads no earlier exchange
 
 
 @pytest.mark.asyncio

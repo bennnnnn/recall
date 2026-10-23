@@ -313,6 +313,11 @@ def forget_requests(text: str) -> list[str]:
     return _named_after(text, _FORGET_MARKERS, forget=True)
 
 
+def remember_requests(text: str) -> list[str]:
+    """What each "remember …" instruction names: "remember I'm vegetarian" → "vegetarian"."""
+    return _named_after(text, tuple(_REMEMBER_MARKERS), forget=False)
+
+
 def mute_requests(text: str) -> list[str]:
     """What each "stop mentioning …" instruction names: "my job"."""
     if not is_explicit_mute_command(text):

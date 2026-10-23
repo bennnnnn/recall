@@ -8,6 +8,7 @@ from app.modules.memory.commands import (
     is_memory_correction,
     memory_reset_request,
     mute_requests,
+    remember_requests,
 )
 
 
@@ -34,6 +35,12 @@ from app.modules.memory.commands import (
 )
 def test_remember_commands_are_read_however_they_are_punctuated(text, remember):
     assert is_explicit_memory_command(text) is remember
+
+
+def test_remember_requests_name_the_fact():
+    assert remember_requests("Remember I'm vegetarian") == ["I'm vegetarian"]
+    assert remember_requests("Please remember my dog is called Max.") == ["my dog is called Max"]
+    assert remember_requests("do you remember that song?") == []
 
 
 @pytest.mark.parametrize(
