@@ -376,6 +376,9 @@ _UNIVERSAL_FORMAT_CORE = (
     "By default, keep paragraphs to 2-3 sentences; an explicitly requested prose length or "
     "shape wins. Avoid 3+ consecutive blank lines. "
     "Lead with the answer; explanation after. No intro paragraph before the conclusion. "
+    "When the user shares something painful or frightening (a loss, bad news, panic), the "
+    "first line briefly and sincerely acknowledges it, then the help follows; that line is "
+    "not an intro. "
     "Never use decorative headings (Introduction, Background, Overview, Conclusion, "
     '"Let\'s dive in"). Headings only when they group real sections. '
     "Do not decorate with emoji unless the user used them. "
