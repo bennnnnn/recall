@@ -1,12 +1,14 @@
 import { Share } from "react-native";
 
 import {
+  deleteAsync,
   EncodingType,
   writeAsStringAsync,
 } from "expo-file-system/legacy";
 
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "/cache/",
+  deleteAsync: jest.fn(async () => undefined),
   EncodingType: { UTF8: "utf8" },
   writeAsStringAsync: jest.fn(),
 }));
@@ -61,8 +63,18 @@ describe("shareAccountExport", () => {
     expect(Share.share).not.toHaveBeenCalled();
   });
 
+  it("deletes the file once the share sheet closes", async () => {
+    await shareAccountExport('{"ok":true}');
+    const written = jest.mocked(writeAsStringAsync).mock.calls[0]![0];
+    expect(deleteAsync).toHaveBeenCalledWith(written, { idempotent: true });
+    expect(jest.mocked(deleteAsync).mock.invocationCallOrder[0]).toBeGreaterThan(
+      (shareLocalFile as jest.Mock).mock.invocationCallOrder[0]!,
+    );
+  });
+
   it("lets a build that cannot share files fail, so the screen can say so", async () => {
     (shareLocalFile as jest.Mock).mockRejectedValueOnce(new Error("Sharing files needs an app update."));
     await expect(shareAccountExport("{}")).rejects.toThrow("app update");
+    expect(deleteAsync).toHaveBeenCalledWith(expect.stringMatching(/recall-export-/), { idempotent: true });
   });
 });

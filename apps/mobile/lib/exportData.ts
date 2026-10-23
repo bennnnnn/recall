@@ -1,5 +1,6 @@
 import {
   cacheDirectory,
+  deleteAsync,
   EncodingType,
   writeAsStringAsync,
 } from "expo-file-system/legacy";
@@ -36,6 +37,12 @@ export async function shareAccountExport(payload: string): Promise<void> {
   }
 
   const fileUri = newAccountFile("export", "json");
-  await writeAsStringAsync(fileUri, payload, { encoding: EncodingType.UTF8 });
-  await shareLocalFile(fileUri, { title: EXPORT_TITLE, mimeType: "application/json" });
+  try {
+    await writeAsStringAsync(fileUri, payload, { encoding: EncodingType.UTF8 });
+    await shareLocalFile(fileUri, { title: EXPORT_TITLE, mimeType: "application/json" });
+  } finally {
+    // The sheet has closed and the receiving app holds its own copy; sign-out
+    // still sweeps one an interrupted export left behind.
+    await deleteAsync(fileUri, { idempotent: true }).catch(() => undefined);
+  }
 }
