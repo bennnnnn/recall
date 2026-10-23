@@ -213,6 +213,32 @@ async def test_no_past_record_still_answers_from_this_conversation():
     assert "Answer from this conversation" in system  # safety phrase
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "recalls"),
+    [
+        # A detail said earlier in this chat: a long chat may hold it only in its summary,
+        # so the turn also searches the chat's older messages.
+        ("what was the hotel I mentioned earlier?", True),
+        ("can you remind me what I said about the deadline?", True),
+        ("what restaurant did I say I liked?", True),
+        ("what was that recipe you gave me earlier?", True),
+        ("earlier I mentioned a book, what was it?", True),
+        ("what were the three options I listed before?", True),
+        # Talk about something said elsewhere.
+        ("I said hello to my neighbour and he ignored me, what should I do?", False),
+        ("When I said no to my friend she got upset, was I wrong?", False),
+        ("Who said 'I think therefore I am'?", False),
+        ("what did the article say about inflation?", False),
+    ],
+)
+async def test_asking_what_was_said_earlier_searches_the_chat(text, recalls):
+    plan = await _plan(text)
+    assert plan.recalls_shared_past is recalls
+    assert plan.history_rag is recalls
+    assert plan.load_memory is recalls
+
+
 def test_the_saved_memory_block_says_it_may_be_stale():
     """M4/M9/M21: dated, overridden by this conversation, not a source for code state."""
     from app.services.prompt_safety import wrap_earlier_chats, wrap_saved_memory

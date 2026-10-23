@@ -1693,6 +1693,25 @@ CASES: tuple[Case, ...] = (
         "invents a decision.",
     ),
     Case(
+        "personal-recall-earlier-detail",
+        "personal",
+        "what was the hotel I mentioned earlier?",
+        Expect(hints=("no_past_record",), memory=True),
+        "Names the hotel from this chat (the window, its summary, or an earlier snippet the "
+        "turn searched for); says it can't find it only when none of them has it.",
+        history=(
+            ("user", "We're staying at the Memmo Alfama in Lisbon, any tips for the area?"),
+            ("assistant", "Great pick: Alfama is walkable, hilly and full of fado bars."),
+        ),
+    ),
+    Case(
+        "personal-said-to-someone-else",
+        "personal",
+        "I said hello to my neighbour and he ignored me, what should I do?",
+        Expect(memory=False, no_hints=("no_past_record",)),
+        "Ordinary advice about the neighbour; no saved memory or earlier chats are read.",
+    ),
+    Case(
         "personal-memory-not-config",
         "personal",
         "You know which models Recall uses. Tell me what to fix",

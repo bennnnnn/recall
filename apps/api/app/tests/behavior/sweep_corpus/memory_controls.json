@@ -263,5 +263,32 @@
     "history": [],
     "reply": "I can't find that conversation. What would you like to know about Lisbon?",
     "expect": "answer"
+  },
+  {
+    "id": "mc-033",
+    "area": "memory",
+    "prompt": "what was the hotel I mentioned earlier?",
+    "history": [
+      ["user", "We're staying at the Memmo Alfama in Lisbon, any tips for the area?"],
+      ["assistant", "Great pick: Alfama is walkable, hilly and full of fado bars."]
+    ],
+    "reply": "The **Memmo Alfama** in Lisbon.",
+    "expect": "answer"
+  },
+  {
+    "id": "mc-034",
+    "area": "lookalike",
+    "prompt": "I said hello to my neighbour and he ignored me, what should I do?",
+    "history": [],
+    "reply": "He may not have heard you. Try once more when you see him; if he still ignores you, keep it polite and don't take it personally.",
+    "expect": "answer"
+  },
+  {
+    "id": "mc-035",
+    "area": "lookalike",
+    "prompt": "When I said no to my friend she got upset, was I wrong?",
+    "history": [],
+    "reply": "Not necessarily. Saying no is fair; it can help to tell her why and what you can do instead.",
+    "expect": "answer"
   }
 ]
