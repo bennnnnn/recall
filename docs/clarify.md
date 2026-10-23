@@ -37,6 +37,8 @@ Recall never asks what it already knows.
   hint: answer the request now with the best general reading, or answer the new question).
 - After the button the card stays, read-only, with the picks ticked and no button. A card
   answered by typing shows nothing ticked.
+- A reply that asks gets no follow-up questions under it (`related_prompts.py`): they
+  would compete with the card.
 
 ## What is sent
 

@@ -243,6 +243,37 @@ async def test_a_stopped_or_cut_off_reply_gets_no_follow_ups(
     complete.assert_not_called()
 
 
+COUNTRY = "What is the best country to live in?"
+COUNTRY_ASKS = (
+    "🇨🇭 **Switzerland — best for quality of life**: high wages, safety and healthcare.\n"
+    "🇸🇬 **Singapore — best for making money**: low taxes and a strong job market.\n"
+    "🇳🇴 **Norway — best for social support**: free education and generous welfare.\n\n"
+    "**But let me ask you one thing.**\n\nWhat do you mean by *best*?\n\n```clarify\n"
+    '{"request":"Recommend the best country for me.","questions":[{"id":"priority",'
+    '"label":"Main priority","question":"What matters most to you?","options":'
+    '["💰 Making money","🌿 Quality of life","🛡️ Safety"]},{"id":"region","label":"Region",'
+    '"question":"Which region are you considering?","options":["🌍 Anywhere","🇪🇺 Europe",'
+    '"🌎 The Americas"]}],"closing":"Compare the strongest options with practical pros and '
+    'cons.","submit":"Find my best country"}\n```'
+)
+
+
+async def test_a_reply_that_asks_with_a_card_gets_no_follow_ups(fake_redis) -> None:
+    # The card waits for the picks; questions under it would compete with it.
+    with patch(
+        "app.modules.chat.related_prompts.complete_structured",
+        new_callable=AsyncMock,
+    ) as complete:
+        task = schedule_related_prompts(
+            fake_redis, Settings(), message_id="m1", question=COUNTRY, answer=COUNTRY_ASKS
+        )
+        if task is not None:
+            await task
+
+    assert task is None
+    complete.assert_not_called()
+
+
 def _page_rows(assistant_id):
     now = datetime.now(UTC)
     return [

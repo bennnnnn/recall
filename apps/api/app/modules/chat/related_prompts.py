@@ -25,6 +25,7 @@ from app.core.config import Settings
 from app.core.readings import read_off_loop
 from app.gateways.litellm_gateway import complete_structured
 from app.models.routing_lanes import ROUTING
+from app.modules.chat.clarify_card import CLARIFY_FENCE
 from app.modules.chat.follow_up_prompts import GENERAL_SYSTEM as _GENERAL_SYSTEM
 from app.modules.chat.follow_up_prompts import SUBJECT_SYSTEM as _SYSTEM
 from app.modules.chat.related_questions import (
@@ -37,6 +38,7 @@ from app.modules.chat.related_questions import (
 from app.modules.chat.stream_accum import Completion
 from app.modules.chat.stream_events import build_related_prompts_event
 from app.modules.chat.turn_prep.followups import role_content_dicts
+from app.services.md_fence_scan import iter_fences
 from app.services.quota import global_spend_exceeded
 from app.services.text_normalize import collapse_ws
 
@@ -241,9 +243,12 @@ def schedule_related_prompts(
     ``prior`` is the turn's recent window, which ties a "why?" to its problem.
     ``allow_general`` is off for a turn that was never a question (a greeting,
     an instant reply); subject follow-ups do not depend on it. A reply that was
-    stopped or cut off (``completion``) gets none.
+    stopped or cut off (``completion``) gets none, and so does one that asks with
+    a clarify card: questions under the card would compete with its picks.
     """
     if completion not in (None, "complete") or not collapse_ws(answer):
+        return None
+    if any(fence.lang == CLARIFY_FENCE for fence in iter_fences(answer)):
         return None
     if follow_up_topic(question, answer, prior, allow_general=allow_general) is None:
         return None
