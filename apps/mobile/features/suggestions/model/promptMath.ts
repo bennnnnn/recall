@@ -115,8 +115,10 @@ function spaceDelimitedMath(text: string): string {
 export function suggestionToSend(text: string): string | null {
   const cleaned = text.replace(/\s+/g, " ").trim();
   // Letters in any script: a Russian or Amharic follow-up is a question too.
-  const words = cleaned.match(/\p{L}{2,}/gu);
-  if (!cleaned.endsWith("?") || (words?.length ?? 0) < MIN_QUESTION_WORDS) return null;
+  const words = cleaned.match(/\p{L}{2,}/gu)?.length ?? 0;
+  // A sum names its problem in few words ("What is 3 + 5?"), as the server allows.
+  const longEnough = words >= MIN_QUESTION_WORDS || (/\d/.test(cleaned) && words >= 2);
+  if (!cleaned.endsWith("?") || !longEnough) return null;
   if (!mathStaysApart(cleaned)) return null;
   return spaceDelimitedMath(repairDelimitedMath(cleaned));
 }
