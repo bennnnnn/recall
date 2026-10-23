@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.todos import proposals, write_log
 from app.modules.todos.actions import MAX_TODO_ACTIONS_PER_TURN
+from app.modules.todos.card_retime import retime_untapped_card
 from app.modules.todos.recurrence import next_recurring_due
 from app.modules.todos.reminder_fence_parse import (
     ReminderFence,
@@ -200,6 +201,12 @@ async def _match_user_words(turn: _Turn, spans: _Spans) -> tuple[str, int] | Non
         state = turn.writes()
         await load_existing(state)
         return format_reminder_reading(state.existing, turn.user_timezone), 0
+    # "Actually make it 8" re-times the card just offered, not the latest saved reminder.
+    retimed = await retime_untapped_card(
+        turn.session, turn.chat_id, turn.user_text, user_timezone=turn.user_timezone
+    )
+    if retimed:
+        return await _save_spoken_adds(replace(turn, assistant_text=""), [], retimed)
     # The user's words outrank a missing or mislabeled fence. "Mark done"
     # must check the row, not delete it, and the reply is only that result.
     spoken = parse_spoken_reminder_change(turn.user_text, user_timezone=turn.user_timezone)

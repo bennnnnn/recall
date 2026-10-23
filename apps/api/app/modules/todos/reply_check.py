@@ -12,6 +12,7 @@ import re
 
 from app.modules.todos.reminder_fence_parse import explicitly_declines_reminder_creation
 from app.modules.todos.reply_claims import (
+    CLAIM_VERBS,
     COLON_CLAIM_RE,
     PROSE_CLAIM_RE,
     without_claim_lines,
@@ -124,7 +125,7 @@ _SAVED_TALK_RE = re.compile(
 )
 _INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
 _DATED_CLAIM_RE = re.compile(
-    r"(?:^|\n|!\s*)\s*(?:added|set|moved|scheduled|saved|created)\s*:\s+[^\n]+?\s[\u2014\u2013]\s+[^\n]*"
+    rf"(?:^|\n|!\s*)\s*{CLAIM_VERBS}\s*:\s+[^\n]+?\s[\u2014\u2013]\s+[^\n]*"
     r"(?:\d|today|tomorrow|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday"
     r"|daily|weekly|weekdays|monthly)",
     re.IGNORECASE,

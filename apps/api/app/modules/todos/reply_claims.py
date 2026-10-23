@@ -18,16 +18,16 @@ from collections.abc import Iterable
 
 from app.services.md_fence_scan import line_fences
 
+# The words a change's result line opens with: the app's own ("Set:", "Moved:", "Done:")
+# and a model's copies of them ("Updated: Study bio — 8:00 PM" with nothing changed).
+CLAIM_VERBS = (
+    r"(?:added|set|moved|deleted|done|reopened|scheduled|rescheduled|saved|created|"
+    r"date removed|removed|updated|changed|completed|edited|renamed|marked(?:\s+done)?)"
+)
 # The app's own result line: "Set: gym — Thursday, 6:00 PM.", "Added: milk".
-CLAIM_LINE_RE = re.compile(
-    r"^(?:added|set|moved|deleted|done|reopened|scheduled|saved|created|date removed)\s*:\s+\S",
-    re.IGNORECASE,
-)
-COLON_CLAIM_RE = re.compile(
-    r"(?:got it!?\s*)?"
-    r"(?:added|set|moved|deleted|done|reopened|scheduled|saved|created|date removed)\s*:\s+\S",
-    re.IGNORECASE,
-)
+# On one line: "Updated:" above an edited draft on the lines after it claims nothing.
+CLAIM_LINE_RE = re.compile(rf"^{CLAIM_VERBS}[ \t]*:[ \t]+\S", re.IGNORECASE)
+COLON_CLAIM_RE = re.compile(rf"(?:got it!?\s*)?{CLAIM_VERBS}[ \t]*:[ \t]+\S", re.IGNORECASE)
 # Prose that says a change was made, checked only for a message that asked for one.
 PROSE_CLAIM_RE = re.compile(
     r"\b(?:i(?:['\u2019]ve| have)?\s+added|"
