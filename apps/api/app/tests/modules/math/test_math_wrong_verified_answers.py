@@ -805,3 +805,39 @@ async def test_an_equation_without_its_logarithm_is_not_verified(text: str) -> N
 async def test_a_logarithm_the_reader_keeps_is_still_solved(text: str, answer: str) -> None:
     canonical, _reply = await _verified(text)
     assert canonical == answer
+
+
+# --- N. a follow-up's own sum is verified like the first -----------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # The app's own follow-up under "2½ + 1¾": the model answered it unverified
+        # ("3 2/2 = 4").
+        ("What if 2½ + 1½ instead?", "4"),
+        ("what about 7 × 8?", "56"),
+        ("How about 3/4 + 1/8?", r"\frac{7}{8}"),
+        ("what if 12 ÷ 4 instead", "3"),
+    ],
+)
+async def test_a_follow_up_sum_is_verified(text: str, answer: str) -> None:
+    canonical, _reply = await _verified(text)
+    assert canonical == answer
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "text",
+    [
+        "what if I invest 500 at 5%?",
+        "what about tomorrow?",
+        "how about 5 minutes?",
+        "what if 3 instead?",
+        "what about the 2 o'clock meeting?",
+    ],
+)
+async def test_a_follow_up_that_is_not_a_sum_is_not_verified(text: str) -> None:
+    canonical, _reply = await _verified(text)
+    assert canonical is None

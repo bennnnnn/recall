@@ -1597,5 +1597,73 @@
   ],
   "reply": "I need your location to tell you that.",
   "expect": "instant"
+ },
+ {
+  "id": "hf-094",
+  "area": "math",
+  "prompt": "What if 2½ + 1½ instead?",
+  "history": [
+   [
+    "user",
+    "what is 2½ + 1¾"
+   ],
+   [
+    "assistant",
+    "```answer\nverified: true\n\\frac{17}{4}\n```"
+   ]
+  ],
+  "reply": "$2\\frac{1}{2} + 1\\frac{1}{2} = 3\\frac{2}{2}$\n\n$3\\frac{2}{2} = 4$",
+  "expect": "instant"
+ },
+ {
+  "id": "hf-095",
+  "area": "math",
+  "prompt": "what about 7 × 8?",
+  "history": [
+   [
+    "user",
+    "what is 6 × 8"
+   ],
+   [
+    "assistant",
+    "```answer\nverified: true\n6 × 8 = 48\n```"
+   ]
+  ],
+  "reply": "7 × 8 = **56**.",
+  "expect": "instant"
+ },
+ {
+  "id": "hf-096",
+  "area": "math",
+  "prompt": "what if I invest 500 at 5%?",
+  "history": [
+   [
+    "user",
+    "is a savings account worth it?"
+   ],
+   [
+    "assistant",
+    "It's a safe place for an emergency fund; the rate decides how much it earns."
+   ]
+  ],
+  "reply": "At 5% a year, $500 earns about **$25** in the first year.",
+  "expect": "answer"
+ },
+ {
+  "id": "hf-097",
+  "area": "math",
+  "prompt": "what about tomorrow?",
+  "history": [
+   [
+    "user",
+    "what is 15 + 27"
+   ],
+   [
+    "assistant",
+    "```answer\nverified: true\n15 + 27 = 42\n```"
+   ]
+  ],
+  "reply": "Do you mean another sum for tomorrow, or something else?",
+  "expect": "answer"
  }
 ]
