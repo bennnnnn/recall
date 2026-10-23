@@ -44,6 +44,8 @@ class User(Base):
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     name: Mapped[str | None] = mapped_column(String)
     avatar_url: Mapped[str | None] = mapped_column(String)
+    # A stored copy of the chosen model: enabled_models is the source, and
+    # repositories/users.update rewrites this from it (schemas/auth.chosen_model_id).
     default_model: Mapped[str] = mapped_column(String, default="auto")
     plan: Mapped[str] = mapped_column(String, default="free", server_default="free")
     # Last processed RevenueCat webhook event_timestamp_ms — ignore older events.

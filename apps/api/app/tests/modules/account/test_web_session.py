@@ -19,7 +19,6 @@ def _fake_auth() -> AuthResponse:
             email="dev@recall.local",
             name="Dev",
             avatar_url=None,
-            default_model="auto",
             plan="free",
             enabled_models=None,
             memory_enabled=True,

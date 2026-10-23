@@ -18,6 +18,17 @@ from app.models.schemas.text import UserText
 CUSTOM_INSTRUCTIONS_MAX_CHARS = 1000
 
 
+def chosen_model_id(enabled_models: list[str] | None) -> str:
+    """The model a message uses: "auto", or with Auto off the first model turned on.
+
+    ``enabled_models`` is the one source: the phone's "Messages use" row and the chat's
+    settings card both reorder it. ``users.default_model`` is only a stored copy.
+    """
+    if enabled_models is None or "auto" in enabled_models:
+        return "auto"
+    return next((model for model in enabled_models if model != "auto"), "auto")
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -25,7 +36,6 @@ class UserOut(BaseModel):
     email: str
     name: str | None
     avatar_url: str | None
-    default_model: str
     plan: str = "free"
     enabled_models: list[str] | None = None
     response_tone: str = "casual"
@@ -54,6 +64,13 @@ class UserOut(BaseModel):
     created_at: datetime
     google_sub: str | None = Field(default=None, exclude=True)
     apple_sub: str | None = Field(default=None, exclude=True)
+
+    # mypy rejects a decorator over @property; pydantic documents this ignore.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def default_model(self) -> str:
+        """Derived from ``enabled_models`` (``chosen_model_id``), never stored apart."""
+        return chosen_model_id(self.enabled_models)
 
     # mypy rejects a decorator over @property; pydantic documents this ignore.
     @computed_field  # type: ignore[prop-decorator]
