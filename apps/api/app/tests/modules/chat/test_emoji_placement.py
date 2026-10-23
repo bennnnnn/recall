@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -90,3 +92,18 @@ def test_the_pass_reads_the_users_setting_and_message() -> None:
     # Server text, or no user to read a setting from, is left as it is.
     assert place_reply_emoji(_state(line, "off", server=True)) == line
     assert place_reply_emoji(_state(line, None)) == line
+
+
+# Every case the phone's twin (features/chat/model/emojiPlacement.ts) reads too: the
+# streaming draft is already the reply that will be saved.
+_CASES = json.loads(
+    (
+        Path(__file__).resolve().parents[6] / "docs" / "fixtures" / "emoji_placement_cases.json"
+    ).read_text()
+)
+
+
+@pytest.mark.parametrize("case", _CASES, ids=[case["name"] for case in _CASES])
+def test_the_shared_cases(case: dict[str, Any]) -> None:
+    placed = place_emoji(case["text"], case["level"], user_wrote_emoji=case["user_wrote_emoji"])
+    assert placed == case["expected"]

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { View } from "react-native";
 
+import { useAuthOptional } from "@/contexts/AuthContext";
 import { ChatMessageRow } from "@/features/chat/components/ChatMessageRow";
 import { RelatedPromptLines } from "@/features/suggestions/components/RelatedPromptLines";
 import { asksWithCard } from "@/lib/clarify/clarifyCard";
@@ -50,6 +51,7 @@ export function useChatMessageList({
   }, [messages.length, setMenuVisible]);
 
   const messagesRef = useLatestRef(messages);
+  const emojiUse = useAuthOptional()?.user?.emoji_use;
 
   const lastAssistantId = useMemo(
     () => findLastAssistantId(messages),
@@ -64,6 +66,7 @@ export function useChatMessageList({
   // renderItem instead.
   const sharedRowProps = useMemo(
     () => ({
+      emojiUse,
       lastAssistantId,
       selectedModel,
       highlightedMessageId,
@@ -73,6 +76,7 @@ export function useChatMessageList({
       onRetryImageGen,
     }),
     [
+      emojiUse,
       lastAssistantId,
       selectedModel,
       highlightedMessageId,

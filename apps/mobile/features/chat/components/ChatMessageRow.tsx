@@ -1,9 +1,10 @@
-import { memo, useCallback } from "react";
+import { memo, useCallback, useMemo } from "react";
 
 import { useStreamingDraft } from "@/contexts/StreamingDraftContext";
 import { MessageBubble } from "@/features/chat/components/MessageBubble";
 import { MessageRowErrorBoundary } from "@/features/chat/components/MessageRowErrorBoundary";
 import { StreamSilenceHint } from "@/features/chat/components/StreamSilenceHint";
+import { placeLiveEmoji } from "@/features/chat/model/emojiPlacement";
 import { useStreamSilence } from "@/features/chat/hooks/useStreamSilence";
 import type { Message } from "@/lib/api";
 import { messageListKey } from "@/lib/messageListLayout";
@@ -27,6 +28,8 @@ type Props = {
    * the turn ends, so nothing in it is created again.
    */
   live?: boolean;
+  /** The user's emoji setting: the draft streams as the saved reply will read. */
+  emojiUse?: string;
   /** When true, show the image-generation status label instead of chat stream draft. */
   imageGenPending?: boolean;
   lastAssistantId: string | null;
@@ -45,6 +48,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   nextUserText = null,
   streamVisualActive,
   live = false,
+  emojiUse,
   imageGenPending = false,
   lastAssistantId,
   selectedModel,
@@ -58,7 +62,12 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   // Already throttled once at the store→UI boundary (useStreamingDraft) —
   // read directly; a second throttle here would only add latency.
   const streamingDraft = useStreamingDraft(live);
-  const liveContent = streamingDraft?.content;
+  // The server keeps the emoji setting on the saved reply; the draft keeps it too, or a
+  // "Hey bini 👋" lost its wave when the saved reply replaced it.
+  const liveContent = useMemo(
+    () => placeLiveEmoji(streamingDraft?.content, emojiUse, priorUserText),
+    [emojiUse, priorUserText, streamingDraft?.content],
+  );
   const generating = live && streamVisualActive;
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
 

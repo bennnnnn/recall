@@ -97,6 +97,25 @@ describe("ChatMessageRow", () => {
     expect(mockBubbleProps.isGenerating).toBe(true);
   });
 
+  it.each([
+    ["A few", "some", "hi", "Hey bini"],
+    ["Lots", "more", "hi", "Hey bini 👋"],
+    ["None, after the user waved", "off", "hi 👋", "Hey bini 👋"],
+  ] as const)("streams a greeting as it will be saved at %s", async (_label, emojiUse, said, shown) => {
+    // The server drops a sentence's emoji at A few: a draft that kept it lost it on save.
+    mockDraft = { content: "Hey bini 👋" };
+    await render(
+      <ChatMessageRow
+        {...rowProps}
+        item={message("streaming", "")}
+        live
+        emojiUse={emojiUse}
+        priorUserText={said}
+      />,
+    );
+    expect(mockBubbleProps.liveContent).toBe(shown);
+  });
+
   it("goes on drawing the saved reply when the turn ends, in the same row", async () => {
     mockDraft = { content: "The whole answer" };
     const streaming = { ...message("streaming", ""), renderKey: "stream-1" };
