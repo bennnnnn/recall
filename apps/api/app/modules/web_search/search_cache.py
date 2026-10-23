@@ -22,6 +22,7 @@ from app.gateways import web_search_gateway
 from app.gateways.mcp.base import TavilyBudget
 from app.gateways.web_search_gateway import WebSearchHit, WebSearchUnavailableError
 from app.models.orm import User
+from app.modules.web_search.model_match import drop_other_models
 from app.modules.web_search.source_quality import rank_by_source
 from app.services.quota import counters
 
@@ -148,8 +149,9 @@ async def _run_search(
 
     seen_urls: set[str] = set()
     merged: list[WebSearchHit] = []
-    for hits in results:
-        for hit in hits:
+    for query, hits in zip(queries, results, strict=True):
+        # "Is iPhone 19 out?" also found "Apple to Release iPhone 6 Models Sept. 19".
+        for hit in drop_other_models(hits, query):
             key = hit.url.strip().lower() or hit.title.strip().lower()
             if key in seen_urls:
                 continue
