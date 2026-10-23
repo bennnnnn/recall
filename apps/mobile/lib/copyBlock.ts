@@ -26,10 +26,13 @@ export function looksLikeCode(content: string): boolean {
   if (looksLikeExplanatoryProse(content)) return false;
   if (looksLikeMathFenceBody(content)) return false;
   const sample = content.slice(0, 2000);
+  // Keywords as code spells them: "Class starts at 9" or "Update the wiki" opens
+  // a sentence in a message, and read as code it lost the draft its card.
   if (
-    /^\s*(def |class |function |import |export |const |var |public |private |protected |#include |package |func |fn |interface |type |enum |struct |impl |module |namespace |using |SELECT |CREATE |INSERT |UPDATE |DELETE |<!DOCTYPE|<\/?[a-z][\w-]*[\s/>])/im.test(
+    /^\s*(def |class |function |import |export |const |var |public |private |protected |#include |package |func |fn |interface |type |enum |struct |impl |module |namespace |using |SELECT |CREATE |INSERT |UPDATE |DELETE )/m.test(
       sample,
-    )
+    ) ||
+    /^\s*(<!DOCTYPE|<\/?[a-z][\w-]*[\s/>])/im.test(sample)
   ) {
     return true;
   }
@@ -58,8 +61,10 @@ export function looksLikeCode(content: string): boolean {
   ) {
     return true;
   }
+  // A call touches its parenthesis; prose puts a space before an aside
+  // ("Friday (Oct 24)").
   if (
-    /\w+\s*\([^)]*\)\s*[;{]?/m.test(sample) &&
+    /\w\([^)]*\)\s*[;{]?/m.test(sample) &&
     /[{}();]/.test(sample) &&
     sample.split("\n").length >= 2
   ) {

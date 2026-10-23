@@ -10,7 +10,7 @@ import {
   shouldRenderAsCopyBlock,
   shouldRenderAsCodeBlock,
 } from "@/lib/copyBlock";
-import { classifyOpenFencePreview } from "@/lib/fenceDispatch";
+import { classifyFence, classifyOpenFencePreview } from "@/lib/fenceDispatch";
 
 const previewsAsAnswer = (lang: string, body: string) => classifyOpenFencePreview(lang, body) === "answer";
 const previewsAsMath = (lang: string, body: string) => classifyOpenFencePreview(lang, body) === "math";
@@ -72,6 +72,41 @@ describe("copyBlock heuristics", () => {
   ])("accepts explicit multilingual copy as a real draft: %s", (draft) => {
     expect(looksLikeExplicitDraftContent(draft)).toBe(true);
     expect(shouldRenderAsCopyBlock("copy", draft)).toBe(true);
+  });
+
+  // An aside in brackets or a sentence opening on "Class" / "Update" read as code,
+  // and the draft lost its card: the email showed as plain text, no Copy, no Gmail.
+  it.each([
+    [
+      "email",
+      "Subject: Friday off\n\nHi Sara,\n\nCould I take Friday (Oct 24) off for a family event?\n\nThanks,\nBini",
+    ],
+    [
+      "copy",
+      "Dear Hiring Manager,\n\nI'm applying for the nurse position (job #4412) at your hospital.\n\nSincerely,\nBini",
+    ],
+    ["instagram", "Golden hour at the beach (no filter needed).\n\n#sunset #beach"],
+    ["message", "Hi Ms. Tigist,\nClass starts at 9 tomorrow, but I'll pick Abel up at 11:30.\nThanks, Bini"],
+    ["message", "Hey team,\nUpdate the on-call wiki before Friday please.\nThanks!"],
+    [
+      "email",
+      "Subject: Missing package\n\nHi,\n\nPackage 4412 was marked delivered but never arrived.\n\nThanks,\nBini",
+    ],
+  ])("keeps a %s draft with ordinary prose a draft card", (lang, draft) => {
+    expect(looksLikeCode(draft)).toBe(false);
+    expect(looksLikeExplicitDraftContent(draft)).toBe(true);
+    expect(classifyFence(lang, draft).kind).not.toBe("prose");
+  });
+
+  it.each([
+    "foo(bar);\nbaz()",
+    "import os\nprint(os.getcwd())",
+    "class Greeter:\n    pass",
+    "SELECT name FROM users\nWHERE id = 1",
+    "<View>\n  <Text>Hi</Text>\n</View>",
+    "result = compute(a, b)\nshow(result)",
+  ])("still reads source code as code: %j", (code) => {
+    expect(looksLikeCode(code)).toBe(true);
   });
 
   it("keeps a real message that naturally starts with 'Let me know if'", () => {
