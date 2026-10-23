@@ -984,6 +984,7 @@
   "todos.delete_many": "Eliminare {{count}} attività?",
   "todos.filter_empty": "Niente in questa vista",
   "todos.menu": "Menu attività",
+  "todos.open_from_chat": "Apri Attività",
   "todos.menu_all": "Tutte le attività",
   "todos.menu_completed": "Completate",
   "todos.menu_open": "Non completate",

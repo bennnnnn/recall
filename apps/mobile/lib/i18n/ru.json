@@ -987,6 +987,7 @@
   "todos.delete_many": "Удалить задачи ({{count}})?",
   "todos.filter_empty": "Здесь ничего нет",
   "todos.menu": "Меню задач",
+  "todos.open_from_chat": "Открыть задачи",
   "todos.menu_all": "Все задачи",
   "todos.menu_completed": "Выполненные",
   "todos.menu_open": "Невыполненные",

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { SettingsProposalCard } from "@/components/SettingsProposalCard";
 import { ReminderProposalCard } from "@/features/todos/components/ReminderProposalCard";
+import { TodoLinkButton } from "@/features/todos/components/TodoLinkButton";
 import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { UserMessageContent } from "@/features/chat/components/UserMessageContent";
 import { ChatMessageImageStrip } from "@/features/attachments/components/ChatMessageImageStrip";
@@ -130,6 +131,7 @@ export const MessageBubble = React.memo(function MessageBubble({
     showSettingsProposals,
     reminderProposals,
     showReminderProposals,
+    showTodoLink,
     places,
     showPlaces,
     images,
@@ -280,6 +282,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                   <ReminderProposalCard key={proposal.proposalId} proposal={proposal} />
                 ))
               : null}
+            {showTodoLink ? <TodoLinkButton /> : null}
             {showSearchSources ? <SearchSourcesStack sources={searchSources} /> : null}
         </View>
       )}

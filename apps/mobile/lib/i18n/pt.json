@@ -984,6 +984,7 @@
   "todos.delete_many": "Excluir {{count}} tarefas?",
   "todos.filter_empty": "Nada nesta vista",
   "todos.menu": "Menu de tarefas",
+  "todos.open_from_chat": "Abrir Tarefas",
   "todos.menu_all": "Todas as tarefas",
   "todos.menu_completed": "Concluídas",
   "todos.menu_open": "Não concluídas",

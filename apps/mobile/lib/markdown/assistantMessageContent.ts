@@ -6,6 +6,7 @@ import {
   stripReminderProposalFences,
   type ReminderProposal,
 } from "@/features/todos/model/reminderProposal";
+import { hasTodoLink, stripTodoLinkFences } from "@/features/todos/model/todoLink";
 import type { SearchSource } from "@/lib/api";
 
 import { isLocationQuestion } from "@/lib/localPlacesQuery";
@@ -43,6 +44,8 @@ export type AssistantMessageContent = {
   showSettingsProposals: boolean;
   reminderProposals: ReminderProposal[];
   showReminderProposals: boolean;
+  /** A to-do change asked in another language: the Open To-do button (todoLink.ts). */
+  showTodoLink: boolean;
   places: PlaceItem[];
   showPlaces: boolean;
   images: ParsedMessageImage[];
@@ -102,6 +105,7 @@ function buildMarkdownContent(options: {
   text = stripReminderFences(text);
   text = stripSettingsProposalFences(text);
   text = stripReminderProposalFences(text);
+  text = stripTodoLinkFences(text);
   if (showPlaces) text = stripPlacesContent(text, places);
   return text;
 }
@@ -147,6 +151,7 @@ export function deriveAssistantMessageContent(
   const reminderProposals =
     !isUser && hasContent && !layoutFrozen ? parseReminderProposals(content) : [];
   const showReminderProposals = reminderProposals.length > 0;
+  const showTodoLink = !isUser && hasContent && !layoutFrozen && hasTodoLink(content);
 
   const places =
     !isUser && hasContent && !layoutFrozen ? resolvePlaces(content) : [];
@@ -195,6 +200,7 @@ export function deriveAssistantMessageContent(
     showSettingsProposals,
     reminderProposals,
     showReminderProposals,
+    showTodoLink,
     places,
     showPlaces,
     images: parsedImages.images,

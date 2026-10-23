@@ -946,6 +946,7 @@
   "todos.delete_many": "Delete {{count}} to-dos?",
   "todos.filter_empty": "Nothing in this view",
   "todos.menu": "To-do menu",
+  "todos.open_from_chat": "Open To-do",
   "todos.menu_all": "All tasks",
   "todos.menu_completed": "Completed",
   "todos.menu_open": "Not completed",

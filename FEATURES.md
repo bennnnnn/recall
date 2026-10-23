@@ -960,6 +960,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   for a day. `POST /todos/proposals/{id}/confirm` makes them once (a second tap answers the
   same), refuses a one-off time that has passed or a row deleted since, and marks the card
   `"status": "saved"` in the chat so it reads Saved after a reload.
+- ✅ **Chat changes to-dos in English; other languages read them** — the server checks a
+  chat to-do change against the user's own words (the time they said, "mark it done"),
+  and that reading is English. A message in another app language reads its to-dos in chat
+  ("¿qué tengo hoy?" loads the list) but adds or changes them in To-do: the reply says so in
+  one line and ends on an **Open To-do** button (` ```todo_link `). A ` ```reminder ` the
+  model writes anyway becomes the button, never the English "When should I remind you?".
+  The language is read per message (`todos/chat_language.py`): another script, or two
+  words only Spanish, French, German, Italian, Portuguese or Turkish use; any English to-do
+  word keeps a mixed message English.
 - ✅ **LLM todo sync** — ` ```reminder ` fences and the spoken rules become reminder cards
   (above); with cards off they apply on persist (create + mutations), and a background job
   recovers missed writes from chat (dated items only). The job is off while cards are on,
