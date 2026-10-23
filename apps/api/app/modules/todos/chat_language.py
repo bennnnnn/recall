@@ -169,4 +169,9 @@ def message_language(text: str | None) -> str | None:
 
 def todo_screen_line(language: str | None) -> str:
     """One line saying the change is made in To-do, in ``language`` (English otherwise)."""
-    return _TODO_SCREEN_LINE.get(language or "", _TODO_SCREEN_LINE["en"])
+    return _TODO_SCREEN_LINE.get(normalize_locale_code(language), _TODO_SCREEN_LINE["en"])
+
+
+def todo_screen_answer(language: str | None) -> str:
+    """The whole reply to a to-do change chat can't make: the line, then the button."""
+    return f"{todo_screen_line(language)}\n\n```{TODO_LINK_FENCE}\n```"

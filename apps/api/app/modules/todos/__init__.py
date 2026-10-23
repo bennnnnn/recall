@@ -26,7 +26,7 @@ if TYPE_CHECKING:
         message_language as message_language,
     )
     from app.modules.todos.chat_language import (
-        todo_screen_line as todo_screen_line,
+        todo_screen_answer as todo_screen_answer,
     )
     from app.modules.todos.chat_language import (
         writes_todos_in_todo_screen as writes_todos_in_todo_screen,
@@ -82,6 +82,9 @@ if TYPE_CHECKING:
     from app.modules.todos.reminder_fences import (
         materialize_reminder_fences as materialize_reminder_fences,
     )
+    from app.modules.todos.write_asks import (
+        todo_screen_reply as todo_screen_reply,
+    )
 
 _EXPORTS = {
     "MAX_TODO_ACTIONS_PER_TURN": ("actions", "MAX_TODO_ACTIONS_PER_TURN"),
@@ -95,7 +98,8 @@ _EXPORTS = {
     "query_implies_todos": ("classification", "query_implies_todos"),
     "TODO_LINK_FENCE": ("chat_language", "TODO_LINK_FENCE"),
     "message_language": ("chat_language", "message_language"),
-    "todo_screen_line": ("chat_language", "todo_screen_line"),
+    "todo_screen_answer": ("chat_language", "todo_screen_answer"),
+    "todo_screen_reply": ("write_asks", "todo_screen_reply"),
     "writes_todos_in_todo_screen": ("chat_language", "writes_todos_in_todo_screen"),
     "select_todos_for_prompt": ("prompt_context", "select_todos_for_prompt"),
     "TodoEmailSnapshot": ("occurrences", "TodoEmailSnapshot"),

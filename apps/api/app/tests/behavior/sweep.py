@@ -488,6 +488,9 @@ def _judge_expect(outcome: Outcome, expect: str) -> list[str]:
     elif expect == "memory" and not outcome.memory_command:
         problems.append("not read as a memory command")
     elif expect == "todo_screen":
+        # The server answers a change asked in another language itself (an instant reply).
+        if "```todo_link" in route.instant_text:
+            final = route.instant_text
         if outcome.saved or outcome.changed:
             problems.append("changed reminders from a message in another language")
         if canned:

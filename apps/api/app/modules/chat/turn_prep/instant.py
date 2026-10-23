@@ -1,7 +1,8 @@
 """Replies the server writes itself, so the turn never calls a model.
 
 A recurring-pay estimate, the local time or date, where the user is, a fact from
-their profile, a settings change to confirm, and the "location not set" answer to
+their profile, a settings change to confirm, a to-do change asked in another language
+(chat only reads them there: the To-do button), and the "location not set" answer to
 a nearby question that has no place to search from.
 """
 
@@ -15,6 +16,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.modules import memory as memory_service
+from app.modules import todos as todos_service
 from app.modules import web_search as web_search_service
 from app.modules.account import profile as profile_service
 from app.modules.account import settings_proposal as settings_proposal_service
@@ -61,6 +63,15 @@ async def resolve_instant_reply(
     if plan is not None and plan.multi:
         return None
     content = request.content
+    earlier = _earlier_user_texts(request.recent_messages, content)
+    todo_screen = todos_service.todo_screen_reply(
+        content,
+        prior_user=earlier[-1] if earlier else None,
+        prior_assistant=_last_recent_assistant_content(request.recent_messages),
+        locale=identity.user.locale,
+    )
+    if todo_screen is not None:
+        return todo_screen
     # Time/location answers are CPU-only. Skip year/date/time instant-replies
     # when a photo is attached — vision should see it.
     if not request.has_image_attachment:

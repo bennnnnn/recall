@@ -114,10 +114,15 @@ _ES_LINE = "Puedes añadirlo o cambiarlo en **Tareas**."
 @pytest.mark.parametrize(
     ("reply", "kept"),
     [
-        # The model wrote a reminder anyway: no card, the To-do button instead.
+        # The model wrote a reminder anyway: no card, the server's line and button instead.
         (
             'Claro.\n\n```reminder\n{"title": "Llamar a mamá", "due_at": "2026-10-24T09:00:00"}\n```',
-            f"Claro.\n\n{_LINK}",
+            f"{_ES_LINE}\n\n{_LINK}",
+        ),
+        # Live, beside the button: "Done. I've added Buy milk…" for a change nothing made.
+        (
+            f"Ya está. He añadido **Comprar leche** para mañana a las 17:00.\n\n{_LINK}",
+            f"{_ES_LINE}\n\n{_LINK}",
         ),
         # A reply with no words of its own still says, in Spanish, where to go.
         ('```reminder\n{"title": "Llamar a mamá"}\n```', f"{_ES_LINE}\n\n{_LINK}"),
@@ -127,8 +132,8 @@ _ES_LINE = "Puedes añadirlo o cambiarlo en **Tareas**."
             f'```sources\n[{{"title": "EAT", "url": "https://time.example"}}]\n```\n\n{_LINK}',
             f"{_ES_LINE}\n\n{_LINK}",
         ),
-        # The model already offered the button: it stays, once, last.
-        (f"Puedes añadirlo en Tareas.\n\n{_LINK}", f"Puedes añadirlo en Tareas.\n\n{_LINK}"),
+        # The model already offered the button: the server's line says the same.
+        (f"Puedes añadirlo en Tareas.\n\n{_LINK}", f"{_ES_LINE}\n\n{_LINK}"),
         # A read of the list is left as it is.
         ("Hoy tienes: llamar a mamá.", "Hoy tienes: llamar a mamá."),
     ],
