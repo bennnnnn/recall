@@ -113,7 +113,7 @@ type UseChatScreenBodyPropsParams = {
     voiceAvailable: boolean;
     voiceRecording: boolean;
     voiceTranscribing: boolean;
-    voiceMeterLevel: number;
+    voiceMeterLevel: SharedValue<number>;
     toggleVoiceInput: () => void | Promise<void>;
     cancelVoiceInput?: () => void;
     onLiveTalkPress?: () => void;

@@ -56,7 +56,17 @@ jestGlobals.mock("react-native-reanimated", () => {
     // Reanimated keeps one shared-value object for the lifetime of a component.
     // Preserve that identity so a React state update does not look like a fresh
     // animation mount and retrigger effects in component tests.
-    useSharedValue: (value) => React.useRef({ value }).current,
+    // ``get``/``set`` as Reanimated 4 has them, for code that writes outside a worklet.
+    useSharedValue: (value) =>
+      React.useRef({
+        value,
+        get() {
+          return this.value;
+        },
+        set(next) {
+          this.value = typeof next === "function" ? next(this.value) : next;
+        },
+      }).current,
     withSpring: id,
     withTiming: id,
     withRepeat: id,

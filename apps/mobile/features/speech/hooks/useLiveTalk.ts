@@ -313,6 +313,8 @@ export function useLiveTalk({
       if (event.type === "error") {
         reportRecoverableError(feedback, event.message || t("chat.live_talk_failed"));
         setPhase("idle");
+        // The connection is gone: left open, the mic kept recording into a dead peer.
+        if (event.fatal) closeRef.current();
       }
     },
     [applyEvent, feedback, finalizeCurrentTurn, flushPendingTurn, t],

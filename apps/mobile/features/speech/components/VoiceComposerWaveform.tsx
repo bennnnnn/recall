@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   Easing,
   type SharedValue,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -53,10 +54,13 @@ function WaveBar({ index, meter, phase, processing, color }: BarProps) {
   );
 }
 
+/** The live mic level, written by the recorder without a React render. */
+export type MeterLevel = SharedValue<number>;
+
 type Props = {
   recording: boolean;
   transcribing: boolean;
-  meterLevel: number;
+  meterLevel?: MeterLevel;
 };
 
 /** Live meter while dictating; a traveling sweep + label while transcribing. */
@@ -72,10 +76,17 @@ export function VoiceComposerWaveform({
   const meter = useSharedValue(0.12);
   const phase = useSharedValue(0);
   const processing = useSharedValue(transcribing ? 1 : 0);
+  const idleLevel = useSharedValue(0.12);
+  const level = meterLevel ?? idleLevel;
+  const meterMs = motionMs(70, reduceMotion);
 
-  useEffect(() => {
-    meter.value = withTiming(meterLevel, { duration: motionMs(70, reduceMotion) });
-  }, [meterLevel, meter, reduceMotion]);
+  useAnimatedReaction(
+    () => level.value,
+    (next) => {
+      meter.value = withTiming(next, { duration: meterMs });
+    },
+    [meterMs],
+  );
 
   useEffect(() => {
     if (reduceMotion) {

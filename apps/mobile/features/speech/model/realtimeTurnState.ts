@@ -25,7 +25,8 @@ export type RealtimeVoiceEvent =
   | { type: "response_done" }
   | { type: "response_interrupted" }
   | { type: "search_sources"; sources: SearchSource[] }
-  | { type: "error"; message: string };
+  /** ``fatal``: the connection itself is gone (peer or channel failed); the session must close. */
+  | { type: "error"; message: string; fatal?: boolean };
 
 /** session_ready ends the connect warmup; mic_resume ends playback. */
 export type RealtimeTimer = "session_ready" | "mic_resume";
@@ -151,9 +152,9 @@ function dropEchoInput(out: Out, reason: string, cancelResponse: boolean): void 
   log(out, "dropped-echo-input", { reason, cancelResponse });
 }
 
-function emitError(s: RealtimeTurnState, out: Out, message: string): void {
+function emitError(s: RealtimeTurnState, out: Out, message: string, fatal = false): void {
   log(out, "realtime-error", message);
-  if (!s.closed) emit(out, { type: "error", message });
+  if (!s.closed) emit(out, fatal ? { type: "error", message, fatal } : { type: "error", message });
 }
 
 function onSpeechStarted(s: RealtimeTurnState, out: Out, event: Record<string, unknown>, receivedAt: number): void {
@@ -390,11 +391,12 @@ export function reduceRealtimeTurn(state: RealtimeTurnState, event: RealtimeTurn
       });
       emit(out, { type: "connected" });
       break;
+    // A dropped network fails the peer: only closing stops the mic and frees the peer.
     case "peer_failed":
-      if (!s.closed) emitError(s, out, event.message);
+      if (!s.closed) emitError(s, out, event.message, true);
       break;
     case "channel_failed":
-      emitError(s, out, event.message);
+      emitError(s, out, event.message, true);
       break;
     case "session_ready":
       if (s.sessionReadyForTurns) break;

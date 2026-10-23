@@ -1,3 +1,4 @@
+import type { SharedValue } from "react-native-reanimated";
 import React, { useLayoutEffect } from "react";
 import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
@@ -20,7 +21,7 @@ jest.mock("@/features/speech/hooks/useVoiceInput", () => ({
       voiceInputAvailable: true,
       voiceRecording: mockRecording,
       voiceTranscribing: false,
-      voiceMeterLevel: 0.2,
+      voiceMeterLevel: { value: 0.2 } as SharedValue<number>,
       toggleVoiceInput: mockToggle,
       cancelVoiceInput: mockCancel,
     };

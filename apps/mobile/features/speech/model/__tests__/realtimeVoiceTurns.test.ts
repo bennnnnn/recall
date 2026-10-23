@@ -311,7 +311,8 @@ describe("turn rules", () => {
     const { pc, events } = await start("phone");
     pc.connectionState = "failed";
     pc.onconnectionstatechange?.();
-    expect(events.at(-1)).toEqual({ type: "error", message: "Realtime voice connection failed" });
+    // Fatal: the session closes, so the mic stops recording into a dead peer.
+    expect(events.at(-1)).toEqual({ type: "error", message: "Realtime voice connection failed", fatal: true });
   });
 
   it("stops everything on close and ignores what arrives after", async () => {

@@ -24,7 +24,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
 import { LiveTalkComposerControls } from "@/features/speech/components/LiveTalkComposerControls";
-import { VoiceComposerWaveform } from "@/features/speech/components/VoiceComposerWaveform";
+import { type MeterLevel, VoiceComposerWaveform } from "@/features/speech/components/VoiceComposerWaveform";
 import {
   MathDraftPreview,
   MATH_DRAFT_PREVIEW_HEIGHT,
@@ -103,7 +103,7 @@ type Props = {
   voiceAvailable?: boolean;
   voiceRecording?: boolean;
   voiceTranscribing?: boolean;
-  voiceMeterLevel?: number;
+  voiceMeterLevel?: MeterLevel;
   onVoicePress?: () => void;
   /** Drops the open mic take, including a transcription already in flight. */
   onCancelVoice?: () => void;
@@ -132,7 +132,7 @@ export const ChatComposer = memo(function ChatComposer({
   voiceAvailable = false,
   voiceRecording = false,
   voiceTranscribing = false,
-  voiceMeterLevel = 0.12,
+  voiceMeterLevel,
   onVoicePress,
   onCancelVoice,
   onLiveTalkPress,
