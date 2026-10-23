@@ -3,6 +3,7 @@ import { View } from "react-native";
 
 import { ChatMessageRow } from "@/features/chat/components/ChatMessageRow";
 import { RelatedPromptLines } from "@/features/suggestions/components/RelatedPromptLines";
+import { asksWithCard } from "@/lib/clarify/clarifyCard";
 import type { Message } from "@/lib/api";
 import {
   findLastAssistantId,
@@ -112,7 +113,7 @@ export function useChatMessageList({
       // after stream end (or lastAssistantId moving to a new reply) never
       // changes the root element type — that would remount the whole bubble.
       const relatedPrompts =
-        item.role === "assistant" && item.id === lastAssistantId
+        item.role === "assistant" && item.id === lastAssistantId && !asksWithCard(item.content)
           ? (item.related_prompts ?? [])
           : [];
       const showRelated =

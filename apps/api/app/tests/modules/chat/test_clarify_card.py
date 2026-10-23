@@ -295,6 +295,34 @@ def test_the_pass_drops_the_card_beside_a_card_that_never_asks(lang: str) -> Non
     assert "```clarify" not in settle_clarify(_state(text))
 
 
+def test_the_turn_after_a_card_keeps_no_card_and_no_questions() -> None:
+    # Live: "plan my week", the picks sent, and a second card came back.
+    again = f"Got it! A couple more questions so the plan is realistic:\n\n{_ASKED}"
+    settled = settle_clarify(_state(again, after_card=True))
+    assert "```clarify" not in settled
+    assert "?" not in settled
+
+
+def test_after_a_card_the_prose_answer_stays_and_a_card_intro_goes() -> None:
+    text = (
+        f"{_ANSWER}\nOne more thing to tune it:\n\n"
+        f"{_fence({'when': 'after', 'questions': [_GOAL]})}"
+    )
+    assert settle_clarify_cards(text, allowed=False, after_card=True) == _ANSWER
+
+
+def test_after_a_card_the_ask_before_a_second_card_goes_with_it() -> None:
+    plan = "Here is your week, built around finishing the thesis.\n\n1. Monday: outline."
+    text = f"{plan}\n\n**But let me ask you one thing.**\n\nHow many hours a day?\n\n"
+    text += _fence({"questions": [_GOAL]})
+    assert settle_clarify_cards(text, allowed=False, after_card=True) == plan
+
+
+def test_after_a_card_a_lone_intro_line_is_kept_so_the_reply_is_not_empty() -> None:
+    text = f"A few more questions:\n\n{_fence({'when': 'first', 'questions': [_GOAL]})}"
+    assert settle_clarify_cards(text, allowed=False, after_card=True) == "A few more questions:"
+
+
 def test_the_pass_keeps_a_card_on_an_open_question() -> None:
     state = _state(_ASKED)
     assert _card(settle_clarify(state)) is not None

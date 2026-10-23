@@ -38,23 +38,44 @@ it("shares a copy named after the chat, typed as a PDF, and deletes both files a
   await printHtmlToSharedPdf("<p>Words</p>", "Spanish verbs", () => true);
   expect(copyAsync).toHaveBeenCalledWith({
     from: "file:///cache/Print/3F2A.pdf",
-    to: "file:///cache/Print/Spanish verbs.pdf",
+    to: "file:///cache/Print/Spanish%20verbs.pdf",
   });
-  expect(shareLocalFile).toHaveBeenCalledWith("file:///cache/Print/Spanish verbs.pdf", {
+  expect(shareLocalFile).toHaveBeenCalledWith("file:///cache/Print/Spanish%20verbs.pdf", {
     title: "Spanish verbs.pdf",
     mimeType: "application/pdf",
     uti: "com.adobe.pdf",
   });
   expect(deleteAsync).toHaveBeenCalledWith("file:///cache/Print/3F2A.pdf", { idempotent: true });
-  expect(deleteAsync).toHaveBeenCalledWith("file:///cache/Print/Spanish verbs.pdf", {
+  expect(deleteAsync).toHaveBeenCalledWith("file:///cache/Print/Spanish%20verbs.pdf", {
     idempotent: true,
   });
 });
 
-it("shares the printed file when the named copy cannot be made", async () => {
+it.each([
+  ["Café menu", "Caf%C3%A9%20menu.pdf"],
+  ["Plan 🚀 #2", "Plan%20%F0%9F%9A%80%20%232.pdf"],
+  ["100% done", "100%25%20done.pdf"],
+])("copies %p to a URI iOS accepts: %p", async (title, encoded) => {
+  (Print.printToFileAsync as jest.Mock).mockResolvedValueOnce({ uri: "file:///cache/Print/3F2A.pdf" });
+  await printHtmlToSharedPdf("<p>Words</p>", title, () => true);
+  const to = `file:///cache/Print/${encoded}`;
+  expect(copyAsync).toHaveBeenCalledWith({ from: "file:///cache/Print/3F2A.pdf", to });
+  expect(() => new URL(to)).not.toThrow();
+  expect(decodeURIComponent(to.slice(to.lastIndexOf("/") + 1))).toBe(`${title}.pdf`);
+  expect(deleteAsync).toHaveBeenCalledWith(to, { idempotent: true });
+});
+
+it("shares the printed file, and says why, when the named copy cannot be made", async () => {
+  const dev = globalThis as { __DEV__?: boolean };
+  const wasDev = dev.__DEV__;
+  dev.__DEV__ = true;
+  const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
   (Print.printToFileAsync as jest.Mock).mockResolvedValueOnce({ uri: "file:///cache/Print/3F2A.pdf" });
   (copyAsync as jest.Mock).mockRejectedValueOnce(new Error("disk full"));
   await printHtmlToSharedPdf("<p>Words</p>", "Spanish", () => true);
+  expect(warn).toHaveBeenCalledWith("[pdf] named copy failed", expect.any(Error));
+  warn.mockRestore();
+  dev.__DEV__ = wasDev;
   expect(shareLocalFile).toHaveBeenCalledWith(
     "file:///cache/Print/3F2A.pdf",
     expect.objectContaining({ title: "Spanish.pdf" }),

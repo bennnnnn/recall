@@ -84,14 +84,15 @@ def test_the_picks_get_the_answer_not_another_card() -> None:
     assert COMPARISON_FORMAT_HINT not in hints
 
 
-def test_a_new_question_typed_after_a_card_may_still_ask() -> None:
+def test_a_message_typed_after_a_card_asks_nothing_either() -> None:
+    # The turn after a card answers; asking again ignored what the user just said.
     hints = _style_format_hints(
         query_text="which laptop should I buy",
         is_day_plan=False,
         minimal_personal_context=False,
         prior_messages=_AFTER_CARD,
     )
-    assert CLARIFY_CARD_HINT in hints
+    assert CLARIFY_CARD_HINT not in hints
 
 
 def test_the_same_words_without_a_card_still_compare() -> None:

@@ -150,6 +150,8 @@ def test_the_message_after_a_card_is_a_full_turn(message: str) -> None:
     mode = classify_turn_mode(recent, message)
     assert mode.lightweight is False
     assert mode.rich_context is True
+    # It answers the card, so finalize lets it hold no card of its own.
+    assert mode.after_card is True
 
 
 def test_ok_without_a_card_is_still_small_talk() -> None:
@@ -158,3 +160,4 @@ def test_ok_without_a_card_is_still_small_talk() -> None:
         SimpleNamespace(role="assistant", content="Anytime!"),
     ]
     assert classify_turn_mode(recent, "ok").lightweight is True
+    assert classify_turn_mode(recent, "ok").after_card is False

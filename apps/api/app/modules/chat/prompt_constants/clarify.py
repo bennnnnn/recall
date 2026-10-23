@@ -49,13 +49,14 @@ CLARIFY_PICKS_HINT = (
     "one or two sentences: the best fit for them and why, tied to their picks and to what "
     "memory says about them when it fits. Then the complete answer the message asks for, "
     "strongest options first; a flag or fitting emoji may lead each option, an exception to "
-    "the emoji rule. Do not list their picks back, do not ask again and do not add another "
-    "card."
+    "the emoji rule. Ask nothing more: no card, no questions, no 'tell me more'. Where "
+    "something is still unknown, assume a sensible default and say it in one short line. "
+    "Do not list their picks back."
 )
 # Anything typed instead of tapping: other words for the picks, "just answer", or a new question.
 CLARIFY_UNANSWERED_HINT = (
     "Your last reply asked with a clarify card. If this message answers it in other words "
-    "or says to skip or just answer, answer the request from before the card now, with your "
-    "best general reading for anything they did not say, and do not ask again. If it is a "
-    "new question, answer that."
+    "or says to skip or just answer, answer the request from before the card now. Ask "
+    "nothing more: no card and no questions; for anything they did not say, assume a "
+    "sensible default and say it in one short line. If it is a new question, answer that."
 )

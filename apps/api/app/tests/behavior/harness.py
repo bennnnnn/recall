@@ -166,6 +166,8 @@ class Route:
     # A multi-part message's picture and settings card (the server's part of its reply).
     picture: bool = False
     settings_card: str = ""
+    # The last reply asked with a clarify card: this reply may not ask again.
+    after_card: bool = False
     # Saved memory was read for this turn, and with which scope; earlier chats searched.
     memory: bool = False
     memory_scope: str = ""
@@ -452,6 +454,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
             and can_use(user, "image_generation", settings)
         ),
         settings_card=bundle.settings_card or "",
+        after_card=bundle.after_card,
         memory=bool(loaded.get("load_memory")),
         memory_scope=str(loaded.get("memory_scope") or "") if loaded.get("load_memory") else "",
         history_rag=bool(loaded.get("history_rag")),

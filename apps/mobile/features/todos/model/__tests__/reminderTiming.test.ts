@@ -1,6 +1,5 @@
 import {
   DEFAULT_REMINDER_LEAD_MINUTES,
-  IMMINENT_NOTIFY_DELAY_MS,
   leadMsFromMinutes,
   normalizeReminderLeadMinutes,
   reminderNotifyDate,
@@ -29,10 +28,11 @@ describe("reminderTiming", () => {
     expect(notify?.toISOString()).toBe("2026-06-28T12:20:00.000Z");
   });
 
-  it("fires soon when due is inside the lead window", () => {
+  it("fires when due, not at once, when due is inside the lead window", () => {
+    // "Remind me in 5 minutes" with a 10-minute lead: the alert waits for the due time.
     const due = new Date("2026-06-28T12:05:00.000Z");
     const notify = reminderNotifyDate(due, now, leadMsFromMinutes(10));
-    expect(notify?.getTime()).toBe(now.getTime() + IMMINENT_NOTIFY_DELAY_MS);
+    expect(notify?.getTime()).toBe(due.getTime());
   });
 
   it("returns null for past due times", () => {

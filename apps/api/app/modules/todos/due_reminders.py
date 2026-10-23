@@ -120,7 +120,7 @@ def is_due_now(todo: TodoItem, user: User, *, now: datetime) -> bool:
     if todo.due_at is None or in_quiet_hours(user, now=now):
         return False
     lead = resolve_reminder_lead_minutes(user.reminder_lead_minutes)
-    return should_notify_todo(todo.due_at, now=now, lead_minutes=lead)
+    return should_notify_todo(todo.due_at, now=now, lead_minutes=lead, set_at=todo.updated_at)
 
 
 async def tokenless_recurring_overdue(

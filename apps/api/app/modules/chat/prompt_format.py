@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from app.modules.chat.clarify_turn import answers_last_card
+from app.modules.chat.clarify_turn import answers_last_card, last_reply_card
 from app.modules.chat.continuation_subject import (
     effective_presentation_subject,
     is_new_problem_request,
@@ -124,9 +124,7 @@ def _viz_intent(query_text: str | None) -> bool:
 
 def _layout_format_hint(query_text: str | None, *, picks: bool = False) -> str | None:
     """Turn-specific layout that must win over compact prose."""
-    if not query_text:
-        return None
-    if is_brevity_request(query_text):
+    if not query_text or is_brevity_request(query_text):
         return None
     # A requested deliverable owns its shape. For example, "write a LinkedIn
     # post comparing X and Y" is a post—not a comparison table with a post
@@ -210,7 +208,8 @@ class StyleTurn:
     subject: str | None
     # Several requests: each one's shape is in the multi-part contract, not the turn's.
     multi: bool = False
-    picks: bool = False  # Answers the last card: no new card, its "compare" asks no table.
+    after_card: bool = False  # it answers the last reply's card: it never asks again
+    picks: bool = False  # the card's picks: its closing "compare …" asks no table
 
 
 def _style_turn(
@@ -264,6 +263,7 @@ def _style_turn(
         viz_intent=_viz_intent(query_text),
         subject=effective_presentation_subject(query_text, prior_messages),
         multi=multi,
+        after_card=last_reply_card(prior_messages) is not None,
         picks=answers_last_card(query_text, prior_messages),
     )
 
@@ -352,10 +352,10 @@ def _answer_photo(turn: StyleTurn) -> list[str]:
 
 
 def _may_ask_with_card(turn: StyleTurn) -> bool:
-    """A turn whose shape is not already set: a greeting, draft, code, lesson, problem, picks."""
+    """An unshaped turn (no greeting, draft, code, lesson, problem), not a card's answer."""
     shaped = turn.compact or turn.multi or turn.writing or turn.code_hint or turn.lesson_hint
     lesson = turn.teaching or turn.learning_plan or turn.subject in _NO_PHOTO_SUBJECTS
-    return bool(turn.query) and not shaped and not lesson and not turn.picks
+    return bool(turn.query) and not shaped and not lesson and not turn.after_card
 
 
 HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (

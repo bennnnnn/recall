@@ -25,8 +25,14 @@ def should_notify_todo(
     *,
     now: datetime,
     lead_minutes: int,
+    set_at: datetime | None = None,
 ) -> bool:
-    """True when a reminder push/local alert should fire."""
+    """True when a reminder push/local alert should fire.
+
+    It fires the lead time before it is due. A reminder set inside its own lead window
+    ("remind me in 3 minutes", lead 10) would fire the moment it was saved, so it fires
+    when it is due instead. ``set_at`` is when its time was last set.
+    """
     if due_at.tzinfo is None:
         due_at = due_at.replace(tzinfo=UTC)
     if now.tzinfo is None:
@@ -36,8 +42,12 @@ def should_notify_todo(
         overdue_cutoff = now - timedelta(hours=OVERDUE_MAX_HOURS)
         return due_at >= overdue_cutoff
 
-    lead = resolve_reminder_lead_minutes(lead_minutes)
-    return due_at <= now + timedelta(minutes=lead)
+    lead = timedelta(minutes=resolve_reminder_lead_minutes(lead_minutes))
+    if set_at is not None:
+        set_at = set_at if set_at.tzinfo else set_at.replace(tzinfo=UTC)
+        if set_at > due_at - lead:
+            return due_at <= now
+    return due_at <= now + lead
 
 
 def in_quiet_hours(user: User, now: datetime | None = None) -> bool:

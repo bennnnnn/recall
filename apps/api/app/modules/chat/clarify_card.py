@@ -203,11 +203,12 @@ def _questions_only(body: str) -> str:
     return "\n".join(lines)
 
 
-def settle_clarify_cards(text: str, *, allowed: bool) -> str:
+def settle_clarify_cards(text: str, *, allowed: bool, after_card: bool = False) -> str:
     """At most one valid card, last in the reply; none when the turn may not ask.
 
     A card that cannot be shown leaves an answer as it is; a reply that only asked keeps
-    its questions as prose, so the user still knows what to answer.
+    its questions as prose, so the user still knows what to answer. The turn after a
+    card (``after_card``) keeps no questions at all: the user already answered.
     """
     fences = [fence for fence in iter_fences(text) if fence.lang == CLARIFY_FENCE]
     if not fences:
@@ -225,7 +226,28 @@ def settle_clarify_cards(text: str, *, allowed: bool) -> str:
         card = next((c for body in bodies if (c := read_card(body))), None)
         if card is not None:
             return f"{prose}\n\n{card.fence()}" if prose else card.fence()
+    if after_card:
+        return _without_card_intro(prose)
     if len(prose.split()) > _ANSWER_WORDS:
         return prose
     asked = next((q for body in bodies if (q := _questions_only(body))), "")
     return "\n\n".join(part for part in (prose, asked) if part)
+
+
+def _without_card_intro(prose: str) -> str:
+    """The prose minus the lines that only led into the card: "A few more questions:", or
+    the ask before it ("**But let me ask you one thing.**", "What do you mean by *best*?").
+
+    The first line is kept, so the reply is never left empty.
+    """
+    lines = prose.rstrip().splitlines()
+    end = len(lines)
+    while end > 1 and _leads_into_card(lines[end - 1]):
+        end -= 1
+    return "\n".join(lines[:end]).rstrip()
+
+
+def _leads_into_card(line: str) -> bool:
+    text = line.strip()
+    bold_only = text.startswith("**") and text.endswith("**")
+    return not text or text.endswith((":", "?")) or bold_only

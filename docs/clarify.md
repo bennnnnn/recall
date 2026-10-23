@@ -37,8 +37,11 @@ Recall never asks what it already knows.
   hint: answer the request now with the best general reading, or answer the new question).
 - After the button the card stays, read-only, with the picks ticked and no button. A card
   answered by typing shows nothing ticked.
-- A reply that asks gets no follow-up questions under it (`related_prompts.py`): they
-  would compete with the card.
+- A reply that asks gets no follow-up questions under it (`related_questions.follow_up_topic`,
+  and the phone's `asksWithCard`): they would compete with the card.
+- The turn after a card never asks again, whatever the user sent: no card and no questions;
+  anything still unknown gets a sensible default said in one short line. A card the model
+  writes anyway is removed at finalize, with the ask that led into it (`after_card`).
 
 ## What is sent
 

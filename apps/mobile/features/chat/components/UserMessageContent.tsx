@@ -19,6 +19,7 @@ import {
 } from "@/lib/messageAttachments";
 import { messageListKey } from "@/lib/messageListLayout";
 import { shouldCollapseMessage } from "@/lib/markdown/messageFold";
+import { withTypedLineBreaks } from "@/lib/markdown/typedLineBreaks";
 import { displayMathToInline } from "@/lib/math/solutionBars";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -136,10 +137,10 @@ function UserBubbleBody({ content }: { content: string }) {
   if (sentMessageShowsMathPreview(inline)) {
     return <MathDraftPreview input={inline} showCaret={false} sent />;
   }
-  // The user's own links may show a preview card.
+  // The user's own links may show a preview card; their line breaks stay as typed.
   return (
     <LinkPreviewTrust userText={content}>
-      <MarkdownContent content={inline} compact />
+      <MarkdownContent content={withTypedLineBreaks(inline)} compact />
     </LinkPreviewTrust>
   );
 }

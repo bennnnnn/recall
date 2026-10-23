@@ -9,6 +9,7 @@
  * shape would draw a broken card.
  */
 import { parseJsonRecord } from "@/lib/jsonFence";
+import { collectClosedFenceBodies } from "@/lib/mdFenceScan";
 
 export type ClarifyQuestion = {
   id: string;
@@ -99,6 +100,14 @@ export function parseClarifyCard(content: string): ClarifyCard | null {
     closing: oneLine(data.closing),
     submit: oneLine(data.submit),
   };
+}
+
+/**
+ * True when a reply asks with a card. Its follow-up is the card itself, so suggested
+ * questions under it ("What is your budget?") only repeat what it asks.
+ */
+export function asksWithCard(content: string): boolean {
+  return collectClosedFenceBodies(content, "clarify").some((body) => parseClarifyCard(body) !== null);
 }
 
 /** What a live card starts on: the first choice of every question, the likeliest one. */

@@ -11,6 +11,14 @@ jest.mock("@/features/todos/model/reminderProposal", () => ({
   isProposalSaved: () => false,
   markProposalSaved: jest.fn(),
 }));
+const mockOrder: string[] = [];
+const mockAllowAlerts = jest.fn(async () => {
+  mockOrder.push("ask");
+  return "on" as "on" | "off";
+});
+jest.mock("@/features/todos/model/reminderAlerts", () => ({
+  allowReminderAlerts: () => mockAllowAlerts(),
+}));
 
 const row = (id: string, content = id): Todo => ({
   id,
@@ -23,9 +31,17 @@ const row = (id: string, content = id): Todo => ({
   created_at: "2026-01-01T00:00:00.000Z",
   updated_at: "2026-01-01T00:00:00.000Z",
 });
-const proposal = { proposalId: "p1" } as Parameters<typeof useReminderProposal>[0];
+const proposal = { proposalId: "p1", items: [] } as unknown as Parameters<typeof useReminderProposal>[0];
+const dated = (action: string) =>
+  ({
+    proposalId: "p2",
+    items: [{ action, title: "Stretch", dueAt: "2026-10-24T06:03:00Z" }],
+  }) as unknown as Parameters<typeof useReminderProposal>[0];
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockOrder.length = 0;
+});
 
 it("puts saved rows in place, adds new ones first and drops deleted ones", () => {
   const rows = [row("a"), row("b"), row("c")];
@@ -49,4 +65,34 @@ it("reads the list when another device saved the card first", async () => {
   await act(async () => { await result.current.confirm(); });
   expect(mockTodos.refresh).toHaveBeenCalledWith({ silent: true, force: true });
   expect(mockTodos.setTodos).not.toHaveBeenCalled();
+});
+
+describe("asking for alerts when a dated reminder is saved", () => {
+  it("asks before the saved rows land, so the reminder sync can schedule", async () => {
+    jest.mocked(api.confirmReminderProposal).mockResolvedValue({ items: [], todos: [row("new")], deleted_ids: [] });
+    mockTodos.setTodos.mockImplementation(() => {
+      mockOrder.push("rows");
+    });
+    const { result } = await renderHook(() => useReminderProposal(dated("add")));
+    await act(async () => { await result.current.confirm(); });
+    expect(mockOrder).toEqual(["ask", "rows"]);
+    expect(result.current.alertsOff).toBe(false);
+  });
+
+  it("says alerts are off when the user said no", async () => {
+    jest.mocked(api.confirmReminderProposal).mockResolvedValue({ items: [], todos: [], deleted_ids: [] });
+    mockAllowAlerts.mockResolvedValueOnce("off");
+    const { result } = await renderHook(() => useReminderProposal(dated("add")));
+    await act(async () => { await result.current.confirm(); });
+    expect(result.current.alertsOff).toBe(true);
+  });
+
+  it("does not ask for a delete, or a reminder with no time", async () => {
+    jest.mocked(api.confirmReminderProposal).mockResolvedValue({ items: [], todos: [], deleted_ids: [] });
+    const { result } = await renderHook(() => useReminderProposal(dated("delete")));
+    await act(async () => { await result.current.confirm(); });
+    const undated = await renderHook(() => useReminderProposal(proposal));
+    await act(async () => { await undated.result.current.confirm(); });
+    expect(mockAllowAlerts).not.toHaveBeenCalled();
+  });
 });

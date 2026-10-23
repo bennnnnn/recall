@@ -1,5 +1,6 @@
 import {
   answersFromMessage,
+  asksWithCard,
   clarifyMessage,
   clarifyText,
   initialClarifyAnswers,
@@ -207,5 +208,19 @@ describe("clarifyText", () => {
       "What matters most to you? (Making money / Quality of life / Safety)\n" +
         "Which region are you considering? (Anywhere / Europe / The Americas)",
     );
+  });
+});
+
+describe("asksWithCard", () => {
+  it("is true for a reply that asks with a card", () => {
+    expect(asksWithCard(`Two quick questions:\n\n\`\`\`clarify\n${INTEGRALS}\n\`\`\``)).toBe(true);
+  });
+
+  it.each([
+    ["no card", "Integrals add up tiny pieces."],
+    ["a card that does not parse", "Q:\n\n```clarify\n{\"when\": \"first\"}\n```"],
+    ["a card still streaming", `Q:\n\n\`\`\`clarify\n${INTEGRALS}`],
+  ])("is false for %s", (_name, content) => {
+    expect(asksWithCard(content)).toBe(false);
   });
 });

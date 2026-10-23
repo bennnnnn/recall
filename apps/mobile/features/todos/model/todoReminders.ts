@@ -10,7 +10,7 @@ import { leadMsFromMinutes, reminderNotifyDate } from "@/features/todos/model/re
 import { shouldSyncLocalTodoReminders } from "@/features/todos/model/todoReminderPush";
 import {
   AndroidNotificationChannel,
-  NOTIFICATION_SOUND,
+  notificationSound,
   ensureAndroidNotificationChannels,
 } from "@/lib/notificationChannels";
 
@@ -85,7 +85,7 @@ async function schedule(todo: Todo, leadMs: number, current: IsCurrent): Promise
       title: i18n.t("notifications.todo_reminder_title"),
       body: i18n.t("notifications.todo_reminder_body", { content: todo.content, time: formatClockTime(due) }),
       data: { type: "todo_due", screen: "todos", todo_id: todo.id, topic: todo.topic },
-      sound: NOTIFICATION_SOUND,
+      sound: notificationSound(),
       ...(Platform.OS === "android" ? { channelId: ANDROID_CHANNEL } : {}),
     },
     trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: notifyAt },

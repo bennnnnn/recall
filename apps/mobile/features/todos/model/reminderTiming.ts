@@ -5,9 +5,6 @@ export type ReminderLeadMinutes = (typeof REMINDER_LEAD_OPTIONS)[number];
 
 export const DEFAULT_REMINDER_LEAD_MINUTES: ReminderLeadMinutes = 10;
 
-/** When due is sooner than the lead window, fire almost immediately. */
-export const IMMINENT_NOTIFY_DELAY_MS = 2_000;
-
 export function leadMsFromMinutes(minutes: number): number {
   return minutes * 60 * 1000;
 }
@@ -27,8 +24,9 @@ export function remindAtDate(dueAt: Date, leadMinutes: number): Date {
 }
 
 /**
- * When to fire a local notification (null if due is past or invalid).
- * If the lead window already started, schedules ~2s from `now`.
+ * When to fire a local notification (null if due is past or invalid): the lead time before
+ * it is due. A reminder already inside its lead window ("remind me in 3 minutes", lead 10)
+ * fires when it is due, not the moment it is saved (twin: services/reminder_timing.py).
  */
 export function reminderNotifyDate(
   dueAt: Date,
@@ -39,8 +37,5 @@ export function reminderNotifyDate(
   if (Number.isNaN(dueMs) || dueMs <= now.getTime()) return null;
 
   const notifyMs = dueMs - leadMs;
-  if (notifyMs <= now.getTime()) {
-    return new Date(now.getTime() + IMMINENT_NOTIFY_DELAY_MS);
-  }
-  return new Date(notifyMs);
+  return new Date(notifyMs <= now.getTime() ? dueMs : notifyMs);
 }
