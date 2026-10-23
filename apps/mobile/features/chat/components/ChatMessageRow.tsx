@@ -86,7 +86,9 @@ export const ChatMessageRow = memo(function ChatMessageRow({
             : undefined
         }
         regenerating={isLastAssistant && regenerating}
-        onRetryImageGen={item.image_gen_failure ? onRetryImageGen : undefined}
+        onRetryImageGen={
+          item.image_gen_failure && !item.image_gen_refused ? onRetryImageGen : undefined
+        }
         onFeedback={onFeedback}
         highlighted={item.id === highlightedMessageId}
         isSending={item.id === sendingMessageId}

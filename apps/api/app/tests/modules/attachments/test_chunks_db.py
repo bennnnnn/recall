@@ -172,3 +172,27 @@ async def test_attachment_service_deletion_cascades_chunks_without_touching_othe
             select(AttachmentChunk.text).where(AttachmentChunk.attachment_id == unrelated_id)
         )
     ) == ["original index"]
+
+
+@pytest.mark.asyncio
+async def test_library_delete_of_a_chats_last_document_ends_its_retrieval(db_session):
+    """The chat's next turn neither embeds for, nor is told about, the file that is gone."""
+    from app.core import presence_cache
+    from app.modules.attachments import rag as attachment_rag
+
+    user, chat_a, _, attachment = await _seed(db_session)
+    # The index job remembers the chat has chunks once it writes them.
+    await presence_cache.mark_present(presence_cache.documents_key(chat_a.id))
+    with (
+        patch.object(attachment_workflow, "delete_storage_keys", AsyncMock(return_value=[])),
+        patch.object(attachment_workflow, "enqueue_failed_storage_deletes", AsyncMock()),
+    ):
+        await attachment_workflow.delete_attachment(db_session, Settings(), user, attachment.id)
+
+    embed = AsyncMock(return_value=[0.1] * 1536)
+    with patch.object(attachment_rag.embedding_gateway, "get_or_embed_query", embed):
+        block = await attachment_rag.retrieve_for_prompt(
+            Settings(), user_id=user.id, chat_id=chat_a.id, query="a good name for a cat?"
+        )
+    assert block == ""
+    embed.assert_not_awaited()

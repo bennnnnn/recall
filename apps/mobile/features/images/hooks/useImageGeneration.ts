@@ -36,8 +36,11 @@ type Options = {
   /** The open chat's id, or a new chat made the open one; throws when none can be made. */
   ensureChatId: () => Promise<string | null>;
   uploadReference: (token: string, attachment: PendingAttachment) => Promise<{ ids: string[] }>;
-  /** A failed request in the chat's words (its code, the plan's limits). */
-  failureMessage: (message: string, code: string | undefined) => string;
+  /**
+   * A failed request in the chat's words (its code, the plan's limits), and whether a
+   * retry could go differently: the day's cap or a refused prompt fails again.
+   */
+  describeFailure: (message: string, code: string | undefined) => ImageGenFailureText;
   setMessages: Dispatch<SetStateAction<Message[]>>;
   streaming: boolean;
   isOffline: boolean;
@@ -47,6 +50,8 @@ type Options = {
   newMessageCountRef: MutableRefObject<number>;
   t: (key: string) => string;
 };
+
+export type ImageGenFailureText = { message: string; retryable: boolean };
 
 export type ImageGenSubmit = {
   prompt: string;
@@ -70,7 +75,7 @@ export function useImageGeneration({
   token,
   ensureChatId,
   uploadReference,
-  failureMessage,
+  describeFailure,
   setMessages,
   streaming,
   isOffline,
@@ -260,8 +265,8 @@ export function useImageGeneration({
         }
         const message = error instanceof Error ? error.message : t("common.error");
         const code = error instanceof ApiRequestError ? (error.code ?? undefined) : undefined;
-        const failure = failureMessage(message, code);
-        setMessages((prev) => applyImageGenFailure(prev, "failed", failure));
+        const failure = describeFailure(message, code);
+        setMessages((prev) => applyImageGenFailure(prev, "failed", failure.message, !failure.retryable));
       } finally {
         if (abortRef.current === abort) abortRef.current = null;
         generatingRef.current = false;
@@ -273,7 +278,7 @@ export function useImageGeneration({
       onOfflineBlocked,
       ensureChatId,
       uploadReference,
-      failureMessage,
+      describeFailure,
       setMessages,
       newMessageCountRef,
       onScrollToLatest,

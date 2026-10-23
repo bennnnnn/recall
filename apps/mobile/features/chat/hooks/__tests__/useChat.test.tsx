@@ -24,6 +24,7 @@ import {
 import { REPLY_SAVE_GRACE_MS, type DotsTicket } from "@/features/chat/hooks/useTurnStart";
 import { getStreamingDraft, resetStreamingDraftStore } from "@/lib/streamingDraftStore";
 import { beginOpenedPageRead, OPENED_PAGE_WAIT_MS } from "@/features/chat/model/openedPage";
+import { emitAppEvent } from "@/lib/appEvents";
 
 const SERVER_USER_ID = "0190a000-0000-7000-8000-000000000001";
 const SERVER_REPLY_ID = "0190a000-0000-7000-8000-000000000002";
@@ -2019,5 +2020,36 @@ describe("useChat while the opened chat's page is read", () => {
     await act(async () => { current.stopGeneration(); });
     expect(current.messages.map((message) => message.content)).toEqual(["question"]);
     expect(sentTypes(socket).filter((type) => type === "message" || type === "cancel")).toEqual(["message", "cancel"]);
+  });
+});
+
+describe("a photo or file deleted from Library", () => {
+  const PHOTO = "0190a000-0000-7000-8000-0000000000aa";
+  const OTHER = "0190a000-0000-7000-8000-0000000000bb";
+  const row = (id: string, role: "user" | "assistant", content: string) =>
+    ({ id, role, content, model: null, created_at: "now" });
+  const thread = () => [
+    { ...row("u1", "user", `what is this?\n\n[Image: /attachments/${PHOTO}/file]`), local_image_uri: "file:///p.jpg" },
+    row("a1", "assistant", "A cat."),
+    row("u2", "user", "draw a dog"),
+    row("a2", "assistant", `[Image: /attachments/${OTHER}/file]`),
+  ];
+  afterEach(async () => { await cleanup(); });
+
+  it("leaves the open chat the way it left the server's copy", async () => {
+    await render(<Probe chatId="chat-1" />);
+    await act(async () => { current.setMessages(thread()); });
+    await act(async () => { emitAppEvent("attachmentDeleted", { attachmentId: OTHER, chatId: "chat-1" }); });
+    // The picture was the whole reply: the server deleted the row.
+    expect(current.messages.map((message) => message.id)).toEqual(["u1", "a1", "u2"]);
+    await act(async () => { emitAppEvent("attachmentDeleted", { attachmentId: PHOTO, chatId: "chat-1" }); });
+    expect(current.messages[0]).toMatchObject({ id: "u1", content: "what is this?", local_image_uri: null });
+  });
+
+  it("leaves another chat's list alone", async () => {
+    await render(<Probe chatId="chat-2" />);
+    await act(async () => { current.setMessages(thread()); });
+    await act(async () => { emitAppEvent("attachmentDeleted", { attachmentId: OTHER, chatId: "chat-1" }); });
+    expect(current.messages).toHaveLength(4);
   });
 });
