@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import unicodedata
 
 from pydantic import (
@@ -42,6 +43,10 @@ _ANSWER_WORDS = 40
 NEVER_WITH_CARD = frozenset({"answer", "result", "final", "reminder", "reminder_proposal", "photo"})
 # What an option may start with before its words: an emoji, a flag, a joiner, a skin tone.
 _LEADING_MARKS = frozenset({"So", "Sk", "Mn", "Me", "Cf"})
+# A keycap emoji ("1️⃣"): a digit, # or * with the keycap mark.
+_KEYCAP = re.compile("[0-9#*]️?⃣")
+# What only an emoji has: a pictograph past U+1F000, presentation, a joiner, a keycap.
+_EMOJI_ONLY = frozenset("️‍⃣")
 
 
 def _text(value: object) -> str:
@@ -55,10 +60,19 @@ def _short(value: object, limit: int) -> str:
 
 
 def option_value(option: str) -> str:
-    """An option as the user's message says it: "💰 Making money" is "Making money"."""
-    start = 0
+    """An option as the user's message says it: "💰 Making money" is "Making money".
+
+    Only a leading emoji goes: symbols a space ends, or that only an emoji has. A symbol
+    that is part of the words stays ("°C", "№1").
+    """
+    keycap = _KEYCAP.match(option)
+    start = keycap.end() if keycap else 0
     while start < len(option) and unicodedata.category(option[start]) in _LEADING_MARKS:
         start += 1
+    lead = option[:start]
+    emoji = any(ord(char) >= 0x1F000 or char in _EMOJI_ONLY for char in lead)
+    if not emoji and not option[start : start + 1].isspace():
+        return option
     return option[start:].strip() or option
 
 

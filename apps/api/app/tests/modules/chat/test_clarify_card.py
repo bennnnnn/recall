@@ -10,7 +10,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat.clarify_card import read_card, settle_clarify_cards
+from app.modules.chat.clarify_card import option_value, read_card, settle_clarify_cards
 from app.modules.chat.finalize_passes import FinalizeState, run_finalize_passes
 from app.modules.chat.finalize_text import settle_clarify
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -120,6 +120,29 @@ def test_read_card_normalises_a_question(question: dict[str, Any], normal: dict[
     card = read_card(json.dumps({"questions": [question]}))
     assert card is not None
     assert card.model_dump()["questions"] == [normal]
+
+
+@pytest.mark.parametrize(
+    ("option", "value"),
+    [
+        ("🇨🇭 Switzerland", "Switzerland"),
+        ("👨‍👩‍👧 Family", "Family"),
+        ("👍🏽 Yes", "Yes"),
+        ("💰Making money", "Making money"),
+        ("★ Top rated", "Top rated"),
+        # A keycap is a digit, # or * with its mark: the emoji goes, not just the mark.
+        ("1️⃣ Beginner", "Beginner"),
+        ("#️⃣ Hashtags", "Hashtags"),
+        # A symbol that is part of the words stays: the message says "°C", not "C".
+        ("°C", "°C"),
+        ("°F (Fahrenheit)", "°F (Fahrenheit)"),
+        ("№1 choice", "№1 choice"),
+        ("#1 pick", "#1 pick"),
+        ("$500 or less", "$500 or less"),
+    ],
+)
+def test_option_value_takes_off_a_leading_emoji_only(option: str, value: str) -> None:
+    assert option_value(option) == value
 
 
 def test_read_card_keeps_the_first_three_questions() -> None:
