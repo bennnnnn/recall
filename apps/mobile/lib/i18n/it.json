@@ -61,7 +61,7 @@
   "chat.home.greeting_night_name": "Ciao, {{name}}",
   "chat.home.overdue": "Scaduto",
   "chat.image_gen_a11y_progress": "{{status}}, {{percent}}",
-  "chat.image_gen_canceled": "Attesa interrotta. L'immagine potrebbe comunque comparire in questa chat e contare tra le immagini di oggi.",
+  "chat.image_gen_canceled": "Interrotto. Questa immagine non conterà nel limite di oggi.",
   "chat.image_gen_failed": "Impossibile creare l'immagine",
   "chat.image_daily_limit_free": "Hai creato le immagini gratuite di oggi. Passa a un piano superiore per averne altre, o riprova domani.",
   "chat.image_daily_limit_paid": "Hai creato tutte le immagini di oggi. Domani potrai crearne altre.",

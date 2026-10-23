@@ -113,7 +113,6 @@ def test_user_payload_says_whether_email_reminders_work(
         email="a@b.c",
         name=None,
         avatar_url=None,
-        default_model="auto",
         memory_enabled=True,
         created_at=datetime(2026, 1, 1),
     )

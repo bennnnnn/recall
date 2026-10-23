@@ -7,6 +7,7 @@ from sqlalchemy.orm import object_session
 
 from app.core.user_cache import forget_user, publish_change, remember_user
 from app.models.orm import Chat, Message, PushToken, UsageDaily, User
+from app.models.schemas.auth import chosen_model_id
 
 
 async def get_by_id(session: AsyncSession, user_id: UUID) -> User | None:
@@ -84,6 +85,9 @@ async def update(session: AsyncSession, user: User, *, commit: bool = True, **fi
     after the commit. With ``commit=False`` the caller commits, then awaits
     ``user_cache.publish_change(user.id)``.
     """
+    if "enabled_models" in fields:
+        # default_model is a stored copy of the chosen model, never set on its own.
+        fields["default_model"] = chosen_model_id(fields["enabled_models"])
     bound = user
     # object_session returns the sync Session, not the AsyncSession wrapper.
     # Spec mocks in unit tests have no sync_session; mutate those users as-is.

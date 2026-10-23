@@ -19,7 +19,7 @@ CHART_SHAPES: dict[str, dict[str, object]] = json.loads(
     Path(__file__).with_name("chart_shapes.json").read_text(encoding="utf-8")
 )
 
-_CHART_KINDS = ("bar", "line", "pie", "area", "scatter", "donut", "dot")
+_CHART_KINDS = ("bar", "line", "pie", "area", "scatter", "donut", "dot", "box")
 
 _CHART_TURN = re.compile(
     r"(?:"
@@ -33,9 +33,13 @@ _CHART_TURN = re.compile(
     r")",
     re.IGNORECASE,
 )
-# A plot of data named by its kind ("scatter plot", "bar graph", "dot plot"), asked
-# for: "make a bar graph", "a scatterplot of …". Not "my bar graph homework".
-_PLOT_KIND = r"(?:scatter|dot|bar|pie|donut|line|area)\s*(?:plots?|graphs?)\b"
+# A plot of data named by its kind ("scatter plot", "bar graph", "box-and-whisker plot"),
+# asked for: "make a bar graph", "a scatterplot of …". Not "my bar graph homework", and
+# not "a box of plots" or "plot the boxes".
+_PLOT_KIND = (
+    r"(?:(?:scatter|dot|bar|pie|donut|line|area)\s*(?:plots?|graphs?)"
+    r"|box(?:[\s-]+and[\s-]+whiskers?)?[\s-]*(?:plots?|charts?|graphs?))\b"
+)
 _PLOT_REQUEST = re.compile(
     r"\b(?:make|draw|create|plot|show|give|build|render|generate)\b[^.?!\n]{0,40}?\b"
     + _PLOT_KIND
@@ -91,6 +95,9 @@ CHART_FORMAT_HINT = (
     '- histogram: the raw values as data.values, x with "bin", y '
     '{"aggregate": "count"}. Never pre-bin the values, never "bin": "binned".\n'
     "- pie: mark arc, theta is the number, color is the category.\n"
+    "- box plot: mark boxplot over the raw values as data.values, one row per value; a "
+    "category on x gives one box per group, no x gives one box. Never compute the "
+    "quartiles or whiskers yourself.\n"
     "Every chart: first key "
     '"$schema": "https://vega.github.io/schema/vega-lite/v5.json"; every value inline '
     "in data.values (no url, no data.sequence, no column computed from a formula); "

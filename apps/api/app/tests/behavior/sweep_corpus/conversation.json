@@ -450,6 +450,72 @@
  },
  {
   "id": "cv-050",
+  "area": "walkthrough lookalike",
+  "prompt": "I don't understand why she left",
+  "history": [],
+  "reply": "That sounds painful. Do you want to talk about what happened before she left?",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-051",
+  "area": "walkthrough lookalike",
+  "prompt": "I don't understand step 3",
+  "history": [
+   [
+    "user",
+    "I don't understand recursion"
+   ],
+   [
+    "assistant",
+    "### Lesson 1: Recursion\n\nA function that calls itself on a smaller input.\n\n1. **Base case**: stop at 0.\n2. **Recursive step**: n * fact(n - 1).\n3. **Trace**: fact(3) = 3 * 2 * 1.\n\n### Your turn\nWhat does fact(4) return?"
+   ]
+  ],
+  "reply": "Step 3 just multiplies on the way back: fact(3) asks fact(2), which asks fact(1), then 3 * 2 * 1 = 6.",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-052",
+  "area": "walkthrough lookalike",
+  "prompt": "life makes no sense right now",
+  "history": [],
+  "reply": "That's a heavy feeling. What's been going on lately?",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-053",
+  "area": "walkthrough lookalike",
+  "prompt": "I'm stuck on the highway, I'll be late to the meeting",
+  "history": [],
+  "reply": "Sorry to hear that! Want me to draft a quick message saying you're running late?",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-054",
+  "area": "walkthrough lookalike",
+  "prompt": "I'm struggling with grief since my dad died",
+  "history": [],
+  "reply": "I'm so sorry about your dad. Grief can come in waves; would it help to talk about him?",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-055",
+  "area": "walkthrough lookalike",
+  "prompt": "your answer makes no sense",
+  "history": [
+   [
+    "user",
+    "what is 2+2"
+   ],
+   [
+    "assistant",
+    "2 + 2 = 4."
+   ]
+  ],
+  "reply": "Sorry about that: 2 + 2 is 4. Which part was unclear?",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-056",
   "area": "clarify lookalike",
   "prompt": "Main priority: not sure yet, what do most people pick?",
   "history": [
@@ -466,7 +532,7 @@
   "expect": "answer"
  },
  {
-  "id": "cv-051",
+  "id": "cv-057",
   "area": "clarify lookalike",
   "prompt": "which one has the lowest taxes?",
   "history": [

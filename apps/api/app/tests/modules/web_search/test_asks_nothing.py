@@ -15,6 +15,9 @@ from app.modules.web_search.asks_nothing import asks_nothing_to_look_up
         "Teach me something new today",
         "What should I cook for dinner tonight with chicken and rice?",
         "What a day today, so much happened",
+        # A learner stuck on a topic tells; the lesson answers, nothing is searched.
+        "recursion makes no sense to me",
+        "pointers confuse me",
         # Sample, mock or example data is made up on the spot.
         "Give me sample CSV data for 5 students with name, grade and score",
         "give me mock API responses for a login endpoint",

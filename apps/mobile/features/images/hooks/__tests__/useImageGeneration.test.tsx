@@ -107,6 +107,26 @@ describe("image generation queued state and cancellation", () => {
     expect(onPersistenceFailure).toHaveBeenCalledTimes(1);
   });
 
+  it("cancels a running generation by aborting its request, which the server stops on", async () => {
+    let signal: AbortSignal | undefined;
+    (api.generateImage as jest.Mock).mockImplementation((_token: string, _body: unknown, init: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        signal = init.signal ?? undefined;
+        signal?.addEventListener("abort", () => reject(new Error("aborted")));
+      }));
+    const { result, replay } = await setup();
+    let pending!: Promise<void>;
+    await act(async () => {
+      pending = result.current.submitPrompt({ prompt: "cat", userMessage: "Draw a cat" });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(signal?.aborted).toBe(false);
+    await act(async () => { result.current.cancel(); await pending; });
+    expect(signal?.aborted).toBe(true);
+    expect(replay().at(-1)?.image_gen_failure).toBe("canceled");
+  });
+
   it("cancels during upload and retries with that same reference without another upload", async () => {
     let finishUpload!: (id: string) => void;
     (uploadChatAttachment as jest.Mock).mockImplementation(() => new Promise((resolve) => { finishUpload = resolve; }));

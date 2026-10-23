@@ -7,9 +7,10 @@ from app.modules.chat.prompt_constants.locale_cues import (
     has_any_personal_locale_cue,
     has_locale_cue,
 )
+from app.modules.chat.prompt_constants.stuck import stuck_on_a_topic
 from app.modules.chat.prompt_constants.writing_kind import is_email_or_message_request
 from app.services import time_context as time_context_service
-from app.services.text_normalize import collapse_ws
+from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 # Patterns assume input was passed through ``collapse_ws`` (single spaces only).
 _BROAD_SELF_QUESTION = re.compile(
@@ -534,16 +535,15 @@ _COLLECTIVE_DISCLOSURE = re.compile(
 
 
 def is_personal_disclosure_turn(text: str) -> bool:
-    """True for a first-person fact/goal with no actual request attached."""
-    cleaned = collapse_ws(text).casefold()
-    if not cleaned or "?" in cleaned:
+    """True for a first-person fact/goal asking nothing; a topic they're stuck on asks."""
+    cleaned = straighten_apostrophes(collapse_ws(text)).casefold()
+    if not cleaned or "?" in cleaned or stuck_on_a_topic(cleaned):
         return False
     if not cleaned.startswith(_PERSONAL_DISCLOSURE_PREFIXES) and not _COLLECTIVE_DISCLOSURE.match(
         cleaned
     ):
         return False
-    request_text = re.sub(r"[^\w']+", " ", cleaned)
-    padded = f" {request_text} "
+    padded = " " + re.sub(r"[^\w']+", " ", cleaned) + " "
     return not any(marker in padded for marker in _PERSONAL_REQUEST_MARKERS)
 
 

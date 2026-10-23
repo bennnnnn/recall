@@ -69,7 +69,9 @@ _SPEAKER = re.compile(
 # A sentence that says something happened or how something is.
 _TELLS = re.compile(
     r"\b(?:is|was|are|were|been|it's|that's|there's|here's|feel|feels|felt|got|had|made|went|looks?|looked|seems?|"
-    r"seemed|tripped|happened|finished|passed|loved?|liked?|hated?|gave|told|said|did|saw|watched)\b",
+    r"seemed|tripped|happened|finished|passed|loved?|liked?|hated?|gave|told|said|did|saw|watched|"
+    # "Recursion makes no sense to me": a learner stuck on a topic tells; the lesson answers.
+    r"makes?\s+no\s+sense|confus(?:e|es|ed|ing)|over\s+my\s+head)\b",
     re.IGNORECASE,
 )
 _CHATTER = re.compile(

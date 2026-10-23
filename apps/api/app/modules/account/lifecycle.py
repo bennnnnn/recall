@@ -40,6 +40,10 @@ async def update_account(
     settings: Settings,
     fields: dict[str, Any],
 ) -> User:
+    # An older app still sends default_model: it chooses through the same rule.
+    chosen = fields.pop("default_model", None)
+    if chosen is not None and "enabled_models" not in fields:
+        fields["enabled_models"] = plan_service.models_choosing(user, settings, chosen)
     if "enabled_models" in fields:
         fields["enabled_models"] = plan_service.validate_enabled_models_for_update(
             user,

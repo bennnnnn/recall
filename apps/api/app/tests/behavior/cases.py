@@ -810,6 +810,34 @@ CASES: tuple[Case, ...] = (
         "Lesson 1: Recursion: the idea, a call-by-call trace in step cards, the base case, a quiz.",
     ),
     Case(
+        "teach-walkthrough-curly",
+        "teaching",
+        "I don\u2019t understand recursion",
+        Expect(hints=("walkthrough",), search="no"),
+        "The iPhone keyboard's apostrophe: the same lesson as \"I don't understand recursion\".",
+    ),
+    Case(
+        "teach-walkthrough-confused",
+        "teaching",
+        "I'm confused about pointers in C",
+        Expect(hints=("walkthrough",), search="no"),
+        "Lesson 1: Pointers: what an address is, * and &, a trace, a quiz.",
+    ),
+    Case(
+        "teach-walkthrough-no-sense",
+        "teaching",
+        "recursion makes no sense to me",
+        Expect(hints=("walkthrough",), search="no"),
+        'The same lesson as "I don\'t understand recursion".',
+    ),
+    Case(
+        "teach-not-a-topic",
+        "teaching",
+        "I don't understand why she left",
+        Expect(no_hints=("walkthrough", "teaching")),
+        "A person, not a topic: a kind reply, no lesson.",
+    ),
+    Case(
         "teach-history",
         "teaching",
         "teach me american history",
@@ -1006,6 +1034,13 @@ CASES: tuple[Case, ...] = (
         "Make a histogram of these test scores: 55, 62, 68, 70, 71, 75, 78, 80, 82, 85, 88, 90, 95",
         Expect(hints=("chart",), subject=NONE),
         "A histogram: the raw scores binned on x, counts on y.",
+    ),
+    Case(
+        "format-box-plot",
+        "format",
+        "Make a box plot of these test scores: 55, 62, 68, 70, 71, 75, 78, 80, 82, 85, 88, 90, 95",
+        Expect(hints=("chart",), subject=NONE),
+        "A box plot from the raw scores; the app computes the quartiles.",
     ),
     Case(
         "format-line-graph-data",
