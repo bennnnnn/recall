@@ -50,8 +50,9 @@ EMOJI_HINTS: dict[str, str] = {
     "off": "Emoji: none. No emoji in a reply, lessons included, unless the user writes one.",
     "some": (
         "Emoji: a few, to help the reader scan. A fitting emoji may lead a heading or a list "
-        "item's bold label (### 🧠 Memory, 1. 💧 **Drink water** — …), at most one each; a "
-        "short plain answer gets none. " + _EMOJI_NEVER
+        "item's bold label (### 🧠 Memory, 1. 💧 **Drink water** — …), at most one each, and "
+        "nowhere else: none in a sentence, an opening line or a closing question; a short "
+        "plain answer gets none. " + _EMOJI_NEVER
     ),
     "more": (
         "Emoji: plenty, the user likes them. A fitting emoji leads every heading and every "

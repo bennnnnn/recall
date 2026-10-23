@@ -136,6 +136,15 @@ def test_the_emoji_setting_picks_one_line(level: str | None, says: str) -> None:
     assert emoji_hint(level).startswith(says)
 
 
+# "A few" put 🌊 in the opening line too, and looked like "Lots".
+def test_a_few_emoji_mark_only_headings_and_labels() -> None:
+    from app.services.response_tone import emoji_hint
+
+    some, more = emoji_hint("some"), emoji_hint("more")
+    assert "none in a sentence, an opening line or a closing question" in some  # safety phrase
+    assert "a short friendly line may carry one" in more  # safety phrase
+
+
 @pytest.mark.parametrize("level", ["some", "more"])
 def test_emoji_stay_out_of_what_is_read_exactly(level: str) -> None:
     from app.services.response_tone import emoji_hint
