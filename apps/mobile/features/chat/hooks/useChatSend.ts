@@ -397,6 +397,9 @@ export function useChatSend({
     ],
   );
 
+  // A tapped line (a follow-up, a clarify card's picks) leaves the half-typed draft and file.
+  const sendTappedLine = useCallback((line: string) => handleSend(line, { leaveComposer: true }), [handleSend]);
+
   const removePendingAttachment = useCallback(() => replacePendingAttachment(null), [replacePendingAttachment]);
 
   const restoreComposerDraft = useCallback((recovered: ComposerSendDraft): boolean => {
@@ -438,6 +441,7 @@ export function useChatSend({
     mathScannerOpen,
     setMathScannerOpen,
     handleSend,
+    sendTappedLine,
     restoreComposerDraft,
     handlePickAttachment,
     handleAttachmentSheetSelect,

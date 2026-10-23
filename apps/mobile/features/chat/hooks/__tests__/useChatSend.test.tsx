@@ -1392,7 +1392,7 @@ describe("useChatSend send steps", () => {
     await render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
     await act(async () => { current.setPendingAttachment(file); });
     mockSetInput.mockClear();
-    await act(async () => { await current.handleSend("Tell me more", { leaveComposer: true }); });
+    await act(async () => { await current.sendTappedLine("Tell me more"); });
     expect(sendMessage).toHaveBeenCalledWith("Tell me more", expect.objectContaining({
       attachmentIds: undefined, localFileUri: null, composerDraft: { text: "Tell me more", attachment: null },
     }));
