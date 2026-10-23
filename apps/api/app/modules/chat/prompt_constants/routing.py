@@ -405,7 +405,7 @@ def _advice_need_plan_with_domain(cleaned: str) -> bool:
 
 _CAREER_PERSONAL = re.compile(
     r"\b(?:my career|my job|my work|career advice|job interview|interviews?|"
-    r"resume|résumé|\bcv\b|promotion|workplace)\b",
+    r"resume|résumé|\bcv\b|cover letters?|promotion|workplace)\b",
     re.IGNORECASE,
 )
 

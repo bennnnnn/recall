@@ -1261,5 +1261,40 @@
   ],
   "reply": "```email\nObjet : Vendredi de congé\n\nBonjour Sara,\n\nPourrais-je prendre ce vendredi pour un événement familial ? Mon travail de la semaine sera terminé jeudi.\n\nMerci,\nBini\n```",
   "expect": "answer"
+ },
+ {
+  "id": "wr-110",
+  "area": "writing",
+  "prompt": "write my resume",
+  "reply": "I can build it from what I know: you're a registered nurse at St. Paul's Hospital. To finish it I need two things: where you studied (and the year), and the roles you held before St. Paul's with their dates.",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-111",
+  "area": "writing",
+  "prompt": "make a CV for a nurse, I have 5 years in the ICU at Black Lion Hospital and a BSc from Addis Ababa University",
+  "reply": "**Bini Tesfaye**\nRegistered Nurse\n\n## Experience\n**ICU Nurse**, Black Lion Hospital (5 years)\n- Cared for critically ill adult patients in a busy intensive care unit\n\n## Education\n**BSc in Nursing**, Addis Ababa University",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-112",
+  "area": "record lookalike",
+  "prompt": "my resume got rejected again, what am I doing wrong?",
+  "reply": "Hard to say without seeing it, but the usual culprits are a summary that could fit anyone, duties instead of results, and no keywords from the job post. If you paste it, I'll point at the exact lines.",
+  "expect": "answer"
+ },
+ {
+  "id": "wr-113",
+  "area": "writing",
+  "prompt": "remind me to update my resume on sunday at 10am",
+  "reply": "Set: update your resume, Sunday at 10:00 AM.",
+  "expect": "save"
+ },
+ {
+  "id": "wr-114",
+  "area": "record lookalike",
+  "prompt": "what should a cover letter for a nursing job include?",
+  "reply": "Keep it to one page: which role you want and why that hospital, two or three results from your clinical work (the unit, the patients, what changed), and a closing line asking for an interview.",
+  "expect": "answer"
  }
 ]

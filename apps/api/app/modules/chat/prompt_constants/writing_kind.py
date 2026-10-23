@@ -116,7 +116,11 @@ _PROSE_WRITING = re.compile(
     r"\d+(?:[- ](?:word|paragraph|page))?)\s+){0,3}"
     r"(?:paragraph|essay|article|story|poem|cover\s+letter|letter|statement|"
     r"announcement|description|script|outline|r[eé]sum[eé]s?|cv|biograph(?:y|ies)|"
-    r"bio)\b",
+    r"bio)\b|"
+    # The user's own record: "write my resume", "make a CV for a nurse", "polish my cover letter".
+    r"\b(?:write|draft|compose|rewrite|create|make|build|prepare|redo|polish|improve)"
+    r"(?: me| up)?\s+(?:(?:an?|one|the|my)\s+)?(?:(?:new|short|professional|simple|basic|"
+    r"good|better|strong)\s+)?(?:cover\s+letter|r[eé]sum[eé]|cv)\b",
     re.IGNORECASE,
 )
 

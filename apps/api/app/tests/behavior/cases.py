@@ -984,6 +984,69 @@ CASES: tuple[Case, ...] = (
         "An email draft card with a subject, signed with the user's name.",
     ),
     Case(
+        "format-text-landlord",
+        "format",
+        "text my landlord that the heater is broken",
+        Expect(hints=("email",), no_hints=("ask_purpose", "no_draft"), search="no"),
+        "A message card saying the heater is broken and asking for a repair; no question "
+        "about what it should say.",
+    ),
+    Case(
+        "format-send-boss-email",
+        "format",
+        "send my boss an email asking for Friday off",
+        Expect(hints=("email",), no_hints=("ask_purpose", "no_draft")),
+        "An email card asking for Friday off, signed with the user's name; never 'I can't "
+        "send emails'.",
+    ),
+    Case(
+        "format-email-what-to-say",
+        "format",
+        "the heater stopped working and the kitchen tap is leaking",
+        Expect(hints=("draft_now",), no_hints=("no_draft", "answer_photo"), memory=True),
+        "The message card the user was asked about, saying both problems.",
+        history=(
+            ("user", "write a message to my landlord"),
+            ("assistant", "Sure, what should the message say?"),
+        ),
+    ),
+    Case(
+        "format-email-translate",
+        "format",
+        "translate to Spanish",
+        Expect(hints=("draft_revision",), no_hints=("no_draft",)),
+        "The same email card, in Spanish (Asunto:), every name and date kept.",
+        history=(
+            ("user", "write an email to my boss asking for Friday off"),
+            (
+                "assistant",
+                "```email\nSubject: Friday off\n\nHi Sara,\n\nCould I take this Friday "
+                "off for a family event?\n\nThanks,\nBini\n```",
+            ),
+        ),
+    ),
+    Case(
+        "format-resume",
+        "format",
+        "write my resume",
+        Expect(
+            hints=("personal_record",),
+            no_hints=("no_draft", "format_contract", "answer_photo", "clarify"),
+            memory=True,
+            memory_scope="profile",
+        ),
+        "A résumé from what memory holds (job, skills, education), asking once for what is "
+        "missing; never an invented employer, degree or number.",
+    ),
+    Case(
+        "format-cover-letter",
+        "format",
+        "write a cover letter for a junior data analyst job at a hospital",
+        Expect(hints=("personal_record",), memory=True, memory_scope="profile"),
+        "A cover letter from the user's saved background; asks once for experience when "
+        "memory has none, never invents it.",
+    ),
+    Case(
         "format-social",
         "format",
         "write a tweet about my new app",

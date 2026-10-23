@@ -22,6 +22,7 @@ from app.modules.chat.prompt_constants import (
 from app.modules.chat.prompt_constants.writing import (
     EMAIL_ASK_PURPOSE_HINT,
     EMAIL_DRAFT_HINT,
+    PERSONAL_RECORD_HINT,
     REWRITE_HINT,
     SOCIAL_DRAFT_HINT,
     TRANSLATION_FORMAT_HINT,
@@ -128,6 +129,28 @@ def test_drafts_get_their_contract_and_never_the_no_draft_rule(text: str, hint: 
     parts = _hints(text)
     assert hint in parts
     assert NON_DRAFT_TURN_HINT not in parts
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "write my resume",
+        "help me write my resume",
+        "make a CV for a nurse",
+        "make my resume",
+        "can you make me a resume",
+        "polish my cover letter",
+        "write a cover letter for this job",
+    ],
+)
+def test_the_users_own_record_gets_only_the_facts_they_have(text: str) -> None:
+    # "write my resume" was no writing ask: the general layout, a photo offer and
+    # the no-draft rule, but no rule against an invented employer or degree.
+    assert writing_request_kind(text) == "prose"
+    parts = _hints(text)
+    assert PERSONAL_RECORD_HINT in parts
+    assert NON_DRAFT_TURN_HINT not in parts
+    assert FORMAT_CONTRACT not in parts
 
 
 def test_a_reply_to_an_unanswered_ask_offers_yes_and_no_drafts() -> None:
