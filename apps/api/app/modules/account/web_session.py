@@ -97,8 +97,15 @@ def auth_json_response(
     settings: Settings,
     auth: AuthResponse,
 ) -> JSONResponse:
-    """Serialize login/refresh. Web origin gets httpOnly refresh + CSRF cookies."""
-    payload = auth.model_dump(mode="json", exclude_none=True)
+    """Serialize login/refresh. Web origin gets httpOnly refresh + CSRF cookies.
+
+    The user is sent whole, its nulls included: ``exclude_none`` dropped a new
+    account's ``ai_data_consent_at: null``, the phone read the missing key as consent
+    already given, and the sign-up went past the consent screen to the chat.
+    """
+    payload = auth.model_dump(
+        mode="json", exclude={"csrf_token"} if auth.csrf_token is None else None
+    )
     if not is_web_origin(request, settings):
         return JSONResponse(payload)
     csrf_token = secrets.token_urlsafe(32)

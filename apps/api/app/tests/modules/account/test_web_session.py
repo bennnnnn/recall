@@ -94,6 +94,23 @@ def test_mobile_login_keeps_refresh_token_in_json():
     assert web_session.REFRESH_COOKIE not in r.cookies
 
 
+def test_a_new_account_s_sign_in_says_it_has_not_agreed_to_ai_data_use():
+    """Live: the response dropped ``ai_data_consent_at: null``; the phone read the missing
+    key as consent given, and a new account went past the consent screen to the chat."""
+    app, _settings = _web_app()
+    fake = _fake_auth()
+    with (
+        patch("app.modules.account.api.auth_service.login_dev", AsyncMock(return_value=fake)),
+        patch("app.modules.account.api.allow_request_fail_closed", AsyncMock(return_value=True)),
+    ):
+        r = TestClient(app).post("/auth/dev", json={"email": "dev@recall.local", "name": "Dev"})
+    user = r.json()["user"]
+    assert "ai_data_consent_at" in user
+    assert user["ai_data_consent_at"] is None
+    # The mobile body still carries no CSRF token at all.
+    assert "csrf_token" not in r.json()
+
+
 def test_web_refresh_requires_csrf_when_using_cookie():
     app, _settings = _web_app()
     fake = _fake_auth()
