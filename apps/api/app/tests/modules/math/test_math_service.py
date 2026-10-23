@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import time
 
 import pytest
 
@@ -39,6 +40,21 @@ def test_normalize_latex_frac_and_abs() -> None:
     assert math_solve.normalize_latex_to_sympy(r"\frac{a}{b}+\frac{c}{d}") == "((a)/(b))+((c)/(d))"
     assert math_solve.normalize_latex_to_sympy("|x-2|") == "Abs(x-2)"
     assert math_solve.normalize_latex_to_sympy("|x-2|<5") == "Abs(x-2)<5"
+
+
+@pytest.mark.parametrize("tail", ["x", r"\frac{1}{x}", "½x"])
+def test_mixed_number_patterns_stay_linear_on_long_digit_runs(tail: str) -> None:
+    """CodeQL: polynomial regex on uncontrolled data. A whole part of unbounded length
+    retried the same run of digits from every position, quadratic in its length."""
+    from app.modules.math.solve.latex_normalize import _MIXED_GLYPH_RE, _MIXED_LATEX_RE
+
+    adversarial = "0" * 200_000 + tail
+    started = time.perf_counter()
+    _MIXED_LATEX_RE.sub("", adversarial)
+    _MIXED_GLYPH_RE.sub("", adversarial)
+    # A quadratic pattern takes minutes on 200k digits; a generous ceiling for slow CI.
+    assert time.perf_counter() - started < 2.0
+    assert math_solve.normalize_latex_to_sympy(r"2\frac{1}{2}") == "(2+(1)/(2))"
 
 
 def test_normalize_latex_inline_math_and_braced_power() -> None:
