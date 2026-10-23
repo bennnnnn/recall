@@ -48,6 +48,7 @@ def test_corpus_ids_are_unique_and_every_area_is_covered() -> None:
         "lists",
         "repl",
         "replies",
+        "lead_lines",
     }
 
 

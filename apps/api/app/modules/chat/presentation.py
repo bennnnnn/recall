@@ -13,6 +13,7 @@ import re
 
 from app.modules.chat.calculation_layout import layout_calculations
 from app.modules.chat.inline_boundaries import repair_inline_token_boundaries
+from app.modules.chat.lead_lines import separate_lead_lines
 from app.modules.chat.notation_spans import code_notation
 from app.modules.chat.repl_transcript import fence_repl_transcripts
 from app.services.answer_fence import ANSWER_FENCE_LANGS, VERIFIED_ANSWER_MARKER
@@ -59,5 +60,5 @@ def present_assistant_markdown(text: str) -> str:
     split calculations."""
     if not text:
         return text
-    prose = code_notation(fence_repl_transcripts(text))
+    prose = separate_lead_lines(code_notation(fence_repl_transcripts(text)))
     return layout_calculations(repair_inline_token_boundaries(prose))

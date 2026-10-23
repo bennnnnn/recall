@@ -12,6 +12,7 @@
 import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { repairInlineTokenBoundaries } from "@/lib/markdown/inlineBoundaries";
 import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
+import { separateLeadLines } from "@/lib/markdown/leadLines";
 import { codeNotation } from "@/lib/markdown/notationSpans";
 import { fenceReplTranscripts } from "@/lib/markdown/replTranscript";
 import { holdBackPendingTableHeader } from "@/lib/markdown/streamTableHold";
@@ -47,7 +48,7 @@ export function isServerPresentedRow(row: {
 export function presentAssistantMarkdown(text: string): string {
   if (!text) return text;
   return layoutCalculations(
-    repairInlineTokenBoundaries(codeNotation(fenceReplTranscripts(text))),
+    repairInlineTokenBoundaries(separateLeadLines(codeNotation(fenceReplTranscripts(text)))),
   );
 }
 
