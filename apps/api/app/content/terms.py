@@ -68,6 +68,11 @@ _TERMS_OF_SERVICE_MD = """# Terms of Service
 - Recall is provided "as is" and "as available". To the fullest extent the law allows, we make no promise that it will be uninterrupted, error-free or fit for a particular purpose.
 - To the fullest extent the law allows, we are not liable for indirect or consequential losses, or for decisions you make based on AI responses. Nothing in these terms limits rights you have under consumer law that cannot be limited.
 
+## Governing Law
+
+- These terms are governed by the laws of the State of Indiana and the United States, without regard to conflict-of-law rules.
+- If you live outside the United States, this does not take away consumer protections you have under the laws of your country.
+
 ## Privacy
 
 - Our handling of your data is described in the [Privacy Policy](/legal/privacy), which is part of these terms.
