@@ -779,7 +779,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   `some` / `more`, every account starts at `some`) is the one emoji rule in the prompt
   (`services/response_tone.emoji_hint`): a few lead headings and list labels, never in
   numbers, maths, code, cards, a worked solution, a draft or a painful reply; no tone
-  speaks about emoji. There is no response-length setting:
+  speaks about emoji. The finalize pass `emoji_use` (`modules/chat/emoji_placement.py`)
+  keeps it whatever the model wrote: at A few an emoji moves to the front of its label
+  and any in a sentence goes; at None they all go unless the user wrote one. There is no response-length setting:
   each message sets its own ("briefly", "in detail"), and how hard a turn thinks is
   automatic (`modules/chat/model_routing/thinking.py`). The old `users.response_style` column is
   neither read nor returned, and goes in a later release (docs/ROLLBACK.md).
