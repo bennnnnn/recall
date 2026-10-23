@@ -14,6 +14,7 @@ from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.mermaid_sanitize import sanitize_mermaid_fences
 from app.modules.chat.presentation import drop_orphan_leading_answer, present_assistant_markdown
 from app.modules.chat.prose_normalizer import (
+    fill_sender_name_slots,
     normalize_prose_artifacts,
     prose_changed,
     strip_unrequested_recipient_placeholders,
@@ -93,7 +94,12 @@ def close_open_fences(state: FinalizeState) -> str:
 
 
 def strip_recipient_placeholders(state: FinalizeState) -> str:
-    return strip_unrequested_recipient_placeholders(state.text, state.ctx.user_message_content)
+    """A draft greets an unknown recipient with "Hi," and is signed with the user's name."""
+    request = state.ctx.user_message_content
+    text = strip_unrequested_recipient_placeholders(state.text, request)
+    user = state.ctx.user
+    names = ((user.name if user is not None else None) or "").split()
+    return fill_sender_name_slots(text, request, names[0] if names else None)
 
 
 def normalize_prose(state: FinalizeState) -> str:

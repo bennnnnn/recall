@@ -1,6 +1,9 @@
 """Tests for the post-stream prose artifact normalizer."""
 
+import pytest
+
 from app.modules.chat.prose_normalizer import (
+    fill_sender_name_slots,
     normalize_prose_artifacts,
     prose_changed,
     strip_unrequested_recipient_placeholders,
@@ -155,3 +158,44 @@ class TestRecipientPlaceholderCleanup:
         text = "```python\nlabel = '[Recipient Name]'\n```"
 
         assert strip_unrequested_recipient_placeholders(text, "Explain this code") == text
+
+
+class TestSenderNameSlots:
+    """A draft signed "[Your name]" was a card the user had to edit before sending."""
+
+    @pytest.mark.parametrize(
+        ("draft", "signed"),
+        [
+            (
+                "```email\nSubject: Recap\n\nHi all,\n\nThanks!\n\nBest,\n[Your name]\n```",
+                "```email\nSubject: Recap\n\nHi all,\n\nThanks!\n\nBest,\nBini\n```",
+            ),
+            (
+                "```sms\nHi, this is [your name], I have a haircut booked for 2pm.\n```",
+                "```sms\nHi, this is Bini, I have a haircut booked for 2pm.\n```",
+            ),
+            ("```copy\nSincerely, [Your Full Name]\n```", "```copy\nSincerely, Bini\n```"),
+        ],
+    )
+    def test_the_sender_slot_is_the_users_first_name(self, draft: str, signed: str) -> None:
+        assert fill_sender_name_slots(draft, "write a recap email", "Bini") == signed
+
+    def test_with_no_name_the_draft_ends_on_its_closing_word(self) -> None:
+        draft = "```email\nThanks!\n\nBest,\n[Your Name]\n```"
+        assert fill_sender_name_slots(draft, "write an email", None) == (
+            "```email\nThanks!\n\nBest,\n```"
+        )
+        signed_inline = "```message\nSee you soon! Love, [your name]\n```"
+        assert fill_sender_name_slots(signed_inline, "text my mom", None) == signed_inline
+        closing = "```copy\nSincerely, [Your Name]\n```"
+        assert fill_sender_name_slots(closing, "write a letter", None) == "```copy\nSincerely,\n```"
+
+    def test_a_template_another_persons_slot_and_prose_keep_their_slots(self) -> None:
+        template = "```email\nBest,\n[Your name]\n```"
+        assert (
+            fill_sender_name_slots(template, "make a reusable email template", "Bini") == template
+        )
+        aunt = "```copy\nDear Aunt [Name],\n\nThank you!\n```"
+        assert fill_sender_name_slots(aunt, "write a thank you card", "Bini") == aunt
+        prose = "Replace [Your name] with how you sign emails."
+        assert fill_sender_name_slots(prose, "how do I sign an email", "Bini") == prose
