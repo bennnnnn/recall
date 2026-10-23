@@ -226,6 +226,34 @@ async def test_read_back_keeps_the_printed_condition() -> None:
         (r"5.(a) Solve \( 2x+3=7 \)", "Solve 2x+3=7"),
         ("2*x**2+3*x-2=0", "2x^2+3x-2=0"),
         ("Abs(2*x-1) = 7", "|2x-1| = 7"),
+        # A leading decimal is the problem, not a question number: "1." of 1.5 stays.
+        (r"\( 1.5 x=6 \)", "1.5 x=6"),
+        (r"\( 12.5 \div 2.5 \)", "12.5 ÷ 2.5"),
+        (r"1. \( 0.5 x+2=3 \)", "0.5 x+2=3"),
+        # A power inside a fraction or a root is read, not left as LaTeX.
+        (r"\( \frac{x^{2}-1}{x-1}=4 \)", "(x^2-1)/(x-1)=4"),
+        (r"\( \frac{3}{x^{2}}=12 \)", "3/x^2=12"),
+        (r"\( \sqrt{x^{2}+9}=5 \)", "√(x^2+9)=5"),
+        (r"\( \frac{\sqrt{x^{2}+1}}{x_{1}} \)", "(√(x^2+1))/x_1"),
+        (r"\( x^{\frac{3}{2}}=8 \)", "x^(3/2)=8"),
+        (r"\( 30^{\circ} \)", "30°"),
+        (r"\( \frac{2}{3}^{2} \)", "(2/3)^2"),
+        (r"\( \frac{2}{3} \div \frac{4}{5} \)", "2/3 ÷ 4/5"),
+        # A spaced script belongs to its function: "log _2(x+1)" solved 2(x+1) = 3.
+        (r"\( \log _{2}(x+1)=3 \)", "log_2(x+1)=3"),
+        (r"\( \sin ^{2} x+\cos ^{2} x=1 \)", "sin^2 x+cos^2 x=1"),
+        (r"\( \lim _{x \rightarrow 0} \frac{\sin x}{x} \)", "lim x→0 ((sin x)/x)"),
+        (r"\( \lim _{x \to \infty} \frac{3 x^{2}+1}{x^{2}-2} \)", "lim x→∞ ((3 x^2+1)/(x^2-2))"),
+        # A printed mixed number is two and a half, not 2 times 1/2.
+        (r"\( 2 \frac{1}{2}+1 \frac{3}{4} \)", "2 1/2+1 3/4"),
+        (r"\( 3\frac{1}{3} \times 2 \frac{1}{4} \)", "3 1/3 × 2 1/4"),
+        (r"\( x^{2} \frac{1}{2} \)", "x^2 (1/2)"),
+        # No LaTeX reaches the student: units, percent, sums, repeating decimals.
+        (r"\( \pi r^{2} \) where \( r=3 \mathrm{~cm} \)", "π r^2 where r=3 cm"),
+        (r"\( 7 \% \) of 200", "7% of 200"),
+        (r"\( \sum_{n=1}^{10} n^{2} \)", "∑_(n=1)^10 n^2"),
+        (r"Write \( 0.\overline{3} \) as a fraction", "Write 0.3\u0305 as a fraction"),
+        (r"\( \angle A B C=90^{\circ} \)", "∠ A B C=90°"),
     ],
 )
 def test_student_reading_is_the_whole_problem_in_written_notation(
@@ -234,3 +262,13 @@ def test_student_reading_is_the_whole_problem_in_written_notation(
     from app.modules.math.reading import student_reading
 
     assert student_reading(printed) == reading
+
+
+@pytest.mark.parametrize(
+    "printed",
+    [r"\( \vec{v}=\langle 3,4 \rangle \)", r"\( \overrightarrow{A B}+\hat{i} \)"],
+)
+def test_student_reading_never_shows_a_latex_command(printed: str) -> None:
+    from app.modules.math.reading import student_reading
+
+    assert "\\" not in student_reading(printed)

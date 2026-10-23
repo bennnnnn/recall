@@ -2,10 +2,10 @@ import {
   equalScaleGraphBounds,
   functionPlotBounds,
   graphBounds,
-  interactiveFunctionBounds,
   mapGraphPoint,
   schoolViewBounds,
 } from "@/lib/math/graphBlock";
+import { interactiveFunctionBounds } from "@/lib/math/graphFit";
 
 describe("equal graph units", () => {
   it.each([0.5, 1, 1.75, 2.5])("keeps the circle round at plot aspect %s", (aspect) => {

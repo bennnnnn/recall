@@ -5,7 +5,7 @@ import {
   graphAxisTicks,
   mapGraphPoint,
 } from "@/lib/math/graphBlock";
-import { tickCountW } from "@/lib/math/graphWorklets";
+import { formatPiTickW, piTicksW, tickCountW } from "@/lib/math/graphWorklets";
 import { UI_FONT } from "@/lib/uiFont";
 
 type Bounds = {
@@ -30,6 +30,8 @@ type Props = {
   keepAxesInView?: boolean;
   /** Explicit viewports may require noninteger tick labels. */
   fractionalTicks?: boolean;
+  /** Label x in multiples of π (an x-range given as 0…2π). */
+  piTicks?: boolean;
 };
 
 const TICK_FONT = 11;
@@ -48,18 +50,17 @@ export function CartesianAxes({
   yName,
   keepAxesInView = false,
   fractionalTicks = false,
+  piTicks = false,
 }: Props) {
   const innerW = width - pad * 2;
   const innerH = height - pad * 2;
   const origin = mapGraphPoint(0, 0, bounds, width, height, pad);
   const yAxisX = keepAxesInView ? Math.max(pad, Math.min(width - pad, origin.px)) : origin.px;
   const xAxisY = keepAxesInView ? Math.max(pad, Math.min(height - pad, origin.py)) : origin.py;
-  const xTicks = graphAxisTicks(
-    bounds.xMin,
-    bounds.xMax,
-    tickCountW(bounds.xMin, bounds.xMax),
-    fractionalTicks,
-  );
+  const xTicks = piTicks
+    ? piTicksW(bounds.xMin, bounds.xMax)
+    : graphAxisTicks(bounds.xMin, bounds.xMax, tickCountW(bounds.xMin, bounds.xMax), fractionalTicks);
+  const xLabel = (n: number) => (piTicks ? formatPiTickW(n) : formatAxisNumber(n, fractionalTicks));
   const yTicks = graphAxisTicks(
     bounds.yMin,
     bounds.yMax,
@@ -133,7 +134,7 @@ export function CartesianAxes({
             fontFamily={UI_FONT.regular}
             textAnchor="middle"
           >
-            {formatAxisNumber(n, fractionalTicks)}
+            {xLabel(n)}
           </SvgText>
         );
       })}

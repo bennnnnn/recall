@@ -20,6 +20,7 @@ import { GraphCanvas, GRAPH_AXIS_PAD, type GraphHoleMarker } from "@/components/
 import { SkiaGraphCanvasLazy } from "@/components/rich/skia/SkiaGraphCanvasLazy";
 import { type DrawnSeries, useGraphViewport } from "@/hooks/useInteractiveGraph";
 import { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
+import { xAxisInPi } from "@/lib/math/graphFit";
 import { type GraphSpec } from "@/lib/math/graphSpec";
 import { defaultInteractiveBounds } from "@/lib/math/graphViewport";
 import { Radius } from "@/lib/radius";
@@ -149,6 +150,7 @@ export function ExplorerModal({
                         verticalX={verticalX}
                         xName={spec.variable ?? "x"}
                         yName="y"
+                        xInPi={xAxisInPi(spec)}
                         width={plot.width}
                         height={plot.height}
                         pad={GRAPH_AXIS_PAD}

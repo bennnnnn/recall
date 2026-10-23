@@ -10,6 +10,7 @@ import { CHART_HEIGHT, GRAPH_CARD_INSET, useFunctionPlotState } from "@/componen
 import { type DrawnSeries } from "@/hooks/useInteractiveGraph";
 import { CODE_FACE } from "@/lib/fonts";
 import { formatGraphExpr } from "@/lib/math/graphBlock";
+import { xAxisInPi } from "@/lib/math/graphFit";
 import { type GraphSpec } from "@/lib/math/graphSpec";
 import { IconSize } from "@/ui/icons/sizes";
 import { Space } from "@/lib/space";
@@ -91,6 +92,7 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
               verticalX={verticalX}
               xName={spec.variable ?? "x"}
               yName="y"
+              xInPi={xAxisInPi(spec)}
               width={card.width}
               height={CHART_HEIGHT}
               pad={GRAPH_AXIS_PAD}

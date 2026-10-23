@@ -11,8 +11,10 @@ import { GRAPH_TICK_FONT_SIZE } from "@/components/rich/graphPaint";
 import {
   axisTicksW,
   dockAxisW,
+  formatPiTickW,
   formatTickW,
   mapPointW,
+  piTicksW,
   type GraphViewW,
 } from "@/lib/math/graphWorklets";
 
@@ -131,6 +133,7 @@ export function computeChrome(
   height: number,
   pad: number,
   font: Pick<SkFont, "measureText"> | null,
+  xInPi = false,
 ): Chrome {
   "worklet";
   const measure = (text: string) =>
@@ -147,13 +150,13 @@ export function computeChrome(
   );
 
   const xLabels: TickLabel[] = [];
-  for (const n of axisTicksW(b.xMin, b.xMax)) {
+  for (const n of xInPi ? piTicksW(b.xMin, b.xMax) : axisTicksW(b.xMin, b.xMax)) {
     if (Math.abs(n) < 1e-9) continue;
     const { px } = mapPointW(n, 0, b, width, height, pad);
     grid.moveTo(px, pad);
     grid.lineTo(px, height - pad);
     if (xLabels.length < AXIS_SLOTS) {
-      const text = formatTickW(n);
+      const text = xInPi ? formatPiTickW(n) : formatTickW(n);
       xLabels.push({ px: px - measure(text) / 2, py: xTickLabelY, text });
     }
   }

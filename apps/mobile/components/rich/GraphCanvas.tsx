@@ -9,6 +9,7 @@ import {
   mapGraphPoint,
   SHIFTED_VERTEX_MIN,
 } from "@/lib/math/graphBlock";
+import { xAxisInPi } from "@/lib/math/graphFit";
 import { type GraphSpec } from "@/lib/math/graphSpec";
 import { inequalityFillPoints, type GraphCmp } from "@/lib/math/graphExpr";
 import { type GraphView } from "@/lib/math/graphViewport";
@@ -88,6 +89,7 @@ export function GraphCanvas({
         xName={spec.variable ?? "x"}
         yName="y"
         fractionalTicks
+        piTicks={xAxisInPi(spec)}
       />
       <G clipPath={clip}>
         {isVerticalLine ? (

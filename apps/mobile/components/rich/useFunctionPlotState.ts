@@ -16,7 +16,7 @@ import {
   type GraphSeriesState,
 } from "@/hooks/useInteractiveGraph";
 import { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
-import { interactiveFunctionBounds } from "@/lib/math/graphBlock";
+import { interactiveFunctionBounds } from "@/lib/math/graphFit";
 import { type GraphSpec } from "@/lib/math/graphSpec";
 import { expandGraphView } from "@/lib/math/graphViewport";
 import { isSkiaAvailable } from "@/lib/skiaAvailability";

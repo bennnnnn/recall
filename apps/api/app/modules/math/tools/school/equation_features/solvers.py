@@ -13,6 +13,7 @@ from app.modules.math.tools.school.equation_features.lines import (
     _slope_intercept,
     _x_intercepts,
     _y_intercept,
+    both_intercepts,
 )
 from app.modules.math.tools.school.equation_features.quadratics import (
     _axis,
@@ -55,6 +56,7 @@ _SOLVERS = {
     "axis": _axis,
     "y_intercept": _y_intercept,
     "x_intercepts": _x_intercepts,
+    "intercepts": both_intercepts,
     "discriminant": _discriminant,
     "root_sum": lambda intent: _roots_sum_or_product(intent, product=False),
     "root_product": lambda intent: _roots_sum_or_product(intent, product=True),
