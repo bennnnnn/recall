@@ -155,6 +155,11 @@ async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
         chat_id=UUID(payload["chat_id"]),
         transcript=payload["transcript"],
     )
+    if outcome == "model_failed":
+        # The lines wait for the chat's next turn, which may never come: "remember I'm
+        # allergic to peanuts" as a chat's last line. The job's own retries read them
+        # again; after FAILED_PASS_LIMIT failures the pass moves on and returns.
+        raise RuntimeError("memory model gave no usable answer; retrying the pass later")
     if outcome != "skipped_lock":
         return
     # Write lock busy (consolidation or sibling extraction). Re-enqueue a

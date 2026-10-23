@@ -50,10 +50,11 @@ MEMORY_PARTIAL_HINT = (
     "is not listed, say you couldn't check all of their saved memory just now, not that it "
     "isn't saved."
 )
+# "Earlier" may be this conversation: the budget said ten messages up is in the history.
 NO_PAST_RECORD_HINT = (
-    "No earlier chat about this was found. If saved memory doesn't answer it either, do not "
-    "invent what was said or decided before: say you can't find it and ask the user to "
-    "remind you."
+    "No earlier chat about this was found. Answer from this conversation or saved memory "
+    "when either has it; if neither does, do not invent what was said or decided before: "
+    "say you can't find it and ask the user to remind you."
 )
 
 # "My app", "our backend": the user's own software.
@@ -80,6 +81,14 @@ _ASKS_ABOUT_SELF = re.compile(
 # "Which option did I pick for the database?": a decision from an earlier chat.
 _RECALLS_A_DECISION = re.compile(
     r"\bdid i (?:pick|choose|decide|go with|settle on)\b", re.IGNORECASE
+)
+# "What was the hotel I mentioned?", "remind me what I said about the deadline": a detail
+# from earlier in this chat, which a long chat may keep only in its summary.
+_ASKS_WHAT_WAS_SAID = re.compile(
+    r"^(?:what|which|who|where|earlier|previously|remind me|(?:can|could) you remind me)"
+    r"\b[^?.!]{0,80}?\b(?:i (?:mentioned|said|told you|listed)|did i (?:say|mention|list)|"
+    r"you (?:gave me|suggested|recommended|said|told me|listed|mentioned))\b",
+    re.IGNORECASE,
 )
 # "What did we decide", "I told you", "did I pick": a conversation with Recall, not
 # "what happened in the news last week".
@@ -126,10 +135,14 @@ def memory_scope_for(text: str | None) -> MemoryScope:
 
 
 def recalls_shared_past(text: str | None) -> bool:
-    """The user asks about something said or decided in an earlier chat."""
+    """The user asks about something said or decided in an earlier chat, or earlier in this one."""
     if not text:
         return False
-    return recalls_earlier_conversation(text) or bool(_RECALLS_A_DECISION.search(text))
+    return (
+        recalls_earlier_conversation(text)
+        or bool(_RECALLS_A_DECISION.search(text))
+        or bool(_ASKS_WHAT_WAS_SAID.search(text.strip()))
+    )
 
 
 def asks_about_saved(text: str) -> bool:
