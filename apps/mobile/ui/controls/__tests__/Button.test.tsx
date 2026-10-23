@@ -1,4 +1,8 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
+
+import { ACCENTS } from "@/lib/accent";
+import { setAccentSnapshot } from "@/lib/accentRuntime";
 
 import { Button } from "../Button";
 
@@ -63,5 +67,17 @@ describe("Button", () => {
       borderRadius: 999,
     });
     expect(view.getByText("Share")).toHaveStyle({ color: lightTheme.mediaScrim });
+  });
+
+  it("fills a bubble button with the user's own bubble tint, following their accent", async () => {
+    const { getByRole, getByText } = await render(<Button title="Find my laptop" variant="bubble" onPress={() => undefined} />);
+    const fill = () => StyleSheet.flatten(getByRole("button").props.style).backgroundColor;
+    expect(fill()).toBe(ACCENTS.indigo.light.userBubble);
+    await act(async () => setAccentSnapshot("berry"));
+    expect(fill()).toBe(ACCENTS.berry.light.userBubble);
+    expect(StyleSheet.flatten(getByText("Find my laptop").props.style).color).not.toBe(
+      ACCENTS.berry.light.userBubble,
+    );
+    await act(async () => setAccentSnapshot("indigo"));
   });
 });

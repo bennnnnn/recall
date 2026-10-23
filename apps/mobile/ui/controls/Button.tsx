@@ -19,10 +19,11 @@ import { Type, Weight } from "@/lib/type";
 
 /**
  * `media`: a white pill with black ink, for chrome over a photo (the viewer's Share).
- * `contrast`: filled with the text colour (black on light, white on dark), for the one
- * action inside a card in a reply (a clarify card's "Find my best country").
+ * `bubble`: the user's message-bubble tint with its text colour, so it follows their
+ * accent; for the one action inside a card in a reply (a clarify card's "Find my best
+ * country").
  */
-type Variant = "primary" | "secondary" | "outline" | "ghost" | "destructive" | "media" | "contrast";
+type Variant = "primary" | "secondary" | "outline" | "ghost" | "destructive" | "media" | "bubble";
 /** sm 36 (inline actions), md 44 (default), lg 52 (a screen's main action). */
 type Size = "sm" | "md" | "lg";
 
@@ -69,8 +70,8 @@ export function Button({
       ? theme.onPrimary
       : variant === "media"
         ? theme.mediaScrim
-        : variant === "contrast"
-          ? theme.bg
+        : variant === "bubble"
+          ? theme.text
           : variant === "ghost"
             ? theme.primary
             : theme.textSecondary;
@@ -79,8 +80,8 @@ export function Button({
       ? theme.onPrimary
       : variant === "media"
         ? theme.mediaScrim
-        : variant === "contrast"
-          ? theme.bg
+        : variant === "bubble"
+          ? theme.text
           : theme.primary;
 
   return (
@@ -94,19 +95,19 @@ export function Button({
         variant === "ghost" && s.ghost,
         variant === "destructive" && s.destructive,
         variant === "media" && s.media,
-        variant === "contrast" && s.contrast,
+        variant === "bubble" && s.bubble,
         blocked && s.disabled,
         pressed && !blocked && variant === "primary" && s.pressedPrimary,
         pressed &&
           !blocked &&
-          (variant === "destructive" || variant === "media" || variant === "contrast") &&
+          (variant === "destructive" || variant === "media" || variant === "bubble") &&
           s.pressedDestructive,
         pressed &&
           !blocked &&
           variant !== "primary" &&
           variant !== "destructive" &&
           variant !== "media" &&
-          variant !== "contrast" &&
+          variant !== "bubble" &&
           s.pressed,
         style,
       ]}
@@ -140,7 +141,7 @@ export function Button({
               variant === "ghost" && s.labelGhost,
               variant === "destructive" && s.labelPrimary,
               variant === "media" && s.labelMedia,
-              variant === "contrast" && s.labelContrast,
+              variant === "bubble" && s.labelBubble,
             ]}
           >
             {title}
@@ -192,8 +193,9 @@ function makeStyles(theme: Theme) {
     media: {
       backgroundColor: theme.onMedia,
     },
-    contrast: {
-      backgroundColor: theme.text,
+    // The user's own bubble tint, so it follows their accent like their messages do.
+    bubble: {
+      backgroundColor: theme.userBubble,
     },
     disabled: {
       opacity: 0.55,
@@ -219,8 +221,8 @@ function makeStyles(theme: Theme) {
     labelMedia: {
       color: theme.mediaScrim,
     },
-    labelContrast: {
-      color: theme.bg,
+    labelBubble: {
+      color: theme.text,
     },
     labelOutline: {
       color: theme.textSecondary,
