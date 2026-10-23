@@ -18,7 +18,12 @@ import {
   useFont,
   type SkFont,
 } from "@shopify/react-native-skia";
-import { runOnJS, useAnimatedReaction, useDerivedValue } from "react-native-reanimated";
+import {
+  runOnJS,
+  useAnimatedReaction,
+  useDerivedValue,
+  useSharedValue,
+} from "react-native-reanimated";
 
 import type { DrawnSeries } from "@/hooks/useInteractiveGraph";
 import type { GraphHoleMarker } from "@/components/rich/GraphCanvas";
@@ -39,6 +44,7 @@ import {
 } from "@/components/rich/skia/graphPaths";
 import { selection } from "@/lib/haptics";
 import { formatShortW, mapPointW, nearestTraceSampleW } from "@/lib/math/graphWorklets";
+import { NO_TRACE, traceTickW } from "@/lib/math/traceTicks";
 import type { Theme } from "@/lib/theme";
 
 const MAX_SERIES_PATHS = 4;
@@ -168,13 +174,15 @@ export function SkiaGraphCanvas({
     );
   }, [drawn, width, height, pad]);
 
+  // A tick when the finger takes a curve and at its roots and turning points,
+  // never one per sample (a continuous buzz while scrubbing).
+  const traceTicks = useSharedValue(NO_TRACE);
   useAnimatedReaction(
-    () =>
-      trace.value == null
-        ? -1
-        : trace.value.seriesIndex * 1_000_000 + trace.value.index,
-    (index, previous) => {
-      if (index >= 0 && index !== previous) runOnJS(selection)();
+    () => trace.value,
+    (sample) => {
+      const next = traceTickW(traceTicks.value, sample, Date.now());
+      traceTicks.value = next.state;
+      if (next.tick) runOnJS(selection)();
     },
   );
 
