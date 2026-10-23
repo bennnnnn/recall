@@ -29,6 +29,11 @@ def card_in_reply(reply: str | None) -> ClarifyCard | None:
     return None
 
 
+def follows_card(last_reply: str | None) -> bool:
+    """The turn after a reply that asked with a card: it answers, it never asks again."""
+    return card_in_reply(last_reply) is not None
+
+
 def card_as_line(body: str) -> str:
     """An earlier card as the model reads it in history."""
     card = read_card(body)

@@ -1105,6 +1105,20 @@ CASES: tuple[Case, ...] = (
         ),
     ),
     Case(
+        "clarify-picks-plan-my-week",
+        "format",
+        "Primary focus: Finish my thesis",
+        Expect(hints=("clarify_picks",), no_hints=("clarify", "clarify_unanswered")),
+        "The week's plan built around the thesis now; never a second card or more questions.",
+        history=(
+            ("user", "plan my week"),
+            (
+                "assistant",
+                'To build a plan that fits, one quick question:\n\n```clarify\n{"when":"first","questions":[{"id":"focus","label":"Primary focus","question":"What is the main goal for your week?","options":["Work projects","Study or exams","Health and fitness","Rest"],"multi":false}]}\n```',
+            ),
+        ),
+    ),
+    Case(
         "clarify-skip",
         "format",
         "Just answer",

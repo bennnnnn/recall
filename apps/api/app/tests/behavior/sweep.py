@@ -90,6 +90,8 @@ NO_SEARCH_AREAS = {
 # Asks nothing to look up ("great job today", "teach me something today", "give me
 # sample CSV data"): not even a model round that may choose to search.
 NO_SEARCH_ROUND_AREAS = {"statement", "made data"}
+# Turns that answer the clarify card before them: they never ask again.
+AFTER_CARD_AREAS = {"clarify answer"}
 STEM_AREAS = {"math", "physics", "chemistry"}
 # Messages with separate requests, and look-alikes that are one request.
 MULTI_AREAS = {"multi"}
@@ -352,6 +354,7 @@ async def _run_entry(entry: Entry) -> Outcome:
         user=user,
         # A multi-part message's settings card, as the turn's prompt build made it.
         settings_card=outcome.route.settings_card or None,
+        after_card=outcome.route.after_card,
     )
     with (
         _stores(outcome, user),
@@ -406,6 +409,12 @@ def judge(outcome: Outcome) -> list[str]:
     problems: list[str] = []
     for expect in entry.expects:
         problems.extend(p for p in _judge_expect(outcome, expect) if p not in problems)
+    # The turn after a clarify card answers: another card, or its questions as prose, is
+    # asking again (live: "plan my week", picks sent, a second card came back).
+    if entry.area in AFTER_CARD_AREAS and "```clarify" in outcome.final:
+        problems.append("asked with a card again")
+    if entry.area in AFTER_CARD_AREAS and "?" in outcome.final:
+        problems.append("asked a question again")
     if entry.area in MULTI_AREAS and "multi_intent" not in route.hints:
         problems.append("not read as more than one request")
     if entry.area in SINGLE_PART_AREAS and "multi_intent" in route.hints:
@@ -422,7 +431,8 @@ def _judge_expect(outcome: Outcome, expect: str) -> list[str]:
     if expect in {"answer", "photo", "search", "image_gen", "settings", "memory"}:
         if canned:
             problems.append(f"reply replaced by {canned!r}")
-        elif not _kept(entry.reply, final):
+        elif not _kept(entry.reply, final) and entry.area not in AFTER_CARD_AREAS:
+            # After a card, losing the model's second card is the point.
             problems.append("reply lost most of its words")
         # A reminder the entry also expects is the other part of the same turn.
         if outcome.saved and not expects & TODO_EXPECTS:

@@ -131,6 +131,8 @@ class StreamContext:
     # The tools the reply's own model call carries, when the tool loop leaves the
     # turn to it: ``web_search`` (``tool_loop.reply_calls``).
     reply_tools: list[dict[str, Any]] = field(default_factory=list)
+    # The last reply asked with a clarify card: this reply may not ask again.
+    after_card: bool = False
     # A loan, card or savings question: finalize adds its note and calculator card.
     money: MoneyTurn | None = None
 
@@ -156,6 +158,7 @@ class TurnPromptBundle:
     half_open_models: frozenset[str] = frozenset()
     solve_timed_out: bool = False
     money: MoneyTurn | None = None
+    after_card: bool = False
 
 
 def _search_location(geo: ClientGeoContext) -> str | None:
@@ -223,6 +226,7 @@ def stream_context_from_bundle(
         rich_context_turn=bundle.rich_context,
         settings_card=bundle.settings_card,
         money=bundle.money,
+        after_card=bundle.after_card,
         user_message_persist=user_message_persist,
         thinking=thinking,
     )
@@ -336,6 +340,7 @@ def _bundle(
         solver_unverified=augmented.solver_unverified,
         unverified_subject=augmented.unverified_subject,
         solve_timed_out=augmented.solve_timed_out,
+        after_card=identity.mode.after_card,
     )
 
 

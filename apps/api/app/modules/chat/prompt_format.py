@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
+from app.modules.chat.clarify_turn import last_reply_card
 from app.modules.chat.continuation_subject import (
     effective_presentation_subject,
     is_new_problem_request,
@@ -209,6 +210,7 @@ class StyleTurn:
     subject: str | None
     # Several requests: each one's shape is in the multi-part contract, not the turn's.
     multi: bool = False
+    after_card: bool = False  # it answers the last reply's card: it never asks again
 
 
 def _style_turn(
@@ -262,6 +264,7 @@ def _style_turn(
         viz_intent=_viz_intent(query_text),
         subject=effective_presentation_subject(query_text, prior_messages),
         multi=multi,
+        after_card=last_reply_card(prior_messages) is not None,
     )
 
 
@@ -349,10 +352,10 @@ def _answer_photo(turn: StyleTurn) -> list[str]:
 
 
 def _may_ask_with_card(turn: StyleTurn) -> bool:
-    """A turn whose shape is not already set: a greeting, draft, code, lesson or problem."""
+    """An unshaped turn (no greeting, draft, code, lesson, problem), not a card's answer."""
     shaped = turn.compact or turn.multi or turn.writing or turn.code_hint or turn.lesson_hint
     lesson = turn.teaching or turn.learning_plan or turn.subject in _NO_PHOTO_SUBJECTS
-    return bool(turn.query) and not shaped and not lesson
+    return bool(turn.query) and not shaped and not lesson and not turn.after_card
 
 
 HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
