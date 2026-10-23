@@ -439,8 +439,8 @@ def is_personal_advice_question(text: str) -> bool:
 
 LIGHTWEIGHT_REPLY_HINT = (
     "This is a short social turn (greeting / ack). Reply in one brief sentence. "
-    "Do not dig into memory, lists, or projects unless the user asked. No emoji "
-    "unless the user used one, and no closing offer to help further."
+    "Do not dig into memory, lists, or projects unless the user asked, and make no "
+    "closing offer to help further."
 )
 
 PERSONAL_DISCLOSURE_HINT = (

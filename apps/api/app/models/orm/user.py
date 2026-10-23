@@ -32,6 +32,7 @@ class User(Base):
             "response_tone IN ('funny', 'professional', 'casual', 'soft')",
             name="ck_users_response_tone",
         ),
+        CheckConstraint("emoji_use IN ('off', 'some', 'more')", name="ck_users_emoji_use"),
         CheckConstraint(
             "age IS NULL OR (age >= 13 AND age <= 120)",
             name="ck_users_age_range",
@@ -53,6 +54,8 @@ class User(Base):
     enabled_models: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     response_style: Mapped[str] = mapped_column(String, default="balanced")
     response_tone: Mapped[str] = mapped_column(String, default="casual", server_default="casual")
+    # How many emoji replies use (Settings → Personalization): off, some or more.
+    emoji_use: Mapped[str] = mapped_column(String, default="some", server_default="some")
     memory_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     # Three tappable follow-up questions under a reply (Settings → Personalization).
     follow_up_suggestions_enabled: Mapped[bool] = mapped_column(

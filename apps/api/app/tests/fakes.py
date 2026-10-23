@@ -123,6 +123,7 @@ def make_user(**columns: Any) -> MagicMock:
         "location_enabled": False,
         "location": None,
         "response_tone": "casual",
+        "emoji_use": "some",
         "push_notifications_enabled": False,
         "push_reminders_enabled": True,
         "email_reminders_enabled": False,

@@ -74,7 +74,8 @@ from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
 from app.tests.fakes import fake_session
 
-EMOJI_RULE = "Do not decorate with emoji unless the user used them."
+# The user's emoji setting; the battery's user has the default, a few.
+EMOJI_RULE = "Emoji: a few, to help the reader scan."
 
 # Name → text that marks the hint in the system prompt.
 HINTS: dict[str, str] = {
@@ -309,6 +310,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         email="bini@example.com",
         plan="pro" if case.pro else "free",
         response_tone="casual",
+        emoji_use="some",
         locale="en",
         timezone=USER_TIMEZONE,
         memory_enabled=case.memory_enabled,

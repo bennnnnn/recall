@@ -201,6 +201,7 @@ def _user(*, pro: bool) -> User:
         email="bini@example.com",
         plan="pro" if pro else "free",
         response_tone="casual",
+        emoji_use="some",
         locale="en",
         timezone=USER_TIMEZONE,
         memory_enabled=True,

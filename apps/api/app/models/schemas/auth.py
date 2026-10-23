@@ -12,7 +12,7 @@ from app.core.validation import (
     normalize_locale_code,
 )
 from app.models.model_catalog import validate_user_alias
-from app.models.schemas.common import ResponseTone, UserVoice
+from app.models.schemas.common import EmojiUse, ResponseTone, UserVoice
 from app.models.schemas.text import UserText
 
 # The longest custom instructions a user may save; the prompt builders read this too.
@@ -40,6 +40,7 @@ class UserOut(BaseModel):
     plan: str = "free"
     enabled_models: list[str] | None = None
     response_tone: str = "casual"
+    emoji_use: str = "some"
     memory_enabled: bool
     follow_up_suggestions_enabled: bool = True
     memory_include_sensitive: bool = False
@@ -125,6 +126,7 @@ class UserUpdate(BaseModel):
     default_model: str | None = None
     enabled_models: list[str] | None = None
     response_tone: ResponseTone | None = None
+    emoji_use: EmojiUse | None = None
     memory_enabled: bool | None = None
     follow_up_suggestions_enabled: bool | None = None
     memory_include_sensitive: bool | None = None

@@ -31,7 +31,7 @@ from app.modules.chat.tool_loop.rounds import _hand_off
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.physics import PHYSICS_REPLY_POLICY
 from app.modules.web_search import WEB_SEARCH_HINT
-from app.services.response_tone import TONE_HINTS
+from app.services.response_tone import EMOJI_HINTS, TONE_HINTS
 from app.tests.behavior import harness
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.sweep import frozen_clock
@@ -111,7 +111,15 @@ async def test_the_marked_message_is_the_same_on_every_kind_of_turn_for_one_user
     ]
     stable = {prompt[0]["content"] for prompt in prompts}
     assert stable == {
-        "\n\n".join((_IDENTITY, TONE_HINTS["casual"], TONE_FORMAT_GUARD, UNCLEAR_MESSAGE_HINT))
+        "\n\n".join(
+            (
+                _IDENTITY,
+                TONE_HINTS["casual"],
+                EMOJI_HINTS["some"],
+                TONE_FORMAT_GUARD,
+                UNCLEAR_MESSAGE_HINT,
+            )
+        )
     }
     # What the turns differ in (length, style, profile, place, clock) comes after it.
     assert all(prompt[1]["role"] == "system" for prompt in prompts)
@@ -144,7 +152,8 @@ async def test_their_own_instructions_and_language_are_part_of_the_same_text(
     user = {"custom_instructions": "Keep it upbeat.", "locale": "es", "job": "Designer"}
     messages = await _prompt_at(_NINE, user=user, **case)
     stable = messages[0]["content"]
-    assert stable.startswith(f"{_IDENTITY}\n\n{TONE_HINTS['casual']}\n\n{TONE_FORMAT_GUARD}")
+    tone = f"{TONE_HINTS['casual']}\n\n{EMOJI_HINTS['some']}"
+    assert stable.startswith(f"{_IDENTITY}\n\n{tone}\n\n{TONE_FORMAT_GUARD}")
     assert "Keep it upbeat." in stable
     assert stable.endswith("do not keep replying in a previous language.")
     reference = await _prompt_at(_SEVEN_PAST, user=user, memory_block="other memory")

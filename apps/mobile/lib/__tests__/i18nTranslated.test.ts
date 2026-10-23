@@ -126,6 +126,7 @@ const SAME_WORD: Record<Locale, readonly string[]> = {
     "settings.account",
     "settings.chat",
     "settings.email",
+    "settings.emoji",
     "share.default_title",
   ],
   pt: [
@@ -142,6 +143,7 @@ const SAME_WORD: Record<Locale, readonly string[]> = {
   tr: [
     "rich.chemistry_element",
     "rich.chemistry_ideal_angle",
+    "settings.emoji",
     "settings.field_default_model",
     "settings.plan_label",
   ],

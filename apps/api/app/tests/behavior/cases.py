@@ -1486,7 +1486,7 @@ CASES: tuple[Case, ...] = (
         "tone and emoji",
         "what are the benefits of drinking water",
         Expect(hints=("emoji_rule",), search="ask", model="qwen-3.7-flash"),
-        "A clear answer with no emoji decoration.",
+        "A clear answer; at most a fitting emoji beside a heading or a list label.",
     ),
     Case(
         "tone-birthday",

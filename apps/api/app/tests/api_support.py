@@ -25,6 +25,7 @@ def api_user(**kw: Any) -> MagicMock:
     u.plan = kw.get("plan", "free")
     u.enabled_models = kw.get("enabled_models", None)
     u.response_tone = kw.get("response_tone", "funny")
+    u.emoji_use = kw.get("emoji_use", "some")
     u.memory_enabled = True
     u.memory_include_sensitive = False
     u.locale = kw.get("locale", "en")
