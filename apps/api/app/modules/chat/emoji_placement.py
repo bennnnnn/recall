@@ -53,10 +53,43 @@ _EMOJI_AND_SPACE = re.compile(rf"(?:{EMOJI.pattern})[ \t]*")
 _SPACE_BEFORE_CLOSE = re.compile(r"[ \t]+(\*\*|__)(?=[\s.,;:!?)]|$)|[ \t]+(?=[.,;:!?)])")
 
 
+# An emoji used as a sentence break: "Hey bini 👋 How's it going?" lost its 👋 and read
+# "Hey bini How's it going?". Between a word and a capitalised word it becomes a full
+# stop, unless the word leads into the next ("to 🇫🇷 France") or it is a flag.
+_LEADS_ON = frozenset(
+    {
+        "to", "in", "at", "on", "of", "from", "for", "with", "by", "about", "like", "the",
+        "a", "an", "my", "your", "our", "their", "his", "her", "its", "and", "or", "i",
+    }
+)  # fmt: skip
+_FLAG = re.compile(r"[\U0001f1e6-\U0001f1ff]")
+# The same letters as the phone's twin, whose regex has no Unicode classes.
+_LAST_WORD = re.compile(r"([A-Za-z0-9\u00c0-\u024f']+)[ \t]*$")
+_NEXT_WORD = re.compile(r"[A-Z][a-z']")
+
+
+def _drop_emoji(part: str) -> str:
+    """``part`` without its emoji; one that broke two sentences becomes a full stop."""
+    out = ""
+    last = 0
+    for match in _EMOJI_AND_SPACE.finditer(part):
+        before = out + part[last : match.start()]
+        word = _LAST_WORD.search(before)
+        breaks = (
+            word is not None
+            and word.group(1).lower() not in _LEADS_ON
+            and _FLAG.search(match.group(0)) is None
+            and _NEXT_WORD.match(part, match.end()) is not None
+        )
+        out = f"{before.rstrip(' \t')}. " if breaks else before
+        last = match.end()
+    return out + part[last:]
+
+
 def _without_emoji(line: str) -> str:
     """``line`` with no emoji outside inline code; its indent and list marker kept."""
     indent = line[: len(line) - len(line.lstrip())]
-    body = _outside_code(line[len(indent) :], lambda part: _EMOJI_AND_SPACE.sub("", part))
+    body = _outside_code(line[len(indent) :], _drop_emoji)
     body = _SPACE_BEFORE_CLOSE.sub(lambda m: m.group(1) or "", body)
     return f"{indent}{body}".rstrip()
 

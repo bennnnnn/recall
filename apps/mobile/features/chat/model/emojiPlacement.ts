@@ -42,9 +42,39 @@ function outsideCode(text: string, change: (part: string) => string): string {
   return out + change(text.slice(last));
 }
 
+// An emoji used as a sentence break: "Hey bini 👋 How's it going?" lost its 👋 and read
+// "Hey bini How's it going?". Between a word and a capitalised word it becomes a full
+// stop, unless the word leads into the next ("to 🇫🇷 France") or it is a flag.
+const LEADS_ON = new Set([
+  "to", "in", "at", "on", "of", "from", "for", "with", "by", "about", "like", "the",
+  "a", "an", "my", "your", "our", "their", "his", "her", "its", "and", "or", "i",
+]);
+const FLAG = /\uD83C[\uDDE6-\uDDFF]/;
+const LAST_WORD = /([A-Za-z0-9\u00C0-\u024F']+)[ \t]*$/;
+const NEXT_WORD = /^[A-Z][a-z']/;
+
+function dropEmoji(part: string): string {
+  let out = "";
+  let last = 0;
+  for (const match of part.matchAll(EMOJI_AND_SPACE)) {
+    const start = match.index ?? 0;
+    const before = out + part.slice(last, start);
+    const word = LAST_WORD.exec(before);
+    const end = start + match[0].length;
+    const breaks =
+      word !== null &&
+      !LEADS_ON.has((word[1] ?? "").toLowerCase()) &&
+      !FLAG.test(match[0]) &&
+      NEXT_WORD.test(part.slice(end));
+    out = breaks ? `${before.replace(/[ \t]+$/, "")}. ` : before;
+    last = end;
+  }
+  return out + part.slice(last);
+}
+
 function withoutEmoji(line: string): string {
   const indent = line.slice(0, line.length - line.trimStart().length);
-  const body = outsideCode(line.slice(indent.length), (part) => part.replace(EMOJI_AND_SPACE, ""))
+  const body = outsideCode(line.slice(indent.length), dropEmoji)
     .replace(SPACE_BEFORE_CLOSE, (_match, marker: string | undefined) => marker ?? "");
   return `${indent}${body}`.trimEnd();
 }
