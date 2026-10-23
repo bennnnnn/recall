@@ -1155,7 +1155,12 @@ CASES: tuple[Case, ...] = (
         "format",
         "Recommend the best country for me. Main priority: Making money. Geographic "
         "preference: Anywhere. Compare the strongest options with practical pros and cons.",
-        Expect(hints=("clarify_picks",), no_hints=("clarify_unanswered",), lightweight=False),
+        # No card rule to ask again with, and the card's "compare" closing leads no table.
+        Expect(
+            hints=("clarify_picks",),
+            no_hints=("clarify_unanswered", "clarify", "comparison"),
+            lightweight=False,
+        ),
         "Opens with the one country that fits best for making money and why (using memory when "
         "it fits), then the top options ranked, each with what it is best for, pros and cons; "
         "no new card.",
@@ -1165,7 +1170,9 @@ CASES: tuple[Case, ...] = (
         "clarify-picks-from-an-older-phone",
         "format",
         "Studied it before: No, never",
-        Expect(hints=("clarify_picks",), no_hints=("clarify_unanswered",), lightweight=False),
+        Expect(
+            hints=("clarify_picks",), no_hints=("clarify_unanswered", "clarify"), lightweight=False
+        ),
         "The whole answer to how to understand integrals, pitched at a beginner; no new card.",
         history=(
             ("user", "how can I understand integrals"),

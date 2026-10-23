@@ -53,7 +53,9 @@ The phone writes it from the card. The server knows it answers the card because 
 assistant reply holds the card and every question's label is in the message with a pick after
 it (one `Label: pick` line per question, what older phones sent, reads the same). Its prompt
 then says: open with a direct recommendation tied to the picks (and to memory when it fits),
-then the complete answer the message asks for; no picks listed back, no new card.
+then the complete answer the message asks for; no picks listed back, no new card. That turn
+gets no asking rule (`prompt_format._may_ask_with_card`), and the card's own "Compare the
+strongest options…" closing does not make it an X-vs-Y turn that leads with a table.
 
 ## The `clarify` fence
 

@@ -56,6 +56,12 @@ def last_reply_card(prior: Sequence[tuple[str, str]] | None) -> ClarifyCard | No
     return None
 
 
+def answers_last_card(query: str | None, prior: Sequence[tuple[str, str]] | None) -> bool:
+    """The message is the picks for the card the conversation's last reply asked with."""
+    card = last_reply_card(prior)
+    return card is not None and bool(query) and answers_card(query or "", card)
+
+
 def clarify_reply_hint(query: str | None, prior: Sequence[tuple[str, str]] | None) -> str | None:
     """What this turn answers when the last reply asked with a card; None otherwise."""
     card = last_reply_card(prior)
