@@ -49,7 +49,33 @@ _SYMBOLS = (
     ("\\to", "→"),
     ("^\\circ", "°"),
     ("^{\\circ}", "°"),
+    ("\\circ", "∘"),
+    ("\\%", "%"),
+    ("\\sum", "∑"),
+    ("\\prod", "∏"),
+    ("\\angle", "∠"),
+    ("\\triangle", "△"),
+    ("\\perp", "⊥"),
+    ("\\parallel", "∥"),
+    ("\\approx", "≈"),
+    ("\\cdots", "…"),
+    ("\\ldots", "…"),
+    ("\\dots", "…"),
+    ("\\cup", "∪"),
+    ("\\cap", "∩"),
+    ("\\Delta", "Δ"),
+    ("\\delta", "δ"),
+    ("\\gamma", "γ"),
+    ("\\mu", "μ"),
+    ("\\rho", "ρ"),
+    ("\\sigma", "σ"),
+    ("\\phi", "φ"),
+    ("\\omega", "ω"),
 )
+# 0.\overline{3}: the bar over each repeating digit.
+_OVERLINE = re.compile(r"\\overline\s*" + _BRACED)
+# Any command still left is shown as its name, never as LaTeX.
+_COMMAND = re.compile(r"\\([A-Za-z]+)")
 _SPACES = re.compile(r"\\(?:quad|qquad|[,;:! ])")
 _SIZING = re.compile(r"\\(?:left|right)\s*[.]|\\(?:left|right|big|Big|bigg|Bigg)(?![A-Za-z])\s*")
 _NAMED = re.compile(r"\\(arcsin|arccos|arctan|sin|cos|tan|sec|csc|cot|log|ln|exp|lim)(?![A-Za-z])")
@@ -109,6 +135,7 @@ def student_reading(source: str) -> str:
     text = _SIZING.sub("", text)
     text = _TEXT.sub(r"\1", text)
     text = _MATHBB.sub(lambda m: _BLACKBOARD[m.group(1)], text)
+    text = _OVERLINE.sub(lambda m: "".join(f"{c}\u0305" for c in m.group(1).strip()), text)
     # Symbols first: a degree sign is written as a superscript (``^{\circ}``).
     for latex, glyph in _SYMBOLS:
         text = re.sub(re.escape(latex) + r"(?![A-Za-z])", glyph, text)
@@ -129,6 +156,9 @@ def student_reading(source: str) -> str:
     text = _SPACED_SCRIPT.sub("", text)
     text = _LIMIT.sub(lambda m: "lim " + re.sub(r"\s+", "", m.group(1)) + " ", text)
     text = text.replace("\\{", "").replace("\\}", "").replace("{", "").replace("}", "")
+    # Mathpix spaces a unit with ~ (``\mathrm{~cm}``) and a percent sign from its number.
+    text = re.sub(r"(?<=\d)\s+%", "%", text.replace("~", " "))
+    text = _COMMAND.sub(r"\1", text)
     text = text.replace("**", "^")
     text = _IMPLICIT_TIMES.sub(r"\1", text)
     text = _ABS_CALL.sub(r"|\1|", text)
