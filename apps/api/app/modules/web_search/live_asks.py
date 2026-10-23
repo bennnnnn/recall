@@ -185,16 +185,21 @@ def _names_a_release(thing: str) -> bool:
     return names >= 2 or (names == 1 and _NEW.search(thing) is not None)
 
 
-def asks_if_released(text: str) -> bool:
-    """Whether a named thing is out yet, or when it comes out: "Is iPhone 19 out?"."""
+def released_thing(text: str) -> str | None:
+    """What a release question asks about ("iPhone 19" in "Is iPhone 19 out?"), else None."""
     cleaned = collapse_ws(text)
     match = _RELEASE_ASK.match(cleaned)
     if match is not None:
         thing = next(group for group in match.groups() if group)
-        return _names_a_release(thing)
-    date = _RELEASE_DATE.search(cleaned)
-    return (
-        date is not None
-        and _names_a_release(_RELEASE_DATE.sub(" ", cleaned).strip(" ?!.") or "-")
-        and _NOT_A_PRICE.search(cleaned) is None
-    )
+        return thing if _names_a_release(thing) else None
+    if _RELEASE_DATE.search(cleaned) is None or _NOT_A_PRICE.search(cleaned) is not None:
+        return None
+    thing = _RELEASE_DATE.sub(" ", cleaned).strip(" ?!.")
+    thing = re.sub(r"^(?:what(?:'s| is)\s+)?(?:the\s+)?|\s+(?:of|for)\s*$", "", thing).strip()
+    thing = re.sub(r"^(?:of|for)\s+", "", thing)
+    return thing if thing and _names_a_release(thing) else None
+
+
+def asks_if_released(text: str) -> bool:
+    """Whether a named thing is out yet, or when it comes out: "Is iPhone 19 out?"."""
+    return released_thing(text) is not None
