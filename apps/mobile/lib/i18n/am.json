@@ -61,7 +61,7 @@
   "chat.home.greeting_night_name": "ሰላም፣ {{name}}",
   "chat.home.overdue": "ጊዜው አልፏል",
   "chat.image_gen_a11y_progress": "{{status}}፣ {{percent}}",
-  "chat.image_gen_canceled": "መጠበቅ ቆሟል። ምስሉ አሁንም በዚህ ውይይት ሊታይና ከዛሬ ምስሎች ሊቆጠር ይችላል።",
+  "chat.image_gen_canceled": "ቆሟል። ይህ ምስል ከዛሬው ገደብ አይቆጠርም።",
   "chat.image_gen_failed": "ምስሉን መፍጠር አልተቻለም",
   "chat.image_daily_limit_free": "የዛሬን ነጻ ምስሎች ሠርተው ጨርሰዋል። ለተጨማሪ ያሻሽሉ፣ ወይም ነገ እንደገና ይሞክሩ።",
   "chat.image_daily_limit_paid": "የዛሬን ምስሎች በሙሉ ሠርተዋል። ነገ ተጨማሪ መሥራት ይችላሉ።",

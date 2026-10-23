@@ -61,7 +61,7 @@
   "chat.home.greeting_night_name": "Hey there, {{name}}",
   "chat.home.overdue": "Overdue",
   "chat.image_gen_a11y_progress": "{{status}}, {{percent}}",
-  "chat.image_gen_canceled": "Stopped waiting. The picture may still appear in this chat and count toward today's images.",
+  "chat.image_gen_canceled": "Stopped. This picture won't count toward today's limit.",
   "chat.image_gen_failed": "Couldn't create the image",
   "chat.image_daily_limit_free": "You've made today's free pictures. Upgrade for more, or try again tomorrow.",
   "chat.image_daily_limit_paid": "You've made all of today's pictures. You can make more tomorrow.",

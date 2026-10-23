@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
+from app.core.client_disconnect import ClientLeft, until_client_leaves
 from app.core.config import Settings
 from app.core.consent import get_consented_user
 from app.core.deps import get_settings_dep
@@ -20,14 +21,21 @@ ImageGenerateOut.model_rebuild(_types_namespace={"MessageOut": MessageOut})
 router = APIRouter(prefix="/images", tags=["images"])
 
 
+# nginx's "client closed request": nobody is there to read it.
+_CLIENT_CLOSED = 499
+
+
 @router.post("/generate", response_model=ImageGenerateOut)
 async def generate_image(
     body: ImageGenerateIn,
+    request: Request,
     user: User = Depends(get_consented_user),
     settings: Settings = Depends(get_settings_dep),
-) -> ImageGenerateOut:
+) -> ImageGenerateOut | Response:
+    """A picture for the chat. The phone's Cancel closes the request: the provider call
+    stops, nothing is stored and the day's slot is given back (until_client_leaves)."""
     original = (body.user_message or "").strip() or None
-    user_message, assistant_message = await image_generation_service.generate_for_chat(
+    work = image_generation_service.generate_for_chat(
         settings,
         user=user,
         chat_id=body.chat_id,
@@ -36,6 +44,10 @@ async def generate_image(
         user_message_content=original,
         reference_attachment_ids=body.reference_attachment_ids,
     )
+    try:
+        user_message, assistant_message = await until_client_leaves(request, work)
+    except ClientLeft:
+        return Response(status_code=_CLIENT_CLOSED)
 
     return ImageGenerateOut(
         user_message=MessageOut.model_validate(user_message),

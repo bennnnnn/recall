@@ -61,7 +61,7 @@
   "chat.home.greeting_night_name": "Merhaba, {{name}}",
   "chat.home.overdue": "Gecikmiş",
   "chat.image_gen_a11y_progress": "{{status}}, {{percent}}",
-  "chat.image_gen_canceled": "Beklemeyi bıraktın. Görsel yine de bu sohbette görünebilir ve bugünkü görsellerden sayılabilir.",
+  "chat.image_gen_canceled": "Durduruldu. Bu görsel bugünkü sınırdan sayılmayacak.",
   "chat.image_gen_failed": "Görsel oluşturulamadı",
   "chat.image_daily_limit_free": "Bugünkü ücretsiz görsellerinizi oluşturdunuz. Daha fazlası için planınızı yükseltin ya da yarın tekrar deneyin.",
   "chat.image_daily_limit_paid": "Bugünkü tüm görsellerinizi oluşturdunuz. Yarın yenilerini oluşturabilirsiniz.",

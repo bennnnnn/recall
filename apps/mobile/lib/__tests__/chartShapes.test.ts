@@ -127,6 +127,17 @@ const MODEL_BODIES: [string, string][] = [
     }),
   ],
   [
+    "a box plot written as series of raw values",
+    JSON.stringify({
+      type: "boxplot",
+      title: "Test scores",
+      series: [
+        { name: "Class A", values: [55, 62, 70, 74, 88] },
+        { name: "Class B", values: [61, 72, 75, 80, 93] },
+      ],
+    }),
+  ],
+  [
     "a histogram with one closing brace too many and a config after it",
     '{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","data":{"values":[{"score":55},' +
       '{"score":62},{"score":80}]},"transform":[{"bin":true,"field":"score","as":["s0","s1"]}],' +
@@ -136,8 +147,15 @@ const MODEL_BODIES: [string, string][] = [
 ];
 
 describe("the chart contract", () => {
-  it("shows the model five shapes", () => {
-    expect(Object.keys(SHAPES)).toEqual(["bar", "line", "scatter with best-fit line", "histogram", "pie"]);
+  it("shows the model six shapes", () => {
+    expect(Object.keys(SHAPES)).toEqual([
+      "bar",
+      "line",
+      "scatter with best-fit line",
+      "histogram",
+      "pie",
+      "box plot",
+    ]);
   });
 
   it.each(Object.entries(SHAPES))("draws the %s shape with data marks", async (_name, spec) => {
