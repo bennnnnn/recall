@@ -1091,5 +1091,29 @@
   "prompt": "I have 2 hours before dinner guests arrive, what can I cook?",
   "reply": "Two hours is plenty for **misir wat** (about 45 minutes), **gomen** (30 minutes) and a simple tomato salad. Start the lentils first, then the greens while they simmer.",
   "expect": "answer"
+ },
+ {
+  "id": "ms-106",
+  "area": "math",
+  "prompt": "whats 72 fahrenheit in celsius",
+  "history": [],
+  "reply": "72°F is about 22.2°C.",
+  "expect": "instant"
+ },
+ {
+  "id": "ms-107",
+  "area": "math",
+  "prompt": "how much is 5 km in miles",
+  "history": [],
+  "reply": "About 3.1 miles.",
+  "expect": "instant"
+ },
+ {
+  "id": "ms-108",
+  "area": "chitchat",
+  "prompt": "ugh its like 90 degrees in here",
+  "history": [],
+  "reply": "Oof, that's hot. Got a fan nearby?",
+  "expect": "answer"
  }
 ]

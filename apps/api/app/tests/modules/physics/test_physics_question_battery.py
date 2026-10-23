@@ -285,7 +285,7 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
             "7560 m/s",
         ),
         ("A satellite orbits 400 km above Earth's surface. What is its orbital speed?", "7670 m/s"),
-        ("Convert 25 degrees Celsius to kelvin.", r"298.15\ \mathrm{kelvin}"),
+        ("Convert 25 degrees Celsius to kelvin.", r"298.15\ \mathrm{K}"),
         # A second, harder battery: each returned no verified answer.
         (
             "A wheel accelerates from rest at 2 rad/s^2 for 5 s. What is its final angular "

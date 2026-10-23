@@ -123,6 +123,14 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
 
     if parse_work_request(text) is not None:
         return True
+    # "ok cool. what is 2+2": the question after the chat, as the extractor reads it.
+    from app.modules.math.match.chatter import question_after_chat
+
+    question = question_after_chat(text)
+    if question is not None and needs_symbolic_math(
+        question, has_image_attachment=has_image_attachment
+    ):
+        return True
 
     # Teaching / answer-style wrappers are response metadata, not part of the
     # expression. The extractor already removes them, so the cheaper routing

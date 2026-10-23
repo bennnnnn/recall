@@ -11,14 +11,20 @@ from __future__ import annotations
 
 import re
 
+_TEMPERATURE_NAMES = {
+    "c": "°C", "celsius": "°C", "centigrade": "°C", "degc": "°C",
+    "f": "°F", "fahrenheit": "°F", "degf": "°F",
+    "kelvin": "K",
+}  # fmt: skip
+
 
 def format_quantity(answer: str, unit: str) -> str:
     """Keep a unit upright in the answer's existing math renderer."""
     # Unit strings have already passed a solver or the measurement vocabulary.
     # Normalize common unit powers; escape text-only TeX metacharacters.
     unit = unit.replace("**", "^").replace("²", "^{2}").replace("³", "^{3}")
-    if unit in {"C", "F"}:
-        unit = "°" + unit
+    # "72 fahrenheit in celsius" shows °C, however the unit was typed.
+    unit = _TEMPERATURE_NAMES.get(unit.casefold(), unit)
     # Keep powers outside \mathrm: the native text fallback also understands
     # \mathrm{cm}^{3}, while nested braces inside \mathrm are not portable.
     unit = re.sub(
