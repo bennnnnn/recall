@@ -44,9 +44,9 @@ NEVER_WITH_CARD = frozenset({"answer", "result", "final", "reminder", "reminder_
 # What an option may start with before its words: an emoji, a flag, a joiner, a skin tone.
 _LEADING_MARKS = frozenset({"So", "Sk", "Mn", "Me", "Cf"})
 # A keycap emoji ("1️⃣"): a digit, # or * with the keycap mark.
-_KEYCAP = re.compile("[0-9#*]️?⃣")
+_KEYCAP = re.compile("[0-9#*]\ufe0f?\u20e3")
 # What only an emoji has: a pictograph past U+1F000, presentation, a joiner, a keycap.
-_EMOJI_ONLY = frozenset("️‍⃣")
+_EMOJI_ONLY = frozenset("\ufe0f\u200d\u20e3")
 
 
 def _text(value: object) -> str:

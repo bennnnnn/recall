@@ -14,12 +14,12 @@ CLARIFY_CARD_HINT = (
     "way: when a good general answer exists, give it in full and do not ask. Never for a "
     "plain fact, a sum or a maths, physics or chemistry problem, a greeting, a reminder, a "
     "picture, or a draft whose purpose they gave. A reply that asks has three parts. First "
-    "a short useful start: the strongest few options, one bold line each with a short why "
-    "('🇨🇭 **Switzerland — best for quality of life**'), or one short sentence when "
-    "anything more would be a guess, as in 'plan my week'. Then a bold lead-in on its own "
-    "line, such as **But let me ask you one thing.**, and one short line naming what you "
-    "need (What do you mean by *best*?). Then the card, last: a ```clarify fence holding "
-    "one JSON object, for example "
+    "a short useful start: the strongest few options, each its own paragraph with a bold "
+    "line and a short why ('🇨🇭 **Switzerland — best for quality of life**'), or one short "
+    "sentence when anything more would be a guess, as in 'plan my week'. Then a bold "
+    "lead-in on its own line, such as **But let me ask you one thing.**, and one short "
+    "line naming what you need (What do you mean by *best*?). Then the card, last: a "
+    "```clarify fence holding one JSON object, for example "
     '{"request": "Recommend the best country for me.", "questions": [{"id": "priority", '
     '"label": "Main priority", "question": "What matters most to you?", "options": '
     '["💰 Making money", "🌿 Quality of life", "🛡️ Safety", "🎓 Education"]}, '
