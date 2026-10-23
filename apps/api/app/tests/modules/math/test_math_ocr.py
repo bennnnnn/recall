@@ -244,6 +244,10 @@ async def test_read_back_keeps_the_printed_condition() -> None:
         (r"\( \sin ^{2} x+\cos ^{2} x=1 \)", "sin^2 x+cos^2 x=1"),
         (r"\( \lim _{x \rightarrow 0} \frac{\sin x}{x} \)", "lim x→0 ((sin x)/x)"),
         (r"\( \lim _{x \to \infty} \frac{3 x^{2}+1}{x^{2}-2} \)", "lim x→∞ ((3 x^2+1)/(x^2-2))"),
+        # A printed mixed number is two and a half, not 2 × 1/2.
+        (r"\( 2 \frac{1}{2}+1 \frac{3}{4} \)", "2 1/2+1 3/4"),
+        (r"\( 3\frac{1}{3} \times 2 \frac{1}{4} \)", "3 1/3 × 2 1/4"),
+        (r"\( x^{2} \frac{1}{2} \)", "x^2 (1/2)"),
     ],
 )
 def test_student_reading_is_the_whole_problem_in_written_notation(

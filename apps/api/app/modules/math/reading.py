@@ -67,11 +67,18 @@ _SQRT_CALL = re.compile(r"\bsqrt\(")
 _SIMPLE = re.compile(r"[A-Za-z0-9.]+")
 # One fraction part that needs no brackets: ``3``, ``x``, ``x^2``, ``x_1``.
 _SIMPLE_PART = re.compile(r"[A-Za-z0-9.]+(?:[\^_][A-Za-z0-9.]+)?")
+# A whole number printed just before a numeric fraction: the 2 of 2½, not an exponent.
+_WHOLE_BEFORE = re.compile(r"(?<![\w.^_])\d+\s*$")
+_DIGITS = re.compile(r"\d+")
 
 
 def _fraction(match: re.Match[str]) -> str:
     """``\\frac{1}{2}x`` is ``(1/2)x``; a fraction standing alone needs no brackets."""
     top, bottom = match.group(1).strip(), match.group(2).strip()
+    head = match.string[: match.start()]
+    if _DIGITS.fullmatch(top) and _DIGITS.fullmatch(bottom) and _WHOLE_BEFORE.search(head):
+        # ``2 \frac{1}{2}`` is the mixed number 2 1/2, as a student types it.
+        return f"{'' if head[-1:].isspace() else ' '}{top}/{bottom}"
     top = top if _SIMPLE_PART.fullmatch(top) else f"({top})"
     bottom = bottom if _SIMPLE_PART.fullmatch(bottom) else f"({bottom})"
     before = match.string[: match.start()].rstrip()[-1:]
