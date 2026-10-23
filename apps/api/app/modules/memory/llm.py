@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Any
 
 from app.core.config import Settings
@@ -68,6 +69,35 @@ _SENSITIVITY_RULES = (
 )
 
 
+def local_today(user_timezone: str | None) -> str:
+    """The user's date, as the extraction rule names it: "Friday, Oct 23, 2026"."""
+    from app.services import time_context as time_context_service
+
+    now = datetime.now(time_context_service.resolve_timezone(user_timezone))
+    return f"{now:%A}, {now:%b} {now.day}, {now.year}"
+
+
+def _history_rule(from_history: bool) -> str:
+    if not from_history:
+        return ""
+    return (
+        "- These User lines come from an earlier chat, so the existing facts may be "
+        "newer. Only add facts that are missing; never update, supersede, or delete an "
+        "existing fact because of these lines.\n"
+    )
+
+
+def _dates_rule(today: str | None) -> str:
+    """A fact is read days later: "has an anatomy exam next Friday" was saved as said."""
+    rule = (
+        "- A fact with a date keeps it as a date ('has an anatomy exam on Friday, Oct 30, "
+        "2026'), never a relative one ('next Friday', 'this weekend', 'in two weeks'). "
+    )
+    if today:
+        return f"{rule}Today is {today} for the user.\n"
+    return f"{rule}Leave out a relative date you cannot place.\n"
+
+
 def _extract_input(
     existing_block: str, areas_block: str, transcript: str, *, from_history: bool, earlier: str
 ) -> str:
@@ -95,18 +125,13 @@ async def revise_memory_facts(
     existing_areas: list[dict[str, Any]] | None = None,
     from_history: bool = False,
     earlier: str = "",
+    today: str | None = None,
 ) -> MemoryFactUpdateResult | None:
     if mock_llm.should_mock_llm(settings):
         return await offline_memory_facts(transcript, existing_facts or [])
 
     existing = existing_facts or []
-    history_rule = (
-        "- These User lines come from an earlier chat, so the existing facts may be "
-        "newer. Only add facts that are missing; never update, supersede, or delete an "
-        "existing fact because of these lines.\n"
-        if from_history
-        else ""
-    )
+    history_rule = _history_rule(from_history)
     existing_block = json.dumps(existing, ensure_ascii=False, default=str) if existing else "[]"
     areas_block = json.dumps(existing_areas or [], ensure_ascii=False, default=str)
 
@@ -178,6 +203,7 @@ async def revise_memory_facts(
                 "- Skip small talk. Return empty ops only when the user stated nothing "
                 "durable about themselves.\n"
                 "- Do not invent facts.\n"
+                f"{_dates_rule(today)}"
                 "- A clock hour keeps its part of day. Morning is AM. Afternoon, evening, "
                 "and night are not the morning: 4 in the evening is 16:00, never 04:00. "
                 "Keep evening, afternoon, or night in the fact; do not rewrite them as AM.\n"

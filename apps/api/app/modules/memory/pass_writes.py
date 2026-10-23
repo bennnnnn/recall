@@ -46,6 +46,8 @@ class MemorySnapshot:
     # When the user last removed or changed memory by hand.
     edited_at: datetime | None = None
     active_facts: tuple[FactView, ...] = ()
+    # Their zone: "next Friday" is saved as the date it means on their calendar.
+    user_timezone: str | None = None
 
 
 @dataclass(frozen=True)

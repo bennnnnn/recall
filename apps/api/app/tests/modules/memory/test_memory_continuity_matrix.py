@@ -394,3 +394,54 @@ def test_memory_op_salvage_keeps_the_reply() -> None:
     only_reply = MemoryFactUpdateResult.salvage_partial({"ops": [], "reply": "Nothing to change."})
     assert only_reply is not None and only_reply.reply == "Nothing to change."
     assert MemoryFactUpdateResult.salvage_partial({"ops": [{"op": "bad"}]}) is None
+
+
+async def _extractor_prompt(
+    monkeypatch: pytest.MonkeyPatch, *, today: str | None = None, from_history: bool = False
+) -> str:
+    captured: dict[str, object] = {}
+
+    async def fake_complete_structured(**call: object) -> None:
+        captured.update(call)
+
+    monkeypatch.setattr(mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(litellm_gateway, "complete_structured", fake_complete_structured)
+    await memory_llm.revise_memory_facts(
+        Settings(),
+        "User: I have an anatomy exam next Friday",
+        today=today,
+        from_history=from_history,
+    )
+    messages = captured["messages"]
+    assert isinstance(messages, list) and isinstance(messages[0], dict)
+    system = messages[0]["content"]
+    assert isinstance(system, str)
+    return system
+
+
+@pytest.mark.asyncio
+async def test_a_live_pass_knows_the_user_s_date_so_next_friday_is_saved_as_a_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Live: "User has an anatomy exam next Friday" was saved as said; a week on it
+    # names the wrong Friday.
+    system = await _extractor_prompt(monkeypatch, today="Friday, Oct 23, 2026")
+    assert "Today is Friday, Oct 23, 2026 for the user." in system
+
+
+@pytest.mark.asyncio
+async def test_an_earlier_chat_has_no_date_to_place_next_friday(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    system = await _extractor_prompt(monkeypatch, from_history=True)
+    assert "Today is" not in system
+    assert "Leave out a relative date you cannot place." in system  # safety phrase
+
+
+def test_local_today_names_the_day_as_the_rule_does() -> None:
+    import re
+
+    assert re.fullmatch(
+        r"(?:Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day, [A-Z][a-z]{2} \d{1,2}, \d{4}",
+        memory_llm.local_today("America/Indiana/Indianapolis"),
+    )
