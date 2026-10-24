@@ -99,7 +99,7 @@ def test_plain_prose_is_copied_without_trying_each_reader(monkeypatch: pytest.Mo
     text = f"{prose}\n\nSee https://example.com and **at**40 for $x$."
     presented = present_assistant_markdown(text)
     assert presented.startswith(prose.rstrip())
-    assert "https://example.com" in presented
+    assert presented.rsplit("\n", 1)[-1] == "See https://example.com and **at** 40 for $x$."
     # The URL, the bold and the maths are each read; the line of prose before them is not.
     assert tried
     assert all(line.startswith("See ") for line in tried)
