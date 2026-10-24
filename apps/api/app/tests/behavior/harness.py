@@ -57,7 +57,8 @@ from app.modules.chat.turn_prep.context import (
 )
 from app.modules.chat.turn_prep.mode import classify_turn_mode
 from app.modules.chat.turn_prep.request import TurnRequest
-from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
+from app.modules.images.gen_intent import stem_subject_claims
+from app.modules.images.intent import image_gen_request
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
 from app.modules.money.block import (
     MONEY_HEADER,
@@ -338,7 +339,8 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         not photo
         and settings.image_generation_enabled
         and can_use(user, "image_generation", settings)
-        and extract_image_gen_prompt(text)
+        # Read with the thread, as the turn's intercept reads it ("Image" after "Dog").
+        and image_gen_request(text, rows, revisions=bool(rows)) is not None
         and not stem_subject_claims(text, chemistry_enabled=settings.chemistry_enabled)
     )
 

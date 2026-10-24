@@ -13,6 +13,7 @@ Matching is linear token scans — no ``\\s+`` / ``.+`` regex on user chat text
 from __future__ import annotations
 
 import re
+from itertools import pairwise
 from typing import TYPE_CHECKING
 
 from app.modules.images.gen_intent_words import (
@@ -27,7 +28,6 @@ from app.modules.images.gen_intent_words import (
     NON_IMAGE_WORDS,
     NOT_REVISION_STARTERS,
     NOUN_MESSAGE_FILE_WORDS,
-    NOUN_ONLY_FILLER,
     POSSESSIVES,
     REVISION_PRONOUNS,
     SUBJECTLESS_FILLER,
@@ -53,7 +53,7 @@ def split_tokens(text: str) -> list[str]:
     return text.split()
 
 
-def _strip_polite(tokens: list[str]) -> list[str]:
+def strip_polite(tokens: list[str]) -> list[str]:
     i = 0
     n = len(tokens)
     if i < n and tokens[i].lower() == "please":
@@ -301,10 +301,25 @@ _DRAW_NOT_A_PICTURE = frozenset(
 )
 
 
+# The most words "create …" / "draw …" may name, within an 80-character message.
+_LONG_SUBJECT_WORDS = 12
+
+
+_SECOND_ASKS = frozenset({"explain", "tell", "write", "show", "help", "what", "how", "why", "who"})
+
+
+def _asks_again(parts: list[str]) -> bool:
+    """A second request in the subject: "… and also explain …", "… and tell me …"."""
+    words = [word for word in map(fold_token, parts) if word != "also"]
+    return any(word in {"and", "then"} and nxt in _SECOND_ASKS for word, nxt in pairwise(words))
+
+
 def _make_is_not_a_picture(subject: str) -> bool:
+    """ "Make money", "make a decision about moving": the idiom's noun leads, and no picture
+    word follows it ("make a living room illustration" is still a picture)."""
     words = [fold_token(word) for word in subject.split()]
     words = [word for word in words if word and word not in MAKE_IDIOM_FILLER]
-    return bool(words) and all(word in MAKE_NOT_A_PICTURE for word in words)
+    return bool(words) and words[0] in MAKE_NOT_A_PICTURE and not IMAGE_NOUNS & set(words)
 
 
 def _match_short_create(tokens: list[str]) -> str | None:
@@ -326,12 +341,15 @@ def _match_short_create(tokens: list[str]) -> str | None:
     if i < len(tokens) and tokens[i].lower() in ARTICLES:
         i += 1
     subject_parts = tokens[i:]
-    if not subject_parts or len(subject_parts) > 8:
+    # "Create a walking poor man on the streets of Addis Ababa" is nine words; "make"
+    # with a long object is more often a task ("make a decision about moving …").
+    if not subject_parts or len(subject_parts) > (8 if verb == "make" else _LONG_SUBJECT_WORDS):
         return None
     if subject_parts[0].lower() in REVISION_PRONOUNS:
         return None
-    # "create an image" names no subject; the thread may supply one.
-    if _names_no_subject(subject_parts):
+    # "create an image" names no subject; the thread may supply one. "Draw a cat and also
+    # explain black holes" asks twice: the plan draws the cat beside the answer.
+    if _names_no_subject(subject_parts) or _asks_again(subject_parts):
         return None
     subject = join_subject(subject_parts)
     if verb == "make" and _make_is_not_a_picture(subject):
@@ -376,8 +394,8 @@ def _match_image_noun_message(tokens: list[str]) -> str | None:
         first in POSSESSIVES
         or first in NOT_REVISION_STARTERS
         or first in IMAGE_NOUNS
-        or first in VERBS_IMAGE
-        or first in VERBS_DRAW
+        # "U can't create an image": who makes it, not what it shows.
+        or any(fold_token(part) in VERBS_IMAGE | VERBS_DRAW for part in parts)
     ):
         return None
     subject = join_subject(parts)
@@ -408,7 +426,7 @@ def extract_image_gen_prompt(text: str) -> str | None:
     if purpose is not None:
         return clean_prompt(purpose.group("subject"))
 
-    tokens = _strip_polite(split_tokens(trimmed))
+    tokens = strip_polite(split_tokens(trimmed))
     if not tokens:
         return None
 
@@ -453,21 +471,6 @@ def stem_subject(text: str, *, chemistry_enabled: bool = True) -> SubjectName | 
 def stem_subject_claims(text: str, *, chemistry_enabled: bool = True) -> bool:
     """True when a maths, physics or chemistry subject owns this turn (``stem_subject``)."""
     return stem_subject(text, chemistry_enabled=chemistry_enabled) is not None
-
-
-def is_image_noun_only_message(text: str) -> bool:
-    """True for a bare image ask with no subject: ``Image``, ``a pic``, ``create an image``."""
-    if is_image_gen_generate_now(text):
-        return False
-    tokens = _strip_polite(split_tokens(text.strip().rstrip(".!?")))
-    if tokens and (tokens[0].lower() in VERBS_IMAGE or tokens[0].lower() in VERBS_DRAW):
-        tokens = tokens[1:]
-        if tokens and tokens[0].lower() == "me":
-            tokens = tokens[1:]
-    kept = [tok for tok in tokens if tok.lower() not in NOUN_ONLY_FILLER]
-    if not kept:
-        return False
-    return all(tok.lower() in IMAGE_NOUNS for tok in kept)
 
 
 def is_image_gen_generate_now(text: str) -> bool:

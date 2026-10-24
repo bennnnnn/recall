@@ -619,7 +619,13 @@
     {"text": "draw a growth curve for my startup", "generate": null, "revise": null, "lookup": null},
     {"text": "draw a winding mountain road with sharp curves at sunset", "generate": "winding mountain road with sharp curves at sunset", "revise": null, "lookup": null},
     {"text": "draw a curved road at sunset", "generate": "curved road at sunset", "revise": "black cat, draw a curved road at sunset", "lookup": null},
-    {"text": "make it a line drawing", "generate": null, "revise": "black cat, a line drawing", "lookup": null}
+    {"text": "make it a line drawing", "generate": null, "revise": "black cat, a line drawing", "lookup": null},
+    {"text": "Create a walking poor man on the streets of Addis Ababa", "generate": "walking poor man on the streets of Addis Ababa", "revise": null, "lookup": null},
+    {"text": "draw a little girl flying a red kite over the hills at sunset", "generate": "little girl flying a red kite over the hills at sunset", "revise": null, "lookup": null},
+    {"text": "make a decision about whether to move to another city", "generate": null, "revise": null, "lookup": null},
+    {"text": "make a choice between two jobs", "generate": null, "revise": "black cat, make a choice between two jobs", "lookup": null},
+    {"text": "make friends at a new school", "generate": null, "revise": "black cat, make friends at a new school", "lookup": null},
+    {"text": "U can't create an image", "generate": null, "revise": "black cat, U can't create an image", "lookup": null}
   ],
   "threads": [
     {"text": "Image", "priors": ["Dog"], "generate": "Dog"},
@@ -690,7 +696,10 @@
     {"text": "Image", "priors": ["a cat and a dog playing in the park all day"], "generate": null},
     {"text": "Image", "priors": ["Generate image: owl"], "generate": "owl"},
     {"text": "generate the image", "priors": ["draw a dog", "Paris"], "generate": null},
-    {"text": "generate the image", "priors": ["Dog", "Image"], "generate": "Dog"}
+    {"text": "generate the image", "priors": ["Dog", "Image"], "generate": "Dog"},
+    {"text": "U can’t create an image", "priors": ["Create a walking poor man on the streets of Addis Ababa"], "generate": "walking poor man on the streets of Addis Ababa"},
+    {"text": "can't you make a picture?", "priors": ["Dog"], "generate": "Dog"},
+    {"text": "you can't create an image", "priors": [], "generate": null}
   ],
   "revision_contexts": [
     {"messages": [{"role": "user", "content": "Generate image: black cat"}, {"role": "assistant", "content": "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]"}], "last_assistant_is_image_only": true, "previous_subject": "black cat"},
