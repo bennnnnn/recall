@@ -96,6 +96,7 @@ export function HomeStarters({ composerActive }: Props) {
     remindersReady,
     homeNudgeDismissed,
     dismissReminderNudge,
+    now,
   } = useTodos();
   const leadMinutes = user?.reminder_lead_minutes ?? undefined;
 
@@ -103,7 +104,8 @@ export function HomeStarters({ composerActive }: Props) {
     // Wait until todos + nudge-state are in sync. Silent refreshes used to paint
     // red urgent cards for a frame before persisted dismissals caught up.
     if (todosLoading || !remindersReady) return undefined;
-    const urgent = listHomeUrgentTodos(todos, undefined, leadMinutes);
+    // `now` moves on as reminders fall due: one that does while the app is open shows here.
+    const urgent = listHomeUrgentTodos(todos, now, leadMinutes);
     return firstOverdueHomeTodo(
       filterHomeNudgeTodos(urgent, { dismissed: homeNudgeDismissed }),
     );
@@ -113,6 +115,7 @@ export function HomeStarters({ composerActive }: Props) {
     remindersReady,
     homeNudgeDismissed,
     leadMinutes,
+    now,
   ]);
 
   // Once typing begins, leave the empty-chat canvas clear and focused.

@@ -1,0 +1,68 @@
+import { useEffect, useState } from "react";
+
+import type { Todo } from "@/lib/api";
+import { DEFAULT_HOME_URGENT_LEAD } from "@/features/todos/model/homeUrgentTodos";
+import { onAppStateChange } from "@/lib/foregroundRefresh";
+
+/** Older than this, the clock reads again before it schedules the next change. */
+const STALE_MS = 1000;
+/** A due time has passed once its minute has (`minutes_until` floors): wake just after. */
+const AFTER_MS = 500;
+/** The longest a timer can wait; a later change is scheduled when it fires. */
+const MAX_WAIT_MS = 2_147_483_647;
+
+/**
+ * The next moment an open reminder changes for Home, the badge or the To-do list: it
+ * enters the reminder-lead window, or its due time passes. Null when none will.
+ */
+export function nextReminderChange(
+  todos: Todo[],
+  now: Date,
+  leadMinutes: number = DEFAULT_HOME_URGENT_LEAD,
+): number | null {
+  const nowMs = now.getTime();
+  let next: number | null = null;
+  for (const todo of todos) {
+    if (todo.checked || !todo.due_at) continue;
+    const dueMs = new Date(todo.due_at).getTime();
+    if (Number.isNaN(dueMs)) continue;
+    for (const at of [dueMs - leadMinutes * 60_000, dueMs]) {
+      if (at >= nowMs && (next === null || at < next)) next = at;
+    }
+  }
+  return next;
+}
+
+/**
+ * The time the to-do views read. Home read the clock once, when the to-dos last changed,
+ * so a reminder that fell due while the app stayed open showed as overdue only after a
+ * restart. This time moves on when the list changes, when a reminder enters its lead
+ * window or falls due, and when the app comes back to the foreground.
+ */
+export function useReminderClock(todos: Todo[], leadMinutes?: number): Date {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const current = Date.now();
+    // A new list reads the clock again: a to-do saved already overdue is overdue now.
+    if (current - now.getTime() >= STALE_MS) {
+      setNow(new Date(current));
+      return;
+    }
+    const next = nextReminderChange(todos, new Date(current), leadMinutes);
+    if (next === null) return;
+    const wait = Math.min(Math.max(next - current, 0) + AFTER_MS, MAX_WAIT_MS);
+    const timer = setTimeout(() => setNow(new Date()), wait);
+    return () => clearTimeout(timer);
+  }, [todos, leadMinutes, now]);
+
+  useEffect(
+    () =>
+      onAppStateChange((state) => {
+        if (state === "active") setNow(new Date());
+      }),
+    [],
+  );
+
+  return now;
+}

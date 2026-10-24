@@ -52,6 +52,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     isCurrentSession,
     olderCompleted,
     showOlderCompleted,
+    now,
   } = useTodos();
   const [editorOpen, setEditorOpen] = useState(false);
   const [pullRefreshing, setPullRefreshing] = useState(false);
@@ -209,8 +210,9 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     [error, retry, showTodosEmptyHero],
   );
 
-  const visibleTodos = useMemo(() => todosForView(todos, view), [todos, view]);
-  const rows = useMemo(() => buildTodoListRows(visibleTodos, new Date()), [visibleTodos]);
+  // `now` moves on as reminders fall due, so a to-do moves to Overdue while the list is open.
+  const visibleTodos = useMemo(() => todosForView(todos, view, now), [todos, view, now]);
+  const rows = useMemo(() => buildTodoListRows(visibleTodos, now), [visibleTodos, now]);
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
   if (!token) return <Redirect href="/login" />;
 
