@@ -97,7 +97,9 @@ async def _force_web_search_if_needed(
             ctx.tavily_budget.record_search(failed=True)
             hits, tried = [], targets or [user_text]
         if hits:
-            block = wrap_untrusted("web search", format_search_block(hits))
+            block = wrap_untrusted(
+                "web search", format_search_block(hits, user_timezone=ctx.user_timezone)
+            )
             return inject_before_last_user(messages, block), hits
 
     empty = format_search_empty_block(tried or [user_text], failed=ctx.tavily_budget.search_failed)

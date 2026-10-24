@@ -12,6 +12,7 @@ from app.modules.web_search.patterns import (
     _NUMBERED_VENUE_LINE,
     _PRICE_RE,
 )
+from app.modules.web_search.source_dates import local_today, mark_dates, stale_note
 from app.modules.web_search.source_tables import flowed_snippet
 from app.services.md_fence_scan import (
     iter_fences,
@@ -78,6 +79,7 @@ def format_search_block(
     team: str | None = None,
     local_places: bool = False,
     user_location: str | None = None,
+    user_timezone: str | None = None,
 ) -> str:
     lines = [
         "Web search results (retrieved just now — ground your answer in these):",
@@ -92,9 +94,13 @@ def format_search_block(
             f"The user asked about **{team}**. Only report scores or tournament status for "
             f"{team} — do not attribute other teams' World Cup results to them."
         )
+    # Each dated day says how long ago it was, and a page that calls a time already past
+    # still to come says it is a forecast.
+    today = local_today(user_timezone)
     for index, hit in enumerate(hits, start=1):
-        snippet = flowed_snippet(hit.snippet, indent="   ")
-        lines.append(f"{index}. {hit.title} ({hit.url}) — {snippet}")
+        snippet = flowed_snippet(mark_dates(hit.snippet, today), indent="   ")
+        note = stale_note(hit.snippet, today)
+        lines.append(f"{index}. {hit.title} ({hit.url}) — {note}{snippet}")
     if local_places:
         seed = places_payload_from_hits(hits)
         seed_block = ""

@@ -142,9 +142,15 @@ def test_a_snippet_without_a_table_reads_as_before(snippet: str) -> None:
     assert tables_as_rows(snippet) == snippet
 
 
+def _unmarked(text: str, _today: object) -> str:
+    """The table as written: how long ago each date was is ``test_source_dates``'s."""
+    return text
+
+
 def test_the_search_block_puts_each_row_on_its_own_line() -> None:
     hit = WebSearchHit("iPhone - Wikipedia", "https://en.wikipedia.org/wiki/IPhone", _IPHONE)
-    block = format_search_block([hit])
+    with patch("app.modules.web_search.formatting.mark_dates", _unmarked):
+        block = format_search_block([hit])
     lines = block.split("\n")
     first = lines.index(
         f"1. iPhone - Wikipedia (https://en.wikipedia.org/wiki/IPhone) — {_IPHONE_ROWS[0]}"
@@ -158,9 +164,12 @@ def test_the_search_block_puts_each_row_on_its_own_line() -> None:
 async def test_the_search_tool_result_reads_the_table_the_same_way() -> None:
     hit = WebSearchHit("iPhone - Wikipedia", "https://en.wikipedia.org/wiki/IPhone", _IPHONE)
     adapter = WebSearchAdapter(Settings(web_search_enabled=True, mock_llm_enabled=True))
-    with patch(
-        "app.modules.web_search.tool.run_cached_search",
-        AsyncMock(return_value=([hit], ["iphone release dates"])),
+    with (
+        patch(
+            "app.modules.web_search.tool.run_cached_search",
+            AsyncMock(return_value=([hit], ["iphone release dates"])),
+        ),
+        patch("app.modules.web_search.tool.mark_dates", _unmarked),
     ):
         result = await adapter.invoke({"query": "iphone release dates"}, tool_context())
     assert "\n".join(_IPHONE_ROWS) in result.content
