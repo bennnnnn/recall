@@ -15,13 +15,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core.config import Settings
+from app.core.validation import claim_is_true
 from app.models.schemas import AppleAuthRequest, GoogleAuthRequest
 from app.modules.account import api as auth_router
 from app.modules.account import service as auth_service
 from app.modules.account.email_authority import (
     AccountExistsError,
     apple_owns_email,
-    claim_is_true,
     google_owns_email,
     previous_sign_in,
 )

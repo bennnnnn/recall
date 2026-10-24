@@ -22,6 +22,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Literal
 
+from app.core.validation import claim_is_true
 from app.exceptions import DomainError
 from app.models.orm import User
 
@@ -46,19 +47,6 @@ class AccountExistsError(DomainError):
             sign_in_with=sign_in_with,
         )
         self.sign_in_with: SignInProvider = sign_in_with
-
-
-def claim_is_true(value: object) -> bool:
-    """True only for an explicit, unambiguous true claim.
-
-    Apple sends boolean claims as the strings "true"/"false"; Google sends
-    bools. A missing claim or anything else (incl. "false", 0, None) is false.
-    """
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() == "true"
-    return False
 
 
 def _domain(email: str) -> str:

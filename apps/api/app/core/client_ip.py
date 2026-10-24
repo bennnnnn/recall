@@ -5,8 +5,7 @@ from __future__ import annotations
 import ipaddress
 from collections.abc import Mapping
 
-from starlette.requests import Request
-from starlette.websockets import WebSocket
+from starlette.requests import HTTPConnection
 
 from app.core.config import Settings
 
@@ -80,22 +79,14 @@ def _resolve_client_ip(
     return from_xff or peer
 
 
-def client_ip(request: Request, settings: Settings) -> str:
-    return _resolve_client_ip(
-        request.client.host if request.client else None,
-        request.headers,
-        settings,
-    )
+def client_ip(connection: HTTPConnection, settings: Settings) -> str:
+    """The client IP of a request or a WebSocket handshake, under the same trust rules.
 
-
-def client_ip_from_websocket(websocket: WebSocket, settings: Settings) -> str:
-    """Resolve the client IP for a WebSocket handshake (same trust rules as REST).
-
-    WebSocket handshakes need the same fly-client-ip / XFF handling as REST so
-    a request behind Fly is keyed on the real edge IP, not the proxy's.
+    A WebSocket needs the same fly-client-ip / XFF handling as REST so a handshake
+    behind Fly is keyed on the real edge IP, not the proxy's.
     """
     return _resolve_client_ip(
-        websocket.client.host if websocket.client else None,
-        websocket.headers,
+        connection.client.host if connection.client else None,
+        connection.headers,
         settings,
     )

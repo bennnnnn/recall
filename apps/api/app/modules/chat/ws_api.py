@@ -22,7 +22,7 @@ from redis.asyncio import Redis
 from starlette.websockets import WebSocketState
 
 from app.core import access_tokens, chat_rate_limit, shutdown, user_cache
-from app.core.client_ip import client_ip_from_websocket
+from app.core.client_ip import client_ip
 from app.core.config import Settings, get_settings
 from app.core.log_context import bound_log_ids
 from app.core.rate_limit import allow_request_fail_closed
@@ -80,12 +80,12 @@ async def _ws_connect_rate_limit(redis: Redis, user_id: UUID) -> bool:
 async def _ws_handshake_rate_limit(redis: Redis, websocket: WebSocket) -> bool:
     """Cap unauthenticated connect attempts by client IP before accept().
 
-    Uses the shared `client_ip_from_websocket` resolver so a Fly-proxied
+    Uses the shared `client_ip` resolver so a Fly-proxied
     handshake is keyed on the edge-seen IP (fly-client-ip / XFF), not the
     proxy's — otherwise every connect shares one proxy's bucket.
     """
     settings = get_settings()
-    ip = client_ip_from_websocket(websocket, settings)
+    ip = client_ip(websocket, settings)
     return await allow_request_fail_closed(
         redis,
         f"rate:ws:handshake:{ip}",
