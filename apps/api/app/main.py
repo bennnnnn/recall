@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import process_bootstrap
 from app.core.body_limit import RequestBodyLimitMiddleware
+from app.core.compression import CompressionMiddleware
 from app.core.config import cors_allow_origins, get_settings
 from app.core.domain_errors import register_domain_error_handler
 from app.core.request_id import RequestIdMiddleware
@@ -99,6 +100,9 @@ def create_app() -> FastAPI:
         SecurityHeadersMiddleware,
         enable_hsts=settings.environment == "production",
     )
+    # Outermost: every JSON body the stack produces, error replies included, leaves
+    # gzipped for a client that accepts it. Streams and sockets pass untouched.
+    app.add_middleware(CompressionMiddleware)
     register_unavailable_handlers(app)
     register_domain_error_handler(app)
 

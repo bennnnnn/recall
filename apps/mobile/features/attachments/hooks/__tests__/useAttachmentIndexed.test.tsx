@@ -8,9 +8,28 @@ import {
   resetAttachmentIndexStatus,
 } from "@/features/attachments/model/attachmentIndexStatus";
 
+let mockToken = "token";
 jest.mock("@/contexts/AuthContext", () => ({
-  useAuthToken: () => "token",
+  useAuthToken: () => mockToken,
 }));
+
+const mockFiles = new Map<string, string>();
+jest.mock("expo-file-system/legacy", () => ({
+  cacheDirectory: "file:///cache/",
+  getInfoAsync: async (path: string) => ({ exists: mockFiles.has(path) }),
+  readAsStringAsync: async (path: string) => mockFiles.get(path) ?? "",
+  writeAsStringAsync: async (path: string, contents: string) => {
+    mockFiles.set(path, contents);
+  },
+  deleteAsync: async (path: string) => {
+    mockFiles.delete(path);
+  },
+}));
+
+/** An access token for `account` (only its `sub` is read, to pick the account's file). */
+function tokenFor(account: string): string {
+  return `h.${btoa(JSON.stringify({ sub: account }))}.s`;
+}
 
 const mockGetAttachmentUrl = jest.fn();
 
@@ -42,6 +61,8 @@ beforeEach(() => {
   mockGetAttachmentUrl.mockReset();
   resetAttachmentIndexStatus();
   mockNetListeners.clear();
+  mockFiles.clear();
+  mockToken = "token";
 });
 
 let indexed = false;
@@ -271,4 +292,58 @@ it("stops polling when no row shows the attachment", async () => {
   } finally {
     jest.useRealTimers();
   }
+});
+
+describe("settled statuses across app runs", () => {
+  async function showInNewRun(attachmentId: string) {
+    // A new run: nothing in memory, the cache directory as the last run left it.
+    resetAttachmentIndexStatus();
+    fileName = undefined;
+    indexed = false;
+    const view = await render(<Probe attachmentId={attachmentId} />);
+    await act(async () => {});
+    return view;
+  }
+
+  it("shows a file the server settled in an earlier run without asking again", async () => {
+    mockToken = tokenFor("user-a");
+    mockGetAttachmentUrl.mockResolvedValue({ indexed: true, original_filename: "lease.pdf" });
+    const first = await showInNewRun("old-file");
+    await waitFor(() => expect(fileName).toBe("lease.pdf"));
+    expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(1);
+    await first.unmount();
+
+    await showInNewRun("old-file");
+    expect(indexed).toBe(true);
+    expect(fileName).toBe("lease.pdf");
+    // One request the first run, none after (it used to be one per file per launch).
+    expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it("never reads another account's statuses", async () => {
+    mockToken = tokenFor("user-a");
+    mockGetAttachmentUrl.mockResolvedValue({ indexed: true, original_filename: "a.pdf" });
+    const first = await showInNewRun("file");
+    await waitFor(() => expect(fileName).toBe("a.pdf"));
+    await first.unmount();
+
+    mockToken = tokenFor("user-b");
+    mockGetAttachmentUrl.mockResolvedValue({ indexed: true, original_filename: "b.pdf" });
+    await showInNewRun("file");
+    await waitFor(() => expect(fileName).toBe("b.pdf"));
+    expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps only the server's final word, not a file still indexing", async () => {
+    mockToken = tokenFor("user-a");
+    mockGetAttachmentUrl.mockReturnValue(new Promise(() => {}));
+    mockGetAttachmentUrl.mockResolvedValueOnce({ indexed: false, created_at: new Date().toISOString() });
+    const first = await showInNewRun("fresh");
+    await waitFor(() => expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(1));
+    await first.unmount();
+
+    await showInNewRun("fresh");
+    expect(indexed).toBe(false);
+    expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(2);
+  });
 });

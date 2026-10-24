@@ -3,6 +3,7 @@ import NetInfo from "@react-native-community/netinfo";
 import { api } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { isNetworkOffline } from "@/lib/networkStatus";
+import type { SettledStatus } from "@/features/attachments/model/attachmentStatusFile";
 
 export type AttachmentIndexStatus = {
   indexed: boolean;
@@ -42,6 +43,10 @@ type Poller = {
 
 const pollers = new Map<string, Poller>();
 let generation: number | null = null;
+/** The statuses earlier runs settled (`attachmentStatusFile.ts`), read once per sign-in session. */
+let settledLoad: { session: number; statuses: Promise<Map<string, SettledStatus>> } | null = null;
+/** The file layer loads expo-file-system: only the first status a run shows needs it. */
+const statusFile = () => import("@/features/attachments/model/attachmentStatusFile");
 let offline = false;
 let stopWatchingNetwork: (() => void) | null = null;
 
@@ -80,6 +85,26 @@ function publish(poller: Poller, status: AttachmentIndexStatus, settled = false)
   poller.listeners.forEach((listener) => listener());
 }
 
+function settledStatuses(token: string): Promise<Map<string, SettledStatus>> {
+  const session = getSessionGeneration();
+  if (settledLoad?.session !== session) {
+    const statuses = statusFile().then((file) => file.readSettledStatuses(token));
+    settledLoad = { session, statuses: statuses.catch(() => new Map<string, SettledStatus>()) };
+  }
+  return settledLoad.statuses;
+}
+
+/** The server's final word on a file: later runs show it without asking. */
+async function keepSettled(poller: Poller): Promise<void> {
+  const session = getSessionGeneration();
+  const statuses = await settledStatuses(poller.token);
+  if (session !== getSessionGeneration()) return;
+  const { indexed, failed, fileName } = poller.status;
+  statuses.delete(poller.id);
+  statuses.set(poller.id, { indexed, failed, fileName });
+  await statusFile().then((file) => file.writeSettledStatuses(poller.token, statuses)).catch(() => undefined);
+}
+
 function resume(poller: Poller): void {
   if (waiting(poller) && poller.timer === undefined && !poller.inFlight) void poll(poller);
 }
@@ -94,10 +119,29 @@ function schedule(poller: Poller): void {
   poller.delay = Math.min(MAX_POLL_DELAY_MS, poller.delay * POLL_BACKOFF);
 }
 
+/** Publish the status an earlier run settled. False when there is none: the server is asked. */
+async function publishKept(poller: Poller): Promise<boolean> {
+  const session = generation;
+  const kept = (await settledStatuses(poller.token)).get(poller.id);
+  // Signed out meanwhile: this poller is gone with its session.
+  if (session !== generation) return true;
+  if (!kept) return false;
+  publish(poller, kept, true);
+  watchNetwork();
+  return true;
+}
+
 async function poll(poller: Poller): Promise<void> {
   if (!waiting(poller) || offline) return;
   const session = generation;
   poller.inFlight = true;
+  if (poller.startedAt === null) {
+    const done = await publishKept(poller).catch(() => false);
+    if (done || !waiting(poller)) {
+      poller.inFlight = false;
+      return;
+    }
+  }
   poller.startedAt ??= Date.now();
   try {
     const row = await api.getAttachmentUrl(poller.token, poller.id);
@@ -108,6 +152,7 @@ async function poll(poller: Poller): Promise<void> {
     // A file with no extractable text stays unindexed forever: one answer is enough.
     else if (settledByAge(row.created_at)) publish(poller, named(INDEX_FAILED), true);
     else publish(poller, named(poller.status));
+    if (poller.settled) void keepSettled(poller);
   } catch {
     // Still pending; the backoff spaces out the next try.
   } finally {
@@ -173,6 +218,7 @@ export function resetAttachmentIndexStatus(): void {
   pollers.forEach(pause);
   pollers.clear();
   generation = null;
+  settledLoad = null;
   stopWatchingNetwork?.();
   stopWatchingNetwork = null;
   offline = false;

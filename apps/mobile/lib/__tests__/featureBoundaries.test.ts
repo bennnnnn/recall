@@ -34,6 +34,7 @@ const PUBLIC: Record<string, readonly string[]> = {
     "components/ComposerAttachmentPreview.tsx",
     "hooks/useAttachmentIndexed.ts",
     "model/attachmentErrors.ts",
+    "model/attachmentStatusFile.ts",
     "model/attachmentUri.ts",
     "model/attachments.ts",
     "model/downloadChatAttachment.ts",
