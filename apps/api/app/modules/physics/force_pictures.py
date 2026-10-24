@@ -307,13 +307,3 @@ def force_picture_block(text: str) -> VerifiedPhysicsBlock | None:
         canonical_fence=picture.spec.model_dump(),
         allow_direct=False,
     )
-
-
-def is_picture_only(block: object) -> bool:
-    """A physics block that carries a picture and no verified result."""
-    return (
-        isinstance(block, VerifiedPhysicsBlock)
-        and block.physics_intent is None
-        and block.symbolic_request is None
-        and not (block.canonical_answer or block.display_answer)
-    )

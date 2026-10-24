@@ -66,10 +66,10 @@ from app.modules.money.block import (
     MONEY_RATES_MISSING,
     MONEY_REPLY_RULES,
 )
-from app.modules.physics import is_picture_only
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.modules.web_search.detection import needs_web_search
 from app.services.mcp import setup_mcp_adapters
+from app.services.solving import VerifiedPhysicsBlock
 from app.services.subject_solving import detect_subject
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
@@ -282,6 +282,16 @@ def _rows(case: Case) -> list[SimpleNamespace]:
         SimpleNamespace(id=uuid4(), role=role, content=text, model="free-chat")
         for role, text in case.history
     ]
+
+
+def is_picture_only(block: object) -> bool:
+    """A physics block that carries a picture and no verified result."""
+    return (
+        isinstance(block, VerifiedPhysicsBlock)
+        and block.physics_intent is None
+        and block.symbolic_request is None
+        and not (block.canonical_answer or block.display_answer)
+    )
 
 
 def _instant_kind(reply: str | None, *, solved: bool) -> str:
