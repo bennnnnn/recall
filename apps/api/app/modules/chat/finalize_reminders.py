@@ -111,6 +111,7 @@ async def _materialize(
             redis=redis,
             # A reminder change in chat is a card the user taps; nothing is written yet.
             confirm=True,
+            window=ctx.recent_messages,
         )
         # The pass never commits the session it is given; this one is the pass's own.
         await session.commit()

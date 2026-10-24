@@ -53,6 +53,7 @@ async def test_a_reply_emptied_by_the_reminder_pass_asks_when() -> None:
         user_timezone="UTC",
         user_message_content="remind me to plate the dinner",
         prompt_messages=[],
+        recent_messages=None,
         skip_memory_jobs=True,
     )
     text = await apply_reminder_pass(
@@ -80,6 +81,7 @@ async def test_the_list_is_flagged_changed_only_when_rows_were_written(
         user_timezone="UTC",
         user_message_content="yes, move them all to tomorrow",
         prompt_messages=[],
+        recent_messages=None,
         skip_memory_jobs=False,
     )
     outcome = TurnOutcome()
@@ -100,6 +102,7 @@ def _ctx(message: str, locale: str = "en", prior: str | None = None) -> StreamCo
             user_timezone="UTC",
             user_message_content=message,
             prompt_messages=[*(earlier if prior else []), {"role": "user", "content": message}],
+            recent_messages=None,
             skip_memory_jobs=True,
         ),
     )

@@ -80,42 +80,42 @@ _LATER_JOBS = ("memory", "compress", "message_index")
 # every message after the day's first. To update: ``pytest -s`` prints every count.
 CEILINGS: dict[str, Ceiling] = {
     "greeting": Ceiling(
-        Counts(sql=6, checkouts=4, transactions=4, redis=22, models=1),
+        Counts(sql=5, checkouts=3, transactions=3, redis=22, models=1),
         Counts(sql=15, checkouts=5, transactions=5, redis=32, embeds=1),
         _EVERY_JOB,
     ),
     "question": Ceiling(
-        Counts(sql=6, checkouts=4, transactions=4, redis=25, models=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=25, models=2),
         Counts(sql=17, checkouts=5, transactions=5, redis=35, models=2, embeds=1),
         _EVERY_JOB,
     ),
     "follow-up, short chat": Ceiling(
-        Counts(sql=6, checkouts=4, transactions=4, redis=24, models=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=24, models=2),
         Counts(sql=16, checkouts=4, transactions=4, redis=28, models=1, embeds=1),
         _LATER_JOBS,
     ),
     "follow-up, long chat": Ceiling(
-        Counts(sql=9, checkouts=6, transactions=6, redis=26, models=2),
+        Counts(sql=8, checkouts=5, transactions=5, redis=26, models=2),
         Counts(sql=19, checkouts=5, transactions=5, redis=29, models=2, embeds=1),
         _LATER_JOBS,
     ),
     "maths": Ceiling(
-        Counts(sql=6, checkouts=4, transactions=4, redis=22, models=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=22, models=2),
         Counts(sql=15, checkouts=5, transactions=5, redis=35, models=2, embeds=1),
         _EVERY_JOB,
     ),
     "web search": Ceiling(
-        Counts(sql=6, checkouts=4, transactions=4, redis=30, models=2, searches=1),
+        Counts(sql=5, checkouts=3, transactions=3, redis=30, models=2, searches=1),
         Counts(sql=17, checkouts=5, transactions=5, redis=35, models=2, embeds=1),
         _EVERY_JOB,
     ),
     "reminder": Ceiling(
-        Counts(sql=11, checkouts=8, transactions=8, redis=32, models=1, embeds=1),
+        Counts(sql=10, checkouts=8, transactions=8, redis=32, models=1, embeds=1),
         Counts(sql=17, checkouts=5, transactions=5, redis=35, models=2, embeds=1),
         _EVERY_JOB,
     ),
     "photo lookup": Ceiling(
-        Counts(sql=7, checkouts=5, transactions=5, redis=28, models=2, searches=1),
+        Counts(sql=6, checkouts=4, transactions=4, redis=28, models=2, searches=1),
         Counts(sql=17, checkouts=5, transactions=5, redis=35, models=2, embeds=1),
         _EVERY_JOB,
     ),
@@ -125,17 +125,17 @@ CEILINGS: dict[str, Ceiling] = {
         _EVERY_JOB,
     ),
     "attachment question": Ceiling(
-        Counts(sql=15, checkouts=10, transactions=10, redis=36, models=2, embeds=1),
+        Counts(sql=14, checkouts=9, transactions=9, redis=36, models=2, embeds=1),
         Counts(sql=18, checkouts=6, transactions=6, redis=41, models=2, embeds=1),
         ("attachment_index", *_EVERY_JOB),
     ),
     "regenerate": Ceiling(
-        Counts(sql=11, checkouts=4, transactions=4, redis=27, models=2),
+        Counts(sql=10, checkouts=3, transactions=3, redis=27, models=2),
         Counts(sql=16, checkouts=4, transactions=4, redis=27, models=1, embeds=1),
         _LATER_JOBS,
     ),
     "clarify picks": Ceiling(
-        Counts(sql=10, checkouts=8, transactions=8, redis=33, models=2, embeds=1),
+        Counts(sql=9, checkouts=7, transactions=7, redis=33, models=2, embeds=1),
         Counts(sql=16, checkouts=4, transactions=4, redis=28, models=1, embeds=1),
         _LATER_JOBS,
     ),

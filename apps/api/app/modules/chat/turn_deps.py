@@ -300,6 +300,7 @@ class Todos(Protocol):
         prior_user: str | None = ...,
         redis: Redis | None = ...,
         confirm: bool = ...,
+        window: Sequence[object] | None = ...,
     ) -> tuple[str, int]: ...
 
 
