@@ -11,7 +11,10 @@ jest.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 let mockExpoGo = false;
 jest.mock("@/lib/expoRuntime", () => ({ isExpoGo: () => mockExpoGo }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
-jest.mock("@/lib/pushNotifications", () => ({ ensureNotificationPermission: jest.fn(async () => true) }));
+jest.mock("@/lib/pushNotifications", () => ({
+  ensureNotificationPermission: jest.fn(async () => true),
+  ensureReminderChannel: jest.fn(async () => undefined),
+}));
 jest.mock("@/features/todos/model/reminderPrefs", () => ({ getReminderLeadMs: jest.fn(async () => 600_000) }));
 jest.mock("@/lib/i18n", () => ({ t: (key: string) => key }));
 jest.mock("expo-notifications", () => ({

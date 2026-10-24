@@ -137,7 +137,6 @@ const NO_ACCOUNT_DATA = [
   "features/speech/model/ttsPreference.ts#cachedPreference",
   "features/todos/model/optimisticTodo.ts#optimisticTodoSeq",
   "features/todos/model/reminderAlerts.ts#toldAlertsOff",
-  "features/todos/model/todoReminders.ts#androidChannelReady",
   "lib/accentPrefs.ts#cachedAccent",
   "lib/accentRuntime.ts#accent",
   "lib/api/client.ts#onTokenRefresh",
