@@ -61,6 +61,16 @@ describe("a drawn chart on a phone card", () => {
     expect(axis).not.toContain("8,000");
   });
 
+  it("writes each pie slice's share on it", async () => {
+    const { view } = await drawChart(named("the contract's pie shape"));
+    expect((await drawnLabels(view!)).filter((label) => label.endsWith("%")).length).toBeGreaterThan(1);
+  });
+
+  it("keeps a missing day's label on the axis", async () => {
+    const { view } = await drawChart(named("a line with a missing day"));
+    expect(await drawnLabels(view!)).toEqual(expect.arrayContaining(["Mon", "Tue", "Wed", "Thu"]));
+  });
+
   it("starts a line's value axis near its data, not at zero", async () => {
     const { view } = await drawChart(named("weight from 80 to 75 kg (a line not pinned to zero)"));
     const [low] = view!.scale("y")!.domain() as number[];

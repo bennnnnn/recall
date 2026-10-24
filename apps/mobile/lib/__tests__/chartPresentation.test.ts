@@ -111,6 +111,14 @@ describe("presentChartSpec", () => {
       expect(compactLabelExpr(null)).not.toContain("domain(");
     });
 
+    it("sizes each label alone on a log scale, whose ticks span powers of ten", () => {
+      // One unit for the whole axis drew "0.001k, 0.01k … 100k" for 1, 10 … 100000.
+      for (const type of ["log", "symlog"]) {
+        const spec = presentChartSpec(line({ scale: { type } }));
+        expect(enc(spec).y.axis).toEqual({ labelExpr: compactLabelExpr(null) });
+      }
+    });
+
     it("covers a count and a bin Vega-Lite reads as numbers", () => {
       const spec = presentChartSpec({
         mark: "bar",
@@ -160,6 +168,50 @@ describe("presentChartSpec", () => {
 
     it("keeps a title that fits", () => {
       expect(presentChartSpec({ mark: "bar", title: "Rainfall" }).title).toBe("Rainfall");
+    });
+  });
+
+  describe("pie slices", () => {
+    const pie = (mark: unknown = "arc", theta: Record<string, unknown> = {}): Spec => ({
+      data: { values: [{ item: "Rent", amount: 1200 }, { item: "Food", amount: 400 }] },
+      mark,
+      encoding: {
+        theta: { field: "amount", type: "quantitative", ...theta },
+        color: { field: "item", type: "nominal" },
+      },
+    });
+
+    it("writes each slice's share on it, mid-slice", () => {
+      const spec = presentChartSpec(pie());
+      expect(spec).not.toHaveProperty("mark");
+      expect(enc(spec).theta).toMatchObject({ field: "amount", stack: true });
+      const [arc, label] = spec.layer as Spec[];
+      expect(arc.mark).toBe("arc");
+      expect(label).toMatchObject({
+        mark: { type: "text", radius: { expr: "min(width, height) / 2 * 0.62" } },
+        encoding: { text: { field: "__share" } },
+      });
+      expect(spec.transform).toEqual([
+        { joinaggregate: [{ op: "sum", field: "amount", as: "__total" }] },
+        {
+          calculate:
+            "datum[\"amount\"] / datum.__total >= 0.05 ? format(datum[\"amount\"] / datum.__total, '.0%') : ''",
+          as: "__share",
+        },
+      ]);
+    });
+
+    it("puts a donut's labels in its ring", () => {
+      const [, label] = presentChartSpec(pie({ type: "arc", innerRadius: 50 })).layer as Spec[];
+      expect(label.mark).toMatchObject({ radius: { expr: "(min(width, height) / 2 + 50) / 2" } });
+    });
+
+    it.each([
+      ["a share it adds up itself", pie("arc", { aggregate: "sum" })],
+      ["a nested field", pie("arc", { field: "cost.amount" })],
+      ["labels of its own", { ...pie(), encoding: { ...(pie().encoding as Spec), text: { field: "item" } } }],
+    ])("leaves %s as written", (_name, spec) => {
+      expect(presentChartSpec(spec)).not.toHaveProperty("layer");
     });
   });
 });

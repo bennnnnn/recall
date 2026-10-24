@@ -117,16 +117,36 @@ function readValues(values: unknown[], labels: Label[] | undefined, asCategory: 
   return points;
 }
 
-/** The y axis block's `min` / `max`, kept only when the data sits inside them. */
-function withValueRange(spec: JsonRecord, yAxis: JsonRecord | undefined, values: SeriesValue[]): JsonRecord {
+/**
+ * The y axis block's `min` / `max`, kept only when the data sits inside them. A stack (areas,
+ * or bars that are not side by side) can rise past every single value, so its max goes.
+ */
+function withValueRange(
+  spec: JsonRecord,
+  yAxis: JsonRecord | undefined,
+  values: SeriesValue[],
+  stacks: boolean,
+): JsonRecord {
   if (!yAxis) return spec;
   const ys = values.map((row) => row.y);
   const scale: JsonRecord = {};
   if (finite(yAxis.min) && yAxis.min <= Math.min(...ys)) scale.domainMin = yAxis.min;
-  if (finite(yAxis.max) && yAxis.max >= Math.max(...ys)) scale.domainMax = yAxis.max;
+  if (finite(yAxis.max) && !stacks && yAxis.max >= Math.max(...ys)) scale.domainMax = yAxis.max;
   if (Object.keys(scale).length === 0) return spec;
   const encoding = spec.encoding as JsonRecord;
   return { ...spec, encoding: { ...encoding, y: { ...(encoding.y as JsonRecord), scale } } };
+}
+
+/**
+ * Every label on the category axis, in the order given: a null value is a gap at its label.
+ * Left to the rows, "Tue" with no value vanished and the line joined Mon to Wed.
+ */
+function withCategoryDomain(spec: JsonRecord, labels: Label[] | undefined): JsonRecord {
+  const encoding = spec.encoding as JsonRecord;
+  if (!labels || !isRecord(encoding.x) || encoding.x.type !== "ordinal") return spec;
+  const scale = isRecord(encoding.x.scale) ? encoding.x.scale : {};
+  const x = { ...encoding.x, scale: { ...scale, domain: labels.map(String) } };
+  return { ...spec, encoding: { ...encoding, x } };
 }
 
 /** The colours the series asked for, when every one of them named one. */
@@ -176,5 +196,11 @@ export function categoryChartToVegaLite(spec: JsonRecord): JsonRecord | null {
     // One series names its own axis; several are named by the legend.
     yTitle: axisTitle(spec, "y") ?? (marks.size === 1 ? [...marks.keys()][0] : null),
   });
-  return withColors(withValueRange(drawn, axisBlock(spec, "y"), values), series);
+  // Areas stack, and so do bars of several series unless they stand side by side.
+  const kinds = [...marks.values()];
+  const count = (mark: string) => kinds.filter((kind) => kind === mark).length;
+  const sideBySide = isRecord(drawn.encoding) && "xOffset" in drawn.encoding;
+  const stacks = count("area") > 1 || (count("bar") > 1 && !sideBySide);
+  const ranged = withValueRange(drawn, axisBlock(spec, "y"), values, stacks);
+  return withColors(withCategoryDomain(ranged, labels), series);
 }

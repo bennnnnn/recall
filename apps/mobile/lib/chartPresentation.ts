@@ -224,7 +224,10 @@ function compactAxisLabels(spec: JsonRecord): void {
       const ch = view.encoding[key];
       if (!isRecord(ch) || !isQuantitative(ch) || ch.axis === null) continue;
       const axis = isRecord(ch.axis) ? ch.axis : {};
-      if (!setsLabelFormat(axis)) ch.axis = { ...axis, labelExpr: compactLabelExpr(onePlot ? key : null) };
+      // A log scale's ticks span powers of ten: one unit for the axis drew "0.001k … 100k".
+      const logScale = isRecord(ch.scale) && ["log", "symlog"].includes(String(ch.scale.type));
+      const sized = onePlot && !logScale ? key : null;
+      if (!setsLabelFormat(axis)) ch.axis = { ...axis, labelExpr: compactLabelExpr(sized) };
     }
   });
 }
@@ -250,14 +253,54 @@ function wrapTitle(spec: JsonRecord, width: number): void {
   }
 }
 
+// A slice too thin to hold its share: no label (the legend still names it).
+const SLICE_LABEL_MIN_SHARE = 0.05;
+
+/**
+ * A pie or donut with each slice's share written on it: the slices told no numbers, and a
+ * budget pie could not be read. The arc and its label share the stacked angle, so each label
+ * sits mid-slice. The field reaches the expression only as a JSON string literal.
+ */
+function labelSlices(spec: JsonRecord): JsonRecord {
+  const mark = spec.mark;
+  const encoding = isRecord(spec.encoding) ? spec.encoding : null;
+  const theta = encoding && isRecord(encoding.theta) ? encoding.theta : null;
+  if (markType(mark) !== "arc" || "layer" in spec || !encoding || !theta) return spec;
+  const field = theta.field;
+  if (typeof field !== "string" || /[.[\]]/.test(field) || "aggregate" in theta || "text" in encoding) return spec;
+  const inner = isRecord(mark) && typeof mark.innerRadius === "number" ? mark.innerRadius : 0;
+  const radius = inner ? `(min(width, height) / 2 + ${inner}) / 2` : "min(width, height) / 2 * 0.62";
+  const value = `datum[${JSON.stringify(field)}]`;
+  const share = `${value} / datum.__total`;
+  const transform = Array.isArray(spec.transform) ? spec.transform : [];
+  return {
+    ...spec,
+    mark: undefined,
+    transform: [
+      ...transform,
+      { joinaggregate: [{ op: "sum", field, as: "__total" }] },
+      { calculate: `${share} >= ${SLICE_LABEL_MIN_SHARE} ? format(${share}, '.0%') : ''`, as: "__share" },
+    ],
+    encoding: { ...encoding, theta: { ...theta, stack: true } },
+    layer: [
+      { mark },
+      {
+        mark: { type: "text", radius: { expr: radius }, fill: "#ffffff", fontWeight: "bold", fontSize: 12 },
+        encoding: { text: { field: "__share", type: "nominal" } },
+      },
+    ],
+  };
+}
+
 function isVegaSpec(spec: JsonRecord): boolean {
   return typeof spec.$schema === "string" && spec.$schema.includes("/schema/vega/");
 }
 
 /** The spec as a card `width` px wide draws it: a laid-out copy, the given spec untouched. */
 export function presentChartSpec(spec: JsonRecord, width = 320): JsonRecord {
-  const out = JSON.parse(JSON.stringify(spec)) as JsonRecord;
-  if (isVegaSpec(out)) return out;
+  const parsed = JSON.parse(JSON.stringify(spec)) as JsonRecord;
+  if (isVegaSpec(parsed)) return parsed;
+  const out = JSON.parse(JSON.stringify(labelSlices(parsed))) as JsonRecord;
   eachView(out, (view, inLayer) => {
     normalizeUnit(view);
     keepColorOrder(view);

@@ -73,13 +73,30 @@ describe("categoryChartToVegaLite", () => {
     expect(values(scatter)[0]).toMatchObject({ x: 2019 });
   });
 
-  it("skips a missing value and keeps the rest in place", () => {
+  it("skips a missing value and keeps its label on the axis, a gap", () => {
     const spec = categoryChartToVegaLite({
       type: "line",
       labels: ["Mon", "Tue", "Wed"],
       series: [{ name: "Steps", values: [4000, null, 6500] }],
     });
     expect(values(spec).map((row) => (row as { x: string }).x)).toEqual(["Mon", "Wed"]);
+    // Left to the rows, "Tue" vanished and the line joined Mon to Wed.
+    expect(enc(spec).x.scale).toEqual({ domain: ["Mon", "Tue", "Wed"] });
+  });
+
+  const stacked = [{ name: "A", values: [6, 6] }, { name: "B", values: [6, 6] }];
+  it.each([
+    ["areas", "area", stacked],
+    ["bars with a line", "bar", [...stacked, { name: "C", type: "line", values: [1, 2] }]],
+  ])("drops a y max a stack of %s rises past", (_name, type, series) => {
+    // Two series of 6 stack to 12; a max of 10 cut the top off.
+    const spec = categoryChartToVegaLite({ type, labels: ["Q1", "Q2"], yAxis: { max: 10 }, series });
+    expect(JSON.stringify(spec)).not.toContain("domainMax");
+  });
+
+  it("keeps a y max over bars side by side, which do not stack", () => {
+    const spec = categoryChartToVegaLite({ type: "bar", labels: ["Q1", "Q2"], yAxis: { max: 10 }, series: stacked });
+    expect(enc(spec).y.scale).toEqual({ domainMax: 10 });
   });
 
   it.each([
