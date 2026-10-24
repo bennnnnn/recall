@@ -11,6 +11,7 @@ Patterns read text passed through ``collapse_ws`` (one space) and lowercased.
 """
 
 import re
+from collections.abc import Sequence
 
 from app.modules.chat.prompt_constants.routing import EMOJI
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
@@ -43,6 +44,26 @@ def is_social_opener(text: str) -> bool:
     if not cleaned or len(cleaned) > _OPENER_MAX_CHARS:
         return False
     return _SOCIAL_OPENER.fullmatch(cleaned) is not None
+
+
+def greets_again(text: str, prior: Sequence[tuple[str, str]]) -> bool:
+    """A greeting right after the user's last message was one too: "hi" after "hi"."""
+    if not is_social_opener(text):
+        return False
+    last = next((content for role, content in reversed(prior) if role == "user"), None)
+    return last is not None and is_social_opener(last)
+
+
+# "hi" after "hi" got a fresh "Hey bini! How's your Friday going?" each time, as if the
+# chat had just begun.
+REPEATED_GREETING_HINT = (
+    "The user greeted you again right after the last greeting. Do not greet them as if "
+    "the chat had just begun, and do not ask about their day again. Notice it lightly, "
+    "the way a friend texts back: one short line that says they keep saying hi and asks "
+    "what's up or if they're testing you (\"Hi again! What's up?\", \"Hello, hello. "
+    'Everything okay, or just saying hi?"). Use different words from your last reply; '
+    "after a few in a row you may count them with a smile."
+)
 
 
 _LEAD = r"(?:(?:no|nope|nah|wait|sorry|oops|um+|uh+|hmm+)[,.!]* )+"

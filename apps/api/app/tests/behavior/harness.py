@@ -111,6 +111,7 @@ HINTS: dict[str, str] = {
     "brevity": pc.BREVITY_REQUEST_HINT,
     "capabilities": pc.CAPABILITIES_FORMAT_HINT,
     "lightweight": pc.LIGHTWEIGHT_REPLY_HINT,
+    "greeting_again": pc.REPEATED_GREETING_HINT,
     "web_search": web_search_service.WEB_SEARCH_HINT,
     "photo": pc.PHOTO_LOOKUP_HINT,
     "local_places": web_search_service.LOCAL_PLACES_FORMAT_HINT,

@@ -24,6 +24,8 @@ from app.modules.chat.prompt_constants.coding import (
 from app.modules.chat.prompt_constants.conversation import (
     CONTINUE_HINT,
     CORRECTION_HINT,
+    REPEATED_GREETING_HINT,
+    greets_again,
     is_correction,
     is_social_opener,
 )
@@ -187,6 +189,7 @@ __all__ = [
     "PROFILE_FACT_HINT",
     "QUIZ_FORMAT_HINT",
     "QUOTE_FORMAT_HINT",
+    "REPEATED_GREETING_HINT",
     "SEQUENCE_FORMAT_HINT",
     "SHORT_RESPONSE_FORMAT_HINT",
     "STANDING_PREFERENCE_HINT",
@@ -210,6 +213,7 @@ __all__ = [
     "could_continue_draft",
     "draft_followup",
     "draft_followup_hint",
+    "greets_again",
     "has_code_syntax",
     "is_bare_writing_line",
     "is_brevity_request",

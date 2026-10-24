@@ -11,6 +11,7 @@ from app.modules.chat.continuation_subject import (
     works_on_last_reply,
 )
 from app.modules.chat.prompt_constants import (
+    greets_again,
     is_correction,
     is_lightweight_chat_turn,
     is_social_opener,
@@ -202,3 +203,28 @@ def test_a_cap_on_one_part_and_depth_on_another_is_mixed() -> None:
     text = "in one sentence what is DNS? Also explain in detail how TLS handshakes work"
     assert reply_length(text) == "mixed"
     assert reply_length("summarize the french revolution in 3 sentences") == "brief"
+
+
+@pytest.mark.parametrize(
+    ("text", "prior", "again"),
+    [
+        # "Hi" after "Hi" got a fresh greeting each time, as if the chat had just begun.
+        ("Hi", [("user", "Hi"), ("assistant", "Hey bini!")], True),
+        ("hey!", [("user", "hello"), ("assistant", "Hi!")], True),
+        (
+            "hello again",
+            [("user", "hi"), ("assistant", "Hey!"), ("user", "hi"), ("assistant", "Hi!")],
+            True,
+        ),
+        ("good morning", [("user", "hi 👋"), ("assistant", "Hey!")], True),
+        # A first greeting, one after a question or a request, or a greeting with a question.
+        ("Hi", [], False),
+        ("hi", [("user", "what's 2+2"), ("assistant", "4")], False),
+        ("hey", [("user", "hey can you help me with my essay"), ("assistant", "Sure!")], False),
+        ("hi, what's the weather?", [("user", "hi"), ("assistant", "Hey!")], False),
+    ],
+)
+def test_a_greeting_after_a_greeting_greets_again(
+    text: str, prior: list[tuple[str, str]], again: bool
+) -> None:
+    assert greets_again(text, prior) is again

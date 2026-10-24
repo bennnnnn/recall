@@ -592,5 +592,73 @@
   "prompt": "best phone under $500",
   "reply": "1. 📱 **Google Pixel 9a** — the best camera at the price.\n2. 🍏 **iPhone 16e** — the cheapest way into iOS.",
   "expect": "answer"
+ },
+ {
+  "id": "cv-063",
+  "area": "greeting lookalike",
+  "prompt": "hi",
+  "history": [
+   [
+    "user",
+    "what's 2+2"
+   ],
+   [
+    "assistant",
+    "4"
+   ]
+  ],
+  "reply": "Hey! Anything else you want to work out?",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-064",
+  "area": "greeting lookalike",
+  "prompt": "hello",
+  "history": [
+   [
+    "user",
+    "thanks!"
+   ],
+   [
+    "assistant",
+    "You're welcome!"
+   ]
+  ],
+  "reply": "Hi again! What's next?",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-065",
+  "area": "greeting lookalike",
+  "prompt": "hey",
+  "history": [
+   [
+    "user",
+    "hey can you help me with my essay"
+   ],
+   [
+    "assistant",
+    "Sure! What's it about?"
+   ]
+  ],
+  "reply": "Hey! Tell me the topic and I'll help.",
+  "expect": "answer"
+ },
+ {
+  "id": "cv-066",
+  "area": "greeting lookalike",
+  "prompt": "good morning",
+  "history": [
+   [
+    "user",
+    "remind me to call mom at 6"
+   ],
+   [
+    "assistant",
+    "Done, I'll remind you at 6."
+   ]
+  ],
+  "reply": "Good morning! Ready for the day?",
+  "expect": "answer"
  }
 ]

@@ -38,12 +38,14 @@ from app.modules.chat.prompt_constants import (
     PERSONAL_DISCLOSURE_HINT,
     PHOTO_LOOKUP_HINT,
     PROFILE_FACT_HINT,
+    REPEATED_GREETING_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
     TONE_FORMAT_GUARD,
     UNCLEAR_MESSAGE_HINT,
     WEB_SEARCH_OFF_HINT,
     active_lesson_step,
+    greets_again,
     is_bare_writing_line,
     is_brevity_request,
     is_capabilities_question,
@@ -273,6 +275,13 @@ STABLE_SECTIONS: tuple[PromptSection, ...] = (
 )
 
 
+def _social_hint(turn: PromptTurn) -> str:
+    """A greeting after a greeting is noticed, not answered as the first one."""
+    if greets_again(turn.query, exchange_pairs(turn.exchange)):
+        return REPEATED_GREETING_HINT
+    return LIGHTWEIGHT_REPLY_HINT
+
+
 # Everything that depends on the turn, steadiest first so consecutive turns share a
 # long prefix: the length and style the message asks for, the profile (name only on a
 # slim turn, the email on a draft, the device location on a nearby ask), then the chat's
@@ -285,7 +294,7 @@ TURN_SECTIONS: tuple[PromptSection, ...] = (
     # safety hint is enough — not the full math pack.
     PromptSection(
         lambda t: t.lightweight,
-        lambda _t: [LIGHTWEIGHT_REPLY_HINT, SHORT_RESPONSE_FORMAT_HINT, MATH_FENCE_SAFETY_HINT],
+        lambda t: [_social_hint(t), SHORT_RESPONSE_FORMAT_HINT, MATH_FENCE_SAFETY_HINT],
     ),
     PromptSection(lambda t: not t.lightweight, _style_hints),
     # A fact that may have changed is looked up or offered, never guessed.

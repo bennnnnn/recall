@@ -120,6 +120,8 @@ LOOKALIKE_HINTS = {
     "clarify lookalike": "clarify_picks",
     # "The best countries for business" says what it is for: answered, not asked.
     "purpose given": "clarify",
+    # A "hi" after a question is a new greeting, not one more of a run.
+    "greeting lookalike": "greeting_again",
     "money lookalike": "money",
     # "I don't understand why she left" is not a topic to be taught.
     "walkthrough lookalike": "walkthrough",
