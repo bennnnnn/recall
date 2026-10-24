@@ -92,6 +92,25 @@ def test_a_list_of_numbers_gets_its_highest_and_lowest(
         # A loan's or a card's terms are the money reader's.
         "car loan 20000, rate 6, years 5",
         "credit card balance 5000, apr 24, payment 200",
+        # Ranges, scores, clock times, fractions, sets: a second number in the item.
+        "Lows and highs: Mon 5-12, Tue 7-14, Wed 6-11",
+        "Results: Arsenal 2-1, Chelsea 0-0, Spurs 3-2",
+        "dentist 3:30, gym 6:15, dinner 7:45",
+        "flour 1/2 cup, sugar 3/4 cup, butter 1/4 cup",
+        "bench 100x5, squat 140x3, deadlift 180x1",
+        # A dot or a space between thousands: twelve hundred, or one point two?
+        "Gastos: alquiler 1.200, comida 300, ocio 200",
+        "Miete 1.200, Essen 300, Freizeit 200",
+        "Dépenses : loyer 1 200, courses 400, voiture 300",
+        "Расходы: аренда 25 000, еда 8 000, транспорт 3 000",
+        # Units, scales or currencies that differ.
+        "Sales: Jan $1.2M, Feb $800K, Mar $950K",
+        "Cake: flour 500g, sugar 200g, butter 250g, eggs 4",
+        "Coffee: US $5, UK £4, EU €4.5",
+        # Dates and phone numbers.
+        "Exam dates: math Jan 15, physics Feb 3, chemistry Mar 20",
+        "Birthdays: mom March 3, dad July 21, sis Oct 9",
+        "Mom 0911234567, Dad 0912345678, Sis 0913456789",
         # Too few, no labels, or units that cannot be compared.
         "rent 1200, food 300",
         "3, 5, 7, 9, 11",
@@ -120,9 +139,13 @@ def test_a_personal_disclosure_keeps_its_own_note() -> None:
         "a" * 40 + " " * 1900 + "1, b 2, c 3",
         "1," * 900,
         "net -$" + "9" * 1500 + ", b 2, c 3",
+        # Spaces in a name ran in quadratic time: four seconds.
+        "a" + " " * 1990 + "x",
+        "Name" + " " * 1500 + "John",
+        ("word " * 15 + "1, ") * 30,
     ],
 )
 def test_reading_a_long_message_stays_quick_and_never_raises(text: str) -> None:
     started = time.perf_counter()
     shared_numbers_hint(text)
-    assert time.perf_counter() - started < 0.2
+    assert time.perf_counter() - started < 0.05

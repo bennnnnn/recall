@@ -7,27 +7,36 @@ driest month once in five and summed the year wrong when asked for a total. So t
 and lowest are read here, from the message, and the reply only words them.
 
 The note is conditional ("if the message or the conversation asks for something, do that"),
-because no reading of the words can tell every request apart from a list ("Summarize: rent
-1200, …", "… is that too much", a list typed in answer to the last reply's question, another
-language): a list the model is asked about stays the model's to answer.
+because no reading of the words can tell every request apart from a list. The reading is
+strict: each item is a name and one plain number ("Jan 15", "rent: $1,200", "week 1 80 kg"),
+and anything it could misread gets no note: ranges and scores ("5-10", "2-1"), clock times,
+fractions, sets ("100x5"), a dot or space between thousands ("1.200", "1 200"), units or
+currencies that differ, dates ("math Jan 15"), years, phone numbers and a loan's terms.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 
 from app.modules.chat.prompt_constants.routing import is_personal_disclosure_turn
 from app.modules.chat.prompt_constants.teaching import is_standing_preference
 
-# "Jan 15", "rent: 1,200", "Q1 10k", "Dec 5 mm", "savings = -$300", "2024 7%".
-_PAIR = re.compile(
-    r"(?P<label>[^\W\d_][\w .&'/()-]{0,40}?|(?:19|20)\d\d)\s*[:=]?\s*"
-    r"(?P<sign>[-+]?)(?P<currency>[$€£]?)(?P<number>\d{1,15}(?:,\d{3})*(?:\.\d+)?)\s*"
-    r"(?P<unit>%|[^\W\d_]{1,8}\.?)?"
+logger = logging.getLogger(__name__)
+
+# One item: a name ("rent", "week 1", "Q1", "2024") and one plain number with an optional
+# sign, currency and unit. A name ending in a number takes no colon ("dentist 3:30").
+_ITEM = re.compile(
+    r"(?P<label>[^\W\d_]+(?:[ '&/.-][^\W\d_]+){0,4}(?: \d{1,2})?|[^\W\d_]{1,3}\d{1,2}"
+    r"|(?:19|20)\d\d)"
+    r"(?P<sep>\s*[:=]\s*|\s+)"
+    r"(?P<sign>-?)(?P<currency>[$€£¥]?)(?P<number>\d{1,3}(?:,\d{3})+|\d{1,15})"
+    r"(?:\.(?P<fraction>\d{1,6}))?(?:\s?(?P<unit>%|[^\W\d_]{1,6}))?"
 )
 # Items: a comma that is not a thousands separator, a semicolon, a line, a closing "and".
 _ITEMS = re.compile(r",(?!\d{3}(?!\d))|;|\n|\s+and\s+")
+_ITEM_CHARS = 80
 # A request in English: the other rules' turn (the note's "if it asks for something" covers
 # the rest).
 _ASKS = re.compile(
@@ -37,13 +46,14 @@ _ASKS = re.compile(
     r"where|who)\b",
     re.IGNORECASE,
 )
-# "My brother is 30": a sentence, not a label.
+# A question mark in Latin, CJK (fullwidth) and Arabic text.
+_QUESTION_MARKS = ("?", "\uff1f", "\u061f")
+_DIGIT = re.compile(r"\d")
+# "My brother is 30": a sentence, not a name.
 _CLAUSE = re.compile(r"(?:^|\s)(?:is|are|was|were|am|i'?m|have|has|had|got)$", re.IGNORECASE)
-# A number of its own inside a label: "transport 100 for 2 people" is no "label value".
-# "Week 1", "Q1" and "grade 9" keep theirs.
-_NUMBER_IN_LABEL = re.compile(r"(?:^|\s)\d{2,}(?:\s|$)")
-# A loan or a card, two of its terms or more: the money reader's to work, not a series to
-# compare. One is a label ("Apr 85" is April).
+_MONTH = re.compile(r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*", re.I)
+# A loan or a card, two of its terms or more: the money reader's to work. One is a name
+# ("Apr 85" is April).
 _MONEY_TERMS = frozenset(
     {
         "rate",
@@ -60,16 +70,12 @@ _MONEY_TERMS = frozenset(
         "down payment",
     }
 )
-# "Dentist 3pm, gym 7pm" are times of day, not amounts.
-_CLOCK_UNITS = frozenset({"am", "pm", "a.m", "p.m", "o'clock"})
-# "10k" beside "900": compared as 10,000. "m" and "b" stay units (metres, bytes).
-_SCALE = {"k": 1e3, "thousand": 1e3, "million": 1e6, "mn": 1e6, "bn": 1e9, "billion": 1e9}
+_CLOCK_UNITS = frozenset({"am", "pm"})
+# Units written against the number ("20k", "5%"); others take a space ("5 mm").
+_TIGHT_UNITS = frozenset({"%", "k", "K", "M", "B", "bn"})
 _YEAR = re.compile(r"(?:19|20)\d\d")
-_DIGIT = re.compile(r"\d")
-# A question mark in Latin, CJK (fullwidth) and Arabic text.
-_QUESTION_MARKS = ("?", "\uff1f", "\u061f")
 _MAX_CHARS = 2000
-_MIN_PAIRS = 3
+_MIN_ITEMS = 3
 
 SHARED_NUMBERS_HINT = (
     "The user's message lists values. It is not a greeting: never greet them or ask how they "
@@ -82,61 +88,87 @@ SHARED_NUMBERS_HINT = (
 @dataclass(frozen=True)
 class SharedValue:
     label: str
-    value: float  # for comparing, "10k" as 10,000
-    written: str  # the number as the user wrote it: "1,200", "-$300", "10k"
-    unit: str  # "mm", "%", or "" (one item may carry the unit for all: "Nov 6, Dec 5 mm")
+    value: float
+    written: str  # the number as the user wrote it: "1,200", "-$300", "79.5"
+    unit: str  # "mm", "%", "k", or "" (the last item may carry it for all: "Nov 6, Dec 5 mm")
+    currency: str
 
 
-def _pair(item: str) -> SharedValue | None:
-    """One "label number unit" item, or the item after a title's colon ("…: Jan 15")."""
-    text = item.strip().rstrip(".")
-    for candidate in (text, text.rpartition(":")[2].strip()):
-        match = _PAIR.fullmatch(candidate)
-        if match is None:
-            continue
-        label = match["label"].strip()
-        if _CLAUSE.search(label) or (not _YEAR.fullmatch(label) and _NUMBER_IN_LABEL.search(label)):
-            continue
-        unit = (match["unit"] or "").rstrip(".")
-        number = match["number"]
-        value = float(number.replace(",", "")) * (-1 if match["sign"] == "-" else 1)
-        written = f"{match['sign']}{match['currency']}{number}"
-        if unit.lower() in _SCALE:
-            return SharedValue(label, value * _SCALE[unit.lower()], written + unit, "")
-        return SharedValue(label, value, written, unit)
-    return None
+def _item(text: str) -> SharedValue | None:
+    """One "name number" item, or None for anything else."""
+    text = text.strip().rstrip(".")
+    match = _ITEM.fullmatch(text) if len(text) <= _ITEM_CHARS else None
+    if match is None:
+        return None
+    label, number, fraction = match["label"], match["number"], match["fraction"] or ""
+    if _CLAUSE.search(label) or (label[-1].isdigit() and match["sep"].strip()):
+        return None
+    # "1.200" is twelve hundred where a dot separates thousands: not ours to guess.
+    if len(fraction) == 3 and "," not in number:
+        return None
+    # "0911234567" is a phone number.
+    if number.startswith("0") and len(number) > 1:
+        return None
+    decimals = f".{fraction}" if fraction else ""
+    value = float(number.replace(",", "") + decimals)
+    written = f"{match['sign']}{match['currency']}{number}{decimals}"
+    sign = -1 if match["sign"] else 1
+    return SharedValue(label, sign * value, written, match["unit"] or "", match["currency"])
+
+
+def _items(text: str) -> list[SharedValue] | None:
+    """Every item a value, but for a first line or title with no number in it."""
+    parts = [part for part in _ITEMS.split(text) if part.strip()]
+    if not parts:
+        return None
+    title, colon, first = parts[0].partition(":")
+    if colon and not _DIGIT.search(title) and first.strip():
+        parts[0] = first
+    elif not _DIGIT.search(parts[0]):
+        parts = parts[1:]
+    values = [read for part in parts if (read := _item(part)) is not None]
+    return values if len(values) == len(parts) else None
+
+
+def _one_series(values: list[SharedValue]) -> bool:
+    """One unit and one currency across the list; a unit on the last item only is all of
+    theirs ("Nov 6, Dec 5 mm")."""
+    units = [value.unit for value in values]
+    if len(set(filter(None, units))) > 1 or {unit.lower() for unit in units} & _CLOCK_UNITS:
+        return False
+    if any(units[:-1]) and not all(units):
+        return False
+    return len({value.currency for value in values}) == 1
+
+
+def _dates(values: list[SharedValue]) -> bool:
+    """'Math Jan 15' is a date; so is a list of months whose numbers are all 1 to 31."""
+    if any(" " in value.label and _MONTH.fullmatch(value.label.split()[-1]) for value in values):
+        return True
+    if not all(_MONTH.fullmatch(value.label) for value in values):
+        return False
+    return all(value.value.is_integer() and 1 <= value.value <= 31 for value in values)
 
 
 def shared_numbers(text: str) -> list[SharedValue] | None:
-    """The values a message lists, in order, or None.
-
-    Three or more, in one unit (an item may leave it off: "Nov 6, Dec 5 mm"), every item
-    but one a value (a title line with no number may stand alone), with no question mark
-    or English request word. Not a loan's terms, times of day, a list of years, or a
-    sentence about people ("my brother is 30").
-    """
-    if (
-        len(text) > _MAX_CHARS
-        or any(mark in text for mark in _QUESTION_MARKS)
-        or _ASKS.search(text)
-    ):
+    """The values a message lists, in order, or None for anything it could misread."""
+    if len(text) > _MAX_CHARS or any(mark in text for mark in _QUESTION_MARKS):
         return None
-    items = [item for item in _ITEMS.split(text) if item.strip()]
-    values = [read for item in items if (read := _pair(item)) is not None]
-    if len(values) < _MIN_PAIRS or len(values) < len(items) - 1:
+    if _ASKS.search(text):
         return None
-    # The one item that is not a value is a title; one with a number ("transport 100 for 2
-    # people") would leave its value out of the highest and lowest.
-    if len(values) < len(items) and any(
-        _pair(item) is None and _DIGIT.search(item) for item in items
-    ):
+    values = _items(text)
+    if values is None or len(values) < _MIN_ITEMS:
         return None
-    units = {value.unit.lower() for value in values if value.unit}
-    if len(units) > 1 or units & _CLOCK_UNITS:
+    if not _one_series(values) or _dates(values):
+        return None
+    # "Week 1 80 kg, week 2 79 kg" numbers its names; one name ending in a number alone is
+    # a number split by a space ("loyer 1 200" is twelve hundred).
+    numbered = [value.label[-1].isdigit() for value in values]
+    if any(numbered) and not all(numbered):
         return None
     if sum(value.label.lower() in _MONEY_TERMS for value in values) >= 2:
         return None
-    # "Born 1990, married 2015, moved 2020" are dates, not amounts to compare.
+    # "Born 1990, married 2015, moved 2020" are years, not amounts to compare.
     if all(_YEAR.fullmatch(value.written) for value in values):
         return None
     return values
@@ -145,8 +177,9 @@ def shared_numbers(text: str) -> list[SharedValue] | None:
 def _named(values: list[SharedValue], end: float) -> str:
     """'Aug (290 mm)': the labels at that end, and its value with the series' unit."""
     at_end = [value for value in values if value.value == end]
-    unit = next((value.unit for value in values if value.unit), "")
-    shown = f"{at_end[0].written} {unit}" if unit and unit != "%" else at_end[0].written + unit
+    unit = values[-1].unit
+    joint = "" if unit in _TIGHT_UNITS else " "
+    shown = f"{at_end[0].written}{joint}{unit}" if unit else at_end[0].written
     return " and ".join(value.label for value in at_end) + f" ({shown})"
 
 
@@ -162,6 +195,7 @@ def shared_numbers_hint(text: str | None) -> str | None:
         values = shared_numbers(text)
     # It runs on every turn's prompt: a message it misreads gets no note, never an error.
     except Exception:
+        logger.warning("shared_numbers: could not read a message", exc_info=True)
         return None
     if values is None:
         return None
