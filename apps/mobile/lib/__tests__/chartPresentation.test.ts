@@ -217,10 +217,16 @@ describe("presentChartSpec", () => {
 
   describe("transforms a model wrote that cannot run", () => {
     it.each([
-      ["`Grade ${datum.grade} - ${datum.gender}`", "'Grade ' + (datum.grade) + ' - ' + (datum.gender)"],
-      ["`${datum.a}`", "(datum.a)"],
-      ["`it's ${datum.a}`", "'it\\'s ' + (datum.a)"],
-      ["``", "''"],
+      ["`Grade ${datum.grade} - ${datum.gender}`", "('Grade ' + (datum.grade) + ' - ' + (datum.gender))"],
+      // Text first: "${a}${b}" joins, and a lone "${n}" stays text.
+      ["`${datum.a}${datum.b}`", "('' + (datum.a) + (datum.b))"],
+      ["`${datum.n}` != ''", "('' + (datum.n)) != ''"],
+      ["datum.m - `x${datum.y}`", "datum.m - ('x' + (datum.y))"],
+      ["`it's ${datum.a}`", "('it\\'s ' + (datum.a))"],
+      ["``", "('')"],
+      // A backtick inside a quoted string is that string's text.
+      ["datum.s == '`' || datum.t == \"`\"", "datum.s == '`' || datum.t == \"`\""],
+      ["replace(datum.s, '`', '')", "replace(datum.s, '`', '')"],
       ["datum.a > 3", "datum.a > 3"],
     ])("writes %s as a Vega expression", (expr, written) => {
       expect(withoutTemplateLiterals(expr)).toBe(written);
@@ -234,26 +240,50 @@ describe("presentChartSpec", () => {
         encoding: { x: { field: "label", type: "nominal" }, y: { field: "n", type: "quantitative" } },
       });
       expect(spec.transform).toEqual([
-        { calculate: "'G' + (datum.grade)", as: "label" },
-        { filter: "(datum.n) != ''" },
+        { calculate: "('G' + (datum.grade))", as: "label" },
+        { filter: "('' + (datum.n)) != ''" },
         { fold: ["n"] },
       ]);
     });
 
-    const fit = (step: Spec): Spec => ({
-      data: { values: [{ hours: 1, score: 50 }, { hours: 2, score: 55 }] },
-      encoding: { x: { field: "hours", type: "quantitative" }, y: { field: "score", type: "quantitative" } },
-      layer: [{ mark: "point" }, { mark: "line", transform: [step] }],
+    it("reaches a faceted chart's inner spec", () => {
+      const spec = presentChartSpec({
+        data: { values: [{ g: "a", n: 1 }] },
+        facet: { field: "g", type: "nominal" },
+        spec: { transform: [{ calculate: "`n${datum.n}`", as: "l" }], mark: "bar" },
+      });
+      expect((spec.spec as Spec).transform).toEqual([{ calculate: "('n' + (datum.n))", as: "l" }]);
     });
 
+    const fit = (step: Spec, layer: Spec = {}): Spec => ({
+      data: { values: [{ hours: 1, score: 50, day: "2026-10-01" }, { hours: 2, score: 55, day: "2026-10-02" }] },
+      encoding: { x: { field: "hours", type: "quantitative" }, y: { field: "score", type: "quantitative" } },
+      layer: [{ mark: "point" }, { mark: "line", ...layer, transform: [...((layer.transform as Spec[]) ?? []), step] }],
+    });
+    const fitted = (spec: Spec): Spec[] => ((spec.layer as Spec[])[1].transform as Spec[]);
+
     it.each(["regression", "loess"])("fits a %s on the plot's own fields when it named others", (key) => {
-      const [, line] = presentChartSpec(fit({ [key]: "y", on: "x" })).layer as Spec[];
-      expect(line.transform).toEqual([{ [key]: "score", on: "hours" }]);
+      expect(fitted(presentChartSpec(fit({ [key]: "y", on: "x" }))).at(-1)).toEqual({ [key]: "score", on: "hours" });
     });
 
     it("leaves a fit on fields the rows have", () => {
-      const [, line] = presentChartSpec(fit({ regression: "score", on: "hours", method: "poly" })).layer as Spec[];
-      expect(line.transform).toEqual([{ regression: "score", on: "hours", method: "poly" }]);
+      const step = { regression: "score", on: "hours", method: "poly" };
+      expect(fitted(presentChartSpec(fit(step))).at(-1)).toEqual(step);
+    });
+
+    it("fixes only the field the rows lack", () => {
+      expect(fitted(presentChartSpec(fit({ regression: "zz", on: "day" }))).at(-1)).toEqual({ regression: "score", on: "day" });
+    });
+
+    it("counts a field an earlier step makes as known", () => {
+      const made = { timeUnit: "year", field: "day", as: "yr" };
+      const step = { regression: "score", on: "yr" };
+      expect(fitted(presentChartSpec(fit(step, { transform: [made] }))).at(-1)).toEqual(step);
+    });
+
+    it("leaves a view with data of its own kind as written", () => {
+      const step = { regression: "b", on: "a" };
+      expect(fitted(presentChartSpec(fit(step, { data: { name: "other" } }))).at(-1)).toEqual(step);
     });
   });
 });

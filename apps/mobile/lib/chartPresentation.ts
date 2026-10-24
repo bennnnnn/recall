@@ -253,43 +253,86 @@ function wrapTitle(spec: JsonRecord, width: number): void {
   }
 }
 
-/**
- * A JavaScript template literal (`` `Grade ${datum.grade}` ``) as Vega's expression
- * language writes it, `'Grade ' + (datum.grade)`: Vega cannot read backticks, and a stacked
- * bar chart with one unused label drew "Unexpected token ILLEGAL" instead of its bars.
- */
-export function withoutTemplateLiterals(expr: string): string {
-  return expr.replace(/`([^`]*)`/g, (_whole, body: string) => {
-    const parts: string[] = [];
-    let rest = body;
-    while (rest) {
-      const open = rest.indexOf("${");
-      const close = open < 0 ? -1 : rest.indexOf("}", open);
-      const text = close < 0 ? rest : rest.slice(0, open);
-      if (text) parts.push(`'${text.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`);
-      if (close < 0) break;
-      parts.push(`(${rest.slice(open + 2, close)})`);
-      rest = rest.slice(close + 1);
-    }
-    return parts.length ? parts.join(" + ") : "''";
-  });
+/** One template literal's body as a Vega string expression, parenthesised and always text. */
+function templateToConcat(body: string): string {
+  const parts: string[] = [];
+  let rest = body;
+  while (rest) {
+    const open = rest.indexOf("${");
+    const close = open < 0 ? -1 : rest.indexOf("}", open);
+    const text = close < 0 ? rest : rest.slice(0, open);
+    if (text) parts.push(`'${text.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`);
+    if (close < 0) break;
+    parts.push(`(${rest.slice(open + 2, close)})`);
+    rest = rest.slice(close + 1);
+  }
+  // Text first, so "${a}${b}" joins rather than adds, and a lone "${n}" stays text.
+  if (parts.length === 0 || !parts[0].startsWith("'")) parts.unshift("''");
+  return `(${parts.join(" + ")})`;
 }
 
-/** The field names a view's own inline rows carry, or null when it has none. */
-function rowFields(view: JsonRecord): Set<string> | null {
+/**
+ * A JavaScript template literal (`` `Grade ${datum.grade}` ``) as Vega's expression
+ * language writes it, `('Grade ' + (datum.grade))`: Vega cannot read backticks, and a stacked
+ * bar chart with one unused label drew "Unexpected token ILLEGAL" instead of its bars. A
+ * backtick inside a quoted string ("'`'") is that string's text and stays as written.
+ */
+export function withoutTemplateLiterals(expr: string): string {
+  let out = "";
+  let quote: string | null = null;
+  for (let i = 0; i < expr.length; i += 1) {
+    const ch = expr[i];
+    if (quote) {
+      out += ch;
+      if (ch === "\\" && i + 1 < expr.length) out += expr[++i];
+      else if (ch === quote) quote = null;
+    } else if (ch === "'" || ch === '"') {
+      quote = ch;
+      out += ch;
+    } else if (ch === "`") {
+      const end = expr.indexOf("`", i + 1);
+      if (end < 0) return expr;
+      out += templateToConcat(expr.slice(i + 1, end));
+      i = end;
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+/** The field names a view's own inline rows carry; null when it has data of another kind. */
+function rowFields(view: JsonRecord, inherited: Set<string> | null): Set<string> | null {
+  if (!("data" in view)) return inherited;
   const data = isRecord(view.data) ? view.data : null;
   const rows = data && Array.isArray(data.values) ? data.values : null;
   const first = rows?.find(isRecord);
   return first ? new Set(Object.keys(first)) : null;
 }
 
+/** Every field a transform step names as its output ("as", however nested). */
+function outputsOf(step: unknown, into: Set<string>): void {
+  if (Array.isArray(step)) for (const item of step) outputsOf(item, into);
+  if (!isRecord(step)) return;
+  for (const [key, value] of Object.entries(step)) {
+    if (key === "as") {
+      for (const name of Array.isArray(value) ? value : [value]) if (typeof name === "string") into.add(name);
+    } else if (typeof value === "object") {
+      outputsOf(value, into);
+    }
+  }
+  if ("fold" in step && !("as" in step)) ["key", "value"].forEach((name) => into.add(name));
+}
+
 /**
- * Transforms a model wrote that cannot run: a best-fit line on fields the rows do not have
+ * Transforms a model wrote that cannot run: a best-fit line on a field the rows do not have
  * ({"regression": "y", "on": "x"} over hours and score drew nothing at all) takes the plot's
- * own x and y fields, and a template literal becomes a Vega expression.
+ * own field for it, and a template literal becomes a Vega expression. Fields an earlier step
+ * makes ("as") count as known; a view with data of its own kind is left as written.
  */
 function repairTransforms(view: JsonRecord, fields: Set<string> | null, encoding: JsonRecord | null): void {
-  const own = rowFields(view) ?? fields;
+  const rows = rowFields(view, fields);
+  const known = rows ? new Set(rows) : null;
   const enc = isRecord(view.encoding) ? view.encoding : encoding;
   for (const step of Array.isArray(view.transform) ? view.transform : []) {
     if (!isRecord(step)) continue;
@@ -297,19 +340,19 @@ function repairTransforms(view: JsonRecord, fields: Set<string> | null, encoding
       if (typeof step[key] === "string") step[key] = withoutTemplateLiterals(step[key] as string);
     }
     const fit = ["regression", "loess"].find((key) => typeof step[key] === "string");
-    if (!fit || !own || !enc) continue;
-    const x = isRecord(enc.x) ? enc.x.field : undefined;
-    const y = isRecord(enc.y) ? enc.y.field : undefined;
-    const unknown = !own.has(String(step[fit])) || !own.has(String(step.on));
-    if (unknown && typeof x === "string" && typeof y === "string" && own.has(x) && own.has(y)) {
-      step[fit] = y;
-      step.on = x;
+    if (fit && known && enc) {
+      const x = isRecord(enc.x) ? enc.x.field : undefined;
+      const y = isRecord(enc.y) ? enc.y.field : undefined;
+      if (!known.has(String(step[fit])) && typeof y === "string" && known.has(y)) step[fit] = y;
+      if (!known.has(String(step.on)) && typeof x === "string" && known.has(x)) step.on = x;
     }
+    if (known) outputsOf(step, known);
   }
   for (const key of COMPOSITE_KEYS) {
     const kids = view[key];
-    if (Array.isArray(kids)) for (const kid of kids) if (isRecord(kid)) repairTransforms(kid, own, enc);
+    if (Array.isArray(kids)) for (const kid of kids) if (isRecord(kid)) repairTransforms(kid, known, enc);
   }
+  if (isRecord(view.spec)) repairTransforms(view.spec, known, enc);
 }
 
 // A slice too thin to hold its share: no label (the legend still names it).
