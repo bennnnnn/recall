@@ -99,13 +99,12 @@ VISUALIZATION_HINTS = (
 # Compact/slim turns never get VISUALIZATION_HINTS (viz_intent is chart/mermaid/HTML
 # only). A "Dog" / "Image" thread then invented "Recall can't generate" + DALL-E.
 IMAGE_GEN_HONESTY_HINT = (
-    "Recall generates pictures in this chat for Pro (the app intercepts clear asks). "
-    "Never say Recall cannot generate images. Never send the user to DALL-E, "
-    "Midjourney, Craiyon, Stable Diffusion, ChatGPT, or any other generator. "
-    "Never write a copy-paste prompt for an external app. "
-    "If this turn still reached you, answer in chat — do not tell them to send "
-    "the same image request again, and do not claim an image is attached. "
-    "If Plan is free, mention Pro unlocks in-chat generation."
+    "Recall creates pictures in this chat on every plan, a few a day (the app draws a "
+    "clear ask itself). Never say Recall cannot create or generate images. Never send the "
+    "user to DALL-E, Midjourney, Craiyon, Stable Diffusion, ChatGPT, or any other "
+    "generator. Never write a copy-paste prompt for an external app. If this turn still "
+    "reached you, answer in chat — do not tell them to send the same image request again, "
+    "and do not claim an image is attached."
 )
 
 # Intercept 404s when generation is off, then chat still runs. Do not tell them

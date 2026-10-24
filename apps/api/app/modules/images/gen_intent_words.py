@@ -323,8 +323,7 @@ CODEISH_WORDS = frozenset(
     {"compression", "script", "code", "algorithm", "function", "api"},
 )
 
-# "make money" / "make dinner" are ordinary English. A picture that uses
-# "make" already names an image noun and is matched before this short path.
+# "make money" / "make a decision about …": an idiom's noun leading "make …" is no picture.
 MAKE_NOT_A_PICTURE = frozenset(
     {
         "money",
@@ -340,6 +339,8 @@ MAKE_NOT_A_PICTURE = frozenset(
         "friend",
         "decision",
         "decisions",
+        "choice",
+        "choices",
         "point",
         "progress",
         "mistake",
@@ -456,8 +457,7 @@ NON_REVISION = frozenset(
     }
 )
 
-# First remaining token after revision lead-ins. Questions and chat openers
-# must not become "{subject}, what's 2+2" or pay Neon list_recent on a new chat.
+# After revision lead-ins, questions and chat openers never become "{subject}, what's 2+2".
 NOT_REVISION_STARTERS = frozenset(
     {
         "what",

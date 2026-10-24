@@ -21,20 +21,48 @@ from app.modules.images.gen_intent import (
     has_non_image_draw,
     has_non_image_subject,
     is_image_gen_generate_now,
-    is_image_noun_only_message,
     join_subject,
     names_a_diagram,
     split_tokens,
+    strip_polite,
 )
 from app.modules.images.gen_intent_words import (
     DEICTIC_SUBJECTS,
+    IMAGE_NOUNS,
     NON_REVISION,
     NOT_REVISION_STARTERS,
+    NOUN_ONLY_FILLER,
     REACTION_PHRASES,
     REACTION_WORDS,
     SHOW_NON_IMAGE_WORDS,
     SHOW_REVISION_TARGETS,
+    VERBS_DRAW,
+    VERBS_IMAGE,
 )
+
+_MODALS = frozenset({"can", "can't", "cant", "cannot", "could", "couldn't", "will", "won't"})
+_YOU = frozenset({"you", "u"})
+
+
+def _strip_doubt(tokens: list[str]) -> list[str]:
+    """ "U can't create an image" / "can't you make a picture": the ask, without who."""
+    pair = {fold_token(token).replace("\u2019", "'") for token in tokens[:2]}
+    return tokens[2:] if len(pair) == 2 and pair & _YOU and pair & _MODALS else tokens
+
+
+def is_image_noun_only_message(text: str) -> bool:
+    """True for a bare image ask with no subject: ``Image``, ``a pic``, ``create an image``."""
+    if is_image_gen_generate_now(text):
+        return False
+    tokens = _strip_doubt(strip_polite(split_tokens(text.strip().rstrip(".!?"))))
+    if tokens and (tokens[0].lower() in VERBS_IMAGE or tokens[0].lower() in VERBS_DRAW):
+        tokens = tokens[1:]
+        if tokens and tokens[0].lower() == "me":
+            tokens = tokens[1:]
+    kept = [tok for tok in tokens if tok.lower() not in NOUN_ONLY_FILLER]
+    if not kept:
+        return False
+    return all(tok.lower() in IMAGE_NOUNS for tok in kept)
 
 
 def could_be_image_thread_followup(text: str) -> bool:

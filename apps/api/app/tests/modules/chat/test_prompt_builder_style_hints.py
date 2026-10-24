@@ -236,7 +236,7 @@ def test_compact_image_turn_gets_honesty_hint_not_viz_pack():
     assert FORMAT_CONTRACT not in parts
     joined = "\n".join(parts)
     assert "Never send the user to DALL-E" in joined  # safety phrase
-    assert "Never say Recall cannot generate images" in joined  # safety phrase
+    assert "Never say Recall cannot create or generate images" in joined  # safety phrase
     assert "do not tell them to send the same image request again" in joined
 
 

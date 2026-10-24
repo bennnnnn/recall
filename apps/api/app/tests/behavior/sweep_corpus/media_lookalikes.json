@@ -166,5 +166,50 @@
     "prompt": "generate a random number between 1 and 100",
     "reply": "**47**",
     "expect": "answer"
+  },
+  {
+    "id": "media-025",
+    "area": "image",
+    "prompt": "Create a walking poor man on the streets of Addis Ababa",
+    "reply": "Here's your picture: a man walking a busy street in Addis Ababa.",
+    "expect": "image_gen"
+  },
+  {
+    "id": "media-026",
+    "area": "image",
+    "prompt": "U can’t create an image",
+    "history": [
+      [
+        "user",
+        "Create a walking poor man on the streets of Addis Ababa"
+      ],
+      [
+        "assistant",
+        "I can't create images, but I can describe the scene."
+      ]
+    ],
+    "reply": "Here's your picture.",
+    "expect": "image_gen"
+  },
+  {
+    "id": "media-027",
+    "area": "image",
+    "prompt": "make a decision about whether to move to another city",
+    "reply": "Start with what matters most to you: work, family, cost of living. List the pros and cons of each city, then sleep on it.",
+    "expect": "answer"
+  },
+  {
+    "id": "media-028",
+    "area": "image",
+    "prompt": "make a choice between two jobs",
+    "reply": "Compare them on pay, growth, commute and the people you'd work with, then pick the one you'd regret turning down.",
+    "expect": "answer"
+  },
+  {
+    "id": "media-029",
+    "area": "image",
+    "prompt": "make friends at a new school",
+    "reply": "Join a club or team, sit with the same people at lunch for a week, and ask questions about them.",
+    "expect": "answer"
   }
 ]
