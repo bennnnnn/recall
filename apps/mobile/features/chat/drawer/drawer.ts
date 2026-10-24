@@ -111,19 +111,6 @@ export function patchChatGlobal(chatId: string, patch: ChatListPatch) {
   chatPatchers.top()?.(chatId, patch);
 }
 
-/** Move a chat between active and archived sections in the drawer list. */
-const chatArchiveMovers = createInstanceStack<(chatId: string, archived: boolean) => void>();
-
-export function registerChatArchiveMover(
-  fn: (chatId: string, archived: boolean) => void,
-): () => void {
-  return chatArchiveMovers.push({}, fn);
-}
-
-export function moveChatArchiveGlobal(chatId: string, archived: boolean) {
-  chatArchiveMovers.top()?.(chatId, archived);
-}
-
 /** Insert a chat into the drawer list after the first reply (see insertChatIntoGroups). */
 const chatInserters = createInstanceStack<(chat: Chat) => void>();
 
