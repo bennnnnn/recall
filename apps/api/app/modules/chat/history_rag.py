@@ -227,7 +227,9 @@ async def embed_query_for_prompt(
             settings,
             user_id,
             query,
-            embed_timeout=_RAG_EMBED_TIMEOUT_SECONDS,
+            # Memory's budget: memory and this recall wait on the same embed, and the
+            # turn waits for the longer of the two.
+            embed_timeout=settings.memory_query_embed_timeout_seconds,
         )
     except Exception:
         logger.warning("Chat-history RAG embed failed user_id=%s", user_id, exc_info=True)
