@@ -37,6 +37,7 @@ from app.modules.chat.related_questions import (
 from app.modules.chat.stream_accum import Completion
 from app.modules.chat.stream_events import build_related_prompts_event
 from app.modules.chat.turn_prep.followups import role_content_dicts
+from app.services.problem_followup import message_role_content
 from app.services.quota import global_spend_exceeded
 from app.services.text_normalize import collapse_ws
 
@@ -225,6 +226,20 @@ async def _related_prompts_event(
     return build_related_prompts_event(message_id, prompts)
 
 
+def _read_by_the_turn(question: str, prior: Sequence[Any] | None) -> bool:
+    """Whether ``follow_up_topic`` can run on the loop: the subjects it asks are readings
+    the turn already made in the pool. It asks them of each line with its blanks
+    collapsed, and the turn read the lines as written, so a line with a break or a run of
+    blanks would be read again here (38 ms for a 4,000-character problem pasted over
+    many lines). Such a turn's topic is read with its questions, in the pool."""
+    lines = [question]
+    for message in prior or ():
+        role, content = message_role_content(message)
+        if role == "user" and content:
+            lines.append(content)
+    return all(collapse_ws(line) == line for line in lines)
+
+
 def schedule_related_prompts(
     redis: Redis,
     settings: Settings,
@@ -245,7 +260,9 @@ def schedule_related_prompts(
     """
     if completion not in (None, "complete") or not collapse_ws(answer):
         return None
-    if follow_up_topic(question, answer, prior, allow_general=allow_general) is None:
+    if _read_by_the_turn(question, prior) and (
+        follow_up_topic(question, answer, prior, allow_general=allow_general) is None
+    ):
         return None
     return create_background_task(
         _related_prompts_event(
