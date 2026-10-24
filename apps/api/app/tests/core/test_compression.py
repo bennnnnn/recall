@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.testclient import TestClient
 from starlette.types import Message
 
-from app.core.compression import CREDENTIAL_PATHS, CompressionMiddleware
+from app.core.compression import UNCOMPRESSED_PATHS, CompressionMiddleware
 from app.main import create_app
 from app.modules.chat.stream_api import _sse_response
 
@@ -82,7 +82,7 @@ def test_compression_shrinks_a_json_list() -> None:
 
 
 def test_compression_never_touches_a_credential_reply() -> None:
-    assert "/auth/refresh" in CREDENTIAL_PATHS
+    assert {"/auth/refresh", "/speech/live/session"} <= UNCOMPRESSED_PATHS
     client = TestClient(_mini_app())
     response = client.post("/auth/refresh", headers={"Accept-Encoding": "gzip"})
     assert "content-encoding" not in response.headers

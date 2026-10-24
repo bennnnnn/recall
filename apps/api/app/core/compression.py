@@ -2,16 +2,16 @@
 
 Fly's proxy passes bodies through as they are, so every list the phone reads (a
 chat's messages, memory, to-dos, the drawer) crossed the network uncompressed:
-about 165 KB for one account's everyday reads that gzip sends in about 40 KB.
+about 168 KB for one account's everyday reads that gzip sends in about 35 KB.
 The phone's HTTP stack (NSURLSession, OkHttp) asks for gzip and inflates it
 itself; nothing in the app changes.
 
 What is left alone: an event stream (SSE replies must reach the phone token by
 token, and Starlette's own exclusion keeps them that way), WebSockets (not HTTP
 responses), bodies already compressed or binary (photos, files, audio), bodies
-under ``minimum_size``, and the responses that carry credentials (sign-in,
-refresh, the live-talk secret): a secret is never compressed beside text an
-attacker could choose (BREACH).
+under ``minimum_size``, read-aloud audio (base64, it barely shrinks), and the
+responses that carry credentials (sign-in, refresh, the live-talk secret): a
+secret is never compressed beside text an attacker could choose (BREACH).
 """
 
 from __future__ import annotations
@@ -23,9 +23,17 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 # Bodies worth compressing; everything else (images, PDFs, audio) is sent as is.
 _COMPRESSIBLE_TYPES = ("application/json", "text/plain", "text/html", "text/markdown", "text/csv")
 
-# Responses that hold a token or a client secret.
-CREDENTIAL_PATHS = frozenset(
-    {"/auth/google", "/auth/apple", "/auth/dev", "/auth/refresh", "/speech/live/session"}
+# Never compressed. Replies that hold a token or a client secret; and read-aloud audio,
+# base64 in JSON, which gzip shrinks by a quarter for about 11 ms of event-loop CPU a clip.
+UNCOMPRESSED_PATHS = frozenset(
+    {
+        "/auth/google",
+        "/auth/apple",
+        "/auth/dev",
+        "/auth/refresh",
+        "/speech/live/session",
+        "/speech/tts",
+    }
 )
 
 # zlib's default: within 2 % of level 9 on the API's lists, at about half the CPU.
@@ -65,7 +73,7 @@ class CompressionMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if (
             scope["type"] != "http"
-            or scope["path"] in CREDENTIAL_PATHS
+            or scope["path"] in UNCOMPRESSED_PATHS
             or "gzip" not in Headers(scope=scope).get("accept-encoding", "")
         ):
             await self._app(scope, receive, send)
