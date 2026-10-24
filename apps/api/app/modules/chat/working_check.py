@@ -292,9 +292,11 @@ def _shown_like(value: float, shown: str) -> str:
     return number + unit
 
 
-# A worked solution: its equalities are claims, not a quiz ("is 3 * 4 = 13?").
+# A worked solution: its equalities are claims, not a quiz ("is 3 * 4 = 13?"). The
+# indent is ``[^\S\n]*``, not ``\s*``: from each line start ``\s*`` ran over every blank
+# line below it, quadratic in a run of them, and found no heading the next start misses.
 _WORKOUT_HEADING = re.compile(
-    r"^\s*\*\*(?:Substitution|Steps|Answer|Working|\d+\.[^*\n]+)\*\*", re.MULTILINE
+    r"^[^\S\n]*\*\*(?:Substitution|Steps|Answer|Working|\d+\.[^*\n]+)\*\*", re.MULTILINE
 )
 
 
