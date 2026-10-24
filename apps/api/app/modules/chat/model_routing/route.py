@@ -9,7 +9,6 @@ Routing always respects the caller's allowed model pool (plan + enabled toggles)
 
 from __future__ import annotations
 
-import logging
 import re
 from typing import Any
 
@@ -23,8 +22,6 @@ from app.modules.billing.plan import (
 )
 from app.modules.chat.model_routing.physics import physics_route
 from app.modules.chat.model_routing.signals import SMART_TRIGGERS, needs_strong_model
-
-logger = logging.getLogger(__name__)
 
 _FOLLOWUP_MAX_CHARS = 120
 # Linear phrase scan — same style as prompt_constants.routing `_OFFER_PHRASES`.

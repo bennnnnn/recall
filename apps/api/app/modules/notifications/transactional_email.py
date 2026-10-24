@@ -9,7 +9,6 @@ adding more locales a data-only change. All dispatch goes through
 from __future__ import annotations
 
 import html as html_lib
-import logging
 from typing import Any
 
 from app.core.config import Settings
@@ -17,8 +16,6 @@ from app.gateways import email_gateway
 from app.models.orm import User
 from app.modules.notifications.email_copy import TEMPLATES
 from app.services import locale as locale_service
-
-logger = logging.getLogger(__name__)
 
 # Locale codes supported by the mobile app (mirrors services/locale.py).
 _SUPPORTED_LOCALES = frozenset(locale_service.LOCALE_NAMES.keys())

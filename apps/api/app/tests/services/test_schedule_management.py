@@ -69,15 +69,14 @@ def _todo(sync_session, *, recurring=False, due=None):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("path", ["patch_repeat", "chat", "bulk"])
+@pytest.mark.parametrize("path", ["patch_repeat", "chat"])
 async def test_effective_reschedule_clears_delivery_markers(schedule_sql, path):
     sync_session, session = schedule_sql
-    due = datetime.now(UTC).replace(hour=8, minute=0, second=0, microsecond=0)
-    row = _todo(sync_session, due=due if path == "bulk" else None)
+    row = _todo(sync_session)
     user = SimpleNamespace(id=row.user_id, timezone="UTC")
     if path == "patch_repeat":
         await crud.update_todo(session, user, row.id, {"recurrence_rule": "weekdays"})
-    elif path == "chat":
+    else:
         await actions.apply_todo_actions(
             session,
             user_id=row.user_id,
@@ -92,14 +91,6 @@ async def test_effective_reschedule_clears_delivery_markers(schedule_sql, path):
             ],
         )
         await session.commit()  # the caller commits (code-health audit ARCH-07)
-    else:
-        await actions._apply_bulk_shift_due_today_to_tomorrow(
-            session,
-            user_id=row.user_id,
-            items=[row],
-            user_timezone="UTC",
-        )
-        await session.commit()
     sync_session.refresh(row)
     assert row.notification_sent_at is None
     assert row.email_sent_at is None

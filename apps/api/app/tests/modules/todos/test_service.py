@@ -9,7 +9,6 @@ import pytest
 from app.core.config import Settings
 from app.modules import todos as todos_service
 from app.modules.chat import messages_repository
-from app.modules.todos import actions as todos_actions
 from app.modules.todos import crud as todos_crud
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.prompt_context import format_todos_block, should_inject_todos_prompt
@@ -167,29 +166,6 @@ def _item_overdue(content: str, *, hours_ago: int = 3, tz_name: str = "UTC"):
     item = _item(content, topic="Reminders")
     item.due_at = due_local.astimezone(UTC)
     return item
-
-
-@pytest.mark.asyncio
-async def test_apply_bulk_shift_moves_all_due_today():
-    session = fake_session()
-    items = [
-        _item_due_today("Walk", hour=9),
-        _item_due_today("Call mom", hour=14),
-        _item("Buy milk"),
-    ]
-    with patch.object(
-        todos_repo,
-        "update",
-        AsyncMock(side_effect=lambda _s, item, **fields: item),
-    ) as update_mock:
-        applied = await todos_actions._apply_bulk_shift_due_today_to_tomorrow(
-            session,
-            user_id=uuid4(),
-            items=items,
-            user_timezone="UTC",
-        )
-    assert applied == 2
-    assert update_mock.await_count == 2
 
 
 def test_format_todos_block_groups_undated_items_under_anytime():

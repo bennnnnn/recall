@@ -121,8 +121,8 @@ async def test_list_range_is_stable_across_created_at_ties(db_session):
     assert all_content == ["m0", "m1", "m2", "m3", "m4"]
 
 
-async def test_get_last_uses_id_tiebreaker_when_created_at_ties(db_session):
-    """get_last / get_last_assistant / get_last_user must order by
+async def test_get_last_user_uses_id_tiebreaker_when_created_at_ties(db_session):
+    """get_last_user must order by
     (created_at, id) so a shared millisecond doesn't make "last"
     non-deterministic — regenerate relies on a single canonical last row."""
     user = await _make_user(db_session)
@@ -167,11 +167,7 @@ async def test_get_last_uses_id_tiebreaker_when_created_at_ties(db_session):
     db_session.add_all(rows)
     await db_session.flush()
 
-    last = await messages_repo.get_last(db_session, chat.id)
     last_user = await messages_repo.get_last_user(db_session, chat.id)
-    last_assistant = await messages_repo.get_last_assistant(db_session, chat.id)
 
     # Highest id wins the tie — deterministic regardless of insertion order.
-    assert last is not None and last.content == "a4"
     assert last_user is not None and last_user.content == "u2"
-    assert last_assistant is not None and last_assistant.content == "a4"

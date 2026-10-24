@@ -1,7 +1,6 @@
 import base64
 import binascii
 import json
-import logging
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -40,7 +39,6 @@ from app.modules.speech.tts_followup import (
 from app.services import quota as quota_service
 
 router = APIRouter(prefix="/speech", tags=["speech"])
-logger = logging.getLogger(__name__)
 
 
 def _reject_oversized_audio(data: bytes) -> None:

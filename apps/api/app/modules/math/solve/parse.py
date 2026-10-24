@@ -4,7 +4,6 @@ result is printed by ``display.py``."""
 
 from __future__ import annotations
 
-import logging
 import re
 from typing import Any
 
@@ -22,8 +21,6 @@ from app.modules.math.solve.latex_normalize import normalize_latex_to_sympy
 from app.modules.math.solve.number_size import reject_huge_numbers
 from app.modules.math.solve.written_names import lone_quantity, reject_unwritten_symbols
 from app.services.solving import SolveServiceError
-
-logger = logging.getLogger(__name__)
 
 # A bare ``log`` is base 10 here, so a natural log has to print as ``\ln``.
 use_school_log_notation()
