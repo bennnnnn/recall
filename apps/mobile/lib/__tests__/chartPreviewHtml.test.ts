@@ -127,6 +127,30 @@ describe("normalizeChartSpec", () => {
     expect((spec.encoding.y as { axis?: unknown }).axis).toEqual({ title: "Country" });
   });
 
+  it("turns a channel-named sort and a range's second end with the bars", () => {
+    const spec = bars(["Jan", "Feb", "Mar"], "n", "name", { x2: { field: "top" } });
+    (spec.encoding.y as Record<string, unknown>).sort = "-x";
+    const named = bars(["Jan", "Feb", "Mar"], "n", "name");
+    (named.encoding.y as Record<string, unknown>).sort = { encoding: "x", order: "descending" };
+    normalizeChartSpec(spec);
+    normalizeChartSpec(named);
+    expect(spec.encoding.x).toMatchObject({ field: "name", sort: "-y" });
+    expect(spec.encoding.y2).toEqual({ field: "top" });
+    expect(spec.encoding).not.toHaveProperty("x2");
+    expect((named.encoding.x as { sort?: unknown }).sort).toEqual({ encoding: "y", order: "descending" });
+  });
+
+  it("leaves bars in a facet's or a concat's panels as written: they do not span the card", () => {
+    const faceted = bars(["Male", "Female"], "name", "n", { column: { field: "series" } });
+    const panel = bars(LONG_NAMES, "name", "n");
+    const concat = { hconcat: [panel] };
+    normalizeChartSpec(faceted);
+    normalizeChartSpec(concat);
+    expect(axisFields(faceted)).toEqual(["name", "n"]);
+    expect((faceted.encoding.x as { axis?: unknown }).axis).toBeUndefined();
+    expect(axisFields(panel)).toEqual(["name", "n"]);
+  });
+
   it("keeps the direction written when the rows do not say what the labels are", () => {
     const spec = {
       mark: "bar",

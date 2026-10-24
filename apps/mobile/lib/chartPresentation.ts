@@ -103,13 +103,36 @@ function uprightLabels(ch: unknown, labels: string[]): void {
   ch.axis = { ...upright, ...axis };
 }
 
+/** A sort that names a channel ("-x", {"encoding": "y"}) names the other one once bars turn. */
+function turnedSort(sort: unknown): unknown {
+  const other = (key: unknown) => (key === "x" ? "y" : key === "y" ? "x" : key);
+  if (typeof sort === "string") return sort.startsWith("-") ? `-${other(sort.slice(1))}` : other(sort);
+  return isRecord(sort) && "encoding" in sort ? { ...sort, encoding: other(sort.encoding) } : sort;
+}
+
+/** Bars turned a quarter: every x channel trades places with its y twin, sorts follow. */
+function turnBars(enc: JsonRecord): void {
+  for (const [a, b] of [["x", "y"], ["x2", "y2"], ["xOffset", "yOffset"]] as const) {
+    const [first, second] = [enc[a], enc[b]];
+    if (second === undefined) delete enc[a];
+    else enc[a] = second;
+    if (first === undefined) delete enc[b];
+    else enc[b] = first;
+  }
+  for (const key of ["x", "y"] as const) {
+    const ch = enc[key];
+    if (isRecord(ch) && "sort" in ch) ch.sort = turnedSort(ch.sort);
+  }
+}
+
 /**
  * A bar chart's direction, chosen for its labels and the card's width whichever way the model
  * wrote it: months, weekdays, quarters and years stand as columns, as do names that fit
  * upright under their columns; other names lie across the card, where they stay readable.
+ * A plot that does not fill the card (a facet's or concat's panel) keeps the written direction.
  */
-function orientBars(spec: JsonRecord, width: number): void {
-  if (markType(spec.mark) !== "bar" || !isRecord(spec.encoding)) return;
+function orientBars(spec: JsonRecord, width: number | null): void {
+  if (width === null || markType(spec.mark) !== "bar" || !isRecord(spec.encoding)) return;
   const enc = spec.encoding;
   const across = isCategoryType(channelType(enc.y)) && channelType(enc.x) === "quantitative";
   const standing = isCategoryType(channelType(enc.x)) && channelType(enc.y) === "quantitative";
@@ -121,15 +144,7 @@ function orientBars(spec: JsonRecord, width: number): void {
   if (columns === standing) return;
   // An angle written for labels under columns tilted them once they lay down the side.
   if (!columns && isRecord(category) && isRecord(category.axis)) delete category.axis.labelAngle;
-  [enc.x, enc.y] = [enc.y, enc.x];
-  const xOff = enc.xOffset;
-  const yOff = enc.yOffset;
-  if (xOff !== undefined || yOff !== undefined) {
-    enc.xOffset = yOff;
-    enc.yOffset = xOff;
-    if (enc.xOffset === undefined) delete enc.xOffset;
-    if (enc.yOffset === undefined) delete enc.yOffset;
-  }
+  turnBars(enc);
 }
 
 function setHorizontalBandHeight(spec: JsonRecord): void {
@@ -167,7 +182,7 @@ function pairBinnedEdges(spec: JsonRecord, enc: JsonRecord): void {
   }
 }
 
-function normalizeUnit(spec: JsonRecord, width: number): void {
+function normalizeUnit(spec: JsonRecord, width: number | null): void {
   orientBars(spec, width);
   if (isRecord(spec.encoding)) {
     const enc = spec.encoding;
@@ -181,20 +196,33 @@ function normalizeUnit(spec: JsonRecord, width: number): void {
   setHorizontalBandHeight(spec);
 }
 
-/** Every view in a spec, with whether it is one layer of a layered plot. */
-function eachView(spec: JsonRecord, visit: (view: JsonRecord, inLayer: boolean) => void, inLayer = false): void {
-  visit(spec, inLayer);
+type ViewVisit = (view: JsonRecord, inLayer: boolean, fillsCard: boolean) => void;
+
+function isFaceted(view: JsonRecord): boolean {
+  const enc = view.encoding;
+  return isRecord(enc) && ["row", "column", "facet"].some((key) => key in enc);
+}
+
+/**
+ * Every view in a spec, with whether it is one layer of a layered plot and whether it is
+ * drawn the card's width: the page widens only a top-level plot (layers included) that is
+ * not faceted; a facet's, repeat's or concat's panels keep Vega-Lite's 20 px step.
+ */
+function eachView(spec: JsonRecord, visit: ViewVisit, inLayer = false, fillsCard = true): void {
+  const fills = fillsCard && !isFaceted(spec);
+  visit(spec, inLayer, fills);
   for (const key of COMPOSITE_KEYS) {
     const kids = spec[key];
     if (!Array.isArray(kids)) continue;
-    for (const kid of kids) if (isRecord(kid)) eachView(kid, visit, inLayer || key === "layer");
+    const layer = key === "layer";
+    for (const kid of kids) if (isRecord(kid)) eachView(kid, visit, inLayer || layer, fills && layer);
   }
-  if (isRecord(spec.spec)) eachView(spec.spec, visit);
+  if (isRecord(spec.spec)) eachView(spec.spec, visit, false, false);
 }
 
 /** Layout + category order for a Vega-Lite spec on a card `width` px wide (mutates). */
 export function normalizeChartSpec(spec: JsonRecord, width = 320): void {
-  eachView(spec, (view) => normalizeUnit(view, width));
+  eachView(spec, (view, _inLayer, fillsCard) => normalizeUnit(view, fillsCard ? width : null));
 }
 
 /** Whether a channel holds categories: said so, or a plain field Vega-Lite reads as nominal. */
@@ -457,8 +485,8 @@ export function presentChartSpec(spec: JsonRecord, width = 320): JsonRecord {
   if (isVegaSpec(parsed)) return parsed;
   repairTransforms(parsed, null, null);
   const out = JSON.parse(JSON.stringify(labelSlices(parsed))) as JsonRecord;
-  eachView(out, (view, inLayer) => {
-    normalizeUnit(view, width);
+  eachView(out, (view, inLayer, fillsCard) => {
+    normalizeUnit(view, fillsCard ? width : null);
     keepColorOrder(view);
     unpinLines(view, inLayer);
   });
