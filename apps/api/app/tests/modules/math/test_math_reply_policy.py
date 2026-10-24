@@ -254,10 +254,14 @@ async def test_nonmath_augmentation_remains_unchanged() -> None:
     assert all(MATH_REPLY_POLICY not in message["content"] for message in prepared)
 
 
-@pytest.mark.parametrize("prompt", [MATH_REPLY_POLICY, MATH_INTENT_HINT])
-def test_math_prompts_number_each_move(prompt: str) -> None:
-    """A maths reply the model writes numbers its moves, as the verified lesson does."""
+def test_math_prompts_number_each_move() -> None:
+    """A maths reply the model writes numbers its moves, as the verified lesson does.
+
+    The policy states the layout; the maths pack, always closed by the policy, does
+    not repeat it (about 460 tokens a maths turn)."""
+    prompt = MATH_REPLY_POLICY
     assert MATH_WORKOUT_PROMPT_RULE in prompt
+    assert MATH_WORKOUT_PROMPT_RULE not in MATH_INTENT_HINT
     assert "`**1. Subtract 4 from both sides** — Subtraction property of equality`" in prompt
     assert "never a **Steps** heading" in prompt
     assert "`$4x + 4 - 4 = 0 - 4$`, then `$4x = -4$`" in prompt

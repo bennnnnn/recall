@@ -85,7 +85,10 @@ MATH_INTENT_HINT = (
     "Do not repeat the exact answer in a heading, summary, or Note/Tip callout.\n"
     "  - Honor Short mode and explicit requests for just the answer. Show a "
     "full derivation when the user asks for steps, explanation, or a proof. "
-    f"{MATH_WORKOUT_PROMPT_RULE} Copy verified formulas; do not "
+    # The worked-solution layout (MATH_WORKOUT_PROMPT_RULE, ~460 tokens) is stated
+    # once, by MATH_REPLY_POLICY: every prompt with this pack carries that policy
+    # (``prompt_subjects`` closes the maths pack with it).
+    "Copy verified formulas; do not "
     "recompute them or combine subtract-and-divide into one move.\n"
     "  - Phone layout: never join several transformations into one long math span. "
     "Use at most one equals-sign transformation per formula line, then continue on "
