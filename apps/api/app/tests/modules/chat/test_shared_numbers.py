@@ -1,4 +1,4 @@
-"""A message that only shares numbers is answered about them, never with a greeting.
+"""A message that lists numbers is answered about them, never with a greeting.
 
 "Monthly rainfall in Addis Ababa: Jan 15, …, Dec 5 mm" got "Hey bini! How's it going?"
 four times in four from the free plan's model (2026-10-24); told what the message was, it
@@ -27,19 +27,16 @@ _RAIN = (
 @pytest.mark.parametrize(
     ("text", "highest", "lowest"),
     [
-        # The unit on the last item is the series' unit.
+        # The unit on the last item is the series' unit; "Apr" is April, not a loan's APR.
         (_RAIN, "Aug (290 mm)", "Dec (5 mm)"),
         (
             "Here are my exam marks: math 85, physics 78, chemistry 92, biology 88",
             "chemistry (92)",
             "physics (78)",
         ),
-        # A thousands comma is not a new item; money keeps its sign.
-        (
-            "My expenses: rent $1,500, groceries $400, car $300, phone $60",
-            "rent ($1,500)",
-            "phone ($60)",
-        ),
+        # A thousands comma is not a new item; money keeps its sign, a minus included.
+        ("Budget: rent $1,500, groceries $400, car $300", "rent ($1,500)", "car ($300)"),
+        ("Profit: Jan -$500, Feb $300, Mar $200", "Feb ($300)", "Jan (-$500)"),
         # "10k" is compared as 10,000; ties name every label.
         ("Q1 10k, Q2 15k, Q3 20k and Q4 20k", "Q3 and Q4 (20k)", "Q1 (10k)"),
         # One line per item, under a title line.
@@ -50,6 +47,12 @@ _RAIN = (
             "week 1 (80 kg)",
             "week 3 (78.8 kg)",
         ),
+        # Long numbers stay whole.
+        (
+            "GDP: US 27360000000000, China 17790000000000, Japan 4210000000000",
+            "US (27360000000000)",
+            "Japan (4210000000000)",
+        ),
     ],
 )
 def test_a_list_of_numbers_gets_its_highest_and_lowest(
@@ -58,30 +61,40 @@ def test_a_list_of_numbers_gets_its_highest_and_lowest(
     hint = shared_numbers_hint(text)
     assert hint is not None
     assert hint.startswith(SHARED_NUMBERS_HINT)
-    assert f"Its highest is {highest} and its lowest is {lowest}" in hint
+    assert hint.endswith(f"the highest is {highest} and the lowest is {lowest}.")
 
 
 @pytest.mark.parametrize(
     "text",
     [
-        # Asks something: a question, a request, a chart, a reminder, a sum.
+        # Asks something in English: a question, a request, a chart, a reminder, a sum.
         "Mon 5h, Tue 7h, Wed 6h, Thu 8h of sleep. How am I doing",
         "rent 1200, food 300, fun 200, can you chart it",
         "make a bar chart: rent 1200, food 300, fun 200",
+        "Summarize: rent 1200, food 300, fun 200",
         "remind me to pay rent 1200, water 40 and power 60",
         "what's 15 + 30 + 60",
         "Total 1200, rent 800, food 400",
+        "1月 15\n2月 30\n3月 60\n这是多少？",
+        # A number left out of the list would make the highest or lowest wrong.
+        "rent 1200, food 300, fun 200, transport 100 for 2 people",
+        "Jan 15, Feb 30, Mar 60 for 3 years",
+        "rent 1200, food 300, fun 200 - is that ok for a family of 4",
         # Numbers in a sentence, not a list of values.
         "My phone number is 555 123 4567",
         "my flight is at 10:30 on Jan 5, gate 23",
         "I'm 25, my brother is 30 and my sister is 22",
         "I ran 5km today",
-        # Dates, not amounts to compare.
+        "My balance: -$45",
+        # Dates and times of day, not amounts to compare.
         "born 1990, married 2015, moved 2020",
+        "Tomorrow: dentist 3pm, gym 7pm, dinner 8pm",
+        # A loan's or a card's terms are the money reader's.
+        "car loan 20000, rate 6, years 5",
+        "credit card balance 5000, apr 24, payment 200",
         # Too few, no labels, or units that cannot be compared.
         "rent 1200, food 300",
         "3, 5, 7, 9, 11",
-        "loan 20000, rate 5%, 3 years",
         "milk 2 liters, eggs 12, bread 1 loaf",
         "hi",
         "",
@@ -92,11 +105,24 @@ def test_what_asks_or_is_no_list_gets_no_note(text: str) -> None:
     assert shared_numbers_hint(text) is None
 
 
+def test_a_personal_disclosure_keeps_its_own_note() -> None:
+    """Its note says how to acknowledge it, and must stay the one nearest the user's turn."""
+    text = "My expenses: rent $1,500, groceries $400, car $300, phone $60"
+    assert shared_numbers(text) is not None
+    assert shared_numbers_hint(text) is None
+
+
 @pytest.mark.parametrize(
     "text",
-    ["a 1, " * 400, "x" * 1990 + " 1, b 2, c 3", "a" * 40 + " " * 3000 + "1, b 2, c 3", "1," * 900],
+    [
+        "a 1, " * 400,
+        "x" * 1990 + " 1, b 2, c 3",
+        "a" * 40 + " " * 1900 + "1, b 2, c 3",
+        "1," * 900,
+        "net -$" + "9" * 1500 + ", b 2, c 3",
+    ],
 )
-def test_reading_a_long_message_stays_quick(text: str) -> None:
+def test_reading_a_long_message_stays_quick_and_never_raises(text: str) -> None:
     started = time.perf_counter()
-    shared_numbers(text)
+    shared_numbers_hint(text)
     assert time.perf_counter() - started < 0.2

@@ -40,5 +40,40 @@
   "prompt": "rent 1200, food 300",
   "reply": "Got it: rent 1200 and food 300.",
   "expect": "answer"
+ },
+ {
+  "id": "sn-007",
+  "area": "numbers lookalike",
+  "prompt": "car loan 20000, rate 6, years 5",
+  "reply": "At 6% over 5 years, the payment is about **$387 a month**.",
+  "expect": "answer"
+ },
+ {
+  "id": "sn-008",
+  "area": "numbers lookalike",
+  "prompt": "Tomorrow: dentist 3pm, gym 7pm, dinner 8pm",
+  "reply": "A full evening: dentist at 3, gym at 7, then dinner at 8.",
+  "expect": "answer"
+ },
+ {
+  "id": "sn-009",
+  "area": "numbers lookalike",
+  "prompt": "Summarize: rent 1200, food 300, fun 200",
+  "reply": "You spend 1,700 a month: rent is the biggest share, then food, then fun.",
+  "expect": "answer"
+ },
+ {
+  "id": "sn-010",
+  "area": "numbers lookalike",
+  "prompt": "rent 1200, food 300, fun 200, transport 100 for 2 people",
+  "reply": "For two people that's a lean budget, with rent the biggest part.",
+  "expect": "answer"
+ },
+ {
+  "id": "sn-011",
+  "area": "numbers lookalike",
+  "prompt": "My balance: -$45",
+  "reply": "You're $45 overdrawn; moving a little in before any new charges avoids a fee.",
+  "expect": "answer"
  }
 ]
