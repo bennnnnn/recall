@@ -32,6 +32,7 @@ from app.gateways.stream_usage import apply_usage, merge_attempt_usage
 # and a test patches each seam once, here.
 from app.gateways.structured_completion import complete_structured as complete_structured
 from app.gateways.text_completion import complete_text as complete_text
+from app.gateways.text_tool_calls import TextToolCalls
 from app.gateways.think_stripper import STRAY_THINK_LEAD_HOLD, ThinkStripper
 from app.gateways.tool_completion import complete_with_tools as complete_with_tools
 from app.gateways.vision_completion import vision_completion as vision_completion
@@ -285,9 +286,10 @@ def _read_chunk(
     stream_meta: dict[str, str] | None,
     stripper: ThinkStripper,
     calls: StreamedToolCalls | None = None,
+    text_calls: TextToolCalls | None = None,
 ) -> _ChunkRead:
     """What one provider chunk shows. ``calls`` is None when the request offered no
-    tools: a stray call is not read."""
+    tools: a stray call is not read. ``text_calls`` holds a call written as text."""
     apply_usage(usage, chunk)
     choices = getattr(chunk, "choices", None) or []
     if not choices:
@@ -302,7 +304,14 @@ def _read_chunk(
         stripper.reasoning_streamed()
     content = getattr(delta, "content", None) or "" if delta is not None else ""
     text = stripper.feed(content) if content else ""
+    if text and text_calls is not None:
+        found_before = text_calls.found
+        text = text_calls.feed(text)
+        called_in_text = text_calls.found and not found_before
+    else:
+        called_in_text = False
     called = calls is not None and calls.fold(getattr(delta, "tool_calls", None))
+    called = called or (called_in_text and calls is not None)
     return _ChunkRead(
         text, reasoning or stripper.holding_thought, reasoning or bool(content) or called, called
     )
@@ -338,6 +347,7 @@ async def _stream_chat_once(
     route = resolve_route(model_alias)
     kwargs, calls = _call_kwargs(settings, route, thinking, tools)
     stripper = ThinkStripper(lead_hold=STRAY_THINK_LEAD_HOLD if route.stray_think_guard else 0)
+    text_calls = TextToolCalls(calls)
     # Signature kept so WS/SSE callers stay unchanged; CoT is not forwarded.
     _ = on_reasoning
     watch = FirstReplyWatch(first_content_timeout_seconds)
@@ -389,7 +399,12 @@ async def _stream_chat_once(
             if chunk is None:
                 break
             read = _read_chunk(
-                chunk, usage=usage, stream_meta=stream_meta, stripper=stripper, calls=calls
+                chunk,
+                usage=usage,
+                stream_meta=stream_meta,
+                stripper=stripper,
+                calls=calls,
+                text_calls=text_calls,
             )
             if read.delta and attempt is not None:
                 attempt.delta()
@@ -398,7 +413,7 @@ async def _stream_chat_once(
                 await _tell_thinking(on_thinking, model_alias)
             if read.text:
                 yield read.text
-        tail = stripper.flush()
+        tail = text_calls.feed(stripper.flush()) + text_calls.flush()
         if tail:
             yield tail
         if tool_calls is not None and calls is not None:
@@ -419,20 +434,22 @@ async def _stream_chat_once(
         logger.exception("LiteLLM streaming failed for alias=%s", model_alias)
         raise ModelUnavailableError.for_alias(model_alias, cause=provider_fault(exc)) from exc
     finally:
-        close = getattr(response, "aclose", None)
-        if close is not None:
-            # A stop cancels this task. Awaiting the socket close here either
-            # raises again immediately or waits out the provider, and the
-            # partial reply never gets saved. Close in the background.
-            task = asyncio.current_task()
-            if task is not None and task.cancelling():
-                create_background_task(
-                    _close_provider_stream(close),
-                    name="close_provider_stream",
-                )
-            else:
-                with suppress(Exception):
-                    await close()
+        await _close_response(response)
+
+
+async def _close_response(response: Any) -> None:
+    """Close a provider stream. A stop cancels the reply's task: awaiting the socket close
+    then either raises again at once or waits out the provider, and the partial reply
+    never gets saved, so it closes in the background."""
+    close = getattr(response, "aclose", None)
+    if close is None:
+        return
+    task = asyncio.current_task()
+    if task is not None and task.cancelling():
+        create_background_task(_close_provider_stream(close), name="close_provider_stream")
+    else:
+        with suppress(Exception):
+            await close()
 
 
 def _gave_up(model_alias: str, ran_out: str, cause: str) -> ModelUnavailableError:
