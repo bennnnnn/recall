@@ -224,6 +224,15 @@ function foldLine(state: SegmentScanState, line: string, next: number, hooks: Se
   state.prevBlank = blank;
 }
 
+/**
+ * Whether `text` holds a line that changes how parts cut before it preprocess:
+ * a bold Given or Find label (its region's parts merge back into one) or a
+ * construct some pass reads across the whole reply.
+ */
+export function readsBackAcrossCuts(text: string): boolean {
+  return text.split("\n").some((line) => WORKED_RE.test(line) || POISON_RE.test(line));
+}
+
 /** A new open part starts at `start`: what was read about the old one no longer applies. */
 function startSegment(state: SegmentScanState, start: number): void {
   state.segmentStart = start;

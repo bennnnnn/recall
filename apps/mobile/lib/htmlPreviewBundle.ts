@@ -122,14 +122,18 @@ export type PreviewScanState = {
   /** Char offset to resume from — always at a line start. */
   resumeFrom: number;
   files: PreviewFile[];
-  /** The last file came from a fence still open at scan time — it is
-   *  replaced by the rescan from `resumeFrom` on the next advance. */
+  /** The last file came from a fence the line still being written may change (open, or
+   *  closed on that line) — it is replaced by the rescan from `resumeFrom` on the next advance. */
   trailingOpen: boolean;
 };
 
 type CollectResult = {
   files: PreviewFile[];
-  /** Offset of the opener of a fence still open (of any language), or `markdown.length`. */
+  /**
+   * Where the next scan starts: the opener of a fence still open (of any language) or
+   * closed on the line still being written, else the start of that line (`markdown.length`
+   * once the text ends a line). The line may yet become a fence opener or stop being a closer.
+   */
   openFenceStart: number;
   trailingOpen: boolean;
 };
@@ -144,12 +148,14 @@ function collectPreviewFilesInto(
   files: PreviewFile[],
   used: Set<string>,
 ): CollectResult {
-  let openFenceStart = markdown.length;
+  const lastLineStart = markdown.lastIndexOf("\n") + 1;
+  let openFenceStart = lastLineStart;
   let trailingOpen = false;
   for (const span of scanFences(markdown, true)) {
     // Mid-stream, the next scan resumes at this opener: a scan that started inside
     // the fence would read its closer as an opener.
-    if (!span.closed) openFenceStart = span.start;
+    const unsettled = !span.closed || span.end > lastLineStart;
+    if (unsettled) openFenceStart = Math.min(openFenceStart, span.start);
     if (files.length >= HTML_PREVIEW_MAX_FILES) break;
     const kind = kindForLang(fenceLangFromInfo(span.info));
     if (kind == null) continue;
@@ -158,7 +164,7 @@ function collectPreviewFilesInto(
     const content = span.body.replace(/\n$/, "");
     if (!content.trim()) continue;
     // An open fence's partial file is replaced, not duplicated, by the next scan.
-    trailingOpen = !span.closed;
+    trailingOpen = unsettled;
     const clipped =
       content.length > HTML_PREVIEW_MAX_FILE_CHARS
         ? content.slice(0, HTML_PREVIEW_MAX_FILE_CHARS)

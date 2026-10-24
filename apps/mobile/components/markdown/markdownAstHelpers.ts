@@ -4,6 +4,7 @@ export type AstNode = {
   key: string;
   type?: string;
   content?: string;
+  markup?: string;
   attributes?: Record<string, string>;
   children?: AstNode[];
   sourceType?: string;
@@ -160,6 +161,15 @@ const HEADING_TYPES = [
 
 export function inHeading(parent: unknown): boolean {
   return HEADING_TYPES.some((type) => parentHasType(parent, type));
+}
+
+/**
+ * The AST fields the render rules read from a node and its children, as one
+ * string: two nodes with the same source, in the same place, draw the same.
+ */
+export function astSource(node: AstNode): string {
+  const fields = [node.type, node.content, node.markup, JSON.stringify(node.attributes ?? {})];
+  return `${fields.join("\u0001")}[${(node.children ?? []).map(astSource).join("\u0002")}]`;
 }
 
 export function astText(node: AstNode): string {

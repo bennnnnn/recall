@@ -1,6 +1,10 @@
 import { preprocessMarkdown, type PreprocessOptions } from "@/lib/markdown/preprocess";
 import { presentStreamTail } from "@/lib/markdown/presentation";
-import { advanceSegmentedPrefix, type SegmentedPrefix } from "@/lib/markdown/segmentedPreprocess";
+import {
+  advanceSegmentedPrefix,
+  finishSegmentedPrefix,
+  type SegmentedPrefix,
+} from "@/lib/markdown/segmentedPreprocess";
 import { fenceAfterLine, type OpenFence } from "@/lib/mdFenceScan";
 
 export type StreamingPreprocessCache = {
@@ -352,4 +356,25 @@ export function preprocessMarkdownForStream(
       mathFormat,
     },
   };
+}
+
+/**
+ * A reply that has just finished streaming, preprocessed as
+ * `preprocessMarkdown` preprocesses it whole. The parts its stream already
+ * preprocessed (`cache`) are kept, so the end of a long reply preprocesses the
+ * text after its last cut, not the whole reply again. A reply that changed
+ * before that cut, or a cache made with other options, is preprocessed whole.
+ */
+export function preprocessSettledMarkdown(
+  content: string,
+  cache: StreamingPreprocessCache | null,
+  mathFormat?: (expr: string) => string,
+  options: PreprocessOptions = {},
+): string {
+  const preprocess = (raw: string) => preprocessMarkdown(raw, mathFormat, options);
+  const segments =
+    cache && cache.presented === (options.presented === true) && cache.mathFormat === mathFormat
+      ? cache.segments
+      : null;
+  return (segments ? finishSegmentedPrefix(segments, content, preprocess) : null) ?? preprocess(content);
 }

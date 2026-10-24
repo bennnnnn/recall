@@ -8,7 +8,7 @@ import {
   MarkdownTableRow,
 } from "@/components/MarkdownTable";
 import { type AstNode } from "@/components/markdown/markdownAstHelpers";
-import { tableColumnText } from "@/components/markdown/tableLayout";
+import { tableColumnText, tableRowSource } from "@/components/markdown/tableLayout";
 
 export function tableRules() {
   return {
@@ -23,8 +23,13 @@ export function tableRules() {
     tbody: (node: { key: string }, children: ReactNode) => (
       <View key={node.key}>{children}</View>
     ),
-    tr: (node: { key: string }, children: ReactNode) => (
-      <MarkdownTableRow key={node.key} nodeKey={node.key}>
+    tr: (node: AstNode, children: ReactNode, parents: AstNode[], styles: object) => (
+      <MarkdownTableRow
+        key={node.key}
+        nodeKey={node.key}
+        source={tableRowSource(node, parents)}
+        drawnWith={styles}
+      >
         {children}
       </MarkdownTableRow>
     ),
