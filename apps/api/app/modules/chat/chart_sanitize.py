@@ -3,48 +3,26 @@
 The format rules every turn gets name the ```chart fence, but only a turn that asks for
 a visual is told its shape (Vega-Lite JSON, data inline). "What's 72 fahrenheit in
 celsius" got a chart nobody asked for, written as YAML around a pipe table, and the phone
-showed "Could not render that chart" above the answer. The phone draws JSON with its data
-inline (``apps/mobile/lib/chartSpec.ts``); any other body becomes the table it holds, or
-goes. A formula chart is turned into a verified ```graph earlier (``formula_charts``).
+showed "Could not render that chart" above the answer. What the phone draws is
+``chart_bodies``' to say, judged against the same bodies the phone's tests draw; any other
+body becomes the table it holds, or goes. A formula chart is turned into a verified
+```graph earlier (``formula_charts``).
 """
 
 from __future__ import annotations
 
-import json
 import re
-from typing import Any
 
+from app.modules.chat.chart_bodies import chart_body_draws
 from app.services.md_fence_scan import Fence, block_end, map_fence_blocks
 
 # The langs the phone draws as a chart (``lib/fenceRegistry.ts``).
 CHART_LANGS = frozenset({"chart", "vega", "vega-lite", "plot"})
-# Where a chart dialect keeps its rows: Vega-Lite and Vega ``values``, named
-# ``datasets``, Chart.js ``data`` arrays, a series chart's ``series`` and ``points``.
-_DATA_KEYS = frozenset({"values", "datasets", "data", "series", "points"})
-_MAX_DEPTH = 6
-
-
-def _has_inline_data(node: Any, depth: int = 0) -> bool:
-    if depth > _MAX_DEPTH:
-        return False
-    if isinstance(node, dict):
-        for key, value in node.items():
-            if key in _DATA_KEYS and isinstance(value, list) and value:
-                return True
-            if _has_inline_data(value, depth + 1):
-                return True
-    elif isinstance(node, list):
-        return any(_has_inline_data(item, depth + 1) for item in node)
-    return False
 
 
 def chart_is_drawable(body: str) -> bool:
-    """JSON whose data is written inline, the only chart body the phone draws."""
-    try:
-        spec = json.loads(body)
-    except ValueError:
-        return False
-    return isinstance(spec, dict) and _has_inline_data(spec)
+    """A body the phone draws: a dialect it reads, or JSON with its data inline."""
+    return chart_body_draws(body)
 
 
 def _table_in(body: str) -> str:

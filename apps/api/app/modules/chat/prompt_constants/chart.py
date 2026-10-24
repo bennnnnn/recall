@@ -62,6 +62,95 @@ _DEFINITION = re.compile(
     re.IGNORECASE,
 )
 
+# A picture of data asked for in other words (2026-10-24: 15 of 30 live chart requests
+# matched none of the above, and "Show me the income in graph month by month", "plot my
+# test scores 72, 85, 90" and "graph it" after a list of marks went to maths, which asked
+# for a function, or got a chart in a made-up format).
+_KIND = r"(?:bar|line|pie|area|scatter|donut|column|stacked|grouped)"
+_VISUAL = r"(?:graphs?|charts?|plots?|visuali[sz]ations?)"
+_POLITE = (
+    r"(?:(?:can|could|would|will)\s+you\s+|please\s+|pls\s+|now\s+|ok(?:ay)?,?\s+"
+    r"|and\s+|also\s+|just\s+)*"
+)
+# "Show this in a graph", "put that in a chart", "compare … prices in a chart", "show that
+# as a bar chart". The verb asks for one: "the highest value in the chart" asks about one.
+_IN_A_VISUAL = re.compile(
+    r"\b(?:show|put|display|turn|make|draw|present|give|convert|compare|plot|graph|"
+    r"visuali[sz]e|want|need)\b[^.?!\n]{0,80}?\b(?:in|as|into|on|onto)\s+"
+    rf"(?:a\s+|an\s+|the\s+|one\s+)?(?:{_KIND}\s+)?{_VISUAL}\b",
+    re.IGNORECASE,
+)
+# "Graph it", "visualize this", "plot my test scores", "chart the top 5 languages": the
+# message opens with the verb. "Plot of the movie", "graph theory" are nouns.
+_OPENS_WITH_VERB = re.compile(
+    rf"^{_POLITE}(?:graph|chart|plot|visuali[sz]e)\b(?![\s-]+(?:of|twist|summary|line|holes?|"
+    r"armou?r|theory|paper|database|neural|topp(?:ing|ers?)|positions?|tops)\b)",
+    re.IGNORECASE,
+)
+# "Make a graph of the exchange rate", "show me a graph of how compound interest grows".
+_MAKE_A_VISUAL = re.compile(
+    r"\b(?:make|draw|create|show|give|build|render|generate|sketch|display|add)\b"
+    rf"(?:\s+(?:me|us))?\s+(?:a\s+|an\s+|the\s+|some\s+)?(?:{_KIND}\s+)?{_VISUAL}\b",
+    re.IGNORECASE,
+)
+# "bar graph: apples 30".
+_KIND_OPENS = re.compile(rf"^{_POLITE}{_KIND}\s*{_VISUAL}\b", re.IGNORECASE)
+# "Help me visualize my spending: rent 1200, food 300": with the numbers to draw.
+# "How do I visualize my goals?" is no chart.
+_VISUALIZE = re.compile(r"\bvisuali[sz]e\b", re.IGNORECASE)
+_TWO_NUMBERS = re.compile(r"\d[^\d]+\d")
+# A formula is maths' curve, not data: "graph y = 2x + 3", "plot sin(x)", "graph x^2".
+_FORMULA = re.compile(
+    r"\bf\s*\(\s*x\s*\)|\by\s*=|=\s*[-+]?\s*\d*\.?\d*\s*x\b|"
+    r"\b(?:sin|cos|tan|log|ln|sqrt|exp)\s*\(|\bx\s*(?:\^|\*\*|\u00b2|\u00b3)|"
+    r"\b\d+(?:\.\d+)?\s*x\b(?!\s*\d)",
+    re.IGNORECASE,
+)
+# A curve or shape named in words is maths' too: "graph the parabola", "graph a circle of
+# radius 5", "a graph of the sine function", "graph the inequality x > 3".
+_CURVE_WORDS = re.compile(
+    r"\b(?:parabolas?|hyperbolas?|ellipses?|circles?|sine|cosine|tangent|quadratics?|cubics?|"
+    r"polynomials?|absolute\s+value|exponential|logarithm(?:ic)?|inequalit(?:y|ies)|slopes?|"
+    r"intercepts?|asymptotes?|functions?|equations?|line\s+through)\b",
+    re.IGNORECASE,
+)
+# "Plot the points (1, 2), (3, 4)" is a coordinate plane, maths' to draw.
+_COORDINATE_PAIR = re.compile(r"\(\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\)")
+# Code that draws a chart is a code answer: "plot this in matplotlib", "a chart in React",
+# "write python code to plot my sales". A language as the chart's subject is not ("a bar
+# chart of Python vs JavaScript popularity", "my excel expenses: rent 1200").
+_CODE_ASK = re.compile(
+    r"\b(?:matplotlib|seaborn|plotly|pandas|d3\.js|chart\.js|chartjs|recharts|ggplot2?)\b"
+    r"|\b(?:in|with|using|via)\s+(?:python|r|javascript|typescript|react|swift|kotlin|java|"
+    r"excel|google\s+sheets|d3)\b"
+    r"|\b(?:write|give\s+me|show\s+me|need)\b[^.?!\n]{0,40}?\b(?:code|script|program|snippet)\b",
+    re.IGNORECASE,
+)
+# A story's plot or a graph in computing: "the plot of Inception", "a graph database".
+_NOT_DATA = re.compile(
+    r"\bplots?\b[^.?!\n]{0,40}\b(?:movie|film|book|story|novel|episode|season|series|anime|"
+    r"manga|game|play|musical|sitcom)s?\b|\b(?:knowledge|social|dependency|call|scene|"
+    r"directed|undirected|weighted|bipartite|acyclic|computational)\s+graphs?\b",
+    re.IGNORECASE,
+)
+
+
+def _asks_for_a_visual_in_other_words(cleaned: str) -> bool:
+    """The phrasings beyond ``_CHART_TURN``: a picture of data, not of a formula."""
+    if _FORMULA.search(cleaned) or _CURVE_WORDS.search(cleaned) or _NOT_DATA.search(cleaned):
+        return False
+    asked = (
+        _IN_A_VISUAL.search(cleaned)
+        or _OPENS_WITH_VERB.search(cleaned)
+        or _MAKE_A_VISUAL.search(cleaned)
+        or _KIND_OPENS.search(cleaned)
+        or (_VISUALIZE.search(cleaned) and _TWO_NUMBERS.search(cleaned))
+    )
+    if asked is None:
+        return False
+    # Points on a plane with no chart kind named are maths' coordinate graph.
+    return not (_COORDINATE_PAIR.search(cleaned) and not re.search(_KIND, cleaned, re.I))
+
 
 def _shape_lines() -> str:
     return "\n".join(
@@ -143,7 +232,12 @@ def is_chart_question(text: str) -> bool:
     # "An org chart" or "a Gantt chart" is a Mermaid diagram, not numbers.
     if names_diagram_kind(cleaned):
         return False
+    # Code that draws a chart is a code answer.
+    if _CODE_ASK.search(cleaned):
+        return False
     if _CHART_TURN.search(cleaned):
+        return True
+    if _asks_for_a_visual_in_other_words(cleaned):
         return True
     # "Draw the learning curve": an idea's curve, as a chart with sample data.
     asked = _DRAW_VERB.search(cleaned)
@@ -152,6 +246,15 @@ def is_chart_question(text: str) -> bool:
     if not _PLOT_REQUEST.search(cleaned):
         return False
     return not (_LINE_PLOT.search(cleaned) and _CURVE.search(cleaned))
+
+
+# A number the chart request also asks for: "find the mean", "what's the total".
+_COMPUTES = re.compile(
+    r"\b(?:find|calculate|compute|work\s+out|determine|what(?:'s|\s+is|\s+are)\s+the)\b"
+    r"[^.?!\n]{0,40}\b(?:mean|median|mode|average|standard\s+deviation|variance|range|total|"
+    r"sum|percent(?:age)?)\b|\b(?:mean|median|mode|average|standard\s+deviation)\s+of\b",
+    re.IGNORECASE,
+)
 
 
 def chart_names_no_curve(text: str) -> bool:
@@ -167,4 +270,62 @@ def chart_names_no_curve(text: str) -> bool:
     from app.modules.math.tools.extract import extract_math_intent
 
     intent = extract_math_intent(text)
-    return intent is None or (intent.kind == "graph" and not intent.expr)
+    if intent is None:
+        return True
+    if intent.kind in {"graph", "graph_pair"}:
+        return not intent.expr
+    # A statistic it asks for ("make a bar chart of these and find the mean") is maths' to
+    # verify. The user's points alone are not: "scatter plot of hours vs score: (1, 50),
+    # (2, 55)" was read as an arithmetic lesson, and the reply listed the points back.
+    return _COMPUTES.search(text) is None
+
+
+# Numbers the user gave as data: three or more, or any after a colon ("bar graph: apples 30").
+# Years and "top 5" are not data.
+_NUMBER = re.compile(r"(?<![\w.])\d[\d,.]*")
+_YEAR = re.compile(r"\b(?:19|20)\d\d\b")
+# "This year" names a time, not the chat's data.
+_OWN_DATA = re.compile(
+    r"\b(?:my|our|mine|ours|these|those|it|them|above|below|following|"
+    r"(?:this|that)(?!\s+(?:year|month|week|quarter|season|decade|century|time)\b))\b",
+    re.IGNORECASE,
+)
+_SAMPLE = re.compile(
+    r"\b(?:example|sample|dummy|fake|made[- ]up|random|hypothetical|imaginary)\b", re.IGNORECASE
+)
+# What only a search knows: populations, prices, rates, rankings.
+_FACT_WORDS = re.compile(
+    r"\b(?:population|prices?|rates?|exchange|gdp|inflation|temperatures?|weather|stocks?|"
+    r"shares?|bitcoin|crypto|popularity|rank(?:ing|ings)?|top|most|largest|biggest|world|"
+    r"global|countries|cities|elections?|results|records?|revenue\s+of|sales\s+of)\b",
+    re.IGNORECASE,
+)
+# A name after the first word: "Ethiopia", "iPhone 18 Pro", "USD to ETB".
+_PROPER_NOUN = re.compile(r"(?<=\S\s)(?:[A-Z][a-z]+|[a-z]+[A-Z]\w*|[A-Z]{2,})\b")
+
+
+def chart_of_public_facts(text: str) -> bool:
+    """A chart of facts the user did not give, which only a search finds.
+
+    "Graph the population of Ethiopia over the last 10 years" and "compare iPhone 18 Pro
+    and Pixel 11 prices in a chart" were drawn from memory or refused ("those models
+    haven't been released") without a search (2026-10-24). It names a thing ("Ethiopia",
+    "USD") or a fact only a search knows ("population", "prices"). The user's own
+    numbers, a word for the chat's data ("graph it", "my sales"), a sample or an idea's
+    curve is not one, nor is "show me the income in graph" after a salary question.
+    """
+    cleaned = text.strip()
+    if not is_chart_question(cleaned) or _OWN_DATA.search(cleaned) or _SAMPLE.search(cleaned):
+        return False
+    asked = _DRAW_VERB.search(cleaned)
+    if asked is not None and names_idea_curve(cleaned[asked.end() :]):
+        return False
+    numbers = _NUMBER.findall(_YEAR.sub(" ", cleaned))
+    if len(numbers) >= 3 or (numbers and ":" in cleaned):
+        return False
+    named = _PROPER_NOUN.search(cleaned)
+    # "Put the results in a chart", "show the prices in a bar chart": the chat's data, unless
+    # it names something ("compare iPhone 18 Pro and Pixel 11 prices in a chart").
+    if _IN_A_VISUAL.search(cleaned) and not named:
+        return False
+    return bool(named or _FACT_WORDS.search(cleaned))

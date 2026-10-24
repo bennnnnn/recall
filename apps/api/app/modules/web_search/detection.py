@@ -6,6 +6,7 @@ import re
 
 from app.core.config import Settings
 from app.modules.chat import (
+    chart_of_public_facts,
     has_code_syntax,
     has_locale_cue,
     is_lightweight_chat_turn,
@@ -100,6 +101,9 @@ def web_search_skip(
     # "search", "google it": an explicit request is never chitchat.
     if search_command(cleaned) is not None:
         return False
+    # "Make a graph of USD to ETB this year" makes something, from facts it must find.
+    if chart_of_public_facts(cleaned):
+        return False
     if is_word_problem(cleaned) and not is_weather_request(cleaned):
         return True
     # "Great job today", "write a poem about today": a time word, nothing to find.
@@ -153,6 +157,9 @@ def web_search_fast_yes(
         return True
     # Openings, prices and visa rules change: the classifier alone used to decide them.
     if asks_for_job_listings(cleaned) or asks_for_a_price(cleaned) or asks_for_entry_rules(cleaned):
+        return True
+    # A chart of facts the user did not give is drawn from a search, not from memory.
+    if chart_of_public_facts(cleaned):
         return True
     # Conditions and products change after training; no model call can know them.
     if is_weather_request(cleaned) or _NEW_PRODUCT.search(cleaned):
