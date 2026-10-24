@@ -18,6 +18,7 @@ from app.modules.web_search.query_builders import (
 )
 from app.modules.web_search.recency import anchor_recency_to_year
 from app.modules.web_search.search_cache import run_cached_search
+from app.modules.web_search.source_tables import tables_as_rows
 from app.services.number_text import NUMBER_WORDS
 from app.services.prompt_safety import wrap_untrusted
 
@@ -137,7 +138,7 @@ class WebSearchAdapter:
             result = ToolResult(name=self.name, content=content)
         else:
             shown = hits[:5]
-            lines = [f"- {hit.title}: {hit.url}\n  {hit.snippet}" for hit in shown]
+            lines = [f"- {hit.title}: {hit.url}\n  {tables_as_rows(hit.snippet)}" for hit in shown]
             if current_news:
                 lines.insert(
                     0,
