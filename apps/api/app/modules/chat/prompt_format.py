@@ -61,7 +61,6 @@ from app.modules.chat.prompt_constants import (
     is_howto_question,
     is_learning_plan_request,
     is_lightweight_chat_turn,
-    is_mermaid_question,
     is_personal_disclosure_turn,
     is_practice_request,
     is_programming_turn,
@@ -81,14 +80,15 @@ from app.modules.chat.prompt_constants import (
     writing_request_kind,
 )
 from app.modules.chat.prompt_constants.answer_subject import asked_about_subject, subject_photo_hint
+from app.modules.chat.prompt_constants.chart import chart_followup_data, with_chart_followup
 from app.modules.chat.prompt_constants.clarify import names_its_purpose, ranking_layout
+from app.modules.chat.prompt_constants.diagrams import asks_for_a_visual
 from app.modules.chat.prompt_constants.lesson_flow import lesson_turn_hint
 from app.modules.chat.prompt_constants.visuals import (
     ANSWER_PHOTO_HINT,
     IMAGE_GEN_HONESTY_HINT,
     IMAGE_GEN_UNAVAILABLE_HINT,
     WHERE_IS_PHOTO_HINT,
-    is_html_ui_question,
     is_image_generation_mention,
     where_is_place,
 )
@@ -108,16 +108,6 @@ class PromptRule[T]:
 def render_rules[T](rules: Sequence[PromptRule[T]], turn: T) -> list[str]:
     """Every applying rule's text, in table order."""
     return [text for rule in rules if rule.applies(turn) for text in rule.render(turn)]
-
-
-def _viz_intent(query_text: str | None) -> bool:
-    if not query_text or not query_text.strip():
-        return False
-    return (
-        is_chart_question(query_text)
-        or is_mermaid_question(query_text)
-        or is_html_ui_question(query_text)
-    )
 
 
 def _layout_format_hint(query_text: str | None, *, picks: bool = False) -> str | None:
@@ -208,6 +198,8 @@ class StyleTurn:
     multi: bool = False
     after_card: bool = False  # it answers the last reply's card: it never asks again
     picks: bool = False  # the card's picks: its closing "compare …" asks no table
+    # "Graph it" after the user's numbers: the message that holds them, quoted in the hint.
+    chart_data: str | None = None
 
 
 def _style_turn(
@@ -258,11 +250,12 @@ def _style_turn(
         lesson_hint=None
         if shaped
         else lesson_turn_hint(lesson, outline_pick=outline_pick, after_gap=lesson_after_gap),
-        viz_intent=_viz_intent(query_text),
+        viz_intent=asks_for_a_visual(query_text),
         subject=effective_presentation_subject(query_text, prior_messages),
         multi=multi,
         after_card=last_reply_card(prior_messages) is not None,
         picks=answers_last_card(query_text, prior_messages),
+        chart_data=None if multi else chart_followup_data(query, prior_messages),
     )
 
 
@@ -308,12 +301,15 @@ def _format_pack(turn: StyleTurn) -> list[str]:
         # Compact "plain prose" turns chart/flowchart/compare asks into a
         # joke, table, or clipped 2-node mermaid. Those turns get a fence hint.
         # Writing kinds must win the same way or "one paragraph" becomes bullets.
-        layout = turn.writing or _layout_format_hint(turn.query)
+        layout = turn.writing or with_chart_followup(
+            _layout_format_hint(turn.query), turn.chart_data
+        )
         return [UNIVERSAL_FORMAT_BASELINE, layout or COMPACT_RESPONSE_FORMAT_HINT]
     if turn.writing:
         return [UNIVERSAL_FORMAT_BASELINE, turn.writing]
     viz = [VISUALIZATION_HINTS] if turn.viz_intent else []
     layout = None if turn.multi else _layout_format_hint(turn.query, picks=turn.picks)
+    layout = with_chart_followup(layout, turn.chart_data)
     return [UNIVERSAL_FORMAT_BASELINE, FORMAT_CONTRACT, *viz, *_present(layout)]
 
 
