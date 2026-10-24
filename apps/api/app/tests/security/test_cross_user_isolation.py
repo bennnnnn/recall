@@ -219,8 +219,6 @@ async def test_settings_card_of_another_user_cannot_be_confirmed(world: World) -
     assert theirs.status_code == nothing.status_code
     assert theirs.json() == nothing.json()
     assert await world.redis.exists(f"settings:proposal:{world.a.id}:{pid}") == 1
-    b_row = await _get(User, b.id)
-    assert b_row is not None and b_row.response_tone != "funny"
 
 
 # ── attachments ──────────────────────────────────────────────────────────────

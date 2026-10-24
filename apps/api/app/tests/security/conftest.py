@@ -273,7 +273,7 @@ async def world(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> AsyncIterato
             fake,
             a_id,
             a_data.settings_proposal_id,
-            [settings_proposal.SettingsChange(field="response_tone", value="funny")],
+            [settings_proposal.SettingsChange(field="appearance", value="dark")],
         )
 
         a = Account(

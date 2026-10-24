@@ -382,13 +382,9 @@ async def update_me(
 async def confirm_settings_proposal(
     proposal_id: str,
     user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
-    settings: Settings = Depends(get_settings_dep),
 ) -> SettingsConfirmOut:
-    result = await settings_proposal_service.confirm_proposal(
-        session, redis, user, settings, proposal_id
-    )
+    result = await settings_proposal_service.confirm_proposal(redis, user, proposal_id)
     return SettingsConfirmOut(
         user=UserOut.model_validate(result["user"]),
         appearance=result.get("appearance"),

@@ -21,8 +21,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from app.modules.chat.prompt_constants.routing import EMOJI
+from app.modules.chat.response_tone import DEFAULT_EMOJI_USE
 from app.services.md_fence_scan import line_fences
-from app.services.response_tone import DEFAULT_EMOJI_USE
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState

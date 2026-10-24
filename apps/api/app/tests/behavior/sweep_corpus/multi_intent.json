@@ -93,11 +93,8 @@
   "id": "mi-tone-and-vaccines",
   "area": "multi",
   "prompt": "change the tone to funny, and also explain how vaccines work",
-  "reply": "Vaccines show your immune system a harmless preview of a germ, so it learns to recognise it and builds antibodies. If the real germ turns up later, your body is ready and fights it off fast.",
-  "expect": [
-   "settings",
-   "answer"
-  ]
+  "reply": "You can change the tone in Settings → Personalization.\n\nVaccines show your immune system a harmless preview of a germ, so it learns to recognise it and builds antibodies. If the real germ turns up later, your body is ready and fights it off fast.",
+  "expect": "answer"
  },
  {
   "id": "mi-draw-and-explain",

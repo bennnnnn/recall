@@ -7,7 +7,10 @@ same way as the old ``prompt_constants`` module.
 from app.modules.chat.prompt_constants.capabilities import (
     CAPABILITIES_FORMAT_HINT,
     PHOTO_LOOKUP_HINT,
+    SETTINGS_ASK_REMINDER,
+    SETTINGS_IN_APP_HINT,
     is_capabilities_question,
+    names_a_setting,
 )
 from app.modules.chat.prompt_constants.chart import CHART_FORMAT_HINT, is_chart_question
 from app.modules.chat.prompt_constants.checklist import (
@@ -193,6 +196,8 @@ __all__ = [
     "QUOTE_FORMAT_HINT",
     "REPEATED_GREETING_HINT",
     "SEQUENCE_FORMAT_HINT",
+    "SETTINGS_ASK_REMINDER",
+    "SETTINGS_IN_APP_HINT",
     "SHORT_RESPONSE_FORMAT_HINT",
     "STANDING_PREFERENCE_HINT",
     "STATISTICS_PRESENTATION_HINT",
@@ -255,6 +260,7 @@ __all__ = [
     "learning_plan_daily_contract",
     "lesson_step",
     "mermaid_format_hint",
+    "names_a_setting",
     "needs_rich_context",
     "outline_awaits_pick",
     "prior_looks_like_offer",

@@ -352,7 +352,7 @@ def _named_after(text: str, markers: tuple[str, ...], *, forget: bool) -> list[s
 
 def memory_reset_request(text: str) -> MemoryReset | None:
     """ "clear" for "forget everything you know about me", "off" for "stop remembering
-    things about me", else None. Neither is applied without a tap."""
+    things about me", else None. Neither is applied from chat: Settings → Memory does it."""
     lowered = _fold_quotes(text)
     if not lowered:
         return None

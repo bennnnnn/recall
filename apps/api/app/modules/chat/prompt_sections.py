@@ -24,6 +24,7 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules import web_search as web_search_service
 from app.modules.account import profile as profile_service
+from app.modules.chat import response_tone as response_tone_service
 from app.modules.chat.clarify_turn import clarify_reply_hint
 from app.modules.chat.continuation_subject import exchange_pairs, is_resume_request
 from app.modules.chat.json_output import JSON_OUTPUT_HINT, is_json_request
@@ -41,6 +42,8 @@ from app.modules.chat.prompt_constants import (
     PERSONAL_DISCLOSURE_HINT,
     PHOTO_LOOKUP_HINT,
     PROFILE_FACT_HINT,
+    SETTINGS_ASK_REMINDER,
+    SETTINGS_IN_APP_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
     TONE_FORMAT_GUARD,
@@ -62,6 +65,7 @@ from app.modules.chat.prompt_constants import (
     is_standing_preference,
     is_teaching_request,
     learning_plan_daily_contract,
+    names_a_setting,
     outline_awaits_pick,
     programming_lesson_contract,
     repeated_greeting_hint,
@@ -90,7 +94,6 @@ from app.modules.math.followup import MATH_FOLLOWUP_HINT
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.physics.followup import PHYSICS_FOLLOWUP_HINT
 from app.services import locale as locale_service
-from app.services import response_tone as response_tone_service
 from app.services import time_context as time_context_service
 from app.services.day_planning import is_day_planning_question
 from app.services.prompt_safety import wrap_saved_memory, wrap_untrusted
@@ -272,7 +275,7 @@ STABLE_SECTIONS: tuple[PromptSection, ...] = (
     ),
     # "Bo" or "gd" may be a typo, another language or a half-typed message: the
     # model, which sees the conversation, decides; no word list or length gate.
-    PromptSection(_always, lambda _t: [UNCLEAR_MESSAGE_HINT]),
+    PromptSection(_always, lambda _t: [UNCLEAR_MESSAGE_HINT, SETTINGS_IN_APP_HINT]),
     PromptSection(_always, lambda t: _present(custom_instructions_block(t.user))),
     PromptSection(_always, lambda t: _present(locale_service.locale_system_hint(t.user.locale))),
 )
@@ -415,6 +418,8 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
         lambda t: bool(t.query) and _replied(t) and is_correction(t.query),
         lambda _t: [CORRECTION_HINT],
     ),
+    # "Use the pro model by default": no card; the reply says where, not "done".
+    PromptSection(lambda t: names_a_setting(t.query_text), lambda _t: [SETTINGS_ASK_REMINDER]),
     # Asked-for JSON is checked at finalize (``json_output``); say the shape up front.
     PromptSection(lambda t: is_json_request(t.query_text), lambda _t: [JSON_OUTPUT_HINT]),
     # Last, closest to the user turn: what the reply must hold.

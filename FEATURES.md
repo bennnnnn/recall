@@ -620,8 +620,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   React Native") or someone else's ("my sister lives in Nairobi"). "Stop mentioning my job" /
   "don't bring up my divorce again" **mutes** the fact (kept, never injected, its past-chat
   snippets dropped); a do-not-mention preference is kept even when sensitive. "Forget
-  everything you know about me" and "stop remembering things about me" are a settings card
-  (clear all / memory off) that does nothing until tapped. Explicit facts and hand edits are
+  everything you know about me" and "stop remembering things about me" get a one-line reply
+  pointing to Settings → Memory: chat changes no setting but the theme. Explicit facts and hand edits are
   never evicted by the 150 cap. Sweep look-alikes: `sweep_corpus/memory_controls.json`.
 - ✅ **Extraction hygiene** — only what the user's own lines state or clearly show (the
   projects they build, the stack they build with, their job, goals, routines, recurring
@@ -777,7 +777,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Personalization** — tone labels, emoji and custom instructions. Stored tone ids stay
   `soft` / `casual` / `professional` / `funny`. Emoji (`users.emoji_use`: `off` /
   `some` / `more`, every account starts at `some`) is the one emoji rule in the prompt
-  (`services/response_tone.emoji_hint`): a few lead headings and list labels, never in
+  (`modules/chat/response_tone.emoji_hint`): a few lead headings and list labels, never in
   numbers, maths, code, cards, a worked solution, a draft or a painful reply; no tone
   speaks about emoji. The finalize pass `emoji_use` (`modules/chat/emoji_placement.py`)
   keeps it whatever the model wrote: at A few an emoji moves to the front of its label

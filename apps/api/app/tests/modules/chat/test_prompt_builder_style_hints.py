@@ -103,7 +103,7 @@ def test_closed_form_math_prompt_is_instance_first_not_a_lecture():
 
 
 def test_funny_tone_does_not_pad_one_line_arithmetic() -> None:
-    from app.services.response_tone import TONE_HINTS
+    from app.modules.chat.response_tone import TONE_HINTS
 
     funny = TONE_HINTS["funny"]
     assert "3+0" in funny
@@ -114,7 +114,7 @@ def test_funny_tone_does_not_pad_one_line_arithmetic() -> None:
 
 # The emoji setting alone decides emoji; a tone that named them contradicted it.
 def test_no_tone_speaks_about_emoji() -> None:
-    from app.services.response_tone import TONE_HINTS
+    from app.modules.chat.response_tone import TONE_HINTS
 
     for tone, hint in TONE_HINTS.items():
         assert "emoji" not in hint.lower(), tone
@@ -131,14 +131,14 @@ def test_no_tone_speaks_about_emoji() -> None:
     ],
 )
 def test_the_emoji_setting_picks_one_line(level: str | None, says: str) -> None:
-    from app.services.response_tone import emoji_hint
+    from app.modules.chat.response_tone import emoji_hint
 
     assert emoji_hint(level).startswith(says)
 
 
 # "A few" put 🌊 in the opening line too, and looked like "Lots".
 def test_a_few_emoji_mark_only_headings_and_labels() -> None:
-    from app.services.response_tone import emoji_hint
+    from app.modules.chat.response_tone import emoji_hint
 
     some, more = emoji_hint("some"), emoji_hint("more")
     assert "none in a sentence, an opening line or a closing question" in some  # safety phrase
@@ -147,7 +147,7 @@ def test_a_few_emoji_mark_only_headings_and_labels() -> None:
 
 @pytest.mark.parametrize("level", ["some", "more"])
 def test_emoji_stay_out_of_what_is_read_exactly(level: str) -> None:
-    from app.services.response_tone import emoji_hint
+    from app.modules.chat.response_tone import emoji_hint
 
     hint = emoji_hint(level)
     for place in ("maths", "code", "fenced card", "worked maths", "draft", "painful"):
@@ -160,7 +160,7 @@ def test_every_turn_carries_the_users_emoji_setting(level: str) -> None:
     from typing import cast
 
     from app.modules.chat.prompt_sections import STABLE_SECTIONS, PromptTurn
-    from app.services.response_tone import emoji_hint
+    from app.modules.chat.response_tone import emoji_hint
 
     user = SimpleNamespace(
         response_tone="casual", emoji_use=level, custom_instructions=None, locale="en"

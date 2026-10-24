@@ -34,6 +34,11 @@ from app.services.text_normalize import collapse_ws
 
 logger = logging.getLogger(__name__)
 
+_MEMORY_IN_SETTINGS = {
+    "clear": "You can delete everything Recall has saved about you in Settings → Memory.",
+    "off": "You can turn memory off in Settings → Memory.",
+}
+
 
 def recurring_pay_reply(request: TurnRequest, local_tz: str) -> str | None:
     """A recurring-pay estimate, fully owned by local date arithmetic.
@@ -89,12 +94,11 @@ async def resolve_instant_reply(
     )
     if asked:
         return await _profile_reply(asked, identity)
-    # "Forget everything you know about me": a card to tap, never a silent wipe.
+    # "Forget everything you know about me": chat changes no setting but the theme;
+    # it says where, and never claims a wipe the model cannot do.
     reset = memory_service.memory_reset_request(content)
     if reset is not None:
-        return await settings_proposal_service.materialize_memory_reset_reply(
-            redis, identity.user, settings, reset
-        )
+        return _MEMORY_IN_SETTINGS[reset]
     settings_changes = extract_settings_changes(
         content,
         prior_assistant=_last_recent_assistant_content(request.recent_messages),
@@ -102,7 +106,7 @@ async def resolve_instant_reply(
     if not settings_changes:
         return None
     return await settings_proposal_service.materialize_settings_reply(
-        redis, identity.user, settings, settings_changes
+        redis, identity.user, settings_changes
     )
 
 
@@ -123,9 +127,7 @@ async def settings_card(
     ]
     if not changes:
         return None
-    return await settings_proposal_service.materialize_settings_reply(
-        redis, identity.user, settings, changes
-    )
+    return await settings_proposal_service.materialize_settings_reply(redis, identity.user, changes)
 
 
 async def _profile_reply(asked: str, identity: TurnIdentity) -> str | None:

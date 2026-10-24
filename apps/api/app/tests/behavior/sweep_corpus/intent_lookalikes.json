@@ -642,16 +642,16 @@
   "area": "settings",
   "prompt": "use the pro model by default",
   "history": [],
-  "reply": "Done — **Pro** is now your default model for new chats.",
-  "expect": "settings"
+  "reply": "You can pick the model in Settings → Models.",
+  "expect": "answer"
  },
  {
   "id": "hi-064",
   "area": "settings",
   "prompt": "change the app language to French",
   "history": [],
-  "reply": "Done — the app language is now **French**. (C'est fait ! L'application est maintenant en français.)",
-  "expect": "settings"
+  "reply": "You can change the app language in Settings → Language.",
+  "expect": "answer"
  },
  {
   "id": "hi-065",
@@ -674,8 +674,8 @@
   "area": "settings",
   "prompt": "from now on talk to me in a more casual tone",
   "history": [],
-  "reply": "Done — casual tone it is. 😎",
-  "expect": "settings"
+  "reply": "Sure, I'll keep it casual from here.",
+  "expect": "answer"
  },
  {
   "id": "hi-068",

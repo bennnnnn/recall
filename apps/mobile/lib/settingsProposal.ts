@@ -1,12 +1,7 @@
 import { collectClosedFenceBodies, stripLangFence } from "@/lib/mdFenceScan";
 
-type SettingsProposalField =
-  | "appearance"
-  | "default_model"
-  | "response_tone"
-  | "locale"
-  /** "clear" (delete everything saved) or "off" (turn memory off), from a chat ask. */
-  | "memory";
+/** The theme is the one setting a chat card changes; every other one is changed in Settings. */
+type SettingsProposalField = "appearance";
 
 type SettingsProposalChange = {
   field: SettingsProposalField;
@@ -20,18 +15,9 @@ export type SettingsProposal = {
 };
 
 
-const FIELDS = new Set<SettingsProposalField>([
-  "appearance",
-  "default_model",
-  "response_tone",
-  "locale",
-  "memory",
-]);
-
-/** A memory card clears or turns off memory: it asks for a plain "Confirm". */
-export function isMemoryProposal(proposal: SettingsProposal): boolean {
-  return proposal.changes.some((change) => change.field === "memory");
-}
+// An older card for the model, tone, language or memory is not drawn: chat no longer
+// changes those, and the server would refuse its confirm.
+const FIELDS = new Set<SettingsProposalField>(["appearance"]);
 
 function normalizeChange(raw: unknown): SettingsProposalChange | null {
   if (!raw || typeof raw !== "object") return null;

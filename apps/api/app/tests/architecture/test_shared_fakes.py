@@ -30,7 +30,7 @@ _BARE_REDIS = re.compile(
     r"^\s*(?:redis|fake_redis|mock_redis)\s*=\s*AsyncMock\(\)\s*$|\bredis=AsyncMock\(\)", re.M
 )
 # The bare mocks left; lower these when a change replaces some.
-_BARE_SESSIONS = 128
+_BARE_SESSIONS = 127
 _BARE_USERS = 139
 
 
