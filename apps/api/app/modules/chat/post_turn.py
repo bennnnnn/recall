@@ -11,8 +11,10 @@ queued for indexing as soon as the user's message commits (``turn_prep/persist.p
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
+from types import SimpleNamespace
+from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -20,6 +22,7 @@ from redis.asyncio import Redis
 from app.core import jobs
 from app.core.config import Settings
 from app.models.orm import User
+from app.modules.chat.context_window import compute_history_split, should_run_compression
 from app.modules.chat.prompt_constants.lesson_flow import lesson_step
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.memory import (
@@ -64,6 +67,10 @@ class SavedTurn:
     run_title: bool
     # A quiz answer reads nothing new about the user.
     skip_memory_jobs: bool = False
+    # The chat's last messages as the turn read them, its user's message last
+    # (``StreamContext.recent_messages``). None when the turn did not read them, or
+    # replaced a reply (a regenerate): the rows saved then are not these plus the reply.
+    window: Sequence[Any] | None = None
 
     @classmethod
     def from_context(cls, ctx: StreamContext, assistant_text: str) -> "SavedTurn":
@@ -77,6 +84,7 @@ class SavedTurn:
             prior_count=ctx.prior_count,
             run_title=ctx.run_title,
             skip_memory_jobs=ctx.skip_memory_jobs,
+            window=None if ctx.regenerate_backup is not None else ctx.recent_messages,
         )
 
 
@@ -180,7 +188,11 @@ async def _compress_job(turn: FinishedTurn) -> list[PostTurnJob]:
     before reading the transcript.
     """
     saved = turn.saved
-    if turn.spend_capped or not turn.settings.history_compression_enabled:
+    if (
+        turn.spend_capped
+        or not turn.settings.history_compression_enabled
+        or _nothing_to_fold(turn.settings, saved)
+    ):
         return []
     return [
         PostTurnJob(
@@ -189,6 +201,31 @@ async def _compress_job(turn: FinishedTurn) -> list[PostTurnJob]:
             jobs.unique_dedupe_key(f"compress:{saved.chat_id}"),
         )
     ]
+
+
+def _nothing_to_fold(settings: Settings, saved: SavedTurn) -> bool:
+    """The chat as the turn just saved it has no message out of its window to fold.
+
+    The compress job decides from the chat's message count, its newest window and how
+    many it already summarized (``compaction._pending_fold``). The turn holds the first
+    two exactly: the window it read, then its reply. It takes none as summarized, which
+    can only find more to fold, so a chat this finds nothing in is one where the job
+    would read the chat and return. Most chats are shorter than the window: their every
+    turn queued a job that read three statements and its own Redis to do nothing.
+    """
+    if saved.window is None:
+        return False
+    limit = settings.recent_message_window
+    window = [*saved.window, SimpleNamespace(content=saved.assistant_text)][-limit:]
+    split = compute_history_split(
+        saved.prior_count + 2, window, settings.context_token_budget, limit
+    )
+    return not should_run_compression(
+        split,
+        0,
+        settings.history_summary_batch,
+        urgent_min_pending=settings.history_summary_urgent_pending,
+    )
 
 
 async def _message_index_job(turn: FinishedTurn) -> list[PostTurnJob]:

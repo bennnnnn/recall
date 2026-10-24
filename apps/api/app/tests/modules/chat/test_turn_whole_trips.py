@@ -74,70 +74,74 @@ class Ceiling:
     queued: tuple[str, ...]
 
 
-_EVERY_JOB = ("memory", "topic", "compress", "message_index")
-_LATER_JOBS = ("memory", "compress", "message_index")
+# A chat's first reply is titled; compress runs only when the chat has messages out of
+# its window, or when the turn cannot tell (a picture, a regenerate).
+_FIRST = ("memory", "topic", "message_index")
+_NEXT = ("memory", "message_index")
+_FIRST_UNTOLD = ("memory", "topic", "compress", "message_index")
+_NEXT_FOLDS = ("memory", "compress", "message_index")
 # Measured with the user, today's usage and the chat already known to Redis, as for
 # every message after the day's first. To update: ``pytest -s`` prints every count.
 CEILINGS: dict[str, Ceiling] = {
     "greeting": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=22, models=1),
-        Counts(sql=15, checkouts=5, transactions=5, redis=32, embeds=1),
-        _EVERY_JOB,
+        Counts(sql=5, checkouts=3, transactions=3, redis=21, models=1),
+        Counts(sql=12, checkouts=4, transactions=4, redis=24, embeds=1),
+        _FIRST,
     ),
     "question": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=25, models=2),
-        Counts(sql=17, checkouts=5, transactions=5, redis=35, models=2, embeds=1),
-        _EVERY_JOB,
+        Counts(sql=5, checkouts=3, transactions=3, redis=24, models=2),
+        Counts(sql=14, checkouts=4, transactions=4, redis=27, models=2, embeds=1),
+        _FIRST,
     ),
     "follow-up, short chat": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=24, models=2),
-        Counts(sql=16, checkouts=4, transactions=4, redis=28, models=1, embeds=1),
-        _LATER_JOBS,
+        Counts(sql=5, checkouts=3, transactions=3, redis=23, models=2),
+        Counts(sql=13, checkouts=3, transactions=3, redis=20, models=1, embeds=1),
+        _NEXT,
     ),
     "follow-up, long chat": Ceiling(
         Counts(sql=8, checkouts=5, transactions=5, redis=26, models=2),
         Counts(sql=19, checkouts=5, transactions=5, redis=29, models=2, embeds=1),
-        _LATER_JOBS,
+        _NEXT_FOLDS,
     ),
     "maths": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=22, models=2),
-        Counts(sql=15, checkouts=5, transactions=5, redis=35, models=2, embeds=1),
-        _EVERY_JOB,
+        Counts(sql=5, checkouts=3, transactions=3, redis=21, models=2),
+        Counts(sql=12, checkouts=4, transactions=4, redis=27, models=2, embeds=1),
+        _FIRST,
     ),
     "web search": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=30, models=2, searches=1),
-        Counts(sql=17, checkouts=5, transactions=5, redis=35, models=2, embeds=1),
-        _EVERY_JOB,
+        Counts(sql=5, checkouts=3, transactions=3, redis=29, models=2, searches=1),
+        Counts(sql=14, checkouts=4, transactions=4, redis=27, models=2, embeds=1),
+        _FIRST,
     ),
     "reminder": Ceiling(
-        Counts(sql=10, checkouts=8, transactions=8, redis=32, models=1, embeds=1),
-        Counts(sql=17, checkouts=5, transactions=5, redis=35, models=2, embeds=1),
-        _EVERY_JOB,
+        Counts(sql=10, checkouts=8, transactions=8, redis=31, models=1, embeds=1),
+        Counts(sql=14, checkouts=4, transactions=4, redis=27, models=2, embeds=1),
+        _FIRST,
     ),
     "photo lookup": Ceiling(
-        Counts(sql=6, checkouts=4, transactions=4, redis=28, models=2, searches=1),
-        Counts(sql=17, checkouts=5, transactions=5, redis=35, models=2, embeds=1),
-        _EVERY_JOB,
+        Counts(sql=6, checkouts=4, transactions=4, redis=27, models=2, searches=1),
+        Counts(sql=14, checkouts=4, transactions=4, redis=27, models=2, embeds=1),
+        _FIRST,
     ),
     "picture": Ceiling(
         Counts(sql=8, checkouts=3, transactions=3, redis=16, models=1),
         Counts(sql=15, checkouts=5, transactions=5, redis=35, models=2, embeds=1),
-        _EVERY_JOB,
+        _FIRST_UNTOLD,
     ),
     "attachment question": Ceiling(
-        Counts(sql=14, checkouts=9, transactions=9, redis=36, models=2, embeds=1),
-        Counts(sql=18, checkouts=6, transactions=6, redis=41, models=2, embeds=1),
-        ("attachment_index", *_EVERY_JOB),
+        Counts(sql=14, checkouts=9, transactions=9, redis=35, models=2, embeds=1),
+        Counts(sql=15, checkouts=5, transactions=5, redis=33, models=2, embeds=1),
+        ("attachment_index", *_FIRST),
     ),
     "regenerate": Ceiling(
         Counts(sql=10, checkouts=3, transactions=3, redis=27, models=2),
         Counts(sql=16, checkouts=4, transactions=4, redis=27, models=1, embeds=1),
-        _LATER_JOBS,
+        _NEXT_FOLDS,
     ),
     "clarify picks": Ceiling(
-        Counts(sql=9, checkouts=7, transactions=7, redis=33, models=2, embeds=1),
-        Counts(sql=16, checkouts=4, transactions=4, redis=28, models=1, embeds=1),
-        _LATER_JOBS,
+        Counts(sql=9, checkouts=7, transactions=7, redis=32, models=2, embeds=1),
+        Counts(sql=13, checkouts=3, transactions=3, redis=20, models=1, embeds=1),
+        _NEXT,
     ),
 }
 # The lists the app opens, each read in a fixed number of statements however many rows
