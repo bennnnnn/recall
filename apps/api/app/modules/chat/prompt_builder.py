@@ -14,7 +14,7 @@ from app.modules.attachments import service as attachments_service
 from app.modules.chat import history_rag as chat_history_rag_service
 from app.modules.chat.prompt_context import _load_context_blocks
 from app.modules.chat.prompt_format import render_rules
-from app.modules.chat.prompt_inject import inject_before_last_user
+from app.modules.chat.prompt_inject import append_after_history, inject_before_last_user
 from app.modules.chat.prompt_memory import (
     is_work_turn,
     memory_saving_paused,
@@ -23,6 +23,7 @@ from app.modules.chat.prompt_memory import (
 )
 from app.modules.chat.prompt_repeats import last_policy_parts, policies_once
 from app.modules.chat.prompt_sections import (
+    CONTEXT_SECTIONS,
     NEARBY_CONTRACTS,
     STABLE_SECTIONS,
     TURN_SECTIONS,
@@ -249,19 +250,23 @@ async def _history_rag_block(
 def _assemble(
     turn: PromptTurn, window: PromptWindow, *, math_followup: bool
 ) -> list[dict[str, str]]:
-    """The two system messages, the history, and the contracts kept beside the user turn."""
+    """The two system messages, the history, then the turn's context and the contracts
+    kept beside the user turn."""
     # A subject's reply policy stated twice keeps its copy closest to the user turn.
-    stable, turn_context, nearby = last_policy_parts(
+    stable, rules, context, nearby = last_policy_parts(
         render_rules(STABLE_SECTIONS, turn),
         render_rules(TURN_SECTIONS, turn),
+        render_rules(CONTEXT_SECTIONS, turn),
         render_rules(NEARBY_CONTRACTS, turn),
     )
     messages = [
-        *({"role": "system", "content": "\n\n".join(parts)} for parts in (stable, turn_context)),
+        *({"role": "system", "content": "\n\n".join(parts)} for parts in (stable, rules)),
         *history_messages(window, math_followup=math_followup),
     ]
-    if nearby:
-        messages = inject_before_last_user(messages, "\n\n".join(nearby))
+    # Both go after the history, the contracts last, beside the user turn.
+    for block in (context, nearby):
+        if block:
+            messages = append_after_history(messages, "\n\n".join(block))
     return messages
 
 
@@ -307,14 +312,13 @@ async def build_prompt_messages(
     """Assemble system + recent messages for a chat turn.
 
     Context loading uses short-lived sessions so embeds cannot pin a caller
-    connection across the concurrent gather. The system prompt is two messages: the
-    first is ``STABLE_SECTIONS``, the same text on every turn for this user (who Recall
-    is, the tone and unclear-message rules, their own instructions and language), which
-    the gateway marks for providers that cache only a marked prefix; the second is
-    ``TURN_SECTIONS``, everything that depends on the turn. The history is
-    ``prompt_window``. ``turn_plan``: the message's separate requests, when it holds
-    more than one (``turn_prep.intents``). ``stats``, when given, is filled with what
-    the prompt drew on.
+    connection across the concurrent gather. ``STABLE_SECTIONS`` (the same on every turn
+    for this user) and ``TURN_SECTIONS`` (this kind of turn's rules, profile, summary)
+    open it, then the history (``prompt_window``), then ``CONTEXT_SECTIONS`` (the clock,
+    memory, files, the schedule) before the user turn: a turn's prefix through its
+    history repeats the last one's for the provider's cache. ``turn_plan``: the
+    message's separate requests, when it holds more than one (``turn_prep.intents``).
+    ``stats``, when given, is filled with what the prompt drew on.
     """
     plan = await _context_plan(
         user,

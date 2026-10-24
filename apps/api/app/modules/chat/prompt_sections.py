@@ -1,15 +1,18 @@
 """The system prompt as ordered sections, and the contracts placed beside the user turn.
 
 Each ``PromptSection`` says when it applies to a ``PromptTurn`` and what text it adds.
-The system prompt is two system messages, most stable first, so a provider can reuse
-an earlier turn's prefix (prompt caching). ``STABLE_SECTIONS`` is the text that is the
-same on every turn for this user: who Recall is, the tone and unclear-message rules,
-their own instructions and language. ``TURN_SECTIONS`` is everything that depends on
-the turn: the length and style it asks for, the profile, the chat's summary, the clock,
-memory, files and follow-up. A section whose text can change from one turn to the next
-never goes in the stable message. Each is every applying section in table order, a
-blank line between parts. ``NEARBY_CONTRACTS`` go in one system message just before the
-user turn.
+The prompt is ordered most stable first, so a provider can reuse an earlier turn's
+prefix (prompt caching), the chat's history included. ``STABLE_SECTIONS`` is the first
+system message, the same text on every turn for this user: who Recall is, the tone and
+unclear-message rules, their own instructions and language. ``TURN_SECTIONS`` is the
+second: the rules this kind of turn needs (length, style, lookups), the profile and
+the chat's summary; consecutive turns of one kind send it unchanged. The history comes
+next. ``CONTEXT_SECTIONS`` is what changes on every turn (the clock, what memory, files
+and the schedule returned for this message, and the notes that hang on it): it goes in
+a system message after the history, so it never breaks the prefix before it. A section
+whose text can change from one turn to the next never goes before the history. Each is
+every applying section in table order, a blank line between parts. ``NEARBY_CONTRACTS``
+go in one system message just before the user turn, after the context.
 """
 
 from __future__ import annotations
@@ -285,11 +288,11 @@ def _social_hint(turn: PromptTurn) -> str:
     return repeated_greeting_hint(run, last_reply)
 
 
-# Everything that depends on the turn, steadiest first so consecutive turns share a
-# long prefix: the length and style the message asks for, the profile (name only on a
-# slim turn, the email on a draft, the device location on a nearby ask), then the chat's
-# summary (rewritten every few turns of a long chat), the clock, what memory, files and
-# the schedule returned for this message, and the notes and contracts that hang on it.
+# What the kind of turn needs, steadiest first so consecutive turns share a long
+# prefix: the length and style the message asks for, the profile (name only on a slim
+# turn, the email on a draft, the device location on a nearby ask), then the chat's
+# summary (rewritten every few turns of a long chat). Nothing here may change from one
+# turn of a kind to the next: the history after it is cached only behind it.
 TURN_SECTIONS: tuple[PromptSection, ...] = (
     PromptSection(_always, lambda t: [t.length_hint]),
     # Lightweight/chit-chat turns skipped the math guardrails entirely,
@@ -320,6 +323,14 @@ TURN_SECTIONS: tuple[PromptSection, ...] = (
             wrap_untrusted("conversation summary", f"Summary of earlier conversation:\n{t.summary}")
         ],
     ),
+)
+
+
+# What changes on every turn, after the history: the clock (to the second), what
+# memory, files and the schedule returned for this message, and the notes and
+# follow-up policies that hang on it. Before the history, any of it would leave the
+# whole history uncached.
+CONTEXT_SECTIONS: tuple[PromptSection, ...] = (
     PromptSection(
         _always,
         lambda t: [

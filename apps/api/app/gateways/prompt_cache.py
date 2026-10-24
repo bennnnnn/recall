@@ -2,11 +2,13 @@
 
 A chat prompt opens with two system messages (``modules/chat/prompt_builder``): the
 stable one, the same text on every turn for this user (who Recall is, the tone and
-unclear-message rules, their own instructions and language), then everything that
-depends on the turn. Most providers reuse an identical prefix by themselves. A model
-flagged ``cache_breakpoints`` (Anthropic's) caches only up to a ``cache_control`` mark,
-so its stable message goes as one text part carrying the mark: OpenRouter's format,
-which LiteLLM forwards for Claude.
+unclear-message rules, their own instructions and language), then the rules this kind
+of turn needs; the history and what changes on every turn follow. Most providers reuse
+the longest prefix they have seen by themselves. A model flagged ``cache_breakpoints``
+(Anthropic's) caches only up to a ``cache_control`` mark, so its stable message goes as
+one text part carrying the mark: OpenRouter's format, which LiteLLM forwards for Claude.
+Only that message is marked: the rules differ between a slim and a rich turn, and a
+mark that is not read again pays the cache write (1.25x) for nothing.
 """
 
 from __future__ import annotations

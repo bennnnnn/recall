@@ -13,6 +13,7 @@ from app.core.config import Settings
 from app.models.orm import Chat, User
 from app.modules.chat import messages_repository
 from app.modules.chat.prompt_context import _PromptContextBlocks
+from app.modules.chat.prompt_inject import conversation_turns
 from app.modules.chat.turn_prep.context import build_stream_prompt_context
 from app.modules.chat.turn_prep.mode import _TurnMode
 from app.modules.chat.turn_prep.prepare import prepare_chat_turn
@@ -121,14 +122,15 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
             timeout=2,
         )
         try:
-            assert context.prompt_messages[1]["content"].endswith(
+            # The policy closes the turn's context, after the history.
+            assert context.prompt_messages[-2]["role"] == "system"
+            assert context.prompt_messages[-2]["content"].endswith(
                 f"{MATH_REPLY_POLICY}\n\n{MATH_FOLLOWUP_HINT}"
             )
-            assert context.prompt_messages[-2] == {
-                "role": "assistant",
-                "content": f"Previous result:\n\\[\n{_RESULT}\n\\]",
-            }
-            assert context.prompt_messages[-1] == {"role": "user", "content": "how"}
+            assert conversation_turns(context.prompt_messages)[-2:] == [
+                {"role": "assistant", "content": f"Previous result:\n\\[\n{_RESULT}\n\\]"},
+                {"role": "user", "content": "how"},
+            ]
             assert MATH_FOLLOWUP_HINT in system_prompt(context.prompt_messages)
             if overlap:
                 assert persisted_ids == []
