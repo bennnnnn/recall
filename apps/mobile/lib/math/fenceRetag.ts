@@ -1,3 +1,4 @@
+import { escapedAt } from "@/lib/markdown/inlineCode";
 import { closesFence, mapClosedFences, readFenceMarkerLoose } from "@/lib/mdFenceScan";
 import { restoreMathEscapes } from "@/lib/math/text";
 
@@ -160,12 +161,6 @@ export function stripRedundantDollarWrap(s: string): string {
  * invalid (same "bare LaTeX only" contract), so unwrap every one of them,
  * leaving an unmatched lone "$" (e.g. real currency text) untouched.
  */
-function escapedDollar(source: string, index: number): boolean {
-  let slashes = 0;
-  for (let i = index - 1; i >= 0 && source[i] === "\\"; i -= 1) slashes += 1;
-  return slashes % 2 === 1;
-}
-
 export function stripEmbeddedDollarWraps(s: string): string {
   if (!s.includes("$")) return s;
   // `\$43 ... \$1,720` is currency inside the formula. The `$` of `\$` is not
@@ -175,7 +170,7 @@ export function stripEmbeddedDollarWraps(s: string): string {
     (match, double, single, offset: number, source: string) => {
       const opener = double != null ? offset + 1 : offset;
       const closer = offset + match.length - 1;
-      if (escapedDollar(source, opener) || escapedDollar(source, closer)) return match;
+      if (escapedAt(source, opener) || escapedAt(source, closer)) return match;
       return double ?? single;
     },
   );
