@@ -20,8 +20,7 @@ The server writes the line with ``verified_answer_fence`` (post-stream cards)
 and ``mark_server_answer_fences`` (an instant reply, once, when it is sent).
 ``land_answer_card`` puts a reply's final answer in one card under one
 **Answer** heading: the verified card, or the model's own final line in a card
-with no marker.
-The fence scan here is a linear line scan, no nested regex on untrusted text.
+with no marker. The fence scan is a linear line scan, no nested regex on untrusted text.
 """
 
 from __future__ import annotations
@@ -31,6 +30,7 @@ import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from app.services.card_value import final_answer_only
 from app.services.md_fence_scan import fence_lang as fence_lang
 from app.services.md_fence_scan import map_closed_fences, read_fence_marker
 
@@ -65,10 +65,10 @@ def answer_fence_value(body: str) -> str:
 
 
 def verified_answer_body(body: str) -> str:
-    """``body`` with the server's verified marker as its first line (idempotent)."""
+    """``body`` marked verified, holding its final answer alone (idempotent)."""
     headers, value = answer_header_and_value(body)
     rest = [line for line in headers if line != VERIFIED_ANSWER_MARKER]
-    return "\n".join([VERIFIED_ANSWER_MARKER, *rest, value]).strip()
+    return "\n".join([VERIFIED_ANSWER_MARKER, *rest, final_answer_only(value)]).strip()
 
 
 def verified_answer_fence(body: str) -> str:

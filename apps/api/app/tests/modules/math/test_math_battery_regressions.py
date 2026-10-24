@@ -11,7 +11,9 @@ import pytest
 from app.core.config import Settings
 from app.modules.math.solve.calculus import integrate_expression
 from app.modules.math.solve.inequalities import solve_inequality
+from app.services.card_value import split_working
 from app.services.subject_solving import build_subject_augmentation, maybe_direct_subject_reply
+from app.tests.modules.math.card_support import card_with_working
 
 
 async def _reply(text: str) -> tuple[str | None, str | None]:
@@ -74,7 +76,10 @@ def test_an_inequality_answer_is_written_as_a_student_writes_it(
 async def test_questions_the_battery_missed_are_answered_directly(text: str, answer: str) -> None:
     canonical, reply = await _reply(text)
     assert canonical is not None and canonical.startswith(answer)
-    assert reply is not None and answer in reply
+    # The card holds the final answer; working such as 5! expanded goes above it.
+    working, _final = split_working(answer)
+    assert reply is not None
+    assert (answer if working is None else card_with_working(answer, text)) in reply
 
 
 @pytest.mark.asyncio

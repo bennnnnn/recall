@@ -5,6 +5,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.math import tools as math_tools
 from app.modules.math.tools.direct import maybe_direct_math_reply
+from app.tests.modules.math.card_support import card_with_working
 
 
 @pytest.mark.parametrize(
@@ -25,7 +26,7 @@ def test_bare_subtraction_reaches_verified_direct_answer(text, canonical, shown)
     assert block is not None and block.canonical_answer == canonical
     reply = maybe_direct_math_reply(block, text)
     # 10 - 3 also draws objects to count above it; a negative result has none.
-    assert reply is not None and reply.endswith(f"```answer\n{shown}\n```\n")
+    assert reply is not None and reply.endswith(card_with_working(shown, text))
     assert reply.count("```answer") == 1
 
 

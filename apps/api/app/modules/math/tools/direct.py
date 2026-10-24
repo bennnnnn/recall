@@ -16,6 +16,7 @@ from app.modules.math.tools.direct_shape_questions import (
     nonmeasurement_geometry_reply,
     underdetermined_triangle_measurement,
 )
+from app.modules.math.tools.direct_working import working_above_card
 from app.modules.math.tools.lesson import (
     format_equation_lesson_reply,
     lesson_math_text,
@@ -476,7 +477,8 @@ def maybe_direct_math_reply(
                 return None
         if response_intent.mode == MathResponseMode.ANSWER_ONLY and verified.canonical_answer:
             return f"```answer\n{_chip_answer(verified, answer_only=True)}\n```\n"
-        return with_requested_check(verified.direct_reply, verified, user_text)
+        checked = with_requested_check(verified.direct_reply, verified, user_text)
+        return working_above_card(checked, user_text)
     if not can_direct_verified_math_reply(
         verified,
         user_text,
@@ -493,4 +495,4 @@ def maybe_direct_math_reply(
             include_check=wants_answer_check(user_text),
             include_reasons=wants_detailed_math_explanation(user_text),
         )
-    return reply
+    return working_above_card(reply, user_text)
