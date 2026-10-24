@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, TypeGuard
 
 from app.core.config import Settings
 from app.models import model_catalog
-from app.models.schemas.auth import chosen_model_id
 from app.modules.billing.entitlements import can_use, is_paid
 from app.services import model_health
 
@@ -77,11 +76,6 @@ def is_auto_enabled(user: User) -> bool:
     if user.enabled_models is None:
         return True
     return AUTO_ALIAS in user.enabled_models
-
-
-def chosen_model(user: User) -> str:
-    """The model a message uses: Auto, or the first model the user turned on."""
-    return chosen_model_id(user.enabled_models)
 
 
 def models_choosing(user: User, settings: Settings, model_id: str) -> list[str]:
