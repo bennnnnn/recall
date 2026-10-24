@@ -14,6 +14,11 @@ type ResolveRequest = (
 type MetroConfig = { resolver: { assetExts: string[]; resolveRequest: ResolveRequest } };
 
 const { join } = jest.requireActual<{ join(...parts: string[]): string }>("node:path");
+const fs = jest.requireActual<{
+  existsSync(path: string): boolean;
+  readdirSync(path: string, options: { withFileTypes: true }): { name: string; isDirectory(): boolean }[];
+  readFileSync(path: string, encoding: "utf8"): string;
+}>("node:fs");
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- the CommonJS config Metro loads
 const config = require(join(__dirname, "..", "..", "metro.config.js")) as MetroConfig;
 
@@ -72,6 +77,81 @@ describe("metro.config.js", () => {
       expect(resolve(name)).toEqual({ type: "sourceFile", filePath: name });
     },
   );
+});
+
+const APP = join(__dirname, "..", "..");
+const ATTRIBUTES = "@sentry/conventions/attributes";
+const ATTRIBUTE_IMPORT = /import\s*\{([^}]*)\}\s*from\s*["']@sentry\/conventions\/attributes["']/g;
+const ATTRIBUTE_REQUIRE = /(?:const|var|let)\s+(\w+)\s*=\s*require\(["']@sentry\/conventions\/attributes["']\)/g;
+
+/** Every .js/.mjs/.cjs file under `dir`. */
+function scripts(dir: string): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) return entry.name === "node_modules" ? [] : scripts(path);
+    return /\.(?:m|c)?js$/.test(entry.name) ? [path] : [];
+  });
+}
+
+/** The installed Sentry packages: each `.pnpm/@sentry+<name>@<version>…` folder's own package. */
+function sentryPackages(): { name: string; dir: string }[] {
+  const store = join(APP, "node_modules", ".pnpm");
+  return fs
+    .readdirSync(store, { withFileTypes: true })
+    .map((entry) => /^@sentry\+([^@]+)@/.exec(entry.name) && { folder: entry.name, name: /^@sentry\+([^@]+)@/.exec(entry.name)![1] })
+    .filter((found): found is { folder: string; name: string } => found !== null)
+    .map(({ folder, name }) => ({ name, dir: join(store, folder, "node_modules", "@sentry", name) }));
+}
+
+/** The attribute names every installed Sentry package reads, by ESM import or CJS property. */
+function attributeNamesSentryReads(): Set<string> {
+  const names = new Set<string>();
+  for (const { name, dir } of sentryPackages()) {
+    if (name === "conventions" || !fs.existsSync(dir)) continue;
+    for (const file of scripts(dir)) {
+      const text = fs.readFileSync(file, "utf8");
+      if (!text.includes(ATTRIBUTES)) continue;
+      for (const [, list] of text.matchAll(ATTRIBUTE_IMPORT)) {
+        for (const item of list.split(",")) {
+          const imported = item.trim().split(/\s+as\s+/)[0];
+          if (imported) names.add(imported);
+        }
+      }
+      for (const [, binding] of text.matchAll(ATTRIBUTE_REQUIRE)) {
+        // The package's names are constants (URL_FULL); a file name ("attributes.js") is not one.
+        for (const [, read] of text.matchAll(new RegExp(`\\b${binding}\\.([A-Z_][A-Z0-9_]*)\\b`, "g"))) names.add(read);
+      }
+    }
+  }
+  return names;
+}
+
+describe("Sentry's attribute names (lib/sentryAttributes.js)", () => {
+  it("replace @sentry/conventions/attributes in every bundle", () => {
+    const shim = { type: "sourceFile", filePath: join(APP, "lib", "sentryAttributes.js") };
+    expect(resolve(ATTRIBUTES, { platform: "ios" })).toEqual(shim);
+    expect(resolve(ATTRIBUTES, { platform: "android", dev: true })).toEqual(shim);
+  });
+
+  it("hold every name the installed Sentry SDK reads, with the package's value", () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- the CommonJS file Metro serves
+    const kept = require(join(APP, "lib", "sentryAttributes.js")) as Record<string, string>;
+    const installed = sentryPackages()
+      .filter((pkg) => pkg.name === "conventions")
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- the package's own CommonJS build
+      .map((pkg) => require(join(pkg.dir, "dist", "attributes.cjs")) as Record<string, unknown>);
+    const read = attributeNamesSentryReads();
+    expect(installed.length).toBeGreaterThan(0);
+    expect(read.size).toBeGreaterThan(0);
+    const wrong = [...read]
+      .sort()
+      .flatMap((name) => installed.map((values) => [name, values[name]] as const))
+      .filter(([name, value]) => typeof value !== "string" || kept[name] !== value)
+      .map(([name, value]) => `${name}: ${JSON.stringify(value)},`);
+    expect(wrong).toEqual([]);
+    // A name Sentry no longer reads is removed, so the file stays the list it reads.
+    expect(Object.keys(kept).filter((name) => !read.has(name))).toEqual([]);
+  });
 });
 
 type CustomerInfo = { entitlements: { active: Record<string, { productIdentifier: string }> } };
