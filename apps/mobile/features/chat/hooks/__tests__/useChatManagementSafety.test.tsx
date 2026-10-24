@@ -16,12 +16,11 @@ jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: (
 jest.mock("@/features/chat/model/chatListCache", () => ({ getCachedChat: jest.fn(), peekCreatedChat: jest.fn() }));
 jest.mock("@/lib/api", () => ({ api: { getChat: jest.fn(), renameChat: jest.fn(), setPin: jest.fn(), setArchive: jest.fn(), deleteChat: jest.fn() } }));
 jest.mock("@/features/chat/drawer/drawer", () => ({
-  insertChatGlobal: jest.fn(), moveChatArchiveGlobal: jest.fn(), patchChatGlobal: jest.fn(),
+  insertChatGlobal: jest.fn(), patchChatGlobal: jest.fn(),
   removeChatGlobal: jest.fn(), abandonActiveChatIfDeleted: jest.fn(),
 }));
 jest.mock("@/features/chat/model/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
 jest.mock("@/features/chat/model/exportMessagePdf", () => ({ exportConversationAsPdf: jest.fn() }));
-jest.mock("@/lib/exportPdf", () => ({ isShareCancelled: jest.fn() }));
 jest.mock("@/lib/haptics", () => ({
   ...jest.requireActual("@/lib/haptics"),
   notifyDestructive: (...args: unknown[]) => mockDestructive(...args),

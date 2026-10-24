@@ -23,7 +23,6 @@ import {
 } from "@/features/chat/model/chatListCache";
 import {
   publishChatChange,
-  registerChatArchiveMover,
   registerChatInserter,
   registerChatPatcher,
   registerChatRemover,
@@ -216,10 +215,9 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
       registerChatPatcher(patchChatInGroups),
       registerChatInserter(insertChatInGroups),
       registerChatRemover(removeChatFromGroupsById),
-      registerChatArchiveMover(moveChatArchiveState),
     ];
     return () => unregisters.forEach((unregister) => unregister());
-  }, [patchChatInGroups, insertChatInGroups, removeChatFromGroupsById, moveChatArchiveState]);
+  }, [patchChatInGroups, insertChatInGroups, removeChatFromGroupsById]);
   useEffect(() => subscribeChatTitleGenerating(() => setTitlePendingTick((n) => n + 1)), []);
 
   return {

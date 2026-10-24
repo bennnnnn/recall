@@ -70,7 +70,7 @@ export function cardFence(payment: number): Record<string, unknown> {
     controls: [
       { name: "balance", label_key: "money.balance", format: "money", min: 500, max: 50000, step: 100, value: 5000 },
       { name: "apr", label_key: "money.apr", format: "percent", min: 0, max: 36, step: 0.1, value: 24 },
-      { name: "payment", label_key: "money.payment", format: "money", min: 25, max: 2000, step: 5, value: payment },
+      { name: "payment", label_key: "money.monthly_payment", format: "money", min: 25, max: 2000, step: 5, value: payment },
     ],
     readouts: [
       {

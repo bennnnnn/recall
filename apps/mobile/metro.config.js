@@ -25,6 +25,14 @@ const webrtcStub = path.join(__dirname, "lib/webrtcStub.js");
  * without it, so an update that needs it sooner fails there.
  */
 const REVENUECAT_WEB_SDK = "@revenuecat/purchases-js-hybrid-mappings";
+/**
+ * Sentry reads 29 of the 745 names in @sentry/conventions/attributes; the rest of the
+ * module, with its registry of every attribute's type and description, is about 300 KB
+ * the app never reads. Every bundle takes lib/sentryAttributes.js instead, which
+ * lib/__tests__/metroBundle.test.ts checks against the installed package.
+ */
+const SENTRY_ATTRIBUTES = "@sentry/conventions/attributes";
+const sentryAttributes = path.join(__dirname, "lib/sentryAttributes.js");
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   const root = moduleName.split("/")[0];
@@ -43,6 +51,9 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   }
   if (moduleName === REVENUECAT_WEB_SDK && !context.dev && platform !== "web") {
     return { type: "empty" };
+  }
+  if (moduleName === SENTRY_ATTRIBUTES) {
+    return { type: "sourceFile", filePath: sentryAttributes };
   }
   return context.resolveRequest(context, moduleName, platform);
 };

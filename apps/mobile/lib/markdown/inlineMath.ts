@@ -1,13 +1,7 @@
-import { codeSpanOpensWithin, readInlineCodeSpan } from "@/lib/markdown/inlineCode";
+import { codeSpanOpensWithin, escapedAt, readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { latexHasNestedMathView, latexHasStackedFrac, restoreMathEscapes } from "@/lib/math/text";
 
 export type InlineMathPart = { type: "text" | "math"; value: string };
-
-function escapedAt(text: string, at: number): boolean {
-  let slashes = 0;
-  for (let i = at - 1; i >= 0 && text[i] === "\\"; i -= 1) slashes += 1;
-  return slashes % 2 === 1;
-}
 
 /** A complete, explicit math span. Currency and escaped dollars stay literal,
  * and a pair never reaches across an inline code span: markdown-it cuts the

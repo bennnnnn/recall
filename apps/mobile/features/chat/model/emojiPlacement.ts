@@ -9,6 +9,7 @@
  * reply that will be saved.
  */
 import { fencedLines } from "@/lib/mdFenceScan";
+import { normalizeEmojiUse } from "@/lib/responseTone";
 
 // The server's `prompt_constants.routing.EMOJI` (emoji, flags and their joiners), as
 // surrogate pairs: Metro's Babel rewrites a `u`-flag class of astral ranges, and the
@@ -28,8 +29,6 @@ const BOLD_START = /^(?:\*\*|__)/;
 const INLINE_CODE = /(`+)[^`]*?\1/g;
 // "### Lesson 2: Loops": a lesson keeps the emoji its own rules give it.
 const LESSON = /^#{1,6}\s.*\bLesson\s+\d/m;
-
-export type EmojiUse = "off" | "some" | "more";
 
 function outsideCode(text: string, change: (part: string) => string): string {
   let out = "";
@@ -98,7 +97,7 @@ function leadingEmoji(line: string): string {
 
 /** `text` with its emoji where `level` puts them (the server's `place_emoji`). */
 export function placeEmoji(text: string, level: string | null | undefined, userWroteEmoji: boolean): string {
-  const use: EmojiUse = level === "off" || level === "more" ? level : "some";
+  const use = normalizeEmojiUse(level);
   if (use === "more" || (use === "off" && userWroteEmoji) || !EMOJI.test(text)) return text;
   if (use === "some" && LESSON.test(text)) return text;
   const fenced = fencedLines(text);

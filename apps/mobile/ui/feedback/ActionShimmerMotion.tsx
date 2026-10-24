@@ -17,12 +17,9 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { Motion, useReduceMotion } from "@/lib/motion";
-import { Radius } from "@/lib/radius";
-import { Space } from "@/lib/space";
-import { Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
+import { useTheme, withAlpha } from "@/lib/theme";
+import { makeActionShimmerStyles, SHIMMER_BAND_WIDTH } from "./actionShimmerStyles";
 
-const SHIMMER_BAND_WIDTH = 64;
 const DEFAULT_DELAY_MS = 220;
 const SWEEP_MS = 1050;
 
@@ -47,7 +44,7 @@ export default function ActionShimmerMotion({
 }: ActionShimmerProps) {
   const theme = useTheme();
   const reduceMotion = useReduceMotion();
-  const s = useMemo(() => makeStyles(theme), [theme]);
+  const s = useMemo(() => makeActionShimmerStyles(theme), [theme]);
   const [width, setWidth] = useState(0);
   const [sweepEnabled, setSweepEnabled] = useState(delayMs <= 0);
   const translateX = useSharedValue(-SHIMMER_BAND_WIDTH);
@@ -113,42 +110,4 @@ export default function ActionShimmerMotion({
       ) : null}
     </View>
   );
-}
-
-function makeStyles(theme: Theme) {
-  return StyleSheet.create({
-    wrap: {
-      minHeight: 24,
-      minWidth: 72,
-      alignSelf: "center",
-      alignItems: "center",
-      justifyContent: "center",
-      flexDirection: "row",
-      gap: Space.xs,
-      overflow: "hidden",
-      borderRadius: Radius.sm,
-      paddingHorizontal: Space.xs,
-    },
-    compact: {
-      minHeight: 18,
-      minWidth: 0,
-      paddingHorizontal: 0,
-    },
-    label: {
-      ...Type.label,
-      ...Weight.bold,
-      color: theme.primary,
-    },
-    band: {
-      position: "absolute",
-      top: 0,
-      bottom: 0,
-      width: SHIMMER_BAND_WIDTH,
-    },
-    dot: {
-      width: 6,
-      height: 6,
-      borderRadius: Radius.full,
-    },
-  });
 }

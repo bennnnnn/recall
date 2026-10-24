@@ -1,7 +1,7 @@
 /** Turn model output like `( x^2 = 6 )` into renderable LaTeX. Bare `12+3`
  * and identifiers like `x2` are typeset as supplied — exponents are not invented. */
 
-import { codeSpanOpensWithin, readInlineCodeSpan } from "@/lib/markdown/inlineCode";
+import { codeSpanOpensWithin, escapedAt, readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { revealCurrencyDollars } from "@/lib/markdown/preprocessMathInline";
 import { applyOutsideFences } from "@/lib/mdFenceScan";
 
@@ -285,12 +285,6 @@ function expandMathIslandLeft(seg: string, start: number): number {
  * text and gluing adjacent prose into the math. Inline code spans are left
  * untouched the same way (`range(n_items)` is not `range($n_items$)`), and a
  * dollar pair never reaches across one. */
-function escapedDollar(text: string, index: number): boolean {
-  let slashes = 0;
-  for (let i = index - 1; i >= 0 && text[i] === "\\"; i -= 1) slashes += 1;
-  return slashes % 2 === 1;
-}
-
 function applyOutsideInlineMath(line: string, fn: (s: string) => string): string {
   const out: string[] = [];
   let last = 0;
@@ -307,8 +301,8 @@ function applyOutsideInlineMath(line: string, fn: (s: string) => string): string
     // `\$` is a currency sign. Closing on that `$` keeps only `$\$`, and
     // wrapping the rest inserts another `$`. `\$$` then becomes a math
     // fence, which is why the screen shows `\43` and `\1,720`.
-    const displayDollar = line[i + 1] === "$" || (line[i - 1] === "$" && !escapedDollar(line, i - 1));
-    if (line[i] !== "$" || escapedDollar(line, i) || displayDollar) {
+    const displayDollar = line[i + 1] === "$" || (line[i - 1] === "$" && !escapedAt(line, i - 1));
+    if (line[i] !== "$" || escapedAt(line, i) || displayDollar) {
       i += 1;
       continue;
     }
@@ -316,7 +310,7 @@ function applyOutsideInlineMath(line: string, fn: (s: string) => string): string
     while (
       close < line.length
       && line[close] !== "\n"
-      && (line[close] !== "$" || escapedDollar(line, close))
+      && (line[close] !== "$" || escapedAt(line, close))
     ) {
       close += 1;
     }

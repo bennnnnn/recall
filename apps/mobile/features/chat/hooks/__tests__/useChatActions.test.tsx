@@ -27,7 +27,6 @@ jest.mock("@/lib/api", () => ({
 
 jest.mock("@/features/chat/drawer/drawer", () => ({
   insertChatGlobal: jest.fn(),
-  moveChatArchiveGlobal: jest.fn(),
   patchChatGlobal: jest.fn(),
   removeChatGlobal: jest.fn(),
 }));
