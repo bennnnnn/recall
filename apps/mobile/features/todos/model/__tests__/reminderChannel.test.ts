@@ -4,7 +4,9 @@
  */
 import * as Notifications from "expo-notifications";
 
+import { syncTodoReminders } from "@/features/todos/model/todoReminders";
 import type { Todo } from "@/lib/api/types";
+import { configurePushNotificationHandler } from "@/lib/pushNotifications";
 
 jest.mock("react-native", () => ({ Platform: { OS: "android" }, AppState: { addEventListener: jest.fn() } }));
 jest.mock("@/lib/api", () => ({ api: {} }));
@@ -27,9 +29,6 @@ jest.mock("expo-notifications", () => ({
   AndroidImportance: { HIGH: 4 },
   SchedulableTriggerInputTypes: { DATE: "date" },
 }));
-
-import { configurePushNotificationHandler } from "@/lib/pushNotifications";
-import { syncTodoReminders } from "@/features/todos/model/todoReminders";
 
 const todo: Todo = {
   id: "t1", content: "Flight", topic: "Reminders", checked: false, due_at: "2099-01-01T12:00:00Z",
