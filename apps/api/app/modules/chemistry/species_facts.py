@@ -113,6 +113,14 @@ ELEMENT_NAMES: dict[str, str] = {
     "sulphur": "S",
 }
 
+
+def element_symbol(token: str) -> str | None:
+    """An element named by symbol ("O", case as written) or in words ("oxygen")."""
+    if token in BY_SYMBOL:
+        return token
+    return ELEMENT_NAMES.get(token.lower())
+
+
 # A formula as a question writes it: capitals, digits and brackets, nothing glued on.
 # A hydrate (CuSO4·5H2O, its dot written by ``input_text``) is one formula.
 _FORMULA_TOKEN = re.compile(

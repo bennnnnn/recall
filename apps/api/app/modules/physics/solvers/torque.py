@@ -5,7 +5,8 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 
-from app.modules.physics.display import GIVEN_FIGURES, plain_number
+from app.modules.physics.display import given_number as _given
+from app.modules.physics.display import plain_number
 from app.modules.physics.schemas import (
     PhysicsIntent,
     SimulationAngle,
@@ -65,10 +66,6 @@ def _lever_scene(
             y_max=depth,
         )
     ]
-
-
-def _given(value: float) -> str:
-    return plain_number(value, GIVEN_FIGURES)
 
 
 def solve_torque(intent: PhysicsIntent) -> PhysicsResult:

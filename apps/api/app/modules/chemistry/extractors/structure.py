@@ -8,7 +8,6 @@ from typing import Literal
 from app.modules.chemistry.coordination import parse_complex_formula
 from app.modules.chemistry.extractors.parsing import (
     _N,
-    _element,
     _floats,
     _search,
 )
@@ -16,6 +15,7 @@ from app.modules.chemistry.nomenclature import salt_from_formula, salt_from_name
 from app.modules.chemistry.request import CHEMICAL_FORMULA, FORMULA_END
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.species_facts import (
+    element_symbol,
     is_formula,
 )
 
@@ -122,7 +122,7 @@ def _extract_electron_configuration(text: str) -> ChemistryIntent | None:
     match = _CONFIGURATION.search(text)
     if match is None:
         return None
-    element = _element(match.group("element"))
+    element = element_symbol(match.group("element"))
     if element is None:
         return None
     return ChemistryIntent(kind="structure", chemistry_op="electron_configuration", target=element)
@@ -143,7 +143,7 @@ def _extract_valence_electrons(text: str) -> ChemistryIntent | None:
     if match is None or re.search(r"\d", text[: match.start()] + text[match.end() :]):
         return None
     word = match.group("what")
-    element = _element(word)
+    element = element_symbol(word)
     if element is not None:
         return ChemistryIntent(kind="structure", chemistry_op="valence_electrons", formula=element)
     if is_formula(word.rstrip("+-")) or re.fullmatch(r"[A-Z][A-Za-z0-9()]*(?:\^\d+)?[+-]", word):

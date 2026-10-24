@@ -19,7 +19,8 @@ import re
 from collections.abc import Callable
 from functools import lru_cache
 
-from app.modules.physics.givens import unit_at, unit_dimension
+from app.modules.physics.givens import unit_at
+from app.services.law_binding.units import dimension_of
 from app.services.number_text import SIGNED_DECIMAL_SCI
 
 # Symbol → (quantity name, SI unit) in order of preference.
@@ -64,15 +65,10 @@ _SEPARATOR = re.compile(r"^[\s,;]*(?:and\s[\s,;]*)?$|^[\s,;.]*$", re.IGNORECASE)
 _MAX_GIVENS = 6
 
 
-def _dimension(unit: str) -> str | None:
-    reading = unit_dimension(unit)
-    return None if reading is None else reading[0]
-
-
 @lru_cache(maxsize=64)
 def _si_dimension(unit: str) -> str | None:
     found = unit_at(f"1 {unit}", 1)
-    return None if found is None else _dimension(found[1])
+    return None if found is None else dimension_of(found[1])
 
 
 def _article(noun: str) -> str:
@@ -88,7 +84,7 @@ def _named_given(symbol: str, number: str, unit: tuple[str, str] | None) -> str 
             return None
         noun, si_unit = meanings[0]
         return f"{_article(noun)} {noun} of {number} {si_unit}"
-    stated = _dimension(unit[1])
+    stated = dimension_of(unit[1])
     for noun, si_unit in meanings:
         if stated is not None and stated == _si_dimension(si_unit):
             return f"{_article(noun)} {noun} of {number} {unit[0]}"

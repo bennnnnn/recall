@@ -25,6 +25,7 @@ from dataclasses import dataclass
 
 from app.modules.physics.ask import _QUANTITY, SENTENCE, has_ask
 from app.modules.physics.givens import scan_givens, unit_dimension, unit_expression
+from app.services.law_binding.units import dimension_of
 from app.services.student_claim import CHECK_ONLY as CHECK_ONLY
 from app.services.student_claim import OWN as _OWN
 from app.services.student_claim import QUESTION_WORD as _QUESTION_WORD
@@ -73,13 +74,8 @@ _KIND_NOUNS = {
 }
 
 
-def _kind(expression: str) -> str | None:
-    reading = unit_dimension(expression)
-    return None if reading is None else reading[0]
-
-
 _NOUN_BY_KIND = {
-    kind: noun for expression, noun in _KIND_NOUNS.items() if (kind := _kind(expression))
+    kind: noun for expression, noun in _KIND_NOUNS.items() if (kind := dimension_of(expression))
 }
 
 
@@ -101,7 +97,7 @@ class Claim:
     @property
     def dimension(self) -> str | None:
         expression = unit_expression(self.unit)
-        return None if expression is None else _kind(expression)
+        return None if expression is None else dimension_of(expression)
 
 
 def _value_end(text: str, start: int, end: int, unit: str) -> int:
