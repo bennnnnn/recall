@@ -4,7 +4,8 @@ Every model call of a turn leaves one sample: whether that model answered, and h
 long its provider took to start (``latency_ms``). Samples are kept per provider
 model, so aliases that run the same model share one breaker. A model is open, so
 routing and fallbacks skip it, while half or more of its recent samples are bad
-(failed, or slower than ``_SLOW_MS`` to start) and its newest one is bad too. Once
+(failed, or slower than ``_SLOW_MS`` to start) and its newest one is bad too, or its
+newest one failed because the provider is out of capacity (``_OVERLOADED``). Once
 its cool-down has passed with no new sample it is half-open: routing may pick it
 again, and a turn about to try it first claims its probe (``claim_probe``), so one
 turn at a time tries it. A success closes the breaker, a failure opens it for
@@ -36,6 +37,11 @@ _SAMPLE_TTL_SECONDS = 86_400
 # A provider this slow to start answering counts against its model.
 _SLOW_MS = 30_000
 _BAD_RATE = 0.5
+# Failures that say the provider is out of capacity: rate-limited upstream, or no
+# reply before the first-reply cap. They come in bursts that last minutes, so one
+# opens the breaker by itself and the next turns go straight to a fallback instead
+# of each paying for the failed try first.
+_OVERLOADED = frozenset({"rate_limit", "cap"})
 
 
 @dataclass(frozen=True)
@@ -45,6 +51,8 @@ class HealthSample:
     alias: str
     latency_ms: float
     success: bool
+    # Why a failed call failed (``stream_signals.StreamAttempt.cause``).
+    cause: str | None = None
 
 
 @dataclass(frozen=True)
@@ -96,8 +104,10 @@ async def record_samples(redis: Redis, samples: Sequence[HealthSample]) -> None:
         for sample in samples:
             model = _model_of(sample.alias)
             key = _SAMPLES_KEY.format(model=model)
-            # score = timestamp; member encodes success|latency|unique
+            # score = timestamp; member encodes success|latency|unique[|cause]
             member = f"{int(sample.success)}|{int(sample.latency_ms)}|{time.time_ns()}"
+            if not sample.success and sample.cause:
+                member += f"|{sample.cause}"
             pipe.zadd(key, {member: time.time()})
             pipe.zremrangebyrank(key, 0, -(_MAX_SAMPLES + 1))
             pipe.expire(key, _SAMPLE_TTL_SECONDS)
@@ -108,13 +118,13 @@ async def record_samples(redis: Redis, samples: Sequence[HealthSample]) -> None:
         logger.debug("model health samples failed", exc_info=True)
 
 
-def _parse(raw: Iterable[Any]) -> list[tuple[bool, int, float]]:
-    """(ok, latency ms, recorded at) per stored sample, oldest first.
+def _parse(raw: Iterable[Any]) -> list[tuple[bool, int, float, str | None]]:
+    """(ok, latency ms, recorded at, failure cause) per stored sample, oldest first.
 
     Samples recorded at the same second keep the order they were written in (the
     member's nanosecond part): Redis would order them failure first.
     """
-    samples: list[tuple[bool, int, float, int]] = []
+    samples: list[tuple[bool, int, float, int, str | None]] = []
     for item in raw:
         member, score = item if isinstance(item, tuple | list) else (item, None)
         text = member.decode() if isinstance(member, bytes) else str(member)
@@ -123,23 +133,25 @@ def _parse(raw: Iterable[Any]) -> list[tuple[bool, int, float]]:
             # The score is when it was recorded; the member's last part is too.
             written_ns = int(parts[2]) if len(parts) > 2 else 0
             at = float(score) if score is not None else written_ns / 1e9
-            samples.append((parts[0] == "1", int(parts[1]), at, written_ns))
+            cause = parts[3] if len(parts) > 3 else None
+            samples.append((parts[0] == "1", int(parts[1]), at, written_ns, cause))
         except (ValueError, IndexError):
             continue
     samples.sort(key=lambda sample: (sample[2], sample[3]))
-    return [(ok, ms, at) for ok, ms, at, _ns in samples]
+    return [(ok, ms, at, cause) for ok, ms, at, _ns, cause in samples]
 
 
 def _snapshot(raw: Iterable[Any]) -> ModelHealthSnapshot:
     samples = _parse(raw)
     if not samples:
         return _NO_SAMPLES
-    bad = [not ok or ms >= _SLOW_MS for ok, ms, _at in samples]
-    errors = sum(1 for ok, _ms, _at in samples if not ok)
-    latencies = sorted(ms for ok, ms, _at in samples if ok)
+    bad = [not ok or ms >= _SLOW_MS for ok, ms, _at, _cause in samples]
+    errors = sum(1 for ok, _ms, _at, _cause in samples if not ok)
+    latencies = sorted(ms for ok, ms, _at, _cause in samples if ok)
+    overloaded = samples[-1][3] in _OVERLOADED
     return ModelHealthSnapshot(
         # A model that just answered is closed, whatever came before.
-        healthy=not (bad[-1] and sum(bad) / len(bad) >= _BAD_RATE),
+        healthy=not (bad[-1] and (overloaded or sum(bad) / len(bad) >= _BAD_RATE)),
         latency_p50_ms=latencies[len(latencies) // 2] if latencies else None,
         sample_count=len(samples),
         error_rate=errors / len(samples),
