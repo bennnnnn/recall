@@ -156,7 +156,14 @@ def test_graph_it_after_data_is_a_chart_not_a_question_about_a_function() -> Non
 
 @pytest.mark.parametrize(
     "text",
-    ["ok  " * 40 + "hello", "ok\n\n" * 40, "please " * 300, "show " + "a " * 600 + "in a chart"],
+    [
+        "ok  " * 40 + "hello",
+        "ok\n\n" * 40,
+        "please " * 300,
+        "show " + "a " * 600 + "in a chart",
+        # CodeQL: the formula pattern was polynomial on "=" and many spaces.
+        "graph =" + " " * 20000,
+    ],
 )
 def test_reading_a_long_message_stays_quick(text: str) -> None:
     """ "ok  ok  ok …" took seconds: the polite lead-in's spaces could be split many ways."""

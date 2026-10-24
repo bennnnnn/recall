@@ -101,7 +101,7 @@ _VISUALIZE = re.compile(r"\bvisuali[sz]e\b", re.IGNORECASE)
 _TWO_NUMBERS = re.compile(r"\d[^\d]+\d")
 # A formula is maths' curve, not data: "graph y = 2x + 3", "plot sin(x)", "graph x^2".
 _FORMULA = re.compile(
-    r"\bf\s*\(\s*x\s*\)|\by\s*=|=\s*[-+]?\s*\d*\.?\d*\s*x\b|"
+    r"\bf\s*\(\s*x\s*\)|\by\s*=|=\s*[-+]?(?:\d+(?:\.\d+)?\s*)?x\b|"
     r"\b(?:sin|cos|tan|log|ln|sqrt|exp)\s*\(|\bx\s*(?:\^|\*\*|\u00b2|\u00b3)|"
     r"\b\d+(?:\.\d+)?\s*x\b(?!\s*\d)",
     re.IGNORECASE,
