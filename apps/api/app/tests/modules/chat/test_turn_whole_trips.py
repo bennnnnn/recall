@@ -129,7 +129,7 @@ CEILINGS: dict[str, Ceiling] = {
         _FIRST_UNTOLD,
     ),
     "attachment question": Ceiling(
-        Counts(sql=14, checkouts=9, transactions=9, redis=35, models=2, embeds=1),
+        Counts(sql=13, checkouts=8, transactions=8, redis=35, models=2, embeds=1),
         Counts(sql=13, checkouts=5, transactions=5, redis=25, models=2, embeds=1),
         ("attachment_index", *_FIRST),
     ),

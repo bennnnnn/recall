@@ -17,8 +17,8 @@ from app.tests.modules.chat.chat_test_support import prompt_bundle
 
 
 @pytest.mark.asyncio
-async def test_count_image_attachments_issues_a_single_batched_query():
-    from app.modules.chat.turn_prep import count_image_attachments
+async def test_a_turns_attached_rows_load_in_a_single_batched_query():
+    from app.modules.chat.turn_prep import count_images, load_attachment_rows
 
     user_id = uuid4()
     attachment_ids = [uuid4(), uuid4(), uuid4()]
@@ -30,10 +30,28 @@ async def test_count_image_attachments_issues_a_single_batched_query():
         "app.modules.attachments.repository.get_by_ids",
         AsyncMock(return_value=[image_row, pdf_row]),
     ) as get_by_ids_mock:
-        count = await count_image_attachments(session, user_id, attachment_ids)
+        rows = await load_attachment_rows(session, user_id, attachment_ids)
 
-    assert count == 1
+    assert count_images(rows) == 1
     get_by_ids_mock.assert_awaited_once_with(session, attachment_ids, user_id)
+
+
+@pytest.mark.asyncio
+async def test_rows_the_turn_read_for_its_quota_are_not_read_again():
+    """The quota read the attached rows to count images, then the turn read them again
+    on a connection of its own before its first token."""
+    from app.modules.chat.turn_prep.attachments import _load_turn_attachments
+
+    user = MagicMock(id=uuid4())
+    row = MagicMock(id=uuid4(), message_id=None, content_type="image/png")
+    reads = AsyncMock(return_value=[row])
+    # An unlinked row needs no copy: the turn's session runs nothing at all.
+    with patch("app.modules.attachments.repository.get_by_ids", reads):
+        _user, rows, ids = await _load_turn_attachments(
+            user_id=user.id, user=user, attachment_ids=[row.id], settings=Settings(), rows=[row]
+        )
+    assert (rows, ids) == ([row], [row.id])
+    reads.assert_not_awaited()
 
 
 @pytest.mark.asyncio

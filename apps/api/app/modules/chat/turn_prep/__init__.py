@@ -13,7 +13,8 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from app.modules.chat.turn_prep.attachments import (
-        count_image_attachments,
+        count_images,
+        load_attachment_rows,
         vision_reserve_tokens,
     )
     from app.modules.chat.turn_prep.context import (
@@ -39,7 +40,8 @@ _EXPORTS = {
     "TurnRequest": "request",
     "await_user_message_persist": "context",
     "build_stream_prompt_context": "context",
-    "count_image_attachments": "attachments",
+    "count_images": "attachments",
+    "load_attachment_rows": "attachments",
     "prepare_chat_turn": "prepare",
     "resolve_client_geo": "request",
     "stream_context_from_bundle": "context",
@@ -54,7 +56,8 @@ __all__ = [
     "TurnRequest",
     "await_user_message_persist",
     "build_stream_prompt_context",
-    "count_image_attachments",
+    "count_images",
+    "load_attachment_rows",
     "prepare_chat_turn",
     "resolve_client_geo",
     "stream_context_from_bundle",
