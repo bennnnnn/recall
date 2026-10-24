@@ -135,7 +135,8 @@ def loose_chart_json(body: str) -> str | None:
     """JSON the phone draws for a body written as loose text, or None. Never raises: it
     runs in the finalize pass, on whatever the model wrote.
 
-    A body that already parses as JSON is the JSON checks' to judge, never rewritten.
+    A body that already parses as JSON is the JSON checks' to judge, never rewritten. JSON
+    with a stray brace is mended; anything else is read as YAML.
     """
     if len(body) > _MAX_CHARS or parse_chart_body(body) is not None:
         return None
@@ -160,9 +161,40 @@ def _too_deep(text: str) -> bool:
     return False
 
 
+def _without_stray_braces(body: str) -> str | None:
+    """JSON with a brace opened where a key belongs, and its closing brace, taken out, or
+    None when it has none. Live: ``"encoding": {"x": {…}, {"y": {…}}}`` drew nothing."""
+    out: list[str] = []
+    # "{" and "[" as written; "~" a stray brace, whose keys belong to the object around it.
+    stack: list[str] = []
+    last = ""  # the last character outside a string, spaces aside
+    in_string = escaped = stray = False
+    for char in body:
+        if in_string:
+            out.append(char)
+            escaped = not escaped and char == "\\"
+            in_string = escaped or char != '"'
+            continue
+        if char == "{" and stack and stack[-1] in "{~" and last in "{,":
+            stack.append("~")
+            stray = True
+            continue
+        if char in "}]" and stack and stack.pop() == "~":
+            continue
+        if char in "{[":
+            stack.append(char)
+        in_string = char == '"'
+        out.append(char)
+        last = last if char.isspace() else char
+    return "".join(out) if stray else None
+
+
 def _read(body: str) -> str | None:
     if _too_deep(body):
         return None
+    unnested = _without_stray_braces(body)
+    if unnested is not None and chart_body_draws(unnested):
+        return unnested
     text, kind = _yaml_text(body)
     loaded = yaml.load(text, Loader=_Loader)  # noqa: S506 - a SafeLoader subclass
     if isinstance(loaded, list):

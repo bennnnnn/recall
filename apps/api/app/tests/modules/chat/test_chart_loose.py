@@ -125,3 +125,40 @@ def test_reading_a_long_body_stays_quick(body: str) -> None:
     started = time.perf_counter()
     assert loose_chart_json(body) is None
     assert time.perf_counter() - started < 0.05
+
+
+# Live, after "yes" to an offered chart: a brace opened where the "y" key belongs.
+_STRAY = (
+    '{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","data":{"values":'
+    '[{"month":"Jan","rain":15},{"month":"Feb","rain":30}]},"mark":"bar","encoding":'
+    '{"x":{"field":"rain","type":"quantitative"},{"y":{"field":"month","type":"nominal"}}}}'
+)
+
+
+@pytest.mark.parametrize(
+    ("body", "mended"),
+    [
+        (_STRAY, _STRAY.replace('},{"y"', '},"y"').removesuffix("}")),
+        # A doubled brace around the whole spec.
+        (
+            '{{"mark":"bar","data":{"values":[{"a":"x","b":1}]}}}',
+            '{"mark":"bar","data":{"values":[{"a":"x","b":1}]}}',
+        ),
+        # Braces inside a string are text.
+        (
+            '{"title":"a \\"q\\" },{ b","mark":"bar","data":{"values":[{"a":"x","b":1}]},'
+            '"encoding":{"x":{"field":"a"},{"y":{"field":"b"}}}}',
+            '{"title":"a \\"q\\" },{ b","mark":"bar","data":{"values":[{"a":"x","b":1}]},'
+            '"encoding":{"x":{"field":"a"},"y":{"field":"b"}}}',
+        ),
+    ],
+)
+def test_a_stray_brace_in_the_json_is_mended(body: str, mended: str) -> None:
+    assert loose_chart_json(body) == mended
+    assert chart_body_draws(mended)
+
+
+def test_objects_in_a_list_are_not_stray() -> None:
+    body = '{"mark":"bar","data":{"values":[{"a":"x","b":1},{"a":"y","b":2}]'
+    # Unclosed, so no JSON; the objects in the list stay as they are, and nothing draws.
+    assert loose_chart_json(body) is None
