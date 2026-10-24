@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from app.modules.math.followup_what_if import is_part_change
-from app.modules.math.match.scan import strip_command_lead
+from app.modules.math.match.scan import closed_request_text
 from app.modules.math.tools.direct_fences import MAX_DIRECT_ANSWER_CHARS, solver_fences
 from app.modules.math.tools.direct_graph import (
     can_direct_graph,
@@ -102,14 +102,9 @@ def leftover_non_math_request(text: str) -> bool:
 
 def _plain_prime_factorization_request(text: str) -> bool:
     """Match the complete one-integer ask; extra clauses still need language."""
-    if len(text) > 1000:
+    request = closed_request_text(text)
+    if request is None:
         return False
-    request = " ".join(text.lower().split()).rstrip(".?")
-    for prefix in ("please ", "can you ", "could you "):
-        if request.startswith(prefix):
-            request = request[len(prefix) :]
-            break
-    request = strip_command_lead(request)
     for prefix in (
         "prime factorization of ",
         "prime factorisation of ",

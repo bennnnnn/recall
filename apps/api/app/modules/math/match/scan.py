@@ -125,6 +125,25 @@ def strip_command_lead(request: str) -> str:
     return request
 
 
+# A polite opener before the command: "please find …", "can you compute …".
+_POLITE_LEADS = ("please ", "can you ", "could you ")
+
+
+def closed_request_text(text: str) -> str | None:
+    """A one-line closed request lowercased, its polite opener and command verb off.
+
+    None past 1,000 characters: no closed request is that long.
+    """
+    if len(text) > 1000:
+        return None
+    request = " ".join(text.lower().split()).rstrip(".?")
+    for prefix in _POLITE_LEADS:
+        if request.startswith(prefix):
+            request = request[len(prefix) :]
+            break
+    return strip_command_lead(request)
+
+
 # "slove 4x - 8 = 12": the command a student meant, as the first word only.
 _SOLVE_TYPO = re.compile(r"^(?:slove|sovle|solv|slov)(?=\s)", re.IGNORECASE)
 

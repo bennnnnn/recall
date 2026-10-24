@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from app.modules.math.match.scan import strip_command_lead
+from app.modules.math.match.scan import closed_request_text
 from app.services.text_match import word_index
 
 _OPERATIONS = ("distance", "midpoint", "slope", "magnitude", "norm", "dot", "cross")
@@ -75,14 +75,9 @@ def literal_math_tuples(text: str, opener: str, closer: str) -> list[list[float]
 
 
 def is_closed_coordinate_vector_request(text: str) -> bool:
-    if len(text) > 1000:
+    request = closed_request_text(text)
+    if request is None:
         return False
-    request = " ".join(text.lower().split()).rstrip(".?")
-    for prefix in ("please ", "can you ", "could you "):
-        if request.startswith(prefix):
-            request = request[len(prefix) :]
-            break
-    request = strip_command_lead(request)
     for prefix, opener, closer, count, kind in _REQUESTS:
         if not request.startswith(prefix):
             continue
