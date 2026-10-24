@@ -53,6 +53,10 @@ class StreamedToolCalls:
                 entry["arguments"] += str(arguments)
         return True
 
+    def add(self, name: str, arguments: str) -> None:
+        """A whole call the model wrote as text (``text_tool_calls``)."""
+        self._calls.append({"id": "", "name": name, "arguments": arguments})
+
     def calls(self) -> list[dict[str, Any]]:
         """The finished calls, in order; a call that never got a name is dropped."""
         return [
