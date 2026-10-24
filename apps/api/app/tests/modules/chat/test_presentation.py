@@ -105,3 +105,15 @@ def test_plain_prose_is_copied_without_trying_each_reader(monkeypatch: pytest.Mo
     assert all(line.startswith("See ") for line in tried)
     monkeypatch.setattr(markdown_regions, "read_inline_code_span", no_scan)
     assert present_assistant_markdown(f"{prose}`code` here") == f"{prose}`code` here"
+
+
+def test_a_long_run_of_punctuation_is_peeled_in_one_pass() -> None:
+    """The trailing marks after a formula were peeled by cutting a copy per mark: a reply
+    of 64,000 dots spent 196 ms in it (24 ms now), and 200,000 several seconds."""
+    import time
+
+    text = "$x = 1$" + "." * 200_000
+    start = time.perf_counter()
+    presented = present_assistant_markdown(text)
+    assert time.perf_counter() - start < 0.5
+    assert presented == text
