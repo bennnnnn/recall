@@ -151,6 +151,26 @@ describe("a streaming reply's work per flush", () => {
     await view.unmount();
   });
 
+  it("settles without preprocessing the whole reply again", async () => {
+    const text = LONG_REPLY.trim();
+    const view = await render(<MarkdownContent content="" streaming mathFormat={formatAssistantMathExpr} />);
+    for (let end = 24; end < text.length + 24; end += 24) {
+      await act(async () => {
+        view.rerender(
+          <MarkdownContent content={text.slice(0, end)} streaming mathFormat={formatAssistantMathExpr} />,
+        );
+      });
+    }
+    mockWork.preprocessed = 0;
+    await act(async () => {
+      view.rerender(<MarkdownContent content={text} mathFormat={formatAssistantMathExpr} />);
+    });
+    // The settled reply was preprocessed whole again: all 11,610 characters.
+    expect(mockWork.preprocessed).toBeLessThan(text.length / 10);
+    expect(mockWork.preprocessed).toBeGreaterThan(0);
+    await view.unmount();
+  }, 300_000);
+
   it("redraws only the table row still being written", async () => {
     const rows = Array.from({ length: 16 }, (_, i) => `| Plan ${i + 1} | ${i + 1} GB | Email |`);
     const table = ["| Plan | Storage | Support |", "| --- | --- | --- |", ...rows].join("\n");

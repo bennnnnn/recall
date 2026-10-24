@@ -9,9 +9,9 @@ import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
 import { ReplyStreaming } from "@/components/markdown/ReplyStreaming";
 import { streamingEnd, type StreamingEnd } from "@/components/markdown/streamingEnd";
 import { markdownItInstance } from "@/lib/markdown/parser";
-import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import {
   preprocessMarkdownForStream,
+  preprocessSettledMarkdown,
   type StreamingPreprocessCache,
 } from "@/lib/markdown/preprocessStream";
 import {
@@ -102,7 +102,10 @@ export function MarkdownContent({
         streamPreprocessRef.current = cache;
         return streamed;
       }
-      return preprocessMarkdown(renderContent, mathFormat, { presented });
+      // A reply that just finished streaming keeps the parts its stream preprocessed.
+      return preprocessSettledMarkdown(renderContent, streamPreprocessRef.current, mathFormat, {
+        presented,
+      });
     } catch {
       return renderContent;
     }
