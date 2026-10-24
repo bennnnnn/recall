@@ -103,5 +103,60 @@
   "prompt": "what is a box plot used for?",
   "reply": "A box plot shows how data spread out: the middle half of the values sits in the box, and the whiskers reach toward the extremes.",
   "expect": "answer"
+ },
+ {
+  "id": "ch-016",
+  "area": "math lookalike",
+  "history": [
+   [
+    "user",
+    "Monthly rainfall in Addis Ababa: Jan 15, Feb 30, Mar 60, Apr 85 mm"
+   ],
+   [
+    "assistant",
+    "Hey! How's it going?"
+   ]
+  ],
+  "prompt": "make that a bar chart",
+  "reply": "```chart\ntype: bar\ntitle: Monthly rainfall in Addis Ababa (mm)\ndata:\n  - label: Jan\n    value: 15\n  - label: Feb\n    value: 30\n  - label: Mar\n    value: 60\n  - label: Apr\n    value: 85\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "ch-017",
+  "area": "math lookalike",
+  "history": [
+   [
+    "user",
+    "Here are my exam marks: math 85, physics 78, chemistry 92, biology 88"
+   ],
+   [
+    "assistant",
+    "Nice marks!"
+   ]
+  ],
+  "prompt": "what about a pie chart?",
+  "reply": "Here's how your marks split:\n\n```chart\npie\n  title \"Exam marks\"\n  data:\n    Math: 85\n    Physics: 78\n    Chemistry: 92\n    Biology: 88\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "ch-018",
+  "area": "chart lookalike",
+  "prompt": "make it a habit to check the chart every morning, how do I stick to that?",
+  "reply": "Tie it to something you already do: open the chart right after your first coffee, and keep it on your home screen so it's one tap away.",
+  "expect": "answer"
+ },
+ {
+  "id": "ch-019",
+  "area": "chart lookalike",
+  "prompt": "In a pie chart, what does each slice mean?",
+  "reply": "Each slice is one category's share of the whole: its angle is that share of 360\u00b0, so a quarter of the total is a 90\u00b0 slice.",
+  "expect": "answer"
+ },
+ {
+  "id": "ch-020",
+  "area": "chart lookalike",
+  "prompt": "make that a priority for this week",
+  "reply": "Got it. Put it first on your list and block an hour for it early in the week, before other tasks crowd it out.",
+  "expect": "answer"
  }
 ]

@@ -50,6 +50,17 @@ from app.services.subject_solving import detect_subject
         "make a pie chart of my code reviews per week",
         "make a bar chart of my excel expenses: rent 1200, food 300",
         "help me visualize my spending: rent 1200, food 300",
+        # The chat's numbers recast, or drawn as another kind (2026-10-24: "make that a bar
+        # chart" got no chart format, and the model wrote YAML the phone could not draw).
+        "make that a bar chart",
+        "make it a pie chart",
+        "can you make these numbers a line graph?",
+        "make this data a stacked bar chart",
+        "redo it as a bar chart",
+        "what about a pie chart?",
+        "ok, how about as a line graph instead",
+        "same but as a bar chart",
+        "as a donut chart please",
     ],
 )
 def test_a_chart_asked_for_in_other_words_is_a_chart(text: str) -> None:
@@ -100,6 +111,13 @@ def test_a_chart_asked_for_in_other_words_is_a_chart(text: str) -> None:
         "How do I visualize my goals better?",
         "I can't visualize 4D space, any tips?",
         "Help me visualize the Pythagorean theorem",
+        # "Make it a …" and "what about …" that ask for no chart.
+        "make it a habit to check the chart every morning",
+        "make that a priority",
+        "make it a point to chart your progress",
+        "In a pie chart, what does each slice mean?",
+        "what about the chart I sent?",
+        "is this better as a bar chart or a line chart?",
     ],
 )
 def test_what_is_not_a_chart_of_data_is_not_one(text: str) -> None:
@@ -189,6 +207,9 @@ _MARKS = ("user", "Here are my exam marks: math 85, physics 78, chemistry 92, bi
             "My expenses: rent 1500, groceries 400",
         ),
         ("show that as a bar chart", [_MARKS, ("assistant", "ok"), ("user", "thanks")], _MARKS[1]),
+        # Live: the data message got a greeting back, then "make that a bar chart".
+        ("make that a bar chart", [_MARKS, ("assistant", "Hey! How's it going?")], _MARKS[1]),
+        ("what about a pie chart?", [_MARKS, ("assistant", "```chart\n{}\n```")], _MARKS[1]),
         # Its own numbers, a new subject, a function before, one number: nothing quoted.
         ("plot my test scores 72, 85", [_MARKS], None),
         ("graph the population of Ethiopia", [_MARKS], None),

@@ -61,3 +61,20 @@ def test_a_chart_with_nothing_to_draw_goes(body: str) -> None:
 def test_other_fences_are_left_alone() -> None:
     text = "```python\nprint('a | b')\n```\n\n```mermaid\ngraph TD; A-->B\n```\n"
     assert sanitize_chart_fences(text) == text
+
+
+def test_a_chart_written_as_loose_text_is_rewritten_as_json_the_phone_draws() -> None:
+    """Qwen wrote "make that a bar chart" as YAML; it was dropped and the reply saved empty."""
+    loose = "type: bar\ntitle: Rainfall\ndata:\n  - label: Jan\n    value: 15\n  - label: Feb\n    value: 30"
+    kept = sanitize_chart_fences(f"Here it is:\n\n```chart\n{loose}\n```\n\nFeb is wetter.")
+    before, body, after = kept.split("```")
+    assert (before, after) == ("Here it is:\n\n", "\n\nFeb is wetter.")
+    assert body.startswith("chart\n") and chart_is_drawable(body.removeprefix("chart\n"))
+    assert json.loads(body.removeprefix("chart\n"))["data"][1] == {"label": "Feb", "value": 30}
+
+
+@pytest.mark.parametrize("body", ['{"mark": "line", "data": {"url": "data.csv"}}', "nothing here"])
+def test_a_reply_that_is_only_an_undrawable_chart_stays_as_written(body: str) -> None:
+    """Dropped, it was saved empty while the phone kept the chart it had streamed."""
+    reply = f"```chart\n{body}\n```"
+    assert sanitize_chart_fences(reply) == reply

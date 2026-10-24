@@ -97,6 +97,22 @@ _MAKE_A_VISUAL = re.compile(
 )
 # "bar graph: apples 30".
 _KIND_OPENS = re.compile(rf"^{_POLITE}{_KIND}\s*{_VISUAL}\b", re.IGNORECASE)
+# The chat's numbers recast: "make that a bar chart", "make these numbers a pie chart"
+# (2026-10-24: read as no chart, so the model got no format and wrote YAML the phone could
+# not draw). "Make it a habit to check the chart" asks for no chart.
+_MAKE_IT_A_VISUAL = re.compile(
+    r"\b(?:make|remake|redo)\s+(?:it|this|that|these|those|them)(?:\s+(?!an?\b)\w+){0,2}"
+    rf"\s+an?\s+(?:{_KIND}\s+){{0,2}}{_VISUAL}\b",
+    re.IGNORECASE,
+)
+# Another kind for the same numbers: "what about a pie chart?", "same but as a line graph".
+# "In a pie chart, what does each slice mean?" asks about one.
+_ANOTHER_KIND = re.compile(
+    rf"^{_POLITE}(?:(?:what|how)\s+about\s+(?:(?:as|in)\s+)?|(?:the\s+)?same(?:\s+thing)?"
+    r"\s+(?:but\s+)?(?:as|in)\s+|but\s+(?:as|in)\s+|as\s+)an?\s+"
+    rf"{_KIND}\s+{_VISUAL}(?:\s+(?:instead|please|pls|too|then|now))*\W*$",
+    re.IGNORECASE,
+)
 # "Help me visualize my spending: rent 1200, food 300": with the numbers to draw.
 # "How do I visualize my goals?" is no chart.
 _VISUALIZE = re.compile(r"\bvisuali[sz]e\b", re.IGNORECASE)
@@ -145,6 +161,8 @@ def _asks_for_a_visual_in_other_words(cleaned: str) -> bool:
         _IN_A_VISUAL.search(cleaned)
         or _OPENS_WITH_VERB.search(cleaned)
         or _MAKE_A_VISUAL.search(cleaned)
+        or _MAKE_IT_A_VISUAL.search(cleaned)
+        or _ANOTHER_KIND.search(cleaned)
         or _KIND_OPENS.search(cleaned)
         or (_VISUALIZE.search(cleaned) and _TWO_NUMBERS.search(cleaned))
     )
@@ -368,7 +386,10 @@ def chart_followup_data(query: str, prior_messages: Sequence[tuple[str, str]] | 
         return None
     if chart_of_public_facts(cleaned):
         return None
-    if not (_BACK_REFERENCE.search(cleaned) or _BARE_VERB.match(cleaned)):
+    # "What about a pie chart?" names no subject: it is the earlier numbers as another kind.
+    if not (
+        _BACK_REFERENCE.search(cleaned) or _BARE_VERB.match(cleaned) or _ANOTHER_KIND.match(cleaned)
+    ):
         return None
     earlier = [
         typed
