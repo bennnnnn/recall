@@ -49,26 +49,85 @@ const LEADS_ON = new Set([
   "a", "an", "my", "your", "our", "their", "his", "her", "its", "and", "or", "i",
 ]);
 const FLAG = /\uD83C[\uDDE6-\uDDFF]/;
-const LAST_WORD = /([A-Za-z0-9\u00C0-\u024F']+)[ \t]*$/;
+// The same letters as the server's twin.
+const WORD_CHAR = /[A-Za-z0-9\u00C0-\u024F']/;
 const NEXT_WORD = /^[A-Z][a-z']/;
+// A word longer than every lead-on word is not one: the last few letters are enough.
+const WORD_KEEP = Math.max(...[...LEADS_ON].map((word) => word.length)) + 1;
 
+/** The last `WORD_KEEP` letters of the word `text` ends with ("" when none). */
+function wordEnd(text: string): string {
+  let start = text.length;
+  while (start > 0 && text.length - start < WORD_KEEP && WORD_CHAR.test(text[start - 1] ?? "")) {
+    start -= 1;
+  }
+  return text.slice(start);
+}
+
+function trimBlankEnd(text: string): string {
+  let end = text.length;
+  while (end > 0 && (text[end - 1] === " " || text[end - 1] === "\t")) end -= 1;
+  return text.slice(0, end);
+}
+
+function stripBlankEnd(pieces: string[]): void {
+  while (pieces.length > 0) {
+    const kept = trimBlankEnd(pieces[pieces.length - 1] ?? "");
+    if (kept) {
+      pieces[pieces.length - 1] = kept;
+      return;
+    }
+    pieces.pop();
+  }
+}
+
+/**
+ * `part` without its emoji; one that broke two sentences becomes a full stop. The word
+ * before each emoji is read from the end of the text kept so far, never by searching all
+ * of it again: on a long line every emoji re-read the whole line (the server's twin).
+ */
 function dropEmoji(part: string): string {
-  let out = "";
+  const pieces: string[] = [];
+  // The word the kept text ends with, and the one it ends with once its trailing blanks
+  // go (each cut to `WORD_KEEP` letters).
+  let wordAtEnd = "";
+  let wordBeforeBlanks = "";
   let last = 0;
   for (const match of part.matchAll(EMOJI_AND_SPACE)) {
     const start = match.index ?? 0;
-    const before = out + part.slice(last, start);
-    const word = LAST_WORD.exec(before);
+    const between = part.slice(last, start);
+    const text = trimBlankEnd(between);
+    let word: string;
+    let endsOnWord: string;
+    if (!text) {
+      word = wordBeforeBlanks;
+      endsOnWord = between ? "" : wordAtEnd;
+    } else {
+      word = wordEnd(text);
+      if (word.length === text.length) word = (wordAtEnd + word).slice(-WORD_KEEP);
+      endsOnWord = text.length === between.length ? word : "";
+    }
     const end = start + match[0].length;
     const breaks =
-      word !== null &&
-      !LEADS_ON.has((word[1] ?? "").toLowerCase()) &&
+      word !== "" &&
+      !LEADS_ON.has(word.toLowerCase()) &&
       !FLAG.test(match[0]) &&
-      NEXT_WORD.test(part.slice(end));
-    out = breaks ? `${before.replace(/[ \t]+$/, "")}. ` : before;
+      NEXT_WORD.test(part.slice(end, end + 2));
+    if (breaks) {
+      if (text) pieces.push(text);
+      else stripBlankEnd(pieces);
+      pieces.push(". ");
+      wordAtEnd = "";
+      wordBeforeBlanks = "";
+    } else {
+      pieces.push(between);
+      wordAtEnd = endsOnWord;
+      wordBeforeBlanks = word;
+    }
     last = end;
   }
-  return out + part.slice(last);
+  pieces.push(part.slice(last));
+  return pieces.join("");
 }
 
 function withoutEmoji(line: string): string {
