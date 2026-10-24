@@ -188,12 +188,8 @@ async def test_embed_query_for_prompt_waits_only_as_long_as_memory():
         chat_history_rag_enabled=True, mock_llm_enabled=True, memory_query_embed_timeout_seconds=0.6
     )
     with (
-        patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
-        patch(
-            "app.modules.chat.history_rag.chunks_repo.has_chunks_for_user",
-            AsyncMock(return_value=True),
-        ),
-        patch("app.modules.chat.history_rag.embedding_gateway.get_or_embed_query", embed),
+        patch("app.core.presence_cache.cached_presence", AsyncMock(return_value=True)),
+        patch("app.gateways.embedding_gateway.get_or_embed_query", embed),
     ):
         await embed_query_for_prompt(settings, user_id=uuid4(), query="the lease we discussed")
     assert embed.await_args.kwargs["embed_timeout"] == 0.6
