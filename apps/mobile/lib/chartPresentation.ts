@@ -253,6 +253,65 @@ function wrapTitle(spec: JsonRecord, width: number): void {
   }
 }
 
+/**
+ * A JavaScript template literal (`` `Grade ${datum.grade}` ``) as Vega's expression
+ * language writes it, `'Grade ' + (datum.grade)`: Vega cannot read backticks, and a stacked
+ * bar chart with one unused label drew "Unexpected token ILLEGAL" instead of its bars.
+ */
+export function withoutTemplateLiterals(expr: string): string {
+  return expr.replace(/`([^`]*)`/g, (_whole, body: string) => {
+    const parts: string[] = [];
+    let rest = body;
+    while (rest) {
+      const open = rest.indexOf("${");
+      const close = open < 0 ? -1 : rest.indexOf("}", open);
+      const text = close < 0 ? rest : rest.slice(0, open);
+      if (text) parts.push(`'${text.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`);
+      if (close < 0) break;
+      parts.push(`(${rest.slice(open + 2, close)})`);
+      rest = rest.slice(close + 1);
+    }
+    return parts.length ? parts.join(" + ") : "''";
+  });
+}
+
+/** The field names a view's own inline rows carry, or null when it has none. */
+function rowFields(view: JsonRecord): Set<string> | null {
+  const data = isRecord(view.data) ? view.data : null;
+  const rows = data && Array.isArray(data.values) ? data.values : null;
+  const first = rows?.find(isRecord);
+  return first ? new Set(Object.keys(first)) : null;
+}
+
+/**
+ * Transforms a model wrote that cannot run: a best-fit line on fields the rows do not have
+ * ({"regression": "y", "on": "x"} over hours and score drew nothing at all) takes the plot's
+ * own x and y fields, and a template literal becomes a Vega expression.
+ */
+function repairTransforms(view: JsonRecord, fields: Set<string> | null, encoding: JsonRecord | null): void {
+  const own = rowFields(view) ?? fields;
+  const enc = isRecord(view.encoding) ? view.encoding : encoding;
+  for (const step of Array.isArray(view.transform) ? view.transform : []) {
+    if (!isRecord(step)) continue;
+    for (const key of ["calculate", "filter"]) {
+      if (typeof step[key] === "string") step[key] = withoutTemplateLiterals(step[key] as string);
+    }
+    const fit = ["regression", "loess"].find((key) => typeof step[key] === "string");
+    if (!fit || !own || !enc) continue;
+    const x = isRecord(enc.x) ? enc.x.field : undefined;
+    const y = isRecord(enc.y) ? enc.y.field : undefined;
+    const unknown = !own.has(String(step[fit])) || !own.has(String(step.on));
+    if (unknown && typeof x === "string" && typeof y === "string" && own.has(x) && own.has(y)) {
+      step[fit] = y;
+      step.on = x;
+    }
+  }
+  for (const key of COMPOSITE_KEYS) {
+    const kids = view[key];
+    if (Array.isArray(kids)) for (const kid of kids) if (isRecord(kid)) repairTransforms(kid, own, enc);
+  }
+}
+
 // A slice too thin to hold its share: no label (the legend still names it).
 const SLICE_LABEL_MIN_SHARE = 0.05;
 
@@ -300,6 +359,7 @@ function isVegaSpec(spec: JsonRecord): boolean {
 export function presentChartSpec(spec: JsonRecord, width = 320): JsonRecord {
   const parsed = JSON.parse(JSON.stringify(spec)) as JsonRecord;
   if (isVegaSpec(parsed)) return parsed;
+  repairTransforms(parsed, null, null);
   const out = JSON.parse(JSON.stringify(labelSlices(parsed))) as JsonRecord;
   eachView(out, (view, inLayer) => {
     normalizeUnit(view);

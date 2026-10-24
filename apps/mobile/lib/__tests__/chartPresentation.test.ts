@@ -1,4 +1,4 @@
-import { compactLabelExpr, presentChartSpec } from "@/lib/chartPresentation";
+import { compactLabelExpr, presentChartSpec, withoutTemplateLiterals } from "@/lib/chartPresentation";
 
 type Spec = Record<string, unknown>;
 const enc = (spec: Spec): Record<string, Record<string, unknown>> =>
@@ -212,6 +212,48 @@ describe("presentChartSpec", () => {
       ["labels of its own", { ...pie(), encoding: { ...(pie().encoding as Spec), text: { field: "item" } } }],
     ])("leaves %s as written", (_name, spec) => {
       expect(presentChartSpec(spec)).not.toHaveProperty("layer");
+    });
+  });
+
+  describe("transforms a model wrote that cannot run", () => {
+    it.each([
+      ["`Grade ${datum.grade} - ${datum.gender}`", "'Grade ' + (datum.grade) + ' - ' + (datum.gender)"],
+      ["`${datum.a}`", "(datum.a)"],
+      ["`it's ${datum.a}`", "'it\\'s ' + (datum.a)"],
+      ["``", "''"],
+      ["datum.a > 3", "datum.a > 3"],
+    ])("writes %s as a Vega expression", (expr, written) => {
+      expect(withoutTemplateLiterals(expr)).toBe(written);
+    });
+
+    it("rewrites a calculation and a filter, and leaves the rest", () => {
+      const spec = presentChartSpec({
+        data: { values: [{ grade: 1, n: 2 }] },
+        transform: [{ calculate: "`G${datum.grade}`", as: "label" }, { filter: "`${datum.n}` != ''" }, { fold: ["n"] }],
+        mark: "bar",
+        encoding: { x: { field: "label", type: "nominal" }, y: { field: "n", type: "quantitative" } },
+      });
+      expect(spec.transform).toEqual([
+        { calculate: "'G' + (datum.grade)", as: "label" },
+        { filter: "(datum.n) != ''" },
+        { fold: ["n"] },
+      ]);
+    });
+
+    const fit = (step: Spec): Spec => ({
+      data: { values: [{ hours: 1, score: 50 }, { hours: 2, score: 55 }] },
+      encoding: { x: { field: "hours", type: "quantitative" }, y: { field: "score", type: "quantitative" } },
+      layer: [{ mark: "point" }, { mark: "line", transform: [step] }],
+    });
+
+    it.each(["regression", "loess"])("fits a %s on the plot's own fields when it named others", (key) => {
+      const [, line] = presentChartSpec(fit({ [key]: "y", on: "x" })).layer as Spec[];
+      expect(line.transform).toEqual([{ [key]: "score", on: "hours" }]);
+    });
+
+    it("leaves a fit on fields the rows have", () => {
+      const [, line] = presentChartSpec(fit({ regression: "score", on: "hours", method: "poly" })).layer as Spec[];
+      expect(line.transform).toEqual([{ regression: "score", on: "hours", method: "poly" }]);
     });
   });
 });
