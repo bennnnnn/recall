@@ -1496,6 +1496,14 @@ CASES: tuple[Case, ...] = (
         "A warm message card; an emoji or two is fine in a personal message.",
     ),
     Case(
+        "tone-hi-again",
+        "tone and emoji",
+        "Hi",
+        Expect(lightweight=True, hints=("greeting_again",), no_hints=("lightweight",), search="no"),
+        'Notices the second hi in one light line ("Hi again! What\'s up?"), not a fresh greeting.',
+        history=(("user", "Hi"), ("assistant", "Hey bini! How's your Friday evening going?")),
+    ),
+    Case(
         "tone-thanks",
         "tone and emoji",
         "thanks!",
