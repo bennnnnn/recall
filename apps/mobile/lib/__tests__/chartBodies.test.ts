@@ -79,7 +79,7 @@ describe("a drawn chart on a phone card", () => {
 
   it("keeps bars pinned to zero", async () => {
     const { view } = await drawChart(named("labels with series of values (bar)"));
-    expect((view!.scale("x")!.domain() as number[])[0]).toBe(0);
+    expect((view!.scale("y")!.domain() as number[])[0]).toBe(0);
   });
 
   it("lists pie slices in the order the reply gave them", async () => {

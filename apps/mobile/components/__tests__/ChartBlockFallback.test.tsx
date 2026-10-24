@@ -1,15 +1,14 @@
 /**
  * A chart the card cannot draw is never a blank plot: it says so, shows the chart's
- * data as a table when it has any, and opens its source on a tap.
+ * data as a table when it has any. Its source is never shown.
  */
-import { act, fireEvent, render } from "@testing-library/react-native";
+import { act, render } from "@testing-library/react-native";
 import type { ReactElement } from "react";
 
 import { ChartBlock } from "@/components/rich/ChartBlock";
 import { previewPageFile } from "@/lib/previewPageFile";
 
 jest.mock("expo-file-system/legacy", () => ({}));
-jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
 jest.mock("@/lib/previewPageFile", () => ({
   previewPageFile: jest.fn(async () => "file:///cache/preview-pages/chart-0123456789abcdef.html"),
   readyPreviewPageFile: jest.fn(() => null),
@@ -37,7 +36,7 @@ beforeEach(() => {
   jest.mocked(previewPageFile).mockClear();
 });
 
-it("does not load the chart page for a body it cannot draw, and opens the source", async () => {
+it("does not load the chart page for a body it cannot draw, and never shows its source", async () => {
   // A curve written as a formula: the server draws these; the phone never evaluates one.
   const body = '{"type":"function","fn":"sin(x)","domain":[0,6.28]}';
   const view = await renderChart(body);
@@ -46,11 +45,7 @@ it("does not load the chart page for a body it cannot draw, and opens the source
   expect(view.queryByTestId("preview-webview")).toBeNull();
   expect(previewPageFile).not.toHaveBeenCalled();
   expect(view.queryByText(body)).toBeNull();
-
-  await fireEvent.press(view.getByText("rich.chart_show_source"));
-  expect(view.getByText(body)).toBeTruthy();
-  // The source is open: the link has done its job.
-  expect(view.queryByText("rich.chart_show_source")).toBeNull();
+  expect(view.queryByRole("button")).toBeNull();
 });
 
 it("shows the chart's data as a table when the page draws nothing", async () => {
