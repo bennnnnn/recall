@@ -10,6 +10,7 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_context import _PromptContextBlocks
+from app.modules.chat.prompt_inject import conversation_turns
 from app.modules.math.followup import (
     MATH_FOLLOWUP_HINT,
     is_math_followup,
@@ -260,6 +261,11 @@ async def _prompt(
         )
 
 
+def _context(prepared: list[dict[str, str]]) -> str:
+    """The turn's context after the history, where a follow-up's policy goes."""
+    return [m for m in prepared[2:] if m["role"] == "system"][-1]["content"]
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "question,result", [(_EQUATION_ASK, _EQUATION_RESULT), (_TAYLOR_ASK, _TAYLOR_RESULT)]
@@ -269,11 +275,12 @@ async def test_actual_how_examples_keep_prior_result_and_final_scoped_policy(
 ) -> None:
     recent = _exchange(question, result)
     prepared = await _prompt("how", recent)
-    assert prepared[1]["content"].endswith(f"{MATH_REPLY_POLICY}\n\n{MATH_FOLLOWUP_HINT}")
+    assert _context(prepared).endswith(f"{MATH_REPLY_POLICY}\n\n{MATH_FOLLOWUP_HINT}")
     # The math pack's own closing copy goes: the policy is stated once, last.
     assert system_prompt(prepared).count(MATH_REPLY_POLICY) == 1
-    assert prepared[-2] == {"role": "user", "content": question}
-    assert prepared[-1] == {"role": "assistant", "content": f"Previous result:\n\\[\n{result}\n\\]"}
+    turns = conversation_turns(prepared)
+    assert turns[-2] == {"role": "user", "content": question}
+    assert turns[-1] == {"role": "assistant", "content": f"Previous result:\n\\[\n{result}\n\\]"}
     assert MATH_FOLLOWUP_HINT in system_prompt(prepared)
     assert recent[-1].content == f"```answer\n{result}\n```"
     history = [item for item in prepared if item["role"] != "system"]
@@ -284,7 +291,7 @@ async def test_actual_how_examples_keep_prior_result_and_final_scoped_policy(
 @pytest.mark.parametrize("query", ["prove it", "hint only", "give examples"])
 async def test_followup_policy_preserves_requested_proof_hint_and_examples(query: str) -> None:
     prepared = await _prompt(query, _exchange())
-    policy = prepared[1]["content"]
+    policy = _context(prepared)
     assert policy.endswith(MATH_FOLLOWUP_HINT)
     assert MATH_FOLLOWUP_HINT in policy
     assert MATH_FOLLOWUP_HINT in policy
@@ -301,14 +308,14 @@ async def test_previous_nonmath_exchange_does_not_gain_policy_from_older_math() 
     assert MATH_FOLLOWUP_HINT not in system_prompt(prepared)
     assert MATH_REPLY_POLICY not in system_prompt(prepared)
     assert prepared[3]["content"] == f"Answer: {_EQUATION_RESULT}\n"
-    assert prepared[-1]["content"] == "Water vapor condenses."
+    assert conversation_turns(prepared)[-1]["content"] == "Water vapor condenses."
 
 
 @pytest.mark.asyncio
 async def test_nonreferential_question_reads_the_answer_as_a_plain_line() -> None:
     prepared = await _prompt("how do I cook rice?", _exchange())
     assert MATH_FOLLOWUP_HINT not in system_prompt(prepared)
-    assert prepared[-1]["content"] == f"Answer: {_EQUATION_RESULT}\n"
+    assert conversation_turns(prepared)[-1]["content"] == f"Answer: {_EQUATION_RESULT}\n"
 
 
 @pytest.mark.asyncio
@@ -320,18 +327,19 @@ async def test_followup_never_reintroduces_geometry_graph_or_tool_payloads() -> 
         ),
     ]
     prepared = await _prompt("how", recent)
-    assert prepared[1]["content"].endswith(MATH_FOLLOWUP_HINT)
-    assert prepared[-1]["content"].strip() == "Area is 12."
-    assert "width" not in prepared[-1]["content"]
-    assert "points" not in prepared[-1]["content"]
+    assert _context(prepared).endswith(MATH_FOLLOWUP_HINT)
+    reply = conversation_turns(prepared)[-1]["content"]
+    assert reply.strip() == "Area is 12."
+    assert "width" not in reply
+    assert "points" not in reply
 
 
 @pytest.mark.asyncio
 async def test_regenerated_how_keeps_prior_result_and_persisted_current_user() -> None:
     recent = [*_exchange(), _message("user", "how"), _message("assistant", "Old explanation")]
     prepared = await _prompt("how", recent, omit_message_ids={recent[-1].id})
-    assert prepared[1]["content"].endswith(MATH_FOLLOWUP_HINT)
-    assert prepared[-2] == {
+    assert _context(prepared).endswith(MATH_FOLLOWUP_HINT)
+    assert conversation_turns(prepared)[-2] == {
         "role": "assistant",
         "content": f"Previous result:\n\\[\n{_EQUATION_RESULT}\n\\]",
     }
@@ -345,7 +353,7 @@ async def test_unrelated_omission_does_not_strip_an_incomplete_current_user() ->
     recent = [older, *_exchange(), _message("user", "how")]
     prepared = await _prompt("how", recent, omit_message_ids={older.id})
     assert MATH_FOLLOWUP_HINT not in system_prompt(prepared)
-    assert prepared[-2]["content"] == f"Answer: {_EQUATION_RESULT}\n"
+    assert conversation_turns(prepared)[-2]["content"] == f"Answer: {_EQUATION_RESULT}\n"
     assert prepared[-1] == {"role": "user", "content": "how"}
 
 
@@ -353,8 +361,9 @@ async def test_unrelated_omission_does_not_strip_an_incomplete_current_user() ->
 async def test_explicit_current_user_id_keeps_the_previous_completed_math_exchange() -> None:
     recent = [*_exchange(), _message("user", "how")]
     prepared = await _prompt("how", recent, current_user_message_id=recent[-1].id)
-    assert prepared[1]["content"].endswith(MATH_FOLLOWUP_HINT)
-    assert prepared[-2]["content"] == f"Previous result:\n\\[\n{_EQUATION_RESULT}\n\\]"
+    assert _context(prepared).endswith(MATH_FOLLOWUP_HINT)
+    previous = conversation_turns(prepared)[-2]["content"]
+    assert previous == f"Previous result:\n\\[\n{_EQUATION_RESULT}\n\\]"
     assert prepared[-1] == {"role": "user", "content": "how"}
 
 
@@ -369,7 +378,7 @@ async def test_matching_query_without_current_turn_identity_is_not_sufficient(
     )
     prepared = await _prompt("how", recent, current_user_message_id=message_id)
     assert MATH_FOLLOWUP_HINT not in system_prompt(prepared)
-    assert prepared[-2]["content"] == f"Answer: {_EQUATION_RESULT}\n"
+    assert conversation_turns(prepared)[-2]["content"] == f"Answer: {_EQUATION_RESULT}\n"
 
 
 @pytest.mark.asyncio

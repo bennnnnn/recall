@@ -76,10 +76,15 @@ async def augment_subject(
 
 
 def system_prompt(messages: list[dict[str, Any]]) -> str:
-    """A built prompt's system prompt as one text: its stable message, then the turn's."""
+    """A built prompt's system text as one: its stable message, the turn's rules, then
+    the context and contracts beside the user turn."""
     stable, turn = messages[0], messages[1]
     assert stable["role"] == turn["role"] == "system", (stable["role"], turn["role"])
-    return f"{stable['content']}\n\n{turn['content']}"
+    return "\n\n".join(
+        message["content"]
+        for message in messages
+        if message["role"] == "system" and isinstance(message["content"], str)
+    )
 
 
 def prompt_bundle(**fields: Any) -> TurnPromptBundle:

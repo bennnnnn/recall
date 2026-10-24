@@ -21,6 +21,7 @@ from app.models import model_catalog
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.finalize_registry import mark_pending_finalize, register_pending_finalize
 from app.modules.chat.post_turn import enqueue_post_turn_jobs
+from app.modules.chat.prompt_inject import conversation_turns
 from app.modules.chat.quality import detect_quality_issues
 from app.modules.chat.related_prompts import schedule_related_prompts
 from app.modules.chat.stream_accum import StreamAccum
@@ -51,17 +52,18 @@ def log_background_task_failure(task: asyncio.Task[Any], message: str) -> None:
 
 
 def _prior_window(prompt_messages: Any) -> list[Any]:
-    """The recent window before this turn's own user line.
+    """The conversation before this turn's own user line.
 
     Tool and web results can follow that line, so the cut is at the last user
-    message, not the last message.
+    message, not the last message. The system messages before it (the rules, the
+    turn's context) are left out: what a "why?" refers to is the exchange itself.
     """
     if not isinstance(prompt_messages, list):
         return []
     for index in range(len(prompt_messages) - 1, -1, -1):
         message = prompt_messages[index]
         if isinstance(message, dict) and message.get("role") == "user":
-            return prompt_messages[:index]
+            return conversation_turns(prompt_messages[:index])
     return []
 
 

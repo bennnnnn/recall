@@ -19,6 +19,7 @@ from app.modules.chat.continuation_subject import (
     effective_presentation_subject,
     exchange_pairs,
 )
+from app.modules.chat.prompt_inject import conversation_turns
 from app.modules.chemistry.followup import chemistry_followup_problem
 from app.modules.math.followup import (
     answer_claim_problem,
@@ -51,14 +52,11 @@ def resolve_subject_followup(
     content: str, prompt_messages: list[dict[str, str]]
 ) -> SubjectFollowup:
     # build_prompt_messages has already loaded and adjacency-checked the recent
-    # exchange; drop the current user row before reading that pair.
-    history = prompt_messages
-    if (
-        prompt_messages
-        and prompt_messages[-1].get("role") == "user"
-        and prompt_messages[-1].get("content") == content
-    ):
-        history = prompt_messages[:-1]
+    # exchange; drop the current user row before reading that pair. The turn's own
+    # context sits between them, so only the conversation is read.
+    history = conversation_turns(prompt_messages)
+    if history and history[-1].get("role") == "user" and history[-1].get("content") == content:
+        history = history[:-1]
     math = math_working_followup_problem(content, history, blocked=blocks_math_followup)
     # "Do it" after the assistant wrote a new equation is not a request to
     # re-solve the user's earlier line. Solve the offered equation instead.

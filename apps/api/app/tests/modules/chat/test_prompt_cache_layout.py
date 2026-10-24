@@ -1,9 +1,11 @@
-"""The system prompt is ordered for prompt caching, and states each reply policy once.
+"""The prompt is ordered for prompt caching, and states each reply policy once.
 
 The first system message is the same text on every turn for one user, so a provider can
-reuse it and the gateway can mark it; everything that depends on the turn comes after
-it. A subject's reply policy that two places add keeps only its copy closest to the user
-turn. The contracts repeated beside the user turn on purpose stay repeated.
+reuse it and the gateway can mark it. The turn's rules follow, then the history, then
+what changes on every turn (the clock, memory, the schedule), so the next turn of the
+chat repeats everything up to its history. A subject's reply policy that two places add
+keeps only its copy closest to the user turn. The contracts repeated beside the user
+turn on purpose stay repeated.
 """
 
 from __future__ import annotations
@@ -25,7 +27,9 @@ from app.modules.chat.prompt_constants import (
     UNCLEAR_MESSAGE_HINT,
     learning_plan_daily_contract,
 )
+from app.modules.chat.prompt_inject import append_after_history, conversation_turns
 from app.modules.chat.prompt_repeats import REPLY_POLICIES, last_policy_parts, policies_once
+from app.modules.chat.stream_pipeline import _prior_window
 from app.modules.chat.tool_loop.results import ToolResults
 from app.modules.chat.tool_loop.rounds import _hand_off
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
@@ -126,6 +130,9 @@ async def test_the_marked_message_is_the_same_on_every_kind_of_turn_for_one_user
     assert len({prompt[1]["content"] for prompt in prompts}) > len(prompts) // 2
     for text in ("Response length", "User's first name", "Current local time", "Addis Ababa"):
         assert all(text not in prompt[0]["content"] for prompt in prompts)
+    # The clock comes after the history, never in the rules before it.
+    for text in ("Current local time", "Digital clock now"):
+        assert all(text not in prompt[1]["content"] for prompt in prompts)
 
 
 @pytest.mark.asyncio
@@ -161,7 +168,9 @@ async def test_their_own_instructions_and_language_are_part_of_the_same_text(
 
 
 @pytest.mark.asyncio
-async def test_the_marked_message_is_byte_identical_at_another_time_with_other_memory() -> None:
+async def test_at_another_time_with_other_memory_only_the_context_after_the_history_changes() -> (
+    None
+):
     first = await _prompt_at(
         _NINE,
         memory_block="## Preferences\n- Vegetarian.",
@@ -172,14 +181,17 @@ async def test_the_marked_message_is_byte_identical_at_another_time_with_other_m
         memory_block="## Preferences\n- Vegetarian.\n- Allergic to peanuts.",
         todos_section="Open reminders:\n- Call the dentist (overdue by 2 days)",
     )
-    assert first[0] == later[0]
-    # Only the turn's own message differs: its clock, memory and schedule.
-    assert first[1] != later[1]
-    assert first[2:] == later[2:]
-    assert "9:00:00 AM" in first[1]["content"] and "9:07:00 AM" in later[1]["content"]
+    # The stable message, the rules and the history: the prefix the provider reuses.
+    assert first[:4] == later[:4]
+    assert [message["role"] for message in first[2:4]] == ["user", "assistant"]
+    # Then the turn's own context: its clock, memory and schedule, before the user turn.
+    context, later_context = first[4]["content"], later[4]["content"]
+    assert first[4]["role"] == "system" and context != later_context
+    assert first[-1] == later[-1] == {"role": "user", "content": _QUERY}
+    assert "9:00:00 AM" in context and "9:07:00 AM" in later_context
     for turn_only in ("Current local time", "Digital clock now", "Vegetarian", "Pay rent"):
-        assert turn_only not in first[0]["content"]
-        assert turn_only in first[1]["content"]
+        assert all(turn_only not in message["content"] for message in first[:4])
+        assert turn_only in context
 
 
 @pytest.mark.asyncio
@@ -191,10 +203,10 @@ async def test_the_users_own_text_first_then_the_turns_steadiest_parts_first() -
         user={"custom_instructions": "Keep it upbeat.", "locale": "es", "job": "Designer"},
         kwargs={**_RICH["kwargs"], "summary": "They planned a trip to Lalibela."},
     )
-    stable, turn = messages[0]["content"], messages[1]["content"]
+    stable, rules = messages[0]["content"], messages[1]["content"]
     users_own = (_IDENTITY, TONE_FORMAT_GUARD, UNCLEAR_MESSAGE_HINT, "Keep it upbeat.", "code: es")
     assert [stable.index(t) for t in users_own] == sorted(stable.index(t) for t in users_own)
-    # The turn's message: length, style pack, lookups, profile, summary, clock, memory.
+    # The rules: length, style pack, lookups, profile, summary.
     turns = (
         STYLE_HINTS["balanced"],
         CLARIFICATION_HINT,
@@ -203,13 +215,14 @@ async def test_the_users_own_text_first_then_the_turns_steadiest_parts_first() -
         PHOTO_LOOKUP_HINT,
         "- Job: Designer",
         "Lalibela",
-        "Current local time:",
-        "Digital clock now",
-        "Vegetarian",
-        "Pay rent",
     )
-    assert turn.startswith(STYLE_HINTS["balanced"])
-    assert [turn.index(text) for text in turns] == sorted(turn.index(t) for t in turns)
+    assert rules.startswith(STYLE_HINTS["balanced"])
+    assert [rules.index(text) for text in turns] == sorted(rules.index(t) for t in turns)
+    # After the history: the clock, memory and schedule.
+    context = messages[-2]["content"]
+    assert messages[-2]["role"] == "system"
+    later = ("Current local time:", "Digital clock now", "Vegetarian", "Pay rent")
+    assert [context.index(text) for text in later] == sorted(context.index(t) for t in later)
     # The user's latest message stays last.
     assert messages[-1] == {"role": "user", "content": _QUERY}
 
@@ -222,7 +235,7 @@ async def test_the_disclosure_contract_keeps_its_repeat_closest_to_the_user_turn
     )
     # In the exclusive pack, and again last: a small model follows the nearer one.
     assert system_prompt(messages).count(PERSONAL_DISCLOSURE_HINT) == 2
-    assert messages[1]["content"].endswith(PERSONAL_DISCLOSURE_HINT)
+    assert messages[-2]["content"].endswith(PERSONAL_DISCLOSURE_HINT)
 
 
 @pytest.mark.asyncio
@@ -235,6 +248,38 @@ async def test_a_plan_contract_keeps_its_repeat_beside_the_user_turn() -> None:
     assert contract
     assert sum(message["content"].count(contract) for message in messages) == 2
     assert messages[-2] == {"role": "system", "content": contract}
+
+
+_RULES = {"role": "system", "content": "rules"}
+_EXCHANGE = [{"role": "user", "content": "solve 2x = 4"}, {"role": "assistant", "content": "x = 2"}]
+
+
+def test_the_context_goes_after_the_history_and_never_splits_an_exchange() -> None:
+    line = {"role": "user", "content": "how?"}
+    block = {"role": "system", "content": "Current local time: 9:00 AM"}
+    # Before the turn's own line when the prompt ends with it.
+    assert append_after_history([_RULES, *_EXCHANGE, line], block["content"]) == [
+        _RULES,
+        *_EXCHANGE,
+        block,
+        line,
+    ]
+    # At the end when it does not: never between a question and its reply.
+    assert append_after_history([_RULES, *_EXCHANGE], block["content"]) == [
+        _RULES,
+        *_EXCHANGE,
+        block,
+    ]
+
+
+def test_readers_of_the_last_exchange_see_the_conversation_only() -> None:
+    context = {"role": "system", "content": "Current local time: 9:00 AM"}
+    line = {"role": "user", "content": "why?"}
+    results = {"role": "system", "content": "Web search results"}
+    prompt = [_RULES, *_EXCHANGE, context, line, results]
+    assert conversation_turns(prompt) == [*_EXCHANGE, line]
+    # Follow-up suggestions read the exchange before the line, its reply last.
+    assert _prior_window(prompt) == _EXCHANGE
 
 
 def test_only_a_reply_policy_is_left_out_where_it_comes_again() -> None:
