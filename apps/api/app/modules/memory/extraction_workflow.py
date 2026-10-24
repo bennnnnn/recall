@@ -65,9 +65,10 @@ async def load_memory_snapshot(
         memory_enabled=True,
         include_sensitive=user.memory_include_sensitive,
         existing_facts={memory.id: memory.text for memory in existing},
+        # No id: an op names the fact it changes by its text (``match_text``), and a
+        # row id cost the prompt about 28 tokens a fact.
         prompt_facts=[
             {
-                "id": str(memory.id),
                 "type": memory.type,
                 "topic": fact_topic(memory),
                 "text": memory.text,

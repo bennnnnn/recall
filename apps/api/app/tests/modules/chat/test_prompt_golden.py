@@ -274,5 +274,12 @@ def test_golden_has_one_battery_case_per_category() -> None:
 
 
 if __name__ == "__main__":
+    # As pytest runs them: the message readers in-process. The production pool's
+    # 3 s reading deadline, missed on a busy machine, recorded a turn that read no
+    # subject (a maths case lost its maths pack) with no error.
+    from app.core.sympy_executor import set_sympy_executor
+    from app.tests.sympy_support import ThreadSympyExecutor
+
+    set_sympy_executor(ThreadSympyExecutor(max_workers=1))
     asyncio.run(write_golden(_DEFAULTS, _CASES))
     print(f"wrote {len(_CASES)} cases to {GOLDEN}")

@@ -98,6 +98,12 @@ def _dates_rule(today: str | None) -> str:
     return f"{rule}Leave out a relative date you cannot place.\n"
 
 
+def _compact_json(value: Any) -> str:
+    """The saved facts or areas for the prompt, without the spaces after , and : (about
+    six tokens a fact)."""
+    return json.dumps(value, ensure_ascii=False, default=str, separators=(",", ":"))
+
+
 def _extract_input(
     existing_block: str, areas_block: str, transcript: str, *, from_history: bool, earlier: str
 ) -> str:
@@ -132,8 +138,8 @@ async def revise_memory_facts(
 
     existing = existing_facts or []
     history_rule = _history_rule(from_history)
-    existing_block = json.dumps(existing, ensure_ascii=False, default=str) if existing else "[]"
-    areas_block = json.dumps(existing_areas or [], ensure_ascii=False, default=str)
+    existing_block = _compact_json(existing)
+    areas_block = _compact_json(existing_areas or [])
 
     messages = [
         {
@@ -280,9 +286,9 @@ async def instruct_memory(
             "role": "user",
             "content": (
                 "Existing facts JSON:\n"
-                f"{json.dumps(existing_facts, ensure_ascii=False, default=str)}\n\n"
+                f"{_compact_json(existing_facts)}\n\n"
                 "Existing areas JSON:\n"
-                f"{json.dumps(existing_areas, ensure_ascii=False, default=str)}\n\n"
+                f"{_compact_json(existing_areas)}\n\n"
                 f"{wrap_untrusted('memory instruction', instruction)}"
             ),
         },
