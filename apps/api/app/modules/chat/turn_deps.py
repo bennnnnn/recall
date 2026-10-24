@@ -90,8 +90,6 @@ class MessagesRepo(Protocol):
         self, session: AsyncSession, message_id: UUID, chat_id: UUID
     ) -> Message | None: ...
 
-    async def get_last(self, session: AsyncSession, chat_id: UUID) -> Message | None: ...
-
     async def get_last_user(self, session: AsyncSession, chat_id: UUID) -> Message | None: ...
 
     async def delete_message(self, session: AsyncSession, message: Message) -> None: ...
@@ -300,6 +298,7 @@ class Todos(Protocol):
         prior_user: str | None = ...,
         redis: Redis | None = ...,
         confirm: bool = ...,
+        window: Sequence[object] | None = ...,
     ) -> tuple[str, int]: ...
 
 

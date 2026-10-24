@@ -1,6 +1,7 @@
 """Tests for gateways: google_auth, mock_llm."""
 
 import asyncio
+import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -84,6 +85,17 @@ def test_think_stripper_strips_long_closed_block() -> None:
     inner = "the user just wrote 4! " * 400
     assert len(inner) > 4096
     assert s.feed(f"{open_tag}{inner}{close_tag}24") + s.flush() == "24"
+
+
+def test_think_stripper_reads_a_streamed_think_block_once() -> None:
+    """Each chunk is searched for the close, not the whole held block again: a 60,000-
+    character block streamed a character at a time took 0.7 s of event loop (now ~50 ms)."""
+    s = think_stripper.ThinkStripper(lead_hold=think_stripper.STRAY_THINK_LEAD_HOLD)
+    text = f"{think_stripper.THINK_OPEN}{'Let me think. ' * 4_600}{think_stripper.THINK_CLOSE}42"
+    start = time.perf_counter()
+    out = "".join(s.feed(char) for char in text) + s.flush()
+    assert time.perf_counter() - start < 0.3
+    assert out == "42"
 
 
 def test_think_stripper_recovers_after_oversized_unclosed_block():

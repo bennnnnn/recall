@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Text } from "react-native";
 
 import { CodeBlock } from "@/components/CodeBlock";
@@ -14,6 +15,7 @@ import {
   renderRichFenceById,
 } from "@/components/rich/RichFence";
 import { copyBlockLabelKey, draftFenceProseText } from "@/lib/copyBlock";
+import i18n from "@/lib/i18n";
 import { parseFenceLang } from "@/lib/codeHighlight";
 import { isNeverCodeBlockLang } from "@/lib/fenceRegistry";
 import {
@@ -122,9 +124,47 @@ function renderFenceInner(
   );
 }
 
-/** The fence render rule (the markdown library passes more arguments). */
-export function fenceRule(node: FenceNode) {
-  return renderFence(node);
+/** What a fence was last drawn from, and what it drew. */
+type DrawnFence = {
+  info: string | undefined;
+  content: string;
+  tokenIndex: number | undefined;
+  language: string;
+  element: ReactNode;
+};
+
+/**
+ * The fence render rule for one reply (the markdown library passes more
+ * arguments). A streaming reply's live piece parses again on every flush, so a
+ * closed fence in it (a graph, a code card, an answer, while the text after it
+ * streams) went through its block again each time. A fence whose node, info,
+ * body and token are as they were last time hands back the element it drew
+ * then, and React leaves that block as it is; what the block reads from
+ * context (the reply settling, its preview files) still reaches it.
+ */
+export function makeFenceRule(): (node: FenceNode) => ReactNode {
+  const drawn = new Map<string, DrawnFence>();
+  return (node) => {
+    const last = drawn.get(node.key);
+    if (
+      last &&
+      last.info === node.sourceInfo &&
+      last.content === node.content &&
+      last.tokenIndex === node.tokenIndex &&
+      last.language === i18n.language
+    ) {
+      return last.element;
+    }
+    const element = renderFence(node);
+    drawn.set(node.key, {
+      info: node.sourceInfo,
+      content: node.content,
+      tokenIndex: node.tokenIndex,
+      language: i18n.language,
+      element,
+    });
+    return element;
+  };
 }
 
 export function renderFence(node: FenceNode) {

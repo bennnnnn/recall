@@ -28,6 +28,7 @@ from app.gateways.storage_gateway import (
 )
 from app.models.orm import Message, User
 from app.modules.attachments import service as attachments_service
+from app.modules.attachments.markers import image_marker
 from app.modules.attachments.service import (
     MAX_ATTACHMENT_SIZE,
     StoredImage,
@@ -290,9 +291,7 @@ async def search_and_attach_for_chat(
                     raise ImageSearchError("No user message to attach image to", status_code=404)
                 user_message = existing
 
-            markers = "\n".join(
-                f"[Image: /attachments/{photo.attachment_id}/file]" for photo in stored
-            )
+            markers = "\n".join(image_marker(photo.attachment_id) for photo in stored)
             assistant_message = await turn_record.add_turn_message(
                 session,
                 chat_id=chat_id,

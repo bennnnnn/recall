@@ -434,9 +434,9 @@ def test_revenuecat_webhook_503_when_no_auth_and_no_dev_opt_in():
     dev config on a public host would let anyone grant themselves Pro. With
     no shared secret and no explicit DEV_ALLOW_UNAUTHED_WEBHOOKS, return 503."""
     app = create_app()
-    from app.core.deps import get_settings
+    from app.core.deps import get_settings_dep
 
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=False,
@@ -448,9 +448,9 @@ def test_revenuecat_webhook_503_when_no_auth_and_no_dev_opt_in():
 
 def test_revenuecat_webhook_rejects_oversized_body():
     app = create_app()
-    from app.core.deps import get_settings
+    from app.core.deps import get_settings_dep
 
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="whsec-secret",
         dev_allow_unauthed_webhooks=False,

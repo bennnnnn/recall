@@ -43,6 +43,7 @@ from app.modules.chemistry.species_facts import (
     VAN_T_HOFF,
     WEAK_ACIDS,
     WEAK_BASES,
+    element_symbol,
     ion_charge,
     is_formula,
 )
@@ -155,19 +156,13 @@ class Prepared:
     original: str
 
 
-def _element_symbol(token: str) -> str | None:
-    if token in BY_SYMBOL:
-        return token
-    return ELEMENT_NAMES.get(token.lower())
-
-
 def _spell_isotope(text: str) -> str:
     """Turn Iron-56 into the words the neutron law already binds: mass number 56."""
     if _NEUTRON_ASK.search(text) is None:
         return text
 
     def replace(match: re.Match[str]) -> str:
-        if _element_symbol(match.group(1)) is None:
+        if element_symbol(match.group(1)) is None:
             return match.group(0)
         return f"mass number {match.group(2)}"
 
@@ -178,7 +173,7 @@ def _one_isotope(text: str) -> str | None:
     symbols = [
         symbol
         for match in _ISOTOPE.finditer(text)
-        if (symbol := _element_symbol(match.group(1))) is not None
+        if (symbol := element_symbol(match.group(1))) is not None
     ]
     return symbols[0] if len(symbols) == 1 else None
 

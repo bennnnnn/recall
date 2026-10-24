@@ -7,6 +7,7 @@ import pytest
 from app.modules.notifications import push as push_service
 from app.modules.todos import due_reminders
 from app.tests.fakes import make_user
+from app.tests.services import push_cycle_support as push_cycle
 
 
 def test_android_channel_follows_push_type():
@@ -60,7 +61,7 @@ async def test_process_todo_reminders_due_soon():
         "list_for_users",
         AsyncMock(return_value=[token]),
     ):
-        messages = await push_service.process_todo_reminders(session, now=now)
+        messages = await push_cycle.process_todo_reminders(session, now=now)
 
     assert len(messages) == 1
     assert messages[0].message["title"] == "Reminder"
@@ -101,7 +102,7 @@ async def test_process_todo_reminders_skips_quiet_hours():
         "list_for_users",
         AsyncMock(return_value=[]),
     ):
-        messages = await push_service.process_todo_reminders(session, now=now)
+        messages = await push_cycle.process_todo_reminders(session, now=now)
 
     assert messages == []
     assert todo.notification_sent_at is None
@@ -132,7 +133,7 @@ async def test_process_todo_reminders_respects_user_lead():
         "list_for_users",
         AsyncMock(return_value=[]),
     ):
-        messages = await push_service.process_todo_reminders(session, now=now)
+        messages = await push_cycle.process_todo_reminders(session, now=now)
 
     assert messages == []
     session.commit.assert_not_awaited()
@@ -194,7 +195,7 @@ async def test_process_todo_reminders_logs_when_user_has_no_token(caplog):
         ) as advance,
         caplog.at_level("DEBUG", logger="app.modules.notifications.push"),
     ):
-        messages = await push_service.process_todo_reminders(session, now=now)
+        messages = await push_cycle.process_todo_reminders(session, now=now)
 
     assert messages == []
     advance.assert_not_awaited()
@@ -237,7 +238,7 @@ async def test_process_todo_reminders_advances_tokenless_overdue_recurring():
             AsyncMock(return_value=True),
         ) as advance,
     ):
-        messages = await push_service.process_todo_reminders(session, now=now)
+        messages = await push_cycle.process_todo_reminders(session, now=now)
 
     assert messages == []
     advance.assert_awaited_once()
@@ -251,5 +252,5 @@ async def test_process_todo_reminders_skips_when_push_disabled():
     session = AsyncMock()
     session.execute = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
 
-    messages = await push_service.process_todo_reminders(session)
+    messages = await push_cycle.process_todo_reminders(session)
     assert messages == []

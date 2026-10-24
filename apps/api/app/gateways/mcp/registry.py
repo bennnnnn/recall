@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
 from app.gateways.mcp.base import ToolAdapter, ToolContext, ToolResult
-
-logger = logging.getLogger(__name__)
 
 _REGISTRY: dict[str, ToolAdapter] = {}
 

@@ -57,7 +57,6 @@ def _deps(fakes: dict[str, Any]) -> Any:
         messages={
             "list_recent": AsyncMock(return_value=[]),
             "count_for_chat": AsyncMock(return_value=0),
-            "get_last": AsyncMock(return_value=MagicMock(role="assistant")),
             "get_last_user": AsyncMock(return_value=MagicMock(content="hi")),
         },
     )

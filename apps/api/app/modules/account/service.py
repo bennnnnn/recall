@@ -2,7 +2,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.validation import normalize_display_name
+from app.core.validation import claim_is_true, normalize_display_name
 from app.exceptions import AuthenticationError
 from app.gateways.apple_auth import verify_apple_id_token
 
@@ -20,7 +20,6 @@ from app.modules.account import tokens as tokens_service
 from app.modules.account.email_authority import AccountExistsError as AccountExistsError
 from app.modules.account.email_authority import (
     apple_owns_email,
-    claim_is_true,
     google_owns_email,
     previous_sign_in,
 )

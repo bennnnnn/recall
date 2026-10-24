@@ -13,7 +13,8 @@ from __future__ import annotations
 import math
 
 from app.modules.math.schemas import GraphBlockSpec
-from app.modules.physics.display import GIVEN_FIGURES, plain_number
+from app.modules.physics.display import given_number as _given
+from app.modules.physics.display import plain_number
 from app.modules.physics.schemas import (
     SimulationAngle,
     SimulationBlockSpec,
@@ -26,10 +27,6 @@ from app.modules.physics.schemas.simulation import ArrowKind
 _SAMPLES = 60
 _STROBE = 7
 _ARROW_LABELS: dict[ArrowKind, str] = {"velocity": "v", "gravity": "mg"}
-
-
-def _given(value: float) -> str:
-    return plain_number(value, GIVEN_FIGURES)
 
 
 def projectile_scene(

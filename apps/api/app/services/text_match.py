@@ -27,6 +27,24 @@ def word_index(lower: str, phrase: str) -> int:
         start = idx + 1
 
 
+def has_any_word(lower: str, words: tuple[str, ...]) -> bool:
+    """True when any of ``words`` appears as a whole word (``word_index``)."""
+    return any(word_index(lower, word) != -1 for word in words)
+
+
+def parens_balanced(text: str) -> bool:
+    """Every ``)`` closes an earlier ``(`` and none is left open."""
+    depth = 0
+    for ch in text:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth < 0:
+                return False
+    return depth == 0
+
+
 def has_equation(text: str) -> bool:
     eq = text.find("=")
     if eq <= 0 or eq >= len(text) - 1:

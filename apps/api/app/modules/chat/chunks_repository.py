@@ -41,33 +41,37 @@ async def indexed_message_ids(
     return {row[0] for row in result.all()}
 
 
-async def replace_chunks(
+async def replace_chunks_of_messages(
     session: AsyncSession,
     *,
     user_id: UUID,
-    message_id: UUID,
-    chat_id: UUID,
-    role: str,
-    chunks: list[tuple[int, str, list[float] | None]],
-    commit: bool = True,
+    messages: list[tuple[UUID, UUID, str, list[tuple[int, str, list[float] | None]]]],
 ) -> None:
-    await session.execute(delete(MessageChunk).where(MessageChunk.message_id == message_id))
-    for index, text, vec in chunks:
-        session.add(
-            MessageChunk(
-                user_id=user_id,
-                message_id=message_id,
-                chat_id=chat_id,
-                role=role,
-                chunk_index=index,
-                text=text,
-                embedding=vec if vec is not None and len(vec) == EMBEDDING_DIM else None,
-            )
+    """Replace the stored chunks of each message, uncommitted: one delete and one insert
+    however many messages (a turn indexes two).
+
+    ``messages``: (message id, chat id, role, its chunks) each; a chunk is (index, text,
+    vector), and a vector that is not ``EMBEDDING_DIM`` long is stored as none.
+    """
+    if not messages:
+        return
+    await session.execute(
+        delete(MessageChunk).where(MessageChunk.message_id.in_([m[0] for m in messages]))
+    )
+    session.add_all(
+        MessageChunk(
+            user_id=user_id,
+            message_id=message_id,
+            chat_id=chat_id,
+            role=role,
+            chunk_index=index,
+            text=text,
+            embedding=vec if vec is not None and len(vec) == EMBEDDING_DIM else None,
         )
-    if commit:
-        await session.commit()
-    else:
-        await session.flush()
+        for message_id, chat_id, role, chunks in messages
+        for index, text, vec in chunks
+    )
+    await session.flush()
 
 
 async def prune_beyond_window(session: AsyncSession, user_id: UUID, *, window: int) -> None:

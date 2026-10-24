@@ -6,11 +6,16 @@ import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
+from uuid import uuid4
 
 import pytest
 
 from app.modules.chat import messages_repository as messages_repo
-from app.modules.todos.card_retime import _reply_before_last_message, retimed_adds
+from app.modules.todos.card_retime import (
+    _reply_before_last_message,
+    retime_untapped_card,
+    retimed_adds,
+)
 from app.tests.modules.todos.test_reminder_proposals import (
     _card,
     _rows,
@@ -81,6 +86,65 @@ def test_the_reply_before_a_regenerated_one_is_the_card() -> None:
     ]
     assert _reply_before_last_message(rows) == _card_fence()
     assert _reply_before_last_message(rows[:3]) == _card_fence()
+
+
+class _CountingSession:
+    """A session that only counts what is asked of it."""
+
+    def __init__(self) -> None:
+        self.reads = 0
+
+    async def execute(self, *_args: Any, **_kwargs: Any) -> Any:
+        self.reads += 1
+        return SimpleNamespace(scalars=lambda: SimpleNamespace(all=list))
+
+
+@pytest.mark.asyncio
+async def test_a_window_with_no_untapped_card_reads_nothing_again() -> None:
+    """Every turn's reminder pass read the chat's last four messages again in finalize, one
+    database round trip before the reply settled, though the turn had just read them."""
+    session = _CountingSession()
+    window = [
+        SimpleNamespace(role="user", content="What's the capital of France?"),
+        SimpleNamespace(role="assistant", content="Paris."),
+        SimpleNamespace(role="user", content="actually make it 8"),
+    ]
+    for rows in (window, window[2:], [*window[:2], *window[:2], window[2]]):
+        retimed = await retime_untapped_card(
+            session,  # type: ignore[arg-type]
+            uuid4(),
+            "actually make it 8",
+            user_timezone=_TZ,
+            window=rows,
+        )
+        assert retimed is None
+    assert session.reads == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [None, "saved"])
+async def test_a_window_with_an_untapped_card_reads_the_chat_as_saved(
+    status: str | None, db_session: Any
+) -> None:
+    """The window shows the card untapped; a tap may have saved it since: the saved chat
+    decides, as it did before the window was passed."""
+    user, chat = await _user_and_chat(db_session)
+    for role, content in (
+        ("user", "remind me to study bio at 7pm"),
+        ("assistant", _card_fence(status=status)),
+        ("user", "actually make it 8"),
+    ):
+        await messages_repo.create(
+            db_session, chat_id=chat.id, user_id=user.id, role=role, content=content
+        )
+    window = [
+        SimpleNamespace(role="assistant", content=_card_fence()),
+        SimpleNamespace(role="user", content="actually make it 8"),
+    ]
+    retimed = await retime_untapped_card(
+        db_session, chat.id, "actually make it 8", user_timezone=_TZ, window=window
+    )
+    assert (retimed is None) is (status == "saved")
 
 
 @pytest.mark.asyncio

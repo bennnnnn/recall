@@ -236,15 +236,13 @@ _SPORTS_LOOKUP = re.compile(
     re.IGNORECASE,
 )
 
-_TEAM_SCORE = re.compile(
-    r".{2,60}\b(?:games?|match(?:es)?)\s+score",
-    re.IGNORECASE,
-)
+# A team name first: ``(?<=..)``, not ``.{2,60}`` (retried from every start; only yes/no is read).
+_TEAM_SCORE = re.compile(r"(?<=..)\b(?:games?|match(?:es)?)\s+score", re.IGNORECASE)
 
 # "always result" is maths, not a possessive: "result" counts only after an apostrophe.
 # "Ethiopias game score" still matches the game/score branch.
 _TEAM_POSSESSIVE_SCORE = re.compile(
-    r".{2,40}(?:"
+    r"(?<=..)(?:"
     r"'s\s+(?:games?|match(?:es)?|score|scores|result|results)"
     r"|s\s+(?:games?|match(?:es)?|score|scores)"
     r")",

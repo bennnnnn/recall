@@ -16,8 +16,8 @@ from redis.asyncio import Redis
 
 from app.core import shutdown
 from app.core.chat_rate_limit import allow_chat_message
-from app.core.config import Settings, get_settings
-from app.core.deps import get_current_user
+from app.core.config import Settings
+from app.core.deps import get_current_user, get_settings_dep
 from app.core.log_context import bound_log_ids, new_turn_id
 from app.core.redis import get_redis_client
 from app.exceptions import RedisUnavailableError
@@ -352,7 +352,7 @@ async def stream_message_sse(
     body: ChatMessageRequest,
     request: Request,
     user: User = Depends(get_current_user),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(require_chat_rate_limit),
 ) -> StreamingResponse:
     def message_turn(
@@ -399,7 +399,7 @@ async def stream_regenerate_sse(
     body: ChatMessageRequest,
     request: Request,
     user: User = Depends(get_current_user),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(require_chat_rate_limit),
 ) -> StreamingResponse:
     return _sse_response(

@@ -28,7 +28,7 @@ from app.modules.chat.related_prompts import (
     forget_related_prompts,
     load_related_prompts,
 )
-from app.modules.chat.titles import sanitize_manual_chat_title
+from app.modules.chat.titles import sanitize_manual_chat_title, title_job_key
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
 from app.services.quota import utc_today
@@ -299,6 +299,8 @@ async def list_messages_page(
             dedupe_key = f"topic_backfill:{chat_id}"
             try:
                 claimed = await redis.set(dedupe_key, "1", nx=True, ex=300)
+                # The first reply's own title job, queued or running, is the same job:
+                # a page read before it lands used to pay for a second title call.
                 if claimed:
                     await jobs.enqueue(
                         redis,
@@ -309,7 +311,7 @@ async def list_messages_page(
                             "user_message": user_msg.content,
                             "assistant_message": asst_msg.content,
                         },
-                        dedupe_key=jobs.unique_dedupe_key(dedupe_key),
+                        dedupe_key=title_job_key(chat_id),
                     )
             except Exception:
                 logger.warning("Title backfill enqueue failed chat_id=%s", chat_id, exc_info=True)
@@ -378,11 +380,11 @@ async def update_message_email(
 ) -> Message:
     """Rewrite the first ```email fence on an assistant message. Not arbitrary content PATCH."""
     await get_chat(session, user, chat_id)
-    message = await messages_repo.get_in_chat(session, message_id, chat_id)
+    message = await messages_repo.get_by_id(session, message_id, chat_id)
     if message is None:
         await session.commit()  # end the reads; no transaction across the wait
         await finalize_registry.wait_for_pending_finalize(chat_id, redis)
-        message = await messages_repo.get_in_chat(session, message_id, chat_id)
+        message = await messages_repo.get_by_id(session, message_id, chat_id)
     if message is None:
         raise ChatsError("Message not found", status_code=404)
     if message.role != "assistant":

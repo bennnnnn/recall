@@ -98,3 +98,24 @@ async def test_a_redelivery_waits_but_a_new_request_runs(fake_redis: Any) -> Non
     pending = await fake_redis.xpending_range(jobs.JOBS_STREAM, jobs.JOBS_GROUP, "-", "+", 10)
     assert [row["message_id"] for row in pending] == [redelivered]
     assert later != redelivered
+
+
+@pytest.mark.asyncio
+async def test_a_job_run_claims_marks_done_and_acks_in_three_round_trips(fake_redis: Any) -> None:
+    """Each run also re-read and re-set the claim's TTL just after taking it (a GET and an
+    EXPIRE), left from when one slot retried: two Redis round trips per job, three or four
+    jobs a turn."""
+    sent: list[str] = []
+    send = fake_redis.execute_command
+
+    async def counted(*args: Any, **kwargs: Any) -> Any:
+        sent.append(str(args[0]).upper())
+        return await send(*args, **kwargs)
+
+    jobs.register("count-round-trips", AsyncMock())
+    await worker._ensure_group(fake_redis)
+    fields = {"type": "count-round-trips", "payload": "{}", "dedupe_key": "count:1"}
+    entry = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
+    with patch.object(fake_redis, "execute_command", counted):
+        await worker._process_one_entry(fake_redis, Settings(), entry, fields)
+    assert sent == ["SET", "SET", "XACK"]

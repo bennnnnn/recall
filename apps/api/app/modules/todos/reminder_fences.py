@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from functools import partial
@@ -78,12 +79,15 @@ async def materialize_reminder_fences(
     prior_user: str | None = None,
     redis: Redis | None = None,
     confirm: bool = False,
+    window: Sequence[object] | None = None,
 ) -> tuple[str, int]:
     """Apply the turn's To-do changes, or with ``confirm`` offer them as a card.
 
     With ``confirm`` the same rules run, but nothing is written: the reply ends
     with a ``reminder_proposal`` card in place of the result lines, and the
     writes wait in Redis for the user's tap. Returns (text, rows written).
+    ``window``: the chat's last messages as the turn read them, its user's message
+    last (``card_retime.retime_untapped_card``); None reads them.
 
     The writes join the caller's session and are never committed or rolled back
     here: the caller commits them with its own rows (live talk's voice turn) or
@@ -99,6 +103,7 @@ async def materialize_reminder_fences(
         user_text=user_text,
         prior_assistant=prior_assistant,
         prior_user=prior_user,
+        window=window,
     )
     if not confirm or redis is None:
         return await turn()
@@ -131,6 +136,7 @@ class _Turn:
     user_text: str | None
     prior_assistant: str | None
     prior_user: str | None
+    window: Sequence[object] | None = None
 
     def writes(self) -> ReminderWrites:
         return ReminderWrites(
@@ -151,6 +157,7 @@ async def _materialize(
     user_text: str | None = None,
     prior_assistant: str | None = None,
     prior_user: str | None = None,
+    window: Sequence[object] | None = None,
 ) -> tuple[str, int]:
     """Apply To-do fences (create + mutations) and strip them from the reply.
 
@@ -171,6 +178,7 @@ async def _materialize(
         user_text=user_text,
         prior_assistant=prior_assistant,
         prior_user=prior_user,
+        window=window,
     )
     spans = find_reminder_fences(assistant_text)
     # The user's explicit restraint outranks an LLM-emitted write fence. This
@@ -203,7 +211,11 @@ async def _match_user_words(turn: _Turn, spans: _Spans) -> tuple[str, int] | Non
         return format_reminder_reading(state.existing, turn.user_timezone), 0
     # "Actually make it 8" re-times the card just offered, not the latest saved reminder.
     retimed = await retime_untapped_card(
-        turn.session, turn.chat_id, turn.user_text, user_timezone=turn.user_timezone
+        turn.session,
+        turn.chat_id,
+        turn.user_text,
+        user_timezone=turn.user_timezone,
+        window=turn.window,
     )
     if retimed:
         return await _save_spoken_adds(replace(turn, assistant_text=""), [], retimed)

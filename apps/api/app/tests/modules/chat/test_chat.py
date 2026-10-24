@@ -496,14 +496,15 @@ def test_format_contract_is_markdown_not_ui_fences():
 def test_math_formula_shape_rule_is_unified():
     """Global hints and math-solver hints must agree: inline $ for steps,
     ```math only for standalone display — not contradictory guidance."""
-    from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_SOLVER_HINT
+    from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_REPLY_POLICY, MATH_SOLVER_HINT
 
     for blob in (MATH_INTENT_HINT, MATH_SOLVER_HINT):
         assert "inline" in blob.lower()
         assert "standalone" in blob.lower()
         # Must not tell the model to put step formulas in ```math fences.
         assert "NEVER indent a ```math fence inside that list item" not in blob
-    assert "numbered" in MATH_INTENT_HINT.lower() and "steps" in MATH_INTENT_HINT.lower()
+    # Numbered moves: the reply policy every maths pack closes with states them once.
+    assert "numbered" in MATH_REPLY_POLICY.lower() and "steps" in MATH_INTENT_HINT.lower()
     assert "integral" in MATH_INTENT_HINT.lower()
     assert "closed-form asks" in MATH_INTENT_HINT.lower()
     assert "4! = 4" in MATH_INTENT_HINT

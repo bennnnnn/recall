@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 
 from app.services.glyphs import OPERATOR_GLYPHS
-from app.services.text_match import word_index
+from app.services.text_match import parens_balanced, word_index
 from app.services.text_normalize import collapse_ws
 
 _MAX = 1000
@@ -260,18 +260,6 @@ def _count_binary_arith_ops(compact: str) -> int:
     return ops
 
 
-def _arith_parens_ok(compact: str) -> bool:
-    depth = 0
-    for ch in compact:
-        if ch == "(":
-            depth += 1
-        elif ch == ")":
-            depth -= 1
-            if depth < 0:
-                return False
-    return depth == 0
-
-
 def bare_arithmetic_expr(text: str) -> str | None:
     """Whole-message numeric arithmetic, or None.
 
@@ -311,7 +299,7 @@ def bare_arithmetic_expr(text: str) -> str | None:
     if any(ch not in _ARITH_ALLOWED for ch in numeric):
         return None
     compact = _to_ascii_arith(numeric).replace(" ", "")
-    if not compact or not _arith_parens_ok(compact) or not _factorials_ok(compact):
+    if not compact or not parens_balanced(compact) or not _factorials_ok(compact):
         return None
     if compact[-1] not in "0123456789)!":
         return None

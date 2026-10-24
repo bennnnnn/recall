@@ -64,7 +64,6 @@ jest.mock("@/features/chat/drawer/drawer", () => ({
   getActiveChatIdGlobal: () => null,
   startNewChatGlobal: jest.fn(),
   insertChatGlobal: jest.fn(),
-  moveChatArchiveGlobal: jest.fn(),
   patchChatGlobal: jest.fn(),
   removeChatGlobal: jest.fn(),
   abandonActiveChatIfDeleted: jest.fn(),

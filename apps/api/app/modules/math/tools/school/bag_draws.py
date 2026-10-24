@@ -16,7 +16,9 @@ from fractions import Fraction
 
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
-from app.services.number_text import count_word_pattern, number_word_value
+from app.modules.math.tools.school._parse import count_value
+from app.modules.math.tools.school.single_draw import fraction_tex
+from app.services.number_text import count_word_pattern
 from app.services.workout import Workout, math_line, render_workout
 
 _COUNT = r"(?:\d{1,3}|" + count_word_pattern() + ")"
@@ -74,17 +76,13 @@ _MAX_DRAWS = 6
 _MAX_ITEMS = 200
 
 
-def _count(word: str) -> int:
-    return number_word_value(word.lower()) or int(word)
-
-
 def _contents(text: str) -> dict[str, int] | None:
     bag: dict[str, int] = {}
     for count, colour in _GROUP_PARTS.findall(text):
         name = colour.lower().replace("grey", "gray")
         if name in bag:
             return None
-        bag[name] = _count(count)
+        bag[name] = count_value(count)
     return bag if len(bag) >= 2 else None
 
 
@@ -101,7 +99,7 @@ def extract_bag_draws_intent(cleaned: str) -> MathIntent | None:
         return None
     replaced = manner == "with replacement"
     bag = _contents(match.group("contents"))
-    draws = _count(groups.get("draws") or groups["draws_passive"])
+    draws = count_value(groups.get("draws") or groups["draws_passive"])
     if bag is None or not 2 <= draws <= _MAX_DRAWS:
         return None
     colour = match.group("colour").lower().replace("grey", "gray")
@@ -110,7 +108,7 @@ def extract_bag_draws_intent(cleaned: str) -> MathIntent | None:
     if groups.get("both") and draws != 2:
         return None
     for named in (groups.get("all_count"), groups.get("event_count")):
-        if named is not None and _count(named) != draws:
+        if named is not None and count_value(named) != draws:
             return None
     total = sum(bag.values())
     if not 0 < total <= _MAX_ITEMS or (not replaced and draws > total):
@@ -144,12 +142,6 @@ def bag_draws_probability(favourable: int, total: int, draws: int, *, replaced: 
     return probability
 
 
-def _fraction_tex(value: Fraction) -> str:
-    if value.denominator == 1:
-        return str(value.numerator)
-    return rf"\frac{{{value.numerator}}}{{{value.denominator}}}"
-
-
 def bag_draws_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
     from app.modules.math.tools.school.single_draw import probability_answer
 
@@ -167,7 +159,7 @@ def bag_draws_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock |
         unreduced_bottom *= bottom
     working = r" \times ".join(rf"\frac{{{top}}}{{{bottom}}}" for top, bottom in factors)
     unreduced = rf"\frac{{{unreduced_top}}}{{{unreduced_bottom}}}"
-    exact = _fraction_tex(probability)
+    exact = fraction_tex(probability)
     chain = working if unreduced == working else rf"{working} = {unreduced}"
     if exact != unreduced:
         chain = rf"{chain} = {exact}"

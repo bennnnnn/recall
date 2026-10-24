@@ -134,6 +134,52 @@ describe("advancePreviewFilesScan reads fences as the renderer does (audit DUP-0
   });
 });
 
+describe("advancePreviewFilesScan read flush by flush", () => {
+  const page = [
+    "Here is the page.",
+    "",
+    "```html index.html",
+    '<link rel="stylesheet" href="styles.css">',
+    "<p>Hi</p>",
+    "```",
+    "",
+    "```css styles.css",
+    "p { color: red; }",
+    "```",
+    "",
+    "```python",
+    "print(1)",
+    "```",
+    "",
+    "```javascript app.js",
+    "console.log(1)",
+    "```",
+    "",
+    "Open it in the preview.",
+  ].join("\n");
+
+  it("finds what one scan of the whole reply finds, wherever a flush ends", () => {
+    // A flush that ended inside a fence's opener line ("``" then "`html") resumed
+    // after it and never saw the fence: no files, and none once the reply settled.
+    const whole = advancePreviewFilesScan(null, page).files;
+    expect(whole.map((f) => f.name)).toEqual(["index.html", "styles.css", "app.js"]);
+    for (let step = 1; step <= 32; step += 1) {
+      let scan = advancePreviewFilesScan(null, "");
+      for (let end = step; end < page.length + step; end += step) {
+        scan = advancePreviewFilesScan(scan, page.slice(0, Math.min(end, page.length)));
+      }
+      expect({ step, files: scan.files }).toEqual({ step, files: whole });
+    }
+  });
+
+  it("reads a closer line again when more of it arrives", () => {
+    const first = advancePreviewFilesScan(null, "```html\n<p>a</p>\n```");
+    // "```" was its closer; "```python" is not, so the html fence runs on.
+    const next = advancePreviewFilesScan(first, `${first.source}python\nprint(1)\n`);
+    expect(next.files).toEqual(advancePreviewFilesScan(null, next.source).files);
+  });
+});
+
 describe("advancePreviewFilesScan keeps its files while they do not change", () => {
   it("returns the same array while prose streams after the last fence", () => {
     const first = advancePreviewFilesScan(null, "```html\n<p>a</p>\n```\n\nThe page");

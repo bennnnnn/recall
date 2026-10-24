@@ -7,6 +7,7 @@
 import {
   advanceSegmentScan,
   emptySegmentScan,
+  readsBackAcrossCuts,
   type SegmentScanState,
 } from "@/lib/markdown/streamSegments";
 
@@ -102,4 +103,23 @@ export function advanceSegmentedPrefix(
     prefix.openPrepared = preprocess(openRaw);
   }
   return { prefix, preparedStable: prefix.prepared + prefix.openPrepared };
+}
+
+/**
+ * All of `content`, from the parts `prev` cut while it streamed: the cut parts
+ * stay as they were preprocessed, and the rest (the open part and the text
+ * after it) is preprocessed once, with no new cut. Null when the parts no
+ * longer lead `content`, or the text `prev` did not read holds a line that
+ * changes how the parts before it preprocess.
+ */
+export function finishSegmentedPrefix(
+  prev: SegmentedPrefix,
+  content: string,
+  preprocess: Preprocess,
+): string | null {
+  const read = prev.raw + prev.openRaw;
+  if (!content.startsWith(read)) return null;
+  const unread = content.slice(read.length);
+  if (readsBackAcrossCuts(unread)) return null;
+  return prev.prepared + preprocess(prev.openRaw + unread);
 }

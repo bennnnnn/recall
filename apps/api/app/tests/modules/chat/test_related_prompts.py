@@ -3,7 +3,7 @@
 import asyncio
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -192,6 +192,52 @@ async def test_schedule_caches_questions_for_reopen(fake_redis) -> None:
     assert event["prompts"] == PHYSICS_FOLLOWUPS
     assert await load_related_prompts(fake_redis, "abc") == PHYSICS_FOLLOWUPS
     assert await load_related_prompts(fake_redis, "missing") == []
+
+
+@pytest.mark.parametrize(
+    ("question", "asked_on_the_loop"),
+    [(PHYSICS, 1), (PHYSICS.replace(" accelerating", "\naccelerating"), 0)],
+    ids=["one-line", "multi-line"],
+)
+async def test_a_line_the_turn_did_not_read_as_asked_is_read_in_the_pool(
+    question: str, asked_on_the_loop: int, fake_redis, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The topic asks each line's subject with its blanks collapsed; the turn read the lines
+    as written. A multi-line question's topic was read on the event loop (18 ms for a
+    4,000-character problem): it is read in the pool, with its questions."""
+    from app.modules.chat import related_prompts
+
+    asked: list[str] = []
+    real = related_prompts.follow_up_topic
+
+    def recording(*args: Any, **kwargs: Any) -> Any:
+        asked.append(str(args[0]))
+        return real(*args, **kwargs)
+
+    async def inline(fn: object, *args: object, **_kwargs: object) -> object:
+        assert callable(fn)
+        return fn(*args)
+
+    monkeypatch.setattr(related_prompts, "follow_up_topic", recording)
+    monkeypatch.setattr(
+        related_prompts,
+        "complete_structured",
+        AsyncMock(return_value=RelatedQuestions(questions=PHYSICS_FOLLOWUPS)),
+    )
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", inline)
+    task = schedule_related_prompts(
+        fake_redis,
+        Settings(),
+        message_id="abc",
+        question=question,
+        answer="The force is 30 newtons.",
+    )
+    assert len(asked) == asked_on_the_loop
+    event = await take_related_prompts_event(task)
+
+    assert event is not None
+    assert event["prompts"] == PHYSICS_FOLLOWUPS
+    assert len(asked) == asked_on_the_loop + 1
 
 
 @pytest.mark.parametrize(

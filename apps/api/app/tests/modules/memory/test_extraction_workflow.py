@@ -1,5 +1,8 @@
 """Memory extraction after a turn: what is learned, written, re-embedded or skipped."""
 
+import json
+from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -91,6 +94,57 @@ async def test_extract_and_store_no_result():
         await extract_and_store_memories(
             settings, user_id=uuid4(), chat_id=uuid4(), transcript="hello"
         )
+
+
+@pytest.mark.asyncio
+async def test_the_extraction_prompt_lists_each_saved_fact_without_its_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every turn's pass sends every saved fact. An op names the fact it changes by its
+    text, so a row id (and JSON spacing) only cost tokens: about 34 a fact, a third of
+    the call at 40 facts."""
+    from app.gateways import litellm_gateway, mock_llm
+    from app.modules.memory import llm as memory_llm
+    from app.modules.memory.extraction_workflow import load_memory_snapshot
+
+    rows = [
+        SimpleNamespace(
+            id=uuid4(), type="fact", topic="notes", text=f"User fact {i}", last_confirmed_at=None
+        )
+        for i in range(40)
+    ]
+    with (
+        patch(
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
+        patch(
+            "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
+            AsyncMock(return_value=rows),
+        ),
+    ):
+        snapshot = await load_memory_snapshot(fake_session(), uuid4())
+    captured: dict[str, Any] = {}
+
+    async def complete(**call: Any) -> None:
+        captured.update(call)
+
+    monkeypatch.setattr(mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(litellm_gateway, "complete_structured", complete)
+    await memory_llm.revise_memory_facts(
+        Settings(),
+        "User: I moved to Paris",
+        existing_facts=snapshot.prompt_facts,
+        existing_areas=snapshot.prompt_areas,
+    )
+    prompt = captured["messages"][1]["content"]
+    facts = prompt.split("Existing facts JSON:\n", 1)[1].split("\n\n", 1)[0]
+    assert json.loads(facts) == [
+        {"type": "fact", "topic": "notes", "text": row.text} for row in rows
+    ]
+    assert not any(str(row.id) in prompt for row in rows)
+    # The labels around each fact's text: 42 characters (94 with the id and spaces).
+    assert len(facts) - sum(len(row.text) for row in rows) <= 43 * len(rows)
 
 
 @pytest.mark.asyncio
@@ -528,3 +582,37 @@ async def test_extract_and_store_releases_db_before_provider_io_without_write_co
 
     assert db_open_during_extract == [False]
     session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("line", "reads_facts"),
+    [("thanks!", False), ("ok", False), ("I just moved to Lisbon for work", True)],
+)
+async def test_a_pass_reads_the_saved_facts_only_for_lines_the_model_sees(
+    line: str, reads_facts: bool
+) -> None:
+    """A "thanks" read the user's every fact and area (two statements, up to 150 rows)
+    before the pass found nothing to learn and moved on."""
+    from app.modules.memory.extraction_workflow import extract_and_store_memories
+
+    facts = AsyncMock(return_value=[])
+    areas = AsyncMock(return_value=[])
+    revise = AsyncMock(return_value=None)
+    _, session_locals = _memory_extraction_sessions()
+    with (
+        patch("app.modules.memory.extraction_workflow.SessionLocal", side_effect=session_locals),
+        patch(
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True, memory_edited_at=None)),
+        ),
+        patch("app.modules.memory.extraction_workflow.memories_repo.list_for_user", facts),
+        patch("app.modules.memory.extraction_workflow.memories_repo.list_areas", areas),
+        patch("app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts", revise),
+    ):
+        await extract_and_store_memories(
+            Settings(), user_id=uuid4(), chat_id=uuid4(), transcript=f"User: {line}"
+        )
+    assert (facts.await_count, areas.await_count, revise.await_count) == (
+        (1, 1, 1) if reads_facts else (0, 0, 0)
+    )

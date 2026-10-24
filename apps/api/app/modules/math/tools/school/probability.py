@@ -12,11 +12,13 @@ from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.extractors.readings import read
+from app.modules.math.tools.school._parse import count_value
 from app.modules.math.tools.school.probability_formulas import (
     extract_probability_formulas,
     probability_formula_block,
 )
-from app.services.number_text import SIGNED_DECIMAL, count_word_pattern, number_word_value
+from app.modules.math.tools.school.single_draw import fraction_tex
+from app.services.number_text import SIGNED_DECIMAL, count_word_pattern
 from app.services.workout import Workout, math_line, render_workout
 
 _BINOMIAL_PARAM = re.compile(
@@ -101,7 +103,7 @@ def extract_at_least_one_intent(cleaned: str) -> MathIntent | None:
     match = _AT_LEAST_ONE.fullmatch(" ".join(cleaned.split()))
     if match is None:
         return None
-    outcome, n, trial = match.group(1).lower(), _count(match.group(2)), match.group(3).lower()
+    outcome, n, trial = match.group(1).lower(), count_value(match.group(2)), match.group(3).lower()
     die = outcome == "six"
     if (die and trial in {"flips", "tosses"}) or (not die and trial == "rolls"):
         return None
@@ -128,7 +130,7 @@ def _at_least_one_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlo
     outcome = intent.trial_outcome or "successes"
     trials = "rolls" if p == Fraction(1, 6) else "flips"
     answer = probability_answer(probability)
-    q_tex = _fraction_tex(1 - p)
+    q_tex = fraction_tex(1 - p)
     lines.append(f"P(at least one) = 1 - ({1 - p})^{n} = {probability}")
     direct = render_workout(
         Workout(
@@ -142,8 +144,8 @@ def _at_least_one_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlo
             ),
             substitution=(
                 math_line(
-                    rf"P = 1 - \left({q_tex}\right)^{{{n}}} = 1 - {_fraction_tex(none)}"
-                    rf" = {_fraction_tex(probability)}"
+                    rf"P = 1 - \left({q_tex}\right)^{{{n}}} = 1 - {fraction_tex(none)}"
+                    rf" = {fraction_tex(probability)}"
                 ),
             ),
         ),
@@ -163,17 +165,17 @@ def binomial_trials_direct_request(text: str) -> bool:
     )
 
 
-def _count(text: str) -> int:
-    return number_word_value(text.lower()) or int(text)
-
-
 def _trials_intent(cleaned: str) -> MathIntent | None:
     """A fair coin or die repeated n times, asking for exactly k of one outcome."""
     if not _CHANCE.search(cleaned) or _NOT_EXACTLY.search(cleaned):
         return None
     found = _TRIALS_IN.search(cleaned)
     if found is not None:
-        k, outcome, n = _count(found.group(1)), found.group(2).lower(), _count(found.group(3))
+        k, outcome, n = (
+            count_value(found.group(1)),
+            found.group(2).lower(),
+            count_value(found.group(3)),
+        )
         trial = found.group(4).lower()
     else:
         repeat = _TRIALS_REPEAT.search(cleaned)
@@ -181,8 +183,8 @@ def _trials_intent(cleaned: str) -> MathIntent | None:
         if repeat is None or counted is None:
             return None
         device = (repeat.group(1) or repeat.group(3)).lower()
-        n = _count(repeat.group(2) or repeat.group(4))
-        k, outcome = _count(counted.group(1)), counted.group(2).lower()
+        n = count_value(repeat.group(2) or repeat.group(4))
+        k, outcome = count_value(counted.group(1)), counted.group(2).lower()
         trial = "flips" if device == "coin" else "rolls"
     die = outcome == "sixes"
     if (die and trial in {"flips", "tosses"}) or (not die and trial == "rolls"):
@@ -305,12 +307,6 @@ def _extract_probability_intent(cleaned: str) -> MathIntent | None:
     return None
 
 
-def _fraction_tex(value: Fraction) -> str:
-    if value.denominator == 1:
-        return str(value.numerator)
-    return rf"\frac{{{value.numerator}}}{{{value.denominator}}}"
-
-
 def _binomial_trials_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock:
     """``P(X = k) = C(n, k) p^k (1 - p)^(n - k)``, exact, for a fair coin or die."""
     from app.modules.math.tools.school.single_draw import probability_answer
@@ -322,9 +318,9 @@ def _binomial_trials_block(intent: MathIntent, lines: list[str]) -> VerifiedMath
     outcome = intent.trial_outcome or "successes"
     one_outcome = "a six" if outcome == "sixes" else outcome
     trials = "rolls" if p == Fraction(1, 6) else "flips"
-    exact = _fraction_tex(probability)
+    exact = fraction_tex(probability)
     answer = probability_answer(probability)
-    p_tex, q_tex = _fraction_tex(p), _fraction_tex(1 - p)
+    p_tex, q_tex = fraction_tex(p), fraction_tex(1 - p)
     lines.append(f"P(X={k}) = {probability} for n={n}, k={k}, p={p}")
     direct = render_workout(
         Workout(
@@ -342,7 +338,7 @@ def _binomial_trials_block(intent: MathIntent, lines: list[str]) -> VerifiedMath
                     rf"P(X = {k}) = \binom{{{n}}}{{{k}}} \left({p_tex}\right)^{{{k}}}"
                     rf" \left({q_tex}\right)^{{{n - k}}}"
                 ),
-                math_line(rf"= {ways} \cdot {_fraction_tex(p**k * (1 - p) ** (n - k))} = {exact}"),
+                math_line(rf"= {ways} \cdot {fraction_tex(p**k * (1 - p) ** (n - k))} = {exact}"),
             ),
         ),
         answer,

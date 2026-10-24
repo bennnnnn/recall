@@ -28,6 +28,7 @@ from app.models.model_catalog import get as get_model
 from app.models.model_catalog import openrouter_slug
 from app.models.orm import Attachment, Message, User
 from app.modules.attachments import service as attachments_service
+from app.modules.attachments.markers import image_marker
 from app.modules.attachments.service import (
     MAX_ATTACHMENT_SIZE,
     ReferenceCopy,
@@ -414,13 +415,12 @@ async def _persist_turn(
             if existing is None:
                 raise ImageGenerationError("No user message to attach image to", status_code=404)
             user_message = existing
-        image_marker = f"[Image: /attachments/{stored.image.attachment_id}/file]"
         assistant_message = await turn_record.add_turn_message(
             session,
             chat_id=chat_id,
             user_id=user_id,
             role="assistant",
-            content=image_marker,
+            content=image_marker(stored.image.attachment_id),
             model=get_model(_IMAGE_MODEL_ALIAS).id,
         )
         await attachments_service.add_server_images(
@@ -456,7 +456,7 @@ async def _create_user_message(
     in_chat = await shown_in_chat(session, chat_id, [copy.source for copy in reference_copies])
     for copy in reference_copies:
         if copy.source.id not in in_chat:
-            bubble += f"\n[Image: /attachments/{copy.attachment_id}/file]"
+            bubble += f"\n{image_marker(copy.attachment_id)}"
     user_message = await turn_record.add_turn_message(
         session, chat_id=chat_id, user_id=user_id, role="user", content=bubble
     )

@@ -329,7 +329,6 @@ PHYSICS_WORKOUT_PROMPT_SHORT = (
 
 # Questions in parts and upright units, for a reply the model writes with no
 # verified block to copy (the short rule above has no room for them).
-WORKOUT_PARTS_PROMPT = f"{_WORKOUT_PARTS} {_WORKOUT_UNITS}"
 PHYSICS_WORKOUT_PARTS_PROMPT = f"{_PHYSICS_PARTS} {_WORKOUT_UNITS}"
 
 # A reply the model works out itself has no server check behind it, so it checks

@@ -88,6 +88,10 @@ class StreamContext:
     local_places: bool = False
     skip_memory_jobs: bool = False
     prior_count: int = 0
+    # The chat's last messages as this turn read them (``turn_load``), its user's
+    # message last, as saved; None when the turn did not read them. Finalize reads
+    # the chat from these instead of asking the database again.
+    recent_messages: list[Any] | None = None
     regenerate_backup: RegenerateBackup | None = None
     fallback_models: list[str] = field(default_factory=list)
     # Recovering models (breaker half-open) among the model and its backups: the
@@ -159,6 +163,8 @@ class TurnPromptBundle:
     solve_timed_out: bool = False
     money: MoneyTurn | None = None
     after_card: bool = False
+    # The chat's last messages the prompt was built from (``StreamContext.recent_messages``).
+    recent_messages: list[Any] | None = None
 
 
 def _search_location(geo: ClientGeoContext) -> str | None:
@@ -212,6 +218,7 @@ def stream_context_from_bundle(
         local_places=bundle.local_places,
         skip_memory_jobs=skip_memory_jobs,
         prior_count=prior_count,
+        recent_messages=bundle.recent_messages,
         regenerate_backup=regenerate_backup,
         fallback_models=bundle.fallback_models,
         probe_models=bundle.half_open_models - {model} if model_named else bundle.half_open_models,
@@ -447,4 +454,5 @@ async def build_stream_prompt_context(
     bundle.settings_card = card
     bundle.half_open_models = half_open
     bundle.money = money
+    bundle.recent_messages = request.recent_messages
     return bundle

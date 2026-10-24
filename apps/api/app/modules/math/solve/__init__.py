@@ -27,7 +27,6 @@ from app.modules.math.solve.equations import solve_equation
 from app.modules.math.solve.expressions import (
     expand_expression,
     factor_expression,
-    factored_key_step,
     simplify_expression,
 )
 from app.modules.math.solve.extract_eq import (
@@ -95,7 +94,6 @@ __all__ = [
     "evaluate_series_sum",
     "expand_expression",
     "factor_expression",
-    "factored_key_step",
     "format_geometry_decimal",
     "format_verified_latex",
     "guess_variables",

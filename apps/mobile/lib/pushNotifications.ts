@@ -33,7 +33,7 @@ export async function getNotificationPermissionGranted(): Promise<boolean> {
 }
 
 export async function ensureNotificationPermission(): Promise<boolean> {
-  await ensureAndroidChannel();
+  await ensureReminderChannel();
   const { status: existing } = await Notifications.getPermissionsAsync();
   if (existing === "granted") return true;
   const { status } = await Notifications.requestPermissionsAsync();
@@ -43,7 +43,8 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   return status === "granted";
 }
 
-async function ensureAndroidChannel(): Promise<void> {
+/** The reminders channel push and local reminders share, created once per run. */
+export async function ensureReminderChannel(): Promise<void> {
   if (Platform.OS !== "android" || androidChannelReady) return;
   await ensureAndroidNotificationChannels({
     reminders: i18n.t("notifications.reminders_channel"),
@@ -327,7 +328,7 @@ export async function handlePushNotificationResponse(
 }
 
 export function configurePushNotificationHandler(): void {
-  void ensureAndroidChannel();
+  void ensureReminderChannel();
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowBanner: true,

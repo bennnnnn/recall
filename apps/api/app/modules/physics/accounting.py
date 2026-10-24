@@ -26,6 +26,7 @@ from app.modules.physics.extractors.unit_patterns import NUMBER
 from app.modules.physics.givens import ANGLE, Given, scan_givens, unit_dimension, unit_expression
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.si import PARAM_SI_DIMENSIONS, to_si
+from app.services.law_binding.units import dimension_of
 from app.services.number_text import count_word_pattern, number_word_value
 from app.services.solving import SolveServiceError
 
@@ -82,8 +83,7 @@ def _param_dimension(key: str) -> str | None:
         return None
     if key.startswith("angle") or expression in {"radian", "degree"}:
         return ANGLE
-    reading = unit_dimension(expression)
-    return None if reading is None else reading[0]
+    return dimension_of(expression)
 
 
 def _params(intent: PhysicsIntent) -> list[_Param]:

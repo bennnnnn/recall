@@ -4,10 +4,12 @@
  * of every reply here it must give exactly what `preprocessMarkdown` gives the
  * whole stable prefix, as it did before it was cut.
  */
+import * as preprocess from "@/lib/markdown/preprocess";
 import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import {
   findStableMarkdownPrefixLen,
   preprocessMarkdownForStream,
+  preprocessSettledMarkdown,
   type StreamingPreprocessCache,
 } from "@/lib/markdown/preprocessStream";
 import { presentStreamTail } from "@/lib/markdown/presentation";
@@ -126,5 +128,61 @@ describe("preprocessing a stream in parts", () => {
     expect(partsOf(STREAMING_REPLIES.maths)).toBeGreaterThanOrEqual(10);
     expect(partsOf(physics.replies.projectile_parts.reply)).toBeGreaterThanOrEqual(8);
     expect(partsOf(STREAMING_REPLIES.tips)).toBeGreaterThanOrEqual(3);
+  });
+});
+
+/** The cache a reply's stream ends with, streamed a line at a time up to `draft`. */
+function streamedCache(draft: string): StreamingPreprocessCache | null {
+  let cache: StreamingPreprocessCache | null = null;
+  for (const end of lineEnds(draft)) {
+    cache = preprocessMarkdownForStream(draft.slice(0, end), cache, formatAssistantMathExpr).cache;
+  }
+  return cache;
+}
+
+/** Where settling `saved` after streaming `draft` differs from preprocessing it whole. */
+function settleDifference(draft: string, saved: string): string | null {
+  const settled = preprocessSettledMarkdown(saved, streamedCache(draft), formatAssistantMathExpr);
+  return settled === preprocessMarkdown(saved, formatAssistantMathExpr) ? null : saved;
+}
+
+describe("settling a streamed reply", () => {
+  const all = [...replies, ...longReplies];
+
+  it("gives every corpus reply what preprocessing it whole gives", () => {
+    // Saved as streamed, and as the server keeps it: trimmed, its last line open.
+    const differ = all.filter(
+      ([, text]) => settleDifference(text, text) !== null || settleDifference(text, text.trim()) !== null,
+    );
+    expect(differ.map(([name]) => name)).toEqual([]);
+  });
+
+  it("gives a saved reply that differs from its stream what preprocessing it whole gives", () => {
+    const differ = all.filter(([, text]) => {
+      const lines = text.trim().split("\n");
+      const cut = Math.floor(lines.length / 2);
+      // The stream stopped early, the server added a closing note, or a line changed mid-reply.
+      const shorter = lines.slice(0, cut).join("\n");
+      const appended = `${text.trim()}\n\n**Given** the note above, that is the answer.`;
+      const edited = [...lines.slice(0, cut), "A line the server rewrote.", ...lines.slice(cut + 1)].join("\n");
+      return [
+        settleDifference(shorter, text.trim()),
+        settleDifference(text, appended),
+        settleDifference(text, edited),
+      ].some((at) => at !== null);
+    });
+    expect(differ.map(([name]) => name)).toEqual([]);
+  });
+
+  it("preprocesses the text after the last cut, not the whole reply", () => {
+    const long = longReplies.map(([, text]) => text.trim()).join("\n\n");
+    const cache = streamedCache(long);
+    const whole = preprocessMarkdown(long, formatAssistantMathExpr);
+    const read = jest.spyOn(preprocess, "preprocessMarkdown");
+    expect(preprocessSettledMarkdown(long, cache, formatAssistantMathExpr)).toBe(whole);
+    const chars = read.mock.calls.reduce((sum, [text]) => sum + text.length, 0);
+    read.mockRestore();
+    // It preprocessed all of it again.
+    expect(chars).toBeLessThan(long.length / 10);
   });
 });

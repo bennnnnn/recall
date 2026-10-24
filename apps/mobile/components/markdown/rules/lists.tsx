@@ -1,8 +1,9 @@
-import { ReactNode } from "react";
+import { memo, ReactNode } from "react";
 import { PixelRatio, Text, View, type ViewStyle } from "react-native";
 
 import { Icon } from "@/ui/icons/Icon";
 import {
+  astSource,
   type AstNode,
   type AstParent,
   bulletDiscMetrics,
@@ -38,6 +39,44 @@ function bulletDiscStyle(): ViewStyle {
 /** A list's end: no gap under it, its last item flush. */
 const OPEN_LIST_END = { marginBottom: 0 };
 
+type ListItemNode = AstNode & { index: number; markup?: string };
+
+/**
+ * What a list item is drawn from: its own AST, what its list says about it
+ * (its number, the number column, being last or going on in the next piece,
+ * an open task beside it), the kinds of block above it and the text size.
+ * Null inside a blockquote, whose text style reads the whole quote.
+ */
+function listItemSource(node: ListItemNode, parent: AstParent[], goesOn: boolean): string | null {
+  if (parent.some((ancestor) => ancestor.type === "blockquote")) return null;
+  const fontScale = PixelRatio.getFontScale();
+  return [
+    parent.map((ancestor) => ancestor.type).join(">"),
+    node.index,
+    isLastListItem(parent, node.index),
+    goesOn,
+    listItemDisplayNumber(parent, node.index),
+    numberColumnWidth(listLargestNumber(parent), fontScale),
+    listHasOpenTask(parent),
+    fontScale,
+    astSource(node),
+  ].join("|");
+}
+
+type DrawnListItemProps = { source: string | null; drawnWith: object; children: ReactNode };
+
+/**
+ * A list item drawn again only when what it is drawn from changes. A list a
+ * streaming reply cannot cut yet (a numbered list before item 11) is parsed
+ * again on every flush; its finished items stay as they were drawn.
+ */
+const DrawnListItem = memo(
+  function DrawnListItem({ children }: DrawnListItemProps) {
+    return children;
+  },
+  (prev, next) => next.source != null && prev.source === next.source && prev.drawnWith === next.drawnWith,
+);
+
 /**
  * `continuesBelow`: this markdown is one piece of a streaming reply cut
  * between two items of a list (lib/markdown/streamBlocks.ts). The list that
@@ -48,9 +87,9 @@ const OPEN_LIST_END = { marginBottom: 0 };
 export function listRules(t: Theme, mdMath: MdMathStyles, continuesBelow = false) {
   const listGoesOn = (list: unknown, ancestors: unknown[]) =>
     continuesBelow && isLastRootBlock(list, ancestors);
-  return {
+  const rules = {
     list_item: (
-      node: AstNode & { index: number; markup?: string },
+      node: ListItemNode,
       children: ReactNode,
       parent: AstParent[],
       styles: StyleMap,
@@ -207,6 +246,18 @@ export function listRules(t: Theme, mdMath: MdMathStyles, continuesBelow = false
       >
         {children}
       </View>
+    ),
+  };
+  return {
+    ...rules,
+    list_item: (node: ListItemNode, children: ReactNode, parent: AstParent[], styles: StyleMap) => (
+      <DrawnListItem
+        key={node.key}
+        source={listItemSource(node, parent, listGoesOn(parent[0], parent.slice(1)))}
+        drawnWith={styles}
+      >
+        {rules.list_item(node, children, parent, styles)}
+      </DrawnListItem>
     ),
   };
 }

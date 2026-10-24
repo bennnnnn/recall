@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import Settings, get_settings
+from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis, get_settings_dep
 from app.core.redis_lock import acquire_lock
@@ -91,7 +91,7 @@ def _verify_auth(authorization: str | None, settings: Settings) -> None:
 async def revenuecat_webhook(
     request: Request,
     session: AsyncSession = Depends(get_db),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> None:
     # Auth + size before JSON parse — unauthenticated body work is a DoS vector

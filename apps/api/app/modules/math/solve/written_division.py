@@ -13,13 +13,14 @@ from app.modules.math.solve.written_arithmetic_common import (
     format_scaled,
     scaled_number_parts,
 )
+from app.services.school_rounding import trim_zeros
 
 _APPROX_DECIMAL_PLACES = 2
 _ROUNDING_GUARD_PLACES = 1
 
 
 def _plain_decimal(raw: str) -> str:
-    return (raw.rstrip("0").rstrip(".") if "." in raw else raw) or "0"
+    return trim_zeros(raw) or "0"
 
 
 def _terminating_places(numerator: int, denominator: int) -> int | None:

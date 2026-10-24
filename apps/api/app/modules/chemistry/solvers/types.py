@@ -7,7 +7,7 @@ import math
 from dataclasses import dataclass
 
 from app.modules.chemistry.schemas.scene import ChemistryScene
-from app.services.school_rounding import round_figures
+from app.services.school_rounding import round_figures, trim_zeros
 
 # A textbook answer carries as many figures as its least precise input, and the inputs a
 # student types have two to four. Four is enough to check a hand calculation without printing
@@ -17,10 +17,6 @@ SIGNIFICANT_FIGURES = 4
 INPUT_FIGURES = 6
 # Physical constants are echoed with one more figure than an answer so they never limit it.
 CONSTANT_FIGURES = 5
-
-
-def _trim(text: str) -> str:
-    return text.rstrip("0").rstrip(".") if "." in text else text
 
 
 def format_number(
@@ -44,7 +40,7 @@ def format_number(
     # 200 is 200, and 110.02 g to two figures is 110 g.
     rounded = mantissa.scaleb(exponent)
     rounded_to_zeros = exponent >= significant and round(rounded) != round(value)
-    tidy = (lambda text: text) if keep_zeros else _trim
+    tidy = (lambda text: text) if keep_zeros else trim_zeros
     if exponent < -3 or exponent >= 6 or (keep_zeros and rounded_to_zeros):
         return f"{tidy(f'{mantissa:.{significant - 1}f}')} × 10^{exponent}"
     decimals = max(significant - 1 - exponent, 0)

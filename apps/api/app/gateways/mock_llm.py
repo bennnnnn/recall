@@ -1,12 +1,9 @@
 import asyncio
-import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
 from app.core.config import Settings
 from app.core.validation import normalize_chat_title
-
-logger = logging.getLogger(__name__)
 
 MOCK_REPLY = (
     "I'm Recall (mock mode). Add OPENROUTER_API_KEY in apps/api/.env "

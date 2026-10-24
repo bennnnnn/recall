@@ -8,7 +8,7 @@
  * stretched to fill it; a wider one keeps its widths and pans, with the next
  * column's start showing at the edge so it reads as one that scrolls.
  */
-import { type AstNode, astText } from "@/components/markdown/markdownAstHelpers";
+import { type AstNode, astSource, astText } from "@/components/markdown/markdownAstHelpers";
 import { Space } from "@/lib/space";
 
 /** What one column holds, in characters. */
@@ -41,6 +41,16 @@ export function tableColumnText(node: AstNode): TableColumnText[] {
   };
   walk(node);
   return columns.length > 0 ? columns : [{ longest: 0, longestWord: 0 }];
+}
+
+/**
+ * What a table row is drawn from: its cells' AST and the kinds of block it
+ * sits in. Two rows with the same source draw the same. Null inside a
+ * blockquote, whose text style reads the whole quote (`inPlainBlockquote`).
+ */
+export function tableRowSource(row: AstNode, parents: AstNode[]): string | null {
+  if (parents.some((parent) => parent.type === "blockquote")) return null;
+  return `${parents.map((parent) => parent.type).join(">")}|${astSource(row)}`;
 }
 
 function clamp(value: number, min: number, max: number): number {

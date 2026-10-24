@@ -51,3 +51,8 @@ def round_figures(value: float | str | Fraction, figures: int) -> tuple[Decimal,
 def format_places(value: float | str | Fraction, places: int) -> str:
     """``value`` to ``places`` decimals with the zeros a class writes: 3.999 is ``4.00``."""
     return format(round_places(value, places), "f")
+
+
+def trim_zeros(text: str) -> str:
+    """A written decimal without its trailing zeros: ``2.50`` is ``2.5``, ``3.0`` is ``3``."""
+    return text.rstrip("0").rstrip(".") if "." in text else text

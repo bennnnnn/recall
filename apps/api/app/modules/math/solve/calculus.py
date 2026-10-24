@@ -34,7 +34,7 @@ from app.modules.math.schemas import (
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.display import derivative_latex, format_verified_latex
 from app.modules.math.solve.parse import SolveServiceError, parse_expression
-from app.modules.math.solve.root_latex import _expr_equal
+from app.modules.math.solve.root_latex import expr_equal
 
 # A quadrature whose own error estimate is above _QUADRATURE_TRUST (relative) judges nothing; a
 # closed form within _QUADRATURE_AGREE of a trusted one passes.
@@ -145,7 +145,7 @@ def differentiate_at_point(expr: str, variable: str, point: str) -> MathExprResu
     except Exception as exc:
         raise SolveServiceError("Could not evaluate derivative at the requested point") from exc
     finite = bool(left.is_finite is True and right.is_finite is True)
-    if not finite or not _expr_equal(left, right):
+    if not finite or not expr_equal(left, right):
         if finite:
             reason = (
                 f"Left derivative: {latex(left)}; right derivative: {latex(right)}; "

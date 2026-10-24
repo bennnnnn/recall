@@ -4,7 +4,7 @@
  * presentation passes on both sides walk a reply the same way.
  */
 
-import { escapedAt, readInlineCodeSpan } from "@/lib/markdown/inlineCode";
+import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { closesFence, readFenceMarker, type OpenFence } from "@/lib/mdFenceScan";
 
 /** Restaurant price tiers, ($) to ($$$$), are not maths. */
@@ -86,22 +86,29 @@ export function displayMathLines(lines: string[]): boolean[] {
 function displayCloser(line: string, open: string | null): string | null {
   let closer = open;
   let index = 0;
+  // The backslashes just before `index`, counted as the scan passes them: an odd run
+  // escapes the character there (`escapedAt` counted back from every index, which was
+  // quadratic in a run of backslashes).
+  let slashes = 0;
   while (index < line.length) {
     const codeEnd = closer == null ? readInlineCodeSpan(line, index) : null;
     if (codeEnd != null) {
       index = codeEnd;
-    } else if (escapedAt(line, index)) {
-      index += 1;
-    } else if (line.startsWith("$$", index)) {
+      slashes = 0;
+    } else if (slashes % 2 === 0 && line.startsWith("$$", index)) {
       if (closer == null || closer === "$$") closer = closer == null ? "$$" : null;
       index += 2;
-    } else if (line.startsWith("\\[", index) && closer == null) {
+      slashes = 0;
+    } else if (slashes % 2 === 0 && line.startsWith("\\[", index) && closer == null) {
       closer = "\\]";
       index += 2;
-    } else if (line.startsWith("\\]", index) && closer === "\\]") {
+      slashes = 0;
+    } else if (slashes % 2 === 0 && line.startsWith("\\]", index) && closer === "\\]") {
       closer = null;
       index += 2;
+      slashes = 0;
     } else {
+      slashes = line[index] === "\\" ? slashes + 1 : 0;
       index += 1;
     }
   }

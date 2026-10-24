@@ -5,6 +5,7 @@ import {
   cloneElement,
   createContext,
   isValidElement,
+  memo,
   useContext,
   useMemo,
   useState,
@@ -106,9 +107,11 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
   // layout pass. Never let that measurement exceed the physical chat canvas,
   // or `scrollable` becomes false while the last columns are clipped.
   const layoutW = tableViewportWidth(screenWidth, viewportW);
-  const columnWidths = useMemo(() => tableColumnWidths(columns, layoutW), [columns, layoutW]);
+  // `columns` is read again on every parse; the cells redraw only when a width changes.
+  const widthsKey = tableColumnWidths(columns, layoutW).join(",");
+  const layout = useMemo(() => ({ columnWidths: widthsKey.split(",").map(Number) }), [widthsKey]);
+  const { columnWidths } = layout;
   const tableWidth = sumWidths(columnWidths);
-  const layout = useMemo(() => ({ columnWidths }), [columnWidths]);
 
   const freezeFirst = tableShouldFreezeFirstColumn(columnWidths.length, layoutW, tableWidth);
   const rows = freezeFirst ? collectTableRows(children) : [];
@@ -237,15 +240,35 @@ function FrozenFirstColumnTable({
   );
 }
 
-export function MarkdownTableRow({
-  nodeKey,
-  children,
-  isLast = false,
-}: {
+type TableRowProps = {
   nodeKey: string;
   children: ReactNode;
   isLast?: boolean;
-}) {
+  /**
+   * What the row is drawn from (`tableRowSource`) and the styles its cells were
+   * drawn with. A row whose source, styles and place are as they were draws the
+   * same: a streaming table, parsed again on every flush, redraws only the row
+   * still being written. Without a source the row redraws with its parent.
+   */
+  source?: string | null;
+  drawnWith?: object;
+};
+
+function sameRow(prev: TableRowProps, next: TableRowProps): boolean {
+  return (
+    next.source != null &&
+    prev.source === next.source &&
+    prev.drawnWith === next.drawnWith &&
+    prev.nodeKey === next.nodeKey &&
+    prev.isLast === next.isLast
+  );
+}
+
+export const MarkdownTableRow = memo(function MarkdownTableRow({
+  nodeKey,
+  children,
+  isLast = false,
+}: TableRowProps) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
@@ -253,7 +276,7 @@ export function MarkdownTableRow({
       {mapCells(children)}
     </View>
   );
-}
+}, sameRow);
 
 function TableCell({
   nodeKey,

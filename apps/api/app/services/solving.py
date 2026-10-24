@@ -85,10 +85,6 @@ class VerifiedMathBlock(VerifiedSolveBlock):
     """Math-only verified state and deterministic teaching traces."""
 
     subject: Literal["math"] = "math"
-    # The one line that shows where the answer came from — e.g. the
-    # factorization behind a quadratic's roots. Shown on the direct-reply
-    # path for the balanced/detailed response styles, omitted for short.
-    key_step: str | None = None
     # Ordered inverse-operation (or factor / formula) trace for equation lessons.
     key_steps: tuple[KeyStep, ...] = ()
     given_latex: str | None = None

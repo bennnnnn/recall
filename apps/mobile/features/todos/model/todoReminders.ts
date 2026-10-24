@@ -8,11 +8,8 @@ import i18n from "@/lib/i18n";
 import { getReminderLeadMs } from "@/features/todos/model/reminderPrefs";
 import { leadMsFromMinutes, reminderNotifyDate } from "@/features/todos/model/reminderTiming";
 import { shouldSyncLocalTodoReminders } from "@/features/todos/model/todoReminderPush";
-import {
-  AndroidNotificationChannel,
-  notificationSound,
-  ensureAndroidNotificationChannels,
-} from "@/lib/notificationChannels";
+import { AndroidNotificationChannel, notificationSound } from "@/lib/notificationChannels";
+import { ensureReminderChannel } from "@/lib/pushNotifications";
 
 export { ensureNotificationPermission } from "@/lib/pushNotifications";
 const TODO_PREFIX = "todo-due-";
@@ -26,7 +23,6 @@ type ReminderOptions = {
   leadMinutes?: number;
 };
 type IsCurrent = () => boolean;
-let androidChannelReady = false;
 let revision = 0;
 let pending: Promise<void> = Promise.resolve();
 const scheduledVersions = new Map<string, string>();
@@ -42,13 +38,6 @@ function enqueue(session: number, operation: (current: IsCurrent) => Promise<voi
 }
 
 export function todoNotificationId(todoId: string): string { return `${TODO_PREFIX}${todoId}`; }
-async function ensureAndroidChannel(): Promise<void> {
-  if (Platform.OS !== "android" || androidChannelReady) return;
-  await ensureAndroidNotificationChannels({
-    reminders: i18n.t("notifications.reminders_channel"),
-  });
-  androidChannelReady = true;
-}
 
 async function cancelMatching(matches: (id: string) => boolean, current: IsCurrent): Promise<void> {
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
@@ -94,7 +83,7 @@ async function schedule(todo: Todo, leadMs: number, current: IsCurrent): Promise
 }
 
 async function permitted(current: IsCurrent): Promise<boolean> {
-  await ensureAndroidChannel();
+  await ensureReminderChannel();
   if (!current()) return false;
   // Permission prompts belong to explicit user actions, never a background refresh.
   const permission = await Notifications.getPermissionsAsync();

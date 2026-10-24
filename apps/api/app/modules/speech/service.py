@@ -36,36 +36,6 @@ _OPENAI_TTS_VOICES = frozenset(
         "cedar",
     }
 )
-_TTS_LEAD_MIN_CHARS = 120
-_TTS_LEAD_MAX_CHARS = 160
-_TTS_SENTENCE_ENDS = frozenset(".!?")
-
-
-def split_tts_lead(plain: str) -> tuple[str, str]:
-    """Opening chunk: long enough to speak while the rest synthesizes."""
-    normalized = " ".join((plain or "").split()).strip()
-    if not normalized:
-        return "", ""
-    if len(normalized) <= _TTS_LEAD_MIN_CHARS:
-        return normalized, ""
-    window = normalized[:_TTS_LEAD_MAX_CHARS]
-    cut = -1
-    for index, char in enumerate(window):
-        if char not in _TTS_SENTENCE_ENDS:
-            continue
-        if index + 1 < len(window) and window[index + 1] != " ":
-            continue
-        cut = index + 1
-        if cut >= _TTS_LEAD_MIN_CHARS:
-            break
-    if cut < _TTS_LEAD_MIN_CHARS:
-        space = window.rfind(" ")
-        cut = space if space > 0 else _TTS_LEAD_MAX_CHARS
-    lead = normalized[:cut].strip()
-    rest = normalized[cut:].strip()
-    if not rest:
-        return normalized, ""
-    return lead, rest
 
 
 def normalize_tts_alias(raw: str | None) -> str:

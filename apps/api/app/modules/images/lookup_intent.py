@@ -28,6 +28,7 @@ from app.modules.images.lookup_intent_words import (
     DUAL_USE_WORDS,
     LOOKUP_NON_IMAGE_WORDS,
 )
+from app.services.text_normalize import fold_token
 
 _ARTICLES = frozenset({"a", "an", "the"})
 _POSSESSIVES = frozenset({"my", "your", "our", "his", "her", "their", "its"})
@@ -118,18 +119,9 @@ _REASON_CLAUSE = re.compile(r",\s*(?:i|i'm|im|so|because|since|for|to)\b", re.IG
 _NOT_A_NOUN = frozenset({"again", "but", "one", "part", "bit", "more", "in", "with", "please"})
 
 
-def _tokens(text: str) -> list[str]:
-    return text.split()
-
-
-def _fold_token(word: str) -> str:
-    """Lowercase and strip edge punctuation so ``tips,`` matches ``tips``."""
-    return word.lower().strip(".,!?;:\"'()[]")
-
-
 def _reference_subject(tokens: list[str]) -> str | None:
     """ "her image" -> "her"; "her" / "him" alone -> itself. Else None."""
-    folded = [_fold_token(t) for t in tokens]
+    folded = [fold_token(t) for t in tokens]
     if not folded:
         return None
     if len(folded) == 1 and folded[0] in _OBJECT_PRONOUNS:
@@ -146,7 +138,7 @@ def _reference_subject(tokens: list[str]) -> str | None:
 def is_reference_subject(subject: str) -> bool:
     """True when the subject names no one ("she", "it at night", "another one")."""
     words = subject.split()
-    return bool(words) and _fold_token(words[0]) in _REFERENCE_HEADS
+    return bool(words) and fold_token(words[0]) in _REFERENCE_HEADS
 
 
 # "Show the vertex" after a graph asks for a feature of the graph the app draws, not a
@@ -218,7 +210,7 @@ def _clean_subject(raw: str) -> str | None:
     words = subject.split()
     if not words or len(words) > _MAX_SUBJECT_WORDS:
         return None
-    folded = [_fold_token(w) for w in words]
+    folded = [fold_token(w) for w in words]
     if not folded[0] or folded[0] in _POSSESSIVES:
         return None
     # "Show me that again but simpler" asks to repeat an answer.
@@ -358,7 +350,7 @@ def extract_image_lookup_query(text: str) -> str | None:
     if not trimmed or len(trimmed) > 200:
         return None
 
-    tokens = _strip_polite_lead(_tokens(trimmed))
+    tokens = _strip_polite_lead(trimmed.split())
     # "what does a gelada look like 🐒": a trailing emoji is not part of the ask.
     while tokens and not any(char.isalnum() for char in tokens[-1]):
         tokens = tokens[:-1]
@@ -406,8 +398,8 @@ def dated_lookup_query(query: str, year: int) -> str:
     kept: list[str] = []
     dated = False
     for index, word in enumerate(tokens):
-        folded = _fold_token(word)
-        following = _fold_token(tokens[index + 1]) if index + 1 < len(tokens) else ""
+        folded = fold_token(word)
+        following = fold_token(tokens[index + 1]) if index + 1 < len(tokens) else ""
         if folded in _RECENCY_WORDS and not (folded == "new" and following in _NEW_PLACES):
             dated = True
             continue

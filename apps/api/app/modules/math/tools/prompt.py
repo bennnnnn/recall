@@ -96,7 +96,6 @@ def _withhold_hint_answer(
         canonical_fences=[],
         canonical_answer=None,
         display_answer=None,
-        key_step=None,
         key_steps=(),
         check_latex=None,
         alternate_method_note=None,

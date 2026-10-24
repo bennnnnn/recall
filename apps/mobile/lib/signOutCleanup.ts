@@ -26,6 +26,7 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
     import("@/features/todos/model/reminderProposal").then(({ clearSavedProposals }) => clearSavedProposals()),
     import("@/features/chat/model/quotaNudgeDismissal").then(({ resetQuotaNudgeDismissal }) => resetQuotaNudgeDismissal()),
     import("@/features/attachments/model/downloadChatAttachment").then(({ clearLocalAttachmentFileCache }) => clearLocalAttachmentFileCache()),
+    import("@/features/attachments/model/attachmentStatusFile").then(({ clearSettledStatuses }) => clearSettledStatuses()),
     import("@/features/todos/model/todoReminders").then(({ cancelAllTodoReminders }) => cancelAllTodoReminders()),
     import("@/features/todos/model/reminderPrefs").then(({ clearReminderLeadPrefs }) => clearReminderLeadPrefs()),
     import("@/features/chat/model/messageCache").then(({ clearAllCachedChatMessages }) => clearAllCachedChatMessages()),

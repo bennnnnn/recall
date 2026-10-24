@@ -60,11 +60,6 @@ def greeting_run(text: str, prior: Sequence[tuple[str, str]]) -> int:
     return run
 
 
-def greets_again(text: str, prior: Sequence[tuple[str, str]]) -> bool:
-    """A greeting right after the user's last message was one too: "hi" after "hi"."""
-    return greeting_run(text, prior) >= 2
-
-
 # "hi" after "hi" got a fresh "Hey bini! How's your Friday going?" each time, as if the
 # chat had just begun; told only to "notice it", a model said "Hey bini! What's up?"
 # twice. It now gets the count and its own last reply.

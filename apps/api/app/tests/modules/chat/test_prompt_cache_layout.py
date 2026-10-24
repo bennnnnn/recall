@@ -34,9 +34,10 @@ from app.modules.chat.response_tone import EMOJI_HINTS, TONE_HINTS
 from app.modules.chat.stream_pipeline import _prior_window
 from app.modules.chat.tool_loop.results import ToolResults
 from app.modules.chat.tool_loop.rounds import _hand_off
-from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_REPLY_POLICY
 from app.modules.physics import PHYSICS_REPLY_POLICY
 from app.modules.web_search import WEB_SEARCH_HINT
+from app.services.workout import MATH_WORKOUT_PROMPT_RULE
 from app.tests.behavior import harness
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.sweep import frozen_clock
@@ -413,3 +414,20 @@ async def test_a_model_written_stem_turn_states_its_policy_once(prompt: str, pol
     route = await harness.route_case(Case("policy-once", "stem", prompt, Expect(), ""))
     assert not route.instant
     assert route.system_prompt.count(policy) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "solve 2x + 5 = 17 and explain why each step works",
+        # Both in the rules: the money turn's maths pack, closed by the policy.
+        "I owe 5000 on my credit card at 22% apr and pay 200 a month, how long to pay off",
+    ],
+)
+async def test_a_maths_turn_states_the_worked_solution_layout_once(prompt: str) -> None:
+    """The maths pack and its reply policy both carried the layout rule (~460 tokens)."""
+    route = await harness.route_case(Case("layout-once", "math", prompt, Expect(), ""))
+    assert not route.instant
+    assert MATH_INTENT_HINT in route.system_prompt
+    assert route.system_prompt.count(MATH_WORKOUT_PROMPT_RULE) == 1

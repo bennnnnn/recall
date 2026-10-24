@@ -101,7 +101,7 @@ async def test_next_turn_rejects_busy_before_reading_uncommitted_history(
         locks={"acquire_lock": AsyncMock(return_value="lock"), "release_lock": release},
         users={"get_by_id": AsyncMock(return_value=user)},
         chats={"get_by_id": AsyncMock(return_value=MagicMock())},
-        messages={"list_recent": premature_read, "get_last": premature_read},
+        messages={"list_recent": premature_read},
     )
     try:
         with (

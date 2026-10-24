@@ -4,16 +4,6 @@ from __future__ import annotations
 
 import re
 
-_BULK_SHIFT_TO_TOMORROW = re.compile(
-    r"("
-    r"\b(move|shift|reschedule|push)\b.{0,40}\b(all|every|remaining|the rest|my reminders?)\b"
-    r"|"
-    r"\b(all|every|my)\b.{0,20}\b(reminders?|todos?|tasks?)\b.{0,40}\b(today|due today)\b.{0,40}\btomorrow\b"
-    r"|"
-    r"\b(reminders?|todos?|tasks?)\b.{0,30}\b(due )?today\b.{0,30}\btomorrow\b"
-    r")",
-    re.IGNORECASE | re.DOTALL,
-)
 # Fixed-keyword branch only — phrases with unbounded ``.+`` are linear scans below.
 _TODO_QUERY_FIXED = re.compile(
     r"\b("
@@ -27,18 +17,8 @@ _TODO_QUERY_FIXED = re.compile(
     r")\b",
     re.IGNORECASE,
 )
-_DELETE_OVERDUE = re.compile(
-    r"("
-    r"\bdelete\b.{0,40}\boverdue\b|"
-    r"\bremove\b.{0,40}\boverdue\b|"
-    r"\bdelete\b.{0,20}\b(all|every|them|those|these)\b.{0,40}\b(overdue|reminders?)\b|"
-    r"\bI(?:'ve| have)?\s+(?:removed|deleted)\b.{0,60}\boverdue\b"
-    r")",
-    re.IGNORECASE | re.DOTALL,
-)
 # Bound gaps for linear "move X to tomorrow" scans (no ``.+`` ReDoS).
 _TODO_PHRASE_GAP = 80
-_USER_LABEL = "user:"
 
 
 def _find_ci(haystack: str, needle: str, start: int = 0) -> int:

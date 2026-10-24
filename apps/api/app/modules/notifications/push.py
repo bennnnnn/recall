@@ -26,7 +26,6 @@ from app.gateways import expo_push_gateway
 from app.models.orm import PushToken, TodoItem
 from app.modules.todos import (
     PUSH_REMINDERS,
-    advance_recurring_without_device,
     aged_out_unsent,
     due_reminder_page,
     is_due_now,
@@ -278,25 +277,6 @@ async def collect_push_page(
     return PushPage(messages=messages, next_after=next_after)
 
 
-async def process_todo_reminders(
-    session: AsyncSession,
-    *,
-    now: datetime | None = None,
-) -> list[OutboundPush]:
-    """Every due reminder's messages, page after page (the scheduler sends per page)."""
-    now = now or datetime.now(UTC)
-    await advance_recurring_without_device(session, now=now)
-    messages: list[OutboundPush] = []
-    after: tuple[datetime, UUID] | None = None
-    for _ in range(MAX_PUSH_PAGES_PER_CYCLE):
-        page = await collect_push_page(session, now=now, after=after)
-        messages.extend(page.messages)
-        if page.next_after is None:
-            break
-        after = page.next_after
-    return messages
-
-
 async def _finalize_push_deliveries(
     session: AsyncSession,
     outbound: list[OutboundPush],
@@ -318,30 +298,6 @@ async def _finalize_push_deliveries(
 
     if todos_marked:
         await session.commit()
-
-
-async def collect_push_outbound(
-    session: AsyncSession,
-    redis: Redis,
-    settings: Settings,
-    *,
-    now: datetime | None = None,
-) -> list[OutboundPush]:
-    """Build outbound push payloads. Caller should release the DB session before Expo I/O.
-
-    Receipts are polled by their own loop (``push_scheduler``), never ahead of reminders.
-    """
-    if not settings.push_enabled:
-        return []
-
-    now = now or datetime.now(UTC)
-    await log_aged_unsent_reminders(session, now=now)
-
-    # Server owns dated-todo alerts (local expo-notifications is skipped while
-    # the user has push enabled). Set false to force device-only scheduling.
-    if not settings.server_todo_push_enabled:
-        return []
-    return await process_todo_reminders(session, now=now)
 
 
 async def dispatch_expo(

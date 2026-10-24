@@ -33,7 +33,7 @@ def test_retired_flat_modules_are_gone(legacy_name: str) -> None:
 
 
 def test_packaged_domains_expose_their_public_api() -> None:
-    assert callable(importlib.import_module("app.modules.notifications.push").collect_push_outbound)
+    assert callable(importlib.import_module("app.modules.notifications.push").collect_push_page)
 
 
 def test_language_learning_module_is_gone() -> None:

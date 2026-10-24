@@ -22,6 +22,7 @@ from sympy import (
 )
 
 from app.modules.math.solve.declines import declines, sympy_decline
+from app.modules.math.solve.root_latex import expr_equal
 
 
 @dataclass(frozen=True)
@@ -170,7 +171,7 @@ def equation_check_latex(lhs: Any, rhs: Any, variable: str) -> str | None:
         rational = all(getattr(s, "is_number", False) and bool(s.is_rational) for s in solutions)
     if declined or not rational:
         return None
-    if len(solutions) == 2 and _expr_equal(solutions[0] + solutions[1], 0):
+    if len(solutions) == 2 and expr_equal(solutions[0] + solutions[1], 0):
         pos = simplify(Abs(solutions[0]))
         dummy = Symbol("QQQ")
         left = latex(lhs.subs(var, dummy)).replace("QQQ", rf"(\pm {latex(pos)})")
@@ -181,11 +182,6 @@ def equation_check_latex(lhs: Any, rhs: Any, variable: str) -> str | None:
     return r" \text{ and } ".join(parts)
 
 
-@declines(False)
-def _expr_equal(left: Any, right: Any) -> bool:
-    return bool(simplify(left - right) == 0)
-
-
 def _canonical_root_formula(var: Any, solutions: list[Any]) -> str:
     from app.modules.math.solve.root_latex import compact_root_answer_lines
 
@@ -193,7 +189,7 @@ def _canonical_root_formula(var: Any, solutions: list[Any]) -> str:
     return lines[0] if len(lines) == 1 else r" \text{ or } ".join(lines)
 
 
-def _eq_tex(left: Any, right: Any) -> str:
+def equation_tex(left: Any, right: Any) -> str:
     return f"{latex(left)} = {latex(right)}"
 
 
@@ -203,7 +199,7 @@ def _is_negative_number(val: Any) -> bool:
 
 
 def _is_solved(lhs: Any, rhs: Any, var: Any) -> bool:
-    return _expr_equal(lhs, var) and var not in getattr(rhs, "free_symbols", set())
+    return expr_equal(lhs, var) and var not in getattr(rhs, "free_symbols", set())
 
 
 def _independent(expr: Any, var: Any) -> Any:
@@ -258,16 +254,16 @@ def _cancelled_side_tex(side: Any, divisor: Any) -> str:
     d_tex = str(latex(divisor))
     if divisor == 0:
         return str(latex(side))
-    if _expr_equal(side, divisor):
+    if expr_equal(side, divisor):
         return f"\\frac{{\\cancel{{{d_tex}}}}}{{\\cancel{{{d_tex}}}}}"
     with sympy_decline() as declined:
         # ``0.4x / 0.4`` is ``1.0 x`` until its float factor is read exactly.
         rest = nsimplify(simplify(side / divisor))
     if declined:
         return f"\\frac{{{latex(side)}}}{{{d_tex}}}"
-    if _expr_equal(rest, 1) and _expr_equal(rest * divisor, side):
+    if expr_equal(rest, 1) and expr_equal(rest * divisor, side):
         return f"\\frac{{\\cancel{{{d_tex}}}}}{{\\cancel{{{d_tex}}}}}"
-    if _is_symbol_power_product(rest) and _expr_equal(rest * divisor, side):
+    if _is_symbol_power_product(rest) and expr_equal(rest * divisor, side):
         return f"\\frac{{\\cancel{{{d_tex}}} {latex(rest)}}}{{\\cancel{{{d_tex}}}}}"
     return f"\\frac{{{latex(side)}}}{{{d_tex}}}"
 
@@ -352,8 +348,8 @@ def _linear_key_steps(lhs: Any, rhs: Any, var: Any, poly: Any) -> list[KeyStep]:
     steps: list[KeyStep] = []
     cur_l, cur_r = lhs, rhs
     exp_l, exp_r = expand(cur_l), expand(cur_r)
-    if not _expr_equal(exp_l, cur_l) or not _expr_equal(exp_r, cur_r):
-        steps.append(KeyStep(label="Expand", formula=_eq_tex(exp_l, exp_r)))
+    if not expr_equal(exp_l, cur_l) or not expr_equal(exp_r, cur_r):
+        steps.append(KeyStep(label="Expand", formula=equation_tex(exp_l, exp_r)))
         cur_l, cur_r = exp_l, exp_r
 
     r_dep = _dependent(cur_r, var)
@@ -362,7 +358,7 @@ def _linear_key_steps(lhs: Any, rhs: Any, var: Any, poly: Any) -> list[KeyStep]:
         cur_l = _tidy(simplify(cur_l - r_dep))
         cur_r = _tidy(simplify(cur_r - r_dep))
         if not _is_solved(cur_l, cur_r, var):
-            steps.append(KeyStep(label="Simplify", formula=_eq_tex(cur_l, cur_r)))
+            steps.append(KeyStep(label="Simplify", formula=equation_tex(cur_l, cur_r)))
 
     l_indep = _independent(cur_l, var)
     if l_indep != 0:
@@ -370,7 +366,7 @@ def _linear_key_steps(lhs: Any, rhs: Any, var: Any, poly: Any) -> list[KeyStep]:
         cur_l = _tidy(simplify(cur_l - l_indep))
         cur_r = _tidy(simplify(cur_r - l_indep))
         if not _is_solved(cur_l, cur_r, var):
-            steps.append(KeyStep(label="Simplify", formula=_eq_tex(cur_l, cur_r)))
+            steps.append(KeyStep(label="Simplify", formula=equation_tex(cur_l, cur_r)))
 
     coeff = cur_l.coeff(var) if hasattr(cur_l, "coeff") else c1
     if coeff == 0:
@@ -379,7 +375,7 @@ def _linear_key_steps(lhs: Any, rhs: Any, var: Any, poly: Any) -> list[KeyStep]:
         steps.append(
             KeyStep(
                 label="Multiply both sides by -1",
-                formula=_eq_tex(-cur_l, -cur_r),
+                formula=equation_tex(-cur_l, -cur_r),
                 reason="this changes the sign of both sides",
             )
         )
@@ -445,24 +441,24 @@ def _pure_power_key_steps(lhs: Any, rhs: Any, var: Any, c2: Any, c0: Any) -> lis
         cur_l = simplify(cur_l - l_indep)
         cur_r = simplify(cur_r - l_indep)
         if not _is_solved(cur_l, cur_r, var):
-            steps.append(KeyStep(label="Simplify", formula=_eq_tex(cur_l, cur_r)))
+            steps.append(KeyStep(label="Simplify", formula=equation_tex(cur_l, cur_r)))
 
     leading = cur_l.coeff(var**2) if hasattr(cur_l, "coeff") else c2
     if leading not in (0, 1, -1) and leading is not None:
         steps.append(_divide_both_sides_step(cur_l, cur_r, leading))
         cur_l = simplify(cur_l / leading)
         cur_r = simplify(cur_r / leading)
-        steps.append(KeyStep(label="Simplify", formula=_eq_tex(cur_l, cur_r)))
+        steps.append(KeyStep(label="Simplify", formula=equation_tex(cur_l, cur_r)))
     elif leading == -1:
         steps.append(
             KeyStep(
                 label="Multiply both sides by -1",
-                formula=_eq_tex(-cur_l, -cur_r),
+                formula=equation_tex(-cur_l, -cur_r),
             )
         )
         cur_l, cur_r = simplify(-cur_l), simplify(-cur_r)
 
-    radicand = simplify(cur_r) if _expr_equal(cur_l, var**2) else simplify(-c0 / c2)
+    radicand = simplify(cur_r) if expr_equal(cur_l, var**2) else simplify(-c0 / c2)
     if not getattr(radicand, "is_number", False) or not radicand.is_number:
         return steps
     if radicand < 0:
@@ -548,11 +544,11 @@ def _ordered_factored_tex(factored: Any, var: Any) -> str:
 
 def _factor_trace(lhs: Any, rhs: Any, var: Any, expr: Any, factored: Any) -> list[KeyStep]:
     steps: list[KeyStep] = []
-    if not _expr_equal(rhs, 0):
+    if not expr_equal(rhs, 0):
         steps.append(
             KeyStep(
                 label="Rearrange",
-                formula=_eq_tex(expr, 0),
+                formula=equation_tex(expr, 0),
                 reason="factoring needs one side equal to zero",
             )
         )
@@ -562,12 +558,12 @@ def _factor_trace(lhs: Any, rhs: Any, var: Any, expr: Any, factored: Any) -> lis
             label="Factor the left side",
             formula=f"{_ordered_factored_tex(factored, var)} = 0"
             if factors
-            else _eq_tex(factored, 0),
+            else equation_tex(factored, 0),
         )
     )
     if len(factors) < 1:
         return steps
-    or_parts = [_eq_tex(piece, 0) for piece in factors]
+    or_parts = [equation_tex(piece, 0) for piece in factors]
     steps.append(
         KeyStep(
             label="Set each factor equal to zero",
@@ -599,7 +595,7 @@ def _factor_trace(lhs: Any, rhs: Any, var: Any, expr: Any, factored: Any) -> lis
                 )
             )
     solutions = solve(Eq(expr, 0), var)
-    if len(solutions) == 2 and _expr_equal(solutions[0] + solutions[1], 0):
+    if len(solutions) == 2 and expr_equal(solutions[0] + solutions[1], 0):
         positive = simplify(Abs(solutions[0]))
         final = rf"{latex(var)} = \pm {latex(positive)}"
     else:

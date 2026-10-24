@@ -17,13 +17,11 @@ from app.modules.images.gen_intent import (
     USER_MESSAGE_PREFIX,
     clean_prompt,
     extract_image_gen_prompt,
-    fold_token,
     has_non_image_draw,
     has_non_image_subject,
     is_image_gen_generate_now,
     join_subject,
     names_a_diagram,
-    split_tokens,
     strip_polite,
 )
 from app.modules.images.gen_intent_words import (
@@ -39,6 +37,7 @@ from app.modules.images.gen_intent_words import (
     VERBS_DRAW,
     VERBS_IMAGE,
 )
+from app.services.text_normalize import fold_token
 
 _MODALS = frozenset({"can", "can't", "cant", "cannot", "could", "couldn't", "will", "won't"})
 _YOU = frozenset({"you", "u"})
@@ -54,7 +53,7 @@ def is_image_noun_only_message(text: str) -> bool:
     """True for a bare image ask with no subject: ``Image``, ``a pic``, ``create an image``."""
     if is_image_gen_generate_now(text):
         return False
-    tokens = _strip_doubt(strip_polite(split_tokens(text.strip().rstrip(".!?"))))
+    tokens = _strip_doubt(strip_polite(text.strip().rstrip(".!?").split()))
     if tokens and (tokens[0].lower() in VERBS_IMAGE or tokens[0].lower() in VERBS_DRAW):
         tokens = tokens[1:]
         if tokens and tokens[0].lower() == "me":
@@ -279,10 +278,10 @@ def extract_image_revision_prompt(
     trimmed = text.strip()
     if not trimmed or len(trimmed) > 120:
         return None
-    if not _has_edit_lead_in(split_tokens(trimmed)) and _is_reaction(trimmed):
+    if not _has_edit_lead_in(trimmed.split()) and _is_reaction(trimmed):
         return None
 
-    tokens = _strip_revision_lead_in(split_tokens(trimmed))
+    tokens = _strip_revision_lead_in(trimmed.split())
     if not tokens or len(tokens) > 8:
         return None
     if "?" in trimmed:
