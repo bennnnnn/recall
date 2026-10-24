@@ -4,6 +4,7 @@ export type AstNode = {
   key: string;
   type?: string;
   content?: string;
+  markup?: string;
   attributes?: Record<string, string>;
   children?: AstNode[];
   sourceType?: string;

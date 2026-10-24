@@ -43,6 +43,22 @@ export function tableColumnText(node: AstNode): TableColumnText[] {
   return columns.length > 0 ? columns : [{ longest: 0, longestWord: 0 }];
 }
 
+/** The AST fields a cell's rules read, and its children, as one string. */
+function nodeSource(node: AstNode): string {
+  const fields = [node.type, node.content, node.markup, JSON.stringify(node.attributes ?? {})];
+  return `${fields.join("\u0001")}[${(node.children ?? []).map(nodeSource).join("\u0002")}]`;
+}
+
+/**
+ * What a table row is drawn from: its cells' AST and the kinds of block it
+ * sits in. Two rows with the same source draw the same. Null inside a
+ * blockquote, whose text style reads the whole quote (`inPlainBlockquote`).
+ */
+export function tableRowSource(row: AstNode, parents: AstNode[]): string | null {
+  if (parents.some((parent) => parent.type === "blockquote")) return null;
+  return `${parents.map((parent) => parent.type).join(">")}|${nodeSource(row)}`;
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }

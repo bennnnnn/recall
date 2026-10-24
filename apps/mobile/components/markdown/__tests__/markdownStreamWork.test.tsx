@@ -2,8 +2,9 @@
  * A flush of a streaming reply costs the text that arrived, not the reply so
  * far: the characters handed to `preprocessMarkdown` and to the markdown
  * parser in a flush stay level as the reply grows, the markdown renderer is
- * built when a piece mounts, not on every flush, and a closed fence is not
- * drawn again while the text after it streams. Counted, never timed.
+ * built when a piece mounts, not on every flush, and what is already drawn (a
+ * closed fence, a table's finished rows) is not drawn again while the text
+ * after it streams. Counted, never timed.
  */
 import { act, render } from "@testing-library/react-native";
 
@@ -12,7 +13,7 @@ import { STREAMING_REPLIES } from "@/lib/__tests__/fixtures/streamingReplies";
 import * as preprocess from "@/lib/markdown/preprocess";
 import { formatAssistantMathExpr } from "@/lib/math/formatInput";
 
-const mockWork = { preprocessed: 0, parsed: 0, renderers: 0, mounts: 0, codeBlocks: 0 };
+const mockWork = { preprocessed: 0, parsed: 0, renderers: 0, mounts: 0, codeBlocks: 0, cells: 0 };
 
 jest.mock("@/components/LinkPreviewCard", () => ({ LinkPreviewCard: "LinkPreviewCard" }));
 jest.mock("react-native-markdown-display", () => {
@@ -48,6 +49,15 @@ jest.mock("@/components/CodeBlock", () => {
     return actual.CodeBlock(props);
   }
   return { ...actual, CodeBlock: CountedCodeBlock };
+});
+
+jest.mock("@/components/MarkdownTable", () => {
+  const actual = jest.requireActual<typeof import("@/components/MarkdownTable")>("@/components/MarkdownTable");
+  function CountedCell(props: Parameters<typeof actual.MarkdownTableCell>[0]) {
+    mockWork.cells += 1;
+    return actual.MarkdownTableCell(props);
+  }
+  return { ...actual, MarkdownTableCell: CountedCell };
 });
 
 const realPreprocess = preprocess.preprocessMarkdown;
@@ -138,6 +148,24 @@ describe("a streaming reply's work per flush", () => {
     }
     // Each of the 17 flushes went through the code card again (0.9 ms each in jest).
     expect(drawn).toBe(0);
+    await view.unmount();
+  });
+
+  it("redraws only the table row still being written", async () => {
+    const rows = Array.from({ length: 16 }, (_, i) => `| Plan ${i + 1} | ${i + 1} GB | Email |`);
+    const table = ["| Plan | Storage | Support |", "| --- | --- | --- |", ...rows].join("\n");
+    const view = await render(<MarkdownContent content="" streaming />);
+    const perFlush: number[] = [];
+    for (let end = 16; end <= table.length; end += 16) {
+      mockWork.cells = 0;
+      await act(async () => {
+        view.rerender(<MarkdownContent content={table.slice(0, end)} streaming />);
+      });
+      perFlush.push(mockWork.cells);
+    }
+    // Every flush drew every cell again (33 to 48 a flush over the last ten);
+    // now the row being written, and the one before it as it stops being last.
+    expect(Math.max(...perFlush.slice(-10))).toBeLessThanOrEqual(6);
     await view.unmount();
   });
 });
