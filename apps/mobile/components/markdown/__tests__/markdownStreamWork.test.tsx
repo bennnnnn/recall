@@ -3,8 +3,8 @@
  * far: the characters handed to `preprocessMarkdown` and to the markdown
  * parser in a flush stay level as the reply grows, the markdown renderer is
  * built when a piece mounts, not on every flush, and what is already drawn (a
- * closed fence, a table's finished rows) is not drawn again while the text
- * after it streams. Counted, never timed.
+ * closed fence, a table's finished rows, a list's finished items) is not drawn
+ * again while the text after it streams. Counted, never timed.
  */
 import { act, render } from "@testing-library/react-native";
 
@@ -13,7 +13,7 @@ import { STREAMING_REPLIES } from "@/lib/__tests__/fixtures/streamingReplies";
 import * as preprocess from "@/lib/markdown/preprocess";
 import { formatAssistantMathExpr } from "@/lib/math/formatInput";
 
-const mockWork = { preprocessed: 0, parsed: 0, renderers: 0, mounts: 0, codeBlocks: 0, cells: 0 };
+const mockWork = { preprocessed: 0, parsed: 0, renderers: 0, mounts: 0, codeBlocks: 0, cells: 0, codeSpans: 0 };
 
 jest.mock("@/components/LinkPreviewCard", () => ({ LinkPreviewCard: "LinkPreviewCard" }));
 jest.mock("react-native-markdown-display", () => {
@@ -58,6 +58,17 @@ jest.mock("@/components/MarkdownTable", () => {
     return actual.MarkdownTableCell(props);
   }
   return { ...actual, MarkdownTableCell: CountedCell };
+});
+
+jest.mock("@/components/markdown/InlineCode", () => {
+  const actual = jest.requireActual<typeof import("@/components/markdown/InlineCode")>(
+    "@/components/markdown/InlineCode",
+  );
+  function CountedInlineCode(props: Parameters<typeof actual.InlineCode>[0]) {
+    mockWork.codeSpans += 1;
+    return actual.InlineCode(props);
+  }
+  return { ...actual, InlineCode: CountedInlineCode };
 });
 
 const realPreprocess = preprocess.preprocessMarkdown;
@@ -170,6 +181,28 @@ describe("a streaming reply's work per flush", () => {
     expect(mockWork.preprocessed).toBeGreaterThan(0);
     await view.unmount();
   }, 300_000);
+
+  it("redraws only the list item still being written", async () => {
+    // A numbered list is not cut before item 11, so it stays in the live piece.
+    const items = Array.from(
+      { length: 10 },
+      (_, i) => `${i + 1}. **Step ${i + 1}** – run \`step_${i + 1}()\` and check what it returns before you go on.`,
+    );
+    const list = `Here is the plan.\n\n${items.join("\n")}\n`;
+    const view = await render(<MarkdownContent content="" streaming />);
+    const perFlush: number[] = [];
+    for (let end = 16; end <= list.length; end += 16) {
+      mockWork.codeSpans = 0;
+      await act(async () => {
+        view.rerender(<MarkdownContent content={list.slice(0, end)} streaming />);
+      });
+      perFlush.push(mockWork.codeSpans);
+    }
+    // Every flush drew every item's code span again (8 to 10 a flush over the last
+    // ten). Now one flush does: item 10 widens the number column of every item.
+    expect(perFlush.slice(-10).filter((spans) => spans > 2)).toHaveLength(1);
+    await view.unmount();
+  });
 
   it("redraws only the table row still being written", async () => {
     const rows = Array.from({ length: 16 }, (_, i) => `| Plan ${i + 1} | ${i + 1} GB | Email |`);
