@@ -78,22 +78,17 @@ async def _embed_and_store(settings: Settings, user_id: UUID, messages: list[Mes
         vec is None or len(vec) != chunks_repo.EMBEDDING_DIM for vec in vectors
     ):
         raise HistoryEmbeddingUnavailable(f"{len(texts)} pieces, not every one embedded")
-    stored = 0
+    rows = []
+    offset = 0
+    for message, pieces in planned:
+        chunk_vectors = vectors[offset : offset + len(pieces)]
+        offset += len(pieces)
+        chunks = list(zip(range(len(pieces)), pieces, chunk_vectors, strict=True))
+        rows.append((message.id, message.chat_id, message.role, chunks))
+    stored = offset
     async with SessionLocal() as session:
-        offset = 0
-        for message, pieces in planned:
-            chunk_vectors = vectors[offset : offset + len(pieces)]
-            offset += len(pieces)
-            await chunks_repo.replace_chunks(
-                session,
-                user_id=user_id,
-                message_id=message.id,
-                chat_id=message.chat_id,
-                role=message.role,
-                chunks=list(zip(range(len(pieces)), pieces, chunk_vectors, strict=True)),
-                commit=False,
-            )
-            stored += len(pieces)
+        # One delete and one insert for the turn's two messages, not two of each.
+        await chunks_repo.replace_chunks_of_messages(session, user_id=user_id, messages=rows)
         await chunks_repo.prune_beyond_window(
             session, user_id, window=settings.chat_history_rag_search_window
         )
