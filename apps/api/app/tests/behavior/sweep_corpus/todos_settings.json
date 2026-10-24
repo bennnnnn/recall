@@ -451,32 +451,32 @@
   "area": "settings",
   "prompt": "change the language to Spanish",
   "history": [],
-  "reply": "I can switch that for you: Language → Spanish.\n\n```settings_proposal\n{\"proposal_id\": \"1a7e4b9c-3d2f-4e8a-b6c5-9f0d1e2a3b44\", \"changes\": [{\"field\": \"locale\", \"value\": \"es\", \"label\": \"Spanish\"}]}\n```",
-  "expect": "settings"
+  "reply": "You can change the language in Settings → Language.",
+  "expect": "answer"
  },
  {
   "id": "td-050",
   "area": "settings",
   "prompt": "be more casual",
   "history": [],
-  "reply": "I can switch that for you: Tone → Casual.\n\n```settings_proposal\n{\"proposal_id\": \"c4b2e8f1-7a9d-4c3e-8b5f-0a1d2c3e4f57\", \"changes\": [{\"field\": \"response_tone\", \"value\": \"casual\", \"label\": \"Casual\"}]}\n```",
-  "expect": "settings"
+  "reply": "Sure, I'll keep it casual. 😊",
+  "expect": "answer"
  },
  {
   "id": "td-051",
   "area": "settings",
   "prompt": "use the pro model by default",
   "history": [],
-  "reply": "I can switch that for you: Model → Pro.\n\n```settings_proposal\n{\"proposal_id\": \"e9f0a1b2-c3d4-4e5f-9a6b-7c8d9e0f1a62\", \"changes\": [{\"field\": \"default_model\", \"value\": \"smart-chat\", \"label\": \"Pro\"}]}\n```",
-  "expect": "settings"
+  "reply": "You can pick the model in Settings → Models.",
+  "expect": "answer"
  },
  {
   "id": "td-052",
   "area": "settings",
   "prompt": "reply in Amharic from now on",
   "history": [],
-  "reply": "I can switch that for you: Language → Amharic.\n\n```settings_proposal\n{\"proposal_id\": \"5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d79\", \"changes\": [{\"field\": \"locale\", \"value\": \"am\", \"label\": \"Amharic\"}]}\n```",
-  "expect": "settings"
+  "reply": "እሺ፣ ከአሁን ጀምሮ በአማርኛ እመልሳለሁ።",
+  "expect": "answer"
  },
  {
   "id": "td-053",
@@ -1179,8 +1179,16 @@
   "area": "settings",
   "prompt": "switch to GLM",
   "history": [],
-  "reply": "Sure. Tap Confirm to make GLM 5.3 Flash your default model.",
-  "expect": "settings"
+  "reply": "You can pick the model in Settings → Models.",
+  "expect": "answer"
+ },
+ {
+  "id": "td-127",
+  "area": "settings",
+  "prompt": "2 plus 2",
+  "history": [],
+  "reply": "2 + 2 = 4",
+  "expect": "answer"
  },
  {
   "id": "td-121",

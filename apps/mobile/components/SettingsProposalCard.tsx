@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/ui/controls/Button";
 import { useSettingsProposal } from "@/hooks/useSettingsProposal";
-import { isMemoryProposal, type SettingsProposal } from "@/lib/settingsProposal";
+import type { SettingsProposal } from "@/lib/settingsProposal";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
@@ -23,7 +23,6 @@ export function SettingsProposalCard({ proposal, disabled }: Props) {
   const s = makeStyles(theme);
   const { busy, done, confirm } = useSettingsProposal(proposal);
   const [error, setError] = useState<string | null>(null);
-  const memory = isMemoryProposal(proposal);
 
   const onConfirm = async () => {
     if (busy || done || disabled) return;
@@ -52,7 +51,7 @@ export function SettingsProposalCard({ proposal, disabled }: Props) {
         </View>
       ) : (
         <Button
-          title={t(memory ? "settings.proposal_memory_confirm" : "settings.proposal_confirm")}
+          title={t("settings.proposal_confirm")}
           onPress={() => void onConfirm()}
           loading={busy}
           disabled={disabled}

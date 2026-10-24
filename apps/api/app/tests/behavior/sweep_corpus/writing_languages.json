@@ -329,8 +329,8 @@
   "area": "settings",
   "prompt": "change the app language to amharic",
   "history": [],
-  "reply": "Done — the app language is now **Amharic (አማርኛ)**.",
-  "expect": "settings"
+  "reply": "You can change the app language in Settings → Language.",
+  "expect": "answer"
  },
  {
   "id": "w2-037",
@@ -361,8 +361,8 @@
   "area": "settings",
   "prompt": "from now on i want warmer replies, change my tone setting to warm",
   "history": [],
-  "reply": "Done — your reply tone is now set to **warm**. 😊",
-  "expect": "settings"
+  "reply": "You can change the tone in Settings → Personalization.",
+  "expect": "answer"
  },
  {
   "id": "w2-041",

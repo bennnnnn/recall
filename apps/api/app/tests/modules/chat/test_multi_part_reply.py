@@ -206,7 +206,7 @@ async def test_settings_card_for_the_settings_part() -> None:
     assert card == _CARD
     call = materialize.await_args
     assert call is not None
-    changes = call.args[3]
+    changes = call.args[2]
     assert [(change.field, change.value) for change in changes] == [("appearance", "dark")]
 
 

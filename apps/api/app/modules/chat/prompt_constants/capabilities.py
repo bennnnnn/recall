@@ -13,6 +13,48 @@ PHOTO_LOOKUP_HINT = (
     "sentence. Never invent image links."
 )
 
+# The theme is the one setting a chat line changes (its card, settings_proposal); the
+# model once offered "I can switch that for you" for the model, tone and language.
+SETTINGS_IN_APP_HINT = (
+    "Settings: from chat you can switch only the app theme (light, dark or the system's); "
+    "the app adds a card for that. You cannot change any other setting: the model, tone, "
+    "emoji, language, memory, voice or notifications. When asked, say in one short line "
+    "where the user changes it (Settings → Models, Personalization, Language, Memory, "
+    "Voice or Notifications), and never say you changed it. Writing differently in this "
+    "chat (more casual, or in another language) needs no setting: just do it."
+)
+
+# Beside a message that names a setting: "use the pro model by default" got "Got it, I'll
+# use the pro model by default" with the rule above only in the opening system message.
+SETTINGS_ASK_REMINDER = (
+    "If this message asks to change a setting, you cannot change it from chat (only the "
+    "theme): say in one short line where in Settings the user changes it, and never say "
+    "you changed it, switched it or will use it from now on."
+)
+_SETTING_WORDS = frozenset(
+    {
+        "model",
+        "models",
+        "tone",
+        "emoji",
+        "emojis",
+        "language",
+        "memory",
+        "voice",
+        "notifications",
+        "setting",
+        "settings",
+        "default",
+    }
+)
+
+
+def names_a_setting(text: str | None) -> bool:
+    """True when ``text`` uses a word for one of the app's settings."""
+    words = {word.strip(".,!?;:'\"").lower() for word in (text or "").split()}
+    return bool(words & _SETTING_WORDS)
+
+
 # Home-chip prompts (all shipped locales) plus short paraphrases.
 _CAPABILITIES_EXACT = (
     "what can you help me with? give a few concrete examples.",

@@ -144,7 +144,6 @@ const SAME_WORD: Record<Locale, readonly string[]> = {
     "rich.chemistry_element",
     "rich.chemistry_ideal_angle",
     "settings.emoji",
-    "settings.field_default_model",
     "settings.plan_label",
   ],
 };

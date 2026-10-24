@@ -22,6 +22,7 @@ from app.modules.chat.prompt_constants import (
     FACT_GROUNDING_HINT,
     PERSONAL_DISCLOSURE_HINT,
     PHOTO_LOOKUP_HINT,
+    SETTINGS_IN_APP_HINT,
     STYLE_HINTS,
     TONE_FORMAT_GUARD,
     UNCLEAR_MESSAGE_HINT,
@@ -29,13 +30,13 @@ from app.modules.chat.prompt_constants import (
 )
 from app.modules.chat.prompt_inject import append_after_history, conversation_turns
 from app.modules.chat.prompt_repeats import REPLY_POLICIES, last_policy_parts, policies_once
+from app.modules.chat.response_tone import EMOJI_HINTS, TONE_HINTS
 from app.modules.chat.stream_pipeline import _prior_window
 from app.modules.chat.tool_loop.results import ToolResults
 from app.modules.chat.tool_loop.rounds import _hand_off
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.physics import PHYSICS_REPLY_POLICY
 from app.modules.web_search import WEB_SEARCH_HINT
-from app.services.response_tone import EMOJI_HINTS, TONE_HINTS
 from app.tests.behavior import harness
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.sweep import frozen_clock
@@ -122,6 +123,7 @@ async def test_the_marked_message_is_the_same_on_every_kind_of_turn_for_one_user
                 EMOJI_HINTS["some"],
                 TONE_FORMAT_GUARD,
                 UNCLEAR_MESSAGE_HINT,
+                SETTINGS_IN_APP_HINT,
             )
         )
     }

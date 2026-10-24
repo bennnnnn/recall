@@ -1,7 +1,8 @@
-"""Extract allowlisted settings changes from a chat line.
+"""The one setting a chat line changes: the theme ("switch to dark mode").
 
-Linear token / phrase scans only — no ``\\s+`` / ``.+`` regex on user text
-(CodeQL ``py/polynomial-redos``).
+Every other setting (model, tone, language, memory) is changed by hand in Settings;
+no chat line proposes it. Linear token / phrase scans only — no ``\\s+`` / ``.+``
+regex on user text (CodeQL ``py/polynomial-redos``).
 """
 
 from __future__ import annotations
@@ -10,38 +11,9 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from app.core.validation import LOCALE_NAMES
-from app.modules.account.model_words import brand_model, model_ids, tier_model
 from app.services.draft_fences import has_draft
-from app.services.response_tone import TONE_IDS
 
-# "memory" is a reset the chat proposes ("off" or "clear"); see settings_proposal.
-SettingsField = Literal["appearance", "default_model", "response_tone", "locale", "memory"]
-
-_TONE_NICKNAMES: dict[str, str] = {
-    "funny": "funny",
-    "funnier": "funny",
-    "funniest": "funny",
-    "humor": "funny",
-    "humour": "funny",
-    "humorous": "funny",
-    "playful": "funny",
-    "witty": "funny",
-    "professional": "professional",
-    "formal": "professional",
-    "serious": "professional",
-    "casual": "casual",
-    "relaxed": "casual",
-    "chill": "casual",
-    "soft": "soft",
-    "softer": "soft",
-    "gentle": "soft",
-    "gentler": "soft",
-    "kind": "soft",
-    "kinder": "soft",
-    "warm": "soft",
-    "warmer": "soft",
-}
+SettingsField = Literal["appearance"]
 
 _APPEARANCE_NICKNAMES: dict[str, str] = {
     "dark": "dark",
@@ -54,26 +26,6 @@ _APPEARANCE_NICKNAMES: dict[str, str] = {
     # way to undo an explicit light/dark choice via chat. ("auto" is NOT
     # aliased here — it collides with the "auto" model alias.)
     "default": "system",
-}
-
-_LANGUAGE_NICKNAMES: dict[str, str] = {
-    "english": "en",
-    "spanish": "es",
-    "espanol": "es",
-    "español": "es",
-    "french": "fr",
-    "francais": "fr",
-    "français": "fr",
-    "german": "de",
-    "deutsch": "de",
-    "italian": "it",
-    "italiano": "it",
-    "portuguese": "pt",
-    "portugues": "pt",
-    "português": "pt",
-    "russian": "ru",
-    "turkish": "tr",
-    "amharic": "am",
 }
 
 _CHANGE_CUES = frozenset(
@@ -111,22 +63,7 @@ _CONTENT_VERBS = frozenset(
     }
 )
 
-_SETTINGS_NOUNS = frozenset(
-    {
-        "theme",
-        "appearance",
-        "mode",
-        "model",
-        "models",
-        "tone",
-        "humour",
-        "humor",
-        "language",
-        "locale",
-        "setting",
-        "settings",
-    }
-)
+_SETTINGS_NOUNS = frozenset({"theme", "appearance", "mode", "setting", "settings"})
 
 _PUNCT = frozenset("?!.,;:\"'`")
 
@@ -282,19 +219,6 @@ def _revises_prior_draft(tokens: list[str], prior_assistant: str | None) -> bool
     return len(tokens) <= _SHORT_DRAFT_EDIT or any(word in _REVISION_REFERENCES for word in tokens)
 
 
-def _persistent_language(tokens: list[str]) -> str | None:
-    """ "Reply in Amharic from now on" sets the language; "reply in Amharic" is one answer."""
-    if len(tokens) > _MAX_COMMAND_TOKENS:
-        return None
-    if not (_window_has(tokens, "now", "on") or "always" in tokens):
-        return None
-    for index, token in enumerate(tokens[1:], start=1):
-        nick = _LANGUAGE_NICKNAMES.get(token)
-        if nick is not None and tokens[index - 1] == "in":
-            return nick
-    return None
-
-
 def _asks_a_question(tokens: list[str], *, asked: bool = False) -> bool:
     """ "Is the pro model worth it?" or "dark mode vs light mode?" asks; it changes nothing."""
     return bool(tokens) and (
@@ -335,78 +259,10 @@ def _extract_appearance(tokens: list[str]) -> str | None:
     return None
 
 
-def _extract_model(tokens: list[str]) -> str | None:
-    for index, token in enumerate(tokens):
-        if token in model_ids():
-            return token
-        named = tier_model(token)
-        brand = named is None
-        if brand:
-            named = brand_model(tokens, index)
-        if named is None:
-            continue
-        nxt = tokens[index + 1] if index + 1 < len(tokens) else ""
-        prev = tokens[index - 1] if index > 0 else ""
-        if nxt in {"model", "mode", "chat"} or prev in {"model", "to", "use", "on"}:
-            return named
-        # A brand is a name too ("call me Claude"): it counts only in a model's place.
-        if not brand and (
-            _has_change_cue(tokens) or _has_settings_noun(tokens) or len(tokens) <= 3
-        ):
-            return named
-    return None
-
-
-def _extract_tone(tokens: list[str]) -> str | None:
-    for index, token in enumerate(tokens):
-        nick = _TONE_NICKNAMES.get(token)
-        if nick is None:
-            continue
-        prev = tokens[index - 1] if index > 0 else ""
-        nxt = tokens[index + 1] if index + 1 < len(tokens) else ""
-        if prev in {"be", "more", "less", "sound", "tone"} or nxt == "tone":
-            return nick
-        # "change my tone setting to warm"
-        if prev == "to" and "tone" in tokens:
-            return nick
-        if token in TONE_IDS and (_has_change_cue(tokens) or nxt == "tone" or len(tokens) <= 3):
-            return nick
-        if token in {"funnier", "softer", "gentler", "kinder", "warmer"}:
-            return nick
-    return None
-
-
-def _extract_locale(tokens: list[str]) -> str | None:
-    for index, token in enumerate(tokens):
-        if token in LOCALE_NAMES:
-            prev = tokens[index - 1] if index > 0 else ""
-            # Bare ISO codes collide with English ("it", "am"). Need a language cue.
-            if prev in {"language", "locale"}:
-                return token
-            if prev == "to" and ("language" in tokens or "locale" in tokens):
-                return token
-        nick = _LANGUAGE_NICKNAMES.get(token)
-        if nick is None:
-            continue
-        prev = tokens[index - 1] if index > 0 else ""
-        nxt = tokens[index + 1] if index + 1 < len(tokens) else ""
-        if (
-            prev in {"to", "in", "language", "locale", "speak"}
-            or nxt in {"language", "please"}
-            or "language" in tokens
-            or "locale" in tokens
-        ):
-            return nick
-        # Short "use Spanish" / "Spanish please" only — not "make a plan to learn Spanish".
-        if prev in {"use", "set"} and len(tokens) <= 4:
-            return nick
-    return None
-
-
 def extract_settings_changes(
     content: str, *, prior_assistant: str | None = None
 ) -> list[SettingsChange]:
-    """Return allowlisted changes, or empty if this is not a settings command.
+    """The theme change a chat line asks for, or empty if it asks for none.
 
     "Switch to dark mode pls, writing in bed and the screen is blinding" says
     the command in its first clause; each clause is read when the whole is not.
@@ -420,7 +276,6 @@ def extract_settings_changes(
         return []
     for clause in _CLAUSE_BREAK.split(content):
         # Only a clause that opens with a verb: "switch to dark mode pls, …".
-        # "Birthday wishes for my boss, professional but warm" asks for a text.
         words = _tokens(clause)
         if not words or words[0] not in _CHANGE_CUES:
             continue
@@ -432,41 +287,10 @@ def extract_settings_changes(
 
 def _changes_in(content: str, prior_assistant: str | None) -> list[SettingsChange]:
     tokens = _tokens(content)
-    persistent = _persistent_language(tokens)
-    if persistent is not None:
-        return [SettingsChange("locale", persistent)]
     asked = content.rstrip().endswith("?")
     if not _looks_like_command(tokens) or _asks_a_question(tokens, asked=asked):
         return []
     if _revises_prior_draft(tokens, prior_assistant):
         return []
-
-    found: list[SettingsChange] = []
-    seen: set[SettingsField] = set()
-
     appearance = _extract_appearance(tokens)
-    if appearance is not None:
-        found.append(SettingsChange("appearance", appearance))
-        seen.add("appearance")
-
-    model = _extract_model(tokens)
-    if model is not None:
-        found.append(SettingsChange("default_model", model))
-        seen.add("default_model")
-
-    tone = _extract_tone(tokens)
-    if tone is not None:
-        found.append(SettingsChange("response_tone", tone))
-        seen.add("response_tone")
-
-    locale = _extract_locale(tokens)
-    if locale is not None:
-        found.append(SettingsChange("locale", locale))
-        seen.add("locale")
-
-    if not found:
-        return []
-    # A lone language word in a long-ish line without a cue is too easy to misfire.
-    if seen == {"locale"} and not _has_change_cue(tokens) and "language" not in tokens:
-        return []
-    return found
+    return [] if appearance is None else [SettingsChange("appearance", appearance)]

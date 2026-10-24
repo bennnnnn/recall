@@ -55,7 +55,7 @@ _COPY_MODULES = (
     "app.modules.physics.followup",
     "app.modules.chemistry.reply_policy",
     "app.modules.chemistry.followup",
-    "app.services.response_tone",
+    "app.modules.chat.response_tone",
 )
 # Packages whose every module is read too: a constant counts whether or not the
 # package re-exports it.

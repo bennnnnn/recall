@@ -1,8 +1,4 @@
-import {
-  isMemoryProposal,
-  parseSettingsProposals,
-  stripSettingsProposalFences,
-} from "@/lib/settingsProposal";
+import { parseSettingsProposals, stripSettingsProposalFences } from "@/lib/settingsProposal";
 
 describe("settingsProposal", () => {
   it("parses and strips settings_proposal fences", () => {
@@ -22,21 +18,16 @@ describe("settingsProposal", () => {
     );
   });
 
-  it("reads a memory reset card the chat proposes", () => {
-    const content = [
-      "I can delete everything Recall has saved about you. This can't be undone.",
-      "```settings_proposal",
-      '{"proposal_id":"m1","changes":[{"field":"memory","value":"clear","label":"Delete everything saved"}]}',
-      "```",
-    ].join("\n");
-
-    const [proposal] = parseSettingsProposals(content);
-    expect(proposal?.changes[0]).toEqual({
-      field: "memory",
-      value: "clear",
-      label: "Delete everything saved",
-    });
-    expect(proposal && isMemoryProposal(proposal)).toBe(true);
+  it("draws no card for another setting: chat changes only the theme", () => {
+    for (const field of ["memory", "default_model", "response_tone", "locale"]) {
+      const content = [
+        "I can switch that for you.",
+        "```settings_proposal",
+        `{"proposal_id":"m1","changes":[{"field":"${field}","value":"x","label":"X"}]}`,
+        "```",
+      ].join("\n");
+      expect(parseSettingsProposals(content)).toEqual([]);
+    }
   });
 
   it("drops fences without a proposal id", () => {

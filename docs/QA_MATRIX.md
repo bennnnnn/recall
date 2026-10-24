@@ -158,7 +158,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 
 | # | Test | iOS | Android | Notes |
 |---|------|-----|---------|-------|
-| 11.1 | Settings proposal card appears (e.g. "switch to dark mode") | ☐ | ☐ | Accept applies; reject dismisses |
+| 11.1 | Settings proposal card appears (e.g. "switch to dark mode") | ☐ | ☐ | Accept applies; reject dismisses. Only the theme: "use the pro model", "be funnier" or "reply in Spanish from now on" get no card and the reply names the Settings page |
 | 11.2 | Appearance change via chat (dark/light/system incl. "default") | ☐ | ☐ | "default" → system; no "could not update" error |
 | 11.3 | Follow-up questions appear under a real question's answer | ☐ | ☐ | Up to three one-line questions on the same topic; none after small talk, a draft or a reminder; tap sends it |
 | 11.4 | Custom instructions in Settings → Personalization applied to prompts | ☐ | ☐ | Verify via a prompt that reflects them |

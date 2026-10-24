@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useAppearance } from "@/contexts/AppearanceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { normalizeAppearancePreference, type AppearancePreference } from "@/lib/appearance";
-import { emitAppEvent } from "@/lib/appEvents";
 import { api } from "@/lib/api";
 import { writeCachedUser } from "@/lib/cachedUser";
 import type { SettingsProposal } from "@/lib/settingsProposal";
@@ -27,10 +26,6 @@ export function useSettingsProposal(proposal: SettingsProposal) {
       void writeCachedUser(result.user);
       if (result.appearance && isAppearance(result.appearance)) {
         await setPreference(normalizeAppearancePreference(result.appearance));
-      }
-      if (result.applied.some((change) => change.field === "memory")) {
-        // Memory was cleared or turned off: the Memory pages read fresh.
-        emitAppEvent("memoryChanged", {});
       }
       setDone(true);
       return true;
