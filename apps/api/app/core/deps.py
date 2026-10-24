@@ -29,14 +29,15 @@ async def get_settings_dep() -> Settings:
     return get_settings()
 
 
-async def get_redis_dep() -> Redis:
+async def get_redis() -> Redis:
+    """The Redis client. Async, so FastAPI resolves it on the loop, not in a worker thread."""
     return get_redis_client()
 
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     settings: Settings = Depends(get_settings_dep),
-    redis: Redis = Depends(get_redis_dep),
+    redis: Redis = Depends(get_redis),
     session: AsyncSession = Depends(get_db),
 ) -> User:
     try:
@@ -63,7 +64,3 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     user_cache.remember_user(user, access.user_generation)
     return user
-
-
-def get_redis() -> Redis:
-    return get_redis_client()
