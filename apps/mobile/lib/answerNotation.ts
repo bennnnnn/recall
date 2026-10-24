@@ -12,7 +12,12 @@
  * - `part: a` — the card answers one part of a question in parts; it draws "Answer (a)".
  *   The phone writes it from the "**Answer (a)**" heading above the card
  *   (lib/markdown/attachAnswerHeading.ts).
+ *
+ * The value is the final answer alone: a calculation before it (`4 × 4 = 16`) is
+ * working and left out (lib/cardValue.ts), on old cards too.
  */
+
+import { finalAnswerOnly } from "@/lib/cardValue";
 
 type AnswerNotation = "math" | "chemistry";
 
@@ -49,7 +54,7 @@ export function splitAnswerNotation(raw: string): {
   const part = [...headers].map((header) => PART_LINE.exec(header)?.[1]).find(Boolean);
   return {
     notation: headers.has(CHEMISTRY_ANSWER_NOTATION) ? "chemistry" : "math",
-    body: lines.join("\n").trim(),
+    body: finalAnswerOnly(lines.join("\n").trim()),
     verified: headers.has(VERIFIED_ANSWER_MARKER),
     ...(part ? { part } : {}),
   };

@@ -12,6 +12,7 @@ from app.modules.math.solve.teaching_algebra import polynomial_division
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.extract import extract_math_intent
+from app.tests.modules.math.card_support import card_with_working
 
 
 def _settings() -> Settings:
@@ -70,7 +71,7 @@ def test_seven_plus_five_is_one_equation():
     assert block.display_answer == "7 + 5 = 12"
     # One answer line, under a picture of objects to count.
     reply = maybe_direct_math_reply(block, "7+5") or ""
-    assert reply.endswith("```answer\n7 + 5 = 12\n```\n")
+    assert reply.endswith(card_with_working("7 + 5 = 12", "7+5"))
     assert reply.count("```answer") == 1
     assert '"type":"counting"' in reply
 
@@ -90,7 +91,8 @@ def test_a_single_digit_sum_is_one_forward_equation(text, equation, value):
     assert block.display_answer == equation
     assert all(fence.get("type") != "number_bond" for fence in block.canonical_fences)
     reply = maybe_direct_math_reply(block, text)
-    assert reply is not None and reply.endswith(f"```answer\n{equation}\n```\n")
+    # The sum reads forward above the card; the card holds the answer alone.
+    assert reply is not None and reply.endswith(card_with_working(equation, text))
     from app.modules.math.fence import validate_math_fences
     from app.modules.math.response_intent import classify_math_response_intent
 
@@ -99,7 +101,8 @@ def test_a_single_digit_sum_is_one_forward_equation(text, equation, value):
         verified=replace(block, response_intent=classify_math_response_intent(text)),
     )
     assert shown.count("```answer") == 1
-    assert equation in shown
+    working = equation.removesuffix(f" = {value}")
+    assert f"${working}$" in shown and f"```answer\nverified: true\n{value}\n```" in shown
     assert "number_bond" not in shown
 
 
@@ -117,7 +120,7 @@ def test_each_operation_is_the_same_equation_line(text, equation, value):
     assert block.canonical_answer == value
     assert block.display_answer == equation
     reply = maybe_direct_math_reply(block, text) or ""
-    assert reply.endswith(f"```answer\n{equation}\n```\n")
+    assert reply.endswith(card_with_working(equation, text))
     assert reply.count("```answer") == 1
     # Objects to count, not the old dot array.
     assert '"type":"array"' not in reply
@@ -145,7 +148,7 @@ def test_a_chain_uses_the_same_equation_line(text, equation, value):
     _intent, block = _block(text)
     assert block.canonical_answer == value
     assert block.display_answer == equation
-    assert maybe_direct_math_reply(block, text) == f"```answer\n{equation}\n```\n"
+    assert maybe_direct_math_reply(block, text) == card_with_working(equation, text)
 
 
 def test_polynomial_and_synthetic_division_agree():
@@ -232,7 +235,7 @@ def test_model_path_keeps_the_picture_unless_only_the_answer_was_requested():
         "Seven plus five is twelve.",
         verified=replace(block, response_intent=classify_math_response_intent("7+5")),
     )
-    assert "7 + 5 = 12" in shown
+    assert "```answer\nverified: true\n12\n```" in shown
     assert "ten_frame" not in shown
     hidden = validate_math_fences(
         "12",

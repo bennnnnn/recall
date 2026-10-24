@@ -19,6 +19,7 @@ from app.modules.math.tools import (
     wants_math_explanation,
 )
 from app.modules.math.tools.lesson import format_equation_lesson_reply
+from app.tests.modules.math.card_support import card_with_working
 
 
 def _block(text: str):
@@ -59,9 +60,7 @@ def test_show_steps_phrase_is_an_explanation_request() -> None:
 def test_seven_times_eight_is_a_bare_chip() -> None:
     text = "7*8"
     reply = maybe_direct_math_reply(_block(text), text)
-    assert reply is not None
-    assert reply.startswith("```answer")
-    assert "56" in reply
+    assert reply == card_with_working("7 × 8 = 56", text)
     assert "Given" not in reply
 
 
