@@ -114,6 +114,8 @@ LOOKALIKE_HINTS = {
     "detail lookalike": "detail",
     "continue lookalike": "continue",
     "chart lookalike": "chart",
+    # A sentence with a few numbers in it, or a list that asks something.
+    "numbers lookalike": "shared_numbers",
     "quiz lookalike": "quiz",
     "checklist lookalike": "checklist",
     # "Label: value" lines with no card before them are not picks.
