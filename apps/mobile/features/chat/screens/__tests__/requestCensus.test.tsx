@@ -224,7 +224,8 @@ const USER = {
   id: USER_ID, email: "a@b.c", name: "Ann", avatar_url: null, default_model: "auto", plan: "free",
   features: [], enabled_models: null, ai_data_consent_at: NOW, response_tone: "", memory_enabled: true,
   push_notifications_enabled: true, push_reminders_enabled: true, reminder_lead_minutes: 0, locale: "en",
-  timezone: "UTC", location: null, location_enabled: false, custom_instructions: null, age: null,
+  // The device's own zone (lib/deviceTimezone): a profile in another is patched on start.
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, location: null, location_enabled: false, custom_instructions: null, age: null,
   country: null, job: null, created_at: NOW,
 };
 const uuid = (kind: number, n: number) => `00000000-0000-4000-8${kind}00-${String(n).padStart(12, "0")}`;
