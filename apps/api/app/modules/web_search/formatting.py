@@ -12,6 +12,7 @@ from app.modules.web_search.patterns import (
     _NUMBERED_VENUE_LINE,
     _PRICE_RE,
 )
+from app.modules.web_search.source_tables import flowed_snippet
 from app.services.md_fence_scan import (
     iter_fences,
     strip_closed_fences,
@@ -92,7 +93,7 @@ def format_search_block(
             f"{team} — do not attribute other teams' World Cup results to them."
         )
     for index, hit in enumerate(hits, start=1):
-        snippet = hit.snippet.replace("\n", " ").strip()
+        snippet = flowed_snippet(hit.snippet, indent="   ")
         lines.append(f"{index}. {hit.title} ({hit.url}) — {snippet}")
     if local_places:
         seed = places_payload_from_hits(hits)
