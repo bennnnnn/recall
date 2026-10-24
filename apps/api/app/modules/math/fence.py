@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
@@ -37,6 +36,9 @@ from app.modules.math.fence_graph import densify_sparse_graph
 from app.modules.math.schemas import GraphBlockSpec
 from app.modules.math.text_plot import strip_text_plots
 from app.modules.math.tools.direct_counting import verified_counting_fence
+from app.modules.math.unverified_note import (
+    append_unverified_math_note as append_unverified_math_note,
+)
 from app.services.answer_check import correction_line, stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
@@ -608,29 +610,3 @@ def validate_math_fences_worker(
 ) -> str:
     """Picklable entry for ``app.core.sympy_executor.run_sympy`` (positional args only)."""
     return validate_math_fences(content, verified=verified, correct=correct)
-
-
-# The disclaimer, italic or plain, alone or at the end of the answer.
-_UNVERIFIED_PHRASE = re.compile(
-    r"(?i)[ \t]*\*?[ \t]*"
-    r"(?:"
-    r"i could(?:n't| not) (?:automatically )?verify this(?: result)?\.?"
-    r"|couldn't verify this with sympy\.?"
-    r"|this (?:result|answer) (?:is|was) not verified\.?"
-    r")"
-    r"[ \t]*\*?[ \t]*"
-)
-
-
-def append_unverified_math_note(content: str) -> str:
-    """Remove a couldn't-verify sentence. Never add one.
-
-    This runs on every reply, including one the solver did not check. A
-    verified reply shows a check. Nothing in the chat says the result was
-    not verified.
-    """
-    if not content or not content.strip():
-        return content
-    plain = content.replace("\u2019", "'")
-    without = _UNVERIFIED_PHRASE.sub("", plain)
-    return re.sub(r"\n{3,}", "\n\n", without).strip()
