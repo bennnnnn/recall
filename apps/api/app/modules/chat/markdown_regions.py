@@ -128,6 +128,9 @@ def display_math_lines(lines: list[str]) -> list[bool]:
 
 def _display_closer(line: str, closer: str | None) -> str | None:
     """The display closer (``$$`` or ``\\]``) still awaited after ``line``."""
+    if "$" not in line and "\\" not in line:
+        # Nothing here opens or closes one (a code span only moves the scan along).
+        return closer
     index = 0
     # The backslashes just before ``index``, counted as the scan passes them: an odd run
     # escapes the character there (``escaped_at``, which counted back from every index and

@@ -8,6 +8,8 @@ phone's twin is apps/mobile/lib/markdown/inlineBoundaries.ts.
 
 from __future__ import annotations
 
+import re
+
 from app.modules.chat.inline_code import code_span_opens_within, escaped_at, is_bare_number
 from app.modules.chat.markdown_regions import (
     PRICE_TIER,
@@ -206,11 +208,22 @@ def _emit(out: list[str], span: str, nxt: str) -> None:
         out.append(" ")
 
 
+# A run of characters no branch below acts on: none starts a command, a URL, a price
+# tier, a code, maths or link span, or emphasis. It is copied whole instead of a
+# character at a time through every reader.
+_INERT = re.compile(r"(?:[^\\(`$!\[*hw]|h(?!ttps?://)|w(?!ww\.))+")
+
+
 def _repair_line(line: str) -> str:
     out: list[str] = []
     index = 0
     length = len(line)
     while index < length:
+        inert = _INERT.match(line, index)
+        if inert is not None:
+            out.append(inert.group())
+            index = inert.end()
+            continue
         if line[index] == "\\":
             end = _skip_command(line, index)
             out.append(line[index:end])
