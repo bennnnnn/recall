@@ -1,7 +1,11 @@
 name: Mobile CI
 
 on:
+  # main only. A pull request's commits are checked by its pull_request run below; a
+  # push to its branch that touched these paths ran the same jobs a second time. The
+  # deploy gate (scripts/require-green-ci.sh) reads only main's push runs.
   push:
+    branches: [main]
     paths:
       - "apps/mobile/**"
       # Phone tests read the shared fixtures and the API's behaviour-sweep replies.
@@ -42,7 +46,7 @@ jobs:
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
 
-  check:
+  mobile:
     needs: changes
     if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-latest
@@ -57,7 +61,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           cache-dependency-path: apps/mobile/pnpm-lock.yaml
 
