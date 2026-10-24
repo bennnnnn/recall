@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 
 from app.gateways.web_search_gateway import WebSearchHit
-from app.modules.web_search.live_asks import released_thing
+from app.modules.web_search.release_asks import released_thing
 
 # A name and its number: "iPhone 19", "GTA 6", "PS6", "GPT-6", "season 5", "Python 3.13".
 _NUMBER = r"\d{1,4}(?:\.\d{1,3})*"

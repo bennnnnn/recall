@@ -13,8 +13,8 @@ from app.modules.web_search.live_asks import (
     asks_for_a_price,
     asks_for_entry_rules,
     asks_for_job_listings,
-    asks_if_released,
 )
+from app.modules.web_search.release_asks import asks_if_released
 
 
 @pytest.mark.parametrize(
@@ -186,4 +186,57 @@ def test_release_questions_search_at_once(text: str) -> None:
     ],
 )
 def test_out_that_is_not_a_release_is_not_one(text: str) -> None:
+    assert not asks_if_released(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Answered "it hasn't been released yet" from training data (2026-10-24).
+        "which chip does the iPhone 18 Pro Max have and when was it released?",
+        "which chip does the iphone 18 pro max have and when was it released",
+        "do you know when the Galaxy S26 came out?",
+        "can you tell me if GTA 6 is out yet?",
+        "I'm thinking of getting the Pixel 11, is it out yet?",
+        "what's the battery life on the iPhone 18 Pro, and when did it come out?",
+        "tell me whether the Switch 2 has been released",
+        "I keep hearing about GPT-6 \u2014 when does it come out?",
+        "GTA 6 \u2013 when does it come out",
+        "is the iPhone 19 out? and how much will it cost?",
+        "The new Pixel 11 looks great but is it available in Kenya?",
+        "I loved Severance season 2, when is season 3 coming out?",
+        "do you know if the new Zelda is out",
+        "I watched Oppenheimer in 2023, when did it come out on streaming?",
+    ],
+)
+def test_a_release_ask_inside_a_longer_message_searches(text: str) -> None:
+    assert asks_if_released(text)
+    assert web_search_fast_yes(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I have 2 dogs, are they out yet?",
+        "OK so I have 2 cats, are they out yet?",
+        "My phone is 2 years old, when was it released?",
+        "I put the cake in at 3, is it out yet?",
+        "my iPhone 15 battery died, is it out of warranty?",
+        "I got the iPhone 17 yesterday, is it any good?",
+        "I love Windows 11 but when it crashes I lose work",
+        "do you know if the store is out of milk",
+        "do you know when the sun comes out",
+        "tell me if Tom is out",
+        "do you know if Dad is out yet",
+        "can you tell me when my package came out",
+        "the meeting is at 3, is it out on the calendar",
+        "Tom and Jerry is out of the house",
+        "I scored 5 out of 10, is it good",
+        "my kid is in grade 3 and when does school get out",
+        "we have 2 kids and they are out at school",
+    ],
+)
+def test_a_longer_message_with_out_in_it_is_no_release_ask(text: str) -> None:
+    """ "It" is a release only when the message names a product: a brand, or a name with a
+    model number ("Pixel 11"). A pet, a cake, a phone of the user's own are not."""
     assert not asks_if_released(text)

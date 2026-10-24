@@ -28,6 +28,7 @@ from app.modules.web_search.query_builders import (
     is_current_news_request,
 )
 from app.modules.web_search.recency import anchor_recency_to_year
+from app.modules.web_search.release_asks import release_search_query
 from app.modules.web_search.subject import collect_prior_user_messages
 from app.services.conversation_reference import resolve_reference, turns_from_prompt
 from app.services.text_normalize import fold_token
@@ -120,6 +121,11 @@ async def search_queries_for_turn(
         )
         if queries:
             return queries
+    # "I'm thinking of getting the Pixel 11, is it out yet?" found a company called Thinking
+    # Pixel; the ask alone, "is Pixel 11 out yet", found the phone's release.
+    release = release_search_query(cleaned)
+    if release is not None:
+        return [release]
     # "Coffee near me" searched those words and found New York cafés.
     if user_location and is_geo_query(cleaned):
         return [anchor_to_location(cleaned, user_location)]

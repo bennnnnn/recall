@@ -579,5 +579,68 @@
   "prompt": "has the baby come out yet",
   "reply": "I don't know, but I hope everyone is doing well! Want help with a message to the new parents?",
   "expect": "answer"
+ },
+ {
+  "id": "sl-084",
+  "area": "search",
+  "prompt": "which chip does the iPhone 18 Pro Max have and when was it released?",
+  "reply": "Here's the chip and release date current sources give, with links.",
+  "expect": "search"
+ },
+ {
+  "id": "sl-085",
+  "area": "search",
+  "prompt": "do you know when the Galaxy S26 came out?",
+  "reply": "Here's the release date current sources give, with links.",
+  "expect": "search"
+ },
+ {
+  "id": "sl-086",
+  "area": "search",
+  "prompt": "I'm thinking of getting the Pixel 11, is it out yet?",
+  "reply": "Here's what current sources say about the Pixel 11, with links.",
+  "expect": "search"
+ },
+ {
+  "id": "sl-087",
+  "area": "search",
+  "prompt": "can you tell me if GTA 6 is out yet?",
+  "reply": "Here's what current sources say about GTA 6's release, with links.",
+  "expect": "search"
+ },
+ {
+  "id": "sl-088",
+  "area": "chitchat",
+  "prompt": "I have 2 dogs, are they out yet?",
+  "reply": "I can't see your yard, but if they've been out a while, a quick check never hurts.",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-089",
+  "area": "chitchat",
+  "prompt": "My phone is 2 years old, when was it released?",
+  "reply": "Tell me the model and I can tell you when it came out.",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-090",
+  "area": "chitchat",
+  "prompt": "I put the cake in at 3, is it out yet?",
+  "reply": "I can't see your oven, but most cakes need 30 to 35 minutes; a toothpick should come out clean.",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-091",
+  "area": "chitchat",
+  "prompt": "my iPhone 15 battery died, is it out of warranty?",
+  "reply": "Apple's standard warranty lasts one year from purchase; check the date on your receipt or in Settings.",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-092",
+  "area": "chitchat",
+  "prompt": "I got the iPhone 17 yesterday, is it any good?",
+  "reply": "Congrats! Most people like its battery life and camera. What do you mostly use your phone for?",
+  "expect": "answer"
  }
 ]
