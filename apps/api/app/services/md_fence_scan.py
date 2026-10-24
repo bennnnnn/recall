@@ -70,10 +70,18 @@ def read_fence_marker(line: str, *, lenient: bool = False) -> FenceMarker | None
     return FenceMarker(line[:index], char, length, info)
 
 
+# A line that may be a fence line: its prefix, then three backticks or tildes. Every line
+# ``read_fence_marker`` accepts matches, so the scan reads only these lines and the
+# pattern passes over prose in C (a whole-reply scan read every line in Python).
+_FENCE_LINE = re.compile(r"^[ \t>]*(?:```|~~~)", re.MULTILINE)
+_STRICT_FENCE_LINE = re.compile(r"^ {0,3}(?:```|~~~)", re.MULTILINE)
+
+
 def next_fence_marker(
     text: str, from_index: int, *, lenient: bool = True
 ) -> tuple[int, int, FenceMarker] | None:
     """The next fence line at or after ``from_index``: (line start, after the line, marker)."""
+    candidates = _FENCE_LINE if lenient else _STRICT_FENCE_LINE
     index = from_index
     length = len(text)
     while index < length:
@@ -84,7 +92,10 @@ def next_fence_marker(
             return index, length if newline < 0 else newline + 1, marker
         if newline < 0:
             return None
-        index = newline + 1
+        candidate = candidates.search(text, newline + 1)
+        if candidate is None:
+            return None
+        index = candidate.start()
     return None
 
 
@@ -286,9 +297,10 @@ def line_fences(text: str) -> list[Fence | None]:
     lines included), or None for prose. Line loops read this instead of toggling a
     flag on every ``` line, which a ``` shown inside a ~~~ block turned inside out."""
     starts = [0]
-    for index, char in enumerate(text):
-        if char == "\n":
-            starts.append(index + 1)
+    newline = text.find("\n")
+    while newline >= 0:
+        starts.append(newline + 1)
+        newline = text.find("\n", newline + 1)
     owners: list[Fence | None] = [None] * len(starts)
     fences = iter(iter_fences(text))
     fence = next(fences, None)

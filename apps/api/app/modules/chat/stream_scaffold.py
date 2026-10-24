@@ -36,15 +36,24 @@ _MARKERS = (*_SOLVE_MARKERS, FUNCTION_CALL_MARKER)
 MAX_HELD_CALL_CHARS = 8_192
 
 
+# Every marker opens with one of these: only a tail that starts with one can still grow
+# into a marker, so most chunks need no comparison at all.
+_MARKER_OPENERS = tuple(sorted({marker[0] for marker in _MARKERS}))
+_LONGEST_PARTIAL = max(len(marker) for marker in _MARKERS) - 1
+
+
 def _partial_marker_len(text: str) -> int:
     """Length of the longest tail of ``text`` that a marker could still start with."""
-    longest = 0
-    for marker in _MARKERS:
-        for size in range(min(len(marker) - 1, len(text)), longest, -1):
-            if text.endswith(marker[:size]):
-                longest = size
-                break
-    return longest
+    start = max(0, len(text) - _LONGEST_PARTIAL)
+    while True:
+        openers = [at for at in (text.find(char, start) for char in _MARKER_OPENERS) if at >= 0]
+        if not openers:
+            return 0
+        start = min(openers)
+        tail = text[start:]
+        if any(len(tail) < len(marker) and marker.startswith(tail) for marker in _MARKERS):
+            return len(tail)
+        start += 1
 
 
 class ScaffoldFilter:

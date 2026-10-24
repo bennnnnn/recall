@@ -27,7 +27,9 @@ _INLINE = re.compile(r"^\s*(?:\*\*)?answer\s*(?:\*\*)?\s*:\s*(?:\*\*)?\s*(?P<val
 _PART = re.compile(
     r"^\s*(?:#{1,4}\s+)?\*\*\s*(?:part\s+\(?[a-h]\)?|\(?[a-h]\)|answer\s*\([a-h]\))", re.I
 )
-_WORKED_HEADING = re.compile(r"^\s*\*\*(?:Find|Formula|Substitution|Steps):?\*\*", re.I | re.M)
+# ``[^\S\n]*``, not ``\s*``: from each line start ``\s*`` ran over every blank line below
+# it, quadratic in a run of them, and found no heading the next line start misses.
+_WORKED_HEADING = re.compile(r"^[^\S\n]*\*\*(?:Find|Formula|Substitution|Steps):?\*\*", re.I | re.M)
 
 
 def _value(value: str) -> str:

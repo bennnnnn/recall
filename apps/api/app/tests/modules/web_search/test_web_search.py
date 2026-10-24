@@ -576,3 +576,29 @@ def test_post_stream_fences_from_search_hits():
     assert "Venue" in sources
     assert "```places" in places
     assert "123 Main St" in places
+
+
+@pytest.mark.parametrize("name", ["_TEAM_SCORE", "_TEAM_POSSESSIVE_SCORE"])
+def test_team_score_patterns_cost_no_more_than_their_words(name: str) -> None:
+    """Every turn asks these of its message. Opened with ``.{2,60}``, each tried up to sixty
+    characters from every start: on pasted code they cost sixty times a search for their
+    words alone (85 ms of a 16,000-character paste's turn)."""
+    import time
+
+    from app.modules.web_search import patterns
+
+    pattern = getattr(patterns, name)
+    words = re.compile(pattern.pattern.removeprefix("(?<=..)"), pattern.flags)
+    paste = " ".join(("def read(rows):\n    return [row.strip() for row in rows]\n" * 600).split())
+
+    def best(search: object) -> float:
+        assert callable(search)
+        times = []
+        for _ in range(5):
+            start = time.perf_counter()
+            search(paste)
+            times.append(time.perf_counter() - start)
+        return min(times)
+
+    assert pattern.search(paste) is None
+    assert best(pattern.search) < 10 * best(words.search)

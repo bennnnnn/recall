@@ -68,11 +68,15 @@ class ThinkStripper:
             self._lead_hold = min(self._lead_hold, STRAY_THINK_SHORT_HOLD)
 
     def feed(self, chunk: str) -> str:
+        # Inside a think block the held text was already searched for its close: only one
+        # that ends in this chunk can be new. Searching all of it again on every chunk
+        # was quadratic in the block (a 60k-character one cost 180 ms of event loop).
+        searched = max(0, len(self._buf) - _TAG_TAIL)
         self._buf += chunk
         out: list[str] = []
         while True:
             if self._in_think:
-                idx = self._buf.find(THINK_CLOSE)
+                idx = self._buf.find(THINK_CLOSE, searched)
                 if idx == -1:
                     if len(self._buf) > THINK_MAX_OPEN_BUFFER:
                         # Model forgot to close — give up on this block.
@@ -81,6 +85,7 @@ class ThinkStripper:
                     break
                 self._buf = self._buf[idx + len(THINK_CLOSE) :]
                 self._in_think = False
+                searched = 0
                 continue
             open_idx = self._buf.find(THINK_OPEN)
             close_idx = self._buf.find(THINK_CLOSE)
@@ -100,6 +105,7 @@ class ThinkStripper:
             self._emit(out, self._buf[:open_idx])
             self._buf = self._buf[open_idx + len(THINK_OPEN) :]
             self._in_think = True
+            searched = 0
         return "".join(out)
 
     def flush(self) -> str:

@@ -242,12 +242,10 @@ def _join_rows(rows: list[str], delim: str, punct: str = "") -> str:
 
 
 def _peel_punct(text: str) -> tuple[str, str]:
-    punct = ""
-    core = text
-    while core and core[-1] in _TRAILING_PUNCT:
-        punct = core[-1] + punct
-        core = core[:-1].rstrip()
-    return core, punct
+    end = size = len(text)  # back by index: a copy per mark was quadratic in a run of marks
+    while end and (text[end - 1] in _TRAILING_PUNCT or (end < size and text[end - 1].isspace())):
+        end -= 1
+    return text[:end], "".join(char for char in text[end:] if char in _TRAILING_PUNCT)
 
 
 def _sole_math(stripped: str) -> tuple[str, str, str] | None:
