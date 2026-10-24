@@ -1,9 +1,5 @@
-import {
-  buildVegaPageHtml,
-  CHART_PAGE,
-  chartPreviewConfig,
-  normalizeChartSpec,
-} from "@/lib/chartPreviewHtml";
+import { buildVegaPageHtml, CHART_PAGE, chartPreviewConfig } from "@/lib/chartPreviewHtml";
+import { normalizeChartSpec } from "@/lib/chartPresentation";
 import { PREVIEW_PAGE_LINK_KIND } from "@/lib/previewPage";
 import { CHART_PREVIEW_CSP, PREVIEW_CSP } from "@/lib/previewSandbox";
 
@@ -201,17 +197,20 @@ describe("the chart page", () => {
     const themed = {
       background: "#fff",
       axis: { domainColor: "#666", labelColor: "#111", titleColor: "#111", tickColor: "#666", gridColor: "#ddd" },
-      legend: { labelColor: "#111", titleColor: "#111" },
-      title: { color: "#111" },
+      // Under the plot, in the columns a 296 px card has room for.
+      legend: { labelColor: "#111", titleColor: "#111", orient: "bottom", columns: 1, labelLimit: 260 },
+      title: { color: "#111", limit: 286 },
       view: { stroke: "#666" },
     };
     expect(vegaEmbed).toHaveBeenCalledWith(
       "#chart",
       {
         mark: "bar",
-        // The spec's own config wins over the theme's, key by key at the top level.
-        config: { ...themed, axis: { grid: false } },
+        // The spec's own config wins over the theme's, key by key inside each block.
+        config: { ...themed, axis: { ...themed.axis, grid: false } },
         autosize: { type: "fit-x", contains: "padding" },
+        // A plot with no x axis fills the card instead of one 20 px step.
+        width: 296,
       },
       {
         actions: false,

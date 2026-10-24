@@ -1,0 +1,165 @@
+import { compactLabelExpr, presentChartSpec } from "@/lib/chartPresentation";
+
+type Spec = Record<string, unknown>;
+const enc = (spec: Spec): Record<string, Record<string, unknown>> =>
+  spec.encoding as Record<string, Record<string, unknown>>;
+
+const line = (y: Record<string, unknown> = {}): Spec => ({
+  mark: "line",
+  encoding: {
+    x: { field: "week", type: "quantitative" },
+    y: { field: "kg", type: "quantitative", ...y },
+  },
+});
+
+describe("presentChartSpec", () => {
+  it("lays out a copy and leaves the spec it was given alone", () => {
+    const spec = line();
+    const before = JSON.stringify(spec);
+    expect(presentChartSpec(spec)).not.toBe(spec);
+    expect(JSON.stringify(spec)).toBe(before);
+  });
+
+  it("leaves a Vega spec as written", () => {
+    const vega = { $schema: "https://vega.github.io/schema/vega/v5.json", title: "x".repeat(80), marks: [] };
+    expect(presentChartSpec(vega)).toEqual(vega);
+  });
+
+  describe("colour order", () => {
+    it("keeps the data's order for a nominal colour, fill or stroke", () => {
+      const spec = presentChartSpec({
+        mark: "arc",
+        encoding: {
+          theta: { field: "amount", type: "quantitative" },
+          color: { field: "item", type: "nominal" },
+          stroke: { field: "item" },
+        },
+      });
+      expect(enc(spec).color.sort).toBeNull();
+      expect(enc(spec).stroke.sort).toBeNull();
+    });
+
+    it("keeps an explicit sort, and leaves a quantitative colour alone", () => {
+      const spec = presentChartSpec({
+        mark: "point",
+        encoding: {
+          color: { field: "item", type: "nominal", sort: "descending" },
+          fill: { field: "n", type: "quantitative" },
+        },
+      });
+      expect(enc(spec).color.sort).toBe("descending");
+      expect(enc(spec).fill).not.toHaveProperty("sort");
+    });
+  });
+
+  describe("zero on a line's axes", () => {
+    it.each([
+      ["a line", "line"],
+      ["a scatter", "point"],
+      ["a line with points", { type: "line", point: true }],
+    ])("does not pin %s to zero", (_name, mark) => {
+      const spec = presentChartSpec({ ...line(), mark });
+      expect(enc(spec).y.scale).toEqual({ zero: false });
+      expect(enc(spec).x.scale).toEqual({ zero: false });
+    });
+
+    it.each([
+      ["bars", "bar"],
+      ["an area", "area"],
+    ])("keeps %s on zero", (_name, mark) => {
+      const spec = presentChartSpec({ ...line(), mark });
+      expect(enc(spec).y).not.toHaveProperty("scale");
+    });
+
+    it.each([
+      ["zero", { scale: { zero: true } }],
+      ["domain", { scale: { domain: [0, 100] } }],
+      ["lower bound", { scale: { domainMin: 0 } }],
+    ])("keeps the %s a line's scale sets", (_name, y) => {
+      const spec = presentChartSpec(line(y));
+      expect(enc(spec).y.scale).toEqual(y.scale);
+    });
+
+    it("unpins a scatter with a best-fit line, but not a line over bars", () => {
+      const scatter = presentChartSpec({
+        encoding: { x: { field: "x", type: "quantitative" }, y: { field: "y", type: "quantitative" } },
+        layer: [{ mark: "point" }, { mark: "line", transform: [{ regression: "y", on: "x" }] }],
+      });
+      expect(enc(scatter).y.scale).toEqual({ zero: false });
+      const mixed = presentChartSpec({
+        layer: [
+          { mark: "bar", encoding: { y: { field: "n", type: "quantitative" } } },
+          { mark: "line", encoding: { y: { field: "n", type: "quantitative" } } },
+        ],
+      });
+      const layers = mixed.layer as Spec[];
+      expect(enc(layers[1]).y).not.toHaveProperty("scale");
+    });
+  });
+
+  describe("large numbers on an axis", () => {
+    it("writes a value axis's labels short, sized by its own scale", () => {
+      const spec = presentChartSpec(line());
+      expect(enc(spec).y.axis).toEqual({ labelExpr: compactLabelExpr("y") });
+      expect(compactLabelExpr("y")).toContain("domain('y')");
+    });
+
+    it("sizes each label alone where a scale's name is not the channel's", () => {
+      const spec = presentChartSpec({ hconcat: [line(), line()] });
+      const [first] = spec.hconcat as Spec[];
+      expect(enc(first).y.axis).toEqual({ labelExpr: compactLabelExpr(null) });
+      expect(compactLabelExpr(null)).not.toContain("domain(");
+    });
+
+    it("covers a count and a bin Vega-Lite reads as numbers", () => {
+      const spec = presentChartSpec({
+        mark: "bar",
+        encoding: { x: { field: "score", bin: { maxbins: 10 } }, y: { aggregate: "count" } },
+      });
+      expect(enc(spec).x.axis).toEqual({ labelExpr: compactLabelExpr("x") });
+      expect(enc(spec).y.axis).toEqual({ labelExpr: compactLabelExpr("y") });
+    });
+
+    it.each([
+      ["an axis format", line({ axis: { format: "$,.0f" } }), { format: "$,.0f" }],
+      ["a label expression", line({ axis: { labelExpr: "datum.label + ' kg'" } }), { labelExpr: "datum.label + ' kg'" }],
+      ["a hidden axis", line({ axis: null }), null],
+    ])("keeps %s the spec set", (_name, spec, axis) => {
+      expect(enc(presentChartSpec(spec)).y.axis).toEqual(axis);
+    });
+
+    it.each([
+      ["a number format", { numberFormat: ".2f" }],
+      ["an axis format", { axisY: { format: "%" } }],
+    ])("leaves every axis alone when the config sets %s", (_name, config) => {
+      expect(enc(presentChartSpec({ ...line(), config })).y).not.toHaveProperty("axis");
+    });
+
+    it("leaves category and time axes alone", () => {
+      const spec = presentChartSpec({
+        mark: "line",
+        encoding: { x: { field: "day", type: "temporal" }, y: { field: "name", type: "ordinal" } },
+      });
+      expect(enc(spec).x).not.toHaveProperty("axis");
+      expect(enc(spec).y).not.toHaveProperty("axis");
+    });
+  });
+
+  describe("titles", () => {
+    it("wraps a title wider than the card", () => {
+      const title = "Average Monthly Temperature in Addis Ababa (°C)";
+      expect(presentChartSpec({ mark: "bar", title }, 320).title).toEqual([
+        "Average Monthly Temperature in Addis",
+        "Ababa (°C)",
+      ]);
+      expect(presentChartSpec({ mark: "bar", title: { text: title, anchor: "start" } }, 320).title).toEqual({
+        text: ["Average Monthly Temperature in Addis", "Ababa (°C)"],
+        anchor: "start",
+      });
+    });
+
+    it("keeps a title that fits", () => {
+      expect(presentChartSpec({ mark: "bar", title: "Rainfall" }).title).toBe("Rainfall");
+    });
+  });
+});
