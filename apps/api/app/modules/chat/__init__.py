@@ -23,6 +23,9 @@ if TYPE_CHECKING:
     from app.modules.chat.prompt_constants.chart import (
         chart_names_no_curve as chart_names_no_curve,
     )
+    from app.modules.chat.prompt_constants.chart import (
+        chart_of_public_facts as chart_of_public_facts,
+    )
     from app.modules.chat.prompt_constants.coding import (
         has_code_syntax as has_code_syntax,
     )
@@ -77,6 +80,7 @@ _EXPORTS = {
     "clip_status_detail": ("stream_status", "clip_status_detail"),
     "has_code_syntax": ("prompt_constants.coding", "has_code_syntax"),
     "chart_names_no_curve": ("prompt_constants.chart", "chart_names_no_curve"),
+    "chart_of_public_facts": ("prompt_constants.chart", "chart_of_public_facts"),
     "has_locale_cue": ("prompt_constants.locale_cues", "has_locale_cue"),
     "is_lightweight_chat_turn": ("prompt_constants.routing", "is_lightweight_chat_turn"),
     "is_personal_disclosure_turn": ("prompt_constants.routing", "is_personal_disclosure_turn"),

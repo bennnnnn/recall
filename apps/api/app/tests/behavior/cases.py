@@ -1105,6 +1105,73 @@ CASES: tuple[Case, ...] = (
         Expect(hints=("chart",), subject=NONE),
         "A histogram: the raw scores binned on x, counts on y.",
     ),
+    # A chart asked for in other words (2026-10-24: 15 of 30 live chart requests got no
+    # chart, a made-up chart format, or maths asking which function to graph). The user's
+    # own data forces no search ("ask": the reply may still look something up).
+    Case(
+        "chart-income-in-graph-followup",
+        "format",
+        "Show me the income in graph month by month",
+        Expect(hints=("chart",), subject=NONE, search="ask"),
+        "A bar chart of $12,500 for each of the twelve months.",
+        history=(
+            ("user", "I earn $150k a year, what's my hourly pay?"),
+            ("assistant", "About **$72.12** an hour, at 40 hours a week for 52 weeks."),
+        ),
+    ),
+    Case(
+        "chart-graph-it-after-marks",
+        "format",
+        "graph it",
+        Expect(hints=("chart",), subject=NONE, search="ask"),
+        "A bar chart of the four marks, not a question about which function to graph.",
+        history=(
+            ("user", "Here are my exam marks: math 85, physics 78, chemistry 92, biology 88"),
+            ("assistant", "Nice marks! Chemistry is your strongest subject."),
+        ),
+    ),
+    Case(
+        "chart-plot-my-scores",
+        "format",
+        "plot my test scores 72, 85, 90, 68, 95",
+        Expect(hints=("chart",), subject=NONE, search="ask"),
+        "A line or bar chart of the five scores in order.",
+    ),
+    Case(
+        "chart-visualize-sales",
+        "format",
+        "can you visualize my sales: Q1 10k, Q2 15k, Q3 12k, Q4 20k",
+        Expect(hints=("chart",), subject=NONE, search="no"),
+        "A bar chart of the four quarters.",
+    ),
+    Case(
+        "chart-show-in-a-graph",
+        "format",
+        "show this in a graph: Mon 5h, Tue 7h, Wed 6h, Thu 8h, Fri 4h of sleep",
+        Expect(hints=("chart",), subject=NONE, search="ask"),
+        "A chart of the five nights of sleep.",
+    ),
+    Case(
+        "chart-scatter-of-points",
+        "format",
+        "scatter plot of hours studied vs score: (1, 50), (2, 55), (3, 65), (4, 70), (5, 85)",
+        Expect(hints=("chart",), subject=NONE),
+        "A scatter chart of the five points, not an answer card listing them back.",
+    ),
+    Case(
+        "chart-population-searches",
+        "format",
+        "graph the population of Ethiopia over the last 10 years",
+        Expect(hints=("chart",), subject=NONE, search="yes"),
+        "A line chart of the yearly figures a search found, with its source.",
+    ),
+    Case(
+        "chart-prices-search",
+        "format",
+        "compare iPhone 18 Pro and Pixel 11 prices in a chart",
+        Expect(hints=("chart",), subject=NONE, search="yes"),
+        "A bar chart of the two prices a search found.",
+    ),
     Case(
         "format-box-plot",
         "format",

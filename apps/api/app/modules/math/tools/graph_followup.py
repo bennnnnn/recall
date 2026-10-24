@@ -87,6 +87,17 @@ def _is_plottable_expr(expr: str) -> bool:
     return any(ch.isdigit() for ch in compact) or "x" in lower
 
 
+_NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
+# Written maths, not data: "$x^{2}+y^{2}$", "y = 3".
+_FORMULA_MARK = re.compile(r"[\^\\=]|\$[^$]*[a-z][^$]*\$", re.IGNORECASE)
+
+
+def _holds_data(text: str) -> bool:
+    """Two or more numbers in plain words ("math 85, physics 78"), not a formula or one
+    number ("$2$", "I have 2 apples")."""
+    return len(_NUMBER.findall(text)) >= 2 and _FORMULA_MARK.search(text) is None
+
+
 # ``y = 3x + 2`` or ``f(x) = x^2`` inside a sentence, one per clause.
 _CLAUSE_SPLIT = re.compile(r"\s+(?:and|or|vs\.?|versus)\s+|[,;?]", re.IGNORECASE)
 _NAMED_FUNCTION = re.compile(r"\b(?:y|f\(x\))\s*=\s*(.+)$")
@@ -186,4 +197,9 @@ def resolve_graph_followup(text: str, prior_user_messages: list[str] | None) -> 
         src = _plottable_graph_source(prior)
         if src:
             return f"graph {src}", False
+    # Data and no function ("Here are my exam marks: math 85, physics 78", then "graph it")
+    # asks for a chart of it, which the chart contract draws; asking for a function to
+    # graph was the reply (2026-10-24).
+    if any(_holds_data(prior) for prior in prior_user_messages or []):
+        return text, False
     return text, True
