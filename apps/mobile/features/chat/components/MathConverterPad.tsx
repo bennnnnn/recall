@@ -30,10 +30,6 @@ type Props = {
   streaming: boolean;
 };
 
-function buzz() {
-  hapticSelection();
-}
-
 export const MathConverterPad = memo(function MathConverterPad({
   keyHeight,
   onAsk,
@@ -57,7 +53,7 @@ export const MathConverterPad = memo(function MathConverterPad({
   const result = raw == null ? "—" : formatConvertNumber(raw);
 
   const typeKey = (key: string) => {
-    buzz();
+    hapticSelection();
     const next = appendConverterDigit(digits, key, fresh);
     setDigits(next);
     setFresh(key === "AC" || (key === "back" && next === CONVERTER_DEFAULT_DIGITS));
@@ -100,7 +96,7 @@ export const MathConverterPad = memo(function MathConverterPad({
         </Text>
         <Pressable
           onPress={() => {
-            buzz();
+            hapticSelection();
             setFromId(toId);
             setToId(fromId);
             if (raw != null && Number.isFinite(raw)) {

@@ -37,10 +37,6 @@ type Props = {
   onGroupChange: (group: MathKeyboardGroup) => void;
 };
 
-function buzz() {
-  hapticSelection();
-}
-
 export const MathKeyboardBar = memo(function MathKeyboardBar({
   open,
   height,
@@ -73,7 +69,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
           testID={`math-key-${cell.spec.id}`}
           accessibilityLabel={symbolA11yLabel(cell.spec)}
           onPress={() => {
-            buzz();
+            hapticSelection();
             onInsert(cell.spec);
           }}
           height={keyHeight}
@@ -88,7 +84,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
           testID="math-key-backspace"
           accessibilityLabel={t("chat.math_keyboard_backspace")}
           onPress={() => {
-            buzz();
+            hapticSelection();
             onBackspace();
           }}
           height={keyHeight}
@@ -103,7 +99,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
         testID={`math-key-${direction}`}
         accessibilityLabel={t(`chat.math_keyboard_${direction}`)}
         onPress={() => {
-          buzz();
+          hapticSelection();
           onCaret(direction);
         }}
         height={keyHeight}
@@ -141,7 +137,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
           size={IconSize.sm}
           color={theme.primary}
           onPress={() => {
-            buzz();
+            hapticSelection();
             onPaste();
           }}
           accessibilityLabel={t("chat.math_keyboard_paste")}
