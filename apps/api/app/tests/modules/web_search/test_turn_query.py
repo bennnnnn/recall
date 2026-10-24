@@ -199,3 +199,30 @@ async def test_model_written_search_names_the_place(
     with patch("app.modules.web_search.tool.run_cached_search", run_search):
         await WebSearchAdapter(Settings()).invoke({"query": "coffee shops near me"}, ctx)
     assert _awaited(run_search).args[1] == [sent]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "text, query",
+    [
+        # Its own words found a company called Thinking Pixel and the launch-day post.
+        ("I'm thinking of getting the Pixel 11, is it out yet?", "is Pixel 11 out yet"),
+        ("my wife wants the iPhone 18 Pro Max, has it been released?",
+         "has iPhone 18 Pro Max been released"),
+        ("do you know when the Galaxy S26 came out?", "when the Galaxy S26 came out"),
+        ("can you tell me if GTA 6 is out yet?", "GTA 6 is out yet"),
+        ("I keep hearing about GPT-6 — when does it come out?", "when does GPT-6 come out"),
+        # A message that is only the ask is its own query, as before.
+        ("Is iPhone 19 out?", "Is iPhone 19 out?"),
+        # Another question keeps every question.
+        ("which chip does the iPhone 18 Pro Max have and when was it released?",
+         "which chip does the iPhone 18 Pro Max have and when was it released?"),
+        ("is the iPhone 19 out? and how much will it cost?",
+         "is the iPhone 19 out? and how much will it cost?"),
+        # "Season 3" alone would lose whose season it is.
+        ("I loved Severance season 2, when is season 3 coming out?",
+         "I loved Severance season 2, when is season 3 coming out?"),
+    ],
+)  # fmt: skip
+async def test_a_release_ask_in_chatter_searches_the_ask(text: str, query: str) -> None:
+    assert await turn_query.search_queries_for_turn(Settings(), text, []) == [query]

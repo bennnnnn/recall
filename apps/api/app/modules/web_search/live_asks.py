@@ -1,14 +1,12 @@
-"""Asks whose answer is live: job openings, prices and rates, visa rules, and releases.
+"""Asks whose answer is live: job openings, prices and rates, and visa rules.
 
 A model's memory of either is stale by the time anyone asks. Both used to reach
 only the web-search classifier (4 seconds, no backup model), so a slow or failed
 call answered "find remote backend engineering jobs" or "how much does the iPhone
 17 Pro cost" from training data. Each rule names what is looked up, so "I got the
 job", "cron job", "job interview tips", "how should I price my course" and "the
-price of freedom" stay ordinary chat.
-
-"Is iPhone 19 out?" was answered from training data on 2026-10-23: "the current model
-is the iPhone 16 (released in late 2024)". Whether a named thing is out yet is live too.
+price of freedom" stay ordinary chat. Whether a named thing is out yet is
+``release_asks``'s.
 
 Match against ``collapse_ws``-normalized input (single spaces).
 """
@@ -91,7 +89,7 @@ _PRICE = re.compile(
     rf"(?: now| today| these days| right now)?\??$",
     re.IGNORECASE,
 )
-_NOT_A_PRICE = re.compile(
+NOT_A_PRICE = re.compile(
     # A price the question states is a word problem: "if apples cost $2 each".
     r"[$€£¥] ?\d|[=+*/^]|\b(?:each|per)\b|"
     r"\bprice of (?:freedom|fame|success|love|happiness|war|peace|progress|beauty|greatness|"
@@ -125,81 +123,10 @@ def asks_for_job_listings(text: str) -> bool:
 def asks_for_a_price(text: str) -> bool:
     """A price or rate of a named thing: "iPhone 17 Pro cost", "bitcoin price", "USD to ETB"."""
     cleaned = collapse_ws(text)
-    return _PRICE.search(cleaned) is not None and _NOT_A_PRICE.search(cleaned) is None
+    return _PRICE.search(cleaned) is not None and NOT_A_PRICE.search(cleaned) is None
 
 
 def asks_for_entry_rules(text: str) -> bool:
     """Visa and entry rules for a trip: policy that changes after any training cut-off."""
     cleaned = collapse_ws(text)
     return _ENTRY_RULES.search(cleaned) is not None and _NOT_A_LISTING.search(cleaned) is None
-
-
-# "Is iPhone 19 out (yet)?", "has GTA 6 been released", "did season 5 drop", "when does
-# Windows 12 come out", "when will the new Zelda be released". The thing is a group.
-_OUT = r"(?:released|launched|announced|out|dropped|available|on sale)"
-_RELEASE_ASK = re.compile(
-    r"^(?:(?:so|wait|hey|btw|ok|okay|and)\s*,?\s+)?(?:"
-    rf"(?:is|are|was|were) (?P<is>.{{2,48}}?) (?:already |finally |even )?{_OUT}"
-    r"|(?:has|have) (?P<has>.{2,48}?) (?:been (?:released|launched|announced)|come out"
-    r"|came out|dropped|launched|released)"
-    r"|did (?P<did>.{2,48}?) (?:come out|drop|launch|release|get released)"
-    r"|when (?:is|are|will|does|do|did|was|were) (?P<when>.{2,48}?) (?:(?:be |get )?"
-    r"(?:released|launched|announced|out|available)|com(?:e|ing) out|came out"
-    r"|drop(?:ping)?|launch(?:ing)?|releas(?:e|ing)|going to (?:come out|be released|drop"
-    r"|launch))"
-    r")(?: (?:on|in) [\w+ ]{2,20}?)?(?: (?:yet|already|now|yet or not))?[\s?!.]*$",
-    re.IGNORECASE,
-)
-# "GTA 6 release date", "release date of the iPhone 19".
-_RELEASE_DATE = re.compile(r"\b(?:release|launch) date\b", re.IGNORECASE)
-# Words a release names: "the new Kendrick album", "Stranger Things season 5".
-_RELEASE_NOUN = re.compile(
-    r"\b(?:games?|movies?|films?|albums?|songs?|singles?|seasons?|episodes?|series|sequel"
-    r"|trailer|updates?|versions?|models?|phones?|consoles?|books?|novels?|shows?|patch"
-    r"|dlc|expansion|chapters?|manga|anime|mixtape|ios|android|macos|windows|iphone|ipad"
-    r"|macbook|pixel|galaxy|playstation|xbox|switch|airpods|gpt|gemini|claude|llama)\b",
-    re.IGNORECASE,
-)
-_NEW = re.compile(r"\b(?:new|next|upcoming)\b", re.IGNORECASE)
-# A person, the user's own things or the world outside: "is my order out", "is the
-# power out", "is it out yet" (the last reply's subject is the follow-up rule's).
-_NOT_A_RELEASE = frozenset(
-    {
-        "it", "he", "she", "they", "you", "i", "we", "my", "your", "his", "her", "their",
-        "our", "its", "this", "that", "there", "someone", "anyone", "everyone",
-    }
-)  # fmt: skip
-
-
-def _names_a_release(thing: str) -> bool:
-    """A product, a title or a model: a number, a release word, a name of two capitalized
-    words ("Grand Theft Auto") or a new one ("the new Zelda"). One name alone may be a
-    person ("is Tom out")."""
-    words = thing.split()
-    if not words or words[0].casefold() in _NOT_A_RELEASE:
-        return False
-    if any(char.isdigit() for char in thing) or _RELEASE_NOUN.search(thing):
-        return True
-    names = sum(1 for word in words if word[:1].isupper())
-    # "The new Zelda", "the next Batman": one name is a title once it is new.
-    return names >= 2 or (names == 1 and _NEW.search(thing) is not None)
-
-
-def released_thing(text: str) -> str | None:
-    """What a release question asks about ("iPhone 19" in "Is iPhone 19 out?"), else None."""
-    cleaned = collapse_ws(text)
-    match = _RELEASE_ASK.match(cleaned)
-    if match is not None:
-        thing = next(group for group in match.groups() if group)
-        return thing if _names_a_release(thing) else None
-    if _RELEASE_DATE.search(cleaned) is None or _NOT_A_PRICE.search(cleaned) is not None:
-        return None
-    thing = _RELEASE_DATE.sub(" ", cleaned).strip(" ?!.")
-    thing = re.sub(r"^(?:what(?:'s| is)\s+)?(?:the\s+)?|\s+(?:of|for)\s*$", "", thing).strip()
-    thing = re.sub(r"^(?:of|for)\s+", "", thing)
-    return thing if thing and _names_a_release(thing) else None
-
-
-def asks_if_released(text: str) -> bool:
-    """Whether a named thing is out yet, or when it comes out: "Is iPhone 19 out?"."""
-    return released_thing(text) is not None

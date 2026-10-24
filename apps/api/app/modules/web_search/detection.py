@@ -21,7 +21,6 @@ from app.modules.web_search.live_asks import (
     asks_for_a_price,
     asks_for_entry_rules,
     asks_for_job_listings,
-    asks_if_released,
 )
 from app.modules.web_search.officeholder import asks_who_holds_office
 from app.modules.web_search.patterns import (
@@ -51,6 +50,7 @@ from app.modules.web_search.patterns import (
     is_word_problem,
 )
 from app.modules.web_search.place_answer import question_in_given_place
+from app.modules.web_search.release_asks import asks_if_released
 from app.modules.web_search.subject import (
     _prior_searchable_topic,
     resolve_search_subject,
