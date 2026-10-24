@@ -1109,7 +1109,6 @@ def test_parse_expression_refuses_a_bare_sympy_name(monkeypatch, text: str) -> N
     from app.modules.math.schemas import EquationInput
     from app.modules.math.solve.derivative_steps import derivative_trace
     from app.modules.math.solve.equations import solve_equation
-    from app.modules.math.solve.expressions import factored_key_step
     from app.modules.math.solve.integral_steps import integral_trace
     from app.modules.math.solve.work_lines import parse_line
 
@@ -1120,7 +1119,6 @@ def test_parse_expression_refuses_a_bare_sympy_name(monkeypatch, text: str) -> N
         solve_equation(EquationInput(lhs=text, rhs="2 x", variables=["x"]))
     assert integral_trace(text, "x") == ([], None, None)
     assert derivative_trace(text, "x") == ([], None)
-    assert factored_key_step(text, "x^2") is None
     assert parse_line(f"{text} = 2", Symbol("x")) is None
 
 

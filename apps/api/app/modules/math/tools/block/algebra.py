@@ -221,7 +221,6 @@ def _verified_block_equation(
     block = finish_with_answer(
         lines,
         answer,
-        key_step=math_solve.factored_key_step(eq.lhs, eq.rhs, intent.variable or "x"),
         key_steps=key_steps,
         given_latex=given_latex,
         check_latex=_typed_check(intent, lhs, rhs),
