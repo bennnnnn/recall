@@ -23,8 +23,11 @@ class MemorySettings(BaseModel):
     # extract cursor.
     memory_extract_every_n_turns: int = 1
     memory_query_embed_cache_ttl: int = 3600
-    # Chat-path live embed budget: a slow embedding provider falls back to the
-    # type-priority memory block instead of holding the first token. Background
+    # Chat-path live embed budget, for memory and chat-history recall: a slow
+    # embedding provider falls back to the type-priority memory block (and no
+    # earlier-chat snippets) instead of holding the first token. The embed runs
+    # on and fills the cache for the next turn. Document search waits longer
+    # (attachments/rag.py): a question about a file needs its excerpts. Background
     # jobs use background_llm_timeout_seconds.
     memory_query_embed_timeout_seconds: float = 0.75
     # Minimum cosine similarity for fact/focus/project injection (0 = disabled).
