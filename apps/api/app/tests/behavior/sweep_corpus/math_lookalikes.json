@@ -541,5 +541,103 @@
   "prompt": "which one is bigger, the blue box or the red one?",
   "reply": "I can't see them, but if you tell me their sizes I can compare.",
   "expect": "answer"
+ },
+ {
+  "id": "ml-072",
+  "area": "math bare expression",
+  "prompt": "3x",
+  "reply": "**$3x$** means **3 times x**. For example, if $x = 4$, $3x = 12$.",
+  "expect": "instant"
+ },
+ {
+  "id": "ml-073",
+  "area": "math bare expression",
+  "prompt": "4x",
+  "reply": "**$4x$** means **4 times x**. For example, if $x = 4$, $4x = 16$.",
+  "expect": "instant"
+ },
+ {
+  "id": "ml-074",
+  "area": "math bare expression",
+  "prompt": "3x+2",
+  "reply": "**$3x + 2$** means **3 times x, plus 2**.",
+  "expect": "instant"
+ },
+ {
+  "id": "ml-075",
+  "area": "math bare expression",
+  "prompt": "x^2+3x+2",
+  "reply": "**$x^{2} + 3x + 2$** means **x squared, plus 3 times x, plus 2**.",
+  "expect": "instant"
+ },
+ {
+  "id": "ml-076",
+  "area": "math bare expression",
+  "prompt": "what does 2y mean",
+  "reply": "**$2y$** means **2 times y**.",
+  "expect": "instant"
+ },
+ {
+  "id": "ml-077",
+  "area": "math lookalike",
+  "prompt": "x",
+  "reply": "Did you mean to send something else? Tell me what you'd like help with.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-078",
+  "area": "math lookalike",
+  "prompt": "4K",
+  "reply": "4K is a screen resolution of about 3840 × 2160 pixels.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-079",
+  "area": "math lookalike",
+  "prompt": "5G",
+  "reply": "5G is the fifth generation of mobile networks.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-080",
+  "area": "math lookalike",
+  "prompt": "B12",
+  "reply": "Vitamin B12 helps make red blood cells and keeps nerves healthy.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-081",
+  "area": "math lookalike",
+  "prompt": "4x4",
+  "reply": "A 4x4 is a vehicle that drives all four wheels.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-082",
+  "area": "math lookalike",
+  "prompt": "x86",
+  "reply": "x86 is a family of processor instruction sets from Intel.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-083",
+  "area": "math lookalike",
+  "prompt": "5k",
+  "reply": "A 5K is a 5-kilometre race, about 3.1 miles.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-084",
+  "area": "math lookalike",
+  "prompt": "A4",
+  "reply": "A4 paper measures 210 × 297 mm.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-085",
+  "area": "math lookalike",
+  "prompt": "I am 3x faster now",
+  "reply": "That's a big jump! What changed?",
+  "expect": "answer"
  }
 ]

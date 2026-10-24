@@ -1,9 +1,9 @@
 """Replies the server writes itself, so the turn never calls a model.
 
-A recurring-pay estimate, the local time or date, where the user is, a fact from
-their profile, a settings change to confirm, a to-do change asked in another language
-(chat only reads them there: the To-do button), and the "location not set" answer to
-a nearby question that has no place to search from.
+A recurring-pay estimate, what a bare algebra expression ("3x") means, the local time
+or date, where the user is, a fact from their profile, a settings change to confirm, a
+to-do change asked in another language (chat only reads them there: the To-do button),
+and the "location not set" answer to a nearby question that has no place to search from.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chat.turn_prep.clauses import request_body
 from app.modules.chat.turn_prep.followups import SubjectFollowup
 from app.modules.chat.turn_prep.request import ClientGeoContext, TurnIdentity, TurnRequest
+from app.modules.math import match as math_match
 from app.modules.memory.profile_reply import reply_for_profile_question
 from app.modules.memory.switch import memory_switch_on
 from app.services import time_context as time_context_service
@@ -77,6 +78,13 @@ async def resolve_instant_reply(
     )
     if todo_screen is not None:
         return todo_screen
+    # "3x" alone was answered "3 times 3 is 9": what it means, an example, what to ask next.
+    if not request.has_image_attachment:
+        expression = math_match.bare_expression_reply(
+            content, prior_assistant=_last_recent_assistant_content(request.recent_messages)
+        )
+        if expression is not None:
+            return expression
     # Time/location answers are CPU-only. Skip year/date/time instant-replies
     # when a photo is attached — vision should see it.
     if not request.has_image_attachment:
