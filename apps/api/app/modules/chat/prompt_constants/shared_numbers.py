@@ -51,7 +51,18 @@ _QUESTION_MARKS = ("?", "\uff1f", "\u061f")
 _DIGIT = re.compile(r"\d")
 # "My brother is 30": a sentence, not a name.
 _CLAUSE = re.compile(r"(?:^|\s)(?:is|are|was|were|am|i'?m|have|has|had|got)$", re.IGNORECASE)
-_MONTH = re.compile(r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*", re.I)
+_MONTH = re.compile(
+    r"jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?"
+    r"|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?",
+    re.IGNORECASE,
+)
+_WEEKDAY = re.compile(
+    r"mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:r(?:s(?:day)?)?)?|fri(?:day)?"
+    r"|sat(?:urday)?|sun(?:day)?",
+    re.IGNORECASE,
+)
+_HALF_OR_QUARTER = re.compile(r"q[1-4]|h[12]", re.IGNORECASE)
+_NUMBERED = re.compile(r"(?P<base>[^\W\d_]+(?: [^\W\d_]+)*) \d{1,2}")
 # A loan or a card, two of its terms or more: the money reader's to work. One is a name
 # ("Apr 85" is April).
 _MONEY_TERMS = frozenset(
@@ -73,6 +84,8 @@ _MONEY_TERMS = frozenset(
 _CLOCK_UNITS = frozenset({"am", "pm"})
 # Units written against the number ("20k", "5%"); others take a space ("5 mm").
 _TIGHT_UNITS = frozenset({"%", "k", "K", "M", "B", "bn"})
+# A scale counts on its own item only: "Jan 800, Feb 950, Mar 1.1k" is not 950k.
+_SCALES = frozenset({"k", "K", "M", "B", "bn"})
 _YEAR = re.compile(r"(?:19|20)\d\d")
 _MAX_CHARS = 2000
 _MIN_ITEMS = 3
@@ -130,15 +143,29 @@ def _items(text: str) -> list[SharedValue] | None:
     return values if len(values) == len(parts) else None
 
 
-def _one_series(values: list[SharedValue]) -> bool:
-    """One unit and one currency across the list; a unit on the last item only is all of
-    theirs ("Nov 6, Dec 5 mm")."""
+def _a_series(labels: list[str]) -> bool:
+    """Months, weekdays, quarters, years, or one name numbered ("week 1", "week 2"): the
+    same quantity over time, so its highest and lowest mean something. "Glucose 95,
+    cholesterol 210, HDL 45" are different things."""
+    for kind in (_MONTH, _WEEKDAY, _HALF_OR_QUARTER, _YEAR):
+        if all(kind.fullmatch(label) for label in labels):
+            return True
+    numbered = [_NUMBERED.fullmatch(label) for label in labels]
+    bases = {match["base"].casefold() for match in numbered if match}
+    return all(numbered) and len(bases) == 1
+
+
+def _comparable(values: list[SharedValue]) -> bool:
+    """A series in one unit and one currency: a unit on the last item alone is everyone's
+    ("Nov 6, Dec 5 mm"), a scale only its own ("Mar 1.1k")."""
+    if not _a_series([value.label for value in values]):
+        return False
     units = [value.unit for value in values]
-    if len(set(filter(None, units))) > 1 or {unit.lower() for unit in units} & _CLOCK_UNITS:
+    if len(set(filter(None, units))) > 1 or len({value.currency for value in values}) > 1:
         return False
-    if any(units[:-1]) and not all(units):
-        return False
-    return len({value.currency for value in values}) == 1
+    if any(units) and not all(units):
+        return not any(units[:-1]) and units[-1] not in _SCALES
+    return True
 
 
 def _dates(values: list[SharedValue]) -> bool:
@@ -159,7 +186,7 @@ def shared_numbers(text: str) -> list[SharedValue] | None:
     values = _items(text)
     if values is None or len(values) < _MIN_ITEMS:
         return None
-    if not _one_series(values) or _dates(values):
+    if {value.unit.lower() for value in values} & _CLOCK_UNITS or _dates(values):
         return None
     # "Week 1 80 kg, week 2 79 kg" numbers its names; one name ending in a number alone is
     # a number split by a space ("loyer 1 200" is twelve hundred).
@@ -184,7 +211,8 @@ def _named(values: list[SharedValue], end: float) -> str:
 
 
 def shared_numbers_hint(text: str | None) -> str | None:
-    """The note for a message that lists values, with their highest and lowest.
+    """The note for a message that lists values, with their highest and lowest when they
+    are one quantity over time (a series in one unit).
 
     Not for a personal disclosure ("My expenses: rent $1,500, …"): its own note says how
     to acknowledge it, and stays the one nearest the user's turn.
@@ -199,6 +227,8 @@ def shared_numbers_hint(text: str | None) -> str | None:
         return None
     if values is None:
         return None
+    if not _comparable(values):
+        return SHARED_NUMBERS_HINT
     numbers = [value.value for value in values]
     return (
         f"{SHARED_NUMBERS_HINT} Read from their message: the highest is "
