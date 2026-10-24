@@ -49,8 +49,11 @@ def _outside_code(text: str, change: Callable[[str], str]) -> str:
 
 # An emoji with the spaces after it: "🧠 Brain" leaves "Brain", "**🧠 Brain**" "**Brain**".
 _EMOJI_AND_SPACE = re.compile(rf"(?:{EMOJI.pattern})[ \t]*")
-# A space left before a closing bold marker ("**Brain power **") or punctuation.
-_SPACE_BEFORE_CLOSE = re.compile(r"[ \t]+(\*\*|__)(?=[\s.,;:!?)]|$)|[ \t]+(?=[.,;:!?)])")
+# A space left before a closing bold marker ("**Brain power **") or punctuation. A run
+# is read from its first blank only: tried from every blank in it, a long run was quadratic.
+_SPACE_BEFORE_CLOSE = re.compile(
+    r"(?<![ \t])[ \t]+(\*\*|__)(?=[\s.,;:!?)]|$)|(?<![ \t])[ \t]+(?=[.,;:!?)])"
+)
 
 
 # An emoji used as a sentence break: "Hey bini 👋 How's it going?" lost its 👋 and read
@@ -63,27 +66,80 @@ _LEADS_ON = frozenset(
     }
 )  # fmt: skip
 _FLAG = re.compile(r"[\U0001f1e6-\U0001f1ff]")
-# The same letters as the phone's twin, whose regex has no Unicode classes.
-_LAST_WORD = re.compile(r"([A-Za-z0-9\u00c0-\u024f']+)[ \t]*$")
 _NEXT_WORD = re.compile(r"[A-Z][a-z']")
+# A word longer than every lead-on word is not one: the last few letters are enough.
+_WORD_KEEP = max(map(len, _LEADS_ON)) + 1
+
+
+def _is_word_char(char: str) -> bool:
+    """The same letters as the phone's twin, whose regex has no Unicode classes."""
+    return (
+        "a" <= char <= "z"
+        or "A" <= char <= "Z"
+        or "0" <= char <= "9"
+        or char == "'"
+        or "\u00c0" <= char <= "\u024f"
+    )
+
+
+def _word_end(text: str) -> str:
+    """The last ``_WORD_KEEP`` letters of the word ``text`` ends with ("" when none)."""
+    start = len(text)
+    while start > 0 and len(text) - start < _WORD_KEEP and _is_word_char(text[start - 1]):
+        start -= 1
+    return text[start:]
+
+
+def _strip_blank_end(pieces: list[str]) -> None:
+    while pieces:
+        kept = pieces[-1].rstrip(" \t")
+        if kept:
+            pieces[-1] = kept
+            return
+        pieces.pop()
 
 
 def _drop_emoji(part: str) -> str:
-    """``part`` without its emoji; one that broke two sentences becomes a full stop."""
-    out = ""
+    """``part`` without its emoji; one that broke two sentences becomes a full stop.
+
+    The word before each emoji is read from the end of the text kept so far, never by
+    searching all of it again: on a long line every emoji re-read the whole line.
+    """
+    pieces: list[str] = []
+    # The word the kept text ends with, and the one it ends with once its trailing
+    # blanks go (each cut to ``_WORD_KEEP`` letters).
+    word_at_end = word_before_blanks = ""
     last = 0
     for match in _EMOJI_AND_SPACE.finditer(part):
-        before = out + part[last : match.start()]
-        word = _LAST_WORD.search(before)
+        between = part[last : match.start()]
+        text = between.rstrip(" \t")
+        if not text:
+            word = word_before_blanks
+            ends_on_word = word_at_end if not between else ""
+        else:
+            word = _word_end(text)
+            if len(word) == len(text):
+                word = (word_at_end + word)[-_WORD_KEEP:]
+            ends_on_word = word if len(text) == len(between) else ""
         breaks = (
-            word is not None
-            and word.group(1).lower() not in _LEADS_ON
+            bool(word)
+            and word.lower() not in _LEADS_ON
             and _FLAG.search(match.group(0)) is None
             and _NEXT_WORD.match(part, match.end()) is not None
         )
-        out = f"{before.rstrip(' \t')}. " if breaks else before
+        if breaks:
+            if text:
+                pieces.append(text)
+            else:
+                _strip_blank_end(pieces)
+            pieces.append(". ")
+            word_at_end = word_before_blanks = ""
+        else:
+            pieces.append(between)
+            word_at_end, word_before_blanks = ends_on_word, word
         last = match.end()
-    return out + part[last:]
+    pieces.append(part[last:])
+    return "".join(pieces)
 
 
 def _without_emoji(line: str) -> str:
