@@ -46,24 +46,48 @@ def is_social_opener(text: str) -> bool:
     return _SOCIAL_OPENER.fullmatch(cleaned) is not None
 
 
+def greeting_run(text: str, prior: Sequence[tuple[str, str]]) -> int:
+    """How many greetings in a row ``text`` makes ("hi" after "hi" is 2); 0 when it is none."""
+    if not is_social_opener(text):
+        return 0
+    run = 1
+    for role, content in reversed(prior):
+        if role != "user":
+            continue
+        if not is_social_opener(content):
+            break
+        run += 1
+    return run
+
+
 def greets_again(text: str, prior: Sequence[tuple[str, str]]) -> bool:
     """A greeting right after the user's last message was one too: "hi" after "hi"."""
-    if not is_social_opener(text):
-        return False
-    last = next((content for role, content in reversed(prior) if role == "user"), None)
-    return last is not None and is_social_opener(last)
+    return greeting_run(text, prior) >= 2
 
 
 # "hi" after "hi" got a fresh "Hey bini! How's your Friday going?" each time, as if the
-# chat had just begun.
+# chat had just begun; told only to "notice it", a model said "Hey bini! What's up?"
+# twice. It now gets the count and its own last reply.
 REPEATED_GREETING_HINT = (
-    "The user greeted you again right after the last greeting. Do not greet them as if "
-    "the chat had just begun, and do not ask about their day again. Notice it lightly, "
-    "the way a friend texts back: one short line that says they keep saying hi and asks "
-    "what's up or if they're testing you (\"Hi again! What's up?\", \"Hello, hello. "
-    'Everything okay, or just saying hi?"). Use different words from your last reply; '
-    "after a few in a row you may count them with a smile."
+    "The user greeted you again right after your last greeting. Open by noticing it, the "
+    'way a friend texts back ("Hi again!", "Hello, hello!", "Another hi!"), then '
+    "one short question: what's up, or are they just saying hi or testing you. One short "
+    "line in all. Do not greet them as if the chat had just begun, and do not ask about "
+    "their day."
 )
+_ORDINALS = {2: "second", 3: "third", 4: "fourth", 5: "fifth"}
+
+
+def repeated_greeting_hint(run: int, last_reply: str | None) -> str:
+    """The repeated-greeting rule with this run's count and the reply it must not repeat."""
+    count = _ORDINALS.get(run, f"number {run}")
+    parts = [REPEATED_GREETING_HINT, f"This is their {count} greeting in a row."]
+    if run >= 3:
+        parts.append(f'You may count them with a smile ("That\'s {run} now!").')
+    if last_reply:
+        said = " ".join(last_reply.split())[:160]
+        parts.append(f'Your last reply was "{said}": open differently and use other words.')
+    return " ".join(parts)
 
 
 _LEAD = r"(?:(?:no|nope|nah|wait|sorry|oops|um+|uh+|hmm+)[,.!]* )+"

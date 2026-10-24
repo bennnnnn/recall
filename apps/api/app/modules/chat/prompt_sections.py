@@ -38,14 +38,13 @@ from app.modules.chat.prompt_constants import (
     PERSONAL_DISCLOSURE_HINT,
     PHOTO_LOOKUP_HINT,
     PROFILE_FACT_HINT,
-    REPEATED_GREETING_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
     TONE_FORMAT_GUARD,
     UNCLEAR_MESSAGE_HINT,
     WEB_SEARCH_OFF_HINT,
     active_lesson_step,
-    greets_again,
+    greeting_run,
     is_bare_writing_line,
     is_brevity_request,
     is_capabilities_question,
@@ -62,6 +61,7 @@ from app.modules.chat.prompt_constants import (
     learning_plan_daily_contract,
     outline_awaits_pick,
     programming_lesson_contract,
+    repeated_greeting_hint,
     reply_length,
     writing_format_hint,
 )
@@ -277,9 +277,12 @@ STABLE_SECTIONS: tuple[PromptSection, ...] = (
 
 def _social_hint(turn: PromptTurn) -> str:
     """A greeting after a greeting is noticed, not answered as the first one."""
-    if greets_again(turn.query, exchange_pairs(turn.exchange)):
-        return REPEATED_GREETING_HINT
-    return LIGHTWEIGHT_REPLY_HINT
+    prior = exchange_pairs(turn.exchange)
+    run = greeting_run(turn.query, prior)
+    if run < 2:
+        return LIGHTWEIGHT_REPLY_HINT
+    last_reply = next((content for role, content in reversed(prior) if role == "assistant"), None)
+    return repeated_greeting_hint(run, last_reply)
 
 
 # Everything that depends on the turn, steadiest first so consecutive turns share a

@@ -25,9 +25,11 @@ from app.modules.chat.prompt_constants.conversation import (
     CONTINUE_HINT,
     CORRECTION_HINT,
     REPEATED_GREETING_HINT,
+    greeting_run,
     greets_again,
     is_correction,
     is_social_opener,
+    repeated_greeting_hint,
 )
 from app.modules.chat.prompt_constants.diagrams import (
     DIAGRAM_KIND_HINT,
@@ -213,6 +215,7 @@ __all__ = [
     "could_continue_draft",
     "draft_followup",
     "draft_followup_hint",
+    "greeting_run",
     "greets_again",
     "has_code_syntax",
     "is_bare_writing_line",
@@ -258,6 +261,7 @@ __all__ = [
     "profile_question_to_answer",
     "programming_lesson_contract",
     "recalls_earlier_conversation",
+    "repeated_greeting_hint",
     "reply_length",
     "where_is_place",
     "writing_format_hint",

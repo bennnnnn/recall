@@ -11,10 +11,12 @@ from app.modules.chat.continuation_subject import (
     works_on_last_reply,
 )
 from app.modules.chat.prompt_constants import (
+    greeting_run,
     greets_again,
     is_correction,
     is_lightweight_chat_turn,
     is_social_opener,
+    repeated_greeting_hint,
     reply_length,
 )
 from app.modules.chat.prompt_constants.length import is_detail_request
@@ -228,3 +230,33 @@ def test_a_greeting_after_a_greeting_greets_again(
     text: str, prior: list[tuple[str, str]], again: bool
 ) -> None:
     assert greets_again(text, prior) is again
+
+
+@pytest.mark.parametrize(
+    ("prior", "run"),
+    [
+        ([], 1),
+        ([("user", "Hi"), ("assistant", "Hey!")], 2),
+        ([("user", "hi"), ("assistant", "Hey!"), ("user", "hello"), ("assistant", "Hi again!")], 3),
+        # A question in between starts the count again.
+        ([("user", "hi"), ("assistant", "Hey!"), ("user", "what's 2+2"), ("assistant", "4")], 1),
+    ],
+)
+def test_a_greeting_run_counts_the_greetings_in_a_row(
+    prior: list[tuple[str, str]], run: int
+) -> None:
+    assert greeting_run("Hi", prior) == run
+    assert greeting_run("what's up with my order?", prior) == 0
+
+
+def test_the_repeated_greeting_rule_names_the_count_and_the_last_reply() -> None:
+    # Told only to notice it, a model said "Hey bini! What's up?" twice in a row.
+    second = repeated_greeting_hint(2, "Hey bini! 👋 What's up?")
+    assert "second greeting in a row" in second
+    assert '"Hey bini! 👋 What\'s up?"' in second
+    assert "count them" not in second
+    third = repeated_greeting_hint(3, None)
+    assert "third greeting in a row" in third
+    assert "That's 3 now!" in third
+    assert "Your last reply" not in third
+    assert "number 7 greeting" in repeated_greeting_hint(7, None)
