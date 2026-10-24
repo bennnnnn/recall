@@ -65,7 +65,9 @@ class Ceiling:
 # each, so the history read finds nothing; the user message's save is one of each.
 # To update: ``pytest -s`` on this file prints every count.
 CEILINGS: dict[str, tuple[str, Ceiling]] = {
-    "greeting": ("hi", Ceiling(sql=1, checkouts=1, transactions=1, redis=16)),
+    # A greeting reads the chat's recent window like any message: one that skipped it
+    # was greeted afresh after a "hi", since its prompt never saw the first one.
+    "greeting": ("hi", Ceiling(sql=2, checkouts=2, transactions=2, redis=16)),
     "question": (
         "What's the capital of France?",
         Ceiling(sql=2, checkouts=2, transactions=2, redis=16),
@@ -86,7 +88,7 @@ CEILINGS: dict[str, tuple[str, Ceiling]] = {
 }
 # The day's first message: Redis has no usage counter yet, so it is read back from
 # the database before the turn reserves its tokens.
-FIRST_OF_THE_DAY = ("hi", Ceiling(sql=2, checkouts=2, transactions=2, redis=17))
+FIRST_OF_THE_DAY = ("hi", Ceiling(sql=3, checkouts=3, transactions=3, redis=17))
 # Questions on one chat socket, from the message frame to the first token frame (the
 # handshake and auth frame are the socket's, paid once). On a machine that has not
 # read the user yet, the first turn reads the row; the next finds it in the process's
