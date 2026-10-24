@@ -11,9 +11,11 @@ it with SymPy (``modules/math/chart_formula.py``).
 
 import json
 import re
+from collections.abc import Sequence
 from pathlib import Path
 
 from app.services.diagram_kinds import names_diagram_kind, names_idea_curve
+from app.services.prompt_safety import text_before_attachment_markers
 
 CHART_SHAPES: dict[str, dict[str, object]] = json.loads(
     Path(__file__).with_name("chart_shapes.json").read_text(encoding="utf-8")
@@ -329,3 +331,63 @@ def chart_of_public_facts(text: str) -> bool:
     if _IN_A_VISUAL.search(cleaned) and not named:
         return False
     return bool(named or _FACT_WORDS.search(cleaned))
+
+
+# How far back a chart follow-up looks for the numbers it draws, in user messages.
+_FOLLOWUP_LOOKBACK = 3
+# "Graph it", "visualize this", "put that in a chart", or the verb alone ("chart").
+_BACK_REFERENCE = re.compile(
+    r"\b(?:it|these|those|them|above|(?:this|that)(?!\s+(?:year|month|week|quarter|season|"
+    r"decade|century|time)\b))\b",
+    re.IGNORECASE,
+)
+_BARE_VERB = re.compile(rf"^{_POLITE}(?:graph|chart|plot|visuali[sz]e)\W*$", re.IGNORECASE)
+
+
+def _holds_data(text: str) -> bool:
+    """Three numbers or more, or a list of them ("rent 1500, groceries 400") that asks
+    nothing: "Compare iPhone 15 and Pixel 8 prices?" holds model names, not data."""
+    count = len(_NUMBER.findall(_YEAR.sub(" ", text)))
+    if _FORMULA.search(text) or count < 2:
+        return False
+    return count >= 3 or (bool(re.search(r"[:,]", text)) and "?" not in text)
+
+
+def chart_followup_data(query: str, prior_messages: Sequence[tuple[str, str]] | None) -> str | None:
+    """The user's earlier message whose numbers a chart follow-up draws, or None.
+
+    "Graph it" after "Here are my exam marks: math 85, physics 78, chemistry 92" was answered
+    "You didn't specify which function to graph!" (2026-10-24): the chart hint was there, but
+    the numbers were a turn back. A follow-up that names no numbers and points back ("it",
+    "that", the verb alone) gets that message quoted: only what the user typed, never a
+    file's text after it, which reaches the model wrapped as untrusted. A chart of facts a
+    search finds ("plot bitcoin prices") is a new subject, not the earlier numbers.
+    """
+    cleaned = query.strip()
+    if not cleaned or _NUMBER.search(cleaned) or not is_chart_question(cleaned):
+        return None
+    if chart_of_public_facts(cleaned):
+        return None
+    if not (_BACK_REFERENCE.search(cleaned) or _BARE_VERB.match(cleaned)):
+        return None
+    earlier = [
+        typed
+        for role, text in prior_messages or ()
+        if role == "user"
+        and (typed := text_before_attachment_markers(text).strip())
+        and typed != cleaned
+    ]
+    for text in reversed(earlier[-_FOLLOWUP_LOOKBACK:]):
+        if _holds_data(text):
+            return " ".join(text.split())[:600]
+    return None
+
+
+def with_chart_followup(layout: str | None, data: str | None) -> str | None:
+    """The chart hint, with the earlier message whose numbers "graph it" draws."""
+    if layout != CHART_FORMAT_HINT or data is None:
+        return layout
+    return (
+        f"{layout}\nThe numbers to chart are in the user's earlier message: «{data}». Use them "
+        "as data.values; do not ask for the values or which function to graph."
+    )

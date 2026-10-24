@@ -2,6 +2,8 @@
 
 import re
 
+from app.modules.chat.prompt_constants.chart import is_chart_question
+from app.modules.chat.prompt_constants.visuals import is_html_ui_question
 from app.services.diagram_kinds import names_diagram_kind
 
 _SEQUENCE_CUE = re.compile(r"\bsequence\s+diagram\b", re.IGNORECASE)
@@ -109,3 +111,14 @@ def mermaid_format_hint(text: str) -> str | None:
     if is_mermaid_question(text):
         return MERMAID_FORMAT_HINT
     return None
+
+
+def asks_for_a_visual(query_text: str | None) -> bool:
+    """A chart, a diagram or a web page to preview: the turn gets the visual hints."""
+    if not query_text or not query_text.strip():
+        return False
+    return (
+        is_chart_question(query_text)
+        or is_mermaid_question(query_text)
+        or is_html_ui_question(query_text)
+    )
