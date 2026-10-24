@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 
 from app.modules.physics.solvers.arithmetic import latex_num
 from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
@@ -10,88 +11,75 @@ from app.modules.physics.solvers.si import one_unknown
 from app.services.solving import SolveServiceError
 
 
-def _rolling_speed(params: dict[str, float]) -> PhysicsResult:
-    unknown = one_unknown(params, ("v", "omega", "r"))
+@dataclass(frozen=True)
+class _RollingLaw:
+    """Rolling without slipping at one order: v = R omega, or a = R alpha."""
+
+    linear: str
+    angular: str
+    linear_tex: str
+    angular_tex: str
+    linear_unit: str
+    angular_unit: str
+    angular_name: str
+
+
+_SPEED = _RollingLaw("v", "omega", "v", r"\omega", "m/s", "rad/s", "angular velocity")
+_ACCELERATION = _RollingLaw(
+    "a", "ang_alpha", "a", r"\alpha", "m/s^2", "rad/s^2", "angular acceleration"
+)
+
+
+def _unit_tex(unit: str) -> str:
+    """``m/s^2`` as the answer writes it: ``\\text{ m/s}^2``."""
+    base, power = unit.split("^") if "^" in unit else (unit, "")
+    return rf"\text{{ {base}}}" + (f"^{power}" if power else "")
+
+
+def _rolling(params: dict[str, float], law: _RollingLaw) -> PhysicsResult:
+    lin, ang, lt, at = law.linear, law.angular, law.linear_tex, law.angular_tex
+    unknown = one_unknown(params, (lin, ang, "r"))
     if unknown != "r" and params["r"] <= 0:
         raise SolveServiceError("radius must be positive")
-    if unknown == "v":
-        value = params["r"] * params["omega"]
-        answer = (
-            rf"v = R\omega = {params['r']:g} \cdot {params['omega']:g} "
-            rf"\approx {value:.2f} \text{{ m/s}}"
-        )
+    if unknown == lin:
+        value = params["r"] * params[ang]
+        product = rf"{params['r']:g} \cdot {params[ang]:g}"
         return PhysicsResult(
-            answer=answer,
-            formulas=(r"v = R\omega",),
-            substitutions=(rf"v = {params['r']:g} \cdot {params['omega']:g}",),
-            quantities=(QuantityResult("", value, "m/s"),),
+            answer=rf"{lt} = R{at} = {product} \approx {value:.2f} {_unit_tex(law.linear_unit)}",
+            formulas=(rf"{lt} = R{at}",),
+            substitutions=(rf"{lt} = {product}",),
+            quantities=(QuantityResult("", value, law.linear_unit),),
         )
-    if unknown == "omega":
-        value = params["v"] / params["r"]
-        answer = (
-            rf"\omega = \frac{{v}}{{R}} = \frac{{{params['v']:g}}}{{{params['r']:g}}} "
-            rf"\approx {value:.2f} \text{{ rad/s}}"
-        )
+    if unknown == ang:
+        value = params[lin] / params["r"]
+        quotient = rf"\frac{{{params[lin]:g}}}{{{params['r']:g}}}"
+        formula = rf"{at} = \frac{{{lt}}}{{R}}"
         return PhysicsResult(
-            answer=answer,
-            formulas=(r"\omega = \frac{v}{R}",),
-            substitutions=(rf"\omega = \frac{{{params['v']:g}}}{{{params['r']:g}}}",),
-            quantities=(QuantityResult("", value, "rad/s"),),
+            answer=rf"{formula} = {quotient} \approx {value:.2f} {_unit_tex(law.angular_unit)}",
+            formulas=(formula,),
+            substitutions=(rf"{at} = {quotient}",),
+            quantities=(QuantityResult("", value, law.angular_unit),),
         )
-    if params["omega"] == 0:
-        raise SolveServiceError("angular velocity must be nonzero to find the radius")
-    value = params["v"] / params["omega"]
+    if params[ang] == 0:
+        raise SolveServiceError(f"{law.angular_name} must be nonzero to find the radius")
+    value = params[lin] / params[ang]
     if value <= 0:
         raise SolveServiceError("radius must be positive")
-    answer = rf"R = \frac{{v}}{{\omega}} \approx {value:.2f} \text{{ m}}"
+    formula = rf"R = \frac{{{lt}}}{{{at}}}"
     return PhysicsResult(
-        answer=answer,
-        formulas=(r"R = \frac{v}{\omega}",),
-        substitutions=(rf"R = \frac{{{params['v']:g}}}{{{params['omega']:g}}}",),
+        answer=rf"{formula} \approx {value:.2f} \text{{ m}}",
+        formulas=(formula,),
+        substitutions=(rf"R = \frac{{{params[lin]:g}}}{{{params[ang]:g}}}",),
         quantities=(QuantityResult("", value, "m"),),
     )
+
+
+def _rolling_speed(params: dict[str, float]) -> PhysicsResult:
+    return _rolling(params, _SPEED)
 
 
 def _rolling_acceleration(params: dict[str, float]) -> PhysicsResult:
-    unknown = one_unknown(params, ("a", "ang_alpha", "r"))
-    if unknown != "r" and params["r"] <= 0:
-        raise SolveServiceError("radius must be positive")
-    if unknown == "a":
-        value = params["r"] * params["ang_alpha"]
-        answer = (
-            rf"a = R\alpha = {params['r']:g} \cdot {params['ang_alpha']:g} "
-            rf"\approx {value:.2f} \text{{ m/s}}^2"
-        )
-        return PhysicsResult(
-            answer=answer,
-            formulas=(r"a = R\alpha",),
-            substitutions=(rf"a = {params['r']:g} \cdot {params['ang_alpha']:g}",),
-            quantities=(QuantityResult("", value, "m/s^2"),),
-        )
-    if unknown == "ang_alpha":
-        value = params["a"] / params["r"]
-        answer = (
-            rf"\alpha = \frac{{a}}{{R}} = \frac{{{params['a']:g}}}{{{params['r']:g}}} "
-            rf"\approx {value:.2f} \text{{ rad/s}}^2"
-        )
-        return PhysicsResult(
-            answer=answer,
-            formulas=(r"\alpha = \frac{a}{R}",),
-            substitutions=(rf"\alpha = \frac{{{params['a']:g}}}{{{params['r']:g}}}",),
-            quantities=(QuantityResult("", value, "rad/s^2"),),
-        )
-    if params["ang_alpha"] == 0:
-        raise SolveServiceError("angular acceleration must be nonzero to find the radius")
-    value = params["a"] / params["ang_alpha"]
-    if value <= 0:
-        raise SolveServiceError("radius must be positive")
-    answer = rf"R = \frac{{a}}{{\alpha}} \approx {value:.2f} \text{{ m}}"
-    return PhysicsResult(
-        answer=answer,
-        formulas=(r"R = \frac{a}{\alpha}",),
-        substitutions=(rf"R = \frac{{{params['a']:g}}}{{{params['ang_alpha']:g}}}",),
-        quantities=(QuantityResult("", value, "m"),),
-    )
+    return _rolling(params, _ACCELERATION)
 
 
 def _rolling_energy(params: dict[str, float]) -> PhysicsResult:
