@@ -98,6 +98,48 @@ async def test_a_model_that_just_answered_is_closed() -> None:
     assert (await _health(redis, "smart-chat")).healthy is True
 
 
+async def _mostly_answering(redis: Any, alias: str, last: HealthSample) -> None:
+    """Nine answers, then ``last``: far below the bad rate on its own."""
+    await model_health.record_samples(
+        redis, [HealthSample(alias, latency_ms=900, success=True) for _ in range(9)]
+    )
+    await model_health.record_samples(redis, [last])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cause", ["rate_limit", "cap"])
+async def test_one_overloaded_failure_opens_a_model_that_mostly_answers(cause: str) -> None:
+    redis = _redis()
+    await _mostly_answering(
+        redis, "qwen-3.7-flash", HealthSample("qwen-3.7-flash", 400, success=False, cause=cause)
+    )
+    assert (await _health(redis, "qwen-3.7-flash")).healthy is False
+    found = await model_health.read_breakers(redis, _SETTINGS, ["qwen-3.7-flash"])
+    assert found == model_health.Breakers(cooling=frozenset({"qwen-3.7-flash"}))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cause", [None, "server", "timeout", "connection", "empty"])
+async def test_one_other_failure_leaves_a_model_that_mostly_answers_closed(
+    cause: str | None,
+) -> None:
+    redis = _redis()
+    await _mostly_answering(
+        redis, "qwen-3.7-flash", HealthSample("qwen-3.7-flash", 400, success=False, cause=cause)
+    )
+    assert (await _health(redis, "qwen-3.7-flash")).healthy is True
+
+
+@pytest.mark.asyncio
+async def test_an_answer_after_an_overloaded_failure_closes_the_breaker() -> None:
+    redis = _redis()
+    await _mostly_answering(
+        redis, "qwen-3.7-flash", HealthSample("qwen-3.7-flash", 400, False, cause="rate_limit")
+    )
+    await model_health.record_samples(redis, [HealthSample("qwen-3.7-flash", 800, success=True)])
+    assert (await _health(redis, "qwen-3.7-flash")).healthy is True
+
+
 @pytest.mark.asyncio
 async def test_a_provider_that_is_slow_to_start_counts_as_failing() -> None:
     redis = _redis()

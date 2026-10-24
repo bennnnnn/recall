@@ -66,6 +66,15 @@ def test_a_request_the_provider_refused_leaves_no_sample() -> None:
     assert _read(samples) == [("glm-5.2", False, 8000), ("free-chat", True, 500)]
 
 
+def test_a_failed_tries_cause_goes_into_its_sample() -> None:
+    attempts = [
+        StreamAttempt("qwen-3.7-flash", failed=True, cause="rate_limit", elapsed_ms=400),
+        StreamAttempt("free-chat", first_delta_ms=700),
+    ]
+    samples = health_samples(attempts, _end())
+    assert [sample.cause for sample in samples] == ["rate_limit", None]
+
+
 def test_a_stop_leaves_no_sample_for_the_model_it_cut_short() -> None:
     attempts = [
         StreamAttempt("qwen-3.7-flash", failed=True, elapsed_ms=3000),

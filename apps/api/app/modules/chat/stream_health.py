@@ -50,7 +50,9 @@ def health_samples(attempts: Sequence[StreamAttempt], end: StreamEnd) -> list[He
             if not attempt.model_failed:
                 continue
             latency = _first(attempt.elapsed_ms, end.elapsed_ms)
-            samples.append(HealthSample(attempt.alias, latency_ms=latency, success=False))
+            samples.append(
+                HealthSample(attempt.alias, latency_ms=latency, success=False, cause=attempt.cause)
+            )
         elif not end.stopped:
             latency = _first(attempt.first_delta_ms, end.first_token_ms, end.elapsed_ms)
             samples.append(HealthSample(attempt.alias, latency_ms=latency, success=True))
