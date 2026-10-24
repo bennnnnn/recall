@@ -7,7 +7,7 @@ import {
   type MdMathStyles,
   type MdTableStyles,
 } from "@/components/markdown/markdownContentStyles";
-import { fenceRule } from "@/components/markdown/markdownFenceRender";
+import { makeFenceRule } from "@/components/markdown/markdownFenceRender";
 import { blockRules } from "@/components/markdown/rules/blocks";
 import { codeRules } from "@/components/markdown/rules/code";
 import { inlineRules } from "@/components/markdown/rules/inline";
@@ -42,17 +42,19 @@ function makeSharedRules(
  * `rules` draw a reply; `continuedRules` draw a piece of a reply whose last
  * list goes on in the next piece (`listRules`). The same rules draw a reply
  * while it streams and once it settles: what differs reads `ReplyStreaming`.
+ * Made once per reply: its fences remember what they drew (`makeFenceRule`).
  */
 export function makeRenderRules(t: Theme) {
   const mdMath = makeMdMath(t);
   const mdTable = makeMdTable(t);
   const mdImg = makeMdImg(t);
   const mdStyles = makeMdStyles(t);
+  const fence = makeFenceRule();
   const shared = {
     ...libraryRules,
     ...makeSharedRules(t, mdTable, mdMath, mdImg, mdStyles.code_inline),
-    fence: fenceRule,
-    code_block: fenceRule,
+    fence,
+    code_block: fence,
   };
   const rules: RenderRules = withStableNodeKeys(shared);
   const continuedRules: RenderRules = withStableNodeKeys({

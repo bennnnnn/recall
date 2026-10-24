@@ -1,8 +1,9 @@
 /**
  * A flush of a streaming reply costs the text that arrived, not the reply so
  * far: the characters handed to `preprocessMarkdown` and to the markdown
- * parser in a flush stay level as the reply grows, and the markdown renderer
- * is built when a piece mounts, not on every flush. Counted, never timed.
+ * parser in a flush stay level as the reply grows, the markdown renderer is
+ * built when a piece mounts, not on every flush, and a closed fence is not
+ * drawn again while the text after it streams. Counted, never timed.
  */
 import { act, render } from "@testing-library/react-native";
 
@@ -11,7 +12,7 @@ import { STREAMING_REPLIES } from "@/lib/__tests__/fixtures/streamingReplies";
 import * as preprocess from "@/lib/markdown/preprocess";
 import { formatAssistantMathExpr } from "@/lib/math/formatInput";
 
-const mockWork = { preprocessed: 0, parsed: 0, renderers: 0, mounts: 0 };
+const mockWork = { preprocessed: 0, parsed: 0, renderers: 0, mounts: 0, codeBlocks: 0 };
 
 jest.mock("@/components/LinkPreviewCard", () => ({ LinkPreviewCard: "LinkPreviewCard" }));
 jest.mock("react-native-markdown-display", () => {
@@ -38,6 +39,15 @@ jest.mock("react-native-markdown-display/src/lib/AstRenderer", () => {
     }
   }
   return { __esModule: true, default: CountedRenderer };
+});
+
+jest.mock("@/components/CodeBlock", () => {
+  const actual = jest.requireActual<typeof import("@/components/CodeBlock")>("@/components/CodeBlock");
+  function CountedCodeBlock(props: Parameters<typeof actual.CodeBlock>[0]) {
+    mockWork.codeBlocks += 1;
+    return actual.CodeBlock(props);
+  }
+  return { ...actual, CodeBlock: CountedCodeBlock };
 });
 
 const realPreprocess = preprocess.preprocessMarkdown;
@@ -111,4 +121,23 @@ describe("a streaming reply's work per flush", () => {
     expect(total("renderers")).toBeLessThanOrEqual(2 * total("mounts"));
     expect(total("renderers")).toBeLessThan(flushes.length / 4);
   }, 300_000);
+
+  it("leaves a closed fence as it was drawn while the text after it streams", async () => {
+    const fence = ["```python", ...Array.from({ length: 20 }, (_, i) => `total += step(${i})`), "```"];
+    const before = `Here is the loop.\n\n${fence.join("\n")}\n\n`;
+    // The last line stays open, so the fence stays in the live piece under it.
+    const after = "It runs once per step and keeps the running total, ".repeat(8);
+    const view = await render(<MarkdownContent content={before} streaming />);
+    let drawn = 0;
+    for (let end = 24; end <= after.length; end += 24) {
+      mockWork.codeBlocks = 0;
+      await act(async () => {
+        view.rerender(<MarkdownContent content={before + after.slice(0, end)} streaming />);
+      });
+      drawn += mockWork.codeBlocks;
+    }
+    // Each of the 17 flushes went through the code card again (0.9 ms each in jest).
+    expect(drawn).toBe(0);
+    await view.unmount();
+  });
 });
