@@ -4,10 +4,7 @@ import * as Print from "expo-print";
 import { copyAsync, deleteAsync } from "expo-file-system/legacy";
 
 import { namedPdfFile } from "@/lib/accountFiles";
-import { isShareCancelled } from "@/lib/shareCancelled";
 import { shareLocalFile } from "@/lib/shareFile";
-
-export { isShareCancelled };
 
 /** Characters a file system refuses in a name, and control characters. */
 const UNSAFE_NAME = /[\\/:*?"<>|\u0000-\u001f]+/g;
