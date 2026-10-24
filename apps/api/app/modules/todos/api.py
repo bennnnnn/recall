@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, time, timedelta
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,10 +15,6 @@ from app.modules.todos import proposals as reminder_proposals
 from app.modules.todos.schemas import TodoCreate, TodoOut, TodoPageOut, TodoUpdate
 
 router = APIRouter(prefix="/todos", tags=["todos"])
-
-
-def _map_error(exc: todos_crud.TodosError) -> HTTPException:
-    return HTTPException(status_code=exc.status_code, detail=exc.detail)
 
 
 _MAX_TODOS_PAGE = 1000

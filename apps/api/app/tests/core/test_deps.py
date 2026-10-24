@@ -1,9 +1,9 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.core.config import Settings
-from app.core.deps import get_redis, get_redis_dep, get_settings_dep
+from app.core.deps import get_redis, get_settings_dep
 from app.tests.fakes import fake_session
 
 
@@ -15,16 +15,10 @@ async def test_get_settings_dep_returns_settings():
 
 
 @pytest.mark.asyncio
-async def test_get_redis_dep_returns_client():
+async def test_get_redis_returns_client():
     client = AsyncMock()
     with patch("app.core.deps.get_redis_client", return_value=client):
-        assert await get_redis_dep() is client
-
-
-def test_get_redis_returns_client():
-    client = MagicMock()
-    with patch("app.core.deps.get_redis_client", return_value=client):
-        assert get_redis() is client
+        assert await get_redis() is client
 
 
 async def _current_user(fake_redis, token: str, settings: Settings, load: AsyncMock):

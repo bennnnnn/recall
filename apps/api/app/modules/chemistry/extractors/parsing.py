@@ -6,14 +6,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.quantity import to_atm, to_kelvin
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE, FORMULA_END
 from app.modules.chemistry.species import counts_in_mass_action
-from app.modules.chemistry.species_facts import (
-    ELEMENT_NAMES,
-)
 from app.services.number_text import TEXT_NUMBER
 
 # The extractors' short name for the shared running-text number.
@@ -271,13 +267,6 @@ def _pressure_species(text: str, equation: str) -> dict[str, float]:
         if bare in raw:
             mapped[species] = raw[bare]
     return mapped
-
-
-def _element(token: str) -> str | None:
-    """An element named by symbol ("O", case as written) or in words ("oxygen")."""
-    if token in BY_SYMBOL:
-        return token
-    return ELEMENT_NAMES.get(token.lower())
 
 
 _NUCLIDE = r"(?:[A-Z][a-z]?-\d+|\d+[A-Z][a-z]?)"

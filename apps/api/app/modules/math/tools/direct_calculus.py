@@ -12,6 +12,7 @@ from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.request_text import _split_response_instruction_sentence
 from app.services.number_text import bounded_decimal
+from app.services.text_match import parens_balanced
 
 _NUMBER = bounded_decimal(12)
 # ``pi``, ``2pi``, ``pi/2`` and ``e`` are exact bounds, as common as numbers.
@@ -61,12 +62,7 @@ def _expression(raw: str) -> str | None:
         not (char.isascii() and (char.isalnum() or char in " +-*/^().|")) for char in raw
     ):
         return None
-    depth = 0
-    for char in raw:
-        depth += (char == "(") - (char == ")")
-        if depth < 0:
-            return None
-    if depth:
+    if not parens_balanced(raw):
         return None
     for word in re.findall(r"[A-Za-z]+", raw):
         if len(word) != 1 and word not in _FUNCTIONS:

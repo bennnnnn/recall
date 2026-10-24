@@ -25,6 +25,7 @@ from app.modules.chemistry.solvers.display import (
     num,
     p_value,
     verified,
+    with_unit,
 )
 from app.modules.chemistry.solvers.types import ChemistryResult, format_constant
 from app.services.law_binding.expression import Notation, evaluate
@@ -62,19 +63,13 @@ def _is_logarithm(symbol: str) -> bool:
     return len(symbol) > 1 and symbol[0] == "p" and symbol[1].isupper()
 
 
-def _with_unit(value: str, unit: str) -> str:
-    if not unit:
-        return value
-    return f"{value}{unit}" if unit == "%" else f"{value} {unit}"
-
-
 class _Given(str):
     """A given as a substitution shows it, "0.500 L"; ``.value`` is the bare number."""
 
     value: str
 
     def __new__(cls, value: str, unit: str) -> _Given:
-        given = super().__new__(cls, _with_unit(value, unit))
+        given = super().__new__(cls, with_unit(value, unit))
         given.value = value
         return given
 
@@ -135,8 +130,8 @@ def _as_typed(value: float, unit: str, typed_unit: str | None) -> tuple[str, str
     literal = None if written is None else written.converted.get(repr(value))
     if literal is None:
         # Undo the round trip's float noise (0.5 L is 500.00000000000006 mL) before echoing.
-        return _with_unit(inp(float(f"{typed:.12g}")), typed_unit), inp(value)
-    return _with_unit(sig_figs.as_written(literal), typed_unit), converted(value, literal)
+        return with_unit(inp(float(f"{typed:.12g}")), typed_unit), inp(value)
+    return with_unit(sig_figs.as_written(literal), typed_unit), converted(value, literal)
 
 
 def _binary_fractions(fraction_a: float, fraction_b: float) -> None:
@@ -192,7 +187,7 @@ def solve_formula_law(intent: ChemistryIntent) -> ChemistryResult:
         raise SolveServiceError("those compositions are not a tie line")
     # pH, pOH and pK are logarithms: 4.20 + log10(0.25) is 3.60, not 3.6.
     number = p_value(result) if _is_logarithm(law.result) else num(result)
-    shown = _with_unit(number, law.unit)
+    shown = with_unit(number, law.unit)
     names = {"formula": intent.formula or "", "target": intent.target or ""}
     # "How many mg ...": the law's grams, then the unit the question asked in.
     asked_unit = intent.units.get("answer")
@@ -202,7 +197,7 @@ def solve_formula_law(intent: ChemistryIntent) -> ChemistryResult:
             converted_value = convert_quantity(result, law.unit, asked_unit)
         except ValueError as exc:
             raise SolveServiceError(f"cannot answer {law.law_name} in {asked_unit}") from exc
-        in_asked = _with_unit(num(converted_value), asked_unit)
+        in_asked = with_unit(num(converted_value), asked_unit)
     units = {name: unit for name, _label, unit in law.given}
     typed = {name: _Given(_shown(name, value), units[name]) for name, value in values.items()}
     given = []

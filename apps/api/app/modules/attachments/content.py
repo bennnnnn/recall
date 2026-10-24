@@ -21,6 +21,7 @@ from app.modules.attachments.content_types import (
 
 # Re-exported: rag and chat's vision paths read it through this module.
 from app.modules.attachments.content_types import is_image_content_type as is_image_content_type
+from app.modules.attachments.markers import image_marker
 from app.modules.attachments.text_extract import (
     MAX_EXTRACT_CHARS,
     PDF_EXTRACT_MAX_PAGES,
@@ -283,7 +284,7 @@ async def format_attachment_lines(
     """
     if is_image_content_type(content_type):
         # API path the mobile app can fetch with auth (stored in message content).
-        return [f"[Image: /attachments/{attachment_id}/file]"], True
+        return [image_marker(attachment_id)], True
 
     if data is None:
         data = await read_attachment_bytes(gateway, storage_key)

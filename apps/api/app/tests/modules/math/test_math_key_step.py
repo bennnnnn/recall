@@ -11,7 +11,6 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.modules.math import solve as math_solve
 from app.modules.math.tools import (
     _build_verified_block,
     extract_math_intent,
@@ -26,30 +25,6 @@ def _block(text: str):
     intent = extract_math_intent(text)
     assert intent is not None, f"no intent for {text!r}"
     return _build_verified_block(intent, Settings(math_tools_enabled=True))
-
-
-@pytest.mark.parametrize(
-    "lhs, rhs, expected",
-    [
-        ("x^2 - 5x + 6", "0", "\\left(x - 3\\right) \\left(x - 2\\right)"),
-        ("x^2 - 9", "0", "\\left(x - 3\\right) \\left(x + 3\\right)"),
-        ("x^2 + 2x + 1", "0", "\\left(x + 1\\right)^{2}"),
-    ],
-)
-def test_factored_key_step_returns_the_factorization(lhs: str, rhs: str, expected: str) -> None:
-    assert math_solve.factored_key_step(lhs, rhs) == expected
-
-
-@pytest.mark.parametrize(
-    "lhs, rhs",
-    [
-        ("2x + 7", "19"),
-        ("x^2 + 1", "0"),
-        ("x^2 + x + 1", "0"),
-    ],
-)
-def test_factored_key_step_stays_quiet_when_factoring_is_not_the_step(lhs: str, rhs: str) -> None:
-    assert math_solve.factored_key_step(lhs, rhs) is None
 
 
 def test_show_steps_phrase_is_an_explanation_request() -> None:

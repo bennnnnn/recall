@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from redis.asyncio import Redis
 
 from app.core.config import Settings
-from app.core.deps import get_current_user, get_redis_dep, get_settings_dep
+from app.core.deps import get_current_user, get_redis, get_settings_dep
 from app.models import model_catalog
 from app.models.orm import User
 from app.models.schemas import ModelInfo
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/models", tags=["models"])
 async def list_models(
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings_dep),
-    redis: Redis = Depends(get_redis_dep),
+    redis: Redis = Depends(get_redis),
 ) -> list[ModelInfo]:
     """Selectable chat models with pricing, availability, and live health.
 

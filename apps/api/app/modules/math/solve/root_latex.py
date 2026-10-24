@@ -12,7 +12,7 @@ from app.modules.math.solve.display import format_verified_latex
 
 
 @declines(False)
-def _expr_equal(left: Any, right: Any) -> bool:
+def expr_equal(left: Any, right: Any) -> bool:
     return bool(simplify(left - right) == 0)
 
 
@@ -58,12 +58,12 @@ def compact_root_answer_lines(variable: str, values: list[Any]) -> list[str]:
     var_l = str(latex(Symbol(variable)))
 
     for i, v in enumerate(pool):
-        if used[i] or not _is_real_value(v) or _expr_equal(v, 0):
+        if used[i] or not _is_real_value(v) or expr_equal(v, 0):
             continue
         for j, w in enumerate(pool):
             if used[j] or i == j or not _is_real_value(w):
                 continue
-            if not _expr_equal(v + w, 0):
+            if not expr_equal(v + w, 0):
                 continue
             pos = v
             if v.is_number and w.is_number:
@@ -79,12 +79,12 @@ def compact_root_answer_lines(variable: str, values: list[Any]) -> list[str]:
         if used[i] or _is_real_value(v):
             continue
         conj = simplify(conjugate(v))
-        if _expr_equal(v, conj):
+        if expr_equal(v, conj):
             continue
         for j, w in enumerate(pool):
             if used[j] or i == j:
                 continue
-            if not _expr_equal(w, conj):
+            if not expr_equal(w, conj):
                 continue
             real, imag = v.as_real_imag()
             real, imag_abs = simplify(real), simplify(Abs(simplify(imag)))

@@ -12,7 +12,6 @@ from app.modules.chat.continuation_subject import (
 )
 from app.modules.chat.prompt_constants import (
     greeting_run,
-    greets_again,
     is_correction,
     is_lightweight_chat_turn,
     is_social_opener,
@@ -229,7 +228,7 @@ def test_a_cap_on_one_part_and_depth_on_another_is_mixed() -> None:
 def test_a_greeting_after_a_greeting_greets_again(
     text: str, prior: list[tuple[str, str]], again: bool
 ) -> None:
-    assert greets_again(text, prior) is again
+    assert (greeting_run(text, prior) >= 2) is again
 
 
 @pytest.mark.parametrize(

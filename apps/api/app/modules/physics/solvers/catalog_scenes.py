@@ -15,7 +15,8 @@ from collections.abc import Callable
 
 from app.modules.physics.bodies import body_name
 from app.modules.physics.constants import SPEED_OF_LIGHT
-from app.modules.physics.display import GIVEN_FIGURES, plain_number
+from app.modules.physics.display import given_number as _given
+from app.modules.physics.display import plain_number
 from app.modules.physics.schemas import (
     CircuitNode,
     CircuitSource,
@@ -39,10 +40,6 @@ from app.modules.physics.solvers.oscillations import (
 from app.modules.physics.solvers.wave_scenes import travelling_scene
 
 Scenes = list[SimulationBlockSpec]
-
-
-def _given(value: float) -> str:
-    return plain_number(value, GIVEN_FIGURES)
 
 
 def _kg(value: float) -> str:

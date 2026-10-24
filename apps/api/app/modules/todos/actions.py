@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -26,7 +26,6 @@ _ACTION_RELOAD_LIMIT = 500
 # The model extracts actions from arbitrary user text; these limits prevent a
 # misparse from wiping large amounts of data in one turn.
 MAX_TODO_ACTIONS_PER_TURN = 12
-MAX_TODO_DELETES_PER_TURN = 3
 
 REMINDER_TOPIC = "Reminders"
 
@@ -63,56 +62,9 @@ def _due_local_date(item: TodoItem, user_timezone: str | None) -> date | None:
     return due.astimezone(tz).date()
 
 
-def _shift_due_date_preserving_time(
-    item: TodoItem,
-    *,
-    user_timezone: str | None,
-    target_date: date,
-) -> datetime:
-    tz = time_context_service.resolve_timezone(user_timezone)
-    due = item.due_at
-    assert due is not None
-    if due.tzinfo is None:
-        due = due.replace(tzinfo=UTC)
-    due_local = due.astimezone(tz)
-    shifted_local = due_local.replace(
-        year=target_date.year,
-        month=target_date.month,
-        day=target_date.day,
-    )
-    return shifted_local.astimezone(UTC)
-
-
 def _rescheduled_due(item: TodoItem, due_at: datetime, timezone: str | None) -> datetime:
     rule = item.recurrence_rule
     return snap_first_due(due_at, rule if is_recurrence_rule(rule) else None, timezone=timezone)
-
-
-async def _apply_bulk_shift_due_today_to_tomorrow(
-    session: AsyncSession,
-    *,
-    user_id: UUID,
-    items: list[TodoItem],
-    user_timezone: str | None,
-) -> int:
-    tz = time_context_service.resolve_timezone(user_timezone)
-    today = datetime.now(tz).date()
-    tomorrow = today + timedelta(days=1)
-    applied = 0
-    for item in items:
-        if item.checked or item.due_at is None:
-            continue
-        if _due_local_date(item, user_timezone) != today:
-            continue
-        due_at = _shift_due_date_preserving_time(
-            item,
-            user_timezone=user_timezone,
-            target_date=tomorrow,
-        )
-        due_at = _rescheduled_due(item, due_at, user_timezone)
-        await todos_repo.update(session, item, due_at=due_at, commit=False)
-        applied += 1
-    return applied
 
 
 @dataclass

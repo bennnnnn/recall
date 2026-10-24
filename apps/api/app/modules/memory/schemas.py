@@ -53,31 +53,6 @@ class MemorySectionItem(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
 
 
-class MemorySectionUpdateResult(BaseModel):
-    sections: list[MemorySectionItem] = Field(default_factory=list)
-
-    @classmethod
-    def salvage_partial(cls, data: dict[str, object]) -> Self | None:
-        """The sections that validate, when the model's whole reply does not.
-
-        ``gateways/structured_completion`` asks any schema that has this.
-        """
-        raw_sections = data.get("sections")
-        if not isinstance(raw_sections, list):
-            return None
-        valid: list[MemorySectionItem] = []
-        for item in raw_sections:
-            if not isinstance(item, dict):
-                continue
-            try:
-                valid.append(MemorySectionItem.model_validate(item))
-            except Exception:
-                _logger.debug("Skipping invalid memory section item", exc_info=True)
-        if not valid:
-            return None
-        return cls(sections=valid)
-
-
 _MEMORY_TYPES = frozenset(get_args(MemoryType))
 # Words models use for a type that is not one ("goal" is what the goals topic stores).
 _TYPE_WORDS = {"goal": "focus", "projects": "project", "preferences": "preference"}

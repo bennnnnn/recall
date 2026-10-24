@@ -7,8 +7,9 @@ import pytest
 from app.core.config import get_settings
 from app.modules.physics.extract import needs_physics
 from app.modules.physics.fence import validate_physics_fences
-from app.modules.physics.force_pictures import force_picture, force_picture_block, is_picture_only
+from app.modules.physics.force_pictures import force_picture, force_picture_block
 from app.modules.physics.prompt import solve_physics_request
+from app.tests.behavior.harness import is_picture_only
 
 
 def _labels(text: str) -> set[str]:

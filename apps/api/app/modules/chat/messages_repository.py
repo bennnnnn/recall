@@ -270,30 +270,6 @@ async def list_before(
     return rows
 
 
-async def get_last(session: AsyncSession, chat_id: UUID) -> Message | None:
-    result = await session.execute(
-        select(Message)
-        .where(Message.chat_id == chat_id)
-        # id.desc() tiebreaker: created_at has millisecond resolution and two
-        # turns can share a timestamp (esp. under load / fast edits), which made
-        # the "last" message non-deterministic and broke regenerate that relies
-        # on a single canonical "last" row.
-        .order_by(Message.created_at.desc(), Message.id.desc())
-        .limit(1)
-    )
-    return result.scalar_one_or_none()
-
-
-async def get_last_assistant(session: AsyncSession, chat_id: UUID) -> Message | None:
-    result = await session.execute(
-        select(Message)
-        .where(Message.chat_id == chat_id, Message.role == "assistant")
-        .order_by(Message.created_at.desc(), Message.id.desc())
-        .limit(1)
-    )
-    return result.scalar_one_or_none()
-
-
 async def get_last_user(session: AsyncSession, chat_id: UUID) -> Message | None:
     result = await session.execute(
         select(Message)
@@ -361,17 +337,6 @@ async def count_for_chat(session: AsyncSession, chat_id: UUID) -> int:
         select(func.count()).select_from(Message).where(Message.chat_id == chat_id)
     )
     return result.scalar_one()
-
-
-async def get_in_chat(
-    session: AsyncSession,
-    message_id: UUID,
-    chat_id: UUID,
-) -> Message | None:
-    result = await session.execute(
-        select(Message).where(Message.id == message_id, Message.chat_id == chat_id)
-    )
-    return result.scalar_one_or_none()
 
 
 async def update_content(

@@ -16,7 +16,7 @@ from __future__ import annotations
 import math
 import re
 
-from app.services.school_rounding import round_figures
+from app.services.school_rounding import round_figures, trim_zeros
 
 ANSWER_FIGURES = 3
 GIVEN_FIGURES = 6
@@ -24,10 +24,6 @@ _SCIENTIFIC_BELOW = 1e-3
 _SCIENTIFIC_FROM = 1e5
 
 _SUPERSCRIPT = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
-
-
-def _trim(text: str) -> str:
-    return text.rstrip("0").rstrip(".") if "." in text else text
 
 
 def _parts(value: float, figures: int) -> tuple[str, int | None]:
@@ -39,9 +35,9 @@ def _parts(value: float, figures: int) -> tuple[str, int | None]:
     mantissa, exponent = round_figures(value, figures)
     rounded = float(mantissa.scaleb(exponent))
     if rounded != 0 and not _SCIENTIFIC_BELOW <= abs(rounded) < _SCIENTIFIC_FROM:
-        return _trim(f"{mantissa:.{figures - 1}f}"), exponent
+        return trim_zeros(f"{mantissa:.{figures - 1}f}"), exponent
     decimals = max(figures - 1 - exponent, 0)
-    return _trim(f"{rounded:.{decimals}f}"), None
+    return trim_zeros(f"{rounded:.{decimals}f}"), None
 
 
 def plain_number(value: float, figures: int = ANSWER_FIGURES) -> str:
@@ -246,6 +242,11 @@ def latex_quantity(value: float, unit: str, figures: int = ANSWER_FIGURES) -> st
 
 
 _NUMBER_IN_TEXT = re.compile(r"(?<![\w.])-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?(?![\w.])")
+
+
+def given_number(value: float) -> str:
+    """A given as the working writes it: plain, to the givens' figures."""
+    return plain_number(value, GIVEN_FIGURES)
 
 
 def plain_numbers_in(text: str) -> str:

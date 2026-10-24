@@ -31,10 +31,6 @@ from app.modules.chat import service as chats_service
 router = APIRouter(prefix="/chats", tags=["chats"])
 
 
-def _map_error(exc: chats_service.ChatsError) -> HTTPException:
-    return HTTPException(status_code=exc.status_code, detail=exc.detail)
-
-
 @router.post("", response_model=ChatOut, status_code=status.HTTP_201_CREATED)
 async def create_chat(
     body: ChatCreate,

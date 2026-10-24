@@ -15,12 +15,11 @@ from app.main import create_app
 def test_revenuecat_webhook_enqueues_receipt_on_purchase():
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -64,12 +63,11 @@ def test_revenuecat_webhook_enqueues_receipt_on_purchase():
 def test_revenuecat_webhook_skips_receipt_when_plan_not_applied():
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -100,12 +98,11 @@ def test_revenuecat_webhook_skips_receipt_when_plan_not_applied():
 def test_revenuecat_webhook_free_event_does_not_enqueue_receipt():
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -137,12 +134,11 @@ def test_revenuecat_webhook_cancellation_with_future_expiry_keeps_pro():
     """CANCELLATION = auto-renew off; paid-through time must not be stripped."""
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -173,12 +169,11 @@ def test_revenuecat_webhook_cancellation_with_future_expiry_keeps_pro():
 def test_revenuecat_webhook_cancellation_with_past_expiry_downgrades():
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -216,12 +211,11 @@ def test_revenuecat_webhook_subscriber_fetch_failure_returns_503():
     """HTTP 200 would ack the event and drop a failed REST lookup forever."""
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -252,12 +246,11 @@ def test_revenuecat_webhook_customer_support_refund_rechecks_entitlement():
     """CUSTOMER_SUPPORT is a store refund — REST decides whether Pro stays."""
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -295,12 +288,11 @@ def test_revenuecat_webhook_customer_support_refund_rechecks_entitlement():
 def test_revenuecat_webhook_customer_support_keeps_pro_when_entitlement_active():
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -339,12 +331,11 @@ def test_revenuecat_webhook_billing_issue_does_not_downgrade():
     """BILLING_ISSUE must not instantly set plan=free — wait for EXPIRATION."""
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -368,12 +359,11 @@ def test_revenuecat_webhook_billing_issue_does_not_downgrade():
 def test_revenuecat_webhook_expiration_still_downgrades():
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -405,12 +395,11 @@ def test_revenuecat_webhook_ignores_stale_expiration_after_purchase():
     """INITIAL_PURCHASE then older EXPIRATION must not downgrade (plan stays pro)."""
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -467,12 +456,11 @@ def test_revenuecat_webhook_ignores_stale_expiration_after_purchase():
 def test_revenuecat_webhook_newer_expiration_still_applies_after_purchase():
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -537,12 +525,11 @@ def test_expiration_overflow_ms_returns_none():
 def test_revenuecat_webhook_huge_expiration_still_succeeds():
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -579,12 +566,11 @@ def test_revenuecat_webhook_huge_expiration_still_succeeds():
 def test_revenuecat_webhook_dedups_replay_by_event_id():
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -623,12 +609,11 @@ def test_revenuecat_webhook_dedups_replay_by_event_id():
 def test_revenuecat_webhook_missing_event_id_hashes_payload_for_dedupe():
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -666,12 +651,11 @@ def test_revenuecat_webhook_missing_event_id_hashes_payload_for_dedupe():
 def test_revenuecat_webhook_pro_event_defers_when_entitlement_unresolved():
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -713,12 +697,11 @@ async def test_revenuecat_webhook_concurrent_deliveries_process_once():
     import fakeredis.aioredis
     from httpx import ASGITransport, AsyncClient
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -773,12 +756,11 @@ def test_revenuecat_webhook_failed_processing_does_not_burn_dedup_key():
     import fakeredis.aioredis
     import pytest
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -818,12 +800,11 @@ def test_revenuecat_webhook_failed_processing_does_not_burn_dedup_key():
 def test_revenuecat_webhook_requires_auth_in_production():
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="production",
         revenuecat_webhook_auth="whsec-secret",
     )
@@ -861,12 +842,11 @@ def test_revenuecat_webhook_ignores_sandbox_in_production():
     """Sandbox INITIAL_PURCHASE must not grant Pro on a production host."""
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="production",
         revenuecat_webhook_auth="whsec-secret",
     )
@@ -909,12 +889,11 @@ def test_revenuecat_webhook_processes_sandbox_in_development():
     """Local StoreKit testing still needs the webhook path to mutate plan."""
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -952,13 +931,12 @@ def test_revenuecat_webhook_processes_sandbox_in_development():
 def test_revenuecat_webhook_transfer_downgrades_old_and_syncs_new():
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     old_uid = uuid4()
     new_uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -991,13 +969,12 @@ def test_revenuecat_webhook_transfer_downgrades_old_and_syncs_new():
 def test_revenuecat_webhook_transfer_failure_does_not_dedup():
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     old_uid = uuid4()
     new_uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -1030,12 +1007,11 @@ def test_revenuecat_webhook_transfer_failure_does_not_dedup():
 def test_revenuecat_webhook_malformed_transfer_is_not_deduped():
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,
@@ -1081,13 +1057,12 @@ def test_verify_auth_non_ascii_header_is_401():
 def test_revenuecat_webhook_subscriber_lock_busy_returns_503():
     import fakeredis.aioredis
 
-    from app.core.config import get_settings
-    from app.core.deps import get_redis
+    from app.core.deps import get_redis, get_settings_dep
     from app.modules.billing import api as webhooks_mod
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: Settings(
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
         environment="development",
         revenuecat_webhook_auth="",
         dev_allow_unauthed_webhooks=True,

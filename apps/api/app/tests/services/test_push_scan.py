@@ -22,6 +22,7 @@ from app.modules.notifications import push as push_service
 from app.modules.todos import advance_recurring_without_device
 from app.repositories import users as users_repo
 from app.services.reminder_timing import OVERDUE_MAX_HOURS
+from app.tests.services import push_cycle_support as push_cycle
 
 # Far from any row another test may leave behind; both scans are global.
 NOW = datetime(2031, 3, 1, 12, 0, tzinfo=UTC)
@@ -81,7 +82,7 @@ async def test_tokenless_reminders_are_not_a_warning_per_todo(
     await db_session.flush()
 
     with caplog.at_level(logging.DEBUG, logger="app.modules.notifications.push"):
-        messages = await push_service.process_todo_reminders(db_session, now=NOW)
+        messages = await push_cycle.process_todo_reminders(db_session, now=NOW)
 
     assert [m.message["body"] for m in messages] == ["Due soon"]
     assert not [r for r in caplog.records if r.levelno >= logging.WARNING]

@@ -24,7 +24,6 @@ from app.services.prompt_safety import text_before_attachment_markers, wrap_earl
 
 logger = logging.getLogger(__name__)
 
-_RAG_EMBED_TIMEOUT_SECONDS = 2.0
 _MIN_INDEX_CHARS = 20
 _BACKFILL_LIMIT = 40
 

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from sqlalchemy.dialects import postgresql
 
-from app.modules.notifications import push as push_service
+from app.tests.services import push_cycle_support as push_cycle
 
 
 def _where_sql(session: AsyncMock) -> str:
@@ -27,7 +27,7 @@ def _empty_session() -> AsyncMock:
 @pytest.mark.asyncio
 async def test_reminder_pushes_need_their_own_switch() -> None:
     session = _empty_session()
-    assert await push_service.process_todo_reminders(session) == []
+    assert await push_cycle.process_todo_reminders(session) == []
     sql = _where_sql(session)
     assert "users.push_notifications_enabled IS true" in sql
     assert "users.push_reminders_enabled IS true" in sql

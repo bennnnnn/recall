@@ -126,7 +126,7 @@ def extract_single_draw_intent(cleaned: str) -> MathIntent | None:
 
 def probability_answer(probability: Fraction) -> str:
     """``\\frac{1}{4} = 0.25`` when the decimal ends, ``\\frac{1}{6} \\approx 0.1667`` when not."""
-    exact = _fraction_tex(probability)
+    exact = fraction_tex(probability)
     if probability.denominator == 1:
         return exact
     denominator = probability.denominator
@@ -139,7 +139,7 @@ def probability_answer(probability: Fraction) -> str:
     return rf"{exact} \approx {decimal:.4g}"
 
 
-def _fraction_tex(value: Fraction) -> str:
+def fraction_tex(value: Fraction) -> str:
     if value.denominator == 1:
         return str(value.numerator)
     return rf"\frac{{{value.numerator}}}{{{value.denominator}}}"

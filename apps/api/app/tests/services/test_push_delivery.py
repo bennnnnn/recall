@@ -12,6 +12,7 @@ from app.models.orm import User
 from app.modules.notifications import push as push_service
 from app.modules.todos import due_reminders
 from app.tests.fakes import fake_session, redis_mock
+from app.tests.services import push_cycle_support as push_cycle
 from app.tests.services.push_cycle_support import run_push_cycle
 
 
@@ -36,7 +37,7 @@ async def test_run_push_cycle_skips_expo_in_dev_mock():
 
     with (
         patch.object(
-            push_service,
+            push_cycle,
             "process_todo_reminders",
             AsyncMock(
                 return_value=[
@@ -81,7 +82,7 @@ async def test_run_push_cycle_sends_expo_in_production():
 
     with (
         patch.object(
-            push_service,
+            push_cycle,
             "process_todo_reminders",
             AsyncMock(
                 return_value=[
@@ -128,7 +129,7 @@ async def test_run_push_cycle_marks_todo_sent_only_after_expo_ok(schedule_write)
 
     with (
         patch.object(
-            push_service,
+            push_cycle,
             "process_todo_reminders",
             AsyncMock(return_value=outbound),
         ),
@@ -267,7 +268,7 @@ async def test_run_push_cycle_does_not_mark_todo_when_expo_fails():
 
     with (
         patch.object(
-            push_service,
+            push_cycle,
             "process_todo_reminders",
             AsyncMock(return_value=outbound),
         ),
@@ -380,7 +381,7 @@ async def test_run_push_cycle_enqueues_receipt_tickets():
             AsyncMock(),
         ),
         patch.object(
-            push_service,
+            push_cycle,
             "process_todo_reminders",
             AsyncMock(
                 return_value=[
@@ -432,7 +433,7 @@ async def test_run_push_cycle_marks_sent_on_ticket_without_receipt_poll(schedule
     with (
         patch.object(push_service, "poll_deferred_push_receipts", AsyncMock()),
         patch.object(
-            push_service,
+            push_cycle,
             "process_todo_reminders",
             AsyncMock(
                 return_value=[

@@ -107,11 +107,6 @@ class SpokenReminderChange:
     context_hint: str = ""
 
 
-def user_stated_reminder_change(user_text: str | None) -> bool:
-    """True when this turn already says which reminder to change."""
-    return parse_spoken_reminder_change(user_text) is not None
-
-
 def asks_to_read_reminders(user_text: str | None) -> bool:
     """True when they asked what is saved, not to change it."""
     text = _prepare(user_text).lower().replace("'", "").replace("\u2019", "")

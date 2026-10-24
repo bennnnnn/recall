@@ -54,8 +54,8 @@ def _brewster(cleaned: str) -> PhysicsIntent | None:
     )
 
 
-def _double_slit(cleaned: str) -> PhysicsIntent | None:
-    """The fringe spacing λL/d."""
+def _slit(cleaned: str, op: str, slit_words: tuple[str, ...]) -> PhysicsIntent | None:
+    """A slit pattern from its wavelength, screen distance and slit size (``d``)."""
     wavelength = find_value_with_specific_unit(
         cleaned, LENGTH_UNIT_PATTERN, ("wavelength",), require_keyword=True
     )
@@ -65,51 +65,32 @@ def _double_slit(cleaned: str) -> PhysicsIntent | None:
         ("screen distance", "to the screen"),
         require_keyword=True,
     )
-    separation = find_value_with_specific_unit(
-        cleaned, LENGTH_UNIT_PATTERN, ("slit separation", "slits"), require_keyword=True
+    slit = find_value_with_specific_unit(
+        cleaned, LENGTH_UNIT_PATTERN, slit_words, require_keyword=True
     )
-    if wavelength is None or screen is None or separation is None:
+    if wavelength is None or screen is None or slit is None:
         return None
     return PhysicsIntent(
         kind="optics",
-        physics_op="double_slit_fringe_spacing",
-        physics_params={"wavelength": wavelength[0], "L": screen[0], "d": separation[0]},
+        physics_op=op,
+        physics_params={"wavelength": wavelength[0], "L": screen[0], "d": slit[0]},
         physics_units={
             "wavelength": wavelength[1] or "m",
             "L": screen[1] or "m",
-            "d": separation[1] or "m",
+            "d": slit[1] or "m",
         },
         operation="solve",
     )
+
+
+def _double_slit(cleaned: str) -> PhysicsIntent | None:
+    """The fringe spacing λL/d."""
+    return _slit(cleaned, "double_slit_fringe_spacing", ("slit separation", "slits"))
 
 
 def _single_slit(cleaned: str) -> PhysicsIntent | None:
     """The width of the central maximum, 2λL/a."""
-    wavelength = find_value_with_specific_unit(
-        cleaned, LENGTH_UNIT_PATTERN, ("wavelength",), require_keyword=True
-    )
-    screen = find_value_with_specific_unit(
-        cleaned,
-        LENGTH_UNIT_PATTERN,
-        ("screen distance", "to the screen"),
-        require_keyword=True,
-    )
-    width = find_value_with_specific_unit(
-        cleaned, LENGTH_UNIT_PATTERN, ("slit width", "aperture"), require_keyword=True
-    )
-    if wavelength is None or screen is None or width is None:
-        return None
-    return PhysicsIntent(
-        kind="optics",
-        physics_op="diffraction_central_width",
-        physics_params={"wavelength": wavelength[0], "L": screen[0], "d": width[0]},
-        physics_units={
-            "wavelength": wavelength[1] or "m",
-            "L": screen[1] or "m",
-            "d": width[1] or "m",
-        },
-        operation="solve",
-    )
+    return _slit(cleaned, "diffraction_central_width", ("slit width", "aperture"))
 
 
 def _lens_power(cleaned: str) -> PhysicsIntent | None:

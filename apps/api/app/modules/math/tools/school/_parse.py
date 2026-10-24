@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.services.number_text import DECIMAL_LITERAL, finite_match_value
-from app.services.text_match import word_index
+from app.services.number_text import DECIMAL_LITERAL, finite_match_value, number_word_value
 
 # The side a triangle question asks for: "Find c", "calculate the length of side b". The words
 # are read in any case; the letter only as written, since "C" names the angle opposite side "c".
@@ -23,8 +22,14 @@ def _count_char(text: str, needle: str) -> int:
     return count
 
 
-def _has_any_word(lower: str, words: tuple[str, ...]) -> bool:
-    return any(word_index(lower, word) != -1 for word in words)
+def request_body(text: str) -> str:
+    """The request on one line, without its closing ``?``, ``.`` or ``!``."""
+    return " ".join(text.split()).strip().rstrip("?.!").strip()
+
+
+def count_value(word: str) -> int:
+    """A count written as a word ("three") or in digits."""
+    return number_word_value(word.lower()) or int(word)
 
 
 def _exactly_n_numbers(cleaned: str, count: int) -> list[float] | None:

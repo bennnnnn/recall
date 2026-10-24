@@ -1,12 +1,8 @@
 """Preset response tones and emoji use — mapped into chat system prompts."""
 
-from typing import Literal
-
-ResponseTone = Literal["funny", "professional", "casual", "soft"]
+from app.models.schemas.common import EmojiUse, ResponseTone
 
 DEFAULT_RESPONSE_TONE: ResponseTone = "casual"
-
-TONE_IDS: tuple[ResponseTone, ...] = ("funny", "professional", "casual", "soft")
 
 TONE_HINTS: dict[str, str] = {
     "funny": (
@@ -36,8 +32,6 @@ def tone_hint(tone: str | None) -> str:
 
 
 # How many emoji a reply uses (Settings → Personalization). The tone never decides it.
-EmojiUse = Literal["off", "some", "more"]
-
 DEFAULT_EMOJI_USE: EmojiUse = "some"
 
 # Where an emoji never goes, whatever the setting: it would break what is read there.

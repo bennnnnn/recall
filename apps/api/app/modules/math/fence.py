@@ -25,7 +25,6 @@ never does.
 from __future__ import annotations
 
 import json
-import logging
 import re
 from dataclasses import replace
 from typing import TYPE_CHECKING
@@ -56,7 +55,6 @@ from app.services.md_fence_scan import (
 if TYPE_CHECKING:
     from app.modules.math.tools import VerifiedMathBlock
 
-logger = logging.getLogger(__name__)
 
 # Shared 5s SymPy budget for the whole reply — bound how many fences we
 # rewrite so one long message degrades per-fence instead of timing out all.

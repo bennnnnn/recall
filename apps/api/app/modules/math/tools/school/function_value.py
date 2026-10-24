@@ -16,6 +16,7 @@ from typing import Any
 
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
+from app.modules.math.tools.school._parse import request_body
 from app.services.workout import math_line
 
 _MAX = 300
@@ -50,10 +51,6 @@ _VALUES_AFTER = re.compile(
     rf"(?:when|at|for|if|where|given)\s+(?P<given>{_GIVEN_VALUES})$",
     re.I,
 )
-
-
-def _request_body(text: str) -> str:
-    return " ".join(text.split()).strip().rstrip("?.!").strip()
 
 
 def _balanced_call(text: str, open_at: int) -> int | None:
@@ -101,7 +98,7 @@ def _only_joining_words(leftover: str) -> bool:
 def extract_function_value_intent(text: str) -> MathIntent | None:
     if not text or len(text) > _MAX:
         return None
-    body = _request_body(text)
+    body = request_body(text)
     definitions: list[tuple[str, str]] = []
     used: list[tuple[int, int]] = []
     for match in _DEFINITION.finditer(body):

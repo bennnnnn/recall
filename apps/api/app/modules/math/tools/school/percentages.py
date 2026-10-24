@@ -12,7 +12,6 @@ from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school._parse import (
     _count_char,
     _exactly_n_numbers,
-    _has_any_word,
 )
 from app.services.number_text import (
     DECIMAL,
@@ -20,7 +19,7 @@ from app.services.number_text import (
     finite_match_value,
     number_immediately_before,
 )
-from app.services.text_match import word_index
+from app.services.text_match import has_any_word, word_index
 from app.services.workout import math_line
 
 _PERCENT_INCREASE_WORDS = ("increase", "increased", "increasing", "markup", "marked up")
@@ -112,8 +111,8 @@ def _extract_percent_of(cleaned: str) -> MathIntent | None:
 
 
 def _extract_percent_change(cleaned: str, lower: str) -> MathIntent | None:
-    increase = _has_any_word(lower, _PERCENT_INCREASE_WORDS)
-    decrease = _has_any_word(lower, _PERCENT_DECREASE_WORDS)
+    increase = has_any_word(lower, _PERCENT_INCREASE_WORDS)
+    decrease = has_any_word(lower, _PERCENT_DECREASE_WORDS)
     if increase == decrease:
         return None
     if _count_char(cleaned, "%") != 1:

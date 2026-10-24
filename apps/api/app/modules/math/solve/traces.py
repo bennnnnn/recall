@@ -15,7 +15,7 @@ from sympy import Eq, Expr, Poly, S, Symbol, expand, factor, ilcm, latex, simpli
 from sympy.core.relational import Ge, Gt, Le, Lt
 
 from app.modules.math.solve.declines import declines, sympy_decline
-from app.modules.math.solve.key_steps import KeyStep, equation_key_steps, label_tex
+from app.modules.math.solve.key_steps import KeyStep, equation_key_steps, equation_tex, label_tex
 
 _RELATIONS = {"<": Lt, ">": Gt, "<=": Le, ">=": Ge}
 _COMPARATOR_TEX = {"<": "<", ">": ">", "<=": r"\le", ">=": r"\ge"}
@@ -271,10 +271,6 @@ def compound_inequality_key_steps(
     return steps
 
 
-def _equation_tex(left: Any, right: Any) -> str:
-    return f"{latex(left)} = {latex(right)}"
-
-
 def _substituted_tex(expr: Any, var: Any, value: Any) -> str:
     """``expr`` with ``var`` shown as ``(value)``, e.g. ``2 \\left(y + 1\\right) + 3 y``."""
     return _placeholder_tex(expr, {var: value})
@@ -451,7 +447,7 @@ def _isolate(
     steps.append(
         KeyStep(
             label=f"Solve equation ({index + 1}) for {latex(var)}",
-            formula=_equation_tex(var, expression[0]),
+            formula=equation_tex(var, expression[0]),
         )
     )
     return index, var, expression[0]
@@ -476,7 +472,7 @@ def _elimination_steps(
         steps.append(
             KeyStep(
                 label="Write both equations as ax + by = c",
-                formula=(f"{_equation_tex(*standard[0])}, \\quad {_equation_tex(*standard[1])}"),
+                formula=(f"{equation_tex(*standard[0])}, \\quad {equation_tex(*standard[1])}"),
             )
         )
     # Eliminate the unknown whose coefficients need the smaller common multiple;
@@ -498,7 +494,7 @@ def _elimination_steps(
             steps.append(
                 KeyStep(
                     label=f"Multiply equation ({index + 1}) by {multiplier}",
-                    formula=_equation_tex(a * multiplier * x + b * multiplier * y, c * multiplier),
+                    formula=equation_tex(a * multiplier * x + b * multiplier * y, c * multiplier),
                     reason=f"so the {latex(y if eliminate_y else x)} terms cancel",
                 )
             )
@@ -516,7 +512,7 @@ def _elimination_steps(
     steps.append(
         KeyStep(
             label="Add the equations" if add else "Subtract equation (2) from equation (1)",
-            formula=_equation_tex(*combined),
+            formula=equation_tex(*combined),
             reason=f"the {latex(y if eliminate_y else x)} terms cancel",
         )
     )
@@ -626,5 +622,5 @@ def system_trace(
         solution = solve([Eq(lhs, rhs) for lhs, rhs in pairs], symbols, dict=True)[0]
     if declined:
         return [], None, None
-    given = r", \quad ".join(_equation_tex(lhs, rhs) for lhs, rhs in pairs)
+    given = r", \quad ".join(equation_tex(lhs, rhs) for lhs, rhs in pairs)
     return steps, given, system_check_latex(pairs, variables, solution)

@@ -9,7 +9,6 @@ from app.modules.chemistry.elements import BY_SYMBOL, ELEMENTS
 from app.modules.chemistry.equations import written_is_balanced
 from app.modules.chemistry.extractors.parsing import (
     _N,
-    _element,
     _equation,
     _search,
 )
@@ -25,6 +24,7 @@ from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.species_facts import (
     ELEMENT_NAMES,
     NAMED_COMPOUNDS,
+    element_symbol,
     is_formula,
     without_formulas,
 )
@@ -102,7 +102,7 @@ def _particles_from_moles(match: re.Match[str]) -> ChemistryIntent | None:
     moles = float(match.group("moles"))
     formula = match.group("formula")
     word = match.group("element") or match.group("element_after")
-    element = None if word is None else _element(word)
+    element = None if word is None else element_symbol(word)
     if element is not None:
         atoms = parse_formula(formula)
         count = atoms.get(element, 0)
@@ -311,7 +311,7 @@ def _particle_substance(noun: str, word: str) -> str | None:
     Atoms are one element's ("atoms of iron"): atoms of O2 or of water are not. Molecules
     and formula units are a compound's, or a diatomic element's ("molecules of oxygen").
     """
-    element = _element(word)
+    element = element_symbol(word)
     if noun.lower().startswith("atom"):
         return element
     named = NAMED_COMPOUNDS.get(word.lower())
@@ -457,7 +457,7 @@ def _extract_element_mass(text: str) -> ChemistryIntent | None:
     match = _ELEMENT_IN.search(text)
     if match is None:
         return None
-    element = _element(match.group("element"))
+    element = element_symbol(match.group("element"))
     token = match.group("species")
     formula = NAMED_COMPOUNDS.get(token.lower()) or (token if is_formula(token) else None)
     if element is None or formula is None:

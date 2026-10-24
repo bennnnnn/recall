@@ -11,7 +11,7 @@ from sympy import Eq, latex, simplify, solve, together
 from app.modules.math.schemas import EquationInput
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.parse import SolveServiceError, parse_expression
-from app.modules.math.solve.root_latex import _expr_equal
+from app.modules.math.solve.root_latex import expr_equal
 
 
 def _original_domain_conditions(data: EquationInput, sym: Any) -> tuple[list[Any], list[str]]:
@@ -37,7 +37,7 @@ def _original_domain_conditions(data: EquationInput, sym: Any) -> tuple[list[Any
         with sympy_decline():
             roots = solve(Eq(denominator, 0), parsed_sym)
         for value in roots:
-            if any(_expr_equal(value, seen) for seen in excluded):
+            if any(expr_equal(value, seen) for seen in excluded):
                 continue
             excluded.append(value)
             conditions.append(rf"{latex(sym)} \ne {latex(value)}")

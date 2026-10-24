@@ -16,7 +16,6 @@ from app.modules.speech.service import (
     normalize_tts_alias,
     resolve_tts_model,
     resolve_tts_voice,
-    split_tts_lead,
     synthesize_speech,
     transcribe_audio,
 )
@@ -358,25 +357,3 @@ async def test_voice_never_uses_openrouter_key_as_fallback():
         assert await transcribe_audio(settings, b"audio") is None
         assert await synthesize_speech(settings, "Hello") is None
         client.assert_not_called()
-
-
-def test_split_tts_lead_keeps_short_text():
-    assert split_tts_lead("Hello there.") == ("Hello there.", "")
-
-
-def test_split_tts_lead_does_not_stop_after_one_word():
-    rest_body = (
-        "Here is a longer explanation that should stay in the lead until we "
-        "have enough audio to cover the next request. Then this leftover "
-        "paragraph is fetched only after playback has already started."
-    )
-    lead, rest = split_tts_lead(f"Sure. {rest_body}")
-    assert lead.startswith("Sure.")
-    assert len(lead) >= 120
-    assert rest
-
-
-def test_split_tts_lead_caps_the_window():
-    lead, rest = split_tts_lead(f"{'alpha ' * 40}. Extra sentence after the cut.")
-    assert len(lead) <= 160
-    assert rest

@@ -66,10 +66,10 @@ from app.modules.money.block import (
     MONEY_RATES_MISSING,
     MONEY_REPLY_RULES,
 )
-from app.modules.physics import is_picture_only
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.modules.web_search.detection import needs_web_search
 from app.services.mcp import setup_mcp_adapters
+from app.services.solving import VerifiedPhysicsBlock
 from app.services.subject_solving import detect_subject
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
@@ -284,6 +284,16 @@ def _rows(case: Case) -> list[SimpleNamespace]:
     ]
 
 
+def is_picture_only(block: object) -> bool:
+    """A physics block that carries a picture and no verified result."""
+    return (
+        isinstance(block, VerifiedPhysicsBlock)
+        and block.physics_intent is None
+        and block.symbolic_request is None
+        and not (block.canonical_answer or block.display_answer)
+    )
+
+
 def _instant_kind(reply: str | None, *, solved: bool) -> str:
     if not reply:
         return ""
@@ -321,7 +331,6 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     )
     chat = Chat(id=uuid4(), user_id=user.id, title=None)
     rows = _rows(case)
-    last_assistant = next((row for row in reversed(rows) if row.role == "assistant"), None)
     text = case.prompt
     prior_user, prior_model = last_user_turn(rows)
     model = model_choice.resolve_user_model(
@@ -373,10 +382,6 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         stub("app.modules.chat.turn_prep.instant.SessionLocal", lambda: _Session())
         stub("app.modules.chat.prompt_builder._load_context_blocks", context_blocks)
         stub("app.modules.chat.messages_repository.list_recent", AsyncMock(return_value=list(rows)))
-        stub(
-            "app.modules.chat.messages_repository.get_last_assistant",
-            AsyncMock(return_value=last_assistant),
-        )
         stub("app.modules.memory.repository.list_for_user", AsyncMock(return_value=[]))
         stub("app.services.model_health.enrich_models_health", AsyncMock(return_value={}))
         stub("app.modules.billing.plan.chat_fallback_models", lambda *_a, **_k: [])

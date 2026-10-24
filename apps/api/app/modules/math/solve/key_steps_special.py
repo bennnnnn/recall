@@ -31,11 +31,11 @@ from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.key_steps import (
     KeyStep,
     _canonical_root_formula,
-    _eq_tex,
-    _expr_equal,
     equation_key_steps,
+    equation_tex,
     label_tex,
 )
+from app.modules.math.solve.root_latex import expr_equal
 
 
 def _nonnegative_conditions(*sides: Any, var: Any, joiner: str) -> str:
@@ -63,7 +63,7 @@ def radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | 
         valid = [
             value
             for value in candidates
-            if _expr_equal(radical.subs(var, value), other.subs(var, value))
+            if expr_equal(radical.subs(var, value), other.subs(var, value))
         ]
     if declined:
         return []
@@ -73,7 +73,7 @@ def radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | 
     domain = _nonnegative_conditions(radicand, other, var=var, joiner=r" \quad\text{and}\quad ")
     return [
         KeyStep(label="Domain restrictions", formula=domain),
-        KeyStep(label="Square both sides", formula=_eq_tex(radicand, expand(other**2))),
+        KeyStep(label="Square both sides", formula=equation_tex(radicand, expand(other**2))),
         *_worked(
             radicand,
             expand(other**2),
@@ -109,7 +109,7 @@ def _two_radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeySte
         valid = [
             value
             for value in candidates
-            if _expr_equal(radical_side.subs(var, value), target.subs(var, value))
+            if expr_equal(radical_side.subs(var, value), target.subs(var, value))
         ]
     if declined:
         return []
@@ -120,15 +120,15 @@ def _two_radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeySte
         KeyStep(label="Domain restrictions", formula=domain),
         KeyStep(
             label="Isolate one radical",
-            formula=_eq_tex(first, target - second),
+            formula=equation_tex(first, target - second),
         ),
         KeyStep(
             label="Square and isolate the remaining radical",
-            formula=_eq_tex(2 * target * second, target**2 + second_base - first_base),
+            formula=equation_tex(2 * target * second, target**2 + second_base - first_base),
         ),
         KeyStep(
             label="Square again",
-            formula=_eq_tex(second_base, isolated**2),
+            formula=equation_tex(second_base, isolated**2),
         ),
         KeyStep(
             label="Check in the original equation",
@@ -188,7 +188,7 @@ def logarithm_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
             candidate_base = denominator.args[0]
         else:
             return None
-        if base is not None and not _expr_equal(base, candidate_base):
+        if base is not None and not expr_equal(base, candidate_base):
             return None
         base = candidate_base
         arguments.append(numerator.args[0])
@@ -296,7 +296,7 @@ def rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] |
         cleared_rhs = simplify(rhs * denominator)
         display_lhs = left_num if right_den == 1 else Mul(left_num, right_den, evaluate=False)
         display_rhs = right_num if left_den == 1 else Mul(right_num, left_den, evaluate=False)
-        multiplied = _eq_tex(display_lhs, display_rhs)
+        multiplied = equation_tex(display_lhs, display_rhs)
         poly = Poly(simplify(cleared_lhs - cleared_rhs), var)
         if poly.degree() < 1:
             return []
@@ -323,7 +323,7 @@ def rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] |
             solutions = [
                 solution
                 for solution in candidates
-                if all(not _expr_equal(solution, value) for value in excluded)
+                if all(not expr_equal(solution, value) for value in excluded)
             ]
     if declined:
         return []
@@ -386,9 +386,9 @@ def absolute_value_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | No
         real = simplify(im(inside)) == 0
     if declined or not real:
         return []
-    split = _eq_tex(inside, rhs)
+    split = equation_tex(inside, rhs)
     if rhs != 0:
-        split += rf" \quad\text{{or}}\quad {_eq_tex(inside, -rhs)}"
+        split += rf" \quad\text{{or}}\quad {equation_tex(inside, -rhs)}"
     from app.modules.math.solve.root_latex import compact_root_answer_lines
 
     lines = compact_root_answer_lines(str(var), solutions)

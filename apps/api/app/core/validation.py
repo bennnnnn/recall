@@ -125,3 +125,17 @@ def normalize_stored_chat_title(raw: str | None) -> str | None:
     """Display a saved title, including short or generic user-chosen labels."""
     title = unwrap_chat_title(raw or "")
     return title if title and len(title) <= 80 else None
+
+
+def claim_is_true(value: object) -> bool:
+    """True only for an explicit, unambiguous true claim in an identity token.
+
+    Apple sends boolean claims as the strings "true"/"false"; Google sends bools
+    (some intermediaries pass the string form). A missing claim or anything else
+    (incl. "false", 0, None) is false.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() == "true"
+    return False

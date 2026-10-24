@@ -21,6 +21,7 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models.orm import User
 from app.modules.attachments import service as attachments_service
+from app.modules.attachments.markers import image_marker
 from app.modules.images import generation
 from app.services import quota as quota_service
 
@@ -32,10 +33,6 @@ _WAIT_SECONDS = 90.0
 _NOT_MADE = "I couldn't draw the picture ({subject}) this time: {reason}"
 _TOO_SLOW = "the picture took too long. Ask for it again on its own."
 _FAILED = "something went wrong. Ask for it again on its own."
-
-
-def _marker(attachment_id: UUID) -> str:
-    return f"[Image: /attachments/{attachment_id}/file]"
 
 
 async def draw_unlinked(settings: Settings, *, user: User, chat_id: UUID, prompt: str) -> UUID:
@@ -115,7 +112,7 @@ class ReplyPicture:
         except Exception:
             logger.exception("Reply picture failed")
             return self._with_note(text, _FAILED), []
-        return f"{_marker(picture)}\n\n{text.lstrip()}", [picture]
+        return f"{image_marker(picture)}\n\n{text.lstrip()}", [picture]
 
     def _with_note(self, text: str, reason: str) -> str:
         note = _NOT_MADE.format(subject=self.subject, reason=reason.rstrip(".") + ".")

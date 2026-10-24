@@ -21,6 +21,7 @@ from app.modules.math.solve.unicode_normalize import (
     _rewrite_unicode_script_runs,
     _rewrite_unicode_sqrts,
 )
+from app.services.symbolic_text import strip_inline_math_delimiters
 
 # Shallow LaTeX → SymPy-ish text. Nested \frac needs repeated passes (capped).
 _LATEX_FRAC_RE = re.compile(r"\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}")
@@ -205,22 +206,6 @@ def _implicit_mul_before_sqrt(s: str) -> str:
     return "".join(out)
 
 
-def _strip_math_dollar_delims(s: str) -> str:
-    """Composer/math keyboard wraps expressions in ``$...$`` / ``\\(...\\)``.
-
-    ``$`` / ``{}`` are not equation-side characters, so ``$x^{6}=1$`` used to
-    extract an empty LHS and skip SymPy — then the tool loop blocked on R1.
-    """
-    return (
-        s.replace("$$", "")
-        .replace("$", "")
-        .replace("\\(", "")
-        .replace("\\)", "")
-        .replace("\\[", "")
-        .replace("\\]", "")
-    )
-
-
 def _rewrite_latex_braced_scripts_once(s: str) -> str:
     """One pass: ``x^{6}`` → ``x^6``; ``^{x}^{2}`` → ``x^{2}``."""
     out: list[str] = []
@@ -366,7 +351,7 @@ def _rewrite_log_bases(s: str) -> str:
 
 def normalize_latex_to_sympy(expr: str) -> str:
     """Expand common LaTeX so pasted/OCR homework can pass the safe-char gate."""
-    s = _strip_math_dollar_delims(expr)
+    s = strip_inline_math_delimiters(expr)
     s = _rewrite_inverse_functions(s)
     for glyph, repl in _UNICODE_OP_SUBS:
         s = s.replace(glyph, repl)

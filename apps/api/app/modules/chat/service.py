@@ -380,11 +380,11 @@ async def update_message_email(
 ) -> Message:
     """Rewrite the first ```email fence on an assistant message. Not arbitrary content PATCH."""
     await get_chat(session, user, chat_id)
-    message = await messages_repo.get_in_chat(session, message_id, chat_id)
+    message = await messages_repo.get_by_id(session, message_id, chat_id)
     if message is None:
         await session.commit()  # end the reads; no transaction across the wait
         await finalize_registry.wait_for_pending_finalize(chat_id, redis)
-        message = await messages_repo.get_in_chat(session, message_id, chat_id)
+        message = await messages_repo.get_by_id(session, message_id, chat_id)
     if message is None:
         raise ChatsError("Message not found", status_code=404)
     if message.role != "assistant":

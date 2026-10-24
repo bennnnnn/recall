@@ -45,23 +45,6 @@ async def test_count_for_chat(fake_session):
 
 
 @pytest.mark.asyncio
-async def test_get_last(fake_session):
-    """get_last should return the most recent message via scalar_one_or_none."""
-    from app.modules.chat.messages_repository import get_last
-
-    chat_id = uuid4()
-    mock_message = MagicMock()
-    mock_result = MagicMock()
-    mock_result.scalar_one_or_none.return_value = mock_message
-    fake_session.execute.return_value = mock_result
-
-    result = await get_last(fake_session, chat_id)
-
-    assert result is mock_message
-    fake_session.execute.assert_awaited_once()
-
-
-@pytest.mark.asyncio
 async def test_get_last_user(fake_session):
     """get_last_user should return the most recent user message."""
     from app.modules.chat.messages_repository import get_last_user

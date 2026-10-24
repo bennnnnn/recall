@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import re
 
 from app.core.config import Settings
@@ -57,9 +56,6 @@ from app.modules.web_search.subject import (
     resolve_search_subject,
 )
 from app.services import time_context as time_context_service
-
-logger = logging.getLogger(__name__)
-
 
 # Questions about the user's own stored profile must be answered from memory,
 # not by searching the public web. Keep this deliberately narrower than every

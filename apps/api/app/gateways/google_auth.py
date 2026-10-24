@@ -8,6 +8,7 @@ from google.oauth2 import id_token
 
 from app.core.blocking import run_blocking
 from app.core.config import Settings
+from app.core.validation import claim_is_true
 from app.exceptions import AuthenticationError
 
 logger = logging.getLogger(__name__)
@@ -83,23 +84,10 @@ def _verify_google_id_token_sync(id_token_str: str, settings: Settings) -> dict[
         logger.warning("Google ID token verification failed: %s", exc)
         raise GoogleAuthError("Invalid Google ID token") from exc
 
-    if not _is_email_verified(payload.get("email_verified")):
+    if not claim_is_true(payload.get("email_verified")):
         raise GoogleAuthError("Google email address is not verified")
 
     return payload
-
-
-def _is_email_verified(value: object) -> bool:
-    """Affirmative only for an explicit verified claim.
-
-    Google sends a bool, but tolerate the string form ("true"/"false") some
-    intermediaries pass through. Missing/None/"false"/0 are unverified.
-    """
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() == "true"
-    return False
 
 
 async def verify_google_id_token(id_token_str: str, settings: Settings) -> dict[str, Any]:
