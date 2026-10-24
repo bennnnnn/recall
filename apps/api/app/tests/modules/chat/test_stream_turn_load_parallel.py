@@ -160,19 +160,11 @@ async def test_user_and_chat_ownership_loads_overlap() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("content", "loads_history"),
-    [
-        ("hi", False),
-        ("thanks", False),
-        # A short reply answers the last turn: "no" to "Understood?" must see it.
-        ("No", True),
-        ("got it", True),
-        ("yes", True),
-    ],
-)
-async def test_short_reply_loads_the_recent_window(
-    monkeypatch: pytest.MonkeyPatch, content: str, loads_history: bool
+# A greeting sees what came before it, so a "hi" after a "hi" is noticed; a short
+# reply answers the last turn: "no" to "Understood?" must see it.
+@pytest.mark.parametrize("content", ["hi", "thanks", "No", "got it", "yes"])
+async def test_every_turn_loads_the_recent_window(
+    monkeypatch: pytest.MonkeyPatch, content: str
 ) -> None:
     user = MagicMock()
     user.id = uuid4()
@@ -206,4 +198,4 @@ async def test_short_reply_loads_the_recent_window(
         ]
 
     assert tokens == []
-    assert list_recent.await_count == (1 if loads_history else 0)
+    assert list_recent.await_count == 1

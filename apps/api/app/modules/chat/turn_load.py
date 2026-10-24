@@ -22,11 +22,7 @@ from app.models import model_catalog
 from app.models.orm import Chat, User
 from app.modules.chat.finalize_registry import wait_for_pending_finalize
 from app.modules.chat.model_routing.route import last_user_turn
-from app.modules.chat.prompt_constants import (
-    active_lesson_step,
-    is_lightweight_chat_turn,
-    is_short_reply,
-)
+from app.modules.chat.prompt_constants import active_lesson_step
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import RegenerateBackup
 from app.modules.chat.turn_prep.mode import _TurnMode, classify_turn_mode
@@ -256,11 +252,9 @@ async def load_new_turn(
     user_generation: str | None = None,
 ) -> NewTurn:
     # Account/quota and history are independent once the previous turn is
-    # committed. A greeting does not need the recent window before the model
-    # starts — that extra Neon read was on the first-token path. A short reply
-    # ("no" to "Understood?") answers the last turn, so it always loads the
-    # window; without it the model greets instead.
-    obvious_greeting = is_lightweight_chat_turn(content) and not is_short_reply(content)
+    # committed: one wall-clock round trip for both. Every turn reads the window,
+    # greetings too: a "hi" that skipped it was greeted afresh after a "hi" (and
+    # after a whole conversation), since the prompt never saw what came before.
     load_account = partial(
         _load_account,
         deps,
@@ -274,26 +268,15 @@ async def load_new_turn(
         chat=chat,
         skip_usage_seed=skip_usage_seed,
     )
-    if obvious_greeting:
-        await wait_for_pending_finalize(chat_id, redis, require_complete=True)
-        timing.mark_phase("previous_finalize_ready")
-        (loaded_user, daily_limit, loaded_chat), health = await gather_or_cancel(
-            load_account(), _model_breakers(redis, settings)
-        )
-        recent: list[Any] = []
-        prior_count = 0
-        timing.mark_phase("history_ready")
-        await read_turn_message(content, recent, settings)
-    else:
-        (
-            (loaded_user, daily_limit, loaded_chat),
-            (recent, prior_count),
-            health,
-        ) = await gather_or_cancel(
-            load_account(),
-            _load_history_and_read(deps, redis, settings, timing, chat_id, content),
-            _model_breakers(redis, settings),
-        )
+    (
+        (loaded_user, daily_limit, loaded_chat),
+        (recent, prior_count),
+        health,
+    ) = await gather_or_cancel(
+        load_account(),
+        _load_history_and_read(deps, redis, settings, timing, chat_id, content),
+        _model_breakers(redis, settings),
+    )
     # Read from the window just loaded: "yes" after a question, or "make it shorter"
     # after a draft, used to read the messages again in a session of its own.
     turn_mode = classify_turn_mode(recent, content)
