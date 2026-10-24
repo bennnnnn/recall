@@ -7,6 +7,7 @@ nested optional/``\\s`` regex pumps in ``math_tools``.
 from __future__ import annotations
 
 from app.modules.math.match.arithmetic import bare_arithmetic_expr
+from app.modules.math.match.bare_expression import bare_expression_reply
 from app.modules.math.match.calculus import (
     calc_op,
     integral_bounds,
@@ -56,6 +57,7 @@ from app.modules.math.match.written import (
 __all__ = [
     "bare_arithmetic_expr",
     "bare_coord",
+    "bare_expression_reply",
     "calc_op",
     "classify_solid_shape",
     "combinatorics_signal",
