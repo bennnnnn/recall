@@ -2,7 +2,9 @@ import cases from "../../../../../../docs/fixtures/emoji_placement_cases.json";
 import { placeEmoji, placeLiveEmoji } from "@/features/chat/model/emojiPlacement";
 
 // The server's finalize pass reads the same cases (test_emoji_placement.py): what
-// streams is what will be saved, so nothing changes when the reply settles.
+// streams is what will be saved, so nothing changes when the reply settles. A .tsx
+// test runs under the React Native Babel transform, as the app does: it once rewrote a
+// u-flag emoji class into one that matched nothing, which the plain project missed.
 describe("placeEmoji, the twin of the server's emoji pass", () => {
   it.each(cases.map((c) => [c.name, c] as const))("%s", (_name, c) => {
     expect(placeEmoji(c.text, c.level, c.user_wrote_emoji)).toBe(c.expected);
