@@ -79,7 +79,42 @@ describe("a drawn chart on a phone card", () => {
 
   it("keeps bars pinned to zero", async () => {
     const { view } = await drawChart(named("labels with series of values (bar)"));
-    expect((view!.scale("x")!.domain() as number[])[0]).toBe(0);
+    expect((view!.scale("y")!.domain() as number[])[0]).toBe(0);
+  });
+
+  it("keeps a ranking once horizontal bars stand as columns", async () => {
+    const ranked = {
+      mark: "bar",
+      data: {
+        values: [
+          { country: "China", pop: 1412 },
+          { country: "India", pop: 1408 },
+          { country: "USA", pop: 333 },
+          { country: "Brazil", pop: 215 },
+        ],
+      },
+      encoding: {
+        y: { field: "country", type: "nominal", sort: "-x" },
+        x: { field: "pop", type: "quantitative" },
+      },
+    };
+    const { view } = await drawChart(JSON.stringify(ranked));
+    expect(view!.scale("x")!.domain()).toEqual(["China", "India", "USA", "Brazil"]);
+  });
+
+  it("draws a range bar's both ends once it stands as a column", async () => {
+    const range = {
+      mark: "bar",
+      data: { values: [{ month: "Jan", low: 8, high: 23 }, { month: "Feb", low: 9, high: 24 }] },
+      encoding: {
+        y: { field: "month", type: "nominal" },
+        x: { field: "low", type: "quantitative" },
+        x2: { field: "high" },
+      },
+    };
+    const { view } = await drawChart(JSON.stringify(range));
+    expect(view!.scale("x")!.domain()).toEqual(["Jan", "Feb"]);
+    expect((view!.scale("y")!.domain() as number[])[1]).toBeGreaterThanOrEqual(24);
   });
 
   it("lists pie slices in the order the reply gave them", async () => {

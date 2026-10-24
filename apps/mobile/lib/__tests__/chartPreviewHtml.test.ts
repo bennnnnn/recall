@@ -50,19 +50,115 @@ describe("normalizeChartSpec", () => {
     expect((spec.layer[0].encoding.x as { sort?: unknown }).sort).toBeNull();
   });
 
-  it("swaps named-category x to y so month labels sit on the left", () => {
+  const LONG_NAMES = ["United States", "United Kingdom", "Germany", "Japan", "Brazil", "India", "Kenya"];
+  const bars = (
+    labels: string[],
+    x: string,
+    y: string,
+    extra: Record<string, unknown> = {},
+  ): { mark: string; data: unknown; encoding: Record<string, unknown> } => ({
+    mark: "bar",
+    data: { values: labels.map((name, i) => ({ name, n: i + 1, series: i % 2 ? "a" : "b" })) },
+    encoding: {
+      x: { field: x, type: x === "n" ? "quantitative" : "nominal" },
+      y: { field: y, type: y === "n" ? "quantitative" : "nominal" },
+      ...extra,
+    },
+  });
+  const axisFields = (spec: { encoding: Record<string, unknown> }) =>
+    ["x", "y"].map((key) => (spec.encoding[key] as { field?: string }).field);
+
+  it.each([
+    ["months", ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]],
+    ["weekdays", ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]],
+    ["quarters", ["Q1", "Q2", "Q3", "Q4"]],
+    ["years", ["2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"]],
+    ["a few short names", ["Rent", "Food", "Travel", "Fun"]],
+  ])("stands %s as columns, whichever way the model wrote them", (_name, labels) => {
+    const standing = bars(labels, "name", "n");
+    const across = bars(labels, "n", "name");
+    normalizeChartSpec(standing);
+    normalizeChartSpec(across);
+    expect(axisFields(standing)).toEqual(["name", "n"]);
+    expect(axisFields(across)).toEqual(["name", "n"]);
+    expect((across.encoding.x as { sort?: unknown }).sort).toBeNull();
+  });
+
+  it.each([
+    ["many names", LONG_NAMES],
+    ["long names", ["Ethiopian Airlines", "Kenya Airways", "EgyptAir"]],
+    ["more months than fit", Array.from({ length: 24 }, (_, i) => `${2024 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`)],
+  ])("lays %s across the card, whichever way the model wrote them", (_name, labels) => {
+    const standing = bars(labels, "name", "n");
+    const across = bars(labels, "n", "name");
+    normalizeChartSpec(standing);
+    normalizeChartSpec(across);
+    expect(axisFields(standing)).toEqual(["n", "name"]);
+    expect(axisFields(across)).toEqual(["n", "name"]);
+    expect((standing.encoding.y as { sort?: unknown }).sort).toBeNull();
+  });
+
+  it("stands names as columns only when they fit upright on the card", () => {
+    const languages = ["Python", "JavaScript", "TypeScript", "Java", "C#"];
+    const narrow = bars(languages, "name", "n");
+    const wide = bars(languages, "name", "n");
+    normalizeChartSpec(narrow, 320);
+    normalizeChartSpec(wide, 640);
+    expect(axisFields(narrow)).toEqual(["n", "name"]);
+    expect(axisFields(wide)).toEqual(["name", "n"]);
+  });
+
+  it("writes column labels upright, and thins crowded time labels instead of overlapping them", () => {
+    const names = bars(["Rent", "Food", "Travel", "Fun"], "n", "name");
+    const years = bars(Array.from({ length: 12 }, (_, i) => String(2015 + i)), "name", "n");
+    const tilted = bars(["Rent", "Food"], "name", "n");
+    (tilted.encoding.x as Record<string, unknown>).axis = { labelAngle: -45 };
+    for (const spec of [names, years, tilted]) normalizeChartSpec(spec);
+    expect((names.encoding.x as { axis?: unknown }).axis).toEqual({ labelAngle: 0 });
+    expect((years.encoding.x as { axis?: unknown }).axis).toEqual({ labelAngle: 0, labelOverlap: "parity" });
+    // An angle the model chose for its columns stays.
+    expect((tilted.encoding.x as { axis?: unknown }).axis).toEqual({ labelAngle: -45 });
+  });
+
+  it("drops a column label angle when the bars lie down", () => {
+    const spec = bars(LONG_NAMES, "name", "n");
+    (spec.encoding.x as Record<string, unknown>).axis = { labelAngle: -45, title: "Country" };
+    normalizeChartSpec(spec);
+    expect((spec.encoding.y as { axis?: unknown }).axis).toEqual({ title: "Country" });
+  });
+
+  it("turns a channel-named sort and a range's second end with the bars", () => {
+    const spec = bars(["Jan", "Feb", "Mar"], "n", "name", { x2: { field: "top" } });
+    (spec.encoding.y as Record<string, unknown>).sort = "-x";
+    const named = bars(["Jan", "Feb", "Mar"], "n", "name");
+    (named.encoding.y as Record<string, unknown>).sort = { encoding: "x", order: "descending" };
+    normalizeChartSpec(spec);
+    normalizeChartSpec(named);
+    expect(spec.encoding.x).toMatchObject({ field: "name", sort: "-y" });
+    expect(spec.encoding.y2).toEqual({ field: "top" });
+    expect(spec.encoding).not.toHaveProperty("x2");
+    expect((named.encoding.x as { sort?: unknown }).sort).toEqual({ encoding: "y", order: "descending" });
+  });
+
+  it("leaves bars in a facet's or a concat's panels as written: they do not span the card", () => {
+    const faceted = bars(["Male", "Female"], "name", "n", { column: { field: "series" } });
+    const panel = bars(LONG_NAMES, "name", "n");
+    const concat = { hconcat: [panel] };
+    normalizeChartSpec(faceted);
+    normalizeChartSpec(concat);
+    expect(axisFields(faceted)).toEqual(["name", "n"]);
+    expect((faceted.encoding.x as { axis?: unknown }).axis).toBeUndefined();
+    expect(axisFields(panel)).toEqual(["name", "n"]);
+  });
+
+  it("keeps the direction written when the rows do not say what the labels are", () => {
     const spec = {
       mark: "bar",
-      data: { values: [{ month: "Jan", inches: 5.7 }] },
-      encoding: {
-        x: { field: "month", type: "nominal" },
-        y: { field: "inches", type: "quantitative" },
-      },
+      data: { url: "data.json" },
+      encoding: { x: { field: "n", type: "quantitative" }, y: { field: "name", type: "nominal" } },
     };
     normalizeChartSpec(spec);
-    expect((spec.encoding.y as { field?: string }).field).toBe("month");
-    expect((spec.encoding.x as { field?: string }).field).toBe("inches");
-    expect((spec.encoding.y as { sort?: unknown }).sort).toBeNull();
+    expect(axisFields(spec)).toEqual(["n", "name"]);
   });
 
   it("does not swap line charts", () => {
@@ -77,21 +173,18 @@ describe("normalizeChartSpec", () => {
     expect((spec.encoding.x as { field?: string }).field).toBe("month");
   });
 
-  it("moves xOffset to yOffset when flipping grouped bars horizontal", () => {
-    const spec: Record<string, unknown> = {
-      mark: "bar",
-      encoding: {
-        x: { field: "month", type: "nominal" },
-        y: { field: "inches", type: "quantitative" },
-        xOffset: { field: "series", type: "nominal" },
-      },
-    };
-    normalizeChartSpec(spec);
-    const enc = spec.encoding as Record<string, { field?: string } | undefined>;
-    expect(enc.y?.field).toBe("month");
-    expect(enc.x?.field).toBe("inches");
-    expect(enc.yOffset?.field).toBe("series");
-    expect(enc.xOffset).toBeUndefined();
+  it("moves the group offset with the bars when it turns them", () => {
+    const across = bars(LONG_NAMES, "name", "n", { xOffset: { field: "series", type: "nominal" } });
+    normalizeChartSpec(across);
+    expect(axisFields(across)).toEqual(["n", "name"]);
+    expect((across.encoding.yOffset as { field?: string }).field).toBe("series");
+    expect(across.encoding).not.toHaveProperty("xOffset");
+
+    const standing = bars(["Q1", "Q2", "Q3", "Q4"], "n", "name", { yOffset: { field: "series", type: "nominal" } });
+    normalizeChartSpec(standing);
+    expect(axisFields(standing)).toEqual(["name", "n"]);
+    expect((standing.encoding.xOffset as { field?: string }).field).toBe("series");
+    expect(standing.encoding).not.toHaveProperty("yOffset");
   });
 
   it("drops tooltips: the card shows none, and a bad format blanked the chart", () => {

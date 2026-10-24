@@ -1,11 +1,11 @@
 /**
- * What a chart card shows when its chart cannot be drawn: one line saying so, the
- * chart's data as a small table when it has any, and a way to its source. Never a
- * blank plot or a Vega error message.
+ * What a chart card shows when its chart cannot be drawn: one line saying so and the
+ * chart's data as a small table when it has any. Never a blank plot, a Vega error
+ * message or the chart's source.
  */
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { ChartTable } from "@/lib/chartSpec";
 import { Radius } from "@/lib/radius";
@@ -15,13 +15,9 @@ import { Type, Weight } from "@/lib/type";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
 
-type Props = {
-  table: ChartTable | null;
-  /** Null once the source is showing. */
-  onShowSource: (() => void) | null;
-};
+type Props = { table: ChartTable | null };
 
-export function ChartFallback({ table, onShowSource }: Props) {
+export function ChartFallback({ table }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -46,11 +42,6 @@ export function ChartFallback({ table, onShowSource }: Props) {
             ))}
           </View>
         </ScrollView>
-      ) : null}
-      {onShowSource ? (
-        <Pressable onPress={onShowSource} hitSlop={8} accessibilityRole="button">
-          <Text style={s.link}>{t("rich.chart_show_source")}</Text>
-        </Pressable>
       ) : null}
     </View>
   );
@@ -78,6 +69,5 @@ function makeStyles(t: Theme) {
       paddingVertical: Space.xxs,
     },
     headerCell: { ...Weight.semibold, color: t.textSecondary },
-    link: { ...Type.compact, color: t.primary },
   });
 }

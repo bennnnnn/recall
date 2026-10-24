@@ -3,7 +3,8 @@
  * draws, so a reply stored before a fix draws with it too. Every rule fills in only what
  * the spec left unset; an explicit sort, scale, axis format or legend stays as written.
  *
- * - Named categories go on y (bars), in the order the data gives them.
+ * - Bars stand as columns for months, weekdays, quarters, years or a few short names, and lie
+ *   across the card for many or long names; categories keep the order the data gives them.
  * - Colour, fill and stroke categories keep the order the data gives them (legend, slices).
  * - Lines and points are not pinned to zero: 80 → 75 kg was a flat line along the top.
  * - Large numbers on a value axis are written short (12.5k, 4.1M, 7.8B): a 300 px card cut
@@ -60,23 +61,90 @@ function applyNominalSort(encoding: JsonRecord, key: string): void {
   chan.sort = null;
 }
 
-/**
- * Named categories on x become unreadable on a phone (labels clip under the
- * plot). ChatGPT-shaped: months/items on y, values on x.
- */
-function preferHorizontalCategoryBars(spec: JsonRecord): void {
-  if (markType(spec.mark) !== "bar" || !isRecord(spec.encoding)) return;
-  const enc = spec.encoding;
-  if (!isCategoryType(channelType(enc.x)) || channelType(enc.y) !== "quantitative") return;
-  [enc.x, enc.y] = [enc.y, enc.x];
-  const xOff = enc.xOffset;
-  const yOff = enc.yOffset;
-  if (xOff !== undefined || yOff !== undefined) {
-    enc.xOffset = yOff;
-    enc.yOffset = xOff;
-    if (enc.xOffset === undefined) delete enc.xOffset;
-    if (enc.yOffset === undefined) delete enc.yOffset;
+// A 10 px axis label runs about 6 px a character and needs a little air beside it; the value
+// axis's numbers and title take about 56 px of the card's width.
+const LABEL_PX_PER_CHAR = 6;
+const LABEL_GAP_PX = 6;
+const VALUE_AXIS_PX = 56;
+// Time labels stand as columns up to this many; crowded ones show every other label.
+const TIME_COLUMN_MAX = 16;
+const TIME_LABEL =
+  /^(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:r(?:s(?:day)?)?)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?|q[1-4](?:\s+\d{4})?|(?:19|20)\d\d(?:\/\d{2})?|(?:week|month|day|year|wk)\s*\d{1,2}|\d{4}-\d{2}(?:-\d{2})?)$/i;
+
+/** The category labels a bar chart's rows give, in order; null when it cannot tell. */
+function categoryLabels(spec: JsonRecord, field: unknown): string[] | null {
+  const values = isRecord(spec.data) ? spec.data.values : undefined;
+  if (typeof field !== "string" || !Array.isArray(values)) return null;
+  const labels: string[] = [];
+  for (const row of values) {
+    if (!isRecord(row) || row[field] == null) continue;
+    const label = String(row[field]).trim();
+    if (!labels.includes(label)) labels.push(label);
   }
+  return labels.length ? labels : null;
+}
+
+const isTimeLabels = (labels: string[]): boolean => labels.every((label) => TIME_LABEL.test(label));
+
+/** Whether these labels stand as columns on a card `width` px wide: in time order, or upright. */
+function fitsAsColumns(labels: string[], width: number): boolean {
+  if (isTimeLabels(labels)) return labels.length <= TIME_COLUMN_MAX;
+  const band = (width - VALUE_AXIS_PX) / labels.length;
+  const longest = Math.max(...labels.map((label) => label.length));
+  return longest * LABEL_PX_PER_CHAR + LABEL_GAP_PX <= band;
+}
+
+/** Column labels read upright; crowded time labels drop every other one, never overlap. */
+function uprightLabels(ch: unknown, labels: string[]): void {
+  if (!isRecord(ch) || ch.axis === null) return;
+  const axis = isRecord(ch.axis) ? ch.axis : {};
+  const upright: JsonRecord = { labelAngle: 0 };
+  if (isTimeLabels(labels)) upright.labelOverlap = "parity";
+  ch.axis = { ...upright, ...axis };
+}
+
+/** A sort that names a channel ("-x", {"encoding": "y"}) names the other one once bars turn. */
+function turnedSort(sort: unknown): unknown {
+  const other = (key: unknown) => (key === "x" ? "y" : key === "y" ? "x" : key);
+  if (typeof sort === "string") return sort.startsWith("-") ? `-${other(sort.slice(1))}` : other(sort);
+  return isRecord(sort) && "encoding" in sort ? { ...sort, encoding: other(sort.encoding) } : sort;
+}
+
+/** Bars turned a quarter: every x channel trades places with its y twin, sorts follow. */
+function turnBars(enc: JsonRecord): void {
+  for (const [a, b] of [["x", "y"], ["x2", "y2"], ["xOffset", "yOffset"]] as const) {
+    const [first, second] = [enc[a], enc[b]];
+    if (second === undefined) delete enc[a];
+    else enc[a] = second;
+    if (first === undefined) delete enc[b];
+    else enc[b] = first;
+  }
+  for (const key of ["x", "y"] as const) {
+    const ch = enc[key];
+    if (isRecord(ch) && "sort" in ch) ch.sort = turnedSort(ch.sort);
+  }
+}
+
+/**
+ * A bar chart's direction, chosen for its labels and the card's width whichever way the model
+ * wrote it: months, weekdays, quarters and years stand as columns, as do names that fit
+ * upright under their columns; other names lie across the card, where they stay readable.
+ * A plot that does not fill the card (a facet's or concat's panel) keeps the written direction.
+ */
+function orientBars(spec: JsonRecord, width: number | null): void {
+  if (width === null || markType(spec.mark) !== "bar" || !isRecord(spec.encoding)) return;
+  const enc = spec.encoding;
+  const across = isCategoryType(channelType(enc.y)) && channelType(enc.x) === "quantitative";
+  const standing = isCategoryType(channelType(enc.x)) && channelType(enc.y) === "quantitative";
+  if (!across && !standing) return;
+  const category = across ? enc.y : enc.x;
+  const labels = categoryLabels(spec, isRecord(category) ? category.field : undefined);
+  const columns = labels ? fitsAsColumns(labels, width) : standing;
+  if (columns && labels) uprightLabels(category, labels);
+  if (columns === standing) return;
+  // An angle written for labels under columns tilted them once they lay down the side.
+  if (!columns && isRecord(category) && isRecord(category.axis)) delete category.axis.labelAngle;
+  turnBars(enc);
 }
 
 function setHorizontalBandHeight(spec: JsonRecord): void {
@@ -114,8 +182,8 @@ function pairBinnedEdges(spec: JsonRecord, enc: JsonRecord): void {
   }
 }
 
-function normalizeUnit(spec: JsonRecord): void {
-  preferHorizontalCategoryBars(spec);
+function normalizeUnit(spec: JsonRecord, width: number | null): void {
+  orientBars(spec, width);
   if (isRecord(spec.encoding)) {
     const enc = spec.encoding;
     applyNominalSort(enc, "x");
@@ -128,20 +196,33 @@ function normalizeUnit(spec: JsonRecord): void {
   setHorizontalBandHeight(spec);
 }
 
-/** Every view in a spec, with whether it is one layer of a layered plot. */
-function eachView(spec: JsonRecord, visit: (view: JsonRecord, inLayer: boolean) => void, inLayer = false): void {
-  visit(spec, inLayer);
+type ViewVisit = (view: JsonRecord, inLayer: boolean, fillsCard: boolean) => void;
+
+function isFaceted(view: JsonRecord): boolean {
+  const enc = view.encoding;
+  return isRecord(enc) && ["row", "column", "facet"].some((key) => key in enc);
+}
+
+/**
+ * Every view in a spec, with whether it is one layer of a layered plot and whether it is
+ * drawn the card's width: the page widens only a top-level plot (layers included) that is
+ * not faceted; a facet's, repeat's or concat's panels keep Vega-Lite's 20 px step.
+ */
+function eachView(spec: JsonRecord, visit: ViewVisit, inLayer = false, fillsCard = true): void {
+  const fills = fillsCard && !isFaceted(spec);
+  visit(spec, inLayer, fills);
   for (const key of COMPOSITE_KEYS) {
     const kids = spec[key];
     if (!Array.isArray(kids)) continue;
-    for (const kid of kids) if (isRecord(kid)) eachView(kid, visit, inLayer || key === "layer");
+    const layer = key === "layer";
+    for (const kid of kids) if (isRecord(kid)) eachView(kid, visit, inLayer || layer, fills && layer);
   }
-  if (isRecord(spec.spec)) eachView(spec.spec, visit);
+  if (isRecord(spec.spec)) eachView(spec.spec, visit, false, false);
 }
 
-/** Layout + category order for a Vega-Lite spec (mutates). */
-export function normalizeChartSpec(spec: JsonRecord): void {
-  eachView(spec, (view) => normalizeUnit(view));
+/** Layout + category order for a Vega-Lite spec on a card `width` px wide (mutates). */
+export function normalizeChartSpec(spec: JsonRecord, width = 320): void {
+  eachView(spec, (view, _inLayer, fillsCard) => normalizeUnit(view, fillsCard ? width : null));
 }
 
 /** Whether a channel holds categories: said so, or a plain field Vega-Lite reads as nominal. */
@@ -404,8 +485,8 @@ export function presentChartSpec(spec: JsonRecord, width = 320): JsonRecord {
   if (isVegaSpec(parsed)) return parsed;
   repairTransforms(parsed, null, null);
   const out = JSON.parse(JSON.stringify(labelSlices(parsed))) as JsonRecord;
-  eachView(out, (view, inLayer) => {
-    normalizeUnit(view);
+  eachView(out, (view, inLayer, fillsCard) => {
+    normalizeUnit(view, fillsCard ? width : null);
     keepColorOrder(view);
     unpinLines(view, inLayer);
   });

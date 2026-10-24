@@ -2,16 +2,14 @@
  * Chart block — renders ```chart / ```vega / ```vega-lite / ```plot fences
  * inline via WebView + Vega-Embed so the user sees the actual chart, not raw JSON.
  * A body it cannot draw (lib/chartSpec.ts), or one the page drew nothing for, shows
- * ChartFallback: a note, the chart's data as a table, and its source.
+ * ChartFallback: a note and the chart's data as a table. The card has no source, copy
+ * or editor buttons: its only control is expand, on a chart taller than the card.
  */
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import * as Clipboard from "expo-clipboard";
-import * as WebBrowser from "expo-web-browser";
 import { Icon } from "@/ui/icons/Icon";
 
-import { CopyButton } from "@/components/CopyButton";
 import { ChartFallback } from "@/components/rich/ChartFallback";
 import { usePreviewPage } from "@/components/rich/usePreviewPage";
 import { useWebPreviewHeight } from "@/components/rich/useWebPreviewHeight";
@@ -20,7 +18,6 @@ import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CHART_PAGE, chartPreviewConfig } from "@/lib/chartPreviewHtml";
 import { CHART_HEIGHT_EPSILON_PX, CHART_PREVIEW_HEIGHT } from "@/lib/chartPreviewHeight";
 import { readChart } from "@/lib/chartSpec";
-import { CODE_FACE } from "@/lib/fonts";
 import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
@@ -33,7 +30,6 @@ export function ChartBlock({ content }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [showSource, setShowSource] = useState(false);
   const [viewWidth, setViewWidth] = useState(0);
   const { expanded, height, clipped, renderError, onMessage, toggleExpanded } =
     useWebPreviewHeight({
@@ -62,11 +58,6 @@ export function ChartBlock({ content }: Props) {
   const previewError = preview.status === "failed" ? t("rich.chart_error") : null;
   const undrawn = !drawable || renderError !== null;
 
-  const handleOpenVegaEditor = useCallback(async () => {
-    await Clipboard.setStringAsync(content);
-    await WebBrowser.openBrowserAsync("https://vega.github.io/editor/");
-  }, [content]);
-
   return (
     <VisualCard
       label={t("rich.chart")}
@@ -76,54 +67,26 @@ export function ChartBlock({ content }: Props) {
         if (w > 0 && Math.abs(w - viewWidth) > CHART_HEIGHT_EPSILON_PX) setViewWidth(w);
       }}
       actions={
-        <>
-          <CopyButton text={content} />
+        clipped || expanded ? (
           <Pressable
             style={s.iconBtn}
-            onPress={() => setShowSource((v) => !v)}
+            onPress={toggleExpanded}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel={t("rich.source")}
+            accessibilityLabel={expanded ? t("rich.collapse") : t("rich.expand")}
           >
             <Icon
-              name={showSource ? "eye-off" : "code"}
+              name={expanded ? "collapse" : "expand"}
               size={IconSize.sm}
-              color={showSource ? theme.primary : theme.textSecondary}
+              color={theme.textSecondary}
             />
           </Pressable>
-          {clipped || expanded ? (
-            <Pressable
-              style={s.iconBtn}
-              onPress={toggleExpanded}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={expanded ? t("rich.collapse") : t("rich.expand")}
-            >
-              <Icon
-                name={expanded ? "collapse" : "expand"}
-                size={IconSize.sm}
-                color={theme.textSecondary}
-              />
-            </Pressable>
-          ) : null}
-          <Pressable
-            style={s.iconBtn}
-            onPress={handleOpenVegaEditor}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={t("rich.vega_editor")}
-          >
-            <Icon name="external-link" size={IconSize.sm} color={theme.textSecondary} />
-          </Pressable>
-        </>
+        ) : null
       }
     >
       <View style={[s.previewBox, undrawn ? null : { height }]}>
         {undrawn ? (
-          <ChartFallback
-            table={read.table}
-            onShowSource={showSource ? null : () => setShowSource(true)}
-          />
+          <ChartFallback table={read.table} />
         ) : previewError ? (
           <View style={[s.previewPlaceholder, { height }]}>
             <Icon name="alert-circle" size={IconSize.sm} color={theme.danger} />
@@ -157,14 +120,6 @@ export function ChartBlock({ content }: Props) {
           </View>
         )}
       </View>
-
-      {showSource && (
-        <View style={s.sourceBox}>
-          <Text style={s.sourceText} selectable>
-            {content.trim()}
-          </Text>
-        </View>
-      )}
     </VisualCard>
   );
 }
@@ -173,12 +128,7 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     // The page paints its background once its chart arrives; until then the card's shows.
     webview: { backgroundColor: "transparent" },
-    previewBox: {
-      backgroundColor: t.bg,
-      overflow: "hidden",
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: t.border,
-    },
+    previewBox: { backgroundColor: t.bg, overflow: "hidden" },
     previewPlaceholder: {
       alignItems: "center",
       justifyContent: "center",
@@ -189,15 +139,6 @@ function makeStyles(t: Theme) {
       color: t.textSecondary,
       textAlign: "center",
     },
-    sourceBox: {
-      paddingHorizontal: Space.sm,
-      paddingVertical: Space.sm,
-      backgroundColor: t.contentSurface,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: t.border,
-      maxHeight: 200,
-    },
-    sourceText: { ...Type.meta, ...CODE_FACE, lineHeight: 18, color: t.textSecondary },
     iconBtn: {
       width: 32,
       height: 32,
