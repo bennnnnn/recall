@@ -15,6 +15,7 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.models.orm import User
+from app.modules.attachments.markers import image_marker
 from app.modules.images import search as image_search
 from app.services.md_fence_scan import iter_fences
 
@@ -26,10 +27,6 @@ _QUERY_CHARS = 120
 _WATCH_CHARS = 600
 # The search usually finishes while the answer streams; never hold a reply long.
 _WAIT_SECONDS = 6.0
-
-
-def _marker(attachment_id: UUID) -> str:
-    return f"[Image: /attachments/{attachment_id}/file]"
 
 
 def _photo_fences(text: str) -> list[tuple[int, int, str]]:
@@ -112,7 +109,7 @@ class AnswerPhoto:
             task.cancel()
         except Exception:
             logger.exception("Answer photo failed")
-        marker = "\n".join(_marker(attachment_id) for attachment_id in ids)
+        marker = "\n".join(image_marker(attachment_id) for attachment_id in ids)
         return _replace_photo_fences(content, marker), ids
 
     def cancel(self) -> None:

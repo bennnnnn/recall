@@ -13,7 +13,7 @@
   "modules/chemistry/solvers/amounts.py::solve_amount": 113,
   "modules/chemistry/solvers/solutions.py::solve_solution": 120,
   "modules/chemistry/solvers/titration.py::_weak_titration": 149,
-  "modules/images/search.py::search_and_attach_for_chat": 109,
+  "modules/images/search.py::search_and_attach_for_chat": 107,
   "modules/math/fence.py::validate_math_fences": 104,
   "modules/math/match/literal_geometry.py::parse_named_rectangle_request": 136,
   "modules/math/ocr.py::extract_math_from_image": 117,

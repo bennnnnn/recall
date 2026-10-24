@@ -18,6 +18,11 @@ _IMAGE_UNAVAILABLE_NOTE = (
 )
 
 
+def image_marker(attachment_id: UUID | str) -> str:
+    """The ``[Image: /attachments/{uuid}/file]`` line a message stores for a picture."""
+    return f"[Image: {_ATTACH_ID_PREFIX}{attachment_id}{_ATTACH_ID_SUFFIX}]"
+
+
 def _is_image_marker_line(line: str) -> bool:
     s = line.strip()
     return s.startswith("[Image:") and s.endswith("]") and len(s) > len("[Image:]")

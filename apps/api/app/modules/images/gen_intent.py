@@ -35,6 +35,7 @@ from app.modules.images.gen_intent_words import (
     VERBS_IMAGE,
 )
 from app.services.diagram_kinds import names_diagram_kind, names_idea_curve
+from app.services.text_normalize import fold_token
 
 if TYPE_CHECKING:
     from app.services.subject_solving import SubjectName
@@ -46,11 +47,6 @@ _PURPOSE_COLON = re.compile(
     r"\s*(?P<subject>\S[^\n]*)$",
     re.IGNORECASE,
 )
-
-
-def split_tokens(text: str) -> list[str]:
-    """Whitespace-split only — linear in ``len(text)``."""
-    return text.split()
 
 
 def strip_polite(tokens: list[str]) -> list[str]:
@@ -74,11 +70,6 @@ def clean_prompt(raw: str) -> str | None:
     if any(fold_token(w) in CODEISH_WORDS for w in prompt.split()):
         return None
     return prompt
-
-
-def fold_token(word: str) -> str:
-    """Lowercase and strip edge punctuation so ``tips,`` matches ``tips``."""
-    return word.lower().strip(".,!?;:\"'()[]")
 
 
 def has_non_image_subject(subject: str, *, drawn: bool = False) -> bool:
@@ -426,7 +417,7 @@ def extract_image_gen_prompt(text: str) -> str | None:
     if purpose is not None:
         return clean_prompt(purpose.group("subject"))
 
-    tokens = strip_polite(split_tokens(trimmed))
+    tokens = strip_polite(trimmed.split())
     if not tokens:
         return None
 

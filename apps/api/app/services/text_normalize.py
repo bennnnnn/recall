@@ -17,6 +17,11 @@ def collapse_ws(text: str) -> str:
     return " ".join(text.split())
 
 
+def fold_token(word: str) -> str:
+    """Lowercase and strip edge punctuation so ``tips,`` matches ``tips``."""
+    return word.lower().strip(".,!?;:\"'()[]")
+
+
 def straighten_apostrophes(text: str) -> str:
     """U+2018 and U+2019 become ``'``, so a rule written for "What's" reads the curly form."""
     return text.translate(_STRAIGHT_APOSTROPHES)

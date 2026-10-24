@@ -30,6 +30,7 @@ from app.modules.web_search.query_builders import (
 from app.modules.web_search.recency import anchor_recency_to_year
 from app.modules.web_search.subject import collect_prior_user_messages
 from app.services.conversation_reference import resolve_reference, turns_from_prompt
+from app.services.text_normalize import fold_token
 
 # Words that stand for someone or something named earlier in the chat.
 _REFERENCE_WORDS = frozenset(
@@ -53,10 +54,6 @@ _REFERENCE_WORDS = frozenset(
 )
 
 
-def _fold(word: str) -> str:
-    return word.lower().strip(".,!?;:\"'()[]")
-
-
 def _last_assistant_text(messages: list[dict[str, Any]]) -> str | None:
     for message in reversed(messages):
         if message.get("role") == "assistant" and isinstance(message.get("content"), str):
@@ -74,7 +71,7 @@ def points_back(text: str, prior_user_messages: list[str] | None) -> bool:
     # "What is the president?" after a chat about Ethiopia: of the chat's subject.
     if office_without_place(cleaned):
         return True
-    words = [_fold(w) for w in cleaned.split()]
+    words = [fold_token(w) for w in cleaned.split()]
     return len(words) <= _SHORT_FOLLOWUP_WORDS and any(w in _REFERENCE_WORDS for w in words)
 
 

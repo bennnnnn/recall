@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.services.text_normalize import collapse_ws
+from app.services.text_normalize import collapse_ws, fold_token
 
 
 @dataclass(frozen=True)
@@ -163,10 +163,6 @@ _MAX_COMMAND_WORDS = 14
 _MAX_BARE_SUBJECT_WORDS = 8
 
 
-def _fold(word: str) -> str:
-    return word.lower().strip(".,!?;:\"'()[]")
-
-
 def _one_edit_apart(word: str, target: str) -> bool:
     """True for one insertion, deletion, substitution or adjacent swap."""
     if word == target:
@@ -201,7 +197,7 @@ def _one_edit_apart(word: str, target: str) -> bool:
 
 def is_search_word(word: str) -> bool:
     """ "search" and its typos ("seearch", "serach", "searh"), not "starch"."""
-    folded = _fold(word)
+    folded = fold_token(word)
     if folded in _SEARCH_FORMS:
         return True
     if folded in _NOT_SEARCH_TYPOS or len(folded) < 5 or not folded.startswith("s"):
@@ -386,7 +382,7 @@ def search_command(text: str) -> SearchCommand | None:
     if not cleaned or len(cleaned) > 200:
         return None
     original = cleaned.split()
-    folded = [_fold(w) for w in original]
+    folded = [fold_token(w) for w in original]
     if len(folded) > _MAX_COMMAND_WORDS:
         return None
     keep = [i for i, w in enumerate(folded) if w]
@@ -414,7 +410,7 @@ def search_command(text: str) -> SearchCommand | None:
         if (
             command.subject
             and not online
-            and any(_fold(w) in _PERSONAL_WORDS for w in command.subject.split())
+            and any(fold_token(w) in _PERSONAL_WORDS for w in command.subject.split())
         ):
             return None
         return command
