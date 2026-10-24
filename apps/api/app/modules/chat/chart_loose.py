@@ -27,7 +27,7 @@ from app.modules.chat.chart_bodies import chart_body_draws, parse_chart_body
 # A first line naming the chart alone: "bar", "pie chart", "xychart-beta".
 _HEADER = re.compile(
     r"^(?P<kind>bar|column|line|area|pie|donut|doughnut|scatter|histogram)"
-    r"(?:\s*(?:charts?|graphs?|plots?))?\s*:?\s*$|^xychart(?:-beta)?\s*$",
+    r"(?:\s*(?:charts?|graphs?|plots?))?\s*:?$|^xychart(?:-beta)?$",
     re.IGNORECASE,
 )
 # ``title "Monthly rainfall"``, ``y-axis "mm" 0 --> 300``: a key and its quoted value.
@@ -37,8 +37,11 @@ _KEY_OPENS = re.compile(r"^(\s*)([A-Za-z][\w-]*)\s+([\[{].*)$")
 _AXIS_SPELLINGS = ("{}Axis", "{}-axis", "{}_axis", "{}axis", "{}AxisLabel", "{}_axis_label")
 _MARK_KEYS = ("bar", "line", "area")
 _LABEL_KEYS = ("labels", "categories", "x")
-# A chart's text is a few hundred characters; past this it is not one to read.
-_MAX_CHARS = 20_000
+# A chart's text is a few hundred characters; past this it is not one to read (PyYAML
+# took a third of a second on 20,000 characters of brackets, on the event loop).
+_MAX_CHARS = 6_000
+# Chart data nests a few brackets deep; PyYAML's time grew with the square of the depth.
+_MAX_DEPTH = 20
 
 
 class _Loader(yaml.SafeLoader):
@@ -129,23 +132,42 @@ def _reshaped(spec: dict[str, Any], kind: str | None) -> dict[str, Any]:
 
 
 def loose_chart_json(body: str) -> str | None:
-    """JSON the phone draws for a body written as loose text, or None.
+    """JSON the phone draws for a body written as loose text, or None. Never raises: it
+    runs in the finalize pass, on whatever the model wrote.
 
     A body that already parses as JSON is the JSON checks' to judge, never rewritten.
     """
     if len(body) > _MAX_CHARS or parse_chart_body(body) is not None:
         return None
-    text, kind = _yaml_text(body)
     try:
-        loaded = yaml.load(text, Loader=_Loader)  # noqa: S506 - a SafeLoader subclass
-    except (yaml.YAMLError, RecursionError):  # brackets nested past Python's stack
+        return _read(body)
+    # YAML's own errors, an explicit tag with a bad value ("!!float abc" is a ValueError,
+    # "!!bool maybe" a KeyError), an integer too long for a float, brackets nested past
+    # Python's stack: each is a body with no chart in it.
+    except Exception:
         return None
+
+
+def _too_deep(text: str) -> bool:
+    depth = 0
+    for char in text:
+        if char in "[{":
+            depth += 1
+            if depth > _MAX_DEPTH:
+                return True
+        elif char in "]}":
+            depth = max(0, depth - 1)
+    return False
+
+
+def _read(body: str) -> str | None:
+    if _too_deep(body):
+        return None
+    text, kind = _yaml_text(body)
+    loaded = yaml.load(text, Loader=_Loader)  # noqa: S506 - a SafeLoader subclass
     if isinstance(loaded, list):
         loaded = {"data": loaded}
     if not isinstance(loaded, dict):
         return None
-    try:
-        spec = json.dumps(_reshaped(loaded, kind), ensure_ascii=False)
-    except (TypeError, ValueError, RecursionError):
-        return None
+    spec = json.dumps(_reshaped(loaded, kind), ensure_ascii=False)
     return spec if chart_body_draws(spec) else None

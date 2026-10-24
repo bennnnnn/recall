@@ -51,8 +51,10 @@ def sanitize_chart_fences(text: str) -> str:
         if fence.lang not in CHART_LANGS or chart_is_drawable(body):
             return text[fence.start : block_end(text, fence)]
         if (read := loose_chart_json(body)) is not None:
+            # The fence's indent or quote markers carry onto its line: in a list item, a
+            # line at the margin ended the item and the fence.
             closer = text[fence.body_end : block_end(text, fence)]
-            return f"{text[fence.start : fence.body_start]}{read}\n{closer}"
+            return f"{text[fence.start : fence.body_start]}{fence.opener.prefix}{read}\n{closer}"
         return _table_in(body)
 
     if not any(lang in text for lang in CHART_LANGS):

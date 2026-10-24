@@ -10,6 +10,7 @@ tests draw.
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -88,6 +89,15 @@ def test_labels_stay_the_words_written(body: str, labels: list[str] | None) -> N
 @pytest.mark.parametrize(
     "body",
     [
+        # An explicit tag with a bad value, an integer too long for a float: no chart, no
+        # error (the finalize pass this runs in must not raise).
+        "type: bar\ndata:\n  Jan: !!float abc\n  Feb: 2",
+        "Jan: !!int x\nFeb: 2",
+        'Jan: !!int ""',
+        "Jan: !!bool maybe",
+        "Jan: !!timestamp soon",
+        "type: bar\ndata:\n  Jan: " + "9" * 400 + "\n  Feb: 2",
+        "xychart-beta\n  bar [" + "9" * 400 + ", 2]",
         # JSON is the JSON checks' to judge, drawable or not.
         '{"type": "bar", "data": {"labels": ["a"], "datasets": [{"data": [1]}]}}',
         '{"mark": "line", "data": {"url": "data.csv"}}',
@@ -103,3 +113,15 @@ def test_labels_stay_the_words_written(body: str, labels: list[str] | None) -> N
 )
 def test_what_holds_no_chart_is_not_one(body: str) -> None:
     assert loose_chart_json(body) is None
+
+
+@pytest.mark.parametrize(
+    "body",
+    ["{" * 5999, "[" * 5999, "bar" + " " * 5990 + "x", "pie chart" + " " * 5980 + ":x"],
+)
+def test_reading_a_long_body_stays_quick(body: str) -> None:
+    """Brackets nested deep took PyYAML a third of a second; spaces after the header word
+    were read in quadratic time. Both run in the finalize pass, on the event loop."""
+    started = time.perf_counter()
+    assert loose_chart_json(body) is None
+    assert time.perf_counter() - started < 0.05

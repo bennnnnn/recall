@@ -158,5 +158,26 @@
   "prompt": "make that a priority for this week",
   "reply": "Got it. Put it first on your list and block an hour for it early in the week, before other tasks crowd it out.",
   "expect": "answer"
+ },
+ {
+  "id": "ch-021",
+  "area": "chart lookalike",
+  "prompt": "Rewrite the ending and make it a plot twist",
+  "reply": "The butler, who had been dead the whole time, turns out to have written the will himself.",
+  "expect": "answer"
+ },
+ {
+  "id": "ch-022",
+  "area": "chart lookalike",
+  "prompt": "can we make this a graph problem and solve it with BFS?",
+  "reply": "Yes: treat each cell as a node and each open neighbour as an edge, then BFS from the start gives the shortest path.",
+  "expect": "answer"
+ },
+ {
+  "id": "ch-023",
+  "area": "chart lookalike",
+  "prompt": "write me a pop song and make it a chart-topper",
+  "reply": "**Neon Hearts**\n\nVerse 1: City lights are calling out your name\u2026",
+  "expect": "answer"
  }
 ]

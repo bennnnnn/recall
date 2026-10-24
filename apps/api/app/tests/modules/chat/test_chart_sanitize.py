@@ -78,3 +78,22 @@ def test_a_reply_that_is_only_an_undrawable_chart_stays_as_written(body: str) ->
     """Dropped, it was saved empty while the phone kept the chart it had streamed."""
     reply = f"```chart\n{body}\n```"
     assert sanitize_chart_fences(reply) == reply
+
+
+def test_a_rewritten_chart_in_a_list_item_keeps_its_indent() -> None:
+    """At the margin, the JSON line ended the list item and left an empty chart."""
+    reply = (
+        "1. Rainfall by month:\n\n   ```chart\n   type: bar\n   data:\n     - label: Jan\n"
+        "       value: 15\n     - label: Feb\n       value: 30\n   ```\n\n2. Jul is wettest."
+    )
+    kept = sanitize_chart_fences(reply).splitlines()
+    assert kept[2] == "   ```chart"
+    assert kept[3].startswith('   {"type": "bar"') and chart_is_drawable(kept[3])
+    assert kept[4:] == ["   ```", "", "2. Jul is wettest."]
+
+
+def test_a_chart_that_breaks_the_readers_goes_without_an_error() -> None:
+    """A bad YAML tag raised a ValueError, and brackets nested deep a RecursionError."""
+    reply = "Here:\n\n```chart\ntype: bar\ndata:\n  Jan: !!float abc\n  Feb: 2\n```\n\nDone."
+    assert sanitize_chart_fences(reply) == "Here:\n\nDone."
+    assert not chart_is_drawable("[" * 19999)
