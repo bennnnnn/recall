@@ -17,7 +17,7 @@ from redis.asyncio import Redis
 from app.core import readings
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError
-from app.models.orm import Chat, User
+from app.models.orm import Attachment, Chat, User
 from app.modules.account import profile as profile_service
 from app.modules.attachments.markers import image_attachment_ids_from_text
 from app.modules.billing import plan as plan_service
@@ -42,7 +42,8 @@ from app.modules.chat.turn_prep import (
     TurnRequest,
     await_user_message_persist,
     build_stream_prompt_context,
-    count_image_attachments,
+    count_images,
+    load_attachment_rows,
     prepare_chat_turn,
     stream_context_from_bundle,
     vision_reserve_tokens,
@@ -65,18 +66,18 @@ async def _reserve_new_turn(
     settings: Settings,
     turn: NewTurn,
     *,
-    user_id: UUID,
     content: str,
     attachment_ids: list[UUID] | None,
-) -> None:
-    """The soft quota check; a borrowed reservation is already made."""
+) -> list[Attachment] | None:
+    """The soft quota check; a borrowed reservation is already made. Returns the attached
+    rows it read to count the images, which the turn then reads its files from."""
     if res.reserved_tokens > 0:
-        return
-    vision_extra = 0
+        return None
+    rows: list[Attachment] | None = None
     if attachment_ids:
         async with deps.session_factory() as session:
-            image_count = await count_image_attachments(session, user_id, attachment_ids)
-        vision_extra = vision_reserve_tokens(settings, image_count)
+            rows = await load_attachment_rows(session, turn.user.id, attachment_ids)
+    vision_extra = vision_reserve_tokens(settings, count_images(rows or []))
     await res.reserve(
         user=turn.user,
         content=content,
@@ -86,6 +87,7 @@ async def _reserve_new_turn(
         vision_extra=vision_extra,
         max_output=settings.max_output_tokens,
     )
+    return rows
 
 
 async def _end_new_turn(ctx: StreamContext, chat_id: UUID) -> None:
@@ -184,14 +186,8 @@ async def stream_chat_response(
             await res.refund()
             return
         timing.mark_phase("image_gen")
-        await _reserve_new_turn(
-            deps,
-            res,
-            settings,
-            turn,
-            user_id=user_id,
-            content=content,
-            attachment_ids=attachment_ids,
+        rows = await _reserve_new_turn(
+            deps, res, settings, turn, content=content, attachment_ids=attachment_ids
         )
         ctx = await prepare_chat_turn(
             user_id=user_id,
@@ -202,6 +198,7 @@ async def stream_chat_response(
             redis=redis,
             reserved_tokens=res.reserved_tokens,
             attachment_ids=attachment_ids or [],
+            attachment_rows=rows,
             client_timezone=client_timezone,
             client_location=client_location,
             client_latitude=client_latitude,

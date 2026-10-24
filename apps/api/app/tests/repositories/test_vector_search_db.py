@@ -198,14 +198,10 @@ async def test_chunks_are_stored_without_the_json_copy(db_session) -> None:
     user = await _user(db_session)
     chat, message = await _chat_with_message(db_session, user.id)
 
-    await chunks_repo.replace_chunks(
+    await chunks_repo.replace_chunks_of_messages(
         db_session,
         user_id=user.id,
-        message_id=message.id,
-        chat_id=chat.id,
-        role="user",
-        chunks=[(0, "hello", _vector(40))],
-        commit=False,
+        messages=[(message.id, chat.id, "user", [(0, "hello", _vector(40))])],
     )
 
     stored = (
@@ -240,3 +236,55 @@ async def test_forgetting_a_fact_drops_the_snippets_that_repeat_it(db_session) -
         )
     ).scalars()
     assert list(left) == [1]
+
+
+async def test_a_turns_messages_replace_their_chunks_in_one_delete_and_one_insert(
+    db_session,
+) -> None:
+    from sqlalchemy import event
+
+    user = await _user(db_session)
+    chat, asked = await _chat_with_message(db_session, user.id)
+    _, kept = await _chat_with_message(db_session, user.id)
+    reply = Message(chat_id=chat.id, user_id=user.id, role="assistant", content="r")
+    db_session.add(reply)
+    now = datetime.now(UTC)
+    db_session.add_all(
+        [
+            _chunk(user.id, chat.id, asked.id, 0, _vector(1), created_at=now),
+            _chunk(user.id, chat.id, asked.id, 1, _vector(2), created_at=now),
+            _chunk(user.id, kept.chat_id, kept.id, 0, _vector(3), created_at=now),
+        ]
+    )
+    await db_session.flush()
+    statements: list[str] = []
+    engine = db_session.bind.sync_engine
+
+    def seen(_conn, _cursor, statement, *_args) -> None:
+        statements.append(statement.split()[0])
+
+    event.listen(engine, "before_cursor_execute", seen)
+    try:
+        await chunks_repo.replace_chunks_of_messages(
+            db_session,
+            user_id=user.id,
+            messages=[
+                (asked.id, chat.id, "user", [(0, "asked", _vector(4))]),
+                (reply.id, chat.id, "assistant", [(0, "one", _vector(5)), (1, "two", None)]),
+            ],
+        )
+    finally:
+        event.remove(engine, "before_cursor_execute", seen)
+
+    assert statements == ["DELETE", "INSERT"]
+    stored = await db_session.execute(
+        select(MessageChunk.message_id, MessageChunk.text).where(MessageChunk.user_id == user.id)
+    )
+    assert sorted((str(m), t) for m, t in stored.all()) == sorted(
+        [
+            (str(asked.id), "asked"),
+            (str(reply.id), "one"),
+            (str(reply.id), "two"),
+            (str(kept.id), "chunk 0"),
+        ]
+    )

@@ -19,13 +19,19 @@ from app.modules.math.schemas import MathImageExtract
 from app.repositories import users as users_repo
 
 
-async def count_image_attachments(
+async def load_attachment_rows(
     session: AsyncSession, user_id: UUID, attachment_ids: list[UUID]
-) -> int:
+) -> list[Attachment]:
+    """The user's rows among ``attachment_ids``, in one query: the quota counts their images,
+    then the turn reads its files from the same rows (``prepare_chat_turn``)."""
     from app.modules.attachments import service as attachments_service
+
+    return list(await attachments_service.get_by_ids(session, attachment_ids, user_id))
+
+
+def count_images(rows: list[Attachment]) -> int:
     from app.modules.attachments.content_types import IMAGE_CONTENT_TYPES, normalize_content_type
 
-    rows = await attachments_service.get_by_ids(session, attachment_ids, user_id)
     return sum(1 for row in rows if normalize_content_type(row.content_type) in IMAGE_CONTENT_TYPES)
 
 
@@ -64,8 +70,12 @@ async def _process_attachments(
     settings: Settings,
     redis: Redis,
     on_status: StreamStatusFn | None,
+    rows: list[Attachment] | None = None,
 ) -> _AttachmentProcessResult:
-    """Storage outages here are safe to retry: no user message has been saved yet."""
+    """Storage outages here are safe to retry: no user message has been saved yet.
+
+    ``rows``: the requested rows, when the turn already read them (``load_attachment_rows``).
+    """
     try:
         return await _process_attachment_inputs(
             user_id=user_id,
@@ -75,6 +85,7 @@ async def _process_attachments(
             settings=settings,
             redis=redis,
             on_status=on_status,
+            rows=rows,
         )
     except StorageUnavailableError as exc:
         raise ChatBusyError(
@@ -91,6 +102,7 @@ async def _process_attachment_inputs(
     settings: Settings,
     redis: Redis,
     on_status: StreamStatusFn | None,
+    rows: list[Attachment] | None = None,
 ) -> _AttachmentProcessResult:
     """Verify/format attachments and optionally vision-extract a camera math equation."""
     if attachment_ids and not settings.attachments_enabled:
@@ -99,7 +111,7 @@ async def _process_attachment_inputs(
         return _without_attachments(user, content)
 
     user, attachment_rows, resolved_ids = await _load_turn_attachments(
-        user_id=user_id, user=user, attachment_ids=attachment_ids, settings=settings
+        user_id=user_id, user=user, attachment_ids=attachment_ids, settings=settings, rows=rows
     )
     if not attachment_rows:
         return _without_attachments(user, content, resolved_ids=[])
@@ -164,10 +176,13 @@ async def _load_turn_attachments(
     user: User | None,
     attachment_ids: list[UUID],
     settings: Settings,
+    rows: list[Attachment] | None = None,
 ) -> tuple[User, list[Attachment], list[UUID]]:
     """The user and their requested rows in request order, a linked Library row copied.
 
     A missing user, or a requested id that is missing or someone else's, refuses the turn.
+    ``rows`` read already are not read again: the session then runs nothing unless a row
+    needs its copy.
     """
     attachment_ids = list(dict.fromkeys(attachment_ids))
     async with SessionLocal() as session:
@@ -175,12 +190,9 @@ async def _load_turn_attachments(
             user = await users_repo.get_by_id(session, user_id)
             if user is None:
                 raise ChatNotFoundError("User not found.")
-        from app.modules.attachments import service as attachments_service
-
-        rows_by_id = {
-            row.id: row
-            for row in await attachments_service.get_by_ids(session, attachment_ids, user.id)
-        }
+        if rows is None:
+            rows = await load_attachment_rows(session, user.id, attachment_ids)
+        rows_by_id = {row.id: row for row in rows}
         if any(attachment_id not in rows_by_id for attachment_id in attachment_ids):
             raise AttachmentValidationError(
                 "An attached file is no longer available. Attach it again."

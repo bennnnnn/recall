@@ -105,3 +105,49 @@ async def test_post_turn_jobs_key_a_turn_without_an_id_by_its_place() -> None:
     names = dict(await _enqueued(_turn(assistant_message_id=None, prior_count=4)))
     assert names["memory"] == "memory:prior4"
     assert "message_index" not in names
+
+
+def _lines(count: int, words: int = 8) -> list[SimpleNamespace]:
+    """``count`` messages of the chat, the user's line last."""
+    roles = ["assistant", "user"] * count
+    return [SimpleNamespace(role=role, content="word " * words) for role in roles[-count:]]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("prior", [0, 2, 10, 17])
+async def test_a_turn_in_a_chat_its_window_holds_queues_no_compress_job(prior: int) -> None:
+    """The job read the chat (three statements) and its own Redis to fold nothing, every
+    turn of every chat shorter than the window."""
+    ctx = _turn(prior_count=prior, recent_messages=_lines(prior + 1))
+    assert "compress" not in dict(await _enqueued(ctx))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("prior", "window"),
+    [
+        # Three messages out of the newest twenty: the job folds them.
+        (21, _lines(20)),
+        # Long messages push the older ones out of the token budget, not the count.
+        (4, _lines(5, words=1500)),
+    ],
+)
+async def test_a_turn_with_messages_out_of_the_window_queues_the_compress_job(
+    prior: int, window: list[SimpleNamespace]
+) -> None:
+    ctx = _turn(prior_count=prior, recent_messages=window)
+    assert "compress" in dict(await _enqueued(ctx))
+
+
+@pytest.mark.asyncio
+async def test_a_turn_without_its_window_queues_the_compress_job() -> None:
+    """A regenerate's window still holds the reply it replaced; a picture or voice turn
+    has none: the job decides, as before."""
+    from app.modules.chat.turn_prep import RegenerateBackup
+
+    backup = RegenerateBackup(content="Old reply.", model="free-chat", message_id=_ASSISTANT)
+    for ctx in (
+        _turn(prior_count=2, recent_messages=_lines(3), regenerate_backup=backup),
+        _turn(prior_count=2),
+    ):
+        assert "compress" in dict(await _enqueued(ctx))

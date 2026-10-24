@@ -18,7 +18,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.core.ids import uuid7
 from app.exceptions import ChatNotFoundError
-from app.models.orm import Chat, User
+from app.models.orm import Attachment, Chat, User
 from app.modules.billing import plan as plan_service
 from app.modules.chat.model_routing.route import last_user_turn
 from app.modules.chat.model_routing.thinking import thinking_level
@@ -56,6 +56,7 @@ async def prepare_chat_turn(
     redis: Redis,
     reserved_tokens: int,
     attachment_ids: list[UUID] | None = None,
+    attachment_rows: list[Attachment] | None = None,
     client_timezone: str | None = None,
     client_location: str | None = None,
     client_latitude: float | None = None,
@@ -84,6 +85,7 @@ async def prepare_chat_turn(
         settings=settings,
         redis=redis,
         on_status=on_status,
+        rows=attachment_rows,
     )
     if attachments.resolved_attachment_ids is not None:
         attachment_ids = attachments.resolved_attachment_ids
@@ -106,21 +108,7 @@ async def prepare_chat_turn(
         turn_mode=turn_mode,
         unhealthy=unhealthy,
     )
-    history: list[Any] | None = None
-    if (
-        turn.user is not None
-        and chat is not None
-        and turn_mode is not None
-        and prior_count is not None
-        and recent_messages is not None
-    ):
-        # The save would read nothing: settle the model, then build the prompt beside
-        # the save, with the pending row closing the history.
-        turn.model = turn_model(turn, turn.user, settings)
-        pending = SimpleNamespace(id=turn.message_id, role="user", content=turn.stored_content)
-        history = [*recent_messages, pending]
-    else:
-        await _persist_and_report(turn, settings, timing, on_user_saved)
+    history = await _history_or_saved(turn, settings, timing, on_user_saved)
     if turn.user is None or turn.model is None:
         raise ChatNotFoundError("User not found.")
     request = TurnRequest(
@@ -164,6 +152,31 @@ async def prepare_chat_turn(
         timing=timing,
         persist=persist,
     )
+
+
+async def _history_or_saved(
+    turn: UserTurn,
+    settings: Settings,
+    timing: TurnTimingTracker | None,
+    on_user_saved: Callable[[], None] | None,
+) -> list[Any] | None:
+    """The history the prompt is built from beside the user's save, or None after saving.
+
+    When the caller read everything the save would, the model is settled and the
+    pending row closes the history; otherwise the save goes first and reads them.
+    """
+    if (
+        turn.user is not None
+        and turn.chat is not None
+        and turn.turn_mode is not None
+        and turn.prior_count is not None
+        and turn.recent_messages is not None
+    ):
+        turn.model = turn_model(turn, turn.user, settings)
+        pending = SimpleNamespace(id=turn.message_id, role="user", content=turn.stored_content)
+        return [*turn.recent_messages, pending]
+    await _persist_and_report(turn, settings, timing, on_user_saved)
+    return None
 
 
 def _route_to_vision(

@@ -386,7 +386,7 @@ async def test_index_message_uses_short_lived_session():
             _embed,
         ),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.replace_chunks",
+            "app.modules.chat.history_rag.chunks_repo.replace_chunks_of_messages",
             AsyncMock(),
         ) as replace_mock,
     ):
@@ -427,7 +427,7 @@ async def test_a_failed_piece_stores_nothing_and_the_job_retries():
         patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
         patch("app.modules.chat.history_rag.embedding_gateway.embed_many", _embed_many),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.replace_chunks", AsyncMock()
+            "app.modules.chat.history_rag.chunks_repo.replace_chunks_of_messages", AsyncMock()
         ) as replace_mock,
         pytest.raises(HistoryEmbeddingUnavailable),
     ):

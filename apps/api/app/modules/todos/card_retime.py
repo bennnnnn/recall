@@ -39,6 +39,8 @@ _RETIME_WORDS = frozenset(
 _WORD = re.compile(r"[a-z]+(?:'[a-z]+)?")
 _BARE_CLOCK = re.compile(r"(?<![\w:])(?P<h>\d{1,2})(?::(?P<m>[0-5]\d))?(?![\w:])")
 _REPEATS = frozenset(get_args(RecurrenceRule))
+# The chat's last messages read for the reply the user's message answers.
+_RECENT = 4
 
 
 def _clock(text: str, card_hour: int) -> tuple[int, int] | None:
@@ -114,12 +116,26 @@ def retimed_adds(
 
 
 async def retime_untapped_card(
-    session: AsyncSession, chat_id: UUID, user_text: str | None, *, user_timezone: str | None
+    session: AsyncSession,
+    chat_id: UUID,
+    user_text: str | None,
+    *,
+    user_timezone: str | None,
+    window: Sequence[object] | None = None,
 ) -> list[SpokenAdd] | None:
-    """The card in the chat's last reply, re-timed by this message; None when it is not one."""
+    """The card in the chat's last reply, re-timed by this message; None when it is not one.
+
+    ``window`` is the chat's last messages as the turn read them, its user's message last.
+    A card only goes from untapped to saved after that read, so when the reply there holds
+    no untapped add card, the saved chat holds none either and nothing is read again.
+    """
     from app.modules.chat import history as chat_history
 
-    rows = await chat_history.recent_messages(session, chat_id, limit=4)
+    if window is not None and not _untapped_adds(
+        _reply_before_last_message(list(window)[-_RECENT:]) or ""
+    ):
+        return None
+    rows = await chat_history.recent_messages(session, chat_id, limit=_RECENT)
     return retimed_adds(_reply_before_last_message(rows), user_text, user_timezone=user_timezone)
 
 
