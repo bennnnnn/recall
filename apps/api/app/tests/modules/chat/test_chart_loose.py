@@ -154,8 +154,26 @@ _STRAY = (
     ],
 )
 def test_a_stray_brace_in_the_json_is_mended(body: str, mended: str) -> None:
-    assert loose_chart_json(body) == mended
-    assert chart_body_draws(mended)
+    read = loose_chart_json(body)
+    # On one line, so a fence's indent or quote marker carries onto all of it.
+    assert read is not None and "\n" not in read
+    assert json.loads(read) == json.loads(mended)
+    assert chart_body_draws(read)
+
+
+def test_an_escaped_quote_in_a_title_is_text() -> None:
+    body = _STRAY.replace('"mark":"bar"', '"title":"6\\" pipes","mark":"bar"')
+    read = loose_chart_json(body)
+    assert read is not None and json.loads(read)["title"] == '6" pipes'
+
+
+def test_a_mend_that_would_hold_a_key_twice_is_refused() -> None:
+    """A forgotten "layer": [ — mended, its two marks merged and only the last one drew."""
+    body = (
+        '{"data":{"values":[{"m":"a","r":1},{"m":"b","r":2}]},{"mark":"bar","encoding":'
+        '{"x":{"field":"m"},"y":{"field":"r"}}},{"mark":"rule","encoding":{"y":{"field":"r"}}}}'
+    )
+    assert loose_chart_json(body) is None
 
 
 def test_objects_in_a_list_are_not_stray() -> None:

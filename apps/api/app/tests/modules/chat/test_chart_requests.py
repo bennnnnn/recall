@@ -57,6 +57,12 @@ from app.services.subject_solving import detect_subject
         "can you make these numbers a line graph?",
         "make this data a stacked bar chart",
         "redo it as a bar chart",
+        # Words after the chart that only say how to draw it.
+        "make that a bar chart thanks",
+        "make that a bar chart but horizontal",
+        "make these a bar chart sorted by amount",
+        "make that a pie chart that shows shares",
+        "make that a bar chart plz",
         "what about a pie chart?",
         "ok, how about as a line graph instead",
         "same but as a bar chart",
@@ -125,6 +131,7 @@ def test_a_chart_asked_for_in_other_words_is_a_chart(text: str) -> None:
         "write me a pop song and make it a chart-topper",
         "can we make this a graph problem and solve it with BFS?",
         "make it a graph traversal question",
+        "make it a plot twist",
         "make a plot twist for my story",
         "make a graph problem for BFS practice",
     ],
@@ -297,6 +304,38 @@ _OFFER = (
         ("ok", [_RAIN, ("assistant", "Want me to add a plot twist?")], None),
         # A curve's graph is maths', not a chart.
         ("yes", [("user", "graph y = 2x + 3"), ("assistant", "Want me to graph it?")], None),
+        (
+            "yes",
+            [
+                ("user", "what does a linear relationship look like"),
+                ("assistant", "Want me to graph y = 2x + 3?"),
+            ],
+            None,
+        ),
+        # Offers that are no chart of numbers.
+        ("yes", [_RAIN, ("assistant", "Should I chart a course for your trip?")], None),
+        ("yes", [_RAIN, ("assistant", "Want me to plot your route?")], None),
+        ("yes", [_RAIN, ("assistant", "Ok! Should I chart out your week?")], None),
+        ("yes", [_RAIN, ("assistant", "Want me to summarize the plot?")], None),
+        ("yes", [_RAIN, ("assistant", "Want me to make a Gantt chart of the project?")], None),
+        (
+            "yes",
+            [_RAIN, ("assistant", "Want me to put together a chore chart for the kids?")],
+            None,
+        ),
+        ("yes", [_RAIN, ("assistant", "Here it is. Does the chart look right?")], None),
+        ("yes", [_RAIN, ("assistant", "Ready to see Dijkstra on a weighted graph?")], None),
+        # The numbers the offer answered, never older ones: the chart format alone here.
+        (
+            "yes",
+            [
+                ("user", "My budget: rent 1200, food 300, gas 100"),
+                ("assistant", "Looks balanced."),
+                ("user", "which countries produce the most coffee?"),
+                ("assistant", "Brazil leads. Want a chart of the top producers?"),
+            ],
+            "",
+        ),
     ],
 )
 def test_yes_to_an_offered_chart_is_a_chart(

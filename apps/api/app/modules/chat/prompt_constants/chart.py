@@ -106,15 +106,11 @@ _MAKE_A_VISUAL = re.compile(
 _KIND_OPENS = re.compile(rf"^{_POLITE}{_KIND}\s*{_VISUAL}\b", re.IGNORECASE)
 # The chat's numbers recast: "make that a bar chart", "make these numbers a pie chart"
 # (2026-10-24: read as no chart, so the model got no format and wrote YAML the phone could
-# not draw). What may follow is a short word ("please", "of …"), never a noun the chart word
-# describes: "make it a plot twist", "make it a graph problem", "make it a chart-topper".
-_AFTER_A_RECAST = (
-    r"please|pls|instead|too|now|then|again|for|of|with|and|or|showing|by|over|per|so|to|"
-    r"from|in|on|using|like"
-)
+# not draw). "Make it a plot twist", "make it a graph problem" and "make it a chart-topper"
+# name something else.
 _MAKE_IT_A_VISUAL = re.compile(
     r"\b(?:make|remake|redo)\s+(?:it|this|that|these|those|them)(?:\s+(?!an?\b)\w+){0,2}"
-    rf"\s+an?\s+(?:{_KIND}\s+){{0,2}}{_VISUAL}\b(?!-)(?!\s+(?!(?:{_AFTER_A_RECAST})\b)[^\W\d_])",
+    rf"\s+an?\s+(?:{_KIND}\s+){{0,2}}{_VISUAL}\b{_VISUAL_AS_MODIFIER}",
     re.IGNORECASE,
 )
 # Another kind for the same numbers: "what about a pie chart?", "same but as a line graph".
@@ -383,18 +379,35 @@ def _holds_data(text: str) -> bool:
     return count >= 3 or (bool(re.search(r"[:,]", text)) and "?" not in text)
 
 
-# The last reply's closing question offers to draw: "Want a chart of the yearly pattern?",
-# "Want me to sketch a quick bar chart of the monthly totals?".
-_CHART_WORD = re.compile(
-    rf"\b(?:{_VISUAL}|visuali[sz]e|graph|chart|plot)\b{_VISUAL_AS_MODIFIER}", re.I
+# The last reply's closing question offers to draw the numbers: "Want a chart of the yearly
+# pattern?", "Want me to sketch a quick bar chart of the monthly totals?", "Shall I graph
+# them?". Not "Should I chart a course?", "Want me to plot your route?", "Want me to
+# summarize the plot?", "Want an org chart?", "Does the chart look right?".
+_OFFER_LEAD = re.compile(
+    r"^(?:so|ok(?:ay)?|sure|great|also)?[,!.]?\s*(?:want|would\s+you\s+like|do\s+you\s+want|"
+    r"should\s+i|shall\s+i|can\s+i|could\s+i|i\s+can|happy\s+to|how\s+about)\b",
+    re.IGNORECASE,
+)
+_OFFERED_CHART = re.compile(
+    rf"\b(?:a|an|the|this|that|quick|simple|small|visual|{_KIND})\s+(?:{_KIND}\s+)?"
+    rf"(?:chart|graph)s?\b{_VISUAL_AS_MODIFIER}"
+    r"|\b(?:graph|chart|plot|visuali[sz]e)\s+(?:it|this|that|these|those|them|the\s+(?:data|"
+    r"numbers|values|results|totals))\b",
+    re.IGNORECASE,
 )
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+|\n")
 
 
 def _offered_a_chart(prior_messages: Sequence[tuple[str, str]] | None) -> bool:
     last = next((text for role, text in reversed(prior_messages or ()) if role == "assistant"), "")
-    question = _SENTENCE_END.split(last.strip()[-400:])[-1]
-    return question.endswith("?") and _CHART_WORD.search(question) is not None
+    question = _SENTENCE_END.split(last.strip()[-400:])[-1].strip()
+    return (
+        question.endswith("?")
+        and _OFFER_LEAD.match(question) is not None
+        and _OFFERED_CHART.search(question) is not None
+        and not names_diagram_kind(question)
+        and not (_FORMULA.search(question) or _CURVE_WORDS.search(question))
+    )
 
 
 def chart_followup_data(query: str, prior_messages: Sequence[tuple[str, str]] | None) -> str | None:
@@ -431,7 +444,8 @@ def chart_followup_data(query: str, prior_messages: Sequence[tuple[str, str]] | 
         and (typed := text_before_attachment_markers(text).strip())
         and typed != cleaned
     ]
-    for text in reversed(earlier[-_FOLLOWUP_LOOKBACK:]):
+    # "Yes" answers the last reply, so only the message that reply answered holds its numbers.
+    for text in reversed(earlier[-1:] if accepts else earlier[-_FOLLOWUP_LOOKBACK:]):
         if _holds_data(text):
             return " ".join(text.split())[:600]
     # "Want me to graph it?" after "y = 2x + 3" offers maths' graph of a curve, not a chart.

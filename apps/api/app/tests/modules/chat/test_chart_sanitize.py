@@ -92,6 +92,19 @@ def test_a_rewritten_chart_in_a_list_item_keeps_its_indent() -> None:
     assert kept[4:] == ["   ```", "", "2. Jul is wettest."]
 
 
+def test_a_mended_chart_in_a_list_item_keeps_one_indent() -> None:
+    """The mended body came back with its own indent, and the fence's was added again."""
+    body = (
+        '{"mark":"bar","data":{"values":[{"a":"x","b":1}]},'
+        '"encoding":{"x":{"field":"a"},{"y":{"field":"b"}}}}'
+    )
+    reply = f"1. The chart:\n\n   ```chart\n   {body}\n   ```\n\n2. Done."
+    kept = sanitize_chart_fences(reply).splitlines()
+    assert kept[2] == "   ```chart" and kept[4:] == ["   ```", "", "2. Done."]
+    assert kept[3].startswith("   {") and not kept[3].startswith("    ")
+    assert chart_is_drawable(kept[3])
+
+
 def test_a_chart_that_breaks_the_readers_goes_without_an_error() -> None:
     """A bad YAML tag raised a ValueError, and brackets nested deep a RecursionError."""
     reply = "Here:\n\n```chart\ntype: bar\ndata:\n  Jan: !!float abc\n  Feb: 2\n```\n\nDone."

@@ -172,8 +172,12 @@ def _without_stray_braces(body: str) -> str | None:
     for char in body:
         if in_string:
             out.append(char)
-            escaped = not escaped and char == "\\"
-            in_string = escaped or char != '"'
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
             continue
         if char == "{" and stack and stack[-1] in "{~" and last in "{,":
             stack.append("~")
@@ -189,12 +193,28 @@ def _without_stray_braces(body: str) -> str | None:
     return "".join(out) if stray else None
 
 
+def _no_repeated_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    keys = [key for key, _value in pairs]
+    if len(set(keys)) < len(keys):
+        raise ValueError("a key twice")
+    return dict(pairs)
+
+
+def _one_line(text: str) -> str | None:
+    """Mended JSON on one line, or None when it does not parse or an object holds a key
+    twice: a forgotten "layer": [ merged two marks, and the last one drew alone."""
+    try:
+        return json.dumps(json.loads(text, object_pairs_hook=_no_repeated_keys), ensure_ascii=False)
+    except ValueError:
+        return None
+
+
 def _read(body: str) -> str | None:
     if _too_deep(body):
         return None
     unnested = _without_stray_braces(body)
-    if unnested is not None and chart_body_draws(unnested):
-        return unnested
+    if unnested is not None and (mended := _one_line(unnested)) and chart_body_draws(mended):
+        return mended
     text, kind = _yaml_text(body)
     loaded = yaml.load(text, Loader=_Loader)  # noqa: S506 - a SafeLoader subclass
     if isinstance(loaded, list):
