@@ -85,7 +85,7 @@ _NEXT_FOLDS = ("memory", "compress", "message_index")
 CEILINGS: dict[str, Ceiling] = {
     "greeting": Ceiling(
         Counts(sql=5, checkouts=3, transactions=3, redis=21, models=1),
-        Counts(sql=12, checkouts=4, transactions=4, redis=24, embeds=1),
+        Counts(sql=10, checkouts=4, transactions=4, redis=24, embeds=1),
         _FIRST,
     ),
     "question": Ceiling(

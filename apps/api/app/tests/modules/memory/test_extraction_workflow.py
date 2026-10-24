@@ -528,3 +528,37 @@ async def test_extract_and_store_releases_db_before_provider_io_without_write_co
 
     assert db_open_during_extract == [False]
     session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("line", "reads_facts"),
+    [("thanks!", False), ("ok", False), ("I just moved to Lisbon for work", True)],
+)
+async def test_a_pass_reads_the_saved_facts_only_for_lines_the_model_sees(
+    line: str, reads_facts: bool
+) -> None:
+    """A "thanks" read the user's every fact and area (two statements, up to 150 rows)
+    before the pass found nothing to learn and moved on."""
+    from app.modules.memory.extraction_workflow import extract_and_store_memories
+
+    facts = AsyncMock(return_value=[])
+    areas = AsyncMock(return_value=[])
+    revise = AsyncMock(return_value=None)
+    _, session_locals = _memory_extraction_sessions()
+    with (
+        patch("app.modules.memory.extraction_workflow.SessionLocal", side_effect=session_locals),
+        patch(
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True, memory_edited_at=None)),
+        ),
+        patch("app.modules.memory.extraction_workflow.memories_repo.list_for_user", facts),
+        patch("app.modules.memory.extraction_workflow.memories_repo.list_areas", areas),
+        patch("app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts", revise),
+    ):
+        await extract_and_store_memories(
+            Settings(), user_id=uuid4(), chat_id=uuid4(), transcript=f"User: {line}"
+        )
+    assert (facts.await_count, areas.await_count, revise.await_count) == (
+        (1, 1, 1) if reads_facts else (0, 0, 0)
+    )

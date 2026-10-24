@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.models.orm import User
 from app.modules.memory import llm as memory_llm
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
@@ -57,10 +58,20 @@ async def load_memory_snapshot(
             prompt_facts=[],
             prompt_areas=[],
         )
-    existing = await memories_repo.list_for_user(
-        session, user_id, include_muted=False, include_superseded=False
+    return await _snapshot(session, user)
+
+
+async def _snapshot(session: AsyncSession, user: User, *, facts: bool = True) -> MemorySnapshot:
+    """What the pass reads of the user's memory; ``facts`` False leaves the saved facts
+    and areas unread (lines no pass sends to the model need neither)."""
+    existing = (
+        await memories_repo.list_for_user(
+            session, user.id, include_muted=False, include_superseded=False
+        )
+        if facts
+        else []
     )
-    areas = await memories_repo.list_areas(session, user_id)
+    areas = await memories_repo.list_areas(session, user.id) if facts else []
     return MemorySnapshot(
         memory_enabled=True,
         include_sensitive=user.memory_include_sensitive,
@@ -176,7 +187,7 @@ async def _locked_pass(
         await _stamp(user_id, chat_id, read.cursor)
         return None
     asks = Asks.of(read.lines)
-    if not asks.remember and not asks.forget and not is_memory_candidate(read.lines):
+    if _small_talk(read.lines, asks):
         # Small talk only: nothing to learn, but the lines are read. Moving
         # the cursor keeps a run of "ok"s from hiding every later line.
         await _stamp(user_id, chat_id, read.cursor)
@@ -216,20 +227,31 @@ async def _locked_pass(
     return outcome
 
 
+def _small_talk(lines: str, asks: Asks) -> bool:
+    """Lines with nothing to learn: the pass moves past them without the model."""
+    return not asks.remember and not asks.forget and not is_memory_candidate(lines)
+
+
 async def _read_pass_input(
     user_id: UUID, chat_id: UUID, transcript: str, *, from_history: bool
 ) -> _PassInput | None:
-    """The snapshot and the lines to read; None when memory is off."""
+    """The snapshot and the lines to read; None when memory is off.
+
+    The saved facts are read only for lines the model will see: a "thanks" or an "ok"
+    read the user's every fact (up to 150) and area for nothing.
+    """
     async with SessionLocal() as session:
-        snapshot = await load_memory_snapshot(session, user_id)
-        if not snapshot.memory_enabled:
+        user = await users_repo.get_by_id(session, user_id)
+        if user is None or not memory_switch_on(user):
             return None
         cursor: str | None = None
         earlier = ""
         if from_history:
             # Read under the write lock, so a hand edit cannot land
             # between this cut-off and the writes below.
-            lines = await history_chat_transcript(session, chat_id, newer_than=snapshot.edited_at)
+            lines = await history_chat_transcript(
+                session, chat_id, newer_than=user.memory_edited_at
+            )
         else:
             lines, cursor = await expand_memory_extract_transcript(
                 session,
@@ -239,9 +261,10 @@ async def _read_pass_input(
             )
             if is_explicit_forget_command(lines):
                 earlier = await exchange_before_unread(session, user_id=user_id, chat_id=chat_id)
-    return _PassInput(
-        snapshot=snapshot, lines=without_reset_requests(lines), cursor=cursor, earlier=earlier
-    )
+        lines = without_reset_requests(lines)
+        facts = bool(lines.strip()) and not _small_talk(lines, Asks.of(lines))
+        snapshot = await _snapshot(session, user, facts=facts)
+    return _PassInput(snapshot=snapshot, lines=lines, cursor=cursor, earlier=earlier)
 
 
 async def _ask_model(
