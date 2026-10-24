@@ -50,6 +50,23 @@ from app.services.subject_solving import detect_subject
         "make a pie chart of my code reviews per week",
         "make a bar chart of my excel expenses: rent 1200, food 300",
         "help me visualize my spending: rent 1200, food 300",
+        # The chat's numbers recast, or drawn as another kind (2026-10-24: "make that a bar
+        # chart" got no chart format, and the model wrote YAML the phone could not draw).
+        "make that a bar chart",
+        "make it a pie chart",
+        "can you make these numbers a line graph?",
+        "make this data a stacked bar chart",
+        "redo it as a bar chart",
+        # Words after the chart that only say how to draw it.
+        "make that a bar chart thanks",
+        "make that a bar chart but horizontal",
+        "make these a bar chart sorted by amount",
+        "make that a pie chart that shows shares",
+        "make that a bar chart plz",
+        "what about a pie chart?",
+        "ok, how about as a line graph instead",
+        "same but as a bar chart",
+        "as a donut chart please",
     ],
 )
 def test_a_chart_asked_for_in_other_words_is_a_chart(text: str) -> None:
@@ -100,6 +117,23 @@ def test_a_chart_asked_for_in_other_words_is_a_chart(text: str) -> None:
         "How do I visualize my goals better?",
         "I can't visualize 4D space, any tips?",
         "Help me visualize the Pythagorean theorem",
+        # "Make it a …" and "what about …" that ask for no chart.
+        "make it a habit to check the chart every morning",
+        "make that a priority",
+        "make it a point to chart your progress",
+        "In a pie chart, what does each slice mean?",
+        "what about the chart I sent?",
+        "is this better as a bar chart or a line chart?",
+        # The chart word naming something else: a story's twist, a graph in computing, a hit.
+        "make it a plot twist that the butler did it",
+        "Rewrite the ending and make it a plot twist",
+        "make that a plot point in chapter 3",
+        "write me a pop song and make it a chart-topper",
+        "can we make this a graph problem and solve it with BFS?",
+        "make it a graph traversal question",
+        "make it a plot twist",
+        "make a plot twist for my story",
+        "make a graph problem for BFS practice",
     ],
 )
 def test_what_is_not_a_chart_of_data_is_not_one(text: str) -> None:
@@ -189,6 +223,9 @@ _MARKS = ("user", "Here are my exam marks: math 85, physics 78, chemistry 92, bi
             "My expenses: rent 1500, groceries 400",
         ),
         ("show that as a bar chart", [_MARKS, ("assistant", "ok"), ("user", "thanks")], _MARKS[1]),
+        # Live: the data message got a greeting back, then "make that a bar chart".
+        ("make that a bar chart", [_MARKS, ("assistant", "Hey! How's it going?")], _MARKS[1]),
+        ("what about a pie chart?", [_MARKS, ("assistant", "```chart\n{}\n```")], _MARKS[1]),
         # Its own numbers, a new subject, a function before, one number: nothing quoted.
         ("plot my test scores 72, 85", [_MARKS], None),
         ("graph the population of Ethiopia", [_MARKS], None),
@@ -237,3 +274,86 @@ def test_the_chart_hint_carries_the_earlier_numbers() -> None:
     joined = "\n".join(hints)
     assert CHART_FORMAT_HINT in joined
     assert f"The numbers to chart are in the user's earlier message: «{_MARKS[1]}»" in joined
+
+
+_RAIN = (
+    "user",
+    "Monthly rainfall in Addis Ababa: Jan 15, Feb 30, Mar 60, Apr 85, May 80, Jun 135, "
+    "Jul 280, Aug 290, Sep 190, Oct 30, Nov 6, Dec 5 mm",
+)
+_OFFER = (
+    "assistant",
+    "Addis Ababa gets 290 mm in August and 5 mm in December.\n\n"
+    "Want me to sketch a quick chart of the yearly pattern?",
+)
+
+
+@pytest.mark.parametrize(
+    ("query", "prior", "data"),
+    [
+        # "Yes" to a chart the last reply offered draws the user's numbers.
+        ("yes", [_RAIN, _OFFER], _RAIN[1]),
+        ("sure", [_RAIN, _OFFER], _RAIN[1]),
+        ("yes please", [_RAIN, _OFFER], _RAIN[1]),
+        # Offered with no numbers of the user's: the chart format alone.
+        ("yes", [("user", "hi"), ("assistant", "I can chart that. Want a bar chart?")], ""),
+        # Not a yes, not a chart offer, or the offer was not the last question.
+        ("no", [_RAIN, _OFFER], None),
+        ("yes", [_RAIN, ("assistant", "Want me to remind you tomorrow?")], None),
+        ("yes", [_RAIN, ("assistant", "Want a chart? Or should I explain the seasons?")], None),
+        ("ok", [_RAIN, ("assistant", "Want me to add a plot twist?")], None),
+        # A curve's graph is maths', not a chart.
+        ("yes", [("user", "graph y = 2x + 3"), ("assistant", "Want me to graph it?")], None),
+        (
+            "yes",
+            [
+                ("user", "what does a linear relationship look like"),
+                ("assistant", "Want me to graph y = 2x + 3?"),
+            ],
+            None,
+        ),
+        # Offers that are no chart of numbers.
+        ("yes", [_RAIN, ("assistant", "Should I chart a course for your trip?")], None),
+        ("yes", [_RAIN, ("assistant", "Want me to plot your route?")], None),
+        ("yes", [_RAIN, ("assistant", "Ok! Should I chart out your week?")], None),
+        ("yes", [_RAIN, ("assistant", "Want me to summarize the plot?")], None),
+        ("yes", [_RAIN, ("assistant", "Want me to make a Gantt chart of the project?")], None),
+        (
+            "yes",
+            [_RAIN, ("assistant", "Want me to put together a chore chart for the kids?")],
+            None,
+        ),
+        ("yes", [_RAIN, ("assistant", "Here it is. Does the chart look right?")], None),
+        ("yes", [_RAIN, ("assistant", "Ready to see Dijkstra on a weighted graph?")], None),
+        # The numbers the offer answered, never older ones: the chart format alone here.
+        (
+            "yes",
+            [
+                ("user", "My budget: rent 1200, food 300, gas 100"),
+                ("assistant", "Looks balanced."),
+                ("user", "which countries produce the most coffee?"),
+                ("assistant", "Brazil leads. Want a chart of the top producers?"),
+            ],
+            "",
+        ),
+    ],
+)
+def test_yes_to_an_offered_chart_is_a_chart(
+    query: str, prior: list[tuple[str, str]], data: str | None
+) -> None:
+    """The reply to a list of numbers offers a chart; "yes" got no chart format, and the
+    model wrote one the phone could not draw."""
+    assert chart_followup_data(query, prior) == data
+
+
+def test_yes_to_an_offered_chart_gets_the_chart_hint_and_the_numbers() -> None:
+    hints = "\n".join(
+        _style_format_hints(
+            query_text="yes",
+            is_day_plan=False,
+            minimal_personal_context=False,
+            prior_messages=[_RAIN, _OFFER],
+        )
+    )
+    assert CHART_FORMAT_HINT in hints
+    assert f"The numbers to chart are in the user's earlier message: «{_RAIN[1]}»" in hints

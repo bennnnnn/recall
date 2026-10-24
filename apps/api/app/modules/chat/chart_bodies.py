@@ -59,7 +59,7 @@ def _loads(text: str) -> Any:
     """JSON as the phone's ``JSON.parse`` reads it: ``NaN`` and ``Infinity`` are not JSON."""
     try:
         return json.loads(text, parse_constant=_no_constant)
-    except ValueError:
+    except (ValueError, RecursionError):  # brackets nested past Python's stack
         return None
 
 

@@ -14,6 +14,7 @@ import re
 from collections.abc import Sequence
 from pathlib import Path
 
+from app.modules.chat.prompt_constants.routing import is_short_confirmation
 from app.services.diagram_kinds import names_diagram_kind, names_idea_curve
 from app.services.prompt_safety import text_before_attachment_markers
 
@@ -84,19 +85,42 @@ _IN_A_VISUAL = re.compile(
 )
 # "Graph it", "visualize this", "plot my test scores", "chart the top 5 languages": the
 # message opens with the verb. "Plot of the movie", "graph theory" are nouns.
+# The chart word naming something else: "a plot twist", "a graph problem", "a chart-topper".
+_VISUAL_AS_MODIFIER = (
+    r"(?![\s-]+(?:twist|summary|line|holes?|armou?r|theory|paper|database|neural|"
+    r"topp(?:ing|ers?)|positions?|tops|points?|problems?|traversals?|questions?|algorithms?|"
+    r"puzzles?)\b)"
+)
 _OPENS_WITH_VERB = re.compile(
-    rf"^{_POLITE}(?:graph|chart|plot|visuali[sz]e)\b(?![\s-]+(?:of|twist|summary|line|holes?|"
-    r"armou?r|theory|paper|database|neural|topp(?:ing|ers?)|positions?|tops)\b)",
+    rf"^{_POLITE}(?:graph|chart|plot|visuali[sz]e)\b(?![\s-]+of\b){_VISUAL_AS_MODIFIER}",
     re.IGNORECASE,
 )
 # "Make a graph of the exchange rate", "show me a graph of how compound interest grows".
 _MAKE_A_VISUAL = re.compile(
     r"\b(?:make|draw|create|show|give|build|render|generate|sketch|display|add)\b"
-    rf"(?:\s+(?:me|us))?\s+(?:a\s+|an\s+|the\s+|some\s+)?(?:{_KIND}\s+)?{_VISUAL}\b",
+    rf"(?:\s+(?:me|us))?\s+(?:a\s+|an\s+|the\s+|some\s+)?(?:{_KIND}\s+)?{_VISUAL}\b"
+    + _VISUAL_AS_MODIFIER,
     re.IGNORECASE,
 )
 # "bar graph: apples 30".
 _KIND_OPENS = re.compile(rf"^{_POLITE}{_KIND}\s*{_VISUAL}\b", re.IGNORECASE)
+# The chat's numbers recast: "make that a bar chart", "make these numbers a pie chart"
+# (2026-10-24: read as no chart, so the model got no format and wrote YAML the phone could
+# not draw). "Make it a plot twist", "make it a graph problem" and "make it a chart-topper"
+# name something else.
+_MAKE_IT_A_VISUAL = re.compile(
+    r"\b(?:make|remake|redo)\s+(?:it|this|that|these|those|them)(?:\s+(?!an?\b)\w+){0,2}"
+    rf"\s+an?\s+(?:{_KIND}\s+){{0,2}}{_VISUAL}\b{_VISUAL_AS_MODIFIER}",
+    re.IGNORECASE,
+)
+# Another kind for the same numbers: "what about a pie chart?", "same but as a line graph".
+# "In a pie chart, what does each slice mean?" asks about one.
+_ANOTHER_KIND = re.compile(
+    rf"^{_POLITE}(?:(?:what|how)\s+about\s+(?:(?:as|in)\s+)?|(?:the\s+)?same(?:\s+thing)?"
+    r"\s+(?:but\s+)?(?:as|in)\s+|but\s+(?:as|in)\s+|as\s+)an?\s+"
+    rf"{_KIND}\s+{_VISUAL}(?:\s+(?:instead|please|pls|too|then|now))*\W*$",
+    re.IGNORECASE,
+)
 # "Help me visualize my spending: rent 1200, food 300": with the numbers to draw.
 # "How do I visualize my goals?" is no chart.
 _VISUALIZE = re.compile(r"\bvisuali[sz]e\b", re.IGNORECASE)
@@ -145,6 +169,8 @@ def _asks_for_a_visual_in_other_words(cleaned: str) -> bool:
         _IN_A_VISUAL.search(cleaned)
         or _OPENS_WITH_VERB.search(cleaned)
         or _MAKE_A_VISUAL.search(cleaned)
+        or _MAKE_IT_A_VISUAL.search(cleaned)
+        or _ANOTHER_KIND.search(cleaned)
         or _KIND_OPENS.search(cleaned)
         or (_VISUALIZE.search(cleaned) and _TWO_NUMBERS.search(cleaned))
     )
@@ -353,6 +379,37 @@ def _holds_data(text: str) -> bool:
     return count >= 3 or (bool(re.search(r"[:,]", text)) and "?" not in text)
 
 
+# The last reply's closing question offers to draw the numbers: "Want a chart of the yearly
+# pattern?", "Want me to sketch a quick bar chart of the monthly totals?", "Shall I graph
+# them?". Not "Should I chart a course?", "Want me to plot your route?", "Want me to
+# summarize the plot?", "Want an org chart?", "Does the chart look right?".
+_OFFER_LEAD = re.compile(
+    r"^(?:so|ok(?:ay)?|sure|great|also)?[,!.]?\s*(?:want|would\s+you\s+like|do\s+you\s+want|"
+    r"should\s+i|shall\s+i|can\s+i|could\s+i|i\s+can|happy\s+to|how\s+about)\b",
+    re.IGNORECASE,
+)
+_OFFERED_CHART = re.compile(
+    rf"\b(?:a|an|the|this|that|quick|simple|small|visual|{_KIND})\s+(?:{_KIND}\s+)?"
+    rf"(?:chart|graph)s?\b{_VISUAL_AS_MODIFIER}"
+    r"|\b(?:graph|chart|plot|visuali[sz]e)\s+(?:it|this|that|these|those|them|the\s+(?:data|"
+    r"numbers|values|results|totals))\b",
+    re.IGNORECASE,
+)
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+|\n")
+
+
+def _offered_a_chart(prior_messages: Sequence[tuple[str, str]] | None) -> bool:
+    last = next((text for role, text in reversed(prior_messages or ()) if role == "assistant"), "")
+    question = _SENTENCE_END.split(last.strip()[-400:])[-1].strip()
+    return (
+        question.endswith("?")
+        and _OFFER_LEAD.match(question) is not None
+        and _OFFERED_CHART.search(question) is not None
+        and not names_diagram_kind(question)
+        and not (_FORMULA.search(question) or _CURVE_WORDS.search(question))
+    )
+
+
 def chart_followup_data(query: str, prior_messages: Sequence[tuple[str, str]] | None) -> str | None:
     """The user's earlier message whose numbers a chart follow-up draws, or None.
 
@@ -362,13 +419,23 @@ def chart_followup_data(query: str, prior_messages: Sequence[tuple[str, str]] | 
     "that", the verb alone) gets that message quoted: only what the user typed, never a
     file's text after it, which reaches the model wrapped as untrusted. A chart of facts a
     search finds ("plot bitcoin prices") is a new subject, not the earlier numbers.
+
+    "Yes" to the last reply's offer of a chart is a chart turn too; with no numbers of the
+    user's to quote (the reply offered to chart its own), it is "": the chart format alone.
     """
     cleaned = query.strip()
-    if not cleaned or _NUMBER.search(cleaned) or not is_chart_question(cleaned):
+    accepts = is_short_confirmation(cleaned) and _offered_a_chart(prior_messages)
+    if not cleaned or _NUMBER.search(cleaned) or not (accepts or is_chart_question(cleaned)):
         return None
     if chart_of_public_facts(cleaned):
         return None
-    if not (_BACK_REFERENCE.search(cleaned) or _BARE_VERB.match(cleaned)):
+    # "What about a pie chart?" names no subject: it is the earlier numbers as another kind.
+    if not (
+        accepts
+        or _BACK_REFERENCE.search(cleaned)
+        or _BARE_VERB.match(cleaned)
+        or _ANOTHER_KIND.match(cleaned)
+    ):
         return None
     earlier = [
         typed
@@ -377,17 +444,24 @@ def chart_followup_data(query: str, prior_messages: Sequence[tuple[str, str]] | 
         and (typed := text_before_attachment_markers(text).strip())
         and typed != cleaned
     ]
-    for text in reversed(earlier[-_FOLLOWUP_LOOKBACK:]):
+    # "Yes" answers the last reply, so only the message that reply answered holds its numbers.
+    for text in reversed(earlier[-1:] if accepts else earlier[-_FOLLOWUP_LOOKBACK:]):
         if _holds_data(text):
             return " ".join(text.split())[:600]
-    return None
+    # "Want me to graph it?" after "y = 2x + 3" offers maths' graph of a curve, not a chart.
+    curve = any(_FORMULA.search(text) or _CURVE_WORDS.search(text) for text in earlier[-1:])
+    return "" if accepts and not curve else None
 
 
 def with_chart_followup(layout: str | None, data: str | None) -> str | None:
-    """The chart hint, with the earlier message whose numbers "graph it" draws."""
-    if layout != CHART_FORMAT_HINT or data is None:
+    """The chart hint, with the earlier message whose numbers "graph it" draws. "Yes" to a
+    chart the last reply offered has no layout of its own, so it gets the chart hint."""
+    if data is None or layout not in (None, CHART_FORMAT_HINT):
         return layout
+    if not data:
+        return CHART_FORMAT_HINT
     return (
-        f"{layout}\nThe numbers to chart are in the user's earlier message: «{data}». Use them "
+        f"{CHART_FORMAT_HINT}\n"
+        f"The numbers to chart are in the user's earlier message: «{data}». Use them "
         "as data.values; do not ask for the values or which function to graph."
     )
