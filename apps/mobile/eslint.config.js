@@ -160,6 +160,8 @@ module.exports = defineConfig([
       "components/rich/InteractiveFunctionPlot.tsx",
       "features/chat/components/MathDraftPreview.tsx",
       "lib/graphic.ts",
+      // Vega specs for the chart WebView: a pie slice's label is Vega text, not React Native.
+      "lib/chartPresentation.ts",
       "lib/type.ts",
     ],
     rules: {

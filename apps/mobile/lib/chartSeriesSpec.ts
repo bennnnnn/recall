@@ -59,6 +59,8 @@ export function parseChartBody(raw: string): unknown {
 const SERIES_MARKS: Record<string, string> = {
   line: "line",
   bar: "bar",
+  column: "bar",
+  horizontalbar: "bar",
   area: "area",
   scatter: "point",
   point: "point",
@@ -98,7 +100,8 @@ export function seriesValuesToVegaLite({
   marks: Map<string, string>;
   title?: string;
   xTitle?: string;
-  yTitle?: string;
+  /** Null leaves the value axis untitled; undefined calls it "y". */
+  yTitle?: string | null;
 }): JsonRecord {
   const numericX = values.every((row) => typeof row.x === "number");
   const kinds = [...new Set(marks.values())];
@@ -107,7 +110,7 @@ export function seriesValuesToVegaLite({
     x: numericX
       ? { field: "x", type: "quantitative", title: xTitle ?? "x" }
       : { field: "x", type: "ordinal", sort: null, title: xTitle ?? null },
-    y: { field: "y", type: "quantitative", title: yTitle ?? "y" },
+    y: { field: "y", type: "quantitative", title: yTitle === undefined ? "y" : yTitle },
     ...(marks.size > 1 ? { color: { field: "series", type: "nominal", sort: null, title: null } } : {}),
     // Bars of two series side by side, not stacked into one.
     ...(grouped ? { xOffset: { field: "series", sort: null } } : {}),
@@ -137,13 +140,39 @@ export function seriesValuesToVegaLite({
   };
 }
 
-function axisTitle(spec: JsonRecord, axis: "x" | "y"): string | undefined {
-  const block = spec[`${axis}_axis`] ?? spec[`${axis}Axis`];
+/** A title as a string or as `{"text": …}`, the way Chart.js and Highcharts write one. */
+export function titleText(value: unknown): string | undefined {
+  return text(value) ?? (isRecord(value) ? text(value.text) : undefined);
+}
+
+/** An axis block: `xAxis`, `x_axis` or `xaxis`. */
+export function axisBlock(spec: JsonRecord, axis: "x" | "y"): JsonRecord | undefined {
+  const block = spec[`${axis}Axis`] ?? spec[`${axis}_axis`] ?? spec[`${axis}axis`];
+  return isRecord(block) ? block : undefined;
+}
+
+/** An axis title from `xLabel`, `x_label` or the axis block's `label` / `title`. */
+export function axisTitle(spec: JsonRecord, axis: "x" | "y"): string | undefined {
+  const block = axisBlock(spec, axis);
   return (
     text(spec[`${axis}Label`]) ??
     text(spec[`${axis}_label`]) ??
-    (isRecord(block) ? (text(block.label) ?? text(block.title)) : undefined)
+    (block ? (text(block.label) ?? titleText(block.title)) : undefined)
   );
+}
+
+/** Slices of `{x: label, y: value}` as a Vega-Lite pie (or a donut), in the order given. */
+export function pieValuesToVegaLite(values: SeriesValue[], title?: string, donut = false): JsonRecord {
+  return {
+    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+    ...(title ? { title } : {}),
+    data: { values },
+    mark: donut ? { type: "arc", innerRadius: 50 } : { type: "arc" },
+    encoding: {
+      theta: { field: "y", type: "quantitative" },
+      color: { field: "x", type: "nominal", sort: null, title: null },
+    },
+  };
 }
 
 // A box plot by any of the names models give it.
@@ -156,15 +185,16 @@ const BOX_TYPES = new Set(["box", "boxplot", "box plot", "box-plot", "box and wh
 function boxSeriesToVegaLite(spec: JsonRecord, series: unknown[]): JsonRecord | null {
   const values: { group: string; value: number }[] = [];
   for (const [index, entry] of series.entries()) {
-    if (!isRecord(entry) || !Array.isArray(entry.values)) return null;
-    const group = text(entry.name) ?? `Series ${index + 1}`;
-    for (const value of entry.values) {
+    const raw = isRecord(entry) ? (entry.values ?? entry.data) : undefined;
+    if (!isRecord(entry) || !Array.isArray(raw)) return null;
+    const group = text(entry.name) ?? text(entry.label) ?? `Series ${index + 1}`;
+    for (const value of raw) {
       if (typeof value !== "number" || !Number.isFinite(value)) return null;
       values.push({ group, value });
     }
   }
   if (values.length === 0) return null;
-  const title = text(spec.title);
+  const title = titleText(spec.title);
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     ...(title ? { title } : {}),
@@ -206,7 +236,7 @@ export function seriesChartToVegaLite(spec: JsonRecord): JsonRecord | null {
   return seriesValuesToVegaLite({
     values,
     marks,
-    title: text(spec.title),
+    title: titleText(spec.title),
     xTitle: axisTitle(spec, "x"),
     yTitle: axisTitle(spec, "y"),
   });

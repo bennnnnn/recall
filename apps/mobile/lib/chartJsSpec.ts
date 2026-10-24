@@ -5,6 +5,7 @@
  */
 import {
   isRecord,
+  pieValuesToVegaLite,
   readPoint,
   seriesMark,
   seriesValuesToVegaLite,
@@ -23,19 +24,6 @@ function optionText(options: unknown, path: string[]): string | undefined {
     node = node[key];
   }
   return text(node);
-}
-
-function pieSpec(values: SeriesValue[], title: string | undefined): JsonRecord {
-  return {
-    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
-    ...(title ? { title } : {}),
-    data: { values },
-    mark: { type: "arc" },
-    encoding: {
-      theta: { field: "y", type: "quantitative" },
-      color: { field: "x", type: "nominal", sort: null, title: null },
-    },
-  };
 }
 
 /** The Chart.js config as Vega-Lite, or null when `spec` is not one. */
@@ -66,7 +54,8 @@ export function chartJsToVegaLite(spec: JsonRecord): JsonRecord | null {
   if (PIE_TYPES.has(chartType)) {
     // One pie: the first dataset's slices.
     const first = [...marks.keys()][0];
-    return pieSpec(values.filter((row) => row.series === first), title);
+    const slices = values.filter((row) => row.series === first);
+    return pieValuesToVegaLite(slices, title, chartType === "doughnut");
   }
   return seriesValuesToVegaLite({
     values,

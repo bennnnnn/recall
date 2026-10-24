@@ -2,13 +2,15 @@
  * What a ```chart fence can draw, decided before a WebView mounts.
  *
  * The contract (the server's CHART_FORMAT_HINT names the same shapes): Vega-Lite (or
- * Vega) whose data is written inline as `data.values`. The phone also reads two
- * dialects models write anyway, a `series` chart and a Chart.js config. A body with
+ * Vega) whose data is written inline as `data.values`. The phone also reads the
+ * dialects models write anyway: a `series` chart of points, a Chart.js config, and
+ * category labels with series of values in any of their spellings. A body with
  * no inline data (a formula, `data.sequence`, a URL, nothing) or no JSON at all is not
  * drawn: the card says so and shows whatever data it has as a table, never a blank plot.
  * The phone never evaluates a formula; the server turns a formula chart into a
  * verified ```graph.
  */
+import { categoryChartToVegaLite } from "@/lib/chartCategorySpec";
 import { chartJsToVegaLite } from "@/lib/chartJsSpec";
 import {
   isRecord,
@@ -79,7 +81,12 @@ export function chartTable(spec: JsonRecord): ChartTable | null {
 
 /** A chart body's JSON as Vega-Lite when it is in another dialect; as written otherwise. */
 export function asVegaSpec(parsed: JsonRecord): JsonRecord {
-  return seriesChartToVegaLite(parsed) ?? chartJsToVegaLite(parsed) ?? parsed;
+  return (
+    seriesChartToVegaLite(parsed) ??
+    chartJsToVegaLite(parsed) ??
+    categoryChartToVegaLite(parsed) ??
+    parsed
+  );
 }
 
 /** A chart fence's body: the spec to draw, or null and the data it has. */
