@@ -9,6 +9,7 @@ import { getStreamingDraft, publishStreamingDraft } from "@/lib/streamingDraftSt
 import { clearSavedProposals } from "@/features/todos/model/reminderProposal";
 import { resetQuotaNudgeDismissal } from "@/features/chat/model/quotaNudgeDismissal";
 import { forgetSyncRecords } from "@/lib/syncRecords";
+import { clearSettledStatuses } from "@/features/attachments/model/attachmentStatusFile";
 
 const mockFiles: Record<string, string[]> = {};
 const mockDeleted: string[] = [];
@@ -35,6 +36,7 @@ jest.mock("@/features/chat/model/composerDraftReset", () => ({ resetComposerDraf
 jest.mock("@/features/todos/model/reminderProposal", () => ({ clearSavedProposals: jest.fn() }));
 jest.mock("@/features/chat/model/quotaNudgeDismissal", () => ({ resetQuotaNudgeDismissal: jest.fn() }));
 jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({ clearLocalAttachmentFileCache: jest.fn() }));
+jest.mock("@/features/attachments/model/attachmentStatusFile", () => ({ clearSettledStatuses: jest.fn() }));
 jest.mock("@/features/todos/model/todoReminders", () => ({ cancelAllTodoReminders: jest.fn() }));
 jest.mock("@/features/todos/model/reminderPrefs", () => ({ clearReminderLeadPrefs: jest.fn() }));
 jest.mock("@/features/chat/model/messageCache", () => ({ clearAllCachedChatMessages: jest.fn() }));
@@ -73,6 +75,8 @@ it("forgets the quiz answers, link previews, maths and the reply still streaming
   expect(resetQuotaNudgeDismissal).toHaveBeenCalled();
   // The next sign-in registers for push and reads the location afresh.
   expect(forgetSyncRecords).toHaveBeenCalled();
+  // The files' names and statuses this account's chats showed.
+  expect(clearSettledStatuses).toHaveBeenCalled();
 });
 
 it("deletes the account's export, previews, read-aloud audio and PDFs, and nothing else", async () => {

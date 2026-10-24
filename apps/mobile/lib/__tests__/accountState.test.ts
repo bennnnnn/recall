@@ -23,6 +23,7 @@ const STORE_PATTERNS = [
 
 /** Holds an account's data; sign-out calls the named function. */
 const CLEARED_AT_SIGN_OUT: Record<string, string> = {
+  "features/attachments/model/attachmentStatusFile.ts#settledFile": "clearSettledStatuses",
   "features/attachments/model/downloadChatAttachment.ts#cacheGeneration": "clearLocalAttachmentFileCache",
   "features/attachments/model/downloadChatAttachment.ts#cacheRevision": "clearLocalAttachmentFileCache",
   "features/attachments/model/downloadChatAttachment.ts#cachedFiles": "clearLocalAttachmentFileCache",
@@ -77,6 +78,7 @@ const SCOPED_TO_SESSION = [
   "features/account/screens/NotificationsSettingsScreen.tsx#pending",
   "features/attachments/model/attachmentIndexStatus.ts#generation",
   "features/attachments/model/attachmentIndexStatus.ts#pollers",
+  "features/attachments/model/attachmentIndexStatus.ts#settledLoad",
   "features/attachments/model/pendingComposerAttachment.ts#queued",
   "features/chat/drawer/drawer.ts#chatMutationRevisions",
   "features/chat/drawer/drawer.ts#mutationSession",
