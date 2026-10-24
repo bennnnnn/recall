@@ -950,6 +950,15 @@ CASES: tuple[Case, ...] = (
         "A short comparison table, then when to pick each.",
     ),
     Case(
+        "format-numbers-only",
+        "format",
+        "Monthly rainfall in Addis Ababa: Jan 15, Feb 30, Mar 60, Apr 85, May 80, Jun 135, "
+        "Jul 280, Aug 290, Sep 190, Oct 30, Nov 6, Dec 5 mm",
+        Expect(hints=("shared_numbers",), lightweight=False),
+        "One or two sentences on the numbers (wettest August at 290 mm, driest December at "
+        "5 mm), then an offer such as a chart. Never a greeting or 'How's it going?'.",
+    ),
+    Case(
         "format-tips",
         "format",
         "give me 5 tips to sleep better",
