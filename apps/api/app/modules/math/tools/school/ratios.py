@@ -10,16 +10,15 @@ from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school._parse import (
     _colon_ratio_parts,
     _exactly_n_numbers,
-    _has_any_word,
 )
 from app.services.number_text import DECIMAL_LITERAL, finite_match_value
-from app.services.text_match import word_index
+from app.services.text_match import has_any_word, word_index
 
 _RATIO_SPLIT_WORDS = ("split", "share", "divide")
 
 
 def _extract_ratio_split(cleaned: str, lower: str) -> MathIntent | None:
-    if not _has_any_word(lower, _RATIO_SPLIT_WORDS) or "ratio" not in lower:
+    if not has_any_word(lower, _RATIO_SPLIT_WORDS) or "ratio" not in lower:
         return None
     grouped = _colon_ratio_parts(cleaned)
     if grouped is None:

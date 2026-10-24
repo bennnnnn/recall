@@ -15,6 +15,7 @@ from math import isqrt
 
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
+from app.modules.math.tools.school._parse import request_body
 from app.services.workout import math_line
 
 NUMBER_FACT_OPS = frozenset(
@@ -68,12 +69,8 @@ _FIRST_N = re.compile(
 )
 
 
-def _body(text: str) -> str:
-    return " ".join(text.split()).strip().rstrip("?.!").strip()
-
-
 def extract_number_fact_intent(cleaned: str) -> MathIntent | None:
-    body = _body(cleaned)
+    body = request_body(cleaned)
     if not body or len(body) > 200:
         return None
     root = _ROOT.fullmatch(body)

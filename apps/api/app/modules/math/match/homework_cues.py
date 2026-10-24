@@ -11,7 +11,7 @@ import re
 from app.modules.math.match.calculus import y_prime_math_cue
 from app.modules.math.match.need_signals import has_digit
 from app.services.number_text import count_word_pattern
-from app.services.text_match import has_equation, word_index
+from app.services.text_match import has_any_word, has_equation, word_index
 
 _CHANCE_WORD = re.compile(r"\b(?:probability|chance|likelihood)\b", re.IGNORECASE)
 _COUNTED_OUTCOME = re.compile(
@@ -19,10 +19,6 @@ _COUNTED_OUTCOME = re.compile(
     r"(?:heads|tails|sixes)\b",
     re.IGNORECASE,
 )
-
-
-def _has_word(lower: str, words: tuple[str, ...]) -> bool:
-    return any(word_index(lower, word) != -1 for word in words)
 
 
 def _has_ordinal_term_cue(lower: str) -> bool:
@@ -54,7 +50,7 @@ def percent_cue(cleaned: str, lower: str) -> bool:
         return False
     if "% of " in lower or "what percent" in lower or "what percentage" in lower:
         return True
-    if "%" in cleaned and _has_word(lower, ("increase", "increased", "decrease", "decreased")):
+    if "%" in cleaned and has_any_word(lower, ("increase", "increased", "decrease", "decreased")):
         return True
     if "%" in cleaned and (
         "compound interest" in lower
@@ -64,12 +60,12 @@ def percent_cue(cleaned: str, lower: str) -> bool:
         or ("compounded" in lower and "interest" in lower)
     ):
         return True
-    if cleaned.count("%") == 2 and _has_word(lower, ("mix", "mixed", "mixture")):
+    if cleaned.count("%") == 2 and has_any_word(lower, ("mix", "mixed", "mixture")):
         return True
     # The charges ``tools/school/charges.py`` reads: "20% VAT on £50", "a 15% gratuity".
-    charge = _has_word(lower, ("vat", "gratuity")) or "service charge" in lower
+    charge = has_any_word(lower, ("vat", "gratuity")) or "service charge" in lower
     return "%" in cleaned and (
-        charge or _has_word(lower, ("tax", "tip", "discount", "off", "markup"))
+        charge or has_any_word(lower, ("tax", "tip", "discount", "off", "markup"))
     )
 
 
@@ -77,7 +73,7 @@ def everyday_cue(cleaned: str, lower: str) -> bool:
     """Ratios, work rates, proportion, cost, rounding, present value and conversions."""
     if not has_digit(cleaned):
         return False
-    if "ratio" in lower and ":" in cleaned and _has_word(lower, ("split", "share", "divide")):
+    if "ratio" in lower and ":" in cleaned and has_any_word(lower, ("split", "share", "divide")):
         return True
     together = word_index(lower, "together") != -1
     if together and ("hour" in lower or "twice as many" in lower or "2 times as many" in lower):
@@ -100,7 +96,7 @@ def sequence_cue(cleaned: str, lower: str) -> bool:
     if has_digit(cleaned) and _has_ordinal_term_cue(lower):
         return True
     if ("sum of the first" in lower or "sum of first" in lower) and (
-        _has_word(lower, ("even", "odd")) or "," in cleaned
+        has_any_word(lower, ("even", "odd")) or "," in cleaned
     ):
         return True
     if ("infinity" in lower or "infinite" in lower) and ("sum" in lower or "series" in lower):
@@ -126,13 +122,13 @@ def curve_plot_cue(cleaned: str, lower: str) -> bool:
     if (
         "r=" in compact
         and ("polar" in lower or "theta" in lower or "θ" in cleaned)
-        and _has_word(lower, ("graph", "plot", "polar", "sketch", "draw"))
+        and has_any_word(lower, ("graph", "plot", "polar", "sketch", "draw"))
     ):
         return True
     return (
         "x=" in compact
         and "y=" in compact
-        and ("parametric" in lower or _has_word(lower, ("graph", "plot")))
+        and ("parametric" in lower or has_any_word(lower, ("graph", "plot")))
     )
 
 
@@ -156,9 +152,9 @@ def probability_cue(cleaned: str, lower: str) -> bool:
     """Distributions, Bayes, quartiles, a range of data, expectation and z-scores."""
     if "geometric" in lower and "k=" in lower.replace(" ", ""):
         return True
-    if "poisson" in lower or _has_word(lower, ("bayes", "complement")):
+    if "poisson" in lower or has_any_word(lower, ("bayes", "complement")):
         return True
-    if _has_word(lower, ("quartiles", "percentile", "iqr", "interquartile")):
+    if has_any_word(lower, ("quartiles", "percentile", "iqr", "interquartile")):
         return True
     if ("range of" in lower and "," in cleaned) or "binomial" in lower or "expected value" in lower:
         return True
@@ -170,7 +166,7 @@ def probability_cue(cleaned: str, lower: str) -> bool:
 
 def structure_cue(cleaned: str, lower: str) -> bool:
     """Set operations, modular arithmetic, the remainder theorem, matrices, complex numbers."""
-    if "{" in cleaned and _has_word(lower, ("union", "intersection", "difference")):
+    if "{" in cleaned and has_any_word(lower, ("union", "intersection", "difference")):
         return True
     if "modular inverse" in lower or ("totient" in lower and has_digit(cleaned)):
         return True

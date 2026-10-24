@@ -11,6 +11,7 @@ outside the quotes: the cylinder ``DB[(Database)]`` is left as it is, and
 from __future__ import annotations
 
 from app.services.md_fence_scan import map_closed_fences
+from app.services.text_match import parens_balanced
 
 # Marks of the shapes drawn inside ``[...]``: cylinder, parallelograms, trapezoids.
 _SHAPE_EDGES: tuple[tuple[str, str], ...] = (
@@ -30,25 +31,12 @@ def _is_quoted(text: str) -> bool:
     return len(text) >= 2 and text[0] == '"' and text[-1] == '"'
 
 
-def _parens_balanced(text: str) -> bool:
-    """Every ``)`` closes an earlier ``(`` and none is left open."""
-    depth = 0
-    for ch in text:
-        if ch == "(":
-            depth += 1
-        elif ch == ")":
-            depth -= 1
-            if depth < 0:
-                return False
-    return depth == 0
-
-
 def _shape_edge(body: str) -> tuple[str, str]:
     for open_mark, close_mark in _SHAPE_EDGES:
         if len(body) < 2 or not (body.startswith(open_mark) and body.endswith(close_mark)):
             continue
         # ``[(a) and (b)]`` is a box whose label opens and closes with brackets.
-        if open_mark == "(" and not _parens_balanced(body[1:-1]):
+        if open_mark == "(" and not parens_balanced(body[1:-1]):
             continue
         return open_mark, close_mark
     return "", ""
