@@ -23,7 +23,6 @@ from app.core.jobs.dedupe import (
     _dedupe_is_complete,
     _extend_dedupe,
     _give_back_delivery,
-    _refresh_running_claim,
     _refresh_running_claim_loop,
     _release_dedupe,
 )
@@ -149,10 +148,13 @@ async def _dispatch_with_retries(
     fields: dict[str, Any],
     dedupe_key: str | None,
 ) -> None:
-    """Run one attempt; a transient failure comes back later (``delayed``), not in this slot."""
+    """Run one attempt; a transient failure comes back later (``delayed``), not in this slot.
+
+    The claim was just taken with its full TTL, and the keepalive refreshes it while the
+    handler runs: refreshing it here too was two Redis round trips per job for nothing.
+    """
     job_timeout = _job_timeout(settings)
     _touch_heartbeat()
-    await _refresh_running_claim(redis, dedupe_key)
     deadline = asyncio.timeout(job_timeout)
     try:
         async with deadline:
