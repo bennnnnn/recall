@@ -248,7 +248,9 @@ class _Harness:
             await _process_one_entry(self.redis, settings, entry_id, fields)
             await drain_background_tasks()
             if count:
-                seen[fields["type"]] = self.ledger.stop()
+                # A second job of a type is its own entry: "topic", then "topic 2".
+                name = fields["type"]
+                seen[name if name not in seen else f"{name} {len(seen)}"] = self.ledger.stop()
         return seen
 
 
@@ -594,6 +596,29 @@ async def test_each_kind_of_turn_stays_under_its_ceilings_to_its_last_job(
     assert not over, over
     queued = {kind: tuple(part.jobs) for kind, part in seen.items()}
     assert queued == {kind: ceiling.queued for kind, ceiling in CEILINGS.items()}
+
+
+async def test_a_page_read_before_the_title_job_makes_no_second_title_call(
+    harness: _Harness,
+) -> None:
+    """The phone reads the newest page when it opens or refreshes the chat. Read between
+    the first reply and its title job, the page queued a title job of its own, and the
+    model was asked for the title twice."""
+    harness.ledger.reply = "The capital of France is **Paris**." + _LONG
+    chat_id = await harness.new_chat()
+    await harness.run_jobs(count=False)
+    response = await harness.client.post(
+        f"/chats/{chat_id}/messages/stream",
+        json={"content": "What's the capital of France?"},
+        headers=harness.headers,
+    )
+    assert response.status_code == 200
+    page = await harness.client.get(f"/chats/{chat_id}/messages", headers=harness.headers)
+    assert page.status_code == 200
+
+    jobs = await harness.run_jobs()
+    titles = [call for job in jobs.values() for call in job.models if "titles" in call]
+    assert len(titles) == 1, jobs.keys()
 
 
 async def _seed_lists(harness: _Harness, n: int) -> UUID:

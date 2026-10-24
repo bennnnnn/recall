@@ -241,6 +241,8 @@ def test_list_messages_enqueues_topic_backfill():
     assert r2.status_code == 304
     enqueue_job.assert_awaited_once()
     assert enqueue_job.call_args.args[1] == "topic"
+    # The first reply's title job's key: one title call however many pages are read.
+    assert enqueue_job.call_args.kwargs["dedupe_key"] == f"topic:{chat_id}"
     payload = enqueue_job.call_args.args[2]
     assert payload["user_id"] == str(user.id)
     assert payload["user_message"] == user_msg.content

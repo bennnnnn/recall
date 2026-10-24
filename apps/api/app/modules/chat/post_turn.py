@@ -24,6 +24,7 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules.chat.context_window import compute_history_split, should_run_compression
 from app.modules.chat.prompt_constants.lesson_flow import lesson_step
+from app.modules.chat.titles import title_job_key
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.memory import (
     memory_extract_user_text,
@@ -175,7 +176,7 @@ async def _topic_job(turn: FinishedTurn) -> list[PostTurnJob]:
                 "user_message": user_message,
                 "assistant_message": assistant_message,
             },
-            f"topic:{saved.chat_id}",
+            title_job_key(saved.chat_id),
         )
     ]
 

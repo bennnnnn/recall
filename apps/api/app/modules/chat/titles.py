@@ -15,6 +15,12 @@ from app.modules.chat import chats_repository as chats_repo
 
 GREETING_CHAT_TITLE = "Greeting"
 
+
+def title_job_key(chat_id: UUID) -> str:
+    """The ``topic`` job's dedupe key: one title per chat, however many ask for it."""
+    return f"topic:{chat_id}"
+
+
 # Exact first-line openers after unwrap + casefold. Longer first messages
 # still go to title-model (e.g. "good morning, help me with physics").
 _CASUAL_OPENERS = frozenset(
