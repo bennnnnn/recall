@@ -5,10 +5,13 @@ import { loadHomeNudgeState, pruneHomeNudgeState, saveHomeNudgeState } from "@/f
 import { countUnseenUrgentReminders, listUrgentReminderIds } from "@/features/todos/model/reminderBadge";
 
 type Options = { userId?: string; leadMinutes?: number; todos: Todo[]; retainedOpenIds?: Set<string>;
-  getTodos: () => Todo[]; isCurrentSession: () => boolean };
+  getTodos: () => Todo[]; isCurrentSession: () => boolean;
+  /** The time the badge counts against (useReminderClock); the moment of render when absent. */
+  now?: Date };
 
 /** Serialize seen/nudge updates so a slow load cannot undo a newer dismissal. */
-export function useTodoReminderState({ userId, leadMinutes, todos, retainedOpenIds, getTodos, isCurrentSession }: Options) {
+export function useTodoReminderState({ userId, leadMinutes, todos, retainedOpenIds, getTodos, isCurrentSession,
+  now }: Options) {
   const owner = useMemo(() => ({ isCurrentSession }), [isCurrentSession]);
   const resource = useRef({ owner, seen: new Set<string>(), dismissed: new Set<string>(),
     seenDirty: false, dismissedDirty: false, hydrated: false, queue: Promise.resolve() });
@@ -79,7 +82,7 @@ export function useTodoReminderState({ userId, leadMinutes, todos, retainedOpenI
     resource.current.seen.add(todoId);
   }), [getTodos, run]);
 
-  const unseenCount = countUnseenUrgentReminders(todos, view.seen, undefined, leadMinutes);
+  const unseenCount = countUnseenUrgentReminders(todos, view.seen, now, leadMinutes);
   return { unseenCount, showIndicator: unseenCount > 0, remindersReady: view.ready,
     seenReminderIds: view.seen, homeNudgeDismissed: view.dismissed,
     markSeen, markSeenIds, dismissReminderNudge };

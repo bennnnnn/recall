@@ -2,11 +2,15 @@ import { createContext, useContext, useEffect, useMemo, useSyncExternalStore, ty
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { useTodosList } from "@/features/todos/hooks/useTodosList";
 import { useTodoReminderState } from "@/features/todos/hooks/useTodoReminderState";
+import { useReminderClock } from "@/features/todos/hooks/useReminderClock";
 import { getSessionGeneration } from "@/lib/auth";
 import { remotePushRegistered, subscribeRemotePushRegistered } from "@/lib/pushRegistration";
 import { syncTodoReminders } from "@/features/todos/model/todoReminders";
 
-type TodosContextValue = ReturnType<typeof useTodosList> & ReturnType<typeof useTodoReminderState>;
+type TodosContextValue = ReturnType<typeof useTodosList> & ReturnType<typeof useTodoReminderState> & {
+  /** The time the to-do views read: it moves on as reminders fall due (useReminderClock). */
+  now: Date;
+};
 const TodosContext = createContext<TodosContextValue | null>(null);
 
 export function TodosProvider({ children }: { children: ReactNode }) {
@@ -16,7 +20,8 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   // Reminders come from the server only to a device whose push token it holds.
   const remotePush = useSyncExternalStore(subscribeRemotePushRegistered, remotePushRegistered);
   const remindersEnabled = auth?.user?.push_reminders_enabled ?? true;
-  const reminders = useTodoReminderState({ userId: auth?.user?.id, leadMinutes,
+  const now = useReminderClock(list.todos, leadMinutes);
+  const reminders = useTodoReminderState({ userId: auth?.user?.id, leadMinutes, now,
     todos: list.todos, retainedOpenIds: list.retainedOpenIds, getTodos: list.getTodos, isCurrentSession: list.isCurrentSession });
   const session = getSessionGeneration();
   const {
@@ -37,10 +42,10 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   const value = useMemo<TodosContextValue>(() => ({
     todos, loading, error, loaded, retainedOpenIds, olderCompleted, showOlderCompleted, setTodos, getTodos, refresh,
     isCurrentSession, unseenCount, showIndicator, remindersReady, seenReminderIds, homeNudgeDismissed, markSeen,
-    markSeenIds, dismissReminderNudge,
+    markSeenIds, dismissReminderNudge, now,
   }), [todos, loading, error, loaded, retainedOpenIds, olderCompleted, showOlderCompleted, setTodos, getTodos,
     refresh, isCurrentSession, unseenCount, showIndicator, remindersReady, seenReminderIds, homeNudgeDismissed,
-    markSeen, markSeenIds, dismissReminderNudge]);
+    markSeen, markSeenIds, dismissReminderNudge, now]);
   return <TodosContext.Provider value={value}>{children}</TodosContext.Provider>;
 }
 
