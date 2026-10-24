@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
-from app.modules.chat.inline_code import escaped_at, read_inline_code_span
+from app.modules.chat.inline_code import read_inline_code_span
 from app.services.md_fence_scan import FenceMarker, read_fence_marker
 
 # Restaurant price tiers, ($) to ($$$$), are not maths.
@@ -129,22 +129,25 @@ def display_math_lines(lines: list[str]) -> list[bool]:
 def _display_closer(line: str, closer: str | None) -> str | None:
     """The display closer (``$$`` or ``\\]``) still awaited after ``line``."""
     index = 0
+    # The backslashes just before ``index``, counted as the scan passes them: an odd run
+    # escapes the character there (``escaped_at``, which counted back from every index and
+    # was quadratic in a run of backslashes).
+    slashes = 0
     while index < len(line):
         code_end = read_inline_code_span(line, index) if closer is None else None
         if code_end is not None:
-            index = code_end
-        elif escaped_at(line, index):
-            index += 1
-        elif line.startswith("$$", index):
+            index, slashes = code_end, 0
+        elif slashes % 2 == 0 and line.startswith("$$", index):
             if closer in (None, "$$"):
                 closer = "$$" if closer is None else None
-            index += 2
-        elif line.startswith("\\[", index) and closer is None:
+            index, slashes = index + 2, 0
+        elif slashes % 2 == 0 and line.startswith("\\[", index) and closer is None:
             closer = "\\]"
-            index += 2
-        elif line.startswith("\\]", index) and closer == "\\]":
+            index, slashes = index + 2, 0
+        elif slashes % 2 == 0 and line.startswith("\\]", index) and closer == "\\]":
             closer = None
-            index += 2
+            index, slashes = index + 2, 0
         else:
+            slashes = slashes + 1 if line[index] == "\\" else 0
             index += 1
     return closer

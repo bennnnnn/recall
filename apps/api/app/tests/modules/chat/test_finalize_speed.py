@@ -1,12 +1,13 @@
 """The finalize passes run on every reply, on the event loop: together they stay linear.
 
-A reply is model text, and a model writes what it is asked to: a long run of spaces or of
-blank lines, one long line with an emoji in every sentence. The couldn't-verify sentence's
-pattern retried every split of a run of spaces from every start in it (800 spaces took
-2 s, 1,600 took 19 s); the worked-heading patterns ran ``\\s*`` over every blank line below
-each line start; the emoji pass searched the whole line again for the word before each
-emoji. The budget is loose on purpose: every pass together finishes these replies in tens
-of milliseconds, and the super-linear ones took seconds to hours.
+A reply is model text, and a model writes what it is asked to: a long run of spaces,
+blank lines or backslashes, one long line with an emoji in every sentence. The
+couldn't-verify sentence's pattern retried every split of a run of spaces from every start
+in it (800 spaces took 2 s, 1,600 took 19 s); the worked-heading patterns ran ``\\s*`` over
+every blank line below each line start; the display-maths scan counted back over a run of
+backslashes from each of them; the emoji pass searched the whole line again for the word
+before each emoji. The budget is loose on purpose: every pass together finishes these
+replies in tens of milliseconds, and the super-linear ones took seconds to hours.
 """
 
 from __future__ import annotations
@@ -37,6 +38,7 @@ _REPLIES = {
     "a run of tabs": "a" + "\t" * _SIZE + "b",
     "wide padded lines": _repeat("x" + " " * 200 + "\n", _SIZE),
     "blank lines": "Intro" + "\n" * (2 * _SIZE) + "End.",
+    "backslashes": "\\" * _SIZE,
     "an emoji in every sentence": _repeat("✅ Verified the totals. ", 2 * _SIZE),
     "a long word before an emoji": "a" * _SIZE + "!✅ Next",
     "blanks after an emoji": "🚀 Launch" + " " * _SIZE + "now",
