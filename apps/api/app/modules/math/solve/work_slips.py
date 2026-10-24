@@ -30,7 +30,8 @@ from sympy import (
     solveset,
 )
 
-from app.modules.math.solve.declines import declines, sympy_decline
+from app.modules.math.solve.declines import sympy_decline
+from app.modules.math.solve.root_latex import expr_equal
 from app.modules.math.solve.work_lines import (
     FLIPPED,
     INEQUALITIES,
@@ -87,11 +88,6 @@ def diagnose(prev: Line, cur: Line, var: Any, number: int) -> tuple[Mistake, Lin
             continue
         return mistake, fixed
     return _unexplained(prev, cur, var, number), None
-
-
-@declines(False)
-def _same(left: Any, right: Any) -> bool:
-    return bool(simplify(left - right) == 0)
 
 
 def _nice(value: Any) -> bool:
@@ -159,7 +155,7 @@ def _direction(prev: Line, cur: Line, var: Any, number: int) -> Any:
     fixed = fixed_line(cur.lhs, flipped, cur.rhs, var)
     if fixed is None or fixed.solutions != prev.solutions:
         return None
-    if _same(cur.lhs, prev.rhs) and _same(cur.rhs, prev.lhs):
+    if expr_equal(cur.lhs, prev.rhs) and expr_equal(cur.rhs, prev.lhs):
         return _mistake(
             number,
             "swap_without_flip",
@@ -247,7 +243,7 @@ def _scaling(prev: Line, cur: Line, var: Any, number: int) -> Any:
         other = _other(name)
         other_before, other_after = prev.side(other), cur.side(other)
         expected = other_before / factor
-        if _same(other_after, expected):
+        if expr_equal(other_after, expected):
             continue
         op = FLIPPED[prev.op] if prev.op in INEQUALITIES and factor < 0 else prev.op
         pair = (after, expected) if name == "lhs" else (expected, after)
@@ -264,7 +260,7 @@ def _scaling(prev: Line, cur: Line, var: Any, number: int) -> Any:
             if op != prev.op and cur.op == prev.op
             else ""
         )
-        if _same(other_after, other_before * factor):
+        if expr_equal(other_after, other_before * factor):
             return _mistake(
                 number,
                 "scaled_the_wrong_way",
@@ -274,7 +270,7 @@ def _scaling(prev: Line, cur: Line, var: Any, number: int) -> Any:
                 fixed,
                 label,
             )
-        if _same(other_after, other_before - factor) and after == var:
+        if expr_equal(other_after, other_before - factor) and after == var:
             return _mistake(
                 number,
                 "subtracted_coefficient",
@@ -285,7 +281,7 @@ def _scaling(prev: Line, cur: Line, var: Any, number: int) -> Any:
                 fixed,
                 label,
             )
-        if _same(other_after, other_before):
+        if expr_equal(other_after, other_before):
             return _mistake(
                 number,
                 "scaled_one_side",
@@ -298,7 +294,7 @@ def _scaling(prev: Line, cur: Line, var: Any, number: int) -> Any:
             )
         if var in other_before.free_symbols:
             continue
-        if _same(other_after, -expected):
+        if expr_equal(other_after, -expected):
             return _mistake(
                 number,
                 "scaled_sign",
@@ -353,7 +349,7 @@ def _brackets(prev: Line, cur: Line, var: Any, number: int) -> Any:
     """``4(x - 2)`` expanded wrong while the other side stayed put."""
     for name in ("lhs", "rhs"):
         other = _other(name)
-        if not _same(cur.side(other), prev.side(other)):
+        if not expr_equal(cur.side(other), prev.side(other)):
             continue
         found = _bracket(prev.written(name), var)
         if found is None:
@@ -361,7 +357,7 @@ def _brackets(prev: Line, cur: Line, var: Any, number: int) -> Any:
         multiplier, terms = found
         before, after = prev.side(name), cur.side(name)
         expanded = expand(before)
-        if _same(after, expanded):
+        if expr_equal(after, expanded):
             continue
         inside = Add(*terms)
         outside = expand(before - multiplier * inside)
@@ -371,7 +367,7 @@ def _brackets(prev: Line, cur: Line, var: Any, number: int) -> Any:
         fixed = fixed_line(pair[0], prev.op, pair[1], var)
         product = expand(multiplier * inside)
         for term in terms:
-            if _same(after, outside + product - multiplier * term + term):
+            if expr_equal(after, outside + product - multiplier * term + term):
                 return _mistake(
                     number,
                     "partial_distribution",
@@ -382,7 +378,7 @@ def _brackets(prev: Line, cur: Line, var: Any, number: int) -> Any:
                     fixed,
                     "Expand the brackets",
                 )
-            if _same(after, outside + product - 2 * multiplier * term):
+            if expr_equal(after, outside + product - 2 * multiplier * term):
                 return _mistake(
                     number,
                     "distribution_sign",
@@ -422,19 +418,19 @@ def _moved_term(prev: Line, cur: Line, var: Any, number: int) -> Any:
     for name in ("lhs", "rhs"):
         before, after = prev.side(name), cur.side(name)
         moved = expand(before - after)
-        if moved == 0 or not any(_same(moved, term) for term in Add.make_args(expand(before))):
+        if moved == 0 or not any(expr_equal(moved, term) for term in Add.make_args(expand(before))):
             continue
         other = _other(name)
         other_before, other_after = prev.side(other), cur.side(other)
         expected = expand(other_before - moved)
-        if _same(other_after, expected):
+        if expr_equal(other_after, expected):
             continue
         pair = (after, expected) if name == "lhs" else (expected, after)
         fixed = fixed_line(pair[0], prev.op, pair[1], var)
         label = _move_label(moved)
         arithmetic = _move_tex(other_before, moved)
         term = latex(moved) if moved.could_extract_minus_sign() else f"+{latex(moved)}"
-        if _same(other_after, other_before + moved):
+        if expr_equal(other_after, other_before + moved):
             return _mistake(
                 number,
                 "moved_without_sign_change",
@@ -444,7 +440,7 @@ def _moved_term(prev: Line, cur: Line, var: Any, number: int) -> Any:
                 fixed,
                 label,
             )
-        if _same(other_after, other_before):
+        if expr_equal(other_after, other_before):
             return _mistake(
                 number,
                 "moved_one_side",
@@ -480,13 +476,13 @@ def _divide_every_term(prev: Line, cur: Line, var: Any, number: int) -> Any:
             continue
         before, after = prev.side(name), cur.side(name)
         expected = expand(before / factor)
-        if _same(after, expected):
+        if expr_equal(after, expected):
             continue
         terms = list(Add.make_args(expand(before)))
         if len(terms) < 2 or len(terms) > _MAX_SPLIT_TERMS:
             continue
         partial = any(
-            _same(after, Add(*[t / factor if t in chosen else t for t in terms]))
+            expr_equal(after, Add(*[t / factor if t in chosen else t for t in terms]))
             for size in range(1, len(terms))
             for chosen in combinations(terms, size)
         )
@@ -513,10 +509,10 @@ def _one_side_rewrite(prev: Line, cur: Line, var: Any, number: int) -> Any:
     """One side rewritten to something it does not equal; the other side untouched."""
     for name in ("lhs", "rhs"):
         other = _other(name)
-        if not _same(cur.side(other), prev.side(other)):
+        if not expr_equal(cur.side(other), prev.side(other)):
             continue
         before, after = prev.side(name), cur.side(name)
-        if _same(before, after):
+        if expr_equal(before, after):
             continue
         simplified = expand(before)
         pair = (simplified, cur.rhs) if name == "lhs" else (cur.lhs, simplified)

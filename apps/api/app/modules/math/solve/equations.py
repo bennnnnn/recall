@@ -26,9 +26,9 @@ from app.modules.math.solve.parse import (
     parse_equation,
 )
 from app.modules.math.solve.root_latex import (
-    _expr_equal,
     _solution_value_latex,
     compact_root_answer_lines,
+    expr_equal,
 )
 
 
@@ -151,7 +151,7 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
             for solution in raw_solutions
             if all(
                 sym not in solution
-                or all(not _expr_equal(solution[sym], value) for value in original_excluded)
+                or all(not expr_equal(solution[sym], value) for value in original_excluded)
                 for sym in syms
             )
         ]

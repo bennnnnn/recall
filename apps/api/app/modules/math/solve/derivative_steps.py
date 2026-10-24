@@ -12,11 +12,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from sympy import Add, Mul, Symbol, cos, diff, exp, latex, log, simplify, sin, tan
+from sympy import Add, Mul, Symbol, cos, diff, exp, latex, log, sin, tan
 
-from app.modules.math.solve.declines import declines, sympy_decline
+from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.display import derivative_latex
 from app.modules.math.solve.key_steps import KeyStep
+from app.modules.math.solve.root_latex import expr_equal
 
 _MAX_TERMS = 6
 
@@ -75,11 +76,6 @@ def _is_const(expr: Any, var: Any) -> bool:
     return var not in getattr(expr, "free_symbols", set())
 
 
-@declines(False)
-def _matches(value: Any, expected: Any) -> bool:
-    return bool(simplify(value - expected) == 0)
-
-
 def _equals_chain(lhs: str, shown: str, value: str) -> str:
     """``d/dx(...) = rule form = value``; the value once if the rule form is it."""
     if shown.replace(" ", "") == value.replace(" ", ""):
@@ -96,7 +92,7 @@ def _term_step(term: Any, var: Any) -> KeyStep | None:
     if coefficient != 1 and not _is_const(rest, var):
         inner = _term_step(rest, var)
         inner_value = diff(rest, var)
-        if inner is None or not _matches(coefficient * inner_value, derivative):
+        if inner is None or not expr_equal(coefficient * inner_value, derivative):
             return None
         return KeyStep(
             label=f"Keep ${latex(coefficient)}$ and differentiate ${latex(rest)}$",
@@ -111,7 +107,7 @@ def _term_step(term: Any, var: Any) -> KeyStep | None:
         )
     if term.is_Pow and term.base == var and _is_const(term.exp, var):
         power = term.exp
-        if not _matches(power * var ** (power - 1), derivative):
+        if not expr_equal(power * var ** (power - 1), derivative):
             return None
         shown = f"{latex(power)} {latex(var)}^{{{latex(power - 1)}}}"
         return KeyStep(
@@ -123,7 +119,7 @@ def _term_step(term: Any, var: Any) -> KeyStep | None:
     if base_log is not None:
         inside, base = base_log
         d_inside = diff(inside, var)
-        if not _matches(d_inside / (inside * log(base)), derivative):
+        if not expr_equal(d_inside / (inside * log(base)), derivative):
             return None
         if inside == var:
             return KeyStep(
@@ -140,7 +136,7 @@ def _term_step(term: Any, var: Any) -> KeyStep | None:
     numerator, denominator = term.as_numer_denom()
     if denominator != 1 and not _is_const(denominator, var):
         du, dv = diff(numerator, var), diff(denominator, var)
-        if not _matches((du * denominator - numerator * dv) / denominator**2, derivative):
+        if not expr_equal((du * denominator - numerator * dv) / denominator**2, derivative):
             return None
         shown = (
             rf"\frac{{{_product(du, denominator)} - {_product(numerator, dv)}}}"
@@ -157,7 +153,7 @@ def _term_step(term: Any, var: Any) -> KeyStep | None:
             u = factors[0]
             v = Mul(*[factor for factor in term.args if factor is not u])
             du, dv = diff(u, var), diff(v, var)
-            if not _matches(du * v + u * dv, derivative):
+            if not expr_equal(du * v + u * dv, derivative):
                 return None
             shown = f"{_product(du, v)} + {_product(u, dv)}"
             return KeyStep(
@@ -168,7 +164,7 @@ def _term_step(term: Any, var: Any) -> KeyStep | None:
     if term.is_Pow and _is_const(term.exp, var):
         inside, power = term.base, term.exp
         d_inside = diff(inside, var)
-        if not _matches(power * inside ** (power - 1) * d_inside, derivative):
+        if not expr_equal(power * inside ** (power - 1) * d_inside, derivative):
             return None
         outer = _factor(inside) if power - 1 == 1 else f"{_factor(inside)}^{{{latex(power - 1)}}}"
         shown = f"{latex(power)} {outer} \\cdot {_factor(d_inside)}"
@@ -180,7 +176,7 @@ def _term_step(term: Any, var: Any) -> KeyStep | None:
     if term.is_Pow and _is_const(term.base, var):
         inside = term.exp
         d_inside = diff(inside, var)
-        if not _matches(term * log(term.base) * d_inside, derivative):
+        if not expr_equal(term * log(term.base) * d_inside, derivative):
             return None
         chain = "" if inside == var else f" \\cdot {_factor(d_inside)}"
         shown = f"{latex(term)} \\ln {_factor(term.base)}{chain}"
@@ -201,7 +197,7 @@ def _term_step(term: Any, var: Any) -> KeyStep | None:
         placeholder = Symbol("QUQ")
         outer = diff(func(placeholder), placeholder).subs(placeholder, inside)
         d_inside = diff(inside, var)
-        if not _matches(outer * d_inside, derivative):
+        if not expr_equal(outer * d_inside, derivative):
             return None
         if inside == var:
             return KeyStep(
@@ -264,7 +260,7 @@ def derivative_key_steps(expr: Any, variable: str) -> list[KeyStep]:
             return []
         steps.append(step)
     if len(terms) > 1:
-        if not _matches(Add(*[diff(term, var) for term in terms]), derivative):
+        if not expr_equal(Add(*[diff(term, var) for term in terms]), derivative):
             return []
         steps.append(KeyStep(label="Add the results", formula=derivative_latex(derivative)))
     return steps
