@@ -49,7 +49,8 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 - `share/`: ShareSheet, useCopyText.
 - `icons/`: Icon, BrandMark, the icon manifest and generated glyphs, IconSize.
 - `feedback/`: ActionBanner (the toast), StateView, SkeletonLoader, CountBadge, ActionShimmer.
-- `hooks/`: useKeyboardHeight, useBottomLiftStyle (bottom chrome that rides a keyboard-lifted composer on the UI thread).
+- `hooks/`: useKeyboardHeight, useBottomLiftStyle (bottom chrome that rides a keyboard-lifted composer on the UI thread),
+  useLiveAnnouncement (the iOS half of a live region: VoiceOver hears a result or error that appears).
 
 ## Tokens
 

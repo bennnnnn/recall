@@ -21,6 +21,7 @@ import { IconButton } from "../controls/IconButton";
 import { Icon } from "../icons/Icon";
 import type { IconName } from "../icons/names";
 import { IconSize } from "../icons/sizes";
+import { useLiveAnnouncement } from "../hooks/useLiveAnnouncement";
 import { Sheet } from "../overlay/Sheet";
 import { useCopyText } from "./useCopyText";
 
@@ -92,6 +93,7 @@ export function ShareSheet({
   const { copied, copy: copyText, reset: resetCopied } = useCopyText();
   const [failed, setFailed] = useState<Action | null>(null);
   const [failedWords, setFailedWords] = useState<string | null>(null);
+  useLiveAnnouncement(failed ? (failedWords ?? labels.failed[failed]) : null);
   const text = useRef<Promise<string> | null>(null);
   const loadRef = useRef(load);
   loadRef.current = load;

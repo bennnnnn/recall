@@ -30,6 +30,7 @@ import type { ScannerSubject } from "@/lib/scanner/subjects";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { useLiveAnnouncement } from "@/ui/hooks/useLiveAnnouncement";
 
 type Props = {
   insets: EdgeInsets;
@@ -89,6 +90,7 @@ export function MathScannerChrome({
 
   const bottomPad = Math.max(insets.bottom, Space.md) + Space.sm;
   const errorBottom = bottomPad + SCANNER_SHUTTER_PX + SCANNER_SUBJECT_SWITCHER_PX + Space.xl;
+  useLiveAnnouncement(error);
 
   const closeButton = (
     <Pressable

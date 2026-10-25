@@ -14,6 +14,8 @@ import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
+import { useLiveAnnouncement } from "../hooks/useLiveAnnouncement";
+
 type Props = Omit<TextInputProps, "style"> & {
   /** Shown above the box. */
   label?: string;
@@ -47,6 +49,7 @@ export function TextField({
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [focused, setFocused] = useState(false);
   const note = error || helper;
+  useLiveAnnouncement(error);
 
   return (
     <View style={[s.field, style]}>

@@ -1,4 +1,5 @@
 import { fireEvent, render } from "@testing-library/react-native";
+import { AccessibilityInfo } from "react-native";
 
 import { QuizCard } from "@/components/rich/QuizCard";
 
@@ -38,6 +39,22 @@ describe("QuizCard", () => {
     // The verdict is its own line above the explanation, as in ChatGPT.
     expect(view.getByText("rich.quiz_correct")).toBeTruthy();
     expect(view.getByText("Only 6 and 8 are greater than 4.")).toBeTruthy();
+  });
+
+  it("says the verdict to VoiceOver when checked here, not when a checked card mounts again", async () => {
+    const announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => undefined);
+    announce.mockClear();
+    const content = quiz("Announced once.");
+    const view = await render(<QuizCard content={content} />);
+    await fireEvent.press(view.getByText("[2, 4, 6, 8]"));
+    await fireEvent.press(view.getByText("rich.quiz_check"));
+    expect(announce.mock.calls).toEqual([["rich.quiz_wrong"]]);
+    await view.unmount();
+    // The attempt is kept, so the card comes back checked: nothing new to say.
+    const again = await render(<QuizCard content={content} />);
+    expect(again.getByText("rich.quiz_wrong")).toBeTruthy();
+    expect(announce).toHaveBeenCalledTimes(1);
+    announce.mockRestore();
   });
 
   it("shows the exercise pill and the code inside the card", async () => {

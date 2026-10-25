@@ -31,6 +31,7 @@ describe("ActionBanner", () => {
 
   it("is spoken by VoiceOver when it appears, since iOS has no live regions", async () => {
     const announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => undefined);
+    announce.mockClear();
     const view = await render(<ActionBanner message="Archived 3 conversations" onDismiss={jest.fn()} />);
     expect(announce).toHaveBeenCalledTimes(1);
     expect(announce).toHaveBeenCalledWith("Archived 3 conversations");
@@ -42,6 +43,7 @@ describe("ActionBanner", () => {
   it("leaves TalkBack to its live region", async () => {
     jest.replaceProperty(Platform, "OS", "android");
     const announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => undefined);
+    announce.mockClear();
     const { getByLabelText } = await render(<ActionBanner message="Saved" onDismiss={jest.fn()} />);
     expect(getByLabelText("Saved").props.accessibilityLiveRegion).toBe("polite");
     expect(announce).not.toHaveBeenCalled();

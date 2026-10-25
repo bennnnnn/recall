@@ -17,6 +17,7 @@ import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 import { Theme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
+import { useLiveAnnouncement } from "@/ui/hooks/useLiveAnnouncement";
 
 const MODAL_LIST_MAX = 220;
 
@@ -220,6 +221,7 @@ function SeriesRow({
 }) {
   const { t } = useTranslation();
   const inputId = row.locked ? "graph-expr-input" : `graph-expr-input-${row.id}`;
+  useLiveAnnouncement(row.invalid ? t("rich.graph_invalid") : null);
   return (
     <View style={styles.row}>
       <View style={[styles.swatch, { backgroundColor: row.color, opacity: row.visible ? 1 : 0.35 }]} />
