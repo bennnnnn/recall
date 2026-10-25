@@ -17,7 +17,7 @@ import {
 } from "@/features/memory/model/memoryDocuments";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
-import { formatMonthDay } from "@/lib/datetime/format";
+import { formatDate } from "@/lib/datetime/format";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
@@ -142,7 +142,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
             {section.documents.map((document) => {
               const title = documentTitle(document, t);
               const updated = parseMemoryDate(document.updated_at);
-              const date = updated ? formatMonthDay(updated, locale) : undefined;
+              const date = updated ? formatDate(updated, "monthDay") : undefined;
               return (
                 <ListRow
                   key={document.key}

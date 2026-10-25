@@ -1,4 +1,4 @@
-import { formatCalculatorValue, formatLongDay, formatPercent, formatShortDay } from "@/lib/money/format";
+import { formatCalculatorValue, formatPercent } from "@/lib/money/format";
 
 const translate = (key: string, options?: Record<string, unknown>) => `${key}:${String(options?.count)}`;
 const en = { locale: "en", currency: "USD", translate };
@@ -34,13 +34,5 @@ describe("formatCalculatorValue", () => {
     expect(formatCalculatorValue(30, "years", en)).toBe("money.years_count:30");
     expect(formatCalculatorValue(34.23, "months", en)).toBe("money.months_count:35");
     expect(formatCalculatorValue(12, "months", en)).toBe("money.months_count:12");
-  });
-});
-
-describe("dates", () => {
-  it("prints the marker's day short and the source's day long, in UTC", () => {
-    expect(formatShortDay("2026-10-16", "en")).toBe("Oct 16");
-    expect(formatLongDay("2026-10-16", "en")).toBe("Oct 16, 2026");
-    expect(formatShortDay("not a day", "en")).toBeNull();
   });
 });

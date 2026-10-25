@@ -7,25 +7,20 @@
  * shows the server's zone, and names it when the phone shows another time.
  */
 
-import {
-  formatClockTime,
-  formatShortWeekdayDate,
-  formatTimeZoneName,
-} from "@/lib/datetime/format";
-import { getDeviceTimezone } from "@/lib/deviceTimezone";
+import { formatDate, formatTimeZoneName, userTimeZone } from "@/lib/datetime/format";
 
 /** "Thu, Oct 15, 9:00 AM", or "Thu, Oct 15, 9:00 AM GMT+3" when the phone is elsewhere. */
 export function proposalDueLabel(
   due: Date,
   timeZone: string | null,
-  deviceZone: string = getDeviceTimezone(),
+  userZone: string | undefined = userTimeZone(),
 ): string {
   const zone = timeZone && formatTimeZoneName(due, timeZone) ? timeZone : undefined;
-  const when = wallClock(due, zone);
-  if (!zone || zone === deviceZone || when === wallClock(due, deviceZone)) return when;
+  const when = wallClockLabel(due, zone);
+  if (!zone || zone === userZone || when === wallClockLabel(due, userZone)) return when;
   return `${when} ${formatTimeZoneName(due, zone)}`;
 }
 
-function wallClock(due: Date, zone: string | undefined): string {
-  return `${formatShortWeekdayDate(due, undefined, zone)}, ${formatClockTime(due, undefined, zone)}`;
+function wallClockLabel(due: Date, zone: string | undefined): string {
+  return `${formatDate(due, "weekdayDate", { timeZone: zone })}, ${formatDate(due, "time", { timeZone: zone })}`;
 }

@@ -25,7 +25,7 @@ import { MEMORY_TEXT_MAX_LENGTH, stripMemoryAsOf } from "@/features/memory/model
 import type { Memory } from "@/features/memory/types";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
-import { formatMonthDayYear } from "@/lib/datetime/format";
+import { formatDate } from "@/lib/datetime/format";
 import { notifyDestructive, tap } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { Radius } from "@/lib/radius";
@@ -50,8 +50,7 @@ export default function MemoryDocumentScreen() {
 function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const { token } = useAuth();
   const { key } = useLocalSearchParams<{ key: string }>();
-  const { t, i18n } = useTranslation();
-  const locale = i18n?.language;
+  const { t } = useTranslation();
   const theme = useTheme();
   const router = useRouter();
   const feedback = useActionFeedbackOptional();
@@ -212,7 +211,7 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         {updated ? (
           <View style={s.block}>
             <Text style={s.label}>{t("memory.last_updated")}</Text>
-            <Text style={s.value}>{formatMonthDayYear(updated, locale)}</Text>
+            <Text style={s.value}>{formatDate(updated, "monthDayYear")}</Text>
           </View>
         ) : null}
         {summary ? (
