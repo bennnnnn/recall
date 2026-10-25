@@ -61,11 +61,7 @@ from app.modules.chat.turn_prep.mode import classify_turn_mode
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.images.gen_intent import stem_subject_claims
 from app.modules.images.intent import image_gen_request
-from app.modules.images.lookup_intent import (
-    dated_lookup_query,
-    extract_image_lookup_query,
-    is_reference_subject,
-)
+from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
 from app.modules.money.block import (
     MONEY_HEADER,
     MONEY_RATE_MISSING,
@@ -352,14 +348,14 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         lesson_active=pc.active_lesson_step(rows) is not None,
     )
 
-    found = extract_image_lookup_query(text) if settings.image_search_enabled else None
     # "can u show me both" after a shape answer: the intercept lets chemistry draw the
-    # molecules before it asks who "both" is.
-    if found and is_reference_subject(found) and await _chemistry_draws_it(settings, text, rows):
-        found = None
-    photo = dated_lookup_query(found, datetime.now(UTC).year) if found else ""
+    # molecules before a photo lookup or image generation is asked.
+    drawn = await _chemistry_draws_it(settings, text, rows)
+    found = extract_image_lookup_query(text) if settings.image_search_enabled else None
+    photo = dated_lookup_query(found, datetime.now(UTC).year) if found and not drawn else ""
     image_gen = bool(
         not photo
+        and not drawn
         and settings.image_generation_enabled
         and can_use(user, "image_generation", settings)
         # Read with the thread, as the turn's intercept reads it ("Image" after "Dog").

@@ -32,9 +32,11 @@ def _extract_structure(text: str) -> ChemistryIntent | None:
         return ChemistryIntent(
             kind="structure", chemistry_op="oxidation_state", formula=oxidation.group(1)
         )
+    # A charge written apart ("SO3 2-") is an ion this reader cannot see: sulfite is
+    # pyramidal, SO3 planar, so the question declines rather than drop the charge.
     vsepr = re.search(
         rf"\b(?:VSEPR(?: shape)?|(?:molecular |electron )?(?:shape|geometry)) of "
-        rf"(?:(?:an?|the)\s+)?({CHEMICAL_FORMULA}){FORMULA_END}",
+        rf"(?:(?:an?|the)\s+)?({CHEMICAL_FORMULA}){FORMULA_END}(?!\s*\^?\s*\d?\s*[+\-\u2212])",
         text,
         re.IGNORECASE,
     )

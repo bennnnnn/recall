@@ -55,17 +55,27 @@ def _recent(*lines: str) -> list[tuple[str, str]]:
         ("compare the shapes of h2o and co2", ("H2O", "CO2"), "H2O: bent"),
         ("what are the shapes of CH4 and NH3", ("CH4", "NH3"), "NH3: trigonal pyramidal, 107°"),
         ("why is water bent", ("H2O",), "geometry: bent, 104.5°"),
-        ("shape of water", ("H2O",), "geometry: bent"),
+        ("what is the shape of water", ("H2O",), "geometry: bent"),
+        ("shape of h2o", ("H2O",), "geometry: bent"),
+        ("shape of a water molecule", ("H2O",), "geometry: bent"),
         ("what is the shape of a water molecule", ("H2O",), "geometry: bent"),
         ("what shape is ch4", ("CH4",), "geometry: tetrahedral, 109.5°"),
         ("is co2 linear", ("CO2",), "geometry: linear, 180°"),
         ("why is co2 linear", ("CO2",), "geometry: linear"),
-        ("geometry of ammonia", ("NH3",), "geometry: trigonal pyramidal, 107°"),
+        ("molecular geometry of ammonia", ("NH3",), "geometry: trigonal pyramidal, 107°"),
+        ("bond angle in water", ("H2O",), "104.5°"),
         ("bond angle in h2o", ("H2O",), "104.5°"),
         ("is nh3 polar", ("NH3",), "polarity: polar"),
         ("is co2 polar or nonpolar", ("CO2",), "polarity: nonpolar"),
         ("how come water is bent", ("H2O",), "geometry: bent"),
-        ("polarity of water", ("H2O",), "polarity: polar"),
+        ("what is the polarity of water", ("H2O",), "polarity: polar"),
+        ("co2 shape", ("CO2",), "geometry: linear"),
+        ("what are the shapes of water and co2", ("H2O", "CO2"), "H2O: bent"),
+        # Beryllium, aluminium and tin(II) chloride are molecules; only salts decline.
+        ("is BeCl2 linear", ("BeCl2",), "geometry: linear, 180°"),
+        ("what shape is AlCl3", ("AlCl3",), "trigonal planar"),
+        ("is CH2Cl2 polar", ("CH2Cl2",), "polarity: polar"),
+        ("is XeOF4 polar", ("XeOF4",), "polarity: polar"),
         ("Ok so chem hw. why is water bent", ("H2O",), "geometry: bent"),
         ("what is the molecular geometry of BF3", ("BF3",), "trigonal planar, 120°"),
         # A false premise is answered with the verified shape, not agreed with.
@@ -106,12 +116,59 @@ def test_a_shape_question_in_words_is_verified(
         "what shape is lead",
         # A clause the grammar does not know.
         "why is co2 nonpolar if it has polar bonds",
+        # The 2017 film: a word-named substance in a bare noun phrase, or a title.
+        "The Shape of Water",
+        "the shape of water",
+        "Shape of Water?",
+        "ok so the shape of water",
+        "what is The Shape of Water",
+        "is the shape of water a good movie",
+        "who directed the shape of water",
+        "geometry of ammonia",
+        "polarity of water",
+        "water shape",
+        "the shapes of water and co2",
     ],
 )
 def test_shapes_in_everyday_words_are_not_a_vsepr_question(text: str) -> None:
     assert shape_question(text) is None
     assert extract_chemistry_intent(text) is None
     assert not is_chemistry_question(text)
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # Salts are ionic lattices, not linear molecules (review, 2026-10-25).
+        "is calcium chloride polar",
+        "what shape is CaCl2",
+        "shape of CaCl2",
+        "is MgCl2 linear",
+        "what shape is BaCl2",
+        "what shape is CaF2",
+        "shape of magnesium chloride",
+        "shape of strontium chloride",
+        "is calcium fluoride linear",
+        "is BeF2 linear",
+        "what shape is AlF3",
+        # Network solids: no O=Si=O molecule.
+        "what shape is SiO2",
+        "shape of SiO2",
+        "is SnO2 linear",
+        # Polarity that depends on where unlike atoms sit.
+        "is PCl3F2 polar",
+        "is SF4Cl2 polar",
+        "is XeF2Cl2 polar",
+        "shape of PCl2F3",
+        # A charge written apart is an ion this reader cannot see: sulfite is pyramidal.
+        "shape of SO3 2-",
+        "what shape is so3 2-",
+        "is SO3 2- polar",
+        "why is water bent tho, so3 2- isnt",
+    ],
+)
+def test_a_shape_no_single_answer_fits_declines(question: str) -> None:
+    assert _answer(question) is None
 
 
 def test_geometry_homework_stays_maths() -> None:
@@ -156,6 +213,16 @@ def test_a_comparison_needs_two_different_molecules_with_a_center(formula: str) 
         (("why is water bent",), "show me"),
         (("why is water bent",), "what do they look like"),
         (("why is water bent",), "can you draw both molecules pls"),
+        ((*_LIVE, "Can u show me both"), "show me both of them"),
+        (_LIVE, "show me what they look like"),
+        (_LIVE, "show me each of them"),
+        (_LIVE, "show me the shapes"),
+        (_LIVE, "show me the models"),
+        (_LIVE, "show us both"),
+        (_LIVE, "show me both then"),
+        (_LIVE, "show me the drawings"),
+        (_LIVE, "draw both"),
+        (_LIVE, "draw both of them"),
     ],
 )
 def test_a_line_that_asks_to_see_them_draws_the_shape_question_again(
@@ -175,6 +242,10 @@ def test_a_line_that_asks_to_see_them_draws_the_shape_question_again(
         (("why is water bent", "what is the capital of france"), "show me both"),
         (("why is water bent",), "show me both crocodiles"),
         (("why is water bent",), "draw a cat"),
+        (_LIVE, "show me a photo of both"),
+        (_LIVE, "show me a picture of the real ones"),
+        (_LIVE, "show me a waterfall"),
+        (_LIVE, "ok i see"),
     ],
 )
 def test_a_show_line_after_anything_else_is_not_chemistrys(
@@ -195,6 +266,18 @@ def test_a_show_line_after_anything_else_is_not_chemistrys(
         ("show me the steps", False),
         ("draw a cat", False),
         ("no thanks", False),
+        ("show me both of them", True),
+        ("show me what they look like", True),
+        ("show us both", True),
+        ("draw both of them", True),
+        ("can i see them", True),
+        ("show me a photo of both", False),
+        ("show me an image of both", False),
+        ("show me the real ones", False),
+        ("show me how", False),
+        ("ok i see", False),
+        ("i see them", False),
+        ("show me her", False),
     ],
 )
 def test_the_show_grammar_reads_the_whole_line(line: str, shows: bool) -> None:
