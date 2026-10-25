@@ -9,7 +9,8 @@ language.
 
 No note when the message has no language of its own ("ok", "17:00", code): the chat's
 language holds. None when their custom instructions name a language, or when they asked
-in this chat for one ("reply in Spanish from now on"): that choice is theirs.
+in this chat for one ("reply in Spanish from now on"): that choice is theirs. The note is
+one of ``message_notes``, nearest the user's turn.
 """
 
 from __future__ import annotations
@@ -60,7 +61,7 @@ def reply_language_hint(
     query: str, prior: Sequence[tuple[str, str]], custom_instructions: str | None
 ) -> str | None:
     """'Write this reply in English…' for a message in a language, unless they chose one."""
-    if custom_instructions and _NAME_IN_INSTRUCTIONS.search(custom_instructions):
+    if isinstance(custom_instructions, str) and _NAME_IN_INSTRUCTIONS.search(custom_instructions):
         return None
     if any(role == "user" and _ASKS_FOR_LANGUAGE.search(text) for role, text in prior):
         return None

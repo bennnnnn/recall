@@ -354,6 +354,9 @@ CONTEXT_SECTIONS: tuple[PromptSection, ...] = (
     ),
     PromptSection(lambda t: t.followup == "chemistry", lambda _t: [CHEMISTRY_FOLLOWUP_HINT]),
     PromptSection(lambda t: t.followup == "physics", lambda _t: [PHYSICS_FOLLOWUP_HINT]),
+    PromptSection(
+        _always, lambda t: message_notes(t.query, t.exchange, t.user.custom_instructions)
+    ),
     # Keep the acknowledgement contract closest to the user turn. Memory and
     # integration context is appended after the style pack and can otherwise
     # tempt the model into an unsolicited plan even though no task was asked.
@@ -365,7 +368,6 @@ CONTEXT_SECTIONS: tuple[PromptSection, ...] = (
         ),
         lambda _t: [PERSONAL_DISCLOSURE_HINT],
     ),
-    PromptSection(_always, lambda t: message_notes(t.query, t.exchange)),
 )
 
 
