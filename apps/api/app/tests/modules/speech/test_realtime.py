@@ -338,6 +338,7 @@ def test_persist_rejects_chat_id_that_is_not_bound_to_the_session():
             },
         )
     assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "live_talk_session_ended"
     persist.assert_not_awaited()
 
 

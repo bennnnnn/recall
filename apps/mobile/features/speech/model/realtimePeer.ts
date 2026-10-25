@@ -183,7 +183,10 @@ function enableRemoteAudioTrack(track: WebRtcTrack | null | undefined): void {
   }
 }
 
-/** Hands the mic from expo-audio to WebRTC; throws webrtc_unavailable without an audio track. */
+/**
+ * Hands the mic from expo-audio to WebRTC; throws microphone_unavailable without an audio
+ * track. That is the device (the mic in use or missing), not an app without WebRTC.
+ */
 export async function openRealtimeMicrophone(
   webrtc: NativeWebRtc,
   audio: object,
@@ -195,7 +198,7 @@ export async function openRealtimeMicrophone(
   if (audioTracks.length === 0) {
     for (const track of stream.getTracks()) track.stop();
     releaseStream(stream);
-    throw new Error("webrtc_unavailable");
+    throw new Error("microphone_unavailable");
   }
   debugRealtime("microphone-ready", {
     tracks: audioTracks.length,

@@ -12,7 +12,11 @@ import { CONSENT_REQUIRED_CODE } from "@/lib/api/consentRefusal";
 import { scanFailureMessage } from "@/lib/scanner/scanReadError";
 import { refusalCode, resolveChatError } from "@/features/chat/model/errorMessage";
 import { memoryFailure, memoryFailureKey } from "@/features/memory/model/memoryFailure";
-import { liveTalkErrorGate, liveTalkGateMessageKey } from "@/features/speech/model/liveTalkLogic";
+import {
+  liveTalkErrorGate,
+  liveTalkGateMessageKey,
+  liveTalkSaveEndsCall,
+} from "@/features/speech/model/liveTalkLogic";
 import { voiceRefusalKey } from "@/features/speech/model/voiceRefusal";
 
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "http://test.local" }));
@@ -134,6 +138,14 @@ it.each([
   expect(liveTalkGateMessageKey(liveTalkErrorGate(refused(name)))).toBe(words);
 });
 
+// Every 403 opened the paywall, consent_required too, on top of the consent step.
+it.each([
+  ["live_talk_not_in_plan", "upgrade"],
+  ["live_talk_consent_required", "consent"],
+])("sends a refused live talk 403 by its code: %s", (name, gate) => {
+  expect(liveTalkErrorGate(refused(name))).toBe(gate);
+});
+
 // Every 429 said "You've used this month's live talk minutes": a rate limit, the spend
 // cap and a call's last save too.
 it.each([
@@ -146,6 +158,16 @@ it.each([
 ])("words a refused live talk 429 by its code: %s", (name, gate, words) => {
   expect(liveTalkErrorGate(refused(name))).toBe(gate);
   expect(liveTalkGateMessageKey(liveTalkErrorGate(refused(name)))).toBe(words);
+});
+
+// A save the plan or the session no longer allowed showed the server's English and kept
+// the call open.
+it.each([
+  ["live_talk_save_not_in_plan", "upgrade"],
+  ["live_talk_session_ended", "session_ended"],
+])("ends the call on a save refused by its code: %s", (name, gate) => {
+  expect(liveTalkErrorGate(refused(name))).toBe(gate);
+  expect(liveTalkSaveEndsCall(liveTalkErrorGate(refused(name)))).toBe(true);
 });
 
 it.each([

@@ -175,16 +175,24 @@ _LIVE_TALK_ON = Settings(
 )
 
 
-def _live_talk(path: str, *, settings: Settings | None = None, **refused: bool) -> Any:
-    """POST a live talk route for a Pro user, refused where ``refused`` says.
+def _live_talk(
+    path: str,
+    *,
+    settings: Settings | None = None,
+    plan: str = "pro",
+    consented: bool = True,
+    **refused: bool,
+) -> Any:
+    """POST a live talk route for a user on ``plan``, refused where ``refused`` says.
 
     ``rate_limited``: the route's own per-minute limit is used up; ``spend_capped``: the
     voice spend breaker is open; ``minutes_used``: the month has no session left;
     ``mint_failed``: the realtime provider minted no key; ``saves_used``: the call saved
-    every turn it may. A save names this chat's session.
+    every turn it may; ``session_ended``: the save names no live session. A save names
+    this chat's session.
     """
-    user = _user()
-    user.plan = "pro"
+    user = _user(consented=consented)
+    user.plan = plan
     user.tts_voice = None
     user.custom_instructions = None
     chat_id = uuid4()
@@ -201,7 +209,7 @@ def _live_talk(path: str, *, settings: Settings | None = None, **refused: bool) 
         ),
         patch(
             "app.modules.speech.realtime.live_talk_service.realtime_session_bound_chat_id",
-            AsyncMock(return_value=chat_id),
+            AsyncMock(return_value=None if refused.get("session_ended") else chat_id),
         ),
         patch("app.modules.speech.gates.allow_request_unless_down", allowed),
         patch("app.modules.speech.realtime.allow_request_unless_down", allowed),
@@ -424,11 +432,17 @@ def _bodies() -> dict[str, dict[str, Any]]:
                 "/speech/live/session", settings=Settings(speech_realtime_voice_enabled=False)
             )
         ),
+        # The paywall opens for this code only; consent opens the consent step instead.
+        "live_talk_not_in_plan": _refusal(_live_talk("/speech/live/session", plan="free")),
+        "live_talk_consent_required": _refusal(_live_talk("/speech/live/session", consented=False)),
         "live_talk_save_rate_limited": _refusal(
             _live_talk("/speech/live/persist", rate_limited=True)
         ),
         "live_talk_save_spend_cap": _refusal(_live_talk("/speech/live/persist", spend_capped=True)),
         "live_talk_saves_used": _refusal(_live_talk("/speech/live/persist", saves_used=True)),
+        # A save the plan or the session no longer allows ends the call.
+        "live_talk_save_not_in_plan": _refusal(_live_talk("/speech/live/persist", plan="free")),
+        "live_talk_session_ended": _refusal(_live_talk("/speech/live/persist", session_ended=True)),
         "memory_spend_cap": _refusal(_memory_instruct(spend_capped=True)),
         "memory_busy": _refusal(_memory_instruct()),
         "image_daily_limit": _refusal(_generate("daily_limit")),

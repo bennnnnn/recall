@@ -1,6 +1,7 @@
 import {
   LIVE_TALK_CONNECT_WARMUP_MS,
   LIVE_TALK_PLAYBACK_TAIL_MS,
+  liveTalkCallErrorKey,
   liveTalkErrorGate,
   liveTalkGateMessageKey,
   liveTalkGate,
@@ -20,6 +21,7 @@ import {
   isLikelyAssistantEcho,
   LIVE_TALK_MAX_SESSION_MS,
   liveTalkSaveEndsCall,
+  liveTalkSaveFailedKey,
   liveTalkSessionLimitMs,
   type LiveTalkStatus,
 } from "@/features/speech/model/liveTalkLogic";
@@ -118,8 +120,14 @@ describe("liveTalkDataChannelText", () => {
 });
 
 describe("liveTalkErrorGate", () => {
-  it("maps 403 to upgrade", () => {
-    expect(liveTalkErrorGate({ status: 403 })).toBe("upgrade");
+  // Every 403 opened the paywall: consent_required too, on top of the consent step.
+  it.each([
+    [{ status: 403, code: "not_in_plan" }, "upgrade"],
+    [{ status: 403, code: "consent_required" }, "consent"],
+    [{ status: 403, code: "forbidden" }, "connect_failed"],
+    [{ status: 403 }, "connect_failed"],
+  ])("keys a 403 on its code: %j", (error, gate) => {
+    expect(liveTalkErrorGate(error)).toBe(gate);
   });
 
   // Every 429 said "You've used this month's live talk minutes": a rate limit, the
@@ -157,6 +165,12 @@ describe("liveTalkErrorGate", () => {
     expect(liveTalkErrorGate(new Error("webrtc_unavailable"))).toBe("unavailable");
   });
 
+  // A microphone that gave no audio said "update the app".
+  it("maps a microphone with no audio to its own gate and line", () => {
+    expect(liveTalkErrorGate(new Error("microphone_unavailable"))).toBe("mic_unavailable");
+    expect(liveTalkGateMessageKey("mic_unavailable")).toBe("chat.live_talk_mic_unavailable");
+  });
+
   it("maps a missing Realtime server key to unconfigured only when the server says so", () => {
     expect(liveTalkErrorGate({ status: 503, code: "not_configured" })).toBe("unconfigured");
   });
@@ -186,10 +200,34 @@ describe("liveTalkErrorGate", () => {
     expect(liveTalkGateMessageKey(gate)).toBe(key);
   });
 
-  it("ends the call on a refused save's 429, and only then", () => {
-    const ends = (["limit", "rate_limited", "paused", "saves_used", "outage", "upgrade", "unavailable", "connect_failed"] as const)
-      .filter(liveTalkSaveEndsCall);
-    expect(ends).toEqual(["limit", "rate_limited", "paused", "saves_used"]);
+  // A save the plan or the session no longer allowed left the call open: the provider ran
+  // on until the reserved minutes did, and nothing more saved.
+  it("ends the call on a refused save's 429, or one the plan, session or server no longer allows", () => {
+    const gates = ["limit", "rate_limited", "paused", "saves_used", "upgrade", "consent", "session_ended", "off",
+      "outage", "unavailable", "connect_failed", "unconfigured"] as const;
+    expect(gates.filter(liveTalkSaveEndsCall)).toEqual(
+      ["limit", "rate_limited", "paused", "saves_used", "upgrade", "consent", "session_ended", "off"],
+    );
+  });
+
+  it("keys a save that names no live session on its code", () => {
+    expect(liveTalkErrorGate({ status: 403, code: "live_talk_session_ended" })).toBe("session_ended");
+    expect(liveTalkGateMessageKey("session_ended")).toBe("chat.live_talk_session_ended");
+  });
+
+  // Both showed the provider's English ("Realtime voice data channel failed").
+  it("words an error during a call: a lost connection, or this reply", () => {
+    expect(liveTalkCallErrorKey(true)).toBe("chat.live_talk_connect_failed");
+    expect(liveTalkCallErrorKey(false)).toBe("chat.error_generic");
+    expect(liveTalkCallErrorKey(undefined)).toBe("chat.error_generic");
+  });
+
+  // Any other refused save showed the server's English ("Chat not found").
+  it.each([
+    ["connect_failed", "chat.live_talk_save_failed"],
+    ["outage", "common.service_unavailable"],
+  ] as const)("words a refused save that keeps the call: %s", (gate, key) => {
+    expect(liveTalkSaveFailedKey(gate)).toBe(key);
   });
 
   // F8.8: a denied microphone said "Live talk needs a dev build", which is false
@@ -203,9 +241,9 @@ describe("liveTalkErrorGate", () => {
   });
 
   it("never reads an API refusal as a microphone denial", () => {
-    expect(liveTalkErrorGate({ status: 403, message: "Live talk is not allowed on your plan" })).toBe(
-      "upgrade",
-    );
+    expect(
+      liveTalkErrorGate({ status: 403, code: "not_in_plan", message: "Live talk is not allowed on your plan" }),
+    ).toBe("upgrade");
   });
 });
 
