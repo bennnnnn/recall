@@ -298,7 +298,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
         >
           <Text style={s.legalLink}>{t("terms.title")}</Text>
         </Pressable>
-        <Text style={s.legalSeparator}>·</Text>
+        <Text style={s.legalSeparator} accessibilityElementsHidden importantForAccessibility="no">·</Text>
         <Pressable
           onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
           accessibilityRole="link"

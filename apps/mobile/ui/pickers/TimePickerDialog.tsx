@@ -228,7 +228,7 @@ export function TimePickerDialog({
       <View style={s.readout}>
         {readoutBox("hour")}
         <View style={s.colonBox}>
-          <Text style={[s.colon, typing && s.colonTyping]}>:</Text>
+          <Text style={[s.colon, typing && s.colonTyping]} accessibilityElementsHidden importantForAccessibility="no">:</Text>
         </View>
         {readoutBox("minute")}
         {is24Hour ? null : (

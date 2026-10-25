@@ -204,7 +204,7 @@ export default function LoginScreen() {
             >
               <Text style={[s.link, s.linkPressable]}>{t("login.terms")}</Text>
             </Pressable>
-            <Text style={s.dot}>·</Text>
+            <Text style={s.dot} accessibilityElementsHidden importantForAccessibility="no">·</Text>
             <Pressable
               onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
               accessibilityRole="link"

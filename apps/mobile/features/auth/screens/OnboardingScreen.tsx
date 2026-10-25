@@ -66,7 +66,7 @@ export default function Onboarding() {
       <AuthScrollLayout justify="center">
         <View style={s.hero}>
           <View style={s.badge}>
-            <Text style={s.badgeStar}>✦</Text>
+            <Text style={s.badgeStar} accessibilityElementsHidden importantForAccessibility="no">✦</Text>
           </View>
           <Text style={s.title} accessibilityRole="header">{t("onboarding.welcome")}</Text>
           <Text style={s.subtitle}>{t("onboarding.subtitle")}</Text>
