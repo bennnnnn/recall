@@ -71,6 +71,17 @@ def reply_tools(settings: Settings, turn: ReplyTurn) -> list[dict[str, Any]]:
     earlier = turn if len(parts) == 1 else None
     if all(_nothing_to_look_up(part, earlier) for part in parts):
         return []
+    return web_search_tool(settings)
+
+
+def web_search_tool(settings: Settings) -> list[dict[str, Any]]:
+    """``web_search`` as the reply's call carries it, while its switches are on."""
+    if not (
+        settings.mcp_tool_loop_enabled
+        and settings.reply_search_tool_enabled
+        and settings.web_search_enabled
+    ):
+        return []
     adapter = mcp_registry.get(REPLY_TOOL)
     to_tool = getattr(adapter, "to_openai_tool", None)
     return [to_tool()] if callable(to_tool) else []

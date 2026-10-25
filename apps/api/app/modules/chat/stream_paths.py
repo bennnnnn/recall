@@ -213,6 +213,8 @@ async def run_tool_loop_path(
         if not gate.needs_loop(settings, ctx.user, web_search=web_search_flag):
             prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
             ctx.reply_tools = gate.reply_tools(settings, prompt)
+            if not (ctx.reply_tools or gate.has_search_sources or gate.has_instant_reply):
+                ctx.denial_retry_tools = reply_calls.web_search_tool(settings)
             return
     rounds = await tool_loop.run_tool_rounds(
         settings=settings,
@@ -297,7 +299,7 @@ async def run_llm_token_stream(
         # here includes gateway routing/retries, not only upstream inference.
         ctx.timing.mark_phase("gateway_request_start")
     reply_round = _ReplyRound(tools=list(ctx.reply_tools))
-    first_round = True
+    retry_tools = list(ctx.denial_retry_tools)
     try:
         while True:
             written, shown_from = len(accum.parts), len(accum.shown)
@@ -318,18 +320,13 @@ async def run_llm_token_stream(
                     yield visible
             if resolved := reply_round.meta.get("model_alias"):
                 ctx.model = resolved
-            # "I can't check live scores" with search on: search, and answer again.
-            denied = None
-            if first_round and not (reply_round.calls or accum.was_cancelled):
-                denied = await live_denial.search_instead(
-                    settings, ctx, "".join(accum.parts[written:])
-                )
-            if denied is not None:
-                del accum.parts[written:], accum.shown[shown_from:]
-                reply_round.calls = [denied]
-            first_round = False
+            # "I can't check live scores" with no tool offered: ask again, offering search.
+            if retry_tools and live_denial.asks_again(ctx, reply_round.calls, accum, written):
+                accum.retract(written, shown_from)
+                reply_round, retry_tools = _ReplyRound(tools=retry_tools, lead="\n\n"), []
+                continue
             # Only a call that carried tools leads to another: one search a turn.
-            if not ((reply_round.tools or denied) and reply_round.calls) or accum.was_cancelled:
+            if not (reply_round.tools and reply_round.calls) or accum.was_cancelled:
                 break
             text_before = "".join(accum.parts[written:])
             await _answer_reply_calls(
@@ -344,8 +341,7 @@ async def run_llm_token_stream(
             if should_cancel and should_cancel():
                 accum.mark_user_stop()
                 break
-            lead = "\n\n" if text_before.strip() or denied is not None else ""
-            reply_round = _ReplyRound(tools=[], lead=lead)
+            reply_round = _ReplyRound(tools=[], lead="\n\n" if text_before.strip() else "")
         if not accum.was_cancelled and (tail := scaffold.flush()):
             accum.shown.append(tail)
             yield tail
@@ -360,6 +356,7 @@ async def run_llm_token_stream(
         accum.mark_user_stop()
         raise
     finally:
+        accum.restore_retracted()
         model = reply_round.meta.get("model_alias") or ctx.model
         await health.record(redis, model, stopped=accum.was_cancelled)
     if outcome is not None and ctx.model != requested_model:

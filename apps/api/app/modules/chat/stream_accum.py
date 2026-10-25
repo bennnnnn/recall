@@ -36,6 +36,23 @@ class StreamAccum:
     shown: list[str] = field(default_factory=list)
     was_cancelled: bool = False
     completion: Completion = "complete"
+    # A first answer taken back to ask again with search (``tool_loop.live_denial``).
+    # The phone drew it, so ``done`` carries the reply that replaces it, and a turn
+    # that ends with nothing in its place keeps it.
+    retracted: str = ""
+    retracted_parts: str = ""
+
+    def retract(self, parts_from: int, shown_from: int) -> None:
+        self.retracted = "".join(self.shown[shown_from:])
+        self.retracted_parts = "".join(self.parts[parts_from:])
+        del self.parts[parts_from:], self.shown[shown_from:]
+
+    def restore_retracted(self) -> None:
+        """A stop or a failure left nothing in the retracted answer's place: it stays."""
+        if self.retracted and not "".join(self.shown).strip():
+            self.parts.append(self.retracted_parts)
+            self.shown.append(self.retracted)
+            self.retracted = self.retracted_parts = ""
 
     def mark_user_stop(self) -> None:
         self.was_cancelled = True
@@ -62,5 +79,7 @@ class StreamAccum:
         client says it drew; tokens still in flight then were never seen."""
         shown = "".join(self.shown)
         if self.completion == "user_stop" and client_shown_chars is not None:
-            shown = utf16_prefix(shown, client_shown_chars)
+            # The client counted the retracted answer it drew before this one.
+            drawn = client_shown_chars - len(self.retracted.encode(_UTF16)) // 2
+            shown = utf16_prefix(shown, max(0, drawn))
         return shown.strip()
