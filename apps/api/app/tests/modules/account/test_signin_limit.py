@@ -265,9 +265,10 @@ def test_the_identity_key_is_an_hmac_per_provider_and_secret() -> None:
     assert key.rsplit(":", 1)[1] not in carry
 
 
-def test_the_limits_are_looser_than_the_old_and_global_ones_and_under_refresh() -> None:
+def test_the_limits_are_looser_than_the_old_and_global_ones_and_match_refresh() -> None:
     assert signin_limit.PER_IP_LIMIT > _GLOBAL_LIMIT > 30
     assert signin_limit.PER_IDENTITY_LIMIT < signin_limit.PER_IP_LIMIT
-    # A sign-in costs more than a refresh (a token verify on sign-in's two threads).
-    assert signin_limit.PER_IP_LIMIT < refresh_limit.PER_IP_LIMIT
+    # With provider keys kept per process a verify is cheap: the address backstop is
+    # refresh's (it was half that while each Google verify fetched Google's certs).
+    assert signin_limit.PER_IP_LIMIT == refresh_limit.PER_IP_LIMIT == 600
     assert signin_limit.DEV_PER_IP_LIMIT == 30

@@ -12,7 +12,7 @@ import { CONSENT_REQUIRED_CODE } from "@/lib/api/consentRefusal";
 import { scanFailureMessage } from "@/lib/scanner/scanReadError";
 import { refusalCode, resolveChatError } from "@/features/chat/model/errorMessage";
 import { memoryFailure, memoryFailureKey } from "@/features/memory/model/memoryFailure";
-import { liveTalkErrorGate } from "@/features/speech/model/liveTalkLogic";
+import { liveTalkErrorGate, liveTalkGateMessageKey } from "@/features/speech/model/liveTalkLogic";
 import { voiceRefusalKey } from "@/features/speech/model/voiceRefusal";
 
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "http://test.local" }));
@@ -116,6 +116,29 @@ it.each([
   ["live_talk_not_configured", "unconfigured"],
 ])("gates live talk on a refused 503: %s", (name, gate) => {
   expect(liveTalkErrorGate(refused(name))).toBe(gate);
+});
+
+// Both said "Live talk isn't available in this version of the app. Update the app".
+it.each([
+  ["live_talk_upstream_failed", "connect_failed", "chat.live_talk_connect_failed"],
+  ["live_talk_not_available", "off", "chat.live_talk_off"],
+])("words a live talk start the app's age has nothing to do with: %s", (name, gate, words) => {
+  expect(liveTalkErrorGate(refused(name))).toBe(gate);
+  expect(liveTalkGateMessageKey(liveTalkErrorGate(refused(name)))).toBe(words);
+});
+
+// Every 429 said "You've used this month's live talk minutes": a rate limit, the spend
+// cap and a call's last save too.
+it.each([
+  ["live_talk_minutes_used", "limit", "chat.live_talk_limit_body"],
+  ["live_talk_rate_limited", "rate_limited", "chat.live_talk_rate_limited"],
+  ["live_talk_spend_cap", "paused", "chat.live_talk_paused"],
+  ["live_talk_save_rate_limited", "rate_limited", "chat.live_talk_rate_limited"],
+  ["live_talk_save_spend_cap", "paused", "chat.live_talk_paused"],
+  ["live_talk_saves_used", "saves_used", "chat.live_talk_saves_used"],
+])("words a refused live talk 429 by its code: %s", (name, gate, words) => {
+  expect(liveTalkErrorGate(refused(name))).toBe(gate);
+  expect(liveTalkGateMessageKey(liveTalkErrorGate(refused(name)))).toBe(words);
 });
 
 it.each([
