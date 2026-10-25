@@ -1009,6 +1009,7 @@
   "todos.new_todo": "New to-do",
   "todos.overdue_days": "{{count}}d overdue",
   "todos.overdue_today": "Overdue today",
+  "todos.row_overdue": "overdue",
   "todos.day_clash_many": "{{names}} are all at {{time}}",
   "todos.day_clash_pair": "{{first}} and {{second}} are both at {{time}}",
   "todos.overlap_inline": "Same time as \"{{title}}\"",

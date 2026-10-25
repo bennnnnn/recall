@@ -1028,6 +1028,7 @@
   "todos.error_toggle": "Не удалось обновить",
   "todos.overdue_days": "{{count}}д просрочено",
   "todos.overdue_today": "Просрочено сегодня",
+  "todos.row_overdue": "просрочена",
   "todos.day_clash_many": "{{names}} все в {{time}}",
   "todos.day_clash_pair": "{{first}} и {{second}} оба в {{time}}",
   "todos.overlap_inline": "В то же время, что и «{{title}}»",
