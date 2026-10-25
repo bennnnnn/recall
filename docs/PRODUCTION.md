@@ -544,10 +544,11 @@ background, and runs the new code from the next launch.
 
 - [ ] `SENTRY_DSN` on the API; mobile: `EXPO_PUBLIC_SENTRY_DSN` plus the upload
       variables in [§5](#5-mobile-eas)
-- [ ] External uptime on the API's `/health/ready`. It answers 200 with
-      `"redis": "degraded"` when Redis is down (so a Redis blip does not drain
-      Fly's routing); alert on `degraded` too, since sign-in, chat and quota
-      need Redis. `scripts/qa-smoke.sh --live` fails on it.
+- [ ] External uptime on the API's `/health/dependencies`, alerting on anything
+      but 200. It answers 503 when Postgres or Redis is down, which sign-in, chat
+      and quota all need. (`/health/ready`, Fly's routing check, answers 200 with
+      `"redis": "degraded"` on purpose so a Redis blip does not drain the fleet.)
+      `scripts/qa-smoke.sh --live` checks both.
 - [ ] Alert on the worker's `worker-health` check (Fly metrics / Grafana). A
       failing check never restarts a Machine; the worker exits by itself (and
       `[[restart]]` brings it back) only when its jobs loop or a scheduler dies.

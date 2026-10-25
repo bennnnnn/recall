@@ -96,8 +96,8 @@ jobs:
         run: flyctl deploy --app "$FLY_APP" --remote-only --image-label "git-$GITHUB_SHA"
 
       - name: Smoke check the new release
-        # Readiness must report Redis ok, not degraded (Fly's own check
-        # tolerates degraded on purpose).
+        # Postgres and Redis must both answer (/health/dependencies); Fly's own
+        # readiness check tolerates Redis down on purpose.
         env:
           API_URL: https://${{ env.FLY_APP }}.fly.dev
         run: ./scripts/qa-smoke.sh --live-only
