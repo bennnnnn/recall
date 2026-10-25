@@ -11,7 +11,11 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.chat.turn_outcome import TurnOutcome
-from app.modules.images.lookup_intent import extract_image_lookup_query, is_reference_subject
+from app.modules.images.lookup_intent import (
+    extract_image_lookup_query,
+    is_reference_subject,
+    photo_subject,
+)
 from app.tests.fakes import make_user
 from app.tests.modules.chat.chat_test_support import turn_deps
 
@@ -73,13 +77,45 @@ def test_lookup_leaves_app_content_alone(text: str) -> None:
         ("she", True),
         ("it at night", True),
         ("another one", True),
+        # A count with nothing counted names no one either.
+        ("both", True),
+        ("Both of them", True),
+        ("all of them", True),
+        ("other two", True),
+        ("others", True),
+        ("each one", True),
+        ("either one", True),
+        ("all three", True),
         ("Jeanne Calment", False),
         ("ear", False),
         ("Eiffel Tower", False),
+        # A count with a noun names what to search.
+        ("both sides of the coin", False),
+        ("all the planets", False),
+        ("both crocodiles", False),
+        ("two cats", False),
+        ("other side of the moon", False),
     ],
 )
 def test_is_reference_subject(subject: str, expected: bool) -> None:
     assert is_reference_subject(subject) is expected
+
+
+@pytest.mark.parametrize(
+    "text, subject",
+    [
+        ("crocodile and alligator", "crocodile and alligator"),
+        ("Jeanne Calment", "Jeanne Calment"),
+        # The app draws these; they are no photo search.
+        ("water and carbon dioxide molecules", None),
+        ("structure of caffeine", None),
+        ("the graph of y = x^2", None),
+    ],
+)
+def test_photo_subject_holds_a_resolved_subject_to_the_typed_rules(
+    text: str, subject: str | None
+) -> None:
+    assert photo_subject(text) == subject
 
 
 def _found(asst_id) -> AsyncMock:
@@ -351,3 +387,56 @@ async def test_a_photo_or_picture_on_the_chat_path_says_so_before_it_runs(
 
     assert handled is True
     assert len(order) == 2 and order[0].startswith(f"{phase}: ") and order[1] == kind
+
+
+_MOLECULE_ROWS = [
+    SimpleNamespace(id=uuid4(), role="user", content="why is water bent tho, co2 isnt"),
+    SimpleNamespace(
+        id=uuid4(),
+        role="assistant",
+        content="Water has two lone pairs on oxygen, so it is bent; CO2 has none, so it is linear.",
+        model="free-chat",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "resolved, query",
+    [
+        # "can u show me both" searched the word "both" and showed a meme (2026-10-25).
+        ("water and carbon dioxide molecules", None),
+        (None, None),
+        ("crocodile and alligator", "crocodile and alligator"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_show_me_both_reads_both_from_the_chat(
+    resolved: str | None, query: str | None
+) -> None:
+    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
+
+    user = make_user()
+    search_and_attach = _found(uuid4())
+    resolve = AsyncMock(return_value=resolved)
+
+    deps = turn_deps(
+        image_search={"search_and_attach_for_chat": search_and_attach},
+        references={"resolve_reference": resolve},
+    )
+    handled = await try_image_lookup_for_turn(
+        deps,
+        Settings(image_search_enabled=True),
+        user=user,
+        chat_id=uuid4(),
+        content="can u show me both",
+        outcome=TurnOutcome(),
+        create_user_message=True,
+        recent_messages=list(_MOLECULE_ROWS),
+    )
+
+    assert _awaited(resolve).kwargs["request"] == "can u show me both"
+    assert handled is (query is not None)
+    if query is None:
+        search_and_attach.assert_not_awaited()
+    else:
+        assert _awaited(search_and_attach).kwargs["query"] == query
