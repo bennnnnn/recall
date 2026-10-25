@@ -28,6 +28,7 @@ from app.modules.images.lookup_intent_words import (
     DUAL_USE_WORDS,
     LOOKUP_NON_IMAGE_WORDS,
 )
+from app.modules.images.unnamed_subjects import is_count_only
 from app.services.text_normalize import fold_token
 
 _ARTICLES = frozenset({"a", "an", "the"})
@@ -149,39 +150,40 @@ def _reference_subject(tokens: list[str]) -> str | None:
     return None
 
 
-# A count with nothing counted ("both", "all of them", "the other two") also names no one.
-# "can u show me both" after water and carbon dioxide searched the word "both" and showed
-# a "Both is good" meme (2026-10-25). Only a subject made entirely of these words counts:
-# "both sides of a coin" and "all the planets" still name what to search.
-_COUNT_ONLY_WORDS = frozenset(
-    {
-        "both",
-        "all",
-        "each",
-        "either",
-        "neither",
-        "two",
-        "three",
-        "four",
-        "other",
-        "others",
-        "one",
-        "ones",
-        "of",
-        "the",
-        "them",
-        "those",
-        "these",
-    }
-)
-
-
 def is_reference_subject(subject: str) -> bool:
     """True when the subject names no one ("she", "it at night", "another one", "both")."""
-    words = [fold_token(word) for word in subject.split()]
+    words = subject.split()
     if not words:
         return False
-    return words[0] in _REFERENCE_HEADS or all(word in _COUNT_ONLY_WORDS for word in words)
+    return fold_token(words[0]) in _REFERENCE_HEADS or is_count_only(subject)
+
+
+# What Recall draws rather than photographs. "can u show me both" after water and carbon
+# dioxide was read as "water and carbon dioxide molecules"; the chemistry card draws those,
+# and a stock photo of a ball-and-stick model is no answer. Only these words count, so a
+# resolved name like "Times Square at night" or "Queen Elizabeth I" is still searched.
+_DRAWN_WORDS = frozenset(
+    {
+        "molecule",
+        "molecules",
+        "molecular",
+        "formula",
+        "formulas",
+        "formulae",
+        "equation",
+        "equations",
+        "graph",
+        "graphs",
+    }
+)
+_MATHS_MARKS = ("=", "^", "\u00d7", "\u00f7", "\\")
+
+
+def names_a_drawing(subject: str) -> bool:
+    """True when *subject* is a molecule, formula, equation or graph: no photo search."""
+    if any(mark in subject for mark in _MATHS_MARKS):
+        return True
+    return any(fold_token(word) in _DRAWN_WORDS for word in subject.split())
 
 
 # "Show the vertex" after a graph asks for a feature of the graph the app draws, not a
@@ -236,15 +238,6 @@ def _names_graph_features(folded: list[str]) -> bool:
     return any(w in _GRAPH_FEATURES for w in folded) and all(
         w in _GRAPH_FEATURES or w in _GRAPH_FEATURE_FILLER for w in folded
     )
-
-
-def photo_subject(text: str) -> str | None:
-    """*text* as a photo subject, held to the rules a typed one meets; None if it fails.
-
-    The chat resolver reads "both" as "water and carbon dioxide molecules"; the app draws
-    molecules, so that is no photo search.
-    """
-    return _clean_subject(text)
 
 
 def _clean_subject(raw: str) -> str | None:

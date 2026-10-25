@@ -18,6 +18,7 @@ from app.core.config import Settings
 from app.gateways.mcp.base import ToolContext, ToolResult
 from app.models.schemas.tools import ImageSearchToolInput
 from app.modules.images import search as image_search_service
+from app.modules.images.lookup_intent import names_a_drawing
 from app.modules.images.tool_result import terminal_image_result
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,14 @@ class ImageSearchAdapter:
         query = str(args.get("query") or "").strip()
         if not query:
             return ToolResult(name=self.name, content="Missing query.")
+        if names_a_drawing(query):
+            return ToolResult(
+                name=self.name,
+                content=(
+                    "No photo search for molecules, formulas, equations or graphs: Recall "
+                    "draws those. Answer in your reply instead."
+                ),
+            )
 
         user = ctx.user
         chat_id = ctx.chat_id

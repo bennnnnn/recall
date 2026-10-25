@@ -14,7 +14,7 @@ from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.images.lookup_intent import (
     extract_image_lookup_query,
     is_reference_subject,
-    photo_subject,
+    names_a_drawing,
 )
 from app.tests.fakes import make_user
 from app.tests.modules.chat.chat_test_support import turn_deps
@@ -86,6 +86,17 @@ def test_lookup_leaves_app_content_alone(text: str) -> None:
         ("each one", True),
         ("either one", True),
         ("all three", True),
+        # Fillers and how-to-show tails do not name anything either.
+        ("both please", True),
+        ("both pls", True),
+        ("both again", True),
+        ("both of em", True),
+        ("both of 'em", True),
+        ("both at night", True),
+        ("all 3", True),
+        ("3 of them", True),
+        ("both side by side", True),
+        ("all of them together, please", True),
         ("Jeanne Calment", False),
         ("ear", False),
         ("Eiffel Tower", False),
@@ -95,6 +106,10 @@ def test_lookup_leaves_app_content_alone(text: str) -> None:
         ("both crocodiles", False),
         ("two cats", False),
         ("other side of the moon", False),
+        ("one direction", False),
+        ("first one", False),
+        ("3 cats", False),
+        ("please", False),
     ],
 )
 def test_is_reference_subject(subject: str, expected: bool) -> None:
@@ -102,20 +117,26 @@ def test_is_reference_subject(subject: str, expected: bool) -> None:
 
 
 @pytest.mark.parametrize(
-    "text, subject",
+    "subject, drawn",
     [
-        ("crocodile and alligator", "crocodile and alligator"),
-        ("Jeanne Calment", "Jeanne Calment"),
         # The app draws these; they are no photo search.
-        ("water and carbon dioxide molecules", None),
-        ("structure of caffeine", None),
-        ("the graph of y = x^2", None),
+        ("water and carbon dioxide molecules", True),
+        ("H2O molecule", True),
+        ("structural formula of caffeine", True),
+        ("the graph of y = x^2", True),
+        ("quadratic equation", True),
+        # Resolved names that hit a typed-phrase word ("square", "i", "table") are photos.
+        ("crocodile and alligator", False),
+        ("Queen Elizabeth I", False),
+        ("Times Square at night", False),
+        ("Table Mountain", False),
+        ("Red Square in Moscow", False),
+        ("Manhattan Project scientists", False),
+        ("human heart diagram", False),
     ],
 )
-def test_photo_subject_holds_a_resolved_subject_to_the_typed_rules(
-    text: str, subject: str | None
-) -> None:
-    assert photo_subject(text) == subject
+def test_names_a_drawing(subject: str, drawn: bool) -> None:
+    assert names_a_drawing(subject) is drawn
 
 
 def _found(asst_id) -> AsyncMock:
@@ -407,6 +428,7 @@ _MOLECULE_ROWS = [
         ("water and carbon dioxide molecules", None),
         (None, None),
         ("crocodile and alligator", "crocodile and alligator"),
+        ("Times Square at night", "Times Square at night"),
     ],
 )
 @pytest.mark.asyncio
@@ -423,6 +445,7 @@ async def test_show_me_both_reads_both_from_the_chat(
         image_search={"search_and_attach_for_chat": search_and_attach},
         references={"resolve_reference": resolve},
     )
+    misses: set[str] = set()
     handled = await try_image_lookup_for_turn(
         deps,
         Settings(image_search_enabled=True),
@@ -432,6 +455,7 @@ async def test_show_me_both_reads_both_from_the_chat(
         outcome=TurnOutcome(),
         create_user_message=True,
         recent_messages=list(_MOLECULE_ROWS),
+        misses=misses,
     )
 
     assert _awaited(resolve).kwargs["request"] == "can u show me both"
@@ -440,3 +464,6 @@ async def test_show_me_both_reads_both_from_the_chat(
         search_and_attach.assert_not_awaited()
     else:
         assert _awaited(search_and_attach).kwargs["query"] == query
+    # A drawn thing takes the photo tool out of the turn's loop as well; an unclear
+    # reference leaves it to the model, as before.
+    assert ("photo" in misses) is (resolved is not None and query is None)
