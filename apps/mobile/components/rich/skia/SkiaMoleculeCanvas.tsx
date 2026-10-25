@@ -5,7 +5,6 @@ import {
   Circle,
   Group,
   Path,
-  Skia,
   Text as SkiaText,
   useFont,
 } from "@shopify/react-native-skia";
@@ -21,6 +20,7 @@ import {
 } from "@/lib/chemistry/molecule3dLayout";
 import type { MolGeometry } from "@/lib/chemistry/molecule3dFence";
 import type { Theme } from "@/lib/theme";
+import { linePath } from "@/components/rich/skia/paths";
 
 type Props = {
   geom: MolGeometry;
@@ -31,13 +31,6 @@ type Props = {
   width: number;
   height?: number;
 };
-
-function linePath(x1: number, y1: number, x2: number, y2: number) {
-  const path = Skia.Path.Make();
-  path.moveTo(x1, y1);
-  path.lineTo(x2, y2);
-  return path;
-}
 
 export function SkiaMoleculeCanvas({
   geom,

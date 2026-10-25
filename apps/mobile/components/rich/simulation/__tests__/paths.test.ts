@@ -7,10 +7,10 @@ import {
   pivotPath,
   polygonPath,
   rectPath,
-  segmentsPath,
   springPath,
   wallPath,
 } from "@/components/rich/simulation/paths";
+import { segmentsPath } from "@/components/rich/skia/paths";
 import { PIVOT_SIZE } from "@/lib/physics/simulation";
 
 jest.mock("@shopify/react-native-skia", () => ({

@@ -12,13 +12,13 @@ import { useDerivedValue } from "react-native-reanimated";
 import { figureWidth } from "@/components/rich/figure";
 import { PlaybackButton } from "@/components/rich/PlaybackButton";
 import { usePlayback } from "@/components/rich/usePlayback";
-import { linePath } from "@/components/rich/skia/paths";
+import { linePath, segmentsPath } from "@/components/rich/skia/paths";
 import {
   DiagramFrame,
   useDiagramFont,
   useDiagramTitle,
 } from "@/components/rich/diagrams/DiagramFrame";
-import { DiagramLabel, MeasureLine, rectPath, segmentsPath } from "@/components/rich/diagrams/marks";
+import { DiagramLabel, MeasureLine, rectPath } from "@/components/rich/diagrams/marks";
 import type { WaveDiagramSpec } from "@/components/rich/diagrams/spec";
 import { measureDiagramText } from "@/components/rich/diagrams/textWidth";
 import { worldViewportHeight, type ScreenPoint } from "@/lib/physics/optics";
