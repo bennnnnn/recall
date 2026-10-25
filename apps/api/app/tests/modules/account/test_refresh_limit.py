@@ -8,12 +8,14 @@ Every request here comes from the one address TestClient gives, through the whol
 from __future__ import annotations
 
 from collections.abc import Iterator
+from contextlib import nullcontext
 from datetime import datetime
 from unittest.mock import AsyncMock, patch
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 from app.core.config import Settings
 from app.core.deps import get_redis, get_settings_dep
@@ -21,6 +23,7 @@ from app.main import create_app
 from app.models.schemas import UserOut
 from app.modules.account import refresh_limit
 from app.modules.account import tokens as tokens_service
+from app.tests.fakes import redis_mock
 
 _SETTINGS = Settings(jwt_secret="test-secret-32-chars-long-enough!!")
 
@@ -98,6 +101,26 @@ async def test_many_accounts_behind_one_address_refresh_until_the_backstop(clien
     tokens = await _signed_in(fake_redis, refresh_limit.PER_IP_LIMIT + 1)
     codes = [_refresh(client, token) for token in tokens]
     assert codes == [200] * refresh_limit.PER_IP_LIMIT + [429]
+
+
+@pytest.mark.parametrize("down", ["backstop", "account"])
+def test_a_redis_outage_answers_503_not_a_limit(client, down):
+    """It answered 429 + Retry-After 60, read on the phone as a limit: live talk said the
+    month's minutes were used up, and requests that needed a refresh failed for up to a
+    minute after Redis was back. Still closed: no refresh goes through."""
+    broken = redis_mock()
+    broken.pipeline.side_effect = RedisConnectionError("down")
+    client.app.dependency_overrides[get_redis] = lambda: broken
+    with (
+        patch.object(refresh_limit, "address_allowed", AsyncMock(return_value=True))
+        if down == "account"
+        else nullcontext(),
+        patch.object(tokens_service, "refresh_token_user", AsyncMock(return_value=None)),
+    ):
+        response = client.post("/auth/refresh", json={"refresh_token": "a-session"})
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == "5"
+    tokens_service.refresh_token_pair.assert_not_awaited()
 
 
 def test_the_backstop_is_looser_than_the_old_per_ip_limit_and_the_global_one() -> None:

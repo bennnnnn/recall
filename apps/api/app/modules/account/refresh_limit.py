@@ -14,6 +14,12 @@ read from the refresh token itself; the address keeps a limit only against flood
 
 A token that names no live session (expired, rotated, made up) is counted under a hash
 of itself: the raw token never becomes a Redis key or a log line.
+
+Both fail closed: while Redis is down no refresh goes through. They raise
+``RedisUnavailableError``, which the app answers 503 + Retry-After 5 as for every other
+request then. It was 429 + Retry-After 60: the phone took the outage for a limit, live
+talk said the month's minutes were used up, and requests that needed a refresh kept
+failing for up to a minute after Redis was back.
 """
 
 from __future__ import annotations
@@ -25,7 +31,7 @@ from redis.asyncio import Redis
 
 from app.core.client_ip import client_ip
 from app.core.config import Settings
-from app.core.rate_limit import allow_request_fail_closed
+from app.core.rate_limit import allow_request_unless_down
 from app.modules.account import tokens as tokens_service
 
 PER_ACCOUNT_LIMIT = 10
@@ -35,7 +41,7 @@ WINDOW_SECONDS = 60
 
 async def address_allowed(redis: Redis, request: Request, settings: Settings) -> bool:
     """Counts a refresh from this address: False past ``PER_IP_LIMIT`` this minute."""
-    return await allow_request_fail_closed(
+    return await allow_request_unless_down(
         redis,
         f"rate:auth:refresh:ip:{client_ip(request, settings)}",
         limit=PER_IP_LIMIT,
@@ -50,7 +56,7 @@ async def account_allowed(redis: Redis, refresh_token: str) -> bool:
         subject = f"user:{user_id}"
     else:
         subject = f"token:{hashlib.sha256(refresh_token.encode()).hexdigest()[:32]}"
-    return await allow_request_fail_closed(
+    return await allow_request_unless_down(
         redis,
         f"rate:auth:refresh:{subject}",
         limit=PER_ACCOUNT_LIMIT,
