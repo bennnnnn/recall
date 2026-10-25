@@ -18,6 +18,7 @@ import {
   getCachedChatList,
   getChatListFetchedAt,
   isChatListFresh,
+  regroupCachedChatList,
   restoreChatList,
   updateChatListCache,
 } from "@/features/chat/model/chatListCache";
@@ -96,7 +97,8 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
   }, [current, session]);
   const hydrateFromCache = useCallback(() => {
     if (!account || !current()) return false;
-    const cached = getCachedChatList();
+    // Under today's headings: a list from disk or from before midnight moves its chats.
+    const cached = regroupCachedChatList();
     if (!cached) return false;
     const fetched = getChatListFetchedAt() != null;
     applyChatList(cached, fetched);

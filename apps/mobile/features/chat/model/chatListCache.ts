@@ -6,6 +6,7 @@ import {
   appendArchivedChats,
   appendOlderChats,
   emptyChatList,
+  regroupChatsByRecency,
 } from "@/features/chat/model/listSections";
 import {
   SessionResourceCache,
@@ -104,6 +105,17 @@ export function peekCreatedChat(id: string): Chat | undefined {
 
 export function getCachedChatList(): ChatList | undefined {
   return resource.get(LIST);
+}
+
+/**
+ * The cached list with each dated chat under the heading it has now, in the phone's
+ * zone (`regroupChatsByRecency`): a list restored from disk or held across midnight.
+ * An edit, so a read running now and the disk copy keep it too.
+ */
+export function regroupCachedChatList(): ChatList | undefined {
+  const list = resource.get(LIST);
+  if (!list || regroupChatsByRecency(list) === list) return list;
+  return resource.update(LIST, (current) => regroupChatsByRecency(current));
 }
 
 /** Drawer row already has title / pin / class id — skip GET /chats/{id}. */
