@@ -10,6 +10,7 @@ import {
   setTokenPair,
 } from "@/lib/auth";
 
+import { reportConnectionFailure } from "@/lib/api/connectionFailures";
 import { CONSENT_REQUIRED_CODE, notifyConsentRequired } from "@/lib/api/consentRefusal";
 import type { AuthResult, User } from "@/lib/api/types";
 import { deviceSessionFields } from "@/lib/deviceSession";
@@ -157,12 +158,12 @@ async function refreshAccessToken(): Promise<string | null> {
       refreshRejected = generation;
       return null;
     }
-    const response = await fetch(apiUrl("/auth/refresh"), {
+    const response = await fetchApi("/auth/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: refreshToken, ...deviceSessionFields() }),
       signal,
-    });
+    }, generation);
     requireSession(generation);
     if (response.status === 401) {
       refreshRejected = generation;
@@ -237,6 +238,28 @@ export { ApiRequestError };
 
 export function apiUrl(path: string) {
   return `${getApiUrl()}${path}`;
+}
+
+/** What a gateway, or an API that cannot serve, answers: a deploy, a dependency down. */
+const UNAVAILABLE_STATUSES = new Set([502, 503, 504]);
+
+/**
+ * `fetch` to our API. One that finds no API (no answer, or a 502, 503 or 504) asks the
+ * connection check to look (lib/api/connectionFailures.ts); a cancel or a timeout, any other
+ * status, and a request of an account signed out since do not.
+ */
+async function fetchApi(path: string, init: RequestInit, generation: number): Promise<Response> {
+  let unreachable = false;
+  try {
+    const response = await fetch(apiUrl(path), init);
+    unreachable = UNAVAILABLE_STATUSES.has(response.status);
+    return response;
+  } catch (error) {
+    unreachable = !init.signal?.aborted && !isAbortError(error);
+    throw error;
+  } finally {
+    if (unreachable && generation === getSessionGeneration()) reportConnectionFailure();
+  }
 }
 
 export async function request<T>(
@@ -372,11 +395,7 @@ export async function requestRaw(
 
     const headers = { ...(init?.headers ?? {}) } as Record<string, string>;
     if (effectiveToken) headers.Authorization = `Bearer ${effectiveToken}`;
-    const response = await fetch(apiUrl(path), {
-      ...init,
-      signal: controller.signal,
-      headers,
-    });
+    const response = await fetchApi(path, { ...init, signal: controller.signal, headers }, generation);
     requireSession(generation);
     requireNotAborted(controller.signal);
     if (response.status === 401 && effectiveToken) {

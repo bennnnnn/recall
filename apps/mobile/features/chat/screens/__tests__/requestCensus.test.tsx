@@ -361,7 +361,8 @@ const realFetch = globalThis.fetch;
 const realWebSocket = globalThis.WebSocket;
 
 /** The API out: refusing connections, or answering every request with `status`. */
-let outage: null | "down" | { status: number; retryAfter: string } = null;
+type Outage = "down" | { status: number; retryAfter: string };
+let outage: Outage | null = null;
 /** Sockets open now: a restart closes them all. */
 const openSockets = new Set<{ restart: () => void }>();
 
@@ -782,9 +783,10 @@ function expectWithin(ceilings: Record<string, number>): void {
 }
 
 /**
- * The most each step may send while the API is out. Nothing retries in a loop: what
- * failed is read again on the user's next move, and the phones an outage refused
- * together do not come back in step.
+ * The most each step may send while the API is out. Nothing retries in a loop but the
+ * connection check while the banner shows, backing off: what failed is read again on the
+ * user's next move or once the API is back, and the phones an outage refused together do
+ * not come back in step.
  */
 const OUTAGE_CEILINGS: Record<string, number> = {
   "cold start after sign-in": 7,
@@ -797,18 +799,23 @@ const OUTAGE_CEILINGS: Record<string, number> = {
   "send in chat 1": 1,
   // The reply's socket closes mid-stream. The phone reads the chat's newest rows until the
   // reply is saved, waiting as long as each 503's Retry-After (5 s) asks: at 1.5 to 2.5 s, then 5
-  // to 6.25 s apart, so five or six (at 2 s apart it was fourteen).
-  "a deploy mid-reply, 503 Retry-After 5 for 30 s": 6,
-  // Back: the next read finds the saved reply, then the full page.
-  "the 30 s after, the API back": 2,
+  // to 6.25 s apart, so five or six (at 2 s apart it was fourteen). The first 503 asks for a
+  // connection check (/health, then Google), which shows the banner; its loop checks again at
+  // 1.5 s, 3 s, 6 s and 12 s (five checks, ten requests; before, no check and no banner).
+  "a deploy mid-reply, 503 Retry-After 5 for 30 s": 16,
+  // Back: the next read finds the saved reply, then the full page; the loop's check clears the
+  // banner and the page on screen is read again (a 304).
+  "the 30 s after, the API back": 4,
   "a minute in the background": 0,
   // The return's reads (to-dos, the chat, the socket) fail once; the connection check backs off
   // (1.5 s, 3 s, 6 s, 12 s, 24 s), each asking Google whether it is the API. Once it passes, the
   // page on screen is read again, 0 to 10 s later.
   "return while the API is down 30 s, then 30 s": 15,
-  // One socket try, then the send over SSE, refused: the phone says so and stops.
-  "send while the API answers 503": 2,
-  "a minute after the outage": 0,
+  // One socket try, then the send over SSE, refused: the phone says so and stops. The 503 asks
+  // for a connection check, which shows the banner; its loop checks again at 1.5 s and 3 s.
+  "send while the API answers 503": 8,
+  // The loop's check finds the API back and clears the banner; the page on screen is read again.
+  "a minute after the outage": 2,
 };
 
 it("keeps a server outage within its requests, with nothing in a loop", async () => {
@@ -914,6 +921,13 @@ const RECOVERY_CASES: RecoveryCase[] = [
     read: /^GET \/memories\/documents(?: \(304\))?$/,
   },
   { title: "the library", show: (app) => showOnly(app, "gallery"), read: /^GET \/attachments\b/ },
+  // Settings' two lists (useFocusedList): the archived chats come with the drawer's list.
+  { title: "the archived chats", show: (app) => showOnly(app, "archived"), read: /^GET \/chats(?: \(304\))?$/ },
+  {
+    title: "the signed-in devices",
+    show: (app) => showOnly(app, "security"),
+    read: /^GET \/auth\/sessions(?: \(304\))?$/,
+  },
   { title: "settings, no list", show: (app) => showOnly(app, "settings"), read: null },
   {
     title: "a new chat, no list",
@@ -1040,4 +1054,64 @@ it("reads the list on screen again once, 0 to 10 s after an outage ends, and not
   const back = steps[steps.length - 1].requests;
   expect(back.filter((r) => r.startsWith(CHAT_1_PAGE))).toHaveLength(1);
   expect(back.length).toBeLessThanOrEqual(CEILINGS["return after 10 minutes"]);
+});
+
+/**
+ * Reads that find no API with the app open, and no network change or return to tell the
+ * connection check: the reads of a quick switch through four chats, refused or answered 503.
+ */
+const UNSEEN_OUTAGES: { title: string; outage: Outage }[] = [
+  { title: "refused", outage: "down" },
+  { title: "503", outage: { status: 503, retryAfter: "5" } },
+];
+
+it("checks the connection once for a burst of reads that find no API, then reads the page again", async () => {
+  steps.length = 0;
+  mockSecure.clear();
+  mockFiles.clear();
+  mockSecure.set("recall_session_v1", JSON.stringify({ accessToken: accessToken(NOW_S + 3600), refreshToken: "r" }));
+  mockFiles.set("file:///cache/cached-user.json", JSON.stringify({
+    id: USER_ID, name: "Ann", avatar_url: null, plan: "free", ai_data_consent_at: NOW, locale: "en",
+  }));
+  mockParams = {};
+  const app = await launch();
+  await settle(10_000);
+  await openChat(app, 1);
+
+  for (const { title, outage: kind } of UNSEEN_OUTAGES) {
+    await showOnly(app, null);
+    mark = mockLog.length;
+    const since = statusChanges.length;
+    outage = kind;
+    for (const n of [3, 4, 5, 6]) {
+      mockParams = { chatId: chatId(n) };
+      await app.rerender();
+      await settle(50);
+    }
+    await settle(10_000);
+    step(`${title}: four chats opened while the API is out`);
+    const out = steps[steps.length - 1];
+    const banner = statusChanges.slice(since).find((c) => c.status !== "online");
+    // The banner shows. Before it did, the failed requests (four reads, three empty-chat deletes)
+    // had sent one connection check: /health, then Google.
+    expect(banner?.status).toBe("api_unreachable");
+    const failed = out.sent.filter((r) => r.path !== "/health" && !r.path.startsWith("google/") && r.status !== 200);
+    expect(failed.length).toBeGreaterThanOrEqual(4);
+    const checks = out.sent.filter((r) => r.path === "/health" && r.at <= (banner?.at ?? -1));
+    expect(checks).toHaveLength(1);
+    // The loop's first wait (1.5 s, a fifth either way) after the first failure.
+    expect(checks[0].at - failed[0].at).toBeGreaterThanOrEqual(1_200);
+    expect(checks[0].at - failed[0].at).toBeLessThanOrEqual(1_850);
+
+    outage = null;
+    mark = mockLog.length;
+    await untilBannerClears();
+    await settle(15_000);
+    step(`${title}: the API back`);
+    // The open chat's page, once, 0 to 10 s after the banner cleared.
+    expect(listReads(steps[steps.length - 1].requests)).toEqual([
+      expect.stringMatching(new RegExp(`^GET /chats/${chatId(6)}/messages\\?limit=40\\b`)),
+    ]);
+  }
+  if (process.env.CENSUS) console.log(steps.map((s) => `${s.title}\n  ${s.requests.join("\n  ")}`).join("\n"));
 });
