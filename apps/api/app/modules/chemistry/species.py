@@ -20,7 +20,7 @@ from app.modules.chemistry.input_text import spell_scripts
 
 _PHASE_RE = re.compile(r"\s*\((aq|s|l|g)\)$", re.IGNORECASE)
 # These elements are written as molecules. ``O2-`` is superoxide, not oxide.
-_DIATOMIC_ELEMENTS = frozenset({"H", "N", "O", "F", "Cl", "Br", "I"})
+DIATOMIC_ELEMENTS = frozenset({"H", "N", "O", "F", "Cl", "Br", "I"})
 _CARET_CHARGE_RE = re.compile(r"\^(?:\{(\d*)([+-])\}|(\d*)([+-]))$")
 # Longest first: "<=>" contains "=>", and "-->" and "<->" contain "->".
 ARROWS = ("<=>", "<->", "-->", "->", "→", "⇌", "⇋", "⟶", "↔", "=>")
@@ -130,7 +130,7 @@ def _strip_charge(body: str) -> tuple[str, int] | None:
     digits = core[index:]
     stem = core[:index]
     if digits and stem in BY_SYMBOL:
-        if stem in _DIATOMIC_ELEMENTS:
+        if stem in DIATOMIC_ELEMENTS:
             return f"{stem}{digits}", sign
         return stem, sign * int(digits)
     if len(digits) > 1:

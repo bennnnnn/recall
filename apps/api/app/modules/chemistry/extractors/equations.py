@@ -36,7 +36,7 @@ def _amounts(text: str) -> dict[str, float]:
     }
 
 
-def _extract_equations(text: str) -> ChemistryIntent | None:
+def extract_equations(text: str) -> ChemistryIntent | None:
     match = EQUATION_RE.search(text)
     if match is None or re.search(r"\bnuclear\b", text, re.IGNORECASE):
         return None

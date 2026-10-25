@@ -474,7 +474,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   physics shares (`services/law_binding/`). The local table is all 118 elements. Verified
   work covers atom-and-charge balancing (including redox half-equations); amount conversions,
   an element's mass in a sample, average atomic mass from isotopes, and empirical and
-  molecular formulas; mass, solution, and gas stoichiometry with limiting reagent; solution
+  molecular formulas; mass, solution, and gas stoichiometry with limiting reagent, from a
+  written equation or a reaction told in words ("how much water if i burn 4g of h2": the fuel's
+  oxides, or the product named, balanced or declined), and its follow-ups ("what if i only had
+  16g of o2"); solution
   concentration, dilution with the stock volume, mole fraction, and colligative properties;
   strong/weak acid–base pH, `Ka`/`Kb`, percent ionization, buffers after addition, titration
   regions, and a neutralization's unknown concentration; Dalton, wet gases, gas density,
