@@ -21,11 +21,13 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from redis.exceptions import ConnectionError as RedisConnectionError
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_redis, get_settings_dep
-from app.exceptions import AuthenticationError
+from app.exceptions import AuthenticationError, RedisUnavailableError
 from app.main import create_app
 from app.models.schemas import AuthResponse, UserOut
 from app.modules.account import quota_carryover, refresh_limit, signin_limit
@@ -193,15 +195,28 @@ async def test_no_subject_or_token_reaches_a_redis_key(sign_in, fake_redis):
 async def test_a_redis_outage_refuses_sign_in_and_logs_no_subject(caplog):
     broken = redis_mock()
     broken.pipeline.side_effect = RedisConnectionError("down")
-    with caplog.at_level(logging.WARNING), pytest.raises(signin_limit.SignInLimitedError):
+    with caplog.at_level(logging.WARNING), pytest.raises(RedisUnavailableError):
         await signin_limit.require_identity(broken, _SETTINGS, "google", "subject-1234567890")
     assert "failing closed" in caplog.text
     assert "subject-1234567890" not in caplog.text
 
 
+def _unavailable(response: Any) -> None:
+    """Sign-in is down, not limited: retry in a moment."""
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == "5"
+    assert response.json()["detail"]["code"] == "sign_in_unavailable"
+
+
+def _body(provider: str) -> dict[str, str]:
+    return {"id_token": "person"} if provider == "google" else {"id_token": "person", "nonce": "n"}
+
+
 @pytest.mark.parametrize("provider", ["google", "apple"])
 @pytest.mark.parametrize("down", ["backstop", "identity"])
-def test_a_redis_outage_answers_429_with_retry_after(sign_in, provider, down):
+def test_a_redis_outage_answers_503_not_too_many_attempts(sign_in, provider, down):
+    """It answered 429 "Too many login attempts" + Retry-After 60: the phone told someone
+    who had tried once that they had tried too often. Still closed: nothing signs in."""
     broken = redis_mock()
     broken.pipeline.side_effect = RedisConnectionError("down")
     sign_in.app.dependency_overrides[get_redis] = lambda: broken
@@ -211,10 +226,33 @@ def test_a_redis_outage_answers_429_with_retry_after(sign_in, provider, down):
         if down == "identity"
         else nullcontext()
     ):
-        assert _post(sign_in.client(), provider, "person") == 429
+        _unavailable(sign_in.client().post(f"/auth/{provider}", json=_body(provider)))
     # A backstop that fails closed verifies nothing; an identity check that does reads no account.
     assert sign_in.verified == ([] if down == "backstop" else ["person"])
     sign_in.accounts_read.assert_not_awaited()
+    sign_in.sessions.assert_not_awaited()
+
+
+@pytest.mark.parametrize("provider", ["google", "apple"])
+@pytest.mark.parametrize(
+    "outage",
+    [
+        ConnectionRefusedError("Connect call failed ('127.0.0.1', 5432)"),
+        OperationalError("SELECT", {}, Exception("server closed the connection")),
+        SQLAlchemyTimeoutError("QueuePool limit reached"),
+    ],
+    ids=["refused", "dropped", "pool"],
+)
+def test_a_postgres_outage_answers_503_with_a_code(sign_in, provider, outage):
+    """It answered 503 with the English "Service temporarily unavailable" and no code."""
+    sign_in.accounts_read.side_effect = outage
+    _unavailable(sign_in.client().post(f"/auth/{provider}", json=_body(provider)))
+    sign_in.sessions.assert_not_awaited()
+
+
+def test_a_session_store_outage_answers_503_with_a_code(sign_in):
+    sign_in.sessions.side_effect = RedisUnavailableError()
+    _unavailable(sign_in.client().post("/auth/google", json=_body("google")))
 
 
 def test_the_identity_key_is_an_hmac_per_provider_and_secret() -> None:

@@ -59,11 +59,8 @@ async def test_email_match_cannot_replace_another_provider_identity(provider):
         ("dev", DevAuthRequest(email="dev@example.test", name="Dev"), "login_dev"),
     ],
 )
-async def test_login_session_store_outage_reaches_the_retryable_503_handler(
-    provider, body, service
-):
-    """The route lets the outage through; core/unavailable answers 503 + Retry-After
-    (tests/core/test_unavailable_handlers.py)."""
+async def test_login_session_store_outage_answers_sign_in_unavailable(provider, body, service):
+    """503 + Retry-After with the code the login screen words (signin_refusals.py)."""
     request = MagicMock()
     request.client.host = "127.0.0.1"
     with (
@@ -75,7 +72,7 @@ async def test_login_session_store_outage_reaches_the_retryable_503_handler(
         ),
     ):
         login = getattr(auth_router, f"{provider}_login")
-        with pytest.raises(RedisUnavailableError):
+        with pytest.raises(SignInRefusedError) as refused:
             await login(
                 body,
                 request,
@@ -83,6 +80,8 @@ async def test_login_session_store_outage_reaches_the_retryable_503_handler(
                 settings=Settings(jwt_secret="x" * 32, dev_auth_enabled=True),
                 redis=redis_mock(),
             )
+    assert (refused.value.status_code, refused.value.code) == (503, "sign_in_unavailable")
+    assert refused.value.headers == {"Retry-After": "5"}
 
 
 @pytest.mark.asyncio

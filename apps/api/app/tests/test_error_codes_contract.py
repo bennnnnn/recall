@@ -25,6 +25,7 @@ import jwt as pyjwt
 import pytest
 from fastapi.testclient import TestClient
 from google.auth.exceptions import TransportError
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 from app.core.config import Settings
 from app.core.db import get_db
@@ -166,11 +167,13 @@ def _sign_in(
     google: Any = None,
     apple: Any = None,
     address_allowed: bool = True,
+    redis_down: bool = False,
 ) -> Any:
     """POST /auth/<provider> as the phone sends it, refused where the refusal starts.
 
     ``google`` stands in for Google's verify (its return value, or the error it raises);
     ``apple`` for the Apple payload the gateway accepted. No account holds the identity.
+    ``redis_down``: the limits' counter cannot be read.
     """
     verify = (
         MagicMock(side_effect=google)
@@ -191,6 +194,11 @@ def _sign_in(
         if apple is not None
         else nullcontext(),
         patch(
+            "app.core.rate_limit.allow_request",
+            AsyncMock(side_effect=RedisConnectionError("down")),
+        )
+        if redis_down
+        else patch(
             "app.modules.account.signin_limit.address_allowed",
             AsyncMock(return_value=address_allowed),
         ),
@@ -229,6 +237,7 @@ def _sign_in_bodies() -> dict[str, dict[str, Any]]:
     no_apple = Settings(apple_client_id="")
     return {
         "sign_in_rate_limited": _refusal(_sign_in("google", address_allowed=False)),
+        "sign_in_unavailable": _refusal(_sign_in("google", redis_down=True)),
         "google_token_invalid": _refusal(_sign_in("google", google=ValueError("bad token"))),
         "google_unavailable": _refusal(_sign_in("google", google=TransportError("down"))),
         "google_email_unverified": _refusal(

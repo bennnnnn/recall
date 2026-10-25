@@ -118,6 +118,13 @@
    "message": "Too many login attempts. Try again shortly."
   }
  },
+ "sign_in_unavailable": {
+  "status": 503,
+  "detail": {
+   "code": "sign_in_unavailable",
+   "message": "Sign-in is unavailable right now. Try again in a moment."
+  }
+ },
  "google_token_invalid": {
   "status": 401,
   "detail": {

@@ -62,7 +62,7 @@ def test_web_login_sets_httponly_refresh_and_omits_token_from_json():
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock(return_value=fake)),
         patch(
-            "app.modules.account.signin_limit.allow_request_fail_closed",
+            "app.modules.account.signin_limit.allow_request_unless_down",
             AsyncMock(return_value=True),
         ),
     ):
@@ -88,7 +88,7 @@ def test_mobile_login_keeps_refresh_token_in_json():
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock(return_value=fake)),
         patch(
-            "app.modules.account.signin_limit.allow_request_fail_closed",
+            "app.modules.account.signin_limit.allow_request_unless_down",
             AsyncMock(return_value=True),
         ),
     ):
@@ -108,7 +108,7 @@ def test_a_new_account_s_sign_in_says_it_has_not_agreed_to_ai_data_use():
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock(return_value=fake)),
         patch(
-            "app.modules.account.signin_limit.allow_request_fail_closed",
+            "app.modules.account.signin_limit.allow_request_unless_down",
             AsyncMock(return_value=True),
         ),
     ):
@@ -126,7 +126,7 @@ def test_web_refresh_requires_csrf_when_using_cookie():
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock(return_value=fake)),
         patch(
-            "app.modules.account.signin_limit.allow_request_fail_closed",
+            "app.modules.account.signin_limit.allow_request_unless_down",
             AsyncMock(return_value=True),
         ),
         patch(
