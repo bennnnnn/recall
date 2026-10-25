@@ -30,6 +30,7 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
+from app.gateways.openai_speech_gateway import RealtimeClientSecretResult
 from app.main import create_app
 from app.models.orm import User
 from app.models.schemas.scan import SCAN_MAX_IMAGE_BYTES
@@ -157,6 +158,63 @@ def _live_talk_unconfigured() -> Any:
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
     ):
         return _client(user, settings).post("/speech/live/session", headers=_AUTH, json={})
+
+
+_LIVE_TALK_ON = Settings(
+    openai_api_key="sk-test", speech_live_talk_enabled=True, speech_realtime_voice_enabled=True
+)
+
+
+def _live_talk(path: str, *, settings: Settings | None = None, **refused: bool) -> Any:
+    """POST a live talk route for a Pro user, refused where ``refused`` says.
+
+    ``rate_limited``: the route's own per-minute limit is used up; ``spend_capped``: the
+    voice spend breaker is open; ``minutes_used``: the month has no session left;
+    ``saves_used``: the call saved every turn it may. A save names this chat's session.
+    """
+    user = _user()
+    user.plan = "pro"
+    user.tts_voice = None
+    chat_id = uuid4()
+    allowed = AsyncMock(return_value=not refused.get("rate_limited"))
+    minted = RealtimeClientSecretResult(value="ek_test", expires_at=123)
+    with (
+        patch(
+            "app.modules.speech.realtime.get_redis_client",
+            return_value=fakeredis.aioredis.FakeRedis(decode_responses=True),
+        ),
+        patch(
+            "app.modules.speech.realtime.live_talk_service.load_live_talk_session_context",
+            AsyncMock(return_value=MagicMock()),
+        ),
+        patch(
+            "app.modules.speech.realtime.live_talk_service.realtime_session_bound_chat_id",
+            AsyncMock(return_value=chat_id),
+        ),
+        patch("app.modules.speech.gates.allow_request_unless_down", allowed),
+        patch("app.modules.speech.realtime.allow_request_unless_down", allowed),
+        patch(
+            "app.services.quota.global_spend_exceeded",
+            AsyncMock(return_value=refused.get("spend_capped", False)),
+        ),
+        patch(
+            "app.services.quota.reserve_live_talk_seconds",
+            AsyncMock(return_value=0 if refused.get("minutes_used") else 900),
+        ),
+        patch(
+            "app.services.quota.take_live_talk_save",
+            AsyncMock(return_value=not refused.get("saves_used")),
+        ),
+        patch(
+            "app.modules.speech.realtime.openai_speech_gateway.create_realtime_client_secret",
+            AsyncMock(return_value=minted),
+        ),
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+    ):
+        body = {"chat_id": str(chat_id), "call_id": "issued-session", "user_text": "hi"}
+        return _client(user, settings or _LIVE_TALK_ON).post(
+            path, headers=_AUTH, json=body if path.endswith("/persist") else {}
+        )
 
 
 def _generate(code: str) -> Any:
@@ -340,6 +398,14 @@ def _bodies() -> dict[str, dict[str, Any]]:
         "dictation_daily_limit": _refusal(_transcribe(at_daily_cap=True)),
         "dictation_rate_limited": _refusal(_transcribe(allowed=False)),
         "live_talk_not_configured": _refusal(_live_talk_unconfigured()),
+        "live_talk_minutes_used": _refusal(_live_talk("/speech/live/session", minutes_used=True)),
+        "live_talk_rate_limited": _refusal(_live_talk("/speech/live/session", rate_limited=True)),
+        "live_talk_spend_cap": _refusal(_live_talk("/speech/live/session", spend_capped=True)),
+        "live_talk_save_rate_limited": _refusal(
+            _live_talk("/speech/live/persist", rate_limited=True)
+        ),
+        "live_talk_save_spend_cap": _refusal(_live_talk("/speech/live/persist", spend_capped=True)),
+        "live_talk_saves_used": _refusal(_live_talk("/speech/live/persist", saves_used=True)),
         "memory_spend_cap": _refusal(_memory_paused()),
         "image_daily_limit": _refusal(_generate("daily_limit")),
         "image_content_blocked": _refusal(_generate("content_blocked")),

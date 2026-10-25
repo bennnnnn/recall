@@ -109,6 +109,48 @@
    "message": "Realtime voice is not configured"
   }
  },
+ "live_talk_minutes_used": {
+  "status": 429,
+  "detail": {
+   "code": "live_talk_minutes_used",
+   "message": "You've used this month's live talk minutes. They renew on the 1st (UTC)."
+  }
+ },
+ "live_talk_rate_limited": {
+  "status": 429,
+  "detail": {
+   "code": "speech_rate_limited",
+   "message": "Too many live talk requests. Please wait a moment and try again."
+  }
+ },
+ "live_talk_spend_cap": {
+  "status": 429,
+  "detail": {
+   "code": "voice_spend_cap",
+   "message": "Voice is temporarily unavailable. Try again later."
+  }
+ },
+ "live_talk_save_rate_limited": {
+  "status": 429,
+  "detail": {
+   "code": "rate_limited",
+   "message": "Too many live talk requests. Please wait a moment and try again."
+  }
+ },
+ "live_talk_save_spend_cap": {
+  "status": 429,
+  "detail": {
+   "code": "voice_spend_cap",
+   "message": "Voice is temporarily unavailable. Try again later."
+  }
+ },
+ "live_talk_saves_used": {
+  "status": 429,
+  "detail": {
+   "code": "live_talk_saves_used",
+   "message": "This live talk call can't save more turns. Hang up and start a new call to keep going."
+  }
+ },
  "memory_spend_cap": {
   "status": 503,
   "detail": {

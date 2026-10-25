@@ -19,6 +19,7 @@ import {
   liveTalkShouldCreateResponse,
   isLikelyAssistantEcho,
   LIVE_TALK_MAX_SESSION_MS,
+  liveTalkSaveEndsCall,
   liveTalkSessionLimitMs,
   type LiveTalkStatus,
 } from "@/features/speech/model/liveTalkLogic";
@@ -111,9 +112,23 @@ describe("liveTalkDataChannelText", () => {
 });
 
 describe("liveTalkErrorGate", () => {
-  it("maps 403 to upgrade and 429 to limit", () => {
+  it("maps 403 to upgrade", () => {
     expect(liveTalkErrorGate({ status: 403 })).toBe("upgrade");
-    expect(liveTalkErrorGate({ status: 429 })).toBe("limit");
+  });
+
+  // Every 429 said "You've used this month's live talk minutes": a rate limit, the
+  // spend cap and a call's last save too. Only `live_talk_minutes_used` means that.
+  it.each([
+    [{ status: 429, code: "live_talk_minutes_used" }, "limit"],
+    [{ status: 429, code: "speech_rate_limited" }, "rate_limited"],
+    [{ status: 429, code: "rate_limited" }, "rate_limited"],
+    // The API's own request limit names no code.
+    [{ status: 429, code: null }, "rate_limited"],
+    [{ status: 429 }, "rate_limited"],
+    [{ status: 429, code: "voice_spend_cap" }, "paused"],
+    [{ status: 429, code: "live_talk_saves_used" }, "saves_used"],
+  ])("keys a 429 on its code: %j", (error, gate) => {
+    expect(liveTalkErrorGate(error)).toBe(gate);
   });
 
   it("maps a missing WebRTC native module to unavailable", () => {
@@ -134,12 +149,23 @@ describe("liveTalkErrorGate", () => {
     expect(liveTalkErrorGate(error)).toBe("outage");
   });
 
-  it("words each gate it says as an error", () => {
-    expect(liveTalkGateMessageKey("outage")).toBe("common.service_unavailable");
-    expect(liveTalkGateMessageKey("unconfigured")).toBe("chat.live_talk_not_configured");
-    expect(liveTalkGateMessageKey("limit")).toBe("chat.live_talk_limit_body");
-    expect(liveTalkGateMessageKey("offline")).toBe("chat.offline_body");
-    expect(liveTalkGateMessageKey("unavailable")).toBe("chat.live_talk_unavailable_body");
+  it.each([
+    ["outage", "common.service_unavailable"],
+    ["unconfigured", "chat.live_talk_not_configured"],
+    ["limit", "chat.live_talk_limit_body"],
+    ["rate_limited", "chat.live_talk_rate_limited"],
+    ["paused", "chat.live_talk_paused"],
+    ["saves_used", "chat.live_talk_saves_used"],
+    ["offline", "chat.offline_body"],
+    ["unavailable", "chat.live_talk_unavailable_body"],
+  ] as const)("words the %s gate", (gate, key) => {
+    expect(liveTalkGateMessageKey(gate)).toBe(key);
+  });
+
+  it("ends the call on a refused save's 429, and only then", () => {
+    const ends = (["limit", "rate_limited", "paused", "saves_used", "outage", "upgrade", "unavailable"] as const)
+      .filter(liveTalkSaveEndsCall);
+    expect(ends).toEqual(["limit", "rate_limited", "paused", "saves_used"]);
   });
 
   // F8.8: a denied microphone said "Live talk needs a dev build", which is false

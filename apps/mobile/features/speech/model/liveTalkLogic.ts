@@ -5,7 +5,14 @@ export type LiveTalkPhase = "idle" | "recording" | "thinking" | "speaking";
 export type LiveTalkGate =
   | "ok"
   | "upgrade"
+  /** This month's minutes are used: the status says so, or the server's `live_talk_minutes_used`. */
   | "limit"
+  /** Too many requests in a row (the speech limit, a save's, the API's own): wait a moment. */
+  | "rate_limited"
+  /** Voice is paused while provider spend is capped (`voice_spend_cap`). */
+  | "paused"
+  /** This call saved every turn it may (`live_talk_saves_used`): start a new one. */
+  | "saves_used"
   | "unavailable"
   | "offline"
   | "unconfigured"
@@ -149,6 +156,20 @@ function isMicPermissionDenied(error: object): boolean {
   return typeof message === "string" && /permission denied|not allowed/i.test(message);
 }
 
+/**
+ * What each 429 live talk can get says, by its code. Every 429 said this month's minutes
+ * were used: a rate limit, the spend cap, a call's last save. Only the mint's
+ * `live_talk_minutes_used` means that.
+ */
+const LIVE_TALK_429S: ReadonlyMap<unknown, LiveTalkGate> = new Map<unknown, LiveTalkGate>([
+  ["live_talk_minutes_used", "limit"],
+  // The mint's per-minute limit, and a save's.
+  ["speech_rate_limited", "rate_limited"],
+  ["rate_limited", "rate_limited"],
+  ["voice_spend_cap", "paused"],
+  ["live_talk_saves_used", "saves_used"],
+]);
+
 export function liveTalkErrorGate(error: unknown): LiveTalkGate {
   if (error instanceof Error && error.message === "webrtc_unavailable") {
     return "unavailable";
@@ -161,7 +182,8 @@ export function liveTalkErrorGate(error: unknown): LiveTalkGate {
     return "mic_permission";
   }
   if (status === 403) return "upgrade";
-  if (status === 429) return "limit";
+  // The API's own request limit names no code: too many requests, never the month's minutes.
+  if (status === 429) return LIVE_TALK_429S.get((error as { code?: unknown }).code) ?? "rate_limited";
   // Only the server's `not_configured` says live talk is not set up. Every 503 said so,
   // a Redis or database outage too; any other 503, and a gateway's 502 or 504, is one.
   if (status === 503) {
@@ -171,13 +193,24 @@ export function liveTalkErrorGate(error: unknown): LiveTalkGate {
   return "unavailable";
 }
 
+const GATE_MESSAGE_KEYS: Partial<Record<LiveTalkGate, string>> = {
+  limit: "chat.live_talk_limit_body",
+  rate_limited: "chat.live_talk_rate_limited",
+  paused: "chat.live_talk_paused",
+  saves_used: "chat.live_talk_saves_used",
+  offline: "chat.offline_body",
+  outage: "common.service_unavailable",
+  unconfigured: "chat.live_talk_not_configured",
+};
+
 /** The line a gate says as a recoverable error; upgrade and the microphone open their own. */
 export function liveTalkGateMessageKey(gate: LiveTalkGate): string {
-  if (gate === "limit") return "chat.live_talk_limit_body";
-  if (gate === "offline") return "chat.offline_body";
-  if (gate === "outage") return "common.service_unavailable";
-  if (gate === "unconfigured") return "chat.live_talk_not_configured";
-  return "chat.live_talk_unavailable_body";
+  return GATE_MESSAGE_KEYS[gate] ?? "chat.live_talk_unavailable_body";
+}
+
+/** A save refused with a 429 ends the call, in that refusal's own words. */
+export function liveTalkSaveEndsCall(gate: LiveTalkGate): boolean {
+  return gate === "limit" || gate === "rate_limited" || gate === "paused" || gate === "saves_used";
 }
 
 /** Capture stays off while the assistant is playing so speaker echo cannot VAD. */
