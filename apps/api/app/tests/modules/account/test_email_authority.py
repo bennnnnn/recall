@@ -136,7 +136,7 @@ async def _login(provider: str, payload: dict[str, Any], existing: Any) -> tuple
         repo = _patch_login(stack, provider, payload, existing)
         login = getattr(auth_service, f"login_with_{provider}")
         try:
-            return await login(AsyncMock(), _SETTINGS, "id-token", AsyncMock()), repo
+            return await login(AsyncMock(), _SETTINGS, "id-token", redis_mock()), repo
         except AccountExistsError as exc:
             return exc, repo
 
@@ -222,7 +222,7 @@ async def test_login_api_answers_409_naming_the_earlier_sign_in(provider, body, 
     request = MagicMock()
     request.client.host = "127.0.0.1"
     with (
-        patch("app.modules.account.api._enforce_login_rate_limit", AsyncMock()),
+        patch("app.modules.account.signin_limit.address_allowed", AsyncMock(return_value=True)),
         patch(
             f"app.modules.account.api.auth_service.{service}",
             AsyncMock(side_effect=AccountExistsError("apple")),

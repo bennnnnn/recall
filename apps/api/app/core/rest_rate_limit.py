@@ -16,9 +16,18 @@ from app.core.redis import get_redis_client
 
 logger = logging.getLogger(__name__)
 
-# /auth/refresh has its own limits, per account and per IP (modules/account/refresh_limit.py):
-# here, unsigned, every phone behind one carrier NAT address shared one 240-a-minute bucket.
-_SKIP_PREFIXES = ("/health", "/webhooks/", "/legal/", "/auth/refresh")
+# Refresh and Google/Apple sign-in have their own limits, per account or identity and per IP
+# (modules/account/refresh_limit.py, signin_limit.py), each IP limit checked before any costly
+# work: here, unsigned, every phone behind one carrier NAT address shared one 240-a-minute
+# bucket. Dev login stays under this one.
+_SKIP_PREFIXES = (
+    "/health",
+    "/webhooks/",
+    "/legal/",
+    "/auth/refresh",
+    "/auth/google",
+    "/auth/apple",
+)
 
 
 def _client_key(request: Request, settings: Settings) -> str:

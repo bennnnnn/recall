@@ -7,7 +7,6 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.client_ip import client_ip
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import (
@@ -38,7 +37,7 @@ from app.models.schemas import (
 from app.modules.account import export as export_service
 from app.modules.account import lifecycle as account_lifecycle
 from app.modules.account import profile as profile_service
-from app.modules.account import refresh_limit
+from app.modules.account import refresh_limit, signin_limit
 from app.modules.account import service as auth_service
 from app.modules.account import settings_proposal as settings_proposal_service
 from app.modules.account import tokens as tokens_service
@@ -47,35 +46,14 @@ from app.modules.billing import subscription as subscription_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-_LOGIN_RATE_LIMIT = 30
-_LOGIN_RATE_WINDOW_SECONDS = 60
 
-
-async def _enforce_login_rate_limit(
-    redis: Redis,
-    request: Request,
-    settings: Settings,
-    *,
-    provider: str,
-) -> None:
-    """Per-provider login throttle; raises 429 when the bucket is exhausted.
-
-    Per-IP, not global: a global bucket lets a credential-stuffer trip the
-    limit and lock real users out of signing in. Redis errors fail closed
-    (deny) so an outage cannot remove the throttle.
-    """
-    allowed = await allow_request_fail_closed(
-        redis,
-        f"rate:auth:{provider}:{client_ip(request, settings)}",
-        limit=_LOGIN_RATE_LIMIT,
-        window_seconds=_LOGIN_RATE_WINDOW_SECONDS,
+def _sign_in_refused() -> HTTPException:
+    # A Redis outage answers this too: every sign-in limit fails closed.
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail="Too many login attempts. Try again shortly.",
+        headers={"Retry-After": str(signin_limit.WINDOW_SECONDS)},
     )
-    if not allowed:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many login attempts. Try again shortly.",
-            headers={"Retry-After": str(_LOGIN_RATE_WINDOW_SECONDS)},
-        )
 
 
 @router.post("/google", response_model=AuthResponse)
@@ -86,7 +64,9 @@ async def google_login(
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> JSONResponse:
-    await _enforce_login_rate_limit(redis, request, settings, provider="google")
+    # A per-IP backstop before the token is verified; per identity once it is (signin_limit).
+    if not await signin_limit.address_allowed(redis, request, settings):
+        raise _sign_in_refused()
     try:
         auth = await auth_service.login_with_google(
             session,
@@ -96,6 +76,8 @@ async def google_login(
             device_label=body.device_label,
             platform=body.platform,
         )
+    except signin_limit.SignInLimitedError as exc:
+        raise _sign_in_refused() from exc
     except auth_service.GoogleAuthUnavailableError as exc:
         # Google's certs could not be fetched: retry, don't sign the user out.
         raise HTTPException(
@@ -116,7 +98,8 @@ async def apple_login(
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> JSONResponse:
-    await _enforce_login_rate_limit(redis, request, settings, provider="apple")
+    if not await signin_limit.address_allowed(redis, request, settings):
+        raise _sign_in_refused()
     try:
         auth = await auth_service.login_with_apple(
             session,
@@ -128,6 +111,8 @@ async def apple_login(
             device_label=body.device_label,
             platform=body.platform,
         )
+    except signin_limit.SignInLimitedError as exc:
+        raise _sign_in_refused() from exc
     except AuthenticationError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)
@@ -146,7 +131,8 @@ async def dev_login(
     # Dev auth bypasses provider token verification, so without a limit a
     # single client can mint arbitrary accounts or credential-stuff when dev
     # auth is on.
-    await _enforce_login_rate_limit(redis, request, settings, provider="dev")
+    if not await signin_limit.dev_address_allowed(redis, request, settings):
+        raise _sign_in_refused()
     # Fail-closed against a dev config accidentally exposed on a public host:
     # refuse non-loopback callers unless the operator explicitly opted in with
     # DEV_AUTH_ALLOW_REMOTE. Use the raw TCP peer — not client_ip() — so a

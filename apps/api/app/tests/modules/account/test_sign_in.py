@@ -51,7 +51,7 @@ async def test_login_with_google_creates_user():
         patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_with_google(
-            AsyncMock(), settings_obj, "id-token", AsyncMock()
+            AsyncMock(), settings_obj, "id-token", redis_mock()
         )
     assert result.access_token == "google-tok"
     assert result.user.email == "google@test.local"
@@ -92,7 +92,7 @@ async def test_login_with_google_existing_user():
         patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_with_google(
-            AsyncMock(), settings_obj, "id-token", AsyncMock()
+            AsyncMock(), settings_obj, "id-token", redis_mock()
         )
     assert result.access_token == "tok2"
 
@@ -116,7 +116,9 @@ async def test_login_with_google_rejects_missing_email_on_new_user():
         ),
     ):
         with pytest.raises(AuthenticationError, match="did not share an email"):
-            await auth_service.login_with_google(AsyncMock(), settings_obj, "id-token", AsyncMock())
+            await auth_service.login_with_google(
+                AsyncMock(), settings_obj, "id-token", redis_mock()
+            )
 
 
 @pytest.mark.asyncio
@@ -173,7 +175,7 @@ async def test_login_with_google_links_existing_account_by_email():
         patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_with_google(
-            AsyncMock(), settings_obj, "id-token", AsyncMock()
+            AsyncMock(), settings_obj, "id-token", redis_mock()
         )
 
     # The existing account must be linked, not duplicated.
@@ -226,7 +228,7 @@ async def test_login_with_apple_creates_user():
         patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_with_apple(
-            AsyncMock(), settings_obj, "id-token", AsyncMock(), name="Apple User"
+            AsyncMock(), settings_obj, "id-token", redis_mock(), name="Apple User"
         )
     assert result.access_token == "apple-tok"
     assert result.user.email == "apple@test.local"
@@ -272,7 +274,7 @@ async def test_login_with_apple_existing_user():
         patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_with_apple(
-            AsyncMock(), settings_obj, "id-token", AsyncMock()
+            AsyncMock(), settings_obj, "id-token", redis_mock()
         )
     assert result.access_token == "tok-apple"
 
@@ -324,7 +326,7 @@ async def test_login_with_apple_links_existing_account_by_email():
         patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_with_apple(
-            AsyncMock(), settings_obj, "id-token", AsyncMock()
+            AsyncMock(), settings_obj, "id-token", redis_mock()
         )
 
     create_mock.assert_not_called()
@@ -355,7 +357,7 @@ async def test_login_with_apple_requires_email_on_first_sign_in():
         patch("app.modules.account.service.users_repo.get_by_email", AsyncMock(return_value=None)),
     ):
         with pytest.raises(AuthenticationError, match="did not share an email"):
-            await auth_service.login_with_apple(AsyncMock(), settings_obj, "id-token", AsyncMock())
+            await auth_service.login_with_apple(AsyncMock(), settings_obj, "id-token", redis_mock())
 
 
 @pytest.mark.asyncio
@@ -376,7 +378,7 @@ async def test_login_with_apple_rejects_string_false_email_verified():
         AsyncMock(return_value=payload),
     ):
         with pytest.raises(AuthenticationError, match="not verified"):
-            await auth_service.login_with_apple(AsyncMock(), settings_obj, "id-token", AsyncMock())
+            await auth_service.login_with_apple(AsyncMock(), settings_obj, "id-token", redis_mock())
 
 
 @pytest.mark.asyncio
@@ -395,7 +397,7 @@ async def test_login_with_apple_rejects_missing_email_verified():
         AsyncMock(return_value=payload),
     ):
         with pytest.raises(AuthenticationError, match="not verified"):
-            await auth_service.login_with_apple(AsyncMock(), settings_obj, "id-token", AsyncMock())
+            await auth_service.login_with_apple(AsyncMock(), settings_obj, "id-token", redis_mock())
 
 
 @pytest.mark.asyncio
@@ -438,7 +440,7 @@ async def test_login_with_apple_accepts_string_true_email_verified():
         ),
     ):
         result = await auth_service.login_with_apple(
-            AsyncMock(), settings_obj, "id-token", AsyncMock()
+            AsyncMock(), settings_obj, "id-token", redis_mock()
         )
     assert result.access_token == "a"
 

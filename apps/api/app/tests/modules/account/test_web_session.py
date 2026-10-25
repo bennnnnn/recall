@@ -61,7 +61,10 @@ def test_web_login_sets_httponly_refresh_and_omits_token_from_json():
     fake = _fake_auth()
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock(return_value=fake)),
-        patch("app.modules.account.api.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch(
+            "app.modules.account.signin_limit.allow_request_fail_closed",
+            AsyncMock(return_value=True),
+        ),
     ):
         client = TestClient(app)
         r = client.post(
@@ -84,7 +87,10 @@ def test_mobile_login_keeps_refresh_token_in_json():
     fake = _fake_auth()
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock(return_value=fake)),
-        patch("app.modules.account.api.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch(
+            "app.modules.account.signin_limit.allow_request_fail_closed",
+            AsyncMock(return_value=True),
+        ),
     ):
         client = TestClient(app)
         r = client.post("/auth/dev", json={"email": "dev@recall.local", "name": "Dev"})
@@ -101,7 +107,10 @@ def test_a_new_account_s_sign_in_says_it_has_not_agreed_to_ai_data_use():
     fake = _fake_auth()
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock(return_value=fake)),
-        patch("app.modules.account.api.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch(
+            "app.modules.account.signin_limit.allow_request_fail_closed",
+            AsyncMock(return_value=True),
+        ),
     ):
         r = TestClient(app).post("/auth/dev", json={"email": "dev@recall.local", "name": "Dev"})
     user = r.json()["user"]
@@ -116,7 +125,10 @@ def test_web_refresh_requires_csrf_when_using_cookie():
     fake = _fake_auth()
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock(return_value=fake)),
-        patch("app.modules.account.api.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch(
+            "app.modules.account.signin_limit.allow_request_fail_closed",
+            AsyncMock(return_value=True),
+        ),
         patch(
             "app.modules.account.api.tokens_service.refresh_token_pair",
             AsyncMock(return_value=("access-2", "refresh-2", fake.user)),

@@ -30,7 +30,7 @@ _SHARED_MODULE = re.compile(
 )
 # What is left; lower these when a change removes some.
 _CHAT_PATCHES = 502
-_PRIVATE_PATCHES = 102
+_PRIVATE_PATCHES = 98
 
 
 def patch_targets(*, setattr_objects: bool = False) -> Iterator[tuple[str, str]]:
