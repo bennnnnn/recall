@@ -130,5 +130,9 @@ def resolve_regenerate_model(
         and prior_assistant_model != AUTO_ALIAS
         and prior_assistant_model in pool
     ):
-        return prior_assistant_model
+        # "Try again" on Pro after a cheap everyday reply (an older chat, or a fallback)
+        # gets Pro's everyday model.
+        if not is_auto_enabled(user):
+            return prior_assistant_model
+        return _everyday_for_plan(user, settings, prior_assistant_model, list(pool), frozenset())
     return resolve_user_model(user, content, settings)

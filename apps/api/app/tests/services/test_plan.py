@@ -341,3 +341,32 @@ def test_pro_everyday_keeps_a_photo_turn() -> None:
     # Another plan routed to that model (a fallback, a regenerate) still gets the photo lane.
     lane = plan_service.image_turn_model(_plan("free"), settings, strong, explicit=False)
     assert lane == model_catalog.vision_alias()
+
+
+@pytest.mark.parametrize(
+    ("plan", "expected"),
+    [
+        ("pro", model_catalog.auto_strong_everyday_alias()),
+        ("free", model_catalog.auto_fast_alias()),
+    ],
+)
+def test_regenerating_a_cheap_everyday_reply_follows_the_plan(plan: str, expected: str) -> None:
+    """Review: "try again" on Pro reused the Qwen reply's model."""
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    resolved = model_choice.resolve_regenerate_model(
+        _plan(plan), None, _EVERYDAY, model_catalog.auto_fast_alias(), settings
+    )
+    assert resolved == expected
+
+
+def test_the_strong_everyday_switch_is_read_per_plan() -> None:
+    off = Settings(mock_llm_enabled=True, openrouter_api_key="", strong_everyday_model_pro=False)
+    assert model_choice.resolve_user_model(_plan("pro"), _EVERYDAY, off) == (
+        model_catalog.auto_fast_alias()
+    )
+    plus_on = Settings(
+        mock_llm_enabled=True, openrouter_api_key="", strong_everyday_model_plus=True
+    )
+    assert model_choice.resolve_user_model(_plan("plus"), _EVERYDAY, plus_on) == (
+        model_catalog.auto_strong_everyday_alias()
+    )
