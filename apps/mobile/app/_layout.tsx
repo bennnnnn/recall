@@ -146,6 +146,8 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
 });
 
-// ErrorBoundary is re-exported for expo-router to use automatically when
-// errors occur in child routes (it catches crashes in screens).
-export { ErrorBoundary } from "expo-router";
+/**
+ * A crash no screen or section caught (the chat, the sign-in flow, or this
+ * layout itself) shows the shared error view in place of the whole app.
+ */
+export { ScreenErrorBoundary as ErrorBoundary } from "@/components/ScreenErrorBoundary";
