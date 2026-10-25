@@ -130,6 +130,20 @@
    "message": "Voice is temporarily unavailable. Try again later."
   }
  },
+ "live_talk_upstream_failed": {
+  "status": 502,
+  "detail": {
+   "code": "upstream_failed",
+   "message": "Could not start realtime voice"
+  }
+ },
+ "live_talk_not_available": {
+  "status": 404,
+  "detail": {
+   "code": "not_available",
+   "message": "Not available"
+  }
+ },
  "live_talk_save_rate_limited": {
   "status": 429,
   "detail": {

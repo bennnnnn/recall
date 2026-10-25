@@ -1,3 +1,5 @@
+import { LIVE_TALK_UPSTREAM_FAILED } from "@/features/speech/model/liveTalkLogic";
+
 const OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls";
 const SDP_EXCHANGE_TIMEOUT_MS = 10_000;
 
@@ -26,8 +28,10 @@ export async function exchangeRealtimeSdp(
     if (!response.ok) {
       const error = new Error(
         `OpenAI Realtime SDP exchange failed (${response.status}): ${answerSdp.slice(0, 240)}`,
-      ) as Error & { status?: number };
+      ) as Error & { status?: number; code?: string };
       error.status = response.status;
+      // The provider's status, not Recall's: its 429 is not this month's minutes, its 403 no paywall.
+      error.code = LIVE_TALK_UPSTREAM_FAILED;
       throw error;
     }
     if (!answerSdp.includes("v=0")) {

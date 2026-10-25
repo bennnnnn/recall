@@ -35,6 +35,7 @@ from app.main import create_app
 from app.models.orm import User
 from app.models.schemas.scan import SCAN_MAX_IMAGE_BYTES
 from app.modules.account.email_authority import AccountExistsError
+from app.modules.speech.live_talk import LiveTalkSessionContext
 from app.services.quota import counters
 
 FIXTURE = Path(__file__).resolve().parents[4] / "docs" / "fixtures" / "error_codes.json"
@@ -170,11 +171,13 @@ def _live_talk(path: str, *, settings: Settings | None = None, **refused: bool) 
 
     ``rate_limited``: the route's own per-minute limit is used up; ``spend_capped``: the
     voice spend breaker is open; ``minutes_used``: the month has no session left;
-    ``saves_used``: the call saved every turn it may. A save names this chat's session.
+    ``mint_failed``: the realtime provider minted no key; ``saves_used``: the call saved
+    every turn it may. A save names this chat's session.
     """
     user = _user()
     user.plan = "pro"
     user.tts_voice = None
+    user.custom_instructions = None
     chat_id = uuid4()
     allowed = AsyncMock(return_value=not refused.get("rate_limited"))
     minted = RealtimeClientSecretResult(value="ek_test", expires_at=123)
@@ -185,7 +188,7 @@ def _live_talk(path: str, *, settings: Settings | None = None, **refused: bool) 
         ),
         patch(
             "app.modules.speech.realtime.live_talk_service.load_live_talk_session_context",
-            AsyncMock(return_value=MagicMock()),
+            AsyncMock(return_value=LiveTalkSessionContext(None, "", "")),
         ),
         patch(
             "app.modules.speech.realtime.live_talk_service.realtime_session_bound_chat_id",
@@ -207,7 +210,7 @@ def _live_talk(path: str, *, settings: Settings | None = None, **refused: bool) 
         ),
         patch(
             "app.modules.speech.realtime.openai_speech_gateway.create_realtime_client_secret",
-            AsyncMock(return_value=minted),
+            AsyncMock(return_value=None if refused.get("mint_failed") else minted),
         ),
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
     ):
@@ -401,6 +404,12 @@ def _bodies() -> dict[str, dict[str, Any]]:
         "live_talk_minutes_used": _refusal(_live_talk("/speech/live/session", minutes_used=True)),
         "live_talk_rate_limited": _refusal(_live_talk("/speech/live/session", rate_limited=True)),
         "live_talk_spend_cap": _refusal(_live_talk("/speech/live/session", spend_capped=True)),
+        "live_talk_upstream_failed": _refusal(_live_talk("/speech/live/session", mint_failed=True)),
+        "live_talk_not_available": _refusal(
+            _live_talk(
+                "/speech/live/session", settings=Settings(speech_realtime_voice_enabled=False)
+            )
+        ),
         "live_talk_save_rate_limited": _refusal(
             _live_talk("/speech/live/persist", rate_limited=True)
         ),

@@ -13,7 +13,12 @@ export type LiveTalkGate =
   | "paused"
   /** This call saved every turn it may (`live_talk_saves_used`): start a new one. */
   | "saves_used"
+  /** This build has no WebRTC: only an update brings live talk. */
   | "unavailable"
+  /** The server has live talk switched off (`enabled: false`, `not_available`). */
+  | "off"
+  /** The realtime provider failed, or the connection to it never came up: try again. */
+  | "connect_failed"
   | "offline"
   | "unconfigured"
   /** Recall is down for now (its database or Redis, a deploy): try again in a moment. */
@@ -109,7 +114,7 @@ export function liveTalkOrbA11yHintKey(phase: LiveTalkPhase): "chat.live_talk_ca
 
 export function liveTalkGate(status: LiveTalkStatus | null, isOffline: boolean): LiveTalkGate {
   if (isOffline) return "offline";
-  if (!status || !status.enabled) return "unavailable";
+  if (!status || !status.enabled) return "off";
   if (!status.entitled || status.limit <= 0) return "upgrade";
   const secondsLeft = status.remaining_seconds ?? status.remaining * 60;
   if (secondsLeft <= 0 || secondsLeft < (status.min_session_seconds ?? 1)) return "limit";
@@ -170,34 +175,46 @@ const LIVE_TALK_429S: ReadonlyMap<unknown, LiveTalkGate> = new Map<unknown, Live
   ["live_talk_saves_used", "saves_used"],
 ]);
 
+/**
+ * The realtime provider failed: the server's 502 when it minted no key, and the phone's own
+ * SDP exchange with the provider (`realtimeSdp.ts`), whose status is the provider's, not Recall's.
+ */
+export const LIVE_TALK_UPSTREAM_FAILED = "upstream_failed";
+
 export function liveTalkErrorGate(error: unknown): LiveTalkGate {
+  // The one case an update fixes: this build has no WebRTC.
   if (error instanceof Error && error.message === "webrtc_unavailable") {
     return "unavailable";
   }
-  const status =
-    error && typeof error === "object" && "status" in error
-      ? (error as { status: unknown }).status
-      : undefined;
-  if (status === undefined && error && typeof error === "object" && isMicPermissionDenied(error)) {
+  if (!error || typeof error !== "object") return "connect_failed";
+  const { status, code } = error as { status?: unknown; code?: unknown };
+  if (status === undefined && isMicPermissionDenied(error)) {
     return "mic_permission";
   }
+  if (code === LIVE_TALK_UPSTREAM_FAILED) return "connect_failed";
+  if (code === "not_available") return "off";
   if (status === 403) return "upgrade";
   // The API's own request limit names no code: too many requests, never the month's minutes.
-  if (status === 429) return LIVE_TALK_429S.get((error as { code?: unknown }).code) ?? "rate_limited";
+  if (status === 429) return LIVE_TALK_429S.get(code) ?? "rate_limited";
   // Only the server's `not_configured` says live talk is not set up. Every 503 said so,
   // a Redis or database outage too; any other 503, and a gateway's 502 or 504, is one.
-  if (status === 503) {
-    return (error as { code?: unknown }).code === "not_configured" ? "unconfigured" : "outage";
-  }
+  if (status === 503) return code === "not_configured" ? "unconfigured" : "outage";
   if (isServiceUnavailable(error)) return "outage";
-  return "unavailable";
+  // No answer from Recall, a connection that never came up, an answer it could not use.
+  return "connect_failed";
 }
 
-const GATE_MESSAGE_KEYS: Partial<Record<LiveTalkGate, string>> = {
+type SaidGate = Exclude<LiveTalkGate, "ok" | "upgrade" | "mic_permission">;
+
+/** Every gate said as an error has its own line: an unknown one said "update the app". */
+const GATE_MESSAGE_KEYS: Readonly<Record<SaidGate, string>> = {
   limit: "chat.live_talk_limit_body",
   rate_limited: "chat.live_talk_rate_limited",
   paused: "chat.live_talk_paused",
   saves_used: "chat.live_talk_saves_used",
+  unavailable: "chat.live_talk_unavailable_body",
+  off: "chat.live_talk_off",
+  connect_failed: "chat.live_talk_connect_failed",
   offline: "chat.offline_body",
   outage: "common.service_unavailable",
   unconfigured: "chat.live_talk_not_configured",
@@ -205,7 +222,7 @@ const GATE_MESSAGE_KEYS: Partial<Record<LiveTalkGate, string>> = {
 
 /** The line a gate says as a recoverable error; upgrade and the microphone open their own. */
 export function liveTalkGateMessageKey(gate: LiveTalkGate): string {
-  return GATE_MESSAGE_KEYS[gate] ?? "chat.live_talk_unavailable_body";
+  return (GATE_MESSAGE_KEYS as Partial<Record<LiveTalkGate, string>>)[gate] ?? "chat.live_talk_failed";
 }
 
 /** A save refused with a 429 ends the call, in that refusal's own words. */

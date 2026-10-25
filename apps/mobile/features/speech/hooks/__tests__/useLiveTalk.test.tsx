@@ -110,11 +110,13 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
     expect(createRealtimeVoiceSession).not.toHaveBeenCalled();
   });
 
-  // Every 429 said "You've used this month's live talk minutes".
+  // Every 429 said "You've used this month's live talk minutes"; a 502 from the
+  // realtime provider said "Update the app".
   it.each([
     [429, { code: "live_talk_minutes_used", message: "You've used this month's live talk minutes." }, "chat.live_talk_limit_body"],
     [429, { code: "speech_rate_limited", message: "Too many live talk requests." }, "chat.live_talk_rate_limited"],
     [429, { code: "voice_spend_cap", message: "Voice is temporarily unavailable." }, "chat.live_talk_paused"],
+    [502, { code: "upstream_failed", message: "Could not start realtime voice" }, "chat.live_talk_connect_failed"],
   ])("words a refused start (%i) by its code: %j", async (status, detail, line) => {
     (createRealtimeVoiceSession as jest.Mock).mockRejectedValueOnce(
       new ApiRequestError(status, JSON.stringify({ detail })),
@@ -138,6 +140,17 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
     });
 
     expect(reportRecoverableError).toHaveBeenCalledWith(null, "chat.live_talk_rate_limited");
+    expect(createRealtimeVoiceSession).not.toHaveBeenCalled();
+  });
+
+  it("says live talk is off, not that the app is old, when the server switched it off", async () => {
+    jest.mocked(api.liveTalkStatus).mockResolvedValueOnce({ enabled: false, entitled: false, remaining: 0, limit: 0 });
+    await render(<Probe />);
+    await act(async () => {
+      await live.open();
+    });
+
+    expect(reportRecoverableError).toHaveBeenCalledWith(null, "chat.live_talk_off");
     expect(createRealtimeVoiceSession).not.toHaveBeenCalled();
   });
 

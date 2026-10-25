@@ -118,6 +118,15 @@ it.each([
   expect(liveTalkErrorGate(refused(name))).toBe(gate);
 });
 
+// Both said "Live talk isn't available in this version of the app. Update the app".
+it.each([
+  ["live_talk_upstream_failed", "connect_failed", "chat.live_talk_connect_failed"],
+  ["live_talk_not_available", "off", "chat.live_talk_off"],
+])("words a live talk start the app's age has nothing to do with: %s", (name, gate, words) => {
+  expect(liveTalkErrorGate(refused(name))).toBe(gate);
+  expect(liveTalkGateMessageKey(liveTalkErrorGate(refused(name)))).toBe(words);
+});
+
 // Every 429 said "You've used this month's live talk minutes": a rate limit, the spend
 // cap and a call's last save too.
 it.each([

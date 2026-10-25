@@ -48,6 +48,12 @@ describe("liveTalkGate", () => {
     ).toBe("limit");
   });
 
+  // It said "isn't available in this version of the app. Update the app": the server's
+  // switch is no old app.
+  it("says live talk is off when the server has it switched off", () => {
+    expect(liveTalkGate({ ...proReady, enabled: false, entitled: false }, false)).toBe("off");
+  });
+
   it("allows a remaining Pro turn", () => {
     expect(liveTalkGate(proReady, false)).toBe("ok");
   });
@@ -131,6 +137,22 @@ describe("liveTalkErrorGate", () => {
     expect(liveTalkErrorGate(error)).toBe(gate);
   });
 
+  // "Update the app" is only for a build without WebRTC; a provider that failed, or a
+  // connection that never came up, is worth another try.
+  it.each([
+    [{ status: 502, code: "upstream_failed" }],
+    [new Error("Realtime voice connection timed out")],
+    [new Error("OpenAI Realtime returned an invalid SDP answer")],
+    [new TypeError("Network request failed")],
+    [Object.assign(new Error("Request canceled"), { name: "AbortError" })],
+  ])("says a failed connection %j is worth another try", (error) => {
+    expect(liveTalkErrorGate(error)).toBe("connect_failed");
+  });
+
+  it("says a server with live talk switched off is off, not an old app", () => {
+    expect(liveTalkErrorGate({ status: 404, code: "not_available" })).toBe("off");
+  });
+
   it("maps a missing WebRTC native module to unavailable", () => {
     expect(liveTalkErrorGate(new Error("webrtc_unavailable"))).toBe("unavailable");
   });
@@ -156,6 +178,8 @@ describe("liveTalkErrorGate", () => {
     ["rate_limited", "chat.live_talk_rate_limited"],
     ["paused", "chat.live_talk_paused"],
     ["saves_used", "chat.live_talk_saves_used"],
+    ["connect_failed", "chat.live_talk_connect_failed"],
+    ["off", "chat.live_talk_off"],
     ["offline", "chat.offline_body"],
     ["unavailable", "chat.live_talk_unavailable_body"],
   ] as const)("words the %s gate", (gate, key) => {
@@ -163,7 +187,7 @@ describe("liveTalkErrorGate", () => {
   });
 
   it("ends the call on a refused save's 429, and only then", () => {
-    const ends = (["limit", "rate_limited", "paused", "saves_used", "outage", "upgrade", "unavailable"] as const)
+    const ends = (["limit", "rate_limited", "paused", "saves_used", "outage", "upgrade", "unavailable", "connect_failed"] as const)
       .filter(liveTalkSaveEndsCall);
     expect(ends).toEqual(["limit", "rate_limited", "paused", "saves_used"]);
   });
