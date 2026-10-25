@@ -4,11 +4,13 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { AuthProvider, useAuth, useAuthUserReader } from "@/contexts/AuthContext";
 import { api, loginWithDev, logoutSession, setTokenRefreshHandler, type User } from "@/lib/api";
-import { getToken, setTokenPair } from "@/lib/auth";
+import { clearOnboarded, clearToken, CorruptSessionError, getToken, setTokenPair } from "@/lib/auth";
 import { cachedUserMatchesToken, clearCachedUser, readCachedUser, writeCachedUser } from "@/lib/cachedUser";
 import { ensureLocale } from "@/lib/i18n";
+import { clearSignedOutAccount } from "@/lib/signOutCleanup";
 import { forgetSyncRecords } from "@/lib/syncRecords";
 import { onAppEvent } from "@/lib/appEvents";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 jest.mock("@/lib/api", () => ({
   api: { me: jest.fn(), updateMe: jest.fn() },
@@ -25,6 +27,7 @@ jest.mock("@/lib/auth", () => {
     setTokenPair: jest.fn(async () => true),
     clearToken: jest.fn(async () => { generation++; }),
     getOnboarded: jest.fn(async () => true), setOnboarded: jest.fn(), clearOnboarded: jest.fn(),
+    CorruptSessionError: class CorruptSessionError extends Error {},
   };
 });
 jest.mock("@/lib/cachedUser", () => ({
@@ -40,6 +43,7 @@ jest.mock("@/lib/google-auth", () => ({ signInWithGoogleIdToken: jest.fn(), sign
 jest.mock("@/lib/signOutCleanup", () => ({ clearSignedOutAccount: jest.fn() }));
 jest.mock("@/lib/syncRecords", () => ({ forgetSyncRecords: jest.fn(async () => undefined) }));
 jest.mock("@/lib/pushNotifications", () => ({ devicePushToken: jest.fn(async () => null) }));
+jest.mock("@/ui/overlay/dialogs", () => ({ confirmDialog: jest.fn(async () => true) }));
 
 const userA = { id: "account-a", name: "Alice", locale: "en" } as User;
 const userB = { id: "account-b", name: "Bob", locale: "en" } as User;
@@ -473,4 +477,93 @@ it("announces the profile fields the server saved, after it saved them", async (
   await act(async () => { await current.updateUser({ quiet_hours_enabled: true }).catch(() => {}); });
   expect(announced).not.toHaveBeenCalled();
   stop();
+});
+
+describe("the stored sign-in at launch", () => {
+  const settle = async () => {
+    for (let i = 0; i < 10; i += 1) await Promise.resolve();
+  };
+
+  it("is cleared when the record is corrupt, and the app opens on sign-in", async () => {
+    (getToken as jest.Mock).mockRejectedValue(new CorruptSessionError());
+    const rendered = await mount();
+
+    expect(rendered.getByText("signed-out")).toBeTruthy();
+    expect(rendered.queryByText("login.error_generic")).toBeNull();
+    expect(clearToken).toHaveBeenCalledTimes(1);
+    expect(clearCachedUser).toHaveBeenCalled();
+    expect(clearSignedOutAccount).toHaveBeenCalledWith(userA.id);
+    expect(api.me).not.toHaveBeenCalled();
+    // Sign-in itself, not the introduction before it.
+    expect(current.onboarded).toBe(true);
+    expect(clearOnboarded).not.toHaveBeenCalled();
+  });
+
+  it("is kept through a network error, and Retry restores it", async () => {
+    (readCachedUser as jest.Mock).mockResolvedValue(null);
+    (api.me as jest.Mock).mockRejectedValueOnce(new TypeError("Network request failed"));
+    const rendered = await mount();
+
+    expect(rendered.getByText("login.error_generic")).toBeTruthy();
+    expect(rendered.getByRole("button", { name: "settings.sign_out" })).toBeTruthy();
+    expect(clearToken).not.toHaveBeenCalled();
+
+    await fireEvent.press(rendered.getByRole("button", { name: "common.retry" }));
+    expect(current.user?.id).toBe(userA.id);
+    expect(api.me).toHaveBeenCalledTimes(2);
+    expect(clearToken).not.toHaveBeenCalled();
+  });
+
+  it("is kept when the keychain cannot be read yet", async () => {
+    (getToken as jest.Mock).mockRejectedValueOnce(new Error("User interaction is not allowed"));
+    const rendered = await mount();
+
+    expect(rendered.getByText("login.error_generic")).toBeTruthy();
+    expect(rendered.getByRole("button", { name: "settings.sign_out" })).toBeTruthy();
+    expect(clearToken).not.toHaveBeenCalled();
+  });
+
+  it("can be signed out of after a network error, the way Settings signs out", async () => {
+    const jwt = `e30.${btoa(JSON.stringify({ sub: userA.id })).replace(/=+$/, "")}.sig`;
+    (getToken as jest.Mock).mockResolvedValue(jwt);
+    (readCachedUser as jest.Mock).mockResolvedValue(null);
+    (api.me as jest.Mock).mockRejectedValue(new TypeError("Network request failed"));
+    const rendered = await mount();
+
+    await fireEvent.press(rendered.getByRole("button", { name: "settings.sign_out" }));
+    await act(settle);
+
+    expect(confirmDialog).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "settings.sign_out_confirm_title", destructive: true }),
+    );
+    expect(rendered.getByText("signed-out")).toBeTruthy();
+    expect(rendered.queryByText("login.error_generic")).toBeNull();
+    expect(clearToken).toHaveBeenCalledTimes(1);
+    expect(clearSignedOutAccount).toHaveBeenCalledWith(userA.id);
+    expect(clearOnboarded).toHaveBeenCalled();
+    // The server forgets the session too, with the token the launch read.
+    expect(logoutSession).toHaveBeenCalledWith(jwt, "refresh-a", null);
+  });
+
+  it("stays when the sign-out is cancelled", async () => {
+    (readCachedUser as jest.Mock).mockResolvedValue(null);
+    (api.me as jest.Mock).mockRejectedValue(new TypeError("Network request failed"));
+    (confirmDialog as jest.Mock).mockResolvedValueOnce(false);
+    const rendered = await mount();
+
+    await fireEvent.press(rendered.getByRole("button", { name: "settings.sign_out" }));
+    await act(settle);
+
+    expect(rendered.getByText("login.error_generic")).toBeTruthy();
+    expect(clearToken).not.toHaveBeenCalled();
+  });
+
+  it("opens the app when it is valid, and is never cleared", async () => {
+    const rendered = await mount();
+
+    expect(rendered.getByText("Alice")).toBeTruthy();
+    expect(rendered.queryByRole("button", { name: "settings.sign_out" })).toBeNull();
+    expect(clearToken).not.toHaveBeenCalled();
+    expect(clearSignedOutAccount).not.toHaveBeenCalled();
+  });
 });

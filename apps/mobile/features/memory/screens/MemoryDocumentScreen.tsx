@@ -24,6 +24,7 @@ import {
 import { MEMORY_TEXT_MAX_LENGTH, stripMemoryAsOf } from "@/features/memory/model/memoryFacts";
 import type { Memory } from "@/features/memory/types";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
+import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
 import { formatMonthDayYear } from "@/lib/datetime/format";
 import { notifyDestructive, tap } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
@@ -68,6 +69,8 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   useEffect(() => {
     if (missing && isCurrentView()) void load();
   }, [missing, isCurrentView, load]);
+  // The API back after an outage: the pages read again.
+  useReconnectRefresh(() => void load(), isCurrentView);
 
   const title = document ? documentTitle(document, t) : "";
   const summary = document ? documentSummary(document, t) : "";

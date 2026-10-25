@@ -31,10 +31,10 @@ function createInstanceStack<T>() {
 }
 
 // Shared drawer control — avoids circular imports between DrawerShell and ConversationList
-const drawerControls = createInstanceStack<{ open: () => void; close: () => void }>();
+const drawerControls = createInstanceStack<{ open: () => void; close: () => void; isOpen: () => boolean }>();
 
-export function registerDrawer(open: () => void, close: () => void): () => void {
-  return drawerControls.push({}, { open, close });
+export function registerDrawer(open: () => void, close: () => void, isOpen: () => boolean): () => void {
+  return drawerControls.push({}, { open, close, isOpen });
 }
 
 export function openDrawer() {
@@ -42,6 +42,10 @@ export function openDrawer() {
 }
 export function closeDrawer() {
   drawerControls.top()?.close();
+}
+/** The drawer is open now, covering the chat (for the chat screen, which sits outside it). */
+export function isDrawerOpenGlobal(): boolean {
+  return drawerControls.top()?.isOpen() ?? false;
 }
 
 // Shared "start a new chat" action — registered by the chat screen so the

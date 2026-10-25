@@ -71,12 +71,13 @@ function tokenStyle(color: string): TextStyle {
 }
 
 /**
- * A diff line's ink and tint: added green, removed red, hunks and file
- * headers muted. Theme colors, so both read in light and dark.
+ * A diff line's ink and tint: added lines on a green band, removed on a red
+ * one, hunks and file headers muted. The changed lines keep body ink: green
+ * or red ink on its own band read under AA in light mode (3.75 and 3.90:1).
  */
 function diffLineStyle(kind: DiffLineKind, t: Theme): { color: string; backgroundColor?: string } | null {
-  if (kind === "added") return { color: t.success, backgroundColor: withAlpha(t.success, 0.12) };
-  if (kind === "removed") return { color: t.danger, backgroundColor: withAlpha(t.danger, 0.1) };
+  if (kind === "added") return { color: t.text, backgroundColor: withAlpha(t.success, 0.12) };
+  if (kind === "removed") return { color: t.text, backgroundColor: withAlpha(t.danger, 0.1) };
   if (kind === "hunk" || kind === "header") return { color: t.textSecondary };
   return null;
 }

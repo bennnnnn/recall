@@ -13,6 +13,18 @@ class AuthStorageError extends Error {
   }
 }
 
+/**
+ * The session record was read but is not a session (cut short, or not a token
+ * pair). Unlike a keychain that cannot be read yet, no retry can turn it into
+ * one: startup clears it and opens on sign-in (contexts/AuthContext.tsx).
+ */
+export class CorruptSessionError extends AuthStorageError {
+  constructor() {
+    super();
+    this.name = "CorruptSessionError";
+  }
+}
+
 export class SessionChangedError extends Error {
   constructor() {
     super("Your sign-in changed. Please try again.");
@@ -54,7 +66,12 @@ function withStorage<T>(operation: () => Promise<T>): Promise<T> {
 }
 
 function parseTokenPair(value: string): TokenPair | null {
-  const pair: unknown = JSON.parse(value);
+  let pair: unknown;
+  try {
+    pair = JSON.parse(value);
+  } catch {
+    throw new CorruptSessionError();
+  }
   if (pair === null) return null;
   if (
     typeof pair !== "object" ||
@@ -64,7 +81,7 @@ function parseTokenPair(value: string): TokenPair | null {
     !("refreshToken" in pair) ||
     !(pair.refreshToken === null || (typeof pair.refreshToken === "string" && pair.refreshToken))
   ) {
-    throw new AuthStorageError();
+    throw new CorruptSessionError();
   }
   return { accessToken: pair.accessToken, refreshToken: pair.refreshToken };
 }

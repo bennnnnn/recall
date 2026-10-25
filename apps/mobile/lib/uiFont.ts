@@ -1,3 +1,6 @@
+/** One line of the UI face, in em: hhea ascender 1024 + descender 400 per 1000 units, no gap. */
+export const UI_LINE_EM = 1.424;
+
 /** Source Sans 3, one file per weight. Loaded in the root layout. Not Inter. */
 export const UI_FONT = {
   regular: "SourceSans3",

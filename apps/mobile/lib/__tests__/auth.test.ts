@@ -148,3 +148,30 @@ it("rejects prior-account tokens but permits earlier tokens in the current sessi
   expect(() => auth.requireTokenSession("access-a")).toThrow(auth.SessionChangedError);
   expect(() => auth.requireTokenSession("access-b")).not.toThrow();
 });
+
+describe("a record that is there but is no session", () => {
+  it.each([
+    ["cut short", "{truncated"],
+    ["not a pair", '{"accessToken":5,"refreshToken":"refresh-a"}'],
+    ["an empty token", '{"accessToken":"","refreshToken":"refresh-a"}'],
+    ["a bare string", '"access-a"'],
+  ])("is reported as corrupt when %s", async (_case, record) => {
+    storage.set("recall_session_v1", record);
+    await expect(auth.getToken()).rejects.toBeInstanceOf(auth.CorruptSessionError);
+    await expect(auth.getRefreshToken()).rejects.toBeInstanceOf(auth.CorruptSessionError);
+  });
+
+  it("is not confused with a keychain that cannot be read now", async () => {
+    await auth.setTokenPair("access-a", "refresh-a");
+    mockGetItem.mockRejectedValue(new Error("User interaction is not allowed"));
+    const read = auth.getToken();
+    await expect(read).rejects.toThrow(/secure/i);
+    await expect(read).rejects.not.toBeInstanceOf(auth.CorruptSessionError);
+  });
+
+  it("is gone after sign-out clears it", async () => {
+    storage.set("recall_session_v1", "{truncated");
+    await auth.clearToken();
+    await expect(auth.getToken()).resolves.toBeNull();
+  });
+});
