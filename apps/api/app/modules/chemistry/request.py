@@ -221,13 +221,11 @@ _NAMED = tuple(NAMED_COMPOUNDS)
 _PARTICLE_WORD = re.compile(r"\b(?:atoms?|molecules?|formula\s+units?)\b", re.IGNORECASE)
 _FORMULA_WORD = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*)")
 
-
 # "What % of Fe2O3 is iron?": an element's share of a compound written as a formula.
 _SHARE_OF_COMPOUND = re.compile(
     r"(?:%|\b[Pp]ercent(?:age)?)\s+(?:by\s+mass\s+)?of\s+(?:the\s+mass\s+of\s+)?"
     r"([A-Z][A-Za-z0-9()]*)\s+(?:by\s+mass\s+)?is\s+(?:made\s+up\s+of\s+)?([A-Za-z]+)\b"
 )
-
 
 # Two gases of a mixture, each with its pressure: "He at 0.40 atm, Ne at 0.25 atm",
 # "P(N2) = 600 mmHg". A tank "B at 3 atm" is not a gas.
@@ -548,10 +546,12 @@ def is_chemistry_question(content: str) -> bool:
         return True
     if extract_compound_name(cleaned) is not None:
         return True
-    # "How many moles are in 36 g of water?" names no cue word, but reads as one law.
+    # "How many moles are in 36 g of water?" names no cue word, but reads as one law, and
+    # "how much water do I get if I burn 4 g of h2" asks an amount of a reaction.
     from app.modules.chemistry.binding import bind_chemistry_intent
+    from app.modules.chemistry.extractors.described import reaction_question
 
-    return bind_chemistry_intent(cleaned) is not None
+    return reaction_question(cleaned) or bind_chemistry_intent(cleaned) is not None
 
 
 def _clean_name(raw: str) -> str | None:

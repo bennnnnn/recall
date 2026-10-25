@@ -6,56 +6,35 @@ import re
 
 from app.modules.chemistry.extractors.parsing import (
     _N,
+    AskedQuantity,
     _equation,
     _target,
     asked_quantity,
 )
+from app.modules.chemistry.formula import parse_formula
 from app.modules.chemistry.quantity import to_atm, to_kelvin, to_liters
 from app.modules.chemistry.request import CHEMICAL_FORMULA, FORMULA_END
 from app.modules.chemistry.schemas import ChemistryIntent
 
+_HOW_MUCH = re.compile(r"\bhow\s+(?:many|much)\b", re.IGNORECASE)
+# Units a chain answers in; None is the unit the amount is given in.
+_ANSWERED_UNITS = frozenset({None, "g", "mol", "L", "particles"})
 
-def _extract_mass_chain(text: str) -> ChemistryIntent | None:
+
+def extract_mass_chain(text: str) -> ChemistryIntent | None:
     equation = _equation(text)
-    if equation is None or not re.search(
-        r"\b(?:how many|how much|limiting)\b", text, re.IGNORECASE
-    ):
+    limiting = re.search(r"\blimiting\b", text, re.IGNORECASE) is not None
+    asked = _amount_ask(text)
+    if equation is None or (asked is None and not limiting):
         return None
     target = _target(text, equation)
     if target is None:
         return None
-    limiting = re.search(r"\blimiting\b", text, re.IGNORECASE) is not None
-    # The limiting-reagent answer is always a yield in grams; every other chain is
-    # answered in the unit the question head asks for. No head, no verified answer.
-    find_unit = _find_unit(text)
-    if find_unit is None and not limiting:
-        return None
     if limiting:
-        amounts = _gram_amounts(text)
-        if len(amounts) >= 2:
-            return ChemistryIntent(
-                kind="stoichiometry",
-                chemistry_op="limiting_mass",
-                equation=equation,
-                target=target,
-                species=amounts,
-                units={"known": "g"},
-            )
-        volumes = re.findall(
-            rf"({CHEMICAL_FORMULA})\s*=\s*({_N})\s*L\s*\(\s*({_N})\s*M\s*\)",
-            text,
-            re.IGNORECASE,
-        )
-        if len(volumes) >= 2:
-            return ChemistryIntent(
-                kind="stoichiometry",
-                chemistry_op="limiting_solution",
-                equation=equation,
-                target=target,
-                species={formula: float(volume) for formula, volume, _molarity in volumes},
-                params={formula: float(molarity) for formula, _volume, molarity in volumes},
-            )
-        return None
+        return _limiting_chain(text, equation, target)
+    # The answer is in the unit the question head asks for. A head that names only the
+    # substance ("how much H2O from 4 g of H2") asks in the unit the amount is given in.
+    find_unit = None if asked is None else asked.unit
     grams = _gram_amounts(text)
     two_reactants = _limiting_from_masses(equation, target, grams)
     if two_reactants is not None:
@@ -125,6 +104,55 @@ def _extract_mass_chain(text: str) -> ChemistryIntent | None:
     return None
 
 
+def _amount_ask(text: str) -> AskedQuantity | None:
+    """The head that asks an amount: "how much H2O", "what mass of H2O", "find the moles of
+    O2". No head, no verified answer: "what is H2O" asks nothing a ratio gives.
+
+    The unit is one a chain answers in. Atoms are an element's alone ("atoms of O2" are
+    twice its molecules), and "how many H2O" counts moles. Any other unit (mL, kg, two units
+    at once) declines rather than take a default.
+    """
+    asked = asked_quantity(text)
+    if asked is None or (asked.unit is None and not _HOW_MUCH.search(text)):
+        return None
+    if asked.unit == "atoms":
+        single = asked.species is not None and parse_formula(asked.species) == {asked.species: 1}
+        return AskedQuantity("particles", asked.species) if single else None
+    if asked.unit is None and asked.species is not None:
+        if re.search(rf"\bhow\s+many\s+{re.escape(asked.species)}\b", text, re.IGNORECASE):
+            return AskedQuantity("mol", asked.species)
+    return asked if asked.unit in _ANSWERED_UNITS else None
+
+
+def _limiting_chain(text: str, equation: str, target: str) -> ChemistryIntent | None:
+    """A limiting-reagent question: its answer is always a yield in grams."""
+    amounts = _gram_amounts(text)
+    if len(amounts) >= 2:
+        return ChemistryIntent(
+            kind="stoichiometry",
+            chemistry_op="limiting_mass",
+            equation=equation,
+            target=target,
+            species=amounts,
+            units={"known": "g"},
+        )
+    volumes = re.findall(
+        rf"({CHEMICAL_FORMULA})\s*=\s*({_N})\s*L\s*\(\s*({_N})\s*M\s*\)",
+        text,
+        re.IGNORECASE,
+    )
+    if len(volumes) >= 2:
+        return ChemistryIntent(
+            kind="stoichiometry",
+            chemistry_op="limiting_solution",
+            equation=equation,
+            target=target,
+            species={formula: float(volume) for formula, volume, _molarity in volumes},
+            params={formula: float(molarity) for formula, _volume, molarity in volumes},
+        )
+    return None
+
+
 def _one_amount(text: str, pattern: str) -> tuple[float, str] | None:
     matches = re.findall(pattern, text, re.IGNORECASE)
     if len(matches) != 1:
@@ -149,14 +177,6 @@ def _chain(
         species={formula: amount},
         units={"known": known, "find": find},
     )
-
-
-def _find_unit(text: str) -> str | None:
-    """Unit of the requested quantity; ``mol`` when only a species is named."""
-    asked = asked_quantity(text)
-    if asked is None:
-        return None
-    return asked.unit or "mol"
 
 
 def _gram_amounts(text: str) -> dict[str, float]:
@@ -199,11 +219,11 @@ def _limiting_from_masses(
     )
 
 
-_YIELD_ASK = re.compile(r"\b(?:percent(?:age)?|%)\s+yield\b", re.IGNORECASE)
+YIELD_ASK = re.compile(r"\b(?:percent(?:age)?|%)\s+yield\b", re.IGNORECASE)
 _EXCESS = re.compile(r"\b(?:excess|plenty\s+of|enough)\b", re.IGNORECASE)
 
 
-def _extract_reaction_yield(text: str) -> ChemistryIntent | None:
+def extract_reaction_yield(text: str) -> ChemistryIntent | None:
     """Percent yield when the theoretical yield comes from a written reaction.
 
     "In CaCO3 → CaO + CO2, heating 50.0 g of CaCO3 gave 25.0 g of CaO. Percent yield?" One
@@ -213,7 +233,7 @@ def _extract_reaction_yield(text: str) -> ChemistryIntent | None:
     from app.modules.chemistry.equations import balance_equation
 
     equation = _equation(text)
-    if equation is None or not _YIELD_ASK.search(text):
+    if equation is None or not YIELD_ASK.search(text):
         return None
     if re.search(r"\btheoretical\s+yield\s+(?:is|was|=|of)\s*\d", text, re.IGNORECASE):
         return None

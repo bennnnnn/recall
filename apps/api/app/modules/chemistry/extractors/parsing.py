@@ -131,7 +131,10 @@ def _equation(text: str) -> str | None:
 
 @dataclass(frozen=True)
 class AskedQuantity:
-    """What the question asks for: ``unit`` is g/mol/L/particles, ``species`` a formula."""
+    """What the question asks for: ``unit`` is g/mol/L/particles/atoms, ``species`` a formula.
+
+    A unit no reader answers in (mL, kg, a cup) is kept as written, so each one declines it.
+    """
 
     unit: str | None
     species: str | None
@@ -140,6 +143,7 @@ class AskedQuantity:
 _UNIT_WORDS = {
     "mole": "mol",
     "moles": "mol",
+    "mol": "mol",
     "amount": "mol",
     "gram": "g",
     "grams": "g",
@@ -151,13 +155,20 @@ _UNIT_WORDS = {
     "volume": "L",
     "molecules": "particles",
     "particles": "particles",
-    "atoms": "particles",
+    # Atoms are not molecules: "atoms of O2" is twice the count of O2.
+    "atoms": "atoms",
 }
+# A unit written after the substance: "How many H2O molecules", "how much H2O in liters".
+_UNIT_AFTER = (
+    r"(?:\s+(?:in\s+)?(?P<after>molecules|particles|atoms|moles?|mol|grams?|liters?|litres?|"
+    r"milli(?:liters?|litres?)|mL|kilograms?|kg|milligrams?|mg|cups?|ounces?|oz|pounds?|lbs?)"
+    r"(?![A-Za-z]))?"
+)
 _ASKED = re.compile(
     r"\b(?:how\s+(?:many|much)|what(?:\s+is)?(?:\s+the)?|find|calculate|determine)\s+"
     r"(?:the\s+)?"
     r"(?:(?P<unit>moles?|amount|grams?|mass|liters?|litres?|volume|molecules|particles|atoms)"
-    rf"\s+(?:of\s+)?)?(?:(?P<species>{CHEMICAL_FORMULA}){FORMULA_END})?",
+    rf"\s+(?:of\s+)?)?(?:(?P<species>{CHEMICAL_FORMULA}){FORMULA_END}{_UNIT_AFTER})?",
     re.IGNORECASE,
 )
 
@@ -166,7 +177,8 @@ def asked_quantity(text: str) -> AskedQuantity | None:
     """Read the requested quantity from the question head, not from the given amounts.
 
     "How many moles of H2O from 10 grams of H2" asks for moles; the word "grams"
-    belongs to the given. ``None`` when no question head names anything.
+    belongs to the given. "How many H2O molecules" asks for particles. ``None`` when no
+    question head names anything.
     """
     for match in _ASKED.finditer(text):
         unit_word = match.group("unit")
@@ -174,6 +186,13 @@ def asked_quantity(text: str) -> AskedQuantity | None:
         if unit_word is None and species is None:
             continue
         unit = _UNIT_WORDS[unit_word.lower()] if unit_word else None
+        after = match.group("after")
+        if after is not None:
+            written = _UNIT_WORDS.get(after.lower(), after.lower())
+            if unit is not None and unit != written:
+                # "how many grams of H2O molecules": two units, no one ask.
+                return AskedQuantity("unread", species)
+            unit = written
         return AskedQuantity(unit, species)
     return None
 

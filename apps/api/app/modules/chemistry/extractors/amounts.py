@@ -21,6 +21,7 @@ from app.modules.chemistry.request import (
     SAMPLE_FORMULA,
 )
 from app.modules.chemistry.schemas import ChemistryIntent
+from app.modules.chemistry.species import DIATOMIC_ELEMENTS
 from app.modules.chemistry.species_facts import (
     ELEMENT_NAMES,
     NAMED_COMPOUNDS,
@@ -278,8 +279,6 @@ def _extract_amounts(text: str) -> ChemistryIntent | None:
     return _extract_particle_mass(text)
 
 
-# Elements whose particles are molecules of two atoms: "molecules of oxygen" are O2.
-_DIATOMIC = {"H": "H2", "N": "N2", "O": "O2", "F": "F2", "Cl": "Cl2", "Br": "Br2", "I": "I2"}
 _PARTICLE_NOUN = r"(?P<noun>atoms?|molecules?|formula\s+units?)"
 _NAMED = "|".join(re.escape(name) for name in sorted(NAMED_COMPOUNDS, key=len, reverse=True))
 # What the particles are of: a named compound, a formula, or one word (an element's name).
@@ -318,7 +317,8 @@ def _particle_substance(noun: str, word: str) -> str | None:
     if named is not None:
         return named
     if element is not None:
-        return _DIATOMIC.get(element)
+        # Elements whose particles are molecules of two atoms: "molecules of oxygen" are O2.
+        return f"{element}2" if element in DIATOMIC_ELEMENTS else None
     return word if is_formula(word) else None
 
 
