@@ -335,6 +335,7 @@ export function AttachmentImageStage({ item, active, onPress, onZoomChange, acce
     return (
       <View style={s.stage}>
         <MediaLoadRetry
+          media
           onRetry={() => {
             if (remoteUri) invalidateCachedAttachmentFile(remoteUri);
             setCachedFile(null);
