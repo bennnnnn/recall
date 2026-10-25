@@ -393,3 +393,6 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     </View>
   );
 }
+
+/** Its route's error view: a crash here leaves the rest of the app working. */
+export { ScreenErrorBoundary as ErrorBoundary } from "@/components/ScreenErrorBoundary";

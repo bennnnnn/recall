@@ -1,1 +1,1 @@
-export { default } from "@/features/todos/screens/TodosScreen";
+export { default, ErrorBoundary } from "@/features/todos/screens/TodosScreen";
