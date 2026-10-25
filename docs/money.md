@@ -72,34 +72,29 @@ changed, and the server works it and sends the card exactly as for a first ask. 
 chips under a money reply ask exactly this; before, the model did the arithmetic itself and was
 off by dollars (live 2026-10-25: $340.58 a month for $340.45).
 
-- The turn passes the user's earlier lines in its window and the last reply
-  (`turn_prep/money.py`). The request a line changes is the last one in the user's last three
-  lines, and every line after it must be a change of it too, so changes build on each other ("3
-  years instead", then "and with 5000 down?") and a line about something else ends the money
-  conversation.
-- A change line is read by a positive grammar (`change_line.py`): every word of it must belong
-  to a change phrase or be filler ("what if", "hmm", "and", "instead", "i only", "same but").
-  The phrases: a term ("3 years", "over 48 months", "a 15 year mortgage", "pay it off in 2
-  years"), a rate by its words ("at 6%", "the rate is 6%", "6% apr", or a bare "6%"), a down
-  payment ("5000 down", "put 20% down", "the down payment is 60k", "pay 5000 upfront"), a price
-  or amount by its noun ("a 30k car", "the house is 400k", "a new one for 30000", "borrow 8000",
-  "a 250k mortgage"), a card payment or balance ("pay 300 a month", "pay 300", "owe 8000"), a
-  savings deposit or start ("save 500 a month", "start with 5000"), and the kind ("used", "a
-  new one"). Any word left over ("miles", "tax", "match", "leave", "then go up", "from", "now",
-  "fee") means the line is about something else, and the model answers it as before. Two
-  reviews (2026-10-25) found looser readers turning "it's 40k miles" into a $40,000 loan and
-  "rates are 5% for 2 years then go up" into a 2-year mortgage; deny-words kept missing the
-  next one.
-- The change must then fit the request: a role its product has (a card has no down payment, a
-  loan no monthly sum), the request's currency ("$400k" after a birr mortgage is not one), and
-  a value its last card's slider reaches (`fence.slider_range`: a mortgage runs 5 to 40 years,
-  so "5% for 2 years" is no new term; "36m" is no $36M car loan). A share put down stays a
-  share, so "what about a 600k house?" after "a 500k house with 20% down" puts 120k down.
-- A follow-up can change the kind either way: "what if I bought used", and back with "what if I
-  bought a new car for 30000 instead".
-- Its average is read again for its own kind and term. When that is not the rate the last
-  reply's card showed (a stand-in the first time, the used-car average now), the block says the
-  rate changed and why.
+- The server works two changes only, both common and safe: a new term ("3 years", "36 months",
+  "over 4 years", "a 15 year mortgage", "make it 4 years", "pay it off in 2 years") and a new
+  rate with its words ("at 6%", "6% apr", "the rate is 6%", "6% interest") or a line that is
+  only a percent ("7%", "what about 6.5%?"). Every other change (a price or amount, a down
+  payment, a card payment or balance, a savings deposit or start, used or new) goes to the
+  model, as before. Three reviews (2026-10-25) of wider readers each found new shapes they
+  misread, and a misread follow-up is a wrong number the reply calls the answer: a model year
+  as a price, a card payment ("my payment is 3%") as the APR, "it's 40k miles" as a $40,000
+  loan.
+- The line is read by a positive grammar (`change_line.py`): every word must belong to a term
+  or rate phrase or be filler ("what if", "hmm", "and", "instead", "i only do"). Any other word
+  ("miles", "match", "payment", "make", "down", "then go up", "from") means no follow-up. "6%
+  for 10 years" without "at" is a rate for a while, not the loan's rate and term, and a line
+  about the person ("what if I'm 30 years") changes nothing.
+- The new value must lie on the slider the request's last card had (`fence.slider_range`): a
+  mortgage runs 5 to 40 years, so "2 years" is no new term.
+- The turn passes the user's earlier lines and the last reply (`turn_prep/money.py`). The
+  request a line changes is the last one in the user's last three lines, and every line after
+  it must be a change of it too; a line about something else, or a change the server left to
+  the model, ends the run.
+- The follow-up's average is read again for its own kind and term. When that is not the rate
+  the last reply's card showed (a stand-in the first time, the used-car average now), the
+  block says the rate changed and why.
 - The money block tells the model which inputs changed and that the numbers below are the
   answer, never to be redone from the earlier reply.
 

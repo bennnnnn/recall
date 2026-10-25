@@ -64,7 +64,6 @@ _INPUT_WORDS = {
     "payment": "monthly payment",
     "start": "starting amount",
     "deposit": "monthly deposit",
-    "down": "down payment",
 }
 _OUTPUT_WORDS = {
     "payment": "monthly payment",
@@ -115,17 +114,10 @@ def money_block(
 def _changes(request: MoneyRequest, worked: Worked) -> list[str]:
     """What the follow-up changed, in the block's words ("term in months 36")."""
     product = request.product
-    parts = []
-    for name in request.changed:
-        if name == "variant":
-            kind = request.variant or (product.plain_words[0] if product.plain_words else "")
-            parts.append(" ".join(("a", kind, product.key.replace("_", " "))).replace("  ", " "))
-        elif name == "down":
-            parts.append(f"{_INPUT_WORDS[name]} {money_text(request.down)}")
-        elif name in worked.values:
-            value = _value_text(name, worked.values[name], product)
-            parts.append(f"{_INPUT_WORDS.get(name, name)} {value}")
-    return parts
+    return [
+        f"{_INPUT_WORDS.get(name, name)} {_value_text(name, worked.values[name], product)}"
+        for name in request.changed
+    ]
 
 
 def _stand_in(request: MoneyRequest, average: MarketRate | None) -> str:

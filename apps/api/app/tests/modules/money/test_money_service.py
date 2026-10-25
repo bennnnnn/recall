@@ -256,7 +256,7 @@ async def test_a_follow_up_says_when_its_rate_is_not_the_last_replys(monkeypatch
     assert turn is not None and turn.worked is not None and turn.worked.values["rate"] == 11.5
     assert "The rate is 11.5%, not the 6.9% the last reply used" in turn.block
     same = await service.prepare_money_turn(
-        "and with 5000 down?",
+        "and over 4 years?",
         Settings(),
         None,
         user=None,

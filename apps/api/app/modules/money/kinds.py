@@ -1,8 +1,6 @@
-"""Which kind of a product a message names: a catalog ``Variant`` ("a used car") or the
-product's own kind ("a new car"), read as describing words only.
-
-"Used" is also a verb ("I used a calculator", "I'm used to paying 300") and "new" is
-everywhere ("a new job"), so each counts only where it describes what is bought.
+"""Which kind of a product a message names: a catalog ``Variant`` ("a used car"), read as
+a describing word only. "Used" is also a verb ("I used a calculator", "I'm used to paying
+300"), so it counts only where it describes what is bought.
 """
 
 from __future__ import annotations
@@ -24,11 +22,6 @@ _VERB_AFTER = re.compile(
     r"|\sfor\s(?![$€£¥₹₦]?\d)",
     re.I,
 )
-# "New" is everywhere ("a new job"); it names the kind only beside what is bought: "a new
-# car", "a new one", "buy new instead", "it was new?".
-_PLAIN_KIND_AFTER = re.compile(
-    r"\s(?:car|one|vehicle|truck|suv|auto|model)\b|\s?(?:instead\b|[?.!,]|$)", re.I
-)
 
 
 def named_variant(product: Product, text: str) -> str:
@@ -37,32 +30,12 @@ def named_variant(product: Product, text: str) -> str:
     for variant in product.variants:
         for word in variant.words:
             for match in re.finditer(rf"(?<![\w-]){re.escape(word)}(?!\w)", lowered):
-                if describes(lowered, match.start(), match.end()):
+                if _describes(lowered, match.start(), match.end()):
                     return variant.key
     return ""
 
 
-def describes(lowered: str, start: int, end: int) -> bool:
+def _describes(lowered: str, start: int, end: int) -> bool:
     """The kind word at ``start:end`` describes what is bought, not a verb ("I used")."""
     before = lowered[max(0, start - 16) : start]
     return not (_VERB_BEFORE.search(before) or _VERB_AFTER.match(lowered, end))
-
-
-def kind_of(product: Product, word: str) -> str | None:
-    """The kind a kind word names for ``product``: a variant key, "" for its own, or None."""
-    word = " ".join(word.lower().replace("-", " ").split())
-    for variant in product.variants:
-        if word in {" ".join(item.replace("-", " ").split()) for item in variant.words}:
-            return variant.key
-    plain = {" ".join(item.replace("-", " ").split()) for item in product.plain_words}
-    return "" if word in plain else None
-
-
-def named_plain_kind(product: Product, text: str) -> bool:
-    """The message names the product's own kind against its variants: "a new car"."""
-    lowered = text.lower()
-    return any(
-        _PLAIN_KIND_AFTER.match(lowered, match.end())
-        for word in product.plain_words
-        for match in re.finditer(rf"(?<![\w-]){re.escape(word)}(?!\w)", lowered)
-    )

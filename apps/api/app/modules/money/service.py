@@ -76,7 +76,7 @@ async def prepare_money_turn(
     """
     if not settings.money_enabled:
         return None
-    request = follow_up_request(text, earlier, location) or read_money_request(text)
+    request = follow_up_request(text, earlier) or read_money_request(text)
     if request is None:
         return None
     # The card and the prompt use one currency: the one named, else the user's place's.

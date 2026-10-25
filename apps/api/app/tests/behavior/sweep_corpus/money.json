@@ -170,7 +170,7 @@
  },
  {
   "id": "mo-021",
-  "area": "money",
+  "area": "money declined",
   "prompt": "what if I put 5000 down?",
   "history": [
    [
@@ -187,7 +187,7 @@
  },
  {
   "id": "mo-022",
-  "area": "money",
+  "area": "money declined",
   "prompt": "what if I pay 300 a month instead?",
   "history": [
    [
@@ -221,7 +221,7 @@
  },
  {
   "id": "mo-024",
-  "area": "money",
+  "area": "money declined",
   "prompt": "and with 5000 down?",
   "history": [
    [
@@ -551,7 +551,7 @@
  },
  {
   "id": "mo-043",
-  "area": "money",
+  "area": "money declined",
   "prompt": "what if I bought a new car for 30000 instead",
   "history": [
    [
@@ -568,7 +568,7 @@
  },
  {
   "id": "mo-044",
-  "area": "money",
+  "area": "money declined",
   "prompt": "what if I pay 5000 upfront",
   "history": [
    [
@@ -585,7 +585,7 @@
  },
  {
   "id": "mo-045",
-  "area": "money",
+  "area": "money declined",
   "prompt": "what about 400k?",
   "history": [
    [
@@ -738,7 +738,7 @@
  },
  {
   "id": "mo-054",
-  "area": "money",
+  "area": "money declined",
   "prompt": "what about a 600k house?",
   "history": [
    [
@@ -755,7 +755,7 @@
  },
  {
   "id": "mo-055",
-  "area": "money",
+  "area": "money declined",
   "prompt": "what if I buy it used at 9%",
   "history": [
    [
@@ -768,6 +768,108 @@
    ]
   ],
   "reply": "A used car at 9% over 60 months costs about $415.17 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-056",
+  "area": "money declined",
+  "prompt": "what about a 2019 model?",
+  "history": [
+   [
+    "user",
+    "used car loan 8000 at 9% for 48 months"
+   ],
+   [
+    "assistant",
+    "About $199.08 a month over 48 months."
+   ]
+  ],
+  "reply": "A 2019 model would likely cost more than $8,000; tell me its price and I'll redo the payment.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-057",
+  "area": "money declined",
+  "prompt": "what if my payment is 3%",
+  "history": [
+   [
+    "user",
+    "I owe 5000 on my credit card at 22% apr and pay 200 a month, how long to pay off"
+   ],
+   [
+    "assistant",
+    "About 34 months, paying about $1,800 in interest."
+   ]
+  ],
+  "reply": "A minimum of 3% of the balance starts at $150 and shrinks as the balance falls.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-058",
+  "area": "money declined",
+  "prompt": "what if I put 20% down, so 80k",
+  "history": [
+   [
+    "user",
+    "what would my mortgage payment be on a 350k house with 20% down"
+   ],
+   [
+    "assistant",
+    "With $70,000 down you borrow $280,000; I need the rate to work out the payment."
+   ]
+  ],
+  "reply": "80k is 20% of a $400,000 house, so you'd borrow $320,000.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-059",
+  "area": "money declined",
+  "prompt": "what about 3.5 down?",
+  "history": [
+   [
+    "user",
+    "what would my mortgage payment be on a 350k house with 20% down"
+   ],
+   [
+    "assistant",
+    "With $70,000 down you borrow $280,000; I need the rate to work out the payment."
+   ]
+  ],
+  "reply": "With 3.5% down on $350,000 you'd put $12,250 down and borrow $337,750.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-060",
+  "area": "money declined",
+  "prompt": "what if the new price is 12k",
+  "history": [
+   [
+    "user",
+    "i'm thinking of buying a used car for 14000, i can put 3000 down. what would my monthly payment be over 5 years?"
+   ],
+   [
+    "assistant",
+    "About $218.64 a month over 60 months at today's average rate."
+   ]
+  ],
+  "reply": "At $12,000 with $3,000 down you'd borrow $9,000.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-061",
+  "area": "money declined",
+  "prompt": "what if I make 3000 a month",
+  "history": [
+   [
+    "user",
+    "if I save 1000 a month at 5% for 20 years how much will I have"
+   ],
+   [
+    "assistant",
+    "About $411,000: $240,000 deposited and about $171,000 in interest."
+   ]
+  ],
+  "reply": "Saving $1,000 of $3,000 a month is a third of your income.",
   "expect": "answer"
  }
 ]

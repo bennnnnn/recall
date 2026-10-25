@@ -149,48 +149,45 @@ def test_a_rates_question_keeps_the_kind() -> None:
 
 
 @pytest.mark.parametrize(
-    ("text", "values", "down"),
+    ("text", "values"),
     [
         # "3 years ago" says when, not the term: the default stands.
-        ("mortgage of 300k at 6%, I bought the house 3 years ago", {"amount": 300000, "rate": 6}, 0),
-        ("mortgage of 300k at 6% for 15 years, I'll sell after 5 years", {"amount": 300000, "rate": 6, "years": 15}, 0),
+        ("mortgage of 300k at 6%, I bought the house 3 years ago", {"amount": 300000, "rate": 6}),
+        ("mortgage of 300k at 6% for 15 years, I'll sell after 5 years", {"amount": 300000, "rate": 6, "years": 15}),
         # "20% down" is a share of the price, not the rate.
-        ("a 400k house with 20% down at 6.5% for 30 years", {"amount": 320000, "rate": 6.5, "years": 30}, 80000),
-        ("car loan for 14000, I can put down 3000, at 7% for 5 years", {"amount": 11000, "rate": 7, "months": 60}, 3000),
-        ("car loan 22000 at 5.9% 72 months, 4000 cash down", {"amount": 18000, "rate": 5.9, "months": 72}, 4000),
-        ("balance was 3000 on my credit card at 25% paying 100 a month", {"balance": 3000, "apr": 25, "payment": 100}, 0),
+        ("a 400k house with 20% down at 6.5% for 30 years", {"amount": 320000, "rate": 6.5, "years": 30}),
+        ("car loan for 14000, I can put down 3000, at 7% for 5 years", {"amount": 11000, "rate": 7, "months": 60}),
+        ("car loan 22000 at 5.9% 72 months, 4000 cash down", {"amount": 18000, "rate": 5.9, "months": 72}),
+        ("balance was 3000 on my credit card at 25% paying 100 a month", {"balance": 3000, "apr": 25, "payment": 100}),
         # The second review: these read as the parent read them (an "upfront fee" is no
         # down payment, "6% down from 7%" no share, "I'm 2 down on payments" no sum).
-        ("mortgage 300k, rate is 6% down from 7%", {"amount": 300000, "rate": 6}, 0),
-        ("personal loan of 20000 at 10% with a 500 upfront fee", {"amount": 20000, "rate": 10}, 0),
-        ("my mortgage is 200k at 6%, rates went down 1 point, should I refinance", {"amount": 200000, "rate": 6}, 0),
-        ("car loan 20000 at 7% for 5 years, I'm 2 down on payments", {"amount": 20000, "rate": 7, "months": 60}, 0),
-        ("student loan 30000 at 5% repaid after 10 years", {"amount": 30000, "rate": 5, "years": 10}, 0),
+        ("mortgage 300k, rate is 6% down from 7%", {"amount": 300000, "rate": 6}),
+        ("personal loan of 20000 at 10% with a 500 upfront fee", {"amount": 20000, "rate": 10}),
+        ("my mortgage is 200k at 6%, rates went down 1 point, should I refinance", {"amount": 200000, "rate": 6}),
+        ("car loan 20000 at 7% for 5 years, I'm 2 down on payments", {"amount": 20000, "rate": 7, "months": 60}),
+        ("student loan 30000 at 5% repaid after 10 years", {"amount": 30000, "rate": 5, "years": 10}),
         # A year before a vehicle is its model year beside a price; alone, it is the price.
-        ("loan for a 2020 car of 15000 at 6%", {"amount": 15000, "rate": 6}, 0),
-        ("a 2000 car with a loan at 10% for 12 months", {"amount": 2000, "rate": 10, "years": 1}, 0),
+        ("loan for a 2020 car of 15000 at 6%", {"amount": 15000, "rate": 6}),
+        ("a 2000 car with a loan at 10% for 12 months", {"amount": 2000, "rate": 10, "years": 1}),
         # A percent after an earlier sum put down is the rate (the first fix took it as a
         # share of the price: review, 2026-10-25).
-        ("car loan 25000 with 5000 down 6.9% apr 60 months", {"amount": 20000, "rate": 6.9, "months": 60}, 5000),
-        ("mortgage on a 400k house, 50k down 6.5% for 30 years", {"amount": 350000, "rate": 6.5, "years": 30}, 50000),
-        ("mortgage 500k 100k down payment 6.25% 30 year", {"amount": 400000, "rate": 6.25, "years": 30}, 100000),
-        ("car loan 20000, I can put 2000 down 8% 4 years", {"amount": 18000, "rate": 8, "months": 48}, 2000),
-        ("300k house with 60k down 6% 30 yr", {"amount": 240000, "rate": 6, "years": 30}, 60000),
-        ("down payment 20% on a 350k home at 6.75% for 30 years", {"amount": 280000, "rate": 6.75, "years": 30}, 70000),
+        ("car loan 25000 with 5000 down 6.9% apr 60 months", {"amount": 20000, "rate": 6.9, "months": 60}),
+        ("mortgage on a 400k house, 50k down 6.5% for 30 years", {"amount": 350000, "rate": 6.5, "years": 30}),
+        ("mortgage 500k 100k down payment 6.25% 30 year", {"amount": 400000, "rate": 6.25, "years": 30}),
+        ("car loan 20000, I can put 2000 down 8% 4 years", {"amount": 18000, "rate": 8, "months": 48}),
+        ("300k house with 60k down 6% 30 yr", {"amount": 240000, "rate": 6, "years": 30}),
+        ("down payment 20% on a 350k home at 6.75% for 30 years", {"amount": 280000, "rate": 6.75, "years": 30}),
         # "Went down 1% to 5.5%": the rate is where it went.
-        ("my mortgage is 200k, rate went down 1% to 5.5%", {"amount": 200000, "rate": 5.5}, 0),
+        ("my mortgage is 200k, rate went down 1% to 5.5%", {"amount": 200000, "rate": 5.5}),
         # "Paid off after" and "will last" give the term; "the past 3 years" does not.
-        ("a 300k mortgage at 6% paid off after 15 years", {"amount": 300000, "rate": 6, "years": 15}, 0),
-        ("car loan 20000 at 6%, paid off after 3 years", {"amount": 20000, "rate": 6, "months": 36}, 0),
-        ("a car loan of 20000 at 6% that will last 5 years", {"amount": 20000, "rate": 6, "months": 60}, 0),
-        ("car loan 15000 at 6% over the past 3 years", {"amount": 15000, "rate": 6}, 0),
+        ("a 300k mortgage at 6% paid off after 15 years", {"amount": 300000, "rate": 6, "years": 15}),
+        ("car loan 20000 at 6%, paid off after 3 years", {"amount": 20000, "rate": 6, "months": 36}),
+        ("a car loan of 20000 at 6% that will last 5 years", {"amount": 20000, "rate": 6, "months": 60}),
+        ("car loan 15000 at 6% over the past 3 years", {"amount": 15000, "rate": 6}),
         # A model year is no price.
-        ("I bought a 2019 car with a car loan of 15000 at 6%", {"amount": 15000, "rate": 6}, 0),
+        ("I bought a 2019 car with a car loan of 15000 at 6%", {"amount": 15000, "rate": 6}),
     ],
 )  # fmt: skip
-def test_read_money_request_reads_what_a_number_is(
-    text: str, values: dict[str, float], down: float
-) -> None:
+def test_read_money_request_reads_what_a_number_is(text: str, values: dict[str, float]) -> None:
     request = read_money_request(text)
-    assert request is not None
-    assert request.values == values and request.down == down
+    assert request is not None and request.values == values

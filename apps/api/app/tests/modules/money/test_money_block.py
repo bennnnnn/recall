@@ -60,15 +60,8 @@ def test_a_follow_up_is_told_the_numbers_already_include_its_change() -> None:
     lead = MONEY_FOLLOW_UP.split("{changes}")[0]
     assert f"{lead}term in months 36." in block
     assert "monthly payment 340.45; total interest 1,256.32" in block
-    down = follow_up_request("what if I put 5000 down?", earlier)
-    assert down is not None
-    assert "down payment 5,000" in money_block(down, work(down, None), None)
+    both = follow_up_request("what about 4 years at 6%?", earlier)
+    assert both is not None
+    assert f"{lead}yearly rate 6%; term in months 48." in money_block(both, work(both, None), None)
     first = read_money_request(earlier[0])
     assert first is not None and lead not in money_block(first, work(first, None), None)
-
-
-def test_going_back_to_the_plain_kind_says_so() -> None:
-    earlier = ["i'm buying a used car for 14000 at 9%, what's the monthly payment over 5 years"]
-    request = follow_up_request("what if it was new instead", earlier)
-    assert request is not None
-    assert "earlier request: a new car." in money_block(request, work(request, None), None)

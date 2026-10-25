@@ -113,8 +113,6 @@ class Product:
     lookup: RateLookup | None = None
     # Kinds of the product priced apart; none named is the product's own ``lookup``.
     variants: tuple[Variant, ...] = ()
-    # Words for the product's own kind, which a follow-up goes back to ("a new car instead").
-    plain_words: tuple[str, ...] = ()
 
     def input(self, name: str) -> Input | None:
         return next((item for item in self.inputs if item.name == name), None)
@@ -218,7 +216,6 @@ PRODUCTS: tuple[Product, ...] = (
                 "No used-car average was found; used-car loans usually cost more.",
             ),
         ),
-        plain_words=("new", "brand new", "brand-new"),
     ),
     Product(
         key="student",

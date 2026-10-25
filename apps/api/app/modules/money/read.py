@@ -12,8 +12,8 @@ years") is maths homework and stays with maths.
 
 A kind of the product the catalog prices apart is read too (``kinds``): "a used car for
 14000" is a car loan looked up at the used-car average, where it once got the new-car one
-(live, 2026-10-25). The number patterns (``PERCENT``, ``DURATION``, ``SUM``, ``MONTHLY``)
-are shared with ``change_line``, which reads a follow-up ("what if i only do 3 years
+(live, 2026-10-25). The percent and the length of time (``PERCENT``, ``DURATION``) are
+shared with ``change_line``, which reads a follow-up ("what if i only do 3 years
 instead") by its own stricter grammar.
 """
 
@@ -26,14 +26,9 @@ from app.modules.money.catalog import PRODUCTS, Product
 from app.modules.money.currencies import CURRENCY_WORD, named_currency
 from app.modules.money.kinds import named_variant
 
-# A percent, a length of time, a sum and "a month", as ``change_line`` reads them too.
+# A percent and a length of time, as ``change_line`` reads them too.
 PERCENT = r"(?P<pct>\d{1,3}(?:\.\d{1,4})?)\s?(?:%|percent\b|per\s?cent\b|pct\b)"
 DURATION = r"(?P<n>\d{1,3}(?:\.\d{1,2})?)\s?-?\s?(?P<unit>years?|yrs?|months?|mos?)\b"
-SUM = (
-    r"(?P<sym>[$€£¥₹₦])?\s?(?P<num>\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)"
-    r"(?:\s?(?P<mult>k|m|thousand|million|mil|grand)\b)?"
-)
-MONTHLY = r"\s?(?:a|per|/|each|every)\s?(?:month|mo)\b|\s?monthly\b|\s?/\s?mo\b"
 _RATE = re.compile(PERCENT, re.I)
 _TERM = re.compile(rf"\b{DURATION}", re.I)
 # "Bought it 3 years ago", "20 years old", "sell after 5 years", "the last 3 years": when, not
@@ -44,8 +39,12 @@ _NOT_A_TERM_BEFORE = re.compile(
 _NOT_A_TERM_AFTER = re.compile(
     r"\s?(?:ago|old|older|younger|later|earlier|back|since|from\snow)\b", re.I
 )
-_AMOUNT = re.compile(SUM, re.I)
-_MONTHLY = re.compile(MONTHLY, re.I)
+_AMOUNT = re.compile(
+    r"(?P<sym>[$€£¥₹₦])?\s?(?P<num>\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)"
+    r"(?:\s?(?P<mult>k|m|thousand|million|mil|grand)\b)?",
+    re.I,
+)
+_MONTHLY = re.compile(r"\s?(?:a|per|/|each|every)\s?(?:month|mo)\b|\s?monthly\b|\s?/\s?mo\b", re.I)
 _DOWN = re.compile(r"\b(?:down\s?payment(?:\s(?:of|is))?|put(?:ting)?\s(?:down)?|down)\s?$", re.I)
 _DOWN_AFTER = re.compile(
     r"\s?(?:(?:in\s)?cash\s)?(?:down\b(?!\sfrom)|as\s(?:a\s)?down\s?payment\b)", re.I
@@ -115,11 +114,7 @@ class MoneyRequest:
     rates_only: bool = False
     # The kind of the product named (a catalog ``Variant`` key: "used"); "" for none.
     variant: str = ""
-    # A loan's down payment, already taken off the price in ``amount``, and the share of
-    # the price it is when the user gave one ("20% down"): a new price takes the share.
-    down: float = 0.0
-    down_share: float | None = None
-    # What a follow-up changed ("months", "down", "variant"); empty for a first ask.
+    # What a follow-up changed ("months", "rate"); empty for a first ask.
     changed: tuple[str, ...] = ()
 
 
@@ -150,13 +145,11 @@ def read_money_request(text: str) -> MoneyRequest | None:
         return None
     if rate is None and not _FINANCE.search(text):
         return None
-    share = _stated_down_share(text)
-    values, down = _values(found, rate, amounts, share)
+    values = _values(found, rate, amounts, _stated_down_share(text))
     values.update(_stated_term(found, text))
     if not any(name in values for name in _principal_names(found)):
         return None
-    share = share if down and share else None
-    return MoneyRequest(found, values, currency, variant=variant, down=down, down_share=share)
+    return MoneyRequest(found, values, currency, variant=variant)
 
 
 def named_product(text: str) -> Product | None:
@@ -202,8 +195,8 @@ def _down_share(text: str, match: re.Match[str]) -> bool:
     return cue is not None and _SUM_END.search(before[: cue.start()]) is None
 
 
-def sum_value(match: re.Match[str]) -> float:
-    """A ``SUM`` match as a number: "$18k" is 18 000."""
+def _sum_value(match: re.Match[str]) -> float:
+    """A sum as a number: "$18k" is 18 000."""
     number = float(match["num"].replace(",", ""))
     return number * _MULTIPLIERS[match["mult"].lower()] if match["mult"] else number
 
@@ -227,7 +220,7 @@ def _amounts(text: str) -> list[_Amount]:
         rest = after[word.end() :] if word else after
         (years if year else found).append(
             _Amount(
-                value=sum_value(match),
+                value=_sum_value(match),
                 monthly=_MONTHLY.match(rest) is not None,
                 down=_DOWN.search(before) is not None or _DOWN_AFTER.match(rest) is not None,
                 start=_START.search(before) is not None,
@@ -245,10 +238,9 @@ def _principal_names(product: Product) -> tuple[str, ...]:
 
 def _values(
     product: Product, rate: float | None, amounts: list[_Amount], share: float | None
-) -> tuple[dict[str, float], float]:
-    """The inputs the sums and the rate give, and a loan's down payment taken off its price."""
+) -> dict[str, float]:
+    """The inputs the sums and the rate give; a loan's down payment comes off its price."""
     values: dict[str, float] = {}
-    taken = 0.0
     if rate is not None:
         values["apr" if product.family == "card_payoff" else "rate"] = rate
     once = [item for item in amounts if not item.monthly]
@@ -260,7 +252,6 @@ def _values(
             down = price * share / 100
         if price is not None and price > down:
             values["amount"] = price - down
-            taken = down
     elif product.family == "card_payoff":
         if once:
             values["balance"] = once[0].value
@@ -274,7 +265,7 @@ def _values(
             values["start"] = start
         if monthly:
             values["deposit"] = monthly[0].value
-    return values, taken
+    return values
 
 
 def _stated_term(product: Product, text: str) -> dict[str, float]:
