@@ -34,9 +34,8 @@ import {
   type AttachmentViewerImage,
 } from "@/features/attachments/model/imageViewer";
 import { useReduceMotion } from "@/lib/reduceMotion";
+import { useTheme } from "@/lib/theme";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
-
-const LIGHTBOX_BG = "#000000";
 
 type Props = {
   visible: boolean;
@@ -136,6 +135,7 @@ function ViewerContent({
   const token = useAuthToken();
   const feedback = useActionFeedback();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { width: screenWidth } = useWindowDimensions();
   const reduceMotion = useReduceMotion();
   const [zoomed, setZoomed] = useState(false);
@@ -301,7 +301,7 @@ function ViewerContent({
       <Animated.View
         testID="attachment-image-viewer"
         collapsable={false}
-        style={[s.root, rootAnimatedStyle]}
+        style={[s.root, { backgroundColor: theme.mediaScrim }, rootAnimatedStyle]}
       >
         {items.length > 1 ? (
           <FlatList
@@ -372,7 +372,6 @@ const s = StyleSheet.create({
   },
   root: {
     flex: 1,
-    backgroundColor: LIGHTBOX_BG,
   },
   pager: {
     flex: 1,

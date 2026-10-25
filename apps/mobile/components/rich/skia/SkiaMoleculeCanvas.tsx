@@ -11,6 +11,7 @@ import {
 } from "@shopify/react-native-skia";
 
 import {
+  ATOM_INK,
   atomColor,
   atomLabelColor,
   bondStrokeWidth,
@@ -81,7 +82,7 @@ export function SkiaMoleculeCanvas({
         const atom = laidOut.atoms[item.index]!;
         return (
           <Group key={`atom-${atom.index}`}>
-            <Circle cx={atom.x} cy={atom.y} r={atom.radius + 1.75} color="#1a1a1a" />
+            <Circle cx={atom.x} cy={atom.y} r={atom.radius + 1.75} color={ATOM_INK} />
             <Circle cx={atom.x} cy={atom.y} r={atom.radius} color={atomColor(atom.element)} />
             {showsAtomLabel(style) && font ? (
               <SkiaText

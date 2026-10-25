@@ -35,6 +35,7 @@ import { Radius } from "@/lib/radius";
 
 /** Frosted-glass tint over the hero gradient — deliberately theme-invariant
  * white, unlike the primary-tinted border below (which DOES follow theme). */
+// eslint-disable-next-line no-restricted-syntax -- frosted glass is white in both schemes; no theme role means that
 const GLASS_WHITE = "#FFFFFF";
 
 const APP_ICON = require("@/assets/images/icon.png");

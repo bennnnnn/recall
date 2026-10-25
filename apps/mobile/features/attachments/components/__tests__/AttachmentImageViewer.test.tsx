@@ -67,6 +67,20 @@ describe("AttachmentImageViewer", () => {
     expect(getByTestId("media-load-retry")).toBeTruthy();
   });
 
+  it("draws Retry in media ink: the stage is black in light mode too", async () => {
+    // It took the page's grey ink, #5C5C64 on #000000 in light mode: 3.17:1.
+    const { getByTestId, getByText } = await render(
+      <AttachmentImageViewer onClose={onClose} visible attachmentId="a" />,
+    );
+    await act(async () => {
+      getByTestId("attachment-viewer-image").props.onError();
+    });
+    const stage = StyleSheet.flatten(getByTestId("attachment-image-viewer").props.style);
+    expect(stage.backgroundColor).toBe(mockLightTheme.mediaScrim);
+    expect(StyleSheet.flatten(getByText("common.retry").props.style).color).toBe(mockLightTheme.onMedia);
+    expect(getByTestId("media-load-retry-icon").props.color).toBe(mockLightTheme.onMedia);
+  });
+
   it("reloads the image when Retry is pressed", async () => {
     const { getByTestId, queryByTestId } = await render(
       <AttachmentImageViewer onClose={onClose} visible attachmentId="a" />,
