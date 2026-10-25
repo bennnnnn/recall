@@ -3,12 +3,10 @@
  * Months are 0-based like `Date`. Days compare by calendar date, never time.
  */
 
-import { formatDate } from "@/lib/datetime/format";
+import { formatDate, userWeekStart } from "@/lib/datetime/format";
+import type { Weekday } from "@/lib/datetime/phoneClock";
 
 type Locale = string | string[] | undefined;
-
-/** 0 = Sunday … 6 = Saturday, like `Date.getDay()`. */
-type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export type YearMonth = { year: number; month: number };
 
@@ -121,8 +119,13 @@ function localeRegion(locale?: Locale): { language: string; region: string | nul
   return { language, region: region ? region.toUpperCase() : null };
 }
 
-/** First day of the week where `locale` (the device's when omitted) is used. */
+/**
+ * First day of the week: the phone's own setting when `locale` is omitted and the phone
+ * says; otherwise where `locale` (the device's when omitted) is used.
+ */
 export function firstDayOfWeek(locale?: Locale): Weekday {
+  const phone = locale === undefined ? userWeekStart() : undefined;
+  if (phone !== undefined) return phone;
   const { language, region } = localeRegion(locale);
   const place = region ?? LANGUAGE_REGION[language] ?? "";
   if (SUNDAY_REGIONS.has(place)) return 0;

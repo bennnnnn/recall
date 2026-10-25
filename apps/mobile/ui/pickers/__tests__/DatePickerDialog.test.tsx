@@ -1,10 +1,25 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { fireEvent, render, within, type RenderResult } from "@testing-library/react-native";
 
+import { refreshPhoneClock } from "@/lib/datetime/format";
+import type { Weekday } from "@/lib/datetime/phoneClock";
 import { DatePickerDialog } from "../DatePickerDialog";
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en-US" } }),
 }));
+/** The phone's First Day of Week; undefined: a build that cannot read it. */
+let mockWeekStart: Weekday | undefined;
+jest.mock("@/lib/datetime/phoneClock", () => {
+  const actual = jest.requireActual<typeof import("@/lib/datetime/phoneClock")>("@/lib/datetime/phoneClock");
+  return { ...actual, readPhoneClock: () => ({ ...actual.readPhoneClock(), weekStart: mockWeekStart }) };
+});
+
+function setPhoneWeekStart(weekStart: Weekday | undefined): void {
+  mockWeekStart = weekStart;
+  refreshPhoneClock();
+}
+
+afterEach(() => setPhoneWeekStart(undefined));
 
 const hidden = { includeHiddenElements: true };
 const parts = (date: Date) => [
@@ -30,7 +45,27 @@ async function open(props: Partial<Parameters<typeof DatePickerDialog>[0]> = {})
   return { view, onConfirm, onCancel };
 }
 
+/** The weekday column headers, left to right. */
+function weekdayHeaders(view: RenderResult): string[] {
+  return within(view.getByTestId("date-picker-month", hidden))
+    .getAllByLabelText(/^[A-Z][a-z]+day$/, hidden)
+    .map((node) => node.props.accessibilityLabel as string);
+}
+
 describe("DatePickerDialog", () => {
+  it("starts the week on the phone's First Day of Week, and on a new one while it stays open", async () => {
+    setPhoneWeekStart(1);
+    const { view } = await open();
+    expect(weekdayHeaders(view)).toEqual(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]);
+
+    // Changed in Settings: the clock is read again and the view re-renders (DATE_FORMAT_CHANGED).
+    setPhoneWeekStart(6);
+    await view.rerender(
+      <DatePickerDialog visible value={new Date(2026, 8, 26, 8, 30)} onConfirm={jest.fn()} onCancel={jest.fn()} />,
+    );
+    expect(weekdayHeaders(view)[0]).toBe("Saturday");
+  });
+
   it("opens on the value's month with the day selected", async () => {
     const { view } = await open();
     expect(view.getByText("September 2026", hidden)).toBeTruthy();

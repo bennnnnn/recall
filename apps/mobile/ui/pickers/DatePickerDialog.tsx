@@ -29,7 +29,7 @@ import {
   yearRange,
   type YearMonth,
 } from "@/lib/datetime/calendarGrid";
-import { formatDate } from "@/lib/datetime/format";
+import { formatDate, userWeekStart } from "@/lib/datetime/format";
 import { selection } from "@/lib/haptics";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
@@ -103,7 +103,10 @@ export function DatePickerDialog({
 
   const cardWidth = Math.min(DATE_PICKER_WIDTH, screen.width - Space.lg * 2);
   const cell = Math.min(CELL, Math.floor((cardWidth - Space.lg * 2) / 7));
-  const weekStart = useMemo(() => firstDayOfWeek(), []);
+  // The phone's First Day of Week, which its clock reads again (a change re-renders this);
+  // worked out once from the locale's region when the phone cannot say.
+  const phoneWeekStart = userWeekStart();
+  const weekStart = useMemo(() => phoneWeekStart ?? firstDayOfWeek(), [phoneWeekStart]);
   // Cached formatters: the 14 labels cost microseconds, and a change of language or
   // clock (a re-render) redraws them.
   const weekdays = weekdayLabels(weekStart);

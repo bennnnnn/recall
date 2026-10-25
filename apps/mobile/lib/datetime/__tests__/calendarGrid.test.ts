@@ -12,7 +12,21 @@ import {
   withDay,
   yearRange,
 } from "@/lib/datetime/calendarGrid";
+import { refreshPhoneClock } from "@/lib/datetime/format";
+import type { Weekday } from "@/lib/datetime/phoneClock";
 import { ensureLocale } from "@/lib/i18n";
+
+/** The phone's First Day of Week; undefined: a build that cannot read it. */
+let mockWeekStart: Weekday | undefined;
+jest.mock("@/lib/datetime/phoneClock", () => {
+  const actual = jest.requireActual<typeof import("@/lib/datetime/phoneClock")>("@/lib/datetime/phoneClock");
+  return { ...actual, readPhoneClock: () => ({ ...actual.readPhoneClock(), weekStart: mockWeekStart }) };
+});
+
+function setPhoneWeekStart(weekStart: Weekday | undefined): void {
+  mockWeekStart = weekStart;
+  refreshPhoneClock();
+}
 
 describe("daysInMonth", () => {
   it.each([
@@ -127,6 +141,26 @@ describe("locale week", () => {
   });
 
   afterEach(() => ensureLocale("en"));
+
+  describe("the phone's own setting", () => {
+    afterEach(() => setPhoneWeekStart(undefined));
+
+    it.each([[1], [6], [0]] as const)("starts the device's week on the phone's First Day of Week, %i", (day) => {
+      setPhoneWeekStart(day);
+      expect(firstDayOfWeek()).toBe(day);
+    });
+
+    it("leaves a locale asked for by name to its region", () => {
+      setPhoneWeekStart(1);
+      expect(firstDayOfWeek("en-US")).toBe(0);
+      expect(firstDayOfWeek("ar-EG")).toBe(6);
+    });
+
+    it("works the device's week out from its locale when the phone cannot say", () => {
+      setPhoneWeekStart(undefined);
+      expect(firstDayOfWeek()).toBe(firstDayOfWeek(new Intl.DateTimeFormat().resolvedOptions().locale));
+    });
+  });
 
   it("labels weekday columns from the week start, in the app's language", async () => {
     const labels = weekdayLabels(1);

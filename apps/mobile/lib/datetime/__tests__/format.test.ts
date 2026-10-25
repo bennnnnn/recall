@@ -7,6 +7,7 @@ import {
   formatTimeZoneName,
   refreshPhoneClock,
   userUses24HourClock,
+  userWeekStart,
   wallClock,
 } from "@/lib/datetime/format";
 import i18n, { ensureLocale } from "@/lib/i18n";
@@ -144,6 +145,22 @@ describe("telling translated views", () => {
       refreshPhoneClock();
       await Promise.resolve();
       expect(changed).toHaveBeenCalledTimes(1);
+    } finally {
+      i18n.off(DATE_FORMAT_CHANGED, changed);
+    }
+  });
+
+  it("sends it when only the phone's first day of the week changes, and keeps the setting", async () => {
+    await setClock({ timeZone: "UTC", hourCycle: "h12", weekStart: 0 });
+    expect(userWeekStart()).toBe(0);
+    const changed = jest.fn();
+    i18n.on(DATE_FORMAT_CHANGED, changed);
+    try {
+      mockPhone = { timeZone: "UTC", hourCycle: "h12", weekStart: 1 };
+      refreshPhoneClock();
+      await Promise.resolve();
+      expect(changed).toHaveBeenCalledTimes(1);
+      expect(userWeekStart()).toBe(1);
     } finally {
       i18n.off(DATE_FORMAT_CHANGED, changed);
     }
