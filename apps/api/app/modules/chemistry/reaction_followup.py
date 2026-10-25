@@ -10,12 +10,18 @@ reaction and changes one thing:
 - an amount of another reactant joins it, and the limiting reagent decides ("what if i only had
   16g of o2");
 - another substance of the reaction is asked ("and how much o2 do i need", "what about the
-  co2").
+  co2"); asked as made it must be a product, asked as needed a reactant.
 
 The problem is read from its own text, written out again whole (balanced equation first) and
 used only when it verifies (``followup.py``). It is the latest earlier problem whose reaction
-holds the substance the line names, so "back to the first one" after another question finds
-it. Each shape is the whole line: "how much co2 does a car emit" asks something new.
+holds the substance the line names, but the walk back stops at the first newer user line that
+states an amount with a unit: a heat problem in between ("raise 50 g of water by 10 °C") is the
+problem now, and "what about 100 g of water" is not the reaction's (review, 2026-10-25: it was
+answered as the methane needed). Lines that state no amount ("is it 4.5 or 36??", "why is
+water bent") are passed, so "back to the first one" still finds it; with two reactions that
+hold the substance, "the first one" is not read. A change of a change ("what if i had 8 g of
+h2" after "what if i only had 16g of o2") is not read either: the line before states an
+amount. Each shape is the whole line: "how much co2 does a car emit" asks something new.
 """
 
 from __future__ import annotations
@@ -27,13 +33,25 @@ from typing import Any
 
 from app.modules.chemistry.equations import balance_equation, format_balanced
 from app.modules.chemistry.extract import extract_chemistry_intent
+from app.modules.chemistry.extractors.reaction_ask import MADE_VERB, USED_VERB
 from app.modules.chemistry.species_words import substance_mentions, with_formulas
 from app.services.number_text import TEXT_NUMBER
 from app.services.problem_followup import message_role_content
 
 _MAX_LINE = 120
 # Earlier user lines searched for the reaction the line continues.
-_MAX_PROBLEMS = 6
+_MAX_PROBLEMS = 8
+# A user line with a number and its unit states a problem of its own.
+_STATES_AMOUNT = re.compile(
+    rf"(?<![A-Za-z0-9.])(?:{TEXT_NUMBER})\s*(?:g|kg|mg|ug|µg|mol|mmol|l|ml|m|mm|cm|km|s|min|h|hr|"
+    r"hours?|minutes?|seconds?|°\s*[cf]|deg|c|f|k|j|kj|cal|kcal|calories|atm|kpa|pa|mmhg|torr|"
+    r"bar|%|n|w|v|hz|mph|m/s|km/h)(?![A-Za-z])",
+    re.IGNORECASE,
+)
+# "back to the first one", "the earlier one": a problem before the last.
+_BACK = re.compile(
+    r"\b(?:back\s+to|first\s+(?:one|question|problem)|earlier|original|previous)\b", re.I
+)
 _UNITS = {"g": "g", "gram": "g", "grams": "g", "mol": "mol", "mole": "mol", "moles": "mol"}
 _UNIT_WORDS = {"g": "grams", "mol": "moles"}
 # The operations whose stated amounts, in grams or moles, a follow-up can change.
@@ -50,11 +68,7 @@ _ASK_HEAD = (
     r"(?:(?:(?:what|how)\s+about\s+)|(?:how\s+(?:much|many)(?:\s+(?P<asked>grams?|g|moles?|mol))?"
     r"(?:\s+of)?|what\s+(?P<mass>mass|amount)\s+of)\s+)?(?:the\s+)?"
 )
-_ASK_TAIL = (
-    r"(?:\s+(?:do|does|would|will|is|are|was|were)(?:\s+(?:i|we|you|it|they))?"
-    r"(?:\s+(?:need|needed|use|used|get|make|made|produce|produced|form|formed|required|"
-    r"consumed))?)?"
-)
+_ASK_TAIL = rf"(?:\s+(?:(?P<made>{MADE_VERB})|(?P<used>{USED_VERB})))?"
 _END = r"(?:\s+(?:instead|then|now|too))?\s*\??"
 
 
@@ -88,9 +102,18 @@ class _Reaction:
             return None
         return self.problem({**self.amounts, formula: typed}, unit, self.target, "g")
 
-    def asking(self, formula: str, unit: str | None) -> str | None:
-        """The same amounts, another substance asked; never one the problem states."""
+    @property
+    def substances(self) -> frozenset[str]:
+        return self.reactants | self.products
+
+    def asking(self, formula: str, unit: str | None, role: str | None) -> str | None:
+        """The same amounts, another substance asked; never one the problem states, and
+        never a reactant asked as made ("how much oxygen is made")."""
         if formula == self.target or formula in self.amounts:
+            return None
+        if (role == "made" and formula not in self.products) or (
+            role == "used" and formula not in self.reactants
+        ):
             return None
         return self.problem(self.amounts, self.unit, formula, unit or self.find)
 
@@ -121,7 +144,7 @@ def _reaction(problem: str) -> _Reaction | None:
     )
 
 
-def _earlier_problems(recent: Sequence[Any]) -> Iterator[str]:
+def _user_lines(recent: Sequence[Any]) -> Iterator[str]:
     """The user's earlier lines, latest first."""
     seen = 0
     for message in reversed(recent):
@@ -134,30 +157,76 @@ def _earlier_problems(recent: Sequence[Any]) -> Iterator[str]:
             return
 
 
-def reaction_followup_problem(line: str, recent: Sequence[Any]) -> str | None:
-    """The earlier reaction problem with this line's change, written whole; None otherwise."""
+def _reaction_holding(formula: str, recent: Sequence[Any], back: bool) -> _Reaction | None:
+    """The latest earlier reaction that holds the substance, reached only past lines that
+    state no amount. Asked "back to the first one", it must be the only such reaction."""
+    matches: list[tuple[_Reaction, bool]] = []
+    passed_an_amount = False
+    for line in _user_lines(recent):
+        reaction = _reaction(line)
+        if reaction is not None and formula in reaction.substances:
+            matches.append((reaction, passed_an_amount))
+            if not back:
+                break
+        if reaction is not None or _STATES_AMOUNT.search(line):
+            passed_an_amount = True
+    if not matches or (back and len(matches) != 1):
+        return None
+    reaction, blocked = matches[0]
+    return None if blocked else reaction
+
+
+@dataclass(frozen=True, slots=True)
+class _Line:
+    """A follow-up line of one substance: an amount of it, or an ask of it."""
+
+    formula: str
+    amount: re.Match[str] | None
+    asked: re.Match[str] | None
+
+
+def _read_line(line: str) -> _Line | None:
     if len(line) > _MAX_LINE:
         return None
-    mentions = substance_mentions(line)
-    formulas = {mention.formula for mention in mentions or ()}
+    mentions = substance_mentions(line) or ()
+    formulas = {mention.formula for mention in mentions}
     if len(formulas) != 1:
         return None
     formula = formulas.pop()
-    written = with_formulas(line, mentions or ())
+    written = with_formulas(line, mentions)
     substance = rf"(?-i:{re.escape(formula)})(?![A-Za-z0-9])"
     amount = re.fullmatch(rf"{_LEAD}{_IF_HAD}{_AMOUNT}{substance}{_END}", written, re.IGNORECASE)
     asked = re.fullmatch(rf"{_LEAD}{_ASK_HEAD}{substance}{_ASK_TAIL}{_END}", written, re.IGNORECASE)
     if amount is None and (asked is None or not _asks(asked)):
         return None
-    for problem in _earlier_problems(recent):
-        reaction = _reaction(problem)
-        if reaction is None or formula not in reaction.reactants | reaction.products:
-            continue
-        if amount is not None:
-            unit = _UNITS[amount.group("unit").lower()]
-            return reaction.with_amount(formula, amount.group("value"), unit)
-        return None if asked is None else reaction.asking(formula, _asked_unit(asked))
-    return None
+    return _Line(formula, amount, asked)
+
+
+def substance_amount(line: str) -> tuple[str, str, str] | None:
+    """ "what about 20 g of H2": the whole line is one amount of one substance, as (value,
+    unit, formula); None for anything else."""
+    read = _read_line(line)
+    if read is None or read.amount is None:
+        return None
+    return read.amount.group("value"), read.amount.group("unit"), read.formula
+
+
+def reaction_followup_problem(line: str, recent: Sequence[Any]) -> str | None:
+    """The earlier reaction problem with this line's change, written whole; None otherwise."""
+    read = _read_line(line)
+    if read is None:
+        return None
+    reaction = _reaction_holding(read.formula, recent, _BACK.search(line) is not None)
+    if reaction is None:
+        return None
+    if read.amount is not None:
+        unit = _UNITS[read.amount.group("unit").lower()]
+        return reaction.with_amount(read.formula, read.amount.group("value"), unit)
+    if read.asked is None:
+        return None
+    made, used = read.asked.group("made"), read.asked.group("used")
+    role = "made" if made else "used" if used else None
+    return reaction.asking(read.formula, _asked_unit(read.asked), role)
 
 
 def _asks(match: re.Match[str]) -> bool:

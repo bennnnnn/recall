@@ -11,11 +11,14 @@ from app.modules.chemistry.extractors.parsing import (
     _target,
     asked_quantity,
 )
+from app.modules.chemistry.formula import parse_formula
 from app.modules.chemistry.quantity import to_atm, to_kelvin, to_liters
 from app.modules.chemistry.request import CHEMICAL_FORMULA, FORMULA_END
 from app.modules.chemistry.schemas import ChemistryIntent
 
 _HOW_MUCH = re.compile(r"\bhow\s+(?:many|much)\b", re.IGNORECASE)
+# Units a chain answers in; None is the unit the amount is given in.
+_ANSWERED_UNITS = frozenset({None, "g", "mol", "L", "particles"})
 
 
 def extract_mass_chain(text: str) -> ChemistryIntent | None:
@@ -103,11 +106,22 @@ def extract_mass_chain(text: str) -> ChemistryIntent | None:
 
 def _amount_ask(text: str) -> AskedQuantity | None:
     """The head that asks an amount: "how much H2O", "what mass of H2O", "find the moles of
-    O2". No head, no verified answer: "what is H2O" asks nothing a ratio gives."""
+    O2". No head, no verified answer: "what is H2O" asks nothing a ratio gives.
+
+    The unit is one a chain answers in. Atoms are an element's alone ("atoms of O2" are
+    twice its molecules), and "how many H2O" counts moles. Any other unit (mL, kg, two units
+    at once) declines rather than take a default.
+    """
     asked = asked_quantity(text)
     if asked is None or (asked.unit is None and not _HOW_MUCH.search(text)):
         return None
-    return asked
+    if asked.unit == "atoms":
+        single = asked.species is not None and parse_formula(asked.species) == {asked.species: 1}
+        return AskedQuantity("particles", asked.species) if single else None
+    if asked.unit is None and asked.species is not None:
+        if re.search(rf"\bhow\s+many\s+{re.escape(asked.species)}\b", text, re.IGNORECASE):
+            return AskedQuantity("mol", asked.species)
+    return asked if asked.unit in _ANSWERED_UNITS else None
 
 
 def _limiting_chain(text: str, equation: str, target: str) -> ChemistryIntent | None:

@@ -275,6 +275,18 @@ def _solve_locally(
     return intent, None, None
 
 
+def _read_locally(
+    content: str,
+) -> tuple[ChemistryIntent | None, VerifiedChemistry | None, str | None, str | None]:
+    """``_solve_locally``, and the compound to look up when nothing local answers. The gate
+    is a pure reading of the text and is read here, in the pool, never on the event loop."""
+    intent, solved, local_context = _solve_locally(content)
+    lookup = None
+    if intent is None and solved is None and local_context is None:
+        lookup = extract_compound_name(content) if is_chemistry_question(content) else None
+    return intent, solved, local_context, lookup
+
+
 async def build_chemistry_augmentation(
     content: str,
     settings: Settings,
@@ -307,8 +319,8 @@ async def build_chemistry_augmentation(
         verified = verified_iupac(iupac_smiles, name)
         return verified.prompt_text, verified, False
     try:
-        intent, solved, local_context = await run_sympy(
-            _solve_locally, content, timeout=settings.stem_solve_timeout_seconds
+        intent, solved, local_context, name = await run_sympy(
+            _read_locally, content, timeout=settings.stem_solve_timeout_seconds
         )
     except TimeoutError:
         logger.warning("chemistry solve timed out after %ss", settings.stem_solve_timeout_seconds)
@@ -323,10 +335,6 @@ async def build_chemistry_augmentation(
 
     if intent is not None:
         return unverified_chemistry_note(), None, True
-
-    if not is_chemistry_question(content):
-        return None, None, False
-    name = extract_compound_name(content)
     if name is None:
         return None, None, False
     try:

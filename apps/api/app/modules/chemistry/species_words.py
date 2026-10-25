@@ -39,8 +39,16 @@ _MOLECULES = frozenset({*(f"{symbol}2" for symbol in DIATOMIC_ELEMENTS), "O3", "
 _SUBSCRIPT_ONE = re.compile(r"(?<!\d)1(?!\d)")
 _MAX_LOWERCASE = 12
 
-_FORMULA_TOKEN = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*)(?![A-Za-z0-9(])")
-_LOWERCASE_TOKEN = re.compile(r"(?<![A-Za-z0-9])([a-z][a-z0-9()]*\d[a-z0-9()]*)(?![A-Za-z0-9(])")
+# Tokens are bounded, so a run such as "a1(a1(a1(…" is read in linear time: it was cubic, 8.7 s
+# on 4,000 characters, and the gate reads every turn.
+_FORMULA_TOKEN = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]{0,39})(?![A-Za-z0-9(])")
+_LOWERCASE_TOKEN = re.compile(
+    rf"(?<![A-Za-z0-9])([a-z][a-z0-9()]{{0,{_MAX_LOWERCASE - 1}}})(?![A-Za-z0-9(])"
+)
+# "OK so…" opens a sentence; no school formula is written OK.
+_NOT_FORMULAS = frozenset({"OK"})
+# "atoms of oxygen" counts O atoms, not O2 molecules: after it an element is no molecule.
+_ATOMS_OF = re.compile(r"\batoms?\s+of\s+(?:the\s+)?\Z", re.IGNORECASE)
 _AMOUNT_BEFORE = re.compile(rf"{TEXT_NUMBER}\s*(?:g|grams?|mol|moles?)\s+(?:of\s+)?\Z")
 # How far back an amount phrase can start ("1.20e+24 grams of "), so the look stays short.
 _AMOUNT_REACH = 48
@@ -131,8 +139,12 @@ def _named(match: re.Match[str]) -> Mention | Literal["none", "unknown"]:
             "unknown" if salt is None else Mention(match.start(), match.end("next"), salt.formula)
         )
     symbol = ELEMENT_NAMES[name]
-    formula = f"{symbol}2" if symbol in DIATOMIC_ELEMENTS else symbol
-    return Mention(match.start("name"), match.end("name"), formula)
+    if symbol not in DIATOMIC_ELEMENTS:
+        return Mention(match.start("name"), match.end("name"), symbol)
+    before = max(0, match.start() - _AMOUNT_REACH)
+    if _ATOMS_OF.search(match.string, before, match.start()):
+        return "unknown"
+    return Mention(match.start("name"), match.end("name"), f"{symbol}2")
 
 
 def _written(text: str) -> list[Mention]:
@@ -142,9 +154,13 @@ def _written(text: str) -> list[Mention]:
         token = match.group(1)
         before = max(0, match.start() - _AMOUNT_REACH)
         amount_of = _AMOUNT_BEFORE.search(text, before, match.start()) is not None
+        if token in _NOT_FORMULAS:
+            continue
         if is_formula(token) or (amount_of and token in BY_SYMBOL):
             found.append(Mention(match.start(), match.end(), token))
     for match in _LOWERCASE_TOKEN.finditer(text):
+        if not any(char.isdigit() for char in match.group(1)):
+            continue
         formula = lowercase_formula(match.group(1))
         if formula is not None:
             found.append(Mention(match.start(), match.end(), formula))

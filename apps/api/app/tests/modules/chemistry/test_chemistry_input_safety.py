@@ -54,6 +54,9 @@ def _warm_lazy_imports() -> None:
         "how much water if I burn 4 g of " + "hydrogen " * 400,
         "burn " + "co2 " * 900 + "how much co2 from 4 g of h2",
         "2H2 + O2 -> 2H2O how much " + "water " * 600 + "from 4g of h2",
+        # Was 8.7 s: a lowercase-formula token retried from after every bracket, cubic.
+        "how much water if i burn 4 g of h2 " + "a1(" * 1300 + "A",
+        "a1" * 1990 + "A burn 4 g of h2 how much water",
     ],
     ids=[
         "uppercase-run",
@@ -75,6 +78,8 @@ def _warm_lazy_imports() -> None:
         "element-name-run",
         "lowercase-formula-run",
         "named-beside-equation-run",
+        "lowercase-bracket-run",
+        "lowercase-digit-run",
     ],
 )
 def test_hostile_input_returns_quickly(text: str) -> None:

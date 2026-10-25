@@ -8,18 +8,22 @@ words is now written as its equation:
 
 - a fuel that burns ("burn", "combustion of", reacting with oxygen or air) takes O2 and makes
   its oxides: carbon and hydrogen (with or without oxygen) make CO2 and H2O, H2 makes water, C
-  and CO make CO2, S makes SO2, and Mg, Ca, Zn, Al and Li their one oxide. A fuel off that list,
-  or a product the list does not make, burns to the product the question names;
+  and CO make CO2, S makes SO2, and Mg, Ca, Zn, Al and Li their one oxide. Those fuels make
+  nothing else: SO3 from sulfur, H2O2 from hydrogen or CO from carbon declines, and so does
+  any burning called incomplete, limited or insufficient. Another fuel burns to the oxide the
+  question names (iron to Fe2O3, N2 to NO2);
 - "X reacts with Y", "X and Y react", "X combines with Y" and "made from X and Y" make the
   product the question asks about or names ("to make water").
 
 The balancer has the last word: a product X and Y cannot make alone ("AgNO3 reacts with NaCl,
 grams of AgCl", whose NaNO3 is not named) does not balance and the question is left to the
-model. A product is never guessed. The balanced equation is written in front of the question,
-each substance as its formula, and the written-equation readers answer it. A question beside
-a written equation that names its substances in words or lowercase ("2H2 + O2 -> 2H2O. how
-much water from 4g of h2") is read the same way. Reading the words is pattern work only (the
-gate asks it); balancing runs in extraction.
+model. A product is never guessed. What the question asks is read by a closed grammar
+(``reaction_ask``): a substance asked as made must be a product, and one asked as used a
+reactant. The balanced equation is written in front of the question, each substance as its
+formula, and the written-equation readers answer it. A question beside a written equation
+that names its substances in words or lowercase ("2H2 + O2 -> 2H2O. how much water from 4g of
+h2") is read the same way. Reading the words is pattern work only (the gate asks it);
+balancing runs in extraction.
 """
 
 from __future__ import annotations
@@ -29,9 +33,14 @@ from dataclasses import dataclass
 
 from app.modules.chemistry.equations import balance_equation, format_balanced
 from app.modules.chemistry.extractors.equations import extract_equations
-from app.modules.chemistry.extractors.parsing import asked_quantity
+from app.modules.chemistry.extractors.reaction_ask import (
+    PRODUCT_VERB,
+    Question,
+    ReactionAsk,
+    in_formulas,
+    role_fits,
+)
 from app.modules.chemistry.extractors.stoichiometry import (
-    YIELD_ASK,
     extract_mass_chain,
     extract_reaction_yield,
 )
@@ -39,7 +48,6 @@ from app.modules.chemistry.formula import parse_formula
 from app.modules.chemistry.request import EQUATION_RE
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.species import ARROWS, parse_reaction
-from app.modules.chemistry.species_words import substance_mentions, with_formulas
 from app.services.number_text import TEXT_NUMBER
 
 _BURN_VERB = r"(?:burn(?:s|ed|t|ing)?|combust(?:s|ed|ing)?)"
@@ -49,7 +57,10 @@ _REACT = re.compile(rf"\b(?:react(?:s|ed|ing)?|combines?|{_MADE_FROM})\b", re.IG
 _OXYGEN = "O2"
 # Air is the oxygen a fuel burns in.
 _IN_AIR = re.compile(r"\b(?:in|with)\s+(?:the\s+)?air\b", re.IGNORECASE)
-_LIMITING = re.compile(r"\blimiting\b", re.IGNORECASE)
+# A burning the question says is not complete makes CO or soot, which no table here writes.
+_INCOMPLETE = re.compile(
+    r"\b(?:incomplete(?:ly)?|limited|insufficient|partial(?:ly)?|not\s+enough)\b", re.IGNORECASE
+)
 
 # What a fuel burns to. A metal with two common oxides (iron, copper), or one that makes a
 # peroxide (sodium, potassium), burns only to the oxide the question names.
@@ -72,10 +83,6 @@ _EXCESS = r"(?:(?:an?\s+)?(?:excess|enough|sufficient|plenty)\s+(?:of\s+)?)"
 _BEING = (
     r"(?:(?:is|are|was|were|be|being|been|gets?|got|must|will|would|should|can|could|"
     r"completely|fully|then)\s+)*"
-)
-_PRODUCT_VERB = (
-    r"(?:to\s+(?:make|form|produce|give|yield)|mak(?:es|ing)|form(?:s|ing)|"
-    r"produc(?:es|ing)|giv(?:es|ing)|yield(?:s|ing))"
 )
 
 
@@ -101,10 +108,10 @@ def burn_products(fuel: str) -> tuple[str, ...] | None:
     return _HYDROCARBON_OXIDES if {"C", "H"} <= atoms <= {"C", "H", "O"} else None
 
 
-def _named(formulas: tuple[str, ...]) -> str:
-    """The formulas a question names, as one case-exact alternative, longest first."""
-    ordered = sorted(formulas, key=len, reverse=True)
-    return "(?-i:" + "|".join(re.escape(formula) for formula in ordered) + ")(?![A-Za-z0-9])"
+def _oxide_of(fuel: str, product: str) -> bool:
+    """An oxide of the fuel's own elements: Fe2O3 of iron, NO2 of nitrogen."""
+    atoms = set(parse_formula(product) or {})
+    return "O" in atoms and bool(atoms - {"O"}) and atoms - {"O"} <= set(parse_formula(fuel) or {})
 
 
 def _found(patterns: tuple[str, ...], question: str, *groups: str) -> list[tuple[str, ...]]:
@@ -131,7 +138,7 @@ def _fuel(question: str, formulas: tuple[str, ...], substance: str) -> str | Non
     fuels = {x for (x,) in _found(grammar, question, "x") if x != _OXYGEN}
     if len(fuels) == 1:
         return fuels.pop()
-    made_by = (rf"\b{_PRODUCT_VERB}\s+{_FILLER}{_AMOUNT}?{named}",)
+    made_by = (rf"\b{PRODUCT_VERB}\s+{_FILLER}{_AMOUNT}?{named}",)
     made = {product for (product,) in _found(made_by, question, "x")}
     candidates = [f for f in formulas if f != _OXYGEN and f not in made]
     covering = [
@@ -150,10 +157,12 @@ def _burning(question: str, formulas: tuple[str, ...], substance: str) -> Descri
         return None
     others = tuple(f for f in formulas if f not in {fuel, _OXYGEN})
     oxides = burn_products(fuel)
-    products = oxides if oxides is not None and set(others) <= set(oxides) else others
-    if not products:
-        return None
-    return DescribedReaction((fuel, _OXYGEN), products, question)
+    if oxides is not None:
+        # A fuel the table knows burns to its own oxides and to nothing else.
+        products = oxides if set(others) <= set(oxides) else ()
+    else:
+        products = others if all(_oxide_of(fuel, product) for product in others) else ()
+    return DescribedReaction((fuel, _OXYGEN), products, question) if products else None
 
 
 def _reacting(question: str, substance: str) -> tuple[str, ...] | None:
@@ -178,45 +187,22 @@ def _reacting(question: str, substance: str) -> tuple[str, ...] | None:
     return pairs[0]
 
 
-@dataclass(frozen=True, slots=True)
-class _Question:
-    """A question with each substance written as its formula, and those formulas."""
-
-    text: str
-    formulas: tuple[str, ...]
-
-    @property
-    def substance(self) -> str:
-        return _named(self.formulas)
-
-    def asks_an_amount(self) -> bool:
-        """An amount of a named substance is stated, and an amount of one is asked."""
-        if re.search(rf"{_AMOUNT}{self.substance}", self.text, re.IGNORECASE) is None:
-            return False
-        asked = asked_quantity(self.text)
-        return (
-            (asked is not None and asked.species in self.formulas)
-            or YIELD_ASK.search(self.text) is not None
-            or _LIMITING.search(self.text) is not None
-        )
-
-
-def _in_formulas(text: str) -> _Question | None:
-    mentions = substance_mentions(text)
-    if not mentions:
-        return None
-    formulas = tuple(dict.fromkeys(mention.formula for mention in mentions))
-    return _Question(with_formulas(text, mentions), formulas)
-
-
 def described_reaction(text: str) -> DescribedReaction | None:
     """The reaction a question describes, with a stated amount and an asked substance."""
     burning = _BURN.search(text) is not None
     if (not burning and _REACT.search(text) is None) or any(arrow in text for arrow in ARROWS):
         return None
-    question = _in_formulas(text)
-    if question is None or not question.asks_an_amount():
+    question = in_formulas(text)
+    ask = None if question is None or _INCOMPLETE.search(text) else question.ask()
+    if question is None or ask is None:
         return None
+    reaction = _reaction(question, burning)
+    if reaction is None or not role_fits(ask, set(reaction.reactants), set(reaction.products)):
+        return None
+    return reaction
+
+
+def _reaction(question: Question, burning: bool) -> DescribedReaction | None:
     formulas, substance = question.formulas, question.substance
     in_air = _IN_AIR.search(question.text) is not None
     if in_air and _OXYGEN not in formulas:
@@ -237,13 +223,15 @@ def written_reaction_question(text: str) -> str | None:
     H2. None for anything else ("plan A -> B, how much will it cost")."""
     if not any(arrow in text for arrow in ARROWS):
         return None
-    question = _in_formulas(text)
-    if question is None or not question.asks_an_amount():
+    question = in_formulas(text)
+    ask: ReactionAsk | None = None if question is None else question.ask()
+    equation = None if question is None else EQUATION_RE.search(question.text)
+    reaction = None if equation is None else parse_reaction(equation.group(1))
+    if question is None or ask is None or reaction is None:
         return None
-    equation = EQUATION_RE.search(question.text)
-    if equation is None or parse_reaction(equation.group(1)) is None:
-        return None
-    return question.text
+    reactants = {term.species.label for term in reaction.reactants}
+    products = {term.species.label for term in reaction.products}
+    return question.text if role_fits(ask, reactants, products) else None
 
 
 def reaction_question(text: str) -> bool:

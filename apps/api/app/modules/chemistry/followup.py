@@ -18,8 +18,9 @@ from typing import Any
 
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.given_units import CHEMISTRY_UNITS
-from app.modules.chemistry.reaction_followup import reaction_followup_problem
+from app.modules.chemistry.reaction_followup import reaction_followup_problem, substance_amount
 from app.modules.chemistry.request import is_chemistry_question
+from app.modules.chemistry.species_words import substance_mentions, with_formulas
 from app.services.law_binding.units import dimension_of
 from app.services.problem_followup import (
     EXPLAIN_RE,
@@ -88,13 +89,17 @@ def chemistry_followup_problem(query: str | None, recent: Sequence[Any]) -> str 
     text = followup_line(query)
     if text is None or extract_chemistry_intent(text) is not None:
         return None
-    # "what if i only had 16g of o2" changes the reaction it names, however far back.
-    reaction = reaction_followup_problem(text, recent)
-    if reaction is not None and _verifies(reaction):
-        return reaction
     prior = adjacent_problem(recent, is_chemistry_question)
-    if prior is None:
-        return None
+    adjacent = None if prior is None else _adjacent_problem(prior, text)
+    if adjacent is not None:
+        return adjacent
+    # "what if i only had 16g of o2" changes the reaction it names, past lines with no amount.
+    reaction = reaction_followup_problem(text, recent)
+    return reaction if reaction is not None and _verifies(reaction) else None
+
+
+def _adjacent_problem(prior: str, text: str) -> str | None:
+    """The last exchange's problem, explained again or with one thing changed."""
     folded = text.lower()
     if EXPLAIN_RE.fullmatch(folded):
         return prior
@@ -103,16 +108,33 @@ def chemistry_followup_problem(query: str | None, recent: Sequence[Any]) -> str 
         return _another_quantity(prior, about.group("ask"))
     changed = _CHANGED.fullmatch(text)
     if changed is not None:
-        return _GIVENS.changed(
+        rewritten = _GIVENS.changed(
             prior, changed.group("name"), changed.group("value"), changed.group("unit")
         )
+        if rewritten is not None:
+            return rewritten
     scaled = scaled_given(text)
     if scaled is not None:
         return _GIVENS.scaled(prior, *scaled)
     value = new_value(text)
     if value is not None:
         return _GIVENS.changed(prior, None, *value)
-    return None
+    return _amount_of_its_substance(prior, text)
+
+
+def _amount_of_its_substance(prior: str, text: str) -> str | None:
+    """ "what about 20 g of H2" after "How many moles are in 10 g of H2?": the one given of
+    that kind, when the problem states it of the same substance."""
+    amount = substance_amount(text)
+    if amount is None:
+        return None
+    value, unit, formula = amount
+    stated = substance_mentions(prior)
+    written = with_formulas(prior, stated) if stated else prior
+    of_it = rf"\d\s*(?:g|grams?|mol|moles?)\s+(?:of\s+)?(?-i:{re.escape(formula)})(?![A-Za-z0-9])"
+    if re.search(of_it, written, re.IGNORECASE) is None:
+        return None
+    return _GIVENS.changed(prior, None, value, unit)
 
 
 def _another_quantity(prior: str, ask: str) -> str | None:

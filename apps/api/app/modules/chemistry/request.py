@@ -302,7 +302,7 @@ def names_compound(text: str) -> bool:
 
 _BALANCE_CUE = re.compile(r"\b(?:bal+[ae]nce[ds]?|coefficient)\b", re.IGNORECASE)
 _EQUATION_WORDS = re.compile(
-    r"\b(?:moles?|grams?|mass|limiting|yield)\b|(?<![A-Za-z0-9])(?:Kc|Qc)(?![A-Za-z])",
+    r"\b(?:moles?|grams?|limiting|yield)\b|(?<![A-Za-z0-9])(?:Kc|Qc)(?![A-Za-z])",
     re.IGNORECASE,
 )
 
