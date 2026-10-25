@@ -312,7 +312,8 @@ function serverBody(method: string, path: string): unknown {
 function revalidated(method: string, path: string): boolean {
   const p = path.split("?")[0];
   return method === "GET" && (
-    path === "/chats" || p === "/todos/page" || p === "/memories/documents" || p === "/auth/sessions" ||
+    (p === "/chats" && !/[?&]cursor=/.test(path)) || p === "/todos/page" || p === "/memories/documents" ||
+    p === "/auth/sessions" ||
     (/^\/chats\/[^/]+\/messages$/.test(p) && !/[?&](before|after|around)=/.test(path))
   );
 }
@@ -903,7 +904,7 @@ const RECOVERY_CASES: RecoveryCase[] = [
       await rtl.act(async () => { openDrawer(); });
       await settle(20_000);
     },
-    read: /^GET \/chats(?: \(304\))?$/,
+    read: /^GET \/chats\?client_timezone=[^&\s]+(?: \(304\))?$/,
   },
   { title: "the to-do list", show: (app) => showOnly(app, "todos"), read: /^GET \/todos\/page\b/ },
   { title: "the memory list", show: (app) => showOnly(app, "memory"), read: /^GET \/memories\/documents(?: \(304\))?$/ },
