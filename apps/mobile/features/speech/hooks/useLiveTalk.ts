@@ -19,6 +19,7 @@ import {
   liveTalkGateMessageKey,
   liveTalkSessionLimitMs,
   liveTalkGate,
+  liveTalkSaveEndsCall,
   liveTalkShouldAttachSession,
   liveTalkShouldCloseOnAppState,
   liveTalkShouldCloseOnChatChange,
@@ -176,8 +177,8 @@ export function useLiveTalk({
           })
           .catch((error: unknown) => {
             const gate = liveTalkErrorGate(error);
-            // Nothing more saves: the month's minutes are used, or voice is paused for the day.
-            if (gate === "limit" || gate === "paused") {
+            // A save never gets `live_talk_minutes_used`, yet each of its 429s said the month was used.
+            if (liveTalkSaveEndsCall(gate)) {
               closeRef.current();
               alertForGate(gate);
               return;

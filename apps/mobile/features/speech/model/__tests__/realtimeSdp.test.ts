@@ -1,3 +1,4 @@
+import { liveTalkErrorGate } from "@/features/speech/model/liveTalkLogic";
 import { exchangeRealtimeSdp } from "@/features/speech/model/realtimeSdp";
 
 describe("exchangeRealtimeSdp", () => {
@@ -49,5 +50,15 @@ describe("exchangeRealtimeSdp", () => {
     );
     expect((error as Error & { status?: number }).status).toBe(401);
     expect(text).toHaveBeenCalledTimes(1);
+  });
+
+  // The provider's status is not Recall's: its 429 said this month's minutes were used,
+  // its 403 opened the paywall, its 503 said Recall was down and the rest "update the app".
+  it.each([400, 401, 403, 429, 500, 503])("says the provider's %i is a failed connection", async (status) => {
+    globalThis.fetch = jest.fn(async () => ({ ok: false, status, text: async () => "no" })) as unknown as typeof fetch;
+
+    const error = await exchangeRealtimeSdp("ek_test", "v=0").catch((caught: unknown) => caught);
+
+    expect(liveTalkErrorGate(error)).toBe("connect_failed");
   });
 });
