@@ -69,30 +69,3 @@ export function formatCalculatorValue(
       return numberFormat(context.locale, { maximumFractionDigits: 2 }).format(value);
   }
 }
-
-function utcDate(day: string): Date | null {
-  const date = new Date(`${day}T00:00:00Z`);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function dateFormat(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
-  try {
-    return new Intl.DateTimeFormat(locale, { ...options, timeZone: "UTC" });
-  } catch {
-    return new Intl.DateTimeFormat("en", { ...options, timeZone: "UTC" });
-  }
-}
-
-/** "Oct 16": the marker's date, short. */
-export function formatShortDay(day: string, locale: string): string | null {
-  const date = utcDate(day);
-  return date ? dateFormat(locale, { month: "short", day: "numeric" }).format(date) : null;
-}
-
-/** "Oct 16, 2026": the source line's date. */
-export function formatLongDay(day: string, locale: string): string | null {
-  const date = utcDate(day);
-  return date
-    ? dateFormat(locale, { month: "short", day: "numeric", year: "numeric" }).format(date)
-    : null;
-}

@@ -94,6 +94,21 @@ describe("DatePickerDialog", () => {
     expect(parts(onConfirm.mock.calls[0][0])).toEqual([2030, 8, 14, 8, 30]);
   });
 
+  // The picker built a formatter for each day cell's spoken date: 99 to open, 32 per
+  // re-render. Its labels now come from the shared cache.
+  it("opens with a few date formatters and draws again with none", async () => {
+    const built = jest.spyOn(Intl, "DateTimeFormat");
+    try {
+      const { view } = await open({ value: new Date(2027, 2, 9, 8, 30) });
+      expect(built.mock.calls.length).toBeLessThanOrEqual(6);
+      built.mockClear();
+      await fireEvent.press(view.getByTestId("date-picker-day-3", hidden));
+      expect(built).not.toHaveBeenCalled();
+    } finally {
+      built.mockRestore();
+    }
+  });
+
   it("cancels without a value", async () => {
     const { view, onConfirm, onCancel } = await open();
     await fireEvent.press(view.getByTestId("date-picker-day-3", hidden));

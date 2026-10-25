@@ -1,6 +1,8 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
+import { DATE_FORMAT_CHANGED } from "@/lib/datetime/format";
+
 import en from "./en.json";
 import { installPluralRules } from "./pluralRules";
 
@@ -69,6 +71,8 @@ i18n.use(initReactI18next).init({
     default: ["en"],
   },
   interpolation: { escapeValue: false },
+  // A date follows the phone's zone and clock as it follows the language.
+  react: { bindI18n: `languageChanged ${DATE_FORMAT_CHANGED}` },
 });
 
 export default i18n;
