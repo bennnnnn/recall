@@ -15,7 +15,6 @@ import { TodosScrollList } from "@/features/todos/components/TodosScrollList";
 import { TodosViewMenu } from "@/features/todos/components/TodosViewMenu";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { useTodosActions } from "@/features/todos/hooks/useTodosActions";
-import { useTodosDerivedState } from "@/features/todos/hooks/useTodosDerivedState";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
@@ -66,7 +65,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const refreshingRef = useRef(false);
 
-  const { showTodosEmptyHero } = useTodosDerivedState(todos);
+  const showTodosEmptyHero = todos.length === 0;
 
   const actions = useTodosActions({
     token,
