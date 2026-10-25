@@ -15,7 +15,9 @@ import { CONTEXT_REFRESH_STALE_MS } from "@/lib/cache/contextRefresh";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { isServerMessageId } from "@/lib/serverMessageId";
 import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
+import { shouldSkipSilentChatRefetch } from "@/features/chat/model/foregroundRefetch";
 import { drawsSame } from "@/features/chat/model/messageMerge";
+import { chatPageReadAt, noteChatPageRead } from "@/features/chat/model/pageReads";
 
 export type CachedChatPage = {
   messages: Message[];
@@ -239,6 +241,19 @@ export function isCachedChatPageFresh(
   if (!kept || kept.stale || age < 0 || age >= CONTEXT_REFRESH_STALE_MS) return false;
   return kept.chatUpdatedAt === undefined || listedUpdatedAt === undefined ||
     kept.chatUpdatedAt === listedUpdatedAt;
+}
+
+/**
+ * `silentRefetchChat` skips its read: the chat's newest page was read within the stale window,
+ * by this sign-in (model/pageReads.ts) or into the page kept for it, which then counts as this
+ * sign-in's read. `force` reads regardless.
+ */
+export async function shouldSkipChatPageRead(chatId: string, force?: boolean): Promise<boolean> {
+  if (shouldSkipSilentChatRefetch({ lastFetchedAt: chatPageReadAt(chatId), force })) return true;
+  const kept = cachedChatPageFetchedAt(peekCachedChatPage(chatId) ?? await readCachedChatMessages(chatId));
+  if (kept === undefined || !shouldSkipSilentChatRefetch({ lastFetchedAt: kept, force })) return false;
+  noteChatPageRead(chatId, kept);
+  return true;
 }
 
 /** The thread changed in a way the kept page does not hold yet: the next open reads the chat. */
