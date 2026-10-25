@@ -30,11 +30,12 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
+from app.core.spend_counter import MICRO_USD_PER_USD, spend_key
 from app.main import create_app
 from app.models.orm import User
 from app.models.schemas.scan import SCAN_MAX_IMAGE_BYTES
 from app.modules.account.email_authority import AccountExistsError
-from app.services.quota import counters
+from app.services.quota import IMAGE_GENERATION_SPEND_CAP_MESSAGE, counters
 
 FIXTURE = Path(__file__).resolve().parents[4] / "docs" / "fixtures" / "error_codes.json"
 _AUTH = {"Authorization": "Bearer tok"}
@@ -102,8 +103,11 @@ def _presign(content_type: str, size_bytes: int, *, at_daily_cap: bool = False) 
         )
 
 
-def _transcribe(*, at_daily_cap: bool = False, allowed: bool = True) -> Any:
-    """POST /speech/transcribe for a Pro user, at the day's cap or past the minute's rate."""
+def _transcribe(
+    *, at_daily_cap: bool = False, allowed: bool = True, spend_capped: bool = False
+) -> Any:
+    """POST /speech/transcribe for a Pro user, at the day's cap or past the minute's rate,
+    or with the day's global spend cap reached."""
     user = _user()
     user.plan = "pro"
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
@@ -111,6 +115,8 @@ def _transcribe(*, at_daily_cap: bool = False, allowed: bool = True) -> Any:
         cap = counters.limit("speech_transcription", user, Settings())
         key = counters.daily_key("speech", user.id, counters.utc_today())
         asyncio.run(_seed(fake_redis, key, cap))
+    if spend_capped:
+        asyncio.run(_seed(fake_redis, spend_key(), 2 * MICRO_USD_PER_USD))
     with (
         patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
@@ -119,7 +125,7 @@ def _transcribe(*, at_daily_cap: bool = False, allowed: bool = True) -> Any:
         ),
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
     ):
-        return _client(user).post(
+        return _client(user, Settings(daily_global_spend_usd=1.0)).post(
             "/speech/transcribe",
             headers=_AUTH,
             json={"audio_base64": base64.b64encode(b"audio").decode(), "filename": "a.m4a"},
@@ -175,6 +181,9 @@ def _generate(code: str) -> Any:
             status_code=422,
             code="content_blocked",
             feature="image_generation",
+        ),
+        "spend_cap": ImageGenerationError(
+            IMAGE_GENERATION_SPEND_CAP_MESSAGE, status_code=429, code="spend_cap"
         ),
     }
     with (
@@ -339,10 +348,13 @@ def _bodies() -> dict[str, dict[str, Any]]:
         "presign_daily_limit": _refusal(_presign("image/png", 128, at_daily_cap=True)),
         "dictation_daily_limit": _refusal(_transcribe(at_daily_cap=True)),
         "dictation_rate_limited": _refusal(_transcribe(allowed=False)),
+        # Every voice request at the day's spend cap: dictation, live talk's session and saves.
+        "voice_spend_cap": _refusal(_transcribe(spend_capped=True)),
         "live_talk_not_configured": _refusal(_live_talk_unconfigured()),
         "memory_spend_cap": _refusal(_memory_paused()),
         "image_daily_limit": _refusal(_generate("daily_limit")),
         "image_content_blocked": _refusal(_generate("content_blocked")),
+        "image_spend_cap": _refusal(_generate("spend_cap")),
         **_sign_in_bodies(),
     }
 

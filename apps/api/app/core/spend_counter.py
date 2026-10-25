@@ -7,8 +7,8 @@ Integer micro-dollars (1e-6 USD) so INCRBY stays atomic, rounded UP so no
 paid call ever records as free. The previous unit was 1e-3 USD with
 round(): a typical $0.0002-0.0005 free-chat turn recorded 0, and the cap
 never saw free-tier traffic. 0-limit settings are unlimited (dev/tests).
-Redis errors fail closed: treat as exceeded so we do not burn money while
-the meter is blind.
+Redis errors fail closed, so nothing spends while the meter is blind, and say so:
+``RedisUnavailableError``, never "the cap is reached".
 """
 
 import logging
@@ -20,6 +20,7 @@ from redis.exceptions import RedisError
 
 from app.core.config import Settings
 from app.core.redis_counters import incr_with_ttl
+from app.exceptions import RedisUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -59,12 +60,18 @@ async def get_global_spend_micro_usd(redis: Redis) -> int:
 
 
 async def global_spend_exceeded(redis: Redis, settings: Settings) -> bool:
-    """True when today's spend is at/over the cap, or Redis is down and a cap is set."""
+    """True when today's spend is at/over the cap (a cap of 0 is none).
+
+    Redis down raises ``RedisUnavailableError`` (fail closed): a request answers 503
+    unavailable, the chat its ``unavailable`` frame. It returned True, so an outage after
+    sign-in said the day's cap was reached: pictures, scans, voice and memory edits
+    "paused", chat "at capacity for today". Work nobody waits on skips on either.
+    """
     if settings.daily_global_spend_usd <= 0:
         return False
     limit = usd_to_micro_usd(settings.daily_global_spend_usd)
     try:
         return await get_global_spend_micro_usd(redis) >= limit
-    except RedisError:
-        logger.warning("Global spend check failed; treating as exceeded", exc_info=True)
-        return True
+    except RedisError as exc:
+        logger.warning("Global spend check failed; failing closed as unavailable", exc_info=True)
+        raise RedisUnavailableError() from exc

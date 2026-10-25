@@ -4,6 +4,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.exceptions import RedisUnavailableError
 from app.modules.chat.post_turn import enqueue_post_turn_jobs
 from app.modules.chat.turn_prep.context import StreamContext
 from app.tests.modules.chat.chat_test_support import turn_deps
@@ -161,12 +162,20 @@ async def test_memory_job_skips_when_user_text_is_only_an_attachment():
     assert "topic" in job_types
 
 
+# The cap reached, or Redis down at the spend read: nothing that spends is queued.
+_CAPPED_OR_DOWN = [
+    pytest.param(AsyncMock(return_value=True), id="capped"),
+    pytest.param(AsyncMock(side_effect=RedisUnavailableError()), id="redis-down"),
+]
+
+
 @pytest.mark.asyncio
-async def test_spend_cap_keeps_topic_drops_llm_jobs():
+@pytest.mark.parametrize("spend_read", _CAPPED_OR_DOWN)
+async def test_spend_cap_keeps_topic_drops_llm_jobs(spend_read):
     ctx = _ctx(prior_count=0, run_title=True)  # turn 1 would enqueue memory
     with (
         patch("app.core.jobs.enqueue", AsyncMock()) as enqueue,
-        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=True)),
+        patch("app.services.quota.global_spend_exceeded", spend_read),
     ):
         await enqueue_post_turn_jobs(
             AsyncMock(),
@@ -220,7 +229,9 @@ async def test_day_planning_snapshot_skips_learning_extract():
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_path_skips_when_spend_capped():
+@pytest.mark.parametrize("spend_read", _CAPPED_OR_DOWN)
+async def test_tool_loop_path_skips_when_spend_capped(spend_read):
+    """An admitted turn answers without tools: an outage here does not fail it."""
     from app.modules.chat.stream_paths import run_tool_loop_path
 
     ctx = MagicMock()
@@ -233,7 +244,7 @@ async def test_tool_loop_path_skips_when_spend_capped():
     ctx.user_id = uuid4()
     ctx.chat_id = uuid4()
     ctx.prompt_messages = []
-    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=True)})
+    deps = turn_deps(quota={"global_spend_exceeded": spend_read})
     with patch("app.modules.chat.tool_loop.run_tool_rounds", AsyncMock()) as run:
         await run_tool_loop_path(
             deps,

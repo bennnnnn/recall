@@ -21,6 +21,7 @@ from redis.asyncio import Redis
 
 from app.core import jobs
 from app.core.config import Settings
+from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.modules.chat.context_window import compute_history_split, should_run_compression
 from app.modules.chat.prompt_constants.lesson_flow import lesson_step
@@ -274,15 +275,26 @@ async def enqueue_post_turn_jobs(
     await enqueue_saved_turn_jobs(redis, settings, SavedTurn.from_context(ctx, assistant_text))
 
 
-async def enqueue_saved_turn_jobs(redis: Redis, settings: Settings, saved: SavedTurn) -> None:
-    """The jobs for any committed turn, in ``POST_TURN_JOBS`` order."""
-    spend_capped = await quota_service.global_spend_exceeded(redis, settings)
-    if spend_capped:
+async def _spend_capped(redis: Redis, settings: Settings, saved: SavedTurn) -> bool:
+    """The day's cap reached, or the spend unreadable (Redis down): the jobs that spend skip."""
+    try:
+        capped = await quota_service.global_spend_exceeded(redis, settings)
+        reason = "global spend cap"
+    except RedisUnavailableError:
+        capped, reason = True, "global spend unreadable (Redis down)"
+    if capped:
         logger.warning(
-            "skipping background LLM jobs: global spend cap user_id=%s chat_id=%s",
+            "skipping background LLM jobs: %s user_id=%s chat_id=%s",
+            reason,
             saved.user_id,
             saved.chat_id,
         )
+    return capped
+
+
+async def enqueue_saved_turn_jobs(redis: Redis, settings: Settings, saved: SavedTurn) -> None:
+    """The jobs for any committed turn, in ``POST_TURN_JOBS`` order."""
+    spend_capped = await _spend_capped(redis, settings, saved)
     turn = FinishedTurn(
         settings=settings,
         saved=saved,

@@ -767,7 +767,9 @@ async def test_global_spend_exceeded_after_recording(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_global_spend_redis_error_fails_closed():
+async def test_global_spend_redis_error_fails_closed_as_unavailable():
+    """Nothing spends while the meter is blind, and the outage is said as one: it returned
+    True, the cap reached, so every gate answered its "paused" refusal."""
     settings = Settings(daily_global_spend_usd=10.0)
 
     class _Boom:
@@ -776,7 +778,10 @@ async def test_global_spend_redis_error_fails_closed():
 
             raise RedisError("down")
 
-    assert await quota_service.global_spend_exceeded(_Boom(), settings) is True
+    with pytest.raises(RedisUnavailableError):
+        await quota_service.global_spend_exceeded(_Boom(), settings)
+    # No cap, no read: an outage cannot stop what nothing limits.
+    assert await quota_service.global_spend_exceeded(_Boom(), Settings()) is False
 
 
 @pytest.mark.asyncio
