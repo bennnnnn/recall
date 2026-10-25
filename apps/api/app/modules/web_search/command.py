@@ -9,9 +9,10 @@ The whole message must be the request; a cue inside a longer question is
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
-from app.services.text_normalize import collapse_ws, fold_token
+from app.services.text_normalize import collapse_ws, fold_token, straighten_apostrophes
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,14 @@ _LEAD_PHRASES: tuple[tuple[str, ...], ...] = (
     ("would", "you"),
     ("will", "you"),
     ("can", "u"),
+    # "Can't you look it up? You looked up the weather" (live chat, 2026-10-25).
+    ("can't", "you"),
+    ("cant", "you"),
+    ("can't", "u"),
+    ("cant", "u"),
+    ("couldn't", "you"),
+    ("couldnt", "you"),
+    ("could", "u"),
     ("pls",),
     ("plz",),
     ("please",),
@@ -331,6 +340,9 @@ def _match_look_up(folded: list[str], original: list[str], *, online: bool) -> S
     if not folded or folded[0] != "look":
         return None
     rest, rest_original = folded[1:], original[1:]
+    # "Look up to your parents" admires; it searches nothing.
+    if rest[:2] == ["up", "to"]:
+        return None
     if rest and rest[0] == "up":
         return SearchCommand(subject=_subject(rest[1:], rest_original[1:]))
     if rest and rest[-1] == "up":
@@ -378,7 +390,7 @@ def _match_use_search(folded: list[str]) -> SearchCommand | None:
 
 def search_command(text: str) -> SearchCommand | None:
     """The search the whole message asks for, or None when it asks something else."""
-    cleaned = collapse_ws(text)
+    cleaned = straighten_apostrophes(collapse_ws(text))
     if not cleaned or len(cleaned) > 200:
         return None
     original = cleaned.split()
@@ -415,3 +427,16 @@ def search_command(text: str) -> SearchCommand | None:
             return None
         return command
     return None
+
+
+_SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+")
+
+
+def asks_to_search(text: str) -> bool:
+    """A sentence of the message is a search request: "Can't you look it up? You looked up
+    the weather" asks for one, though its second sentence says why."""
+    return any(
+        search_command(part) is not None
+        for part in _SENTENCE_BREAK.split(collapse_ws(text))
+        if part
+    )

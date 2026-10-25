@@ -17,7 +17,7 @@ from app.modules.chat import (
 )
 from app.modules.web_search.asks_nothing import asks_nothing_to_look_up
 from app.modules.web_search.chat_bound import answers_a_check, works_from_the_chat
-from app.modules.web_search.command import search_command
+from app.modules.web_search.command import asks_to_search, search_command
 from app.modules.web_search.geo_intent import is_geo_query, is_short_letter_answer
 from app.modules.web_search.live_asks import (
     asks_for_a_price,
@@ -99,8 +99,8 @@ def web_search_skip(
     cleaned = collapse_ws(text)
     if not cleaned:
         return True
-    # "search", "google it": an explicit request is never chitchat.
-    if search_command(cleaned) is not None:
+    # "search", "google it", "can't you look it up?": an explicit request is never chitchat.
+    if asks_to_search(cleaned):
         return False
     # "Make a graph of USD to ETB this year" makes something, from facts it must find.
     if chart_of_public_facts(cleaned):
