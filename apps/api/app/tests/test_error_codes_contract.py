@@ -126,6 +126,21 @@ def _transcribe(*, at_daily_cap: bool = False, allowed: bool = True) -> Any:
         )
 
 
+def _memory_paused() -> Any:
+    """POST /memories/instruct while the day's spend cap is reached."""
+    with (
+        patch("app.modules.memory.api.get_redis_client", return_value=MagicMock()),
+        patch(
+            "app.modules.memory.api.quota_service.global_spend_exceeded",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+    ):
+        return _client(_user()).post(
+            "/memories/instruct", headers=_AUTH, json={"instruction": "Remember I like tea"}
+        )
+
+
 def _live_talk_unconfigured() -> Any:
     """POST /speech/live/session for a Pro user on a server with no Realtime key."""
     user = _user()
@@ -325,6 +340,7 @@ def _bodies() -> dict[str, dict[str, Any]]:
         "dictation_daily_limit": _refusal(_transcribe(at_daily_cap=True)),
         "dictation_rate_limited": _refusal(_transcribe(allowed=False)),
         "live_talk_not_configured": _refusal(_live_talk_unconfigured()),
+        "memory_spend_cap": _refusal(_memory_paused()),
         "image_daily_limit": _refusal(_generate("daily_limit")),
         "image_content_blocked": _refusal(_generate("content_blocked")),
         **_sign_in_bodies(),

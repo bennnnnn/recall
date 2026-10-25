@@ -109,6 +109,13 @@
    "message": "Realtime voice is not configured"
   }
  },
+ "memory_spend_cap": {
+  "status": 503,
+  "detail": {
+   "code": "memory_spend_cap",
+   "message": "Memory editing is paused right now — try again later."
+  }
+ },
  "image_daily_limit": {
   "status": 429,
   "detail": {

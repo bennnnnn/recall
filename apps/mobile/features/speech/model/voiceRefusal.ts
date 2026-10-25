@@ -1,7 +1,9 @@
+import { isServiceUnavailable } from "@/lib/api/errorBody";
+
 /**
  * A transcription the server refused, in the words for that refusal: the day's voice
- * input used up, too many recordings in a row, or voice paused while spend is capped.
- * Anything else keeps the dictation's own message.
+ * input used up, too many recordings in a row, voice paused while spend is capped, or
+ * Recall down for now. Anything else keeps the dictation's own message.
  */
 
 const VOICE_REFUSALS: Readonly<Record<string, string>> = {
@@ -18,5 +20,6 @@ function errorCode(error: unknown): string {
 
 /** The i18n key for a refused transcription, or undefined when it was not one of these. */
 export function voiceRefusalKey(error: unknown): string | undefined {
-  return VOICE_REFUSALS[errorCode(error)];
+  // A Redis outage said "Too many recordings in a row", then "Could not transcribe".
+  return VOICE_REFUSALS[errorCode(error)] ?? (isServiceUnavailable(error) ? "common.service_unavailable" : undefined);
 }

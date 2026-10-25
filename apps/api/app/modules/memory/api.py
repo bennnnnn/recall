@@ -111,9 +111,11 @@ async def instruct_memory(
     redis = get_redis_client()
     # Coded refusals, so the phone says which (code-health audit CLAR-08).
     if await quota_service.global_spend_exceeded(redis, settings):
+        # Its own code: by status alone it was "unavailable", the code of an outage.
         raise DomainError(
             "Memory editing is paused right now — try again later.",
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            code="memory_spend_cap",
         )
     if not await allow_request_unless_down(
         redis, f"memory_instruct:{user.id}", limit=_INSTRUCT_PER_HOUR, window_seconds=3600

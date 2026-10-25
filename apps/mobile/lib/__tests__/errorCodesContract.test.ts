@@ -11,6 +11,7 @@ import { ApiRequestError } from "@/lib/api/client";
 import { CONSENT_REQUIRED_CODE } from "@/lib/api/consentRefusal";
 import { scanFailureMessage } from "@/lib/scanner/scanReadError";
 import { refusalCode, resolveChatError } from "@/features/chat/model/errorMessage";
+import { memoryFailure, memoryFailureKey } from "@/features/memory/model/memoryFailure";
 import { liveTalkErrorGate } from "@/features/speech/model/liveTalkLogic";
 import { voiceRefusalKey } from "@/features/speech/model/voiceRefusal";
 
@@ -75,6 +76,8 @@ it.each([
   ["scan_rate_limited", "chat.scan_rate_limit"],
   ["scan_spend_cap", "chat.scan_spend_cap"],
   ["scan_invalid_image", null],
+  // A Redis outage said "Too many scans in a row", then "couldn't scan that photo".
+  ["service_unavailable", "common.service_unavailable"],
 ])("words a refused scan: %s", (name, words) => {
   expect(scanFailureMessage(refused(name), t)).toBe(words);
 });
@@ -102,6 +105,7 @@ it.each([
 it.each([
   ["dictation_daily_limit", "chat.voice_daily_limit"],
   ["dictation_rate_limited", "chat.voice_rate_limited"],
+  ["service_unavailable", "common.service_unavailable"],
 ])("words a refused dictation: %s", (name, words) => {
   expect(voiceRefusalKey(refused(name))).toBe(words);
 });
@@ -112,4 +116,19 @@ it.each([
   ["live_talk_not_configured", "unconfigured"],
 ])("gates live talk on a refused 503: %s", (name, gate) => {
   expect(liveTalkErrorGate(refused(name))).toBe(gate);
+});
+
+it.each([
+  ["service_unavailable", "unavailable", "common.service_unavailable"],
+  // Paused by the spend cap is no outage: the action's own "couldn't" line, as before.
+  ["memory_spend_cap", "failed", "memory.edit_failed"],
+])("words a refused memory edit: %s", (name, failure, words) => {
+  expect(memoryFailure(refused(name))).toBe(failure);
+  expect(memoryFailureKey(memoryFailure(refused(name)), "memory.edit_failed")).toBe(words);
+});
+
+it("words a chat turn the API could not serve", () => {
+  const error = refused("service_unavailable");
+  expect(resolveChatError({ message: error.message, code: error.code ?? undefined, isPaid: false, t }))
+    .toEqual({ kind: "generic", message: "common.service_unavailable" });
 });
