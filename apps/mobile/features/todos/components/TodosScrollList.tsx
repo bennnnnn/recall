@@ -20,6 +20,8 @@ import { Button } from "@/ui/controls/Button";
 
 type Props = {
   rows: TodoListRow[];
+  /** The to-do clock (useReminderClock): a time it has passed reads as overdue. */
+  now: Date;
   showEmpty: boolean;
   error: boolean;
   listHeader: ReactElement;
@@ -99,6 +101,7 @@ function clashLines(clusters: ClashCluster[], locale: string, t: (key: string, o
 /** Virtualized To-do list. Each day is one sheet. */
 export function TodosScrollList({
   rows,
+  now,
   showEmpty,
   error,
   listHeader,
@@ -183,6 +186,7 @@ export function TodosScrollList({
                         <TodoRow
                           todo={todo}
                           section={item.section}
+                          pastDue={todo.due_at != null && Date.parse(todo.due_at) < now.getTime()}
                           highlighted={highlight === todo.id}
                           busy={busyTodoIds.has(todo.id)}
                           onToggle={onToggle}

@@ -16,6 +16,9 @@ import { IconSize } from "@/ui/icons/sizes";
 type Props = {
   todo: Todo;
   section: TodoSection;
+  /** Its due time has passed on the to-do clock. The row is memoized: read in render,
+   * the clock stayed at the last render's time, and a time that fell due kept today's color. */
+  pastDue?: boolean;
   busy?: boolean;
   highlighted?: boolean;
   /** Stable parent callbacks (take the todo) — avoid per-row closures that defeat memo. */
@@ -37,6 +40,7 @@ function completedMeta(iso: string | null | undefined, locale: string): string |
 export const TodoRow = memo(function TodoRow({
   todo,
   section,
+  pastDue = false,
   busy,
   highlighted,
   onToggle,
@@ -73,7 +77,7 @@ export const TodoRow = memo(function TodoRow({
 
   const timeLabel = !todo.checked && dueOk && due ? formatClockTime(due, locale) : null;
   const timeTone =
-    dueOk && due && (section === "overdue" || due.getTime() < Date.now())
+    dueOk && due && (section === "overdue" || pastDue)
       ? s.todoTimeOverdue
       : section === "today"
         ? s.todoTimeToday
