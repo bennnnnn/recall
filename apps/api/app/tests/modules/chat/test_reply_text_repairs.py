@@ -210,6 +210,12 @@ def test_code_stays_in_its_block(body: str) -> None:
         ("Spaced `$ a $` is no maths.", "Spaced `$ a $` is no maths."),
         ("```python\nx = `$y$`\n```", "```python\nx = `$y$`\n```"),
         ("Mixed `$x$ and y` stays.", "Mixed `$x$ and y` stays."),
+        # Code that only looks like maths (review of the first draft).
+        (
+            "Your hash starts with `$y$`; `$6$` is SHA-512, `$2b$` bcrypt.",
+            "Your hash starts with `$y$`; `$6$` is SHA-512, `$2b$` bcrypt.",
+        ),
+        ("Use `$PATH$` and `${name}$` and `$^$`.", "Use `$PATH$` and `${name}$` and `$^$`."),
     ],
 )
 def test_a_maths_span_in_inline_code_is_maths(reply: str, shown: str) -> None:
@@ -218,8 +224,28 @@ def test_a_maths_span_in_inline_code_is_maths(reply: str, shown: str) -> None:
 
 @pytest.mark.parametrize(
     "request_text",
-    ["how do i type a fraction in latex?", "what's the markdown for an equation?"],
+    [
+        "how do i type a fraction in latex?",
+        "what's the markdown for an equation?",
+        "how do I put a fraction in a Jupyter notebook cell?",
+        "how do i format maths in a github README",
+        # The line before asked: "and a square root?" in a LaTeX chat.
+        "how do i write a fraction in latex?\nand a square root?",
+    ],
 )
 def test_asked_for_the_source_every_span_stays_code(request_text: str) -> None:
     reply = "Type `$\\frac{a}{b}$` to get a fraction."
     assert unwrap_code_maths(reply, request_text) == reply
+
+
+@pytest.mark.parametrize(
+    "request_text",
+    [
+        "Write out the steps for the monthly payment with 7% tax",
+        "what type of loan payment is this?",
+        "can you write the formula and work it out?",
+    ],
+)
+def test_ordinary_maths_requests_still_get_maths(request_text: str) -> None:
+    reply = "So `$r = \\frac{0.0757}{12}$` a month."
+    assert unwrap_code_maths(reply, request_text) == "So $r = \\frac{0.0757}{12}$ a month."

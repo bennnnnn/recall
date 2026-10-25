@@ -35,6 +35,7 @@ from app.services.time_context import (
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
+    from app.modules.chat.turn_prep import StreamContext
 
 
 async def attach_answer_photo(state: FinalizeState) -> str:
@@ -121,7 +122,8 @@ def sanitize_fences(state: FinalizeState) -> str:
 def restore_case(state: FinalizeState) -> str:
     """A formula out of its plain code block or code span, then formulas, units and dates
     capitalized where a casual reply wrote them lowercase."""
-    text = unwrap_code_maths(unfence_formulas(state.text), state.ctx.user_message_content)
+    asked = f"{_prior_user(state.ctx)}\n{state.ctx.user_message_content}"
+    text = unwrap_code_maths(unfence_formulas(state.text), asked)
     return restore_proper_case(text)
 
 
@@ -166,3 +168,12 @@ def settle_clarify(state: FinalizeState) -> str:
     if text != state.text:
         state.committed = fallback_text(text, server_text=state.server_text)
     return text
+
+
+def _prior_user(ctx: StreamContext) -> str:
+    """The user's line before this one: "and a square root?" asks within a LaTeX chat."""
+    for message in reversed(ctx.prompt_messages[:-1]):
+        if message.get("role") == "user":
+            content = message.get("content")
+            return content if isinstance(content, str) else ""
+    return ""

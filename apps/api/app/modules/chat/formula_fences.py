@@ -68,11 +68,16 @@ def unfence_formulas(text: str) -> str:
 # A maths span the model wrapped in inline code showed its source in a grey code box
 # (2026-10-25): "`$14,000 + (14,000 \times 0.07) = 14,980$`", "`$M = 11,980 \times
 # 0.020143$`". A code span outside fenced code that is one ``$…$`` (or ``$$…$$``) span and
-# nothing else is that maths. Asked how to write it ("how do I type a fraction in LaTeX?"),
-# the source is the answer, and every code span stays.
+# nothing else, and that works something out (a sign or a LaTeX command), is that maths.
+# "`$6$`" and "`$2b$`" are password-hash prefixes, "`$PATH$`" a name: they stay code. Asked
+# how to write maths ("how do I type a fraction in LaTeX?", "in a Jupyter cell?"), here or
+# in the line before, the source is the answer, and every code span stays.
 _DOLLAR_MATHS = re.compile(r"(\${1,2})(?!\s)[^$`\n]+(?<!\s)\1")
+_WORKS_SOMETHING = re.compile(r"[=+*/^<>\u2212\u00d7\u00f7]|\\[A-Za-z]|\w\s*-\s*\w")
 _ASKS_FOR_SOURCE = re.compile(
-    r"\b(?:latex|katex|mathjax|overleaf|tex|markdown|typeset|syntax|source|code|type|write)\b",
+    r"\b(?:latex|katex|mathjax|overleaf|tex|markdown|jupyter|obsidian|notion|readme|typeset"
+    r"|syntax)\b|\bhow (?:do|can|would|should) (?:i|you|we) (?:write|type|format|put|enter"
+    r"|insert|display|render|show)\b",
     re.IGNORECASE,
 )
 
@@ -101,7 +106,13 @@ def _unwrapped(line: str) -> str:
         body = span.strip("`")
         maths = body.strip()
         out.append(line[at:tick])
-        out.append(maths if body == maths and _DOLLAR_MATHS.fullmatch(maths) else span)
+        is_maths = body == maths and _DOLLAR_MATHS.fullmatch(maths) and _works_something(maths)
+        out.append(maths if is_maths else span)
         at = end
     out.append(line[at:])
     return "".join(out)
+
+
+def _works_something(maths: str) -> bool:
+    inner = maths.strip("$")
+    return any(char.isalnum() for char in inner) and _WORKS_SOMETHING.search(inner) is not None
