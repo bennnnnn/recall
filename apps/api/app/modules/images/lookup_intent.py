@@ -28,6 +28,7 @@ from app.modules.images.lookup_intent_words import (
     DUAL_USE_WORDS,
     LOOKUP_NON_IMAGE_WORDS,
 )
+from app.modules.images.unnamed_subjects import is_count_only
 from app.services.text_normalize import fold_token
 
 _ARTICLES = frozenset({"a", "an", "the"})
@@ -150,9 +151,37 @@ def _reference_subject(tokens: list[str]) -> str | None:
 
 
 def is_reference_subject(subject: str) -> bool:
-    """True when the subject names no one ("she", "it at night", "another one")."""
+    """True when the subject names no one ("she", "it at night", "another one", "both")."""
     words = subject.split()
-    return bool(words) and fold_token(words[0]) in _REFERENCE_HEADS
+    if not words:
+        return False
+    return fold_token(words[0]) in _REFERENCE_HEADS or is_count_only(subject)
+
+
+# What Recall draws rather than photographs. "can u show me both" after water and carbon
+# dioxide was read as "water and carbon dioxide molecules"; the chemistry card draws those,
+# and a stock photo of a ball-and-stick model is no answer. Only these words count, so a
+# resolved name like "Times Square at night" or "Queen Elizabeth I" is still searched. A
+# formula the app draws carries a maths mark; the word alone is "Formula 1" or baby formula.
+_DRAWN_WORDS = frozenset(
+    {
+        "molecule",
+        "molecules",
+        "molecular",
+        "equation",
+        "equations",
+        "graph",
+        "graphs",
+    }
+)
+_MATHS_MARKS = ("=", "^", "\u00d7", "\u00f7", "\\")
+
+
+def names_a_drawing(subject: str) -> bool:
+    """True when *subject* is a molecule, a written formula, an equation or a graph."""
+    if any(mark in subject for mark in _MATHS_MARKS):
+        return True
+    return any(fold_token(word) in _DRAWN_WORDS for word in subject.split())
 
 
 # "Show the vertex" after a graph asks for a feature of the graph the app draws, not a

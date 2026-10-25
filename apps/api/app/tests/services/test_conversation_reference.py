@@ -66,6 +66,23 @@ async def test_resolver_sends_the_conversation_without_the_request(no_spend_cap)
 
 
 @pytest.mark.asyncio
+async def test_photo_resolver_leaves_drawn_things_to_the_app(no_spend_cap) -> None:
+    """ "can u show me both" after water and CO2 wants the molecules drawn, not photos."""
+    complete = AsyncMock(return_value=ConversationReference(text=None))
+    with (
+        patch.object(ref.mock_llm, "should_mock_llm", return_value=False),
+        patch.object(ref.litellm_gateway, "complete_structured", complete),
+    ):
+        await ref.resolve_reference(
+            _settings(), kind="photo", request="can u show me both", turns=_CALMENT
+        )
+
+    instructions = _awaited(complete).kwargs["messages"][0]["content"]
+    assert "molecule" in instructions
+    assert '{"text": null}' in instructions
+
+
+@pytest.mark.asyncio
 async def test_resolver_renders_an_image_turn_as_text(no_spend_cap) -> None:
     complete = AsyncMock(return_value=ConversationReference(text="red car at night"))
     turns = [

@@ -7,6 +7,7 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolContext
+from app.modules.images import search_tool as adapter_module
 from app.modules.images.search import ImageSearchError
 from app.modules.images.search_tool import ImageSearchAdapter
 from app.tests.tool_context import tool_context
@@ -47,6 +48,20 @@ async def test_invoke_disabled():
     adapter = ImageSearchAdapter(_settings(image_search_enabled=False))
     result = await adapter.invoke({"query": "an ear"}, _turn())
     assert "disabled" in result.content.lower()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("query", ["water and carbon dioxide molecules", "graph of y = x^2"])
+async def test_invoke_declines_what_the_app_draws(query: str):
+    """A molecule or a graph is drawn by Recall; a stock photo of one is no answer."""
+    adapter = ImageSearchAdapter(_settings(image_search_enabled=True))
+    search = AsyncMock()
+    with patch.object(adapter_module.image_search_service, "search_and_attach_for_chat", search):
+        result = await adapter.invoke({"query": query}, _turn())
+
+    search.assert_not_awaited()
+    assert result.data is None
+    assert "draws" in result.content
 
 
 @pytest.mark.asyncio
