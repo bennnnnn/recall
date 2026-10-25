@@ -24,6 +24,7 @@ import {
 } from "@/features/images/model/imageGenTurn";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
 import { emitAppEvent } from "@/lib/appEvents";
+import { useLatestRef } from "@/lib/latestRef";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 
 /**
@@ -295,11 +296,14 @@ export function useImageGeneration({
     abortRef.current = null;
   }, []);
 
+  // Every message row takes `retry`: it keeps one identity, or each chat screen render
+  // (submitPrompt is rebuilt with its callers' callbacks) redrew every visible row.
+  const submitRef = useLatestRef(submitPrompt);
   const retry = useCallback(() => {
     const last = lastSubmitRef.current;
     if (!last || generatingRef.current) return;
-    void submitPrompt(last);
-  }, [submitPrompt]);
+    void submitRef.current(last);
+  }, [submitRef]);
 
   return {
     generating,
