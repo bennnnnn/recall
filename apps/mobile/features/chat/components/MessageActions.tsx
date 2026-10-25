@@ -37,6 +37,7 @@ function ActionButton({
   onPress,
   disabled,
   busy,
+  selected,
   children,
 }: {
   label: string;
@@ -44,6 +45,8 @@ function ActionButton({
   disabled?: boolean;
   /** Regenerate's spinner: announced as disabled and busy. */
   busy?: boolean;
+  /** A toggle drawn filled while on (a rating, read aloud): announced as selected. */
+  selected?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -54,7 +57,9 @@ function ActionButton({
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={busy == null ? undefined : { disabled: busy, busy }}
+      accessibilityState={
+        busy == null && selected == null ? undefined : { selected, ...(busy == null ? null : { disabled: busy, busy }) }
+      }
     >
       {children}
     </Pressable>
@@ -213,6 +218,7 @@ export function AssistantActions({
             label={t("chat.read_aloud_a11y")}
             onPress={() => void toggleSpeaking()}
             disabled={!markdown.trim()}
+            selected={speaking}
           >
             <Icon
               name="volume"
@@ -223,7 +229,7 @@ export function AssistantActions({
           </ActionButton>
         </>
       ) : null}
-      <ActionButton label={t("chat.thumbs_up_a11y")} onPress={() => rate("up")}>
+      <ActionButton label={t("chat.thumbs_up_a11y")} onPress={() => rate("up")} selected={feedback === "up"}>
         <Icon
           name="thumbs-up"
           filled={feedback === "up"}
@@ -231,7 +237,7 @@ export function AssistantActions({
           color={feedback === "up" ? theme.primary : theme.textSecondary}
         />
       </ActionButton>
-      <ActionButton label={t("chat.thumbs_down_a11y")} onPress={() => rate("down")}>
+      <ActionButton label={t("chat.thumbs_down_a11y")} onPress={() => rate("down")} selected={feedback === "down"}>
         <Icon
           name="thumbs-down"
           filled={feedback === "down"}

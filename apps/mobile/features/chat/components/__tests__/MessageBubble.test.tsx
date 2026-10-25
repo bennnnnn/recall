@@ -299,6 +299,18 @@ describe("MessageBubble copy feedback timers", () => {
     clearSpy.mockRestore();
   });
 
+  it("tells a screen reader which rating is on and that a reply is being read", async () => {
+    const rated = { ...assistantMessage, feedback: "up" } as Message;
+    const view = await render(<MessageBubble message={rated} />);
+    expect(view.getByLabelText("chat.thumbs_up_a11y").props.accessibilityState).toMatchObject({ selected: true });
+    expect(view.getByLabelText("chat.thumbs_down_a11y").props.accessibilityState).toMatchObject({ selected: false });
+
+    jest.mocked(speakPlainText).mockImplementationOnce(() => new Promise(() => {}));
+    expect(view.getByLabelText("chat.read_aloud_a11y").props.accessibilityState).toMatchObject({ selected: false });
+    await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
+    expect(view.getByLabelText("chat.read_aloud_a11y").props.accessibilityState).toMatchObject({ selected: true });
+  });
+
   describe("read aloud", () => {
     const readingForever = () =>
       jest.mocked(speakPlainText).mockImplementationOnce(() => new Promise(() => {}));
