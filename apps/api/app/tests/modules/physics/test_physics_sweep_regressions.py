@@ -829,6 +829,17 @@ def test_a_question_with_parts_left_unanswered_gets_no_instant_reply(text: str) 
         ("what is the speed and when does it stop?", 2),
         ("what is the force, and what is the acceleration?", 2),
         ("how fast and how far?", 2),
+        # Without a "?", and other joins (review of the first draft).
+        (
+            "a ball is dropped from a 20 m building, how long until it hits the ground and "
+            "how fast is it going",
+            2,
+        ),
+        ("Find how long it takes a ball dropped from 45 m to land and how fast it is going.", 2),
+        ("How long does it take to land and with what speed does it hit?", 2),
+        ("how long does it take; how fast is it?", 2),
+        ("how long does it take as well as how fast is it going?", 2),
+        ("A car travels 120 km in 2 hours and then stops. What is its average speed?", 1),
         ("how fast is it going and in what direction?", 1),
         ("a car goes 100 km in 2 hours and what is its speed?", 1),
         ("how long does it take to reach the speed of sound?", 1),

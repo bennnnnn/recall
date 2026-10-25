@@ -32,10 +32,14 @@ _LABELLED = re.compile(r"\s*(?:of|=|is|:|was)?\s*[-+]?\.?\d", re.IGNORECASE)
 # read from its last question word.
 _ASK_LEAD = re.compile(
     r"\bhow\s+(?:long|fast|far|high|much|many|quickly|big|heavy|hot|deep|strong|hard)\b"
-    r"|\bwhat(?:'s|\s+is|\s+was|\s+will|\s+would|\s+are)\b|\bwhen\s+(?:does|do|will|is)\b",
+    r"|\bwhat(?:'s|\s+is|\s+was|\s+will|\s+would|\s+are)\b|\bwhen\s+(?:does|do|will|is)\b"
+    r"|\bwith\s+what\s+(?:speed|velocity|force|energy)\b",
     re.IGNORECASE,
 )
-_JOINS = re.compile(r"(?:,|\band\b|\bthen\b)\s*(?:also\s+|then\s+)?$", re.IGNORECASE)
+_JOINS = re.compile(
+    r"(?:,|;|&|\band\b|\bthen\b|\bas\s+well\s+as\b|\bplus\b)\s*(?:also\s+|then\s+)?$",
+    re.IGNORECASE,
+)
 
 
 def _labelled_parts(text: str) -> int:
@@ -65,12 +69,12 @@ def _joined_quantities(text: str) -> int:
 
 
 def _joined_asks(text: str) -> int:
-    """Asks in each question sentence: its first question word, and each joined to it."""
+    """Asks in each sentence: its first question word, and each joined to it. The sentence
+    need not end in "?": typed on a phone, "…how long until it hits the ground and how fast
+    is it going" often doesn't."""
     count = 0
     for sentence in SENTENCE.finditer(text):
         body = sentence.group()
-        if not body.rstrip().endswith("?"):
-            continue
         leads = list(_ASK_LEAD.finditer(body))
         if leads:
             count += 1 + sum(1 for lead in leads[1:] if _JOINS.search(body[: lead.start()]))
