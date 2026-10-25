@@ -14,14 +14,16 @@ reaction and changes one thing:
 
 The problem is read from its own text, written out again whole (balanced equation first) and
 used only when it verifies (``followup.py``). It is the latest earlier problem whose reaction
-holds the substance the line names, but the walk back stops at the first newer user line that
-states an amount with a unit: a heat problem in between ("raise 50 g of water by 10 °C") is the
-problem now, and "what about 100 g of water" is not the reaction's (review, 2026-10-25: it was
-answered as the methane needed). Lines that state no amount ("is it 4.5 or 36??", "why is
-water bent") are passed, so "back to the first one" still finds it; with two reactions that
-hold the substance, "the first one" is not read. A change of a change ("what if i had 8 g of
-h2" after "what if i only had 16g of o2") is not read either: the line before states an
-amount. Each shape is the whole line: "how much co2 does a car emit" asks something new.
+holds the substance the line names. The walk back passes only a newer user line with no number
+in it at all (no digit, also none inside "co2", and no number word) that chemistry reads
+nothing from: "whats a mole again", "lol ok". Any other line may be a problem of its own, and
+"what about 100 g of water" after "raise 50 grams of water by 10 degrees" is not the reaction's
+(review, 2026-10-25: a list of units missed "grams", "moles", "liter" and "$", and the methane
+was answered twice). So the live chat's "back to the first one", five lines after the problem
+and past "is it 4.5 or 36??", goes to the model; with two reactions that hold the substance,
+"the first one" is not read either. A change of a change ("what if i had 8 g of h2" after "what
+if i only had 16g of o2") is not read: the line before holds a number. Each shape is the whole
+line: "how much co2 does a car emit" asks something new.
 """
 
 from __future__ import annotations
@@ -35,19 +37,14 @@ from app.modules.chemistry.equations import balance_equation, format_balanced
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.extractors.reaction_ask import MADE_VERB, USED_VERB
 from app.modules.chemistry.species_words import substance_mentions, with_formulas
-from app.services.number_text import TEXT_NUMBER
+from app.services.number_text import NUMBER_WORDS, TEXT_NUMBER
 from app.services.problem_followup import message_role_content
 
 _MAX_LINE = 120
 # Earlier user lines searched for the reaction the line continues.
 _MAX_PROBLEMS = 8
-# A user line with a number and its unit states a problem of its own.
-_STATES_AMOUNT = re.compile(
-    rf"(?<![A-Za-z0-9.])(?:{TEXT_NUMBER})\s*(?:g|kg|mg|ug|µg|mol|mmol|l|ml|m|mm|cm|km|s|min|h|hr|"
-    r"hours?|minutes?|seconds?|°\s*[cf]|deg|c|f|k|j|kj|cal|kcal|calories|atm|kpa|pa|mmhg|torr|"
-    r"bar|%|n|w|v|hz|mph|m/s|km/h)(?![A-Za-z])",
-    re.IGNORECASE,
-)
+# Any number in a user line, a digit or a word: the walk back does not pass it.
+_HOLDS_A_NUMBER = re.compile(rf"\d|\b(?:{'|'.join(NUMBER_WORDS)})\b", re.IGNORECASE)
 # "back to the first one", "the earlier one": a problem before the last.
 _BACK = re.compile(
     r"\b(?:back\s+to|first\s+(?:one|question|problem)|earlier|original|previous)\b", re.I
@@ -157,19 +154,24 @@ def _user_lines(recent: Sequence[Any]) -> Iterator[str]:
             return
 
 
+def _passable(line: str) -> bool:
+    """A line the walk back may pass: no number in it and nothing chemistry reads."""
+    return _HOLDS_A_NUMBER.search(line) is None and extract_chemistry_intent(line) is None
+
+
 def _reaction_holding(formula: str, recent: Sequence[Any], back: bool) -> _Reaction | None:
-    """The latest earlier reaction that holds the substance, reached only past lines that
-    state no amount. Asked "back to the first one", it must be the only such reaction."""
+    """The latest earlier reaction that holds the substance, reached only past lines with no
+    number in them. Asked "back to the first one", it must be the only such reaction."""
     matches: list[tuple[_Reaction, bool]] = []
-    passed_an_amount = False
+    passed_a_problem = False
     for line in _user_lines(recent):
         reaction = _reaction(line)
         if reaction is not None and formula in reaction.substances:
-            matches.append((reaction, passed_an_amount))
+            matches.append((reaction, passed_a_problem))
             if not back:
                 break
-        if reaction is not None or _STATES_AMOUNT.search(line):
-            passed_an_amount = True
+        if reaction is not None or not _passable(line):
+            passed_a_problem = True
     if not matches or (back and len(matches) != 1):
         return None
     reaction, blocked = matches[0]
