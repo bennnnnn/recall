@@ -30,7 +30,9 @@ export type LiveTalkGate =
   | "unconfigured"
   /** Recall is down for now (its database or Redis, a deploy): try again in a moment. */
   | "outage"
-  | "mic_permission";
+  | "mic_permission"
+  /** The microphone gave no audio (in use, or missing): the device, not the app's age. */
+  | "mic_unavailable";
 
 /** Live talk for this user: `remaining` / `limit` are whole minutes this month. */
 export type LiveTalkStatus = {
@@ -193,6 +195,10 @@ export function liveTalkErrorGate(error: unknown): LiveTalkGate {
   if (error instanceof Error && error.message === "webrtc_unavailable") {
     return "unavailable";
   }
+  // It said "update the app" too; an update changes nothing about the microphone.
+  if (error instanceof Error && error.message === "microphone_unavailable") {
+    return "mic_unavailable";
+  }
   if (!error || typeof error !== "object") return "connect_failed";
   const { status, code } = error as { status?: unknown; code?: unknown };
   if (status === undefined && isMicPermissionDenied(error)) {
@@ -229,6 +235,7 @@ const GATE_MESSAGE_KEYS: Readonly<Record<SaidGate, string>> = {
   offline: "chat.offline_body",
   outage: "common.service_unavailable",
   unconfigured: "chat.live_talk_not_configured",
+  mic_unavailable: "chat.live_talk_mic_unavailable",
 };
 
 /** The line a gate says as a recoverable error; upgrade, consent and the microphone open their own. */

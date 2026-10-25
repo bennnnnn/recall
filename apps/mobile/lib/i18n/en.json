@@ -84,6 +84,7 @@
   "chat.live_talk_listening_a11y": "Live talk, listening",
   "chat.live_talk_mic_permission_body": "Allow microphone access in Settings to talk with Recall in Live talk.",
   "chat.live_talk_mic_permission_title": "Microphone access needed",
+  "chat.live_talk_mic_unavailable": "Live talk couldn't use the microphone. Close other apps that might be using it, then try again.",
   "chat.live_talk_mute_a11y": "Mute microphone",
   "chat.live_talk_not_configured": "Live talk isn't set up on this server yet.",
   "chat.live_talk_off": "Live talk isn't available right now.",

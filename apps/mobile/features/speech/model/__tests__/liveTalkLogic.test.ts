@@ -165,6 +165,12 @@ describe("liveTalkErrorGate", () => {
     expect(liveTalkErrorGate(new Error("webrtc_unavailable"))).toBe("unavailable");
   });
 
+  // A microphone that gave no audio said "update the app".
+  it("maps a microphone with no audio to its own gate and line", () => {
+    expect(liveTalkErrorGate(new Error("microphone_unavailable"))).toBe("mic_unavailable");
+    expect(liveTalkGateMessageKey("mic_unavailable")).toBe("chat.live_talk_mic_unavailable");
+  });
+
   it("maps a missing Realtime server key to unconfigured only when the server says so", () => {
     expect(liveTalkErrorGate({ status: 503, code: "not_configured" })).toBe("unconfigured");
   });

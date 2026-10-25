@@ -84,6 +84,7 @@
   "chat.live_talk_listening_a11y": "Live talk፣ በማዳመጥ ላይ",
   "chat.live_talk_mic_permission_body": "በLive talk ከRecall ጋር ለመነጋገር በቅንብሮች ውስጥ የማይክሮፎን መዳረሻ ይፍቀዱ።",
   "chat.live_talk_mic_permission_title": "የማይክሮፎን መዳረሻ ያስፈልጋል",
+  "chat.live_talk_mic_unavailable": "Live talk ማይክሮፎኑን መጠቀም አልቻለም። ሊጠቀሙበት የሚችሉ ሌሎች መተግበሪያዎችን ዝግተው እንደገና ይሞክሩ።",
   "chat.live_talk_mute_a11y": "ማይክሮፎኑን አጥፋ",
   "chat.live_talk_not_configured": "Live talk በዚህ አገልጋይ ላይ ገና አልተዘጋጀም።",
   "chat.live_talk_off": "Live talk አሁን አይገኝም።",

@@ -111,6 +111,19 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
     expect(reportRecoverableError).toHaveBeenCalledWith(null, "chat.live_talk_unavailable_body");
   });
 
+  // A microphone that gave no audio said "update the app", as a build without WebRTC does.
+  it("says the microphone, not the app, when the microphone gave no audio", async () => {
+    (createRealtimeVoiceSession as jest.Mock).mockRejectedValueOnce(new Error("microphone_unavailable"));
+    await render(<Probe />);
+    await act(async () => {
+      await live.open();
+    });
+
+    expect(confirmDialog).not.toHaveBeenCalled();
+    expect(jest.mocked(reportRecoverableError).mock.calls).toEqual([[null, "chat.live_talk_mic_unavailable"]]);
+    expect(live.visible).toBe(false);
+  });
+
   // Every 503 said "Live talk isn't set up on this server yet", a Redis outage included.
   it.each([
     [{ code: "unavailable", message: "Service temporarily unavailable. Please retry shortly." }, "common.service_unavailable"],

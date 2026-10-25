@@ -84,6 +84,7 @@
   "chat.live_talk_listening_a11y": "Live talk, слушаю",
   "chat.live_talk_mic_permission_body": "Разрешите доступ к микрофону в Настройках, чтобы говорить с Recall в Live talk.",
   "chat.live_talk_mic_permission_title": "Нужен доступ к микрофону",
+  "chat.live_talk_mic_unavailable": "Live talk не удалось использовать микрофон. Закройте другие приложения, которые могут его использовать, и попробуйте снова.",
   "chat.live_talk_mute_a11y": "Выключить микрофон",
   "chat.live_talk_not_configured": "Live talk ещё не настроен на этом сервере.",
   "chat.live_talk_off": "Live talk сейчас недоступен.",

@@ -84,6 +84,7 @@
   "chat.live_talk_listening_a11y": "Live talk, dinliyor",
   "chat.live_talk_mic_permission_body": "Live talk'ta Recall ile konuşmak için Ayarlar'da mikrofon erişimine izin ver.",
   "chat.live_talk_mic_permission_title": "Mikrofon erişimi gerekli",
+  "chat.live_talk_mic_unavailable": "Live talk mikrofonu kullanamadı. Onu kullanıyor olabilecek diğer uygulamaları kapatıp tekrar dene.",
   "chat.live_talk_mute_a11y": "Mikrofonu kapat",
   "chat.live_talk_not_configured": "Live talk bu sunucuda henüz kurulmadı.",
   "chat.live_talk_off": "Live talk şu anda kullanılamıyor.",
