@@ -417,7 +417,7 @@ async function settle(ms = 50): Promise<void> {
   }
 }
 
-async function appState(state: "active" | "background"): Promise<void> {
+async function appState(state: "active" | "background" | "inactive"): Promise<void> {
   await rtl.act(async () => {
     for (const listener of [...mockAppStateListeners]) listener(state);
   });
@@ -544,6 +544,8 @@ const CEILINGS: Record<string, number> = {
   "return after a minute": 4,
   // And the model list (older than 5 minutes).
   "return after 10 minutes": 5,
+  // iOS goes inactive and back without leaving: nothing is read again.
+  "Control Centre and back, 6 minutes on": 0,
   "50 minutes in the foreground": 0,
   // One refresh before the read, then the page and the socket.
   "open chat 2 after the token expired": 3,
@@ -622,6 +624,12 @@ it("keeps every step of an everyday session within its requests", async () => {
   await appState("active");
   await settle(3000);
   step("return after 10 minutes");
+  await settle(6 * 60_000);
+  await appState("inactive");
+  await settle(1000);
+  await appState("active");
+  await settle(3000);
+  step("Control Centre and back, 6 minutes on");
 
   await settle(50 * 60_000);
   step("50 minutes in the foreground");

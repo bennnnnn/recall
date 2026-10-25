@@ -21,19 +21,35 @@ export const FOREGROUND_STALE_MS = {
   connectivity: 0,
 } as const;
 
-type Listener = (state: AppStateStatus) => void;
+/** `returned`: this "active" ends a stay in the background (see `dispatch`). */
+type Listener = (state: AppStateStatus, returned: boolean) => void;
 
 const listeners = new Set<Listener>();
 let subscription: { remove: () => void } | null = null;
+/** The app went to the background since it was last active. */
+let away = false;
 
+/**
+ * iOS turns "inactive" and back for Control Centre, Notification Centre, a system
+ * prompt, Face ID or a call, and the app never leaves the screen: each of those
+ * blips used to read the to-dos, the open chat, the models and /health again
+ * (three or four requests). Only an "active" after "background" is a return.
+ */
 function dispatch(state: AppStateStatus): void {
-  for (const listener of [...listeners]) listener(state);
+  const returned = state === "active" && away;
+  if (state === "background") away = true;
+  else if (state === "active") away = false;
+  for (const listener of [...listeners]) listener(state, returned);
 }
 
 /** Every AppState change, through the one native subscription. */
 export function onAppStateChange(listener: Listener): () => void {
   listeners.add(listener);
-  subscription ??= AppState.addEventListener("change", dispatch);
+  if (!subscription) {
+    // Launched in the background (a push, a background task): the first "active" is a return.
+    away = AppState.currentState === "background";
+    subscription = AppState.addEventListener("change", dispatch);
+  }
   return () => {
     listeners.delete(listener);
     if (listeners.size === 0) {
@@ -43,14 +59,14 @@ export function onAppStateChange(listener: Listener): () => void {
   };
 }
 
-/** `refresh` (the latest one) each time the app comes back to the foreground. */
+/** `refresh` (the latest one) each time the app comes back from the background. */
 export function useOnForeground(refresh: () => void, enabled = true): void {
   const latest = useRef(refresh);
   latest.current = refresh;
   useEffect(() => {
     if (!enabled) return;
-    return onAppStateChange((state) => {
-      if (state === "active") latest.current();
+    return onAppStateChange((_state, returned) => {
+      if (returned) latest.current();
     });
   }, [enabled]);
 }

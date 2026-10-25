@@ -275,7 +275,7 @@ export function useChatRouteLoader({
 
   useEffect(() => {
     let cancelled = false;
-    const onAppState = (state: AppStateStatus) => {
+    const onAppState = (state: AppStateStatus, returned: boolean) => {
       if (session !== getSessionGeneration()) return;
       if (state === "background" || state === "inactive") {
         // Another device may write to any chat while this one is away.
@@ -286,6 +286,8 @@ export function useChatRouteLoader({
         // An unused draft is dropped by useDraftChat, once, on background.
         return;
       }
+      // An iOS "inactive" blip (Control Centre, a prompt) left the socket and the page as they were.
+      if (!returned) return;
       // Backgrounding mid-stream kills the socket; onclose commits a truncated
       // bubble. When we return to foreground with streaming finished, pull the
       // server's full reply without requiring the user to leave the chat.

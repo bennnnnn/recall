@@ -100,10 +100,10 @@ export function useNetworkStatus(): {
     void NetInfo.fetch().then(onNetInfo);
     const unsubscribe = NetInfo.addEventListener(onNetInfo);
 
-    // Every return probes (FOREGROUND_STALE_MS.connectivity is 0).
-    const onAppState = (next: AppStateStatus) => {
+    // Every return probes (FOREGROUND_STALE_MS.connectivity is 0); an iOS "inactive" blip is no return.
+    const onAppState = (next: AppStateStatus, returned: boolean) => {
       setInBackground(next === "background");
-      if (next === "active") {
+      if (returned) {
         setRetryEpoch((epoch) => epoch + 1);
         runProbe(false);
       }
