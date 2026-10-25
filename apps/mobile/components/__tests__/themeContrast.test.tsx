@@ -1,5 +1,5 @@
 import { AA, compositeOver, contrastRatio } from "@/lib/__tests__/support/contrast";
-import { darkTheme, lightTheme } from "@/lib/theme";
+import { darkTheme, lightTheme, withAlpha } from "@/lib/theme";
 
 describe("semantic text contrast", () => {
   it.each([
@@ -91,6 +91,16 @@ describe("semantic text contrast", () => {
   ] as const)("%s success is AA on its own well", (_name, theme) => {
     expect(
       contrastRatio(theme.success, compositeOver(theme.successLight, theme.bg)),
+    ).toBeGreaterThanOrEqual(AA);
+  });
+
+  // Home's overdue reminder: its due time in warning on a 12% warning tint over the page.
+  it.each([
+    ["light", lightTheme],
+    ["dark", darkTheme],
+  ] as const)("%s warning is AA on its own tint", (_name, theme) => {
+    expect(
+      contrastRatio(theme.warning, compositeOver(withAlpha(theme.warning, 0.12), theme.bg)),
     ).toBeGreaterThanOrEqual(AA);
   });
 

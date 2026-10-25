@@ -168,7 +168,7 @@ export const lightTheme: Theme = {
   danger: "#CC291D",
   onDanger: "#FFFFFF",
   dangerLight: "#FFF5F5",
-  warning: "#B54708",
+  warning: "#AD4407",
   onWarning: "#FFFFFF",
   success: "#137A54",
   successLight: "#EAF7F3",
