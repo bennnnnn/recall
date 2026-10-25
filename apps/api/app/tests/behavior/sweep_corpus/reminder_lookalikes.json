@@ -1072,5 +1072,39 @@
     ],
     "reply": "Great, tomorrow at 5 PM it is. Want an agenda?",
     "expect": "answer"
+  },
+  {
+    "id": "ht-108",
+    "area": "todo",
+    "prompt": "tomorrow at 10am",
+    "history": [
+      [
+        "user",
+        "can you remind me to call the dentist? i always forget"
+      ],
+      [
+        "assistant",
+        "Sure thing! 🦷 To set that up, when would you like to be reminded? (e.g., this Friday at 10 AM, or every Monday morning?)"
+      ]
+    ],
+    "reply": "```reminder\nCall the dentist tomorrow at 10:00 AM EDT\n</reminder>\n\nI've set that for Monday, October 26, 2026, at 10:00 AM. 📅",
+    "expect": "save"
+  },
+  {
+    "id": "ht-109",
+    "area": "lookalike",
+    "prompt": "friday at 9",
+    "history": [
+      [
+        "user",
+        "remind me to study"
+      ],
+      [
+        "assistant",
+        "Good idea. When is your exam?"
+      ]
+    ],
+    "reply": "Friday at 9 gives you four days. Want a study plan for each one?",
+    "expect": "answer"
   }
 ]

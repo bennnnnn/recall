@@ -87,9 +87,25 @@ async def pending_add(
     return None
 
 
-# The server's own question for a reminder with no time (``reply_check.NEED_A_TIME``, and
-# "When should I remind you to call mom?").
-_ASKED_WHEN_RE = re.compile(r"(?:^|\n)\s*When should I remind you\b[^\n]*\?\s*$")
+# The last reply asked when to remind, as the server does ("When should I remind you?")
+# or in the model's words ("when would you like to be reminded? (e.g., Friday at 10 AM)",
+# "What time should I set it for?"): a question near its end. "When is your exam?" asks
+# about the exam.
+_QUESTION_RE = re.compile(r"[^.!?\n]*\?")
+_WHEN_RE = re.compile(r"\b(?:when|what time|which day|what day)\b", re.IGNORECASE)
+_TO_REMIND_RE = re.compile(
+    r"\bremind|\breminder|\bset (?:it|that|this|one)\b|\bschedule|\bnotif|\balert|\bping\b",
+    re.IGNORECASE,
+)
+_ASKED_NEAR_END = 300
+
+
+def _asked_when(prior_assistant: str | None) -> bool:
+    tail = (prior_assistant or "").rstrip()[-_ASKED_NEAR_END:]
+    return any(
+        _WHEN_RE.search(question) and _TO_REMIND_RE.search(question)
+        for question in _QUESTION_RE.findall(tail)
+    )
 
 
 async def answered_when(
@@ -102,9 +118,9 @@ async def answered_when(
 ) -> SpokenAdd | None:
     """The add this message finishes by giving its time, or None.
 
-    A bare clock ("7pm") finishes the add that named its day. After the server asked
-    "When should I remind you?", any when does: live (2026-10-25), "can you remind me
-    about the python practice again?" was asked when, and "7pm tomorrow" saved nothing.
+    A bare clock ("7pm") finishes the add that named its day. After the last reply asked
+    when ("When should I remind you?"), any when does: live (2026-10-25), "can you remind
+    me about the python practice again?" was asked when, and "7pm tomorrow" saved nothing.
     The answer is read onto the add's own words ("remind me to <task> 7pm tomorrow"); one
     that says more than when ("tomorrow, and buy milk") is its own message.
     """
@@ -113,7 +129,7 @@ async def answered_when(
         dated = await pending_add(session, chat_id, current)
         if dated is not None:
             return replace(dated, hour=clock[0], minute=clock[1])
-    if not prior_assistant or not _ASKED_WHEN_RE.search(prior_assistant):
+    if not _asked_when(prior_assistant):
         return None
     pending = await pending_add(session, chat_id, current, dated=False)
     if pending is None:

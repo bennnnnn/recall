@@ -297,6 +297,16 @@ def test_a_request_ends_at_its_sentence(text: str, title: str) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    "asked",
+    [
+        "When should I remind you?",
+        # Live 2026-10-25: the model's own words.
+        "Sure thing! To set that up, when would you like to be reminded? (e.g., this Friday "
+        "at 10 AM, or every Monday morning?)",
+        "What time should I set it for?",
+    ],
+)
+@pytest.mark.parametrize(
     ("answer", "saved"),
     [
         ("7pm tomorrow", True),
@@ -307,7 +317,7 @@ def test_a_request_ends_at_its_sentence(text: str, title: str) -> None:
         ("i don't know yet", False),
     ],
 )
-async def test_the_answer_to_when_finishes_the_add(db_session, fake_redis, answer, saved):
+async def test_the_answer_to_when_finishes_the_add(db_session, fake_redis, asked, answer, saved):
     """Live 2026-10-25: asked "When should I remind you?", "7pm tomorrow" saved nothing."""
     from app.modules.chat import messages_repository as messages_repo
 
@@ -321,7 +331,7 @@ async def test_the_answer_to_when_finishes_the_add(db_session, fake_redis, answe
     chat = await chats_repo.create(db_session, user_id=user.id, model="free-chat")
     for role, content in (
         ("user", "can you remind me to call mom? i always forget"),
-        ("assistant", "When should I remind you?"),
+        ("assistant", asked),
         ("user", answer),
     ):
         await messages_repo.create(
@@ -342,3 +352,43 @@ async def test_the_answer_to_when_finishes_the_add(db_session, fake_redis, answe
     assert bool(match) is saved, text
     if match:
         assert json.loads(match.group(1))["items"][0]["title"] == "call mom"
+
+
+@pytest.mark.asyncio
+async def test_a_question_about_something_else_is_no_when(db_session, fake_redis):
+    """After "remind me to study", "When is your exam?" asks about the exam."""
+    from app.modules.chat import messages_repository as messages_repo
+    from app.modules.todos.spoken_clauses import answered_when
+
+    user = await users_repo.create(
+        db_session,
+        email=f"{uuid4()}@example.com",
+        name="Test User",
+        avatar_url=None,
+        google_sub=str(uuid4()),
+    )
+    chat = await chats_repo.create(db_session, user_id=user.id, model="free-chat")
+    asked = "Good idea. When is your exam?"
+    for role, content in (
+        ("user", "remind me to study"),
+        ("assistant", asked),
+        ("user", "friday at 9"),
+    ):
+        await messages_repo.create(
+            db_session, chat_id=chat.id, user_id=user.id, role=role, content=content
+        )
+    assert await answered_when(db_session, chat.id, "friday at 9", asked) is None
+
+
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        # Live 2026-10-25: the block was closed as a tag, and the whole reply was dropped.
+        ("```reminder\nCall the dentist tomorrow at 10:00 AM\n</reminder>\n\nOk.", "Ok."),
+        ('Sure.\n\n```reminder\n{"title": "Call', "Sure."),
+    ],
+)
+def test_a_reminder_block_closed_as_a_tag_keeps_the_reply_after_it(reply: str, kept: str) -> None:
+    from app.modules.chat.finalize_reminders import drop_cut_reminder_fence
+
+    assert drop_cut_reminder_fence(reply) == kept
