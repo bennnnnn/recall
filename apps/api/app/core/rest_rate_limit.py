@@ -16,7 +16,9 @@ from app.core.redis import get_redis_client
 
 logger = logging.getLogger(__name__)
 
-_SKIP_PREFIXES = ("/health", "/webhooks/", "/legal/")
+# /auth/refresh has its own limits, per account and per IP (modules/account/refresh_limit.py):
+# here, unsigned, every phone behind one carrier NAT address shared one 240-a-minute bucket.
+_SKIP_PREFIXES = ("/health", "/webhooks/", "/legal/", "/auth/refresh")
 
 
 def _client_key(request: Request, settings: Settings) -> str:

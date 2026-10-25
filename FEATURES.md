@@ -815,10 +815,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, Amharic, German, Italian, Portuguese, Russian, and Turkish.
 - ✅ **Dark / light theme** — screens use `useTheme()` with system or manual appearance in
   Settings → Appearance.
-- ✅ **Local todo reminders** — scheduled on-device notifications when a todo item is due (via
-  `expo-notifications`; requires a dev build for full native support).
+- ✅ **Local todo reminders** — on a device the server holds no push token for, on-device
+  notifications (via `expo-notifications`; requires a dev build for full native support),
+  scheduled exactly at each to-do's `notify_at`. Never both: a device with a token gets push only.
 - ✅ **Remote push (MVP)** — Expo push tokens registered with the backend; todo-due
-  notifications (requires dev build + EAS project ID). Quiet hours skip push and reminder email without marking them sent.
+  notifications (requires dev build + EAS project ID). One instant for every channel: the server
+  works out when a reminder goes out (`services/reminder_timing.reminder_at`: the user's lead time,
+  when due if it was set inside that window, moved to the end of quiet hours on the user's clock)
+  and sends it on every to-do it returns as `notify_at`; push and email send at it, and a late
+  cycle still waits out quiet hours.
 - ✅ **Email reminders** — opt-in todo-due emails (Resend); Settings
   toggle; worker scheduler only (welcome + Pro receipt unchanged).
 

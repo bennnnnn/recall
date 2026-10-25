@@ -17,7 +17,6 @@ jest.mock("@/lib/sentry", () => ({ reportPushUnregisterFailed: jest.fn() }));
 jest.mock("@/lib/installationId", () => ({ getInstallationId: jest.fn(async () => "dev-1") }));
 jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableWarning: jest.fn() }));
 jest.mock("@/lib/syncRecords", () => ({ recentSyncAt: jest.fn(), recordSync: jest.fn(), forgetSyncRecords: jest.fn() }));
-jest.mock("@/features/todos/model/reminderPrefs", () => ({ getReminderLeadMs: jest.fn(async () => 600_000) }));
 jest.mock("expo-constants", () => ({ __esModule: true, default: { expoConfig: { extra: {} } } }));
 jest.mock("expo-notifications", () => ({
   setNotificationChannelAsync: jest.fn(async () => null),
@@ -33,6 +32,7 @@ jest.mock("expo-notifications", () => ({
 const todo: Todo = {
   id: "t1", content: "Flight", topic: "Reminders", checked: false, due_at: "2099-01-01T12:00:00Z",
   created_at: "2026-09-01T00:00:00Z", updated_at: "2026-09-01T00:00:00Z", sort_order: null, chat_id: null,
+  notify_at: "2099-01-01T11:50:00Z",
 };
 
 it("creates the reminders channel once for launch and a local reminder sync", async () => {

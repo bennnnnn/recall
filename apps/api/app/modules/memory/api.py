@@ -1,12 +1,13 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.consent import get_consented_user
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
+from app.core.etag import conditional_json
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.exceptions import DomainError
@@ -75,12 +76,14 @@ async def list_memories(
 
 @router.get("/documents", response_model=MemoryDocumentsOut)
 async def list_memory_documents(
+    request: Request,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
-) -> MemoryDocumentsOut:
+) -> Response:
     documents = await _documents_out(session, user)
     scanning = await history_scan.request_history_scan(get_redis_client(), user)
-    return MemoryDocumentsOut(documents=documents, scanning=scanning)
+    # Every visit and scan poll reads the pages: unchanged ones cost a 304 (core/etag.py).
+    return conditional_json(request, MemoryDocumentsOut(documents=documents, scanning=scanning))
 
 
 @router.delete("/documents/{topic}", status_code=status.HTTP_204_NO_CONTENT)

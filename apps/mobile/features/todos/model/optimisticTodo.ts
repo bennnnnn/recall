@@ -28,6 +28,8 @@ export function buildOptimisticTodo(fields: {
     chat_id: null,
     created_at: now,
     updated_at: now,
+    // The server works out when its reminder goes out; none until it has saved it.
+    notify_at: null,
   };
 }
 

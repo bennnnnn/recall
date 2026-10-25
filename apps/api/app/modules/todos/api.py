@@ -9,15 +9,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis
 from app.core.etag import conditional_json
-from app.models.orm import User
+from app.models.orm import TodoItem, User
 from app.modules.todos import crud as todos_crud
 from app.modules.todos import proposals as reminder_proposals
+from app.modules.todos.due_reminders import reminder_instant
 from app.modules.todos.schemas import TodoCreate, TodoOut, TodoPageOut, TodoUpdate
 
 router = APIRouter(prefix="/todos", tags=["todos"])
 
 
 _MAX_TODOS_PAGE = 1000
+
+
+def _todo_out(item: TodoItem, user: User) -> TodoOut:
+    """A row as the phone reads it, with the instant its reminder goes out."""
+    return TodoOut.model_validate(item).model_copy(
+        update={"notify_at": reminder_instant(item, user)}
+    )
 
 
 def _completed_since(days: int) -> datetime:
@@ -46,7 +54,7 @@ async def list_todos_page(
         and await todos_crud.has_older_completed(session, user, since)
     )
     page = TodoPageOut(
-        items=[TodoOut.model_validate(item) for item in items],
+        items=[_todo_out(item, user) for item in items],
         next_cursor=str(next_cursor) if next_cursor else None,
         older_completed=older,
     )
@@ -68,7 +76,7 @@ async def create_todo(
         due_at=body.due_at,
         recurrence_rule=body.recurrence_rule,
     )
-    return TodoOut.model_validate(item)
+    return _todo_out(item, user)
 
 
 class ReminderProposalConfirmOut(BaseModel):
@@ -93,9 +101,7 @@ async def confirm_reminder_proposal(
     return ReminderProposalConfirmOut(
         items=confirmed.items,
         todos=(
-            None
-            if confirmed.rows is None
-            else [TodoOut.model_validate(row) for row in confirmed.rows]
+            None if confirmed.rows is None else [_todo_out(row, user) for row in confirmed.rows]
         ),
         deleted_ids=confirmed.deleted_ids,
     )
@@ -111,7 +117,7 @@ async def update_todo(
     updated = await todos_crud.update_todo(
         session, user, todo_id, body.model_dump(exclude_unset=True)
     )
-    return TodoOut.model_validate(updated)
+    return _todo_out(updated, user)
 
 
 @router.delete("/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)

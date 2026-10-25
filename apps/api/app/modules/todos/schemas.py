@@ -28,6 +28,9 @@ class TodoOut(BaseModel):
     chat_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
+    # When its reminder goes out (the user's lead time, after their quiet hours), the moment
+    # push sends it and the one the phone schedules its own alert at; null: none.
+    notify_at: datetime | None = None
 
     @field_validator("recurrence_rule", mode="before")
     @classmethod

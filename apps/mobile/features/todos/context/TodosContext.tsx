@@ -4,8 +4,15 @@ import { useTodosList } from "@/features/todos/hooks/useTodosList";
 import { useTodoReminderState } from "@/features/todos/hooks/useTodoReminderState";
 import { useReminderClock } from "@/features/todos/hooks/useReminderClock";
 import { getSessionGeneration } from "@/lib/auth";
+import { onAppEvent } from "@/lib/appEvents";
+import type { User } from "@/lib/api";
 import { remotePushRegistered, subscribeRemotePushRegistered } from "@/lib/pushRegistration";
 import { syncTodoReminders } from "@/features/todos/model/todoReminders";
+
+/** The profile fields a to-do's notify_at is worked out from (its time zone for quiet hours). */
+const REMINDER_TIME_FIELDS: ReadonlySet<keyof User> = new Set<keyof User>([
+  "reminder_lead_minutes", "quiet_hours_enabled", "quiet_hours_start_minute", "quiet_hours_end_minute", "timezone",
+]);
 
 type TodosContextValue = ReturnType<typeof useTodosList> & ReturnType<typeof useTodoReminderState> & {
   /** The time the to-do views read: it moves on as reminders fall due (useReminderClock). */
@@ -30,9 +37,15 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   } = list;
   useEffect(() => {
     if (!loaded || !isCurrentSession()) return;
-    void syncTodoReminders(todos, { remotePush, remindersEnabled, session, leadMinutes })
+    // Each alert goes at the to-do's notify_at, which the server works out: nothing here
+    // reads the lead time or quiet hours.
+    void syncTodoReminders(todos, { remotePush, remindersEnabled, session })
       .catch(() => { if (isCurrentSession()) console.warn("[todos] device reminder sync failed"); });
-  }, [todos, loaded, isCurrentSession, remotePush, remindersEnabled, session, leadMinutes]);
+  }, [todos, loaded, isCurrentSession, remotePush, remindersEnabled, session]);
+  // The lead time, quiet hours or time zone saved: every reminder's instant moved on the server.
+  useEffect(() => onAppEvent("userUpdated", ({ fields }) => {
+    if (fields.some((field) => REMINDER_TIME_FIELDS.has(field))) void refresh({ silent: true, force: true, afterPending: true });
+  }), [refresh]);
   const { unseenCount, showIndicator, seenReminderIds, homeNudgeDismissed, markSeen, markSeenIds,
     dismissReminderNudge } = reminders;
   const remindersReady = reminders.remindersReady && !loading;

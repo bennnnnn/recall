@@ -50,6 +50,7 @@ function todo(partial: Partial<Todo> & Pick<Todo, "id" | "content">): Todo {
     chat_id: null,
     created_at: "2026-01-01T00:00:00.000Z",
     updated_at: "2026-01-01T00:00:00.000Z",
+    notify_at: null,
     ...partial,
   };
 }
@@ -171,6 +172,7 @@ describe("useTodosActions reminders", () => {
       id: "r1",
       content: "Package",
       due_at: "2026-08-23T18:00:00.000Z",
+      notify_at: "2026-08-23T17:50:00.000Z",
     });
     await act(async () => {
       render(<Probe todos={[existing]} />);
@@ -198,8 +200,31 @@ describe("useTodosActions reminders", () => {
 
     const optimistic = setTodos.mock.calls[0][0] as (prev: Todo[]) => Todo[];
     expect(optimistic([existing])[0]?.due_at).not.toBe(existing.due_at);
+    // The old time's alert does not stand for the new one: none until the server answers.
+    expect(optimistic([existing])[0]?.notify_at).toBeNull();
     const rollback = setTodos.mock.calls.at(-1)?.[0] as (prev: Todo[]) => Todo[];
     expect(rollback(optimistic([existing]))).toEqual([existing]);
+  });
+
+  it("keeps the reminder instant for an edit that leaves the time alone", async () => {
+    const existing = todo({
+      id: "r3",
+      content: "Package",
+      due_at: "2026-08-23T18:00:00.000Z",
+      notify_at: "2026-08-23T17:50:00.000Z",
+    });
+    (api.updateTodo as jest.Mock).mockResolvedValue({ ...existing, content: "Parcel" });
+    await act(async () => {
+      render(<Probe todos={[existing]} />);
+    });
+    await act(async () => {
+      actions.openTodoEditor(existing);
+    });
+    await act(async () => {
+      await actions.handleUpdateTodo(existing, "Parcel", new Date(existing.due_at!), null);
+    });
+    const optimistic = setTodos.mock.calls[0][0] as (prev: Todo[]) => Todo[];
+    expect(optimistic([existing])[0]).toMatchObject({ content: "Parcel", notify_at: existing.notify_at });
   });
 
   it("turns a dated reminder into a plain to-do", async () => {

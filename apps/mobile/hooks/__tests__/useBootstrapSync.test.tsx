@@ -8,13 +8,13 @@ import { api, type User } from "@/lib/api";
 import { getDeviceLocationLabel } from "@/lib/deviceLocation";
 import { registerPlanChangeListener } from "@/lib/purchases";
 import { attachPushForegroundSync } from "@/lib/pushNotifications";
+import { onAppEvent } from "@/lib/appEvents";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 jest.mock("@/lib/api", () => ({ api: { updateMe: jest.fn(), syncSubscription: jest.fn() } }));
 jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => "America/Los_Angeles" }));
 jest.mock("@/lib/deviceLocation", () => ({ getDeviceLocationLabel: jest.fn() }));
 jest.mock("@/lib/pushNotifications", () => ({ attachPushForegroundSync: jest.fn() }));
-jest.mock("@/features/todos/model/reminderPrefs", () => ({ syncReminderLeadFromServer: jest.fn() }));
 const mockSyncRecords = new Map<string, { account: string; at: number }>();
 jest.mock("@/lib/syncRecords", () => ({
   recentSyncAt: jest.fn(async (kind: string, account: string, maxAgeMs: number) => {
@@ -93,6 +93,18 @@ it("a store plan change brings the plan's features with it", async () => {
   expect(applyUpdate({ ...userA, name: "Kept", features: [] })).toEqual({
     ...userA, name: "Kept", plan: "pro", features: ["image_generation"],
   });
+});
+
+it("announces the synced time zone, which moves every reminder's quiet hours", async () => {
+  const announced = jest.fn();
+  const stop = onAppEvent("userUpdated", announced);
+  (api.updateMe as jest.Mock).mockResolvedValue({ ...userA, timezone: userB.timezone });
+  await render(<Probe user={userA} token="a" />);
+  expect(announced).toHaveBeenCalledWith({ fields: ["timezone"] });
+  announced.mockClear();
+  await render(<Probe user={userB} token="b" />);
+  expect(announced).not.toHaveBeenCalled();
+  stop();
 });
 
 it("merges only the synced timezone into the current account", async () => {

@@ -31,9 +31,9 @@ from app.modules.todos.schedule_repository import update_schedule_if_current
 from app.services.reminder_timing import (
     MAX_REMINDER_LEAD_MINUTES,
     OVERDUE_MAX_HOURS,
+    QuietHours,
     in_quiet_hours,
-    resolve_reminder_lead_minutes,
-    should_notify_todo,
+    reminder_at,
 )
 
 
@@ -115,12 +115,32 @@ def reminder_page_key(rows: list[tuple[TodoItem, User]]) -> PageKey | None:
     return last.due_at, last.id
 
 
+def reminder_instant(todo: TodoItem, user: User) -> datetime | None:
+    """When ``todo``'s reminder goes out for ``user``: the to-do list's ``notify_at``, which
+    the phone schedules its own alert at, and the moment push and email send. None: never.
+    """
+    if todo.checked or todo.due_at is None:
+        return None
+    return reminder_at(
+        todo.due_at,
+        set_at=todo.updated_at,
+        lead_minutes=user.reminder_lead_minutes,
+        quiet=QuietHours.of(user),
+    )
+
+
 def is_due_now(todo: TodoItem, user: User, *, now: datetime) -> bool:
-    """The user's lead time has come for this to-do and it is not their quiet hours."""
-    if todo.due_at is None or in_quiet_hours(user, now=now):
+    """The to-do's reminder instant has come and it is not yet 48 hours overdue.
+
+    The instant already waits out quiet hours; ``now`` is checked too, so a cycle that runs
+    late (a worker that was down) does not send one at night.
+    """
+    at = reminder_instant(todo, user)
+    if at is None or todo.due_at is None or at > now:
         return False
-    lead = resolve_reminder_lead_minutes(user.reminder_lead_minutes)
-    return should_notify_todo(todo.due_at, now=now, lead_minutes=lead, set_at=todo.updated_at)
+    if todo.due_at < now - timedelta(hours=OVERDUE_MAX_HOURS):
+        return False
+    return not in_quiet_hours(user, now=now)
 
 
 async def tokenless_recurring_overdue(
@@ -192,7 +212,11 @@ async def mark_reminder_pushed(session: AsyncSession, todo: TodoItem, *, now: da
         return await update_schedule_if_current(
             session, snapshot, due_at=nxt, notification_sent_at=None, email_sent_at=None
         )
-    return await update_schedule_if_current(session, snapshot, notification_sent_at=now)
+    # A delivery is not a change to the to-do: updated_at, which its reminder instant reads
+    # as when its time was set, stays (bumped, the instant moved to the due time after a push).
+    return await update_schedule_if_current(
+        session, snapshot, notification_sent_at=now, updated_at=TodoItem.updated_at
+    )
 
 
 async def mark_reminder_emailed(

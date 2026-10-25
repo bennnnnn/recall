@@ -3,6 +3,8 @@
  * owns a cache subscribes; the feature that made the change only announces it, so
  * no feature edits another's storage (code-health audit ARCH-10).
  */
+import type { User } from "@/lib/api/types";
+
 type AppEvents = {
   /** Chats deleted: the gallery drops their photos and files. */
   chatsDeleted: { chatIds: readonly string[] };
@@ -12,6 +14,8 @@ type AppEvents = {
   attachmentAdded: { chatId: string };
   /** Memory changed outside the memory screens (a settings card in a chat). */
   memoryChanged: Record<string, never>;
+  /** The server saved a change this device made to these profile fields. */
+  userUpdated: { fields: readonly (keyof User)[] };
 };
 
 type AppEventName = keyof AppEvents;
@@ -22,6 +26,7 @@ const listeners: { [K in AppEventName]: Set<Listener<K>> } = {
   attachmentDeleted: new Set(),
   attachmentAdded: new Set(),
   memoryChanged: new Set(),
+  userUpdated: new Set(),
 };
 
 /** Follow an event; the returned function stops following it. */

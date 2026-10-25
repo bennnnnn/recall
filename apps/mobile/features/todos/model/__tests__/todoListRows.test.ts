@@ -13,6 +13,7 @@ function todo(id: string, dueAt: string | null, checked = false): Todo {
     chat_id: null,
     created_at: `2026-09-0${id.length}T08:00:00.000Z`,
     updated_at: `2026-09-0${id.length}T09:00:00.000Z`,
+    notify_at: null,
   };
 }
 

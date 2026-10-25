@@ -1,4 +1,4 @@
-import { fetchExportText, request } from "@/lib/api/client";
+import { fetchExportText, request, requestRevalidated } from "@/lib/api/client";
 import type { AuthSession, User } from "@/lib/api/types";
 import type { PaidPlanId, PlanCatalog } from "@/lib/plan";
 
@@ -49,8 +49,9 @@ export const accountApi = {
       true,
       120_000,
     ),
+  /** Read on each Security visit; an unchanged list is a 304 by its ETag. */
   listSessions: (token: string) =>
-    request<{ sessions: AuthSession[] }>("/auth/sessions", token),
+    requestRevalidated<{ sessions: AuthSession[] }>("/auth/sessions", token),
   revokeSession: (token: string, sessionId: string) =>
     request<void>(`/auth/sessions/${encodeURIComponent(sessionId)}`, token, {
       method: "DELETE",

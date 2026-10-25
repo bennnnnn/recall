@@ -7,6 +7,7 @@ import { syncTodoReminders } from "@/features/todos/model/todoReminders";
 import { loadSeenReminderIds, markReminderIdsSeen, saveSeenReminderIds } from "@/features/todos/model/reminderSeen";
 import { loadHomeNudgeState, saveHomeNudgeState } from "@/features/todos/model/homeReminderNudges";
 import { beginTodoMutation, getTodoMutationState } from "@/features/todos/model/todoMutationState";
+import { emitAppEvent } from "@/lib/appEvents";
 
 let mockSession = 1;
 let mockToken = "token-a";
@@ -18,7 +19,7 @@ let mockValue: ReturnType<typeof useTodos>;
 const now = new Date("2026-09-04T12:00:00Z").getTime();
 const todo: Todo = { id: "t1", content: "Flight", topic: "Reminders", checked: false,
   due_at: new Date(now + 30 * 60_000).toISOString(), created_at: "2026-09-01T00:00:00Z",
-  updated_at: "2026-09-01T00:00:00Z", sort_order: null, chat_id: null };
+  updated_at: "2026-09-01T00:00:00Z", sort_order: null, chat_id: null, notify_at: null };
 jest.mock("@/contexts/AuthContext", () => ({ useAuthOptional: () => ({ token: mockToken,
   user: { id: mockUserId, reminder_lead_minutes: mockLead, push_notifications_enabled: true } }) }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession, requireTokenSession: jest.fn() }));
@@ -124,6 +125,22 @@ it("synchronizes device reminders after an accepted local list mutation", async 
   jest.mocked(syncTodoReminders).mockClear();
   await act(() => { mockValue.setTodos([]); });
   await waitFor(() => expect(jest.mocked(syncTodoReminders).mock.calls.at(-1)?.[0]).toEqual([]));
+});
+
+it("reads the list again once the lead time, quiet hours or time zone is saved, and not for other fields", async () => {
+  await render(<Screen />);
+  await waitFor(() => expect(mockValue.todos).toEqual([todo]));
+  const moved = { ...todo, notify_at: "2026-09-05T07:00:00Z" };
+  jest.mocked(api.listTodos).mockClear().mockResolvedValue(list([moved]));
+  await act(async () => { emitAppEvent("userUpdated", { fields: ["name", "locale"] }); });
+  expect(api.listTodos).not.toHaveBeenCalled();
+  for (const field of ["reminder_lead_minutes", "quiet_hours_enabled", "quiet_hours_end_minute", "timezone"] as const) {
+    jest.mocked(api.listTodos).mockClear();
+    await act(async () => { emitAppEvent("userUpdated", { fields: [field] }); });
+    expect(api.listTodos).toHaveBeenCalledTimes(1);
+  }
+  // The device alerts follow the moved instant.
+  await waitFor(() => expect(jest.mocked(syncTodoReminders).mock.calls.at(-1)?.[0]).toEqual([moved]));
 });
 
 it("marks the same configured lead window seen that contributes to the badge", async () => {

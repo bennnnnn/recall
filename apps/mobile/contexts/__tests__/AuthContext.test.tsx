@@ -9,6 +9,7 @@ import { cachedUserMatchesToken, clearCachedUser, readCachedUser, writeCachedUse
 import { ensureLocale } from "@/lib/i18n";
 import { clearSignedOutAccount } from "@/lib/signOutCleanup";
 import { forgetSyncRecords } from "@/lib/syncRecords";
+import { onAppEvent } from "@/lib/appEvents";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 
 jest.mock("@/lib/api", () => ({
@@ -456,6 +457,26 @@ it("shows the account a sync returns without asking /auth/me again (NET-19)", as
   expect(read).toHaveBeenCalledWith(current.token);
   expect(api.me).not.toHaveBeenCalled();
   expect(current.user?.plan).toBe("pro");
+});
+
+it("announces the profile fields the server saved, after it saved them", async () => {
+  const update = deferred<User>();
+  const saved = { ...userA, reminder_lead_minutes: 30 } as User;
+  (api.me as jest.Mock).mockResolvedValueOnce({ ...userA, reminder_lead_minutes: 10 });
+  (api.updateMe as jest.Mock).mockReturnValueOnce(update.promise).mockRejectedValueOnce(new Error("offline"));
+  await mount();
+  const announced = jest.fn();
+  const stop = onAppEvent("userUpdated", announced);
+  let pending!: Promise<void>;
+  await act(async () => { pending = current.updateUser({ reminder_lead_minutes: 30, name: userA.name }); });
+  // Shown at once, announced only once saved: the to-do list must not read the old instants.
+  expect(announced).not.toHaveBeenCalled();
+  await act(async () => { update.resolve(saved); await pending; });
+  expect(announced).toHaveBeenCalledWith({ fields: ["reminder_lead_minutes"] });
+  announced.mockClear();
+  await act(async () => { await current.updateUser({ quiet_hours_enabled: true }).catch(() => {}); });
+  expect(announced).not.toHaveBeenCalled();
+  stop();
 });
 
 describe("the stored sign-in at launch", () => {

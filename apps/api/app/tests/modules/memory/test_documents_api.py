@@ -58,6 +58,37 @@ def _document() -> MemoryDocument:
     )
 
 
+def test_documents_answer_an_unchanged_read_with_304():
+    """A repeat visit to Memory sends back the ETag; unchanged pages cost no body."""
+    client, _ = _client()
+    document = _document()
+    with (
+        patch(
+            "app.modules.memory.api.documents_service.list_documents",
+            AsyncMock(return_value=[document]),
+        ),
+        patch(
+            "app.modules.memory.api.history_scan.request_history_scan",
+            AsyncMock(return_value=False),
+        ),
+        patch("app.modules.memory.api.get_redis_client"),
+    ):
+        first = client.get("/memories/documents")
+        etag = first.headers["etag"]
+        again = client.get("/memories/documents", headers={"If-None-Match": etag})
+        document.facts[0].text = "User prefers long answers"
+        changed = client.get("/memories/documents", headers={"If-None-Match": etag})
+
+    assert first.status_code == 200
+    assert etag.startswith('W/"')
+    # Never kept by a shared cache: the pages are one person's memory.
+    assert first.headers["cache-control"] == "private, no-cache"
+    assert again.status_code == 304
+    assert again.content == b""
+    assert changed.status_code == 200
+    assert changed.headers["etag"] != etag
+
+
 def test_documents_endpoint_lists_documents_and_starts_the_history_scan():
     client, user = _client()
     with (
