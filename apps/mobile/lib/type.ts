@@ -6,7 +6,8 @@
  * body copy follows the reader. Math layout has its own scale. A control
  * that shares a line with a 44pt target (the composer field) sets
  * `maxFontSizeMultiplier` to `DYNAMIC_TYPE_MAX` so a very large size does
- * not clip the caret or the send button.
+ * not clip the caret or the send button. Digits in a fixed box (the pickers)
+ * stop sooner, at `DYNAMIC_TYPE_PICKER_MAX`.
  */
 import type { TextStyle } from "react-native";
 
@@ -14,6 +15,12 @@ import { UI_FONT, uiFontFamily } from "@/lib/uiFont";
 
 /** Cap for a control that shares a line with a 44pt target. Body copy stays uncapped. */
 export const DYNAMIC_TYPE_MAX = 1.5;
+
+/**
+ * Cap for digits in a fixed box: the time picker's readout, the clock dial's
+ * numbers, the calendar's days and years. Their boxes are sized for this.
+ */
+export const DYNAMIC_TYPE_PICKER_MAX = 1.3;
 
 function face(weight: "400" | "500" | "600" | "700"): Pick<TextStyle, "fontFamily" | "fontWeight"> {
   return {

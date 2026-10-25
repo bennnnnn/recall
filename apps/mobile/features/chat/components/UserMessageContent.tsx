@@ -190,10 +190,11 @@ function makeStyles(C: Theme) {
       paddingHorizontal: 2,
       paddingVertical: 2,
     },
+    // The bubble's own ink: secondary ink read under AA on some accents' dark bubbles.
     fileChipText: {
       ...Type.secondary,
       ...Weight.medium,
-      color: C.textSecondary,
+      color: C.userText,
     },
   });
 }

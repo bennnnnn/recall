@@ -120,13 +120,17 @@ export function MathScannerChrome({
       ) : null}
 
       {error ? (
-        <Text
-          style={[s.error, { bottom: errorBottom }]}
-          accessibilityLiveRegion="polite"
-          accessibilityRole="alert"
-        >
-          {error}
-        </Text>
+        <View style={[s.error, { bottom: errorBottom }]} testID="math-scanner-error">
+          <Icon
+            name="alert-circle"
+            size={IconSize.sm}
+            color={theme.onMedia}
+            testID="math-scanner-error-icon"
+          />
+          <Text style={s.errorText} accessibilityLiveRegion="polite" accessibilityRole="alert">
+            {error}
+          </Text>
+        </View>
       ) : null}
 
       {preview ? (
@@ -263,20 +267,26 @@ function makeStyles(theme: Theme) {
     torchIcon: {
       transform: [{ rotate: "-45deg" }],
     },
+    // White ink and an icon: red on this scrim over a white page read 1.45:1.
     error: {
       position: "absolute",
-      alignSelf: "center",
       left: Space.md,
       right: Space.md,
-      color: theme.danger,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: Space.xs,
       backgroundColor: withAlpha(theme.mediaScrim, 0.65),
       paddingHorizontal: Space.sm,
       paddingVertical: Space.xs,
       borderRadius: Radius.xs,
-      overflow: "hidden",
       zIndex: 10,
-      textAlign: "center",
+    },
+    errorText: {
       ...Type.compact,
+      flexShrink: 1,
+      color: theme.onMedia,
+      textAlign: "center",
     },
     bottom: {
       position: "absolute",

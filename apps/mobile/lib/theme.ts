@@ -165,12 +165,12 @@ export const lightTheme: Theme = {
 
   contentSurface: "#F7F7F8",
 
-  danger: "#D92D20",
+  danger: "#CC291D",
   onDanger: "#FFFFFF",
   dangerLight: "#FFF5F5",
-  warning: "#B54708",
+  warning: "#AD4407",
   onWarning: "#FFFFFF",
-  success: "#16845B",
+  success: "#137A54",
   successLight: "#EAF7F3",
   onPrimary: "#FFFFFF",
   graphSeries: ["#4F56E5", "#16845B", "#B54708", "#7C3AED"],
