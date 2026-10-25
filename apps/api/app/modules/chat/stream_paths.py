@@ -29,7 +29,7 @@ from app.modules.chat.stream_health import ReplyHealth, probe_gate
 from app.modules.chat.stream_scaffold import ScaffoldFilter
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn, thinking_status
 from app.modules.chat.tool_gate import should_classify_tool_web_search
-from app.modules.chat.tool_loop import reply_calls
+from app.modules.chat.tool_loop import live_denial, reply_calls
 from app.modules.chat.tool_loop.parts import open_parts, searchable_parts, turn_plan
 from app.modules.chat.tool_loop.rounds import ToolRoundsOutcome
 from app.modules.chat.turn_deps import ChatTurnDeps
@@ -297,9 +297,10 @@ async def run_llm_token_stream(
         # here includes gateway routing/retries, not only upstream inference.
         ctx.timing.mark_phase("gateway_request_start")
     reply_round = _ReplyRound(tools=list(ctx.reply_tools))
+    first_round = True
     try:
         while True:
-            written = len(accum.parts)
+            written, shown_from = len(accum.parts), len(accum.shown)
             async with aclosing(
                 _stream_round(
                     deps,
@@ -317,8 +318,18 @@ async def run_llm_token_stream(
                     yield visible
             if resolved := reply_round.meta.get("model_alias"):
                 ctx.model = resolved
+            # "I can't check live scores" with search on: search, and answer again.
+            denied = None
+            if first_round and not (reply_round.calls or accum.was_cancelled):
+                denied = await live_denial.search_instead(
+                    settings, ctx, "".join(accum.parts[written:])
+                )
+            if denied is not None:
+                del accum.parts[written:], accum.shown[shown_from:]
+                reply_round.calls = [denied]
+            first_round = False
             # Only a call that carried tools leads to another: one search a turn.
-            if not (reply_round.tools and reply_round.calls) or accum.was_cancelled:
+            if not ((reply_round.tools or denied) and reply_round.calls) or accum.was_cancelled:
                 break
             text_before = "".join(accum.parts[written:])
             await _answer_reply_calls(
@@ -333,7 +344,8 @@ async def run_llm_token_stream(
             if should_cancel and should_cancel():
                 accum.mark_user_stop()
                 break
-            reply_round = _ReplyRound(tools=[], lead="\n\n" if text_before.strip() else "")
+            lead = "\n\n" if text_before.strip() or denied is not None else ""
+            reply_round = _ReplyRound(tools=[], lead=lead)
         if not accum.was_cancelled and (tail := scaffold.flush()):
             accum.shown.append(tail)
             yield tail

@@ -16,6 +16,7 @@ from app.gateways.mcp import registry
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_paths import run_llm_token_stream, run_tool_loop_path
+from app.modules.chat.tool_loop import live_denial
 from app.modules.chat.tool_loop.reply_calls import ReplyTurn, reply_tools
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.web_search import WebSearchAdapter
@@ -340,3 +341,101 @@ async def test_reply_answers_without_a_search_that_breaks(
     # The unanswered call never reaches the provider, which would reject the list.
     assert seen[1]["messages"] == prompt
     assert ctx.search_sources == []
+
+
+_BEARS = "Perfect. totally unrelated but did the bears win today"
+_DENIAL = "I can't check live scores, so I don't know how the Bears did today."
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        _DENIAL,
+        "I don't have real-time sports results in my memory, so I can't confirm it.",
+        "I don't have access to live data. Check the NFL app.",
+        "I'm unable to access real-time information right now.",
+        "I can't browse the web, sorry.",
+    ],
+)
+def test_a_live_data_denial_is_read(reply: str) -> None:
+    assert live_denial.denies_live_data(reply)
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Sounds like a long day. Rest up tonight!",
+        "I can't check your calendar, but you could add it to To-do.",
+        "The Bears beat the Patriots 30-24 on Thursday.",
+        "I can't tell you the exact time of the flight; check the airline's app.",
+        # A long answer that mentions live data in passing is an answer.
+        "Here is a long answer. " * 40 + "I can't check live scores.",
+    ],
+)
+def test_other_replies_are_no_denial(reply: str) -> None:
+    assert not live_denial.denies_live_data(reply)
+
+
+@pytest.mark.asyncio
+async def test_a_denial_searches_and_answers_again_in_its_place(
+    web_search_tool: dict[str, Any],
+) -> None:
+    """Live (2026-10-25): no tool was offered, and the reply said it couldn't check."""
+    ctx = _context(_BEARS)
+    llm, seen = _model(([_DENIAL], []), (["The Bears beat the Falcons 27-20."], []))
+    accum = StreamAccum()
+    with (
+        patch(
+            "app.modules.web_search.tool.run_cached_search",
+            AsyncMock(return_value=([_HIT], ["q"])),
+        ),
+        patch.object(
+            live_denial, "search_queries_for_turn", AsyncMock(return_value=["bears game today"])
+        ),
+    ):
+        await _reply(ctx, llm, accum=accum)
+
+    assert accum.reply_text() == "The Bears beat the Falcons 27-20."
+    assert len(seen) == 2
+    call_turn, result = seen[1]["messages"][-2:]
+    assert call_turn["content"] is None
+    assert call_turn["tool_calls"][0]["id"] == live_denial.DENIAL_CALL_ID
+    assert "bears game today" in call_turn["tool_calls"][0]["function"]["arguments"]
+    assert result["role"] == "tool"
+    assert [hit.url for hit in ctx.search_sources] == [_HIT.url]
+
+
+@pytest.mark.asyncio
+async def test_no_second_call_when_search_is_off_or_already_ran() -> None:
+    for settings, sources in (
+        (isolated_settings(web_search_enabled=False), []),
+        (_SETTINGS, [_HIT]),
+    ):
+        ctx = _context(_BEARS)
+        ctx.search_sources = list(sources)
+        llm, seen = _model(([_DENIAL], []), (["never asked"], []))
+        tokens = [
+            token
+            async for token in run_llm_token_stream(
+                turn_deps(llm=llm),
+                redis_mock(),
+                settings,
+                ctx,
+                usage={},
+                outcome=None,
+                on_reasoning=None,
+                accum=StreamAccum(),
+                should_cancel=None,
+            )
+        ]
+        assert "".join(tokens) == _DENIAL
+        assert len(seen) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_clock_denial_is_left_to_the_clock() -> None:
+    ctx = _context("what time is it")
+    denial = "I don't have access to real-time data, so I can't tell you the current time."
+    llm, seen = _model(([denial], []), (["never asked"], []))
+    assert await _reply(ctx, llm) == denial
+    assert len(seen) == 1
