@@ -1,7 +1,8 @@
 /** Turn model output like `( x^2 = 6 )` into renderable LaTeX. Bare `12+3`
  * and identifiers like `x2` are typeset as supplied — exponents are not invented. */
 
-import { codeSpanOpensWithin, escapedAt, readInlineCodeSpan } from "@/lib/markdown/inlineCode";
+import { escapedAt, readInlineCodeSpan } from "@/lib/markdown/inlineCode";
+import { readInlineMathSpan } from "@/lib/markdown/inlineMath";
 import { revealCurrencyDollars } from "@/lib/markdown/preprocessMathInline";
 import { applyOutsideFences } from "@/lib/mdFenceScan";
 
@@ -306,21 +307,16 @@ function applyOutsideInlineMath(line: string, fn: (s: string) => string): string
       i += 1;
       continue;
     }
-    let close = i + 1;
-    while (
-      close < line.length
-      && line[close] !== "\n"
-      && (line[close] !== "$" || escapedAt(line, close))
-    ) {
-      close += 1;
-    }
-    if (close >= line.length || line[close] !== "$" || codeSpanOpensWithin(line, i + 1, close)) {
+    // The renderer's own pairing: a price opens nothing, so "$5, and $4! = 24$"
+    // holds one formula and no "$5, and $" span.
+    const span = readInlineMathSpan(line, i);
+    if (span == null) {
       i += 1;
       continue;
     }
     if (i > last) out.push(fn(line.slice(last, i)));
-    out.push(line.slice(i, close + 1));
-    last = close + 1;
+    out.push(line.slice(i, span.end));
+    last = span.end;
     i = last;
   }
   if (last === 0) return fn(line);
@@ -427,8 +423,10 @@ function normalizeMathLine(line: string, format?: (expr: string) => string, whol
   // equation to `x = -2`.
   out = out.replace(
     /^(\s*)\$([-*•])\s*(.+?)\s*\$$/,
-    (_full, indent: string, mark: string, inner: string) => {
+    (full, indent: string, mark: string, inner: string) => {
       const body = String(inner).trim();
+      // A negative number on its own line (`$-3$`) is maths, not a bullet.
+      if (mark === "-" && /^\d[\d,.]*$/.test(body)) return full;
       const mathLike =
         /\\[a-zA-Z]+/.test(body) || /[\^_]/.test(body) || looksLikeBareEquation(body);
       if (mark === "-" && mathLike) {

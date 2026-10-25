@@ -129,6 +129,11 @@ def _read_math(text: str, index: int) -> int | None:
             continue
         if close + 1 < len(text) and text[close + 1] == "$":
             return None
+        # A dollar before a digit opens a price and closes nothing: padding
+        # "$38.40 = $19.20" as maths saved "$ 19.20", which then read as maths.
+        after = text[close + 1 : close + 2]
+        if after.isascii() and after.isdigit():
+            return None
         # A pair never reaches across an inline code span: markdown-it reads
         # the code first, so this would pad dollars inside the code.
         if code_span_opens_within(text, index + 1, close):

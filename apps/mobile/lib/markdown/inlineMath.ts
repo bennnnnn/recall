@@ -3,6 +3,42 @@ import { latexHasNestedMathView, latexHasStackedFrac, restoreMathEscapes } from 
 
 export type InlineMathPart = { type: "text" | "math"; value: string };
 
+const SPACED_AMOUNT = /[ \t]+\d/y;
+
+/**
+ * The `$` at `dollar` starts an amount, so it cannot close maths (pandoc: a
+ * closing `$` has no digit after it and no space before it). That is a digit
+ * right after it, or a space on both sides and then a digit: "= $ 19.20".
+ */
+function dollarOpensPrice(text: string, dollar: number): boolean {
+  if (/\d/.test(text[dollar + 1] ?? "")) return true;
+  if (!/\s/.test(text[dollar - 1] ?? "")) return false;
+  SPACED_AMOUNT.lastIndex = dollar + 1;
+  return SPACED_AMOUNT.test(text);
+}
+
+/** A variable (`$2 x$`) or a function (`$2 sin x$`) after a leading number. */
+const MATH_WORD = /^[a-z]$|^(?:sin|cos|tan|sec|csc|cot|log|ln|exp|lim|max|min)$/i;
+/** An amount, maybe with a scale ("1.5M") or a rate ("30/day"), then a
+ * clause break or a word. */
+const PRICE_LEAD = /^\d[\d,.]*(?:[kKmMbB]|\/[A-Za-z]+)?(?:[;:!?](?:\s|$)|\s+([A-Za-z]+)(.*))/;
+
+/**
+ * A body that opens with an amount and goes on in words is a price that the
+ * next dollar on the line would wrongly close: "$10; $x=2$", "$5 and $x$",
+ * "$80/night for $n$ nights", "$100 a week for $w$ weeks". A TeX command
+ * makes it maths: `$4! = 4 \times 3$`.
+ */
+function priceBody(value: string): boolean {
+  if (/\\[A-Za-z]/.test(value)) return false;
+  const lead = PRICE_LEAD.exec(value.trimStart());
+  if (!lead) return false;
+  const [, word, rest = ""] = lead;
+  if (word === undefined || !MATH_WORD.test(word)) return true;
+  // "a" reads as a variable; the prose after it does not.
+  return (rest.match(/[A-Za-z]{3,}/g) ?? []).filter((w) => !MATH_WORD.test(w)).length >= 2;
+}
+
 /** A complete, explicit math span. Currency and escaped dollars stay literal,
  * and a pair never reaches across an inline code span: markdown-it cuts the
  * code out first, so `$` on either side of it are two lone dollars. */
@@ -27,15 +63,9 @@ export function readInlineMathSpan(
   if (!value.trim() || (opener === "$" && value.includes("\n"))) return null;
   if (codeSpanOpensWithin(text, start + opener.length, end)) return null;
   // "$5 and $10" contains two prices, not a math span ending before "10".
-  if (opener === "$" && /^\d/.test(text.slice(end + 1))) return null;
+  if (opener === "$" && dollarOpensPrice(text, end)) return null;
   // Do not pair a price with a later formula's opener: "$10; $x=2$".
-  if (opener === "$") {
-    const price = /^\d[\d,.]*(?:[;:!?](?:\s.*)?|\s+([A-Za-z]+).*)$/.exec(value);
-    const word = price?.[1] ?? "";
-    const mathWord = /^[a-z]$|^(?:sin|cos|tan|sec|csc|cot|log|ln|exp|lim|max|min)$/i.test(word);
-    // A TeX command is maths, not a price: `$4! = 4 \times 3$`.
-    if (price && !mathWord && !/\\[A-Za-z]/.test(value)) return null;
-  }
+  if (opener === "$" && priceBody(value)) return null;
   return { value: value.trim(), end: end + closer.length };
 }
 
