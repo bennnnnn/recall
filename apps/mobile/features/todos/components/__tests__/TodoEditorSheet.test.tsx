@@ -17,6 +17,9 @@ jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
   selection: jest.fn(),
 }));
+// The detail page asks the server for Remind at; signed out here, it asks nothing.
+jest.mock("@/contexts/AuthContext", () => ({ useAuthOptional: () => null }));
+jest.mock("@/lib/api", () => ({ api: { previewReminder: jest.fn() } }));
 jest.mock("@/features/todos/model/todoReminders", () => ({
   ensureNotificationPermission: jest.fn(async () => true),
 }));

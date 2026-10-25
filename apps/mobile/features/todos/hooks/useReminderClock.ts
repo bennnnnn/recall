@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { Todo } from "@/lib/api";
-import { DEFAULT_HOME_URGENT_LEAD } from "@/features/todos/model/homeUrgentTodos";
+import { reminderGoesOutAt } from "@/features/todos/model/reminderBadge";
 import { onAppStateChange } from "@/lib/foregroundRefresh";
 
 /** Older than this, the clock reads again before it schedules the next change. */
@@ -12,24 +12,21 @@ const AFTER_MS = 500;
 const MAX_WAIT_MS = 2_147_483_647;
 
 /**
- * The next moment an open reminder changes for Home, the badge or the To-do list: it
- * enters the reminder-lead window, its due time passes, or the local day turns (the list
- * groups by day: Tomorrow becomes Today, Today becomes Overdue). Null when none will.
+ * The next moment an open reminder changes for Home, the badge or the To-do list: its
+ * reminder goes out (its `notify_at`, the server's), its due time passes, or the local day
+ * turns (the list groups by day: Tomorrow becomes Today, Today becomes Overdue). Null when
+ * none will.
  */
-export function nextReminderChange(
-  todos: Todo[],
-  now: Date,
-  leadMinutes: number = DEFAULT_HOME_URGENT_LEAD,
-): number | null {
+export function nextReminderChange(todos: Todo[], now: Date): number | null {
   const nowMs = now.getTime();
   let next: number | null = null;
   let dated = false;
   for (const todo of todos) {
-    if (todo.checked || !todo.due_at) continue;
-    const dueMs = new Date(todo.due_at).getTime();
-    if (Number.isNaN(dueMs)) continue;
+    const goesOut = reminderGoesOutAt(todo);
+    const dueMs = todo.due_at ? Date.parse(todo.due_at) : NaN;
+    if (goesOut === null || Number.isNaN(dueMs)) continue;
     dated = true;
-    for (const at of [dueMs - leadMinutes * 60_000, dueMs]) {
+    for (const at of [goesOut, dueMs]) {
       if (at >= nowMs && (next === null || at < next)) next = at;
     }
   }
@@ -43,10 +40,10 @@ export function nextReminderChange(
 /**
  * The time the to-do views read. Home read the clock once, when the to-dos last changed,
  * so a reminder that fell due while the app stayed open showed as overdue only after a
- * restart. This time moves on when the list changes, when a reminder enters its lead
- * window or falls due, and when the app comes back to the foreground.
+ * restart. This time moves on when the list changes, when a reminder goes out or falls
+ * due, and when the app comes back to the foreground.
  */
-export function useReminderClock(todos: Todo[], leadMinutes?: number): Date {
+export function useReminderClock(todos: Todo[]): Date {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -56,12 +53,12 @@ export function useReminderClock(todos: Todo[], leadMinutes?: number): Date {
       setNow(new Date(current));
       return;
     }
-    const next = nextReminderChange(todos, new Date(current), leadMinutes);
+    const next = nextReminderChange(todos, new Date(current));
     if (next === null) return;
     const wait = Math.min(Math.max(next - current, 0) + AFTER_MS, MAX_WAIT_MS);
     const timer = setTimeout(() => setNow(new Date()), wait);
     return () => clearTimeout(timer);
-  }, [todos, leadMinutes, now]);
+  }, [todos, now]);
 
   useEffect(
     () =>

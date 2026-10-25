@@ -3,6 +3,7 @@ import { api, type Todo } from "@/lib/api";
 import { getSessionGeneration, requireTokenSession } from "@/lib/auth";
 import { isContextFresh } from "@/lib/cache/contextRefresh";
 import { useOnForeground } from "@/lib/foregroundRefresh";
+import { zoneReportSettled } from "@/lib/zoneReport";
 import { getTodoMutationState, type TodoMutationState } from "@/features/todos/model/todoMutationState";
 
 type TodosRefreshOptions = { silent?: boolean; force?: boolean; afterPending?: boolean };
@@ -128,8 +129,9 @@ export function useTodosList(token: string | null | undefined, userId: string | 
   }, [isCurrentSession, refresh]);
 
   useEffect(() => { void refresh(); }, [refresh]);
-  // Read again past FOREGROUND_STALE_MS.todos (the 20 s isContextFresh window).
-  useOnForeground(() => void refresh({ silent: true }), signedIn);
+  // Read again past FOREGROUND_STALE_MS.todos (the 20 s isContextFresh window), once the
+  // zone report the same return started has landed: its read (userUpdated) is this one.
+  useOnForeground(() => void zoneReportSettled().then(() => refresh({ silent: true })), signedIn);
   return { todos: view.todos, loading: view.loading, error: view.error, loaded: view.loaded,
     retainedOpenIds: view.retainedOpenIds, olderCompleted: view.olderCompleted, showOlderCompleted,
     setTodos, getTodos, refresh, isCurrentSession };

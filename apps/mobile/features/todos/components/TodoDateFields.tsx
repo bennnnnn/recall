@@ -8,14 +8,15 @@ import { repeatMessageKey } from "@/features/todos/model/repeatLabel";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { defaultDueDate } from "@/features/todos/model/dueDate";
 import type { RecurrenceRule, Todo } from "@/lib/api";
+import { isSameDay } from "@/lib/datetime/calendarGrid";
 import { formatDate } from "@/lib/datetime/format";
 import { findOverlappingReminder } from "@/features/todos/model/reminderOverlap";
 import {
   DEFAULT_REMINDER_LEAD_MINUTES,
   normalizeReminderLeadMinutes,
   REMINDER_LEAD_OPTIONS,
-  remindAtDate,
 } from "@/features/todos/model/reminderTiming";
+import type { RemindAt } from "@/features/todos/hooks/useRemindAt";
 import { ensureNotificationPermission } from "@/features/todos/model/todoReminders";
 import { IconSize } from "@/ui/icons/sizes";
 import { useTheme } from "@/lib/theme";
@@ -23,6 +24,8 @@ import { alertDialog } from "@/ui/overlay/dialogs";
 import { ListRow } from "@/ui/list/ListRow";
 
 export type SchedulePanel = "date" | "time" | "repeat";
+
+const NO_REMINDER: RemindAt = { status: "none" };
 
 /**
  * Date (with year), time, and repeat are separate rows.
@@ -35,6 +38,7 @@ export function TodoDateFields({
   onRepeatChange,
   todos,
   excludeId,
+  remindAt = NO_REMINDER,
   disabled,
   review = false,
   leadMinutes,
@@ -47,10 +51,12 @@ export function TodoDateFields({
   onRepeatChange: (rule: RecurrenceRule | null) => void;
   todos: Todo[];
   excludeId?: string;
+  /** When its reminder goes out, the server's (`useRemindAt`): Remind at on the detail page. */
+  remindAt?: RemindAt;
   disabled?: boolean;
   /** Icon rows on the detail page, instead of labeled form fields. */
   review?: boolean;
-  /** Account to-do alert from Settings. */
+  /** The profile's reminder lead, which the Remind at menu sets. */
   leadMinutes?: number;
   onChangeLead?: (minutes: number) => Promise<void>;
   onOpen: (panel: SchedulePanel) => void;
@@ -62,7 +68,13 @@ export function TodoDateFields({
   const [savingLead, setSavingLead] = useState(false);
   const remindRowRef = useRef<View>(null);
   const lead = normalizeReminderLeadMinutes(leadMinutes ?? DEFAULT_REMINDER_LEAD_MINUTES);
-  const remindAt = dueDate ? remindAtDate(dueDate, lead) : null;
+  // The server's instant (the lead time, after quiet hours); "—" until it is known. Quiet
+  // hours can move it to the next morning, and a lead before midnight to the evening before:
+  // then it names its day.
+  const remindAtLabel = remindAt.status !== "at"
+    ? "—"
+    : formatDate(remindAt.at, dueDate && isSameDay(remindAt.at, dueDate) ? "time" : "weekdayTime");
+  const leadLabel = t("settings.reminder_lead_value", { count: lead });
 
   const overlap = useMemo(
     () =>
@@ -110,18 +122,20 @@ export function TodoDateFields({
           onPress={() => openPanel("time")}
           accessibilityLabel={t("todos.time_label")}
         />
-        {remindAt ? (
+        {dueDate && remindAt.status !== "none" ? (
           <ReviewRow
             ref={remindRowRef}
             icon="bell"
             label={t("todos.remind_at")}
-            value={formatDate(remindAt, "time")}
+            value={remindAtLabel}
             disabled={disabled || savingLead}
             onPress={() => {
               Keyboard.dismiss();
               setRemindOpen(true);
             }}
-            accessibilityLabel={`${t("todos.remind_at")}, ${formatDate(remindAt, "time")}, ${t("settings.reminder_lead_value", { count: lead })}`}
+            accessibilityLabel={remindAt.status === "at"
+              ? `${t("todos.remind_at")}, ${remindAtLabel}, ${leadLabel}`
+              : `${t("todos.remind_at")}, ${leadLabel}`}
           />
         ) : null}
         <ReviewRow

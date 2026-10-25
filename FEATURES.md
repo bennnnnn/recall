@@ -817,13 +817,17 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Settings → Appearance.
 - ✅ **Local todo reminders** — on a device the server holds no push token for, on-device
   notifications (via `expo-notifications`; requires a dev build for full native support),
-  scheduled exactly at each to-do's `notify_at`. Never both: a device with a token gets push only.
+  scheduled exactly at each to-do's `notify_at`, and written again when the app's language, the
+  phone's 12/24-hour clock or its zone changes. Never both: a device with a token gets push only.
 - ✅ **Remote push (MVP)** — Expo push tokens registered with the backend; todo-due
   notifications (requires dev build + EAS project ID). One instant for every channel: the server
   works out when a reminder goes out (`services/reminder_timing.reminder_at`: the user's lead time,
-  when due if it was set inside that window, moved to the end of quiet hours on the user's clock)
-  and sends it on every to-do it returns as `notify_at`; push and email send at it, and a late
-  cycle still waits out quiet hours.
+  when due if its due time was set inside that window (`todo_items.due_set_at`, which no other
+  edit moves), moved to the end of quiet hours on the user's clock) and sends it on every to-do it
+  returns as `notify_at`; push and email send at it, and a late cycle still waits out quiet hours.
+  The clock is the phone's: it reports its zone the moment it changes (the OS's clock event, each
+  return to the foreground). The badge, Home and the editor's Remind at show `notify_at`; for a
+  due time the editor has not saved, it asks `GET /todos/reminder-preview`. The phone works out none.
 - ✅ **Email reminders** — opt-in todo-due emails (Resend); Settings
   toggle; worker scheduler only (welcome + Pro receipt unchanged).
 

@@ -329,7 +329,7 @@ async def test_page_carries_each_reminder_instant_and_a_new_etag_when_it_moves(
     sync_session, _, user = page_sql
     dated, undated, done = _seed(sync_session, user.id, count=3)
     dated.due_at = datetime(2026, 9, 4, 23, 30, tzinfo=UTC)
-    dated.updated_at = datetime(2026, 9, 1, tzinfo=UTC)
+    dated.due_set_at = datetime(2026, 9, 1, tzinfo=UTC)
     undated.due_at = None
     done.checked = True
     sync_session.commit()

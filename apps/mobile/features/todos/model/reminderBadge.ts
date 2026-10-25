@@ -1,46 +1,36 @@
 import type { Todo } from "@/lib/api";
-import { DEFAULT_HOME_URGENT_LEAD } from "@/features/todos/model/homeUrgentTodos";
 
 /**
- * Urgent = overdue OR due within the user's reminder lead (minutes). Unified
- * with the home urgent cards and local/server notifications, all driven by
- * `reminder_lead_minutes`. Replaces the former "overdue or any time later
- * today" calendar-day rule.
+ * When an open dated to-do's reminder goes out, as epoch ms: its `notify_at`, which the
+ * server works out (the lead time, after quiet hours) and push and the phone's own alert
+ * fire at. The badge, Home and the to-do clock read this one time; the phone keeps no copy
+ * of the rule. A to-do the server gave none (more than 48 hours past due, or a due time
+ * whose save has not answered yet) counts from its due time, once it is overdue. Null for
+ * a done or undated to-do.
  */
-function isUrgentReminder(todo: Todo, now: Date, leadMs: number): boolean {
-  if (todo.checked || !todo.due_at) return false;
-  const due = new Date(todo.due_at);
-  if (Number.isNaN(due.getTime())) return false;
-  const dueMs = due.getTime();
-  if (dueMs < now.getTime()) return true; // overdue
-  return dueMs <= now.getTime() + leadMs;
+export function reminderGoesOutAt(todo: Todo): number | null {
+  if (todo.checked || !todo.due_at) return null;
+  const at = Date.parse(todo.notify_at ?? todo.due_at);
+  return Number.isNaN(at) ? null : at;
 }
 
-/** Open reminders that are overdue or due within the lead window. */
-export function listUrgentReminders(
-  todos: Todo[],
-  now = new Date(),
-  leadMinutes: number = DEFAULT_HOME_URGENT_LEAD,
-): Todo[] {
-  const leadMs = leadMinutes * 60_000;
-  return todos.filter((todo) => isUrgentReminder(todo, now, leadMs));
+/** Open reminders that have gone out by `now`; an overdue one stays until it is done. */
+export function listUrgentReminders(todos: Todo[], now = new Date()): Todo[] {
+  const nowMs = now.getTime();
+  return todos.filter((todo) => {
+    const at = reminderGoesOutAt(todo);
+    return at !== null && at <= nowMs;
+  });
 }
 
-export function listUrgentReminderIds(
-  todos: Todo[],
-  now = new Date(),
-  leadMinutes: number = DEFAULT_HOME_URGENT_LEAD,
-): string[] {
-  return listUrgentReminders(todos, now, leadMinutes).map((todo) => todo.id);
+export function listUrgentReminderIds(todos: Todo[], now = new Date()): string[] {
+  return listUrgentReminders(todos, now).map((todo) => todo.id);
 }
 
 export function countUnseenUrgentReminders(
   todos: Todo[],
   seenIds: Set<string>,
   now = new Date(),
-  leadMinutes: number = DEFAULT_HOME_URGENT_LEAD,
 ): number {
-  return listUrgentReminders(todos, now, leadMinutes).filter(
-    (todo) => !seenIds.has(todo.id),
-  ).length;
+  return listUrgentReminders(todos, now).filter((todo) => !seenIds.has(todo.id)).length;
 }

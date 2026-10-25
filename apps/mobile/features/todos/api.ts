@@ -1,5 +1,5 @@
 import { request, requestRevalidated } from "@/lib/api/client";
-import type { Page, Todo } from "@/lib/api/types";
+import type { Page, RecurrenceRule, Todo } from "@/lib/api/types";
 
 const TODO_PAGE_SIZE = 1000;
 /** Completed to-dos older than this stay on the server until asked for. */
@@ -87,6 +87,22 @@ export const todosApi = {
     }),
   deleteTodo: (token: string, id: string) =>
     request<void>(`/todos/${id}`, token, { method: "DELETE" }),
+  /**
+   * The notify_at a to-do due at `dueAt` would get if it were saved now: the editor's
+   * "Remind at" for a due time it has not saved. The server's lead time and quiet hours.
+   */
+  previewReminder: (
+    token: string,
+    dueAt: string,
+    recurrenceRule: RecurrenceRule | null,
+    signal?: AbortSignal,
+  ) =>
+    request<{ notify_at: string | null }>(
+      `/todos/reminder-preview?due_at=${encodeURIComponent(dueAt)}${
+        recurrenceRule ? `&recurrence_rule=${recurrenceRule}` : ""}`,
+      token,
+      { signal },
+    ),
   /** Save the reminder change a chat card offered. A second tap is a no-op. */
   confirmReminderProposal: (token: string, proposalId: string) =>
     request<ReminderProposalSaved>(

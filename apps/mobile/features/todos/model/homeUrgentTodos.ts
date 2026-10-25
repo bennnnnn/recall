@@ -1,45 +1,21 @@
 import type { HomeUrgentTodo, Todo } from "@/lib/api";
+import { listUrgentReminders } from "@/features/todos/model/reminderBadge";
 
 /**
- * Default urgent window when no user lead preference is supplied. Mirrors the
- * backend default reminder lead (services/reminder_timing.py).
+ * Open reminders that have gone out (their `notify_at` has come, the badge's rule), the
+ * five due soonest. Home shows the first overdue one.
  */
-export const DEFAULT_HOME_URGENT_LEAD = 10;
-
-/**
- * Open reminders that are overdue or due within the user's reminder lead
- * (minutes). Same rule as the backend GET /home urgent todos and the mobile
- * badge — one unified urgency window driven by `reminder_lead_minutes`.
- */
-export function listHomeUrgentTodos(
-  todos: Todo[],
-  now = new Date(),
-  leadMinutes: number = DEFAULT_HOME_URGENT_LEAD,
-): HomeUrgentTodo[] {
-  const cutoffMs = now.getTime() + leadMinutes * 60_000;
-
-  return todos
-    .filter((todo) => {
-      if (todo.checked || !todo.due_at) return false;
-      const dueMs = new Date(todo.due_at).getTime();
-      return !Number.isNaN(dueMs) && dueMs <= cutoffMs;
-    })
-    .sort((a, b) => {
-      const aMs = new Date(a.due_at!).getTime();
-      const bMs = new Date(b.due_at!).getTime();
-      return aMs - bMs;
-    })
+export function listHomeUrgentTodos(todos: Todo[], now = new Date()): HomeUrgentTodo[] {
+  return listUrgentReminders(todos, now)
+    .sort((a, b) => Date.parse(a.due_at!) - Date.parse(b.due_at!))
     .slice(0, 5)
-    .map((todo) => {
-      const dueMs = new Date(todo.due_at!).getTime();
-      return {
-        id: todo.id,
-        content: todo.content,
-        topic: todo.topic,
-        due_at: todo.due_at!,
-        minutes_until: Math.floor((dueMs - now.getTime()) / 60_000),
-      };
-    });
+    .map((todo) => ({
+      id: todo.id,
+      content: todo.content,
+      topic: todo.topic,
+      due_at: todo.due_at!,
+      minutes_until: Math.floor((Date.parse(todo.due_at!) - now.getTime()) / 60_000),
+    }));
 }
 
 export function firstOverdueHomeTodo(

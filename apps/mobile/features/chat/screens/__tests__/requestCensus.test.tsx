@@ -1,4 +1,7 @@
 /**
+ * @jest-environment ./jest.timeZoneEnvironment.js
+ */
+/**
  * Request census: every request the phone sends through its one network boundary
  * (`fetch`, which only lib/api/client.ts calls for our API) and every socket it
  * opens, along an everyday session: cold start, chats opened, a turn, the drawer,
@@ -8,6 +11,8 @@
  * `CENSUS=1 npx jest requestCensus` prints the requests.
  */
 import type { ReactNode } from "react";
+
+declare const setTestTimeZone: (zone: string) => void;
 
 class MockExpoEmitter {
   addListener() { return { remove: () => {} }; }
@@ -103,7 +108,14 @@ jest.mock("expo-modules-core", () => {
     NativeModule: class {},
     SharedObject: class {},
     SharedRef: class {},
-    requireOptionalNativeModule: () => null,
+    // expo-localization: the OS's clock-change event, which a test sends for a new zone.
+    requireOptionalNativeModule: (name: string) => name === "ExpoLocalization" ? {
+      getCalendars: () => [],
+      addListener: (_event: string, listener: () => void) => {
+        mockClockListeners.add(listener);
+        return { remove: () => { mockClockListeners.delete(listener); } };
+      },
+    } : null,
     requireNativeModule: () => native,
     requireNativeViewManager: () => () => null,
     registerWebModule: (m: unknown) => m,
@@ -115,6 +127,8 @@ jest.mock("expo-modules-core", () => {
     uuid: { v4: () => "uuid" },
   };
 });
+
+const mockClockListeners = new Set<() => void>();
 
 const mockNetState = { type: "wifi", isConnected: true, isInternetReachable: true, details: { ipAddress: "10.0.0.2" } };
 /** NetInfo's subscribers: a test can move the phone to another network. */
@@ -229,12 +243,15 @@ const USER_ID = "u1";
 const NOW = "2026-10-24T12:00:00Z";
 const NOW_S = Date.parse(NOW) / 1000;
 const accessToken = (exp: number, n = 0) => `h.${btoa(JSON.stringify({ sub: USER_ID, exp, n }))}.s`;
+/** The zone the phone names now. */
+const deviceZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+const HOME_ZONE = deviceZone();
 const USER = {
   id: USER_ID, email: "a@b.c", name: "Ann", avatar_url: null, default_model: "auto", plan: "free",
   features: [], enabled_models: null, ai_data_consent_at: NOW, response_tone: "", memory_enabled: true,
   push_notifications_enabled: true, push_reminders_enabled: true, reminder_lead_minutes: 0, locale: "en",
   // The device's own zone (lib/deviceTimezone): a profile in another is patched on start.
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, location: null, location_enabled: false, custom_instructions: null, age: null,
+  timezone: HOME_ZONE, location: null, location_enabled: false, custom_instructions: null, age: null,
   country: null, job: null, created_at: NOW,
 };
 const uuid = (kind: number, n: number) => `00000000-0000-4000-8${kind}00-${String(n).padStart(12, "0")}`;
@@ -263,15 +280,22 @@ const titleReads = new Map<string, number>();
 let refreshes = 0;
 let created = 0;
 
-function serverBody(method: string, path: string): unknown {
+/** The profile's zone on the server: a PATCH of /auth/me moves it. */
+let profileZone = HOME_ZONE;
+
+function serverBody(method: string, path: string, body?: string): unknown {
   const p = path.split("?")[0];
-  if (p === "/auth/me") return USER;
+  if (p === "/auth/me" && method === "PATCH") {
+    const patch = JSON.parse(body ?? "{}") as { timezone?: string };
+    if (patch.timezone) profileZone = patch.timezone;
+  }
+  if (p === "/auth/me") return { ...USER, timezone: profileZone };
   if (p === "/auth/refresh") {
     refreshes += 1;
     return {
       access_token: accessToken(Math.floor(Date.now() / 1000) + 3600, refreshes),
       refresh_token: `r${refreshes}`,
-      user: USER,
+      user: { ...USER, timezone: profileZone },
     };
   }
   if (p === "/models") return [{ id: "free-chat", label: "Free", available: true, plan_access: "free" }];
@@ -392,7 +416,7 @@ function installServer(): void {
         headers: { "content-type": "application/json", "retry-after": outage.retryAfter },
       });
     }
-    const body = JSON.stringify(serverBody(method, path));
+    const body = JSON.stringify(serverBody(method, path, typeof init?.body === "string" ? init.body : undefined));
     const etag = revalidated(method, path) ? `W/"${body.length}:${body.slice(-24)}"` : null;
     const headers = new Headers(init?.headers);
     if (etag && headers.get("If-None-Match") === etag) {
@@ -626,6 +650,10 @@ const CEILINGS: Record<string, number> = {
   "return after 10 minutes": 5,
   // iOS goes inactive and back without leaving: nothing is read again.
   "Control Centre and back, 6 minutes on": 0,
+  // The zone sent to the server, and the to-dos read again for their new notify_at.
+  "the phone's zone changes while the app runs": 2,
+  // A return's reads, the zone sent, and the to-dos read once: after the zone landed.
+  "return after 10 minutes, in another zone": 6,
   "50 minutes in the foreground": 0,
   // One refresh before the read, then the page and the socket.
   "open chat 2 after the token expired": 3,
@@ -649,6 +677,8 @@ jest.setTimeout(120_000);
 beforeEach(() => {
   jest.useFakeTimers();
   jest.setSystemTime(new Date(NOW));
+  setTestTimeZone(HOME_ZONE);
+  profileZone = HOME_ZONE;
   installServer();
 });
 
@@ -722,6 +752,17 @@ it("keeps every step of an everyday session within its requests", async () => {
   await settle(3000);
   step("Control Centre and back, 6 minutes on");
 
+  setTestTimeZone(deviceZone() === "America/St_Johns" ? "Asia/Kathmandu" : "America/St_Johns");
+  await rtl.act(async () => { for (const listener of [...mockClockListeners]) listener(); });
+  await settle(3000);
+  step("the phone's zone changes while the app runs");
+  await appState("background");
+  await settle(10 * 60_000);
+  setTestTimeZone(deviceZone() === "Pacific/Kiritimati" ? "Asia/Kathmandu" : "Pacific/Kiritimati");
+  await appState("active");
+  await settle(3000);
+  step("return after 10 minutes, in another zone");
+
   await settle(50 * 60_000);
   step("50 minutes in the foreground");
   await openChat(app, 2);
@@ -765,6 +806,16 @@ it("keeps every step of an everyday session within its requests", async () => {
   step("cold start two hours later");
 
   expectWithin(CEILINGS);
+  // A zone is sent once when it changes, and a return that finds the server's zone sends none.
+  const zoneReads = (title: string) => {
+    const requests = steps.find((s) => s.title === title)?.requests ?? [];
+    return [requests.filter((r) => r === "PATCH /auth/me").length, requests.filter((r) => r.startsWith("GET /todos/page")).length];
+  };
+  expect(["return after a minute", "return after 10 minutes", "the phone's zone changes while the app runs",
+    "return after 10 minutes, in another zone"].map(zoneReads)).toEqual([[0, 1], [0, 1], [1, 1], [1, 1]]);
+  expect(steps.filter((s) => s.requests.includes("PATCH /auth/me")).map((s) => s.title)).toEqual([
+    "the phone's zone changes while the app runs", "return after 10 minutes, in another zone",
+  ]);
   expect(steps.find((s) => s.title === "open memory again")?.requests).toEqual(["GET /memories/documents (304)"]);
   expect(steps.find((s) => s.title === "open security again")?.requests).toEqual(["GET /auth/sessions (304)"]);
 });

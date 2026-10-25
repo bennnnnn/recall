@@ -70,6 +70,7 @@ def _rows(sync_session, *, count=1):
             # Set well before its lead window, so the lead time applies.
             created_at=NOW - timedelta(hours=2),
             updated_at=NOW - timedelta(hours=2),
+            due_set_at=NOW - timedelta(hours=2),
         )
         for index in range(count)
     ]

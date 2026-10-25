@@ -6,13 +6,28 @@ import { getDeviceLocationLabel } from "@/lib/deviceLocation";
 import { configurePurchases, isPurchasesConfigured, registerPlanChangeListener } from "@/lib/purchases";
 import { getSessionGeneration } from "@/lib/auth";
 import { api, type User } from "@/lib/api";
+import { ApiRequestError } from "@/lib/api/errorBody";
 import { recentSyncAt, recordSync } from "@/lib/syncRecords";
 import { emitAppEvent } from "@/lib/appEvents";
+import { onPhoneClockChange } from "@/lib/datetime/phoneClock";
+import { onAppStateChange } from "@/lib/foregroundRefresh";
+import { trackZoneReport } from "@/lib/zoneReport";
 
 type Options = {
   token: string | null;
   user: User | null;
   setUser: Dispatch<SetStateAction<User | null>>;
+};
+
+/** The zone report this hook keeps across its effect's runs (see the zone effect). */
+type ZoneReport = {
+  flight: Promise<void> | null;
+  /** Something asked for a report while one was in flight. */
+  again: boolean;
+  /** A zone the server refused as unknown. */
+  refused: string | null;
+  /** The current run's report, which a report that lands calls when asked `again`. */
+  latest: (() => void) | null;
 };
 
 /** A GPS fix and a reverse geocode for a city label: once a day is enough. */
@@ -32,25 +47,64 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
   const tokenRef = useRef(token);
   tokenRef.current = token;
   const signedIn = Boolean(token);
+  // The zone the server has: the profile's, or the one its last answer gave.
+  const serverZone = useRef(timezone);
+  serverZone.current = timezone;
+  const zoneReport = useRef<ZoneReport>({ flight: null, again: false, refused: null, latest: null });
+  // The phone's zone, sent the moment it differs from the server's: at sign-in, when the OS
+  // reports a change (a new zone while the app runs) and on each return to the foreground
+  // (a flight). Quiet hours, push timing and every to-do's notify_at read the server's copy.
   useEffect(() => {
     if (!signedIn || !userId) return;
     const generation = getSessionGeneration();
     let cancelled = false;
     const active = () => !cancelled && generation === getSessionGeneration();
-    void (async () => {
+    const state = zoneReport.current;
+    const report = (): void => {
       if (!active()) return;
+      // One report at a time; the zone is read again once it lands.
+      if (state.flight) {
+        state.again = true;
+        return;
+      }
       const deviceTz = getDeviceTimezone();
       const token = tokenRef.current;
-      if (timezone === deviceTz || !token) return;
-      const updated = await api.updateMe(token, { timezone: deviceTz });
-      if (!active()) return;
-      setUser((current) => current?.id === userId
-        ? { ...current, timezone: updated.timezone } : current);
-      emitAppEvent("userUpdated", { fields: ["timezone"] });
-    })().catch(() => {
-      if (active()) console.warn("[bootstrap] timezone sync failed");
+      if (!token || deviceTz === serverZone.current || deviceTz === state.refused) return;
+      const flight = (async () => {
+        try {
+          const updated = await api.updateMe(token, { timezone: deviceTz });
+          if (!active()) return;
+          serverZone.current = updated.timezone;
+          setUser((current) => current?.id === userId
+            ? { ...current, timezone: updated.timezone } : current);
+          emitAppEvent("userUpdated", { fields: ["timezone"] });
+        } catch (error) {
+          // A name the server does not know is not sent again on every return.
+          if (error instanceof ApiRequestError && error.status === 422) state.refused = deviceTz;
+          if (active()) console.warn("[bootstrap] timezone sync failed");
+        } finally {
+          state.flight = null;
+          if (state.again) {
+            state.again = false;
+            state.latest?.();
+          }
+        }
+      })();
+      state.flight = flight;
+      trackZoneReport(flight);
+    };
+    state.latest = report;
+    report();
+    const stopNative = onPhoneClockChange(report);
+    const stopForeground = onAppStateChange((_state, returned) => {
+      if (returned) report();
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (state.latest === report) state.latest = null;
+      stopNative();
+      stopForeground();
+    };
   }, [signedIn, userId, timezone, setUser]);
 
   useEffect(() => {

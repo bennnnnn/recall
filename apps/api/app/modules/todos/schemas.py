@@ -40,6 +40,13 @@ class TodoOut(BaseModel):
         return None
 
 
+class ReminderPreviewOut(BaseModel):
+    model_config = ConfigDict(title="ReminderPreviewOut")
+
+    # When the reminder of a to-do with that due time would go out if saved now; null: none.
+    notify_at: datetime | None = None
+
+
 class TodoPageOut(Page[TodoOut]):
     # Asked for recent completed rows only: the first page says whether older ones exist.
     older_completed: bool = False

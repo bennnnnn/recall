@@ -98,14 +98,14 @@ export function HomeStarters({ composerActive }: Props) {
     dismissReminderNudge,
     now,
   } = useTodos();
-  const leadMinutes = user?.reminder_lead_minutes ?? undefined;
 
   const overdueTodo = useMemo(() => {
     // Wait until todos + nudge-state are in sync. Silent refreshes used to paint
     // red urgent cards for a frame before persisted dismissals caught up.
     if (todosLoading || !remindersReady) return undefined;
-    // `now` moves on as reminders fall due: one that does while the app is open shows here.
-    const urgent = listHomeUrgentTodos(todos, now, leadMinutes);
+    // `now` moves on as reminders go out and fall due: one that does while the app is open
+    // shows here, at the to-do's notify_at, as push and the phone's alert do.
+    const urgent = listHomeUrgentTodos(todos, now);
     return firstOverdueHomeTodo(
       filterHomeNudgeTodos(urgent, { dismissed: homeNudgeDismissed }),
     );
@@ -114,7 +114,6 @@ export function HomeStarters({ composerActive }: Props) {
     todosLoading,
     remindersReady,
     homeNudgeDismissed,
-    leadMinutes,
     now,
   ]);
 

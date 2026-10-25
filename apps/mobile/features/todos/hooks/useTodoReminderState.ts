@@ -4,21 +4,20 @@ import { loadSeenReminderIds, pruneSeenReminderIds, saveSeenReminderIds } from "
 import { loadHomeNudgeState, pruneHomeNudgeState, saveHomeNudgeState } from "@/features/todos/model/homeReminderNudges";
 import { countUnseenUrgentReminders, listUrgentReminderIds } from "@/features/todos/model/reminderBadge";
 
-type Options = { userId?: string; leadMinutes?: number; todos: Todo[]; retainedOpenIds?: Set<string>;
+type Options = { userId?: string; todos: Todo[]; retainedOpenIds?: Set<string>;
   getTodos: () => Todo[]; isCurrentSession: () => boolean;
   /** The time the badge counts against (useReminderClock); the moment of render when absent. */
   now?: Date };
 
 /** Serialize seen/nudge updates so a slow load cannot undo a newer dismissal. */
-export function useTodoReminderState({ userId, leadMinutes, todos, retainedOpenIds, getTodos, isCurrentSession,
-  now }: Options) {
+export function useTodoReminderState({ userId, todos, retainedOpenIds, getTodos, isCurrentSession, now }: Options) {
   const owner = useMemo(() => ({ isCurrentSession }), [isCurrentSession]);
   const resource = useRef({ owner, seen: new Set<string>(), dismissed: new Set<string>(),
     seenDirty: false, dismissedDirty: false, hydrated: false, queue: Promise.resolve() });
   if (resource.current.owner !== owner) resource.current = { owner, seen: new Set(), dismissed: new Set(),
     seenDirty: false, dismissedDirty: false, hydrated: false, queue: Promise.resolve() };
-  const latest = useRef({ retainedOpenIds, leadMinutes });
-  latest.current = { retainedOpenIds, leadMinutes };
+  const latest = useRef({ retainedOpenIds });
+  latest.current = { retainedOpenIds };
   const empty = { owner, seen: new Set<string>(), dismissed: new Set<string>(), ready: false };
   const [state, setState] = useState(empty);
   const view = state.owner === owner ? state : empty;
@@ -73,8 +72,7 @@ export function useTodoReminderState({ userId, leadMinutes, todos, retainedOpenI
     ids.forEach((id) => resource.current.seen.add(id));
   }), [run]);
   const markSeen = useCallback(() => run(() => {
-    listUrgentReminderIds(getTodos(), undefined, latest.current.leadMinutes)
-      .forEach((id) => resource.current.seen.add(id));
+    listUrgentReminderIds(getTodos()).forEach((id) => resource.current.seen.add(id));
   }), [getTodos, run]);
   const dismissReminderNudge = useCallback((todoId: string) => run(() => {
     if (!getTodos().some((todo) => todo.id === todoId && !todo.checked)) return;
@@ -82,7 +80,7 @@ export function useTodoReminderState({ userId, leadMinutes, todos, retainedOpenI
     resource.current.seen.add(todoId);
   }), [getTodos, run]);
 
-  const unseenCount = countUnseenUrgentReminders(todos, view.seen, now, leadMinutes);
+  const unseenCount = countUnseenUrgentReminders(todos, view.seen, now);
   return { unseenCount, showIndicator: unseenCount > 0, remindersReady: view.ready,
     seenReminderIds: view.seen, homeNudgeDismissed: view.dismissed,
     markSeen, markSeenIds, dismissReminderNudge };

@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { useTodosList } from "@/features/todos/hooks/useTodosList";
 import { useTodoReminderState } from "@/features/todos/hooks/useTodoReminderState";
@@ -6,6 +7,7 @@ import { useReminderClock } from "@/features/todos/hooks/useReminderClock";
 import { getSessionGeneration } from "@/lib/auth";
 import { onAppEvent } from "@/lib/appEvents";
 import type { User } from "@/lib/api";
+import { userTimeZone, userUses24HourClock } from "@/lib/datetime/format";
 import { remotePushRegistered, subscribeRemotePushRegistered } from "@/lib/pushRegistration";
 import { syncTodoReminders } from "@/features/todos/model/todoReminders";
 
@@ -23,14 +25,18 @@ const TodosContext = createContext<TodosContextValue | null>(null);
 export function TodosProvider({ children }: { children: ReactNode }) {
   const auth = useAuthOptional();
   const list = useTodosList(auth?.token, auth?.user?.id);
-  const leadMinutes = auth?.user?.reminder_lead_minutes ?? undefined;
   // Reminders come from the server only to a device whose push token it holds.
   const remotePush = useSyncExternalStore(subscribeRemotePushRegistered, remotePushRegistered);
   const remindersEnabled = auth?.user?.push_reminders_enabled ?? true;
-  const now = useReminderClock(list.todos, leadMinutes);
-  const reminders = useTodoReminderState({ userId: auth?.user?.id, leadMinutes, now,
+  const now = useReminderClock(list.todos);
+  const reminders = useTodoReminderState({ userId: auth?.user?.id, now,
     todos: list.todos, retainedOpenIds: list.retainedOpenIds, getTodos: list.getTodos, isCurrentSession: list.isCurrentSession });
   const session = getSessionGeneration();
+  // The alerts are written in the app's language, the phone's 12/24-hour clock and its zone.
+  // A change of one re-renders this provider (lib/i18n binds both events to useTranslation)
+  // and the sync below writes each alert again.
+  const { i18n } = useTranslation();
+  const alertFormat = `${i18n.language}|${userUses24HourClock() ? "h23" : "h12"}|${userTimeZone() ?? ""}`;
   const {
     todos, loading, error, loaded, retainedOpenIds, olderCompleted, showOlderCompleted, setTodos, getTodos, refresh,
     isCurrentSession,
@@ -41,7 +47,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
     // reads the lead time or quiet hours.
     void syncTodoReminders(todos, { remotePush, remindersEnabled, session })
       .catch(() => { if (isCurrentSession()) console.warn("[todos] device reminder sync failed"); });
-  }, [todos, loaded, isCurrentSession, remotePush, remindersEnabled, session]);
+  }, [todos, loaded, isCurrentSession, remotePush, remindersEnabled, session, alertFormat]);
   // The lead time, quiet hours or time zone saved: every reminder's instant moved on the server.
   useEffect(() => onAppEvent("userUpdated", ({ fields }) => {
     if (fields.some((field) => REMINDER_TIME_FIELDS.has(field))) void refresh({ silent: true, force: true, afterPending: true });

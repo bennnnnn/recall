@@ -1,6 +1,5 @@
 import type { Todo } from "@/lib/api";
 import {
-  DEFAULT_HOME_URGENT_LEAD,
   firstOverdueHomeTodo,
   listHomeUrgentTodos,
 } from "@/features/todos/model/homeUrgentTodos";
@@ -19,95 +18,56 @@ function todo(partial: Partial<Todo> & Pick<Todo, "id" | "content">): Todo {
   };
 }
 
+/** A to-do whose reminder went out `lead` minutes before it was due. */
+function dated(id: string, dueAt: string, lead = 10): Todo {
+  return todo({
+    id,
+    content: id,
+    due_at: dueAt,
+    notify_at: new Date(Date.parse(dueAt) - lead * 60_000).toISOString(),
+  });
+}
+
 describe("listHomeUrgentTodos", () => {
   const now = new Date("2026-06-27T12:00:00.000Z");
-  // Use a 30-min lead so the "due soon" fixtures (30 min ahead) are urgent.
-  const lead = 30;
 
-  it("includes overdue reminders in the urgent window", () => {
-    const overdue = todo({
-      id: "1",
-      content: "Pay rent",
-      due_at: "2026-06-26T12:00:00.000Z",
-    });
-
-    const urgent = listHomeUrgentTodos([overdue], now, lead);
-    expect(urgent.map((item) => item.id)).toEqual(["1"]);
+  it("includes overdue reminders", () => {
+    const urgent = listHomeUrgentTodos([dated("Pay rent", "2026-06-26T12:00:00.000Z")], now);
+    expect(urgent.map((item) => item.id)).toEqual(["Pay rent"]);
     expect(urgent[0].minutes_until).toBeLessThan(0);
   });
 
-  it("returns the first overdue reminder and ignores due-soon", () => {
-    const overdue = todo({
-      id: "1",
-      content: "Late",
-      due_at: "2026-06-26T12:00:00.000Z",
-    });
-    const dueSoon = todo({
-      id: "2",
-      content: "Soon",
-      due_at: "2026-06-27T12:30:00.000Z",
-    });
-    expect(
-      firstOverdueHomeTodo(listHomeUrgentTodos([overdue, dueSoon], now, lead))
-        ?.id,
-    ).toBe("1");
-    expect(
-      firstOverdueHomeTodo(listHomeUrgentTodos([dueSoon], now, lead)),
-    ).toBeUndefined();
+  it("returns the first overdue reminder and ignores one whose reminder went out but is not due", () => {
+    const overdue = dated("Late", "2026-06-26T12:00:00.000Z");
+    const dueSoon = dated("Soon", "2026-06-27T12:05:00.000Z");
+    expect(firstOverdueHomeTodo(listHomeUrgentTodos([overdue, dueSoon], now))?.id).toBe("Late");
+    expect(listHomeUrgentTodos([dueSoon], now).map((item) => item.id)).toEqual(["Soon"]);
+    expect(firstOverdueHomeTodo(listHomeUrgentTodos([dueSoon], now))).toBeUndefined();
   });
 
-  it("includes reminders due within the lead window", () => {
-    const dueSoon = todo({
-      id: "1",
-      content: "Pay rent",
-      due_at: "2026-06-27T12:30:00.000Z",
+  it("shows an overdue reminder at its notify_at: quiet hours 22:00-07:00, due 23:30, from 07:00", () => {
+    const night = todo({
+      id: "night", content: "Call Sam", due_at: "2026-06-27T23:30:00.000Z", notify_at: "2026-06-28T07:00:00.000Z",
     });
-    const later = todo({
-      id: "2",
-      content: "Later",
-      due_at: "2026-06-27T14:00:00.000Z",
-    });
-
-    const urgent = listHomeUrgentTodos([dueSoon, later], now, lead);
-    expect(urgent.map((item) => item.id)).toEqual(["1"]);
+    expect(firstOverdueHomeTodo(listHomeUrgentTodos([night], new Date("2026-06-27T23:45:00.000Z")))).toBeUndefined();
+    expect(firstOverdueHomeTodo(listHomeUrgentTodos([night], new Date("2026-06-28T07:00:00.000Z")))?.id).toBe("night");
   });
 
-  it("excludes items beyond the lead window", () => {
-    const tooFar = todo({
-      id: "9",
-      content: "Far",
-      due_at: "2026-06-27T12:45:00.000Z", // 45 min ahead, lead is 30
-    });
-    expect(listHomeUrgentTodos([tooFar], now, lead)).toEqual([]);
+  it("leaves out a reminder that has not gone out yet", () => {
+    const later = dated("Later", "2026-06-27T14:00:00.000Z");
+    expect(listHomeUrgentTodos([later], now)).toEqual([]);
   });
 
   it("excludes checked items and list items without due dates", () => {
-    const done = todo({
-      id: "1",
-      content: "Done",
-      due_at: "2026-06-27T12:15:00.000Z",
-      checked: true,
-    });
+    const done = { ...dated("Done", "2026-06-27T11:00:00.000Z"), checked: true };
     const listItem = todo({ id: "2", content: "Milk" });
-
-    expect(listHomeUrgentTodos([done, listItem], now, lead)).toEqual([]);
+    expect(listHomeUrgentTodos([done, listItem], now)).toEqual([]);
   });
 
-  it("limits to five soonest items", () => {
+  it("limits to five, due soonest first", () => {
     const items = Array.from({ length: 7 }, (_, index) =>
-      todo({
-        id: String(index),
-        content: `Task ${index}`,
-        due_at: new Date(now.getTime() + (index + 1) * 60_000).toISOString(),
-      }),
-    );
-
-    expect(listHomeUrgentTodos(items, now, lead)).toHaveLength(5);
-  });
-
-  it("defaults to the shared default lead when none provided", () => {
-    const dueAt = new Date(now.getTime() + (DEFAULT_HOME_URGENT_LEAD - 1) * 60_000).toISOString();
-    const justInside = todo({ id: "1", content: "Soon", due_at: dueAt });
-    expect(listHomeUrgentTodos([justInside], now)).toHaveLength(1);
+      dated(`Task ${index}`, new Date(now.getTime() - (index + 1) * 60_000).toISOString()));
+    const urgent = listHomeUrgentTodos(items, now);
+    expect(urgent.map((item) => item.id)).toEqual(["Task 6", "Task 5", "Task 4", "Task 3", "Task 2"]);
   });
 });

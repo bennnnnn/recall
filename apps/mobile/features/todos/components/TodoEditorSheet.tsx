@@ -8,6 +8,7 @@ import { TodoCategoryField } from "@/features/todos/components/TodoCategoryField
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { TodoDateFields } from "@/features/todos/components/TodoDateFields";
 import { TodoPickers, type TodoPicker } from "@/features/todos/components/TodoPickers";
+import { useRemindAt } from "@/features/todos/hooks/useRemindAt";
 import { DEFAULT_TOPIC } from "@/features/todos/model/todoTopics";
 import type { RecurrenceRule, Todo } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
@@ -40,11 +41,14 @@ export const TodoEditorSheet = forwardRef<
     todos: Todo[];
     /** Full page under the navigation header, instead of a bottom sheet. */
     page?: boolean;
-    /** Account to-do alert from Settings, shown as Remind at on the detail page. */
+    /** The profile's reminder lead, which Remind at on the detail page sets. */
     leadMinutes?: number;
     onChangeLead?: (minutes: number) => Promise<void>;
     /** When set, the form edits that to-do, including its optional date. */
     editTodo?: Todo | null;
+    /** `editTodo` as the list holds it now: its notify_at moves with the lead time,
+     * quiet hours and zone while the page is open. */
+    savedTodo?: Todo | null;
     /** Completed to-dos can be viewed, unmarked, or deleted. Fields stay fixed. */
     readOnly?: boolean;
     onClose: () => void;
@@ -63,6 +67,7 @@ export const TodoEditorSheet = forwardRef<
   leadMinutes,
   onChangeLead,
   editTodo,
+  savedTodo,
   readOnly = false,
   onClose,
   onSave,
@@ -89,6 +94,8 @@ export const TodoEditorSheet = forwardRef<
   }, [visible, editTodo]);
 
   const canSave = text.trim().length > 0 && !saving;
+  // Remind at on the detail page: the server's instant for the date and repeat on screen.
+  const remindAt = useRemindAt({ dueDate, repeat, saved: savedTodo ?? editTodo, enabled: page && visible });
 
   const closePicker = () => setPicker(null);
 
@@ -185,6 +192,7 @@ export const TodoEditorSheet = forwardRef<
         onRepeatChange={setRepeat}
         todos={todos}
         excludeId={editTodo?.id}
+        remindAt={remindAt}
         disabled={saving || readOnly}
         leadMinutes={leadMinutes}
         onChangeLead={readOnly ? undefined : onChangeLead}

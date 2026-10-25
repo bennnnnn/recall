@@ -123,7 +123,8 @@ def reminder_at(
 
     The lead time before it is due. One set inside its own lead window ("remind me in 3
     minutes", lead 10) goes out when it is due, not the moment it is saved, and one set
-    after its due time goes out when it was set. ``set_at`` is when it was last changed.
+    after its due time goes out when it was set. ``set_at`` is when its due time was set
+    (``todo_items.due_set_at``): no other edit moves the instant.
     An instant inside quiet hours waits for their end; 48 hours past due nothing goes out.
     """
     due = _utc(due_at)
