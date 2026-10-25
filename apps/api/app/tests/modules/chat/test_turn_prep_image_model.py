@@ -16,6 +16,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models import model_catalog
+from app.models.routing_lanes import ROUTING
 from app.modules.chat.turn_prep.attachments import _AttachmentProcessResult
 from app.modules.chat.turn_prep.context import await_user_message_persist
 from app.modules.chat.turn_prep.persist import UserTurn, turn_model
@@ -81,8 +82,8 @@ def test_a_generated_image_earlier_does_not_move_a_hard_question_to_the_photo_mo
     "alias, expected",
     [
         # Pro's everyday model reads the photo itself.
-        (None, model_catalog.auto_strong_everyday_alias()),
-        ("auto", model_catalog.auto_strong_everyday_alias()),
+        (None, ROUTING.everyday_strong),
+        ("auto", ROUTING.everyday_strong),
         ("gpt-6-luna", "gpt-6-luna"),
         ("free-chat", "free-chat"),
         ("smart-chat", "vision-chat"),
@@ -98,7 +99,7 @@ def test_a_photo_sent_now_runs_on_a_model_that_reads_it(alias: str | None, expec
 def test_a_photo_sent_now_with_attachments_off_keeps_the_routed_model() -> None:
     turn = _turn("what's in this picture?", recent=[], image=True)
     off = Settings(attachments_enabled=False, mock_llm_enabled=True, openrouter_api_key="")
-    assert turn_model(turn, _pro_user(), off) == model_catalog.auto_strong_everyday_alias()
+    assert turn_model(turn, _pro_user(), off) == ROUTING.everyday_strong
 
 
 @pytest.mark.asyncio

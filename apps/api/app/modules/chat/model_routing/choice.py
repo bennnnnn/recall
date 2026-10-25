@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from app.core.config import Settings
 from app.exceptions import UnknownModelOverrideError
 from app.models import model_catalog
+from app.models.routing_lanes import ROUTING
 from app.modules.billing.entitlements import has_strong_everyday_model
 from app.modules.billing.plan import (
     AUTO_ALIAS,
@@ -66,7 +67,7 @@ def _everyday_for_plan(
     """
     if routed != model_catalog.auto_fast_alias() or not has_strong_everyday_model(user, settings):
         return routed
-    strong = model_catalog.auto_strong_everyday_alias()
+    strong = ROUTING.everyday_strong
     return strong if strong in pool and strong not in unhealthy else routed
 
 

@@ -7,6 +7,7 @@ import pytest
 from app.core.config import Settings
 from app.exceptions import UnknownModelOverrideError
 from app.models import model_catalog
+from app.models.routing_lanes import ROUTING
 from app.modules.billing import plan as plan_service
 from app.modules.chat.model_routing import choice as model_choice
 from app.tests.fakes import make_user
@@ -295,7 +296,7 @@ _EVERYDAY = "hi, how is your day?"
         ("free", model_catalog.auto_fast_alias()),
         ("plus", model_catalog.auto_fast_alias()),
         # Pro's everyday turns get the stronger model (live 60-turn chat, 2026-10-25).
-        ("pro", model_catalog.auto_strong_everyday_alias()),
+        ("pro", ROUTING.everyday_strong),
     ],
 )
 def test_auto_everyday_lane_follows_the_plan(plan: str, everyday: str) -> None:
@@ -316,7 +317,7 @@ def test_pro_hard_and_maths_turns_keep_their_lanes() -> None:
 
 def test_pro_everyday_falls_back_when_the_strong_model_is_off_or_failing() -> None:
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
-    strong = model_catalog.auto_strong_everyday_alias()
+    strong = ROUTING.everyday_strong
     switched_off = _plan("pro", ["auto", model_catalog.auto_fast_alias(), "smart-chat"])
     assert model_choice.resolve_user_model(switched_off, _EVERYDAY, settings) == (
         model_catalog.auto_fast_alias()
@@ -329,7 +330,7 @@ def test_pro_everyday_falls_back_when_the_strong_model_is_off_or_failing() -> No
 
 def test_pro_everyday_keeps_a_photo_turn() -> None:
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
-    strong = model_catalog.auto_strong_everyday_alias()
+    strong = ROUTING.everyday_strong
     user = _plan("pro")
     assert plan_service.image_turn_model(user, settings, strong, explicit=False) == strong
     assert (
@@ -346,7 +347,7 @@ def test_pro_everyday_keeps_a_photo_turn() -> None:
 @pytest.mark.parametrize(
     ("plan", "expected"),
     [
-        ("pro", model_catalog.auto_strong_everyday_alias()),
+        ("pro", ROUTING.everyday_strong),
         ("free", model_catalog.auto_fast_alias()),
     ],
 )
@@ -368,5 +369,5 @@ def test_the_strong_everyday_switch_is_read_per_plan() -> None:
         mock_llm_enabled=True, openrouter_api_key="", strong_everyday_model_plus=True
     )
     assert model_choice.resolve_user_model(_plan("plus"), _EVERYDAY, plus_on) == (
-        model_catalog.auto_strong_everyday_alias()
+        ROUTING.everyday_strong
     )
