@@ -1,9 +1,5 @@
 import i18n from "@/lib/i18n";
-import {
-  formatClockTime,
-  formatMonthDayYear,
-  formatShortWeekdayDate,
-} from "@/lib/datetime/format";
+import { formatDate } from "@/lib/datetime/format";
 
 type DueTone = "overdue" | "today" | "soon" | "later";
 
@@ -30,7 +26,7 @@ export function describeDueAt(iso: string | null | undefined): {
   if (dayDiff === 0) {
     return {
       label: i18n.t("todos.due_today_time", {
-        time: formatClockTime(due),
+        time: formatDate(due, "time"),
       }),
       tone: "today",
     };
@@ -38,12 +34,12 @@ export function describeDueAt(iso: string | null | undefined): {
   if (dayDiff === 1) return { label: i18n.t("calendar.tomorrow_heading"), tone: "soon" };
   if (dayDiff <= 7) {
     return {
-      label: formatShortWeekdayDate(due),
+      label: formatDate(due, "weekdayDate"),
       tone: "soon",
     };
   }
   return {
-    label: formatMonthDayYear(due),
+    label: formatDate(due, "monthDayYear"),
     tone: "later",
   };
 }

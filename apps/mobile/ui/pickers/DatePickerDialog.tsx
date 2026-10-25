@@ -20,8 +20,6 @@ import {
   clampDay,
   dayOutOfRange,
   firstDayOfWeek,
-  fullDateLabel,
-  headlineDateLabel,
   isSameDay,
   monthGrid,
   monthInRange,
@@ -31,6 +29,7 @@ import {
   yearRange,
   type YearMonth,
 } from "@/lib/datetime/calendarGrid";
+import { formatDate } from "@/lib/datetime/format";
 import { selection } from "@/lib/haptics";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
@@ -79,12 +78,11 @@ export function DatePickerDialog({
   title,
   testID = "date-picker",
 }: Props) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const screen = useWindowDimensions();
   const reduceMotion = useReduceMotion();
-  const locale = i18n?.language;
 
   const [draft, setDraft] = useState(() => clampDay(value, minimumDate, maximumDate));
   const [shown, setShown] = useState<YearMonth>({ year: draft.getFullYear(), month: draft.getMonth() });
@@ -106,7 +104,9 @@ export function DatePickerDialog({
   const cardWidth = Math.min(DATE_PICKER_WIDTH, screen.width - Space.lg * 2);
   const cell = Math.min(CELL, Math.floor((cardWidth - Space.lg * 2) / 7));
   const weekStart = useMemo(() => firstDayOfWeek(), []);
-  const weekdays = useMemo(() => weekdayLabels(weekStart, locale), [weekStart, locale]);
+  // Cached formatters: the 14 labels cost microseconds, and a change of language or
+  // clock (a re-render) redraws them.
+  const weekdays = weekdayLabels(weekStart);
   const weeks = useMemo(() => monthGrid(shown.year, shown.month, weekStart), [shown, weekStart]);
   const today = new Date();
 
@@ -159,7 +159,7 @@ export function DatePickerDialog({
     if (!confirmed.current) onCancel();
   };
 
-  const monthLabel = monthYearLabel(shown, locale);
+  const monthLabel = monthYearLabel(shown);
 
   return (
     <Dialog
@@ -183,7 +183,7 @@ export function DatePickerDialog({
       ]}
     >
       <Text style={s.headline} accessibilityLiveRegion="polite" testID={`${testID}-headline`}>
-        {headlineDateLabel(draft, locale)}
+        {formatDate(draft, "weekdayDate")}
       </Text>
       <View style={s.divider} />
 
@@ -253,7 +253,7 @@ export function DatePickerDialog({
                   const disabled = dayOutOfRange(date, minimumDate, maximumDate);
                   const selected = isSameDay(date, draft);
                   const isToday = isSameDay(date, today);
-                  const spoken = fullDateLabel(date, locale);
+                  const spoken = formatDate(date, "fullDate");
                   return (
                     <Pressable
                       key={column}

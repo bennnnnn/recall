@@ -6,10 +6,10 @@
  * A 24-hour dial shows 12, 1–11 on the outer ring and 00, 13–23 inside.
  */
 
+import { formatDateToParts } from "@/lib/datetime/format";
+
 export type TimeOfDay = { hour: number; minute: number };
 export type ClockMode = "hour" | "minute";
-
-type Locale = string | string[] | undefined;
 
 export const HOURS_OUTER = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const;
 export const HOURS_INNER = [0, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23] as const;
@@ -136,33 +136,12 @@ export function withTimeOfDay(date: Date, time: TimeOfDay): Date {
   return next;
 }
 
-/**
- * Whether times read on a 24-hour clock in `locale` (the device's when
- * omitted), so the picker matches the times printed around it.
- */
-export function uses24HourClock(locale?: Locale): boolean {
-  try {
-    const options = new Intl.DateTimeFormat(locale, { hour: "numeric" }).resolvedOptions();
-    if (options.hourCycle) return options.hourCycle === "h23" || options.hourCycle === "h24";
-    if (typeof options.hour12 === "boolean") return !options.hour12;
-  } catch {
-    // Fall through to formatting a known afternoon hour.
-  }
-  try {
-    return /13/.test(new Date(2000, 0, 1, 13).toLocaleTimeString(locale, { hour: "numeric" }));
-  } catch {
-    return false;
-  }
-}
-
-/** Localized AM / PM words. Falls back to "AM" / "PM". */
-export function dayPeriodLabels(locale?: Locale): { am: string; pm: string } {
+/** The app language's AM and PM words, as the 12-hour times around the picker write them. */
+export function dayPeriodLabels(): { am: string; pm: string } {
   const read = (hour: number, fallback: string) => {
     try {
-      const parts = new Intl.DateTimeFormat(locale, {
-        hour: "numeric",
-        hour12: true,
-      }).formatToParts(new Date(2000, 0, 1, hour));
+      const at = new Date(Date.UTC(2000, 0, 1, hour));
+      const parts = formatDateToParts(at, "hour", { timeZone: "UTC", hourCycle: "h12" });
       const period = parts.find((part) => part.type === "dayPeriod")?.value.trim();
       return period || fallback;
     } catch {
