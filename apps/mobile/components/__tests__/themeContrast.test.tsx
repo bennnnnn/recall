@@ -84,6 +84,16 @@ describe("semantic text contrast", () => {
     expect(contrastRatio(theme.danger, theme.surfaceAlt)).toBeGreaterThanOrEqual(AA);
   });
 
+  // A lesson array's lit cell: its index label in success on successLight, on the card's page.
+  it.each([
+    ["light", lightTheme],
+    ["dark", darkTheme],
+  ] as const)("%s success is AA on its own well", (_name, theme) => {
+    expect(
+      contrastRatio(theme.success, compositeOver(theme.successLight, theme.bg)),
+    ).toBeGreaterThanOrEqual(AA);
+  });
+
   it("textDisabled may sit below AA (placeholders / decoration only)", () => {
     expect(contrastRatio(lightTheme.textDisabled, lightTheme.surfaceAlt)).toBeLessThan(AA);
     expect(contrastRatio(darkTheme.textDisabled, darkTheme.surfaceAlt)).toBeLessThan(AA);
