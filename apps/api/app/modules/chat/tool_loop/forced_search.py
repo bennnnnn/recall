@@ -177,4 +177,6 @@ def _interleave(per_target: list[list[WebSearchHit]], settings: Settings) -> lis
                 continue
             seen.add(key)
             merged.append(hit)
-    return merged[: max(limit, len(per_target))]
+    # A dated search's news pages come on top of the general results, never in their place.
+    dated = sum(1 for hit in merged if hit.published)
+    return merged[: max(limit + dated, len(per_target))]
