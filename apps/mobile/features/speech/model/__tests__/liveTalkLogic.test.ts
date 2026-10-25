@@ -116,6 +116,12 @@ describe("liveTalkErrorGate", () => {
     expect(liveTalkErrorGate({ status: 429 })).toBe("limit");
   });
 
+  // The day's spend cap said "You've used this month's live talk minutes".
+  it("maps the voice spend cap to paused, and every other 429 to limit", () => {
+    expect(liveTalkErrorGate({ status: 429, code: "voice_spend_cap" })).toBe("paused");
+    expect(liveTalkErrorGate({ status: 429, code: "live_talk_minutes_used" })).toBe("limit");
+  });
+
   it("maps a missing WebRTC native module to unavailable", () => {
     expect(liveTalkErrorGate(new Error("webrtc_unavailable"))).toBe("unavailable");
   });
@@ -138,6 +144,7 @@ describe("liveTalkErrorGate", () => {
     expect(liveTalkGateMessageKey("outage")).toBe("common.service_unavailable");
     expect(liveTalkGateMessageKey("unconfigured")).toBe("chat.live_talk_not_configured");
     expect(liveTalkGateMessageKey("limit")).toBe("chat.live_talk_limit_body");
+    expect(liveTalkGateMessageKey("paused")).toBe("chat.voice_paused");
     expect(liveTalkGateMessageKey("offline")).toBe("chat.offline_body");
     expect(liveTalkGateMessageKey("unavailable")).toBe("chat.live_talk_unavailable_body");
   });

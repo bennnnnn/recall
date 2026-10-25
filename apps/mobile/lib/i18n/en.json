@@ -390,6 +390,7 @@
   "memory.back_to_memory": "Back to Memory",
   "memory.busy": "Memory is being updated. Try again in a moment.",
   "memory.off": "Memory is off. Turn it on in Settings to change it.",
+  "memory.paused": "Memory changes are paused for now. Try again later.",
   "memory.limited": "Too many memory changes for now. Try again later.",
   "memory.composer_label": "Tell Recall what to remember or change",
   "memory.composer_placeholder": "You can disagree with me more",

@@ -176,9 +176,10 @@ export function useLiveTalk({
           })
           .catch((error: unknown) => {
             const gate = liveTalkErrorGate(error);
-            if (gate === "limit") {
+            // Nothing more saves: the month's minutes are used, or voice is paused for the day.
+            if (gate === "limit" || gate === "paused") {
               closeRef.current();
-              alertForGate("limit");
+              alertForGate(gate);
               return;
             }
             // An outage in its own words, translated: the server's English is not.

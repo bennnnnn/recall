@@ -395,6 +395,7 @@
   "memory.back_to_memory": "Voltar para Memória",
   "memory.busy": "A memória está sendo atualizada. Tente novamente em instantes.",
   "memory.off": "A memória está desativada. Ative-a nas Configurações para alterá-la.",
+  "memory.paused": "As alterações na memória estão pausadas por enquanto. Tente novamente mais tarde.",
   "memory.limited": "Muitas alterações na memória por enquanto. Tente novamente mais tarde.",
   "memory.composer_label": "Diga ao Recall o que lembrar ou mudar",
   "memory.composer_placeholder": "Você pode discordar mais de mim",

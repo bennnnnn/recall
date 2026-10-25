@@ -110,6 +110,50 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
     expect(createRealtimeVoiceSession).not.toHaveBeenCalled();
   });
 
+  // The day's spend cap said "You've used this month's live talk minutes"; Redis down at
+  // its read answered the same 429.
+  it.each([
+    [429, { code: "voice_spend_cap", message: "Voice is temporarily unavailable. Try again later." }, "chat.voice_paused"],
+    [429, { code: "live_talk_minutes_used", message: "Minutes used." }, "chat.live_talk_limit_body"],
+    [503, { code: "unavailable", message: "Service temporarily unavailable. Please retry shortly." }, "common.service_unavailable"],
+  ])("words a refused start by its code: %i %j", async (status, detail, line) => {
+    (createRealtimeVoiceSession as jest.Mock).mockRejectedValueOnce(new ApiRequestError(status, JSON.stringify({ detail })));
+    await render(<Probe />);
+    await act(async () => {
+      await live.open();
+    });
+
+    expect(reportRecoverableError).toHaveBeenCalledWith(null, line);
+    expect(live.visible).toBe(false);
+  });
+
+  it.each([
+    [429, { code: "voice_spend_cap", message: "Voice is temporarily unavailable. Try again later." }, "chat.voice_paused"],
+    [429, { code: "live_talk_minutes_used", message: "Minutes used." }, "chat.live_talk_limit_body"],
+    [503, { code: "unavailable", message: "Service temporarily unavailable. Please retry shortly." }, "common.service_unavailable"],
+  ])("words a refused save by its code: %i %j", async (status, detail, line) => {
+    let onEvent: (event: { type: string; [key: string]: unknown }) => void = () => {};
+    (createRealtimeVoiceSession as jest.Mock).mockImplementationOnce(async (options: { onEvent: typeof onEvent }) => {
+      onEvent = options.onEvent;
+      return { callId: "call-1", maxDurationSeconds: 600, setMuted: jest.fn(), cancelResponse: jest.fn(), close: jest.fn() };
+    });
+    jest.mocked(api.persistRealtimeLiveTalkTurn).mockRejectedValueOnce(new ApiRequestError(status, JSON.stringify({ detail })));
+    await render(<Probe />);
+    await act(async () => {
+      await live.open();
+    });
+    await act(async () => {
+      onEvent({ type: "speech_started", turnId: "turn-1" });
+      onEvent({ type: "user_transcript", text: "What's the weather?" });
+    });
+    await act(async () => {
+      live.close();
+    });
+
+    expect(api.persistRealtimeLiveTalkTurn).toHaveBeenCalledTimes(1);
+    expect(reportRecoverableError).toHaveBeenCalledWith(null, line);
+  });
+
   it("leaves Back to an open drawer, reading the drawer when Back is pressed", async () => {
     const backHandlers: (() => boolean | null | undefined)[] = [];
     const addListener = jest

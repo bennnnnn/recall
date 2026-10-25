@@ -6,6 +6,8 @@ export type LiveTalkGate =
   | "ok"
   | "upgrade"
   | "limit"
+  /** Voice is paused for everyone: the day's spend cap (`voice_spend_cap`), not this month's minutes. */
+  | "paused"
   | "unavailable"
   | "offline"
   | "unconfigured"
@@ -161,7 +163,8 @@ export function liveTalkErrorGate(error: unknown): LiveTalkGate {
     return "mic_permission";
   }
   if (status === 403) return "upgrade";
-  if (status === 429) return "limit";
+  // The spend cap said "You've used this month's live talk minutes", as every 429 did.
+  if (status === 429) return (error as { code?: unknown }).code === "voice_spend_cap" ? "paused" : "limit";
   // Only the server's `not_configured` says live talk is not set up. Every 503 said so,
   // a Redis or database outage too; any other 503, and a gateway's 502 or 504, is one.
   if (status === 503) {
@@ -174,6 +177,7 @@ export function liveTalkErrorGate(error: unknown): LiveTalkGate {
 /** The line a gate says as a recoverable error; upgrade and the microphone open their own. */
 export function liveTalkGateMessageKey(gate: LiveTalkGate): string {
   if (gate === "limit") return "chat.live_talk_limit_body";
+  if (gate === "paused") return "chat.voice_paused";
   if (gate === "offline") return "chat.offline_body";
   if (gate === "outage") return "common.service_unavailable";
   if (gate === "unconfigured") return "chat.live_talk_not_configured";
