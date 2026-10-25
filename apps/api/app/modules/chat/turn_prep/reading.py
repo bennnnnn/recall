@@ -50,9 +50,11 @@ def ask_turn_readings(
     extract_physics_intent(content)
     # The follow-up readers ask the subject of the user's earlier lines: a physics or
     # chemistry problem is not replayed through maths. Routing asks the line before this
-    # one whenever the turn may inherit its lane.
+    # one whenever the turn may inherit its lane. A money follow-up asks each line's plan,
+    # to read it in the parts its own turn did.
     for text in earlier_lines:
         detect_subject(text)
+        plan_turn(text, chemistry_enabled=chemistry)
     if prior_user:
         detect_subject(prior_user, chemistry_enabled=chemistry)
     route_chat_model(

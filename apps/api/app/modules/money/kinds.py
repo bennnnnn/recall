@@ -1,54 +1,58 @@
 """Which kind of a product a message names: a catalog ``Variant`` ("a used car").
 
-A kind word counts only where it describes the vehicle being financed: "buying a used
-car", "a used car for 14000", "used car loan". A review (2026-10-25) found "used"
-anywhere in the message making it a used car: "trading in my used car, new car loan
-30000", "I don't want a used one", "what rate is used?". So the word must sit right
-before the vehicle (or "car loan"), must not be a verb ("I used a calculator", "the rate
-is used"), must not be about another car ("my used car", "trading in", "sold", "instead
-of", "not a"), and a message that names a new car is about a new one.
+The kind counts only when the vehicle being bought or financed is described as that
+kind, in a few fixed phrases:
+
+- "buying (a) used car" (also buy, bought, get, getting, finance, financing, purchase,
+  looking at, thinking of buying),
+- "a used car for 14000",
+- "used car loan", "loan for a used car".
+
+Nothing else names it. Reviews (2026-10-25) found looser readers taking "used" from the
+old car or the alternative: "to replace my old used car", "trading in my used car", "or
+buy a used car with cash", "what rate is used?". The live line was "i'm thinking of
+buying a used car for 14000".
 """
 
 from __future__ import annotations
 
 import re
+from functools import cache
 
 from app.modules.money.catalog import Product
 
-# The vehicle the kind word describes, a word or two after it: "used car", "pre-owned
-# 2019 truck", "used car loan". Plurals and markets are about cars in general.
-_VEHICLE_AFTER = re.compile(
-    r"[\s-](?:[a-z0-9-]+\s){0,2}?(?:car|truck|suv|vehicle|van|auto)\b"
-    r"(?!s\b|\s(?:market|prices?|values?|lots?|dealers?|dealerships?|sales|cost|costs)\b)",
-    re.I,
+_VEHICLE = r"(?:car|truck|suv|vehicle)"
+_BUYING = (
+    r"(?:buy|buying|bought|get|getting|finance|financing|purchase|purchasing|looking\sat|"
+    r"thinking\sof\sbuying)"
 )
-# The kind word is a verb, or describes a car other than the one being financed. ("The rate
-# is used" has no vehicle after it, so it never counts.)
-_NOT_THIS_ONE_BEFORE = re.compile(
-    r"(?:\b(?:i|we|you|they|he|she|who|have|has|had|having|would|could|should|will|never|"
-    r"just|already|also|once|ever|always|been|get|got|my|our|"
-    r"his|her|their|sold|sell|selling|trade|trading|traded|not|instead\sof|rather\sthan|"
-    r"don't\swant|do\snot\swant|no)|'(?:ve|d|m|ll|re|s)|\btrading\sin|\btrade[\s-]in)"
-    r"(?:\s(?:a|an|the|my|our))?\s$",
-    re.I,
+# "Or buy a used car with cash", "vs buying a used car": the alternative, not this loan.
+_ALTERNATIVE_BEFORE = re.compile(
+    r"\b(?:or|vs\.?|versus|than|instead\sof|rather\sthan|not)\s$", re.I
 )
-# A message about a new car is about a new one, whatever else it says about used ones.
-_NEW_CAR = re.compile(
-    r"\b(?:brand[\s-])?new\s(?:[a-z0-9-]+\s)?(?:car|truck|suv|vehicle|van|auto|one)\b", re.I
-)
+
+
+@cache
+def _phrases(words: tuple[str, ...]) -> tuple[re.Pattern[str], ...]:
+    kind = "(?:certified\\s)?(?:" + "|".join(re.escape(word) for word in words) + ")"
+    return tuple(
+        re.compile(pattern, re.I)
+        for pattern in (
+            rf"\b{_BUYING}\s(?:(?:a|an)\s)?{kind}[\s-]{_VEHICLE}\b",
+            rf"\b(?:a|an)\s{kind}[\s-]{_VEHICLE}\sfor\s(?:[$€£¥₹₦]\s?)?\d",
+            rf"\b{kind}[\s-]{_VEHICLE}\sloans?\b",
+            rf"\bloan\sfor\s(?:a|an)\s{kind}[\s-]{_VEHICLE}\b",
+        )
+    )
 
 
 def named_variant(product: Product, text: str) -> str:
-    """The kind of ``product`` the message names ("a used car": "used"), or ""."""
-    lowered = text.lower()
-    if not product.variants or _NEW_CAR.search(lowered):
-        return ""
+    """The kind of ``product`` the message names ("buying a used car": "used"), or ""."""
+    lowered = " ".join(text.lower().split())
     for variant in product.variants:
-        for word in variant.words:
-            for match in re.finditer(rf"(?<![\w-]){re.escape(word)}(?!\w)", lowered):
-                before = lowered[max(0, match.start() - 24) : match.start()]
-                if _NOT_THIS_ONE_BEFORE.search(before) is None and _VEHICLE_AFTER.match(
-                    lowered, match.end()
-                ):
+        for pattern in _phrases(variant.words):
+            for match in pattern.finditer(lowered):
+                before = lowered[max(0, match.start() - 16) : match.start()]
+                if _ALTERNATIVE_BEFORE.search(before) is None:
                     return variant.key
     return ""

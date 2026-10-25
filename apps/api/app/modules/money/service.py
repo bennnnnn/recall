@@ -65,14 +65,15 @@ async def prepare_money_turn(
     *,
     user: User | None,
     location: str | None,
-    earlier: Sequence[str] = (),
+    earlier: Sequence[str | Sequence[str]] = (),
     last_reply: str = "",
 ) -> MoneyTurn | None:
     """The money turn ``text`` asks for, or None when it is not one.
 
-    ``earlier`` is the user's lines before it, oldest first: "what if 3 years instead"
-    is the last request there with its term changed. ``last_reply`` is the reply before
-    it, whose card shows the rate a follow-up is told about when its own rate differs.
+    ``earlier`` is the user's lines before it, oldest first, each as its turn's parts:
+    "what if 3 years instead" is the last request there with its term changed.
+    ``last_reply`` is the reply before it, whose card shows the rate a follow-up is told
+    about when its own rate differs.
     """
     if not settings.money_enabled:
         return None

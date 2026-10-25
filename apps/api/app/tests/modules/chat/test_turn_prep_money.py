@@ -125,3 +125,16 @@ async def test_a_what_if_after_the_chat_moved_on_is_no_money_turn(fake_redis: Re
             _request(line, history=history), _identity(), Settings(), fake_redis, single_plan(line)
         )
         assert turn is None
+
+
+async def test_an_earlier_multi_part_line_is_read_in_its_parts(fake_redis: Redis) -> None:
+    """Review (2026-10-25): "what about 3 years" after this line was worked on a loan of 9."""
+    earlier = "set a reminder for 9 tomorrow and what's the payment on a 20000 car loan at 6%"
+    line = "what about 3 years"
+    turn = await money_prep.money_turn(
+        _request(line, history=(earlier,)), _identity(), Settings(), fake_redis, single_plan(line)
+    )
+    assert turn is not None
+    assert turn.request.values == {"amount": 20000, "rate": 6, "months": 36}
+    if turn.lookup is not None:
+        turn.lookup.cancel()

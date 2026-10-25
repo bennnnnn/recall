@@ -14,9 +14,9 @@ as a slider moves by **evaluating** the formula the server sent; it never solves
 | Part | Path |
 |------|------|
 | Products, formulas, defaults, slider ranges (data, not code paths) | `apps/api/app/modules/money/catalog.py` |
-| Reading a request (product, kind, amount, down payment, rate, term, payment, currency) | `apps/api/app/modules/money/read.py`; which percent is the rate and which a share put down, `percents.py`; the kind, `kinds.py` |
+| Reading a request (product, amount, rate, term, payment, currency, country) | `apps/api/app/modules/money/read.py`; the kind (a used car), `kinds.py` |
 | A what-if that changes the chat's last request ("what if i only do 3 years instead") | `apps/api/app/modules/money/follow_up.py`, its grammar `change_line.py` |
-| The currency a request names, the card's currency and the country a rate search names | `apps/api/app/modules/money/currencies.py` |
+| The card's currency and the country a rate search names | `apps/api/app/modules/money/currencies.py` |
 | Numbers for the asked values, the prompt block and the note | `apps/api/app/modules/money/solve.py`, `block.py`, `note.py` |
 | Today's average rate: one web search, one checked structured read, cached | `apps/api/app/modules/money/rates.py` |
 | The calculator fence and its self-check | `apps/api/app/modules/money/fence.py`, `schemas.py` |
@@ -37,11 +37,12 @@ branches on its name. A kind of a product priced apart is a `Variant` on its row
 words and `RateLookup`: "a used car for 14000" (also pre-owned, certified pre-owned,
 second-hand) is a car loan looked up at the used-car average, cached apart from the new-car one
 and named in the reply ("used car loan rate"; used-car averages are published for every term at
-once, so that lookup names none). The kind word counts only right before the vehicle being
-financed ("buying a used car", "a used car for 14000", "used car loan"): not as a verb ("I used a
-calculator", "what rate is used?"), not about another car ("my used car", "trading in", "sold",
-"instead of", "don't want", "not a"), and not when the message names a new car. New or no kind
-said is the row's own lookup.
+once, so that lookup names none). The kind counts only in a few fixed phrases about the vehicle
+being bought: "buying (a) used car" (also buy, bought, get, finance, financing, purchase,
+looking at, thinking of buying), "a used car for 14000", "used car loan", "loan for a used car".
+Nothing else names it: not a verb ("I used a calculator", "what rate is used?"), the old car
+("to replace my old used car", "trading in my used car") or the alternative ("or buy a used
+car with cash"). New or no kind said is the row's own lookup.
 
 The row's own lookup starts beside a variant's. When the variant's finds nothing in time, the
 row's own average stands in and says so: the reply and the note name it ("today's average
@@ -60,13 +61,7 @@ no used-car average and got no numbers at all, where the new-car average had wor
 
 A term the user didn't give comes from the row's default (a 30-year mortgage, a 5-year car loan),
 and the reply says it assumed one. A rate they didn't give comes from today's average when there
-is one; otherwise the model asks for it. "3 years ago", "20 years old", "sell after 5 years" or
-"the past 3 years" is no term ("paid off after 15 years" is). "20% down" and "a down payment of
-20%" are a share of the price, not the rate; a percent after a sum put down ("5000 down 6.9%")
-is the rate, and so is the 6% of "6% down from 7%". In "the rate went down 1% to 5.5%" the
-rate is 5.5%. "A 2022 car" is a model year,
-not a price beside another sum ("a 2000 car with a loan at 10%" has none, so there it is
-the price), and "4000 cash down" is a down payment ("a 500 upfront fee" is not).
+is one; otherwise the model asks for it.
 
 ## Follow-ups
 
@@ -93,10 +88,12 @@ off by dollars (live 2026-10-25: $340.58 a month for $340.45).
   of loan, and a line about the person ("what if I'm 30 years") changes nothing.
 - The new value must lie on the slider the request's last card had (`fence.slider_range`): a
   mortgage runs 5 to 40 years, so "2 years" is no new term.
-- The turn passes the user's earlier lines and the last reply (`turn_prep/money.py`). The
-  request a line changes is the last one in the user's last three lines, and every line after
-  it must be a change of it too; a line about something else, or a change the server left to
-  the model, ends the run.
+- The turn passes the user's earlier lines and the last reply (`turn_prep/money.py`), each
+  line in the parts its own turn read it in (a multi-part line's plan, read in the pool with the
+  message), so "set a reminder for 9 tomorrow and what's the payment on a 20000 car loan at 6%"
+  is the 20000 loan, not one of 9. The request a line changes is the last one in the user's
+  last three lines, and every line after it must be a change of it too; a line about something
+  else, or a change the server left to the model, ends the run.
 - The follow-up's average is read again for its own kind and term. When that is not the rate
   the last reply's card showed (a stand-in the first time, the used-car average now), the
   block says the rate changed and why.

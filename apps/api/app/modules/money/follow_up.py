@@ -31,21 +31,31 @@ from app.modules.money.solve import rate_name
 _WINDOW = 3
 
 
-def follow_up_request(text: str, earlier: Sequence[str]) -> MoneyRequest | None:
+def follow_up_request(text: str, earlier: Sequence[str | Sequence[str]]) -> MoneyRequest | None:
     """The chat's last money request with ``text``'s change made, or None.
 
-    ``earlier`` is the user's lines before this one, oldest first. Each of the last
-    ``_WINDOW`` is read as its turn read it: a change of the request before it, a new
-    request, or neither, which ends the money conversation.
+    ``earlier`` is the user's lines before this one, oldest first, each as the parts its
+    own turn read it in (a multi-part line's requests, ``turn_plan``; a plain line is one
+    part). Each of the last ``_WINDOW`` is read as its turn read it: its first part that
+    changes the request before it or is a new request, or none, which ends the money
+    conversation. A review (2026-10-25) found the whole of "set a reminder for 9 tomorrow
+    and what's the payment on a 20000 car loan at 6%" read as a loan of 9.
     """
     if read_change(text) is None:
         return None
     request: MoneyRequest | None = None
     for line in list(earlier)[-_WINDOW:]:
-        if request is not None:
-            request = changed(request, line)
-        request = request or _fresh(line)
+        request = _line_request(request, (line,) if isinstance(line, str) else tuple(line))
     return changed(request, text) if request is not None else None
+
+
+def _line_request(request: MoneyRequest | None, parts: tuple[str, ...]) -> MoneyRequest | None:
+    """The money request an earlier line left, read part by part as its turn read it."""
+    for part in parts:
+        found = (changed(request, part) if request is not None else None) or _fresh(part)
+        if found is not None:
+            return found
+    return None
 
 
 def changed(request: MoneyRequest, line: str) -> MoneyRequest | None:

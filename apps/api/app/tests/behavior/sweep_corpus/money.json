@@ -973,5 +973,22 @@
   ],
   "reply": "At 5% the payment is about $377.42 a month.",
   "expect": "answer"
+ },
+ {
+  "id": "mo-068",
+  "area": "money",
+  "prompt": "what about 3 years",
+  "history": [
+   [
+    "user",
+    "set a reminder for 9 tomorrow and what's the payment on a 20000 car loan at 6%"
+   ],
+   [
+    "assistant",
+    "Reminder set for 9 tomorrow. The car loan is about $386.66 a month over 60 months."
+   ]
+  ],
+  "reply": "Over 36 months the payment is about $608.44 a month.",
+  "expect": "answer"
  }
 ]

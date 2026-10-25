@@ -22,8 +22,7 @@ import re
 from dataclasses import dataclass
 from functools import partial
 
-from app.modules.money.percents import PERCENT
-from app.modules.money.read import DURATION
+from app.modules.money.read import DURATION, PERCENT
 
 _MAX_CHARS = 200
 _PCT = rf"(?<![\w.]){PERCENT}"

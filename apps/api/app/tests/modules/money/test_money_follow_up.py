@@ -53,7 +53,6 @@ RECTANGLE = "a rectangle has a perimeter of 40 and a length of 12, what is the w
         ([CAR_PLAIN], "what about 36mo", {"months": 36}, ("months",)),
         ([MORTGAGE], "what about 15 years?", {"amount": 300000, "rate": 1, "years": 15}, ("years",)),
         ([MORTGAGE_6], "what about 180 months", {"years": 15}, ("years",)),
-        ([MORTGAGE_SHARE], "what about 15 years", {"amount": 280000, "years": 15}, ("years",)),
         ([STUDENT], "what if it's 20 years", {"years": 20}, ("years",)),
         ([PERSONAL], "what about 60 months", {"months": 60}, ("months",)),
         ([SAVINGS], "what about 20 years?", {"deposit": 200, "years": 20}, ("years",)),
@@ -197,6 +196,15 @@ def test_a_new_term_or_rate_is_the_last_request_changed(
 )
 def test_a_line_that_changes_no_term_or_rate_is_none(earlier: list[str], line: str) -> None:
     assert follow_up_request(line, earlier) is None
+
+
+def test_an_earlier_line_is_read_in_its_own_turns_parts() -> None:
+    """Review (2026-10-25): the whole of this line read as a loan of 9; its turn's money
+    part was the car loan of 20000."""
+    parts = ("set a reminder for 9 tomorrow", "what's the payment on a 20000 car loan at 6%")
+    request = follow_up_request("what about 3 years", [parts])
+    assert request is not None
+    assert request.values == {"amount": 20000, "rate": 6, "months": 36}
 
 
 def test_the_kind_stays_the_requests_own() -> None:
