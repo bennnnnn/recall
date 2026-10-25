@@ -2,6 +2,7 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet, Text } from "react-native";
 
 import { CodeBlock } from "@/components/CodeBlock";
+import { AA, compositeOver, contrastRatio } from "@/lib/__tests__/support/contrast";
 import { darkTheme, lightTheme, withAlpha } from "@/lib/theme";
 
 const mockTheme = { dark: false };
@@ -135,14 +136,14 @@ describe("CodeBlock", () => {
       };
     }
 
-    it("colors added lines green and removed lines red, context plain", async () => {
+    it("bands added lines green and removed lines red, context plain", async () => {
       const utils = await renderBlock({ code: DIFF, lang: "diff" });
       expect(lineStyle(utils, "+    total = 0")).toEqual({
-        ink: lightTheme.success,
+        ink: lightTheme.text,
         band: withAlpha(lightTheme.success, 0.12),
       });
       expect(lineStyle(utils, "-    count = 0")).toEqual({
-        ink: lightTheme.danger,
+        ink: lightTheme.text,
         band: withAlpha(lightTheme.danger, 0.1),
       });
       expect(lineStyle(utils, "def f(xs):").band).toBeUndefined();
@@ -152,8 +153,22 @@ describe("CodeBlock", () => {
     it("uses the dark theme's colors in dark mode", async () => {
       mockTheme.dark = true;
       const utils = await renderBlock({ code: DIFF, lang: "patch" });
-      expect(lineStyle(utils, "+    total = 0").ink).toBe(darkTheme.success);
-      expect(lineStyle(utils, "-    count = 0").ink).toBe(darkTheme.danger);
+      expect(lineStyle(utils, "+    total = 0").band).toBe(withAlpha(darkTheme.success, 0.12));
+      expect(lineStyle(utils, "-    count = 0").band).toBe(withAlpha(darkTheme.danger, 0.1));
+    });
+
+    // Green ink on its green band measured 3.75:1 in light mode, red on red 3.90.
+    it.each([
+      ["light", false],
+      ["dark", true],
+    ] as const)("keeps a changed line's ink AA on its band in %s mode", async (_scheme, dark) => {
+      mockTheme.dark = dark;
+      const theme = dark ? darkTheme : lightTheme;
+      const utils = await renderBlock({ code: DIFF, lang: "diff" });
+      for (const line of ["+    total = 0", "-    count = 0"]) {
+        const { ink, band } = lineStyle(utils, line);
+        expect(contrastRatio(ink, compositeOver(band, theme.codeBg))).toBeGreaterThanOrEqual(AA);
+      }
     });
 
     it("leaves +/- lines of other languages alone", async () => {
