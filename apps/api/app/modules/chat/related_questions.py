@@ -2,8 +2,9 @@
 
 ``related_prompts`` asks the model and caches the result; this module holds the
 rules on either side of that call, with no model and no Redis: whether a turn
-continues a subject problem or is a real general question (``follow_up_topic``),
-and which candidate questions are short, on topic and new (``accepted_questions``).
+continues a subject problem (``follow_up_thread``) or is a real general question
+(``follow_up_topic``), and which candidate questions are short, on topic and new
+(``accepted_questions``).
 """
 
 from __future__ import annotations
@@ -13,21 +14,16 @@ from collections.abc import Sequence
 from typing import Any
 
 from app.modules.chat.clarify_card import CLARIFY_FENCE
-from app.modules.chat.continuation_subject import (
-    BIOLOGY_CUES,
-    is_new_problem_request,
-    is_pure_continuation,
-)
 from app.modules.chat.follow_up_repeats import repeats_earlier
+from app.modules.chat.follow_up_thread import subject_for_related, thread_problem
+from app.modules.chat.follow_up_words import LATIN, STOP_WORDS, TOPIC_WORD
 from app.modules.chat.prompt_constants.routing import (
     is_lightweight_chat_turn,
     is_personal_disclosure_turn,
 )
 from app.modules.chat.prompt_constants.writing_kind import writing_request_kind
 from app.services.md_fence_scan import iter_fences, read_fence_marker
-from app.services.problem_followup import message_role_content
-from app.services.subject_solving import detect_subject
-from app.services.text_normalize import collapse_ws
+from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 # Questions shown under a reply: three, or none.
 MAX_QUESTIONS = 3
@@ -51,88 +47,8 @@ _MAX_QUESTION_WORDS = 12
 # A general answer this short is a quick reply or a question back to the user.
 _GENERAL_MIN_ANSWER_CHARS = 280
 _GENERAL_MIN_QUESTION_WORDS = 3
-# A follow-up ("why?") belongs to a problem a few user lines back; further is stale.
-_THREAD_USER_TURNS = 3
-_FOLLOW_UP_LEADS = frozenset(
-    {
-        "why",
-        "how",
-        "what",
-        "when",
-        "where",
-        "which",
-        "can",
-        "could",
-        "is",
-        "are",
-        "does",
-        "do",
-        "explain",
-        "show",
-        "give",
-        "try",
-        "solve",
-        "find",
-        "and",
-        "but",
-        "so",
-        "if",
-    }
-)
-# Lower-case Latin letters with their accents (casefolded text): "pâte" is one word, not
-# "p" and "te", and "différence" is not "rence".
-_LATIN = "a-zß-öø-ÿ\u0100-\u017f"
-_CONTENT_WORD = re.compile(rf"[{_LATIN}]{{5,}}")
+_CONTENT_WORD = re.compile(rf"[{LATIN}]{{5,}}")
 _UNIT_TOKEN = re.compile(r"[a-z]+/[a-z]+")
-
-
-def subject_for_related(text: str) -> str | None:
-    """Math, physics, chemistry, or biology. Anything else is skipped."""
-    cleaned = collapse_ws(text)
-    if not cleaned:
-        return None
-    detected = detect_subject(cleaned)
-    if detected is not None:
-        return detected
-    lowered = cleaned.casefold()
-    if any(cue in lowered for cue in BIOLOGY_CUES):
-        return "biology"
-    return None
-
-
-def _continues_thread(text: str) -> bool:
-    """A question or a "one more" about the open problem, not small talk."""
-    cleaned = collapse_ws(text)
-    if not cleaned or is_lightweight_chat_turn(cleaned):
-        return False
-    if is_pure_continuation(cleaned) or is_new_problem_request(cleaned):
-        return True
-    words = cleaned.casefold().split()
-    return cleaned.endswith("?") or (bool(words) and words[0].strip(",.") in _FOLLOW_UP_LEADS)
-
-
-def thread_problem(question: str, prior: Sequence[Any] | None) -> str | None:
-    """The subject problem this line follows up on, or None.
-
-    "Why do we divide distance by time?" names no subject itself, so the
-    follow-ups would stop after the first tapped "why". It still belongs to
-    the bike problem two lines back.
-    """
-    if subject_for_related(question) is not None:
-        return question
-    if not prior or not _continues_thread(question):
-        return None
-    users = 0
-    for message in reversed(prior):
-        role, content = message_role_content(message)
-        if role != "user" or not content or not content.strip():
-            continue
-        users += 1
-        if users > _THREAD_USER_TURNS:
-            return None
-        if subject_for_related(content) is not None:
-            return content
-    return None
 
 
 def _digit_skeleton(text: str) -> str:
@@ -247,61 +163,6 @@ _BACK_REFERENCE = re.compile(
     r"^(?:what|and) if\b|\b(?:it|its|it's|this|that|these|those|they|same|instead)\b",
     re.IGNORECASE,
 )
-_STOP_WORDS = frozenset(
-    {
-        "about",
-        "after",
-        "again",
-        "also",
-        "because",
-        "been",
-        "before",
-        "being",
-        "best",
-        "better",
-        "could",
-        "does",
-        "doing",
-        "each",
-        "from",
-        "have",
-        "here",
-        "into",
-        "just",
-        "know",
-        "like",
-        "make",
-        "more",
-        "most",
-        "much",
-        "need",
-        "only",
-        "other",
-        "should",
-        "some",
-        "than",
-        "that",
-        "their",
-        "them",
-        "then",
-        "there",
-        "these",
-        "they",
-        "thing",
-        "things",
-        "this",
-        "what",
-        "when",
-        "where",
-        "which",
-        "while",
-        "will",
-        "with",
-        "would",
-        "your",
-    }
-)
-_TOPIC_WORD = re.compile(rf"[{_LATIN}]{{4,}}")
 
 
 def _keep_question(
@@ -344,6 +205,10 @@ def _problem_anchors(question: str) -> set[str]:
     return numbers | set(_CONTENT_WORD.findall(folded)) | set(_UNIT_TOKEN.findall(folded))
 
 
+def _named_words(text: str) -> set[str]:
+    return {word for word in TOPIC_WORD.findall(text.casefold()) if word not in STOP_WORDS}
+
+
 def topic_anchors(question: str, excerpt: str) -> set[str]:
     """Words that keep a general follow-up on the user's topic.
 
@@ -352,17 +217,13 @@ def topic_anchors(question: str, excerpt: str) -> set[str]:
     word counts when it has an accent ("pâte"): no English function word does. A
     question in a script without Latin letters has none, and the check stays off.
     """
-    asked = {
-        word
-        for word in _TOPIC_WORD.findall(collapse_ws(question).casefold())
-        if word not in _STOP_WORDS
-    }
+    asked = _named_words(collapse_ws(question))
     if not asked:
         return set()
     replied = {
         word
-        for word in _TOPIC_WORD.findall(excerpt.casefold())
-        if (len(word) >= 5 or not word.isascii()) and word not in _STOP_WORDS
+        for word in TOPIC_WORD.findall(excerpt.casefold())
+        if (len(word) >= 5 or not word.isascii()) and word not in STOP_WORDS
     }
     return asked | replied
 
@@ -411,6 +272,13 @@ _ASKS_TO_KNOW = re.compile(
     r"compare|describe|summari[sz]e|recommend|suggest|help me|ideas?|tips?|best)\b",
     re.IGNORECASE,
 )
+# A question that ends its sentence before the message ends: "hey! i'm learning python,
+# can you explain what a list comprehension is? keep it simple" (2026-10-25, no
+# follow-ups). The clause after the last comma is the question itself.
+_QUESTION_CLAUSE = re.compile(r"[^.!?,;:]*\?(?=\s|$)")
+# Two topic words: "can you believe it?" in a personal update, or "how are you?" before a
+# request, names nothing to dig into.
+_QUESTION_CLAUSE_TOPIC_WORDS = 2
 # A reminder, a saved fact or a setting is done once it is done. "How do I
 # remember vocabulary?" and "best to-do list app?" are questions, not commands.
 _ADMIN_REQUEST = re.compile(
@@ -419,26 +287,54 @@ _ADMIN_REQUEST = re.compile(
     r"my settings|my preferences|turn (?:on|off)|switch (?:on|off)|call me)",
     re.IGNORECASE,
 )
+# Reading the user's own list back is admin too (2026-10-25: "ok last thing, what's on my
+# to do list right now?" got what-ifs on a falling ball, then everyday questions). "Do I
+# have to do it?" and "What's the best to-do list app?" ask about something else.
+_OWN_ITEMS = r"to-?dos?|todos?|reminders?|tasks?"
+_OWN_LIST = rf"to[- ]?do(?:s| list)?|{_OWN_ITEMS}|schedule|agenda|calendar|list"
+_READS_OWN_LIST = re.compile(
+    rf"\b(?:what|anything)(?:'?s|\s+(?:is|are|else|still|left|there))*\s+(?:on|in) my "
+    rf"(?:{_OWN_LIST})\b|\b(?:show|list|read|check)(?: me)? my (?:{_OWN_LIST})\b|"
+    rf"\bwhat(?:'?s| is| are) my (?:{_OWN_LIST})\b|"
+    rf"\bdo i have (?:any(?:thing)? )?(?:{_OWN_ITEMS}|due)\b",
+    re.IGNORECASE,
+)
+
+
+def _asks_something(cleaned: str) -> bool:
+    """A question, or a line that asks to know: "explain", "tips for", or a question
+    that names something before the message goes on."""
+    if cleaned.endswith("?") or _ASKS_TO_KNOW.match(cleaned):
+        return True
+    return any(
+        len(_named_words(clause)) >= _QUESTION_CLAUSE_TOPIC_WORDS
+        for clause in _QUESTION_CLAUSE.findall(cleaned)
+    )
 
 
 def general_question(question: str, answer: str) -> bool:
     """A real question with a full answer, outside the subjects.
 
-    Small talk, a personal update, a draft the user asked for, a reminder or a
-    setting, and a short reply get no follow-ups. Small talk that reads like a
-    question ("how's your day?") gets a short reply, which the length check
-    catches.
+    Small talk, a personal update, a draft the user asked for, a reminder, a read
+    of the user's own list or a setting, and a short reply get no follow-ups.
+    Small talk that reads like a question ("how's your day?") gets a short reply,
+    which the length check catches.
     """
     cleaned = collapse_ws(question)
-    if len(cleaned.split()) < _GENERAL_MIN_QUESTION_WORDS:
-        return False
-    if not (cleaned.endswith("?") or _ASKS_TO_KNOW.match(cleaned)):
+    if len(cleaned.split()) < _GENERAL_MIN_QUESTION_WORDS or not _asks_something(cleaned):
         return False
     if is_lightweight_chat_turn(cleaned) or is_personal_disclosure_turn(cleaned):
         return False
     if writing_request_kind(cleaned) is not None or _ADMIN_REQUEST.search(cleaned):
         return False
+    if _reads_own_list(cleaned):
+        return False
     return len(answer_excerpt(answer)) >= _GENERAL_MIN_ANSWER_CHARS
+
+
+def _reads_own_list(text: str) -> bool:
+    """A read of the user's own list, typed with the phone's curly apostrophe too."""
+    return _READS_OWN_LIST.search(straighten_apostrophes(collapse_ws(text))) is not None
 
 
 # A card the user answers with a tap is the reply's next step: a clarify card's
@@ -452,16 +348,23 @@ def follow_up_topic(
     prior: Sequence[Any] | None,
     *,
     allow_general: bool,
+    shown: Sequence[str] = (),
 ) -> tuple[str, str | None] | None:
     """("subject", problem) or ("general", None); None makes no call.
 
+    ``shown`` is what the chat offered under its last replies: one of them tapped stays
+    on the problem it was written for.
+
     A reply that ends on a card waiting for a tap has its follow-up already: a clarify
     card's questions, a reminder to confirm. Suggestions under it only repeated them
-    ("What is your budget?").
+    ("What is your budget?"). A line that reads the user's own list back gets none.
     """
     if any(fence.lang in _AWAITS_A_TAP for fence in iter_fences(answer)):
         return None
-    problem = thread_problem(question, prior)
+    if _reads_own_list(question):
+        # Nothing to dig into, and no follow-up of the problem before it.
+        return None
+    problem = thread_problem(question, prior, shown)
     if problem is not None and (_has_quantity(problem) or not _asks(problem)):
         return "subject", problem
     if problem is not None and problem == question:
@@ -481,6 +384,6 @@ def _has_quantity(problem: str) -> bool:
 
 def _asks(question: str) -> bool:
     cleaned = collapse_ws(question)
-    if not (cleaned.endswith("?") or _ASKS_TO_KNOW.match(cleaned)):
+    if not _asks_something(cleaned):
         return False
     return not (is_lightweight_chat_turn(cleaned) or is_personal_disclosure_turn(cleaned))

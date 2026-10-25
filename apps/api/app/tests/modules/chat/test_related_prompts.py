@@ -11,6 +11,8 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import User
+from app.modules.chat import related_prompts
+from app.modules.chat.follow_up_thread import subject_for_related, thread_problem
 from app.modules.chat.related_prompts import (
     RelatedQuestions,
     generate_related_questions,
@@ -18,7 +20,7 @@ from app.modules.chat.related_prompts import (
     schedule_related_prompts,
     store_related_prompts,
 )
-from app.modules.chat.related_questions import _digit_skeleton, subject_for_related, thread_problem
+from app.modules.chat.related_questions import _digit_skeleton
 from app.modules.chat.service import list_messages_page
 from app.modules.chat.stream_accum import Completion
 from app.modules.chat.stream_events import DoneEvent, take_related_prompts_event
@@ -205,8 +207,6 @@ async def test_a_line_the_turn_did_not_read_as_asked_is_read_in_the_pool(
     """The topic asks each line's subject with its blanks collapsed; the turn read the lines
     as written. A multi-line question's topic was read on the event loop (18 ms for a
     4,000-character problem): it is read in the pool, with its questions."""
-    from app.modules.chat import related_prompts
-
     asked: list[str] = []
     real = related_prompts.follow_up_topic
 
@@ -400,6 +400,252 @@ def test_thread_problem_forgets_a_stale_problem() -> None:
         {"role": "assistant", "content": "Leaves fall all day."},
     ]
     assert thread_problem("Why is that?", window) is None
+
+
+# The live chat (2026-10-25): a homework problem, then a chart of it; a falling ball, then
+# a why. Two lines later the user moved on, and the chips were what-ifs on the problem.
+RECT = (
+    "my little sister has this homework: a rectangle has a perimeter of 36 cm and its "
+    "length is twice its width. find the area. how do i explain it to her?"
+)
+RECT_WINDOW = [
+    {"role": "user", "content": RECT},
+    {
+        "role": "assistant",
+        "content": (
+            "Here's a simple way to explain it to your sister. **Step 1:** Call the width w. "
+            "The length is twice the width, so it is 2w. **Step 2:** The perimeter is the "
+            "distance all the way around: w + 2w + w + 2w = 6w = 36, so w = 6 cm and the "
+            "length is 12 cm. **Step 3:** Area = length × width = 12 × 6 = 72 cm². Next, "
+            "she can check the answer: 12 + 6 + 12 + 6 = 36. Going slowly with a picture "
+            "really helps."
+        ),
+    },
+    {"role": "user", "content": "can you show it as a chart?"},
+    {
+        "role": "assistant",
+        "content": (
+            "Here's a chart of the length and width.\n\n```chart\n{}\n```\nThe length bar "
+            "(12 cm) is twice the width bar (6 cm). Going around, the four sides add up to "
+            "36 cm. Right, that's the whole picture."
+        ),
+    },
+]
+BALL = (
+    "a ball is dropped from a 20 m building, how long until it hits the ground and how "
+    "fast is it going?"
+)
+BALL_WINDOW = [
+    {"role": "user", "content": BALL},
+    {
+        "role": "assistant",
+        "content": (
+            "**Given:** h = 20 m, initial speed 0 m/s, g = 9.8 m/s². **Formula:** h = ½gt², "
+            "v = gt. **Answer:** the ball hits the ground after about 2.0 s, going about "
+            "19.8 m/s. Air resistance is ignored, a good approximation for a short drop."
+        ),
+    },
+    {"role": "user", "content": "why doesn't the mass matter?"},
+    {
+        "role": "assistant",
+        "content": (
+            "Because gravity gives every object the same acceleration. A heavier ball feels "
+            "a bigger pull, but it also has more inertia, so the acceleration stays "
+            "9.8 m/s². That's right whenever air resistance is small. The last part of the "
+            "fall is the fastest, since the speed keeps growing every second."
+        ),
+    },
+]
+WINDOWS = {"rect": (RECT_WINDOW, RECT), "ball": (BALL_WINDOW, BALL), "bike": (BIKE_WINDOW, BIKE)}
+_FULL_REPLY = "A full answer with the details. " * 12
+
+
+@pytest.mark.parametrize(
+    ("window", "line"),
+    [
+        ("rect", "what about a square?"),
+        ("rect", "why is the length 2w?"),
+        ("rect", "what if the perimeter was 48 cm?"),
+        ("rect", "how do i check the answer with her?"),
+        ("rect", "how would you explain this to a 7 year old?"),
+        ("rect", "what's a real life example of this?"),
+        ("rect", "why is the area in square centimeters?"),
+        ("rect", "she still doesn't get it, any other way to explain?"),
+        ("rect", "what's the area of a square with the same perimeter?"),
+        ("ball", "what if g was half?"),
+        ("ball", "how long would it take from twice the height?"),
+        ("ball", "what about air resistance?"),
+        ("ball", "can you show the motion as a graph?"),
+        ("ball", "is air resistance why feathers fall slowly?"),
+        ("ball", "how would this change on mars?"),
+        ("bike", "what if it took 4 hours instead?"),
+        ("bike", "is average speed the same as top speed?"),
+    ],
+)
+def test_a_line_still_on_the_problem_ties_to_it(window: str, line: str) -> None:
+    prior, problem = WINDOWS[window]
+    assert thread_problem(line, prior) == problem
+
+
+@pytest.mark.parametrize(
+    ("window", "line"),
+    [
+        ("rect", "cool. i'm going to lisbon next month for 4 days, what should i not miss?"),
+        ("ball", "cool. i'm going to lisbon next month for 4 days, what should i not miss?"),
+        ("rect", "i'm going to lisbon next month, is it worth renting a car?"),
+        ("rect", "what's a good recipe for chicken curry?"),
+        ("rect", "how do i fix a leaking kitchen tap?"),
+        ("rect", "what are some fun things to do with kids on a rainy day?"),
+        ("ball", "can you recommend a good sci-fi book for a long flight?"),
+        ("ball", "what are the best exercises for lower back pain?"),
+        ("ball", "my wifi keeps dropping, how do i fix it?"),
+        ("ball", "any tips for a job interview tomorrow?"),
+        ("bike", "what's the weather usually like in tokyo in april?"),
+        ("bike", "what time does the louvre open on sundays?"),
+    ],
+)
+def test_a_line_on_a_topic_of_its_own_leaves_the_problem(window: str, line: str) -> None:
+    from app.modules.chat.related_questions import follow_up_topic
+
+    prior, _problem = WINDOWS[window]
+    assert thread_problem(line, prior) is None
+    # It is judged as any question is: the next questions on its own topic.
+    assert follow_up_topic(line, _FULL_REPLY, prior, allow_general=True) == ("general", None)
+
+
+def test_a_line_after_one_that_left_does_not_reach_back() -> None:
+    lisbon = "cool. i'm going to lisbon next month for 4 days, what should i not miss?"
+    window = [
+        *RECT_WINDOW,
+        {"role": "user", "content": lisbon},
+        {"role": "assistant", "content": "Don't miss Belém, Alfama and a pastel de nata."},
+    ]
+    assert thread_problem("what about the food there?", window) is None
+    assert thread_problem("why?", window) is None
+
+
+@pytest.mark.parametrize(
+    ("shown", "expected"),
+    [(["How does this relate to the Pythagorean theorem?"], RECT), ([], None)],
+    ids=["tapped", "typed"],
+)
+def test_a_tapped_follow_up_stays_on_the_problem_it_was_written_for(
+    shown: list[str], expected: str | None
+) -> None:
+    line = "How does this relate to the Pythagorean theorem?"
+    assert thread_problem(line, RECT_WINDOW, shown) == expected
+
+
+async def test_the_chats_shown_follow_ups_reach_the_topic_read() -> None:
+    tapped = "How does this relate to the Pythagorean theorem?"
+    with patch.object(related_prompts, "complete_structured", new_callable=AsyncMock) as complete:
+        complete.return_value = RelatedQuestions(questions=[])
+        await generate_related_questions(
+            Settings(), tapped, _FULL_REPLY, RECT_WINDOW, shown=[tapped]
+        )
+    call = complete.await_args
+    assert call is not None
+    assert call.kwargs["messages"][1]["content"].startswith(f"Problem:\n{RECT}")
+
+
+async def test_a_new_topic_two_lines_after_a_problem_gets_its_own_follow_ups() -> None:
+    lisbon = "cool. i'm going to lisbon next month for 4 days, what should i not miss?"
+    with patch.object(related_prompts, "complete_structured", new_callable=AsyncMock) as complete:
+        complete.return_value = RelatedQuestions(
+            questions=[
+                "Why set length to 2w?",
+                "Is the Lisbon Card worth buying?",
+                "How do I get from the airport to Alfama?",
+                "Is Sintra worth a day trip from Lisbon?",
+            ]
+        )
+        prompts = await generate_related_questions(Settings(), lisbon, _LISBON_REPLY, RECT_WINDOW)
+    call = complete.await_args
+    assert call is not None
+    sent = call.kwargs["messages"][1]["content"]
+    assert sent.startswith(f"Question:\n{lisbon}") and "Problem:" not in sent
+    # The rectangle's step left the topic.
+    assert prompts == [
+        "Is the Lisbon Card worth buying?",
+        "How do I get from the airport to Alfama?",
+        "Is Sintra worth a day trip from Lisbon?",
+    ]
+
+
+_LISBON_REPLY = (
+    "Four days in Lisbon is a great amount of time. Spend a morning in Alfama and climb to "
+    "São Jorge Castle, ride tram 28, and eat a pastel de nata in Belém next to the "
+    "Jerónimos Monastery. Take a day trip to Sintra for Pena Palace, watch the sunset "
+    "from a miradouro, and hear fado in a small tavern one evening. The Lisbon Card covers "
+    "trams, the metro and many museums, and the airport is twenty minutes from the center."
+)
+
+
+@pytest.mark.parametrize(
+    ("line", "window"),
+    [
+        ("ok last thing, what's on my to do list right now?", BALL_WINDOW),
+        ("ok last thing, what's on my to do list right now?", RECT_WINDOW),
+        ("what's on my schedule today?", BALL_WINDOW),
+        # The phone's keyboard types a curly apostrophe.
+        ("what\u2019s on my to do list?", None),
+        ("do i have any reminders today?", None),
+        ("what's left on my to-do list?", None),
+        ("show me my tasks for this week", None),
+        ("what are my reminders for tomorrow?", None),
+        ("is there anything on my list for friday?", None),
+    ],
+)
+def test_a_read_of_the_users_own_list_gets_no_follow_ups(
+    line: str, window: list[dict[str, str]] | None
+) -> None:
+    from app.modules.chat.related_questions import follow_up_topic, general_question
+
+    assert not general_question(line, _FULL_REPLY)
+    assert follow_up_topic(line, _FULL_REPLY, window, allow_general=True) is None
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "What's the best to-do list app for students?",
+        "How do I keep my to-do list short?",
+        "what should i put on my to-do list for moving house?",
+        "do i have to do a phd to become a professor?",
+        "Is it bad to keep reminders on my phone?",
+        "how should i plan my schedule for exam week?",
+    ],
+)
+def test_a_question_about_lists_is_not_a_read_of_the_users_own(question: str) -> None:
+    from app.modules.chat.related_questions import general_question
+
+    assert general_question(question, _FULL_REPLY)
+
+
+@pytest.mark.parametrize(
+    ("question", "asks"),
+    [
+        (
+            "hey! i'm starting to learn python, can you explain what a list comprehension "
+            "is? keep it simple",
+            True,
+        ),
+        ("quick question: is it safe to eat raw cookie dough? asking for a friend", True),
+        ("so is sourdough healthier than white bread? just curious", True),
+        # A question that names nothing: small talk, or a personal update.
+        ("hey! how are you? hope your day is going well", False),
+        ("i got the job! can you believe it? so happy", False),
+        ("hi! is this thing on? lol", False),
+        # A draft or a poem is a writing request, whatever it asks on the way.
+        ("hey! how are you? write me a poem about the sea", False),
+        ("can you draft a reply to my boss? keep it short and polite", False),
+        ("write an email to my landlord: is the heating fixed yet? thanks", False),
+    ],
+)
+def test_a_question_mid_message_is_still_a_question(question: str, asks: bool) -> None:
+    from app.modules.chat.related_questions import general_question
+
+    assert general_question(question, _FULL_REPLY) is asks
 
 
 async def test_a_tapped_why_keeps_the_follow_ups_coming() -> None:

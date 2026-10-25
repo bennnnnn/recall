@@ -3,7 +3,8 @@
 One study chat showed "Why use Kelvin not Celsius?" under four replies after the user
 had asked it, offered "What if it was $-2x + 5 = 0$?" beside "How does it change for
 $-2x + 5 = 0$?", and answered "who was Charles from Charles's law?" with "What if the
-temperature doubles?".
+temperature doubles?". A chat the next day showed "What if perimeter was 48 cm?" after
+"What if the perimeter was 48 cm?".
 """
 
 from __future__ import annotations
@@ -42,6 +43,14 @@ _REPLY = "Charles's law ties volume to absolute temperature, so it needs kelvin.
         ("Why use Kelvin for Charles's Law?", [_ASKED]),
         ("How does it change for $-2x + 5 = 0$?", ["What if it was $-2x+5=0$?"]),
         ("Why do mole ratios matter?", ["How do mole ratios work?"]),
+        # Without its articles and pronouns, the same question; a number is its topic too.
+        ("What if perimeter was 48 cm?", ["What if the perimeter was 48 cm?"]),
+        ("What if the perimeter were 48 cm?", ["What if perimeter was 48 cm?"]),
+        ("How would a 48 cm perimeter change the area?", ["What if the perimeter was 48 cm?"]),
+        ("Why do you divide by 6?", ["Why do we divide by 6?"]),
+        ("What is a mole?", ["What is the mole?"]),
+        ("What if the speed was 2.5 m/s?", ["What if speed was 2.5 m/s?"]),
+        ("What if the mass was 4 kg?", ["What if mass is 4 kg?"]),
     ],
 )
 def test_a_reworded_question_repeats_the_earlier_one(candidate: str, earlier: list[str]) -> None:
@@ -65,6 +74,17 @@ def test_a_reworded_question_repeats_the_earlier_one(candidate: str, earlier: li
         # A what-if on one quantity of a problem statement is the point of a follow-up.
         ("What if the angle is 45 degrees?", [_BLOCK]),
         ("How does the normal force change with angle?", [_BLOCK]),
+        # Another number, sign or quantity is another question; numbers alone are no topic.
+        ("What if the perimeter was 60 cm?", ["What if the perimeter was 48 cm?"]),
+        ("What if the area was 48 cm²?", ["What if the perimeter was 48 cm?"]),
+        ("What if the speed was -5 m/s?", ["What if the speed was 5 m/s?"]),
+        ("What if $2x - 5 = 0$?", ["What if $2x + 5 = 0$?"]),
+        ("What if it was dropped from 10 m?", ["What if it was dropped from 20 m?"]),
+        ("What if the width was 6 cm?", ["What if the length was 6 cm?"]),
+        ("What is the acceleration at 45 degrees?", ["What if the angle is 45 degrees?"]),
+        ("How can 4 + 3 also make 7?", ["Why does 3 + 4 equal 7?"]),
+        # A pronoun may stand for anything: "it" is not the feather.
+        ("Why does the feather fall slower?", ["Why does it fall?"]),
     ],
 )
 def test_a_new_question_is_not_a_repeat(candidate: str, earlier: list[str]) -> None:
