@@ -16,7 +16,8 @@ import {
   parseMemoryDate,
 } from "@/features/memory/model/memoryDocuments";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
-import { formatMonthDay } from "@/lib/datetime/format";
+import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
+import { formatDate } from "@/lib/datetime/format";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
@@ -50,6 +51,8 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   useEffect(() => {
     if (isCurrentView()) void load();
   }, [isCurrentView, load]);
+  // The API back after an outage: the pages read again.
+  useReconnectRefresh(() => void load(), isCurrentView);
 
   useEffect(() => {
     if (!scanning) return;
@@ -139,7 +142,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
             {section.documents.map((document) => {
               const title = documentTitle(document, t);
               const updated = parseMemoryDate(document.updated_at);
-              const date = updated ? formatMonthDay(updated, locale) : undefined;
+              const date = updated ? formatDate(updated, "monthDay") : undefined;
               return (
                 <ListRow
                   key={document.key}

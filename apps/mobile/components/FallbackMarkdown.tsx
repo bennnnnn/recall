@@ -77,13 +77,32 @@ function visualFallbackLabel(lang: string, content: string, t: (key: string) => 
   return t("rich.diagram");
 }
 
+/**
+ * One fence as this fallback draws it, for a block that failed on its own
+ * (`FenceErrorBoundary`). A geometry or graph fence is the block that failed,
+ * so it is named, not drawn again.
+ */
+export function FallbackFence({ lang, content }: { lang: string; content: string }) {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const fenceStyles = useMemo(() => makeFenceStyles(theme), [theme]);
+  const calloutStyles = useMemo(() => makeCalloutStyles(theme), [theme]);
+  const node = { key: "fallback", content, sourceInfo: lang };
+  return renderFallbackFence(node, fenceStyles, calloutStyles, t, false);
+}
+
 function renderFallbackFence(
   node: FenceNode,
   fenceStyles: ReturnType<typeof makeFenceStyles>,
   calloutStyles: ReturnType<typeof makeCalloutStyles>,
   t: (key: string) => string,
+  redrawDiagrams = true,
 ) {
-  const classified = classifyFallbackFence(node.sourceInfo, node.content);
+  const found = classifyFallbackFence(node.sourceInfo, node.content);
+  const classified =
+    !redrawDiagrams && (found.kind === "geometry" || found.kind === "graph")
+      ? { kind: "visual" as const, labelLang: node.sourceInfo ?? "", snippet: "" }
+      : found;
   if (classified.kind === "callout") {
     if (!classified.body) return null;
     const i18nKey = CALLOUT_I18N_KEYS[classified.calloutKind] ?? "rich.callout_note";

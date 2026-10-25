@@ -18,7 +18,10 @@ jest.mock("@/features/todos/context/TodosContext", () => ({
   useTodosOptional: () => ({ refresh: mockRefresh }),
 }));
 jest.mock("@/lib/api", () => ({ api: { confirmReminderProposal: jest.fn() } }));
-jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => "America/New_York" }));
+// The phone is in New York; times are drawn in its zone unless the card names another.
+jest.mock("@/lib/datetime/phoneClock", () => ({
+  readPhoneClock: () => ({ timeZone: "America/New_York", hourCycle: "h12" }),
+}));
 const mockAllowAlerts = jest.fn(async () => "on" as "on" | "off");
 jest.mock("@/features/todos/model/reminderAlerts", () => ({
   allowReminderAlerts: () => mockAllowAlerts(),
@@ -147,5 +150,18 @@ describe("ReminderProposalCard", () => {
       />,
     );
     expect(view.getByText(/^Thu, Oct 15, 6:00\sPM (GMT\+3|EAT)$/)).toBeTruthy();
+  });
+
+  it("names no zone when the card's zone is the phone's", async () => {
+    const view = await render(
+      <ReminderProposalCard
+        proposal={proposal({
+          proposal_id: "tz2",
+          tz: "America/New_York",
+          items: [{ action: "add", title: "Call mom", due_at: "2026-10-15T15:00:00Z" }],
+        })}
+      />,
+    );
+    expect(view.getByText(/^Thu, Oct 15, 11:00\sAM$/)).toBeTruthy();
   });
 });

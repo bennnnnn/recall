@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { TodoRow } from "@/features/todos/components/TodoRow";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import type { Todo } from "@/lib/api";
-import { formatClockTime } from "@/lib/datetime/format";
+import { formatDate } from "@/lib/datetime/format";
 import { clashClusters, groupBySameTime, type ClashCluster } from "@/features/todos/model/reminderOverlap";
 import {
   todoListRowKey,
@@ -48,14 +48,11 @@ type TodoListItem =
   | { kind: "heading"; key: string; section: TodoSection; dayKey?: string }
   | { kind: "card"; key: string; section: TodoSection; todos: Todo[] };
 
-function futureDayLabel(dayKey: string, locale: string): string {
+/** The heading of a later day: its local noon (`localDateKey` read the day in the user's zone). */
+function futureDayLabel(dayKey: string): string {
   const date = new Date(`${dayKey}T12:00:00`);
   if (!Number.isFinite(date.getTime())) return dayKey;
-  return date.toLocaleDateString(locale, {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-  });
+  return formatDate(date, "longWeekdayDate");
 }
 
 function itemsFromRows(rows: TodoListRow[]): TodoListItem[] {
@@ -94,7 +91,7 @@ function joinNames(names: string[], locale: string): string {
 
 function clashLines(clusters: ClashCluster[], locale: string, t: (key: string, options?: Record<string, string>) => string): string[] {
   return clusters.map((cluster) => {
-    const time = formatClockTime(new Date(cluster.at), locale);
+    const time = formatDate(new Date(cluster.at), "time");
     if (cluster.names.length === 2) {
       return t("todos.day_clash_pair", {
         first: cluster.names[0] ?? "",
@@ -166,7 +163,7 @@ export function TodosScrollList({
       renderItem={({ item, index }) => {
         if (item.kind === "heading") {
           const title = item.section === "date" && item.dayKey
-            ? futureDayLabel(item.dayKey, i18n.language)
+            ? futureDayLabel(item.dayKey)
             : t(`todos.group_${item.section}`);
           const prominent = item.section === "today" || item.section === "overdue";
           return (

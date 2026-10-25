@@ -6,6 +6,9 @@ import { nestedStackScreenOptions, useStackHeaderOptions } from "@/lib/stackHead
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { useTheme } from "@/lib/theme";
 
+/** A crash on any page of this stack shows the shared error view here, not the whole app's. */
+export { ScreenErrorBoundary as ErrorBoundary } from "@/components/ScreenErrorBoundary";
+
 export default function MemoryLayout() {
   const { t } = useTranslation();
   const theme = useTheme();

@@ -36,6 +36,9 @@ jest.mock("@/features/attachments/components/GalleryThumbnail", () => {
 
 let mockData: Record<string, unknown>;
 jest.mock("@/features/attachments/hooks/useGalleryData", () => ({ useGalleryData: () => mockData }));
+// The screen module re-exports its route's error view, which reads the router; this test
+// renders the screen alone, without a router.
+jest.mock("@/components/ScreenErrorBoundary", () => ({ ScreenErrorBoundary: () => null }));
 let mockLibrary: Record<string, unknown>;
 jest.mock("@/features/attachments/hooks/useGalleryLibrary", () => ({ useGalleryLibrary: () => mockLibrary }));
 

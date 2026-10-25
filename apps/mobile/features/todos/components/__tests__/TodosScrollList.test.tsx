@@ -69,3 +69,28 @@ it("gives FlashList one cell per card, so a long list mounts only the cards on s
   expect(cards).toHaveLength(300);
   expect(cards.every((cell) => cell.todos?.length === 1)).toBe(true);
 });
+
+// Each row and heading wrote its date with toLocale*String, an ICU formatter per call:
+// 318 for these 300 to-dos (about 40 µs each in Node), and 18 more per re-render.
+// lib/datetime/format.ts keeps one formatter per language, zone, clock and style.
+it("builds a handful of date formatters for a long list, and none to draw it again", async () => {
+  const todos = Array.from({ length: 300 }, (_, i) => todo(`t${i}`, new Date(2026, 9, 20 + (i % 10), 9, i)));
+  const dateText = jest.spyOn(Date.prototype, "toLocaleDateString");
+  const timeText = jest.spyOn(Date.prototype, "toLocaleTimeString");
+  const built = jest.spyOn(Intl, "DateTimeFormat");
+  try {
+    const builds = () => built.mock.calls.length + dateText.mock.calls.length + timeText.mock.calls.length;
+    const ui = await list(todos);
+    expect(builds()).toBeLessThanOrEqual(3);
+    built.mockClear();
+    await ui.rerender(
+      <TodosScrollList rows={buildTodoListRows(todos, NOW)} now={NOW} showEmpty={false} error={false}
+        listHeader={<></>} busyTodoIds={new Set()} onToggle={jest.fn()} onOpen={jest.fn()} onDeleteItem={jest.fn()} />,
+    );
+    expect(built).not.toHaveBeenCalled();
+    expect(dateText).not.toHaveBeenCalled();
+    expect(timeText).not.toHaveBeenCalled();
+  } finally {
+    jest.restoreAllMocks();
+  }
+});

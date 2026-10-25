@@ -131,6 +131,18 @@ describe("error-boundary capture", () => {
     });
   });
 
+  it("tags a screen's crash with its route file, not the values in it", async () => {
+    process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example.com/1";
+    const { mod, sdk } = freshSentry();
+    await mod.initMobileSentry();
+    const error = new Error("screen render failed");
+    mod.reportBoundaryError("screen", error, null, "memory/[key]");
+    expect(sdk().captureException).toHaveBeenCalledWith(error, {
+      tags: { boundary: "screen", screen: "memory/[key]" },
+      contexts: undefined,
+    });
+  });
+
   it("keeps only the first few crashes of a loop before init", async () => {
     process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example.com/1";
     const { mod, sdk } = freshSentry();
