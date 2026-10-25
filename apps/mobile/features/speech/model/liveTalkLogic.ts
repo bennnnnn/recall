@@ -237,6 +237,15 @@ export function liveTalkGateMessageKey(gate: LiveTalkGate): string {
 }
 
 /**
+ * An error during a call, in the phone's words: it showed the provider's English ("Realtime
+ * voice data channel failed"). A lost connection could not connect; any other error failed
+ * this reply, and the call goes on.
+ */
+export function liveTalkCallErrorKey(fatal: boolean | undefined): string {
+  return fatal ? liveTalkGateMessageKey("connect_failed") : "chat.error_generic";
+}
+
+/**
  * A save refused with a 429, or because the plan, the session or the server no longer
  * allows the call, ends it in that refusal's own words. Left open, the voice provider kept
  * running (and charging) until the reserved minutes ran out, while no turn saved.

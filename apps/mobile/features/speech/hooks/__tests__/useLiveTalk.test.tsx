@@ -268,6 +268,21 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
     expect(live.visible).toBe(true);
   });
 
+  // Both showed the provider's English.
+  it.each([
+    [{ type: "error", message: "Realtime voice data channel failed", fatal: true }, "chat.live_talk_connect_failed", false],
+    [{ type: "error", message: "Conversation already has an active response" }, "chat.error_generic", true],
+  ])("words an error during a call in the phone's language: %j", async (event, line, stillOpen) => {
+    const emit = await openCall();
+
+    await act(async () => {
+      emit(event);
+    });
+
+    expect(jest.mocked(reportRecoverableError).mock.calls).toEqual([[null, line]]);
+    expect(live.visible).toBe(stillOpen);
+  });
+
   it("leaves Back to an open drawer, reading the drawer when Back is pressed", async () => {
     const backHandlers: (() => boolean | null | undefined)[] = [];
     const addListener = jest

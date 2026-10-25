@@ -15,6 +15,7 @@ import { api } from "@/lib/api";
 import type { Message } from "@/lib/api";
 import { applyLiveTalkChatEvent, type LiveTalkSpeakEvent } from "@/features/speech/model/liveTalkEvents";
 import {
+  liveTalkCallErrorKey,
   liveTalkErrorGate,
   liveTalkGateMessageKey,
   liveTalkSessionLimitMs,
@@ -307,7 +308,7 @@ export function useLiveTalk({
         return;
       }
       if (event.type === "error") {
-        reportRecoverableError(feedback, event.message || t("chat.live_talk_failed"));
+        reportRecoverableError(feedback, t(liveTalkCallErrorKey(event.fatal)));
         setPhase("idle");
         // The connection is gone: left open, the mic kept recording into a dead peer.
         if (event.fatal) closeRef.current();

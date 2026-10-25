@@ -1,6 +1,7 @@
 import {
   LIVE_TALK_CONNECT_WARMUP_MS,
   LIVE_TALK_PLAYBACK_TAIL_MS,
+  liveTalkCallErrorKey,
   liveTalkErrorGate,
   liveTalkGateMessageKey,
   liveTalkGate,
@@ -206,6 +207,13 @@ describe("liveTalkErrorGate", () => {
   it("keys a save that names no live session on its code", () => {
     expect(liveTalkErrorGate({ status: 403, code: "live_talk_session_ended" })).toBe("session_ended");
     expect(liveTalkGateMessageKey("session_ended")).toBe("chat.live_talk_session_ended");
+  });
+
+  // Both showed the provider's English ("Realtime voice data channel failed").
+  it("words an error during a call: a lost connection, or this reply", () => {
+    expect(liveTalkCallErrorKey(true)).toBe("chat.live_talk_connect_failed");
+    expect(liveTalkCallErrorKey(false)).toBe("chat.error_generic");
+    expect(liveTalkCallErrorKey(undefined)).toBe("chat.error_generic");
   });
 
   // Any other refused save showed the server's English ("Chat not found").
