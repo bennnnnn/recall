@@ -92,16 +92,28 @@ export function scrubSentryEvent(event: ErrorEvent): ErrorEvent | null {
   return event;
 }
 
+/**
+ * Requests that carry Sentry's trace headers: our API's, and no one else's. On a phone
+ * the SDK's default is every URL, so OpenAI's realtime call, Google's connectivity check
+ * and each storage upload carried the DSN's public key, the environment and a trace id
+ * (`baggage` and `sentry-trace`, about 200 bytes).
+ */
+function apiTraceTargets(apiUrl: string): RegExp[] {
+  const origin = apiUrl.replace(/\/+$/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return [new RegExp(`^${origin}(?:[/?#]|$)`)];
+}
+
 /** Loads and starts the SDK once; resolves when it is up, or at once without a DSN. */
 export function initMobileSentry(): Promise<void> {
   const dsn = configuredDsn();
   if (!dsn) return Promise.resolve();
-  starting ??= import("@sentry/react-native").then(
-    (Sentry) => {
+  starting ??= Promise.all([import("@sentry/react-native"), import("@/lib/config")]).then(
+    ([Sentry, { getApiUrl }]) => {
       Sentry.init({
         dsn,
         enabled: !__DEV__,
         tracesSampleRate: 0.1,
+        tracePropagationTargets: apiTraceTargets(getApiUrl()),
         sendDefaultPii: false,
         beforeSend: scrubSentryEvent,
         beforeBreadcrumb: scrubBreadcrumb,
