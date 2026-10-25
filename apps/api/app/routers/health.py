@@ -9,7 +9,7 @@ from sqlalchemy import text
 from app.core.aio import gather_or_cancel
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
-from app.core.unavailable import RETRY_AFTER_SECONDS, UNAVAILABLE_DETAIL
+from app.core.unavailable import unavailable_response
 
 router = APIRouter()
 
@@ -119,15 +119,14 @@ async def ready() -> dict[str, str]:
 async def dependencies() -> JSONResponse:
     """Postgres and Redis both answer: what the phone's connection check reads.
 
-    /health answers 200 while either is down and every read fails (503; 429 from the rate
-    limit with Redis down), so the phone found the API "online" through an outage. Fly's
-    checks read /health and /health/ready, not this: a Redis blip still drains no Machine.
+    /health answers 200 while either is down and every read fails, so the phone found the
+    API "online" through an outage. Fly's checks read /health and /health/ready, not this:
+    a Redis blip still drains no Machine. Down, it answers as every outage does (the code
+    ``unavailable``, core/unavailable.py).
     """
     headers = {"Cache-Control": "no-store"}
     if await DEPENDENCY_CHECK.answers():
         return JSONResponse({"status": "ok"}, headers=headers)
-    return JSONResponse(
-        {"detail": UNAVAILABLE_DETAIL},
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        headers={**headers, "Retry-After": RETRY_AFTER_SECONDS},
-    )
+    response = unavailable_response()
+    response.headers.update(headers)
+    return response
