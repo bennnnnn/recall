@@ -102,12 +102,14 @@ def _prior_photo_still_in_play(user_turns: list[dict[str, Any]], caption: str) -
     return attachment_markers.previous_user_turn_has_image(user_turns) or names_a_picture(caption)
 
 
-def _earlier_photo_message(prompt_messages: list[dict[str, Any]]) -> int | None:
-    """The index of the latest user message before this one that holds a photo marker."""
+def _sent_in(prompt_messages: list[dict[str, Any]], uid: Any) -> int | None:
+    """The index of the earlier user message whose marker names photo ``uid``."""
     users = [i for i, message in enumerate(prompt_messages) if message.get("role") == "user"]
     for index in reversed(users[:-1]):
         content = prompt_messages[index].get("content")
-        if isinstance(content, str) and attachment_markers.image_attachment_ids_from_text(content):
+        if isinstance(content, str) and uid in attachment_markers.image_attachment_ids_from_text(
+            content
+        ):
             return index
     return None
 
@@ -128,29 +130,33 @@ async def _inject_prior_images(
     async with SessionLocal() as session:
         rows = await attachments_service.get_by_ids(session, prior_ids, user.id)
     by_id = {row.id: row for row in rows}
-    images = [
-        (row.content_type, row.storage_key)
-        for uid in prior_ids
-        if (row := by_id.get(uid)) is not None
-        and attachment_content.is_image_content_type(row.content_type)
-    ]
-    injected = False
-    if images:
-        # Back in the message that sent it: "Smart" after a screenshot is a reply to the
-        # answer, and with the photo on it the model described the screenshot again
-        # (live chat, 2026-10-25). A question about the photo still sees it.
-        sent_at = _earlier_photo_message(prompt_messages)
-        try:
-            injected = await vision_input.inject_vision_content(
-                prompt_messages,
-                rehydrate_gateway,
-                images,
-                settings=settings,
-                caption="" if sent_at is not None else caption,
-                at_index=sent_at,
+    # Each photo back in the message that sent it: "Smart" after a screenshot is a reply
+    # to the answer, and with the photo on it the model described the screenshot again
+    # (live chat, 2026-10-25). A question about a photo still sees it.
+    groups: dict[int | None, list[tuple[str, str]]] = {}
+    for uid in prior_ids:
+        row = by_id.get(uid)
+        if row is not None and attachment_content.is_image_content_type(row.content_type):
+            groups.setdefault(_sent_in(prompt_messages, uid), []).append(
+                (row.content_type, row.storage_key)
             )
-        except StorageUnavailableError:
-            logger.warning("Earlier photo unreadable: storage unavailable user_id=%s", user.id)
+    images = [image for group in groups.values() for image in group]
+    injected = False
+    try:
+        for sent_at, group in groups.items():
+            injected = (
+                await vision_input.inject_vision_content(
+                    prompt_messages,
+                    rehydrate_gateway,
+                    group,
+                    settings=settings,
+                    caption="" if sent_at is not None else caption,
+                    at_index=sent_at,
+                )
+                or injected
+            )
+    except StorageUnavailableError:
+        logger.warning("Earlier photo unreadable: storage unavailable user_id=%s", user.id)
     if not injected or len(images) < len(prior_ids):
         attachment_markers.append_image_unavailable_note(prompt_messages)
     return injected

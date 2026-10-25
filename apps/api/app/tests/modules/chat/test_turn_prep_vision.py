@@ -124,6 +124,12 @@ async def test_a_photo_from_further_back_is_read_again_only_when_named(caption, 
         assert messages[-1]["content"] == caption
 
 
+def _photo_parts(message: dict[str, Any]) -> list[dict[str, Any]]:
+    content = message["content"]
+    assert isinstance(content, list)
+    return [part for part in content if part["type"] == "image_url"]
+
+
 def _photo_message(messages: list[dict[str, Any]]) -> dict[str, Any]:
     """The user message the photos were put back on."""
     return next(
@@ -232,3 +238,28 @@ async def test_no_earlier_photo_or_attachments_off_does_no_work(enabled):
     lookup.assert_not_awaited()
     storage.assert_not_called()
     assert messages == before
+
+
+@pytest.mark.asyncio
+async def test_photos_from_two_messages_each_go_back_to_their_own() -> None:
+    """Review: photo A in one message and B in a later one both landed on the later one."""
+    first, second = uuid4(), uuid4()
+    messages = [
+        {"role": "user", "content": f"look\n\n[Image: /attachments/{first}/file]"},
+        {"role": "assistant", "content": "A red square."},
+        {"role": "user", "content": f"and this\n\n[Image: /attachments/{second}/file]"},
+        {"role": "assistant", "content": "A blue square."},
+        {"role": "user", "content": "compare the two photos"},
+    ]
+    needs_vision, *_ = await _run(
+        messages,
+        _attachments(),
+        [_row(first), _row(second)],
+        byte_map={f"key-{first}": _png("red"), f"key-{second}": _png("blue")},
+    )
+    assert needs_vision is True
+    colours = [
+        [_colour(part) for part in _photo_parts(message)] for message in (messages[0], messages[2])
+    ]
+    assert colours == [["red"], ["blue"]]
+    assert messages[-1]["content"] == "compare the two photos"

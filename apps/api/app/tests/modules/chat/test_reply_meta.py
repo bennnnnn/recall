@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from app.modules.chat.reply_meta import without_turn_meta
 
 _CLOCK = "It's currently **Sunday, October 25, 2026, 6:15 PM EDT**."
+_TODAY = date(2026, 10, 25)
 
 
 @pytest.mark.parametrize(
@@ -15,10 +18,9 @@ _CLOCK = "It's currently **Sunday, October 25, 2026, 6:15 PM EDT**."
         # Live chat (2026-10-25): a short turn got the clock as filler.
         (f"Got it. {_CLOCK}\n\nWhich goal fits best?", "1", "Got it.\n\nWhich goal fits best?"),
         (
-            "Got it, Dev. It's Sunday, October 25, 2026, 7:01 PM EDT, so your session "
-            "can start tonight.",
+            "Got it, Dev. It's Sunday, October 25, 2026, 7:01 PM EDT.\n\nStart tonight.",
             "Okay.",
-            "Got it, Dev.",
+            "Got it, Dev.\n\nStart tonight.",
         ),
         (
             "Dev, you accepted my offer, so here is the 20% down payment comparison.",
@@ -30,10 +32,16 @@ _CLOCK = "It's currently **Sunday, October 25, 2026, 6:15 PM EDT**."
             "yes",
             "Here is the 15-year comparison.",
         ),
+        (
+            "Got it. It's currently Sunday, October 25, 2026, 6:15 p.m. EDT. What next?",
+            "1",
+            "Got it. What next?",
+        ),
+        ("Great, you accepted my offer. iPhone tips below.", "yes", "iPhone tips below."),
     ],
 )
 def test_turn_meta_goes(reply: str, asked: str, kept: str) -> None:
-    assert without_turn_meta(reply, asked) == kept
+    assert without_turn_meta(reply, asked, _TODAY) == kept
 
 
 @pytest.mark.parametrize(
@@ -49,7 +57,17 @@ def test_turn_meta_goes(reply: str, asked: str, kept: str) -> None:
         ("Your offer was accepted by the seller, so here are the next steps.", "yes"),
         # A reply that is only the clock keeps it rather than going empty.
         (_CLOCK, "ok"),
+        # The date says something (review, 2026-10-25), or is not today.
+        ("It's Sunday, October 25, 2026 — the deadline you set is today.", "when is it due"),
+        (
+            "It's Sunday, October 25, 2026, so the post office is closed.",
+            "is the post office open?",
+        ),
+        ("It's Sunday, October 25, 2026, so you are 36.", "how old am I if I was born in 1990?"),
+        ("It's Monday, November 2, 2026 when the package arrives.", "when will it arrive"),
+        ("Got it. It's Monday, November 2, 2026.", "ok"),
+        ("| Date | Plan |\n|---|---|\n| It's Monday, November 2, 2026 | Fly out |", "plan my trip"),
     ],
 )
 def test_other_text_stays(reply: str, asked: str) -> None:
-    assert without_turn_meta(reply, asked) == reply
+    assert without_turn_meta(reply, asked, _TODAY) == reply
