@@ -18,6 +18,18 @@ let mockLoading = false;
 let mockError = false;
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
+// Each fact drawn reads its text once: the count is how many facts were drawn.
+const mockFactsDrawn = { count: 0 };
+jest.mock("@/features/memory/model/memoryFacts", () => {
+  const actual = jest.requireActual("@/features/memory/model/memoryFacts");
+  return {
+    ...actual,
+    stripMemoryAsOf: (text: string) => {
+      mockFactsDrawn.count += 1;
+      return actual.stripMemoryAsOf(text);
+    },
+  };
+});
 const mockDestructive = jest.fn();
 jest.mock("@/lib/haptics", () => ({
   ...jest.requireActual("@/lib/haptics"),
@@ -54,7 +66,9 @@ jest.mock("react-i18next", () => ({
     i18n: { language: "en" },
   }),
 }));
-jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
+// One palette object, as the real hook keeps (its identity keys the screen's styles).
+const mockTheme = {};
+jest.mock("@/lib/theme", () => ({ useTheme: () => mockTheme }));
 jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 jest.mock("@/ui/feedback/SkeletonLoader", () => ({ SkeletonList: () => null }));
 jest.mock("@/ui/feedback/StateView", () => ({
@@ -213,6 +227,21 @@ describe("MemoryDocumentScreen", () => {
 
     expect(mockEditFact).toHaveBeenCalledWith("f2", "Recall uses FastAPI and Neon");
     expect(ui.queryByTestId("edit-field")).toBeNull();
+  });
+
+  it("draws no fact again while its menu opens or the edit sheet is typed in", async () => {
+    const facts = Array.from({ length: 150 }, (_, i) => fact(`f${i}`, `Remembered fact ${i}`));
+    mockDocuments = [{ ...mockDocuments[0]!, facts }];
+    const ui = await render(<MemoryDocumentScreen />);
+    mockFactsDrawn.count = 0;
+    await fireEvent.press(ui.getByTestId("memory-fact-f3"), { nativeEvent: { pageX: 10, pageY: 20 } });
+    expect(mockFactsDrawn.count).toBe(0);
+    await fireEvent.press(ui.getByTestId("menu-edit"));
+    mockFactsDrawn.count = 0;
+    for (const text of ["Remembered", "Remembered fact", "Remembered fact 3!"]) {
+      await fireEvent.changeText(ui.getByTestId("edit-field"), text);
+    }
+    expect(mockFactsDrawn.count).toBe(0);
   });
 
   it("deletes one fact from its menu", async () => {
