@@ -1,4 +1,5 @@
 import {
+  connectionLostAt,
   onReconnect,
   reconnectRefreshDelayMs,
   reportDisconnected,
@@ -89,6 +90,16 @@ describe("onReconnect", () => {
     expect(refresh).toHaveBeenCalledTimes(1);
     jest.advanceTimersByTime(60_000);
     expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("says when the connection was last lost", () => {
+    jest.setSystemTime(5_000);
+    reportDisconnected();
+    jest.setSystemTime(9_000);
+    reportReconnected();
+    expect(connectionLostAt()).toBe(5_000);
+    reportDisconnected();
+    expect(connectionLostAt()).toBe(9_000);
   });
 
   it("reads nothing before the API comes back", () => {

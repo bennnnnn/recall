@@ -1,5 +1,7 @@
 import { isDrawerOpenGlobal } from "@/features/chat/drawer/drawer";
+import { chatPageReadSince } from "@/features/chat/model/pageReads";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
+import { connectionLostAt } from "@/lib/reconnectRefresh";
 
 type Options = {
   /** The chat on screen; none for a new chat. */
@@ -13,9 +15,11 @@ type Options = {
 /**
  * The open chat's page, read again once the API answers after an outage, as a return from
  * the background reads it, when nothing covers it: no screen pushed over the chat, no drawer.
+ * A read of it that landed since the connection was lost (a reply's page, read as the API came
+ * back, before the check saw it) is that read: the page is not read again.
  */
 export function useChatPageReconnect({ chatId, busy, refetch }: Options): void {
   useReconnectRefresh(() => {
-    if (chatId && !busy()) void refetch(chatId, () => false);
+    if (chatId && !busy() && !chatPageReadSince(chatId, connectionLostAt())) void refetch(chatId, () => false);
   }, () => !isDrawerOpenGlobal());
 }

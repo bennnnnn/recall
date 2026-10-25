@@ -2,7 +2,8 @@ import { act, render } from "@testing-library/react-native";
 
 import { registerDrawer } from "@/features/chat/drawer/drawer";
 import { useChatPageReconnect } from "@/features/chat/hooks/useChatPageReconnect";
-import { reportReconnected } from "@/lib/reconnectRefresh";
+import { noteChatPageRead } from "@/features/chat/model/pageReads";
+import { reportDisconnected, reportReconnected } from "@/lib/reconnectRefresh";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
 jest.mock("expo-router", () => {
@@ -74,4 +75,20 @@ it("leaves the page when the drawer opens over it during the wait", async () => 
   drawerOpen = true;
   await act(async () => { jest.advanceTimersByTime(6000); });
   expect(refetch).not.toHaveBeenCalled();
+});
+
+it("leaves a page a read brought since the connection was lost, not one read before it", async () => {
+  await render(<Probe chatId="c1" />);
+  noteChatPageRead("c1");
+  jest.advanceTimersByTime(1000);
+  reportDisconnected();
+  await apiBack();
+  expect(refetch).toHaveBeenCalledTimes(1);
+
+  // A reply's page, read as the API came back, before the check saw it.
+  reportDisconnected();
+  jest.advanceTimersByTime(1000);
+  noteChatPageRead("c1");
+  await apiBack();
+  expect(refetch).toHaveBeenCalledTimes(1);
 });

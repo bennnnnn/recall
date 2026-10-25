@@ -20,6 +20,8 @@ export function reconnectRefreshDelayMs(random: () => number = Math.random): num
 
 const reconnected = createListenerSet();
 const disconnected = createListenerSet();
+/** When the connection check last failed (0: not in this run). */
+let lostAt = 0;
 
 /** The connection check passed after failing, with the app in the foreground. */
 export function reportReconnected(): void {
@@ -28,7 +30,16 @@ export function reportReconnected(): void {
 
 /** The connection check failed: a read waiting for the API is called off. */
 export function reportDisconnected(): void {
+  lostAt = Date.now();
   disconnected.emit();
+}
+
+/**
+ * When the connection was last lost: a read that landed since found the API back, and a
+ * screen may count it as the read the API's return asks for.
+ */
+export function connectionLostAt(): number {
+  return lostAt;
 }
 
 /**

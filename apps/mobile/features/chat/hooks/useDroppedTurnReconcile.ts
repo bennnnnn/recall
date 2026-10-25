@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 
 import { api, type Message } from "@/lib/api";
+import { noteChatPageRead } from "@/features/chat/model/pageReads";
 import {
   knownServerIds,
   pollDroppedTurn,
@@ -38,6 +39,8 @@ export function useDroppedTurnReconcile({ token, chatId, isCurrentView, messages
         polls,
         pollMs,
       }).then((result) => {
+        // The answered turn settles with the chat's newest page: a read of it like any other.
+        if (result?.page) noteChatPageRead(chatId);
         if (result) settle(result);
       });
     },

@@ -855,8 +855,8 @@ const OUTAGE_CEILINGS: Record<string, number> = {
   // 1.5 s, 3 s, 6 s and 12 s (five checks, ten requests; before, no check and no banner).
   "a deploy mid-reply, 503 Retry-After 5 for 30 s": 16,
   // Back: the next read finds the saved reply, then the full page; the loop's check clears the
-  // banner and the page on screen is read again (a 304).
-  "the 30 s after, the API back": 4,
+  // banner and asks for no second read of the page (a 304 before): one landed since the outage.
+  "the 30 s after, the API back": 3,
   "a minute in the background": 0,
   // The return's reads (to-dos, the chat, the socket) fail once; the connection check backs off
   // (1.5 s, 3 s, 6 s, 12 s, 24 s), each asking Google whether it is the API. Once it passes, the
@@ -1109,6 +1109,44 @@ it("reads the list on screen again once, 0 to 10 s after an outage ends, and not
   const back = steps[steps.length - 1].requests;
   expect(back.filter((r) => r.startsWith(CHAT_1_PAGE))).toHaveLength(1);
   expect(back.length).toBeLessThanOrEqual(CEILINGS["return after 10 minutes"]);
+});
+
+it("reads the open chat once when its reply's page landed before the API's return was seen", async () => {
+  // Each spread at its middle: the reply's page lands 30 s in, the check that clears the banner
+  // runs at 50 s, and the read it asks for would come 5 s later, past that page's stale window.
+  const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+  steps.length = 0;
+  savedTurn = [];
+  mockSecure.clear();
+  mockFiles.clear();
+  mockSecure.set("recall_session_v1", JSON.stringify({ accessToken: accessToken(NOW_S + 3600), refreshToken: "r" }));
+  mockFiles.set("file:///cache/cached-user.json", JSON.stringify({
+    id: USER_ID, name: "Ann", avatar_url: null, plan: "free", ai_data_consent_at: NOW, locale: "en",
+  }));
+  mockParams = {};
+  const app = await launch();
+  await settle(10_000);
+  await openChat(app, 1);
+  await send(app, "Hello there");
+  await settle(300);
+  await rtl.act(async () => { restartServer(); });
+  outage = { status: 503, retryAfter: "5" };
+  await settle(30_000);
+  outage = null;
+  savedTurn = [
+    { id: uuid(2, 900), role: "user", content: "Hello there", model: null, created_at: NOW },
+    { id: uuid(2, 901), role: "assistant", content: "Hi.", model: null, created_at: NOW },
+  ];
+  mark = mockLog.length;
+  await settle(30_000);
+  step("the reply's page, then the API's return seen");
+  random.mockRestore();
+  const back = steps[steps.length - 1].requests;
+  if (process.env.CENSUS) console.log(back);
+  // The reply's newest rows, then its page; the check passes and clears the banner, no second read.
+  expect(back).toContain("GET /health");
+  expect(statusChanges[statusChanges.length - 1].status).toBe("online");
+  expect(listReads(back)).toEqual([`GET /chats/${chatId(1)}/messages?limit=4`, CHAT_1_PAGE]);
 });
 
 /**
