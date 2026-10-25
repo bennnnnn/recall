@@ -172,6 +172,32 @@ async def test_remember_with_memory_off_says_so():
 
 
 @pytest.mark.asyncio
+async def test_a_remember_turn_is_told_recall_saves_it():
+    """Live (2026-10-25): "remember that…" was saved, and the reply called it a to-do,
+    then said it couldn't save to memory."""
+    saving = await _system_prompt("remember that I want to try cacio e pepe again")
+    assert prompt_memory.MEMORY_SAVING_HINT in saving
+    for line in (
+        # Memory drops one-off dated items and errands: no promise to remember them.
+        "remember that my dentist appointment is tomorrow at 3pm",
+        "please remember to buy milk",
+        "don't forget to call mom tomorrow at 5pm",
+        # A reminder asked on the same line gets its card.
+        "Remember that I have a dentist appointment tomorrow at 3pm. Remind me at 2pm.",
+        "forget that I like sushi",
+        "best memory foam mattress?",
+        "I forget things a lot",
+        "do you remember my dog's name?",
+        "what should I cook tonight?",
+    ):
+        system = await _system_prompt(line)
+        assert prompt_memory.MEMORY_SAVING_HINT not in system, line
+    off = await _system_prompt("remember that I want to try cacio e pepe again", memory=False)
+    assert prompt_memory.MEMORY_OFF_HINT in off
+    assert prompt_memory.MEMORY_SAVING_HINT not in off
+
+
+@pytest.mark.asyncio
 async def test_remember_while_saving_is_paused_says_so():
     user = _user()
     chat = Chat(id=uuid4(), user_id=user.id, title=None)
@@ -187,6 +213,7 @@ async def test_remember_while_saving_is_paused_says_so():
             user, chat.id, Settings(), chat=chat, query_text="remember that I'm vegetarian"
         )
     assert prompt_memory.MEMORY_PAUSED_HINT in system_prompt(messages)
+    assert prompt_memory.MEMORY_SAVING_HINT not in system_prompt(messages)
 
 
 @pytest.mark.asyncio
