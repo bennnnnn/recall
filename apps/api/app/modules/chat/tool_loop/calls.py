@@ -25,6 +25,7 @@ from app.modules.chat.tool_loop.results import (
     _canonical_answer_from_tool_result,
     _canonical_from_tool_result,
 )
+from app.modules.math.text_plot import is_curve_fence
 from app.modules.math.tools.extract import trig_domain_would_be_dropped
 
 logger = logging.getLogger(__name__)
@@ -196,6 +197,35 @@ async def _run_call_by(
         return "Tool round timed out."
 
 
+async def _draws_asked_curve(
+    turn: CallRound, fence: dict[str, Any] | None, collected: ToolResults
+) -> bool:
+    """A curve the learner asked for from earlier in the chat draws, though its formula is
+    the model's.
+
+    "can you graph how the balloon's volume changes … from the problem earlier?": the
+    formula was only in an earlier reply, so no user line matched the call, the curve
+    was dropped and the reply said "here's the plot" over nothing (2026-10-24). A curve
+    claims no answer and shows no check. Only when the message holds no formula of its
+    own (one it does hold is the user's, and a call that misses it is a typo), and never
+    over a curve a matched call already drew.
+    """
+    if not is_curve_fence(fence) or str((fence or {}).get("type")) in collected.canonical_by_type:
+        return False
+    from app.core.sympy_executor import run_sympy
+    from app.modules.math.tool_check import asks_for_an_earlier_curve
+
+    text = turn.user_texts[0] if turn.user_texts else turn.user_text
+    try:
+        asked = await run_sympy(
+            asks_for_an_earlier_curve, text, timeout=turn.settings.stem_solve_timeout_seconds
+        )
+    except Exception:
+        logger.info("graph-ask read did not finish; the unmatched curve is dropped", exc_info=True)
+        return False
+    return bool(asked)
+
+
 async def _run_call(turn: CallRound, name: str, raw_args: Any, collected: ToolResults) -> str:
     """Run one offered call, merge what it found, and return its tool message."""
     phase = _status_for_tool(name) if name else None
@@ -208,8 +238,10 @@ async def _run_call(turn: CallRound, name: str, raw_args: Any, collected: ToolRe
     if (fence is not None or answer) and not await _tool_call_matches_user(
         raw_args, turn.user_texts, turn.settings
     ):
-        # The tool solved what the model typed, not what the user asked.
-        fence, answer = None, None
+        # The tool solved what the model typed, not what the user asked: no verified answer.
+        if not await _draws_asked_curve(turn, fence, collected):
+            fence = None
+        answer = None
         content = f"{content}{_UNMATCHED_TOOL_NOTE}"
     collected.merge(result, fence=fence, answer=answer)
     return content

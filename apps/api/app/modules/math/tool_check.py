@@ -66,6 +66,7 @@ _FUNCTIONS = frozenset(
 _TOKEN = re.compile(r"\d+(?:\.\d+)?|[A-Za-z]+|<=|>=|[-+*/^()=<>!,]|\s+|.")
 _MATH_TOKEN = re.compile(r"[\d.]+|[-+*/^()=<>]|<=|>=")
 _COMPARATORS = ("<=", ">=", "<", ">")
+_APOSTROPHES = frozenset({"'", "\u2019"})
 _INFINITY_WORDS = ("infinity", "∞", "oo", "inf")
 _ORDER_WORDS = {2: ("second", "2nd", "d^2", "d²", "''"), 3: ("third", "3rd", "d^3", "'''")}
 
@@ -78,13 +79,21 @@ def _normalize(text: str) -> str:
 
 
 def _math_runs(text: str) -> list[str]:
-    """Maximal runs of formula tokens; an English word or a comma ends a run."""
+    """Maximal runs of formula tokens; an English word or a comma ends a run.
+
+    A letter that ends a word after an apostrophe is the word's: "balloon's", "let's" and
+    "it's" made the message's ``s`` its formula, so a follow-up never read the problem
+    before it (2026-10-24). A quoted formula ("plot 'x^2'") keeps its letters.
+    """
     runs: list[str] = []
     current: list[str] = []
     depth = 0
-    for piece in _TOKEN.findall(_normalize(text)):
+    pieces = _TOKEN.findall(_normalize(text))
+    for index, piece in enumerate(pieces):
         if piece.isalpha():
-            mathy = len(piece) == 1 or piece.lower() in _FUNCTIONS
+            mathy = (len(piece) == 1 and not _ends_a_word(pieces, index)) or (
+                piece.lower() in _FUNCTIONS
+            )
         elif not piece.strip():
             mathy = True  # spacing inside a formula
         elif piece == ",":
@@ -102,6 +111,17 @@ def _math_runs(text: str) -> list[str]:
     if current:
         runs.append("".join(current).strip())
     return [run for run in runs if run and any(ch.isdigit() or ch.isalpha() for ch in run)]
+
+
+def _ends_a_word(pieces: list[str], index: int) -> bool:
+    """The letter at ``index`` closes a contraction or possessive: a word, an apostrophe,
+    then it, then no more letters."""
+    return (
+        index >= 2
+        and pieces[index - 1] in _APOSTROPHES
+        and pieces[index - 2].isalpha()
+        and not (index + 1 < len(pieces) and pieces[index + 1].isalpha())
+    )
 
 
 def _parse(text: str) -> Any | None:
@@ -296,6 +316,16 @@ def _matches(args: dict[str, Any], user: _UserMath) -> bool:
     text = str(args.get("text") or args.get("expr") or "")
     compact = re.sub(r"\s+", "", text.lower())
     return bool(compact) and compact in re.sub(r"\s+", "", user.lower)
+
+
+def asks_for_an_earlier_curve(text: str) -> bool:
+    """A graph ask whose own words hold no formula: "can you graph how the balloon's volume
+    changes … from the problem earlier?". Its curve can only be the model's reading of the
+    chat, so no user line matches the call; a message with a formula of its own is
+    matched against that formula instead."""
+    from app.modules.math.text_plot import is_graph_turn
+
+    return is_graph_turn(text, None) and _UserMath(text).empty
 
 
 def tool_call_matches_user_text(raw_args: str | dict[str, Any], user_texts: list[str]) -> bool:

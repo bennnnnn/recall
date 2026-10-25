@@ -79,13 +79,18 @@ def strip_text_plots(content: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
 
 
+def is_curve_fence(spec: Any) -> bool:
+    """A sampled curve the phone draws in a ```graph, not an answer or a diagram."""
+    return isinstance(spec, dict) and spec.get("type") in _GRAPH_FENCE_TYPES
+
+
 def is_graph_turn(user_text: str, verified: Any) -> bool:
     """A verified curve is attached, or the learner asked to plot maths."""
     fences = [
         getattr(verified, "canonical_fence", None),
         *(getattr(verified, "canonical_fences", None) or ()),
     ]
-    if any(isinstance(spec, dict) and spec.get("type") in _GRAPH_FENCE_TYPES for spec in fences):
+    if any(is_curve_fence(spec) for spec in fences):
         return True
     from app.modules.math.match.letter_runs import has_viz_command
     from app.modules.math.tools.extract import is_graph_followup
