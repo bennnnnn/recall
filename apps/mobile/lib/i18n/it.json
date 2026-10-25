@@ -400,6 +400,7 @@
   "memory.back_to_memory": "Torna a Memoria",
   "memory.busy": "La memoria si sta aggiornando. Riprova tra poco.",
   "memory.off": "La memoria è disattivata. Attivala nelle Impostazioni per modificarla.",
+  "memory.paused": "Le modifiche alla memoria sono in pausa per ora. Riprova più tardi.",
   "memory.limited": "Troppe modifiche alla memoria per ora. Riprova più tardi.",
   "memory.composer_label": "Di' a Recall cosa ricordare o cambiare",
   "memory.composer_placeholder": "Puoi contraddirmi più spesso",

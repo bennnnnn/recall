@@ -32,6 +32,7 @@ from app.core.jobs import (
     unique_dedupe_key,
 )
 from app.core.redis import get_redis_client
+from app.exceptions import RedisUnavailableError
 from app.modules.account import lifecycle as account_lifecycle
 from app.modules.attachments import jobs as attachment_indexing
 from app.modules.attachments import lifecycle as attachment_lifecycle
@@ -96,7 +97,7 @@ async def _reenqueue_after_memory_lock(
 
 
 async def _spend_capped(settings: Settings) -> bool:
-    """Fail-closed: skip extra LLM/embed work when the global $ cap is hit.
+    """Fail-closed: skip extra LLM/embed work when the global $ cap is hit, or Redis is down.
 
     M12: background LLM jobs (memory/topic/compress) intentionally
     bypass per-user token quota — they are operator cost, not user cost.
@@ -106,10 +107,14 @@ async def _spend_capped(settings: Settings) -> bool:
     """
     if settings.daily_global_spend_usd <= 0:
         return False
-    if await quota_service.global_spend_exceeded(get_redis_client(), settings):
-        logger.warning("skipping background LLM job: global spend cap")
+    try:
+        capped = await quota_service.global_spend_exceeded(get_redis_client(), settings)
+    except RedisUnavailableError:
+        logger.warning("skipping background LLM job: global spend unreadable (Redis down)")
         return True
-    return False
+    if capped:
+        logger.warning("skipping background LLM job: global spend cap")
+    return capped
 
 
 _Handler = Callable[[Settings, dict[str, Any]], Awaitable[None]]

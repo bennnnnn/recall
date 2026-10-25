@@ -163,14 +163,20 @@ describe("MemoryScreen", () => {
     expect(ui.getByTestId("memory-composer-input").props.value).toBe("Keep it short");
   });
 
-  it("says memory is off when an edit is refused for it (CLAR-08)", async () => {
-    mockInstruct.mockResolvedValue({ ok: false, failure: "off" });
+  it.each([
+    ["off", "memory.off"],
+    // The day's spend cap said "Memory couldn't be updated. Try again.", which fails all day.
+    ["paused", "memory.paused"],
+    // Redis down (the spend read, the write lock) said "couldn't be updated" or "being updated".
+    ["unavailable", "common.service_unavailable"],
+  ])("says why an edit was refused: %s (CLAR-08)", async (failure, line) => {
+    mockInstruct.mockResolvedValue({ ok: false, failure });
     const ui = await render(<MemoryScreen />);
 
     await fireEvent.changeText(ui.getByTestId("memory-composer-input"), "Keep it short");
     await fireEvent.press(ui.getByTestId("memory-composer-send"));
 
-    expect(mockFeedback.error).toHaveBeenCalledWith("memory.off");
+    expect(mockFeedback.error).toHaveBeenCalledWith(line);
   });
 
   it("says when it is reading recent chats", async () => {

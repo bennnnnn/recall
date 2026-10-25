@@ -8,6 +8,7 @@ import pytest
 from app.background import handlers
 from app.core.config import Settings
 from app.core.jobs import JobSkipped, queue
+from app.exceptions import RedisUnavailableError
 
 _USER, _CHAT, _MESSAGE = str(uuid4()), str(uuid4()), str(uuid4())
 _PAYLOAD = {
@@ -38,13 +39,21 @@ def _registered() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("job_type, work", sorted(_CAPPED.items()))
+@pytest.mark.parametrize(
+    "spend_read",
+    [
+        pytest.param(AsyncMock(return_value=True), id="capped"),
+        # Redis down at the spend read: skipped as at the cap, never run blind.
+        pytest.param(AsyncMock(side_effect=RedisUnavailableError()), id="redis-down"),
+    ],
+)
 async def test_a_model_job_does_nothing_once_the_spend_cap_is_reached(
-    job_type: str, work: str
+    job_type: str, work: str, spend_read: AsyncMock
 ) -> None:
     settings = Settings(daily_global_spend_usd=1.0)
     with (
         patch(work, AsyncMock()) as body,
-        patch.object(handlers.quota_service, "global_spend_exceeded", AsyncMock(return_value=True)),
+        patch.object(handlers.quota_service, "global_spend_exceeded", spend_read),
         # Not done: the worker releases the job's key so a later request still runs.
         pytest.raises(JobSkipped),
     ):

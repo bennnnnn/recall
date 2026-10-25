@@ -43,7 +43,7 @@ def _patches(*, result, snapshot=None, lock="token", applied_ops=None):
     release = AsyncMock()
     with ExitStack() as stack:
         stack.enter_context(
-            patch.object(locks, "acquire_memory_write_lock", AsyncMock(return_value=lock))
+            patch.object(locks, "take_memory_write_lock", AsyncMock(return_value=lock))
         )
         stack.enter_context(patch.object(locks, "release_memory_write_lock", release))
         stack.enter_context(patch("app.modules.memory.instruct.SessionLocal", FakeSessionCM()))

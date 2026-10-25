@@ -395,6 +395,7 @@
   "memory.back_to_memory": "Hafızaya dön",
   "memory.busy": "Hafıza güncelleniyor. Biraz sonra tekrar dene.",
   "memory.off": "Hafıza kapalı. Değiştirmek için Ayarlar'dan aç.",
+  "memory.paused": "Hafıza değişiklikleri şimdilik duraklatıldı. Daha sonra tekrar dene.",
   "memory.limited": "Şimdilik çok fazla hafıza değişikliği. Daha sonra tekrar dene.",
   "memory.composer_label": "Recall'a neyi hatırlamasını veya değiştirmesini istediğini söyle",
   "memory.composer_placeholder": "Bana daha sık itiraz edebilirsin",

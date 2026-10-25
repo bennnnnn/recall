@@ -400,6 +400,7 @@
   "memory.back_to_memory": "Retour à Mémoire",
   "memory.busy": "La mémoire est en cours de mise à jour. Réessayez dans un instant.",
   "memory.off": "La mémoire est désactivée. Activez-la dans les réglages pour la modifier.",
+  "memory.paused": "Les modifications de la mémoire sont en pause pour le moment. Réessayez plus tard.",
   "memory.limited": "Trop de modifications de la mémoire pour le moment. Réessayez plus tard.",
   "memory.composer_label": "Dites à Recall quoi retenir ou modifier",
   "memory.composer_placeholder": "Tu peux me contredire plus souvent",

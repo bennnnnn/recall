@@ -8,10 +8,11 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import cast
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 from app.core.config import Settings
 from app.models.orm import Chat, User
@@ -198,22 +199,36 @@ async def test_a_remember_turn_is_told_recall_saves_it():
 
 
 @pytest.mark.asyncio
-async def test_remember_while_saving_is_paused_says_so():
+@pytest.mark.parametrize("spend, paused", [("capped", True), ("down", False)])
+async def test_remember_while_saving_is_paused_says_so(spend: str, paused: bool):
+    """Redis down at the spend read is no cap: the reply said saving was paused."""
     user = _user()
     chat = Chat(id=uuid4(), user_id=user.id, title=None)
+    redis = MagicMock()
+    redis.get = (
+        AsyncMock(return_value=str(10**12))
+        if spend == "capped"
+        else AsyncMock(side_effect=RedisConnectionError("Error 111 connecting to redis"))
+    )
 
     async def blocks(*_args, **_kwargs):
         return _PromptContextBlocks("", None, [], "", chat)
 
     with (
         patch("app.modules.chat.prompt_builder._load_context_blocks", blocks),
-        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=True)),
+        patch("app.core.redis.get_redis_client", return_value=redis),
     ):
         messages = await build_prompt_messages(
-            user, chat.id, Settings(), chat=chat, query_text="remember that I'm vegetarian"
+            user,
+            chat.id,
+            Settings(daily_global_spend_usd=1.0),
+            chat=chat,
+            query_text="remember that I'm vegetarian",
         )
-    assert prompt_memory.MEMORY_PAUSED_HINT in system_prompt(messages)
-    assert prompt_memory.MEMORY_SAVING_HINT not in system_prompt(messages)
+    redis.get.assert_awaited()
+    assert (prompt_memory.MEMORY_PAUSED_HINT in system_prompt(messages)) is paused
+    if paused:
+        assert prompt_memory.MEMORY_SAVING_HINT not in system_prompt(messages)
 
 
 @pytest.mark.asyncio

@@ -57,6 +57,19 @@ describe("chatErrorMessage", () => {
     });
   });
 
+  // The socket's frames for a turn the spend gate refused. Redis down at the spend read sent
+  // spend_cap too: "Recall is at capacity for today… Try again after midnight UTC."
+  it("says the day's spend cap in the server's words, and an outage as Recall unavailable", () => {
+    const capacity = "Recall is at capacity for today, so new messages are paused for everyone.";
+    expect(resolveChatError({ message: capacity, code: "spend_cap", isPaid: false, t })).toEqual({
+      kind: "generic",
+      message: capacity,
+    });
+    expect(
+      resolveChatError({ message: "Service temporarily unavailable.", code: "unavailable", isPaid: true, t }),
+    ).toEqual({ kind: "generic", message: "common.service_unavailable" });
+  });
+
   it("falls back for an empty message", () => {
     expect(resolveChatError({ message: "", isPaid: false, t })).toEqual({
       kind: "generic",

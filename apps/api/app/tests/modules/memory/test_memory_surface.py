@@ -62,7 +62,7 @@ async def test_delete_memory_delegates():
     delete_by_id = AsyncMock(return_value=True)
     with (
         patch.object(memories_repo, "delete_by_id", delete_by_id),
-        patch.object(locks, "acquire_memory_write_lock", AsyncMock(return_value=True)),
+        patch.object(locks, "take_memory_write_lock", AsyncMock(return_value=True)),
         patch.object(locks, "release_memory_write_lock", AsyncMock()),
     ):
         result = await crud.delete_memory(AsyncMock(), uuid4(), uuid4())

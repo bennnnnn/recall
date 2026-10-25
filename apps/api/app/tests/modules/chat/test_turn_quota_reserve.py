@@ -6,14 +6,17 @@ thousand tokens all passed it.
 """
 
 import asyncio
+from contextlib import nullcontext
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 from app.core.background_tasks import drain_background_tasks
 from app.core.config import Settings
-from app.exceptions import QuotaExceededError, SpendCapReachedError
+from app.core.spend_counter import spend_key
+from app.exceptions import QuotaExceededError, RedisUnavailableError, SpendCapReachedError
 from app.modules.chat import (
     chats_repository,
     messages_repository,
@@ -146,6 +149,20 @@ async def test_reserve_turn_quota_stops_at_the_global_spend_cap(
         assert await _reserve(fake_redis, user, settings=settings) == _wanted()
 
 
+async def test_reserve_turn_quota_with_the_spend_unreadable_is_unavailable(fake_redis) -> None:
+    """Redis down at the spend read: the socket's and SSE's ``unavailable`` frame, nothing
+    charged. It read as the cap, so an outage said "Recall is at capacity for today"."""
+    user = _user()
+    settings = Settings(max_output_tokens=1_000, daily_global_spend_usd=1.0)
+    down = AsyncMock(side_effect=RedisConnectionError("Error 111 connecting to redis"))
+
+    with patch.object(fake_redis, "get", down), pytest.raises(RedisUnavailableError) as caught:
+        await _reserve(fake_redis, user, settings=settings)
+
+    assert error_payload_for_exception(caught.value)["code"] == "unavailable"
+    assert await _used(fake_redis, user) == 0
+
+
 def test_spend_cap_error_is_a_plain_error_not_the_users_quota() -> None:
     payload = error_payload_for_exception(SpendCapReachedError(CHAT_SPEND_CAP_MESSAGE))
 
@@ -259,7 +276,25 @@ async def test_turn_resources_refund_the_reservation_when_a_turn_fails(
     assert await _used(fake_redis, user) == 0
 
 
-async def test_stream_chat_response_at_spend_cap_never_prepares_the_turn(fake_redis) -> None:
+def _spend_read_down(fake_redis):
+    """Redis fails at the day's spend read; every other read is as it is."""
+    read = fake_redis.get
+
+    async def get(key: str):
+        if key == spend_key():
+            raise RedisConnectionError("Error 111 connecting to redis")
+        return await read(key)
+
+    return patch.object(fake_redis, "get", AsyncMock(side_effect=get))
+
+
+@pytest.mark.parametrize(
+    "spend, refusal, code",
+    [("capped", SpendCapReachedError, "spend_cap"), ("down", RedisUnavailableError, "unavailable")],
+)
+async def test_stream_chat_response_at_spend_cap_never_prepares_the_turn(
+    fake_redis, spend: str, refusal: type[Exception], code: str
+) -> None:
     user = _user()
     user.default_model = "free-chat"
     prepare = AsyncMock()
@@ -269,11 +304,13 @@ async def test_stream_chat_response_at_spend_cap_never_prepares_the_turn(fake_re
         model_choice={"resolve_user_model_override": MagicMock(return_value="free-chat")},
         locks={"acquire_lock": AsyncMock(return_value="tok"), "release_lock": release},
     )
-    await quota_service.record_global_spend(fake_redis, 2.0)
+    if spend == "capped":
+        await quota_service.record_global_spend(fake_redis, 2.0)
     chat = MagicMock()
     chat.summary = None
 
     with (
+        _spend_read_down(fake_redis) if spend == "down" else nullcontext(),
         patch.object(chats_repository, "get_by_id", AsyncMock(return_value=chat)),
         patch.object(messages_repository, "list_recent", AsyncMock(return_value=[])),
         patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=0)),
@@ -283,7 +320,7 @@ async def test_stream_chat_response_at_spend_cap_never_prepares_the_turn(fake_re
             AsyncMock(return_value=False),
         ),
         patch("app.modules.chat.stream_entry.prepare_chat_turn", prepare),
-        pytest.raises(SpendCapReachedError),
+        pytest.raises(refusal) as caught,
     ):
         async for _ in stream_entry.stream_chat_response(
             deps,
@@ -297,6 +334,8 @@ async def test_stream_chat_response_at_spend_cap_never_prepares_the_turn(fake_re
         ):
             pass
 
+    # The socket's and SSE's error frame: an outage said "at capacity for today".
+    assert error_payload_for_exception(caught.value)["code"] == code
     prepare.assert_not_awaited()
     release.assert_awaited_once()
     assert await _used(fake_redis, user) == 0

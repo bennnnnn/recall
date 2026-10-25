@@ -102,6 +102,13 @@
    "message": "Too many voice requests. Please wait a moment and try again."
   }
  },
+ "voice_spend_cap": {
+  "status": 429,
+  "detail": {
+   "code": "voice_spend_cap",
+   "message": "Voice is temporarily unavailable. Try again later."
+  }
+ },
  "live_talk_not_configured": {
   "status": 503,
   "detail": {
@@ -172,6 +179,13 @@
    "message": "Memory editing is paused right now — try again later."
   }
  },
+ "memory_busy": {
+  "status": 409,
+  "detail": {
+   "code": "memory_busy",
+   "message": "Memory is being updated right now — try again in a moment."
+  }
+ },
  "image_daily_limit": {
   "status": 429,
   "detail": {
@@ -186,6 +200,13 @@
    "code": "content_blocked",
    "message": "That picture can't be made.",
    "feature": "image_generation"
+  }
+ },
+ "image_spend_cap": {
+  "status": 429,
+  "detail": {
+   "code": "spend_cap",
+   "message": "Image generation is temporarily unavailable. Try again later."
   }
  },
  "sign_in_rate_limited": {

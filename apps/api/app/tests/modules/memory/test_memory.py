@@ -1110,7 +1110,7 @@ async def test_update_memory_rewrites_text_and_reembeds():
         ) as update_embed,
         patch("app.modules.memory.cache.invalidate_memory_block", AsyncMock()) as invalidate,
         patch(
-            "app.modules.memory.locks.acquire_memory_write_lock",
+            "app.modules.memory.locks.take_memory_write_lock",
             AsyncMock(return_value=True),
         ),
         patch("app.modules.memory.locks.release_memory_write_lock", AsyncMock()),
@@ -1144,7 +1144,7 @@ async def test_update_memory_rolls_back_without_invalidating_on_commit_failure()
         patch("app.modules.memory.repository.update_text", update_text),
         patch("app.modules.memory.cache.invalidate_memory_block", invalidate),
         patch(
-            "app.modules.memory.locks.acquire_memory_write_lock",
+            "app.modules.memory.locks.take_memory_write_lock",
             AsyncMock(return_value=True),
         ),
         patch("app.modules.memory.locks.release_memory_write_lock", AsyncMock()),
@@ -1168,7 +1168,7 @@ async def test_delete_memory_releases_lock_even_when_delete_fails():
 
     with (
         patch(
-            "app.modules.memory.locks.acquire_memory_write_lock",
+            "app.modules.memory.locks.take_memory_write_lock",
             AsyncMock(return_value=True),
         ) as acquire_lock,
         patch("app.modules.memory.locks.release_memory_write_lock", AsyncMock()) as release_lock,
@@ -1192,7 +1192,7 @@ async def test_delete_all_memories_releases_lock():
 
     with (
         patch(
-            "app.modules.memory.locks.acquire_memory_write_lock",
+            "app.modules.memory.locks.take_memory_write_lock",
             AsyncMock(return_value=True),
         ) as acquire_lock,
         patch("app.modules.memory.locks.release_memory_write_lock", AsyncMock()) as release_lock,

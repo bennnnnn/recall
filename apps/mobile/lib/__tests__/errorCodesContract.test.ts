@@ -96,6 +96,10 @@ it.each([
   ["image_daily_limit", false, "quota", "chat.image_daily_limit_free"],
   ["image_daily_limit", true, "notice", "chat.image_daily_limit_paid"],
   ["image_content_blocked", false, "notice", "chat.image_content_blocked"],
+  // The day's spend cap keeps the server's own words; Redis down at its read is the outage
+  // line. The outage answered the cap's 429, "temporarily unavailable. Try again later".
+  ["image_spend_cap", false, "generic", "Image generation is temporarily unavailable. Try again later."],
+  ["service_unavailable", false, "generic", "common.service_unavailable"],
 ])("words a refused picture: %s (paid %s)", (name, isPaid, kind, words) => {
   const error = refused(name);
   const code = refusalCode(error.code ?? undefined, error.fields.feature);
@@ -105,6 +109,8 @@ it.each([
 it.each([
   ["dictation_daily_limit", "chat.voice_daily_limit"],
   ["dictation_rate_limited", "chat.voice_rate_limited"],
+  ["voice_spend_cap", "chat.voice_paused"],
+  // Redis down at the spend read answered the cap's 429: "Voice input is paused".
   ["service_unavailable", "common.service_unavailable"],
 ])("words a refused dictation: %s", (name, words) => {
   expect(voiceRefusalKey(refused(name))).toBe(words);
@@ -112,10 +118,11 @@ it.each([
 
 // Every 503 said "Live talk isn't set up on this server yet", a Redis outage included.
 it.each([
-  ["service_unavailable", "outage"],
-  ["live_talk_not_configured", "unconfigured"],
-])("gates live talk on a refused 503: %s", (name, gate) => {
+  ["service_unavailable", "outage", "common.service_unavailable"],
+  ["live_talk_not_configured", "unconfigured", "chat.live_talk_not_configured"],
+])("gates live talk on a refusal: %s", (name, gate, words) => {
   expect(liveTalkErrorGate(refused(name))).toBe(gate);
+  expect(liveTalkGateMessageKey(liveTalkErrorGate(refused(name)))).toBe(words);
 });
 
 // Both said "Live talk isn't available in this version of the app. Update the app".
@@ -142,9 +149,11 @@ it.each([
 });
 
 it.each([
+  // Redis down at the write lock or the spend read: it said "Memory is being updated" or
+  // "Memory couldn't be updated. Try again." (the cap's "paused" refusal).
   ["service_unavailable", "unavailable", "common.service_unavailable"],
-  // Paused by the spend cap is no outage: the action's own "couldn't" line, as before.
-  ["memory_spend_cap", "failed", "memory.edit_failed"],
+  ["memory_busy", "busy", "memory.busy"],
+  ["memory_spend_cap", "paused", "memory.paused"],
 ])("words a refused memory edit: %s", (name, failure, words) => {
   expect(memoryFailure(refused(name))).toBe(failure);
   expect(memoryFailureKey(memoryFailure(refused(name)), "memory.edit_failed")).toBe(words);
