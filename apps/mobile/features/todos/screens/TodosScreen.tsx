@@ -50,6 +50,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     markSeenIds,
     getTodos,
     isCurrentSession,
+    readTodosAt,
     olderCompleted,
     showOlderCompleted,
     now,
@@ -198,8 +199,9 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const retry = useCallback(() => {
     if (isCurrentView()) void refresh({ force: true });
   }, [refresh, isCurrentView]);
-  // The API back after an outage: the list read again, unless it is within its stale window.
-  useReconnectRefresh(() => void refresh(), isCurrentView);
+  // The API back after an outage: the list read again, unless a read landed since the connection
+  // was lost, or it is within its stale window.
+  useReconnectRefresh(() => void refresh(), { onScreen: isCurrentView, readAt: readTodosAt });
 
   const listHeader = useMemo(
     () => (

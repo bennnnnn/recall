@@ -79,7 +79,7 @@ export type ChatTurnEvent =
   | { type: "frame"; payload: ChatSsePayload; ttftTurnId?: string | null }
   | { type: "socket_fallback"; transport: ChatWsTransport; signal: ChatWsFallbackSignal }
   | { type: "send_failed"; error: unknown; ttftTurnId: string | null }
-  | { type: "regenerate_failed" }
+  | { type: "regenerate_failed"; error?: unknown }
   | { type: "dropped_turn"; follow: DroppedTurnFollow; result: DroppedTurnResult }
   | { type: "rejected_draft_restored" };
 

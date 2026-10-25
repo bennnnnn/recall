@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 
-import { onConnectionFailure } from "@/lib/api/connectionFailures";
+import { onConnectionAnswered, onConnectionFailure } from "@/lib/api/connectionFailures";
 import { onAppStateChange } from "@/lib/foregroundRefresh";
 import { isNetworkOffline } from "@/lib/networkStatus";
-import { reportDisconnected, reportReconnected } from "@/lib/reconnectRefresh";
+import { connectionLostAt, reportDisconnected, reportReconnected } from "@/lib/reconnectRefresh";
 import {
   configureNetInfo,
   resolveConnectivity,
@@ -169,6 +169,19 @@ export function useNetworkStatus(): {
       if (timer) clearTimeout(timer);
     };
   }, [degraded, inBackground, runProbe]);
+
+  // A request our API answered, sent after the outage was seen, is the API back: the banner
+  // cleared at the loop's next check, up to a minute later, over a reply that had landed. A
+  // check still on its way says nothing newer. One sent before the outage was seen proves nothing.
+  useEffect(() => {
+    if (!degraded || inBackground) return;
+    return onConnectionAnswered((sentAt) => {
+      if (sentAt <= connectionLostAt()) return;
+      probeGen.current += 1;
+      inFlight.current = null;
+      setStatus("online");
+    });
+  }, [degraded, inBackground]);
 
   // The API answering again: the list on screen is read again (lib/reconnectRefresh.ts). Back
   // while the app is in the background, the return reads what every return does.

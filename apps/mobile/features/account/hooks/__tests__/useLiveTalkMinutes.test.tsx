@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react-native";
 
 import { useLiveTalkMinutes } from "@/features/account/hooks/useLiveTalkMinutes";
-import { reportReconnected } from "@/lib/reconnectRefresh";
+import { reportDisconnected, reportReconnected } from "@/lib/reconnectRefresh";
 
 const mockStatus = jest.fn();
 let mockFocused = true;
@@ -69,4 +69,19 @@ it("reads nothing for a plan without live talk, and drops a read the screen left
   await act(async () => {});
   expect(mockStatus).toHaveBeenCalledTimes(2);
   expect(result.current).toEqual({ remaining: 30, limit: 60 });
+});
+
+it("leaves the minutes a read brought since the connection was lost, not one read before it", async () => {
+  mockStatus.mockResolvedValue(status(42));
+  reportDisconnected();
+  jest.advanceTimersByTime(1000);
+  await renderHook(() => useLiveTalkMinutes(true));
+  await act(async () => {});
+  await apiBack();
+  expect(mockStatus).toHaveBeenCalledTimes(1);
+
+  jest.advanceTimersByTime(1000);
+  reportDisconnected();
+  await apiBack();
+  expect(mockStatus).toHaveBeenCalledTimes(2);
 });

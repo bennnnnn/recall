@@ -53,6 +53,10 @@ export function getCachedGalleryPage(filter: GalleryFilter, query: string): Gall
 export function isGalleryPageFresh(filter: GalleryFilter, query: string): boolean {
   return resource.isFresh(galleryListCacheKey(filter, query));
 }
+/** When the first page of this filter and search last came from the server this sign-in. */
+export function galleryPageReadAt(filter: GalleryFilter, query: string): number | undefined {
+  return resource.fetchedAt(galleryListCacheKey(filter, query));
+}
 export function setGalleryPage(filter: GalleryFilter, query: string, page: GalleryPage, nextCursor: string | null = null): void {
   resource.set(galleryListCacheKey(filter, query), firstEntry(page, nextCursor));
 }

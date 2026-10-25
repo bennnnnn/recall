@@ -43,6 +43,14 @@ export function connectionLostAt(): number {
 }
 
 /**
+ * A list read from the server at `readAt` (its cache's time, or the screen's own record) landed
+ * after the connection was lost: it found the API back, and is the read its return asks for.
+ */
+export function readSinceLost(readAt: number | undefined): boolean {
+  return readAt !== undefined && readAt > lostAt;
+}
+
+/**
  * Runs `refresh` once after each reconnect, `delayMs()` later, if `onScreen()` holds both when
  * the API comes back and when the wait ends. The wait is called off when the connection drops
  * again, the app goes to the background, or the returned stop is called (the screen lost focus).

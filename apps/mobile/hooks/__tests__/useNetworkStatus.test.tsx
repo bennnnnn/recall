@@ -4,7 +4,7 @@ import NetInfo from "@react-native-community/netinfo";
 import { act, render } from "@testing-library/react-native";
 
 import { retryDelayMs, useNetworkStatus } from "@/hooks/useNetworkStatus";
-import { reportConnectionFailure } from "@/lib/api/connectionFailures";
+import { reportConnectionAnswered, reportConnectionFailure } from "@/lib/api/connectionFailures";
 import { resolveConnectivity } from "@/lib/networkProbe";
 import { reportDisconnected, reportReconnected } from "@/lib/reconnectRefresh";
 
@@ -19,10 +19,14 @@ jest.mock("@/lib/networkProbe", () => ({
   configureNetInfo: jest.fn(),
   resolveConnectivity: jest.fn(),
 }));
-jest.mock("@/lib/reconnectRefresh", () => ({
-  reportReconnected: jest.fn(),
-  reportDisconnected: jest.fn(),
-}));
+jest.mock("@/lib/reconnectRefresh", () => {
+  let lostAt = 0;
+  return {
+    reportReconnected: jest.fn(),
+    reportDisconnected: jest.fn(() => { lostAt = Date.now(); }),
+    connectionLostAt: () => lostAt,
+  };
+});
 
 const probe = resolveConnectivity as jest.MockedFunction<typeof resolveConnectivity>;
 let status: ReturnType<typeof useNetworkStatus>["status"];
@@ -551,6 +555,117 @@ describe("useNetworkStatus failed requests", () => {
     await fail();
     await elapse(1_500);
     expect(probe).toHaveBeenCalledTimes(launched + 2); // the return's check, then the failure's
+  });
+});
+
+describe("useNetworkStatus answered requests", () => {
+  const wifi = { type: "wifi", isConnected: true, isInternetReachable: true };
+  const addListener = AppState.addEventListener as unknown as jest.Mock;
+  const defaultAddListener = addListener.getMockImplementation();
+  const appHandlers = new Set<(state: string) => void>();
+  const setAppState = async (state: string) => {
+    await act(async () => {
+      for (const handler of [...appHandlers]) handler(state);
+      await flush();
+    });
+  };
+  /** Our API answered `count` requests sent at `sentAt`. */
+  const answer = async (sentAt: number, count = 1) => {
+    await act(async () => {
+      for (let i = 0; i < count; i += 1) reportConnectionAnswered(sentAt);
+      await flush();
+    });
+  };
+  /** Launch with the API out: the banner shows. */
+  const launchIntoOutage = async () => {
+    await render(<Probe />);
+    await act(async () => { await flush(); });
+    expect(status).toBe("api_unreachable");
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    jest.spyOn(Math, "random").mockReturnValue(0.5);
+    appHandlers.clear();
+    (NetInfo.fetch as jest.Mock).mockResolvedValue(wifi);
+    addListener.mockImplementation((event: string, handler: (state: string) => void) => {
+      if (event !== "change") return { remove: jest.fn() };
+      appHandlers.add(handler);
+      return { remove: () => appHandlers.delete(handler) };
+    });
+    probe.mockResolvedValue("api_unreachable");
+  });
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    addListener.mockImplementation(defaultAddListener);
+    (AppState as { currentState: unknown }).currentState = "active";
+  });
+
+  it("clears the banner at the first answer to a request sent since, with one reconnect", async () => {
+    await launchIntoOutage();
+    await elapse(1_000);
+    const checks = probe.mock.calls.length;
+    await answer(Date.now(), 30);
+    expect(status).toBe("online");
+    expect(reportReconnected).toHaveBeenCalledTimes(1);
+    // Nothing more is checked: the loop stopped with the banner.
+    await elapse(60_000);
+    expect(probe).toHaveBeenCalledTimes(checks);
+    expect(reportReconnected).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the banner for an answer to a request sent before the outage was seen", async () => {
+    probe.mockResolvedValue("online");
+    await render(<Probe />);
+    await act(async () => { await flush(); });
+    const sentBefore = Date.now();
+    await elapse(500);
+    probe.mockResolvedValue("api_unreachable");
+    await act(async () => {
+      reportConnectionFailure();
+      await flush();
+    });
+    await elapse(1_500);
+    expect(status).toBe("api_unreachable");
+    await answer(sentBefore);
+    expect(status).toBe("api_unreachable");
+    expect(reportReconnected).not.toHaveBeenCalled();
+  });
+
+  it("lets no check already on its way bring the banner back", async () => {
+    await launchIntoOutage();
+    let settle: (next: "api_unreachable") => void = () => {};
+    probe.mockImplementation(() => new Promise((resolve) => { settle = resolve; }));
+    await elapse(1_500); // the loop's check goes out, and waits
+    await answer(Date.now());
+    expect(status).toBe("online");
+
+    // A failure soon after gets a check of its own, not the answer of the one still out.
+    probe.mockResolvedValue("online");
+    await act(async () => {
+      reportConnectionFailure();
+      await flush();
+    });
+    await elapse(1_500);
+    await act(async () => {
+      settle("api_unreachable");
+      await flush();
+    });
+    expect(status).toBe("online");
+  });
+
+  it("clears nothing in the background; the return checks as before", async () => {
+    await launchIntoOutage();
+    await setAppState("background");
+    await answer(Date.now());
+    expect(status).toBe("api_unreachable");
+    probe.mockResolvedValue("online");
+    await setAppState("active");
+    expect(status).toBe("online");
+    expect(reportReconnected).toHaveBeenCalledTimes(1);
   });
 });
 

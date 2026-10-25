@@ -56,7 +56,7 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const feedback = useActionFeedbackOptional();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const memory = useMemoryDocuments(token);
-  const { load, instruct, deleteDocument, deleteFact, editFact, setFactMuted } = memory;
+  const { load, readAt, instruct, deleteDocument, deleteFact, editFact, setFactMuted } = memory;
   const { clearAll } = useClearAllMemories(isCurrentView);
   const document = memory.documents.find((doc) => doc.key === key);
   const [menu, setMenu] = useState<FactMenu | null>(null);
@@ -69,7 +69,7 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     if (missing && isCurrentView()) void load();
   }, [missing, isCurrentView, load]);
   // The API back after an outage: the pages read again.
-  useReconnectRefresh(() => void load(), isCurrentView);
+  useReconnectRefresh(() => void load(), { onScreen: isCurrentView, readAt });
 
   const title = document ? documentTitle(document, t) : "";
   const summary = document ? documentSummary(document, t) : "";

@@ -69,6 +69,8 @@ export function useTodosList(token: string | null | undefined, userId: string | 
     }));
   }, [isCurrentSession, owner]);
   const getTodos = useCallback(() => isCurrentSession() ? resource.current.data : [], [isCurrentSession]);
+  /** When this session's list last came from the server. */
+  const readTodosAt = useCallback(() => isCurrentSession() ? resource.current.fetchedAt : undefined, [isCurrentSession]);
   const setTodos = useCallback((action: SetStateAction<Todo[]>) => {
     if (!isCurrentSession()) return;
     const cache = resource.current;
@@ -134,5 +136,5 @@ export function useTodosList(token: string | null | undefined, userId: string | 
   useOnForeground(() => void zoneReportSettled().then(() => refresh({ silent: true })), signedIn);
   return { todos: view.todos, loading: view.loading, error: view.error, loaded: view.loaded,
     retainedOpenIds: view.retainedOpenIds, olderCompleted: view.olderCompleted, showOlderCompleted,
-    setTodos, getTodos, refresh, isCurrentSession };
+    setTodos, getTodos, readTodosAt, refresh, isCurrentSession };
 }

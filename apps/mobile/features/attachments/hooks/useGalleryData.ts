@@ -8,6 +8,7 @@ import { type AttachmentListItem } from "@/lib/api";
 import {
   fetchGalleryNextPage,
   fetchGalleryPage,
+  galleryPageReadAt,
   getCachedGalleryPage,
   isGalleryPageFresh,
   removeCachedGalleryItem,
@@ -131,7 +132,9 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
     }, [load]),
   );
   // The API back after an outage: the page read again, as coming back to the screen reads it.
-  useReconnectRefresh(() => void load({ reset: true }));
+  useReconnectRefresh(() => void load({ reset: true }), {
+    readAt: () => galleryPageReadAt(filter, debouncedQuery),
+  });
 
   /** Pull to refresh. Resolves false when it failed and the list kept older items. */
   const refresh = useCallback(async (): Promise<boolean> => {

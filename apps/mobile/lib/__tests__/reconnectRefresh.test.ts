@@ -1,6 +1,7 @@
 import {
   connectionLostAt,
   onReconnect,
+  readSinceLost,
   reconnectRefreshDelayMs,
   reportDisconnected,
   reportReconnected,
@@ -100,6 +101,15 @@ describe("onReconnect", () => {
     expect(connectionLostAt()).toBe(5_000);
     reportDisconnected();
     expect(connectionLostAt()).toBe(9_000);
+  });
+
+  it("counts a read that landed after the connection was lost, only", () => {
+    jest.setSystemTime(5_000);
+    reportDisconnected();
+    expect(readSinceLost(undefined)).toBe(false);
+    expect(readSinceLost(4_000)).toBe(false);
+    expect(readSinceLost(5_000)).toBe(false);
+    expect(readSinceLost(5_001)).toBe(true);
   });
 
   it("reads nothing before the API comes back", () => {

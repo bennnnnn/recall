@@ -85,7 +85,7 @@ export function useChat(token: string | null, chatId: string | null, options: Us
       step({ type: "socket_fallback", transport: socket, signal });
     },
     onSendFailure: (error, ttftTurnId) => step({ type: "send_failed", error, ttftTurnId }),
-    onRegenerateFailure: () => step({ type: "regenerate_failed" }),
+    onRegenerateFailure: (error) => step({ type: "regenerate_failed", error }),
   });
   const { connect, sendViaSse, regenerateViaSse, currentSocket, detach } = transport;
   const followDroppedTurn = useDroppedTurnReconcile({

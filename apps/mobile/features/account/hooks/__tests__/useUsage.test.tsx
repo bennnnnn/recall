@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react-native";
 
 import { useUsage } from "@/features/account/hooks/useUsage";
 import type { Usage } from "@/lib/api";
-import { reportReconnected } from "@/lib/reconnectRefresh";
+import { reportDisconnected, reportReconnected } from "@/lib/reconnectRefresh";
 
 // The account key, and its access token, which the hourly rotation changes.
 let mockToken: string | null = "account-a";
@@ -21,7 +21,10 @@ jest.mock("@/lib/cache/usageCache", () => ({
   fetchTodayUsage: (...args: unknown[]) => mockFetchUsage(...args),
   getCachedUsage: (...args: unknown[]) => mockGetCachedUsage(...args),
   invalidateUsageCache: jest.fn(),
+  usageReadAt: () => mockReadAt,
 }));
+/** When the cache last had the usage from the server. */
+let mockReadAt: number | undefined;
 jest.mock("expo-router", () => {
   const { useEffect } = jest.requireActual<typeof import("react")>("react");
   return { useFocusEffect: (callback: () => void) => useEffect(callback, [callback]) };
@@ -50,6 +53,7 @@ beforeEach(() => {
   mockToken = "account-a";
   mockAccessToken = "token-1";
   mockGeneration = 0;
+  mockReadAt = undefined;
   mockGetCachedUsage.mockReturnValue(undefined);
 });
 
@@ -145,6 +149,31 @@ it("reads again once the API answers after an outage, 0 to 10 s later, and not a
       reportReconnected();
       await jest.advanceTimersByTimeAsync(10_000);
     });
+    expect(mockFetchUsage).toHaveBeenCalledTimes(2);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it("leaves the usage a read brought since the connection was lost, not one read before it", async () => {
+  jest.useFakeTimers();
+  try {
+    mockFetchUsage.mockResolvedValue(usage());
+    await renderHook(useUsage);
+    mockReadAt = Date.now();
+    jest.advanceTimersByTime(1000);
+    const apiBack = () => act(async () => {
+      reportReconnected();
+      await jest.advanceTimersByTimeAsync(10_000);
+    });
+    reportDisconnected();
+    await apiBack();
+    expect(mockFetchUsage).toHaveBeenCalledTimes(2);
+
+    reportDisconnected();
+    jest.advanceTimersByTime(1000);
+    mockReadAt = Date.now();
+    await apiBack();
     expect(mockFetchUsage).toHaveBeenCalledTimes(2);
   } finally {
     jest.useRealTimers();
