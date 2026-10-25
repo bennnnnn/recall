@@ -397,6 +397,10 @@ def auto_fast_alias() -> str:
     return ROUTING.everyday
 
 
+def auto_strong_everyday_alias() -> str:
+    return ROUTING.everyday_strong
+
+
 def auto_smart_alias() -> str:
     return ROUTING.hard
 

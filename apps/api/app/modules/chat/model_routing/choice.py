@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 from app.core.config import Settings
 from app.exceptions import UnknownModelOverrideError
+from app.models import model_catalog
+from app.modules.billing.entitlements import has_strong_everyday_model
 from app.modules.billing.plan import (
     AUTO_ALIAS,
     is_auto_enabled,
@@ -37,7 +39,7 @@ def resolve_user_model(
     """
     pool = model_pool(user, settings)
     if is_auto_enabled(user):
-        return resolve_alias_in_pool(
+        routed = resolve_alias_in_pool(
             AUTO_ALIAS,
             content,
             pool,
@@ -47,9 +49,25 @@ def resolve_user_model(
             lesson_active=lesson_active,
             unhealthy=unhealthy,
         )
+        return _everyday_for_plan(user, settings, routed, pool, unhealthy)
     if len(pool) == 1:
         return pool[0]
     return pick_cheapest_from_pool(pool, settings)
+
+
+def _everyday_for_plan(
+    user: User, settings: Settings, routed: str, pool: list[str], unhealthy: frozenset[str]
+) -> str:
+    """Auto's everyday pick on a plan with the stronger everyday model (Pro).
+
+    Only the everyday lane changes: hard and maths turns keep their lanes. The
+    stronger model must be in the user's pool (they can switch it off) and healthy;
+    otherwise the everyday model answers.
+    """
+    if routed != model_catalog.auto_fast_alias() or not has_strong_everyday_model(user, settings):
+        return routed
+    strong = model_catalog.auto_strong_everyday_alias()
+    return strong if strong in pool and strong not in unhealthy else routed
 
 
 def resolve_user_model_override(

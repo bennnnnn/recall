@@ -80,8 +80,9 @@ def test_a_generated_image_earlier_does_not_move_a_hard_question_to_the_photo_mo
 @pytest.mark.parametrize(
     "alias, expected",
     [
-        (None, "vision-chat"),
-        ("auto", "vision-chat"),
+        # Pro's everyday model reads the photo itself.
+        (None, model_catalog.auto_strong_everyday_alias()),
+        ("auto", model_catalog.auto_strong_everyday_alias()),
         ("gpt-6-luna", "gpt-6-luna"),
         ("free-chat", "free-chat"),
         ("smart-chat", "vision-chat"),
@@ -97,7 +98,7 @@ def test_a_photo_sent_now_runs_on_a_model_that_reads_it(alias: str | None, expec
 def test_a_photo_sent_now_with_attachments_off_keeps_the_routed_model() -> None:
     turn = _turn("what's in this picture?", recent=[], image=True)
     off = Settings(attachments_enabled=False, mock_llm_enabled=True, openrouter_api_key="")
-    assert turn_model(turn, _pro_user(), off) == "qwen-3.7-flash"
+    assert turn_model(turn, _pro_user(), off) == model_catalog.auto_strong_everyday_alias()
 
 
 @pytest.mark.asyncio

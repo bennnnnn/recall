@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, TypeGuard
 
 from app.core.config import Settings
 from app.models import model_catalog
-from app.modules.billing.entitlements import can_use, is_paid
+from app.modules.billing.entitlements import can_use, has_strong_everyday_model, is_paid
 from app.services import model_health
 
 if TYPE_CHECKING:
@@ -156,6 +156,14 @@ def image_turn_model(
         return routed if model_catalog.reads_images(routed) else lane
     if routed == vision or routed not in model_catalog.known_ids():
         return lane
+    # Pro's everyday model reads photos itself: its turns keep it.
+    if (
+        routed == model_catalog.auto_strong_everyday_alias()
+        and has_strong_everyday_model(user, settings)
+        and routed not in unhealthy
+        and model_catalog.reads_images(routed)
+    ):
+        return routed
     everyday = model_catalog.tier_rank(model_catalog.get(model_catalog.auto_fast_alias()))
     if model_catalog.tier_rank(model_catalog.get(routed)) <= everyday:
         return lane
