@@ -23,7 +23,7 @@ from app.modules.memory.commands import (
 from app.modules.memory.fact_quality import FactView, is_one_off_schedule_fact, texts_to_drop
 from app.modules.memory.facts import should_skip_sensitive_persist
 from app.modules.memory.forget_match import names_nothing, phrase_names_fact
-from app.modules.memory.name_claim import is_unclaimed_user_name
+from app.modules.memory.name_claim import as_chosen_name, is_unclaimed_user_name
 from app.modules.memory.ops import EXPLICIT_IMPORTANCE, MODEL_IMPORTANCE_MAX, normalize_memory_text
 from app.modules.memory.schemas import MemoryFactOp
 from app.modules.memory.self_facts import stated_fact_writes
@@ -191,6 +191,9 @@ def writes_from_ops(
             logger.info("Skipping one-off reminder stored as memory")
             skipped += 1
             continue
+        if writes_text:
+            # "Call me Sam" is a nickname, kept beside a different profile name.
+            text = as_chosen_name(text, transcript)
         # No valid topic keeps a matched fact where it is; a new fact then gets
         # the default document for its type.
         topic = parse_topic(op.topic)

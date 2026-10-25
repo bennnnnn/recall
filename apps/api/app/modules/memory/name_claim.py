@@ -6,18 +6,24 @@ name is a separate field and is not inferred from other people in the chat.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
+
+from app.services.text_normalize import collapse_ws
 
 _APOSTROPHES = str.maketrans({"\u2019": "'", "\u2018": "'"})
 
-# Phrases that assign a name to the user. A bare "also goes by" is only a
-# nickname on a fact that already names the user, so a pet's nickname is not
-# treated as the user's name.
-_DIRECT_MARKERS = (
+# Phrases that state who the user is by name.
+_IDENTITY_MARKERS = (
     "user's name is ",
     "users name is ",
     "user name is ",
     "user is named ",
+)
+# Phrases that give the name the user chose to be called. A bare "also goes by" is
+# only a nickname on a fact that already names the user, so a pet's nickname is not
+# treated as the user's name.
+_NICKNAME_MARKERS = (
     "user goes by ",
     "user also goes by ",
 )
@@ -28,14 +34,27 @@ _BEFORE_MARKERS = (
 )
 _BARE_IDENTITY = ("the user is ", "user is ")
 
-_CLAIM_PREFIXES = (
+# How the user says who they are, and how they ask to be called.
+_IDENTITY_PREFIXES = (
     "my name is ",
     "my name's ",
     "i'm ",
     "i am ",
+)
+_CHOSEN_PREFIXES = (
     "call me ",
     "i go by ",
     "i also go by ",
+    "i prefer to be called ",
+    "i'd like to be called ",
+    "i want to be called ",
+)
+_CLAIM_PREFIXES = (*_IDENTITY_PREFIXES, *_CHOSEN_PREFIXES)
+
+# A fact that is only the user's name: "User's name is Sam", "The user is named Sam."
+_PURE_NAME_SENTENCE = re.compile(
+    r"(?:the )?(?:user(?:'s|s)? name is|user is named) (?P<name>[^\W\d_][\w'-]*)\.?",
+    re.IGNORECASE,
 )
 
 _NOT_A_NAME = frozenset({"the", "a", "an", "my", "not", "unknown", "missing", "none", "user"})
@@ -144,31 +163,41 @@ def _bare_identity(folded: str) -> list[str]:
     return found
 
 
+def _identity_names(folded: str) -> list[str]:
+    names: list[str] = []
+    for marker in _IDENTITY_MARKERS:
+        names.extend(_names_after(folded, marker))
+    for marker in _BEFORE_MARKERS:
+        names.extend(_names_before(folded, marker))
+    names.extend(_bare_identity(folded))
+    return names
+
+
+def _unique(names: list[str]) -> list[str]:
+    return list(dict.fromkeys(names))
+
+
+def stated_user_names(text: str) -> list[str]:
+    """Names this sentence says the user has ("User's name is Sam"), not a nickname."""
+    folded = _fold(text)
+    return _unique(_identity_names(folded)) if "user" in folded else []
+
+
 def assigned_user_names(text: str) -> list[str]:
     """Names this sentence assigns to the user. Empty when it does not."""
     folded = _fold(text)
     if "user" not in folded:
         return []
-    names: list[str] = []
-    for marker in _DIRECT_MARKERS:
+    names = _identity_names(folded)
+    for marker in _NICKNAME_MARKERS:
         names.extend(_names_after(folded, marker))
-    for marker in _BEFORE_MARKERS:
-        names.extend(_names_before(folded, marker))
-    names.extend(_bare_identity(folded))
     if names:
         names.extend(_names_after(folded, "also goes by "))
-    unique: list[str] = []
-    seen: set[str] = set()
-    for name in names:
-        if name in seen:
-            continue
-        seen.add(name)
-        unique.append(name)
-    return unique
+    return _unique(names)
 
 
-def _claimed(speech: str, name: str) -> bool:
-    for prefix in _CLAIM_PREFIXES:
+def _claimed(speech: str, name: str, prefixes: tuple[str, ...] = _CLAIM_PREFIXES) -> bool:
+    for prefix in prefixes:
         phrase = prefix + name
         start = 0
         while True:
@@ -203,3 +232,23 @@ def is_unclaimed_user_name(
         known.update(assigned_user_names(existing))
     speech = _user_speech(transcript)
     return any(name not in known and not _claimed(speech, name) for name in names)
+
+
+def as_chosen_name(text: str, transcript: str) -> str:
+    """ "User's name is Sam" as "User goes by Sam" when the user only asked to be called it.
+
+    "Call me Sam" is the name they chose to be called, not a claim about who they are:
+    saved as a nickname it stays beside a different profile name (``profile_name``),
+    where a stated name that disagrees with the profile is left out of the prompt.
+    """
+    match = _PURE_NAME_SENTENCE.fullmatch(collapse_ws(text.translate(_APOSTROPHES)))
+    if match is None:
+        return text
+    name = match.group("name")
+    folded = _fold(name)
+    speech = _user_speech(transcript)
+    if _claimed(speech, folded, _IDENTITY_PREFIXES):
+        return text
+    if not _claimed(speech, folded, _CHOSEN_PREFIXES):
+        return text
+    return f"User goes by {name}"

@@ -22,6 +22,7 @@ from app.core.config import Settings
 from app.core.redis import get_redis_client
 from app.models.orm import Memory, User
 from app.modules.memory import cache, selection
+from app.modules.memory.profile_name import without_conflicting_names
 from app.modules.memory.switch import memory_switch_on
 from app.modules.memory.text import (
     is_diet_health_memory_text,
@@ -230,10 +231,35 @@ async def get_memory_block(
     scope: MemoryScope = "query",
     report: MemoryLoadReport | None = None,
 ) -> str:
-    """The memory block for one prompt; ``report`` says if it loaded in full."""
+    """The memory block for one prompt; ``report`` says if it loaded in full.
+
+    A saved fact that names the user differently from their profile is left out
+    (``profile_name``): the prompt calls them by one name.
+    """
     if not memory_switch_on(user):
         return ""
-    report = report if report is not None else MemoryLoadReport()
+    block = await _scoped_block(
+        session,
+        user,
+        settings,
+        query_text=query_text,
+        exclude_sensitive=exclude_sensitive,
+        scope=scope,
+        report=report if report is not None else MemoryLoadReport(),
+    )
+    return without_conflicting_names(block, user.name)
+
+
+async def _scoped_block(
+    session: AsyncSession,
+    user: User,
+    settings: Settings,
+    *,
+    query_text: str | None,
+    exclude_sensitive: bool,
+    scope: MemoryScope,
+    report: MemoryLoadReport,
+) -> str:
     if scope == "work":
         return await _cached_block(
             session,
