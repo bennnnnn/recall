@@ -14,6 +14,7 @@ from redis.asyncio import Redis
 
 from app.core.aio import gather_or_cancel
 from app.core.config import Settings
+from app.core.readings import kept_reading
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chat.turn_prep.instant import settings_card
@@ -61,8 +62,13 @@ async def money_turn(
 
 
 def _parts(line: str, chemistry_enabled: bool) -> tuple[str, ...]:
-    """An earlier line in the parts its own turn read it in."""
-    plan = plan_turn(line, chemistry_enabled=chemistry_enabled)
+    """An earlier line in the parts its own turn read it in, from the plan the pool made
+    with the message (``reading``). A line the pool did not plan (an older one, one with no
+    text) has no parts: it ends the money run, and it is never planned here, on the loop
+    (golden rule 7)."""
+    plan = kept_reading(plan_turn, line, chemistry_enabled=chemistry_enabled)
+    if plan is None:
+        return ()
     return plan.texts() if plan.multi else (line,)
 
 

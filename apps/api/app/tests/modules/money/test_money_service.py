@@ -171,7 +171,11 @@ async def test_a_given_rate_is_not_called_unrealistic_beside_a_stand_in(monkeypa
     """16 % is more than twice the new-car average, and an ordinary used-car rate."""
     _lookup_kinds(monkeypatch, {"used": None, "": average(7.0, "60-month new car loan rate")})
     turn = await service.prepare_money_turn(
-        "used car loan of 11000 at 16% for 60 months", Settings(), None, user=None, location=None
+        "buying a used car, car loan of 11000 at 16% for 60 months",
+        Settings(),
+        None,
+        user=None,
+        location=None,
     )
     assert turn is not None
     reply = await service.finish_money_reply(turn, "About $267 a month.", Settings())
@@ -181,7 +185,7 @@ async def test_a_given_rate_is_not_called_unrealistic_beside_a_stand_in(monkeypa
 async def test_a_used_rates_question_says_the_average_stands_in(monkeypatch) -> None:
     _lookup_kinds(monkeypatch, {"used": None, "": _NEW_CAR})
     turn = await service.prepare_money_turn(
-        "current used car loan rates", Settings(), None, user=None, location=None
+        "current car loan rates for buying a used car", Settings(), None, user=None, location=None
     )
     assert turn is not None and turn.request.rates_only
     assert "7.16% as of Oct 16, 2026" in turn.block and "not a used car rate" in turn.block

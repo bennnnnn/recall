@@ -46,7 +46,7 @@ def test_a_rates_question_gets_the_checked_average_or_none() -> None:
 
 
 def test_the_block_names_the_kind_of_product() -> None:
-    request = read_money_request("used car loan of 11000 at 7% for 60 months")
+    request = read_money_request("buying a used car, car loan of 11000 at 7% for 60 months")
     assert request is not None
     assert money_block(request, work(request, None), None).startswith(f"{MONEY_HEADER}: used car.")
 

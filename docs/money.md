@@ -37,12 +37,13 @@ branches on its name. A kind of a product priced apart is a `Variant` on its row
 words and `RateLookup`: "a used car for 14000" (also pre-owned, certified pre-owned,
 second-hand) is a car loan looked up at the used-car average, cached apart from the new-car one
 and named in the reply ("used car loan rate"; used-car averages are published for every term at
-once, so that lookup names none). The kind counts only in a few fixed phrases about the vehicle
-being bought: "buying (a) used car" (also buy, bought, get, finance, financing, purchase,
-looking at, thinking of buying), "a used car for 14000", "used car loan", "loan for a used car".
-Nothing else names it: not a verb ("I used a calculator", "what rate is used?"), the old car
-("to replace my old used car", "trading in my used car") or the alternative ("or buy a used
-car with cash"). New or no kind said is the row's own lookup.
+once, so that lookup names none). The kind counts only in two fixed phrases about the vehicle
+being bought: "buying a used car" (also buy, financing, finance, getting, get, purchasing,
+purchase, thinking of buying, looking at; pre-owned, second-hand, certified pre-owned; car,
+truck, SUV, vehicle) and "a loan for a used car", and never after "or", "vs", "instead of",
+"than", "rather", "not", "sold", "selling" or "paid off" anywhere earlier in the message (that
+used car is the alternative or another one). Missing a used car is the safe direction: the
+reply then uses the new-car average and says so. New or no kind said is the row's own lookup.
 
 The row's own lookup starts beside a variant's. When the variant's finds nothing in time, the
 row's own average stands in and says so: the reply and the note name it ("today's average
@@ -91,7 +92,8 @@ off by dollars (live 2026-10-25: $340.58 a month for $340.45).
 - The turn passes the user's earlier lines and the last reply (`turn_prep/money.py`), each
   line in the parts its own turn read it in (a multi-part line's plan, read in the pool with the
   message), so "set a reminder for 9 tomorrow and what's the payment on a 20000 car loan at 6%"
-  is the 20000 loan, not one of 9. The request a line changes is the last one in the user's
+  is the 20000 loan, not one of 9. A line the pool did not plan (one with no text) ends the run;
+  it is never planned on the event loop. The request a line changes is the last one in the user's
   last three lines, and every line after it must be a change of it too; a line about something
   else, or a change the server left to the model, ends the run.
 - The follow-up's average is read again for its own kind and term. When that is not the rate

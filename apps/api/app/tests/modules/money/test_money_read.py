@@ -121,41 +121,42 @@ def test_read_money_request_leaves_other_messages(text: str) -> None:
             "monthly payment be over 5 years?",
             "used",
         ),
-        ("used car loan 12000 at 11% for 4 years", "used"),
-        ("pre-owned truck loan 28000 at 8.5% for 6 years", "used"),
-        ("a used car for 12000 at 9% over 4 years", "used"),
-        ("buying a certified pre-owned car, car loan of 25000 at 7%", "used"),
-        ("auto loan for a used car of 15000 at 9% for 5 years", "used"),
-        ("used-car loan of 12000 at 9%", "used"),
-        ("what are used car loan rates right now", "used"),
-        # "Used" anywhere else: a verb, the old car, the alternative, cars in general.
-        ("I used a calculator and got 400 a month on a car loan of 20000 at 6%", ""),
-        ("I'm used to paying 300 a month, what would a 20000 car loan cost over 5 years", ""),
-        ("car loan 25000 at 6%, what rate is used", ""),
-        ("car loan 18000 at 7% to replace my old used car, payment over 60 months", ""),
-        ("car loan 25000 at 7% to upgrade from a used car, 60 months", ""),
-        ("is it smarter to get a car loan of 25000 at 7% or buy a used car with cash", ""),
-        ("car loan 25000 at 7% vs paying cash for a used car, 60 months", ""),
-        ("car loan 25000 at 7% to get rid of the used car, 60 months", ""),
-        ("trading in my used car, new car loan 30000 at 6%", ""),
-        ("I sold my used car, now a car loan of 30000 at 6% for a new one", ""),
-        ("car loan 30000 at 6% for a new car, I don't want a used one", ""),
-        ("car loan of 30000 at 6%, it's for my wife's used Honda", ""),
-        ("car loan 30000 at 6%, the used car market is crazy", ""),
+        ("we're buying a used car, 16k at 8.5% for 60 months, payment?", "used"),
+        ("getting a used car for $9,800 at 13% for 36 months what's monthly", "used"),
+        ("thinking of buying a certified pre-owned car, 22k at 6.9% for 60 months", "used"),
+        ("purchase a used truck 28k at 8% 72 months car loan", "used"),
+        ("I want to buy a pre-owned car for 18000 at 9% for 60 months", "used"),
+        ("I need a car loan, a loan for a used car of 15000 at 9% for 5 years", "used"),
+        # Missing a used car is the safe direction: no buying verb, no kind.
+        ("a used car for 17000 at 7.9% for 60 months, monthly payment?", ""),
+        ("used car loan 12000 at 11% for 4 years", ""),
+        ("what's the payment on a used-car loan of 15000 at 10% for 5 years", ""),
         ("used car payment on 15k at 9%", ""),
+        # The alternative, another car, or a verb (reviews, 2026-10-25).
+        ("should I take a car loan of 30000 for 60 months or buy a used car for 12000 cash? what's the loan payment", ""),
+        ("car loan 33000 for 60 months vs buying a used car for 15000, what's the payment", ""),
+        ("new car loan of 28k for 72 months instead of buying a used car for 14k, monthly payment?", ""),
+        ("I just sold a used car for 8000; car loan 30k over 60 months, monthly payment?", ""),
+        ("I'm selling a used car for 9000 and need a car loan of 25000 for 60 months, what's the monthly", ""),
+        ("car loan of 20000 for 48 months, not a used car loan, what's the payment", ""),
+        ("my old used car loan is paid off, now I need a car loan of 31k for 60 months, payment?", ""),
+        ("my wife's used car loan is paid off, now we need a car loan of 30k at 6% for 60 months", ""),
+        ("car loan 18000 at 7% to replace my old used car, payment over 60 months", ""),
+        ("trading in my used car, new car loan 30000 at 6%", ""),
+        ("I used a calculator and got 400 a month on a car loan of 20000 at 6%", ""),
+        ("car loan 25000 at 6%, what rate is used", ""),
         ("new car loan 30000 at 6% for 5 years", ""),
-        ("car loan 30000 at 6% for 5 years", ""),
         # A product with no kinds priced apart.
         ("used furniture loan of 3000 at 9%", ""),
     ],
-)
+)  # fmt: skip
 def test_read_money_request_reads_the_kind(text: str, variant: str) -> None:
     request = read_money_request(text)
     assert request is not None and request.variant == variant
 
 
 def test_a_rates_question_keeps_the_kind() -> None:
-    request = read_money_request("current used car loan rates")
+    request = read_money_request("current car loan rates for buying a used car")
     assert request is not None and request.rates_only and request.variant == "used"
 
 
