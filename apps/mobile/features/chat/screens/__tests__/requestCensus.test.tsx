@@ -906,11 +906,11 @@ const RECOVERY_CASES: RecoveryCase[] = [
     read: /^GET \/chats(?: \(304\))?$/,
   },
   { title: "the to-do list", show: (app) => showOnly(app, "todos"), read: /^GET \/todos\/page\b/ },
-  { title: "the memory list", show: (app) => showOnly(app, "memory"), read: /^GET \/memories\/documents$/ },
+  { title: "the memory list", show: (app) => showOnly(app, "memory"), read: /^GET \/memories\/documents(?: \(304\))?$/ },
   {
     title: "a memory page",
     show: (app) => showOnly(app, "memoryPage", { key: "profile" }),
-    read: /^GET \/memories\/documents$/,
+    read: /^GET \/memories\/documents(?: \(304\))?$/,
   },
   { title: "the library", show: (app) => showOnly(app, "gallery"), read: /^GET \/attachments\b/ },
   { title: "settings, no list", show: (app) => showOnly(app, "settings"), read: null },
