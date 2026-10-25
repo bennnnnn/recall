@@ -10,7 +10,7 @@ recency words decide.
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 
 from app.services import time_context as time_context_service
 
@@ -38,24 +38,42 @@ def anchor_recency_to_year(query: str, user_text: str, user_timezone: str | None
     return f"{query.strip()} {datetime.now(tz).year}"
 
 
-# Words that ask how things stand now: "is it over already?", "who's winning so far",
-# "has the season started yet". With ``has_recency`` ("who won", "score", "today",
-# "latest") they mark a search whose answer depends on when each page was written.
-_STATUS_NOW = re.compile(
-    r"\b(?:already|yet|so far|right now|at the moment|currently|still (?:on|going|running|"
-    r"happening|open|playing)|this (?:year|season|week|month|weekend)|tonight|last night"
-    r"|(?:is|has|did|was) (?:it|the \w+) (?:over|done|finished|started|ended|begun)"
-    r"|just (?:started|ended|finished|happened|came out))\b",
+# Words that ask how things stand now: a result, a score, the news, "so far", "this
+# season". With these the answer depends on when each page was written.
+_NOW_WORDS = re.compile(
+    r"\b(?:who won|who(?:'s| is) (?:winning|leading|ahead)|scores?|standings|breaking|news"
+    r"|headlines?|today|tonight|yesterday|last night|right now|at the moment|so far"
+    r"|currently|this (?:week|weekend|month|season|year)|out yet)\b",
     re.IGNORECASE,
 )
+# How something stands: "is the world series over?", "has the election been called?",
+# "is the iphone 18 out", "did the dodgers win?", "when is game 3?".
+_STATUS = re.compile(
+    r"\b(?:is|are|has|have|did|was)\s+(?:it|they|the\s+[\w'-]+(?:\s+[\w'-]+){0,2})\s+"
+    r"(?:already\s+|been\s+)?(?:over|done|finished|started|ended|begun|out|called|happening)\b"
+    r"|\balready\s+(?:over|out|started|finished|ended|happened|begun|released)\b"
+    r"|\bdid\s+(?:the\s+)?[\w'-]+(?:\s+[\w'-]+)?\s+win\b|\bgame\s+\d\b",
+    re.IGNORECASE,
+)
+# A question about the past: "who won the 1998 world series", "the first super bowl".
+_HISTORY = re.compile(r"\b(?:first|ever|all[- ]time|in history)\b", re.IGNORECASE)
 
 
 def wants_dated_results(text: str | None) -> bool:
     """A search whose pages must say when they were written: a result, a score, the
-    latest, how something stands now."""
-    from app.modules.web_search.patterns import collapse_ws, has_recency
+    latest, how something stands now, or this year by name. A question about an earlier
+    year, the first or the all-time is history, and a search for places near the user
+    lists places."""
+    from app.modules.web_search.geo_intent import is_geo_query
+    from app.modules.web_search.patterns import collapse_ws
 
     cleaned = collapse_ws(text or "")
-    if not cleaned:
+    if not cleaned or is_geo_query(cleaned):
         return False
-    return has_recency(cleaned) or asks_for_newest(cleaned) or bool(_STATUS_NOW.search(cleaned))
+    years = {int(year) for year in _YEAR.findall(cleaned)}
+    this_year = datetime.now(UTC).year
+    if (years and max(years) < this_year) or _HISTORY.search(cleaned):
+        return False
+    if this_year in years:
+        return True
+    return bool(_NOW_WORDS.search(cleaned) or _STATUS.search(cleaned) or asks_for_newest(cleaned))

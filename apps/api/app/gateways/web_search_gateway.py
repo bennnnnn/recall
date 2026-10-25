@@ -13,7 +13,7 @@ import logging
 import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 
 from app.core.blocking import has_room, run_blocking
@@ -38,8 +38,9 @@ class WebSearchHit:
     title: str
     url: str
     snippet: str
-    # The day the page was published (YYYY-MM-DD), when the provider says: Tavily's news
-    # search does; its general search and DuckDuckGo do not.
+    # When the page was published, ISO-8601 in UTC ("2026-10-25T03:30:00+00:00", or a day
+    # alone), when the provider says: Tavily's news search does; its general search and
+    # DuckDuckGo do not.
     published: str = ""
 
 
@@ -163,18 +164,24 @@ async def _search_duckduckgo(query: str, max_results: int) -> list[WebSearchHit]
         raise WebSearchUnavailableError("DuckDuckGo timed out") from exc
 
 
-def _published_day(raw: object) -> str:
-    """Tavily's ``published_date`` ("Sat, 24 Oct 2026 10:00:00 GMT") as its day."""
+def _published_at(raw: object) -> str:
+    """Tavily's ``published_date`` ("Sat, 24 Oct 2026 10:00:00 GMT") as ISO-8601 in UTC.
+
+    The moment, not its day: a game recap posted at 03:30 GMT on the 25th was written on
+    the evening of the 24th in the Americas.
+    """
     if not isinstance(raw, str) or not raw.strip():
         return ""
     try:
-        return parsedate_to_datetime(raw).date().isoformat()
+        moment = parsedate_to_datetime(raw)
     except (TypeError, ValueError):
-        pass
-    try:
-        return datetime.fromisoformat(raw.strip().replace("Z", "+00:00")).date().isoformat()
-    except ValueError:
-        return ""
+        try:
+            moment = datetime.fromisoformat(raw.strip().replace("Z", "+00:00"))
+        except ValueError:
+            return ""
+    if moment.tzinfo is None:
+        return moment.date().isoformat()
+    return moment.astimezone(UTC).isoformat()
 
 
 async def _search_tavily(
@@ -218,7 +225,7 @@ async def _search_tavily(
                 title=title or url or "Untitled",
                 url=url,
                 snippet=snippet[:600],
-                published=_published_day(item.get("published_date")),
+                published=_published_at(item.get("published_date")),
             )
         )
     return hits

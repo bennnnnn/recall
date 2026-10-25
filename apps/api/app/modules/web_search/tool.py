@@ -147,7 +147,7 @@ class WebSearchAdapter:
             shown = hits[:5]
             today = local_today(ctx.user_timezone)
             lines = [
-                f"- {hit.title}: {hit.url}\n  {published_note(hit.published, today)}"
+                f"- {hit.title}: {hit.url}\n  {published_note(hit.published, today, ctx.user_timezone)}"
                 f"{stale_note(hit.snippet, today)}{tables_as_rows(mark_dates(hit.snippet, today))}"
                 for hit in shown
             ]

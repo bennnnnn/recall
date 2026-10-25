@@ -7,13 +7,14 @@ Brewers", while the series was one game old. No page said when it was written.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.core.config import Settings
-from app.gateways.web_search_gateway import WebSearchHit, _published_day, search_web
+from app.gateways.web_search_gateway import WebSearchHit, _published_at, search_web
+from app.modules.web_search import search_cache
 from app.modules.web_search.formatting import format_search_block
 from app.modules.web_search.recency import wants_dated_results
 from app.modules.web_search.search_cache import _run_search, _search_cache_key
@@ -26,44 +27,58 @@ from app.modules.web_search.source_dates import published_note
         ("who won the world series this year?", True),
         ("wait is it over already? i thought it just started", True),
         ("so what's the score in the series right now?", True),
+        ("is the world series over?", True),
+        ("when is game 3?", True),
+        ("did the dodgers win?", True),
+        ("has the election been called?", True),
+        ("is the iphone 18 out", True),
         ("is the new zelda out yet", True),
         ("latest iphone", True),
-        ("who's winning so far?", True),
-        ("has the season started?", True),
-        ("why do seasons change?", False),
-        ("has the season started yet?", True),
+        ("World Series 2026", True),
+        # History, places, and words that only look like now (review of the first draft).
+        ("who won the 1998 world series", False),
+        ("who won the first super bowl", False),
+        ("i already know python, what language next?", False),
+        ("explain the current account deficit", False),
+        ("restaurants open right now near me", False),
         ("what is the capital of france?", False),
-        ("who wrote hamlet", False),
         ("how does photosynthesis work", False),
-        ("explain the offside rule", False),
     ],
 )
 def test_wants_dated_results(text: str, dated: bool) -> None:
-    assert wants_dated_results(text) is dated
+    with patch("app.modules.web_search.recency.datetime") as clock:
+        clock.now.return_value = datetime(2026, 10, 25, tzinfo=UTC)
+        assert wants_dated_results(text) is dated
 
 
 @pytest.mark.parametrize(
-    ("raw", "day"),
+    ("raw", "published"),
     [
-        ("Sat, 24 Oct 2026 10:00:00 GMT", "2026-10-24"),
-        ("2026-10-23T21:00:24Z", "2026-10-23"),
+        ("Sat, 24 Oct 2026 10:00:00 GMT", "2026-10-24T10:00:00+00:00"),
+        ("2026-10-23T21:00:24Z", "2026-10-23T21:00:24+00:00"),
         ("2026-10-23", "2026-10-23"),
         ("", ""),
         ("yesterday", ""),
         (None, ""),
     ],
 )
-def test_published_day(raw: object, day: str) -> None:
-    assert _published_day(raw) == day
+def test_published_at(raw: object, published: str) -> None:
+    assert _published_at(raw) == published
 
 
-def test_the_note_names_the_weekday_and_how_long_ago() -> None:
-    today = date(2026, 10, 25)
-    assert published_note("2026-10-24", today) == (
+def test_the_note_is_the_users_own_day() -> None:
+    """A recap posted at 03:30 GMT on the 25th was written on the 24th in Los Angeles."""
+    late = "2026-10-25T03:30:00+00:00"
+    assert published_note(late, date(2026, 10, 24), "America/Los_Angeles") == (
+        "[Published Saturday, October 24, 2026 (today).] "
+    )
+    assert published_note(late, date(2026, 10, 25), "Africa/Nairobi") == (
+        "[Published Sunday, October 25, 2026 (today).] "
+    )
+    assert published_note("2026-10-24", date(2026, 10, 25), "UTC") == (
         "[Published Saturday, October 24, 2026 (yesterday).] "
     )
-    assert published_note("", today) == ""
-    assert published_note("not a day", today) == ""
+    assert published_note("", date(2026, 10, 25), "UTC") == ""
 
 
 def _tavily(results: list[dict[str, str]]) -> AsyncMock:
@@ -91,7 +106,7 @@ async def test_a_news_search_asks_tavily_for_news_and_keeps_the_day() -> None:
     with patch("app.gateways.web_search_gateway.get_pooled_client", return_value=client):
         hits = await search_web(settings, "World Series 2026", topic="news")
     assert client.post.await_args.kwargs["json"]["topic"] == "news"
-    assert hits[0].published == "2026-10-25"
+    assert hits[0].published == "2026-10-25T04:00:00+00:00"
 
 
 @pytest.mark.asyncio
@@ -115,9 +130,10 @@ def _hit(name: str, published: str = "") -> WebSearchHit:
 
 
 @pytest.mark.asyncio
-async def test_a_dated_search_puts_the_newest_page_first_beside_the_general_ones(fake_redis):
+async def test_a_dated_search_adds_news_after_each_general_result(fake_redis):
+    """The best general page stays first, and none is pushed out (review of the draft)."""
     settings = Settings(web_search_max_results=5)
-    news = [_hit("game-1", "2026-10-24"), _hit("game-2", "2026-10-25"), _hit("shared")]
+    news = [_hit("game-1", "2026-10-24"), _hit("game-2", "2026-10-25"), _hit("shared"), _hit("n4")]
     general = [_hit("winners-list"), _hit("shared"), _hit("history")]
 
     async def search(_settings, query, *, max_results, skip_tavily=False, topic="general"):
@@ -131,16 +147,49 @@ async def test_a_dated_search_puts_the_newest_page_first_beside_the_general_ones
 
     assert tried == ["world series 2026"]
     assert [hit.title for hit in merged] == [
-        "game-2",
         "winners-list",
         "game-1",
         "shared",
+        "game-2",
         "history",
     ]
     assert [hit.title for hit in plain] == ["winners-list", "shared", "history"]
-    # The news pages keep their days through the cache.
+    # The news pages keep their moments through the cache.
     again, _ = await _run_search(settings, ["world series 2026"], redis=fake_redis, dated=True)
-    assert [hit.published for hit in again][:1] == ["2026-10-25"]
+    assert [hit.published for hit in again if hit.published] == ["2026-10-24", "2026-10-25"]
+
+
+@pytest.mark.asyncio
+async def test_a_slow_news_search_never_holds_up_the_general_one(fake_redis):
+    import asyncio
+
+    settings = Settings(web_search_max_results=5)
+
+    async def search(_settings, query, *, max_results, skip_tavily=False, topic="general"):
+        if topic == "news":
+            await asyncio.sleep(30)
+        return [_hit("winners-list")]
+
+    with (
+        patch("app.modules.web_search.search_cache.web_search_gateway.search_web", search),
+        patch.object(search_cache, "NEWS_GRACE_SECONDS", 0.05),
+    ):
+        merged, _ = await asyncio.wait_for(
+            _run_search(settings, ["world series 2026"], redis=fake_redis, dated=True), 2
+        )
+    assert [hit.title for hit in merged] == ["winners-list"]
+
+
+def test_a_news_page_published_today_is_today_s() -> None:
+    from app.modules.web_search.query_builders import filter_hits_to_today
+
+    with patch("app.modules.web_search.query_builders.datetime") as clock:
+        clock.now.return_value = datetime(2026, 10, 25, 12, tzinfo=UTC)
+        kept = filter_hits_to_today(
+            [_hit("fresh", "2026-10-25T09:00:00+00:00"), _hit("old", "2026-10-20T09:00:00+00:00")],
+            "UTC",
+        )
+    assert [hit.title for hit in kept] == ["fresh"]
 
 
 def test_the_search_block_says_when_each_page_was_published() -> None:

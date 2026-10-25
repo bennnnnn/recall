@@ -105,7 +105,7 @@ def format_search_block(
     today = local_today(user_timezone)
     for index, hit in enumerate(hits, start=1):
         snippet = flowed_snippet(mark_dates(hit.snippet, today), indent="   ")
-        note = published_note(hit.published, today) + stale_note(hit.snippet, today)
+        note = published_note(hit.published, today, user_timezone) + stale_note(hit.snippet, today)
         lines.append(f"{index}. {hit.title} ({hit.url}) — {note}{snippet}")
     if local_places:
         seed = places_payload_from_hits(hits)

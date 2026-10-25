@@ -4,12 +4,13 @@ Merged hits come back with official and reference sources first
 (``source_quality``). Each query is recorded on the turn's budget as answered or
 failed, so the turn can say "search failed right now" instead of "no results".
 
-A search about now (``dated``) also asks for news pages, each with the day it was
+A search about now (``dated``) also asks for news pages, each with the moment it was
 published. "Who won the World Series this year?" found the winners' lists and a table row
 "2026 | Tampa Bay Rays | 0 | 1 | Milwaukee Brewers" (2026-10-25): no page said when it was
 written, and three replies running said the Rays had won, that the series began "this
-Friday" two days after it did, and that Game 1 was a week away. The newest dated pages
-come first, each beside a page the general search ranked.
+Friday" two days after it did, and that Game 1 was a week away. Up to three dated pages
+join the general results, one after each, which keep their order and places. The news
+search runs beside the general one and may take at most a moment longer.
 """
 
 from __future__ import annotations
@@ -150,14 +151,8 @@ async def _run_search(
     # Without one: one reservation for this call's fanned-out queries only.
     if budget is None:
         budget = TurnTavilyBudget(settings=settings, user=user)
-    searches = [
-        _search_with_cache(
-            settings, query, max_results=limit, budget=budget, user=user, redis=redis
-        )
-        for query in queries
-    ]
-    if dated:
-        searches.append(
+    news_task = (
+        asyncio.ensure_future(
             _search_with_cache(
                 settings,
                 queries[0],
@@ -168,16 +163,45 @@ async def _run_search(
                 topic=_NEWS,
             )
         )
-    results = await gather_or_cancel(*searches)
-    general = _merged(list(zip(queries, results, strict=False)), limit)
-    if not dated:
-        return general, list(queries)
-    news = _merged([(queries[0], results[-1])], limit)
-    news.sort(key=lambda hit: hit.published, reverse=True)
-    return _alternated(news, general, limit), list(queries)
+        if dated
+        else None
+    )
+    try:
+        results = await gather_or_cancel(
+            *(
+                _search_with_cache(
+                    settings, query, max_results=limit, budget=budget, user=user, redis=redis
+                )
+                for query in queries
+            )
+        )
+        general = _merged(list(zip(queries, results, strict=True)), limit)
+        if news_task is None:
+            return general, list(queries)
+        found = await _news_in_time(news_task)
+    finally:
+        if news_task is not None and not news_task.done():
+            news_task.cancel()
+    return _alternated(general, _merged([(queries[0], found)], _NEWS_EXTRA)), list(queries)
 
 
 _NEWS = "news"
+# The dated pages a search adds to the general ones, which keep their places.
+_NEWS_EXTRA = 3
+# How long the news search may run on once the turn's own search is back: it is an
+# extra, and never what the reply waits for.
+NEWS_GRACE_SECONDS = 1.5
+
+
+async def _news_in_time(task: asyncio.Future[list[WebSearchHit]]) -> list[WebSearchHit]:
+    try:
+        return await asyncio.wait_for(asyncio.shield(task), timeout=NEWS_GRACE_SECONDS)
+    except TimeoutError:
+        task.cancel()
+        return []
+    except Exception:
+        logger.debug("Dated news search failed", exc_info=True)
+        return []
 
 
 def _merged(found: list[tuple[str, list[WebSearchHit]]], limit: int) -> list[WebSearchHit]:
@@ -198,19 +222,18 @@ def _merged(found: list[tuple[str, list[WebSearchHit]]], limit: int) -> list[Web
     return rank_by_source(merged)
 
 
-def _alternated(
-    news: list[WebSearchHit], general: list[WebSearchHit], limit: int
-) -> list[WebSearchHit]:
-    """A dated page, then a general one, and so on: neither crowds the other out."""
+def _alternated(general: list[WebSearchHit], news: list[WebSearchHit]) -> list[WebSearchHit]:
+    """The general results in their order, each followed by a dated page in the news
+    search's own order: the best general page stays first, and none is pushed out."""
     out: list[WebSearchHit] = []
     seen: set[str] = set()
-    for pair in itertools.zip_longest(news, general):
+    for pair in itertools.zip_longest(general, news):
         for hit in pair:
             if hit is None or _key(hit) in seen:
                 continue
             seen.add(_key(hit))
             out.append(hit)
-    return out[:limit]
+    return out
 
 
 def _key(hit: WebSearchHit) -> str:
