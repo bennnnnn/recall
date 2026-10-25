@@ -6,9 +6,11 @@ model read it as a message it could not make out and copied the unclear-message 
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
-from app.modules.chat.prompt_constants.message_notes import message_notes
+from app.modules.chat.message_notes import message_notes
 from app.modules.chat.prompt_constants.reply_missed import REPLY_MISSED_HINT, reply_missed_hint
 from app.modules.chat.prompt_constants.shared_numbers import SHARED_NUMBERS_HINT
 from app.modules.chat.prompt_constants.unclear import UNCLEAR_MESSAGE_HINT
@@ -17,45 +19,56 @@ _AFTER_A_REPLY = [
     ("user", "Explícame la fotosíntesis en dos frases"),
     ("assistant", "La fotosíntesis es el proceso por el cual las plantas convierten la luz..."),
 ]
+_IN_ENGLISH = "Write it in English, the language of their message."
 
 
 @pytest.mark.parametrize(
     "query",
     [
         "What?",
-        "what",
-        "huh?",
-        "??",
-        "what do you mean?",
+        "what??",
+        "what do you mean",
         "I don't get it",
-        "i dont understand",
+        "I don’t get it",  # the iPhone's curly apostrophe
+        "i  dont understand",
         "come again?",
         "Sorry?",
-        "I'm lost",
+        "I’m lost",
         "that makes no sense",
     ],
 )
-def test_what_after_a_reply_asks_for_it_again(query: str) -> None:
-    hint = reply_missed_hint(query, _AFTER_A_REPLY)
-    assert hint is not None and hint.startswith(REPLY_MISSED_HINT)
-    # Typed in English, so the reply comes back in English, not the language of the reply.
-    assert hint.endswith("English, the language of their message.") or query == "??"
+def test_english_words_after_a_reply_ask_for_it_again_in_english(query: str) -> None:
+    assert reply_missed_hint(query, _AFTER_A_REPLY) == f"{REPLY_MISSED_HINT} {_IN_ENGLISH}"
+
+
+@pytest.mark.parametrize("query", ["huh?", "Eh?", "Hm?", "Pardon ?", "??"])
+def test_words_of_many_languages_ask_for_it_again_in_its_language(query: str) -> None:
+    assert reply_missed_hint(query, _AFTER_A_REPLY) == REPLY_MISSED_HINT
 
 
 @pytest.mark.parametrize(
     "query",
     [
-        # A question of its own, a remark, or a follow-up about the reply.
+        # Surprise, an apology, thinking: not a reply they missed.
+        "what!",
+        "WHAT",
+        "sorry",
+        "Sorry!!",
+        "hmm",
+        "Hmm...",
+        "eh",
+        # Something in the reply or a photo sent with it, or a question of its own.
+        "What's that?",
+        "what does that mean?",
         "What time is it?",
         "what is photosynthesis",
         "huh, interesting",
         "sorry for the late reply",
-        "What a game!",
         "what about the roots?",
         "I don't get why plants need light",
     ],
 )
-def test_a_question_of_its_own_is_not_a_missed_reply(query: str) -> None:
+def test_other_messages_are_not_a_missed_reply(query: str) -> None:
     assert reply_missed_hint(query, _AFTER_A_REPLY) is None
 
 
@@ -64,11 +77,30 @@ def test_with_no_reply_before_there_is_nothing_to_follow() -> None:
     assert reply_missed_hint("What?", [("user", "hi")]) is None
 
 
+def _exchange(*pairs: tuple[str, str]) -> list[SimpleNamespace]:
+    return [SimpleNamespace(role=role, content=content) for role, content in pairs]
+
+
 def test_the_notes_sit_in_order_and_only_when_they_apply() -> None:
     rain = "Monthly rainfall: Jan 15, Feb 30, Mar 60, Apr 85"
-    assert message_notes("??", _AFTER_A_REPLY) == [REPLY_MISSED_HINT]
+    assert message_notes("??", _exchange(*_AFTER_A_REPLY)) == [REPLY_MISSED_HINT]
     assert message_notes(rain, [])[0].startswith(SHARED_NUMBERS_HINT)
-    assert message_notes("Teach me python", _AFTER_A_REPLY) == []
+    assert message_notes("Teach me python", _exchange(*_AFTER_A_REPLY)) == []
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # A lesson explains it again under its own title, with a fresh quiz.
+        "### Lesson 2: Loops\n\nA loop repeats code.\n\n```quiz\n{}\n```",
+        # A clarify card's turn answers the request now.
+        'Which kind?\n\n```clarify\n{"question": "Which kind?", "options": ["a", "b"]}\n```',
+    ],
+)
+def test_a_lesson_or_a_card_reads_what_its_own_way(reply: str) -> None:
+    assert (
+        message_notes("I don't get it", _exchange(("user", "teach me"), ("assistant", reply))) == []
+    )
 
 
 def test_the_unclear_rule_gives_no_reply_to_copy() -> None:

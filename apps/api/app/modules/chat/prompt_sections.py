@@ -28,6 +28,7 @@ from app.modules.chat import response_tone as response_tone_service
 from app.modules.chat.clarify_turn import clarify_reply_hint
 from app.modules.chat.continuation_subject import exchange_pairs, is_resume_request
 from app.modules.chat.json_output import JSON_OUTPUT_HINT, is_json_request
+from app.modules.chat.message_notes import message_notes
 from app.modules.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
     BREVITY_REQUEST_HINT,
@@ -73,7 +74,6 @@ from app.modules.chat.prompt_constants import (
     writing_format_hint,
 )
 from app.modules.chat.prompt_constants.lesson_flow import lesson_after_gap
-from app.modules.chat.prompt_constants.message_notes import message_notes
 from app.modules.chat.prompt_constants.multi_part import multi_part_contract
 from app.modules.chat.prompt_format import (
     PromptRule,
@@ -365,7 +365,7 @@ CONTEXT_SECTIONS: tuple[PromptSection, ...] = (
         ),
         lambda _t: [PERSONAL_DISCLOSURE_HINT],
     ),
-    PromptSection(_always, lambda t: message_notes(t.query, exchange_pairs(t.exchange))),
+    PromptSection(_always, lambda t: message_notes(t.query, t.exchange)),
 )
 
 
