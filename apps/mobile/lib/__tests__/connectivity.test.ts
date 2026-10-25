@@ -21,12 +21,12 @@ describe("api connectivity", () => {
     expect(chatWebSocketUrl("abc-123")).toBe("ws://test.local/ws/chats/abc-123");
   });
 
-  it("checkHealth returns true when /health is ok", async () => {
+  it("checkHealth returns true when the API and its dependencies answer", async () => {
     mockFetch.mockResolvedValueOnce({ ok: true });
     await expect(checkHealth()).resolves.toBe(true);
-    // Called with the health URL and an AbortSignal (timeout-bounded fetch).
+    // Not liveness (/health answers 200 with the database down), and an AbortSignal.
     expect(mockFetch).toHaveBeenCalledWith(
-      "http://test.local/health",
+      "http://test.local/health/dependencies",
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
