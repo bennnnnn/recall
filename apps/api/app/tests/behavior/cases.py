@@ -2029,6 +2029,17 @@ CASES: tuple[Case, ...] = (
         ),
     ),
     Case(
+        "money-what-if-miles-lookalike",
+        "money",
+        "what if it's 40k miles",
+        Expect(no_hints=("money",)),
+        "Talks about the mileage; a sum beside miles is no new price.",
+        history=(
+            ("user", "car loan 20000 at 7% for 5 years, what's the monthly payment"),
+            ("assistant", "About $396.02 a month for 60 months."),
+        ),
+    ),
+    Case(
         "money-lookalike",
         "money",
         "rate my essay out of 10, I tried to make the interest of the story build slowly",

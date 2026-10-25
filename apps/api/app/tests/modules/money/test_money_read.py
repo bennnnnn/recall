@@ -157,7 +157,18 @@ def test_a_rates_question_keeps_the_kind() -> None:
         # "20% down" is a share of the price, not the rate.
         ("a 400k house with 20% down at 6.5% for 30 years", {"amount": 320000, "rate": 6.5, "years": 30}, 80000),
         ("car loan for 14000, I can put down 3000, at 7% for 5 years", {"amount": 11000, "rate": 7, "months": 60}, 3000),
-        ("I can pay 5000 upfront on a 20000 car loan at 7%", {"amount": 15000, "rate": 7}, 5000),
+        ("car loan 22000 at 5.9% 72 months, 4000 cash down", {"amount": 18000, "rate": 5.9, "months": 72}, 4000),
+        ("balance was 3000 on my credit card at 25% paying 100 a month", {"balance": 3000, "apr": 25, "payment": 100}, 0),
+        # The second review: these read as the parent read them (an "upfront fee" is no
+        # down payment, "6% down from 7%" no share, "I'm 2 down on payments" no sum).
+        ("mortgage 300k, rate is 6% down from 7%", {"amount": 300000, "rate": 6}, 0),
+        ("personal loan of 20000 at 10% with a 500 upfront fee", {"amount": 20000, "rate": 10}, 0),
+        ("my mortgage is 200k at 6%, rates went down 1 point, should I refinance", {"amount": 200000, "rate": 6}, 0),
+        ("car loan 20000 at 7% for 5 years, I'm 2 down on payments", {"amount": 20000, "rate": 7, "months": 60}, 0),
+        ("student loan 30000 at 5% repaid after 10 years", {"amount": 30000, "rate": 5, "years": 10}, 0),
+        # A year before a vehicle is its model year beside a price; alone, it is the price.
+        ("loan for a 2020 car of 15000 at 6%", {"amount": 15000, "rate": 6}, 0),
+        ("a 2000 car with a loan at 10% for 12 months", {"amount": 2000, "rate": 10, "years": 1}, 0),
         # A percent after an earlier sum put down is the rate (the first fix took it as a
         # share of the price: review, 2026-10-25).
         ("car loan 25000 with 5000 down 6.9% apr 60 months", {"amount": 20000, "rate": 6.9, "months": 60}, 5000),

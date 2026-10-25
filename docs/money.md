@@ -15,7 +15,7 @@ as a slider moves by **evaluating** the formula the server sent; it never solves
 |------|------|
 | Products, formulas, defaults, slider ranges (data, not code paths) | `apps/api/app/modules/money/catalog.py` |
 | Reading a request (product, kind, amount, down payment, rate, term, payment, currency) | `apps/api/app/modules/money/read.py` |
-| A what-if that changes the chat's last request ("what if i only do 3 years instead") | `apps/api/app/modules/money/follow_up.py` |
+| A what-if that changes the chat's last request ("what if i only do 3 years instead") | `apps/api/app/modules/money/follow_up.py`, its grammar `change_line.py` |
 | The currency a request names, the card's currency and the country a rate search names | `apps/api/app/modules/money/currencies.py` |
 | Numbers for the asked values, the prompt block and the note | `apps/api/app/modules/money/solve.py`, `block.py`, `note.py` |
 | Today's average rate: one web search, one checked structured read, cached | `apps/api/app/modules/money/rates.py` |
@@ -60,8 +60,10 @@ and the reply says it assumed one. A rate they didn't give comes from today's av
 is one; otherwise the model asks for it. "3 years ago", "20 years old", "sell after 5 years" or
 "the past 3 years" is no term ("paid off after 15 years" is). "20% down" and "a down payment of
 20%" are a share of the price, not the rate; a percent after a sum put down ("5000 down 6.9%")
-is the rate. In "the rate went down 1% to 5.5%" the rate is 5.5%. "A 2022 car" is a model year,
-not a price, and "5000 upfront" is a down payment.
+is the rate, and so is the 6% of "6% down from 7%". In "the rate went down 1% to 5.5%" the
+rate is 5.5%. "A 2022 car" is a model year,
+not a price beside another sum ("a 2000 car with a loan at 10%" has none, so there it is
+the price), and "4000 cash down" is a down payment ("a 500 upfront fee" is not).
 
 ## Follow-ups
 
@@ -70,29 +72,34 @@ changed, and the server works it and sends the card exactly as for a first ask. 
 chips under a money reply ask exactly this; before, the model did the arithmetic itself and was
 off by dollars (live 2026-10-25: $340.58 a month for $340.45).
 
-- The turn passes the user's earlier lines in its window (`turn_prep/money.py`). The request a
-  line changes is the last one in the user's last three lines, and every line after it must be a
-  change of it too, so changes build on each other ("3 years instead", then "and with 5000
-  down?") and a line about something else ends the money conversation.
-- A change line asks for one ("what if", "how about", "instead", or only the change: "36
-  months?") and every number in it must be placed by its own words (`follow_up_words.py`). A
-  percent is the rate only beside rate words ("at 5%", "the rate was 6.5%", "5% APR", "what if
-  it's 5%") or alone. A term is the loan's by the words before it ("do 3 years", "pay it off in
-  2 years"; not "wait 2 years", "keep it for 10 years" or "5% in 2 years"). A loan's sum is a
-  down payment ("5000 down", "5000 upfront", "20% down"), an amount borrowed ("borrow 8000", "a
-  25000 car loan") or a price ("what if the car was $18,000", "a new one for 30000", "what about
-  400k?"); a card's is its payment ("pay 300") or balance ("owe 8000"); a savings plan's is a
-  monthly deposit or a starting sum. A line that names something the request has no input for
-  (a tax, PMI, inflation, a raise, a trade-in, cash back, insurance, a salary, rent, a
-  refinance), a sum that is paid, sold, saved or earned ("what if I pay 400 instead?"), a number
-  it cannot place, a change by an amount ("1% lower", "2000 more down") or another product named
-  is no follow-up: the model answers as before. Reviewed 2026-10-25: looser rules had made "what
-  if property tax is 1.2%" a 1.2% mortgage and "what if I pay 400 instead?" a $400 loan.
-- A follow-up can change the kind either way: "what if it was a used car?", and back with "what
-  if I bought a new car for 30000 instead" ("new" counts only beside what is bought: not "a new
-  job").
-- While the rate is today's average, the follow-up looks up the term the first ask used, so "3
-  years instead" changes the term alone and keeps the rate the last reply quoted.
+- The turn passes the user's earlier lines in its window and the last reply
+  (`turn_prep/money.py`). The request a line changes is the last one in the user's last three
+  lines, and every line after it must be a change of it too, so changes build on each other ("3
+  years instead", then "and with 5000 down?") and a line about something else ends the money
+  conversation.
+- A change line is read by a positive grammar (`change_line.py`): every word of it must belong
+  to a change phrase or be filler ("what if", "hmm", "and", "instead", "i only", "same but").
+  The phrases: a term ("3 years", "over 48 months", "a 15 year mortgage", "pay it off in 2
+  years"), a rate by its words ("at 6%", "the rate is 6%", "6% apr", or a bare "6%"), a down
+  payment ("5000 down", "put 20% down", "the down payment is 60k", "pay 5000 upfront"), a price
+  or amount by its noun ("a 30k car", "the house is 400k", "a new one for 30000", "borrow 8000",
+  "a 250k mortgage"), a card payment or balance ("pay 300 a month", "pay 300", "owe 8000"), a
+  savings deposit or start ("save 500 a month", "start with 5000"), and the kind ("used", "a
+  new one"). Any word left over ("miles", "tax", "match", "leave", "then go up", "from", "now",
+  "fee") means the line is about something else, and the model answers it as before. Two
+  reviews (2026-10-25) found looser readers turning "it's 40k miles" into a $40,000 loan and
+  "rates are 5% for 2 years then go up" into a 2-year mortgage; deny-words kept missing the
+  next one.
+- The change must then fit the request: a role its product has (a card has no down payment, a
+  loan no monthly sum), the request's currency ("$400k" after a birr mortgage is not one), and
+  a value its last card's slider reaches (`fence.slider_range`: a mortgage runs 5 to 40 years,
+  so "5% for 2 years" is no new term; "36m" is no $36M car loan). A share put down stays a
+  share, so "what about a 600k house?" after "a 500k house with 20% down" puts 120k down.
+- A follow-up can change the kind either way: "what if I bought used", and back with "what if I
+  bought a new car for 30000 instead".
+- Its average is read again for its own kind and term. When that is not the rate the last
+  reply's card showed (a stand-in the first time, the used-car average now), the block says the
+  rate changed and why.
 - The money block tells the model which inputs changed and that the numbers below are the
   answer, never to be redone from the earlier reply.
 

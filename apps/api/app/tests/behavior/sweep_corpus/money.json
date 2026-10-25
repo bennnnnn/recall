@@ -599,5 +599,175 @@
   ],
   "reply": "A $400,000 mortgage at 6% over 30 years is about $2,398.20 a month.",
   "expect": "answer"
+ },
+ {
+  "id": "mo-046",
+  "area": "money lookalike",
+  "prompt": "what if I get a 5% match from my employer",
+  "history": [
+   [
+    "user",
+    "if I save 200 a month at 4.5% for 10 years how much will I have"
+   ],
+   [
+    "assistant",
+    "About $30,200: $24,000 deposited and about $6,200 in interest."
+   ]
+  ],
+  "reply": "A 5% employer match is free money: contribute at least enough to get all of it.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-047",
+  "area": "money lookalike",
+  "prompt": "what if it's 40k miles",
+  "history": [
+   [
+    "user",
+    "car loan 20000 at 7% for 5 years, what's the monthly payment"
+   ],
+   [
+    "assistant",
+    "About $396.02 a month for 60 months, $3,761.44 in interest."
+   ]
+  ],
+  "reply": "At 40k miles a car still has plenty of life if it was serviced on schedule.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-048",
+  "area": "money lookalike",
+  "prompt": "what if rates are 5% for 2 years then go up",
+  "history": [
+   [
+    "user",
+    "mortgage of 300k at 6% for 30 years"
+   ],
+   [
+    "assistant",
+    "About $1,798.65 a month over 30 years, $347,514.57 in interest."
+   ]
+  ],
+  "reply": "That is an adjustable rate: after the first 2 years the payment can rise with the market.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-049",
+  "area": "money lookalike",
+  "prompt": "what if I take 6 months of maternity leave",
+  "history": [
+   [
+    "user",
+    "mortgage of 300k at 6% for 30 years"
+   ],
+   [
+    "assistant",
+    "About $1,798.65 a month over 30 years, $347,514.57 in interest."
+   ]
+  ],
+  "reply": "Plan for six payments from savings, or ask the lender about a short forbearance.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-050",
+  "area": "money lookalike",
+  "prompt": "what if I pay 1000 now",
+  "history": [
+   [
+    "user",
+    "I owe 5000 on my credit card at 22% apr and pay 200 a month, how long to pay off"
+   ],
+   [
+    "assistant",
+    "About 34 months, paying about $1,800 in interest."
+   ]
+  ],
+  "reply": "Paying 1,000 now cuts the balance and the interest from here on.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-051",
+  "area": "money lookalike",
+  "prompt": "what if it was $400k",
+  "history": [
+   [
+    "user",
+    "mortgage of 3 million birr at 15% for 20 years"
+   ],
+   [
+    "assistant",
+    "About 39,500 birr a month over 20 years."
+   ]
+  ],
+  "reply": "A dollar mortgage would be priced in dollars, at a dollar lender's rates.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-052",
+  "area": "money lookalike",
+  "prompt": "what if I'm at 80% LTV",
+  "history": [
+   [
+    "user",
+    "mortgage of 300k at 6% for 30 years"
+   ],
+   [
+    "assistant",
+    "About $1,798.65 a month over 30 years, $347,514.57 in interest."
+   ]
+  ],
+  "reply": "At 80% loan-to-value most lenders drop the PMI requirement.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-053",
+  "area": "money lookalike",
+  "prompt": "what if the house is 1500 sq ft",
+  "history": [
+   [
+    "user",
+    "mortgage of 300k at 6% for 30 years"
+   ],
+   [
+    "assistant",
+    "About $1,798.65 a month over 30 years, $347,514.57 in interest."
+   ]
+  ],
+  "reply": "At 1,500 square feet that works out to about $200 a square foot.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-054",
+  "area": "money",
+  "prompt": "what about a 600k house?",
+  "history": [
+   [
+    "user",
+    "mortgage on a 500k house with 20% down at 6.5%"
+   ],
+   [
+    "assistant",
+    "With $100,000 down you borrow $400,000: about $2,528.27 a month over 30 years."
+   ]
+  ],
+  "reply": "With 20% down on $600,000 you borrow $480,000: about $3,033.93 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-055",
+  "area": "money",
+  "prompt": "what if I buy it used at 9%",
+  "history": [
+   [
+    "user",
+    "car loan 20000 at 7% for 5 years, what's the monthly payment"
+   ],
+   [
+    "assistant",
+    "About $396.02 a month for 60 months, $3,761.44 in interest."
+   ]
+  ],
+  "reply": "A used car at 9% over 60 months costs about $415.17 a month.",
+  "expect": "answer"
  }
 ]

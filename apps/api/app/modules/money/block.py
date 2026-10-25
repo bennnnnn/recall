@@ -34,6 +34,12 @@ MONEY_STAND_IN = (
     "Today's average {name} is not a {kind} rate: {caveat} Say so in the reply, and "
     "never call it a {kind} rate."
 )
+# A follow-up whose rate (today's average for its own kind and term) is not the one the
+# last reply showed: the change looks like it moved the rate on its own otherwise.
+MONEY_RATE_CHANGED = (
+    "The rate is {rate}, not the {shown} the last reply used: it is today's average {name} "
+    "for this request. Say that the rate changed and why."
+)
 MONEY_RATE_MISSING = (
     "The user gave no interest rate and no current average was found. Ask one short "
     "question for the rate their lender or card quoted; do not guess one."
@@ -70,7 +76,13 @@ _OUTPUT_WORDS = {
 }
 
 
-def money_block(request: MoneyRequest, worked: Worked | None, average: MarketRate | None) -> str:
+def money_block(
+    request: MoneyRequest,
+    worked: Worked | None,
+    average: MarketRate | None,
+    *,
+    shown_rate: float | None = None,
+) -> str:
     product = request.product
     kind = " ".join(word for word in (request.variant, product.key.replace("_", " ")) if word)
     head = f"{MONEY_HEADER}: {kind}."
@@ -86,8 +98,16 @@ def money_block(request: MoneyRequest, worked: Worked | None, average: MarketRat
     lines.append("Inputs: " + "; ".join(_inputs(product, worked)) + ".")
     lines.append("Results: " + "; ".join(_outputs(product, worked)) + ".")
     stand_in = _stand_in(request, average)
-    if stand_in and rate_name(product) in worked.assumed:
+    assumed_rate = rate_name(product) in worked.assumed
+    if stand_in and assumed_rate:
         lines.append(stand_in)
+    rate = worked.values[rate_name(product)]
+    if assumed_rate and average and shown_rate is not None and round(shown_rate, 2) != rate:
+        lines.append(
+            MONEY_RATE_CHANGED.format(
+                rate=percent_text(rate), shown=percent_text(shown_rate), name=average.name
+            )
+        )
     lines.append(MONEY_REPLY_RULES)
     return "\n".join(lines)
 
@@ -98,7 +118,8 @@ def _changes(request: MoneyRequest, worked: Worked) -> list[str]:
     parts = []
     for name in request.changed:
         if name == "variant":
-            parts.append(f"a {request.variant} {product.key.replace('_', ' ')}")
+            kind = request.variant or (product.plain_words[0] if product.plain_words else "")
+            parts.append(" ".join(("a", kind, product.key.replace("_", " "))).replace("  ", " "))
         elif name == "down":
             parts.append(f"{_INPUT_WORDS[name]} {money_text(request.down)}")
         elif name in worked.values:

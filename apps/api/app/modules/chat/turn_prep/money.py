@@ -29,7 +29,16 @@ async def money_turn(
 ) -> MoneyTurn | None:
     if not settings.money_enabled or request.has_image_attachment:
         return None
-    earlier = prior_user_texts(request.recent_messages or [], request.content)
+    recent = request.recent_messages or []
+    earlier = prior_user_texts(recent, request.content)
+    last_reply = next(
+        (
+            message.content
+            for message in reversed(recent)
+            if message.role == "assistant" and isinstance(message.content, str)
+        ),
+        "",
+    )
     for text in plan.texts() if plan.multi else (request.content,):
         turn = await prepare_money_turn(
             text,
@@ -38,6 +47,7 @@ async def money_turn(
             user=identity.user,
             location=identity.geo.user_location,
             earlier=earlier,
+            last_reply=last_reply,
         )
         if turn is not None:
             return turn

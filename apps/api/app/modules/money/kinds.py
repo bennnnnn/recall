@@ -18,8 +18,11 @@ _VERB_BEFORE = re.compile(
     r"just|already|also|once|ever|always|been|get|got)|'(?:ve|d|m|ll|re))\s$",
     re.I,
 )
+# "Bought it used at 9%" and "used for 14000" describe; "used for car loans" does not.
 _VERB_AFTER = re.compile(
-    r"\s(?:to|for|by|as|in|on|with|at|it|them|this|that|a|an|the|my|your|our|their)\b", re.I
+    r"\s(?:to|by|as|in|on|with|it|them|this|that|a|an|the|my|your|our|their)\b"
+    r"|\sfor\s(?![$€£¥₹₦]?\d)",
+    re.I,
 )
 # "New" is everywhere ("a new job"); it names the kind only beside what is bought: "a new
 # car", "a new one", "buy new instead", "it was new?".
@@ -34,11 +37,25 @@ def named_variant(product: Product, text: str) -> str:
     for variant in product.variants:
         for word in variant.words:
             for match in re.finditer(rf"(?<![\w-]){re.escape(word)}(?!\w)", lowered):
-                before = lowered[max(0, match.start() - 16) : match.start()]
-                if _VERB_BEFORE.search(before) or _VERB_AFTER.match(lowered, match.end()):
-                    continue
-                return variant.key
+                if describes(lowered, match.start(), match.end()):
+                    return variant.key
     return ""
+
+
+def describes(lowered: str, start: int, end: int) -> bool:
+    """The kind word at ``start:end`` describes what is bought, not a verb ("I used")."""
+    before = lowered[max(0, start - 16) : start]
+    return not (_VERB_BEFORE.search(before) or _VERB_AFTER.match(lowered, end))
+
+
+def kind_of(product: Product, word: str) -> str | None:
+    """The kind a kind word names for ``product``: a variant key, "" for its own, or None."""
+    word = " ".join(word.lower().replace("-", " ").split())
+    for variant in product.variants:
+        if word in {" ".join(item.replace("-", " ").split()) for item in variant.words}:
+            return variant.key
+    plain = {" ".join(item.replace("-", " ").split()) for item in product.plain_words}
+    return "" if word in plain else None
 
 
 def named_plain_kind(product: Product, text: str) -> bool:

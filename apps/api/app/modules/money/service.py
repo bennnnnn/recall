@@ -27,7 +27,7 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules.money.block import money_block
 from app.modules.money.currencies import country_for, currency_for
-from app.modules.money.fence import calculator_fence
+from app.modules.money.fence import calculator_fence, card_values
 from app.modules.money.follow_up import follow_up_request
 from app.modules.money.note import market_note
 from app.modules.money.rates import MarketRate, current_average
@@ -66,23 +66,24 @@ async def prepare_money_turn(
     user: User | None,
     location: str | None,
     earlier: Sequence[str] = (),
+    last_reply: str = "",
 ) -> MoneyTurn | None:
     """The money turn ``text`` asks for, or None when it is not one.
 
     ``earlier`` is the user's lines before it, oldest first: "what if 3 years instead"
-    is the last request there with its term changed.
+    is the last request there with its term changed. ``last_reply`` is the reply before
+    it, whose card shows the rate a follow-up is told about when its own rate differs.
     """
     if not settings.money_enabled:
         return None
-    request = follow_up_request(text, earlier) or read_money_request(text)
+    request = follow_up_request(text, earlier, location) or read_money_request(text)
     if request is None:
         return None
     # The card and the prompt use one currency: the one named, else the user's place's.
     request = replace(request, currency=currency_for(request.currency, location))
     product = request.product
-    term = request.rate_term
-    if term is None:
-        term = request.values.get("years", request.values.get("months"))
+    # A follow-up's average is read again for its own kind and term.
+    term = request.values.get("years", request.values.get("months"))
     if term is None:
         term = product.defaults.get("years", product.defaults.get("months"))
     lookup = stand_in = None
@@ -103,7 +104,8 @@ async def prepare_money_turn(
     if lookup is not None and (request.rates_only or rate_name(product) not in request.values):
         average = await _average(request, lookup, stand_in, _PROMPT_WAIT_SECONDS)
     worked = None if request.rates_only else work(request, average.value if average else None)
-    block = money_block(request, worked, average)
+    shown = card_values(last_reply).get(rate_name(product)) if request.changed else None
+    block = money_block(request, worked, average, shown_rate=shown)
     return MoneyTurn(request, worked, block, average, lookup, stand_in)
 
 

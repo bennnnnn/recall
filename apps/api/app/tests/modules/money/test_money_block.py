@@ -65,3 +65,10 @@ def test_a_follow_up_is_told_the_numbers_already_include_its_change() -> None:
     assert "down payment 5,000" in money_block(down, work(down, None), None)
     first = read_money_request(earlier[0])
     assert first is not None and lead not in money_block(first, work(first, None), None)
+
+
+def test_going_back_to_the_plain_kind_says_so() -> None:
+    earlier = ["i'm buying a used car for 14000 at 9%, what's the monthly payment over 5 years"]
+    request = follow_up_request("what if it was new instead", earlier)
+    assert request is not None
+    assert "earlier request: a new car." in money_block(request, work(request, None), None)

@@ -1,9 +1,11 @@
 """A line that changes the chat's last money request, and the look-alikes that change none.
 
 Live (2026-10-25): "hmm what if i only do 3 years instead" after a used-car loan got no
-card, and the model's own arithmetic was off by dollars. Review of the first fix (same
-day): a percent or a sum beside other words ("what if sales tax is 7%", "what if I pay
-400 instead?", "the trade-in is worth 4000") became the rate or the price.
+card, and the model's own arithmetic was off by dollars. Two reviews of the fix (same
+day): a percent or a sum beside other words became the rate or the price ("what if sales
+tax is 7%", "what if I pay 400 instead?", "it's 40k miles", "I get a 5% match from my
+employer", "rates are 5% for 2 years then go up"). The reader is now a positive grammar
+(``change_line``): a line with any word it does not place is no follow-up.
 """
 
 from __future__ import annotations
@@ -21,6 +23,9 @@ CAR = "car loan 14000 with 3000 down at 7.16% for 5 years, what's the monthly pa
 CAR_PLAIN = "car loan 20000 at 7% for 5 years, what's the monthly payment"
 MORTGAGE = "what is my mortgage for 300k dollars house if mr rate is 1 percent"
 MORTGAGE_6 = "mortgage of 300k at 6% for 30 years"
+MORTGAGE_SHARE = "mortgage on a 500k house with 20% down at 6.5%"
+BIRR = "mortgage of 3 million birr at 15% for 20 years"
+STUDENT = "student loan of 30000 at 5.5% for 10 years"
 CARD = "I owe 5000 on my credit card at 22% apr and pay 200 a month, how long to pay off"
 SAVINGS = "if I save 200 a month at 4.5% for 10 years how much will I have"
 WORKOUT = "give me a 4 day workout plan with 4 sets of each exercise"
@@ -34,7 +39,6 @@ RECTANGLE = "a rectangle has a perimeter of 40 and a length of 12, what is the w
         ([USED], "hmm what if i only do 3 years instead", {"amount": 11000, "months": 36}, ("months",)),
         ([CAR], "hmm what if i only do 3 years instead", {"amount": 11000, "months": 36, "rate": 7.16}, ("months",)),
         ([CAR], "what if i do 3 years instead of 5", {"months": 36}, ("months",)),
-        ([CAR], "what if I go from 60 to 36 months", {"months": 36}, ("months",)),
         ([CAR], "36 months?", {"months": 36}, ("months",)),
         ([CAR], "make it 4 years", {"months": 48}, ("months",)),
         ([CAR], "what if I pay it off in 2 years", {"months": 24}, ("months",)),
@@ -73,6 +77,23 @@ RECTANGLE = "a rectangle has a perimeter of 40 and a length of 12, what is the w
         ([USED], "what if I bought a new car for 30000 instead", {"amount": 27000}, ("amount", "variant")),
         ([CARD], "what if the balance was 8000", {"balance": 8000}, ("balance",)),
         ([CARD], "what if I owe 8000", {"balance": 8000}, ("balance",)),
+        # The reviewer's lines the grammar reads whole.
+        ([CAR], "same but 5000 down", {"amount": 9000}, ("down",)),
+        ([CAR], "but at 5%?", {"rate": 5}, ("rate",)),
+        ([CAR_PLAIN], "what if it was 25k and I put 5k down", {"amount": 20000}, ("down", "amount")),
+        ([CAR_PLAIN], "what if I do 4 years at 5% with 2000 down", {"amount": 18000, "months": 48, "rate": 5}, ("rate", "months", "down")),
+        ([CAR_PLAIN], "what about 48 months instead of 60 and 5% instead of 7%", {"months": 48, "rate": 5}, ("rate", "months")),
+        ([CAR_PLAIN], "what if I buy it used at 9%", {"rate": 9}, ("rate", "variant")),
+        ([MORTGAGE_6], "what if I get 5.5% on a 15 year", {"rate": 5.5, "years": 15}, ("rate", "years")),
+        ([MORTGAGE_6], "what about 180 months", {"years": 15}, ("years",)),
+        ([MORTGAGE_6], "what if the down payment is 60k", {"amount": 240000}, ("down",)),
+        ([MORTGAGE_6], "what if I finance 250k over 15 years", {"amount": 250000, "years": 15}, ("years", "amount")),
+        ([CARD], "what if I pay $300/mo", {"payment": 300}, ("payment",)),
+        ([CARD], "what about 15% apr", {"apr": 15}, ("apr",)),
+        ([SAVINGS], "what if I start with 10k and save 300 a month", {"start": 10000, "deposit": 300}, ("deposit", "start")),
+        ([SAVINGS], "what if I save for 20 years", {"years": 20}, ("years",)),
+        ([STUDENT], "what if I borrow 40k", {"amount": 40000}, ("amount",)),
+        ([BIRR], "what about 4 million birr?", {"amount": 4_000_000}, ("amount",)),
         # Each change builds on the one before it.
         ([CAR, "what if i only do 3 years instead"], "and with 5000 down?", {"amount": 9000, "months": 36}, ("down",)),
     ],
@@ -120,6 +141,7 @@ def test_a_change_line_is_the_last_request_changed(
         ([CAR], "100%"),
         ([CAR], "ok 5 stars"),
         ([CAR], "what if I pay 500 a month"),
+        ([CAR], "what if I go from 60 to 36 months"),
         # A percent that is not the rate: the reviewer's lines.
         ([MORTGAGE_6], "what if property tax is 1.2%"),
         ([MORTGAGE_6], "and property tax of 1.2%?"),
@@ -158,6 +180,43 @@ def test_a_change_line_is_the_last_request_changed(
         ([SAVINGS], "what if I save 300 instead"),
         ([SAVINGS], "what if I invest 5000"),
         ([CARD], "8000?"),
+        # The second review: a percent beside words that are not the rate's.
+        ([SAVINGS], "what if I get a 5% match from my employer"),
+        ([CARD], "what if I get 2% back"),
+        ([CARD], "what if I'm at 30% utilization"),
+        ([MORTGAGE_6], "what if I'm at 80% LTV"),
+        ([MORTGAGE_6], "what if we're at 36% DTI"),
+        ([MORTGAGE_6], "what if I get 20% equity"),
+        ([CAR_PLAIN], "what if it's at 85% of msrp"),
+        ([MORTGAGE_6], "what if I get 5% down"),
+        ([CAR], "what if the rate is 6% down from 7.16%"),
+        # A sum beside a unit that is not money.
+        ([CAR_PLAIN], "what if it's 40k miles"),
+        ([CAR_PLAIN], "what if the car is 50k miles"),
+        ([MORTGAGE_6], "what if the house is 1500 sq ft"),
+        ([MORTGAGE_6], "what if the house is 30 minutes from work"),
+        ([MORTGAGE_6], "what if the home is 3 bedrooms"),
+        # A length of time that is not the loan's, or one no slider of it reaches.
+        ([MORTGAGE_6], "what if rates are 5% for 2 years then go up"),
+        ([MORTGAGE_6], "what if it's 5% for 2 years"),
+        ([MORTGAGE_6], "what if the rate is 4% for 3 years and then adjusts"),
+        ([MORTGAGE_6], "what if I take 6 months of maternity leave"),
+        ([STUDENT], "what if I get 2 years of deferment"),
+        ([STUDENT], "what if I go 6 months without paying"),
+        ([CAR_PLAIN], "what if I get 3 months free"),
+        ([CAR_PLAIN], "what if I get 0.9% for 2 years then 7%"),
+        ([MORTGAGE_6], "what if it's 20%"),
+        ([CAR_PLAIN], "what about 36m"),
+        ([MORTGAGE_6], "what about 2000?"),
+        ([CAR_PLAIN], "what if I save for 2 years"),
+        # A card payment made once, not each month.
+        ([CARD], "what if I pay 1000 now"),
+        ([CARD], "what if I pay 2000 today"),
+        ([CARD], "what if I paid 1500 right away"),
+        # A currency the request is not in.
+        ([BIRR], "what if it was $400k"),
+        ([CAR_PLAIN], "what if it was 2 million yen"),
+        ([CAR_PLAIN], "what if it was 20000 euros"),
         # A change by an amount is not worked out here.
         ([CAR], "what if rates drop 1% next year?"),
         ([CAR], "what if the rate was 1% lower"),
@@ -172,13 +231,20 @@ def test_a_line_that_changes_no_request_is_none(earlier: list[str], line: str) -
     assert follow_up_request(line, earlier) is None
 
 
-def test_a_new_term_keeps_the_average_the_last_reply_used() -> None:
-    """The rate was today's 60-month average: 36 months keeps it, so only the term changes."""
-    request = follow_up_request("hmm what if i only do 3 years instead", [USED])
-    assert request is not None
-    assert request.variant == "used" and request.rate_term == 60 and "rate" not in request.values
-    given = follow_up_request("what if i only do 3 years at 6%", [USED])
-    assert given is not None and given.rate_term is None
+def test_a_share_put_down_stays_a_share_of_a_new_price() -> None:
+    """ "500k house with 20% down", then "a 600k house": 20% of 600k down, so 480,000."""
+    request = follow_up_request("what about a 600k house?", [MORTGAGE_SHARE])
+    assert request is not None and request.down_share == 20
+    assert (request.values["amount"], request.down) == (480_000, 120_000)
+    fixed = follow_up_request("what if I put 50k down", [MORTGAGE_SHARE])
+    assert fixed is not None and fixed.down_share is None and fixed.values["amount"] == 450_000
+
+
+def test_a_currency_must_be_the_requests_own() -> None:
+    """A request that named none is in the user's place's currency."""
+    assert follow_up_request("what if it was $25k", [CAR_PLAIN]) is not None
+    assert follow_up_request("what if it was $25k", [CAR_PLAIN], "Addis Ababa, Ethiopia") is None
+    assert follow_up_request("what if it was 25k birr", [CAR_PLAIN], "Addis Ababa, Ethiopia")
 
 
 def test_a_first_ask_is_no_follow_up() -> None:

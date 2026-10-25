@@ -198,7 +198,7 @@ async def test_a_new_car_starts_one_lookup(monkeypatch) -> None:
 
 async def test_a_what_if_after_a_money_reply_is_worked_by_the_server(monkeypatch) -> None:
     """Live (2026-10-25): the free model said $340.58 and $1,260.88 for this; the loan is
-    11 000 at the same 7.16 % over 36 months: $340.45 a month, $1,256.32 interest."""
+    11 000 at 7.16 % over 36 months: $340.45 a month, $1,256.32 interest."""
     calls = _lookup_kinds(monkeypatch, {"used": average(7.16, "used car loan rate")})
     turn = await service.prepare_money_turn(
         "hmm what if i only do 3 years instead",
@@ -209,8 +209,8 @@ async def test_a_what_if_after_a_money_reply_is_worked_by_the_server(monkeypatch
         earlier=[_USED],
     )
     assert turn is not None and turn.worked is not None
-    # The rate stays the one the last reply used: the first ask's term is looked up again.
-    assert calls == [("car", "used", 60), ("car", "", 60)]
+    # The average is read again for the follow-up's own kind and term.
+    assert calls == [("car", "used", 36), ("car", "", 36)]
     assert turn.worked.values["months"] == 36 and turn.worked.values["rate"] == 7.16
     assert round(turn.worked.outputs["payment"] or 0, 2) == 340.45
     assert round(turn.worked.outputs["interest"] or 0, 2) == 1256.32
@@ -233,3 +233,35 @@ async def test_a_what_if_with_no_money_before_it_is_no_money_turn(monkeypatch) -
             is None
         )
     assert calls == []
+
+
+async def test_a_follow_up_says_when_its_rate_is_not_the_last_replys(monkeypatch) -> None:
+    """Review (2026-10-25): the first ask took the new-car stand-in (6.9 %); by the follow-up
+    the used-car average (11.5 %) had come in, and the block named only the term change."""
+    used = average(11.5, "used car loan rate")
+    _lookup_kinds(monkeypatch, {"used": None, "": average(6.9, "60-month new car loan rate")})
+    first = await service.prepare_money_turn(_USED, Settings(), None, user=None, location=None)
+    assert first is not None
+    reply = await service.finish_money_reply(first, "About $217 a month.", Settings())
+    _lookup_kinds(monkeypatch, {"used": used, "": average(6.9, "36-month new car loan rate")})
+    turn = await service.prepare_money_turn(
+        "hmm what if i only do 3 years instead",
+        Settings(),
+        None,
+        user=None,
+        location=None,
+        earlier=[_USED],
+        last_reply=reply,
+    )
+    assert turn is not None and turn.worked is not None and turn.worked.values["rate"] == 11.5
+    assert "The rate is 11.5%, not the 6.9% the last reply used" in turn.block
+    same = await service.prepare_money_turn(
+        "and with 5000 down?",
+        Settings(),
+        None,
+        user=None,
+        location=None,
+        earlier=[_USED, "hmm what if i only do 3 years instead"],
+        last_reply=await service.finish_money_reply(turn, "About $362 a month.", Settings()),
+    )
+    assert same is not None and "not the" not in same.block
