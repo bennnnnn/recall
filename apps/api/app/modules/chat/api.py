@@ -56,8 +56,13 @@ async def list_chats(
         le=chats_service.DEFAULT_CHAT_LIST_LIMIT,
     ),
     cursor: str | None = Query(default=None, max_length=200),
+    # The phone's IANA zone, bounded like a chat turn's: its days head the drawer's groups.
+    client_timezone: str | None = Query(default=None, max_length=64),
 ) -> Response:
-    chats = await chats_service.list_chats_grouped(session, user, limit=limit, cursor=cursor)
+    chats = await chats_service.list_chats_grouped(
+        session, user, limit=limit, cursor=cursor, client_timezone=client_timezone
+    )
+    # The ETag hashes the grouped body, so a list grouped in another zone never gets a 304.
     return conditional_json(request, chats)
 
 

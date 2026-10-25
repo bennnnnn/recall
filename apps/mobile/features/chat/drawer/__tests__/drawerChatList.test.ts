@@ -3,7 +3,12 @@ import {
   insertChatIntoGroups,
   shouldWarmClosedDrawerChatList,
 } from "@/features/chat/drawer/drawerChatList";
-import { chatRecencySection, patchChatListGroups, removeChatFromGroups } from "@/features/chat/model/listSections";
+import {
+  chatRecencySection,
+  patchChatListGroups,
+  regroupChatsByRecency,
+  removeChatFromGroups,
+} from "@/features/chat/model/listSections";
 import type { Chat, ChatList } from "@/lib/api";
 
 const empty: ChatList = {
@@ -166,4 +171,52 @@ it.each([
   [new Date(2026, 5, 23, 23), "older"],
 ])("uses calendar-day boundaries across the start of a month", (updated, section) => {
   expect(chatRecencySection(chat("day", { updated_at: updated.toISOString() }))).toBe(section);
+});
+
+describe("regroupChatsByRecency", () => {
+  // Local `Date` fields: each case holds in whatever zone the tests run in.
+  const at = (...parts: [number, number, number, number, number?]) => new Date(...parts).toISOString();
+  const ids = (rows: Chat[]) => rows.map((row) => row.id);
+
+  it("moves a list kept from yesterday to today's headings, leaving pinned and archived as they are", () => {
+    const pinned = [chat("pinned", { pinned: true })];
+    const archived = [chat("archived", { archived: true })];
+    const kept: ChatList = {
+      ...empty,
+      pinned,
+      archived,
+      today: [chat("yesterday-morning", { updated_at: at(2026, 5, 30, 9) })],
+      yesterday: [chat("two-days-ago", { updated_at: at(2026, 5, 29, 20) })],
+    };
+    const now = regroupChatsByRecency(kept);
+    expect(now.today).toEqual([]);
+    expect(ids(now.yesterday)).toEqual(["yesterday-morning"]);
+    expect(ids(now.last_7_days)).toEqual(["two-days-ago"]);
+    expect(now.pinned).toBe(pinned);
+    expect(now.archived).toBe(archived);
+  });
+
+  it("files a chat from just after local midnight under Today, where a UTC grouping said Yesterday", () => {
+    const kept: ChatList = { ...empty, yesterday: [chat("after-midnight", { updated_at: at(2026, 6, 1, 0, 5) })] };
+    expect(ids(regroupChatsByRecency(kept).today)).toEqual(["after-midnight"]);
+  });
+
+  it("hands back the same list when no chat moves", () => {
+    const fresh: ChatList = {
+      ...empty,
+      today: [chat("now", { updated_at: at(2026, 6, 1, 13) })],
+      older: [chat("old", { updated_at: at(2026, 4, 1, 9) })],
+    };
+    expect(regroupChatsByRecency(fresh)).toBe(fresh);
+  });
+
+  it("keeps newest first where chats filed on different days meet", () => {
+    // 08:00 yesterday sat under a stale Today; 09:00 yesterday was filed under Yesterday today.
+    const mixed: ChatList = {
+      ...empty,
+      today: [chat("eight", { updated_at: at(2026, 5, 30, 8) })],
+      yesterday: [chat("nine", { updated_at: at(2026, 5, 30, 9) })],
+    };
+    expect(ids(regroupChatsByRecency(mixed).yesterday)).toEqual(["nine", "eight"]);
+  });
 });

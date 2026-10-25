@@ -31,6 +31,7 @@ from app.modules.chat.related_prompts import (
 from app.modules.chat.titles import sanitize_manual_chat_title, title_job_key
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
+from app.services import time_context as time_context_service
 from app.services.quota import utc_today
 
 logger = logging.getLogger(__name__)
@@ -62,10 +63,14 @@ async def list_chats_grouped(
     *,
     limit: int = DEFAULT_CHAT_LIST_LIMIT,
     cursor: str | None = None,
+    client_timezone: str | None = None,
 ) -> ChatListOut:
     """The drawer's chats by recency; ``cursor`` reads the dated chats after a page.
 
-    The first page also holds every pinned chat and the newest archived ones.
+    The first page also holds every pinned chat and the newest archived ones. The days
+    are the phone's (``client_timezone``, as a chat turn sends it), the profile's when it
+    sends none or no valid one: the phone files a chat it inserts itself in its own zone,
+    and the profile's copy of that zone lags behind a flight until the next sync.
     """
 
     async def _pinned_and_archived() -> tuple[list[Chat], tuple[list[Chat], str | None]]:
@@ -82,7 +87,8 @@ async def list_chats_grouped(
         chats_repo.list_recent_page(session, user.id, limit=limit, cursor=cursor),
         _pinned_and_archived(),
     )
-    grouped = chats_repo.group_by_recency(dated, user_timezone=user.timezone)
+    zone = time_context_service.effective_timezone(user.timezone, client_timezone)
+    grouped = chats_repo.group_by_recency(dated, user_timezone=zone)
     return ChatListOut(
         pinned=[ChatOut.model_validate(c) for c in pinned],
         today=[ChatOut.model_validate(c) for c in grouped["today"]],

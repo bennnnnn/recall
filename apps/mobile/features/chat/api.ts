@@ -1,5 +1,6 @@
 import { request, requestRevalidated } from "@/lib/api/client";
 import { shareEmptyChatCheck } from "@/features/chat/model/draftLogic";
+import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import type {
   Chat,
   ChatList,
@@ -34,6 +35,18 @@ async function listMessages(
     ? await request<MessagePage | Message[]>(path, token)
     : await requestRevalidated<MessagePage | Message[]>(path, token);
   return normalizeMessagePage(data);
+}
+
+/**
+ * GET /chats, grouped by day in the phone's zone, the one it files a chat it inserts
+ * itself in: the profile's copy of the zone lags a flight until the next sync. A new
+ * zone is a new path, so the list kept for the old one is never revalidated for it.
+ */
+function chatListPath(cursor?: string): string {
+  const params = new URLSearchParams();
+  if (cursor) params.set("cursor", cursor);
+  params.set("client_timezone", getDeviceTimezone());
+  return `/chats?${params.toString()}`;
 }
 
 export const chatsApi = {
@@ -76,10 +89,10 @@ export const chatsApi = {
     shareEmptyChatCheck(chatId, () =>
       request<void>(`/chats/${chatId}?if_empty=true`, token, { method: "DELETE" }),
     ),
-  listChats: (token: string) => requestRevalidated<ChatList>("/chats", token),
+  listChats: (token: string) => requestRevalidated<ChatList>(chatListPath(), token),
   /** The dated chats after the first page; `cursor` is the list's `next_cursor`. */
   listOlderChats: (token: string, cursor: string) =>
-    request<ChatList>(`/chats?cursor=${encodeURIComponent(cursor)}`, token),
+    request<ChatList>(chatListPath(cursor), token),
   /** Archived chats past the drawer's first page; `cursor` is `archived_next_cursor`. */
   listArchivedChats: (token: string, cursor: string) =>
     request<Page<Chat>>(`/chats/archived?cursor=${encodeURIComponent(cursor)}`, token),

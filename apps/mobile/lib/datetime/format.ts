@@ -21,12 +21,15 @@
  *   language's own default, and the older ECMA-402 rule turns it into "0:05 PM" (h11)
  *   for German or "24:05" (h24) for English. None of the app's languages writes h11
  *   or h24. A build that cannot read the setting uses the phone locale's convention.
+ * - **Week start:** the phone's First Day of Week (`phoneClock.ts`), where the date
+ *   picker's month grid begins; the phone locale's region when a build cannot read it.
  *
  * Formatters are cached by language, zone, hour cycle and style, because a cached
  * formatter keeps the zone it was built in. `toLocale*String` with options built one
- * per call: 39–44 µs against about 1 µs here (Node 22). The zone and the hour cycle
- * are read once, and again when the app returns to the foreground, when the OS reports
- * a change (`phoneClockSync.ts`), or when the zone's offset moves under a format call.
+ * per call: 39–44 µs against about 1 µs here (Node 22). The zone, the hour cycle and
+ * the week start are read once, and again when the app returns to the foreground, when
+ * the OS reports a change (`phoneClockSync.ts`), or when the zone's offset moves under a
+ * format call.
  * A change re-renders every view that translates (`DATE_FORMAT_CHANGED`). The language
  * is read from the i18next instance itself, so this file needs nothing of `lib/i18n`.
  *
@@ -35,11 +38,11 @@
  */
 import i18n from "i18next";
 
-import { readPhoneClock, type HourCycle, type PhoneClock } from "@/lib/datetime/phoneClock";
+import { readPhoneClock, type HourCycle, type PhoneClock, type Weekday } from "@/lib/datetime/phoneClock";
 
 /**
- * Sent on the i18next instance `lib/i18n` sets up when the phone's zone or 12/24-hour
- * setting changes. It binds every `useTranslation` view to it as to a language change,
+ * Sent on the i18next instance `lib/i18n` sets up when the phone's zone, 12/24-hour
+ * setting or first day of the week changes. It binds every `useTranslation` view to it as to a language change,
  * so a view re-renders when any of a date's three inputs does, memoized rows included.
  */
 export const DATE_FORMAT_CHANGED = "dateFormatChanged";
@@ -90,7 +93,12 @@ function readClock(offset: number): void {
   const before = phoneClock;
   const next = { ...readPhoneClock(), offset };
   phoneClock = next;
-  if (!before || (before.timeZone === next.timeZone && before.hourCycle === next.hourCycle)) return;
+  if (
+    !before ||
+    (before.timeZone === next.timeZone && before.hourCycle === next.hourCycle && before.weekStart === next.weekStart)
+  ) {
+    return;
+  }
   // Never inside the render that noticed it: the translated views re-render next.
   void Promise.resolve().then(() => i18n.emit(DATE_FORMAT_CHANGED));
 }
@@ -102,7 +110,7 @@ function currentClock(): PhoneClock {
   return phoneClock!;
 }
 
-/** Reads the phone's zone and 12/24-hour setting again; views re-render if either changed. */
+/** Reads the phone's zone, 12/24-hour and week settings again; views re-render if one changed. */
 export function refreshPhoneClock(): void {
   readClock(new Date().getTimezoneOffset());
 }
@@ -115,6 +123,11 @@ export function userTimeZone(): string | undefined {
 /** The phone shows a 24-hour clock: a time picker draws the same dial. */
 export function userUses24HourClock(): boolean {
   return currentClock().hourCycle === "h23";
+}
+
+/** The phone's first day of the week, or undefined when this build cannot read it. */
+export function userWeekStart(): Weekday | undefined {
+  return currentClock().weekStart;
 }
 
 function formatter(style: DateStyle, options: FormatOptions): Intl.DateTimeFormat {

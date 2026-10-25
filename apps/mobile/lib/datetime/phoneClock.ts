@@ -1,15 +1,20 @@
 /**
- * What the phone says about time: its zone and its 12/24-hour setting. `format.ts`
- * keeps what this reads and asks again when either may have changed.
+ * What the phone says about time: its zone, its 12/24-hour setting and its first day of
+ * the week. `format.ts` keeps what this reads and asks again when any may have changed.
  */
 import type { Calendar } from "expo-localization";
 
 export type HourCycle = "h12" | "h23";
 
+/** 0 = Sunday … 6 = Saturday, like `Date.getDay()`. */
+export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
 export type PhoneClock = {
   /** The device's IANA zone; undefined when the engine cannot name it. */
   timeZone: string | undefined;
   hourCycle: HourCycle;
+  /** The phone's First Day of Week; absent when this build cannot read it. */
+  weekStart?: Weekday;
 };
 
 /** The parts of expo-localization's native module this file uses. */
@@ -38,10 +43,14 @@ function loadLocalization(): LocalizationModule | null {
   return localization;
 }
 
+/** ICU's name for a zone it could not find out; no formatter accepts it (RangeError). */
+const UNKNOWN_ZONE = "Etc/Unknown";
+
 /** The device's IANA zone ("America/New_York"), or undefined when the engine cannot name it. */
 export function deviceTimeZone(): string | undefined {
   try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return zone && zone !== UNKNOWN_ZONE ? zone : undefined;
   } catch {
     return undefined;
   }
@@ -67,27 +76,39 @@ export function localeUses24HourClock(locale?: string): boolean {
   }
 }
 
-/** The phone's 24-Hour Time switch, or null when this build cannot read it. */
-function phoneUses24HourClock(): boolean | null {
+/** The phone's calendar settings, or null when this build cannot read them. */
+function phoneCalendar(): Partial<Calendar> | null {
   try {
-    return loadLocalization()?.getCalendars()[0]?.uses24hourClock ?? null;
+    return loadLocalization()?.getCalendars()[0] ?? null;
   } catch {
     return null;
   }
 }
 
 /**
- * The zone and the hour cycle now. The hour cycle is the phone's setting (iOS reads
- * it from `Locale.current`, Android from `DateFormat.is24HourFormat`), which neither
- * engine's Intl sees; a build without the module falls back to the phone locale's
- * own clock, as the time picker read it before.
+ * The phone's first day of the week. expo-localization numbers it 1 = Sunday … 7 =
+ * Saturday, as iOS's `Calendar.firstWeekday` and Android's `Calendar.getFirstDayOfWeek()`
+ * do (its types and both native sources, 57.0.2), one more than `Date.getDay()`.
  */
-export function readPhoneClock(): PhoneClock {
-  const uses24 = phoneUses24HourClock() ?? localeUses24HourClock();
-  return { timeZone: deviceTimeZone(), hourCycle: uses24 ? "h23" : "h12" };
+function phoneWeekStart(calendar: Partial<Calendar> | null): Weekday | undefined {
+  const day: unknown = calendar?.firstWeekday;
+  return typeof day === "number" && Number.isInteger(day) && day >= 1 && day <= 7 ? ((day - 1) as Weekday) : undefined;
 }
 
-/** Calls `listener` when the OS says the locale, the clock setting or the zone changed. */
+/**
+ * The zone, the hour cycle and the week start now. The hour cycle is the phone's setting
+ * (iOS reads it from `Locale.current`, Android from `DateFormat.is24HourFormat`), which
+ * neither engine's Intl sees; a build without the module falls back to the phone locale's
+ * own clock, as the time picker read it before. So is the week start, which the date
+ * picker's grid begins on; without it, `calendarGrid.ts` works it out from the locale.
+ */
+export function readPhoneClock(): PhoneClock {
+  const calendar = phoneCalendar();
+  const uses24 = calendar?.uses24hourClock ?? localeUses24HourClock();
+  return { timeZone: deviceTimeZone(), hourCycle: uses24 ? "h23" : "h12", weekStart: phoneWeekStart(calendar) };
+}
+
+/** Calls `listener` when the OS says the locale, the clock or week setting, or the zone changed. */
 export function onPhoneClockChange(listener: () => void): () => void {
   const module = loadLocalization();
   if (!module) return () => {};

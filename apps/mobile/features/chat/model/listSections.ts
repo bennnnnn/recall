@@ -95,7 +95,7 @@ export function removeChatFromGroups(groups: ChatList, chatId: string): ChatList
   };
 }
 
-/** Matches server recency buckets using the device timezone synced to the account. */
+/** The server's day buckets (`group_by_recency`), in the phone's zone, which its list reads send. */
 export function chatRecencySection(chat: Chat, now = new Date()): ChatDateSection {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
@@ -107,6 +107,33 @@ export function chatRecencySection(chat: Chat, now = new Date()): ChatDateSectio
   if (updated >= week.getTime()) return "last_7_days";
   if (updated >= month.getTime()) return "this_month";
   return "older";
+}
+
+const newestFirst = (a: Chat, b: Chat) =>
+  Date.parse(b.updated_at) - Date.parse(a.updated_at) || b.id.localeCompare(a.id);
+
+/**
+ * The dated chats under the headings they have now, in the phone's zone. A list read
+ * earlier keeps the day and zone it was grouped in: the disk copy a cold start paints
+ * (written before a flight, or yesterday) and a list held in memory across midnight,
+ * while the chats the phone inserts are filed by the day now. The same list back when
+ * no chat moves.
+ */
+export function regroupChatsByRecency(groups: ChatList, now = new Date()): ChatList {
+  const sections = Object.fromEntries(CHAT_DATE_SECTIONS.map((key) => [key, [] as Chat[]])) as
+    Record<ChatDateSection, Chat[]>;
+  let moved = false;
+  for (const key of CHAT_DATE_SECTIONS) {
+    for (const chat of groups[key]) {
+      const section = chatRecencySection(chat, now);
+      moved ||= section !== key;
+      sections[section].push(chat);
+    }
+  }
+  if (!moved) return groups;
+  // Chats filed on different days can meet in one section out of order.
+  for (const key of CHAT_DATE_SECTIONS) sections[key].sort(newestFirst);
+  return { ...groups, ...sections };
 }
 
 /** A page of older dated chats joins the list below what it already shows (CLAR-12). */
@@ -131,7 +158,5 @@ export function appendArchivedChats(groups: ChatList, page: Page<Chat>): ChatLis
 
 export function insertChatByRecency(groups: ChatList, chat: Chat): ChatList {
   const key = chat.archived ? ARCHIVED_CHAT_SECTION : chat.pinned ? PINNED_CHAT_SECTION : chatRecencySection(chat);
-  const rows = [...groups[key], chat].sort((a, b) =>
-    Date.parse(b.updated_at) - Date.parse(a.updated_at) || b.id.localeCompare(a.id));
-  return { ...groups, [key]: rows };
+  return { ...groups, [key]: [...groups[key], chat].sort(newestFirst) };
 }
