@@ -55,6 +55,31 @@ _OP_SHAPE = (
     '"importance": 0.0-1.0, "match_text": "existing fact text if updating"}]}'
 )
 
+# "Reply in Spanish from now on" was saved as a preference and answered an English app in
+# Spanish (2026-10-24): a setting's choice is the setting's.
+SETTING_PREFERENCE_RULE = (
+    "- Do not store a preference an app setting decides: the reply language, emojis, the "
+    "light or dark theme, or the default model. Those live in Settings, and a saved copy "
+    "competes with them. Keep the rest of the preference: 'short replies in Spanish, no "
+    "emojis' is 'User prefers short replies'. A language they speak or learn, or a model "
+    "in their own work, is a fact."
+)
+
+# What belongs elsewhere: reminders, and a setting's choice.
+_NOT_MEMORY_RULES = (
+    "- Do not store a todo, reminder, appointment, flight, concert, or other one-off errand. "
+    "Those are reminders, not memory. A standing routine (every evening, working hours) may "
+    "be a schedule fact.\n" + SETTING_PREFERENCE_RULE
+)
+
+# On the Memory page the user asks directly, so the reply says where that setting is.
+INSTRUCT_SETTING_RULE = (
+    "- A preference an app setting decides (the reply language, emojis, the light or dark "
+    "theme, the default model) is not memory: add no op for it, and the reply says where to "
+    "set it (Settings → Language, Personalization, Appearance or Models). Save the rest of "
+    "the instruction as usual."
+)
+
 _SENSITIVITY_RULES = (
     "- sensitivity says what the fact reveals about the user's private life. "
     "normal: name, job, employer, school, city, home country, languages, "
@@ -188,9 +213,7 @@ async def revise_memory_facts(
                 "- Record a decision the user states about their own project or life, "
                 "with what it was chosen over: 'For Recall I decided to use Neon instead "
                 "of Supabase' is 'Recall uses Neon (chosen over Supabase)' in that area.\n"
-                "- Do not store a todo, reminder, appointment, flight, concert, or "
-                "other one-off errand. Those are reminders, not memory. A standing "
-                "routine (every evening, working hours) may be a schedule fact.\n"
+                f"{_NOT_MEMORY_RULES}\n"
                 "- Distinguish current facts from aspirations and hypotheticals. For example, "
                 "'I work at Uber but want to move to Google' keeps Uber as the current employer "
                 "and adds Google as a career goal; it must not claim the user works at Google.\n"
@@ -271,6 +294,7 @@ async def instruct_memory(
                 "stated. Follow it exactly and do not invent anything beyond it.\n"
                 "- How they want replies ('you can disagree with me more', 'keep lists under "
                 "five things') is a preferences fact.\n"
+                f"{INSTRUCT_SETTING_RULE}\n"
                 "- To correct a fact, op=update with match_text of that fact. To remove one, "
                 "op=delete with match_text. To stop using one without deleting it, op=mute "
                 "with match_text. To move one to another document, op=update with the new "
