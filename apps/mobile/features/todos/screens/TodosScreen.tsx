@@ -245,7 +245,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const deleteSelected = () => {
     if (selectedIds.length === 0) return;
     void confirmDialog({
-      title: t("todos.delete_many", { count: selectedIds.length }),
+      title: t("todos.delete_selected", { count: selectedIds.length }),
       cancelLabel: t("common.cancel"),
       confirmLabel: t("common.delete"),
       destructive: true,
