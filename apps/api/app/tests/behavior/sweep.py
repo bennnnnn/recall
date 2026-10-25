@@ -106,8 +106,9 @@ SINGLE_PART_AREAS = {"multi lookalike"}
 # Everyday messages that use a maths word ("differentiate between weather and
 # climate", "simplify it" about an essay), or that sound like a follow-up to the
 # physics or chemistry problem before them ("in french please", "what about the
-# party?"). None of them is solved.
-NOT_MATH_AREAS = {"math lookalike", "followup lookalike"}
+# party?"), or that burn or react without a reaction to work ("i burned my hand on
+# the stove", "what happens when sodium reacts with water"). None of them is solved.
+NOT_MATH_AREAS = {"math lookalike", "followup lookalike", "chemistry lookalike"}
 # Look-alikes of a rule that reads the user's words: "good morning, what's the capital of
 # Peru?" is a question, not an opener. The hint that rule adds must not be in the prompt.
 LOOKALIKE_HINTS = {

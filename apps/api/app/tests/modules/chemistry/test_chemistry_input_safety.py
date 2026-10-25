@@ -47,6 +47,13 @@ def _warm_lazy_imports() -> None:
         "balance " + "NaCl = " * 600,
         "CuSO4." * 600 + "5H2O",
         "Fe²⁺" * 1_000,
+        # A reaction told in words: fillers, repeats, names and lowercase formulas.
+        "how much water if I burn " + "the " * 900 + "4 g of h2",
+        "burn 4 g of h2 " * 250 + "how much water",
+        "how much water? " + "H2 reacts with O2 and " * 180,
+        "how much water if I burn 4 g of " + "hydrogen " * 400,
+        "burn " + "co2 " * 900 + "how much co2 from 4 g of h2",
+        "2H2 + O2 -> 2H2O how much " + "water " * 600 + "from 4g of h2",
     ],
     ids=[
         "uppercase-run",
@@ -62,6 +69,12 @@ def _warm_lazy_imports() -> None:
         "equals-run",
         "hydrate-dot-run",
         "superscript-run",
+        "burn-filler-run",
+        "burn-repeat-run",
+        "react-pair-run",
+        "element-name-run",
+        "lowercase-formula-run",
+        "named-beside-equation-run",
     ],
 )
 def test_hostile_input_returns_quickly(text: str) -> None:

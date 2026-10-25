@@ -22,7 +22,9 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    formula, an element's share of a compound ("what % of Fe2O3 is iron"), two gases each
    with its pressure, `% by mass`, "mole fraction", `E°` and `E°cell`, a stock solution
    (`12 M HCl stock`, never "3 M Company stock"), "collected over water", and the name or
-   formula of a salt the ion table holds ("the name of Fe2(SO4)3").
+   formula of a salt the ion table holds ("the name of Fe2(SO4)3"), and a reaction with an
+   amount stated and one asked, written or told in words ("how much water do i get if i burn
+   like 4g of h2"; never "plan A -> B, how much", whose sides are not substances).
 
    Every reader (the gate, extraction, the binder, turn context) first reads the text as
    ASCII (`input_text.py`), since a student often copies the app's own typeset reply back:
@@ -72,6 +74,26 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    pairs each volume with the solution it is "of" ("25 mL of 0.1 M HCl", "adding 10 mL of
    NaOH"); a volume no phrase ties to one solution declines. A binder fit is also a
    chemistry cue for the gate. A problem no reader knows goes to the model, unverified.
+
+   A **reaction told in words** (`extractors/described.py`, live 2026-10-25: "how much water
+   do i get if i burn like 4g of h2" got three answers from the model) is written as its
+   balanced equation and read by the written-equation readers. Its substances are named
+   (`species_words.py`): a common name (`NAMED_COMPOUNDS`: water, propane, glucose), a salt
+   the ion table names (magnesium oxide), an element as it reacts (hydrogen is H2), a formula,
+   or a lowercase formula with a digit that only one school substance fits ("co2", "nh3",
+   "fe2o3"; "co", "hf" and "caco3" stay words). A fuel that burns, or reacts with oxygen or
+   air, takes O2 and makes its oxides: C/H and C/H/O compounds make CO2 and H2O, H2 water,
+   C and CO make CO2, S makes SO2, and Mg, Ca, Zn, Al and Li their one oxide; any other fuel
+   burns to the oxide the question names (iron to Fe2O3). "X reacts with Y", "X and Y react",
+   "X combines with Y" and "made from X and Y" make what the question asks about or names.
+   The balancer has the last word: a product X and Y cannot make alone ("Zn reacts with HCl,
+   grams of H2", ZnCl2 unnamed) declines, and a product is never guessed. The same naming
+   reads a question beside a written equation ("2H2 + O2 -> 2H2O how much water from 4g of
+   h2"). Burning in everyday words (a hand on a stove, 500 calories, 4 g of fat) is not a
+   reaction: nothing there names a substance with a stated amount and an asked one. A
+   follow-up changes the reaction it names (`reaction_followup.py`): "what if i only had 16g
+   of o2" weighs a second reactant (O2 limits the water to 18 g), "what if it was 10 g of h2"
+   replaces an amount, and "and how much o2 do i need" asks another substance.
 3. **Solve** (`solvers/`) — deterministic solvers, one module per topic (`amounts`,
    `stoichiometry`, `acid_base`, `titration`, `equilibrium`, `kinetics`, …), return
    `ChemistryResult` with Given, Find, named universal Formula, Substitution, and Answer
@@ -166,7 +188,7 @@ Pure solids and liquids are omitted from `Kc`, `Kp`, and solubility products onl
 |---|---|
 | Equations | atom-and-charge balancing (a misspelt "balence" is the same request), including ionic and redox half-equations that already contain `e-`; a written redox pair when the question asks to balance it or names a half-reaction, in acidic or basic solution, adding `H2O`, `H+` or `OH-`, and `e-`. The pair itself may be water, `H+`, or `OH-` (`O2 -> H2O`, `H+ -> H2`), including a one-element ion whose oxidation number is a fraction (`O2 -> O2-`). A pair whose oxidation numbers do not change stays with the ordinary balancer. `H2O -> H2` declines: cancelling the written water would leave a different pair. An ambiguous oxidation state such as FeS declines, and a multi-species equation is not completed into a full redox reaction |
 | Amounts | molar mass (of a formula, or of a compound named in words: glucose is C6H12O6; "oxygen gas" is O2), mass ↔ moles (a mass asked in mg or kg is answered in it: `0.0150 mol` of NaOH is `600 mg`), mass ↔ moles, moles ↔ particles, particles ↔ mass (each of a hydrate too: `CuSO4·5H2O` is 249.68 g/mol): atoms are one element's ("the mass of `1.20 × 10^24` atoms of iron" is `111 g`), molecules and formula units a compound's or a diatomic element's ("molecules of oxygen" are O2), and "atoms of O2" or "molecules of iron" decline; a written equation leaves the count to stoichiometry, the atoms of one element in an amount of a compound, or their moles (`2.0 mol` of CO2 holds `2.4 × 10^24` O atoms; `2.0 mol` of H2SO4 holds `8.0 mol` of O atoms), percent composition, asked element first or compound first ("what % of Fe2O3 is iron" is `69.94%`; "what % of the atoms" declines), the mass of an element in a sample (`10.0 g` of H2O holds `8.88 g` of O), average atomic mass from isotope abundances (stated isotope masses, or the isotope table in `isotopes.py`, never the mass numbers), percent yield, atom economy of one named product in an equation whose written coefficients already conserve atoms (a common multiple counts; the printed formula includes each coefficient), empirical formula (from percentages, or from each element's mass in a sample, which must add up to a stated sample mass; a salt is written in the order the question names its elements, `CaCO3`, and a carbon–hydrogen compound in Hill order), molecular formula, combustion analysis of a C/H/O compound (or carbon and hydrogen only) from the sample mass and the CO2 and H2O masses. Another element declines, and so do masses that do not close. A hydrate's water coefficient from the hydrate mass, the anhydrous mass, and the anhydrous formula (`CuSO4·5H2O`); a coefficient that is not a small integer declines |
-| Stoichiometry | mole ratios between any two species of the balanced equation: a product from a reactant, the reactant needed for a product ("grams of KClO3 needed to produce 3.2 g of O2"), or one reactant for another ("moles of O2 needed to burn 3.0 mol of CH4"); what is left of a reactant (remaining, excess, unreacted) is another question and declines; grams, moles, or particles through the balanced ratio to grams, moles, or particles; every reactant weighed is a limiting-reagent question even without the word; percent yield through a written reaction (one reactant, or the others said to be in excess; more product than the reaction can make declines); solution volume/molarity → product; gas volume at the same P and T; limiting reagent from masses or solution volumes, with theoretical yield and excess reactant |
+| Stoichiometry | mole ratios between any two species of the balanced equation: a product from a reactant, the reactant needed for a product ("grams of KClO3 needed to produce 3.2 g of O2"), or one reactant for another ("moles of O2 needed to burn 3.0 mol of CH4"); what is left of a reactant (remaining, excess, unreacted) is another question and declines; grams, moles, or particles through the balanced ratio to grams, moles, or particles, asked "how many grams of", "what mass of" or "find the moles of"; "how much H2O" asks in the unit its amount is given in (grams from grams); the equation written or the reaction told in words (see Extract); every reactant weighed is a limiting-reagent question even without the word; percent yield through a written reaction (one reactant, or the others said to be in excess; more product than the reaction can make declines); solution volume/molarity → product; gas volume at the same P and T; limiting reagent from masses or solution volumes, with theoretical yield and excess reactant |
 | Solutions | molarity, including from the mass of one named solute and the solution volume, or from moles in a volume in words ("0.25 mol KCl in 750 mL"), mass from molarity, dilution (including the stock volume: `6.0 M` to make `500 mL` of `1.5 M`, the stock also stated in a sentence of its own, "I have 12 M HCl stock"; and the final volume of "50 mL of 2.0 M HCl is diluted to 0.50 M"; water to add, or two substances, decline), molality (also from the solute and solvent masses), mass percent, mole fraction (also from the grams of two named components: `46 g` ethanol and `54 g` water give `χ = 0.25`), parts per million and parts per billion (mass of solute over mass of solution, from none of the solution up to all of it), volume percent, mass/volume percent (grams of solute per 100 mL of solution), boiling-point elevation and freezing-point depression from a molality, or from the solute's moles or grams (its molar mass from the table) and the solvent's mass (`2.00 mol` of glucose in `1.00 kg` of water). "The boiling point" of a solution is the solvent's normal point moved by that change, `Tb = Tb° + ΔTb` and `Tf = Tf° − ΔTf`: water's 100 °C and 0 °C are a setting when water is named (or the solution is aqueous), another solvent's is stated ("benzene boils at 80.1 °C"), and a question that asks how much the point changes is never read as the new point. The grams of solute in a mass of solution of a stated mass percent (`5.0%` of `500 g` is `25 g`); the grams of water for it, or a percent by volume, decline. The van 't Hoff factor when the temperature change, the colligative constant, and the molality are all stated (`i = ΔT / (K m)`; the elevation and depression still solve for `ΔT` and keep a named solute's `i` as the setting), osmotic pressure, Raoult's law for one component (`P = X P°`), the total vapor pressure of an ideal binary solution (`P = X_A P_A° + X_B P_B°`), ionic strength of two stated ions (`I = ½ Σ c_i z_i²`; a missing charge, a third ion, an activity coefficient, or Debye–Hückel declines), and a one-stage partition coefficient `KD = [A]org / [A]aq` (a multi-stage extraction declines). Mixing one solute from two solutions is `C = (C1 V1 + C2 V2) / (V1 + V2)`. Activity `a = γ c / c°` when the activity coefficient, the concentration, and the standard concentration are stated |
 | Acid–base | pH from `[H+]`, pOH, or a strong monoprotic acid / strong base concentration (below `10^-6 M` water's ions count: `[H+] = C/2 + √(C²/4 + Kw)`, so `1.0 × 10^-8 M` HCl is pH 6.98), `[H+]` from "a pH of 4.75", and the pOH of that same strong acid or strong base; weak-acid and weak-base quadratics; `Ka` from a stated weak-acid concentration and pH; `Ka`/`Kb`/`Kw` and `pKa`/`pKb`; Henderson–Hasselbalch; buffer after adding strong acid or base; strong titration, weak acid–strong base, and weak base–strong acid regions; a neutralization's unknown concentration with the mole ratio (H2SO4 neutralizes two NaOH), the titrant's volume read from "it takes 32.45 mL to reach the endpoint", and the volume of a stated solution needed to neutralize another (`V₂ = C₁V₁ × ratio / C₂`: `0.250 M` H2SO4 for `50.0 mL` of `0.100 M` NaOH is `10.0 mL`); mixing an acid and a base is the titration's reaction; a constant stated in words ("the Kb of NH3 is 1.8 × 10^-5"); percent ionization; first dissociation of a polyprotic acid. An amphiprotic pH is `(pKa1 + pKa2) / 2` when both constants are stated. A stated concentration has to be high enough for that average (well above `Ka1` and `Kw/Ka2`); a very dilute salt declines. `[A2-]` is `Ka2` when that concentration is asked and the second dissociation is weak (`Ka2` below `10^-3`, and well below a stated acid concentration). A charge-balance speciation is not solved. A titration in words with a dihydroxide base (Ca(OH)2) declines. A base buffer is `pOH = pKb + log10([BH+]/[B])`, and `pH = pKw − pKb − log10([BH+]/[B])` when Kb, the base, and its salt are stated (ammonia with ammonium chloride). A conjugate salt such as sodium acetate is `Kb = Kw / Ka` and then the weak-base quadratic, not the parent acid. A monoprotic fraction is `αA− = Ka / (Ka + [H+])` or `αHA = [H+] / (Ka + [H+])` when `Ka` and either `[H+]` or pH are stated; charge-balance pH stays declined |
 | Gases | Dalton when the total is asked: labelled partial pressures (`P(He) = 0.40 atm`), each gas beside its own pressure ("He at 0.40 atm, Ne at 0.25 atm"), or partial pressures listed in words; a pressure no gas owns, or a stated total, declines. A partial pressure from a mole fraction (`= 0.25` or "is 0.25"), or from every gas's moles (`2.0 mol` O2 and `6.0 mol` N2 at `4.0 atm` total gives `P(O2) = 1.0 atm`); gas density and molar mass from density (`d = PM/RT`, M from the named gas; STP is 0 °C and 1 atm, and a pressure stated beside it declines); Graham's law for two named gases, or for a rate or molar mass from the other three (`r1 =`, `M1 =`); Henry's law `C = kH × P` for any one of the three; mole-fraction partial pressure; gas collected over water, the one pressure stated being the total and the dry gas asked (a stated water vapor pressure declines; water vapor pressure is interpolated between the tabulated points, log-linear in 1/T, from 0 to 100 °C). The ideal gas law, Boyle, Charles and the combined law are physics' (see **Shared laws**). van der Waals pressure `P = nRT/(V − nb) − an²/V²` when `a` and `b` are stated and `V > nb` (solving for the volume is a cubic and declines). Compressibility `Z = PV/nRT` |
@@ -278,21 +300,21 @@ the same file to prove each client draws them (regenerate with
 
 ## STEM sweep
 
-`apps/api/app/tests/behavior/stem_corpus/chemistry/` holds 203 turns: homework questions with
+`apps/api/app/tests/behavior/stem_corpus/chemistry/` holds 240 turns: homework questions with
 answers worked independently, Unicode and typo spellings, traps, questions that must be
 declined, and look-alikes. `test_stem_sweep.py` routes each through the real chat path and fails
 on a wrong verified number (1%, any unit of the same kind; a result rounded to the inputs'
 significant figures matches within half its last place, and a pH within 0.02), a missing
 formula or balanced equation, or a misread turn. A gas law, Q = mcΔT or a half-life read as
-physics is no misread: those laws are physics'. It holds the answered floor (166 of 175).
+physics is no misread: those laws are physics'. It holds the answered floor (189 of 197).
 No `gap` line is open: the last seven misroutes (particles to a mass, a compound-first percent,
 q = nΔH from a mass, a boiling point from moles, labelled partial pressures, a plating time and
-grams of solute for a mass percent) are chemistry's now. The nine still unanswered are left to
-the model on purpose: a gas law or Q = mcΔT physics owns (gas-05, gas-08, th-02), carbon-14's
-half-life from its decay constant (r-19, physics'), a misspelt name ("sodium cloride"), a
-reaction the question does not write ("to make water", "excess NaCl" precipitating AgCl), a
-redox equation to complete with species it does not name, and "draw ethanol", a structure
-rather than a calculation.
+grams of solute for a mass percent) are chemistry's now, and so are reactions told in words and
+their follow-ups (`described.json`). The eight still unanswered are left to the model on
+purpose: a gas law or Q = mcΔT physics owns (gas-05, gas-08, th-02), carbon-14's half-life from
+its decay constant (r-19, physics'), a misspelt name ("sodium cloride"), "excess NaCl"
+precipitating AgCl (its other product, NaNO3, is not named), a redox equation to complete with
+species it does not name, and "draw ethanol", a structure rather than a calculation.
 
     uv run python -m app.tests.behavior.stem_sweep chemistry --show
 
@@ -314,6 +336,7 @@ is drawn as tetrahedral, not square planar.
 | Gate / compound parsing | `apps/api/app/modules/chemistry/request.py` |
 | Input reading (Unicode scripts, hydrate dots, `ph`, `=` arrows) | `apps/api/app/modules/chemistry/input_text.py` |
 | Text extraction | `apps/api/app/modules/chemistry/extract.py` (driver), `registry.py` (order), `extractors/<topic>.py` |
+| Reactions in words | `extractors/described.py` (the equation a question tells), `species_words.py` (names and lowercase formulas), `reaction_followup.py` ("what if i only had 16g of o2") |
 | Binder (questions in their own words) | `binding.py`, `laws.py`, `law_record.py`, `formula_bindings.py`, `species_facts.py`, `given_units.py`; engine in `apps/api/app/services/law_binding/` |
 | Typed solver dispatcher | `apps/api/app/modules/chemistry/solvers/solver.py` |
 | Formula catalog | `apps/api/app/modules/chemistry/catalog.py` |

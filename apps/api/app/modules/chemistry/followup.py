@@ -2,7 +2,9 @@
 
 Each shape declines instead of guessing: explain the result, ask for another
 quantity of the same setup ("and the pOH?"), or replace or scale one given
-("and 0.001 M?", "what if the concentration doubles?"). A new
+("and 0.001 M?", "what if the concentration doubles?"). A reaction problem also
+takes an amount or an ask of one of its substances ("what if i only had 16g of
+o2", "and how much o2 do i need": ``reaction_followup.py``). A new
 question that brings its own data is not a follow-up. Exact phrases such as
 ``why`` and ``explain`` stay on the shared continuation list; this resolver
 is the line that is not one of those phrases.
@@ -16,6 +18,7 @@ from typing import Any
 
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.given_units import CHEMISTRY_UNITS
+from app.modules.chemistry.reaction_followup import reaction_followup_problem
 from app.modules.chemistry.request import is_chemistry_question
 from app.services.law_binding.units import dimension_of
 from app.services.problem_followup import (
@@ -83,8 +86,14 @@ _CHANGED = re.compile(
 def chemistry_followup_problem(query: str | None, recent: Sequence[Any]) -> str | None:
     """The problem to verify again, or None when this line is not that follow-up."""
     text = followup_line(query)
+    if text is None or extract_chemistry_intent(text) is not None:
+        return None
+    # "what if i only had 16g of o2" changes the reaction it names, however far back.
+    reaction = reaction_followup_problem(text, recent)
+    if reaction is not None and _verifies(reaction):
+        return reaction
     prior = adjacent_problem(recent, is_chemistry_question)
-    if text is None or prior is None or extract_chemistry_intent(text) is not None:
+    if prior is None:
         return None
     folded = text.lower()
     if EXPLAIN_RE.fullmatch(folded):

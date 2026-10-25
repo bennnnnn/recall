@@ -25,11 +25,12 @@ from app.modules.chemistry.extractors.analytical import (
     _extract_analytical,
     _extract_statistics,
 )
+from app.modules.chemistry.extractors.described import extract_described_reaction
 from app.modules.chemistry.extractors.electrochemistry import (
     _extract_cells,
     _extract_electrochem,
 )
-from app.modules.chemistry.extractors.equations import _extract_equations
+from app.modules.chemistry.extractors.equations import extract_equations
 from app.modules.chemistry.extractors.equilibrium import _extract_equilibrium
 from app.modules.chemistry.extractors.gases import (
     _extract_gas_laws,
@@ -55,8 +56,8 @@ from app.modules.chemistry.extractors.spectroscopy import (
     _extract_spectrum,
 )
 from app.modules.chemistry.extractors.stoichiometry import (
-    _extract_mass_chain,
-    _extract_reaction_yield,
+    extract_mass_chain,
+    extract_reaction_yield,
 )
 from app.modules.chemistry.extractors.structure import (
     _extract_coordination,
@@ -78,7 +79,7 @@ Extractor = Callable[[str], ChemistryIntent | None]
 CHEMISTRY_EXTRACTORS: tuple[Extractor, ...] = (
     # The labelled templates. A written equation reads first: its K, Q or mole question
     # names species the value templates below would read one at a time.
-    _extract_equations,
+    extract_equations,
     _extract_ph,
     _extract_gibbs,
     _extract_first_order,
@@ -97,8 +98,10 @@ CHEMISTRY_EXTRACTORS: tuple[Extractor, ...] = (
     _extract_combustion,
     _extract_hydrate,
     _extract_empirical,
-    _extract_mass_chain,
-    _extract_reaction_yield,
+    extract_mass_chain,
+    extract_reaction_yield,
+    # A reaction told in words ("how much water if I burn 4 g of H2") is read as its equation.
+    extract_described_reaction,
     _extract_acid_solution,
     _extract_titration,
     _extract_buffer_addition,
