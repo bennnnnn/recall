@@ -4,7 +4,9 @@ Each shape declines instead of guessing: explain the result, ask for another
 quantity of the same setup ("and the pOH?"), or replace or scale one given
 ("and 0.001 M?", "what if the concentration doubles?"). A reaction problem also
 takes an amount or an ask of one of its substances ("what if i only had 16g of
-o2", "and how much o2 do i need": ``reaction_followup.py``). A new
+o2", "and how much o2 do i need": ``reaction_followup.py``), and a line that
+only asks to see the molecules of a shape answer draws them again
+(``shape_followup.py``: "can u show me both"). A new
 question that brings its own data is not a follow-up. Exact phrases such as
 ``why`` and ``explain`` stay on the shared continuation list; this resolver
 is the line that is not one of those phrases.
@@ -20,6 +22,7 @@ from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.given_units import CHEMISTRY_UNITS
 from app.modules.chemistry.reaction_followup import reaction_followup_problem, substance_amount
 from app.modules.chemistry.request import is_chemistry_question
+from app.modules.chemistry.shape_followup import shape_followup_problem
 from app.modules.chemistry.species_words import substance_mentions, with_formulas
 from app.services.law_binding.units import dimension_of
 from app.services.problem_followup import (
@@ -89,6 +92,10 @@ def chemistry_followup_problem(query: str | None, recent: Sequence[Any]) -> str 
     text = followup_line(query)
     if text is None or extract_chemistry_intent(text) is not None:
         return None
+    # "can u show me both" after a shape answer: its molecules are drawn again.
+    shown = shape_followup_problem(text, recent)
+    if shown is not None and _verifies(shown):
+        return shown
     prior = adjacent_problem(recent, is_chemistry_question)
     adjacent = None if prior is None else _adjacent_problem(prior, text)
     if adjacent is not None:

@@ -257,5 +257,131 @@
   "prompt": "how much co2 do i exhale if i burn 100 g of glucose",
   "reply": "Roughly 150 g of CO₂ over the time it takes your body to use it, spread across many breaths.",
   "expect": "answer"
+ },
+ {
+  "id": "ci-038",
+  "area": "chemistry",
+  "prompt": "Why is water bent tho, co2 isnt",
+  "reply": "Water's oxygen has two lone pairs, which push the two O–H bonds into a bent shape (104.5°). CO₂'s carbon has none, so its two C=O bonds point opposite ways: linear, 180°.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-039",
+  "area": "chemistry",
+  "prompt": "is nh3 polar",
+  "reply": "Yes. Ammonia is trigonal pyramidal with a lone pair on N, so its bond dipoles don't cancel.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-040",
+  "area": "chemistry",
+  "prompt": "Can u show me both",
+  "history": [
+   [
+    "user",
+    "Why is water bent tho, co2 isnt"
+   ],
+   [
+    "assistant",
+    "**Answer**\n\n```answer\nverified: true\nnotation: chemistry\nH₂O: bent, 104.5°, polar\nCO₂: linear, 180°, nonpolar\n```"
+   ]
+  ],
+  "reply": "Here are both molecules: bent water and linear carbon dioxide.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-041",
+  "area": "chemistry",
+  "prompt": "lol no the molecules",
+  "history": [
+   [
+    "user",
+    "Why is water bent tho, co2 isnt"
+   ],
+   [
+    "assistant",
+    "**Answer**\n\n```answer\nverified: true\nnotation: chemistry\nH₂O: bent, 104.5°, polar\nCO₂: linear, 180°, nonpolar\n```"
+   ],
+   [
+    "user",
+    "Can u show me both"
+   ],
+   [
+    "assistant",
+    "**Answer**\n\n```answer\nverified: true\nnotation: chemistry\nH₂O: bent, 104.5°, polar\nCO₂: linear, 180°, nonpolar\n```"
+   ]
+  ],
+  "reply": "Here they are, drawn: water (bent) and carbon dioxide (linear).",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-042",
+  "area": "chemistry lookalike",
+  "prompt": "what shape is the earth",
+  "reply": "An oblate spheroid: nearly a sphere, slightly flattened at the poles.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-043",
+  "area": "chemistry lookalike",
+  "prompt": "the pipe is bent",
+  "reply": "If it's a water pipe, check for leaks at the bend; a plumber can replace the section.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-044",
+  "area": "chemistry lookalike",
+  "prompt": "bent over backwards for my boss",
+  "reply": "That sounds exhausting. Want help setting some boundaries?",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-045",
+  "area": "chemistry lookalike",
+  "prompt": "my phone is bent",
+  "reply": "Stop using it if the battery bulges; otherwise a repair shop can check the frame.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-046",
+  "area": "chemistry lookalike",
+  "prompt": "co2 levels are rising",
+  "reply": "Yes: atmospheric CO₂ passed 420 ppm, up from about 280 ppm before industrialisation.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-047",
+  "area": "chemistry lookalike",
+  "prompt": "is co2 bad",
+  "reply": "In the air we breathe at normal levels it's harmless; the problem is the extra CO₂ warming the climate.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-048",
+  "area": "chemistry lookalike",
+  "prompt": "shape of my nose",
+  "reply": "Nose shapes vary a lot: Roman, Greek, button, and many in between. All are normal!",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-049",
+  "area": "chemistry lookalike",
+  "prompt": "what shape is a stop sign",
+  "reply": "An octagon: eight sides.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-050",
+  "area": "chemistry lookalike",
+  "prompt": "why is the tower of pisa leaning",
+  "reply": "Its foundation sits on soft, uneven soil that sank on one side during construction.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-051",
+  "area": "chemistry lookalike",
+  "prompt": "what is the bond angle in a bond portfolio",
+  "reply": "There's no 'bond angle' in finance; maybe you mean duration or convexity?",
+  "expect": "answer"
  }
 ]

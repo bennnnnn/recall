@@ -26,6 +26,12 @@ from app.modules.chemistry.species import parse_species
 def attach_scene(intent: ChemistryIntent, result: ChemistryResult) -> ChemistryResult:
     if result.scene is not None:
         return result
+    if intent.chemistry_op == "vsepr" and intent.formula and "," in intent.formula:
+        scenes = [_vsepr(formula.strip()) for formula in intent.formula.split(",")]
+        drawn = [scene for scene in scenes if scene is not None]
+        if len(drawn) != len(scenes) or not drawn:
+            return result
+        return replace(result, scene=drawn[0], more_scenes=tuple(drawn[1:]))
     scene = _scene(intent)
     if scene is None:
         return result

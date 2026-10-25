@@ -10,6 +10,7 @@ from typing import Any
 from uuid import UUID
 
 from app.core.config import Settings
+from app.core.readings import read_off_loop
 from app.exceptions import ChatServiceError, SpendCapReachedError, TurnRefusedError
 from app.models.orm import Message, User
 from app.modules.attachments.markers import strip_attachment_from_content
@@ -18,6 +19,8 @@ from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import RegenerateBackup
 from app.modules.chat.turn_prep.clauses import request_body
+from app.modules.chat.turn_prep.followups import role_content_dicts
+from app.modules.chemistry.followup import chemistry_followup_problem
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.generation import ImageGenerationError
 from app.modules.images.intent import (
@@ -170,20 +173,29 @@ async def try_image_gen_for_turn(
     return True
 
 
-async def _photo_subject_from_chat(
+async def _chemistry_draws_it(settings: Settings, content: str, recent: list[Any]) -> bool:
+    """ "can u show me both" right after a shape answer asks for its molecules, which the
+    chemistry card draws. Chemistry claims the line before the photo resolver is asked: a
+    resolver that named "water and carbon dioxide" would have sent a photo search."""
+    if not settings.chemistry_enabled:
+        return False
+    claimed = await read_off_loop(
+        chemistry_followup_problem,
+        content,
+        role_content_dicts(recent),
+        timeout=settings.subject_read_timeout_seconds,
+    )
+    return claimed is not None
+
+
+async def _recent_rows(
     deps: ChatTurnDeps,
     settings: Settings,
     *,
     chat_id: UUID,
-    content: str,
     recent_messages: list[Any] | None,
     replace_assistant_id: UUID | None,
-) -> str | None:
-    """Who "her" / "it" is in "show me her image", read from the chat; None if unclear.
-
-    After a generated picture, "show it at night" edits that picture: the
-    image-generation intercept owns it, so this returns None.
-    """
+) -> list[Any]:
     if recent_messages is not None:
         recent = recent_messages
     else:
@@ -193,6 +205,17 @@ async def _photo_subject_from_chat(
             )
     if replace_assistant_id is not None:
         recent = [row for row in recent if getattr(row, "id", None) != replace_assistant_id]
+    return list(recent)
+
+
+async def _photo_subject_from_chat(
+    deps: ChatTurnDeps, settings: Settings, *, content: str, recent: list[Any]
+) -> str | None:
+    """Who "her" / "it" is in "show me her image", read from the chat; None if unclear.
+
+    After a generated picture, "show it at night" edits that picture: the
+    image-generation intercept owns it, so this returns None.
+    """
     if last_reply_is_generated_image(recent):
         return None
     return await deps.references.resolve_reference(
@@ -230,17 +253,20 @@ async def try_image_lookup_for_turn(
     if not query:
         return False
     if is_reference_subject(query):
-        query = await _photo_subject_from_chat(
+        recent = await _recent_rows(
             deps,
             settings,
             chat_id=chat_id,
-            content=content,
             recent_messages=recent_messages,
             replace_assistant_id=replace_assistant_id,
         )
-        if query and names_a_drawing(query):
-            # "Water and carbon dioxide molecules": drawn by the app, so the tool loop
-            # offers no photo search either.
+        # Chemistry claims "show me both" after a shape answer before the resolver is asked;
+        # a resolved "water and carbon dioxide molecules" is drawn by the app too. Either
+        # way the tool loop offers no photo search.
+        drawn = await _chemistry_draws_it(settings, content, recent)
+        if not drawn:
+            query = await _photo_subject_from_chat(deps, settings, content=content, recent=recent)
+        if drawn or (query and names_a_drawing(query)):
             if misses is not None:
                 misses.add("photo")
             return False

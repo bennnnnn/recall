@@ -52,7 +52,7 @@ from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.tool_loop.selection import _search_before_the_model
 from app.modules.chat.turn_deps import default_deps
-from app.modules.chat.turn_intercepts import reply_picture_prompt
+from app.modules.chat.turn_intercepts import _chemistry_draws_it, reply_picture_prompt
 from app.modules.chat.turn_prep.context import (
     build_stream_prompt_context,
     stream_context_from_bundle,
@@ -61,7 +61,11 @@ from app.modules.chat.turn_prep.mode import classify_turn_mode
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.images.gen_intent import stem_subject_claims
 from app.modules.images.intent import image_gen_request
-from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
+from app.modules.images.lookup_intent import (
+    dated_lookup_query,
+    extract_image_lookup_query,
+    is_reference_subject,
+)
 from app.modules.money.block import (
     MONEY_HEADER,
     MONEY_RATE_MISSING,
@@ -349,6 +353,10 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     )
 
     found = extract_image_lookup_query(text) if settings.image_search_enabled else None
+    # "can u show me both" after a shape answer: the intercept lets chemistry draw the
+    # molecules before it asks who "both" is.
+    if found and is_reference_subject(found) and await _chemistry_draws_it(settings, text, rows):
+        found = None
     photo = dated_lookup_query(found, datetime.now(UTC).year) if found else ""
     image_gen = bool(
         not photo

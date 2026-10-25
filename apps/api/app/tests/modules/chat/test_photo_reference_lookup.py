@@ -421,28 +421,25 @@ _MOLECULE_ROWS = [
         model="free-chat",
     ),
 ]
+# A chat that names two things but asks no shape: "show me both" is the resolver's.
+_TWO_THINGS_ROWS = [
+    SimpleNamespace(id=uuid4(), role="user", content="tell me about water and co2"),
+    SimpleNamespace(
+        id=uuid4(),
+        role="assistant",
+        content="Water is H2O; carbon dioxide is CO2, the gas we breathe out.",
+        model="free-chat",
+    ),
+]
 
 
-@pytest.mark.parametrize(
-    "resolved, query",
-    [
-        # "can u show me both" searched the word "both" and showed a meme (2026-10-25).
-        ("water and carbon dioxide molecules", None),
-        (None, None),
-        ("crocodile and alligator", "crocodile and alligator"),
-        ("Times Square at night", "Times Square at night"),
-    ],
-)
-@pytest.mark.asyncio
-async def test_show_me_both_reads_both_from_the_chat(
-    resolved: str | None, query: str | None
-) -> None:
+async def _show_me_both(
+    rows: list[SimpleNamespace], resolved: str | None
+) -> tuple[bool, AsyncMock, AsyncMock, set[str]]:
     from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
 
-    user = make_user()
     search_and_attach = _found(uuid4())
     resolve = AsyncMock(return_value=resolved)
-
     deps = turn_deps(
         image_search={"search_and_attach_for_chat": search_and_attach},
         references={"resolve_reference": resolve},
@@ -451,15 +448,45 @@ async def test_show_me_both_reads_both_from_the_chat(
     handled = await try_image_lookup_for_turn(
         deps,
         Settings(image_search_enabled=True),
-        user=user,
+        user=make_user(),
         chat_id=uuid4(),
         content="can u show me both",
         outcome=TurnOutcome(),
         create_user_message=True,
-        recent_messages=list(_MOLECULE_ROWS),
+        recent_messages=list(rows),
         misses=misses,
     )
+    return handled, resolve, search_and_attach, misses
 
+
+@pytest.mark.parametrize("resolved", ["water and carbon dioxide", "crocodile and alligator", None])
+@pytest.mark.asyncio
+async def test_show_me_both_after_a_shape_answer_is_drawn_not_searched(
+    resolved: str | None, thread_sympy_executor: None
+) -> None:
+    """ "can u show me both" searched the word "both" and showed a meme (2026-10-25). After a
+    shape answer chemistry draws the molecules, whatever a resolver would have named."""
+    handled, resolve, search_and_attach, misses = await _show_me_both(_MOLECULE_ROWS, resolved)
+    assert handled is False
+    resolve.assert_not_awaited()
+    search_and_attach.assert_not_awaited()
+    assert "photo" in misses
+
+
+@pytest.mark.parametrize(
+    "resolved, query",
+    [
+        ("water and carbon dioxide molecules", None),
+        (None, None),
+        ("crocodile and alligator", "crocodile and alligator"),
+        ("Times Square at night", "Times Square at night"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_show_me_both_reads_both_from_the_chat(
+    resolved: str | None, query: str | None, thread_sympy_executor: None
+) -> None:
+    handled, resolve, search_and_attach, misses = await _show_me_both(_TWO_THINGS_ROWS, resolved)
     assert _awaited(resolve).kwargs["request"] == "can u show me both"
     assert handled is (query is not None)
     if query is None:

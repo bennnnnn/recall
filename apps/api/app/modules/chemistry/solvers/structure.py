@@ -74,6 +74,8 @@ def solve_oxidation_state(intent: ChemistryIntent) -> ChemistryResult:
 
 def solve_vsepr(intent: ChemistryIntent) -> ChemistryResult:
     formula = intent.formula or ""
+    if "," in formula:
+        return _vsepr_pair(formula)
     structure = lewis_structure(formula)
     if structure is None:
         raise SolveServiceError("no unique central-atom VSEPR structure")
@@ -107,6 +109,45 @@ def solve_vsepr(intent: ChemistryIntent) -> ChemistryResult:
             f"electron geometry {structure.electron_geometry}; "
             f"molecular geometry {structure.geometry}",
         ),
+        shown,
+        shown,
+    )
+
+
+def _vsepr_pair(written: str) -> ChemistryResult:
+    """Two molecules' shapes, each from its own Lewis structure: "why is water bent but CO2
+    linear" names "H2O, CO2". The rows say what makes each shape; the answer lists both."""
+    formulas = [formula.strip() for formula in written.split(",")]
+    structures = [lewis_structure(formula) for formula in formulas]
+    if len(formulas) != 2 or len(set(formulas)) != 2:
+        raise SolveServiceError("a VSEPR comparison names two different molecules")
+    given: list[str] = []
+    rows: list[str] = []
+    answers: list[str] = []
+    for formula, structure in zip(formulas, structures, strict=True):
+        if structure is None:
+            raise SolveServiceError("no unique central-atom VSEPR structure")
+        bonded = len(structure.terminal_elements)
+        lone = structure.central_lone_pairs
+        polarity = "polar" if structure.polar else "nonpolar"
+        given.append(f"{formula}: valence electrons = {structure.electrons}")
+        rows.extend(
+            (
+                f"{formula}: central atom {structure.central}: {bonded} bonded atoms, "
+                f"{lone} lone pairs",
+                f"{formula}: steric number = {bonded} + {lone} = {bonded + lone}",
+                f"{formula}: electron geometry {structure.electron_geometry}; "
+                f"molecular geometry {structure.geometry}",
+            )
+        )
+        answers.append(f"{formula}: {structure.geometry}, {structure.bond_angle}, {polarity}")
+    shown = "\n".join(answers)
+    return verified(
+        "Verified VSEPR",
+        given,
+        "Geometry and polarity of each molecule",
+        *stated("vsepr"),
+        rows,
         shown,
         shown,
     )

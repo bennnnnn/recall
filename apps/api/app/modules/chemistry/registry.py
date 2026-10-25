@@ -47,6 +47,7 @@ from app.modules.chemistry.extractors.nuclear import (
     _extract_nuclear_equation,
 )
 from app.modules.chemistry.extractors.organic import _extract_named_reaction, _extract_organic
+from app.modules.chemistry.extractors.shapes import extract_shape
 from app.modules.chemistry.extractors.solutions import (
     _extract_colligative,
     _extract_solutions,
@@ -112,6 +113,8 @@ CHEMISTRY_EXTRACTORS: tuple[Extractor, ...] = (
     _extract_rate_laws,
     _extract_cells,
     _extract_nuclear_equation,
+    # A shape asked in words ("why is water bent tho, co2 isnt"), before the formula reader.
+    extract_shape,
     _extract_structure,
     _extract_organic,
     _extract_coordination,
