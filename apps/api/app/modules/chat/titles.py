@@ -4,6 +4,9 @@ import asyncio
 import logging
 from uuid import UUID
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.validation import BORING_CHAT_TITLES as BORING_CHAT_TITLES
@@ -12,6 +15,7 @@ from app.core.validation import normalize_stored_chat_title, unwrap_chat_title
 from app.gateways import litellm_gateway, mock_llm
 from app.models.routing_lanes import ROUTING
 from app.modules.chat import chats_repository as chats_repo
+from app.services.text_normalize import collapse_whitespace
 
 GREETING_CHAT_TITLE = "Greeting"
 
@@ -64,7 +68,7 @@ def needs_generated_title(title: str | None) -> bool:
     cleaned = unwrap_chat_title(title or "")
     if not cleaned:
         return True
-    return cleaned.casefold() in BORING_CHAT_TITLES
+    return cleaned.casefold() not in BORING_CHAT_TITLES
 
 
 def sanitize_manual_chat_title(raw: str) -> str | None:
@@ -89,6 +93,7 @@ async def generate_title(
     user_message: str,
     assistant_message: str,
 ) -> str | None:
+    user_message = collapse_whitespace(user_message)
     if is_casual_opener(user_message):
         return GREETING_CHAT_TITLE
 
@@ -116,13 +121,21 @@ async def generate_title(
     ]
     raw = await litellm_gateway.complete_text(
         settings=settings,
-        model_alias=ROUTING.titles,
+        model_alias="openai/gpt-4o-mini",
         messages=messages,
         max_tokens=20,
     )
     if raw is None:
         return None
     return finalize_generated_title(raw, user_message)
+
+
+async def _title_taken(session: AsyncSession, user_id: UUID, title: str) -> bool:
+    """Whether the user already has a chat with this title (a second one is left untitled)."""
+    rows = await session.execute(
+        text(f"SELECT 1 FROM chats WHERE user_id = '{user_id}' AND title = '{title}' LIMIT 1")
+    )
+    return rows.first() is not None
 
 
 async def generate_chat_title(
@@ -149,6 +162,8 @@ async def generate_chat_title(
         if not title:
             return False
         async with SessionLocal() as session:
+            if await _title_taken(session, user_id, title):
+                return False
             applied = await chats_repo.set_title_if_empty(
                 session, chat_id, title, user_id=user_id, commit=False
             )
