@@ -245,6 +245,9 @@ const MESSAGES = Array.from({ length: 30 }, (_, i) => ({
   created_at: NOW,
 }));
 
+/** A turn the server finished after its socket dropped: on the chat's page once saved. */
+let savedTurn: object[] = [];
+
 /** A new chat's title lands after this many reads of it (the topic job runs after the reply). */
 const TITLE_AFTER_READS = 2;
 const titleReads = new Map<string, number>();
@@ -275,7 +278,7 @@ function serverBody(method: string, path: string): unknown {
       next_cursor: null, archived_next_cursor: null,
     };
   }
-  if (/^\/chats\/[^/]+\/messages$/.test(p)) return { messages: MESSAGES, has_more: false };
+  if (/^\/chats\/[^/]+\/messages$/.test(p)) return { messages: [...MESSAGES, ...savedTurn], has_more: false };
   if (/^\/chats\/[^/]+$/.test(p)) {
     const id = p.split("/")[2];
     const reads = (titleReads.get(id) ?? 0) + 1;
@@ -346,10 +349,37 @@ const mockAppStateListeners = new Set<(state: string) => void>();
 const realFetch = globalThis.fetch;
 const realWebSocket = globalThis.WebSocket;
 
+/** The API out: refusing connections, or answering every request with `status`. */
+let outage: null | "down" | { status: number; retryAfter: string } = null;
+/** Sockets open now: a restart closes them all. */
+const openSockets = new Set<{ restart: () => void }>();
+
+/** A deploy: every open socket closes with uvicorn's 1012. */
+function restartServer(): void {
+  for (const socket of [...openSockets]) socket.restart();
+  openSockets.clear();
+}
+
 function installServer(): void {
   globalThis.fetch = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     const path = String(url).replace(/^https?:\/\/[^/]+/, "");
     const method = (init?.method ?? "GET").toUpperCase();
+    // The connection check asks Google only when the API failed: the internet is up.
+    if (String(url).includes("generate_204")) {
+      mockLog.push({ method, path: "google/generate_204", status: 204 });
+      return new Response(null, { status: 204 });
+    }
+    if (outage === "down") {
+      mockLog.push({ method, path, status: 0 });
+      throw new TypeError("Network request failed");
+    }
+    if (outage) {
+      mockLog.push({ method, path, status: outage.status });
+      return new Response(JSON.stringify({ detail: "Service temporarily unavailable. Please retry shortly." }), {
+        status: outage.status,
+        headers: { "content-type": "application/json", "retry-after": outage.retryAfter },
+      });
+    }
     const body = JSON.stringify(serverBody(method, path));
     const etag = revalidated(method, path) ? `W/"${body.length}:${body.slice(-24)}"` : null;
     const headers = new Headers(init?.headers);
@@ -372,12 +402,25 @@ function installServer(): void {
     sent: string[] = [];
     closed = false;
     constructor(url: string) {
-      mockLog.push({ method: "WS", path: url.replace(/^wss?:\/\/[^/]+/, ""), status: 101 });
+      const refused = outage !== null;
+      mockLog.push({ method: "WS", path: url.replace(/^wss?:\/\/[^/]+/, ""), status: refused ? 0 : 101 });
+      const handle = { restart: () => this.drop(1012) };
       setTimeout(() => {
         if (this.closed) return;
+        if (refused) {
+          this.onerror?.();
+          this.drop(1006);
+          return;
+        }
         this.readyState = 1;
+        openSockets.add(handle);
         this.onopen?.();
       }, 20);
+    }
+    drop(code: number) {
+      if (this.closed) return;
+      this.close();
+      this.onclose?.({ code });
     }
     send(data: string) {
       this.sent.push(data);
@@ -402,7 +445,8 @@ let mark = 0;
 function step(title: string): void {
   steps.push({
     title,
-    requests: mockLog.slice(mark).map((r) => `${r.method} ${r.path}${r.status === 304 ? " (304)" : ""}`),
+    requests: mockLog.slice(mark).map((r) => `${r.method} ${r.path}${
+      r.status === 304 || r.status >= 400 ? ` (${r.status})` : r.status === 0 ? " (refused)" : ""}`),
   });
   mark = mockLog.length;
 }
@@ -417,7 +461,7 @@ async function settle(ms = 50): Promise<void> {
   }
 }
 
-async function appState(state: "active" | "background"): Promise<void> {
+async function appState(state: "active" | "background" | "inactive"): Promise<void> {
   await rtl.act(async () => {
     for (const listener of [...mockAppStateListeners]) listener(state);
   });
@@ -544,6 +588,8 @@ const CEILINGS: Record<string, number> = {
   "return after a minute": 4,
   // And the model list (older than 5 minutes).
   "return after 10 minutes": 5,
+  // iOS goes inactive and back without leaving: nothing is read again.
+  "Control Centre and back, 6 minutes on": 0,
   "50 minutes in the foreground": 0,
   // One refresh before the read, then the page and the socket.
   "open chat 2 after the token expired": 3,
@@ -557,6 +603,9 @@ const CEILINGS: Record<string, number> = {
   "cold start again": 6,
   // The page; the files' statuses the first run settled come from disk.
   "open chat 1 after the relaunch": 2,
+  // The token has expired: one refresh, which answers with the account (no /auth/me),
+  // then the day's usage, to-dos, models, /health and the drawer.
+  "cold start two hours later": 6,
 };
 
 jest.setTimeout(120_000);
@@ -622,6 +671,12 @@ it("keeps every step of an everyday session within its requests", async () => {
   await appState("active");
   await settle(3000);
   step("return after 10 minutes");
+  await settle(6 * 60_000);
+  await appState("inactive");
+  await settle(1000);
+  await appState("active");
+  await settle(3000);
+  step("Control Centre and back, 6 minutes on");
 
   await settle(50 * 60_000);
   step("50 minutes in the foreground");
@@ -656,13 +711,122 @@ it("keeps every step of an everyday session within its requests", async () => {
   await openChat(app, 1);
   step("open chat 1 after the relaunch");
 
+  app.ui.unmount();
+  await settle(100);
+  jest.setSystemTime(Date.now() + 2 * 60 * 60_000);
+  mark = mockLog.length;
+  mockParams = {};
+  app = await launch();
+  await settle(10_000);
+  step("cold start two hours later");
+
+  expectWithin(CEILINGS);
+});
+
+/** Every step this test took stayed under its ceiling, and every ceiling was a step. */
+function expectWithin(ceilings: Record<string, number>): void {
   if (process.env.CENSUS) {
     console.log(steps.map((s) => `${s.title} (${s.requests.length})\n${s.requests.map((r) => `  ${r}`).join("\n")}`)
       .join("\n"));
   }
   const over = steps
-    .filter((s) => s.requests.length > (CEILINGS[s.title] ?? 0))
-    .map((s) => `${s.title}: ${s.requests.length} > ${CEILINGS[s.title] ?? 0}\n  ${s.requests.join("\n  ")}`);
+    .filter((s) => s.requests.length > (ceilings[s.title] ?? 0))
+    .map((s) => `${s.title}: ${s.requests.length} > ${ceilings[s.title] ?? 0}\n  ${s.requests.join("\n  ")}`);
   expect(over).toEqual([]);
-  expect(steps.map((s) => s.title).sort()).toEqual(Object.keys(CEILINGS).sort());
+  expect(steps.map((s) => s.title).sort()).toEqual(Object.keys(ceilings).sort());
+}
+
+/**
+ * The most each step may send while the API is out. Nothing retries in a loop: what
+ * failed is read again on the user's next move, and the phones an outage refused
+ * together do not come back in step.
+ */
+const OUTAGE_CEILINGS: Record<string, number> = {
+  "cold start after sign-in": 7,
+  "open chat 1": 5,
+  // The sockets close (1012) and nothing reconnects until the user moves.
+  "a deploy with the chat open, down 30 s, then a minute": 0,
+  // One socket try; the next waits out its backoff.
+  "typing while the API is down": 1,
+  // The deploy closed the socket: the send opens one.
+  "send in chat 1": 1,
+  // The reply's socket closes mid-stream. The phone reads the chat's newest rows until the
+  // reply is saved, waiting as long as each 503's Retry-After (5 s) asks: at 1.5 to 2.5 s, then 5
+  // to 6.25 s apart, so five or six (at 2 s apart it was fourteen).
+  "a deploy mid-reply, 503 Retry-After 5 for 30 s": 6,
+  // Back: the next read finds the saved reply, then the full page.
+  "the 30 s after, the API back": 2,
+  "a minute in the background": 0,
+  // The return's reads (to-dos, the chat, the socket) fail once and are not retried; the
+  // connection check backs off (1.5 s, 3 s, 6 s, 12 s, 24 s), each asking Google whether it is the API.
+  "return while the API is down 30 s, then 30 s": 14,
+  // One socket try, then the send over SSE, refused: the phone says so and stops.
+  "send while the API answers 503": 2,
+  "a minute after the outage": 0,
+};
+
+it("keeps a server outage within its requests, with nothing in a loop", async () => {
+  steps.length = 0;
+  mockSecure.clear();
+  mockFiles.clear();
+  mockSecure.set("recall_session_v1", JSON.stringify({ accessToken: accessToken(NOW_S + 3600), refreshToken: "r" }));
+  mockFiles.set("file:///cache/cached-user.json", JSON.stringify({
+    id: USER_ID, name: "Ann", avatar_url: null, plan: "free", ai_data_consent_at: NOW, locale: "en",
+  }));
+  mark = mockLog.length;
+  mockParams = {};
+  const app = await launch();
+  await settle(10_000);
+  step("cold start after sign-in");
+  await openChat(app, 1);
+  step("open chat 1");
+
+  await rtl.act(async () => { restartServer(); });
+  outage = "down";
+  await settle(30_000);
+  outage = null;
+  await settle(60_000);
+  step("a deploy with the chat open, down 30 s, then a minute");
+
+  outage = "down";
+  await rtl.fireEvent.changeText(app.ui.getByTestId("chat-composer-input"), "Hel");
+  await settle(5_000);
+  outage = null;
+  step("typing while the API is down");
+  await settle(30_000);
+
+  await send(app, "Hello there");
+  await settle(300);
+  step("send in chat 1");
+  await rtl.act(async () => { restartServer(); });
+  outage = { status: 503, retryAfter: "5" };
+  await settle(30_000);
+  step("a deploy mid-reply, 503 Retry-After 5 for 30 s");
+  outage = null;
+  savedTurn = [
+    { id: uuid(2, 900), role: "user", content: "Hello there", model: null, created_at: NOW },
+    { id: uuid(2, 901), role: "assistant", content: "Hi.", model: null, created_at: NOW },
+  ];
+  await settle(30_000);
+  step("the 30 s after, the API back");
+
+  await appState("background");
+  await settle(60_000);
+  step("a minute in the background");
+  outage = "down";
+  await appState("active");
+  await settle(30_000);
+  outage = null;
+  await settle(30_000);
+  step("return while the API is down 30 s, then 30 s");
+
+  outage = { status: 503, retryAfter: "5" };
+  await send(app, "Are you there");
+  await settle(10_000);
+  outage = null;
+  step("send while the API answers 503");
+  await settle(60_000);
+  step("a minute after the outage");
+
+  expectWithin(OUTAGE_CEILINGS);
 });

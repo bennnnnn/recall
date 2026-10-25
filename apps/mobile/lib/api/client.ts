@@ -1,4 +1,4 @@
-import { ApiRequestError, readErrorBody } from "@/lib/api/errorBody";
+import { ApiRequestError, readErrorBody, readRetryAfter } from "@/lib/api/errorBody";
 import { isAbortError } from "@/lib/api/abort";
 import { abortError, serverUnreachableError, untilAborted, withDeadline } from "@/lib/api/deadline";
 import { getApiUrl } from "@/lib/config";
@@ -100,6 +100,45 @@ export async function fetchWithTimeout(url: string, init: RequestInit): Promise<
 
 let refreshInFlight: { generation: number; promise: Promise<string | null> } | null = null;
 
+/**
+ * The access token this sign-in's last refresh returned. A 401 for a token it has
+ * since replaced is sent again with it, not answered with a refresh of its own: on a
+ * busy server the 401s of requests sent together land seconds apart, and each one
+ * after the first refresh finished started another (six 401s, five refreshes).
+ */
+let lastRefreshed: { generation: number; token: string; user: User | null } | null = null;
+
+/** This sign-in's refresh token was refused (401, or none stored): asking again cannot help. */
+let refreshRejected: number | null = null;
+
+/**
+ * The account the refresh that issued `token` answered with, or null for any other token.
+ * At launch an expired token is refreshed first, and that answer is the account /auth/me
+ * would read: most launches come more than the token's hour after the last.
+ */
+export function refreshedAccount(token: string | null): User | null {
+  const last = lastRefreshed;
+  return token && last?.generation === getSessionGeneration() && last.token === token ? last.user : null;
+}
+
+/**
+ * A refresh the server turned away with a `Retry-After` (its per-IP limit's 429, a 503):
+ * until then a request that needs one fails with that refusal instead of asking again.
+ * Each request used to ask: ten refreshes in 20 s against a limit that said "60 s".
+ */
+let refreshRefused: { generation: number; until: number; error: ApiRequestError } | null = null;
+
+/** A refused response as the error a caller throws, with its `Retry-After`. */
+async function refusal(response: Response): Promise<ApiRequestError> {
+  return new ApiRequestError(response.status, await response.text(), readRetryAfter(responseHeader(response, "retry-after")));
+}
+
+/** The token this sign-in's last refresh put in place of `token`, if it did. */
+function replacedToken(token: string, generation: number): string | null {
+  const last = lastRefreshed;
+  return last?.generation === generation && last.token !== token ? last.token : null;
+}
+
 /** Share refresh within one session. Only an absent/rejected refresh credential
  * returns null; outages and secure storage failures must not sign the user out.
  * One deadline covers the whole refresh, its body and secure storage included: a
@@ -108,10 +147,16 @@ let refreshInFlight: { generation: number; promise: Promise<string | null> } | n
 async function refreshAccessToken(): Promise<string | null> {
   const generation = getSessionGeneration();
   if (refreshInFlight?.generation === generation) return refreshInFlight.promise;
+  if (refreshRejected === generation) return null;
+  const refused = refreshRefused;
+  if (refused?.generation === generation && Date.now() < refused.until) throw refused.error;
   const promise = withDeadline(AUTH_FETCH_TIMEOUT_MS, null, async (signal) => {
     const refreshToken = await getRefreshToken();
     requireSession(generation);
-    if (!refreshToken) return null;
+    if (!refreshToken) {
+      refreshRejected = generation;
+      return null;
+    }
     const response = await fetch(apiUrl("/auth/refresh"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -119,8 +164,15 @@ async function refreshAccessToken(): Promise<string | null> {
       signal,
     });
     requireSession(generation);
-    if (response.status === 401) return null;
-    if (!response.ok) throw new ApiRequestError(response.status, await response.text());
+    if (response.status === 401) {
+      refreshRejected = generation;
+      return null;
+    }
+    if (!response.ok) {
+      const error = await refusal(response);
+      if (error.retryAfterMs) refreshRefused = { generation, until: Date.now() + error.retryAfterMs, error };
+      throw error;
+    }
     const data = (await response.json()) as AuthResult;
     requireSession(generation);
     if (!data || typeof data.access_token !== "string" || !data.access_token ||
@@ -130,6 +182,8 @@ async function refreshAccessToken(): Promise<string | null> {
     const saved = await setTokenPair(data.access_token, data.refresh_token, generation);
     requireSession(generation);
     if (!saved) throw new SessionChangedError();
+    lastRefreshed = { generation, token: data.access_token, user: data.user ?? null };
+    refreshRefused = null;
     onTokenRefresh?.(data.access_token, data.user);
     return data.access_token;
   }, serverUnreachableError);
@@ -199,7 +253,7 @@ export async function request<T>(
       signal,
       headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
     }, allowRefresh, timeoutMs);
-    if (!response.ok) throw new ApiRequestError(response.status, await response.text());
+    if (!response.ok) throw await refusal(response);
     const data = response.status === 204 ? undefined : await response.json();
     requireSession(generation);
     return data as T;
@@ -215,9 +269,9 @@ export async function request<T>(
 const MAX_REVALIDATED = 40;
 const revalidated = new Map<string, { generation: number; etag: string; data: unknown }>();
 
-function responseEtag(response: Response): string | null {
+function responseHeader(response: Response, name: string): string | null {
   // Test doubles and some transports have no headers object.
-  return typeof response.headers?.get === "function" ? response.headers.get("etag") : null;
+  return typeof response.headers?.get === "function" ? response.headers.get(name) : null;
 }
 
 export async function requestRevalidated<T>(
@@ -245,10 +299,10 @@ export async function requestRevalidated<T>(
       revalidated.set(path, kept);
       return kept.data as T;
     }
-    if (!response.ok) throw new ApiRequestError(response.status, await response.text());
+    if (!response.ok) throw await refusal(response);
     const data = (await response.json()) as T;
     requireSession(generation);
-    const etag = responseEtag(response);
+    const etag = responseHeader(response, "etag");
     revalidated.delete(path);
     if (etag) {
       revalidated.set(path, { generation, etag, data });
@@ -273,7 +327,7 @@ export async function fetchExportText(
       headers: { Accept: "application/json" },
       signal: deadline,
     }, allowRefresh, EXPORT_TIMEOUT_MS);
-    if (!response.ok) throw new ApiRequestError(response.status, await response.text());
+    if (!response.ok) throw await refusal(response);
     const text = await response.text();
     requireSession(generation);
     return text;
@@ -326,6 +380,8 @@ export async function requestRaw(
     requireSession(generation);
     requireNotAborted(controller.signal);
     if (response.status === 401 && effectiveToken) {
+      const replaced = allowRefresh ? replacedToken(effectiveToken, generation) : null;
+      if (replaced) return requestRaw(path, replaced, init, true, timeoutMs, retainStreamAbort);
       if (allowRefresh && !refreshAttempted) {
         const refreshed = await untilAborted(refreshAccessToken(), controller.signal);
         requireSession(generation);
@@ -369,6 +425,8 @@ export async function authorizeNativeTransfer(
   const status = await send(effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {});
   requireSession(generation);
   if (status === 401 && effectiveToken) {
+    const replaced = allowRefresh ? replacedToken(effectiveToken, generation) : null;
+    if (replaced) return authorizeNativeTransfer(replaced, send, true);
     if (allowRefresh && !refreshAttempted) {
       const refreshed = await refreshAccessToken();
       requireSession(generation);

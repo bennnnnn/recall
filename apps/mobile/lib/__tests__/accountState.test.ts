@@ -85,7 +85,10 @@ const SCOPED_TO_SESSION = [
   "features/memory/hooks/useMemoryToggle.ts#pending",
   "features/memory/model/memoryDocumentsCache.ts#resource",
   "features/todos/model/todoMutationState.ts#current",
+  "lib/api/client.ts#lastRefreshed",
   "lib/api/client.ts#refreshInFlight",
+  "lib/api/client.ts#refreshRefused",
+  "lib/api/client.ts#refreshRejected",
   "lib/api/client.ts#revalidated",
   "lib/productAnalytics.ts#waiting",
 ];
@@ -151,6 +154,7 @@ const NO_ACCOUNT_DATA = [
   "lib/clockTick.ts#listeners",
   "lib/fenceRegistry.ts#BY_ID",
   "lib/fenceRegistry.ts#BY_LANG",
+  "lib/foregroundRefresh.ts#away",
   "lib/foregroundRefresh.ts#listeners",
   "lib/foregroundRefresh.ts#subscription",
   "lib/google-auth.ts#configured",

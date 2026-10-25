@@ -50,8 +50,10 @@ export class ApiRequestError extends Error {
   /** The server's words; empty when the body carried none (`message` then says the status). */
   readonly detail: string;
   readonly fields: Readonly<Record<string, unknown>>;
+  /** How long the server asked to be left alone (its `Retry-After`), or null. */
+  readonly retryAfterMs: number | null;
 
-  constructor(status: number, body: string) {
+  constructor(status: number, body: string, retryAfterMs: number | null = null) {
     const read = readErrorBody(body);
     super(read.message || `Request failed: ${status}`);
     this.name = "ApiRequestError";
@@ -59,5 +61,17 @@ export class ApiRequestError extends Error {
     this.code = read.code;
     this.detail = read.message;
     this.fields = read.fields;
+    this.retryAfterMs = retryAfterMs;
   }
+}
+
+/** The longest wait a `Retry-After` is taken at: a wrong header must not stall the app. */
+const MAX_RETRY_AFTER_MS = 5 * 60_000;
+
+/** A `Retry-After` (seconds, or an HTTP date) in ms, at most five minutes; null without one. */
+export function readRetryAfter(value: string | null | undefined, now = Date.now()): number | null {
+  const text = value?.trim();
+  if (!text) return null;
+  const ms = /^\d+$/.test(text) ? Number(text) * 1000 : Date.parse(text) - now;
+  return Number.isFinite(ms) ? Math.min(Math.max(ms, 0), MAX_RETRY_AFTER_MS) : null;
 }

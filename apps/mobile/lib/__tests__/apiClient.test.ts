@@ -20,6 +20,8 @@ jest.mock("@/lib/config", () => ({
 const mockGetRefreshToken = jest.fn();
 const mockSetTokenPair = jest.fn();
 let mockSessionGeneration = 0;
+/** Each test is a sign-in of its own: a refresh one test made is not another's (`lastRefreshed`). */
+let signIns = 0;
 const mockRequireTokenSession = jest.fn();
 
 jest.mock("@/lib/auth", () => ({
@@ -39,7 +41,7 @@ beforeEach(() => {
   mockFetch.mockReset();
   mockGetRefreshToken.mockReset();
   mockSetTokenPair.mockReset().mockResolvedValue(true);
-  mockSessionGeneration = 0;
+  mockSessionGeneration = (signIns += 100);
   mockRequireTokenSession.mockReset();
   setUnauthorizedHandler(null);
   setTokenRefreshHandler(null);
@@ -99,7 +101,7 @@ describe("api client", () => {
     const data = await request<{ ok: boolean }>("/users/me", "stale-token");
     expect(data).toEqual({ ok: true });
     expect(mockFetch).toHaveBeenCalledTimes(3);
-    expect(mockSetTokenPair).toHaveBeenCalledWith("new-access", "new-refresh", 0);
+    expect(mockSetTokenPair).toHaveBeenCalledWith("new-access", "new-refresh", mockSessionGeneration);
     // L2: onRefresh now also receives the user payload (undefined when the
     // refresh response omits it).
     expect(onRefresh).toHaveBeenCalledWith("new-access", undefined);
@@ -436,7 +438,7 @@ it("does not share an old account's in-flight refresh with the next account", as
   firstRefresh.resolve({ ok: false, status: 401 } as Response);
   await expect(oldOutcome).resolves.toMatchObject({ name: "SessionChangedError" });
   expect(mockSetTokenPair).toHaveBeenCalledTimes(1);
-  expect(mockSetTokenPair).toHaveBeenCalledWith("access-b2", "refresh-b2", 1);
+  expect(mockSetTokenPair).toHaveBeenCalledWith("access-b2", "refresh-b2", mockSessionGeneration);
 });
 
 it("rejects malformed refresh data without signing out or saving undefined tokens", async () => {

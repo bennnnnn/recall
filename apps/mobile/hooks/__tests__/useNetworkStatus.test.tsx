@@ -215,18 +215,33 @@ describe("useNetworkStatus launch probe", () => {
     await act(async () => { await flush(); });
     expect(probe).toHaveBeenCalledTimes(1);
 
-    await act(async () => {
-      for (const handler of [...appHandlers]) handler("active");
-      await flush();
-    });
+    const leaveAndReturn = async () => {
+      await act(async () => {
+        for (const state of ["background", "active"]) {
+          for (const handler of [...appHandlers]) handler(state);
+        }
+        await flush();
+      });
+    };
+    await leaveAndReturn();
     expect(probe).toHaveBeenCalledTimes(1);
 
     await act(async () => { answer("online"); await flush(); });
+    await leaveAndReturn();
+    expect(probe).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not probe for an iOS inactive blip, which never left the screen", async () => {
+    await render(<Probe />);
+    await act(async () => { await flush(); });
+    const opened = probe.mock.calls.length;
     await act(async () => {
-      for (const handler of [...appHandlers]) handler("active");
+      for (const state of ["inactive", "active"]) {
+        for (const handler of [...appHandlers]) handler(state);
+      }
       await flush();
     });
-    expect(probe).toHaveBeenCalledTimes(2);
+    expect(probe).toHaveBeenCalledTimes(opened);
   });
 
   it("keeps \"No internet\" on a link that is up with nothing behind it", async () => {
