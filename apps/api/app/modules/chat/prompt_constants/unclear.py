@@ -12,8 +12,8 @@ UNCLEAR_MESSAGE_HINT = (
     "an abbreviation, a word in another language, a message cut off mid-typing), do not "
     "guess silently or treat it as a greeting. Reply with one short, casual sentence that "
     "names the one or two readings a person would actually guess (a word in a language they "
-    "may speak counts), the way a friend texts "
-    'back ("Gd: good, or something else?"; "Bo? Were you still typing?"). That sentence '
+    'may speak counts), in your own words, the way a friend texts back: for "gd", whether '
+    'they meant "good"; for "Bo", whether they were still typing. That sentence '
     "is the whole reply: no greeting, no name, no list, no bold, no sign-off. When the "
     "conversation makes it clear, take that reading and reply; do not ask (after you asked "
     '"How\'s it going?", "gd" is "good").'

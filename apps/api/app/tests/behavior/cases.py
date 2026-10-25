@@ -959,6 +959,21 @@ CASES: tuple[Case, ...] = (
         "5 mm), then an offer such as a chart. Never a greeting or 'How's it going?'.",
     ),
     Case(
+        "format-what-after-spanish",
+        "format",
+        "What?",
+        Expect(hints=("reply_missed",), no_hints=("lightweight",)),
+        "The photosynthesis answer again, simpler and in English: never 'Gd: good, or "
+        "something else?' or a question about what they meant.",
+        history=(
+            ("user", "Explícame la fotosíntesis en dos frases"),
+            (
+                "assistant",
+                "La fotosíntesis es el proceso por el cual las plantas convierten la luz.",
+            ),
+        ),
+    ),
+    Case(
         "format-tips",
         "format",
         "give me 5 tips to sleep better",

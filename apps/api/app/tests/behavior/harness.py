@@ -39,6 +39,7 @@ from app.modules.chat.prompt_constants.coding import (
     CODE_RUN_HINT,
 )
 from app.modules.chat.prompt_constants.multi_part import MULTI_PART_MARKER
+from app.modules.chat.prompt_constants.reply_missed import REPLY_MISSED_HINT
 from app.modules.chat.prompt_constants.shared_numbers import SHARED_NUMBERS_HINT
 from app.modules.chat.prompt_constants.writing import (
     EMAIL_ASK_PURPOSE_HINT,
@@ -130,6 +131,8 @@ HINTS: dict[str, str] = {
     "personal_disclosure": pc.PERSONAL_DISCLOSURE_HINT,
     # A list of numbers that asks nothing: its highest and lowest, and no greeting.
     "shared_numbers": SHARED_NUMBERS_HINT,
+    # "What?" right after a reply: say it again more simply.
+    "reply_missed": REPLY_MISSED_HINT,
     # "The user is asking for a personal recommendation": tastes shape the pick.
     "advice": pc.ADVICE_PERSONALIZE_HINT,
     # A STEM reply the model works out itself checks its own answer first.
