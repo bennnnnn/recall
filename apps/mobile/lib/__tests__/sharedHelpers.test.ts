@@ -3,6 +3,7 @@
  * DUP-13). Six callers read a cancel their own way, three diagram parsers each kept a
  * validator kit for the server's limits, and two placed labels with their own overlap.
  * Four dollar and delimiter scanners each counted the backslashes before a character.
+ * Five JSON readers each wrote out the same object check.
  */
 
 import { appFiles, isTest, readSource, relative } from "@/lib/__tests__/support/sourceFiles";
@@ -12,6 +13,7 @@ const ONE_HOME: [string, RegExp, string][] = [
   ["a fence parser's refusal error", /class \w+ extends Error \{\}/, "lib/fenceValidate.ts"],
   ["boxesOverlap", /function boxesOverlap\(/, "lib/physics/boxes.ts"],
   ["an odd backslash run escaping a character", /slashes % 2 === 1/, "lib/markdown/inlineCode.ts"],
+  ["a JSON object check (isJsonRecord)", /typeof (\w+) === "object" &&[^\n]*!Array\.isArray\(\1\)/, "lib/jsonFence.ts"],
 ];
 
 describe("shared helpers", () => {

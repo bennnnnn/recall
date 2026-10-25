@@ -10,6 +10,7 @@ import { splitAnswerNotation } from "@/lib/answerNotation";
 import { parseGraphSpec } from "@/lib/math/graphSpec";
 import { parseGeometrySpec } from "@/lib/math/geometryBlock";
 import { fenceIdForLang, fallbackKindForLang } from "@/lib/fenceRegistry";
+import { parseJsonRecord } from "@/lib/jsonFence";
 import { parseCalloutKind, type CalloutKind } from "@/lib/richBlocks";
 import { parseSearchSourcesJson } from "@/lib/searchSources";
 import { parsePlacesJson } from "@/lib/placesList";
@@ -56,20 +57,14 @@ function visualSnippet(lang: string, body: string): string {
   const id = fenceIdForLang(lang);
   if (id === "molecule") {
     const trimmed = body.trim();
-    if (trimmed.startsWith("{")) {
-      try {
-        const parsed: unknown = JSON.parse(trimmed);
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          const row = parsed as { caption?: unknown; smiles?: unknown };
-          if (typeof row.caption === "string" && row.caption.trim()) {
-            return clipSnippet(row.caption.trim());
-          }
-          if (typeof row.smiles === "string" && row.smiles.trim()) {
-            return clipSnippet(row.smiles.trim());
-          }
-        }
-      } catch {
-        // Never dump the SDF JSON.
+    // Never dump the SDF JSON.
+    const row = trimmed.startsWith("{") ? parseJsonRecord(trimmed) : null;
+    if (row) {
+      if (typeof row.caption === "string" && row.caption.trim()) {
+        return clipSnippet(row.caption.trim());
+      }
+      if (typeof row.smiles === "string" && row.smiles.trim()) {
+        return clipSnippet(row.smiles.trim());
       }
     }
     return "";
@@ -83,15 +78,9 @@ function visualSnippet(lang: string, body: string): string {
   }
   const trimmed = body.trim();
   if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-    try {
-      const parsed: unknown = JSON.parse(trimmed);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        const title = (parsed as { title?: unknown }).title;
-        if (typeof title === "string" && title.trim()) return clipSnippet(title);
-      }
-    } catch {
-      // Fall through to a first-line snippet; never dump the spec.
-    }
+    // A title when the spec has one; never dump the spec.
+    const title = parseJsonRecord(trimmed)?.title;
+    if (typeof title === "string" && title.trim()) return clipSnippet(title);
     return "";
   }
   return clipSnippet(firstNonEmptyLine(body));
