@@ -70,12 +70,15 @@ export const MathText = memo(function MathText({
     // instead of painting past the top, where a ScrollView would clip it.
     const padTop = scaled(layout.padTop ?? 0, fontScale);
     const padBottom = scaled(layout.padBottom ?? 0, fontScale);
+    // The measured width is a floor, not the box: advances are estimates, and
+    // a box narrower than its glyphs let them paint over the space after the
+    // formula ("→ 2H₂Oshows"). The glyph runs inside widen it to their ink.
     const content = (
       <View
         testID="math-text-tall"
         collapsable={false}
         style={[styles.tallRoot, {
-          ...(scroll ? { minWidth: contentWidth } : { width: contentWidth }),
+          minWidth: contentWidth,
           height: contentHeight,
           ...(padTop > 0 ? { paddingTop: padTop } : null),
           ...(padBottom > 0 ? { paddingBottom: padBottom } : null),

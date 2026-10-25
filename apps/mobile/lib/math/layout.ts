@@ -8,14 +8,7 @@
  * Native applies font scale itself.
  */
 
-import {
-  BLACKBOARD_ADVANCE_EM,
-  BLACKBOARD_LATIN,
-  CDOT_ADVANCE_EM,
-  NEGATED_RELATION,
-  NORM_ADVANCE_EM,
-  PRIME_ADVANCE_EM,
-} from "@/lib/math/glyphs";
+import { glyphAdvanceEm } from "@/lib/math/glyphs";
 import { attachScripts, type MathAccentKind, type MathSegment } from "@/lib/math/text";
 
 export const FRAC_SIZE_RATIO = 14 / 16;
@@ -68,41 +61,6 @@ export type MathLayout = {
   /** Wide accent (`\widehat`, `\overrightarrow`) whose rule tracks the ink. */
   spanAccent?: boolean;
 };
-
-const WIDE = new Set(["m", "w", "M", "W"]);
-const NARROW = new Set(["i", "l", "I", "j", "f", "t", "r"]);
-
-function isCombiningMark(ch: string): boolean {
-  const c = ch.charCodeAt(0);
-  return c >= 0x0300 && c <= 0x036f;
-}
-
-/** Em advance for one glyph. Unknown characters still take positive space. */
-function glyphAdvanceEm(ch: string): number {
-  if (isCombiningMark(ch)) return 0;
-  if (ch === " " || ch === "\u00a0" || ch === "\u2009") return 0.33;
-  if (ch >= "0" && ch <= "9") return 0.5;
-  if (ch === "m" || ch === "M") return 0.9;
-  if (ch === "w" || ch === "W") return 0.85;
-  if (WIDE.has(ch)) return 0.8;
-  if (NARROW.has(ch)) return 0.32;
-  if (/[A-Za-z]/.test(ch)) {
-    return ch.toLowerCase() !== ch ? 0.72 : 0.52;
-  }
-  if (ch === "·" || ch === "⋅") return CDOT_ADVANCE_EM;
-  if (ch === "″") return PRIME_ADVANCE_EM * 2;
-  if (ch === "‴") return PRIME_ADVANCE_EM * 3;
-  if (ch === "‖") return NORM_ADVANCE_EM;
-  if (NEGATED_RELATION[ch]) return NEGATED_RELATION[ch].widthEm;
-  if (BLACKBOARD_LATIN[ch]) return BLACKBOARD_ADVANCE_EM;
-  if (".,:;'`′″‴".includes(ch)) return 0.28;
-  if ("()[]{}|/".includes(ch)) return 0.4;
-  if ("+-−=<>±∓×÷".includes(ch)) return 0.78;
-  const code = ch.codePointAt(0) ?? 0;
-  if (code >= 0x370 && code <= 0x3ff) return 0.62;
-  if (code > 0x7f) return 0.7;
-  return 0.5;
-}
 
 export function measureTextWidth(text: string, em: number): number {
   let width = 0;

@@ -116,7 +116,7 @@ export function useChatTransport({
       transport = new ChatWsTransport({
         url: chatWebSocketUrl(chatId),
         getToken,
-        clientTimezone: getDeviceTimezone(),
+        clientTimezone: getDeviceTimezone,
         backoff: backoffRef.current,
         onPayload: (payload) => {
           if (wsTransportRef.current !== transport) return;

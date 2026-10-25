@@ -50,3 +50,10 @@ def test_bluegreen_has_a_health_check_for_every_process_group() -> None:
     )
     checked |= {check["process"] for check in _FLY.get("checks", [])}
     assert groups <= checked, f"process groups without health checks: {groups - checked}"
+
+
+def test_fly_checks_the_app_by_liveness_and_postgres_readiness_only() -> None:
+    """/health/dependencies (the phone's connection check) answers 503 with Redis down.
+    A Fly check on it would take every app Machine out of routing in a Redis blip."""
+    paths = sorted(check["path"] for check in _FLY["http_service"]["checks"])
+    assert paths == ["/health", "/health/ready"]

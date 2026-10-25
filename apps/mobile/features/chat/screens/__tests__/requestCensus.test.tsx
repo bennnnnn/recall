@@ -384,8 +384,13 @@ const mockAppStateListeners = new Set<(state: string) => void>();
 const realFetch = globalThis.fetch;
 const realWebSocket = globalThis.WebSocket;
 
-/** The API out: refusing connections, or answering every request with `status`. */
-type Outage = "down" | { status: number; retryAfter: string };
+/**
+ * The API out: refusing connections, or answering every request with `status`. `live`: a
+ * dependency is down behind a process that answers, so liveness (/health) still answers 200.
+ */
+type Outage = "down" | { status: number; retryAfter: string; live?: boolean };
+/** The connection check's request (lib/api/connectivity.ts). */
+const CHECK = "/health/dependencies";
 let outage: Outage | null = null;
 /** Sockets open now: a restart closes them all. */
 const openSockets = new Set<{ restart: () => void }>();
@@ -409,7 +414,7 @@ function installServer(): void {
       mockLog.push({ method, path, status: 0, at: Date.now() });
       throw new TypeError("Network request failed");
     }
-    if (outage) {
+    if (outage && !(outage.live && path === "/health")) {
       mockLog.push({ method, path, status: outage.status, at: Date.now() });
       return new Response(JSON.stringify({ detail: "Service temporarily unavailable. Please retry shortly." }), {
         status: outage.status,
@@ -625,7 +630,7 @@ const REVISITED = ["memory", "security"];
 
 /** The most requests and sockets each step may send. */
 const CEILINGS: Record<string, number> = {
-  // /auth/me, the day's usage (free plan), to-dos, models, /health, the push token, the drawer.
+  // /auth/me, the day's usage (free plan), to-dos, models, the check, the push token, the drawer.
   "cold start after sign-in": 7,
   // The newest page, each file's status (three), the socket.
   "open chat 1": 5,
@@ -644,7 +649,7 @@ const CEILINGS: Record<string, number> = {
   ...Object.fromEntries(REVISITED.map((name) => [`open ${name} again`, 1])),
   ...Object.fromEntries(REVISITED.map((name) => [`leave ${name} again`, 0])),
   "a minute in the background": 0,
-  // To-dos and the open chat (ETag, 304), /health, the socket.
+  // To-dos and the open chat (ETag, 304), the check, the socket.
   "return after a minute": 4,
   // And the model list (older than 5 minutes).
   "return after 10 minutes": 5,
@@ -668,7 +673,7 @@ const CEILINGS: Record<string, number> = {
   // The page; the files' statuses the first run settled come from disk.
   "open chat 1 after the relaunch": 2,
   // The token has expired: one refresh, which answers with the account (no /auth/me),
-  // then the day's usage, to-dos, models, /health and the drawer.
+  // then the day's usage, to-dos, models, the check and the drawer.
   "cold start two hours later": 6,
 };
 
@@ -851,7 +856,7 @@ const OUTAGE_CEILINGS: Record<string, number> = {
   // The reply's socket closes mid-stream. The phone reads the chat's newest rows until the
   // reply is saved, waiting as long as each 503's Retry-After (5 s) asks: at 1.5 to 2.5 s, then 5
   // to 6.25 s apart, so five or six (at 2 s apart it was fourteen). The first 503 asks for a
-  // connection check (/health, then Google), which shows the banner; its loop checks again at
+  // connection check (the API, then Google), which shows the banner; its loop checks again at
   // 1.5 s, 3 s, 6 s and 12 s (five checks, ten requests; before, no check and no banner).
   "a deploy mid-reply, 503 Retry-After 5 for 30 s": 16,
   // Back: the next read finds the saved reply, then the full page; the loop's check clears the
@@ -1046,7 +1051,7 @@ it("reads the list on screen again once, 0 to 10 s after an outage ends, and not
     step(`${title}: the API back`);
     const back = steps[steps.length - 1];
     // Past the connection check that clears the banner: the list on screen, once.
-    reads.push({ title, requests: back.requests.filter((r) => r !== "GET /health") });
+    reads.push({ title, requests: back.requests.filter((r) => r !== `GET ${CHECK}`) });
     wanted.push({ title, requests: read ? [expect.stringMatching(read)] : [] });
     const reread = read && back.sent.find((r) => read.test(`${r.method} ${r.path}`));
     if (reread) {
@@ -1114,10 +1119,13 @@ it("reads the list on screen again once, 0 to 10 s after an outage ends, and not
 /**
  * Reads that find no API with the app open, and no network change or return to tell the
  * connection check: the reads of a quick switch through four chats, refused or answered 503.
+ * With the database or Redis down, /health still answers 200: the check read it and found the
+ * API "online", so no banner showed and nothing was read again when the outage ended.
  */
 const UNSEEN_OUTAGES: { title: string; outage: Outage }[] = [
   { title: "refused", outage: "down" },
   { title: "503", outage: { status: 503, retryAfter: "5" } },
+  { title: "a dependency down", outage: { status: 503, retryAfter: "5", live: true } },
 ];
 
 it("checks the connection once for a burst of reads that find no API, then reads the page again", async () => {
@@ -1148,11 +1156,11 @@ it("checks the connection once for a burst of reads that find no API, then reads
     const out = steps[steps.length - 1];
     const banner = statusChanges.slice(since).find((c) => c.status !== "online");
     // The banner shows. Before it did, the failed requests (four reads, three empty-chat deletes)
-    // had sent one connection check: /health, then Google.
+    // had sent one connection check: the API, then Google.
     expect(banner?.status).toBe("api_unreachable");
-    const failed = out.sent.filter((r) => r.path !== "/health" && !r.path.startsWith("google/") && r.status !== 200);
+    const failed = out.sent.filter((r) => r.path !== CHECK && !r.path.startsWith("google/") && r.status !== 200);
     expect(failed.length).toBeGreaterThanOrEqual(4);
-    const checks = out.sent.filter((r) => r.path === "/health" && r.at <= (banner?.at ?? -1));
+    const checks = out.sent.filter((r) => r.path === CHECK && r.at <= (banner?.at ?? -1));
     expect(checks).toHaveLength(1);
     // The loop's first wait (1.5 s, a fifth either way) after the first failure.
     expect(checks[0].at - failed[0].at).toBeGreaterThanOrEqual(1_200);

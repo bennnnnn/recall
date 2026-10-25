@@ -41,6 +41,7 @@ async function waitOutReconcile(polls = DROPPED_TURN_POLLS) {
 beforeEach(() => {
   jest.spyOn(Math, "random").mockReturnValue(0.5);
   mockToken = "token";
+  mockZone = "UTC";
 });
 afterEach(() => { jest.mocked(Math.random).mockRestore(); });
 
@@ -49,7 +50,9 @@ jest.mock("@/lib/api", () => ({
   api: { listMessages: jest.fn() },
 }));
 const listMessages = jest.requireMock("@/lib/api").api.listMessages as jest.Mock;
-jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => "UTC" }));
+/** The phone's zone now: it moves on a flight, or in Settings, while a chat is open. */
+let mockZone = "UTC";
+jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => mockZone }));
 let mockClientMessageIds = 0;
 jest.mock("expo-crypto", () => ({ randomUUID: () => `name-${++mockClientMessageIds}` }));
 const mockNetInfoListeners = new Set<(state: object) => void>();
@@ -1596,6 +1599,42 @@ describe("useChat socket recovery", () => {
     await act(async () => { socket.emit({ type: "pong" }); });
     return socket;
   }
+
+  it("tells the server the phone's zone of the moment: on each turn, and on each socket it opens", async () => {
+    mockZone = "America/New_York";
+    await render(<Probe chatId="a" />);
+    const first = await openSocket();
+    expect(frames(first)[0]).toEqual({ token: "token", client_timezone: "America/New_York" });
+
+    // The phone lands in another zone; the socket stays open.
+    mockZone = "Europe/London";
+    await act(async () => {
+      await current.sendMessage("what time is it?");
+      first.emit({ type: "start" });
+      first.emit({ type: "done", message_id: "saved", final_content: "Noon." });
+    });
+    expect(frames(first).find((frame) => frame.type === "message")).toMatchObject({ client_timezone: "Europe/London" });
+    mockZone = "Asia/Tokyo";
+    await act(async () => {
+      current.beginRegenerateUi();
+      await current.regenerateResponse();
+      first.emit({ type: "done", message_id: "saved-again", final_content: "Still noon." });
+    });
+    expect(frames(first).find((frame) => frame.type === "regenerate")).toMatchObject({ client_timezone: "Asia/Tokyo" });
+
+    // The server closes it for idling; the next send's socket opens in the zone of then.
+    mockZone = "Australia/Sydney";
+    await act(async () => { (first.onclose as (event: { code: number }) => void)({ code: 4408 }); });
+    await act(async () => {
+      const sending = current.sendMessage("and now?");
+      latestSocket().open();
+      await sending;
+    });
+    const second = latestSocket();
+    expect(second).not.toBe(first);
+    expect(frames(second)[0]).toEqual({ token: "token", client_timezone: "Australia/Sydney" });
+    expect(frames(second).find((frame) => frame.type === "message")).toMatchObject({ client_timezone: "Australia/Sydney" });
+  });
 
   it("names each message, and Retry sends the same name again", async () => {
     await render(<Probe chatId="a" />);

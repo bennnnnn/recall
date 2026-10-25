@@ -47,7 +47,9 @@ _INSTRUCTIONS: dict[ReferenceKind, str] = {
         "full name, a place, an animal, an object. 1 to 8 words. Keep details the "
         "user gave, such as 'at night' or 'in red'. "
         'Return ONLY JSON: {"text": "subject"}. If the conversation does not say '
-        'who or what, return {"text": null}.'
+        "who or what, or what they mean is something the app draws rather than a photo "
+        "(a molecule or chemical structure, a formula or equation, a graph, a diagram), "
+        'return {"text": null}.'
     ),
 }
 

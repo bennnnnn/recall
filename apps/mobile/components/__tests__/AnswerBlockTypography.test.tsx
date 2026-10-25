@@ -53,7 +53,7 @@ describe("standalone answer typography", () => {
     expect(script.fontSize).toBeLessThan(17.5);
     expect(answer.getByText("6")).toHaveStyle({ fontSize: 17.5 });
     expect(answer.getByTestId("math-frac")).toHaveStyle({ width: frac.width, height: frac.height });
-    expect(answer.getByTestId("math-text-tall")).toHaveStyle({ width: layout.width, height: layout.height });
+    expect(answer.getByTestId("math-text-tall")).toHaveStyle({ minWidth: layout.width, height: layout.height });
     expect(answer.getByLabelText("Answer: π^2/6")).toBeOnTheScreen();
     expect(mockFormula).not.toHaveBeenCalled();
 
@@ -110,7 +110,7 @@ describe("standalone answer typography", () => {
     const frac = findLayouts(layout, "frac")[0];
     const { getByTestId, getByText } = await render(<AnswerBlock content={String.raw`\frac{\pi^{2}}{6}`} />);
     expect(getByTestId("math-frac")).toHaveStyle({ width: frac.width * 1.6, height: frac.height * 1.6 });
-    expect(getByTestId("math-text-tall")).toHaveStyle({ width: layout.width * 1.6, height: layout.height * 1.6 });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ minWidth: layout.width * 1.6, height: layout.height * 1.6 });
     // Native Text applies fontScale itself; the style must not multiply it twice.
     expect(getByText("6")).toHaveStyle({ fontSize: 17.5 });
     expect(getByTestId("answer-line-scroll-0").props.horizontal).toBe(true);
@@ -134,8 +134,8 @@ describe("standalone answer typography", () => {
     const bounds = StyleSheet.flatten(getByTestId("math-text-tall").props.style);
     const { layout, problems } = laidOut(content);
     expect(problems).toEqual([]);
-    expect(bounds.width).toBe(layout.width);
-    expect(bounds.width).toBeGreaterThan(280);
+    expect(bounds.minWidth).toBe(layout.width);
+    expect(bounds.minWidth).toBeGreaterThan(280);
     expect(bounds.flexShrink).toBe(0);
     expect(getByText("14")).toHaveStyle({ fontSize: 17.5 });
   });
