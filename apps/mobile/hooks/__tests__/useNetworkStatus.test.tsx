@@ -5,6 +5,7 @@ import { act, render } from "@testing-library/react-native";
 
 import { retryDelayMs, useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { resolveConnectivity } from "@/lib/networkProbe";
+import { reportDisconnected, reportReconnected } from "@/lib/reconnectRefresh";
 
 jest.mock("@react-native-community/netinfo", () => ({
   __esModule: true,
@@ -16,6 +17,10 @@ jest.mock("@react-native-community/netinfo", () => ({
 jest.mock("@/lib/networkProbe", () => ({
   configureNetInfo: jest.fn(),
   resolveConnectivity: jest.fn(),
+}));
+jest.mock("@/lib/reconnectRefresh", () => ({
+  reportReconnected: jest.fn(),
+  reportDisconnected: jest.fn(),
 }));
 
 const probe = resolveConnectivity as jest.MockedFunction<typeof resolveConnectivity>;
@@ -317,6 +322,98 @@ describe("useNetworkStatus launch probe", () => {
     });
     expect(values[values.length - 1]).toBe(before);
     expect(before).toEqual({ isOffline: false, status: "online" });
+  });
+});
+
+describe("useNetworkStatus reconnect signal", () => {
+  const addListener = AppState.addEventListener as unknown as jest.Mock;
+  const defaultAddListener = addListener.getMockImplementation();
+  const netInfoAdd = NetInfo.addEventListener as unknown as jest.Mock;
+  const appHandlers = new Set<(state: string) => void>();
+  let netInfoListener: ((state: object) => void) | null = null;
+  const airplane = { type: "none", isConnected: false, isInternetReachable: false };
+  const setAppState = async (state: string) => {
+    await act(async () => {
+      for (const handler of [...appHandlers]) handler(state);
+      await flush();
+    });
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    jest.spyOn(Math, "random").mockReturnValue(0.5);
+    appHandlers.clear();
+    (NetInfo.fetch as jest.Mock).mockResolvedValue(airplane);
+    netInfoAdd.mockImplementation((listener: (state: object) => void) => {
+      netInfoListener = listener;
+      return () => { netInfoListener = null; };
+    });
+    addListener.mockImplementation((event: string, handler: (state: string) => void) => {
+      if (event !== "change") return { remove: jest.fn() };
+      appHandlers.add(handler);
+      return { remove: () => appHandlers.delete(handler) };
+    });
+    probe.mockResolvedValue("api_unreachable");
+  });
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    addListener.mockImplementation(defaultAddListener);
+    netInfoAdd.mockImplementation(() => () => {});
+  });
+
+  it("reports the API back once, when the check passes after failing", async () => {
+    await render(<Probe />);
+    await act(async () => { await flush(); });
+    expect(status).toBe("api_unreachable");
+    expect(reportDisconnected).toHaveBeenCalledTimes(1);
+    expect(reportReconnected).not.toHaveBeenCalled();
+
+    await elapse(5_000);
+    probe.mockResolvedValue("online");
+    await elapse(10_000);
+    expect(status).toBe("online");
+    expect(reportReconnected).toHaveBeenCalledTimes(1);
+
+    // Online stays online: link reports and returns are no reconnect.
+    await act(async () => {
+      netInfoListener?.({ type: "wifi", isConnected: true, isInternetReachable: true });
+      await flush();
+    });
+    await setAppState("background");
+    await setAppState("active");
+    await elapse(60_000);
+    expect(reportReconnected).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports nothing for an outage that ends while the app is in the background", async () => {
+    probe.mockResolvedValue("no_internet");
+    await render(<Probe />);
+    await act(async () => { await flush(); });
+    expect(status).toBe("no_internet");
+
+    await setAppState("background");
+    probe.mockResolvedValue("online");
+    await act(async () => {
+      netInfoListener?.({ type: "wifi", isConnected: true, isInternetReachable: true });
+      await flush();
+    });
+    expect(status).toBe("online");
+    await setAppState("active");
+    await elapse(60_000);
+    expect(reportReconnected).not.toHaveBeenCalled();
+  });
+
+  it("reports an outage the return finds over, with the app on screen", async () => {
+    await render(<Probe />);
+    await act(async () => { await flush(); });
+    await setAppState("background");
+    probe.mockResolvedValue("online");
+    await setAppState("active");
+    expect(status).toBe("online");
+    expect(reportReconnected).toHaveBeenCalledTimes(1);
   });
 });
 

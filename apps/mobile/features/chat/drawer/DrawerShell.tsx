@@ -129,7 +129,7 @@ export function DrawerShell({ children }: { children: ReactNode }) {
   const open = useCallback(() => settleToRef.current(true, true), [settleToRef]);
   const close = useCallback(() => settleToRef.current(false, false), [settleToRef]);
 
-  useEffect(() => registerDrawer(open, close), [open, close]);
+  useEffect(() => registerDrawer(open, close, () => drawerOpenRef.current), [open, close, drawerOpenRef]);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
