@@ -1,8 +1,9 @@
-"""A reply is written in the language of the user's message, whatever a memory says.
+"""A message plainly in the app's language is answered in it, whatever a memory says.
 
 With "User prefers replies in Spanish" saved, an English app's "Teach me how to improve
 recall" was answered in Spanish three times in three, though the language line ranked a
-saved memory last (2026-10-24). The note beside the message names its language.
+saved memory last (2026-10-24). The note beside the message names the app's language, and
+only that: a misread message gets no note, never a wrong one.
 """
 
 from __future__ import annotations
@@ -13,39 +14,82 @@ from app.modules.chat.reply_language import reply_language_hint
 
 
 @pytest.mark.parametrize(
-    ("query", "language"),
+    ("query", "locale", "language"),
     [
-        ("Teach me how to improve recall", "English"),
-        ("What?", "English"),
-        ("What’s my name?", "English"),  # the iPhone's apostrophe
-        ("El Niño is coming this year", "English"),
-        ("¿Qué es la fotosíntesis?", "Spanish"),
-        ("Erinnere mich morgen an das Meeting", "German"),
-        ("Привет, как дела?", "Russian"),
-        ("ሰላም እንዴት ነህ", "Amharic"),
+        ("Teach me how to improve recall", "en", "English"),
+        ("What?", "en", "English"),
+        ("What’s my name?", "en", "English"),  # the iPhone's apostrophe
+        ("TypeError: NoneType object is not subscriptable", "en", "English"),
+        ("¿Qué es la fotosíntesis? ¿Y cómo funciona en las plantas?", "es", "Spanish"),
+        ("Привет, как дела?", "ru", "Russian"),
     ],
 )
-def test_a_message_in_a_language_gets_its_reply_in_it(query: str, language: str) -> None:
-    hint = reply_language_hint(query, [], None)
+def test_a_message_plainly_in_the_apps_language_is_answered_in_it(
+    query: str, locale: str, language: str
+) -> None:
+    hint = reply_language_hint(query, [], locale, None)
     assert hint is not None and hint.startswith(f"Write this reply in {language},")
 
 
-@pytest.mark.parametrize("query", ["ok", "17:00", "x = 2y + 3", "👍", ""])
-def test_a_message_with_no_language_keeps_the_chats(query: str) -> None:
-    assert reply_language_hint(query, [], None) is None
+@pytest.mark.parametrize(
+    ("query", "locale"),
+    [
+        # One stray word is no language: names, places, a loanword.
+        ("Los Angeles weather", "en"),
+        ("MIT admission requirements", "en"),
+        ("Des Moines restaurants", "en"),
+        ("Hey, ¿qué tal?", "en"),
+        ("Necesito help con mi tarea", "en"),
+        # Words two languages share: German "was", Italian "i", Spanish "has".
+        ("Was ist das?", "en"),
+        ("Was ist das?", "de"),
+        ("Quali sono i migliori libri?", "en"),
+        ("¿Has visto la película?", "en"),
+        # A word in another script is not the message's language.
+        ("Remind me to call Дмитрий tomorrow", "en"),
+        ("remind me to call Getachew ነገ at 10am", "en"),
+        # Not the app's language, or no language at all.
+        ("¿Qué es la fotosíntesis? ¿Y cómo funciona en las plantas?", "en"),
+        ("Mi código: for i in range(10): print(i)", "es"),
+        ("ok", "en"),
+        ("17:00", "en"),
+        ("👍", "en"),
+    ],
+)
+def test_a_message_not_plainly_in_the_apps_language_gets_no_note(query: str, locale: str) -> None:
+    assert reply_language_hint(query, [], locale, None) is None
 
 
-def test_a_language_they_asked_for_in_this_chat_stays_theirs() -> None:
-    prior = [("user", "reply in Spanish from now on"), ("assistant", "¡Claro!")]
-    assert reply_language_hint("Teach me how to improve recall", prior, None) is None
-    asked = [("user", "can you answer me in French please"), ("assistant", "Bien sûr.")]
-    assert reply_language_hint("What is a verb?", asked, None) is None
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Write an email in Spanish to my landlord",
+        "Answer in French: what is a verb?",
+        "translate good morning to Spanish",
+        "Reply in Spanish from now on",
+    ],
+)
+def test_a_message_that_names_a_language_chooses_it(query: str) -> None:
+    assert reply_language_hint(query, [], "en", None) is None
 
 
-@pytest.mark.parametrize("instructions", ["Always answer in Amharic.", "Use my language."])
+@pytest.mark.parametrize(
+    "earlier",
+    ["reply in Spanish from now on", "Contéstame en inglés a partir de ahora", "Teach me Spanish"],
+)
+def test_a_language_named_earlier_in_the_chat_stays_theirs(earlier: str) -> None:
+    prior = [("user", earlier), ("assistant", "¡Claro!")]
+    assert reply_language_hint("Teach me how to improve recall", prior, "en", None) is None
+
+
+@pytest.mark.parametrize(
+    "instructions",
+    ["Always answer in Amharic.", "Responde siempre en inglés.", "Antworte immer auf Englisch."],
+)
 def test_custom_instructions_naming_a_language_win(instructions: str) -> None:
-    assert reply_language_hint("Teach me how to improve recall", [], instructions) is None
+    query = "Teach me how to improve recall"
+    assert reply_language_hint(query, [], "en", instructions) is None
 
 
 def test_other_custom_instructions_leave_the_note() -> None:
-    assert reply_language_hint("Teach me how to improve recall", [], "Keep it upbeat.")
+    assert reply_language_hint("Teach me how to improve recall", [], "en", "Be brief.")

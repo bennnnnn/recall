@@ -27,9 +27,9 @@ def _own_way(query: str, exchange: list[Any], pairs: Sequence[tuple[str, str]]) 
     return clarify_reply_hint(query, pairs) is not None
 
 
-def message_notes(query: str, exchange: list[Any], custom_instructions: str | None) -> list[str]:
+def message_notes(query: str, exchange: list[Any], user: Any) -> list[str]:
     """The notes that apply to this message, in order; its language last, nearest it."""
     pairs = exchange_pairs(exchange)
     missed = None if _own_way(query, exchange, pairs) else reply_missed_hint(query, pairs)
-    language = reply_language_hint(query, pairs, custom_instructions)
+    language = reply_language_hint(query, pairs, user.locale, user.custom_instructions)
     return [note for note in (shared_numbers_hint(query), missed, language) if note]

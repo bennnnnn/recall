@@ -167,6 +167,26 @@ def message_language(text: str | None) -> str | None:
     return code if count else None
 
 
+def language_evidence(text: str | None) -> dict[str, int]:
+    """How much of each app language ``text`` holds: letters of its script (Cyrillic,
+    Ethiopic), or words only it uses. English is the reader's default, not counted here;
+    the chat's reply language weighs these against English words."""
+    counts: dict[str, int] = {}
+    if not text:
+        return counts
+    for char in text:
+        if char.isalpha() and not _is_latin(char):
+            name = unicodedata.name(char, "")
+            code = next((code for script, code in _SCRIPT_LANGUAGE if script in name), None)
+            if code:
+                counts[code] = counts.get(code, 0) + 1
+    words = {word.casefold() for word in _WORD.findall(text)}
+    for code, vocab in _OTHER_LATIN_BY_LANGUAGE.items():
+        if found := len(words & vocab):
+            counts[code] = found
+    return counts
+
+
 def todo_screen_line(language: str | None) -> str:
     """One line saying the change is made in To-do, in ``language`` (English otherwise)."""
     return _TODO_SCREEN_LINE.get(normalize_locale_code(language), _TODO_SCREEN_LINE["en"])

@@ -76,8 +76,9 @@ _NOT_MEMORY_RULES = (
 INSTRUCT_SETTING_RULE = (
     "- A preference an app setting decides (the reply language, emojis, the light or dark "
     "theme, the default model) is not memory: add no op for it, and the reply says where to "
-    "set it (Settings → Language, Personalization, Appearance or Models). Save the rest of "
-    "the instruction as usual."
+    "set it (Settings → Language, Personalization, Appearance or Models; replies in a "
+    "language other than the app's go in Personalization's custom instructions). Save the "
+    "rest of the instruction as usual."
 )
 
 _SENSITIVITY_RULES = (
