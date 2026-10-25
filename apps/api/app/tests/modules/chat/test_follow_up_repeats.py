@@ -48,9 +48,26 @@ _REPLY = "Charles's law ties volume to absolute temperature, so it needs kelvin.
         ("What if the perimeter were 48 cm?", ["What if perimeter was 48 cm?"]),
         ("How would a 48 cm perimeter change the area?", ["What if the perimeter was 48 cm?"]),
         ("Why do you divide by 6?", ["Why do we divide by 6?"]),
-        ("What is a mole?", ["What is the mole?"]),
+        ("What is the mole?", ["What is mole?"]),
         ("What if the speed was 2.5 m/s?", ["What if speed was 2.5 m/s?"]),
         ("What if the mass was 4 kg?", ["What if mass is 4 kg?"]),
+        # The same number and unit written another way (second review, 2026-10-25).
+        ("Why is the speed 19.6 m/s after 2 s?", ["why is the speed 19.6 m/s after 2 seconds?"]),
+        (
+            "How long does the stone take to fall 45 m?",
+            ["how long does the stone take to fall 45 meters?"],
+        ),
+        ("Why is g 9.8 m/s² near the surface?", ["Why is g 9.8 m/s^2 near the surface?"]),
+        (
+            "What's the voltage across the 4 \u03a9 resistor?",
+            ["What's the voltage across the 4 ohm resistor?"],
+        ),
+        ("What if the price rose to $1,200?", ["What if the price rose to $1200?"]),
+        ("What if it falls from 2,000 m?", ["What if it falls from 2000 m?"]),
+        (
+            "How much heat melts 2 kg of ice at 0 °C?",
+            ["How much heat melts 2 kg of ice at 0 degrees?"],
+        ),
     ],
 )
 def test_a_reworded_question_repeats_the_earlier_one(candidate: str, earlier: list[str]) -> None:
@@ -95,6 +112,9 @@ def test_a_reworded_question_repeats_the_earlier_one(candidate: str, earlier: li
         ("What if the temperature was 300 K?", ["What if the temperature was 300 °C?"]),
         ("What if the mass was 2 kg?", ["What if the mass was 2 g?"]),
         ("What if the loan was $10,000?", ["What if the loan was $10,000 over 5 years?"]),
+        # "a" may be the variable, not an article.
+        ("What if a = 2?", ["What if it = 2?"]),
+        ("What if a doubled?", ["What if it doubled?"]),
     ],
 )
 def test_a_new_question_is_not_a_repeat(candidate: str, earlier: list[str]) -> None:

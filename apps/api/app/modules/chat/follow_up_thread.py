@@ -2,16 +2,19 @@
 
 "Why do we divide distance by time?" names no subject itself; it belongs to the bike
 problem a line or two back. Any question within three user lines continues the problem,
-as long as its reply still works it (``follow_up_ground``): live (2026-10-25), "cool. i'm
-going to lisbon next month for 4 days, what should i not miss?" two lines after a
-rectangle problem got "What if perimeter was 48 cm?" under its travel tips. Each turn is
-judged by its own reply, so a remark or a new topic in between does not cut a later
-follow-up off. A read of the user's own to-do list follows up on nothing
-(``related_questions``).
+with one exception. Live (2026-10-25), "cool. i'm going to lisbon next month for 4 days,
+what should i not miss?" two lines after a rectangle problem got "What if perimeter was
+48 cm?" under its travel tips. A line that names a topic of its own (three topic words or
+more) and points nowhere back ("it", "that", "same", "what if", "why?", "again", "more
+simply") must have a reply that still works the problem (``follow_up_ground``). A follow-up
+the chat showed and the user tapped, a line that points back and a short line continue it,
+as before: a missed new topic shows odd questions, a lost follow-up shows none. A read of
+the user's To-do list follows up on nothing (``related_questions``).
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from typing import Any
 
@@ -21,10 +24,11 @@ from app.modules.chat.continuation_subject import (
     is_pure_continuation,
 )
 from app.modules.chat.follow_up_ground import works_the_problem
+from app.modules.chat.follow_up_words import topic_words
 from app.modules.chat.prompt_constants.routing import is_lightweight_chat_turn
 from app.services.problem_followup import message_role_content
 from app.services.subject_solving import detect_subject
-from app.services.text_normalize import collapse_ws
+from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 # A follow-up ("why?") belongs to a problem a few user lines back; further is stale.
 _THREAD_USER_TURNS = 3
@@ -54,6 +58,18 @@ _FOLLOW_UP_LEADS = frozenset(
         "if",
     }
 )
+# A line that points back at the problem: "what if", "why?", "is that fast for a car?",
+# "what if i used a ramp instead?", "can you explain it more simply?". "This week" and
+# "that night" point at a time, not at the problem.
+_POINTS_BACK = re.compile(
+    r"^(?:what|and) if\b|^why\W*$|"
+    r"\b(?:it|its|they|them|their|same|instead|again|another|simpler|simply)\b|"
+    r"\b(?:this|that|these|those)\b(?!\s+(?:week|weekend|morning|afternoon|evening|night|"
+    r"year|month|summer|winter|spring|fall)\b)",
+    re.IGNORECASE,
+)
+# Three topic words name a topic of their own; "why the product rule?" names a part of it.
+_OWN_TOPIC_WORDS = 3
 
 
 def subject_for_related(text: str) -> str | None:
@@ -82,36 +98,82 @@ def _continues_thread(text: str) -> bool:
 
 
 def thread_problem(
-    question: str, prior: Sequence[Any] | None, answer: str | None = None
+    question: str,
+    prior: Sequence[Any] | None,
+    answer: str | None = None,
+    shown: Sequence[str] | None = (),
 ) -> str | None:
     """The subject problem this line follows up on, or None.
 
     "Why do we divide distance by time?" names no subject itself, so the
     follow-ups would stop after the first tapped "why". It still belongs to
-    the bike problem two lines back. Given the turn's ``answer``, the reply
-    must still work the problem: travel tips under a Lisbon question do not.
+    the bike problem two lines back. Given the turn's ``answer`` and the
+    follow-ups the chat ``shown`` (None while they are not known), a line on a
+    topic of its own needs a reply that still works the problem: travel tips
+    under a Lisbon question do not, nor does a line after them.
     """
     if subject_for_related(question) is not None:
         return question
     if not prior or not _continues_thread(question):
         return None
+    since: list[tuple[str, str]] = []
     users = 0
-    reply: str | None = None
     for message in reversed(prior):
         role, content = message_role_content(message)
-        if not content or not content.strip():
+        if role not in ("user", "assistant") or not content or not content.strip():
             continue
-        if role == "assistant":
-            reply = content
-        if role != "user":
-            continue
-        users += 1
-        if users > _THREAD_USER_TURNS:
-            return None
-        if subject_for_related(content) is not None:
-            if answer is None or works_the_problem(content, reply, f"{question}\n{answer}"):
-                return content
-            return None
-        # The reply seen so far answered this line, not an earlier one.
-        reply = None
+        if role == "user":
+            users += 1
+            if users > _THREAD_USER_TURNS:
+                return None
+            if subject_for_related(content) is not None:
+                turn = (question, answer)
+                return content if _still_on(content, since[::-1], turn, shown) else None
+        since.append((role, content))
     return None
+
+
+def _still_on(
+    problem: str,
+    since: list[tuple[str, str]],
+    turn: tuple[str, str | None],
+    shown: Sequence[str] | None,
+) -> bool:
+    """Whether this turn still works ``problem``. ``since`` is the chat after it, oldest
+    first. Once a question in between names its own topic and its reply leaves the
+    problem, the turn's own reply must work it, however short the line ("what about the
+    food there?" after Lisbon tips). A remark in between ("she says thanks!") asks
+    nothing and leaves nothing."""
+    question, answer = turn
+    if answer is None or shown is None:
+        return True
+    reply = since[0][1] if since and since[0][0] == "assistant" else None
+    left = any(
+        _continues_thread(line)
+        and _names_its_own_topic(line, shown)
+        and not works_the_problem(problem, reply, line, said)
+        for line, said in _turns(since[1:] if reply is not None else since)
+    )
+    if left or _names_its_own_topic(question, shown):
+        return works_the_problem(problem, reply, question, answer)
+    return True
+
+
+def _turns(messages: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """Each user line with the reply after it."""
+    turns: list[tuple[str, str]] = []
+    for role, content in messages:
+        if role == "user":
+            turns.append((content, ""))
+        elif turns and not turns[-1][1]:
+            turns[-1] = (turns[-1][0], content)
+    return turns
+
+
+def _names_its_own_topic(question: str, shown: Sequence[str]) -> bool:
+    """A line with three topic words or more that points nowhere back. A follow-up the
+    chat showed was written for the problem."""
+    line = straighten_apostrophes(collapse_ws(question))
+    if line.casefold() in {straighten_apostrophes(collapse_ws(q)).casefold() for q in shown}:
+        return False
+    return not _POINTS_BACK.search(line) and len(topic_words(line)) >= _OWN_TOPIC_WORDS

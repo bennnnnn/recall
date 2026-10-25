@@ -1,6 +1,7 @@
 """Follow-up questions come from the model, after done, and survive a reopen."""
 
 import asyncio
+import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any, cast
@@ -588,6 +589,20 @@ _LISBON_REPLY = (
     "from a miradouro, and hear fado in a small tavern one evening. The Lisbon Card covers "
     "trams, the metro and many museums, and the airport is twenty minutes from the center."
 )
+# A day plan and a numbered list: their "Day 1" and "2." are no ground, and one shared
+# everyday noun ("the Bairro Alto area", "a perfect length") is not enough.
+_LISBON_DAYS = (
+    "Lisbon in 4 days is a great plan, a perfect length for the city!\n\n"
+    "**Day 1: Alfama & Baixa.** Climb to São Jorge Castle and catch the sunset.\n"
+    "**Day 2: Belém.** Jerónimos Monastery, Belém Tower and pastéis de nata.\n"
+    "**Day 3: Sintra.** Pena Palace and Quinta da Regaleira; go early.\n"
+    "**Day 4: LX Factory & Bairro Alto.** Shops by day, the Bairro Alto area at night."
+)
+_GARDEN = (
+    "1. Pick a spot with 6 to 8 hours of sun.\n2. Start with a 3 by 6 foot bed.\n"
+    "3. Mix compost into the soil.\n4. Plant lettuce, radishes and cherry tomatoes.\n"
+    "5. Water in the morning and mulch to keep the area moist."
+)
 
 
 @pytest.mark.parametrize(
@@ -595,18 +610,10 @@ _LISBON_REPLY = (
     [
         ("rect", _LISBON, _LISBON_REPLY),
         ("ball", _LISBON, _LISBON_REPLY),
-        (
-            "ball",
-            "what should i eat for dinner?",
-            "How about a stir-fry over rice? It's ready in about 20 minutes.",
-        ),
-        (
-            "ball",
-            "what's the best ball for playing tennis?",
-            "For most players a pressurized ball like the Wilson US Open is a solid choice.",
-        ),
-        ("rect", "what is bitcoin?", "A digital currency that runs on a public blockchain."),
-        ("rect", "how old is the universe?", "About 13.8 billion years."),
+        ("rect", _LISBON, _LISBON_DAYS),
+        ("ball", _LISBON, _LISBON_DAYS),
+        ("rect", "any tips for starting a vegetable garden?", _GARDEN),
+        ("ball", "any tips for starting a vegetable garden?", _GARDEN),
         (
             "rect",
             "what's a good recipe for chicken curry?",
@@ -614,29 +621,19 @@ _LISBON_REPLY = (
             "tomatoes, and simmer for 20 minutes.",
         ),
         (
-            "quad",
-            "how do i make pancakes?",
-            "Whisk 1 cup flour, 2 tsp baking powder, 1 cup milk and 1 egg; cook 2 minutes a side.",
-        ),
-        (
-            "chem",
-            "should i drink more water each day?",
-            "Most adults need about 2 to 3 litres of water a day, more in hot weather.",
-        ),
-        (
             "bike",
-            "how do i fix a flat tire on my bike?",
-            "Take the wheel off, lever the tire off the rim and patch or swap the tube. It "
-            "takes about 15 minutes.",
+            "i'm going to portugal next month, what should i not miss?",
+            "1. **Lisbon**: Tram 28 and Belém.\n2. **Sintra**: 40 minutes by train.\n"
+            "3. **Porto**: about 3 hours on the Alfa Pendular; plan 2 days there.",
         ),
         (
             "ball",
-            "my wifi keeps dropping, how do i fix it?",
-            "Restart the router, move it somewhere central and switch to the 5 GHz band.",
+            "can you recommend a good sci-fi book for a long flight?",
+            "Project Hail Mary by Andy Weir: funny, fast and full of clever science.",
         ),
     ],
 )
-def test_a_line_whose_reply_is_on_its_own_topic_leaves_the_problem(
+def test_a_line_on_a_topic_of_its_own_whose_reply_is_too_leaves_the_problem(
     window: str, line: str, reply: str
 ) -> None:
     from app.modules.chat.related_questions import follow_up_topic
@@ -645,6 +642,66 @@ def test_a_line_whose_reply_is_on_its_own_topic_leaves_the_problem(
     assert thread_problem(line, prior, reply) is None
     got = follow_up_topic(line, reply, prior, allow_general=True)
     assert got is None or got[0] == "general"
+
+
+_PH = "What's the pH of a 0.01 M HCl solution?"
+_QUAD2 = "Solve 2x^2 + 3x - 2 = 0"
+_TRAIN = (
+    "Two trains start 280 km apart and head toward each other, one at 60 km/h and the "
+    "other at 80 km/h. When do they meet?"
+)
+
+
+@pytest.mark.parametrize(
+    ("problem", "problem_reply", "line", "reply"),
+    [
+        # Short, or pointing back: these continue the problem whatever the reply says.
+        (
+            _PH,
+            "[H⁺] = 0.01 M, so pH = −log(0.01) = 2.",
+            "Why take the negative log?",
+            "The pH scale is the negative logarithm of the hydrogen-ion concentration; the "
+            "minus sign makes small concentrations positive numbers.",
+        ),
+        (
+            _QUAD2,
+            "Factor: $(2x - 1)(x + 2) = 0$, so $x = \\tfrac{1}{2}$ or $x = -2$.",
+            "Why does factoring work here?",
+            "If a product of two numbers is zero, at least one of them has to be zero.",
+        ),
+        (
+            _TRAIN,
+            "Their closing speed is 140 km/h, so they meet after 280 / 140 = 2 hours.",
+            "can you explain it more simply?",
+            "Picture two friends walking toward each other: every second the gap shrinks by "
+            "both of their steps together.",
+        ),
+        (
+            "A car speeds up from 0 to 27 m/s in 9 s. What is its acceleration?",
+            "a = Δv / t = 27 / 9 = 3 m/s².",
+            "is that fast for a car?",
+            "That's quite brisk! A typical family car manages about 2.8 m/s².",
+        ),
+    ],
+)
+def test_a_short_line_or_one_that_points_back_continues_the_problem(
+    problem: str, problem_reply: str, line: str, reply: str
+) -> None:
+    prior = [
+        {"role": "user", "content": problem},
+        {"role": "assistant", "content": problem_reply},
+    ]
+    assert thread_problem(line, prior, reply) == problem
+
+
+@pytest.mark.parametrize(("shown", "expected"), [([], None), (["CHIP"], RECT)])
+def test_a_tapped_follow_up_continues_the_problem_whatever_it_names(
+    shown: list[str], expected: str | None
+) -> None:
+    chip = "Why do engineers use rectangles in building design?"
+    reply = "Right angles make walls, rooms and bricks fit together without gaps."
+    shown = [chip if item == "CHIP" else item for item in shown]
+    assert thread_problem(chip, RECT_WINDOW, reply, shown) == expected
 
 
 _STEP_2 = (
@@ -724,6 +781,33 @@ async def test_a_tapped_follow_up_with_a_short_reply_still_gets_its_chips(fake_r
     assert call.kwargs["messages"][1]["content"].startswith(f"Problem:\n{RECT}")
 
 
+async def test_a_tapped_chip_on_a_topic_of_its_own_gets_its_chips(fake_redis) -> None:
+    # The early check does not know what was shown and lets the line through; the read
+    # with the questions finds it among the chips shown in this chat.
+    chip = "Why do engineers use rectangles in building design?"
+    reply = "Right angles make walls, rooms and bricks fit together without gaps."
+    await fake_redis.set("related_prompts:shown:u1:c1", json.dumps([chip]))
+    chips = [
+        "Why is area length times width?",
+        "What if the perimeter was 40 cm?",
+        "How does doubling width change area?",
+    ]
+    with patch.object(related_prompts, "complete_structured", new_callable=AsyncMock) as complete:
+        complete.return_value = RelatedQuestions(questions=chips)
+        task = schedule_related_prompts(
+            fake_redis,
+            Settings(),
+            message_id="m1",
+            question=chip,
+            answer=reply,
+            prior=RECT_WINDOW,
+            chat=("u1", "c1"),
+        )
+        assert task is not None
+        event = await take_related_prompts_event(task)
+    assert event is not None and event["prompts"] == chips
+
+
 async def test_a_new_topic_two_lines_after_a_problem_gets_its_own_follow_ups() -> None:
     with patch.object(related_prompts, "complete_structured", new_callable=AsyncMock) as complete:
         complete.return_value = RelatedQuestions(
@@ -800,7 +884,10 @@ def test_a_read_of_the_todo_list_gets_no_follow_ups(
         "do i have to do a phd to become a professor?",
         "Is it bad to keep reminders on my phone?",
         "how should i plan my schedule for exam week?",
-        # A list or tasks that are not the To-do list.
+        # A list, tasks or a schedule that are not the To-do list.
+        "what is my schedule c deduction if i earn $40k freelancing?",
+        "do i have due process rights if my landlord evicts me?",
+        "what's in my reminders app settings that makes it so slow?",
         "what is in my list after this python loop runs?",
         "what's in my list comprehension that makes it slow?",
         "what are my tasks as a bridesmaid?",
@@ -811,37 +898,6 @@ def test_a_question_about_lists_is_not_a_read_of_the_todo_list(question: str) ->
     from app.modules.chat.related_questions import general_question
 
     assert general_question(question, _FULL_REPLY)
-
-
-@pytest.mark.parametrize(
-    ("question", "asks"),
-    [
-        (
-            "hey! i'm starting to learn python, can you explain what a list comprehension "
-            "is? keep it simple",
-            True,
-        ),
-        ("my teacher mentioned entropy today, could you explain it simply? no jargon", True),
-        # A rhetorical question in a vent, a story or an update asks nothing.
-        ("ugh, work was so long today. why are mondays always like this? anyway", False),
-        (
-            "i just got back from my trip to japan, have you ever been to kyoto? it was amazing",
-            False,
-        ),
-        ("i finally finished my thesis! guess what grade i got? an A!", False),
-        ("my dog passed away yesterday. why does losing a pet hurt so much? i miss him", False),
-        ("i'm so tired of my roommate. why can't people clean dishes? whatever", False),
-        ("i got the job! can you believe it? so happy", False),
-        ("hey! how are you? hope your day is going well", False),
-        # A draft is a writing request, whatever it asks on the way.
-        ("hey! how are you? write me a poem about the sea", False),
-        ("can you draft a reply to my boss? keep it short and polite", False),
-    ],
-)
-def test_a_request_to_explain_mid_message_is_still_a_question(question: str, asks: bool) -> None:
-    from app.modules.chat.related_questions import general_question
-
-    assert general_question(question, _FULL_REPLY) is asks
 
 
 async def test_a_tapped_why_keeps_the_follow_ups_coming() -> None:

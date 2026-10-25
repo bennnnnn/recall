@@ -272,14 +272,6 @@ _ASKS_TO_KNOW = re.compile(
     r"compare|describe|summari[sz]e|recommend|suggest|help me|ideas?|tips?|best)\b",
     re.IGNORECASE,
 )
-# A request to explain asks, though the message goes on after it: "hey! i'm starting to
-# learn python, can you explain what a list comprehension is? keep it simple" got no
-# follow-ups (2026-10-25). Only a request to the assistant counts: "why are mondays always
-# like this? anyway" in a vent, or "have you ever been to kyoto?" in a trip story, does not.
-_ASKS_TO_EXPLAIN = re.compile(
-    r"\b(?:can|could|would|will) you (?:please )?(?:explain|tell me|teach me|show me|describe)\b",
-    re.IGNORECASE,
-)
 # A reminder, a saved fact or a setting is done once it is done. "How do I
 # remember vocabulary?" and "best to-do list app?" are questions, not commands.
 _ADMIN_REQUEST = re.compile(
@@ -290,24 +282,20 @@ _ADMIN_REQUEST = re.compile(
 )
 # Reading the To-do list back is admin too (2026-10-25: "ok last thing, what's on my to do
 # list right now?" got what-ifs on a falling ball). Only by its own names: "what's in my
-# list after this loop runs?", "what are my tasks as a bridesmaid?", "Do I have to do it?"
-# and "What's the best to-do list app?" ask something else.
-_TODO_LIST = r"to[- ]?do(?:s| list)?|reminders?|schedule"
+# list after this loop runs?", "what is my schedule c deduction?", "do i have due process
+# rights?" and "What's the best to-do list app?" ask something else.
+_TODO_LIST = (
+    r"to[- ]?do(?:s| list)?|reminders?(?!\s+(?:app|settings))|"
+    r"schedule (?:for )?(?:today|tonight|tomorrow|this week)"
+)
 _READS_OWN_LIST = re.compile(
     rf"\b(?:what|anything)(?:'?s|\s+(?:is|are|else|still|left|there))*\s+(?:on|in) my "
     rf"(?:{_TODO_LIST})\b|\b(?:show|list|read|check)(?: me)? my (?:{_TODO_LIST})\b|"
     rf"\bwhat(?:'?s| is| are) my (?:{_TODO_LIST})\b|"
-    r"\bdo i have (?:any(?:thing)? )?(?:to-?dos?|reminders?|due)\b",
+    r"\bdo i have (?:any )?(?:to-?dos?|reminders?)\b|"
+    r"\b(?:what|which|any) (?:reminders|to-?dos)\b(?!\s+(?:app|settings))",
     re.IGNORECASE,
 )
-
-
-def _asks_something(cleaned: str) -> bool:
-    """A question, a line that asks to know ("explain", "tips for"), or a request to
-    explain before the message goes on."""
-    if cleaned.endswith("?") or _ASKS_TO_KNOW.match(cleaned):
-        return True
-    return _ASKS_TO_EXPLAIN.search(cleaned) is not None
 
 
 def general_question(question: str, answer: str) -> bool:
@@ -319,7 +307,9 @@ def general_question(question: str, answer: str) -> bool:
     which the length check catches.
     """
     cleaned = collapse_ws(question)
-    if len(cleaned.split()) < _GENERAL_MIN_QUESTION_WORDS or not _asks_something(cleaned):
+    if len(cleaned.split()) < _GENERAL_MIN_QUESTION_WORDS:
+        return False
+    if not (cleaned.endswith("?") or _ASKS_TO_KNOW.match(cleaned)):
         return False
     if is_lightweight_chat_turn(cleaned) or is_personal_disclosure_turn(cleaned):
         return False
@@ -346,10 +336,13 @@ def follow_up_topic(
     prior: Sequence[Any] | None,
     *,
     allow_general: bool,
+    shown: Sequence[str] | None = (),
 ) -> tuple[str, str | None] | None:
     """("subject", problem) or ("general", None); None makes no call.
 
-    A line continues a problem while its reply still works it (``thread_problem``). A reply that ends on a card waiting for a tap has its follow-up already: a clarify
+    ``shown`` is what the chat offered under its last replies (None while not known): a
+    line on a topic of its own continues a problem only when its reply still works it,
+    and a tapped follow-up always does (``thread_problem``). A reply that ends on a card waiting for a tap has its follow-up already: a clarify
     card's questions, a reminder to confirm. Suggestions under it only repeated them
     ("What is your budget?"). A line that reads the To-do list back gets none.
     """
@@ -358,7 +351,7 @@ def follow_up_topic(
     if _reads_own_list(question):
         # Nothing to dig into, and no follow-up of the problem before it.
         return None
-    problem = thread_problem(question, prior, answer)
+    problem = thread_problem(question, prior, answer, shown)
     if problem is not None and (_has_quantity(problem) or not _asks(problem)):
         return "subject", problem
     if problem is not None and problem == question:
@@ -378,6 +371,6 @@ def _has_quantity(problem: str) -> bool:
 
 def _asks(question: str) -> bool:
     cleaned = collapse_ws(question)
-    if not _asks_something(cleaned):
+    if not (cleaned.endswith("?") or _ASKS_TO_KNOW.match(cleaned)):
         return False
     return not (is_lightweight_chat_turn(cleaned) or is_personal_disclosure_turn(cleaned))

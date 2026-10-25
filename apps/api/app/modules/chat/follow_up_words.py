@@ -1,10 +1,10 @@
 """The words that say what a line is about, for the follow-up rules.
 
-``related_questions`` keeps a general follow-up on the user's topic with them, and
-``follow_up_ground`` tells a reply still on a problem from one on a topic of its own. Both
-read a topic word the same way: four Latin letters or more, accents included, and not a
-word every question uses. ``follow_up_repeats`` and ``follow_up_ground`` read the unit
-after a number the same way too.
+``related_questions`` keeps a general follow-up on the user's topic with them,
+``follow_up_thread`` tells a line that names a topic of its own from a short follow-up, and
+``follow_up_ground`` reads the nouns a reply shares with a problem. All read a topic word
+the same way: four Latin letters or more, accents included, and not a word every question
+uses.
 """
 
 from __future__ import annotations
@@ -69,7 +69,31 @@ STOP_WORDS = frozenset(
         "your",
     }
 )
-# Short words written after a number that are no unit: "$80 is $20", "48 and 60".
-NOT_UNITS = frozenset(
-    "a an and are as at be by for from if in is it of on or per so the to was".split()
-)
+# Words that ask about a problem, show it or measure it, and the chat's fillers: every
+# line and every reply uses them, whatever it is about.
+_ASKS_OR_SHOWS = """again another answer calculate change check correct different easier easy
+explain explanation figure find give happen hard harder help instead matter mean method part
+problem question quick same simple simpler simply solve step take teach tell took understand
+wrong chart diagram draw equation example formula graph number picture plot result show table
+value visual fast high long many often"""
+_FILLERS = """actually anyway anything around cool even every first going gonna good great last
+maybe next nice okay please real really right someone something still sure thank think until
+very want well"""
+NAMES_NO_TOPIC = frozenset(f"{_ASKS_OR_SHOWS} {_FILLERS}".split())
+# Everyday measures: what a line is about ("next month for 4 days"), but no ground a reply
+# shares with a problem ("3 hours" in a bike problem, "allow 6 hours" in a day plan).
+MEASURES = frozenset("second minute hour day week month year percent degree".split())
+# "doesn't" is "does", not the word "doesn"; "what's" is "what".
+_CONTRACTION = re.compile(r"n't\b|'(?:s|re|ll|ve|m|d)\b")
+
+
+def topic_words(text: str, pattern: re.Pattern[str] = TOPIC_WORD) -> frozenset[str]:
+    """What ``text`` is about: its topic words, each without its plural "s", and none a
+    question frame or a filler. ``text`` has straight apostrophes."""
+    folded = _CONTRACTION.sub("", text.casefold())
+    words = (w for w in pattern.findall(folded) if w not in STOP_WORDS and w not in NAMES_NO_TOPIC)
+    return frozenset(word for word in map(_singular, words) if word not in NAMES_NO_TOPIC)
+
+
+def _singular(word: str) -> str:
+    return word[:-1] if word.endswith("s") and not word.endswith("ss") else word

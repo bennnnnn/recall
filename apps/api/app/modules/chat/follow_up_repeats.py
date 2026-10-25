@@ -21,28 +21,18 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
-from app.modules.chat.follow_up_words import NOT_UNITS
+from app.modules.chat.follow_up_units import SYMBOLS, quantities
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 # A word of four letters or more, in any script.
 _WORD = re.compile(r"[^\W\d_]{4,}")
-# The minus sign and the en dash a phone or a model types are a minus.
-_SIGNS = str.maketrans({"\u2212": "-", "\u2013": "-"})
-# A number as asked: its sign or root, the number (a fraction or a ratio whole), and the
-# unit after it ("48 cm", "9.8 m/s²", "300 °C", "5%", "2w"). A word of four letters after
-# it ("4 hours") is a topic word, and "48 and 60" has no unit.
-_QUANTITY = re.compile(
-    r"(?<![\w.])([-\u221a]?)(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
-    r"(?:\s*([/:])\s*(\d+(?:\.\d+)?))?"
-    r"(?:(\s*)(\u00b0\s?[CFK]?|%|[a-zA-Z\u00b5\u00b0\u03a9][a-zA-Z/^\u00b2\u00b3\u00b0\d]*))?"
-)
-_LONGEST_SPACED_UNIT = 3
 _MATH_SPAN = re.compile(r"\$([^$\n]+)\$")
 # A question read word by word: a maths span whole, a word or a number, a sign or a root.
 _TOKEN = re.compile(r"\$[^$\n]+\$|[^\W_]+(?:\.\d+)?|[-+*/^=<>%\u221a]")
 # What a reworded question drops or swaps without asking anything else: "the", "it", "my".
+# Not "a": in "What if a = 2?" it is the variable.
 _ARTICLES_AND_PRONOUNS = frozenset(
-    "a an the it its this that these those i you we he she they me him her us them my your "
+    "an the it its this that these those i you we he she they me him her us them my your "
     "our his their".split()
 )
 _RELATION = re.compile(r"=|<|>|\\[lg]eq?\b|\\neq\b")
@@ -95,23 +85,11 @@ _MIN_TOPIC_WORDS = 2
 
 
 def _topic(text: str) -> frozenset[str]:
-    """Its topic words, and the numbers it names outside maths as one item, in order
-    (equations match whole)."""
+    """Its topic words, and the numbers it names outside maths as one item, in order, each
+    with its unit read one way ("2 seconds" is "2 s"; equations match whole)."""
     words = [w for w in _WORD.findall(text.casefold()) if w not in _FRAME]
-    plain = _MATH_SPAN.sub(" ", text.translate(_SIGNS))
-    quantities = [_quantity(match) for match in _QUANTITY.finditer(plain)]
-    return frozenset([*words, "#" + "|".join(quantities)] if quantities else words)
-
-
-def _quantity(match: re.Match[str]) -> str:
-    sign, number, over, under, space, unit = match.groups()
-    written = f"{sign}{number}{over or ''}{under or ''}"
-    if not unit:
-        return written
-    word = unit.isalpha()
-    if space and ((word and len(unit) > _LONGEST_SPACED_UNIT) or unit.casefold() in NOT_UNITS):
-        return written
-    return f"{written} {unit}"
+    numbers = [str(quantity) for quantity in quantities(_MATH_SPAN.sub(" ", text))]
+    return frozenset([*words, "#" + "|".join(numbers)] if numbers else words)
 
 
 def _equations(text: str) -> frozenset[str]:
@@ -122,7 +100,7 @@ def _equations(text: str) -> frozenset[str]:
 
 def _folded(text: str) -> str:
     """The question's words in order, without articles and pronouns, maths unspaced."""
-    tokens = _TOKEN.findall(straighten_apostrophes(collapse_ws(text)).translate(_SIGNS).casefold())
+    tokens = _TOKEN.findall(straighten_apostrophes(collapse_ws(text)).translate(SYMBOLS).casefold())
     kept = (re.sub(r"\s+", "", t) for t in tokens if t not in _ARTICLES_AND_PRONOUNS)
     return " ".join(kept)
 
