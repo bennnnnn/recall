@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.web_search.command import is_search_word, search_command
+from app.modules.web_search.command import asks_to_search, is_search_word, search_command
 from app.modules.web_search.detection import needs_web_search
 from app.modules.web_search.subject import resolve_search_subject
 
@@ -136,3 +136,32 @@ def test_subject_is_the_named_topic() -> None:
         resolve_search_subject("search for the meaning of bini", prior_user_messages=_NAME_CHAT)
         == "the meaning of bini"
     )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Can\u2019t you look it up? You looked up the weather",
+        "can't you look it up",
+        "cant u look it up",
+        "couldn't you google it",
+        "look it up please. thanks",
+    ],
+)
+def test_a_sentence_that_asks_to_search_is_a_search(text: str) -> None:
+    """Live (2026-10-25): "Can't you look it up?" was read as a question about the assistant."""
+    assert asks_to_search(text)
+    assert needs_web_search(text, prior_user_messages=["did the bears win today"])
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I told my students to look it up. They didn't.",
+        "can you look after my cat",
+        "you looked it up yesterday, thanks",
+        "look up to your parents",
+    ],
+)
+def test_a_mention_of_looking_up_is_no_search(text: str) -> None:
+    assert not asks_to_search(text)

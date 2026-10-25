@@ -1,0 +1,103 @@
+[
+ {
+  "id": "lva-001",
+  "area": "search",
+  "prompt": "Perfect. totally unrelated but did the bears win today",
+  "reply": "The Bears didn't play today; they beat the Patriots on Thursday.",
+  "expect": "search"
+ },
+ {
+  "id": "lva-002",
+  "area": "search",
+  "prompt": "did the bears win today",
+  "reply": "The Bears didn't play today.",
+  "expect": "search"
+ },
+ {
+  "id": "lva-003",
+  "area": "search",
+  "prompt": "did the bears win",
+  "reply": "Yes, they beat the Patriots 24-17 on Thursday.",
+  "expect": "search"
+ },
+ {
+  "id": "lva-004",
+  "area": "search",
+  "prompt": "how did the bulls do last night",
+  "reply": "The Bulls lost 112-104 to the Knicks.",
+  "expect": "search"
+ },
+ {
+  "id": "lva-005",
+  "area": "search",
+  "prompt": "did ethiopia beat kenya",
+  "reply": "Ethiopia won 2-1.",
+  "expect": "search"
+ },
+ {
+  "id": "lva-006",
+  "area": "search",
+  "prompt": "Can’t you look it up? You looked up the weather",
+  "history": [
+   [
+    "user",
+    "did the bears win today"
+   ],
+   [
+    "assistant",
+    "I don't have real-time sports results in my memory, so I can't confirm if the Bears won today. You'll need to check a live sports app."
+   ]
+  ],
+  "reply": "The Bears beat the Patriots on Thursday.",
+  "expect": "search"
+ },
+ {
+  "id": "lva-007",
+  "area": "chitchat",
+  "prompt": "did you win",
+  "reply": "I don't play games, but I'm happy to help with yours!",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-008",
+  "area": "chitchat",
+  "prompt": "did it work",
+  "reply": "Glad to hear it! Let me know if anything else comes up.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-009",
+  "area": "chitchat",
+  "prompt": "i love you but did you eat",
+  "reply": "Ha, I don't eat, but thanks for asking. Did you?",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-010",
+  "area": "chitchat",
+  "prompt": "did the plan work out",
+  "reply": "I hope it did! How did it go?",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-011",
+  "area": "chitchat",
+  "prompt": "lol but did he really say that",
+  "reply": "It sounds like he did, from what you told me.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-012",
+  "area": "chitchat",
+  "prompt": "did i win",
+  "reply": "I can't tell from here what you entered. What was it?",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-013",
+  "area": "chitchat",
+  "prompt": "great job today but did you know that",
+  "reply": "Know what? Tell me more.",
+  "expect": "answer"
+ }
+]

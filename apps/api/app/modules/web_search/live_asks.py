@@ -101,6 +101,18 @@ NOT_A_PRICE = re.compile(
 )
 
 
+# How a team did: "did the bears win today", "did ethiopia beat kenya", "how did the bulls
+# do last night". The team is named, not a person ("did you win", "did my mom win").
+_TEAM = (
+    r"(?:the\s+)?(?!(?:i|you|u|we|he|she|they|it|my|your|our|his|her|their|someone|anyone)\b)"
+    r"[a-z][\w.'-]*(?:\s+[a-z][\w.'-]*){0,2}"
+)
+_TEAM_RESULT = re.compile(
+    rf"\bdid\s+{_TEAM}\s+(?:win|lose|beat|tie|draw)\b|\bhow\s+did\s+{_TEAM}\s+do\b",
+    re.IGNORECASE,
+)
+
+
 # Entry rules change with policy: "UK visa rules for Ethiopians", "do I need a visa for Japan".
 _ENTRY_RULES = re.compile(
     r"\b(?:visa|entry|transit) (?:requirements?|rules?|polic(?:y|ies)|fees?|"
@@ -130,3 +142,8 @@ def asks_for_entry_rules(text: str) -> bool:
     """Visa and entry rules for a trip: policy that changes after any training cut-off."""
     cleaned = collapse_ws(text)
     return _ENTRY_RULES.search(cleaned) is not None and _NOT_A_LISTING.search(cleaned) is None
+
+
+def asks_how_a_team_did(text: str) -> bool:
+    """A game result asked by the team: "did the bears win today" (live chat, 2026-10-25)."""
+    return _TEAM_RESULT.search(collapse_ws(text)) is not None

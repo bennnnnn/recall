@@ -96,7 +96,8 @@ _NAMED = re.compile(
 
 
 def _clauses(text: str) -> list[str]:
-    parts = re.split(r"(?<=[.!?;])\s+|,\s+", text)
+    # "Totally unrelated but did the bears win today": the question after "but" asks.
+    parts = re.split(r"(?<=[.!?;])\s+|,\s+|\s+but\s+", text, flags=re.IGNORECASE)
     return [p.strip() for p in parts if p.strip()]
 
 
