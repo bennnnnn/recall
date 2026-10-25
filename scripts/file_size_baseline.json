@@ -185,10 +185,6 @@
       "lines": 508,
       "why": "Exception: One parser; ES-38 split its one long function"
     },
-    "apps/mobile/lib/math/layout.ts": {
-      "lines": 533,
-      "why": "Exception: One layout algorithm; ES-38 split `measureSegment` and moved the tree checks out"
-    },
     "apps/mobile/lib/physics/optics.ts": {
       "lines": 599,
       "why": "Exception: One diagram's parsing and pure geometry; tested by `optics.test.ts`"
