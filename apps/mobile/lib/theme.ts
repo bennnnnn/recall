@@ -165,7 +165,7 @@ export const lightTheme: Theme = {
 
   contentSurface: "#F7F7F8",
 
-  danger: "#D92D20",
+  danger: "#CC291D",
   onDanger: "#FFFFFF",
   dangerLight: "#FFF5F5",
   warning: "#B54708",

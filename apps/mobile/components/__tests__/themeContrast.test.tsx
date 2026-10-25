@@ -1,41 +1,5 @@
+import { AA, compositeOver, contrastRatio } from "@/lib/__tests__/support/contrast";
 import { darkTheme, lightTheme } from "@/lib/theme";
-
-/** WCAG 2.x relative luminance (sRGB). */
-function relativeLuminance(hex: string): number {
-  const raw = hex.replace("#", "");
-  const n = parseInt(raw, 16);
-  const channels = [n >> 16, (n >> 8) & 0xff, n & 0xff].map((c) => {
-    const s = c / 255;
-    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
-}
-
-function contrastRatio(fg: string, bg: string): number {
-  const a = relativeLuminance(fg);
-  const b = relativeLuminance(bg);
-  const hi = Math.max(a, b);
-  const lo = Math.min(a, b);
-  return (hi + 0.05) / (lo + 0.05);
-}
-
-function compositeOver(color: string, underlay: string): string {
-  const match = color.match(
-    /^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)$/,
-  );
-  if (!match) return color;
-  const base = underlay.replace("#", "");
-  const alpha = Number(match[4]);
-  const channels = [0, 1, 2].map((index) =>
-    Math.round(
-      Number(match[index + 1]) * alpha +
-        parseInt(base.slice(index * 2, index * 2 + 2), 16) * (1 - alpha),
-    ),
-  );
-  return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
-}
-
-const AA = 4.5;
 
 describe("semantic text contrast", () => {
   it.each([
@@ -108,6 +72,16 @@ describe("semantic text contrast", () => {
     }
     expect(contrastRatio(theme.success, theme.bg)).toBeGreaterThanOrEqual(AA);
     expect(contrastRatio(theme.warning, theme.bg)).toBeGreaterThanOrEqual(AA);
+  });
+
+  // Sign out, Delete all chats and Delete account are danger rows in a Settings
+  // group; the profile sheet's Remove photo and its error sit on surfaceAlt.
+  it.each([
+    ["light", lightTheme],
+    ["dark", darkTheme],
+  ] as const)("%s danger is AA on Settings groups and the profile sheet", (_name, theme) => {
+    expect(contrastRatio(theme.danger, theme.settingsSurface)).toBeGreaterThanOrEqual(AA);
+    expect(contrastRatio(theme.danger, theme.surfaceAlt)).toBeGreaterThanOrEqual(AA);
   });
 
   it("textDisabled may sit below AA (placeholders / decoration only)", () => {
