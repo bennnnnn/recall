@@ -1428,5 +1428,53 @@
   "prompt": "show me the roots of a mangrove tree",
   "reply": "Here are **mangrove roots**: arching prop roots that hold the tree above the water, and pencil-like roots that poke up from the mud to breathe.",
   "expect": "photo"
+ },
+ {
+  "id": "sp-150",
+  "area": "photo",
+  "prompt": "do you have a picture of him?",
+  "history": [
+   [
+    "user",
+    "who was charles from charles's law anyway?"
+   ],
+   [
+    "assistant",
+    "Jacques Charles was a French physicist and balloonist who flew the first hydrogen balloon in 1783 and found that a gas expands as it warms."
+   ]
+  ],
+  "reply": "Here's **Jacques Charles** in a portrait from the 1780s, around the time of his balloon flights.",
+  "expect": "photo"
+ },
+ {
+  "id": "sp-151",
+  "area": "photo",
+  "prompt": "you got a photo of a gelada?",
+  "reply": "Here's a **gelada**: a grass-eating monkey of the Ethiopian highlands with a bright red patch on its chest.",
+  "expect": "photo"
+ },
+ {
+  "id": "sp-152",
+  "area": "photo",
+  "prompt": "have you got a picture of the titanic wreck?",
+  "reply": "Here's the **Titanic wreck** on the floor of the North Atlantic, about 3,800 m down.",
+  "expect": "photo"
+ },
+ {
+  "id": "sp-153",
+  "area": "photo",
+  "prompt": "is there a picture of her?",
+  "reply": "Here's **Marie Curie** in her laboratory in Paris, around 1920.",
+  "expect": "photo",
+  "history": [
+   [
+    "user",
+    "who was marie curie?"
+   ],
+   [
+    "assistant",
+    "Marie Curie was a physicist and chemist who won two Nobel Prizes, for physics in 1903 and chemistry in 1911."
+   ]
+  ]
  }
 ]
