@@ -1,13 +1,13 @@
-"""A short reply that says it cannot see the clock, which the app always has.
+"""A short reply that says it cannot see the clock, when the user asked the clock.
 
-The finalize pass swaps such a reply for the clock (``finalize_text.fix_clock``). The
-reply must deny live data and name the current clock ("the current time", "what time it
-is", "a clock"), and name no other live thing: "I don't have access to real-time
-information, so I can't tell you tomorrow's weather in Chicago" denied the weather, and
-the reply became "Sunday, October 25, 2026, 3:22:15 PM EDT" (live chat, 2026-10-25). The
-time or date of something else ("the time of the eclipse", "the date of the next
-election", "the current time in Tokyo") is no ask for the local clock, and neither is a
-question about another place's clock or a scheduled time.
+The finalize pass swaps such a reply for the clock the app always has
+(``finalize_text.fix_clock``). The user's message decides, not the reply's wording: it
+must ask the local clock in so many words ("what time is it", "whats the time rn", "do
+you know what time it is", "today's date") and name nothing else live. Read from the
+reply, "I don't have access to real-time information, so I can't tell you tomorrow's
+weather in Chicago" became "Sunday, October 25, 2026, 3:22:15 PM EDT" (live chat,
+2026-10-25), and two review rounds still found replies about store hours, the time in
+Tokyo or daylight saving swapped, and true clock denials missed.
 """
 
 from __future__ import annotations
@@ -47,22 +47,21 @@ _DENIALS = (
     "check a device nearby",
 )
 _MAX_LEN = 400
-# The local clock named, as a phrase: "the current time", "what time it is", "a clock".
-_CURRENT_CLOCK = re.compile(
-    r"\b(?:(?:current|exact|local)\s+(?:local\s+)?(?:time|date)(?:\s+(?:and|or)\s+(?:time|date))?"
-    r"|what\s+(?:time|day|date)\s+it\s+is"
-    r"|today's\s+date"
-    r"|the\s+(?:time|date)\s+(?:right\s+)?now"
-    r"|(?<!around\s)(?:a|the|your|any|real-time)\s+clocks?)\b",
+# The local clock asked, and the clause ends there (fillers aside): "what time is it? i have
+# a meeting at 4" asks it; "what time is it playing at amc", "what's the date of easter"
+# and "whats the time over in tokyo" do not.
+_ASKS_CLOCK = re.compile(
+    r"\b(?:what\s+time\s+(?:is\s+it|it\s+is)"
+    r"|(?:what'?s|what\s+is|know|tell\s+me|got|give\s+me)\s+the\s+(?:current\s+)?(?:time|date|day)"
+    r"|what\s+(?:day|date)\s+(?:is\s+it|it\s+is|is\s+today)"
+    r"|today'?s\s+date"
+    r"|(?:current|exact|local)\s+(?:time|date))"
+    r"(?=(?:\s+(?:rn|now|right\s+now|currently|today|exactly|again|here|please|pls|bro|lol)\b){0,3}"
+    r"\s*(?:$|[?.!,;]|in\s+(?:my|our|here)\b))",
     re.IGNORECASE,
 )
-# "The current time in Tokyo", "the exact time of the eclipse": another thing's clock.
-# Only the user's own place ("in your area", "for you") keeps it the local one.
-_ELSEWHERE = re.compile(
-    r"\s+(?:of|for|in|at)\b(?!\s+(?:your\s+(?:location|area|city|region|time\s?zone)|you)\b)",
-    re.IGNORECASE,
-)
-# Another live thing the reply names: the denial is about that, not the clock.
+_BARE_TIME = re.compile(r"(?:the\s+)?time\s*\??", re.IGNORECASE)
+# Another live thing the message asks about beside the clock.
 _OTHER_LIVE = re.compile(
     r"\b(?:weather|forecast|temperature|rain|snow|scores?|games?|match|news|prices?|"
     r"stocks?|markets?|traffic|flights?|events?|schedules?|standings)\b",
@@ -72,10 +71,10 @@ _OTHER_LIVE = re.compile(
 _IN_MY_PLACE = re.compile(r"\bin\s+(?:my|our|here)\b", re.IGNORECASE)
 
 
-def _names_the_clock(reply: str) -> bool:
-    return any(
-        _ELSEWHERE.match(reply, found.end()) is None for found in _CURRENT_CLOCK.finditer(reply)
-    )
+def _asks_the_clock(asked: str) -> bool:
+    if _BARE_TIME.fullmatch(asked.strip()) is not None:
+        return True
+    return _ASKS_CLOCK.search(asked) is not None and _OTHER_LIVE.search(asked) is None
 
 
 def _asks_another_clock(asked: str) -> bool:
@@ -86,14 +85,12 @@ def _asks_another_clock(asked: str) -> bool:
     return is_scheduled_event_time_question(asked) and "what time is it" not in asked.lower()
 
 
-def model_denies_clock(reply: str, asked: str = "") -> bool:
-    """True when a short ``reply`` claims it cannot read the current time for ``asked``."""
+def model_denies_clock(reply: str, asked: str) -> bool:
+    """True when a short ``reply`` claims it cannot read the clock the user ``asked`` for."""
     cleaned = straighten_apostrophes(collapse_ws(reply))
     if not cleaned or len(cleaned) > _MAX_LEN:
         return False
-    if asked and _asks_another_clock(straighten_apostrophes(asked)):
+    if not any(mark in cleaned.lower() for mark in _DENIALS):
         return False
-    lowered = cleaned.lower()
-    if not any(mark in lowered for mark in _DENIALS):
-        return False
-    return _names_the_clock(cleaned) and _OTHER_LIVE.search(cleaned) is None
+    asked = straighten_apostrophes(collapse_ws(asked))
+    return _asks_the_clock(asked) and not _asks_another_clock(asked)
