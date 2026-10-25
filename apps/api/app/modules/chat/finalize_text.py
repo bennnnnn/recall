@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from app.modules.chat.chart_sanitize import sanitize_chart_fences
 from app.modules.chat.clarify_card import CLARIFY_FENCE, NEVER_WITH_CARD, settle_clarify_cards
+from app.modules.chat.clock_denial import model_denies_clock
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.formula_fences import unfence_formulas, unwrap_code_maths
 from app.modules.chat.mermaid_sanitize import sanitize_mermaid_fences
@@ -27,11 +28,7 @@ from app.modules.chat.stream_status import announced_if_slow
 from app.modules.images.answer_photo import strip_photo_fences
 from app.services.md_fence_scan import close_unclosed_fences, iter_fences
 from app.services.places_fence import sanitize_places_fences
-from app.services.time_context import (
-    correct_weekday_dates,
-    format_shown_clock_answer,
-    model_denies_clock,
-)
+from app.services.time_context import correct_weekday_dates, format_shown_clock_answer
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
@@ -138,7 +135,7 @@ def fix_clock(state: FinalizeState) -> str:
     weekday is corrected."""
     ctx = state.ctx
     text = state.text
-    if model_denies_clock(text):
+    if model_denies_clock(text, ctx.user_message_content or ""):
         locale = ctx.user.locale if ctx.user is not None else None
         text = format_shown_clock_answer(ctx.user_timezone, locale)
     return correct_weekday_dates(text)
