@@ -50,7 +50,7 @@ function OverdueReminderRow({
           accessibilityRole="button"
           accessibilityLabel={todo.content}
         >
-              <Icon name="alert-circle" size={IconSize.sm} color={theme.warning} />
+              <Icon name="alert-circle" size={IconSize.sm} color={theme.danger} />
           <View style={s.urgentMain}>
             <Text style={s.urgentTitle} numberOfLines={2}>
               {todo.content}
@@ -61,7 +61,7 @@ function OverdueReminderRow({
               </Text>
             ) : null}
           </View>
-          <Icon name="chevron-right" size={IconSize.xs} color={theme.warning} />
+          <Icon name="chevron-right" size={IconSize.xs} color={theme.danger} />
         </Pressable>
         <Pressable
           style={s.urgentDismiss}
@@ -150,7 +150,7 @@ function makeStyles(t: Theme) {
       marginBottom: Space.xs,
     },
     sectionLabelUrgent: {
-      color: t.warning,
+      color: t.danger,
     },
     urgentBlock: { width: "100%", gap: Space.xs, marginTop: Space.xxs },
     urgentCardWrap: {
@@ -160,13 +160,15 @@ function makeStyles(t: Theme) {
       flexDirection: "row",
       alignItems: "center",
       gap: Space.sm,
-      backgroundColor: withAlpha(t.warning, 0.12),
+      // The theme's danger well, as under the to-do editor's same-time note: a 12% danger tint
+      // left the due time at 4.35:1 in light mode.
+      backgroundColor: t.dangerLight,
       borderRadius: Radius.lg,
       paddingHorizontal: Space.md,
       paddingVertical: Space.sm,
       paddingRight: Space.xl + Space.xxs,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: withAlpha(t.warning, 0.28),
+      borderColor: withAlpha(t.danger, 0.28),
     },
     urgentDismiss: {
       position: "absolute",
@@ -190,10 +192,10 @@ function makeStyles(t: Theme) {
       borderColor: t.border,
     },
     urgentCardOverdue: {
-      borderColor: t.warning,
+      borderColor: t.danger,
     },
     urgentMain: { flex: 1, gap: 2 },
     urgentTitle: { ...Type.navTitle, color: t.text },
-    urgentDue: { ...Type.caption, ...Weight.semibold, color: t.warning },
+    urgentDue: { ...Type.caption, ...Weight.semibold, color: t.danger },
   });
 }
