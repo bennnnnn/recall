@@ -11,7 +11,6 @@
 import {
   axisBlock,
   axisTitle,
-  isRecord,
   pieValuesToVegaLite,
   readPoint,
   seriesMark,
@@ -21,6 +20,7 @@ import {
   type JsonRecord,
   type SeriesValue,
 } from "@/lib/chartSeriesSpec";
+import { isJsonRecord as isRecord } from "@/lib/jsonFence";
 
 const LABEL_KEYS = ["labels", "categories", "x"];
 const AXIS_LABEL_KEYS = ["labels", "categories", "values", "data"];

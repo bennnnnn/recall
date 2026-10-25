@@ -4,7 +4,7 @@ import { DashPathEffect, Path, Skia, type SkFont, type SkPath } from "@shopify/r
 
 import { HaloText } from "@/components/rich/skia/HaloText";
 import { arrowHeadPath, arrowShaftPath } from "@/components/rich/skia/paths";
-import type { LabelPlacement, MeasureLayout, Segment } from "@/lib/physics/optics";
+import type { LabelPlacement, MeasureLayout } from "@/lib/physics/optics";
 import type { Theme } from "@/lib/theme";
 
 const MEASURE_STROKE = 1.5;
@@ -50,16 +50,6 @@ export function DiagramLabel({
   theme: Theme;
 }) {
   return <HaloText x={label.x} y={label.y} text={label.text} font={font} color={color} halo={theme.bg} />;
-}
-
-/** Separate straight strokes in one path: hatching, ticks, walls. */
-export function segmentsPath(segments: readonly Segment[]): SkPath {
-  const path = Skia.Path.Make();
-  for (const segment of segments) {
-    path.moveTo(segment.x1, segment.y1);
-    path.lineTo(segment.x2, segment.y2);
-  }
-  return path;
 }
 
 /** A filled rectangle, built from lines so the test stub can draw it too. */

@@ -1,7 +1,7 @@
 /** Skia paths for a scene's fixed parts, its box bodies and its springs. */
 import { Skia } from "@shopify/react-native-skia";
 
-import { PIVOT_SIZE, type ScreenPoint, type SupportLayout } from "@/lib/physics/simulation";
+import { PIVOT_SIZE, type ScreenPoint } from "@/lib/physics/simulation";
 
 const WALL_HALF_HEIGHT = 16;
 
@@ -42,15 +42,6 @@ export function rectPath(rect: Rect) {
     { px: rect.x + rect.width, py: rect.y + rect.height },
     { px: rect.x, py: rect.y + rect.height },
   ]);
-}
-
-export function segmentsPath(segments: SupportLayout["hatches"]) {
-  const path = Skia.Path.Make();
-  for (const segment of segments) {
-    path.moveTo(segment.x1, segment.y1);
-    path.lineTo(segment.x2, segment.y2);
-  }
-  return path;
 }
 
 /** A box body: a square of side 2 * `half`, turned `angle` radians on screen. */

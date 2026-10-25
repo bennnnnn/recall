@@ -6,22 +6,18 @@
  * context reads it without loading expo-notifications.
  */
 
-let registered = false;
-const listeners = new Set<() => void>();
+import { createValueStore } from "@/lib/listenerSet";
+
+const registered = createValueStore(false);
 
 export function setRemotePushRegistered(value: boolean): void {
-  if (registered === value) return;
-  registered = value;
-  for (const listener of listeners) listener();
+  registered.set(value);
 }
 
 export function remotePushRegistered(): boolean {
-  return registered;
+  return registered.get();
 }
 
 export function subscribeRemotePushRegistered(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
+  return registered.subscribe(listener);
 }

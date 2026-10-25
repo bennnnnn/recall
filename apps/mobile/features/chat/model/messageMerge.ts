@@ -1,4 +1,5 @@
 import type { Message } from "@/lib/api";
+import { isJsonRecord } from "@/lib/jsonFence";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
 
 type OrphanFile = {
@@ -15,10 +16,6 @@ const LOCAL_FILE_FIELDS = [
   "local_file_content_type",
 ] as const;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 /** JSON-like equality; null, undefined and a missing field read the same. */
 function sameValue(a: unknown, b: unknown): boolean {
   if (a === b) return true;
@@ -26,7 +23,7 @@ function sameValue(a: unknown, b: unknown): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {
     return a.length === b.length && a.every((item, index) => sameValue(item, b[index]));
   }
-  return isRecord(a) && isRecord(b) && sameFields(a, b);
+  return isJsonRecord(a) && isJsonRecord(b) && sameFields(a, b);
 }
 
 function sameFields(a: Record<string, unknown>, b: Record<string, unknown>, skip?: string): boolean {

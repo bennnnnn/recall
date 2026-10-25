@@ -13,11 +13,11 @@
 import { categoryChartToVegaLite } from "@/lib/chartCategorySpec";
 import { chartJsToVegaLite } from "@/lib/chartJsSpec";
 import {
-  isRecord,
   parseChartBody,
   seriesChartToVegaLite,
   type JsonRecord,
 } from "@/lib/chartSeriesSpec";
+import { isJsonRecord as isRecord } from "@/lib/jsonFence";
 
 export type ChartTable = { columns: string[]; rows: string[][] };
 

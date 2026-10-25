@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { MemoryComposer } from "@/features/memory/components/MemoryComposer";
 import { useMemoryDocuments } from "@/features/memory/hooks/useMemoryDocuments";
+import { useSubmitInstruction } from "@/features/memory/hooks/useSubmitInstruction";
 import {
   documentSummary,
   documentTitle,
@@ -36,7 +37,6 @@ import { confirmDialog } from "@/ui/overlay/dialogs";
 import { Menu } from "@/ui/overlay/Menu";
 import { MemoryHeaderMenu } from "@/features/memory/components/MemoryHeaderMenu";
 import { useClearAllMemories } from "@/features/memory/hooks/useClearAllMemories";
-import { instructNotice } from "@/features/memory/model/instructNotice";
 import { memoryFailureKey } from "@/features/memory/model/memoryFailure";
 
 type FactMenu = { fact: Memory; point: { x: number; y: number } };
@@ -140,18 +140,11 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     }
   }, [setFactMuted, isCurrentView, feedback, t]);
 
-  const submit = useCallback(async (instruction: string) => {
-    const outcome = await instruct(instruction, typeof key === "string" ? key : undefined);
-    if (!isCurrentView()) return false;
-    if (!outcome.ok) {
-      reportRecoverableError(feedback, t(memoryFailureKey(outcome.failure, "memory.instruct_failed")));
-      return false;
-    }
-    const notice = instructNotice(outcome, t);
-    if (notice.landed) feedback?.success(notice.message);
-    else feedback?.warning(notice.message);
-    return notice.landed;
-  }, [instruct, key, isCurrentView, feedback, t]);
+  const submit = useSubmitInstruction(
+    instruct,
+    isCurrentView,
+    typeof key === "string" ? key : undefined,
+  );
 
   if (!token) return <Redirect href="/login" />;
   if (!document) {

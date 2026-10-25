@@ -10,6 +10,8 @@
  * holds both to one result.
  */
 
+import { isJsonRecord } from "@/lib/jsonFence";
+
 const MAX_DEPTH = 32;
 const MAX_NODES = 512;
 
@@ -46,10 +48,6 @@ export type Formula = { readonly root: Node };
 
 type Budget = { nodes: number };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function args(raw: Record<string, unknown>, count: number): unknown[] | null {
   const list = raw.a;
   return Array.isArray(list) && list.length === count ? list : null;
@@ -62,7 +60,7 @@ function compileNode(
   budget: Budget,
 ): Node | null {
   budget.nodes += 1;
-  if (depth > MAX_DEPTH || budget.nodes > MAX_NODES || !isRecord(raw)) return null;
+  if (depth > MAX_DEPTH || budget.nodes > MAX_NODES || !isJsonRecord(raw)) return null;
   if ("n" in raw) {
     return typeof raw.n === "number" && Number.isFinite(raw.n)
       ? { kind: "number", value: raw.n }
@@ -91,8 +89,8 @@ function compileNode(
     const list = args(raw, 3);
     if (!list) return null;
     const test = list[0];
-    const sides = isRecord(test) ? args(test, 2) : null;
-    if (!isRecord(test) || typeof test.cmp !== "string" || !COMPARISONS.has(test.cmp) || !sides) {
+    const sides = isJsonRecord(test) ? args(test, 2) : null;
+    if (!isJsonRecord(test) || typeof test.cmp !== "string" || !COMPARISONS.has(test.cmp) || !sides) {
       return null;
     }
     const left = compileNode(sides[0], names, depth + 2, budget);

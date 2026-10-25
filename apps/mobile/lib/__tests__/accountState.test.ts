@@ -172,7 +172,6 @@ const NO_ACCOUNT_DATA = [
   "lib/purchases.ts#purchasesModule",
   "lib/pushNotifications.ts#androidChannelReady",
   "lib/pushNotifications.ts#pushTokenFailureReported",
-  "lib/pushRegistration.ts#listeners",
   "lib/reduceMotion.ts#knownReduceMotion",
   "lib/scanner/switchCue.ts#activePlayer",
   "lib/scanner/switchCue.ts#cueEpoch",

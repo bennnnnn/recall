@@ -4,11 +4,9 @@
  * instead of Vega-Lite drew "JSON Parse error" in the bubble; both now draw.
  */
 
-export type JsonRecord = Record<string, unknown>;
+import { isJsonRecord as isRecord } from "@/lib/jsonFence";
 
-export function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+export type JsonRecord = Record<string, unknown>;
 
 /** Where the object opening at `open` closes, or -1. Braces inside strings do not count. */
 function closingBrace(raw: string, open: number): number {

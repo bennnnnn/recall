@@ -5,8 +5,11 @@
  * live tail holds a trailing header back until the line under it is complete.
  */
 
-/** A complete line that can be a table row: it opens and goes on with pipes. */
-function isPipeRow(line: string): boolean {
+/**
+ * A complete line that can be a table row: it opens and goes on with pipes.
+ * The plain-text and PDF readers take a table's rows by the same test.
+ */
+export function looksLikePipeRow(line: string): boolean {
   const trimmed = line.trim();
   return trimmed.startsWith("|") && trimmed.indexOf("|", 1) >= 0;
 }
@@ -24,7 +27,7 @@ export function holdBackPendingTableHeader(tail: string): string {
   // A line being typed that is not a table row: any table above it is finished.
   if (partial && !partial.trimStart().startsWith("|")) return tail;
   let runStart = lastComplete + 1;
-  while (runStart > 0 && isPipeRow(lines[runStart - 1] ?? "")) runStart -= 1;
+  while (runStart > 0 && looksLikePipeRow(lines[runStart - 1] ?? "")) runStart -= 1;
   if (runStart > lastComplete && !partial) return tail;
   if (lastComplete + 1 - runStart >= 2) return tail;
   let offset = 0;

@@ -15,13 +15,14 @@ import {
   arrowShaftPath,
   linePath,
   pointsPath,
+  segmentsPath,
 } from "@/components/rich/skia/paths";
 import {
   DiagramFrame,
   useDiagramFont,
   useDiagramTitle,
 } from "@/components/rich/diagrams/DiagramFrame";
-import { DiagramLabel, MeasureLine, rectPath, segmentsPath } from "@/components/rich/diagrams/marks";
+import { DiagramLabel, MeasureLine, rectPath } from "@/components/rich/diagrams/marks";
 import type { RayDiagramSpec } from "@/components/rich/diagrams/spec";
 import { measureDiagramText } from "@/components/rich/diagrams/textWidth";
 import { describeOptics, focalPoints, RAY_HEAD, worldViewportHeight } from "@/lib/physics/optics";

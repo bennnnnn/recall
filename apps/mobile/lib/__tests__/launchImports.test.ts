@@ -43,6 +43,8 @@ const LAZY_FILES = [
   "lib/vendor/katexCss.ts",
   // The math scanner: camera, live text detection, crop and review.
   "components/MathEquationScanner.tsx",
+  // The photo viewer: pager, zoom, Download and Share, and the media library.
+  "features/attachments/components/AttachmentImageViewer.tsx",
   // Live Talk: the WebRTC session, its turn state and chimes, and the overlay.
   "features/speech/model/realtimeVoice.ts",
   "features/speech/model/realtimeTurnState.ts",

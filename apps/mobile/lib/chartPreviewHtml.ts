@@ -10,7 +10,8 @@ import { previewPageStartScript, type PreviewPage } from "@/lib/previewPage";
 import { CHART_PREVIEW_CSP, injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
 import type { Theme } from "@/lib/theme";
 import { presentChartSpec } from "@/lib/chartPresentation";
-import { isRecord, parseChartBody } from "@/lib/chartSeriesSpec";
+import { parseChartBody } from "@/lib/chartSeriesSpec";
+import { isJsonRecord as isRecord } from "@/lib/jsonFence";
 import { asVegaSpec } from "@/lib/chartSpec";
 
 type ChartPreviewTheme = Pick<

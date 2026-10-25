@@ -7,6 +7,7 @@ import { parseFenceLang } from "@/lib/codeHighlight";
 import { fenceIdForLang, isMathFenceLang } from "@/lib/fenceRegistry";
 import { fenceAfterLine, readFenceMarker } from "@/lib/mdFenceScan";
 import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/preprocess";
+import { looksLikePipeRow } from "@/lib/markdown/streamTableHold";
 import { readVendorLibrary } from "@/lib/vendorAssets";
 
 function escapeHtml(text: string): string {
@@ -168,10 +169,10 @@ function structuredPrintBody(markdown: string): string {
       continue;
     }
 
-    if (looksLikePrintTableRow(line)) {
+    if (looksLikePipeRow(line)) {
       flushParagraph();
       const rows: string[] = [];
-      while (i < lines.length && looksLikePrintTableRow(lines[i] ?? "")) {
+      while (i < lines.length && looksLikePipeRow(lines[i] ?? "")) {
         rows.push(lines[i] ?? "");
         i += 1;
       }
@@ -225,11 +226,6 @@ function answerToHtml(body: string): string {
         ? `<p>${inlineMarkdownToHtml(answer)}</p>`
         : renderPrintMathHtml(answer, true);
   return `<div class="answer">${inner}</div>`;
-}
-
-function looksLikePrintTableRow(line: string): boolean {
-  const trimmed = line.trim();
-  return trimmed.startsWith("|") && trimmed.indexOf("|", 1) >= 0;
 }
 
 function pipeTableToHtml(rows: string[]): string {
