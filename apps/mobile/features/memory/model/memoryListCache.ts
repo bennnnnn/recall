@@ -27,6 +27,11 @@ export function isMemoriesFresh(): boolean {
   return resource.isFresh(LIST);
 }
 
+/** When the list last came from the server this sign-in. */
+export function memoriesReadAt(): number | undefined {
+  return resource.fetchedAt(LIST);
+}
+
 export function setMemoriesCache(data: Memory[], expectedSession?: number): void {
   resource.set(LIST, data, expectedSession);
 }

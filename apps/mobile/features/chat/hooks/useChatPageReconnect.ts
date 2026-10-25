@@ -1,7 +1,6 @@
 import { isDrawerOpenGlobal } from "@/features/chat/drawer/drawer";
-import { chatPageReadSince } from "@/features/chat/model/pageReads";
+import { chatPageReadAt } from "@/features/chat/model/pageReads";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
-import { connectionLostAt } from "@/lib/reconnectRefresh";
 
 type Options = {
   /** The chat on screen; none for a new chat. */
@@ -20,6 +19,6 @@ type Options = {
  */
 export function useChatPageReconnect({ chatId, busy, refetch }: Options): void {
   useReconnectRefresh(() => {
-    if (chatId && !busy() && !chatPageReadSince(chatId, connectionLostAt())) void refetch(chatId, () => false);
-  }, () => !isDrawerOpenGlobal());
+    if (chatId && !busy()) void refetch(chatId, () => false);
+  }, { onScreen: () => !isDrawerOpenGlobal(), readAt: () => (chatId ? chatPageReadAt(chatId) : undefined) });
 }

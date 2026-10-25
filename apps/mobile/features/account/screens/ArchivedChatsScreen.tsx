@@ -17,6 +17,7 @@ import { api, type Chat } from "@/lib/api";
 import {
   fetchChatList,
   fetchMoreArchivedChats,
+  getChatListFetchedAt,
   invalidateChatListCache,
 } from "@/features/chat/model/chatListCache";
 import { notifyDestructive } from "@/lib/haptics";
@@ -42,7 +43,7 @@ export default function ArchivedChatsScreen() {
     loading,
     loadError,
     load,
-  } = useFocusedList(token, readArchivedChats);
+  } = useFocusedList(token, readArchivedChats, getChatListFetchedAt);
 
   const drop = (chat: Chat) => setChats((rows) => rows.filter((row) => row.id !== chat.id));
 

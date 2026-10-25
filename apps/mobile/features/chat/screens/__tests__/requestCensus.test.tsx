@@ -1146,6 +1146,43 @@ it("reads the list on screen again once, 0 to 10 s after an outage ends, and not
   expect(back.length).toBeLessThanOrEqual(CEILINGS["return after 10 minutes"]);
 });
 
+it("reads a list on screen as the API came back once: its own read is the reconnect's", async () => {
+  // Each spread at its middle: the loop checks 1.5, 4.5, 10.5 and 22.5 s into the outage, then at
+  // 46.5 s. The API is back at 25 s, when the user opens the list: that read lands at once.
+  const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
+  steps.length = 0;
+  mockSecure.clear();
+  mockFiles.clear();
+  mockSecure.set("recall_session_v1", JSON.stringify({ accessToken: accessToken(NOW_S + 3600), refreshToken: "r" }));
+  mockFiles.set("file:///cache/cached-user.json", JSON.stringify({
+    id: USER_ID, name: "Ann", avatar_url: null, plan: "free", ai_data_consent_at: NOW, locale: "en",
+  }));
+  mockParams = {};
+  const app = await launch();
+  await settle(10_000);
+  await openChat(app, 1);
+
+  const reads: { title: string; reads: string[] }[] = [];
+  for (const { title, show, read } of RECOVERY_CASES) {
+    if (!read) continue;
+    await showOnly(app, "settings");
+    await returnIntoOutage();
+    await settle(20_000);
+    outage = null;
+    mark = mockLog.length;
+    await show(app);
+    await settle(10_000);
+    step(`${title}: opened as the API came back`);
+    reads.push({ title, reads: steps[steps.length - 1].requests.filter((r) => read.test(r)) });
+    expect(statusChanges[statusChanges.length - 1].status).toBe("online");
+  }
+  random.mockRestore();
+  if (process.env.CENSUS) console.log(steps.map((s) => `${s.title}\n  ${s.requests.join("\n  ")}`).join("\n"));
+  // Once: on opening it, or, for a list the screen shows as it holds it, once the API is back.
+  // Before, a list read on opening was read again 0 to 10 s after the loop's check, 26.5 s later.
+  expect(reads).toEqual(reads.map(({ title }) => ({ title, reads: [expect.any(String)] })));
+});
+
 it("clears the banner at the first 200 after an outage and reads the open chat once", async () => {
   // Each spread at its middle: the reply's page lands 30 s in. The loop's check that cleared the
   // banner ran at 50 s, and the read it asked for would come 5 s later, past the page's window.

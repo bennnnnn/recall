@@ -1,5 +1,5 @@
 import { keepCachedChatPage, shouldSkipChatPageRead } from "@/features/chat/model/messageCache";
-import { chatPageReadSince, noteChatPageRead } from "@/features/chat/model/pageReads";
+import { chatPageReadAt, noteChatPageRead } from "@/features/chat/model/pageReads";
 import type { Message } from "@/lib/api";
 
 jest.mock("expo-file-system/legacy", () => ({ cacheDirectory: null }));
@@ -28,15 +28,14 @@ it("counts a read of the chat's page within the stale window, any path's, by thi
   noteChatPageRead("b");
   mockSession = 2;
   expect(await shouldSkipChatPageRead("b")).toBe(false);
-  expect(chatPageReadSince("b", 0)).toBe(false);
+  expect(chatPageReadAt("b")).toBeUndefined();
 });
 
 it("counts the page kept for the chat as this sign-in's read then", async () => {
   const since = Date.now();
   jest.advanceTimersByTime(1_000);
   keepCachedChatPage("c", [row(SAVED)], false, Date.now());
-  expect(chatPageReadSince("c", since)).toBe(false);
+  expect(chatPageReadAt("c")).toBeUndefined();
   expect(await shouldSkipChatPageRead("c")).toBe(true);
-  expect(chatPageReadSince("c", since)).toBe(true);
-  expect(chatPageReadSince("c", Date.now())).toBe(false);
+  expect(chatPageReadAt("c")).toBe(since + 1_000);
 });

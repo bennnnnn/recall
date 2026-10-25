@@ -39,7 +39,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   const alertFormat = `${i18n.language}|${userUses24HourClock() ? "h23" : "h12"}|${userTimeZone() ?? ""}`;
   const {
     todos, loading, error, loaded, retainedOpenIds, olderCompleted, showOlderCompleted, setTodos, getTodos, refresh,
-    isCurrentSession,
+    isCurrentSession, readTodosAt,
   } = list;
   useEffect(() => {
     if (!loaded || !isCurrentSession()) return;
@@ -60,11 +60,11 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   // chat screen among them) do not render along with it.
   const value = useMemo<TodosContextValue>(() => ({
     todos, loading, error, loaded, retainedOpenIds, olderCompleted, showOlderCompleted, setTodos, getTodos, refresh,
-    isCurrentSession, unseenCount, showIndicator, remindersReady, seenReminderIds, homeNudgeDismissed, markSeen,
-    markSeenIds, dismissReminderNudge, now,
+    isCurrentSession, readTodosAt, unseenCount, showIndicator, remindersReady, seenReminderIds, homeNudgeDismissed,
+    markSeen, markSeenIds, dismissReminderNudge, now,
   }), [todos, loading, error, loaded, retainedOpenIds, olderCompleted, showOlderCompleted, setTodos, getTodos,
-    refresh, isCurrentSession, unseenCount, showIndicator, remindersReady, seenReminderIds, homeNudgeDismissed,
-    markSeen, markSeenIds, dismissReminderNudge, now]);
+    refresh, isCurrentSession, readTodosAt, unseenCount, showIndicator, remindersReady, seenReminderIds,
+    homeNudgeDismissed, markSeen, markSeenIds, dismissReminderNudge, now]);
   return <TodosContext.Provider value={value}>{children}</TodosContext.Provider>;
 }
 

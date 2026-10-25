@@ -9,6 +9,11 @@ export function getCachedUsage(account: string): Usage | undefined {
   return resource.get(account);
 }
 
+/** When the account's usage last came from the server. */
+export function usageReadAt(account: string): number | undefined {
+  return resource.getFetchedAt(account);
+}
+
 export function invalidateUsageCache(): void {
   resource.clear();
 }

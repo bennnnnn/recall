@@ -6,6 +6,7 @@ import { useReadFailureReport } from "@/hooks/useReadFailureReport";
 import {
   fetchMemoryDocuments,
   getCachedMemoryDocuments,
+  memoryDocumentsReadAt,
   setMemoryDocuments,
   subscribeMemoryDocuments,
   updateMemoryDocuments,
@@ -189,6 +190,8 @@ export function useMemoryDocuments(token: string | null) {
     loading: !loaded && !data,
     error: error && !data,
     load,
+    /** When the pages last came from the server this sign-in. */
+    readAt: memoryDocumentsReadAt,
     instruct,
     deleteDocument,
     deleteFact,

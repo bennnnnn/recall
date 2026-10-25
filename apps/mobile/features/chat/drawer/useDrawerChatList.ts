@@ -196,7 +196,7 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
   }, [isDrawerOpen, account, load, hydrateFromCache]);
   // The API back after an outage: the open drawer's chats, read as opening it reads them.
   const openRef = useLatestRef(isDrawerOpen);
-  useReconnectRefresh(() => void load(), () => openRef.current);
+  useReconnectRefresh(() => void load(), { onScreen: () => openRef.current, readAt: getChatListFetchedAt });
 
   const updateGroups = useCallback((chatId: string, patch: Partial<Chat> | null, update: (previous: ChatList) => ChatList) => {
     if (!account || !current()) return;

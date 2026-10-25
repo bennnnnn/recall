@@ -23,6 +23,11 @@ export function getCachedMemoryDocuments(): MemoryDocuments | undefined {
   return resource.get(PAGES);
 }
 
+/** When the pages last came from the server this sign-in. */
+export function memoryDocumentsReadAt(): number | undefined {
+  return resource.fetchedAt(PAGES);
+}
+
 /** Replace the pages, unless the account changed since the caller's request began. */
 export function setMemoryDocuments(data: MemoryDocuments, expectedSession: number): void {
   resource.set(PAGES, data, expectedSession);
