@@ -24,8 +24,8 @@ jest.mock("@/features/chat/components/UserMessageContent", () => {
   const { Text: MockText } =
     jest.requireActual("react-native") as typeof import("react-native");
   return {
-    UserMessageContent: ({ message }: { message: Message }) => (
-      <MockText>{message.content}</MockText>
+    UserMessageContent: ({ message, actionsHint }: { message: Message; actionsHint?: string }) => (
+      <MockText accessibilityHint={actionsHint}>{message.content}</MockText>
     ),
   };
 });
@@ -232,6 +232,17 @@ describe("MessageBubble copy feedback timers", () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it("leaves a sent message's photo, file and link buttons reachable by a screen reader", async () => {
+    // iOS reads an accessible view as one element: a button inside it is never reached.
+    const view = await render(<MessageBubble message={userMessage} />);
+    const wrappers: string[] = [];
+    for (let node = view.getByText("User message").parent; node; node = node.parent) {
+      if (node.props.accessible === true) wrappers.push(String(node.props.testID ?? node.type));
+    }
+    expect(wrappers).toEqual([]);
+    expect(view.getByA11yHint("chat.user_message_actions_hint")).toBeTruthy();
   });
 
   it("opens a sent message's actions with the long-press tap every menu uses", async () => {

@@ -171,11 +171,13 @@ export const MessageBubble = React.memo(function MessageBubble({
               if (showUserActions) setShowUserActions(false);
             }}
             delayLongPress={350}
-            accessibilityHint={
-              canRevealUserActions ? t("chat.user_message_actions_hint") : undefined
-            }
+            // Open to a screen reader, so a photo, a file or a link inside stays reachable.
+            accessible={false}
           >
-            <UserMessageContent message={message} />
+            <UserMessageContent
+              message={message}
+              actionsHint={canRevealUserActions ? t("chat.user_message_actions_hint") : undefined}
+            />
           </Pressable>
           {showSendingLabel ? (
             <ActionShimmer

@@ -246,3 +246,23 @@ describe("line breaks the user typed", () => {
     expect(text).toContain("Budget range: $1,200 - $2,500\nPrimary use: Programming & development");
   });
 });
+
+describe("UserMessageContent for a screen reader", () => {
+  it("reads plain text as one element with the long-press hint", async () => {
+    const { getByA11yHint } = await render(
+      <UserMessageContent message={userMessage("Plan my week")} actionsHint="hold for actions" />,
+    );
+    expect(getByA11yHint("hold for actions").props.accessible).toBe(true);
+  });
+
+  it.each(["See [the docs](https://example.com)", "Try example.com today"])(
+    "leaves text with a link open so the link is reached: %s",
+    async (content) => {
+      const { queryByA11yHint, getByText } = await render(
+        <UserMessageContent message={userMessage(content)} actionsHint="hold for actions" />,
+      );
+      expect(queryByA11yHint("hold for actions")).toBeNull();
+      expect(getByText(/example\.com|the docs/)).toBeOnTheScreen();
+    },
+  );
+});
