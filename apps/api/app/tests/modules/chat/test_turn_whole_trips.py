@@ -17,10 +17,11 @@ part's calls, statements and Redis commands with the code that sent them.
 
 from __future__ import annotations
 
+import itertools
 import json
 import re
 import sys
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -82,6 +83,8 @@ _FIRST_UNTOLD = ("memory", "topic", "compress", "message_index")
 _NEXT_FOLDS = ("memory", "compress", "message_index")
 # Measured with the user, today's usage and the chat already known to Redis, as for
 # every message after the day's first. To update: ``pytest -s`` prints every count.
+# A turn with follow-up questions reads what its chat already showed (one GET,
+# ``related_prompts.shown_in_chat``) and writes both records in one pipeline.
 CEILINGS: dict[str, Ceiling] = {
     "greeting": Ceiling(
         Counts(sql=5, checkouts=3, transactions=3, redis=21, models=1),
@@ -89,27 +92,27 @@ CEILINGS: dict[str, Ceiling] = {
         _FIRST,
     ),
     "question": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=24, models=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=25, models=2),
         Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
         _FIRST,
     ),
     "follow-up, short chat": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=23, models=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=24, models=2),
         Counts(sql=11, checkouts=3, transactions=3, redis=16, models=1, embeds=1),
         _NEXT,
     ),
     "follow-up, long chat": Ceiling(
-        Counts(sql=8, checkouts=5, transactions=5, redis=26, models=2),
+        Counts(sql=8, checkouts=5, transactions=5, redis=27, models=2),
         Counts(sql=17, checkouts=5, transactions=5, redis=23, models=2, embeds=1),
         _NEXT_FOLDS,
     ),
     "maths": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=21, models=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=22, models=2),
         Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
         _FIRST,
     ),
     "web search": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=29, models=2, searches=1),
+        Counts(sql=5, checkouts=3, transactions=3, redis=30, models=2, searches=1),
         Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
         _FIRST,
     ),
@@ -119,7 +122,7 @@ CEILINGS: dict[str, Ceiling] = {
         _FIRST,
     ),
     "photo lookup": Ceiling(
-        Counts(sql=6, checkouts=4, transactions=4, redis=27, models=2, searches=1),
+        Counts(sql=6, checkouts=4, transactions=4, redis=28, models=2, searches=1),
         Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
         _FIRST,
     ),
@@ -129,17 +132,17 @@ CEILINGS: dict[str, Ceiling] = {
         _FIRST_UNTOLD,
     ),
     "attachment question": Ceiling(
-        Counts(sql=13, checkouts=8, transactions=8, redis=35, models=2, embeds=1),
+        Counts(sql=13, checkouts=8, transactions=8, redis=36, models=2, embeds=1),
         Counts(sql=13, checkouts=5, transactions=5, redis=25, models=2, embeds=1),
         ("attachment_index", *_FIRST),
     ),
     "regenerate": Ceiling(
-        Counts(sql=10, checkouts=3, transactions=3, redis=27, models=2),
+        Counts(sql=10, checkouts=3, transactions=3, redis=28, models=2),
         Counts(sql=14, checkouts=4, transactions=4, redis=21, models=1, embeds=1),
         _NEXT_FOLDS,
     ),
     "clarify picks": Ceiling(
-        Counts(sql=9, checkouts=7, transactions=7, redis=32, models=2, embeds=1),
+        Counts(sql=9, checkouts=7, transactions=7, redis=33, models=2, embeds=1),
         Counts(sql=11, checkouts=3, transactions=3, redis=16, models=1, embeds=1),
         _NEXT,
     ),
@@ -163,15 +166,27 @@ _LONG = (
     " and more than twelve million in the wider region. It is known for the Louvre,"
     " the Eiffel Tower and its cafes."
 )
-# What the follow-up call answers: each line names a word of ``_LONG``, so every turn
-# keeps three and none asks again.
+# What the follow-up call answers: each line names a word of ``_LONG``, so a turn keeps
+# three. Each call answers five the run has not answered yet, so a chat's later replies
+# get questions it has not shown (``follow_up_repeats``), as a model told what was shown
+# would write.
+_ANCHORS = ("Louvre", "Seine", "cafes", "government", "region", "centuries", "people", "north")
+_TOPICS = ("history", "music", "trade", "schools", "parks", "bridges", "streets", "food")
 _FOLLOW_UPS = [
-    "When was the Louvre first opened to the public?",
-    "How long is the Seine from source to sea?",
-    "Where does the national government meet?",
-    "How many million visitors come each year?",
-    "Which cafes are the most famous ones?",
+    f"How did the {anchor} shape its {topic}?" for topic in _TOPICS for anchor in _ANCHORS
 ]
+
+
+def _follow_up_answers() -> Callable[[], dict[str, list[str]]]:
+    calls = itertools.count()
+
+    def answer() -> dict[str, list[str]]:
+        start = 5 * next(calls)
+        return {"questions": [_FOLLOW_UPS[(start + i) % len(_FOLLOW_UPS)] for i in range(5)]}
+
+    return answer
+
+
 _PICKS_CARD = {
     "questions": [
         {
@@ -426,7 +441,7 @@ async def harness(
     monkeypatch.setattr(core_redis, "_connect", lambda *_a, **_k: fake)
     await engine.dispose(close=False)
 
-    ledger = Ledger(structured={"RelatedQuestions": {"questions": _FOLLOW_UPS}})
+    ledger = Ledger(structured={"RelatedQuestions": _follow_up_answers()})
     listeners = _count_sql(ledger, monkeypatch)
     _count_redis(ledger, fake, monkeypatch)
     _fake_providers(ledger, monkeypatch)

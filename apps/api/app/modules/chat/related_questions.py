@@ -18,6 +18,7 @@ from app.modules.chat.continuation_subject import (
     is_new_problem_request,
     is_pure_continuation,
 )
+from app.modules.chat.follow_up_repeats import repeats_earlier
 from app.modules.chat.prompt_constants.routing import (
     is_lightweight_chat_turn,
     is_personal_disclosure_turn,
@@ -376,21 +377,21 @@ def accepted_questions(
     raw: list[str],
     problem: str | None = None,
     anchors: set[str] | None = None,
+    earlier: Sequence[str] = (),
 ) -> list[str]:
+    """The candidates to show: short, on topic, and new to the chat. ``earlier`` is what
+    it already asked: the user's earlier lines and the questions shown before."""
     if anchors is None:
         anchors = _problem_anchors(question)
         if problem is not None and problem != question:
             anchors |= _problem_anchors(problem)
     kept: list[str] = []
-    seen: set[str] = set()
     for item in raw:
         prepared = _prepare_question(item)
         if prepared is None or not _keep_question(question, prepared, problem, anchors):
             continue
-        key = prepared.casefold()
-        if key in seen:
+        if repeats_earlier(prepared, [*earlier, *kept]):
             continue
-        seen.add(key)
         kept.append(prepared)
         if len(kept) == MAX_QUESTIONS:
             break
@@ -461,8 +462,25 @@ def follow_up_topic(
     if any(fence.lang in _AWAITS_A_TAP for fence in iter_fences(answer)):
         return None
     problem = thread_problem(question, prior)
-    if problem is not None:
+    if problem is not None and (_has_quantity(problem) or not _asks(problem)):
         return "subject", problem
+    if problem is not None and problem == question:
+        # A subject question with nothing to change ("Who was Charles?", "Why kelvin?")
+        # gets the topic's next questions, not "What if the temperature doubles?"; a line
+        # after it ("do you have a picture of him?") is judged as any question is.
+        return "general", None
     if allow_general and general_question(question, answer):
         return "general", None
     return None
+
+
+def _has_quantity(problem: str) -> bool:
+    """A number to change, or maths to vary: what a what-if is made of."""
+    return _NUMBER.search(problem) is not None or subject_for_related(problem) == "math"
+
+
+def _asks(question: str) -> bool:
+    cleaned = collapse_ws(question)
+    if not (cleaned.endswith("?") or _ASKS_TO_KNOW.match(cleaned)):
+        return False
+    return not (is_lightweight_chat_turn(cleaned) or is_personal_disclosure_turn(cleaned))

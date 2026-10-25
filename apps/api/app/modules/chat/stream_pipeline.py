@@ -99,6 +99,7 @@ async def register_and_enqueue_finalize(
                 prior=_prior_window(ctx.prompt_messages),
                 allow_general=not ctx.lightweight_turn and ctx.instant_reply is None,
                 completion=outcome.completion,
+                chat=(str(ctx.user_id), str(ctx.chat_id)),
             )
         )
     await mark_pending_finalize(redis, ctx.chat_id)
