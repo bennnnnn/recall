@@ -142,11 +142,10 @@ class _Turn:
 
     @property
     def said(self) -> str | None:
-        """What the user agreed to: their words, the offer they said yes to, and their line
-        before it ("i have a dentist appointment on thursday at 3pm")."""
+        """What the user agreed to: their words, and the offer they said yes to."""
         if self.offer is None:
             return self.user_text
-        return " ".join(part for part in (self.user_text, self.offer, self.prior_user) if part)
+        return f"{self.user_text or ''} {self.offer}".strip()
 
     def writes(self) -> ReminderWrites:
         return ReminderWrites(

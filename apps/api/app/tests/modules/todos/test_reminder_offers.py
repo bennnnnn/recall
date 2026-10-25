@@ -403,6 +403,15 @@ def test_a_reminder_block_closed_as_a_tag_keeps_the_reply_after_it(reply: str, k
         # Questions about the event, not the reminder.
         ("remind me to check in for my flight", "When is your flight scheduled to depart?"),
         ("remind me to refill my prescription", "What time do you take your pills?"),
+        # A reminding purpose after the event's question (review of the narrowed gate).
+        (
+            "remind me to prepare for my interview",
+            "Good luck! When is the interview, so I can remind you the day before?",
+        ),
+        (
+            "remind me to check in for my flight",
+            "What time does your flight leave, so I can set the reminder 24 hours before?",
+        ),
     ],
 )
 @pytest.mark.asyncio
@@ -435,24 +444,17 @@ def test_a_reply_holding_code_offers_no_reminder() -> None:
 
 
 @pytest.mark.asyncio
-async def test_a_yes_to_the_offer_asks_for_the_fence(db_session):
-    from app.core.config import get_settings
-    from app.modules.todos.prompt_context import build_todos_system_section
-    from app.modules.todos.prompt_hint import ACCEPTED_OFFER_HINT
-
-    user = await users_repo.create(
+async def test_a_yes_never_takes_a_time_nobody_said(db_session, fake_redis):
+    """The offer names no time, so the model's fence time is its own (review of `said`)."""
+    fence = (
+        "```reminder\n"
+        + json.dumps({"title": "Stretch", "due_at": _DUE.replace(hour=18).isoformat()})
+        + "\n```"
+    )
+    text, _user = await _offer_turn(
         db_session,
-        email=f"{uuid4()}@example.com",
-        name="Test User",
-        avatar_url=None,
-        google_sub=str(uuid4()),
+        fake_redis,
+        f"Sure!\n\n{fence}",
+        "Would you like me to set a reminder to stretch?",
     )
-    settings = get_settings()
-    section = await build_todos_system_section(
-        db_session, user, settings, query_text="yes", accepted_offer=True
-    )
-    assert section is not None and ACCEPTED_OFFER_HINT in section
-    plain = await build_todos_system_section(
-        db_session, user, settings, query_text="what's on my to-do list?"
-    )
-    assert plain is not None and ACCEPTED_OFFER_HINT not in plain
+    assert "```reminder_proposal" not in text

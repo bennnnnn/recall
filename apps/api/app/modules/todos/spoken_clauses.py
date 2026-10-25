@@ -95,11 +95,13 @@ async def pending_add(
     return None
 
 
-# The last reply asked when to remind, as the server does ("When should I remind you?")
-# or in the model's words ("when would you like to be reminded? (e.g., Friday at 10 AM)",
-# "What time should I set it for?"): a question near its end. "When is your exam?" and
-# "When is your flight scheduled to depart?" ask about the event.
+# The last reply asked when to remind, as the server does ("When should I remind you?") or
+# in the model's words ("when would you like to be reminded?", "What time should I set it
+# for?"): the when and the reminding in one clause of a question near its end. "When is
+# the interview, so I can remind you the day before?" asks about the event, and its answer
+# is the event's time.
 _QUESTION_RE = re.compile(r"[^.!?\n]*\?")
+_CLAUSE_RE = re.compile(r"[,;:]|\s(?:so|and|because|then)\s", re.IGNORECASE)
 _WHEN_RE = re.compile(r"\b(?:when|what time|which day|what day)\b", re.IGNORECASE)
 _TO_REMIND_RE = re.compile(r"\bremind|\breminder|\bset (?:it|that|this|one)\b", re.IGNORECASE)
 _ASKED_NEAR_END = 300
@@ -108,8 +110,9 @@ _ASKED_NEAR_END = 300
 def _asked_when(prior_assistant: str | None) -> bool:
     tail = (prior_assistant or "").rstrip()[-_ASKED_NEAR_END:]
     return any(
-        _WHEN_RE.search(question) and _TO_REMIND_RE.search(question)
+        _WHEN_RE.search(clause) and _TO_REMIND_RE.search(clause)
         for question in _QUESTION_RE.findall(tail)
+        for clause in _CLAUSE_RE.split(question)
     )
 
 
