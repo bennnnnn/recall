@@ -101,7 +101,7 @@ async def pending_add(
 # the interview, so I can remind you the day before?" asks about the event, and its answer
 # is the event's time.
 _QUESTION_RE = re.compile(r"[^.!?\n]*\?")
-_CLAUSE_RE = re.compile(r"[,;:]|\s(?:so|and|because|then)\s", re.IGNORECASE)
+_CLAUSE_RE = re.compile(r"[,;:]|\s(?:so|because|then)\s", re.IGNORECASE)
 _WHEN_RE = re.compile(r"\b(?:when|what time|which day|what day)\b", re.IGNORECASE)
 _TO_REMIND_RE = re.compile(r"\bremind|\breminder|\bset (?:it|that|this|one)\b", re.IGNORECASE)
 _ASKED_NEAR_END = 300
