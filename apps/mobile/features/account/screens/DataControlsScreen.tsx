@@ -20,7 +20,7 @@ import { api, withdrawAiDataSharing } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/errorBody";
 import { invalidateChatListCache } from "@/features/chat/model/chatListCache";
 import { writeCachedUser } from "@/lib/cachedUser";
-import { formatMonthDayYear } from "@/lib/datetime/format";
+import { formatDate } from "@/lib/datetime/format";
 import { notifyDestructive } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { alertDialog, confirmDialog } from "@/ui/overlay/dialogs";
@@ -237,7 +237,7 @@ export default function DataControlsScreen() {
           <SettingsLinkRow
             title={t("settings.ai_consent")}
             value={t("settings.ai_consent_agreed", {
-              date: formatMonthDayYear(new Date(consentAt)),
+              date: formatDate(new Date(consentAt), "monthDayYear"),
             })}
             accessibilityHint={t("settings.ai_consent_withdraw_hint")}
             busy={action.busy === "ai_consent"}

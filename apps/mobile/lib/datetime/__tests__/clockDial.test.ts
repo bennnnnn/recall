@@ -15,10 +15,10 @@ import {
   timeFromMinutes,
   to12Hour,
   touchesInnerRing,
-  uses24HourClock,
   withDayHalf,
   withTimeOfDay,
 } from "@/lib/datetime/clockDial";
+import { ensureLocale } from "@/lib/i18n";
 
 describe("pointToAngle", () => {
   it.each([
@@ -171,21 +171,14 @@ describe("time helpers", () => {
   });
 });
 
-describe("locale clock", () => {
-  it.each([
-    ["en-US", false],
-    ["de-DE", true],
-    ["fr-FR", true],
-    ["ru-RU", true],
-    ["en-GB", true],
-  ])("%s uses a 24-hour clock: %s", (locale, expected) => {
-    expect(uses24HourClock(locale)).toBe(expected);
-  });
+describe("day periods", () => {
+  afterEach(() => ensureLocale("en"));
 
-  it("reads localized day periods", () => {
-    expect(dayPeriodLabels("en-US")).toEqual({ am: "AM", pm: "PM" });
-    const spanish = dayPeriodLabels("es-ES");
-    expect(spanish.am).not.toBe("");
-    expect(spanish.pm).not.toBe(spanish.am);
+  it("reads AM and PM in the app's language", async () => {
+    expect(dayPeriodLabels()).toEqual({ am: "AM", pm: "PM" });
+    await ensureLocale("es");
+    const spanish = dayPeriodLabels();
+    expect(spanish.am.replace(/\s/g, " ")).toBe("a. m.");
+    expect(spanish.pm.replace(/\s/g, " ")).toBe("p. m.");
   });
 });

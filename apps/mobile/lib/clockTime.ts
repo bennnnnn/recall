@@ -1,3 +1,5 @@
+import { formatDate, formatTimeZoneName, userTimeZone, wallClock } from "@/lib/datetime/format";
+
 /** Local clock parts for an IANA timezone. */
 export type ClockParts = {
   hours: number;
@@ -5,73 +7,31 @@ export type ClockParts = {
   seconds: number;
   dateLabel: string;
   timeLabel: string;
-  displayTimeLabel: string;
   tzLabel: string;
 };
 
-function prefers12hClock(locale: string | undefined): boolean {
-  return (locale ?? "en").split("-")[0].toLowerCase() === "en";
-}
-
-export function resolveClockTimezone(
-  content: string,
-  fallback: string,
-): string {
+/** The zone a clock fence names on its first line, or undefined for the user's own. */
+export function resolveClockTimezone(content: string): string | undefined {
   const line = content.trim().split("\n")[0]?.trim() ?? "";
-  if (line.includes("/") && !line.includes(":")) return line;
-  return fallback.trim() || "UTC";
+  if (line.includes("/") && !line.includes(":") && formatTimeZoneName(new Date(), line)) return line;
+  return undefined;
 }
 
-export function getClockParts(
-  date: Date,
-  timeZone: string,
-  locale?: string,
-): ClockParts {
-  const timeFmt = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour: "numeric",
-    minute: "numeric",
-    second: "numeric",
-    hour12: false,
-  });
-  const dateFmt = new Intl.DateTimeFormat(locale || undefined, {
-    timeZone,
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-  const tzFmt = new Intl.DateTimeFormat(undefined, {
-    timeZone,
-    timeZoneName: "short",
-  });
-
-  const parts = timeFmt.formatToParts(date);
-  const pick = (type: Intl.DateTimeFormatPartTypes) =>
-    Number(parts.find((p) => p.type === type)?.value ?? 0);
-
-  const hours = pick("hour") % 12;
-  const minutes = pick("minute");
-  const seconds = pick("second");
-
-  const tzParts = tzFmt.formatToParts(date);
-  const tzLabel =
-    tzParts.find((p) => p.type === "timeZoneName")?.value ?? timeZone;
-
+/**
+ * The clock's hands, date, time and zone name in `timeZone` (the user's when
+ * undefined), written like every other date: the app's language and the phone's
+ * 12/24-hour setting.
+ */
+export function getClockParts(date: Date, timeZone: string | undefined): ClockParts {
+  const wall = wallClock(date, timeZone);
+  const zone = timeZone ?? userTimeZone();
   return {
-    hours,
-    minutes,
-    seconds,
-    dateLabel: dateFmt.format(date),
-    timeLabel: `${String(pick("hour")).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
-    displayTimeLabel: new Intl.DateTimeFormat(locale || undefined, {
-      timeZone,
-      hour: "numeric",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: prefers12hClock(locale),
-    }).format(date),
-    tzLabel,
+    hours: wall.hour % 12,
+    minutes: wall.minute,
+    seconds: wall.second,
+    dateLabel: formatDate(date, "fullDate", { timeZone }),
+    timeLabel: formatDate(date, "timeWithSeconds", { timeZone }),
+    tzLabel: zone ? (formatTimeZoneName(date, zone) ?? zone) : "",
   };
 }
 
