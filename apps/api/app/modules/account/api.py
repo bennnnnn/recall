@@ -37,6 +37,7 @@ from app.models.schemas import (
 from app.modules.account import export as export_service
 from app.modules.account import lifecycle as account_lifecycle
 from app.modules.account import profile as profile_service
+from app.modules.account import refresh_limit
 from app.modules.account import service as auth_service
 from app.modules.account import settings_proposal as settings_proposal_service
 from app.modules.account import tokens as tokens_service
@@ -47,10 +48,6 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 _LOGIN_RATE_LIMIT = 30
 _LOGIN_RATE_WINDOW_SECONDS = 60
-# Refresh tokens can be leaked; cap online guessing volume per IP. Separate
-# bucket from login so a burst of refreshes can't lock out fresh logins.
-_REFRESH_RATE_LIMIT = 60
-_REFRESH_RATE_WINDOW_SECONDS = 60
 
 
 async def _enforce_login_rate_limit(
@@ -177,6 +174,14 @@ async def me(user: User = Depends(get_current_user)) -> UserOut:
     return UserOut.model_validate(user)
 
 
+def _refresh_refused() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail="Too many refresh attempts. Try again shortly.",
+        headers={"Retry-After": str(refresh_limit.WINDOW_SECONDS)},
+    )
+
+
 @router.post("/refresh", response_model=AuthResponse)
 async def refresh_session(
     body: RefreshRequest,
@@ -185,20 +190,9 @@ async def refresh_session(
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> JSONResponse:
-    # Rate-limit refresh: a leaked refresh token shouldn't be hammerable
-    # online. Reuse the login throttle pattern with its own per-IP bucket.
-    allowed = await allow_request_fail_closed(
-        redis,
-        f"rate:auth:refresh:{client_ip(request, settings)}",
-        limit=_REFRESH_RATE_LIMIT,
-        window_seconds=_REFRESH_RATE_WINDOW_SECONDS,
-    )
-    if not allowed:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many refresh attempts. Try again shortly.",
-            headers={"Retry-After": str(_REFRESH_RATE_WINDOW_SECONDS)},
-        )
+    # Per account, read from the token, with a looser per-IP backstop (refresh_limit).
+    if not await refresh_limit.address_allowed(redis, request, settings):
+        raise _refresh_refused()
     cookie_refresh = web_session.cookie_value(request, web_session.REFRESH_COOKIE)
     presented = (body.refresh_token or "").strip() or cookie_refresh
     if not presented:
@@ -213,6 +207,9 @@ async def refresh_session(
                 detail="Missing refresh token",
             )
         web_session.require_web_csrf(request)
+    # After the web checks: a cross-site post cannot spend an account's refreshes.
+    if not await refresh_limit.account_allowed(redis, presented):
+        raise _refresh_refused()
     try:
         access_token, refresh_token, user = await tokens_service.refresh_token_pair(
             redis,

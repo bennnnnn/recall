@@ -122,7 +122,7 @@ export function refreshedAccount(token: string | null): User | null {
 }
 
 /**
- * A refresh the server turned away with a `Retry-After` (its per-IP limit's 429, a 503):
+ * A refresh the server turned away with a `Retry-After` (its per-account limit's 429, a 503):
  * until then a request that needs one fails with that refusal instead of asking again.
  * Each request used to ask: ten refreshes in 20 s against a limit that said "60 s".
  */
