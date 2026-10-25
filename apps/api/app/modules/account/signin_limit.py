@@ -12,14 +12,13 @@ same (``refresh_limit.py``).
   under it. A client stuck in a loop, or a Google ID token replayed from many addresses
   (it lives an hour), mints at most 10 sessions a minute. Only a valid token for that
   identity spends it, so no one can lock another person out.
-* **Per IP, 300 a minute, before the token is verified.** Ten times the old limit: a
-  lecture hall of 300 on one campus address, or a crowded carrier address at a launch
-  peak, signs in within the minute. It stays under refresh's 600 because an attempt
-  costs more: a token is verified on sign-in's two threads per machine
-  (``core/blocking.py``), against provider keys kept per process
-  (``gateways/signing_keys.py``; Google's were fetched on every verify), so one address
-  can start at most five a second. A body that fails validation never gets that far.
-  The global REST limit skips these two routes.
+* **Per IP, 600 a minute, before the token is verified**, as refresh's. Twenty times the
+  old limit: a lecture hall on one campus address, or a crowded carrier address at a
+  launch peak, signs in within the minute. It was 300 while each Google verify fetched
+  Google's certs; with provider keys kept per process (``gateways/signing_keys.py``) a
+  verify costs about 0.08 ms of CPU on sign-in's two threads per machine
+  (``core/blocking.py``), and a made-up key id at most one fetch per 30 s. A body that
+  fails validation never gets that far. The global REST limit skips these two routes.
 * **Dev login, 30 a minute per IP**, unchanged and still under the global limit: it
   verifies no token, so there is no identity to key on (the email is the caller's
   choice), and it answers loopback callers only, where no carrier NAT sits.
@@ -46,7 +45,7 @@ from app.core.rate_limit import allow_request_unless_down
 from app.modules.account.email_authority import SignInProvider
 
 PER_IDENTITY_LIMIT = 10
-PER_IP_LIMIT = 300
+PER_IP_LIMIT = 600
 DEV_PER_IP_LIMIT = 30
 WINDOW_SECONDS = 60
 
