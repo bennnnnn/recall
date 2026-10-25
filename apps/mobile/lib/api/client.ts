@@ -233,7 +233,7 @@ export async function request<T>(
       signal,
       headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
     }, allowRefresh, timeoutMs);
-    if (!response.ok) throw new ApiRequestError(response.status, await response.text());
+    if (!response.ok) throw await refusal(response);
     const data = response.status === 204 ? undefined : await response.json();
     requireSession(generation);
     return data as T;
@@ -279,7 +279,7 @@ export async function requestRevalidated<T>(
       revalidated.set(path, kept);
       return kept.data as T;
     }
-    if (!response.ok) throw new ApiRequestError(response.status, await response.text());
+    if (!response.ok) throw await refusal(response);
     const data = (await response.json()) as T;
     requireSession(generation);
     const etag = responseHeader(response, "etag");
@@ -307,7 +307,7 @@ export async function fetchExportText(
       headers: { Accept: "application/json" },
       signal: deadline,
     }, allowRefresh, EXPORT_TIMEOUT_MS);
-    if (!response.ok) throw new ApiRequestError(response.status, await response.text());
+    if (!response.ok) throw await refusal(response);
     const text = await response.text();
     requireSession(generation);
     return text;

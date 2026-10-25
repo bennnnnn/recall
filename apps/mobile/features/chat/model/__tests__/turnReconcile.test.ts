@@ -1,4 +1,5 @@
 import type { Message } from "@/lib/api";
+import { ApiRequestError } from "@/lib/api/errorBody";
 import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import {
   DROPPED_TURN_MAX_WAIT_MS,
@@ -118,6 +119,30 @@ describe("pollDroppedTurn", () => {
       fetchPage, known, stillWaiting: () => true, polls: 3, wait, random: () => draws.shift() ?? 0,
     });
     expect(wait.mock.calls.map(([ms]) => ms)).toEqual([1_500, 2_500, 2_000]);
+  });
+
+  it("waits as long as a refused poll's Retry-After asks, spread up to a quarter past it", async () => {
+    const fetchPage = jest.fn()
+      .mockRejectedValueOnce(new ApiRequestError(503, "", 5_000))
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue(before);
+    await pollDroppedTurn({ fetchPage, known, stillWaiting: () => true, polls: 3, wait, random: () => 1 });
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([DROPPED_TURN_MAX_WAIT_MS, 6_250, DROPPED_TURN_MAX_WAIT_MS]);
+  });
+
+  it("polls a server answering 503 Retry-After: 5 for 30 s five times, not fourteen", async () => {
+    let clock = 0;
+    const polledAt: number[] = [];
+    const fetchPage = jest.fn(async () => {
+      polledAt.push(clock);
+      if (clock < 30_000) throw new ApiRequestError(503, "{\"detail\":\"Service temporarily unavailable.\"}", 5_000);
+      return before;
+    });
+    await pollDroppedTurn({
+      fetchPage, known, stillWaiting: () => true, random: () => 0.5,
+      wait: async (ms) => { clock += ms; },
+    });
+    expect(polledAt.filter((at) => at < 30_000)).toHaveLength(5);
   });
 
   it("is unknown when no reload worked, and honours a shorter poll count", async () => {
