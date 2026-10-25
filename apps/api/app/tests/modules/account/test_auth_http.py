@@ -323,7 +323,7 @@ def test_dev_login():
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock(return_value=fake_resp)),
         patch(
-            "app.modules.account.signin_limit.allow_request_fail_closed",
+            "app.modules.account.signin_limit.allow_request_unless_down",
             AsyncMock(return_value=True),
         ),
     ):
@@ -346,7 +346,7 @@ def test_dev_login_refuses_what_is_not_an_email(email: str):
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock()) as login,
         patch(
-            "app.modules.account.signin_limit.allow_request_fail_closed",
+            "app.modules.account.signin_limit.allow_request_unless_down",
             AsyncMock(return_value=True),
         ),
     ):
@@ -378,14 +378,14 @@ def test_dev_login_rate_limited_returns_429():
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock()),
         patch(
-            "app.modules.account.signin_limit.allow_request_fail_closed",
+            "app.modules.account.signin_limit.allow_request_unless_down",
             AsyncMock(return_value=False),
         ),
     ):
         client = TestClient(app)
         r = client.post("/auth/dev", json={"email": "x@x.com", "name": "X"})
     assert r.status_code == 429
-    assert "Too many login attempts" in r.json()["detail"]
+    assert r.json()["detail"]["code"] == "sign_in_rate_limited"
 
 
 def test_dev_login_refuses_non_loopback_without_allow_remote():
@@ -404,7 +404,7 @@ def test_dev_login_refuses_non_loopback_without_allow_remote():
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock()) as login_dev,
         patch(
-            "app.modules.account.signin_limit.allow_request_fail_closed",
+            "app.modules.account.signin_limit.allow_request_unless_down",
             AsyncMock(return_value=True),
         ),
     ):
@@ -430,7 +430,7 @@ def test_dev_login_ignores_spoofed_loopback_forwarded_ip():
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock()) as login_dev,
         patch(
-            "app.modules.account.signin_limit.allow_request_fail_closed",
+            "app.modules.account.signin_limit.allow_request_unless_down",
             AsyncMock(return_value=True),
         ),
     ):

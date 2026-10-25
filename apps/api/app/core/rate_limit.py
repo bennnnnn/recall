@@ -2,6 +2,8 @@ import logging
 
 from redis.asyncio import Redis
 
+from app.exceptions import RedisUnavailableError
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,3 +37,19 @@ async def allow_request_fail_closed(
     except Exception:
         logger.warning("Rate limit check failed; failing closed key=%s", key, exc_info=True)
         return False
+
+
+async def allow_request_unless_down(
+    redis: Redis, key: str, *, limit: int, window_seconds: int
+) -> bool:
+    """Like ``allow_request_fail_closed``, but an outage raises ``RedisUnavailableError``.
+
+    Still closed: nothing gets through while the counter cannot be read. The caller
+    answers 503 (down, retry shortly) instead of the 429 a ``False`` makes, which told
+    someone who had tried once that they had tried too often.
+    """
+    try:
+        return await allow_request(redis, key, limit=limit, window_seconds=window_seconds)
+    except Exception as exc:
+        logger.warning("Rate limit check failed; failing closed key=%s", key, exc_info=True)
+        raise RedisUnavailableError() from exc

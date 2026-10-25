@@ -37,7 +37,7 @@ from app.models.schemas import (
 from app.modules.account import export as export_service
 from app.modules.account import lifecycle as account_lifecycle
 from app.modules.account import profile as profile_service
-from app.modules.account import refresh_limit, signin_limit
+from app.modules.account import refresh_limit, signin_limit, signin_refusals
 from app.modules.account import service as auth_service
 from app.modules.account import settings_proposal as settings_proposal_service
 from app.modules.account import tokens as tokens_service
@@ -45,15 +45,6 @@ from app.modules.account import web_session as web_session
 from app.modules.billing import subscription as subscription_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-
-def _sign_in_refused() -> HTTPException:
-    # A Redis outage answers this too: every sign-in limit fails closed.
-    return HTTPException(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        detail="Too many login attempts. Try again shortly.",
-        headers={"Retry-After": str(signin_limit.WINDOW_SECONDS)},
-    )
 
 
 @router.post("/google", response_model=AuthResponse)
@@ -64,10 +55,10 @@ async def google_login(
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> JSONResponse:
-    # A per-IP backstop before the token is verified; per identity once it is (signin_limit).
-    if not await signin_limit.address_allowed(redis, request, settings):
-        raise _sign_in_refused()
-    try:
+    with signin_refusals.refusals():
+        # A per-IP backstop before the token is verified; per identity once it is (signin_limit).
+        if not await signin_limit.address_allowed(redis, request, settings):
+            raise signin_limit.SignInLimitedError()
         auth = await auth_service.login_with_google(
             session,
             settings,
@@ -76,17 +67,6 @@ async def google_login(
             device_label=body.device_label,
             platform=body.platform,
         )
-    except signin_limit.SignInLimitedError as exc:
-        raise _sign_in_refused() from exc
-    except auth_service.GoogleAuthUnavailableError as exc:
-        # Google's certs could not be fetched: retry, don't sign the user out.
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(exc),
-            headers={"Retry-After": "5"},
-        ) from exc
-    except AuthenticationError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)
 
 
@@ -98,9 +78,9 @@ async def apple_login(
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> JSONResponse:
-    if not await signin_limit.address_allowed(redis, request, settings):
-        raise _sign_in_refused()
-    try:
+    with signin_refusals.refusals():
+        if not await signin_limit.address_allowed(redis, request, settings):
+            raise signin_limit.SignInLimitedError()
         auth = await auth_service.login_with_apple(
             session,
             settings,
@@ -111,10 +91,6 @@ async def apple_login(
             device_label=body.device_label,
             platform=body.platform,
         )
-    except signin_limit.SignInLimitedError as exc:
-        raise _sign_in_refused() from exc
-    except AuthenticationError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)
 
 
@@ -127,21 +103,21 @@ async def dev_login(
     redis: Redis = Depends(get_redis),
 ) -> JSONResponse:
     if not settings.dev_auth_enabled:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dev auth disabled")
-    # Dev auth bypasses provider token verification, so without a limit a
-    # single client can mint arbitrary accounts or credential-stuff when dev
-    # auth is on.
-    if not await signin_limit.dev_address_allowed(redis, request, settings):
-        raise _sign_in_refused()
-    # Fail-closed against a dev config accidentally exposed on a public host:
-    # refuse non-loopback callers unless the operator explicitly opted in with
-    # DEV_AUTH_ALLOW_REMOTE. Use the raw TCP peer — not client_ip() — so a
-    # spoofed Fly-Client-IP / X-Forwarded-For of 127.0.0.1 cannot bypass the
-    # guard behind a pass-through proxy.
-    peer = request.client.host if request.client is not None else ""
-    if not settings.dev_auth_allow_remote and not is_loopback_ip(peer):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    try:
+        raise signin_refusals.dev_disabled()
+    with signin_refusals.refusals():
+        # Dev auth bypasses provider token verification, so without a limit a
+        # single client can mint arbitrary accounts or credential-stuff when dev
+        # auth is on.
+        if not await signin_limit.dev_address_allowed(redis, request, settings):
+            raise signin_limit.SignInLimitedError()
+        # Fail-closed against a dev config accidentally exposed on a public host:
+        # refuse non-loopback callers unless the operator explicitly opted in with
+        # DEV_AUTH_ALLOW_REMOTE. Use the raw TCP peer — not client_ip() — so a
+        # spoofed Fly-Client-IP / X-Forwarded-For of 127.0.0.1 cannot bypass the
+        # guard behind a pass-through proxy.
+        peer = request.client.host if request.client is not None else ""
+        if not settings.dev_auth_allow_remote and not is_loopback_ip(peer):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
         auth = await auth_service.login_dev(
             session,
             settings,
@@ -151,8 +127,6 @@ async def dev_login(
             device_label=body.device_label,
             platform=body.platform,
         )
-    except AuthenticationError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)
 
 

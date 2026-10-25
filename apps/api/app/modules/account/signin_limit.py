@@ -15,16 +15,21 @@ same (``refresh_limit.py``).
 * **Per IP, 300 a minute, before the token is verified.** Ten times the old limit: a
   lecture hall of 300 on one campus address, or a crowded carrier address at a launch
   peak, signs in within the minute. It stays under refresh's 600 because an attempt
-  costs more: a Google token is checked against certs fetched from Google on every
-  verify (google-auth keeps none), on sign-in's two threads per machine
-  (``core/blocking.py``), so one address can start at most five a second. A body that
-  fails validation never gets that far. The global REST limit skips these two routes.
+  costs more: a token is verified on sign-in's two threads per machine
+  (``core/blocking.py``), against provider keys kept per process
+  (``gateways/signing_keys.py``; Google's were fetched on every verify), so one address
+  can start at most five a second. A body that fails validation never gets that far.
+  The global REST limit skips these two routes.
 * **Dev login, 30 a minute per IP**, unchanged and still under the global limit: it
   verifies no token, so there is no identity to key on (the email is the caller's
   choice), and it answers loopback callers only, where no carrier NAT sits.
 
 An identity is counted under an HMAC of it (the JWT secret, as quota carry-over does):
 the raw subject never becomes a Redis key or a log line.
+
+Each limit fails closed: while Redis is down no sign-in goes through. It raises
+``RedisUnavailableError``, answered 503 ``sign_in_unavailable`` (``signin_refusals.py``):
+the 429 it answered told people who had tried once that they had tried too often.
 """
 
 from __future__ import annotations
@@ -37,7 +42,7 @@ from redis.asyncio import Redis
 
 from app.core.client_ip import client_ip
 from app.core.config import Settings
-from app.core.rate_limit import allow_request_fail_closed
+from app.core.rate_limit import allow_request_unless_down
 from app.modules.account.email_authority import SignInProvider
 
 PER_IDENTITY_LIMIT = 10
@@ -52,7 +57,7 @@ class SignInLimitedError(Exception):
 
 async def address_allowed(redis: Redis, request: Request, settings: Settings) -> bool:
     """Counts a Google or Apple sign-in from this address: False past ``PER_IP_LIMIT``."""
-    return await allow_request_fail_closed(
+    return await allow_request_unless_down(
         redis,
         f"rate:auth:signin:ip:{client_ip(request, settings)}",
         limit=PER_IP_LIMIT,
@@ -62,7 +67,7 @@ async def address_allowed(redis: Redis, request: Request, settings: Settings) ->
 
 async def dev_address_allowed(redis: Redis, request: Request, settings: Settings) -> bool:
     """Counts a dev login from this address: False past ``DEV_PER_IP_LIMIT``."""
-    return await allow_request_fail_closed(
+    return await allow_request_unless_down(
         redis,
         f"rate:auth:dev:{client_ip(request, settings)}",
         limit=DEV_PER_IP_LIMIT,
@@ -84,7 +89,7 @@ async def require_identity(
     redis: Redis, settings: Settings, provider: SignInProvider, subject: str
 ) -> None:
     """Counts a sign-in for a verified identity; raises ``SignInLimitedError`` past the limit."""
-    allowed = await allow_request_fail_closed(
+    allowed = await allow_request_unless_down(
         redis,
         identity_key(settings, provider, subject),
         limit=PER_IDENTITY_LIMIT,
