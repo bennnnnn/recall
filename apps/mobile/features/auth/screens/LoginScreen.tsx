@@ -38,6 +38,8 @@ import { Radius } from "@/lib/radius";
 const GLASS_WHITE = "#FFFFFF";
 
 const APP_ICON = require("@/assets/images/icon.png");
+/** A 12pt link line is about 17pt tall: this makes it a 45pt target, short of the next link. */
+const LEGAL_LINK_SLOP = { top: 14, bottom: 14, left: Space.xs, right: Space.xs };
 
 const HIGHLIGHTS = [
   { icon: "graduation-cap" as const, labelKey: "login.highlight_learn" },
@@ -201,6 +203,7 @@ export default function LoginScreen() {
               onPress={() => void openAllowedUrl(getLegalTermsUrl())}
               accessibilityRole="link"
               accessibilityLabel={t("login.terms")}
+              hitSlop={LEGAL_LINK_SLOP}
             >
               <Text style={[s.link, s.linkPressable]}>{t("login.terms")}</Text>
             </Pressable>
@@ -209,6 +212,7 @@ export default function LoginScreen() {
               onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
               accessibilityRole="link"
               accessibilityLabel={t("login.privacy")}
+              hitSlop={LEGAL_LINK_SLOP}
             >
               <Text style={[s.link, s.linkPressable]}>{t("login.privacy")}</Text>
             </Pressable>

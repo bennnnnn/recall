@@ -128,6 +128,7 @@ function ChatMessageListComponent({
           hasMoreOlder ? (
             <Pressable
               style={s.loadEarlier}
+              hitSlop={{ top: 5, bottom: 5 }}
               onPress={onLoadOlder}
               disabled={loadingOlder}
               accessibilityRole="button"
@@ -145,6 +146,7 @@ function ChatMessageListComponent({
               {newerPage ? (
                 <Pressable
                   style={s.loadEarlier}
+                  hitSlop={{ top: 5, bottom: 5 }}
                   onPress={() => void newerPage.load()}
                   disabled={newerPage.loading}
                   accessibilityRole="button"

@@ -8,6 +8,7 @@ import { act } from "react";
 import { render, fireEvent } from "@testing-library/react-native";
 
 import LoginScreen from "@/features/auth/screens/LoginScreen";
+import { touchTargetHeight } from "@/lib/__tests__/support/touchTarget";
 
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
@@ -80,6 +81,9 @@ describe("LoginScreen", () => {
     expect(getByRole("link", { name: "login.privacy" })).toBeOnTheScreen();
     expect(getByText("·", { includeHiddenElements: true })).toBeTruthy();
     expect(queryByText("·")).toBeNull();
+    // A 12pt line is about 17pt tall; hitSlop makes each link a 44pt target.
+    expect(touchTargetHeight(getByRole("link", { name: "login.terms" }))).toBeGreaterThanOrEqual(44);
+    expect(touchTargetHeight(getByRole("link", { name: "login.privacy" }))).toBeGreaterThanOrEqual(44);
   });
 
   it("sends a new sign-in that has not agreed to the AI consent screen, not the chat", async () => {

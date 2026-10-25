@@ -54,7 +54,7 @@ export function DrawerHeader({
             clearButtonMode="while-editing"
             trailing={
               <Pressable
-                hitSlop={8}
+                hitSlop={{ top: 13, bottom: 13, left: 8, right: 8 }}
                 onPress={() => {
                   tap();
                   onCloseSearch();
@@ -70,7 +70,7 @@ export function DrawerHeader({
         ) : selectionMode ? (
           <View style={s.selectionHeader}>
             <Pressable
-              hitSlop={8}
+              hitSlop={11}
               onPress={() => {
                 tap();
                 onExitSelection?.();
@@ -85,7 +85,7 @@ export function DrawerHeader({
               {t("drawer.selected_count", { count: selectedCount })}
             </Text>
             <Pressable
-              hitSlop={8}
+              hitSlop={11}
               onPress={() => {
                 tap();
                 onSelectAll?.();

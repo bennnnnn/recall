@@ -177,6 +177,7 @@ function SeriesList({
           testID="graph-add-function"
           accessibilityRole="button"
           accessibilityLabel={t("rich.graph_add_function")}
+          hitSlop={{ top: 9, bottom: 9 }}
           style={styles.addBtn}
         >
           <Icon name="plus" size={IconSize.xs} color={theme.primary} />
