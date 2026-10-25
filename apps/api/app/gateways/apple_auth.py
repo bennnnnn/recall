@@ -16,6 +16,7 @@ from jwt.algorithms import RSAAlgorithm
 from app.core.config import Settings
 from app.exceptions import AuthenticationError
 from app.gateways.http_client import get_pooled_client
+from app.gateways.signing_keys import REFETCH_INTERVAL_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -47,17 +48,28 @@ def _cache_is_fresh() -> bool:
     return _jwks_cache is not None and time.time() - _jwks_fetched_at < _JWKS_TTL_SECONDS
 
 
+def _kept_keys_serve(*, force_refresh: bool) -> bool:
+    """The kept keys answer: fresh, and no refetch is due for an unknown key id.
+
+    That refetch waits ``REFETCH_INTERVAL_SECONDS`` since the last fetch (gateways/
+    signing_keys.py): a junk token naming a made-up kid forced a fetch every time.
+    """
+    if not _cache_is_fresh():
+        return False
+    return not force_refresh or time.time() - _jwks_fetched_at < REFETCH_INTERVAL_SECONDS
+
+
 async def _fetch_apple_jwks(*, force_refresh: bool = False) -> dict[str, Any]:
     global _jwks_cache, _jwks_fetched_at
     cached = _jwks_cache
-    if not force_refresh and cached is not None and _cache_is_fresh():
+    if cached is not None and _kept_keys_serve(force_refresh=force_refresh):
         return cached
 
     async with _jwks_lock:
         # Re-check inside the lock: another coroutine may have just refreshed
         # it while we were waiting, so we don't fetch a second time in a row.
         cached = _jwks_cache
-        if not force_refresh and cached is not None and _cache_is_fresh():
+        if cached is not None and _kept_keys_serve(force_refresh=force_refresh):
             return cached
         try:
             response = await get_pooled_client(_JWKS_TIMEOUT_SECONDS).get(APPLE_JWKS_URL)
@@ -79,7 +91,7 @@ async def _public_key_for_kid(kid: str) -> Any:
         if key.get("kid") == kid:
             return RSAAlgorithm.from_jwk(key)
     # Unknown kid: our cache may just be stale (Apple rotated keys since our
-    # last fetch), so force one refresh before giving up.
+    # last fetch), so force one refresh before giving up, unless one just ran.
     jwks = await _fetch_apple_jwks(force_refresh=True)
     for key in jwks.get("keys", []):
         if key.get("kid") == kid:

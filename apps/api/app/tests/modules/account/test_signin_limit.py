@@ -268,6 +268,6 @@ def test_the_identity_key_is_an_hmac_per_provider_and_secret() -> None:
 def test_the_limits_are_looser_than_the_old_and_global_ones_and_under_refresh() -> None:
     assert signin_limit.PER_IP_LIMIT > _GLOBAL_LIMIT > 30
     assert signin_limit.PER_IDENTITY_LIMIT < signin_limit.PER_IP_LIMIT
-    # A sign-in costs more than a refresh (Google's certs are fetched on every verify).
+    # A sign-in costs more than a refresh (a token verify on sign-in's two threads).
     assert signin_limit.PER_IP_LIMIT < refresh_limit.PER_IP_LIMIT
     assert signin_limit.DEV_PER_IP_LIMIT == 30

@@ -235,6 +235,8 @@ def _apple(token: str, *, keys: list[dict[str, Any]] | None = None) -> Any:
 def _sign_in_bodies() -> dict[str, dict[str, Any]]:
     """Every refusal of /auth/google, /auth/apple and /auth/dev the login screen words."""
     no_apple = Settings(apple_client_id="")
+    # Before any case keeps Apple's keys: a kid they lack refetches once per interval only.
+    apple_unavailable = _refusal(_apple(_apple_token("any-kid")))
     return {
         "sign_in_rate_limited": _refusal(_sign_in("google", address_allowed=False)),
         "sign_in_unavailable": _refusal(_sign_in("google", redis_down=True)),
@@ -249,7 +251,7 @@ def _sign_in_bodies() -> dict[str, dict[str, Any]]:
         "apple_not_configured": _refusal(_sign_in("apple", settings=no_apple)),
         "apple_token_invalid": _refusal(_apple("not-a-token", keys=[])),
         "apple_key_unknown": _refusal(_apple(_apple_token("unknown-kid"), keys=[])),
-        "apple_unavailable": _refusal(_apple(_apple_token("any-kid"))),
+        "apple_unavailable": apple_unavailable,
         "apple_email_unverified": _refusal(
             _sign_in("apple", apple={**_APPLE_PAYLOAD, "email_verified": "false"})
         ),

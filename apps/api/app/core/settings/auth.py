@@ -5,9 +5,9 @@ from pydantic import BaseModel
 
 class AuthSettings(BaseModel):
     google_client_id: str = ""
-    # Google sign-in fetches Google's signing certs on every verify. The
-    # google-auth default HTTP timeout is 120s; a slow fetch now fails fast
-    # as a 503 instead of holding the sign-in (and a worker thread).
+    # Google sign-in fetches Google's signing certs when its kept copy runs out
+    # (gateways/signing_keys.py). The google-auth default HTTP timeout is 120s; a
+    # slow fetch now fails fast as a 503 instead of holding the sign-in (and a thread).
     google_auth_timeout_seconds: float = 10.0
     apple_client_id: str = "com.recall.app"
     # Sign in with Apple key (the .p8 contents): account delete revokes the Apple grant.

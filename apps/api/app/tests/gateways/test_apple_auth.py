@@ -12,7 +12,9 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 from app.core.config import Settings
 from app.exceptions import AuthenticationError
+from app.gateways import apple_auth
 from app.gateways.apple_auth import verify_apple_id_token
+from app.gateways.signing_keys import REFETCH_INTERVAL_SECONDS
 
 RAW_NONCE = "raw-nonce-from-the-app"
 _UNSET: Any = object()
@@ -176,7 +178,7 @@ async def test_fetch_apple_jwks_force_refresh_bypasses_cache(monkeypatch: pytest
     import app.gateways.apple_auth as apple_auth
 
     monkeypatch.setattr(apple_auth, "_jwks_cache", {"keys": [{"kid": "stale"}]})
-    monkeypatch.setattr(apple_auth, "_jwks_fetched_at", time.time())
+    monkeypatch.setattr(apple_auth, "_jwks_fetched_at", time.time() - REFETCH_INTERVAL_SECONDS - 1)
 
     fresh = {"keys": [{"kid": "fresh"}]}
     client_instance = AsyncMock()
@@ -233,3 +235,56 @@ async def test_unreachable_apple_keys_are_unavailable_not_an_invalid_token(
     ):
         await verify_apple_id_token(token, Settings(apple_client_id="com.recall.app"), nonce="n")
     assert caught.value.code == "apple_unavailable"
+
+
+def _apple_keys(*jwks: dict[str, Any]) -> AsyncMock:
+    """Apple's keys endpoint on the pooled client: ``get`` answers ``jwks``."""
+    reply = AsyncMock()
+    reply.raise_for_status = lambda: None
+    reply.json = lambda: {"keys": list(jwks)}
+    return AsyncMock(get=AsyncMock(return_value=reply))
+
+
+@pytest.mark.asyncio
+async def test_100_junk_tokens_naming_unknown_key_ids_fetch_apples_keys_once():
+    """Each forced a refetch: 100 junk tokens made 101 fetches of Apple's keys."""
+    _token, kid, jwk = _make_apple_token()
+    client = _apple_keys(_jwks(kid, jwk)["keys"][0])
+    settings = Settings(apple_client_id="com.recall.app")
+    junk = [
+        jwt.encode(
+            {"sub": "x"},
+            "not-apples-key-but-thirty-two-bytes-long",
+            headers={"kid": f"made-up-{n}"},
+        )
+        for n in range(100)
+    ]
+    with patch("app.gateways.apple_auth.get_pooled_client", return_value=client):
+        for token in junk:
+            with pytest.raises(AuthenticationError, match="signing key not found"):
+                await verify_apple_id_token(token, settings, nonce=RAW_NONCE)
+    assert client.get.await_count == 1
+
+
+@pytest.mark.parametrize(
+    "fetched_seconds_ago, fetches", [(1, 0), (REFETCH_INTERVAL_SECONDS + 1, 1)]
+)
+@pytest.mark.asyncio
+async def test_a_key_apple_rotated_in_is_fetched_once_the_interval_has_passed(
+    monkeypatch: pytest.MonkeyPatch, fetched_seconds_ago: float, fetches: int
+):
+    import time
+
+    token, kid, jwk = _make_apple_token()
+    monkeypatch.setattr(apple_auth, "_jwks_cache", {"keys": [{"kid": "older-key"}]})
+    monkeypatch.setattr(apple_auth, "_jwks_fetched_at", time.time() - fetched_seconds_ago)
+    client = _apple_keys(_jwks(kid, jwk)["keys"][0])
+    settings = Settings(apple_client_id="com.recall.app")
+    with patch("app.gateways.apple_auth.get_pooled_client", return_value=client):
+        if fetches:
+            payload = await verify_apple_id_token(token, settings, nonce=RAW_NONCE)
+            assert payload["sub"] == "apple-user-1"
+        else:
+            with pytest.raises(AuthenticationError, match="signing key not found"):
+                await verify_apple_id_token(token, settings, nonce=RAW_NONCE)
+    assert client.get.await_count == fetches

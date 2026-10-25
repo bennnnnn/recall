@@ -15,10 +15,11 @@ same (``refresh_limit.py``).
 * **Per IP, 300 a minute, before the token is verified.** Ten times the old limit: a
   lecture hall of 300 on one campus address, or a crowded carrier address at a launch
   peak, signs in within the minute. It stays under refresh's 600 because an attempt
-  costs more: a Google token is checked against certs fetched from Google on every
-  verify (google-auth keeps none), on sign-in's two threads per machine
-  (``core/blocking.py``), so one address can start at most five a second. A body that
-  fails validation never gets that far. The global REST limit skips these two routes.
+  costs more: a token is verified on sign-in's two threads per machine
+  (``core/blocking.py``), against provider keys kept per process
+  (``gateways/signing_keys.py``; Google's were fetched on every verify), so one address
+  can start at most five a second. A body that fails validation never gets that far.
+  The global REST limit skips these two routes.
 * **Dev login, 30 a minute per IP**, unchanged and still under the global limit: it
   verifies no token, so there is no identity to key on (the email is the caller's
   choice), and it answers loopback callers only, where no carrier NAT sits.
