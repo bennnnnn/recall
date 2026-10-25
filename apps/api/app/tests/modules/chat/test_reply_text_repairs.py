@@ -16,7 +16,7 @@ import json
 
 import pytest
 
-from app.modules.chat.formula_fences import unfence_formulas
+from app.modules.chat.formula_fences import unfence_formulas, unwrap_code_maths
 from app.modules.chat.proper_case import restore_proper_case
 from app.modules.chat.quiz_cards import repair_quiz_fences
 
@@ -191,3 +191,35 @@ def test_code_stays_in_its_block(body: str) -> None:
     block = f"```\n{body}\n```"
     assert unfence_formulas(block) == block
     assert unfence_formulas(f"```python\n{body}\n```") == f"```python\n{body}\n```"
+
+
+@pytest.mark.parametrize(
+    ("reply", "shown"),
+    [
+        # Live 2026-10-25, a sales-tax follow-up on a car loan.
+        (
+            "First, find the total cost:\n`$14,000 + (14,000 \\times 0.07) = 14,980$`",
+            "First, find the total cost:\n$14,000 + (14,000 \\times 0.07) = 14,980$",
+        ),
+        ("so `$r = \\frac{0.0757}{12}$` a month", "so $r = \\frac{0.0757}{12}$ a month"),
+        ("`$$M = P \\frac{r}{1 - (1+r)^{-n}}$$`", "$$M = P \\frac{r}{1 - (1+r)^{-n}}$$"),
+        # Code stays code.
+        ("Where `M` is the payment.", "Where `M` is the payment."),
+        ("Run `echo $HOME` first.", "Run `echo $HOME` first."),
+        ("The variable `$x` holds it.", "The variable `$x` holds it."),
+        ("Spaced `$ a $` is no maths.", "Spaced `$ a $` is no maths."),
+        ("```python\nx = `$y$`\n```", "```python\nx = `$y$`\n```"),
+        ("Mixed `$x$ and y` stays.", "Mixed `$x$ and y` stays."),
+    ],
+)
+def test_a_maths_span_in_inline_code_is_maths(reply: str, shown: str) -> None:
+    assert unwrap_code_maths(reply, "what if sales tax is 7%") == shown
+
+
+@pytest.mark.parametrize(
+    "request_text",
+    ["how do i type a fraction in latex?", "what's the markdown for an equation?"],
+)
+def test_asked_for_the_source_every_span_stays_code(request_text: str) -> None:
+    reply = "Type `$\\frac{a}{b}$` to get a fraction."
+    assert unwrap_code_maths(reply, request_text) == reply

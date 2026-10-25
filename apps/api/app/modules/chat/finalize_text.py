@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from app.modules.chat.chart_sanitize import sanitize_chart_fences
 from app.modules.chat.clarify_card import CLARIFY_FENCE, NEVER_WITH_CARD, settle_clarify_cards
 from app.modules.chat.finalize_subjects import fallback_text
-from app.modules.chat.formula_fences import unfence_formulas
+from app.modules.chat.formula_fences import unfence_formulas, unwrap_code_maths
 from app.modules.chat.mermaid_sanitize import sanitize_mermaid_fences
 from app.modules.chat.presentation import drop_orphan_leading_answer, present_assistant_markdown
 from app.modules.chat.proper_case import restore_proper_case
@@ -119,9 +119,10 @@ def sanitize_fences(state: FinalizeState) -> str:
 
 
 def restore_case(state: FinalizeState) -> str:
-    """A formula out of its plain code block, then formulas, units and dates capitalized
-    where a casual reply wrote them lowercase."""
-    return restore_proper_case(unfence_formulas(state.text))
+    """A formula out of its plain code block or code span, then formulas, units and dates
+    capitalized where a casual reply wrote them lowercase."""
+    text = unwrap_code_maths(unfence_formulas(state.text), state.ctx.user_message_content)
+    return restore_proper_case(text)
 
 
 def present_markdown(state: FinalizeState) -> str:

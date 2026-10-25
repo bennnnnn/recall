@@ -15,7 +15,8 @@ from __future__ import annotations
 
 import re
 
-from app.services.md_fence_scan import Fence, block_end, map_fence_blocks
+from app.modules.chat.inline_code import read_inline_code_span
+from app.services.md_fence_scan import Fence, block_end, line_fences, map_fence_blocks
 
 _MAX_LINES = 3
 _MAX_CHARS = 90
@@ -62,3 +63,45 @@ def unfence_formulas(text: str) -> str:
         return lead + "\n\n".join(f"{indent}{line}" for line in lines) + tail
 
     return map_fence_blocks(text, replace)
+
+
+# A maths span the model wrapped in inline code showed its source in a grey code box
+# (2026-10-25): "`$14,000 + (14,000 \times 0.07) = 14,980$`", "`$M = 11,980 \times
+# 0.020143$`". A code span outside fenced code that is one ``$…$`` (or ``$$…$$``) span and
+# nothing else is that maths. Asked how to write it ("how do I type a fraction in LaTeX?"),
+# the source is the answer, and every code span stays.
+_DOLLAR_MATHS = re.compile(r"(\${1,2})(?!\s)[^$`\n]+(?<!\s)\1")
+_ASKS_FOR_SOURCE = re.compile(
+    r"\b(?:latex|katex|mathjax|overleaf|tex|markdown|typeset|syntax|source|code|type|write)\b",
+    re.IGNORECASE,
+)
+
+
+def unwrap_code_maths(text: str, request: str | None) -> str:
+    """Each inline code span that is only a maths span, as that maths."""
+    if "`$" not in text or (request and _ASKS_FOR_SOURCE.search(request)):
+        return text
+    lines = text.split("\n")
+    for index, (line, fence) in enumerate(zip(lines, line_fences(text), strict=True)):
+        if fence is None and "`$" in line:
+            lines[index] = _unwrapped(line)
+    return "\n".join(lines)
+
+
+def _unwrapped(line: str) -> str:
+    out: list[str] = []
+    at = 0
+    while (tick := line.find("`", at)) >= 0:
+        end = read_inline_code_span(line, tick)
+        if end is None:
+            out.append(line[at : tick + 1])
+            at = tick + 1
+            continue
+        span = line[tick:end]
+        body = span.strip("`")
+        maths = body.strip()
+        out.append(line[at:tick])
+        out.append(maths if body == maths and _DOLLAR_MATHS.fullmatch(maths) else span)
+        at = end
+    out.append(line[at:])
+    return "".join(out)
