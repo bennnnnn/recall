@@ -87,6 +87,7 @@ const SCOPED_TO_SESSION = [
   "features/todos/model/todoMutationState.ts#current",
   "lib/api/client.ts#lastRefreshed",
   "lib/api/client.ts#refreshInFlight",
+  "lib/api/client.ts#refreshRefused",
   "lib/api/client.ts#revalidated",
   "lib/productAnalytics.ts#waiting",
 ];

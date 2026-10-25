@@ -1,4 +1,4 @@
-import { ApiRequestError, readErrorBody } from "@/lib/api/errorBody";
+import { ApiRequestError, readErrorBody, readRetryAfter } from "@/lib/api/errorBody";
 import { isAbortError } from "@/lib/api/abort";
 import { abortError, serverUnreachableError, untilAborted, withDeadline } from "@/lib/api/deadline";
 import { getApiUrl } from "@/lib/config";
@@ -108,6 +108,18 @@ let refreshInFlight: { generation: number; promise: Promise<string | null> } | n
  */
 let lastRefreshed: { generation: number; token: string } | null = null;
 
+/**
+ * A refresh the server turned away with a `Retry-After` (its per-IP limit's 429, a 503):
+ * until then a request that needs one fails with that refusal instead of asking again.
+ * Each request used to ask: ten refreshes in 20 s against a limit that said "60 s".
+ */
+let refreshRefused: { generation: number; until: number; error: ApiRequestError } | null = null;
+
+/** A refused response as the error a caller throws, with its `Retry-After`. */
+async function refusal(response: Response): Promise<ApiRequestError> {
+  return new ApiRequestError(response.status, await response.text(), readRetryAfter(responseHeader(response, "retry-after")));
+}
+
 /** The token this sign-in's last refresh put in place of `token`, if it did. */
 function replacedToken(token: string, generation: number): string | null {
   const last = lastRefreshed;
@@ -122,6 +134,8 @@ function replacedToken(token: string, generation: number): string | null {
 async function refreshAccessToken(): Promise<string | null> {
   const generation = getSessionGeneration();
   if (refreshInFlight?.generation === generation) return refreshInFlight.promise;
+  const refused = refreshRefused;
+  if (refused?.generation === generation && Date.now() < refused.until) throw refused.error;
   const promise = withDeadline(AUTH_FETCH_TIMEOUT_MS, null, async (signal) => {
     const refreshToken = await getRefreshToken();
     requireSession(generation);
@@ -134,7 +148,11 @@ async function refreshAccessToken(): Promise<string | null> {
     });
     requireSession(generation);
     if (response.status === 401) return null;
-    if (!response.ok) throw new ApiRequestError(response.status, await response.text());
+    if (!response.ok) {
+      const error = await refusal(response);
+      if (error.retryAfterMs) refreshRefused = { generation, until: Date.now() + error.retryAfterMs, error };
+      throw error;
+    }
     const data = (await response.json()) as AuthResult;
     requireSession(generation);
     if (!data || typeof data.access_token !== "string" || !data.access_token ||
@@ -145,6 +163,7 @@ async function refreshAccessToken(): Promise<string | null> {
     requireSession(generation);
     if (!saved) throw new SessionChangedError();
     lastRefreshed = { generation, token: data.access_token };
+    refreshRefused = null;
     onTokenRefresh?.(data.access_token, data.user);
     return data.access_token;
   }, serverUnreachableError);
@@ -230,9 +249,9 @@ export async function request<T>(
 const MAX_REVALIDATED = 40;
 const revalidated = new Map<string, { generation: number; etag: string; data: unknown }>();
 
-function responseEtag(response: Response): string | null {
+function responseHeader(response: Response, name: string): string | null {
   // Test doubles and some transports have no headers object.
-  return typeof response.headers?.get === "function" ? response.headers.get("etag") : null;
+  return typeof response.headers?.get === "function" ? response.headers.get(name) : null;
 }
 
 export async function requestRevalidated<T>(
@@ -263,7 +282,7 @@ export async function requestRevalidated<T>(
     if (!response.ok) throw new ApiRequestError(response.status, await response.text());
     const data = (await response.json()) as T;
     requireSession(generation);
-    const etag = responseEtag(response);
+    const etag = responseHeader(response, "etag");
     revalidated.delete(path);
     if (etag) {
       revalidated.set(path, { generation, etag, data });

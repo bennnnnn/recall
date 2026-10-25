@@ -3,7 +3,8 @@
  * token at once: the server rotates the refresh token on each one, so a refresh
  * that was not needed is load at the worst moment and one more rotation to lose.
  */
-import { authorizeNativeTransfer, request, setTokenRefreshHandler, setUnauthorizedHandler } from "@/lib/api/client";
+import { ApiRequestError, authorizeNativeTransfer, request, setTokenRefreshHandler, setUnauthorizedHandler } from "@/lib/api/client";
+import { readRetryAfter } from "@/lib/api/errorBody";
 
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "http://test.local" }));
 
@@ -107,4 +108,49 @@ it("downloads with the refreshed token when a native transfer's 401 lands after 
   expect(status).toBe(200);
   expect(sent).toHaveLength(2);
   expect(server.refreshes).toBe(1);
+});
+
+it("asks for a refresh the server refused with Retry-After: 60 once in that minute, then again", async () => {
+  let refreshes = 0;
+  globalThis.fetch = jest.fn(async (url: RequestInfo | URL) => {
+    if (String(url).endsWith("/auth/refresh")) {
+      refreshes += 1;
+      await wait(30);
+      return new Response(JSON.stringify({ detail: "Too many refresh attempts. Try again shortly." }), {
+        status: 429,
+        headers: { "Retry-After": "60" },
+      });
+    }
+    return new Response("{}");
+  }) as typeof fetch;
+  const expired = jwt(Date.now() / 1000 - 10, 0);
+  const outcomes: unknown[] = [];
+  // Two requests every 2 s for 20 s, each with the expired token.
+  for (let tick = 0; tick < 10; tick++) {
+    for (const path of ["/a", "/b"]) void request(path, expired).catch((error: unknown) => outcomes.push(error));
+    await jest.advanceTimersByTimeAsync(2_000);
+  }
+  expect(refreshes).toBe(1);
+  // Each request fails as the refused refresh did.
+  expect(outcomes).toHaveLength(20);
+  expect(outcomes.every((error) => error instanceof ApiRequestError && error.status === 429)).toBe(true);
+  await jest.advanceTimersByTimeAsync(41_000);
+  void request("/c", expired).catch(() => undefined);
+  await jest.advanceTimersByTimeAsync(100);
+  expect(refreshes).toBe(2);
+});
+
+it.each([
+  ["60", 60_000],
+  ["0", 0],
+  ["86400", 300_000],
+  ["soon", null],
+  [null, null],
+])("reads Retry-After %p as %p ms", (header, ms) => {
+  expect(readRetryAfter(header)).toBe(ms);
+});
+
+it("reads a Retry-After date as the time until it", () => {
+  const now = Date.parse("2026-10-24T12:00:00Z");
+  expect(readRetryAfter("Sat, 24 Oct 2026 12:00:30 GMT", now)).toBe(30_000);
 });
