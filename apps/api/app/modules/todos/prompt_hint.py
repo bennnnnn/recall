@@ -82,3 +82,12 @@ TODO_READ_ONLY_TURN = (
     "that opens the list. Never say a to-do was added, changed, set or updated.\n"
 )
 TODO_READ_ONLY_HINT = TODO_READ_HINT + TODO_READ_ONLY_TURN + _TODO_DATES_HINT
+
+# A yes to the last reply's offer of a reminder (``offer_reply``). Live (2026-10-25): "i have
+# a dentist appointment on thursday at 3pm", "Do you want me to set a reminder for you?",
+# "yes" got "I'll set a reminder for you now!" and no fence, so nothing was offered to tap.
+ACCEPTED_OFFER_HINT = (
+    "They just said yes to your offer to set a reminder. Write its ```reminder fence now, "
+    "with the title and the day and time they gave earlier in the chat or that your offer "
+    "named. If neither gave a time, ask when instead. Do not say it is set.\n"
+)

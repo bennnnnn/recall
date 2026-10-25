@@ -14,6 +14,9 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
+from app.modules.todos.spoken_add import SpokenAdd
+from app.modules.todos.spoken_clauses import parse_spoken_adds
+
 # "Would you like me to set up that X reminder…?", "Want me to add it to your list?",
 # "Shall I remind you at 9?". The reminder is what is set, not where something goes ("add
 # error handling to the reminder service") or a thing about reminders ("a to-do list app",
@@ -68,4 +71,52 @@ def accepted_offer_in(user_text: str | None, recent: Sequence[Any] | None) -> st
         if getattr(message, "role", None) == "assistant":
             content = getattr(message, "content", None)
             return accepted_reminder_offer(user_text, content if isinstance(content, str) else None)
+    return None
+
+
+# What the offer itself names: "set up that Practice list comprehensions reminder for
+# tomorrow at 7:00 PM", "remind you to call mom at 5".
+_OFFERED = re.compile(
+    r"\b(?:set(?: up)?|add|create|schedule|make|save)\s+(?:(?:a|an|the|that|this|your)\s+)?"
+    r"(?P<title>(?:[\w'-]+\s+){1,6}?)reminders?\b(?P<when>[^?]*)",
+    re.IGNORECASE,
+)
+_REMIND_YOU = re.compile(r"\bremind you (?P<rest>(?:to|about)\b[^?]*)", re.IGNORECASE)
+_PARENS = re.compile(r"\s*\([^)]*\)")
+# The user's line the offer was about: "i have a dentist appointment on thursday at 3pm".
+_STATED = re.compile(
+    r"^\s*(?:(?:so|well|ok|okay|hey|also)[,\s]+)?(?:i(?:'ve| have)(?: got)?|i've got|there's"
+    r"|there is|i've)\s+(?:(?:a|an|the)\s+)?",
+    re.IGNORECASE,
+)
+# "my flight is on friday at 6am" is the flight, on Friday.
+_IS_WHEN = re.compile(
+    r"\s+(?:is|are|was|'s)\s+(?=(?:on|at|this|next|tomorrow|today|tonight|in)\b)", re.I
+)
+_FIRST_CLAUSE = re.compile(r"[,;]\s+|\s+(?:but|so|and i)\s+", re.IGNORECASE)
+
+
+def offered_add(offer: str, prior_user: str | None, user_timezone: str | None) -> SpokenAdd | None:
+    """The reminder a yes agreed to, with its time: from the offer's own words, or else from
+    the user's line before it.
+
+    Live (2026-10-25): after "i have a dentist appointment on thursday at 3pm" and "Do you
+    want me to set a reminder for you?", the model answered "yes" with "I'll set a reminder
+    for you now!" and no fence, three runs in three. The server reads the reminder itself.
+    """
+    plain = _PARENS.sub("", offer.replace("*", ""))
+    requests = []
+    if found := _REMIND_YOU.search(plain):
+        requests.append(f"remind me {found['rest']}")
+    if found := _OFFERED.search(plain):
+        requests.append(f"remind me to {found['title']}{found['when']}")
+    if prior_user:
+        first = _FIRST_CLAUSE.split(prior_user.strip(), maxsplit=1)[0]
+        first = _IS_WHEN.sub(" ", _STATED.sub("", first))
+        requests.append(f"remind me about {first}")
+    for request in requests:
+        adds = parse_spoken_adds(request, user_timezone=user_timezone)
+        timed = [add for add in adds if add.hour is not None or add.after_minutes is not None]
+        if len(adds) == 1 and timed:
+            return timed[0]
     return None

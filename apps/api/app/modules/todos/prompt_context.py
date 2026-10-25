@@ -12,7 +12,7 @@ from app.models.orm import TodoItem, User
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.chat_language import writes_todos_in_todo_screen
 from app.modules.todos.classification import query_implies_todos
-from app.modules.todos.prompt_hint import TODO_HINT, TODO_READ_ONLY_HINT
+from app.modules.todos.prompt_hint import ACCEPTED_OFFER_HINT, TODO_HINT, TODO_READ_ONLY_HINT
 from app.modules.todos.repository import DEFAULT_TOPIC
 from app.services import day_planning as day_planning_service
 from app.services import time_context as time_context_service
@@ -288,4 +288,6 @@ async def build_todos_system_section(
     # A turn that may only read its to-dos is never taught to write them.
     read_only = writes_todos_in_todo_screen(query_text, locale=user.locale)
     hint = TODO_READ_ONLY_HINT if read_only else TODO_HINT
+    if accepted_offer and not read_only:
+        hint = f"{hint}{ACCEPTED_OFFER_HINT}"
     return f"{hint}\n\n{block}" if block else hint
