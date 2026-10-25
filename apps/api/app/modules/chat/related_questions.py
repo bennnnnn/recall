@@ -205,10 +205,6 @@ def _problem_anchors(question: str) -> set[str]:
     return numbers | set(_CONTENT_WORD.findall(folded)) | set(_UNIT_TOKEN.findall(folded))
 
 
-def _named_words(text: str) -> set[str]:
-    return {word for word in TOPIC_WORD.findall(text.casefold()) if word not in STOP_WORDS}
-
-
 def topic_anchors(question: str, excerpt: str) -> set[str]:
     """Words that keep a general follow-up on the user's topic.
 
@@ -217,7 +213,11 @@ def topic_anchors(question: str, excerpt: str) -> set[str]:
     word counts when it has an accent ("pâte"): no English function word does. A
     question in a script without Latin letters has none, and the check stays off.
     """
-    asked = _named_words(collapse_ws(question))
+    asked = {
+        word
+        for word in TOPIC_WORD.findall(collapse_ws(question).casefold())
+        if word not in STOP_WORDS
+    }
     if not asked:
         return set()
     replied = {
@@ -272,13 +272,14 @@ _ASKS_TO_KNOW = re.compile(
     r"compare|describe|summari[sz]e|recommend|suggest|help me|ideas?|tips?|best)\b",
     re.IGNORECASE,
 )
-# A question that ends its sentence before the message ends: "hey! i'm learning python,
-# can you explain what a list comprehension is? keep it simple" (2026-10-25, no
-# follow-ups). The clause after the last comma is the question itself.
-_QUESTION_CLAUSE = re.compile(r"[^.!?,;:]*\?(?=\s|$)")
-# Two topic words: "can you believe it?" in a personal update, or "how are you?" before a
-# request, names nothing to dig into.
-_QUESTION_CLAUSE_TOPIC_WORDS = 2
+# A request to explain asks, though the message goes on after it: "hey! i'm starting to
+# learn python, can you explain what a list comprehension is? keep it simple" got no
+# follow-ups (2026-10-25). Only a request to the assistant counts: "why are mondays always
+# like this? anyway" in a vent, or "have you ever been to kyoto?" in a trip story, does not.
+_ASKS_TO_EXPLAIN = re.compile(
+    r"\b(?:can|could|would|will) you (?:please )?(?:explain|tell me|teach me|show me|describe)\b",
+    re.IGNORECASE,
+)
 # A reminder, a saved fact or a setting is done once it is done. "How do I
 # remember vocabulary?" and "best to-do list app?" are questions, not commands.
 _ADMIN_REQUEST = re.compile(
@@ -287,36 +288,33 @@ _ADMIN_REQUEST = re.compile(
     r"my settings|my preferences|turn (?:on|off)|switch (?:on|off)|call me)",
     re.IGNORECASE,
 )
-# Reading the user's own list back is admin too (2026-10-25: "ok last thing, what's on my
-# to do list right now?" got what-ifs on a falling ball, then everyday questions). "Do I
-# have to do it?" and "What's the best to-do list app?" ask about something else.
-_OWN_ITEMS = r"to-?dos?|todos?|reminders?|tasks?"
-_OWN_LIST = rf"to[- ]?do(?:s| list)?|{_OWN_ITEMS}|schedule|agenda|calendar|list"
+# Reading the To-do list back is admin too (2026-10-25: "ok last thing, what's on my to do
+# list right now?" got what-ifs on a falling ball). Only by its own names: "what's in my
+# list after this loop runs?", "what are my tasks as a bridesmaid?", "Do I have to do it?"
+# and "What's the best to-do list app?" ask something else.
+_TODO_LIST = r"to[- ]?do(?:s| list)?|reminders?|schedule"
 _READS_OWN_LIST = re.compile(
     rf"\b(?:what|anything)(?:'?s|\s+(?:is|are|else|still|left|there))*\s+(?:on|in) my "
-    rf"(?:{_OWN_LIST})\b|\b(?:show|list|read|check)(?: me)? my (?:{_OWN_LIST})\b|"
-    rf"\bwhat(?:'?s| is| are) my (?:{_OWN_LIST})\b|"
-    rf"\bdo i have (?:any(?:thing)? )?(?:{_OWN_ITEMS}|due)\b",
+    rf"(?:{_TODO_LIST})\b|\b(?:show|list|read|check)(?: me)? my (?:{_TODO_LIST})\b|"
+    rf"\bwhat(?:'?s| is| are) my (?:{_TODO_LIST})\b|"
+    r"\bdo i have (?:any(?:thing)? )?(?:to-?dos?|reminders?|due)\b",
     re.IGNORECASE,
 )
 
 
 def _asks_something(cleaned: str) -> bool:
-    """A question, or a line that asks to know: "explain", "tips for", or a question
-    that names something before the message goes on."""
+    """A question, a line that asks to know ("explain", "tips for"), or a request to
+    explain before the message goes on."""
     if cleaned.endswith("?") or _ASKS_TO_KNOW.match(cleaned):
         return True
-    return any(
-        len(_named_words(clause)) >= _QUESTION_CLAUSE_TOPIC_WORDS
-        for clause in _QUESTION_CLAUSE.findall(cleaned)
-    )
+    return _ASKS_TO_EXPLAIN.search(cleaned) is not None
 
 
 def general_question(question: str, answer: str) -> bool:
     """A real question with a full answer, outside the subjects.
 
     Small talk, a personal update, a draft the user asked for, a reminder, a read
-    of the user's own list or a setting, and a short reply get no follow-ups.
+    of the To-do list or a setting, and a short reply get no follow-ups.
     Small talk that reads like a question ("how's your day?") gets a short reply,
     which the length check catches.
     """
@@ -333,7 +331,7 @@ def general_question(question: str, answer: str) -> bool:
 
 
 def _reads_own_list(text: str) -> bool:
-    """A read of the user's own list, typed with the phone's curly apostrophe too."""
+    """A read of the To-do list, typed with the phone's curly apostrophe too."""
     return _READS_OWN_LIST.search(straighten_apostrophes(collapse_ws(text))) is not None
 
 
@@ -348,23 +346,19 @@ def follow_up_topic(
     prior: Sequence[Any] | None,
     *,
     allow_general: bool,
-    shown: Sequence[str] = (),
 ) -> tuple[str, str | None] | None:
     """("subject", problem) or ("general", None); None makes no call.
 
-    ``shown`` is what the chat offered under its last replies: one of them tapped stays
-    on the problem it was written for.
-
-    A reply that ends on a card waiting for a tap has its follow-up already: a clarify
+    A line continues a problem while its reply still works it (``thread_problem``). A reply that ends on a card waiting for a tap has its follow-up already: a clarify
     card's questions, a reminder to confirm. Suggestions under it only repeated them
-    ("What is your budget?"). A line that reads the user's own list back gets none.
+    ("What is your budget?"). A line that reads the To-do list back gets none.
     """
     if any(fence.lang in _AWAITS_A_TAP for fence in iter_fences(answer)):
         return None
     if _reads_own_list(question):
         # Nothing to dig into, and no follow-up of the problem before it.
         return None
-    problem = thread_problem(question, prior, shown)
+    problem = thread_problem(question, prior, answer)
     if problem is not None and (_has_quantity(problem) or not _asks(problem)):
         return "subject", problem
     if problem is not None and problem == question:

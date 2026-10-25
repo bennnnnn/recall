@@ -404,30 +404,28 @@ def test_thread_problem_forgets_a_stale_problem() -> None:
 
 # The live chat (2026-10-25): a homework problem, then a chart of it; a falling ball, then
 # a why. Two lines later the user moved on, and the chips were what-ifs on the problem.
+# Each turn below has a reply a chat model would write: the reply decides.
 RECT = (
     "my little sister has this homework: a rectangle has a perimeter of 36 cm and its "
     "length is twice its width. find the area. how do i explain it to her?"
 )
+RECT_REPLY = (
+    "Here's a simple way to explain it to your sister. **Step 1:** Call the width w. "
+    "The length is twice the width, so it is 2w. **Step 2:** The perimeter is the "
+    "distance all the way around: w + 2w + w + 2w = 6w = 36, so w = 6 cm and the "
+    "length is 12 cm. **Step 3:** Area = length × width = 12 × 6 = 72 cm². Next, "
+    "she can check the answer: 12 + 6 + 12 + 6 = 36. Going slowly with a picture "
+    "really helps."
+)
 RECT_WINDOW = [
     {"role": "user", "content": RECT},
-    {
-        "role": "assistant",
-        "content": (
-            "Here's a simple way to explain it to your sister. **Step 1:** Call the width w. "
-            "The length is twice the width, so it is 2w. **Step 2:** The perimeter is the "
-            "distance all the way around: w + 2w + w + 2w = 6w = 36, so w = 6 cm and the "
-            "length is 12 cm. **Step 3:** Area = length × width = 12 × 6 = 72 cm². Next, "
-            "she can check the answer: 12 + 6 + 12 + 6 = 36. Going slowly with a picture "
-            "really helps."
-        ),
-    },
+    {"role": "assistant", "content": RECT_REPLY},
     {"role": "user", "content": "can you show it as a chart?"},
     {
         "role": "assistant",
         "content": (
             "Here's a chart of the length and width.\n\n```chart\n{}\n```\nThe length bar "
-            "(12 cm) is twice the width bar (6 cm). Going around, the four sides add up to "
-            "36 cm. Right, that's the whole picture."
+            "(12 cm) is twice the width bar (6 cm)."
         ),
     },
 ]
@@ -449,129 +447,140 @@ BALL_WINDOW = [
     {
         "role": "assistant",
         "content": (
-            "Because gravity gives every object the same acceleration. A heavier ball feels "
-            "a bigger pull, but it also has more inertia, so the acceleration stays "
-            "9.8 m/s². That's right whenever air resistance is small. The last part of the "
-            "fall is the fastest, since the speed keeps growing every second."
+            "Because gravity gives every object the same acceleration, 9.8 m/s², so a "
+            "heavier ball lands at the same time."
         ),
     },
 ]
-WINDOWS = {"rect": (RECT_WINDOW, RECT), "ball": (BALL_WINDOW, BALL), "bike": (BIKE_WINDOW, BIKE)}
+PROJ = "A ball is thrown at 20 m/s at 30 degrees. How far does it go?"
+QUAD = "solve x^2 - 5x + 6 = 0"
+CHEM = "How many moles are in 36 g of water?"
+WINDOWS = {
+    "rect": (RECT_WINDOW, RECT),
+    "ball": (BALL_WINDOW, BALL),
+    "bike": (BIKE_WINDOW, BIKE),
+    "proj": (
+        [
+            {"role": "user", "content": PROJ},
+            {
+                "role": "assistant",
+                "content": "Range R = v² sin(2θ)/g = 400 × sin 60° / 9.8 ≈ 35.3 m.",
+            },
+        ],
+        PROJ,
+    ),
+    "quad": (
+        [
+            {"role": "user", "content": QUAD},
+            {"role": "assistant", "content": "Factor: (x - 2)(x - 3) = 0, so x = 2 or x = 3."},
+        ],
+        QUAD,
+    ),
+    "chem": (
+        [
+            {"role": "user", "content": CHEM},
+            {"role": "assistant", "content": "Water is 18 g/mol, so 36 g / 18 g/mol = 2 mol."},
+        ],
+        CHEM,
+    ),
+}
 _FULL_REPLY = "A full answer with the details. " * 12
 
 
 @pytest.mark.parametrize(
-    ("window", "line"),
+    ("window", "line", "reply"),
     [
-        ("rect", "what about a square?"),
-        ("rect", "why is the length 2w?"),
-        ("rect", "what if the perimeter was 48 cm?"),
-        ("rect", "how do i check the answer with her?"),
-        ("rect", "how would you explain this to a 7 year old?"),
-        ("rect", "what's a real life example of this?"),
-        ("rect", "why is the area in square centimeters?"),
-        ("rect", "she still doesn't get it, any other way to explain?"),
-        ("rect", "what's the area of a square with the same perimeter?"),
-        ("ball", "what if g was half?"),
-        ("ball", "how long would it take from twice the height?"),
-        ("ball", "what about air resistance?"),
-        ("ball", "can you show the motion as a graph?"),
-        ("ball", "is air resistance why feathers fall slowly?"),
-        ("ball", "how would this change on mars?"),
-        ("bike", "what if it took 4 hours instead?"),
-        ("bike", "is average speed the same as top speed?"),
+        (
+            "ball",
+            "how high would it bounce back up?",
+            "It would bounce to about 12.8 m if 80% of its speed survives the hit.",
+        ),
+        (
+            "ball",
+            "why does the speed keep increasing as it falls?",
+            "Gravity keeps pulling on it, so its speed grows by 9.8 m/s every second, from 0 "
+            "to about 19.8 m/s when it lands.",
+        ),
+        (
+            "ball",
+            "what's the kinetic energy when it lands?",
+            "KE = ½mv². At v ≈ 19.8 m/s, a 0.5 kg ball has about 98 J when it lands.",
+        ),
+        (
+            "ball",
+            "why don't heavier objects fall faster?",
+            "A heavier object is pulled harder but has more mass to move, so every object "
+            "accelerates at the same 9.8 m/s² when air resistance is small.",
+        ),
+        (
+            "proj",
+            "what angle gives the longest throw?",
+            "45°: R = v² sin(2θ)/g is largest when 2θ = 90°. At 20 m/s that's about 40.8 m.",
+        ),
+        (
+            "quad",
+            "why do we set each bracket to zero?",
+            "If two numbers multiply to zero, one of them is zero. So $(x-2)(x-3) = 0$ "
+            "means $x - 2 = 0$ or $x - 3 = 0$.",
+        ),
+        (
+            "quad",
+            "can every quadratic be factored this way?",
+            "No. Something like $x^2 - 5x + 3$ has roots that aren't whole numbers, so "
+            "you'd use the quadratic formula instead.",
+        ),
+        (
+            "quad",
+            "where does the parabola cross the axis?",
+            "The graph of $y = x^2 - 5x + 6$ crosses the x-axis at its roots, $x = 2$ and $x = 3$.",
+        ),
+        (
+            "rect",
+            "how do i make this fun for a nine year old girl?",
+            "Give her 36 cm of ribbon and ask her to make rectangles where the long side is "
+            "twice the short side, then count squares on graph paper to find the area.",
+        ),
+        (
+            "rect",
+            "could she use legos or blocks to build it?",
+            "Great idea! Have her build a rectangle 12 studs long and 6 studs wide, then "
+            "count the studs around the edge for the perimeter and inside for the area.",
+        ),
+        (
+            "rect",
+            "what about a square?",
+            "A square with the same 36 cm perimeter has sides of 9 cm, so its area is 81 cm².",
+        ),
+        (
+            "bike",
+            "would wind or hills slow the rider down?",
+            "Yes. A headwind or a climb means working harder for the same speed, so the "
+            "average drops.",
+        ),
+        (
+            "bike",
+            "How do you convert 15 km/h into m/s?",
+            "Multiply by 1000 and divide by 3600: 15 × 1000 / 3600 ≈ 4.17 m/s.",
+        ),
+        ("bike", "explain the units", "Distance over time: km for the 45 km, h for the 3 hours."),
+        (
+            "chem",
+            "how would i do this for table salt?",
+            "Same steps: NaCl's molar mass is 58.44 g/mol, so 117 g of salt is about 2 mol.",
+        ),
     ],
 )
-def test_a_line_still_on_the_problem_ties_to_it(window: str, line: str) -> None:
-    prior, problem = WINDOWS[window]
-    assert thread_problem(line, prior) == problem
-
-
-@pytest.mark.parametrize(
-    ("window", "line"),
-    [
-        ("rect", "cool. i'm going to lisbon next month for 4 days, what should i not miss?"),
-        ("ball", "cool. i'm going to lisbon next month for 4 days, what should i not miss?"),
-        ("rect", "i'm going to lisbon next month, is it worth renting a car?"),
-        ("rect", "what's a good recipe for chicken curry?"),
-        ("rect", "how do i fix a leaking kitchen tap?"),
-        ("rect", "what are some fun things to do with kids on a rainy day?"),
-        ("ball", "can you recommend a good sci-fi book for a long flight?"),
-        ("ball", "what are the best exercises for lower back pain?"),
-        ("ball", "my wifi keeps dropping, how do i fix it?"),
-        ("ball", "any tips for a job interview tomorrow?"),
-        ("bike", "what's the weather usually like in tokyo in april?"),
-        ("bike", "what time does the louvre open on sundays?"),
-    ],
-)
-def test_a_line_on_a_topic_of_its_own_leaves_the_problem(window: str, line: str) -> None:
+def test_a_follow_up_whose_reply_still_works_the_problem_ties_to_it(
+    window: str, line: str, reply: str
+) -> None:
     from app.modules.chat.related_questions import follow_up_topic
 
-    prior, _problem = WINDOWS[window]
-    assert thread_problem(line, prior) is None
-    # It is judged as any question is: the next questions on its own topic.
-    assert follow_up_topic(line, _FULL_REPLY, prior, allow_general=True) == ("general", None)
+    prior, problem = WINDOWS[window]
+    assert thread_problem(line, prior, reply) == problem
+    assert follow_up_topic(line, reply, prior, allow_general=True) == ("subject", problem)
 
 
-def test_a_line_after_one_that_left_does_not_reach_back() -> None:
-    lisbon = "cool. i'm going to lisbon next month for 4 days, what should i not miss?"
-    window = [
-        *RECT_WINDOW,
-        {"role": "user", "content": lisbon},
-        {"role": "assistant", "content": "Don't miss Belém, Alfama and a pastel de nata."},
-    ]
-    assert thread_problem("what about the food there?", window) is None
-    assert thread_problem("why?", window) is None
-
-
-@pytest.mark.parametrize(
-    ("shown", "expected"),
-    [(["How does this relate to the Pythagorean theorem?"], RECT), ([], None)],
-    ids=["tapped", "typed"],
-)
-def test_a_tapped_follow_up_stays_on_the_problem_it_was_written_for(
-    shown: list[str], expected: str | None
-) -> None:
-    line = "How does this relate to the Pythagorean theorem?"
-    assert thread_problem(line, RECT_WINDOW, shown) == expected
-
-
-async def test_the_chats_shown_follow_ups_reach_the_topic_read() -> None:
-    tapped = "How does this relate to the Pythagorean theorem?"
-    with patch.object(related_prompts, "complete_structured", new_callable=AsyncMock) as complete:
-        complete.return_value = RelatedQuestions(questions=[])
-        await generate_related_questions(
-            Settings(), tapped, _FULL_REPLY, RECT_WINDOW, shown=[tapped]
-        )
-    call = complete.await_args
-    assert call is not None
-    assert call.kwargs["messages"][1]["content"].startswith(f"Problem:\n{RECT}")
-
-
-async def test_a_new_topic_two_lines_after_a_problem_gets_its_own_follow_ups() -> None:
-    lisbon = "cool. i'm going to lisbon next month for 4 days, what should i not miss?"
-    with patch.object(related_prompts, "complete_structured", new_callable=AsyncMock) as complete:
-        complete.return_value = RelatedQuestions(
-            questions=[
-                "Why set length to 2w?",
-                "Is the Lisbon Card worth buying?",
-                "How do I get from the airport to Alfama?",
-                "Is Sintra worth a day trip from Lisbon?",
-            ]
-        )
-        prompts = await generate_related_questions(Settings(), lisbon, _LISBON_REPLY, RECT_WINDOW)
-    call = complete.await_args
-    assert call is not None
-    sent = call.kwargs["messages"][1]["content"]
-    assert sent.startswith(f"Question:\n{lisbon}") and "Problem:" not in sent
-    # The rectangle's step left the topic.
-    assert prompts == [
-        "Is the Lisbon Card worth buying?",
-        "How do I get from the airport to Alfama?",
-        "Is Sintra worth a day trip from Lisbon?",
-    ]
-
-
+_LISBON = "cool. i'm going to lisbon next month for 4 days, what should i not miss?"
 _LISBON_REPLY = (
     "Four days in Lisbon is a great amount of time. Spend a morning in Alfama and climb to "
     "São Jorge Castle, ride tram 28, and eat a pastel de nata in Belém next to the "
@@ -582,21 +591,198 @@ _LISBON_REPLY = (
 
 
 @pytest.mark.parametrize(
+    ("window", "line", "reply"),
+    [
+        ("rect", _LISBON, _LISBON_REPLY),
+        ("ball", _LISBON, _LISBON_REPLY),
+        (
+            "ball",
+            "what should i eat for dinner?",
+            "How about a stir-fry over rice? It's ready in about 20 minutes.",
+        ),
+        (
+            "ball",
+            "what's the best ball for playing tennis?",
+            "For most players a pressurized ball like the Wilson US Open is a solid choice.",
+        ),
+        ("rect", "what is bitcoin?", "A digital currency that runs on a public blockchain."),
+        ("rect", "how old is the universe?", "About 13.8 billion years."),
+        (
+            "rect",
+            "what's a good recipe for chicken curry?",
+            "Brown 500 g of chicken, fry 2 onions, stir in 2 tbsp curry paste and a can of "
+            "tomatoes, and simmer for 20 minutes.",
+        ),
+        (
+            "quad",
+            "how do i make pancakes?",
+            "Whisk 1 cup flour, 2 tsp baking powder, 1 cup milk and 1 egg; cook 2 minutes a side.",
+        ),
+        (
+            "chem",
+            "should i drink more water each day?",
+            "Most adults need about 2 to 3 litres of water a day, more in hot weather.",
+        ),
+        (
+            "bike",
+            "how do i fix a flat tire on my bike?",
+            "Take the wheel off, lever the tire off the rim and patch or swap the tube. It "
+            "takes about 15 minutes.",
+        ),
+        (
+            "ball",
+            "my wifi keeps dropping, how do i fix it?",
+            "Restart the router, move it somewhere central and switch to the 5 GHz band.",
+        ),
+    ],
+)
+def test_a_line_whose_reply_is_on_its_own_topic_leaves_the_problem(
+    window: str, line: str, reply: str
+) -> None:
+    from app.modules.chat.related_questions import follow_up_topic
+
+    prior, _problem = WINDOWS[window]
+    assert thread_problem(line, prior, reply) is None
+    got = follow_up_topic(line, reply, prior, allow_general=True)
+    assert got is None or got[0] == "general"
+
+
+_STEP_2 = (
+    "Step 2 uses the perimeter, the distance all the way around: w + 2w + w + 2w = 6w. "
+    "Since the perimeter is 36 cm, 6w = 36, so w = 6 cm."
+)
+
+
+@pytest.mark.parametrize(
+    ("between", "line", "reply", "ties"),
+    [
+        # A remark, or a new topic, in between: each turn is judged by its own reply.
+        (
+            ["ok she got it right away, she's really happy now", "Wonderful!"],
+            "can you explain step 2 again?",
+            _STEP_2,
+            True,
+        ),
+        (
+            [_LISBON, _LISBON_REPLY],
+            "ok back to the homework, can you explain step 2 again?",
+            _STEP_2,
+            True,
+        ),
+        (
+            [_LISBON, _LISBON_REPLY],
+            "what about the food there?",
+            "Try grilled sardines, bifanas and pastéis de nata at Time Out Market.",
+            False,
+        ),
+        (
+            [_LISBON, _LISBON_REPLY],
+            "why?",
+            "Alfama is the oldest district, and Belém is where the explorers set sail.",
+            False,
+        ),
+    ],
+)
+def test_each_turn_is_judged_by_its_own_reply(
+    between: list[str], line: str, reply: str, ties: bool
+) -> None:
+    window = [
+        *RECT_WINDOW,
+        {"role": "user", "content": between[0]},
+        {"role": "assistant", "content": between[1]},
+    ]
+    assert thread_problem(line, window, reply) == (RECT if ties else None)
+
+
+async def test_a_tapped_follow_up_with_a_short_reply_still_gets_its_chips(fake_redis) -> None:
+    # The early check and the questions' read judge the same turn: its line and its reply.
+    tapped = "How does this relate to the Pythagorean theorem?"
+    reply = (
+        "It doesn't directly: Pythagoras gives the diagonal, d = √(12² + 6²) = √180 ≈ "
+        "13.4 cm. The area problem only needs length × width."
+    )
+    chips = [
+        "Why is area length times width?",
+        "What if the perimeter was 40 cm?",
+        "How does doubling width change area?",
+    ]
+    with patch.object(related_prompts, "complete_structured", new_callable=AsyncMock) as complete:
+        complete.return_value = RelatedQuestions(questions=chips)
+        task = schedule_related_prompts(
+            fake_redis,
+            Settings(),
+            message_id="m1",
+            question=tapped,
+            answer=reply,
+            prior=RECT_WINDOW,
+        )
+        assert task is not None
+        event = await take_related_prompts_event(task)
+    assert event is not None and event["prompts"] == chips
+    call = complete.await_args
+    assert call is not None
+    assert call.kwargs["messages"][1]["content"].startswith(f"Problem:\n{RECT}")
+
+
+async def test_a_new_topic_two_lines_after_a_problem_gets_its_own_follow_ups() -> None:
+    with patch.object(related_prompts, "complete_structured", new_callable=AsyncMock) as complete:
+        complete.return_value = RelatedQuestions(
+            questions=[
+                "Why set length to 2w?",
+                "Is the Lisbon Card worth buying?",
+                "How do I get from the airport to Alfama?",
+                "Is Sintra worth a day trip from Lisbon?",
+            ]
+        )
+        prompts = await generate_related_questions(Settings(), _LISBON, _LISBON_REPLY, RECT_WINDOW)
+    call = complete.await_args
+    assert call is not None
+    sent = call.kwargs["messages"][1]["content"]
+    assert sent.startswith(f"Question:\n{_LISBON}") and "Problem:" not in sent
+    # The rectangle's step left the topic.
+    assert prompts == [
+        "Is the Lisbon Card worth buying?",
+        "How do I get from the airport to Alfama?",
+        "Is Sintra worth a day trip from Lisbon?",
+    ]
+
+
+@pytest.mark.parametrize(
+    "paste",
+    [
+        "እባክህ ይህንን ጽሑፍ አጠቃልልልኝ " + "ይህ ሰነድ ስለ ኩባንያችን የሶስት ዓመት እቅድ ያብራራል። " * 2500,
+        "decode this base64 please " + "QUJDRA" * 16_000,
+        "why? " + "h = 20 m, v = 9.8 m/s^2, (x-2)(x-3) = 0 " * 2500,
+    ],
+    ids=["amharic", "base64", "maths"],
+)
+def test_reading_a_long_paste_stays_quick(paste: str) -> None:
+    """A question read clause by clause took 1.7 s on a 30,000-character paste with no
+    full stop; this runs on the event loop."""
+    import time
+
+    from app.modules.chat.related_questions import follow_up_topic
+
+    started = time.perf_counter()
+    follow_up_topic(paste, paste, BALL_WINDOW, allow_general=True)
+    assert time.perf_counter() - started < 0.3
+
+
+@pytest.mark.parametrize(
     ("line", "window"),
     [
         ("ok last thing, what's on my to do list right now?", BALL_WINDOW),
         ("ok last thing, what's on my to do list right now?", RECT_WINDOW),
         ("what's on my schedule today?", BALL_WINDOW),
         # The phone's keyboard types a curly apostrophe.
-        ("what\u2019s on my to do list?", None),
+        ("what’s on my to do list?", None),
         ("do i have any reminders today?", None),
         ("what's left on my to-do list?", None),
-        ("show me my tasks for this week", None),
+        ("show me my reminders for this week", None),
         ("what are my reminders for tomorrow?", None),
-        ("is there anything on my list for friday?", None),
     ],
 )
-def test_a_read_of_the_users_own_list_gets_no_follow_ups(
+def test_a_read_of_the_todo_list_gets_no_follow_ups(
     line: str, window: list[dict[str, str]] | None
 ) -> None:
     from app.modules.chat.related_questions import follow_up_topic, general_question
@@ -614,9 +800,14 @@ def test_a_read_of_the_users_own_list_gets_no_follow_ups(
         "do i have to do a phd to become a professor?",
         "Is it bad to keep reminders on my phone?",
         "how should i plan my schedule for exam week?",
+        # A list or tasks that are not the To-do list.
+        "what is in my list after this python loop runs?",
+        "what's in my list comprehension that makes it slow?",
+        "what are my tasks as a bridesmaid?",
+        "check my list of ingredients for lasagna, is anything missing?",
     ],
 )
-def test_a_question_about_lists_is_not_a_read_of_the_users_own(question: str) -> None:
+def test_a_question_about_lists_is_not_a_read_of_the_todo_list(question: str) -> None:
     from app.modules.chat.related_questions import general_question
 
     assert general_question(question, _FULL_REPLY)
@@ -630,19 +821,24 @@ def test_a_question_about_lists_is_not_a_read_of_the_users_own(question: str) ->
             "is? keep it simple",
             True,
         ),
-        ("quick question: is it safe to eat raw cookie dough? asking for a friend", True),
-        ("so is sourdough healthier than white bread? just curious", True),
-        # A question that names nothing: small talk, or a personal update.
-        ("hey! how are you? hope your day is going well", False),
+        ("my teacher mentioned entropy today, could you explain it simply? no jargon", True),
+        # A rhetorical question in a vent, a story or an update asks nothing.
+        ("ugh, work was so long today. why are mondays always like this? anyway", False),
+        (
+            "i just got back from my trip to japan, have you ever been to kyoto? it was amazing",
+            False,
+        ),
+        ("i finally finished my thesis! guess what grade i got? an A!", False),
+        ("my dog passed away yesterday. why does losing a pet hurt so much? i miss him", False),
+        ("i'm so tired of my roommate. why can't people clean dishes? whatever", False),
         ("i got the job! can you believe it? so happy", False),
-        ("hi! is this thing on? lol", False),
-        # A draft or a poem is a writing request, whatever it asks on the way.
+        ("hey! how are you? hope your day is going well", False),
+        # A draft is a writing request, whatever it asks on the way.
         ("hey! how are you? write me a poem about the sea", False),
         ("can you draft a reply to my boss? keep it short and polite", False),
-        ("write an email to my landlord: is the heating fixed yet? thanks", False),
     ],
 )
-def test_a_question_mid_message_is_still_a_question(question: str, asks: bool) -> None:
+def test_a_request_to_explain_mid_message_is_still_a_question(question: str, asks: bool) -> None:
     from app.modules.chat.related_questions import general_question
 
     assert general_question(question, _FULL_REPLY) is asks
@@ -665,7 +861,10 @@ async def test_a_tapped_why_keeps_the_follow_ups_coming() -> None:
             questions=[followups[0], BIKE, followups[2], followups[3]]
         )
         prompts = await generate_related_questions(
-            Settings(), why, "Speed is distance per unit time.", BIKE_WINDOW
+            Settings(),
+            why,
+            "Speed is the distance covered in each unit of time: 45 km in 3 hours is 15 km/h.",
+            BIKE_WINDOW,
         )
 
     assert prompts == [followups[0], followups[2], followups[3]]

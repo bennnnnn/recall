@@ -76,7 +76,7 @@ async def generate_related_questions(
     """Up to three short follow-up questions about what the user asked.
 
     None repeats what the chat already asked: the user's earlier lines, or the questions
-    ``shown`` under earlier replies. One of those tapped stays on the problem it was for.
+    ``shown`` under earlier replies.
     """
     # The subject readers parse with SymPy: read them in the pool, never on the loop.
     topic = await read_off_loop(
@@ -85,7 +85,6 @@ async def generate_related_questions(
         answer,
         role_content_dicts(prior or []),
         allow_general=allow_general,
-        shown=tuple(shown),
         timeout=settings.subject_read_timeout_seconds,
     )
     if topic is None:
@@ -325,8 +324,6 @@ def schedule_related_prompts(
     """
     if completion not in (None, "complete") or not collapse_ws(answer):
         return None
-    # Without the questions the chat showed (they are read from Redis with the questions),
-    # a tapped one that reads as a new topic passes here as a general question.
     if _read_by_the_turn(question, prior) and (
         follow_up_topic(question, answer, prior, allow_general=allow_general) is None
     ):

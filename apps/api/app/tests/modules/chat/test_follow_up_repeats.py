@@ -85,6 +85,16 @@ def test_a_reworded_question_repeats_the_earlier_one(candidate: str, earlier: li
         ("How can 4 + 3 also make 7?", ["Why does 3 + 4 equal 7?"]),
         # A pronoun may stand for anything: "it" is not the feather.
         ("Why does the feather fall slower?", ["Why does it fall?"]),
+        # Numbers in order, with their sign, root, fraction and unit (review, 2026-10-25).
+        ("What if the slope was 3/2?", ["What if the slope was 2/3?"]),
+        ("What if the ratio was 3:2?", ["What if the ratio was 2:3?"]),
+        ("What if the slope was 1/2?", ["What if the slope was 2?"]),
+        ("What if the speed was \u22125 m/s?", ["What if the speed was 5 m/s?"]),
+        ("What if x were \u221a2?", ["What if x were 2?"]),
+        ("What if the speed was 5 km/h?", ["What if the speed was 5 m/s?"]),
+        ("What if the temperature was 300 K?", ["What if the temperature was 300 °C?"]),
+        ("What if the mass was 2 kg?", ["What if the mass was 2 g?"]),
+        ("What if the loan was $10,000?", ["What if the loan was $10,000 over 5 years?"]),
     ],
 )
 def test_a_new_question_is_not_a_repeat(candidate: str, earlier: list[str]) -> None:

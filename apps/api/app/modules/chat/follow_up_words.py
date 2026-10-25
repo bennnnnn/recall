@@ -1,9 +1,10 @@
 """The words that say what a line is about, for the follow-up rules.
 
 ``related_questions`` keeps a general follow-up on the user's topic with them, and
-``follow_up_thread`` tells a line still on a problem from one that names a topic of its
-own. Both read a topic word the same way: four Latin letters or more, accents included,
-and not a word every question uses.
+``follow_up_ground`` tells a reply still on a problem from one on a topic of its own. Both
+read a topic word the same way: four Latin letters or more, accents included, and not a
+word every question uses. ``follow_up_repeats`` and ``follow_up_ground`` read the unit
+after a number the same way too.
 """
 
 from __future__ import annotations
@@ -67,4 +68,8 @@ STOP_WORDS = frozenset(
         "would",
         "your",
     }
+)
+# Short words written after a number that are no unit: "$80 is $20", "48 and 60".
+NOT_UNITS = frozenset(
+    "a an and are as at be by for from if in is it of on or per so the to was".split()
 )
