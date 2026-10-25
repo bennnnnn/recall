@@ -268,6 +268,22 @@ describe("ChatComposer math keyboard", () => {
     });
   });
 
+  it("leaves the text field its own screen-reader element", async () => {
+    // iOS reads an accessible view as one element and hides what is inside it: a text
+    // field under one would be read as a role-less "Message" with no draft and no editing.
+    const { getByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
+    const input = getByTestId("chat-composer-input");
+    const wrappers: string[] = [];
+    for (let node = input.parent; node; node = node.parent) {
+      if (node.props.accessible === true) wrappers.push(node.props.testID ?? String(node.type));
+    }
+    expect(wrappers).toEqual([]);
+  });
+
   it("grows the field when a leading Return adds a line", async () => {
 
     const { getByTestId } = await render(
