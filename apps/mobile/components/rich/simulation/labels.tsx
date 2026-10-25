@@ -47,6 +47,7 @@ function mixColor(a: string, b: string, amount: number): string {
   const to = parse(b);
   if (!from || !to) return withAlpha(b, amount);
   const mixed = from.map((channel, i) => Math.round(channel + (to[i] - channel) * amount));
+  // eslint-disable-next-line no-restricted-syntax -- builds one opaque colour from two theme colours, as withAlpha builds a tint
   return `rgb(${mixed[0]}, ${mixed[1]}, ${mixed[2]})`;
 }
 

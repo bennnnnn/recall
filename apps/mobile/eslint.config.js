@@ -70,6 +70,90 @@ const DOMAIN_LIB_LEAF = [
   },
 ];
 
+/**
+ * Domain graphics (math layout, diagrams, plots) and the type scale itself keep raw
+ * numbers and colors. Everything else uses lib/type, lib/space, lib/radius and
+ * the theme.
+ */
+const RAW_DESIGN_VALUES_ALLOWED = [
+  "lib/vendor/**",
+  "lib/math/**",
+  "components/rich/geometry/**",
+  "components/rich/FunctionGraphBlock.tsx",
+  "components/rich/InteractiveFunctionPlot.tsx",
+  "features/chat/components/MathDraftPreview.tsx",
+  "lib/graphic.ts",
+  // Vega specs for the chart WebView: a pie slice's label is Vega text, not React Native.
+  "lib/chartPresentation.ts",
+  "lib/type.ts",
+];
+
+const DESIGN_TOKEN_RULES = [
+  {
+    selector: "Property[key.name='fontSize'][value.raw=/^\\d/]",
+    message:
+      "Use a Type role from lib/type.ts. Raw font sizes belong in that file, or in domain graphics.",
+  },
+  {
+    selector: "Property[key.name='fontWeight']",
+    message:
+      "Use Weight from lib/type.ts (`...Weight.bold`). It switches to the matching Source Sans file; a bare fontWeight draws fake bold on Android.",
+  },
+  {
+    selector:
+      "Property[key.name=/^(padding|margin|gap|paddingHorizontal|paddingVertical|marginHorizontal|marginVertical|paddingTop|paddingBottom|paddingLeft|paddingRight|marginTop|marginBottom|marginLeft|marginRight|rowGap|columnGap)$/][value.raw=/^(?!0$|1$|2$)\\d*\\.?\\d+$/]",
+    message: "Use a Space token from lib/space.ts. 0, 1, and 2 may stay raw.",
+  },
+  {
+    selector:
+      "Property[key.name=/^(borderRadius|borderTopLeftRadius|borderTopRightRadius|borderBottomLeftRadius|borderBottomRightRadius|borderTopStartRadius|borderTopEndRadius|borderBottomStartRadius|borderBottomEndRadius)$/][value.raw=/^(?!0$|1$|2$)\\d*\\.?\\d+$/]",
+    message: "Use a Radius token from lib/radius.ts. 0, 1, and 2 may stay raw.",
+  },
+];
+
+/**
+ * A color written as a value, wherever it sits: a style key, a JSX prop
+ * (`<ActivityIndicator color="#FFFFFF">`, `fill`, `placeholderTextColor`), a
+ * module constant or a ternary branch. Named inks and rgb()/hsl() strings
+ * count too. A color built in a template string breaks on a token that is
+ * already rgba(); use withAlpha.
+ */
+const RAW_COLOR_RULES = [
+  {
+    selector: "Literal[value=/^(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|(rgb|hsl)a?\\(.*)$/]",
+    message:
+      "Use a theme color (withAlpha for a tint). Neutral shadow ink is SHADOW_COLOR in lib/shadow.ts; palettes are listed in eslint.config.js.",
+  },
+  {
+    selector: "Literal[value=/^(white|black|red|green|blue|gray|grey|silver|yellow|orange|purple|pink)$/i]",
+    message: "Use a theme color. A named ink stays the same in dark mode.",
+  },
+  {
+    selector: "TemplateLiteral[quasis.0.value.raw=/^(#[0-9a-fA-F]{0,6}|(rgb|hsl)a?\\(\\s*)$/]",
+    message: "Use a theme color, or withAlpha(theme.x, alpha) for a tint.",
+  },
+  {
+    selector: "TemplateLiteral[quasis.length=2][quasis.0.value.raw=''][quasis.1.value.raw=/^[0-9a-fA-F]{2}$/]",
+    message: "Use withAlpha(theme.x, alpha). A hex alpha suffix breaks on a token that is already rgba().",
+  },
+];
+
+/** Palettes and drawn data keep their own colors. */
+const RAW_COLORS_ALLOWED = [
+  "lib/theme.ts",
+  "lib/accent.ts",
+  "lib/shadow.ts",
+  // Syntax colors, one set per scheme.
+  "lib/codeHighlight.ts",
+  // Scene data: CPK atom colors, the fluid tint.
+  "lib/chemistry/**",
+  "lib/physics/**",
+  // Light defaults for the document handed to the system browser.
+  "lib/openHtmlPreview.ts",
+  // Mask luminance: white keeps the shape, black cuts the mark out.
+  "ui/icons/custom.tsx",
+];
+
 module.exports = defineConfig([
   expoConfig,
   {
@@ -146,53 +230,13 @@ module.exports = defineConfig([
   },
   {
     files: ["**/*.{ts,tsx}"],
-    // Domain graphics (math layout, diagrams, plots) and the type scale itself
-    // keep raw numbers. Everything else uses lib/type, lib/space, lib/radius and
-    // the theme.
-    ignores: [
-      "**/__tests__/**",
-      "**/*.test.ts",
-      "**/*.test.tsx",
-      "lib/vendor/**",
-      "lib/math/**",
-      "components/rich/geometry/**",
-      "components/rich/FunctionGraphBlock.tsx",
-      "components/rich/InteractiveFunctionPlot.tsx",
-      "features/chat/components/MathDraftPreview.tsx",
-      "lib/graphic.ts",
-      // Vega specs for the chart WebView: a pie slice's label is Vega text, not React Native.
-      "lib/chartPresentation.ts",
-      "lib/type.ts",
-    ],
-    rules: {
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector: "Property[key.name='fontSize'][value.raw=/^\\d/]",
-          message:
-            "Use a Type role from lib/type.ts. Raw font sizes belong in that file, or in domain graphics.",
-        },
-        {
-          selector: "Property[key.name='fontWeight']",
-          message:
-            "Use Weight from lib/type.ts (`...Weight.bold`). It switches to the matching Source Sans file; a bare fontWeight draws fake bold on Android.",
-        },
-        {
-          selector:
-            "Property[key.name=/^(padding|margin|gap|paddingHorizontal|paddingVertical|marginHorizontal|marginVertical|paddingTop|paddingBottom|paddingLeft|paddingRight|marginTop|marginBottom|marginLeft|marginRight|rowGap|columnGap)$/][value.raw=/^(?!0$|1$|2$)\\d*\\.?\\d+$/]",
-          message: "Use a Space token from lib/space.ts. 0, 1, and 2 may stay raw.",
-        },
-        {
-          selector:
-            "Property[key.name=/^(borderRadius|borderTopLeftRadius|borderTopRightRadius|borderBottomLeftRadius|borderBottomRightRadius|borderTopStartRadius|borderTopEndRadius|borderBottomStartRadius|borderBottomEndRadius)$/][value.raw=/^(?!0$|1$|2$)\\d*\\.?\\d+$/]",
-          message: "Use a Radius token from lib/radius.ts. 0, 1, and 2 may stay raw.",
-        },
-        {
-          selector:
-            "Property[key.name=/^(color|backgroundColor|borderColor|shadowColor|tintColor)$/][value.raw=/^['\"]#/]",
-          message: "Use a theme color. Neutral shadow ink is SHADOW_COLOR in lib/shadow.ts.",
-        },
-      ],
-    },
+    ignores: [...TEST_FILES, ...RAW_DESIGN_VALUES_ALLOWED],
+    rules: { "no-restricted-syntax": ["error", ...DESIGN_TOKEN_RULES, ...RAW_COLOR_RULES] },
+  },
+  {
+    // Palettes keep their colors and still take the size, spacing and radius tokens.
+    files: RAW_COLORS_ALLOWED,
+    ignores: [...TEST_FILES, ...RAW_DESIGN_VALUES_ALLOWED],
+    rules: { "no-restricted-syntax": ["error", ...DESIGN_TOKEN_RULES] },
   },
 ]);

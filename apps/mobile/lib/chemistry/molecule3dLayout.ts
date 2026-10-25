@@ -44,6 +44,9 @@ const ELEMENTS: Record<string, ElementLook> = {
 
 const UNKNOWN: ElementLook = { fill: "#c45c9a", radius: 0.7 };
 
+/** Near-black ink: the rim drawn around every atom, and the label on a light fill. */
+export const ATOM_INK = "#1a1a1a";
+
 function look(element: string): ElementLook {
   return ELEMENTS[element] ?? UNKNOWN;
 }
@@ -53,7 +56,7 @@ export function atomColor(element: string): string {
 }
 
 export function atomLabelColor(element: string): string {
-  return look(element).lightFill ? "#1a1a1a" : "#fff";
+  return look(element).lightFill ? ATOM_INK : "#fff";
 }
 
 /** Stroke width of a bond line in this style. */

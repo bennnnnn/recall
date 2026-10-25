@@ -13,6 +13,7 @@ import { CopyButton } from "@/components/CopyButton";
 import { MoleculeCaption, MoleculeNote } from "@/components/rich/MoleculeChrome";
 import { MoleculeRotateModal } from "@/components/rich/MoleculeRotateModal";
 import {
+  ATOM_INK,
   atomColor,
   atomLabelColor,
   bondStrokeWidth,
@@ -97,7 +98,7 @@ function SvgMoleculeCanvas({
         const atom = laidOut.atoms[item.index]!;
         return (
           <G key={`atom-${atom.index}`}>
-            <Circle cx={atom.x} cy={atom.y} r={atom.radius + 1.75} fill="#1a1a1a" />
+            <Circle cx={atom.x} cy={atom.y} r={atom.radius + 1.75} fill={ATOM_INK} />
             <Circle cx={atom.x} cy={atom.y} r={atom.radius} fill={atomColor(atom.element)} />
             {showsAtomLabel(style) ? (
               <SvgText
