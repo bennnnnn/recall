@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 
 import { useAccountSession } from "@/contexts/accountSession";
+import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
 import type { Usage } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import {
@@ -85,6 +86,8 @@ export function useUsage() {
   }, [account]);
   // The usage cache reads again past FOREGROUND_STALE_MS.usage.
   useOnForeground(() => void refresh(), Boolean(account));
+  // The API back after an outage: read again while the screen has focus.
+  useReconnectRefresh(() => void refresh());
 
   const isCurrentState = state.account === account && state.generation === generation;
   return {
