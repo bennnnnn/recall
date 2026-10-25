@@ -24,8 +24,8 @@ jest.mock("@/features/chat/components/UserMessageContent", () => {
   const { Text: MockText } =
     jest.requireActual("react-native") as typeof import("react-native");
   return {
-    UserMessageContent: ({ message }: { message: Message }) => (
-      <MockText>{message.content}</MockText>
+    UserMessageContent: ({ message, actionsHint }: { message: Message; actionsHint?: string }) => (
+      <MockText accessibilityHint={actionsHint}>{message.content}</MockText>
     ),
   };
 });
@@ -234,6 +234,17 @@ describe("MessageBubble copy feedback timers", () => {
     jest.useRealTimers();
   });
 
+  it("leaves a sent message's photo, file and link buttons reachable by a screen reader", async () => {
+    // iOS reads an accessible view as one element: a button inside it is never reached.
+    const view = await render(<MessageBubble message={userMessage} />);
+    const wrappers: string[] = [];
+    for (let node = view.getByText("User message").parent; node; node = node.parent) {
+      if (node.props.accessible === true) wrappers.push(String(node.props.testID ?? node.type));
+    }
+    expect(wrappers).toEqual([]);
+    expect(view.getByA11yHint("chat.user_message_actions_hint")).toBeTruthy();
+  });
+
   it("opens a sent message's actions with the long-press tap every menu uses", async () => {
     const view = await render(<MessageBubble message={userMessage} />);
     await fireEvent(view.getByA11yHint("chat.user_message_actions_hint"), "longPress");
@@ -286,6 +297,18 @@ describe("MessageBubble copy feedback timers", () => {
     });
     expect(clearSpy).toHaveBeenCalled();
     clearSpy.mockRestore();
+  });
+
+  it("tells a screen reader which rating is on and that a reply is being read", async () => {
+    const rated = { ...assistantMessage, feedback: "up" } as Message;
+    const view = await render(<MessageBubble message={rated} />);
+    expect(view.getByLabelText("chat.thumbs_up_a11y").props.accessibilityState).toMatchObject({ selected: true });
+    expect(view.getByLabelText("chat.thumbs_down_a11y").props.accessibilityState).toMatchObject({ selected: false });
+
+    jest.mocked(speakPlainText).mockImplementationOnce(() => new Promise(() => {}));
+    expect(view.getByLabelText("chat.read_aloud_a11y").props.accessibilityState).toMatchObject({ selected: false });
+    await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
+    expect(view.getByLabelText("chat.read_aloud_a11y").props.accessibilityState).toMatchObject({ selected: true });
   });
 
   describe("read aloud", () => {

@@ -74,6 +74,8 @@ export function SegmentedControl<K extends string>({
           <Pressable
             key={segment.key}
             style={s.segment}
+            // 40pt segment in a 4pt-padded track: the track's edge is the 44pt target's.
+            hitSlop={{ top: 2, bottom: 2 }}
             onPress={() => {
               if (selected) return;
               selection();

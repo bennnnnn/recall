@@ -69,7 +69,7 @@ export function SearchField({
           accessibilityRole="button"
           accessibilityLabel={clearAccessibilityLabel}
           testID={clearTestID}
-          hitSlop={8}
+          hitSlop={{ top: 12, bottom: 12, left: Space.xs, right: Space.xs }}
         >
           <Icon name="close-circle" size={IconSize.sm} color={theme.textTertiary} />
         </Pressable>

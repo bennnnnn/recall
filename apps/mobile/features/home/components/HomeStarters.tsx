@@ -35,7 +35,7 @@ function OverdueReminderRow({
 
   return (
     <View style={s.urgentBlock}>
-      <Text style={[s.sectionLabel, s.sectionLabelUrgent]}>{t("chat.home.overdue")}</Text>
+      <Text style={[s.sectionLabel, s.sectionLabelUrgent]} accessibilityRole="header">{t("chat.home.overdue")}</Text>
       <View style={s.urgentCardWrap}>
         <Pressable
           style={[s.urgentCard, s.urgentCardOverdue]}
@@ -123,7 +123,7 @@ export function HomeStarters({ composerActive }: Props) {
 
   return (
     <View style={s.wrap}>
-      <Text style={s.greeting}>{homeGreeting(user?.name)}</Text>
+      <Text style={s.greeting} accessibilityRole="header">{homeGreeting(user?.name)}</Text>
 
       {overdueTodo ? (
         <OverdueReminderRow

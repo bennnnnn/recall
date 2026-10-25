@@ -333,6 +333,7 @@ function YearGrid({
               <Pressable
                 key={year}
                 onPress={() => onPick(year)}
+                hitSlop={{ top: 4, bottom: 4 }}
                 style={[s.year, year === current && !isSelected && s.yearCurrent, isSelected && s.yearSelected]}
                 accessibilityRole="button"
                 accessibilityState={{ selected: isSelected }}

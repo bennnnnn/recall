@@ -53,7 +53,7 @@ export function SheetFormHeader({
           {cancelLabel}
         </Text>
       </Pressable>
-      <Text style={s.title} numberOfLines={1}>
+      <Text style={s.title} numberOfLines={1} accessibilityRole="header">
         {title}
       </Text>
       <Pressable

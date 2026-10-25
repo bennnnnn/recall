@@ -39,6 +39,8 @@ import { Radius } from "@/lib/radius";
 const GLASS_WHITE = "#FFFFFF";
 
 const APP_ICON = require("@/assets/images/icon.png");
+/** A 12pt link line is about 17pt tall: this makes it a 45pt target, short of the next link. */
+const LEGAL_LINK_SLOP = { top: 14, bottom: 14, left: Space.xs, right: Space.xs };
 
 const HIGHLIGHTS = [
   { icon: "graduation-cap" as const, labelKey: "login.highlight_learn" },
@@ -126,7 +128,7 @@ export default function LoginScreen() {
           <View style={s.logoGlow}>
             <Image source={APP_ICON} style={s.logo} accessibilityLabel={t("app.name")} />
           </View>
-          <Text style={s.title}>{t("app.name")}</Text>
+          <Text style={s.title} accessibilityRole="header">{t("app.name")}</Text>
           <Text style={s.subtitle}>{t("login.tagline")}</Text>
 
           <View style={s.highlights}>
@@ -202,14 +204,16 @@ export default function LoginScreen() {
               onPress={() => void openAllowedUrl(getLegalTermsUrl())}
               accessibilityRole="link"
               accessibilityLabel={t("login.terms")}
+              hitSlop={LEGAL_LINK_SLOP}
             >
               <Text style={[s.link, s.linkPressable]}>{t("login.terms")}</Text>
             </Pressable>
-            <Text style={s.dot}>·</Text>
+            <Text style={s.dot} accessibilityElementsHidden importantForAccessibility="no">·</Text>
             <Pressable
               onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
               accessibilityRole="link"
               accessibilityLabel={t("login.privacy")}
+              hitSlop={LEGAL_LINK_SLOP}
             >
               <Text style={[s.link, s.linkPressable]}>{t("login.privacy")}</Text>
             </Pressable>

@@ -22,6 +22,7 @@ import { Type } from "@/lib/type";
 import { Space } from "@/lib/space";
 import { IconSize } from "../icons/sizes";
 import { useBottomLiftStyle } from "../hooks/useBottomLiftStyle";
+import { useLiveAnnouncement } from "../hooks/useLiveAnnouncement";
 
 type Props = {
   message: string | null;
@@ -54,6 +55,8 @@ export function ActionBanner({
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useLiveAnnouncement(message);
 
   useEffect(() => {
     if (!message) return;

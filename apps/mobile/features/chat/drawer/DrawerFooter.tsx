@@ -32,6 +32,7 @@ export function DrawerFooter({
     <View style={[s.footer, { paddingBottom }]} pointerEvents="box-none">
       <Pressable
         style={s.footerNewChat}
+        hitSlop={{ top: 4, bottom: 4 }}
         onPress={() => {
           tap();
           onNewChat();

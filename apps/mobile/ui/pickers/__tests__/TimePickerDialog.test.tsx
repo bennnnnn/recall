@@ -1,9 +1,12 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
+import { dayPeriodLabels } from "@/lib/datetime/clockDial";
+
 import { TimePickerDialog } from "../TimePickerDialog";
 
+let mockLanguage = "en-US";
 jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en-US" } }),
+  useTranslation: () => ({ t: (key: string) => key, i18n: { language: mockLanguage } }),
 }));
 
 // 256 dial: center 128, outer ring 100 out, inner ring 60 out.
@@ -77,6 +80,22 @@ describe("TimePickerDialog", () => {
     await fireEvent(dial, "responderRelease", at(60, 60));
     await fireEvent.press(view.getByTestId("time-picker-ok", hidden));
     expect(onConfirm).toHaveBeenCalledWith({ hour: 14, minute: 0 });
+  });
+
+  it("speaks the dial's time in the app's language, as its AM/PM boxes read", async () => {
+    mockLanguage = "es";
+    try {
+      const { view } = await open();
+      const spoken = view.getByTestId("time-picker-dial", hidden).props.accessibilityValue.text;
+      const pmLabel = dayPeriodLabels("es").pm;
+      expect(view.getByText(pmLabel, hidden)).toBeTruthy();
+      expect(spoken).toBe(
+        new Date(2000, 0, 1, 21, 11).toLocaleTimeString("es", { hour: "numeric", minute: "2-digit", hour12: true }),
+      );
+      expect(spoken.replace(/\s/g, " ")).toContain(pmLabel.replace(/\s/g, " "));
+    } finally {
+      mockLanguage = "en-US";
+    }
   });
 
   it("steps the dial with screen-reader actions", async () => {

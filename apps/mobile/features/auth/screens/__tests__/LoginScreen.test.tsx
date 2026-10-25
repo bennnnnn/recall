@@ -8,6 +8,7 @@ import { act } from "react";
 import { render, fireEvent } from "@testing-library/react-native";
 
 import LoginScreen from "@/features/auth/screens/LoginScreen";
+import { touchTargetHeight } from "@/lib/__tests__/support/touchTarget";
 
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
@@ -74,6 +75,17 @@ describe("LoginScreen", () => {
   });
 
   // Apple 5.1.2(i): a fresh sign-in reaches the AI consent before the chat.
+  it("reads the Terms and Privacy links, not the dot drawn between them", async () => {
+    const { getByRole, queryByText, getByText } = await render(<LoginScreen />);
+    expect(getByRole("link", { name: "login.terms" })).toBeOnTheScreen();
+    expect(getByRole("link", { name: "login.privacy" })).toBeOnTheScreen();
+    expect(getByText("·", { includeHiddenElements: true })).toBeTruthy();
+    expect(queryByText("·")).toBeNull();
+    // A 12pt line is about 17pt tall; hitSlop makes each link a 44pt target.
+    expect(touchTargetHeight(getByRole("link", { name: "login.terms" }))).toBeGreaterThanOrEqual(44);
+    expect(touchTargetHeight(getByRole("link", { name: "login.privacy" }))).toBeGreaterThanOrEqual(44);
+  });
+
   it("sends a new sign-in that has not agreed to the AI consent screen, not the chat", async () => {
     mockSignedIn = { token: "tok", user: { ai_data_consent_at: null } };
     const { getByText } = await render(<LoginScreen />);

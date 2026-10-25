@@ -10,6 +10,7 @@ import {
 import { makeFenceRule } from "@/components/markdown/markdownFenceRender";
 import { blockRules } from "@/components/markdown/rules/blocks";
 import { codeRules } from "@/components/markdown/rules/code";
+import { headingRules } from "@/components/markdown/rules/headings";
 import { inlineRules } from "@/components/markdown/rules/inline";
 import { linkRules } from "@/components/markdown/rules/links";
 import { listRules } from "@/components/markdown/rules/lists";
@@ -33,6 +34,7 @@ function makeSharedRules(
     ...inlineRules(mdTable, mdMath),
     ...listRules(t, mdMath),
     ...blockRules(t, mdTable, mdMath),
+    ...headingRules(),
     ...codeRules(mdTable, mdCodeInline),
     ...tableRules(),
   };

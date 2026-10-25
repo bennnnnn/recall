@@ -24,6 +24,7 @@ import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Button } from "@/ui/controls/Button";
+import { useLiveAnnouncement } from "@/ui/hooks/useLiveAnnouncement";
 
 type Props = { content: string };
 
@@ -35,6 +36,9 @@ export function QuizCard({ content }: Props) {
   const [attempt, setAttempt] = useState<QuizAttempt>(
     () => quizAttempt(content) ?? { picked: null, checked: false },
   );
+  // The verdict of a check made here, not one restored when the card scrolls back in.
+  const [verdict, setVerdict] = useState<string | null>(null);
+  useLiveAnnouncement(verdict);
 
   if (!quiz) {
     const plain = plainFenceText(content);
@@ -63,6 +67,7 @@ export function QuizCard({ content }: Props) {
     if (attempt.picked === quiz.answer) notifySuccess();
     else notifyWarning();
     save({ ...attempt, checked: true });
+    setVerdict(i18n.t(attempt.picked === quiz.answer ? "rich.quiz_correct" : "rich.quiz_wrong"));
   };
   const correct = attempt.picked === quiz.answer;
 

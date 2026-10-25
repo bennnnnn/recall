@@ -106,6 +106,7 @@ export const ChatHeader = memo(function ChatHeader({
                 titleGenerating && !chatTitle && s.headerTitlePending,
               ]}
               numberOfLines={1}
+              accessibilityRole="header"
             >
               {headerTitleLabel}
             </Text>

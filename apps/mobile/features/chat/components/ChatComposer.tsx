@@ -410,6 +410,7 @@ export const ChatComposer = memo(function ChatComposer({
                     composerExpanded && s.inputFieldExpanded,
                   ]}
                   testID="chat-composer-field"
+                  accessible={false} // a tap area; screen readers reach the text field inside
                   onPress={() => {
                     if (math.mathBarOpen || showMathPreview) return;
                     if (math.resumeMathOnFocus) math.openMathBar();
@@ -553,4 +554,3 @@ export const ChatComposer = memo(function ChatComposer({
     </Animated.View>
   );
 });
-

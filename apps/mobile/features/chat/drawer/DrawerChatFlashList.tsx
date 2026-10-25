@@ -217,7 +217,7 @@ export function DrawerChatFlashList({
       if (item.type === "sectionHeader") {
         if (!item.collapsible) {
           return (
-            <Text style={[s.sectionTitle, s.section]}>{item.title}</Text>
+            <Text style={[s.sectionTitle, s.section]} accessibilityRole="header">{item.title}</Text>
           );
         }
         const collapsed = isSectionCollapsed(item.key);

@@ -42,10 +42,11 @@ jest.mock("@/lib/webView", () => ({
 
 it("gives the page preview a width of its own that nothing between shrinks", async () => {
   const { findByTestId } = await render(<ChatMessagePdf attachmentId="doc" fileName="lease-notes.pdf" />);
+  // The page picture is for sight (the card above names and opens it); look inside hidden views.
   // A sent message's column is aligned to the end, so the preview needs its own width; and
   // react-native-webview's container takes its width from its parent's alignItems.
   // Either one left the page 0 wide: an empty box under the card.
-  let node = (await findByTestId("pdf-webview")).parent;
+  let node = (await findByTestId("pdf-webview", { includeHiddenElements: true })).parent;
   let width: unknown;
   while (node && width === undefined) {
     const style = StyleSheet.flatten(node.props.style) ?? {};
@@ -54,4 +55,15 @@ it("gives the page preview a width of its own that nothing between shrinks", asy
     node = node.parent;
   }
   expect(width).toBeGreaterThan(0);
+});
+
+it("gives a screen reader one way in: the named card, not the unnamed page picture too", async () => {
+  const { getAllByRole, findByTestId, queryByTestId } = await render(
+    <ChatMessagePdf attachmentId="doc" fileName="lease-notes.pdf" />,
+  );
+  await findByTestId("pdf-webview", { includeHiddenElements: true });
+  expect(queryByTestId("pdf-webview")).toBeNull();
+  expect(getAllByRole("button").map((button) => button.props.accessibilityLabel)).toEqual([
+    "chat.pdf_open_a11y",
+  ]);
 });
