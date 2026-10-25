@@ -92,6 +92,17 @@ def setting_name(name: Allowance, plan: PlanId) -> str:
     return base if plan == "free" else f"{base}_{plan}"
 
 
+def has_strong_everyday_model(subject: _HasPlan | str | None, settings: Settings) -> bool:
+    """Auto answers this plan's everyday turns with the stronger model.
+
+    A switch per plan (``strong_everyday_model``, ``_plus``, ``_pro``), read like an
+    allowance's numbers. Not a ``Feature``: the app shows nothing for it.
+    """
+    plan = plan_of(subject)
+    name = "strong_everyday_model" if plan == "free" else f"strong_everyday_model_{plan}"
+    return bool(getattr(settings, name))
+
+
 def allowance(subject: _HasPlan | str | None, name: Allowance, settings: Settings) -> int:
     """This plan's number for *name* (a daily cap, or monthly minutes). Never negative."""
     value = getattr(settings, setting_name(name, plan_of(subject)))

@@ -570,7 +570,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Multiple tiers** — six chat models, none of them coding models. Free: Qwen3.7 Flash
   (everyday, Auto's fast lane), Claude Haiku 5.5 (`free-chat`, backup) and GLM 5.3 Flash (hard and
   maths turns). Paid adds DeepSeek V4.1 Flash (`smart-chat`), GLM 5.2 (Auto's maths lane) and
-  GPT-6 Luna. No OpenRouter-auto “Max” chip.
+  GPT-6 Luna. On Pro, Auto's everyday turns go to Claude Haiku 5.5 (`ROUTING.everyday_strong`,
+  `entitlements.has_strong_everyday_model`, one switch per plan in `core/settings/plans.py`); it
+  keeps photo turns too. Hard and maths turns keep their lanes on every plan. No OpenRouter-auto
+  “Max” chip.
 - ✅ **Manual switching** — model selection lives in Settings → Models (settings-only by
   design; the composer picker was removed to keep the composer single-purpose). Respected
   per chat turn. With Auto off, every message goes to one model: the screen names it
