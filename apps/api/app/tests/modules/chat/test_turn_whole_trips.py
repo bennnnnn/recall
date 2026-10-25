@@ -111,8 +111,10 @@ CEILINGS: dict[str, Ceiling] = {
         Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
         _FIRST,
     ),
+    # "Who won …?" is about now: a dated news search runs beside the general one, with
+    # its own cache read, lock and write.
     "web search": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=30, models=2, searches=1),
+        Counts(sql=5, checkouts=3, transactions=3, redis=34, models=2, searches=2),
         Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
         _FIRST,
     ),
@@ -371,7 +373,7 @@ def _fake_providers(ledger: Ledger, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(litellm_gateway, "acompletion", fake_acompletion(ledger))
     monkeypatch.setattr(embedding_gateway, "aembedding", fake_aembedding(ledger))
 
-    async def web(_settings: Any, query: str, max_results: int) -> list[Any]:
+    async def web(_settings: Any, query: str, max_results: int, **_kwargs: Any) -> list[Any]:
         if ledger.counting:
             ledger.searches.append(f"web <- {callers()}")
         hit = web_search_gateway.WebSearchHit(

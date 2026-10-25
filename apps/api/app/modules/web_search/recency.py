@@ -36,3 +36,26 @@ def anchor_recency_to_year(query: str, user_text: str, user_timezone: str | None
         return query
     tz = time_context_service.resolve_timezone(user_timezone)
     return f"{query.strip()} {datetime.now(tz).year}"
+
+
+# Words that ask how things stand now: "is it over already?", "who's winning so far",
+# "has the season started yet". With ``has_recency`` ("who won", "score", "today",
+# "latest") they mark a search whose answer depends on when each page was written.
+_STATUS_NOW = re.compile(
+    r"\b(?:already|yet|so far|right now|at the moment|currently|still (?:on|going|running|"
+    r"happening|open|playing)|this (?:year|season|week|month|weekend)|tonight|last night"
+    r"|(?:is|has|did|was) (?:it|the \w+) (?:over|done|finished|started|ended|begun)"
+    r"|just (?:started|ended|finished|happened|came out))\b",
+    re.IGNORECASE,
+)
+
+
+def wants_dated_results(text: str | None) -> bool:
+    """A search whose pages must say when they were written: a result, a score, the
+    latest, how something stands now."""
+    from app.modules.web_search.patterns import collapse_ws, has_recency
+
+    cleaned = collapse_ws(text or "")
+    if not cleaned:
+        return False
+    return has_recency(cleaned) or asks_for_newest(cleaned) or bool(_STATUS_NOW.search(cleaned))

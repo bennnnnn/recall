@@ -204,3 +204,16 @@ def mark_dates(text: str, today: date) -> str:
     for end, mark in reversed(marks):
         text = text[:end] + mark + text[end:]
     return text
+
+
+def published_note(published: str, today: date) -> str:
+    """The note a hit starts with when its page says the day it was published.
+
+    "The 2026 World Series continues on Saturday with Game 2" means the Saturday after
+    the day it was written: with the weekday, the model can tell which one it was.
+    """
+    try:
+        day = date.fromisoformat(published)
+    except ValueError:
+        return ""
+    return f"[Published {day.strftime('%A')}, {_MONTH_NAMES[day.month - 1]} {day.day}, {day.year} ({_ago((today - day).days)}).] "

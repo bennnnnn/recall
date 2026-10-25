@@ -16,9 +16,14 @@ from app.modules.web_search.query_builders import (
     is_current_news_request,
     is_news_today_request,
 )
-from app.modules.web_search.recency import anchor_recency_to_year
+from app.modules.web_search.recency import anchor_recency_to_year, wants_dated_results
 from app.modules.web_search.search_cache import run_cached_search
-from app.modules.web_search.source_dates import local_today, mark_dates, stale_note
+from app.modules.web_search.source_dates import (
+    local_today,
+    mark_dates,
+    published_note,
+    stale_note,
+)
 from app.modules.web_search.source_tables import tables_as_rows
 from app.services.number_text import NUMBER_WORDS
 from app.services.prompt_safety import wrap_untrusted
@@ -110,6 +115,7 @@ class WebSearchAdapter:
             user=ctx.user,
             redis=ctx.redis,
             budget=ctx.tavily_budget,
+            dated=wants_dated_results(user_query) or wants_dated_results(query),
         )
         if news_today:
             hits = filter_hits_to_today(hits, ctx.user_timezone)
@@ -141,8 +147,8 @@ class WebSearchAdapter:
             shown = hits[:5]
             today = local_today(ctx.user_timezone)
             lines = [
-                f"- {hit.title}: {hit.url}\n  {stale_note(hit.snippet, today)}"
-                f"{tables_as_rows(mark_dates(hit.snippet, today))}"
+                f"- {hit.title}: {hit.url}\n  {published_note(hit.published, today)}"
+                f"{stale_note(hit.snippet, today)}{tables_as_rows(mark_dates(hit.snippet, today))}"
                 for hit in shown
             ]
             if current_news:
