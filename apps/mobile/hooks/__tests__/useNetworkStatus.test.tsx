@@ -4,6 +4,7 @@ import NetInfo from "@react-native-community/netinfo";
 import { act, render } from "@testing-library/react-native";
 
 import { retryDelayMs, useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { reportConnectionFailure } from "@/lib/api/connectionFailures";
 import { resolveConnectivity } from "@/lib/networkProbe";
 import { reportDisconnected, reportReconnected } from "@/lib/reconnectRefresh";
 
@@ -414,6 +415,141 @@ describe("useNetworkStatus reconnect signal", () => {
     await setAppState("active");
     expect(status).toBe("online");
     expect(reportReconnected).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useNetworkStatus failed requests", () => {
+  const addListener = AppState.addEventListener as unknown as jest.Mock;
+  const defaultAddListener = addListener.getMockImplementation();
+  const netInfoAdd = NetInfo.addEventListener as unknown as jest.Mock;
+  const appHandlers = new Set<(state: string) => void>();
+  const wifi = { type: "wifi", isConnected: true, isInternetReachable: true };
+  const setAppState = async (state: string) => {
+    await act(async () => {
+      for (const handler of [...appHandlers]) handler(state);
+      await flush();
+    });
+  };
+  /** `count` requests that found no API, together. */
+  const fail = async (count = 1) => {
+    await act(async () => {
+      for (let i = 0; i < count; i += 1) reportConnectionFailure();
+      await flush();
+    });
+  };
+  const launch = async () => {
+    await render(<Probe />);
+    await act(async () => { await flush(); });
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    jest.spyOn(Math, "random").mockReturnValue(0.5); // the loop's first wait is 1.5 s
+    appHandlers.clear();
+    (NetInfo.fetch as jest.Mock).mockResolvedValue(wifi);
+    netInfoAdd.mockImplementation(() => () => {});
+    addListener.mockImplementation((event: string, handler: (state: string) => void) => {
+      if (event !== "change") return { remove: jest.fn() };
+      appHandlers.add(handler);
+      return { remove: () => appHandlers.delete(handler) };
+    });
+    probe.mockResolvedValue("online");
+  });
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    addListener.mockImplementation(defaultAddListener);
+    (AppState as { currentState: unknown }).currentState = "active";
+  });
+
+  it("checks once for a burst of failures, the loop's first wait later, and shows the banner", async () => {
+    await launch();
+    expect(probe).toHaveBeenCalledTimes(1); // the launch's check
+    probe.mockResolvedValue("api_unreachable");
+    await fail(25);
+    await elapse(1_000);
+    await fail(25);
+    expect(probe).toHaveBeenCalledTimes(1);
+    await elapse(500);
+    expect(probe).toHaveBeenCalledTimes(2);
+    expect(status).toBe("api_unreachable");
+
+    // The banner up, the loop checks (1.5 s, then 3 s later); failures add nothing.
+    for (let at = 0; at < 6_000; at += 500) {
+      await fail(4);
+      await elapse(500);
+    }
+    expect(probe).toHaveBeenCalledTimes(4);
+  });
+
+  it("holds the next check off for a minute after one finds the API answering", async () => {
+    await launch();
+    await fail();
+    await elapse(1_500);
+    expect(probe).toHaveBeenCalledTimes(2);
+    expect(status).toBe("online");
+
+    // A dependency down behind /health: its reads keep failing, one check a minute.
+    for (let at = 0; at < 58_000; at += 2_000) {
+      await fail();
+      await elapse(2_000);
+    }
+    expect(probe).toHaveBeenCalledTimes(2);
+    await elapse(2_000);
+    await fail();
+    await elapse(1_500);
+    expect(probe).toHaveBeenCalledTimes(3);
+  });
+
+  it("checks at once for the next outage after the banner clears", async () => {
+    await launch();
+    probe.mockResolvedValue("api_unreachable");
+    await fail();
+    await elapse(1_500);
+    expect(status).toBe("api_unreachable");
+    probe.mockResolvedValue("online");
+    await elapse(1_500); // the loop's first retry finds the API back
+    expect(status).toBe("online");
+    const checks = probe.mock.calls.length;
+
+    probe.mockResolvedValue("api_unreachable");
+    await fail();
+    await elapse(1_500);
+    expect(probe).toHaveBeenCalledTimes(checks + 1);
+    expect(status).toBe("api_unreachable");
+  });
+
+  it("starts nothing in the background, and calls off a check still waiting", async () => {
+    await launch();
+    await fail();
+    await elapse(500);
+    await setAppState("background");
+    await elapse(5_000);
+    await fail(10);
+    await elapse(5_000);
+    expect(probe).toHaveBeenCalledTimes(1);
+
+    await setAppState("active");
+    expect(probe).toHaveBeenCalledTimes(2); // the return's own check
+    await fail();
+    await elapse(1_500);
+    expect(probe).toHaveBeenCalledTimes(3);
+  });
+
+  it("starts nothing for a launch in the background until the app comes forward", async () => {
+    (AppState as { currentState: unknown }).currentState = "background";
+    await launch();
+    const launched = probe.mock.calls.length;
+    await fail(10);
+    await elapse(5_000);
+    expect(probe).toHaveBeenCalledTimes(launched);
+
+    await setAppState("active");
+    await fail();
+    await elapse(1_500);
+    expect(probe).toHaveBeenCalledTimes(launched + 2); // the return's check, then the failure's
   });
 });
 
