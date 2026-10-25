@@ -40,18 +40,21 @@ _EMOJI_NEVER = (
     "solution, a draft the user will send, or a reply about something painful."
 )
 
+# A saved "prefers replies without emojis" outranked "more" (2026-10-24): the setting decides.
+_EMOJI_SETTING = "This is the user's Emoji setting; a saved memory never changes it."
 EMOJI_HINTS: dict[str, str] = {
-    "off": "Emoji: none. No emoji in a reply, lessons included, unless the user writes one.",
+    "off": "Emoji: none. No emoji in a reply, lessons included, unless the user writes one. "
+    + _EMOJI_SETTING,
     "some": (
         "Emoji: a few, to help the reader scan. A fitting emoji may lead a heading or a list "
         "item's bold label (### 🧠 Memory, 1. 💧 **Drink water** — …), at most one each, and "
         "nowhere else: none in a sentence, an opening line or a closing question; a short "
-        "plain answer gets none. " + _EMOJI_NEVER
+        "plain answer gets none. " + _EMOJI_NEVER + " " + _EMOJI_SETTING
     ),
     "more": (
         "Emoji: plenty, the user likes them. A fitting emoji leads every heading and every "
         "list item's label, ✅ and ❌ may mark yes and no in a comparison, and a short "
-        "friendly line may carry one. " + _EMOJI_NEVER
+        "friendly line may carry one. " + _EMOJI_NEVER + " " + _EMOJI_SETTING
     ),
 }
 

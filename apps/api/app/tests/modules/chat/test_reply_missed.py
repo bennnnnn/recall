@@ -20,6 +20,7 @@ _AFTER_A_REPLY = [
     ("assistant", "La fotosíntesis es el proceso por el cual las plantas convierten la luz..."),
 ]
 _IN_ENGLISH = "Write it in English, the language of their message."
+_EN = SimpleNamespace(locale="en", custom_instructions=None)
 
 
 @pytest.mark.parametrize(
@@ -83,9 +84,12 @@ def _exchange(*pairs: tuple[str, str]) -> list[SimpleNamespace]:
 
 def test_the_notes_sit_in_order_and_only_when_they_apply() -> None:
     rain = "Monthly rainfall: Jan 15, Feb 30, Mar 60, Apr 85"
-    assert message_notes("??", _exchange(*_AFTER_A_REPLY)) == [REPLY_MISSED_HINT]
-    assert message_notes(rain, [])[0].startswith(SHARED_NUMBERS_HINT)
-    assert message_notes("Teach me python", _exchange(*_AFTER_A_REPLY)) == []
+    assert message_notes("??", _exchange(*_AFTER_A_REPLY), _EN) == [REPLY_MISSED_HINT]
+    assert message_notes(rain, [], _EN)[0].startswith(SHARED_NUMBERS_HINT)
+    # The message's language comes last, nearest it.
+    notes = message_notes("What?", _exchange(*_AFTER_A_REPLY), _EN)
+    assert notes[0].startswith(REPLY_MISSED_HINT)
+    assert notes[-1].startswith("Write this reply in English,")
 
 
 @pytest.mark.parametrize(
@@ -98,9 +102,10 @@ def test_the_notes_sit_in_order_and_only_when_they_apply() -> None:
     ],
 )
 def test_a_lesson_or_a_card_reads_what_its_own_way(reply: str) -> None:
-    assert (
-        message_notes("I don't get it", _exchange(("user", "teach me"), ("assistant", reply))) == []
+    notes = message_notes(
+        "I don't get it", _exchange(("user", "teach me"), ("assistant", reply)), _EN
     )
+    assert not any(note.startswith(REPLY_MISSED_HINT) for note in notes)
 
 
 def test_the_unclear_rule_gives_no_reply_to_copy() -> None:

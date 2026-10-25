@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.locale import locale_display_name, locale_system_hint
+from app.services.locale import REPLY_LANGUAGE_ORDER, locale_display_name, locale_system_hint
 
 
 @pytest.mark.parametrize(
@@ -16,9 +16,12 @@ def test_locale_display_name(locale, expected):
     assert locale_display_name(locale) == expected
 
 
-def test_locale_system_hint_english_none():
-    assert locale_system_hint("en") is None
-    assert locale_system_hint(None) is None
+def test_an_english_app_names_its_reply_language_and_what_outranks_it():
+    """An English app had no language line; a saved "replies in Spanish" decided instead."""
+    for locale in ("en", None, "en-US"):
+        hint = locale_system_hint(locale)
+        assert hint.startswith("The user's app language is English (locale code: en)")
+        assert hint.endswith(REPLY_LANGUAGE_ORDER)
 
 
 def test_locale_system_hint_amharic():
@@ -26,4 +29,4 @@ def test_locale_system_hint_amharic():
     assert hint is not None
     assert "Amharic" in hint
     assert "am" in hint
-    assert "switch languages" in hint.lower() or "switch language" in hint.lower()
+    assert hint.endswith(REPLY_LANGUAGE_ORDER)

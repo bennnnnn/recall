@@ -38,6 +38,7 @@ from app.modules.chat.prompt_profile import (
     should_include_profile_email,
 )
 from app.modules.chat.turn_prep import resolve_client_geo
+from app.services.locale import locale_system_hint
 from app.tests.fakes import FakeSessionCM
 from app.tests.modules.chat.chat_test_support import system_prompt
 
@@ -916,7 +917,7 @@ async def test_build_prompt_includes_locale_hint_for_amharic():
     system = system_prompt(messages)
     assert "Amharic" in system
     assert "locale code: am" in system
-    assert "switch languages" in system.lower() or "switch language" in system.lower()
+    assert locale_system_hint("am") in system
 
 
 @pytest.mark.parametrize(
