@@ -93,6 +93,23 @@ def reading[F: Callable[..., Any]](*, declined: Any = None) -> Callable[[F], F]:
     return wrap
 
 
+def kept_reading[T](fn: Callable[..., T], *args: Any, **kwargs: Any) -> T | None:
+    """The turn's kept reading of ``fn`` at these arguments, or None when it was not read.
+
+    Never computes one: for code that may use a reading only when the pool made it (a
+    money follow-up's earlier lines, ``turn_prep.money``). Outside a turn it is None.
+    """
+    memo = _MEMO.get()
+    keyer = getattr(fn, "_reading_key", None)
+    if memo is None or keyer is None:
+        return None
+    key = keyer(*args, **kwargs)
+    if key is None or key not in memo:
+        return None
+    kept: T = memo[key]
+    return _fresh(kept)
+
+
 async def read_off_loop[T](
     fn: Callable[..., T],
     *args: Any,

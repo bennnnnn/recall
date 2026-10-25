@@ -21,6 +21,7 @@ from app.modules.money.rates import MarketRate
 from app.modules.money.schemas import CalculatorSpec, Control, Marker, Readout
 from app.modules.money.solve import Worked, output_value, rate_name
 from app.services.law_binding.expression import names, to_tree
+from app.services.md_fence_scan import iter_closed_fences
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,9 @@ def _corners_hold(spec: CalculatorSpec, expressions: list[str]) -> bool:
 def _control(item: Input, worked: Worked, average: MarketRate | None) -> Control:
     value = worked.values[item.name]
     is_rate = item.name == rate_name(worked.product)
-    low, high, step = _range(item.span, value, average.value if (is_rate and average) else None)
+    low, high, step = slider_range(
+        item.span, value, average.value if (is_rate and average) else None
+    )
     marker = None
     if is_rate and average is not None:
         marker = Marker(
@@ -117,8 +120,9 @@ def _control(item: Input, worked: Worked, average: MarketRate | None) -> Control
     )
 
 
-def _range(span: Span, value: float, average: float | None) -> tuple[float, float, float]:
-    """The slider's ends and step for ``value`` under ``span``."""
+def slider_range(span: Span, value: float, average: float | None) -> tuple[float, float, float]:
+    """The slider's ends and step for ``value`` under ``span``; a follow-up's new value
+    must lie within the ends of the slider its asked value had (``follow_up``)."""
     if span.kind == "fixed":
         return span.low, span.high, span.step
     if span.kind == "rate":
@@ -143,3 +147,19 @@ def _nice(value: float, *, up: bool) -> float:
     if up:
         return next(step for step in steps if step >= value - 1e-9)
     return max(step for step in steps if step <= value + 1e-9)
+
+
+def card_values(reply: str) -> dict[str, float]:
+    """The asked values of the last calculator card in ``reply`` (control name -> value).
+
+    A follow-up compares its rate with the one the last reply showed. A card that does not
+    parse gives nothing.
+    """
+    bodies = [body for _, _, body in iter_closed_fences(reply, "calculator")]
+    if not bodies:
+        return {}
+    try:
+        spec = CalculatorSpec.model_validate(json.loads(bodies[-1]))
+    except (ValueError, ValidationError):
+        return {}
+    return {control.name: control.value for control in spec.controls}

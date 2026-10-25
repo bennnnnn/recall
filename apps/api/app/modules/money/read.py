@@ -9,6 +9,10 @@ A product word alone is not a request ("I'm saving for a house", "credit card de
 the message also needs a rate, an amount with a loan word, or a question about today's
 rates. Yearly simple or compound interest ("compound interest on 1000 at 5% for 3
 years") is maths homework and stays with maths.
+
+The kind of the product is read by ``kinds`` ("buying a used car" is looked up at the
+used-car average). The percent and the length of time are shared with ``change_line``,
+which reads a follow-up ("what if i only do 3 years instead") by its own stricter grammar.
 """
 
 from __future__ import annotations
@@ -17,9 +21,13 @@ import re
 from dataclasses import dataclass, field
 
 from app.modules.money.catalog import PRODUCTS, Product
+from app.modules.money.kinds import named_variant
 
-_RATE = re.compile(r"(\d{1,3}(?:\.\d{1,4})?)\s?(?:%|percent\b|per\s?cent\b|pct\b)", re.I)
-_TERM = re.compile(r"\b(\d{1,3}(?:\.\d{1,2})?)\s?-?\s?(years?|yrs?|months?|mos?)\b", re.I)
+# A percent and a length of time, as ``change_line`` reads them too.
+PERCENT = r"(?P<pct>\d{1,3}(?:\.\d{1,4})?)\s?(?:%|percent\b|per\s?cent\b|pct\b)"
+DURATION = r"(?P<n>\d{1,3}(?:\.\d{1,2})?)\s?-?\s?(?P<unit>years?|yrs?|months?|mos?)\b"
+_RATE = re.compile(PERCENT, re.I)
+_TERM = re.compile(rf"\b{DURATION}", re.I)
 _AMOUNT = re.compile(
     r"(?P<sym>[$€£¥₹₦])?\s?(?P<num>\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)"
     r"(?:\s?(?P<mult>k|m|thousand|million|mil|grand)\b)?",
@@ -110,6 +118,10 @@ class MoneyRequest:
     currency: str = ""
     # "What are mortgage rates now?": today's average is the answer, with no numbers to work.
     rates_only: bool = False
+    # The kind of the product named (a catalog ``Variant`` key: "used"); "" for none.
+    variant: str = ""
+    # What a follow-up changed ("months", "rate"); empty for a first ask.
+    changed: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -124,15 +136,16 @@ def read_money_request(text: str) -> MoneyRequest | None:
     """The money request in ``text``, or None when it is not one."""
     if not text or len(text) > 600:
         return None
-    found = _product(text)
+    found = named_product(text)
     if found is None or _HOMEWORK_INTEREST.search(text):
         return None
     rate = _rate(text)
     amounts = _amounts(text)
     currency = _currency(text)
+    variant = named_variant(found, text)
     if rate is None and not amounts:
         if _RATES_QUESTION.search(text):
-            return MoneyRequest(found, {}, currency, rates_only=True)
+            return MoneyRequest(found, {}, currency, rates_only=True, variant=variant)
         return None
     if rate is None and not _FINANCE.search(text):
         return None
@@ -140,10 +153,10 @@ def read_money_request(text: str) -> MoneyRequest | None:
     values.update(_term(found, text))
     if not any(name in values for name in _principal_names(found)):
         return None
-    return MoneyRequest(found, values, currency)
+    return MoneyRequest(found, values, currency, variant=variant)
 
 
-def _product(text: str) -> Product | None:
+def named_product(text: str) -> Product | None:
     """The first product, most specific words first, that the message names."""
     lowered = text.lower()
     best: tuple[int, Product] | None = None
@@ -243,10 +256,12 @@ def _values(product: Product, rate: float | None, amounts: list[_Amount]) -> dic
 def _term(product: Product, text: str) -> dict[str, float]:
     """The term the message gives, in the product's own unit (a car loan counts months)."""
     match = _TERM.search(text)
-    if match is None:
-        return {}
-    number = float(match.group(1))
-    in_years = _TERM_UNITS.get(match.group(2).lower()) == "years"
+    return term_in(product, float(match["n"]), match["unit"]) if match is not None else {}
+
+
+def term_in(product: Product, number: float, unit: str) -> dict[str, float]:
+    """``number`` ``unit`` ("3 years") in the product's own term unit (a car loan counts months)."""
+    in_years = _TERM_UNITS.get(unit.lower()) == "years"
     if product.input("years") is not None:
         return {"years": number if in_years else number / 12}
     if product.input("months") is not None:

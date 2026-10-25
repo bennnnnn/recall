@@ -1,7 +1,11 @@
 """A loan, card or savings question: the money module's block and card for this turn.
 
 It runs beside the rest of the prompt's preparation. One request of a multi-part
-message may be the money one; the first part that reads as money is used.
+message may be the money one; the first part that reads as money is used. A part may
+also change the chat's last money request ("what if i only do 3 years instead"), which
+the user's earlier lines in the turn's window give, each in the parts its own turn read
+(their plans are read in the pool with the message, ``reading``); the server works that
+one too.
 """
 
 from __future__ import annotations
@@ -10,9 +14,12 @@ from redis.asyncio import Redis
 
 from app.core.aio import gather_or_cancel
 from app.core.config import Settings
+from app.core.readings import kept_reading
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chat.turn_prep.instant import settings_card
+from app.modules.chat.turn_prep.intents import plan_turn
+from app.modules.chat.turn_prep.mode import prior_user_texts
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.money.service import MoneyTurn, prepare_money_turn
 
@@ -26,13 +33,43 @@ async def money_turn(
 ) -> MoneyTurn | None:
     if not settings.money_enabled or request.has_image_attachment:
         return None
+    recent = request.recent_messages or []
+    earlier = [
+        _parts(line, settings.chemistry_enabled)
+        for line in prior_user_texts(recent, request.content)
+    ]
+    last_reply = next(
+        (
+            message.content
+            for message in reversed(recent)
+            if message.role == "assistant" and isinstance(message.content, str)
+        ),
+        "",
+    )
     for text in plan.texts() if plan.multi else (request.content,):
         turn = await prepare_money_turn(
-            text, settings, redis, user=identity.user, location=identity.geo.user_location
+            text,
+            settings,
+            redis,
+            user=identity.user,
+            location=identity.geo.user_location,
+            earlier=earlier,
+            last_reply=last_reply,
         )
         if turn is not None:
             return turn
     return None
+
+
+def _parts(line: str, chemistry_enabled: bool) -> tuple[str, ...]:
+    """An earlier line in the parts its own turn read it in, from the plan the pool made
+    with the message (``reading``). A line the pool did not plan (an older one, one with no
+    text) has no parts: it ends the money run, and it is never planned here, on the loop
+    (golden rule 7)."""
+    plan = kept_reading(plan_turn, line, chemistry_enabled=chemistry_enabled)
+    if plan is None:
+        return ()
+    return plan.texts() if plan.multi else (line,)
 
 
 def with_money_block(

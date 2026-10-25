@@ -14,7 +14,8 @@ as a slider moves by **evaluating** the formula the server sent; it never solves
 | Part | Path |
 |------|------|
 | Products, formulas, defaults, slider ranges (data, not code paths) | `apps/api/app/modules/money/catalog.py` |
-| Reading a request (product, amount, rate, term, payment, currency, country) | `apps/api/app/modules/money/read.py` |
+| Reading a request (product, amount, rate, term, payment, currency, country) | `apps/api/app/modules/money/read.py`; the kind (a used car), `kinds.py` |
+| A what-if that changes the chat's last request ("what if i only do 3 years instead") | `apps/api/app/modules/money/follow_up.py`, its grammar `change_line.py` |
 | The card's currency and the country a rate search names | `apps/api/app/modules/money/currencies.py` |
 | Numbers for the asked values, the prompt block and the note | `apps/api/app/modules/money/solve.py`, `block.py`, `note.py` |
 | Today's average rate: one web search, one checked structured read, cached | `apps/api/app/modules/money/rates.py` |
@@ -32,7 +33,25 @@ A product is one catalog row: its inputs (each with a unit, a default and a rang
 outputs (each a formula over the inputs), the words that name it, and how to look up its
 average rate today (`RateLookup`: what the rate is called, the terms averages are published for,
 the plausible range and how recent a figure must be). Adding a product is one row; nothing else
-branches on its name. Version 1 rows:
+branches on its name. A kind of a product priced apart is a `Variant` on its row, with its own
+words and `RateLookup`: "a used car for 14000" (also pre-owned, certified pre-owned,
+second-hand) is a car loan looked up at the used-car average, cached apart from the new-car one
+and named in the reply ("used car loan rate"; used-car averages are published for every term at
+once, so that lookup names none). The kind counts only in two fixed phrases about the vehicle
+being bought: "buying a used car" (also buy, financing, finance, getting, get, purchasing,
+purchase, thinking of buying, looking at; pre-owned, second-hand, certified pre-owned; car,
+truck, SUV, vehicle) and "a loan for a used car", and never after "or", "vs", "instead of",
+"than", "rather", "not", "sold", "selling" or "paid off" anywhere earlier in the message (that
+used car is the alternative or another one). Missing a used car is the safe direction: the
+reply then uses the new-car average and says so. New or no kind said is the row's own lookup.
+
+The row's own lookup starts beside a variant's. When the variant's finds nothing in time, the
+row's own average stands in and says so: the reply and the note name it ("today's average
+60-month new car loan rate") and add the variant's `stand_in` words ("No used-car average was
+found; used-car loans usually cost more."), the model is told never to call it a used-car rate,
+and a rate the user gave is not called unrealistic beside it. The first live used-car ask found
+no used-car average and got no numbers at all, where the new-car average had worked it. Version
+1 rows:
 
 - **Loan** (mortgage, car, personal, student, any other amortised loan): amount, annual rate,
   term → monthly payment, total interest, total paid. A rate of 0% pays amount ÷ months.
@@ -44,6 +63,44 @@ branches on its name. Version 1 rows:
 A term the user didn't give comes from the row's default (a 30-year mortgage, a 5-year car loan),
 and the reply says it assumed one. A rate they didn't give comes from today's average when there
 is one; otherwise the model asks for it.
+
+## Follow-ups
+
+"hmm what if i only do 3 years instead" right after a money reply is that request with the term
+changed, and the server works it and sends the card exactly as for a first ask. The follow-up
+chips under a money reply ask exactly this; before, the model did the arithmetic itself and was
+off by dollars (live 2026-10-25: $340.58 a month for $340.45).
+
+- The server works two changes only, both common and safe: a new term ("3 years", "36 months",
+  "over 4 years", "a 15 year mortgage", "make it 4 years", "pay it off in 2 years") and a new
+  rate with its words ("at 6%", "6% apr", "6% interest", "the rate is 6%", "a 6% rate"). The line
+  must ask for the change: it opens (after "hmm", "ok", "so") with "what if", "what about", "how
+  about", "and", "or", "make it", "try", "do", "go with" or "i only do", or ends with "instead"
+  or "instead of N". Every other change (a price or amount, a down payment, a card payment or
+  balance, a savings deposit or start, used or new) and every other line ("36 months?", "7%",
+  "is it 6%?") goes to the model, as before. Four reviews (2026-10-25) of wider readers each
+  found new shapes they misread, and a misread follow-up is a wrong number the reply calls the
+  answer: a model year as a price, a card payment ("my payment is 3%") as the APR, "it's 40k
+  miles" as a $40,000 loan, "it's been 5 years" as a 5-year mortgage.
+- The line is read by a positive grammar (`change_line.py`): every word must belong to the frame,
+  a term or rate phrase, or a short filler list. Any other word ("miles", "payment", "make",
+  "been", "then", "from", "left") means no follow-up. "6% for 10 years" without "at" is a rate
+  for a while, "at 5 years" and "in 2 years" are points in time, "interest only" is another kind
+  of loan, and a line about the person ("what if I'm 30 years") changes nothing.
+- The new value must lie on the slider the request's last card had (`fence.slider_range`): a
+  mortgage runs 5 to 40 years, so "2 years" is no new term.
+- The turn passes the user's earlier lines and the last reply (`turn_prep/money.py`), each
+  line in the parts its own turn read it in (a multi-part line's plan, read in the pool with the
+  message), so "set a reminder for 9 tomorrow and what's the payment on a 20000 car loan at 6%"
+  is the 20000 loan, not one of 9. A line the pool did not plan (one with no text) ends the run;
+  it is never planned on the event loop. The request a line changes is the last one in the user's
+  last three lines, and every line after it must be a change of it too; a line about something
+  else, or a change the server left to the model, ends the run.
+- The follow-up's average is read again for its own kind and term. When that is not the rate
+  the last reply's card showed (a stand-in the first time, the used-car average now), the
+  block says the rate changed and why.
+- The money block tells the model which inputs changed and that the numbers below are the
+  answer, never to be redone from the earlier reply.
 
 ## Today's rates
 

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from app.modules.money.block import (
+    MONEY_FOLLOW_UP,
+    MONEY_HEADER,
     MONEY_RATE_MISSING,
     MONEY_RATES_FOUND,
     MONEY_RATES_MISSING,
@@ -10,7 +12,8 @@ from app.modules.money.block import (
     money_block,
 )
 from app.modules.money.catalog import product
-from app.modules.money.read import MoneyRequest
+from app.modules.money.follow_up import follow_up_request
+from app.modules.money.read import MoneyRequest, read_money_request
 from app.modules.money.solve import work
 from app.tests.modules.money.money_support import average
 
@@ -40,3 +43,25 @@ def test_a_rates_question_gets_the_checked_average_or_none() -> None:
     found = money_block(request, None, average())
     assert "6.27% as of Oct 16, 2026" in found and MONEY_RATES_FOUND in found
     assert MONEY_RATES_MISSING in money_block(request, None, None)
+
+
+def test_the_block_names_the_kind_of_product() -> None:
+    request = read_money_request("buying a used car, car loan of 11000 at 7% for 60 months")
+    assert request is not None
+    assert money_block(request, work(request, None), None).startswith(f"{MONEY_HEADER}: used car.")
+
+
+def test_a_follow_up_is_told_the_numbers_already_include_its_change() -> None:
+    """Live (2026-10-25): the model redid "3 years instead" itself and was off by dollars."""
+    earlier = ["car loan 14000 with 3000 down at 7.16% for 5 years, what's the payment"]
+    request = follow_up_request("hmm what if i only do 3 years instead", earlier)
+    assert request is not None
+    block = money_block(request, work(request, None), None)
+    lead = MONEY_FOLLOW_UP.split("{changes}")[0]
+    assert f"{lead}term in months 36." in block
+    assert "monthly payment 340.45; total interest 1,256.32" in block
+    both = follow_up_request("what about 4 years at 6%?", earlier)
+    assert both is not None
+    assert f"{lead}yearly rate 6%; term in months 48." in money_block(both, work(both, None), None)
+    first = read_money_request(earlier[0])
+    assert first is not None and lead not in money_block(first, work(first, None), None)

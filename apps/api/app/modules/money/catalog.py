@@ -3,7 +3,8 @@
 A product is one row. Its outputs are expressions over its input names, in the closed
 language of ``services/law_binding/expression.py``: the server works the asked numbers
 with them and the phone redraws the card from the same trees (docs/money.md). Nothing
-else branches on a product's name, so a new product is a new row.
+else branches on a product's name, so a new product is a new row, and a kind of one
+priced apart (a used car) is a ``Variant`` on its row.
 
 Rates are yearly percentages (``rate`` 6.5 is 6.5 %), compounded monthly, and payments
 are monthly.
@@ -83,6 +84,22 @@ class RateLookup:
 
 
 @dataclass(frozen=True)
+class Variant:
+    """A kind of the product a request may name, with its own average rate: a used car.
+
+    "a used car for 14000" is a car loan, but its average is the used-car one, a few points
+    above the new-car rate it was quoted (live, 2026-10-25). ``words`` name the kind as a
+    describing word (``kinds.py``); ``lookup`` takes the place of the product's. When it
+    finds nothing the product's own average stands in, with ``stand_in`` said beside it.
+    """
+
+    key: str
+    words: tuple[str, ...]
+    lookup: RateLookup
+    stand_in: str
+
+
+@dataclass(frozen=True)
 class Product:
     key: str
     family: Family
@@ -94,9 +111,19 @@ class Product:
     # Values a request may leave out, said as an assumption in the reply.
     defaults: dict[str, float] = field(default_factory=dict)
     lookup: RateLookup | None = None
+    # Kinds of the product priced apart; none named is the product's own ``lookup``.
+    variants: tuple[Variant, ...] = ()
 
     def input(self, name: str) -> Input | None:
         return next((item for item in self.inputs if item.name == name), None)
+
+    def variant(self, key: str) -> Variant | None:
+        return next((item for item in self.variants if item.key == key), None)
+
+    def rate_lookup(self, variant: str = "") -> RateLookup | None:
+        """How to look up today's average for the product, or for the kind of it asked."""
+        kind = self.variant(variant)
+        return kind.lookup if kind is not None else self.lookup
 
 
 # --- Formulas -------------------------------------------------------------------------
@@ -156,6 +183,10 @@ def _months(low: float, high: float, step: float) -> Input:
     return Input("months", "money.term_months", "months", Span("fixed", low, high, step=step))
 
 
+_USED_WORDS = (  # "certified pre-owned" is read by "pre-owned"
+    "used", "pre-owned", "preowned", "pre owned", "second-hand", "secondhand", "second hand",
+)  # fmt: skip
+
 PRODUCTS: tuple[Product, ...] = (
     Product(
         key="mortgage",
@@ -176,6 +207,15 @@ PRODUCTS: tuple[Product, ...] = (
         outputs=_loan_outputs("months"),
         defaults={"months": 60},
         lookup=RateLookup("{term}-month new car loan rate", (1.0, 25.0), 120, (36, 48, 60, 72)),
+        variants=(
+            # Published for every term at once, often quarterly: no term, an older figure.
+            Variant(
+                "used",
+                _USED_WORDS,
+                RateLookup("used car loan rate", (2.0, 30.0), 180),
+                "No used-car average was found; used-car loans usually cost more.",
+            ),
+        ),
     ),
     Product(
         key="student",

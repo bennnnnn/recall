@@ -1,7 +1,10 @@
 """The money block the model reads before the user's message: numbers to copy, never redo.
 
 The model writes the answer's words; the app worked the numbers and adds the market note
-and the calculator card under the reply, so the block tells it not to write either.
+and the calculator card under the reply, so the block tells it not to write either. A
+follow-up ("what if i only do 3 years instead") gets the earlier request worked again with
+its change, and is told those are the answer: the free model once redid the change from
+the earlier reply's numbers and was off by dollars (live, 2026-10-25).
 """
 
 from __future__ import annotations
@@ -10,7 +13,7 @@ from app.modules.money.catalog import Product
 from app.modules.money.numbers import day_text, money_text, percent_text
 from app.modules.money.rates import MarketRate
 from app.modules.money.read import MoneyRequest
-from app.modules.money.solve import Worked
+from app.modules.money.solve import Worked, rate_name
 
 # Every money block opens with this: the turn's numbers are the app's.
 MONEY_HEADER = "Money, worked by the app"
@@ -20,6 +23,22 @@ MONEY_REPLY_RULES = (
     "your reply the app adds a calculator card with sliders and, when it found one, a "
     "note with today's average rate: do not write your own calculator, scenario table, "
     "chart or market-rate note, and do not state any average or market rate yourself."
+)
+MONEY_FOLLOW_UP = (
+    "This message changes the user's earlier request: {changes}. The inputs and results "
+    "below already include the change and are this turn's answer; never work the change "
+    "out yourself or carry numbers over from an earlier reply."
+)
+# The average stands in for the kind asked: "used car" for the new-car average.
+MONEY_STAND_IN = (
+    "Today's average {name} is not a {kind} rate: {caveat} Say so in the reply, and "
+    "never call it a {kind} rate."
+)
+# A follow-up whose rate (today's average for its own kind and term) is not the one the
+# last reply showed: the change looks like it moved the rate on its own otherwise.
+MONEY_RATE_CHANGED = (
+    "The rate is {rate}, not the {shown} the last reply used: it is today's average {name} "
+    "for this request. Say that the rate changed and why."
 )
 MONEY_RATE_MISSING = (
     "The user gave no interest rate and no current average was found. Ask one short "
@@ -56,30 +75,68 @@ _OUTPUT_WORDS = {
 }
 
 
-def money_block(request: MoneyRequest, worked: Worked | None, average: MarketRate | None) -> str:
+def money_block(
+    request: MoneyRequest,
+    worked: Worked | None,
+    average: MarketRate | None,
+    *,
+    shown_rate: float | None = None,
+) -> str:
     product = request.product
-    head = f"{MONEY_HEADER}: {product.key.replace('_', ' ')}."
+    kind = " ".join(word for word in (request.variant, product.key.replace("_", " ")) if word)
+    head = f"{MONEY_HEADER}: {kind}."
     if request.rates_only:
-        return "\n".join((head, _rates_line(average)))
+        return "\n".join((head, _rates_line(request, average)))
     if worked is None:
         return "\n".join((head, MONEY_RATE_MISSING))
     lines = [head]
+    if request.changed:
+        lines.append(MONEY_FOLLOW_UP.format(changes="; ".join(_changes(request, worked))))
     if request.currency:
         lines.append(f"Currency: {request.currency}.")
     lines.append("Inputs: " + "; ".join(_inputs(product, worked)) + ".")
     lines.append("Results: " + "; ".join(_outputs(product, worked)) + ".")
+    stand_in = _stand_in(request, average)
+    assumed_rate = rate_name(product) in worked.assumed
+    if stand_in and assumed_rate:
+        lines.append(stand_in)
+    rate = worked.values[rate_name(product)]
+    if assumed_rate and average and shown_rate is not None and round(shown_rate, 2) != rate:
+        lines.append(
+            MONEY_RATE_CHANGED.format(
+                rate=percent_text(rate), shown=percent_text(shown_rate), name=average.name
+            )
+        )
     lines.append(MONEY_REPLY_RULES)
     return "\n".join(lines)
 
 
-def _rates_line(average: MarketRate | None) -> str:
+def _changes(request: MoneyRequest, worked: Worked) -> list[str]:
+    """What the follow-up changed, in the block's words ("term in months 36")."""
+    product = request.product
+    return [
+        f"{_INPUT_WORDS.get(name, name)} {_value_text(name, worked.values[name], product)}"
+        for name in request.changed
+    ]
+
+
+def _stand_in(request: MoneyRequest, average: MarketRate | None) -> str:
+    if average is None or not average.caveat:
+        return ""
+    kind = " ".join((request.variant, request.product.key.replace("_", " ")))
+    return MONEY_STAND_IN.format(name=average.name, kind=kind, caveat=average.caveat)
+
+
+def _rates_line(request: MoneyRequest, average: MarketRate | None) -> str:
     if average is None:
         return MONEY_RATES_MISSING
-    return (
+    line = (
         f"Today's average {average.name} in {average.country}: {percent_text(average.value)} "
         f"as of {day_text(average.as_of)}, from {average.source_title} ({average.source_url}). "
         f"{MONEY_RATES_FOUND}"
     )
+    stand_in = _stand_in(request, average)
+    return f"{line} {stand_in}" if stand_in else line
 
 
 def _value_text(name: str, value: float, product: Product) -> str:
