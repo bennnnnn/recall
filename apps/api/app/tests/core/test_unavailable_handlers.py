@@ -54,7 +54,10 @@ async def test_database_unavailable_maps_to_503(make_error, expected_status: int
     if expected_status == 503:
         assert response.headers.get("retry-after") == "5"
         assert response.json() == {
-            "detail": "Service temporarily unavailable. Please retry shortly."
+            "detail": {
+                "code": "unavailable",
+                "message": "Service temporarily unavailable. Please retry shortly.",
+            }
         }
 
 
@@ -71,4 +74,6 @@ async def test_a_redis_unavailable_message_reaches_the_client() -> None:
         response = await client.get("/__test/redis")
     assert response.status_code == 503
     assert response.headers.get("retry-after") == "5"
-    assert response.json() == {"detail": "Sign-in is unavailable right now."}
+    assert response.json() == {
+        "detail": {"code": "unavailable", "message": "Sign-in is unavailable right now."}
+    }

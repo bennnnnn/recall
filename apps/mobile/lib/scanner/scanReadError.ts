@@ -1,4 +1,5 @@
 import { ApiRequestError } from "@/lib/api/client";
+import { isServiceUnavailable } from "@/lib/api/errorBody";
 
 /** A scan the API refused, with the message the student should see. */
 export type ScanReadFailure = { error: string };
@@ -16,12 +17,14 @@ const CODE_KEYS: Record<string, string> = {
 };
 
 /**
- * The words for a refused scan, for any subject: the phone's own for a known code, the
- * server's for another refusal of a named status. A network failure, a vision failure
- * and every other status stay the generic could-not-read message, so this returns
+ * The words for a refused scan, for any subject: the phone's own for a known code or an
+ * outage, the server's for another refusal of a named status. A network failure, a vision
+ * failure and every other status stay the generic could-not-read message, so this returns
  * nothing for them.
  */
 export function scanFailureMessage(error: unknown, t: (key: string) => string): string | null {
+  // Recall down (a Redis outage said "Too many scans in a row"): not the photo's fault.
+  if (error instanceof ApiRequestError && isServiceUnavailable(error)) return t("common.service_unavailable");
   if (!(error instanceof ApiRequestError) || !NAMED_STATUSES.has(error.status)) return null;
   const key = error.code == null ? undefined : CODE_KEYS[error.code];
   return key ? t(key) : error.detail.trim() || null;

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
-from app.core.rate_limit import allow_request_fail_closed
+from app.core.rate_limit import allow_request_unless_down
 from app.core.redis import get_redis_client
 from app.models.orm import User
 from app.modules.link_preview.service import LinkPreviewBusyError, fetch_link_preview_cached
@@ -28,7 +28,7 @@ async def link_preview(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid URL")
 
     redis = get_redis_client()
-    allowed = await allow_request_fail_closed(
+    allowed = await allow_request_unless_down(
         redis,
         f"rate:linkpreview:{_user.id}",
         limit=_RATE_LIMIT,

@@ -599,7 +599,7 @@ def test_voice_tools_enforce_session_ownership_plan_and_read_only_allowlist(case
     with (
         patch("app.modules.speech.realtime.get_redis_client", return_value=redis),
         patch(
-            "app.modules.speech.realtime.allow_request_fail_closed", AsyncMock(return_value=True)
+            "app.modules.speech.realtime.allow_request_unless_down", AsyncMock(return_value=True)
         ),
         patch.object(
             chats_repository,

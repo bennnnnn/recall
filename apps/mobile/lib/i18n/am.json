@@ -291,6 +291,7 @@
   "common.saved_to_photos": "ምስሉ ወደ ፎቶዎችዎ ተቀምጧል።",
   "common.screen_error_body": "እንደገና ይሞክሩ። ችግሩ ከቀጠለ ወደ ኋላ ተመልሰው ገጹን እንደገና ይክፈቱ።",
   "common.screen_error_title": "በዚህ ገጽ ላይ ችግር ተከስቷል",
+  "common.service_unavailable": "Recall አሁን አይገኝም። ትንሽ ቆይተው እንደገና ይሞክሩ።",
   "common.share_failed": "ማጋራት አልተሳካም",
   "common.share_image_error": "ይህን ምስል ማጋራት አልተቻለም።",
   "common.try_again": "እንደገና ሞክር",

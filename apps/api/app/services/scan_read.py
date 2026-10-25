@@ -21,7 +21,7 @@ from fastapi import Request, status
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from app.core.rate_limit import allow_request_fail_closed
+from app.core.rate_limit import allow_request_unless_down
 from app.core.redis import get_redis_client
 from app.exceptions import DomainError
 from app.models.orm import User
@@ -104,7 +104,7 @@ async def read_scan[T](
             code="scan_spend_cap",
         )
     limit = settings.scan_read_rate_limit_per_hour
-    if limit > 0 and not await allow_request_fail_closed(
+    if limit > 0 and not await allow_request_unless_down(
         redis, f"{SCAN_RATE_LIMIT_KEY}:{user.id}", limit=limit, window_seconds=3600
     ):
         raise ScanRefusedError(

@@ -291,6 +291,7 @@
   "common.saved_to_photos": "Görsel fotoğraflarınıza kaydedildi.",
   "common.screen_error_body": "Tekrar deneyin. Sorun sürerse geri dönüp sayfayı yeniden açın.",
   "common.screen_error_title": "Bu sayfada bir şeyler ters gitti",
+  "common.service_unavailable": "Recall şu anda kullanılamıyor. Biraz sonra tekrar deneyin.",
   "common.share_failed": "Paylaşım başarısız",
   "common.share_image_error": "Bu görsel paylaşılamadı.",
   "common.try_again": "Tekrar dene",

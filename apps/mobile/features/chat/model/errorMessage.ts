@@ -1,3 +1,5 @@
+import { UNAVAILABLE_CODE } from "@/lib/api/errorBody";
+
 type ChatErrorKind =
   | "quota"
   | "model_unavailable"
@@ -40,6 +42,11 @@ export function resolveChatError(options: {
   }
   if (options.code === "model_unavailable") {
     return { kind: "model_unavailable", message: options.t("chat.model_unavailable") };
+  }
+  // Recall's database or Redis is down (the socket's frame, a 503's body): its own words,
+  // translated, where the server's English showed.
+  if (options.code === UNAVAILABLE_CODE) {
+    return { kind: "generic", message: options.t("common.service_unavailable") };
   }
   if (options.code === "image_daily_limit") {
     // A free plan can buy more pictures; a paid one waits for tomorrow.

@@ -1,3 +1,5 @@
+import { isServiceUnavailable } from "@/lib/api/errorBody";
+
 export type LiveTalkPhase = "idle" | "recording" | "thinking" | "speaking";
 
 export type LiveTalkGate =
@@ -7,6 +9,8 @@ export type LiveTalkGate =
   | "unavailable"
   | "offline"
   | "unconfigured"
+  /** Recall is down for now (its database or Redis, a deploy): try again in a moment. */
+  | "outage"
   | "mic_permission";
 
 /** Live talk for this user: `remaining` / `limit` are whole minutes this month. */
@@ -158,9 +162,22 @@ export function liveTalkErrorGate(error: unknown): LiveTalkGate {
   }
   if (status === 403) return "upgrade";
   if (status === 429) return "limit";
-  if (status === 503) return "unconfigured";
-  if (status === 404) return "unavailable";
+  // Only the server's `not_configured` says live talk is not set up. Every 503 said so,
+  // a Redis or database outage too; any other 503, and a gateway's 502 or 504, is one.
+  if (status === 503) {
+    return (error as { code?: unknown }).code === "not_configured" ? "unconfigured" : "outage";
+  }
+  if (isServiceUnavailable(error)) return "outage";
   return "unavailable";
+}
+
+/** The line a gate says as a recoverable error; upgrade and the microphone open their own. */
+export function liveTalkGateMessageKey(gate: LiveTalkGate): string {
+  if (gate === "limit") return "chat.live_talk_limit_body";
+  if (gate === "offline") return "chat.offline_body";
+  if (gate === "outage") return "common.service_unavailable";
+  if (gate === "unconfigured") return "chat.live_talk_not_configured";
+  return "chat.live_talk_unavailable_body";
 }
 
 /** Capture stays off while the assistant is playing so speaker echo cannot VAD. */

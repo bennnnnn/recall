@@ -2,6 +2,7 @@ import {
   LIVE_TALK_CONNECT_WARMUP_MS,
   LIVE_TALK_PLAYBACK_TAIL_MS,
   liveTalkErrorGate,
+  liveTalkGateMessageKey,
   liveTalkGate,
   liveTalkOrbA11yHintKey,
   liveTalkOrbA11yKey,
@@ -119,8 +120,26 @@ describe("liveTalkErrorGate", () => {
     expect(liveTalkErrorGate(new Error("webrtc_unavailable"))).toBe("unavailable");
   });
 
-  it("maps a missing Realtime server key to unconfigured", () => {
-    expect(liveTalkErrorGate({ status: 503 })).toBe("unconfigured");
+  it("maps a missing Realtime server key to unconfigured only when the server says so", () => {
+    expect(liveTalkErrorGate({ status: 503, code: "not_configured" })).toBe("unconfigured");
+  });
+
+  // Every 503 said "Live talk isn't set up on this server yet", a Redis outage included.
+  it.each([
+    [{ status: 503, code: "unavailable" }],
+    [{ status: 503, code: null }],
+    [{ status: 502, code: null }],
+    [{ status: 504, code: null }],
+  ])("maps an outage %j to outage", (error) => {
+    expect(liveTalkErrorGate(error)).toBe("outage");
+  });
+
+  it("words each gate it says as an error", () => {
+    expect(liveTalkGateMessageKey("outage")).toBe("common.service_unavailable");
+    expect(liveTalkGateMessageKey("unconfigured")).toBe("chat.live_talk_not_configured");
+    expect(liveTalkGateMessageKey("limit")).toBe("chat.live_talk_limit_body");
+    expect(liveTalkGateMessageKey("offline")).toBe("chat.offline_body");
+    expect(liveTalkGateMessageKey("unavailable")).toBe("chat.live_talk_unavailable_body");
   });
 
   // F8.8: a denied microphone said "Live talk needs a dev build", which is false
