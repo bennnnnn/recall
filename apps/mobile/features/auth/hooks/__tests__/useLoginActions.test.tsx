@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react-native";
 import { Alert, Platform } from "react-native";
 
 import { AccountExistsError } from "@/features/auth/model/accountExists";
-import { SignInLimitedError } from "@/features/auth/model/signInLimited";
+import { SignInRefusedError } from "@/features/auth/model/signInRefusal";
 import { useLoginActions } from "@/features/auth/hooks/useLoginActions";
 import { formatAppleSignInError } from "@/lib/apple-auth";
 import {
@@ -183,17 +183,29 @@ it.each([
 );
 
 it.each([
-  ["handleGoogle", mockGoogle],
-  ["handleApple", mockApple],
-  ["handleDev", mockDev],
-] as const)("%s shows its own translated line when sign-in is limited", async (action, signIn) => {
-  // The server's 429 is English: the screen showed it as it came, in every language.
-  signIn.mockRejectedValueOnce(new SignInLimitedError());
+  ["handleGoogle", mockGoogle, "login.error_rate_limited"],
+  ["handleApple", mockApple, "login.error_apple_email_missing"],
+  ["handleDev", mockDev, "login.error_unavailable"],
+] as const)("%s shows the refusal's own translated line", async (action, signIn, key) => {
+  // The server's words are English: the screen showed them as they came, in every language.
+  signIn.mockRejectedValueOnce(new SignInRefusedError(key));
   const { result } = await renderHook(useLoginActions);
 
   await act(async () => result.current[action]());
 
-  expect(mockFeedback.error).toHaveBeenCalledWith("login.error_rate_limited");
+  expect(mockFeedback.error).toHaveBeenCalledWith(key);
+  expect(formatGoogleSignInError).not.toHaveBeenCalled();
+  expect(formatAppleSignInError).not.toHaveBeenCalled();
+});
+
+it("shows dev login's other failures as the generic line, not their English", async () => {
+  // It showed the server's raw JSON body, or the error's own English.
+  mockDev.mockRejectedValueOnce(new Error('{"detail":"Dev auth disabled"}'));
+  const { result } = await renderHook(useLoginActions);
+
+  await act(async () => result.current.handleDev());
+
+  expect(mockFeedback.error).toHaveBeenCalledWith("login.error_generic");
 });
 
 it("preserves the Expo Go Google availability alert", async () => {

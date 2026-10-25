@@ -6,6 +6,7 @@
 import fixture from "../../../../docs/fixtures/error_codes.json";
 import { AttachmentError, presignFailure } from "@/features/attachments/model/attachmentErrors";
 import { accountExistsProvider } from "@/features/auth/model/accountExists";
+import { signInRefusalKey } from "@/features/auth/model/signInRefusal";
 import { ApiRequestError } from "@/lib/api/client";
 import { CONSENT_REQUIRED_CODE } from "@/lib/api/consentRefusal";
 import { scanFailureMessage } from "@/lib/scanner/scanReadError";
@@ -45,6 +46,24 @@ it("opens the consent screen on consent_required", () => {
 
 it("offers the earlier way to sign in", () => {
   expect(accountExistsProvider(refused("account_exists"))).toBe("apple");
+});
+
+it.each([
+  ["sign_in_rate_limited", "login.error_rate_limited"],
+  ["sign_in_unavailable", "login.error_unavailable"],
+  ["google_unavailable", "login.error_unavailable"],
+  ["apple_unavailable", "login.error_unavailable"],
+  ["google_token_invalid", "login.error_token_invalid"],
+  ["apple_token_invalid", "login.error_token_invalid"],
+  ["apple_key_unknown", "login.error_token_invalid"],
+  ["google_email_unverified", "login.error_google_email_unverified"],
+  ["apple_email_unverified", "login.error_apple_email_unverified"],
+  ["google_email_missing", "login.error_google_email_missing"],
+  ["apple_email_missing", "login.error_apple_email_missing"],
+  ["apple_not_configured", "login.error_apple_not_configured"],
+  ["dev_auth_disabled", "login.error_dev_disabled"],
+])("words a refused sign-in: %s", (name, key) => {
+  expect(signInRefusalKey(refused(name))).toBe(key);
 });
 
 it.each([
