@@ -19,6 +19,7 @@ from typing import Any
 from app.modules.chat.clock_denial import model_denies_clock
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.turn_prep import StreamContext
+from app.modules.web_search import asks_whether_it_searches
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 _MAX_LEN = 600
@@ -50,6 +51,11 @@ def asks_again(
 ) -> bool:
     """The first call's answer, with no tool call, denies live data: ask again."""
     if calls or accum.was_cancelled or ctx.search_sources:
+        return False
+    # "Can you search the web?" asks about Recall, not for a search: a retry offering one
+    # could search whatever the chat said before it.
+    asked = ctx.user_message_content
+    if isinstance(asked, str) and asks_whether_it_searches(asked):
         return False
     reply = "".join(accum.parts[written:])
     # "What time is it" denied gets the clock (``finalize_text.fix_clock``).

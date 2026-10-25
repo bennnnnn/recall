@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.web_search.command import asks_to_search, is_search_word, search_command
+from app.modules.web_search.command import asks_to_search, search_command
 from app.modules.web_search.detection import needs_web_search
+from app.modules.web_search.search_word import is_search_word
 from app.modules.web_search.subject import resolve_search_subject
 
 _NAME_CHAT = ["My name is bini", "What is its meaning", "So my name is binary?", "Wrong"]

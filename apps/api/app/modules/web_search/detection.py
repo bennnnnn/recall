@@ -16,6 +16,7 @@ from app.modules.chat import (
     prior_looks_like_offer,
 )
 from app.modules.web_search.asks_nothing import asks_nothing_to_look_up
+from app.modules.web_search.capability_ask import asks_whether_it_searches
 from app.modules.web_search.chat_bound import answers_a_check, works_from_the_chat
 from app.modules.web_search.command import asks_to_search, search_command
 from app.modules.web_search.geo_intent import is_geo_query, is_short_letter_answer
@@ -98,6 +99,9 @@ def web_search_skip(
     """Hard no — never run web search or the classifier."""
     cleaned = collapse_ws(text)
     if not cleaned:
+        return True
+    # "Can you search the web?" asks about Recall: the reply says yes, nothing is searched.
+    if asks_whether_it_searches(cleaned):
         return True
     # "search", "google it", "can't you look it up?": an explicit request is never chitchat.
     if asks_to_search(cleaned):
