@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { isValidElement, type ReactNode } from "react";
 import { Text } from "react-native";
 
 import { CodeBlock } from "@/components/CodeBlock";
@@ -23,6 +23,7 @@ import {
   looksLikeMathMeta,
   shouldHideCopyOnCodeFallback,
 } from "@/lib/fenceDispatch";
+import { FenceErrorBoundary } from "@/components/markdown/FenceErrorBoundary";
 import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 import { useReplyStreaming } from "@/components/markdown/ReplyStreaming";
 import { useTheme } from "@/lib/theme";
@@ -172,8 +173,9 @@ export function renderFence(node: FenceNode) {
   const content = node.content.replace(/\n$/, "").trim();
   if (!content) return null;
 
+  let element: ReactNode;
   try {
-    return renderFenceInner(node.key, lang, content, node.tokenIndex);
+    element = renderFenceInner(node.key, lang, content, node.tokenIndex);
   } catch (error) {
     if (__DEV__) {
       console.warn("[MarkdownContent] fence render failed", error);
@@ -190,4 +192,13 @@ export function renderFence(node: FenceNode) {
       />
     );
   }
+  if (!isValidElement(element)) return element;
+  // A block that throws while it draws falls back alone; the reply around it
+  // still renders. The boundary takes the block's key, so it mounts when the
+  // block did (a maths block under its source, an email card under its token).
+  return (
+    <FenceErrorBoundary key={element.key ?? node.key} lang={lang} content={content}>
+      {element}
+    </FenceErrorBoundary>
+  );
 }

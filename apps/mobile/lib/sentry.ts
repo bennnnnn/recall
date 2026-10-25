@@ -130,13 +130,14 @@ export function initMobileSentry(): Promise<void> {
 }
 
 /**
- * A render crash an error boundary kept inside one message. The boundary
- * shows its fallback either way; this only reports it, and only when Sentry is
- * configured (before the SDK is up, it waits in the queue). The component
- * stack names components, never their text.
+ * A render crash an error boundary kept inside one message, one block of a
+ * reply (`fence`) or one screen. The boundary shows its fallback either way;
+ * this only reports it, and only when Sentry is configured (before the SDK is
+ * up, it waits in the queue). The component stack names components, never
+ * their text.
  */
 export function reportBoundaryError(
-  boundary: "markdown" | "message_row",
+  boundary: "markdown" | "message_row" | "fence",
   error: Error,
   componentStack?: string | null,
 ): void {
