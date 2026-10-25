@@ -85,6 +85,20 @@ _SEE_LEADS: tuple[tuple[str, ...], ...] = (
     ("i", "would", "like", "to", "see"),
     ("i", "wanna", "see"),
 )
+# "do you have a picture of him?", "you got a photo of a gelada?": a photo asked for as a
+# question. The model, unasked to look, said it cannot show photos and sent the user to
+# search online (2026-10-24). Bare "got" is news ("got a picture of the eclipse today!").
+_ASK_LEADS: tuple[tuple[str, ...], ...] = (
+    ("do", "you", "have"),
+    ("have", "you", "got"),
+    ("you", "got"),
+)
+# "is there a picture of her?" asks for one; "are there pictures of Muhammad allowed in
+# Islam?" and "is there a photo of Mozart?" ask whether one exists, which only the answer
+# can say. These leads look up only someone named earlier in the chat.
+_EXIST_LEADS: tuple[tuple[str, ...], ...] = (("is", "there"), ("are", "there"), ("any",))
+_PEOPLE_PRONOUNS = frozenset({"him", "her", "them"})
+_SELF_WORDS = frozenset({"i", "i'm", "i've", "me", "myself", "you", "yourself", "yourselves"})
 # "send me a photo of X": these verbs need the photo noun, or "find me a
 # restaurant" and "give me a list" would turn into photo searches.
 _PHOTO_FETCH_VERBS = frozenset({"send", "find", "get", "give", "pull", "bring"})
@@ -213,6 +227,10 @@ def _clean_subject(raw: str) -> str | None:
     folded = [fold_token(w) for w in words]
     if not folded[0] or folded[0] in _POSSESSIVES:
         return None
+    # "a picture of me", "of you", "of the receipt I uploaded": the user, Recall or the
+    # user's own files, never a web search.
+    if any(w in _SELF_WORDS for w in folded):
+        return None
     # "Show me that again but simpler" asks to repeat an answer.
     if folded[0] in _DEICTICS and len(folded) > 1 and folded[1] in _NOT_A_NOUN:
         return None
@@ -313,6 +331,30 @@ def _match_fetch_photo(tokens: list[str]) -> str | None:
     return _photo_subject(rest)
 
 
+def _match_have_photo(tokens: list[str]) -> str | None:
+    """ "do you have [a/any]? picture of SUBJECT", "is there a picture of him" — the noun
+    and its "of" are required: "do you have a photo editing app?" and "is there a
+    picture limit?" ask about something else."""
+    folded = [fold_token(t) for t in tokens]
+    for lead in (*_ASK_LEADS, *_EXIST_LEADS):
+        n = len(lead)
+        if tuple(folded[:n]) != lead:
+            continue
+        i = n
+        if i < len(folded) and folded[i] in {*_ARTICLES, "any", "some"}:
+            i += 1
+        # The noun, its "of" (as ``_strip_reference_noun_prefix`` reads it), a subject.
+        if not (i + 2 < len(tokens) and folded[i] in _REFERENCE_NOUNS):
+            return None
+        if tokens[i + 1].lower() != "of":
+            return None
+        named_earlier = len(folded) == i + 3 and folded[i + 2] in _PEOPLE_PRONOUNS
+        if lead in _EXIST_LEADS and not named_earlier:
+            return None
+        return _photo_subject(tokens[i:])
+    return None
+
+
 def _match_show_what_looks_like(tokens: list[str]) -> str | None:
     """ "show me what SUBJECT looks like" """
     if len(tokens) < 5 or tokens[0].lower() != "show":
@@ -362,6 +404,7 @@ def extract_image_lookup_query(text: str) -> str | None:
         _match_show_me,
         _match_let_me_see,
         _match_fetch_photo,
+        _match_have_photo,
         _match_look_like,
     ):
         matched = match(tokens)
