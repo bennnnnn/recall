@@ -98,6 +98,8 @@ export function MathConverterUnitSheet({
               onPress={() => onPickUnit(unit.id)}
               style={s.unitRow}
               testID={`math-converter-unit-${unit.id}`}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: selected }}
             >
               <Text style={[s.unitName, selected && s.unitNameSelected]}>
                 {unit.name} ({unit.symbol})
