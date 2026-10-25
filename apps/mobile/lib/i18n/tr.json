@@ -360,6 +360,7 @@
   "gallery.use_in_chat": "Sohbette kullan",
   "gallery.viewer_image_a11y": "{{name}}, {{index}}. fotoğraf, toplam {{count}}",
   "login.apple": "Apple ile devam et",
+  "login.consent_line": "Devam ederek Koşulları ve Gizlilik Politikasını, ayrıca sohbetlerinin ve sesinin üçüncü taraf yapay zekâ sağlayıcıları tarafından işlenmesini kabul etmiş olursun.",
   "login.dev": "Dev kullanıcı olarak devam et",
   "login.dev_expo_hint": "Google ile giriş için geliştirme derlemesi gerekir. Dev girişi Expo Go'da çalışır.",
   "login.dev_expo_ios_hint": "Google ve Apple ile giriş bir dev build gerektirir. Dev girişi Expo Go'da çalışır.",

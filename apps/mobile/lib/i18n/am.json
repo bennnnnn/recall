@@ -360,6 +360,7 @@
   "gallery.use_in_chat": "በውይይት ውስጥ ተጠቀም",
   "gallery.viewer_image_a11y": "{{name}}፣ ከ{{count}} {{index}}ኛ",
   "login.apple": "በ Apple ይቀጥሉ",
+  "login.consent_line": "በመቀጠልዎ፣ በውሎቹ እና በግላዊነት መመሪያው፣ እንዲሁም ውይይቶችዎ እና ድምጽዎ በሶስተኛ ወገን የAI አቅራቢዎች እንዲስተናገዱ ይስማማሉ።",
   "login.dev": "እንደ Dev ይቀጥሉ",
   "login.dev_expo_hint": "የGoogle መግቢያ ዴቭ ቢልድ ይፈልጋል። የDev መግቢያ በExpo Go ይሰራል።",
   "login.dev_expo_ios_hint": "የGoogle እና የApple መግቢያ ዴቭ ቢልድ ይፈልጋሉ። የDev መግቢያ በExpo Go ይሰራል።",

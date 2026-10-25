@@ -1,4 +1,4 @@
-/** Sign-in with Google, Apple, or dev auth, and the consent asked right after it.
+/** Sign-in with Google, Apple, or dev auth, and the consent asked of an account without it.
  * Session refresh lives in lib/api/client.ts. */
 import {
   ApiRequestError,
@@ -16,6 +16,14 @@ import {
   signInUnreachable,
 } from "@/features/auth/model/signInRefusal";
 import { deviceSessionFields } from "@/lib/deviceSession";
+
+/**
+ * Every sign-in starts from a button on the sign-in page, under the line saying that
+ * continuing agrees to the Terms, the Privacy Policy and outside AI processing
+ * (`login.consent_line`): the tap is the agreement, and the server records it with the
+ * sign-in, so the reply comes back agreed. Only those buttons call these functions.
+ */
+const AGREED_BY_SIGNING_IN = { ai_data_consent: true } as const;
 
 /** A refused sign-in, read by its code: never the server's English (signInRefusal.ts). */
 async function loginFailure(response: Response): Promise<Error> {
@@ -50,7 +58,8 @@ function signIn(
 }
 
 export function loginWithGoogle(idToken: string): Promise<AuthResult> {
-  return signIn("/auth/google", { id_token: idToken, ...deviceSessionFields() }, async (response) => {
+  const body = { id_token: idToken, ...AGREED_BY_SIGNING_IN, ...deviceSessionFields() };
+  return signIn("/auth/google", body, async (response) => {
     if (!response.ok) throw await loginFailure(response);
     return (await response.json()) as AuthResult;
   });
@@ -61,7 +70,13 @@ export function loginWithApple(
   name: string | null,
   nonce: string,
 ): Promise<AuthResult> {
-  const body = { id_token: idToken, name: name ?? null, nonce, ...deviceSessionFields() };
+  const body = {
+    id_token: idToken,
+    name: name ?? null,
+    nonce,
+    ...AGREED_BY_SIGNING_IN,
+    ...deviceSessionFields(),
+  };
   return signIn("/auth/apple", body, async (response) => {
     if (!response.ok) throw await loginFailure(response);
     return (await response.json()) as AuthResult;
@@ -72,13 +87,15 @@ export function loginWithDev(
   email = "dev@recall.local",
   name = "bini",
 ): Promise<AuthResult> {
-  return signIn("/auth/dev", { email, name, ...deviceSessionFields() }, async (response) => {
+  const body = { email, name, ...AGREED_BY_SIGNING_IN, ...deviceSessionFields() };
+  return signIn("/auth/dev", body, async (response) => {
     if (!response.ok) throw await loginFailure(response);
     return (await response.json()) as AuthResult;
   });
 }
 
-/** Record that the user agreed to the outside-AI disclosure; the server stamps the time. */
+/** Record that an account without the agreement (one from before sign-in recorded it, or
+ * one that withdrew) agreed on the consent screen; the server stamps the time. */
 export function agreeToAiDataSharing(token: string): Promise<User> {
   return setAiDataSharing(token, true);
 }

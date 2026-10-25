@@ -360,6 +360,7 @@
   "gallery.use_in_chat": "Im Chat verwenden",
   "gallery.viewer_image_a11y": "{{name}}, {{index}} von {{count}}",
   "login.apple": "Weiter mit Apple",
+  "login.consent_line": "Wenn du fortfährst, stimmst du den Nutzungsbedingungen und der Datenschutzerklärung zu und erklärst dich einverstanden, dass deine Chats und deine Stimme von externen KI-Anbietern verarbeitet werden.",
   "login.dev": "Als Dev-Benutzer fortfahren",
   "login.dev_expo_hint": "Google Sign-In braucht einen Dev-Build. Dev-Login funktioniert in Expo Go.",
   "login.dev_expo_ios_hint": "Die Anmeldung mit Google und Apple braucht einen Dev-Build. Die Dev-Anmeldung funktioniert in Expo Go.",

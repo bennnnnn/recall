@@ -365,6 +365,7 @@
   "gallery.use_in_chat": "Usar en el chat",
   "gallery.viewer_image_a11y": "{{name}}, {{index}} de {{count}}",
   "login.apple": "Continuar con Apple",
+  "login.consent_line": "Al continuar, aceptas los Términos y la Política de privacidad, y que tus chats y tu voz los procesen proveedores de IA externos.",
   "login.dev": "Continuar como Dev",
   "login.dev_expo_hint": "Google Sign-In requiere una compilación de desarrollo. El inicio de sesión Dev funciona en Expo Go.",
   "login.dev_expo_ios_hint": "Iniciar sesión con Google y Apple requiere un dev build. El inicio de sesión de Dev funciona en Expo Go.",

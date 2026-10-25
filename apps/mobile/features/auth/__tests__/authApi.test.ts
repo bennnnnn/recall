@@ -128,3 +128,21 @@ describe("a sign-in that gets no answer", () => {
     }
   });
 });
+
+describe("the agreement a sign-in carries", () => {
+  // The sign-in page's line says continuing agrees; the server records it with the sign-in,
+  // so a new account no longer stops on a separate consent screen.
+  it.each([
+    ["/auth/google", () => loginWithGoogle("id-token")],
+    ["/auth/apple", () => loginWithApple("id-token", null, "nonce")],
+    ["/auth/dev", () => loginWithDev()],
+  ])("%s says the user agreed by tapping", async (path, login) => {
+    jest.mocked(fetchWithTimeout).mockResolvedValueOnce(
+      { ok: true, status: 200, json: async () => ({}) } as unknown as Response,
+    );
+    await login();
+    const [url, init] = jest.mocked(fetchWithTimeout).mock.calls.at(-1) ?? [];
+    expect(url).toBe(`https://api.test${path}`);
+    expect(JSON.parse(String(init?.body))).toMatchObject({ ai_data_consent: true });
+  });
+});

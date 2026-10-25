@@ -115,7 +115,8 @@ export default function LoginScreen() {
     );
   }
 
-  // A new sign-in goes straight to the one-time AI consent, never past the chat.
+  // A tap here agrees, so a sign-in comes back agreed and opens the chat. An account the
+  // server answers without it (an older API) still sees the consent screen first.
   if (token) return <Redirect href={needsAiDataConsent(user) ? AI_CONSENT_ROUTE : "/"} />;
   if (!onboarded) return <Redirect href="/onboarding" />;
 
@@ -199,6 +200,9 @@ export default function LoginScreen() {
             </>
           )}
 
+          {/* Apple 5.1.2(i): the disclosure sits under the buttons and a tap is the
+              agreement (features/auth/api.ts sends it with the sign-in). */}
+          <Text style={s.consentLine}>{t("login.consent_line")}</Text>
           <View style={s.links}>
             <Pressable
               onPress={() => void openAllowedUrl(getLegalTermsUrl())}
@@ -367,6 +371,13 @@ function makeStyles(theme: Theme) {
     devSecondaryText: { ...Type.secondary, ...Weight.semibold, color: theme.primary },
     dim: { opacity: 0.55 },
     pressed: { opacity: 0.85 },
+    consentLine: {
+      ...Type.caption,
+      ...Weight.regular,
+      color: theme.textSecondary,
+      textAlign: "center",
+      paddingHorizontal: Space.xs,
+    },
     links: {
       flexDirection: "row",
       alignItems: "center",

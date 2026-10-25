@@ -370,6 +370,7 @@
   "gallery.use_in_chat": "Использовать в чате",
   "gallery.viewer_image_a11y": "{{name}}, {{index}} из {{count}}",
   "login.apple": "Продолжить с Apple",
+  "login.consent_line": "Продолжая, вы принимаете Условия и Политику конфиденциальности и соглашаетесь, что ваши чаты и голос обрабатываются сторонними поставщиками ИИ.",
   "login.dev": "Продолжить как Dev-пользователь",
   "login.dev_expo_hint": "Вход через Google требует dev-сборку. Dev-вход работает в Expo Go.",
   "login.dev_expo_ios_hint": "Вход через Google и Apple требует dev-сборку. Вход Dev работает в Expo Go.",
