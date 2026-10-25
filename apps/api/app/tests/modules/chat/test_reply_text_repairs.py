@@ -16,7 +16,7 @@ import json
 
 import pytest
 
-from app.modules.chat.formula_fences import unfence_formulas
+from app.modules.chat.formula_fences import unfence_formulas, unwrap_code_maths
 from app.modules.chat.proper_case import restore_proper_case
 from app.modules.chat.quiz_cards import repair_quiz_fences
 
@@ -191,3 +191,122 @@ def test_code_stays_in_its_block(body: str) -> None:
     block = f"```\n{body}\n```"
     assert unfence_formulas(block) == block
     assert unfence_formulas(f"```python\n{body}\n```") == f"```python\n{body}\n```"
+
+
+@pytest.mark.parametrize(
+    ("reply", "shown"),
+    [
+        # Live 2026-10-25, a sales-tax follow-up on a car loan.
+        (
+            "First, find the total cost:\n`$14,000 + (14,000 \\times 0.07) = 14,980$`",
+            "First, find the total cost:\n$14,000 + (14,000 \\times 0.07) = 14,980$",
+        ),
+        ("so `$r = \\frac{0.0757}{12}$` a month", "so $r = \\frac{0.0757}{12}$ a month"),
+        ("`$$M = P \\frac{r}{1 - (1+r)^{-n}}$$`", "$$M = P \\frac{r}{1 - (1+r)^{-n}}$$"),
+        # Code stays code.
+        ("Where `M` is the payment.", "Where `M` is the payment."),
+        ("Run `echo $HOME` first.", "Run `echo $HOME` first."),
+        ("The variable `$x` holds it.", "The variable `$x` holds it."),
+        ("Spaced `$ a $` is no maths.", "Spaced `$ a $` is no maths."),
+        ("```python\nx = `$y$`\n```", "```python\nx = `$y$`\n```"),
+        ("Mixed `$x$ and y` stays.", "Mixed `$x$ and y` stays."),
+        # Code that only looks like maths (review of the first draft).
+        (
+            "Your hash starts with `$y$`; `$6$` is SHA-512, `$2b$` bcrypt.",
+            "Your hash starts with `$y$`; `$6$` is SHA-512, `$2b$` bcrypt.",
+        ),
+        ("Use `$PATH$` and `${name}$` and `$^$`.", "Use `$PATH$` and `${name}$` and `$^$`."),
+    ],
+)
+def test_a_maths_span_in_inline_code_is_maths(reply: str, shown: str) -> None:
+    assert unwrap_code_maths(reply, "what if sales tax is 7%") == shown
+
+
+@pytest.mark.parametrize(
+    "request_text",
+    [
+        "how do i type a fraction in latex?",
+        "what's the markdown for an equation?",
+        "how do I put a fraction in a Jupyter notebook cell?",
+        "how do i format maths in a github README",
+        # The line before asked: "and a square root?" in a LaTeX chat.
+        "how do i write a fraction in latex?\nand a square root?",
+    ],
+)
+def test_asked_for_the_source_every_span_stays_code(request_text: str) -> None:
+    reply = "Type `$\\frac{a}{b}$` to get a fraction."
+    assert unwrap_code_maths(reply, request_text) == reply
+
+
+@pytest.mark.parametrize(
+    "request_text",
+    [
+        "Write out the steps for the monthly payment with 7% tax",
+        "what type of loan payment is this?",
+        "can you write the formula and work it out?",
+    ],
+)
+def test_ordinary_maths_requests_still_get_maths(request_text: str) -> None:
+    reply = "So `$r = \\frac{0.0757}{12}$` a month."
+    assert unwrap_code_maths(reply, request_text) == "So $r = \\frac{0.0757}{12}$ a month."
+
+
+@pytest.mark.parametrize(
+    "request_text",
+    [
+        "how to type a fraction",
+        "what do I type to get a square root?",
+        "show me the code for a fraction",
+        "how to write x squared in a math chat",
+    ],
+)
+def test_a_span_the_reply_says_to_type_stays_code(request_text: str) -> None:
+    """The reply says what to type: that is the source asked for (second review)."""
+    reply = "Type `$x^2$` for x squared and `$\\frac{a}{b}$` for a fraction."
+    assert unwrap_code_maths(reply, request_text) == reply
+
+
+@pytest.mark.parametrize(
+    "request_text",
+    [
+        "how do I write 0.75 as a fraction?",
+        "how can i write this equation in slope-intercept form?",
+    ],
+)
+def test_homework_that_says_write_still_gets_maths(request_text: str) -> None:
+    reply = "So `$0.75 = \\frac{3}{4}$` in lowest terms."
+    assert unwrap_code_maths(reply, request_text) == "So $0.75 = \\frac{3}{4}$ in lowest terms."
+
+
+@pytest.mark.parametrize(
+    ("request_text", "reply"),
+    [
+        (
+            "what if sales tax is 7%",
+            "Now put the numbers into the formula: `$M = 11,980 \\times 0.020143$`",
+        ),
+        ("area of a circle r=7", "Using the formula, `$A = \\pi r^2$`, we get 153.9."),
+        (
+            "how do I write 0.75 as a fraction?",
+            "You can write 0.75 as `$\\frac{75}{100} = \\frac{3}{4}$`.",
+        ),
+        ("explain the notion of a limit", "So `$\\lim_{x\\to 0} \\frac{\\sin x}{x} = 1$`."),
+    ],
+)
+def test_worked_maths_that_says_use_or_write_is_maths(request_text: str, reply: str) -> None:
+    """Third review: "use", "write" and "put" are how worked maths talks."""
+    assert "`" not in unwrap_code_maths(reply, request_text)
+
+
+@pytest.mark.parametrize(
+    ("request_text", "reply"),
+    [
+        ("what's the syntax for a square root?", "A square root looks like this: `$\\sqrt{x}$`"),
+        ("how do I type x squared?", "x squared is `$x^2$`"),
+        ("how do I write integrals in the app?", "Like this: `$\\int_0^1 x^2 \\, dx$`"),
+        ("what's the command for a fraction?", "The command is `$\\frac{a}{b}$`"),
+        ("how can I show maths?", "Copy this: `$a \\neq b$`"),
+    ],
+)
+def test_the_source_asked_for_stays_code(request_text: str, reply: str) -> None:
+    assert unwrap_code_maths(reply, request_text) == reply

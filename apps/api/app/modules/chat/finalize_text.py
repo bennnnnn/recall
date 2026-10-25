@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from app.modules.chat.chart_sanitize import sanitize_chart_fences
 from app.modules.chat.clarify_card import CLARIFY_FENCE, NEVER_WITH_CARD, settle_clarify_cards
 from app.modules.chat.finalize_subjects import fallback_text
-from app.modules.chat.formula_fences import unfence_formulas
+from app.modules.chat.formula_fences import unfence_formulas, unwrap_code_maths
 from app.modules.chat.mermaid_sanitize import sanitize_mermaid_fences
 from app.modules.chat.presentation import drop_orphan_leading_answer, present_assistant_markdown
 from app.modules.chat.proper_case import restore_proper_case
@@ -35,6 +35,7 @@ from app.services.time_context import (
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
+    from app.modules.chat.turn_prep import StreamContext
 
 
 async def attach_answer_photo(state: FinalizeState) -> str:
@@ -119,9 +120,11 @@ def sanitize_fences(state: FinalizeState) -> str:
 
 
 def restore_case(state: FinalizeState) -> str:
-    """A formula out of its plain code block, then formulas, units and dates capitalized
-    where a casual reply wrote them lowercase."""
-    return restore_proper_case(unfence_formulas(state.text))
+    """A formula out of its plain code block or code span, then formulas, units and dates
+    capitalized where a casual reply wrote them lowercase."""
+    asked = f"{_prior_user(state.ctx)}\n{state.ctx.user_message_content}"
+    text = unwrap_code_maths(unfence_formulas(state.text), asked)
+    return restore_proper_case(text)
 
 
 def present_markdown(state: FinalizeState) -> str:
@@ -165,3 +168,12 @@ def settle_clarify(state: FinalizeState) -> str:
     if text != state.text:
         state.committed = fallback_text(text, server_text=state.server_text)
     return text
+
+
+def _prior_user(ctx: StreamContext) -> str:
+    """The user's line before this one: "and a square root?" asks within a LaTeX chat."""
+    for message in reversed(ctx.prompt_messages[:-1]):
+        if message.get("role") == "user":
+            content = message.get("content")
+            return content if isinstance(content, str) else ""
+    return ""
