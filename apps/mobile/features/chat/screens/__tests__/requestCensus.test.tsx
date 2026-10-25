@@ -1152,7 +1152,7 @@ it("reads the open chat once when its reply's page landed before the API's retur
   const back = steps[steps.length - 1].requests;
   if (process.env.CENSUS) console.log(back);
   // The reply's newest rows, then its page; the check passes and clears the banner, no second read.
-  expect(back).toContain("GET /health");
+  expect(back).toContain("GET /health/dependencies");
   expect(statusChanges[statusChanges.length - 1].status).toBe("online");
   expect(listReads(back)).toEqual([`GET /chats/${chatId(1)}/messages?limit=4`, CHAT_1_PAGE]);
 });
