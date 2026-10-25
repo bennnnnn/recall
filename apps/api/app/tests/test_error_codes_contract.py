@@ -165,7 +165,7 @@ def _bodies() -> dict[str, dict[str, Any]]:
             "app.modules.account.api.auth_service.login_with_google",
             AsyncMock(side_effect=AccountExistsError("apple")),
         ),
-        patch("app.modules.account.api._enforce_login_rate_limit", AsyncMock()),
+        patch("app.modules.account.signin_limit.address_allowed", AsyncMock(return_value=True)),
     ):
         exists = _client(_user()).post("/auth/google", json={"id_token": "token"})
     return {

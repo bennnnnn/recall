@@ -13,7 +13,7 @@ from app.gateways.google_auth import (
 from app.gateways.google_auth import verify_google_id_token
 from app.models.orm import User
 from app.models.schemas import AuthResponse, UserOut
-from app.modules.account import quota_carryover
+from app.modules.account import quota_carryover, signin_limit
 from app.modules.account import tokens as tokens_service
 
 # Re-exported for the account API (maps it to 409 naming the earlier sign-in).
@@ -66,6 +66,8 @@ async def login_with_google(
 ) -> AuthResponse:
     payload = await verify_google_id_token(id_token, settings)
     google_sub = payload["sub"]
+    # Once the token verifies, before the account is read or a session made.
+    await signin_limit.require_identity(redis, settings, "google", google_sub)
     email = (payload.get("email") or "").strip()
     name = payload.get("name")
     avatar_url = payload.get("picture")
@@ -141,6 +143,7 @@ async def login_with_apple(
     name = normalize_display_name(name)
     payload = await verify_apple_id_token(id_token, settings, nonce=nonce)
     apple_sub = payload["sub"]
+    await signin_limit.require_identity(redis, settings, "apple", apple_sub)
     email = payload.get("email")
     # Apple sends `email_verified` as the string "true"/"false" (not a bool),
     # and omits the claim entirely for relayed tokens. Treat anything that

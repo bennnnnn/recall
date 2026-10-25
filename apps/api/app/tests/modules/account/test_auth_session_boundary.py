@@ -44,7 +44,7 @@ async def test_email_match_cannot_replace_another_provider_identity(provider):
     ):
         login = getattr(auth_service, f"login_with_{provider}")
         with pytest.raises(auth_service.AccountExistsError) as refused:
-            await login(AsyncMock(), Settings(jwt_secret="x" * 32), "id-token", AsyncMock())
+            await login(AsyncMock(), Settings(jwt_secret="x" * 32), "id-token", redis_mock())
     assert refused.value.sign_in_with == provider
     update.assert_not_awaited()
     issue.assert_not_awaited()
@@ -67,7 +67,8 @@ async def test_login_session_store_outage_reaches_the_retryable_503_handler(
     request = MagicMock()
     request.client.host = "127.0.0.1"
     with (
-        patch("app.modules.account.api._enforce_login_rate_limit", AsyncMock()),
+        patch("app.modules.account.signin_limit.address_allowed", AsyncMock(return_value=True)),
+        patch("app.modules.account.signin_limit.dev_address_allowed", AsyncMock(return_value=True)),
         patch(
             f"app.modules.account.api.auth_service.{service}",
             AsyncMock(side_effect=RedisUnavailableError()),
@@ -90,7 +91,7 @@ async def test_apple_login_hands_the_raw_nonce_to_token_verification():
     request = MagicMock()
     request.client.host = "127.0.0.1"
     with (
-        patch("app.modules.account.api._enforce_login_rate_limit", AsyncMock()),
+        patch("app.modules.account.signin_limit.address_allowed", AsyncMock(return_value=True)),
         patch(
             "app.modules.account.service.verify_apple_id_token",
             AsyncMock(side_effect=AuthenticationError("Invalid Apple ID token")),

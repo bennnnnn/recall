@@ -10,12 +10,14 @@ import {
 import { serverUnreachableError, withDeadline } from "@/lib/api/deadline";
 import type { AuthResult, User } from "@/lib/api/types";
 import { AccountExistsError, accountExistsProvider } from "@/features/auth/model/accountExists";
+import { SignInLimitedError } from "@/features/auth/model/signInLimited";
 import { deviceSessionFields } from "@/lib/deviceSession";
 
 async function loginFailure(response: Response, fallback: string): Promise<Error> {
   const refused = new ApiRequestError(response.status, await response.text());
   const provider = accountExistsProvider(refused);
   if (provider) return new AccountExistsError(provider);
+  if (refused.status === 429) return new SignInLimitedError();
   return new Error(refused.message || fallback);
 }
 
@@ -60,6 +62,7 @@ export function loginWithDev(
   name = "bini",
 ): Promise<AuthResult> {
   return signIn("/auth/dev", { email, name, ...deviceSessionFields() }, async (response) => {
+    if (response.status === 429) throw new SignInLimitedError();
     if (!response.ok) {
       const text = await response.text();
       throw new Error(text || "Dev login failed — is the API running?");

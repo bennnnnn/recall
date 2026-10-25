@@ -13,6 +13,7 @@ from app.modules.account import lifecycle as account_lifecycle
 from app.modules.account import service as auth
 from app.modules.attachments import repository as attachments
 from app.repositories import users
+from app.tests.fakes import redis_mock
 
 
 async def _user(session) -> User:
@@ -142,11 +143,11 @@ async def test_provider_login_refreshes_profile_saved_after_identity_lookup(db_s
     ):
         if provider == "google":
             result = await auth.login_with_google(
-                db_session, Settings(_env_file=None), "id", AsyncMock()
+                db_session, Settings(_env_file=None), "id", redis_mock()
             )
         else:
             result = await auth.login_with_apple(
-                db_session, Settings(_env_file=None), "id", AsyncMock(), name="Provider name"
+                db_session, Settings(_env_file=None), "id", redis_mock(), name="Provider name"
             )
     assert result.user.name == "Saved profile name"
     assert result.user.avatar_url == avatar_url
