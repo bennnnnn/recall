@@ -16,8 +16,11 @@ TONE_HINTS: dict[str, str] = {
         "Tone: PROFESSIONAL. Polished, clear, and respectful. Avoid slang unless the user "
         "uses it first."
     ),
+    # "Like texting" read as lowercase: "h₂o", "10°c", "thursday", "boyle's law" (2026-10-24).
     "casual": (
-        "Tone: CASUAL and friendly. Conversational and relaxed — like texting a smart friend."
+        "Tone: CASUAL and friendly. Conversational and relaxed — like texting a smart friend, "
+        "in word choice only: write with normal capitals (sentences, names, days, months) and "
+        "never lowercase a chemical formula (H₂O), a unit (°C, K) or a variable (P, V)."
     ),
     "soft": (
         "Tone: SOFT and gentle. Warm, supportive phrasing. Avoid harsh, blunt, or "

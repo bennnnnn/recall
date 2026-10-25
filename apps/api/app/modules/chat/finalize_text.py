@@ -12,14 +12,17 @@ from typing import TYPE_CHECKING
 from app.modules.chat.chart_sanitize import sanitize_chart_fences
 from app.modules.chat.clarify_card import CLARIFY_FENCE, NEVER_WITH_CARD, settle_clarify_cards
 from app.modules.chat.finalize_subjects import fallback_text
+from app.modules.chat.formula_fences import unfence_formulas
 from app.modules.chat.mermaid_sanitize import sanitize_mermaid_fences
 from app.modules.chat.presentation import drop_orphan_leading_answer, present_assistant_markdown
+from app.modules.chat.proper_case import restore_proper_case
 from app.modules.chat.prose_normalizer import (
     fill_sender_name_slots,
     normalize_prose_artifacts,
     prose_changed,
     strip_unrequested_recipient_placeholders,
 )
+from app.modules.chat.quiz_cards import repair_quiz_fences
 from app.modules.chat.stream_status import announced_if_slow
 from app.modules.images.answer_photo import strip_photo_fences
 from app.services.md_fence_scan import close_unclosed_fences, iter_fences
@@ -111,7 +114,14 @@ def normalize_prose(state: FinalizeState) -> str:
 
 
 def sanitize_fences(state: FinalizeState) -> str:
-    return sanitize_places_fences(sanitize_mermaid_fences(sanitize_chart_fences(state.text)))
+    text = sanitize_places_fences(sanitize_mermaid_fences(sanitize_chart_fences(state.text)))
+    return repair_quiz_fences(text)
+
+
+def restore_case(state: FinalizeState) -> str:
+    """A formula out of its plain code block, then formulas, units and dates capitalized
+    where a casual reply wrote them lowercase."""
+    return restore_proper_case(unfence_formulas(state.text))
 
 
 def present_markdown(state: FinalizeState) -> str:

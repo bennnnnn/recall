@@ -105,6 +105,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "recipient_placeholders",
         "prose",
         "mermaid_and_places",
+        "proper_case",
         "presentation",
         "clock",
     ]
