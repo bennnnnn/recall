@@ -17,7 +17,7 @@ _PRIVACY_POLICY_MD = """# Privacy Policy
 
 **Effective date: {effective_date}**
 
-This policy explains what Recall collects, who receives it, how long it is kept, and how you control it. Recall is an AI chat app: to answer you, parts of your data must be sent to the outside AI and search services named below. The app explains this and asks for your permission before your first chat.
+This policy explains what Recall collects, who receives it, how long it is kept, and how you control it. Recall is an AI chat app: to answer you, parts of your data must be sent to the outside AI and search services named below. Nothing is sent to them until you agree. In the phone app, the sign-in page says this next to its sign-in buttons, and signing in is your agreement; the web app asks after you sign in.
 
 ## What We Collect
 
@@ -95,7 +95,7 @@ Crash and error reports hold technical details (device type, operating system, a
 - **Delete memories**: Remove individual learned facts from the Memory screen, or turn memory off.
 - **Delete chats**: Delete one chat or clear all of them.
 - **Turn things off**: Web search, location, notifications and email reminders each have a switch in Settings.
-- **AI processing**: Recall cannot answer without the AI services above. If you no longer agree to them, stop using Recall and delete your account.
+- **AI processing**: Recall cannot answer without the AI services above. You can withdraw your agreement in the phone app (Settings → Data controls); Recall then cannot chat, use your voice or read photos until you agree again. To stop for good, delete your account.
 
 Depending on where you live, you may also have the right to access, correct or delete your data, or to object to how it is used. Contact us to make a request.
 
