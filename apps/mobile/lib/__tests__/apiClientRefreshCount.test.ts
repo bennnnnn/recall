@@ -3,7 +3,15 @@
  * token at once: the server rotates the refresh token on each one, so a refresh
  * that was not needed is load at the worst moment and one more rotation to lose.
  */
-import { ApiRequestError, authorizeNativeTransfer, request, setTokenRefreshHandler, setUnauthorizedHandler } from "@/lib/api/client";
+import {
+  ApiRequestError,
+  authorizeNativeTransfer,
+  freshAccessToken,
+  refreshedAccount,
+  request,
+  setTokenRefreshHandler,
+  setUnauthorizedHandler,
+} from "@/lib/api/client";
 import { readRetryAfter } from "@/lib/api/errorBody";
 
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "http://test.local" }));
@@ -153,4 +161,29 @@ it.each([
 it("reads a Retry-After date as the time until it", () => {
   const now = Date.parse("2026-10-24T12:00:00Z");
   expect(readRetryAfter("Sat, 24 Oct 2026 12:00:30 GMT", now)).toBe(30_000);
+});
+
+it("asks no more after the server refused the refresh token, in that sign-in", async () => {
+  const server = serve(() => 20);
+  server.revoked = true;
+  const expired = jwt(Date.now() / 1000 - 10, 0);
+  for (const path of ["/a", "/b", "/c"]) {
+    const done = request(path, expired).catch(() => undefined);
+    await jest.advanceTimersByTimeAsync(500);
+    await done;
+  }
+  expect(server.refreshes).toBe(1);
+  expect(server.signedOut).toBe(3);
+});
+
+it("answers a launch with the account the refresh returned, for the token it issued only", async () => {
+  serve(() => 20);
+  const expired = jwt(Date.now() / 1000 - 10, 0);
+  const pending = freshAccessToken(expired);
+  await jest.advanceTimersByTimeAsync(200);
+  const fresh = await pending;
+  // This fake server's refresh sends no account; a real one sends the /auth/me body.
+  expect(fresh).not.toBe(expired);
+  expect(refreshedAccount(fresh)).toBeNull();
+  expect(refreshedAccount(expired)).toBeNull();
 });

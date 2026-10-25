@@ -88,6 +88,7 @@ const SCOPED_TO_SESSION = [
   "lib/api/client.ts#lastRefreshed",
   "lib/api/client.ts#refreshInFlight",
   "lib/api/client.ts#refreshRefused",
+  "lib/api/client.ts#refreshRejected",
   "lib/api/client.ts#revalidated",
   "lib/productAnalytics.ts#waiting",
 ];

@@ -22,6 +22,7 @@ import {
   type User,
   type AuthResult,
 } from "@/lib/api";
+import { accessTokenNeedsRefresh, freshAccessToken, refreshedAccount } from "@/lib/api/client";
 import { signInWithAppleCredentials } from "@/lib/apple-auth";
 import { signInWithGoogleIdToken } from "@/lib/google-auth";
 import { ensureLocale } from "@/lib/i18n";
@@ -141,7 +142,10 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
           setLoading(false);
         }
         const revision = updateUserGenRef.current;
-        const me = await api.me(stored);
+        // An expired token is refreshed first, and the refresh answers with the account.
+        const refreshed = accessTokenNeedsRefresh(stored) ? await freshAccessToken(stored) : null;
+        if (!current()) return;
+        const me = refreshedAccount(refreshed) ?? await api.me(stored);
         // /me may have rotated credentials. Never put the startup token back.
         const currentToken = await getToken();
         if (!current() || !currentToken) return;

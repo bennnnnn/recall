@@ -106,7 +106,20 @@ let refreshInFlight: { generation: number; promise: Promise<string | null> } | n
  * busy server the 401s of requests sent together land seconds apart, and each one
  * after the first refresh finished started another (six 401s, five refreshes).
  */
-let lastRefreshed: { generation: number; token: string } | null = null;
+let lastRefreshed: { generation: number; token: string; user: User | null } | null = null;
+
+/** This sign-in's refresh token was refused (401, or none stored): asking again cannot help. */
+let refreshRejected: number | null = null;
+
+/**
+ * The account the refresh that issued `token` answered with, or null for any other token.
+ * At launch an expired token is refreshed first, and that answer is the account /auth/me
+ * would read: most launches come more than the token's hour after the last.
+ */
+export function refreshedAccount(token: string | null): User | null {
+  const last = lastRefreshed;
+  return token && last?.generation === getSessionGeneration() && last.token === token ? last.user : null;
+}
 
 /**
  * A refresh the server turned away with a `Retry-After` (its per-IP limit's 429, a 503):
@@ -134,12 +147,16 @@ function replacedToken(token: string, generation: number): string | null {
 async function refreshAccessToken(): Promise<string | null> {
   const generation = getSessionGeneration();
   if (refreshInFlight?.generation === generation) return refreshInFlight.promise;
+  if (refreshRejected === generation) return null;
   const refused = refreshRefused;
   if (refused?.generation === generation && Date.now() < refused.until) throw refused.error;
   const promise = withDeadline(AUTH_FETCH_TIMEOUT_MS, null, async (signal) => {
     const refreshToken = await getRefreshToken();
     requireSession(generation);
-    if (!refreshToken) return null;
+    if (!refreshToken) {
+      refreshRejected = generation;
+      return null;
+    }
     const response = await fetch(apiUrl("/auth/refresh"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -147,7 +164,10 @@ async function refreshAccessToken(): Promise<string | null> {
       signal,
     });
     requireSession(generation);
-    if (response.status === 401) return null;
+    if (response.status === 401) {
+      refreshRejected = generation;
+      return null;
+    }
     if (!response.ok) {
       const error = await refusal(response);
       if (error.retryAfterMs) refreshRefused = { generation, until: Date.now() + error.retryAfterMs, error };
@@ -162,7 +182,7 @@ async function refreshAccessToken(): Promise<string | null> {
     const saved = await setTokenPair(data.access_token, data.refresh_token, generation);
     requireSession(generation);
     if (!saved) throw new SessionChangedError();
-    lastRefreshed = { generation, token: data.access_token };
+    lastRefreshed = { generation, token: data.access_token, user: data.user ?? null };
     refreshRefused = null;
     onTokenRefresh?.(data.access_token, data.user);
     return data.access_token;

@@ -603,6 +603,9 @@ const CEILINGS: Record<string, number> = {
   "cold start again": 6,
   // The page; the files' statuses the first run settled come from disk.
   "open chat 1 after the relaunch": 2,
+  // The token has expired: one refresh, which answers with the account (no /auth/me),
+  // then the day's usage, to-dos, models, /health and the drawer.
+  "cold start two hours later": 6,
 };
 
 jest.setTimeout(120_000);
@@ -707,6 +710,15 @@ it("keeps every step of an everyday session within its requests", async () => {
   step("cold start again");
   await openChat(app, 1);
   step("open chat 1 after the relaunch");
+
+  app.ui.unmount();
+  await settle(100);
+  jest.setSystemTime(Date.now() + 2 * 60 * 60_000);
+  mark = mockLog.length;
+  mockParams = {};
+  app = await launch();
+  await settle(10_000);
+  step("cold start two hours later");
 
   expectWithin(CEILINGS);
 });
