@@ -118,8 +118,14 @@ describe("liveTalkDataChannelText", () => {
 });
 
 describe("liveTalkErrorGate", () => {
-  it("maps 403 to upgrade", () => {
-    expect(liveTalkErrorGate({ status: 403 })).toBe("upgrade");
+  // Every 403 opened the paywall: consent_required too, on top of the consent step.
+  it.each([
+    [{ status: 403, code: "not_in_plan" }, "upgrade"],
+    [{ status: 403, code: "consent_required" }, "consent"],
+    [{ status: 403, code: "forbidden" }, "connect_failed"],
+    [{ status: 403 }, "connect_failed"],
+  ])("keys a 403 on its code: %j", (error, gate) => {
+    expect(liveTalkErrorGate(error)).toBe(gate);
   });
 
   // Every 429 said "You've used this month's live talk minutes": a rate limit, the
@@ -203,9 +209,9 @@ describe("liveTalkErrorGate", () => {
   });
 
   it("never reads an API refusal as a microphone denial", () => {
-    expect(liveTalkErrorGate({ status: 403, message: "Live talk is not allowed on your plan" })).toBe(
-      "upgrade",
-    );
+    expect(
+      liveTalkErrorGate({ status: 403, code: "not_in_plan", message: "Live talk is not allowed on your plan" }),
+    ).toBe("upgrade");
   });
 });
 

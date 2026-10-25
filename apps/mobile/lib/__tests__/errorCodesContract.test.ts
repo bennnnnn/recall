@@ -134,6 +134,14 @@ it.each([
   expect(liveTalkGateMessageKey(liveTalkErrorGate(refused(name)))).toBe(words);
 });
 
+// Every 403 opened the paywall, consent_required too, on top of the consent step.
+it.each([
+  ["live_talk_not_in_plan", "upgrade"],
+  ["live_talk_consent_required", "consent"],
+])("sends a refused live talk 403 by its code: %s", (name, gate) => {
+  expect(liveTalkErrorGate(refused(name))).toBe(gate);
+});
+
 // Every 429 said "You've used this month's live talk minutes": a rate limit, the spend
 // cap and a call's last save too.
 it.each([

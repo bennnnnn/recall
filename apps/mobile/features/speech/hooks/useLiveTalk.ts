@@ -112,6 +112,8 @@ export function useLiveTalk({
         onUpgrade();
         return;
       }
+      // The API client already sent the account to the consent step.
+      if (gate === "consent") return;
       if (gate === "mic_permission") {
         // The OS asks only once; after a denial only Settings can turn it on.
         void confirmDialog({

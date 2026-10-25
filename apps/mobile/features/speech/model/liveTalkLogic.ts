@@ -1,10 +1,15 @@
+import { CONSENT_REQUIRED_CODE } from "@/lib/api/consentRefusal";
 import { isServiceUnavailable } from "@/lib/api/errorBody";
 
 export type LiveTalkPhase = "idle" | "recording" | "thinking" | "speaking";
 
 export type LiveTalkGate =
   | "ok"
+  /** The plan does not include live talk (`not_in_plan`): the paywall. */
   | "upgrade"
+  /** The account has not agreed to outside AI services (`consent_required`): the API
+   *  client already sent it to the consent step (`lib/api/client.ts`), so nothing else. */
+  | "consent"
   /** This month's minutes are used: the status says so, or the server's `live_talk_minutes_used`. */
   | "limit"
   /** Too many requests in a row (the speech limit, a save's, the API's own): wait a moment. */
@@ -193,7 +198,9 @@ export function liveTalkErrorGate(error: unknown): LiveTalkGate {
   }
   if (code === LIVE_TALK_UPSTREAM_FAILED) return "connect_failed";
   if (code === "not_available") return "off";
-  if (status === 403) return "upgrade";
+  // Every 403 opened the paywall, `consent_required` too, on top of the consent step.
+  if (code === "not_in_plan") return "upgrade";
+  if (code === CONSENT_REQUIRED_CODE) return "consent";
   // The API's own request limit names no code: too many requests, never the month's minutes.
   if (status === 429) return LIVE_TALK_429S.get(code) ?? "rate_limited";
   // Only the server's `not_configured` says live talk is not set up. Every 503 said so,
@@ -204,7 +211,7 @@ export function liveTalkErrorGate(error: unknown): LiveTalkGate {
   return "connect_failed";
 }
 
-type SaidGate = Exclude<LiveTalkGate, "ok" | "upgrade" | "mic_permission">;
+type SaidGate = Exclude<LiveTalkGate, "ok" | "upgrade" | "consent" | "mic_permission">;
 
 /** Every gate said as an error has its own line: an unknown one said "update the app". */
 const GATE_MESSAGE_KEYS: Readonly<Record<SaidGate, string>> = {
@@ -220,7 +227,7 @@ const GATE_MESSAGE_KEYS: Readonly<Record<SaidGate, string>> = {
   unconfigured: "chat.live_talk_not_configured",
 };
 
-/** The line a gate says as a recoverable error; upgrade and the microphone open their own. */
+/** The line a gate says as a recoverable error; upgrade, consent and the microphone open their own. */
 export function liveTalkGateMessageKey(gate: LiveTalkGate): string {
   return (GATE_MESSAGE_KEYS as Partial<Record<LiveTalkGate, string>>)[gate] ?? "chat.live_talk_failed";
 }

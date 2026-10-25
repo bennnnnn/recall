@@ -175,16 +175,23 @@ _LIVE_TALK_ON = Settings(
 )
 
 
-def _live_talk(path: str, *, settings: Settings | None = None, **refused: bool) -> Any:
-    """POST a live talk route for a Pro user, refused where ``refused`` says.
+def _live_talk(
+    path: str,
+    *,
+    settings: Settings | None = None,
+    plan: str = "pro",
+    consented: bool = True,
+    **refused: bool,
+) -> Any:
+    """POST a live talk route for a user on ``plan``, refused where ``refused`` says.
 
     ``rate_limited``: the route's own per-minute limit is used up; ``spend_capped``: the
     voice spend breaker is open; ``minutes_used``: the month has no session left;
     ``mint_failed``: the realtime provider minted no key; ``saves_used``: the call saved
     every turn it may. A save names this chat's session.
     """
-    user = _user()
-    user.plan = "pro"
+    user = _user(consented=consented)
+    user.plan = plan
     user.tts_voice = None
     user.custom_instructions = None
     chat_id = uuid4()
@@ -424,6 +431,9 @@ def _bodies() -> dict[str, dict[str, Any]]:
                 "/speech/live/session", settings=Settings(speech_realtime_voice_enabled=False)
             )
         ),
+        # The paywall opens for this code only; consent opens the consent step instead.
+        "live_talk_not_in_plan": _refusal(_live_talk("/speech/live/session", plan="free")),
+        "live_talk_consent_required": _refusal(_live_talk("/speech/live/session", consented=False)),
         "live_talk_save_rate_limited": _refusal(
             _live_talk("/speech/live/persist", rate_limited=True)
         ),

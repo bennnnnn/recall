@@ -36,6 +36,7 @@ jest.mock("@/lib/api", () => ({
 }));
 
 let live!: ReturnType<typeof useLiveTalk>;
+const onUpgrade = jest.fn();
 
 function Probe() {
   const value = useLiveTalk({
@@ -44,7 +45,7 @@ function Probe() {
     ensureChatId: async () => "chat-1",
     setMessages: jest.fn(),
     isOffline: false,
-    onUpgrade: jest.fn(),
+    onUpgrade,
     onScrollToLatest: jest.fn(),
     newMessageCountRef: { current: 0 },
     onFirstReply: jest.fn(),
@@ -127,6 +128,25 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
     });
 
     expect(reportRecoverableError).toHaveBeenCalledWith(null, line);
+    expect(live.visible).toBe(false);
+  });
+
+  // Every 403 opened the paywall: consent_required did too, on top of the consent step
+  // the API client opens for it.
+  it.each([
+    [{ code: "not_in_plan", message: "Live talk isn't part of your plan." }, 1],
+    [{ code: "consent_required", message: "Agree to how Recall uses outside AI services to continue." }, 0],
+  ])("opens the paywall only for not_in_plan: %j", async (detail, paywalls) => {
+    (createRealtimeVoiceSession as jest.Mock).mockRejectedValueOnce(
+      new ApiRequestError(403, JSON.stringify({ detail })),
+    );
+    await render(<Probe />);
+    await act(async () => {
+      await live.open();
+    });
+
+    expect(onUpgrade).toHaveBeenCalledTimes(paywalls);
+    expect(reportRecoverableError).not.toHaveBeenCalled();
     expect(live.visible).toBe(false);
   });
 
