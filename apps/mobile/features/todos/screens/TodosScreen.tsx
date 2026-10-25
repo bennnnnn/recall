@@ -214,6 +214,20 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const visibleTodos = useMemo(() => todosForView(todos, view, now), [todos, view, now]);
   const rows = useMemo(() => buildTodoListRows(visibleTodos, now), [visibleTodos, now]);
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
+  // Every row takes these: a new function each render redrew every row on any change (a toggle).
+  const openTodoEditor = actions.openTodoEditor;
+  const openTodo = useCallback((todo: Parameters<typeof openTodoEditor>[0]) => {
+    if (!isCurrentView()) return;
+    setMenuOpen(false);
+    setDetailMenu(false);
+    setEditorOpen(false);
+    openTodoEditor(todo);
+  }, [isCurrentView, openTodoEditor]);
+  const toggleSelected = useCallback((todo: { id: string }) => {
+    setSelectedIds((current) =>
+      current.includes(todo.id) ? current.filter((id) => id !== todo.id) : [...current, todo.id],
+    );
+  }, []);
   if (!token) return <Redirect href="/login" />;
 
   if (loading && todos.length === 0) {
@@ -226,20 +240,6 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     setDetailMenu(false);
     actions.closeTodoEditor();
     setEditorOpen(true);
-  };
-
-  const openTodo = (todo: Parameters<typeof actions.openTodoEditor>[0]) => {
-    if (!isCurrentView()) return;
-    setMenuOpen(false);
-    setDetailMenu(false);
-    setEditorOpen(false);
-    actions.openTodoEditor(todo);
-  };
-
-  const toggleSelected = (todo: { id: string }) => {
-    setSelectedIds((current) =>
-      current.includes(todo.id) ? current.filter((id) => id !== todo.id) : [...current, todo.id],
-    );
   };
 
   const deleteSelected = () => {
