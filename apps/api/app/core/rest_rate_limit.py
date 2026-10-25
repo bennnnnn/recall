@@ -6,16 +6,20 @@ import logging
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 
 from app.core.access_tokens import AccessTokenError, decode_access_token
 from app.core.client_ip import client_ip
 from app.core.config import Settings, get_settings
+from app.core.domain_errors import domain_error_response
 from app.core.rate_limit import allow_request
 from app.core.redis import get_redis_client
 from app.core.unavailable import unavailable_response
+from app.exceptions import DomainError
 
 logger = logging.getLogger(__name__)
+
+RATE_LIMITED_CODE = "rate_limited"
 
 # Refresh and Google/Apple sign-in have their own limits, per account or identity and per IP
 # (modules/account/refresh_limit.py, signin_limit.py), each IP limit checked before any costly
@@ -70,9 +74,15 @@ class RestRateLimitMiddleware(BaseHTTPMiddleware):
             return unavailable_response()
 
         if not allowed:
-            return JSONResponse(
-                status_code=429,
-                content={"detail": "Too many requests. Please slow down."},
-                headers={"Retry-After": "60"},
+            # The shared coded body (``docs/fixtures/error_codes.json``). The English alone
+            # named no code: a chat read it as "Couldn't reach the server", dev login as
+            # the generic sign-in failure.
+            return domain_error_response(
+                DomainError(
+                    "Too many requests. Please slow down.",
+                    status_code=429,
+                    code=RATE_LIMITED_CODE,
+                    headers={"Retry-After": "60"},
+                )
             )
         return await call_next(request)

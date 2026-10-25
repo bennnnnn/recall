@@ -69,7 +69,12 @@ def test_middleware_returns_429_when_over_limit():
             headers={"Origin": "http://localhost:8081"},
         )
     assert response.status_code == 429
-    assert response.json()["detail"] == "Too many requests. Please slow down."
+    # The shared coded body: the phone switches on the code, as for every refusal. The
+    # English alone (no code) read as "Couldn't reach the server" in a chat and as the
+    # generic sign-in failure on dev login.
+    assert response.json() == {
+        "detail": {"code": "rate_limited", "message": "Too many requests. Please slow down."}
+    }
     assert response.headers.get("retry-after") == "60"
     # CORS must wrap rate-limit so browsers see a real 429, not a network error.
     assert response.headers.get("access-control-allow-origin") == "http://localhost:8081"
@@ -112,6 +117,7 @@ def test_middleware_still_answers_429_over_the_limit_with_redis_up() -> None:
     with patch("app.core.rest_rate_limit.get_redis_client", return_value=redis):
         response = TestClient(create_app()).get("/openapi.json")
     assert response.status_code == 429
+    assert response.json()["detail"]["code"] == "rate_limited"
     assert response.headers.get("retry-after") == "60"
 
 

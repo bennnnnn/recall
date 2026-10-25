@@ -11,7 +11,11 @@ deletes every key naming the user id, leaves it). It expires when the UTC
 month ends. When sign-in creates a new user for that identity, the new
 account's counters are raised to the stored ones and the key is deleted.
 
-Both sides are best-effort: neither can fail an account delete or a sign-in.
+The delete side fails closed: a delete whose counters cannot be stored is refused with
+``RedisUnavailableError`` (503 ``unavailable``), before anything is undone, and the phone
+asks for a retry. It was best-effort, so a delete while Redis failed lost the day's
+counters and the same sign-in started a new account from zero. The sign-in side stays
+best-effort: it never fails a sign-in.
 """
 
 from __future__ import annotations
@@ -25,8 +29,10 @@ from uuid import UUID
 
 from pydantic import ValidationError
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 from app.core.config import Settings
+from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.services import quota as quota_service
 
@@ -61,7 +67,11 @@ def _ttl_seconds(now: datetime | None = None) -> int:
 
 
 async def save_on_delete(redis: Redis, settings: Settings, user: User) -> None:
-    """Keep the account's used counters for its sign-in identities. Never raises."""
+    """Keep the account's used counters for its sign-in identities.
+
+    Raises ``RedisUnavailableError`` when they cannot be read or stored: the delete is
+    refused rather than lose them (``lifecycle.delete_account`` calls this first).
+    """
     identities = _identities(user)
     if not identities:
         return
@@ -73,8 +83,9 @@ async def save_on_delete(redis: Redis, settings: Settings, user: User) -> None:
         ttl = _ttl_seconds()
         for provider, sub in identities:
             await redis.set(carry_key(settings, provider, sub), payload, ex=ttl)
-    except Exception:
+    except (RedisError, OSError) as exc:
         logger.warning("Quota carry-over save failed user_id=%s", user.id, exc_info=True)
+        raise RedisUnavailableError() from exc
 
 
 async def restore_for_new_account(

@@ -9,12 +9,14 @@ from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.exceptions import (
     ChatBusyError,
     QuotaExceededError,
+    RedisUnavailableError,
     SpendCapReachedError,
 )
 from app.models import model_catalog
@@ -97,8 +99,17 @@ class TurnResources:
 
 
 async def acquire_chatprep_lock(deps: ChatTurnDeps, redis: Redis, chat_id: UUID) -> tuple[str, str]:
+    """The chat's prepare lock: ``busy`` when another turn holds it, ``unavailable`` when
+    Redis cannot say. The client's own error reached the transports, which answered it
+    "Something went wrong", so the phone took an outage for a failed reply."""
     lock_key = f"chatprep:{chat_id}"
-    token = await deps.locks.acquire_lock(redis, lock_key, CHATPREP_LOCK_TTL_SECONDS)
+    try:
+        token = await deps.locks.acquire_lock(redis, lock_key, CHATPREP_LOCK_TTL_SECONDS)
+    except (RedisError, OSError) as exc:
+        logger.warning(
+            "Chat prepare lock unreadable; failing closed key=%s", lock_key, exc_info=True
+        )
+        raise RedisUnavailableError() from exc
     if token is None:
         raise ChatBusyError()
     return lock_key, token
