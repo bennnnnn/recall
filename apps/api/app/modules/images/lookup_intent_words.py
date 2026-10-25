@@ -13,6 +13,14 @@ from app.modules.images.gen_intent_words import NON_IMAGE_WORDS
 # outside of visual object identification.
 LOOKUP_ONLY_NON_IMAGE_WORDS = frozenset(
     {
+        # "do you have an image of the error?" is about code, not a photo to find.
+        "error",
+        "errors",
+        "traceback",
+        "stacktrace",
+        "output",
+        "dataset",
+        "datasets",
         "deck",
         "decks",
         "settings",
