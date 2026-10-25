@@ -50,6 +50,13 @@ _QUESTION_CHARS = 500
 _CANDIDATE_TOKENS = 384
 _KEY = "related_prompts:{message_id}"
 _FORGET_BATCH = 500
+# The questions shown in one chat, newest first. It names the user, so the account purge
+# (``purge_user_redis_keys``) drops it; a deleted chat's expires like its replies' cache.
+_SHOWN_KEY = "related_prompts:shown:{user_id}:{chat_id}"
+# Three replies' worth, and the user's last few lines: what a new set must not repeat.
+_SHOWN_KEPT = 3 * MAX_QUESTIONS
+_EARLIER_USER_LINES = 6
+_EARLIER_LINE_WORDS = 20
 
 
 class RelatedQuestions(BaseModel):
@@ -64,8 +71,13 @@ async def generate_related_questions(
     prior: Sequence[Any] | None = None,
     *,
     allow_general: bool = True,
+    shown: Sequence[str] = (),
 ) -> list[str]:
-    """Up to three short follow-up questions about what the user asked."""
+    """Up to three short follow-up questions about what the user asked.
+
+    None repeats what the chat already asked: the user's earlier lines, or the questions
+    ``shown`` under earlier replies.
+    """
     # The subject readers parse with SymPy: read them in the pool, never on the loop.
     topic = await read_off_loop(
         follow_up_topic,
@@ -93,6 +105,12 @@ async def generate_related_questions(
         system = _GENERAL_SYSTEM
         anchors = topic_anchors(question, excerpt)
     lines.append(f"Reply:\n{excerpt}")
+    earlier = [*_earlier_user_lines(question, problem, prior), *shown]
+    if earlier:
+        listed = "\n".join(f"- {collapse_ws(line)[:_QUESTION_CHARS]}" for line in earlier)
+        lines.append(
+            f"Already asked or suggested in this chat (never again, even reworded):\n{listed}"
+        )
     messages = [
         {"role": "system", "content": system},
         {"role": "user", "content": "\n\n".join(lines)},
@@ -100,7 +118,7 @@ async def generate_related_questions(
     raw = await _ask_for_questions(settings, messages)
     if raw is None:
         return []
-    kept = await _accepted(settings, question, raw, problem, anchors)
+    kept = await _accepted(settings, question, raw, problem, anchors, earlier)
     if raw and len(kept) < MAX_QUESTIONS:
         # The filter dropped some (vague, off-topic, a repeat): one more ask, for others.
         have = "\n".join(f"- {q}" for q in kept) or "- (none)"
@@ -112,7 +130,7 @@ async def generate_related_questions(
             },
         ]
         more = await _ask_for_questions(settings, retry) or []
-        kept = await _accepted(settings, question, [*kept, *more], problem, anchors)
+        kept = await _accepted(settings, question, [*kept, *more], problem, anchors, earlier)
     # Always three, or none: one or two lines read as a half-finished list.
     return kept if len(kept) == MAX_QUESTIONS else []
 
@@ -123,6 +141,7 @@ async def _accepted(
     raw: list[str],
     problem: str | None,
     anchors: set[str] | None,
+    earlier: list[str],
 ) -> list[str]:
     """``accepted_questions`` in the SymPy pool: it asks each candidate's subject."""
     kept = await read_off_loop(
@@ -131,9 +150,29 @@ async def _accepted(
         raw,
         problem,
         anchors,
+        earlier,
         timeout=settings.subject_read_timeout_seconds,
     )
     return kept or []
+
+
+def _earlier_user_lines(
+    question: str, problem: str | None, prior: Sequence[Any] | None
+) -> list[str]:
+    """The user's last few short lines before this one, newest first: what they asked.
+    Not the problem the turn follows up (a what-if on it is the point), nor a pasted
+    passage, whose every topic would read as asked."""
+    lines: list[str] = []
+    for message in reversed(prior or ()):
+        role, content = message_role_content(message)
+        if role != "user" or not content or not content.strip():
+            continue
+        if content in (question, problem) or len(content.split()) > _EARLIER_LINE_WORDS:
+            continue
+        lines.append(content)
+        if len(lines) == _EARLIER_USER_LINES:
+            break
+    return lines
 
 
 async def _ask_for_questions(
@@ -183,6 +222,17 @@ async def forget_related_prompts(redis: Redis, message_ids: Sequence[str]) -> in
     return removed
 
 
+async def shown_in_chat(redis: Redis, user_id: str, chat_id: str) -> list[str]:
+    """The questions shown under this chat's last replies, newest first."""
+    try:
+        raw = await redis.get(_SHOWN_KEY.format(user_id=user_id, chat_id=chat_id))
+        data = json.loads(raw) if isinstance(raw, (str, bytes)) and raw else []
+    except Exception:
+        logger.warning("Shown follow-ups read failed", exc_info=True)
+        return []
+    return [item for item in data if isinstance(item, str)] if isinstance(data, list) else []
+
+
 async def load_related_prompts(redis: Redis, message_id: str) -> list[str]:
     """Cached questions for one assistant message. A miss does not call the model."""
     try:
@@ -211,16 +261,28 @@ async def _related_prompts_event(
     answer: str,
     prior: Sequence[Any] | None = None,
     allow_general: bool = True,
+    chat: tuple[str, str] | None = None,
 ) -> dict[str, Any] | None:
     if await global_spend_exceeded(redis, settings):
         return None
+    shown = await shown_in_chat(redis, *chat) if chat is not None else []
     prompts = await generate_related_questions(
-        settings, question, answer, prior, allow_general=allow_general
+        settings, question, answer, prior, allow_general=allow_general, shown=shown
     )
     if not prompts:
         return None
     try:
-        await store_related_prompts(redis, message_id, prompts)
+        # One round trip: the reply's questions, and the chat's record of what it showed.
+        async with redis.pipeline(transaction=False) as pipe:
+            pipe.set(_cache_key(message_id), json.dumps(prompts), ex=RELATED_PROMPTS_TTL_SECONDS)
+            if chat is not None:
+                user_id, chat_id = chat
+                pipe.set(
+                    _SHOWN_KEY.format(user_id=user_id, chat_id=chat_id),
+                    json.dumps([*prompts, *shown][:_SHOWN_KEPT]),
+                    ex=RELATED_PROMPTS_TTL_SECONDS,
+                )
+            await pipe.execute()
     except Exception:
         logger.warning("Related questions cache write failed", exc_info=True)
     return build_related_prompts_event(message_id, prompts)
@@ -250,10 +312,12 @@ def schedule_related_prompts(
     prior: Sequence[Any] | None = None,
     allow_general: bool = True,
     completion: Completion | None = None,
+    chat: tuple[str, str] | None = None,
 ) -> asyncio.Task[dict[str, Any] | None] | None:
     """Start the model call without waiting. The transport sends the event after done.
 
     ``prior`` is the turn's recent window, which ties a "why?" to its problem.
+    ``chat`` (user id, chat id) keeps the questions shown in it, so none comes back.
     ``allow_general`` is off for a turn that was never a question (a greeting,
     an instant reply); subject follow-ups do not depend on it. A reply that was
     stopped or cut off (``completion``) gets none.
@@ -273,6 +337,7 @@ def schedule_related_prompts(
             answer=answer,
             prior=prior,
             allow_general=allow_general,
+            chat=chat,
         ),
         name="related_prompts",
     )

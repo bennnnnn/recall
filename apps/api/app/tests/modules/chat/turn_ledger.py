@@ -70,7 +70,10 @@ class Ledger:
     # offered it, and JSON for a structured call, by schema name.
     reply: str = "Hello! What can I help you with?"
     tool_call: tuple[str, dict[str, Any]] | None = None
-    structured: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # A callable answers each call afresh, as a model told what it said before would.
+    structured: dict[str, dict[str, Any] | Callable[[], dict[str, Any]]] = field(
+        default_factory=dict
+    )
 
     def start(self) -> None:
         self.sql, self.redis, self.models, self.embeds, self.searches = [], [], [], [], []
@@ -243,7 +246,8 @@ def fake_acompletion(ledger: Ledger) -> Callable[..., Any]:
         if kwargs.get("response_format"):
             schema = _frame_local("schema")
             if isinstance(schema, type) and issubclass(schema, BaseModel):
-                body = ledger.structured.get(schema.__name__) or sample(schema)
+                answer = ledger.structured.get(schema.__name__)
+                body = (answer() if callable(answer) else answer) or sample(schema)
                 return _response(json.dumps(body))
             return _response("{}")
         return _response("Capital of France")
