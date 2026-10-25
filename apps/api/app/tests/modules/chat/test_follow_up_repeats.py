@@ -249,3 +249,19 @@ async def test_the_account_purge_drops_what_a_chat_was_shown(fake_redis) -> None
     user_id = uuid4()
     await fake_redis.set(f"related_prompts:shown:{user_id}:{uuid4()}", json.dumps(["q?"]))
     assert await purge_user_redis_keys(fake_redis, user_id) == 1
+
+
+@pytest.mark.parametrize(
+    ("text", "numbers"),
+    [
+        ("slope 3/2, ratio 3:2", ["3/2", "3:2"]),
+        # A spaced slash divides two numbers: the problem's 45 and 9.8 stay its own.
+        ("about 153.9 / 100 tiles", ["153.9", "100"]),
+        ("t = √(2 × 45 / 9.8)", ["2", "45", "9.8"]),
+        ("−5 m/s² and $1,200", ["-5 m/s^2", "1200 $"]),
+    ],
+)
+def test_numbers_are_read_one_way(text: str, numbers: list[str]) -> None:
+    from app.modules.chat.follow_up_units import quantities
+
+    assert [str(quantity) for quantity in quantities(text)] == numbers

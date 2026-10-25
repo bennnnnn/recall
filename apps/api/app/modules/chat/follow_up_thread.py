@@ -59,10 +59,13 @@ _FOLLOW_UP_LEADS = frozenset(
     }
 )
 # A line that points back at the problem: "what if", "why?", "is that fast for a car?",
-# "what if i used a ramp instead?", "can you explain it more simply?". "This week" and
-# "that night" point at a time, not at the problem.
+# "what if i used a ramp instead?", "can you explain it more simply?". A question about
+# the reasoning does too: "why must temperatures be in kelvin for gas laws?", "how come
+# it's squared?", "what does the negative sign tell us?". "This week" and "that night"
+# point at a time, not at the problem.
 _POINTS_BACK = re.compile(
-    r"^(?:what|and) if\b|^why\W*$|"
+    r"^(?:what|and) if\b|^(?:why|how come)\b|"
+    r"^what (?:does|do)\b.*\b(?:mean|tell|show|represent|stand for)\b|"
     r"\b(?:it|its|they|them|their|same|instead|again|another|simpler|simply)\b|"
     r"\b(?:this|that|these|those)\b(?!\s+(?:week|weekend|morning|afternoon|evening|night|"
     r"year|month|summer|winter|spring|fall)\b)",
@@ -70,6 +73,14 @@ _POINTS_BACK = re.compile(
 )
 # Three topic words name a topic of their own; "why the product rule?" names a part of it.
 _OWN_TOPIC_WORDS = 3
+# English function words. The topic-word rules are English: "¿por qué restamos tres en los
+# dos lados?" holds four words that are no topic, and a reply in Spanish shares no English
+# word with the problem. A line without one keeps the rule that came before: it continues.
+_ENGLISH = re.compile(
+    r"\b(?:the|and|of|to|you|your|my|it|what|why|how|when|where|which|who|does|did|can|"
+    r"could|would|should|this|that|with|for|are|is)\b",
+    re.IGNORECASE,
+)
 
 
 def subject_for_related(text: str) -> str | None:
@@ -140,12 +151,13 @@ def _still_on(
     shown: Sequence[str] | None,
 ) -> bool:
     """Whether this turn still works ``problem``. ``since`` is the chat after it, oldest
-    first. Once a question in between names its own topic and its reply leaves the
-    problem, the turn's own reply must work it, however short the line ("what about the
-    food there?" after Lisbon tips). A remark in between ("she says thanks!") asks
-    nothing and leaves nothing."""
+    first. A tapped follow-up and a line that points back continue it. Otherwise, once a
+    question in between names its own topic and its reply leaves the problem, the turn's
+    own reply must work it, however short the line ("what about the food there?" after
+    Lisbon tips). A remark in between ("she says thanks!") asks nothing and leaves
+    nothing."""
     question, answer = turn
-    if answer is None or shown is None:
+    if answer is None or shown is None or _follows_on(question, shown):
         return True
     reply = since[0][1] if since and since[0][0] == "assistant" else None
     left = any(
@@ -171,9 +183,16 @@ def _turns(messages: list[tuple[str, str]]) -> list[tuple[str, str]]:
 
 
 def _names_its_own_topic(question: str, shown: Sequence[str]) -> bool:
-    """A line with three topic words or more that points nowhere back. A follow-up the
-    chat showed was written for the problem."""
+    """An English line with three topic words or more that does not follow on."""
+    line = straighten_apostrophes(collapse_ws(question))
+    if _follows_on(line, shown) or not _ENGLISH.search(line):
+        return False
+    return len(topic_words(line)) >= _OWN_TOPIC_WORDS
+
+
+def _follows_on(question: str, shown: Sequence[str]) -> bool:
+    """A follow-up the chat showed (written for the problem), or a line that points back."""
     line = straighten_apostrophes(collapse_ws(question))
     if line.casefold() in {straighten_apostrophes(collapse_ws(q)).casefold() for q in shown}:
-        return False
-    return not _POINTS_BACK.search(line) and len(topic_words(line)) >= _OWN_TOPIC_WORDS
+        return True
+    return _POINTS_BACK.search(line) is not None

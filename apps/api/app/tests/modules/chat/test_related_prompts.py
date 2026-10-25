@@ -631,6 +631,13 @@ _GARDEN = (
             "can you recommend a good sci-fi book for a long flight?",
             "Project Hail Mary by Andy Weir: funny, fast and full of clever science.",
         ),
+        # The line names the problem's words; its reply, the ground, shares none of them.
+        (
+            "rect",
+            "thanks! my sister finished her homework, what's a quick dinner we can make together?",
+            "Try homemade mini pizzas: spread tomato sauce on pitas and let her add cheese "
+            "and toppings, then bake at 220 °C for about 10 minutes.",
+        ),
     ],
 )
 def test_a_line_on_a_topic_of_its_own_whose_reply_is_too_leaves_the_problem(
@@ -694,11 +701,90 @@ def test_a_short_line_or_one_that_points_back_continues_the_problem(
     assert thread_problem(line, prior, reply) == problem
 
 
+@pytest.mark.parametrize(
+    ("problem", "problem_reply", "line", "reply"),
+    [
+        # A question about the reasoning continues, however many topic words it names.
+        (
+            "A gas at 300 K occupies 2 L. What volume does it fill at 450 K at constant pressure?",
+            "Charles's law: V2 = V1 × T2/T1 = 2 L × 450/300 = 3 L.",
+            "why must temperatures be in kelvin for gas laws",
+            "Because the laws are proportions, and proportions need a true zero.",
+        ),
+        (
+            "A 1500 kg car brakes from 25 m/s to rest in 5 s. What is the braking force?",
+            "a = (0 - 25)/5 = -5 m/s^2, so F = ma = 7500 N opposing the motion.",
+            "what does the negative sign tell us about direction",
+            "It means the acceleration points opposite to the motion: the car is slowing.",
+        ),
+        # "makes" and "things" are stop words once their "s" is off: two topic words.
+        (
+            "A stone is dropped from a 45 m cliff. How long does it take to reach the bottom?",
+            "t = √(2 × 45 / 9.8) ≈ 3.03 s.",
+            "explain why gravity makes things accelerate",
+            "Gravity is a force, and a force on a mass causes acceleration.",
+        ),
+        # The rules on topic words are English; another language keeps the rule before.
+        (
+            "2x + 3 = 11",
+            "Resta 3 en ambos lados: 2x = 8. Divide entre 2: x = 4.",
+            "¿por qué restamos tres en los dos lados?",
+            "Porque queremos dejar sola la incógnita, como en una balanza.",
+        ),
+        (
+            "x^2 + 6x + 5 = 0",
+            "Fattorizza: (x + 1)(x + 5) = 0, quindi x = −1 oppure x = −5.",
+            "perché uguagliamo ogni fattore a zero?",
+            "Perché se il prodotto di due numeri è zero, almeno uno dei due è zero.",
+        ),
+        (
+            "A ball is dropped from a 20 m building. How long until it hits the ground?",
+            "h = ½gt², so t = √(2h/g) = √(40/9.8) ≈ 2.02 s.",
+            "warum spielt die Masse keine Rolle?",
+            "Weil die Schwerkraft schwere Körper stärker anzieht, sie aber genauso träge sind.",
+        ),
+    ],
+)
+def test_a_question_about_the_reasoning_or_in_another_language_continues(
+    problem: str, problem_reply: str, line: str, reply: str
+) -> None:
+    prior = [
+        {"role": "user", "content": problem},
+        {"role": "assistant", "content": problem_reply},
+    ]
+    assert thread_problem(line, prior, reply) == problem
+
+
+def test_a_reply_grounds_on_a_number_whatever_its_sign() -> None:
+    # The reply says 9.8 m/s² of the problem's -9.8 m/s².
+    problem = (
+        "A ball is thrown straight up at 15 m/s. Taking a = -9.8 m/s^2, when does it stop rising?"
+    )
+    prior = [
+        {"role": "user", "content": problem},
+        {"role": "assistant", "content": "It stops rising after about 1.53 s."},
+    ]
+    reply = "Gravity pulls down at 9.8 m/s², taking that much off the upward speed each second."
+    assert thread_problem("how does gravity slow a rising ball down?", prior, reply) == problem
+
+
+def test_a_misjudged_middle_line_does_not_cost_the_next_ones() -> None:
+    dice = "What's the probability of rolling two sixes with two dice?"
+    window = [
+        {"role": "user", "content": dice},
+        {"role": "assistant", "content": "P = 1/6 × 1/6 = 1/36 ≈ 2.8%."},
+        {"role": "user", "content": "what are the odds of rolling at least one six"},
+        {"role": "assistant", "content": "1 − 25/36 = 11/36 ≈ 30.6%."},
+    ]
+    for line in ("why?", "can you show it as a table?"):
+        assert thread_problem(line, window, "A 6 × 6 grid of outcomes.") == dice
+
+
 @pytest.mark.parametrize(("shown", "expected"), [([], None), (["CHIP"], RECT)])
 def test_a_tapped_follow_up_continues_the_problem_whatever_it_names(
     shown: list[str], expected: str | None
 ) -> None:
-    chip = "Why do engineers use rectangles in building design?"
+    chip = "How do engineers use rectangles in building design?"
     reply = "Right angles make walls, rooms and bricks fit together without gaps."
     shown = [chip if item == "CHIP" else item for item in shown]
     assert thread_problem(chip, RECT_WINDOW, reply, shown) == expected
@@ -732,11 +818,13 @@ _STEP_2 = (
             "Try grilled sardines, bifanas and pastéis de nata at Time Out Market.",
             False,
         ),
+        # A line that points back continues the problem, whatever came between: a middle
+        # line judged wrongly must not cost the next "why?" its follow-ups.
         (
             [_LISBON, _LISBON_REPLY],
             "why?",
             "Alfama is the oldest district, and Belém is where the explorers set sail.",
-            False,
+            True,
         ),
     ],
 )
@@ -784,7 +872,7 @@ async def test_a_tapped_follow_up_with_a_short_reply_still_gets_its_chips(fake_r
 async def test_a_tapped_chip_on_a_topic_of_its_own_gets_its_chips(fake_redis) -> None:
     # The early check does not know what was shown and lets the line through; the read
     # with the questions finds it among the chips shown in this chat.
-    chip = "Why do engineers use rectangles in building design?"
+    chip = "How do engineers use rectangles in building design?"
     reply = "Right angles make walls, rooms and bricks fit together without gaps."
     await fake_redis.set("related_prompts:shown:u1:c1", json.dumps([chip]))
     chips = [

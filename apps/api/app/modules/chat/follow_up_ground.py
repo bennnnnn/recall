@@ -37,7 +37,8 @@ _EVERYDAY_NOUNS = frozenset(
     """area building cost distance food friend ground heat height house length money people
     price room size time water weight width""".split()
 )
-# 19.8 m/s again is the problem's own quantity; 19.8 alone, or "2 mol", one thing it said.
+# 19.8 m/s or 153.9 again is the problem's own quantity; 36 alone, or "2 mol", one thing
+# it said.
 _NUMBER_WITH_UNIT = 2.0
 _NUMBER = 1.0
 # A reply's start says what it works on; this keeps a long one quick to read.
@@ -70,10 +71,13 @@ class _Ground:
 
 
 def works_the_problem(problem: str, problem_reply: str | None, line: str, answer: str) -> bool:
-    """Whether this ``line`` and its ``answer`` reuse enough of what ``problem`` and its
-    first reply said to be still working it."""
+    """Whether ``answer``, the reply to ``line``, reuses enough of what ``problem`` and its
+    first reply said to be still working it. The ground is the reply's alone: "thanks! my
+    sister finished her homework, what's a quick dinner?" names the homework problem's
+    words, and its recipe shares none. A noun the line names counts in full when the reply
+    shares it too."""
     asked, replied = _ground(problem), _ground(problem_reply or "")
-    said = _ground(f"{line}\n{answer}", _TURN_WORD)
+    said = _ground(answer, _TURN_WORD)
     named = _ground(line, _TURN_WORD).nouns
     nouns = sum(
         1.0 if noun in named or noun not in _EVERYDAY_NOUNS else _HALF
@@ -98,18 +102,26 @@ def _shared_numbers(said: tuple[Quantity, ...], ground: tuple[Quantity, ...]) ->
     that "F = 10 * 3" restates bare. A single digit without its unit counts for nothing."""
     units: dict[str, set[str]] = {}
     for quantity in ground:
-        units.setdefault(quantity.number, set()).update([quantity.unit] if quantity.unit else [])
+        units.setdefault(_size(quantity.number), set()).update(
+            [quantity.unit] if quantity.unit else []
+        )
     with_unit: set[str] = set()
     alone: set[str] = set()
     for quantity in said:
-        known = units.get(quantity.number)
+        known = units.get(_size(quantity.number))
         if known is None:
             continue
         if _same_kind(quantity.unit, known):
             (alone if quantity.small else with_unit).add(quantity.number)
         elif not (quantity.unit and known) and not quantity.small:
-            alone.add(quantity.number)
+            # "153.9" again is the problem's answer; "100" may be anything.
+            (with_unit if "." in quantity.number else alone).add(quantity.number)
     return _NUMBER_WITH_UNIT * len(with_unit) + _NUMBER * len(alone - with_unit)
+
+
+def _size(number: str) -> str:
+    """A number without its sign: a reply says "5 m/s^2" of the problem's -5 m/s^2."""
+    return number.lstrip("-")
 
 
 def _same_kind(unit: str | None, known: set[str]) -> bool:

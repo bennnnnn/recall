@@ -91,8 +91,13 @@ def topic_words(text: str, pattern: re.Pattern[str] = TOPIC_WORD) -> frozenset[s
     """What ``text`` is about: its topic words, each without its plural "s", and none a
     question frame or a filler. ``text`` has straight apostrophes."""
     folded = _CONTRACTION.sub("", text.casefold())
-    words = (w for w in pattern.findall(folded) if w not in STOP_WORDS and w not in NAMES_NO_TOPIC)
-    return frozenset(word for word in map(_singular, words) if word not in NAMES_NO_TOPIC)
+    words = (w for w in pattern.findall(folded) if not _names_nothing(w))
+    # "makes", "needs" and "others" are stop words once their "s" is off.
+    return frozenset(word for word in map(_singular, words) if not _names_nothing(word))
+
+
+def _names_nothing(word: str) -> bool:
+    return word in STOP_WORDS or word in NAMES_NO_TOPIC
 
 
 def _singular(word: str) -> str:

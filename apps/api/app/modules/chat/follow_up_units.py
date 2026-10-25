@@ -27,10 +27,11 @@ SYMBOLS = str.maketrans(
     }
 )
 # A number and what follows it: "$1,200", "-5 m/s", "\u221a2", "3/2", "3:2", "48 cm",
-# "9.8 m/s^2", "300 \u00b0C", "5%", "2w".
+# "9.8 m/s^2", "300 \u00b0C", "5%", "2w". A fraction or a ratio is written without spaces:
+# "153.9 / 100" divides two numbers.
 QUANTITY = re.compile(
     r"(?<![\w.^])([$\u20ac\u00a3]?)([-\u221a]?)(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
-    r"(?:\s*([/:])\s*(\d+(?:\.\d+)?))?"
+    r"(?:([/:])(\d+(?:\.\d+)?))?"
     r"(?:(\s*)(\u00b0\s?[CF]?|%|[a-zA-Z\u00b5\u03a9][a-zA-Z/^0-9\u00b0]*))?"
 )
 # Short words written after a number that are no unit: "$80 is $20", "48 and 60".
