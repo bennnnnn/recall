@@ -62,6 +62,11 @@ describe("ChatHeader", () => {
     expect(mockBack).not.toHaveBeenCalled();
   });
 
+  it("gives the chat's title the header role", async () => {
+    const { getByRole } = await render(<ChatHeader {...props} />);
+    expect(getByRole("header", { name: "Trip" })).toBeOnTheScreen();
+  });
+
   it("does not show a reminder bell", async () => {
     const { queryByLabelText } = await render(<ChatHeader {...props} />);
     expect(queryByLabelText("reminders.badge_accessibility")).toBeNull();

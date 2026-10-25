@@ -234,7 +234,7 @@ function MenuCard({
           }}
         >
           {title ? (
-            <Text style={s.title} numberOfLines={2}>
+            <Text style={s.title} numberOfLines={2} accessibilityRole="header">
               {title}
             </Text>
           ) : null}

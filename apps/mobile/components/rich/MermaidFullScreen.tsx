@@ -53,7 +53,7 @@ export function MermaidFullScreen({ visible, source, title, onClose }: Props) {
     >
       <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={s.header}>
-          <Text style={s.title} numberOfLines={1}>
+          <Text style={s.title} numberOfLines={1} accessibilityRole="header">
             {title}
           </Text>
           <HeaderButton

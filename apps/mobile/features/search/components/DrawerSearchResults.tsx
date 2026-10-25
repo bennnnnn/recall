@@ -32,7 +32,7 @@ export function DrawerSearchResultsChrome({
 
   return (
     <View style={s.section}>
-      <Text style={s.sectionTitle}>{t("search.results")}</Text>
+      <Text style={s.sectionTitle} accessibilityRole="header">{t("search.results")}</Text>
       {!hasSearchQuery ? (
         <Text style={s.searchHint}>{t("search.empty")}</Text>
       ) : searchLoading ? (

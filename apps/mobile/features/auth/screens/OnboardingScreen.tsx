@@ -68,7 +68,7 @@ export default function Onboarding() {
           <View style={s.badge}>
             <Text style={s.badgeStar}>✦</Text>
           </View>
-          <Text style={s.title}>{t("onboarding.welcome")}</Text>
+          <Text style={s.title} accessibilityRole="header">{t("onboarding.welcome")}</Text>
           <Text style={s.subtitle}>{t("onboarding.subtitle")}</Text>
         </View>
 

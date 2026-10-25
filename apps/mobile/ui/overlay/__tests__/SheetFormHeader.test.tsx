@@ -19,6 +19,8 @@ describe("SheetFormHeader", () => {
     );
 
     expect(getByText("Rename")).toBeOnTheScreen();
+    // A screen reader's heading navigation lands on the sheet's title.
+    expect(getByText("Rename").props.accessibilityRole).toBe("header");
     expect(getByText("Cancel")).toBeOnTheScreen();
     expect(getByText("Save")).toBeOnTheScreen();
     expect(getByTestId("sheet-form-header-cancel")).toHaveStyle({ minHeight: 44 });

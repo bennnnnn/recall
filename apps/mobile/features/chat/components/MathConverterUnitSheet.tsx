@@ -51,7 +51,7 @@ export function MathConverterUnitSheet({
       contentContainerStyle={s.sheet}
     >
       <View style={s.header}>
-        <Text style={s.title}>{t("chat.math_converter_select_unit")}</Text>
+        <Text style={s.title} accessibilityRole="header">{t("chat.math_converter_select_unit")}</Text>
         <Pressable
           onPress={onClose}
           style={s.close}

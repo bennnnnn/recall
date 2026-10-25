@@ -38,7 +38,7 @@ export function StateView({
     return (
       <View style={s.wrap}>
         <ActivityIndicator size={compact ? "small" : "large"} color={theme.primary} />
-        {title ? <Text style={s.title}>{title}</Text> : null}
+        {title ? <Text style={s.title} accessibilityRole="header">{title}</Text> : null}
         {message ? <Text style={s.message}>{message}</Text> : null}
         {/* A long job can offer one way out ("Cancel"). */}
         {onRetry && retryLabel ? (
@@ -59,7 +59,7 @@ export function StateView({
         color={theme.textTertiary}
         style={s.icon}
       />
-      {title ? <Text style={s.title}>{title}</Text> : null}
+      {title ? <Text style={s.title} accessibilityRole="header">{title}</Text> : null}
       {message ? <Text style={s.message}>{message}</Text> : null}
       {onRetry ? (
         <Button

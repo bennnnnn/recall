@@ -230,7 +230,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
       <View style={s.iconWrap}>
         <Icon name="sparkles" size={IconSize.lg} color={theme.primary} />
       </View>
-      <Text style={s.title}>{t("upgrade.title")}</Text>
+      <Text style={s.title} accessibilityRole="header">{t("upgrade.title")}</Text>
       {current !== "free" ? (
         <Text style={s.body}>{t("upgrade.current_plan", { plan: t(planNameKey(current)) })}</Text>
       ) : (

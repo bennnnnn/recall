@@ -93,7 +93,7 @@ function PlaceDetailsSheet({
     >
       {place ? (
         <>
-          <Text style={s.title} numberOfLines={3}>
+          <Text style={s.title} numberOfLines={3} accessibilityRole="header">
             {place.name}
           </Text>
           {place.note ? (

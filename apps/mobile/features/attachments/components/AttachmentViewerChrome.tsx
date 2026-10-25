@@ -45,7 +45,7 @@ export function AttachmentViewerChrome({
         <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
           <View style={s.toolbar}>
             <HeaderButton icon="close" onPress={onClose} accessibilityLabel={closeLabel} />
-            <Text style={s.title} numberOfLines={1} ellipsizeMode="middle">
+            <Text style={s.title} numberOfLines={1} ellipsizeMode="middle" accessibilityRole="header">
               {fileName}
             </Text>
             <HeaderButton icon="share" onPress={onShare} busy={sharing} accessibilityLabel={shareLabel} />

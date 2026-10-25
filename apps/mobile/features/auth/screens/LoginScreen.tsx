@@ -125,7 +125,7 @@ export default function LoginScreen() {
           <View style={s.logoGlow}>
             <Image source={APP_ICON} style={s.logo} accessibilityLabel={t("app.name")} />
           </View>
-          <Text style={s.title}>{t("app.name")}</Text>
+          <Text style={s.title} accessibilityRole="header">{t("app.name")}</Text>
           <Text style={s.subtitle}>{t("login.tagline")}</Text>
 
           <View style={s.highlights}>
