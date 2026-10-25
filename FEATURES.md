@@ -921,8 +921,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   auth + WebSocket, production config guards (no dev auth / mock / weak secret in prod),
   locked-down CORS.
 - ✅ **Ops** — `/health` liveness + `/health/ready` (Postgres; Redis reported as
-  `ok`/`degraded` without draining the fleet), graceful shutdown, DB
-  connection pooling.
+  `ok`/`degraded` without draining the fleet) + `/health/dependencies` (503 when
+  Postgres or Redis is down, kept 5 s per process; the phone's connection check),
+  graceful shutdown, DB connection pooling.
 - ✅ **Quality** — CI (Postgres + Redis services, ruff, mypy, pytest with coverage gate).
 - ✅ **Background jobs** — title / memory / compression are enqueued to a **durable Redis Stream**
   and processed by an in-process worker (consumer group). Jobs survive process restarts, and an

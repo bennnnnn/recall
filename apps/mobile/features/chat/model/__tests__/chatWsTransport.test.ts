@@ -43,7 +43,7 @@ function setupTransport() {
   const transport = new ChatWsTransport({
     url: "wss://test/chat",
     getToken: () => "token",
-    clientTimezone: "UTC",
+    clientTimezone: () => "UTC",
     onPayload,
     onFallback,
     backoff: createWsBackoff(),
@@ -134,6 +134,7 @@ describe("ChatWsTransport", () => {
         client_location: "Here",
         client_latitude: 1,
         client_longitude: 2,
+        client_timezone: "UTC",
       }),
     );
     expect(onPayload).toHaveBeenCalledWith({
@@ -242,7 +243,7 @@ describe("ChatWsTransport", () => {
 
     expect(onFallback).not.toHaveBeenCalled();
     expect(socket.close).not.toHaveBeenCalled();
-    expect(sentFrames(socket).at(-1)).toEqual({ type: "regenerate", ...REGENERATE });
+    expect(sentFrames(socket).at(-1)).toEqual({ type: "regenerate", ...REGENERATE, client_timezone: "UTC" });
   });
 
   it("probes a quiet send and drops the socket when the ping goes unanswered", async () => {
@@ -417,7 +418,7 @@ describe("ChatWsTransport", () => {
     const transport = new ChatWsTransport({
       url: "wss://test/chat",
       getToken: () => token,
-      clientTimezone: "UTC",
+      clientTimezone: () => "UTC",
       onPayload: jest.fn(),
       onFallback: jest.fn(),
       backoff: createWsBackoff(),

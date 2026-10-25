@@ -491,7 +491,8 @@ describe("useNetworkStatus failed requests", () => {
     expect(probe).toHaveBeenCalledTimes(2);
     expect(status).toBe("online");
 
-    // A dependency down behind /health: its reads keep failing, one check a minute.
+    // Everything the check reads answers (one route failing on its own): its reads keep
+    // failing, one check a minute.
     for (let at = 0; at < 58_000; at += 2_000) {
       await fail();
       await elapse(2_000);

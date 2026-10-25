@@ -51,7 +51,10 @@ type ChatWsAuthFrame = {
   client_timezone: string;
 };
 
-type ChatWsMessageFrame = {
+/** The phone's zone as a turn is sent: it can change while a socket stays open. */
+type ChatWsTurnZone = { client_timezone: string };
+
+type ChatWsMessageFrame = ChatWsTurnZone & {
   type: "message";
   content: string;
   attachment_ids: string[];
@@ -63,7 +66,7 @@ type ChatWsMessageFrame = {
   client_longitude: number | null;
 };
 
-type ChatWsRegenerateFrame = {
+type ChatWsRegenerateFrame = ChatWsTurnZone & {
   type: "regenerate";
   model: string | null;
   client_location: string | null;
@@ -96,7 +99,8 @@ type ChatWsTransportOptions = {
   url: string;
   /** The newest bearer token, read when the socket authenticates. */
   getToken: () => string | null;
-  clientTimezone: string;
+  /** The phone's zone now, read as each socket authenticates and each turn is sent. */
+  clientTimezone: () => string;
   onPayload: (payload: ChatWsPayload) => void;
   onFallback: (signal: ChatWsFallbackSignal) => void;
   createSocket?: (url: string) => WebSocket;
@@ -197,7 +201,7 @@ export class ChatWsTransport {
       this.clearConnectTimer();
       this.sendFrame({
         token: this.options.getToken() ?? "",
-        client_timezone: this.options.clientTimezone,
+        client_timezone: this.options.clientTimezone(),
       } satisfies ChatWsAuthFrame);
       // Its pong says this server can be probed (an older one ignores pings).
       this.sendFrame({ type: "ping" });
@@ -276,12 +280,12 @@ export class ChatWsTransport {
     return this.connectPromise;
   }
 
-  sendMessage(frame: Omit<ChatWsMessageFrame, "type">): boolean {
-    return this.beginTurn({ type: "message", ...frame });
+  sendMessage(frame: Omit<ChatWsMessageFrame, "type" | "client_timezone">): boolean {
+    return this.beginTurn({ type: "message", ...frame, client_timezone: this.options.clientTimezone() });
   }
 
-  sendRegenerate(frame: Omit<ChatWsRegenerateFrame, "type">): boolean {
-    return this.beginTurn({ type: "regenerate", ...frame });
+  sendRegenerate(frame: Omit<ChatWsRegenerateFrame, "type" | "client_timezone">): boolean {
+    return this.beginTurn({ type: "regenerate", ...frame, client_timezone: this.options.clientTimezone() });
   }
 
   /**
