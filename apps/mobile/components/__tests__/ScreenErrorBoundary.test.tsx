@@ -105,6 +105,29 @@ describe("a screen that throws while it renders", () => {
     expect(JSON.stringify(jest.mocked(reportBoundaryError).mock.calls)).not.toContain("private");
   });
 
+  it("on a section's stack layout, catches a crash on any of its pages", async () => {
+    // Settings and Memory: their routes stay one line, so the boundary is the layout's.
+    await renderRouter(
+      {
+        _layout: { default: () => <Stack />, ErrorBoundary: RouterErrorBoundary },
+        index: () => <Text>chat screen</Text>,
+        "settings/_layout": { default: () => <Stack />, ErrorBoundary: ScreenErrorBoundary },
+        "settings/profile": ProfilePage,
+      },
+      { initialUrl: "/" },
+    );
+    failing = true;
+    await act(async () => router.push("/settings/profile"));
+
+    expect(screen.getByText("common.screen_error_title")).toBeTruthy();
+    expect(screen.getByText("chat screen", { includeHiddenElements: true })).toBeTruthy();
+    expect(reportBoundaryError).toHaveBeenCalledTimes(1);
+
+    failing = false;
+    await fireEvent.press(screen.getByRole("button", { name: "common.try_again" }));
+    expect(screen.getByText("profile page")).toBeTruthy();
+  });
+
   it("without its own boundary, took the whole app to the root's", async () => {
     await openProfileThatThrows();
 
