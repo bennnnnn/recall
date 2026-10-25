@@ -6,6 +6,7 @@
 import fixture from "../../../../docs/fixtures/error_codes.json";
 import { AttachmentError, presignFailure } from "@/features/attachments/model/attachmentErrors";
 import { accountExistsProvider } from "@/features/auth/model/accountExists";
+import { accountDeleteFailure } from "@/lib/accountDelete";
 import { signInRefusalKey } from "@/features/auth/model/signInRefusal";
 import { ApiRequestError } from "@/lib/api/client";
 import { CONSENT_REQUIRED_CODE } from "@/lib/api/consentRefusal";
@@ -182,4 +183,13 @@ it("words a chat turn over the request limit", () => {
   const error = refused("rate_limited");
   expect(resolveChatError({ message: error.detail, code: error.code ?? undefined, isPaid: false, t }))
     .toEqual({ kind: "generic", message: "chat.rate_limited" });
+});
+
+// The account delete refused while Redis is down (the usage carry-over, the session purge)
+// said "Could not delete your account", not that Recall was unavailable for a moment.
+it.each([
+  ["service_unavailable", "unavailable"],
+  ["rate_limited", "failed"],
+])("words a refused account delete: %s", (name, failure) => {
+  expect(accountDeleteFailure(refused(name))).toBe(failure);
 });

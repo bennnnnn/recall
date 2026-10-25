@@ -144,6 +144,13 @@ describe("AiConsentScreen", () => {
       fireEvent.press(getByText("onboarding.consent_delete"));
     });
     expect(mockFeedbackError).toHaveBeenCalledWith("settings.delete_failed");
+
+    mockConfirm.mockResolvedValueOnce(true);
+    mockDeleteAndSignOut.mockResolvedValueOnce("unavailable");
+    await act(async () => {
+      fireEvent.press(getByText("onboarding.consent_delete"));
+    });
+    expect(mockFeedbackError).toHaveBeenLastCalledWith("common.service_unavailable");
   });
 
   it("goes on to the chat when the account has already agreed", async () => {
