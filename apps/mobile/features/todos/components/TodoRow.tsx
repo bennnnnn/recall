@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import type { Todo } from "@/lib/api";
-import { formatClockTime, formatMonthDayYear, formatShortWeekdayDate } from "@/lib/datetime/format";
+import { formatDate } from "@/lib/datetime/format";
 import { categoryText } from "@/features/todos/model/todoCategories";
 import type { TodoSection } from "@/features/todos/model/todoListRows";
 import { selection } from "@/lib/haptics";
@@ -30,11 +30,11 @@ type Props = {
   onSelect?: (todo: Todo) => void;
 };
 
-function completedMeta(iso: string | null | undefined, locale: string): string | null {
+function completedMeta(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const done = new Date(iso);
   if (Number.isNaN(done.getTime())) return null;
-  return `${formatMonthDayYear(done, locale)} · ${formatClockTime(done, locale)}`;
+  return `${formatDate(done, "monthDayYear")} · ${formatDate(done, "time")}`;
 }
 
 export const TodoRow = memo(function TodoRow({
@@ -50,10 +50,10 @@ export const TodoRow = memo(function TodoRow({
   selected = false,
   onSelect,
 }: Props) {
-  const { t, i18n } = useTranslation();
+  // Also re-renders this memoized row when the language or the phone's clock changes.
+  const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
-  const locale = i18n.language;
   const due = todo.due_at ? new Date(todo.due_at) : null;
   const dueOk = due != null && Number.isFinite(due.getTime());
   const choose = () => {
@@ -66,16 +66,16 @@ export const TodoRow = memo(function TodoRow({
   const marked = selecting ? selected : todo.checked;
 
   const meta = (() => {
-    if (todo.checked) return completedMeta(todo.updated_at, locale);
+    if (todo.checked) return completedMeta(todo.updated_at);
     const parts: string[] = [];
     const category = categoryText(todo.topic, t);
     if (category) parts.push(category);
-    if (section === "overdue" && dueOk && due) parts.push(formatShortWeekdayDate(due, locale));
+    if (section === "overdue" && dueOk && due) parts.push(formatDate(due, "weekdayDate"));
     if (todo.recurrence_rule) parts.push(t(`todos.repeat_${todo.recurrence_rule}`));
     return parts.length ? parts.join(" · ") : null;
   })();
 
-  const timeLabel = !todo.checked && dueOk && due ? formatClockTime(due, locale) : null;
+  const timeLabel = !todo.checked && dueOk && due ? formatDate(due, "time") : null;
   const timeTone =
     dueOk && due && (section === "overdue" || pastDue)
       ? s.todoTimeOverdue

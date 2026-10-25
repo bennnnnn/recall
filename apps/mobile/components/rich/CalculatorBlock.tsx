@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
 
 import { VisualCard } from "@/components/rich/VisualCard";
+import { formatCalendarDay } from "@/lib/datetime/format";
 import appI18n from "@/lib/i18n";
 import {
   askedValues,
@@ -12,7 +13,7 @@ import {
   readoutValues,
 } from "@/lib/money/calculator";
 import { calculatorPositions, saveCalculatorPositions } from "@/lib/money/calculatorPositions";
-import { formatCalculatorValue, formatLongDay, formatShortDay } from "@/lib/money/format";
+import { formatCalculatorValue } from "@/lib/money/format";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
@@ -83,7 +84,7 @@ function CalculatorCard({ content, calculator }: { content: string; calculator: 
     return value === null || value === undefined ? label(neverKey, "—") : show(value, kind);
   };
   const sourced = calculator.controls.find((control) => control.marker?.source)?.marker ?? null;
-  const sourceDay = sourced?.asOf ? formatLongDay(sourced.asOf, locale) : null;
+  const sourceDay = sourced?.asOf ? formatCalendarDay(sourced.asOf, "monthDayYear") : null;
 
   return (
     <VisualCard
@@ -127,7 +128,7 @@ function CalculatorCard({ content, calculator }: { content: string; calculator: 
             const value = values[control.name] ?? control.value;
             const marker = control.marker;
             const markerValue = marker ? show(marker.value, control.format) : "";
-            const markerDay = marker?.asOf ? formatShortDay(marker.asOf, locale) : null;
+            const markerDay = marker?.asOf ? formatCalendarDay(marker.asOf, "monthDay") : null;
             return (
               <Slider
                 key={control.name}

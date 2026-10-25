@@ -8,7 +8,7 @@ import { repeatMessageKey } from "@/features/todos/model/repeatLabel";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { defaultDueDate } from "@/features/todos/model/dueDate";
 import type { RecurrenceRule, Todo } from "@/lib/api";
-import { formatClockTime, formatMonthDayYear } from "@/lib/datetime/format";
+import { formatDate } from "@/lib/datetime/format";
 import { findOverlappingReminder } from "@/features/todos/model/reminderOverlap";
 import {
   DEFAULT_REMINDER_LEAD_MINUTES,
@@ -72,8 +72,8 @@ export function TodoDateFields({
     [todos, dueDate, excludeId],
   );
   const repeatLabel = t(repeatMessageKey(repeat));
-  const dateLabel = dueDate ? formatMonthDayYear(dueDate) : t("todos.add_date");
-  const timeLabel = dueDate ? formatClockTime(dueDate) : "—";
+  const dateLabel = dueDate ? formatDate(dueDate, "monthDayYear") : t("todos.add_date");
+  const timeLabel = dueDate ? formatDate(dueDate, "time") : "—";
 
   const openPanel = (panel: SchedulePanel) => {
     Keyboard.dismiss();
@@ -115,13 +115,13 @@ export function TodoDateFields({
             ref={remindRowRef}
             icon="bell"
             label={t("todos.remind_at")}
-            value={formatClockTime(remindAt)}
+            value={formatDate(remindAt, "time")}
             disabled={disabled || savingLead}
             onPress={() => {
               Keyboard.dismiss();
               setRemindOpen(true);
             }}
-            accessibilityLabel={`${t("todos.remind_at")}, ${formatClockTime(remindAt)}, ${t("settings.reminder_lead_value", { count: lead })}`}
+            accessibilityLabel={`${t("todos.remind_at")}, ${formatDate(remindAt, "time")}, ${t("settings.reminder_lead_value", { count: lead })}`}
           />
         ) : null}
         <ReviewRow

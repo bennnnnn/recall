@@ -1,13 +1,14 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
 import { dayPeriodLabels } from "@/lib/datetime/clockDial";
+import { refreshPhoneClock } from "@/lib/datetime/format";
+import type { PhoneClock } from "@/lib/datetime/phoneClock";
+import { ensureLocale } from "@/lib/i18n";
 
 import { TimePickerDialog } from "../TimePickerDialog";
 
-let mockLanguage = "en-US";
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key, i18n: { language: mockLanguage } }),
-}));
+let mockPhone: PhoneClock = { timeZone: "UTC", hourCycle: "h12" };
+jest.mock("@/lib/datetime/phoneClock", () => ({ readPhoneClock: () => mockPhone }));
 
 // 256 dial: center 128, outer ring 100 out, inner ring 60 out.
 const CENTER = 128;
@@ -83,18 +84,33 @@ describe("TimePickerDialog", () => {
   });
 
   it("speaks the dial's time in the app's language, as its AM/PM boxes read", async () => {
-    mockLanguage = "es";
+    await ensureLocale("es");
     try {
       const { view } = await open();
       const spoken = view.getByTestId("time-picker-dial", hidden).props.accessibilityValue.text;
-      const pmLabel = dayPeriodLabels("es").pm;
+      const pmLabel = dayPeriodLabels().pm;
       expect(view.getByText(pmLabel, hidden)).toBeTruthy();
-      expect(spoken).toBe(
-        new Date(2000, 0, 1, 21, 11).toLocaleTimeString("es", { hour: "numeric", minute: "2-digit", hour12: true }),
-      );
+      expect(spoken.replace(/\s/g, " ")).toBe("9:11 p. m.");
       expect(spoken.replace(/\s/g, " ")).toContain(pmLabel.replace(/\s/g, " "));
     } finally {
-      mockLanguage = "en-US";
+      await ensureLocale("en");
+    }
+  });
+
+  it.each([
+    ["h23", true, "21:11"],
+    ["h12", false, "9:11 PM"],
+  ] as const)("draws the phone's clock (%s) when no dial is forced", async (hourCycle, is24Hour, spoken) => {
+    mockPhone = { timeZone: "UTC", hourCycle };
+    refreshPhoneClock();
+    try {
+      const { view } = await open({ is24Hour: undefined });
+      expect(view.queryByTestId("time-picker-am", hidden) == null).toBe(is24Hour);
+      const text = view.getByTestId("time-picker-dial", hidden).props.accessibilityValue.text;
+      expect(text.replace(/\s/g, " ")).toBe(spoken);
+    } finally {
+      mockPhone = { timeZone: "UTC", hourCycle: "h12" };
+      refreshPhoneClock();
     }
   });
 

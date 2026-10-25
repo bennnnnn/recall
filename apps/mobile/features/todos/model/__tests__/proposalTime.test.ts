@@ -1,4 +1,5 @@
 import { proposalDueLabel } from "@/features/todos/model/proposalTime";
+import { formatDate } from "@/lib/datetime/format";
 
 // 9:00 AM in Nairobi, 2:00 AM in New York.
 const DUE = new Date("2026-10-15T06:00:00Z");
@@ -22,9 +23,8 @@ describe("proposalDueLabel", () => {
     );
   });
 
-  it.each([null, "Not/AZone"])("uses the phone's zone for a card zone of %p", (zone) => {
-    const phone = DUE.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  it.each([null, "Not/AZone"])("uses the user's zone for a card zone of %p", (zone) => {
     const label = proposalDueLabel(DUE, zone, "America/New_York");
-    expect(label.endsWith(phone)).toBe(true);
+    expect(label.endsWith(formatDate(DUE, "time"))).toBe(true);
   });
 });

@@ -13,15 +13,15 @@ import {
   dayPeriodLabels,
   from12Hour,
   hourLabel,
+  minutesFromTime,
   pad2,
   parseHourInput,
   parseMinuteInput,
-  uses24HourClock,
   withDayHalf,
-  withTimeOfDay,
   type ClockMode,
   type TimeOfDay,
 } from "@/lib/datetime/clockDial";
+import { formatMinuteOfDay, userUses24HourClock } from "@/lib/datetime/format";
 import { selection } from "@/lib/haptics";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -58,7 +58,7 @@ type Props = {
   onCancel: () => void;
   /** Heading. Defaults to "Select time". */
   title?: string;
-  /** Force a 12- or 24-hour clock. Defaults to the device's. */
+  /** Force a 12- or 24-hour clock. Defaults to the phone's setting, as times are formatted. */
   is24Hour?: boolean;
   testID?: string;
 };
@@ -77,13 +77,12 @@ export function TimePickerDialog({
   is24Hour: forced24Hour,
   testID = "time-picker",
 }: Props) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const screen = useWindowDimensions();
-  const is24Hour = forced24Hour ?? uses24HourClock();
-  const language = i18n?.language;
-  const periods = useMemo(() => dayPeriodLabels(language), [language]);
+  const is24Hour = forced24Hour ?? userUses24HourClock();
+  const periods = dayPeriodLabels();
 
   const [draft, setDraft] = useState<TimeOfDay>(value);
   const [mode, setMode] = useState<ClockMode>("hour");
@@ -136,18 +135,7 @@ export function TimePickerDialog({
     setDraft((current) => ({ ...current, hour: withDayHalf(current.hour, nextPm) }));
   };
 
-  const spokenTime = useMemo(() => {
-    const date = withTimeOfDay(new Date(), draft);
-    try {
-      return date.toLocaleTimeString(language, {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: !is24Hour,
-      });
-    } catch {
-      return `${hourLabel(draft.hour, is24Hour)}:${pad2(draft.minute)}`;
-    }
-  }, [draft, is24Hour, language]);
+  const spokenTime = formatMinuteOfDay(minutesFromTime(draft), is24Hour ? "h23" : "h12");
 
   const handleClose = () => {
     if (!confirmed.current) onCancel();

@@ -12,6 +12,7 @@ import {
   withDay,
   yearRange,
 } from "@/lib/datetime/calendarGrid";
+import { ensureLocale } from "@/lib/i18n";
 
 describe("daysInMonth", () => {
   it.each([
@@ -125,14 +126,20 @@ describe("locale week", () => {
     expect(firstDayOfWeek(locale)).toBe(day);
   });
 
-  it("labels weekday columns from the week start", () => {
-    const labels = weekdayLabels(1, "en-US");
+  afterEach(() => ensureLocale("en"));
+
+  it("labels weekday columns from the week start, in the app's language", async () => {
+    const labels = weekdayLabels(1);
     expect(labels.map((label) => label.narrow)).toEqual(["M", "T", "W", "T", "F", "S", "S"]);
     expect(labels[0].long).toBe("Monday");
-    expect(weekdayLabels(0, "en-US")[0].long).toBe("Sunday");
+    expect(weekdayLabels(0)[0].long).toBe("Sunday");
+    await ensureLocale("de");
+    expect(weekdayLabels(1)[0].long).toBe("Montag");
   });
 
-  it("names the month and year", () => {
-    expect(monthYearLabel({ year: 2026, month: 8 }, "en-US")).toBe("September 2026");
+  it("names the month and year in the app's language", async () => {
+    expect(monthYearLabel({ year: 2026, month: 8 })).toBe("September 2026");
+    await ensureLocale("es");
+    expect(monthYearLabel({ year: 2026, month: 8 })).toBe("septiembre de 2026");
   });
 });
