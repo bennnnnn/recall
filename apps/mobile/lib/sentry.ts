@@ -173,6 +173,22 @@ export function reportPushUnregisterFailed(error: unknown): void {
   });
 }
 
+/**
+ * The stored sign-in was there but was no session (cut short, or not a token
+ * pair), so the launch cleared it and opened on sign-in. The event is that fact
+ * alone, to count how often it happens: never the record, a token or whose it
+ * was. A keychain that cannot be read yet, or a network error, is not this:
+ * that launch keeps the sign-in and offers Retry and Sign out.
+ */
+export function reportCorruptSessionCleared(): void {
+  report((Sentry) => {
+    Sentry.captureMessage("Stored sign-in was not a session; cleared at launch", {
+      level: "warning",
+      tags: { area: "stored_session" },
+    });
+  });
+}
+
 /** Sent at once when the SDK is up; before that it waits in the short queue. */
 function report(capture: (sentry: SentrySdk) => void): void {
   if (sdk) {

@@ -6,7 +6,7 @@ const mockSdkLoads: string[] = [];
 
 jest.mock("@sentry/react-native", () => {
   mockSdkLoads.push("@sentry/react-native");
-  return { init: jest.fn(), captureException: jest.fn() };
+  return { init: jest.fn(), captureException: jest.fn(), captureMessage: jest.fn() };
 });
 
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.recall.test" }));
@@ -71,7 +71,7 @@ describe("error-boundary capture", () => {
     jest.resetModules();
   });
 
-  type SdkMock = { init: jest.Mock; captureException: jest.Mock };
+  type SdkMock = { init: jest.Mock; captureException: jest.Mock; captureMessage: jest.Mock };
 
   function freshSentry() {
     jest.resetModules();
@@ -149,5 +149,33 @@ describe("error-boundary capture", () => {
     for (let i = 0; i < 25; i += 1) mod.reportBoundaryError("message_row", new Error(`loop ${i}`));
     await mod.initMobileSentry();
     expect(sdk().captureException).toHaveBeenCalledTimes(10);
+  });
+});
+
+describe("a stored sign-in cleared at launch", () => {
+  const originalDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+  afterEach(() => {
+    process.env.EXPO_PUBLIC_SENTRY_DSN = originalDsn;
+    jest.resetModules();
+  });
+
+  it("is counted once the SDK is up, as the fact alone", async () => {
+    process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example.com/1";
+    jest.resetModules();
+    const mod = jest.requireActual<typeof import("@/lib/sentry")>("@/lib/sentry");
+    // At launch, before the deferred init: it waits in the queue.
+    mod.reportCorruptSessionCleared();
+    await mod.initMobileSentry();
+
+    const sdk = jest.requireMock<{ captureMessage: jest.Mock; captureException: jest.Mock }>(
+      "@sentry/react-native",
+    );
+    expect(sdk.captureMessage).toHaveBeenCalledTimes(1);
+    // A fixed text and one tag: no record, token, account or error text to carry.
+    expect(sdk.captureMessage).toHaveBeenCalledWith(
+      "Stored sign-in was not a session; cleared at launch",
+      { level: "warning", tags: { area: "stored_session" } },
+    );
+    expect(sdk.captureException).not.toHaveBeenCalled();
   });
 });

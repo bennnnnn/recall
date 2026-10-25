@@ -7,6 +7,7 @@ import { api, loginWithDev, logoutSession, setTokenRefreshHandler, type User } f
 import { clearOnboarded, clearToken, CorruptSessionError, getToken, setTokenPair } from "@/lib/auth";
 import { cachedUserMatchesToken, clearCachedUser, readCachedUser, writeCachedUser } from "@/lib/cachedUser";
 import { ensureLocale } from "@/lib/i18n";
+import { reportCorruptSessionCleared } from "@/lib/sentry";
 import { clearSignedOutAccount } from "@/lib/signOutCleanup";
 import { forgetSyncRecords } from "@/lib/syncRecords";
 import { onAppEvent } from "@/lib/appEvents";
@@ -41,6 +42,7 @@ jest.mock("@/hooks/useBootstrapSync", () => ({ useBootstrapSync: jest.fn() }));
 jest.mock("@/lib/apple-auth", () => ({ signInWithAppleCredentials: jest.fn() }));
 jest.mock("@/lib/google-auth", () => ({ signInWithGoogleIdToken: jest.fn(), signOutGoogle: jest.fn() }));
 jest.mock("@/lib/signOutCleanup", () => ({ clearSignedOutAccount: jest.fn() }));
+jest.mock("@/lib/sentry", () => ({ reportCorruptSessionCleared: jest.fn() }));
 jest.mock("@/lib/syncRecords", () => ({ forgetSyncRecords: jest.fn(async () => undefined) }));
 jest.mock("@/lib/pushNotifications", () => ({ devicePushToken: jest.fn(async () => null) }));
 jest.mock("@/ui/overlay/dialogs", () => ({ confirmDialog: jest.fn(async () => true) }));
@@ -497,6 +499,9 @@ describe("the stored sign-in at launch", () => {
     // Sign-in itself, not the introduction before it.
     expect(current.onboarded).toBe(true);
     expect(clearOnboarded).not.toHaveBeenCalled();
+    // Counted once, and told nothing: not the record, a token or whose it was.
+    expect(reportCorruptSessionCleared).toHaveBeenCalledTimes(1);
+    expect(reportCorruptSessionCleared).toHaveBeenCalledWith();
   });
 
   it("is kept through a network error, and Retry restores it", async () => {
@@ -512,6 +517,8 @@ describe("the stored sign-in at launch", () => {
     expect(current.user?.id).toBe(userA.id);
     expect(api.me).toHaveBeenCalledTimes(2);
     expect(clearToken).not.toHaveBeenCalled();
+    // A read error is not a corrupt record: nothing was cleared, nothing counted as one.
+    expect(reportCorruptSessionCleared).not.toHaveBeenCalled();
   });
 
   it("is kept when the keychain cannot be read yet", async () => {
@@ -521,6 +528,7 @@ describe("the stored sign-in at launch", () => {
     expect(rendered.getByText("login.error_generic")).toBeTruthy();
     expect(rendered.getByRole("button", { name: "settings.sign_out" })).toBeTruthy();
     expect(clearToken).not.toHaveBeenCalled();
+    expect(reportCorruptSessionCleared).not.toHaveBeenCalled();
   });
 
   it("can be signed out of after a network error, the way Settings signs out", async () => {
@@ -565,5 +573,6 @@ describe("the stored sign-in at launch", () => {
     expect(rendered.queryByRole("button", { name: "settings.sign_out" })).toBeNull();
     expect(clearToken).not.toHaveBeenCalled();
     expect(clearSignedOutAccount).not.toHaveBeenCalled();
+    expect(reportCorruptSessionCleared).not.toHaveBeenCalled();
   });
 });

@@ -40,6 +40,7 @@ import {
 } from "@/lib/auth";
 import { cachedUserMatchesToken, clearCachedUser, mergeCachedUser, readCachedUser, writeCachedUser } from "@/lib/cachedUser";
 import { AccountSessionContext } from "@/contexts/accountSession";
+import { reportCorruptSessionCleared } from "@/lib/sentry";
 import { clearSignedOutAccount } from "@/lib/signOutCleanup";
 import { forgetSyncRecords } from "@/lib/syncRecords";
 import { emitAppEvent } from "@/lib/appEvents";
@@ -216,10 +217,11 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
         if (read.corrupt) {
           // No retry can read it (it once left "error, Retry" for good, and the
           // iOS keychain keeps it through a reinstall): clear it with this
-          // phone's account data, and open on sign-in.
+          // phone's account data, and open on sign-in. Counted, never described.
           endSession(cachedUser?.id, null, true).catch(() => {
             console.warn("[auth] could not clear an unreadable sign-in");
           });
+          reportCorruptSessionCleared();
           return;
         }
         if (!stored) return;
