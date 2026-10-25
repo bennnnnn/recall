@@ -69,22 +69,28 @@ def unfence_formulas(text: str) -> str:
 # (2026-10-25): "`$14,000 + (14,000 \times 0.07) = 14,980$`", "`$M = 11,980 \times
 # 0.020143$`". A code span outside fenced code that is one ``$…$`` (or ``$$…$$``) span and
 # nothing else, and that works something out (a sign or a LaTeX command), is that maths.
-# "`$6$`" and "`$2b$`" are password-hash prefixes, "`$PATH$`" a name: they stay code. Asked
-# how to write maths ("how do I type a fraction in LaTeX?", "in a Jupyter cell?"), here or
-# in the line before, the source is the answer, and every code span stays.
+# "`$6$`" and "`$2b$`" are password-hash prefixes, "`$PATH$`" a name: they stay code. A span
+# the reply tells the user to type ("Type `$x^2$` for x squared", "use `$\frac{a}{b}$`") is
+# the source they asked for, and stays code. The reply says so beside the span; a request's
+# words could not ("how do I write 0.75 as a fraction?" wants the maths, "how to type a
+# fraction" the source). A message naming where maths is typed (LaTeX, Markdown, a Jupyter
+# cell), here or in the line before, keeps every span.
 _DOLLAR_MATHS = re.compile(r"(\${1,2})(?!\s)[^$`\n]+(?<!\s)\1")
 _WORKS_SOMETHING = re.compile(r"[=+*/^<>\u2212\u00d7\u00f7]|\\[A-Za-z]|\w\s*-\s*\w")
-_ASKS_FOR_SOURCE = re.compile(
-    r"\b(?:latex|katex|mathjax|overleaf|tex|markdown|jupyter|obsidian|notion|readme|typeset"
-    r"|syntax)\b|\bhow (?:do|can|would|should) (?:i|you|we) (?:write|type|format|put|enter"
-    r"|insert|display|render|show)\b",
+_TYPE_IT = re.compile(
+    r"\b(?:type|typing|write|writing|enter|use|using|put|wrap|input|paste|insert|code|syntax"
+    r"|source)\b[^\n]{0,48}$",
+    re.IGNORECASE,
+)
+_NAMES_A_TOOL = re.compile(
+    r"\b(?:latex|katex|mathjax|overleaf|tex|markdown|jupyter|obsidian|notion|readme|typeset)\b",
     re.IGNORECASE,
 )
 
 
 def unwrap_code_maths(text: str, request: str | None) -> str:
     """Each inline code span that is only a maths span, as that maths."""
-    if "`$" not in text or (request and _ASKS_FOR_SOURCE.search(request)):
+    if "`$" not in text or (request and _NAMES_A_TOOL.search(request)):
         return text
     lines = text.split("\n")
     for index, (line, fence) in enumerate(zip(lines, line_fences(text), strict=True)):
@@ -106,7 +112,12 @@ def _unwrapped(line: str) -> str:
         body = span.strip("`")
         maths = body.strip()
         out.append(line[at:tick])
-        is_maths = body == maths and _DOLLAR_MATHS.fullmatch(maths) and _works_something(maths)
+        is_maths = (
+            body == maths
+            and _DOLLAR_MATHS.fullmatch(maths)
+            and _works_something(maths)
+            and not _TYPE_IT.search(line[:tick])
+        )
         out.append(maths if is_maths else span)
         at = end
     out.append(line[at:])

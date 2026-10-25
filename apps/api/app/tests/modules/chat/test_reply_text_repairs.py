@@ -249,3 +249,30 @@ def test_asked_for_the_source_every_span_stays_code(request_text: str) -> None:
 def test_ordinary_maths_requests_still_get_maths(request_text: str) -> None:
     reply = "So `$r = \\frac{0.0757}{12}$` a month."
     assert unwrap_code_maths(reply, request_text) == "So $r = \\frac{0.0757}{12}$ a month."
+
+
+@pytest.mark.parametrize(
+    "request_text",
+    [
+        "how to type a fraction",
+        "what do I type to get a square root?",
+        "show me the code for a fraction",
+        "how to write x squared in a math chat",
+    ],
+)
+def test_a_span_the_reply_says_to_type_stays_code(request_text: str) -> None:
+    """The reply says what to type: that is the source asked for (second review)."""
+    reply = "Type `$x^2$` for x squared and `$\\frac{a}{b}$` for a fraction."
+    assert unwrap_code_maths(reply, request_text) == reply
+
+
+@pytest.mark.parametrize(
+    "request_text",
+    [
+        "how do I write 0.75 as a fraction?",
+        "how can i write this equation in slope-intercept form?",
+    ],
+)
+def test_homework_that_says_write_still_gets_maths(request_text: str) -> None:
+    reply = "So `$0.75 = \\frac{3}{4}$` in lowest terms."
+    assert unwrap_code_maths(reply, request_text) == "So $0.75 = \\frac{3}{4}$ in lowest terms."
