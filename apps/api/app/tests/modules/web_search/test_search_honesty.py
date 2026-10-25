@@ -164,13 +164,16 @@ async def test_the_forced_search_says_failed_when_the_search_failed() -> None:
 
 
 def test_results_that_miss_may_say_so_and_facts_are_attributed() -> None:
-    """D11.2 and T5.10: the model may say the results don't cover it, never fill in."""
+    """D11.2 and T5.10: the model may say nothing it found covers it, never fill in.
+
+    It says so in its own voice and names its sources: "according to the search results"
+    read as a machine talking (2026-10-24).
+    """
     block = format_search_block([WebSearchHit(title="T", url="https://a.example", snippet="s")])
-    assert "don't cover it" in block
+    assert "couldn't find a source that covers it" in block
     assert "do not fill the gap from memory" in block
     assert "Do NOT say search failed or came up dry" not in block
     assert "you MUST answer from those results" not in WEB_SEARCH_HINT
-    assert "don't cover that" in WEB_SEARCH_HINT
     assert "According to" in WEB_SEARCH_HINT
     assert "link only pages from the results" in WEB_SEARCH_HINT  # safety phrase
     team = format_search_block(
