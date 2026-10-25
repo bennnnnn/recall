@@ -1,14 +1,10 @@
 import {
   DEFAULT_REMINDER_LEAD_MINUTES,
-  leadMsFromMinutes,
   normalizeReminderLeadMinutes,
-  reminderNotifyDate,
   remindAtDate,
 } from "@/features/todos/model/reminderTiming";
 
 describe("reminderTiming", () => {
-  const now = new Date("2026-06-28T12:00:00.000Z");
-
   it("normalizes lead minutes to allowed values", () => {
     expect(normalizeReminderLeadMinutes(15)).toBe(15);
     expect(normalizeReminderLeadMinutes("30")).toBe(30);
@@ -20,31 +16,5 @@ describe("reminderTiming", () => {
     const due = new Date("2026-06-28T20:00:00.000Z");
     expect(remindAtDate(due, 5).toISOString()).toBe("2026-06-28T19:55:00.000Z");
     expect(remindAtDate(due, 99).toISOString()).toBe("2026-06-28T19:50:00.000Z");
-  });
-
-  it("schedules notify at due minus lead", () => {
-    const due = new Date("2026-06-28T12:30:00.000Z");
-    const notify = reminderNotifyDate(due, now, leadMsFromMinutes(10));
-    expect(notify?.toISOString()).toBe("2026-06-28T12:20:00.000Z");
-  });
-
-  it("fires when due, not at once, when due is inside the lead window", () => {
-    // "Remind me in 5 minutes" with a 10-minute lead: the alert waits for the due time.
-    const due = new Date("2026-06-28T12:05:00.000Z");
-    const notify = reminderNotifyDate(due, now, leadMsFromMinutes(10));
-    expect(notify?.getTime()).toBe(due.getTime());
-  });
-
-  it("returns null for past due times", () => {
-    const due = new Date("2026-06-28T11:00:00.000Z");
-    expect(reminderNotifyDate(due, now, leadMsFromMinutes(10))).toBeNull();
-  });
-
-  it("respects each lead option", () => {
-    const due = new Date("2026-06-28T14:00:00.000Z");
-    for (const minutes of [5, 10, 15, 30, 60] as const) {
-      const notify = reminderNotifyDate(due, now, leadMsFromMinutes(minutes));
-      expect(notify?.getTime()).toBe(due.getTime() - leadMsFromMinutes(minutes));
-    }
   });
 });

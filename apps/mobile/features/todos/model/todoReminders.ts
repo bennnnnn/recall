@@ -5,8 +5,6 @@ import type { Todo } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { formatClockTime } from "@/lib/datetime/format";
 import i18n from "@/lib/i18n";
-import { getReminderLeadMs } from "@/features/todos/model/reminderPrefs";
-import { leadMsFromMinutes, reminderNotifyDate } from "@/features/todos/model/reminderTiming";
 import { shouldSyncLocalTodoReminders } from "@/features/todos/model/todoReminderPush";
 import { AndroidNotificationChannel, notificationSound } from "@/lib/notificationChannels";
 import { ensureReminderChannel } from "@/lib/pushNotifications";
@@ -20,7 +18,6 @@ type ReminderOptions = {
   /** Settings → Notifications → Reminders; off means no reminder alerts from anywhere. */
   remindersEnabled?: boolean;
   session?: number;
-  leadMinutes?: number;
 };
 type IsCurrent = () => boolean;
 let revision = 0;
@@ -65,15 +62,25 @@ export function cancelTodoReminder(todoId: string): Promise<void> {
   return enqueue(getSessionGeneration(), (current) => cancelMatching(matchesTodo(todoId), current), false);
 }
 
-/** Schedules one to-do's alert; `listed` is what is pending, and the result what is left of it. */
-async function schedule(todo: Todo, leadMs: number, current: IsCurrent, listed: Pending): Promise<Pending> {
-  if (!current() || todo.id.startsWith("local-") || todo.checked || !todo.due_at) return listed;
+/** The instant the server says this to-do's reminder goes out, while it is still to come. */
+function upcomingNotifyAt(todo: Todo, now = Date.now()): Date | null {
+  if (todo.checked || todo.id.startsWith("local-") || !todo.due_at || !todo.notify_at) return null;
+  const at = new Date(todo.notify_at);
+  return at.getTime() > now ? at : null;
+}
+
+/**
+ * Schedules one to-do's alert at its `notify_at`, as the server worked it out (its lead time,
+ * after quiet hours: the moment push would send it); `listed` is what is pending, and the
+ * result what is left of it.
+ */
+async function schedule(todo: Todo, current: IsCurrent, listed: Pending): Promise<Pending> {
+  const notifyAt = upcomingNotifyAt(todo);
+  if (!current() || !notifyAt || !todo.due_at) return listed;
   const due = new Date(todo.due_at);
-  const notifyAt = reminderNotifyDate(due, new Date(), leadMs);
-  if (!notifyAt) return listed;
   const id = todoNotificationId(todo.id);
-  const version = JSON.stringify([todo.content, todo.due_at, todo.topic, leadMs]);
-  // Repeated list refreshes must not schedule another alert in the lead window.
+  const version = JSON.stringify([todo.content, todo.due_at, todo.topic, todo.notify_at]);
+  // Repeated list refreshes must not schedule the same alert again.
   if (scheduledVersions.get(id) === version) return listed;
   const left = await cancelMatching(matchesTodo(todo.id), current, listed);
   if (!current()) return left;
@@ -106,15 +113,13 @@ export function syncTodoReminders(todos: Todo[], options?: ReminderOptions): Pro
       await cancelMatching((id) => id.startsWith(TODO_PREFIX), current);
       return;
     }
-    const open = todos.filter((todo) => !todo.checked && !todo.id.startsWith("local-") &&
-      todo.due_at && new Date(todo.due_at).getTime() > Date.now());
-    const keepIds = new Set(open.map((todo) => todoNotificationId(todo.id)));
+    const upcoming = todos.filter((todo) => upcomingNotifyAt(todo) !== null);
+    const keepIds = new Set(upcoming.map((todo) => todoNotificationId(todo.id)));
     let listed = await cancelMatching((id) => id.startsWith(TODO_PREFIX) && !keepIds.has(id), current);
-    if (!open.length || !current() || !await permitted(current)) return;
-    const leadMs = options?.leadMinutes == null ? await getReminderLeadMs() : leadMsFromMinutes(options.leadMinutes);
-    for (const todo of open) {
+    if (!upcoming.length || !current() || !await permitted(current)) return;
+    for (const todo of upcoming) {
       if (!current()) return;
-      listed = await schedule(todo, leadMs, current, listed);
+      listed = await schedule(todo, current, listed);
     }
   });
 }

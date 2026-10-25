@@ -242,6 +242,8 @@ export function useTodosActions({ token, userId, todos, getTodos,
       topic: nextTopic,
       due_at: dueIso,
       recurrence_rule: recurrenceRule,
+      // A new time's reminder instant is the server's to work out: no alert until it answers.
+      notify_at: dueIso === snapshot.due_at ? snapshot.notify_at : null,
     }),
       () => api.updateTodo(token, todo.id, {
         content: trimmed,

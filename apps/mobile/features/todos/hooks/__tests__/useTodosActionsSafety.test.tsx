@@ -23,7 +23,7 @@ jest.mock("@/lib/api", () => ({ api: {
 const mockApi = jest.mocked(api);
 const A: Todo = { id: "a", content: "Tea", topic: "General", checked: false,
   due_at: "2026-09-04T18:00:00.000Z", sort_order: null, chat_id: null,
-  created_at: "2026-09-04", updated_at: "2026-09-04" };
+  created_at: "2026-09-04", updated_at: "2026-09-04", notify_at: null };
 const B: Todo = { ...A, id: "b", content: "Books" };
 let rows: Todo[];
 let currentView = true;

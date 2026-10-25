@@ -146,6 +146,9 @@ export type Todo = {
   chat_id: string | null;
   created_at: string;
   updated_at: string;
+  /** When its reminder goes out, worked out by the server (the lead time, after quiet hours);
+   * push sends then, and the phone's own alert is scheduled at it as is. Null: none. */
+  notify_at: string | null;
 };
 
 export type SearchResult = {

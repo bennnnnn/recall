@@ -43,8 +43,6 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "features/chat/model/messageCache.ts#unsavedChats": "clearAllCachedChatMessages",
   "features/chat/model/quotaNudgeDismissal.ts#dismissedDate": "resetQuotaNudgeDismissal",
   "features/memory/model/memoryListCache.ts#resource": "invalidateMemoriesCache",
-  "features/todos/model/reminderPrefs.ts#cachedLeadMinutes": "clearReminderLeadPrefs",
-  "features/todos/model/reminderPrefs.ts#pendingPreference": "clearReminderLeadPrefs",
   "features/todos/model/reminderProposal.ts#savedHere": "clearSavedProposals",
   "features/todos/model/todoReminders.ts#pending": "cancelAllTodoReminders",
   "features/todos/model/todoReminders.ts#revision": "cancelAllTodoReminders",

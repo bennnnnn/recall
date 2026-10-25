@@ -38,7 +38,6 @@ jest.mock("@/features/chat/model/quotaNudgeDismissal", () => ({ resetQuotaNudgeD
 jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({ clearLocalAttachmentFileCache: jest.fn() }));
 jest.mock("@/features/attachments/model/attachmentStatusFile", () => ({ clearSettledStatuses: jest.fn() }));
 jest.mock("@/features/todos/model/todoReminders", () => ({ cancelAllTodoReminders: jest.fn() }));
-jest.mock("@/features/todos/model/reminderPrefs", () => ({ clearReminderLeadPrefs: jest.fn() }));
 jest.mock("@/features/chat/model/messageCache", () => ({ clearAllCachedChatMessages: jest.fn() }));
 jest.mock("@/features/memory/model/memoryListCache", () => ({ invalidateMemoriesCache: jest.fn() }));
 jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));

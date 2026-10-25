@@ -7,6 +7,7 @@ import { configurePurchases, isPurchasesConfigured, registerPlanChangeListener }
 import { getSessionGeneration } from "@/lib/auth";
 import { api, type User } from "@/lib/api";
 import { recentSyncAt, recordSync } from "@/lib/syncRecords";
+import { emitAppEvent } from "@/lib/appEvents";
 
 type Options = {
   token: string | null;
@@ -17,14 +18,13 @@ type Options = {
 /** A GPS fix and a reverse geocode for a city label: once a day is enough. */
 const LOCATION_SYNC_INTERVAL_MS = 24 * 60 * 60_000;
 
-/** Post-login side effects — timezone, location, push sync, RevenueCat, reminders. */
+/** Post-login side effects — timezone, location, push sync, RevenueCat. */
 export function useBootstrapSync({ token, user, setUser }: Options): void {
   const userId = user?.id;
   const timezone = user?.timezone;
   const location = user?.location;
   const locationEnabled = user?.location_enabled;
   const pushEnabled = user?.push_notifications_enabled ?? false;
-  const reminderLeadMinutes = user?.reminder_lead_minutes;
   const feedback = useActionFeedbackOptional();
   // Keyed on the sign-in, not the token: the access token refreshes hourly, and each
   // sync reads the newest one from this ref (code-health audit NET-11). On the token,
@@ -46,6 +46,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
       if (!active()) return;
       setUser((current) => current?.id === userId
         ? { ...current, timezone: updated.timezone } : current);
+      emitAppEvent("userUpdated", { fields: ["timezone"] });
     })().catch(() => {
       if (active()) console.warn("[bootstrap] timezone sync failed");
     });
@@ -109,17 +110,6 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
       cleanup?.();
     };
   }, [signedIn, userId, pushEnabled, setUser, feedback]);
-
-  useEffect(() => {
-    if (reminderLeadMinutes == null) return;
-    const generation = getSessionGeneration();
-    let cancelled = false;
-    void import("@/features/todos/model/reminderPrefs").then(({ syncReminderLeadFromServer }) => {
-      if (cancelled || generation !== getSessionGeneration()) return;
-      return syncReminderLeadFromServer(reminderLeadMinutes);
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [userId, reminderLeadMinutes]);
 
   // RevenueCat is set up once per signed-in user; the plan sync reads the newest token.
   useEffect(() => {

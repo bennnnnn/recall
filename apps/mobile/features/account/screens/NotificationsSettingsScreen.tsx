@@ -17,10 +17,9 @@ import { minutesFromTime, timeFromMinutes } from "@/lib/datetime/clockDial";
 import { formatMinuteOfDay } from "@/lib/datetime/format";
 import {
   DEFAULT_REMINDER_LEAD_MINUTES,
-  getReminderLeadMinutes,
+  normalizeReminderLeadMinutes,
   REMINDER_LEAD_OPTIONS,
-} from "@/features/todos/model/reminderPrefs";
-import { normalizeReminderLeadMinutes } from "@/features/todos/model/reminderTiming";
+} from "@/features/todos/model/reminderTiming";
 import { type User } from "@/lib/api";
 import { createListenerSet } from "@/lib/listenerSet";
 import { alertDialog } from "@/ui/overlay/dialogs";
@@ -100,18 +99,12 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     onError: reportPushError,
   });
 
+  // The lead time is the server's (users.reminder_lead_minutes): it works out each reminder's time.
   useEffect(() => {
-    if (!isCurrent()) return;
-    if (user?.reminder_lead_minutes != null) {
+    if (isCurrent() && user?.reminder_lead_minutes != null) {
       setReminderLeadMinutesState(normalizeReminderLeadMinutes(user.reminder_lead_minutes));
-      return;
     }
-    let active = true;
-    void getReminderLeadMinutes().then((minutes) => {
-      if (active && isCurrent()) setReminderLeadMinutesState(minutes);
-    }).catch(() => { if (active) reportError("common.error"); });
-    return () => { active = false; };
-  }, [isCurrent, reportError, user?.reminder_lead_minutes]);
+  }, [isCurrent, user?.reminder_lead_minutes]);
 
   const quietEnabled = user?.quiet_hours_enabled === true;
   const quietStart = user?.quiet_hours_start_minute ?? DEFAULT_QUIET_START;

@@ -90,7 +90,6 @@ const PUBLIC: Record<string, readonly string[]> = {
     "model/homeReminderNudges.ts",
     "model/homeUrgentTodos.ts",
     "model/reminderFence.ts",
-    "model/reminderPrefs.ts",
     "model/reminderProposal.ts",
     "model/reminderSeen.ts",
     "model/reminderTiming.ts",
@@ -103,7 +102,6 @@ const PUBLIC: Record<string, readonly string[]> = {
 const SHARED_ENTRIES: Record<string, string> = {
   "lib/api.ts": "the network barrel composes every feature's api slice",
   "lib/signOutCleanup.ts": "sign-out clears every feature's stores",
-  "hooks/useBootstrapSync.ts": "start-up reads each feature's server-held preferences",
   "components/rich/RichFence.tsx": "renders each fence; the email fence is the drafts card",
   "lib/richBlocks.ts": "reads each rich block; an email draft is sanitized by drafts",
   "lib/markdown/assistantMessageContent.ts": "a reply's reminder card and To-do button are todos fences",

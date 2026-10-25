@@ -6,7 +6,7 @@ let mockSession = 1;
 const scheduled = new Map<string, unknown>();
 const todo: Todo = { id: "t1", content: "Flight", topic: "Reminders", checked: false,
   due_at: "2099-01-01T12:00:00Z", created_at: "2026-09-01T00:00:00Z",
-  updated_at: "2026-09-01T00:00:00Z", sort_order: null, chat_id: null };
+  updated_at: "2026-09-01T00:00:00Z", sort_order: null, chat_id: null, notify_at: "2099-01-01T11:50:00Z" };
 jest.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 let mockExpoGo = false;
 jest.mock("@/lib/expoRuntime", () => ({ isExpoGo: () => mockExpoGo }));
@@ -15,7 +15,6 @@ jest.mock("@/lib/pushNotifications", () => ({
   ensureNotificationPermission: jest.fn(async () => true),
   ensureReminderChannel: jest.fn(async () => undefined),
 }));
-jest.mock("@/features/todos/model/reminderPrefs", () => ({ getReminderLeadMs: jest.fn(async () => 600_000) }));
 jest.mock("@/lib/i18n", () => ({ t: (key: string) => key }));
 jest.mock("expo-notifications", () => ({
   getPermissionsAsync: jest.fn(), getAllScheduledNotificationsAsync: jest.fn(),
@@ -78,7 +77,7 @@ it("keeps the latest due date when native scheduling finishes out of order", asy
   });
   const old = syncTodoReminders([todo], { remotePush: false });
   await began;
-  const changed = { ...todo, due_at: "2099-01-02T12:00:00Z" };
+  const changed = { ...todo, due_at: "2099-01-02T12:00:00Z", notify_at: "2099-01-02T11:50:00Z" };
   const latest = syncTodoReminders([changed], { remotePush: false });
   await Promise.resolve(); await Promise.resolve();
   finish();
@@ -134,8 +133,10 @@ it("allows a later job to retry after native scheduling fails", async () => {
 });
 
 it("asks the OS for its pending alerts once per sync, not once per to-do", async () => {
-  const many = Array.from({ length: 50 }, (_, i) => ({ ...todo, id: `t${i}`,
-    due_at: new Date(Date.UTC(2099, 0, 1) + i * 3_600_000).toISOString() }));
+  const many = Array.from({ length: 50 }, (_, i) => {
+    const due = new Date(Date.UTC(2099, 0, 1) + i * 3_600_000).toISOString();
+    return { ...todo, id: `t${i}`, due_at: due, notify_at: due };
+  });
   jest.mocked(Notifications.getAllScheduledNotificationsAsync).mockClear();
   await syncTodoReminders(many, { remotePush: false });
   // A first sync of 50 to-dos listed them 51 times.
@@ -144,12 +145,45 @@ it("asks the OS for its pending alerts once per sync, not once per to-do", async
 });
 
 it("replaces a moved to-do's alert from that one listing", async () => {
-  const other = { ...todo, id: "t2", due_at: "2099-01-03T12:00:00Z" };
+  const other = { ...todo, id: "t2", due_at: "2099-01-03T12:00:00Z", notify_at: "2099-01-03T11:50:00Z" };
   await syncTodoReminders([todo, other], { remotePush: false });
-  const moved = { ...todo, due_at: "2099-01-05T12:00:00Z" };
+  const moved = { ...todo, due_at: "2099-01-05T12:00:00Z", notify_at: "2099-01-05T11:50:00Z" };
   await syncTodoReminders([moved, other], { remotePush: false });
   expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(todoNotificationId(todo.id));
   expect(scheduled.get(todoNotificationId(todo.id))).toMatchObject({ date: new Date("2099-01-05T11:50:00Z") });
   expect(scheduled.has(todoNotificationId(other.id))).toBe(true);
   expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(3);
+});
+
+describe("the alert goes at the server's notify_at, as it is", () => {
+  it("schedules at notify_at, not the due time minus a lead it worked out", async () => {
+    // Quiet hours 22:00-07:00: due 23:30, the server says 07:00 the next morning.
+    const night = { ...todo, due_at: "2099-01-01T23:30:00Z", notify_at: "2099-01-02T07:00:00Z" };
+    await syncTodoReminders([night], { remotePush: false });
+    expect(scheduled.get(todoNotificationId(night.id))).toEqual({ type: "date", date: new Date("2099-01-02T07:00:00Z") });
+  });
+
+  it.each([
+    ["null", null],
+    ["already past", "2020-01-01T00:00:00Z"],
+  ])("schedules nothing, and drops an alert it had, when notify_at is %s", async (_label, notifyAt) => {
+    await syncTodoReminders([todo], { remotePush: false });
+    expect(scheduled.has(todoNotificationId(todo.id))).toBe(true);
+    jest.mocked(Notifications.scheduleNotificationAsync).mockClear();
+    await syncTodoReminders([{ ...todo, notify_at: notifyAt }], { remotePush: false });
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    expect(scheduled.size).toBe(0);
+  });
+
+  it("moves the alert when only notify_at moved (the lead or quiet hours changed)", async () => {
+    await syncTodoReminders([todo], { remotePush: false });
+    await syncTodoReminders([{ ...todo, notify_at: "2099-01-01T11:30:00Z" }], { remotePush: false });
+    expect(scheduled.get(todoNotificationId(todo.id))).toMatchObject({ date: new Date("2099-01-01T11:30:00Z") });
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
+  });
+
+  it("still leaves every alert to push when the server holds this device's token", async () => {
+    await syncTodoReminders([todo], { remotePush: true });
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
 });

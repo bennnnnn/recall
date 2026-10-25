@@ -41,6 +41,7 @@ import { cachedUserMatchesToken, clearCachedUser, mergeCachedUser, readCachedUse
 import { AccountSessionContext } from "@/contexts/accountSession";
 import { clearSignedOutAccount } from "@/lib/signOutCleanup";
 import { forgetSyncRecords } from "@/lib/syncRecords";
+import { emitAppEvent } from "@/lib/appEvents";
 import { useBootstrapSync } from "@/hooks/useBootstrapSync";
 import { AuthLoadingShell } from "@/components/AuthLoadingShell";
 
@@ -317,6 +318,9 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
       setCurrentUser(updated);
       setProfileValidated(true);
       void writeCachedUser(updated);
+      // Saved now: what the server derives from them (a to-do's notify_at) may read again.
+      const fields = (Object.keys(patch) as (keyof User)[]).filter((field) => snapshot?.[field] !== updated[field]);
+      if (fields.length) emitAppEvent("userUpdated", { fields });
     } catch {
       if (!isCurrent(sessionGeneration) || revision !== updateUserGenRef.current) return;
       setCurrentUser(snapshot);
