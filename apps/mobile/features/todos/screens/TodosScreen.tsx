@@ -346,6 +346,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         ref={editRef}
         visible={actions.editingTodo != null}
         editTodo={actions.editingTodo}
+        savedTodo={todos.find((todo) => todo.id === actions.editingTodo?.id) ?? null}
         readOnly={todos.find((todo) => todo.id === actions.editingTodo?.id)?.checked ?? actions.editingTodo?.checked ?? false}
         saving={
           actions.editingTodo
