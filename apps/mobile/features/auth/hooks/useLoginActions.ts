@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { AccountExistsError } from "@/features/auth/model/accountExists";
-import { SignInLimitedError } from "@/features/auth/model/signInLimited";
+import { SIGN_IN_GENERIC_KEY, SignInRefusedError } from "@/features/auth/model/signInRefusal";
 import { formatAppleSignInError } from "@/lib/apple-auth";
 import { isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@/lib/config";
 import { formatGoogleSignInError, isExpoGo } from "@/lib/google-auth";
@@ -26,6 +26,12 @@ const SETUP_ERROR_KEYS: Record<string, string> = {
 function setupErrorKey(key: string): string {
   return __DEV__ ? key : "login.error_generic";
 }
+
+/** What the person can do about it: a phone without Play services, an Apple ID signed out. */
+const DEVICE_ERROR_KEYS: Record<string, string> = {
+  play_services_missing: "login.error_play_services",
+  apple_unavailable_device: "login.error_apple_unavailable_device",
+};
 
 export function useLoginActions() {
   const { signInWithApple, signInWithGoogle, signInWithDev } = useAuth();
@@ -49,7 +55,7 @@ export function useLoginActions() {
           ? t("login.error_account_exists_apple")
           : t("login.error_account_exists_google");
       }
-      if (error instanceof SignInLimitedError) return t("login.error_rate_limited");
+      if (error instanceof SignInRefusedError) return t(error.key);
       const key =
         provider === "google"
           ? formatGoogleSignInError(error)
@@ -60,8 +66,8 @@ export function useLoginActions() {
         if (!__DEV__) console.warn(`[auth] ${provider} sign-in setup error: ${key}`);
         return t(setupErrorKey(setupKey));
       }
-      if (key === "generic") return t("login.error_generic");
-      return key;
+      if (key === "generic" && __DEV__) console.warn(`[auth] ${provider} sign-in failed`, error);
+      return t(DEVICE_ERROR_KEYS[key] ?? SIGN_IN_GENERIC_KEY);
     },
     [t],
   );
@@ -121,11 +127,7 @@ export function useLoginActions() {
     try {
       await signInWithDev();
     } catch (error) {
-      showSignInError(
-        error instanceof SignInLimitedError
-          ? t("login.error_rate_limited")
-          : error instanceof Error ? error.message : t("login.error_generic"),
-      );
+      showSignInError(t(error instanceof SignInRefusedError ? error.key : SIGN_IN_GENERIC_KEY));
     } finally {
       busyRef.current = false;
       setBusyProvider(null);

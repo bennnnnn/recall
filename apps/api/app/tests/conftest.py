@@ -187,6 +187,18 @@ def production_declines(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_sign_in_keys_kept(monkeypatch):
+    """Each test starts with no provider keys kept (gateways/signing_keys.py): keys one test
+    fetched, or the refetch it just made, would answer another test's sign-in."""
+    from app.gateways import apple_auth, google_auth
+    from app.gateways.signing_keys import KeyCache
+
+    monkeypatch.setattr(google_auth, "cert_cache", KeyCache())
+    monkeypatch.setattr(apple_auth, "_jwks_cache", None)
+    monkeypatch.setattr(apple_auth, "_jwks_fetched_at", 0.0)
+
+
+@pytest.fixture(autouse=True)
 def _tool_registry_restored():
     """A test that fills or clears the model's tool registry leaves it as it found it,
     so the suite passes in any order (code-health audit TEST-10)."""

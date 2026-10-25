@@ -20,6 +20,7 @@ from app.core.domain_errors import register_domain_error_handler
 from app.exceptions import DomainError
 from app.modules.account.email_authority import AccountExistsError
 from app.modules.account.settings_proposal import SettingsProposalError
+from app.modules.account.signin_refusals import SignInRefusedError
 from app.modules.attachments.upload import AttachmentUploadError
 from app.modules.attachments.workflow import AttachmentWorkflowError
 from app.modules.billing.subscription import StoreUnreachableError
@@ -53,6 +54,8 @@ CASES: list[tuple[DomainError, int, str]] = [
     (ScanRefusedError("Image too large", status_code=413, code="image_too_large"), 413, "image_too_large"),
     (ConsentRefusedError(), 403, "consent_required"),
     (AccountExistsError("apple"), 409, "account_exists"),
+    (SignInRefusedError("Invalid Google ID token", code="google_token_invalid"), 401, "google_token_invalid"),
+    (SignInRefusedError("Sign-in failed"), 401, "sign_in_failed"),
     (InvalidCursorError(), 422, "invalid_cursor"),
     (StoreUnreachableError("The store did not answer"), 503, "store_unreachable"),
 ]  # fmt: skip

@@ -46,7 +46,8 @@ async function ensureGoogleConfigured() {
   configured = true;
 }
 
-/** Map native / Metro errors to actionable copy for the login alert. */
+/** Map native / Metro errors to the login screen's own copy: a key it words, never the
+ * error's English (the native SDK's messages are English in every language). */
 export function formatGoogleSignInError(error: unknown): string {
   const message =
     error instanceof Error ? error.message : typeof error === "string" ? error : "";
@@ -65,7 +66,10 @@ export function formatGoogleSignInError(error: unknown): string {
   if (/cancel/i.test(message)) {
     return "cancelled";
   }
-  return message || "generic";
+  if (/play services/i.test(message)) {
+    return "play_services_missing";
+  }
+  return "generic";
 }
 
 /** Recall account sign-in — identity only (an ID token, no extra OAuth scopes). */

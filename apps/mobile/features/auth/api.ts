@@ -7,40 +7,51 @@ import {
   fetchWithTimeout,
   request,
 } from "@/lib/api/client";
-import { serverUnreachableError, withDeadline } from "@/lib/api/deadline";
+import { withDeadline } from "@/lib/api/deadline";
 import type { AuthResult, User } from "@/lib/api/types";
 import { AccountExistsError, accountExistsProvider } from "@/features/auth/model/accountExists";
-import { SignInLimitedError } from "@/features/auth/model/signInLimited";
+import {
+  SignInRefusedError,
+  signInRefusalKey,
+  signInUnreachable,
+} from "@/features/auth/model/signInRefusal";
 import { deviceSessionFields } from "@/lib/deviceSession";
 
-async function loginFailure(response: Response, fallback: string): Promise<Error> {
+/** A refused sign-in, read by its code: never the server's English (signInRefusal.ts). */
+async function loginFailure(response: Response): Promise<Error> {
   const refused = new ApiRequestError(response.status, await response.text());
   const provider = accountExistsProvider(refused);
   if (provider) return new AccountExistsError(provider);
-  if (refused.status === 429) return new SignInLimitedError();
-  return new Error(refused.message || fallback);
+  return new SignInRefusedError(signInRefusalKey(refused));
 }
 
 /** One sign-in call and the reading of its reply, under one deadline: the headers'
- * timer alone left a stalled body spinning the sign-in button (code-health audit NET-17). */
+ * timer alone left a stalled body spinning the sign-in button (code-health audit NET-17).
+ * No answer in time, or none at all, is `signInUnreachable`: its English was shown. */
 function signIn(
   path: string,
   body: Record<string, unknown>,
   read: (response: Response) => Promise<AuthResult>,
 ): Promise<AuthResult> {
-  return withDeadline(AUTH_FETCH_TIMEOUT_MS, null, async (signal) => read(
-    await fetchWithTimeout(apiUrl(path), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal,
-    }),
-  ), serverUnreachableError);
+  return withDeadline(AUTH_FETCH_TIMEOUT_MS, null, async (signal) => {
+    let response: Response;
+    try {
+      response = await fetchWithTimeout(apiUrl(path), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal,
+      });
+    } catch {
+      throw signInUnreachable();
+    }
+    return read(response);
+  }, signInUnreachable);
 }
 
 export function loginWithGoogle(idToken: string): Promise<AuthResult> {
   return signIn("/auth/google", { id_token: idToken, ...deviceSessionFields() }, async (response) => {
-    if (!response.ok) throw await loginFailure(response, "Google login failed");
+    if (!response.ok) throw await loginFailure(response);
     return (await response.json()) as AuthResult;
   });
 }
@@ -52,7 +63,7 @@ export function loginWithApple(
 ): Promise<AuthResult> {
   const body = { id_token: idToken, name: name ?? null, nonce, ...deviceSessionFields() };
   return signIn("/auth/apple", body, async (response) => {
-    if (!response.ok) throw await loginFailure(response, "Apple login failed");
+    if (!response.ok) throw await loginFailure(response);
     return (await response.json()) as AuthResult;
   });
 }
@@ -62,11 +73,7 @@ export function loginWithDev(
   name = "bini",
 ): Promise<AuthResult> {
   return signIn("/auth/dev", { email, name, ...deviceSessionFields() }, async (response) => {
-    if (response.status === 429) throw new SignInLimitedError();
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(text || "Dev login failed — is the API running?");
-    }
+    if (!response.ok) throw await loginFailure(response);
     return (await response.json()) as AuthResult;
   });
 }

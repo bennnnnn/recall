@@ -13,6 +13,7 @@ import asyncio
 import base64
 import json
 import os
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -20,8 +21,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import fakeredis.aioredis
+import jwt as pyjwt
 import pytest
 from fastapi.testclient import TestClient
+from google.auth.exceptions import TransportError
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 from app.core.config import Settings
 from app.core.db import get_db
@@ -152,6 +156,110 @@ def _generate(code: str) -> Any:
         )
 
 
+_APPLE_PAYLOAD = {"sub": "apple-1", "email": "person@icloud.com", "email_verified": "true"}
+_GOOGLE_PAYLOAD = {"sub": "google-1", "email": "person@gmail.com", "email_verified": True}
+
+
+def _sign_in(
+    provider: str,
+    *,
+    settings: Settings | None = None,
+    google: Any = None,
+    apple: Any = None,
+    address_allowed: bool = True,
+    redis_down: bool = False,
+) -> Any:
+    """POST /auth/<provider> as the phone sends it, refused where the refusal starts.
+
+    ``google`` stands in for Google's verify (its return value, or the error it raises);
+    ``apple`` for the Apple payload the gateway accepted. No account holds the identity.
+    ``redis_down``: the limits' counter cannot be read.
+    """
+    verify = (
+        MagicMock(side_effect=google)
+        if isinstance(google, Exception)
+        else MagicMock(return_value=google)
+    )
+    bodies = {
+        "google": {"id_token": "token"},
+        "apple": {"id_token": "token", "nonce": "nonce"},
+        "dev": {"email": "dev@recall.local"},
+    }
+    with (
+        patch("app.gateways.google_auth.id_token.verify_oauth2_token", verify),
+        patch(
+            "app.modules.account.service.verify_apple_id_token",
+            AsyncMock(return_value=apple),
+        )
+        if apple is not None
+        else nullcontext(),
+        patch(
+            "app.core.rate_limit.allow_request",
+            AsyncMock(side_effect=RedisConnectionError("down")),
+        )
+        if redis_down
+        else patch(
+            "app.modules.account.signin_limit.address_allowed",
+            AsyncMock(return_value=address_allowed),
+        ),
+        patch(
+            "app.modules.account.service.users_repo.get_by_google_sub", AsyncMock(return_value=None)
+        ),
+        patch(
+            "app.modules.account.service.users_repo.get_by_apple_sub", AsyncMock(return_value=None)
+        ),
+    ):
+        return _client(_user(), settings).post(f"/auth/{provider}", json=bodies[provider])
+
+
+def _apple_token(kid: str) -> str:
+    """A token whose header names ``kid``: Apple's keys are looked up before its signature."""
+    return pyjwt.encode(
+        {"sub": "apple-1"}, "secret-32-bytes-long-enough-for-hs256", headers={"kid": kid}
+    )
+
+
+def _apple(token: str, *, keys: list[dict[str, Any]] | None = None) -> Any:
+    """POST /auth/apple through the real gateway; Apple's keys are ``keys``, or unreachable."""
+    response = MagicMock(raise_for_status=lambda: None, json=lambda: {"keys": keys or []})
+    client = MagicMock(get=AsyncMock(return_value=response))
+    with (
+        patch("app.gateways.apple_auth.get_pooled_client", return_value=client)
+        if keys is not None
+        else nullcontext(),
+        patch("app.modules.account.signin_limit.address_allowed", AsyncMock(return_value=True)),
+    ):
+        return _client(_user()).post("/auth/apple", json={"id_token": token, "nonce": "nonce"})
+
+
+def _sign_in_bodies() -> dict[str, dict[str, Any]]:
+    """Every refusal of /auth/google, /auth/apple and /auth/dev the login screen words."""
+    no_apple = Settings(apple_client_id="")
+    # Before any case keeps Apple's keys: a kid they lack refetches once per interval only.
+    apple_unavailable = _refusal(_apple(_apple_token("any-kid")))
+    return {
+        "sign_in_rate_limited": _refusal(_sign_in("google", address_allowed=False)),
+        "sign_in_unavailable": _refusal(_sign_in("google", redis_down=True)),
+        "google_token_invalid": _refusal(_sign_in("google", google=ValueError("bad token"))),
+        "google_unavailable": _refusal(_sign_in("google", google=TransportError("down"))),
+        "google_email_unverified": _refusal(
+            _sign_in("google", google={**_GOOGLE_PAYLOAD, "email_verified": False})
+        ),
+        "google_email_missing": _refusal(
+            _sign_in("google", google={**_GOOGLE_PAYLOAD, "email": ""})
+        ),
+        "apple_not_configured": _refusal(_sign_in("apple", settings=no_apple)),
+        "apple_token_invalid": _refusal(_apple("not-a-token", keys=[])),
+        "apple_key_unknown": _refusal(_apple(_apple_token("unknown-kid"), keys=[])),
+        "apple_unavailable": apple_unavailable,
+        "apple_email_unverified": _refusal(
+            _sign_in("apple", apple={**_APPLE_PAYLOAD, "email_verified": "false"})
+        ),
+        "apple_email_missing": _refusal(_sign_in("apple", apple={**_APPLE_PAYLOAD, "email": None})),
+        "dev_auth_disabled": _refusal(_sign_in("dev", settings=Settings(dev_auth_enabled=False))),
+    }
+
+
 def _bodies() -> dict[str, dict[str, Any]]:
     too_big = base64.b64encode(b"\xff" * (SCAN_MAX_IMAGE_BYTES + 1)).decode()
     with (
@@ -189,6 +297,7 @@ def _bodies() -> dict[str, dict[str, Any]]:
         "dictation_rate_limited": _refusal(_transcribe(allowed=False)),
         "image_daily_limit": _refusal(_generate("daily_limit")),
         "image_content_blocked": _refusal(_generate("content_blocked")),
+        **_sign_in_bodies(),
     }
 
 

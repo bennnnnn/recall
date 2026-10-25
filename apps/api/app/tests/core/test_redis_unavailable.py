@@ -87,7 +87,7 @@ async def test_refresh_session_leaves_a_redis_outage_to_the_503_handler():
     request.client = MagicMock(host="127.0.0.1")
     with (
         patch(
-            "app.modules.account.refresh_limit.allow_request_fail_closed",
+            "app.modules.account.refresh_limit.allow_request_unless_down",
             AsyncMock(return_value=True),
         ),
         patch(

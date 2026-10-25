@@ -50,6 +50,7 @@ function newRawNonce(): string {
   ).join("");
 }
 
+/** Map native / Metro errors to a key the login screen words, never the error's English. */
 export function formatAppleSignInError(error: unknown): string {
   const message =
     error instanceof Error ? error.message : typeof error === "string" ? error : "";
@@ -62,7 +63,10 @@ export function formatAppleSignInError(error: unknown): string {
   if (/cancel/i.test(message)) {
     return "cancelled";
   }
-  return message || "generic";
+  if (/not available on this device/i.test(message)) {
+    return "apple_unavailable_device";
+  }
+  return "generic";
 }
 
 export async function signInWithAppleCredentials(): Promise<AppleSignInResult> {
