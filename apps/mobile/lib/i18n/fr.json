@@ -1020,6 +1020,7 @@
   "todos.error_toggle": "Impossible de mettre à jour",
   "todos.overdue_days": "{{count}} j de retard",
   "todos.overdue_today": "En retard aujourd'hui",
+  "todos.row_overdue": "en retard",
   "todos.day_clash_many": "{{names}} sont tous à {{time}}",
   "todos.day_clash_pair": "{{first}} et {{second}} sont tous les deux à {{time}}",
   "todos.overlap_inline": "Même heure que « {{title}} »",

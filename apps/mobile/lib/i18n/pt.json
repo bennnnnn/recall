@@ -1020,6 +1020,7 @@
   "todos.error_toggle": "Não foi possível atualizar",
   "todos.overdue_days": "{{count}}d atrasado",
   "todos.overdue_today": "Atrasado hoje",
+  "todos.row_overdue": "atrasada",
   "todos.day_clash_many": "{{names}} são todos às {{time}}",
   "todos.day_clash_pair": "{{first}} e {{second}} são ambos às {{time}}",
   "todos.overlap_inline": "Mesmo horário que \"{{title}}\"",

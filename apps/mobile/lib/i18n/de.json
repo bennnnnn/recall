@@ -1012,6 +1012,7 @@
   "todos.error_toggle": "Aktualisierung fehlgeschlagen",
   "todos.overdue_days": "{{count}} T. überfällig",
   "todos.overdue_today": "Heute überfällig",
+  "todos.row_overdue": "überfällig",
   "todos.day_clash_many": "{{names}} sind alle um {{time}}",
   "todos.day_clash_pair": "{{first}} und {{second}} sind beide um {{time}}",
   "todos.overlap_inline": "Gleiche Zeit wie „{{title}}“",

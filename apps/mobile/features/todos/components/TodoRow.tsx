@@ -77,6 +77,10 @@ export const TodoRow = memo(function TodoRow({
 
   const timeLabel = !todo.checked && dueOk && due ? formatDate(due, "time") : null;
   const overdue = dueOk && (section === "overdue" || pastDue);
+  // Spoken as drawn: the title, its time, and "overdue" where the time carries the danger mark.
+  const spokenLabel = timeLabel
+    ? `${todo.content}, ${timeLabel}${overdue ? `, ${t("todos.row_overdue")}` : ""}`
+    : todo.content;
   // A lit row (opened from Home or a push, or picked to select) sits on primaryLight, where
   // danger ink is under 4.5:1 in every dark accent and light violet, and grey ink in four dark
   // accents. Its grey lines and its time take the text ink there (a time later today keeps
@@ -121,7 +125,7 @@ export const TodoRow = memo(function TodoRow({
         }}
         disabled={busy}
         accessibilityRole="button"
-        accessibilityLabel={timeLabel ? `${todo.content}, ${timeLabel}` : todo.content}
+        accessibilityLabel={spokenLabel}
       >
         <Text style={[s.todoText, todo.checked && s.todoDone, lit && s.todoInkLit]} numberOfLines={3}>
           {todo.content}
