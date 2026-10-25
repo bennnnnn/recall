@@ -32,6 +32,8 @@ jest.mock("@/contexts/AuthContext", () => ({ useAuthOptional: () => mockAuth }))
 const ZONES = ["UTC", "Asia/Kathmandu", "Pacific/Kiritimati", "America/St_Johns"];
 const noop = () => undefined;
 const time = (date: Date) => formatDate(date, "time");
+/** A reminder on another day than the due date names its day. */
+const dayTime = (date: Date) => formatDate(date, "weekdayTime");
 const previews = () => jest.mocked(api.previewReminder).mock.calls.map(([, dueAt]) => dueAt);
 
 function savedTodo(due: Date, notifyAt: Date | null): Todo {
@@ -68,15 +70,30 @@ describe.each(ZONES)("in %s, quiet hours 22:00-07:00", (zone) => {
     refreshPhoneClock();
   });
 
-  it("a to-do due 23:30 shows Remind at 07:00, not 23:20, with no request", async () => {
+  it("a to-do due 23:30 shows Remind at 07:00 the next day, not 23:20, with no request", async () => {
     // Local wall times: the process is in `zone`.
     const due = new Date(2026, 10, 2, 23, 30);
     const notifyAt = new Date(2026, 10, 3, 7, 0);
     const view = await render(<Fields due={due} saved={savedTodo(due, notifyAt)} />);
-    expect(view.getByText(time(notifyAt))).toBeTruthy();
+    // "Tue 7:00 AM": a bare "7:00 AM" beside a 23:30 due time reads as that morning.
+    expect(dayTime(notifyAt)).not.toBe(time(notifyAt));
+    expect(view.getByText(dayTime(notifyAt))).toBeTruthy();
     expect(view.queryByText(time(new Date(due.getTime() - 10 * 60_000)))).toBeNull();
-    expect(remindAtLabel(view)).toBe(`todos.remind_at, ${time(notifyAt)}, settings.reminder_lead_value`);
+    expect(remindAtLabel(view)).toBe(`todos.remind_at, ${dayTime(notifyAt)}, settings.reminder_lead_value`);
     expect(previews()).toEqual([]);
+  });
+
+  it("a lead that crosses midnight names the evening before; the same day shows the time alone", async () => {
+    const due = new Date(2026, 10, 3, 0, 5);
+    const notifyAt = new Date(2026, 10, 2, 23, 55);
+    const view = await render(<Fields due={due} saved={savedTodo(due, notifyAt)} />);
+    expect(view.getByText(dayTime(notifyAt))).toBeTruthy();
+
+    const noon = new Date(2026, 10, 3, 12, 0);
+    const before = new Date(2026, 10, 3, 11, 50);
+    await view.rerender(<Fields due={noon} saved={savedTodo(noon, before)} />);
+    expect(view.getByText(time(before))).toBeTruthy();
+    expect(view.queryByText(dayTime(before))).toBeNull();
   });
 
   it("a due time not yet saved: one request once it settles, then the server's answer", async () => {
@@ -98,7 +115,7 @@ describe.each(ZONES)("in %s, quiet hours 22:00-07:00", (zone) => {
     expect(previews()).toEqual([]);
     await advance(1);
     expect(previews()).toEqual([night.toISOString()]);
-    expect(view.getByText(time(morning))).toBeTruthy();
+    expect(view.getByText(dayTime(morning))).toBeTruthy();
     expect(view.queryByText(time(new Date(night.getTime() - 10 * 60_000)))).toBeNull();
 
     // Back to the saved time: its notify_at, no request.
@@ -161,7 +178,7 @@ it("the detail page shows the list's notify_at for the to-do, and follows it whe
 
   // Quiet hours turned on, or the zone reported: the list read again has the new instant.
   await view.rerender(page(savedTodo(due, new Date(2026, 10, 3, 7, 0))));
-  expect(view.getByText(time(new Date(2026, 10, 3, 7, 0)))).toBeTruthy();
+  expect(view.getByText(dayTime(new Date(2026, 10, 3, 7, 0)))).toBeTruthy();
   await advance(1000);
   expect(previews()).toEqual([]);
 });

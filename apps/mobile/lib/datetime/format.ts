@@ -53,6 +53,8 @@ const STYLES = {
   time: { hour: "numeric", minute: "2-digit" },
   /** "3:05:09 PM". */
   timeWithSeconds: { hour: "numeric", minute: "2-digit", second: "2-digit" },
+  /** "Tue 3:05 PM": a time a day off the one beside it, such as a reminder's. */
+  weekdayTime: { weekday: "short", hour: "numeric", minute: "2-digit" },
   /** "Tue, Sep 8". */
   weekdayDate: { weekday: "short", month: "short", day: "numeric" },
   /** "Tuesday, Sep 8". */

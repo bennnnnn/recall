@@ -8,6 +8,7 @@ import { repeatMessageKey } from "@/features/todos/model/repeatLabel";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { defaultDueDate } from "@/features/todos/model/dueDate";
 import type { RecurrenceRule, Todo } from "@/lib/api";
+import { isSameDay } from "@/lib/datetime/calendarGrid";
 import { formatDate } from "@/lib/datetime/format";
 import { findOverlappingReminder } from "@/features/todos/model/reminderOverlap";
 import {
@@ -67,8 +68,12 @@ export function TodoDateFields({
   const [savingLead, setSavingLead] = useState(false);
   const remindRowRef = useRef<View>(null);
   const lead = normalizeReminderLeadMinutes(leadMinutes ?? DEFAULT_REMINDER_LEAD_MINUTES);
-  // The server's instant (the lead time, after quiet hours); "—" until it is known.
-  const remindAtLabel = remindAt.status === "at" ? formatDate(remindAt.at, "time") : "—";
+  // The server's instant (the lead time, after quiet hours); "—" until it is known. Quiet
+  // hours can move it to the next morning, and a lead before midnight to the evening before:
+  // then it names its day.
+  const remindAtLabel = remindAt.status !== "at"
+    ? "—"
+    : formatDate(remindAt.at, dueDate && isSameDay(remindAt.at, dueDate) ? "time" : "weekdayTime");
   const leadLabel = t("settings.reminder_lead_value", { count: lead });
 
   const overlap = useMemo(
