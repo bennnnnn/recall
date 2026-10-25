@@ -983,6 +983,9 @@ const RECOVERY_CASES: RecoveryCase[] = [
     show: (app) => showOnly(app, "security"),
     read: /^GET \/auth\/sessions(?: \(304\))?$/,
   },
+  // Settings' two pages that read on opening, not lists: the day's usage and memory's count.
+  { title: "the day's usage", show: (app) => showOnly(app, "usage"), read: /^GET \/chats\/usage\/today$/ },
+  { title: "memory settings", show: (app) => showOnly(app, "memorySettings"), read: /^GET \/memories$/ },
   { title: "settings, no list", show: (app) => showOnly(app, "settings"), read: null },
   {
     title: "a new chat, no list",
