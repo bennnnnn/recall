@@ -66,6 +66,7 @@ def test_turn_meta_goes(reply: str, asked: str, kept: str) -> None:
         ("It's Sunday, October 25, 2026, so you are 36.", "how old am I if I was born in 1990?"),
         ("It's Monday, November 2, 2026 when the package arrives.", "when will it arrive"),
         ("Got it. It's Monday, November 2, 2026.", "ok"),
+        ("Your deadline? It's Sunday, October 25, 2026. Get it in tonight.", "when is it due?"),
         ("| Date | Plan |\n|---|---|\n| It's Monday, November 2, 2026 | Fly out |", "plan my trip"),
     ],
 )

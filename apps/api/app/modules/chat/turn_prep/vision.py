@@ -141,22 +141,22 @@ async def _inject_prior_images(
                 (row.content_type, row.storage_key)
             )
     images = [image for group in groups.values() for image in group]
-    injected = False
-    try:
-        for sent_at, group in groups.items():
-            injected = (
-                await vision_input.inject_vision_content(
-                    prompt_messages,
-                    rehydrate_gateway,
-                    group,
-                    settings=settings,
-                    caption="" if sent_at is not None else caption,
-                    at_index=sent_at,
-                )
-                or injected
+    injected = missed = False
+    for sent_at, group in groups.items():
+        try:
+            done = await vision_input.inject_vision_content(
+                prompt_messages,
+                rehydrate_gateway,
+                group,
+                settings=settings,
+                caption="" if sent_at is not None else caption,
+                at_index=sent_at,
             )
-    except StorageUnavailableError:
-        logger.warning("Earlier photo unreadable: storage unavailable user_id=%s", user.id)
-    if not injected or len(images) < len(prior_ids):
+        except StorageUnavailableError:
+            logger.warning("Earlier photo unreadable: storage unavailable user_id=%s", user.id)
+            done = False
+        injected = injected or done
+        missed = missed or not done
+    if not injected or missed or len(images) < len(prior_ids):
         attachment_markers.append_image_unavailable_note(prompt_messages)
     return injected

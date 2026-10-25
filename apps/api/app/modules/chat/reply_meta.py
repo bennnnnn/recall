@@ -44,7 +44,7 @@ _CLOCK_SENTENCE = re.compile(
 # The user's message is about time: the date may well be the answer.
 _ABOUT_TIME = re.compile(
     rf"\b(?:time|date|day|days|today|tonight|tomorrow|yesterday|week|weekend|month|year|"
-    rf"clock|calendar|now|{_WEEKDAY}|{_MONTH})\b",
+    rf"clock|calendar|now|when|due|deadline|until|{_WEEKDAY}|{_MONTH})\b",
     re.IGNORECASE,
 )
 # "Dev, you accepted my offer, so here is…", "You accepted my last offer again, so…".
