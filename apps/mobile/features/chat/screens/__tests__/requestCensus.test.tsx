@@ -922,7 +922,11 @@ const RECOVERY_CASES: RecoveryCase[] = [
   },
   { title: "the library", show: (app) => showOnly(app, "gallery"), read: /^GET \/attachments\b/ },
   // Settings' two lists (useFocusedList): the archived chats come with the drawer's list.
-  { title: "the archived chats", show: (app) => showOnly(app, "archived"), read: /^GET \/chats(?: \(304\))?$/ },
+  {
+    title: "the archived chats",
+    show: (app) => showOnly(app, "archived"),
+    read: /^GET \/chats\?client_timezone=[^&\s]+(?: \(304\))?$/,
+  },
   {
     title: "the signed-in devices",
     show: (app) => showOnly(app, "security"),
