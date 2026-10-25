@@ -188,6 +188,7 @@ const NO_ACCOUNT_DATA = [
   "lib/webViewMountQueue.ts#grantedTickets",
   "lib/webViewMountQueue.ts#listeners",
   "lib/webViewMountQueue.ts#nextTicketId",
+  "lib/zoneReport.ts#inFlight",
   "ui/overlay/dialogs.ts#host",
 ];
 

@@ -6,9 +6,10 @@
  *   German on an English phone, a to-do row said "23:30" and its editor "11:30 PM".
  * - **Time zone:** the user's, which on the phone is the device's. The profile's
  *   `timezone` is the server's copy of it: `useBootstrapSync` writes the device zone
- *   there and no screen sets another. It is "UTC" on a new account until that sync,
- *   "" on a cold start until `/auth/me` answers (`mergeCachedUser`), and the old zone
- *   after a flight until the next launch. Every day the phone works out (the to-do
+ *   there (at sign-in, when the OS reports a new zone, on each return to the
+ *   foreground) and no screen sets another. It is "UTC" on a new account until that
+ *   sync, "" on a cold start until `/auth/me` answers (`mergeCachedUser`), and the old
+ *   zone after a flight until that report lands. Every day the phone works out (the to-do
  *   day groups, `describeDueAt`, the reminder clock's midnight, the drawer's own
  *   inserts, the date and time pickers) reads local `Date` fields, the device zone,
  *   so a time drawn in the profile's zone could sit under another day's heading and

@@ -9,10 +9,27 @@ import { getDeviceLocationLabel } from "@/lib/deviceLocation";
 import { registerPlanChangeListener } from "@/lib/purchases";
 import { attachPushForegroundSync } from "@/lib/pushNotifications";
 import { onAppEvent } from "@/lib/appEvents";
+import { ApiRequestError } from "@/lib/api/errorBody";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 jest.mock("@/lib/api", () => ({ api: { updateMe: jest.fn(), syncSubscription: jest.fn() } }));
-jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => "America/Los_Angeles" }));
+let mockDeviceZone = "America/Los_Angeles";
+jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => mockDeviceZone }));
+// The OS's clock-change event (expo-localization) and the app's returns to the foreground.
+const mockClockListeners = new Set<() => void>();
+jest.mock("@/lib/datetime/phoneClock", () => ({
+  onPhoneClockChange: (listener: () => void) => {
+    mockClockListeners.add(listener);
+    return () => { mockClockListeners.delete(listener); };
+  },
+}));
+const mockAppStateListeners = new Set<(state: string, returned: boolean) => void>();
+jest.mock("@/lib/foregroundRefresh", () => ({
+  onAppStateChange: (listener: (state: string, returned: boolean) => void) => {
+    mockAppStateListeners.add(listener);
+    return () => { mockAppStateListeners.delete(listener); };
+  },
+}));
 jest.mock("@/lib/deviceLocation", () => ({ getDeviceLocationLabel: jest.fn() }));
 jest.mock("@/lib/pushNotifications", () => ({ attachPushForegroundSync: jest.fn() }));
 const mockSyncRecords = new Map<string, { account: string; at: number }>();
@@ -49,6 +66,7 @@ function Probe({ user, token }: { user: User | null; token: string | null }) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockSyncRecords.clear();
+  mockDeviceZone = "America/Los_Angeles";
   (api.updateMe as jest.Mock).mockResolvedValue(userA);
   (getDeviceLocationLabel as jest.Mock).mockResolvedValue(null);
   (registerPlanChangeListener as jest.Mock).mockResolvedValue(jest.fn());
@@ -186,5 +204,98 @@ describe("location label", () => {
     await act(async () => {});
     expect(mockSyncRecords.has("location")).toBe(false);
     warn.mockRestore();
+  });
+});
+
+describe("zone report", () => {
+  const atHome = { ...userA, timezone: "America/Los_Angeles" } as User;
+  const zonePatches = () => (api.updateMe as jest.Mock).mock.calls.filter(([, body]) => "timezone" in body);
+  const clockChanged = () => act(async () => { for (const listener of [...mockClockListeners]) listener(); });
+  const returnToForeground = (returned = true) =>
+    act(async () => { for (const listener of [...mockAppStateListeners]) listener("active", returned); });
+  const answer = (zone: string) => ({ ...atHome, timezone: zone });
+
+  it("sends a new zone the moment the OS reports it, once", async () => {
+    const announced = jest.fn();
+    const stop = onAppEvent("userUpdated", announced);
+    (api.updateMe as jest.Mock).mockResolvedValue(answer("Asia/Kathmandu"));
+    await render(<Probe user={atHome} token="a" />);
+    await clockChanged();
+    expect(zonePatches()).toEqual([]);
+
+    mockDeviceZone = "Asia/Kathmandu";
+    await clockChanged();
+    await clockChanged();
+    expect(zonePatches()).toEqual([["a", { timezone: "Asia/Kathmandu" }]]);
+    expect(announced.mock.calls).toEqual([[{ fields: ["timezone"] }]]);
+    stop();
+  });
+
+  it("a return to the foreground sends nothing when the zone is the server's, one after a flight", async () => {
+    (api.updateMe as jest.Mock).mockResolvedValue(answer("Pacific/Kiritimati"));
+    await render(<Probe user={atHome} token="a" />);
+    await returnToForeground();
+    expect(zonePatches()).toEqual([]);
+
+    mockDeviceZone = "Pacific/Kiritimati";
+    // iOS's inactive and back (Control Centre) is not a return.
+    await returnToForeground(false);
+    expect(zonePatches()).toEqual([]);
+    await returnToForeground();
+    await returnToForeground();
+    expect(zonePatches()).toEqual([["a", { timezone: "Pacific/Kiritimati" }]]);
+  });
+
+  it("sends one report for the events that come while it is in flight", async () => {
+    const update = deferred<User>();
+    (api.updateMe as jest.Mock).mockReturnValue(update.promise);
+    await render(<Probe user={atHome} token="a" />);
+    mockDeviceZone = "Asia/Kathmandu";
+    await clockChanged();
+    await returnToForeground();
+    await clockChanged();
+    expect(zonePatches()).toHaveLength(1);
+    await act(async () => { update.resolve(answer("Asia/Kathmandu")); });
+    expect(zonePatches()).toHaveLength(1);
+  });
+
+  it("sends the newer zone once the report in flight lands", async () => {
+    const first = deferred<User>();
+    (api.updateMe as jest.Mock).mockReturnValueOnce(first.promise).mockResolvedValue(answer("Pacific/Kiritimati"));
+    await render(<Probe user={atHome} token="a" />);
+    mockDeviceZone = "Asia/Kathmandu";
+    await clockChanged();
+    mockDeviceZone = "Pacific/Kiritimati";
+    await clockChanged();
+    await act(async () => { first.resolve(answer("Asia/Kathmandu")); });
+    expect(zonePatches().map(([, body]) => body.timezone)).toEqual(["Asia/Kathmandu", "Pacific/Kiritimati"]);
+  });
+
+  it("does not send a zone the server refused again; a failed send is tried on the next return", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    (api.updateMe as jest.Mock).mockRejectedValue(new ApiRequestError(422, '{"detail":"Invalid IANA timezone name."}'));
+    await render(<Probe user={atHome} token="a" />);
+    mockDeviceZone = "Mars/Olympus_Mons";
+    await returnToForeground();
+    await returnToForeground();
+    expect(zonePatches()).toHaveLength(1);
+
+    (api.updateMe as jest.Mock).mockRejectedValueOnce(new TypeError("Network request failed"));
+    mockDeviceZone = "Asia/Kathmandu";
+    await returnToForeground();
+    (api.updateMe as jest.Mock).mockResolvedValue(answer("Asia/Kathmandu"));
+    await returnToForeground();
+    expect(zonePatches().map(([, body]) => body.timezone)).toEqual(["Mars/Olympus_Mons", "Asia/Kathmandu", "Asia/Kathmandu"]);
+    warn.mockRestore();
+  });
+
+  it("stops listening at sign-out", async () => {
+    const rendered = await render(<Probe user={atHome} token="a" />);
+    await rendered.rerender(<Probe user={null} token={null} />);
+    mockDeviceZone = "Asia/Kathmandu";
+    await clockChanged();
+    await returnToForeground();
+    expect(zonePatches()).toEqual([]);
+    expect(mockClockListeners.size + mockAppStateListeners.size).toBe(0);
   });
 });
