@@ -37,13 +37,14 @@ type Props = {
   onShowOlder?: () => void;
 };
 
-type SheetBlock = {
-  kind: "sheet";
-  key: string;
-  section: TodoSection;
-  dayKey?: string;
-  todos: Todo[];
-};
+/**
+ * One list cell: a day's heading, or one card of to-dos due at the same time. A
+ * cell per card, not per day, so FlashList mounts only the cards on screen: a day
+ * of 300 to-dos used to be one cell that mounted all 300 rows.
+ */
+type TodoListItem =
+  | { kind: "heading"; key: string; section: TodoSection; dayKey?: string }
+  | { kind: "card"; key: string; section: TodoSection; todos: Todo[] };
 
 function futureDayLabel(dayKey: string, locale: string): string {
   const date = new Date(`${dayKey}T12:00:00`);
@@ -55,23 +56,30 @@ function futureDayLabel(dayKey: string, locale: string): string {
   });
 }
 
-function blocksFromRows(rows: TodoListRow[]): SheetBlock[] {
-  const blocks: SheetBlock[] = [];
-  let sheet: SheetBlock | null = null;
+function itemsFromRows(rows: TodoListRow[]): TodoListItem[] {
+  const items: TodoListItem[] = [];
+  let heading: Extract<TodoListRow, { kind: "heading" }> | null = null;
+  let todos: Todo[] = [];
   const flush = () => {
-    if (sheet && sheet.todos.length) blocks.push(sheet);
-    sheet = null;
+    if (heading && todos.length) {
+      const { section, dayKey } = heading;
+      items.push({ kind: "heading", key: todoListRowKey(heading), section, dayKey });
+      for (const group of groupBySameTime(todos)) {
+        items.push({ kind: "card", key: todoListRowKey({ kind: "todo", todo: group[0]! }), section, todos: group });
+      }
+    }
+    todos = [];
   };
   for (const row of rows) {
     if (row.kind === "heading") {
       flush();
-      sheet = { kind: "sheet", key: row.key, section: row.section, dayKey: row.dayKey, todos: [] };
+      heading = row;
       continue;
     }
-    sheet?.todos.push(row.todo);
+    if (heading) todos.push(row.todo);
   }
   flush();
-  return blocks;
+  return items;
 }
 
 function joinNames(names: string[], locale: string): string {
@@ -96,7 +104,7 @@ function clashLines(clusters: ClashCluster[], locale: string, t: (key: string, o
   });
 }
 
-/** Virtualized To-do list. Each day is one sheet. */
+/** Virtualized To-do list: each day's heading, then its cards of same-time to-dos. */
 export function TodosScrollList({
   rows,
   showEmpty,
@@ -117,15 +125,15 @@ export function TodosScrollList({
   const { t, i18n } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
-  const blocks = useMemo(() => blocksFromRows(rows), [rows]);
+  const items = useMemo(() => itemsFromRows(rows), [rows]);
   // The last row scrolls clear of the bottom-right add FAB.
   const insets = useSafeAreaInsets();
 
   return (
     <FlashList
-      data={blocks}
-      keyExtractor={(block) => block.key}
-      getItemType={(block) => block.kind}
+      data={items}
+      keyExtractor={(item) => item.key}
+      getItemType={(item) => item.kind}
       style={s.list}
       contentContainerStyle={[
         showEmpty && !error ? s.listEmpty : undefined,
@@ -153,51 +161,48 @@ export function TodosScrollList({
         ) : null
       }
       renderItem={({ item, index }) => {
-        const title = item.section === "date" && item.dayKey
-          ? futureDayLabel(item.dayKey, i18n.language)
-          : t(`todos.group_${item.section}`);
-        const prominent = item.section === "today" || item.section === "overdue";
-        const groups = groupBySameTime(item.todos);
-        return (
-          <View>
+        if (item.kind === "heading") {
+          const title = item.section === "date" && item.dayKey
+            ? futureDayLabel(item.dayKey, i18n.language)
+            : t(`todos.group_${item.section}`);
+          const prominent = item.section === "today" || item.section === "overdue";
+          return (
             <View style={[s.sectionHeader, index === 0 && s.sectionHeaderFirst]}>
               <Text style={prominent ? s.dayHeading : s.sectionHeading}>{title}</Text>
             </View>
-            {groups.map((group, groupIndex) => {
-              const lines = clashLines(clashClusters(group), i18n.language, t);
-              return (
-                <View key={group[0]?.id ?? `${item.key}-${groupIndex}`}>
-                  <View style={s.daySheet}>
-                    {lines.length ? (
-                      <View style={s.dayClash}>
-                        {lines.map((line) => (
-                          <Text key={line} style={s.dayClashText}>
-                            {line}
-                          </Text>
-                        ))}
-                      </View>
-                    ) : null}
-                    {group.map((todo, todoIndex) => (
-                      <View key={todoListRowKey({ kind: "todo", todo })}>
-                        {todoIndex > 0 ? <View style={s.sheetRule} /> : null}
-                        <TodoRow
-                          todo={todo}
-                          section={item.section}
-                          highlighted={highlight === todo.id}
-                          busy={busyTodoIds.has(todo.id)}
-                          onToggle={onToggle}
-                          onOpen={onOpen}
-                          onDelete={onDeleteItem}
-                          selecting={selecting}
-                          selected={selectedIds?.has(todo.id) ?? false}
-                          onSelect={onSelect}
-                        />
-                      </View>
-                    ))}
-                  </View>
+          );
+        }
+        const lines = clashLines(clashClusters(item.todos), i18n.language, t);
+        return (
+          <View>
+            <View style={s.daySheet}>
+              {lines.length ? (
+                <View style={s.dayClash}>
+                  {lines.map((line) => (
+                    <Text key={line} style={s.dayClashText}>
+                      {line}
+                    </Text>
+                  ))}
                 </View>
-              );
-            })}
+              ) : null}
+              {item.todos.map((todo, todoIndex) => (
+                <View key={todoListRowKey({ kind: "todo", todo })}>
+                  {todoIndex > 0 ? <View style={s.sheetRule} /> : null}
+                  <TodoRow
+                    todo={todo}
+                    section={item.section}
+                    highlighted={highlight === todo.id}
+                    busy={busyTodoIds.has(todo.id)}
+                    onToggle={onToggle}
+                    onOpen={onOpen}
+                    onDelete={onDeleteItem}
+                    selecting={selecting}
+                    selected={selectedIds?.has(todo.id) ?? false}
+                    onSelect={onSelect}
+                  />
+                </View>
+              ))}
+            </View>
           </View>
         );
       }}
