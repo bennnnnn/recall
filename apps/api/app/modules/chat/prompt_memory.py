@@ -22,6 +22,7 @@ from app.modules.chat.prompt_constants import (
     recalls_earlier_conversation,
 )
 from app.modules.memory.switch import memory_switch_on
+from app.modules.todos import query_implies_todos
 from app.services.subject_solving import detect_subject
 
 if TYPE_CHECKING:
@@ -42,16 +43,21 @@ MEMORY_OFF_HINT = (
 MEMORY_SAVING_HINT = (
     "The user asked you to remember something. Recall saves it to their memory after your "
     "reply, and they can see and edit it in Settings → Memory. Say in a few words that you'll "
-    "remember it. It is not a to-do or a reminder: don't say it was added to their to-dos, "
-    "reminders or any list, and don't offer one unless they ask."
+    "remember it. Memory is not their to-do list: don't say it was added to their to-dos or "
+    "reminders."
 )
-MEMORY_ON_HINT = (
-    "Recall has memory: what the user asks you to remember, and facts they share, are saved "
-    "to their memory and shown in Settings → Memory. Never say you can't remember things or "
-    "can't save them to memory."
+# "No reminder needed, just remember it please" got "I can't save it to memory".
+MEMORY_BACK_REFERENCE_HINT = (
+    "The user asked you to remember what they just said. Recall keeps facts from the chat in "
+    "their memory (Settings → Memory). Never say Recall has no memory or can't save things."
 )
-# A line about remembering or memory, where a model denied having one.
-_MENTIONS_MEMORY = re.compile(r"\b(?:remember\w*|memory|memories|forget)\b", re.IGNORECASE)
+# The whole line asks to remember "it", "that" or "this", with fillers only.
+_REMEMBER_IT = re.compile(
+    r"^(?:(?:ok(?:ay)?|no|nah|yes|yeah|just|please|pls|so|then|can\s+you|could\s+you|"
+    r"reminder\s+needed|no\s+reminder\s+needed)[\s,.!]+)*"
+    r"(?:just\s+)?remember\s+(?:it|that|this)(?:\s+(?:please|pls|for\s+me|then|instead))*[\s.!?]*$",
+    re.IGNORECASE,
+)
 MEMORY_PAUSED_HINT = (
     "Saving to memory is paused right now. If the user asks you to remember something, say "
     "it can't be saved at the moment; never say you will remember it."
@@ -205,10 +211,11 @@ def memory_notes(turn: PromptTurn) -> list[str]:
     notes: list[str] = []
     if turn.memory_paused:
         notes.append(MEMORY_PAUSED_HINT)
-    elif query and memory_service.asks_to_remember(query):
+    # A line that also asks for a reminder gets its card; memory drops one-off dated items.
+    elif query and memory_service.asks_to_keep(query) and not query_implies_todos(query):
         notes.append(MEMORY_SAVING_HINT)
-    elif query and _MENTIONS_MEMORY.search(query):
-        notes.append(MEMORY_ON_HINT)
+    elif query and _REMEMBER_IT.match(query.strip()):
+        notes.append(MEMORY_BACK_REFERENCE_HINT)
     status = memory_status_note(turn)
     if status:
         notes.append(status)

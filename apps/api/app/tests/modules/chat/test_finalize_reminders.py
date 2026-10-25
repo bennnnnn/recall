@@ -249,7 +249,40 @@ def _unchanged_by_the_writes() -> AsyncMock:
             "Nice, the paste trick works.",
         ),
         (_REMEMBER, "Got it, I'll remember that you want to try it again.", True, None),
-        # Memory's own "Saved:" line names no to-do.
+        # A one-off item memory won't keep: no promise to remember it.
+        (
+            "please remember my flight is Friday at 6am",
+            "I've set a reminder for your flight.",
+            True,
+            "Got it.",
+        ),
+        # Memory's own words stay (review, 2026-10-25).
+        (
+            "remember that my dentist appointment is tomorrow at 3pm",
+            "Got it! I've noted that your dentist appointment is tomorrow at 3 PM. If you'd "
+            "like, I can also set a reminder.",
+            True,
+            None,
+        ),
+        (
+            "please remember my flight is Friday at 6am",
+            "Saved — your flight is Friday at 6 AM. Want a reminder the night before?",
+            True,
+            None,
+        ),
+        (
+            "remember that I go to the gym every Monday, Wednesday and Friday at 7am",
+            "Got it! I've noted that you go to the gym then. I won't add it to your to-dos "
+            "unless you ask.",
+            True,
+            None,
+        ),
+        (
+            "save to memory that I use Todoist for my tasks",
+            "Saved: you use Todoist for your tasks.",
+            True,
+            None,
+        ),
         (
             "Save to memory that I'm lactose intolerant",
             "Saved: you're lactose intolerant.",
@@ -259,14 +292,14 @@ def _unchanged_by_the_writes() -> AsyncMock:
         # Code that says "list" is left alone.
         (
             _REMEMBER,
-            "Noted.\n\n```python\nitems.append(x)  # added to the list\n```",
+            "Noted.\n\n```python\nitems.append(x)  # I've added x to the list\n```",
             True,
             None,
         ),
         # A to-do card offered on the same turn is the user's to tap.
         (
-            "remind me to buy pecorino at 5 and remember that i like it salty",
-            'Done.\n\n```reminder_proposal\n{"proposal_id": "a"}\n```',
+            "remember that i like it salty and remind me to buy pecorino at 5",
+            'I\'ve added that to your to-do list.\n\n```reminder_proposal\n{"proposal_id": "a"}\n```',
             True,
             None,
         ),

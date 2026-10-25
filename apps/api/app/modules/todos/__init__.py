@@ -88,7 +88,6 @@ if TYPE_CHECKING:
     from app.modules.todos.reminder_fences import (
         materialize_reminder_fences as materialize_reminder_fences,
     )
-    from app.modules.todos.reply_claims import without_claims as without_claims
     from app.modules.todos.reply_denials import (
         without_denials as without_denials,
     )
@@ -106,7 +105,6 @@ _EXPORTS = {
     "materialize_reminder_fences": ("reminder_fences", "materialize_reminder_fences"),
     "reminder_cards_as_text": ("proposals", "reminder_cards_as_text"),
     "without_denials": ("reply_denials", "without_denials"),
-    "without_claims": ("reply_claims", "without_claims"),
     "query_implies_todos": ("classification", "query_implies_todos"),
     "accepted_offer_in": ("offer_reply", "accepted_offer_in"),
     "TODO_LINK_FENCE": ("chat_language", "TODO_LINK_FENCE"),

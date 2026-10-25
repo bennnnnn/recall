@@ -14,24 +14,17 @@ import re
 from redis.asyncio import Redis
 
 from app.core.config import Settings
-from app.modules import memory as memory_service
 from app.modules import todos as todos_service
+from app.modules.chat.remember_reply import without_remember_turn_claims
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
-from app.modules.memory.switch import memory_switch_on
-from app.services.md_fence_scan import iter_fences, last_fence, line_fences
+from app.services.md_fence_scan import iter_fences, last_fence
 
 logger = logging.getLogger(__name__)
 
 _REMINDER_FENCE_LANG = "reminder"
-_PROPOSAL_FENCE_LANG = "reminder_proposal"
-# A line that names the to-do list or a reminder. "Saved: you're lactose intolerant" on a
-# "save to memory" turn is memory's own line, not a to-do claim.
-_NAMES_TODOS = re.compile(r"\b(?:to-?dos?|reminders?|tasks?|lists?)\b", re.IGNORECASE)
 _ASK_WHEN = "When should I remind you?"
-_REMEMBERED = "Got it, I'll remember that."
-_MEMORY_OFF = "Memory is off, so I didn't save that. You can turn it on in Settings → Memory."
 _TAG_CLOSER = re.compile(r"^[ \t]*</reminder>[ \t]*$\n?", re.MULTILINE)
 
 
@@ -74,7 +67,7 @@ async def apply_reminder_pass(
     try:
         given = text
         text, created = await _materialize(deps, redis, settings, ctx, text)
-        text = _without_memory_turn_claims(ctx, text, created)
+        text = without_remember_turn_claims(ctx.user_message_content or "", ctx.user, text)
         # "I can't set reminders from here" is false: the card above, or the next one.
         text = todos_service.without_denials(text)
         # A reply that was only a reminder fence, with nothing saved, must still
@@ -88,30 +81,6 @@ async def apply_reminder_pass(
     except Exception:
         logger.exception("Reminder pass failed; keeping the finished reply")
     return text
-
-
-def _without_memory_turn_claims(ctx: StreamContext, text: str, created: int) -> str:
-    """A "remember that …" turn with no reminder card claims no to-do.
-
-    "Remember that I want to try cacio e pepe again" is saved to memory; the reply "I've
-    added that to your to-do list so you don't forget" claimed a to-do nothing wrote
-    (live chat, 2026-10-25). Its claim sentences go; a reply left empty says it is
-    remembered, or that memory is off.
-    """
-    if created or not memory_service.asks_to_remember(ctx.user_message_content or ""):
-        return text
-    if any(fence.lang == _PROPOSAL_FENCE_LANG for fence in iter_fences(text)):
-        return text
-    lines = [
-        todos_service.without_claims(line) if fence is None and _NAMES_TODOS.search(line) else line
-        for line, fence in zip(text.split("\n"), line_fences(text), strict=True)
-    ]
-    kept = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
-    if kept == text.strip():
-        return text
-    if kept:
-        return kept
-    return _REMEMBERED if memory_switch_on(ctx.user) else _MEMORY_OFF
 
 
 def offer_todo_screen(text: str, language: str | None) -> str:

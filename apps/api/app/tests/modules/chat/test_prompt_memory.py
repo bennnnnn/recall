@@ -177,16 +177,25 @@ async def test_a_remember_turn_is_told_recall_saves_it():
     then said it couldn't save to memory."""
     saving = await _system_prompt("remember that I want to try cacio e pepe again")
     assert prompt_memory.MEMORY_SAVING_HINT in saving
-    assert prompt_memory.MEMORY_ON_HINT not in saving
-    nudge = await _system_prompt("no reminder needed, just remember it please")
-    assert prompt_memory.MEMORY_ON_HINT in nudge
+    nudge = await _system_prompt("No reminder needed, just remember it please")
+    assert prompt_memory.MEMORY_BACK_REFERENCE_HINT in nudge
     assert prompt_memory.MEMORY_SAVING_HINT not in nudge
-    forget = await _system_prompt("forget that I like sushi")
-    assert prompt_memory.MEMORY_SAVING_HINT not in forget
-    for plain in ("what should I cook tonight?", "do you know a good pasta"):
-        system = await _system_prompt(plain)
-        assert prompt_memory.MEMORY_SAVING_HINT not in system
-        assert prompt_memory.MEMORY_ON_HINT not in system
+    for line in (
+        # Memory drops one-off dated items and errands: no promise to remember them.
+        "remember that my dentist appointment is tomorrow at 3pm",
+        "please remember to buy milk",
+        "don't forget to call mom tomorrow at 5pm",
+        # A reminder asked on the same line gets its card.
+        "Remember that I have a dentist appointment tomorrow at 3pm. Remind me at 2pm.",
+        "forget that I like sushi",
+        "best memory foam mattress?",
+        "I forget things a lot",
+        "do you remember my dog's name?",
+        "what should I cook tonight?",
+    ):
+        system = await _system_prompt(line)
+        assert prompt_memory.MEMORY_SAVING_HINT not in system, line
+        assert prompt_memory.MEMORY_BACK_REFERENCE_HINT not in system, line
     off = await _system_prompt("remember that I want to try cacio e pepe again", memory=False)
     assert prompt_memory.MEMORY_OFF_HINT in off
     assert prompt_memory.MEMORY_SAVING_HINT not in off
