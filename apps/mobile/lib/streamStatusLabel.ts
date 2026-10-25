@@ -152,15 +152,25 @@ export function useRotatingStreamStatus(
     () => (phase ? streamStatusLabels(t, phase, detail) : []),
     [phase, detail, t],
   );
-  const [tick, setTick] = useState(0);
+  // The opening variant is picked in the render that shows a new phase. Picked in an
+  // effect, the first variant was painted for a frame and then swapped for another.
+  const start = `${phase ?? ""}\n${detail ?? ""}\n${labels.length}\n${enabled}`;
+  const [rotation, setRotation] = useState(() => ({
+    start,
+    tick: initialStreamStatusTick(labels.length, Boolean(detail)),
+  }));
+  let tick = rotation.tick;
+  if (rotation.start !== start) {
+    tick = initialStreamStatusTick(labels.length, Boolean(detail));
+    setRotation({ start, tick });
+  }
 
   useEffect(() => {
-    setTick(initialStreamStatusTick(labels.length, Boolean(detail)));
     if (!enabled || labels.length <= 1) {
       return;
     }
     const id = setInterval(() => {
-      setTick((value) => value + 1);
+      setRotation((value) => ({ ...value, tick: value.tick + 1 }));
     }, STREAM_STATUS_ROTATE_MS);
     return () => clearInterval(id);
   }, [enabled, labels.length, phase, detail]);
