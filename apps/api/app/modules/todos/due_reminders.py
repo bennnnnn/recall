@@ -26,7 +26,7 @@ from app.models.orm import PushToken, TodoItem, User
 from app.modules.todos.crud import advance_past_recurring
 from app.modules.todos.email_repository import mark_email_sent_if_current
 from app.modules.todos.occurrences import TodoEmailSnapshot, TodoScheduleSnapshot
-from app.modules.todos.recurrence import is_recurrence_rule, next_recurring_due
+from app.modules.todos.recurrence import is_recurrence_rule, next_recurring_due, snap_first_due
 from app.modules.todos.schedule_repository import update_schedule_if_current
 from app.services.reminder_timing import (
     MAX_REMINDER_LEAD_MINUTES,
@@ -35,6 +35,7 @@ from app.services.reminder_timing import (
     in_quiet_hours,
     reminder_at,
 )
+from app.services.time_context import normalize_due_at
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,6 +128,19 @@ def reminder_instant(todo: TodoItem, user: User) -> datetime | None:
         lead_minutes=user.reminder_lead_minutes,
         quiet=QuietHours.of(user),
     )
+
+
+def preview_instant(
+    user: User, due_at: datetime, recurrence_rule: str | None, *, now: datetime
+) -> datetime | None:
+    """The ``notify_at`` a to-do due at ``due_at`` gets if it is saved at ``now``: the due
+    time as a save stores it (the user's zone for a time with none, a weekday repeat's first
+    weekday), set now. The to-do editor shows it before the to-do is saved.
+    """
+    due = normalize_due_at(due_at, user.timezone)
+    if due is not None and is_recurrence_rule(recurrence_rule):
+        due = snap_first_due(due, recurrence_rule, timezone=user.timezone)
+    return reminder_instant(TodoItem(checked=False, due_at=due, due_set_at=now), user)
 
 
 def is_due_now(todo: TodoItem, user: User, *, now: datetime) -> bool:

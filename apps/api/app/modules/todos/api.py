@@ -12,8 +12,15 @@ from app.core.etag import conditional_json
 from app.models.orm import TodoItem, User
 from app.modules.todos import crud as todos_crud
 from app.modules.todos import proposals as reminder_proposals
-from app.modules.todos.due_reminders import reminder_instant
-from app.modules.todos.schemas import TodoCreate, TodoOut, TodoPageOut, TodoUpdate
+from app.modules.todos.due_reminders import preview_instant, reminder_instant
+from app.modules.todos.schemas import (
+    RecurrenceRule,
+    ReminderPreviewOut,
+    TodoCreate,
+    TodoOut,
+    TodoPageOut,
+    TodoUpdate,
+)
 
 router = APIRouter(prefix="/todos", tags=["todos"])
 
@@ -59,6 +66,19 @@ async def list_todos_page(
         older_completed=older,
     )
     return conditional_json(request, page)
+
+
+@router.get("/reminder-preview", response_model=ReminderPreviewOut)
+async def preview_reminder(
+    due_at: datetime,
+    recurrence_rule: RecurrenceRule | None = None,
+    user: User = Depends(get_current_user),
+) -> ReminderPreviewOut:
+    """When a to-do due at ``due_at`` would remind if it were saved now: the to-do editor's
+    "Remind at" for a due time it has not saved, the ``notify_at`` the save then returns."""
+    return ReminderPreviewOut(
+        notify_at=preview_instant(user, due_at, recurrence_rule, now=datetime.now(UTC))
+    )
 
 
 @router.post("", response_model=TodoOut, status_code=status.HTTP_201_CREATED)

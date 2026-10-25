@@ -25,6 +25,7 @@ from app.modules.todos.due_reminders import (
     is_due_now,
     mark_reminder_emailed,
     mark_reminder_pushed,
+    preview_instant,
     reminder_instant,
 )
 from app.modules.todos.occurrences import TodoEmailSnapshot
@@ -287,3 +288,99 @@ async def test_a_due_time_set_inside_its_lead_window_still_goes_out_when_due(db_
         db_session, user, todo.id, {"due_at": (now + timedelta(minutes=5)).isoformat()}
     )
     assert datetime.fromisoformat(str(saved["notify_at"])) == now + timedelta(minutes=5)
+
+
+# ── The editor's "Remind at" before a save: GET /todos/reminder-preview ──
+
+
+def _client(session, user) -> AsyncClient:
+    app = FastAPI()
+    app.include_router(todos_router.router)
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_db] = lambda: session
+    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+
+
+def _next(weekday: int, hour: int, minute: int, tz: str, *, after: datetime) -> datetime:
+    """The next ``weekday`` (0 = Monday) at that time on the zone's clock, at least a day on."""
+    local = after.astimezone(ZoneInfo(tz)) + timedelta(days=1)
+    while local.weekday() != weekday:
+        local += timedelta(days=1)
+    return local.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+
+_NOW = datetime.now(UTC).replace(second=0, microsecond=0)
+_PREVIEWS = [
+    # zone, quiet hours on, due (sent as written), repeat
+    ("UTC", True, _next(2, 23, 30, "UTC", after=_NOW).isoformat(), None),
+    ("America/New_York", True, _next(4, 23, 30, "America/New_York", after=_NOW).isoformat(), None),
+    ("Asia/Kathmandu", True, _next(1, 5, 30, "Asia/Kathmandu", after=_NOW).isoformat(), None),
+    (
+        "Pacific/Kiritimati",
+        True,
+        _next(3, 21, 55, "Pacific/Kiritimati", after=_NOW).isoformat(),
+        None,
+    ),
+    # Inside its lead window: when due.
+    ("UTC", False, (_NOW + timedelta(minutes=3)).isoformat(), None),
+    # A time with no zone is on the user's clock.
+    (
+        "America/New_York",
+        True,
+        _next(0, 23, 30, "UTC", after=_NOW).replace(tzinfo=None).isoformat(),
+        None,
+    ),
+    # A weekday repeat first due on a Saturday starts on Monday.
+    ("UTC", False, _next(5, 9, 0, "UTC", after=_NOW).isoformat(), "weekdays"),
+    # More than 48 hours past due: none.
+    ("UTC", False, (_NOW - timedelta(days=3)).isoformat(), None),
+]
+
+
+@pytest.mark.parametrize("tz, quiet, due, repeat", _PREVIEWS)
+async def test_the_preview_is_the_notify_at_a_save_returns(
+    db_session, tz: str, quiet: bool, due: str, repeat: str | None
+) -> None:
+    user = await _push_user(
+        db_session, timezone=tz, reminder_lead_minutes=10, quiet_hours_enabled=quiet
+    )
+    query = {"due_at": due, **({"recurrence_rule": repeat} if repeat else {})}
+    async with _client(db_session, user) as client:
+        preview = await client.get("/todos/reminder-preview", params=query)
+        saved = await client.post("/todos", json={"content": f"Call {tz}", **query})
+    assert preview.status_code == 200
+    assert saved.status_code == 201
+    assert preview.json() == {"notify_at": saved.json()["notify_at"]}
+
+
+async def test_the_preview_waits_out_quiet_hours() -> None:
+    """The editor showed due - lead, 23:20 for a to-do due at 23:30, while push sent at 07:00."""
+    user = make_user(timezone="Asia/Kathmandu", reminder_lead_minutes=10, quiet_hours_enabled=True)
+    due = datetime(2026, 11, 2, 23, 30, tzinfo=ZoneInfo("Asia/Kathmandu"))
+    now = datetime(2026, 10, 25, 12, 0, tzinfo=UTC)
+    at = preview_instant(user, due, None, now=now)
+    assert at == datetime(2026, 11, 3, 7, 0, tzinfo=ZoneInfo("Asia/Kathmandu"))
+
+
+async def test_a_new_profile_zone_moves_notify_at_for_quiet_hours(db_session) -> None:
+    """The phone reports a new zone (PATCH /auth/me); the list it then reads has the new instant.
+
+    Due 18:00 UTC, lead 10, quiet hours 22:00-07:00: 17:50 UTC is not quiet in UTC, and is
+    23:35 in Kathmandu, which waits until 07:00 there (01:15 UTC).
+    """
+    from app.main import create_app
+
+    user = await _push_user(
+        db_session, timezone="UTC", reminder_lead_minutes=10, quiet_hours_enabled=True
+    )
+    due = datetime(2032, 3, 2, 18, 0, tzinfo=UTC)
+    await _set_yesterday(db_session, due=due, user=user)
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_db] = lambda: db_session
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        before = (await client.get("/todos/page")).json()["items"][0]["notify_at"]
+        moved = await client.patch("/auth/me", json={"timezone": "Asia/Kathmandu"})
+        after = (await client.get("/todos/page")).json()["items"][0]["notify_at"]
+    assert moved.status_code == 200
+    assert [before, after] == ["2032-03-02T17:50:00Z", "2032-03-03T01:15:00Z"]
