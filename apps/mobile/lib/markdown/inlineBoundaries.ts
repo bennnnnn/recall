@@ -115,12 +115,13 @@ function readMath(text: string, index: number): number | null {
       continue;
     }
     if (close + 1 < text.length && text[close + 1] === "$") return null;
-    // A dollar before a digit opens a price and closes nothing: padding
-    // "$38.40 = $19.20" as maths saved "$ 19.20", which then read as maths.
-    if (/\d/.test(text[close + 1] ?? "")) return null;
     if (codeSpanOpensWithin(text, index + 1, close)) return null;
     const body = text.slice(index + 1, close);
     if (!body.trim()) return null;
+    // A price, then a dollar before a digit: two prices. Padding
+    // "$38.40 = $19.20" as maths saved "$ 19.20", which then read as maths.
+    // Maths glued to a digit (`$a_n$2`) is still padded.
+    if (/\d/.test(text[close + 1] ?? "") && /^\s*\d/.test(body)) return null;
     if (/^\d/.test(body) && !/[\\=^_]/.test(body) && !bareNumber(body, text[close + 1])) {
       return null;
     }

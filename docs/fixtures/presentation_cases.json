@@ -158,6 +158,18 @@
       "expected": "*   **Food:** $30/day for local spots, street food, and groceries = $210."
     },
     {
+      "id": "currency-tex-arithmetic",
+      "area": "boundaries",
+      "input": "- Hotel: $80 \\times 7 = $560",
+      "expected": "- Hotel: $80 \\times 7 = $560"
+    },
+    {
+      "id": "maths-glued-digit",
+      "area": "boundaries",
+      "input": "the term $a_n$2 here, and $\\frac{1}{2}$3 ways",
+      "expected": "the term $a_n$ 2 here, and $\\frac{1}{2}$ 3 ways"
+    },
+    {
       "id": "escaped-currency",
       "area": "boundaries",
       "input": "Escaped \\$5 and \\$10",

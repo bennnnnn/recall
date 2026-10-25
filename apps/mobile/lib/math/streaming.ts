@@ -79,6 +79,13 @@ export function prepareStreamingMathText(text: string): { text: string; pending:
       continue;
     }
     const span = readInlineMathSpan(text, i, true);
+    // "Half of $38.40 = $" may go on "19.20": a price-led pair whose body
+    // stops on an operator or a space, closing where the stream has got to,
+    // waits for the next character. "$2 + 2 = 4$" draws at once.
+    if (span && text[i] === "$" && text[i + 1] !== "$" && /^\s*\d/.test(span.value)
+      && /[\s=+\-*/×·]$/.test(text.slice(i + 1, span.end - 1)) && !text.slice(span.end).trim()) {
+      return { text: out, pending: true };
+    }
     if (span) {
       const body = span.value
         // Keep a multiline explicit formula inside one single-dollar span.

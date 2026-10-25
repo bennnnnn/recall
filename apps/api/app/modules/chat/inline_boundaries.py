@@ -107,6 +107,10 @@ def _read_code(text: str, index: int) -> int | None:
     return close + length
 
 
+def _ascii_digit(char: str) -> bool:
+    return char.isascii() and char.isdigit()
+
+
 def _read_math(text: str, index: int) -> int | None:
     if escaped_at(text, index):
         return None
@@ -129,17 +133,17 @@ def _read_math(text: str, index: int) -> int | None:
             continue
         if close + 1 < len(text) and text[close + 1] == "$":
             return None
-        # A dollar before a digit opens a price and closes nothing: padding
-        # "$38.40 = $19.20" as maths saved "$ 19.20", which then read as maths.
-        after = text[close + 1 : close + 2]
-        if after.isascii() and after.isdigit():
-            return None
         # A pair never reaches across an inline code span: markdown-it reads
         # the code first, so this would pad dollars inside the code.
         if code_span_opens_within(text, index + 1, close):
             return None
         body = text[index + 1 : close]
         if not body.strip():
+            return None
+        # A price, then a dollar before a digit: two prices. Padding
+        # "$38.40 = $19.20" as maths saved "$ 19.20", which then read as maths.
+        # Maths glued to a digit (`$a_n$2`) is still padded.
+        if _ascii_digit(text[close + 1 : close + 2]) and _ascii_digit(body.lstrip()[:1]):
             return None
         # "$5 and $10" is currency, not a math span. "$2$" is one number: when
         # it was skipped as a price, its closer opened a span with the next

@@ -6,13 +6,15 @@ export type InlineMathPart = { type: "text" | "math"; value: string };
 const SPACED_AMOUNT = /[ \t]+\d/y;
 
 /**
- * The `$` at `dollar` starts an amount, so it cannot close maths (pandoc: a
- * closing `$` has no digit after it and no space before it). That is a digit
- * right after it, or a space on both sides and then a digit: "= $ 19.20".
+ * The `$` at `dollar` starts an amount, so it cannot close the span holding
+ * `body` (pandoc: a closing `$` has no digit after it and no space before
+ * it). That is a digit right after it, or, after a body that is itself a
+ * price, a space on both sides and then a digit: "$38.40 = $ 19.20". A
+ * padded formula keeps its closer: "Let $ x = 2 $ 3 times".
  */
-function dollarOpensPrice(text: string, dollar: number): boolean {
+function dollarOpensPrice(text: string, dollar: number, body: string): boolean {
   if (/\d/.test(text[dollar + 1] ?? "")) return true;
-  if (!/\s/.test(text[dollar - 1] ?? "")) return false;
+  if (!/\s/.test(text[dollar - 1] ?? "") || !/^\s*\d/.test(body)) return false;
   SPACED_AMOUNT.lastIndex = dollar + 1;
   return SPACED_AMOUNT.test(text);
 }
@@ -63,7 +65,7 @@ export function readInlineMathSpan(
   if (!value.trim() || (opener === "$" && value.includes("\n"))) return null;
   if (codeSpanOpensWithin(text, start + opener.length, end)) return null;
   // "$5 and $10" contains two prices, not a math span ending before "10".
-  if (opener === "$" && dollarOpensPrice(text, end)) return null;
+  if (opener === "$" && dollarOpensPrice(text, end, value)) return null;
   // Do not pair a price with a later formula's opener: "$10; $x=2$".
   if (opener === "$" && priceBody(value)) return null;
   return { value: value.trim(), end: end + closer.length };

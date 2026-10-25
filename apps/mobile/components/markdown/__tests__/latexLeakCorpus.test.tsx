@@ -130,6 +130,14 @@ const VARIANTS: Record<string, string> = {
   "unit circle":
     '```arithmetic\n{"type":"unit_circle","degrees":30,"radians":"\\\\frac{\\\\pi}{6}","cosine":"\\\\frac{\\\\sqrt{3}}{2}","sine":"\\\\frac{1}{2}","tangent":"\\\\frac{\\\\sqrt{3}}{3}","plot_x":0.866025,"plot_y":0.5,"answer":"\\\\frac{1}{2}","speech":"30 degrees is the point with cosine \\\\frac{\\\\sqrt{3}}{2} and sine \\\\frac{1}{2}."}\n```',
   "price beside maths": "It costs $5, and $4! = 4 \\times 3 \\times 2 \\times 1 = 24$.",
+  // Money worked with TeX operators and no maths delimiters of its own.
+  "price times": "- Hotel: $80 \\times 7 = $560",
+  "price cdot": "Total: $80 \\cdot 7 = $560 for the week.",
+  "price line": "$12 \\times 3 = $36",
+  "price fraction": "$5 + \\frac{1}{2} = $5.50",
+  "price times price": "$2 \\times $3 = $6",
+  "price bold label": "**Total:** $80 \\times 7 = $560",
+  "escaped prices in maths": "$\\$80 \\times 7 = \\$560$",
   // Known gaps (see KNOWN_GAPS): each is a leak this suite still finds.
   "table abs": "| Expression | Value |\n|---|---|\n| $|x-3|$ | 5 |",
   "bare script": "The area is 25 m^{2}.",
@@ -224,8 +232,8 @@ const STREAMING_KNOWN_GAPS: Record<string, string> = {
     "the stream tail's presentation wraps an unfinished formula holding `\\$` as display maths",
   "presentation:escaped-currency-in-formula:expected":
     "the stream tail's presentation wraps an unfinished formula holding `\\$` as display maths",
-  "variant:price beside maths":
-    "the stream tail's presentation wraps an unfinished formula after a price as display maths",
+  "variant:escaped prices in maths":
+    "the stream tail's presentation wraps an unfinished formula holding `\\$` as display maths",
 };
 
 const clean = ENTRIES.filter((entry) => !(entry.id in KNOWN_GAPS));

@@ -1,5 +1,7 @@
 import { layoutCheckVerificationLines, preprocessMarkdown, splitInlineMath } from "@/lib/markdown/preprocess";
 import { markdownItInstance } from "@/lib/markdown/parser";
+import { presentAssistantMarkdown } from "@/lib/markdown/presentation";
+import { prepareStreamingMathText } from "@/lib/math/streaming";
 import { restoreMathEscapes } from "@/lib/math/text";
 
 /**
@@ -73,6 +75,32 @@ describe("currency stays text", () => {
   });
 });
 
+describe("money worked with TeX operators", () => {
+  // Wrapping the bare `\times` from the amount put a maths opener right after
+  // the currency dollar: "$$80 \times 7 =$ $560", a display block or source.
+  it.each([
+    [String.raw`- Hotel: $80 \times 7 = $560`, "Hotel: $80 × 7 = $560"],
+    [String.raw`Total: $80 \cdot 7 = $560 for the week.`, "Total: $80 ⋅ 7 = $560 for the week."],
+    [String.raw`$12 \times 3 = $36`, "$12 × 3 = $36"],
+    [String.raw`$2 \times $3 = $6`, "$2 × $3 = $6"],
+    [String.raw`**Total:** $80 \times 7 = $560`, "Total: $80 × 7 = $560"],
+    [String.raw`You save $20 \div 4 = $5 a week.`, "You save $20 ÷ 4 = $5 a week."],
+  ])("reads %s as text", (source, text) => {
+    const view = seen(source);
+    expect(view.math).toEqual([]);
+    expect(view.text).toBe(text);
+  });
+
+  it.each([
+    [String.raw`$5 + \frac{1}{2} = $5.50`, String.raw`$5 + \frac{1}{2} =`, " $5.50"],
+    [String.raw`$\$80 \times 7 = \$560$`, String.raw`$80 \times 7 = $560`, ""],
+  ])("draws the dollar inside the formula of %s", (source, math, after) => {
+    const view = seen(source);
+    expect(view.math).toEqual([math]);
+    expect(view.text).toBe(`${math}${after}`);
+  });
+});
+
 describe("inline maths still renders", () => {
   it.each([
     ["$x^2$", ["x^2"]],
@@ -106,6 +134,31 @@ describe("inline maths still renders", () => {
     expect(view.math).toEqual(math);
     expect(view.text).toBe(text);
   });
+
+  // Glued to a digit, maths is padded apart (only a price before a digit is
+  // two prices), and a padded closer still closes when no price leads.
+  it.each([
+    ["the term $a_n$2 here", "the term $a_n$ 2 here", ["a_n"]],
+    ["$x$1", "$x$ 1", ["x"]],
+    [String.raw`$\frac{1}{2}$3 ways`, String.raw`$\frac{1}{2}$ 3 ways`, [String.raw`\frac{1}{2}`]],
+    [String.raw`$\sqrt{2}$2`, String.raw`$\sqrt{2}$ 2`, [String.raw`\sqrt{2}`]],
+    ["Let $ x = 2 $ 3 times", "Let $ x = 2 $ 3 times", ["x = 2"]],
+    ["$a + b $ 3", "$a + b $ 3", ["a + b"]],
+    [String.raw`Let $x = \frac{1}{2} $ 3`, String.raw`Let $x = \frac{1}{2} $ 3`, [String.raw`x = \frac{1}{2}`]],
+  ])("draws %s as maths", (source, presented, math) => {
+    expect(presentAssistantMarkdown(source)).toBe(presented);
+    expect(seen(source).math).toEqual(math);
+  });
+});
+
+describe("a price closing where the stream has got to", () => {
+  it.each(["Half of $38.40 = $", "Half of $38.40 = $ "])("waits on %j", (tail) => {
+    expect(prepareStreamingMathText(tail)).toEqual({ text: "Half of ", pending: true });
+  });
+
+  it.each(["So $2 + 2 = 4$", "Then $x = $"])("draws %j at once", (tail) => {
+    expect(prepareStreamingMathText(tail).pending).toBe(false);
+  });
 });
 
 describe("a 'for' inside a sentence is no check label", () => {
@@ -114,6 +167,9 @@ describe("a 'for' inside a sentence is no check label", () => {
     "*   **Accommodation:** $80/night for hostels = $560 for 7 nights.",
     "The answer is x = 7. Never a ✓ for x = 6.",
     "For x = 3.",
+    "- For 7 nights = $350",
+    "**For 2 people** = $60",
+    "For 7 nights: $50 × 7 = $350",
   ])("adds no colon to %s", (line) => {
     expect(layoutCheckVerificationLines(line)).toBe(line);
   });
@@ -125,5 +181,16 @@ describe("a 'for' inside a sentence is no check label", () => {
     ["✓ For $x = -1$", "✓ For $x = -1$:"],
   ])("still closes the label %s", (line, label) => {
     expect(layoutCheckVerificationLines(line)).toBe(label);
+  });
+
+  it.each([
+    ["**Check:** For $x = 2$: $2^2 + 2 = 6$ ✓", "**Check:** For $x = 2$:\n\n  $2^2 + 2 = 6$ ✓"],
+    [
+      "Check for $x = 2$: $2^2 + 2 - 6 = 4 + 2 - 6 = 0$",
+      "Check for $x = 2$:\n\n  $2^2 + 2 - 6$\n\n  $= 4 + 2 - 6$\n\n  $= 0$",
+    ],
+    ["Verify: For $x = -1$: $(-1)^2 + 1 = 2$", "Verify: For $x = -1$:\n\n  $(-1)^2 + 1 = 2$"],
+  ])("puts the working under a Check label: %s", (line, laidOut) => {
+    expect(layoutCheckVerificationLines(line)).toBe(laidOut);
   });
 });

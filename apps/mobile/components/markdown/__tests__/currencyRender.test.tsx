@@ -62,6 +62,14 @@ describe("currency in a reply", () => {
     expect(await seen(REPLY, presented, streaming)).toBe(SEEN);
   });
 
+  it.each([
+    [String.raw`- Hotel: $80 \times 7 = $560`, "Hotel: $80 × 7 = $560"],
+    [String.raw`Total: $80 \cdot 7 = $560 for the week.`, "Total: $80 ⋅ 7 = $560 for the week."],
+    [String.raw`$2 \times $3 = $6`, "$2 × $3 = $6"],
+  ])("shows money worked with TeX as text: %s", async (source, text) => {
+    for (const streaming of [false, true]) expect(await seen(source, false, streaming)).toBe(text);
+  });
+
   it("keeps every dollar while the reply streams in", async () => {
     const off: string[] = [];
     for (let cut = 1; cut < REPLY.length; cut += 7) {
