@@ -26,9 +26,10 @@ _CANNOT = (
     r"\s+(?:actually\s+|directly\s+|really\s+|personally\s+)?"
 )
 # What may follow "reminders" in a denial of them all: an end, or words that place nothing.
+_END = r"(?=\s*(?:[.,;!:)]|$))"
 _ALL_OF_THEM = (
-    r"(?=\s*(?:[.,;!:)]|$|\s+(?:from here|here|for you|in (?:this|the) (?:chat|app)|right now"
-    r"|myself|though|anymore|on my own)\b))"
+    rf"(?:\s+(?:from here|here|for you|in (?:this|the) (?:chat|app)|right now|myself|though"
+    rf"|anymore|on my own))*{_END}"
 )
 _DENIAL = re.compile(
     "|".join(
@@ -36,7 +37,9 @@ _DENIAL = re.compile(
             rf"{_CANNOT}(?:set|create|make|add|schedule|save|keep|manage)\s+(?:up\s+)?"
             r"(?:any\s+|a\s+|the\s+|real\s+|actual\s+)?(?:reminders?|to-?dos?(?:\s+lists?)?)"
             + _ALL_OF_THEM,
-            rf"{_CANNOT}remind you\b(?!\s+(?:enough|how|of|what|why|about how)\b)",
+            # "I can't remind you tomorrow", not "I can't remind you every day how much …".
+            rf"{_CANNOT}remind you(?:\s+(?:from here|here|later|tomorrow|today|tonight"
+            rf"|at \d{{1,2}}(?::\d{{2}})?\s*(?:am|pm)?))*{_END}",
             r"\byou(?:'ll| will)?\s*(?:want|need|have)\s+to\s+(?:set|add|put|create|save)\s+"
             r"(?:that|it|this|them|that one|this one)\s+(?:up\s+)?(?:yourself\s+)?in\s+"
             r"(?:your|a)\s+(?:own|separate|regular)\s+(?:reminders?|to-?do|task)\s+(?:app|list)\b",

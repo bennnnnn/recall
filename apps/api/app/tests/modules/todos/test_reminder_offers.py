@@ -12,7 +12,6 @@ import re
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -82,9 +81,20 @@ def test_the_offer_is_read_from_the_last_reply_in_the_window() -> None:
     assert accepted_offer_in("yes", window)
     assert accepted_offer_in("yes", window[:1]) is None
     assert accepted_offer_in("yes", None) is None
-    # A regenerate's window still ends with the reply being redone.
-    redone = [*window, SimpleNamespace(role="assistant", content="Setting that reminder now!")]
-    assert accepted_offer_in("yes", redone)
+
+
+def test_an_earlier_yes_in_the_chat_does_not_hide_the_offer() -> None:
+    """A new turn's window ends with the offer, whatever "yes" came before it."""
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
+
+    window = [
+        SimpleNamespace(role="user", content="teach me list comprehensions"),
+        SimpleNamespace(role="assistant", content="Here's the idea. Want to try one?"),
+        SimpleNamespace(role="user", content="yes"),
+        SimpleNamespace(role="assistant", content=LIVE_OFFER),
+    ]
+    mode = classify_turn_mode(window, "yes")
+    assert mode.accepted_offer and mode.rich_context
 
 
 _CARD = re.compile(r"```reminder_proposal\n(.*?)\n```", re.DOTALL)
@@ -99,18 +109,17 @@ async def _offer_turn(session: Any, redis: Any, reply: str, prior: str) -> tuple
         google_sub=str(uuid4()),
     )
     chat = await chats_repo.create(session, user_id=user.id, model="free-chat")
-    with patch("app.modules.todos.spoken_add._now", lambda tz: _NOW.astimezone(tz)):
-        text, written = await materialize_reminder_fences(
-            session,
-            user_id=user.id,
-            chat_id=chat.id,
-            assistant_text=reply,
-            user_timezone="UTC",
-            user_text="yes",
-            prior_assistant=prior,
-            redis=redis,
-            confirm=True,
-        )
+    text, written = await materialize_reminder_fences(
+        session,
+        user_id=user.id,
+        chat_id=chat.id,
+        assistant_text=reply,
+        user_timezone="UTC",
+        user_text="yes",
+        prior_assistant=prior,
+        redis=redis,
+        confirm=True,
+    )
     assert written == 0
     return text, user
 
@@ -140,11 +149,12 @@ async def test_a_yes_to_the_offer_gets_its_card(db_session, fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_a_yes_with_no_fence_says_nothing_was_saved(db_session, fake_redis):
-    reply = "Setting that reminder for you now! ⏰\n\n**Practice list comprehensions**"
-    text, _user = await _offer_turn(db_session, fake_redis, reply, _OFFER)
-    assert "Setting that reminder" not in text
-    assert "```reminder_proposal" not in text
+async def test_a_yes_never_rewrites_a_reply_that_wrote_no_card(db_session, fake_redis):
+    """The yes loads the To-do block, nothing more: a reply about a code offer that read
+    as one ("Should I add a reminder field to the form?") is left as written."""
+    reply = 'I\'ve added a reminder field:\n\n```tsx\n<input name="reminder" />\n```'
+    text, _user = await _offer_turn(db_session, fake_redis, reply, "Should I add it to your list?")
+    assert text == reply
 
 
 @pytest.mark.asyncio
@@ -183,6 +193,8 @@ def test_a_denial_is_dropped_and_the_rest_kept() -> None:
         ("I can't set reminders that repeat every other Tuesday yet.", False),
         ("I can't set reminders that trigger when you arrive somewhere.", False),
         ("**English:** I can't set reminders on this phone.", False),
+        ("I can't set reminders for you in Todoist, but you can use its Quick Add.", False),
+        ("I can't remind you every day how much you mean to me, but I hope it shows.", False),
         ("I can't create a to-do list for you.", True),
         ("I can't remind you enough how much sleep matters.", False),
         ("I can't remind you of everything.", False),
@@ -267,6 +279,13 @@ async def test_a_yes_to_the_offer_loads_the_to_do_instructions(db_session):
         ("can you remind me to call mom? i always forget", "call mom"),
         ("remind me to call mom please", "call mom"),
         ("remind me to email Dr. Smith tomorrow at 9am", "email Dr Smith"),
+        # The time after the mark stays, and so do words that end the task.
+        ("Can you remind me to stretch? Every day at 3pm", "stretch"),
+        ("could you remind me to call mom? in 2 hours", "call mom"),
+        ("remind me at 6pm to call Ty", "call Ty"),
+        ("remind me tomorrow at 9am to say thanks", "say thanks"),
+        ("remind me at 5pm to send a thank you", "send a thank you"),
+        ("can you remind me about the python practice again? i forgot", "the python practice"),
     ],
 )
 def test_a_request_ends_at_its_sentence(text: str, title: str) -> None:
@@ -308,18 +327,17 @@ async def test_the_answer_to_when_finishes_the_add(db_session, fake_redis, answe
         await messages_repo.create(
             db_session, chat_id=chat.id, user_id=user.id, role=role, content=content
         )
-    with patch("app.modules.todos.spoken_add._now", lambda tz: _NOW.astimezone(tz)):
-        text, _written = await materialize_reminder_fences(
-            db_session,
-            user_id=user.id,
-            chat_id=chat.id,
-            assistant_text="Got it, I'll set a reminder for you.",
-            user_timezone="UTC",
-            user_text=answer,
-            prior_assistant="When should I remind you?",
-            redis=fake_redis,
-            confirm=True,
-        )
+    text, _written = await materialize_reminder_fences(
+        db_session,
+        user_id=user.id,
+        chat_id=chat.id,
+        assistant_text="Got it, I'll set a reminder for you.",
+        user_timezone="UTC",
+        user_text=answer,
+        prior_assistant="When should I remind you?",
+        redis=fake_redis,
+        confirm=True,
+    )
     match = _CARD.search(text)
     assert bool(match) is saved, text
     if match:

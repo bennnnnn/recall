@@ -113,7 +113,7 @@ def _parse_change(
     user_timezone: str | None,
     now: datetime | None,
 ) -> SpokenReminderChange | None:
-    text = _checked_off(_prepare(user_text))
+    text = _checked_off(prepare_words(user_text))
     if not text:
         return None
     lowered = text.lower()
@@ -227,7 +227,7 @@ def _repeat(tail: str) -> RecurrenceRule | None:
     return None
 
 
-def _prepare(user_text: str | None) -> str:
+def prepare_words(user_text: str | None) -> str:
     """Drop "actually", "ok", "please", a trailing "instead" or emoji around the change."""
     words = (user_text or "").split()
     while words and not any(char.isalnum() for char in words[-1]):

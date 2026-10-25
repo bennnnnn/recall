@@ -83,6 +83,8 @@ def test_is_claim_reads_a_completed_reminder_change(sentence: str) -> None:
         "Adding a reminder the night before helps.",
         "You're all set for Friday's interview!",
         "I'll set that up for you below: here is the config.",
+        "Setting it to 350°F for 20 minutes tonight works best.",
+        "Setting this up takes 5 minutes each morning.",
     ],
 )
 def test_is_claim_leaves_ordinary_sentences(sentence: str) -> None:

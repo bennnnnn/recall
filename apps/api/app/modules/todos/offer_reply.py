@@ -62,29 +62,10 @@ def accepted_reminder_offer(user_text: str | None, prior_assistant: str | None) 
 
 
 def accepted_offer_in(user_text: str | None, recent: Sequence[Any] | None) -> str | None:
-    """The same, with the last reply read from the recent window.
-
-    It is the reply before the user's own line: a regenerate's window still ends with the
-    reply being redone ("Setting that reminder for you now!"), and that is not the offer.
-    """
-    messages = list(recent or ())
-    said = " ".join((user_text or "").split()).casefold()
-    end = len(messages)
-    for index in range(len(messages) - 1, -1, -1):
-        if _role(messages[index]) == "user" and _words(messages[index]) == said:
-            end = index
-            break
-    for message in reversed(messages[:end]):
-        if _role(message) == "assistant":
+    """The same, with the last reply read from the recent window (a regenerate's window
+    leaves out the reply it redoes: ``turn_load.load_regenerate_turn``)."""
+    for message in reversed(recent or ()):
+        if getattr(message, "role", None) == "assistant":
             content = getattr(message, "content", None)
             return accepted_reminder_offer(user_text, content if isinstance(content, str) else None)
     return None
-
-
-def _role(message: Any) -> str | None:
-    return getattr(message, "role", None)
-
-
-def _words(message: Any) -> str:
-    content = getattr(message, "content", None)
-    return " ".join(content.split()).casefold() if isinstance(content, str) else ""

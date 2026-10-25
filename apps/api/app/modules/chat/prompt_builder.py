@@ -287,6 +287,18 @@ async def _read_prompt_inputs(
     )
 
 
+def _fill_stats(
+    stats: PromptStats | None, recalled: int, memory_hints: list[str], chat: Chat | None
+) -> None:
+    """What the prompt drew on, for the turn's ``done``."""
+    if stats is None:
+        return
+    stats.recalled = recalled
+    stats.memory_hints = memory_hints
+    if chat and chat.summary and (chat.summary_message_count or 0) > 0:
+        stats.context_summarized = chat.summary_message_count
+
+
 async def build_prompt_messages(
     user: User,
     chat_id: UUID,
@@ -300,6 +312,7 @@ async def build_prompt_messages(
     lightweight: bool = False,
     rich_context: bool = True,
     advice_memory: bool = False,
+    accepted_offer: bool = False,
     client_timezone: str | None = None,
     prompt_location: str | None = None,
     omit_message_ids: set[UUID] | None = None,
@@ -344,6 +357,7 @@ async def build_prompt_messages(
         client_timezone=client_timezone,
         history_rag=plan.history_rag,
         recent_messages=recent_messages,
+        accepted_offer=accepted_offer,
     )
     chat = blocks.chat
     window = await load_prompt_window(
@@ -365,11 +379,7 @@ async def build_prompt_messages(
         window=window,
         omit_message_ids=omit_message_ids,
     )
-    if stats is not None:
-        stats.recalled = blocks.recalled
-        stats.memory_hints = blocks.memory_hints
-        if chat and chat.summary and (chat.summary_message_count or 0) > 0:
-            stats.context_summarized = chat.summary_message_count
+    _fill_stats(stats, blocks.recalled, blocks.memory_hints, chat)
     turn = PromptTurn(
         user=user,
         settings=settings,

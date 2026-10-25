@@ -408,6 +408,7 @@ async def build_stream_prompt_context(
             lightweight=mode.lightweight,
             rich_context=mode.rich_context,
             advice_memory=mode.advice_memory,
+            accepted_offer=mode.accepted_offer,
             client_timezone=request.client_timezone,
             prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
             omit_message_ids=request.omit_message_ids,

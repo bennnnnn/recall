@@ -15,8 +15,6 @@ from app.modules.todos.reply_claims import (
     CLAIM_VERBS,
     COLON_CLAIM_RE,
     PROSE_CLAIM_RE,
-    is_claim,
-    split_sentences,
     without_claim_lines,
 )
 from app.modules.todos.spoken_add import (
@@ -135,11 +133,7 @@ _DATED_CLAIM_RE = re.compile(
 
 
 def reply_when_nothing_saved(
-    text: str,
-    user_text: str | None,
-    *,
-    about_reminders: bool = False,
-    accepted_offer: bool = False,
+    text: str, user_text: str | None, *, about_reminders: bool = False
 ) -> str:
     """The model must not confirm a reminder the server did not save.
 
@@ -155,12 +149,9 @@ def reply_when_nothing_saved(
     ):
         return text
     words = _without_code(text)
-    # A yes to "Want me to set that reminder?" asked for it as much as the words would.
-    asked = accepted_offer or _asked_to_change_or_add(user_text)
+    asked = _asked_to_change_or_add(user_text)
     colon = bool(COLON_CLAIM_RE.search(words))
-    prose = bool(
-        asked and (PROSE_CLAIM_RE.search(words) or (accepted_offer and _claims_in_prose(words)))
-    )
+    prose = bool(asked and PROSE_CLAIM_RE.search(words))
     needs_time = bool(
         user_text
         and ADD_REQUEST_RE.search(user_text)
@@ -186,13 +177,6 @@ def reply_when_nothing_saved(
     if not changed:
         return text
     return cleaned
-
-
-def _claims_in_prose(words: str) -> bool:
-    """A sentence saying the change is made: "Setting that reminder for you now!"."""
-    return any(
-        is_claim(sentence) for line in words.splitlines() for sentence in split_sentences(line)
-    )
 
 
 def mentions_reminders(text: str | None) -> bool:

@@ -105,7 +105,9 @@ _CONTEXT_CLAIM_RE = re.compile(
             # which is advice.
             rf"^(?:{_ACK_LEAD}(?:all\s+)?|all\s+)set\b",
             r"\bgot (?:it|that|this|you|them|everything) (?:all\s+)?(?:set|scheduled|saved|added)\b",
-            rf"{_DOING_THAT}\b",
+            # Not a sentence opening on the doing: "Setting it to 350°F for 20 minutes
+            # tonight works best", "Setting this up takes 5 minutes each morning".
+            rf"{_DOING}\s+(?:up\s+)?(?:that|this|it|them)\b",
             r"^done\b",
         )
     )

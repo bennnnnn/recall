@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.todos.spoken_change import _prepare
+from app.modules.todos.spoken_change import prepare_words
 
 _READ_OPENINGS = (
     "what reminders do i have",
@@ -94,7 +94,7 @@ def asks_to_read_reminders(user_text: str | None) -> bool:
 
 
 def _folded(text: str | None) -> str:
-    lowered = _prepare(text).lower().replace("'", "").replace("\u2019", "")
+    lowered = prepare_words(text).lower().replace("'", "").replace("\u2019", "")
     return _LIST_DASH.sub("todo ", _LIST_NAME.sub("todo", lowered))
 
 
