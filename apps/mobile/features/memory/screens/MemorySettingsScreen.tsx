@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { StateView } from "@/ui/feedback/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
+import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
 import { useMemoryToggle } from "@/features/memory/hooks/useMemoryToggle";
 import {
   fetchMemories,
@@ -59,6 +60,8 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
   useEffect(() => {
     void loadMemories();
   }, [loadMemories]);
+  // The API back after an outage: the count read again while the page has focus.
+  useReconnectRefresh(() => void loadMemories(), isCurrentView);
 
   const toggleSensitive = useCallback((enabled: boolean) => {
     if (!isCurrentView() || saving) return;

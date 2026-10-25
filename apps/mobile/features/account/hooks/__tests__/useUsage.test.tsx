@@ -2,6 +2,7 @@ import { act, renderHook } from "@testing-library/react-native";
 
 import { useUsage } from "@/features/account/hooks/useUsage";
 import type { Usage } from "@/lib/api";
+import { reportReconnected } from "@/lib/reconnectRefresh";
 
 // The account key, and its access token, which the hourly rotation changes.
 let mockToken: string | null = "account-a";
@@ -123,6 +124,28 @@ it("shows the usage the server just sent for its day when the phone's clock is p
     await act(async () => {});
     expect(result.current.error).toBe(false);
     expect(result.current.usage?.used_tokens).toBe(12000);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it("reads again once the API answers after an outage, 0 to 10 s later, and not after leaving", async () => {
+  jest.useFakeTimers();
+  try {
+    mockFetchUsage.mockResolvedValue(usage());
+    const { unmount } = await renderHook(useUsage);
+    expect(mockFetchUsage).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      reportReconnected();
+      await jest.advanceTimersByTimeAsync(10_000);
+    });
+    expect(mockFetchUsage).toHaveBeenCalledTimes(2);
+    await unmount();
+    await act(async () => {
+      reportReconnected();
+      await jest.advanceTimersByTimeAsync(10_000);
+    });
+    expect(mockFetchUsage).toHaveBeenCalledTimes(2);
   } finally {
     jest.useRealTimers();
   }
