@@ -1,4 +1,4 @@
-import { request } from "@/lib/api/client";
+import { request, requestRevalidated } from "@/lib/api/client";
 import type { Memory } from "@/lib/api/types";
 import type { MemoryDocuments, MemoryInstructResult } from "@/features/memory/types";
 
@@ -9,8 +9,9 @@ type MemoryPatch = {
 
 export const memoriesApi = {
   listMemories: (token: string) => request<Memory[]>("/memories", token),
+  /** Read on every visit and scan poll; unchanged pages are a 304 by their ETag. */
   listMemoryDocuments: (token: string) =>
-    request<MemoryDocuments>("/memories/documents", token),
+    requestRevalidated<MemoryDocuments>("/memories/documents", token),
   deleteMemoryDocument: (token: string, key: string) =>
     request<void>(`/memories/documents/${encodeURIComponent(key)}`, token, { method: "DELETE" }),
   /** Edit memory in plain words ("keep lists under five things"). */

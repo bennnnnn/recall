@@ -122,6 +122,39 @@ def test_list_sessions():
     assert r.json()["sessions"][0]["current"] is True
 
 
+def test_list_sessions_answers_an_unchanged_list_with_304():
+    user = api_user()
+    app = app_with_user(user)
+    app.dependency_overrides[get_redis] = lambda: AsyncMock()
+    row = {
+        "id": str(uuid4()),
+        "device_label": "iPhone",
+        "platform": "ios",
+        "created_at": datetime(2026, 1, 1).isoformat(),
+        "last_seen_at": datetime(2026, 1, 2).isoformat(),
+        "current": True,
+    }
+    rows = [row]
+    headers = {"Authorization": "Bearer tok"}
+    with patch(
+        "app.modules.account.api.tokens_service.list_sessions",
+        AsyncMock(side_effect=lambda *_a, **_k: [dict(r) for r in rows]),
+    ):
+        client = TestClient(app)
+        first = client.get("/auth/sessions", headers=headers)
+        etag = first.headers["etag"]
+        again = client.get("/auth/sessions", headers={**headers, "If-None-Match": etag})
+        # The device refreshed its token: last seen moved, so the list is sent again.
+        row["last_seen_at"] = datetime(2026, 1, 3).isoformat()
+        moved = client.get("/auth/sessions", headers={**headers, "If-None-Match": etag})
+    assert first.status_code == 200
+    assert first.headers["cache-control"] == "private, no-cache"
+    assert again.status_code == 304
+    assert again.content == b""
+    assert moved.status_code == 200
+    assert moved.json()["sessions"][0]["last_seen_at"].startswith("2026-01-03")
+
+
 def test_revoke_current_session_rejected():
     user = api_user()
     app = app_with_user(user)

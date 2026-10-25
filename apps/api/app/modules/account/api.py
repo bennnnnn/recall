@@ -16,6 +16,7 @@ from app.core.deps import (
     get_settings_dep,
 )
 from app.core.dev_guards import is_loopback_ip, require_dev_privilege_access
+from app.core.etag import conditional_json
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis_lock import acquire_lock, release_lock
 from app.exceptions import AuthenticationError, DomainError
@@ -288,7 +289,7 @@ async def list_sessions(
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
-) -> AuthSessionListOut:
+) -> Response:
     access_token = _bearer_access_token(request)
     current_id = (
         tokens_service.session_id_from_access_token(access_token, settings)
@@ -307,7 +308,8 @@ async def list_sessions(
         )
         for row in rows
     ]
-    return AuthSessionListOut(sessions=sessions)
+    # Read on each Security visit: an unchanged list costs a 304 (core/etag.py).
+    return conditional_json(request, AuthSessionListOut(sessions=sessions))
 
 
 @router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)

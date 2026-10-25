@@ -298,11 +298,12 @@ function serverBody(method: string, path: string): unknown {
   return {};
 }
 
-/** The lists the server answers with an ETag (`core/etag.py`): the drawer, to-dos, a chat's newest page. */
+/** The reads the server answers with an ETag (`core/etag.py`): the drawer, to-dos, a chat's newest
+ * page, memory's pages and the signed-in devices. */
 function revalidated(method: string, path: string): boolean {
   const p = path.split("?")[0];
   return method === "GET" && (
-    path === "/chats" || p === "/todos/page" ||
+    path === "/chats" || p === "/todos/page" || p === "/memories/documents" || p === "/auth/sessions" ||
     (/^\/chats\/[^/]+\/messages$/.test(p) && !/[?&](before|after|around)=/.test(path))
   );
 }
@@ -566,6 +567,9 @@ const SCREEN_READS: Record<string, number> = {
   memory: 1, gallery: 1, usage: 1, archived: 1, memorySettings: 1, security: 1,
 };
 
+/** Screens opened a second time, whose read the server answers 304. */
+const REVISITED = ["memory", "security"];
+
 /** The most requests and sockets each step may send. */
 const CEILINGS: Record<string, number> = {
   // /auth/me, the day's usage (free plan), to-dos, models, /health, the push token, the drawer.
@@ -583,6 +587,9 @@ const CEILINGS: Record<string, number> = {
   "open the drawer": 0,
   ...Object.fromEntries(SCREENS.map((name) => [`open ${name}`, SCREEN_READS[name] ?? 0])),
   ...Object.fromEntries(SCREENS.map((name) => [`leave ${name}`, 0])),
+  // Memory and Security read on every visit; unchanged, the second read is a 304 (asserted below).
+  ...Object.fromEntries(REVISITED.map((name) => [`open ${name} again`, 1])),
+  ...Object.fromEntries(REVISITED.map((name) => [`leave ${name} again`, 0])),
   "a minute in the background": 0,
   // To-dos and the open chat (ETag, 304), /health, the socket.
   "return after a minute": 4,
@@ -659,6 +666,14 @@ it("keeps every step of an everyday session within its requests", async () => {
     await settle(500);
     step(`leave ${name}`);
   }
+  for (const name of REVISITED) {
+    await app.show(name);
+    await settle(3000);
+    step(`open ${name} again`);
+    await app.show(null);
+    await settle(500);
+    step(`leave ${name} again`);
+  }
 
   await appState("background");
   await settle(60_000);
@@ -721,6 +736,8 @@ it("keeps every step of an everyday session within its requests", async () => {
   step("cold start two hours later");
 
   expectWithin(CEILINGS);
+  expect(steps.find((s) => s.title === "open memory again")?.requests).toEqual(["GET /memories/documents (304)"]);
+  expect(steps.find((s) => s.title === "open security again")?.requests).toEqual(["GET /auth/sessions (304)"]);
 });
 
 /** Every step this test took stayed under its ceiling, and every ceiling was a step. */
