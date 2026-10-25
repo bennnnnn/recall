@@ -12,9 +12,9 @@ years") is maths homework and stays with maths.
 
 A kind of the product the catalog prices apart is read too (``kinds``): "a used car for
 14000" is a car loan looked up at the used-car average, where it once got the new-car one
-(live, 2026-10-25). The percent and the length of time (``PERCENT``, ``DURATION``) are
-shared with ``change_line``, which reads a follow-up ("what if i only do 3 years
-instead") by its own stricter grammar.
+(live, 2026-10-25). Which percent is the rate and which a share put down is ``percents``;
+the length of time (``DURATION``) is shared with ``change_line``, which reads a follow-up
+("what if i only do 3 years instead") by its own stricter grammar.
 """
 
 from __future__ import annotations
@@ -25,16 +25,19 @@ from dataclasses import dataclass, field
 from app.modules.money.catalog import PRODUCTS, Product
 from app.modules.money.currencies import CURRENCY_WORD, named_currency
 from app.modules.money.kinds import named_variant
+from app.modules.money.percents import PERCENT, stated_down_share, stated_rate
 
-# A percent and a length of time, as ``change_line`` reads them too.
-PERCENT = r"(?P<pct>\d{1,3}(?:\.\d{1,4})?)\s?(?:%|percent\b|per\s?cent\b|pct\b)"
+# A length of time, as ``change_line`` reads it too.
 DURATION = r"(?P<n>\d{1,3}(?:\.\d{1,2})?)\s?-?\s?(?P<unit>years?|yrs?|months?|mos?)\b"
 _RATE = re.compile(PERCENT, re.I)
 _TERM = re.compile(rf"\b{DURATION}", re.I)
 # "Bought it 3 years ago", "20 years old", "sell after 5 years", "the last 3 years": when, not
-# how long a loan runs. "Paid off after 15 years" and "will last 5 years" are the term.
+# how long a loan runs. "Paid off after 15 years" and "will last 5 years" are the term, and
+# a bare "after 2 years" or "over the past 3 years" is read as the parent reader read it.
 _NOT_A_TERM_BEFORE = re.compile(
-    r"\b(?:(?<!off\s)(?<!paid\s)after|every|each|past|the\slast|first)\s(?:the\s)?$", re.I
+    r"\b(?:(?:sell|selling|sold|move|moving|refinanc\w*|retire|retiring)\s(?:it\s)?after|every|"
+    r"each|the\slast|first)\s(?:the\s)?$",
+    re.I,
 )
 _NOT_A_TERM_AFTER = re.compile(
     r"\s?(?:ago|old|older|younger|later|earlier|back|since|from\snow)\b", re.I
@@ -49,17 +52,9 @@ _DOWN = re.compile(r"\b(?:down\s?payment(?:\s(?:of|is))?|put(?:ting)?\s(?:down)?
 _DOWN_AFTER = re.compile(
     r"\s?(?:(?:in\s)?cash\s)?(?:down\b(?!\sfrom)|as\s(?:a\s)?down\s?payment\b)", re.I
 )
-# "Down payment of 20%", "put 20% down": a share of the price. "5000 down 6.9%" (the 5000
-# was put down), "the rate went down 1%" and "6% down from 7%" give none.
-_SHARE_BEFORE = re.compile(
-    r"\b(?:down\s?payment(?:\s(?:of|is|was|at))?|put(?:ting)?(?:\sdown)?)\s?$", re.I
-)
-# "The rate went down 1% to 5.5%", "from 7% to 6%": the rate is the one it goes to.
-_TO_ANOTHER_RATE = re.compile(r"\s?(?:to|->|→)\s?\d{1,3}(?:\.\d{1,4})?\s?(?:%|percent\b)", re.I)
 # A bare number before these is a sum put down ("4000 cash down"); "I'm 2 down on payments"
 # is no sum.
 _PUT_DOWN_AFTER = re.compile(r"\s?(?:(?:in\s)?cash\sdown\b|as\s(?:a\s)?down\s?payment\b)", re.I)
-_SUM_END = re.compile(r"\d[\d,.]*\s?(?:k|m|grand|thousand|dollars?|bucks)?\s*$", re.I)
 # "A 2022 car", "my 2015 car": a model year when the message has another sum for the price;
 # "a 2000 car with a loan at 10%" has none, so there it is the price.
 _YEAR = re.compile(r"(?:19[5-9]\d|20[0-4]\d)")
@@ -145,7 +140,7 @@ def read_money_request(text: str) -> MoneyRequest | None:
         return None
     if rate is None and not _FINANCE.search(text):
         return None
-    values = _values(found, rate, amounts, _stated_down_share(text))
+    values = _values(found, rate, amounts, stated_down_share(text))
     values.update(_stated_term(found, text))
     if not any(name in values for name in _principal_names(found)):
         return None
@@ -165,34 +160,6 @@ def named_product(text: str) -> Product | None:
             if best is None or len(word) > best[0]:
                 best = (len(word), item)
     return best[1] if best is not None else None
-
-
-def stated_rate(text: str) -> float | None:
-    """The yearly rate the message gives. "20% down" is a share of the price, not a rate."""
-    return next(
-        (
-            float(match["pct"])
-            for match in _RATE.finditer(text)
-            if not _down_share(text, match) and not _TO_ANOTHER_RATE.match(text, match.end())
-        ),
-        None,
-    )
-
-
-def _stated_down_share(text: str) -> float | None:
-    """The percent of the price put down ("with 20% down"), or None."""
-    return next(
-        (float(match["pct"]) for match in _RATE.finditer(text) if _down_share(text, match)),
-        None,
-    )
-
-
-def _down_share(text: str, match: re.Match[str]) -> bool:
-    if _DOWN_AFTER.match(text, match.end()):
-        return True
-    before = text[max(0, match.start() - 32) : match.start()]
-    cue = _SHARE_BEFORE.search(before)
-    return cue is not None and _SUM_END.search(before[: cue.start()]) is None
 
 
 def _sum_value(match: re.Match[str]) -> float:
@@ -226,7 +193,8 @@ def _amounts(text: str) -> list[_Amount]:
                 start=_START.search(before) is not None,
             )
         )
-    return found or years
+    # A model year gives way only to another price: "a 2000 car ... with 500 down" is $2,000.
+    return found if any(not item.down and not item.monthly for item in found) else found + years
 
 
 def _principal_names(product: Product) -> tuple[str, ...]:

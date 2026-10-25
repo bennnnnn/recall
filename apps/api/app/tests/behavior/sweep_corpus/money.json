@@ -871,5 +871,107 @@
   ],
   "reply": "Saving $1,000 of $3,000 a month is a third of your income.",
   "expect": "answer"
+ },
+ {
+  "id": "mo-062",
+  "area": "money declined",
+  "prompt": "what about 15%?",
+  "history": [
+   [
+    "user",
+    "mortgage on a 400k house with 10% down at 6.5%"
+   ],
+   [
+    "assistant",
+    "With $40,000 down you borrow $360,000: about $2,275.44 a month over 30 years."
+   ]
+  ],
+  "reply": "With 15% down you'd put $60,000 down and borrow $340,000.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-063",
+  "area": "money lookalike",
+  "prompt": "it's been 5 years",
+  "history": [
+   [
+    "user",
+    "mortgage of 300k at 6% for 30 years"
+   ],
+   [
+    "assistant",
+    "About $1,798.65 a month over 30 years, $347,514.57 in interest."
+   ]
+  ],
+  "reply": "After 5 years of payments about $20,800 of the principal is paid off.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-064",
+  "area": "money lookalike",
+  "prompt": "what about at 5 years?",
+  "history": [
+   [
+    "user",
+    "mortgage of 300k at 6% for 30 years"
+   ],
+   [
+    "assistant",
+    "About $1,798.65 a month over 30 years, $347,514.57 in interest."
+   ]
+  ],
+  "reply": "At the 5-year mark you would still owe about $279,000.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-065",
+  "area": "money declined",
+  "prompt": "what about 6% interest only",
+  "history": [
+   [
+    "user",
+    "mortgage of 300k at 6% for 30 years"
+   ],
+   [
+    "assistant",
+    "About $1,798.65 a month over 30 years, $347,514.57 in interest."
+   ]
+  ],
+  "reply": "Interest-only at 6% is $1,500 a month, and the balance does not go down.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-066",
+  "area": "money lookalike",
+  "prompt": "what's 7%?",
+  "history": [
+   [
+    "user",
+    "mortgage of 300k at 6% for 30 years"
+   ],
+   [
+    "assistant",
+    "About $1,798.65 a month over 30 years, $347,514.57 in interest."
+   ]
+  ],
+  "reply": "7% of $300,000 is $21,000.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-067",
+  "area": "money",
+  "prompt": "and at 5%?",
+  "history": [
+   [
+    "user",
+    "car loan 20000 at 7% for 5 years, what's the monthly payment"
+   ],
+   [
+    "assistant",
+    "About $396.02 a month for 60 months, $3,761.44 in interest."
+   ]
+  ],
+  "reply": "At 5% the payment is about $377.42 a month.",
+  "expect": "answer"
  }
 ]

@@ -125,7 +125,17 @@ def test_read_money_request_leaves_other_messages(text: str) -> None:
         ("certified pre-owned car, 25k car loan over 72 months, payment?", "used"),
         ("second-hand car for 9000 with a car loan, payment over 4 years", "used"),
         ("used-car loan of 12000 at 9%", "used"),
-        ("I used to have a used car, now a 20000 car loan at 6% for 5 years?", "used"),
+        # "A used car" someone used to have, sold or trades in is not the one financed.
+        ("I used to have a used car, now a 20000 car loan at 6% for 5 years?", ""),
+        ("trading in my used car, new car loan 30000", ""),
+        ("car loan 30000 for a new car, I don't want a used one", ""),
+        ("car loan 30000 for a brand new car instead of used", ""),
+        ("I sold my used car, now a car loan of 30000 for a new one", ""),
+        ("car loan of 30000, it's for my wife's used Honda", ""),
+        ("car loan 30000 at 6%, the used car market is crazy", ""),
+        ("car loan 25000 at 6%, what rate is used", ""),
+        ("used car payment on 15k at 9%", "used"),
+        ("pre-owned truck loan 28000 at 8.5% for 6 years", "used"),
         # "Used" as a verb names no kind.
         ("I used a calculator and got 400 a month on a car loan of 20000 at 6%", ""),
         ("I'm used to paying 300 a month, what would a 20000 car loan cost over 5 years", ""),
@@ -183,7 +193,18 @@ def test_a_rates_question_keeps_the_kind() -> None:
         ("a 300k mortgage at 6% paid off after 15 years", {"amount": 300000, "rate": 6, "years": 15}),
         ("car loan 20000 at 6%, paid off after 3 years", {"amount": 20000, "rate": 6, "months": 36}),
         ("a car loan of 20000 at 6% that will last 5 years", {"amount": 20000, "rate": 6, "months": 60}),
-        ("car loan 15000 at 6% over the past 3 years", {"amount": 15000, "rate": 6}),
+        # Unsure readings stay the parent reader's: "over the past 3 years", "after 2 years".
+        ("car loan 15000 at 6% over the past 3 years", {"amount": 15000, "rate": 6, "months": 36}),
+        ("loan 10000 at 5% after 2 years", {"amount": 10000, "rate": 5, "years": 2}),
+        # The fourth review: a rate said as a rate keeps it ahead of "down ..." after it.
+        ("car loan 25000 at 7% down payment of 5000 for 60 months", {"amount": 20000, "rate": 7, "months": 60}),
+        ("mortgage 400k at 6.5% down payment 80k 30 years", {"amount": 320000, "rate": 6.5, "years": 30}),
+        ("mortgage 300k at 6.5% down 0.25% from last month", {"amount": 300000, "rate": 6.5}),
+        ("car loan 20000, rate is 7% down 1% from last year", {"amount": 20000, "rate": 7}),
+        ("mortgage 400k 20% down 6.5%", {"amount": 320000, "rate": 6.5}),
+        ("mortgage 350k put down 20 percent at 6% for 30 yrs", {"amount": 280000, "rate": 6, "years": 30}),
+        ("car loan 18000, 5% down, 7% apr, 5 years", {"amount": 17100, "rate": 7, "months": 60}),
+        ("financing a 2000 car at 12% for 12 months with 500 down", {"amount": 1500, "rate": 12, "years": 1}),
         # A model year is no price.
         ("I bought a 2019 car with a car loan of 15000 at 6%", {"amount": 15000, "rate": 6}),
     ],

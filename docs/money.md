@@ -14,7 +14,7 @@ as a slider moves by **evaluating** the formula the server sent; it never solves
 | Part | Path |
 |------|------|
 | Products, formulas, defaults, slider ranges (data, not code paths) | `apps/api/app/modules/money/catalog.py` |
-| Reading a request (product, kind, amount, down payment, rate, term, payment, currency) | `apps/api/app/modules/money/read.py` |
+| Reading a request (product, kind, amount, down payment, rate, term, payment, currency) | `apps/api/app/modules/money/read.py`; which percent is the rate and which a share put down, `percents.py`; the kind, `kinds.py` |
 | A what-if that changes the chat's last request ("what if i only do 3 years instead") | `apps/api/app/modules/money/follow_up.py`, its grammar `change_line.py` |
 | The currency a request names, the card's currency and the country a rate search names | `apps/api/app/modules/money/currencies.py` |
 | Numbers for the asked values, the prompt block and the note | `apps/api/app/modules/money/solve.py`, `block.py`, `note.py` |
@@ -37,8 +37,11 @@ branches on its name. A kind of a product priced apart is a `Variant` on its row
 words and `RateLookup`: "a used car for 14000" (also pre-owned, certified pre-owned,
 second-hand) is a car loan looked up at the used-car average, cached apart from the new-car one
 and named in the reply ("used car loan rate"; used-car averages are published for every term at
-once, so that lookup names none). A kind word used as a verb names none: "I used a calculator",
-"I'm used to paying 300", "the car I used to have". New or no kind said is the row's own lookup.
+once, so that lookup names none). The kind word counts only right before the vehicle being
+financed ("buying a used car", "a used car for 14000", "used car loan"): not as a verb ("I used a
+calculator", "what rate is used?"), not about another car ("my used car", "trading in", "sold",
+"instead of", "don't want", "not a"), and not when the message names a new car. New or no kind
+said is the row's own lookup.
 
 The row's own lookup starts beside a variant's. When the variant's finds nothing in time, the
 row's own average stands in and says so: the reply and the note name it ("today's average
@@ -74,18 +77,20 @@ off by dollars (live 2026-10-25: $340.58 a month for $340.45).
 
 - The server works two changes only, both common and safe: a new term ("3 years", "36 months",
   "over 4 years", "a 15 year mortgage", "make it 4 years", "pay it off in 2 years") and a new
-  rate with its words ("at 6%", "6% apr", "the rate is 6%", "6% interest") or a line that is
-  only a percent ("7%", "what about 6.5%?"). Every other change (a price or amount, a down
-  payment, a card payment or balance, a savings deposit or start, used or new) goes to the
-  model, as before. Three reviews (2026-10-25) of wider readers each found new shapes they
-  misread, and a misread follow-up is a wrong number the reply calls the answer: a model year
-  as a price, a card payment ("my payment is 3%") as the APR, "it's 40k miles" as a $40,000
-  loan.
-- The line is read by a positive grammar (`change_line.py`): every word must belong to a term
-  or rate phrase or be filler ("what if", "hmm", "and", "instead", "i only do"). Any other word
-  ("miles", "match", "payment", "make", "down", "then go up", "from") means no follow-up. "6%
-  for 10 years" without "at" is a rate for a while, not the loan's rate and term, and a line
-  about the person ("what if I'm 30 years") changes nothing.
+  rate with its words ("at 6%", "6% apr", "6% interest", "the rate is 6%", "a 6% rate"). The line
+  must ask for the change: it opens (after "hmm", "ok", "so") with "what if", "what about", "how
+  about", "and", "or", "make it", "try", "do", "go with" or "i only do", or ends with "instead"
+  or "instead of N". Every other change (a price or amount, a down payment, a card payment or
+  balance, a savings deposit or start, used or new) and every other line ("36 months?", "7%",
+  "is it 6%?") goes to the model, as before. Four reviews (2026-10-25) of wider readers each
+  found new shapes they misread, and a misread follow-up is a wrong number the reply calls the
+  answer: a model year as a price, a card payment ("my payment is 3%") as the APR, "it's 40k
+  miles" as a $40,000 loan, "it's been 5 years" as a 5-year mortgage.
+- The line is read by a positive grammar (`change_line.py`): every word must belong to the frame,
+  a term or rate phrase, or a short filler list. Any other word ("miles", "payment", "make",
+  "been", "then", "from", "left") means no follow-up. "6% for 10 years" without "at" is a rate
+  for a while, "at 5 years" and "in 2 years" are points in time, "interest only" is another kind
+  of loan, and a line about the person ("what if I'm 30 years") changes nothing.
 - The new value must lie on the slider the request's last card had (`fence.slider_range`): a
   mortgage runs 5 to 40 years, so "2 years" is no new term.
 - The turn passes the user's earlier lines and the last reply (`turn_prep/money.py`). The

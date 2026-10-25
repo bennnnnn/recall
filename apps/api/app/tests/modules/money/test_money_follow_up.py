@@ -2,11 +2,12 @@
 changes something else, which goes to the model.
 
 Live (2026-10-25): "hmm what if i only do 3 years instead" after a used-car loan got no
-card, and the model's own arithmetic was off by dollars. Three reviews of wider readers
-(same day) each found a new shape they misread as a price, a down payment, a payment or
-a kind: "it's 40k miles", "what if I pay 400 instead?", "what about a 2019 model?", "what
-if my payment is 3%". The server now works a new term or rate only, read by a positive
-grammar (``change_line``): a line with any word it does not place is no follow-up.
+card, and the model's own arithmetic was off by dollars. Four reviews of wider readers
+(same day) each found a new shape they misread as a price, a down payment, a payment, a
+kind or a term: "it's 40k miles", "what if I pay 400 instead?", "what about a 2019
+model?", "what if my payment is 3%", "it's been 5 years", "what's 7%?". The server now
+works a new term or rate only, asked for in a change frame ("what if", "what about",
+"and", ... or "... instead") and read by a positive grammar (``change_line``).
 """
 
 from __future__ import annotations
@@ -44,33 +45,29 @@ RECTANGLE = "a rectangle has a perimeter of 40 and a length of 12, what is the w
         ([USED], "hmm what if i only do 3 years instead", {"amount": 11000, "months": 36}, ("months",)),
         ([CAR], "hmm what if i only do 3 years instead", {"amount": 11000, "months": 36, "rate": 7.16}, ("months",)),
         ([CAR], "what if i do 3 years instead of 5", {"months": 36}, ("months",)),
-        ([CAR], "36 months?", {"months": 36}, ("months",)),
         ([CAR], "make it 4 years", {"months": 48}, ("months",)),
+        ([CAR], "or 4 years?", {"months": 48}, ("months",)),
+        ([CAR], "4 years instead", {"months": 48}, ("months",)),
         ([CAR], "and over 4 years?", {"months": 48}, ("months",)),
         ([CAR], "what if I pay it off in 2 years", {"months": 24}, ("months",)),
-        ([CAR], "what if I went with a 4 year loan", {"months": 48}, ("months",)),
-        ([CAR], "same thing but 4 years", {"months": 48}, ("months",)),
         ([CAR_PLAIN], "what about 36mo", {"months": 36}, ("months",)),
         ([MORTGAGE], "what about 15 years?", {"amount": 300000, "rate": 1, "years": 15}, ("years",)),
         ([MORTGAGE_6], "what about 180 months", {"years": 15}, ("years",)),
-        ([MORTGAGE_6], "what if I take 15 years", {"years": 15}, ("years",)),
         ([MORTGAGE_SHARE], "what about 15 years", {"amount": 280000, "years": 15}, ("years",)),
         ([STUDENT], "what if it's 20 years", {"years": 20}, ("years",)),
         ([PERSONAL], "what about 60 months", {"months": 60}, ("months",)),
         ([SAVINGS], "what about 20 years?", {"deposit": 200, "years": 20}, ("years",)),
         ([SAVINGS], "what if I save for 20 years", {"years": 20}, ("years",)),
-        # A rate by its words, or a line that is only a percent.
-        ([CAR], "what would it be at 5%?", {"rate": 5, "amount": 11000}, ("rate",)),
-        ([CAR], "same but at 5%", {"rate": 5}, ("rate",)),
-        ([CAR], "7%", {"rate": 7}, ("rate",)),
-        ([CAR], "what if it's 5%", {"rate": 5}, ("rate",)),
+        # A rate by its words: "at 6%", "6% apr", "6% interest", "the rate is 6%", "a 6% rate".
+        ([CAR], "and at 5%?", {"rate": 5}, ("rate",)),
+        ([CAR], "what about a 6% rate", {"rate": 6}, ("rate",)),
+        ([CAR], "what about 6% interest", {"rate": 6}, ("rate",)),
+        ([STUDENT], "what if the rate was 6.8%", {"rate": 6.8}, ("rate",)),
+        ([SAVINGS], "what about 8% apy", {"rate": 8}, ("rate",)),
         ([CAR], "what if the interest rate was 6%", {"rate": 6}, ("rate",)),
         ([MORTGAGE], "what if the rate was 6.5%?", {"rate": 6.5}, ("rate",)),
-        ([MORTGAGE_SHARE], "5%?", {"amount": 280000, "rate": 5}, ("rate",)),
         ([CARD], "what if the apr was 18%", {"apr": 18}, ("apr",)),
         ([CARD], "what about 15% apr", {"apr": 15}, ("apr",)),
-        ([STUDENT], "what if it was 6.8%", {"rate": 6.8}, ("rate",)),
-        ([SAVINGS], "what about 8%", {"rate": 8}, ("rate",)),
         # Both, in the loan's own words.
         ([MORTGAGE], "what about a 15 year mortgage at 5.5%?", {"rate": 5.5, "years": 15}, ("rate", "years")),
         ([PERSONAL], "what about 24 months at 10%", {"rate": 10, "months": 24}, ("rate", "months")),
@@ -131,7 +128,33 @@ def test_a_new_term_or_rate_is_the_last_request_changed(
         ([CAR], "what if rates drop 1% next year?"),
         ([CAR], "lol 100%"),
         ([CAR], "is 7% a good rate?"),
-        # A bare percent counts only alone; beside another change it needs its rate words.
+        # Not asked as a change: no frame ("what if", "what about", "and", "... instead").
+        ([CAR], "36 months?"),
+        ([CAR], "same thing but 4 years"),
+        ([CAR], "what would it be at 5%?"),
+        ([CAR], "so at 5%?"),
+        # A bare percent, or a question about one: no rate words.
+        ([CAR], "7%"),
+        ([CAR], "what if it's 5%"),
+        ([SAVINGS], "what about 8%"),
+        # The fourth review: a bare percent after a share put down, time gone by, a point in
+        # time, an interest-only loan, a question about a percent.
+        ([MORTGAGE_SHARE], "what about 15%?"),
+        ([MORTGAGE_SHARE], "3.5%?"),
+        ([MORTGAGE_6], "it's been 5 years"),
+        ([CAR_PLAIN], "what if it's been 3 years"),
+        ([MORTGAGE_6], "what about at 5 years?"),
+        ([MORTGAGE_6], "and at 10 years?"),
+        ([MORTGAGE_6], "what about 6% interest only"),
+        ([MORTGAGE_6], "what about 6% interest-only?"),
+        ([MORTGAGE_6], "is it 6%?"),
+        ([MORTGAGE_6], "was it 6%?"),
+        ([MORTGAGE_6], "what is 6%?"),
+        ([MORTGAGE_6], "what's 7%?"),
+        ([MORTGAGE_6], "what about 2 years from now"),
+        ([CAR_PLAIN], "what about 3 years left"),
+        ([MORTGAGE_6], "what if I did it for 10 years"),
+        # A bare percent beside another change needs its rate words too.
         ([CAR_PLAIN], "what about 48 months instead of 60 and 5% instead of 7%"),
         # The third review: a card payment as a percent, "new" beside a rate or price.
         ([CARD], "what if my payment is 3%"),
@@ -191,13 +214,14 @@ def test_a_first_ask_is_no_follow_up() -> None:
 @pytest.mark.parametrize(
     ("line", "rate", "term"),
     [
-        ("at 6%", 6, None),
-        ("6% apr", 6, None),
-        ("6% interest", 6, None),
-        ("the rate is 6%", 6, None),
-        ("what about 6.5%?", 6.5, None),
-        ("over 4 years", None, (4, "years")),
-        ("a 15 year mortgage at 5.5%", 5.5, (15, "year")),
+        ("and at 6%?", 6, None),
+        ("what about 6% apr", 6, None),
+        ("what if it was 6% interest", 6, None),
+        ("what if the rate is 6%", 6, None),
+        ("6.5% apr instead", 6.5, None),
+        ("what about over 4 years", None, (4, "years")),
+        ("hmm what if i only do 3 years instead", None, (3, "years")),
+        ("what about a 15 year mortgage at 5.5%", 5.5, (15, "year")),
     ],
 )
 def test_the_grammar_reads_a_term_and_a_rate(
