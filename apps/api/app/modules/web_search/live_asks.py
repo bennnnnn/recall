@@ -101,14 +101,24 @@ NOT_A_PRICE = re.compile(
 )
 
 
-# How a team did: "did the bears win today", "did ethiopia beat kenya", "how did the bulls
-# do last night". The team is named, not a person ("did you win", "did my mom win").
-_TEAM = (
-    r"(?:the\s+)?(?!(?:i|you|u|we|he|she|they|it|my|your|our|his|her|their|someone|anyone)\b)"
-    r"[a-z][\w.'-]*(?:\s+[a-z][\w.'-]*){0,2}"
+# How a team did: "did the bears win today", "how did the bulls do last night". The team is
+# a name, not a person, a role or a word problem's "team" ("did you win", "did the hero win in
+# the end", "did the team win more than half?"), and a game or a time says it is a result:
+# "did the egg beat well", "how did the soup do" and "did the kids draw on the wall" are not.
+_NOT_A_TEAM = (
+    r"(?!(?:the|a|an|this|that|these|those|i|you|u|we|he|she|they|it|my|your|our|his|her|"
+    r"their|someone|anyone|team|teams|player|players|hero|villain|character|kids|class|"
+    r"dealer|house|tortoise|hare|algorithm|model)\b)"
 )
+_TEAM = rf"(?:the\s+)?{_NOT_A_TEAM}[a-z][\w.'-]*(?:\s+{_NOT_A_TEAM}[a-z][\w.'-]*){{0,2}}"
 _TEAM_RESULT = re.compile(
-    rf"\bdid\s+{_TEAM}\s+(?:win|lose|beat|tie|draw)\b|\bhow\s+did\s+{_TEAM}\s+do\b",
+    rf"\bdid\s+{_TEAM}\s+(?:win|lose)\b|\bhow\s+did\s+{_TEAM}\s+do\b",
+    re.IGNORECASE,
+)
+_RESULT_CUE = re.compile(
+    r"\b(?:today|tonight|last\s+night|yesterday|this\s+(?:week|weekend|season)|"
+    r"(?:on\s+)?(?:mon|tues|wednes|thurs|fri|satur|sun)day|game|match|playoffs?|finals?|"
+    r"super\s+bowl|world\s+series|world\s+cup|derby)\b",
     re.IGNORECASE,
 )
 
@@ -146,4 +156,5 @@ def asks_for_entry_rules(text: str) -> bool:
 
 def asks_how_a_team_did(text: str) -> bool:
     """A game result asked by the team: "did the bears win today" (live chat, 2026-10-25)."""
-    return _TEAM_RESULT.search(collapse_ws(text)) is not None
+    cleaned = collapse_ws(text)
+    return _TEAM_RESULT.search(cleaned) is not None and _RESULT_CUE.search(cleaned) is not None

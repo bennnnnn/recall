@@ -165,3 +165,4 @@ def test_a_sentence_that_asks_to_search_is_a_search(text: str) -> None:
 )
 def test_a_mention_of_looking_up_is_no_search(text: str) -> None:
     assert not asks_to_search(text)
+    assert not needs_web_search(text)

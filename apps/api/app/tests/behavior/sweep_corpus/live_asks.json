@@ -16,7 +16,7 @@
  {
   "id": "lva-003",
   "area": "search",
-  "prompt": "did the bears win",
+  "prompt": "did the bears win last night",
   "reply": "Yes, they beat the Patriots 24-17 on Thursday.",
   "expect": "search"
  },
@@ -30,8 +30,8 @@
  {
   "id": "lva-005",
   "area": "search",
-  "prompt": "did ethiopia beat kenya",
-  "reply": "Ethiopia won 2-1.",
+  "prompt": "did man city lose today",
+  "reply": "Man City lost 2-1 to Arsenal.",
   "expect": "search"
  },
  {
@@ -98,6 +98,124 @@
   "area": "chitchat",
   "prompt": "great job today but did you know that",
   "reply": "Know what? Tell me more.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-014",
+  "area": "statement",
+  "prompt": "Went to the gym today but was too tired to finish",
+  "reply": "That happens! Rest up.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-015",
+  "area": "statement",
+  "prompt": "Tried the new recipe today but did not have enough flour",
+  "reply": "Oh no! Next time.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-016",
+  "area": "statement",
+  "prompt": "Watched the game today but was bored",
+  "reply": "Some games drag.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-017",
+  "area": "statement",
+  "prompt": "The meeting went well today but will need a follow-up",
+  "reply": "Great, want help planning it?",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-018",
+  "area": "chitchat",
+  "prompt": "did the kids draw on the wall",
+  "reply": "Sounds like it might be time for some washable markers!",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-019",
+  "area": "chitchat",
+  "prompt": "how did the interview do",
+  "reply": "I don't know, how did it go?",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-020",
+  "area": "chitchat",
+  "prompt": "did the hero win in the end",
+  "history": [
+   [
+    "user",
+    "tell me a short story about a knight and a dragon"
+   ],
+   [
+    "assistant",
+    "Sir Aldric rode to the mountain where the dragon slept..."
+   ]
+  ],
+  "reply": "Yes, Sir Aldric won by outsmarting the dragon.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-021",
+  "area": "chitchat",
+  "prompt": "how did the soup do",
+  "reply": "I hope it turned out well!",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-022",
+  "area": "chitchat",
+  "prompt": "did the egg beat well",
+  "reply": "Whisk until frothy.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-023",
+  "area": "math",
+  "prompt": "Team A won 3 games out of 5. did the team win more than half?",
+  "reply": "3/5 = 60%, so yes.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-024",
+  "area": "math",
+  "prompt": "If a team wins 60% of 20 games, did the team lose more than 7?",
+  "reply": "It lost 8, so yes.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-025",
+  "area": "physics",
+  "prompt": "did the beat frequency increase when the second tuning fork was tuned higher?",
+  "reply": "It depends on which fork was higher.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-026",
+  "area": "physics",
+  "prompt": "Two tuning forks at 440 Hz and 444 Hz sound together. did the beat frequency change when one was tuned to 446 Hz?",
+  "reply": "It went from 4 Hz to 6 Hz.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-027",
+  "area": "chitchat",
+  "prompt": "what do you think the theme is",
+  "history": [
+   [
+    "user",
+    "did the hero win in the end"
+   ],
+   [
+    "assistant",
+    "Yes, Sir Aldric won by outsmarting the dragon."
+   ]
+  ],
+  "reply": "Courage over strength.",
   "expect": "answer"
  }
 ]

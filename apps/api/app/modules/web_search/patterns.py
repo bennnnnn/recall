@@ -12,7 +12,7 @@ from app.services.text_normalize import collapse_ws as collapse_ws
 _EXPLICIT_SEARCH = re.compile(
     r"\b("
     r"search(?: the)? web"
-    r"|look(?: it| that)? up(?: online)?"
+    r"|look(?: it| that)? up(?! to\b)(?: online)?"
     r"|google(?: for| this| it)?"
     r"|web search"
     r"|find(?: me)? (?:online|on the internet)"

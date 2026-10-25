@@ -95,9 +95,20 @@ _NAMED = re.compile(
 )
 
 
+# A question opening after "but": a wh-word, or an auxiliary and its subject.
+_BUT_ASKS = (
+    r"(?:who|what|when|where|why|how|which)\b"
+    r"|(?:did|does|do|is|are|was|were|will|can|could|should|has|have)\s+"
+    r"(?:the|a|an|my|your|his|her|their|our|its?|he|she|they|we|you|i)\b"
+)
+
+
 def _clauses(text: str) -> list[str]:
-    # "Totally unrelated but did the bears win today": the question after "but" asks.
-    parts = re.split(r"(?<=[.!?;])\s+|,\s+|\s+but\s+", text, flags=re.IGNORECASE)
+    # "Totally unrelated but did the bears win today": the question after "but" asks. Only
+    # a question's opening splits: "went to the gym today but was too tired" tells.
+    parts = re.split(
+        r"(?<=[.!?;])\s+|,\s+|\s+but\s+(?=" + _BUT_ASKS + ")", text, flags=re.IGNORECASE
+    )
     return [p.strip() for p in parts if p.strip()]
 
 
