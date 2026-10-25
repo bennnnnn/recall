@@ -289,6 +289,12 @@ def _unchanged_by_the_writes() -> AsyncMock:
             True,
             None,
         ),
+        (
+            _REMEMBER,
+            "Cacio e pepe is a Roman classic! I'll add it to your list of dishes to try.",
+            True,
+            None,
+        ),
         # Code that says "list" is left alone.
         (
             _REMEMBER,

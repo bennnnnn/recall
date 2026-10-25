@@ -46,18 +46,6 @@ MEMORY_SAVING_HINT = (
     "remember it. Memory is not their to-do list: don't say it was added to their to-dos or "
     "reminders."
 )
-# "No reminder needed, just remember it please" got "I can't save it to memory".
-MEMORY_BACK_REFERENCE_HINT = (
-    "The user asked you to remember what they just said. Recall keeps facts from the chat in "
-    "their memory (Settings → Memory). Never say Recall has no memory or can't save things."
-)
-# The whole line asks to remember "it", "that" or "this", with fillers only.
-_REMEMBER_IT = re.compile(
-    r"^(?:(?:ok(?:ay)?|no|nah|yes|yeah|just|please|pls|so|then|can\s+you|could\s+you|"
-    r"reminder\s+needed|no\s+reminder\s+needed)[\s,.!]+)*"
-    r"(?:just\s+)?remember\s+(?:it|that|this)(?:\s+(?:please|pls|for\s+me|then|instead))*[\s.!?]*$",
-    re.IGNORECASE,
-)
 MEMORY_PAUSED_HINT = (
     "Saving to memory is paused right now. If the user asks you to remember something, say "
     "it can't be saved at the moment; never say you will remember it."
@@ -214,8 +202,6 @@ def memory_notes(turn: PromptTurn) -> list[str]:
     # A line that also asks for a reminder gets its card; memory drops one-off dated items.
     elif query and memory_service.asks_to_keep(query) and not query_implies_todos(query):
         notes.append(MEMORY_SAVING_HINT)
-    elif query and _REMEMBER_IT.match(query.strip()):
-        notes.append(MEMORY_BACK_REFERENCE_HINT)
     status = memory_status_note(turn)
     if status:
         notes.append(status)

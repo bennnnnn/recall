@@ -177,9 +177,6 @@ async def test_a_remember_turn_is_told_recall_saves_it():
     then said it couldn't save to memory."""
     saving = await _system_prompt("remember that I want to try cacio e pepe again")
     assert prompt_memory.MEMORY_SAVING_HINT in saving
-    nudge = await _system_prompt("No reminder needed, just remember it please")
-    assert prompt_memory.MEMORY_BACK_REFERENCE_HINT in nudge
-    assert prompt_memory.MEMORY_SAVING_HINT not in nudge
     for line in (
         # Memory drops one-off dated items and errands: no promise to remember them.
         "remember that my dentist appointment is tomorrow at 3pm",
@@ -195,7 +192,6 @@ async def test_a_remember_turn_is_told_recall_saves_it():
     ):
         system = await _system_prompt(line)
         assert prompt_memory.MEMORY_SAVING_HINT not in system, line
-        assert prompt_memory.MEMORY_BACK_REFERENCE_HINT not in system, line
     off = await _system_prompt("remember that I want to try cacio e pepe again", memory=False)
     assert prompt_memory.MEMORY_OFF_HINT in off
     assert prompt_memory.MEMORY_SAVING_HINT not in off

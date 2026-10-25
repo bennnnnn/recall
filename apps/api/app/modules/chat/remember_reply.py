@@ -23,7 +23,8 @@ _ADDED_TO_TODOS = re.compile(
     r"\b(?:i(?:'ve|\s+have)?|i'll|i\s+will)\s+(?:just\s+|also\s+|now\s+|gone\s+ahead\s+and\s+)?"
     r"(?:added|put|saved|placed|add|put|save)\b[^.!?\n]{0,80}?"
     r"\b(?:to|on|in|onto|into)\s+(?:your\s+)?(?:to-?do(?:\s+list)?|to-?dos|reminders|"
-    r"tasks|task\s+list|list)\b"
+    # "Your list of dishes to try" is a list the reply keeps, not the to-do list.
+    r"tasks|task\s+list|list(?!\s+of))\b"
     r"|\b(?:i(?:'ve|\s+have)?|i'll|i\s+will)\s+(?:just\s+|also\s+)?(?:set|created|scheduled|"
     r"set\s+up|create|schedule)\s+(?:a|the|your)\s+reminder\b"
     r"|\bit(?:'s|\s+is)\s+(?:now\s+)?(?:in|on)\s+your\s+(?:to-?do(?:\s+list)?|to-?dos|list)\b",
