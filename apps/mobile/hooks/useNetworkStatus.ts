@@ -147,9 +147,10 @@ export function useNetworkStatus(): {
   // A request that found no API (lib/api/connectionFailures.ts) asks for a check: an outage
   // that began with the app open showed no banner until a network change or a return, and the
   // list on screen was not read again when it ended. A burst of failures waits for one check,
-  // the loop's first wait later. A check that finds the API answering (a dependency down behind
-  // it) holds the next off for a minute; one that finds an outage hands over to the loop, and
-  // once the banner clears the next failure is a new outage. In the background nothing checks.
+  // the loop's first wait later. A check that finds the API answering (its database and Redis
+  // too: a route failing on its own) holds the next off for a minute; one that finds an outage
+  // (a dependency's too, lib/api/connectivity.ts) hands over to the loop, and once the banner
+  // clears the next failure is a new outage. In the background nothing checks.
   const quietUntil = useRef(0);
   useEffect(() => {
     if (degraded) quietUntil.current = 0;

@@ -268,7 +268,10 @@ API_URL=https://<your-api> ./scripts/verify-production.sh --live
 ```
 
 - [ ] Health monitor: `GET /health` (liveness) and `GET /health/ready` (Postgres;
-      Redis may report `degraded` without 503 — alert on that too, §8)
+      Redis may report `degraded` without 503 — alert on that too, §8).
+      `GET /health/dependencies` answers 503 (with `Retry-After`) when either
+      Postgres or Redis is down: the phone's connection check reads it, and Fly's
+      checks never do
 - [ ] **Measure before launch:** `[http_service.concurrency]` is `type =
       "requests"`, `soft_limit = 150`, `hard_limit = 200` per Machine. Whether
       Fly's proxy counts each open chat WebSocket as one in-flight request for
@@ -630,7 +633,10 @@ chat answers `busy` for at most 30 seconds.
 Readiness answers inside Fly's 5s check timeout: `/health/ready` gives Postgres 3s
 (then 503) and Redis 1s (then `"redis": "degraded"`, still 200); the worker's
 probe gives Redis 3s. A stalled Redis used to time out readiness on every
-machine at once.
+machine at once. `/health/dependencies`, the phone's connection check, asks
+both at once under the same limits and answers 503 when either fails. Each
+process keeps that answer 5s and runs one probe at a time, so however many
+phones ask, a machine probes Postgres and Redis at most once per 5s.
 
 ### Spend and daily tokens
 
