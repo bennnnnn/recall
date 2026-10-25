@@ -18,10 +18,6 @@ export function getStreamingDraft(): StreamingDraft | null {
   return draft;
 }
 
-export function getStreamingDraftContentLength(): number {
-  return draft?.content.length ?? 0;
-}
-
 export function publishStreamingDraft(next: StreamingDraft | null): void {
   draft = next;
   listeners.emit();
