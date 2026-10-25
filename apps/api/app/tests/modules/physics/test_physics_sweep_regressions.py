@@ -808,12 +808,49 @@ def test_a_body_in_the_main_question_still_sets_its_gravity() -> None:
         "(c) total time in the air",
         # A yes/no question about a value is the model's to answer, with the check.
         "A ball is dropped from 20 m. Does it hit the ground at 19.8 m/s?",
+        # Live 2026-10-25: two questions in one sentence got the speed alone.
+        "a ball is dropped from a 20 m building, how long until it hits the ground and "
+        "how fast is it going?",
+        "A ball is dropped from 45 m. How long does it take and how fast is it going?",
+        "A ball is thrown up at 20 m/s. How high does it go and how long is it in the air?",
     ],
 )
 def test_a_question_with_parts_left_unanswered_gets_no_instant_reply(text: str) -> None:
     block = _block(text)
     if block is not None:
         assert maybe_direct_physics_reply(block, text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "asks"),
+    [
+        ("how long until it hits the ground and how fast is it going?", 2),
+        ("what is the speed and what is the kinetic energy?", 2),
+        ("what is the speed and when does it stop?", 2),
+        ("what is the force, and what is the acceleration?", 2),
+        ("how fast and how far?", 2),
+        # Without a "?", and other joins (review of the first draft).
+        (
+            "a ball is dropped from a 20 m building, how long until it hits the ground and "
+            "how fast is it going",
+            2,
+        ),
+        ("Find how long it takes a ball dropped from 45 m to land and how fast it is going.", 2),
+        ("How long does it take to land and with what speed does it hit?", 2),
+        ("how long does it take; how fast is it?", 2),
+        ("how long does it take as well as how fast is it going?", 2),
+        ("A car travels 120 km in 2 hours and then stops. What is its average speed?", 1),
+        ("how fast is it going and in what direction?", 1),
+        ("a car goes 100 km in 2 hours and what is its speed?", 1),
+        ("how long does it take to reach the speed of sound?", 1),
+        ("a car accelerates from rest at 3 m/s^2, how long to reach 15 m/s?", 1),
+        ("A 2 kg ball moves at 3 m/s. What is its kinetic energy?", 1),
+    ],
+)
+def test_a_second_question_word_joined_to_the_first_is_a_second_ask(text: str, asks: int) -> None:
+    from app.modules.physics.parts import asks_count
+
+    assert asks_count(text) == asks
 
 
 def test_every_part_of_a_suvat_question_is_answered_in_one_reply() -> None:
