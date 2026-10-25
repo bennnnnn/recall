@@ -28,7 +28,7 @@ let pending: Promise<void> = Promise.resolve();
 const scheduledVersions = new Map<string, string>();
 
 /** Native writes finish in order; newer full-list intent invalidates older work. */
-function enqueue(session: number, operation: (current: IsCurrent) => Promise<void>, supersede = true): Promise<void> {
+function enqueue(session: number, operation: (current: IsCurrent) => Promise<unknown>, supersede = true): Promise<void> {
   if (session !== getSessionGeneration()) return Promise.resolve();
   const request = supersede ? ++revision : revision;
   const current = () => session === getSessionGeneration() && request === revision;
@@ -39,15 +39,23 @@ function enqueue(session: number, operation: (current: IsCurrent) => Promise<voi
 
 export function todoNotificationId(todoId: string): string { return `${TODO_PREFIX}${todoId}`; }
 
-async function cancelMatching(matches: (id: string) => boolean, current: IsCurrent): Promise<void> {
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  if (!current()) return;
+type Pending = Notifications.NotificationRequest[];
+
+/**
+ * Cancels the pending notifications `matches` picks and resolves the ones left. A sync
+ * passes that list on (`listed`) instead of asking the OS again for each to-do: a first
+ * sync of 500 to-dos listed every pending notification 501 times.
+ */
+async function cancelMatching(matches: (id: string) => boolean, current: IsCurrent, listed?: Pending): Promise<Pending> {
+  const scheduled = listed ?? await Notifications.getAllScheduledNotificationsAsync();
+  if (!current()) return scheduled;
   for (const id of scheduledVersions.keys()) if (matches(id)) scheduledVersions.delete(id);
   // Wait for every started native cancellation before another job may schedule.
   const results = await Promise.allSettled(scheduled.filter((item) => matches(item.identifier))
     .map((item) => Notifications.cancelScheduledNotificationAsync(item.identifier)));
   const failure = results.find((result) => result.status === "rejected");
   if (failure?.status === "rejected") throw failure.reason;
+  return scheduled.filter((item) => !matches(item.identifier));
 }
 function matchesTodo(todoId: string): (id: string) => boolean {
   const id = todoNotificationId(todoId);
@@ -57,17 +65,18 @@ export function cancelTodoReminder(todoId: string): Promise<void> {
   return enqueue(getSessionGeneration(), (current) => cancelMatching(matchesTodo(todoId), current), false);
 }
 
-async function schedule(todo: Todo, leadMs: number, current: IsCurrent): Promise<void> {
-  if (!current() || todo.id.startsWith("local-") || todo.checked || !todo.due_at) return;
+/** Schedules one to-do's alert; `listed` is what is pending, and the result what is left of it. */
+async function schedule(todo: Todo, leadMs: number, current: IsCurrent, listed: Pending): Promise<Pending> {
+  if (!current() || todo.id.startsWith("local-") || todo.checked || !todo.due_at) return listed;
   const due = new Date(todo.due_at);
   const notifyAt = reminderNotifyDate(due, new Date(), leadMs);
-  if (!notifyAt) return;
+  if (!notifyAt) return listed;
   const id = todoNotificationId(todo.id);
   const version = JSON.stringify([todo.content, todo.due_at, todo.topic, leadMs]);
   // Repeated list refreshes must not schedule another alert in the lead window.
-  if (scheduledVersions.get(id) === version) return;
-  await cancelMatching(matchesTodo(todo.id), current);
-  if (!current()) return;
+  if (scheduledVersions.get(id) === version) return listed;
+  const left = await cancelMatching(matchesTodo(todo.id), current, listed);
+  if (!current()) return left;
   await Notifications.scheduleNotificationAsync({
     identifier: id,
     content: {
@@ -80,6 +89,7 @@ async function schedule(todo: Todo, leadMs: number, current: IsCurrent): Promise
     trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: notifyAt },
   });
   if (current()) scheduledVersions.set(id, version);
+  return left;
 }
 
 async function permitted(current: IsCurrent): Promise<boolean> {
@@ -99,12 +109,12 @@ export function syncTodoReminders(todos: Todo[], options?: ReminderOptions): Pro
     const open = todos.filter((todo) => !todo.checked && !todo.id.startsWith("local-") &&
       todo.due_at && new Date(todo.due_at).getTime() > Date.now());
     const keepIds = new Set(open.map((todo) => todoNotificationId(todo.id)));
-    await cancelMatching((id) => id.startsWith(TODO_PREFIX) && !keepIds.has(id), current);
+    let listed = await cancelMatching((id) => id.startsWith(TODO_PREFIX) && !keepIds.has(id), current);
     if (!open.length || !current() || !await permitted(current)) return;
     const leadMs = options?.leadMinutes == null ? await getReminderLeadMs() : leadMsFromMinutes(options.leadMinutes);
     for (const todo of open) {
       if (!current()) return;
-      await schedule(todo, leadMs, current);
+      listed = await schedule(todo, leadMs, current, listed);
     }
   });
 }
