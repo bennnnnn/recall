@@ -192,15 +192,20 @@ export function revealCurrencyDollars(text: string): string {
   );
 }
 
-/** True when a maths `$` earlier on the line is still open at `at`. A price's
- * dollar ("$5 and") opens nothing. */
+/** True when `at` lies inside a formula the renderer reads, opened earlier on
+ * the line. A dollar it pairs with nothing ("$5 and") opens nothing. */
 function opensBefore(text: string, at: number): boolean {
-  let open = false;
   for (let i = text.lastIndexOf("\n", at) + 1; i < at; i += 1) {
-    if (text[i] === "\\") i += 1;
-    else if (text[i] === "$" && !/^[ \t]?\d/.test(text.slice(i + 1, i + 3))) open = !open;
+    if (text[i] === "\\") {
+      i += 1;
+      continue;
+    }
+    const span = text[i] === "$" ? readInlineMathSpan(text, i) : null;
+    if (span == null) continue;
+    if (span.end > at) return true;
+    i = span.end - 1;
   }
-  return open;
+  return false;
 }
 
 /** Move $...$ out of **...** so emphasis nodes do not swallow math delimiters.

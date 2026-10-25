@@ -70,6 +70,29 @@ describe("currency in a reply", () => {
     for (const streaming of [false, true]) expect(await seen(source, false, streaming)).toBe(text);
   });
 
+  it.each([
+    [String.raw`$1,200 \times 12 = $14,400`, "$1,200 × 12 = $14,400"],
+    [String.raw`$2x = 10$, so x costs \$5$.`, "2x = 10, so x costs $5."],
+  ])("keeps the whole amount: %s", async (source, text) => {
+    for (const streaming of [false, true]) {
+      expect((await seen(source, false, streaming)).replace(/\u00a0/g, " ")).toBe(text);
+    }
+  });
+
+  it("draws a formula after a price as maths, and no TeX source, while it streams", async () => {
+    const source = String.raw`It costs $5, and $4! = 4 \times 3 \times 2 \times 1 = 24$.`;
+    const drawn = "It costs $5, and 4! = 4 × 3 × 2 × 1 = 24.";
+    const shown: string[] = [];
+    for (let cut = 1; cut <= source.length; cut += 1) {
+      const text = await seen(source.slice(0, cut), false, true);
+      if (/\\|times|[\uE000-\uE00F]/.test(text)) shown.push(`at ${cut}: ${text}`);
+    }
+    expect(shown).toEqual([]);
+    for (const streaming of [false, true]) {
+      expect((await seen(source, false, streaming)).replace(/\u00a0/g, " ")).toBe(drawn);
+    }
+  });
+
   it("keeps every dollar while the reply streams in", async () => {
     const off: string[] = [];
     for (let cut = 1; cut < REPLY.length; cut += 7) {

@@ -32,7 +32,8 @@ const PRICE_LEAD = /^\d[\d,.]*(?:[kKmMbB]|\/[A-Za-z]+)?(?:[;:!?](?:\s|$)|\s+([A-
  * makes it maths: `$4! = 4 \times 3$`.
  */
 function priceBody(value: string): boolean {
-  if (/\\[A-Za-z]/.test(value)) return false;
+  // The live tail has swapped every backslash for a marker by now.
+  if (/\\[A-Za-z]/.test(restoreMathEscapes(value))) return false;
   const lead = PRICE_LEAD.exec(value.trimStart());
   if (!lead) return false;
   const [, word, rest = ""] = lead;

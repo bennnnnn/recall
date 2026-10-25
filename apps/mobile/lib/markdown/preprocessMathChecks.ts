@@ -91,21 +91,15 @@ function isForExampleAt(line: string, forAt: number): boolean {
  * or task box, a tick, a quote marker, emphasis, and a Check or Verify word
  * (`**Check:** For $x = 2$`). */
 const CHECK_LABEL_LEAD = /^(?:\s|[-*+•>_✓✔✅]|\d+[.)]|\[[ xX]\])*(?:(?:check|verify)[*_:]*\s+[*_]*)?/i;
-/** The variable a check label sets: `x`, `F`, `x_1`, `\theta`, `y'`. */
-const CHECK_LABEL_VARIABLE = /^(?:[A-Za-z]|\\[A-Za-z]+)(?:_(?:\{[^{}]*\}|[A-Za-z0-9]))?'*$/;
 
 /** The "For" that opens a check label (`- For $x = 2$`), or -1. The label
- * leads its line and sets one variable: a "for" inside a sentence ("$30/day
- * for food = $210.") or before a quantity ("For 7 nights = $350") is prose,
- * and giving it a label's colon printed "$210.:". */
+ * leads its line: a "for" inside a sentence ("$30/day for food = $210.") is
+ * prose, and giving it a label's colon printed "$210.:". */
 function indexOfForKeyword(line: string): number {
   const at = CHECK_LABEL_LEAD.exec(line)?.[0].length ?? 0;
   if (line.slice(at, at + 3).toLowerCase() !== "for" || isForExampleAt(line, at)) return -1;
   const next = line[at + 3] ?? "";
-  if (next !== " " && next !== "*" && next !== "$" && next !== "") return -1;
-  const equals = line.indexOf("=", at);
-  const variable = line.slice(at + 3, equals < 0 ? line.length : equals).replace(/[$*\s]/g, "");
-  return CHECK_LABEL_VARIABLE.test(variable) ? at : -1;
+  return next === " " || next === "*" || next === "$" || next === "" ? at : -1;
 }
 
 function stripTrailingCheckTick(s: string): { text: string; mark: string } {

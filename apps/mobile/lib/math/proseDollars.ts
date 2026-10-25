@@ -13,6 +13,15 @@ export function currencyDollarAt(text: string, i: number): boolean {
   return AMOUNT_AT.test(text) && !escapedAt(text, i);
 }
 
+/** The currency `$` whose amount ends just before `at` ("$1,200.50", "$ 80"),
+ * or -1. */
+export function priceDollarBefore(text: string, at: number): number {
+  let amount = at;
+  while (amount > 0 && /[\d,.]/.test(text[amount - 1] ?? "")) amount -= 1;
+  if (/[ \t]/.test(text[amount - 1] ?? "") && text[amount - 2] === "$") amount -= 1;
+  return amount > 0 && currencyDollarAt(text, amount - 1) ? amount - 1 : -1;
+}
+
 /** A price's arithmetic written with operator commands, as text:
  * "80 \times 7 =" reads "80 × 7 =". Null when it holds more than symbols
  * (`\frac{1}{2}`, a script, a spacing command). */

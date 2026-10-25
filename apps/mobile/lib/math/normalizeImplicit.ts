@@ -2,7 +2,7 @@
  * and identifiers like `x2` are typeset as supplied — exponents are not invented. */
 
 import { revealCurrencyDollars } from "@/lib/markdown/preprocessMathInline";
-import { applyOutsideInlineMath, currencyDollarAt, priceSymbolsAsText } from "@/lib/math/proseDollars";
+import { applyOutsideInlineMath, priceDollarBefore, priceSymbolsAsText } from "@/lib/math/proseDollars";
 import { applyOutsideFences } from "@/lib/mdFenceScan";
 
 const LATEX_CMD = /\\(?:[a-zA-Z]+|.){1,}/;
@@ -293,13 +293,16 @@ function wrapInlineLatexCommandsInSegment(seg: string): string {
     const cmdEnd = skipLatexCommandArgs(seg, INLINE_LATEX_CMD_RE.lastIndex);
     // Wrap the whole island (`3^{\frac{2}{3}}`, `1\cdot x = …`) — wrapping
     // only the command shatters `3^{$\frac{2}{3}$}` and leaves `^{` `}` raw.
-    const start = expandMathIslandLeft(seg, match.index);
+    let start = expandMathIslandLeft(seg, match.index);
     const end = expandMathIslandRight(seg, cmdEnd);
-    const island = seg.slice(start, end);
     // A price's arithmetic ("$80 \times 7 = $560"): wrapping it from the
     // amount gave "$$80 \times 7 =$" after the currency dollar. Its operators
-    // read as text, or the dollar moves into the formula as `\$`.
-    const price = start > 0 && currencyDollarAt(seg, start - 1);
+    // read as text, or the dollar moves into the formula as `\$`. The island
+    // stops at a thousands comma, so the whole amount is found first.
+    const dollar = priceDollarBefore(seg, start);
+    const price = dollar >= last;
+    if (price) start = dollar + 1;
+    const island = seg.slice(start, end);
     const text = price ? priceSymbolsAsText(island) : null;
     if (text != null) out += seg.slice(last, start) + text;
     else if (price) out += `${seg.slice(last, start - 1)}$\\$${island}$`;

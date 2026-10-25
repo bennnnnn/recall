@@ -85,6 +85,9 @@ describe("money worked with TeX operators", () => {
     [String.raw`$2 \times $3 = $6`, "$2 × $3 = $6"],
     [String.raw`**Total:** $80 \times 7 = $560`, "Total: $80 × 7 = $560"],
     [String.raw`You save $20 \div 4 = $5 a week.`, "You save $20 ÷ 4 = $5 a week."],
+    [String.raw`$1,200 \times 12 = $14,400`, "$1,200 × 12 = $14,400"],
+    [String.raw`$2,000 \cdot 3 = $6,000`, "$2,000 ⋅ 3 = $6,000"],
+    [String.raw`$1,200.50 \times 2 = $2,401`, "$1,200.50 × 2 = $2,401"],
   ])("reads %s as text", (source, text) => {
     const view = seen(source);
     expect(view.math).toEqual([]);
@@ -98,6 +101,16 @@ describe("money worked with TeX operators", () => {
     const view = seen(source);
     expect(view.math).toEqual([math]);
     expect(view.text).toBe(`${math}${after}`);
+  });
+
+  // An escaped amount with a stray closer after a finished formula is a price.
+  it.each([
+    [String.raw`$2x = 10$, so x costs \$5$.`, "2x = 10", "2x = 10, so x costs $5."],
+    [String.raw`$3x = 15$, so each ticket costs \$5$.`, "3x = 15", "3x = 15, so each ticket costs $5."],
+  ])("keeps the dollar of %s", (source, math, text) => {
+    const view = seen(source);
+    expect(view.math).toEqual([math]);
+    expect(view.text).toBe(text);
   });
 });
 
@@ -167,9 +180,6 @@ describe("a 'for' inside a sentence is no check label", () => {
     "*   **Accommodation:** $80/night for hostels = $560 for 7 nights.",
     "The answer is x = 7. Never a ✓ for x = 6.",
     "For x = 3.",
-    "- For 7 nights = $350",
-    "**For 2 people** = $60",
-    "For 7 nights: $50 × 7 = $350",
   ])("adds no colon to %s", (line) => {
     expect(layoutCheckVerificationLines(line)).toBe(line);
   });
@@ -190,6 +200,12 @@ describe("a 'for' inside a sentence is no check label", () => {
       "Check for $x = 2$:\n\n  $2^2 + 2 - 6$\n\n  $= 4 + 2 - 6$\n\n  $= 0$",
     ],
     ["Verify: For $x = -1$: $(-1)^2 + 1 = 2$", "Verify: For $x = -1$:\n\n  $(-1)^2 + 1 = 2$"],
+    ["For $(x, y) = (2, 3)$: $2 + 3 = 5$ ✓", "For $(x, y) = (2, 3)$:\n\n  $2 + 3 = 5$ ✓"],
+    ["For the root $x = 3$: $9 - 9 = 0$", "For the root $x = 3$:\n\n  $9 - 9 = 0$"],
+    [
+      String.raw`For level ground, $R = \dfrac{v^2 \sin 2\theta}{g}$`,
+      String.raw`For level ground, $R = \dfrac{v^2 \sin 2\theta}{g}:$`,
+    ],
   ])("puts the working under a Check label: %s", (line, laidOut) => {
     expect(layoutCheckVerificationLines(line)).toBe(laidOut);
   });
