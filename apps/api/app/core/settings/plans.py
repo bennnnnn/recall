@@ -45,6 +45,12 @@ class PlanAllowanceSettings(BaseModel):
     daily_image_searches_plus: int = 60
     daily_image_searches_pro: int = 60
 
+    # Auto's everyday turns on the stronger model (``ROUTING.everyday_strong``), not
+    # the cheap one (``ROUTING.everyday``). Hard and maths turns route as before.
+    strong_everyday_model: bool = False
+    strong_everyday_model_plus: bool = False
+    strong_everyday_model_pro: bool = True
+
     # Chat tokens per UTC day (the per-user cost guardrail).
     daily_token_limit: int = 100_000
     daily_token_limit_plus: int = 500_000

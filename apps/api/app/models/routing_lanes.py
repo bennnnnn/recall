@@ -17,6 +17,13 @@ class RoutingLanes:
     # first text with thinking off) for about a third of the price. Auto's
     # everyday lane carries most turns; hard and maths turns route stronger.
     everyday: str
+    # Auto's everyday lane on a plan that includes the stronger one (Pro:
+    # ``entitlements.has_strong_everyday_model``). A 60-turn live chat on Qwen3.7 Flash
+    # (2026-10-25) named the wrong author for a book, called a 2026 TV season
+    # unaired, told the user they had a game result wrong against its own sources,
+    # and wrote a web_search fence as text instead of searching. Claude Haiku 5.5
+    # answers everyday turns carefully at a few times Qwen's price per token.
+    everyday_strong: str
     hard: str
     # Live phone QA repeatedly saw DeepSeek R1 stream hidden reasoning and then
     # return no visible answer. GLM 5.2 produced the verified worked-math
@@ -46,6 +53,7 @@ class RoutingLanes:
 
 ROUTING = RoutingLanes(
     everyday="qwen-3.7-flash",
+    everyday_strong="free-chat",
     hard="smart-chat",
     math="glm-5.2",
     vision="vision-chat",
