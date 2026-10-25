@@ -1,12 +1,16 @@
 """Tests for app.modules.billing.plan — plan gates and model pools."""
 
+from typing import Any
+
 import pytest
 
 from app.core.config import Settings
 from app.exceptions import UnknownModelOverrideError
 from app.models import model_catalog
+from app.models.routing_lanes import ROUTING
 from app.modules.billing import plan as plan_service
 from app.modules.chat.model_routing import choice as model_choice
+from app.tests.fakes import make_user
 
 
 class FakeUser:
@@ -277,3 +281,93 @@ def test_chat_fallback_models_prefer_nearby_tier_not_cheapest():
     assert model_catalog.get(fallbacks[0]).tier in {"smart", "max"}
     ranks = [model_catalog.tier_rank(model_catalog.get(mid)) for mid in fallbacks]
     assert ranks == sorted(ranks, reverse=True)
+
+
+def _plan(plan: str, enabled_models: list[str] | None = None) -> Any:
+    return make_user(plan=plan, enabled_models=enabled_models)
+
+
+_EVERYDAY = "hi, how is your day?"
+
+
+@pytest.mark.parametrize(
+    ("plan", "everyday"),
+    [
+        ("free", model_catalog.auto_fast_alias()),
+        ("plus", model_catalog.auto_fast_alias()),
+        # Pro's everyday turns get the stronger model (live 60-turn chat, 2026-10-25).
+        ("pro", ROUTING.everyday_strong),
+    ],
+)
+def test_auto_everyday_lane_follows_the_plan(plan: str, everyday: str) -> None:
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    assert model_choice.resolve_user_model(_plan(plan), _EVERYDAY, settings) == everyday
+
+
+def test_pro_hard_and_maths_turns_keep_their_lanes() -> None:
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    user = _plan("pro")
+    assert model_choice.resolve_user_model(user, "debug this crash", settings) == (
+        model_catalog.auto_smart_alias()
+    )
+    assert model_choice.resolve_user_model(user, "solve x^2 - 5x + 6 = 0", settings) == (
+        model_catalog.auto_math_alias()
+    )
+
+
+def test_pro_everyday_falls_back_when_the_strong_model_is_off_or_failing() -> None:
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    strong = ROUTING.everyday_strong
+    switched_off = _plan("pro", ["auto", model_catalog.auto_fast_alias(), "smart-chat"])
+    assert model_choice.resolve_user_model(switched_off, _EVERYDAY, settings) == (
+        model_catalog.auto_fast_alias()
+    )
+    failing = model_choice.resolve_user_model(
+        _plan("pro"), _EVERYDAY, settings, unhealthy=frozenset({strong})
+    )
+    assert failing != strong
+
+
+def test_pro_everyday_keeps_a_photo_turn() -> None:
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    strong = ROUTING.everyday_strong
+    user = _plan("pro")
+    assert plan_service.image_turn_model(user, settings, strong, explicit=False) == strong
+    assert (
+        plan_service.image_turn_model(
+            user, settings, strong, explicit=False, unhealthy=frozenset({strong})
+        )
+        != strong
+    )
+    # Another plan routed to that model (a fallback, a regenerate) still gets the photo lane.
+    lane = plan_service.image_turn_model(_plan("free"), settings, strong, explicit=False)
+    assert lane == model_catalog.vision_alias()
+
+
+@pytest.mark.parametrize(
+    ("plan", "expected"),
+    [
+        ("pro", ROUTING.everyday_strong),
+        ("free", model_catalog.auto_fast_alias()),
+    ],
+)
+def test_regenerating_a_cheap_everyday_reply_follows_the_plan(plan: str, expected: str) -> None:
+    """Review: "try again" on Pro reused the Qwen reply's model."""
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    resolved = model_choice.resolve_regenerate_model(
+        _plan(plan), None, _EVERYDAY, model_catalog.auto_fast_alias(), settings
+    )
+    assert resolved == expected
+
+
+def test_the_strong_everyday_switch_is_read_per_plan() -> None:
+    off = Settings(mock_llm_enabled=True, openrouter_api_key="", strong_everyday_model_pro=False)
+    assert model_choice.resolve_user_model(_plan("pro"), _EVERYDAY, off) == (
+        model_catalog.auto_fast_alias()
+    )
+    plus_on = Settings(
+        mock_llm_enabled=True, openrouter_api_key="", strong_everyday_model_plus=True
+    )
+    assert model_choice.resolve_user_model(_plan("plus"), _EVERYDAY, plus_on) == (
+        ROUTING.everyday_strong
+    )
