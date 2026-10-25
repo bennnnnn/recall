@@ -302,8 +302,11 @@ def test_routing_lanes_point_at_models_that_can_do_their_job() -> None:
     from app.models.routing_lanes import ROUTING as lanes
 
     selectable = {m.id for m in model_catalog.selectable_models()}
-    assert {lanes.everyday, lanes.hard, lanes.math} <= selectable
+    assert {lanes.everyday, lanes.everyday_strong, lanes.hard, lanes.math} <= selectable
     assert model_catalog.get(lanes.everyday).tier == "fast"
+    # Pro's everyday lane answers as fast and keeps photo turns.
+    assert model_catalog.get(lanes.everyday_strong).tier == "fast"
+    assert model_catalog.reads_images(lanes.everyday_strong)
     assert model_catalog.get(lanes.hard).tier in {"smart", "max"}
     assert model_catalog.get(lanes.math).tier in {"smart", "max"}
     vision, backup = model_catalog.get(lanes.vision), model_catalog.get(lanes.vision_backup)
