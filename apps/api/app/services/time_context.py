@@ -477,8 +477,8 @@ def format_now_awareness(
     return (
         f"Current local time: {now.strftime('%A')}, {month} {now.day}, {now.year}, "
         f"{clock} {tzname}. Year {now.year}. Month {month}. "
-        "You know this time, year, and month. "
-        "Never say you lack a clock, the current time, the year, or the month. "
+        "You know them: say them only when asked or the answer needs them, never as filler. "
+        "Never say you lack a clock. If the user names another day, say today's once, no apology. "
         # A weekday by its full date is checked before the reply is saved:
         # "Christmas falls on a Monday" was wrong (2026's is a Friday).
         "When you name the weekday of a date, write the full date with it "

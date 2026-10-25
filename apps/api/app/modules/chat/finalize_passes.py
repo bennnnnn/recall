@@ -68,6 +68,7 @@ from app.modules.chat.generic_closer import strip_generic_closer
 from app.modules.chat.json_output import check_requested_json
 from app.modules.chat.meta_notes import unwrap_meta_notes
 from app.modules.chat.reply_labels import one_answer_label
+from app.modules.chat.reply_meta import without_turn_meta
 from app.modules.chat.search_links import unlink_unretrieved_links
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
@@ -142,6 +143,11 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("search_links", unlink_unretrieved_links, OnError(log_as="search_links")),
     FinalizePass("generic_closer", strip_generic_closer, OnError(log_as="generic_closer")),
     FinalizePass("meta_notes", lambda s: unwrap_meta_notes(s.text), OnError(log_as="meta_notes")),
+    FinalizePass(
+        "turn_meta",
+        lambda s: without_turn_meta(s.text, s.ctx.user_message_content or ""),
+        OnError(log_as="turn_meta"),
+    ),
     FinalizePass("emoji_use", place_reply_emoji, OnError(log_as="emoji_use")),
     FinalizePass("answer_photo", attach_answer_photo, FALL_BACK),
     FinalizePass("reply_picture", attach_reply_picture, FALL_BACK),

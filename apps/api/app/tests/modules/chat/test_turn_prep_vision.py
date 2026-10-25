@@ -4,6 +4,7 @@ the chat is still about it."""
 import base64
 import io
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -123,6 +124,15 @@ async def test_a_photo_from_further_back_is_read_again_only_when_named(caption, 
         assert messages[-1]["content"] == caption
 
 
+def _photo_message(messages: list[dict[str, Any]]) -> dict[str, Any]:
+    """The user message the photos were put back on."""
+    return next(
+        message
+        for message in reversed(messages)
+        if message.get("role") == "user" and isinstance(message.get("content"), list)
+    )
+
+
 @pytest.mark.asyncio
 async def test_storage_outage_on_an_earlier_photo_names_it_and_keeps_the_turn():
     uid = uuid4()
@@ -146,9 +156,14 @@ async def test_an_earlier_photo_is_read_again_and_asks_for_the_vision_model():
     )
     assert needs_vision is True
     assert lookup.await_args.args[1:] == ([first, second], user.id)
-    parts = [part for part in messages[-1]["content"] if part["type"] == "image_url"]
+    sent = _photo_message(messages)
+    parts = [part for part in sent["content"] if part["type"] == "image_url"]
     assert [_colour(part) for part in parts] == ["red", "blue"]
-    assert IMAGE_GEN_UNAVAILABLE_HINT not in str(messages[-1]["content"])
+    assert IMAGE_GEN_UNAVAILABLE_HINT not in str(sent["content"])
+    # Back on the message that sent them: "Smart" after a screenshot described it again
+    # when the photo rode on the new message (live chat, 2026-10-25).
+    assert sent is not messages[-1]
+    assert isinstance(messages[-1]["content"], str)
 
 
 @pytest.mark.asyncio
@@ -199,7 +214,7 @@ async def test_a_photo_turn_says_what_to_do_with_an_unreadable_photo(earlier):
         messages = _earlier()
         attachments = _attachments(images=[("image/png", "now")], gateway=MagicMock())
     await _run(messages, attachments, [_row(uid)], byte_map={f"key-{uid}": _png("red")})
-    text = messages[-1]["content"][0]["text"]
+    text = _photo_message(messages)["content"][0]["text"]
     assert IMAGE_REAL_NOTE in text and UNCLEAR_IMAGE_NOTE in text
     assert "ask for a clearer photo instead of guessing" in UNCLEAR_IMAGE_NOTE  # safety phrase
     assert "say what you cannot make out" in UNCLEAR_IMAGE_NOTE  # safety phrase
