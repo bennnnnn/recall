@@ -21,6 +21,22 @@ describe("locale-aware date and time formatting", () => {
   it("uses the requested locale", () => {
     expect(formatShortWeekdayDate(date, "de-DE")).toBe("Di., 8. Sept.");
   });
+
+  // Days a zone's clock skips an hour: US (2:00) and Chile (0:00). The label is the
+  // same on them; it was not under TZ=America/New_York or TZ=America/Santiago.
+  it.each([new Date(2026, 2, 8, 12), new Date(2026, 8, 6, 12), new Date(2026, 10, 1, 12)])(
+    "labels a minute of the day the same on %s",
+    (today) => {
+      jest.useFakeTimers({ now: today });
+      try {
+        expect(formatMinuteOfDay(0, "en-US")).toBe("12:00 AM");
+        expect(formatMinuteOfDay(150, "en-US")).toBe("2:30 AM");
+        expect(formatMinuteOfDay(1439, "en-US")).toBe("11:59 PM");
+      } finally {
+        jest.useRealTimers();
+      }
+    },
+  );
 });
 
 describe("formatTimeZoneName", () => {

@@ -234,7 +234,9 @@ export function isCachedChatPageFresh(
   now = Date.now(),
 ): boolean {
   const kept = keptPage(chatId);
-  if (!kept || kept.stale || now - kept.writtenAt >= CONTEXT_REFRESH_STALE_MS) return false;
+  // A clock set back makes the age negative: not fresh.
+  const age = kept ? now - kept.writtenAt : -1;
+  if (!kept || kept.stale || age < 0 || age >= CONTEXT_REFRESH_STALE_MS) return false;
   return kept.chatUpdatedAt === undefined || listedUpdatedAt === undefined ||
     kept.chatUpdatedAt === listedUpdatedAt;
 }

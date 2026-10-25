@@ -19,6 +19,7 @@ type UsageState = {
   error: boolean;
 };
 
+/** A kept value is shown only on the UTC day the server counted it for (`usage/today`). */
 function todayUsage(usage: Usage | null | undefined): Usage | null {
   return usage?.date === new Date().toISOString().slice(0, 10) ? usage : null;
 }
@@ -67,8 +68,10 @@ export function useUsage() {
       force: opts?.force || Boolean(cached && !todayUsage(cached)),
     });
     if (!isCurrent() || request !== requestRef.current) return;
-    const currentUsage = todayUsage(data);
-    setState({ account, generation, usage: currentUsage, loading: false, error: !currentUsage });
+    // What /usage/today answered is today's on the server's clock. Checked against the
+    // phone's, a clock a minute fast hid it as an error for that minute before each UTC
+    // midnight, and Retry asked again for the same answer.
+    setState({ account, generation, usage: data, loading: false, error: !data });
   }, [account, generation, getToken]);
 
   useFocusEffect(
@@ -85,7 +88,7 @@ export function useUsage() {
 
   const isCurrentState = state.account === account && state.generation === generation;
   return {
-    usage: isCurrentState ? todayUsage(state.usage) : null,
+    usage: isCurrentState ? state.usage : null,
     loading: isCurrentState ? state.loading : Boolean(account),
     error: isCurrentState && state.error,
     refresh,

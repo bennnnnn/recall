@@ -12,11 +12,13 @@ export function formatClockTime(date: Date, locale?: Locale, timeZone?: string):
   });
 }
 
-/** Local-time clock label for a minute offset after midnight. */
+/**
+ * Clock label for a minute offset after midnight. Drawn on a fixed UTC day: on today's
+ * date a daylight-saving change skips an hour, and 12:00 AM read "1:00 AM" (Santiago).
+ */
 export function formatMinuteOfDay(minutes: number, locale?: Locale): string {
-  const date = new Date();
-  date.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
-  return formatClockTime(date, locale);
+  const date = new Date(Date.UTC(2000, 0, 1, Math.floor(minutes / 60), minutes % 60));
+  return formatClockTime(date, locale, "UTC");
 }
 
 /** Short weekday plus abbreviated month and numeric day, in the phone's zone or `timeZone`. */

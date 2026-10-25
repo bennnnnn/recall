@@ -263,6 +263,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       {detailOpen ? null : (
       <TodosScrollList
         rows={rows}
+        now={now}
         showEmpty={showTodosEmptyHero}
         error={Boolean(error)}
         listHeader={listHeader}

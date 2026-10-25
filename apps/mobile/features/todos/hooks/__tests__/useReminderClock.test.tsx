@@ -9,6 +9,8 @@ import {
   firstOverdueHomeTodo,
   listHomeUrgentTodos,
 } from "@/features/todos/model/homeUrgentTodos";
+import { buildTodoListRows } from "@/features/todos/model/todoListRows";
+import { todosForView } from "@/features/todos/model/todoListFilter";
 
 const foreground: ((state: string) => void)[] = [];
 jest.mock("@/lib/foregroundRefresh", () => ({
@@ -51,12 +53,18 @@ describe("nextReminderChange", () => {
     );
   });
 
-  it("is null when no open reminder will change", () => {
+  it("is null when no open reminder has a due time", () => {
     const todos = [
-      todo("past", "2026-10-24T11:00:00.000Z"),
       todo("done", "2026-10-25T09:00:00.000Z", true),
+      todo("someday", null),
     ];
     expect(nextReminderChange(todos, START, 10)).toBeNull();
+  });
+
+  it("is the next local midnight once every due time has passed", () => {
+    const todos = [todo("past", "2026-10-24T11:00:00.000Z")];
+    const midnight = new Date(START.getFullYear(), START.getMonth(), START.getDate() + 1);
+    expect(nextReminderChange(todos, START, 10)).toBe(midnight.getTime());
   });
 });
 
@@ -114,5 +122,22 @@ describe("useReminderClock", () => {
     expect(
       firstOverdueHomeTodo(listHomeUrgentTodos(saved, result.current, 10))?.id,
     ).toBe("Call mom");
+  });
+
+  it("moves on at local midnight, so the list regroups while the app stays open", async () => {
+    // 23:59 local; due at 9:00 tomorrow, well past the lead window.
+    jest.setSystemTime(new Date(2026, 9, 24, 23, 59, 0));
+    const todos = [todo("Dentist", new Date(2026, 9, 25, 9, 0, 0).toISOString())];
+    const { result } = await renderHook(() => useReminderClock(todos, 10));
+    const headings = () => buildTodoListRows(todos, result.current)
+      .flatMap((row) => (row.kind === "heading" ? [row.section] : []));
+    expect(headings()).toEqual(["tomorrow"]);
+
+    await act(async () => {
+      jest.advanceTimersByTime(2 * 60_000);
+    });
+
+    expect(headings()).toEqual(["today"]);
+    expect(todosForView(todos, "today", result.current).map((item) => item.id)).toEqual(["Dentist"]);
   });
 });

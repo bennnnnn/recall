@@ -13,7 +13,8 @@ const MAX_WAIT_MS = 2_147_483_647;
 
 /**
  * The next moment an open reminder changes for Home, the badge or the To-do list: it
- * enters the reminder-lead window, or its due time passes. Null when none will.
+ * enters the reminder-lead window, its due time passes, or the local day turns (the list
+ * groups by day: Tomorrow becomes Today, Today becomes Overdue). Null when none will.
  */
 export function nextReminderChange(
   todos: Todo[],
@@ -22,13 +23,19 @@ export function nextReminderChange(
 ): number | null {
   const nowMs = now.getTime();
   let next: number | null = null;
+  let dated = false;
   for (const todo of todos) {
     if (todo.checked || !todo.due_at) continue;
     const dueMs = new Date(todo.due_at).getTime();
     if (Number.isNaN(dueMs)) continue;
+    dated = true;
     for (const at of [dueMs - leadMinutes * 60_000, dueMs]) {
       if (at >= nowMs && (next === null || at < next)) next = at;
     }
+  }
+  if (dated) {
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
+    if (next === null || midnight < next) next = midnight;
   }
   return next;
 }
