@@ -35,7 +35,7 @@ import { Motion, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
+import { DYNAMIC_TYPE_PICKER_MAX, Type, Weight } from "@/lib/type";
 
 import { IconButton } from "../controls/IconButton";
 import { Icon } from "../icons/Icon";
@@ -280,6 +280,7 @@ export function DatePickerDialog({
                           selected && s.dayTextSelected,
                           disabled && s.dayTextDisabled,
                         ]}
+                        maxFontSizeMultiplier={DYNAMIC_TYPE_PICKER_MAX}
                       >
                         {day}
                       </Text>
@@ -339,7 +340,12 @@ function YearGrid({
                 accessibilityState={{ selected: isSelected }}
                 testID={`${testID}-${year}`}
               >
-                <Text style={[s.yearText, isSelected && s.yearTextSelected]}>{year}</Text>
+                <Text
+                  style={[s.yearText, isSelected && s.yearTextSelected]}
+                  maxFontSizeMultiplier={DYNAMIC_TYPE_PICKER_MAX}
+                >
+                  {year}
+                </Text>
               </Pressable>
             );
           })}

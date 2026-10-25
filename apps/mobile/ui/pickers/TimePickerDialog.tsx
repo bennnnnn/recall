@@ -26,7 +26,8 @@ import { selection } from "@/lib/haptics";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
+import { DYNAMIC_TYPE_PICKER_MAX, Type, Weight } from "@/lib/type";
+import { UI_LINE_EM } from "@/lib/uiFont";
 
 import { IconButton } from "../controls/IconButton";
 import { IconSize } from "../icons/sizes";
@@ -38,6 +39,15 @@ const TIME_PICKER_WIDTH = 328;
 const PERIOD_WIDTH = 52;
 const COLON_WIDTH = 24;
 const READOUT_HEIGHT = 80;
+
+/**
+ * The readout's height: 80, or one line of the capped clock digits once larger
+ * text makes that taller (56pt × 1.3 × 1.424 em ≈ 104 at the cap).
+ */
+function readoutHeight(fontScale: number): number {
+  const scale = Math.min(Math.max(fontScale, 1), DYNAMIC_TYPE_PICKER_MAX);
+  return Math.max(READOUT_HEIGHT, Math.ceil(Type.clock.fontSize * scale * UI_LINE_EM));
+}
 
 type Props = {
   visible: boolean;
@@ -97,6 +107,7 @@ export function TimePickerDialog({
   const boxWidth = Math.floor(
     (contentWidth - COLON_WIDTH - (is24Hour ? 0 : PERIOD_WIDTH + Space.sm)) / 2,
   );
+  const boxHeight = readoutHeight(screen.fontScale);
 
   const pm = draft.hour >= 12;
   const typedHour = parseHourInput(hourText, is24Hour);
@@ -147,10 +158,11 @@ export function TimePickerDialog({
             maxLength={2}
             selectTextOnFocus
             autoFocus={part === "hour"}
+            maxFontSizeMultiplier={DYNAMIC_TYPE_PICKER_MAX}
             style={[
               s.box,
               s.boxInput,
-              { width: boxWidth },
+              { width: boxWidth, height: boxHeight },
               active && s.boxActive,
               active && s.boxInputFocused,
               invalid && s.boxInvalid,
@@ -168,13 +180,18 @@ export function TimePickerDialog({
           if (mode !== part) selection();
           setMode(part);
         }}
-        style={[s.box, { width: boxWidth }, active && s.boxActive]}
+        style={[s.box, { width: boxWidth, height: boxHeight }, active && s.boxActive]}
         accessibilityRole="button"
         accessibilityLabel={`${label}, ${text}`}
         accessibilityState={{ selected: active }}
         testID={`${testID}-${part}`}
       >
-        <Text style={[s.boxText, active && s.boxTextActive]}>{text}</Text>
+        <Text
+          style={[s.boxText, active && s.boxTextActive]}
+          maxFontSizeMultiplier={DYNAMIC_TYPE_PICKER_MAX}
+        >
+          {text}
+        </Text>
       </Pressable>
     );
   };
@@ -215,12 +232,19 @@ export function TimePickerDialog({
     >
       <View style={s.readout}>
         {readoutBox("hour")}
-        <View style={s.colonBox}>
-          <Text style={[s.colon, typing && s.colonTyping]} accessibilityElementsHidden importantForAccessibility="no">:</Text>
+        <View style={[s.colonBox, { height: boxHeight }]}>
+          <Text
+            style={[s.colon, typing && s.colonTyping]}
+            maxFontSizeMultiplier={DYNAMIC_TYPE_PICKER_MAX}
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+          >
+            :
+          </Text>
         </View>
         {readoutBox("minute")}
         {is24Hour ? null : (
-          <View style={s.period} accessibilityRole="radiogroup">
+          <View style={[s.period, { height: boxHeight }]} accessibilityRole="radiogroup">
             {([false, true] as const).map((isPm) => (
               <Pressable
                 key={isPm ? "pm" : "am"}
@@ -278,7 +302,6 @@ function makeStyles(t: Theme) {
     field: { alignItems: "flex-start", gap: Space.xxs },
     fieldCaption: { ...Type.caption, color: t.textSecondary },
     box: {
-      height: READOUT_HEIGHT,
       borderRadius: Radius.xs,
       backgroundColor: t.control,
       alignItems: "center",
@@ -299,7 +322,6 @@ function makeStyles(t: Theme) {
     boxTextActive: { color: t.primary },
     colonBox: {
       width: COLON_WIDTH,
-      height: READOUT_HEIGHT,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -307,7 +329,6 @@ function makeStyles(t: Theme) {
     colonTyping: { color: t.textSecondary },
     period: {
       width: PERIOD_WIDTH,
-      height: READOUT_HEIGHT,
       marginLeft: Space.sm,
       borderRadius: Radius.xs,
       borderWidth: 1,

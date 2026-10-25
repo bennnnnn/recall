@@ -10,6 +10,9 @@ import {
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { useTheme } from "@/lib/theme";
 
+/** A crash on any page of this stack shows the shared error view here, not the whole app's. */
+export { ScreenErrorBoundary as ErrorBoundary } from "@/components/ScreenErrorBoundary";
+
 /**
  * Every Settings sub-page, in order: its route file in `app/settings/` and its
  * header title. A new page is its route file plus one row here.
