@@ -902,6 +902,9 @@ const OUTAGE_CEILINGS: Record<string, number> = {
 };
 
 it("keeps a server outage within its requests, with nothing in a loop", async () => {
+  // Every spread (the check loop's jitter, the 0-10 s reconnect read) at its middle: with them
+  // random, a reconnect read now and then slipped past its step into the next one's ceiling.
+  const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
   steps.length = 0;
   mockSecure.clear();
   mockFiles.clear();
@@ -963,6 +966,7 @@ it("keeps a server outage within its requests, with nothing in a loop", async ()
   step("send while the API answers 503");
   await settle(60_000);
   step("a minute after the outage");
+  random.mockRestore();
 
   expectWithin(OUTAGE_CEILINGS);
 });
