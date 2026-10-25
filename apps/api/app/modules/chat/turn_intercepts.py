@@ -29,6 +29,7 @@ from app.modules.images.lookup_intent import (
     dated_lookup_query,
     extract_image_lookup_query,
     is_reference_subject,
+    names_a_drawing,
 )
 from app.modules.images.reply_picture import ReplyPicture
 from app.modules.images.search import ImageSearchError
@@ -237,6 +238,12 @@ async def try_image_lookup_for_turn(
             recent_messages=recent_messages,
             replace_assistant_id=replace_assistant_id,
         )
+        if query and names_a_drawing(query):
+            # "Water and carbon dioxide molecules": drawn by the app, so the tool loop
+            # offers no photo search either.
+            if misses is not None:
+                misses.add("photo")
+            return False
         if not query:
             return False
     query = dated_lookup_query(query, datetime.now(UTC).year)
