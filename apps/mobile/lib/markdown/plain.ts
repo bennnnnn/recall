@@ -19,6 +19,7 @@ import {
   type MathAccentKind,
   type MathSegment,
 } from "@/lib/math/text";
+import { looksLikePipeRow } from "@/lib/markdown/streamTableHold";
 
 /** Walk prose and fenced blocks, converting each; the fence's markers are not kept. */
 export function mapFenceRegions(
@@ -70,11 +71,6 @@ export function mapFenceRegions(
   flushFence();
   flushProse();
   return out.join("\n");
-}
-
-function looksLikePipeRow(line: string): boolean {
-  const trimmed = line.trim();
-  return trimmed.startsWith("|") && trimmed.indexOf("|", 1) >= 0;
 }
 
 function pipeTablesToPlain(text: string): string {
