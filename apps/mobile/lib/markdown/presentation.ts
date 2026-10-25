@@ -12,11 +12,14 @@
 import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { repairInlineTokenBoundaries } from "@/lib/markdown/inlineBoundaries";
 import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
+import { readInlineMathSpan } from "@/lib/markdown/inlineMath";
 import { separateLeadLines } from "@/lib/markdown/leadLines";
 import { codeNotation } from "@/lib/markdown/notationSpans";
 import { fenceReplTranscripts } from "@/lib/markdown/replTranscript";
 import { holdBackPendingTableHeader } from "@/lib/markdown/streamTableHold";
 import { normalizeImplicitMath } from "@/lib/math/normalizeImplicit";
+import { currencyDollarAt } from "@/lib/math/proseDollars";
+import { unfinishedFormulaAt } from "@/lib/math/streaming";
 import { isServerMessageId } from "@/lib/serverMessageId";
 
 /**
@@ -121,8 +124,18 @@ function openMathStart(prose: string): number | null {
         inline = false;
         openAt = -1;
       } else {
-        inline = true;
-        openAt = i;
+        // A formula the renderer reads is whole, and a price it pairs with
+        // nothing opens nothing: "It costs $5, and $4! = 24$." holds no open
+        // dollar. An unclosed formula after a price still waits.
+        const span = readInlineMathSpan(prose, i);
+        if (span) {
+          i = span.end;
+          continue;
+        }
+        if (!currencyDollarAt(prose, i) || unfinishedFormulaAt(prose, i)) {
+          inline = true;
+          openAt = i;
+        }
       }
     }
     i += 1;

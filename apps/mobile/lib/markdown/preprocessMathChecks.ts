@@ -87,26 +87,19 @@ function isForExampleAt(line: string, forAt: number): boolean {
   return line.slice(forAt, forAt + 11).toLowerCase() === "for example";
 }
 
+/** What may come before a check label's "For": indentation, a bullet, number
+ * or task box, a tick, a quote marker, emphasis, and a Check or Verify word
+ * (`**Check:** For $x = 2$`). */
+const CHECK_LABEL_LEAD = /^(?:\s|[-*+•>_✓✔✅]|\d+[.)]|\[[ xX]\])*(?:(?:check|verify)[*_:]*\s+[*_]*)?/i;
+
+/** The "For" that opens a check label (`- For $x = 2$`), or -1. The label
+ * leads its line: a "for" inside a sentence ("$30/day for food = $210.") is
+ * prose, and giving it a label's colon printed "$210.:". */
 function indexOfForKeyword(line: string): number {
-  const lower = line.toLowerCase();
-  let from = 0;
-  while (from < lower.length) {
-    const at = lower.indexOf("for", from);
-    if (at < 0) return -1;
-    const prev = at === 0 ? "" : lower[at - 1]!;
-    if (prev >= "a" && prev <= "z") {
-      from = at + 3;
-      continue;
-    }
-    if (isForExampleAt(line, at)) {
-      from = at + 3;
-      continue;
-    }
-    const next = at + 3 < lower.length ? lower[at + 3] : "";
-    if (next === " " || next === "*" || next === "$" || next === "") return at;
-    from = at + 3;
-  }
-  return -1;
+  const at = CHECK_LABEL_LEAD.exec(line)?.[0].length ?? 0;
+  if (line.slice(at, at + 3).toLowerCase() !== "for" || isForExampleAt(line, at)) return -1;
+  const next = line[at + 3] ?? "";
+  return next === " " || next === "*" || next === "$" || next === "" ? at : -1;
 }
 
 function stripTrailingCheckTick(s: string): { text: string; mark: string } {
@@ -152,7 +145,7 @@ function normalizeCheckLabelLine(line: string): string {
   const latex = unwrapInlineDollars(stripTrailingCheckTick(afterFor).text);
   const segs = splitTopLevelEquals(latex);
   if (latex.includes("=") && segs.length <= 2) {
-    return `${line.replace(/\s+$/, "")}:`;
+    return withLabelColon(line);
   }
 
   const parts = splitInlineMath(afterFor);
@@ -162,10 +155,17 @@ function normalizeCheckLabelLine(line: string): string {
       const p = parts[i]!;
       tail += p.type === "math" ? `$${p.value}$` : p.value;
     }
-    if (!tail.trim()) return `${line.replace(/\s+$/, "")}:`;
+    if (!tail.trim()) return withLabelColon(line);
     return `${prefix}$${parts[0].value}$: ${tail.trim()}`;
   }
   return line;
+}
+
+/** A label line with its colon. A line that ends a sentence is no label:
+ * "For x = 3." keeps its period rather than reading "3.:". */
+function withLabelColon(line: string): string {
+  const trimmed = line.replace(/\s+$/, "");
+  return /[.,;!?]$/.test(trimmed) ? line : `${trimmed}:`;
 }
 
 /** Colon that closes `For x = 2:` / `For $F = 0$:` — not inside `$...$`, not "for example:". */

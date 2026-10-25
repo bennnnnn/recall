@@ -182,13 +182,30 @@ export function separateConsecutiveMathLines(content: string): string {
 }
 
 /** `\$1,505$` is a currency amount with a stray closer, not math `1,505`.
- * Leave `$\$1,505$` alone: that span already keeps the dollar. */
+ * Leave `$\$1,505$` alone: that span already keeps the dollar. So does
+ * `$\$80 \times 7 = \$560$`, whose last `$` closes the span opened before. */
 export function revealCurrencyDollars(text: string): string {
   return text.replace(
     /\\\$(\d[\d,]*(?:\.\d+)?)\$/g,
     (match, amount: string, offset: number, source: string) =>
-      source[offset - 1] === "$" ? match : `$${amount}`,
+      source[offset - 1] === "$" || opensBefore(source, offset) ? match : `$${amount}`,
   );
+}
+
+/** True when `at` lies inside a formula the renderer reads, opened earlier on
+ * the line. A dollar it pairs with nothing ("$5 and") opens nothing. */
+function opensBefore(text: string, at: number): boolean {
+  for (let i = text.lastIndexOf("\n", at) + 1; i < at; i += 1) {
+    if (text[i] === "\\") {
+      i += 1;
+      continue;
+    }
+    const span = text[i] === "$" ? readInlineMathSpan(text, i) : null;
+    if (span == null) continue;
+    if (span.end > at) return true;
+    i = span.end - 1;
+  }
+  return false;
 }
 
 /** Move $...$ out of **...** so emphasis nodes do not swallow math delimiters.

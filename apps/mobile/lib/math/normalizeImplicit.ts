@@ -1,8 +1,8 @@
 /** Turn model output like `( x^2 = 6 )` into renderable LaTeX. Bare `12+3`
  * and identifiers like `x2` are typeset as supplied — exponents are not invented. */
 
-import { codeSpanOpensWithin, escapedAt, readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { revealCurrencyDollars } from "@/lib/markdown/preprocessMathInline";
+import { applyOutsideInlineMath, priceDollarBefore, priceSymbolsAsText } from "@/lib/math/proseDollars";
 import { applyOutsideFences } from "@/lib/mdFenceScan";
 
 const LATEX_CMD = /\\(?:[a-zA-Z]+|.){1,}/;
@@ -277,57 +277,6 @@ function expandMathIslandLeft(seg: string, start: number): number {
   return i;
 }
 
-/** Apply `fn` only to the non-`$...$` segments of a line, leaving already-
- * delimited inline math spans untouched. Without this, a heuristic like
- * MATH_IN_PARENS_RE re-wraps parentheticals INSIDE an existing `$...$`
- * (e.g. `$(-2 + \sqrt{3})^2 + 4(-2 + \sqrt{3}) + ...$`), producing `$$` and
- * shattering `$` pairing across the whole message — leaving `\sqrt` as raw
- * text and gluing adjacent prose into the math. Inline code spans are left
- * untouched the same way (`range(n_items)` is not `range($n_items$)`), and a
- * dollar pair never reaches across one. */
-function applyOutsideInlineMath(line: string, fn: (s: string) => string): string {
-  const out: string[] = [];
-  let last = 0;
-  let i = 0;
-  while (i < line.length) {
-    const codeEnd = line[i] === "`" ? readInlineCodeSpan(line, i) : null;
-    if (codeEnd != null) {
-      if (i > last) out.push(fn(line.slice(last, i)));
-      out.push(line.slice(i, codeEnd));
-      last = codeEnd;
-      i = codeEnd;
-      continue;
-    }
-    // `\$` is a currency sign. Closing on that `$` keeps only `$\$`, and
-    // wrapping the rest inserts another `$`. `\$$` then becomes a math
-    // fence, which is why the screen shows `\43` and `\1,720`.
-    const displayDollar = line[i + 1] === "$" || (line[i - 1] === "$" && !escapedAt(line, i - 1));
-    if (line[i] !== "$" || escapedAt(line, i) || displayDollar) {
-      i += 1;
-      continue;
-    }
-    let close = i + 1;
-    while (
-      close < line.length
-      && line[close] !== "\n"
-      && (line[close] !== "$" || escapedAt(line, close))
-    ) {
-      close += 1;
-    }
-    if (close >= line.length || line[close] !== "$" || codeSpanOpensWithin(line, i + 1, close)) {
-      i += 1;
-      continue;
-    }
-    if (i > last) out.push(fn(line.slice(last, i)));
-    out.push(line.slice(i, close + 1));
-    last = close + 1;
-    i = last;
-  }
-  if (last === 0) return fn(line);
-  if (last < line.length) out.push(fn(line.slice(last)));
-  return out.join("");
-}
-
 /** Wrap a bare LaTeX command (plus its brace groups) in $...$ — e.g.
  * "simplifying\frac{8!}{6!}?" — distinct from the whole-line-only
  * looksLikeBareEquation path, since real prose surrounds it here. */
@@ -344,9 +293,20 @@ function wrapInlineLatexCommandsInSegment(seg: string): string {
     const cmdEnd = skipLatexCommandArgs(seg, INLINE_LATEX_CMD_RE.lastIndex);
     // Wrap the whole island (`3^{\frac{2}{3}}`, `1\cdot x = …`) — wrapping
     // only the command shatters `3^{$\frac{2}{3}$}` and leaves `^{` `}` raw.
-    const start = expandMathIslandLeft(seg, match.index);
+    let start = expandMathIslandLeft(seg, match.index);
     const end = expandMathIslandRight(seg, cmdEnd);
-    out += seg.slice(last, start) + `$${seg.slice(start, end)}$`;
+    // A price's arithmetic ("$80 \times 7 = $560"): wrapping it from the
+    // amount gave "$$80 \times 7 =$" after the currency dollar. Its operators
+    // read as text, or the dollar moves into the formula as `\$`. The island
+    // stops at a thousands comma, so the whole amount is found first.
+    const dollar = priceDollarBefore(seg, start);
+    const price = dollar >= last;
+    if (price) start = dollar + 1;
+    const island = seg.slice(start, end);
+    const text = price ? priceSymbolsAsText(island) : null;
+    if (text != null) out += seg.slice(last, start) + text;
+    else if (price) out += `${seg.slice(last, start - 1)}$\\$${island}$`;
+    else out += `${seg.slice(last, start)}$${island}$`;
     last = end;
     INLINE_LATEX_CMD_RE.lastIndex = end;
   }
@@ -427,8 +387,10 @@ function normalizeMathLine(line: string, format?: (expr: string) => string, whol
   // equation to `x = -2`.
   out = out.replace(
     /^(\s*)\$([-*•])\s*(.+?)\s*\$$/,
-    (_full, indent: string, mark: string, inner: string) => {
+    (full, indent: string, mark: string, inner: string) => {
       const body = String(inner).trim();
+      // A negative number on its own line (`$-3$`) is maths, not a bullet.
+      if (mark === "-" && /^\d[\d,.]*$/.test(body)) return full;
       const mathLike =
         /\\[a-zA-Z]+/.test(body) || /[\^_]/.test(body) || looksLikeBareEquation(body);
       if (mark === "-" && mathLike) {

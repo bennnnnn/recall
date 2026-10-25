@@ -58,6 +58,20 @@ export function completeStreamingLatex(body: string): string {
   return "";
 }
 
+/**
+ * A `$` with no closer yet that opens an unfinished formula: one that starts
+ * like maths, or whose line already holds TeX (`$12 \times 3`,
+ * `$[\text{H}^+]`). A price stays visible. An escaped `\$` inside the
+ * formula is a dollar sign, not its closer.
+ */
+export function unfinishedFormulaAt(text: string, i: number): boolean {
+  if (text[i] !== "$" || text.slice(i + 1).search(/(?<!\\)\$/) >= 0) return false;
+  const line = text.slice(i + 1).split("\n", 1)[0] ?? "";
+  // `**` after an amount is bold ("**$18**"), not a product.
+  return /^(?:\\(?:[A-Za-z]|$)|[a-zA-Z](?:[\s_^=']|$)|\d+(?:[_^+/=-]|\*(?!\*))|\{)/.test(line) ||
+    /\\|[\^_]\{/.test(line);
+}
+
 /** Protect complete inline math in the live tail, holding only an unfinished
  * explicit formula. Ordinary dollars and backticked source remain visible. */
 export function prepareStreamingMathText(text: string): { text: string; pending: boolean } {
@@ -79,6 +93,13 @@ export function prepareStreamingMathText(text: string): { text: string; pending:
       continue;
     }
     const span = readInlineMathSpan(text, i, true);
+    // "Half of $38.40 = $" may go on "19.20": a price-led pair whose body
+    // stops on an operator or a space, closing where the stream has got to,
+    // waits for the next character. "$2 + 2 = 4$" draws at once.
+    if (span && text[i] === "$" && text[i + 1] !== "$" && /^\s*\d/.test(span.value)
+      && /[\s=+\-*/×·]$/.test(text.slice(i + 1, span.end - 1)) && !text.slice(span.end).trim()) {
+      return { text: out, pending: true };
+    }
     if (span) {
       const body = span.value
         // Keep a multiline explicit formula inside one single-dollar span.
@@ -96,15 +117,7 @@ export function prepareStreamingMathText(text: string): { text: string; pending:
     if (text.startsWith("\\(", i) || text.startsWith("\\[", i) || text.startsWith("$$", i)) {
       return { text: out, pending: true };
     }
-    // An unfinished formula waits to close: one that starts like maths, or whose line
-    // already holds TeX (`$12 \times 3`, `$[\text{H}^+]`). A price stays visible.
-    // An escaped `\$` inside the formula is a dollar sign, not its closer.
-    const open = text[i] === "$" && text.slice(i + 1).search(/(?<!\\)\$/) < 0;
-    const line = open ? (text.slice(i + 1).split("\n", 1)[0] ?? "") : "";
-    if (open && (/^(?:\\(?:[A-Za-z]|$)|[a-zA-Z](?:[\s_^=']|$)|\d+[_^+*/=-]|\{)/.test(line) ||
-      /\\|[\^_]\{/.test(line))) {
-      return { text: out, pending: true };
-    }
+    if (unfinishedFormulaAt(text, i)) return { text: out, pending: true };
     if (text[i] === "\\" && i + 1 < text.length) {
       // Preserve escaped dollars/backslashes, rather than treating their
       // second character as a math opener on the next iteration.
