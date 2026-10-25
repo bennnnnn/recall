@@ -29,6 +29,7 @@ import { ensureLocale } from "@/lib/i18n";
 import {
   clearOnboarded,
   clearToken,
+  CorruptSessionError,
   getOnboarded,
   getRefreshToken,
   getSessionGeneration,
@@ -41,6 +42,7 @@ import { cachedUserMatchesToken, clearCachedUser, mergeCachedUser, readCachedUse
 import { AccountSessionContext } from "@/contexts/accountSession";
 import { clearSignedOutAccount } from "@/lib/signOutCleanup";
 import { forgetSyncRecords } from "@/lib/syncRecords";
+import { tokenSubject } from "@/lib/tokenSubject";
 import { useBootstrapSync } from "@/hooks/useBootstrapSync";
 import { AuthLoadingShell } from "@/components/AuthLoadingShell";
 
@@ -80,6 +82,20 @@ type AuthProviderProps = {
   onRestored?: () => void;
 };
 
+/** The stored access token; `corrupt` when a record is there but is no session. */
+async function readStoredSession(): Promise<{ token: string | null; corrupt: boolean }> {
+  try {
+    return { token: await getToken(), corrupt: false };
+  } catch (error) {
+    if (error instanceof CorruptSessionError) return { token: null, corrupt: true };
+    throw error;
+  }
+}
+
+/** The account a failed launch read, for its Sign out: who to clear, which session to end. */
+type LaunchSession = { userId: string | undefined; accessToken: string | null };
+const NO_LAUNCH_SESSION: LaunchSession = { userId: undefined, accessToken: null };
+
 export function AuthProvider({ children, onRestored }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
@@ -94,6 +110,7 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
   const localCleanupRef = useRef<Promise<void>>(Promise.resolve());
   const ignoreUnauthorizedRef = useRef(false);
   const updateUserGenRef = useRef(0);
+  const launchSessionRef = useRef<LaunchSession>(NO_LAUNCH_SESSION);
 
   // Keep event-time identity current even before React paints a signout.
   const setCurrentUser = useCallback((value: SetStateAction<User | null>) => {
@@ -112,19 +129,80 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
     ignoreUnauthorizedRef.current = value;
   }, []);
 
+  /**
+   * Ends the session on this phone: its credentials and account data at once,
+   * the server's copy best-effort. `keepOnboarded` opens on sign-in itself
+   * rather than the introduction before it.
+   */
+  const endSession = useCallback((
+    userId: string | undefined,
+    accessToken: string | null,
+    keepOnboarded = false,
+  ) => {
+    const refreshToken = getRefreshToken().catch(() => null);
+    // clearToken invalidates the shared session synchronously before its disk
+    // write, fencing refreshes, startup requests and pending login attempts.
+    const clearCredentials = clearToken();
+    setCurrentToken(null);
+    setCurrentUser(null);
+    setProfileValidated(false);
+    if (!keepOnboarded) setOnboardedState(false);
+    setLoading(false);
+    setStartupFailed(false);
+    ignoreUnauthorizedRef.current = false;
+    launchSessionRef.current = NO_LAUNCH_SESSION;
+    const cleanup = Promise.allSettled([
+      clearCredentials,
+      clearCachedUser(),
+      keepOnboarded ? undefined : clearOnboarded(),
+      localCleanupRef.current.catch(() => {}),
+      clearSignedOutAccount(userId),
+    ]).then((results) => {
+      // Even a credential-store failure must wait for every local cleanup;
+      // otherwise a new login can race a still-running old-account deletion.
+      const credentials = results[0];
+      if (credentials.status === "rejected") throw credentials.reason;
+    });
+    localCleanupRef.current = cleanup;
+    if (accessToken) {
+      // The device's push token goes with the logout, or this account's reminders keep
+      // arriving on a signed-out phone. A failure to read it never holds the logout.
+      const pushToken = import("@/lib/pushNotifications")
+        .then(({ devicePushToken }) => devicePushToken())
+        .catch(() => null);
+      void Promise.all([refreshToken, pushToken])
+        .then(([refresh, push]) => logoutSession(accessToken, refresh, push))
+        .catch(() => {});
+    }
+    return cleanup;
+  }, [setCurrentToken, setCurrentUser]);
+
+  const signOut = useCallback(
+    () => endSession(userRef.current?.id, tokenRef.current),
+    [endSession],
+  );
+
+  /** A launch that could not finish: sign out of the session it read, as Settings would. */
+  const signOutFromLaunch = useCallback(() => {
+    const { userId, accessToken } = launchSessionRef.current;
+    return endSession(userId, accessToken);
+  }, [endSession]);
+
   useEffect(() => {
     mountedRef.current = true;
     const generation = getSessionGeneration();
     let cancelled = false;
     const current = () => !cancelled && isCurrent(generation);
     let hasCachedAccount = false;
+    launchSessionRef.current = NO_LAUNCH_SESSION;
     void (async () => {
       try {
-        const [stored, onb, cachedUser] = await Promise.all([
-          getToken(), getOnboarded(), readCachedUser(),
+        const [read, onb, cachedUser] = await Promise.all([
+          readStoredSession(), getOnboarded(), readCachedUser(),
         ]);
         if (!current()) return;
         setOnboardedState(onb);
+        const stored = read.token;
         const cacheIsThisAccount = Boolean(
           stored && cachedUser && cachedUserMatchesToken(cachedUser, stored),
         );
@@ -134,7 +212,18 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
           void clearCachedUser();
           void ensureLocale("en");
         }
+        if (read.corrupt) {
+          // No retry can read it (it once left "error, Retry" for good, and the
+          // iOS keychain keeps it through a reinstall): clear it with this
+          // phone's account data, and open on sign-in.
+          endSession(cachedUser?.id, null, true).catch(() => {
+            console.warn("[auth] could not clear an unreadable sign-in");
+          });
+          return;
+        }
         if (!stored) return;
+        // Read only to clear this account's local data if its Sign out is pressed.
+        launchSessionRef.current = { userId: tokenSubject(stored) ?? undefined, accessToken: stored };
         if (cachedUser && cacheIsThisAccount) {
           hasCachedAccount = true;
           setCurrentToken(stored);
@@ -164,7 +253,7 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
       }
     })();
     return () => { cancelled = true; mountedRef.current = false; };
-  }, [hydrationAttempt, isCurrent, setCurrentToken, setCurrentUser]);
+  }, [hydrationAttempt, isCurrent, setCurrentToken, setCurrentUser, endSession]);
 
   const restored = !loading || startupFailed;
   useEffect(() => {
@@ -208,46 +297,6 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
     return current() ? loginWithApple(idToken, name, nonce) : null;
   }), [signIn]);
   const signInWithDev = useCallback(() => signIn(() => loginWithDev()), [signIn]);
-
-  const signOut = useCallback(() => {
-    const userId = userRef.current?.id;
-    const accessToken = tokenRef.current;
-    const refreshToken = getRefreshToken().catch(() => null);
-    // clearToken invalidates the shared session synchronously before its disk
-    // write, fencing refreshes, startup requests and pending login attempts.
-    const clearCredentials = clearToken();
-    setCurrentToken(null);
-    setCurrentUser(null);
-    setProfileValidated(false);
-    setOnboardedState(false);
-    setLoading(false);
-    setStartupFailed(false);
-    ignoreUnauthorizedRef.current = false;
-    const cleanup = Promise.allSettled([
-      clearCredentials,
-      clearCachedUser(),
-      clearOnboarded(),
-      localCleanupRef.current.catch(() => {}),
-      clearSignedOutAccount(userId),
-    ]).then((results) => {
-      // Even a credential-store failure must wait for every local cleanup;
-      // otherwise a new login can race a still-running old-account deletion.
-      const credentials = results[0];
-      if (credentials.status === "rejected") throw credentials.reason;
-    });
-    localCleanupRef.current = cleanup;
-    if (accessToken) {
-      // The device's push token goes with the logout, or this account's reminders keep
-      // arriving on a signed-out phone. A failure to read it never holds the logout.
-      const pushToken = import("@/lib/pushNotifications")
-        .then(({ devicePushToken }) => devicePushToken())
-        .catch(() => null);
-      void Promise.all([refreshToken, pushToken])
-        .then(([refresh, push]) => logoutSession(accessToken, refresh, push))
-        .catch(() => {});
-    }
-    return cleanup;
-  }, [setCurrentToken, setCurrentUser]);
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
@@ -389,7 +438,7 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
         <AuthUserReaderContext.Provider value={readUser}>
           <AuthContext.Provider value={value}>
             {loading || startupFailed
-              ? <AuthLoadingShell failed={startupFailed} onRetry={retryStartup} />
+              ? <AuthLoadingShell failed={startupFailed} onRetry={retryStartup} onSignOut={signOutFromLaunch} />
               : children}
           </AuthContext.Provider>
         </AuthUserReaderContext.Provider>

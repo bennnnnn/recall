@@ -130,19 +130,22 @@ export function initMobileSentry(): Promise<void> {
 }
 
 /**
- * A render crash an error boundary kept inside one message. The boundary
- * shows its fallback either way; this only reports it, and only when Sentry is
- * configured (before the SDK is up, it waits in the queue). The component
- * stack names components, never their text.
+ * A render crash an error boundary kept inside one message, one block of a
+ * reply (`fence`) or one screen. The boundary shows its fallback either way;
+ * this only reports it, and only when Sentry is configured (before the SDK is
+ * up, it waits in the queue). The component stack names components, never
+ * their text; `screen` is the route's file path (`memory/[key]`), never its
+ * values.
  */
 export function reportBoundaryError(
-  boundary: "markdown" | "message_row",
+  boundary: "markdown" | "message_row" | "fence" | "screen",
   error: Error,
   componentStack?: string | null,
+  screen?: string,
 ): void {
   report((Sentry) => {
     Sentry.captureException(error, {
-      tags: { boundary },
+      tags: screen ? { boundary, screen } : { boundary },
       contexts: componentStack ? { react: { componentStack } } : undefined,
     });
   });

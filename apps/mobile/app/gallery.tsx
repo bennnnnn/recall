@@ -1,1 +1,1 @@
-export { default } from "@/features/attachments/screens/GalleryScreen";
+export { default, ErrorBoundary } from "@/features/attachments/screens/GalleryScreen";
