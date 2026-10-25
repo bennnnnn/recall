@@ -85,6 +85,7 @@ const SCOPED_TO_SESSION = [
   "features/memory/hooks/useMemoryToggle.ts#pending",
   "features/memory/model/memoryDocumentsCache.ts#resource",
   "features/todos/model/todoMutationState.ts#current",
+  "lib/api/client.ts#lastRefreshed",
   "lib/api/client.ts#refreshInFlight",
   "lib/api/client.ts#revalidated",
   "lib/productAnalytics.ts#waiting",

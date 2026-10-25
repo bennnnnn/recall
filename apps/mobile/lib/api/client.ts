@@ -100,6 +100,20 @@ export async function fetchWithTimeout(url: string, init: RequestInit): Promise<
 
 let refreshInFlight: { generation: number; promise: Promise<string | null> } | null = null;
 
+/**
+ * The access token this sign-in's last refresh returned. A 401 for a token it has
+ * since replaced is sent again with it, not answered with a refresh of its own: on a
+ * busy server the 401s of requests sent together land seconds apart, and each one
+ * after the first refresh finished started another (six 401s, five refreshes).
+ */
+let lastRefreshed: { generation: number; token: string } | null = null;
+
+/** The token this sign-in's last refresh put in place of `token`, if it did. */
+function replacedToken(token: string, generation: number): string | null {
+  const last = lastRefreshed;
+  return last?.generation === generation && last.token !== token ? last.token : null;
+}
+
 /** Share refresh within one session. Only an absent/rejected refresh credential
  * returns null; outages and secure storage failures must not sign the user out.
  * One deadline covers the whole refresh, its body and secure storage included: a
@@ -130,6 +144,7 @@ async function refreshAccessToken(): Promise<string | null> {
     const saved = await setTokenPair(data.access_token, data.refresh_token, generation);
     requireSession(generation);
     if (!saved) throw new SessionChangedError();
+    lastRefreshed = { generation, token: data.access_token };
     onTokenRefresh?.(data.access_token, data.user);
     return data.access_token;
   }, serverUnreachableError);
@@ -326,6 +341,8 @@ export async function requestRaw(
     requireSession(generation);
     requireNotAborted(controller.signal);
     if (response.status === 401 && effectiveToken) {
+      const replaced = allowRefresh ? replacedToken(effectiveToken, generation) : null;
+      if (replaced) return requestRaw(path, replaced, init, true, timeoutMs, retainStreamAbort);
       if (allowRefresh && !refreshAttempted) {
         const refreshed = await untilAborted(refreshAccessToken(), controller.signal);
         requireSession(generation);
@@ -369,6 +386,8 @@ export async function authorizeNativeTransfer(
   const status = await send(effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {});
   requireSession(generation);
   if (status === 401 && effectiveToken) {
+    const replaced = allowRefresh ? replacedToken(effectiveToken, generation) : null;
+    if (replaced) return authorizeNativeTransfer(replaced, send, true);
     if (allowRefresh && !refreshAttempted) {
       const refreshed = await refreshAccessToken();
       requireSession(generation);

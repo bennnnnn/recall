@@ -13,6 +13,8 @@ const mockGetRefreshToken = jest.fn();
 const mockSetTokenPair = jest.fn();
 const mockRequireTokenSession = jest.fn();
 let mockSessionGeneration = 0;
+/** Each test is a sign-in of its own: a refresh one test made is not another's (`lastRefreshed`). */
+let signIns = 0;
 
 jest.mock("@/lib/auth", () => ({
   getSessionGeneration: () => mockSessionGeneration,
@@ -41,7 +43,7 @@ function accessToken(expSeconds: number): string {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockSessionGeneration = 0;
+  mockSessionGeneration = (signIns += 100);
   mockGetRefreshToken.mockResolvedValue("refresh-token");
   mockSetTokenPair.mockResolvedValue(true);
   setUnauthorizedHandler(null);
@@ -83,5 +85,5 @@ it("refreshes an expired token before sending the authenticated request", async 
   expect(mockFetch.mock.calls[1][1]?.headers).toMatchObject({
     Authorization: "Bearer fresh-access",
   });
-  expect(mockSetTokenPair).toHaveBeenCalledWith("fresh-access", "fresh-refresh", 0);
+  expect(mockSetTokenPair).toHaveBeenCalledWith("fresh-access", "fresh-refresh", mockSessionGeneration);
 });
