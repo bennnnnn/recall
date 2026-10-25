@@ -14,7 +14,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useFocusedList } from "@/features/account/hooks/useFocusedList";
 import { api, type AuthSession } from "@/lib/api";
-import { formatClockTime, formatShortWeekdayDate } from "@/lib/datetime/format";
+import { formatDate } from "@/lib/datetime/format";
 import { notifyDestructive } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 
@@ -22,7 +22,7 @@ import { useTheme } from "@/lib/theme";
 function formatSeen(iso: string | null, t: (key: string, options?: Record<string, unknown>) => string): string {
   const date = iso ? new Date(iso) : null;
   if (!date || Number.isNaN(date.getTime())) return t("settings.last_active_unknown");
-  return t("settings.last_active", { when: `${formatShortWeekdayDate(date)} · ${formatClockTime(date)}` });
+  return t("settings.last_active", { when: `${formatDate(date, "weekdayDate")} · ${formatDate(date, "time")}` });
 }
 
 async function readSessions(token: string): Promise<AuthSession[]> {

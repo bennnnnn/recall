@@ -43,7 +43,7 @@ function mockNativeModule(name: string): unknown {
   });
 }
 
-type Logged = { method: string; path: string; status: number };
+type Logged = { method: string; path: string; status: number; at: number };
 const mockLog: Logged[] = [];
 const mockSecure = new Map<string, string>();
 const mockFiles = new Map<string, string>();
@@ -73,7 +73,10 @@ function mockRouteTo(href: unknown) {
 
 jest.mock("expo-router", () => {
   const React = jest.requireActual("react");
+  // The screen on top has focus: the chat screen loses it while another is pushed over it.
+  const Focus = React.createContext(true);
   return {
+    MockFocus: Focus.Provider,
     Redirect: () => null,
     Stack: Object.assign(({ children }: { children?: ReactNode }) => children ?? null, {
       Screen: () => null,
@@ -84,7 +87,10 @@ jest.mock("expo-router", () => {
     useGlobalSearchParams: () => mockParams,
     usePathname: () => "/",
     useSegments: () => [],
-    useFocusEffect: (effect: () => void | (() => void)) => React.useEffect(effect, [effect]),
+    useFocusEffect: (effect: () => void | (() => void)) => {
+      const focused = React.useContext(Focus);
+      React.useEffect(() => (focused ? effect() : undefined), [effect, focused]);
+    },
     Link: ({ children }: { children?: ReactNode }) => children ?? null,
   };
 });
@@ -111,6 +117,8 @@ jest.mock("expo-modules-core", () => {
 });
 
 const mockNetState = { type: "wifi", isConnected: true, isInternetReachable: true, details: { ipAddress: "10.0.0.2" } };
+/** NetInfo's subscribers: a test can move the phone to another network. */
+const mockNetListeners = new Set<(s: unknown) => void>();
 jest.mock("@react-native-community/netinfo", () => ({
   __esModule: true,
   default: {
@@ -118,8 +126,9 @@ jest.mock("@react-native-community/netinfo", () => ({
     fetch: async () => mockNetState,
     refresh: async () => mockNetState,
     addEventListener: (listener: (s: unknown) => void) => {
+      mockNetListeners.add(listener);
       void Promise.resolve().then(() => listener(mockNetState));
-      return () => {};
+      return () => { mockNetListeners.delete(listener); };
     },
   },
 }));
@@ -366,15 +375,15 @@ function installServer(): void {
     const method = (init?.method ?? "GET").toUpperCase();
     // The connection check asks Google only when the API failed: the internet is up.
     if (String(url).includes("generate_204")) {
-      mockLog.push({ method, path: "google/generate_204", status: 204 });
+      mockLog.push({ method, path: "google/generate_204", status: 204, at: Date.now() });
       return new Response(null, { status: 204 });
     }
     if (outage === "down") {
-      mockLog.push({ method, path, status: 0 });
+      mockLog.push({ method, path, status: 0, at: Date.now() });
       throw new TypeError("Network request failed");
     }
     if (outage) {
-      mockLog.push({ method, path, status: outage.status });
+      mockLog.push({ method, path, status: outage.status, at: Date.now() });
       return new Response(JSON.stringify({ detail: "Service temporarily unavailable. Please retry shortly." }), {
         status: outage.status,
         headers: { "content-type": "application/json", "retry-after": outage.retryAfter },
@@ -384,10 +393,10 @@ function installServer(): void {
     const etag = revalidated(method, path) ? `W/"${body.length}:${body.slice(-24)}"` : null;
     const headers = new Headers(init?.headers);
     if (etag && headers.get("If-None-Match") === etag) {
-      mockLog.push({ method, path, status: 304 });
+      mockLog.push({ method, path, status: 304, at: Date.now() });
       return new Response(null, { status: 304, headers: { etag } });
     }
-    mockLog.push({ method, path, status: 200 });
+    mockLog.push({ method, path, status: 200, at: Date.now() });
     return new Response(body, {
       status: 200,
       headers: { "content-type": "application/json", ...(etag ? { etag } : {}) },
@@ -403,7 +412,7 @@ function installServer(): void {
     closed = false;
     constructor(url: string) {
       const refused = outage !== null;
-      mockLog.push({ method: "WS", path: url.replace(/^wss?:\/\/[^/]+/, ""), status: refused ? 0 : 101 });
+      mockLog.push({ method: "WS", path: url.replace(/^wss?:\/\/[^/]+/, ""), status: refused ? 0 : 101, at: Date.now() });
       const handle = { restart: () => this.drop(1012) };
       setTimeout(() => {
         if (this.closed) return;
@@ -439,17 +448,22 @@ afterAll(() => {
   globalThis.WebSocket = realWebSocket;
 });
 
-type Step = { title: string; requests: string[] };
+type Step = { title: string; requests: string[]; sent: Logged[] };
 const steps: Step[] = [];
 let mark = 0;
 function step(title: string): void {
+  const sent = mockLog.slice(mark);
   steps.push({
     title,
-    requests: mockLog.slice(mark).map((r) => `${r.method} ${r.path}${
+    sent,
+    requests: sent.map((r) => `${r.method} ${r.path}${
       r.status === 304 || r.status >= 400 ? ` (${r.status})` : r.status === 0 ? " (refused)" : ""}`),
   });
   mark = mockLog.length;
 }
+
+/** Each change of the connection status the banner shows, and when. */
+const statusChanges: { status: string; at: number }[] = [];
 
 type Rtl = typeof import("@testing-library/react-native");
 let rtl: Rtl;
@@ -487,7 +501,7 @@ async function launch(): Promise<App> {
   process.env.RNTL_SKIP_AUTO_CLEANUP = "true";
   rtl = await import("@testing-library/react-native");
   jest.setSystemTime(clock);
-  const [{ AuthProvider }, { ModelsProvider }, { TodosProvider }, { NetworkProvider }, { PushNotificationBootstrap }] =
+  const [{ AuthProvider }, { ModelsProvider }, { TodosProvider }, { NetworkProvider, useNetwork }, { PushNotificationBootstrap }] =
     await Promise.all([
       import("@/contexts/AuthContext"),
       import("@/contexts/ModelsContext"),
@@ -495,9 +509,19 @@ async function launch(): Promise<App> {
       import("@/contexts/NetworkContext"),
       import("@/features/todos/components/PushNotificationBootstrap"),
     ]);
+  const { useEffect } = await import("react");
+  const { MockFocus } = (await import("expo-router")) as unknown as {
+    MockFocus: (props: { value: boolean; children: ReactNode }) => ReactNode;
+  };
+  const StatusClock = () => {
+    const { status } = useNetwork();
+    useEffect(() => { statusChanges.push({ status, at: Date.now() }); }, [status]);
+    return null;
+  };
   const ChatScreen = (await import("@/features/chat/screens/ChatScreen")).default;
   const routes: Record<string, () => ReactNode> = {
     memory: (await import("@/features/memory/screens/MemoryScreen")).default,
+    memoryPage: (await import("@/features/memory/screens/MemoryDocumentScreen")).default,
     todos: (await import("@/features/todos/screens/TodosScreen")).default,
     gallery: (await import("@/features/attachments/screens/GalleryScreen")).default,
     settings: (await import("@/features/account/screens/SettingsScreen")).default,
@@ -523,8 +547,11 @@ async function launch(): Promise<App> {
         <ModelsProvider>
           <TodosProvider>
             <NetworkProvider>
+              <StatusClock />
               <PushNotificationBootstrap />
-              <ChatScreen />
+              <MockFocus value={!Top}>
+                <ChatScreen />
+              </MockFocus>
               {Top ? <Top /> : null}
             </NetworkProvider>
           </TodosProvider>
@@ -757,9 +784,10 @@ const OUTAGE_CEILINGS: Record<string, number> = {
   // Back: the next read finds the saved reply, then the full page.
   "the 30 s after, the API back": 2,
   "a minute in the background": 0,
-  // The return's reads (to-dos, the chat, the socket) fail once and are not retried; the
-  // connection check backs off (1.5 s, 3 s, 6 s, 12 s, 24 s), each asking Google whether it is the API.
-  "return while the API is down 30 s, then 30 s": 14,
+  // The return's reads (to-dos, the chat, the socket) fail once; the connection check backs off
+  // (1.5 s, 3 s, 6 s, 12 s, 24 s), each asking Google whether it is the API. Once it passes, the
+  // page on screen is read again, 0 to 10 s later.
+  "return while the API is down 30 s, then 30 s": 15,
   // One socket try, then the send over SSE, refused: the phone says so and stops.
   "send while the API answers 503": 2,
   "a minute after the outage": 0,
@@ -829,4 +857,169 @@ it("keeps a server outage within its requests, with nothing in a loop", async ()
   step("a minute after the outage");
 
   expectWithin(OUTAGE_CEILINGS);
+});
+
+const CHAT_1_PAGE = `GET /chats/${chatId(1)}/messages?limit=40`;
+
+/**
+ * Where the user is when the API comes back, and the read of the list on screen then (null:
+ * no list is on screen). Each case is undone by the next one's `show`, which then waits out the
+ * stale window: a list read moments before the outage is not read again.
+ */
+type RecoveryCase = { title: string; show: (app: App) => Promise<void>; read: RegExp | null };
+
+async function showOnly(app: App, route: string | null, params: Record<string, string> = {}): Promise<void> {
+  const { closeDrawer } = await import("@/features/chat/drawer/drawer");
+  await rtl.act(async () => { closeDrawer(); });
+  mockParams = { chatId: chatId(1), ...params };
+  await app.show(route);
+  await settle(20_000);
+}
+
+const RECOVERY_CASES: RecoveryCase[] = [
+  { title: "the open chat", show: (app) => showOnly(app, null), read: /^GET \/chats\/[^/]+\/messages\?limit=40\b/ },
+  {
+    title: "the drawer open over the chat",
+    show: async (app) => {
+      await showOnly(app, null);
+      const { openDrawer } = await import("@/features/chat/drawer/drawer");
+      await rtl.act(async () => { openDrawer(); });
+      await settle(20_000);
+    },
+    read: /^GET \/chats(?: \(304\))?$/,
+  },
+  { title: "the to-do list", show: (app) => showOnly(app, "todos"), read: /^GET \/todos\/page\b/ },
+  { title: "the memory list", show: (app) => showOnly(app, "memory"), read: /^GET \/memories\/documents$/ },
+  {
+    title: "a memory page",
+    show: (app) => showOnly(app, "memoryPage", { key: "profile" }),
+    read: /^GET \/memories\/documents$/,
+  },
+  { title: "the library", show: (app) => showOnly(app, "gallery"), read: /^GET \/attachments\b/ },
+  { title: "settings, no list", show: (app) => showOnly(app, "settings"), read: null },
+  {
+    title: "a new chat, no list",
+    show: async (app) => {
+      await showOnly(app, null);
+      mockParams = {};
+      await app.rerender();
+      await settle(20_000);
+    },
+    read: null,
+  },
+];
+
+/** The API refuses a return from the background: the return's reads fail and the banner shows. */
+async function returnIntoOutage(): Promise<void> {
+  await appState("background");
+  await settle(1000);
+  outage = "down";
+  await appState("active");
+  await settle(5000);
+}
+
+/** Until the connection check passes and the banner clears; the read after it is still waiting. */
+async function untilBannerClears(): Promise<void> {
+  for (let waited = 0; statusChanges[statusChanges.length - 1]?.status !== "online"; waited += 50) {
+    if (waited > 60_000) throw new Error("the banner never cleared");
+    await settle(50);
+  }
+}
+
+/** Each list's read in a step: the to-dos, the open chat, the drawer, memory and the library. */
+function listReads(requests: string[]): string[] {
+  return requests.filter((r) => /^GET \/(todos\/page|chats\/[^/]+\/messages|chats\b(?!\/)|memories|attachments\?)/.test(r));
+}
+
+it("reads the list on screen again once, 0 to 10 s after an outage ends, and nothing else", async () => {
+  steps.length = 0;
+  mockSecure.clear();
+  mockFiles.clear();
+  mockSecure.set("recall_session_v1", JSON.stringify({ accessToken: accessToken(NOW_S + 3600), refreshToken: "r" }));
+  mockFiles.set("file:///cache/cached-user.json", JSON.stringify({
+    id: USER_ID, name: "Ann", avatar_url: null, plan: "free", ai_data_consent_at: NOW, locale: "en",
+  }));
+  mockParams = {};
+  const app = await launch();
+  await settle(10_000);
+  await openChat(app, 1);
+  mark = mockLog.length;
+
+  const reads: { title: string; requests: string[] }[] = [];
+  const wanted: typeof reads = [];
+  /** How long after the banner cleared each list was read again. */
+  const landed: Record<string, number> = {};
+  for (const { title, show, read } of RECOVERY_CASES) {
+    await show(app);
+    mark = mockLog.length;
+    await returnIntoOutage();
+    step(`${title}: a return while the API is down`);
+    outage = null;
+    await settle(25_000);
+    step(`${title}: the API back`);
+    const back = steps[steps.length - 1];
+    // Past the connection check that clears the banner: the list on screen, once.
+    reads.push({ title, requests: back.requests.filter((r) => r !== "GET /health") });
+    wanted.push({ title, requests: read ? [expect.stringMatching(read)] : [] });
+    const reread = read && back.sent.find((r) => read.test(`${r.method} ${r.path}`));
+    if (reread) {
+      const cleared = statusChanges.filter((c) => c.status === "online" && c.at <= reread.at);
+      landed[title] = reread.at - cleared[cleared.length - 1].at;
+    }
+  }
+  if (process.env.CENSUS) console.log(steps.map((s) => `${s.title}\n  ${s.requests.join("\n  ")}`).join("\n"), landed);
+  expect(reads).toEqual(wanted);
+  for (const after of Object.values(landed)) {
+    expect(after).toBeGreaterThanOrEqual(0);
+    expect(after).toBeLessThan(10_000);
+  }
+
+  // The screen left as the API came back: its read is called off, and the chat under it has none.
+  await RECOVERY_CASES[2].show(app);
+  await returnIntoOutage();
+  outage = null;
+  mark = mockLog.length;
+  await untilBannerClears();
+  await app.show(null);
+  await settle(15_000);
+  step("the to-do list left as the API came back");
+  expect(listReads(steps[steps.length - 1].requests)).toEqual([]);
+
+  // The connection lost again during the wait (a move to another network finds the API down):
+  // nothing is read; once the API is back, the list on screen is read once.
+  await RECOVERY_CASES[2].show(app);
+  await returnIntoOutage();
+  outage = null;
+  mark = mockLog.length;
+  await untilBannerClears();
+  outage = "down";
+  await rtl.act(async () => {
+    for (const listener of [...mockNetListeners]) listener({ ...mockNetState, type: "cellular", details: null });
+  });
+  await settle(15_000);
+  step("the to-do list, the API gone again during the wait");
+  expect(listReads(steps[steps.length - 1].requests)).toEqual([]);
+  expect(statusChanges[statusChanges.length - 1].status).toBe("api_unreachable");
+  outage = null;
+  await settle(40_000);
+  step("the to-do list, the API back again");
+  expect(listReads(steps[steps.length - 1].requests)).toEqual([expect.stringMatching(/^GET \/todos\/page\b/)]);
+
+  // The outage ends while the app is in the background: nothing is read then, and the return
+  // reads what any return does (to-dos, the models, the open chat, the check, the socket): the
+  // chat once, the read the API's return asks for falling within its stale window.
+  await RECOVERY_CASES[0].show(app);
+  await returnIntoOutage();
+  mark = mockLog.length;
+  await appState("background");
+  outage = null;
+  await settle(60_000);
+  step("the API back while the app is in the background");
+  expect(steps[steps.length - 1].requests).toEqual([]);
+  await appState("active");
+  await settle(15_000);
+  step("the return after it");
+  const back = steps[steps.length - 1].requests;
+  expect(back.filter((r) => r.startsWith(CHAT_1_PAGE))).toHaveLength(1);
+  expect(back.length).toBeLessThanOrEqual(CEILINGS["return after 10 minutes"]);
 });

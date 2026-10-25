@@ -3,6 +3,8 @@
  * Months are 0-based like `Date`. Days compare by calendar date, never time.
  */
 
+import { formatDate } from "@/lib/datetime/format";
+
 type Locale = string | string[] | undefined;
 
 /** 0 = Sunday … 6 = Saturday, like `Date.getDay()`. */
@@ -129,44 +131,17 @@ export function firstDayOfWeek(locale?: Locale): Weekday {
 }
 
 /** One letter and the full name for each weekday column, starting on `weekStart`. */
-export function weekdayLabels(
-  weekStart: Weekday,
-  locale?: Locale,
-): { narrow: string; long: string }[] {
-  const narrow = safeFormatter(locale, { weekday: "narrow" });
-  const long = safeFormatter(locale, { weekday: "long" });
+export function weekdayLabels(weekStart: Weekday): { narrow: string; long: string }[] {
   const labels: { narrow: string; long: string }[] = [];
   for (let i = 0; i < 7; i++) {
     // 2023-01-01 was a Sunday.
     const date = new Date(2023, 0, 1 + ((weekStart + i) % 7));
-    labels.push({ narrow: narrow(date), long: long(date) });
+    labels.push({ narrow: formatDate(date, "narrowWeekday"), long: formatDate(date, "longWeekday") });
   }
   return labels;
 }
 
 /** "September 2026". */
-export function monthYearLabel(at: YearMonth, locale?: Locale): string {
-  return safeFormatter(locale, { month: "long", year: "numeric" })(new Date(at.year, at.month, 1));
-}
-
-/** "Sat, Sep 26" — the picker's headline. */
-export function headlineDateLabel(date: Date, locale?: Locale): string {
-  return safeFormatter(locale, { weekday: "short", month: "short", day: "numeric" })(date);
-}
-
-/** "Saturday, September 26, 2026" — what a screen reader says for a day cell. */
-export function fullDateLabel(date: Date, locale?: Locale): string {
-  return safeFormatter(locale, { weekday: "long", month: "long", day: "numeric", year: "numeric" })(date);
-}
-
-function safeFormatter(
-  locale: Locale,
-  options: Intl.DateTimeFormatOptions,
-): (date: Date) => string {
-  try {
-    const format = new Intl.DateTimeFormat(locale, options);
-    return (date) => format.format(date);
-  } catch {
-    return (date) => date.toDateString();
-  }
+export function monthYearLabel(at: YearMonth): string {
+  return formatDate(new Date(at.year, at.month, 1), "monthYear");
 }

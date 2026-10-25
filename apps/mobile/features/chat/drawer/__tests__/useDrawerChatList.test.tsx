@@ -15,6 +15,8 @@ jest.mock("@/lib/auth", () => ({
   SessionChangedError: class SessionChangedError extends Error {},
 }));
 jest.mock("@/lib/api", () => ({ api: { listChats: jest.fn(), listOlderChats: jest.fn() } }));
+// The read after an outage needs the screen's focus (requestCensus covers it).
+jest.mock("expo-router", () => ({ useFocusEffect: () => undefined }));
 jest.mock("@/features/chat/model/chatListFile", () => ({
   readStoredChatList: jest.fn(async () => null),
   writeStoredChatList: jest.fn(async () => undefined),

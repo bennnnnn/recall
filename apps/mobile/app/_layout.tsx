@@ -21,6 +21,7 @@ import { DialogHost } from "@/ui/overlay/DialogHost";
 import { preloadSimulationSizing } from "@/components/rich/LazyHeavyRich";
 import { useLaunchFonts } from "@/hooks/useLaunchFonts";
 import { sweepOldPickerCopies } from "@/lib/accountFiles";
+import { watchPhoneClock } from "@/lib/datetime/phoneClockSync";
 import { restoreLaunchPrefs } from "@/lib/launchPrefs";
 import { markLaunchReady } from "@/lib/launchSplash";
 import { useReduceMotion } from "@/lib/reduceMotion";
@@ -104,6 +105,9 @@ function RootNavigator() {
 
 export default function RootLayout() {
   const fontsReady = useLaunchFonts();
+
+  // Dates follow the phone's zone and 12/24-hour setting as they change.
+  useEffect(() => watchPhoneClock(), []);
 
   // Work for later in the session, once the launch has settled.
   useEffect(() => {

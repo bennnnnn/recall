@@ -57,7 +57,9 @@ that wrote it. An open chat's settled thread is kept by `features/chat/model/mes
 (memory at once, the file when idle) so the next open paints it, and a reopen within the stale
 window skips the read. Send works on that painted page; a turn sent before the chat's page lands
 waits for it (`whenOpenedPageSettled`, `features/chat/model/openedPage.ts`), so the page never
-holds the new turn.
+holds the new turn. A screen showing a list reads it again once the API answers after an outage
+with `useReconnectRefresh(refresh)` (`hooks/useReconnectRefresh.ts`): its usual read, a random
+0–10 s later, only while it has focus.
 
 A module-level value that components read with `useSyncExternalStore` is a
 `createValueStore` (or `createListenerSet` for plain notifications) from `lib/listenerSet.ts`.

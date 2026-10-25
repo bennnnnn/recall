@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Message } from "@/lib/api";
 import { NothingToExportError } from "@/features/chat/model/nothingToExport";
 import { conversationTranscript } from "@/features/chat/model/transcript";
-import { formatMonthDayYear } from "@/lib/datetime/format";
+import { formatDate } from "@/lib/datetime/format";
 import { ShareSheet } from "@/ui/share/ShareSheet";
 import { useLatestRef } from "@/lib/latestRef";
 
@@ -49,7 +49,7 @@ export function ChatShareSheet({ visible, onClose, title, loadMessages }: Props)
       note={t("share.chat_note")}
       preview={{
         title: shownTitle,
-        meta: `${t("app.name")} · ${formatMonthDayYear(new Date())}`,
+        meta: `${t("app.name")} · ${formatDate(new Date(), "monthDayYear")}`,
         image: APP_ICON,
       }}
       load={async () => conversationTranscript(title, await getMessages())}
