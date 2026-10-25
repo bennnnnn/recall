@@ -11,11 +11,7 @@ import { ApiRequestError } from "@/lib/api/client";
 import { getSessionGeneration } from "@/lib/auth";
 import { getCachedChat, getFetchedChat } from "@/features/chat/model/chatListCache";
 import { onAppStateChange } from "@/lib/foregroundRefresh";
-import {
-  shouldForceForegroundChatRecovery,
-  shouldRefetchChatOnForeground,
-  shouldSkipSilentChatRefetch,
-} from "@/features/chat/model/foregroundRefetch";
+import { shouldForceForegroundChatRecovery, shouldRefetchChatOnForeground } from "@/features/chat/model/foregroundRefetch";
 import {
   cachedChatPageFetchedAt,
   clearCachedChatMessages,
@@ -23,10 +19,12 @@ import {
   markCachedChatPagesStale,
   peekCachedChatPage,
   readCachedChatMessages,
+  shouldSkipChatPageRead,
   type CachedChatPage,
 } from "@/features/chat/model/messageCache";
 import { mergeLocalAttachmentUris, mergeOpenedPage, paintCachedThread, addedSincePaint } from "@/features/chat/model/messageMerge";
 import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
+import { noteChatPageRead } from "@/features/chat/model/pageReads";
 import { beginOpenedPageRead, type OpenedPageRead } from "@/features/chat/model/openedPage";
 import {
   chatHasThreadContent,
@@ -147,7 +145,6 @@ export function useChatRouteLoader({
   }, []);
 
   const priorRouteChatIdRef = useRef<string | null>(null);
-  const lastSilentFetchAtRef = useRef<Map<string, number>>(new Map());
   const wasStreamingWhenBackgroundedRef = useRef(false);
   // AppState closures must read the latest streaming/loading flags — deps alone
   // would leave a stale "still streaming" view after ws.onclose commits a partial.
@@ -231,28 +228,8 @@ export function useChatRouteLoader({
       const stale = () =>
         cancelled() || ownerSession !== getSessionGeneration() || version !== viewRef.current.version ||
         turnBusy() || messagesRef.current !== previousMessages;
-      if (
-        shouldSkipSilentChatRefetch({
-          lastFetchedAt: lastSilentFetchAtRef.current.get(openChatId),
-          force: opts?.force,
-        })
-      ) {
-        return;
-      }
-      const disk = peekCachedChatPage(openChatId) ?? await readCachedChatMessages(openChatId);
+      if (await shouldSkipChatPageRead(openChatId, opts?.force)) return;
       if (stale()) return;
-      if (
-        shouldSkipSilentChatRefetch({
-          lastFetchedAt: cachedChatPageFetchedAt(disk),
-          force: opts?.force,
-        })
-      ) {
-        lastSilentFetchAtRef.current.set(
-          openChatId,
-          cachedChatPageFetchedAt(disk) ?? Date.now(),
-        );
-        return;
-      }
       try {
         const revision = getChatMutationRevision(openChatId);
         const [chat, page] = await Promise.all([
@@ -265,7 +242,7 @@ export function useChatRouteLoader({
         setMessages((prev) => mergeLocalAttachmentUris(prev, page.messages));
         setHasMoreOlder(page.has_more);
         const fetchedAt = Date.now();
-        lastSilentFetchAtRef.current.set(openChatId, fetchedAt);
+        noteChatPageRead(openChatId, fetchedAt);
         setPageSync({ chatId: openChatId, fetchedAt });
       } catch {
         /* keep existing messages on silent refetch failure */
@@ -379,7 +356,7 @@ export function useChatRouteLoader({
         setChatId(openChatId);
         setChatLoading(false);
         // The chat this view just created holds nothing but what it shows.
-        lastSilentFetchAtRef.current.set(openChatId, Date.now());
+        noteChatPageRead(openChatId);
         setPageSync({ chatId: openChatId, fetchedAt: Date.now() });
         return;
       }
@@ -400,7 +377,7 @@ export function useChatRouteLoader({
         // This device wrote the page moments ago and nothing suggests the chat moved on.
         showCachedPage(kept, listed);
         const fetchedAt = cachedChatPageFetchedAt(kept) ?? Date.now();
-        lastSilentFetchAtRef.current.set(openChatId, fetchedAt);
+        noteChatPageRead(openChatId, fetchedAt);
         setPageSync({ chatId: openChatId, fetchedAt });
         setChatLoading(false);
         if (!listed.title && kept.messages.length > 0) pollForTitle(token, openChatId);
@@ -434,7 +411,7 @@ export function useChatRouteLoader({
           setMessages((prev) => mergeOpenedPage(prev, page.messages, painted));
           setHasMoreOlder(page.has_more);
           const fetchedAt = Date.now();
-          lastSilentFetchAtRef.current.set(openChatId, fetchedAt);
+          noteChatPageRead(openChatId, fetchedAt);
           setPageSync({ chatId: openChatId, fetchedAt });
         } else setPageSync({ chatId: openChatId, fetchedAt: null });
         if (currentChat && !currentChat.title && page.messages.length > 0) {

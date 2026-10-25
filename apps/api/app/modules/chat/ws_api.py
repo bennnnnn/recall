@@ -126,8 +126,11 @@ def _client_geo_kwargs(
     *,
     client_timezone: str | None,
 ) -> dict[str, Any]:
+    """Where the phone is for this turn. Its zone is the one the turn's frame names,
+    since the phone can change zone while the socket stays open (a flight, Settings);
+    a frame without one (an older phone) keeps the zone of the auth frame."""
     return {
-        "client_timezone": client_timezone,
+        "client_timezone": request.client_timezone or client_timezone,
         "client_location": request.client_location,
         "client_latitude": request.client_latitude,
         "client_longitude": request.client_longitude,

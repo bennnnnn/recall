@@ -114,6 +114,8 @@ host that keeps the process alive — not a serverless function platform. A Dock
    matches `uv run alembic heads`.
 4. **Health:** `GET /health` is liveness. `GET /health/ready` is Postgres
    (Redis may be `degraded` without 503 — do not drain the fleet on an Upstash blip).
+   `GET /health/dependencies` is 503 when Postgres or Redis is down; the phone's
+   connection check reads it, Fly's checks do not.
 5. **RevenueCat:** set the webhook URL to `https://<api>/webhooks/revenuecat`
    with the `Authorization` header = your `REVENUECAT_WEBHOOK_AUTH`.
 6. **Process split:** `fly.toml` runs migrations + uvicorn on the `app` process and

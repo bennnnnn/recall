@@ -291,12 +291,26 @@ describe("the way back from a screen's error view", () => {
     expect(screen.getByRole("button", { name: "common.try_again" })).toBeTruthy();
   });
 
-  it("opened with nothing under it (a link at launch), has none", async () => {
-    await renderRouter({ _layout: ROOT_LAYOUT, index: ChatScreen, ...SECTION }, { initialUrl: "/settings" });
-    failing = true;
-    await act(async () => router.setParams({ x: "1" }));
+  /** app/memory/_layout.tsx: a crash takes the page's header with the stack. */
+  const MEMORY = {
+    "memory/_layout": { default: () => <Stack />, ErrorBoundary: ScreenErrorBoundary },
+    "memory/[key]": ProfilePage,
+  };
 
-    expect(screen.getByText("common.screen_error_title")).toBeTruthy();
-    expect(back()).toBeNull();
-  });
+  it.each(["/settings", "/settings/profile", "/memory/notes"])(
+    "opened with nothing under it (%s from a link at launch), has a Back to the chat",
+    async (path) => {
+      await renderRouter({ _layout: ROOT_LAYOUT, index: ChatScreen, ...SECTION, ...MEMORY }, { initialUrl: path });
+      failing = true;
+      await act(async () => router.setParams({ x: "1" }));
+      expect(screen.getByText("common.screen_error_title")).toBeTruthy();
+      expect(screen.queryByText("chat screen", { includeHiddenElements: true })).toBeNull();
+      expect(back()).toBeTruthy();
+
+      await fireEvent.press(back()!);
+
+      expect(screen.getByText("chat screen")).toBeTruthy();
+      expect(screen.queryByText("common.screen_error_title", { includeHiddenElements: true })).toBeNull();
+    },
+  );
 });

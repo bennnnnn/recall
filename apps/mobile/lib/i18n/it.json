@@ -1032,6 +1032,7 @@
   "todos.error_toggle": "Impossibile aggiornare",
   "todos.overdue_days": "{{count}}g di ritardo",
   "todos.overdue_today": "Scaduto oggi",
+  "todos.row_overdue": "scaduta",
   "todos.day_clash_many": "{{names}} sono tutti alle {{time}}",
   "todos.day_clash_pair": "{{first}} e {{second}} sono entrambi alle {{time}}",
   "todos.overlap_inline": "Stessa ora di \"{{title}}\"",

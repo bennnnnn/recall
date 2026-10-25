@@ -357,6 +357,35 @@ def test_ws_passes_client_timezone_to_stream():
             assert ws.receive_json()["type"] == "done"
 
 
+@pytest.mark.parametrize(
+    ("frame_zone", "expected"),
+    [("Europe/London", "Europe/London"), (None, "America/New_York")],
+)
+def test_ws_turn_reads_the_zone_its_frame_names(frame_zone, expected):
+    """A phone whose zone changes while its socket stays open (a flight, Settings)
+    names the new one on each turn; a frame without one (an older phone) keeps the
+    zone the socket authenticated with."""
+    _, tok = _token()
+    user = _fake_user()
+    seen: list[str | None] = []
+
+    async def fake_stream(*args, **kwargs):
+        seen.append(kwargs.get("client_timezone"))
+        yield "ok"
+
+    frame = {"type": "message", "content": "what time is it?"}
+    if frame_zone is not None:
+        frame["client_timezone"] = frame_zone
+    with signed_in(user.id), ws_streams(fake_stream):
+        client = TestClient(_app(user))
+        with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+            ws.send_json({"token": tok, "client_timezone": "America/New_York"})
+            ws.send_json(frame)
+            events = [ws.receive_json()["type"] for _ in range(4)]
+    assert events == ["start", "token", "stream_end", "done"]
+    assert seen == [expected]
+
+
 def test_ws_empty_message_sends_error_frame():
     """An empty text-only message must produce a visible error frame at the
     WS layer immediately, not be silently ignored or dropped mid-stream —
@@ -418,6 +447,8 @@ def test_ws_regenerate_passes_client_geo():
         assert kwargs.get("client_location") == "San Francisco, CA"
         assert kwargs.get("client_latitude") == 37.77
         assert kwargs.get("client_longitude") == -122.42
+        # The frame's zone, not the one the socket authenticated with.
+        assert kwargs.get("client_timezone") == "America/Los_Angeles"
         yield "nearby"
 
     app = _app(user)
@@ -428,10 +459,11 @@ def test_ws_regenerate_passes_client_geo():
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
-            ws.send_json({"token": tok})
+            ws.send_json({"token": tok, "client_timezone": "America/New_York"})
             ws.send_json(
                 {
                     "type": "regenerate",
+                    "client_timezone": "America/Los_Angeles",
                     "client_location": "San Francisco, CA",
                     "client_latitude": 37.77,
                     "client_longitude": -122.42,

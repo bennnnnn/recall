@@ -98,8 +98,12 @@ export function makeTodosStyles(C: Theme) {
     },
     todoTimeToday: { color: C.primary },
     todoTimeOverdue: { color: C.danger },
-    /** On a lit row's primaryLight; the danger mark beside it still says overdue. */
-    todoTimeOverdueLit: { color: C.text },
+    /**
+     * Grey and danger ink on a lit row's primaryLight, which carries text and primary ink
+     * (accent.test): textSecondary is under 4.5:1 there in dark sapphire, orchid, berry and
+     * graphite. An overdue time keeps the danger mark beside it.
+     */
+    todoInkLit: { color: C.text },
     todoTimeLater: { color: C.textSecondary },
     overlapNote: {
       flexDirection: "row",

@@ -1,5 +1,5 @@
 import { AA, compositeOver, contrastRatio } from "@/lib/__tests__/support/contrast";
-import { darkTheme, lightTheme, withAlpha } from "@/lib/theme";
+import { darkTheme, lightTheme } from "@/lib/theme";
 
 describe("semantic text contrast", () => {
   it.each([
@@ -94,14 +94,12 @@ describe("semantic text contrast", () => {
     ).toBeGreaterThanOrEqual(AA);
   });
 
-  // Home's overdue reminder: its due time in warning on a 12% warning tint over the page.
+  // Home's overdue card (its due time) and the to-do editor's same-time note: danger on dangerLight.
   it.each([
     ["light", lightTheme],
     ["dark", darkTheme],
-  ] as const)("%s warning is AA on its own tint", (_name, theme) => {
-    expect(
-      contrastRatio(theme.warning, compositeOver(withAlpha(theme.warning, 0.12), theme.bg)),
-    ).toBeGreaterThanOrEqual(AA);
+  ] as const)("%s danger is AA on its own well", (_name, theme) => {
+    expect(contrastRatio(theme.danger, theme.dangerLight)).toBeGreaterThanOrEqual(AA);
   });
 
   it("textDisabled may sit below AA (placeholders / decoration only)", () => {

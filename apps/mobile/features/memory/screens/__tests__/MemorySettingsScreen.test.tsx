@@ -1,5 +1,6 @@
 import { act, render } from "@testing-library/react-native";
 import MemorySettingsScreen from "@/features/memory/screens/MemorySettingsScreen";
+import { reportReconnected } from "@/lib/reconnectRefresh";
 
 let mockSession = 1;
 let mockToken: string | null = "token-a";
@@ -147,4 +148,25 @@ it("updates the displayed count when a pending deletion rolls back after navigat
   expect(mockLink.value).toBeUndefined();
   await act(() => { mockCached = [{}]; mockCacheListeners.forEach((notify) => notify()); });
   expect(mockLink.value).toBe("1 saved");
+});
+
+it("reads the count again once the API answers after an outage, only while the page has focus", async () => {
+  jest.useFakeTimers();
+  try {
+    const ui = await render(<MemorySettingsScreen />);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const apiBack = () => act(async () => {
+      reportReconnected();
+      await jest.advanceTimersByTimeAsync(10_000);
+    });
+    await apiBack();
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch).toHaveBeenLastCalledWith("token-a", { force: false });
+    mockFocused = false;
+    await ui.rerender(<MemorySettingsScreen />);
+    await apiBack();
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  } finally {
+    jest.useRealTimers();
+  }
 });
