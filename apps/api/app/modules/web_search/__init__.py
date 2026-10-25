@@ -43,6 +43,9 @@ if TYPE_CHECKING:
     from app.modules.web_search.query_builders import (
         build_search_queries,
     )
+    from app.modules.web_search.recency import (
+        wants_dated_results,
+    )
     from app.modules.web_search.search_cache import (
         TurnTavilyBudget,
         run_cached_search,
@@ -88,6 +91,7 @@ _EXPORTS = {
     "strip_sources_from_text": "formatting",
     "web_search_fast_yes": "detection",
     "web_search_skip": "detection",
+    "wants_dated_results": "recency",
 }
 
 __all__ = [
@@ -119,6 +123,7 @@ __all__ = [
     "sources_payload",
     "strip_duplicate_venue_list",
     "strip_sources_from_text",
+    "wants_dated_results",
     "web_search_fast_yes",
     "web_search_skip",
 ]

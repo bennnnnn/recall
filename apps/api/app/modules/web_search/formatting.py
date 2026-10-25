@@ -12,7 +12,12 @@ from app.modules.web_search.patterns import (
     _NUMBERED_VENUE_LINE,
     _PRICE_RE,
 )
-from app.modules.web_search.source_dates import local_today, mark_dates, stale_note
+from app.modules.web_search.source_dates import (
+    local_today,
+    mark_dates,
+    published_note,
+    stale_note,
+)
 from app.modules.web_search.source_tables import flowed_snippet
 from app.services.md_fence_scan import (
     iter_fences,
@@ -100,7 +105,7 @@ def format_search_block(
     today = local_today(user_timezone)
     for index, hit in enumerate(hits, start=1):
         snippet = flowed_snippet(mark_dates(hit.snippet, today), indent="   ")
-        note = stale_note(hit.snippet, today)
+        note = published_note(hit.published, today, user_timezone) + stale_note(hit.snippet, today)
         lines.append(f"{index}. {hit.title} ({hit.url}) — {note}{snippet}")
     if local_places:
         seed = places_payload_from_hits(hits)

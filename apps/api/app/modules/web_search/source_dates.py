@@ -204,3 +204,29 @@ def mark_dates(text: str, today: date) -> str:
     for end, mark in reversed(marks):
         text = text[:end] + mark + text[end:]
     return text
+
+
+def published_day(published: str, timezone: str | None) -> date | None:
+    """The user's own day a page was published, from ``WebSearchHit.published``."""
+    try:
+        moment = datetime.fromisoformat(published)
+    except ValueError:
+        return None
+    if moment.tzinfo is None:
+        return moment.date()
+    return moment.astimezone(resolve_timezone(timezone)).date()
+
+
+def published_note(published: str, today: date, timezone: str | None) -> str:
+    """The note a hit starts with when its page says when it was published.
+
+    "The 2026 World Series continues on Saturday with Game 2" means the Saturday after
+    the day it was written: with the weekday, the model can tell which one it was. The day
+    is the user's: a recap posted at 03:30 GMT on the 25th is the 24th in Los Angeles.
+    """
+    day = published_day(published, timezone)
+    if day is None:
+        return ""
+    month = _MONTH_NAMES[day.month - 1]
+    ago = _ago((today - day).days)
+    return f"[Published {day.strftime('%A')}, {month} {day.day}, {day.year} ({ago}).] "

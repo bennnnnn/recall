@@ -20,6 +20,7 @@ from app.modules.web_search import (
     format_search_empty_block,
     run_cached_search,
     search_queries_for_turn,
+    wants_dated_results,
 )
 
 logger = logging.getLogger(__name__)
@@ -135,12 +136,16 @@ async def _search_targets(
         first = query_lists[0][0] if query_lists[0] else targets[0]
         await on_status("searching", clip_status_detail(first))
     if len(targets) == 1:
+        found = query_lists[0] or targets
         return await run_cached_search(
             settings,
-            query_lists[0] or targets,
+            found,
             user=ctx.user,
             redis=ctx.redis,
             budget=ctx.tavily_budget,
+            # The user's own words decide: a rewritten query ("… near Austin, Texas")
+            # no longer says it was a search for places near them.
+            dated=wants_dated_results(targets[0]),
         )
     queries = [
         found[0] if found else target for found, target in zip(query_lists, targets, strict=True)
@@ -148,9 +153,14 @@ async def _search_targets(
     results = await gather_or_cancel(
         *(
             run_cached_search(
-                settings, [query], user=ctx.user, redis=ctx.redis, budget=ctx.tavily_budget
+                settings,
+                [query],
+                user=ctx.user,
+                redis=ctx.redis,
+                budget=ctx.tavily_budget,
+                dated=wants_dated_results(target),
             )
-            for query in queries
+            for query, target in zip(queries, targets, strict=True)
         )
     )
     return _interleave([hits for hits, _tried in results], settings), queries
@@ -167,4 +177,6 @@ def _interleave(per_target: list[list[WebSearchHit]], settings: Settings) -> lis
                 continue
             seen.add(key)
             merged.append(hit)
-    return merged[: max(limit, len(per_target))]
+    # A dated search's news pages come on top of the general results, never in their place.
+    dated = sum(1 for hit in merged if hit.published)
+    return merged[: max(limit + dated, len(per_target))]

@@ -108,14 +108,17 @@ def _blob_has_date_marker(blob: str, marker: str) -> bool:
 
 
 def filter_hits_to_today(hits: list[WebSearchHit], user_timezone: str | None) -> list[WebSearchHit]:
-    """Keep only current-news hits that explicitly name today's local date."""
+    """Keep only current-news hits that name today's local date or were published today."""
+    from app.modules.web_search.source_dates import published_day
+
     tz = time_context_service.resolve_timezone(user_timezone)
     now = datetime.now(tz)
     markers = _today_date_markers(now)
     return [
         hit
         for hit in hits
-        if any(
+        if published_day(hit.published, user_timezone) == now.date()
+        or any(
             _blob_has_date_marker(f"{hit.title} {hit.snippet}".casefold(), marker)
             for marker in markers
         )

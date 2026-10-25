@@ -13,6 +13,8 @@ import logging
 import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 
 from app.core.blocking import has_room, run_blocking
 from app.core.config import Settings
@@ -36,6 +38,10 @@ class WebSearchHit:
     title: str
     url: str
     snippet: str
+    # When the page was published, ISO-8601 in UTC ("2026-10-25T03:30:00+00:00", or a day
+    # alone), when the provider says: Tavily's news search does; its general search and
+    # DuckDuckGo do not.
+    published: str = ""
 
 
 class WebSearchUnavailableError(Exception):
@@ -158,14 +164,38 @@ async def _search_duckduckgo(query: str, max_results: int) -> list[WebSearchHit]
         raise WebSearchUnavailableError("DuckDuckGo timed out") from exc
 
 
-async def _search_tavily(settings: Settings, query: str, max_results: int) -> list[WebSearchHit]:
-    payload = {
+def _published_at(raw: object) -> str:
+    """Tavily's ``published_date`` ("Sat, 24 Oct 2026 10:00:00 GMT") as ISO-8601 in UTC.
+
+    The moment, not its day: a game recap posted at 03:30 GMT on the 25th was written on
+    the evening of the 24th in the Americas.
+    """
+    if not isinstance(raw, str) or not raw.strip():
+        return ""
+    try:
+        moment = parsedate_to_datetime(raw)
+    except (TypeError, ValueError):
+        try:
+            moment = datetime.fromisoformat(raw.strip().replace("Z", "+00:00"))
+        except ValueError:
+            return ""
+    if moment.tzinfo is None:
+        return moment.date().isoformat()
+    return moment.astimezone(UTC).isoformat()
+
+
+async def _search_tavily(
+    settings: Settings, query: str, max_results: int, *, topic: str = "general"
+) -> list[WebSearchHit]:
+    payload: dict[str, object] = {
         "api_key": settings.tavily_api_key,
         "query": query,
         "search_depth": "basic",
         "max_results": max_results,
         "include_answer": False,
     }
+    if topic != "general":
+        payload["topic"] = topic
 
     try:
         client = get_pooled_client(DEFAULT_TIMEOUT_SECONDS)
@@ -195,6 +225,7 @@ async def _search_tavily(settings: Settings, query: str, max_results: int) -> li
                 title=title or url or "Untitled",
                 url=url,
                 snippet=snippet[:600],
+                published=_published_at(item.get("published_date")),
             )
         )
     return hits
@@ -206,9 +237,12 @@ async def search_web(
     *,
     max_results: int | None = None,
     skip_tavily: bool = False,
+    topic: str = "general",
 ) -> list[WebSearchHit]:
     """Hits for ``query``: Tavily, then DuckDuckGo when Tavily has none.
 
+    ``topic="news"`` asks Tavily alone for news pages, each with the day it was
+    published; with no Tavily it finds nothing, since the turn's own search runs beside it.
     Raises ``WebSearchUnavailableError`` when the search failed rather than found nothing.
     """
     cleaned = query.strip()
@@ -225,13 +259,15 @@ async def search_web(
     # nothing real: it ran DuckDuckGo first, so a test could reach the internet before
     # getting mock results. With a key, mock mode searches for real.
     if should_mock_search(settings):
-        return mock_search_results(cleaned, max_results=limit)
+        return [] if topic != "general" else mock_search_results(cleaned, max_results=limit)
 
     # Tavily is the search of record: when it errored, DuckDuckGo finding nothing
     # does not show there is nothing (it comes back empty when it throttles).
     primary_failed = False
     fallback_failed = False
     tavily_tried = not skip_tavily and bool(settings.tavily_api_key.strip())
+    if topic != "general":
+        return await _search_tavily(settings, cleaned, limit, topic=topic) if tavily_tried else []
     if tavily_tried:
         try:
             hits = await _search_tavily(settings, cleaned, limit)
