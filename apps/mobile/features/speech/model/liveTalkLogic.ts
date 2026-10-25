@@ -18,6 +18,8 @@ export type LiveTalkGate =
   | "paused"
   /** This call saved every turn it may (`live_talk_saves_used`): start a new one. */
   | "saves_used"
+  /** A save named no live session (`live_talk_session_ended`): the call is over. */
+  | "session_ended"
   /** This build has no WebRTC: only an update brings live talk. */
   | "unavailable"
   /** The server has live talk switched off (`enabled: false`, `not_available`). */
@@ -201,6 +203,7 @@ export function liveTalkErrorGate(error: unknown): LiveTalkGate {
   // Every 403 opened the paywall, `consent_required` too, on top of the consent step.
   if (code === "not_in_plan") return "upgrade";
   if (code === CONSENT_REQUIRED_CODE) return "consent";
+  if (code === "live_talk_session_ended") return "session_ended";
   // The API's own request limit names no code: too many requests, never the month's minutes.
   if (status === 429) return LIVE_TALK_429S.get(code) ?? "rate_limited";
   // Only the server's `not_configured` says live talk is not set up. Every 503 said so,
@@ -219,6 +222,7 @@ const GATE_MESSAGE_KEYS: Readonly<Record<SaidGate, string>> = {
   rate_limited: "chat.live_talk_rate_limited",
   paused: "chat.live_talk_paused",
   saves_used: "chat.live_talk_saves_used",
+  session_ended: "chat.live_talk_session_ended",
   unavailable: "chat.live_talk_unavailable_body",
   off: "chat.live_talk_off",
   connect_failed: "chat.live_talk_connect_failed",
@@ -232,9 +236,22 @@ export function liveTalkGateMessageKey(gate: LiveTalkGate): string {
   return (GATE_MESSAGE_KEYS as Partial<Record<LiveTalkGate, string>>)[gate] ?? "chat.live_talk_failed";
 }
 
-/** A save refused with a 429 ends the call, in that refusal's own words. */
+/**
+ * A save refused with a 429, or because the plan, the session or the server no longer
+ * allows the call, ends it in that refusal's own words. Left open, the voice provider kept
+ * running (and charging) until the reserved minutes ran out, while no turn saved.
+ */
+const SAVE_ENDS_CALL: ReadonlySet<LiveTalkGate> = new Set<LiveTalkGate>([
+  "limit", "rate_limited", "paused", "saves_used", "upgrade", "consent", "session_ended", "off",
+]);
+
 export function liveTalkSaveEndsCall(gate: LiveTalkGate): boolean {
-  return gate === "limit" || gate === "rate_limited" || gate === "paused" || gate === "saves_used";
+  return SAVE_ENDS_CALL.has(gate);
+}
+
+/** Any other refused save, in the phone's words: it showed the server's English. */
+export function liveTalkSaveFailedKey(gate: LiveTalkGate): string {
+  return gate === "outage" ? liveTalkGateMessageKey(gate) : "chat.live_talk_save_failed";
 }
 
 /** Capture stays off while the assistant is playing so speaker echo cannot VAD. */

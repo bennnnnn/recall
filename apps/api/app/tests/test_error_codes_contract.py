@@ -188,7 +188,8 @@ def _live_talk(
     ``rate_limited``: the route's own per-minute limit is used up; ``spend_capped``: the
     voice spend breaker is open; ``minutes_used``: the month has no session left;
     ``mint_failed``: the realtime provider minted no key; ``saves_used``: the call saved
-    every turn it may. A save names this chat's session.
+    every turn it may; ``session_ended``: the save names no live session. A save names
+    this chat's session.
     """
     user = _user(consented=consented)
     user.plan = plan
@@ -208,7 +209,7 @@ def _live_talk(
         ),
         patch(
             "app.modules.speech.realtime.live_talk_service.realtime_session_bound_chat_id",
-            AsyncMock(return_value=chat_id),
+            AsyncMock(return_value=None if refused.get("session_ended") else chat_id),
         ),
         patch("app.modules.speech.gates.allow_request_unless_down", allowed),
         patch("app.modules.speech.realtime.allow_request_unless_down", allowed),
@@ -439,6 +440,9 @@ def _bodies() -> dict[str, dict[str, Any]]:
         ),
         "live_talk_save_spend_cap": _refusal(_live_talk("/speech/live/persist", spend_capped=True)),
         "live_talk_saves_used": _refusal(_live_talk("/speech/live/persist", saves_used=True)),
+        # A save the plan or the session no longer allows ends the call.
+        "live_talk_save_not_in_plan": _refusal(_live_talk("/speech/live/persist", plan="free")),
+        "live_talk_session_ended": _refusal(_live_talk("/speech/live/persist", session_ended=True)),
         "memory_spend_cap": _refusal(_memory_instruct(spend_capped=True)),
         "memory_busy": _refusal(_memory_instruct()),
         "image_daily_limit": _refusal(_generate("daily_limit")),

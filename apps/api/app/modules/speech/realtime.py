@@ -264,8 +264,11 @@ async def persist_realtime_turn(
         redis, user.id, body.call_id
     )
     if bound_chat_id is None or bound_chat_id != body.chat_id:
+        # Its own code: the phone ends the call in its words, never this English.
         raise SpeechRefusedError(
-            "Realtime session is not active", status_code=status.HTTP_403_FORBIDDEN
+            "Realtime session is not active",
+            status_code=status.HTTP_403_FORBIDDEN,
+            code="live_talk_session_ended",
         )
     await _take_persist_slot_or_raise(redis, user, body.call_id)
 

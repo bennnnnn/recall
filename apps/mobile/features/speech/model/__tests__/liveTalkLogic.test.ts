@@ -20,6 +20,7 @@ import {
   isLikelyAssistantEcho,
   LIVE_TALK_MAX_SESSION_MS,
   liveTalkSaveEndsCall,
+  liveTalkSaveFailedKey,
   liveTalkSessionLimitMs,
   type LiveTalkStatus,
 } from "@/features/speech/model/liveTalkLogic";
@@ -192,10 +193,27 @@ describe("liveTalkErrorGate", () => {
     expect(liveTalkGateMessageKey(gate)).toBe(key);
   });
 
-  it("ends the call on a refused save's 429, and only then", () => {
-    const ends = (["limit", "rate_limited", "paused", "saves_used", "outage", "upgrade", "unavailable", "connect_failed"] as const)
-      .filter(liveTalkSaveEndsCall);
-    expect(ends).toEqual(["limit", "rate_limited", "paused", "saves_used"]);
+  // A save the plan or the session no longer allowed left the call open: the provider ran
+  // on until the reserved minutes did, and nothing more saved.
+  it("ends the call on a refused save's 429, or one the plan, session or server no longer allows", () => {
+    const gates = ["limit", "rate_limited", "paused", "saves_used", "upgrade", "consent", "session_ended", "off",
+      "outage", "unavailable", "connect_failed", "unconfigured"] as const;
+    expect(gates.filter(liveTalkSaveEndsCall)).toEqual(
+      ["limit", "rate_limited", "paused", "saves_used", "upgrade", "consent", "session_ended", "off"],
+    );
+  });
+
+  it("keys a save that names no live session on its code", () => {
+    expect(liveTalkErrorGate({ status: 403, code: "live_talk_session_ended" })).toBe("session_ended");
+    expect(liveTalkGateMessageKey("session_ended")).toBe("chat.live_talk_session_ended");
+  });
+
+  // Any other refused save showed the server's English ("Chat not found").
+  it.each([
+    ["connect_failed", "chat.live_talk_save_failed"],
+    ["outage", "common.service_unavailable"],
+  ] as const)("words a refused save that keeps the call: %s", (gate, key) => {
+    expect(liveTalkSaveFailedKey(gate)).toBe(key);
   });
 
   // F8.8: a denied microphone said "Live talk needs a dev build", which is false
