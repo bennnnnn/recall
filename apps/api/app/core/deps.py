@@ -7,21 +7,20 @@ from app.core import access_tokens, user_cache
 from app.core.config import Settings, get_settings
 from app.core.db import get_db
 from app.core.redis import get_redis_client
+from app.core.unavailable import RETRY_AFTER_SECONDS, unavailable_detail
 from app.exceptions import AuthenticationError, RedisUnavailableError
 from app.models.orm import User
 from app.repositories import users as users_repo
 
 security = HTTPBearer()
 
-_REDIS_RETRY_AFTER = "5"
-
 
 def redis_unavailable_http_exception(exc: RedisUnavailableError) -> HTTPException:
-    """Map Redis outage to 503 + Retry-After (shared by deps + auth routes)."""
+    """Map Redis outage to 503 + Retry-After, with the app's unavailable body (core/unavailable)."""
     return HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail=exc.message,
-        headers={"Retry-After": _REDIS_RETRY_AFTER},
+        detail=unavailable_detail(exc.message),
+        headers={"Retry-After": RETRY_AFTER_SECONDS},
     )
 
 
