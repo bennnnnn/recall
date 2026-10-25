@@ -28,7 +28,8 @@ async def mark_email_sent_if_current(
                 TodoItem.checked == snapshot.checked,
                 TodoItem.email_sent_at == snapshot.email_sent_at,
             )
-            .values(email_sent_at=sent_at)
+            # Not a change to the to-do: its reminder instant reads updated_at.
+            .values(email_sent_at=sent_at, updated_at=TodoItem.updated_at)
             .execution_options(synchronize_session=False)
         ),
     )

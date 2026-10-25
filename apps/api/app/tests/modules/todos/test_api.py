@@ -49,6 +49,10 @@ def page_sql():
                 timezone="UTC",
                 push_notifications_enabled=True,
                 push_reminders_enabled=True,
+                reminder_lead_minutes=10,
+                quiet_hours_enabled=False,
+                quiet_hours_start_minute=1320,
+                quiet_hours_end_minute=420,
             )
             yield sync_session, session, user
     finally:
@@ -315,6 +319,35 @@ async def test_page_answers_an_unchanged_list_with_304(page_sql, page_client):
     )
     assert changed.status_code == 200
     assert changed.headers["etag"] != etag
+
+
+@pytest.mark.asyncio
+async def test_page_carries_each_reminder_instant_and_a_new_etag_when_it_moves(
+    page_sql, page_client
+):
+    """notify_at is what the phone schedules at: the lead time, after quiet hours."""
+    sync_session, _, user = page_sql
+    dated, undated, done = _seed(sync_session, user.id, count=3)
+    dated.due_at = datetime(2026, 9, 4, 23, 30, tzinfo=UTC)
+    dated.updated_at = datetime(2026, 9, 1, tzinfo=UTC)
+    undated.due_at = None
+    done.checked = True
+    sync_session.commit()
+
+    first = await page_client.get("/todos/page")
+    notify_at = {item["content"]: item["notify_at"] for item in first.json()["items"]}
+    assert notify_at == {
+        dated.content: "2026-09-04T23:20:00Z",
+        undated.content: None,
+        done.content: None,
+    }
+
+    # The user turns quiet hours on: the same rows, a new instant, so not a 304.
+    user.quiet_hours_enabled = True
+    moved = await page_client.get("/todos/page", headers={"If-None-Match": first.headers["etag"]})
+    assert moved.status_code == 200
+    by_content = {item["content"]: item["notify_at"] for item in moved.json()["items"]}
+    assert by_content[dated.content] == "2026-09-05T07:00:00Z"
 
 
 _DUE_AT = "2026-08-30T18:00:00Z"

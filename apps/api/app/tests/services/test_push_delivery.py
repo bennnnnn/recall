@@ -8,7 +8,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.models.orm import User
+from app.models.orm import TodoItem, User
 from app.modules.notifications import push as push_service
 from app.modules.todos import due_reminders
 from app.tests.fakes import fake_session, redis_mock
@@ -175,7 +175,11 @@ async def test_finalize_conditionally_marks_delivered_snapshot(schedule_write):
 
     schedule_write.assert_awaited_once()
     assert schedule_write.await_args.args[1].id == todo_id
-    assert schedule_write.await_args.kwargs == {"notification_sent_at": now}
+    # A delivery leaves updated_at, which the reminder instant reads, as it was.
+    assert schedule_write.await_args.kwargs == {
+        "notification_sent_at": now,
+        "updated_at": TodoItem.updated_at,
+    }
     assert detached.notification_sent_at is None
     finalize_session.commit.assert_awaited_once()
 
