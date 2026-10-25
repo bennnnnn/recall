@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { Icon } from "@/ui/icons/Icon";
-import { AttachmentImageViewer } from "@/features/attachments/components/AttachmentImageViewer";
+import { LazyAttachmentImageViewer } from "@/features/attachments/components/LazyAttachmentImageViewer";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { resolveAttachmentUri, attachmentRequestHeaders } from "@/features/attachments/model/attachmentUri";
 import { fitAttachmentImage, type ImageSize } from "@/features/attachments/model/attachmentImageSize";
@@ -245,7 +245,7 @@ function ChatMessageImageContent({
       </Pressable>
 
       {onOpen ? null : (
-        <AttachmentImageViewer
+        <LazyAttachmentImageViewer
           visible={viewerOpen}
           onClose={() => setViewerOpen(false)}
           attachmentId={attachmentId}

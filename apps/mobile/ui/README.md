@@ -21,6 +21,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 | A form, the attach sources, sharing | `overlay/Sheet` | a raw `Modal` |
 | Edit one text value (a profile field, a memory) | `overlay/FieldSheet` (title, hint, Save) | a hand-built sheet with a field |
 | A full-screen viewer (photo, PDF, scanner) | `overlay/FullScreenModal` | a raw `Modal` |
+| A full-screen viewer only some visits open (the chat's photo viewer, the scanner) | `overlay/lazyOverlay(() => import(...))`: its code loads on first open, then it stays mounted | a static import the chat screen evaluates at launch |
 | A time | `pickers/TimePickerDialog` (Android clock: dial, AM/PM, keyboard entry) | `@react-native-community/datetimepicker` |
 | A date (month grid, year list, min/max) | `pickers/DatePickerDialog` | the native picker |
 | Share a chat or a summary | `share/ShareSheet` (preview card, Share / Copy / PDF) | `Share.share` straight from a menu |
@@ -43,7 +44,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
   padding that clears it).
 - `list/`: ListRow, ListGroup, ListSeparator.
 - `overlay/`: Overlay (the one floating layer), Menu, SelectMenu, Dialog + DialogHost +
-  `dialogs.ts`, Sheet, SheetFormHeader, FullScreenModal.
+  `dialogs.ts`, Sheet, SheetFormHeader, FullScreenModal, lazyOverlay.
 - `pickers/`: ClockDial, TimePickerDialog, DatePickerDialog. The
   geometry and calendar rules live in `lib/datetime/clockDial.ts` and `calendarGrid.ts`.
 - `share/`: ShareSheet, useCopyText.
