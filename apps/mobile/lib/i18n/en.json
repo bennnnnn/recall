@@ -363,6 +363,7 @@
   "gallery.use_in_chat": "Use in chat",
   "gallery.viewer_image_a11y": "{{name}}, {{index}} of {{count}}",
   "login.apple": "Continue with Apple",
+  "login.consent_line": "By continuing, you agree to the Terms and Privacy Policy, and that your chats and voice are processed by third-party AI providers.",
   "login.dev": "Continue as bini",
   "login.dev_expo_hint": "Google Sign-In needs a dev build. Dev login works in Expo Go.",
   "login.dev_expo_ios_hint": "Google and Apple sign-in need a dev build. Dev login works in Expo Go.",

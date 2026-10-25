@@ -1,7 +1,12 @@
 """Nothing goes to outside AI services until the account agreed to it.
 
-The phone and the web ask once after sign-in (``users.ai_data_consent_at``, set
-by ``PATCH /auth/me`` ``ai_data_consent``). The server holds the same line: a
+The phone's sign-in page says beside its buttons that continuing agrees to the
+outside AI processing, and the tap records the agreement with the sign-in itself
+(``ai_data_consent`` on ``/auth/google``, ``/auth/apple``, ``/auth/dev``). An
+account with none (one from before that, one that withdrew, a client that sends no
+flag such as the web) is asked after sign-in and agrees with ``PATCH /auth/me``
+``ai_data_consent``. Either way the agreement is
+``users.ai_data_consent_at``. The server holds the same line: a
 chat turn, speech (transcribe, read aloud, a live talk key or tool), a scanned
 problem's read-back, a picture and the composer's picture check, and a memory
 edit are refused with ``consent_required`` until the account agrees, and again

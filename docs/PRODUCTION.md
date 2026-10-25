@@ -440,7 +440,11 @@ permission. Changing any of it is a native change (bump `version`, new build).
       `plus_monthly` and `pro_monthly` packages before review. Without them the
       plan sheet's buy buttons stay disabled (`components/UpgradeSheet.tsx`),
       and a paywall that cannot buy is rejected.
-- [ ] **App Review notes:** sign in with Apple (or Google). Chat, memory, to-dos
+- [ ] **App Review notes:** sign in with Apple (or Google). The line under the
+      sign-in buttons says that continuing agrees to the Terms, the Privacy
+      Policy and third-party AI processing of chats and voice, with both links
+      beside it; that tap is the user's permission for guideline 5.1.2(i), and
+      the server records it with the sign-in. Chat, memory, to-dos
       and the maths scanner work on Free. Voice input and read-aloud need Plus
       and Live Talk needs Pro: buy them with the sandbox account (no charge)
       to test the microphone features.
@@ -532,11 +536,16 @@ background, and runs the new code from the next launch.
       change. App Store App Privacy and Play Data safety answers must match it, including
       third-party AI (OpenRouter and the model providers, OpenAI for voice, Mathpix, Tavily
       and its public-search backup)
-- [ ] Every account is asked once, after sign-in and before its first chat, to agree to what
-      goes to outside AI services (`users.ai_data_consent_at`, migration `0112`; phone
-      `/consent`, web slice 1 too). Change that screen and the policy together. The
-      server refuses chat, speech and scan reads until then (`consent_required`), so a
-      phone build without the consent screen cannot chat against this API
+- [ ] Every account agrees once, before anything goes to outside AI services
+      (`users.ai_data_consent_at`, migration `0112`). On the phone it is recorded with
+      the sign-in: the sign-in page's line under its buttons (`login.consent_line`, "By
+      continuing, you agree to the Terms and Privacy Policy, and that your chats and voice
+      are processed by third-party AI providers.") with the Terms and Privacy links, and
+      every sign-in sends `ai_data_consent: true`. An account without it (from before,
+      withdrawn in Data controls, or a client that sends no flag: an older phone, web
+      slice 1) is asked on the consent screen (phone `/consent`, the web's own) and agrees
+      with `PATCH /auth/me`. Change that line, the consent screen and the policy together.
+      The server refuses chat, speech and scan reads until then (`consent_required`)
 
 ---
 

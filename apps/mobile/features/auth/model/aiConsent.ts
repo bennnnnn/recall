@@ -3,8 +3,9 @@ import type { User } from "@/lib/api/types";
 
 /**
  * True when a signed-in account has not yet agreed to what Recall sends to outside
- * AI and search services (App Store 5.1.2(i), Play User Data). The server answers
- * null until the account agrees. Undefined comes only from an older server or a
+ * AI and search services (App Store 5.1.2(i), Play User Data). A sign-in from this
+ * app agrees by its tap (features/auth/api.ts), so this is an account from before
+ * that, or one that withdrew in Data controls. The server answers null until then. Undefined comes only from an older server or a
  * cold-start cache written before the field existed, and is let through so an
  * account that already agreed is never asked again while offline.
  */
@@ -16,7 +17,7 @@ export function needsAiDataConsent(
 
 export const AI_CONSENT_ROUTE = "/consent";
 
-// Signed-out screens send a new sign-in on themselves (LoginScreen goes straight to consent).
+// Signed-out screens send a new sign-in on themselves (LoginScreen redirects it).
 const ROUTES_WITHOUT_CONSENT_CHECK = new Set([AI_CONSENT_ROUTE, "/login", "/onboarding"]);
 
 /** Where to send the app from ``pathname``: the consent screen, or nowhere. Covers

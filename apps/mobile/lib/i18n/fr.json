@@ -368,6 +368,7 @@
   "gallery.use_in_chat": "Utiliser dans le chat",
   "gallery.viewer_image_a11y": "{{name}}, {{index}} sur {{count}}",
   "login.apple": "Continuer avec Apple",
+  "login.consent_line": "En continuant, vous acceptez les Conditions et la Politique de confidentialité, ainsi que le traitement de vos chats et de votre voix par des fournisseurs d'IA tiers.",
   "login.dev": "Continuer en tant que Dev",
   "login.dev_expo_hint": "Google Sign-In nécessite une build de développement. La connexion Dev fonctionne dans Expo Go.",
   "login.dev_expo_ios_hint": "La connexion avec Google et Apple nécessite un dev build. La connexion Dev fonctionne dans Expo Go.",

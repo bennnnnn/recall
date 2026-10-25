@@ -243,11 +243,18 @@ class DeviceSessionIn(BaseModel):
     platform: UserText | None = Field(default=None, max_length=16)
 
 
-class GoogleAuthRequest(DeviceSessionIn):
+class SignInRequest(DeviceSessionIn):
+    # true: the button tapped sits under the outside-AI disclosure (the phone's sign-in
+    # page), so the tap is the agreement and the sign-in records ``ai_data_consent_at``.
+    # Absent (an older phone, the web): consent is asked after sign-in, as before.
+    ai_data_consent: bool = False
+
+
+class GoogleAuthRequest(SignInRequest):
     id_token: str
 
 
-class AppleAuthRequest(DeviceSessionIn):
+class AppleAuthRequest(SignInRequest):
     id_token: str
     name: UserText | None = None
     # The raw nonce; the app gave Apple its SHA-256, which the token carries.
@@ -259,7 +266,7 @@ class AppleAuthRequest(DeviceSessionIn):
 _EMAIL_SHAPE = re.compile(r"[^@\s]+@[^@\s.]+(?:\.[^@\s.]+)+")
 
 
-class DevAuthRequest(DeviceSessionIn):
+class DevAuthRequest(SignInRequest):
     email: UserText = Field(default="dev@recall.local", max_length=254)
     name: UserText = "bini"
 

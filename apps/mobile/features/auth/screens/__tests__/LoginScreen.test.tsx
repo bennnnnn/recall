@@ -74,7 +74,6 @@ describe("LoginScreen", () => {
     mockSignedIn = null;
   });
 
-  // Apple 5.1.2(i): a fresh sign-in reaches the AI consent before the chat.
   it("reads the Terms and Privacy links, not the dot drawn between them", async () => {
     const { getByRole, queryByText, getByText } = await render(<LoginScreen />);
     expect(getByRole("link", { name: "login.terms" })).toBeOnTheScreen();
@@ -86,7 +85,21 @@ describe("LoginScreen", () => {
     expect(touchTargetHeight(getByRole("link", { name: "login.privacy" }))).toBeGreaterThanOrEqual(44);
   });
 
-  it("sends a new sign-in that has not agreed to the AI consent screen, not the chat", async () => {
+  it("says beside the buttons that continuing agrees, with the Terms and Privacy links", async () => {
+    // Apple 5.1.2(i): the line sits between the sign-in buttons and the two links, so the
+    // tap that signs in is the agreement (features/auth/api.ts sends it with the sign-in).
+    const { getByText, getByRole, toJSON } = await render(<LoginScreen />);
+    expect(getByText("login.consent_line")).toBeOnTheScreen();
+    expect(getByRole("link", { name: "login.terms" })).toBeOnTheScreen();
+    expect(getByRole("link", { name: "login.privacy" })).toBeOnTheScreen();
+    const order = JSON.stringify(toJSON());
+    const at = (text: string) => order.indexOf(`"${text}"`);
+    expect(at("login.google")).toBeLessThan(at("login.consent_line"));
+    expect(at("login.apple")).toBeLessThan(at("login.consent_line"));
+    expect(at("login.consent_line")).toBeLessThan(at("login.terms"));
+  });
+
+  it("sends a sign-in the server answered without the agreement (an older API) to the AI consent screen", async () => {
     mockSignedIn = { token: "tok", user: { ai_data_consent_at: null } };
     const { getByText } = await render(<LoginScreen />);
     expect(getByText("redirect:/consent")).toBeOnTheScreen();

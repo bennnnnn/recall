@@ -854,18 +854,24 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **States** — login, loading, empty chat ("How can I help?"), empty memory, drawer offline/retry.
 - ✅ **Onboarding** — a first-run welcome screen (value props + "Get started"), shown once before
   the first sign-in.
-- ✅ **AI data consent** — after sign-in and before the first chat, every account (new and
-  existing) sees once what goes to which outside service (AI models via OpenRouter, OpenAI
-  voice, Mathpix math photos, Tavily search, optional location) with a privacy-policy link;
-  Agree stores `users.ai_data_consent_at` on the account (`PATCH /auth/me`
-  `ai_data_consent`), Not now signs out. Every signed-in screen waits on it (the root
-  layout's `features/auth/components/AiConsentRedirect.tsx` sends it to `app/consent.tsx`);
-  the web client asks too. The server holds the same line (`core/consent.py`): a
+- ✅ **AI data consent** — agreed by signing in: the sign-in page says under its buttons "By
+  continuing, you agree to the Terms and Privacy Policy, and that your chats and voice are
+  processed by third-party AI providers." beside the Terms and Privacy links, and every
+  Google, Apple and dev sign-in sends `ai_data_consent: true`, so the server stores
+  `users.ai_data_consent_at` with the sign-in and a new account opens the chat. An account
+  without it (from before this, withdrawn, or signed in by a client that sends no flag)
+  sees once what goes to which outside service (AI models via OpenRouter, OpenAI voice,
+  Mathpix math photos, Tavily search, optional location) with a privacy-policy link; Agree
+  stores it (`PATCH /auth/me` `ai_data_consent`), Not now signs out to the sign-in page.
+  Every signed-in screen waits on it (the root layout's
+  `features/auth/components/AiConsentRedirect.tsx` sends it to `app/consent.tsx`); the web
+  client keeps its own consent screen after sign-in. The server holds the same line (`core/consent.py`): a
   chat turn (WebSocket and SSE), speech (transcribe, read aloud, a live talk key or tool) and a
   scan read-back are refused with `consent_required` (an error frame with
   `user_message_saved: false`, or HTTP 403) until the account agrees, and the phone answers it
-  with the consent screen. Settings → Data controls shows when the account agreed and can
-  withdraw it, which brings the consent screen back. Image generation, attachment uploads and
+  with the consent screen (any feature hands it on with `notifyConsentRequired()`,
+  `lib/api/consentRefusal.ts`). Settings → Data controls shows when the account agreed and
+  can withdraw it, which brings the consent screen back. Image generation, attachment uploads and
   memory instructions are not gated yet.
 - ✅ **Polish** — light haptic taps on key actions (Android via the built-in API) + chip fade-in
   animation.
