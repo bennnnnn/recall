@@ -36,6 +36,22 @@ MEMORY_OFF_HINT = (
     "know about them, say memory is off and that they can turn it on in Settings → Memory. "
     "Never say you will remember it."
 )
+# "Remember that I want to try cacio e pepe again" was saved to memory, and the reply said
+# "I've added that to your to-do list"; two turns on it said "I can't save it to memory"
+# (live chat, 2026-10-25). Nothing told the model what Recall does with the line.
+MEMORY_SAVING_HINT = (
+    "The user asked you to remember something. Recall saves it to their memory after your "
+    "reply, and they can see and edit it in Settings → Memory. Say in a few words that you'll "
+    "remember it. It is not a to-do or a reminder: don't say it was added to their to-dos, "
+    "reminders or any list, and don't offer one unless they ask."
+)
+MEMORY_ON_HINT = (
+    "Recall has memory: what the user asks you to remember, and facts they share, are saved "
+    "to their memory and shown in Settings → Memory. Never say you can't remember things or "
+    "can't save them to memory."
+)
+# A line about remembering or memory, where a model denied having one.
+_MENTIONS_MEMORY = re.compile(r"\b(?:remember\w*|memory|memories|forget)\b", re.IGNORECASE)
 MEMORY_PAUSED_HINT = (
     "Saving to memory is paused right now. If the user asks you to remember something, say "
     "it can't be saved at the moment; never say you will remember it."
@@ -189,6 +205,10 @@ def memory_notes(turn: PromptTurn) -> list[str]:
     notes: list[str] = []
     if turn.memory_paused:
         notes.append(MEMORY_PAUSED_HINT)
+    elif query and memory_service.asks_to_remember(query):
+        notes.append(MEMORY_SAVING_HINT)
+    elif query and _MENTIONS_MEMORY.search(query):
+        notes.append(MEMORY_ON_HINT)
     status = memory_status_note(turn)
     if status:
         notes.append(status)

@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from app.modules.memory.cache import invalidate_memory_block as invalidate_memory_block
+    from app.modules.memory.commands import asks_to_remember as asks_to_remember
     from app.modules.memory.commands import (
         is_explicit_memory_command as is_explicit_memory_command,
     )
@@ -40,6 +41,7 @@ _EXPORTS = {
     "SECTION_LABELS": "facts",
     "active_fact_texts": "crud",
     "areas_for_export": "crud",
+    "asks_to_remember": "commands",
     "delete_all_memories": "crud",
     "exclude_sensitive_for_query": "text",
     "facts_for_export": "crud",
