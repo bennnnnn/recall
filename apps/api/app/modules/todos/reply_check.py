@@ -158,7 +158,9 @@ def reply_when_nothing_saved(
     # A yes to "Want me to set that reminder?" asked for it as much as the words would.
     asked = accepted_offer or _asked_to_change_or_add(user_text)
     colon = bool(COLON_CLAIM_RE.search(words))
-    prose = bool(asked and (PROSE_CLAIM_RE.search(words) or _claims_in_prose(words)))
+    prose = bool(
+        asked and (PROSE_CLAIM_RE.search(words) or (accepted_offer and _claims_in_prose(words)))
+    )
     needs_time = bool(
         user_text
         and ADD_REQUEST_RE.search(user_text)

@@ -52,11 +52,13 @@ _CHANGED = (
     r"|changed|cancell?ed|completed|checked off|cleared)"
 )
 # "Setting that reminder for you now!", "I'm adding it": nothing is being set either.
-_DOING = (
-    r"(?:^(?:(?:ok|okay|sure|great|perfect|got it|alright|all right)[,!.]?\s+)?"
-    r"|\b(?:i|we)(?:'m| am|'re| are)\s+)(?:now\s+|just\s+|also\s+)?"
-    r"(?:setting|adding|saving|scheduling|creating|putting)"
-)
+# Said by the assistant: after "I'm", after an "OK", or opening the sentence on the one
+# just asked for ("Setting that…"). "Setting a reminder for your snack is a good idea"
+# and "Adding a reminder the night before helps" are advice.
+_ACK_LEAD = r"(?:ok|okay|sure|great|perfect|got it|alright|all right)[,!.]?\s+"
+_GERUND = r"(?:setting|adding|saving|scheduling|creating|putting)"
+_DOING = rf"(?:^{_ACK_LEAD}|\b(?:i|we)(?:'m| am|'re| are)\s+)(?:now\s+|just\s+|also\s+)?{_GERUND}"
+_DOING_THAT = rf"(?:{_DOING}|^{_GERUND})\s+(?:up\s+)?(?:that|this|it|them)"
 # A claim on its own: about a reminder by its words alone.
 _CLAIM_RE = re.compile(
     "|".join(
@@ -65,9 +67,13 @@ _CLAIM_RE = re.compile(
             rf"(?:up\s+)?(?:a|an|the|your|you|one|two|three|both|these|those|this|that)\s+"
             rf"(?:[\w'-]+\s+){{0,4}}?{_NOUN}\b",
             rf"{_WILL}\s+(?:\w+\s+){{0,2}}?(?:remind|ping|nudge|notify|alert)\s+you\b",
-            rf"{_DOING}\s+(?:up\s+)?(?:a|an|the|your|that|this|one)\s+(?:[\w'-]+\s+){{0,3}}?"
-            rf"{_NOUN}\b(?!\s+(?:system|app|feature|tool|habit|routine|settings?)\b)",
+            rf"(?:{_DOING}\s+(?:up\s+)?(?:a|an|the|your|that|this|one)|{_DOING_THAT})\s+"
+            rf"(?:[\w'-]+\s+){{0,3}}?{_NOUN}\b(?!\s+(?:system|app|feature|tool|habit|routine"
+            r"|settings?)\b)",
             rf"{_DOING}\s+(?:[\w'-]+\s+){{1,4}}?(?:to|on|in|into)\s+{_YOUR_LIST}\b",
+            # "Sure thing! I'll set that for you." above the card.
+            rf"{_WILL}\s+(?:set|add|save|schedule|create|put)\s+(?:it|that|this|them)\s+"
+            r"(?:up\s+)?for you(?:\s+(?:now|right away))?(?=[\s!.]*$)",
             rf"{_WILL}\s+(?:\w+\s+){{0,2}}?(?:set|add|save|schedule|create|put)\s+(?:up\s+)?"
             rf"(?:a|an|the|that|this|it)\s+(?:[\w'-]+\s+){{0,3}}?{_NOUN}\b",
             r"\byou(?:'ll| will)\s+(?:now\s+|also\s+)?(?:be\s+(?:reminded|notified|pinged|alerted)"
@@ -93,11 +99,13 @@ _CONTEXT_CLAIM_RE = re.compile(
             r"(?:all\s+|now\s+)?(?:set|scheduled|saved|booked|added|created|done|updated|moved"
             r"|deleted|removed|marked)\b",
             r"^(?:(?:ok|okay|sure|great|perfect|got it|alright|all right|done)[,!.]?\s+)?"
-            r"(?:all\s+)?(?:set|scheduled|saved|added|created|booked|moved|deleted|removed|marked"
+            r"(?:scheduled|saved|added|created|booked|moved|deleted|removed|marked"
             r"|rescheduled|updated|postponed|reopened)\b",
+            # "Got it, set for 7 PM", "All set for tomorrow": not "Set a reminder for 12:30",
+            # which is advice.
+            rf"^(?:{_ACK_LEAD}(?:all\s+)?|all\s+)set\b",
             r"\bgot (?:it|that|this|you|them|everything) (?:all\s+)?(?:set|scheduled|saved|added)\b",
-            r"\byou(?:'re| are)\s+(?:all\s+)?set\s+for\b",
-            rf"{_DOING}\s+(?:it|that|this|them|one)\b",
+            rf"{_DOING_THAT}\b",
             r"^done\b",
         )
     )

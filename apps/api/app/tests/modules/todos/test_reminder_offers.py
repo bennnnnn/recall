@@ -48,6 +48,15 @@ LIVE_OFFER = (
         ("Want a practice problem?", False),
         ("Do you want me to remind you how this works later?", False),
         ("I set that up. Anything else?", False),
+        ("Want me to add these taco ingredients to your list?", True),
+        ("Shall I set a daily reminder to drink water?", True),
+        # Not a reminder to set (review of the first draft).
+        ("Would you like a reminder of the key steps for balancing redox equations?", False),
+        ("Should I add error handling to the reminder service?", False),
+        ("Should I add error handling to the reminder logic?", False),
+        ("Would you like me to make a to-do list app in React?", False),
+        ("Want me to add a reminders feature to your app?", False),
+        ("Want me to build the to-do component next?", False),
     ],
 )
 def test_a_yes_accepts_only_an_offered_reminder(prior: str, offered: bool) -> None:
@@ -73,6 +82,9 @@ def test_the_offer_is_read_from_the_last_reply_in_the_window() -> None:
     assert accepted_offer_in("yes", window)
     assert accepted_offer_in("yes", window[:1]) is None
     assert accepted_offer_in("yes", None) is None
+    # A regenerate's window still ends with the reply being redone.
+    redone = [*window, SimpleNamespace(role="assistant", content="Setting that reminder now!")]
+    assert accepted_offer_in("yes", redone)
 
 
 _CARD = re.compile(r"```reminder_proposal\n(.*?)\n```", re.DOTALL)
@@ -166,7 +178,11 @@ def test_a_denial_is_dropped_and_the_rest_kept() -> None:
         ("I don't have the ability to set reminders.", True),
         ("I can't remind you tomorrow, sorry.", True),
         ("You'll want to set that in your own reminder app.", True),
-        ("Use your phone's reminder app for that.", True),
+        ("Use your phone's reminder app for that.", False),
+        ("I can't add reminders to Apple Reminders directly.", False),
+        ("I can't set reminders that repeat every other Tuesday yet.", False),
+        ("I can't set reminders that trigger when you arrive somewhere.", False),
+        ("**English:** I can't set reminders on this phone.", False),
         ("I can't create a to-do list for you.", True),
         ("I can't remind you enough how much sleep matters.", False),
         ("I can't remind you of everything.", False),
@@ -179,6 +195,29 @@ def test_a_denial_is_dropped_and_the_rest_kept() -> None:
 )
 def test_is_denial(sentence: str, denies: bool) -> None:
     assert is_denial(sentence) is denies
+
+
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        (
+            "Sure. I can't set reminders from here, but you can tap the card above.",
+            "Sure. You can tap the card above.",
+        ),
+        (
+            "Notes:\n\n- I can't set reminders from here, but you can tap the card above.\n- Hi.",
+            "Notes:\n\n- You can tap the card above.\n- Hi.",
+        ),
+        (
+            "Good catch. I can't add reminders to Apple Reminders directly, but you can share "
+            "a list from the Reminders app.",
+            "Good catch. I can't add reminders to Apple Reminders directly, but you can share "
+            "a list from the Reminders app.",
+        ),
+    ],
+)
+def test_what_follows_a_denial_stays(reply: str, kept: str) -> None:
+    assert without_denials(reply) == kept
 
 
 def test_code_is_never_a_denial() -> None:
@@ -217,3 +256,71 @@ async def test_a_yes_to_the_offer_loads_the_to_do_instructions(db_session):
     )
     assert section is not None and section.startswith(TODO_HINT)
     assert await build_todos_system_section(db_session, user, settings, query_text="yes") is None
+
+
+@pytest.mark.parametrize(
+    ("text", "title"),
+    [
+        ("can you remind me to call mom tomorrow at 5pm? thanks", "call mom"),
+        ("remind me to call mom at 5pm. thanks!", "call mom"),
+        ("remind me to pay rent on friday at 9am, thank you", "pay rent"),
+        ("can you remind me to call mom? i always forget", "call mom"),
+        ("remind me to call mom please", "call mom"),
+        ("remind me to email Dr. Smith tomorrow at 9am", "email Dr Smith"),
+    ],
+)
+def test_a_request_ends_at_its_sentence(text: str, title: str) -> None:
+    from app.modules.todos.spoken_add import parse_spoken_add
+
+    added = parse_spoken_add(text)
+    assert added is not None and added.title == title
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("answer", "saved"),
+    [
+        ("7pm tomorrow", True),
+        ("tomorrow at 7pm", True),
+        ("in 2 hours", True),
+        ("7pm", True),
+        ("tomorrow, and buy milk", False),
+        ("i don't know yet", False),
+    ],
+)
+async def test_the_answer_to_when_finishes_the_add(db_session, fake_redis, answer, saved):
+    """Live 2026-10-25: asked "When should I remind you?", "7pm tomorrow" saved nothing."""
+    from app.modules.chat import messages_repository as messages_repo
+
+    user = await users_repo.create(
+        db_session,
+        email=f"{uuid4()}@example.com",
+        name="Test User",
+        avatar_url=None,
+        google_sub=str(uuid4()),
+    )
+    chat = await chats_repo.create(db_session, user_id=user.id, model="free-chat")
+    for role, content in (
+        ("user", "can you remind me to call mom? i always forget"),
+        ("assistant", "When should I remind you?"),
+        ("user", answer),
+    ):
+        await messages_repo.create(
+            db_session, chat_id=chat.id, user_id=user.id, role=role, content=content
+        )
+    with patch("app.modules.todos.spoken_add._now", lambda tz: _NOW.astimezone(tz)):
+        text, _written = await materialize_reminder_fences(
+            db_session,
+            user_id=user.id,
+            chat_id=chat.id,
+            assistant_text="Got it, I'll set a reminder for you.",
+            user_timezone="UTC",
+            user_text=answer,
+            prior_assistant="When should I remind you?",
+            redis=fake_redis,
+            confirm=True,
+        )
+    match = _CARD.search(text)
+    assert bool(match) is saved, text
+    if match:
+        assert json.loads(match.group(1))["items"][0]["title"] == "call mom"

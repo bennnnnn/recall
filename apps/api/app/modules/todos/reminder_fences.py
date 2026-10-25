@@ -53,8 +53,7 @@ from app.modules.todos.spoken_change import (
     names_reminders,
     parse_spoken_reminder_change,
 )
-from app.modules.todos.spoken_clauses import parse_spoken_adds, pending_add
-from app.modules.todos.spoken_when import parse_clock_only
+from app.modules.todos.spoken_clauses import answered_when, parse_spoken_adds
 from app.services.draft_fences import has_draft
 
 logger = logging.getLogger(__name__)
@@ -254,18 +253,19 @@ async def _match_user_words(turn: _Turn, spans: _Spans) -> tuple[str, int] | Non
 
 
 async def _match_clock_reply(turn: _Turn) -> tuple[str, int] | None:
-    """A reply that is only a clock finishes the add the user just described."""
-    clock = parse_clock_only(turn.user_text)
-    if clock is None:
+    """A reply that is only a time finishes the add the user just described."""
+    stated = await answered_when(
+        turn.session,
+        turn.chat_id,
+        turn.user_text or "",
+        turn.prior_assistant,
+        user_timezone=turn.user_timezone,
+    )
+    if stated is None:
         return None
-    pending = await pending_add(turn.session, turn.chat_id, turn.user_text or "")
-    if pending is None:
-        return None
-    stated = replace(pending, hour=clock[0], minute=clock[1])
-    due = due_for_add(stated, user_timezone=turn.user_timezone)
-    if due is None or due_is_past(due, user_timezone=turn.user_timezone):
+    if _upcoming_due(stated, turn.user_timezone) is None:
         return passed_time_reply(), 0
-    # The message is only the clock: there is nothing else for a reply to answer.
+    # The message is only the time: there is nothing else for a reply to answer.
     return await _save_spoken_adds(replace(turn, assistant_text=""), [], [stated])
 
 

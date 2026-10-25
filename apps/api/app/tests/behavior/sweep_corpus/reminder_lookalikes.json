@@ -922,5 +922,155 @@
     "history": [],
     "reply": "For a party list: snacks, drinks, cups and plates, a playlist and a few games.",
     "expect": "answer"
+  },
+  {
+    "id": "ht-095",
+    "area": "lookalike",
+    "prompt": "check my todo list app for bugs",
+    "history": [],
+    "reply": "Two bugs: `toggle` mutates state in place, and the `key` is the array index.\n\n```tsx\nsetTodos(prev => prev.map(t => t.id === id ? {...t, done: !t.done} : t))\n```",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-096",
+    "area": "lookalike",
+    "prompt": "read my todo list code and tell me what's wrong",
+    "history": [],
+    "reply": "The bug is on line 12: you mutate `todos` directly. Use a copy instead.",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-097",
+    "area": "lookalike",
+    "prompt": "Is Monday a holiday? what's on my schedule",
+    "history": [],
+    "reply": "Monday isn't a public holiday. On your list: call mom, gym and pay rent.",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-098",
+    "area": "todo",
+    "prompt": "what's on my to-do list? push gym to friday",
+    "history": [],
+    "reply": "Moving gym to Friday.\n\n```reminder\n{\"action\": \"set_due\", \"title\": \"gym\", \"due_at\": \"2026-10-16T18:00:00+03:00\"}\n```",
+    "expect": "change"
+  },
+  {
+    "id": "ht-099",
+    "area": "lookalike",
+    "prompt": "yes",
+    "history": [
+      [
+        "user",
+        "how do I balance redox equations?"
+      ],
+      [
+        "assistant",
+        "Nice work on that one. Would you like a reminder of the key steps for balancing redox equations?"
+      ]
+    ],
+    "reply": "Sure!\n\n1. Count the atoms on each side.\n2. When electrons are removed from an atom, it becomes a cation.\n3. Check that the charge is balanced.",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-100",
+    "area": "lookalike",
+    "prompt": "yes",
+    "history": [
+      [
+        "user",
+        "build me a todo app"
+      ],
+      [
+        "assistant",
+        "Here's the skeleton. Should I add error handling to the reminder service?"
+      ]
+    ],
+    "reply": "Sure, here's how:\n\n```py\n@app.post('/reminders')\ndef create(): ...\n```\nI moved the handler into `routes.py`.",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-101",
+    "area": "lookalike",
+    "prompt": "Make me a study schedule for tomorrow from 9am to 5pm",
+    "history": [],
+    "reply": "Here's your day:\n\n- 9:00 AM: Calculus\n- 12:30 PM: Lunch\n- 1:30 PM: Physics\n\nSet a reminder for 12:30 PM so you actually stop for lunch.",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-102",
+    "area": "lookalike",
+    "prompt": "can you add milk to my Apple Reminders?",
+    "history": [],
+    "reply": "Good catch. I can't add reminders to Apple Reminders directly, but you can share a list from the Reminders app: tap the list, then Share.",
+    "expect": "answer",
+    "gap": "an add to another app's list (Apple Reminders) is asked when, as on main; a grocery add needs no time"
+  },
+  {
+    "id": "ht-103",
+    "area": "lookalike",
+    "prompt": "how do I get a reminder when I arrive at the grocery store?",
+    "history": [],
+    "reply": "I can't set reminders that trigger when you arrive somewhere, but your iPhone can: open the Reminders app, tap the reminder, turn on Location and pick the store.",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-104",
+    "area": "lookalike",
+    "prompt": "can reminders here repeat every other tuesday?",
+    "history": [],
+    "reply": "Repeats can be daily, weekdays, weekly or monthly. I can't set reminders that repeat every other Tuesday yet, so make two weekly ones a week apart and delete the extra.",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-105",
+    "area": "todo",
+    "prompt": "7pm tomorrow",
+    "history": [
+      [
+        "user",
+        "can you remind me about the python practice again? i don't think i saved it"
+      ],
+      [
+        "assistant",
+        "When should I remind you?"
+      ]
+    ],
+    "reply": "Got it, I'll set a reminder for tomorrow at 7:00 PM to practice Python.",
+    "expect": "save"
+  },
+  {
+    "id": "ht-106",
+    "area": "todo",
+    "prompt": "tomorrow at 5pm",
+    "history": [
+      [
+        "user",
+        "remind me to call mom"
+      ],
+      [
+        "assistant",
+        "When should I remind you?"
+      ]
+    ],
+    "reply": "Sure, tomorrow at 5 PM it is.",
+    "expect": "save"
+  },
+  {
+    "id": "ht-107",
+    "area": "lookalike",
+    "prompt": "tomorrow at 5pm works for the meeting",
+    "history": [
+      [
+        "user",
+        "when is a good time for a team meeting this week?"
+      ],
+      [
+        "assistant",
+        "Tuesday or Wednesday afternoon tends to work. When would suit you?"
+      ]
+    ],
+    "reply": "Great, tomorrow at 5 PM it is. Want an agenda?",
+    "expect": "answer"
   }
 ]

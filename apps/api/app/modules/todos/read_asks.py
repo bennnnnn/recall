@@ -5,9 +5,12 @@ sure? check my to-do list again" were answered by the model from the chat. It li
 reminder whose card was never tapped, and left out the one saved for that evening. Only
 "what are my reminders" and the like were read, and only at the very start of the
 message. The app calls the list To-do: "to-do list", "to do list" and "todo list" are how
-people name it, and each is read as one. A clause that opens with a read asks it ("ok
-last thing, what's on…", "are you sure? check my…") when the clauses beside it are short
-and none asks for a change: "what's on my list and what's 2 + 2?" keeps its sum.
+people name it, and each is read as one. A clause asks it when it is the read and
+nothing more, but for when ("…right now", "…for tomorrow", "…at 3pm") and a word like
+"again" or "please": "check my todo list app for bugs" asks about code. The clauses
+beside it may only be chatter ("ok last thing, what's on…", "hmm are you sure? check
+my…"): "Is Monday a holiday? what's on my schedule" keeps its holiday, and "what's on my
+to-do list? push gym to friday" its move.
 """
 
 from __future__ import annotations
@@ -61,13 +64,20 @@ _ELSEWHERE = re.compile(
 # The list's names, as one: "to-do list", "to do list", "todo-list", "to-dos".
 _LIST_NAME = re.compile(r"\bto[- ]do(?=s?\b)")
 _LIST_DASH = re.compile(r"\btodo-(?=lists?\b)")
-# A change asked beside the read: the change is the turn, not the reading.
-_CHANGE_LEADS = ("add ", "remind ", "make ", "delete ", "move ", "set ", "mark ", "remove ")
 _CLAUSE = re.compile(r"(?:[,;:!?]|\.(?=\s))\s*|\s+(?:and|also)\s+|\s[\u2014\u2013-]\s")
-# A clause beside the read that is chatter ("ok last thing", "hmm are you sure"), not a
-# question of its own ("what's 2 + 2").
-_ASIDE_WORDS = 4
-_QUESTION_LEADS = ("what", "whats", "how", "why", "when", "where", "who", "whos", "which")
+_DAY = r"(?:to(?:day|night|morrow)|(?:mon|tues|wednes|thurs|fri|satur|sun)day|the weekend)"
+# What may follow the read in its clause: when, and words that ask nothing more.
+_READ_TAIL = re.compile(
+    rf"(?:\s+(?:again|now|right now|so far|currently|at the moment|please|pls|then|real quick"
+    rf"|{_DAY}|this (?:week|weekend|morning|afternoon|evening)|next week"
+    rf"|(?:for|on) {_DAY}|for (?:this|next) week|in the (?:morning|afternoon|evening)"
+    r"|at \d{1,2}(?::\d{2})?\s*(?:am|pm)?))*"
+)
+# The chatter a read may come with: "ok last thing", "hmm are you sure", "really?".
+_ASIDE = re.compile(
+    r"(?:(?:ok(?:ay)?|hmm+|so|well|wait|oh|hey|lol|haha|also|actually|please|thanks|thank you"
+    r"|(?:one )?(?:more|last) thing|quick question|are you sure|really|seriously|again)\s*)+"
+)
 
 
 def asks_to_read_reminders(user_text: str | None) -> bool:
@@ -77,12 +87,10 @@ def asks_to_read_reminders(user_text: str | None) -> bool:
         return False
     clauses = [_folded(part) for part in _CLAUSE.split(text)]
     clauses = [clause for clause in clauses if clause]
-    if any(clause.startswith(_CHANGE_LEADS) for clause in clauses):
-        return False
-    reads = [clause for clause in clauses if _opens_a_read(clause)]
+    reads = [clause for clause in clauses if _is_a_read(clause)]
     if not reads:
         return False
-    return all(clause in reads or _is_aside(clause) for clause in clauses)
+    return all(clause in reads or _ASIDE.fullmatch(clause) for clause in clauses)
 
 
 def _folded(text: str | None) -> str:
@@ -90,14 +98,12 @@ def _folded(text: str | None) -> str:
     return _LIST_DASH.sub("todo ", _LIST_NAME.sub("todo", lowered))
 
 
-def _is_aside(clause: str) -> bool:
-    words = clause.split()
-    return len(words) <= _ASIDE_WORDS and words[0] not in _QUESTION_LEADS
-
-
-def _opens_a_read(clause: str) -> bool:
+def _is_a_read(clause: str) -> bool:
     for opening in _READ_OPENINGS:
         if clause.startswith(opening):
+            rest = clause[len(opening) :]
             # "What's scheduled at the Hollywood Bowl" asks about a venue.
-            return opening not in _BARE_READS or not _ELSEWHERE.match(clause[len(opening) :])
+            if opening in _BARE_READS and _ELSEWHERE.match(rest):
+                return False
+            return _READ_TAIL.fullmatch(rest) is not None
     return False

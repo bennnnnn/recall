@@ -58,6 +58,12 @@ _REMIND_ME_ANYWHERE_RE = re.compile(
     re.IGNORECASE,
 )
 _SENTENCE_END_RE = re.compile(r"[.!?]\s+|[.!?]$")
+# Where a request ends before the next sentence: a question or exclamation mark, or a
+# point before thanks.
+_ASK_END_RE = re.compile(
+    r"[?!](?:\s|$)|\.\s+(?=(?:thanks|thank you|thx|ty|cheers|please|pls)\b)", re.IGNORECASE
+)
+_COURTESY_TAIL_RE = re.compile(r"[,\s]+(?:thanks|thank you|thx|ty|cheers|please|pls)\W*$", re.I)
 FILLER_RE = re.compile(rf"^(?:{FILLER_WORDS}[,!.]?\s+)+")
 # "Add a line …", "add a rest day", "add two more examples": a part of what
 # the assistant just wrote.
@@ -203,7 +209,10 @@ def parse_spoken_add(user_text: str | None) -> SpokenAdd | None:
     body = ""
     for lead in _ADD_LEADS:
         if lowered.startswith(lead):
-            body = text[len(lead) :].strip()
+            # The request is its own sentence: "remind me to call mom at 5pm? thanks" is
+            # "call mom", not "call mom ? thanks". "Email Dr. Smith" keeps its point.
+            body = _COURTESY_TAIL_RE.sub("", _ASK_END_RE.split(text[len(lead) :], maxsplit=1)[0])
+            body = body.strip()
             break
     if not body:
         body = _remind_me_body(text)

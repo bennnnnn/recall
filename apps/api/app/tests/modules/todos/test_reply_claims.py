@@ -38,13 +38,14 @@ from app.modules.todos.reply_claims import is_claim, without_claims
         "Got it, set for tomorrow at 7 PM.",
         "All set for tomorrow at 7!",
         "Got it all set for Monday.",
-        "You're all set for tomorrow evening!",
         "Setting that reminder for you now! ⏰",
         "I'm setting that reminder for you now.",
         "Sure, adding that reminder now.",
         "Okay, setting it for 7 PM tomorrow.",
         "I'm setting that up for tomorrow at 9.",
         "OK, adding milk to your list.",
+        "Sure thing! I'll set that for you.",
+        "I'll set it for you now!",
     ],
 )
 def test_is_claim_reads_a_completed_reminder_change(sentence: str) -> None:
@@ -74,6 +75,14 @@ def test_is_claim_reads_a_completed_reminder_change(sentence: str) -> None:
         "Setting up a reminder system takes practice.",
         "Okay, setting the oven to 200.",
         "Setting it to medium heat for 10 minutes.",
+        # Advice in a plan is no claim (review of the first draft).
+        "Set a wind-down reminder for 10:30 PM.",
+        "Set your alarm for 6 AM tomorrow.",
+        "Set a reminder for 12:30 PM so you actually stop for lunch.",
+        "Setting a reminder for your snack is a good idea too.",
+        "Adding a reminder the night before helps.",
+        "You're all set for Friday's interview!",
+        "I'll set that up for you below: here is the config.",
     ],
 )
 def test_is_claim_leaves_ordinary_sentences(sentence: str) -> None:

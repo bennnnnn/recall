@@ -60,10 +60,13 @@ def parse_spoken_adds(user_text: str | None, *, user_timezone: str | None) -> li
     return [] if single is None else [_with_day(single, user_text, user_timezone)]
 
 
-async def pending_add(session: AsyncSession, chat_id: UUID, current: str) -> SpokenAdd | None:
+async def pending_add(
+    session: AsyncSession, chat_id: UUID, current: str, *, dated: bool = True
+) -> SpokenAdd | None:
     """The add they just described, when this message is only the missing clock.
 
-    In "call mom at 5pm and pay rent on friday", that is the rent.
+    In "call mom at 5pm and pay rent on friday", that is the rent. ``dated``: only an add
+    that named its day; any add without a clock otherwise.
     """
     from app.modules.chat import history as chat_history
 
@@ -80,8 +83,50 @@ async def pending_add(session: AsyncSession, chat_id: UUID, current: str) -> Spo
             continue
         single = parse_spoken_add(body)
         adds = _split_adds(reminder_clauses(body)) or ([single] if single else [])
-        return next((add for add in adds if add.hour is None and add.day), None)
+        return next((add for add in adds if add.hour is None and (add.day or not dated)), None)
     return None
+
+
+# The server's own question for a reminder with no time (``reply_check.NEED_A_TIME``, and
+# "When should I remind you to call mom?").
+_ASKED_WHEN_RE = re.compile(r"(?:^|\n)\s*When should I remind you\b[^\n]*\?\s*$")
+
+
+async def answered_when(
+    session: AsyncSession,
+    chat_id: UUID,
+    current: str,
+    prior_assistant: str | None,
+    *,
+    user_timezone: str | None = None,
+) -> SpokenAdd | None:
+    """The add this message finishes by giving its time, or None.
+
+    A bare clock ("7pm") finishes the add that named its day. After the server asked
+    "When should I remind you?", any when does: live (2026-10-25), "can you remind me
+    about the python practice again?" was asked when, and "7pm tomorrow" saved nothing.
+    The answer is read onto the add's own words ("remind me to <task> 7pm tomorrow"); one
+    that says more than when ("tomorrow, and buy milk") is its own message.
+    """
+    clock = parse_clock_only(current)
+    if clock is not None:
+        dated = await pending_add(session, chat_id, current)
+        if dated is not None:
+            return replace(dated, hour=clock[0], minute=clock[1])
+    if not prior_assistant or not _ASKED_WHEN_RE.search(prior_assistant):
+        return None
+    pending = await pending_add(session, chat_id, current, dated=False)
+    if pending is None:
+        return None
+    request = f"{_REQUEST}{pending.title} {current}"
+    answered = parse_spoken_add(request)
+    if answered is None or answered.title.casefold() != pending.title.casefold():
+        return None
+    if answered.hour is None and answered.after_minutes is None:
+        return None
+    if answered.day is None and pending.day is not None:
+        return replace(answered, day=pending.day)
+    return _with_day(answered, request, user_timezone)
 
 
 def _split_adds(clauses: list[str]) -> list[SpokenAdd] | None:

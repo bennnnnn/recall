@@ -15,14 +15,27 @@ from collections.abc import Sequence
 from typing import Any
 
 # "Would you like me to set up that X reminder…?", "Want me to add it to your list?",
-# "Shall I remind you at 9?". "Would you like a reminder app recommendation?" offers none.
-_OFFER = re.compile(
-    r"\b(?:(?:would|do) you (?:like|want) me to|want me to|shall i|should i|can i|"
-    r"(?:would|do) you want (?:a|that|this)|(?:would|do) you like (?:a|that|this))\s+"
+# "Shall I remind you at 9?". The reminder is what is set, not where something goes ("add
+# error handling to the reminder service") or a thing about reminders ("a to-do list app",
+# "a reminder of the key steps").
+_ASKS = (
+    r"(?:(?:would|do) you (?:like|want) me to|want me to|shall i|should i|can i)\s+"
     r"(?:(?:go ahead and|also|quickly)\s+)?"
-    r"(?:(?:set(?: up)?|add|create|schedule|make|save|put)\b[^?]{0,120}?"
-    r"\b(?:reminders?|to-?dos?|your (?:to-?do )?list)\b(?!\s+(?:app|apps|system|tool)\b)"
-    r"|remind you\b(?!\s+(?:how|what|why|of|that)\b)|reminders?\b(?!\s+(?:app|apps|system|tool)\b))",
+)
+_NOT_A_REMINDER = (
+    r"(?!\s+(?:lists?\s+)?(?:of|on how|about how|app|apps|system|tool|service|services|feature"
+    r"|features|function|component|module|class|code|template|logic|api|screen|page)\b)"
+)
+# Words between the verb and the reminder, none of them a preposition: "set up that
+# Practice list comprehensions reminder", not "add error handling to the reminder".
+_OBJECT_WORDS = r"(?:(?!(?:to|for|in|on|of|with|from|into|about)\b)[\w'-]+\s+){0,5}?"
+_OFFER = re.compile(
+    rf"\b{_ASKS}(?:set(?: up)?|add|create|schedule|make|save)\s+{_OBJECT_WORDS}"
+    rf"(?:reminders?|to-?dos?){_NOT_A_REMINDER}\b"
+    rf"|\b{_ASKS}(?:add|put|save)\s+[^?]{{0,80}}?\s+(?:to|on|in)\s+your\s+"
+    r"(?:(?:to-?do|grocery|shopping)\s+)?(?:list|to-?dos|reminders)\b(?!\s+app\b)"
+    rf"|\b{_ASKS}remind you\b(?!\s+(?:how|what|why|of|that|about how)\b)"
+    rf"|\b(?:would|do) you (?:like|want) (?:a|that|this)\s+reminders?\b{_NOT_A_REMINDER}",
     re.IGNORECASE,
 )
 # The reply's sentences that ask; the offer is the last one, near the end.
@@ -49,9 +62,29 @@ def accepted_reminder_offer(user_text: str | None, prior_assistant: str | None) 
 
 
 def accepted_offer_in(user_text: str | None, recent: Sequence[Any] | None) -> str | None:
-    """The same, with the last reply read from the recent window."""
-    for message in reversed(recent or ()):
-        if getattr(message, "role", None) == "assistant":
+    """The same, with the last reply read from the recent window.
+
+    It is the reply before the user's own line: a regenerate's window still ends with the
+    reply being redone ("Setting that reminder for you now!"), and that is not the offer.
+    """
+    messages = list(recent or ())
+    said = " ".join((user_text or "").split()).casefold()
+    end = len(messages)
+    for index in range(len(messages) - 1, -1, -1):
+        if _role(messages[index]) == "user" and _words(messages[index]) == said:
+            end = index
+            break
+    for message in reversed(messages[:end]):
+        if _role(message) == "assistant":
             content = getattr(message, "content", None)
             return accepted_reminder_offer(user_text, content if isinstance(content, str) else None)
     return None
+
+
+def _role(message: Any) -> str | None:
+    return getattr(message, "role", None)
+
+
+def _words(message: Any) -> str:
+    content = getattr(message, "content", None)
+    return " ".join(content.split()).casefold() if isinstance(content, str) else ""
