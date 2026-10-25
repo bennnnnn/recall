@@ -193,6 +193,7 @@
   "chat.quota_exceeded_pro": "Du hast das heutige Nutzungslimit erreicht.",
   "chat.quota_nudge_body": "Du hast {{pct}} % des heutigen Gratislimits verbraucht. Mit einem Upgrade bekommst du mehr.",
   "chat.quota_nudge_cta": "Upgrade",
+  "chat.rate_limited": "Gerade zu viele Anfragen. Bitte eine Minute warten und dann erneut versuchen.",
   "chat.read_aloud_a11y": "Vorlesen",
   "chat.read_aloud_failed_body": "Das konnte nicht vorgelesen werden. Der Chat funktioniert weiterhin — versuche es erneut.",
   "chat.read_aloud_cut": "Diese Antwort ist lang, daher liest Vorlesen nur den ersten Teil.",

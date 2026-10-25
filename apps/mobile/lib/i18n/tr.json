@@ -193,6 +193,7 @@
   "chat.quota_exceeded_pro": "Bugünkü kullanım limitinize ulaştınız.",
   "chat.quota_nudge_body": "Bugünkü ücretsiz limitinizin %{{pct}}'ini kullandınız. Daha fazlası için planınızı yükseltin.",
   "chat.quota_nudge_cta": "Planı yükselt",
+  "chat.rate_limited": "Şu anda çok fazla istek var. Bir dakika bekleyip tekrar deneyin.",
   "chat.read_aloud_a11y": "Sesli oku",
   "chat.read_aloud_failed_body": "Bu sesli okunamadı. Sohbet çalışmaya devam ediyor — tekrar deneyin.",
   "chat.read_aloud_cut": "Bu yanıt uzun, bu yüzden sesli okuma ilk bölümden sonra durur.",

@@ -376,6 +376,12 @@ def _outage() -> Any:
         return _client(_user()).get("/todos/page", headers=_AUTH)
 
 
+def _over_the_limit() -> Any:
+    """A read past the request limiter's minute (``core/rest_rate_limit.py``)."""
+    with patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=False)):
+        return _client(_user()).get("/todos/page", headers=_AUTH)
+
+
 def _bodies() -> dict[str, dict[str, Any]]:
     too_big = base64.b64encode(b"\xff" * (SCAN_MAX_IMAGE_BYTES + 1)).decode()
     with (
@@ -394,6 +400,7 @@ def _bodies() -> dict[str, dict[str, Any]]:
         exists = _client(_user()).post("/auth/google", json={"id_token": "token"})
     return {
         "service_unavailable": _refusal(_outage()),
+        "rate_limited": _refusal(_over_the_limit()),
         "consent_required": _refusal(consent),
         "account_exists": _refusal(exists),
         "scan_not_available": _refusal(

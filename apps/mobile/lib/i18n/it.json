@@ -193,6 +193,7 @@
   "chat.quota_exceeded_pro": "Hai raggiunto il limite di utilizzo di oggi.",
   "chat.quota_nudge_body": "Hai usato il {{pct}}% del limite gratuito di oggi. Passa a un piano superiore per averne di più.",
   "chat.quota_nudge_cta": "Passa a un piano superiore",
+  "chat.rate_limited": "Troppe richieste in questo momento. Aspetta un minuto, poi riprova.",
   "chat.read_aloud_a11y": "Leggi ad alta voce",
   "chat.read_aloud_failed_body": "Impossibile leggerlo ad alta voce. La chat funziona comunque — riprova.",
   "chat.read_aloud_cut": "Questa risposta è lunga, quindi la lettura ad alta voce si ferma dopo la prima parte.",

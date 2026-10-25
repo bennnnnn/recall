@@ -6,6 +6,13 @@
    "message": "Service temporarily unavailable. Please retry shortly."
   }
  },
+ "rate_limited": {
+  "status": 429,
+  "detail": {
+   "code": "rate_limited",
+   "message": "Too many requests. Please slow down."
+  }
+ },
  "consent_required": {
   "status": 403,
   "detail": {

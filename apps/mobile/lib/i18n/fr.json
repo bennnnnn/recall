@@ -193,6 +193,7 @@
   "chat.quota_exceeded_pro": "Vous avez atteint la limite d'utilisation du jour.",
   "chat.quota_nudge_body": "Vous avez utilisé {{pct}} % de la limite gratuite du jour. Changez de forfait pour en avoir plus.",
   "chat.quota_nudge_cta": "Changer de forfait",
+  "chat.rate_limited": "Trop de requêtes pour le moment. Patientez une minute, puis réessayez.",
   "chat.read_aloud_a11y": "Lire à voix haute",
   "chat.read_aloud_failed_body": "Impossible de lire ce texte à voix haute. La discussion fonctionne toujours — réessayez.",
   "chat.read_aloud_cut": "Cette réponse est longue : la lecture à voix haute s'arrête après la première partie.",
