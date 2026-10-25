@@ -4,11 +4,19 @@
 // now). Sibling components pull in native modules (reanimated,
 // expo-linear-gradient) unrelated to what this file tests — stubbed so
 // import-time stays safe, mirroring markdownFenceRender.test.tsx's pattern.
-import { render } from "@testing-library/react-native";
+import { act, render } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 
 import { UserMessageContent } from "@/features/chat/components/UserMessageContent";
+import { AA, contrastRatio } from "@/lib/__tests__/support/contrast";
+import { ACCENT_OPTIONS, DEFAULT_ACCENT } from "@/lib/accent";
+import { setAccentSnapshot } from "@/lib/accentRuntime";
 import type { Message } from "@/lib/api/types";
+
+let mockScheme: "light" | "dark" = "light";
+jest.mock("@/lib/colorScheme", () => ({
+  useResolvedColorScheme: () => mockScheme,
+}));
 
 jest.mock("@/features/attachments/components/ChatMessageImage", () => ({
   ChatMessageImage: "ChatMessageImage",
@@ -215,6 +223,35 @@ describe("UserMessageContent attachments", () => {
     const { getByText } = await render(<UserMessageContent message={userMessage(content)} />);
     expect(getByText("minutes.docx")).toBeOnTheScreen();
   });
+
+  // Secondary ink on the bubble measured 4.07-4.48:1 in dark mode with the
+  // graphite, sapphire, berry and orchid accents.
+  it.each(["light", "dark"] as const)(
+    "keeps a file's name AA on every accent's bubble in %s mode",
+    async (scheme) => {
+      mockScheme = scheme;
+      mockIndexStatus.mockImplementation(named);
+      const docx = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      const content = `[File: /attachments/${NOTES}/file]\n[File (${docx})]\nMinutes of the meeting.`;
+      try {
+        for (const accent of ACCENT_OPTIONS) {
+          await act(async () => setAccentSnapshot(accent));
+          const { getByText, unmount } = await render(<UserMessageContent message={userMessage(content)} />);
+          const name = getByText("minutes.docx");
+          let plane: string | undefined;
+          for (let node = name.parent; node && !plane; node = node.parent) {
+            plane = StyleSheet.flatten(node.props.style)?.backgroundColor as string | undefined;
+          }
+          const ink = String(StyleSheet.flatten(name.props.style).color);
+          expect({ accent, aa: contrastRatio(ink, String(plane)) >= AA }).toEqual({ accent, aa: true });
+          await unmount();
+        }
+      } finally {
+        mockScheme = "light";
+        await act(async () => setAccentSnapshot(DEFAULT_ACCENT));
+      }
+    },
+  );
 
   it("keeps the name the phone sent it with", async () => {
     mockIndexStatus.mockImplementation(named);

@@ -11,7 +11,7 @@ describe("surface hierarchy", () => {
     expect(lightTheme.userBubble).toBe("#F0F1FF");
     expect(lightTheme.assistantBubble).toBe(lightTheme.bg);
     expect(lightTheme.primary).toBe("#4F56E5");
-    expect(lightTheme.success).toBe("#16845B");
+    expect(lightTheme.success).toBe("#137A54");
     expect(lightTheme.accent).toBe(lightTheme.primary);
     expect(lightTheme.text).toBe("#111113");
     // The composer is pure white, a step above the near-white page.

@@ -1,5 +1,5 @@
 import React from "react";
-import { Dimensions } from "react-native";
+import { Dimensions, StyleSheet } from "react-native";
 import { deleteAsync } from "expo-file-system/legacy";
 
 import { pickFromPhotoLibrary, pickImageDocument } from "@/features/attachments/model/attachments";
@@ -9,7 +9,7 @@ import { MathEquationScanner } from "@/components/MathEquationScanner";
 import { cropScanImage, measureScanImage } from "@/lib/scanner/scanImage";
 import { selection } from "@/lib/haptics";
 import { playScannerSwitchCue } from "@/lib/scanner/switchCue";
-import { lightTheme as mockLightTheme } from "@/lib/theme";
+import { AA, compositeOver, contrastRatio } from "@/lib/__tests__/support/contrast";
 
 const mockTakePictureAsync = jest.fn(async (): Promise<{ uri: string } | null> => ({
   uri: "file:///shot.jpg",
@@ -100,10 +100,11 @@ jest.mock("@/features/attachments/model/attachments", () => ({
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 }),
 }));
-jest.mock("@/lib/theme", () => ({
-  ...jest.requireActual("@/lib/theme"),
-  useTheme: () => mockLightTheme,
-}));
+const mockTheme = { dark: false };
+jest.mock("@/lib/theme", () => {
+  const actual = jest.requireActual("@/lib/theme");
+  return { ...actual, useTheme: () => (mockTheme.dark ? actual.darkTheme : actual.lightTheme) };
+});
 jest.mock("@/lib/haptics", () => ({
   impactMedium: jest.fn(),
   selection: jest.fn(),
@@ -209,6 +210,33 @@ describe("MathEquationScanner", () => {
     expect(view.getByText("chat.math_scan_camera_needs_build")).toBeTruthy();
     expect(view.queryByText("chat.math_scan_camera_unavailable")).toBeNull();
     expect(view.getByTestId("math-scanner-photos")).toBeTruthy();
+  });
+
+  // Danger ink on the 65% scrim over a white page measured 1.45:1 light, 2.52 dark.
+  it.each([
+    ["light", false],
+    ["dark", true],
+  ] as const)("keeps a camera error readable over a white page in %s mode", async (_scheme, dark) => {
+    mockTheme.dark = dark;
+    try {
+      const view = await render(
+        <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+      );
+      await act(async () => {
+        view.getByTestId("mock-live-scanner-camera").props.onUnavailable?.();
+      });
+      const plate = view.getByTestId("math-scanner-error");
+      const ink = String(StyleSheet.flatten(within(plate).getByText("chat.math_scan_camera_needs_build").props.style).color);
+      const scrim = String(StyleSheet.flatten(plate.props.style).backgroundColor);
+      expect(contrastRatio(ink, compositeOver(scrim, "#FFFFFF"))).toBeGreaterThanOrEqual(AA);
+      // Without red ink, an icon says it is an error.
+      expect(within(plate).getByTestId("math-scanner-error-icon").props).toMatchObject({
+        name: "alert-circle",
+        color: ink,
+      });
+    } finally {
+      mockTheme.dark = false;
+    }
   });
 
   it("switches to physics with one directional sound and haptic cue", async () => {
