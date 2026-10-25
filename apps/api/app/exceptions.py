@@ -68,7 +68,14 @@ class AuthenticationError(Exception):
     Google, Apple, the access and refresh tokens and dev login all raise it. It was the
     Google gateway's ``GoogleAuthError``, so ``core`` took its auth error from a Google
     module and a revoked JWT read as a Google failure (code-health audit CLAR-14).
+
+    A sign-in's refusal names ``code`` (``google_token_invalid``): the login screen words
+    it in the phone's language, never the English (``modules/account/signin_refusals.py``).
     """
+
+    def __init__(self, *args: object, code: str | None = None) -> None:
+        super().__init__(*args)
+        self.code = code
 
 
 class ChatServiceError(Exception):

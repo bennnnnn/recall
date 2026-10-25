@@ -5,6 +5,7 @@ import time
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -191,3 +192,44 @@ async def test_fetch_apple_jwks_force_refresh_bypasses_cache(monkeypatch: pytest
 
     assert result == fresh
     client_instance.get.assert_awaited_once_with(apple_auth.APPLE_JWKS_URL)
+
+
+class _AppleKeysReply:
+    """Apple's keys endpoint answering ``status`` with ``body``."""
+
+    def __init__(self, status: int, body: str) -> None:
+        self._reply = httpx.Response(status, text=body, request=httpx.Request("GET", "https://k"))
+
+    def raise_for_status(self) -> None:
+        self._reply.raise_for_status()
+
+    def json(self) -> Any:
+        return self._reply.json()
+
+
+@pytest.mark.parametrize(
+    "fetch",
+    [
+        AsyncMock(side_effect=httpx.ConnectError("down")),
+        AsyncMock(return_value=_AppleKeysReply(502, "Bad gateway")),
+        AsyncMock(return_value=_AppleKeysReply(200, "<html>maintenance</html>")),
+    ],
+    ids=["network", "status", "not json"],
+)
+@pytest.mark.asyncio
+async def test_unreachable_apple_keys_are_unavailable_not_an_invalid_token(
+    monkeypatch: pytest.MonkeyPatch, fetch: AsyncMock
+):
+    """It answered 401 "Invalid Apple ID token" while Apple was out of reach (a bad body: 500)."""
+    import app.gateways.apple_auth as apple_auth
+
+    token, _kid, _jwk = _make_apple_token()
+    monkeypatch.setattr(apple_auth, "_jwks_cache", None)
+    client = AsyncMock(get=fetch)
+
+    with (
+        patch("app.gateways.apple_auth.get_pooled_client", return_value=client),
+        pytest.raises(apple_auth.AppleAuthUnavailableError) as caught,
+    ):
+        await verify_apple_id_token(token, Settings(apple_client_id="com.recall.app"), nonce="n")
+    assert caught.value.code == "apple_unavailable"

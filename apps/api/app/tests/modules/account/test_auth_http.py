@@ -385,7 +385,7 @@ def test_dev_login_rate_limited_returns_429():
         client = TestClient(app)
         r = client.post("/auth/dev", json={"email": "x@x.com", "name": "X"})
     assert r.status_code == 429
-    assert "Too many login attempts" in r.json()["detail"]
+    assert r.json()["detail"]["code"] == "sign_in_rate_limited"
 
 
 def test_dev_login_refuses_non_loopback_without_allow_remote():

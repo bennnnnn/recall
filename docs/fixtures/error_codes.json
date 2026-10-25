@@ -110,5 +110,89 @@
    "message": "That picture can't be made.",
    "feature": "image_generation"
   }
+ },
+ "sign_in_rate_limited": {
+  "status": 429,
+  "detail": {
+   "code": "sign_in_rate_limited",
+   "message": "Too many login attempts. Try again shortly."
+  }
+ },
+ "google_token_invalid": {
+  "status": 401,
+  "detail": {
+   "code": "google_token_invalid",
+   "message": "Invalid Google ID token"
+  }
+ },
+ "google_unavailable": {
+  "status": 503,
+  "detail": {
+   "code": "google_unavailable",
+   "message": "Google sign-in is unavailable right now"
+  }
+ },
+ "google_email_unverified": {
+  "status": 401,
+  "detail": {
+   "code": "google_email_unverified",
+   "message": "Google email address is not verified"
+  }
+ },
+ "google_email_missing": {
+  "status": 401,
+  "detail": {
+   "code": "google_email_missing",
+   "message": "Google did not share an email. Check that the Google account has a verified email, or use Apple Sign-In."
+  }
+ },
+ "apple_not_configured": {
+  "status": 401,
+  "detail": {
+   "code": "apple_not_configured",
+   "message": "Apple Sign-In is not configured on this server"
+  }
+ },
+ "apple_token_invalid": {
+  "status": 401,
+  "detail": {
+   "code": "apple_token_invalid",
+   "message": "Invalid Apple ID token"
+  }
+ },
+ "apple_key_unknown": {
+  "status": 401,
+  "detail": {
+   "code": "apple_key_unknown",
+   "message": "Apple signing key not found"
+  }
+ },
+ "apple_unavailable": {
+  "status": 503,
+  "detail": {
+   "code": "apple_unavailable",
+   "message": "Apple sign-in is unavailable right now"
+  }
+ },
+ "apple_email_unverified": {
+  "status": 401,
+  "detail": {
+   "code": "apple_email_unverified",
+   "message": "Apple email address is not verified"
+  }
+ },
+ "apple_email_missing": {
+  "status": 401,
+  "detail": {
+   "code": "apple_email_missing",
+   "message": "Apple did not share an email. Revoke Recall in Apple ID settings and sign in again, or use Google Sign-In."
+  }
+ },
+ "dev_auth_disabled": {
+  "status": 403,
+  "detail": {
+   "code": "dev_auth_disabled",
+   "message": "Dev auth disabled"
+  }
  }
 }

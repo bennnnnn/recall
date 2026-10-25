@@ -40,6 +40,8 @@ class GoogleAuthUnavailableError(Exception):
     which the app treats as "signed out".
     """
 
+    code = "google_unavailable"
+
 
 class _BoundedRequest:
     """Google transport callable that never waits longer than ``timeout``.
@@ -82,10 +84,12 @@ def _verify_google_id_token_sync(id_token_str: str, settings: Settings) -> dict[
     except (ValueError, google_exceptions.GoogleAuthError) as exc:
         # GoogleAuthError covers a wrong issuer, which used to surface as a 500.
         logger.warning("Google ID token verification failed: %s", exc)
-        raise GoogleAuthError("Invalid Google ID token") from exc
+        raise GoogleAuthError("Invalid Google ID token", code="google_token_invalid") from exc
 
     if not claim_is_true(payload.get("email_verified")):
-        raise GoogleAuthError("Google email address is not verified")
+        raise GoogleAuthError(
+            "Google email address is not verified", code="google_email_unverified"
+        )
 
     return payload
 

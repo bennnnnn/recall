@@ -3,13 +3,13 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import HTTPException
 
 from app.core.config import Settings
 from app.exceptions import AuthenticationError, RedisUnavailableError
 from app.models.schemas import AppleAuthRequest, DevAuthRequest, GoogleAuthRequest
 from app.modules.account import api as auth_router
 from app.modules.account import service as auth_service
+from app.modules.account.signin_refusals import SignInRefusedError
 from app.tests.api_support import api_user
 from app.tests.fakes import redis_mock
 
@@ -96,7 +96,7 @@ async def test_apple_login_hands_the_raw_nonce_to_token_verification():
             "app.modules.account.service.verify_apple_id_token",
             AsyncMock(side_effect=AuthenticationError("Invalid Apple ID token")),
         ) as verify,
-        pytest.raises(HTTPException) as caught,
+        pytest.raises(SignInRefusedError) as caught,
     ):
         await auth_router.apple_login(
             AppleAuthRequest(id_token="id-token", nonce="raw-nonce"),
@@ -105,5 +105,5 @@ async def test_apple_login_hands_the_raw_nonce_to_token_verification():
             settings=Settings(jwt_secret="x" * 32),
             redis=redis_mock(),
         )
-    assert caught.value.status_code == 401
+    assert (caught.value.status_code, caught.value.code) == (401, "sign_in_failed")
     assert verify.await_args.kwargs["nonce"] == "raw-nonce"
