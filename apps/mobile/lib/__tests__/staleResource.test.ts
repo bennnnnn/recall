@@ -10,6 +10,13 @@ describe("StaleResourceCache", () => {
     expect(loader).not.toHaveBeenCalled();
   });
 
+  it("reads again after the clock is set back", async () => {
+    const cache = new StaleResourceCache<string, number>(1_000);
+    cache.set("key", 7, 10_000_000);
+    expect(cache.isFresh("key", 10_000_000 - 60 * 60_000)).toBe(false);
+    expect(cache.isFresh("key", 10_000_500)).toBe(true);
+  });
+
   it("deduplicates forced in-flight reads by key", async () => {
     const cache = new StaleResourceCache<string, number>(1_000);
     let resolve!: (value: number) => void;
