@@ -1,4 +1,5 @@
 import { StrictMode, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { act, render, waitFor } from "@testing-library/react-native";
 import { TodosProvider, useTodos } from "@/features/todos/context/TodosContext";
 import { api, type Todo } from "@/lib/api";
@@ -8,11 +9,14 @@ import { loadSeenReminderIds, markReminderIdsSeen, saveSeenReminderIds } from "@
 import { loadHomeNudgeState, saveHomeNudgeState } from "@/features/todos/model/homeReminderNudges";
 import { beginTodoMutation, getTodoMutationState } from "@/features/todos/model/todoMutationState";
 import { emitAppEvent } from "@/lib/appEvents";
+import { refreshPhoneClock } from "@/lib/datetime/format";
+import type { HourCycle } from "@/lib/datetime/phoneClock";
 
 let mockSession = 1;
 let mockToken = "token-a";
 let mockUserId = "account-a";
 let mockLead = 60;
+let mockHourCycle: HourCycle = "h12";
 let mockSeen = new Set<string>();
 let mockDismissed = new Set<string>();
 let mockValue: ReturnType<typeof useTodos>;
@@ -24,6 +28,11 @@ jest.mock("@/contexts/AuthContext", () => ({ useAuthOptional: () => ({ token: mo
   user: { id: mockUserId, reminder_lead_minutes: mockLead, push_notifications_enabled: true } }) }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession, requireTokenSession: jest.fn() }));
 jest.mock("@/lib/filePrefs", () => ({}));
+// The phone's 12/24-hour switch.
+jest.mock("@/lib/datetime/phoneClock", () => ({
+  ...jest.requireActual("@/lib/datetime/phoneClock"),
+  readPhoneClock: () => ({ timeZone: "UTC", hourCycle: mockHourCycle }),
+}));
 jest.mock("@/lib/api", () => ({ api: { listTodos: jest.fn(), updateTodo: jest.fn() } }));
 jest.mock("@/features/todos/model/todoReminders", () => ({ syncTodoReminders: jest.fn(async () => {}) }));
 jest.mock("@/features/todos/model/reminderSeen", () => ({
@@ -165,6 +174,32 @@ it("preserves canonical server recurrence dates without a client PATCH", async (
   await waitFor(() => expect(mockValue.loading).toBe(false));
   expect(api.updateTodo).not.toHaveBeenCalled();
   expect(mockValue.todos).toEqual([recurring]);
+});
+
+it("writes the device alerts again when the app's language or the phone's 12/24-hour clock changes", async () => {
+  // The shared mock hands every caller this one i18n, as react-i18next does.
+  const { i18n } = useTranslation();
+  try {
+    const ui = await render(<Screen />);
+    await waitFor(() => expect(syncTodoReminders).toHaveBeenCalledWith([todo], expect.anything()));
+    const syncs = () => jest.mocked(syncTodoReminders).mock.calls.length;
+    const before = syncs();
+    // What lib/i18n's bound events do: the provider renders again, nothing else changed.
+    await ui.rerender(<Screen />);
+    expect(syncs()).toBe(before);
+    i18n.language = "de";
+    await ui.rerender(<Screen />);
+    await waitFor(() => expect(syncs()).toBe(before + 1));
+    mockHourCycle = "h23";
+    refreshPhoneClock();
+    await ui.rerender(<Screen />);
+    await waitFor(() => expect(syncs()).toBe(before + 2));
+    expect(jest.mocked(syncTodoReminders).mock.calls.at(-1)?.[0]).toEqual([todo]);
+  } finally {
+    i18n.language = "en";
+    mockHourCycle = "h12";
+    refreshPhoneClock();
+  }
 });
 
 it("retains valid rows on a failed refresh and allows retry", async () => {

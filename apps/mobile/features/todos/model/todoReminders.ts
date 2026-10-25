@@ -79,16 +79,20 @@ async function schedule(todo: Todo, current: IsCurrent, listed: Pending): Promis
   if (!current() || !notifyAt || !todo.due_at) return listed;
   const due = new Date(todo.due_at);
   const id = todoNotificationId(todo.id);
-  const version = JSON.stringify([todo.content, todo.due_at, todo.topic, todo.notify_at]);
-  // Repeated list refreshes must not schedule the same alert again.
+  const title = i18n.t("notifications.todo_reminder_title");
+  const body = i18n.t("notifications.todo_reminder_body", { content: todo.content, time: formatDate(due, "time") });
+  // What the alert says and when: its text is in the app's language, the phone's 12/24-hour
+  // clock and zone, so a change of one writes it again. Repeated list refreshes must not
+  // schedule the same alert again.
+  const version = JSON.stringify([title, body, todo.topic, todo.notify_at]);
   if (scheduledVersions.get(id) === version) return listed;
   const left = await cancelMatching(matchesTodo(todo.id), current, listed);
   if (!current()) return left;
   await Notifications.scheduleNotificationAsync({
     identifier: id,
     content: {
-      title: i18n.t("notifications.todo_reminder_title"),
-      body: i18n.t("notifications.todo_reminder_body", { content: todo.content, time: formatDate(due, "time") }),
+      title,
+      body,
       data: { type: "todo_due", screen: "todos", todo_id: todo.id, topic: todo.topic },
       sound: notificationSound(),
       ...(Platform.OS === "android" ? { channelId: ANDROID_CHANNEL } : {}),
