@@ -40,4 +40,10 @@ describe("api connectivity", () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 503 });
     await expect(checkHealth()).resolves.toBe(false);
   });
+
+  it("checkHealth returns true from an API that predates the dependency check (404)", async () => {
+    // A rollback, or an app update out before the API's: the server is up, as /health said.
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+    await expect(checkHealth()).resolves.toBe(true);
+  });
 });

@@ -22,7 +22,9 @@ export async function checkHealth(timeoutMs = 4000): Promise<boolean> {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(apiUrl("/health/dependencies"), { signal: controller.signal });
-    return res.ok;
+    // An API from before this route (a rollback, or an app update shipped before the API's)
+    // answers 404: it is up, as /health would have said. Every phone showed the banner else.
+    return res.ok || res.status === 404;
   } catch {
     return false;
   } finally {
