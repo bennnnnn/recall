@@ -1,4 +1,11 @@
 {
+ "service_unavailable": {
+  "status": 503,
+  "detail": {
+   "code": "unavailable",
+   "message": "Service temporarily unavailable. Please retry shortly."
+  }
+ },
  "consent_required": {
   "status": 403,
   "detail": {
@@ -93,6 +100,20 @@
   "detail": {
    "code": "speech_rate_limited",
    "message": "Too many voice requests. Please wait a moment and try again."
+  }
+ },
+ "live_talk_not_configured": {
+  "status": 503,
+  "detail": {
+   "code": "not_configured",
+   "message": "Realtime voice is not configured"
+  }
+ },
+ "memory_spend_cap": {
+  "status": 503,
+  "detail": {
+   "code": "memory_spend_cap",
+   "message": "Memory editing is paused right now — try again later."
   }
  },
  "image_daily_limit": {

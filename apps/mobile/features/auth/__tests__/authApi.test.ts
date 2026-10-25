@@ -65,6 +65,8 @@ describe("login errors", () => {
     ["Apple", () => loginWithApple("id-token", null, "nonce"), refusal(429, "sign_in_rate_limited", "Too many login attempts. Try again shortly."), "login.error_rate_limited"],
     ["dev", () => loginWithDev(), refusal(403, "dev_auth_disabled", "Dev auth disabled"), "login.error_dev_disabled"],
     ["dev", () => loginWithDev(), refusal(503, "sign_in_unavailable", "Sign-in is unavailable right now. Try again in a moment."), "login.error_unavailable"],
+    // Dev login passes the request limiter: with Redis down it answers the API's own outage body.
+    ["dev", () => loginWithDev(), refusal(503, "unavailable", "Service temporarily unavailable. Please retry shortly."), "login.error_unavailable"],
   ] as const)("%s sign-in names the refusal's line, not the server's English (%#)", async (_name, login, answer, key) => {
     // The login screen showed the server's English as it came, in every language.
     jest.mocked(fetchWithTimeout).mockResolvedValueOnce(answer);
@@ -84,7 +86,7 @@ describe("signInRefusalKey", () => {
     [401, { code: "google_token_expired", message: "Expired" }, "login.error_generic"],
     // No code: something in front of the API (a gateway's 503, the request limiter's 429).
     [503, "Service temporarily unavailable. Please retry shortly.", "login.error_unavailable"],
-    [429, "Rate limit unavailable. Please retry shortly.", "login.error_rate_limited"],
+    [429, "Too many requests. Please slow down.", "login.error_rate_limited"],
     [401, "Invalid Google ID token", "login.error_generic"],
     [404, "Not Found", "login.error_generic"],
     [422, [{ msg: "Field required" }], "login.error_generic"],

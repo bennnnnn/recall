@@ -16,7 +16,7 @@ from app.core.deps import (
 )
 from app.core.dev_guards import is_loopback_ip, require_dev_privilege_access
 from app.core.etag import conditional_json
-from app.core.rate_limit import allow_request_fail_closed
+from app.core.rate_limit import allow_request_unless_down
 from app.core.redis_lock import acquire_lock, release_lock
 from app.exceptions import AuthenticationError, DomainError
 from app.models.orm import User
@@ -391,7 +391,7 @@ async def export_me(
     user: User = Depends(get_current_user),
     redis: Redis = Depends(get_redis),
 ) -> StreamingResponse:
-    allowed = await allow_request_fail_closed(
+    allowed = await allow_request_unless_down(
         redis, f"rate:export:{user.id}", limit=_EXPORTS_PER_HOUR, window_seconds=3600
     )
     lock_key = f"export:running:{user.id}"

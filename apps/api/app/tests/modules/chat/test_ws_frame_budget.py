@@ -30,7 +30,7 @@ _SECRET = "super-secret-key-that-is-at-least-32-chars!!"
 @pytest.fixture(autouse=True)
 def _no_redis_limits():
     with (
-        patch("app.modules.chat.ws_api.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch("app.modules.chat.ws_api.allow_request_unless_down", AsyncMock(return_value=True)),
         patch("app.core.chat_rate_limit.allow_chat_message", AsyncMock(return_value=True)),
     ):
         yield

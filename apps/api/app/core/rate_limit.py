@@ -24,29 +24,17 @@ async def allow_request(redis: Redis, key: str, *, limit: int, window_seconds: i
     return int(count) <= limit
 
 
-async def allow_request_fail_closed(
-    redis: Redis, key: str, *, limit: int, window_seconds: int
-) -> bool:
-    """Like ``allow_request``, but Redis errors deny the request (fail closed).
-
-    Matches REST middleware / WS handshake: an outage must not silently remove
-    the rate limit. Callers should translate ``False`` into HTTP 429.
-    """
-    try:
-        return await allow_request(redis, key, limit=limit, window_seconds=window_seconds)
-    except Exception:
-        logger.warning("Rate limit check failed; failing closed key=%s", key, exc_info=True)
-        return False
-
-
 async def allow_request_unless_down(
     redis: Redis, key: str, *, limit: int, window_seconds: int
 ) -> bool:
-    """Like ``allow_request_fail_closed``, but an outage raises ``RedisUnavailableError``.
+    """Like ``allow_request``, but a Redis error raises ``RedisUnavailableError`` (fail closed).
 
-    Still closed: nothing gets through while the counter cannot be read. The caller
-    answers 503 (down, retry shortly) instead of the 429 a ``False`` makes, which told
-    someone who had tried once that they had tried too often.
+    Nothing gets through while the counter cannot be read: an outage must not silently
+    remove a limit. ``False`` is a real limit hit, which the caller answers 429; the
+    outage reaches the client as 503 unavailable + Retry-After 5 (``core/unavailable.py``),
+    or as the chat socket's ``unavailable`` frame. Every limit answered an outage as its
+    own 429: the phone took it for "too many" (sign-in, scans, voice, memory edits, live
+    talk's minutes) and never checked its connection, which it does after a 503.
     """
     try:
         return await allow_request(redis, key, limit=limit, window_seconds=window_seconds)

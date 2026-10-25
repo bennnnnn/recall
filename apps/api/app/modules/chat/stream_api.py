@@ -73,7 +73,8 @@ async def require_chat_rate_limit(user: User = Depends(get_current_user)) -> Red
 
     The same check guards all three streaming routes (and ws_api.py's own
     per-message limiter); as a dependency it is declared once instead of
-    copy-pasted into every new streaming entry point.
+    copy-pasted into every new streaming entry point. Redis down raises
+    ``RedisUnavailableError``, answered 503 unavailable, not this 429.
     """
     redis = get_redis_client()
     if not await allow_chat_message(redis, user.id):

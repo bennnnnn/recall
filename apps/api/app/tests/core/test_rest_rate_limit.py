@@ -1,7 +1,9 @@
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
+from redis.exceptions import ConnectionError as RedisConnectionError
 from starlette.requests import Request
 
 from app.core.config import Settings
@@ -79,19 +81,38 @@ def test_middleware_skips_when_limit_disabled():
         assert client.get("/openapi.json").status_code == 200
 
 
-def test_middleware_fails_closed_when_redis_check_fails():
+@pytest.mark.parametrize(
+    "error", [RuntimeError("redis down"), RedisConnectionError("Error 111 connecting")]
+)
+def test_middleware_fails_closed_with_503_when_redis_check_fails(error: Exception) -> None:
     # A Redis outage must not let the rate limiter silently disappear — that
-    # would expose every protected endpoint to unbounded traffic. Fail closed
-    # with 429 + Retry-After so clients back off and the limit re-engages.
+    # would expose every protected endpoint to unbounded traffic. Fail closed,
+    # as every route does while Redis is down: 503 unavailable, Retry-After 5.
+    # It was 429 "Rate limit unavailable", which the phone reads as a limit.
     broken = redis_mock()
     # The limiter counts in a pipeline: its INCR is what fails.
-    broken.incr.side_effect = RuntimeError("redis down")
+    broken.incr.side_effect = error
     with patch("app.core.rest_rate_limit.get_redis_client", return_value=broken):
         client = TestClient(create_app())
         response = client.get("/openapi.json")
-    assert response.status_code == 429
-    assert response.json()["detail"] == "Rate limit unavailable. Please retry shortly."
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": {
+            "code": "unavailable",
+            "message": "Service temporarily unavailable. Please retry shortly.",
+        }
+    }
     assert response.headers.get("retry-after") == "5"
+
+
+def test_middleware_still_answers_429_over_the_limit_with_redis_up() -> None:
+    """A real limit hit stays a 429: only an outage is a 503."""
+    redis = redis_mock()
+    redis.incr.return_value = 1_000_000  # this minute's count, past any limit
+    with patch("app.core.rest_rate_limit.get_redis_client", return_value=redis):
+        response = TestClient(create_app()).get("/openapi.json")
+    assert response.status_code == 429
+    assert response.headers.get("retry-after") == "60"
 
 
 def test_client_key_falls_back_to_ip_on_invalid_bearer():

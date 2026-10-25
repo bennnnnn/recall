@@ -21,7 +21,7 @@ from app.tests.modules.chat.chat_test_support import access_for, signed_in, ws_s
 @pytest.fixture(autouse=True)
 def _ws_rate_limit():
     with (
-        patch("app.modules.chat.ws_api.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch("app.modules.chat.ws_api.allow_request_unless_down", AsyncMock(return_value=True)),
         patch("app.core.chat_rate_limit.allow_chat_message", AsyncMock(return_value=True)),
     ):
         yield
@@ -179,23 +179,6 @@ async def test_ws_invalid_frame_during_stream_keeps_producer_owned(invalid_frame
     assert any(frame.get("message") == "Invalid JSON" for frame in frames)
 
 
-def test_ws_handshake_fails_closed_on_redis_error():
-    """A Redis outage during the WS handshake must close (1008), not let the
-    connect through unbounded — otherwise unauthenticated connects bypass
-    the limiter for the whole outage."""
-    from starlette.websockets import WebSocketDisconnect
-
-    app = _app(None)
-    client = TestClient(app)
-    with patch(
-        "app.modules.chat.ws_api.allow_request_fail_closed",
-        AsyncMock(return_value=False),
-    ):
-        with pytest.raises(WebSocketDisconnect):
-            with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
-                ws.send_json({"token": "x"})
-
-
 @pytest.mark.asyncio
 async def test_ws_handshake_rate_limit_uses_forwarded_ip_when_trusted():
     """The handshake limiter must key on the edge-seen IP (fly-client-ip/XFF)
@@ -216,7 +199,7 @@ async def test_ws_handshake_rate_limit_uses_forwarded_ip_when_trusted():
 
     with (
         patch("app.modules.chat.ws_api.get_settings", return_value=settings),
-        patch("app.modules.chat.ws_api.allow_request_fail_closed", side_effect=fake_allow),
+        patch("app.modules.chat.ws_api.allow_request_unless_down", side_effect=fake_allow),
     ):
         await _ws_handshake_rate_limit(AsyncMock(), websocket)
 
@@ -282,31 +265,6 @@ def test_ws_null_content_does_not_crash():
             err = ws.receive_json()
             assert err["type"] == "error"
             assert "Invalid" in err["message"]
-
-
-def test_ws_connect_rate_limit_fails_closed_on_redis_error():
-    """Per-user connect limiter must deny when Redis is down (fail closed)."""
-    _, tok = _token()
-    user = _fake_user()
-    app = _app(user)
-
-    async def allow_side_effect(_redis, key, *, limit, window_seconds):
-        if str(key).startswith("rate:ws:handshake:"):
-            return True
-        if str(key).startswith("rate:ws:connect:"):
-            return False
-        return True
-
-    with (
-        patch("app.modules.chat.ws_api.allow_request_fail_closed", side_effect=allow_side_effect),
-        signed_in(user.id),
-    ):
-        client = TestClient(app)
-        with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
-            ws.send_json({"token": tok})
-            err = ws.receive_json()
-            assert err["type"] == "error"
-            assert "Too many requests" in err["message"]
 
 
 # ── normal message flow ────────────────────────────────────────────────────────
