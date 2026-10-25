@@ -10,7 +10,7 @@ from app.models.schemas import UserOut
 from app.modules.account import lifecycle as account_lifecycle
 from app.modules.account import service as auth
 from app.modules.attachments import repository as attachments_repository
-from app.tests.fakes import fake_session
+from app.tests.fakes import fake_session, redis_mock
 
 
 def _user() -> User:
@@ -149,7 +149,7 @@ async def test_google_login_preserves_uploaded_photo_and_refreshes_provider_phot
         patch.object(auth.tokens_service, "issue_token_pair", AsyncMock(return_value=("a", "r"))),
         patch.object(auth.UserOut, "model_validate", return_value=output),
     ):
-        await auth.login_with_google(AsyncMock(), Settings(_env_file=None), "id", AsyncMock())
+        await auth.login_with_google(AsyncMock(), Settings(_env_file=None), "id", redis_mock())
     assert update.await_args.kwargs["avatar_url"] == (
         avatar_before if custom else payload["picture"]
     )
@@ -183,10 +183,10 @@ async def test_provider_login_only_fills_a_blank_saved_name(provider, saved_name
         patch.object(auth.UserOut, "model_validate", return_value=output),
     ):
         if provider == "google":
-            await auth.login_with_google(AsyncMock(), Settings(_env_file=None), "id", AsyncMock())
+            await auth.login_with_google(AsyncMock(), Settings(_env_file=None), "id", redis_mock())
         else:
             await auth.login_with_apple(
-                AsyncMock(), Settings(_env_file=None), "id", AsyncMock(), name="Provider name"
+                AsyncMock(), Settings(_env_file=None), "id", redis_mock(), name="Provider name"
             )
     expected = saved_name if saved_name and saved_name.strip() else "Provider name"
     assert update.await_args.kwargs.get("name", saved_name) == expected

@@ -364,6 +364,7 @@
   "login.error_generic": "Etwas ist schiefgelaufen. Bitte erneut versuchen.",
   "login.error_native_module": "Google Sign-In nativer Code fehlt. App neu bauen:\n\ncd apps/mobile && pnpm expo run:ios",
   "login.error_not_configured": "Google OAuth ist nicht konfiguriert. Setze EXPO_PUBLIC_GOOGLE_* in apps/mobile/.env, baue neu, oder nutze Dev-Login.",
+  "login.error_rate_limited": "Gerade zu viele Anmeldeversuche. Bitte eine Minute warten und dann erneut versuchen.",
   "login.google": "Weiter mit Google",
   "login.google_unavailable_body": "Google Sign-In funktioniert nicht in Expo Go. Baue Recall einmal auf deinem Mac und öffne dann diese App:\n\ncd apps/mobile\npnpm expo run:ios",
   "login.google_unavailable_title": "Recall-App verwenden",
