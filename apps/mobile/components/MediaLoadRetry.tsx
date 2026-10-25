@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
 import { Space } from "@/lib/space";
-import { Theme, useTheme } from "@/lib/theme";
+import { useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
 
@@ -12,12 +12,15 @@ type Props = {
   onRetry: () => void;
   /** Hide the word "Retry" on tiny thumbs; a11y label still reads it. */
   compact?: boolean;
+  /** On a media stage (the photo viewer's black): white ink in both schemes. */
+  media?: boolean;
 };
 
-export function MediaLoadRetry({ onRetry, compact = false }: Props) {
+export function MediaLoadRetry({ onRetry, compact = false, media = false }: Props) {
   const C = useTheme();
   const { t } = useTranslation();
-  const s = useMemo(() => makeStyles(C), [C]);
+  const ink = media ? C.onMedia : C.textSecondary;
+  const s = useMemo(() => makeStyles(ink), [ink]);
 
   return (
     <Pressable
@@ -30,14 +33,15 @@ export function MediaLoadRetry({ onRetry, compact = false }: Props) {
       <Icon
         name="refresh"
         size={compact ? IconSize.sm : IconSize.lg}
-        color={C.textSecondary}
+        color={ink}
+        testID="media-load-retry-icon"
       />
       {compact ? null : <Text style={s.label}>{t("common.retry")}</Text>}
     </Pressable>
   );
 }
 
-function makeStyles(C: Theme) {
+function makeStyles(ink: string) {
   return StyleSheet.create({
     btn: {
       alignItems: "center",
@@ -50,7 +54,7 @@ function makeStyles(C: Theme) {
     },
     label: {
       ...Type.caption,
-      color: C.textSecondary,
+      color: ink,
     },
   });
 }

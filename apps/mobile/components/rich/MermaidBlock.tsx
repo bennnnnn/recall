@@ -63,7 +63,7 @@ export function MermaidBlock({ content }: Props) {
       headerRight={
         <Pressable
           onPress={() => setShowSource((v) => !v)}
-          hitSlop={8}
+          hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel={showSource ? t("rich.diagram") : t("rich.source")}
         >

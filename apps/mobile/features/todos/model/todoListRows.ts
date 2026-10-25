@@ -18,11 +18,14 @@ export function todoListRowKey(row: TodoListRow): string {
   return `heading-${row.key}`;
 }
 
-function sortByDueThenCreated(a: Todo, b: Todo): number {
-  const aDue = a.due_at ? new Date(a.due_at).getTime() : Number.POSITIVE_INFINITY;
-  const bDue = b.due_at ? new Date(b.due_at).getTime() : Number.POSITIVE_INFINITY;
-  if (aDue !== bDue) return aDue - bDue;
-  return b.created_at.localeCompare(a.created_at);
+/** Soonest due first, then the newest. `due` holds each dated to-do's time, read once, not per comparison. */
+function byDueThenCreated(due: Map<Todo, number>): (a: Todo, b: Todo) => number {
+  return (a, b) => {
+    const aDue = due.get(a) ?? Number.POSITIVE_INFINITY;
+    const bDue = due.get(b) ?? Number.POSITIVE_INFINITY;
+    if (aDue !== bDue) return aDue - bDue;
+    return b.created_at.localeCompare(a.created_at);
+  };
 }
 
 function appendGroup(
@@ -50,6 +53,7 @@ export function buildTodoListRows(todos: Todo[], now = new Date()): TodoListRow[
   const anytime: Todo[] = [];
   const completed: Todo[] = [];
   const futureByDay = new Map<string, Todo[]>();
+  const due = new Map<Todo, number>();
 
   for (const todo of todos) {
     if (todo.checked) {
@@ -60,17 +64,24 @@ export function buildTodoListRows(todos: Todo[], now = new Date()): TodoListRow[
       anytime.push(todo);
       continue;
     }
-    const due = new Date(todo.due_at);
-    if (!Number.isFinite(due.getTime())) {
+    const at = new Date(todo.due_at);
+    if (!Number.isFinite(at.getTime())) {
       anytime.push(todo);
       continue;
     }
-    const dayKey = localDateKey(due);
+    due.set(todo, at.getTime());
+    const dayKey = localDateKey(at);
     if (dayKey < todayKey) overdue.push(todo);
     else if (dayKey === todayKey) todayItems.push(todo);
     else if (dayKey === tomorrowKey) tomorrowItems.push(todo);
-    else futureByDay.set(dayKey, [...(futureByDay.get(dayKey) ?? []), todo]);
+    else {
+      // Appended in place: copying the day on each to-do made a busy day quadratic.
+      const day = futureByDay.get(dayKey);
+      if (day) day.push(todo);
+      else futureByDay.set(dayKey, [todo]);
+    }
   }
+  const sortByDueThenCreated = byDueThenCreated(due);
 
   const rows: TodoListRow[] = [];
   appendGroup(rows, "overdue", "overdue", overdue.sort(sortByDueThenCreated));

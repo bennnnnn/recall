@@ -5,12 +5,12 @@ import {
   Circle,
   Group,
   Path,
-  Skia,
   Text as SkiaText,
   useFont,
 } from "@shopify/react-native-skia";
 
 import {
+  ATOM_INK,
   atomColor,
   atomLabelColor,
   bondStrokeWidth,
@@ -21,6 +21,7 @@ import {
 } from "@/lib/chemistry/molecule3dLayout";
 import type { MolGeometry } from "@/lib/chemistry/molecule3dFence";
 import type { Theme } from "@/lib/theme";
+import { linePath } from "@/components/rich/skia/paths";
 
 type Props = {
   geom: MolGeometry;
@@ -31,13 +32,6 @@ type Props = {
   width: number;
   height?: number;
 };
-
-function linePath(x1: number, y1: number, x2: number, y2: number) {
-  const path = Skia.Path.Make();
-  path.moveTo(x1, y1);
-  path.lineTo(x2, y2);
-  return path;
-}
 
 export function SkiaMoleculeCanvas({
   geom,
@@ -81,7 +75,7 @@ export function SkiaMoleculeCanvas({
         const atom = laidOut.atoms[item.index]!;
         return (
           <Group key={`atom-${atom.index}`}>
-            <Circle cx={atom.x} cy={atom.y} r={atom.radius + 1.75} color="#1a1a1a" />
+            <Circle cx={atom.x} cy={atom.y} r={atom.radius + 1.75} color={ATOM_INK} />
             <Circle cx={atom.x} cy={atom.y} r={atom.radius} color={atomColor(atom.element)} />
             {showsAtomLabel(style) && font ? (
               <SkiaText

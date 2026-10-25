@@ -16,7 +16,7 @@ export default function NotFoundScreen() {
     <>
       <Stack.Screen options={{ title: t("common.error") }} />
       <View style={s.container}>
-        <Text style={s.title}>{t("common.not_found_title")}</Text>
+        <Text style={s.title} accessibilityRole="header">{t("common.not_found_title")}</Text>
         <Link href="/" asChild>
           <Pressable style={s.link}>
             <Text style={s.linkText}>{t("common.not_found_home")}</Text>

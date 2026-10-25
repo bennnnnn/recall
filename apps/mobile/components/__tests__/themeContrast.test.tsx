@@ -75,6 +75,41 @@ describe("semantic text contrast", () => {
     ).toBeGreaterThanOrEqual(AA);
   });
 
+  // The pairs below are the ones the app draws: every text run in the component
+  // tests, rendered in both schemes, paired with the plane it sits on.
+  it.each([
+    ["light", lightTheme],
+    ["dark", darkTheme],
+  ] as const)("%s body and secondary ink are AA on every plane they sit on", (_name, theme) => {
+    const planes = [
+      theme.bg,
+      theme.surface,
+      theme.surfaceAlt,
+      theme.elevated,
+      theme.control,
+      theme.settingsSurface,
+    ];
+    for (const plane of planes) {
+      expect(contrastRatio(theme.text, plane)).toBeGreaterThanOrEqual(AA);
+      expect(contrastRatio(theme.textSecondary, plane)).toBeGreaterThanOrEqual(AA);
+    }
+    for (const plane of [theme.surface, theme.elevated]) {
+      expect(contrastRatio(theme.textTertiary, plane)).toBeGreaterThanOrEqual(AA);
+    }
+    expect(contrastRatio(theme.codeLang, theme.codeBg)).toBeGreaterThanOrEqual(AA);
+  });
+
+  it.each([
+    ["light", lightTheme],
+    ["dark", darkTheme],
+  ] as const)("%s status inks are AA on the page, cards and menus", (_name, theme) => {
+    for (const plane of [theme.bg, theme.surface, theme.elevated]) {
+      expect(contrastRatio(theme.danger, plane)).toBeGreaterThanOrEqual(AA);
+    }
+    expect(contrastRatio(theme.success, theme.bg)).toBeGreaterThanOrEqual(AA);
+    expect(contrastRatio(theme.warning, theme.bg)).toBeGreaterThanOrEqual(AA);
+  });
+
   it("textDisabled may sit below AA (placeholders / decoration only)", () => {
     expect(contrastRatio(lightTheme.textDisabled, lightTheme.surfaceAlt)).toBeLessThan(AA);
     expect(contrastRatio(darkTheme.textDisabled, darkTheme.surfaceAlt)).toBeLessThan(AA);

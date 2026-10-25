@@ -1,9 +1,13 @@
 import { Dimensions } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { fireEvent, render, within, waitFor } from "@testing-library/react-native";
+import { configure, fireEvent, render, within, waitFor } from "@testing-library/react-native";
 
 import { ChatComposer } from "@/features/chat/components/ChatComposer";
 import { DraftHarness } from "./DraftHarness";
+
+// These tests drive the math preview, which is hidden from screen readers (the text
+// field reads the draft), so queries look inside hidden views.
+configure({ defaultIncludeHiddenElements: true });
 
 jest.mock("expo-linear-gradient", () => {
   const { View } = jest.requireActual("react-native") as typeof import("react-native");

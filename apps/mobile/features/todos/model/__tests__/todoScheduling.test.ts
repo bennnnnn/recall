@@ -132,3 +132,24 @@ it("allows a later job to retry after native scheduling fails", async () => {
   await syncTodoReminders([todo], { remotePush: false });
   expect(scheduled.has(todoNotificationId(todo.id))).toBe(true);
 });
+
+it("asks the OS for its pending alerts once per sync, not once per to-do", async () => {
+  const many = Array.from({ length: 50 }, (_, i) => ({ ...todo, id: `t${i}`,
+    due_at: new Date(Date.UTC(2099, 0, 1) + i * 3_600_000).toISOString() }));
+  jest.mocked(Notifications.getAllScheduledNotificationsAsync).mockClear();
+  await syncTodoReminders(many, { remotePush: false });
+  // A first sync of 50 to-dos listed them 51 times.
+  expect(Notifications.getAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
+  expect(scheduled.size).toBe(50);
+});
+
+it("replaces a moved to-do's alert from that one listing", async () => {
+  const other = { ...todo, id: "t2", due_at: "2099-01-03T12:00:00Z" };
+  await syncTodoReminders([todo, other], { remotePush: false });
+  const moved = { ...todo, due_at: "2099-01-05T12:00:00Z" };
+  await syncTodoReminders([moved, other], { remotePush: false });
+  expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(todoNotificationId(todo.id));
+  expect(scheduled.get(todoNotificationId(todo.id))).toMatchObject({ date: new Date("2099-01-05T11:50:00Z") });
+  expect(scheduled.has(todoNotificationId(other.id))).toBe(true);
+  expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(3);
+});

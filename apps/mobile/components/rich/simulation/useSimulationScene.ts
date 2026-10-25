@@ -1,6 +1,6 @@
 /** What `SimulationBlock` draws from: the scene read from its fence, laid out, and its clock. */
 import { useCallback, useMemo } from "react";
-import { StyleSheet, useWindowDimensions } from "react-native";
+import { useWindowDimensions } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useFont, type SkFont } from "@shopify/react-native-skia";
 
@@ -23,11 +23,9 @@ import {
   type SimulationSpec,
 } from "@/lib/physics/simulation";
 import { Motion } from "@/lib/motion";
-import { Theme, useTheme } from "@/lib/theme";
-import { Radius } from "@/lib/radius";
-import { Space } from "@/lib/space";
-import { Type } from "@/lib/type";
-import { figureTitleStyle, figureWidth } from "@/components/rich/figure";
+import { useTheme } from "@/lib/theme";
+import { makeFigureFrameStyles } from "@/components/rich/diagrams/DiagramFrame";
+import { figureWidth } from "@/components/rich/figure";
 import { usePlayback } from "@/components/rich/usePlayback";
 import { measureRuns } from "@/components/rich/skia/fontRuns";
 import { pointsPath } from "@/components/rich/skia/paths";
@@ -53,7 +51,7 @@ export function useSimulationScene(content: string) {
   const fallbacks = useMemo(() => [upright, italic], [italic, upright]);
   const spec = useMemo(() => parseSimulationSpec(content), [content]);
   const width = figureWidth(screenWidth);
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeFigureFrameStyles(theme), [theme]);
   const height = useMemo(
     () =>
       spec
@@ -148,23 +146,3 @@ export function sceneAnchors(
   return { centre, groundY, surface, wedge, slope, beam, pivot, anchor, wheel };
 }
 
-function makeStyles(theme: Theme) {
-  return StyleSheet.create({
-    wrap: {
-      marginVertical: Space.xs,
-      alignItems: "center",
-    },
-    title: figureTitleStyle(theme),
-    fallback: {
-      marginVertical: Space.xs,
-      padding: Space.sm,
-      borderRadius: Radius.md,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-    },
-    fallbackText: {
-      ...Type.compact,
-      color: theme.textSecondary,
-    },
-  });
-}

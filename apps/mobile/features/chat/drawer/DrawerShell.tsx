@@ -9,15 +9,18 @@
  * the panel itself moves it (vertical list scroll still wins).
  */
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  AccessibilityInfo,
   BackHandler,
+  findNodeHandle,
   Keyboard,
   Pressable,
   StyleSheet,
   useWindowDimensions,
   View,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
@@ -55,6 +58,7 @@ const SPRING = {
 } as const;
 
 export function DrawerShell({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const theme = useTheme();
   const reduceMotion = useReduceMotion();
@@ -71,6 +75,7 @@ export function DrawerShell({ children }: { children: ReactNode }) {
   const didActivate = useSharedValue(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerOpenRef = useLatestRef(drawerOpen);
+  const panelRef = useRef<View>(null);
 
   useEffect(() => {
     widthSV.value = drawerWidth;
@@ -134,6 +139,16 @@ export function DrawerShell({ children }: { children: ReactNode }) {
     });
     return () => sub.remove();
   }, [close, drawerOpenRef]);
+
+  // A screen reader moves into the panel when it opens, as it does into a Sheet.
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const frame = requestAnimationFrame(() => {
+      const tag = findNodeHandle(panelRef.current);
+      if (tag != null) AccessibilityInfo.setAccessibilityFocus(tag);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [drawerOpen]);
 
   // The builder runs in render, but its callbacks run on touch events; React's compiler
   // cannot tell them apart, so it reads their ref use as a render read.
@@ -246,12 +261,15 @@ export function DrawerShell({ children }: { children: ReactNode }) {
       <GestureDetector gesture={pan}>
         <View style={s.root}>
           <View style={s.rootInner}>
+            {/* A screen reader reaches one side at a time: the chat, or the open panel. */}
             <View
               style={[
                 s.content,
                 drawerOpen && s.contentBehind,
                 { pointerEvents: drawerOpen ? "none" : "auto" },
               ]}
+              accessibilityElementsHidden={drawerOpen}
+              importantForAccessibility={drawerOpen ? "no-hide-descendants" : "auto"}
             >
               {children}
             </View>
@@ -272,10 +290,21 @@ export function DrawerShell({ children }: { children: ReactNode }) {
                 { pointerEvents: drawerOpen ? "auto" : "none" },
               ]}
             >
-              <Pressable style={StyleSheet.absoluteFill} onPress={close} />
+              <Pressable
+                style={StyleSheet.absoluteFill}
+                onPress={close}
+                accessible={drawerOpen}
+                accessibilityRole="button"
+                accessibilityLabel={t("common.close")}
+              />
             </Animated.View>
 
             <Animated.View
+              ref={panelRef}
+              accessibilityViewIsModal={drawerOpen}
+              accessibilityElementsHidden={!drawerOpen}
+              importantForAccessibility={drawerOpen ? "auto" : "no-hide-descendants"}
+              onAccessibilityEscape={close}
               style={[
                 s.drawer,
                 {

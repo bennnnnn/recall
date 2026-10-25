@@ -18,6 +18,7 @@ import {
   parseUserMessageContent,
 } from "@/lib/messageAttachments";
 import { messageListKey } from "@/lib/messageListLayout";
+import { markdownItInstance } from "@/lib/markdown/parser";
 import { shouldCollapseMessage } from "@/lib/markdown/messageFold";
 import { withTypedLineBreaks } from "@/lib/markdown/typedLineBreaks";
 import { displayMathToInline } from "@/lib/math/solutionBars";
@@ -35,9 +36,18 @@ const ChatMessagePdfLazy = React.lazy(() =>
 
 type Props = {
   message: Message;
+  /** Read with the text when a long press opens the message's actions. */
+  actionsHint?: string;
 };
 
-export function UserMessageContent({ message }: Props) {
+/** Whether the text draws a link (markdown, or a bare address the parser links). */
+function holdsLink(content: string): boolean {
+  return markdownItInstance
+    .parse(content, {})
+    .some((token) => token.children?.some((child) => child.type === "link_open"));
+}
+
+export function UserMessageContent({ message, actionsHint }: Props) {
   const C = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
@@ -76,7 +86,13 @@ export function UserMessageContent({ message }: Props) {
     !hasImages && !showPdf && !parsed.hasFileAttachment ? message.content.trim() : "";
   const showTextBubble =
     showCaption || (parsed.hasFileAttachment && !showPdf) || plainText.length > 0;
-  const collapseText = shouldCollapseMessage(showCaption ? parsed.caption : plainText);
+  const bodyText = showCaption ? parsed.caption : plainText;
+  const collapseText = shouldCollapseMessage(bodyText);
+  // The text reads as one element with the actions hint; one with a link stays open for it.
+  const textIsOneElement = useMemo(
+    () => Boolean(actionsHint) && !holdsLink(bodyText),
+    [actionsHint, bodyText],
+  );
 
   return (
     <View style={s.column}>
@@ -107,7 +123,11 @@ export function UserMessageContent({ message }: Props) {
 
       {showTextBubble ? (
         <CollapsibleMessageBody collapsible={collapseText} fadeColor={C.userBubble}>
-          <View style={[s.textBubble, hasImages && s.textBubbleBelowImage]}>
+          <View
+            style={[s.textBubble, hasImages && s.textBubbleBelowImage]}
+            accessible={textIsOneElement}
+            accessibilityHint={textIsOneElement ? actionsHint : undefined}
+          >
             {parsed.hasFileAttachment && !showPdf ? (
               <View
                 style={s.fileChip}

@@ -23,11 +23,13 @@ type SearchCycle = {
   hasMore: boolean;
   results: SearchResult[];
 };
+/** One empty list for every keystroke and closed drawer: a fresh `[]` redrew each visible drawer row. */
+const NO_RESULTS: SearchResult[] = [];
 function emptyCycle(view: View): SearchCycle {
   return { view, open: false, query: "", pending: false, nextCursor: null, hasMore: false, results: [] };
 }
 function emptySnapshot(cycle: SearchCycle) {
-  return { cycle, searchOpen: false, searchQuery: "", searchResults: [] as SearchResult[], searchLoading: false, searchError: false, loadingMore: false, loadingMoreError: false, hasMore: false };
+  return { cycle, searchOpen: false, searchQuery: "", searchResults: NO_RESULTS, searchLoading: false, searchError: false, loadingMore: false, loadingMoreError: false, hasMore: false };
 }
 
 export function useDrawerSearch({ token, isDrawerOpen }: Options) {
@@ -145,7 +147,7 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
   return {
     searchOpen: visible && snapshot.searchOpen,
     searchQuery: visible ? snapshot.searchQuery : "",
-    searchResults: visible ? snapshot.searchResults : [],
+    searchResults: visible ? snapshot.searchResults : NO_RESULTS,
     searchLoading: visible && snapshot.searchLoading,
     searchError: visible && snapshot.searchError,
     hasSearchQuery: visible && isValidDrawerSearchQuery(snapshot.searchQuery),

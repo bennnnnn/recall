@@ -40,7 +40,10 @@ export class StaleResourceCache<Key, Value> {
 
   isFresh(key: Key, now = Date.now()): boolean {
     const entry = this.entries.get(key);
-    return Boolean(entry && now - entry.fetchedAt < this.staleMs);
+    if (!entry) return false;
+    // A clock set back makes the age negative: not fresh, or it stays so until the clock catches up.
+    const age = now - entry.fetchedAt;
+    return age >= 0 && age < this.staleMs;
   }
 
   set(key: Key, data: Value, fetchedAt = Date.now()): Value {

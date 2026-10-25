@@ -51,7 +51,7 @@ export function MathConverterUnitSheet({
       contentContainerStyle={s.sheet}
     >
       <View style={s.header}>
-        <Text style={s.title}>{t("chat.math_converter_select_unit")}</Text>
+        <Text style={s.title} accessibilityRole="header">{t("chat.math_converter_select_unit")}</Text>
         <Pressable
           onPress={onClose}
           style={s.close}
@@ -98,6 +98,8 @@ export function MathConverterUnitSheet({
               onPress={() => onPickUnit(unit.id)}
               style={s.unitRow}
               testID={`math-converter-unit-${unit.id}`}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: selected }}
             >
               <Text style={[s.unitName, selected && s.unitNameSelected]}>
                 {unit.name} ({unit.symbol})

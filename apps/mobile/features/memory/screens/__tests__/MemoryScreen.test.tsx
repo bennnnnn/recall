@@ -134,7 +134,7 @@ describe("MemoryScreen", () => {
     await fireEvent.changeText(ui.getByTestId("memory-composer-input"), "  You can disagree with me more ");
     await fireEvent.press(ui.getByTestId("memory-composer-send"));
 
-    expect(mockInstruct).toHaveBeenCalledWith("You can disagree with me more");
+    expect(mockInstruct).toHaveBeenCalledWith("You can disagree with me more", undefined);
     expect(mockFeedback.success).toHaveBeenCalledWith("Saved: disagree more.");
     expect(ui.getByTestId("memory-composer-input").props.value).toBe("");
   });

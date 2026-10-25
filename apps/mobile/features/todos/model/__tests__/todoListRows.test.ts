@@ -50,3 +50,17 @@ it("treats an invalid due date as an anytime to-do", () => {
     { kind: "todo", todo: { id: "invalid" } },
   ]);
 });
+
+// A later day took each of its to-dos by copying the day so far, and every comparison
+// parsed both due dates: 20,000 to-dos on one day took 1.5-1.8 s (jest), now 40-100 ms.
+it("lists a very busy day in one pass", () => {
+  const now = new Date(2026, 8, 22, 9);
+  const busy = Array.from({ length: 20_000 }, (_, i) =>
+    todo(`t${i}`, new Date(2026, 8, 25, 9, i % 600).toISOString()));
+  const start = performance.now();
+  const rows = buildTodoListRows(busy, now);
+  expect(performance.now() - start).toBeLessThan(400);
+  expect(rows).toHaveLength(20_001);
+  expect(rows[0]).toMatchObject({ kind: "heading", section: "date", count: 20_000 });
+  expect(rows[1]).toMatchObject({ kind: "todo", todo: { due_at: new Date(2026, 8, 25, 9, 0).toISOString() } });
+});

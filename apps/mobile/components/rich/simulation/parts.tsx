@@ -14,11 +14,10 @@ import {
 } from "@/lib/physics/simulation";
 import { trajectoryPointAt } from "@/lib/math/trajectory";
 import type { Theme } from "@/lib/theme";
-import { appendArrowHead, linePath, pointsPath } from "@/components/rich/skia/paths";
+import { appendArrowHead, linePath, pointsPath, segmentsPath } from "@/components/rich/skia/paths";
 import {
   boxPath,
   rectPath,
-  segmentsPath,
   springPath,
   type Rect,
 } from "@/components/rich/simulation/paths";

@@ -1,6 +1,5 @@
 import {
   getStreamingDraft,
-  getStreamingDraftContentLength,
   publishStreamingDraft,
   resetStreamingDraftStore,
   subscribeStreamingDraft,
@@ -22,7 +21,7 @@ describe("streamingDraftStore", () => {
     unsubscribe();
 
     expect(seen).toEqual(["hello", "hello world"]);
-    expect(getStreamingDraftContentLength()).toBe(11);
+    expect(getStreamingDraft()?.content).toHaveLength(11);
   });
 
   it("clears draft and notifies subscribers", () => {
@@ -36,6 +35,6 @@ describe("streamingDraftStore", () => {
     unsubscribe();
 
     expect(latest).toBeNull();
-    expect(getStreamingDraftContentLength()).toBe(0);
+    expect(getStreamingDraft()).toBeNull();
   });
 });

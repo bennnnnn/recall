@@ -13,7 +13,10 @@ let mockSheet: {
   onClose: () => void;
   onSave: (content: string, due: Date | null, recurrence: null, topic: string) => void;
 };
-let mockList: { onRefresh: () => Promise<void>; refreshing: boolean; rows: unknown[]; onOpen: (row: { id: string; content: string }) => void };
+let mockList: {
+  onRefresh: () => Promise<void>; refreshing: boolean; rows: unknown[];
+  onOpen: (row: { id: string; content: string }) => void; onSelect: (row: { id: string }) => void;
+};
 let mockHeader: { onRetry: () => void };
 const mockOpenTodo = jest.fn();
 const mockCreate = jest.fn();
@@ -162,6 +165,16 @@ it("opens a to-do when its row is tapped", async () => {
   const todo = { id: "todo-1", content: "Walk" };
   await act(() => { mockList.onOpen(todo); });
   expect(mockOpenTodo).toHaveBeenCalledWith(todo);
+});
+
+it("hands every row the same open and select handlers on each render, so a change redraws only its row", async () => {
+  mockTodos = [todoAt("a", 0), todoAt("b", 0)];
+  const ui = await render(<TodosScreen />);
+  const { onOpen, onSelect } = mockList;
+  mockTodos = [{ ...mockTodos[0]!, checked: true }, mockTodos[1]!];
+  await ui.rerender(<TodosScreen />);
+  expect(mockList.onOpen).toBe(onOpen);
+  expect(mockList.onSelect).toBe(onSelect);
 });
 
 it("opens a plain to-do draft without any scheduling step", async () => {

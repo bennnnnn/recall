@@ -67,7 +67,7 @@ export default function AiConsentScreen() {
             onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
             accessibilityRole="link"
             accessibilityLabel={t("onboarding.consent_privacy_link")}
-            hitSlop={Space.xs}
+            hitSlop={13}
             style={s.linkWrap}
           >
             <Text style={s.link}>{t("onboarding.consent_privacy_link")}</Text>

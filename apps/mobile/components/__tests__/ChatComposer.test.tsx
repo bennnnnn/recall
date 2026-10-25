@@ -9,6 +9,9 @@ import { ComposerDraftProvider, useComposerDraftApi } from "@/features/chat/cont
 
 import { DraftHarness } from "./DraftHarness";
 
+/** The math preview is hidden from screen readers (the text field reads the draft); look inside it. */
+const HIDDEN_TOO = { includeHiddenElements: true };
+
 jest.mock("expo-linear-gradient", () => {
   const { View } = jest.requireActual("react-native") as typeof import("react-native");
   return { LinearGradient: View };
@@ -91,7 +94,7 @@ describe("ChatComposer math keyboard", () => {
       expect(native.props.selection).toBeUndefined();
       expect(native.props.caretHidden).toBe(false);
       expect(native.props.pointerEvents).toBe("auto");
-      expect(queryByTestId("math-draft-preview")).toBeNull();
+      expect(queryByTestId("math-draft-preview", HIDDEN_TOO)).toBeNull();
     }
   });
 
@@ -128,7 +131,7 @@ describe("ChatComposer math keyboard", () => {
     for (let i = 1; i <= text.length; i += 1) {
       await fireEvent.changeText(getByTestId("chat-composer-input"), text.slice(0, i));
       expect(getByTestId("chat-composer-input").props.selection).toBeUndefined();
-      expect(queryByTestId("math-draft-preview")).toBeNull();
+      expect(queryByTestId("math-draft-preview", HIDDEN_TOO)).toBeNull();
     }
   });
 
@@ -149,15 +152,15 @@ describe("ChatComposer math keyboard", () => {
     await act(() => api.switchThread("math"));
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
-    expect(getByTestId("math-draft-preview")).toBeTruthy();
+    expect(getByTestId("math-draft-preview", HIDDEN_TOO)).toBeTruthy();
     await act(() => api.switchThread("literal"));
     expect(getByTestId("chat-composer-input").props.value).toBe("The price is $5");
     expect(getByTestId("chat-composer-input").props.selection).toBeUndefined();
-    expect(queryByTestId("math-draft-preview")).toBeNull();
+    expect(queryByTestId("math-draft-preview", HIDDEN_TOO)).toBeNull();
     expect(queryByTestId("math-keyboard-pad")).toBeNull();
     await fireEvent.changeText(getByTestId("chat-composer-input"), "The price is $50");
     expect(getByTestId("chat-composer-input").props.value).toBe("The price is $50");
-    expect(queryByTestId("math-draft-preview")).toBeNull();
+    expect(queryByTestId("math-draft-preview", HIDDEN_TOO)).toBeNull();
   });
 
   it("shows a guarded busy send control before streaming starts", async () => {
@@ -266,6 +269,22 @@ describe("ChatComposer math keyboard", () => {
       expect(getByTestId("chat-composer-input").props.value).toBe("");
       expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 24 });
     });
+  });
+
+  it("leaves the text field its own screen-reader element", async () => {
+    // iOS reads an accessible view as one element and hides what is inside it: a text
+    // field under one would be read as a role-less "Message" with no draft and no editing.
+    const { getByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
+    const input = getByTestId("chat-composer-input");
+    const wrappers: string[] = [];
+    for (let node = input.parent; node; node = node.parent) {
+      if (node.props.accessible === true) wrappers.push(node.props.testID ?? String(node.type));
+    }
+    expect(wrappers).toEqual([]);
   });
 
   it("grows the field when a leading Return adds a line", async () => {
@@ -499,7 +518,7 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-keyboard-tab-trig"));
     await fireEvent.press(getByTestId("math-key-cos"));
-    expect(getAllByTestId("math-group")).toHaveLength(1);
+    expect(getAllByTestId("math-group", HIDDEN_TOO)).toHaveLength(1);
   });
 
   it("sends a convert prompt on Ask, not a computed answer", async () => {

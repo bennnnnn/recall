@@ -5,6 +5,7 @@
 import { textLooksLikeMath } from "@/lib/math/composerIntent";
 import type { DraftNode } from "@/lib/math/draftSlots";
 import { SCRIPT_RATIO } from "@/lib/math/layout";
+import { readableLatexFallback } from "@/lib/math/latexParse";
 import { isMostlyProsePaste } from "@/lib/math/pasteNormalize";
 import {
   NATIVE_LITERAL_LEFT_BRACE_MARKER,
@@ -128,6 +129,15 @@ export function textRuns(input: string, start: number, end: number): { math: boo
     from = i + 1;
   }
   return runs;
+}
+
+/** What a screen reader says for a sent math message: its prose, and its maths as words. */
+export function spokenDraft(input: string): string {
+  return textRuns(input, 0, input.length)
+    .map((run) => (run.math ? readableLatexFallback(run.text) : run.text))
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 type TextNode = Extract<DraftNode, { kind: "text" }>;

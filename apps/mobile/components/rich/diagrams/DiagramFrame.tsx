@@ -65,7 +65,7 @@ export function DiagramFrame({
   footer?: ReactNode;
 }) {
   const theme = useTheme();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeFigureFrameStyles(theme), [theme]);
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>{title}</Text>
@@ -99,7 +99,7 @@ export function DiagramFrame({
 export function DiagramFallback() {
   const theme = useTheme();
   const { t } = useTranslation();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeFigureFrameStyles(theme), [theme]);
   return (
     <View testID="physics-diagram-fallback" style={styles.fallback}>
       <Text style={styles.fallbackText}>{t("rich.simulation_error")}</Text>
@@ -114,7 +114,8 @@ const markerStyle = {
   opacity: 0,
 };
 
-function makeStyles(theme: Theme) {
+/** The frame's styles; a simulation scene draws in the same frame. */
+export function makeFigureFrameStyles(theme: Theme) {
   return StyleSheet.create({
     wrap: {
       marginVertical: Space.xs,

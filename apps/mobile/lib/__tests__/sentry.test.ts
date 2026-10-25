@@ -9,6 +9,8 @@ jest.mock("@sentry/react-native", () => {
   return { init: jest.fn(), captureException: jest.fn() };
 });
 
+jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.recall.test" }));
+
 const JWT = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.sig_part_here";
 
 describe("mobile Sentry scrubbing (O10.1)", () => {
@@ -100,6 +102,11 @@ describe("error-boundary capture", () => {
     expect(sdk().init).toHaveBeenCalledWith(
       expect.objectContaining({ sendDefaultPii: false, beforeSend: expect.any(Function) }),
     );
+    // Trace headers go to our API's URLs only (sentryTraceHeaders.test.tsx runs the SDK).
+    const targets: RegExp[] = sdk().init.mock.calls[0][0].tracePropagationTargets;
+    const traced = (url: string) => targets.some((target) => target.test(url));
+    expect(["https://api.recall.test", "https://api.recall.test/chats?limit=40"].every(traced)).toBe(true);
+    expect(["https://api.openai.com/v1/realtime/calls", "https://api.recall.test.evil.example/"].some(traced)).toBe(false);
     const error = new Error("render failed");
     mod.reportBoundaryError("message_row", error, "\n    in MessageBubble");
     expect(sdk().captureException).toHaveBeenCalledWith(error, {

@@ -113,3 +113,17 @@ it("reads nothing again when the access token rotates (NET-11)", async () => {
   await rerender(undefined);
   expect(mockFetchUsage).toHaveBeenCalledTimes(1);
 });
+
+it("shows the usage the server just sent for its day when the phone's clock is past UTC midnight", async () => {
+  // The phone runs a minute ahead: 00:00:30 UTC on its clock, still the 24th on the server's.
+  jest.useFakeTimers({ now: new Date("2026-10-25T00:00:30.000Z") });
+  try {
+    mockFetchUsage.mockResolvedValue({ ...usage(), date: "2026-10-24" });
+    const { result } = await renderHook(useUsage);
+    await act(async () => {});
+    expect(result.current.error).toBe(false);
+    expect(result.current.usage?.used_tokens).toBe(12000);
+  } finally {
+    jest.useRealTimers();
+  }
+});

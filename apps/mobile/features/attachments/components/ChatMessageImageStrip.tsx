@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 
-import { AttachmentImageViewer } from "@/features/attachments/components/AttachmentImageViewer";
+import { LazyAttachmentImageViewer } from "@/features/attachments/components/LazyAttachmentImageViewer";
 import { ChatMessageImage } from "@/features/attachments/components/ChatMessageImage";
 import { Space } from "@/lib/space";
 
@@ -89,7 +89,7 @@ export function ChatMessageImageStrip({ images }: Props) {
           </View>
         ))}
       </ScrollView>
-      <AttachmentImageViewer
+      <LazyAttachmentImageViewer
         visible={openIndex !== null}
         onClose={() => setOpenIndex(null)}
         images={images}

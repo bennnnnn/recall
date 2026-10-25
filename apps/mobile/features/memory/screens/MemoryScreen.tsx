@@ -4,11 +4,11 @@ import { Redirect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { MemoryComposer } from "@/features/memory/components/MemoryComposer";
 import { MemoryHeaderMenu } from "@/features/memory/components/MemoryHeaderMenu";
 import { useClearAllMemories } from "@/features/memory/hooks/useClearAllMemories";
 import { useMemoryDocuments } from "@/features/memory/hooks/useMemoryDocuments";
+import { useSubmitInstruction } from "@/features/memory/hooks/useSubmitInstruction";
 import {
   documentSummary,
   documentTitle,
@@ -17,7 +17,6 @@ import {
 } from "@/features/memory/model/memoryDocuments";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { formatMonthDay } from "@/lib/datetime/format";
-import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
@@ -26,8 +25,6 @@ import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
 import { StateView } from "@/ui/feedback/StateView";
 import { ListGroup } from "@/ui/list/ListGroup";
 import { ListRow } from "@/ui/list/ListRow";
-import { instructNotice } from "@/features/memory/model/instructNotice";
-import { memoryFailureKey } from "@/features/memory/model/memoryFailure";
 
 // While Recall reads recent chats for the first time, check back for a while.
 const SCAN_POLL_MS = 5000;
@@ -44,7 +41,6 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const locale = i18n?.language;
   const theme = useTheme();
   const router = useRouter();
-  const feedback = useActionFeedbackOptional();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { documents, scanning, loading, error, load, instruct } = useMemoryDocuments(token);
   const { clearAll } = useClearAllMemories(isCurrentView);
@@ -71,18 +67,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
 
   const sections = useMemo(() => groupDocuments(documents, t, locale), [documents, t, locale]);
 
-  const submit = useCallback(async (instruction: string) => {
-    const outcome = await instruct(instruction);
-    if (!isCurrentView()) return false;
-    if (!outcome.ok) {
-      reportRecoverableError(feedback, t(memoryFailureKey(outcome.failure, "memory.instruct_failed")));
-      return false;
-    }
-    const notice = instructNotice(outcome, t);
-    if (notice.landed) feedback?.success(notice.message);
-    else feedback?.warning(notice.message);
-    return notice.landed;
-  }, [instruct, isCurrentView, feedback, t]);
+  const submit = useSubmitInstruction(instruct, isCurrentView);
 
   const refresh = useCallback(async () => {
     if (!isCurrentView() || refreshingRef.current) return;

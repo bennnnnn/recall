@@ -28,6 +28,18 @@ export function linePath(x1: number, y1: number, x2: number, y2: number): SkPath
   return path;
 }
 
+/** Separate straight strokes in one path: hatching, ticks, walls. */
+export function segmentsPath(
+  segments: readonly { x1: number; y1: number; x2: number; y2: number }[],
+): SkPath {
+  const path = Skia.Path.Make();
+  for (const segment of segments) {
+    path.moveTo(segment.x1, segment.y1);
+    path.lineTo(segment.x2, segment.y2);
+  }
+  return path;
+}
+
 /**
  * Append just the head of an arrow whose tip is (`tipX`, `tipY`) and whose
  * unit direction is (`ux`, `uy`). For `ticks` the start of the line is needed

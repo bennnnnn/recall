@@ -1,4 +1,5 @@
 import type { Message } from "@/lib/api";
+import { ApiRequestError } from "@/lib/api/errorBody";
 import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import { mergeLocalAttachmentUris } from "@/features/chat/model/messageMerge";
 
@@ -86,6 +87,16 @@ export function droppedTurnWaitMs(random: () => number = Math.random, baseMs = D
 }
 
 /**
+ * The wait a refused poll's `Retry-After` asks for (a 503 says 5 s, a 429 60 s), spread
+ * up to 25% past it so the phones a deploy or an outage refused together come back
+ * apart; 0 for any other failure. They used to poll again at 2 s through the outage.
+ */
+function askedWaitMs(error: unknown, random: () => number): number {
+  const asked = error instanceof ApiRequestError ? error.retryAfterMs : null;
+  return asked ? Math.round(asked * (1 + POLL_JITTER * random())) : 0;
+}
+
+/**
  * Reload until the turn is answered or the polls run out; null once
  * `stillWaiting` says the wait was abandoned (Stop, a new turn, another chat).
  * A poll reads the newest few rows; the answered turn is settled with a full
@@ -110,8 +121,10 @@ export async function pollDroppedTurn({
   random?: () => number;
 }): Promise<DroppedTurnResult | null> {
   let last: DroppedTurnResult = { state: "unknown", page: null };
+  let asked = 0;
   for (let poll = 0; poll < polls; poll += 1) {
-    await wait(droppedTurnWaitMs(random, pollMs(poll)));
+    await wait(Math.max(droppedTurnWaitMs(random, pollMs(poll)), asked));
+    asked = 0;
     if (!stillWaiting()) return null;
     try {
       const probe = await fetchPage(DROPPED_TURN_PROBE_ROWS);
@@ -123,8 +136,9 @@ export async function pollDroppedTurn({
         return { state, page };
       }
       last = { state, page: null };
-    } catch {
-      // The network that dropped the socket may be coming back; poll again.
+    } catch (error) {
+      // The network that dropped the socket may be coming back; poll again, when the server asks.
+      asked = askedWaitMs(error, random);
     }
   }
   return last;

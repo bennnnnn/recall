@@ -23,4 +23,9 @@ describe("shouldRefreshModels", () => {
     const lastFetchedAt = now - ttl;
     expect(shouldRefreshModels(lastFetchedAt, now, ttl)).toBe(true);
   });
+
+  it("refreshes after the clock is set back, not once it catches up", () => {
+    const lastFetchedAt = 10_000_000;
+    expect(shouldRefreshModels(lastFetchedAt, lastFetchedAt - 60 * 60 * 1000, 5 * 60 * 1000)).toBe(true);
+  });
 });

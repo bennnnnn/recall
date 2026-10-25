@@ -280,6 +280,12 @@ describe("kept chat pages", () => {
     expect(isCachedChatPageFresh("chat-1", "2026-01-01T00:00:00Z")).toBe(false);
   });
 
+  it("is not fresh after the clock is set back", () => {
+    keepCachedChatPage("chat-1", turn(1), false, FETCHED, "2026-01-01T00:00:00Z");
+    now = FETCHED - 60 * 60_000;
+    expect(isCachedChatPageFresh("chat-1", "2026-01-01T00:00:00Z")).toBe(false);
+  });
+
   it("is not fresh once a turn started or the app went to the background", () => {
     keepCachedChatPage("chat-1", turn(1), false, FETCHED);
     keepCachedChatPage("chat-2", turn(2), false, FETCHED);

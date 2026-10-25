@@ -28,6 +28,10 @@ describe("accent presets", () => {
       // Links and selected text on the page and on cards.
       expect(contrast(theme.primary, theme.bg)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme.primary, theme.surface)).toBeGreaterThanOrEqual(4.5);
+      // ...in a pressed well, a menu and a Settings group.
+      expect(contrast(theme.primary, theme.surfaceAlt)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(theme.primary, theme.elevated)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(theme.primary, theme.settingsSurface)).toBeGreaterThanOrEqual(4.5);
       // Button labels on a primary fill, also when pressed.
       expect(contrast(theme.onPrimary, theme.primary)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme.onPrimary, theme.primaryDark)).toBeGreaterThanOrEqual(4.5);

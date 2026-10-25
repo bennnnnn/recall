@@ -36,4 +36,9 @@ describe("StateView", () => {
 
     expect(getByText("cloud-off")).toBeTruthy();
   });
+
+  it("names its state with a heading a screen reader can jump to", async () => {
+    const { getByRole } = await render(<StateView variant="empty" title="No chats yet" />);
+    expect(getByRole("header", { name: "No chats yet" })).toBeOnTheScreen();
+  });
 });

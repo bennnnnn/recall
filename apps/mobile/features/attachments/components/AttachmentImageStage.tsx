@@ -38,6 +38,7 @@ import {
 import { getSessionGeneration } from "@/lib/auth";
 import { fitImageToStage } from "@/lib/fitImageToStage";
 import { useReduceMotion } from "@/lib/reduceMotion";
+import { useTheme } from "@/lib/theme";
 
 /** Settles without bounce, so a released photo never shows the stage edge. */
 const ZOOM_SPRING = { damping: 30, stiffness: 300, overshootClamping: true } as const;
@@ -63,6 +64,7 @@ export function AttachmentImageStage({ item, active, onPress, onZoomChange, acce
   const token = useAuthToken();
   const { account, getToken } = useAccountSession();
   const reduceMotion = useReduceMotion();
+  const theme = useTheme();
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [cachedFile, setCachedFile] = useState<{ key: object; uri: string } | null>(null);
@@ -333,6 +335,7 @@ export function AttachmentImageStage({ item, active, onPress, onZoomChange, acce
     return (
       <View style={s.stage}>
         <MediaLoadRetry
+          media
           onRetry={() => {
             if (remoteUri) invalidateCachedAttachmentFile(remoteUri);
             setCachedFile(null);
@@ -347,7 +350,7 @@ export function AttachmentImageStage({ item, active, onPress, onZoomChange, acce
   if (!source) {
     return (
       <View style={s.stage}>
-        <ActivityIndicator color="#FFFFFF" size="large" />
+        <ActivityIndicator color={theme.onMedia} size="large" />
       </View>
     );
   }

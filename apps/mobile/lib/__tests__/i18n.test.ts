@@ -20,7 +20,7 @@ const PLURAL_SUFFIX = /_(one|few|many|other)$/;
 /**
  * A counted string's form: `chat.sources_count_one` is `chat.sources_count`
  * in the `one` form. A counted string always has an `_other` form, which
- * keeps a plain key such as `todos.delete_many` out.
+ * keeps out a plain key that merely ends in `_many`.
  */
 function pluralForm(bundle: object, key: string): { base: string; form: string } | null {
   const match = PLURAL_SUFFIX.exec(key);
@@ -128,6 +128,22 @@ describe("i18n runtime", () => {
       "21 источник",
       "22 источника",
       "25 источников",
+    ]);
+    await ensureLocale("en");
+  });
+
+  it("counts selected chats and to-dos in each language's forms, one included", async () => {
+    await ensureLocale("en");
+    expect(i18n.t("drawer.bulk_archive_confirm_body", { count: 1 })).toBe("Archive 1 conversation?");
+    expect(i18n.t("drawer.bulk_deleted_toast", { count: 3 })).toBe("Deleted 3 conversations");
+    expect(i18n.t("todos.delete_selected", { count: 1 })).toBe("Delete 1 to-do?");
+    await ensureLocale("ru");
+    const ruArchive = [1, 3, 5, 21].map((count) => i18n.t("drawer.bulk_archive_confirm_body", { count }));
+    expect(ruArchive).toEqual([
+      "Переместить 1 чат в архив?",
+      "Переместить 3 чата в архив?",
+      "Переместить 5 чатов в архив?",
+      "Переместить 21 чат в архив?",
     ]);
     await ensureLocale("en");
   });

@@ -17,6 +17,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { Button } from "@/ui/controls/Button";
 import { TextField } from "@/ui/controls/TextField";
+import { useLiveAnnouncement } from "@/ui/hooks/useLiveAnnouncement";
 
 export type ScanReadingState =
   | { status: "reading" }
@@ -54,6 +55,7 @@ export function ScanReadingReview({
   const [draft, setDraft] = useState("");
 
   const readingText = state.status === "ready" ? state.reading : "";
+  useLiveAnnouncement(state.status === "failed" ? (state.message ?? t("chat.math_scan_read_failed")) : null);
   useEffect(() => {
     setDraft(readingText);
   }, [readingText]);

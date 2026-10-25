@@ -182,6 +182,8 @@ export function Sheet({
       ref={dialogRef}
       accessibilityRole={"dialog" as AccessibilityRole}
       accessibilityViewIsModal
+      // VoiceOver's two-finger scrub closes it, as the scrim and Android back do.
+      onAccessibilityEscape={dismissible ? requestClose : undefined}
       testID="app-sheet-dialog"
       collapsable={false}
       style={[

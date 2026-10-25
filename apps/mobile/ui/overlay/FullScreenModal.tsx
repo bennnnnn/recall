@@ -1,4 +1,4 @@
-import { Modal, type ModalProps } from "react-native";
+import { Modal, StyleSheet, View, type ModalProps } from "react-native";
 
 /**
  * A page that replaces the screen: image / PDF / text viewers, the HTML
@@ -9,6 +9,24 @@ import { Modal, type ModalProps } from "react-native";
  * open iOS modal skips RN's dismiss path and can leave the presenter stuck
  * (see the math-scanner lesson in .cursor/rules/lessons.mdc).
  */
-export function FullScreenModal({ animationType = "slide", ...props }: ModalProps) {
-  return <Modal animationType={animationType} {...props} />;
+type Props = Omit<ModalProps, "onRequestClose"> & {
+  /** Android back, and VoiceOver's two-finger scrub. */
+  onRequestClose: () => void;
+};
+
+export function FullScreenModal({ animationType = "slide", children, ...props }: Props) {
+  return (
+    <Modal animationType={animationType} {...props}>
+      <View
+        style={styles.page}
+        collapsable={false}
+        onAccessibilityEscape={props.onRequestClose}
+        testID="full-screen-modal-page"
+      >
+        {children}
+      </View>
+    </Modal>
+  );
 }
+
+const styles = StyleSheet.create({ page: { flex: 1 } });

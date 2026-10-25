@@ -49,6 +49,8 @@ type Translate = (key: string, options?: Record<string, unknown>) => string;
 const PLAN_RANK: Record<PlanId, number> = { free: 0, plus: 1, pro: 2 };
 
 const NO_OFFER: PlanOffer = { packages: {}, unavailable: false };
+/** A 12pt link line is about 17pt tall: this makes it a 45pt target, short of the next link. */
+const LEGAL_LINK_SLOP = { top: 14, bottom: 14, left: Space.xs, right: Space.xs };
 
 type FeatureLine = { icon: IconName; text: string };
 
@@ -230,7 +232,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
       <View style={s.iconWrap}>
         <Icon name="sparkles" size={IconSize.lg} color={theme.primary} />
       </View>
-      <Text style={s.title}>{t("upgrade.title")}</Text>
+      <Text style={s.title} accessibilityRole="header">{t("upgrade.title")}</Text>
       {current !== "free" ? (
         <Text style={s.body}>{t("upgrade.current_plan", { plan: t(planNameKey(current)) })}</Text>
       ) : (
@@ -295,14 +297,16 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
           onPress={() => void openAllowedUrl(getLegalTermsUrl())}
           accessibilityRole="link"
           accessibilityLabel={t("terms.title")}
+          hitSlop={LEGAL_LINK_SLOP}
         >
           <Text style={s.legalLink}>{t("terms.title")}</Text>
         </Pressable>
-        <Text style={s.legalSeparator}>·</Text>
+        <Text style={s.legalSeparator} accessibilityElementsHidden importantForAccessibility="no">·</Text>
         <Pressable
           onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
           accessibilityRole="link"
           accessibilityLabel={t("privacy.title")}
+          hitSlop={LEGAL_LINK_SLOP}
         >
           <Text style={s.legalLink}>{t("privacy.title")}</Text>
         </Pressable>
@@ -312,6 +316,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
             <Pressable
               key={`dev-${plan}`}
               style={s.devBtn}
+              accessibilityRole="button"
               onPress={() => {
                 void devUpgrade(plan).then((ok) => {
                   if (ok) onClose();
