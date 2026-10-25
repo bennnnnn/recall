@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Pressable, StyleSheet, Text } from "react-native";
+import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text } from "react-native";
 import Animated, {
   runOnJS,
   type SharedValue,
@@ -54,6 +54,11 @@ export function ActionBanner({
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // TalkBack reads the toast through its live region; iOS has none, so VoiceOver is told.
+  useEffect(() => {
+    if (message && Platform.OS === "ios") AccessibilityInfo.announceForAccessibility(message);
+  }, [message]);
 
   useEffect(() => {
     if (!message) return;
