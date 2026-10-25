@@ -23,7 +23,6 @@ from app.modules.web_search.live_asks import (
     asks_for_a_price,
     asks_for_entry_rules,
     asks_for_job_listings,
-    asks_how_a_team_did,
 )
 from app.modules.web_search.officeholder import asks_who_holds_office
 from app.modules.web_search.patterns import (
@@ -179,7 +178,7 @@ def web_search_fast_yes(
     # So do officeholders: "who is the president of Ethiopia" was answered from memory.
     if asks_who_holds_office(cleaned):
         return True
-    if _SPORTS_LOOKUP.search(cleaned) or asks_how_a_team_did(cleaned):
+    if _SPORTS_LOOKUP.search(cleaned):
         return True
     if _TEAM_SCORE.search(cleaned) or _TEAM_POSSESSIVE_SCORE.search(cleaned):
         return True

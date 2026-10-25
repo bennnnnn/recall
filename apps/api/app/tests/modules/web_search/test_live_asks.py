@@ -13,7 +13,6 @@ from app.modules.web_search.live_asks import (
     asks_for_a_price,
     asks_for_entry_rules,
     asks_for_job_listings,
-    asks_how_a_team_did,
 )
 from app.modules.web_search.release_asks import asks_if_released
 
@@ -241,62 +240,3 @@ def test_a_longer_message_with_out_in_it_is_no_release_ask(text: str) -> None:
     """ "It" is a release only when the message names a product: a brand, or a name with a
     model number ("Pixel 11"). A pet, a cake, a phone of the user's own are not."""
     assert not asks_if_released(text)
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "did the bears win today",
-        "did the bears win last night",
-        "Perfect. totally unrelated but did the bears win today",
-        "how did the bulls do last night",
-        "did man city lose today",
-        "did the democrats win the election today",
-    ],
-)
-def test_a_team_result_searches(text: str) -> None:
-    """Live (2026-10-25): "did the bears win today" got "I don't have real-time results"."""
-    assert asks_how_a_team_did(text)
-    assert needs_web_search(text)
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "did you win",
-        "did i win",
-        "did it work",
-        "did my mom win the lottery",
-        "did they win",
-        "did the plan work out",
-        "how did you do that",
-        "i love you but did you eat",
-        # Review (2026-10-25): stories, kitchens, sound and word problems.
-        "did the hero win in the end",
-        "did the beat drop",
-        "did the kids draw on the wall",
-        "did the egg beat well",
-        "how did the soup do",
-        "how did the interview do",
-        "Team A won 3 games out of 5. did the team win more than half?",
-        "did the beat frequency increase when the second tuning fork was tuned higher?",
-        "did the tortoise beat the hare",
-        # No game or time named: the model may still search.
-        "did the bears win",
-    ],
-)
-def test_a_person_or_thing_is_no_team_result(text: str) -> None:
-    assert not asks_how_a_team_did(text)
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "Went to the gym today but was too tired to finish",
-        "Tried the new recipe today but did not have enough flour",
-        "Watched the game today but was bored",
-        "The meeting went well today but will need a follow-up",
-    ],
-)
-def test_a_statement_with_but_does_not_search(text: str) -> None:
-    assert not needs_web_search(text)

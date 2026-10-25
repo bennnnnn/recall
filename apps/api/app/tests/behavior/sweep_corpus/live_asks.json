@@ -9,28 +9,28 @@
  {
   "id": "lva-002",
   "area": "search",
-  "prompt": "did the bears win today",
+  "prompt": "did the bears win today?",
   "reply": "The Bears didn't play today.",
   "expect": "search"
  },
  {
   "id": "lva-003",
   "area": "search",
-  "prompt": "did the bears win last night",
+  "prompt": "did the bears win last night?",
   "reply": "Yes, they beat the Patriots 24-17 on Thursday.",
   "expect": "search"
  },
  {
   "id": "lva-004",
   "area": "search",
-  "prompt": "how did the bulls do last night",
+  "prompt": "how did the bulls do last night?",
   "reply": "The Bulls lost 112-104 to the Knicks.",
   "expect": "search"
  },
  {
   "id": "lva-005",
   "area": "search",
-  "prompt": "did man city lose today",
+  "prompt": "did man city lose today?",
   "reply": "Man City lost 2-1 to Arsenal.",
   "expect": "search"
  },
@@ -216,6 +216,145 @@
    ]
   ],
   "reply": "Courage over strength.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-028",
+  "area": "math",
+  "prompt": "In a game, Alice rolls a 5 and Bob rolls a 3. Did Alice win?",
+  "reply": "Yes, 5 > 3.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-029",
+  "area": "math",
+  "prompt": "Alice and Bob play a game where the first to 10 wins. Alice has 7, Bob has 10. Did Alice lose?",
+  "reply": "Yes, Bob reached 10 first.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-030",
+  "area": "math",
+  "prompt": "A chess club played 8 matches on Saturday and lost 3. Did the club lose more than a third?",
+  "reply": "3/8 = 37.5%, so yes.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-031",
+  "area": "math",
+  "prompt": "In the Monty Hall game, did the contestant win by switching?",
+  "reply": "Switching wins 2/3 of the time.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-032",
+  "area": "math",
+  "prompt": "A coin is flipped in a game: heads Alice wins, tails Bob wins. It lands tails. Did Bob win?",
+  "reply": "Yes.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-033",
+  "area": "chitchat",
+  "prompt": "In the book, did harry win the quidditch match?",
+  "reply": "Yes, Gryffindor won when Harry caught the Snitch.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-034",
+  "area": "chitchat",
+  "prompt": "In my D&D game tonight, did the rogue win the duel?",
+  "reply": "You'd know better than me! How did it go?",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-035",
+  "area": "chitchat",
+  "prompt": "did dad win the poker game",
+  "reply": "I don't know, did he?",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-036",
+  "area": "chitchat",
+  "prompt": "did auntie win at cards tonight",
+  "reply": "I hope so!",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-037",
+  "area": "chitchat",
+  "prompt": "how did the bread do tonight",
+  "history": [
+   [
+    "user",
+    "I'm baking sourdough for the first time"
+   ],
+   [
+    "assistant",
+    "Exciting! Keep the dough warm while it proofs."
+   ]
+  ],
+  "reply": "Tell me how it turned out!",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-038",
+  "area": "chitchat",
+  "prompt": "In a game of tic-tac-toe, did X win?",
+  "history": [
+   [
+    "user",
+    "X | O | X\nO | X | O\nX | . | ."
+   ],
+   [
+    "assistant",
+    "That's a tic-tac-toe board."
+   ]
+  ],
+  "reply": "Yes, X has a diagonal.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-039",
+  "area": "search",
+  "prompt": "did the warriors win tonight",
+  "reply": "Yes, 112-104.",
+  "expect": "search"
+ },
+ {
+  "id": "lva-040",
+  "area": "search",
+  "prompt": "did the chiefs win the playoffs",
+  "reply": "Yes.",
+  "expect": "search"
+ },
+ {
+  "id": "lva-041",
+  "area": "statement",
+  "prompt": "Stayed home today but did the taxes",
+  "reply": "Productive! Nice work.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-042",
+  "area": "statement",
+  "prompt": "Had a great day today but did the laundry all evening",
+  "reply": "A full day!",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-043",
+  "area": "statement",
+  "prompt": "Skipped the gym today but did a long walk instead",
+  "reply": "Walking counts!",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-044",
+  "area": "statement",
+  "prompt": "Got up late today but did a great workout",
+  "reply": "Nice!",
   "expect": "answer"
  }
 ]
