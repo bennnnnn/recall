@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   type GestureResponderEvent,
   Pressable,
@@ -227,36 +227,9 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         ) : null}
         <View style={s.block}>
           <Text style={s.label}>{t("memory.details_label")}</Text>
-          {document.facts.map((fact) => {
-            const muted = fact.status === "muted";
-            const text = stripMemoryAsOf(fact.text);
-            const source = fact.source_chat_title
-              ? t("memory.source_chat", { title: fact.source_chat_title })
-              : null;
-            return (
-              <Pressable
-                key={fact.id}
-                style={({ pressed }) => [s.fact, pressed && s.factPressed]}
-                onPress={(event) => openMenu(fact, event)}
-                onLongPress={(event) => openMenu(fact, event)}
-                accessibilityRole="button"
-                accessibilityLabel={muted ? `${text}. ${t("memory.muted_label")}` : text}
-                accessibilityHint={t("memory.fact_hint")}
-                testID={`memory-fact-${fact.id}`}
-              >
-                <Text style={s.bullet}>•</Text>
-                <View style={s.factBody}>
-                  <Text style={[s.factText, muted && s.factMuted]}>{text}</Text>
-                  {muted ? (
-                    <Text style={s.factMeta} testID={`memory-fact-muted-${fact.id}`}>
-                      {t("memory.muted_label")}
-                    </Text>
-                  ) : null}
-                  {source ? <Text style={s.factMeta}>{source}</Text> : null}
-                </View>
-              </Pressable>
-            );
-          })}
+          {document.facts.map((fact) => (
+            <FactRow key={fact.id} fact={fact} s={s} onOpenMenu={openMenu} />
+          ))}
         </View>
       </ScrollView>
       <MemoryComposer
@@ -316,6 +289,47 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     </View>
   );
 }
+
+type Styles = ReturnType<typeof makeStyles>;
+
+/**
+ * One fact of the page. Memoized: typing in the edit sheet or opening a fact's
+ * menu redrew every fact on the page (150 per keystroke on a full page).
+ */
+const FactRow = memo(function FactRow({ fact, s, onOpenMenu }: {
+  fact: Memory;
+  s: Styles;
+  onOpenMenu: (fact: Memory, event: GestureResponderEvent) => void;
+}) {
+  const { t } = useTranslation();
+  const muted = fact.status === "muted";
+  const text = stripMemoryAsOf(fact.text);
+  const source = fact.source_chat_title
+    ? t("memory.source_chat", { title: fact.source_chat_title })
+    : null;
+  return (
+    <Pressable
+      style={({ pressed }) => [s.fact, pressed && s.factPressed]}
+      onPress={(event) => onOpenMenu(fact, event)}
+      onLongPress={(event) => onOpenMenu(fact, event)}
+      accessibilityRole="button"
+      accessibilityLabel={muted ? `${text}. ${t("memory.muted_label")}` : text}
+      accessibilityHint={t("memory.fact_hint")}
+      testID={`memory-fact-${fact.id}`}
+    >
+      <Text style={s.bullet}>•</Text>
+      <View style={s.factBody}>
+        <Text style={[s.factText, muted && s.factMuted]}>{text}</Text>
+        {muted ? (
+          <Text style={s.factMeta} testID={`memory-fact-muted-${fact.id}`}>
+            {t("memory.muted_label")}
+          </Text>
+        ) : null}
+        {source ? <Text style={s.factMeta}>{source}</Text> : null}
+      </View>
+    </Pressable>
+  );
+});
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({

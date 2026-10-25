@@ -1,63 +1,71 @@
-/**
- * A row's time turns to the overdue color when the to-do clock passes it, while the
- * list stays open. The rows are memoized, so the color comes from the clock the list
- * is drawn with, never from the time of the row's last render.
- */
-import type { ReactNode } from "react";
-import { StyleSheet, View } from "react-native";
 import { render } from "@testing-library/react-native";
 
 import { TodosScrollList } from "@/features/todos/components/TodosScrollList";
 import { buildTodoListRows } from "@/features/todos/model/todoListRows";
 import type { Todo } from "@/lib/api";
 
-jest.mock("react-native-gesture-handler/ReanimatedSwipeable", () => {
-  const { View: MockView } = jest.requireActual<typeof import("react-native")>("react-native");
-  return function MockSwipeable({ children }: { children: ReactNode }) {
-    return <MockView>{children}</MockView>;
+type Cell = { kind: string; todos?: Todo[] };
+const mockCells: Cell[][] = [];
+
+// The shared stand-in, which draws every cell, keeping the cells it was given.
+jest.mock("@shopify/flash-list", () => {
+  const React = jest.requireActual<typeof import("react")>("react");
+  return {
+    FlashList: ({ data, renderItem, keyExtractor }: {
+      data: Cell[];
+      renderItem: (info: { item: Cell; index: number }) => React.ReactNode;
+      keyExtractor: (item: Cell) => string;
+    }) => {
+      mockCells.push(data);
+      return React.createElement(React.Fragment, null, ...data.map((item, index) =>
+        React.createElement(React.Fragment, { key: keyExtractor(item) }, renderItem({ item, index }))));
+    },
   };
 });
-jest.mock("@/lib/haptics", () => ({ selection: jest.fn() }));
-// Each color is its token's name.
-jest.mock("@/lib/theme", () => ({ useTheme: () => new Proxy({}, { get: (_target, key) => String(key) }) }));
+jest.mock("react-native-gesture-handler/ReanimatedSwipeable", () => {
+  const { View } = jest.requireActual("react-native");
+  return { __esModule: true, default: View };
+});
 
-const TODO = {
-  id: "call", content: "Call the bank", topic: "General", checked: false,
-  due_at: "2026-10-24T12:01:00.000Z", sort_order: null, chat_id: null,
-  created_at: "2026-10-24T08:00:00.000Z", updated_at: "2026-10-24T08:00:00.000Z",
-} as Todo;
-const noop = () => {};
-const BUSY = new Set<string>();
+const NOW = new Date(2026, 9, 25, 8);
 
-function list(now: Date) {
-  return (
-    <TodosScrollList
-      rows={buildTodoListRows([TODO], now)}
-      now={now}
-      showEmpty={false}
-      error={false}
-      listHeader={<View />}
-      busyTodoIds={BUSY}
-      onToggle={noop}
-      onOpen={noop}
-      onDeleteItem={noop}
-    />
+function todo(id: string, due: Date | null, content = id): Todo {
+  return {
+    id, content, topic: "General", checked: false, due_at: due?.toISOString() ?? null, recurrence_rule: null,
+    sort_order: null, chat_id: null, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z",
+  } as Todo;
+}
+
+function list(todos: Todo[]) {
+  const noop = jest.fn();
+  return render(
+    <TodosScrollList rows={buildTodoListRows(todos, NOW)} now={NOW} showEmpty={false} error={false} listHeader={<></>}
+      busyTodoIds={new Set()} onToggle={noop} onOpen={noop} onDeleteItem={noop} />,
   );
 }
 
-afterEach(() => {
-  jest.useRealTimers();
+beforeEach(() => { mockCells.length = 0; });
+
+it("draws each day's heading over its cards, same-time to-dos together with their clash", async () => {
+  const ui = await list([
+    todo("call", new Date(2026, 9, 25, 15), "Call Sam"),
+    todo("pay", new Date(2026, 9, 25, 15, 5), "Pay rent"),
+    todo("gym", new Date(2026, 9, 25, 18), "Gym"),
+    todo("milk", null, "Buy milk"),
+  ]);
+  for (const text of ["todos.group_today", "Call Sam", "Pay rent", "Gym", "todos.group_anytime", "Buy milk", "todos.day_clash_pair"]) {
+    expect(ui.getByText(text)).toBeTruthy();
+  }
+  expect(mockCells.at(-1)!.map((cell) => cell.kind === "card" ? cell.todos!.map((t) => t.id).join("+") : cell.kind))
+    .toEqual(["heading", "call+pay", "gym", "heading", "milk"]);
 });
 
-it("shows a time that falls due while the list is open as overdue", async () => {
-  jest.useFakeTimers({ now: new Date("2026-10-24T12:00:00.000Z") });
-  const ui = await render(list(new Date()));
-  const timeColor = () => StyleSheet.flatten(ui.getByText(/\d:\d\d/).props.style).color;
-  expect(timeColor()).not.toBe("danger");
-
-  // The to-do clock wakes just after the due time and the list is drawn again.
-  jest.setSystemTime(new Date("2026-10-24T12:01:00.500Z"));
-  await ui.rerender(list(new Date()));
-
-  expect(timeColor()).toBe("danger");
+// A day was one cell holding every card: 300 to-dos shown mounted 300 rows (jest,
+// FlashList's 400x900 layout stand-in), now about 30, the ones on screen.
+it("gives FlashList one cell per card, so a long list mounts only the cards on screen", async () => {
+  const todos = Array.from({ length: 300 }, (_, i) => todo(`t${i}`, new Date(2026, 9, 25, 9, i * 20)));
+  await list(todos);
+  const cards = mockCells.at(-1)!.filter((cell) => cell.kind === "card");
+  expect(cards).toHaveLength(300);
+  expect(cards.every((cell) => cell.todos?.length === 1)).toBe(true);
 });

@@ -317,6 +317,21 @@ describe("image generation submit steps", () => {
     expect(replay().map((row) => row.id)).toEqual(["saved-user", "saved-image"]);
     expect(options.newMessageCountRef.current).toBe(2);
   });
+
+  it("keeps one retry while its caller hands new callbacks each render, so message rows are not redrawn", async () => {
+    (api.generateImage as jest.Mock).mockRejectedValueOnce(new Error("boom"));
+    const { options, replay } = await setup();
+    // The chat screen passes an inline onOpenUpgrade: every render hands a new one.
+    const { result, rerender } = await renderHook(() =>
+      useImageGeneration({ ...options, onOpenUpgrade: () => undefined }));
+    const first = result.current.retry;
+    await rerender({});
+    await rerender({});
+    expect(result.current.retry).toBe(first);
+    await act(async () => { await result.current.submitPrompt({ prompt: "cat", userMessage: "Draw a cat" }); });
+    await act(async () => { first(); await Promise.resolve(); await Promise.resolve(); });
+    expect(replay().map((row) => row.id)).toEqual(["saved-user", "saved-image"]);
+  });
 });
 
 describe("image generation under the composer's painted bubble", () => {

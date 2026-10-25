@@ -37,9 +37,17 @@ export type DrawerChatListItem =
       collapsible: boolean;
     }
   | { type: "row"; key: string; chat: Chat }
-  | { type: "searchRow"; key: string; result: SearchResult }
-  | { type: "searchLoadMore"; key: "search-load-more" }
+  | { type: "searchRow"; key: string; result: SearchResult; onOpen: (id: string, messageId?: string | null) => void }
+  | {
+      type: "searchLoadMore";
+      key: "search-load-more";
+      loadingMore: boolean;
+      loadingMoreError: boolean;
+      onLoadMore?: () => void;
+    }
   | { type: "archivedMore"; key: "archived-more" };
+
+const NO_ITEMS: DrawerChatListItem[] = [];
 
 type Props = {
   groups: ChatList;
@@ -110,21 +118,39 @@ export function DrawerChatFlashList({
   const s = useMemo(() => makeConversationListStyles(theme), [theme]);
   const rowStyles = useMemo(() => makeConversationRowStyles(theme), [theme]);
 
-  const chatListData = useMemo<DrawerChatListItem[]>(() => {
+  // Each keystroke starts a new search with new result handlers. They ride on the search
+  // items, so the chat rows under them keep their items and renderItem and are not redrawn.
+  const searchItems = useMemo<DrawerChatListItem[]>(() => {
+    if (!searchOpen || searchResults.length === 0) return NO_ITEMS;
     const items: DrawerChatListItem[] = [];
-
-    if (searchOpen && searchResults.length > 0) {
-      for (const result of searchResults) {
-        const key = result.message_id
-          ? `search-${result.message_id}`
-          : `search-title-${result.chat_id}`;
-        items.push({ type: "searchRow", key, result });
-      }
-      if (searchHasMore || searchLoadingMoreError) {
-        items.push({ type: "searchLoadMore", key: "search-load-more" });
-      }
+    for (const result of searchResults) {
+      const key = result.message_id
+        ? `search-${result.message_id}`
+        : `search-title-${result.chat_id}`;
+      items.push({ type: "searchRow", key, result, onOpen: onOpenSearchResult });
     }
+    if (searchHasMore || searchLoadingMoreError) {
+      items.push({
+        type: "searchLoadMore",
+        key: "search-load-more",
+        loadingMore: searchLoadingMore,
+        loadingMoreError: searchLoadingMoreError,
+        onLoadMore: onSearchLoadMore,
+      });
+    }
+    return items;
+  }, [
+    onOpenSearchResult,
+    onSearchLoadMore,
+    searchHasMore,
+    searchLoadingMore,
+    searchLoadingMoreError,
+    searchOpen,
+    searchResults,
+  ]);
 
+  const chatItems = useMemo<DrawerChatListItem[]>(() => {
+    const items: DrawerChatListItem[] = [];
     if (activeChatCount === 0 && groups.archived.length === 0) return items;
 
     const sections: { key: ChatListSectionKey; chats: Chat[] }[] = [
@@ -151,17 +177,12 @@ export function DrawerChatFlashList({
       }
     }
     return items;
-  }, [
-    activeChatCount,
-    groups,
-    isSectionCollapsed,
-    onLoadMoreArchived,
-    searchHasMore,
-    searchLoadingMoreError,
-    searchOpen,
-    searchResults,
-    t,
-  ]);
+  }, [activeChatCount, groups, isSectionCollapsed, onLoadMoreArchived, t]);
+
+  const chatListData = useMemo(
+    () => (searchItems.length > 0 ? [...searchItems, ...chatItems] : chatItems),
+    [searchItems, chatItems],
+  );
 
   const renderChatItem = useCallback(
     ({ item }: { item: DrawerChatListItem }) => {
@@ -170,16 +191,16 @@ export function DrawerChatFlashList({
           <DrawerSearchResultRow
             result={item.result}
             title={displayChatTitle(item.result.chat_title, {}, t)}
-            onOpenChat={onOpenSearchResult}
+            onOpenChat={item.onOpen}
           />
         );
       }
       if (item.type === "searchLoadMore") {
         return (
           <DrawerSearchLoadMore
-            loadingMore={searchLoadingMore}
-            loadingMoreError={searchLoadingMoreError}
-            onLoadMore={onSearchLoadMore}
+            loadingMore={item.loadingMore}
+            loadingMoreError={item.loadingMoreError}
+            onLoadMore={item.onLoadMore}
           />
         );
       }
@@ -228,7 +249,7 @@ export function DrawerChatFlashList({
           onLongPress={onShowRowMenu}
           selectionMode={selectionMode}
           selected={selectedIds?.has(item.chat.id) ?? false}
-          onToggleSelect={onToggleSelect}
+          onToggleSelect={selectionMode ? onToggleSelect : undefined}
         />
       );
     },
@@ -241,14 +262,10 @@ export function DrawerChatFlashList({
       toggleSectionCollapsed,
       theme,
       onOpenChat,
-      onOpenSearchResult,
       onShowRowMenu,
       selectionMode,
       selectedIds,
       onToggleSelect,
-      searchLoadingMore,
-      searchLoadingMoreError,
-      onSearchLoadMore,
       archivedPaging,
       onLoadMoreArchived,
       t,
