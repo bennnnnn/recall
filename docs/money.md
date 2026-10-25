@@ -36,9 +36,17 @@ the plausible range and how recent a figure must be). Adding a product is one ro
 branches on its name. A kind of a product priced apart is a `Variant` on its row, with its own
 words and `RateLookup`: "a used car for 14000" (also pre-owned, certified pre-owned,
 second-hand) is a car loan looked up at the used-car average, cached apart from the new-car one
-and named in the reply ("60-month used car loan rate"). A kind word used as a verb names none:
-"I used a calculator", "I'm used to paying 300", "the car I used to have". New or no kind said
-is the row's own lookup. Version 1 rows:
+and named in the reply ("used car loan rate"; used-car averages are published for every term at
+once, so that lookup names none). A kind word used as a verb names none: "I used a calculator",
+"I'm used to paying 300", "the car I used to have". New or no kind said is the row's own lookup.
+
+The row's own lookup starts beside a variant's. When the variant's finds nothing in time, the
+row's own average stands in and says so: the reply and the note name it ("today's average
+60-month new car loan rate") and add the variant's `stand_in` words ("No used-car average was
+found; used-car loans usually cost more."), the model is told never to call it a used-car rate,
+and a rate the user gave is not called unrealistic beside it. The first live used-car ask found
+no used-car average and got no numbers at all, where the new-car average had worked it. Version
+1 rows:
 
 - **Loan** (mortgage, car, personal, student, any other amortised loan): amount, annual rate,
   term → monthly payment, total interest, total paid. A rate of 0% pays amount ÷ months.
@@ -49,8 +57,11 @@ is the row's own lookup. Version 1 rows:
 
 A term the user didn't give comes from the row's default (a 30-year mortgage, a 5-year car loan),
 and the reply says it assumed one. A rate they didn't give comes from today's average when there
-is one; otherwise the model asks for it. "3 years ago", "20 years old" or "sell after 5 years"
-is no term, and "20% down" is a share of the price put down, not the rate.
+is one; otherwise the model asks for it. "3 years ago", "20 years old", "sell after 5 years" or
+"the past 3 years" is no term ("paid off after 15 years" is). "20% down" and "a down payment of
+20%" are a share of the price, not the rate; a percent after a sum put down ("5000 down 6.9%")
+is the rate. In "the rate went down 1% to 5.5%" the rate is 5.5%. "A 2022 car" is a model year,
+not a price, and "5000 upfront" is a down payment.
 
 ## Follow-ups
 
@@ -64,12 +75,22 @@ off by dollars (live 2026-10-25: $340.58 a month for $340.45).
   change of it too, so changes build on each other ("3 years instead", then "and with 5000
   down?") and a line about something else ends the money conversation.
 - A change line asks for one ("what if", "how about", "instead", or only the change: "36
-  months?") and every number in it must be placed: a rate, a term the words say is the loan's
-  ("do 3 years", "pay it off in 2 years"; not "wait 2 years" or "keep it for 10 years"), a down
-  payment (a sum or "20% down"), a price ("what if the car was $18,000"), an amount borrowed, a
-  card's monthly payment or a savings deposit or start. A number it cannot place, a change by an
-  amount ("1% lower", "2000 more down") or another product named is no follow-up: the model
-  answers as before.
+  months?") and every number in it must be placed by its own words (`follow_up_words.py`). A
+  percent is the rate only beside rate words ("at 5%", "the rate was 6.5%", "5% APR", "what if
+  it's 5%") or alone. A term is the loan's by the words before it ("do 3 years", "pay it off in
+  2 years"; not "wait 2 years", "keep it for 10 years" or "5% in 2 years"). A loan's sum is a
+  down payment ("5000 down", "5000 upfront", "20% down"), an amount borrowed ("borrow 8000", "a
+  25000 car loan") or a price ("what if the car was $18,000", "a new one for 30000", "what about
+  400k?"); a card's is its payment ("pay 300") or balance ("owe 8000"); a savings plan's is a
+  monthly deposit or a starting sum. A line that names something the request has no input for
+  (a tax, PMI, inflation, a raise, a trade-in, cash back, insurance, a salary, rent, a
+  refinance), a sum that is paid, sold, saved or earned ("what if I pay 400 instead?"), a number
+  it cannot place, a change by an amount ("1% lower", "2000 more down") or another product named
+  is no follow-up: the model answers as before. Reviewed 2026-10-25: looser rules had made "what
+  if property tax is 1.2%" a 1.2% mortgage and "what if I pay 400 instead?" a $400 loan.
+- A follow-up can change the kind either way: "what if it was a used car?", and back with "what
+  if I bought a new car for 30000 instead" ("new" counts only beside what is bought: not "a new
+  job").
 - While the rate is today's average, the follow-up looks up the term the first ask used, so "3
   years instead" changes the term alone and keeps the rate the last reply quoted.
 - The money block tells the model which inputs changed and that the numbers below are the

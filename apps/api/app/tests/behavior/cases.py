@@ -2018,6 +2018,17 @@ CASES: tuple[Case, ...] = (
         ),
     ),
     Case(
+        "money-what-if-tax-lookalike",
+        "money",
+        "what if sales tax is 7%",
+        Expect(no_hints=("money",)),
+        "Adds the tax to the price in words; a percent beside a tax is no new loan rate.",
+        history=(
+            ("user", "car loan 20000 at 7% for 5 years, what's the monthly payment"),
+            ("assistant", "About $396.02 a month for 60 months."),
+        ),
+    ),
+    Case(
         "money-lookalike",
         "money",
         "rate my essay out of 10, I tried to make the interest of the story build slowly",

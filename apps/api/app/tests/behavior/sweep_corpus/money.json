@@ -344,5 +344,260 @@
   "history": [],
   "reply": "That's close to the average new car payment; it depends on the price and the term.",
   "expect": "answer"
+ },
+ {
+  "id": "mo-031",
+  "area": "money lookalike",
+  "prompt": "what if sales tax is 7%",
+  "history": [
+   [
+    "user",
+    "car loan 20000 at 7% for 5 years, what's the monthly payment"
+   ],
+   [
+    "assistant",
+    "About $396.02 a month for 60 months, $3,761.44 in interest."
+   ]
+  ],
+  "reply": "At 7% sales tax the car costs $21,400, so you would borrow more unless you pay the tax up front.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-032",
+  "area": "money lookalike",
+  "prompt": "what if property tax is 1.2%",
+  "history": [
+   [
+    "user",
+    "mortgage of 300k at 6% for 30 years"
+   ],
+   [
+    "assistant",
+    "About $1,798.65 a month over 30 years, $347,514.57 in interest."
+   ]
+  ],
+  "reply": "Property tax of 1.2% on a $300,000 home is about $300 a month on top of the mortgage payment.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-033",
+  "area": "money lookalike",
+  "prompt": "with 3% inflation?",
+  "history": [
+   [
+    "user",
+    "mortgage of 300k at 6% for 30 years"
+   ],
+   [
+    "assistant",
+    "About $1,798.65 a month over 30 years, $347,514.57 in interest."
+   ]
+  ],
+  "reply": "Inflation makes a fixed payment feel lighter over time: in 30 years the same payment is worth much less.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-034",
+  "area": "money lookalike",
+  "prompt": "what if I get a 3% raise",
+  "history": [
+   [
+    "user",
+    "car loan 20000 at 7% for 5 years, what's the monthly payment"
+   ],
+   [
+    "assistant",
+    "About $396.02 a month for 60 months, $3,761.44 in interest."
+   ]
+  ],
+  "reply": "A 3% raise each year makes the payment a smaller part of your pay over the 5 years.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-035",
+  "area": "money lookalike",
+  "prompt": "what if the dealer gives me 2% cash back",
+  "history": [
+   [
+    "user",
+    "car loan 20000 at 7% for 5 years, what's the monthly payment"
+   ],
+   [
+    "assistant",
+    "About $396.02 a month for 60 months, $3,761.44 in interest."
+   ]
+  ],
+  "reply": "Cash back of 2% is $400 you can put toward the car or keep.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-036",
+  "area": "money lookalike",
+  "prompt": "what if inflation is 3%",
+  "history": [
+   [
+    "user",
+    "if I save 200 a month at 4.5% for 10 years how much will I have"
+   ],
+   [
+    "assistant",
+    "About $30,200: $24,000 deposited and about $6,200 in interest."
+   ]
+  ],
+  "reply": "With 3% inflation the real value of your savings grows by about 1.5% a year.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-037",
+  "area": "money lookalike",
+  "prompt": "what if I pay 400 instead?",
+  "history": [
+   [
+    "user",
+    "car loan 20000 at 7% for 5 years, what's the monthly payment"
+   ],
+   [
+    "assistant",
+    "About $396.02 a month for 60 months, $3,761.44 in interest."
+   ]
+  ],
+  "reply": "Paying $400 a month would clear the loan a little faster than 60 months.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-038",
+  "area": "money lookalike",
+  "prompt": "what if the trade-in is worth 4000",
+  "history": [
+   [
+    "user",
+    "car loan 20000 at 7% for 5 years, what's the monthly payment"
+   ],
+   [
+    "assistant",
+    "About $396.02 a month for 60 months, $3,761.44 in interest."
+   ]
+  ],
+  "reply": "A $4,000 trade-in works like a down payment and lowers what you borrow.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-039",
+  "area": "money lookalike",
+  "prompt": "what if I pay 150 for insurance",
+  "history": [
+   [
+    "user",
+    "car loan 20000 at 7% for 5 years, what's the monthly payment"
+   ],
+   [
+    "assistant",
+    "About $396.02 a month for 60 months, $3,761.44 in interest."
+   ]
+  ],
+  "reply": "Insurance of $150 a month is a separate cost on top of the loan payment.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-040",
+  "area": "money lookalike",
+  "prompt": "and with 60k salary?",
+  "history": [
+   [
+    "user",
+    "car loan 20000 at 7% for 5 years, what's the monthly payment"
+   ],
+   [
+    "assistant",
+    "About $396.02 a month for 60 months, $3,761.44 in interest."
+   ]
+  ],
+  "reply": "On a $60,000 salary that payment is about 8% of your gross monthly pay.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-041",
+  "area": "money lookalike",
+  "prompt": "what if I refinance at 5% in 2 years",
+  "history": [
+   [
+    "user",
+    "mortgage of 300k at 6% for 30 years"
+   ],
+   [
+    "assistant",
+    "About $1,798.65 a month over 30 years, $347,514.57 in interest."
+   ]
+  ],
+  "reply": "Refinancing later depends on the balance left then and the closing costs.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-042",
+  "area": "money lookalike",
+  "prompt": "what if I trade in my 2015 car",
+  "history": [
+   [
+    "user",
+    "car loan 20000 at 7% for 5 years, what's the monthly payment"
+   ],
+   [
+    "assistant",
+    "About $396.02 a month for 60 months, $3,761.44 in interest."
+   ]
+  ],
+  "reply": "A 2015 car's trade-in value depends on its mileage and condition.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-043",
+  "area": "money",
+  "prompt": "what if I bought a new car for 30000 instead",
+  "history": [
+   [
+    "user",
+    "i'm thinking of buying a used car for 14000, i can put 3000 down. what would my monthly payment be over 5 years?"
+   ],
+   [
+    "assistant",
+    "About $218.64 a month over 60 months at today's average rate."
+   ]
+  ],
+  "reply": "A new car for $30,000 with $3,000 down is $27,000 borrowed, about $534.63 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-044",
+  "area": "money",
+  "prompt": "what if I pay 5000 upfront",
+  "history": [
+   [
+    "user",
+    "car loan 20000 at 7% for 5 years, what's the monthly payment"
+   ],
+   [
+    "assistant",
+    "About $396.02 a month for 60 months, $3,761.44 in interest."
+   ]
+  ],
+  "reply": "With $5,000 upfront you borrow $15,000: about $297.02 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-045",
+  "area": "money",
+  "prompt": "what about 400k?",
+  "history": [
+   [
+    "user",
+    "mortgage of 300k at 6% for 30 years"
+   ],
+   [
+    "assistant",
+    "About $1,798.65 a month over 30 years, $347,514.57 in interest."
+   ]
+  ],
+  "reply": "A $400,000 mortgage at 6% over 30 years is about $2,398.20 a month.",
+  "expect": "answer"
  }
 ]

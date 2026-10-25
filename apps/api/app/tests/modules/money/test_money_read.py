@@ -157,6 +157,24 @@ def test_a_rates_question_keeps_the_kind() -> None:
         # "20% down" is a share of the price, not the rate.
         ("a 400k house with 20% down at 6.5% for 30 years", {"amount": 320000, "rate": 6.5, "years": 30}, 80000),
         ("car loan for 14000, I can put down 3000, at 7% for 5 years", {"amount": 11000, "rate": 7, "months": 60}, 3000),
+        ("I can pay 5000 upfront on a 20000 car loan at 7%", {"amount": 15000, "rate": 7}, 5000),
+        # A percent after an earlier sum put down is the rate (the first fix took it as a
+        # share of the price: review, 2026-10-25).
+        ("car loan 25000 with 5000 down 6.9% apr 60 months", {"amount": 20000, "rate": 6.9, "months": 60}, 5000),
+        ("mortgage on a 400k house, 50k down 6.5% for 30 years", {"amount": 350000, "rate": 6.5, "years": 30}, 50000),
+        ("mortgage 500k 100k down payment 6.25% 30 year", {"amount": 400000, "rate": 6.25, "years": 30}, 100000),
+        ("car loan 20000, I can put 2000 down 8% 4 years", {"amount": 18000, "rate": 8, "months": 48}, 2000),
+        ("300k house with 60k down 6% 30 yr", {"amount": 240000, "rate": 6, "years": 30}, 60000),
+        ("down payment 20% on a 350k home at 6.75% for 30 years", {"amount": 280000, "rate": 6.75, "years": 30}, 70000),
+        # "Went down 1% to 5.5%": the rate is where it went.
+        ("my mortgage is 200k, rate went down 1% to 5.5%", {"amount": 200000, "rate": 5.5}, 0),
+        # "Paid off after" and "will last" give the term; "the past 3 years" does not.
+        ("a 300k mortgage at 6% paid off after 15 years", {"amount": 300000, "rate": 6, "years": 15}, 0),
+        ("car loan 20000 at 6%, paid off after 3 years", {"amount": 20000, "rate": 6, "months": 36}, 0),
+        ("a car loan of 20000 at 6% that will last 5 years", {"amount": 20000, "rate": 6, "months": 60}, 0),
+        ("car loan 15000 at 6% over the past 3 years", {"amount": 15000, "rate": 6}, 0),
+        # A model year is no price.
+        ("I bought a 2019 car with a car loan of 15000 at 6%", {"amount": 15000, "rate": 6}, 0),
     ],
 )  # fmt: skip
 def test_read_money_request_reads_what_a_number_is(

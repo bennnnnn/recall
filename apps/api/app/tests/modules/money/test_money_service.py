@@ -105,33 +105,101 @@ _USED = (
 )
 
 
-def _lookup_kinds(monkeypatch, found: MarketRate | None) -> list[tuple]:
+def _lookup_kinds(
+    monkeypatch, found: dict[str, MarketRate | None], delay: dict[str, float] | None = None
+) -> list[tuple]:
+    """Each kind's lookup ("used", or "" for the product's own) answers from ``found``."""
     calls: list[tuple] = []
 
     async def current_average(product, term, country, settings, redis, **kwargs: Any):
-        calls.append((product.key, kwargs.get("variant", ""), term))
-        return found
+        variant = kwargs.get("variant", "")
+        calls.append((product.key, variant, term))
+        await asyncio.sleep((delay or {}).get(variant, 0.0))
+        return found.get(variant)
 
     monkeypatch.setattr(service, "current_average", current_average)
     return calls
 
 
+_NEW_CAR = average(7.16, "60-month new car loan rate")
+_STAND_IN = "No used-car average was found; used-car loans usually cost more."
+
+
 async def test_a_used_car_looks_up_the_used_car_average(monkeypatch) -> None:
     """Live (2026-10-25): the used car was worked at the new-car average."""
-    used = average(7.16, "60-month used car loan rate")
-    calls = _lookup_kinds(monkeypatch, used)
+    calls = _lookup_kinds(monkeypatch, {"used": average(11.2, "used car loan rate"), "": _NEW_CAR})
     turn = await service.prepare_money_turn(_USED, Settings(), None, user=None, location=None)
     assert turn is not None and turn.worked is not None
-    assert calls == [("car", "used", 60)]
+    # The product's own lookup starts beside it, in case it finds nothing.
+    assert calls == [("car", "used", 60), ("car", "", 60)]
+    assert turn.worked.values["rate"] == 11.2
     assert turn.block.startswith("Money, worked by the app: used car.")
+    reply = await service.finish_money_reply(turn, "About $240 a month.", Settings())
+    assert "today's average used car loan rate" in reply and _STAND_IN not in reply
+
+
+async def test_no_used_average_lets_the_new_car_one_stand_in_said_as_such(monkeypatch) -> None:
+    """Live (2026-10-25): the used lookup found nothing and the ask got no numbers at all;
+    main had worked it at the new-car average. That average stands in, and says so."""
+    _lookup_kinds(monkeypatch, {"used": None, "": _NEW_CAR})
+    turn = await service.prepare_money_turn(_USED, Settings(), None, user=None, location=None)
+    assert turn is not None and turn.worked is not None
+    assert (
+        turn.worked.values["rate"] == 7.16
+        and round(turn.worked.outputs["payment"] or 0, 2) == 218.64
+    )
+    assert "Today's average 60-month new car loan rate is not a used car rate" in turn.block
+    assert "never call it a used car rate" in turn.block
     reply = await service.finish_money_reply(turn, "About $218.64 a month.", Settings())
-    assert "today's average 60-month used car loan rate" in reply
+    assert "today's average 60-month new car loan rate" in reply and _STAND_IN in reply
+    assert "used car loan rate" not in reply
+
+
+async def test_a_slow_used_lookup_lets_the_stand_in_answer(monkeypatch) -> None:
+    _lookup_kinds(
+        monkeypatch, {"used": average(11.2, "used car loan rate"), "": _NEW_CAR}, {"used": 10}
+    )
+    monkeypatch.setattr(service, "_PROMPT_WAIT_SECONDS", 0.05)
+    turn = await service.prepare_money_turn(_USED, Settings(), None, user=None, location=None)
+    assert turn is not None and turn.average is not None
+    assert turn.average.value == 7.16 and turn.average.caveat == _STAND_IN
+    assert turn.lookup is not None
+    turn.lookup.cancel()
+
+
+async def test_a_given_rate_is_not_called_unrealistic_beside_a_stand_in(monkeypatch) -> None:
+    """16 % is more than twice the new-car average, and an ordinary used-car rate."""
+    _lookup_kinds(monkeypatch, {"used": None, "": average(7.0, "60-month new car loan rate")})
+    turn = await service.prepare_money_turn(
+        "used car loan of 11000 at 16% for 60 months", Settings(), None, user=None, location=None
+    )
+    assert turn is not None
+    reply = await service.finish_money_reply(turn, "About $267 a month.", Settings())
+    assert "for reference" in reply and _STAND_IN in reply and "not a realistic" not in reply
+
+
+async def test_a_used_rates_question_says_the_average_stands_in(monkeypatch) -> None:
+    _lookup_kinds(monkeypatch, {"used": None, "": _NEW_CAR})
+    turn = await service.prepare_money_turn(
+        "current used car loan rates", Settings(), None, user=None, location=None
+    )
+    assert turn is not None and turn.request.rates_only
+    assert "7.16% as of Oct 16, 2026" in turn.block and "not a used car rate" in turn.block
+
+
+async def test_a_new_car_starts_one_lookup(monkeypatch) -> None:
+    calls = _lookup_kinds(monkeypatch, {"": _NEW_CAR})
+    text = "car loan 20000 at 7% for 5 years, what's the monthly payment"
+    turn = await service.prepare_money_turn(text, Settings(), None, user=None, location=None)
+    assert turn is not None and turn.stand_in is None
+    await asyncio.sleep(0)
+    assert calls == [("car", "", 60)]
 
 
 async def test_a_what_if_after_a_money_reply_is_worked_by_the_server(monkeypatch) -> None:
     """Live (2026-10-25): the free model said $340.58 and $1,260.88 for this; the loan is
     11 000 at the same 7.16 % over 36 months: $340.45 a month, $1,256.32 interest."""
-    calls = _lookup_kinds(monkeypatch, average(7.16, "60-month used car loan rate"))
+    calls = _lookup_kinds(monkeypatch, {"used": average(7.16, "used car loan rate")})
     turn = await service.prepare_money_turn(
         "hmm what if i only do 3 years instead",
         Settings(),
@@ -141,8 +209,8 @@ async def test_a_what_if_after_a_money_reply_is_worked_by_the_server(monkeypatch
         earlier=[_USED],
     )
     assert turn is not None and turn.worked is not None
-    # The rate stays the one the last reply used: the 60-month average, looked up again.
-    assert calls == [("car", "used", 60)]
+    # The rate stays the one the last reply used: the first ask's term is looked up again.
+    assert calls == [("car", "used", 60), ("car", "", 60)]
     assert turn.worked.values["months"] == 36 and turn.worked.values["rate"] == 7.16
     assert round(turn.worked.outputs["payment"] or 0, 2) == 340.45
     assert round(turn.worked.outputs["interest"] or 0, 2) == 1256.32
@@ -151,7 +219,7 @@ async def test_a_what_if_after_a_money_reply_is_worked_by_the_server(monkeypatch
 
 
 async def test_a_what_if_with_no_money_before_it_is_no_money_turn(monkeypatch) -> None:
-    calls = _lookup_kinds(monkeypatch, None)
+    calls = _lookup_kinds(monkeypatch, {})
     workout = ["give me a 4 day workout plan with 4 sets of each exercise"]
     for line, earlier in (
         ("what if i only do 3 sets instead", workout),

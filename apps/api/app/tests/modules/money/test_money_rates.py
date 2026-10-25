@@ -115,7 +115,8 @@ async def test_a_product_with_no_lookup_has_no_average() -> None:
 
 async def test_a_used_car_has_its_own_average(monkeypatch, fake_redis) -> None:
     """Live (2026-10-25): a used car got the new-car average. Each kind searches and caches
-    apart, and names itself in the reply's words."""
+    apart, and names itself in the reply's words. Used-car averages are published for all
+    terms at once, so that lookup names no term."""
     queries: list[list[str]] = []
 
     async def search(settings: Settings, found: list[str], **_: Any) -> tuple[list, list]:
@@ -135,11 +136,11 @@ async def test_a_used_car_has_its_own_average(monkeypatch, fake_redis) -> None:
     again = await current_average(
         car, 60, country, Settings(), fake_redis, today=TODAY, variant="used"
     )
-    assert used is not None and used.name == "60-month used car loan rate"
+    assert used is not None and used.name == "used car loan rate"
     assert new is not None and new.name == "60-month new car loan rate"
     assert again == used
     assert queries == [
-        ["average 60-month used car loan rate this week the United States"],
+        ["average used car loan rate this week the United States"],
         ["average 60-month new car loan rate this week the United States"],
     ]
 
@@ -150,6 +151,6 @@ def test_each_kind_checks_its_own_plausible_range() -> None:
     assert new is not None and new is car.lookup
     assert used is not None and used is not new
     high = _reading(rate_percent=27.0)
-    assert checked(high, HITS, used, 60, "the United States", TODAY) is not None
+    assert checked(high, HITS, used, None, "the United States", TODAY) is not None
     assert checked(high, HITS, new, 60, "the United States", TODAY) is None
     assert car.rate_lookup("unknown") is car.lookup

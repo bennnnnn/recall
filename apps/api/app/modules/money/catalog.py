@@ -88,14 +88,15 @@ class Variant:
     """A kind of the product a request may name, with its own average rate: a used car.
 
     "a used car for 14000" is a car loan, but its average is the used-car one, a few points
-    above the new-car rate the reply had quoted for it (live, 2026-10-25). ``words`` name
-    the kind anywhere in the request, as a describing word only ("I used a calculator"
-    names none: ``read.py``); ``lookup`` takes the place of the product's.
+    above the new-car rate it was quoted (live, 2026-10-25). ``words`` name the kind as a
+    describing word (``kinds.py``); ``lookup`` takes the place of the product's. When it
+    finds nothing the product's own average stands in, with ``stand_in`` said beside it.
     """
 
     key: str
     words: tuple[str, ...]
     lookup: RateLookup
+    stand_in: str
 
 
 @dataclass(frozen=True)
@@ -112,13 +113,18 @@ class Product:
     lookup: RateLookup | None = None
     # Kinds of the product priced apart; none named is the product's own ``lookup``.
     variants: tuple[Variant, ...] = ()
+    # Words for the product's own kind, which a follow-up goes back to ("a new car instead").
+    plain_words: tuple[str, ...] = ()
 
     def input(self, name: str) -> Input | None:
         return next((item for item in self.inputs if item.name == name), None)
 
+    def variant(self, key: str) -> Variant | None:
+        return next((item for item in self.variants if item.key == key), None)
+
     def rate_lookup(self, variant: str = "") -> RateLookup | None:
         """How to look up today's average for the product, or for the kind of it asked."""
-        kind = next((item for item in self.variants if item.key == variant), None)
+        kind = self.variant(variant)
         return kind.lookup if kind is not None else self.lookup
 
 
@@ -179,18 +185,9 @@ def _months(low: float, high: float, step: float) -> Input:
     return Input("months", "money.term_months", "months", Span("fixed", low, high, step=step))
 
 
-# The car-loan terms averages are published for, in months.
-_CAR_TERMS: tuple[float, ...] = (36, 48, 60, 72)
-# "Certified pre-owned" is pre-owned.
-_USED_WORDS = (
-    "used",
-    "pre-owned",
-    "preowned",
-    "pre owned",
-    "second-hand",
-    "secondhand",
-    "second hand",
-)
+_USED_WORDS = (  # "certified pre-owned" is read by "pre-owned"
+    "used", "pre-owned", "preowned", "pre owned", "second-hand", "secondhand", "second hand",
+)  # fmt: skip
 
 PRODUCTS: tuple[Product, ...] = (
     Product(
@@ -211,14 +208,17 @@ PRODUCTS: tuple[Product, ...] = (
         inputs=(_AMOUNT, _RATE, _months(12, 96, 6)),
         outputs=_loan_outputs("months"),
         defaults={"months": 60},
-        lookup=RateLookup("{term}-month new car loan rate", (1.0, 25.0), 120, _CAR_TERMS),
+        lookup=RateLookup("{term}-month new car loan rate", (1.0, 25.0), 120, (36, 48, 60, 72)),
         variants=(
+            # Published for every term at once, often quarterly: no term, an older figure.
             Variant(
                 "used",
                 _USED_WORDS,
-                RateLookup("{term}-month used car loan rate", (2.0, 30.0), 120, _CAR_TERMS),
+                RateLookup("used car loan rate", (2.0, 30.0), 180),
+                "No used-car average was found; used-car loans usually cost more.",
             ),
         ),
+        plain_words=("new", "brand new", "brand-new"),
     ),
     Product(
         key="student",

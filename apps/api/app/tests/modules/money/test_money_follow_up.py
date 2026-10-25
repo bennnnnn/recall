@@ -1,7 +1,9 @@
 """A line that changes the chat's last money request, and the look-alikes that change none.
 
 Live (2026-10-25): "hmm what if i only do 3 years instead" after a used-car loan got no
-card, and the model's own arithmetic was off by dollars.
+card, and the model's own arithmetic was off by dollars. Review of the first fix (same
+day): a percent or a sum beside other words ("what if sales tax is 7%", "what if I pay
+400 instead?", "the trade-in is worth 4000") became the rate or the price.
 """
 
 from __future__ import annotations
@@ -16,7 +18,9 @@ USED = (
     "payment be over 5 years?"
 )
 CAR = "car loan 14000 with 3000 down at 7.16% for 5 years, what's the monthly payment"
+CAR_PLAIN = "car loan 20000 at 7% for 5 years, what's the monthly payment"
 MORTGAGE = "what is my mortgage for 300k dollars house if mr rate is 1 percent"
+MORTGAGE_6 = "mortgage of 300k at 6% for 30 years"
 CARD = "I owe 5000 on my credit card at 22% apr and pay 200 a month, how long to pay off"
 SAVINGS = "if I save 200 a month at 4.5% for 10 years how much will I have"
 WORKOUT = "give me a 4 day workout plan with 4 sets of each exercise"
@@ -55,7 +59,20 @@ RECTANGLE = "a rectangle has a perimeter of 40 and a length of 12, what is the w
         ([CARD], "what if I pay 300 instead", {"payment": 300}, ("payment",)),
         ([SAVINGS], "what about 20 years?", {"deposit": 200, "years": 20}, ("years",)),
         ([SAVINGS], "what if I save 300 a month instead", {"deposit": 300, "years": 10}, ("deposit",)),
-        ([SAVINGS], "what if I save 300 instead", {"deposit": 300}, ("deposit",)),
+        # The percent or the sum is the rate or the price by its own words.
+        ([CAR], "7%", {"rate": 7}, ("rate",)),
+        ([CAR], "what if it's 5%", {"rate": 5}, ("rate",)),
+        ([CAR], "what if I get 4.5% apr instead", {"rate": 4.5}, ("rate",)),
+        ([CAR], "what if the interest rate was 6%", {"rate": 6}, ("rate",)),
+        ([CAR], "what if it's 2 years?", {"months": 24}, ("months",)),
+        ([CAR], "what if I pay 5000 upfront", {"amount": 9000}, ("down",)),
+        ([CAR_PLAIN], "what if I pay 5000 cash upfront", {"amount": 15000}, ("down",)),
+        ([CAR_PLAIN], "20k", {"amount": 20000}, ("amount",)),
+        ([MORTGAGE_6], "what about 400k?", {"amount": 400000}, ("amount",)),
+        ([MORTGAGE_6], "what if the house was 400k", {"amount": 400000}, ("amount",)),
+        ([USED], "what if I bought a new car for 30000 instead", {"amount": 27000}, ("amount", "variant")),
+        ([CARD], "what if the balance was 8000", {"balance": 8000}, ("balance",)),
+        ([CARD], "what if I owe 8000", {"balance": 8000}, ("balance",)),
         # Each change builds on the one before it.
         ([CAR, "what if i only do 3 years instead"], "and with 5000 down?", {"amount": 9000, "months": 36}, ("down",)),
     ],
@@ -103,6 +120,44 @@ def test_a_change_line_is_the_last_request_changed(
         ([CAR], "100%"),
         ([CAR], "ok 5 stars"),
         ([CAR], "what if I pay 500 a month"),
+        # A percent that is not the rate: the reviewer's lines.
+        ([MORTGAGE_6], "what if property tax is 1.2%"),
+        ([MORTGAGE_6], "and property tax of 1.2%?"),
+        ([MORTGAGE_6], "what if PMI is 0.5%"),
+        ([MORTGAGE_6], "what if the house appreciates 4% a year"),
+        ([MORTGAGE_6], "with 3% inflation?"),
+        ([CAR_PLAIN], "what if sales tax is 7%"),
+        ([CAR_PLAIN], "with 7% sales tax?"),
+        ([CAR_PLAIN], "what if the tax is 8%"),
+        ([CAR_PLAIN], "what if I get a 3% raise"),
+        ([CAR_PLAIN], "what if the dealer gives me 2% cash back"),
+        ([SAVINGS], "what if inflation is 3%"),
+        ([SAVINGS], "what about with 10% returns"),
+        ([CAR_PLAIN], "what if my credit card is at 25%"),
+        # A percent with "in 2 years" is when, not the term.
+        ([MORTGAGE_6], "what if I refinance at 5% in 2 years"),
+        ([MORTGAGE_6], "what if rates are 5% in 2 years"),
+        ([CAR_PLAIN], "what if rates are 5% in 2 years"),
+        ([CAR_PLAIN], "what if I sell it in 2 years"),
+        # A sum that is not the price: paid, sold, saved, earned, a model year.
+        ([CAR_PLAIN], "what if I pay 400 instead?"),
+        ([CAR_PLAIN], "what if I only pay 450?"),
+        ([MORTGAGE_6], "what if I pay 2000"),
+        ([CAR_PLAIN], "what if the trade-in is worth 4000"),
+        ([CAR_PLAIN], "what if I sell my old car for 4000"),
+        ([CAR_PLAIN], "what if I pay 150 for insurance"),
+        ([CAR_PLAIN], "what if gas costs 200"),
+        ([CAR_PLAIN], "and with 60k salary?"),
+        ([CAR_PLAIN], "what about with 2 kids"),
+        ([CAR_PLAIN], "what if I get a 2022 car instead"),
+        ([CAR_PLAIN], "what if I trade in my 2015 car"),
+        ([CAR_PLAIN], "what if I paid 5000 cash"),
+        ([CAR_PLAIN], "what if I had 5000 saved"),
+        ([MORTGAGE_6], "what if I rent it for 2000"),
+        # A savings sum or a card sum with no word for its role could be either input.
+        ([SAVINGS], "what if I save 300 instead"),
+        ([SAVINGS], "what if I invest 5000"),
+        ([CARD], "8000?"),
         # A change by an amount is not worked out here.
         ([CAR], "what if rates drop 1% next year?"),
         ([CAR], "what if the rate was 1% lower"),
@@ -131,3 +186,27 @@ def test_a_first_ask_is_no_follow_up() -> None:
     assert follow_up_request(CAR, []) is None
     first = read_money_request(CAR)
     assert first is not None and first.changed == () and first.down == 3000
+
+
+@pytest.mark.parametrize(
+    ("earlier", "line", "variant"),
+    [
+        ([USED], "what if I bought a new car for 30000 instead", ""),
+        ([USED], "what if it was new instead", ""),
+        ([CAR], "what if it was a used car?", "used"),
+        ([USED], "hmm what if i only do 3 years instead", "used"),
+    ],
+)
+def test_a_follow_up_can_change_the_kind_either_way(
+    earlier: list[str], line: str, variant: str
+) -> None:
+    request = follow_up_request(line, earlier)
+    assert request is not None and request.variant == variant
+
+
+@pytest.mark.parametrize(
+    "line",
+    ["what if I get a new job", "what if I bought a new car, not a used one"],
+)
+def test_new_beside_nothing_bought_or_beside_used_is_no_kind(line: str) -> None:
+    assert follow_up_request(line, [USED]) is None

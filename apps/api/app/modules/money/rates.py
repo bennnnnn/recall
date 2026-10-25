@@ -57,6 +57,8 @@ class MarketRate:
     # What the rate is, in the reply's words ("30-year fixed mortgage rate").
     name: str
     country: str
+    # Said beside the rate when it stands in for the kind asked (``Variant.stand_in``).
+    caveat: str = ""
 
 
 class RateReading(BaseModel):

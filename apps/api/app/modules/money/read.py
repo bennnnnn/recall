@@ -10,9 +10,9 @@ the message also needs a rate, an amount with a loan word, or a question about t
 rates. Yearly simple or compound interest ("compound interest on 1000 at 5% for 3
 years") is maths homework and stays with maths.
 
-A kind of the product the catalog prices apart is read too: "a used car for 14000" is a
-car loan looked up at the used-car average, where it once got the new-car one (live,
-2026-10-25). The pieces (``stated_rate``, ``stated_term``, ``stated_amounts``) are also
+A kind of the product the catalog prices apart is read too (``kinds``): "a used car for
+14000" is a car loan looked up at the used-car average, where it once got the new-car one
+(live, 2026-10-25). The pieces (``stated_rate``, ``stated_term``, ``stated_amounts``) are also
 how ``follow_up`` reads "what if i only do 3 years instead".
 """
 
@@ -24,11 +24,15 @@ from dataclasses import dataclass, field
 
 from app.modules.money.catalog import PRODUCTS, Product
 from app.modules.money.currencies import CURRENCY_WORD, named_currency
+from app.modules.money.kinds import named_variant
 
 _RATE = re.compile(r"(\d{1,3}(?:\.\d{1,4})?)\s?(?:%|percent\b|per\s?cent\b|pct\b)", re.I)
 _TERM = re.compile(r"\b(\d{1,3}(?:\.\d{1,2})?)\s?-?\s?(years?|yrs?|months?|mos?)\b", re.I)
-# "Bought it 3 years ago", "20 years old", "sell after 5 years": when, not how long a loan runs.
-_NOT_A_TERM_BEFORE = re.compile(r"\b(?:after|every|each|past|last|first)\s(?:the\s)?$", re.I)
+# "Bought it 3 years ago", "20 years old", "sell after 5 years", "the last 3 years": when, not
+# how long a loan runs. "Paid off after 15 years" and "will last 5 years" are the term.
+_NOT_A_TERM_BEFORE = re.compile(
+    r"\b(?:(?<!off\s)after|every|each|past|the\slast|first)\s(?:the\s)?$", re.I
+)
 _NOT_A_TERM_AFTER = re.compile(
     r"\s?(?:ago|old|older|younger|later|earlier|back|since|from\snow)\b", re.I
 )
@@ -39,11 +43,26 @@ _AMOUNT = re.compile(
 )
 _MONTHLY = re.compile(r"\s?(?:a|per|/|each|every)\s?(?:month|mo)\b|\s?monthly\b|\s?/\s?mo\b", re.I)
 _DOWN = re.compile(r"\b(?:down\s?payment(?:\s(?:of|is))?|put(?:ting)?\s(?:down)?|down)\s?$", re.I)
-_DOWN_AFTER = re.compile(r"\s?(?:down\b|as\s(?:a\s)?down\s?payment\b)", re.I)
+_DOWN_AFTER = re.compile(
+    r"\s?(?:(?:in\s)?cash\s)?(?:down\b|up\s?front\b|as\s(?:a\s)?down\s?payment\b)", re.I
+)
+# "Down payment of 20%", "put 20% down": a share of the price. "5000 down 6.9%" (the 5000
+# was put down) and "the rate went down 1%" give none.
+_SHARE_BEFORE = re.compile(
+    r"\b(?:down\s?payment(?:\s(?:of|is|was|at))?|put(?:ting)?(?:\sdown)?)\s?$", re.I
+)
+# "The rate went down 1% to 5.5%", "from 7% to 6%": the rate is the one it goes to.
+_TO_ANOTHER_RATE = re.compile(r"\s?(?:to|->|→)\s?\d{1,3}(?:\.\d{1,4})?\s?(?:%|percent\b)", re.I)
+_SUM_END = re.compile(r"\d[\d,.]*\s?(?:k|m|grand|thousand|dollars?|bucks)?\s*$", re.I)
+# "A 2022 car", "my 2015 car": a model year, not a price.
+_YEAR = re.compile(r"(?:19[5-9]\d|20[0-4]\d)")
+_MODEL_YEAR_AFTER = re.compile(
+    r"\s?(?:[a-z-]+\s)?(?:car|truck|suv|vehicle|model|house|home|condo)\b", re.I
+)
 # A bare number is money only after a word that says so ("borrow 25000", "balance is 4000");
 # "rates in 2026" has no sum in it.
 _MONEY_BEFORE = re.compile(
-    r"\b(?:for|of|borrow(?:ed|ing)?|owe[ds]?|balance(?:\sis)?|loan|price(?:d)?|costs?|worth|save|"
+    r"\b(?:for|of|borrow(?:ed|ing)?|owe[ds]?|balance(?:\s(?:is|was))?|loan|price(?:d)?|costs?|worth|save|"
     r"saving|deposit(?:ing)?|invest(?:ing)?|pay(?:ing)?|put|down|with|is)\s?$",
     re.I,
 )
@@ -70,16 +89,6 @@ _PRODUCT_AFTER = re.compile(r"\s?(?:mortgage|house|home|condo|car|loan|balance)\
 _HOMEWORK_INTEREST = re.compile(
     r"\b(?:simple|compound)\s+interest\b|\bcompounded\s+(?:annually|yearly|every\s+year)\b",
     re.I,
-)
-# A kind word that is a verb names no kind: "I used a calculator", "I'm used to paying 300",
-# "the car I used to have", "what would I have used", "the rate used for car loans".
-_VERB_BEFORE = re.compile(
-    r"(?:\b(?:i|we|you|they|he|she|who|have|has|had|having|would|could|should|will|never|"
-    r"just|already|also|once|ever|always|been|get|got)|'(?:ve|d|m|ll|re))\s$",
-    re.I,
-)
-_VERB_AFTER = re.compile(
-    r"\s(?:to|for|by|as|in|on|with|at|it|them|this|that|a|an|the|my|your|our|their)\b", re.I
 )
 _MULTIPLIERS = {"k": 1e3, "thousand": 1e3, "grand": 1e3, "m": 1e6, "million": 1e6, "mil": 1e6}
 _TERM_UNITS = {"year": "years", "years": "years", "yr": "years", "yrs": "years"}
@@ -157,23 +166,20 @@ def named_product(text: str) -> Product | None:
     return best[1] if best is not None else None
 
 
-def named_variant(product: Product, text: str) -> str:
-    """The kind of ``product`` the message names ("a used car": "used"), or ""."""
-    lowered = text.lower()
-    for variant in product.variants:
-        for word in variant.words:
-            for match in re.finditer(rf"(?<![\w-]){re.escape(word)}(?!\w)", lowered):
-                before = lowered[max(0, match.start() - 16) : match.start()]
-                if _VERB_BEFORE.search(before) or _VERB_AFTER.match(lowered, match.end()):
-                    continue
-                return variant.key
-    return ""
-
-
 def stated_rate(text: str) -> float | None:
     """The yearly rate the message gives. "20% down" is a share of the price, not a rate."""
+    match = rate_match(text)
+    return float(match.group(1)) if match is not None else None
+
+
+def rate_match(text: str) -> re.Match[str] | None:
+    """Where ``stated_rate`` found its rate, for a reader that checks the words beside it."""
     return next(
-        (float(match.group(1)) for match in _RATE.finditer(text) if not _down_share(text, match)),
+        (
+            match
+            for match in _RATE.finditer(text)
+            if not _down_share(text, match) and not _TO_ANOTHER_RATE.match(text, match.end())
+        ),
         None,
     )
 
@@ -187,8 +193,11 @@ def stated_down_share(text: str) -> float | None:
 
 
 def _down_share(text: str, match: re.Match[str]) -> bool:
-    before = text[max(0, match.start() - 24) : match.start()]
-    return _DOWN.search(before) is not None or _DOWN_AFTER.match(text, match.end()) is not None
+    if _DOWN_AFTER.match(text, match.end()):
+        return True
+    before = text[max(0, match.start() - 32) : match.start()]
+    cue = _SHARE_BEFORE.search(before)
+    return cue is not None and _SUM_END.search(before[: cue.start()]) is None
 
 
 def stated_amounts(text: str) -> list[Amount]:
@@ -199,14 +208,10 @@ def stated_amounts(text: str) -> list[Amount]:
         if _RATE.match(text, match.start("num")) or _TERM.match(text, match.start("num")):
             continue
         word = CURRENCY_WORD.match(after)
-        marked = bool(
-            match.group("sym")
-            or match.group("mult")
-            or word
-            or "," in match["num"]
-            or _PRODUCT_AFTER.match(after)
-            or _DOWN_AFTER.match(after)
-        )
+        signed = bool(match.group("sym") or match.group("mult") or word or "," in match["num"])
+        if not signed and _YEAR.fullmatch(match["num"]) and _MODEL_YEAR_AFTER.match(after):
+            continue
+        marked = signed or bool(_PRODUCT_AFTER.match(after) or _DOWN_AFTER.match(after))
         at = match.start("sym") if match.group("sym") else match.start("num")
         before = text[max(0, at - 24) : at]
         if not marked and _MONEY_BEFORE.search(before) is None:
