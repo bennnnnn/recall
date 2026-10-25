@@ -8,6 +8,7 @@ scheduler sends at; these tests hold the two together.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -309,38 +310,75 @@ def _next(weekday: int, hour: int, minute: int, tz: str, *, after: datetime) -> 
     return local.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
 
-_NOW = datetime.now(UTC).replace(second=0, microsecond=0)
+# Each due time is worked out from the test's own clock when it runs, not at collection: in a
+# ten-minute full run, "in 3 minutes" written at collection had passed, and the preview and
+# the save then each took their own "now" as the reminder instant, milliseconds apart.
 _PREVIEWS = [
-    # zone, quiet hours on, due (sent as written), repeat
-    ("UTC", True, _next(2, 23, 30, "UTC", after=_NOW).isoformat(), None),
-    ("America/New_York", True, _next(4, 23, 30, "America/New_York", after=_NOW).isoformat(), None),
-    ("Asia/Kathmandu", True, _next(1, 5, 30, "Asia/Kathmandu", after=_NOW).isoformat(), None),
-    (
-        "Pacific/Kiritimati",
+    # zone, quiet hours on, due (sent as written) from now, repeat
+    pytest.param(
+        "UTC",
         True,
-        _next(3, 21, 55, "Pacific/Kiritimati", after=_NOW).isoformat(),
+        lambda now: _next(2, 23, 30, "UTC", after=now).isoformat(),
         None,
+        id="utc-quiet",
     ),
-    # Inside its lead window: when due.
-    ("UTC", False, (_NOW + timedelta(minutes=3)).isoformat(), None),
-    # A time with no zone is on the user's clock.
-    (
+    pytest.param(
         "America/New_York",
         True,
-        _next(0, 23, 30, "UTC", after=_NOW).replace(tzinfo=None).isoformat(),
+        lambda now: _next(4, 23, 30, "America/New_York", after=now).isoformat(),
         None,
+        id="new-york-quiet",
+    ),
+    pytest.param(
+        "Asia/Kathmandu",
+        True,
+        lambda now: _next(1, 5, 30, "Asia/Kathmandu", after=now).isoformat(),
+        None,
+        id="kathmandu-quiet",
+    ),
+    pytest.param(
+        "Pacific/Kiritimati",
+        True,
+        lambda now: _next(3, 21, 55, "Pacific/Kiritimati", after=now).isoformat(),
+        None,
+        id="kiritimati-quiet",
+    ),
+    # Inside its lead window: when due.
+    pytest.param(
+        "UTC",
+        False,
+        lambda now: (now + timedelta(minutes=3)).isoformat(),
+        None,
+        id="inside-lead-window",
+    ),
+    # A time with no zone is on the user's clock.
+    pytest.param(
+        "America/New_York",
+        True,
+        lambda now: _next(0, 23, 30, "UTC", after=now).replace(tzinfo=None).isoformat(),
+        None,
+        id="no-zone",
     ),
     # A weekday repeat first due on a Saturday starts on Monday.
-    ("UTC", False, _next(5, 9, 0, "UTC", after=_NOW).isoformat(), "weekdays"),
+    pytest.param(
+        "UTC",
+        False,
+        lambda now: _next(5, 9, 0, "UTC", after=now).isoformat(),
+        "weekdays",
+        id="weekday-repeat",
+    ),
     # More than 48 hours past due: none.
-    ("UTC", False, (_NOW - timedelta(days=3)).isoformat(), None),
+    pytest.param(
+        "UTC", False, lambda now: (now - timedelta(days=3)).isoformat(), None, id="past-due"
+    ),
 ]
 
 
-@pytest.mark.parametrize("tz, quiet, due, repeat", _PREVIEWS)
+@pytest.mark.parametrize("tz, quiet, due_from, repeat", _PREVIEWS)
 async def test_the_preview_is_the_notify_at_a_save_returns(
-    db_session, tz: str, quiet: bool, due: str, repeat: str | None
+    db_session, tz: str, quiet: bool, due_from: Callable[[datetime], str], repeat: str | None
 ) -> None:
+    due = due_from(datetime.now(UTC).replace(second=0, microsecond=0))
     user = await _push_user(
         db_session, timezone=tz, reminder_lead_minutes=10, quiet_hours_enabled=quiet
     )
