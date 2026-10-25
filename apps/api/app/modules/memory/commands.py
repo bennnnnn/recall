@@ -278,6 +278,16 @@ def is_explicit_memory_command(text: str) -> bool:
     return is_explicit_mute_command(text) or memory_reset_request(text) is not None
 
 
+def asks_to_remember(text: str) -> bool:
+    """True when the user asked memory to keep something: not forget, mute or reset."""
+    return (
+        is_explicit_memory_command(text)
+        and not is_explicit_forget_command(text)
+        and not is_explicit_mute_command(text)
+        and memory_reset_request(text) is None
+    )
+
+
 def is_explicit_forget_command(text: str) -> bool:
     """True when the user asked to drop a stored fact, not to remember one."""
     lowered = _fold_quotes(text)
