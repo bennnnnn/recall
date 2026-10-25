@@ -23,12 +23,11 @@ const TodosContext = createContext<TodosContextValue | null>(null);
 export function TodosProvider({ children }: { children: ReactNode }) {
   const auth = useAuthOptional();
   const list = useTodosList(auth?.token, auth?.user?.id);
-  const leadMinutes = auth?.user?.reminder_lead_minutes ?? undefined;
   // Reminders come from the server only to a device whose push token it holds.
   const remotePush = useSyncExternalStore(subscribeRemotePushRegistered, remotePushRegistered);
   const remindersEnabled = auth?.user?.push_reminders_enabled ?? true;
-  const now = useReminderClock(list.todos, leadMinutes);
-  const reminders = useTodoReminderState({ userId: auth?.user?.id, leadMinutes, now,
+  const now = useReminderClock(list.todos);
+  const reminders = useTodoReminderState({ userId: auth?.user?.id, now,
     todos: list.todos, retainedOpenIds: list.retainedOpenIds, getTodos: list.getTodos, isCurrentSession: list.isCurrentSession });
   const session = getSessionGeneration();
   const {

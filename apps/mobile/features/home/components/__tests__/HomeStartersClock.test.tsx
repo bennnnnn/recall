@@ -4,7 +4,7 @@ import { HomeStarters } from "@/features/home/components/HomeStarters";
 
 // The overdue row reads the to-do context's `now` (useReminderClock), not the moment the
 // to-dos last changed: a reminder that falls due while the app is open shows on Home.
-const mockTodos = [
+let mockTodos: { id: string; content: string; due_at: string; checked: boolean; notify_at?: string }[] = [
   {
     id: "todo-1",
     content: "Start anatomy study session",
@@ -50,4 +50,20 @@ it("shows a reminder as overdue once the clock passes its due time", async () =>
   await view.rerender(<HomeStarters composerActive={false} />);
 
   expect(await view.findByText("Start anatomy study session")).toBeTruthy();
+});
+
+it("shows an overdue reminder from its notify_at, after quiet hours, as push does", async () => {
+  // Quiet hours 22:00-07:00: due at 23:30, the server sends its reminder at 07:00.
+  mockTodos = [{
+    id: "todo-2", content: "Call Sam", due_at: "2026-10-24T23:30:00.000Z", checked: false,
+    notify_at: "2026-10-25T07:00:00.000Z",
+  }];
+  mockNow = new Date("2026-10-24T23:45:00.000Z");
+  const view = await render(<HomeStarters composerActive={false} />);
+  expect(await view.findByText("Good afternoon")).toBeTruthy();
+  expect(view.queryByText("Call Sam")).toBeNull();
+
+  mockNow = new Date("2026-10-25T07:00:00.000Z");
+  await view.rerender(<HomeStarters composerActive={false} />);
+  expect(await view.findByText("Call Sam")).toBeTruthy();
 });

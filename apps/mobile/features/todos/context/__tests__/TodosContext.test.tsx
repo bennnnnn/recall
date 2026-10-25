@@ -143,12 +143,19 @@ it("reads the list again once the lead time, quiet hours or time zone is saved, 
   await waitFor(() => expect(jest.mocked(syncTodoReminders).mock.calls.at(-1)?.[0]).toEqual([moved]));
 });
 
-it("marks the same configured lead window seen that contributes to the badge", async () => {
+it("marks seen the reminders the badge counts: those whose notify_at has come", async () => {
+  // Due in 30 minutes: one reminder went out a minute ago, the other waits out quiet hours.
+  const gone = { ...todo, notify_at: new Date(now - 60_000).toISOString() };
+  const held = { ...todo, id: "t2", notify_at: new Date(now + 9 * 60 * 60_000).toISOString() };
+  jest.mocked(api.listTodos).mockResolvedValue(list([gone, held]));
   await render(<Screen />);
-  await waitFor(() => expect(mockValue.todos).toEqual([todo]));
+  await waitFor(() => expect(mockValue.todos).toEqual([gone, held]));
+  expect(mockValue.unseenCount).toBe(1);
   await act(async () => { await mockValue.markSeen(); });
   const writes = [...jest.mocked(saveSeenReminderIds).mock.calls, ...jest.mocked(markReminderIdsSeen).mock.calls];
-  expect(writes.some(([, ids]) => [...ids].includes(todo.id))).toBe(true);
+  expect(writes.some(([, ids]) => [...ids].includes(gone.id))).toBe(true);
+  expect(writes.some(([, ids]) => [...ids].includes(held.id))).toBe(false);
+  expect(mockValue.unseenCount).toBe(0);
 });
 
 it("preserves canonical server recurrence dates without a client PATCH", async () => {
