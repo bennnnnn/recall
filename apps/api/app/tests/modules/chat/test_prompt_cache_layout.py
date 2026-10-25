@@ -37,6 +37,7 @@ from app.modules.chat.tool_loop.rounds import _hand_off
 from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_REPLY_POLICY
 from app.modules.physics import PHYSICS_REPLY_POLICY
 from app.modules.web_search import WEB_SEARCH_HINT
+from app.services.locale import locale_system_hint
 from app.services.workout import MATH_WORKOUT_PROMPT_RULE
 from app.tests.behavior import harness
 from app.tests.behavior.cases import Case, Expect
@@ -125,6 +126,7 @@ async def test_the_marked_message_is_the_same_on_every_kind_of_turn_for_one_user
                 TONE_FORMAT_GUARD,
                 UNCLEAR_MESSAGE_HINT,
                 SETTINGS_IN_APP_HINT,
+                locale_system_hint("en"),
             )
         )
     }
@@ -165,7 +167,7 @@ async def test_their_own_instructions_and_language_are_part_of_the_same_text(
     tone = f"{TONE_HINTS['casual']}\n\n{EMOJI_HINTS['some']}"
     assert stable.startswith(f"{_IDENTITY}\n\n{tone}\n\n{TONE_FORMAT_GUARD}")
     assert "Keep it upbeat." in stable
-    assert stable.endswith("do not keep replying in a previous language.")
+    assert stable.endswith(locale_system_hint("es"))
     reference = await _prompt_at(_SEVEN_PAST, user=user, memory_block="other memory")
     assert stable == reference[0]["content"]
 
