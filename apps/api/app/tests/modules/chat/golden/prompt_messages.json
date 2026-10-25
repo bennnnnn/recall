@@ -99,7 +99,7 @@
   "where is Lalibela? [Attachment: notes.txt]\n\nExcerpt: rock churches",
   "Earlier context note.",
   "\nLalibela is in northern Ethiopia.\n\n\n```reminder\ntitle: Call mom\ndue: 18:00\n```",
-  "Current local time: Wednesday, October 14, 2026, 9:00:00 AM EAT. Year 2026. Month October. You know this time, year, and month. Never say you lack a clock, the current time, the year, or the month. When you name the weekday of a date, write the full date with it (\"Friday, December 25, 2026\"). The next seven days: Thursday October 15, Friday October 16, Saturday October 17, Sunday October 18, Monday October 19, Tuesday October 20, Wednesday October 21.\n\nUser local date & time (EAT): Wednesday, October 14, 2026 09:00 EAT. Digital clock now: 09:00:00 AM. User location is not synced yet. When the user asks what time it is *here* (no other city/place), reply with only an empty ```clock``` fence. The app renders a live circular analog clock for their local timezone — never paste timezone names, HH:MM text, or any other content inside that empty fence. When they ask the time in another city or place, do NOT use an empty clock fence (that would show the user's local time). Put the place's IANA timezone alone inside the fence, e.g. ```clock\\nAmerica/New_York\\n``` for Washington DC / US Eastern, or answer in short prose with the local time there. When they ask where they are, use the location above if set. Use this when answering questions about today, deadlines, overdue reminders, or how long until something is due. A clock hour keeps the part of day they used. Morning is AM. Afternoon, evening, and night are not the morning: 4 in the evening is 16:00, never 04:00 or 4 AM.\n\nWrite this reply in English, the language of the user's message, whatever a saved memory or an earlier reply says.",
+  "Current local time: Wednesday, October 14, 2026, 9:00:00 AM EAT. Year 2026. Month October. You know this time, year, and month. Never say you lack a clock, the current time, the year, or the month. When you name the weekday of a date, write the full date with it (\"Friday, December 25, 2026\"). The next seven days: Thursday October 15, Friday October 16, Saturday October 17, Sunday October 18, Monday October 19, Tuesday October 20, Wednesday October 21.\n\nUser local date & time (EAT): Wednesday, October 14, 2026 09:00 EAT. Digital clock now: 09:00:00 AM. User location is not synced yet. When the user asks what time it is *here* (no other city/place), reply with only an empty ```clock``` fence. The app renders a live circular analog clock for their local timezone — never paste timezone names, HH:MM text, or any other content inside that empty fence. When they ask the time in another city or place, do NOT use an empty clock fence (that would show the user's local time). Put the place's IANA timezone alone inside the fence, e.g. ```clock\\nAmerica/New_York\\n``` for Washington DC / US Eastern, or answer in short prose with the local time there. When they ask where they are, use the location above if set. Use this when answering questions about today, deadlines, overdue reminders, or how long until something is due. A clock hour keeps the part of day they used. Morning is AM. Afternoon, evening, and night are not the morning: 4 in the evening is 16:00, never 04:00 or 4 AM.",
   "HARD DAILY-COVERAGE CONTRACT FOR THIS 7-DAY PLAN:\n- The daily breakdown must contain exactly 7 separate Markdown lines, one per day.\n- Every line must begin with one bold day label in this shape: `- **Day N — Topic:** Learn → Practice/build → Done when ...`.\n- Do not combine days, skip a number, or use a day range in the daily breakdown.\n- Required labels, in order: Day 1 | Day 2 | Day 3 | Day 4 | Day 5 | Day 6 | Day 7.\n- Keep every day line compact so Day 7 and all closing sections fit.\n- After the daily lines, include these exact headings: `### Checkpoints and milestones`, `### Daily routine`, and `### Production-experience note`. Under the last heading, write the exact sentence `Production experience takes longer than this roadmap.` before briefly explaining why.\n- Include exactly five short runnable ```sql code blocks total, placed after Day 1, Day 3, Day 4, Day 6, Day 7. Inline snippets do not count.",
   "make me a 7-day plan to learn SQL",
   "\n\nHARD PROGRAMMING-LESSON ACCEPTANCE CHECK (a lesson only; an outline of a whole language has no code): Before answering, verify the response contains the literal opening fence ```python, runnable code on following lines, and a closing ```. This is mandatory even when the lesson starts with a concept. An inline snippet, pseudo-code, or untagged fence fails the requested output. Keep the example short, then end with the lesson's `Your turn` ```quiz and the one-line preview of the next lesson.\n\n",
@@ -338,7 +338,7 @@
      ],
      [
       "system",
-      "9"
+      "4"
      ]
     ],
     "out": {}
@@ -384,7 +384,7 @@
      ],
      [
       "system",
-      "9"
+      "4"
      ],
      [
       "system",
@@ -460,7 +460,7 @@
      ],
      [
       "system",
-      "9"
+      "4"
      ],
      [
       "system",
@@ -900,7 +900,7 @@
      ],
      [
       "system",
-      "55 @EXAMPLE_PERSONALIZE_HINT 8"
+      "55 @EXAMPLE_PERSONALIZE_HINT"
      ],
      [
       "system",
@@ -1094,7 +1094,7 @@
      ],
      [
       "system",
-      "9"
+      "4"
      ],
      [
       "user",
@@ -1130,7 +1130,7 @@
      ],
      [
       "system",
-      "66 @CAREER_PERSONALIZE_HINT 8"
+      "66 @CAREER_PERSONALIZE_HINT"
      ],
      [
       "user",
@@ -1166,7 +1166,7 @@
      ],
      [
       "system",
-      "66 @PROFILE_FACT_HINT 8"
+      "66 @PROFILE_FACT_HINT"
      ],
      [
       "user",
@@ -1321,7 +1321,7 @@
      ],
      [
       "system",
-      "9"
+      "4"
      ],
      [
       "user",
@@ -1538,7 +1538,7 @@
      ],
      [
       "system",
-      "7 @CHEMISTRY_FOLLOWUP_HINT 8"
+      "7 @CHEMISTRY_FOLLOWUP_HINT"
      ],
      [
       "user",
@@ -1960,7 +1960,7 @@
      ],
      [
       "system",
-      "9"
+      "4"
      ],
      [
       "user",
@@ -2099,7 +2099,7 @@
      ],
      [
       "system",
-      "7 @ADVICE_PERSONALIZE_HINT 8"
+      "7 @ADVICE_PERSONALIZE_HINT"
      ],
      [
       "system",
