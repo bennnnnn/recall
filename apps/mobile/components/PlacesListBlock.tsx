@@ -109,7 +109,7 @@ function PlaceDetailsSheet({
               </Text>
             ) : null}
           </View>
-          <Pressable style={s.openBtn} onPress={openInMaps}>
+          <Pressable style={s.openBtn} onPress={openInMaps} accessibilityRole="button">
             <Icon name="map" size={IconSize.sm} color={theme.onPrimary} />
             <Text style={s.openBtnText}>{t("places.open_in_maps")}</Text>
           </Pressable>

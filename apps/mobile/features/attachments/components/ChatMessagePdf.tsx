@@ -112,7 +112,13 @@ export function ChatMessagePdf({
       </Pressable>
 
       {!compact && canRenderInline && WebView && canMount && preview.status === "ready" ? (
-        <Pressable style={s.previewWrap} onPress={() => setViewerOpen(true)}>
+        <Pressable
+          style={s.previewWrap}
+          onPress={() => setViewerOpen(true)}
+          // The card above opens the same viewer and is labelled; the page picture is for sight.
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
           <WebView
             key={preview.webViewKey}
             {...preview.webViewProps}

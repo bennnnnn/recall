@@ -312,6 +312,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
             <Pressable
               key={`dev-${plan}`}
               style={s.devBtn}
+              accessibilityRole="button"
               onPress={() => {
                 void devUpgrade(plan).then((ok) => {
                   if (ok) onClose();

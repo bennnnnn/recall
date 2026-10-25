@@ -33,7 +33,7 @@ export function ChatQuotaNudge({
 
   return (
     <Animated.View style={[s.quotaNudge, { bottom: bottomOffset }, lift ? liftStyle : null]}>
-      <Pressable style={s.quotaNudgeBody} onPress={onUpgrade}>
+      <Pressable style={s.quotaNudgeBody} onPress={onUpgrade} accessibilityRole="button">
         <Icon
           name="zap"
           size={IconSize.xs}
@@ -44,7 +44,7 @@ export function ChatQuotaNudge({
           {t("chat.quota_nudge_body", { pct: usedPct })}
         </Text>
       </Pressable>
-      <Pressable style={s.quotaNudgeCta} onPress={onUpgrade}>
+      <Pressable style={s.quotaNudgeCta} onPress={onUpgrade} accessibilityRole="button">
         <Text style={s.quotaNudgeCtaText}>{t("chat.quota_nudge_cta")}</Text>
       </Pressable>
       <Pressable onPress={onDismiss} hitSlop={8} style={s.quotaNudgeClose} accessibilityRole="button" accessibilityLabel={t("common.cancel")}>
