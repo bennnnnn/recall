@@ -421,12 +421,192 @@ _MOLECULE_ROWS = [
         model="free-chat",
     ),
 ]
+# A chat that names two things but asks no shape: "show me both" is the resolver's.
+_TWO_THINGS_ROWS = [
+    SimpleNamespace(id=uuid4(), role="user", content="tell me about water and co2"),
+    SimpleNamespace(
+        id=uuid4(),
+        role="assistant",
+        content="Water is H2O; carbon dioxide is CO2, the gas we breathe out.",
+        model="free-chat",
+    ),
+]
+
+
+async def _new_turn(
+    rows: list[SimpleNamespace], content: str, resolved: str | None, *, pro: bool = True
+) -> tuple[bool, AsyncMock, AsyncMock, set[str]]:
+    from app.modules.chat.turn_intercepts import intercept_new_turn
+
+    search_and_attach = _found(uuid4())
+    resolve = AsyncMock(return_value=resolved)
+    deps = turn_deps(
+        image_search={"search_and_attach_for_chat": search_and_attach},
+        references={"resolve_reference": resolve},
+    )
+    misses: set[str] = set()
+    handled = await intercept_new_turn(
+        deps,
+        Settings(image_search_enabled=True, image_generation_enabled=True),
+        user=make_user(plan="pro" if pro else "free"),
+        chat_id=uuid4(),
+        content=content,
+        outcome=TurnOutcome(),
+        recent_messages=list(rows),
+        prior_count=len(rows),
+        misses=misses,
+    )
+    return handled, resolve, search_and_attach, misses
+
+
+async def _show_me_both(
+    rows: list[SimpleNamespace], resolved: str | None
+) -> tuple[bool, AsyncMock, AsyncMock, set[str]]:
+    return await _new_turn(rows, "can u show me both", resolved)
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "can u show me both",
+        "show me both of them",
+        "show me what they look like",
+        "show me each of them",
+        "show me the shapes",
+        "show me the models",
+        "show us both",
+        "show me both then",
+        "show me the drawings",
+        "display them",
+        "lol no the molecules",
+    ],
+)
+@pytest.mark.parametrize("resolved", ["water and carbon dioxide", None])
+@pytest.mark.asyncio
+async def test_a_show_line_after_a_shape_answer_is_drawn_not_searched_or_generated(
+    content: str, resolved: str | None, thread_sympy_executor: None
+) -> None:
+    """ "can u show me both" searched the word "both" and showed a meme (2026-10-25). After a
+    shape answer chemistry draws the molecules, whatever a resolver would have named, before a
+    photo or a generated picture is asked."""
+    handled, resolve, search_and_attach, misses = await _new_turn(_MOLECULE_ROWS, content, resolved)
+    assert handled is False
+    resolve.assert_not_awaited()
+    search_and_attach.assert_not_awaited()
+    assert "photo" in misses
+
+
+_SHOW_LINES = (
+    "can u show me both",
+    "show me both of them",
+    "show me what they look like",
+    "show me each of them",
+    "show me the shapes",
+    "show me the models",
+    "show us both",
+    "show me both then",
+    "show me the drawings",
+    "show me pictures of both",
+    "display them",
+    "let me see them",
+    "what do they look like",
+    "lol no the molecules",
+)
+
+
+@pytest.mark.parametrize("content", _SHOW_LINES)
+def test_the_composer_sends_every_show_line_to_the_chat_turn(content: str) -> None:
+    """The composer reads a send before the chat turn exists: a picture it draws is the
+    picture the chat turn would draw. Every line chemistry claims is a photo lookup or a plain
+    send there, so it reaches the chat turn and its intercept."""
+    from app.modules.images.intent import composer_image_intent
+
+    assert composer_image_intent(content, list(_MOLECULE_ROWS)).request is None
+
+
+@pytest.mark.parametrize("content", ["draw both", "draw both of them", "draw them", "sketch them"])
+@pytest.mark.asyncio
+async def test_a_draw_line_after_a_shape_answer_is_left_to_image_generation(
+    content: str, thread_sympy_executor: None
+) -> None:
+    """The composer sends "draw both" to /images/generate before any chat turn; chemistry
+    claiming it on the chat path would split that one reading."""
+    from app.modules.chat.turn_intercepts import _chemistry_draws_it
+
+    assert not await _chemistry_draws_it(Settings(), content, list(_MOLECULE_ROWS))
+
+
+@pytest.mark.asyncio
+async def test_a_regenerated_show_line_takes_the_photo_tool_out_too(
+    thread_sympy_executor: None,
+) -> None:
+    from app.modules.chat.turn_intercepts import intercept_regenerate
+    from app.modules.chat.turn_prep import RegenerateBackup
+
+    deps = turn_deps(messages={"list_recent": AsyncMock(return_value=list(_MOLECULE_ROWS))})
+    misses: set[str] = set()
+    handled = await intercept_regenerate(
+        deps,
+        Settings(image_search_enabled=True),
+        user=make_user(),
+        chat_id=uuid4(),
+        content="can u show me both",
+        backup=RegenerateBackup(content="Here.", model="free-chat", message_id=uuid4()),
+        outcome=TurnOutcome(),
+        misses=misses,
+    )
+    assert handled is False
+    assert "photo" in misses
+
+
+@pytest.mark.asyncio
+async def test_a_photo_of_both_after_a_shape_answer_stays_a_photo(
+    thread_sympy_executor: None,
+) -> None:
+    handled, resolve, search_and_attach, _misses = await _new_turn(
+        _MOLECULE_ROWS, "show me a photo of both", "water and carbon dioxide"
+    )
+    assert handled is True
+    resolve.assert_awaited_once()
+    assert _awaited(search_and_attach).kwargs["query"] == "water and carbon dioxide"
+
+
+@pytest.mark.asyncio
+async def test_a_photo_turn_in_another_chat_never_waits_on_the_pool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.modules.chat import turn_intercepts
+
+    pool = AsyncMock()
+    monkeypatch.setattr(turn_intercepts, "run_sympy", pool)
+    handled, _resolve, _search, _misses = await _new_turn(
+        list(_CALMENT_ROWS), "show me her image", "Jeanne Calment"
+    )
+    assert handled is True
+    pool.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_pool_that_gives_up_leaves_the_photo_path_and_the_turns_readings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core import readings
+    from app.modules.chat import turn_intercepts
+
+    readings.begin_turn()
+    monkeypatch.setattr(turn_intercepts, "run_sympy", AsyncMock(side_effect=TimeoutError))
+    handled, resolve, _search, _misses = await _new_turn(
+        _MOLECULE_ROWS, "can u show me both", "water and carbon dioxide"
+    )
+    assert handled is True
+    resolve.assert_awaited_once()
+    memo = readings._MEMO.get()
+    assert memo is not None and readings._DECLINED not in memo
 
 
 @pytest.mark.parametrize(
     "resolved, query",
     [
-        # "can u show me both" searched the word "both" and showed a meme (2026-10-25).
         ("water and carbon dioxide molecules", None),
         (None, None),
         ("crocodile and alligator", "crocodile and alligator"),
@@ -435,31 +615,9 @@ _MOLECULE_ROWS = [
 )
 @pytest.mark.asyncio
 async def test_show_me_both_reads_both_from_the_chat(
-    resolved: str | None, query: str | None
+    resolved: str | None, query: str | None, thread_sympy_executor: None
 ) -> None:
-    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
-
-    user = make_user()
-    search_and_attach = _found(uuid4())
-    resolve = AsyncMock(return_value=resolved)
-
-    deps = turn_deps(
-        image_search={"search_and_attach_for_chat": search_and_attach},
-        references={"resolve_reference": resolve},
-    )
-    misses: set[str] = set()
-    handled = await try_image_lookup_for_turn(
-        deps,
-        Settings(image_search_enabled=True),
-        user=user,
-        chat_id=uuid4(),
-        content="can u show me both",
-        outcome=TurnOutcome(),
-        create_user_message=True,
-        recent_messages=list(_MOLECULE_ROWS),
-        misses=misses,
-    )
-
+    handled, resolve, search_and_attach, misses = await _show_me_both(_TWO_THINGS_ROWS, resolved)
     assert _awaited(resolve).kwargs["request"] == "can u show me both"
     assert handled is (query is not None)
     if query is None:

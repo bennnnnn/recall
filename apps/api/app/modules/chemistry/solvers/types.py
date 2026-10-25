@@ -70,6 +70,9 @@ class ChemistryResult:
     answer: str
     answer_value: str
     scene: ChemistryScene | None = None
+    # A second molecule's picture, when one VSEPR answer compares two ("why is water bent but
+    # CO2 linear"). Each scene is its own fence, so the phone draws one picture per molecule.
+    more_scenes: tuple[ChemistryScene, ...] = ()
     structure_smiles: str | None = None
     # True when the text carries SMILES or atom labels (``C1CCCCC1``, ``C2=C3: E``) whose
     # digits are not subscripts; ``notation.typeset`` must leave such a result alone.

@@ -29,6 +29,8 @@ QUESTIONS = {
     "molar_mass_water": "What is the molar mass of H2O?",
     "balance_ammonia": "Balance N2 + H2 -> NH3",
     "vsepr_water": "VSEPR of H2O",
+    # Two molecules, two pictures: one chem_scene fence each.
+    "vsepr_water_and_co2": "Why is water bent tho, co2 isnt",
     "galvanic_zn_cu": "Galvanic cell with Zn and Cu, find the cell potential",
 }
 

@@ -5,11 +5,14 @@ generation (Pro): see ``images.lookup_intent`` for why the two never compete for
 the same words. Either one stores the reply itself and fills the turn's outcome.
 """
 
+import logging
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 from app.core.config import Settings
+from app.core.sympy_executor import run_sympy
 from app.exceptions import ChatServiceError, SpendCapReachedError, TurnRefusedError
 from app.models.orm import Message, User
 from app.modules.attachments.markers import strip_attachment_from_content
@@ -18,6 +21,13 @@ from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import RegenerateBackup
 from app.modules.chat.turn_prep.clauses import request_body
+from app.modules.chat.turn_prep.followups import role_content_dicts
+from app.modules.chemistry.shape_followup import (
+    could_ask_a_shape,
+    is_show_line,
+    last_question_line,
+    shape_followup_problem,
+)
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.generation import ImageGenerationError
 from app.modules.images.intent import (
@@ -37,6 +47,8 @@ from app.services.quota import (
     IMAGE_GENERATION_NOT_IN_PLAN_MESSAGE,
     IMAGE_GENERATION_SPEND_CAP_MESSAGE,
 )
+
+logger = logging.getLogger(__name__)
 
 _IMAGE_SEARCH_MODEL = "image-search-model"
 _IMAGE_GEN_MODEL = "image-gen-model"
@@ -170,20 +182,39 @@ async def try_image_gen_for_turn(
     return True
 
 
-async def _photo_subject_from_chat(
+async def _chemistry_draws_it(settings: Settings, content: str, recent: Sequence[Any]) -> bool:
+    """ "can u show me both" right after a shape answer asks for its molecules, which the
+    chemistry card draws: neither a photo search nor a generated picture takes the line.
+
+    The cheap looks come first, on the line and on the chat's last question, so a photo turn
+    in any other chat ("show me her") never waits on the pool. A pool that cannot read it
+    leaves the line to the photo path and does not decline the turn's other readings.
+    """
+    if not settings.chemistry_enabled or not is_show_line(content):
+        return False
+    if not could_ask_a_shape(last_question_line(recent)):
+        return False
+    try:
+        problem = await run_sympy(
+            shape_followup_problem,
+            content,
+            role_content_dicts(recent),
+            timeout=settings.subject_read_timeout_seconds,
+        )
+    except Exception:
+        logger.info("shape follow-up read gave up; the line stays a photo lookup", exc_info=True)
+        return False
+    return problem is not None
+
+
+async def _recent_rows(
     deps: ChatTurnDeps,
     settings: Settings,
     *,
     chat_id: UUID,
-    content: str,
     recent_messages: list[Any] | None,
     replace_assistant_id: UUID | None,
-) -> str | None:
-    """Who "her" / "it" is in "show me her image", read from the chat; None if unclear.
-
-    After a generated picture, "show it at night" edits that picture: the
-    image-generation intercept owns it, so this returns None.
-    """
+) -> list[Any]:
     if recent_messages is not None:
         recent = recent_messages
     else:
@@ -193,6 +224,17 @@ async def _photo_subject_from_chat(
             )
     if replace_assistant_id is not None:
         recent = [row for row in recent if getattr(row, "id", None) != replace_assistant_id]
+    return list(recent)
+
+
+async def _photo_subject_from_chat(
+    deps: ChatTurnDeps, settings: Settings, *, content: str, recent: list[Any]
+) -> str | None:
+    """Who "her" / "it" is in "show me her image", read from the chat; None if unclear.
+
+    After a generated picture, "show it at night" edits that picture: the
+    image-generation intercept owns it, so this returns None.
+    """
     if last_reply_is_generated_image(recent):
         return None
     return await deps.references.resolve_reference(
@@ -230,14 +272,14 @@ async def try_image_lookup_for_turn(
     if not query:
         return False
     if is_reference_subject(query):
-        query = await _photo_subject_from_chat(
+        recent = await _recent_rows(
             deps,
             settings,
             chat_id=chat_id,
-            content=content,
             recent_messages=recent_messages,
             replace_assistant_id=replace_assistant_id,
         )
+        query = await _photo_subject_from_chat(deps, settings, content=content, recent=recent)
         if query and names_a_drawing(query):
             # "Water and carbon dioxide molecules": drawn by the app, so the tool loop
             # offers no photo search either.
@@ -316,6 +358,11 @@ async def intercept_new_turn(
 
     A lookup that ran and found nothing is added to ``misses`` ("photo").
     """
+    if await _chemistry_draws_it(settings, content, recent_messages):
+        # Drawn by the chemistry card: no photo, no generated picture, no photo tool.
+        if misses is not None:
+            misses.add("photo")
+        return False
     if await try_image_lookup_for_turn(
         deps,
         settings,
@@ -380,6 +427,14 @@ async def intercept_regenerate(
     A lookup that ran and found nothing is added to ``misses`` ("photo").
     """
     replace_id = backup.message_id if backup is not None else None
+    if is_show_line(content):
+        recent = await _recent_rows(
+            deps, settings, chat_id=chat_id, recent_messages=None, replace_assistant_id=replace_id
+        )
+        if await _chemistry_draws_it(settings, content, recent):
+            if misses is not None:
+                misses.add("photo")
+            return False
     if backup is not None and backup.model == _IMAGE_SEARCH_MODEL:
         if await try_image_lookup_for_turn(
             deps,

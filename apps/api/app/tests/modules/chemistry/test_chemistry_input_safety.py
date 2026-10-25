@@ -57,6 +57,11 @@ def _warm_lazy_imports() -> None:
         # Was 8.7 s: a lowercase-formula token retried from after every bracket, cubic.
         "how much water if i burn 4 g of h2 " + "a1(" * 1300 + "A",
         "a1" * 1990 + "A burn 4 g of h2 how much water",
+        # A shape asked in words: separators, leads and fillers that never close.
+        "why is water bent" + " ," * 1900 + " x",
+        "Why is water bent" + " tho" * 900 + " co2 isnt x",
+        "ok " * 1300 + "why is water bent x",
+        "compare the shapes of " + "water and " * 380 + "co2",
     ],
     ids=[
         "uppercase-run",
@@ -80,6 +85,10 @@ def _warm_lazy_imports() -> None:
         "named-beside-equation-run",
         "lowercase-bracket-run",
         "lowercase-digit-run",
+        "shape-comma-run",
+        "shape-tho-run",
+        "shape-lead-run",
+        "shape-and-run",
     ],
 )
 def test_hostile_input_returns_quickly(text: str) -> None:

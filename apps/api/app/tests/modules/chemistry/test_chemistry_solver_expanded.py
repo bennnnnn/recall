@@ -360,6 +360,11 @@ PIPELINE_CASES: list[tuple[str, str, str]] = [
         "central formal charge: 0\nelectron geometry: tetrahedral, ideal angle 109.5°",
     ),
     (
+        "Why is water bent but CO2 linear?",
+        "vsepr",
+        "H2O: bent, 104.5°, polar\nCO2: linear, 180°, nonpolar",
+    ),
+    (
         "Find the formal charge when valence=4, nonbonding=0, bonding=8",
         "formal_charge",
         "FC = 0",
