@@ -25,6 +25,10 @@ _DENIAL = f"{_LIVE} the time. You can check your device's clock."
         (_DENIAL, "what's today's date"),
         (_DENIAL, "what day is it"),
         (_DENIAL, "what time is it in my time zone"),
+        (_DENIAL, "what time is it 😅"),
+        (_DENIAL, "what's the date and time"),
+        (_DENIAL, "tell me the time and date"),
+        (_DENIAL, "what day and time is it"),
         (_DENIAL, "what time is it? i have a meeting at 4"),
         ("I don’t have access to a clock, sorry!", "do you know what time it is"),
         (
@@ -79,6 +83,9 @@ def test_a_clock_ask_denied_is_swapped(reply: str, asked: str) -> None:
         ("I can't tell you the exact time right now.", "what time is my flight"),
         (_DENIAL, "what time is it playing at amc"),
         (_DENIAL, "what's the date of easter"),
+        (_DENIAL, "what's the date and time in tokyo"),
+        (_DENIAL, "whats the date and time of the eclipse"),
+        (_DENIAL, "what time is it (in tokyo)"),
         # The clock and something else live: the reply is about both.
         (_DENIAL, "what time is it and whats the weather"),
         # No denial, a long reply, or no ask.

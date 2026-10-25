@@ -50,14 +50,18 @@ _MAX_LEN = 400
 # The local clock asked, and the clause ends there (fillers aside): "what time is it? i have
 # a meeting at 4" asks it; "what time is it playing at amc", "what's the date of easter"
 # and "whats the time over in tokyo" do not.
+# The clock or the date, or both: "the date and time" is exactly what the swap shows.
+_NOUN = r"(?:time|date|day)(?:\s+(?:and|&)\s+(?:the\s+)?(?:time|date))?"
 _ASKS_CLOCK = re.compile(
     r"\b(?:what\s+time\s+(?:is\s+it|it\s+is)"
-    r"|(?:what'?s|what\s+is|know|tell\s+me|got|give\s+me)\s+the\s+(?:current\s+)?(?:time|date|day)"
-    r"|what\s+(?:day|date)\s+(?:is\s+it|it\s+is|is\s+today)"
-    r"|today'?s\s+date"
-    r"|(?:current|exact|local)\s+(?:time|date))"
+    r"|(?:what'?s|what\s+is|know|tell\s+me|got|give\s+me)\s+(?:the\s+)?(?:current\s+)?"
+    rf"(?:today'?s\s+)?{_NOUN}"
+    r"|what\s+(?:day|date|time)(?:\s+and\s+(?:time|date))?\s+(?:is\s+it|it\s+is|is\s+today)"
+    rf"|today'?s\s+{_NOUN}"
+    rf"|(?:current|exact|local)\s+{_NOUN})"
     r"(?=(?:\s+(?:rn|now|right\s+now|currently|today|exactly|again|here|please|pls|bro|lol)\b){0,3}"
-    r"\s*(?:$|[?.!,;]|in\s+(?:my|our|here)\b))",
+    # The clause ends: punctuation or an emoji ("what time is it 😅"), or "in my time zone".
+    r"\s*(?:$|[^\w\s(]|in\s+(?:my|our|here)\b))",
     re.IGNORECASE,
 )
 _BARE_TIME = re.compile(r"(?:the\s+)?time\s*\??", re.IGNORECASE)
