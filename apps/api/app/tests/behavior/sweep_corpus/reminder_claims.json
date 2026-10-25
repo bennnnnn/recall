@@ -131,5 +131,63 @@
   "prompt": "remind me to call the bank 20 minutes from now",
   "reply": "Got it.",
   "expect": "save"
+ },
+ {
+  "id": "rc-020",
+  "area": "todo",
+  "prompt": "remind me to practice this tomorrow at 7pm",
+  "reply": "Got it set for tomorrow evening! 📅\n\n```reminder\n{\"title\": \"Practice list comprehensions\", \"due_at\": \"2026-10-15T19:00:00+03:00\"}\n```",
+  "expect": "save"
+ },
+ {
+  "id": "rc-021",
+  "area": "todo",
+  "prompt": "yes",
+  "history": [
+   [
+    "user",
+    "wait you can't do reminders? you made one earlier for my python practice"
+   ],
+   [
+    "assistant",
+    "I can definitely create reminders for you now. Would you like me to set up that **Practice list comprehensions** reminder for tomorrow at 7:00 PM?"
+   ]
+  ],
+  "reply": "Setting that reminder for you now! ⏰\n\n```reminder\n{\"title\": \"Practice list comprehensions\", \"due_at\": \"2026-10-15T19:00:00+03:00\"}\n```",
+  "expect": "save"
+ },
+ {
+  "id": "rc-022",
+  "area": "todo lookalike",
+  "prompt": "yes",
+  "history": [
+   [
+    "user",
+    "what's a list comprehension?"
+   ],
+   [
+    "assistant",
+    "It builds a list in one line: `[x * 2 for x in nums]`. Want me to show you a few more examples?"
+   ]
+  ],
+  "reply": "Sure! Here are two more:\n\n```python\nsquares = [x * x for x in range(5)]\nevens = [x for x in range(10) if x % 2 == 0]\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "rc-023",
+  "area": "todo lookalike",
+  "prompt": "sure",
+  "history": [
+   [
+    "user",
+    "a rectangle has a perimeter of 36 cm and its length is twice its width. find the area"
+   ],
+   [
+    "assistant",
+    "The area is 72 cm². Want a practice problem tomorrow at 7 to try on your own?"
+   ]
+  ],
+  "reply": "Here's one for tomorrow at 7: a rectangle has a perimeter of 40 cm and its length is three times its width. Find the area.",
+  "expect": "answer"
  }
 ]

@@ -350,7 +350,11 @@ async def load_regenerate_turn(
         model=model,
         content=last_user.content,
         prior_count=prior_count,
-        turn_mode=classify_turn_mode(recent, last_user.content),
+        # The window still ends with the reply being redone; the line answered the one
+        # before it ("yes" to "Want me to set that reminder?").
+        turn_mode=classify_turn_mode(
+            recent[:-1] if last.role == "assistant" else recent, last_user.content
+        ),
         backup=backup,
         omit_message_ids=omit_message_ids,
         recent=recent,

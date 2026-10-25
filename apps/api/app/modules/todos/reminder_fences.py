@@ -21,6 +21,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.todos import proposals, write_log
 from app.modules.todos.actions import MAX_TODO_ACTIONS_PER_TURN
 from app.modules.todos.card_retime import retime_untapped_card
+from app.modules.todos.offer_reply import accepted_reminder_offer
+from app.modules.todos.read_asks import asks_to_read_reminders
 from app.modules.todos.recurrence import next_recurring_due
 from app.modules.todos.reminder_fence_parse import (
     ReminderFence,
@@ -48,12 +50,10 @@ from app.modules.todos.spoken_add import (
 from app.modules.todos.spoken_apply import apply_spoken_change, format_reminder_reading
 from app.modules.todos.spoken_change import (
     asks_about_my_reminders,
-    asks_to_read_reminders,
     names_reminders,
     parse_spoken_reminder_change,
 )
-from app.modules.todos.spoken_clauses import parse_spoken_adds, pending_add
-from app.modules.todos.spoken_when import parse_clock_only
+from app.modules.todos.spoken_clauses import answered_when, parse_spoken_adds
 from app.services.draft_fences import has_draft
 
 logger = logging.getLogger(__name__)
@@ -137,6 +137,15 @@ class _Turn:
     prior_assistant: str | None
     prior_user: str | None
     window: Sequence[object] | None = None
+    # The last reply's offer of a reminder that this message ("yes") accepts.
+    offer: str | None = None
+
+    @property
+    def said(self) -> str | None:
+        """What the user agreed to: their words, and the offer they said yes to."""
+        if self.offer is None:
+            return self.user_text
+        return f"{self.user_text or ''} {self.offer}".strip()
 
     def writes(self) -> ReminderWrites:
         return ReminderWrites(
@@ -179,6 +188,7 @@ async def _materialize(
         prior_assistant=prior_assistant,
         prior_user=prior_user,
         window=window,
+        offer=accepted_reminder_offer(user_text, prior_assistant),
     )
     spans = find_reminder_fences(assistant_text)
     # The user's explicit restraint outranks an LLM-emitted write fence. This
@@ -236,25 +246,27 @@ async def _match_user_words(turn: _Turn, spans: _Spans) -> tuple[str, int] | Non
         )
         if applied is not None:
             return applied
-    answered = await _match_clock_reply(turn)
+    answered = await _match_clock_reply(turn, widen=not spans)
     if answered is not None:
         return answered
     return await _match_spoken_add(turn, spans)
 
 
-async def _match_clock_reply(turn: _Turn) -> tuple[str, int] | None:
-    """A reply that is only a clock finishes the add the user just described."""
-    clock = parse_clock_only(turn.user_text)
-    if clock is None:
+async def _match_clock_reply(turn: _Turn, *, widen: bool) -> tuple[str, int] | None:
+    """A reply that is only a time finishes the add the user just described."""
+    stated = await answered_when(
+        turn.session,
+        turn.chat_id,
+        turn.user_text or "",
+        turn.prior_assistant,
+        user_timezone=turn.user_timezone,
+        widen=widen,
+    )
+    if stated is None:
         return None
-    pending = await pending_add(turn.session, turn.chat_id, turn.user_text or "")
-    if pending is None:
-        return None
-    stated = replace(pending, hour=clock[0], minute=clock[1])
-    due = due_for_add(stated, user_timezone=turn.user_timezone)
-    if due is None or due_is_past(due, user_timezone=turn.user_timezone):
+    if _upcoming_due(stated, turn.user_timezone) is None:
         return passed_time_reply(), 0
-    # The message is only the clock: there is nothing else for a reply to answer.
+    # The message is only the time: there is nothing else for a reply to answer.
     return await _save_spoken_adds(replace(turn, assistant_text=""), [], [stated])
 
 
@@ -373,7 +385,7 @@ async def _apply_fence(turn: _Turn, state: ReminderWrites, body: str) -> _FenceR
     if draft is None:
         logger.warning("Invalid reminder fence payload for user_id=%s", state.user_id)
         return await _apply_invalid_fence(turn, state)
-    if draft.action == "add" and chat_add_needs_a_stated_time(turn.user_text, draft.due_at):
+    if draft.action == "add" and chat_add_needs_a_stated_time(turn.said, draft.due_at):
         return await _apply_stated_clock(turn, state)
     # "In 3 minutes" is the server's arithmetic on the user's clock, not the model's.
     after = relative_due(turn.user_text, user_timezone=turn.user_timezone)

@@ -9,6 +9,7 @@ fail and throw away a card the user was already offered (ES-03).
 from __future__ import annotations
 
 import logging
+import re
 
 from redis.asyncio import Redis
 
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 _REMINDER_FENCE_LANG = "reminder"
 _ASK_WHEN = "When should I remind you?"
+_TAG_CLOSER = re.compile(r"^[ \t]*</reminder>[ \t]*$\n?", re.MULTILINE)
 
 
 def drop_cut_reminder_fence(text: str) -> str:
@@ -35,6 +37,10 @@ def drop_cut_reminder_fence(text: str) -> str:
     last = last_fence(text)
     if last is None or last.closed or last.lang != _REMINDER_FENCE_LANG:
         return text
+    # "```reminder … </reminder>" (2026-10-25) closed it as a tag: the reply goes on after it.
+    closer = _TAG_CLOSER.search(text, last.start)
+    if closer is not None:
+        return f"{text[: last.start]}{text[closer.end() :]}".strip()
     return text[: last.start].rstrip()
 
 
@@ -60,6 +66,8 @@ async def apply_reminder_pass(
     try:
         given = text
         text, created = await _materialize(deps, redis, settings, ctx, text)
+        # "I can't set reminders from here" is false: the card above, or the next one.
+        text = todos_service.without_denials(text)
         # A reply that was only a reminder fence, with nothing saved, must still
         # say something: an empty one kept the streamed fence on the phone.
         if given.strip() and not text.strip():

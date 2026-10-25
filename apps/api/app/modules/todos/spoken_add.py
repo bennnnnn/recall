@@ -58,6 +58,16 @@ _REMIND_ME_ANYWHERE_RE = re.compile(
     re.IGNORECASE,
 )
 _SENTENCE_END_RE = re.compile(r"[.!?]\s+|[.!?]$")
+# Where a request ends before the next sentence: a question or exclamation mark, or a
+# point before thanks.
+_ASK_END_RE = re.compile(
+    r"[?!](?:\s|$)|\.\s+(?=(?:thanks|thank you|thx|ty|cheers|please|pls)\b)", re.IGNORECASE
+)
+# Thanks after a comma, or a closing "please": "…at 9am, thank you". "Call Ty" and "say
+# thanks" are the task.
+_COURTESY_TAIL_RE = re.compile(
+    r",\s*(?:thanks|thank you|thx|ty|cheers|please|pls)\W*$|\s+(?:please|pls)\W*$", re.I
+)
 FILLER_RE = re.compile(rf"^(?:{FILLER_WORDS}[,!.]?\s+)+")
 # "Add a line …", "add a rest day", "add two more examples": a part of what
 # the assistant just wrote.
@@ -136,7 +146,8 @@ _REPEATS: tuple[tuple[str, RecurrenceRule], ...] = (
 )
 _TRAILING_FILLER = frozenset({"for", "on"})
 _TITLE_LEADS = frozenset({"to", "2", "about", "-", "\u2013", "\u2014", ":"})
-_TITLE_TAILS = frozenset({"for", "on", "at", "by", "to", "-", "\u2013", "\u2014", ":"})
+# "again" is when, not the task: "remind me about the python practice again".
+_TITLE_TAILS = frozenset({"for", "on", "at", "by", "to", "again", "-", "\u2013", "\u2014", ":"})
 _NEED_TO_RE = re.compile(
     r"^(?:i\s+)?(?:need|have|got|gotta|must|should)\s+(?:to\s+)?", re.IGNORECASE
 )
@@ -203,7 +214,9 @@ def parse_spoken_add(user_text: str | None) -> SpokenAdd | None:
     body = ""
     for lead in _ADD_LEADS:
         if lowered.startswith(lead):
-            body = text[len(lead) :].strip()
+            # The request is its own sentence: "remind me to call mom at 5pm? thanks" is
+            # "call mom", not "call mom ? thanks". "Email Dr. Smith" keeps its point.
+            body = _COURTESY_TAIL_RE.sub("", _request_sentence(text[len(lead) :])).strip()
             break
     if not body:
         body = _remind_me_body(text)
@@ -235,6 +248,18 @@ def parse_spoken_add(user_text: str | None) -> SpokenAdd | None:
         minute=when.minute,
         after_minutes=when.after_minutes,
     )
+
+
+def _request_sentence(body: str) -> str:
+    """The request up to the question or exclamation mark that ends it, unless what follows
+    still says when: "remind me to stretch? Every day at 3pm" keeps its time."""
+    parts = _ASK_END_RE.split(body, maxsplit=1)
+    if len(parts) == 1:
+        return body
+    first, rest = parts
+    if find_when(rest).spans or find_repeat(rest) is not None:
+        return f"{first} {rest}"
+    return first
 
 
 def _remind_me_body(text: str) -> str:
@@ -287,6 +312,12 @@ def relative_due(
     if add is None or add.after_minutes is None:
         return None
     return due_for_add(add, user_timezone=user_timezone, now=now)
+
+
+def is_reminder_request(text: str | None) -> bool:
+    """The message opens by asking for a reminder: "remind me to …", "set a reminder …"."""
+    cleaned = FILLER_RE.sub("", _fix_typos((text or "").strip()).lower())
+    return _REMINDER_REQUEST_RE.match(cleaned) is not None
 
 
 def day_for_a_bare_clock(

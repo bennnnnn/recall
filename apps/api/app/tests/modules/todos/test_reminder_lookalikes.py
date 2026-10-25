@@ -13,6 +13,7 @@ import pytest
 
 from app.modules import todos as todos_service
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.read_asks import asks_to_read_reminders
 from app.modules.todos.reply_check import (
     claims_a_reminder_change,
     edits_prior_reply,
@@ -20,7 +21,6 @@ from app.modules.todos.reply_check import (
     reply_when_nothing_saved,
 )
 from app.modules.todos.spoken_add import parse_spoken_add
-from app.modules.todos.spoken_change import asks_to_read_reminders
 from app.tests.fakes import fake_session
 
 REACT_TODO_REPLY = (
@@ -206,6 +206,24 @@ def test_questions_are_not_spoken_adds(user_text):
         ("what is scheduled at 3pm", True),
         ("what is scheduled in the morning", True),
         ("what reminders do I have", True),
+        # Live 2026-10-25: the model answered both from the chat.
+        ("ok last thing, what's on my to do list right now?", True),
+        ("hmm are you sure? check my to-do list again", True),
+        ("what's on my to-do list?", True),
+        ("whats on my todo list", True),
+        ("show me my to-dos", True),
+        ("wait what's on my to-do list", True),
+        ("list my to do list please", True),
+        ("what's on my schedule tomorrow", True),
+        ("what's on my list and what's 2 + 2?", False),
+        ("what are my reminders and can you add milk", False),
+        ("check my to-do list and mark gym done", False),
+        ("add milk to my to-do list", False),
+        ("things to do in lisbon?", False),
+        ("what should I add to my to-do list before moving house?", False),
+        ("what's on my list for the party? i need ideas", False),
+        ("what is the best to-do list app?", False),
+        ("Make a to-do plan for my day today", False),
     ],
 )
 def test_asks_to_read_reminders(user_text, reads):

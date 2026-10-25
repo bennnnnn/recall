@@ -346,8 +346,11 @@ def strip_cards(text: str) -> str:
 def reminder_cards_as_text(content: str) -> str:
     """A past reply's cards as the app's result lines, for the model's history.
 
-    The model never sees card JSON it could copy. A card not yet tapped says so:
-    "Card offered, not yet tapped — Set: gym — Thursday, 6:00 PM."
+    The model never sees card JSON it could copy. A card not yet tapped says so, and
+    that nothing is saved: "Card offered, not tapped, so nothing is saved — Set: gym —
+    Thursday, 6:00 PM." Read as "Card offered, not yet tapped — Added: …", the change
+    looked made: asked what was on the list, a reply named the untapped item
+    (2026-10-25).
     """
     if f"```{FENCE_LANG}" not in content:
         return content
@@ -367,7 +370,7 @@ def reminder_cards_as_text(content: str) -> str:
         text = "\n".join(lines)
         if card.get("status") == "saved":
             return text
-        return f"Card offered, not yet tapped — {text}"
+        return f"Card offered, not tapped, so nothing is saved — {text}"
 
     return map_fence_blocks(content, lambda _fence, body: replace(body), lang=FENCE_LANG)
 

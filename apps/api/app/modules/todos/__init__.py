@@ -67,6 +67,9 @@ if TYPE_CHECKING:
     from app.modules.todos.occurrences import (
         TodoEmailSnapshot as TodoEmailSnapshot,
     )
+    from app.modules.todos.offer_reply import (
+        accepted_offer_in as accepted_offer_in,
+    )
     from app.modules.todos.prompt_context import (
         build_todos_system_section as build_todos_system_section,
     )
@@ -85,6 +88,9 @@ if TYPE_CHECKING:
     from app.modules.todos.reminder_fences import (
         materialize_reminder_fences as materialize_reminder_fences,
     )
+    from app.modules.todos.reply_denials import (
+        without_denials as without_denials,
+    )
     from app.modules.todos.write_asks import (
         todo_screen_reply as todo_screen_reply,
     )
@@ -98,7 +104,9 @@ _EXPORTS = {
     "format_todos_voice_block": ("prompt_context", "format_todos_voice_block"),
     "materialize_reminder_fences": ("reminder_fences", "materialize_reminder_fences"),
     "reminder_cards_as_text": ("proposals", "reminder_cards_as_text"),
+    "without_denials": ("reply_denials", "without_denials"),
     "query_implies_todos": ("classification", "query_implies_todos"),
+    "accepted_offer_in": ("offer_reply", "accepted_offer_in"),
     "TODO_LINK_FENCE": ("chat_language", "TODO_LINK_FENCE"),
     "language_evidence": ("chat_language", "language_evidence"),
     "message_language": ("chat_language", "message_language"),

@@ -105,6 +105,8 @@ class _ContextReads:
     client_timezone: str | None
     memory_scope: MemoryScope
     history_rag: bool
+    # The turn is a yes to an offered reminder (``turn_prep.mode``).
+    accepted_offer: bool = False
 
     @cached_property
     def db_slots(self) -> asyncio.Semaphore:
@@ -160,6 +162,7 @@ class _ContextReads:
                 self.settings,
                 client_timezone=self.client_timezone,
                 query_text=self.query_text,
+                accepted_offer=self.accepted_offer,
             )
 
     async def attachment_rag_block(self) -> str:
@@ -266,6 +269,7 @@ async def _load_context_blocks(
     memory_scope: MemoryScope = "query",
     history_rag: bool = False,
     recent_messages: list[Any] | None = None,
+    accepted_offer: bool = False,
 ) -> _PromptContextBlocks:
     """Load memory/todos/RAG + recent messages for the system prompt.
 
@@ -282,6 +286,7 @@ async def _load_context_blocks(
         client_timezone=client_timezone,
         memory_scope=memory_scope,
         history_rag=history_rag,
+        accepted_offer=accepted_offer,
     )
     if slim_context and not load_memory:
         return await _slim_blocks(reads, chat)

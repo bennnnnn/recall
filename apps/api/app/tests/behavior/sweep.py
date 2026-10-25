@@ -533,7 +533,9 @@ _PENDING_CARD_CLAIM = re.compile(
     r"|i['\u2019]ve (?:added|scheduled|saved|created)\b"
     r"|(?:reminder|it|that)(?:['\u2019]s| is| has been) (?:all )?set\b|reminder set\b"
     r"|i['\u2019]ll remind you|i will remind you|you['\u2019]ll (?:get|receive) a (?:reminder|notification)"
-    r"|added (?:it |that )?to your (?:reminders|to-?dos?|list))"
+    r"|added (?:it |that )?to your (?:reminders|to-?dos?|list)"
+    r"|got it (?:all )?set\b|you['\u2019]re all set for\b"
+    r"|(?:i['\u2019]m |^\W*)(?:setting|adding|saving|scheduling) (?:that|the|your|a|it)\b)"
     r"|^\W*(?:done|all set)\b",
     re.IGNORECASE | re.MULTILINE,
 )
