@@ -85,20 +85,20 @@ async function crashTheChat() {
   await act(async () => router.setParams({ draft: "a private draft" }));
 }
 
+// Each case starts with nothing failing and nothing reported.
+const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+beforeEach(() => {
+  jest.clearAllMocks();
+  failing = false;
+  chatFailing = false;
+});
+afterAll(() => {
+  consoleError.mockRestore();
+  consoleWarn.mockRestore();
+});
+
 describe("a screen that throws while it renders", () => {
-  const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
-  const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    failing = false;
-    chatFailing = false;
-  });
-  afterAll(() => {
-    error.mockRestore();
-    warn.mockRestore();
-  });
-
   it("shows the screen's error view while the chat under it stays", async () => {
     await openProfileThatThrows(ScreenErrorBoundary);
 
@@ -171,21 +171,12 @@ describe("a screen that throws while it renders", () => {
 });
 
 describe("a crash only the root's boundary catches (the chat, the sign-in flow)", () => {
-  const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
-  const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    chatFailing = false;
+  const resetLook = () => {
     resetAppearanceRuntime();
     setAccentSnapshot("indigo");
-  });
-  afterAll(() => {
-    error.mockRestore();
-    warn.mockRestore();
-    resetAppearanceRuntime();
-    setAccentSnapshot("indigo");
-  });
+  };
+  beforeEach(resetLook);
+  afterAll(resetLook);
 
   it("shows the translated view, never the router's English one or the error's text", async () => {
     await crashTheChat();
@@ -231,5 +222,81 @@ describe("a crash only the root's boundary catches (the chat, the sign-in flow)"
     expect(StyleSheet.flatten(screen.getByTestId("screen-error").props.style).backgroundColor).toBe(theme.bg);
     const title = screen.getByText("common.screen_error_title");
     expect(StyleSheet.flatten(title.props.style).color).toBe(theme.text);
+  });
+});
+
+describe("the way back from a screen's error view", () => {
+  function SettingsHome() {
+    if (failing) throw new Error("settings render failed");
+    return <Text>settings home</Text>;
+  }
+
+  /** app/settings/_layout.tsx: its home draws no header; its pages take the stack's. */
+  const SECTION = {
+    "settings/_layout": {
+      default: () => (
+        <Stack>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+        </Stack>
+      ),
+      ErrorBoundary: ScreenErrorBoundary,
+    },
+    "settings/index": SettingsHome,
+    "settings/profile": ProfilePage,
+  };
+
+  const back = () => screen.queryByRole("button", { name: "common.back" });
+
+  async function crashOn(path: string, app: object = { _layout: ROOT_LAYOUT, index: ChatScreen, ...SECTION }) {
+    await renderRouter(app as Parameters<typeof renderRouter>[0], { initialUrl: "/" });
+    await act(async () => router.push(path));
+    failing = true;
+    await act(async () => router.setParams({ x: "1" }));
+    expect(screen.getByText("common.screen_error_title")).toBeTruthy();
+  }
+
+  it.each(["/settings", "/settings/profile"])(
+    "with no header (%s: the section's stack went with it), has a Back to the chat",
+    async (path) => {
+      await crashOn(path);
+
+      await fireEvent.press(back()!);
+
+      expect(screen.getByText("chat screen")).toBeTruthy();
+      expect(screen.queryByText("common.screen_error_title", { includeHiddenElements: true })).toBeNull();
+    },
+  );
+
+  it("under its own header (To-do), adds none: the header has one", async () => {
+    await crashOn("/todos", {
+      _layout: ROOT_LAYOUT,
+      index: ChatScreen,
+      todos: { default: ProfilePage, ErrorBoundary: ScreenErrorBoundary },
+    });
+
+    expect(back()).toBeNull();
+  });
+
+  it("at the root, has none: no screen is left under it", async () => {
+    // A Settings page without the section's boundary: the chat was under it.
+    await crashOn("/settings/profile", {
+      _layout: ROOT_LAYOUT,
+      index: ChatScreen,
+      "settings/_layout": () => <Stack />,
+      "settings/profile": ProfilePage,
+    });
+
+    expect(screen.queryByText("chat screen", { includeHiddenElements: true })).toBeNull();
+    expect(back()).toBeNull();
+    expect(screen.getByRole("button", { name: "common.try_again" })).toBeTruthy();
+  });
+
+  it("opened with nothing under it (a link at launch), has none", async () => {
+    await renderRouter({ _layout: ROOT_LAYOUT, index: ChatScreen, ...SECTION }, { initialUrl: "/settings" });
+    failing = true;
+    await act(async () => router.setParams({ x: "1" }));
+
+    expect(screen.getByText("common.screen_error_title")).toBeTruthy();
+    expect(back()).toBeNull();
   });
 });
