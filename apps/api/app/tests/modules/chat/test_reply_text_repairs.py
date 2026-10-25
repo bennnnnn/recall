@@ -276,3 +276,37 @@ def test_a_span_the_reply_says_to_type_stays_code(request_text: str) -> None:
 def test_homework_that_says_write_still_gets_maths(request_text: str) -> None:
     reply = "So `$0.75 = \\frac{3}{4}$` in lowest terms."
     assert unwrap_code_maths(reply, request_text) == "So $0.75 = \\frac{3}{4}$ in lowest terms."
+
+
+@pytest.mark.parametrize(
+    ("request_text", "reply"),
+    [
+        (
+            "what if sales tax is 7%",
+            "Now put the numbers into the formula: `$M = 11,980 \\times 0.020143$`",
+        ),
+        ("area of a circle r=7", "Using the formula, `$A = \\pi r^2$`, we get 153.9."),
+        (
+            "how do I write 0.75 as a fraction?",
+            "You can write 0.75 as `$\\frac{75}{100} = \\frac{3}{4}$`.",
+        ),
+        ("explain the notion of a limit", "So `$\\lim_{x\\to 0} \\frac{\\sin x}{x} = 1$`."),
+    ],
+)
+def test_worked_maths_that_says_use_or_write_is_maths(request_text: str, reply: str) -> None:
+    """Third review: "use", "write" and "put" are how worked maths talks."""
+    assert "`" not in unwrap_code_maths(reply, request_text)
+
+
+@pytest.mark.parametrize(
+    ("request_text", "reply"),
+    [
+        ("what's the syntax for a square root?", "A square root looks like this: `$\\sqrt{x}$`"),
+        ("how do I type x squared?", "x squared is `$x^2$`"),
+        ("how do I write integrals in the app?", "Like this: `$\\int_0^1 x^2 \\, dx$`"),
+        ("what's the command for a fraction?", "The command is `$\\frac{a}{b}$`"),
+        ("how can I show maths?", "Copy this: `$a \\neq b$`"),
+    ],
+)
+def test_the_source_asked_for_stays_code(request_text: str, reply: str) -> None:
+    assert unwrap_code_maths(reply, request_text) == reply

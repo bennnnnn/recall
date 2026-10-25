@@ -69,28 +69,28 @@ def unfence_formulas(text: str) -> str:
 # (2026-10-25): "`$14,000 + (14,000 \times 0.07) = 14,980$`", "`$M = 11,980 \times
 # 0.020143$`". A code span outside fenced code that is one ``$…$`` (or ``$$…$$``) span and
 # nothing else, and that works something out (a sign or a LaTeX command), is that maths.
-# "`$6$`" and "`$2b$`" are password-hash prefixes, "`$PATH$`" a name: they stay code. A span
-# the reply tells the user to type ("Type `$x^2$` for x squared", "use `$\frac{a}{b}$`") is
-# the source they asked for, and stays code. The reply says so beside the span; a request's
-# words could not ("how do I write 0.75 as a fraction?" wants the maths, "how to type a
-# fraction" the source). A message naming where maths is typed (LaTeX, Markdown, a Jupyter
-# cell), here or in the line before, keeps every span.
+# "`$6$`" and "`$2b$`" are password-hash prefixes, "`$PATH$`" a name: they stay code. When
+# the message asks for what to type (its syntax, the command or code for it, "how do I
+# type …", how to write it in LaTeX, Markdown, a Jupyter cell or the app), here or in the
+# line before, every span stays code: the source is the answer. So does a span the reply
+# tells the user to type, paste, copy or send. "Use", "write", "put" and "enter" are how
+# worked maths talks ("Now put the numbers into the formula: `$M = …$`"), and say nothing.
 _DOLLAR_MATHS = re.compile(r"(\${1,2})(?!\s)[^$`\n]+(?<!\s)\1")
 _WORKS_SOMETHING = re.compile(r"[=+*/^<>\u2212\u00d7\u00f7]|\\[A-Za-z]|\w\s*-\s*\w")
-_TYPE_IT = re.compile(
-    r"\b(?:type|typing|write|writing|enter|use|using|put|wrap|input|paste|insert|code|syntax"
-    r"|source)\b[^\n]{0,48}$",
-    re.IGNORECASE,
-)
-_NAMES_A_TOOL = re.compile(
-    r"\b(?:latex|katex|mathjax|overleaf|tex|markdown|jupyter|obsidian|notion|readme|typeset)\b",
+_TYPE_IT = re.compile(r"\b(?:type|typing|paste|copy|send)\b[^\n]{0,48}$", re.IGNORECASE)
+_PLACES = r"latex|katex|mathjax|overleaf|tex|markdown|jupyter|obsidian|notion|readme"
+_ASKS_FOR_SOURCE = re.compile(
+    rf"\b(?:{_PLACES})\b(?<!\bnotion(?= of\b))|\b(?:syntax|command|code|source)\b"
+    r"|\b(?:how (?:do|can|would|should|to) (?:i |you |we )?|what do (?:i|you) )type\b"
+    rf"|\bhow (?:do|can|to) (?:i |you )?(?:write|enter|put|insert|format)\b[^?\n]*"
+    rf"\b(?:in|into|on|with) (?:{_PLACES}|the app|here|this chat|a message|chat)\b",
     re.IGNORECASE,
 )
 
 
 def unwrap_code_maths(text: str, request: str | None) -> str:
     """Each inline code span that is only a maths span, as that maths."""
-    if "`$" not in text or (request and _NAMES_A_TOOL.search(request)):
+    if "`$" not in text or (request and _ASKS_FOR_SOURCE.search(request)):
         return text
     lines = text.split("\n")
     for index, (line, fence) in enumerate(zip(lines, line_fences(text), strict=True)):
