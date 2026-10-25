@@ -4,7 +4,8 @@
   "area": "search",
   "prompt": "Perfect. totally unrelated but did the bears win today",
   "reply": "The Bears didn't play today; they beat the Patriots on Thursday.",
-  "expect": "search"
+  "expect": "search",
+  "gap": "a question after \"but\" reads as a statement; the model gets the turn, and \"can't you look it up?\" then searches"
  },
  {
   "id": "lva-002",
@@ -356,5 +357,98 @@
   "prompt": "Got up late today but did a great workout",
   "reply": "Nice!",
   "expect": "answer"
+ },
+ {
+  "id": "lva-045",
+  "area": "statement",
+  "prompt": "Tired today but did the work anyway",
+  "reply": "Proud of you.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-046",
+  "area": "statement",
+  "prompt": "Rough day today but did some work on the garden",
+  "reply": "Gardening helps.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-047",
+  "area": "statement",
+  "prompt": "Slow day today but did a pass over the essay",
+  "reply": "Good progress.",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-048",
+  "area": "statement",
+  "prompt": "Saw the doctor today but what she said was confusing",
+  "reply": "Want to talk it through?",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-049",
+  "area": "statement",
+  "prompt": "Watched the game last night but what happened at the end was crazy",
+  "reply": "Sounds wild!",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-050",
+  "area": "statement",
+  "prompt": "Got the test back today but where I lost points is a mystery",
+  "reply": "Want to go over it?",
+  "expect": "answer"
+ },
+ {
+  "id": "lva-051",
+  "area": "search",
+  "prompt": "Can't you look it up?",
+  "history": [
+   [
+    "user",
+    "did the bears win today"
+   ],
+   [
+    "assistant",
+    "I don't have real-time sports results."
+   ]
+  ],
+  "reply": "The Bears won 24-17.",
+  "expect": "search"
+ },
+ {
+  "id": "lva-052",
+  "area": "search",
+  "prompt": "Can’t you look it up? You looked up the weather",
+  "history": [
+   [
+    "user",
+    "Perfect. totally unrelated but did the bears win today"
+   ],
+   [
+    "assistant",
+    "I don't have real-time sports results."
+   ]
+  ],
+  "reply": "The Bears won 24-17.",
+  "expect": "search"
+ },
+ {
+  "id": "lva-053",
+  "area": "search",
+  "prompt": "cant u just google it",
+  "history": [
+   [
+    "user",
+    "who is the mayor of chicago"
+   ],
+   [
+    "assistant",
+    "I'm not sure who holds it right now."
+   ]
+  ],
+  "reply": "It's Brandon Johnson.",
+  "expect": "search"
  }
 ]

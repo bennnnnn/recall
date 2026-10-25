@@ -48,31 +48,3 @@ def test_asks_nothing_to_look_up_statements_and_requests_to_make(text):
 )
 def test_asks_nothing_to_look_up_keeps_lookups(text):
     assert asks_nothing_to_look_up(text) is False
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        # Live (2026-10-25): the question after "but" was read as a statement.
-        "Perfect. totally unrelated but did the bears win today",
-        "good but is the store open today?",
-        "ok but what's the weather like",
-    ],
-)
-def test_a_question_after_but_asks(text: str) -> None:
-    assert not asks_nothing_to_look_up(text)
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "Went to the gym today but was too tired to finish",
-        "Tried the new recipe today but did not have enough flour",
-        "Stayed home today but did the taxes",
-        "Skipped the gym today but did a long walk instead",
-        "The kids were sick today but are they getting better",
-        "Spent the morning cleaning today but has the house ever looked better",
-    ],
-)
-def test_a_statement_with_but_tells(text: str) -> None:
-    assert asks_nothing_to_look_up(text)

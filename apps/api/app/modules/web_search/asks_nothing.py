@@ -95,25 +95,8 @@ _NAMED = re.compile(
 )
 
 
-# A question opening after "but": a wh-word; "did/does/do" with a subject and a verb that
-# asks how something went ("but did the bears win today"); or any auxiliary and its subject
-# in a clause that ends in "?". "But did the taxes", "but was too tired" and "but are they
-# getting better" tell.
-_BUT_ASKS = (
-    r"(?:who|what|when|where|why|how|which)\b"
-    r"|(?:did|does|do)\s+(?:the\s+)?[a-z][\w'-]*(?:\s+[a-z][\w'-]*){0,2}\s+"
-    r"(?:win|lose|play|go|happen|end|start|finish|pass|work|say|come|open|close)\b"
-    r"|(?:did|does|do|is|are|was|were|will|can|could|should|has|have)\s+"
-    r"(?:the|a|an|my|your|his|her|their|our|its?|he|she|they|we|you|i)\b[^.!?]{0,120}\?"
-)
-
-
 def _clauses(text: str) -> list[str]:
-    # "Totally unrelated but did the bears win today": the question after "but" asks. Only
-    # a question's opening splits: "went to the gym today but was too tired" tells.
-    parts = re.split(
-        r"(?<=[.!?;])\s+|,\s+|\s+but\s+(?=" + _BUT_ASKS + ")", text, flags=re.IGNORECASE
-    )
+    parts = re.split(r"(?<=[.!?;])\s+|,\s+", text)
     return [p.strip() for p in parts if p.strip()]
 
 
