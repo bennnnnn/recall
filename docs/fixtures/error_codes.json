@@ -123,6 +123,13 @@
    "message": "Memory editing is paused right now — try again later."
   }
  },
+ "memory_busy": {
+  "status": 409,
+  "detail": {
+   "code": "memory_busy",
+   "message": "Memory is being updated right now — try again in a moment."
+  }
+ },
  "image_daily_limit": {
   "status": 429,
   "detail": {

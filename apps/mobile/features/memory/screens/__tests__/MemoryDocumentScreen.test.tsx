@@ -302,13 +302,17 @@ describe("MemoryDocumentScreen", () => {
     expect(mockFeedback.error).toHaveBeenCalledWith("memory.mute_failed");
   });
 
-  it("says memory is busy, not broken, when a mute meets another write (CLAR-08)", async () => {
-    mockSetFactMuted.mockResolvedValue({ ok: false, failure: "busy" });
+  it.each([
+    ["busy", "memory.busy"],
+    // Redis down at the write lock said "Memory is being updated".
+    ["unavailable", "common.service_unavailable"],
+  ])("says memory is busy, not broken, only when a mute meets another write: %s (CLAR-08)", async (failure, line) => {
+    mockSetFactMuted.mockResolvedValue({ ok: false, failure });
     const ui = await render(<MemoryDocumentScreen />);
     await fireEvent.press(ui.getByTestId("memory-fact-f1"), { nativeEvent: { pageX: 1, pageY: 1 } });
     await fireEvent.press(ui.getByTestId("menu-mute"));
     await flush();
-    expect(mockFeedback.error).toHaveBeenCalledWith("memory.busy");
+    expect(mockFeedback.error).toHaveBeenCalledWith(line);
   });
 
   it("shows the chat a fact was learned in", async () => {

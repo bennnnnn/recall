@@ -132,15 +132,18 @@ def _transcribe(
         )
 
 
-def _memory_paused() -> Any:
-    """POST /memories/instruct while the day's spend cap is reached."""
+def _memory_instruct(*, spend_capped: bool = False) -> Any:
+    """POST /memories/instruct while the day's spend cap is reached, or (below it) while
+    another write holds the user's memory."""
     with (
         patch("app.modules.memory.api.get_redis_client", return_value=MagicMock()),
         patch(
             "app.modules.memory.api.quota_service.global_spend_exceeded",
-            AsyncMock(return_value=True),
+            AsyncMock(return_value=spend_capped),
         ),
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+        patch("app.core.rate_limit.allow_request", AsyncMock(return_value=True)),
+        patch("app.modules.memory.locks.take_memory_write_lock", AsyncMock(return_value=None)),
     ):
         return _client(_user()).post(
             "/memories/instruct", headers=_AUTH, json={"instruction": "Remember I like tea"}
@@ -351,7 +354,8 @@ def _bodies() -> dict[str, dict[str, Any]]:
         # Every voice request at the day's spend cap: dictation, live talk's session and saves.
         "voice_spend_cap": _refusal(_transcribe(spend_capped=True)),
         "live_talk_not_configured": _refusal(_live_talk_unconfigured()),
-        "memory_spend_cap": _refusal(_memory_paused()),
+        "memory_spend_cap": _refusal(_memory_instruct(spend_capped=True)),
+        "memory_busy": _refusal(_memory_instruct()),
         "image_daily_limit": _refusal(_generate("daily_limit")),
         "image_content_blocked": _refusal(_generate("content_blocked")),
         "image_spend_cap": _refusal(_generate("spend_cap")),

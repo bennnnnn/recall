@@ -128,9 +128,10 @@ it.each([
 });
 
 it.each([
-  // Redis down at the spend read said "Memory couldn't be updated. Try again." (the cap's
-  // "paused" refusal).
+  // Redis down at the write lock or the spend read: it said "Memory is being updated" or
+  // "Memory couldn't be updated. Try again." (the cap's "paused" refusal).
   ["service_unavailable", "unavailable", "common.service_unavailable"],
+  ["memory_busy", "busy", "memory.busy"],
   ["memory_spend_cap", "paused", "memory.paused"],
 ])("words a refused memory edit: %s", (name, failure, words) => {
   expect(memoryFailure(refused(name))).toBe(failure);

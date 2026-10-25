@@ -135,6 +135,8 @@ describe("useMemoryDocuments deletes", () => {
 
   it.each([
     [409, { code: "memory_busy", message: "Memory is being updated right now — try again in a moment." }, "busy"],
+    // Redis down at the write lock: it answered the busy 409 above.
+    [503, { code: "unavailable", message: "Service temporarily unavailable. Please retry shortly." }, "unavailable"],
     [409, { code: "memory_off", message: "Memory is off." }, "off"],
     [404, "Memory not found", "gone"],
     [429, { code: "rate_limited", message: "Too many memory edits — try again later." }, "limited"],

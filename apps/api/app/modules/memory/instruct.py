@@ -80,8 +80,9 @@ async def apply_memory_instruction(
     instruction: str,
     focus_topic: str | None = None,
 ) -> MemoryInstructionOutcome:
-    """Edit memory as the user asked. Raises MemoryWriteLockBusyError while memory is busy."""
-    lock_token = await locks.acquire_memory_write_lock(user_id)
+    """Edit memory as the user asked. Raises MemoryWriteLockBusyError while memory is busy,
+    and ``RedisUnavailableError`` while Redis cannot say (503 unavailable, not busy)."""
+    lock_token = await locks.take_memory_write_lock(user_id)
     if not lock_token:
         raise locks.MemoryWriteLockBusyError(user_id)
     try:
