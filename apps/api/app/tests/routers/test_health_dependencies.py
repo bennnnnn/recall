@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.core.unavailable import UNAVAILABLE_DETAIL
+from app.core.unavailable import unavailable_detail
 from app.routers import health
 from app.routers.health import DependencyCheck
 
@@ -113,7 +113,7 @@ async def test_dependencies_answer_503_when_either_is_down_and_liveness_stays_20
         assert "retry-after" not in checked.headers
     else:
         # The shared 503 body, nothing about which dependency or why.
-        assert checked.json() == {"detail": UNAVAILABLE_DETAIL}
+        assert checked.json() == {"detail": unavailable_detail()}
         assert checked.headers["retry-after"] == "5"
         assert "internal" not in checked.text and "5432" not in checked.text
     # Liveness is untouched; Fly's readiness still needs only Postgres.
@@ -213,7 +213,7 @@ async def test_a_caller_that_hangs_up_leaves_the_probe_to_the_others() -> None:
 @pytest.mark.parametrize("limiter", ["over the limit", "its Redis down"])
 async def test_the_rest_rate_limit_never_answers_for_it(deps: _Deps, limiter: str) -> None:
     deps.redis_up = False
-    # The limiter would answer 429 to any other path: over the limit, or failing closed.
+    # The limiter would answer any other path: 429 over the limit, 503 with its Redis down.
     allow = (
         AsyncMock(return_value=False)
         if limiter == "over the limit"
@@ -222,6 +222,7 @@ async def test_the_rest_rate_limit_never_answers_for_it(deps: _Deps, limiter: st
     with patch("app.core.rest_rate_limit.allow_request", allow):
         async with _client() as client:
             response = await client.get("/health/dependencies")
-            assert (await client.get("/memories")).status_code == 429
+            limited = 429 if limiter == "over the limit" else 503
+            assert (await client.get("/memories")).status_code == limited
     assert response.status_code == 503
     assert allow.await_count == 1  # /memories only

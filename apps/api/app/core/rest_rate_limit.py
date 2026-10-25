@@ -13,6 +13,7 @@ from app.core.client_ip import client_ip
 from app.core.config import Settings, get_settings
 from app.core.rate_limit import allow_request
 from app.core.redis import get_redis_client
+from app.core.unavailable import unavailable_response
 
 logger = logging.getLogger(__name__)
 
@@ -60,15 +61,13 @@ class RestRateLimitMiddleware(BaseHTTPMiddleware):
         except Exception:
             # Fail closed: a Redis outage must not let the rate limiter
             # silently disappear — that would expose every protected
-            # endpoint to unbounded traffic during the outage. Returning
-            # 429 (with a Retry-After) is the safe default; clients retry
-            # with backoff and the limit re-engages the moment Redis is back.
+            # endpoint to unbounded traffic during the outage. It answers what
+            # every route answers then: 503 unavailable, Retry-After 5. It was a 429
+            # "Rate limit unavailable": every read of the outage looked like the
+            # user's own limit, dev login said "too many attempts", and the phone,
+            # which checks its connection after a 502/503/504, never did.
             logger.warning("REST rate limit check failed; failing closed", exc_info=True)
-            return JSONResponse(
-                status_code=429,
-                content={"detail": "Rate limit unavailable. Please retry shortly."},
-                headers={"Retry-After": "5"},
-            )
+            return unavailable_response()
 
         if not allowed:
             return JSONResponse(

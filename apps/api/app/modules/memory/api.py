@@ -8,7 +8,7 @@ from app.core.consent import get_consented_user
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.etag import conditional_json
-from app.core.rate_limit import allow_request_fail_closed
+from app.core.rate_limit import allow_request_unless_down
 from app.core.redis import get_redis_client
 from app.exceptions import DomainError
 from app.models.orm import Memory, User
@@ -111,11 +111,13 @@ async def instruct_memory(
     redis = get_redis_client()
     # Coded refusals, so the phone says which (code-health audit CLAR-08).
     if await quota_service.global_spend_exceeded(redis, settings):
+        # Its own code: by status alone it was "unavailable", the code of an outage.
         raise DomainError(
             "Memory editing is paused right now — try again later.",
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            code="memory_spend_cap",
         )
-    if not await allow_request_fail_closed(
+    if not await allow_request_unless_down(
         redis, f"memory_instruct:{user.id}", limit=_INSTRUCT_PER_HOUR, window_seconds=3600
     ):
         raise DomainError(

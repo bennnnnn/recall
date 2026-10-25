@@ -252,7 +252,7 @@ def _socket_client(user_id: UUID, redis: Any) -> tuple[TestClient, ExitStack]:
     stack.enter_context(patch("app.modules.chat.ws_api.get_settings", return_value=settings))
     stack.enter_context(patch("app.modules.chat.ws_api.get_redis_client", return_value=redis))
     stack.enter_context(
-        patch("app.modules.chat.ws_api.allow_request_fail_closed", AsyncMock(return_value=True))
+        patch("app.modules.chat.ws_api.allow_request_unless_down", AsyncMock(return_value=True))
     )
     stack.enter_context(
         patch("app.core.chat_rate_limit.allow_chat_message", AsyncMock(return_value=True))

@@ -42,7 +42,7 @@ def _guards(*, allowed: bool = True) -> Any:
             "app.services.scan_read.quota_service.record_global_spend",
             AsyncMock(return_value=0),
         ),
-        patch("app.services.scan_read.allow_request_fail_closed", AsyncMock(return_value=allowed)),
+        patch("app.services.scan_read.allow_request_unless_down", AsyncMock(return_value=allowed)),
     )
 
 

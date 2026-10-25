@@ -77,6 +77,11 @@ async def test_get_current_user_maps_redis_outage_to_503():
     assert exc.value.status_code == 503
     assert exc.value.headers is not None
     assert exc.value.headers.get("Retry-After") == "5"
+    # The app's one unavailable body (core/unavailable.py): the code the phone words.
+    assert exc.value.detail == {
+        "code": "unavailable",
+        "message": "Service temporarily unavailable. Please retry shortly.",
+    }
 
 
 @pytest.mark.asyncio
