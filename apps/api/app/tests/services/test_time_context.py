@@ -24,7 +24,6 @@ from app.services.time_context import (
     is_time_question,
     is_year_question,
     maybe_local_now_reply,
-    model_denies_clock,
     normalize_due_at,
 )
 
@@ -214,9 +213,6 @@ def test_format_now_awareness_includes_year_month_and_time():
     assert "```clock" not in shown
     assert "October" in shown
     assert is_shown_clock_question("What time is above") is True
-    assert model_denies_clock(
-        "I don't have access to the current clock, so I can't tell you the exact time right now."
-    )
     assert maybe_local_now_reply("what year did WWII end", "UTC") is None
     assert maybe_local_now_reply("what year", "UTC") is None
     assert maybe_local_now_reply("what day", "UTC") is None

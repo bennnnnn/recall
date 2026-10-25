@@ -300,25 +300,6 @@ _SHOWN_CLOCK_MARKS = (
 )
 _SHOWN_CLOCK_MAX_LEN = 80
 
-# Short model replies that deny the clock we already have. Linear substrings.
-_MODEL_CLOCK_DENIALS = (
-    "don't have access to the current clock",
-    "do not have access to the current clock",
-    "don't have access to real-time",
-    "do not have access to real-time",
-    "don't have access to a clock",
-    "don't have access to the clock",
-    "no access to real-time",
-    "no access to a clock",
-    "no access to the clock",
-    "can't tell you the exact time",
-    "cannot tell you the exact time",
-    "can't tell the current time",
-    "cannot tell the current time",
-    "check a device nearby",
-)
-_MODEL_CLOCK_DENIAL_MAX_LEN = 400
-
 
 def is_time_denial(text: str) -> bool:
     """True when the user says we do not know the current time."""
@@ -339,15 +320,6 @@ def is_shown_clock_question(text: str) -> bool:
     ):
         return False
     return any(mark in cleaned for mark in _SHOWN_CLOCK_MARKS)
-
-
-def model_denies_clock(text: str) -> bool:
-    """True when a short reply claims we cannot read the current time."""
-    cleaned = collapse_ws(text)
-    if not cleaned or len(cleaned) > _MODEL_CLOCK_DENIAL_MAX_LEN:
-        return False
-    lowered = cleaned.lower()
-    return any(mark in lowered for mark in _MODEL_CLOCK_DENIALS)
 
 
 # Whole message only, after collapse_ws. No `.+` (CodeQL py/polynomial-redos).
