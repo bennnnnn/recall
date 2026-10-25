@@ -913,6 +913,13 @@ const RECOVERY_CASES: RecoveryCase[] = [
     read: /^GET \/memories\/documents(?: \(304\))?$/,
   },
   { title: "the library", show: (app) => showOnly(app, "gallery"), read: /^GET \/attachments\b/ },
+  // Settings' two lists (useFocusedList): the archived chats come with the drawer's list.
+  { title: "the archived chats", show: (app) => showOnly(app, "archived"), read: /^GET \/chats(?: \(304\))?$/ },
+  {
+    title: "the signed-in devices",
+    show: (app) => showOnly(app, "security"),
+    read: /^GET \/auth\/sessions(?: \(304\))?$/,
+  },
   { title: "settings, no list", show: (app) => showOnly(app, "settings"), read: null },
   {
     title: "a new chat, no list",
