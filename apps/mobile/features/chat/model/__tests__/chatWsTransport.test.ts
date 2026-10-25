@@ -11,6 +11,10 @@ import {
   ChatWsTransport,
   type ChatWsFallbackSignal,
 } from "@/features/chat/model/wsTransport";
+import { onConnectionFailure } from "@/lib/api/connectionFailures";
+
+let mockSession = 0;
+jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 
 class FakeSocket {
   readyState = 0;
@@ -538,5 +542,100 @@ describe("ChatWsTransport", () => {
     expect(socket.send).toHaveBeenLastCalledWith(JSON.stringify({ type: "cancel" }));
     expect(onPayload).not.toHaveBeenCalled();
     expect(onFallback).not.toHaveBeenCalled();
+  });
+});
+
+describe("ChatWsTransport outages and the connection check", () => {
+  const closeWith = (socket: FakeSocket, code: number) =>
+    (socket.onclose as (event: { code: number }) => void)({ code });
+  let reported = 0;
+  let stop: () => void = () => {};
+  beforeEach(() => {
+    jest.useFakeTimers();
+    reported = 0;
+    stop = onConnectionFailure(() => { reported += 1; });
+  });
+  afterEach(() => {
+    stop();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  it("asks for one check when the server's Redis is down: its unavailable frame, then 1013", async () => {
+    const { socket, transport, onPayload } = await openTransport(true);
+    transport.sendMessage(MESSAGE);
+    const frame = { type: "error", code: "unavailable", message: "Down", user_message_saved: false };
+    socket.emit(frame);
+    closeWith(socket, 1013);
+    expect(onPayload).toHaveBeenCalledWith(frame);
+    expect(reported).toBe(1);
+  });
+
+  it("asks for one check for an unavailable frame mid-turn", async () => {
+    const { socket, transport } = await openTransport(true);
+    transport.sendMessage(MESSAGE);
+    socket.emit({ type: "start" });
+    socket.emit({ type: "error", code: "unavailable", message: "Down" });
+    expect(reported).toBe(1);
+  });
+
+  it("asks for one check for a socket refused before it opened", async () => {
+    const { socket, transport } = setupTransport();
+    const connecting = transport.connect();
+    socket.onerror();
+    socket.onclose();
+    await connecting;
+    expect(reported).toBe(1);
+  });
+
+  it.each([1006, 1013, 1014])("asks for one check for an open socket closed with %s", async (code) => {
+    const { socket } = await openTransport(true);
+    closeWith(socket, code);
+    expect(reported).toBe(1);
+  });
+
+  it("asks for one check for an open socket that errors", async () => {
+    const { socket } = await openTransport(true);
+    socket.onerror();
+    expect(reported).toBe(1);
+  });
+
+  it.each([1000, 1001, 1008, 1011, 1012, 4408, 4429])("asks for none for a close with %s", async (code) => {
+    const { socket, transport } = await openTransport(true);
+    transport.sendMessage(MESSAGE);
+    closeWith(socket, code);
+    expect(reported).toBe(0);
+  });
+
+  it("asks for none for its own closes: a stalled handshake, a quiet turn, Stop and leaving", async () => {
+    const stalled = setupTransport();
+    const connecting = stalled.transport.connect();
+    jest.advanceTimersByTime(WS_CONNECT_TIMEOUT_MS);
+    await connecting;
+    stalled.socket.onerror();
+
+    const quiet = await openTransport(true);
+    quiet.transport.sendMessage(MESSAGE);
+    jest.advanceTimersByTime(WS_FIRST_EVENT_TIMEOUT_MS);
+    quiet.socket.onerror();
+
+    const stopped = await openTransport(true);
+    stopped.transport.sendMessage(MESSAGE);
+    stopped.transport.cancel();
+    stopped.transport.close();
+    closeWith(stopped.socket, 1006);
+
+    const refused = await openTransport(true);
+    refused.socket.emit({ type: "error", message: "Unauthorized" });
+    closeWith(refused.socket, 1008);
+    expect(reported).toBe(0);
+  });
+
+  it("asks for none for an account signed out since the socket opened", async () => {
+    const { socket } = await openTransport(true);
+    mockSession += 1;
+    socket.emit({ type: "error", code: "unavailable", message: "Down" });
+    closeWith(socket, 1013);
+    expect(reported).toBe(0);
   });
 });

@@ -346,6 +346,7 @@ type FakeSocket = {
   sent: string[];
   closed: boolean;
   onmessage: ((event: { data: string }) => void) | null;
+  drop: (code: number) => void;
 };
 
 let replies = 0;
@@ -358,6 +359,14 @@ function serverFrame(socket: FakeSocket, frame: object): void {
 
 /** The server's side of a socket: a pong for a ping, and a streamed reply for a message. */
 function answerFrame(socket: FakeSocket, raw: string): void {
+  if (redisDown()) {
+    // Redis down (`ws_api._close_while_down`): any frame is answered `unavailable`, then 1013.
+    setTimeout(() => {
+      serverFrame(socket, { type: "error", code: "unavailable", message: "Down", user_message_saved: false });
+      socket.drop(1013);
+    }, 5);
+    return;
+  }
   const frame = JSON.parse(raw) as { type?: string };
   if (frame.type === "ping") {
     setTimeout(() => serverFrame(socket, { type: "pong" }), 5);
@@ -393,13 +402,22 @@ type Outage = "down" | { status: number; retryAfter: string; live?: boolean; cod
 /** The connection check's request (lib/api/connectivity.ts). */
 const CHECK = "/health/dependencies";
 let outage: Outage | null = null;
+/** Redis down: the API answers, with its own `unavailable` (core/unavailable.py), sockets too. */
+const redisDown = () => outage !== null && outage !== "down" && outage.code === "unavailable";
+/** When the server closed or refused each socket. */
+const socketDrops: number[] = [];
 /** Sockets open now: a restart closes them all. */
-const openSockets = new Set<{ restart: () => void }>();
+const openSockets = new Set<{ drop: (code: number) => void }>();
+
+/** Every open socket closes with `code`. */
+function dropSockets(code: number): void {
+  for (const socket of [...openSockets]) socket.drop(code);
+  openSockets.clear();
+}
 
 /** A deploy: every open socket closes with uvicorn's 1012. */
 function restartServer(): void {
-  for (const socket of [...openSockets]) socket.restart();
-  openSockets.clear();
+  dropSockets(1012);
 }
 
 function installServer(): void {
@@ -446,14 +464,15 @@ function installServer(): void {
     sent: string[] = [];
     closed = false;
     constructor(url: string) {
-      const refused = outage !== null;
+      const refused = outage !== null && !redisDown();
       mockLog.push({ method: "WS", path: url.replace(/^wss?:\/\/[^/]+/, ""), status: refused ? 0 : 101, at: Date.now() });
-      const handle = { restart: () => this.drop(1012) };
+      const handle = { drop: (code: number) => this.drop(code) };
       setTimeout(() => {
         if (this.closed) return;
         if (refused) {
           this.onerror?.();
-          this.drop(1006);
+          if (this.closed) socketDrops.push(Date.now());
+          else this.drop(1006);
           return;
         }
         this.readyState = 1;
@@ -464,6 +483,7 @@ function installServer(): void {
     drop(code: number) {
       if (this.closed) return;
       this.close();
+      socketDrops.push(Date.now());
       this.onclose?.({ code });
     }
     send(data: string) {
@@ -852,10 +872,13 @@ const OUTAGE_CEILINGS: Record<string, number> = {
   "open chat 1": 5,
   // The sockets close (1012) and nothing reconnects until the user moves.
   "a deploy with the chat open, down 30 s, then a minute": 0,
-  // One socket try; the next waits out its backoff.
-  "typing while the API is down": 1,
-  // The deploy closed the socket: the send opens one.
-  "send in chat 1": 1,
+  // One socket try; the next waits out its backoff. Refused, it asks for a connection check
+  // (the API, then Google), which shows the banner; its loop checks again 1.5 s later, and may
+  // a third time within the 5 s (3 s on, a fifth early). Before, a socket asked for none.
+  "typing while the API is down": 7,
+  // The deploy closed the socket: the send opens one. Before it, the loop's check finds the API
+  // back and the page on screen is read again (a 304): the banner the socket's refusal showed.
+  "send in chat 1": 3,
   // The reply's socket closes mid-stream. The phone reads the chat's newest rows until the
   // reply is saved, waiting as long as each 503's Retry-After (5 s) asks: at 1.5 to 2.5 s, then 5
   // to 6.25 s apart, so five or six (at 2 s apart it was fourteen). The first 503 asks for a
@@ -1223,6 +1246,73 @@ it("checks the connection once for a burst of reads that find no API, then reads
     expect(listReads(steps[steps.length - 1].requests)).toEqual([
       expect.stringMatching(new RegExp(`^GET /chats/${chatId(6)}/messages\\?limit=40\\b`)),
     ]);
+  }
+  if (process.env.CENSUS) console.log(steps.map((s) => `${s.title}\n  ${s.requests.join("\n  ")}`).join("\n"));
+});
+
+const REDIS_DOWN: Outage = { status: 503, retryAfter: "5", live: true, code: "unavailable" };
+
+/**
+ * An outage only the chat's socket meets: no read fails to tell the connection check. A socket
+ * reported none, so no banner showed and nothing was read again when the outage ended.
+ */
+const SOCKET_OUTAGES: { title: string; outage: Outage; before?: () => void; meet: (app: App) => Promise<void> }[] = [
+  // The open socket answers a send `unavailable`, then closes 1013 (ws_api._close_while_down).
+  { title: "Redis down, a send on the open socket", outage: REDIS_DOWN, meet: (app) => send(app, "Hello there") },
+  // A deploy closed the socket (1012, no check); typing opens one, which the outage meets.
+  {
+    title: "Redis down, a new socket", outage: REDIS_DOWN, before: restartServer,
+    meet: (app) => rtl.fireEvent.changeText(app.ui.getByTestId("chat-composer-input"), "Hel"),
+  },
+  {
+    title: "a new socket refused", outage: "down", before: restartServer,
+    meet: (app) => rtl.fireEvent.changeText(app.ui.getByTestId("chat-composer-input"), "Hel"),
+  },
+  // The open socket drops (no close frame) with the API gone.
+  { title: "the open socket dropped", outage: "down", meet: () => rtl.act(async () => { dropSockets(1006); }) },
+];
+
+it("checks the connection once for a socket that meets an outage, and shows the banner", async () => {
+  steps.length = 0;
+  socketDrops.length = 0;
+  mockSecure.clear();
+  mockFiles.clear();
+  mockSecure.set("recall_session_v1", JSON.stringify({ accessToken: accessToken(NOW_S + 3600), refreshToken: "r" }));
+  mockFiles.set("file:///cache/cached-user.json", JSON.stringify({
+    id: USER_ID, name: "Ann", avatar_url: null, plan: "free", ai_data_consent_at: NOW, locale: "en",
+  }));
+  mockParams = {};
+  const app = await launch();
+  await settle(10_000);
+
+  for (const [i, { title, outage: kind, before, meet }] of SOCKET_OUTAGES.entries()) {
+    // A chat not opened before: its socket opens with no failure behind it.
+    await openChat(app, 10 + i, 20_000);
+    if (before) await rtl.act(async () => { before(); });
+    await settle(1000);
+    mark = mockLog.length;
+    const since = statusChanges.length;
+    outage = kind;
+    const metAt = Date.now();
+    await meet(app);
+    await settle(10_000);
+    step(`${title}: the socket meets the outage`);
+    const out = steps[steps.length - 1];
+    const banner = statusChanges.slice(since).find((c) => c.status !== "online");
+    expect({ title, banner: banner?.status }).toEqual({ title, banner: "api_unreachable" });
+    // Before the banner: the new socket, if one opened, then one check (the API, then Google).
+    const shown = out.sent.filter((r) => r.at <= (banner?.at ?? -1));
+    expect(shown.map((r) => (r.method === "WS" ? "WS" : r.path)))
+      .toEqual([...(before ? ["WS"] : []), CHECK, "google/generate_204"]);
+    // The loop's first wait (1.5 s, a fifth either way) after the server closed the socket.
+    const dropped = socketDrops.filter((at) => at >= metAt);
+    expect(dropped).toHaveLength(1);
+    expect(shown[shown.length - 2].at - dropped[0]).toBeGreaterThanOrEqual(1_200);
+    expect(shown[shown.length - 2].at - dropped[0]).toBeLessThanOrEqual(1_850);
+
+    outage = null;
+    await untilBannerClears();
+    await settle(15_000);
   }
   if (process.env.CENSUS) console.log(steps.map((s) => `${s.title}\n  ${s.requests.join("\n  ")}`).join("\n"));
 });

@@ -35,7 +35,7 @@ type Options = {
   onPayload: (boundChatId: string | null, payload: ChatSsePayload, ttftTurnId?: string | null) => void;
   onFallback: (transport: ChatWsTransport, signal: ChatWsFallbackSignal) => void;
   onSendFailure: (error: unknown, ttftTurnId: string | null) => void;
-  onRegenerateFailure: () => void;
+  onRegenerateFailure: (error: unknown) => void;
 };
 
 /**
@@ -262,11 +262,11 @@ export function useChatTransport({
             }
           },
         });
-      } catch {
+      } catch (err) {
         if (!isCurrentViewRef.current() || signal.aborted || sseAbortRef.current?.signal !== signal) return;
         sseAbortRef.current = null;
         sseAbortChatIdRef.current = null;
-        onRegenerateFailureRef.current();
+        onRegenerateFailureRef.current(err);
       }
     },
     [getToken, chatId, beginSseStream, isCurrentViewRef, onPayloadRef, onRegenerateFailureRef],
