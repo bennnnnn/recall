@@ -364,6 +364,7 @@
   "login.error_generic": "Bir şeyler ters gitti. Tekrar deneyin.",
   "login.error_native_module": "Google Sign-In yerel modülü eksik. Yeniden derleyin:\n\ncd apps/mobile && pnpm expo run:ios",
   "login.error_not_configured": "Google OAuth yapılandırılmadı. apps/mobile/.env dosyasına EXPO_PUBLIC_GOOGLE_* ekleyin, yeniden derleyin veya Dev girişi kullanın.",
+  "login.error_rate_limited": "Şu anda çok fazla giriş denemesi var. Bir dakika bekleyip tekrar deneyin.",
   "login.google": "Google ile devam et",
   "login.google_unavailable_body": "Google ile giriş Expo Go'da çalışmaz. Recall'ı Mac'inizde bir kez derleyin ve o uygulamayı açın:\n\ncd apps/mobile\npnpm expo run:ios",
   "login.google_unavailable_title": "Recall uygulamasını kullanın",

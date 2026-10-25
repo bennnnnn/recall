@@ -1,5 +1,6 @@
-import { loginWithApple, loginWithGoogle } from "@/features/auth/api";
+import { loginWithApple, loginWithDev, loginWithGoogle } from "@/features/auth/api";
 import { AccountExistsError, accountExistsProvider } from "@/features/auth/model/accountExists";
+import { SignInLimitedError } from "@/features/auth/model/signInLimited";
 import { ApiRequestError, fetchWithTimeout } from "@/lib/api/client";
 
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.test" }));
@@ -52,6 +53,18 @@ describe("login errors", () => {
     const error = await login().catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(AccountExistsError);
     expect((error as AccountExistsError).signInWith).toBe("apple");
+  });
+
+  it.each([
+    ["Google", () => loginWithGoogle("id-token")],
+    ["Apple", () => loginWithApple("id-token", null, "nonce")],
+    ["dev", () => loginWithDev()],
+  ])("%s sign-in turns a 429 into SignInLimitedError, not the server's English", async (_name, login) => {
+    const limited = JSON.stringify({ detail: "Too many login attempts. Try again shortly." });
+    jest.mocked(fetchWithTimeout).mockResolvedValueOnce(reply(429, limited));
+    const error = await login().catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(SignInLimitedError);
+    expect((error as Error).message).not.toContain("Too many");
   });
 
   it("keeps other failures as the server's words", async () => {

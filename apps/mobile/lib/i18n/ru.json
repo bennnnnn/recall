@@ -374,6 +374,7 @@
   "login.error_generic": "Что-то пошло не так. Попробуйте снова.",
   "login.error_native_module": "Нет нативного модуля Google Sign-In. Пересоберите:\n\ncd apps/mobile && pnpm expo run:ios",
   "login.error_not_configured": "Google OAuth не настроен. Добавьте EXPO_PUBLIC_GOOGLE_* в apps/mobile/.env, пересоберите или используйте Dev-вход.",
+  "login.error_rate_limited": "Сейчас слишком много попыток входа. Подождите минуту и попробуйте снова.",
   "login.google": "Продолжить с Google",
   "login.google_unavailable_body": "Вход через Google не работает в Expo Go. Соберите Recall один раз на Mac и откройте это приложение:\n\ncd apps/mobile\npnpm expo run:ios",
   "login.google_unavailable_title": "Используйте приложение Recall",
