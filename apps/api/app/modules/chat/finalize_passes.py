@@ -59,6 +59,7 @@ from app.modules.chat.finalize_text import (
     normalize_prose,
     present_markdown,
     record_instant_usage,
+    restore_case,
     sanitize_fences,
     settle_clarify,
     strip_recipient_placeholders,
@@ -184,6 +185,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("recipient_placeholders", strip_recipient_placeholders, FALL_BACK),
     FinalizePass("prose", normalize_prose, FALL_BACK),
     FinalizePass("mermaid_and_places", sanitize_fences, FALL_BACK),
+    FinalizePass("proper_case", restore_case, FALL_BACK),
     FinalizePass("presentation", present_markdown, FALL_BACK),
     FinalizePass("clock", fix_clock, FALL_BACK),
 )
@@ -212,6 +214,7 @@ STOPPED_REPLY_PASSES = frozenset(
         "recipient_placeholders",
         "prose",
         "mermaid_and_places",
+        "proper_case",
         "request_sections",
         "presentation",
     }
