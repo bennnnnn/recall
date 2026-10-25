@@ -73,8 +73,8 @@ from app.modules.chat.prompt_constants import (
     writing_format_hint,
 )
 from app.modules.chat.prompt_constants.lesson_flow import lesson_after_gap
+from app.modules.chat.prompt_constants.message_notes import message_notes
 from app.modules.chat.prompt_constants.multi_part import multi_part_contract
-from app.modules.chat.prompt_constants.shared_numbers import shared_numbers_hint
 from app.modules.chat.prompt_format import (
     PromptRule,
     _layout_format_hint,
@@ -365,7 +365,7 @@ CONTEXT_SECTIONS: tuple[PromptSection, ...] = (
         ),
         lambda _t: [PERSONAL_DISCLOSURE_HINT],
     ),
-    PromptSection(_always, lambda t: _present(shared_numbers_hint(t.query))),
+    PromptSection(_always, lambda t: message_notes(t.query, exchange_pairs(t.exchange))),
 )
 
 
