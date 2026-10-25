@@ -16,6 +16,7 @@ from app.gateways.mcp import registry
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_paths import run_llm_token_stream, run_tool_loop_path
+from app.modules.chat.tool_loop import live_denial
 from app.modules.chat.tool_loop.reply_calls import ReplyTurn, reply_tools
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.web_search import WebSearchAdapter
@@ -340,3 +341,163 @@ async def test_reply_answers_without_a_search_that_breaks(
     # The unanswered call never reaches the provider, which would reject the list.
     assert seen[1]["messages"] == prompt
     assert ctx.search_sources == []
+
+
+_BEARS = "Perfect. totally unrelated but did the bears win today"
+_DENIAL = "I can't check live scores, so I don't know how the Bears did today."
+_ANSWER = "The Bears beat the Falcons 27-20."
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        _DENIAL,
+        "Sorry, I don't have real-time sports results, so I can't confirm it.",
+        "Good question! I don't have access to live data. Check the NFL app.",
+        "I'm unable to access real-time information right now.",
+        "I can't browse the web, sorry.",
+        # Review: the usual openings.
+        "I'm sorry, but I can't access real-time data.",
+        "Sorry \u2014 I can't check live scores.",
+        "**I can't check live scores**, but ESPN has them.",
+        "Hmm, I can't check live scores right now.",
+        "As an AI, I don't have real-time data.",
+        "I'm not able to check live scores.",
+    ],
+)
+def test_a_live_data_denial_is_read(reply: str) -> None:
+    assert live_denial.denies_live_data(reply)
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Sounds like a long day. Rest up tonight!",
+        "I can't check your calendar, but you could add it to To-do.",
+        "The Bears beat the Patriots 30-24 on Thursday.",
+        # Talk about a denial, not one (review, 2026-10-25).
+        'Some assistants say "I can\'t access real-time data", but Recall can search.',
+        "A good line is: 'I don't have real-time information on that.'",
+        "When I can't check live scores I say so.",
+        # A long answer that mentions live data in passing is an answer.
+        "Here is a long answer. " * 40 + "I can't check live scores.",
+    ],
+)
+def test_other_replies_are_no_denial(reply: str) -> None:
+    assert not live_denial.denies_live_data(reply)
+
+
+def _retry_context(content: str = _BEARS, tool: dict[str, Any] | None = None) -> StreamContext:
+    ctx = _context(content)
+    ctx.denial_retry_tools = [tool] if tool else []
+    return ctx
+
+
+@pytest.mark.asyncio
+async def test_a_denial_is_asked_again_with_search_offered(
+    web_search_tool: dict[str, Any],
+) -> None:
+    """Live (2026-10-25): no tool was offered, and the reply said it couldn't check."""
+    ctx = _retry_context(tool=web_search_tool)
+    llm, seen = _model(([_DENIAL], []), ([], [_SEARCH_CALL]), ([_ANSWER], []))
+    accum = StreamAccum()
+    with patch(
+        "app.modules.web_search.tool.run_cached_search", AsyncMock(return_value=([_HIT], ["q"]))
+    ):
+        await _reply(ctx, llm, accum=accum)
+
+    assert accum.reply_text() == _ANSWER
+    assert accum.retracted == _DENIAL
+    assert [call["tools"] for call in seen] == [None, [web_search_tool], None]
+    assert [hit.url for hit in ctx.search_sources] == [_HIT.url]
+
+
+@pytest.mark.asyncio
+async def test_the_model_may_answer_the_retry_without_searching(
+    web_search_tool: dict[str, Any],
+) -> None:
+    ctx = _retry_context("what's my heart rate right now", web_search_tool)
+    llm, seen = _model(
+        (["I can't access real-time data from your watch."], []),
+        (["Your watch's health app shows it."], []),
+    )
+    accum = StreamAccum()
+    await _reply(ctx, llm, accum=accum)
+    assert accum.reply_text() == "Your watch's health app shows it."
+    assert len(seen) == 2
+
+
+@pytest.mark.asyncio
+async def test_no_retry_without_the_offer_or_for_a_clock_denial(
+    web_search_tool: dict[str, Any],
+) -> None:
+    llm, seen = _model(([_DENIAL], []), (["never asked"], []))
+    assert await _reply(_retry_context(), llm) == _DENIAL
+    assert len(seen) == 1
+    clock = "I don't have access to real-time data, so I can't tell you the current time."
+    llm, seen = _model(([clock], []), (["never asked"], []))
+    assert await _reply(_retry_context("what time is it", web_search_tool), llm) == clock
+    assert len(seen) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_stop_during_the_retry_keeps_the_denial_the_phone_drew(
+    web_search_tool: dict[str, Any],
+) -> None:
+    ctx = _retry_context(tool=web_search_tool)
+    llm, seen = _model(([_DENIAL], []), (["never drawn"], []))
+    calls = {"n": 0}
+
+    def should_cancel() -> bool:
+        calls["n"] += 1
+        return len(seen) > 1
+
+    accum = StreamAccum()
+    await _reply(ctx, llm, accum=accum, should_cancel=should_cancel)
+    assert accum.was_cancelled
+    assert accum.reply_text() == _DENIAL
+
+
+@pytest.mark.asyncio
+async def test_a_failure_during_the_retry_keeps_the_denial(
+    web_search_tool: dict[str, Any],
+) -> None:
+    from app.gateways.litellm_gateway import ModelUnavailableError
+
+    ctx = _retry_context(tool=web_search_tool)
+    first = {"done": False}
+
+    async def stream_chat_completion(**kwargs: Any) -> AsyncIterator[str]:
+        if first["done"]:
+            raise ModelUnavailableError("down", failed_alias="free-chat")
+        first["done"] = True
+        yield _DENIAL
+
+    accum = StreamAccum()
+    with pytest.raises(ModelUnavailableError):
+        await _reply(
+            ctx, SimpleNamespace(stream_chat_completion=stream_chat_completion), accum=accum
+        )
+    # The pipeline finalizes a reply with parts: the denial the phone drew.
+    assert accum.reply_text() == _DENIAL
+
+
+def test_a_stop_after_a_retraction_cuts_the_answer_where_the_phone_did() -> None:
+    accum = StreamAccum(parts=[_DENIAL], shown=[_DENIAL])
+    accum.retract(0, 0)
+    accum.parts.append("\n\nThe Bears beat")
+    accum.shown.append("\n\nThe Bears beat")
+    accum.mark_user_stop()
+    drawn = len(_DENIAL) + len("\n\nThe Bears")
+    assert accum.reply_text(drawn) == "The Bears"
+
+
+@pytest.mark.asyncio
+async def test_a_held_mark_of_the_denial_never_reaches_the_answer(
+    web_search_tool: dict[str, Any],
+) -> None:
+    ctx = _retry_context(tool=web_search_tool)
+    llm, _seen = _model((["Sorry, I can't check live scores!"], []), (["The Bears won."], []))
+    accum = StreamAccum()
+    await _reply(ctx, llm, accum=accum)
+    assert accum.reply_text() == "The Bears won."

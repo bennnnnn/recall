@@ -29,7 +29,7 @@ from app.modules.chat.stream_health import ReplyHealth, probe_gate
 from app.modules.chat.stream_scaffold import ScaffoldFilter
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn, thinking_status
 from app.modules.chat.tool_gate import should_classify_tool_web_search
-from app.modules.chat.tool_loop import reply_calls
+from app.modules.chat.tool_loop import live_denial, reply_calls
 from app.modules.chat.tool_loop.parts import open_parts, searchable_parts, turn_plan
 from app.modules.chat.tool_loop.rounds import ToolRoundsOutcome
 from app.modules.chat.turn_deps import ChatTurnDeps
@@ -213,6 +213,8 @@ async def run_tool_loop_path(
         if not gate.needs_loop(settings, ctx.user, web_search=web_search_flag):
             prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
             ctx.reply_tools = gate.reply_tools(settings, prompt)
+            if not (ctx.reply_tools or gate.has_search_sources or gate.has_instant_reply):
+                ctx.denial_retry_tools = reply_calls.web_search_tool(settings)
             return
     rounds = await tool_loop.run_tool_rounds(
         settings=settings,
@@ -297,9 +299,10 @@ async def run_llm_token_stream(
         # here includes gateway routing/retries, not only upstream inference.
         ctx.timing.mark_phase("gateway_request_start")
     reply_round = _ReplyRound(tools=list(ctx.reply_tools))
+    retry_tools = list(ctx.denial_retry_tools)
     try:
         while True:
-            written = len(accum.parts)
+            written, shown_from = len(accum.parts), len(accum.shown)
             async with aclosing(
                 _stream_round(
                     deps,
@@ -317,6 +320,13 @@ async def run_llm_token_stream(
                     yield visible
             if resolved := reply_round.meta.get("model_alias"):
                 ctx.model = resolved
+            # "I can't check live scores" with no tool offered: ask again, offering search.
+            if retry_tools and live_denial.asks_again(ctx, reply_round.calls, accum, written):
+                accum.retract(written, shown_from)
+                # A held "!" or "[" was the denial's, never drawn: the new round starts clean.
+                scaffold = ScaffoldFilter()
+                reply_round, retry_tools = _ReplyRound(tools=retry_tools, lead="\n\n"), []
+                continue
             # Only a call that carried tools leads to another: one search a turn.
             if not (reply_round.tools and reply_round.calls) or accum.was_cancelled:
                 break
@@ -348,6 +358,7 @@ async def run_llm_token_stream(
         accum.mark_user_stop()
         raise
     finally:
+        accum.restore_retracted()
         model = reply_round.meta.get("model_alias") or ctx.model
         await health.record(redis, model, stopped=accum.was_cancelled)
     if outcome is not None and ctx.model != requested_model:
