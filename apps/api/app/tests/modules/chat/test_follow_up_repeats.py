@@ -3,7 +3,8 @@
 One study chat showed "Why use Kelvin not Celsius?" under four replies after the user
 had asked it, offered "What if it was $-2x + 5 = 0$?" beside "How does it change for
 $-2x + 5 = 0$?", and answered "who was Charles from Charles's law?" with "What if the
-temperature doubles?".
+temperature doubles?". A chat the next day showed "What if perimeter was 48 cm?" after
+"What if the perimeter was 48 cm?".
 """
 
 from __future__ import annotations
@@ -42,6 +43,31 @@ _REPLY = "Charles's law ties volume to absolute temperature, so it needs kelvin.
         ("Why use Kelvin for Charles's Law?", [_ASKED]),
         ("How does it change for $-2x + 5 = 0$?", ["What if it was $-2x+5=0$?"]),
         ("Why do mole ratios matter?", ["How do mole ratios work?"]),
+        # Without its articles and pronouns, the same question; a number is its topic too.
+        ("What if perimeter was 48 cm?", ["What if the perimeter was 48 cm?"]),
+        ("What if the perimeter were 48 cm?", ["What if perimeter was 48 cm?"]),
+        ("How would a 48 cm perimeter change the area?", ["What if the perimeter was 48 cm?"]),
+        ("Why do you divide by 6?", ["Why do we divide by 6?"]),
+        ("What is the mole?", ["What is mole?"]),
+        ("What if the speed was 2.5 m/s?", ["What if speed was 2.5 m/s?"]),
+        ("What if the mass was 4 kg?", ["What if mass is 4 kg?"]),
+        # The same number and unit written another way (second review, 2026-10-25).
+        ("Why is the speed 19.6 m/s after 2 s?", ["why is the speed 19.6 m/s after 2 seconds?"]),
+        (
+            "How long does the stone take to fall 45 m?",
+            ["how long does the stone take to fall 45 meters?"],
+        ),
+        ("Why is g 9.8 m/s² near the surface?", ["Why is g 9.8 m/s^2 near the surface?"]),
+        (
+            "What's the voltage across the 4 \u03a9 resistor?",
+            ["What's the voltage across the 4 ohm resistor?"],
+        ),
+        ("What if the price rose to $1,200?", ["What if the price rose to $1200?"]),
+        ("What if it falls from 2,000 m?", ["What if it falls from 2000 m?"]),
+        (
+            "How much heat melts 2 kg of ice at 0 °C?",
+            ["How much heat melts 2 kg of ice at 0 degrees?"],
+        ),
     ],
 )
 def test_a_reworded_question_repeats_the_earlier_one(candidate: str, earlier: list[str]) -> None:
@@ -65,6 +91,30 @@ def test_a_reworded_question_repeats_the_earlier_one(candidate: str, earlier: li
         # A what-if on one quantity of a problem statement is the point of a follow-up.
         ("What if the angle is 45 degrees?", [_BLOCK]),
         ("How does the normal force change with angle?", [_BLOCK]),
+        # Another number, sign or quantity is another question; numbers alone are no topic.
+        ("What if the perimeter was 60 cm?", ["What if the perimeter was 48 cm?"]),
+        ("What if the area was 48 cm²?", ["What if the perimeter was 48 cm?"]),
+        ("What if the speed was -5 m/s?", ["What if the speed was 5 m/s?"]),
+        ("What if $2x - 5 = 0$?", ["What if $2x + 5 = 0$?"]),
+        ("What if it was dropped from 10 m?", ["What if it was dropped from 20 m?"]),
+        ("What if the width was 6 cm?", ["What if the length was 6 cm?"]),
+        ("What is the acceleration at 45 degrees?", ["What if the angle is 45 degrees?"]),
+        ("How can 4 + 3 also make 7?", ["Why does 3 + 4 equal 7?"]),
+        # A pronoun may stand for anything: "it" is not the feather.
+        ("Why does the feather fall slower?", ["Why does it fall?"]),
+        # Numbers in order, with their sign, root, fraction and unit (review, 2026-10-25).
+        ("What if the slope was 3/2?", ["What if the slope was 2/3?"]),
+        ("What if the ratio was 3:2?", ["What if the ratio was 2:3?"]),
+        ("What if the slope was 1/2?", ["What if the slope was 2?"]),
+        ("What if the speed was \u22125 m/s?", ["What if the speed was 5 m/s?"]),
+        ("What if x were \u221a2?", ["What if x were 2?"]),
+        ("What if the speed was 5 km/h?", ["What if the speed was 5 m/s?"]),
+        ("What if the temperature was 300 K?", ["What if the temperature was 300 °C?"]),
+        ("What if the mass was 2 kg?", ["What if the mass was 2 g?"]),
+        ("What if the loan was $10,000?", ["What if the loan was $10,000 over 5 years?"]),
+        # "a" may be the variable, not an article.
+        ("What if a = 2?", ["What if it = 2?"]),
+        ("What if a doubled?", ["What if it doubled?"]),
     ],
 )
 def test_a_new_question_is_not_a_repeat(candidate: str, earlier: list[str]) -> None:
@@ -199,3 +249,19 @@ async def test_the_account_purge_drops_what_a_chat_was_shown(fake_redis) -> None
     user_id = uuid4()
     await fake_redis.set(f"related_prompts:shown:{user_id}:{uuid4()}", json.dumps(["q?"]))
     assert await purge_user_redis_keys(fake_redis, user_id) == 1
+
+
+@pytest.mark.parametrize(
+    ("text", "numbers"),
+    [
+        ("slope 3/2, ratio 3:2", ["3/2", "3:2"]),
+        # A spaced slash divides two numbers: the problem's 45 and 9.8 stay its own.
+        ("about 153.9 / 100 tiles", ["153.9", "100"]),
+        ("t = √(2 × 45 / 9.8)", ["2", "45", "9.8"]),
+        ("−5 m/s² and $1,200", ["-5 m/s^2", "1200 $"]),
+    ],
+)
+def test_numbers_are_read_one_way(text: str, numbers: list[str]) -> None:
+    from app.modules.chat.follow_up_units import quantities
+
+    assert [str(quantity) for quantity in quantities(text)] == numbers
