@@ -154,6 +154,19 @@ describe("streamChatMessageSse routes through lib/api requestSse", () => {
     expect(unauthorizedMock).not.toHaveBeenCalled();
   });
 
+  it("keeps a refusal's status and code, as the socket's error frame names it", async () => {
+    const body = { detail: { code: "unavailable", message: "Service temporarily unavailable." } };
+    requestSseMock.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      text: () => Promise.resolve(JSON.stringify(body)),
+    } as Response);
+
+    await expect(
+      streamChatMessageSse({ token: "tok", chatId: "chat-1", content: "hi", onEvent: () => {} }),
+    ).rejects.toMatchObject({ status: 503, code: "unavailable", detail: "Service temporarily unavailable." });
+  });
+
   it("throws when the response has no body", async () => {
     requestSseMock.mockResolvedValueOnce({
       ok: true,

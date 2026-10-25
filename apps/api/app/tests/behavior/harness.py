@@ -52,7 +52,7 @@ from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.tool_loop.selection import _search_before_the_model
 from app.modules.chat.turn_deps import default_deps
-from app.modules.chat.turn_intercepts import reply_picture_prompt
+from app.modules.chat.turn_intercepts import _chemistry_draws_it, reply_picture_prompt
 from app.modules.chat.turn_prep.context import (
     build_stream_prompt_context,
     stream_context_from_bundle,
@@ -348,10 +348,14 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         lesson_active=pc.active_lesson_step(rows) is not None,
     )
 
+    # "can u show me both" after a shape answer: the intercept lets chemistry draw the
+    # molecules before a photo lookup or image generation is asked.
+    drawn = await _chemistry_draws_it(settings, text, rows)
     found = extract_image_lookup_query(text) if settings.image_search_enabled else None
-    photo = dated_lookup_query(found, datetime.now(UTC).year) if found else ""
+    photo = dated_lookup_query(found, datetime.now(UTC).year) if found and not drawn else ""
     image_gen = bool(
         not photo
+        and not drawn
         and settings.image_generation_enabled
         and can_use(user, "image_generation", settings)
         # Read with the thread, as the turn's intercept reads it ("Image" after "Dog").

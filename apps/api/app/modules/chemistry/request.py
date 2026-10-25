@@ -267,7 +267,6 @@ _NAME_OF_FORMULA = re.compile(
     r"\bname\s+(?:of|for)\s+(?:the\s+)?(?:compound\s+)?([A-Z(][A-Za-z0-9()]*)"
 )
 
-
 # "the formula for iron(III) oxide": a salt the ion table names.
 _FORMULA_FOR = re.compile(
     r"\bformula\s+(?:of|for)\s+(?:the\s+)?([A-Za-z]+(?:\s*\(\s*[IVXivx]+\s*\))?\s+[A-Za-z]+)",
@@ -546,12 +545,12 @@ def is_chemistry_question(content: str) -> bool:
         return True
     if extract_compound_name(cleaned) is not None:
         return True
-    # "How many moles are in 36 g of water?" names no cue word, but reads as one law, and
-    # "how much water do I get if I burn 4 g of h2" asks an amount of a reaction.
-    from app.modules.chemistry.binding import bind_chemistry_intent
+    # No cue word, but one law ("how many moles in 36 g of water?"), a reaction or a shape.
+    from app.modules.chemistry.binding import bind_chemistry_intent as binds
     from app.modules.chemistry.extractors.described import reaction_question
+    from app.modules.chemistry.extractors.shapes import shape_question
 
-    return reaction_question(cleaned) or bind_chemistry_intent(cleaned) is not None
+    return bool(reaction_question(cleaned) or shape_question(cleaned) or binds(cleaned))
 
 
 def _clean_name(raw: str) -> str | None:

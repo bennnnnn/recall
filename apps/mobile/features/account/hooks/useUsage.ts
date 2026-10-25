@@ -9,6 +9,7 @@ import {
   fetchTodayUsage,
   getCachedUsage,
   invalidateUsageCache,
+  usageReadAt,
 } from "@/lib/cache/usageCache";
 import { useOnForeground } from "@/lib/foregroundRefresh";
 
@@ -86,8 +87,9 @@ export function useUsage() {
   }, [account]);
   // The usage cache reads again past FOREGROUND_STALE_MS.usage.
   useOnForeground(() => void refresh(), Boolean(account));
-  // The API back after an outage: read again while the screen has focus.
-  useReconnectRefresh(() => void refresh());
+  // The API back after an outage: read again while the screen has focus, unless a read landed
+  // since the connection was lost.
+  useReconnectRefresh(() => void refresh(), { readAt: () => (account ? usageReadAt(account) : undefined) });
 
   const isCurrentState = state.account === account && state.generation === generation;
   return {

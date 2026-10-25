@@ -10,7 +10,7 @@ import {
   setTokenPair,
 } from "@/lib/auth";
 
-import { reportConnectionFailure } from "@/lib/api/connectionFailures";
+import { reportConnectionAnswered, reportConnectionFailure } from "@/lib/api/connectionFailures";
 import { CONSENT_REQUIRED_CODE, notifyConsentRequired } from "@/lib/api/consentRefusal";
 import type { AuthResult, User } from "@/lib/api/types";
 import { deviceSessionFields } from "@/lib/deviceSession";
@@ -243,19 +243,24 @@ export function apiUrl(path: string) {
 /**
  * `fetch` to our API. One that finds no API (no answer, or a 502, 503 or 504) asks the
  * connection check to look (lib/api/connectionFailures.ts); a cancel or a timeout, any other
- * status, and a request of an account signed out since do not.
+ * status, and a request of an account signed out since do not. One answered (a 2xx or 304)
+ * says when it was sent: sent after an outage was seen, it is the API back.
  */
 async function fetchApi(path: string, init: RequestInit, generation: number): Promise<Response> {
+  const sentAt = Date.now();
   let unreachable = false;
+  let answered = false;
   try {
     const response = await fetch(apiUrl(path), init);
     unreachable = UNAVAILABLE_STATUSES.has(response.status);
+    answered = response.ok || response.status === 304;
     return response;
   } catch (error) {
     unreachable = !init.signal?.aborted && !isAbortError(error);
     throw error;
   } finally {
     if (unreachable && generation === getSessionGeneration()) reportConnectionFailure();
+    if (answered) reportConnectionAnswered(sentAt);
   }
 }
 

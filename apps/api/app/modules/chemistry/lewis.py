@@ -41,6 +41,20 @@ _MOLECULAR_GEOMETRY: dict[tuple[int, int], tuple[str, str]] = {
     (6, 1): ("square pyramidal", "less than 90°"),
     (6, 2): ("square planar", "90°"),
 }
+# Nonmetals and metalloids: the centres of a school VSEPR molecule. A metal centre is a salt
+# unless its bonds are covalent (review, 2026-10-25: CaCl2, MgCl2 and CaF2 were verified as
+# "linear, nonpolar" molecules; they are ionic lattices).
+_NONMETAL_CENTERS = frozenset(
+    {"B", "C", "N", "O", "F", "Si", "P", "S", "Cl", "Ge", "As", "Se", "Br", "Sb", "Te", "I"}
+    | {"Kr", "Xe", "Rn"}
+)
+# A bond this polar is ionic (the Pauling difference school books use).
+_IONIC_DIFFERENCE = 1.7
+# Heavier group-14 atoms make no pi bonds: SiO2, GeO2, SnO2 are network solids, not O=Si=O.
+_NO_PI_BONDS = frozenset({"Si", "Ge", "Sn", "Pb"})
+# Shapes whose polarity depends on where unlike atoms sit: trans-SF4Cl2 and PCl3F2 with axial
+# F are nonpolar, cis-SF4Cl2 is polar. With mixed terminals no single answer is true.
+_ISOMER_POLARITY = frozenset({"trigonal bipyramidal", "octahedral", "square planar"})
 # Atoms that can sit on one carbon in a school Lewis structure (HCN, H2CO).
 _CARBON_TERMINALS = frozenset({"N", "O", "S", "F", "Cl", "Br", "I"})
 _HYBRID = {2: "sp", 3: "sp2", 4: "sp3", 5: "sp3d", 6: "sp3d2"}
@@ -83,6 +97,22 @@ def _electronegativity(element: str) -> float:
 
 
 def _central_atom(species: ChemicalSpecies) -> str | None:
+    """The one center of a covalent molecule; a salt's metal is none.
+
+    An oxoacid's hydrogen sits on oxygen (H-O-N=O), not on the centre the builder would bond
+    it to: HNO2 is bent at N, not trigonal planar, and HIO3 pyramidal. With hydrogen and oxygen
+    both present only carbon (H2CO) or oxygen itself (H2O, H3O+) is a center, as with HOCl.
+    """
+    composition = species.composition
+    center = _center_of(species)
+    if center is None or _ionic(center, [atom for atom in composition if atom != center]):
+        return None
+    if "H" in composition and "O" in composition and center not in {"C", "O"}:
+        return None
+    return center
+
+
+def _center_of(species: ChemicalSpecies) -> str | None:
     composition = species.composition
     candidates = [
         element
@@ -124,6 +154,25 @@ def _central_atom(species: ChemicalSpecies) -> str | None:
     ):
         return non_hydrogen[0]
     return None
+
+
+def _ionic(central: str, terminals: list[str]) -> bool:
+    """A metal centre of group 1 or 2, or one whose bonds are ionic. Beryllium's are covalent
+    in school chemistry: BeCl2 and BeF2 are the textbook linear molecules."""
+    if central in _NONMETAL_CENTERS or central == "Be":
+        return False
+    if BY_SYMBOL[central].group in {1, 2}:
+        return True
+    center = _electronegativity(central)
+    return any(_electronegativity(atom) - center >= _IONIC_DIFFERENCE for atom in terminals)
+
+
+def _dipoles_cancel(terminals: list[str], lone_pairs: int, geometry: str) -> bool | None:
+    """Whether the bond dipoles cancel; None when it depends on where unlike atoms sit."""
+    identical = len(set(terminals)) == 1
+    if not identical and geometry in _ISOMER_POLARITY:
+        return None
+    return identical and (lone_pairs == 0 or geometry in {"linear", "square planar"})
 
 
 def _resonance_forms(terminals: list[str], bond_orders: list[int]) -> int:
@@ -248,10 +297,9 @@ def lewis_structure(formula: str) -> LewisStructure | None:
         signed_charge += _formal_charge(element, lone_terminals[index], 2 * bond_orders[index])
     if signed_charge != species.charge:
         return None
-    identical = len(set(terminals)) == 1
-    symmetric = identical and lone_pairs == 0
-    if molecular[0] in {"linear", "square planar"} and identical:
-        symmetric = True
+    symmetric = _dipoles_cancel(terminals, lone_pairs, molecular[0])
+    if symmetric is None or (central in _NO_PI_BONDS and max(bond_orders) > 1):
+        return None
     return LewisStructure(
         formula=species.label,
         central=central,

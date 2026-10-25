@@ -220,8 +220,10 @@ def _solver_fences(verified: VerifiedChemistry, *, marked: bool = False) -> list
         fences.append(
             format_chemistry_answer_fence(answer, verbatim=result.verbatim, marked=marked)
         )
-    if result.scene is not None:
-        scene = dump_scene(result.scene)
+    for drawn in (result.scene, *result.more_scenes):
+        if drawn is None:
+            continue
+        scene = dump_scene(drawn)
         payload = json.dumps(scene if result.verbatim else typeset_json(scene), ensure_ascii=False)
         fences.append(f"```chem_scene\n{payload}\n```")
     smiles = (result.structure_smiles or "").strip()

@@ -1,4 +1,6 @@
 import type { Message } from "@/lib/api";
+import { ApiRequestError } from "@/lib/api/errorBody";
+import { resolveChatError } from "@/features/chat/model/errorMessage";
 import { initialChatTurnState, headRejectedSend, type ChatTurnCommand, type ChatTurnEvent, type ChatTurnState } from "@/features/chat/model/chatTurnCore";
 import { reduceChatTurn } from "@/features/chat/model/chatTurnState";
 import { popLastAssistantMessage } from "@/features/chat/model/regenerateLogic";
@@ -403,6 +405,24 @@ describe("dropped connections", () => {
     expect(headRejectedSend(cancelled.state)).toBeNull();
     const unsent = play(streaming({ pending: pending() }), [{ type: "send_failed", error: new Error("offline"), ttftTurnId: null }], [bubble]);
     expect(headRejectedSend(unsent.state)?.reason).toBe("send_rejected");
+  });
+
+  it.each([
+    ["unavailable", "Service temporarily unavailable."],
+    ["consent_required", "Agree first"],
+  ])("an SSE refusal coded %s says what the socket's error frame says", (code, words) => {
+    const old = answer("old", "old answer");
+    const refused = new ApiRequestError(503, JSON.stringify({ detail: { code, message: words } }));
+    const refusal = frame({ type: "error", code, message: words, user_message_saved: false });
+    /** The line the chat shows (useChatErrorHandlers). */
+    const line = (run: ReturnType<typeof play>) => run.of("report_error").map((report) =>
+      resolveChatError({ message: report.message ?? report.key, code: report.code, isPaid: false, t: (key) => key }).message);
+    const regenerate = (event: ChatTurnEvent) => play(streaming({ regenerateBackup: old, regenerating: true }), [event], [bubble]);
+    const send = (event: ChatTurnEvent) => play(streaming({ pending: pending() }), [event], [bubble]);
+
+    expect(line(regenerate({ type: "regenerate_failed", error: refused }))).toEqual(line(regenerate(refusal)));
+    expect(line(send({ type: "send_failed", error: refused, ttftTurnId: null }))).toEqual(line(send(refusal)));
+    expect(line(regenerate(refusal))).toEqual([code === "unavailable" ? "common.service_unavailable" : words]);
   });
 
   it("a failed Regenerate keeps what streamed, or brings the old answer back", () => {

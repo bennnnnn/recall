@@ -3,6 +3,7 @@ import { clientGeoWsFields } from "@/lib/clientGeo";
 import { markChatTtftTransport } from "@/features/chat/model/latency";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { requestSse } from "@/lib/api/client";
+import { ApiRequestError } from "@/lib/api/errorBody";
 import { parseChatWsPayload } from "@/features/chat/model/socketReduce";
 import { STREAM_IDLE_TIMEOUT_MS } from "@/features/chat/model/wsConnect";
 
@@ -94,10 +95,9 @@ async function readSseBody(
   awaitNextChunk: () => void,
   turn: { ended: boolean },
 ): Promise<void> {
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `SSE request failed: ${response.status}`);
-  }
+  // A refusal keeps its status and code (`unavailable`, `consent_required`): the chat says what
+  // the socket's error frame would, not "Couldn't reach the server".
+  if (!response.ok) throw new ApiRequestError(response.status, await response.text());
 
   if (!response.body) {
     throw new Error("SSE response has no body");

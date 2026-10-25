@@ -43,7 +43,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const theme = useTheme();
   const router = useRouter();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const { documents, scanning, loading, error, load, instruct } = useMemoryDocuments(token);
+  const { documents, scanning, loading, error, load, readAt, instruct } = useMemoryDocuments(token);
   const { clearAll } = useClearAllMemories(isCurrentView);
   const [refreshing, setRefreshing] = useState(false);
   const refreshingRef = useRef(false);
@@ -52,7 +52,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     if (isCurrentView()) void load();
   }, [isCurrentView, load]);
   // The API back after an outage: the pages read again.
-  useReconnectRefresh(() => void load(), isCurrentView);
+  useReconnectRefresh(() => void load(), { onScreen: isCurrentView, readAt });
 
   useEffect(() => {
     if (!scanning) return;

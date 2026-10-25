@@ -17,6 +17,7 @@ import { useMemoryToggle } from "@/features/memory/hooks/useMemoryToggle";
 import {
   fetchMemories,
   getCachedMemories,
+  memoriesReadAt,
   prefetchMemories,
   subscribeMemoriesCache,
 } from "@/features/memory/model/memoryListCache";
@@ -60,8 +61,9 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
   useEffect(() => {
     void loadMemories();
   }, [loadMemories]);
-  // The API back after an outage: the count read again while the page has focus.
-  useReconnectRefresh(() => void loadMemories(), isCurrentView);
+  // The API back after an outage: the count read again while the page has focus, unless a read
+  // landed since the connection was lost.
+  useReconnectRefresh(() => void loadMemories(), { onScreen: isCurrentView, readAt: memoriesReadAt });
 
   const toggleSensitive = useCallback((enabled: boolean) => {
     if (!isCurrentView() || saving) return;

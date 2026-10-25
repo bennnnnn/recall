@@ -18,9 +18,3 @@ export function chatPageReadAt(chatId: string): number | undefined {
   const read = pageReads.get(chatId);
   return read?.session === getSessionGeneration() ? read.at : undefined;
 }
-
-/** A read of the chat's newest page landed after `since`. */
-export function chatPageReadSince(chatId: string, since: number): boolean {
-  const at = chatPageReadAt(chatId);
-  return at !== undefined && at > since;
-}

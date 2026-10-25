@@ -42,5 +42,6 @@ _MODULE_EXPORTS = (
     "reading",
     "reply_policy",
     "request",
+    "shape_followup",
     "species",
 )

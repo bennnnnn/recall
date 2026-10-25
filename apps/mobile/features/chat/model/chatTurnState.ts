@@ -1,5 +1,7 @@
 import type { Message } from "@/lib/api";
 import { isAbortError } from "@/lib/api/abort";
+import { ApiRequestError } from "@/lib/api/errorBody";
+import { refusalCode } from "@/features/chat/model/errorMessage";
 import { popLastAssistantMessage, restoreAssistantMessage } from "@/features/chat/model/regenerateLogic";
 import type { PendingSend } from "@/features/chat/model/sendLogic";
 import { mergeReconciledPage, SSE_DROPPED_TURN_POLLS } from "@/features/chat/model/turnReconcile";
@@ -201,6 +203,15 @@ function settleDroppedSocketTurn(s: ChatTurnState, out: Out, pending: PendingSen
   }
 }
 
+/**
+ * What a refused SSE stream said (its `ApiRequestError`), reported as the socket's error frame
+ * is: a 503 `unavailable` says Recall is unavailable, where it said "Couldn't reach the server".
+ */
+function refusalReport(error: unknown): { message?: string; code?: string } {
+  if (!(error instanceof ApiRequestError) || !error.code) return {};
+  return { message: error.detail || undefined, code: refusalCode(error.code, error.fields.feature) };
+}
+
 function settleFailedSend(
   s: ChatTurnState,
   out: Out,
@@ -222,7 +233,7 @@ function settleFailedSend(
       return;
     }
   }
-  reportError(out, { key: "chat.error_unreachable" });
+  reportError(out, { key: "chat.error_unreachable", ...refusalReport(error) });
 }
 
 function onSocketFallback(s: ChatTurnState, out: Out, transport: ChatWsTransport, signal: ChatWsFallbackSignal, now: number): void {
@@ -290,11 +301,11 @@ function onSendFailed(s: ChatTurnState, out: Out, error: unknown, ttftTurnId: st
   settleFailedSend(s, out, { error, ttftTurnId, pending, messageSaved: false }, now);
 }
 
-function onRegenerateFailed(s: ChatTurnState, out: Out, now: number): void {
+function onRegenerateFailed(s: ChatTurnState, out: Out, error: unknown, now: number): void {
   s.phase = "idle";
   if (preservePartialStream(s, out, now)) s.regenerateBackup = null;
   else restoreRegenerateBackup(s, out);
-  reportError(out, { key: "chat.error_unreachable" });
+  reportError(out, { key: "chat.error_unreachable", ...refusalReport(error) });
 }
 
 /** Typing dots under the bubble the composer just painted, before its send goes out. */
@@ -386,7 +397,7 @@ export function reduceChatTurn(state: ChatTurnState, event: ChatTurnEvent, now: 
       onSendFailed(s, out, event.error, event.ttftTurnId, now);
       break;
     case "regenerate_failed":
-      onRegenerateFailed(s, out, now);
+      onRegenerateFailed(s, out, event.error, now);
       break;
     case "dropped_turn": {
       const { follow, result } = event;

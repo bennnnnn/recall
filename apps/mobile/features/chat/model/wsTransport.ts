@@ -11,6 +11,9 @@ import {
   WS_FOLLOW_UPS_WAIT_MS,
   WS_PROBE_TIMEOUT_MS,
 } from "@/features/chat/model/wsConnect";
+import { reportConnectionAnswered, reportConnectionFailure } from "@/lib/api/connectionFailures";
+import { UNAVAILABLE_CODE } from "@/lib/api/errorBody";
+import { getSessionGeneration } from "@/lib/auth";
 
 const WS_TURN_EVENT_TYPES = new Set([
   "start",
@@ -45,6 +48,12 @@ const UNREAD_CLOSE_CODES: ReadonlySet<number> = new Set([
   WS_IDLE_CLOSE_CODE,
   WS_TOO_MANY_SOCKETS_CLOSE_CODE,
 ]);
+/**
+ * Closes that find no API, as a request's no answer or 502/503 does: no close frame (refused
+ * or dropped), a gateway with nothing behind it (1014), and the server's Try Again Later (1013,
+ * `ws_api._WS_TRY_AGAIN_LATER_CLOSE_CODE`: its Redis down). A deliberate close is none.
+ */
+const OUTAGE_CLOSE_CODES: ReadonlySet<number> = new Set([1006, 1013, 1014]);
 
 type ChatWsAuthFrame = {
   token: string;
@@ -175,6 +184,19 @@ export class ChatWsTransport {
     );
     this.socket = socket;
     this.answersPing = false;
+    // An outage this socket meets (refused, dropped, or the server's `unavailable` frame and
+    // 1013) asks the connection check to look, once, as a request that finds no API does
+    // (lib/api/connectionFailures.ts). Its own closes, and an account signed out since, do not.
+    // Its server's first frame that is no error (the connect ping's pong) is an answer.
+    const openedAt = Date.now();
+    const generation = getSessionGeneration();
+    let answered = false;
+    let outageReported = false;
+    const reportOutage = () => {
+      if (outageReported || generation !== getSessionGeneration()) return;
+      outageReported = true;
+      reportConnectionFailure();
+    };
     this.connectPromise = new Promise<void>((resolve) => {
       this.settleConnect = resolve;
     });
@@ -216,6 +238,7 @@ export class ChatWsTransport {
       const duringTurn = this.turnActive;
       this.socket = null;
       this.turnActive = false;
+      if (code === undefined || OUTAGE_CLOSE_CODES.has(code)) reportOutage();
       if (code === undefined || !RECONNECT_CLOSE_CODES.has(code)) this.backoff.fail();
       this.options.onFallback({
         reason: code !== undefined && UNREAD_CLOSE_CODES.has(code) ? "closed_unread" : "disconnect",
@@ -235,6 +258,11 @@ export class ChatWsTransport {
       // concrete event types. String conversion is the narrow shared boundary.
       const payload = parseChatWsPayload(String(event.data));
       if (!payload) return;
+      if (payload.type === "error" && payload.code === UNAVAILABLE_CODE) reportOutage();
+      if (payload.type !== "error" && !answered) {
+        answered = true;
+        reportConnectionAnswered(openedAt);
+      }
       if (payload.type === "pong") {
         this.answersPing = true;
         if (this.probeOnPong) {

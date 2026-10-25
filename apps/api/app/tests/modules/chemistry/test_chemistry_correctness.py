@@ -660,6 +660,67 @@ def test_a_chain_or_an_unclear_center_is_not_a_single_center_structure(formula: 
 
 
 @pytest.mark.parametrize(
+    "formula",
+    [
+        # Ionic salts (review, 2026-10-25: verified "linear, nonpolar"): a group 1 or 2 metal
+        # other than beryllium, or any metal whose bonds are ionic.
+        "CaCl2",
+        "MgCl2",
+        "MgBr2",
+        "CaI2",
+        "BaCl2",
+        "SrCl2",
+        "CaF2",
+        "LiCl",
+        "NaH",
+        "AlF3",
+        "SnF4",
+        # Network solids: heavier group-14 atoms make no pi bonds.
+        "SiO2",
+        "GeO2",
+        "SnO2",
+        # Polarity that depends on which positions unlike atoms take.
+        "PCl3F2",
+        "PCl2F3",
+        "SF4Cl2",
+        "XeF2Cl2",
+        # An oxoacid's hydrogen sits on oxygen, not on the centre.
+        "HNO2",
+        "HIO3",
+    ],
+)
+def test_a_salt_a_network_solid_or_an_isomers_polarity_is_not_one_structure(formula: str) -> None:
+    assert lewis_structure(formula) is None
+
+
+@pytest.mark.parametrize(
+    ("formula", "geometry", "polar"),
+    [
+        ("BeCl2", "linear", False),
+        ("BeF2", "linear", False),
+        ("BeF4^2-", "tetrahedral", False),
+        ("H3O+", "trigonal pyramidal", True),
+        ("BeH2", "linear", False),
+        ("SnCl4", "tetrahedral", False),
+        ("SiF4", "tetrahedral", False),
+        ("CH2Cl2", "tetrahedral", True),
+        ("CHCl3", "tetrahedral", True),
+        ("CH2O", "trigonal planar", True),
+        ("XeOF4", "square pyramidal", True),
+        ("PCl5", "trigonal bipyramidal", False),
+        ("SF6", "octahedral", False),
+        ("XeF4", "square planar", False),
+    ],
+)
+def test_covalent_centres_keep_their_shape_and_polarity(
+    formula: str, geometry: str, polar: bool
+) -> None:
+    structure = lewis_structure(formula)
+    assert structure is not None
+    assert (structure.geometry, structure.polar) == (geometry, polar)
+
+
+@pytest.mark.parametrize(
     ("formula", "states"),
     [
         ("ICl", {"I": 1, "Cl": -1}),
