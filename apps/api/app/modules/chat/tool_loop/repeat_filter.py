@@ -21,6 +21,11 @@ from collections.abc import AsyncGenerator, AsyncIterator
 # space, or at a line break.
 _SENTENCE_END = re.compile(r"[.!?][\"')\]*_]*(?=\s)|\n")
 _NOT_A_WORD = re.compile(r"[\W_]+")
+# A heading, list item, quote or table row is the reply's shape, not a sentence it said:
+# "1." or "## Purecart" opening the answer is the answer's own.
+_STRUCTURE = re.compile(r"\s*(?:#{1,6}\s|[-*+>]\s|\d+[.)](?:\s|$)|\|)")
+# A one-word sentence repeats only as an interjection ("Sure!", "Okay."), not "Dr.".
+_MIN_LONE_WORD = 4
 
 
 def _key(text: str) -> str:
@@ -28,15 +33,26 @@ def _key(text: str) -> str:
     return _NOT_A_WORD.sub(" ", text.casefold()).strip()
 
 
+def _counts(sentence: str) -> bool:
+    """A sentence whose repeat is a repeat: words, not a list marker or an abbreviation."""
+    if _STRUCTURE.match(sentence):
+        return False
+    words = _key(sentence).split()
+    if len(words) >= 2:
+        return not all(word.isdigit() for word in words)
+    if len(words) != 1 or not words[0].isalpha():
+        return False
+    return len(words[0]) >= _MIN_LONE_WORD or sentence.rstrip(" *_\n").endswith(("!", "?"))
+
+
 def _sentences(text: str) -> set[str]:
-    keys: set[str] = set()
+    pieces: list[str] = []
     start = 0
     for end in _SENTENCE_END.finditer(text):
-        keys.add(_key(text[start : end.end()]))
+        pieces.append(text[start : end.end()])
         start = end.end()
-    keys.add(_key(text[start:]))
-    keys.discard("")
-    return keys
+    pieces.append(text[start:])
+    return {_key(piece) for piece in (p.lstrip() for p in pieces) if _counts(piece)}
 
 
 class RepeatFilter:
@@ -64,6 +80,8 @@ class RepeatFilter:
             body = self._held.lstrip()
             end = _SENTENCE_END.search(body)
             sentence = body[: end.end()] if end else body
+            if _STRUCTURE.match(body):
+                break
             if _key(sentence) in self._said and (end is not None or final):
                 self._held, self._dropped = body[len(sentence) :], True
                 continue

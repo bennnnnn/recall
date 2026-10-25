@@ -87,7 +87,44 @@ def test_repeat_filter_drops_an_opening_said_before(tokens: list[str], kept: str
     assert _filtered(_BEFORE, tokens) == kept
 
 
-@pytest.mark.parametrize("before", ["", "   ", "**"])
+@pytest.mark.parametrize(
+    "before, tokens, kept",
+    [
+        # Review: a list marker, an abbreviation or a heading is no sentence it said.
+        (
+            "Here is what I found:\n\n1. Purecart",
+            ["1. ", "Purecart is a store."],
+            "1. Purecart is a store.",
+        ),
+        (
+            "Dr. Who is a show. Let me check.",
+            ["Dr. ", "Who is on the BBC."],
+            "Dr. Who is on the BBC.",
+        ),
+        (
+            "## Purecart\nLet me check.",
+            ["## Purecart\n", "It sells tea."],
+            "## Purecart\nIt sells tea.",
+        ),
+        (
+            "- Purecart sells tea. Let me check.",
+            ["- Purecart sells tea.\n", "More."],
+            "- Purecart sells tea.\nMore.",
+        ),
+        ("It was 2024. Let me check.", ["2024. ", "Purecart opened."], "2024. Purecart opened."),
+        ("Ok. Let me check.", ["Ok. ", "Purecart sells tea."], "Ok. Purecart sells tea."),
+        # A one-word interjection, and a greeting, still repeat.
+        ("Sure! Let me check.", ["Sure! ", "Purecart sells tea."], "Purecart sells tea."),
+        ("Sure. Let me check.", ["Sure. ", "Purecart sells tea."], "Purecart sells tea."),
+        ("Hi! Let me check.", ["Hi! ", "Purecart sells tea."], "Purecart sells tea."),
+        (_BEFORE, ["Thanks, Dev. ", "Purecart sells tea."], "Purecart sells tea."),
+    ],
+)
+def test_repeat_filter_counts_only_sentences(before: str, tokens: list[str], kept: str) -> None:
+    assert _filtered(before, tokens) == kept
+
+
+@pytest.mark.parametrize("before", ["", "   ", "**", "1.", "## Purecart"])
 def test_repeat_filter_passes_everything_after_no_text(before: str) -> None:
     assert _filtered(before, ["Thanks, Dev. ", "Hi."]) == "Thanks, Dev. Hi."
 

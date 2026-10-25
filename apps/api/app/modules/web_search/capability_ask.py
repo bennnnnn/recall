@@ -5,7 +5,9 @@ question read as a search request that names nothing, so the turn searched the l
 before it and showed song lyrics. A question about the app asks nothing to look up;
 the reply says what Recall can do. A request that names what to search ("can you
 search for the latest news on Tesla?") or points at the chat ("can you look it up?",
-"can you search the web for that?") is not this question and still searches.
+"can you search the web for that?") is not this question and still searches. These
+are the words alone: after a question it could not answer or an offer to search, the
+same words ask for that search (``detection.asks_only_whether_it_searches``).
 
 A positive grammar over tokens, no regex over chat text: an opener, a question lead,
 one verb of searching and words that only say where or what kind ("the web", "things",

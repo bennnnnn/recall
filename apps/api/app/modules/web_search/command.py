@@ -5,8 +5,8 @@ The whole message must be the request; a cue inside a longer question is
 
 ``SearchCommand.subject`` is None when the request names nothing to search
 ("do a search", "look it up", "check that online"): the conversation says what.
-A question whether Recall searches at all ("can you search the web?") is no request
-(``capability_ask``).
+Whether "can you search the web?" asks about Recall or for a search depends on the chat
+before it: ``detection.asks_only_whether_it_searches`` reads it there.
 """
 
 from __future__ import annotations
@@ -14,7 +14,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from app.modules.web_search.capability_ask import asks_whether_it_searches
 from app.modules.web_search.search_word import is_search_word
 from app.services.text_normalize import collapse_ws, fold_token, straighten_apostrophes
 
@@ -348,8 +347,7 @@ def _match_use_search(folded: list[str]) -> SearchCommand | None:
 def search_command(text: str) -> SearchCommand | None:
     """The search the whole message asks for, or None when it asks something else."""
     cleaned = straighten_apostrophes(collapse_ws(text))
-    # "Can you search the web?" asks what Recall does, not for a search of the chat.
-    if not cleaned or len(cleaned) > 200 or asks_whether_it_searches(cleaned):
+    if not cleaned or len(cleaned) > 200:
         return None
     original = cleaned.split()
     folded = [fold_token(w) for w in original]
