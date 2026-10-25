@@ -208,3 +208,117 @@ async def test_an_english_message_still_reaches_the_reminder_pass() -> None:
     )
     assert text == "Saved."
     materialize.assert_awaited_once()
+
+
+_REMEMBER = (
+    "Ok making the paste first is smart, ill try that this weekend. "
+    "Remember that i want to try cacao e Pepe again"
+)
+_TODO_CLAIM = "I've added that to your to-do list so you don't forget. \U0001f35d"
+
+
+def _remember_ctx(message: str, *, memory: bool = True) -> StreamContext:
+    ctx = _ctx(message)
+    cast(SimpleNamespace, ctx).user = MagicMock(timezone="UTC", locale="en", memory_enabled=memory)
+    return ctx
+
+
+def _unchanged_by_the_writes() -> AsyncMock:
+    async def materialize(*_args: object, **kwargs: object) -> tuple[str, int]:
+        return str(kwargs["assistant_text"]), 0
+
+    return AsyncMock(side_effect=materialize)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("message", "reply", "memory", "kept"),
+    [
+        # Live (2026-10-25): saved to memory, called a to-do.
+        (_REMEMBER, _TODO_CLAIM, True, "Got it, I'll remember that."),
+        (
+            _REMEMBER,
+            _TODO_CLAIM,
+            False,
+            "Memory is off, so I didn't save that. You can turn it on in Settings → Memory.",
+        ),
+        (
+            _REMEMBER,
+            "Nice, the paste trick works. I've added that to your to-do list.",
+            True,
+            "Nice, the paste trick works.",
+        ),
+        (_REMEMBER, "Got it, I'll remember that you want to try it again.", True, None),
+        # A one-off item memory won't keep: no promise to remember it.
+        (
+            "please remember my flight is Friday at 6am",
+            "I've set a reminder for your flight.",
+            True,
+            "Got it.",
+        ),
+        # Memory's own words stay (review, 2026-10-25).
+        (
+            "remember that my dentist appointment is tomorrow at 3pm",
+            "Got it! I've noted that your dentist appointment is tomorrow at 3 PM. If you'd "
+            "like, I can also set a reminder.",
+            True,
+            None,
+        ),
+        (
+            "please remember my flight is Friday at 6am",
+            "Saved — your flight is Friday at 6 AM. Want a reminder the night before?",
+            True,
+            None,
+        ),
+        (
+            "remember that I go to the gym every Monday, Wednesday and Friday at 7am",
+            "Got it! I've noted that you go to the gym then. I won't add it to your to-dos "
+            "unless you ask.",
+            True,
+            None,
+        ),
+        (
+            "save to memory that I use Todoist for my tasks",
+            "Saved: you use Todoist for your tasks.",
+            True,
+            None,
+        ),
+        (
+            "Save to memory that I'm lactose intolerant",
+            "Saved: you're lactose intolerant.",
+            True,
+            None,
+        ),
+        (
+            _REMEMBER,
+            "Cacio e pepe is a Roman classic! I'll add it to your list of dishes to try.",
+            True,
+            None,
+        ),
+        # Code that says "list" is left alone.
+        (
+            _REMEMBER,
+            "Noted.\n\n```python\nitems.append(x)  # I've added x to the list\n```",
+            True,
+            None,
+        ),
+        # A to-do card offered on the same turn is the user's to tap.
+        (
+            "remember that i like it salty and remind me to buy pecorino at 5",
+            'I\'ve added that to your to-do list.\n\n```reminder_proposal\n{"proposal_id": "a"}\n```',
+            True,
+            None,
+        ),
+        # Not a remember turn: the reminder pass's own rules decide.
+        ("what's on my list", "Your reminder Study pharm is set for Wednesday.", True, None),
+        ("forget that i like sushi", _TODO_CLAIM, True, None),
+    ],
+)
+async def test_a_remember_turn_claims_no_todo(
+    message: str, reply: str, memory: bool, kept: str | None
+) -> None:
+    deps = turn_deps(todos={"materialize_reminder_fences": _unchanged_by_the_writes()})
+    text = await apply_reminder_pass(
+        deps, AsyncMock(), Settings(), _remember_ctx(message, memory=memory), reply, None
+    )
+    assert text == (reply if kept is None else kept)

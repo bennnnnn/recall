@@ -13,6 +13,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from app.services.text_normalize import straighten_apostrophes
+
 _TASK = re.compile(
     r"\b(?:todos?|to-dos?|appointments?|pickups?|flights?|concerts?|dentist)\b",
     re.IGNORECASE,
@@ -134,3 +136,23 @@ def _exclusive_drops(facts: Sequence[FactView]) -> list[str]:
 def _grade_number(text: str) -> str | None:
     match = _GRADE.search(text)
     return match.group(1) if match else None
+
+
+# "Remember to buy milk", "don't forget to call mom": an errand to do, not a fact to keep.
+_ERRAND = re.compile(r"\b(?:remember|don't\s+forget|do\s+not\s+forget)\s+to\s+\w", re.IGNORECASE)
+
+
+def asks_to_keep(text: str) -> bool:
+    """A remember command memory will keep: not an errand or a one-off dated item.
+
+    Memory drops "my dentist appointment is tomorrow at 3pm" and "please remember to buy
+    milk" (``is_one_off_schedule_fact``, the extractor's rules), so the chat must not
+    promise it remembers them.
+    """
+    from app.modules.memory.commands import asks_to_remember
+
+    return (
+        asks_to_remember(text)
+        and _ERRAND.search(straighten_apostrophes(text)) is None
+        and not is_one_off_schedule_fact(text)
+    )

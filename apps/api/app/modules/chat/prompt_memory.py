@@ -22,6 +22,7 @@ from app.modules.chat.prompt_constants import (
     recalls_earlier_conversation,
 )
 from app.modules.memory.switch import memory_switch_on
+from app.modules.todos import query_implies_todos
 from app.services.subject_solving import detect_subject
 
 if TYPE_CHECKING:
@@ -35,6 +36,15 @@ MEMORY_OFF_HINT = (
     "nothing from this one is saved. If they ask you to remember something, or what you "
     "know about them, say memory is off and that they can turn it on in Settings → Memory. "
     "Never say you will remember it."
+)
+# "Remember that I want to try cacio e pepe again" was saved to memory, and the reply said
+# "I've added that to your to-do list"; two turns on it said "I can't save it to memory"
+# (live chat, 2026-10-25). Nothing told the model what Recall does with the line.
+MEMORY_SAVING_HINT = (
+    "The user asked you to remember something. Recall saves it to their memory after your "
+    "reply, and they can see and edit it in Settings → Memory. Say in a few words that you'll "
+    "remember it. Memory is not their to-do list: don't say it was added to their to-dos or "
+    "reminders."
 )
 MEMORY_PAUSED_HINT = (
     "Saving to memory is paused right now. If the user asks you to remember something, say "
@@ -189,6 +199,9 @@ def memory_notes(turn: PromptTurn) -> list[str]:
     notes: list[str] = []
     if turn.memory_paused:
         notes.append(MEMORY_PAUSED_HINT)
+    # A line that also asks for a reminder gets its card; memory drops one-off dated items.
+    elif query and memory_service.asks_to_keep(query) and not query_implies_todos(query):
+        notes.append(MEMORY_SAVING_HINT)
     status = memory_status_note(turn)
     if status:
         notes.append(status)

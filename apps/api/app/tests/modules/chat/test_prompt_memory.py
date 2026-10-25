@@ -173,6 +173,32 @@ async def test_remember_with_memory_off_says_so():
 
 
 @pytest.mark.asyncio
+async def test_a_remember_turn_is_told_recall_saves_it():
+    """Live (2026-10-25): "remember that…" was saved, and the reply called it a to-do,
+    then said it couldn't save to memory."""
+    saving = await _system_prompt("remember that I want to try cacio e pepe again")
+    assert prompt_memory.MEMORY_SAVING_HINT in saving
+    for line in (
+        # Memory drops one-off dated items and errands: no promise to remember them.
+        "remember that my dentist appointment is tomorrow at 3pm",
+        "please remember to buy milk",
+        "don't forget to call mom tomorrow at 5pm",
+        # A reminder asked on the same line gets its card.
+        "Remember that I have a dentist appointment tomorrow at 3pm. Remind me at 2pm.",
+        "forget that I like sushi",
+        "best memory foam mattress?",
+        "I forget things a lot",
+        "do you remember my dog's name?",
+        "what should I cook tonight?",
+    ):
+        system = await _system_prompt(line)
+        assert prompt_memory.MEMORY_SAVING_HINT not in system, line
+    off = await _system_prompt("remember that I want to try cacio e pepe again", memory=False)
+    assert prompt_memory.MEMORY_OFF_HINT in off
+    assert prompt_memory.MEMORY_SAVING_HINT not in off
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("spend, paused", [("capped", True), ("down", False)])
 async def test_remember_while_saving_is_paused_says_so(spend: str, paused: bool):
     """Redis down at the spend read is no cap: the reply said saving was paused."""
@@ -201,6 +227,8 @@ async def test_remember_while_saving_is_paused_says_so(spend: str, paused: bool)
         )
     redis.get.assert_awaited()
     assert (prompt_memory.MEMORY_PAUSED_HINT in system_prompt(messages)) is paused
+    if paused:
+        assert prompt_memory.MEMORY_SAVING_HINT not in system_prompt(messages)
 
 
 @pytest.mark.asyncio
