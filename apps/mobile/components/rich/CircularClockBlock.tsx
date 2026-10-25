@@ -10,8 +10,6 @@ import Animated, {
 import Svg, { Circle, Line } from "react-native-svg";
 import { useTranslation } from "react-i18next";
 
-import { useAuthOptional } from "@/contexts/AuthContext";
-import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import {
   getClockParts,
   handAngle,
@@ -123,15 +121,9 @@ export function CircularClockBlock({ content }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const auth = useAuthOptional();
-  const timeZone = useMemo(
-    () =>
-      resolveClockTimezone(
-        content,
-        auth?.user?.timezone ?? getDeviceTimezone(),
-      ),
-    [content, auth?.user?.timezone],
-  );
+  // No zone named, or one no engine knows: the user's own (the device's), like every
+  // other time. The profile's copy was "" on a cold start and drew UTC.
+  const timeZone = useMemo(() => resolveClockTimezone(content), [content]);
 
   const [now, setNow] = useState(() => new Date());
   const reduceMotion = useReduceMotion();
@@ -159,10 +151,8 @@ export function CircularClockBlock({ content }: Props) {
     return subscribeClockTick(tick);
   }, [pulse, reduceMotion, ringOpacity]);
 
-  const parts = useMemo(
-    () => getClockParts(now, timeZone, auth?.user?.locale),
-    [now, timeZone, auth?.user?.locale],
-  );
+  // Read every tick (a cached formatter each): a change of language or clock shows at once.
+  const parts = getClockParts(now, timeZone);
 
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulse.value }],
@@ -185,7 +175,7 @@ export function CircularClockBlock({ content }: Props) {
         </Animated.View>
       </View>
       <Text style={s.date}>{parts.dateLabel}</Text>
-      <Text style={s.digitalTime}>{parts.displayTimeLabel}</Text>
+      <Text style={s.digitalTime}>{parts.timeLabel}</Text>
       <Text style={s.tz}>{parts.tzLabel}</Text>
     </View>
   );

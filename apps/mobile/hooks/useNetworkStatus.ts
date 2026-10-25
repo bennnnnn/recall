@@ -4,6 +4,7 @@ import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 
 import { onAppStateChange } from "@/lib/foregroundRefresh";
 import { isNetworkOffline } from "@/lib/networkStatus";
+import { reportDisconnected, reportReconnected } from "@/lib/reconnectRefresh";
 import {
   configureNetInfo,
   resolveConnectivity,
@@ -139,6 +140,19 @@ export function useNetworkStatus(): {
       clearTimeout(timer);
     };
   }, [degraded, inBackground, retryEpoch, probe]);
+
+  // The API answering again: the list on screen is read again (lib/reconnectRefresh.ts). Back
+  // while the app is in the background, the return reads what every return does.
+  const wasDegraded = useRef(false);
+  useEffect(() => {
+    if (degraded) {
+      wasDegraded.current = true;
+      reportDisconnected();
+    } else if (wasDegraded.current) {
+      wasDegraded.current = false;
+      if (!inBackground) reportReconnected();
+    }
+  }, [degraded, inBackground]);
 
   // Going to the background and back changes nothing a reader sees.
   return useMemo(() => ({ isOffline: status !== "online", status }), [status]);

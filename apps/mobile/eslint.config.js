@@ -143,6 +143,25 @@ const RAW_COLOR_RULES = [
   },
 ];
 
+/**
+ * Every date and time a person reads goes through lib/datetime/format.ts: the app's
+ * language, the user's zone, the phone's 12/24-hour setting, a cached formatter. A
+ * direct call wrote the phone's locale (a to-do row said "23:30", its editor "11:30 PM")
+ * and built a formatter on every call. lib/datetime itself and tests are exempt.
+ */
+const DATE_FORMAT_MESSAGE =
+  "Format dates and times with formatDate (or formatMinuteOfDay, formatCalendarDay, formatTimeZoneName) from @/lib/datetime/format.";
+const DATES_FORMATTED_BY_LIB_DATETIME = [
+  { object: "Intl", property: "DateTimeFormat", message: DATE_FORMAT_MESSAGE },
+  { object: "Intl", property: "RelativeTimeFormat", message: `${DATE_FORMAT_MESSAGE} Add a relative style there.` },
+  { property: "toLocaleDateString", message: DATE_FORMAT_MESSAGE },
+  { property: "toLocaleTimeString", message: DATE_FORMAT_MESSAGE },
+  {
+    property: "toLocaleString",
+    message: `${DATE_FORMAT_MESSAGE} A number: Intl.NumberFormat in the app's language (lib/money/format.ts).`,
+  },
+];
+
 /** Palettes and drawn data keep their own colors. */
 const RAW_COLORS_ALLOWED = [
   "lib/theme.ts",
@@ -232,6 +251,11 @@ module.exports = defineConfig([
     rules: {
       "react-hooks/refs": "error",
     },
+  },
+  {
+    files: ["**/*.{ts,tsx}"],
+    ignores: [...TEST_FILES, "lib/datetime/**"],
+    rules: { "no-restricted-properties": ["error", ...DATES_FORMATTED_BY_LIB_DATETIME] },
   },
   {
     files: ["**/*.{ts,tsx}"],

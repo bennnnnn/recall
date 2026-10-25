@@ -16,6 +16,7 @@ import { TodosViewMenu } from "@/features/todos/components/TodosViewMenu";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { useTodosActions } from "@/features/todos/hooks/useTodosActions";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
+import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/features/todos/context/TodosContext";
@@ -197,6 +198,8 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const retry = useCallback(() => {
     if (isCurrentView()) void refresh({ force: true });
   }, [refresh, isCurrentView]);
+  // The API back after an outage: the list read again, unless it is within its stale window.
+  useReconnectRefresh(() => void refresh(), isCurrentView);
 
   const listHeader = useMemo(
     () => (
@@ -393,3 +396,6 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     </View>
   );
 }
+
+/** Its route's error view: a crash here leaves the rest of the app working. */
+export { ScreenErrorBoundary as ErrorBoundary } from "@/components/ScreenErrorBoundary";
