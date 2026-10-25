@@ -56,8 +56,7 @@
   "Current local time: Wednesday, October 14, 2026, 9:00:00 AM EAT. Year 2026. Month October. You know this time, year, and month. Never say you lack a clock, the current time, the year, or the month. When you name the weekday of a date, write the full date with it (\"Friday, December 25, 2026\"). The next seven days: Thursday October 15, Friday October 16, Saturday October 17, Sunday October 18, Monday October 19, Tuesday October 20, Wednesday October 21.",
   "A car accelerates from rest at 3 m/s^2 for 5 s. What is its final velocity?",
   "**Answer**\n\n$15\\,\\mathrm{m/s}$\n",
-  "Current local time: Wednesday, October 14, 2026, 9:00:00 AM EAT. Year 2026. Month October. You know this time, year, and month. Never say you lack a clock, the current time, the year, or the month. When you name the weekday of a date, write the full date with it (\"Friday, December 25, 2026\"). The next seven days: Thursday October 15, Friday October 16, Saturday October 17, Sunday October 18, Monday October 19, Tuesday October 20, Wednesday October 21.\n\n",
-  "\n\nWrite this reply in English, the language of the user's message, whatever a saved memory or an earlier reply says.",
+  "Current local time: Wednesday, October 14, 2026, 9:00:00 AM EAT. Year 2026. Month October. You know this time, year, and month. Never say you lack a clock, the current time, the year, or the month. When you name the weekday of a date, write the full date with it (\"Friday, December 25, 2026\"). The next seven days: Thursday October 15, Friday October 16, Saturday October 17, Sunday October 18, Monday October 19, Tuesday October 20, Wednesday October 21.\n\nWrite this reply in English, the language of the user's message, whatever a saved memory or an earlier reply says.\n\n",
   "Current local time: Wednesday, October 14, 2026, 9:00:00 AM EAT. Year 2026. Month October. You know this time, year, and month. Never say you lack a clock, the current time, the year, or the month. When you name the weekday of a date, write the full date with it (\"Friday, December 25, 2026\"). The next seven days: Thursday October 15, Friday October 16, Saturday October 17, Sunday October 18, Monday October 19, Tuesday October 20, Wednesday October 21.\n\nWrite this reply in English, the language of the user's message, whatever a saved memory or an earlier reply says.",
   "Current local time: Wednesday, October 14, 2026, 9:00:00 AM EAT. Year 2026. Month October. You know this time, year, and month. Never say you lack a clock, the current time, the year, or the month. When you name the weekday of a date, write the full date with it (\"Friday, December 25, 2026\"). The next seven days: Thursday October 15, Friday October 16, Saturday October 17, Sunday October 18, Monday October 19, Tuesday October 20, Wednesday October 21.\n\nThe user's current location: Westlands, Nairobi, Kenya.\n\n",
   "\n\nThe user's current device location for this nearby/distance query is shown above. Use that location in your answer — do not substitute another city from memory or profile.\n\n",
@@ -132,6 +131,7 @@
   "rewrite this to sound friendlier: Send the report now.",
   "What is the pH of 0.01 M HCl?",
   "HCl is a strong acid, so $[H^+] = 0.01$ M.\n\n**Answer**\n\npH = 2",
+  "Current local time: Wednesday, October 14, 2026, 9:00:00 AM EAT. Year 2026. Month October. You know this time, year, and month. Never say you lack a clock, the current time, the year, or the month. When you name the weekday of a date, write the full date with it (\"Friday, December 25, 2026\"). The next seven days: Thursday October 15, Friday October 16, Saturday October 17, Sunday October 18, Monday October 19, Tuesday October 20, Wednesday October 21.\n\n",
   "and 0.001 M?",
   "write an email to my landlord asking to fix the heater by Friday",
   "write a tweet",
@@ -217,7 +217,7 @@
      ],
      [
       "system",
-      "7 @PHYSICS_FOLLOWUP_HINT 8"
+      "7 @PHYSICS_FOLLOWUP_HINT"
      ]
     ],
     "out": {}
@@ -240,7 +240,7 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ]
     ],
     "out": {}
@@ -263,7 +263,7 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ]
     ],
     "out": {}
@@ -286,7 +286,7 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ]
     ],
     "out": {}
@@ -315,7 +315,7 @@
      ],
      [
       "system",
-      "10 @LOCAL_PLACES_FORMAT_HINT 11 @ADVICE_PERSONALIZE_HINT"
+      "9 @LOCAL_PLACES_FORMAT_HINT 10 @ADVICE_PERSONALIZE_HINT"
      ]
     ],
     "out": {}
@@ -361,7 +361,7 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ]
     ],
     "out": {}
@@ -436,7 +436,7 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ]
     ],
     "out": {}
@@ -464,7 +464,7 @@
      ],
      [
       "system",
-      "12 @COMPARISON_FORMAT_HINT 13 @STEPS_FORMAT_HINT"
+      "11 @COMPARISON_FORMAT_HINT 12 @STEPS_FORMAT_HINT"
      ]
     ],
     "out": {}
@@ -487,7 +487,7 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ]
     ],
     "out": {}
@@ -633,115 +633,115 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[professional] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 14"
+      "0 @TONE_HINTS[professional] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 13"
      ],
      [
       "system",
-      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @CLARIFY_CARD_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @VISUALIZATION_HINTS 1 @SEQUENCE_FORMAT_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 1 @WEB_SEARCH_HINT 1 @PHOTO_LOOKUP_HINT 15"
+      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @CLARIFY_CARD_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @VISUALIZATION_HINTS 1 @SEQUENCE_FORMAT_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 1 @WEB_SEARCH_HINT 1 @PHOTO_LOOKUP_HINT 14"
      ],
      [
       "user",
+      "15"
+     ],
+     [
+      "assistant",
       "16"
      ],
      [
-      "assistant",
+      "user",
       "17"
      ],
      [
-      "user",
+      "assistant",
       "18"
      ],
      [
-      "assistant",
+      "user",
       "19"
      ],
      [
-      "user",
+      "assistant",
       "20"
      ],
      [
-      "assistant",
+      "user",
       "21"
      ],
      [
-      "user",
+      "assistant",
       "22"
      ],
      [
-      "assistant",
+      "user",
       "23"
      ],
      [
-      "user",
+      "assistant",
       "24"
      ],
      [
-      "assistant",
+      "user",
       "25"
      ],
      [
-      "user",
+      "assistant",
       "26"
      ],
      [
-      "assistant",
+      "user",
       "27"
      ],
      [
-      "user",
+      "assistant",
       "28"
      ],
      [
-      "assistant",
+      "user",
       "29"
      ],
      [
-      "user",
+      "assistant",
       "30"
      ],
      [
-      "assistant",
+      "user",
       "31"
      ],
      [
-      "user",
+      "assistant",
       "32"
      ],
      [
-      "assistant",
+      "user",
       "33"
      ],
      [
-      "user",
+      "assistant",
       "34"
      ],
      [
-      "assistant",
+      "user",
       "35"
      ],
      [
-      "user",
+      "assistant",
       "36"
      ],
      [
-      "assistant",
+      "user",
       "37"
      ],
      [
-      "user",
+      "assistant",
       "38"
      ],
      [
-      "assistant",
+      "system",
       "39"
      ],
      [
-      "system",
-      "40"
-     ],
-     [
       "user",
-      "41"
+      "40"
      ]
     ],
     "out": {
@@ -775,19 +775,19 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[professional] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 14"
+      "0 @TONE_HINTS[professional] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 13"
      ],
      [
       "system",
-      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @CLARIFY_CARD_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @VISUALIZATION_HINTS 1 @MERMAID_FORMAT_HINT 1 @VERIFIED_SOLVE_SAFETY_HINT 1 @BIOLOGY_PRESENTATION_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 1 @WEB_SEARCH_HINT 1 @PHOTO_LOOKUP_HINT 42"
+      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @CLARIFY_CARD_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @VISUALIZATION_HINTS 1 @MERMAID_FORMAT_HINT 1 @VERIFIED_SOLVE_SAFETY_HINT 1 @BIOLOGY_PRESENTATION_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 1 @WEB_SEARCH_HINT 1 @PHOTO_LOOKUP_HINT 41"
      ],
      [
       "system",
-      "43"
+      "42"
      ],
      [
       "user",
-      "44"
+      "43"
      ]
     ],
     "out": {}
@@ -834,18 +834,22 @@
      ],
      [
       "system",
-      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @LEARNING_PLAN_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 45 @FACT_GROUNDING_HINT 46"
+      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @LEARNING_PLAN_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 44 @FACT_GROUNDING_HINT 45"
      ],
      [
       "user",
-      "47"
+      "46"
      ],
      [
       "system",
-      "48"
+      "47"
      ],
      [
       "assistant",
+      "48"
+     ],
+     [
+      "system",
       "49"
      ],
      [
@@ -853,12 +857,8 @@
       "50"
      ],
      [
-      "system",
-      "51"
-     ],
-     [
       "user",
-      "52"
+      "51"
      ]
     ],
     "out": {}
@@ -896,19 +896,19 @@
      ],
      [
       "system",
-      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @TEACHING_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 53 @FACT_GROUNDING_HINT 54"
+      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @TEACHING_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 52 @FACT_GROUNDING_HINT 53"
      ],
      [
       "system",
-      "55 @EXAMPLE_PERSONALIZE_HINT"
+      "54 @EXAMPLE_PERSONALIZE_HINT"
      ],
      [
       "system",
-      "56"
+      "55"
      ],
      [
       "user",
-      "57"
+      "56"
      ]
     ],
     "out": {}
@@ -946,15 +946,15 @@
      ],
      [
       "system",
-      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @CLARIFY_CARD_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @WALKTHROUGH_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 58"
+      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @CLARIFY_CARD_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @WALKTHROUGH_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 57"
      ],
      [
       "system",
-      "9"
+      "8"
      ],
      [
       "user",
-      "59"
+      "58"
      ]
     ],
     "out": {
@@ -994,7 +994,7 @@
      ],
      [
       "user",
-      "60"
+      "59"
      ]
     ],
     "out": {}
@@ -1024,11 +1024,11 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ],
      [
       "user",
-      "61"
+      "60"
      ]
     ],
     "out": {}
@@ -1056,15 +1056,15 @@
      ],
      [
       "system",
-      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @CLARIFY_CARD_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @CALLOUT_FORMAT_HINT 1 @ANSWER_PHOTO_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 1 @WEB_SEARCH_HINT 1 @PHOTO_LOOKUP_HINT 62"
+      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @CLARIFY_CARD_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @CALLOUT_FORMAT_HINT 1 @ANSWER_PHOTO_HINT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 1 @WEB_SEARCH_HINT 1 @PHOTO_LOOKUP_HINT 61"
      ],
      [
       "system",
-      "63"
+      "62"
      ],
      [
       "user",
-      "64"
+      "63"
      ]
     ],
     "out": {}
@@ -1098,7 +1098,7 @@
      ],
      [
       "user",
-      "65"
+      "64"
      ]
     ],
     "out": {}
@@ -1130,11 +1130,11 @@
      ],
      [
       "system",
-      "66 @CAREER_PERSONALIZE_HINT"
+      "65 @CAREER_PERSONALIZE_HINT"
      ],
      [
       "user",
-      "67"
+      "66"
      ]
     ],
     "out": {}
@@ -1166,11 +1166,11 @@
      ],
      [
       "system",
-      "66 @PROFILE_FACT_HINT"
+      "65 @PROFILE_FACT_HINT"
      ],
      [
       "user",
-      "68"
+      "67"
      ]
     ],
     "out": {}
@@ -1200,11 +1200,11 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ],
      [
       "user",
-      "69"
+      "68"
      ]
     ],
     "out": {}
@@ -1235,19 +1235,19 @@
      ],
      [
       "system",
-      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 1 @WEB_SEARCH_HINT 1 @PHOTO_LOOKUP_HINT 70"
+      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 1 @MATH_FENCE_SAFETY_HINT 1 @COPY_DELIVERABLE_HINT 1 @FACT_GROUNDING_HINT 1 @WEB_SEARCH_HINT 1 @PHOTO_LOOKUP_HINT 69"
      ],
      [
       "user",
-      "71"
+      "70"
      ],
      [
       "assistant",
-      "72"
+      "71"
      ],
      [
       "system",
-      "73"
+      "72"
      ]
     ],
     "out": {}
@@ -1280,7 +1280,7 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ],
      [
       "system",
@@ -1288,7 +1288,7 @@
      ],
      [
       "user",
-      "74"
+      "73"
      ]
     ],
     "out": {}
@@ -1325,7 +1325,7 @@
      ],
      [
       "user",
-      "75"
+      "74"
      ]
     ],
     "out": {}
@@ -1358,11 +1358,11 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ],
      [
       "user",
-      "59"
+      "58"
      ]
     ],
     "out": {}
@@ -1399,15 +1399,15 @@
      ],
      [
       "system",
-      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 76 @VERIFIED_SOLVE_SAFETY_HINT 1 @PHYSICS_INTENT_HINT 1 @COPY_DELIVERABLE_HINT 1 @PHYSICS_REPLY_POLICY 1 @NEW_PROBLEM_HINT 1 @FACT_GROUNDING_HINT 3"
+      "@STYLE_HINTS[balanced] 1 @CLARIFICATION_HINT 1 @PRIVACY_HINT 1 @NON_DRAFT_TURN_HINT 1 @UNIVERSAL_FORMAT_BASELINE 1 @FORMAT_CONTRACT 75 @VERIFIED_SOLVE_SAFETY_HINT 1 @PHYSICS_INTENT_HINT 1 @COPY_DELIVERABLE_HINT 1 @PHYSICS_REPLY_POLICY 1 @NEW_PROBLEM_HINT 1 @FACT_GROUNDING_HINT 3"
      ],
      [
       "user",
-      "57"
+      "56"
      ],
      [
       "assistant",
-      "77"
+      "76"
      ],
      [
       "system",
@@ -1415,7 +1415,7 @@
      ],
      [
       "user",
-      "78"
+      "77"
      ]
     ],
     "out": {}
@@ -1448,11 +1448,11 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ],
      [
       "user",
-      "79"
+      "78"
      ]
     ],
     "out": {}
@@ -1485,11 +1485,11 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ],
      [
       "user",
-      "80"
+      "79"
      ]
     ],
     "out": {}
@@ -1530,15 +1530,15 @@
      ],
      [
       "user",
-      "81"
+      "80"
      ],
      [
       "assistant",
-      "82"
+      "81"
      ],
      [
       "system",
-      "7 @CHEMISTRY_FOLLOWUP_HINT"
+      "82 @CHEMISTRY_FOLLOWUP_HINT"
      ],
      [
       "user",
@@ -1572,7 +1572,7 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ],
      [
       "user",
@@ -1690,7 +1690,7 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ],
      [
       "user",
@@ -1724,7 +1724,7 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ],
      [
       "user",
@@ -1758,7 +1758,7 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ],
      [
       "user",
@@ -1792,7 +1792,7 @@
      ],
      [
       "system",
-      "7 @PERSONAL_DISCLOSURE_HINT"
+      "82 @PERSONAL_DISCLOSURE_HINT"
      ],
      [
       "user",
@@ -1834,11 +1834,11 @@
      ],
      [
       "user",
-      "71"
+      "70"
      ],
      [
       "assistant",
-      "72"
+      "71"
      ],
      [
       "system",
@@ -1892,7 +1892,7 @@
      ],
      [
       "system",
-      "7 @MATH_REPLY_POLICY 1 @MATH_FOLLOWUP_HINT 8"
+      "7 @MATH_REPLY_POLICY 1 @MATH_FOLLOWUP_HINT"
      ],
      [
       "user",
@@ -1994,7 +1994,7 @@
      ],
      [
       "system",
-      "9"
+      "8"
      ],
      [
       "user",
@@ -2099,7 +2099,7 @@
      ],
      [
       "system",
-      "7 @ADVICE_PERSONALIZE_HINT"
+      "82 @ADVICE_PERSONALIZE_HINT"
      ],
      [
       "system",
