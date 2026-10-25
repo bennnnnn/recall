@@ -35,6 +35,8 @@ const phoneFetch = Object.assign(
   { [Symbol.for("expo.builtin")]: true },
 );
 
+// The real SDK is imported in the test: with a cold jest cache (CI) compiling it takes
+// longer than the default 5 s, and the test failed on its timeout, not its assertion.
 it("puts trace headers on our API's requests and on no one else's", async () => {
   process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@o1.ingest.sentry.io/1";
   (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
@@ -56,4 +58,4 @@ it("puts trace headers on our API's requests and on no one else's", async () => 
     "https://api.recall.test/chats",
     "https://api.recall.test/chats/1/messages?limit=40",
   ]);
-});
+}, 60_000);
