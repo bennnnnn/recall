@@ -78,16 +78,18 @@ export const TodoRow = memo(function TodoRow({
   const timeLabel = !todo.checked && dueOk && due ? formatDate(due, "time") : null;
   const overdue = dueOk && (section === "overdue" || pastDue);
   // A lit row (opened from Home or a push, or picked to select) sits on primaryLight, where
-  // danger ink is under 4.5:1 in every dark accent and light violet. Its time takes the text
-  // ink there; the danger mark says overdue in both states, so lighting a row never reflows it.
+  // danger ink is under 4.5:1 in every dark accent and light violet, and grey ink in four dark
+  // accents. Its grey lines and its time take the text ink there (a time later today keeps
+  // primary) and its empty checkbox the secondary ink; the danger mark says overdue in both
+  // states, so lighting a row never reflows it.
   const lit = Boolean(highlighted) || selected;
-  const timeTone = overdue
-    ? lit
-      ? s.todoTimeOverdueLit
-      : s.todoTimeOverdue
-    : section === "today"
-      ? s.todoTimeToday
-      : s.todoTimeLater;
+  const timeTone = section === "today" && !overdue
+    ? s.todoTimeToday
+    : lit
+      ? s.todoInkLit
+      : overdue
+        ? s.todoTimeOverdue
+        : s.todoTimeLater;
 
   const row = (
     <View style={[s.todoRow, highlighted && s.todoRowHighlighted, selected && s.todoRowSelected]}>
@@ -106,7 +108,7 @@ export const TodoRow = memo(function TodoRow({
           <Icon
             name={marked ? "check-circle-filled" : "circle"}
             size={IconSize.md}
-            color={marked ? C.primary : C.textTertiary}
+            color={marked ? C.primary : lit ? C.textSecondary : C.textTertiary}
           />
         )}
       </Pressable>
@@ -121,11 +123,11 @@ export const TodoRow = memo(function TodoRow({
         accessibilityRole="button"
         accessibilityLabel={timeLabel ? `${todo.content}, ${timeLabel}` : todo.content}
       >
-        <Text style={[s.todoText, todo.checked && s.todoDone]} numberOfLines={3}>
+        <Text style={[s.todoText, todo.checked && s.todoDone, lit && s.todoInkLit]} numberOfLines={3}>
           {todo.content}
         </Text>
         {meta ? (
-          <Text style={s.todoMeta} numberOfLines={1}>
+          <Text style={[s.todoMeta, lit && s.todoInkLit]} numberOfLines={1}>
             {meta}
           </Text>
         ) : null}
