@@ -2,6 +2,7 @@ import { act, renderHook } from "@testing-library/react-native";
 import { Platform } from "react-native";
 
 import { useDataControls } from "@/features/account/hooks/useDataControls";
+import { ApiRequestError } from "@/lib/api/errorBody";
 import type { AppleDeleteConsent } from "@/lib/apple-auth";
 
 const mockExportText = jest.fn();
@@ -32,7 +33,10 @@ jest.mock("@/lib/exportData", () => ({
   formatExportJsonForShare: (raw: string) => raw,
   shareAccountExport: (...args: unknown[]) => mockShare(...args),
 }));
-jest.mock("@/lib/accountDelete", () => ({ isAccountDeleteComplete: () => false }));
+jest.mock("@/lib/accountDelete", () => ({
+  ...jest.requireActual("@/lib/accountDelete"),
+  isAccountDeleteComplete: () => false,
+}));
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -130,5 +134,23 @@ it("a failed delete reports failure and leaves the account screen usable", async
   const { outcome, progress } = await runDelete();
   expect(outcome).toBe("failed");
   expect(progress).toBe("idle");
+  expect(mockSignOut).not.toHaveBeenCalled();
+});
+
+const UNAVAILABLE = JSON.stringify({
+  detail: { code: "unavailable", message: "Service temporarily unavailable. Please retry shortly." },
+});
+
+// Refused while Redis is down (the usage carry-over, the session purge), nothing was
+// deleted and a retry in a moment works: it said "Could not delete your account".
+it.each([
+  ["the API's outage", new ApiRequestError(503, UNAVAILABLE), "unavailable"],
+  ["a gateway's 502 during a deploy", new ApiRequestError(502, "<html>Bad gateway</html>"), "unavailable"],
+  ["a server error", new ApiRequestError(500, JSON.stringify({ detail: "Internal Server Error" })), "failed"],
+])("a delete refused by %s stays signed in and says why", async (_name, error, outcome) => {
+  mockDeleteAccount.mockRejectedValue(error);
+  const run = await runDelete();
+  expect(run.outcome).toBe(outcome);
+  expect(run.progress).toBe("idle");
   expect(mockSignOut).not.toHaveBeenCalled();
 });

@@ -26,6 +26,8 @@ const TOKEN_INVALID_KEY = "login.error_token_invalid";
 /** The line for each code `/auth/google`, `/auth/apple` and `/auth/dev` refuse with. */
 const CODE_KEYS: Readonly<Record<string, string>> = {
   sign_in_rate_limited: RATE_LIMITED_KEY,
+  // The API's request limiter over its minute (core/rest_rate_limit.py): dev login passes it.
+  rate_limited: RATE_LIMITED_KEY,
   sign_in_unavailable: UNAVAILABLE_KEY,
   // The API's own outage body (core/unavailable.py): the request limiter with Redis down
   // (dev login passes it), or any route's database or Redis.
@@ -43,8 +45,7 @@ const CODE_KEYS: Readonly<Record<string, string>> = {
   dev_auth_disabled: "login.error_dev_disabled",
 };
 
-/** A refusal that names no code: a gateway's 503 in front of the API, the request limiter's
- * 429 (dev login, over its limit). */
+/** A refusal that names no code: a gateway's 503 or 429 in front of the API. */
 const STATUS_KEYS: Readonly<Record<number, string>> = {
   429: RATE_LIMITED_KEY,
   503: UNAVAILABLE_KEY,

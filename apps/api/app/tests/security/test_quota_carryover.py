@@ -250,20 +250,76 @@ async def test_quota_carryover_snapshot_holds_no_raw_sub(world: World) -> None:
     assert month_left - 60 <= ttl <= 35 * 24 * 60 * 60
 
 
-@pytest.mark.asyncio
-async def test_quota_carryover_failure_never_fails_delete(world: World) -> None:
+def _carry_down(redis: Any, step: str) -> Any:
+    """Redis failing at one step of the carry-over only: reading the account's counters
+    (one MGET of them all) or storing the snapshot. Sign-in checks and sessions still work."""
     from redis.exceptions import ConnectionError as RedisConnectionError
 
-    a = world.a
-    await _use_quota(world.redis, a.id)
-    with patch(
-        "app.services.quota.read_carried_usage",
-        AsyncMock(side_effect=RedisConnectionError("down")),
-    ):
-        response = await world.client.delete("/auth/me", headers=a.headers)
-    assert response.status_code == 204
+    def fails(key: str) -> bool:
+        return key.startswith("usage:" if step == "read" else "quota_carry:")
+
+    async def down(*_args: Any, **_kwargs: Any) -> Any:
+        raise RedisConnectionError("Error 111 connecting to redis")
+
+    if step == "read":
+        real_mget = redis.mget
+
+        async def mget(keys: Any, *args: Any) -> Any:
+            names = [keys] if isinstance(keys, str) else list(keys)
+            if any(fails(name) for name in names):
+                return await down()
+            return await real_mget(keys, *args)
+
+        return patch.object(redis, "mget", mget)
+    real_set = redis.set
+
+    async def set_(key: str, *args: Any, **kwargs: Any) -> Any:
+        if fails(key):
+            return await down()
+        return await real_set(key, *args, **kwargs)
+
+    return patch.object(redis, "set", set_)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("step", ["read", "write"])
+async def test_quota_carryover_unsaved_refuses_delete_and_keeps_the_account(
+    world: World, step: str
+) -> None:
+    """A delete whose counters cannot be carried is refused, before anything is undone.
+
+    It was best-effort: a delete while Redis failed lost the day's counters, and the same
+    sign-in started a new account from zero (the abuse the carry-over exists to stop).
+    Refused with the shared 503 ``unavailable``, the account, its sessions and its counters
+    stay as they were, so the retry the phone asks for deletes it and carries them.
+    """
+    redis, a = world.redis, world.a
+    sub = await _google_sub(a.id)
+    await _use_quota(redis, a.id)
+
+    with _carry_down(redis, step):
+        refused = await world.client.delete("/auth/me", headers=a.headers)
+
+    assert refused.status_code == 503
+    assert refused.json() == {
+        "detail": {
+            "code": "unavailable",
+            "message": "Service temporarily unavailable. Please retry shortly.",
+        }
+    }
+    assert refused.headers["retry-after"] == "5"
     async with SessionLocal() as session:
-        assert await session.get(User, a.id) is None
+        assert await session.get(User, a.id) is not None
+    # Still signed in: the retry needs no new sign-in.
+    assert (await world.client.get("/auth/me", headers=a.headers)).status_code == 200
+    assert await _daily_counts(redis, a.id) == _USED
+
+    await _delete_and_sweep(world, a.id, a.headers)
+    again = await _sign_in_google(world, sub=sub, email=f"again-{uuid4()}@example.com")
+    try:
+        assert await _daily_counts(redis, again) == _USED
+    finally:
+        await delete_accounts(again)
 
 
 def test_quota_carryover_names_every_daily_counter() -> None:

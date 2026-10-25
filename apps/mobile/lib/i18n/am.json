@@ -196,6 +196,7 @@
   "chat.quota_exceeded_pro": "የዛሬን የአጠቃቀም ገደብ ደርሰዋል።",
   "chat.quota_nudge_body": "የዛሬው ነጻ ገደብ {{pct}}% ተጠቅመዋል። ለተጨማሪ እቅድዎን ያሻሽሉ።",
   "chat.quota_nudge_cta": "እቅድ ያሻሽሉ",
+  "chat.rate_limited": "አሁን በጣም ብዙ ጥያቄዎች አሉ። አንድ ደቂቃ ይጠብቁና እንደገና ይሞክሩ።",
   "chat.read_aloud_a11y": "በድምፅ አንብብ",
   "chat.read_aloud_failed_body": "ያንን በድምፅ ማጫወት አልተቻለም። ውይይቱ አሁንም ይሰራል — እንደገና ይሞክሩ።",
   "chat.read_aloud_cut": "ይህ መልስ ረጅም ስለሆነ፣ ድምፅ ማንበቡ ከመጀመሪያው ክፍል በኋላ ይቆማል።",

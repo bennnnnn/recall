@@ -8,8 +8,11 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 from app.core.config import Settings
+from app.core.deps import get_redis
+from app.exceptions import RedisUnavailableError
 from app.main import create_app
 
 
@@ -85,6 +88,9 @@ def test_delete_account_returns_204():
     app = _app_with_user(user)
     order: list[str] = []
 
+    async def carry(*_a, **_k):
+        order.append("carry")
+
     async def purge_sessions(*_a, **_k):
         order.append("purge_sessions")
 
@@ -95,6 +101,7 @@ def test_delete_account_returns_204():
         order.append("delete_user")
 
     with (
+        patch("app.modules.account.lifecycle.quota_carryover.save_on_delete", side_effect=carry),
         patch(
             "app.modules.account.lifecycle.tokens_service.purge_user_sessions",
             side_effect=purge_sessions,
@@ -109,12 +116,51 @@ def test_delete_account_returns_204():
         client = TestClient(app)
         r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 204
-    # Sessions must be purged first — otherwise a logged-in client keeps a
-    # working access token after the row is gone, with only the (now-deleted)
-    # DB user check to stop it.
-    assert order == ["purge_sessions", "purge", "delete_user"]
+    # The usage counters are carried first, while a refusal undoes nothing. Sessions are
+    # purged next, before any data: otherwise a logged-in client keeps a working access
+    # token after the row is gone, with only the (now-deleted) DB user check to stop it.
+    assert order == ["carry", "purge_sessions", "purge", "delete_user"]
     enqueue_mock.assert_awaited_once()
     assert enqueue_mock.await_args.args[1] == "storage_sweep"
+
+
+_UNAVAILABLE = {
+    "detail": {
+        "code": "unavailable",
+        "message": "Service temporarily unavailable. Please retry shortly.",
+    }
+}
+
+
+@pytest.mark.parametrize("step", ["carry", "purge_sessions"])
+def test_delete_account_with_redis_failing_is_refused_503_unavailable(step: str) -> None:
+    """Redis failing at the delete's first steps refuses it with the shared outage body: the
+    phone says Recall is unavailable and to try again. The carry-over was best-effort (its
+    failure lost the day's counters, ``security/test_quota_carryover.py``) and the session
+    purge answered a code-less 503. A refused carry-over undoes nothing, sessions included."""
+    user = _fake_user()
+    user.google_sub = "google-sub"
+    user.apple_sub = None
+    down = AsyncMock(side_effect=RedisConnectionError("Error 111 connecting to redis"))
+    redis = MagicMock(mget=down, set=down)
+    purge = AsyncMock()
+    if step == "purge_sessions":
+        # Nothing used today, so nothing to carry: the purge is reached.
+        redis.mget = AsyncMock(side_effect=lambda keys: [None] * len(keys))
+        purge.side_effect = RedisUnavailableError()
+    app = _app_with_user(user)
+    app.dependency_overrides[get_redis] = lambda: redis
+    with (
+        patch("app.modules.account.lifecycle.tokens_service.purge_user_sessions", purge),
+        patch("app.modules.account.lifecycle.users_repo.delete_user", AsyncMock()) as delete_user,
+    ):
+        response = TestClient(app).delete("/auth/me", headers={"Authorization": "Bearer tok"})
+
+    assert response.status_code == 503
+    assert response.json() == _UNAVAILABLE
+    assert response.headers["retry-after"] == "5"
+    assert purge.await_count == (step == "purge_sessions")
+    delete_user.assert_not_awaited()
 
 
 def test_delete_account_returns_204_when_one_storage_delete_fails():

@@ -41,7 +41,7 @@ export function useDataControls() {
   const deleteAccount = async (): Promise<AccountDeleteOutcome> => {
     if (!token || progress !== "idle") return "failed";
     const outcome = await deleteAndSignOut(() => setProgress("deleting"));
-    if (outcome === "failed") setProgress("idle");
+    if (outcome === "failed" || outcome === "unavailable") setProgress("idle");
     return outcome;
   };
 

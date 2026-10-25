@@ -425,6 +425,16 @@ describe("dropped connections", () => {
     expect(line(regenerate(refusal))).toEqual([code === "unavailable" ? "common.service_unavailable" : words]);
   });
 
+  it("a Regenerate refused by the request limit says so, not that the server was unreachable", () => {
+    const old = answer("old", "old answer");
+    const body = { detail: { code: "rate_limited", message: "Too many requests. Please slow down." } };
+    const refused = new ApiRequestError(429, JSON.stringify(body));
+    const run = play(streaming({ regenerateBackup: old, regenerating: true }), [{ type: "regenerate_failed", error: refused }], [bubble]);
+    const lines = run.of("report_error").map((report) =>
+      resolveChatError({ message: report.message ?? report.key, code: report.code, isPaid: false, t: (key) => key }).message);
+    expect(lines).toEqual(["chat.rate_limited"]);
+  });
+
   it("a failed Regenerate keeps what streamed, or brings the old answer back", () => {
     const old = answer("old", "old answer");
     const restored = play(streaming({ regenerateBackup: old, regenerating: true }), [{ type: "regenerate_failed" }], [bubble]);

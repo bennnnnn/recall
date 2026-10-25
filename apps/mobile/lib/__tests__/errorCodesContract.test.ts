@@ -6,6 +6,7 @@
 import fixture from "../../../../docs/fixtures/error_codes.json";
 import { AttachmentError, presignFailure } from "@/features/attachments/model/attachmentErrors";
 import { accountExistsProvider } from "@/features/auth/model/accountExists";
+import { accountDeleteFailure } from "@/lib/accountDelete";
 import { signInRefusalKey } from "@/features/auth/model/signInRefusal";
 import { ApiRequestError } from "@/lib/api/client";
 import { CONSENT_REQUIRED_CODE } from "@/lib/api/consentRefusal";
@@ -56,6 +57,8 @@ it("offers the earlier way to sign in", () => {
 
 it.each([
   ["sign_in_rate_limited", "login.error_rate_limited"],
+  // Dev login passes the request limiter: over its minute is the API's own coded 429.
+  ["rate_limited", "login.error_rate_limited"],
   ["sign_in_unavailable", "login.error_unavailable"],
   // Dev login passes the request limiter: Redis down there is the API's own outage body.
   ["service_unavailable", "login.error_unavailable"],
@@ -80,6 +83,8 @@ it.each([
   ["scan_rate_limited", "chat.scan_rate_limit"],
   ["scan_spend_cap", "chat.scan_spend_cap"],
   ["scan_invalid_image", null],
+  // The request limiter's 429: its words, as when it named no code.
+  ["rate_limited", "Too many requests. Please slow down."],
   // A Redis outage said "Too many scans in a row", then "couldn't scan that photo".
   ["service_unavailable", "common.service_unavailable"],
 ])("words a refused scan: %s", (name, words) => {
@@ -116,6 +121,8 @@ it.each([
   ["voice_spend_cap", "chat.voice_paused"],
   // Redis down at the spend read answered the cap's 429: "Voice input is paused".
   ["service_unavailable", "common.service_unavailable"],
+  // The request limiter's 429: the dictation's own failure line, as when it named no code.
+  ["rate_limited", undefined],
 ])("words a refused dictation: %s", (name, words) => {
   expect(voiceRefusalKey(refused(name))).toBe(words);
 });
@@ -155,6 +162,8 @@ it.each([
   ["live_talk_save_rate_limited", "rate_limited", "chat.live_talk_rate_limited"],
   ["live_talk_save_spend_cap", "paused", "chat.live_talk_paused"],
   ["live_talk_saves_used", "saves_used", "chat.live_talk_saves_used"],
+  // The request limiter's 429: too many requests, as when it named no code.
+  ["rate_limited", "rate_limited", "chat.live_talk_rate_limited"],
 ])("words a refused live talk 429 by its code: %s", (name, gate, words) => {
   expect(liveTalkErrorGate(refused(name))).toBe(gate);
   expect(liveTalkGateMessageKey(liveTalkErrorGate(refused(name)))).toBe(words);
@@ -176,6 +185,9 @@ it.each([
   ["service_unavailable", "unavailable", "common.service_unavailable"],
   ["memory_busy", "busy", "memory.busy"],
   ["memory_spend_cap", "paused", "memory.paused"],
+  // The request limiter's 429 says wait, as the memory routes' own limit does; it said the
+  // action failed ("Couldn't save. Try again."), and a retry within the minute failed too.
+  ["rate_limited", "limited", "memory.limited"],
 ])("words a refused memory edit: %s", (name, failure, words) => {
   expect(memoryFailure(refused(name))).toBe(failure);
   expect(memoryFailureKey(memoryFailure(refused(name)), "memory.edit_failed")).toBe(words);
@@ -185,4 +197,21 @@ it("words a chat turn the API could not serve", () => {
   const error = refused("service_unavailable");
   expect(resolveChatError({ message: error.message, code: error.code ?? undefined, isPaid: false, t }))
     .toEqual({ kind: "generic", message: "common.service_unavailable" });
+});
+
+// The request limiter's 429 named no code: a refused Regenerate said "Couldn't reach the
+// server" (chatTurnState's refusalReport), and its English would have shown once coded.
+it("words a chat turn over the request limit", () => {
+  const error = refused("rate_limited");
+  expect(resolveChatError({ message: error.detail, code: error.code ?? undefined, isPaid: false, t }))
+    .toEqual({ kind: "generic", message: "chat.rate_limited" });
+});
+
+// The account delete refused while Redis is down (the usage carry-over, the session purge)
+// said "Could not delete your account", not that Recall was unavailable for a moment.
+it.each([
+  ["service_unavailable", "unavailable"],
+  ["rate_limited", "failed"],
+])("words a refused account delete: %s", (name, failure) => {
+  expect(accountDeleteFailure(refused(name))).toBe(failure);
 });

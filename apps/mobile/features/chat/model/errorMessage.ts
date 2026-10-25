@@ -48,6 +48,11 @@ export function resolveChatError(options: {
   if (options.code === UNAVAILABLE_CODE) {
     return { kind: "generic", message: options.t("common.service_unavailable") };
   }
+  // Over a request limit: the API's request limiter (core/rest_rate_limit.py), the socket's
+  // frame flood. Its English showed, or "Couldn't reach the server" before the 429 named a code.
+  if (options.code === "rate_limited") {
+    return { kind: "generic", message: options.t("chat.rate_limited") };
+  }
   if (options.code === "image_daily_limit") {
     // A free plan can buy more pictures; a paid one waits for tomorrow.
     return options.isPaid
