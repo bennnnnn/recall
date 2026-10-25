@@ -1106,5 +1106,338 @@
     ],
     "reply": "Friday at 9 gives you four days. Want a study plan for each one?",
     "expect": "answer"
+  },
+  {
+    "id": "ht-110",
+    "area": "todo",
+    "prompt": "yes",
+    "history": [
+      [
+        "user",
+        "I need to call the bank about my card"
+      ],
+      [
+        "assistant",
+        "You can call the number on the back of the card.\n\nWould you like me to set a reminder for tomorrow at 10am?"
+      ]
+    ],
+    "reply": "Great, I'll set that up for you!",
+    "expect": "save",
+    "gap": "a yes to an offered reminder gets no card unless the model writes the fence"
+  },
+  {
+    "id": "ht-111",
+    "area": "todo",
+    "prompt": "yes",
+    "history": [
+      [
+        "user",
+        "My flight to Lisbon is friday at 6pm, what should I pack?"
+      ],
+      [
+        "assistant",
+        "Pack light layers, a rain jacket and comfortable shoes.\n\nWant me to set a reminder to check in online?"
+      ]
+    ],
+    "reply": "Sure, when would you like to be reminded? Check-in usually opens 24 hours before.",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-112",
+    "area": "todo",
+    "prompt": "yes",
+    "history": [
+      [
+        "user",
+        "I'm hosting a dinner party saturday at 7pm, what should I cook?"
+      ],
+      [
+        "assistant",
+        "Try a roast chicken with lemon potatoes and a green salad.\n\nWant me to add the ingredients to your shopping list?"
+      ]
+    ],
+    "reply": "Here's your shopping list:\n\n- 1 whole chicken\n- 2 lemons\n- 1 kg potatoes\n- mixed greens\n- olive oil",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-113",
+    "area": "todo",
+    "prompt": "yes",
+    "history": [
+      [
+        "user",
+        "I usually wake up at 6am, how can I build a running habit?"
+      ],
+      [
+        "assistant",
+        "Start with 20 minutes three times a week.\n\nWould you like me to set a reminder to stretch?"
+      ]
+    ],
+    "reply": "Sure! When would you like to be reminded to stretch?",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-114",
+    "area": "todo",
+    "prompt": "yes",
+    "history": [
+      [
+        "user",
+        "i have a dentist appointment on thursday at 3pm, i always forget these things"
+      ],
+      [
+        "assistant",
+        "No problem!\n\nDo you want me to set a reminder for you?"
+      ]
+    ],
+    "reply": "I'll set a reminder for you now!",
+    "expect": "save",
+    "gap": "a yes to an offer that names no time gets no card unless the model writes the fence"
+  },
+  {
+    "id": "ht-115",
+    "area": "code",
+    "prompt": "yes",
+    "history": [
+      [
+        "user",
+        "build a react booking form that defaults to 9am tomorrow"
+      ],
+      [
+        "assistant",
+        "Here's the form:\n\n```tsx\nexport function BookingForm() { return <form>...</form> }\n```\n\nShould I add a reminder field to the form?"
+      ]
+    ],
+    "reply": "Sure! I've added a reminder field:\n\n```tsx\n<input type=\"datetime-local\" name=\"remindAt\" />\n```\n\nIt stores the time as an ISO string.",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-116",
+    "area": "code",
+    "prompt": "sure",
+    "history": [
+      [
+        "user",
+        "write a cron job that runs every day at 9am and emails my team"
+      ],
+      [
+        "assistant",
+        "```python\nschedule.every().day.at('09:00').do(send)\n```\n\nShould I create a reminders table too?"
+      ]
+    ],
+    "reply": "Here it is:\n\n```sql\nCREATE TABLE reminders (id uuid primary key, remind_at timestamptz);\n```",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-117",
+    "area": "code",
+    "prompt": "yes",
+    "history": [
+      [
+        "user",
+        "my sale ends friday at 5pm, make my landing page more engaging"
+      ],
+      [
+        "assistant",
+        "Here are three ideas.\n\nWant me to add a reminder banner to the hero?"
+      ]
+    ],
+    "reply": "Sure, I've added a reminder banner:\n\n```html\n<div class=\"banner\">Sale ends Friday at 5pm</div>\n```",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-118",
+    "area": "code",
+    "prompt": "9am every day",
+    "history": [
+      [
+        "user",
+        "add a daily digest notification to my flask app"
+      ],
+      [
+        "assistant",
+        "Here's the job:\n\n```python\ndef send_digest(): ...\n```\n\nWhat time should the digest notification be sent?"
+      ]
+    ],
+    "reply": "Here's the schedule:\n\n```python\nscheduler.add_job(send_digest, 'cron', hour=9)\n```\n\nIt runs at 9:00 every day.",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-119",
+    "area": "code",
+    "prompt": "every monday at 8am",
+    "history": [
+      [
+        "user",
+        "add a cron job that sends reminder emails"
+      ],
+      [
+        "assistant",
+        "Sure, here's a skeleton:\n\n```python\ndef send(): ...\n```\n\nWhen should the reminder emails go out?"
+      ]
+    ],
+    "reply": "Here's the crontab line:\n\n```\n0 8 * * 1 python send.py\n```",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-120",
+    "area": "todo",
+    "prompt": "next tuesday at 3pm",
+    "history": [
+      [
+        "user",
+        "remind me to book a dentist appointment"
+      ],
+      [
+        "assistant",
+        "Sure! When do you want to schedule the appointment itself?"
+      ]
+    ],
+    "reply": "Got it, Tuesday at 3pm for the appointment. When should I remind you to book it?",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-121",
+    "area": "todo",
+    "prompt": "6:30am",
+    "history": [
+      [
+        "user",
+        "add an alarm to my morning routine plan"
+      ],
+      [
+        "assistant",
+        "Here's your routine:\n\n- Wake up\n- Stretch\n- Breakfast\n\nWhat time should I set it for?"
+      ]
+    ],
+    "reply": "Updated routine:\n\n- 6:30 AM: Alarm, wake up\n- 6:40 AM: Stretch\n- 7:00 AM: Breakfast",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-122",
+    "area": "todo",
+    "prompt": "tomorrow at 10am",
+    "history": [
+      [
+        "user",
+        "can you remind me to call the dentist? i always forget"
+      ],
+      [
+        "assistant",
+        "Of course! When would you like to be reminded? (e.g., this Friday at 10 AM)"
+      ]
+    ],
+    "reply": "Got it!",
+    "expect": "save"
+  },
+  {
+    "id": "ht-123",
+    "area": "todo",
+    "prompt": "friday at 6pm",
+    "history": [
+      [
+        "user",
+        "remind me to pay rent"
+      ],
+      [
+        "assistant",
+        "Sure. What time should I set it for?"
+      ]
+    ],
+    "reply": "Okay!",
+    "expect": "save"
+  },
+  {
+    "id": "ht-124",
+    "area": "code",
+    "prompt": "at 5pm",
+    "history": [
+      [
+        "user",
+        "add a step to the deploy script that alerts the team"
+      ],
+      [
+        "assistant",
+        "Added the Slack step.\n\nWhen should the alert go out?"
+      ]
+    ],
+    "reply": "Updated:\n\n```bash\nif [ $(date +%H) -ge 17 ]; then notify; fi\n```",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-125",
+    "area": "todo",
+    "prompt": "tomorrow at 7am",
+    "history": [
+      [
+        "user",
+        "add a 20 minute run to my workout plan"
+      ],
+      [
+        "assistant",
+        "Here's the updated plan:\n\n- Mon: run\n- Wed: weights\n\nWhen would you like to schedule the run?"
+      ]
+    ],
+    "reply": "Done, the run is now Thursday 7am:\n\n- Thu 7:00 AM: 20-minute run\n- Wed: weights",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-126",
+    "area": "todo",
+    "prompt": "next tuesday at 2pm",
+    "history": [
+      [
+        "user",
+        "remind me to prepare for my interview"
+      ],
+      [
+        "assistant",
+        "Happy to help! When is the interview scheduled? I can set the reminder a day before."
+      ]
+    ],
+    "reply": "Great, I'll remind you Monday at 2pm to prepare.\n\n```reminder\n{\"action\": \"add\", \"title\": \"Prepare for interview\", \"due_at\": \"2026-10-19T14:00:00+03:00\"}\n```",
+    "expect": "save"
+  },
+  {
+    "id": "ht-127",
+    "area": "todo",
+    "prompt": "friday at 6am",
+    "history": [
+      [
+        "user",
+        "remind me to check in for my flight"
+      ],
+      [
+        "assistant",
+        "Sure! When is your flight scheduled to depart? Check-in usually opens 24 hours before."
+      ]
+    ],
+    "reply": "Then check-in opens Thursday at 6am. When should I remind you?",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-128",
+    "area": "todo",
+    "prompt": "8am",
+    "history": [
+      [
+        "user",
+        "remind me to refill my prescription"
+      ],
+      [
+        "assistant",
+        "Sure. What time do you usually take your pills, so I can schedule it around that?"
+      ]
+    ],
+    "reply": "Got it, you take them at 8am. When should I remind you to refill?",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-129",
+    "area": "todo",
+    "prompt": "Can you remind me to stretch? Every day at 3pm",
+    "history": [],
+    "reply": "Sure!",
+    "expect": "save"
   }
 ]

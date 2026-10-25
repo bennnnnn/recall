@@ -14,6 +14,9 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
+from app.modules.todos.proposals import FENCE_LANG as CARD_FENCE
+from app.services.md_fence_scan import iter_fences
+
 # "Would you like me to set up that X reminder…?", "Want me to add it to your list?",
 # "Shall I remind you at 9?". The reminder is what is set, not where something goes ("add
 # error handling to the reminder service") or a thing about reminders ("a to-do list app",
@@ -47,11 +50,14 @@ def accepted_reminder_offer(user_text: str | None, prior_assistant: str | None) 
     """The offer ``user_text`` says yes to, or None.
 
     Only a bare yes counts ("yes", "sure", "go ahead"): "yes but make it 8" changes
-    the offer and is read as its own words.
+    the offer and is read as its own words. A reply holding code offers code ("Should I
+    add a reminder field to the form?"), whatever its words.
     """
     from app.modules.chat import is_short_confirmation
 
     if not user_text or not prior_assistant or not is_short_confirmation(user_text):
+        return None
+    if any(fence.lang != CARD_FENCE for fence in iter_fences(prior_assistant)):
         return None
     tail = prior_assistant.rstrip()[-_TAIL_CHARS:]
     questions = _QUESTION.findall(tail)

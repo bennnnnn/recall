@@ -142,10 +142,11 @@ class _Turn:
 
     @property
     def said(self) -> str | None:
-        """What the user agreed to: their words, and the offer they said yes to."""
+        """What the user agreed to: their words, the offer they said yes to, and their line
+        before it ("i have a dentist appointment on thursday at 3pm")."""
         if self.offer is None:
             return self.user_text
-        return f"{self.user_text or ''} {self.offer}".strip()
+        return " ".join(part for part in (self.user_text, self.offer, self.prior_user) if part)
 
     def writes(self) -> ReminderWrites:
         return ReminderWrites(
@@ -246,13 +247,13 @@ async def _match_user_words(turn: _Turn, spans: _Spans) -> tuple[str, int] | Non
         )
         if applied is not None:
             return applied
-    answered = await _match_clock_reply(turn)
+    answered = await _match_clock_reply(turn, widen=not spans)
     if answered is not None:
         return answered
     return await _match_spoken_add(turn, spans)
 
 
-async def _match_clock_reply(turn: _Turn) -> tuple[str, int] | None:
+async def _match_clock_reply(turn: _Turn, *, widen: bool) -> tuple[str, int] | None:
     """A reply that is only a time finishes the add the user just described."""
     stated = await answered_when(
         turn.session,
@@ -260,6 +261,7 @@ async def _match_clock_reply(turn: _Turn) -> tuple[str, int] | None:
         turn.user_text or "",
         turn.prior_assistant,
         user_timezone=turn.user_timezone,
+        widen=widen,
     )
     if stated is None:
         return None

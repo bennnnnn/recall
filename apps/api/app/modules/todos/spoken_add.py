@@ -314,6 +314,12 @@ def relative_due(
     return due_for_add(add, user_timezone=user_timezone, now=now)
 
 
+def is_reminder_request(text: str | None) -> bool:
+    """The message opens by asking for a reminder: "remind me to …", "set a reminder …"."""
+    cleaned = FILLER_RE.sub("", _fix_typos((text or "").strip()).lower())
+    return _REMINDER_REQUEST_RE.match(cleaned) is not None
+
+
 def day_for_a_bare_clock(
     add: SpokenAdd,
     user_text: str | None,

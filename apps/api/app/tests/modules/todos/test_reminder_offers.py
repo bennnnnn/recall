@@ -392,3 +392,67 @@ def test_a_reminder_block_closed_as_a_tag_keeps_the_reply_after_it(reply: str, k
     from app.modules.chat.finalize_reminders import drop_cut_reminder_fence
 
     assert drop_cut_reminder_fence(reply) == kept
+
+
+@pytest.mark.parametrize(
+    ("asked_for", "question"),
+    [
+        # Code and plans: no reminder was asked for (review of the widened gate).
+        ("add a daily digest notification to my flask app", "What time should it be sent?"),
+        ("add a 20 minute run to my workout plan", "When would you like to schedule the run?"),
+        # Questions about the event, not the reminder.
+        ("remind me to check in for my flight", "When is your flight scheduled to depart?"),
+        ("remind me to refill my prescription", "What time do you take your pills?"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_a_time_after_another_question_finishes_nothing(
+    db_session, asked_for: str, question: str
+) -> None:
+    from app.modules.chat import messages_repository as messages_repo
+    from app.modules.todos.spoken_clauses import answered_when
+
+    user = await users_repo.create(
+        db_session,
+        email=f"{uuid4()}@example.com",
+        name="Test User",
+        avatar_url=None,
+        google_sub=str(uuid4()),
+    )
+    chat = await chats_repo.create(db_session, user_id=user.id, model="free-chat")
+    for role, content in (("user", asked_for), ("assistant", question), ("user", "friday at 6am")):
+        await messages_repo.create(
+            db_session, chat_id=chat.id, user_id=user.id, role=role, content=content
+        )
+    assert await answered_when(db_session, chat.id, "friday at 6am", question) is None
+
+
+def test_a_reply_holding_code_offers_no_reminder() -> None:
+    code = "Here's the form:\n\n```tsx\n<form />\n```\n\nShould I add a reminder field to it?"
+    assert accepted_reminder_offer("yes", code) is None
+    card = "Done.\n\n```reminder_proposal\n{}\n```\n\nWant me to set another reminder for Friday?"
+    assert accepted_reminder_offer("yes", card)
+
+
+@pytest.mark.asyncio
+async def test_a_yes_to_the_offer_asks_for_the_fence(db_session):
+    from app.core.config import get_settings
+    from app.modules.todos.prompt_context import build_todos_system_section
+    from app.modules.todos.prompt_hint import ACCEPTED_OFFER_HINT
+
+    user = await users_repo.create(
+        db_session,
+        email=f"{uuid4()}@example.com",
+        name="Test User",
+        avatar_url=None,
+        google_sub=str(uuid4()),
+    )
+    settings = get_settings()
+    section = await build_todos_system_section(
+        db_session, user, settings, query_text="yes", accepted_offer=True
+    )
+    assert section is not None and ACCEPTED_OFFER_HINT in section
+    plain = await build_todos_system_section(
+        db_session, user, settings, query_text="what's on my to-do list?"
+    )
+    assert plain is not None and ACCEPTED_OFFER_HINT not in plain

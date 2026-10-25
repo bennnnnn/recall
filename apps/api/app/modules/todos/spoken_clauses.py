@@ -17,7 +17,12 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.todos.spoken_add import SpokenAdd, day_for_a_bare_clock, parse_spoken_add
+from app.modules.todos.spoken_add import (
+    SpokenAdd,
+    day_for_a_bare_clock,
+    is_reminder_request,
+    parse_spoken_add,
+)
 from app.modules.todos.spoken_when import parse_clock_only
 
 # What starts the first reminder; a later one starts at _NEXT_REMINDER_RE.
@@ -66,7 +71,8 @@ async def pending_add(
     """The add they just described, when this message is only the missing clock.
 
     In "call mom at 5pm and pay rent on friday", that is the rent. ``dated``: only an add
-    that named its day; any add without a clock otherwise.
+    that named its day. Otherwise any add without a clock that asked for a reminder in so
+    many words ("remind me to …"): "add a daily digest to my flask app" is code.
     """
     from app.modules.chat import history as chat_history
 
@@ -81,6 +87,8 @@ async def pending_add(
             continue
         if parse_clock_only(body) is not None:
             continue
+        if not dated and not is_reminder_request(body):
+            return None
         single = parse_spoken_add(body)
         adds = _split_adds(reminder_clauses(body)) or ([single] if single else [])
         return next((add for add in adds if add.hour is None and (add.day or not dated)), None)
@@ -89,14 +97,11 @@ async def pending_add(
 
 # The last reply asked when to remind, as the server does ("When should I remind you?")
 # or in the model's words ("when would you like to be reminded? (e.g., Friday at 10 AM)",
-# "What time should I set it for?"): a question near its end. "When is your exam?" asks
-# about the exam.
+# "What time should I set it for?"): a question near its end. "When is your exam?" and
+# "When is your flight scheduled to depart?" ask about the event.
 _QUESTION_RE = re.compile(r"[^.!?\n]*\?")
 _WHEN_RE = re.compile(r"\b(?:when|what time|which day|what day)\b", re.IGNORECASE)
-_TO_REMIND_RE = re.compile(
-    r"\bremind|\breminder|\bset (?:it|that|this|one)\b|\bschedule|\bnotif|\balert|\bping\b",
-    re.IGNORECASE,
-)
+_TO_REMIND_RE = re.compile(r"\bremind|\breminder|\bset (?:it|that|this|one)\b", re.IGNORECASE)
 _ASKED_NEAR_END = 300
 
 
@@ -115,6 +120,7 @@ async def answered_when(
     prior_assistant: str | None,
     *,
     user_timezone: str | None = None,
+    widen: bool = True,
 ) -> SpokenAdd | None:
     """The add this message finishes by giving its time, or None.
 
@@ -122,14 +128,15 @@ async def answered_when(
     when ("When should I remind you?"), any when does: live (2026-10-25), "can you remind
     me about the python practice again?" was asked when, and "7pm tomorrow" saved nothing.
     The answer is read onto the add's own words ("remind me to <task> 7pm tomorrow"); one
-    that says more than when ("tomorrow, and buy milk") is its own message.
+    that says more than when ("tomorrow, and buy milk") is its own message. ``widen``
+    False keeps to the bare clock: the model wrote a fence, and the fence decides.
     """
     clock = parse_clock_only(current)
     if clock is not None:
         dated = await pending_add(session, chat_id, current)
         if dated is not None:
             return replace(dated, hour=clock[0], minute=clock[1])
-    if not _asked_when(prior_assistant):
+    if not widen or not _asked_when(prior_assistant):
         return None
     pending = await pending_add(session, chat_id, current, dated=False)
     if pending is None:
