@@ -1,13 +1,36 @@
-import { fireEvent, render, within } from "@testing-library/react-native";
+import { configure, fireEvent, render, within } from "@testing-library/react-native";
 
 import { MathDraftPreview } from "@/features/chat/components/MathDraftPreview";
 import { sentMessageShowsMathPreview } from "@/lib/math/draftText";
 import { lightTheme } from "@/lib/theme";
 
+// These tests read the drawing. The composer's preview is hidden from screen readers (its
+// text field reads the draft), so queries look inside hidden views unless a test says not to.
+configure({ defaultIncludeHiddenElements: true });
+const READER = { includeHiddenElements: false };
+
 describe("sentMessageShowsMathPreview", () => {
   it("keeps a question around an equation as text", () => {
     expect(sentMessageShowsMathPreview("Why does $x^2 = 9$ have two solutions?")).toBe(false);
     expect(sentMessageShowsMathPreview("$x^2 = 9$")).toBe(true);
+  });
+});
+
+describe("MathDraftPreview for a screen reader", () => {
+  it("leaves the composer's draft to its text field: no unnamed caret buttons", async () => {
+    const { queryAllByRole, getByTestId } = await render(
+      <MathDraftPreview input={String.raw`$\frac{1}{2}$ + $x_1^2$`} caret={0} onMoveCaret={jest.fn()} />,
+    );
+    expect(queryAllByRole("button", READER)).toHaveLength(0);
+    expect(getByTestId("math-draft-preview").props.accessibilityElementsHidden).toBe(true);
+  });
+
+  it("reads a sent math message as one element, its maths in words", async () => {
+    const { queryAllByRole, getByRole } = await render(
+      <MathDraftPreview input={String.raw`Solve $\frac{1}{2}x = 3$`} sent showCaret={false} />,
+    );
+    expect(queryAllByRole("button", READER)).toHaveLength(0);
+    expect(getByRole("text", { name: "Solve 1/2x = 3", ...READER })).toBeOnTheScreen();
   });
 });
 

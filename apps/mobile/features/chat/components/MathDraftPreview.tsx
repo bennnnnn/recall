@@ -12,13 +12,7 @@ import {
   shiftDraftNodes,
   type DraftNode,
 } from "@/lib/math/draftSlots";
-import {
-  DRAFT_TEXT_SIZE,
-  draftShowsMathPreview,
-  scriptSize,
-  splitBeforeOperator,
-  textRuns,
-} from "@/lib/math/draftText";
+import { DRAFT_TEXT_SIZE, draftShowsMathPreview, scriptSize, spokenDraft, splitBeforeOperator, textRuns } from "@/lib/math/draftText";
 import { healDroppedCommandSlash } from "@/lib/math/healMathSource";
 import { innermostSlot, type LatexGroup } from "@/lib/math/keyboardSymbols";
 import { latexNeedsTallLine, MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
@@ -71,6 +65,9 @@ function clusterDraftNodes(nodes: DraftNode[]): { node: DraftNode; scripts: Scri
   return groups;
 }
 
+/** The composer's text field reads the draft; its caret targets are for sight. */
+const READER_SKIPS = { accessibilityElementsHidden: true, importantForAccessibility: "no-hide-descendants" } as const;
+
 type Props = {
   input: string;
   caret?: number;
@@ -117,6 +114,7 @@ export const MathDraftPreview = memo(function MathDraftPreview({
     <View
       style={[s.wrap, s.row, sent ? s.sent : tall && { minHeight: MATH_TALL_LINE_HEIGHT }]}
       testID="math-draft-preview"
+      {...(sent ? { accessible: true, accessibilityRole: "text", accessibilityLabel: spokenDraft(mathInput) } : READER_SKIPS)}
     >
       {/* A sent bubble has no caret: its targets wrapped to an empty second line. */}
       {sent ? null : (
@@ -124,7 +122,7 @@ export const MathDraftPreview = memo(function MathDraftPreview({
           testID="math-slot-before"
           onPress={() => onMoveCaret?.(before)}
           style={s.edge}
-          accessibilityRole="button"
+          accessible={false}
         >
           {showBeforeCaret ? <MathComposerCaret testID="math-slot-before-caret" /> : null}
         </Pressable>
@@ -145,7 +143,7 @@ export const MathDraftPreview = memo(function MathDraftPreview({
           testID="math-slot-after"
           onPress={() => onMoveCaret?.(after)}
           style={s.edge}
-          accessibilityRole="button"
+          accessible={false}
         >
           {showAfterCaret ? <MathComposerCaret testID="math-slot-after-caret" /> : null}
         </Pressable>
@@ -339,7 +337,7 @@ const textPiece: PieceRenderer<"text"> = (node, { input, caret, before, after, o
         onMoveCaret?.(x < 8 ? start : end);
       }}
       style={s.textHit}
-      accessibilityRole="button"
+      accessible={false}
     >
       <View style={s.slotRow}>
         {caret === start && start > before ? (
@@ -512,7 +510,7 @@ function EditSlot({
       }}
       // A filled script hugs its text: the tap-target width read as a gap after the base.
       style={[s.slot, !empty && size < DRAFT_TEXT_SIZE && s.slotTight, empty && s.slotActive]}
-      accessibilityRole="button"
+      accessible={false}
     >
       <View style={s.slotRow}>
         {structured ? (
