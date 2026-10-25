@@ -11,7 +11,7 @@ import {
   ChatWsTransport,
   type ChatWsFallbackSignal,
 } from "@/features/chat/model/wsTransport";
-import { onConnectionFailure } from "@/lib/api/connectionFailures";
+import { onConnectionAnswered, onConnectionFailure } from "@/lib/api/connectionFailures";
 
 let mockSession = 0;
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
@@ -629,6 +629,26 @@ describe("ChatWsTransport outages and the connection check", () => {
     refused.socket.emit({ type: "error", message: "Unauthorized" });
     closeWith(refused.socket, 1008);
     expect(reported).toBe(0);
+  });
+
+  it("says its server answered once, at its first frame that is no error, with when it opened", async () => {
+    const answers: number[] = [];
+    const stopAnswers = onConnectionAnswered((sentAt) => { answers.push(sentAt); });
+    const refused = await openTransport();
+    refused.socket.emit({ type: "error", code: "unavailable", message: "Down" });
+    expect(answers).toEqual([]);
+
+    const { socket, transport } = setupTransport();
+    const openedAt = Date.now();
+    const connecting = transport.connect();
+    jest.advanceTimersByTime(300);
+    socket.open();
+    await connecting;
+    socket.emit({ type: "pong" });
+    transport.sendMessage(MESSAGE);
+    socket.emit({ type: "start" });
+    stopAnswers();
+    expect(answers).toEqual([openedAt]);
   });
 
   it("asks for none for an account signed out since the socket opened", async () => {

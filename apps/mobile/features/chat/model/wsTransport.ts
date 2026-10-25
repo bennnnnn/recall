@@ -11,7 +11,7 @@ import {
   WS_FOLLOW_UPS_WAIT_MS,
   WS_PROBE_TIMEOUT_MS,
 } from "@/features/chat/model/wsConnect";
-import { reportConnectionFailure } from "@/lib/api/connectionFailures";
+import { reportConnectionAnswered, reportConnectionFailure } from "@/lib/api/connectionFailures";
 import { UNAVAILABLE_CODE } from "@/lib/api/errorBody";
 import { getSessionGeneration } from "@/lib/auth";
 
@@ -187,7 +187,10 @@ export class ChatWsTransport {
     // An outage this socket meets (refused, dropped, or the server's `unavailable` frame and
     // 1013) asks the connection check to look, once, as a request that finds no API does
     // (lib/api/connectionFailures.ts). Its own closes, and an account signed out since, do not.
+    // Its server's first frame that is no error (the connect ping's pong) is an answer.
+    const openedAt = Date.now();
     const generation = getSessionGeneration();
+    let answered = false;
     let outageReported = false;
     const reportOutage = () => {
       if (outageReported || generation !== getSessionGeneration()) return;
@@ -256,6 +259,10 @@ export class ChatWsTransport {
       const payload = parseChatWsPayload(String(event.data));
       if (!payload) return;
       if (payload.type === "error" && payload.code === UNAVAILABLE_CODE) reportOutage();
+      if (payload.type !== "error" && !answered) {
+        answered = true;
+        reportConnectionAnswered(openedAt);
+      }
       if (payload.type === "pong") {
         this.answersPing = true;
         if (this.probeOnPong) {

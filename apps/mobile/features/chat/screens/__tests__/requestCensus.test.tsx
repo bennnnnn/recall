@@ -885,9 +885,10 @@ const OUTAGE_CEILINGS: Record<string, number> = {
   // connection check (the API, then Google), which shows the banner; its loop checks again at
   // 1.5 s, 3 s, 6 s and 12 s (five checks, ten requests; before, no check and no banner).
   "a deploy mid-reply, 503 Retry-After 5 for 30 s": 16,
-  // Back: the next read finds the saved reply, then the full page; the loop's check clears the
-  // banner and asks for no second read of the page (a 304 before): one landed since the outage.
-  "the 30 s after, the API back": 3,
+  // Back: the next read finds the saved reply, then the full page. The first of them clears the
+  // banner (the loop's check, 20 s later, did) and asks for no second read of the page (a 304
+  // before): one landed since the outage.
+  "the 30 s after, the API back": 2,
   "a minute in the background": 0,
   // The return's reads (to-dos, the chat, the socket) fail once; the connection check backs off
   // (1.5 s, 3 s, 6 s, 12 s, 24 s), each asking Google whether it is the API. Once it passes, the
@@ -1145,9 +1146,9 @@ it("reads the list on screen again once, 0 to 10 s after an outage ends, and not
   expect(back.length).toBeLessThanOrEqual(CEILINGS["return after 10 minutes"]);
 });
 
-it("reads the open chat once when its reply's page landed before the API's return was seen", async () => {
-  // Each spread at its middle: the reply's page lands 30 s in, the check that clears the banner
-  // runs at 50 s, and the read it asks for would come 5 s later, past that page's stale window.
+it("clears the banner at the first 200 after an outage and reads the open chat once", async () => {
+  // Each spread at its middle: the reply's page lands 30 s in. The loop's check that cleared the
+  // banner ran at 50 s, and the read it asked for would come 5 s later, past the page's window.
   const random = jest.spyOn(Math, "random").mockReturnValue(0.5);
   steps.length = 0;
   savedTurn = [];
@@ -1171,14 +1172,21 @@ it("reads the open chat once when its reply's page landed before the API's retur
     { id: uuid(2, 900), role: "user", content: "Hello there", model: null, created_at: NOW },
     { id: uuid(2, 901), role: "assistant", content: "Hi.", model: null, created_at: NOW },
   ];
+  expect(statusChanges[statusChanges.length - 1].status).toBe("api_unreachable");
   mark = mockLog.length;
+  const since = statusChanges.length;
   await settle(30_000);
   step("the reply's page, then the API's return seen");
   random.mockRestore();
-  const back = steps[steps.length - 1].requests;
+  const { requests: back, sent } = steps[steps.length - 1];
   if (process.env.CENSUS) console.log(back);
-  // The reply's newest rows, then its page; the check passes and clears the banner, no second read.
-  expect(back).toContain("GET /health/dependencies");
+  // The reply's newest rows, then its page. The first 200 clears the banner, at once: no check.
+  const first = sent.find((r) => r.status === 200);
+  const cleared = statusChanges.slice(since).filter((c) => c.status === "online");
+  expect(cleared).toHaveLength(1);
+  expect(cleared[0].at - first!.at).toBeGreaterThanOrEqual(0);
+  expect(cleared[0].at - first!.at).toBeLessThan(50);
+  expect(back.filter((r) => r.startsWith(`GET ${CHECK}`))).toEqual([]);
   expect(statusChanges[statusChanges.length - 1].status).toBe("online");
   expect(listReads(back)).toEqual([`GET /chats/${chatId(1)}/messages?limit=4`, CHAT_1_PAGE]);
 });

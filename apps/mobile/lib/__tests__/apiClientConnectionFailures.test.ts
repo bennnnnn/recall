@@ -1,5 +1,5 @@
 import { request, requestRaw, requestSse } from "@/lib/api/client";
-import { onConnectionFailure } from "@/lib/api/connectionFailures";
+import { onConnectionAnswered, onConnectionFailure } from "@/lib/api/connectionFailures";
 
 jest.mock("@/lib/config", () => ({
   getApiUrl: () => "http://test.local",
@@ -111,5 +111,44 @@ describe("a request that finds no API asks for a connection check", () => {
     mockFetch.mockResolvedValueOnce(answer(401)).mockRejectedValueOnce(networkError());
     await expect(request("/auth/me", "old-access")).rejects.toThrow("Network request failed");
     expect(reported).toBe(1);
+  });
+});
+
+describe("a request our API answers says when it was sent", () => {
+  let answers: number[] = [];
+  let stopAnswers: () => void = () => {};
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(1_000_000);
+    answers = [];
+    stopAnswers = onConnectionAnswered((sentAt) => { answers.push(sentAt); });
+  });
+  afterEach(() => {
+    stopAnswers();
+    jest.useRealTimers();
+  });
+
+  /** The server answers `status` 5 s after the request is sent. */
+  const answerLater = (status: number) => mockFetch.mockImplementationOnce(async () => {
+    jest.setSystemTime(Date.now() + 5_000);
+    return answer(status);
+  });
+
+  it.each([200, 204, 304])("reports a %s, with the time it was sent", async (status) => {
+    answerLater(status);
+    await requestRaw("/chats", "access", undefined, false);
+    expect(answers).toEqual([1_000_000]);
+  });
+
+  it.each([401, 404, 429, 500, 503])("reports no answer for a %s", async (status) => {
+    answerLater(status);
+    await requestRaw("/chats", "access", undefined, false);
+    expect(answers).toEqual([]);
+  });
+
+  it("reports no answer for a request that got none", async () => {
+    mockFetch.mockRejectedValueOnce(networkError());
+    await expect(requestRaw("/chats", "access")).rejects.toThrow("Network request failed");
+    expect(answers).toEqual([]);
   });
 });
