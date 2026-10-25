@@ -12,7 +12,8 @@
  * - A title longer than the card wraps: a wide title shrank the plot under it to fit beside it.
  * - Tooltips are dropped (the card shows none), and pre-binned bars get their bin end.
  */
-import { isRecord, type JsonRecord } from "@/lib/chartSeriesSpec";
+import { type JsonRecord } from "@/lib/chartSeriesSpec";
+import { isJsonRecord as isRecord } from "@/lib/jsonFence";
 
 const COMPOSITE_KEYS = ["layer", "hconcat", "vconcat", "concat"] as const;
 const BAND_PX = 28;

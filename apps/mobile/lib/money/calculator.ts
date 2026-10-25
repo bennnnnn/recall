@@ -7,6 +7,7 @@
  */
 
 import { compileFormula, evaluateFormula, type Formula } from "@/lib/formula/tree";
+import { isJsonRecord } from "@/lib/jsonFence";
 
 const FORMATS = ["money", "percent", "years", "months", "number"] as const;
 export type ValueFormat = (typeof FORMATS)[number];
@@ -56,10 +57,6 @@ export type Calculator = {
   readouts: CalculatorReadout[];
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function finite(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -76,7 +73,7 @@ function format(value: unknown): ValueFormat | null {
 
 function readMarker(raw: unknown): CalculatorMarker | null | undefined {
   if (raw === undefined || raw === null) return null;
-  if (!isRecord(raw) || !finite(raw.value)) return undefined;
+  if (!isJsonRecord(raw) || !finite(raw.value)) return undefined;
   const labelKey = key(raw.label_key);
   if (!labelKey) return undefined;
   const asOf = typeof raw.as_of === "string" && DAY.test(raw.as_of) ? raw.as_of : null;
@@ -88,7 +85,7 @@ function readMarker(raw: unknown): CalculatorMarker | null | undefined {
 }
 
 function readControl(raw: unknown): CalculatorControl | null {
-  if (!isRecord(raw)) return null;
+  if (!isJsonRecord(raw)) return null;
   const name = typeof raw.name === "string" && NAME.test(raw.name) && raw.name !== "pi" ? raw.name : null;
   const labelKey = key(raw.label_key);
   const kind = format(raw.format);
@@ -111,7 +108,7 @@ function readControl(raw: unknown): CalculatorControl | null {
 }
 
 function readReadout(raw: unknown, names: readonly string[]): CalculatorReadout | null {
-  if (!isRecord(raw)) return null;
+  if (!isJsonRecord(raw)) return null;
   const name = typeof raw.name === "string" && NAME.test(raw.name) ? raw.name : null;
   const labelKey = key(raw.label_key);
   const kind = format(raw.format);
@@ -140,7 +137,7 @@ export function parseCalculatorFence(content: string): Calculator | null {
   } catch {
     return null;
   }
-  if (!isRecord(raw) || raw.v !== 1) return null;
+  if (!isJsonRecord(raw) || raw.v !== 1) return null;
   if (!Array.isArray(raw.controls) || !Array.isArray(raw.readouts)) return null;
   if (raw.controls.length === 0 || raw.controls.length > MAX_CONTROLS) return null;
   if (raw.readouts.length === 0 || raw.readouts.length > MAX_READOUTS) return null;

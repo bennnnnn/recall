@@ -4,7 +4,6 @@
  * Models write it for "line chart of …"; Vega drew it as an empty card.
  */
 import {
-  isRecord,
   pieValuesToVegaLite,
   readPoint,
   seriesMark,
@@ -13,6 +12,7 @@ import {
   type JsonRecord,
   type SeriesValue,
 } from "@/lib/chartSeriesSpec";
+import { isJsonRecord as isRecord } from "@/lib/jsonFence";
 
 const PIE_TYPES = new Set(["pie", "doughnut", "polararea"]);
 
