@@ -38,7 +38,7 @@ function OverdueReminderRow({
       <Text style={[s.sectionLabel, s.sectionLabelUrgent]} accessibilityRole="header">{t("chat.home.overdue")}</Text>
       <View style={s.urgentCardWrap}>
         <Pressable
-          style={[s.urgentCard, s.urgentCardOverdue]}
+          style={s.urgentCard}
           onPress={() => {
             tap();
             // Same target as a due-reminder push: Schedule with the row lit up.
@@ -160,15 +160,15 @@ function makeStyles(t: Theme) {
       flexDirection: "row",
       alignItems: "center",
       gap: Space.sm,
-      // The theme's danger well, as under the to-do editor's same-time note: a 12% danger tint
-      // left the due time at 4.35:1 in light mode.
-      backgroundColor: t.dangerLight,
+      // An 8% danger tint, the card it was in amber: at 12% the due time was 4.35:1 in light
+      // mode, and the theme's dangerLight well is 1.04:1 on the page, an outline, not a card.
+      backgroundColor: withAlpha(t.danger, 0.08),
       borderRadius: Radius.lg,
       paddingHorizontal: Space.md,
       paddingVertical: Space.sm,
       paddingRight: Space.xl + Space.xxs,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: withAlpha(t.danger, 0.28),
+      borderColor: t.danger,
     },
     urgentDismiss: {
       position: "absolute",
@@ -190,9 +190,6 @@ function makeStyles(t: Theme) {
       justifyContent: "center",
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
-    },
-    urgentCardOverdue: {
-      borderColor: t.danger,
     },
     urgentMain: { flex: 1, gap: 2 },
     urgentTitle: { ...Type.navTitle, color: t.text },
