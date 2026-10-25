@@ -1106,39 +1106,5 @@
     ],
     "reply": "Friday at 9 gives you four days. Want a study plan for each one?",
     "expect": "answer"
-  },
-  {
-    "id": "ht-110",
-    "area": "todo",
-    "prompt": "yes",
-    "history": [
-      [
-        "user",
-        "i have a dentist appointment on thursday at 3pm, i always forget these things"
-      ],
-      [
-        "assistant",
-        "Got it! Do you want me to set a reminder for you?"
-      ]
-    ],
-    "reply": "I'll set a reminder for you now so you don't forget! 🗓️",
-    "expect": "save"
-  },
-  {
-    "id": "ht-111",
-    "area": "lookalike",
-    "prompt": "yes",
-    "history": [
-      [
-        "user",
-        "how do i add a reminder field to my signup form?"
-      ],
-      [
-        "assistant",
-        "Use a checkbox bound to state. Should I add a reminder field to the form component?"
-      ]
-    ],
-    "reply": "I've added a reminder field:\n\n```tsx\n<input type=\"checkbox\" name=\"reminder\" />\n```",
-    "expect": "answer"
   }
 ]

@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.todos import proposals, write_log
 from app.modules.todos.actions import MAX_TODO_ACTIONS_PER_TURN
 from app.modules.todos.card_retime import retime_untapped_card
-from app.modules.todos.offer_reply import accepted_reminder_offer, offered_add
+from app.modules.todos.offer_reply import accepted_reminder_offer
 from app.modules.todos.read_asks import asks_to_read_reminders
 from app.modules.todos.recurrence import next_recurring_due
 from app.modules.todos.reminder_fence_parse import (
@@ -142,11 +142,10 @@ class _Turn:
 
     @property
     def said(self) -> str | None:
-        """What the user agreed to: their words, the offer they said yes to, and their line
-        before it ("i have a dentist appointment on thursday at 3pm")."""
+        """What the user agreed to: their words, and the offer they said yes to."""
         if self.offer is None:
             return self.user_text
-        return " ".join(part for part in (self.user_text, self.offer, self.prior_user) if part)
+        return f"{self.user_text or ''} {self.offer}".strip()
 
     def writes(self) -> ReminderWrites:
         return ReminderWrites(
@@ -250,10 +249,6 @@ async def _match_user_words(turn: _Turn, spans: _Spans) -> tuple[str, int] | Non
     answered = await _match_clock_reply(turn)
     if answered is not None:
         return answered
-    # "Yes" to "Want me to set a reminder?" with no fence: the reminder the offer named.
-    offered = offered_add(turn.offer, turn.prior_user, turn.user_timezone) if turn.offer else None
-    if offered is not None and not spans:
-        return await _save_spoken_adds(replace(turn, assistant_text=""), [], [offered])
     return await _match_spoken_add(turn, spans)
 
 
