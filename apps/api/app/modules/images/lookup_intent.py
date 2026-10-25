@@ -161,15 +161,13 @@ def is_reference_subject(subject: str) -> bool:
 # What Recall draws rather than photographs. "can u show me both" after water and carbon
 # dioxide was read as "water and carbon dioxide molecules"; the chemistry card draws those,
 # and a stock photo of a ball-and-stick model is no answer. Only these words count, so a
-# resolved name like "Times Square at night" or "Queen Elizabeth I" is still searched.
+# resolved name like "Times Square at night" or "Queen Elizabeth I" is still searched. A
+# formula the app draws carries a maths mark; the word alone is "Formula 1" or baby formula.
 _DRAWN_WORDS = frozenset(
     {
         "molecule",
         "molecules",
         "molecular",
-        "formula",
-        "formulas",
-        "formulae",
         "equation",
         "equations",
         "graph",
@@ -180,7 +178,7 @@ _MATHS_MARKS = ("=", "^", "\u00d7", "\u00f7", "\\")
 
 
 def names_a_drawing(subject: str) -> bool:
-    """True when *subject* is a molecule, formula, equation or graph: no photo search."""
+    """True when *subject* is a molecule, a written formula, an equation or a graph."""
     if any(mark in subject for mark in _MATHS_MARKS):
         return True
     return any(fold_token(word) in _DRAWN_WORDS for word in subject.split())

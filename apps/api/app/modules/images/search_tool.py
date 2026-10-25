@@ -61,7 +61,7 @@ class ImageSearchAdapter:
             return ToolResult(
                 name=self.name,
                 content=(
-                    "No photo search for molecules, formulas, equations or graphs: Recall "
+                    "No photo search for molecules, written formulas, equations or graphs: Recall "
                     "draws those. Answer in your reply instead."
                 ),
             )

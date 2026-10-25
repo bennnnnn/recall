@@ -122,7 +122,7 @@ def test_is_reference_subject(subject: str, expected: bool) -> None:
         # The app draws these; they are no photo search.
         ("water and carbon dioxide molecules", True),
         ("H2O molecule", True),
-        ("structural formula of caffeine", True),
+        ("caffeine molecular structure", True),
         ("the graph of y = x^2", True),
         ("quadratic equation", True),
         # Resolved names that hit a typed-phrase word ("square", "i", "table") are photos.
@@ -133,6 +133,8 @@ def test_is_reference_subject(subject: str, expected: bool) -> None:
         ("Red Square in Moscow", False),
         ("Manhattan Project scientists", False),
         ("human heart diagram", False),
+        ("Formula 1 car", False),
+        ("Similac infant formula", False),
     ],
 )
 def test_names_a_drawing(subject: str, drawn: bool) -> None:
