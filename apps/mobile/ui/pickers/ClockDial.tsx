@@ -30,7 +30,7 @@ import {
 import { selection } from "@/lib/haptics";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { DYNAMIC_TYPE_PICKER_MAX, Type } from "@/lib/type";
 
 /** Material clock: a 256 face, 48 handle, and labels 24 in from the rim. */
 export const CLOCK_DIAL_SIZE = 256;
@@ -193,7 +193,10 @@ export function ClockDial({
           key={`${label.inner ? "i" : "o"}${label.value}`}
           style={[s.labelBox, { left: point.x - HANDLE / 2, top: point.y - HANDLE / 2 }]}
         >
-          <Text style={[s.label, label.inner && s.labelInner, ink && s.labelInk]}>
+          <Text
+            style={[s.label, label.inner && s.labelInner, ink && s.labelInk]}
+            maxFontSizeMultiplier={DYNAMIC_TYPE_PICKER_MAX}
+          >
             {label.text}
           </Text>
         </View>
