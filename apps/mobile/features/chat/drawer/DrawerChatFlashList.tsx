@@ -249,7 +249,7 @@ export function DrawerChatFlashList({
           onLongPress={onShowRowMenu}
           selectionMode={selectionMode}
           selected={selectedIds?.has(item.chat.id) ?? false}
-          onToggleSelect={onToggleSelect}
+          onToggleSelect={selectionMode ? onToggleSelect : undefined}
         />
       );
     },

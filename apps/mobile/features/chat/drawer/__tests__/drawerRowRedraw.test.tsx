@@ -1,8 +1,8 @@
 /**
- * Typing in the drawer's search redraws none of the chat rows under it: each
- * keystroke starts a new search, and FlashList redraws a cell only when its item,
- * renderItem or extraData changes. Every keystroke used to change renderItem (the
- * new search's result handlers) and the list's items (a new empty result list).
+ * What redraws the drawer's chat rows. FlashList redraws a cell only when its item,
+ * renderItem or extraData changes, and a memoized row only when one of its props does.
+ * Typing in the search redraws none of them: every keystroke used to change renderItem
+ * (the new search's result handlers) and the list's items (a new empty result list).
  */
 import { act, fireEvent, render } from "@testing-library/react-native";
 
@@ -58,4 +58,17 @@ it("keeps every chat row's item and the renderItem while the search is typed", a
   expect(after.extraData).toBe(before.extraData);
   expect(after.data).toHaveLength(before.data.length);
   after.data.forEach((item, index) => expect(item).toBe(before.data[index]));
+});
+
+// The select handler is renewed with each selection and each drawer open; a row only
+// calls it while selecting. Handing it to rows outside selection redrew every row a
+// second time on each open and close (15 rows -> 30 renders per open, 1,000 chats).
+it("hands rows the select handler only while selecting", async () => {
+  await render(<ConversationList />);
+  const { data, renderItem } = mockLists.at(-1)!;
+  const row = data.find((item) => item.type === "row")!;
+  const element = (renderItem as (info: { item: DrawerChatListItem }) => { props: Record<string, unknown> })({ item: row });
+  expect(element.props.selectionMode).toBe(false);
+  expect(element.props.onToggleSelect).toBeUndefined();
+  expect(element.props.onOpen).toEqual(expect.any(Function));
 });
