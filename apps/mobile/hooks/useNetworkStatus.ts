@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AppStateStatus } from "react-native";
+import { AppState, type AppStateStatus } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 
+import { onConnectionFailure } from "@/lib/api/connectionFailures";
 import { onAppStateChange } from "@/lib/foregroundRefresh";
 import { isNetworkOffline } from "@/lib/networkStatus";
 import { reportDisconnected, reportReconnected } from "@/lib/reconnectRefresh";
@@ -14,6 +15,8 @@ import {
 const FIRST_RETRY_MS = 1_500;
 const MAX_RETRY_MS = 60_000;
 const RETRY_JITTER = 0.2;
+/** After a check failed requests asked for found the API answering, the next waits this long. */
+const FAILURE_CHECK_QUIET_MS = MAX_RETRY_MS;
 
 /**
  * The wait before degraded probe `attempt` (from 0): 1.5 s doubling to a minute, ±20%.
@@ -42,8 +45,9 @@ export function useNetworkStatus(): {
 } {
   const [status, setStatus] = useState<ConnectivityStatus>("online");
   // The degraded-state loop is for the banner on screen; it pauses in the
-  // background and the return to "active" probes straight away.
-  const [inBackground, setInBackground] = useState(false);
+  // background and the return to "active" probes straight away. A launch in the
+  // background (a push, a background task) starts there.
+  const [inBackground, setInBackground] = useState(() => AppState.currentState === "background");
   // A link change or a return to the app starts the backoff over.
   const [retryEpoch, setRetryEpoch] = useState(0);
   // Bump to ignore in-flight probes after unmount or a newer event.
@@ -61,6 +65,13 @@ export function useNetworkStatus(): {
     }
     return inFlight.current;
   }, []);
+  const runProbe = useCallback((fresh: boolean) => {
+    const gen = ++probeGen.current;
+    void probe(fresh).then((next) => {
+      if (gen !== probeGen.current) return;
+      setStatus(next);
+    });
+  }, [probe]);
 
   useEffect(() => {
     configureNetInfo();
@@ -70,14 +81,6 @@ export function useNetworkStatus(): {
     // to "reachable" just after launch is not.
     let lastLink: string | null = null;
     let lastOffline: boolean | null = null;
-
-    const runProbe = (fresh: boolean) => {
-      const gen = ++probeGen.current;
-      void probe(fresh).then((next) => {
-        if (gen !== probeGen.current) return;
-        setStatus(next);
-      });
-    };
 
     const onNetInfo = (state: NetInfoState) => {
       const offline = isNetworkOffline(state);
@@ -116,7 +119,7 @@ export function useNetworkStatus(): {
       unsubscribe();
       stopAppState();
     };
-  }, [probe]);
+  }, [runProbe]);
 
   // While degraded, keep probing so a reconnect clears the banner even when NetInfo
   // never emits an "online" event, backing off between probes.
@@ -140,6 +143,31 @@ export function useNetworkStatus(): {
       clearTimeout(timer);
     };
   }, [degraded, inBackground, retryEpoch, probe]);
+
+  // A request that found no API (lib/api/connectionFailures.ts) asks for a check: an outage
+  // that began with the app open showed no banner until a network change or a return, and the
+  // list on screen was not read again when it ended. A burst of failures waits for one check,
+  // the loop's first wait later. A check that finds the API answering (a dependency down behind
+  // it) holds the next off for a minute; one that finds an outage hands over to the loop, and
+  // once the banner clears the next failure is a new outage. In the background nothing checks.
+  const quietUntil = useRef(0);
+  useEffect(() => {
+    if (degraded) quietUntil.current = 0;
+    if (degraded || inBackground) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const stopFailures = onConnectionFailure(() => {
+      if (timer || Date.now() < quietUntil.current) return;
+      timer = setTimeout(() => {
+        timer = null;
+        quietUntil.current = Date.now() + FAILURE_CHECK_QUIET_MS;
+        runProbe(false);
+      }, retryDelayMs(0));
+    });
+    return () => {
+      stopFailures();
+      if (timer) clearTimeout(timer);
+    };
+  }, [degraded, inBackground, runProbe]);
 
   // The API answering again: the list on screen is read again (lib/reconnectRefresh.ts). Back
   // while the app is in the background, the return reads what every return does.

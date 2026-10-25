@@ -38,8 +38,10 @@ product-free code goes to `lib/<domain>/`; a reusable control goes to `ui/` (cat
 
 1. Add a method to the feature slice, on the shared client:
    `request<T>(path, token, init)` from `lib/api/client.ts` (the bearer token, token refresh,
-   timeouts, the account fence and 401/403 handling live there; `requestRaw` and
-   `requestSse` for bodies and streams). No raw `fetch` to our API anywhere else.
+   timeouts, the account fence and 401/403 handling live there, and a request that finds no
+   API, no answer or a 502/503/504, asks the connection check to look
+   (`lib/api/connectionFailures.ts`); `requestRaw` and `requestSse` for bodies and streams).
+   No raw `fetch` to our API anywhere else.
 2. A new slice is spread into `api` in the `lib/api.ts` barrel. Screens and hooks call
    `api.<method>`; tests mock `@/lib/api`.
 3. Response types go in the feature's `types.ts`, or `lib/api/types.ts` when several
