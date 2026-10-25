@@ -37,10 +37,11 @@ WEB_SEARCH_HINT = (
     "user's latest message, or as the web_search tool's result. "
     "When either is present, ground your answer in those results "
     "(scores, dates, headlines, facts). If none of them answers the question, say so "
-    'plainly ("The results I found don\'t cover that") instead of stretching an '
+    'plainly ("I couldn\'t find a source that covers that") instead of stretching an '
     "off-topic result or filling in from memory. "
-    'Say where a retrieved fact comes from ("According to Reuters, ...") and keep your '
-    "own explanation or background apart from what the results say. "
+    'Say where a retrieved fact comes from by naming the source ("According to Reuters, '
+    '...", or its [n] marker), never "the search results" or "the results"; keep your '
+    "own explanation or background apart from what the sources say. "
     "Never say search failed or that you cannot browse when results were provided. "
     "For today/current/latest news, use the current local date in the time context and only "
     "call an event today's when a result explicitly supports that date. Older, future, or "
@@ -127,8 +128,9 @@ def format_search_block(
     else:
         lines.append(
             "Required: answer the user's question from the results above, saying which "
-            "site a fact comes from. If none of them answers it, say the results don't "
-            "cover it — do not fill the gap from memory or stretch an unrelated result. "
+            "site a fact comes from. If none of them answers it, say you couldn't find a "
+            "source that covers it — do not fill the gap from memory or stretch an unrelated "
+            "result. "
             "If they named a team or country, only use snippets about that entity — never "
             "attribute generic tournament results to them unless they appear in the snippet. "
             "If snippets show they did not qualify for a tournament, say so. "

@@ -62,8 +62,28 @@ describe("readPhoneClock", () => {
 
   it("takes the zone from the engine, the one local Date fields use", () => {
     const { deviceTimeZone, readPhoneClock } = load(localization(true));
-    expect(readPhoneClock().timeZone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    const engine = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    // Run with TZ="" the engine knows no zone: the case below.
+    expect(readPhoneClock().timeZone).toBe(engine === "Etc/Unknown" ? undefined : engine);
     expect(deviceTimeZone()).toBe(readPhoneClock().timeZone);
+  });
+
+  it("has no zone when the engine could not find one out: no formatter takes Etc/Unknown", () => {
+    const resolved = Intl.DateTimeFormat.prototype.resolvedOptions;
+    const spy = jest.spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions").mockImplementation(function (
+      this: Intl.DateTimeFormat,
+    ) {
+      return { ...resolved.call(this), timeZone: "Etc/Unknown" };
+    });
+    try {
+      const { deviceTimeZone, readPhoneClock } = load(localization(true));
+      expect(deviceTimeZone()).toBeUndefined();
+      const zone = readPhoneClock().timeZone;
+      expect(zone).toBeUndefined();
+      expect(() => new Intl.DateTimeFormat("en", { timeZone: zone }).format(new Date(0))).not.toThrow();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 

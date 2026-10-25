@@ -625,7 +625,14 @@
     {"text": "make a decision about whether to move to another city", "generate": null, "revise": null, "lookup": null},
     {"text": "make a choice between two jobs", "generate": null, "revise": "black cat, make a choice between two jobs", "lookup": null},
     {"text": "make friends at a new school", "generate": null, "revise": "black cat, make friends at a new school", "lookup": null},
-    {"text": "U can't create an image", "generate": null, "revise": "black cat, U can't create an image", "lookup": null}
+    {"text": "U can't create an image", "generate": null, "revise": "black cat, U can't create an image", "lookup": null},
+    {"text": "do you have a picture of him?", "generate": null, "revise": null, "lookup": "him"},
+    {"text": "you got a photo of a gelada?", "generate": null, "revise": null, "lookup": "gelada"},
+    {"text": "is there a picture of her?", "generate": null, "revise": null, "lookup": "her"},
+    {"text": "is there a photo of Mozart?", "generate": null, "revise": null, "lookup": null},
+    {"text": "got a picture of the northern lights last night!", "generate": null, "revise": null, "lookup": null},
+    {"text": "do you have a picture of me?", "generate": null, "revise": null, "lookup": null},
+    {"text": "do you have a photo editing app you like?", "generate": null, "revise": null, "lookup": null}
   ],
   "threads": [
     {"text": "Image", "priors": ["Dog"], "generate": "Dog"},

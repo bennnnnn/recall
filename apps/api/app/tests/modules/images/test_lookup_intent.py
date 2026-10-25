@@ -24,6 +24,15 @@ from app.modules.images.lookup_intent import extract_image_lookup_query
         ("what do octopuses look like", "octopuses"),
         # A feature word about something to see is still a photo.
         ("show me the roots of a mangrove tree", "roots of a mangrove tree"),
+        # A photo asked for as a question (2026-10-24: "do you have a picture of him?"
+        # after "who was Charles?" got "search online").
+        ("do you have a picture of him?", "him"),
+        ("do you have a photo of Jacques Charles?", "Jacques Charles"),
+        ("you got a photo of a gelada?", "gelada"),
+        ("have you got any pics of the Titanic wreck?", "Titanic wreck"),
+        # Whether one exists is the answer's to say; only someone named earlier is looked up.
+        ("is there a picture of her?", "her"),
+        ("any pics of them?", "them"),
     ],
 )
 def test_extracts_lookup_subject(text: str, expected: str) -> None:
@@ -35,6 +44,25 @@ def test_extracts_lookup_subject(text: str, expected: str) -> None:
     [
         "show me my todos",
         "show me the code",
+        # The question form needs "picture of" and a subject that is no one's own.
+        "do you have a photo editing app you like?",
+        "is there a picture limit for uploads?",
+        "do you have a picture of your family?",
+        "do you have a picture of my receipt?",
+        "do you have pictures?",
+        "any photos?",
+        "is there a picture of how to tie a tie?",
+        "are there pictures of Muhammad allowed in Islam?",
+        "is there a photo of Mozart?",
+        "any photo of a person counts as personal data under GDPR?",
+        # News, not a request.
+        "got a picture of the northern lights last night!",
+        # The user, Recall, the user's own files, code.
+        "do you have a picture of me?",
+        "is there a picture of you?",
+        "do you have a photo of the receipt I uploaded?",
+        "show me a photo of me",
+        "do you have an image of the error?",
         "show me an example",
         "show me how to solve this",
         "show me a summary of this chapter",

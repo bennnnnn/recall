@@ -94,7 +94,9 @@ NO_SEARCH_AREAS = {
 }  # fmt: skip
 # Asks nothing to look up ("great job today", "teach me something today", "give me
 # sample CSV data"): not even a model round that may choose to search.
-NO_SEARCH_ROUND_AREAS = {"statement", "made data"}
+# Works on the chat itself ("Yes" to "Does that make sense?", "give me a practice problem",
+# "summarize what we covered"): a search wrapped these in unrelated pages.
+NO_SEARCH_ROUND_AREAS = {"statement", "made data", "chat bound"}
 # Turns that answer the clarify card before them: they never ask again.
 AFTER_CARD_AREAS = {"clarify answer"}
 STEM_AREAS = {"math", "physics", "chemistry"}

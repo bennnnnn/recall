@@ -16,6 +16,7 @@ from app.modules.chat import (
     prior_looks_like_offer,
 )
 from app.modules.web_search.asks_nothing import asks_nothing_to_look_up
+from app.modules.web_search.chat_bound import answers_a_check, works_from_the_chat
 from app.modules.web_search.command import search_command
 from app.modules.web_search.geo_intent import is_geo_query, is_short_letter_answer
 from app.modules.web_search.live_asks import (
@@ -115,6 +116,13 @@ def web_search_skip(
     confirming = is_short_confirmation(cleaned) and follow_up
     # Only a yes to an offer may search; "no" / "got it" never do, question or not.
     if not confirming and is_lightweight_chat_turn(cleaned):
+        return True
+    # A yes to "Does that make sense?", "give me a practice problem", "summarize what we
+    # covered": the chat answers it, and a search wrapped such replies in pages they had
+    # nothing to do with ("Yes" searched the band Yes). A live ask beside one still searches.
+    if (
+        answers_a_check(cleaned, prior_assistant) or works_from_the_chat(cleaned)
+    ) and not web_search_fast_yes(cleaned, prior_user_messages=prior_user_messages):
         return True
     if is_short_letter_answer(cleaned):
         return True

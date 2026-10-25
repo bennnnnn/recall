@@ -211,5 +211,61 @@
     "prompt": "make friends at a new school",
     "reply": "Join a club or team, sit with the same people at lunch for a week, and ask questions about them.",
     "expect": "answer"
+  },
+  {
+    "id": "media-030",
+    "area": "chitchat",
+    "prompt": "do you have a photo editing app you like?",
+    "reply": "For quick edits on a phone, Snapseed is free and does most of what you need; Lightroom Mobile is better for batches of photos.",
+    "expect": "answer"
+  },
+  {
+    "id": "media-031",
+    "area": "chitchat",
+    "prompt": "is there a picture limit for uploads?",
+    "reply": "You can attach several photos to one message; very large files are shrunk before they upload.",
+    "expect": "answer"
+  },
+  {
+    "id": "media-032",
+    "area": "chitchat",
+    "prompt": "do you have a picture of your family?",
+    "reply": "I don't have a family or photos of my own, but I'm happy to help with yours.",
+    "expect": "answer"
+  },
+  {
+    "id": "media-033",
+    "area": "chitchat",
+    "prompt": "do you have pictures?",
+    "reply": "I can look up real photos of things and places, or make a picture for you. What would you like to see?",
+    "expect": "answer"
+  },
+  {
+    "id": "media-034",
+    "area": "chitchat",
+    "prompt": "are there pictures of Muhammad allowed in Islam?",
+    "reply": "Most Sunni scholars forbid images of the Prophet; some Shia and historical Persian traditions allowed them, often with the face veiled.",
+    "expect": "answer"
+  },
+  {
+    "id": "media-035",
+    "area": "chitchat",
+    "prompt": "is there a photo of Mozart?",
+    "reply": "No: Mozart died in 1791, decades before photography. Every image of him is a painting or drawing.",
+    "expect": "answer"
+  },
+  {
+    "id": "media-036",
+    "area": "chitchat",
+    "prompt": "got a picture of the northern lights last night!",
+    "reply": "That's amazing! Where were you? Green, or did you catch some pink too?",
+    "expect": "answer"
+  },
+  {
+    "id": "media-037",
+    "area": "chitchat",
+    "prompt": "do you have a photo of the receipt I uploaded?",
+    "reply": "It's in your Gallery under today's uploads.",
+    "expect": "answer"
   }
 ]

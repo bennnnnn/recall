@@ -43,10 +43,14 @@ function loadLocalization(): LocalizationModule | null {
   return localization;
 }
 
+/** ICU's name for a zone it could not find out; no formatter accepts it (RangeError). */
+const UNKNOWN_ZONE = "Etc/Unknown";
+
 /** The device's IANA zone ("America/New_York"), or undefined when the engine cannot name it. */
 export function deviceTimeZone(): string | undefined {
   try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return zone && zone !== UNKNOWN_ZONE ? zone : undefined;
   } catch {
     return undefined;
   }
