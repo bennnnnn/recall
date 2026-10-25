@@ -184,7 +184,7 @@ def _instruct_patches(*, spend_capped=False, allowed=True, outcome=None, error=N
             AsyncMock(return_value=spend_capped),
         ),
         patch(
-            "app.modules.memory.api.allow_request_fail_closed",
+            "app.modules.memory.api.allow_request_unless_down",
             AsyncMock(return_value=allowed),
         ),
         patch("app.modules.memory.api.instruct_service.apply_memory_instruction", apply),

@@ -25,7 +25,7 @@ from app.core import access_tokens, chat_rate_limit, shutdown, user_cache
 from app.core.client_ip import client_ip
 from app.core.config import Settings, get_settings
 from app.core.log_context import bound_log_ids
-from app.core.rate_limit import allow_request_fail_closed
+from app.core.rate_limit import allow_request_unless_down
 from app.core.redis import get_redis_client
 from app.exceptions import AuthenticationError, RedisUnavailableError
 from app.models.orm import User
@@ -38,6 +38,7 @@ from app.modules.chat.stream_events import (
     build_pong_event,
     build_reasoning_event,
     build_status_event,
+    error_payload_for_exception,
     turn_error_payload,
 )
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
@@ -60,6 +61,8 @@ router = APIRouter(tags=["websocket"])
 _WS_MSG_WINDOW_SECONDS = 60
 _WS_CONNECT_RATE_LIMIT = 30
 _WS_HANDSHAKE_RATE_LIMIT = 60  # unauthenticated connects per IP per minute
+# Try Again Later: Redis is down. The client backs off; it is no auth failure.
+_WS_TRY_AGAIN_LATER_CLOSE_CODE = 1013
 
 
 async def _ws_rate_limit(redis: Redis, user_id: UUID) -> bool:
@@ -67,9 +70,19 @@ async def _ws_rate_limit(redis: Redis, user_id: UUID) -> bool:
     return await chat_rate_limit.allow_chat_message(redis, user_id)
 
 
+async def _close_while_down(websocket: WebSocket, frame: dict[str, Any]) -> None:
+    """Redis is down: send ``frame`` (code ``unavailable``), then close 1013 Try Again Later.
+
+    The socket's 503. A limit that could not count said "Too many requests" (a limit's
+    words) or refused the handshake (1008), and the outage looked like the user's doing.
+    """
+    await safe_send_json(websocket, frame)
+    await close_quietly(websocket, _WS_TRY_AGAIN_LATER_CLOSE_CODE)
+
+
 async def _ws_connect_rate_limit(redis: Redis, user_id: UUID) -> bool:
     """Limit new WebSocket handshakes per user (separate from per-message limits)."""
-    return await allow_request_fail_closed(
+    return await allow_request_unless_down(
         redis,
         f"rate:ws:connect:{user_id}",
         limit=_WS_CONNECT_RATE_LIMIT,
@@ -86,7 +99,7 @@ async def _ws_handshake_rate_limit(redis: Redis, websocket: WebSocket) -> bool:
     """
     settings = get_settings()
     ip = client_ip(websocket, settings)
-    return await allow_request_fail_closed(
+    return await allow_request_unless_down(
         redis,
         f"rate:ws:handshake:{ip}",
         limit=_WS_HANDSHAKE_RATE_LIMIT,
@@ -296,12 +309,7 @@ async def _authenticate(
         await websocket.close()
         return None
     except RedisUnavailableError as exc:
-        await safe_send_json(
-            websocket,
-            {"type": "error", "code": "unavailable", "message": exc.message},
-        )
-        # 1013 Try Again Later — client should back off, not treat as auth failure.
-        await websocket.close(code=1013)
+        await _close_while_down(websocket, error_payload_for_exception(exc))
         return None
     except (AuthenticationError, json.JSONDecodeError, KeyError, TypeError, AttributeError):
         await safe_send_json(websocket, {"type": "error", "message": "Unauthorized"})
@@ -317,8 +325,16 @@ async def chat_websocket(
 ) -> None:
     settings = get_settings()
     redis = get_redis_client()
-    # Fail closed via allow_request_fail_closed — Redis outage denies connect.
-    if not await _ws_handshake_rate_limit(redis, websocket):
+    # Fail closed: a Redis outage refuses the connect, saying so.
+    try:
+        handshake_allowed = await _ws_handshake_rate_limit(redis, websocket)
+    except RedisUnavailableError as exc:
+        # Accepted only to say why: a handshake refused before accept reaches the
+        # client as a bare failure, with no frame and no close code.
+        await websocket.accept()
+        await _close_while_down(websocket, error_payload_for_exception(exc))
+        return
+    if not handshake_allowed:
         await websocket.close(code=1008)
         return
 
@@ -328,7 +344,11 @@ async def chat_websocket(
         return
     user_id, token, client_timezone = auth
 
-    allowed = await _ws_connect_rate_limit(redis, user_id)
+    try:
+        allowed = await _ws_connect_rate_limit(redis, user_id)
+    except RedisUnavailableError as exc:
+        await _close_while_down(websocket, error_payload_for_exception(exc))
+        return
     if not allowed:
         await websocket.send_json(
             {"type": "error", "message": "Too many requests. Try again shortly."},
@@ -440,18 +460,16 @@ async def _dispatch(conn: _ChatSocket, payload: dict[str, Any]) -> bool:
     # The same read says whether this process's copy of the user is current.
     try:
         access = await access_tokens.check_access(conn.redis, conn.token, conn.settings)
+        allowed = await _ws_rate_limit(conn.redis, conn.user_id)
     except RedisUnavailableError as exc:
-        await safe_send_json(
-            websocket,
-            {"type": "error", "code": "unavailable", "message": exc.message},
-        )
-        await websocket.close(code=1013)
+        # The frame was not taken: the phone offers it again (Retry) once Redis is back.
+        await _close_while_down(websocket, turn_error_payload(exc, user_message_saved=False))
         return False
     except AuthenticationError:
         await safe_send_json(websocket, {"type": "error", "message": "Unauthorized"})
         await websocket.close(code=1008)
         return False
-    if not await _ws_rate_limit(conn.redis, conn.user_id):
+    if not allowed:
         await websocket.send_json(
             turn_error_payload(
                 None, user_message_saved=False, message="Too many requests. Try again shortly."

@@ -15,7 +15,7 @@ from fastapi import status
 from redis.asyncio import Redis
 
 from app.core.config import Settings
-from app.core.rate_limit import allow_request_fail_closed
+from app.core.rate_limit import allow_request_unless_down
 from app.exceptions import DomainError
 from app.models.orm import User
 from app.modules.billing import can_use
@@ -52,12 +52,14 @@ async def require_voice_spend_ok(redis: Redis, settings: Settings) -> None:
 async def require_speech_rate(redis: Redis, settings: Settings, key: str, message: str) -> None:
     """At most ``speech_rate_limit_per_minute`` requests a minute under *key* (0 is off).
 
-    A Redis error denies the request (fail closed).
+    A Redis error denies the request (fail closed) with ``RedisUnavailableError``: 503
+    unavailable, never ``speech_rate_limited``, which live talk words as the month's
+    minutes used up.
     """
     rate_limit = settings.speech_rate_limit_per_minute
     if rate_limit <= 0:
         return
-    allowed = await allow_request_fail_closed(
+    allowed = await allow_request_unless_down(
         redis, key, limit=rate_limit, window_seconds=_RATE_WINDOW_SECONDS
     )
     if not allowed:

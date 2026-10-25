@@ -14,7 +14,7 @@ from app.core.config import Settings
 from app.core.consent import get_consented_user
 from app.core.db import SessionLocal
 from app.core.deps import get_current_user, get_settings_dep
-from app.core.rate_limit import allow_request_fail_closed
+from app.core.rate_limit import allow_request_unless_down
 from app.core.redis import get_redis_client
 from app.gateways import openai_speech_gateway
 from app.models.orm import User
@@ -216,7 +216,7 @@ async def end_realtime_session(
 
 async def _take_persist_slot_or_raise(redis: Redis, user: User, call_id: str) -> None:
     """Bound the rows and jobs a session can write: the phone posts the turns."""
-    if not await allow_request_fail_closed(
+    if not await allow_request_unless_down(
         redis,
         f"live_persist_rl:{user.id}",
         limit=quota_service.LIVE_TALK_SAVES_PER_MINUTE,
@@ -327,7 +327,7 @@ async def execute_realtime_tool(
         bound_chat = bound_chat.decode()
     if bound_chat != str(body.chat_id):
         raise SpeechRefusedError("Realtime session is not active for this chat", status_code=403)
-    if not await allow_request_fail_closed(
+    if not await allow_request_unless_down(
         redis, f"live_tools:{user.id}", limit=20, window_seconds=60
     ):
         raise SpeechRefusedError("Voice lookups are temporarily rate limited", status_code=429)

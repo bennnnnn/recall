@@ -8,7 +8,7 @@ from app.core.consent import get_consented_user
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.etag import conditional_json
-from app.core.rate_limit import allow_request_fail_closed
+from app.core.rate_limit import allow_request_unless_down
 from app.core.redis import get_redis_client
 from app.exceptions import DomainError
 from app.models.orm import Memory, User
@@ -115,7 +115,7 @@ async def instruct_memory(
             "Memory editing is paused right now — try again later.",
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
-    if not await allow_request_fail_closed(
+    if not await allow_request_unless_down(
         redis, f"memory_instruct:{user.id}", limit=_INSTRUCT_PER_HOUR, window_seconds=3600
     ):
         raise DomainError(

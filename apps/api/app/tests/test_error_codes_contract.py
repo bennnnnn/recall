@@ -73,7 +73,7 @@ def _scan(body: dict[str, Any], *, settings: Settings | None = None, **redis: bo
         ),
         patch("app.services.scan_read.quota_service.record_global_spend", AsyncMock()),
         patch(
-            "app.services.scan_read.allow_request_fail_closed",
+            "app.services.scan_read.allow_request_unless_down",
             AsyncMock(return_value=redis.get("allowed", True)),
         ),
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
@@ -114,7 +114,7 @@ def _transcribe(*, at_daily_cap: bool = False, allowed: bool = True) -> Any:
     with (
         patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.speech.gates.allow_request_fail_closed",
+            "app.modules.speech.gates.allow_request_unless_down",
             AsyncMock(return_value=allowed),
         ),
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
