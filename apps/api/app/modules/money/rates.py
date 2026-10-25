@@ -5,8 +5,8 @@ structured read of its top results give a rate, the date it describes and the pa
 states it. The reading is used only when the rate is plausible for the product, the date
 is recent (both set on the catalog row) and the page is one the search returned; anything
 else is no average, and the reply then gives no market note and no marker. One answer
-serves every turn for the same product, term and country for ``money_rate_cache_seconds``.
-Nothing here raises into the turn.
+serves every turn for the same product (or kind of it: a used car), term and country for
+``money_rate_cache_seconds``. Nothing here raises into the turn.
 """
 
 from __future__ import annotations
@@ -81,18 +81,21 @@ async def current_average(
     *,
     user: User | None = None,
     today: date | None = None,
+    variant: str = "",
 ) -> MarketRate | None:
-    """Today's checked average for ``product`` at ``term`` in ``country``, or None.
+    """Today's checked average for ``product`` (its ``variant`` kind) at ``term`` in
+    ``country``, or None.
 
     A miss spends one of ``user``'s daily searches (no user: the free provider only);
     the answer then serves everyone asking the same thing until it expires.
     """
-    lookup = product.lookup
+    lookup = product.rate_lookup(variant)
     if lookup is None:
         return None
     bucket = lookup.term_bucket(term)
     term_key = f"{bucket:g}" if bucket is not None else "-"
-    key = f"{_CACHE_PREFIX}{product.key}:{term_key}:{country.lower()}"
+    kind = product.key if lookup is product.lookup else f"{product.key}-{variant}"
+    key = f"{_CACHE_PREFIX}{kind}:{term_key}:{country.lower()}"
     day = today or datetime.now(UTC).date()
     cached = await _cached(redis, key)
     if cached is not None and _fresh(cached.as_of, lookup, day):

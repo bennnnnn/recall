@@ -1052,7 +1052,8 @@ The dedicated language-learning product (vocabulary classes, lesson maps, SM-2 p
 ## 18. Money (loans, cards, savings)
 
 - "What is my mortgage for 300k at 1%?", a car payment, a card payoff, a savings goal: the server reads the numbers, works them from the catalog's formulas (`modules/money/`) and the model writes the words around them.
-- Today's average rate comes from one web search read into a checked structured answer (plausible for the product, recent, from a page the search returned), cached per product, term and country. The server's note compares the user's rate with it ("1% is not a realistic 30-year fixed mortgage rate…"), with its date and a source link; no checked average, no note.
+- A what-if right after a money reply ("what if i only do 3 years instead", "what if I put 5000 down?") is the last request with that change, worked by the server with a new card; a what-if about something else ("3 sets instead" after a workout) is not.
+- Today's average rate comes from one web search read into a checked structured answer (plausible for the product, recent, from a page the search returned), cached per product (a used car apart from a new one), term and country. The server's note compares the user's rate with it ("1% is not a realistic 30-year fixed mortgage rate…"), with its date and a source link; no checked average, no note.
 - A `calculator` card under the reply has sliders for the inputs and live readouts; the phone evaluates the server's formula tree and never solves. Design and contract: `docs/money.md`.
 
 ## Deferred to upcoming version(s)

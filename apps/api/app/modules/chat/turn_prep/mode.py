@@ -130,7 +130,7 @@ def _turn_needs_rich_context(
     return False
 
 
-def _prior_user_texts(recent: Sequence[Any], content: str) -> list[str]:
+def prior_user_texts(recent: Sequence[Any], content: str) -> list[str]:
     """User lines among the last eight messages before this turn. The current line may
     already be stored."""
     users = [
@@ -185,7 +185,7 @@ def classify_turn_mode(recent: Sequence[Any], content: str) -> _TurnMode:
     )
     profile_followup = False
     if is_profile_recall_pushback(content):
-        prior_users = _prior_user_texts(recent, content)
+        prior_users = prior_user_texts(recent, content)
         profile_followup = profile_question_to_answer(content, prior_users) is not None
     rich_context = after_card or _turn_needs_rich_context(
         content,

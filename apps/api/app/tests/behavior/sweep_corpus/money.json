@@ -142,5 +142,207 @@
   "history": [],
   "reply": "About $30,200: $24,000 deposited and about $6,200 in interest.",
   "expect": "answer"
+ },
+ {
+  "id": "mo-019",
+  "area": "money",
+  "prompt": "i'm thinking of buying a used car for 14000, i can put 3000 down. what would my monthly payment be over 5 years?",
+  "history": [],
+  "reply": "For an $11,000 used car loan over 60 months at today's average rate, the payment is about $218.64 a month, with about $2,118.67 in interest.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-020",
+  "area": "money",
+  "prompt": "hmm what if i only do 3 years instead",
+  "history": [
+   [
+    "user",
+    "i'm thinking of buying a used car for 14000, i can put 3000 down. what would my monthly payment be over 5 years?"
+   ],
+   [
+    "assistant",
+    "For an $11,000 used car loan over 60 months at today's average rate, the payment is about $218.64 a month, with about $2,118.67 in interest."
+   ]
+  ],
+  "reply": "Over 36 months the payment is about $340.45 a month, with about $1,256.32 in interest.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-021",
+  "area": "money",
+  "prompt": "what if I put 5000 down?",
+  "history": [
+   [
+    "user",
+    "car loan 14000 with 3000 down at 7.16% for 5 years, what's the monthly payment"
+   ],
+   [
+    "assistant",
+    "About $218.64 a month for 60 months, about $2,118.67 in interest in total."
+   ]
+  ],
+  "reply": "With $5,000 down you borrow $9,000: about $178.89 a month over 60 months.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-022",
+  "area": "money",
+  "prompt": "what if I pay 300 a month instead?",
+  "history": [
+   [
+    "user",
+    "I owe 5000 on my credit card at 22% apr and pay 200 a month, how long to pay off"
+   ],
+   [
+    "assistant",
+    "About 34 months, paying about $1,800 in interest."
+   ]
+  ],
+  "reply": "At $300 a month it is paid off in about 20 months, with about $1,000 in interest.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-023",
+  "area": "money",
+  "prompt": "what about 20 years?",
+  "history": [
+   [
+    "user",
+    "if I save 200 a month at 4.5% for 10 years how much will I have"
+   ],
+   [
+    "assistant",
+    "About $30,200: $24,000 deposited and about $6,200 in interest."
+   ]
+  ],
+  "reply": "After 20 years you would have about $77,600: $48,000 deposited and $29,600 interest.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-024",
+  "area": "money",
+  "prompt": "and with 5000 down?",
+  "history": [
+   [
+    "user",
+    "car loan 14000 with 3000 down at 7.16% for 5 years, what's the monthly payment"
+   ],
+   [
+    "assistant",
+    "About $218.64 a month for 60 months, about $2,118.67 in interest in total."
+   ],
+   [
+    "user",
+    "what if i only do 3 years instead"
+   ],
+   [
+    "assistant",
+    "About $340.45 a month over 36 months."
+   ]
+  ],
+  "reply": "With $5,000 down over 36 months, about $278.55 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-025",
+  "area": "money lookalike",
+  "prompt": "what if i only do 3 sets instead",
+  "history": [
+   [
+    "user",
+    "give me a 4 day workout plan with 4 sets of each exercise"
+   ],
+   [
+    "assistant",
+    "Day 1: squats, lunges and calf raises, 4 sets of 10 each."
+   ]
+  ],
+  "reply": "Three sets still works: keep the weight and rest 90 seconds between sets.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-026",
+  "area": "money lookalike",
+  "prompt": "what if it was 3 years ago",
+  "history": [
+   [
+    "user",
+    "i'm thinking of buying a used car for 14000, i can put 3000 down. what would my monthly payment be over 5 years?"
+   ],
+   [
+    "assistant",
+    "For an $11,000 used car loan over 60 months at today's average rate, the payment is about $218.64 a month, with about $2,118.67 in interest."
+   ]
+  ],
+  "reply": "Three years ago used car rates were lower, so the same loan would have cost less.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-027",
+  "area": "money lookalike",
+  "prompt": "3 years",
+  "history": [
+   [
+    "user",
+    "how long has my cat been with you, she was a stray when I took her in"
+   ],
+   [
+    "assistant",
+    "I don't know yet. How long has she been with you?"
+   ]
+  ],
+  "reply": "Three years is a good while: she has settled in by now.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-028",
+  "area": "money lookalike",
+  "prompt": "what if I keep the car for 10 years",
+  "history": [
+   [
+    "user",
+    "car loan 14000 with 3000 down at 7.16% for 5 years, what's the monthly payment"
+   ],
+   [
+    "assistant",
+    "About $218.64 a month for 60 months, about $2,118.67 in interest in total."
+   ]
+  ],
+  "reply": "Keeping it 10 years spreads the cost: plan for tires, brakes and a timing belt.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-029",
+  "area": "money lookalike",
+  "prompt": "what if i only do 3 years instead",
+  "history": [
+   [
+    "user",
+    "car loan 14000 with 3000 down at 7.16% for 5 years, what's the monthly payment"
+   ],
+   [
+    "assistant",
+    "About $218.64 a month for 60 months, about $2,118.67 in interest in total."
+   ],
+   [
+    "user",
+    "how do I make lasagna?"
+   ],
+   [
+    "assistant",
+    "Layer pasta, ragu and bechamel, then bake for 45 minutes."
+   ]
+  ],
+  "reply": "Three years of what, the lasagna? Tell me what you'd like to change.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-030",
+  "area": "money lookalike",
+  "prompt": "I used a calculator and got $400 a month on my car, is that normal?",
+  "history": [],
+  "reply": "That's close to the average new car payment; it depends on the price and the term.",
+  "expect": "answer"
  }
 ]

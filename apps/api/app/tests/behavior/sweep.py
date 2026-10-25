@@ -136,6 +136,9 @@ LOOKALIKE_HINTS = {
     # "Should I tell my boss I'm pregnant?" asks for advice, not a message to send.
     "draft lookalike": "email",
 }
+# A loan, card or savings ask, or a what-if that changes the one before it ("what if i only
+# do 3 years instead"): the server works its numbers, so the turn carries the money block.
+MONEY_AREAS = {"money"}
 # Reminders already saved, so "mark call mom as done" has something to find.
 SEEDED = ("call mom", "dentist appointment", "gym", "pay rent", "read", "water the plants")
 
@@ -489,6 +492,8 @@ def _judge_expect(outcome: Outcome, expect: str) -> list[str]:
         unwanted = LOOKALIKE_HINTS.get(entry.area)
         if unwanted and unwanted in route.hints:
             problems.append(f"given the {unwanted!r} hint")
+        if entry.area in MONEY_AREAS and "money" not in route.hints:
+            problems.append("numbers not worked by the server (no money block)")
     elif expect == "instant" and not route.instant:
         problems.append("no instant reply")
     elif expect == "photo" and not route.photo:

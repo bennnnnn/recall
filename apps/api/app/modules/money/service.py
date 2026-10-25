@@ -1,7 +1,8 @@
 """A money turn from message to card: read, look up today's average, work, write.
 
-``prepare_money_turn`` runs while the prompt is built. It reads the request and starts
-the average-rate lookup at once. The lookup is awaited before the prompt only when the
+``prepare_money_turn`` runs while the prompt is built. It reads the request (or the
+change a follow-up makes to the chat's last one, ``follow_up``) and starts the
+average-rate lookup at once. The lookup is awaited before the prompt only when the
 numbers need it (the user gave no rate, or asked what rates are); otherwise it runs while
 the reply streams, and ``finish_money_reply`` collects it to write the note and the
 card's marker. A lookup that is late or finds nothing leaves both out; the turn never
@@ -12,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
 from redis.asyncio import Redis
@@ -22,6 +24,7 @@ from app.models.orm import User
 from app.modules.money.block import money_block
 from app.modules.money.currencies import country_for, currency_for
 from app.modules.money.fence import calculator_fence
+from app.modules.money.follow_up import follow_up_request
 from app.modules.money.note import market_note
 from app.modules.money.rates import MarketRate, current_average
 from app.modules.money.read import MoneyRequest, read_money_request
@@ -54,24 +57,33 @@ async def prepare_money_turn(
     *,
     user: User | None,
     location: str | None,
+    earlier: Sequence[str] = (),
 ) -> MoneyTurn | None:
-    """The money turn ``text`` asks for, or None when it is not one."""
+    """The money turn ``text`` asks for, or None when it is not one.
+
+    ``earlier`` is the user's lines before it, oldest first: "what if 3 years instead"
+    is the last request there with its term changed.
+    """
     if not settings.money_enabled:
         return None
-    request = read_money_request(text)
+    request = follow_up_request(text, earlier) or read_money_request(text)
     if request is None:
         return None
     # The card and the prompt use one currency: the one named, else the user's place's.
     request = replace(request, currency=currency_for(request.currency, location))
     product = request.product
-    term = request.values.get("years", request.values.get("months"))
+    term = request.rate_term
+    if term is None:
+        term = request.values.get("years", request.values.get("months"))
     if term is None:
         term = product.defaults.get("years", product.defaults.get("months"))
     lookup = None
-    if product.lookup is not None:
+    if product.rate_lookup(request.variant) is not None:
         country = country_for(request.currency, location)
         lookup = create_background_task(
-            current_average(product, term, country, settings, redis, user=user),
+            current_average(
+                product, term, country, settings, redis, user=user, variant=request.variant
+            ),
             name="money_average",
         )
     average = None

@@ -1,4 +1,4 @@
-"""Which currency a money card is in, and which country a rate search names.
+"""Which currency a request names, its card is in, and which country a rate search names.
 
 A request that names its currency ("$300k", "5000 birr") uses that one. One that names none
 ("I owe 5000 on my card") uses the currency of the user's saved place, and the United States'
@@ -11,6 +11,45 @@ from __future__ import annotations
 import re
 
 _US = "the United States"
+# A currency word after a sum ("5000 birr").
+CURRENCY_WORD = re.compile(
+    r"\s?(dollars?|bucks|usd|euros?|eur|pounds?|gbp|birr|etb|rupees?|inr|naira|ngn|"
+    r"shillings?|kes|yen|jpy|cad|aud)\b",
+    re.I,
+)
+# A sign or word in a request -> its ISO code.
+_CURRENCIES = {
+    "$": "USD",
+    "dollar": "USD",
+    "dollars": "USD",
+    "bucks": "USD",
+    "usd": "USD",
+    "€": "EUR",
+    "euro": "EUR",
+    "euros": "EUR",
+    "eur": "EUR",
+    "£": "GBP",
+    "pound": "GBP",
+    "pounds": "GBP",
+    "gbp": "GBP",
+    "birr": "ETB",
+    "etb": "ETB",
+    "₹": "INR",
+    "rupee": "INR",
+    "rupees": "INR",
+    "inr": "INR",
+    "₦": "NGN",
+    "naira": "NGN",
+    "ngn": "NGN",
+    "shilling": "KES",
+    "shillings": "KES",
+    "kes": "KES",
+    "¥": "JPY",
+    "yen": "JPY",
+    "jpy": "JPY",
+    "cad": "CAD",
+    "aud": "AUD",
+}
 # Currency -> the country a search for its rates names. Dollars are left to the saved place:
 # a "$300k house" in Addis is priced in dollars but borrowed in Ethiopia.
 _SEARCH_COUNTRY = {
@@ -101,3 +140,13 @@ def country_for(currency: str, location: str | None) -> str:
             return _US
         return _place_country(location) or _US
     return _US
+
+
+def named_currency(text: str) -> str:
+    """The ISO code a sign or word in the message names ("$300k", "5000 birr"), or ""."""
+    symbol = re.search(r"[$€£¥₹₦]", text)
+    if symbol is not None:
+        return _CURRENCIES[symbol.group(0)]
+    for match in CURRENCY_WORD.finditer(text):
+        return _CURRENCIES.get(match.group(1).lower(), "")
+    return ""

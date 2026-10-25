@@ -14,8 +14,9 @@ as a slider moves by **evaluating** the formula the server sent; it never solves
 | Part | Path |
 |------|------|
 | Products, formulas, defaults, slider ranges (data, not code paths) | `apps/api/app/modules/money/catalog.py` |
-| Reading a request (product, amount, rate, term, payment, currency, country) | `apps/api/app/modules/money/read.py` |
-| The card's currency and the country a rate search names | `apps/api/app/modules/money/currencies.py` |
+| Reading a request (product, kind, amount, down payment, rate, term, payment, currency) | `apps/api/app/modules/money/read.py` |
+| A what-if that changes the chat's last request ("what if i only do 3 years instead") | `apps/api/app/modules/money/follow_up.py` |
+| The currency a request names, the card's currency and the country a rate search names | `apps/api/app/modules/money/currencies.py` |
 | Numbers for the asked values, the prompt block and the note | `apps/api/app/modules/money/solve.py`, `block.py`, `note.py` |
 | Today's average rate: one web search, one checked structured read, cached | `apps/api/app/modules/money/rates.py` |
 | The calculator fence and its self-check | `apps/api/app/modules/money/fence.py`, `schemas.py` |
@@ -32,7 +33,12 @@ A product is one catalog row: its inputs (each with a unit, a default and a rang
 outputs (each a formula over the inputs), the words that name it, and how to look up its
 average rate today (`RateLookup`: what the rate is called, the terms averages are published for,
 the plausible range and how recent a figure must be). Adding a product is one row; nothing else
-branches on its name. Version 1 rows:
+branches on its name. A kind of a product priced apart is a `Variant` on its row, with its own
+words and `RateLookup`: "a used car for 14000" (also pre-owned, certified pre-owned,
+second-hand) is a car loan looked up at the used-car average, cached apart from the new-car one
+and named in the reply ("60-month used car loan rate"). A kind word used as a verb names none:
+"I used a calculator", "I'm used to paying 300", "the car I used to have". New or no kind said
+is the row's own lookup. Version 1 rows:
 
 - **Loan** (mortgage, car, personal, student, any other amortised loan): amount, annual rate,
   term → monthly payment, total interest, total paid. A rate of 0% pays amount ÷ months.
@@ -43,7 +49,31 @@ branches on its name. Version 1 rows:
 
 A term the user didn't give comes from the row's default (a 30-year mortgage, a 5-year car loan),
 and the reply says it assumed one. A rate they didn't give comes from today's average when there
-is one; otherwise the model asks for it.
+is one; otherwise the model asks for it. "3 years ago", "20 years old" or "sell after 5 years"
+is no term, and "20% down" is a share of the price put down, not the rate.
+
+## Follow-ups
+
+"hmm what if i only do 3 years instead" right after a money reply is that request with the term
+changed, and the server works it and sends the card exactly as for a first ask. The follow-up
+chips under a money reply ask exactly this; before, the model did the arithmetic itself and was
+off by dollars (live 2026-10-25: $340.58 a month for $340.45).
+
+- The turn passes the user's earlier lines in its window (`turn_prep/money.py`). The request a
+  line changes is the last one in the user's last three lines, and every line after it must be a
+  change of it too, so changes build on each other ("3 years instead", then "and with 5000
+  down?") and a line about something else ends the money conversation.
+- A change line asks for one ("what if", "how about", "instead", or only the change: "36
+  months?") and every number in it must be placed: a rate, a term the words say is the loan's
+  ("do 3 years", "pay it off in 2 years"; not "wait 2 years" or "keep it for 10 years"), a down
+  payment (a sum or "20% down"), a price ("what if the car was $18,000"), an amount borrowed, a
+  card's monthly payment or a savings deposit or start. A number it cannot place, a change by an
+  amount ("1% lower", "2000 more down") or another product named is no follow-up: the model
+  answers as before.
+- While the rate is today's average, the follow-up looks up the term the first ask used, so "3
+  years instead" changes the term alone and keeps the rate the last reply quoted.
+- The money block tells the model which inputs changed and that the numbers below are the
+  answer, never to be redone from the earlier reply.
 
 ## Today's rates
 

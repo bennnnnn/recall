@@ -1,7 +1,10 @@
 """The money block the model reads before the user's message: numbers to copy, never redo.
 
 The model writes the answer's words; the app worked the numbers and adds the market note
-and the calculator card under the reply, so the block tells it not to write either.
+and the calculator card under the reply, so the block tells it not to write either. A
+follow-up ("what if i only do 3 years instead") gets the earlier request worked again with
+its change, and is told those are the answer: the free model once redid the change from
+the earlier reply's numbers and was off by dollars (live, 2026-10-25).
 """
 
 from __future__ import annotations
@@ -20,6 +23,11 @@ MONEY_REPLY_RULES = (
     "your reply the app adds a calculator card with sliders and, when it found one, a "
     "note with today's average rate: do not write your own calculator, scenario table, "
     "chart or market-rate note, and do not state any average or market rate yourself."
+)
+MONEY_FOLLOW_UP = (
+    "This message changes the user's earlier request: {changes}. The inputs and results "
+    "below already include the change and are this turn's answer; never work the change "
+    "out yourself or carry numbers over from an earlier reply."
 )
 MONEY_RATE_MISSING = (
     "The user gave no interest rate and no current average was found. Ask one short "
@@ -45,6 +53,7 @@ _INPUT_WORDS = {
     "payment": "monthly payment",
     "start": "starting amount",
     "deposit": "monthly deposit",
+    "down": "down payment",
 }
 _OUTPUT_WORDS = {
     "payment": "monthly payment",
@@ -58,18 +67,36 @@ _OUTPUT_WORDS = {
 
 def money_block(request: MoneyRequest, worked: Worked | None, average: MarketRate | None) -> str:
     product = request.product
-    head = f"{MONEY_HEADER}: {product.key.replace('_', ' ')}."
+    kind = " ".join(word for word in (request.variant, product.key.replace("_", " ")) if word)
+    head = f"{MONEY_HEADER}: {kind}."
     if request.rates_only:
         return "\n".join((head, _rates_line(average)))
     if worked is None:
         return "\n".join((head, MONEY_RATE_MISSING))
     lines = [head]
+    if request.changed:
+        lines.append(MONEY_FOLLOW_UP.format(changes="; ".join(_changes(request, worked))))
     if request.currency:
         lines.append(f"Currency: {request.currency}.")
     lines.append("Inputs: " + "; ".join(_inputs(product, worked)) + ".")
     lines.append("Results: " + "; ".join(_outputs(product, worked)) + ".")
     lines.append(MONEY_REPLY_RULES)
     return "\n".join(lines)
+
+
+def _changes(request: MoneyRequest, worked: Worked) -> list[str]:
+    """What the follow-up changed, in the block's words ("term in months 36")."""
+    product = request.product
+    parts = []
+    for name in request.changed:
+        if name == "variant":
+            parts.append(f"a {request.variant} {product.key.replace('_', ' ')}")
+        elif name == "down":
+            parts.append(f"{_INPUT_WORDS[name]} {money_text(request.down)}")
+        elif name in worked.values:
+            value = _value_text(name, worked.values[name], product)
+            parts.append(f"{_INPUT_WORDS.get(name, name)} {value}")
+    return parts
 
 
 def _rates_line(average: MarketRate | None) -> str:

@@ -1991,6 +1991,33 @@ CASES: tuple[Case, ...] = (
         "Offline there is no average to assume: one question for the rate their lender quoted.",
     ),
     Case(
+        "money-what-if-term",
+        "money",
+        "hmm what if i only do 3 years instead",
+        Expect(hints=("money", "money_reply"), solved=False, image_gen=False, photo=NO_PHOTO),
+        "The same $11,000 at 7.16% over 36 months: $340.45 a month and $1,256.32 interest, "
+        "worked by the server with a new card (live 2026-10-25 the model did it: $340.58).",
+        history=(
+            (
+                "user",
+                "i'm buying a used car for 14000 at 7.16%, i can put 3000 down. what would my "
+                "monthly payment be over 5 years?",
+            ),
+            ("assistant", "About $218.64 a month over 60 months, $2,118.67 in interest."),
+        ),
+    ),
+    Case(
+        "money-what-if-lookalike",
+        "money",
+        "what if i only do 3 sets instead",
+        Expect(no_hints=("money",)),
+        "Adjusts the workout; a what-if after a workout changes no loan.",
+        history=(
+            ("user", "give me a 4 day workout plan with 4 sets of each exercise"),
+            ("assistant", "Day 1: squats, lunges and calf raises, 4 sets of 10 each."),
+        ),
+    ),
+    Case(
         "money-lookalike",
         "money",
         "rate my essay out of 10, I tried to make the interest of the story build slowly",
