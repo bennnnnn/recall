@@ -93,7 +93,9 @@ it.each([
   ["not_configured", "login.error_not_configured"],
   ["android_oauth_setup", "login.error_android_google"],
   ["generic", "login.error_generic"],
-  ["provider detail", "provider detail"],
+  ["play_services_missing", "login.error_play_services"],
+  // The SDK's own English was shown as it came, in every language.
+  ["provider detail", "login.error_generic"],
 ] as const)("maps Google error %s to %s", async (providerError, expected) => {
   jest.mocked(formatGoogleSignInError).mockReturnValue(providerError);
   mockGoogle.mockRejectedValueOnce(new Error("failed"));
@@ -137,6 +139,16 @@ describe("in a release build", () => {
     expect(mockGoogle).not.toHaveBeenCalled();
     expect(mockFeedback.error).toHaveBeenCalledWith("login.error_generic");
   });
+});
+
+it("tells an iPhone without an Apple Account signed in what to do, translated", async () => {
+  jest.mocked(formatAppleSignInError).mockReturnValue("apple_unavailable_device");
+  mockApple.mockRejectedValueOnce(new Error("Sign in with Apple is not available on this device."));
+  const { result } = await renderHook(useLoginActions);
+
+  await act(async () => result.current.handleApple());
+
+  expect(mockFeedback.error).toHaveBeenCalledWith("login.error_apple_unavailable_device");
 });
 
 it("does not report a cancelled provider flow", async () => {

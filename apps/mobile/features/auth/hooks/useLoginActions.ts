@@ -27,6 +27,12 @@ function setupErrorKey(key: string): string {
   return __DEV__ ? key : "login.error_generic";
 }
 
+/** What the person can do about it: a phone without Play services, an Apple ID signed out. */
+const DEVICE_ERROR_KEYS: Record<string, string> = {
+  play_services_missing: "login.error_play_services",
+  apple_unavailable_device: "login.error_apple_unavailable_device",
+};
+
 export function useLoginActions() {
   const { signInWithApple, signInWithGoogle, signInWithDev } = useAuth();
   const { t } = useTranslation();
@@ -60,8 +66,8 @@ export function useLoginActions() {
         if (!__DEV__) console.warn(`[auth] ${provider} sign-in setup error: ${key}`);
         return t(setupErrorKey(setupKey));
       }
-      if (key === "generic") return t("login.error_generic");
-      return key;
+      if (key === "generic" && __DEV__) console.warn(`[auth] ${provider} sign-in failed`, error);
+      return t(DEVICE_ERROR_KEYS[key] ?? SIGN_IN_GENERIC_KEY);
     },
     [t],
   );

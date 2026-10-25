@@ -7,10 +7,14 @@ import {
   fetchWithTimeout,
   request,
 } from "@/lib/api/client";
-import { serverUnreachableError, withDeadline } from "@/lib/api/deadline";
+import { withDeadline } from "@/lib/api/deadline";
 import type { AuthResult, User } from "@/lib/api/types";
 import { AccountExistsError, accountExistsProvider } from "@/features/auth/model/accountExists";
-import { SignInRefusedError, signInRefusalKey } from "@/features/auth/model/signInRefusal";
+import {
+  SignInRefusedError,
+  signInRefusalKey,
+  signInUnreachable,
+} from "@/features/auth/model/signInRefusal";
 import { deviceSessionFields } from "@/lib/deviceSession";
 
 /** A refused sign-in, read by its code: never the server's English (signInRefusal.ts). */
@@ -22,20 +26,27 @@ async function loginFailure(response: Response): Promise<Error> {
 }
 
 /** One sign-in call and the reading of its reply, under one deadline: the headers'
- * timer alone left a stalled body spinning the sign-in button (code-health audit NET-17). */
+ * timer alone left a stalled body spinning the sign-in button (code-health audit NET-17).
+ * No answer in time, or none at all, is `signInUnreachable`: its English was shown. */
 function signIn(
   path: string,
   body: Record<string, unknown>,
   read: (response: Response) => Promise<AuthResult>,
 ): Promise<AuthResult> {
-  return withDeadline(AUTH_FETCH_TIMEOUT_MS, null, async (signal) => read(
-    await fetchWithTimeout(apiUrl(path), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal,
-    }),
-  ), serverUnreachableError);
+  return withDeadline(AUTH_FETCH_TIMEOUT_MS, null, async (signal) => {
+    let response: Response;
+    try {
+      response = await fetchWithTimeout(apiUrl(path), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal,
+      });
+    } catch {
+      throw signInUnreachable();
+    }
+    return read(response);
+  }, signInUnreachable);
 }
 
 export function loginWithGoogle(idToken: string): Promise<AuthResult> {

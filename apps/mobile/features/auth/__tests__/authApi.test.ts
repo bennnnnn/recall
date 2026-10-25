@@ -108,6 +108,21 @@ describe("sign-in deadline (NET-17)", () => {
     );
     const outcome = loginWithGoogle("id-token").catch((caught: unknown) => caught);
     await jest.advanceTimersByTimeAsync(15_000);
-    await expect(outcome).resolves.toMatchObject({ message: expect.stringContaining("Could not reach") });
+    await expect(outcome).resolves.toEqual(new SignInRefusedError("login.error_unreachable"));
+  });
+});
+
+describe("a sign-in that gets no answer", () => {
+  it.each([
+    ["Google", () => loginWithGoogle("id-token")],
+    ["Apple", () => loginWithApple("id-token", null, "nonce")],
+    ["dev", () => loginWithDev()],
+  ])("%s names the unreachable line, not the English", async (_name, login) => {
+    // "Could not reach the Recall server…" or "Network request failed" was shown as it came.
+    for (const failure of [new TypeError("Network request failed"), new Error("Could not reach the Recall server.")]) {
+      jest.mocked(fetchWithTimeout).mockRejectedValueOnce(failure);
+      const error = await login().catch((caught: unknown) => caught);
+      expect(error).toEqual(new SignInRefusedError("login.error_unreachable"));
+    }
   });
 });

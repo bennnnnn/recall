@@ -14,6 +14,11 @@ export class SignInRefusedError extends Error {
 }
 
 export const SIGN_IN_GENERIC_KEY = "login.error_generic";
+
+/** No answer from the API (offline, a dropped connection, past the sign-in deadline). */
+export function signInUnreachable(): SignInRefusedError {
+  return new SignInRefusedError("login.error_unreachable");
+}
 const UNAVAILABLE_KEY = "login.error_unavailable";
 const RATE_LIMITED_KEY = "login.error_rate_limited";
 const TOKEN_INVALID_KEY = "login.error_token_invalid";
