@@ -356,6 +356,13 @@ _ANSWER = "The Bears beat the Falcons 27-20."
         "Good question! I don't have access to live data. Check the NFL app.",
         "I'm unable to access real-time information right now.",
         "I can't browse the web, sorry.",
+        # Review: the usual openings.
+        "I'm sorry, but I can't access real-time data.",
+        "Sorry \u2014 I can't check live scores.",
+        "**I can't check live scores**, but ESPN has them.",
+        "Hmm, I can't check live scores right now.",
+        "As an AI, I don't have real-time data.",
+        "I'm not able to check live scores.",
     ],
 )
 def test_a_live_data_denial_is_read(reply: str) -> None:
@@ -483,3 +490,14 @@ def test_a_stop_after_a_retraction_cuts_the_answer_where_the_phone_did() -> None
     accum.mark_user_stop()
     drawn = len(_DENIAL) + len("\n\nThe Bears")
     assert accum.reply_text(drawn) == "The Bears"
+
+
+@pytest.mark.asyncio
+async def test_a_held_mark_of_the_denial_never_reaches_the_answer(
+    web_search_tool: dict[str, Any],
+) -> None:
+    ctx = _retry_context(tool=web_search_tool)
+    llm, _seen = _model((["Sorry, I can't check live scores!"], []), (["The Bears won."], []))
+    accum = StreamAccum()
+    await _reply(ctx, llm, accum=accum)
+    assert accum.reply_text() == "The Bears won."

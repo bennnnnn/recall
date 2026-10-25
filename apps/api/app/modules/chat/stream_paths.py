@@ -323,6 +323,8 @@ async def run_llm_token_stream(
             # "I can't check live scores" with no tool offered: ask again, offering search.
             if retry_tools and live_denial.asks_again(ctx, reply_round.calls, accum, written):
                 accum.retract(written, shown_from)
+                # A held "!" or "[" was the denial's, never drawn: the new round starts clean.
+                scaffold = ScaffoldFilter()
                 reply_round, retry_tools = _ReplyRound(tools=retry_tools, lead="\n\n"), []
                 continue
             # Only a call that carried tools leads to another: one search a turn.

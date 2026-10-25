@@ -23,10 +23,13 @@ from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 _MAX_LEN = 600
 _LIVE = r"(?:live|real-time|realtime|current|up-to-date|today's|the\s+latest)"
-# The denial opens its sentence ("Sorry, I can't…" too): a quoted one is talk about it.
-_OPENS = r"(?:^|(?<=[.!?])\s+)(?:(?:sorry|unfortunately|honestly)[,\s]+)?"
+# The denial opens its sentence, after bold and a softener ("I'm sorry, but I can't…", "As
+# an AI, I don't…"): a quoted or mid-sentence one is talk about it.
+_SOFTENER = r"(?:(?:i'm\s+)?sorry|unfortunately|honestly|hmm+|ah|as\s+an\s+ai)[,\s\u2014\u2013-]+(?:but\s+)?"
+_OPENS = rf"(?:^|(?<=[.!?])\s+)[*_]*(?:{_SOFTENER})?"
 _DENIAL = re.compile(
     rf"{_OPENS}i(?:\s+can't|\s+cannot|\s+can\s+not|'m\s+unable\s+to|\s+am\s+unable\s+to|"
+    r"'m\s+not\s+able\s+to|\s+am\s+not\s+able\s+to|"
     r"\s+don't\s+have\s+(?:a\s+way|the\s+ability)\s+to)\s+"
     rf"(?:check|access|look\s+up|see|get|pull\s+up|browse|confirm|track)\s+{_LIVE}\b"
     rf"|{_OPENS}i\s+(?:don't|do\s+not)\s+have\s+(?:access\s+to\s+)?"
