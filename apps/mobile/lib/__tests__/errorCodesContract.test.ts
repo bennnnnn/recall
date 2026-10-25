@@ -51,6 +51,8 @@ it("offers the earlier way to sign in", () => {
 it.each([
   ["sign_in_rate_limited", "login.error_rate_limited"],
   ["sign_in_unavailable", "login.error_unavailable"],
+  // Dev login passes the request limiter: Redis down there is the API's own outage body.
+  ["service_unavailable", "login.error_unavailable"],
   ["google_unavailable", "login.error_unavailable"],
   ["apple_unavailable", "login.error_unavailable"],
   ["google_token_invalid", "login.error_token_invalid"],

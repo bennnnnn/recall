@@ -1,4 +1,11 @@
 {
+ "service_unavailable": {
+  "status": 503,
+  "detail": {
+   "code": "unavailable",
+   "message": "Service temporarily unavailable. Please retry shortly."
+  }
+ },
  "consent_required": {
   "status": 403,
   "detail": {

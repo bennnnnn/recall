@@ -260,6 +260,16 @@ def _sign_in_bodies() -> dict[str, dict[str, Any]]:
     }
 
 
+def _outage() -> Any:
+    """A read while Redis is down: the request limiter cannot count, so it answers what any
+    route's database or Redis outage answers (``core/unavailable.py``)."""
+    with patch(
+        "app.core.rest_rate_limit.allow_request",
+        AsyncMock(side_effect=RedisConnectionError("down")),
+    ):
+        return _client(_user()).get("/todos/page", headers=_AUTH)
+
+
 def _bodies() -> dict[str, dict[str, Any]]:
     too_big = base64.b64encode(b"\xff" * (SCAN_MAX_IMAGE_BYTES + 1)).decode()
     with (
@@ -277,6 +287,7 @@ def _bodies() -> dict[str, dict[str, Any]]:
     ):
         exists = _client(_user()).post("/auth/google", json={"id_token": "token"})
     return {
+        "service_unavailable": _refusal(_outage()),
         "consent_required": _refusal(consent),
         "account_exists": _refusal(exists),
         "scan_not_available": _refusal(
