@@ -3,6 +3,7 @@ import Svg, { Rect } from "react-native-svg";
 import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   /** The composer's control size: the button sits in its row. */
@@ -55,7 +56,7 @@ export function LiveTalkButton({ size, disabled, onPress }: Props) {
         testID="live-talk-circle"
         style={[styles.btn, box, { borderRadius: size / 2, backgroundColor: theme.userBubble }]}
       >
-        <LiveTalkWaveformIcon size={24} color={theme.text} />
+        <LiveTalkWaveformIcon size={IconSize.md} color={theme.text} />
       </View>
     </Pressable>
   );

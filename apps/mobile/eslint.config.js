@@ -72,8 +72,8 @@ const DOMAIN_LIB_LEAF = [
 
 /**
  * Domain graphics (math layout, diagrams, plots) and the type scale itself keep raw
- * numbers and colors. Everything else uses lib/type, lib/space, lib/radius and
- * the theme.
+ * numbers and colors. Everything else uses lib/type, lib/space, lib/radius,
+ * ui/icons/sizes and the theme.
  */
 const RAW_DESIGN_VALUES_ALLOWED = [
   "lib/vendor/**",
@@ -108,6 +108,11 @@ const DESIGN_TOKEN_RULES = [
     selector:
       "Property[key.name=/^(borderRadius|borderTopLeftRadius|borderTopRightRadius|borderBottomLeftRadius|borderBottomRightRadius|borderTopStartRadius|borderTopEndRadius|borderBottomStartRadius|borderBottomEndRadius)$/][value.raw=/^(?!0$|1$|2$)\\d*\\.?\\d+$/]",
     message: "Use a Radius token from lib/radius.ts. 0, 1, and 2 may stay raw.",
+  },
+  {
+    selector:
+      "JSXOpeningElement[name.name=/Icon$/] > JSXAttribute[name.name='size'] > JSXExpressionContainer > Literal",
+    message: "Use an IconSize from ui/icons/sizes.ts.",
   },
 ];
 

@@ -65,3 +65,15 @@ describe("design lint: raw colors", () => {
     expect(flagged("const s = { padding: 6 };", "lib/codeHighlight.ts")).toEqual([1]);
   });
 });
+
+describe("design lint: icon sizes", () => {
+  it("flags an icon drawn at a raw size, not one on the ladder or an avatar", () => {
+    const code = [
+      'const a = <Icon name="close" size={18} />; // flag',
+      "const b = <WaveformIcon size={24} color={theme.text} />; // flag",
+      'const c = <Icon name="close" size={IconSize.sm} />;',
+      "const d = <Avatar name={name} size={32} />;",
+    ].join("\n");
+    expect(flagged(code)).toEqual(marked(code));
+  });
+});
