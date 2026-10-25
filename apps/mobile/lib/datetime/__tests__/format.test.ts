@@ -124,7 +124,8 @@ describe("formatter cache", () => {
     expect(formatDate(at, "time")).toBe("15:05");
     // The phone flew to New York: the offset of now changes before anything else does.
     mockPhone = { timeZone: "America/New_York", hourCycle: "h23" };
-    jest.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(240);
+    const moved = new Date().getTimezoneOffset() + 60;
+    jest.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(moved);
     expect(formatDate(at, "time")).toBe("11:05");
   });
 });
