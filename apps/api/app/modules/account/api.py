@@ -66,6 +66,7 @@ async def google_login(
             redis,
             device_label=body.device_label,
             platform=body.platform,
+            ai_data_consent=body.ai_data_consent,
         )
     return web_session.auth_json_response(request, settings, auth)
 
@@ -90,6 +91,7 @@ async def apple_login(
             nonce=body.nonce,
             device_label=body.device_label,
             platform=body.platform,
+            ai_data_consent=body.ai_data_consent,
         )
     return web_session.auth_json_response(request, settings, auth)
 
@@ -126,6 +128,7 @@ async def dev_login(
             redis=redis,
             device_label=body.device_label,
             platform=body.platform,
+            ai_data_consent=body.ai_data_consent,
         )
     return web_session.auth_json_response(request, settings, auth)
 

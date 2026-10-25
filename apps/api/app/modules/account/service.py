@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +16,7 @@ from app.gateways.google_auth import (
 from app.gateways.google_auth import verify_google_id_token
 from app.models.orm import User
 from app.models.schemas import AuthResponse, UserOut
-from app.modules.account import quota_carryover, signin_limit
+from app.modules.account import profile, quota_carryover, signin_limit
 from app.modules.account import tokens as tokens_service
 
 # Re-exported for the account API (maps it to 409 naming the earlier sign-in).
@@ -29,6 +31,7 @@ from app.repositories import users as users_repo
 
 
 async def _signed_in(
+    session: AsyncSession,
     redis: Redis,
     settings: Settings,
     user: User,
@@ -36,8 +39,15 @@ async def _signed_in(
     is_new_user: bool,
     device_label: str | None,
     platform: str | None,
+    ai_data_consent: bool,
 ) -> AuthResponse:
-    """Finish any sign-in: welcome a new account, then issue its token pair."""
+    """Finish any sign-in: record an agreement made by the tap, welcome a new account,
+    then issue its token pair."""
+    if ai_data_consent and user.ai_data_consent_at is None:
+        # Before the tokens: the reply already carries the agreement, so no request the
+        # app makes next meets ``consent_required``. An earlier agreement keeps its time.
+        agreed = profile.with_ai_data_consent({"ai_data_consent": True}, now=datetime.now(UTC))
+        user = await users_repo.update(session, user, **agreed)
     if is_new_user and settings.email_enabled:
         # Best-effort: never let a welcome email block signup.
         await enqueue_welcome_email(redis, user.id)
@@ -64,6 +74,7 @@ async def login_with_google(
     *,
     device_label: str | None = None,
     platform: str | None = None,
+    ai_data_consent: bool = False,
 ) -> AuthResponse:
     payload = await verify_google_id_token(id_token, settings)
     google_sub = payload["sub"]
@@ -121,12 +132,14 @@ async def login_with_google(
         )
 
     return await _signed_in(
+        session,
         redis,
         settings,
         user,
         is_new_user=is_new_user,
         device_label=device_label,
         platform=platform,
+        ai_data_consent=ai_data_consent,
     )
 
 
@@ -140,6 +153,7 @@ async def login_with_apple(
     nonce: str | None = None,
     device_label: str | None = None,
     platform: str | None = None,
+    ai_data_consent: bool = False,
 ) -> AuthResponse:
     # L1: validate the client-supplied display name (trim, collapse, length)
     name = normalize_display_name(name)
@@ -199,12 +213,14 @@ async def login_with_apple(
             user = await users_repo.update(session, user, commit=True, **updates)
 
     return await _signed_in(
+        session,
         redis,
         settings,
         user,
         is_new_user=is_new_user,
         device_label=device_label,
         platform=platform,
+        ai_data_consent=ai_data_consent,
     )
 
 
@@ -217,6 +233,7 @@ async def login_dev(
     redis: Redis,
     device_label: str | None = None,
     platform: str | None = None,
+    ai_data_consent: bool = False,
 ) -> AuthResponse:
     if not settings.dev_auth_enabled:
         raise AuthenticationError("Dev auth is disabled", code="dev_auth_disabled")
@@ -242,10 +259,12 @@ async def login_dev(
         user = await users_repo.update(session, user, name=name)
 
     return await _signed_in(
+        session,
         redis,
         settings,
         user,
         is_new_user=is_new_user,
         device_label=device_label,
         platform=platform,
+        ai_data_consent=ai_data_consent,
     )
