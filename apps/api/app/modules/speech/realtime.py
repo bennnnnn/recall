@@ -115,8 +115,11 @@ async def _reserve_realtime_or_raise(user: User, settings: Settings):
         )
     _require_live_talk_plan(user, settings)
     if not settings.openai_api_key.strip():
+        # Its own code: the phone says "not set up" only for this, never for an outage's 503.
         raise SpeechRefusedError(
-            "Realtime voice is not configured", status_code=status.HTTP_503_SERVICE_UNAVAILABLE
+            "Realtime voice is not configured",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            code="not_configured",
         )
 
     redis = get_redis_client()

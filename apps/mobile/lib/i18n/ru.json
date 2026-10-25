@@ -293,6 +293,7 @@
   "common.saved_to_photos": "Изображение сохранено в Фото.",
   "common.screen_error_body": "Попробуйте снова. Если это повторится, вернитесь назад и откройте страницу ещё раз.",
   "common.screen_error_title": "На этой странице что-то пошло не так",
+  "common.service_unavailable": "Recall сейчас недоступен. Попробуйте чуть позже.",
   "common.share_failed": "Не удалось поделиться",
   "common.share_image_error": "Не удалось поделиться этим изображением.",
   "common.try_again": "Попробовать снова",

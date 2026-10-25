@@ -65,6 +65,24 @@ export class ApiRequestError extends Error {
   }
 }
 
+/** What a gateway, or an API that cannot serve, answers: a deploy, a dependency down. */
+export const UNAVAILABLE_STATUSES: ReadonlySet<number> = new Set([502, 503, 504]);
+
+/** The API's code for an outage of its database or Redis (core/unavailable.py). */
+export const UNAVAILABLE_CODE = "unavailable";
+
+/**
+ * Recall cannot serve right now: the API's outage code, or a 502, 503 or 504 that names no
+ * code (a gateway in front of it). A refusal that names another code is that refusal: live
+ * talk's 503 `not_configured` is no outage. Any error with `status` and `code` will do.
+ */
+export function isServiceUnavailable(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const { status, code } = error as { status?: unknown; code?: unknown };
+  if (typeof code === "string") return code === UNAVAILABLE_CODE;
+  return typeof status === "number" && UNAVAILABLE_STATUSES.has(status);
+}
+
 /** The longest wait a `Retry-After` is taken at: a wrong header must not stall the app. */
 const MAX_RETRY_AFTER_MS = 5 * 60_000;
 

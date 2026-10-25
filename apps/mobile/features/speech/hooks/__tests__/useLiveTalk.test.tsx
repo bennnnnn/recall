@@ -3,6 +3,8 @@ import { BackHandler, Linking } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { useLiveTalk } from "@/features/speech/hooks/useLiveTalk";
+import { api } from "@/lib/api";
+import { ApiRequestError } from "@/lib/api/errorBody";
 import { createRealtimeVoiceSession } from "@/features/speech/model/realtimeVoice";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { confirmDialog } from "@/ui/overlay/dialogs";
@@ -91,6 +93,21 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
 
     expect(confirmDialog).not.toHaveBeenCalled();
     expect(reportRecoverableError).toHaveBeenCalledWith(null, "chat.live_talk_unavailable_body");
+  });
+
+  // Every 503 said "Live talk isn't set up on this server yet", a Redis outage included.
+  it.each([
+    [{ code: "unavailable", message: "Service temporarily unavailable. Please retry shortly." }, "common.service_unavailable"],
+    [{ code: "not_configured", message: "Realtime voice is not configured" }, "chat.live_talk_not_configured"],
+  ])("words a 503 by its code: %j", async (detail, line) => {
+    jest.mocked(api.liveTalkStatus).mockRejectedValueOnce(new ApiRequestError(503, JSON.stringify({ detail })));
+    await render(<Probe />);
+    await act(async () => {
+      await live.open();
+    });
+
+    expect(reportRecoverableError).toHaveBeenCalledWith(null, line);
+    expect(createRealtimeVoiceSession).not.toHaveBeenCalled();
   });
 
   it("leaves Back to an open drawer, reading the drawer when Back is pressed", async () => {

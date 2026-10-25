@@ -11,6 +11,7 @@ import { ApiRequestError } from "@/lib/api/client";
 import { CONSENT_REQUIRED_CODE } from "@/lib/api/consentRefusal";
 import { scanFailureMessage } from "@/lib/scanner/scanReadError";
 import { refusalCode, resolveChatError } from "@/features/chat/model/errorMessage";
+import { liveTalkErrorGate } from "@/features/speech/model/liveTalkLogic";
 import { voiceRefusalKey } from "@/features/speech/model/voiceRefusal";
 
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "http://test.local" }));
@@ -103,4 +104,12 @@ it.each([
   ["dictation_rate_limited", "chat.voice_rate_limited"],
 ])("words a refused dictation: %s", (name, words) => {
   expect(voiceRefusalKey(refused(name))).toBe(words);
+});
+
+// Every 503 said "Live talk isn't set up on this server yet", a Redis outage included.
+it.each([
+  ["service_unavailable", "outage"],
+  ["live_talk_not_configured", "unconfigured"],
+])("gates live talk on a refused 503: %s", (name, gate) => {
+  expect(liveTalkErrorGate(refused(name))).toBe(gate);
 });

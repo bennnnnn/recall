@@ -292,6 +292,7 @@
   "common.saved_to_photos": "Imagen guardada en tus fotos.",
   "common.screen_error_body": "Inténtalo de nuevo. Si vuelve a pasar, regresa y ábrela otra vez.",
   "common.screen_error_title": "Algo salió mal en esta página",
+  "common.service_unavailable": "Recall no está disponible ahora mismo. Inténtalo de nuevo en un momento.",
   "common.share_failed": "Error al compartir",
   "common.share_image_error": "No se pudo compartir esta imagen.",
   "common.try_again": "Intentar de nuevo",

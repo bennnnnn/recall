@@ -126,6 +126,24 @@ def _transcribe(*, at_daily_cap: bool = False, allowed: bool = True) -> Any:
         )
 
 
+def _live_talk_unconfigured() -> Any:
+    """POST /speech/live/session for a Pro user on a server with no Realtime key."""
+    user = _user()
+    user.plan = "pro"
+    user.tts_voice = None
+    settings = Settings(
+        speech_live_talk_enabled=True, speech_realtime_voice_enabled=True, openai_api_key=""
+    )
+    with (
+        patch(
+            "app.modules.speech.realtime.live_talk_service.load_live_talk_session_context",
+            AsyncMock(return_value=MagicMock()),
+        ),
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+    ):
+        return _client(user, settings).post("/speech/live/session", headers=_AUTH, json={})
+
+
 def _generate(code: str) -> Any:
     """POST /images/generate refused the way the picture service refuses."""
     from app.modules.images.generation import ImageGenerationError
@@ -306,6 +324,7 @@ def _bodies() -> dict[str, dict[str, Any]]:
         "presign_daily_limit": _refusal(_presign("image/png", 128, at_daily_cap=True)),
         "dictation_daily_limit": _refusal(_transcribe(at_daily_cap=True)),
         "dictation_rate_limited": _refusal(_transcribe(allowed=False)),
+        "live_talk_not_configured": _refusal(_live_talk_unconfigured()),
         "image_daily_limit": _refusal(_generate("daily_limit")),
         "image_content_blocked": _refusal(_generate("content_blocked")),
         **_sign_in_bodies(),

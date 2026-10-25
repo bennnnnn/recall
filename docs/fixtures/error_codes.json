@@ -102,6 +102,13 @@
    "message": "Too many voice requests. Please wait a moment and try again."
   }
  },
+ "live_talk_not_configured": {
+  "status": 503,
+  "detail": {
+   "code": "not_configured",
+   "message": "Realtime voice is not configured"
+  }
+ },
  "image_daily_limit": {
   "status": 429,
   "detail": {
