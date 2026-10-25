@@ -36,6 +36,7 @@ jest.mock("@/lib/api", () => ({
 }));
 
 let live!: ReturnType<typeof useLiveTalk>;
+const onUpgrade = jest.fn();
 
 function Probe() {
   const value = useLiveTalk({
@@ -44,7 +45,7 @@ function Probe() {
     ensureChatId: async () => "chat-1",
     setMessages: jest.fn(),
     isOffline: false,
-    onUpgrade: jest.fn(),
+    onUpgrade,
     onScrollToLatest: jest.fn(),
     newMessageCountRef: { current: 0 },
     onFirstReply: jest.fn(),
@@ -54,6 +55,21 @@ function Probe() {
     live = value;
   });
   return null;
+}
+
+/** Open a call; returns what the realtime session says to the hook. */
+async function openCall(): Promise<(event: { type: string; [key: string]: unknown }) => void> {
+  let emit!: (event: { type: string; [key: string]: unknown }) => void;
+  (createRealtimeVoiceSession as jest.Mock).mockImplementationOnce(async ({ onEvent }) => {
+    emit = onEvent;
+    return { callId: "call-1", maxDurationSeconds: 600, setMuted: jest.fn(), cancelResponse: jest.fn(), close: jest.fn() };
+  });
+  await render(<Probe />);
+  await act(async () => {
+    await live.open();
+  });
+  expect(live.visible).toBe(true);
+  return emit;
 }
 
 describe("useLiveTalk microphone denial (F8.8)", () => {
@@ -95,6 +111,19 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
     expect(reportRecoverableError).toHaveBeenCalledWith(null, "chat.live_talk_unavailable_body");
   });
 
+  // A microphone that gave no audio said "update the app", as a build without WebRTC does.
+  it("says the microphone, not the app, when the microphone gave no audio", async () => {
+    (createRealtimeVoiceSession as jest.Mock).mockRejectedValueOnce(new Error("microphone_unavailable"));
+    await render(<Probe />);
+    await act(async () => {
+      await live.open();
+    });
+
+    expect(confirmDialog).not.toHaveBeenCalled();
+    expect(jest.mocked(reportRecoverableError).mock.calls).toEqual([[null, "chat.live_talk_mic_unavailable"]]);
+    expect(live.visible).toBe(false);
+  });
+
   // Every 503 said "Live talk isn't set up on this server yet", a Redis outage included.
   it.each([
     [{ code: "unavailable", message: "Service temporarily unavailable. Please retry shortly." }, "common.service_unavailable"],
@@ -127,6 +156,25 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
     });
 
     expect(reportRecoverableError).toHaveBeenCalledWith(null, line);
+    expect(live.visible).toBe(false);
+  });
+
+  // Every 403 opened the paywall: consent_required did too, on top of the consent step
+  // the API client opens for it.
+  it.each([
+    [{ code: "not_in_plan", message: "Live talk isn't part of your plan." }, 1],
+    [{ code: "consent_required", message: "Agree to how Recall uses outside AI services to continue." }, 0],
+  ])("opens the paywall only for not_in_plan: %j", async (detail, paywalls) => {
+    (createRealtimeVoiceSession as jest.Mock).mockRejectedValueOnce(
+      new ApiRequestError(403, JSON.stringify({ detail })),
+    );
+    await render(<Probe />);
+    await act(async () => {
+      await live.open();
+    });
+
+    expect(onUpgrade).toHaveBeenCalledTimes(paywalls);
+    expect(reportRecoverableError).not.toHaveBeenCalled();
     expect(live.visible).toBe(false);
   });
 
@@ -185,6 +233,67 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
     expect(reportRecoverableError).toHaveBeenCalledWith(null, line);
     expect(reportRecoverableError).not.toHaveBeenCalledWith(null, "chat.live_talk_limit_body");
     expect(live.visible).toBe(false);
+  });
+
+  // A save the plan or the session no longer allowed showed the server's English
+  // ("Realtime session is not active") and left the call, and the provider, running.
+  it.each([
+    [{ code: "not_in_plan", message: "Live talk isn't part of your plan." }, null],
+    [{ code: "live_talk_session_ended", message: "Realtime session is not active" }, "chat.live_talk_session_ended"],
+  ])("ends the call once on a save the plan or session no longer allows: %j", async (detail, line) => {
+    const emit = await openCall();
+    jest.mocked(api.persistRealtimeLiveTalkTurn).mockRejectedValue(
+      new ApiRequestError(403, JSON.stringify({ detail })),
+    );
+
+    await act(async () => {
+      emit({ type: "speech_started", turnId: "turn-1" });
+      emit({ type: "user_transcript", text: "hello" });
+      emit({ type: "speech_started", turnId: "turn-2" });
+      // Heard before the refusal lands: the hang-up saves it, and is refused the same way.
+      emit({ type: "user_transcript", text: "are you there" });
+    });
+
+    expect(api.persistRealtimeLiveTalkTurn).toHaveBeenCalledTimes(2);
+    expect(live.visible).toBe(false);
+    expect(onUpgrade).toHaveBeenCalledTimes(line ? 0 : 1);
+    expect(jest.mocked(reportRecoverableError).mock.calls).toEqual(line ? [[null, line]] : []);
+    jest.mocked(api.persistRealtimeLiveTalkTurn).mockReset();
+  });
+
+  it.each([
+    [new ApiRequestError(404, JSON.stringify({ detail: { code: "not_found", message: "Chat not found" } })),
+      "chat.live_talk_save_failed"],
+    [new ApiRequestError(500, "Internal Server Error"), "chat.live_talk_save_failed"],
+    [new ApiRequestError(503, JSON.stringify({ detail: { code: "unavailable", message: "Service temporarily unavailable." } })),
+      "common.service_unavailable"],
+  ])("words any other refused save in the phone's language, and keeps the call: %s", async (error, line) => {
+    const emit = await openCall();
+    jest.mocked(api.persistRealtimeLiveTalkTurn).mockRejectedValueOnce(error);
+
+    await act(async () => {
+      emit({ type: "speech_started", turnId: "turn-1" });
+      emit({ type: "user_transcript", text: "hello" });
+      emit({ type: "speech_started", turnId: "turn-2" });
+    });
+
+    expect(reportRecoverableError).toHaveBeenCalledWith(null, line);
+    expect(live.visible).toBe(true);
+  });
+
+  // Both showed the provider's English.
+  it.each([
+    [{ type: "error", message: "Realtime voice data channel failed", fatal: true }, "chat.live_talk_connect_failed", false],
+    [{ type: "error", message: "Conversation already has an active response" }, "chat.error_generic", true],
+  ])("words an error during a call in the phone's language: %j", async (event, line, stillOpen) => {
+    const emit = await openCall();
+
+    await act(async () => {
+      emit(event);
+    });
+
+    expect(jest.mocked(reportRecoverableError).mock.calls).toEqual([[null, line]]);
+    expect(live.visible).toBe(stillOpen);
   });
 
   it("leaves Back to an open drawer, reading the drawer when Back is pressed", async () => {

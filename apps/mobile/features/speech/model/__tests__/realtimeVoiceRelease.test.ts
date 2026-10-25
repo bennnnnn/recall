@@ -148,11 +148,12 @@ describe("a Live Talk call releases its native media stream (LEAK-06)", () => {
     expect(release).toHaveBeenCalledTimes(1);
   });
 
+  // It threw webrtc_unavailable: "update the app", for a microphone that gave no audio.
   it("on a microphone with no audio track", async () => {
     const release = microphone([]);
     await expect(
       createRealtimeVoiceSession({ token: "tok", chatId: "chat-1", onEvent: () => {} }),
-    ).rejects.toThrow("webrtc_unavailable");
+    ).rejects.toThrow("microphone_unavailable");
     expect(release).toHaveBeenCalledTimes(1);
   });
 });

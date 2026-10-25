@@ -15,11 +15,13 @@ import { api } from "@/lib/api";
 import type { Message } from "@/lib/api";
 import { applyLiveTalkChatEvent, type LiveTalkSpeakEvent } from "@/features/speech/model/liveTalkEvents";
 import {
+  liveTalkCallErrorKey,
   liveTalkErrorGate,
   liveTalkGateMessageKey,
   liveTalkSessionLimitMs,
   liveTalkGate,
   liveTalkSaveEndsCall,
+  liveTalkSaveFailedKey,
   liveTalkShouldAttachSession,
   liveTalkShouldCloseOnAppState,
   liveTalkShouldCloseOnChatChange,
@@ -112,6 +114,8 @@ export function useLiveTalk({
         onUpgrade();
         return;
       }
+      // The API client already sent the account to the consent step.
+      if (gate === "consent") return;
       if (gate === "mic_permission") {
         // The OS asks only once; after a denial only Settings can turn it on.
         void confirmDialog({
@@ -177,15 +181,13 @@ export function useLiveTalk({
           })
           .catch((error: unknown) => {
             const gate = liveTalkErrorGate(error);
-            // A save never gets `live_talk_minutes_used`, yet each of its 429s said the month was used.
-            if (liveTalkSaveEndsCall(gate)) {
+            if (!liveTalkSaveEndsCall(gate)) {
+              reportRecoverableError(feedback, t(liveTalkSaveFailedKey(gate)));
+            } else if (callIdRef.current === completed.callId) {
+              // Once: the hang-up's own save of the last turn is refused the same way.
               closeRef.current();
               alertForGate(gate);
-              return;
             }
-            // An outage in its own words, translated: the server's English is not.
-            reportRecoverableError(feedback, gate === "outage" ? t(liveTalkGateMessageKey(gate))
-              : error instanceof Error ? error.message : t("chat.live_talk_failed"));
           });
       }
 
@@ -306,7 +308,7 @@ export function useLiveTalk({
         return;
       }
       if (event.type === "error") {
-        reportRecoverableError(feedback, event.message || t("chat.live_talk_failed"));
+        reportRecoverableError(feedback, t(liveTalkCallErrorKey(event.fatal)));
         setPhase("idle");
         // The connection is gone: left open, the mic kept recording into a dead peer.
         if (event.fatal) closeRef.current();
