@@ -76,12 +76,18 @@ export const TodoRow = memo(function TodoRow({
   })();
 
   const timeLabel = !todo.checked && dueOk && due ? formatDate(due, "time") : null;
-  const timeTone =
-    dueOk && due && (section === "overdue" || pastDue)
-      ? s.todoTimeOverdue
-      : section === "today"
-        ? s.todoTimeToday
-        : s.todoTimeLater;
+  const overdue = dueOk && (section === "overdue" || pastDue);
+  // A lit row (opened from Home or a push, or picked to select) sits on primaryLight, where
+  // danger ink is under 4.5:1 in every dark accent and light violet. Its time takes the text
+  // ink there; the danger mark says overdue in both states, so lighting a row never reflows it.
+  const lit = Boolean(highlighted) || selected;
+  const timeTone = overdue
+    ? lit
+      ? s.todoTimeOverdueLit
+      : s.todoTimeOverdue
+    : section === "today"
+      ? s.todoTimeToday
+      : s.todoTimeLater;
 
   const row = (
     <View style={[s.todoRow, highlighted && s.todoRowHighlighted, selected && s.todoRowSelected]}>
@@ -125,9 +131,14 @@ export const TodoRow = memo(function TodoRow({
         ) : null}
       </Pressable>
       {timeLabel ? (
-        <Text style={[s.todoTime, timeTone]} numberOfLines={1}>
-          {timeLabel}
-        </Text>
+        <View style={s.todoTimeWrap}>
+          {overdue ? (
+            <Icon name="alert-circle" size={IconSize.xs} color={C.danger} testID="todo-overdue-mark" />
+          ) : null}
+          <Text style={[s.todoTime, timeTone]} numberOfLines={1}>
+            {timeLabel}
+          </Text>
+        </View>
       ) : null}
     </View>
   );

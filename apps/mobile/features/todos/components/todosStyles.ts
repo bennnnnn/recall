@@ -86,13 +86,20 @@ export function makeTodosStyles(C: Theme) {
     todoMain: { flex: 1, gap: Space.xxs },
     todoText: { ...Type.navTitle, color: C.text },
     todoMeta: { ...Type.meta, color: C.textSecondary },
+    todoTimeWrap: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Space.xxs,
+      marginLeft: Space.sm,
+    },
     todoTime: {
       ...Type.label,
       fontVariant: ["tabular-nums"],
-      marginLeft: Space.sm,
     },
     todoTimeToday: { color: C.primary },
     todoTimeOverdue: { color: C.danger },
+    /** On a lit row's primaryLight; the danger mark beside it still says overdue. */
+    todoTimeOverdueLit: { color: C.text },
     todoTimeLater: { color: C.textSecondary },
     overlapNote: {
       flexDirection: "row",
