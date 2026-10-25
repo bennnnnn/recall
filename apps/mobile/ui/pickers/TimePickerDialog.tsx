@@ -128,7 +128,7 @@ export function TimePickerDialog({
   const spokenTime = useMemo(() => {
     const date = withTimeOfDay(new Date(), draft);
     try {
-      return date.toLocaleTimeString(undefined, {
+      return date.toLocaleTimeString(language, {
         hour: "numeric",
         minute: "2-digit",
         hour12: !is24Hour,
@@ -136,7 +136,7 @@ export function TimePickerDialog({
     } catch {
       return `${hourLabel(draft.hour, is24Hour)}:${pad2(draft.minute)}`;
     }
-  }, [draft, is24Hour]);
+  }, [draft, is24Hour, language]);
 
   const handleClose = () => {
     if (!confirmed.current) onCancel();
