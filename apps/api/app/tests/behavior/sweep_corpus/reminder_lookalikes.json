@@ -890,5 +890,37 @@
     "history": [],
     "reply": "Your reminders:\n\n- 📞 Call mom\n- 🦷 Dentist appointment\n- 💪 Gym\n- 🏠 Pay rent\n- 📖 Read\n- 🪴 Water the plants",
     "expect": "read"
+  },
+  {
+    "id": "ht-091",
+    "area": "todo",
+    "prompt": "ok last thing, what's on my to do list right now?",
+    "history": [],
+    "reply": "Here is what's on your To-Do list right now:\n\n1. **Practice list comprehensions** 🐍\n   Due: Monday, October 26, 2026 at 7:00 PM",
+    "expect": "read"
+  },
+  {
+    "id": "ht-092",
+    "area": "todo",
+    "prompt": "hmm are you sure? check my to-do list again",
+    "history": [],
+    "reply": "After checking, it looks like there's only one active task: **Practice list comprehensions**.",
+    "expect": "read"
+  },
+  {
+    "id": "ht-093",
+    "area": "lookalike",
+    "prompt": "things to do in lisbon? i'm there for 4 days",
+    "history": [],
+    "reply": "Four days in Lisbon is plenty: Alfama and the castle, Belém's monastery and tower, a day trip to Sintra, and the riverside at sunset.",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-094",
+    "area": "lookalike",
+    "prompt": "what's on my list for the party? i need ideas",
+    "history": [],
+    "reply": "For a party list: snacks, drinks, cups and plates, a playlist and a few games.",
+    "expect": "answer"
   }
 ]

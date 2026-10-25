@@ -5,9 +5,13 @@ from __future__ import annotations
 import re
 
 # Fixed-keyword branch only — phrases with unbounded ``.+`` are linear scans below.
+# The list goes by the app's own name, To-do, however it is spelled: "what's on my to-do
+# list?" and "my to do list" loaded nothing (2026-10-25), and the reply was made up from
+# the chat. "Things to do" and "what to do" name no list.
 _TODO_QUERY_FIXED = re.compile(
     r"\b("
-    r"todo|todos|task|tasks|reminder|reminders|"
+    r"todo|todos|to-dos?|to do lists?|task|tasks|reminder|reminders|"
+    r"what do i have (?:on |planned |going on )?(?:today|tonight|tomorrow|this week(?:end)?)|"
     r"remind me|"
     r"due|overdue|"
     r"what('?s| is) (?:on|in) my (?:reminders?|schedule|todos?|tasks?|calendar)|"

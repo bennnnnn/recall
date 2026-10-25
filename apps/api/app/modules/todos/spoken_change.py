@@ -37,29 +37,6 @@ _REPEAT_MARKS: tuple[tuple[str, RecurrenceRule], ...] = (
     ("monthly", "monthly"),
 )
 _ADJUST_LEADS = ("make ", "change ", "set ", "put ", "move ")
-_READ_OPENINGS = (
-    "what reminders do i have",
-    "what are my reminders",
-    "what are my todos",
-    "whats on my schedule",
-    "what is on my schedule",
-    "what is scheduled",
-    "whats scheduled",
-    "what do i have scheduled",
-    "what do i have on my schedule",
-    "do i have any reminders",
-    "do i have reminders",
-    "show my reminders",
-    "show my schedule",
-    "show me my reminders",
-    "show me my schedule",
-    "list my reminders",
-    "list my todos",
-    "list my schedule",
-    "read my reminders",
-    "read my schedule",
-)
-
 _FILLER_LEADS = (
     "please ",
     "pls ",
@@ -80,11 +57,6 @@ _FILLER_LEADS = (
 )
 _FILLER_TAILS = (" instead", " please", " then", " thanks", " thank you", " pls")
 _CLAUSE_SPLIT = re.compile(r"[,;]|\s[\u2014\u2013-]\s")
-# Openings that do not say "my": a place after them is somewhere else's schedule.
-_BARE_READS = frozenset({"what is scheduled", "whats scheduled"})
-_ELSEWHERE = re.compile(
-    r"\s+(?:at|in)\s+(?!\d|noon\b|midnight\b|the (?:morning|afternoon|evening)\b)"
-)
 
 
 @dataclass(frozen=True)
@@ -105,18 +77,6 @@ class SpokenReminderChange:
     shift_days: int = 0
     # "I paid rent, check it off": the other clause says what "it" is.
     context_hint: str = ""
-
-
-def asks_to_read_reminders(user_text: str | None) -> bool:
-    """True when they asked what is saved, not to change it."""
-    text = _prepare(user_text).lower().replace("'", "").replace("\u2019", "")
-    if not text or text.startswith(("add ", "remind ", "make ", "delete ", "move ")):
-        return False
-    for opening in _READ_OPENINGS:
-        if text.startswith(opening):
-            # "What's scheduled at the Hollywood Bowl" asks about a venue.
-            return opening not in _BARE_READS or not _ELSEWHERE.match(text[len(opening) :])
-    return False
 
 
 def parse_spoken_reminder_change(

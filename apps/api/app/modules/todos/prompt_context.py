@@ -262,17 +262,25 @@ async def build_todos_system_section(
     *,
     client_timezone: str | None = None,
     query_text: str | None = None,
+    accepted_offer: bool = False,
 ) -> str | None:
-    """Todo hint + snapshot block, or None when the turn is unrelated."""
+    """Todo hint + snapshot block, or None when the turn is unrelated.
+
+    ``accepted_offer``: the message is a yes to the last reply's offer of a reminder
+    (``offer_reply``), so the turn is that request.
+    """
     tz = time_context_service.effective_timezone(user.timezone, client_timezone)
     probe: list[TodoItem] = []
     text_hit = bool(
-        (query_text and day_planning_service.is_day_planning_question(query_text))
+        accepted_offer
+        or (query_text and day_planning_service.is_day_planning_question(query_text))
         or query_implies_todos(query_text)
     )
     if not text_hit:
         probe = await todos_repo.list_due_soon(session, user.id, before_utc=datetime.now(UTC))
-    if not should_inject_todos_prompt(probe, query_text=query_text, user_timezone=tz):
+    if not text_hit and not should_inject_todos_prompt(
+        probe, query_text=query_text, user_timezone=tz
+    ):
         return None
     items = await todos_repo.list_for_user(session, user.id, limit=settings.todo_inject_limit)
     selected = select_todos_for_prompt(items, settings, query_text=query_text, user_timezone=tz)

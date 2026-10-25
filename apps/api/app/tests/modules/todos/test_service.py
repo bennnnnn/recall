@@ -369,6 +369,28 @@ def test_query_implies_todos():
     assert not todos_service.query_implies_todos("tell me about flight delays")
 
 
+@pytest.mark.parametrize(
+    ("text", "loads"),
+    [
+        # The app's own name for the list, however it is spelled (live 2026-10-25).
+        ("ok last thing, what's on my to do list right now?", True),
+        ("hmm are you sure? check my to-do list again", True),
+        ("add milk to my to-do list", True),
+        ("put this on my to do list", True),
+        ("my to-dos for the move", True),
+        ("what do i have today", True),
+        ("what do I have tomorrow?", True),
+        ("things to do in lisbon", False),
+        ("what to do today?", False),
+        ("i have a lot to do this week", False),
+        ("what do i have to do to get a visa?", False),
+        ("how to do long division", False),
+    ],
+)
+def test_query_implies_todos_reads_the_list_by_its_name(text: str, loads: bool) -> None:
+    assert todos_service.query_implies_todos(text) is loads
+
+
 def test_find_item_requires_exact_normalized_match():
     """Destructive todo actions must not fuzzy-match near-miss titles."""
     from app.modules.todos.actions import _find_item

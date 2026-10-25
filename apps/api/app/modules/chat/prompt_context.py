@@ -160,6 +160,10 @@ class _ContextReads:
                 self.settings,
                 client_timezone=self.client_timezone,
                 query_text=self.query_text,
+                accepted_offer=todos_service.accepted_offer_in(
+                    self.query_text, self.recent_messages
+                )
+                is not None,
             )
 
     async def attachment_rag_block(self) -> str:

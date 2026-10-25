@@ -51,6 +51,12 @@ _CHANGED = (
     r"(?:moved|marked|deleted|removed|rescheduled|postponed|reopened|unchecked|updated"
     r"|changed|cancell?ed|completed|checked off|cleared)"
 )
+# "Setting that reminder for you now!", "I'm adding it": nothing is being set either.
+_DOING = (
+    r"(?:^(?:(?:ok|okay|sure|great|perfect|got it|alright|all right)[,!.]?\s+)?"
+    r"|\b(?:i|we)(?:'m| am|'re| are)\s+)(?:now\s+|just\s+|also\s+)?"
+    r"(?:setting|adding|saving|scheduling|creating|putting)"
+)
 # A claim on its own: about a reminder by its words alone.
 _CLAIM_RE = re.compile(
     "|".join(
@@ -59,6 +65,9 @@ _CLAIM_RE = re.compile(
             rf"(?:up\s+)?(?:a|an|the|your|you|one|two|three|both|these|those|this|that)\s+"
             rf"(?:[\w'-]+\s+){{0,4}}?{_NOUN}\b",
             rf"{_WILL}\s+(?:\w+\s+){{0,2}}?(?:remind|ping|nudge|notify|alert)\s+you\b",
+            rf"{_DOING}\s+(?:up\s+)?(?:a|an|the|your|that|this|one)\s+(?:[\w'-]+\s+){{0,3}}?"
+            rf"{_NOUN}\b(?!\s+(?:system|app|feature|tool|habit|routine|settings?)\b)",
+            rf"{_DOING}\s+(?:[\w'-]+\s+){{1,4}}?(?:to|on|in|into)\s+{_YOUR_LIST}\b",
             rf"{_WILL}\s+(?:\w+\s+){{0,2}}?(?:set|add|save|schedule|create|put)\s+(?:up\s+)?"
             rf"(?:a|an|the|that|this|it)\s+(?:[\w'-]+\s+){{0,3}}?{_NOUN}\b",
             r"\byou(?:'ll| will)\s+(?:now\s+|also\s+)?(?:be\s+(?:reminded|notified|pinged|alerted)"
@@ -84,8 +93,11 @@ _CONTEXT_CLAIM_RE = re.compile(
             r"(?:all\s+|now\s+)?(?:set|scheduled|saved|booked|added|created|done|updated|moved"
             r"|deleted|removed|marked)\b",
             r"^(?:(?:ok|okay|sure|great|perfect|got it|alright|all right|done)[,!.]?\s+)?"
-            r"(?:scheduled|saved|added|created|booked|moved|deleted|removed|marked|rescheduled"
-            r"|updated|postponed|reopened)\b",
+            r"(?:all\s+)?(?:set|scheduled|saved|added|created|booked|moved|deleted|removed|marked"
+            r"|rescheduled|updated|postponed|reopened)\b",
+            r"\bgot (?:it|that|this|you|them|everything) (?:all\s+)?(?:set|scheduled|saved|added)\b",
+            r"\byou(?:'re| are)\s+(?:all\s+)?set\s+for\b",
+            rf"{_DOING}\s+(?:it|that|this|them|one)\b",
             r"^done\b",
         )
     )
@@ -172,6 +184,11 @@ def without_when_questions(text: str) -> str:
             kept.append(joined)
     body = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
     return "" if _ACK_ONLY_RE.fullmatch(_plain(body)) else body
+
+
+def split_sentences(line: str) -> list[str]:
+    """One line of prose as its sentences."""
+    return _SENTENCE_RE.split(line)
 
 
 def is_claim(sentence: str, titles: Iterable[str] = ()) -> bool:

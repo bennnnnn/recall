@@ -21,6 +21,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.todos import proposals, write_log
 from app.modules.todos.actions import MAX_TODO_ACTIONS_PER_TURN
 from app.modules.todos.card_retime import retime_untapped_card
+from app.modules.todos.offer_reply import accepted_reminder_offer
+from app.modules.todos.read_asks import asks_to_read_reminders
 from app.modules.todos.recurrence import next_recurring_due
 from app.modules.todos.reminder_fence_parse import (
     ReminderFence,
@@ -48,7 +50,6 @@ from app.modules.todos.spoken_add import (
 from app.modules.todos.spoken_apply import apply_spoken_change, format_reminder_reading
 from app.modules.todos.spoken_change import (
     asks_about_my_reminders,
-    asks_to_read_reminders,
     names_reminders,
     parse_spoken_reminder_change,
 )
@@ -137,6 +138,15 @@ class _Turn:
     prior_assistant: str | None
     prior_user: str | None
     window: Sequence[object] | None = None
+    # The last reply's offer of a reminder that this message ("yes") accepts.
+    offer: str | None = None
+
+    @property
+    def said(self) -> str | None:
+        """What the user agreed to: their words, and the offer they said yes to."""
+        if self.offer is None:
+            return self.user_text
+        return f"{self.user_text or ''} {self.offer}".strip()
 
     def writes(self) -> ReminderWrites:
         return ReminderWrites(
@@ -179,6 +189,7 @@ async def _materialize(
         prior_assistant=prior_assistant,
         prior_user=prior_user,
         window=window,
+        offer=accepted_reminder_offer(user_text, prior_assistant),
     )
     spans = find_reminder_fences(assistant_text)
     # The user's explicit restraint outranks an LLM-emitted write fence. This
@@ -321,7 +332,12 @@ async def _save_user_remind(turn: _Turn) -> tuple[str, int]:
         about = about_saved_reminders(turn.prior_assistant) or asks_about_my_reminders(
             turn.prior_user
         )
-        reply = reply_when_nothing_saved(turn.assistant_text, turn.user_text, about_reminders=about)
+        reply = reply_when_nothing_saved(
+            turn.assistant_text,
+            turn.user_text,
+            about_reminders=about or turn.offer is not None,
+            accepted_offer=turn.offer is not None,
+        )
         return reply, 0
     line, ok = await create_one(turn.writes(), draft)
     updated = turn.assistant_text.strip()
@@ -362,7 +378,9 @@ async def _apply_fences(turn: _Turn, spans: _Spans) -> tuple[str, int]:
             state.applied += 1
     updated = _render(turn.assistant_text, spans, in_place, result_lines)
     if state.applied == 0:
-        updated = reply_when_nothing_saved(updated, turn.user_text, about_reminders=True)
+        updated = reply_when_nothing_saved(
+            updated, turn.user_text, about_reminders=True, accepted_offer=turn.offer is not None
+        )
         if invalid_any and not updated.strip():
             updated = _ASK_WHEN
     return updated, state.applied
@@ -373,7 +391,7 @@ async def _apply_fence(turn: _Turn, state: ReminderWrites, body: str) -> _FenceR
     if draft is None:
         logger.warning("Invalid reminder fence payload for user_id=%s", state.user_id)
         return await _apply_invalid_fence(turn, state)
-    if draft.action == "add" and chat_add_needs_a_stated_time(turn.user_text, draft.due_at):
+    if draft.action == "add" and chat_add_needs_a_stated_time(turn.said, draft.due_at):
         return await _apply_stated_clock(turn, state)
     # "In 3 minutes" is the server's arithmetic on the user's clock, not the model's.
     after = relative_due(turn.user_text, user_timezone=turn.user_timezone)

@@ -410,7 +410,10 @@ def _fence(card: dict[str, Any]) -> str:
 @pytest.mark.parametrize(
     ("status", "expected"),
     [
-        (None, "Card offered, not yet tapped — Set: Gym — Thursday, Oct 15, 6:00 PM."),
+        (
+            None,
+            "Card offered, not tapped, so nothing is saved — Set: Gym — Thursday, Oct 15, 6:00 PM.",
+        ),
         ("saved", "Set: Gym — Thursday, Oct 15, 6:00 PM."),
     ],
 )

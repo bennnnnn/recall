@@ -130,7 +130,7 @@
       "why": "Exception: Pydantic wire schema for the `simulation` fence v2 (425 lines of model classes)"
     },
     "apps/api/app/modules/todos/spoken_change.py": {
-      "lines": 551,
+      "lines": 511,
       "why": "Over 500 before the standards; ES-12 split the readers out. What is left is the move and adjust parsers (see the cleanup PR)"
     },
     "apps/api/app/modules/web_search/patterns.py": {

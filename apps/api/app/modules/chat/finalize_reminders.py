@@ -60,6 +60,8 @@ async def apply_reminder_pass(
     try:
         given = text
         text, created = await _materialize(deps, redis, settings, ctx, text)
+        # "I can't set reminders from here" is false: the card above, or the next one.
+        text = todos_service.without_denials(text)
         # A reply that was only a reminder fence, with nothing saved, must still
         # say something: an empty one kept the streamed fence on the phone.
         if given.strip() and not text.strip():

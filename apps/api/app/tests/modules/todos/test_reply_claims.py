@@ -33,6 +33,18 @@ from app.modules.todos.reply_claims import is_claim, without_claims
         "Scheduled for tomorrow at 9.",
         "Set: call mom — Thursday, Oct 15, 6:00 PM.",
         "**Done** — call the dentist, tomorrow at 9 AM.",
+        # Live 2026-10-25: above an untapped card, and after a "yes" that saved nothing.
+        "Got it set for tomorrow evening! 📅",
+        "Got it, set for tomorrow at 7 PM.",
+        "All set for tomorrow at 7!",
+        "Got it all set for Monday.",
+        "You're all set for tomorrow evening!",
+        "Setting that reminder for you now! ⏰",
+        "I'm setting that reminder for you now.",
+        "Sure, adding that reminder now.",
+        "Okay, setting it for 7 PM tomorrow.",
+        "I'm setting that up for tomorrow at 9.",
+        "OK, adding milk to your list.",
     ],
 )
 def test_is_claim_reads_a_completed_reminder_change(sentence: str) -> None:
@@ -52,6 +64,16 @@ def test_is_claim_reads_a_completed_reminder_change(sentence: str) -> None:
         "I made a cake for her birthday.",
         "Let me know if you want another one.",
         "The alarm in the story is set for dawn.",
+        "Set the oven to 180°C.",
+        "I'm setting aside time to write.",
+        "You're all set for baking!",
+        "Got it! Water boils at 100 °C.",
+        "Setting goals is important.",
+        "I'm adding the eggs now.",
+        "Got it, the answer is 12.",
+        "Setting up a reminder system takes practice.",
+        "Okay, setting the oven to 200.",
+        "Setting it to medium heat for 10 minutes.",
     ],
 )
 def test_is_claim_leaves_ordinary_sentences(sentence: str) -> None:
