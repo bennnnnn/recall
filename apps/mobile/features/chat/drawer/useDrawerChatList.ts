@@ -39,6 +39,8 @@ import { getSessionGeneration } from "@/lib/auth";
 import { isExpectedReadFailure } from "@/lib/cache/sessionResource";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { useReadFailureReport } from "@/hooks/useReadFailureReport";
+import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
+import { useLatestRef } from "@/lib/latestRef";
 
 type Params = { isDrawerOpen: boolean };
 
@@ -190,6 +192,9 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     hydrateFromCache();
     if (drawerChatFetchMode({ isDrawerOpen, hasToken: Boolean(account), hasLoadedOnce: hasLoadedOnceRef.current }) !== "skip") void load();
   }, [isDrawerOpen, account, load, hydrateFromCache]);
+  // The API back after an outage: the open drawer's chats, read as opening it reads them.
+  const openRef = useLatestRef(isDrawerOpen);
+  useReconnectRefresh(() => void load(), () => openRef.current);
 
   const updateGroups = useCallback((chatId: string, patch: Partial<Chat> | null, update: (previous: ChatList) => ChatList) => {
     if (!account || !current()) return;

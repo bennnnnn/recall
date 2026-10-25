@@ -41,6 +41,7 @@ import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import { useChatHighlightScroll } from "@/features/chat/hooks/useChatHighlightScroll";
 import { useChatPaging } from "@/features/chat/hooks/useChatPaging";
 import { useChatPageCacheWriter, type ChatPageSync } from "@/features/chat/hooks/useChatPageCacheWriter";
+import { useChatPageReconnect } from "@/features/chat/hooks/useChatPageReconnect";
 import { useChatTitlePolling } from "@/features/chat/hooks/useChatTitlePolling";
 import { useLatestRef } from "@/lib/latestRef";
 import { useViewOwner } from "@/lib/viewOwner";
@@ -467,6 +468,7 @@ export function useChatRouteLoader({
     chatId, routeChatId, messages, busy: streaming, hasMoreOlder, hasMoreNewer, sync: pageSync,
     resync: silentRefetchChat,
   });
+  useChatPageReconnect({ chatId, busy: () => chatLoadingRef.current || turnBusy(), refetch: silentRefetchChat });
 
   const { highlightedMessageId } = useChatHighlightScroll({
     chatLoading, routeChatId, routeHighlightMessage, router, messages, hasMoreOlder, hasMoreNewer,

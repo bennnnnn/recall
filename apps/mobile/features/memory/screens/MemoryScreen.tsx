@@ -16,6 +16,7 @@ import {
   parseMemoryDate,
 } from "@/features/memory/model/memoryDocuments";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
+import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
 import { formatDate } from "@/lib/datetime/format";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -50,6 +51,8 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   useEffect(() => {
     if (isCurrentView()) void load();
   }, [isCurrentView, load]);
+  // The API back after an outage: the pages read again.
+  useReconnectRefresh(() => void load(), isCurrentView);
 
   useEffect(() => {
     if (!scanning) return;
