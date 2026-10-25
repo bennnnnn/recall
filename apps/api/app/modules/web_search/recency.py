@@ -41,9 +41,13 @@ def anchor_recency_to_year(query: str, user_text: str, user_timezone: str | None
 # Words that ask how things stand now: a result, a score, the news, "so far", "this
 # season". With these the answer depends on when each page was written.
 _NOW_WORDS = re.compile(
-    r"\b(?:who won|who(?:'s| is) (?:winning|leading|ahead)|scores?|standings|breaking|news"
-    r"|headlines?|today|tonight|yesterday|last night|right now|at the moment|so far"
-    r"|currently|this (?:week|weekend|month|season|year)|out yet)\b",
+    r"\b(?:who won|who(?:'s| is) (?:winning|leading|ahead|in the lead|in the (?:final|series"
+    r"|playoffs|world series))|final score|what(?:'s| is| was) the score|the score (?:of|in)"
+    r"|scores? (?:today|tonight|last night|yesterday)|standings|breaking news|latest news"
+    r"|in the news|(?:news|headlines?) (?:today|this (?:morning|week))|today'?s (?:news|headlines?)"
+    r"|(?:election|game|match|race|week \d+) results|results? (?:of|from) (?:the|last|this)"
+    r"|today|tonight|last night|right now|at the moment|so far|currently"
+    r"|this (?:week|weekend|month|season)|out yet|still (?:shut down|closed|open|going|on))\b",
     re.IGNORECASE,
 )
 # How something stands: "is the world series over?", "has the election been called?",

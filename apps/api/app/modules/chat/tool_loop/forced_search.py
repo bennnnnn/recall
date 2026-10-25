@@ -143,8 +143,9 @@ async def _search_targets(
             user=ctx.user,
             redis=ctx.redis,
             budget=ctx.tavily_budget,
-            # "Is it over already?" is dated by its words, "World Series 2026" by its query.
-            dated=wants_dated_results(targets[0]) or wants_dated_results(found[0]),
+            # The user's own words decide: a rewritten query ("… near Austin, Texas")
+            # no longer says it was a search for places near them.
+            dated=wants_dated_results(targets[0]),
         )
     queries = [
         found[0] if found else target for found, target in zip(query_lists, targets, strict=True)

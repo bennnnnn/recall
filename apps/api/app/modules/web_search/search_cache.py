@@ -10,7 +10,7 @@ published. "Who won the World Series this year?" found the winners' lists and a 
 written, and three replies running said the Rays had won, that the series began "this
 Friday" two days after it did, and that Game 1 was a week away. Up to three dated pages
 join the general results, one after each, which keep their order and places. The news
-search runs beside the general one and may take at most a moment longer.
+search runs beside the general one and may take at most half a second longer.
 """
 
 from __future__ import annotations
@@ -190,7 +190,7 @@ _NEWS = "news"
 _NEWS_EXTRA = 3
 # How long the news search may run on once the turn's own search is back: it is an
 # extra, and never what the reply waits for.
-NEWS_GRACE_SECONDS = 1.5
+NEWS_GRACE_SECONDS = 0.5
 
 
 async def _news_in_time(task: asyncio.Future[list[WebSearchHit]]) -> list[WebSearchHit]:

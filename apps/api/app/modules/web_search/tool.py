@@ -57,6 +57,9 @@ def _requested_news_count(text: str) -> int | None:
     return None
 
 
+_SHOWN = 8
+
+
 class WebSearchAdapter:
     name = "web_search"
     input_schema = WebSearchToolInput
@@ -115,7 +118,7 @@ class WebSearchAdapter:
             user=ctx.user,
             redis=ctx.redis,
             budget=ctx.tavily_budget,
-            dated=wants_dated_results(user_query) or wants_dated_results(query),
+            dated=wants_dated_results(user_query),
         )
         if news_today:
             hits = filter_hits_to_today(hits, ctx.user_timezone)
@@ -144,7 +147,8 @@ class WebSearchAdapter:
                 )
             result = ToolResult(name=self.name, content=content)
         else:
-            shown = hits[:5]
+            # The general results and the dated pages beside them (``search_cache``).
+            shown = hits[:_SHOWN]
             today = local_today(ctx.user_timezone)
             lines = [
                 f"- {hit.title}: {hit.url}\n  {published_note(hit.published, today, ctx.user_timezone)}"
