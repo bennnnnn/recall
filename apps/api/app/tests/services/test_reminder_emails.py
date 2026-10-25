@@ -41,7 +41,7 @@ def _todo(*, due_at: datetime, user_id=None) -> MagicMock:
     todo.content = "Call mom"
     todo.due_at = due_at
     # Set well before its lead window, so the lead time applies.
-    todo.updated_at = due_at - timedelta(hours=2)
+    todo.due_set_at = due_at - timedelta(hours=2)
     todo.checked = False
     todo.email_sent_at = None
     todo.recurrence_rule = None

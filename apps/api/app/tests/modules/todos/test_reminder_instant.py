@@ -42,7 +42,7 @@ def _todo(due: datetime, *, set_at: datetime | None = None) -> TodoItem:
         content="Call the dentist",
         checked=False,
         due_at=due,
-        updated_at=set_at or due - timedelta(days=1),
+        due_set_at=set_at or due - timedelta(days=1),
     )
 
 
@@ -100,7 +100,7 @@ def test_the_push_scheduler_sends_at_the_instant_the_phone_schedules(
     todo = _todo(due_at, set_at=due_at - set_before)
     notify_at = reminder_instant(todo, user)
     assert notify_at is not None
-    start = min(due_at, todo.updated_at) - timedelta(hours=2)
+    start = min(due_at, todo.due_set_at) - timedelta(hours=2)
     assert _first_push_minute(todo, user, start=start) == _ceil_minute(notify_at)
 
 
@@ -185,7 +185,7 @@ async def test_the_page_notify_at_is_the_minute_push_sends(db_session) -> None:
             user_id=user.id,
             content="Night dentist call",
             due_at=due,
-            updated_at=due - timedelta(days=3),
+            due_set_at=due - timedelta(days=3),
         )
     )
     await db_session.flush()
@@ -201,9 +201,8 @@ async def test_the_page_notify_at_is_the_minute_push_sends(db_session) -> None:
 
 
 async def test_a_delivery_leaves_the_instant_where_it_was(db_session) -> None:
-    """A sent stamp bumped updated_at, which the instant reads as when the time was set: after
-    a push the instant moved to the due time (a second alert on a device without a token), and
-    an email sent first held push back until the due time."""
+    """A sent stamp is not an edit: updated_at and the instant stay where they were (a moved
+    instant meant a second alert on a device without a token)."""
     user = await _push_user(db_session, reminder_lead_minutes=10)
     now = datetime.now(UTC)
     set_at = now - timedelta(days=1)
@@ -213,6 +212,7 @@ async def test_a_delivery_leaves_the_instant_where_it_was(db_session) -> None:
     await db_session.flush()
     for todo in (pushed, emailed):
         todo.updated_at = set_at
+        todo.due_set_at = set_at
     await db_session.flush()
     before = {todo.content: reminder_instant(todo, user) for todo in (pushed, emailed)}
 
@@ -226,3 +226,64 @@ async def test_a_delivery_leaves_the_instant_where_it_was(db_session) -> None:
         assert reminder_instant(todo, user) == before[todo.content]
     assert pushed.notification_sent_at == now
     assert emailed.email_sent_at == now
+
+
+async def _patch(session, user, todo_id, body: dict[str, object]) -> dict[str, object]:
+    app = FastAPI()
+    app.include_router(todos_router.router)
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_db] = lambda: session
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.patch(f"/todos/{todo_id}", json=body)
+    assert response.status_code == 200
+    return response.json()
+
+
+async def _set_yesterday(session, *, due: datetime, user) -> TodoItem:
+    """A to-do due at ``due`` whose time was set the day before."""
+    todo = TodoItem(user_id=user.id, content="Call the dentist", due_at=due)
+    session.add(todo)
+    await session.flush()
+    yesterday = due - timedelta(days=1)
+    todo.updated_at = yesterday
+    todo.due_set_at = yesterday
+    await session.flush()
+    return todo
+
+
+@pytest.mark.parametrize(
+    "edits",
+    [
+        [{"content": "Call the dentist back"}],
+        [{"sort_order": 3}],
+        [{"topic": "Health"}],
+        [{"checked": True}, {"checked": False}],
+    ],
+    ids=["title", "reorder", "category", "uncheck"],
+)
+async def test_an_edit_that_keeps_the_due_time_keeps_the_reminder(
+    db_session, edits: list[dict[str, object]]
+) -> None:
+    """The instant read when the to-do last changed, so an edit inside the lead window, after
+    the reminder went out at due - lead, moved it to the due time: a phone without push,
+    which schedules its own alert at notify_at, alerted a second time."""
+    user = await _push_user(db_session, reminder_lead_minutes=10)
+    due = datetime.now(UTC).replace(microsecond=0) + timedelta(minutes=5)
+    todo = await _set_yesterday(db_session, due=due, user=user)
+    went_out = reminder_instant(todo, user)
+    assert went_out == due - timedelta(minutes=10)
+
+    for body in edits:
+        saved = await _patch(db_session, user, todo.id, body)
+    assert datetime.fromisoformat(str(saved["notify_at"])) == went_out
+
+
+async def test_a_due_time_set_inside_its_lead_window_still_goes_out_when_due(db_session) -> None:
+    user = await _push_user(db_session, reminder_lead_minutes=10)
+    now = datetime.now(UTC).replace(microsecond=0)
+    todo = await _set_yesterday(db_session, due=now + timedelta(days=1), user=user)
+
+    saved = await _patch(
+        db_session, user, todo.id, {"due_at": (now + timedelta(minutes=5)).isoformat()}
+    )
+    assert datetime.fromisoformat(str(saved["notify_at"])) == now + timedelta(minutes=5)

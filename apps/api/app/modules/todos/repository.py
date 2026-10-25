@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID
 
@@ -199,6 +199,8 @@ async def update(
     if "due_at" in fields and fields["due_at"] != todo.due_at:
         fields["notification_sent_at"] = None
         fields["email_sent_at"] = None
+        # Its reminder instant reads when the time was set; no other edit moves it.
+        fields["due_set_at"] = datetime.now(UTC)
     changes: dict[str, Any] = {}
     for key, value in fields.items():
         if hasattr(todo, key):

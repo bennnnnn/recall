@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, cast
 
-from sqlalchemy import and_, case, or_, update
+from sqlalchemy import and_, case, func, or_, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
@@ -50,6 +50,7 @@ async def advance_schedules_if_current(
         .where(or_(*(_matches(snapshot) for snapshot, _ in advances)))
         .values(
             due_at=case({snapshot.id: due for snapshot, due in advances}, value=TodoItem.id),
+            due_set_at=func.now(),
             notification_sent_at=None,
             email_sent_at=None,
         )

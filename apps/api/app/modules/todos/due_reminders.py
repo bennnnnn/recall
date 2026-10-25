@@ -123,7 +123,7 @@ def reminder_instant(todo: TodoItem, user: User) -> datetime | None:
         return None
     return reminder_at(
         todo.due_at,
-        set_at=todo.updated_at,
+        set_at=todo.due_set_at,
         lead_minutes=user.reminder_lead_minutes,
         quiet=QuietHours.of(user),
     )
@@ -210,10 +210,14 @@ async def mark_reminder_pushed(session: AsyncSession, todo: TodoItem, *, now: da
         # when its due time is still in the future.
         nxt = next_recurring_due(due, rule, now=max(now, due), timezone=timezone)
         return await update_schedule_if_current(
-            session, snapshot, due_at=nxt, notification_sent_at=None, email_sent_at=None
+            session,
+            snapshot,
+            due_at=nxt,
+            due_set_at=func.now(),
+            notification_sent_at=None,
+            email_sent_at=None,
         )
-    # A delivery is not a change to the to-do: updated_at, which its reminder instant reads
-    # as when its time was set, stays (bumped, the instant moved to the due time after a push).
+    # A delivery is not a change to the to-do: updated_at stays.
     return await update_schedule_if_current(
         session, snapshot, notification_sent_at=now, updated_at=TodoItem.updated_at
     )

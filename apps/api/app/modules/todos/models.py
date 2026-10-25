@@ -84,3 +84,7 @@ class TodoItem(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    # When due_at was last set, and nothing else: the reminder instant reads it
+    # (due_reminders.reminder_instant), so a title edit, a reorder or an uncheck never
+    # moves a reminder (migration 0122).
+    due_set_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

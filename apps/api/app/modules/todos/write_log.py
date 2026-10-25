@@ -36,6 +36,7 @@ _ROW_FIELDS = (
     "source",
     "created_at",
     "updated_at",
+    "due_set_at",
 )
 _CREATE_FIELDS = (
     "content",
@@ -95,6 +96,7 @@ def plan_create(writes: list[PlannedWrite], todo: TodoItem) -> TodoItem:
     todo.checked = False
     todo.created_at = now
     todo.updated_at = now
+    todo.due_set_at = now
     write = PlannedWrite(
         kind="create",
         todo_id=todo.id,
