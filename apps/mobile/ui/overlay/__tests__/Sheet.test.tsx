@@ -221,4 +221,26 @@ describe("Sheet", () => {
     await fireEvent(locked.getByTestId("app-sheet-modal"), "requestClose");
     expect(blocked).not.toHaveBeenCalled();
   });
+
+  it("closes on VoiceOver's escape scrub only when it may be dismissed", async () => {
+    const dismissed = jest.fn();
+    const blocked = jest.fn();
+    // A centred sheet is modal over its own scrim, so escape is the reader's only way out.
+    const open = await render(
+      <Sheet visible onClose={dismissed} variant="center">
+        <Text>open</Text>
+      </Sheet>,
+    );
+    await fireEvent(open.getByTestId("app-sheet-dialog"), "accessibilityEscape");
+    expect(dismissed).toHaveBeenCalledTimes(1);
+    await open.unmount();
+
+    const locked = await render(
+      <Sheet visible onClose={blocked} backdropDismiss={false}>
+        <Text>locked</Text>
+      </Sheet>,
+    );
+    expect(locked.getByTestId("app-sheet-dialog").props.onAccessibilityEscape).toBeUndefined();
+    expect(blocked).not.toHaveBeenCalled();
+  });
 });
