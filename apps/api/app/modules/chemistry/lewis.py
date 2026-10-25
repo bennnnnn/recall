@@ -97,9 +97,17 @@ def _electronegativity(element: str) -> float:
 
 
 def _central_atom(species: ChemicalSpecies) -> str | None:
-    """The one center of a covalent molecule; a salt's metal is none."""
+    """The one center of a covalent molecule; a salt's metal is none.
+
+    An oxoacid's hydrogen sits on oxygen (H-O-N=O), not on the centre the builder would bond
+    it to: HNO2 is bent at N, not trigonal planar, and HIO3 pyramidal. With hydrogen and oxygen
+    both present only carbon (H2CO) or oxygen itself (H2O, H3O+) is a center, as with HOCl.
+    """
+    composition = species.composition
     center = _center_of(species)
-    if center is None or _ionic(center, [atom for atom in species.composition if atom != center]):
+    if center is None or _ionic(center, [atom for atom in composition if atom != center]):
+        return None
+    if "H" in composition and "O" in composition and center not in {"C", "O"}:
         return None
     return center
 
@@ -149,10 +157,11 @@ def _center_of(species: ChemicalSpecies) -> str | None:
 
 
 def _ionic(central: str, terminals: list[str]) -> bool:
-    """A metal centre of group 1 or 2 (beryllium aside), or one whose bonds are ionic."""
-    if central in _NONMETAL_CENTERS:
+    """A metal centre of group 1 or 2, or one whose bonds are ionic. Beryllium's are covalent
+    in school chemistry: BeCl2 and BeF2 are the textbook linear molecules."""
+    if central in _NONMETAL_CENTERS or central == "Be":
         return False
-    if BY_SYMBOL[central].group in {1, 2} and central != "Be":
+    if BY_SYMBOL[central].group in {1, 2}:
         return True
     center = _electronegativity(central)
     return any(_electronegativity(atom) - center >= _IONIC_DIFFERENCE for atom in terminals)

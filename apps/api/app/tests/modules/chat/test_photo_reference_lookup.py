@@ -477,8 +477,7 @@ async def _show_me_both(
         "show us both",
         "show me both then",
         "show me the drawings",
-        "draw both",
-        "draw both of them",
+        "display them",
         "lol no the molecules",
     ],
 )
@@ -487,13 +486,76 @@ async def _show_me_both(
 async def test_a_show_line_after_a_shape_answer_is_drawn_not_searched_or_generated(
     content: str, resolved: str | None, thread_sympy_executor: None
 ) -> None:
-    """ "can u show me both" searched the word "both" and showed a meme (2026-10-25); "draw
-    both" went to image generation on Pro. After a shape answer chemistry draws the molecules,
-    whatever a resolver would have named, before a photo or a generated picture is asked."""
+    """ "can u show me both" searched the word "both" and showed a meme (2026-10-25). After a
+    shape answer chemistry draws the molecules, whatever a resolver would have named, before a
+    photo or a generated picture is asked."""
     handled, resolve, search_and_attach, misses = await _new_turn(_MOLECULE_ROWS, content, resolved)
     assert handled is False
     resolve.assert_not_awaited()
     search_and_attach.assert_not_awaited()
+    assert "photo" in misses
+
+
+_SHOW_LINES = (
+    "can u show me both",
+    "show me both of them",
+    "show me what they look like",
+    "show me each of them",
+    "show me the shapes",
+    "show me the models",
+    "show us both",
+    "show me both then",
+    "show me the drawings",
+    "show me pictures of both",
+    "display them",
+    "let me see them",
+    "what do they look like",
+    "lol no the molecules",
+)
+
+
+@pytest.mark.parametrize("content", _SHOW_LINES)
+def test_the_composer_sends_every_show_line_to_the_chat_turn(content: str) -> None:
+    """The composer reads a send before the chat turn exists: a picture it draws is the
+    picture the chat turn would draw. Every line chemistry claims is a photo lookup or a plain
+    send there, so it reaches the chat turn and its intercept."""
+    from app.modules.images.intent import composer_image_intent
+
+    assert composer_image_intent(content, list(_MOLECULE_ROWS)).request is None
+
+
+@pytest.mark.parametrize("content", ["draw both", "draw both of them", "draw them", "sketch them"])
+@pytest.mark.asyncio
+async def test_a_draw_line_after_a_shape_answer_is_left_to_image_generation(
+    content: str, thread_sympy_executor: None
+) -> None:
+    """The composer sends "draw both" to /images/generate before any chat turn; chemistry
+    claiming it on the chat path would split that one reading."""
+    from app.modules.chat.turn_intercepts import _chemistry_draws_it
+
+    assert not await _chemistry_draws_it(Settings(), content, list(_MOLECULE_ROWS))
+
+
+@pytest.mark.asyncio
+async def test_a_regenerated_show_line_takes_the_photo_tool_out_too(
+    thread_sympy_executor: None,
+) -> None:
+    from app.modules.chat.turn_intercepts import intercept_regenerate
+    from app.modules.chat.turn_prep import RegenerateBackup
+
+    deps = turn_deps(messages={"list_recent": AsyncMock(return_value=list(_MOLECULE_ROWS))})
+    misses: set[str] = set()
+    handled = await intercept_regenerate(
+        deps,
+        Settings(image_search_enabled=True),
+        user=make_user(),
+        chat_id=uuid4(),
+        content="can u show me both",
+        backup=RegenerateBackup(content="Here.", model="free-chat", message_id=uuid4()),
+        outcome=TurnOutcome(),
+        misses=misses,
+    )
+    assert handled is False
     assert "photo" in misses
 
 

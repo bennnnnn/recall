@@ -5,11 +5,12 @@ me both", which a photo search for "both" took, then "lol no the molecules", whi
 art in a code box and a broken CO2 drawing. The server draws each molecule of a verified shape
 answer (``chem_scene``), so a line that only asks to see them gets that answer again.
 
-Every word of the line must come from one closed set: a verb that shows ("show", "draw",
+Every word of the line must come from one closed set: a verb that shows ("show", "display",
 "let me see", "look like"), what is shown ("both", "them", "each of them", "the molecules",
 "the models", "the drawings"), and fillers ("lol", "no", "can u", "pls", "then"). Review
-(2026-10-25): phrase by phrase, "show me both of them", "show me what they look like", "show
-us both" and "draw both" fell through to a photo search or a generated picture. A word for a
+(2026-10-25): phrase by phrase, "show me both of them", "show me what they look like" and
+"show us both" fell through to a photo search. "draw" and "sketch" are not show verbs here: the
+composer sends "draw both" to image generation before a chat turn exists. A word for a
 real photo ("photo", "pic", "image", "real") is never this line: "show me a photo of both" stays
 a photo. The noun alone counts too ("lol no the molecules"). The shape question is the latest
 earlier user line that is not such a line itself; any other line in between declines, so "show
@@ -28,7 +29,9 @@ from app.services.problem_followup import message_role_content
 # A show line is short; anything longer asks something else.
 _MAX_LINE = 200
 _WORD = re.compile(r"[a-z0-9']+")
-_SHOW_VERBS = frozenset({"show", "draw", "display", "sketch", "visualize", "visualise"})
+# "draw" and "sketch" are left to image generation: the composer reads "draw both" as a picture
+# before any chat turn, and the composer's reading is the chat turn's (``images/intent``).
+_SHOW_VERBS = frozenset({"show", "display", "visualize", "visualise"})
 _PICTURE_NOUNS = frozenset(
     {
         "molecule",

@@ -73,6 +73,9 @@ def _recent(*lines: str) -> list[tuple[str, str]]:
         ("what are the shapes of water and co2", ("H2O", "CO2"), "H2O: bent"),
         # Beryllium, aluminium and tin(II) chloride are molecules; only salts decline.
         ("is BeCl2 linear", ("BeCl2",), "geometry: linear, 180°"),
+        ("is BeF2 linear", ("BeF2",), "geometry: linear, 180°"),
+        ("what shape is CH2O", ("CH2O",), "trigonal planar, 120°"),
+        ("is h2o polar", ("H2O",), "polarity: polar"),
         ("what shape is AlCl3", ("AlCl3",), "trigonal planar"),
         ("is CH2Cl2 polar", ("CH2Cl2",), "polarity: polar"),
         ("is XeOF4 polar", ("XeOF4",), "polarity: polar"),
@@ -149,7 +152,6 @@ def test_shapes_in_everyday_words_are_not_a_vsepr_question(text: str) -> None:
         "shape of magnesium chloride",
         "shape of strontium chloride",
         "is calcium fluoride linear",
-        "is BeF2 linear",
         "what shape is AlF3",
         # Network solids: no O=Si=O molecule.
         "what shape is SiO2",
@@ -160,11 +162,19 @@ def test_shapes_in_everyday_words_are_not_a_vsepr_question(text: str) -> None:
         "is SF4Cl2 polar",
         "is XeF2Cl2 polar",
         "shape of PCl2F3",
+        # An oxoacid's H sits on O (H-O-N=O): bent at N, not trigonal planar.
+        "what shape is nitrous acid",
+        "is hno2 polar",
+        "what shape is HNO2",
+        "shape of HIO3",
         # A charge written apart is an ion this reader cannot see: sulfite is pyramidal.
         "shape of SO3 2-",
         "what shape is so3 2-",
         "is SO3 2- polar",
         "why is water bent tho, so3 2- isnt",
+        "shape of SO3(2-)",
+        "shape of SO3 (2-)",
+        "shape of SO3 ion",
     ],
 )
 def test_a_shape_no_single_answer_fits_declines(question: str) -> None:
@@ -208,11 +218,11 @@ def test_a_comparison_needs_two_different_molecules_with_a_center(formula: str) 
         (_LIVE, "Can u show me both"),
         ((*_LIVE, "Can u show me both"), "lol no the molecules"),
         (("why is water bent",), "show me the molecules"),
-        (("why is water bent",), "draw them"),
-        (("why is water bent",), "draw it"),
+        (("why is water bent",), "display them"),
+        (("why is water bent",), "show me it"),
         (("why is water bent",), "show me"),
         (("why is water bent",), "what do they look like"),
-        (("why is water bent",), "can you draw both molecules pls"),
+        (("why is water bent",), "can you show me both molecules pls"),
         ((*_LIVE, "Can u show me both"), "show me both of them"),
         (_LIVE, "show me what they look like"),
         (_LIVE, "show me each of them"),
@@ -221,8 +231,6 @@ def test_a_comparison_needs_two_different_molecules_with_a_center(formula: str) 
         (_LIVE, "show us both"),
         (_LIVE, "show me both then"),
         (_LIVE, "show me the drawings"),
-        (_LIVE, "draw both"),
-        (_LIVE, "draw both of them"),
     ],
 )
 def test_a_line_that_asks_to_see_them_draws_the_shape_question_again(
@@ -246,6 +254,12 @@ def test_a_line_that_asks_to_see_them_draws_the_shape_question_again(
         (_LIVE, "show me a picture of the real ones"),
         (_LIVE, "show me a waterfall"),
         (_LIVE, "ok i see"),
+        # Draw verbs are image generation's: the composer sends them before a chat turn.
+        (_LIVE, "draw both"),
+        (_LIVE, "draw both of them"),
+        (("why is water bent",), "draw them"),
+        (("why is water bent",), "sketch them"),
+        (_LIVE, "draw me a picture"),
     ],
 )
 def test_a_show_line_after_anything_else_is_not_chemistrys(
@@ -269,7 +283,11 @@ def test_a_show_line_after_anything_else_is_not_chemistrys(
         ("show me both of them", True),
         ("show me what they look like", True),
         ("show us both", True),
-        ("draw both of them", True),
+        ("draw both of them", False),
+        ("draw both", False),
+        ("sketch them", False),
+        ("draw me a picture", False),
+        ("display them", True),
         ("can i see them", True),
         ("show me a photo of both", False),
         ("show me an image of both", False),

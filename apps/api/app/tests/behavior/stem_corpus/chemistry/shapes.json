@@ -16,7 +16,7 @@
   {"id": "sh-15", "area": "shape", "prompt": "why is co2 nonpolar if it has polar bonds", "expect": "explain", "note": "a clause the grammar does not know: the model explains"},
   {"id": "sh-f1", "area": "shape_followup", "prompt": "Can u show me both", "expect": "answer", "text": ["bent", "linear"], "history": [["user", "Ok so chem hw. how much water do i get if i burn like 4g of h2"], ["assistant", "**Answer**\n\n```answer\nverified: true\nnotation: chemistry\nm(H2O) = 36 g\n```"], ["user", "Wait so its 4.5 or 36?? I'm confused"], ["assistant", "It's 36 g. The 4.5 was a slip."], ["user", "Ok and the o2 how much of that"], ["assistant", "About 32 g of O2."], ["user", "Why is water bent tho, co2 isnt"], ["assistant", "**Answer**\n\n```answer\nverified: true\nnotation: chemistry\nH₂O: bent, 104.5°, polar\nCO₂: linear, 180°, nonpolar\n```"]], "note": "live: a photo search for 'both' took it; the molecules are drawn again"},
   {"id": "sh-f2", "area": "shape_followup", "prompt": "lol no the molecules", "expect": "answer", "text": ["bent", "linear"], "history": [["user", "Ok so chem hw. how much water do i get if i burn like 4g of h2"], ["assistant", "**Answer**\n\n```answer\nverified: true\nnotation: chemistry\nm(H2O) = 36 g\n```"], ["user", "Wait so its 4.5 or 36?? I'm confused"], ["assistant", "It's 36 g. The 4.5 was a slip."], ["user", "Ok and the o2 how much of that"], ["assistant", "About 32 g of O2."], ["user", "Why is water bent tho, co2 isnt"], ["assistant", "**Answer**\n\n```answer\nverified: true\nnotation: chemistry\nH₂O: bent, 104.5°, polar\nCO₂: linear, 180°, nonpolar\n```"], ["user", "Can u show me both"], ["assistant", "**Answer**\n\n```answer\nverified: true\nnotation: chemistry\nH₂O: bent, 104.5°, polar\nCO₂: linear, 180°, nonpolar\n```"]], "note": "live: ASCII art in a code box"},
-  {"id": "sh-f3", "area": "shape_followup", "prompt": "draw them", "expect": "answer", "text": ["bent"], "history": [["user", "why is water bent"], ["assistant", "Water has two lone pairs on oxygen."]]},
+  {"id": "sh-f3", "area": "shape_followup", "prompt": "show them", "expect": "answer", "text": ["bent"], "history": [["user", "why is water bent"], ["assistant", "Water has two lone pairs on oxygen."]]},
   {"id": "sh-l01", "area": "lookalike", "prompt": "what shape is the earth", "expect": "not_subject"},
   {"id": "sh-l02", "area": "lookalike", "prompt": "the pipe is bent", "expect": "not_subject"},
   {"id": "sh-l03", "area": "lookalike", "prompt": "bent over backwards for my boss", "expect": "not_subject"},
@@ -43,10 +43,17 @@
   {"id": "sh-d9", "area": "shape", "prompt": "shape of SO3 2-", "expect": "decline", "note": "the charge was dropped: sulfite is pyramidal, SO3 planar"},
   {"id": "sh-f4", "area": "shape_followup", "prompt": "show me both of them", "expect": "answer", "text": ["bent", "linear"], "history": [["user", "Why is water bent tho, co2 isnt"], ["assistant", "**Answer**\n\n```answer\nverified: true\nnotation: chemistry\nH₂O: bent, 104.5°, polar\nCO₂: linear, 180°, nonpolar\n```"]]},
   {"id": "sh-f5", "area": "shape_followup", "prompt": "show us both", "expect": "answer", "text": ["bent", "linear"], "history": [["user", "Why is water bent tho, co2 isnt"], ["assistant", "**Answer**\n\n```answer\nverified: true\nnotation: chemistry\nH₂O: bent, 104.5°, polar\nCO₂: linear, 180°, nonpolar\n```"]]},
-  {"id": "sh-f6", "area": "shape_followup", "prompt": "draw both of them", "expect": "answer", "text": ["bent", "linear"], "history": [["user", "Why is water bent tho, co2 isnt"], ["assistant", "**Answer**\n\n```answer\nverified: true\nnotation: chemistry\nH₂O: bent, 104.5°, polar\nCO₂: linear, 180°, nonpolar\n```"]], "note": "image generation took 'draw both' on Pro"},
+  {"id": "sh-f6", "area": "shape_followup", "prompt": "display them", "expect": "answer", "text": ["bent", "linear"], "history": [["user", "Why is water bent tho, co2 isnt"], ["assistant", "**Answer**\n\n```answer\nverified: true\nnotation: chemistry\nH₂O: bent, 104.5°, polar\nCO₂: linear, 180°, nonpolar\n```"]]},
   {"id": "sh-l13", "area": "lookalike", "prompt": "The Shape of Water", "expect": "not_subject", "note": "the 2017 film got an instant H2O card"},
   {"id": "sh-l14", "area": "lookalike", "prompt": "the shape of water", "expect": "not_subject"},
   {"id": "sh-l15", "area": "lookalike", "prompt": "Shape of Water?", "expect": "not_subject"},
   {"id": "sh-l16", "area": "lookalike", "prompt": "ok so the shape of water", "expect": "not_subject"},
-  {"id": "sh-l17", "area": "lookalike", "prompt": "who directed the shape of water", "expect": "not_subject"}
+  {"id": "sh-l17", "area": "lookalike", "prompt": "who directed the shape of water", "expect": "not_subject"},
+  {"id": "sh-f7", "area": "shape_followup", "prompt": "draw them", "expect": "explain", "history": [["user", "why is water bent"], ["assistant", "Water has two lone pairs on oxygen."]], "note": "a draw verb is image generation's: the composer reads it before any chat turn"},
+  {"id": "sh-19", "area": "shape", "prompt": "shape of BeF2", "expect": "answer", "text": ["linear", "180"], "note": "the textbook linear molecule; was declined as ionic"},
+  {"id": "sh-d10", "area": "shape", "prompt": "what shape is nitrous acid", "expect": "decline", "note": "H-O-N=O is bent at N; the builder put H on N and said trigonal planar"},
+  {"id": "sh-d11", "area": "shape", "prompt": "is hno2 polar", "expect": "decline"},
+  {"id": "sh-d12", "area": "shape", "prompt": "shape of HIO3", "expect": "decline", "note": "H on O, not on I"},
+  {"id": "sh-d13", "area": "shape", "prompt": "shape of SO3(2-)", "expect": "decline"},
+  {"id": "sh-d14", "area": "shape", "prompt": "shape of SO3 ion", "expect": "decline"}
 ]

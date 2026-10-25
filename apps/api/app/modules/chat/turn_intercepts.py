@@ -432,6 +432,8 @@ async def intercept_regenerate(
             deps, settings, chat_id=chat_id, recent_messages=None, replace_assistant_id=replace_id
         )
         if await _chemistry_draws_it(settings, content, recent):
+            if misses is not None:
+                misses.add("photo")
             return False
     if backup is not None and backup.model == _IMAGE_SEARCH_MODEL:
         if await try_image_lookup_for_turn(

@@ -673,7 +673,6 @@ def test_a_chain_or_an_unclear_center_is_not_a_single_center_structure(formula: 
         "CaF2",
         "LiCl",
         "NaH",
-        "BeF2",
         "AlF3",
         "SnF4",
         # Network solids: heavier group-14 atoms make no pi bonds.
@@ -685,6 +684,9 @@ def test_a_chain_or_an_unclear_center_is_not_a_single_center_structure(formula: 
         "PCl2F3",
         "SF4Cl2",
         "XeF2Cl2",
+        # An oxoacid's hydrogen sits on oxygen, not on the centre.
+        "HNO2",
+        "HIO3",
     ],
 )
 def test_a_salt_a_network_solid_or_an_isomers_polarity_is_not_one_structure(formula: str) -> None:
@@ -695,6 +697,9 @@ def test_a_salt_a_network_solid_or_an_isomers_polarity_is_not_one_structure(form
     ("formula", "geometry", "polar"),
     [
         ("BeCl2", "linear", False),
+        ("BeF2", "linear", False),
+        ("BeF4^2-", "tetrahedral", False),
+        ("H3O+", "trigonal pyramidal", True),
         ("BeH2", "linear", False),
         ("SnCl4", "tetrahedral", False),
         ("SiF4", "tetrahedral", False),
