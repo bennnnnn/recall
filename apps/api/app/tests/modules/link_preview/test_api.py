@@ -31,7 +31,7 @@ def test_link_preview_rejects_a_non_http_url(url):
     fetch = AsyncMock(return_value=_CARD)
     with (
         patch(f"{_API}.get_redis_client", return_value=MagicMock()),
-        patch(f"{_API}.allow_request_fail_closed", allow),
+        patch(f"{_API}.allow_request_unless_down", allow),
         patch(f"{_API}.fetch_link_preview_cached", fetch),
     ):
         response = _client(uuid4()).get("/link-preview", params={"url": url})
@@ -49,7 +49,7 @@ def test_link_preview_returns_the_card_under_the_users_rate_key():
     fetch = AsyncMock(return_value=_CARD)
     with (
         patch(f"{_API}.get_redis_client", return_value=redis),
-        patch(f"{_API}.allow_request_fail_closed", allow),
+        patch(f"{_API}.allow_request_unless_down", allow),
         patch(f"{_API}.fetch_link_preview_cached", fetch),
     ):
         response = _client(user_id).get("/link-preview", params={"url": _CARD["url"]})
@@ -67,7 +67,7 @@ def test_link_preview_rate_limited_is_429_without_a_fetch():
     fetch = AsyncMock(return_value=_CARD)
     with (
         patch(f"{_API}.get_redis_client", return_value=MagicMock()),
-        patch(f"{_API}.allow_request_fail_closed", AsyncMock(return_value=False)),
+        patch(f"{_API}.allow_request_unless_down", AsyncMock(return_value=False)),
         patch(f"{_API}.fetch_link_preview_cached", fetch),
     ):
         response = _client(uuid4()).get("/link-preview", params={"url": _CARD["url"]})
@@ -81,7 +81,7 @@ def test_link_preview_rate_limited_is_429_without_a_fetch():
 def test_link_preview_busy_is_429_with_retry_after():
     with (
         patch(f"{_API}.get_redis_client", return_value=MagicMock()),
-        patch(f"{_API}.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch(f"{_API}.allow_request_unless_down", AsyncMock(return_value=True)),
         patch(
             f"{_API}.fetch_link_preview_cached",
             AsyncMock(side_effect=LinkPreviewBusyError()),

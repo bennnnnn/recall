@@ -1,7 +1,7 @@
-import { ApiRequestError } from "@/lib/api/errorBody";
+import { ApiRequestError, isServiceUnavailable } from "@/lib/api/errorBody";
 
 /** Why a memory change did not happen, in the terms the person who asked needs. */
-export type MemoryFailure = "busy" | "off" | "gone" | "limited" | "unreachable" | "failed";
+export type MemoryFailure = "busy" | "off" | "gone" | "limited" | "unavailable" | "unreachable" | "failed";
 
 /** A memory change: done, or why not. */
 export type MemoryChange = { ok: true } | { ok: false; failure: MemoryFailure };
@@ -16,6 +16,8 @@ export function memoryFailure(error: unknown): MemoryFailure {
   if (error.code === "memory_busy") return "busy";
   if (error.code === "memory_off") return "off";
   if (error.code === "rate_limited") return "limited";
+  // Recall down: a Redis outage said "Too many memory changes", then "couldn't be updated".
+  if (isServiceUnavailable(error)) return "unavailable";
   if (error.status === 404) return "gone";
   return "failed";
 }
@@ -25,6 +27,7 @@ const FAILURE_KEYS: Record<Exclude<MemoryFailure, "failed">, string> = {
   off: "memory.off",
   gone: "memory.document_gone",
   limited: "memory.limited",
+  unavailable: "common.service_unavailable",
   unreachable: "common.api_unreachable",
 };
 

@@ -30,10 +30,12 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
+from app.gateways.openai_speech_gateway import RealtimeClientSecretResult
 from app.main import create_app
 from app.models.orm import User
 from app.models.schemas.scan import SCAN_MAX_IMAGE_BYTES
 from app.modules.account.email_authority import AccountExistsError
+from app.modules.speech.live_talk import LiveTalkSessionContext
 from app.services.quota import counters
 
 FIXTURE = Path(__file__).resolve().parents[4] / "docs" / "fixtures" / "error_codes.json"
@@ -73,7 +75,7 @@ def _scan(body: dict[str, Any], *, settings: Settings | None = None, **redis: bo
         ),
         patch("app.services.scan_read.quota_service.record_global_spend", AsyncMock()),
         patch(
-            "app.services.scan_read.allow_request_fail_closed",
+            "app.services.scan_read.allow_request_unless_down",
             AsyncMock(return_value=redis.get("allowed", True)),
         ),
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
@@ -114,7 +116,7 @@ def _transcribe(*, at_daily_cap: bool = False, allowed: bool = True) -> Any:
     with (
         patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.speech.gates.allow_request_fail_closed",
+            "app.modules.speech.gates.allow_request_unless_down",
             AsyncMock(return_value=allowed),
         ),
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
@@ -123,6 +125,98 @@ def _transcribe(*, at_daily_cap: bool = False, allowed: bool = True) -> Any:
             "/speech/transcribe",
             headers=_AUTH,
             json={"audio_base64": base64.b64encode(b"audio").decode(), "filename": "a.m4a"},
+        )
+
+
+def _memory_paused() -> Any:
+    """POST /memories/instruct while the day's spend cap is reached."""
+    with (
+        patch("app.modules.memory.api.get_redis_client", return_value=MagicMock()),
+        patch(
+            "app.modules.memory.api.quota_service.global_spend_exceeded",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+    ):
+        return _client(_user()).post(
+            "/memories/instruct", headers=_AUTH, json={"instruction": "Remember I like tea"}
+        )
+
+
+def _live_talk_unconfigured() -> Any:
+    """POST /speech/live/session for a Pro user on a server with no Realtime key."""
+    user = _user()
+    user.plan = "pro"
+    user.tts_voice = None
+    settings = Settings(
+        speech_live_talk_enabled=True, speech_realtime_voice_enabled=True, openai_api_key=""
+    )
+    with (
+        patch(
+            "app.modules.speech.realtime.live_talk_service.load_live_talk_session_context",
+            AsyncMock(return_value=MagicMock()),
+        ),
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+    ):
+        return _client(user, settings).post("/speech/live/session", headers=_AUTH, json={})
+
+
+_LIVE_TALK_ON = Settings(
+    openai_api_key="sk-test", speech_live_talk_enabled=True, speech_realtime_voice_enabled=True
+)
+
+
+def _live_talk(path: str, *, settings: Settings | None = None, **refused: bool) -> Any:
+    """POST a live talk route for a Pro user, refused where ``refused`` says.
+
+    ``rate_limited``: the route's own per-minute limit is used up; ``spend_capped``: the
+    voice spend breaker is open; ``minutes_used``: the month has no session left;
+    ``mint_failed``: the realtime provider minted no key; ``saves_used``: the call saved
+    every turn it may. A save names this chat's session.
+    """
+    user = _user()
+    user.plan = "pro"
+    user.tts_voice = None
+    user.custom_instructions = None
+    chat_id = uuid4()
+    allowed = AsyncMock(return_value=not refused.get("rate_limited"))
+    minted = RealtimeClientSecretResult(value="ek_test", expires_at=123)
+    with (
+        patch(
+            "app.modules.speech.realtime.get_redis_client",
+            return_value=fakeredis.aioredis.FakeRedis(decode_responses=True),
+        ),
+        patch(
+            "app.modules.speech.realtime.live_talk_service.load_live_talk_session_context",
+            AsyncMock(return_value=LiveTalkSessionContext(None, "", "")),
+        ),
+        patch(
+            "app.modules.speech.realtime.live_talk_service.realtime_session_bound_chat_id",
+            AsyncMock(return_value=chat_id),
+        ),
+        patch("app.modules.speech.gates.allow_request_unless_down", allowed),
+        patch("app.modules.speech.realtime.allow_request_unless_down", allowed),
+        patch(
+            "app.services.quota.global_spend_exceeded",
+            AsyncMock(return_value=refused.get("spend_capped", False)),
+        ),
+        patch(
+            "app.services.quota.reserve_live_talk_seconds",
+            AsyncMock(return_value=0 if refused.get("minutes_used") else 900),
+        ),
+        patch(
+            "app.services.quota.take_live_talk_save",
+            AsyncMock(return_value=not refused.get("saves_used")),
+        ),
+        patch(
+            "app.modules.speech.realtime.openai_speech_gateway.create_realtime_client_secret",
+            AsyncMock(return_value=None if refused.get("mint_failed") else minted),
+        ),
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+    ):
+        body = {"chat_id": str(chat_id), "call_id": "issued-session", "user_text": "hi"}
+        return _client(user, settings or _LIVE_TALK_ON).post(
+            path, headers=_AUTH, json=body if path.endswith("/persist") else {}
         )
 
 
@@ -260,6 +354,16 @@ def _sign_in_bodies() -> dict[str, dict[str, Any]]:
     }
 
 
+def _outage() -> Any:
+    """A read while Redis is down: the request limiter cannot count, so it answers what any
+    route's database or Redis outage answers (``core/unavailable.py``)."""
+    with patch(
+        "app.core.rest_rate_limit.allow_request",
+        AsyncMock(side_effect=RedisConnectionError("down")),
+    ):
+        return _client(_user()).get("/todos/page", headers=_AUTH)
+
+
 def _bodies() -> dict[str, dict[str, Any]]:
     too_big = base64.b64encode(b"\xff" * (SCAN_MAX_IMAGE_BYTES + 1)).decode()
     with (
@@ -277,6 +381,7 @@ def _bodies() -> dict[str, dict[str, Any]]:
     ):
         exists = _client(_user()).post("/auth/google", json={"id_token": "token"})
     return {
+        "service_unavailable": _refusal(_outage()),
         "consent_required": _refusal(consent),
         "account_exists": _refusal(exists),
         "scan_not_available": _refusal(
@@ -295,6 +400,22 @@ def _bodies() -> dict[str, dict[str, Any]]:
         "presign_daily_limit": _refusal(_presign("image/png", 128, at_daily_cap=True)),
         "dictation_daily_limit": _refusal(_transcribe(at_daily_cap=True)),
         "dictation_rate_limited": _refusal(_transcribe(allowed=False)),
+        "live_talk_not_configured": _refusal(_live_talk_unconfigured()),
+        "live_talk_minutes_used": _refusal(_live_talk("/speech/live/session", minutes_used=True)),
+        "live_talk_rate_limited": _refusal(_live_talk("/speech/live/session", rate_limited=True)),
+        "live_talk_spend_cap": _refusal(_live_talk("/speech/live/session", spend_capped=True)),
+        "live_talk_upstream_failed": _refusal(_live_talk("/speech/live/session", mint_failed=True)),
+        "live_talk_not_available": _refusal(
+            _live_talk(
+                "/speech/live/session", settings=Settings(speech_realtime_voice_enabled=False)
+            )
+        ),
+        "live_talk_save_rate_limited": _refusal(
+            _live_talk("/speech/live/persist", rate_limited=True)
+        ),
+        "live_talk_save_spend_cap": _refusal(_live_talk("/speech/live/persist", spend_capped=True)),
+        "live_talk_saves_used": _refusal(_live_talk("/speech/live/persist", saves_used=True)),
+        "memory_spend_cap": _refusal(_memory_paused()),
         "image_daily_limit": _refusal(_generate("daily_limit")),
         "image_content_blocked": _refusal(_generate("content_blocked")),
         **_sign_in_bodies(),

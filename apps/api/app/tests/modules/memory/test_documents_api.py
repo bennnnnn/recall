@@ -184,7 +184,7 @@ def _instruct_patches(*, spend_capped=False, allowed=True, outcome=None, error=N
             AsyncMock(return_value=spend_capped),
         ),
         patch(
-            "app.modules.memory.api.allow_request_fail_closed",
+            "app.modules.memory.api.allow_request_unless_down",
             AsyncMock(return_value=allowed),
         ),
         patch("app.modules.memory.api.instruct_service.apply_memory_instruction", apply),
@@ -221,7 +221,8 @@ def test_instruct_applies_the_edit_and_returns_the_documents():
 @pytest.mark.parametrize(
     "kwargs,status,code",
     [
-        ({"spend_capped": True}, 503, "unavailable"),
+        # Paused by the spend cap is no outage: "unavailable" is Redis or the database down.
+        ({"spend_capped": True}, 503, "memory_spend_cap"),
         ({"allowed": False}, 429, "rate_limited"),
         ({"error": locks.MemoryWriteLockBusyError(uuid4())}, 409, "memory_busy"),
         ({"error": instruct_service.MemoryOffError()}, 409, "memory_off"),

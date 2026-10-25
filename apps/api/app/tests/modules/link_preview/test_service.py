@@ -360,7 +360,7 @@ def test_link_preview_router_answers_429_when_fetches_are_busy():
     with (
         patch("app.modules.link_preview.api.get_redis_client", return_value=MagicMock()),
         patch(
-            "app.modules.link_preview.api.allow_request_fail_closed",
+            "app.modules.link_preview.api.allow_request_unless_down",
             AsyncMock(return_value=True),
         ),
         patch(
@@ -396,7 +396,7 @@ def test_link_preview_router_rate_limit_fails_closed():
     with (
         patch("app.modules.link_preview.api.get_redis_client", return_value=MagicMock()),
         patch(
-            "app.modules.link_preview.api.allow_request_fail_closed",
+            "app.modules.link_preview.api.allow_request_unless_down",
             AsyncMock(return_value=False),
         ),
     ):

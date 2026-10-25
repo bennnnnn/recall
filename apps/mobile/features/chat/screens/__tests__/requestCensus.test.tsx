@@ -387,8 +387,9 @@ const realWebSocket = globalThis.WebSocket;
 /**
  * The API out: refusing connections, or answering every request with `status`. `live`: a
  * dependency is down behind a process that answers, so liveness (/health) still answers 200.
+ * `code`: the API's own body names it (core/unavailable.py), where a gateway's names none.
  */
-type Outage = "down" | { status: number; retryAfter: string; live?: boolean };
+type Outage = "down" | { status: number; retryAfter: string; live?: boolean; code?: string };
 /** The connection check's request (lib/api/connectivity.ts). */
 const CHECK = "/health/dependencies";
 let outage: Outage | null = null;
@@ -416,7 +417,9 @@ function installServer(): void {
     }
     if (outage && !(outage.live && path === "/health")) {
       mockLog.push({ method, path, status: outage.status, at: Date.now() });
-      return new Response(JSON.stringify({ detail: "Service temporarily unavailable. Please retry shortly." }), {
+      const message = "Service temporarily unavailable. Please retry shortly.";
+      const detail = outage.code ? { code: outage.code, message } : message;
+      return new Response(JSON.stringify({ detail }), {
         status: outage.status,
         headers: { "content-type": "application/json", "retry-after": outage.retryAfter },
       });
@@ -1167,6 +1170,10 @@ const UNSEEN_OUTAGES: { title: string; outage: Outage }[] = [
   { title: "refused", outage: "down" },
   { title: "503", outage: { status: 503, retryAfter: "5" } },
   { title: "a dependency down", outage: { status: 503, retryAfter: "5", live: true } },
+  // Redis down: the API's request limiter cannot count, so every read answers its own 503
+  // "unavailable". It answered 429 "Rate limit unavailable", which the phone reads as a limit:
+  // no check, no banner, and nothing read again once Redis was back. Liveness still answers.
+  { title: "Redis down", outage: { status: 503, retryAfter: "5", live: true, code: "unavailable" } },
 ];
 
 it("checks the connection once for a burst of reads that find no API, then reads the page again", async () => {

@@ -16,8 +16,10 @@ import type { Message } from "@/lib/api";
 import { applyLiveTalkChatEvent, type LiveTalkSpeakEvent } from "@/features/speech/model/liveTalkEvents";
 import {
   liveTalkErrorGate,
+  liveTalkGateMessageKey,
   liveTalkSessionLimitMs,
   liveTalkGate,
+  liveTalkSaveEndsCall,
   liveTalkShouldAttachSession,
   liveTalkShouldCloseOnAppState,
   liveTalkShouldCloseOnChatChange,
@@ -122,15 +124,7 @@ export function useLiveTalk({
         });
         return;
       }
-      const message =
-        gate === "limit"
-          ? t("chat.live_talk_limit_body")
-          : gate === "offline"
-            ? t("chat.offline_body")
-            : gate === "unconfigured"
-              ? t("chat.live_talk_not_configured")
-              : t("chat.live_talk_unavailable_body");
-      reportRecoverableError(feedback, message);
+      reportRecoverableError(feedback, t(liveTalkGateMessageKey(gate)));
     },
     [feedback, onUpgrade, t],
   );
@@ -182,15 +176,16 @@ export function useLiveTalk({
               user_message: saved.user_message, assistant_message: saved.assistant_message }, completed.id);
           })
           .catch((error: unknown) => {
-            if (liveTalkErrorGate(error) === "limit") {
+            const gate = liveTalkErrorGate(error);
+            // A save never gets `live_talk_minutes_used`, yet each of its 429s said the month was used.
+            if (liveTalkSaveEndsCall(gate)) {
               closeRef.current();
-              alertForGate("limit");
+              alertForGate(gate);
               return;
             }
-            reportRecoverableError(
-              feedback,
-              error instanceof Error ? error.message : t("chat.live_talk_failed"),
-            );
+            // An outage in its own words, translated: the server's English is not.
+            reportRecoverableError(feedback, gate === "outage" ? t(liveTalkGateMessageKey(gate))
+              : error instanceof Error ? error.message : t("chat.live_talk_failed"));
           });
       }
 

@@ -1,12 +1,28 @@
+import { isServiceUnavailable } from "@/lib/api/errorBody";
+
 export type LiveTalkPhase = "idle" | "recording" | "thinking" | "speaking";
 
 export type LiveTalkGate =
   | "ok"
   | "upgrade"
+  /** This month's minutes are used: the status says so, or the server's `live_talk_minutes_used`. */
   | "limit"
+  /** Too many requests in a row (the speech limit, a save's, the API's own): wait a moment. */
+  | "rate_limited"
+  /** Voice is paused while provider spend is capped (`voice_spend_cap`). */
+  | "paused"
+  /** This call saved every turn it may (`live_talk_saves_used`): start a new one. */
+  | "saves_used"
+  /** This build has no WebRTC: only an update brings live talk. */
   | "unavailable"
+  /** The server has live talk switched off (`enabled: false`, `not_available`). */
+  | "off"
+  /** The realtime provider failed, or the connection to it never came up: try again. */
+  | "connect_failed"
   | "offline"
   | "unconfigured"
+  /** Recall is down for now (its database or Redis, a deploy): try again in a moment. */
+  | "outage"
   | "mic_permission";
 
 /** Live talk for this user: `remaining` / `limit` are whole minutes this month. */
@@ -98,7 +114,7 @@ export function liveTalkOrbA11yHintKey(phase: LiveTalkPhase): "chat.live_talk_ca
 
 export function liveTalkGate(status: LiveTalkStatus | null, isOffline: boolean): LiveTalkGate {
   if (isOffline) return "offline";
-  if (!status || !status.enabled) return "unavailable";
+  if (!status || !status.enabled) return "off";
   if (!status.entitled || status.limit <= 0) return "upgrade";
   const secondsLeft = status.remaining_seconds ?? status.remaining * 60;
   if (secondsLeft <= 0 || secondsLeft < (status.min_session_seconds ?? 1)) return "limit";
@@ -145,22 +161,73 @@ function isMicPermissionDenied(error: object): boolean {
   return typeof message === "string" && /permission denied|not allowed/i.test(message);
 }
 
+/**
+ * What each 429 live talk can get says, by its code. Every 429 said this month's minutes
+ * were used: a rate limit, the spend cap, a call's last save. Only the mint's
+ * `live_talk_minutes_used` means that.
+ */
+const LIVE_TALK_429S: ReadonlyMap<unknown, LiveTalkGate> = new Map<unknown, LiveTalkGate>([
+  ["live_talk_minutes_used", "limit"],
+  // The mint's per-minute limit, and a save's.
+  ["speech_rate_limited", "rate_limited"],
+  ["rate_limited", "rate_limited"],
+  ["voice_spend_cap", "paused"],
+  ["live_talk_saves_used", "saves_used"],
+]);
+
+/**
+ * The realtime provider failed: the server's 502 when it minted no key, and the phone's own
+ * SDP exchange with the provider (`realtimeSdp.ts`), whose status is the provider's, not Recall's.
+ */
+export const LIVE_TALK_UPSTREAM_FAILED = "upstream_failed";
+
 export function liveTalkErrorGate(error: unknown): LiveTalkGate {
+  // The one case an update fixes: this build has no WebRTC.
   if (error instanceof Error && error.message === "webrtc_unavailable") {
     return "unavailable";
   }
-  const status =
-    error && typeof error === "object" && "status" in error
-      ? (error as { status: unknown }).status
-      : undefined;
-  if (status === undefined && error && typeof error === "object" && isMicPermissionDenied(error)) {
+  if (!error || typeof error !== "object") return "connect_failed";
+  const { status, code } = error as { status?: unknown; code?: unknown };
+  if (status === undefined && isMicPermissionDenied(error)) {
     return "mic_permission";
   }
+  if (code === LIVE_TALK_UPSTREAM_FAILED) return "connect_failed";
+  if (code === "not_available") return "off";
   if (status === 403) return "upgrade";
-  if (status === 429) return "limit";
-  if (status === 503) return "unconfigured";
-  if (status === 404) return "unavailable";
-  return "unavailable";
+  // The API's own request limit names no code: too many requests, never the month's minutes.
+  if (status === 429) return LIVE_TALK_429S.get(code) ?? "rate_limited";
+  // Only the server's `not_configured` says live talk is not set up. Every 503 said so,
+  // a Redis or database outage too; any other 503, and a gateway's 502 or 504, is one.
+  if (status === 503) return code === "not_configured" ? "unconfigured" : "outage";
+  if (isServiceUnavailable(error)) return "outage";
+  // No answer from Recall, a connection that never came up, an answer it could not use.
+  return "connect_failed";
+}
+
+type SaidGate = Exclude<LiveTalkGate, "ok" | "upgrade" | "mic_permission">;
+
+/** Every gate said as an error has its own line: an unknown one said "update the app". */
+const GATE_MESSAGE_KEYS: Readonly<Record<SaidGate, string>> = {
+  limit: "chat.live_talk_limit_body",
+  rate_limited: "chat.live_talk_rate_limited",
+  paused: "chat.live_talk_paused",
+  saves_used: "chat.live_talk_saves_used",
+  unavailable: "chat.live_talk_unavailable_body",
+  off: "chat.live_talk_off",
+  connect_failed: "chat.live_talk_connect_failed",
+  offline: "chat.offline_body",
+  outage: "common.service_unavailable",
+  unconfigured: "chat.live_talk_not_configured",
+};
+
+/** The line a gate says as a recoverable error; upgrade and the microphone open their own. */
+export function liveTalkGateMessageKey(gate: LiveTalkGate): string {
+  return (GATE_MESSAGE_KEYS as Partial<Record<LiveTalkGate, string>>)[gate] ?? "chat.live_talk_failed";
+}
+
+/** A save refused with a 429 ends the call, in that refusal's own words. */
+export function liveTalkSaveEndsCall(gate: LiveTalkGate): boolean {
+  return gate === "limit" || gate === "rate_limited" || gate === "paused" || gate === "saves_used";
 }
 
 /** Capture stays off while the assistant is playing so speaker echo cannot VAD. */

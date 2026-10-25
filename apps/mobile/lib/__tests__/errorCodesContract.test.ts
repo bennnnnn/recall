@@ -11,6 +11,8 @@ import { ApiRequestError } from "@/lib/api/client";
 import { CONSENT_REQUIRED_CODE } from "@/lib/api/consentRefusal";
 import { scanFailureMessage } from "@/lib/scanner/scanReadError";
 import { refusalCode, resolveChatError } from "@/features/chat/model/errorMessage";
+import { memoryFailure, memoryFailureKey } from "@/features/memory/model/memoryFailure";
+import { liveTalkErrorGate, liveTalkGateMessageKey } from "@/features/speech/model/liveTalkLogic";
 import { voiceRefusalKey } from "@/features/speech/model/voiceRefusal";
 
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "http://test.local" }));
@@ -51,6 +53,8 @@ it("offers the earlier way to sign in", () => {
 it.each([
   ["sign_in_rate_limited", "login.error_rate_limited"],
   ["sign_in_unavailable", "login.error_unavailable"],
+  // Dev login passes the request limiter: Redis down there is the API's own outage body.
+  ["service_unavailable", "login.error_unavailable"],
   ["google_unavailable", "login.error_unavailable"],
   ["apple_unavailable", "login.error_unavailable"],
   ["google_token_invalid", "login.error_token_invalid"],
@@ -72,6 +76,8 @@ it.each([
   ["scan_rate_limited", "chat.scan_rate_limit"],
   ["scan_spend_cap", "chat.scan_spend_cap"],
   ["scan_invalid_image", null],
+  // A Redis outage said "Too many scans in a row", then "couldn't scan that photo".
+  ["service_unavailable", "common.service_unavailable"],
 ])("words a refused scan: %s", (name, words) => {
   expect(scanFailureMessage(refused(name), t)).toBe(words);
 });
@@ -99,6 +105,53 @@ it.each([
 it.each([
   ["dictation_daily_limit", "chat.voice_daily_limit"],
   ["dictation_rate_limited", "chat.voice_rate_limited"],
+  ["service_unavailable", "common.service_unavailable"],
 ])("words a refused dictation: %s", (name, words) => {
   expect(voiceRefusalKey(refused(name))).toBe(words);
+});
+
+// Every 503 said "Live talk isn't set up on this server yet", a Redis outage included.
+it.each([
+  ["service_unavailable", "outage"],
+  ["live_talk_not_configured", "unconfigured"],
+])("gates live talk on a refused 503: %s", (name, gate) => {
+  expect(liveTalkErrorGate(refused(name))).toBe(gate);
+});
+
+// Both said "Live talk isn't available in this version of the app. Update the app".
+it.each([
+  ["live_talk_upstream_failed", "connect_failed", "chat.live_talk_connect_failed"],
+  ["live_talk_not_available", "off", "chat.live_talk_off"],
+])("words a live talk start the app's age has nothing to do with: %s", (name, gate, words) => {
+  expect(liveTalkErrorGate(refused(name))).toBe(gate);
+  expect(liveTalkGateMessageKey(liveTalkErrorGate(refused(name)))).toBe(words);
+});
+
+// Every 429 said "You've used this month's live talk minutes": a rate limit, the spend
+// cap and a call's last save too.
+it.each([
+  ["live_talk_minutes_used", "limit", "chat.live_talk_limit_body"],
+  ["live_talk_rate_limited", "rate_limited", "chat.live_talk_rate_limited"],
+  ["live_talk_spend_cap", "paused", "chat.live_talk_paused"],
+  ["live_talk_save_rate_limited", "rate_limited", "chat.live_talk_rate_limited"],
+  ["live_talk_save_spend_cap", "paused", "chat.live_talk_paused"],
+  ["live_talk_saves_used", "saves_used", "chat.live_talk_saves_used"],
+])("words a refused live talk 429 by its code: %s", (name, gate, words) => {
+  expect(liveTalkErrorGate(refused(name))).toBe(gate);
+  expect(liveTalkGateMessageKey(liveTalkErrorGate(refused(name)))).toBe(words);
+});
+
+it.each([
+  ["service_unavailable", "unavailable", "common.service_unavailable"],
+  // Paused by the spend cap is no outage: the action's own "couldn't" line, as before.
+  ["memory_spend_cap", "failed", "memory.edit_failed"],
+])("words a refused memory edit: %s", (name, failure, words) => {
+  expect(memoryFailure(refused(name))).toBe(failure);
+  expect(memoryFailureKey(memoryFailure(refused(name)), "memory.edit_failed")).toBe(words);
+});
+
+it("words a chat turn the API could not serve", () => {
+  const error = refused("service_unavailable");
+  expect(resolveChatError({ message: error.message, code: error.code ?? undefined, isPaid: false, t }))
+    .toEqual({ kind: "generic", message: "common.service_unavailable" });
 });

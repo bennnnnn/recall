@@ -15,6 +15,7 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.modules import todos as todos_service
+from app.modules.chat.remember_reply import without_remember_turn_claims
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
@@ -66,6 +67,7 @@ async def apply_reminder_pass(
     try:
         given = text
         text, created = await _materialize(deps, redis, settings, ctx, text)
+        text = without_remember_turn_claims(ctx.user_message_content or "", ctx.user, text)
         # "I can't set reminders from here" is false: the card above, or the next one.
         text = todos_service.without_denials(text)
         # A reply that was only a reminder fence, with nothing saved, must still

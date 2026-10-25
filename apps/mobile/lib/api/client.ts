@@ -1,4 +1,4 @@
-import { ApiRequestError, readErrorBody, readRetryAfter } from "@/lib/api/errorBody";
+import { ApiRequestError, readErrorBody, readRetryAfter, UNAVAILABLE_STATUSES } from "@/lib/api/errorBody";
 import { isAbortError } from "@/lib/api/abort";
 import { abortError, serverUnreachableError, untilAborted, withDeadline } from "@/lib/api/deadline";
 import { getApiUrl } from "@/lib/config";
@@ -239,9 +239,6 @@ export { ApiRequestError };
 export function apiUrl(path: string) {
   return `${getApiUrl()}${path}`;
 }
-
-/** What a gateway, or an API that cannot serve, answers: a deploy, a dependency down. */
-const UNAVAILABLE_STATUSES = new Set([502, 503, 504]);
 
 /**
  * `fetch` to our API. One that finds no API (no answer, or a 502, 503 or 504) asks the
