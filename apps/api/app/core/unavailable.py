@@ -22,7 +22,7 @@ from app.exceptions import RedisUnavailableError
 logger = logging.getLogger(__name__)
 
 UNAVAILABLE_DETAIL = "Service temporarily unavailable. Please retry shortly."
-_RETRY_AFTER_SECONDS = "5"
+RETRY_AFTER_SECONDS = "5"
 
 # TimeoutError covers asyncpg's connect and command timeouts (raised as-is,
 # not wrapped by SQLAlchemy). ConnectionError covers refused/reset sockets.
@@ -49,7 +49,7 @@ async def _unavailable(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(
         status_code=503,
         content={"detail": UNAVAILABLE_DETAIL},
-        headers={"Retry-After": _RETRY_AFTER_SECONDS},
+        headers={"Retry-After": RETRY_AFTER_SECONDS},
     )
 
 
@@ -60,7 +60,7 @@ async def _redis_unavailable(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(
         status_code=503,
         content={"detail": message},
-        headers={"Retry-After": _RETRY_AFTER_SECONDS},
+        headers={"Retry-After": RETRY_AFTER_SECONDS},
     )
 
 
