@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { AccountExistsError } from "@/features/auth/model/accountExists";
+import { SignInLimitedError } from "@/features/auth/model/signInLimited";
 import { formatAppleSignInError } from "@/lib/apple-auth";
 import { isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@/lib/config";
 import { formatGoogleSignInError, isExpoGo } from "@/lib/google-auth";
@@ -48,6 +49,7 @@ export function useLoginActions() {
           ? t("login.error_account_exists_apple")
           : t("login.error_account_exists_google");
       }
+      if (error instanceof SignInLimitedError) return t("login.error_rate_limited");
       const key =
         provider === "google"
           ? formatGoogleSignInError(error)
@@ -120,7 +122,9 @@ export function useLoginActions() {
       await signInWithDev();
     } catch (error) {
       showSignInError(
-        error instanceof Error ? error.message : t("login.error_generic"),
+        error instanceof SignInLimitedError
+          ? t("login.error_rate_limited")
+          : error instanceof Error ? error.message : t("login.error_generic"),
       );
     } finally {
       busyRef.current = false;

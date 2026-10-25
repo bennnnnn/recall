@@ -322,7 +322,10 @@ def test_dev_login():
 
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock(return_value=fake_resp)),
-        patch("app.modules.account.api.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch(
+            "app.modules.account.signin_limit.allow_request_fail_closed",
+            AsyncMock(return_value=True),
+        ),
     ):
         client = TestClient(app)
         r = client.post(
@@ -342,7 +345,10 @@ def test_dev_login_refuses_what_is_not_an_email(email: str):
     app.dependency_overrides[get_settings_dep] = lambda: Settings(dev_auth_enabled=True)
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock()) as login,
-        patch("app.modules.account.api.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch(
+            "app.modules.account.signin_limit.allow_request_fail_closed",
+            AsyncMock(return_value=True),
+        ),
     ):
         r = TestClient(app).post("/auth/dev", json={"email": email, "name": "X"})
     assert r.status_code == 422
@@ -371,7 +377,10 @@ def test_dev_login_rate_limited_returns_429():
     )
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock()),
-        patch("app.modules.account.api.allow_request_fail_closed", AsyncMock(return_value=False)),
+        patch(
+            "app.modules.account.signin_limit.allow_request_fail_closed",
+            AsyncMock(return_value=False),
+        ),
     ):
         client = TestClient(app)
         r = client.post("/auth/dev", json={"email": "x@x.com", "name": "X"})
@@ -394,7 +403,10 @@ def test_dev_login_refuses_non_loopback_without_allow_remote():
     )
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock()) as login_dev,
-        patch("app.modules.account.api.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch(
+            "app.modules.account.signin_limit.allow_request_fail_closed",
+            AsyncMock(return_value=True),
+        ),
     ):
         client = TestClient(app)
         r = client.post("/auth/dev", json={"email": "x@x.com", "name": "X"})
@@ -417,7 +429,10 @@ def test_dev_login_ignores_spoofed_loopback_forwarded_ip():
     )
     with (
         patch("app.modules.account.api.auth_service.login_dev", AsyncMock()) as login_dev,
-        patch("app.modules.account.api.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch(
+            "app.modules.account.signin_limit.allow_request_fail_closed",
+            AsyncMock(return_value=True),
+        ),
     ):
         client = TestClient(app)
         r = client.post(

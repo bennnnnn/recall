@@ -2,6 +2,7 @@ import { act, renderHook } from "@testing-library/react-native";
 import { Alert, Platform } from "react-native";
 
 import { AccountExistsError } from "@/features/auth/model/accountExists";
+import { SignInLimitedError } from "@/features/auth/model/signInLimited";
 import { useLoginActions } from "@/features/auth/hooks/useLoginActions";
 import { formatAppleSignInError } from "@/lib/apple-auth";
 import {
@@ -180,6 +181,20 @@ it.each([
     expect(mockFeedback.error).toHaveBeenCalledWith(message);
   },
 );
+
+it.each([
+  ["handleGoogle", mockGoogle],
+  ["handleApple", mockApple],
+  ["handleDev", mockDev],
+] as const)("%s shows its own translated line when sign-in is limited", async (action, signIn) => {
+  // The server's 429 is English: the screen showed it as it came, in every language.
+  signIn.mockRejectedValueOnce(new SignInLimitedError());
+  const { result } = await renderHook(useLoginActions);
+
+  await act(async () => result.current[action]());
+
+  expect(mockFeedback.error).toHaveBeenCalledWith("login.error_rate_limited");
+});
 
 it("preserves the Expo Go Google availability alert", async () => {
   jest.mocked(isExpoGo).mockReturnValue(true);
