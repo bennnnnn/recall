@@ -81,6 +81,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "search_links",
         "generic_closer",
         "meta_notes",
+        "turn_meta",
         "emoji_use",
         "answer_photo",
         "reply_picture",
@@ -117,6 +118,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
     assert kept == {
         "generic_closer": ("generic_closer", False),
         "meta_notes": ("meta_notes", False),
+        "turn_meta": ("turn_meta", False),
         "emoji_use": ("emoji_use", False),
         "search_links": ("search_links", False),
         "requested_json": ("requested_json", False),
