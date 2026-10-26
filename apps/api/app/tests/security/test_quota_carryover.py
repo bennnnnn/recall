@@ -2,8 +2,9 @@
 
 Quota counters are keyed by user id, so a new account would start every daily
 cap (and this month's live talk minutes) from zero. Account delete keeps one
-snapshot keyed by an HMAC of the Google/Apple identity; the new account for the
-same identity picks it up at sign-up.
+snapshot keyed by an HMAC of the Google/Apple identity and one keyed by an HMAC of
+the account's email; the new account for the same identity or address picks them
+up at sign-up (the address alone: ``test_quota_carryover_email.py``).
 """
 
 from __future__ import annotations
@@ -42,6 +43,14 @@ async def _google_sub(user_id: UUID) -> str:
         sub = (await session.execute(select(User.google_sub).where(User.id == user_id))).scalar()
     assert sub
     return str(sub)
+
+
+async def _email(user_id: UUID) -> str:
+    """The account's address (``World`` accounts carry none of their own)."""
+    async with SessionLocal() as session:
+        email = (await session.execute(select(User.email).where(User.id == user_id))).scalar()
+    assert email
+    return str(email)
 
 
 async def _sign_in_google(world: World, *, sub: str, email: str) -> UUID:
@@ -126,11 +135,11 @@ async def _all_redis_text(redis: Any) -> str:
 @pytest.mark.asyncio
 async def test_quota_carryover_same_google_sub_keeps_todays_counts(world: World) -> None:
     redis, a = world.redis, world.a
-    sub = await _google_sub(a.id)
+    sub, email = await _google_sub(a.id), await _email(a.id)
     await _use_quota(redis, a.id)
 
     await _delete_and_sweep(world, a.id, a.headers)
-    new_id = await _sign_in_google(world, sub=sub, email=f"again-{uuid4()}@example.com")
+    new_id = await _sign_in_google(world, sub=sub, email=email)
     try:
         assert new_id != a.id
         assert await _daily_counts(redis, new_id) == _USED
@@ -141,7 +150,8 @@ async def test_quota_carryover_same_google_sub_keeps_todays_counts(world: World)
         # The raise-only DB heal (the new account has no usage rows) keeps them.
         await quota.heal_usage_drift(redis, str(new_id), 10)
         assert await quota.get_daily_usage(redis, str(new_id)) == 1234
-        # Used once: nothing is left to carry into a third account.
+        # Used once: neither the identity's snapshot nor the address's is left to carry
+        # into a third account.
         assert [key async for key in redis.scan_iter(match="quota_carry:*")] == []
     finally:
         await delete_accounts(new_id)
@@ -237,17 +247,30 @@ async def test_quota_carryover_snapshot_holds_no_raw_sub(world: World) -> None:
     from app.modules.account import quota_carryover
 
     redis, a = world.redis, world.a
-    sub = await _google_sub(a.id)
+    sub, email = await _google_sub(a.id), await _email(a.id)
     await _use_quota(redis, a.id)
     await _delete_and_sweep(world, a.id, a.headers)
 
-    keys = [key async for key in redis.scan_iter(match="quota_carry:*")]
-    assert keys == [quota_carryover.carry_key(world.settings, "google", sub)]
-    assert sub not in await _all_redis_text(redis)
-    assert str(a.id) not in await redis.get(keys[0])
-    ttl = await redis.ttl(keys[0])
+    keys = {key async for key in redis.scan_iter(match="quota_carry:*")}
+    assert keys == {
+        quota_carryover.carry_key(world.settings, "google", sub),
+        quota_carryover.email_carry_key(world.settings, email),
+    }
+    everything = await _all_redis_text(redis)
+    assert sub not in everything
+    # The address is only ever a one-way code, in any case.
+    assert email.lower() not in everything.lower()
     month_left = (quota.next_month_start() - datetime.now(UTC)).total_seconds()
-    assert month_left - 60 <= ttl <= 35 * 24 * 60 * 60
+    for key in keys:
+        # Counts only: the same snapshot under each key.
+        assert set(json.loads(await redis.get(key))) == {
+            "day",
+            "month",
+            "daily",
+            "live_talk_seconds",
+        }
+        assert str(a.id) not in await redis.get(key)
+        assert month_left - 60 <= await redis.ttl(key) <= 35 * 24 * 60 * 60
 
 
 def _carry_down(redis: Any, step: str) -> Any:
@@ -340,8 +363,8 @@ def test_quota_carryover_names_every_daily_counter() -> None:
 
 
 def _restore_down(redis: Any, step: str) -> Any:
-    """Redis failing at one step of the sign-in restore only: reading the snapshot,
-    raising the new account's counters, or dropping the used snapshot."""
+    """Redis failing at one step of the sign-in restore only: reading the snapshots (one
+    MGET), raising the new account's counters, or dropping the used snapshots."""
     from redis.exceptions import ConnectionError as RedisConnectionError
 
     async def down(*_args: Any, **_kwargs: Any) -> Any:
@@ -349,11 +372,12 @@ def _restore_down(redis: Any, step: str) -> Any:
 
     if step == "apply":
         return patch("app.services.quota.apply_carried_usage", down)
-    name = "get" if step == "read" else "delete"
+    name = "mget" if step == "read" else "delete"
     real = getattr(redis, name)
 
     async def call(*keys: Any, **kwargs: Any) -> Any:
-        if any(str(key).startswith("quota_carry:") for key in keys):
+        names = [name for key in keys for name in ([key] if isinstance(key, str) else key)]
+        if any(str(name).startswith("quota_carry:") for name in names):
             return await down()
         return await real(*keys, **kwargs)
 
@@ -380,13 +404,13 @@ async def test_quota_carryover_unrestored_refuses_sign_in_and_creates_no_account
     kept, and the retry restores it.
     """
     redis, a = world.redis, world.a
-    sub = await _google_sub(a.id)
+    sub, email = await _google_sub(a.id), await _email(a.id)
     await _use_quota(redis, a.id)
     await _delete_and_sweep(world, a.id, a.headers)
-    carry_key = await _only_carry_key(redis)
-    snapshot = await redis.get(carry_key)
+    snapshots = await _carry_snapshots(redis)
+    assert len(snapshots) == 2  # the identity's and the address's
 
-    payload = {"sub": sub, "email": f"again-{uuid4()}@example.com", "email_verified": True}
+    payload = {"sub": sub, "email": email, "email_verified": True}
     with (
         patch(
             "app.modules.account.service.verify_google_id_token", AsyncMock(return_value=payload)
@@ -398,7 +422,7 @@ async def test_quota_carryover_unrestored_refuses_sign_in_and_creates_no_account
     assert refused.status_code == 503, refused.text
     assert refused.json()["detail"]["code"] == "sign_in_unavailable"
     assert await _accounts_for_sub(sub) == 0
-    assert await redis.get(carry_key) == snapshot
+    assert await _carry_snapshots(redis) == snapshots
 
     again = await _sign_in_google(world, sub=sub, email=str(payload["email"]))
     try:
@@ -427,7 +451,5 @@ async def test_quota_carryover_snapshot_left_after_restore_still_signs_in(world:
         await delete_accounts(again)
 
 
-async def _only_carry_key(redis: Any) -> str:
-    keys = [key async for key in redis.scan_iter(match="quota_carry:*")]
-    assert len(keys) == 1, keys
-    return str(keys[0])
+async def _carry_snapshots(redis: Any) -> dict[str, str]:
+    return {key: await redis.get(key) async for key in redis.scan_iter(match="quota_carry:*")}

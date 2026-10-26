@@ -78,7 +78,8 @@ async def _create_account(
     name: str | None,
     avatar_url: str | None,
 ) -> User:
-    """A new account, committed only once its sign-in's carried counters are restored.
+    """A new account, committed only once its sign-in's and email's carried counters are
+    restored.
 
     A restore Redis refuses raises ``RedisUnavailableError`` before the commit, so the
     sign-in answers 503 ``sign_in_unavailable`` with no account made, and the retry
@@ -109,10 +110,11 @@ async def _link_identity(
 ) -> User:
     """Add a sign-in identity to the account that holds its email, with its carried counters.
 
-    The identity may be one whose account was deleted today: its snapshot raises this
-    account's counters as it would a new account's, so deleting an Apple account and then
-    signing in with Apple to the Google account on the same address starts nothing over.
-    Once: the next sign-in finds the identity on the account and never comes here.
+    The identity, or this account's email, may be one whose account was deleted today: its
+    snapshot raises this account's counters as it would a new account's, so deleting an
+    Apple account and then signing in with Apple to the Google account on the same address
+    starts nothing over. Once: the next sign-in finds the identity on the account and never
+    comes here.
     """
     field = "google_sub" if provider == "google" else "apple_sub"
     user = await users_repo.update(session, user, commit=False, **{field: sub})
@@ -131,21 +133,22 @@ async def _commit_with_carried_usage(
     sub: str,
 ) -> None:
     """Commit the account that just gained this identity, after raising its counters to the
-    identity's carried snapshot (raise-only, ``quota_carryover``), then drop the snapshot.
+    carried snapshots of the identity and of the account's email (raise-only,
+    ``quota_carryover``), then drop the snapshots applied.
 
-    A restore Redis refuses rolls the account or link back, so the sign-in answers 503
-    ``sign_in_unavailable`` and its retry restores.
+    The only callers are a new account and a new link, so an account signing in again never
+    restores twice. A restore Redis refuses rolls the account or link back, so the sign-in
+    answers 503 ``sign_in_unavailable`` and its retry restores.
     """
     try:
         restored = await quota_carryover.restore_for_new_account(
-            redis, settings, user.id, provider=provider, sub=sub
+            redis, settings, user.id, provider=provider, sub=sub, email=user.email
         )
         await session.commit()
     except BaseException:
         await session.rollback()
         raise
-    if restored is not None:
-        await quota_carryover.drop_restored(redis, restored)
+    await quota_carryover.drop_restored(redis, restored)
 
 
 async def login_with_google(

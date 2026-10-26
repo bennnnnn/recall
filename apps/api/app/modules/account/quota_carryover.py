@@ -1,23 +1,34 @@
-"""Carry today's limits from a deleted account to a new one for the same sign-in.
+"""Carry today's limits from a deleted account to the next one for the same person.
 
 Quota counters are keyed by user id, so deleting an account and signing in
-again with the same Google or Apple login would otherwise start every daily
-cap, and this month's live talk minutes, from zero.
+again with the same Google or Apple login, or with the other provider on the
+same email address, would otherwise start every daily cap, and this month's
+live talk minutes, from zero.
 
-Account delete stores what the account had used in one Redis key per sign-in
-identity, ``quota_carry:<HMAC-SHA256(jwt_secret, "google:<sub>")>``: never the
-raw provider subject, never the user id (so the account's Redis sweep, which
-deletes every key naming the user id, leaves it). It expires when the UTC
-month ends. When sign-in creates a new user for that identity, or links the
-identity to the existing account that holds its email (``service._link_identity``),
-that account's counters are raised to the stored ones and the key is deleted. A
-link was left out: delete an Apple account, sign in with Apple to the Google
-account on the same address, and the day started again from zero.
+Account delete stores what the account had used under one Redis key per sign-in
+identity, ``quota_carry:<HMAC-SHA256(jwt_secret, "quota-carry:google:<sub>")>``, and
+one for the account's email, ``quota_carry:<HMAC-SHA256(jwt_secret,
+"quota-carry-email:<address>")>``: never the raw provider subject, never the address,
+never the user id (so the account's Redis sweep, which deletes every key naming the
+user id, leaves them). Each holds the same counts and expires when the UTC month ends.
+An account with no email stores only its identity keys. The email key closed a gap:
+delete an Apple account on x@icloud.com, sign in with Google on the same address, and
+the new account's day started again from zero, its snapshot filed only under the
+Apple id.
+
+The address is trimmed and lower-cased before it is hashed (``normalised_email``) and
+nothing else: no provider's own rules (Gmail's dots or ``+tags``), which would merge
+addresses that are different mailboxes elsewhere.
+
+When sign-in creates a new user, or links an identity to the existing account that
+holds its email (``service._link_identity``), that account's counters are raised to
+the identity's snapshot and the email's (each raise-only, so applying both leaves each
+counter at the larger of the two, never summed), and every key applied is deleted.
 
 Both sides fail closed. A delete whose counters cannot be stored is refused with
 ``RedisUnavailableError`` (503 ``unavailable``), before anything is undone, and the phone
-asks for a retry. A new account whose snapshot cannot be read or applied is not made:
-sign-in answers 503 ``sign_in_unavailable`` and its retry restores. Both were
+asks for a retry. A new account or link whose snapshots cannot be read or applied is
+not saved: sign-in answers 503 ``sign_in_unavailable`` and its retry restores. Both were
 best-effort, so Redis failing at either step started the same sign-in from zero.
 """
 
@@ -27,6 +38,7 @@ import hashlib
 import hmac
 import logging
 import math
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -46,13 +58,24 @@ CARRY_KEY_PREFIX = "quota_carry:"
 _MAX_TTL_SECONDS = 35 * 24 * 60 * 60
 
 
+def _hashed(settings: Settings, message: str) -> str:
+    digest = hmac.new(settings.jwt_secret.encode(), message.encode(), hashlib.sha256)
+    return f"{CARRY_KEY_PREFIX}{digest.hexdigest()}"
+
+
 def carry_key(settings: Settings, provider: str, sub: str) -> str:
-    digest = hmac.new(
-        settings.jwt_secret.encode(),
-        f"quota-carry:{provider}:{sub}".encode(),
-        hashlib.sha256,
-    ).hexdigest()
-    return f"{CARRY_KEY_PREFIX}{digest}"
+    return _hashed(settings, f"quota-carry:{provider}:{sub}")
+
+
+def normalised_email(email: str | None) -> str:
+    """The address as the email key reads it: trimmed and lower-cased, nothing more."""
+    return (email or "").strip().lower()
+
+
+def email_carry_key(settings: Settings, email: str | None) -> str | None:
+    """The email's snapshot key, or None for an account without one."""
+    address = normalised_email(email)
+    return _hashed(settings, f"quota-carry-email:{address}") if address else None
 
 
 def _identities(user: User) -> list[tuple[str, str]]:
@@ -70,13 +93,16 @@ def _ttl_seconds(now: datetime | None = None) -> int:
 
 
 async def save_on_delete(redis: Redis, settings: Settings, user: User) -> None:
-    """Keep the account's used counters for its sign-in identities.
+    """Keep the account's used counters for its sign-in identities and its email.
 
     Raises ``RedisUnavailableError`` when they cannot be read or stored: the delete is
     refused rather than lose them (``lifecycle.delete_account`` calls this first).
     """
-    identities = _identities(user)
-    if not identities:
+    keys = [carry_key(settings, provider, sub) for provider, sub in _identities(user)]
+    by_email = email_carry_key(settings, user.email)
+    if by_email is not None:
+        keys.append(by_email)
+    if not keys:
         return
     try:
         carried = await quota_service.read_carried_usage(redis, user.id)
@@ -84,8 +110,8 @@ async def save_on_delete(redis: Redis, settings: Settings, user: User) -> None:
             return
         payload = carried.model_dump_json()
         ttl = _ttl_seconds()
-        for provider, sub in identities:
-            await redis.set(carry_key(settings, provider, sub), payload, ex=ttl)
+        for key in keys:
+            await redis.set(key, payload, ex=ttl)
     except (RedisError, OSError) as exc:
         logger.warning("Quota carry-over save failed user_id=%s", user.id, exc_info=True)
         raise RedisUnavailableError() from exc
@@ -98,38 +124,47 @@ async def restore_for_new_account(
     *,
     provider: str,
     sub: str,
-) -> str | None:
+    email: str | None,
+) -> list[str]:
     """Raise the counters of an account that just gained this identity (made for it, or
-    linked to it by email), not yet committed, to the identity's snapshot. Raise-only.
+    linked to it by email), not yet committed, to the identity's snapshot and the email's.
+    Raise-only: each counter ends at the larger value, so applying both is safe.
 
-    Returns the snapshot's key for ``drop_restored`` once the account commits, or None when
-    there is none: one GET, the common case. Raises ``RedisUnavailableError`` when the
+    Returns the snapshot keys found, for ``drop_restored`` once the account commits; empty
+    when there are none: one MGET, the common case. Raises ``RedisUnavailableError`` when a
     snapshot cannot be read or applied, so sign-in refuses and saves neither account nor
-    link (the next sign-in would find the identity and never restore). The snapshot stays
+    link (the next sign-in would find the identity and never restore). The snapshots stay
     for the retry.
     """
-    key = carry_key(settings, provider, sub)
+    keys = [carry_key(settings, provider, sub)]
+    by_email = email_carry_key(settings, email)
+    if by_email is not None:
+        keys.append(by_email)
+    found: list[str] = []
     try:
-        raw = await redis.get(key)
-        if raw is None:
-            return None
-        try:
-            carried = quota_service.CarriedUsage.model_validate_json(raw)
-        except ValidationError:
-            logger.warning("Quota carry-over snapshot unreadable; dropped")
-        else:
-            await quota_service.apply_carried_usage(redis, user_id, carried)
+        for key, raw in zip(keys, await redis.mget(keys), strict=True):
+            if raw is None:
+                continue
+            found.append(key)
+            try:
+                carried = quota_service.CarriedUsage.model_validate_json(raw)
+            except ValidationError:
+                logger.warning("Quota carry-over snapshot unreadable; dropped")
+            else:
+                await quota_service.apply_carried_usage(redis, user_id, carried)
     except (RedisError, OSError) as exc:
         logger.warning("Quota carry-over restore failed user_id=%s", user_id, exc_info=True)
         raise RedisUnavailableError() from exc
-    return key
+    return found
 
 
-async def drop_restored(redis: Redis, key: str) -> None:
-    """Delete a snapshot a committed account took. Best effort, never raises: the counters
-    are raised already, and a snapshot left over only raises a later account's counters
-    (raise-only, never lowered) until it expires with the month."""
+async def drop_restored(redis: Redis, keys: Sequence[str]) -> None:
+    """Delete the snapshots a committed account took. Best effort, never raises: the
+    counters are raised already, and a snapshot left over only raises a later account's
+    counters (raise-only, never lowered) until it expires with the month."""
+    if not keys:
+        return
     try:
-        await redis.delete(key)
+        await redis.delete(*keys)
     except Exception:
         logger.warning("Quota carry-over snapshot not dropped; it expires", exc_info=True)

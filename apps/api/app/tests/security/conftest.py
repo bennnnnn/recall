@@ -304,3 +304,15 @@ async def world(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> AsyncIterato
         await engine.dispose(close=False)
         await fake.aclose()
         reset_process_caches()
+
+
+@pytest.fixture
+async def linked(
+    real_redis: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> AsyncIterator[Any]:
+    """The app on the configured Redis for the carry-over tests (``carry_world.py``); the
+    keys of the test's accounts, identities and addresses are deleted after it."""
+    from .carry_world import linked_world
+
+    async with linked_world(monkeypatch, tmp_path) as world:
+        yield world
