@@ -1,0 +1,586 @@
+[
+  {
+    "id": "pl-es-01",
+    "area": "picture languages",
+    "prompt": "Dibuja un gato con sombrero",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-02",
+    "area": "picture languages",
+    "prompt": "Genera una imagen de un león",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-03",
+    "area": "picture languages",
+    "prompt": "¿Puedes dibujar un dragón?",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-10",
+    "area": "multi",
+    "prompt": "Dibuja un gato con sombrero y también explica qué es un agujero negro",
+    "history": [],
+    "reply": "Un agujero negro es una región del espacio donde la gravedad es tan fuerte que nada, ni siquiera la luz, puede escapar.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-es-20",
+    "area": "picture languages",
+    "prompt": "Dibuja una conclusión a partir de estos datos: enero 120, febrero 135, marzo 160",
+    "history": [],
+    "reply": "Las ventas suben de forma constante: de 120 en enero a 160 en marzo, un aumento del 33 %.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-21",
+    "area": "picture languages",
+    "prompt": "Dibuja una tabla con los resultados del examen",
+    "history": [],
+    "reply": "| Alumno | Nota |\n|---|---|\n| Ana | 9 |\n| Luis | 7 |",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-22",
+    "area": "picture languages",
+    "prompt": "dibuja la gráfica de y = x^2",
+    "history": [],
+    "reply": "La gráfica de y = x² es una parábola con vértice en el origen que abre hacia arriba.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-23",
+    "area": "picture languages",
+    "prompt": "dibuja el límite de 1/x cuando x tiende a 0",
+    "history": [],
+    "reply": "Cuando x tiende a 0 por la derecha, 1/x crece sin límite; por la izquierda, decrece sin límite. El límite no existe.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-24",
+    "area": "picture languages",
+    "prompt": "Me encanta dibujar gatos, ¿qué materiales me recomiendas?",
+    "history": [],
+    "reply": "Para empezar, un lápiz HB y uno 2B, papel de 120 g y una goma moldeable bastan.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-25",
+    "area": "picture languages",
+    "prompt": "Haz un plan de estudio para mi examen de química",
+    "history": [],
+    "reply": "Semana 1: estequiometría. Semana 2: enlaces. Semana 3: equilibrio y repaso con exámenes anteriores.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-fr-01",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un mouton",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-02",
+    "area": "picture languages",
+    "prompt": "Génère une image d'un lion",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-03",
+    "area": "picture languages",
+    "prompt": "Tu peux me dessiner un dragon ?",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-10",
+    "area": "multi",
+    "prompt": "Dessine un chat avec un chapeau et explique aussi ce qu'est un trou noir",
+    "history": [],
+    "reply": "Un trou noir est une région de l'espace où la gravité est si forte que rien, pas même la lumière, ne peut s'en échapper.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-fr-20",
+    "area": "picture languages",
+    "prompt": "Dessine un tableau des résultats du sondage",
+    "history": [],
+    "reply": "| Réponse | Votes |\n|---|---|\n| Oui | 42 |\n| Non | 18 |",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-fr-21",
+    "area": "picture languages",
+    "prompt": "Dessine le graphique de la fonction f(x) = x²",
+    "history": [],
+    "reply": "La courbe de f(x) = x² est une parabole tournée vers le haut, de sommet (0, 0).",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-fr-22",
+    "area": "picture languages",
+    "prompt": "dessine un triangle de côtés 3, 4 et 5",
+    "history": [],
+    "reply": "Un triangle de côtés 3, 4 et 5 est rectangle : 3² + 4² = 5².",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-fr-23",
+    "area": "picture languages",
+    "prompt": "Je dessine un chat pour ma fille, des conseils ?",
+    "history": [],
+    "reply": "Commence par des formes simples : un cercle pour la tête, un ovale pour le corps, puis les oreilles en triangles.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-fr-24",
+    "area": "picture languages",
+    "prompt": "Fais-moi une liste de courses pour un couscous",
+    "history": [],
+    "reply": "Semoule, pois chiches, carottes, courgettes, navets, oignons, agneau et ras el hanout.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-01",
+    "area": "picture languages",
+    "prompt": "Zeichne eine Katze mit Hut",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-02",
+    "area": "picture languages",
+    "prompt": "Erstelle ein Bild von einem Löwen",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-03",
+    "area": "picture languages",
+    "prompt": "Kannst du mir einen Drachen zeichnen?",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-10",
+    "area": "multi",
+    "prompt": "Zeichne eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
+    "history": [],
+    "reply": "Ein schwarzes Loch ist ein Bereich im All, in dem die Schwerkraft so stark ist, dass nichts entkommt, nicht einmal Licht.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-de-20",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Tabelle der Ergebnisse",
+    "history": [],
+    "reply": "| Team | Punkte |\n|---|---|\n| A | 12 |\n| B | 9 |",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-21",
+    "area": "picture languages",
+    "prompt": "Zeichne den Graphen von y = x^2",
+    "history": [],
+    "reply": "Der Graph von y = x² ist eine nach oben geöffnete Parabel mit dem Scheitel im Ursprung.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-22",
+    "area": "picture languages",
+    "prompt": "Zeichne ein Dreieck mit den Seiten 3, 4 und 5",
+    "history": [],
+    "reply": "Ein Dreieck mit den Seiten 3, 4 und 5 ist rechtwinklig, denn 3² + 4² = 5².",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-23",
+    "area": "picture languages",
+    "prompt": "Zeichne das Gespräch auf",
+    "history": [],
+    "reply": "Ich kann keine Gespräche aufnehmen. Auf dem Handy geht das mit der Sprachmemo-App.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-24",
+    "area": "picture languages",
+    "prompt": "Mach dir ein Bild davon, wie groß der Garten ist: 12 mal 8 Meter",
+    "history": [],
+    "reply": "12 mal 8 Meter sind 96 Quadratmeter, etwa so groß wie eine Dreizimmerwohnung.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-25",
+    "area": "picture languages",
+    "prompt": "Erstelle einen Plan für meine Woche",
+    "history": [],
+    "reply": "Montag: Sport. Dienstag: Einkauf. Mittwoch: Lernen. Donnerstag: Freunde. Freitag: frei.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-it-01",
+    "area": "picture languages",
+    "prompt": "Disegna un gatto con il cappello",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-it-02",
+    "area": "picture languages",
+    "prompt": "Genera un'immagine di un leone",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-it-03",
+    "area": "picture languages",
+    "prompt": "Disegnami un drago",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-it-10",
+    "area": "multi",
+    "prompt": "Disegna un gatto con il cappello e spiega anche cos'è un buco nero",
+    "history": [],
+    "reply": "Un buco nero è una regione dello spazio in cui la gravità è così forte che niente, nemmeno la luce, può sfuggire.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-it-20",
+    "area": "picture languages",
+    "prompt": "Disegna una tabella dei risultati",
+    "history": [],
+    "reply": "| Squadra | Punti |\n|---|---|\n| A | 12 |\n| B | 9 |",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-it-21",
+    "area": "picture languages",
+    "prompt": "Disegna il grafico di y = x^2",
+    "history": [],
+    "reply": "Il grafico di y = x² è una parabola con il vertice nell'origine, rivolta verso l'alto.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-it-22",
+    "area": "picture languages",
+    "prompt": "Disegni animati per bambini di tre anni, quali consigli?",
+    "history": [],
+    "reply": "Peppa Pig, Bluey e Masha e Orso sono adatti ai tre anni, in piccole dosi.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-it-23",
+    "area": "picture languages",
+    "prompt": "Fammi una lista della spesa per la carbonara",
+    "history": [],
+    "reply": "Spaghetti, guanciale, uova, pecorino romano e pepe nero.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-pt-01",
+    "area": "picture languages",
+    "prompt": "Desenhe um gato com chapéu",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-02",
+    "area": "picture languages",
+    "prompt": "Gere uma imagem de um leão",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-03",
+    "area": "picture languages",
+    "prompt": "Pode desenhar um dragão?",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-10",
+    "area": "multi",
+    "prompt": "Desenhe um gato com chapéu e também explique o que é um buraco negro",
+    "history": [],
+    "reply": "Um buraco negro é uma região do espaço onde a gravidade é tão forte que nada, nem mesmo a luz, consegue escapar.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-pt-20",
+    "area": "picture languages",
+    "prompt": "Desenhe uma tabela com os resultados",
+    "history": [],
+    "reply": "| Time | Pontos |\n|---|---|\n| A | 12 |\n| B | 9 |",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-pt-21",
+    "area": "picture languages",
+    "prompt": "Desenhe o gráfico de y = x^2",
+    "history": [],
+    "reply": "O gráfico de y = x² é uma parábola com vértice na origem, voltada para cima.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-pt-22",
+    "area": "picture languages",
+    "prompt": "Faça um plano de estudos para o ENEM",
+    "history": [],
+    "reply": "Segunda: matemática. Terça: redação. Quarta: ciências da natureza. Quinta: humanas. Sexta: simulado.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-pt-23",
+    "area": "picture languages",
+    "prompt": "Crie uma lista de tarefas para a mudança",
+    "history": [],
+    "reply": "Encaixotar livros, desligar a internet, transferir a conta de luz e reservar o caminhão.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-tr-01",
+    "area": "picture languages",
+    "prompt": "Şapkalı bir kedi çiz",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-02",
+    "area": "picture languages",
+    "prompt": "Bir aslan resmi oluştur",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-03",
+    "area": "picture languages",
+    "prompt": "Bana bir ejderha çizer misin?",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-10",
+    "area": "multi",
+    "prompt": "Şapkalı bir kedi çiz ve ayrıca kara deliğin ne olduğunu açıkla",
+    "history": [],
+    "reply": "Kara delik, kütle çekiminin o kadar güçlü olduğu bir uzay bölgesidir ki ışık bile kaçamaz.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-tr-20",
+    "area": "picture languages",
+    "prompt": "grafik çiz",
+    "history": [],
+    "reply": "Hangi verinin grafiğini çizmemi istersin? Değerleri yazarsan çizebilirim.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-tr-21",
+    "area": "picture languages",
+    "prompt": "y = x^2 fonksiyonunun grafiğini çiz",
+    "history": [],
+    "reply": "y = x² grafiği, tepe noktası orijinde olan ve yukarı açılan bir paraboldür.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-tr-22",
+    "area": "picture languages",
+    "prompt": "Bir tablo çiz: Ali 80, Ayşe 95",
+    "history": [],
+    "reply": "| Öğrenci | Not |\n|---|---|\n| Ali | 80 |\n| Ayşe | 95 |",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-tr-23",
+    "area": "picture languages",
+    "prompt": "önemli yerlerin altını çiz",
+    "history": [],
+    "reply": "Önemli yerleri kalın yazdım: **toplantı cuma 10:00**, **bütçe 5.000 TL**.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-tr-24",
+    "area": "picture languages",
+    "prompt": "bir üçgen çiz, kenarları 3, 4 ve 5",
+    "history": [],
+    "reply": "Kenarları 3, 4 ve 5 olan üçgen dik üçgendir: 3² + 4² = 5².",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-01",
+    "area": "picture languages",
+    "prompt": "Нарисуй кошку в шляпе",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-ru-02",
+    "area": "picture languages",
+    "prompt": "Создай изображение льва",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-ru-03",
+    "area": "picture languages",
+    "prompt": "Можешь нарисовать дракона?",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-ru-10",
+    "area": "multi",
+    "prompt": "Нарисуй кошку в шляпе, а также объясни, что такое чёрная дыра",
+    "history": [],
+    "reply": "Чёрная дыра — это область пространства, где гравитация так сильна, что даже свет не может её покинуть.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-ru-20",
+    "area": "picture languages",
+    "prompt": "Нарисуй график функции y = x^2",
+    "history": [],
+    "reply": "График y = x² — парабола с вершиной в начале координат, ветви направлены вверх.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-21",
+    "area": "picture languages",
+    "prompt": "Нарисуй таблицу результатов",
+    "history": [],
+    "reply": "| Команда | Очки |\n|---|---|\n| А | 12 |\n| Б | 9 |",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-22",
+    "area": "picture languages",
+    "prompt": "Нарисуй треугольник со сторонами 3, 4 и 5",
+    "history": [],
+    "reply": "Треугольник со сторонами 3, 4 и 5 прямоугольный: 3² + 4² = 5².",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-23",
+    "area": "picture languages",
+    "prompt": "Сделай список покупок для борща",
+    "history": [],
+    "reply": "Свёкла, капуста, картофель, морковь, лук, говядина, томатная паста и сметана.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-24",
+    "area": "picture languages",
+    "prompt": "Нарисуй картину будущего словами",
+    "history": [],
+    "reply": "Утро 2050 года: тихие улицы, деревья на крышах и трамваи, которые никто не ждёт.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-am-01",
+    "area": "picture languages",
+    "prompt": "ድመት ሳልልኝ",
+    "history": [],
+    "reply": "ይኸው ስዕልህ። ሌላ አይነት ትፈልጋለህ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-am-02",
+    "area": "picture languages",
+    "prompt": "የአንበሳ ምስል ፍጠር",
+    "history": [],
+    "reply": "ይኸው ስዕልህ። ሌላ አይነት ትፈልጋለህ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-am-03",
+    "area": "picture languages",
+    "prompt": "የዘንዶ ስዕል ሳልልኝ",
+    "history": [],
+    "reply": "ይኸው ስዕልህ። ሌላ አይነት ትፈልጋለህ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-am-10",
+    "area": "multi",
+    "prompt": "ድመት ሳልልኝ እንዲሁም ጥቁር ቀዳዳ ምን እንደሆነ አስረዳኝ",
+    "history": [],
+    "reply": "ጥቁር ቀዳዳ ስበቱ እጅግ ጠንካራ ስለሆነ ብርሃን እንኳ ማምለጥ የማይችልበት የህዋ ክፍል ነው።",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-am-20",
+    "area": "picture languages",
+    "prompt": "ለደረቅ ሳል ምን ይሻላል?",
+    "history": [],
+    "reply": "ለደረቅ ሳል ሙቅ ውሃ በማር መጠጣት ይረዳል። ከሁለት ሳምንት በላይ ከቆየ ሐኪም ያማክሩ።",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-am-21",
+    "area": "picture languages",
+    "prompt": "የልጄ ሳል አልቆመም",
+    "history": [],
+    "reply": "ሳሉ ከሶስት ሳምንት በላይ ከቆየ ወይም ትኩሳት ካለው ወደ ሐኪም ይውሰዱት።",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-am-22",
+    "area": "picture languages",
+    "prompt": "የy = x^2 ግራፍ ሳልልኝ",
+    "history": [],
+    "reply": "የy = x² ግራፍ ጫፉ መነሻ ላይ ያለ ወደ ላይ የሚከፈት ፓራቦላ ነው።",
+    "expect": "answer"
+  }
+]
