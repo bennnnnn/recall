@@ -556,6 +556,6 @@ NEW_PROBLEM_HINT = (
 )
 
 CONFIRM_FOLLOW_THROUGH_HINT = (
-    "The user accepted your last offer with a short yes/go/sure. "
-    "Carry out that offer now. Do not treat this as a greeting or a one-word ack."
+    "The user said yes to your last offer. Carry out that offer now, starting with it. "
+    "It is not a greeting or a one-word ack, and don't say they accepted or agreed."
 )

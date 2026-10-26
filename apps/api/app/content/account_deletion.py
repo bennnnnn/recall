@@ -22,7 +22,7 @@ You can delete your Recall account and its data at any time, in the app or by as
 3. Tap Data controls.
 4. Tap Delete your account, then confirm.
 
-Deletion is permanent and starts at once. Every device you are signed in on is signed out.
+Deletion is permanent and starts at once. Every device you are signed in on is signed out. If Recall cannot start it right now, nothing is deleted and the app asks you to try again in a moment.
 
 ## Ask us to delete it
 

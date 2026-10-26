@@ -162,6 +162,10 @@ async def delete_account(
     (``gateways/apple_revoke.py``), so Apple being down never blocks the delete.
     """
     apple_sub = user.apple_sub
+    # First, while nothing is undone: a new account for the same Google/Apple login must
+    # not start today's limits from zero. Redis failing here refuses the delete (503
+    # unavailable) with the account still signed in, so the phone's retry needs no sign-in.
+    await quota_carryover.save_on_delete(redis, settings, user)
     try:
         await tokens_service.purge_user_sessions(redis, user.id, settings)
     except Exception as exc:
@@ -182,9 +186,6 @@ async def delete_account(
         await chats_service.forget_follow_up_questions(session, redis, user_id)
     except Exception:
         logger.warning("Follow-up cache purge failed user_id=%s", user_id, exc_info=True)
-    # Before the row goes: a new account for the same Google/Apple login must
-    # not start today's limits from zero (best-effort, never fails the delete).
-    await quota_carryover.save_on_delete(redis, settings, user)
     forget_user(user_id)
     forget_user_chats(user_id)
     await erase_user_rows(session, user_id)

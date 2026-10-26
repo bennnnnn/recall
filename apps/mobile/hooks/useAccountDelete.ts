@@ -2,12 +2,15 @@ import { useCallback } from "react";
 import { Platform } from "react-native";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { isAccountDeleteComplete } from "@/lib/accountDelete";
+import { type AccountDeleteFailure, accountDeleteFailure, isAccountDeleteComplete } from "@/lib/accountDelete";
 import { api } from "@/lib/api";
 import { appleConsentForAccountDelete } from "@/lib/apple-auth";
 
-/** "cancelled": the user closed the Sign in with Apple sheet, so nothing was deleted. */
-export type AccountDeleteOutcome = "deleted" | "cancelled" | "failed";
+/**
+ * "cancelled": the user closed the Sign in with Apple sheet, so nothing was deleted.
+ * "unavailable": Recall could not serve the delete for now; nothing was deleted.
+ */
+export type AccountDeleteOutcome = "deleted" | "cancelled" | AccountDeleteFailure;
 
 /**
  * Delete the account, then sign out: Settings → Data controls and the AI consent screen
@@ -38,9 +41,9 @@ export function useAccountDelete(): (onStart?: () => void) => Promise<AccountDel
         }
         await signOut();
         return "deleted";
-      } catch {
+      } catch (error) {
         setIgnoreUnauthorized(false);
-        return "failed";
+        return accountDeleteFailure(error);
       }
     },
     [appleLinked, setIgnoreUnauthorized, signOut, token],
