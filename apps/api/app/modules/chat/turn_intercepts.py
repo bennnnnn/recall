@@ -43,7 +43,6 @@ from app.modules.images.lookup_intent import (
 )
 from app.modules.images.reply_picture import ReplyPicture
 from app.modules.images.search import ImageSearchError
-from app.services.quota import IMAGE_GENERATION_NOT_IN_PLAN_MESSAGE
 
 logger = logging.getLogger(__name__)
 
@@ -333,9 +332,9 @@ def start_reply_picture(
     if not prompt:
         return None
     if not settings.image_generation_enabled:
-        return ReplyPicture.paused_for(prompt, user.locale)
+        return ReplyPicture.refused(prompt, "not_available", user.locale)
     if not deps.plan.can_use(user, "image_generation", settings):
-        return ReplyPicture.refused(prompt, IMAGE_GENERATION_NOT_IN_PLAN_MESSAGE)
+        return ReplyPicture.refused(prompt, "not_in_plan", user.locale)
     return ReplyPicture.start(settings, user=user, chat_id=chat_id, prompt=prompt)
 
 
