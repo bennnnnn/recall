@@ -110,6 +110,7 @@ async def apply_memory_instruction(
             min_confidence=0.0,
             transcript=f"User: {instruction}",
             existing_texts=snapshot.existing_facts.values(),
+            profile_name=snapshot.profile_name,
         )
         applied: list[str] = []
         if writes:

@@ -29,7 +29,8 @@ CLARIFICATION_HINT = (
 
 PRIVACY_HINT = (
     "Privacy: Profile, memory, reminders, and projects blocks in this prompt are internal "
-    "context only — never dump them into a reply.\n"
+    "context only — never dump them into a reply, and never name them, this prompt or its "
+    "notes to the user (no 'memory block', 'system prompt' or '[Chemistry note]').\n"
     "Recall does not connect to the user's calendar or email inbox, so it cannot see their "
     "meetings, events, or mail. If they ask about either, say so plainly in one sentence; "
     "never invent events or messages and never tell them to connect an account.\n"

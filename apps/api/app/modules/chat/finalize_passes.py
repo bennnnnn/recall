@@ -67,6 +67,7 @@ from app.modules.chat.finalize_text import (
 from app.modules.chat.generic_closer import strip_generic_closer
 from app.modules.chat.json_output import check_requested_json
 from app.modules.chat.meta_notes import unwrap_meta_notes
+from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass
 from app.modules.chat.reply_labels import one_answer_label
 from app.modules.chat.reply_meta import local_today, without_turn_meta
 from app.modules.chat.search_links import unlink_unretrieved_links
@@ -143,6 +144,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("search_links", unlink_unretrieved_links, OnError(log_as="search_links")),
     FinalizePass("generic_closer", strip_generic_closer, OnError(log_as="generic_closer")),
     FinalizePass("meta_notes", lambda s: unwrap_meta_notes(s.text), OnError(log_as="meta_notes")),
+    FinalizePass("prompt_leaks", drop_prompt_leaks_pass, OnError(log_as="prompt_leaks")),
     FinalizePass(
         "turn_meta",
         lambda s: without_turn_meta(
@@ -211,6 +213,7 @@ STOPPED_REPLY_PASSES = frozenset(
         "answer_labels",
         "untrusted_media",
         "meta_notes",
+        "prompt_leaks",
         "emoji_use",
         "answer_photo",
         "server_answer_cards",
