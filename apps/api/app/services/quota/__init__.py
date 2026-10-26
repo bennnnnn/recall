@@ -3,7 +3,7 @@
 ``tokens`` is the daily token budget, ``counters`` the per-feature daily caps
 (``counters.reserve("image_search", ...)``), ``live_talk`` the monthly live talk
 seconds, ``carryover`` what account delete hands to a new account for the same
-sign-in, and ``spend`` the global daily spend breaker (its counter is
+sign-in or email address, and ``spend`` the global daily spend breaker (its counter is
 ``core/spend_counter``). ``messages`` is the copy a refused request shows.
 """
 

@@ -90,6 +90,10 @@ class _QueuedPipeline:
         return False
 
 
+async def _mget_nothing(keys: Any, *more: Any) -> list[None]:
+    return [None] * (1 + len(more) if isinstance(keys, str) else len(keys))
+
+
 def redis_mock(**replies: Any) -> AsyncMock:
     """A Redis client for tests that script replies: ``redis_mock(get=None)``, or set
     ``redis.get.return_value`` later.
@@ -100,6 +104,10 @@ def redis_mock(**replies: Any) -> AsyncMock:
     """
     redis = AsyncMock()
     redis.pipeline = MagicMock(side_effect=lambda *_args, **_kwargs: _QueuedPipeline(redis))
+    # An empty Redis answers MGET with one None per key, as redis-py's does; a bare mock
+    # answered an empty MagicMock, which no caller could pair with its keys.
+    if "mget" not in replies:
+        redis.mget = AsyncMock(side_effect=_mget_nothing)
     for command, reply in replies.items():
         getattr(redis, command).return_value = reply
     return redis
