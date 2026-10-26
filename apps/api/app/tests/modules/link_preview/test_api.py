@@ -73,8 +73,11 @@ def test_link_preview_rate_limited_is_429_without_a_fetch():
         response = _client(uuid4()).get("/link-preview", params={"url": _CARD["url"]})
 
     assert response.status_code == 429
-    assert response.json() == {"detail": "Too many requests. Try again shortly."}
-    assert "retry-after" not in response.headers
+    # Coded, as every limit is: the English alone named no code.
+    assert response.json() == {
+        "detail": {"code": "rate_limited", "message": "Too many requests. Try again shortly."}
+    }
+    assert response.headers["retry-after"] == "60"
     fetch.assert_not_awaited()
 
 
@@ -90,7 +93,12 @@ def test_link_preview_busy_is_429_with_retry_after():
         response = _client(uuid4()).get("/link-preview", params={"url": _CARD["url"]})
 
     assert response.status_code == 429
-    assert response.json() == {"detail": "Too many previews loading. Try again shortly."}
+    assert response.json() == {
+        "detail": {
+            "code": "link_preview_busy",
+            "message": "Too many previews loading. Try again shortly.",
+        }
+    }
     assert response.headers["retry-after"] == "8"
 
 

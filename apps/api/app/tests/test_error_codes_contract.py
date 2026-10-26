@@ -400,6 +400,27 @@ def _chat_over_its_limit() -> Any:
         return _client(_user()).post(f"/chats/{uuid4()}/regenerate/stream", headers=_AUTH, json={})
 
 
+def _link_preview(*, allowed: bool = True, busy: bool = False) -> Any:
+    """GET /link-preview past the user's minute, or with their most previews loading."""
+    from app.modules.link_preview.service import LinkPreviewBusyError
+
+    with (
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+        patch("app.modules.link_preview.api.get_redis_client", return_value=MagicMock()),
+        patch(
+            "app.modules.link_preview.api.allow_request_unless_down",
+            AsyncMock(return_value=allowed),
+        ),
+        patch(
+            "app.modules.link_preview.api.fetch_link_preview_cached",
+            AsyncMock(side_effect=LinkPreviewBusyError() if busy else None),
+        ),
+    ):
+        return _client(_user()).get(
+            "/link-preview", headers=_AUTH, params={"url": "https://example.com/a"}
+        )
+
+
 def _bodies() -> dict[str, dict[str, Any]]:
     too_big = base64.b64encode(b"\xff" * (SCAN_MAX_IMAGE_BYTES + 1)).decode()
     with (
@@ -419,8 +440,10 @@ def _bodies() -> dict[str, dict[str, Any]]:
     return {
         "service_unavailable": _refusal(_outage()),
         "rate_limited": _refusal(_over_the_limit()),
-        # The chat stream's own limit over its minute answers the same code.
+        # Each route's own limit over its minute answers the same code.
         "chat_rate_limited": _refusal(_chat_over_its_limit()),
+        "link_preview_rate_limited": _refusal(_link_preview(allowed=False)),
+        "link_preview_busy": _refusal(_link_preview(busy=True)),
         "consent_required": _refusal(consent),
         "account_exists": _refusal(exists),
         "scan_not_available": _refusal(

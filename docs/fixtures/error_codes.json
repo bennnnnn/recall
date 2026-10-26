@@ -20,6 +20,20 @@
    "message": "Too many chat requests. Try again shortly."
   }
  },
+ "link_preview_rate_limited": {
+  "status": 429,
+  "detail": {
+   "code": "rate_limited",
+   "message": "Too many requests. Try again shortly."
+  }
+ },
+ "link_preview_busy": {
+  "status": 429,
+  "detail": {
+   "code": "link_preview_busy",
+   "message": "Too many previews loading. Try again shortly."
+  }
+ },
  "consent_required": {
   "status": 403,
   "detail": {
