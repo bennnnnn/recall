@@ -27,7 +27,7 @@ from app.core.config import Settings, get_settings
 from app.core.log_context import bound_log_ids
 from app.core.rate_limit import allow_request_unless_down
 from app.core.redis import get_redis_client
-from app.exceptions import RATE_LIMITED_CODE, AuthenticationError, RedisUnavailableError
+from app.exceptions import AuthenticationError, RedisUnavailableError
 from app.models.orm import User
 from app.models.schemas import ChatMessageRequest
 from app.modules.chat import stream_entry, turn_deps
@@ -38,6 +38,8 @@ from app.modules.chat.stream_events import (
     build_reasoning_event,
     build_status_event,
     error_payload_for_exception,
+    rate_limited_connect_payload,
+    rate_limited_payload,
     restarting_payload,
     turn_error_payload,
 )
@@ -353,13 +355,7 @@ async def chat_websocket(
         await _close_while_down(websocket, error_payload_for_exception(exc))
         return
     if not allowed:
-        await websocket.send_json(
-            {
-                "type": "error",
-                "code": RATE_LIMITED_CODE,
-                "message": "Too many requests. Try again shortly.",
-            },
-        )
+        await websocket.send_json(rate_limited_connect_payload())
         await websocket.close()
         return
 
@@ -478,14 +474,7 @@ async def _dispatch(conn: _ChatSocket, payload: dict[str, Any]) -> bool:
         return False
     if not allowed:
         # Coded: a Regenerate over the limit showed the English (no message waits as Retry).
-        await websocket.send_json(
-            turn_error_payload(
-                None,
-                user_message_saved=False,
-                message="Too many requests. Try again shortly.",
-                code=RATE_LIMITED_CODE,
-            ),
-        )
+        await websocket.send_json(rate_limited_payload())
         return True
 
     handle: Callable[..., Awaitable[dict[str, Any] | None]] = (

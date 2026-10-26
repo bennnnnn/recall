@@ -17,6 +17,7 @@ from pydantic import BaseModel, model_serializer
 
 from app.core.background_tasks import create_background_task
 from app.exceptions import (
+    RATE_LIMITED_CODE,
     AttachmentValidationError,
     ChatBusyError,
     ChatNotFoundError,
@@ -368,6 +369,22 @@ async def take_related_prompts_event(
     if not isinstance(event, dict) or event.get("type") != "related_prompts":
         return None
     return event
+
+
+# The socket's per-message and connect limits: coded, so the phone words them.
+RATE_LIMITED_MESSAGE = "Too many requests. Try again shortly."
+
+
+def rate_limited_payload() -> dict[str, Any]:
+    """The socket refused a turn over its per-message limit: nothing was saved."""
+    return turn_error_payload(
+        None, user_message_saved=False, message=RATE_LIMITED_MESSAGE, code=RATE_LIMITED_CODE
+    )
+
+
+def rate_limited_connect_payload() -> dict[str, Any]:
+    """The socket refused a connection over its connect limit (no turn to name)."""
+    return {"type": "error", "code": RATE_LIMITED_CODE, "message": RATE_LIMITED_MESSAGE}
 
 
 def restarting_payload(*, user_message_saved: bool) -> dict[str, Any]:
