@@ -13,6 +13,7 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.core.sympy_executor import run_sympy
+from app.core.validation import normalize_locale_code
 from app.exceptions import ChatServiceError, SpendCapReachedError, TurnRefusedError
 from app.models.orm import Message, User
 from app.modules.attachments.markers import strip_attachment_from_content
@@ -346,7 +347,8 @@ def start_reply_picture(
     # The line saying why not is in the reply's language, which follows the message. A
     # message no language plainly claims ("Dibuja un gato y explica …" has few Spanish
     # marks) is in the language its picture was asked in: English for "draw …".
-    language = line_language(content, picture_language(part) or "en")
+    app = normalize_locale_code(user.locale)
+    language = line_language(content, picture_language(part, prefer=app) or "en")
     if not settings.image_generation_enabled:
         return ReplyPicture.refused(prompt, "not_available", language)
     if not deps.plan.can_use(user, "image_generation", settings):

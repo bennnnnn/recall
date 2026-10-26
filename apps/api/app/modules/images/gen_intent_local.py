@@ -1,19 +1,16 @@
-# ruff: noqa: RUF001, RUF002, RUF003 - Turkish dotless i, Cyrillic and maths signs are the words matched
-"""Picture requests in the app's eight other languages, read the way English ones are.
+# ruff: noqa: RUF001 - Turkish dotless i, Cyrillic and maths signs are the words matched
+"""One picture request in the app's eight other languages, read the way English ones are.
 
 "Zeichne eine Katze mit Hut", "dibuja un gato", "нарисуй кошку", "bir kedi çiz" drew
-nothing: every rule in ``gen_intent.py`` reads English words. ``gen_intent`` asks here only
-when no English rule matched, so an English message reads as it always did. The word
-lists are ``gen_intent_languages.py``.
+nothing: every rule in ``gen_intent.py`` reads English words. ``gen_intent_parts`` asks here
+only when no English rule matched, so an English message reads as it always did. The
+words are ``gen_intent_languages.py``; what a picture may not be about (an example, a
+homework, a force, a molecule) is ``gen_intent_topics.py``.
 
 Each language keeps the English shapes: "draw" and its object ("draw me a cat"), and
 "create", "generate" or "make" with a picture noun ("generate an image of a lion"). The
-subject stays in the user's words. A second request after the picture ("… und erkläre
-auch, was ein schwarzes Loch ist") is not part of it: the whole line draws nothing, and
-``split_picture_request`` gives the planner the two parts, as English "and also" does.
-
-Matching is linear token scans, as in ``gen_intent``: no ``\\s+`` / ``.+`` regex on user
-chat text.
+subject stays in the user's words. Matching is linear token scans, as in ``gen_intent``:
+no ``\\s+`` / ``.+`` regex on user chat text.
 """
 
 from __future__ import annotations
@@ -27,21 +24,17 @@ from app.modules.chemistry.request import extract_compound_name
 from app.modules.images.gen_intent_languages import (
     ALSO,
     ARTICLES,
-    ASK_PAIRS,
-    ASK_QUESTIONS,
-    ASK_VERBS,
-    CONNECTORS,
     VERB_FIRST,
     VERB_LAST,
     VerbFirst,
     VerbLast,
 )
-from app.services.text_normalize import straighten_apostrophes
+from app.modules.images.gen_intent_topics import TOPICS
 
 _WORDS = re.compile(r"\S+")
 # Punctuation around a word, Spanish "¿¡", French and German quotes, Ethiopic stops.
 _EDGES = '.,!?;:"()[]{}¿¡«»“”„…።፣፤፥፦፧፨'
-_SENTENCE_ENDS = tuple(".!?;:።፧")
+SENTENCE_ENDS = tuple(".!?;:።፧")
 # "d'un", "l'image", "un'immagine", "s'il", "qu'est-ce": the elided word is its own token.
 _ELISIONS = frozenset(
     {
@@ -71,14 +64,13 @@ _MATHS_MARKS = frozenset("=^√∫×÷<>")
 _MAX_MODIFIERS = 3
 _SHORT_WORDS = 12
 _SHORT_CHARS = 80
-_MAX_CHARS = 500
-# Said before the second request's verb: "y también me explique", "und bitte erkläre".
-_ASK_LEADS = frozenset({"me", "mir", "moi", "mi", "мне", "bana", "bitte", "please", "lütfen"})
 _MAX_FILLERS = 4
+# Read for a verb another language shares ("pinta", "ilustra"): the declined reading wins.
+_DECLINED = ""
 
 
 @dataclass(frozen=True)
-class _Token:
+class Token:
     start: int
     end: int
     word: str
@@ -104,17 +96,18 @@ def _pieces(text: str, start: int, end: int) -> Iterable[tuple[int, int]]:
     yield start, end
 
 
-def _tokens(text: str) -> list[_Token]:
-    out: list[_Token] = []
+def tokens_of(text: str) -> list[Token]:
+    """The words of ``text`` with where each sits, lowercase, elisions and clitics apart."""
+    out: list[Token] = []
     for match in _WORDS.finditer(text):
         for start, end in _pieces(text, *match.span()):
             word = _fold(text[start:end])
             if word:
-                out.append(_Token(start, end, word))
+                out.append(Token(start, end, word))
     return out
 
 
-def _phrase_at(phrases: tuple[tuple[str, ...], ...], tokens: list[_Token], i: int) -> int:
+def phrase_at(phrases: tuple[tuple[str, ...], ...], tokens: list[Token], i: int) -> int:
     """How many tokens a phrase from ``phrases`` covers at ``i`` (the longest), else 0."""
     best = 0
     for phrase in phrases:
@@ -124,7 +117,7 @@ def _phrase_at(phrases: tuple[tuple[str, ...], ...], tokens: list[_Token], i: in
     return best
 
 
-def _subject_text(text: str, tokens: list[_Token], prefix: str = "") -> str | None:
+def _subject_text(text: str, tokens: list[Token], prefix: str = "") -> str | None:
     if not tokens:
         return None
     start = tokens[0].start
@@ -169,27 +162,47 @@ def _no_picture(
     )
 
 
-def _points_back(
-    words: list[str],
-    pronouns: frozenset[str],
-    determiners: frozenset[str],
-    again: tuple[tuple[str, ...], ...],
-) -> bool:
-    """ "Zeichne das nochmal", "dibuja eso", "tekrar çiz": the chat names what to draw."""
-    if words[0] in pronouns:
+# Every language's: "Pinta isso" (Portuguese read with Spanish words) points back too.
+_PRONOUNS = frozenset(
+    {word for lang in VERB_FIRST for word in lang.pronouns}
+    | {word for lang in VERB_LAST for word in lang.pronouns}
+)
+_DETERMINERS = frozenset(word for lang in VERB_FIRST for word in lang.determiners)
+_AGAIN = tuple(phrase for lang in VERB_FIRST for phrase in lang.again) + tuple(
+    phrase for lang in VERB_LAST for phrase in lang.again
+)
+
+
+def _points_back(words: list[str]) -> bool:
+    """ "Zeichne das nochmal", "dibuja eso", "Pinte isso de novo", "tekrar çiz": the chat
+    names what to draw, as English "draw it again" leaves to the thread."""
+    if words[0] in _PRONOUNS:
         return True
-    tokens = [_Token(0, 0, word) for word in words]
-    if _phrase_at(again, tokens, 0):
+    tokens = [Token(0, 0, word) for word in words]
+    if phrase_at(_AGAIN, tokens, 0):
         return True
-    return words[0] in determiners and (len(words) == 1 or _phrase_at(again, tokens, 1) > 0)
+    return words[0] in _DETERMINERS and (len(words) == 1 or phrase_at(_AGAIN, tokens, 1) > 0)
+
+
+def _before_purpose(words: list[str], purpose: frozenset[str], *, leads: bool = False) -> list[str]:
+    """The words the picture is of: "un gato para mi proyecto" is a cat ("for my project"
+    says what it is for, as English "draw a cat for my notes"). Turkish says it first."""
+    for index, word in enumerate(words):
+        if word in purpose:
+            return words[index + 1 :] if leads else words[:index]
+    return words
 
 
 def _subject_checks(lang: VerbFirst, words: list[str]) -> bool:
+    drawn = _before_purpose(words, lang.purpose)
     return not (
-        _points_back(words, lang.pronouns, lang.determiners, lang.again)
+        _points_back(words)
+        # "Male mir aus, wie es wäre", "zeichne das Gespräch auf": a separable verb.
+        or words[0] in lang.particles
         or words[-1] in lang.particles
+        or TOPICS[lang.code].names_one(drawn)
         or _no_picture(
-            words,
+            drawn,
             not_words=lang.not_words,
             not_stems=lang.not_stems,
             not_endings=lang.not_endings,
@@ -198,18 +211,19 @@ def _subject_checks(lang: VerbFirst, words: list[str]) -> bool:
     )
 
 
-def _skip_fillers(lang: VerbFirst, tokens: list[_Token], i: int, end: int) -> tuple[int, bool]:
+def _skip_fillers(lang: VerbFirst, tokens: list[Token], i: int, end: int) -> tuple[int, bool]:
     """Past "bitte", "mal", "mir" after the verb; True when a "me" word was among them."""
     me = False
     for _ in range(_MAX_FILLERS):
         if i >= end:
             break
-        polite = _phrase_at(lang.polite, tokens, i)
+        polite = phrase_at(lang.polite, tokens, i)
         if polite:
             i += polite
         elif tokens[i].word in lang.me:
             i, me = i + 1, True
-        elif tokens[i].word in lang.fillers:
+        elif tokens[i].word in lang.fillers or tokens[i].word in ALSO:
+            # "… und zeichne auch eine Katze".
             i += 1
         else:
             break
@@ -217,13 +231,13 @@ def _skip_fillers(lang: VerbFirst, tokens: list[_Token], i: int, end: int) -> tu
 
 
 def _verb_first_verb(
-    lang: VerbFirst, tokens: list[_Token], i: int, end: int
+    lang: VerbFirst, tokens: list[Token], i: int, end: int
 ) -> tuple[str, bool, int, int] | None:
     """The verb's family ("draw" or "create"), whether it said "me", and the object's span."""
     me = False
     if lang.me_first and i < end and tokens[i].word in lang.me:
         i, me = i + 1, True
-    lead = _phrase_at(lang.can_you, tokens, i)
+    lead = phrase_at(lang.can_you, tokens, i)
     if lead:
         i += lead
         i, said_me = _skip_fillers(lang, tokens, i, end)
@@ -251,7 +265,7 @@ def _verb_first_verb(
     if i >= end:
         return None
     verb = tokens[i].word
-    if verb in lang.draw or verb in lang.needs_me:
+    if verb in lang.draw or verb in lang.needs_me or verb in lang.needs_article:
         family = "draw"
     elif verb in lang.draw_me:
         family, me = "draw", True
@@ -264,26 +278,36 @@ def _verb_first_verb(
     i, said_me = _skip_fillers(lang, tokens, i + 1, end)
     if verb in lang.needs_me and not said_me:
         return None
+    if verb in lang.needs_article and not said_me:
+        follows = tokens[i].word if i < end else ""
+        if (
+            follows not in ARTICLES
+            and follows not in lang.determiners
+            and follows not in lang.nouns
+        ):
+            return None
     return family, me or said_me, i, end
 
 
-def _without_closing_polite(polite: tuple[tuple[str, ...], ...], tokens: list[_Token]) -> int:
+def _without_closing_polite(polite: tuple[tuple[str, ...], ...], tokens: list[Token]) -> int:
     """Where the request ends before a closing "bitte" or "por favor"."""
     end = len(tokens)
     for size in (2, 1):
-        if end >= size and _phrase_at(polite, tokens, end - size) == size:
+        if end >= size and phrase_at(polite, tokens, end - size) == size:
             return end - size
     return end
 
 
-def _read_verb_first(lang: VerbFirst, text: str, tokens: list[_Token]) -> str | None:
+def _read_verb_first(lang: VerbFirst, text: str, tokens: list[Token]) -> str | None:
+    """The subject; None when the verb is not this language's, ``_DECLINED`` when it is
+    and the request is no picture."""
     end = _without_closing_polite(lang.polite, tokens)
-    read = _verb_first_verb(lang, tokens, _phrase_at(lang.polite, tokens, 0), end)
+    read = _verb_first_verb(lang, tokens, phrase_at(lang.polite, tokens, 0), end)
     if read is None:
         return None
     family, me, i, end = read
     if i < end and tokens[i].word in lang.reflexive:
-        return None
+        return _DECLINED
     j = i + 1 if i < end and tokens[i].word in ARTICLES else i
     k = j
     while k < end and k - j < _MAX_MODIFIERS and tokens[k].word not in lang.nouns:
@@ -299,16 +323,17 @@ def _read_verb_first(lang: VerbFirst, text: str, tokens: list[_Token]) -> str | 
     else:
         start, bounded = j, not me
     subject = tokens[start:end]
+    # Not this language's shape (another may read it): no subject, or too long.
     if not subject or any(t.word in lang.nouns for t in subject[:1]):
         return None
     if bounded and (len(subject) > _SHORT_WORDS or len(text.strip()) > _SHORT_CHARS):
         return None
     if not _subject_checks(lang, [t.word for t in subject]):
-        return None
-    return _subject_text(text, subject)
+        return _DECLINED
+    return _subject_text(text, subject) or _DECLINED
 
 
-def _verb_last_verb(lang: VerbLast, tokens: list[_Token], end: int) -> tuple[str, bool, int] | None:
+def _verb_last_verb(lang: VerbLast, tokens: list[Token], end: int) -> tuple[str, bool, int] | None:
     """The closing verb's family, whether a bare "draw" needs a picture noun, and the end."""
     if end >= 2 and tokens[end - 1].word in lang.question:
         verb, end = tokens[end - 2].word, end - 2
@@ -325,11 +350,14 @@ def _verb_last_verb(lang: VerbLast, tokens: list[_Token], end: int) -> tuple[str
     return ("create", True, end - 1) if verb in lang.create else None
 
 
-def _read_verb_last(lang: VerbLast, text: str, tokens: list[_Token]) -> str | None:
+def _read_verb_last(lang: VerbLast, text: str, tokens: list[Token]) -> str | None:
     end = len(tokens)
     while end and tokens[end - 1].word in lang.polite:
         end -= 1
     read = _verb_last_verb(lang, tokens, end)
+    after = _afterthought(lang, text, tokens, end) if read is None else []
+    if after:
+        read = ("draw", False, end - len(after) - 1)
     if read is None:
         return None
     _family, needs_noun, end = read
@@ -350,148 +378,79 @@ def _read_verb_last(lang: VerbLast, text: str, tokens: list[_Token]) -> str | No
         return None
     if bounded and (len(subject) > _SHORT_WORDS or len(text.strip()) > _SHORT_CHARS):
         return None
-    words = [t.word for t in subject]
-    if _points_back(words, lang.pronouns, frozenset(), lang.again) or _no_picture(
-        words,
-        not_words=lang.not_words,
-        not_stems=lang.not_stems,
-        not_pairs=lang.not_pairs,
-        prefix=lang.of_prefix,
+    words = [t.word for t in subject + after]
+    drawn = _before_purpose(words, lang.purpose, leads=True)
+    if (
+        _points_back(words)
+        or TOPICS[lang.code].names_one([word.removeprefix(lang.of_prefix) for word in drawn])
+        or _no_picture(
+            drawn,
+            not_words=lang.not_words,
+            not_stems=lang.not_stems,
+            not_pairs=lang.not_pairs,
+            prefix=lang.of_prefix,
+        )
     ):
-        return None
-    return _subject_text(text, subject, lang.of_prefix)
+        return _DECLINED
+    drawn_text = _subject_text(text, subject, lang.of_prefix)
+    if drawn_text and after:
+        drawn_text = f"{drawn_text}, {_subject_text(text, after)}"
+    return drawn_text or _DECLINED
 
 
-def _read_in(text: str, tokens: list[_Token]) -> tuple[str, str] | None:
-    """The picture's subject when the whole of ``text`` asks for one, and the language."""
+_AFTERTHOUGHT_WORDS = 5
+
+
+def _afterthought(lang: VerbLast, text: str, tokens: list[Token], end: int) -> list[Token]:
+    """ "Bir kedi çiz, yaz mevsiminde": a few words after the verb and its comma still
+    describe the picture. The words after the comma, or none."""
+    for verb in range(max(0, end - _AFTERTHOUGHT_WORDS - 1), end - 1):
+        if tokens[verb].word in lang.draw and text[tokens[verb].end - 1] == ",":
+            return tokens[verb + 1 : end]
+    return []
+
+
+def read_picture(
+    text: str, tokens: list[Token], prefer: str | None = None
+) -> tuple[str, str] | None:
+    """The subject and language when the whole of ``text`` asks for one picture.
+
+    A verb two languages share ("pinta", "ilustre" are Spanish and Portuguese) is read
+    with each: if either declines, nothing is drawn; else ``prefer`` (the app's language)
+    names it, then the first.
+    """
     if not tokens or _has_maths(text):
         return None
-    for first in VERB_FIRST:
-        subject = _read_verb_first(first, text, tokens)
-        if subject:
-            return subject, first.code
-    for last in VERB_LAST:
-        subject = _read_verb_last(last, text, tokens)
-        if subject:
-            return subject, last.code
-    return None
-
-
-def _read(text: str, tokens: list[_Token]) -> str | None:
-    read = _read_in(text, tokens)
-    # "Zeichne Ethanol": a compound the chemistry card draws, as for "draw ethanol".
-    if read is None or extract_compound_name(f"draw {read[0]}") is not None:
+    found: list[tuple[str, str]] = []
+    readings = [(lang.code, _read_verb_first(lang, text, tokens)) for lang in VERB_FIRST]
+    readings += [(lang.code, _read_verb_last(lang, text, tokens)) for lang in VERB_LAST]
+    for code, subject in readings:
+        if subject == _DECLINED:
+            return None
+        if subject is not None:
+            found.append((subject, code))
+    if not found:
         return None
-    return read[0]
+    subject, code = next((pick for pick in found if pick[1] == prefer), found[0])
+    # "Zeichne Ethanol": a compound the chemistry card draws, as for "draw ethanol".
+    if extract_compound_name(f"draw {subject}") is not None:
+        return None
+    return subject, code
 
 
-def _asks_something(tokens: list[_Token]) -> bool:
-    """The rest is a request of its own: "erkläre auch, was …", "kara deliği açıkla"."""
-    words = [t.word for t in tokens]
-    while words and (words[0] in CONNECTORS or words[0] in ALSO or words[0] in _ASK_LEADS):
-        words = words[1:]
-    if not words:
-        return False
-    first = words[0]
-    if first in ASK_VERBS or first in ASK_QUESTIONS or tuple(words[:2]) in ASK_PAIRS:
-        return True
-    # Turkish and Amharic close a request with its verb ("… açıkla", "… አስረዳኝ").
-    return words[-1] in ASK_VERBS or words[-1] in ASK_QUESTIONS
-
-
-def _split_at(text: str, tokens: list[_Token], index: int) -> bool:
-    """A second request may start at ``tokens[index]``: after "and", "also" or a sentence,
-    or a verb after a comma ("Нарисуй кошку, объясни …")."""
-    word = tokens[index].word
-    if word in CONNECTORS or word in ALSO:
-        return True
-    before = text[tokens[index - 1].end - 1]
-    if before in _SENTENCE_ENDS:
-        return True
-    return before in ",፣" and word in ASK_VERBS
-
-
-def _words_of(*groups: Iterable[str]) -> frozenset[str]:
+def _verbs(*groups: Iterable[str]) -> frozenset[str]:
     return frozenset(word for group in groups for word in group)
 
 
-# Words a picture request can open with, or close with (Turkish, Amharic, German "…
-# zeichnen?"): a message with none of them is never cut for a picture.
-_OPENERS = _words_of(
+# Every word a picture request turns on: a message with none of them asks for no picture.
+PICTURE_VERBS = _verbs(
     *(
         lang.draw | lang.create | lang.draw_me | lang.create_me | lang.needs_me
         for lang in VERB_FIRST
     ),
-    *(lang.draw_infinitives | lang.create_infinitives | lang.me for lang in VERB_FIRST),
-    *(phrase[0] for lang in VERB_FIRST for phrase in (*lang.can_you, *lang.polite)),
-)
-_CLOSERS = _words_of(
-    *(lang.draw_infinitives | lang.create_infinitives for lang in VERB_FIRST),
+    *(lang.needs_article | lang.draw_infinitives | lang.create_infinitives for lang in VERB_FIRST),
     *(
         lang.draw | lang.create | lang.bare_draw | lang.asked_draw | lang.asked_create
         for lang in VERB_LAST
     ),
 )
-_OPENING_WORDS = 3
-
-
-def _could_hold_a_picture(tokens: list[_Token]) -> bool:
-    return any(t.word in _OPENERS for t in tokens[:_OPENING_WORDS]) or any(
-        t.word in _CLOSERS for t in tokens
-    )
-
-
-def _split(text: str, tokens: list[_Token]) -> tuple[str, str] | None:
-    if not _could_hold_a_picture(tokens):
-        return None
-    for index in range(1, len(tokens)):
-        if not _split_at(text, tokens, index):
-            continue
-        rest = tokens[index:]
-        if not _asks_something(rest):
-            continue
-        head = text[: tokens[index - 1].end]
-        if _read(head, tokens[:index]):
-            asked = [t for t in rest if t.word not in CONNECTORS and t.word not in ALSO]
-            return head.strip().rstrip(",፣ "), text[asked[0].start :].strip() if asked else ""
-    return None
-
-
-def _candidate(text: str) -> tuple[str, list[_Token]] | None:
-    trimmed = straighten_apostrophes(text.strip())
-    if not trimmed or len(trimmed) > _MAX_CHARS:
-        return None
-    return trimmed, _tokens(trimmed)
-
-
-def extract_other_language_prompt(text: str) -> str | None:
-    """The picture ``text`` asks for in Spanish, French, German, Italian, Portuguese,
-    Russian, Turkish or Amharic, in the user's words; None when it asks for none, or
-    asks for something more beside it."""
-    read = _candidate(text)
-    if read is None:
-        return None
-    trimmed, tokens = read
-    subject = _read(trimmed, tokens)
-    if subject is None or _split(trimmed, tokens) is not None:
-        return None
-    return subject
-
-
-def split_picture_request(text: str) -> tuple[str, str] | None:
-    """ "Zeichne eine Katze und erkläre auch, was ein schwarzes Loch ist" → the picture
-    request and the request after it, for a message no English cut divides."""
-    read = _candidate(text)
-    if read is None:
-        return None
-    trimmed, tokens = read
-    return _split(trimmed, tokens)
-
-
-def other_language_of(text: str) -> str | None:
-    """The language a picture request was read in ("de" for "Zeichne eine Katze")."""
-    read = _candidate(text)
-    if read is None or _read(*read) is None:
-        return None
-    found = _read_in(*read)
-    return found[1] if found else None

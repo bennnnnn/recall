@@ -590,5 +590,603 @@
     "history": [],
     "reply": "የy = x² ግራፍ ጫፉ መነሻ ላይ ያለ ወደ ላይ የሚከፈት ፓራቦላ ነው።",
     "expect": "answer"
+  },
+  {
+    "id": "pl-es-40",
+    "area": "picture languages",
+    "prompt": "Ilustra con un ejemplo",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-41",
+    "area": "picture languages",
+    "prompt": "Ilustra tu respuesta con un ejemplo",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-42",
+    "area": "picture languages",
+    "prompt": "Ilustra la solución",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-43",
+    "area": "picture languages",
+    "prompt": "Dibuja un ejemplo",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-44",
+    "area": "picture languages",
+    "prompt": "Dibuja mi tarea",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-45",
+    "area": "picture languages",
+    "prompt": "Dibuja una página web",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-46",
+    "area": "picture languages",
+    "prompt": "Dibuja la cafeína",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-47",
+    "area": "picture languages",
+    "prompt": "Dibuja el benceno",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-48",
+    "area": "picture languages",
+    "prompt": "Dibuja el ácido acético",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-49",
+    "area": "picture languages",
+    "prompt": "Dibuja las fuerzas que actúan sobre un bloque en un plano inclinado",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-50",
+    "area": "picture languages",
+    "prompt": "Dibuja un circuito con dos resistencias en serie",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-51",
+    "area": "picture languages",
+    "prompt": "Dibuja los rayos de una lente convexa",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-52",
+    "area": "picture languages",
+    "prompt": "¡Pinta bien!",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-53",
+    "area": "picture languages",
+    "prompt": "Pinta mal",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-54",
+    "area": "picture languages",
+    "prompt": "Pinta muy bien tu proyecto",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-55",
+    "area": "picture languages",
+    "prompt": "Pinta que va a llover",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-56",
+    "area": "picture languages",
+    "prompt": "Pinta bien, y dime qué más necesitas",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-fr-40",
+    "area": "picture languages",
+    "prompt": "Illustre avec un exemple",
+    "history": [],
+    "reply": "Bien sûr. Voici l'explication étape par étape, avec un exemple simple à la fin.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-fr-41",
+    "area": "picture languages",
+    "prompt": "Illustre la solution",
+    "history": [],
+    "reply": "Bien sûr. Voici l'explication étape par étape, avec un exemple simple à la fin.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-fr-42",
+    "area": "picture languages",
+    "prompt": "Dessine un exemple",
+    "history": [],
+    "reply": "Bien sûr. Voici l'explication étape par étape, avec un exemple simple à la fin.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-fr-43",
+    "area": "picture languages",
+    "prompt": "Illustre le résumé",
+    "history": [],
+    "reply": "Bien sûr. Voici l'explication étape par étape, avec un exemple simple à la fin.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-fr-44",
+    "area": "picture languages",
+    "prompt": "Dessine la caféine",
+    "history": [],
+    "reply": "Bien sûr. Voici l'explication étape par étape, avec un exemple simple à la fin.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-fr-45",
+    "area": "picture languages",
+    "prompt": "Dessine une cellule végétale",
+    "history": [],
+    "reply": "Bien sûr. Voici l'explication étape par étape, avec un exemple simple à la fin.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-40",
+    "area": "picture languages",
+    "prompt": "Illustriere die Lösung",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-41",
+    "area": "picture languages",
+    "prompt": "Zeichne ein Beispiel",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-42",
+    "area": "picture languages",
+    "prompt": "Zeichne meine Matheaufgabe",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-43",
+    "area": "picture languages",
+    "prompt": "Zeichne Koffein",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-44",
+    "area": "picture languages",
+    "prompt": "Zeichne die Kräfte auf einen Block auf einer schiefen Ebene",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-45",
+    "area": "picture languages",
+    "prompt": "Zeichne den Strahlengang einer Sammellinse",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-46",
+    "area": "picture languages",
+    "prompt": "Male mir aus, wie es wäre",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-47",
+    "area": "picture languages",
+    "prompt": "Zeichne mir auf, wie das geht",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-it-40",
+    "area": "picture languages",
+    "prompt": "Illustra con un esempio",
+    "history": [],
+    "reply": "Certo. Ecco la spiegazione passo per passo, con un esempio semplice alla fine.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-it-41",
+    "area": "picture languages",
+    "prompt": "Illustra la tua risposta con un esempio",
+    "history": [],
+    "reply": "Certo. Ecco la spiegazione passo per passo, con un esempio semplice alla fine.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-it-42",
+    "area": "picture languages",
+    "prompt": "Illustra il problema",
+    "history": [],
+    "reply": "Certo. Ecco la spiegazione passo per passo, con un esempio semplice alla fine.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-it-43",
+    "area": "picture languages",
+    "prompt": "Disegna un progetto per la mia startup",
+    "history": [],
+    "reply": "Certo. Ecco la spiegazione passo per passo, con un esempio semplice alla fine.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-it-44",
+    "area": "picture languages",
+    "prompt": "Disegna la caffeina",
+    "history": [],
+    "reply": "Certo. Ecco la spiegazione passo per passo, con un esempio semplice alla fine.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-it-45",
+    "area": "picture languages",
+    "prompt": "Disegna un atomo",
+    "history": [],
+    "reply": "Certo. Ecco la spiegazione passo per passo, con un esempio semplice alla fine.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-pt-40",
+    "area": "picture languages",
+    "prompt": "Ilustre com um exemplo",
+    "history": [],
+    "reply": "Claro. Aqui está a explicação passo a passo, com um exemplo simples no final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-pt-41",
+    "area": "picture languages",
+    "prompt": "Desenhe um exemplo",
+    "history": [],
+    "reply": "Claro. Aqui está a explicação passo a passo, com um exemplo simples no final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-pt-42",
+    "area": "picture languages",
+    "prompt": "Desenhe a cafeína",
+    "history": [],
+    "reply": "Claro. Aqui está a explicação passo a passo, com um exemplo simples no final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-pt-43",
+    "area": "picture languages",
+    "prompt": "Pinta isso",
+    "history": [],
+    "reply": "Claro. Aqui está a explicação passo a passo, com um exemplo simples no final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-pt-44",
+    "area": "picture languages",
+    "prompt": "Ilustre isso",
+    "history": [],
+    "reply": "Claro. Aqui está a explicação passo a passo, com um exemplo simples no final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-pt-45",
+    "area": "picture languages",
+    "prompt": "Pinte o fluxograma do processo",
+    "history": [],
+    "reply": "Claro. Aqui está a explicação passo a passo, com um exemplo simples no final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-tr-40",
+    "area": "picture languages",
+    "prompt": "Bir örnek çiz",
+    "history": [],
+    "reply": "Tabii. İşte adım adım açıklama, sonunda basit bir örnekle.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-tr-41",
+    "area": "picture languages",
+    "prompt": "Ödevimi çiz",
+    "history": [],
+    "reply": "Tabii. İşte adım adım açıklama, sonunda basit bir örnekle.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-tr-42",
+    "area": "picture languages",
+    "prompt": "Kafein çiz",
+    "history": [],
+    "reply": "Tabii. İşte adım adım açıklama, sonunda basit bir örnekle.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-tr-43",
+    "area": "picture languages",
+    "prompt": "Bir hücre çiz",
+    "history": [],
+    "reply": "Tabii. İşte adım adım açıklama, sonunda basit bir örnekle.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-40",
+    "area": "picture languages",
+    "prompt": "Нарисуй пример",
+    "history": [],
+    "reply": "Конечно. Вот объяснение по шагам, с простым примером в конце.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-41",
+    "area": "picture languages",
+    "prompt": "Нарисуй мою домашку",
+    "history": [],
+    "reply": "Конечно. Вот объяснение по шагам, с простым примером в конце.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-42",
+    "area": "picture languages",
+    "prompt": "Нарисуй кофеин",
+    "history": [],
+    "reply": "Конечно. Вот объяснение по шагам, с простым примером в конце.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-43",
+    "area": "picture languages",
+    "prompt": "Нарисуй этанол",
+    "history": [],
+    "reply": "Конечно. Вот объяснение по шагам, с простым примером в конце.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-44",
+    "area": "picture languages",
+    "prompt": "Нарисуй силы, действующие на брусок на наклонной плоскости",
+    "history": [],
+    "reply": "Конечно. Вот объяснение по шагам, с простым примером в конце.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-45",
+    "area": "picture languages",
+    "prompt": "Нарисуй параболу",
+    "history": [],
+    "reply": "Конечно. Вот объяснение по шагам, с простым примером в конце.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-46",
+    "area": "picture languages",
+    "prompt": "Изобрази удивление",
+    "history": [],
+    "reply": "Конечно. Вот объяснение по шагам, с простым примером в конце.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-fr-70",
+    "area": "picture languages",
+    "prompt": "Dessine un chat et ne mets pas de chapeau",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-it-70",
+    "area": "picture languages",
+    "prompt": "Disegna un gatto. Come un leone, però.",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-70",
+    "area": "picture languages",
+    "prompt": "Dibuja un gato y escribe su nombre debajo",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-70",
+    "area": "picture languages",
+    "prompt": "Zeichne eine Katze und gib ihr einen Hut",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-71",
+    "area": "picture languages",
+    "prompt": "Pinta un gato",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-71",
+    "area": "picture languages",
+    "prompt": "Pinte um gato",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-70",
+    "area": "picture languages",
+    "prompt": "Bir kedi çiz, yaz mevsiminde",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-11",
+    "area": "multi",
+    "prompt": "Explica qué es un agujero negro y dibuja un gato",
+    "history": [],
+    "reply": "Un agujero negro es una región del espacio donde la gravedad es tan fuerte que nada, ni siquiera la luz, puede escapar.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-fr-11",
+    "area": "multi",
+    "prompt": "Explique ce qu'est un trou noir et dessine un chat",
+    "history": [],
+    "reply": "Un trou noir est une région de l'espace où la gravité est si forte que rien, pas même la lumière, ne peut s'en échapper.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-de-11",
+    "area": "multi",
+    "prompt": "Erkläre, was ein schwarzes Loch ist, und zeichne auch eine Katze",
+    "history": [],
+    "reply": "Ein schwarzes Loch ist ein Bereich im All, in dem die Schwerkraft so stark ist, dass nichts entkommt, nicht einmal Licht.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-it-11",
+    "area": "multi",
+    "prompt": "Spiegami cos'è un buco nero e disegna un gatto",
+    "history": [],
+    "reply": "Un buco nero è una regione dello spazio in cui la gravità è così forte che niente, nemmeno la luce, può sfuggire.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-pt-11",
+    "area": "multi",
+    "prompt": "Explique o que é um buraco negro e desenhe um gato",
+    "history": [],
+    "reply": "Um buraco negro é uma região do espaço onde a gravidade é tão forte que nada, nem mesmo a luz, consegue escapar.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-tr-11",
+    "area": "multi",
+    "prompt": "Kara deliğin ne olduğunu açıkla ve bir kedi çiz",
+    "history": [],
+    "reply": "Kara delik, kütle çekiminin o kadar güçlü olduğu bir uzay bölgesidir ki ışık bile kaçamaz.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-ru-11",
+    "area": "multi",
+    "prompt": "Объясни, что такое чёрная дыра, и нарисуй кошку",
+    "history": [],
+    "reply": "Чёрная дыра — это область пространства, где гравитация так сильна, что даже свет не может её покинуть.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-am-11",
+    "area": "multi",
+    "prompt": "ጥቁር ቀዳዳ ምን እንደሆነ አስረዳኝ እንዲሁም ድመት ሳልልኝ",
+    "history": [],
+    "reply": "ጥቁር ቀዳዳ ስበቱ እጅግ ጠንካራ ስለሆነ ብርሃን እንኳ ማምለጥ የማይችልበት የህዋ ክፍል ነው።",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-es-12",
+    "area": "multi",
+    "prompt": "¿Qué es un agujero negro? Dibuja un gato",
+    "history": [],
+    "reply": "Un agujero negro es una región del espacio donde la gravedad es tan fuerte que nada, ni siquiera la luz, puede escapar.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-en-draw-me-and-explain",
+    "area": "multi",
+    "prompt": "draw me a cat and also explain black holes",
+    "history": [],
+    "reply": "A black hole is a region of space where gravity is so strong that nothing, not even light, can escape.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
   }
 ]

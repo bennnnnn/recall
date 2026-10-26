@@ -39,6 +39,9 @@ class VerbFirst:
     create_me: frozenset[str] = frozenset()
     # Verbs that draw only with a "me" word: German "male mir …" ("male" is an English word).
     needs_me: frozenset[str] = frozenset()
+    # Verbs that draw only before an article, "me" or a picture noun: Spanish "pinta un
+    # gato" paints, "¡pinta bien!" and "pinta que va a llover" say how something looks.
+    needs_article: frozenset[str] = frozenset()
     me: frozenset[str] = frozenset()
     # "Mach dir ein Bild davon" (picture it yourself), "fais-toi une image": no picture.
     reflexive: frozenset[str] = frozenset()
@@ -65,6 +68,8 @@ class VerbFirst:
     not_pairs: frozenset[tuple[str, str]] = frozenset()
     # German separable verbs: "zeichne das Gespräch auf" records it.
     particles: frozenset[str] = frozenset()
+    # What the picture is for ("para mi proyecto"): its words are not the subject.
+    purpose: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -91,11 +96,15 @@ class VerbLast:
     not_words: frozenset[str] = frozenset()
     not_stems: tuple[str, ...] = ()
     not_pairs: frozenset[tuple[str, str]] = field(default_factory=frozenset)
+    # "Projem için bir kedi çiz": the words up to it say what the picture is for.
+    purpose: frozenset[str] = frozenset()
 
 
 SPANISH = VerbFirst(
     "es",
-    draw=_w("dibuja dibujá dibuje dibujad pinta pintá pinte ilustra ilustre"),
+    purpose=_w("para"),
+    draw=_w("dibuja dibujá dibuje dibujad pintá ilustra ilustre"),
+    needs_article=_w("pinta pinte"),
     create=_w("crea creá cree genera generá genere haz haga diseña diseñe produce"),
     draw_me=_w("dibújame dibujame dibújeme dibujeme píntame pintame ilústrame"),
     create_me=_w("créame creame genérame generame hazme hágame hagame diséñame"),
@@ -150,6 +159,7 @@ SPANISH = VerbFirst(
 
 FRENCH = VerbFirst(
     "fr",
+    purpose=_w("pour"),
     draw=_w("dessine dessinez peins peignez illustre illustrez"),
     create=_w("crée créez cree creez génère générez genere generez fais faites conçois produis"),
     me=_w("moi me m'"),
@@ -235,10 +245,12 @@ GERMAN = VerbFirst(
         "formel struktur"
     ),
     particles=_w("auf ab aus an ein vor"),
+    purpose=_w("für"),
 )
 
 ITALIAN = VerbFirst(
     "it",
+    purpose=_w("per"),
     # Not "disegni": it is also "drawings" ("disegni animati" are cartoons).
     draw=_w("disegna disegnate dipingi dipinga illustra"),
     create=_w("crea genera fai realizza produci"),
@@ -273,7 +285,9 @@ ITALIAN = VerbFirst(
 
 PORTUGUESE = VerbFirst(
     "pt",
-    draw=_w("desenhe desenha pinte pinta ilustre ilustra"),
+    purpose=_w("para"),
+    draw=_w("desenhe desenha ilustre ilustra"),
+    needs_article=_w("pinte pinta"),
     create=_w("crie cria gere gera faça faca faz produza"),
     me=_w("me"),
     can_you=_phrases(
@@ -312,7 +326,10 @@ PORTUGUESE = VerbFirst(
 
 RUSSIAN = VerbFirst(
     "ru",
-    draw=_w("нарисуй нарисуйте нарисуешь изобрази изобразите"),
+    purpose=_w("для"),
+    draw=_w("нарисуй нарисуйте нарисуешь"),
+    # "Изобрази удивление" asks to act surprised: with "мне" it draws.
+    needs_me=_w("изобрази изобразите"),
     create=_w("создай создайте сгенерируй сгенерируйте сделай сделайте"),
     me=_w("мне нам"),
     can_you=_phrases(
@@ -356,7 +373,9 @@ TURKISH = VerbLast(
     pronouns=_w("bunu onu şunu bunları onları şunları bu şu o"),
     again=_phrases("tekrar", "yine", "yeniden"),
     # "Altını çiz" underlines, "üstünü çiz" crosses out; "doğru" is a line.
-    not_words=_w("altını altlarını üstünü üzerini doğru"),
+    # Question words: "kedi nasıl çiz" is half a question.
+    not_words=_w("altını altlarını üstünü üzerini doğru nasıl neden niye nedir"),
+    purpose=_w("için"),
     not_stems=_stems(
         "grafi tablo liste diyagram şema akış fonksiyon türev integral limit denklem "
         "çizgi üçgen daire çember kare dikdörtgen çokgen yamuk paralelkenar hipotenüs "
@@ -393,37 +412,55 @@ ARTICLES = _w("un una uno un' une ein eine einen einem einer um uma")
 CONNECTORS = _w("and y e ed et und ve и а እና then luego después puis ensuite dann danach poi")
 ALSO = _w(
     "also también además aussi également auch außerdem ausserdem zudem anche inoltre pure "
-    "também tambem além disso ayrıca de da также тоже ещё еще እንዲሁም ደግሞ ደግሞም"
+    "também tambem além disso ayrıca также тоже ещё еще እንዲሁም ደግሞ ደግሞም"
 )
 # A second request: one of these starts it (in Turkish and Amharic, a verb ends it).
-# "Explain", "tell me": the verbs may follow a comma ("Нарисуй кошку, объясни …").
+# "Explain", "tell me": the verbs may follow a comma ("Нарисуй кошку, объясни …"). Only
+# verbs that ask for an answer: "write its name below", "give it a hat", "show it smiling"
+# and Turkish "yaz" (also "summer") add to the picture.
 ASK_VERBS = _w(
     # English, for a picture asked in one language and the rest in English.
-    "explain tell write show help "
-    "explica explícame explicame explique dime cuéntame cuentame escribe escríbeme ayúdame "
-    "ayudame muéstrame enséñame dame traduce resume calcula resuelve "
-    "expliquez dis dites raconte écris aide montre donne traduis résume calcule résous "
-    "erkläre erklär erklären erklärt sag sage sagt erzähl erzähle schreib schreibe hilf zeig "
-    "zeige gib nenne übersetze fasse berechne löse beschreibe "
-    "spiega spiegami dimmi raccontami racconta scrivi scrivimi aiutami mostrami dammi "
-    "traduci riassumi calcola risolvi "
-    "diga diz conte escreva ajude mostre dê traduza resuma calcule resolva "
-    "объясни объясните расскажи расскажите скажи скажите напиши напишите помоги помогите "
-    "покажи дай переведи посчитай реши "
-    "açıkla anlat söyle yaz göster ver çevir özetle hesapla çöz "
-    "አስረዳ አስረዳኝ አስረዱኝ አብራራ አብራራልኝ ንገረኝ ንገሪኝ ግለጽ ጻፍ ጻፍልኝ"
+    "explain tell help "
+    "explica explícame explicame explique dime cuéntame cuentame ayúdame ayudame enséñame "
+    "traduce resume calcula resuelve describe "
+    "expliquez dis dites raconte aide traduis résume calcule résous décris "
+    "erkläre erklär erklären erklärt sag sage sagt erzähl erzähle hilf nenne übersetze "
+    "fasse berechne löse beschreibe "
+    "spiega spiegami dimmi raccontami racconta aiutami traduci riassumi calcola risolvi "
+    "descrivi "
+    "diga diz conte ajude traduza resuma calcule resolva descreva "
+    "объясни объясните расскажи расскажите скажи скажите помоги помогите переведи "
+    "посчитай реши опиши "
+    "açıkla anlat söyle çevir özetle hesapla çöz "
+    "አስረዳ አስረዳኝ አስረዱኝ አብራራ አብራራልኝ ንገረኝ ንገሪኝ ግለጽ"
 )
-# Question words, after "and" or a new sentence. Not "que", "che", "qui" alone: "un gato y
-# que sea negro" and "un chat qui danse" describe the picture.
+# Question words, after "and" or a new sentence. Only words that ask: "como", "come", "как"
+# are also "like", "quand", "когда", "где" open a clause about the picture ("et quand il
+# dort"), "ne" is French, and "que", "che", "qui" describe it ("un chat qui danse").
 ASK_QUESTIONS = _w(
     "what how why who "
     "qué cómo quién cuál cuáles dónde cuándo cuánto "
-    "qu' quel quelle quels quelles comment pourquoi où quand combien "
-    "was wie warum wieso weshalb wer wo wann welche welcher welches "
-    "cosa cos' come perché perche chi dove quando quale quali quanto "
-    "porque quem onde qual quais quanto "
-    "что как почему зачем кто где когда какой какая какие сколько "
-    "nedir ne nasıl neden niye kim nerede hangi kaç "
+    "quel quelle quels quelles comment pourquoi combien "
+    "was warum wieso weshalb wer wann welche welcher welches "
+    "cosa cos' quale quali quanto "
+    "quem qual quais quanto "
+    "почему зачем кто какой какая какие сколько "
+    "nedir nasıl neden niye kimdir "
     "ምን እንዴት ለምን ማን የት መቼ"
 )
-ASK_PAIRS = frozenset({("o", "que"), ("por", "qué"), ("por", "que")})
+# Turkish and Amharic close a request with its verb or question word.
+ASK_LAST = _w(
+    "açıkla anlat söyle çevir özetle hesapla çöz nedir nasıl neden niye kimdir "
+    "አስረዳ አስረዳኝ አስረዱኝ አብራራ አብራራልኝ ንገረኝ ንገሪኝ ግለጽ"
+)
+ASK_PAIRS = frozenset(
+    {
+        ("o", "que"),
+        ("por", "qué"),
+        ("por", "que"),
+        ("qu'", "est-ce"),
+        ("что", "такое"),
+        ("что", "это"),
+        ("как", "работает"),
+    }
+)

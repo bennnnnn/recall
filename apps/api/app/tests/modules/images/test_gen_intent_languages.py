@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 
 from app.modules.images.gen_intent import extract_image_gen_prompt, picture_and_request
+from app.modules.images.gen_intent_parts import Part
 from app.modules.images.intent import composer_image_intent
 
 # One plain "draw" request per app language (English for comparison).
@@ -196,7 +197,7 @@ def test_a_second_request_is_not_part_of_the_picture(text: str, picture: str, re
     """The whole line draws nothing, as "draw a cat and also explain …" does; the planner
     takes the two parts."""
     assert extract_image_gen_prompt(text) is None
-    assert picture_and_request(text) == (picture, rest)
+    assert picture_and_request(text) == (Part(picture, picture=True), Part(rest, picture=False))
 
 
 @pytest.mark.parametrize(

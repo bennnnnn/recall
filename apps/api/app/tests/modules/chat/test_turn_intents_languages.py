@@ -84,18 +84,41 @@ def test_the_picture_part_reads_before_an_english_question(
         "Zeichne mir eine Tabelle der Ergebnisse und erkläre sie",
         "Нарисуй график функции и объясни его",
         "grafik çiz ve açıkla",
-        "Erkläre, was ein schwarzes Loch ist, und zeichne auch eine Katze",
     ],
 )
-def test_no_picture_part_without_a_picture_first(text: str) -> None:
+def test_no_picture_part_for_a_table_a_graph_or_one_picture(text: str) -> None:
     assert not plan_turn(text).of_kind("image")
     assert reply_picture_prompt(text, Settings()) is None
 
 
-@pytest.mark.parametrize(("lang", "text", "subject"), NATIVE[1:])
-def test_the_picture_starts_beside_the_answer_with_its_line_in_the_message_language(
-    lang: str, text: str, subject: str
-) -> None:
+# How the not-drawn line under the answer starts, in each language.
+LINE_START = {
+    "en": "I couldn't draw the picture (",
+    "es": "Esta vez no pude dibujar la imagen (",
+    "fr": "Je n'ai pas pu dessiner l'image (",
+    "de": "Das Bild (",
+    "it": "Questa volta non sono riuscito a disegnare l'immagine (",
+    "pt": "Desta vez não consegui desenhar a imagem (",
+    "tr": "Bu sefer resmi (",
+    "ru": "В этот раз не удалось нарисовать картинку (",
+    "am": "ምስሉን (",
+}
+
+# Asked second ("explain …, and draw a cat"), as English "… and also draw a cat" is.
+PICTURE_SECOND = [
+    ("es", "Explica qué es un agujero negro y dibuja un gato", "gato"),
+    ("es", "¿Qué es un agujero negro? Dibuja un gato", "gato"),
+    ("fr", "Explique ce qu'est un trou noir et dessine un chat", "chat"),
+    ("de", "Erkläre, was ein schwarzes Loch ist, und zeichne auch eine Katze", "Katze"),
+    ("it", "Spiegami cos'è un buco nero e disegna un gatto", "gatto"),
+    ("pt", "Explique o que é um buraco negro e desenhe um gato", "gato"),
+    ("tr", "Kara deliğin ne olduğunu açıkla ve bir kedi çiz", "kedi"),
+    ("ru", "Объясни, что такое чёрная дыра, и нарисуй кошку", "кошку"),
+    ("am", "ጥቁር ቀዳዳ ምን እንደሆነ አስረዳኝ እንዲሁም ድመት ሳልልኝ", "ድመት"),
+]
+
+
+def _not_drawn_line(text: str, locale: str) -> tuple[str, str]:
     class _Plan:
         @staticmethod
         def can_use(*_args: object) -> bool:
@@ -107,14 +130,38 @@ def test_the_picture_starts_beside_the_answer_with_its_line_in_the_message_langu
     picture = start_reply_picture(
         _Deps(),  # type: ignore[arg-type]
         Settings(image_generation_enabled=False),
-        user=User(id=uuid4(), plan="pro", locale="en"),
+        user=User(id=uuid4(), plan="pro", locale=locale),
         chat_id=uuid4(),
         content=text,
     )
     assert picture is not None
-    assert picture.subject == subject
     text_with_line, ids = asyncio.run(picture.attach("…"))
     assert ids == []
-    assert subject in text_with_line
-    # The line under the answer is in the message's language, not English.
-    assert "I couldn't draw" not in text_with_line, lang
+    return picture.subject, text_with_line.removeprefix("…").strip()
+
+
+@pytest.mark.parametrize(("lang", "text", "subject"), NATIVE[1:] + PICTURE_SECOND)
+def test_the_picture_starts_beside_the_answer_with_its_line_in_the_message_language(
+    lang: str, text: str, subject: str
+) -> None:
+    """An English app: the line is the message's language's, named exactly."""
+    drawn, line = _not_drawn_line(text, "en")
+    assert drawn == subject
+    assert line.startswith(LINE_START[lang]), line
+
+
+@pytest.mark.parametrize(("lang", "text", "subject"), PICTURE_SECOND)
+def test_a_picture_asked_second_plans_after_the_answer(lang: str, text: str, subject: str) -> None:
+    plan = plan_turn(text)
+    assert [part.kind for part in plan.parts] == ["ask", "image"], lang
+    assert reply_picture_prompt(text, Settings()) == subject
+
+
+@pytest.mark.parametrize(("locale", "lang"), [("pt-BR", "pt"), ("es", "es"), ("en", "es")])
+def test_a_verb_spanish_and_portuguese_share_takes_the_apps_language(
+    locale: str, lang: str
+) -> None:
+    """ "Pinte um gato e explique …" reads the same in both; the app's language decides,
+    and an English app keeps the first reading."""
+    _drawn, line = _not_drawn_line("Pinte um gato e explique o que é um buraco negro", locale)
+    assert line.startswith(LINE_START[lang]), line

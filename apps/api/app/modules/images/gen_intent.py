@@ -16,7 +16,8 @@ import re
 from itertools import pairwise
 from typing import TYPE_CHECKING
 
-from app.modules.images.gen_intent_local import (
+from app.modules.images.gen_intent_parts import (
+    Part,
     extract_other_language_prompt,
     other_language_of,
     split_picture_request,
@@ -266,6 +267,9 @@ def _match_draw_me(tokens: list[str]) -> str | None:
         i += 1
     if i >= len(tokens):
         return None
+    # "Draw me a cat and also explain black holes" asks twice: the plan draws the cat.
+    if _asks_again(tokens[i:]):
+        return None
     subject = join_subject(tokens[i:])
     if has_non_image_subject(subject, drawn=True) or has_non_image_draw(subject):
         return None
@@ -451,19 +455,17 @@ def extract_image_gen_prompt(text: str) -> str | None:
     return extract_other_language_prompt(trimmed)
 
 
-def picture_and_request(text: str) -> tuple[str, str] | None:
-    """A picture asked for in another language, then a second request: the two parts.
-
-    "Dibuja un gato y explica qué es un agujero negro" is two requests, as English "draw a
-    cat and also explain …" is; no English cut divides it, so the planner asks here.
-    """
+def picture_and_request(text: str) -> tuple[Part, Part] | None:
+    """A picture asked in another language beside a second request: the parts, in order.
+    "Dibuja un gato y explica qué es un agujero negro" is two, as English "draw a cat and
+    also explain …" is; no English cut divides it, so the planner asks here."""
     return split_picture_request(text)
 
 
-def picture_language(text: str) -> str | None:
+def picture_language(text: str, prefer: str | None = None) -> str | None:
     """The language a picture request was read in ("es" for "dibuja un gato"); None for
-    English, or for no picture."""
-    return other_language_of(text)
+    English, or for no picture. ``prefer`` breaks a tie ("pinte" is es and pt)."""
+    return other_language_of(text, prefer)
 
 
 def stem_subject(text: str, *, chemistry_enabled: bool = True) -> SubjectName | None:

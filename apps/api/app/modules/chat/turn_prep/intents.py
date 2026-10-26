@@ -139,17 +139,20 @@ def plan_turn(text: str, *, chemistry_enabled: bool = True) -> TurnPlan:
 
 
 def _picture_and_request(text: str, *, chemistry_enabled: bool) -> TurnPlan | None:
-    """ "Zeichne eine Katze und erkläre auch, was ein schwarzes Loch ist": a picture asked
-    in another language, then a second request. The clause rules read English, so the
-    picture reader cuts it, as "draw a cat and also explain …" is cut."""
+    """ "Zeichne eine Katze und erkläre auch, was ein schwarzes Loch ist", "Explica qué es
+    un agujero negro y dibuja un gato": a picture asked in another language beside a
+    second request. The clause rules read English, so the picture reader cuts it, as
+    "draw a cat and also explain …" is cut."""
     pair = picture_and_request(text)
-    if pair is None:
+    if pair is None or not all(part.text for part in pair):
         return None
-    picture, rest = pair
-    if not rest or part_kind(picture, chemistry_enabled=chemistry_enabled) != "image":
-        return None
-    asked = TurnPart(rest, part_kind(rest, chemistry_enabled=chemistry_enabled))
-    return TurnPlan((TurnPart(picture, "image"), asked))
+    parts: list[TurnPart] = []
+    for part in pair:
+        kind = part_kind(part.text, chemistry_enabled=chemistry_enabled)
+        if part.picture and kind != "image":
+            return None
+        parts.append(TurnPart(part.text, kind))
+    return TurnPlan(tuple(parts))
 
 
 def _quoted(text: str) -> str:
