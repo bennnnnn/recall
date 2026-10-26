@@ -125,14 +125,12 @@ async def test_a_what_if_after_the_chat_moved_on_is_no_money_turn(
     fake_redis: Redis, thread_sympy_executor: None
 ) -> None:
     workout = ("give me a 4 day workout plan with 4 sets of each exercise",)
-    for line, history in (
-        ("what if i only do 3 sets instead", workout),
-        (_WHAT_IF, (_CAR, "how do I make lasagna?")),
-    ):
-        assert (
-            await _money_turn(_request(line, history=history), single_plan(line), fake_redis)
-            is None
-        )
+    line = "what if i only do 3 sets instead"
+    assert await _money_turn(_request(line, history=workout), single_plan(line), fake_redis) is None
+    # The car loan still stands past the lasagna: its figures, but no worked change or card.
+    history = (_CAR, "how do I make lasagna?")
+    turn = await _money_turn(_request(_WHAT_IF, history=history), single_plan(_WHAT_IF), fake_redis)
+    assert turn is not None and turn.standing
 
 
 async def test_an_earlier_multi_part_line_is_read_in_its_parts(
@@ -167,5 +165,6 @@ async def test_earlier_lines_are_never_planned_on_the_loop(
         single_plan(_WHAT_IF),
         fake_redis,
     )
-    assert turn is None
+    # No worked change past the unplanned line; the loan's figures only (``standing``).
+    assert turn is not None and turn.standing
     assert loop_guard.found == []

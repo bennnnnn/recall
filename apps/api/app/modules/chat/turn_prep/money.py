@@ -21,7 +21,7 @@ from app.modules.chat.turn_prep.instant import settings_card
 from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import prior_user_texts
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
-from app.modules.money.service import MoneyTurn, prepare_money_turn
+from app.modules.money.service import MoneyTurn, prepare_money_turn, prepare_standing_turn
 
 
 async def money_turn(
@@ -58,7 +58,15 @@ async def money_turn(
         )
         if turn is not None:
             return turn
-    return None
+    return await prepare_standing_turn(
+        request.content,
+        settings,
+        redis,
+        user=identity.user,
+        location=identity.geo.user_location,
+        earlier=earlier,
+        last_reply=last_reply,
+    )
 
 
 def _parts(line: str, chemistry_enabled: bool) -> tuple[str, ...]:

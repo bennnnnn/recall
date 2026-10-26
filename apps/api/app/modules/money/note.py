@@ -11,29 +11,58 @@ judges no rate unrealistic: a used-car rate far above the new-car average is ord
 
 from __future__ import annotations
 
+import re
+
 from app.modules.money.numbers import day_text, money_text, percent_text
 from app.modules.money.rates import MarketRate
 from app.modules.money.read import MoneyRequest
 from app.modules.money.solve import Worked, rate_name
 
 
-def reading_note(request: MoneyRequest) -> str | None:
-    """How a bare amount beside a price was read, so a misread shows (``purchase``)."""
+def reading_note(request: MoneyRequest, reply: str = "") -> str | None:
+    """How a bare amount beside a price was read, so a misread shows (``purchase``).
+
+    A reply that already says the reading ("treated your $60,000 as the down payment on
+    the $400,000 price", live 2026-10-25) gets only the line that puts a misread right."""
     amount, price = request.values.get("amount"), request.price
     if amount is None or price is None:
         return None
     if request.guessed == "down" and request.down is not None:
         down = money_text(request.down)
+        if states_reading(reply, request.down, price, _DOWN_WORDS):
+            return f"If {down} is the loan, not the down payment, say so."
         return (
             f"**Read as:** {down} is the down payment on the {money_text(price)} price, so the "
             f"loan is {money_text(amount)}. If {down} is the loan, say so."
         )
     if request.guessed == "loan":
+        if states_reading(reply, amount, price, _LOAN_WORDS):
+            return f"If {money_text(amount)} is the down payment, not the loan, say so."
         return (
             f"**Read as:** {money_text(amount)} is the loan on the {money_text(price)} price. "
             "If it is the down payment, say so."
         )
     return None
+
+
+_DOWN_WORDS = re.compile(r"\bdown[\s-]?payment\b|\bdown\b", re.IGNORECASE)
+_LOAN_WORDS = re.compile(r"\bloan\b|\bborrow\w*|\bfinanc\w*", re.IGNORECASE)
+_SUM = re.compile(r"(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\s?([km]\b)?", re.IGNORECASE)
+_SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
+_SCALE = {"k": 1_000, "m": 1_000_000}
+
+
+def states_reading(reply: str, guessed: float, price: float, words: re.Pattern[str]) -> bool:
+    """One sentence of ``reply`` names the guessed sum, the price and what the sum was read
+    as: the reading the note would say."""
+    for sentence in _SENTENCE.split(reply or ""):
+        sums = {
+            float(found.group(1).replace(",", "")) * _SCALE.get((found.group(2) or "").lower(), 1)
+            for found in _SUM.finditer(sentence)
+        }
+        if guessed in sums and price in sums and words.search(sentence):
+            return True
+    return False
 
 
 def market_note(worked: Worked, average: MarketRate | None, ratio: float) -> str | None:

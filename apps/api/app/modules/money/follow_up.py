@@ -60,6 +60,20 @@ def follow_up_request(text: str, earlier: Sequence[str | Sequence[str]]) -> Mone
     return _then(request, text) if request is not None else None
 
 
+def standing_request(earlier: Sequence[str | Sequence[str]]) -> MoneyRequest | None:
+    """The chat's last money request in the user's recent lines, with its changes made.
+
+    Unlike a follow-up, a line about something else ("How", "Yes") leaves it standing: the
+    talk about a loan goes on past it. ``standing`` gives the model its figures then.
+    """
+    lines = [as_parts(line) for line in earlier]
+    request: MoneyRequest | None = None
+    for index in range(max(0, len(lines) - _WINDOW - 1), len(lines)):
+        before = lines[index - 1] if index else ()
+        request = _line_request(request, lines[index], before) or request
+    return request
+
+
 def as_parts(line: str | Sequence[str]) -> tuple[str, ...]:
     """An earlier line as the parts its turn read it in (a plain line is one part)."""
     return (line,) if isinstance(line, str) else tuple(line)

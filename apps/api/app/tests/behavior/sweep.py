@@ -132,6 +132,8 @@ LOOKALIKE_HINTS = {
     # A "hi" after a question is a new greeting, not one more of a run.
     "greeting lookalike": "greeting_again",
     "money lookalike": "money",
+    # "thanks" or "how do I bake bread?" after a loan's card is not about the loan.
+    "money standing lookalike": "money_standing",
     # A money follow-up the server leaves to the model: a new price, a percent down, a card
     # payment, a deposit or a kind ("what if I put 20% down?"), or a bare amount beside a
     # price that may be the loan or the down payment. It works terms, rates and sums down.
@@ -146,6 +148,9 @@ LOOKALIKE_HINTS = {
 # A loan, card or savings ask, or a what-if that changes the one before it ("what if i only
 # do 3 years instead"): the server works its numbers, so the turn carries the money block.
 MONEY_AREAS = {"money"}
+# A "yes" or "what about 15 years?" about the chat's earlier loan that no card answers: the
+# model reads the loan's figures, worked by the app.
+MONEY_STANDING_AREAS = {"money standing"}
 # Reminders already saved, so "mark call mom as done" has something to find.
 SEEDED = ("call mom", "dentist appointment", "gym", "pay rent", "read", "water the plants")
 
@@ -501,6 +506,8 @@ def _judge_expect(outcome: Outcome, expect: str) -> list[str]:
             problems.append(f"given the {unwanted!r} hint")
         if entry.area in MONEY_AREAS and "money" not in route.hints:
             problems.append("numbers not worked by the server (no money block)")
+        if entry.area in MONEY_STANDING_AREAS and "money_standing" not in route.hints:
+            problems.append("the earlier loan's figures not given")
     elif expect == "instant" and not route.instant:
         problems.append("no instant reply")
     elif expect == "photo" and not route.photo:
