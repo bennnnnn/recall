@@ -81,6 +81,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "search_links",
         "generic_closer",
         "meta_notes",
+        "prompt_leaks",
         "turn_meta",
         "emoji_use",
         "answer_photo",
@@ -111,13 +112,15 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "clock",
     ]
     # Only the subject fence passes, the chemistry enrichment, the closer strip, the
-    # meta-note unwrap, the emoji placement, the formula charts (left for the phone's
-    # note) and the two checks that only ever narrow the reply (search links, requested
-    # JSON) go on after a failure; every other pass falls back to the last committed text.
+    # meta-note unwrap, the prompt-leak strip, the emoji placement, the formula charts
+    # (left for the phone's note) and the two checks that only ever narrow the reply
+    # (search links, requested JSON) go on after a failure; every other pass falls back
+    # to the last committed text.
     kept = {name: (log_as, rewrite is not None) for name, log_as, rewrite in order if log_as}
     assert kept == {
         "generic_closer": ("generic_closer", False),
         "meta_notes": ("meta_notes", False),
+        "prompt_leaks": ("prompt_leaks", False),
         "turn_meta": ("turn_meta", False),
         "emoji_use": ("emoji_use", False),
         "search_links": ("search_links", False),
