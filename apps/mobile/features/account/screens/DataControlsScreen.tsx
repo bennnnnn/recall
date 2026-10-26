@@ -24,6 +24,7 @@ import { writeCachedUser } from "@/lib/cachedUser";
 import { formatDate } from "@/lib/datetime/format";
 import { notifyDestructive } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { shareFailureKey } from "@/lib/shareUnavailable";
 import { alertDialog, confirmDialog } from "@/ui/overlay/dialogs";
 
 export default function DataControlsScreen() {
@@ -61,7 +62,7 @@ export default function DataControlsScreen() {
       if (!message.toLowerCase().includes("cancel")) {
         // A few exports an hour, one at a time: say so rather than "failed".
         const busy = error instanceof ApiRequestError && error.code === "export_busy";
-        reportRecoverableError(feedback, t(busy ? "settings.export_busy" : "settings.export_failed"));
+        reportRecoverableError(feedback, t(busy ? "settings.export_busy" : shareFailureKey(error, "settings.export_failed")));
       }
     }
   };

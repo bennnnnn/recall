@@ -306,6 +306,7 @@
   "common.service_unavailable": "Recall şu anda kullanılamıyor. Biraz sonra tekrar deneyin.",
   "common.share_failed": "Paylaşım başarısız",
   "common.share_image_error": "Bu görsel paylaşılamadı.",
+  "common.share_needs_update": "Dosya paylaşımı uygulamanın bu sürümünde kullanılamıyor. Kullanmak için uygulamayı güncelle.",
   "common.try_again": "Tekrar dene",
   "common.show_less": "Daha az göster",
   "common.show_more": "Daha fazla göster",

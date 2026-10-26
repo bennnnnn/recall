@@ -1,6 +1,7 @@
 import { ApiRequestError, isServiceUnavailable } from "@/lib/api/errorBody";
 import { isServerUnreachable } from "@/lib/api/deadline";
 import { MAX_ATTACHMENT_MEGABYTES } from "@/features/attachments/model/attachmentLimits";
+import { shareFailureKey } from "@/lib/shareUnavailable";
 
 /** Why an attachment could not be picked or uploaded. Each reason has one message. */
 export type AttachmentFailure =
@@ -44,16 +45,17 @@ export function attachmentErrorMessage(error: unknown, t: Translate): string {
  * PDF card's share), always the phone's own. A refusal from the API: over a request limit,
  * Recall down, or the action's own line. Its English showed ("Too many requests. Please
  * slow down.", a delete's "Not found"). No answer from Recall is the unreachable line; a
- * failure on this phone (a file it could not fetch, open or share) is the action's own.
- * Their English showed too: "Could not reach the Recall server…", "Could not attach",
- * "Could not open this attachment.", "Network request failed".
+ * build that cannot share files says to update the app; any other failure on this phone
+ * (a file it could not fetch, open or share) is the action's own. Their English showed too:
+ * "Could not reach the Recall server…", "Could not attach", "Could not open this
+ * attachment.", "Network request failed".
  */
 export function libraryActionMessage(error: unknown, fallbackKey: string, t: Translate): string {
   if (error instanceof ApiRequestError) {
     if (error.code === "rate_limited") return t("chat.rate_limited");
     return t(isServiceUnavailable(error) ? "common.service_unavailable" : fallbackKey);
   }
-  return t(isServerUnreachable(error) ? "chat.error_unreachable" : fallbackKey);
+  return t(shareFailureKey(error, isServerUnreachable(error) ? "chat.error_unreachable" : fallbackKey));
 }
 
 /** The fields FastAPI's validation refused: each error's `loc`, last part. */

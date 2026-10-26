@@ -5,6 +5,7 @@ import { act, render } from "@testing-library/react-native";
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { exportConversationAsPdf } from "@/features/chat/model/exportMessagePdf";
 import { api, type Message } from "@/lib/api";
+import { SharingUnavailableError } from "@/lib/shareUnavailable";
 import { insertChatGlobal, patchChatGlobal, removeChatGlobal } from "@/features/chat/drawer/drawer";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
@@ -179,6 +180,19 @@ describe("useChatActions", () => {
       await actions.handleExportPdf();
     });
     expect(mockFeedbackError).toHaveBeenCalledWith("chat.export_pdf_failed");
+  });
+
+  it("says to update the app when this build cannot share the PDF", async () => {
+    (api.listAllMessages as jest.Mock).mockResolvedValue([{ id: "m1", role: "user", content: "hi" }]);
+    (exportConversationAsPdf as jest.Mock).mockRejectedValueOnce(new SharingUnavailableError());
+    await act(async () => {
+      render(<Probe />);
+    });
+
+    await act(async () => {
+      await actions.handleExportPdf();
+    });
+    expect(mockFeedbackError).toHaveBeenCalledWith("common.share_needs_update");
   });
 
   it("shares the whole chat, and never the loaded page in its place (CLAR-08)", async () => {

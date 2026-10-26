@@ -6,6 +6,8 @@ import {
   writeAsStringAsync,
 } from "expo-file-system/legacy";
 
+import { SharingUnavailableError } from "@/lib/shareUnavailable";
+
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "/cache/",
   deleteAsync: jest.fn(async () => undefined),
@@ -73,8 +75,9 @@ describe("shareAccountExport", () => {
   });
 
   it("lets a build that cannot share files fail, so the screen can say so", async () => {
-    (shareLocalFile as jest.Mock).mockRejectedValueOnce(new Error("Sharing files needs an app update."));
-    await expect(shareAccountExport("{}")).rejects.toThrow("app update");
+    const unavailable = new SharingUnavailableError();
+    (shareLocalFile as jest.Mock).mockRejectedValueOnce(unavailable);
+    await expect(shareAccountExport("{}")).rejects.toBe(unavailable);
     expect(deleteAsync).toHaveBeenCalledWith(expect.stringMatching(/recall-export-/), { idempotent: true });
   });
 });

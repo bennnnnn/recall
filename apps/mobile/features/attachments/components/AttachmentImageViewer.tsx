@@ -34,6 +34,7 @@ import {
   type AttachmentViewerImage,
 } from "@/features/attachments/model/imageViewer";
 import { useReduceMotion } from "@/lib/reduceMotion";
+import { shareFailureKey } from "@/lib/shareUnavailable";
 import { useTheme } from "@/lib/theme";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 
@@ -242,8 +243,9 @@ function ViewerContent({
         fileName: currentName,
       });
       if (result === "saved") feedback.success(t("common.saved_to_photos"));
-    } catch {
-      feedback.error(t("common.download_image_error"));
+    } catch (error) {
+      // Photos refused falls back to the share sheet, which an old build may not have.
+      feedback.error(t(shareFailureKey(error, "common.download_image_error")));
     } finally {
       setBusy(null);
     }
@@ -258,8 +260,8 @@ function ViewerContent({
         token,
         fileName: currentName,
       });
-    } catch {
-      feedback.error(t("common.share_image_error"));
+    } catch (error) {
+      feedback.error(t(shareFailureKey(error, "common.share_image_error")));
     } finally {
       setBusy(null);
     }

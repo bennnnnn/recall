@@ -306,6 +306,7 @@
   "common.service_unavailable": "Recall is unavailable right now. Try again in a moment.",
   "common.share_failed": "Share failed",
   "common.share_image_error": "Could not share this image.",
+  "common.share_needs_update": "Sharing files isn't available in this version of the app. Update the app to use it.",
   "common.try_again": "Try again",
   "common.show_less": "Show less",
   "common.show_more": "Show more",

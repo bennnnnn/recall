@@ -8,6 +8,7 @@ import {
 } from "@/features/attachments/model/downloadChatAttachment";
 import { AttachmentImageViewer } from "@/features/attachments/components/AttachmentImageViewer";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
+import { SharingUnavailableError } from "@/lib/shareUnavailable";
 import { alertDialog } from "@/ui/overlay/dialogs";
 
 // One object, as the provider keeps it: a new getter per render re-runs every effect.
@@ -401,6 +402,19 @@ describe("AttachmentImageViewer", () => {
       });
       expect(view.getByText("common.share_image_error")).toBeTruthy();
       expect(alertDialog).not.toHaveBeenCalled();
+    });
+
+    // Android without expo-sharing (lib/shareFile.ts): Share, and Save's share-sheet fallback.
+    it.each([
+      ["a share", "preview.share", shareChatAttachment],
+      ["a save that fell back to sharing", "common.download", saveChatAttachmentToLibrary],
+    ] as const)("says to update the app when this build cannot share files: %s", async (_label, button, action) => {
+      jest.mocked(action).mockRejectedValueOnce(new SharingUnavailableError());
+      const view = await render(<AttachmentImageViewer onClose={onClose} visible attachmentId="a" />);
+      await act(async () => {
+        await fireEvent.press(view.getByLabelText(button));
+      });
+      expect(view.getByText("common.share_needs_update")).toBeTruthy();
     });
   });
 });

@@ -2,6 +2,7 @@ import { shareAsync } from "expo-sharing";
 import { Platform, Share } from "react-native";
 
 import { shareLocalFile, shareRoute } from "@/lib/shareFile";
+import { shareFailureKey, SharingUnavailableError } from "@/lib/shareUnavailable";
 
 jest.mock("react-native", () => ({
   Platform: { OS: "ios" },
@@ -54,10 +55,15 @@ it("falls back to a file url on iOS builds without expo-sharing", async () => {
 it("refuses to share a path as text on Android builds without expo-sharing", async () => {
   mockHasSharing = false;
   (Platform as { OS: string }).OS = "android";
-  await expect(shareLocalFile("file:///cache/a.pdf", { title: "a.pdf" })).rejects.toThrow(
-    "Sharing files needs an app update.",
-  );
+  const error = await shareLocalFile("file:///cache/a.pdf", { title: "a.pdf" }).catch((failure: unknown) => failure);
+  expect(error).toBeInstanceOf(SharingUnavailableError);
+  expect(shareFailureKey(error, "common.share_failed")).toBe("common.share_needs_update");
   expect(Share.share).not.toHaveBeenCalled();
+});
+
+it("keeps the caller's line for any other share failure", () => {
+  expect(shareFailureKey(new Error("Sharing files needs an app update."), "common.share_failed")).toBe("common.share_failed");
+  expect(shareFailureKey(new Error("boom"), null)).toBeNull();
 });
 
 it("treats a dismissed sheet as done", async () => {
