@@ -3,8 +3,9 @@
 "Zeichne mir eine Katze mit Hut" drew nothing on main: every rule read English words.
 Now a draw verb addressed with "me" ("dibújame", "¿me dibujas …?", "zeichne mir", "mi
 disegni …?", "нарисуй мне", "bana … çiz", "… ሳልልኝ") and "create a picture of" ("crea una
-imagen de", "erstelle ein Bild von") draw a short, plain subject. Everything else in
-those languages is answered in words, as on main.
+imagen de", "erstelle ein Bild von") draw a short, plain subject whose head noun is a
+listed thing (``test_gen_intent_drawable``). Everything else in those languages is
+answered in words, as on main.
 """
 
 from __future__ import annotations

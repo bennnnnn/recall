@@ -78,6 +78,6 @@ def test_a_line_the_plan_cuts_draws_only_the_picture_part(text: str) -> None:
     assert extract_image_gen_prompt(text) is None
 
 
-@pytest.mark.parametrize("text", [*WHOLE, *CUT, *_corpus_lines()])
+@pytest.mark.parametrize("text", sorted({*WHOLE, *CUT, *_corpus_lines()}))
 def test_asks_separately_agrees_with_the_plan(text: str) -> None:
     assert asks_separately(_subject_tokens(text)) == _plan_cuts(text)
