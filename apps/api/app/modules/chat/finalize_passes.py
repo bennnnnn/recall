@@ -66,6 +66,7 @@ from app.modules.chat.finalize_text import (
 )
 from app.modules.chat.generic_closer import strip_generic_closer
 from app.modules.chat.json_output import check_requested_json
+from app.modules.chat.lesson_again import keep_to_lesson_again_pass
 from app.modules.chat.meta_notes import unwrap_meta_notes
 from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass
 from app.modules.chat.reply_labels import one_answer_label
@@ -152,6 +153,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         ),
         OnError(log_as="turn_meta"),
     ),
+    FinalizePass("lesson_again", keep_to_lesson_again_pass, OnError(log_as="lesson_again")),
     FinalizePass("emoji_use", place_reply_emoji, OnError(log_as="emoji_use")),
     FinalizePass("answer_photo", attach_answer_photo, FALL_BACK),
     FinalizePass("reply_picture", attach_reply_picture, FALL_BACK),
