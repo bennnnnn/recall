@@ -337,3 +337,97 @@ def test_quota_carryover_names_every_daily_counter() -> None:
     used |= {spec.prefix for spec in counters.COUNTERS.values()}
     assert used - {"usage:heal"} <= set(carryover.DAILY_COUNTER_PREFIXES)
     assert set(carryover.DAILY_COUNTER_PREFIXES) == set(DAILY_PREFIXES)
+
+
+def _restore_down(redis: Any, step: str) -> Any:
+    """Redis failing at one step of the sign-in restore only: reading the snapshot,
+    raising the new account's counters, or dropping the used snapshot."""
+    from redis.exceptions import ConnectionError as RedisConnectionError
+
+    async def down(*_args: Any, **_kwargs: Any) -> Any:
+        raise RedisConnectionError("Error 111 connecting to redis")
+
+    if step == "apply":
+        return patch("app.services.quota.apply_carried_usage", down)
+    name = "get" if step == "read" else "delete"
+    real = getattr(redis, name)
+
+    async def call(*keys: Any, **kwargs: Any) -> Any:
+        if any(str(key).startswith("quota_carry:") for key in keys):
+            return await down()
+        return await real(*keys, **kwargs)
+
+    return patch.object(redis, name, call)
+
+
+async def _accounts_for_sub(sub: str) -> int:
+    async with SessionLocal() as session:
+        rows = await session.execute(select(User.id).where(User.google_sub == sub))
+        return len(rows.all())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("step", ["read", "apply"])
+async def test_quota_carryover_unrestored_refuses_sign_in_and_creates_no_account(
+    world: World, step: str
+) -> None:
+    """A new account whose carried counters cannot be restored is not made.
+
+    The restore was best-effort: Redis failing at exactly that step signed the new account
+    in with every daily cap at zero, and the next sign-in found the account and never
+    restored (the delete-and-recreate reset the carry-over exists to stop). Now sign-in
+    answers the shared 503 ``sign_in_unavailable`` with no account made, the snapshot
+    kept, and the retry restores it.
+    """
+    redis, a = world.redis, world.a
+    sub = await _google_sub(a.id)
+    await _use_quota(redis, a.id)
+    await _delete_and_sweep(world, a.id, a.headers)
+    carry_key = await _only_carry_key(redis)
+    snapshot = await redis.get(carry_key)
+
+    payload = {"sub": sub, "email": f"again-{uuid4()}@example.com", "email_verified": True}
+    with (
+        patch(
+            "app.modules.account.service.verify_google_id_token", AsyncMock(return_value=payload)
+        ),
+        _restore_down(redis, step),
+    ):
+        refused = await world.client.post("/auth/google", json={"id_token": "token"})
+
+    assert refused.status_code == 503, refused.text
+    assert refused.json()["detail"]["code"] == "sign_in_unavailable"
+    assert await _accounts_for_sub(sub) == 0
+    assert await redis.get(carry_key) == snapshot
+
+    again = await _sign_in_google(world, sub=sub, email=str(payload["email"]))
+    try:
+        assert await _daily_counts(redis, again) == _USED
+        assert await quota.live_talk_used_seconds(redis, again) == 300
+        assert [key async for key in redis.scan_iter(match="quota_carry:*")] == []
+    finally:
+        await delete_accounts(again)
+
+
+@pytest.mark.asyncio
+async def test_quota_carryover_snapshot_left_after_restore_still_signs_in(world: World) -> None:
+    """Dropping the used snapshot comes after the account commits, best effort: the
+    counters are already raised, and a leftover snapshot only raises, never lowers."""
+    redis, a = world.redis, world.a
+    sub = await _google_sub(a.id)
+    await _use_quota(redis, a.id)
+    await _delete_and_sweep(world, a.id, a.headers)
+
+    with _restore_down(redis, "drop"):
+        again = await _sign_in_google(world, sub=sub, email=f"again-{uuid4()}@example.com")
+    try:
+        assert await _daily_counts(redis, again) == _USED
+        assert await _accounts_for_sub(sub) == 1
+    finally:
+        await delete_accounts(again)
+
+
+async def _only_carry_key(redis: Any) -> str:
+    keys = [key async for key in redis.scan_iter(match="quota_carry:*")]
+    assert len(keys) == 1, keys
+    return str(keys[0])

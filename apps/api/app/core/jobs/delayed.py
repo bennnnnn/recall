@@ -109,6 +109,19 @@ async def delayed_depth(redis: Redis) -> int:
     return int(await redis.zcard(DELAYED_ZSET))
 
 
+async def schedule_job(
+    redis: Redis,
+    job_type: str,
+    payload: dict[str, object],
+    *,
+    delay_s: float,
+    dedupe_key: str | None = None,
+) -> None:
+    """``enqueue_later`` that raises when Redis does: for a caller that must not go on
+    without the job (account delete's backstop sweep)."""
+    await schedule(redis, job_fields(job_type, payload, dedupe_key=dedupe_key), delay_s=delay_s)
+
+
 async def enqueue_later(
     redis: Redis,
     job_type: str,
@@ -119,7 +132,7 @@ async def enqueue_later(
 ) -> None:
     """Enqueue a job to run no sooner than ``delay_s`` from now; best-effort like ``enqueue``."""
     try:
-        await schedule(redis, job_fields(job_type, payload, dedupe_key=dedupe_key), delay_s=delay_s)
+        await schedule_job(redis, job_type, payload, delay_s=delay_s, dedupe_key=dedupe_key)
     except Exception:
         logger.exception("Failed to schedule job type=%s", job_type)
         sentry.report_exception(f"enqueue_failed:{job_type}")

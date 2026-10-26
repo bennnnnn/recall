@@ -18,12 +18,7 @@ from app.core.dev_guards import is_loopback_ip, require_dev_privilege_access
 from app.core.etag import conditional_json
 from app.core.rate_limit import allow_request_unless_down
 from app.core.redis_lock import acquire_lock, release_lock
-from app.exceptions import (
-    AuthenticationError,
-    DomainError,
-    RateLimitedError,
-    RedisUnavailableError,
-)
+from app.exceptions import AuthenticationError, DomainError, RateLimitedError
 from app.models.orm import User
 from app.models.schemas import (
     AccountDeleteRequest,
@@ -432,11 +427,9 @@ async def delete_me(
 ) -> None:
     # Older apps send no body; an Apple-linked account then keeps its Apple grant.
     apple_code = body.apple_authorization_code if body is not None else None
-    try:
-        await account_lifecycle.delete_account(
-            session, redis, settings, user, apple_authorization_code=apple_code
-        )
-    except account_lifecycle.SessionPurgeError as exc:
-        # Redis down: the shared 503 ``unavailable`` (core/unavailable.py), as a carry-over
-        # Redis cannot store refuses the delete before it. It was a code-less 503.
-        raise RedisUnavailableError() from exc
+    # Complete, or refused whole with the shared 503 ``unavailable`` (core/unavailable.py)
+    # when Redis or the database fails before the rows commit: still signed in, so the
+    # phone's retry deletes it (``account.lifecycle.delete_account``).
+    await account_lifecycle.delete_account(
+        session, redis, settings, user, apple_authorization_code=apple_code
+    )

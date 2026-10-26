@@ -104,6 +104,7 @@ async def test_purge_user_jobs_handles_empty_and_missing_streams(fake_redis: Any
 async def test_storage_sweep_purges_the_users_jobs(fake_redis: Any, monkeypatch) -> None:
     from app.background import handlers
     from app.core.config import Settings
+    from app.modules.attachments import lifecycle as attachment_lifecycle
 
     gone, kept = str(uuid4()), str(uuid4())
     await _enqueue_turn_jobs(fake_redis, gone, "gone-secret")
@@ -114,7 +115,7 @@ async def test_storage_sweep_purges_the_users_jobs(fake_redis: Any, monkeypatch)
         return 0
 
     monkeypatch.setattr(handlers, "get_redis_client", lambda: fake_redis)
-    monkeypatch.setattr(handlers.attachment_lifecycle, "sweep_user_storage", _no_storage)
+    monkeypatch.setattr(attachment_lifecycle, "sweep_user_storage", _no_storage)
     await handlers._handle_storage_sweep(Settings(), {"user_id": gone})
 
     text = json.dumps(

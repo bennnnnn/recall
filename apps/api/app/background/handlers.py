@@ -26,7 +26,6 @@ from app.core.jobs import (
     JobDiscardError,
     JobSkipped,
     enqueue_later,
-    purge_user_jobs,
     register,
     retry_delay_s,
     unique_dedupe_key,
@@ -35,7 +34,6 @@ from app.core.redis import get_redis_client
 from app.exceptions import RedisUnavailableError
 from app.modules.account import lifecycle as account_lifecycle
 from app.modules.attachments import jobs as attachment_indexing
-from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.chat import compaction, lesson_progress
 from app.modules.chat import titles as chat_titles
 from app.modules.memory import consolidation_workflow as memory_consolidation
@@ -287,12 +285,13 @@ async def _handle_message_index(settings: Settings, payload: dict[str, Any]) -> 
 
 
 async def _handle_storage_sweep(settings: Settings, payload: dict[str, Any]) -> None:
-    """GDPR residual after account wipe: leftover R2 objects, Redis keys and jobs.
+    """GDPR residual after account wipe: sessions, leftover R2 objects, Redis keys and jobs
+    (``account.lifecycle.sweep_deleted_account``; skipped while the account exists).
 
     Must not be spend-capped — leftover blobs and cached text are a privacy
     residual, not optional enrichment. The user's finished and failed jobs
     (their payloads carry chat text) leave the jobs stream and the DLQ; this
-    sweep's own entry stays, since it holds only the id and must survive a
+    sweep's own entry stays, since it holds only ids and must survive a
     worker crash to run again.
     """
     raw = payload.get("user_id")
@@ -301,10 +300,9 @@ async def _handle_storage_sweep(settings: Settings, payload: dict[str, Any]) -> 
     except (TypeError, ValueError):
         logger.warning("storage_sweep invalid user_id=%r", raw)
         return
-    redis = get_redis_client()
-    await account_lifecycle.purge_user_redis_keys(redis, user_id)
-    await purge_user_jobs(redis, user_id, keep_types=frozenset({"storage_sweep"}))
-    await attachment_lifecycle.sweep_user_storage(settings, user_id)
+    reply_ids = payload.get("reply_ids")
+    replies = [str(item) for item in reply_ids] if isinstance(reply_ids, list) else []
+    await account_lifecycle.sweep_deleted_account(settings, get_redis_client(), user_id, replies)
 
 
 def register_all() -> None:
@@ -330,4 +328,8 @@ def register_all() -> None:
         max_running=get_settings().document_pool_workers,
     )
     register("message_index", _handle_message_index)
-    register("storage_sweep", _handle_storage_sweep, done_ttl_seconds=_ONCE_A_DAY)
+    register(account_lifecycle.SWEEP_JOB, _handle_storage_sweep, done_ttl_seconds=_ONCE_A_DAY)
+    # The same sweep, scheduled before an account delete commits (account.lifecycle).
+    register(
+        account_lifecycle.SWEEP_BACKSTOP_JOB, _handle_storage_sweep, done_ttl_seconds=_ONCE_A_DAY
+    )

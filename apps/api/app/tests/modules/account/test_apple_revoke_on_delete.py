@@ -36,16 +36,21 @@ def delete_steps() -> Iterator[list[str]]:
 
     with ExitStack() as stack:
         for target, name in (
-            ("tokens_service.purge_user_sessions", "purge_sessions"),
-            ("attachments_service.purge_attachments_for_user", "purge_files"),
+            ("schedule_job", "backstop_sweep"),
             ("users_repo.delete_user", "delete_user"),
+            ("tokens_service.purge_user_sessions", "purge_sessions"),
+            ("attachments_service.delete_account_files", "delete_files"),
             ("enqueue", "enqueue_sweep"),
             ("apple_revoke.revoke_authorization_code", "revoke_apple"),
         ):
             stack.enter_context(patch(f"app.modules.account.lifecycle.{target}", step(name)))
-        stack.enter_context(
-            patch("app.modules.account.lifecycle.chats_service.forget_follow_up_questions")
-        )
+        for target in (
+            "chats_service.follow_up_reply_ids",
+            "attachments_service.delete_user_rows",
+        ):
+            stack.enter_context(
+                patch(f"app.modules.account.lifecycle.{target}", AsyncMock(return_value=[]))
+            )
         stack.enter_context(
             patch("app.modules.account.lifecycle.quota_carryover.save_on_delete", AsyncMock())
         )
@@ -60,9 +65,10 @@ async def test_delete_revokes_the_apple_grant_after_the_account_is_gone(delete_s
         AsyncMock(), AsyncMock(), settings, user, apple_authorization_code="code-1"
     )
     assert delete_steps == [
-        "purge_sessions",
-        "purge_files",
+        "backstop_sweep",
         "delete_user",
+        "purge_sessions",
+        "delete_files",
         "enqueue_sweep",
         "revoke_apple",
     ]

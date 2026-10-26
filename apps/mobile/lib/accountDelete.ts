@@ -1,6 +1,9 @@
 import { isServiceUnavailable } from "@/lib/api/errorBody";
 
-/** Sessions are purged first on the server — a 401/404 here means the wipe already started. */
+/**
+ * The server ends the sessions only once the account's rows are deleted, so a 401/404 here (a
+ * retry after a reply that never arrived) means the account is already gone.
+ */
 export function isAccountDeleteComplete(error: unknown): boolean {
   if (typeof error !== "object" || error === null || !("status" in error)) {
     return false;
@@ -13,9 +16,9 @@ export function isAccountDeleteComplete(error: unknown): boolean {
 export type AccountDeleteFailure = "unavailable" | "failed";
 
 /**
- * A refused delete: Recall could not serve it for now (its 503 `unavailable`, refused before
- * anything was deleted when the usage carry-over or the session purge cannot reach Redis,
- * or a gateway's 502/503/504), or anything else.
+ * A refused delete: Recall could not serve it for now (its 503 `unavailable`, refused with
+ * nothing deleted and still signed in when Redis or the database fails before the account's
+ * rows are deleted, or a gateway's 502/503/504), or anything else.
  */
 export function accountDeleteFailure(error: unknown): AccountDeleteFailure {
   return isServiceUnavailable(error) ? "unavailable" : "failed";

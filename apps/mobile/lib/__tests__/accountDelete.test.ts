@@ -1,7 +1,7 @@
 import { accountDeleteFailureKey, isAccountDeleteComplete } from "@/lib/accountDelete";
 
 describe("isAccountDeleteComplete", () => {
-  it("treats 401/404 as the wipe already started", () => {
+  it("treats 401/404 as the account already gone", () => {
     expect(isAccountDeleteComplete({ status: 401 })).toBe(true);
     expect(isAccountDeleteComplete({ status: 404 })).toBe(true);
   });

@@ -11,11 +11,11 @@ deletes every key naming the user id, leaves it). It expires when the UTC
 month ends. When sign-in creates a new user for that identity, the new
 account's counters are raised to the stored ones and the key is deleted.
 
-The delete side fails closed: a delete whose counters cannot be stored is refused with
+Both sides fail closed. A delete whose counters cannot be stored is refused with
 ``RedisUnavailableError`` (503 ``unavailable``), before anything is undone, and the phone
-asks for a retry. It was best-effort, so a delete while Redis failed lost the day's
-counters and the same sign-in started a new account from zero. The sign-in side stays
-best-effort: it never fails a sign-in.
+asks for a retry. A new account whose snapshot cannot be read or applied is not made:
+sign-in answers 503 ``sign_in_unavailable`` and its retry restores. Both were
+best-effort, so Redis failing at either step started the same sign-in from zero.
 """
 
 from __future__ import annotations
@@ -95,19 +95,36 @@ async def restore_for_new_account(
     *,
     provider: str,
     sub: str,
-) -> None:
-    """Raise a just-created account's counters to its identity's snapshot. Never raises."""
+) -> str | None:
+    """Raise a just-created, not yet committed account's counters to its identity's snapshot.
+
+    Returns the snapshot's key for ``drop_restored`` once the account commits, or None when
+    there is none: one GET, the common case. Raises ``RedisUnavailableError`` when the
+    snapshot cannot be read or applied, so sign-in refuses and makes no account (the next
+    sign-in would find the account and never restore). The snapshot stays for the retry.
+    """
     key = carry_key(settings, provider, sub)
     try:
         raw = await redis.get(key)
         if raw is None:
-            return
+            return None
         try:
             carried = quota_service.CarriedUsage.model_validate_json(raw)
         except ValidationError:
             logger.warning("Quota carry-over snapshot unreadable; dropped")
         else:
             await quota_service.apply_carried_usage(redis, user_id, carried)
+    except (RedisError, OSError) as exc:
+        logger.warning("Quota carry-over restore failed user_id=%s", user_id, exc_info=True)
+        raise RedisUnavailableError() from exc
+    return key
+
+
+async def drop_restored(redis: Redis, key: str) -> None:
+    """Delete a snapshot a committed account took. Best effort, never raises: the counters
+    are raised already, and a snapshot left over only raises a later account's counters
+    (raise-only, never lowered) until it expires with the month."""
+    try:
         await redis.delete(key)
     except Exception:
-        logger.warning("Quota carry-over restore failed user_id=%s", user_id, exc_info=True)
+        logger.warning("Quota carry-over snapshot not dropped; it expires", exc_info=True)

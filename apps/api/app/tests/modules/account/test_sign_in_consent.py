@@ -63,7 +63,14 @@ async def _existing(session: AsyncSession, provider: str, sub: str) -> User:
         "apple": {"apple_sub": sub},
         "dev": {"google_sub": f"dev:{email}"},
     }[provider]
-    return await users.create(session, email=email, name="Ada", avatar_url=None, **ids)
+    return await users.create(
+        session,
+        email=email,
+        name="Ada",
+        avatar_url=None,
+        google_sub=ids.get("google_sub"),
+        apple_sub=ids.get("apple_sub"),
+    )
 
 
 async def _stored_consent(session: AsyncSession, user_id: Any) -> datetime | None:

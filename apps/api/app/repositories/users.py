@@ -57,7 +57,10 @@ async def create(
     avatar_url: str | None,
     google_sub: str | None = None,
     apple_sub: str | None = None,
+    commit: bool = True,
 ) -> User:
+    """A new user row. With ``commit=False`` it is flushed (its id is set) and the
+    caller commits."""
     if not google_sub and not apple_sub:
         raise ValueError("google_sub or apple_sub is required")
     user = User(
@@ -68,7 +71,10 @@ async def create(
         avatar_url=avatar_url,
     )
     session.add(user)
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     await session.refresh(user)
     return user
 
@@ -121,8 +127,9 @@ async def lock_for_delete(session: AsyncSession, user_id: UUID) -> None:
     await session.execute(select(User.id).where(User.id == user_id).with_for_update())
 
 
-async def delete_user(session: AsyncSession, user_id: UUID) -> None:
-    """Hard-delete a user, their chats, messages, usage and push tokens, and commit.
+async def delete_user(session: AsyncSession, user_id: UUID, *, commit: bool = True) -> None:
+    """Hard-delete a user, their chats, messages, usage and push tokens, and commit
+    (with ``commit=False`` the caller commits, then forgets the cached row).
 
     The modules' rows (memory, to-dos, suggestions, attachments) are gone already:
     ``account.lifecycle`` asks each module, under ``lock_for_delete``. Every row is
@@ -137,5 +144,8 @@ async def delete_user(session: AsyncSession, user_id: UUID) -> None:
     user = await session.get(User, user_id)
     if user is not None:
         await session.delete(user)
-    await session.commit()
-    forget_user(user_id)
+    if commit:
+        await session.commit()
+        forget_user(user_id)
+    else:
+        await session.flush()

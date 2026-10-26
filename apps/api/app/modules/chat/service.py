@@ -328,16 +328,21 @@ async def list_messages_page(
     return MessagePageOut(messages=outs, has_more=has_more, has_more_after=has_more_after)
 
 
-async def forget_follow_up_questions(session: AsyncSession, redis: Redis, user_id: UUID) -> int:
-    """Drop the cached follow-up questions under the user's replies.
+async def follow_up_reply_ids(session: AsyncSession, user_id: UUID) -> list[str]:
+    """The user's replies whose follow-up questions may still be cached.
 
-    They are written from the conversation and keyed by message id, so an
-    account delete would otherwise leave them in Redis for up to a week.
-    Call before the user's messages are deleted.
+    They are written from the conversation and keyed by message id, so an account
+    delete would otherwise leave them in Redis for up to a week. Read before the
+    user's messages are deleted; ``forget_follow_up_questions`` drops them.
     """
     since = datetime.now(UTC) - timedelta(seconds=RELATED_PROMPTS_TTL_SECONDS)
     message_ids = await messages_repo.list_assistant_ids_since(session, user_id, since=since)
-    return await forget_related_prompts(redis, [str(message_id) for message_id in message_ids])
+    return [str(message_id) for message_id in message_ids]
+
+
+async def forget_follow_up_questions(redis: Redis, reply_ids: list[str]) -> int:
+    """Drop the cached follow-up questions under these replies (``follow_up_reply_ids``)."""
+    return await forget_related_prompts(redis, reply_ids)
 
 
 async def _attach_cached_related_prompts(redis: Redis, messages: list[MessageOut]) -> None:

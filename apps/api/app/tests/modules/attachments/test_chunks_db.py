@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.models.orm import Attachment, AttachmentChunk, Chat, Message
 from app.modules.attachments import chunks_repository as attachment_chunks
 from app.modules.attachments import lifecycle as attachment_lifecycle
+from app.modules.attachments import service as attachments_service
 from app.modules.attachments import workflow as attachment_workflow
 from app.modules.chat import chats_repository as chats
 from app.repositories import users
@@ -150,7 +151,9 @@ async def test_attachment_service_deletion_cascades_chunks_without_touching_othe
         elif operation == "missing_file":
             await attachment_workflow._drop_row_for_missing_file(db_session, attachment_id)
         else:
-            await attachment_lifecycle.purge_attachments_for_user(db_session, Settings(), user.id)
+            assert await attachments_service.delete_user_rows(db_session, user.id) == [
+                attachment.storage_key
+            ]
 
     assert (
         await db_session.scalar(select(Attachment.id).where(Attachment.id == attachment_id)) is None
