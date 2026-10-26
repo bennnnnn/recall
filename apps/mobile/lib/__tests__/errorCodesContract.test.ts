@@ -122,8 +122,10 @@ it.each([
   ["voice_spend_cap", "chat.voice_paused"],
   // Redis down at the spend read answered the cap's 429: "Voice input is paused".
   ["service_unavailable", "common.service_unavailable"],
-  // The request limiter's 429: the dictation's own failure line, as when it named no code.
-  ["rate_limited", undefined],
+  // The request limiter's 429 and a refused refresh said "Could not transcribe your
+  // recording": a retry within the minute failed too.
+  ["rate_limited", "chat.rate_limited"],
+  ["refresh_rate_limited", "chat.rate_limited"],
 ])("words a refused dictation: %s", (name, words) => {
   expect(voiceRefusalKey(refused(name))).toBe(words);
 });
