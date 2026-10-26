@@ -127,15 +127,16 @@ async def inject_vision_content(
     settings: Settings,
     caption: str = "",
     bytes_by_key: dict[str, bytes] | None = None,
+    at_index: int | None = None,
 ) -> bool:
-    """Replace the last user turn with multimodal content for vision models.
+    """Replace a user turn (the last, or ``at_index``) with multimodal content.
 
     Prefer *bytes_by_key* (turn-prep verify cache) over re-downloading; its
     entries are removed once encoded. Returns True when at least one image part
     was injected.
     """
     user_turns = [i for i, message in enumerate(prompt_messages) if message.get("role") == "user"]
-    index = user_turns[-1] if user_turns else None
+    index = at_index if at_index in user_turns else (user_turns[-1] if user_turns else None)
     if index is None:
         return False
     image_parts, left_out = await _image_parts(gateway, images, bytes_by_key, settings)
