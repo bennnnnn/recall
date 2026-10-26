@@ -154,7 +154,7 @@ async def test_google_sign_in_joins_the_account_when_google_owns_the_email(email
     payload = {"sub": "google-new", "email": email, "email_verified": True, **claims}
     result, repo = await _login("google", payload, existing)
     assert not isinstance(result, AccountExistsError)
-    assert repo.update.call_args_list[0].kwargs == {"google_sub": "google-new"}
+    assert repo.update.call_args_list[0].kwargs == {"commit": False, "google_sub": "google-new"}
 
 
 @pytest.mark.asyncio
@@ -188,7 +188,7 @@ async def test_apple_sign_in_joins_the_account_when_apple_owns_the_email(email, 
     payload = {"sub": "apple-new", "email": email, "email_verified": "true", **claims}
     result, repo = await _login("apple", payload, existing)
     assert not isinstance(result, AccountExistsError)
-    assert repo.update.call_args_list[0].kwargs == {"apple_sub": "apple-new"}
+    assert repo.update.call_args_list[0].kwargs == {"commit": False, "apple_sub": "apple-new"}
 
 
 @pytest.mark.asyncio

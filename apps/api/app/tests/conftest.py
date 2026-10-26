@@ -123,7 +123,8 @@ def _fresh_db_pool():
 
 @pytest.fixture
 def real_redis(_hermetic_redis):
-    """The configured Redis, for a test that needs a real server (none today)."""
+    """The configured Redis, for a test that needs a real server
+    (``security/test_quota_carryover_link.py``)."""
     from app.core import redis as redis_module
 
     redis_module.get_redis_client.cache_clear()
