@@ -27,12 +27,21 @@ function reply(links: string[] = LINKS) {
   );
 }
 
-/** The server: the first three previews take slots, a fourth while they load is refused busy. */
-function serveWithSlots(isBusy: (url: string, open: number) => boolean = (_url, open) => open >= SLOTS) {
+/**
+ * The phone asks three at a time, so its own previews never fill the server's slots; a busy
+ * refusal is another install of the account holding them. By default the fourth link's first
+ * ask meets one.
+ */
+function firstAskOfFourthBusy(url: string): boolean {
+  return url === LINKS[3] && asked(url) === 1;
+}
+
+/** The server: three previews load at once, and `isBusy` says which asks it refuses busy. */
+function serveWithSlots(isBusy: (url: string, open: number) => boolean = firstAskOfFourthBusy) {
   let open = 0;
   fetchPreview.mockImplementation(async (path: string) => {
     const url = decodeURIComponent(path.split("url=")[1]);
-    if (isBusy(url, open)) throw busy();
+    if (open >= SLOTS || isBusy(url, open)) throw busy();
     open += 1;
     await Promise.resolve();
     open -= 1;
@@ -169,4 +178,31 @@ it("never asks again for a preview that really failed while its card is shown", 
 
   await wait(10 * 60_000);
   expect(asked(LINKS[3])).toBe(1);
+});
+
+it("shows every card of a twelve-link reply with one request each, never refused or rate limited", async () => {
+  // The server's 20 a minute (modules/link_preview/api.py): asked all at once, the refusals and
+  // their retries spent it, and six links stayed plain for five minutes.
+  const many = Array.from({ length: 12 }, (_, n) => `https://many${n}.example/page`);
+  let thisMinute = 0;
+  serveWithSlots(() => {
+    thisMinute += 1;
+    return false;
+  });
+  const serve = fetchPreview.getMockImplementation()!;
+  fetchPreview.mockImplementation(async (path: string) => {
+    if (thisMinute >= 20) throw new ApiRequestError(429, JSON.stringify({ detail: { code: "rate_limited" } }), 60_000);
+    return serve(path);
+  });
+  await render(
+    <LinkPreviewTrust userText={`compare ${many.join(" ")}`}>
+      {many.map((url) => (
+        <LinkPreviewCard key={url} url={url} />
+      ))}
+    </LinkPreviewTrust>,
+  );
+  await wait(0);
+  expect(screen.getAllByText(/^Title of /)).toHaveLength(12);
+  expect(fetchPreview).toHaveBeenCalledTimes(12);
+  expect(thisMinute).toBe(12);
 });

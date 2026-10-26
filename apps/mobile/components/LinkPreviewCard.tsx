@@ -16,10 +16,10 @@ import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 type Props = { url: string };
 
 /**
- * Times a card on screen asks again after a busy refusal (the user's other previews were
- * loading). The server lets three load at once, so the cards it refused all ask together:
- * three get in, the rest are refused again, and a second retry shows a reply of up to nine
- * links. Bounded: when its Redis is down every request is refused busy.
+ * Times a card on screen asks again after a busy refusal. This phone asks for three previews
+ * at a time, as many as the server loads at once (`lib/linkPreview.ts`), so a refusal means
+ * another install of the account holds slots; its previews end within the server's 8 s
+ * deadline. Bounded, since every request counts against the server's 20 a minute.
  */
 const BUSY_RETRIES = 2;
 
