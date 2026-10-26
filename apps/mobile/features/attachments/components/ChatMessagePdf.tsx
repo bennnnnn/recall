@@ -17,6 +17,7 @@ import { usePdfPreview } from "@/features/attachments/hooks/usePdfPreview";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { downloadChatAttachment } from "@/features/attachments/model/downloadChatAttachment";
+import { libraryActionMessage } from "@/features/attachments/model/attachmentErrors";
 import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
@@ -82,7 +83,7 @@ export function ChatMessagePdf({
     } catch (error) {
       void alertDialog({
         title: t("common.download_failed"),
-        message: error instanceof Error ? error.message : t("chat.pdf_export_failed"),
+        message: libraryActionMessage(error, "chat.pdf_export_failed", t),
       });
     }
   }, [remoteUri, token, fileName, t]);

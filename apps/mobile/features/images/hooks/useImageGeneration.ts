@@ -39,9 +39,11 @@ type Options = {
   uploadReference: (token: string, attachment: PendingAttachment) => Promise<{ ids: string[] }>;
   /**
    * A failed request in the chat's words (its code, the plan's limits), and whether a
-   * retry could go differently: the day's cap or a refused prompt fails again.
+   * retry could go differently: the day's cap or a refused prompt fails again. `error` is
+   * what was thrown, for a failure the API did not answer (no connection, the reference
+   * photo's upload).
    */
-  describeFailure: (message: string, code: string | undefined) => ImageGenFailureText;
+  describeFailure: (message: string, code: string | undefined, error: unknown) => ImageGenFailureText;
   setMessages: Dispatch<SetStateAction<Message[]>>;
   streaming: boolean;
   isOffline: boolean;
@@ -266,7 +268,7 @@ export function useImageGeneration({
         }
         const message = error instanceof Error ? error.message : t("common.error");
         const code = error instanceof ApiRequestError ? (error.code ?? undefined) : undefined;
-        const failure = describeFailure(message, code);
+        const failure = describeFailure(message, code, error);
         setMessages((prev) => applyImageGenFailure(prev, "failed", failure.message, !failure.retryable));
       } finally {
         if (abortRef.current === abort) abortRef.current = null;

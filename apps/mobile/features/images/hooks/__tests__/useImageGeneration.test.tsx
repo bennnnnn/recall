@@ -235,7 +235,7 @@ describe("image generation submit steps", () => {
     const describeFailure = jest.fn(() => ({ message: "chat.error_generic", retryable: true }));
     const { submit, replay } = await setup({ describeFailure });
     await submit({ prompt: "cat", userMessage: "Draw a cat" });
-    expect(describeFailure).toHaveBeenCalledWith("raw provider text", undefined);
+    expect(describeFailure).toHaveBeenCalledWith("raw provider text", undefined, expect.any(Error));
     expect(replay().at(-1)).toMatchObject({
       image_gen_failure: "failed", image_gen_error: "chat.error_generic", image_gen_refused: undefined,
     });
@@ -301,7 +301,7 @@ describe("image generation submit steps", () => {
     const { submit, replay, options } = await setup({ describeFailure });
     await submit({ prompt: "cat", userMessage: "Draw a cat" });
     expect(options.onOpenUpgrade).not.toHaveBeenCalled();
-    expect(describeFailure).toHaveBeenCalledWith("Image limit.", "daily_limit");
+    expect(describeFailure).toHaveBeenCalledWith("Image limit.", "daily_limit", expect.any(Error));
     // A retry would meet the same cap: the card says why and offers none.
     expect(replay().at(-1)).toMatchObject({
       image_gen_failure: "failed", image_gen_error: "chat.quota_exceeded_free", image_gen_refused: true,

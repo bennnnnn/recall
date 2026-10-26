@@ -1,8 +1,11 @@
-import { render } from "@testing-library/react-native";
+import { act, render } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 
 import { ChatMessagePdf } from "@/features/attachments/components/ChatMessagePdf";
+import { downloadChatAttachment } from "@/features/attachments/model/downloadChatAttachment";
+import { serverUnreachableError } from "@/lib/api/deadline";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => "tok" }));
 jest.mock("@/features/attachments/hooks/useAttachmentIndexed", () => ({
@@ -20,8 +23,12 @@ jest.mock("@/features/attachments/model/attachmentUri", () => ({
 jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({
   downloadChatAttachment: jest.fn(),
 }));
+let mockShare: (() => Promise<void>) | null = null;
 jest.mock("@/features/attachments/components/AttachmentPdfViewer", () => ({
-  AttachmentPdfViewer: () => null,
+  AttachmentPdfViewer: ({ onShare }: { onShare: () => Promise<void> }) => {
+    mockShare = onShare;
+    return null;
+  },
 }));
 jest.mock("@/ui/overlay/dialogs", () => ({ alertDialog: jest.fn() }));
 jest.mock("@/ui/icons/Icon", () => ({ Icon: "Icon" }));
@@ -66,4 +73,16 @@ it("gives a screen reader one way in: the named card, not the unnamed page pictu
   expect(getAllByRole("button").map((button) => button.props.accessibilityLabel)).toEqual([
     "chat.pdf_open_a11y",
   ]);
+});
+
+// The viewer's Share showed the failure's English as it came, in every language.
+it.each([
+  ["no answer", serverUnreachableError(), "chat.error_unreachable"],
+  ["no connection", new TypeError("Network request failed"), "chat.error_unreachable"],
+  ["a file the phone could not open", new Error("Could not open this attachment."), "chat.pdf_export_failed"],
+])("words a share that failed with %s in the phone's language", async (_label, failure, key) => {
+  jest.mocked(downloadChatAttachment).mockRejectedValueOnce(failure);
+  await render(<ChatMessagePdf attachmentId="doc" fileName="lease-notes.pdf" />);
+  await act(async () => { await mockShare?.(); });
+  expect(alertDialog).toHaveBeenLastCalledWith({ title: "common.download_failed", message: key });
 });
