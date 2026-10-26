@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -35,11 +36,12 @@ _AFTER_LESSON_1 = [_said("user", "Teach me American sayings"), _said("assistant"
         ("Very interesting. Lets start with 1", 1),
         ("Let's start with 1", 1),
         ("ok let's begin with lesson 1", 1),
-        ("start with the first one", 1),
-        ("Can we start from the beginning?", 1),
+        ("let's start with the first one", 1),
+        ("Shall we start with lesson 1?", 1),
+        ("start with lesson 1", 1),
         ("go back to lesson 2", 2),
         ("show me lesson 3 please", 3),
-        ("start with number 2", 2),
+        ("lets start with number 2", 2),
     ],
 )
 def test_asking_to_start_or_go_to_a_lesson_is_read(text: str, number: int) -> None:
@@ -58,6 +60,14 @@ def test_asking_to_start_or_go_to_a_lesson_is_read(text: str, number: int) -> No
         "let's start with 1 then do 2 and 3",
         "what's lesson 2 about?",
         "start the timer",
+        # Answers to a quiz on where counting starts.
+        "start at 1",
+        "start with 1",
+        "begin with one",
+        "The answer is B. Let's start with 1",
+        "I think it's 1. lets start with 1",
+        # Confusion, which the lesson re-explains.
+        "Can we start from the beginning?",
     ],
 )
 def test_other_lines_are_not_this_ask(text: str) -> None:
@@ -77,8 +87,15 @@ def test_the_hint_asks_for_a_pointer_only() -> None:
     assert "no lesson" in hint and "no quiz" in hint
 
 
-def _state(reply: str, message: str, recent: list[SimpleNamespace]) -> SimpleNamespace:
-    ctx = SimpleNamespace(user_message_content=message, recent_messages=recent, instant_reply=None)
+def _state(
+    reply: str, message: str, recent: list[SimpleNamespace], regenerating: bool = False
+) -> SimpleNamespace:
+    ctx = SimpleNamespace(
+        user_message_content=message,
+        recent_messages=recent,
+        instant_reply=None,
+        regenerate_backup=object() if regenerating else None,
+    )
     return SimpleNamespace(text=reply, ctx=ctx, server_text=False)
 
 
@@ -101,3 +118,21 @@ def test_a_pointer_reply_and_other_turns_stay() -> None:
     assert keep_to_lesson_again_pass(_state(short, "Lets start with 1", _AFTER_LESSON_1)) == short  # type: ignore[arg-type]
     # "next" after a lesson is the next lesson, as before.
     assert keep_to_lesson_again_pass(_state(_LESSON_2, "next", _AFTER_LESSON_1)) == _LESSON_2  # type: ignore[arg-type]
+
+
+def test_a_regenerated_lesson_stays() -> None:
+    # On regenerate the reply being redone is still the last one in the window.
+    state = _state(_LESSON_1, "Let's start with 1", _AFTER_LESSON_1, regenerating=True)
+
+    assert keep_to_lesson_again_pass(state) == _LESSON_1  # type: ignore[arg-type]
+
+
+def test_a_teach_me_line_or_a_day_later_is_not_this_ask() -> None:
+    assert lesson_again("teach me lesson 1", _AFTER_LESSON_1) is None
+    old = [
+        _said("user", "Teach me American sayings"),
+        SimpleNamespace(
+            role="assistant", content=_LESSON_1, created_at=datetime(2026, 1, 1, tzinfo=UTC)
+        ),
+    ]
+    assert lesson_again("Let's start with 1", old) is None

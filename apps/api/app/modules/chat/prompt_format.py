@@ -252,7 +252,7 @@ def _style_turn(
         lesson_hint=None
         if shaped
         else lesson_again_hint(lesson)
-        if lesson and asked_lesson(query_text) == lesson
+        if lesson and not lesson_after_gap and asked_lesson(query_text) == lesson
         else lesson_turn_hint(lesson, outline_pick=outline_pick, after_gap=lesson_after_gap),
         viz_intent=asks_for_a_visual(query_text),
         subject=effective_presentation_subject(query_text, prior_messages),
