@@ -1849,5 +1849,537 @@
   ],
   "reply": "Is $500 a monthly amount, or the down payment?",
   "expect": "answer"
+ },
+ {
+  "id": "mo-114",
+  "area": "money standing",
+  "prompt": "Yes",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ],
+   [
+    "user",
+    "How"
+   ],
+   [
+    "assistant",
+    "Here's how the payment is worked out. If you'd like, I can also show how a 15-year term changes the monthly payment and total interest."
+   ]
+  ],
+  "reply": "Over 15 years the payment is $2,869.11 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-115",
+  "area": "money standing",
+  "prompt": "How",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**. Want me to break down how the payment is worked out?"
+   ]
+  ],
+  "reply": "The payment uses the standard amortization formula on the $340,000 loan.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-116",
+  "area": "money standing",
+  "prompt": "which is cheaper overall, 15 or 30 years?",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ]
+  ],
+  "reply": "The 15-year loan costs less in total interest.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-117",
+  "area": "money standing",
+  "prompt": "can I afford that payment on 90k a year?",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! New or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "A $20,000 car loan at 6% over 60 months is **$386.66** a month."
+   ]
+  ],
+  "reply": "At $386.66 a month it is well within a 90k salary.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-118",
+  "area": "money standing",
+  "prompt": "show me the math",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! New or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "A $20,000 car loan at 6% over 60 months is **$386.66** a month."
+   ]
+  ],
+  "reply": "Here is how $386.66 is worked out.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-119",
+  "area": "money standing lookalike",
+  "prompt": "thanks",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ]
+  ],
+  "reply": "You're welcome!",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-120",
+  "area": "money standing lookalike",
+  "prompt": "what's a good name for a cat?",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ]
+  ],
+  "reply": "Miso, Pepper or Luna are popular picks.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-121",
+  "area": "money standing lookalike",
+  "prompt": "how do I bake bread?",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! New or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "A $20,000 car loan at 6% over 60 months is **$386.66** a month."
+   ]
+  ],
+  "reply": "Mix flour, water, yeast and salt, then knead.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-122",
+  "area": "money standing lookalike",
+  "prompt": "Yes",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! New or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "A $20,000 car loan at 6% over 60 months is **$386.66** a month."
+   ],
+   [
+    "user",
+    "how do I bake bread?"
+   ],
+   [
+    "assistant",
+    "Mix flour, water, yeast and salt. Want a full recipe?"
+   ]
+  ],
+  "reply": "Here is a simple recipe.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-123",
+  "area": "money standing lookalike",
+  "prompt": "tell me a joke",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ]
+  ],
+  "reply": "Why did the scarecrow win an award? He was outstanding in his field.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-124",
+  "area": "money standing lookalike",
+  "prompt": "Yes",
+  "history": [
+   [
+    "user",
+    "How do I start running?"
+   ],
+   [
+    "assistant",
+    "Start with three short runs a week. Want a plan?"
+   ]
+  ],
+  "reply": "Here is a four-week plan.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-125",
+  "area": "money standing lookalike",
+  "prompt": "how many years did WW2 last?",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ]
+  ],
+  "reply": "World War II lasted about six years, from 1939 to 1945.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-126",
+  "area": "money standing lookalike",
+  "prompt": "how many months until christmas?",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ]
+  ],
+  "reply": "Christmas is about two months away.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-127",
+  "area": "money standing lookalike",
+  "prompt": "what's the cost of a trip to Paris?",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ]
+  ],
+  "reply": "A week in Paris often runs $2,000 to $4,000 with flights.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-128",
+  "area": "money standing lookalike",
+  "prompt": "Yes",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ],
+   [
+    "user",
+    "remind me to call the bank"
+   ],
+   [
+    "assistant",
+    "Want me to set a reminder for Friday at 9?"
+   ]
+  ],
+  "reply": "Done, tap the card to save it.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-129",
+  "area": "money standing lookalike",
+  "prompt": "Yes",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ],
+   [
+    "user",
+    "help me write to my landlord"
+   ],
+   [
+    "assistant",
+    "Should I draft an email to your landlord?"
+   ]
+  ],
+  "reply": "Here is a draft.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-130",
+  "area": "money standing lookalike",
+  "prompt": "what are the terms of service?",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ]
+  ],
+  "reply": "Recall's terms are in Settings, under About.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-131",
+  "area": "money standing lookalike",
+  "prompt": "I'm 30 years old, what's a good workout?",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ]
+  ],
+  "reply": "Three full-body sessions a week is a good start.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-132",
+  "area": "money standing lookalike",
+  "prompt": "Yes",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your payment is $2,038.47. Want me to set a reminder for the first payment?"
+   ]
+  ],
+  "reply": "Tap the card to save it.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-133",
+  "area": "money standing lookalike",
+  "prompt": "Yes",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ],
+   [
+    "user",
+    "can you help me write to my realtor"
+   ],
+   [
+    "assistant",
+    "Shall I draft an email to your realtor about the loan?"
+   ]
+  ],
+  "reply": "Here is a draft.",
+  "expect": "answer"
  }
 ]

@@ -14,6 +14,7 @@ from app.modules.money.numbers import day_text, money_text, percent_text
 from app.modules.money.rates import MarketRate
 from app.modules.money.read import MoneyRequest
 from app.modules.money.solve import Worked, rate_name
+from app.modules.money.standing import term_name
 
 # Every money block opens with this: the turn's numbers are the app's.
 MONEY_HEADER = "Money, worked by the app"
@@ -44,6 +45,16 @@ MONEY_RATE_CHANGED = (
 MONEY_GUESSED = (
     "The amount the user gave was taken as the {what} on the {price} price. The app writes "
     "a note saying so under the reply; do not repeat it."
+)
+# A turn about the chat's loan with no card of its own (``standing``): a header of its own,
+# since the turn is no money turn (no card, no note, a sum it asks is still solved).
+MONEY_STANDING_HEADER = "Money discussed earlier, worked by the app"
+MONEY_STANDING = (
+    "The user's earlier {kind} is still being discussed; these are its figures, worked by "
+    "the app. If your reply states a payment, interest or total for it, copy them from "
+    "here exactly; never compute one yourself. For a term or rate not listed here, say the "
+    "calculator card on the earlier reply gives it with its sliders; do not estimate it. "
+    "Do not repeat the figures unless the message asks about them."
 )
 MONEY_RATE_MISSING = (
     "The user gave no interest rate and no current average was found. Ask one short "
@@ -186,3 +197,23 @@ def _outputs(product: Product, worked: Worked) -> list[str]:
         else:
             parts.append(f"{words} {money_text(value)}")
     return parts
+
+
+def standing_block(
+    request: MoneyRequest, worked: Worked, others: dict[float, dict[str, float]]
+) -> str:
+    """The chat's loan for a turn that talks about it: its figures, and at other terms."""
+    product = worked.product
+    kind = " ".join(word for word in (request.variant, product.key.replace("_", " ")) if word)
+    lines = [f"{MONEY_STANDING_HEADER}: {kind}.", MONEY_STANDING.format(kind=kind)]
+    if request.price is not None and request.down is not None:
+        lines.append(f"Price {money_text(request.price)}; down payment {money_text(request.down)}.")
+    if request.currency:
+        lines.append(f"Currency: {request.currency}.")
+    lines.append("Inputs: " + "; ".join(_inputs(product, worked)) + ".")
+    lines.append("Results: " + "; ".join(_outputs(product, worked)) + ".")
+    for term, outputs in others.items():
+        at = Worked(product, worked.values, (), dict(outputs))
+        words = _INPUT_WORDS.get(term_name(product) or "", "term")
+        lines.append(f"With {words} {term:g}: " + "; ".join(_outputs(product, at)) + ".")
+    return "\n".join(lines)

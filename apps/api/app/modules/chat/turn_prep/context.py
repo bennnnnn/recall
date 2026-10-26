@@ -445,7 +445,8 @@ async def build_stream_prompt_context(
         redis,
         with_money_block(prompt_messages, money),
         instant_reply,
-        money,
+        # A turn about the chat's earlier loan is no money turn: a sum it asks is solved.
+        None if money is not None and money.standing else money,
     )
     bundle = _bundle(
         identity,

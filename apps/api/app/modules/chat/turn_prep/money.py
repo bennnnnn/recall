@@ -10,18 +10,21 @@ one too.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from redis.asyncio import Redis
 
 from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.readings import kept_reading
+from app.modules import todos as todos_service
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chat.turn_prep.instant import settings_card
 from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import prior_user_texts
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
-from app.modules.money.service import MoneyTurn, prepare_money_turn
+from app.modules.money.service import MoneyTurn, prepare_money_turn, prepare_standing_turn
 
 
 async def money_turn(
@@ -57,8 +60,19 @@ async def money_turn(
             last_reply=last_reply,
         )
         if turn is not None:
-            return turn
-    return None
+            return replace(turn, multi=plan.multi)
+    # A reminder or to-do line is the to-do path's, whatever money words it holds.
+    if todos_service.query_implies_todos(request.content):
+        return None
+    return await prepare_standing_turn(
+        request.content,
+        settings,
+        redis,
+        user=identity.user,
+        location=identity.geo.user_location,
+        earlier=earlier,
+        last_reply=last_reply,
+    )
 
 
 def _parts(line: str, chemistry_enabled: bool) -> tuple[str, ...]:
