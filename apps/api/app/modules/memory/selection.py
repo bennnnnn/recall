@@ -51,10 +51,12 @@ def _eligible_memory(memory: Memory, settings: Settings) -> bool:
 def select_memories_for_prompt(
     memories: list[Memory],
     settings: Settings,
+    *,
+    profile_name: str | None = None,
 ) -> list[Memory]:
     """Non-semantic fallback: identity core + scored remaining facts."""
     filtered = [memory for memory in memories if _eligible_memory(memory, settings)]
-    core = identity_core(filtered)
+    core = identity_core(filtered, profile_name=profile_name)
     core_ids = {id(memory) for memory in core}
     rest = [memory for memory in filtered if id(memory) not in core_ids]
     rest.sort(key=fallback_score, reverse=True)
@@ -72,6 +74,7 @@ def select_memories_semantic(
     *,
     query_text: str | None = None,
     with_profile: bool = False,
+    profile_name: str | None = None,
 ) -> list[Memory]:
     """Identity core always; remaining facts only above similarity.
 
@@ -82,7 +85,7 @@ def select_memories_semantic(
     """
     eligible = [(memory, cosine) for memory, cosine in scored if _eligible_memory(memory, settings)]
     facts = [memory for memory, _ in eligible]
-    always = _always_in(facts, with_profile=with_profile)
+    always = _always_in(facts, with_profile=with_profile, profile_name=profile_name)
     always_ids = {id(memory) for memory in always}
     query_terms = terms(query_text)
     ranked: list[tuple[float, Memory]] = []
@@ -108,6 +111,7 @@ def select_memories_lexical(
     *,
     query_text: str | None,
     with_profile: bool = False,
+    profile_name: str | None = None,
 ) -> list[Memory]:
     """When the query embed is unavailable: identity core plus facts sharing a word.
 
@@ -115,7 +119,7 @@ def select_memories_lexical(
     preferences and anything that says "auth", not the cat and the marathon.
     """
     eligible = [memory for memory in memories if _eligible_memory(memory, settings)]
-    always = _always_in(eligible, with_profile=with_profile)
+    always = _always_in(eligible, with_profile=with_profile, profile_name=profile_name)
     always_ids = {id(memory) for memory in always}
     query_terms = terms(query_text)
     scored = [
@@ -129,7 +133,9 @@ def select_memories_lexical(
     return _with_diet_facts(merged, eligible, query_text)[: settings.memory_inject_limit]
 
 
-def select_work_memories(memories: list[Memory], settings: Settings) -> list[Memory]:
+def select_work_memories(
+    memories: list[Memory], settings: Settings, *, profile_name: str | None = None
+) -> list[Memory]:
     """Memory for a programming or "my app" turn: the stack and what the user builds.
 
     Identity core, then the tech-stack document, then facts about what they build:
@@ -138,7 +144,7 @@ def select_work_memories(memories: list[Memory], settings: Settings) -> list[Mem
     the user's job or their city stay out.
     """
     eligible = [memory for memory in memories if _eligible_memory(memory, settings)]
-    always = identity_core(eligible)
+    always = identity_core(eligible, profile_name=profile_name)
     always_ids = {id(memory) for memory in always}
     work_areas = {
         fact_topic(memory)
@@ -160,9 +166,11 @@ def select_work_memories(memories: list[Memory], settings: Settings) -> list[Mem
     return [*always, *stack, *built][: settings.memory_inject_limit]
 
 
-def _always_in(eligible: list[Memory], *, with_profile: bool) -> list[Memory]:
+def _always_in(
+    eligible: list[Memory], *, with_profile: bool, profile_name: str | None
+) -> list[Memory]:
     """The identity core, plus the profile document when the turn is about the user."""
-    core = identity_core(eligible)
+    core = identity_core(eligible, profile_name=profile_name)
     if not with_profile:
         return core
     have = {id(memory) for memory in core}

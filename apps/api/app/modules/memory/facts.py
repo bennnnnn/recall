@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -35,10 +35,10 @@ from app.modules.memory.ops import (
 )
 from app.modules.memory.text import (
     classify_memory_sensitivity,
-    contains_phrase,
     is_food_or_diet_memory_text,
     is_sensitive_memory_text,
 )
+from app.modules.memory.user_name import names_another_person, names_the_user
 
 TYPE_PRIORITY = {"profile": 0, "preference": 1, "project": 2, "fact": 3, "focus": 4}
 SECTION_LABELS = {
@@ -54,6 +54,7 @@ SECTION_LABELS = {
 _IDENTITY_NAME_LIMIT = 1
 _IDENTITY_PREF_LIMIT = 4
 _LOW_CONFIDENCE = 0.6
+_NEVER = datetime.min.replace(tzinfo=UTC)
 
 
 def fallback_score(memory: Any) -> float:
@@ -83,17 +84,27 @@ def is_communication_preference(memory: Any) -> bool:
 
 
 def is_name_fact(memory: Any) -> bool:
-    """ "User's name is Bini": the one profile fact every reply may use."""
+    """ "User's name is Bini", "User goes by Ben": the profile fact every reply may use.
+
+    "User's sister's name is Sam" names someone else and is not one.
+    """
     if getattr(memory, "type", "") != "profile":
         return False
-    text = normalize_memory_text(getattr(memory, "text", "")).lower()
-    return contains_phrase(text, "name is") or contains_phrase(text, "goes by")
+    return names_the_user(normalize_memory_text(getattr(memory, "text", "")))
 
 
-def identity_core(memories: list[Memory]) -> list[Memory]:
-    """The user's name and their communication preferences: on every memory turn."""
-    names = [m for m in memories if is_name_fact(m)]
-    names.sort(key=lambda m: (importance_value(m), recency_score(m)), reverse=True)
+def identity_core(memories: list[Memory], *, profile_name: str | None = None) -> list[Memory]:
+    """The user's name and their communication preferences: on every memory turn.
+
+    The name is the newest fact that names the user ("call me Ben" after "I'm Bini"),
+    never one that names them differently from ``profile_name`` (``user_name``).
+    """
+    names = [
+        m
+        for m in memories
+        if is_name_fact(m) and not names_another_person(str(m.text), profile_name)
+    ]
+    names.sort(key=lambda m: (said_at(m), importance_value(m)), reverse=True)
     prefs = [m for m in memories if is_communication_preference(m)]
     prefs.sort(key=lambda m: (importance_value(m), recency_score(m)), reverse=True)
     return [*names[:_IDENTITY_NAME_LIMIT], *prefs[:_IDENTITY_PREF_LIMIT]]
@@ -127,6 +138,14 @@ def render_memory_block(memories: list[Any]) -> str:
             current_type = memory.type
         lines.append(_fact_line(memory))
     return "\n".join(lines)
+
+
+def said_at(memory: Any) -> datetime:
+    """When the user last said this fact; the earliest time when the row has none."""
+    said = getattr(memory, "last_confirmed_at", None) or getattr(memory, "created_at", None)
+    if not isinstance(said, datetime):
+        return _NEVER
+    return said if said.tzinfo is not None else said.replace(tzinfo=UTC)
 
 
 def _fact_line(memory: Any) -> str:
