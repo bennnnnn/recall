@@ -106,13 +106,14 @@ it.each([
   ["image_daily_limit", false, "quota", "chat.image_daily_limit_free"],
   ["image_daily_limit", true, "notice", "chat.image_daily_limit_paid"],
   ["image_content_blocked", false, "notice", "chat.image_content_blocked"],
-  // The day's spend cap keeps the server's own words; Redis down at its read is the outage
-  // line. The outage answered the cap's 429, "temporarily unavailable. Try again later".
-  ["image_spend_cap", false, "generic", "Image generation is temporarily unavailable. Try again later."],
+  // The day's spend cap: the server's English showed in every language. Redis down at its
+  // read is the outage line; the outage answered the cap's 429, "temporarily unavailable".
+  ["image_spend_cap", false, "generic", "chat.image_spend_cap"],
   ["service_unavailable", false, "generic", "common.service_unavailable"],
 ])("words a refused picture: %s (paid %s)", (name, isPaid, kind, words) => {
   const error = refused(name);
-  const code = refusalCode(error.code ?? undefined, error.fields.feature);
+  // Every refusal from the picture endpoint is the picture's own (useChatImageGeneration).
+  const code = refusalCode(error.code ?? undefined, "image_generation");
   expect(resolveChatError({ message: error.message, code, isPaid, t })).toEqual({ kind, message: words });
 });
 

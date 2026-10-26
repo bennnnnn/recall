@@ -101,6 +101,13 @@ describe("a picture that failed before the API answered, on a German phone", () 
     expect(row).toMatchObject({ image_gen_error: de["chat.error_unreachable"], image_gen_refused: undefined });
   });
 
+  // The day's spend cap (modules/images/generation.py): its English showed on the card.
+  it("says the picture's spend cap in German, with Retry", async () => {
+    const capped = fixture.image_spend_cap;
+    const row = await failedRow(false, refusal(capped.status, capped.detail.code, capped.detail.message), german);
+    expect(row).toMatchObject({ image_gen_error: de["chat.image_spend_cap"], image_gen_refused: undefined });
+  });
+
   it("names a reference photo that was too large in German", async () => {
     jest.mocked(uploadChatAttachment).mockRejectedValueOnce(new AttachmentError("too_large"));
     const photo = { localUri: "file://ref.jpg", contentType: "image/jpeg", fileName: "ref.jpg", kind: "image" as const };

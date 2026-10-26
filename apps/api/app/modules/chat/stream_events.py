@@ -438,7 +438,7 @@ def error_payload_for_exception(exc: BaseException) -> dict[str, Any]:
     if isinstance(exc, UnknownModelOverrideError):
         return {"type": "error", "code": "unknown_model", "message": exc.message}
     if isinstance(exc, SpendCapReachedError):
-        return {"type": "error", "code": "spend_cap", "message": exc.message}
+        return {"type": "error", "code": "spend_cap", "message": exc.message, **exc.fields}
     if isinstance(exc, ConsentRequiredError):
         return {"type": "error", "code": exc.code, "message": exc.message}
     if isinstance(exc, TurnRefusedError):

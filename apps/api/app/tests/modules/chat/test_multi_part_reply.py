@@ -127,6 +127,58 @@ async def test_a_failed_picture_says_so_and_links_nothing() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("locale", "line"),
+    [
+        (
+            "de",
+            "Das Bild (a fox) konnte ich diesmal nicht zeichnen: Die Bilderstellung ist "
+            "vorübergehend nicht verfügbar. Versuche es später erneut.",
+        ),
+        (
+            "en",
+            "I couldn't draw the picture (a fox) this time: Image generation is "
+            "temporarily unavailable. Try again later.",
+        ),
+        (
+            None,
+            "I couldn't draw the picture (a fox) this time: Image generation is "
+            "temporarily unavailable. Try again later.",
+        ),
+    ],
+)
+async def test_a_picture_the_spend_cap_stopped_says_so_in_the_apps_language(
+    locale: str | None, line: str
+) -> None:
+    """The cap's English showed under a German reply."""
+
+    async def capped() -> UUID:
+        raise ImageGenerationError("Image generation is paused.", status_code=429, code="spend_cap")
+
+    picture = ReplyPicture("a fox", task=asyncio.ensure_future(capped()), locale=locale)
+    state = _state("Antwort.", reply_picture=picture)
+    text = await attach_reply_picture(state)
+    assert text == f"Antwort.\n\n{line}"
+    assert state.ctx.answer_photo_ids == []
+
+
+def test_a_picture_with_drawing_off_says_the_caps_line_in_the_apps_language() -> None:
+    picture = start_reply_picture(
+        _deps(can_use=True),
+        Settings(image_generation_enabled=False),
+        user=User(id=uuid4(), plan="pro", locale="de"),
+        chat_id=uuid4(),
+        content="draw a cat wearing a hat and also explain what a black hole is",
+    )
+    assert picture is not None
+    text, ids = asyncio.run(picture.attach("Antwort."))
+    assert text.endswith(
+        "Die Bilderstellung ist vorübergehend nicht verfügbar. Versuche es später erneut."
+    )
+    assert ids == []
+
+
+@pytest.mark.asyncio
 async def test_a_stopped_reply_cancels_its_picture() -> None:
     started = asyncio.Event()
 

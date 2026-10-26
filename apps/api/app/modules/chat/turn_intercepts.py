@@ -43,10 +43,7 @@ from app.modules.images.lookup_intent import (
 )
 from app.modules.images.reply_picture import ReplyPicture
 from app.modules.images.search import ImageSearchError
-from app.services.quota import (
-    IMAGE_GENERATION_NOT_IN_PLAN_MESSAGE,
-    IMAGE_GENERATION_SPEND_CAP_MESSAGE,
-)
+from app.services.quota import IMAGE_GENERATION_NOT_IN_PLAN_MESSAGE
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +163,8 @@ async def try_image_gen_for_turn(
         )
     except ImageGenerationError as exc:
         if exc.code == "spend_cap":
-            raise SpendCapReachedError(exc.message) from exc
+            # The picture's own line on the phone, not "new messages are paused for everyone".
+            raise SpendCapReachedError(exc.message, feature="image_generation") from exc
         if exc.status_code in (403, 404):
             return False
         if exc.code in ("daily_limit", "content_blocked"):
@@ -335,7 +333,7 @@ def start_reply_picture(
     if not prompt:
         return None
     if not settings.image_generation_enabled:
-        return ReplyPicture.refused(prompt, IMAGE_GENERATION_SPEND_CAP_MESSAGE)
+        return ReplyPicture.paused_for(prompt, user.locale)
     if not deps.plan.can_use(user, "image_generation", settings):
         return ReplyPicture.refused(prompt, IMAGE_GENERATION_NOT_IN_PLAN_MESSAGE)
     return ReplyPicture.start(settings, user=user, chat_id=chat_id, prompt=prompt)

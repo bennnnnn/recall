@@ -11,12 +11,23 @@ type ChatErrorKind =
   | "generic";
 
 /**
- * The code a refusal is worded by. A `daily_limit` names its feature: a picture's own
- * cap is not the day's chat allowance running out.
+ * The code a refusal is worded by. A `daily_limit` or `spend_cap` names its feature: a
+ * picture's own cap is not the day's chat allowance running out, nor every message paused.
  */
 export function refusalCode(code: string | undefined, feature: unknown): string | undefined {
-  return code === "daily_limit" && feature === "image_generation" ? "image_daily_limit" : code;
+  if (feature !== "image_generation") return code;
+  if (code === "daily_limit") return "image_daily_limit";
+  return code === "spend_cap" ? "image_spend_cap" : code;
 }
+
+/**
+ * Today's global spend cap (modules/chat/turn_resources.py; a picture's in
+ * modules/images/generation.py): its English showed in every language.
+ */
+const SPEND_CAP_KEYS: Readonly<Record<string, string>> = {
+  spend_cap: "chat.spend_cap",
+  image_spend_cap: "chat.image_spend_cap",
+};
 
 /**
  * A turn that failed for no reason the user can act on (the chat or its message gone, an
@@ -65,7 +76,7 @@ export function resolveChatError(options: {
     return { kind: "generic", message: options.t("chat.rate_limited") };
   }
   // The turn's own failures (modules/chat/stream_events.py): their English showed.
-  const ownKey = TURN_FAILURE_KEYS[options.code ?? ""];
+  const ownKey = TURN_FAILURE_KEYS[options.code ?? ""] ?? SPEND_CAP_KEYS[options.code ?? ""];
   if (ownKey) return { kind: "generic", message: options.t(ownKey) };
   if (options.code === "image_daily_limit") {
     // A free plan can buy more pictures; a paid one waits for tomorrow.

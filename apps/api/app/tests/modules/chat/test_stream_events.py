@@ -85,6 +85,20 @@ def test_spend_cap_refusal_has_its_own_code():
     assert payload == {"type": "error", "code": "spend_cap", "message": "Paused today."}
 
 
+def test_a_pictures_spend_cap_names_its_feature():
+    """The phone says the picture is paused, not that every message is."""
+    from app.exceptions import SpendCapReachedError
+
+    capped = SpendCapReachedError("Pictures paused.", feature="image_generation")
+    payload = stream_events.error_payload_for_exception(capped)
+    assert payload == {
+        "type": "error",
+        "code": "spend_cap",
+        "message": "Pictures paused.",
+        "feature": "image_generation",
+    }
+
+
 def _turn_failures() -> list[BaseException]:
     from app.exceptions import (
         AttachmentValidationError,
