@@ -17,6 +17,8 @@ from uuid import UUID
 
 from fastapi import WebSocket, WebSocketDisconnect
 
+from app.exceptions import RATE_LIMITED_CODE
+
 # Every frame after auth counts, chargeable or not. Only message/regenerate
 # were limited (30/min, account-wide); pings, cancels, unknown types and bad
 # JSON were unlimited, and each bad frame was parsed and answered. The app
@@ -26,7 +28,7 @@ WS_FRAME_LIMIT = 120
 WS_FRAME_WINDOW_SECONDS = 60.0
 WS_FRAME_FLOOD_PAYLOAD = {
     "type": "error",
-    "code": "rate_limited",
+    "code": RATE_LIMITED_CODE,
     "message": "Too many messages. Reconnect in a minute.",
 }
 # Close codes the phone reads (features/chat/model/wsTransport.ts). No error

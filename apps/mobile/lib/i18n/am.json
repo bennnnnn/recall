@@ -216,6 +216,7 @@
   "chat.scroll_to_latest": "ወደ የቅርብ መልእክቶች ይሸብልሉ",
   "chat.send_a11y": "መልዕክት ላክ",
   "chat.send_rejected": "መልዕክቱ አልተላከም። ትንሽ ይጠብቁና እንደገና ይሞክሩ።",
+  "chat.server_restarting": "Recall በድጋሚ እየጀመረ ነው። ትንሽ ቆይተው እንደገና ይላኩ።",
   "chat.sending": "በመላክ ላይ",
   "chat.share": "አጋራ",
   "chat.share_failed": "ይህን ውይይት ማጋራት አልተቻለም።",

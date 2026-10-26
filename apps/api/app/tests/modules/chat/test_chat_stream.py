@@ -357,3 +357,8 @@ def test_stream_routes_return_429_when_chat_rate_limited(path: str, body: dict):
 
     assert response.status_code == 429
     assert response.headers["Retry-After"] == "60"
+    # Coded: with the English alone, a Regenerate over the limit said "Couldn't reach the
+    # server" on the phone.
+    assert response.json() == {
+        "detail": {"code": "rate_limited", "message": "Too many chat requests. Try again shortly."}
+    }

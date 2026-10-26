@@ -119,6 +119,7 @@ async def test_sse_send_and_regenerate_on_another_users_chat_fail_closed(world: 
         # Refused before any row is read: the frame says nothing of the chat.
         assert events[-1] == {
             "type": "error",
+            "code": "not_found",
             "message": "Chat not found.",
             "user_message_saved": False,
         }, events

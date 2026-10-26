@@ -47,7 +47,8 @@ class _Limit:
     """One route's limit: how to reach it, and the 429 it answers when used up."""
 
     send: Callable[[TestClient], Any]
-    # The 429's code, or its English when it names none.
+    # The 429's code. The chat stream's and the link preview's named none: their English
+    # read on the phone as "Couldn't reach the server" after a Regenerate.
     over: str
     plan: str = "free"
     settings: Settings = field(default_factory=Settings)
@@ -60,7 +61,7 @@ LIMITS: dict[str, _Limit] = {
         send=lambda c: c.post(
             f"/chats/{_CHAT_ID}/messages/stream", headers=_AUTH, json={"content": "hi"}
         ),
-        over="Too many chat requests. Try again shortly.",
+        over="rate_limited",
     ),
     "dictation": _Limit(
         send=lambda c: c.post(
@@ -111,7 +112,7 @@ LIMITS: dict[str, _Limit] = {
         send=lambda c: c.get(
             "/link-preview", headers=_AUTH, params={"url": "https://example.com/a"}
         ),
-        over="Too many requests. Try again shortly.",
+        over="rate_limited",
         redis_at=("app.modules.link_preview.api.get_redis_client",),
     ),
     "photo scans": _Limit(
@@ -177,7 +178,8 @@ def test_a_limit_used_up_still_answers_429(name: str) -> None:
     assert used_up.await_count == 1, "the route's own limit was not reached"
     assert response.status_code == 429
     detail = response.json()["detail"]
-    assert (detail["code"] if isinstance(detail, dict) else detail) == LIMITS[name].over
+    assert detail["code"] == LIMITS[name].over
+    assert detail["message"]
 
 
 def test_every_route_limit_is_listed() -> None:

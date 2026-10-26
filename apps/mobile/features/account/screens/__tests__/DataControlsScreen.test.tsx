@@ -2,6 +2,7 @@ import { Alert } from "react-native";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
 import DataControlsScreen from "@/features/account/screens/DataControlsScreen";
+import fixture from "../../../../../../docs/fixtures/error_codes.json";
 
 const mockUpdateUser = jest.fn();
 const mockLocationLabel = jest.fn();
@@ -136,11 +137,12 @@ it("exports only after a confirmation that says what the file holds", async () =
 });
 
 it.each([
-  ["a refused export (one running, or a few an hour)", { status: 429, code: "export_busy" }, "settings.export_busy"],
-  ["any other failure", { status: 500, code: null }, "settings.export_failed"],
+  // As the API sends it (docs/fixtures/error_codes.json).
+  ["a refused export (one running, or a few an hour)", fixture.export_busy, "settings.export_busy"],
+  ["any other failure", { status: 500, detail: "x" }, "settings.export_failed"],
 ])("says why an export did not happen: %s", async (_name, refusal, words) => {
   const { ApiRequestError } = jest.requireActual("@/lib/api/errorBody");
-  const detail = refusal.code ? { code: refusal.code, message: "x" } : "x";
+  const detail = refusal.detail;
   mockConfirm.mockResolvedValue(true);
   mockExport.mockRejectedValueOnce(new ApiRequestError(refusal.status, JSON.stringify({ detail })));
   const view = await render(<DataControlsScreen />);

@@ -10,7 +10,7 @@ from contextlib import aclosing, suppress
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from redis.asyncio import Redis
 
@@ -20,7 +20,7 @@ from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.log_context import bound_log_ids, new_turn_id
 from app.core.redis import get_redis_client
-from app.exceptions import RedisUnavailableError
+from app.exceptions import RateLimitedError, RedisUnavailableError
 from app.models.orm import User
 from app.models.schemas import ChatMessageRequest
 from app.modules.chat import stream_entry
@@ -28,7 +28,6 @@ from app.modules.chat.client_message import UNNAMED, ClientMessageClaim, claim_c
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
-    SERVER_RESTARTING_MESSAGE,
     TURN_KEEPALIVE_SECONDS,
     StreamEndEvent,
     await_finalize_commit,
@@ -42,6 +41,7 @@ from app.modules.chat.stream_events import (
     finish_open_stream,
     persist_finalize_if_pending,
     pop_finalize_tasks,
+    restarting_payload,
     settled_turn_event,
     take_related_prompts_event,
     turn_error_payload,
@@ -78,11 +78,9 @@ async def require_chat_rate_limit(user: User = Depends(get_current_user)) -> Red
     """
     redis = get_redis_client()
     if not await allow_chat_message(redis, user.id):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many chat requests. Try again shortly.",
-            headers={"Retry-After": "60"},
-        )
+        # Coded, as the socket's own limit frame is: the English alone read on the phone
+        # as "Couldn't reach the server" after a Regenerate over the limit.
+        raise RateLimitedError("Too many chat requests. Try again shortly.", retry_after_seconds=60)
     return redis
 
 
@@ -139,9 +137,7 @@ async def _claim_turn(claim_message: _ClaimMessage | None) -> ClientMessageClaim
     """
     if shutdown.stopping():
         # A turn begun now would be stopped before its first token.
-        return _sse(
-            turn_error_payload(None, user_message_saved=False, message=SERVER_RESTARTING_MESSAGE)
-        )
+        return _sse(restarting_payload(user_message_saved=False))
     try:
         claim = UNNAMED if claim_message is None else await claim_message()
     except RedisUnavailableError as unavailable:
@@ -272,13 +268,7 @@ async def _turn_sse_lines(
                 return
             # The server stopped the turn; the client is still here to be told.
             if outcome.message_id is None:
-                yield _sse(
-                    turn_error_payload(
-                        None,
-                        user_message_saved=outcome.user_message_saved,
-                        message=SERVER_RESTARTING_MESSAGE,
-                    )
-                )
+                yield _sse(restarting_payload(user_message_saved=outcome.user_message_saved))
                 return
 
         await _until_done(producer)

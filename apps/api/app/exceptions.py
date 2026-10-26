@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+# Over a request limit, any route's: the phone words it in its own language.
+RATE_LIMITED_CODE = "rate_limited"
+
 # The code a refusal falls back to when its raise site names none: what kind it is.
 _STATUS_CODES = {
     400: "invalid",
@@ -14,7 +17,7 @@ _STATUS_CODES = {
     413: "too_large",
     415: "unsupported_type",
     422: "invalid",
-    429: "rate_limited",
+    429: RATE_LIMITED_CODE,
     500: "failed",
     501: "not_supported",
     502: "upstream_failed",
@@ -60,6 +63,20 @@ class DomainError(Exception):
     def body(self) -> dict[str, object]:
         """The response's ``detail``."""
         return {"code": self.code, "message": self.message, **self.fields}
+
+
+class RateLimitedError(DomainError):
+    """Over a request limit: 429 ``rate_limited``, with the wait in ``Retry-After``.
+
+    A limit answered with an ``HTTPException`` sent English alone: a chat read it as
+    "Couldn't reach the server", a scan or a dictation showed the English.
+    """
+
+    status_code = 429
+    default_code = RATE_LIMITED_CODE
+
+    def __init__(self, message: str, *, retry_after_seconds: int) -> None:
+        super().__init__(message, headers={"Retry-After": str(retry_after_seconds)})
 
 
 class AuthenticationError(Exception):

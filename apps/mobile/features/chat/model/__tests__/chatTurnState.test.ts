@@ -425,14 +425,20 @@ describe("dropped connections", () => {
     expect(line(regenerate(refusal))).toEqual([code === "unavailable" ? "common.service_unavailable" : words]);
   });
 
-  it("a Regenerate refused by the request limit says so, not that the server was unreachable", () => {
+  // The request limiter's 429, the chat stream's own and the socket's limit frame: each
+  // named no code, and said "Couldn't reach the server" or showed the server's English.
+  const limited = (message: string) => new ApiRequestError(429, JSON.stringify({ detail: { code: "rate_limited", message } }));
+  it.each<[string, ChatTurnEvent]>([
+    ["the request limiter", { type: "regenerate_failed", error: limited("Too many requests. Please slow down.") }],
+    ["the chat stream's limit", { type: "regenerate_failed", error: limited("Too many chat requests. Try again shortly.") }],
+    ["the socket's limit", frame({ type: "error", code: "rate_limited", message: "Too many requests. Try again shortly.", user_message_saved: false })],
+  ])("a Regenerate refused by %s says so, not that the server was unreachable", (_name, event) => {
     const old = answer("old", "old answer");
-    const body = { detail: { code: "rate_limited", message: "Too many requests. Please slow down." } };
-    const refused = new ApiRequestError(429, JSON.stringify(body));
-    const run = play(streaming({ regenerateBackup: old, regenerating: true }), [{ type: "regenerate_failed", error: refused }], [bubble]);
+    const run = play(streaming({ regenerateBackup: old, regenerating: true }), [event], [bubble]);
     const lines = run.of("report_error").map((report) =>
       resolveChatError({ message: report.message ?? report.key, code: report.code, isPaid: false, t: (key) => key }).message);
     expect(lines).toEqual(["chat.rate_limited"]);
+    expect(run.messages).toEqual([old]);
   });
 
   it("a failed Regenerate keeps what streamed, or brings the old answer back", () => {

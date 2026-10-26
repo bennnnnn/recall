@@ -14,6 +14,9 @@ const CODE_KEYS: Record<string, string> = {
   image_too_large: "chat.scan_too_large",
   scan_rate_limited: "chat.scan_rate_limit",
   scan_spend_cap: "chat.scan_spend_cap",
+  // Any request over a limit (the API's request limiter, a refused refresh): it showed the
+  // server's English. Not the scan's own hourly limit, so not "Too many scans".
+  rate_limited: "chat.rate_limited",
 };
 
 /**

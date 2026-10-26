@@ -33,12 +33,14 @@ from app.models.schemas import ChatMessageRequest
 from app.modules.chat import stream_entry, turn_deps
 from app.modules.chat.client_message import claim_client_message
 from app.modules.chat.stream_events import (
-    SERVER_RESTARTING_MESSAGE,
     build_duplicate_event,
     build_pong_event,
     build_reasoning_event,
     build_status_event,
     error_payload_for_exception,
+    rate_limited_connect_payload,
+    rate_limited_payload,
+    restarting_payload,
     turn_error_payload,
 )
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
@@ -353,9 +355,7 @@ async def chat_websocket(
         await _close_while_down(websocket, error_payload_for_exception(exc))
         return
     if not allowed:
-        await websocket.send_json(
-            {"type": "error", "message": "Too many requests. Try again shortly."},
-        )
+        await websocket.send_json(rate_limited_connect_payload())
         await websocket.close()
         return
 
@@ -454,7 +454,7 @@ async def _dispatch(conn: _ChatSocket, payload: dict[str, Any]) -> bool:
         # A turn begun now would be stopped before its first token.
         await safe_send_json(
             websocket,
-            turn_error_payload(None, user_message_saved=False, message=SERVER_RESTARTING_MESSAGE),
+            restarting_payload(user_message_saved=False),
         )
         return True
     # Re-check access on every chargeable frame so logout / account
@@ -473,11 +473,8 @@ async def _dispatch(conn: _ChatSocket, payload: dict[str, Any]) -> bool:
         await websocket.close(code=1008)
         return False
     if not allowed:
-        await websocket.send_json(
-            turn_error_payload(
-                None, user_message_saved=False, message="Too many requests. Try again shortly."
-            ),
-        )
+        # Coded: a Regenerate over the limit showed the English (no message waits as Retry).
+        await websocket.send_json(rate_limited_payload())
         return True
 
     handle: Callable[..., Awaitable[dict[str, Any] | None]] = (

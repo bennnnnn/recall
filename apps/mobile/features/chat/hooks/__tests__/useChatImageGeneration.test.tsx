@@ -4,6 +4,7 @@ import { act, renderHook } from "@testing-library/react-native";
 import { useChatImageGeneration } from "@/features/chat/hooks/useChatImageGeneration";
 import { api, type Message } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/errorBody";
+import fixture from "../../../../../../docs/fixtures/error_codes.json";
 
 jest.mock("@/lib/api", () => ({ api: { generateImage: jest.fn() } }));
 jest.mock("@/lib/api/client", () => ({
@@ -52,9 +53,16 @@ it("offers no Retry for a picture the content rules refused", async () => {
 });
 
 it.each([
-  ["a provider failure", new ApiRequestError(502, JSON.stringify({ detail: "Could not generate image" }))],
+  ["a provider failure", refusal(502, "upstream_failed", "Could not generate image")],
   ["a dropped connection", new Error("Network request failed")],
 ])("keeps Retry after %s", async (_label, error) => {
   const row = await failedRow(true, error);
   expect(row).toMatchObject({ image_gen_failure: "failed", image_gen_refused: undefined });
+});
+
+// The image service's 502 (modules/images/generation.py) showed its English on the card.
+it("words a provider failure in the phone's language", async () => {
+  const failed = fixture.image_upstream_failed;
+  const row = await failedRow(false, refusal(failed.status, failed.detail.code, failed.detail.message));
+  expect(row).toMatchObject({ image_gen_error: "chat.image_gen_failed", image_gen_refused: undefined });
 });

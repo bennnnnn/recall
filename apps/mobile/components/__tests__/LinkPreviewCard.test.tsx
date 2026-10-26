@@ -1,7 +1,9 @@
 import { render } from "@testing-library/react-native";
 
+import fixture from "../../../../docs/fixtures/error_codes.json";
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { LinkPreviewTrust } from "@/components/markdown/LinkPreviewTrust";
+import { ApiRequestError } from "@/lib/api/errorBody";
 import { fetchLinkPreview } from "@/lib/linkPreview";
 
 jest.mock("@/lib/linkPreview", () => ({
@@ -43,6 +45,20 @@ describe("LinkPreviewCard", () => {
       </LinkPreviewTrust>,
     );
     expect(await findByRole("link", { name: DOCS })).toBeOnTheScreen();
+  });
+
+  // The link preview's 429s (docs/fixtures/error_codes.json): a preview is extra, so a
+  // refused one is the plain link, with no words of the server's or the phone's.
+  it.each(["link_preview_rate_limited", "link_preview_busy"] as const)("shows a preview refused by %s as the plain link", async (name) => {
+    const refusal = fixture[name];
+    fetchPreview.mockRejectedValue(new ApiRequestError(refusal.status, JSON.stringify({ detail: refusal.detail })));
+    const { findByRole, queryByText } = await render(
+      <LinkPreviewTrust userText={DOCS}>
+        <LinkPreviewCard url={DOCS} />
+      </LinkPreviewTrust>,
+    );
+    expect(await findByRole("link", { name: DOCS })).toBeOnTheScreen();
+    expect(queryByText(refusal.detail.message)).toBeNull();
   });
 
   it("previews a link from the reply's search sources", async () => {

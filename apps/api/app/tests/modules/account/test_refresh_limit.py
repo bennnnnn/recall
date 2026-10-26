@@ -68,6 +68,8 @@ def _refresh(client: TestClient, token: str) -> int:
     response = client.post("/auth/refresh", json={"refresh_token": token})
     if response.status_code == 429:
         assert response.headers["retry-after"] == str(refresh_limit.WINDOW_SECONDS)
+        # Coded: the phone fails each request that needs a refresh with it until the wait ends.
+        assert response.json()["detail"]["code"] == "rate_limited"
     return response.status_code
 
 

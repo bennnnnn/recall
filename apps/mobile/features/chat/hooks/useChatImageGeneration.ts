@@ -12,6 +12,8 @@ type Options = Omit<Parameters<typeof useImageGeneration>[0], "uploadReference" 
 export function useChatImageGeneration({ isPaid, t, ...options }: Options) {
   const describeFailure = useCallback(
     (message: string, code: string | undefined) => {
+      // The image service failed (its 502): the picture's own line, where its English showed.
+      if (code === "upstream_failed") return { message: t("chat.image_gen_failed"), retryable: true };
       // Every daily_limit from the picture endpoint is the picture's own cap.
       const resolved = resolveChatError({ message, code: refusalCode(code, "image_generation"), isPaid, t });
       // A spent allowance or a refused picture (the chat's quota and notice kinds) fails again.

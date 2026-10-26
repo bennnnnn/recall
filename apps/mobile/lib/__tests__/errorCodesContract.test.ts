@@ -83,8 +83,9 @@ it.each([
   ["scan_rate_limited", "chat.scan_rate_limit"],
   ["scan_spend_cap", "chat.scan_spend_cap"],
   ["scan_invalid_image", null],
-  // The request limiter's 429: its words, as when it named no code.
-  ["rate_limited", "Too many requests. Please slow down."],
+  // The request limiter's 429 and a refused refresh: their English showed.
+  ["rate_limited", "chat.rate_limited"],
+  ["refresh_rate_limited", "chat.rate_limited"],
   // A Redis outage said "Too many scans in a row", then "couldn't scan that photo".
   ["service_unavailable", "common.service_unavailable"],
 ])("words a refused scan: %s", (name, words) => {
@@ -121,8 +122,10 @@ it.each([
   ["voice_spend_cap", "chat.voice_paused"],
   // Redis down at the spend read answered the cap's 429: "Voice input is paused".
   ["service_unavailable", "common.service_unavailable"],
-  // The request limiter's 429: the dictation's own failure line, as when it named no code.
-  ["rate_limited", undefined],
+  // The request limiter's 429 and a refused refresh said "Could not transcribe your
+  // recording": a retry within the minute failed too.
+  ["rate_limited", "chat.rate_limited"],
+  ["refresh_rate_limited", "chat.rate_limited"],
 ])("words a refused dictation: %s", (name, words) => {
   expect(voiceRefusalKey(refused(name))).toBe(words);
 });
@@ -188,6 +191,8 @@ it.each([
   // The request limiter's 429 says wait, as the memory routes' own limit does; it said the
   // action failed ("Couldn't save. Try again."), and a retry within the minute failed too.
   ["rate_limited", "limited", "memory.limited"],
+  // The memory routes' own hourly limit.
+  ["memory_rate_limited", "limited", "memory.limited"],
 ])("words a refused memory edit: %s", (name, failure, words) => {
   expect(memoryFailure(refused(name))).toBe(failure);
   expect(memoryFailureKey(memoryFailure(refused(name)), "memory.edit_failed")).toBe(words);
@@ -199,10 +204,11 @@ it("words a chat turn the API could not serve", () => {
     .toEqual({ kind: "generic", message: "common.service_unavailable" });
 });
 
-// The request limiter's 429 named no code: a refused Regenerate said "Couldn't reach the
-// server" (chatTurnState's refusalReport), and its English would have shown once coded.
-it("words a chat turn over the request limit", () => {
-  const error = refused("rate_limited");
+// Each 429 named no code: a refused Regenerate said "Couldn't reach the server"
+// (chatTurnState's refusalReport). The request limiter's, the chat stream's own, and a
+// refresh's, which fails every request that needs one until its wait ends (lib/api/client.ts).
+it.each(["rate_limited", "chat_rate_limited", "refresh_rate_limited"])("words a chat turn over a limit: %s", (name) => {
+  const error = refused(name);
   expect(resolveChatError({ message: error.detail, code: error.code ?? undefined, isPaid: false, t }))
     .toEqual({ kind: "generic", message: "chat.rate_limited" });
 });

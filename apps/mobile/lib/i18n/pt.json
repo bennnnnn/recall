@@ -216,6 +216,7 @@
   "chat.scroll_to_latest": "Ir para as mensagens mais recentes",
   "chat.send_a11y": "Enviar mensagem",
   "chat.send_rejected": "A mensagem não foi enviada. Aguarde um momento e tente novamente.",
+  "chat.server_restarting": "O Recall está reiniciando. Envie novamente em instantes.",
   "chat.sending": "Enviando",
   "chat.share": "Compartilhar",
   "chat.share_failed": "Não foi possível compartilhar esta conversa.",

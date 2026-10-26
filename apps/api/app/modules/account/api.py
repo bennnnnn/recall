@@ -18,7 +18,7 @@ from app.core.dev_guards import is_loopback_ip, require_dev_privilege_access
 from app.core.etag import conditional_json
 from app.core.rate_limit import allow_request_unless_down
 from app.core.redis_lock import acquire_lock, release_lock
-from app.exceptions import AuthenticationError, DomainError
+from app.exceptions import AuthenticationError, DomainError, RateLimitedError
 from app.models.orm import User
 from app.models.schemas import (
     AccountDeleteRequest,
@@ -138,11 +138,12 @@ async def me(user: User = Depends(get_current_user)) -> UserOut:
     return UserOut.model_validate(user)
 
 
-def _refresh_refused() -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        detail="Too many refresh attempts. Try again shortly.",
-        headers={"Retry-After": str(refresh_limit.WINDOW_SECONDS)},
+def _refresh_refused() -> RateLimitedError:
+    # Coded: the phone fails every request that needs a refresh with this refusal until
+    # the wait ends, and each reader words ``rate_limited`` (the English alone named none).
+    return RateLimitedError(
+        "Too many refresh attempts. Try again shortly.",
+        retry_after_seconds=refresh_limit.WINDOW_SECONDS,
     )
 
 

@@ -134,10 +134,14 @@ def _transcribe(
         )
 
 
-def _memory_instruct(*, spend_capped: bool = False) -> Any:
-    """POST /memories/instruct while the day's spend cap is reached, or (below it) while
-    another write holds the user's memory."""
+def _memory_instruct(*, spend_capped: bool = False, allowed: bool = True) -> Any:
+    """POST /memories/instruct while the day's spend cap is reached, past the hour's
+    edits (``allowed``), or (below both) while another write holds the user's memory."""
     with (
+        patch(
+            "app.modules.memory.api.allow_request_unless_down",
+            AsyncMock(return_value=allowed),
+        ),
         patch("app.modules.memory.api.get_redis_client", return_value=MagicMock()),
         patch(
             "app.modules.memory.api.quota_service.global_spend_exceeded",
@@ -257,6 +261,8 @@ def _generate(code: str) -> Any:
         "spend_cap": ImageGenerationError(
             IMAGE_GENERATION_SPEND_CAP_MESSAGE, status_code=429, code="spend_cap"
         ),
+        # The image service failed (generation.py's 502s): the code is the status's.
+        "upstream_failed": ImageGenerationError("Could not generate image", status_code=502),
     }
     with (
         patch(
@@ -390,6 +396,52 @@ def _over_the_limit() -> Any:
         return _client(_user()).get("/todos/page", headers=_AUTH)
 
 
+def _chat_over_its_limit() -> Any:
+    """A Regenerate past the chat stream's own per-user limit (``require_chat_rate_limit``)."""
+    # The limit's own counter says no (core.rate_limit), so the route's real check runs.
+    with (
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+        patch("app.core.rate_limit.allow_request", AsyncMock(return_value=False)),
+    ):
+        return _client(_user()).post(f"/chats/{uuid4()}/regenerate/stream", headers=_AUTH, json={})
+
+
+def _refresh_over_its_limit() -> Any:
+    """A refresh past its per-address limit (``modules/account/refresh_limit.py``)."""
+    with patch("app.modules.account.refresh_limit.address_allowed", AsyncMock(return_value=False)):
+        return _client(_user()).post("/auth/refresh", json={"refresh_token": "token"})
+
+
+def _link_preview(*, allowed: bool = True, busy: bool = False) -> Any:
+    """GET /link-preview past the user's minute, or with their most previews loading."""
+    from app.modules.link_preview.service import LinkPreviewBusyError
+
+    with (
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+        patch("app.modules.link_preview.api.get_redis_client", return_value=MagicMock()),
+        patch(
+            "app.modules.link_preview.api.allow_request_unless_down",
+            AsyncMock(return_value=allowed),
+        ),
+        patch(
+            "app.modules.link_preview.api.fetch_link_preview_cached",
+            AsyncMock(side_effect=LinkPreviewBusyError() if busy else None),
+        ),
+    ):
+        return _client(_user()).get(
+            "/link-preview", headers=_AUTH, params={"url": "https://example.com/a"}
+        )
+
+
+def _export_busy() -> Any:
+    """GET /auth/me/export past the hour's exports (one runs at a time, a few an hour)."""
+    with (
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+        patch("app.modules.account.api.allow_request_unless_down", AsyncMock(return_value=False)),
+    ):
+        return _client(_user()).get("/auth/me/export", headers=_AUTH)
+
+
 def _bodies() -> dict[str, dict[str, Any]]:
     too_big = base64.b64encode(b"\xff" * (SCAN_MAX_IMAGE_BYTES + 1)).decode()
     with (
@@ -409,6 +461,11 @@ def _bodies() -> dict[str, dict[str, Any]]:
     return {
         "service_unavailable": _refusal(_outage()),
         "rate_limited": _refusal(_over_the_limit()),
+        # Each route's own limit over its minute answers the same code.
+        "chat_rate_limited": _refusal(_chat_over_its_limit()),
+        "refresh_rate_limited": _refusal(_refresh_over_its_limit()),
+        "link_preview_rate_limited": _refusal(_link_preview(allowed=False)),
+        "link_preview_busy": _refusal(_link_preview(busy=True)),
         "consent_required": _refusal(consent),
         "account_exists": _refusal(exists),
         "scan_not_available": _refusal(
@@ -452,9 +509,12 @@ def _bodies() -> dict[str, dict[str, Any]]:
         "live_talk_session_ended": _refusal(_live_talk("/speech/live/persist", session_ended=True)),
         "memory_spend_cap": _refusal(_memory_instruct(spend_capped=True)),
         "memory_busy": _refusal(_memory_instruct()),
+        "memory_rate_limited": _refusal(_memory_instruct(allowed=False)),
+        "export_busy": _refusal(_export_busy()),
         "image_daily_limit": _refusal(_generate("daily_limit")),
         "image_content_blocked": _refusal(_generate("content_blocked")),
         "image_spend_cap": _refusal(_generate("spend_cap")),
+        "image_upstream_failed": _refusal(_generate("upstream_failed")),
         **_sign_in_bodies(),
     }
 

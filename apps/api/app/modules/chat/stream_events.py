@@ -17,8 +17,10 @@ from pydantic import BaseModel, model_serializer
 
 from app.core.background_tasks import create_background_task
 from app.exceptions import (
+    RATE_LIMITED_CODE,
     AttachmentValidationError,
     ChatBusyError,
+    ChatNotFoundError,
     ChatServiceError,
     ConsentRequiredError,
     QuotaExceededError,
@@ -103,8 +105,13 @@ CommitStatus = Literal["committed", "timeout", "failed"]
 # commit FAILS (vs. is slow) we send an error instead of a ghost `done`.
 DONE_COMMIT_WAIT_SECONDS = 10.0
 REPLY_SAVE_FAILED_MESSAGE = "Failed to save the response. Please retry."
+REPLY_NOT_SAVED_CODE = "reply_not_saved"
 # A turn the server stopped (or refused) because the process is shutting down.
 SERVER_RESTARTING_MESSAGE = "The server is restarting. Send again in a moment."
+SERVER_RESTARTING_CODE = "server_restarting"
+# A turn that failed for no reason the client can act on. These frames named no code, and
+# the phone showed their English.
+FAILED_CODE = "failed"
 
 
 # A turn that is quiet this long (tool calls, a slow provider) sends a keepalive, so
@@ -320,6 +327,7 @@ def settled_turn_event(outcome: TurnOutcome, commit: CommitStatus) -> dict[str, 
             None,
             user_message_saved=outcome.user_message_saved,
             message=REPLY_SAVE_FAILED_MESSAGE,
+            code=REPLY_NOT_SAVED_CODE,
         )
     return DoneEvent.from_outcome(outcome, persisting=commit == "timeout").model_dump()
 
@@ -363,24 +371,56 @@ async def take_related_prompts_event(
     return event
 
 
+# The socket's per-message and connect limits: coded, so the phone words them.
+RATE_LIMITED_MESSAGE = "Too many requests. Try again shortly."
+
+
+def rate_limited_payload() -> dict[str, Any]:
+    """The socket refused a turn over its per-message limit: nothing was saved."""
+    return turn_error_payload(
+        None, user_message_saved=False, message=RATE_LIMITED_MESSAGE, code=RATE_LIMITED_CODE
+    )
+
+
+def rate_limited_connect_payload() -> dict[str, Any]:
+    """The socket refused a connection over its connect limit (no turn to name)."""
+    return {"type": "error", "code": RATE_LIMITED_CODE, "message": RATE_LIMITED_MESSAGE}
+
+
+def restarting_payload(*, user_message_saved: bool) -> dict[str, Any]:
+    """A turn the server refused or stopped because it is shutting down (a deploy)."""
+    return turn_error_payload(
+        None,
+        user_message_saved=user_message_saved,
+        message=SERVER_RESTARTING_MESSAGE,
+        code=SERVER_RESTARTING_CODE,
+    )
+
+
 def turn_error_payload(
     exc: BaseException | None,
     *,
     user_message_saved: bool,
     message: str | None = None,
+    code: str | None = None,
 ) -> dict[str, Any]:
     """An error frame for a turn, saying whether its user message is in the chat.
 
     ``user_message_saved`` is what lets a client choose its recovery: resend the
     message when it was not saved (Retry), answer it again when it was
-    (Regenerate). Clients that predate the field ignore it. ``message`` replaces
-    the text for a failure that is not an exception (a reply that did not save).
+    (Regenerate). Clients that predate the field ignore it. ``message`` and ``code``
+    say a failure that is not an exception (a reply that did not save, a restart);
+    without a code it is ``failed``.
     """
     payload: dict[str, Any] = (
-        error_payload_for_exception(exc) if exc is not None else {"type": "error"}
+        error_payload_for_exception(exc)
+        if exc is not None
+        else {"type": "error", "code": FAILED_CODE}
     )
     if message is not None:
         payload["message"] = message
+    if code is not None:
+        payload["code"] = code
     payload["user_message_saved"] = user_message_saved
     return payload
 
@@ -403,8 +443,11 @@ def error_payload_for_exception(exc: BaseException) -> dict[str, Any]:
         return {"type": "error", "code": exc.code, "message": exc.message}
     if isinstance(exc, TurnRefusedError):
         return {"type": "error", "code": exc.code, "message": exc.message, **exc.fields}
+    if isinstance(exc, ChatNotFoundError):
+        # The chat, or the message to answer, is gone (deleted on another device).
+        return {"type": "error", "code": "not_found", "message": exc.message}
     if isinstance(exc, ChatServiceError):
-        return {"type": "error", "message": exc.message}
+        return {"type": "error", "code": FAILED_CODE, "message": exc.message}
     if isinstance(exc, ModelUnavailableError):
         return {
             "type": "error",
@@ -412,4 +455,4 @@ def error_payload_for_exception(exc: BaseException) -> dict[str, Any]:
             "message": exc.message,
             "failed_model": exc.failed_alias,
         }
-    return {"type": "error", "message": "Something went wrong. Try again."}
+    return {"type": "error", "code": FAILED_CODE, "message": "Something went wrong. Try again."}
