@@ -2,9 +2,10 @@
 
 Quota counters are keyed by user id, so a new account would start every daily
 cap (and this month's live talk minutes) from zero. Account delete keeps one
-snapshot keyed by an HMAC of the Google/Apple identity and one keyed by an HMAC of
-the account's email; the new account for the same identity or address picks them
-up at sign-up (the address alone: ``test_quota_carryover_email.py``).
+snapshot keyed by an HMAC of the Google/Apple identity and, when its sign-in provider
+owns the address, one keyed by an HMAC of the account's email; the new account for the
+same identity or address picks them up at sign-up (the address alone:
+``test_quota_carryover_email.py``, ownership: ``test_quota_carryover_email_owner.py``).
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from unittest.mock import AsyncMock, patch
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
@@ -45,12 +46,15 @@ async def _google_sub(user_id: UUID) -> str:
     return str(sub)
 
 
-async def _email(user_id: UUID) -> str:
-    """The account's address (``World`` accounts carry none of their own)."""
+async def _on_gmail(user_id: UUID) -> str:
+    """Move the Google account to a Gmail address, which Google owns, so its delete files
+    the email key too (``World`` accounts are on example.com, which no provider owns).
+    Returns the address."""
+    email = f"carry-{uuid4().hex[:12]}@gmail.com"
     async with SessionLocal() as session:
-        email = (await session.execute(select(User.email).where(User.id == user_id))).scalar()
-    assert email
-    return str(email)
+        await session.execute(update(User).where(User.id == user_id).values(email=email))
+        await session.commit()
+    return email
 
 
 async def _sign_in_google(world: World, *, sub: str, email: str) -> UUID:
@@ -135,7 +139,7 @@ async def _all_redis_text(redis: Any) -> str:
 @pytest.mark.asyncio
 async def test_quota_carryover_same_google_sub_keeps_todays_counts(world: World) -> None:
     redis, a = world.redis, world.a
-    sub, email = await _google_sub(a.id), await _email(a.id)
+    sub, email = await _google_sub(a.id), await _on_gmail(a.id)
     await _use_quota(redis, a.id)
 
     await _delete_and_sweep(world, a.id, a.headers)
@@ -247,7 +251,7 @@ async def test_quota_carryover_snapshot_holds_no_raw_sub(world: World) -> None:
     from app.modules.account import quota_carryover
 
     redis, a = world.redis, world.a
-    sub, email = await _google_sub(a.id), await _email(a.id)
+    sub, email = await _google_sub(a.id), await _on_gmail(a.id)
     await _use_quota(redis, a.id)
     await _delete_and_sweep(world, a.id, a.headers)
 
@@ -404,7 +408,7 @@ async def test_quota_carryover_unrestored_refuses_sign_in_and_creates_no_account
     kept, and the retry restores it.
     """
     redis, a = world.redis, world.a
-    sub, email = await _google_sub(a.id), await _email(a.id)
+    sub, email = await _google_sub(a.id), await _on_gmail(a.id)
     await _use_quota(redis, a.id)
     await _delete_and_sweep(world, a.id, a.headers)
     snapshots = await _carry_snapshots(redis)
