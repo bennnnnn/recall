@@ -8,13 +8,15 @@ function word from here. "Dibújame un gato negro en la playa" draws; "un gato e
 are answered in words, because "ASCII", "binario", "dividida" and "sugiéreme" are none.
 
 - ``DESCRIBE``: colours, sizes, ages, simple looks and moods, a few poses ("sleeping",
-  "flying": what a picture shows, never a task) and simple art styles ("watercolour",
-  "realistic"). Not "pixel art", "ASCII" or any other format. Each is written once, in
-  the masculine singular; its other forms are made from it (``gen_intent_drawable``):
+  "flying": what a picture shows, never a task), simple art styles ("watercolour",
+  "realistic", "futuristic"), the seasons and a few festive words used as looks
+  ("snowy", "Christmas", "birthday"). Not "pixel art", "ASCII" or any other format.
+  Each is written once, in the masculine singular; its other forms are made from it
+  (``gen_intent_drawable``):
   "rojo" → roja, rojos, rojas; "rot" → rote, roten …; "красный" → красная, красного …
   Irregular forms follow "/" ("beau/bel/belle/beaux").
 - ``GLUE``: articles, "of", "with", "on", "in", "under", "next to", "near", "behind",
-  "my", numbers up to ten, "very". Places are built from these and listed nouns ("en la
+  "between", "my", numbers up to ten, "very". Places are built from these and listed nouns ("en la
   playa", "unter dem Baum", "на луне").
 - ``AND``: "and", allowed only between two drawable nouns ("un gato y un perro").
 
