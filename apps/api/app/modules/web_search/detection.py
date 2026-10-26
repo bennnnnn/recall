@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import re
 
 from app.core.config import Settings
@@ -16,6 +17,7 @@ from app.modules.chat import (
     prior_looks_like_offer,
 )
 from app.modules.web_search.asks_nothing import asks_nothing_to_look_up
+from app.modules.web_search.capability_ask import asks_whether_it_searches
 from app.modules.web_search.chat_bound import answers_a_check, works_from_the_chat
 from app.modules.web_search.command import asks_to_search, search_command
 from app.modules.web_search.geo_intent import is_geo_query, is_short_letter_answer
@@ -53,11 +55,14 @@ from app.modules.web_search.patterns import (
 )
 from app.modules.web_search.place_answer import question_in_given_place
 from app.modules.web_search.release_asks import asks_if_released
+from app.modules.web_search.search_word import is_search_word
 from app.modules.web_search.subject import (
     _prior_searchable_topic,
     resolve_search_subject,
+    stands_as_query,
 )
 from app.services import time_context as time_context_service
+from app.services.text_normalize import fold_token
 
 # Questions about the user's own stored profile must be answered from memory,
 # not by searching the public web. Keep this deliberately narrower than every
@@ -89,6 +94,45 @@ _PERSONAL_MEMORY_QUESTION = re.compile(
 )
 
 
+_SEARCH_PLACES = frozenset({"google", "googling", "online", "web", "internet", "browse"})
+
+
+def _offered_a_search(prior_assistant: str | None) -> bool:
+    """The last reply offered to search: "I can search the web for that if you'd like"."""
+    if not prior_looks_like_offer(prior_assistant):
+        return False
+    words = [fold_token(w) for w in collapse_ws(prior_assistant or "")[-400:].split()]
+    pairs = itertools.pairwise(words)
+    return any(is_search_word(w) or w in _SEARCH_PLACES for w in words) or any(
+        first == "look" and then in {"it", "that", "into", "up"} for first, then in pairs
+    )
+
+
+def asks_only_whether_it_searches(
+    text: str,
+    *,
+    prior_user_messages: list[str] | None = None,
+    prior_assistant: str | None = None,
+) -> bool:
+    """ "Can you search the web?" with nothing in the chat to search: a question about Recall.
+
+    Read against the line a search would use (``resolve_search_subject``), not any earlier
+    one: after "who won the bears game yesterday" the same words ask for that search, but
+    "Show me how u work" after it is what a search would send. An offer to search
+    ("Should I check online?") asks for one too, when that line can stand as a query
+    ("hi" cannot).
+    """
+    if not asks_whether_it_searches(text):
+        return False
+    cleaned = collapse_ws(text)
+    line = resolve_search_subject(cleaned, prior_user_messages=prior_user_messages)
+    if not prior_user_messages or line == cleaned:
+        return True
+    if _prior_searchable_topic([line]) is not None:
+        return False
+    return not (_offered_a_search(prior_assistant) and stands_as_query(line))
+
+
 def web_search_skip(
     text: str,
     *,
@@ -98,6 +142,11 @@ def web_search_skip(
     """Hard no — never run web search or the classifier."""
     cleaned = collapse_ws(text)
     if not cleaned:
+        return True
+    # "Can you search the web?" asks about Recall: the reply says yes, nothing is searched.
+    if asks_only_whether_it_searches(
+        cleaned, prior_user_messages=prior_user_messages, prior_assistant=prior_assistant
+    ):
         return True
     # "search", "google it", "can't you look it up?": an explicit request is never chitchat.
     if asks_to_search(cleaned):

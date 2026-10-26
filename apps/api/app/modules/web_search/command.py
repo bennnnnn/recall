@@ -5,6 +5,8 @@ The whole message must be the request; a cue inside a longer question is
 
 ``SearchCommand.subject`` is None when the request names nothing to search
 ("do a search", "look it up", "check that online"): the conversation says what.
+Whether "can you search the web?" asks about Recall or for a search depends on the chat
+before it: ``detection.asks_only_whether_it_searches`` reads it there.
 """
 
 from __future__ import annotations
@@ -12,6 +14,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.modules.web_search.search_word import is_search_word
 from app.services.text_normalize import collapse_ws, fold_token, straighten_apostrophes
 
 
@@ -19,11 +22,6 @@ from app.services.text_normalize import collapse_ws, fold_token, straighten_apos
 class SearchCommand:
     subject: str | None
 
-
-_SEARCH_WORD = "search"
-# Real words one edit from "search"; never a misspelled command.
-_NOT_SEARCH_TYPOS = frozenset({"starch"})
-_SEARCH_FORMS = frozenset({"search", "searches", "searching", "serch", "seach"})
 
 _LEAD_PHRASES: tuple[tuple[str, ...], ...] = (
     ("why", "don't", "you"),
@@ -170,48 +168,6 @@ _GENERIC_NOUNS = frozenset(
 _DEMONSTRATIVES = frozenset({"that", "this", "the", "those", "these", "it", "his", "her", "their"})
 _MAX_COMMAND_WORDS = 14
 _MAX_BARE_SUBJECT_WORDS = 8
-
-
-def _one_edit_apart(word: str, target: str) -> bool:
-    """True for one insertion, deletion, substitution or adjacent swap."""
-    if word == target:
-        return True
-    lw, lt = len(word), len(target)
-    if abs(lw - lt) > 1:
-        return False
-    if lw == lt:
-        diffs = [i for i in range(lw) if word[i] != target[i]]
-        if len(diffs) == 1:
-            return True
-        return (
-            len(diffs) == 2
-            and diffs[1] == diffs[0] + 1
-            and word[diffs[0]] == target[diffs[1]]
-            and word[diffs[1]] == target[diffs[0]]
-        )
-    shorter, longer = (word, target) if lw < lt else (target, word)
-    i = j = 0
-    skipped = False
-    while i < len(shorter) and j < len(longer):
-        if shorter[i] == longer[j]:
-            i += 1
-            j += 1
-            continue
-        if skipped:
-            return False
-        skipped = True
-        j += 1
-    return True
-
-
-def is_search_word(word: str) -> bool:
-    """ "search" and its typos ("seearch", "serach", "searh"), not "starch"."""
-    folded = fold_token(word)
-    if folded in _SEARCH_FORMS:
-        return True
-    if folded in _NOT_SEARCH_TYPOS or len(folded) < 5 or not folded.startswith("s"):
-        return False
-    return _one_edit_apart(folded, _SEARCH_WORD)
 
 
 def _strip_lead(words: list[str]) -> list[str]:

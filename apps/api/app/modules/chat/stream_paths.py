@@ -31,6 +31,7 @@ from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn, th
 from app.modules.chat.tool_gate import should_classify_tool_web_search
 from app.modules.chat.tool_loop import live_denial, reply_calls
 from app.modules.chat.tool_loop.parts import open_parts, searchable_parts, turn_plan
+from app.modules.chat.tool_loop.repeat_filter import without_repeats
 from app.modules.chat.tool_loop.rounds import ToolRoundsOutcome
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -269,6 +270,8 @@ class _ReplyRound:
     # Goes out before the call's first token: a break after the text the call
     # before it wrote ahead of its search.
     lead: str = ""
+    # The text the call before wrote ahead of its search: this call never repeats it.
+    before: str = ""
     meta: dict[str, str] = field(default_factory=dict)
     calls: list[dict[str, Any]] = field(default_factory=list)
 
@@ -343,7 +346,8 @@ async def run_llm_token_stream(
             if should_cancel and should_cancel():
                 accum.mark_user_stop()
                 break
-            reply_round = _ReplyRound(tools=[], lead="\n\n" if text_before.strip() else "")
+            lead = "\n\n" if text_before.strip() else ""
+            reply_round = _ReplyRound(tools=[], lead=lead, before=text_before)
         if not accum.was_cancelled and (tail := scaffold.flush()):
             accum.shown.append(tail)
             yield tail
@@ -404,8 +408,10 @@ async def _stream_round(
         tools=reply_round.tools or None,
         tool_calls=reply_round.calls,
     )
+    repeats = without_repeats(llm_stream, reply_round.before) if reply_round.before else None
+    tokens = repeats or llm_stream
     try:
-        async for token in llm_stream:
+        async for token in tokens:
             if should_cancel and should_cancel():
                 accum.mark_user_stop()
                 break
@@ -438,6 +444,8 @@ async def _stream_round(
         accum.mark_user_stop()
         raise
     finally:
+        if repeats is not None:
+            await repeats.aclose()
         close = getattr(llm_stream, "aclose", None)
         if close is not None:
             if accum.was_cancelled:
