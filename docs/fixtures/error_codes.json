@@ -249,6 +249,20 @@
    "message": "Memory is being updated right now — try again in a moment."
   }
  },
+ "memory_rate_limited": {
+  "status": 429,
+  "detail": {
+   "code": "rate_limited",
+   "message": "Too many memory edits — try again later."
+  }
+ },
+ "export_busy": {
+  "status": 429,
+  "detail": {
+   "code": "export_busy",
+   "message": "An export is already running or was just made. Try again later."
+  }
+ },
  "image_daily_limit": {
   "status": 429,
   "detail": {

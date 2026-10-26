@@ -191,6 +191,8 @@ it.each([
   // The request limiter's 429 says wait, as the memory routes' own limit does; it said the
   // action failed ("Couldn't save. Try again."), and a retry within the minute failed too.
   ["rate_limited", "limited", "memory.limited"],
+  // The memory routes' own hourly limit.
+  ["memory_rate_limited", "limited", "memory.limited"],
 ])("words a refused memory edit: %s", (name, failure, words) => {
   expect(memoryFailure(refused(name))).toBe(failure);
   expect(memoryFailureKey(memoryFailure(refused(name)), "memory.edit_failed")).toBe(words);

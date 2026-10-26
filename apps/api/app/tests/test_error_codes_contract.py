@@ -134,10 +134,14 @@ def _transcribe(
         )
 
 
-def _memory_instruct(*, spend_capped: bool = False) -> Any:
-    """POST /memories/instruct while the day's spend cap is reached, or (below it) while
-    another write holds the user's memory."""
+def _memory_instruct(*, spend_capped: bool = False, allowed: bool = True) -> Any:
+    """POST /memories/instruct while the day's spend cap is reached, past the hour's
+    edits (``allowed``), or (below both) while another write holds the user's memory."""
     with (
+        patch(
+            "app.modules.memory.api.allow_request_unless_down",
+            AsyncMock(return_value=allowed),
+        ),
         patch("app.modules.memory.api.get_redis_client", return_value=MagicMock()),
         patch(
             "app.modules.memory.api.quota_service.global_spend_exceeded",
@@ -429,6 +433,15 @@ def _link_preview(*, allowed: bool = True, busy: bool = False) -> Any:
         )
 
 
+def _export_busy() -> Any:
+    """GET /auth/me/export past the hour's exports (one runs at a time, a few an hour)."""
+    with (
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+        patch("app.modules.account.api.allow_request_unless_down", AsyncMock(return_value=False)),
+    ):
+        return _client(_user()).get("/auth/me/export", headers=_AUTH)
+
+
 def _bodies() -> dict[str, dict[str, Any]]:
     too_big = base64.b64encode(b"\xff" * (SCAN_MAX_IMAGE_BYTES + 1)).decode()
     with (
@@ -496,6 +509,8 @@ def _bodies() -> dict[str, dict[str, Any]]:
         "live_talk_session_ended": _refusal(_live_talk("/speech/live/persist", session_ended=True)),
         "memory_spend_cap": _refusal(_memory_instruct(spend_capped=True)),
         "memory_busy": _refusal(_memory_instruct()),
+        "memory_rate_limited": _refusal(_memory_instruct(allowed=False)),
+        "export_busy": _refusal(_export_busy()),
         "image_daily_limit": _refusal(_generate("daily_limit")),
         "image_content_blocked": _refusal(_generate("content_blocked")),
         "image_spend_cap": _refusal(_generate("spend_cap")),
