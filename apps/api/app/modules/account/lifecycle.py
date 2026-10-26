@@ -48,7 +48,10 @@ async def update_account(
             fields["enabled_models"],
             settings,
         )
-    memory_toggled = "memory_enabled" in fields and fields["memory_enabled"] != user.memory_enabled
+    # A rename changes which saved name facts the memory block keeps (memory.user_name).
+    memory_changed = (
+        "memory_enabled" in fields and fields["memory_enabled"] != user.memory_enabled
+    ) or ("name" in fields and fields["name"] != user.name)
     if fields.get("avatar_url"):
         try:
             avatar_url = normalize_avatar_url(fields["avatar_url"])
@@ -68,7 +71,7 @@ async def update_account(
             raise
     else:
         updated = await users_repo.update(session, user, **fields)
-    if memory_toggled:
+    if memory_changed:
         await memory_service.invalidate_memory_block(user.id)
     return updated
 
