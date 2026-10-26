@@ -101,7 +101,7 @@ def changed(request: MoneyRequest, line: str) -> MoneyRequest | None:
     states none that fits."""
     change = read_change(line)
     product = request.product
-    if change is None or _switches_product(product, line):
+    if change is None or switches_product(product, line):
         return None
     values = dict(request.values)
     names: list[str] = []
@@ -142,7 +142,7 @@ def _fresh(line: str, before: tuple[str, ...]) -> MoneyRequest | None:
     return found if found is not None and not found.rates_only else None
 
 
-def _switches_product(product: Product, text: str) -> bool:
+def switches_product(product: Product, text: str) -> bool:
     """The line names another product: "a 15 year mortgage" after a car loan.
 
     A plainer word for this one is no switch: "a 4 year loan" after a car loan (the

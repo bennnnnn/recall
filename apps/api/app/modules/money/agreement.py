@@ -1,18 +1,19 @@
-"""A money reply's sums are the card's, or the server writes the reply.
+"""A loan reply whose stated payment is not its card's gets the card's figures in a line.
 
 Live (2026-10-26, free model): "House buying for 400k" then "60k at 6 percent". The card
 and the note under the reply said 340,000 borrowed at $2,038.47 a month; the reply above
-them worked 60,000 as the loan, $359.82 a month. A reply that contradicts its own card is
-the worst a money turn can do.
+them said "**Monthly Payment:** $359.82", worked on 60,000. A reply that contradicts its
+own card is the worst a money turn can do.
 
-So on a turn whose card the server built, every sum of money the reply states (a sum with
-a currency sign, thousands separators, cents or a k/m) must be one of the server's own: an
-input (the amount, the price, the down payment, a balance, a deposit) or a result, to the
-cent, to the whole unit or in thousands ("$2,038.47", "$2,038", "$340k"), or a number the
-user wrote ("I pay 1950 rent"). A reply with any
-other sum is replaced by one the server writes from the worked request; the note and the
-card still follow. No sum is ever rewritten by how near it is: a review (2026-10-26) found
-that turned rent, budgets and totals with taxes into the loan's figures.
+The model's words are never replaced or removed: a review (2026-10-26) found that rule
+dropped correct replies with taxes, other scenarios, rounding, the worked formula, and
+the user's own question. Only a payment the reply states next to its label ("monthly
+payment is $X", "$X a month", "$X/month", "$X per month") is read; an approximate one
+("about $2,040", "≈", a range) is not. When the reply states at least one, none is the
+card's payment (to the cent or the whole unit), and none sits in a sentence about another
+scenario (another term, rate or sum; "if you", "instead", taxes, insurance, PMI, HOA), the
+server adds one line above the note: "The card's figures: **$2,038.47** a month on a
+$340,000 loan at 6% over 30 years."
 """
 
 from __future__ import annotations
@@ -23,129 +24,114 @@ import re
 from app.modules.money.numbers import money_text, percent_text
 from app.modules.money.read import MoneyRequest
 from app.modules.money.solve import Worked, rate_name
-from app.services.md_fence_scan import line_fences
 
 logger = logging.getLogger(__name__)
 
 _SYMBOLS = {"USD": "$", "EUR": "€", "GBP": "£", "JPY": "¥", "INR": "₹", "NGN": "₦"}
-_KINDS = {
-    "mortgage": "mortgage",
-    "car": "car loan",
-    "student": "student loan",
-    "personal": "personal loan",
-    "loan": "loan",
-}
-_SUM = re.compile(
-    r"(?<![\d.,])(?P<sign>\\?[$€£¥₹₦])?\s?(?P<whole>\d{1,3}(?:(?:,|\{,\})\d{3})+|\d+)"
-    r"(?:\.(?P<cents>\d{1,2})(?!\d))?(?:\s?(?P<scale>[km])\b)?(?!\s?(?:%|\\%|percent\b))",
+_SUM = (
+    r"(?P<sign>\\?[$€£¥₹₦])?\s?(?P<whole>\d{1,3}(?:(?:,|\{,\})\d{3})+|\d+)"
+    r"(?:\.(?P<cents>\d{2}))?(?!\d)"
+)
+# A dash, an en dash, an em dash or "to" between two sums.
+_DASH = "(?:-|\u2013|\u2014|to)"
+_LABELLED = (
+    re.compile(
+        rf"monthly\s+payments?\W{{0,6}}(?:(?:is|of|would\s+be|will\s+be|comes\s+to|=)\W{{0,4}})?{_SUM}",
+        re.IGNORECASE,
+    ),
+    re.compile(rf"(?<![\d.,]){_SUM}\W{{0,4}}(?:a|per|/|each)\s?(?:month|mo)\b", re.IGNORECASE),
+)
+# Before a sum: it is approximate. Around it: a range.
+_APPROX = re.compile(
+    r"(?:about|around|roughly|approximately|approx\.?|nearly|almost|close\s+to|just\s+(?:under"
+    r"|over)|under|over|up\s+to|at\s+least|~|≈|\\approx)\W{0,3}$",
     re.IGNORECASE,
 )
-_SCALES = {"k": 1_000, "m": 1_000_000}
+_RANGE = re.compile(rf"^\s?{_DASH}\s?\W?\d")
+_RANGE_BEFORE = re.compile(rf"\d\s?{_DASH}\s?\W?$")
+_OTHER_SCENARIO = re.compile(
+    r"\b(?:if\s+you|instead|plus|including|includes|extra|tax(?:es)?|insurance|pmi|hoa|escrow"
+    r"|total\s+housing|split|each\s+of\s+you|refinanc\w*|with\s+\d+(?:\.\d+)?\s?%\s+down"
+    r"|without|for\s+comparison|compared|the\s+full|no\s+(?:money\s+)?down|zero\s+down"
+    r"|what\s+if|if\s+(?:you|we|the|your))\b",
+    re.IGNORECASE,
+)
+_PERCENT = re.compile(r"(\d+(?:\.\d+)?)\s?(?:\\?%|percent\b)", re.IGNORECASE)
+_TERM = re.compile(r"\b(\d{1,3})[\s-]?(years?|yrs?|months?)\b", re.IGNORECASE)
+_MONEY = re.compile(
+    r"(?<![\d.,])[$€£¥₹₦]\s?((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?)(?:\s?([km])\b)?", re.I
+)
+_SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
 
 
-def keep_to_the_card(text: str, request: MoneyRequest, worked: Worked, asked: str = "") -> str:
-    """``text``, or the server's own reply when ``text`` states a sum the card does not."""
-    if agrees_with_card(text, request, worked, asked):
-        return text
-    logger.info("money reply stated a sum its card does not; the server wrote it")
-    return worked_reply(request, worked)
-
-
-def agrees_with_card(text: str, request: MoneyRequest, worked: Worked, asked: str = "") -> bool:
-    """Every sum ``text`` states is the card's, or one the user wrote in ``asked``."""
-    figures = _server_sums(request, worked) + _user_sums(asked)
-    owners = line_fences(text)
-    for line, owner in zip(text.split("\n"), owners, strict=True):
-        if owner is not None:
-            continue
-        for found in _SUM.finditer(line):
-            value = _money(found)
-            if value is not None and not any(_is(found, value, figure) for figure in figures):
-                return False
-    return True
-
-
-def _money(found: re.Match[str]) -> float | None:
-    """The sum a match states, or None when it is no sum of money (a bare "30" or "6")."""
-    whole = found.group("whole")
-    separated = "," in whole or "{,}" in whole
-    if not (found.group("sign") or found.group("scale") or found.group("cents") or separated):
+def card_figures_line(text: str, request: MoneyRequest, worked: Worked) -> str | None:
+    """The line with the card's figures when the reply states another payment, else None."""
+    product = worked.product
+    payment = worked.outputs.get("payment")
+    if product.family != "loan" or payment is None:
         return None
-    number = float(whole.replace("{,}", "").replace(",", ""))
-    if found.group("cents"):
-        number += float("0." + found.group("cents"))
-    return number * _SCALES.get((found.group("scale") or "").lower(), 1)
+    stated: list[tuple[float, bool]] = []
+    for sentence in _SENTENCE.split(text or ""):
+        for value, cents in _labelled(sentence):
+            if _other_scenario(sentence, request, worked, value):
+                return None
+            stated.append((value, cents))
+    if not stated or any(_is(value, cents, payment) for value, cents in stated):
+        return None
+    logger.info("money reply stated a payment its card does not; the card's figures added")
+    return _line(request, worked, payment)
 
 
-def _is(found: re.Match[str], value: float, figure: float) -> bool:
-    """``value`` is ``figure`` as written: to the cent, to the whole unit or in thousands."""
-    if found.group("cents"):
-        return round(value, 2) == round(figure, 2)
-    if found.group("scale"):
-        unit = _SCALES[found.group("scale").lower()]
-        return value == round(figure / unit, 1) * unit or value == round(figure)
-    return value == round(figure)
+def _labelled(sentence: str) -> list[tuple[float, bool]]:
+    found: list[tuple[float, bool]] = []
+    for pattern in _LABELLED:
+        for match in pattern.finditer(sentence):
+            if _APPROX.search(sentence[: match.start("whole")]):
+                continue
+            if _RANGE.match(sentence[match.end() :]) or _RANGE_BEFORE.search(
+                sentence[: match.start("whole")]
+            ):
+                continue
+            whole = match.group("whole").replace("{,}", "").replace(",", "")
+            cents = match.group("cents")
+            value = float(whole) + (float("0." + cents) if cents else 0.0)
+            found.append((value, cents is not None))
+    return found
 
 
-def _user_sums(asked: str) -> list[float]:
-    """The user's own numbers ("I pay 1950 rent"): a reply may repeat them."""
-    sums = []
-    for found in _SUM.finditer(asked or ""):
-        number = float(found.group("whole").replace("{,}", "").replace(",", ""))
-        if found.group("cents"):
-            number += float("0." + found.group("cents"))
-        sums.append(number * _SCALES.get((found.group("scale") or "").lower(), 1))
-    return sums
+def _is(value: float, cents: bool, payment: float) -> bool:
+    return round(value, 2) == round(payment, 2) if cents else value == round(payment)
 
 
-def _server_sums(request: MoneyRequest, worked: Worked) -> list[float]:
-    product = worked.product
-    sums = [worked.values[item.name] for item in product.inputs if item.format == "money"]
-    sums += [value for item in product.outputs if item.format == "money"
-             if (value := worked.outputs.get(item.name)) is not None]  # fmt: skip
-    sums += [value for value in (request.price, request.down) if value is not None]
-    return sums
+def _other_scenario(sentence: str, request: MoneyRequest, worked: Worked, value: float) -> bool:
+    """The sentence is about another loan: other words, rate, term or sum than the card's."""
+    if _OTHER_SCENARIO.search(sentence):
+        return True
+    rate = worked.values[rate_name(worked.product)]
+    if any(abs(float(found) - rate) > 1e-6 for found in _PERCENT.findall(sentence)):
+        return True
+    term_name = "years" if "years" in worked.values else "months"
+    for count, unit in _TERM.findall(sentence):
+        months = float(count) * (12 if unit.lower().startswith(("y", "yr")) else 1)
+        own = worked.values[term_name] * (12 if term_name == "years" else 1)
+        if months != own:
+            return True
+    own_sums = {round(v) for v in (worked.values.get("amount"), request.price, request.down) if v}
+    own_sums |= {round(v) for v in worked.outputs.values() if v is not None}
+    for digits, scale in _MONEY.findall(sentence):
+        amount = float(digits.replace(",", "")) * {"k": 1_000, "m": 1_000_000}.get(scale.lower(), 1)
+        if amount >= 1_000 and round(amount) not in own_sums and amount != value:
+            return True
+    return False
 
 
-def worked_reply(request: MoneyRequest, worked: Worked) -> str:
-    """The answer in the server's words, from the worked request."""
+def _line(request: MoneyRequest, worked: Worked, payment: float) -> str:
     symbol = _SYMBOLS.get(request.currency, "")
-
-    def cash(value: float | None) -> str:
-        return f"{symbol}{money_text(value or 0.0)}"
-
-    values, outputs = worked.values, worked.outputs
-    product = worked.product
-    rate = percent_text(values[rate_name(product)])
-    if product.family == "card_payoff":
-        months = outputs.get("months")
-        if months is None:
-            return (
-                f"Paying {cash(values['payment'])} a month on a {cash(values['balance'])} "
-                f"balance at {rate} APR never clears it: the payment does not cover the interest."
-            )
-        return (
-            f"Paying {cash(values['payment'])} a month on a {cash(values['balance'])} balance "
-            f"at {rate} APR clears it in **{months:.0f} months**, with "
-            f"{cash(outputs.get('interest'))} in interest."
-        )
-    if product.family == "savings":
-        return (
-            f"Saving {cash(values['deposit'])} a month from {cash(values['start'])} at {rate} "
-            f"for {values['years']:g} years grows to **{cash(outputs.get('balance'))}**: "
-            f"{cash(outputs.get('deposited'))} deposited and {cash(outputs.get('interest'))} "
-            "in interest."
-        )
-    kind = " ".join(word for word in (request.variant, _KINDS.get(product.key, "loan")) if word)
+    values = worked.values
     term_name = "years" if "years" in values else "months"
-    lines = [
-        f"For a {cash(values['amount'])} {kind} at {rate} over {values[term_name]:g} "
-        f"{term_name}, the monthly payment is **{cash(outputs.get('payment'))}**. Total "
-        f"interest is {cash(outputs.get('interest'))}, and the total paid is "
-        f"{cash(outputs.get('total'))}."
-    ]
-    if term_name in worked.assumed:
-        lines.append(f"No term was given, so it uses {values[term_name]:g} {term_name}.")
-    if rate_name(product) in worked.assumed:
-        lines.append("No rate was given, so it uses today's average.")
-    return " ".join(lines)
+    rate = percent_text(values[rate_name(worked.product)])
+    return (
+        f"The card's figures: **{symbol}{money_text(payment)}** a month on a "
+        f"{symbol}{money_text(values['amount'])} loan at {rate} over {values[term_name]:g} "
+        f"{term_name}."
+    )

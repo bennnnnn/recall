@@ -2,8 +2,9 @@
 
 The ``calculator`` fence is the server's: one the model wrote is dropped on every turn,
 and a money turn gets the one ``modules/money`` builds, with today's average when the
-lookup that started with the turn found one. A reply in English that contradicts the card
-is replaced by the server's own (``money/agreement``). A stopped reply adds nothing.
+lookup that started with the turn found one. A reply in English whose stated payment is
+not the card's gets the card's figures in a line (``money/agreement``). A stopped reply
+adds nothing.
 """
 
 from __future__ import annotations
@@ -28,8 +29,7 @@ async def attach_money_card(state: FinalizeState) -> str:
     turn = state.ctx.money
     if not isinstance(turn, MoneyTurn) or state.was_cancelled or state.user_stopped:
         return text
-    asked = state.ctx.user_message_content or ""
-    english = todos_service.message_language(asked) is None
-    text = await finish_money_reply(turn, text, state.settings, english=english, asked=asked)
+    english = todos_service.message_language(state.ctx.user_message_content) is None
+    text = await finish_money_reply(turn, text, state.settings, english=english)
     state.committed = fallback_text(text, server_text=state.server_text)
     return text

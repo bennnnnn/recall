@@ -168,3 +168,11 @@ async def test_earlier_lines_are_never_planned_on_the_loop(
     # No worked change past the unplanned line; the loan's figures only (``standing``).
     assert turn is not None and turn.standing
     assert loop_guard.found == []
+
+
+async def test_a_reminder_line_after_a_loan_gets_no_block(
+    fake_redis: Redis, thread_sympy_executor: None
+) -> None:
+    line = "my car payment is due friday, remind me"
+    turn = await _money_turn(_request(line, history=(_CAR,)), single_plan(line), fake_redis)
+    assert turn is None

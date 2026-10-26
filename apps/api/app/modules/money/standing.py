@@ -35,10 +35,19 @@ COMMON_TERMS: dict[str, tuple[float, ...]] = {
     "savings": (5, 10, 20, 30),
 }
 # The loan's own subject: its payment, interest, rate or term, the loan by name, or its maths.
+# A count of years or months is a term only with a term's words ("over 15 years", "a 15-year
+# loan", "what about 20 years?", "3 years instead", "15 or 30 years"): "how many years did
+# WW2 last?" is not.
 _LOAN_SUBJECT = re.compile(
     r"\b(?:monthly\s+)?payments?\b|\binterest\b|\b(?:interest\s+)?rates?\b|\baprs?\b"
-    r"|\bterms?\b|\b(?:the|this|that|my|our)\s+(?:loan|mortgage|car\s+loan|home\s+loan)\b"
-    r"|\bmortgages?\b|\bcar\s+loans?\b|\b\d{1,2}[\s-]?(?:years?|yrs?)\b|\b\d{1,3}[\s-]?months?\b"
+    r"|\b(?:the|this|that|my|our|loan)\s+term\b|\bterm\s+(?:length|of)\b"
+    r"|\b(?:the|this|that|my|our)\s+(?:loan|mortgage|car\s+loan|home\s+loan)\b"
+    r"|\bmortgages?\b|\bcar\s+loans?\b"
+    r"|\b(?:over|for|in)\s+\d{1,3}\s+(?:years?|yrs?|months?)\b|\b\d{1,3}-(?:year|month)\b"
+    r"|\ba\s+\d{1,3}\s+(?:year|month)\s+(?:term|loan|mortgage)\b"
+    r"|\b(?:what|how)\s+about\s+(?:a\s+)?\d{1,3}\s?(?:years?|yrs?|months?)\b"
+    r"|\b\d{1,3}\s?(?:years?|yrs?|months?)\s+instead\b"
+    r"|\b\d{1,3}\s+(?:or|vs\.?|versus)\s+\d{1,3}[\s-]?(?:years?|yrs?|months?)\b"
     r"|\bshow\s(?:me\s)?(?:the\s)?(?:math|maths|working|steps|calculation)\b"
     r"|\bhow\sdid\syou\s(?:get|work\sout|calculate)\b",
     re.IGNORECASE,
@@ -49,12 +58,13 @@ _SHORT = re.compile(
     r"(?:(?:please|thanks|thank\syou)\W*)?$",
     re.IGNORECASE,
 )
-# The last sentence of a reply that offers more about the loan: "If you'd like, I can also
-# show how a 15-year term changes the monthly payment".
+# The last sentence of a reply that offers the loan's figures: "If you'd like, I can also
+# show how a 15-year term changes the monthly payment", "Want a breakdown?". One that only
+# mentions a payment or the loan ("Want me to email your lender about the loan?") does not.
 _OFFER = re.compile(r"\b(?:want|like|can|could|shall|should|happy\sto)\b", re.IGNORECASE)
 _OFFER_ABOUT = re.compile(
-    r"\b(?:term|payments?|interest|breakdown|math|maths|calculation|comparison|compare"
-    r"|amorti[sz]\w*|loan|mortgage|refinanc\w*)\b",
+    r"\b(?:compar\w*|break\s?down|breakdown|math|maths|calculation|amorti[sz]\w*|schedule"
+    r"|\d{1,3}[\s-](?:year|month)|(?:other|another|different|shorter|longer)\s+terms?)\b",
     re.IGNORECASE,
 )
 _SENTENCES = re.compile(r"(?<=[.!?])\s+|\n+")

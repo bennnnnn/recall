@@ -26,11 +26,16 @@ from redis.asyncio import Redis
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.models.orm import User
-from app.modules.money.agreement import keep_to_the_card
+from app.modules.money.agreement import card_figures_line
 from app.modules.money.block import money_block, standing_block
 from app.modules.money.currencies import country_for, currency_for
 from app.modules.money.fence import calculator_fence, card_values
-from app.modules.money.follow_up import as_parts, follow_up_request, standing_request
+from app.modules.money.follow_up import (
+    as_parts,
+    follow_up_request,
+    standing_request,
+    switches_product,
+)
 from app.modules.money.note import market_note, reading_note
 from app.modules.money.purchase import purchase_request
 from app.modules.money.rates import MarketRate, current_average
@@ -138,7 +143,8 @@ async def prepare_standing_turn(
     if not settings.money_enabled or not about_the_loan(text, last_reply):
         return None
     request = standing_request(earlier)
-    if request is None or request.rates_only:
+    # "The interest rate on a savings account" after a mortgage is about another product.
+    if request is None or request.rates_only or switches_product(request.product, text):
         return None
     request = replace(request, currency=currency_for(request.currency, location))
     product = request.product
@@ -171,22 +177,24 @@ async def prepare_standing_turn(
 
 
 async def finish_money_reply(
-    turn: MoneyTurn, text: str, settings: Settings, *, english: bool = True, asked: str = ""
+    turn: MoneyTurn, text: str, settings: Settings, *, english: bool = True
 ) -> str:
     """The reply with the market note and the calculator card under it.
 
-    A reply that contradicts its card is the server's own (``agreement``), when the chat
-    is in English (the server writes English) and the reply answers this request alone."""
+    A reply whose stated payment is not the card's gets the card's figures in a line above
+    the note (``agreement``), when the chat is in English (the server writes English) and
+    the reply answers this request alone. The model's words are never changed."""
     if turn.worked is None:
         return text
     if turn.standing:
         return text
+    figures_line = None
     if english and not turn.multi:
-        text = keep_to_the_card(text, turn.request, turn.worked, asked)
+        figures_line = card_figures_line(text, turn.request, turn.worked)
     average = turn.average
     if average is None and turn.lookup is not None:
         average = await _average(turn.request, turn.lookup, turn.stand_in, _FINISH_WAIT_SECONDS)
-    pieces = [text.rstrip(), reading_note(turn.request, text) or ""]
+    pieces = [text.rstrip(), figures_line or "", reading_note(turn.request, text) or ""]
     note = market_note(turn.worked, average, settings.money_unrealistic_ratio)
     if note:
         pieces.append(note)

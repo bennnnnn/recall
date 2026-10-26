@@ -2273,5 +2273,113 @@
   ],
   "reply": "Here is a draft.",
   "expect": "answer"
+ },
+ {
+  "id": "mo-130",
+  "area": "money standing lookalike",
+  "prompt": "what are the terms of service?",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ]
+  ],
+  "reply": "Recall's terms are in Settings, under About.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-131",
+  "area": "money standing lookalike",
+  "prompt": "I'm 30 years old, what's a good workout?",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ]
+  ],
+  "reply": "Three full-body sessions a week is a good start.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-132",
+  "area": "money standing lookalike",
+  "prompt": "Yes",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your payment is $2,038.47. Want me to set a reminder for the first payment?"
+   ]
+  ],
+  "reply": "Tap the card to save it.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-133",
+  "area": "money standing lookalike",
+  "prompt": "Yes",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ],
+   [
+    "user",
+    "can you help me write to my realtor"
+   ],
+   [
+    "assistant",
+    "Shall I draft an email to your realtor about the loan?"
+   ]
+  ],
+  "reply": "Here is a draft.",
+  "expect": "answer"
  }
 ]

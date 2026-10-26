@@ -35,6 +35,10 @@ def test_the_house_still_stands_after_lines_about_something_else() -> None:
     [
         ("Yes", _OFFER),
         ("How", "Want me to break down the monthly payment for you?"),
+        ("Yes", "Your payment is $2,038.47. Would you like a 15-year comparison?"),
+        ("what if i only do 3 years instead", ""),
+        ("what would a 15-year loan cost?", ""),
+        ("which is cheaper overall, 15 or 30 years?", ""),
         ("show me the math", ""),
         ("how did you get that?", ""),
         ("what about 20 years?", ""),
@@ -63,6 +67,13 @@ def test_a_message_about_the_loan(text: str, last_reply: str) -> None:
         ("Yes", "Want me to set a reminder for Friday at 9?"),
         ("Yes", "Should I draft an email to your landlord?"),
         ("Yes", "Your payment is $2,038.47. Anything else?"),
+        # An offer that only mentions the payment or the loan (review, 2026-10-26).
+        ("Yes", "Your payment is $2,038.47. Want me to set a reminder for the first payment?"),
+        ("Yes", "Shall I draft an email to your realtor about the loan?"),
+        ("Yes", "Want me to remind you when the payment is due?"),
+        # Terms of service and an age are no loan terms.
+        ("what are the terms of service?", ""),
+        ("I'm 30 years old, what's a good workout?", ""),
     ],
 )
 def test_a_message_about_something_else(text: str, last_reply: str) -> None:
@@ -94,6 +105,20 @@ async def test_a_yes_about_the_loan_gets_its_figures_and_no_card() -> None:
 async def test_no_loan_in_the_chat_no_block(earlier: list[tuple[str, ...]]) -> None:
     turn = await prepare_standing_turn(
         "Yes", Settings(), None, user=None, location=None, earlier=earlier, last_reply=_OFFER
+    )
+
+    assert turn is None
+
+
+async def test_a_message_about_another_product_gets_no_block() -> None:
+    turn = await prepare_standing_turn(
+        "what's the interest rate on a savings account?",
+        Settings(),
+        None,
+        user=None,
+        location=None,
+        earlier=_HOUSE,
+        last_reply="",
     )
 
     assert turn is None

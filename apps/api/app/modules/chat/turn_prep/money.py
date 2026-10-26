@@ -17,6 +17,7 @@ from redis.asyncio import Redis
 from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.readings import kept_reading
+from app.modules import todos as todos_service
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chat.turn_prep.instant import settings_card
@@ -60,6 +61,9 @@ async def money_turn(
         )
         if turn is not None:
             return replace(turn, multi=plan.multi)
+    # A reminder or to-do line is the to-do path's, whatever money words it holds.
+    if todos_service.query_implies_todos(request.content):
+        return None
     return await prepare_standing_turn(
         request.content,
         settings,
