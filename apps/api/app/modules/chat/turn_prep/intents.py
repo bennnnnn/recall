@@ -136,8 +136,8 @@ def plan_turn(text: str, *, chemistry_enabled: bool = True) -> TurnPlan:
 
 
 def _picture_and_request(text: str, *, chemistry_enabled: bool) -> TurnPlan | None:
-    """ "Zeichne eine Katze und erkläre auch, was ein schwarzes Loch ist", "Explica qué es
-    un agujero negro y dibuja un gato": a picture asked in another language beside a
+    """ "Zeichne mir eine Katze und erkläre auch, was ein schwarzes Loch ist", "Explica qué
+    es un agujero negro y dibújame un gato": a picture asked in another language beside a
     second request. The clause rules read English, so the picture reader cuts it, as
     "draw a cat and also explain …" is cut."""
     pair = picture_and_request(text)

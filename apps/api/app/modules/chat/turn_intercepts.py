@@ -342,7 +342,7 @@ def start_reply_picture(
     if not part or not prompt:
         return None
     # The line saying why not is in the reply's language, which follows the message. A
-    # message no language plainly claims ("Dibuja un gato y explica …" has few Spanish
+    # message no language plainly claims ("Dibújame un gato y explica …" has few Spanish
     # marks) is in the language its picture was asked in: English for "draw …".
     app = normalize_locale_code(user.locale)
     language = line_language(content, picture_language(part, prefer=app) or "en")

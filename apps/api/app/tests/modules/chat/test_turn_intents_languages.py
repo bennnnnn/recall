@@ -2,7 +2,8 @@
 
 "Draw a cat wearing a hat and also explain what a black hole is" draws the cat above the
 answer. Asked in German, Spanish or Russian, the plan was one part and nothing was
-drawn: the picture and the cut were read only in English.
+drawn: the picture and the cut were read only in English. Now a draw-me picture
+("Zeichne mir eine Katze …", "Dibújame un gato …") is cut off and drawn there too.
 """
 
 from __future__ import annotations
@@ -16,48 +17,50 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules.chat.turn_intercepts import reply_picture_prompt, start_reply_picture
 from app.modules.chat.turn_prep.intents import plan_turn
-from app.tests.modules.images.test_gen_intent_languages import DRAW
+from app.tests.modules.images.test_gen_intent_languages import DRAWN
 
 # The picture, then "… and also explain what a black hole is" in the same language.
 NATIVE = [
     ("en", "Draw a cat with a hat and also explain what a black hole is", "cat with a hat"),
     (
         "es",
-        "Dibuja un gato con sombrero y también explica qué es un agujero negro",
+        "Dibújame un gato con sombrero y también explica qué es un agujero negro",
         "gato con sombrero",
     ),
     (
         "fr",
-        "Dessine un chat avec un chapeau et explique aussi ce qu'est un trou noir",
+        "Dessine-moi un chat avec un chapeau et explique aussi ce qu'est un trou noir",
         "chat avec un chapeau",
     ),
     (
         "de",
-        "Zeichne eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
+        "Zeichne mir eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
         "Katze mit Hut",
     ),
     (
         "it",
-        "Disegna un gatto con il cappello e spiega anche cos'è un buco nero",
+        "Disegnami un gatto con il cappello e spiega anche cos'è un buco nero",
         "gatto con il cappello",
     ),
     (
         "pt",
-        "Desenhe um gato com chapéu e também explique o que é um buraco negro",
+        "Me desenhe um gato com chapéu e também explique o que é um buraco negro",
         "gato com chapéu",
     ),
     (
         "tr",
-        "Şapkalı bir kedi çiz ve ayrıca kara deliğin ne olduğunu açıkla",
-        "Şapkalı bir kedi",
+        "Bana şapkalı bir kedi çiz ve ayrıca kara deliğin ne olduğunu açıkla",
+        "şapkalı bir kedi",
     ),
     (
         "ru",
-        "Нарисуй кошку в шляпе, а также объясни, что такое чёрная дыра",
+        "Нарисуй мне кошку в шляпе, а также объясни, что такое чёрная дыра",
         "кошку в шляпе",
     ),
     ("am", "ድመት ሳልልኝ እንዲሁም ጥቁር ቀዳዳ ምን እንደሆነ አስረዳኝ", "ድመት"),
 ]
+# One drawn request per language, for the English question after it.
+FIRST_DRAWN = [(lang, *cases[0]) for lang, cases in DRAWN.items()]
 
 
 @pytest.mark.parametrize(("lang", "text", "subject"), NATIVE)
@@ -67,7 +70,7 @@ def test_a_picture_and_a_question_plan_as_two_parts(lang: str, text: str, subjec
     assert reply_picture_prompt(text, Settings()) == subject
 
 
-@pytest.mark.parametrize(("lang", "text", "subject"), DRAW)
+@pytest.mark.parametrize(("lang", "text", "subject"), FIRST_DRAWN)
 def test_the_picture_part_reads_before_an_english_question(
     lang: str, text: str, subject: str
 ) -> None:
@@ -79,14 +82,15 @@ def test_the_picture_part_reads_before_an_english_question(
 @pytest.mark.parametrize(
     "text",
     [
-        # One picture of two things, a table, a graph: one request, nothing drawn beside it.
-        "Dibuja un gato y un perro",
+        # One picture of two things, a table, a graph, a bare "draw": no picture part.
+        "Dibújame un gato y un perro",
         "Zeichne mir eine Tabelle der Ergebnisse und erkläre sie",
-        "Нарисуй график функции и объясни его",
-        "grafik çiz ve açıkla",
+        "Нарисуй мне график функции и объясни его",
+        "Bana grafik çiz ve açıkla",
+        "Dibuja un gato y explica qué es un agujero negro",
     ],
 )
-def test_no_picture_part_for_a_table_a_graph_or_one_picture(text: str) -> None:
+def test_no_picture_part_for_a_table_a_graph_or_a_bare_draw(text: str) -> None:
     assert not plan_turn(text).of_kind("image")
     assert reply_picture_prompt(text, Settings()) is None
 
@@ -104,16 +108,21 @@ LINE_START = {
     "am": "ምስሉን (",
 }
 
-# Asked second ("explain …, and draw a cat"), as English "… and also draw a cat" is.
+# Asked second ("explain …, and draw me a cat"), as English "… and also draw a cat" is.
 PICTURE_SECOND = [
-    ("es", "Explica qué es un agujero negro y dibuja un gato", "gato"),
-    ("es", "¿Qué es un agujero negro? Dibuja un gato", "gato"),
-    ("fr", "Explique ce qu'est un trou noir et dessine un chat", "chat"),
-    ("de", "Erkläre, was ein schwarzes Loch ist, und zeichne auch eine Katze", "Katze"),
-    ("it", "Spiegami cos'è un buco nero e disegna un gatto", "gatto"),
-    ("pt", "Explique o que é um buraco negro e desenhe um gato", "gato"),
-    ("tr", "Kara deliğin ne olduğunu açıkla ve bir kedi çiz", "kedi"),
-    ("ru", "Объясни, что такое чёрная дыра, и нарисуй кошку", "кошку"),
+    ("es", "Explica qué es un agujero negro y dibújame un gato", "gato"),
+    ("es", "¿Qué es un agujero negro? ¿Me dibujas un gato?", "gato"),
+    ("es", "Explica la fotosíntesis y después dibújame un girasol", "girasol"),
+    ("fr", "Explique ce qu'est un trou noir et dessine-moi un chat", "chat"),
+    ("de", "Erkläre, was ein schwarzes Loch ist, und zeichne mir auch eine Katze", "Katze"),
+    ("de", "Erkläre, was ein schwarzes Loch ist, und kannst du mir eine Katze malen?", "Katze"),
+    ("it", "Spiegami cos'è un buco nero e disegnami un gatto", "gatto"),
+    ("pt", "Explique o que é um buraco negro e me desenhe um gato", "gato"),
+    ("pt", "Explique a fotossíntese e depois me desenhe um girassol", "girassol"),
+    ("tr", "Kara deliğin ne olduğunu açıkla ve bana bir kedi çiz", "kedi"),
+    ("tr", "Fotosentezi açıkla, sonra bana bir ayçiçeği çiz", "ayçiçeği"),
+    ("ru", "Объясни, что такое чёрная дыра, и нарисуй мне кошку", "кошку"),
+    ("ru", "Объясни фотосинтез, а потом нарисуй мне подсолнух", "подсолнух"),
     ("am", "ጥቁር ቀዳዳ ምን እንደሆነ አስረዳኝ እንዲሁም ድመት ሳልልኝ", "ድመት"),
 ]
 
@@ -141,11 +150,12 @@ def _not_drawn_line(text: str, locale: str) -> tuple[str, str]:
 
 
 @pytest.mark.parametrize(("lang", "text", "subject"), NATIVE[1:] + PICTURE_SECOND)
+@pytest.mark.parametrize("locale", ["en", "de"])
 def test_the_picture_starts_beside_the_answer_with_its_line_in_the_message_language(
-    lang: str, text: str, subject: str
+    lang: str, text: str, subject: str, locale: str
 ) -> None:
-    """An English app: the line is the message's language's, named exactly."""
-    drawn, line = _not_drawn_line(text, "en")
+    """Whatever the app's language, the line is the message's language's, named exactly."""
+    drawn, line = _not_drawn_line(text, locale)
     assert drawn == subject
     assert line.startswith(LINE_START[lang]), line
 
@@ -155,21 +165,3 @@ def test_a_picture_asked_second_plans_after_the_answer(lang: str, text: str, sub
     plan = plan_turn(text)
     assert [part.kind for part in plan.parts] == ["ask", "image"], lang
     assert reply_picture_prompt(text, Settings()) == subject
-
-
-@pytest.mark.parametrize(
-    ("text", "locale", "lang"),
-    [
-        # Portuguese wording ("um", "explique") is Portuguese, whatever the app's language.
-        ("Pinte um gato e explique o que é um buraco negro", "pt-BR", "pt"),
-        ("Pinte um gato e explique o que é um buraco negro", "es", "pt"),
-        ("Pinte um gato e explique o que é um buraco negro", "en", "pt"),
-        ("Pinta un gato y explica qué es un agujero negro", "pt-BR", "es"),
-    ],
-)
-def test_a_verb_spanish_and_portuguese_share_follows_the_wording(
-    text: str, locale: str, lang: str
-) -> None:
-    """ "pinta", "pinte" are Spanish and Portuguese: the message's own words decide."""
-    _drawn, line = _not_drawn_line(text, locale)
-    assert line.startswith(LINE_START[lang]), line

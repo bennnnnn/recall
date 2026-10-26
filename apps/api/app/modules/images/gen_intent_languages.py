@@ -1,305 +1,297 @@
-# ruff: noqa: RUF001, RUF002, RUF003 - Turkish dotless i, Cyrillic and maths signs are the words matched
-"""Picture requests in the app's other languages: the word lists ``gen_intent_local`` reads.
+# ruff: noqa: RUF001, RUF003 - Turkish dotless i and Cyrillic are the words matched
+"""Picture requests in the app's other languages: the few shapes ``gen_intent_local`` reads.
 
-English is ``gen_intent_words.py``; these are its shapes in Spanish, French, German,
-Italian, Portuguese, Russian, Turkish and Amharic. "Draw" (dibuja, zeichne, нарисуй)
-takes its subject; "create", "generate" and "make" need a picture noun first (erstelle
-ein Bild von …), as "make a decision" is no picture in English either. What a subject may
-not be (a table, a graph, a triangle, a molecule) is ``gen_intent_topics.py``. Words are
-lowercase; a phrase is a tuple of words.
+Only two unmistakable shapes draw in Spanish, French, German, Italian, Portuguese,
+Russian, Turkish and Amharic:
+
+- "draw me": a draw verb addressed to the assistant with "me" ("dibújame", "¿me
+  dibujas …?", "dessine-moi", "zeichne mir", "kannst du mir … zeichnen?", "mi disegni
+  …?", "me desenhe", "нарисуй мне", "bana … çiz", "… ሳልልኝ");
+- "create a picture of": create or generate, a picture noun, then "of" ("crea una
+  imagen de", "erstelle ein Bild von", "… resmi oluştur", "создай картинку …").
+
+Everything else ("Dibuja un gato", "Illustra il problema", "Mal den Teufel nicht an die
+Wand") is answered in words, as on main. A shape is written as slots: "a|b ?c d" is "a"
+or "b", then an optional "c", then "d"; "_" joins the words of one choice ("peux_tu").
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import product
 
 
 def _w(words: str) -> frozenset[str]:
     return frozenset(words.split())
 
 
-def _stems(words: str) -> tuple[str, ...]:
-    return tuple(words.split())
+def _phrases(words: str) -> tuple[tuple[str, ...], ...]:
+    """ "por_favor porfa": one phrase per word, "_" joining its words."""
+    return tuple(tuple(phrase.split("_")) for phrase in words.split())
 
 
-def _phrases(*phrases: str) -> tuple[tuple[str, ...], ...]:
-    return tuple(tuple(phrase.split()) for phrase in phrases)
-
-
-@dataclass(frozen=True)
-class VerbFirst:
-    """A language whose request starts with its verb: "Dibuja un gato con sombrero"."""
-
-    code: str
-    draw: frozenset[str]
-    create: frozenset[str]
-    # Verbs carrying their own "me": "dibújame", "disegnami".
-    draw_me: frozenset[str] = frozenset()
-    create_me: frozenset[str] = frozenset()
-    # Verbs that draw only with a "me" word: German "male mir …" ("male" is an English word).
-    needs_me: frozenset[str] = frozenset()
-    # Verbs that draw only before an article, "me" or a picture noun: Spanish "pinta un
-    # gato" paints, "¡pinta bien!" and "pinta que va a llover" say how something looks.
-    needs_article: frozenset[str] = frozenset()
-    me: frozenset[str] = frozenset()
-    # "Mach dir ein Bild davon" (picture it yourself), "fais-toi une image": no picture.
-    reflexive: frozenset[str] = frozenset()
-    # Said between the verb and its object: "zeichne bitte …", "zeichne mal …".
-    fillers: frozenset[str] = frozenset()
-    # "¿Puedes …", "Kannst du …": an infinitive follows (German: closes the request).
-    can_you: tuple[tuple[str, ...], ...] = ()
-    draw_infinitives: frozenset[str] = frozenset()
-    create_infinitives: frozenset[str] = frozenset()
-    infinitive_last: bool = False
-    # Portuguese "me desenhe um gato": the "me" comes before the verb.
-    me_first: bool = False
-    polite: tuple[tuple[str, ...], ...] = ()
-    nouns: frozenset[str] = frozenset()
-    of: frozenset[str] = frozenset()
-    # A subject that points back ("eso", "das"): the chat names it, not the message.
-    pronouns: frozenset[str] = frozenset()
-    # Articles that are also pronouns ("la", "das"): one only when nothing follows.
-    determiners: frozenset[str] = frozenset()
-    again: tuple[tuple[str, ...], ...] = ()
-    # German separable verbs: "zeichne das Gespräch auf" records it.
-    particles: frozenset[str] = frozenset()
-    # What the picture is for ("para mi proyecto"): its words are not the subject.
-    purpose: frozenset[str] = frozenset()
+def _expand(pattern: str) -> frozenset[tuple[str, ...]]:
+    """Every word sequence ``pattern`` writes ("me puedes|podrías dibujar")."""
+    slots: list[list[tuple[str, ...]]] = []
+    for slot in pattern.split():
+        choices = [tuple(choice.split("_")) for choice in slot.lstrip("?").split("|")]
+        slots.append([*choices, ()] if slot.startswith("?") else choices)
+    return frozenset(tuple(word for part in seq for word in part) for seq in product(*slots))
 
 
 @dataclass(frozen=True)
-class VerbLast:
-    """A language whose verb closes the request: "Şapkalı bir kedi çiz"."""
+class Shape:
+    """A request: one of ``leads``, the subject, then one of ``tails`` (``()`` is none)."""
 
-    code: str
-    draw: frozenset[str]
-    create: frozenset[str]
-    # "Çizer misin?": the verb, then the question word.
-    asked_draw: frozenset[str] = frozenset()
-    asked_create: frozenset[str] = frozenset()
-    question: frozenset[str] = frozenset()
-    # Amharic "ሳል" is also "a cough": a bare "draw" needs a picture noun before it.
-    bare_draw: frozenset[str] = frozenset()
-    me: frozenset[str] = frozenset()
-    article: frozenset[str] = frozenset()
-    polite: frozenset[str] = frozenset()
-    nouns: frozenset[str] = frozenset()
-    # Amharic "የድመት ምስል": "of" is the subject's first letter.
+    leads: frozenset[tuple[str, ...]]
+    tails: frozenset[tuple[str, ...]]
+    # Amharic "የድመት ምስል ፍጠር": "of" is the subject's first letter.
     of_prefix: str = ""
+    # Their lengths, longest first: a set lookup per length, not a scan of every phrase.
+    lead_sizes: tuple[int, ...] = ()
+    tail_sizes: tuple[int, ...] = ()
+
+
+def _shape(lead: str = "", tail: str = "", of_prefix: str = "") -> Shape:
+    leads = _expand(lead) if lead else frozenset({()})
+    tails = _expand(tail) if tail else frozenset({()})
+    sizes = [tuple(sorted({len(seq) for seq in seqs}, reverse=True)) for seqs in (leads, tails)]
+    return Shape(leads, tails, of_prefix, *sizes)
+
+
+@dataclass(frozen=True)
+class Language:
+    code: str
+    shapes: tuple[Shape, ...]
+    # The picture verbs: a message with none of them asks for no picture.
+    verbs: frozenset[str]
+    polite: tuple[tuple[str, ...], ...] = ()
+    # Said between the lead and the subject: "zeichne mir bitte …", "zeichne mir mal …".
+    fillers: frozenset[str] = frozenset()
+    # A subject that points back ("eso", "das"): only the chat could name it.
     pronouns: frozenset[str] = frozenset()
+    # A definite subject ("la pirámide alimenticia", "das Verdauungssystem", "l'anatomie
+    # de l'œil") is a school figure or a known thing far more often than a picture to
+    # invent: "un dragón", "einen Drachen" draw.
+    definite: frozenset[str] = frozenset()
+    # Turkish marks a definite object by its ending ("sistemini", "kediyi"): "bir kedi".
+    definite_endings: tuple[str, ...] = ()
     again: tuple[tuple[str, ...], ...] = ()
-    # "Projem için bir kedi çiz": the words up to it say what the picture is for.
-    purpose: frozenset[str] = frozenset()
+    # German separable verbs: "zeichne mir das auf" writes it down, "male mir aus" imagines.
+    particles: frozenset[str] = frozenset()
 
 
-SPANISH = VerbFirst(
+def _verbs(*patterns: str) -> frozenset[str]:
+    """The first word of each choice: "zeichnen_sie" is "zeichnen"."""
+    return frozenset(
+        choice.split("_")[0] for pattern in patterns for choice in pattern.replace("|", " ").split()
+    )
+
+
+# Spanish.
+_ES_ME = "dibújame|dibujame|dibújeme|dibujeme|píntame|pintame"
+_ES_YOU = "dibujas|dibujarías|dibujarias|pintas"
+_ES_CAN = "puedes|podrías|podrias|puede|podría|podria|podés"
+_ES_TO_ME = "dibujarme|pintarme"
+_ES_TO = "dibujar|pintar"
+_ES_CREATE = "crea|genera|haz|cree|genere|haga|créame|creame|genérame|generame|hazme|hágame|hagame"
+_ES_TO_CREATE = "crear|generar|hacer|crearme|generarme|hacerme"
+_ES_PICTURE = "?una|un imagen|ilustración|ilustracion|dibujo de"
+
+SPANISH = Language(
     "es",
-    purpose=_w("para"),
-    draw=_w("dibuja dibujá dibuje dibujad pintá ilustra ilustre"),
-    needs_article=_w("pinta pinte"),
-    create=_w("crea creá cree genera generá genere haz haga diseña diseñe produce"),
-    draw_me=_w("dibújame dibujame dibújeme dibujeme píntame pintame ilústrame"),
-    create_me=_w("créame creame genérame generame hazme hágame hagame diséñame"),
-    me=_w("me"),
-    can_you=_phrases(
-        "puedes",
-        "podrías",
-        "podrias",
-        "podés",
-        "puede",
-        "podría",
-        "podria",
-        "me puedes",
-        "me podrías",
-        "me podrias",
-        "me puede",
-        "me podría",
+    shapes=(
+        _shape(_ES_ME),
+        _shape(f"me {_ES_YOU}"),
+        _shape(f"?me {_ES_CAN} {_ES_TO_ME}"),
+        _shape(f"me {_ES_CAN} {_ES_TO}"),
+        _shape(f"{_ES_CREATE} {_ES_PICTURE}"),
+        _shape(f"?me {_ES_CAN} {_ES_TO_CREATE} {_ES_PICTURE}"),
     ),
-    draw_infinitives=_w("dibujar dibujarme pintar pintarme ilustrar"),
-    create_infinitives=_w("crear crearme generar generarme hacer hacerme diseñar diseñarme"),
-    polite=_phrases("por favor", "porfa", "porfavor"),
-    nouns=_w(
-        "imagen imágenes imagenes dibujo dibujos foto fotos fotografía fotografia "
-        "ilustración ilustracion ilustraciones retrato retratos pintura"
-    ),
-    of=_w("de del"),
-    pronouns=_w("eso esto ello aquello ese esa este esta estos estas esos esas mí"),
-    determiners=_w("el lo la los las le"),
-    again=_phrases("otra vez", "de nuevo", "nuevamente"),
+    verbs=_verbs(_ES_ME, _ES_YOU, _ES_TO_ME, _ES_TO, _ES_CREATE, _ES_TO_CREATE),
+    polite=_phrases("por_favor porfa porfavor"),
+    pronouns=_w("eso esto ello aquello ese esa este esta estos estas esos esas mí lo"),
+    definite=_w("el la los las le al del"),
+    again=_phrases("otra_vez de_nuevo nuevamente"),
 )
 
-FRENCH = VerbFirst(
+# French: "dessine-moi" is "dessine" then "moi" (gen_intent_local splits the clitic).
+_FR_DRAW = "dessine|dessinez|peins|peignez"
+_FR_YOU = "dessines|dessinerais|dessinez|dessineriez|peins"
+_FR_CAN = (
+    "peux_tu|pouvez_vous|pourrais_tu|pourriez_vous|tu_peux|vous_pouvez|tu_pourrais|vous_pourriez"
+)
+_FR_CREATE = "crée|créez|cree|creez|génère|générez|genere|generez"
+_FR_TO_CREATE = "créer|creer|générer|generer"
+_FR_PICTURE = "une|un image|illustration|dessin de|d'"
+
+FRENCH = Language(
     "fr",
-    purpose=_w("pour"),
-    draw=_w("dessine dessinez peins peignez illustre illustrez"),
-    create=_w("crée créez cree creez génère générez genere generez fais faites conçois produis"),
-    me=_w("moi me m'"),
-    reflexive=_w("toi te t'"),
-    can_you=_phrases(
-        "peux tu",
-        "pouvez vous",
-        "pourrais tu",
-        "pourriez vous",
-        "tu peux",
-        "vous pouvez",
-        "tu pourrais",
-        "vous pourriez",
+    shapes=(
+        _shape(f"{_FR_DRAW} moi"),
+        _shape(f"tu|vous me {_FR_YOU}"),
+        _shape(f"{_FR_CAN} me dessiner|peindre"),
+        _shape(f"{_FR_CREATE} ?moi {_FR_PICTURE}"),
+        _shape(f"{_FR_CAN} ?me {_FR_TO_CREATE} {_FR_PICTURE}"),
     ),
-    draw_infinitives=_w("dessiner peindre illustrer"),
-    create_infinitives=_w("créer creer générer generer faire concevoir produire"),
-    polite=_phrases(
-        "s' il te plaît", "s' il te plait", "s' il vous plaît", "s' il vous plait", "stp", "svp"
-    ),
-    nouns=_w(
-        "image images dessin dessins photo photos illustration illustrations portrait "
-        "portraits peinture peintures"
-    ),
-    of=_w("de d' du des"),
+    verbs=_verbs(_FR_DRAW, _FR_YOU, "dessiner peindre", _FR_CREATE, _FR_TO_CREATE),
+    polite=_phrases("s'_il_te_plaît s'_il_te_plait s'_il_vous_plaît s'_il_vous_plait stp svp"),
     pronouns=_w("ça ca cela ceci ce cet cette ces moi"),
-    determiners=_w("le la les l'"),
-    again=_phrases("encore", "à nouveau", "a nouveau", "de nouveau"),
+    definite=_w("le la les l' du des au aux"),
+    again=_phrases("encore à_nouveau a_nouveau de_nouveau"),
 )
 
-GERMAN = VerbFirst(
+# German: "kannst du mir eine Katze zeichnen?" closes with its verb.
+_DE_DRAW = "zeichne|zeichnet|male|mal|zeichnen_sie|malen_sie"
+_DE_CAN = "kannst_du|könntest_du|koenntest_du|können_sie|könnten_sie"
+_DE_CREATE = "erstelle|erstell|generiere|generier|erzeuge|erzeug"
+_DE_PICTURE = "ein|eine bild|zeichnung|illustration von"
+
+GERMAN = Language(
     "de",
-    draw=_w("zeichne zeichnet zeichnen illustriere illustrieren"),
-    create=_w(
-        "erstelle erstell erstellen generiere generier generieren erzeuge erzeug erzeugen "
-        "mache mach machen gestalte gestalten entwirf entwerfe entwerfen"
+    shapes=(
+        _shape(f"{_DE_DRAW} mir|uns"),
+        _shape(f"{_DE_CAN} mir|uns", "zeichnen|malen"),
+        _shape(f"{_DE_CREATE} ?mir|uns {_DE_PICTURE}"),
+        _shape(f"{_DE_CAN} ?mir|uns {_DE_PICTURE}", "erstellen|generieren|erzeugen"),
     ),
-    # "Male eine Katze" paints ("male lions" is English). "Mal" alone is an everyday word
-    # ("mal sehen", "Mal den Teufel nicht an die Wand"): it draws only with "mir".
-    needs_article=_w("male"),
-    needs_me=_w("mal"),
-    me=_w("mir uns ihr ihm"),
-    reflexive=_w("dir dich sich euch"),
-    # "Zeichnen Sie …" is the polite imperative; "sie" after another verb is "her".
-    fillers=_w("bitte mal doch einfach sie"),
-    can_you=_phrases("kannst du", "könntest du", "koenntest du", "können sie", "könnten sie"),
-    draw_infinitives=_w("zeichnen malen illustrieren"),
-    create_infinitives=_w("erstellen generieren erzeugen machen gestalten entwerfen"),
-    infinitive_last=True,
+    verbs=_verbs(_DE_DRAW, "zeichnen malen", _DE_CREATE, "erstellen generieren erzeugen"),
     polite=_phrases("bitte"),
-    nouns=_w(
-        "bild bilder foto fotos zeichnung zeichnungen illustration illustrationen gemälde "
-        "gemaelde porträt porträts portrait portraits"
-    ),
-    of=_w("von vom"),
+    fillers=_w("bitte mal doch einfach schnell"),
     pronouns=_w("es dies dieses diese diesen ihn mir mich davon dazu darüber"),
-    determiners=_w("das die den der"),
-    again=_phrases("nochmal", "noch mal", "noch einmal", "erneut", "wieder"),
+    definite=_w("das die den der dem des vom zum zur"),
+    again=_phrases("nochmal noch_mal noch_einmal erneut wieder"),
     particles=_w("auf ab aus an ein vor"),
-    purpose=_w("für"),
 )
 
-ITALIAN = VerbFirst(
+# Italian.
+_IT_ME = "disegnami|dipingimi"
+_IT_YOU = "disegni|dipingi|disegneresti|dipingeresti"
+_IT_CAN = "puoi|potresti|può|potrebbe"
+_IT_CREATE = "crea|genera|creami|generami"
+_IT_TO_CREATE = "creare|generare|crearmi|generarmi"
+_IT_PICTURE = "un'|una|un immagine|illustrazione|disegno di|d'"
+
+ITALIAN = Language(
     "it",
-    purpose=_w("per"),
-    # Not "disegni": it is also "drawings" ("disegni animati" are cartoons).
-    draw=_w("disegna disegnate dipingi dipinga illustra"),
-    create=_w("crea genera fai realizza produci"),
-    draw_me=_w("disegnami dipingimi illustrami"),
-    create_me=_w("creami generami fammi realizzami"),
-    me=_w("mi"),
-    can_you=_phrases(
-        "puoi", "potresti", "può", "potrebbe", "mi puoi", "mi potresti", "mi può", "mi potrebbe"
+    shapes=(
+        _shape(_IT_ME),
+        _shape(f"mi {_IT_YOU}"),
+        _shape(f"{_IT_CAN} disegnarmi|dipingermi"),
+        _shape(f"mi {_IT_CAN} disegnare|dipingere"),
+        _shape(f"{_IT_CREATE} {_IT_PICTURE}"),
+        _shape(f"?mi {_IT_CAN} {_IT_TO_CREATE} {_IT_PICTURE}"),
     ),
-    draw_infinitives=_w("disegnare disegnarmi dipingere dipingermi illustrare"),
-    create_infinitives=_w("creare crearmi generare generarmi fare farmi realizzare realizzarmi"),
-    polite=_phrases("per favore", "per piacere", "perfavore"),
-    nouns=_w(
-        "immagine immagini disegno foto fotografia illustrazione illustrazioni ritratto "
-        "ritratti dipinto dipinti"
+    verbs=_verbs(
+        _IT_ME, _IT_YOU, "disegnarmi dipingermi disegnare dipingere", _IT_CREATE, _IT_TO_CREATE
     ),
-    of=_w("di del della dello dei degli delle d'"),
+    polite=_phrases("per_favore per_piacere perfavore"),
     pronouns=_w("questo questa quello quella questi queste quelli ciò cio me"),
-    determiners=_w("lo la li le l'"),
-    again=_phrases("di nuovo", "ancora"),
+    definite=_w("il lo la i gli le l' del della dello dei degli delle"),
+    again=_phrases("di_nuovo ancora"),
 )
 
-PORTUGUESE = VerbFirst(
+# Portuguese: "desenha-me" is "desenha" then "me".
+_PT_DRAW = "desenha|desenhe|desenhas"
+_PT_CAN = (
+    "pode|podes|poderia|consegue|você_pode|voce_pode|você_poderia|voce_poderia|"
+    "você_consegue|voce_consegue|tu_podes"
+)
+_PT_CREATE = "crie|cria|gere|gera"
+_PT_PICTURE = "uma|um imagem|ilustração|ilustracao|desenho de"
+
+PORTUGUESE = Language(
     "pt",
-    purpose=_w("para"),
-    draw=_w("desenhe desenha ilustre ilustra"),
-    needs_article=_w("pinte pinta"),
-    create=_w("crie cria gere gera faça faca faz produza"),
-    me=_w("me"),
-    can_you=_phrases(
-        "pode", "você pode", "voce pode", "podes", "poderia", "você poderia", "consegue"
+    shapes=(
+        _shape(f"{_PT_DRAW} me"),
+        _shape(f"?você|voce|tu me {_PT_DRAW}"),
+        _shape(f"{_PT_CAN} me desenhar"),
+        _shape(f"{_PT_CAN} desenhar me"),
+        _shape(f"{_PT_CREATE} ?me {_PT_PICTURE}"),
+        _shape(f"{_PT_CAN} ?me criar|gerar {_PT_PICTURE}"),
     ),
-    draw_infinitives=_w("desenhar pintar ilustrar"),
-    create_infinitives=_w("criar gerar fazer produzir"),
-    me_first=True,
-    polite=_phrases("por favor", "pfv"),
-    nouns=_w(
-        "imagem imagens desenho desenhos foto fotos fotografia ilustração ilustracao "
-        "ilustrações retrato retratos pintura"
-    ),
-    of=_w("de do da dos das"),
+    verbs=_verbs(_PT_DRAW, "desenhar", _PT_CREATE, "criar gerar"),
+    polite=_phrases("por_favor pfv"),
     pronouns=_w("isso isto aquilo este esta esse essa aquele aquela estes estas esses essas mim"),
-    determiners=_w("o a os as"),
-    again=_phrases("de novo", "outra vez", "novamente"),
+    definite=_w("o a os as do da dos das ao"),
+    again=_phrases("de_novo outra_vez novamente"),
 )
 
-RUSSIAN = VerbFirst(
+# Russian: "создай картинку льва" names the subject without an "of".
+_RU_DRAW = "нарисуй|нарисуйте|нарисуешь|нарисуете"
+_RU_CAN = "можешь|можете|ты_можешь|вы_можете"
+_RU_CREATE = "создай|создайте|сгенерируй|сгенерируйте"
+_RU_PICTURE = "изображение|картинку|рисунок|иллюстрацию"
+
+RUSSIAN = Language(
     "ru",
-    purpose=_w("для"),
-    draw=_w("нарисуй нарисуйте нарисуешь"),
-    create=_w("создай создайте сгенерируй сгенерируйте сделай сделайте"),
-    me=_w("мне нам"),
-    can_you=_phrases(
-        "можешь", "можете", "ты можешь", "вы можете", "мог бы", "могла бы", "могли бы"
+    shapes=(
+        _shape(f"{_RU_DRAW} мне|нам"),
+        _shape(f"{_RU_CAN} нарисовать мне|нам"),
+        _shape(f"{_RU_CAN} мне|нам нарисовать"),
+        _shape(f"{_RU_CREATE} ?мне|нам {_RU_PICTURE}"),
+        _shape(f"{_RU_CAN} ?мне|нам создать|сгенерировать {_RU_PICTURE}"),
     ),
-    draw_infinitives=_w("нарисовать"),
-    create_infinitives=_w("создать сгенерировать сделать"),
-    polite=_phrases("пожалуйста", "плиз", "пж"),
-    nouns=_w(
-        "изображение изображения картинку картинка картинки картину картина рисунок "
-        "рисунки фото фотографию фотография фотку иллюстрацию иллюстрация портрет арт"
-    ),
+    verbs=_verbs(_RU_DRAW, "нарисовать", _RU_CREATE, "создать сгенерировать"),
+    polite=_phrases("пожалуйста плиз пж"),
     pronouns=_w("это этого эту этот эти его её ее их то того тот ту меня"),
-    again=_phrases("ещё раз", "еще раз", "снова", "опять", "заново"),
+    again=_phrases("ещё_раз еще_раз снова опять заново"),
 )
 
-TURKISH = VerbLast(
+# Turkish closes with its verb: "Bana bir kedi çiz", "Bir aslan resmi oluştur".
+_TR_DRAW = (
+    "çiz|çizin|çizsene|çizer_misin|çizer_misiniz|çizebilir_misin|çizebilir_misiniz|"
+    "çizermisin|çizebilirmisin"
+)
+_TR_CREATE = (
+    "oluştur|oluşturun|oluştursana|üret|üretin|oluşturur_musun|oluşturabilir_misin|"
+    "üretir_misin|üretebilir_misin"
+)
+
+TURKISH = Language(
     "tr",
-    draw=_w("çiz çizin çizsene çizermisin çizebilirmisin"),
-    create=_w("oluştur oluşturun oluştursana üret üretin yap yapın yapsana tasarla tasarlayın"),
-    asked_draw=_w("çizer çizebilir"),
-    asked_create=_w("oluşturur oluşturabilir üretir üretebilir yapar yapabilir tasarlar"),
-    question=_w("misin mısın musun müsün misiniz mısınız musunuz müsünüz"),
-    me=_w("bana bize"),
-    article=_w("bir"),
-    polite=_w("lütfen lutfen"),
-    nouns=_w(
-        "resim resmi resmini görsel görseli görselini görüntü görüntüsü görüntüsünü "
-        "fotoğraf fotoğrafı fotoğrafını foto fotosu fotosunu çizim çizimi çizimini "
-        "illüstrasyon illüstrasyonu illüstrasyonunu portre portresi portresini"
+    shapes=(
+        _shape("bana|bize", _TR_DRAW),
+        _shape("?bana|bize", f"resmi|resmini|görseli|görselini {_TR_CREATE}"),
     ),
+    verbs=_verbs(_TR_DRAW, _TR_CREATE),
+    polite=_phrases("lütfen lutfen"),
     pronouns=_w("bunu onu şunu bunları onları şunları bu şu o"),
-    again=_phrases("tekrar", "yine", "yeniden"),
-    purpose=_w("için"),
+    definite_endings=("nı", "ni", "nu", "nü", "yı", "yi", "yu", "yü"),
+    again=_phrases("tekrar yine yeniden"),
 )
 
-# Amharic: "draw for me" (ሳልልኝ) is never anything else; bare "ሳል" is also "a cough"
-# ("ደረቅ ሳል", a dry cough), so it draws only after a picture noun ("የድመት ስዕል ሳል").
-AMHARIC = VerbLast(
+# Amharic: "ድመት ሳልልኝ" (draw me a cat); bare "ሳል" is also "a cough" and draws nothing.
+_AM_DRAW = "ሳልልኝ|ሣልልኝ|ሳይልኝ|ሣይልኝ|ሳሉልኝ|ሣሉልኝ"
+_AM_CREATE = "ፍጠርልኝ|ፍጠሪልኝ|ፍጠሩልኝ|ፍጠር|ፍጠሪ|ፍጠሩ"
+_AM_PICTURE = "ምስል|ስዕል|ሥዕል|ስእል"
+
+AMHARIC = Language(
     "am",
-    draw=_w("ሳልልኝ ሣልልኝ ሳይልኝ ሣይልኝ ሳሉልኝ ሣሉልኝ"),
-    create=_w("ፍጠርልኝ ፍጠሪልኝ ፍጠሩልኝ ፍጠር ፍጠሪ ፍጠሩ አመንጭ አመንጪ አመንጩ"),
-    bare_draw=_w("ሳል ሣል ሳይ ሣይ ሳሉ ሣሉ"),
-    polite=_w("እባክህ እባክሽ እባካችሁ እባክዎ እባክዎን"),
-    nouns=_w("ምስል ስዕል ሥዕል ስእል ፎቶ"),
-    of_prefix="የ",
+    shapes=(
+        _shape(tail=f"{_AM_PICTURE} {_AM_DRAW}", of_prefix="የ"),
+        _shape(tail=f"{_AM_PICTURE} {_AM_CREATE}", of_prefix="የ"),
+        _shape(tail=_AM_DRAW),
+    ),
+    verbs=_verbs(_AM_DRAW, _AM_CREATE),
+    polite=_phrases("እባክህ እባክሽ እባካችሁ እባክዎ እባክዎን"),
     pronouns=_w("ይህን ይሄን ያንን እሱን እሷን እነሱን"),
     again=_phrases("እንደገና"),
 )
 
-VERB_FIRST: tuple[VerbFirst, ...] = (SPANISH, PORTUGUESE, ITALIAN, FRENCH, GERMAN, RUSSIAN)
-VERB_LAST: tuple[VerbLast, ...] = (TURKISH, AMHARIC)
+LANGUAGES: tuple[Language, ...] = (
+    SPANISH,
+    FRENCH,
+    GERMAN,
+    ITALIAN,
+    PORTUGUESE,
+    RUSSIAN,
+    TURKISH,
+    AMHARIC,
+)
 
-# Articles any verb-first language may put before its object ("un", "eine", "uma").
-ARTICLES = _w("un una uno un' une ein eine einen einem einer um uma")
+# Dropped before the subject ("dibújame un gato" draws "gato").
+ARTICLES = _w("un una uno un' une ein eine einen einem einer um uma bir")
 
 # What joins a second request to a picture: "… und erkläre auch, was …", "… ve ayrıca …".
 CONNECTORS = _w(
@@ -311,9 +303,8 @@ ALSO = _w(
     "também tambem além disso ayrıca также тоже ещё еще እንዲሁም ደግሞ ደግሞም"
 )
 # A second request: one of these starts it (in Turkish and Amharic, a verb ends it).
-# "Explain", "tell me": the verbs may follow a comma ("Нарисуй кошку, объясни …"). Only
-# verbs that ask for an answer: "write its name below", "give it a hat", "show it smiling"
-# and Turkish "yaz" (also "summer") add to the picture.
+# Only verbs that ask for an answer: "write its name below", "give it a hat" add to the
+# picture, and Turkish "yaz" is also "summer".
 ASK_VERBS = _w(
     # English, for a picture asked in one language and the rest in English.
     "explain tell help "
@@ -331,8 +322,7 @@ ASK_VERBS = _w(
     "አስረዳ አስረዳኝ አስረዱኝ አብራራ አብራራልኝ ንገረኝ ንገሪኝ ግለጽ"
 )
 # Question words, after "and" or a new sentence. Only words that ask: "como", "come", "как"
-# are also "like", "quand", "когда", "где" open a clause about the picture ("et quand il
-# dort"), "ne" is French, and "que", "che", "qui" describe it ("un chat qui danse").
+# are also "like", and "que", "che", "qui" describe the picture ("un chat qui danse").
 ASK_QUESTIONS = _w(
     "what how why who "
     "qué cómo quién cuál cuáles dónde cuándo cuánto "

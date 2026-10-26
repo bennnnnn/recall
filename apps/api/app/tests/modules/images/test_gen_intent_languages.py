@@ -1,7 +1,10 @@
-"""Picture requests in the app's other languages read as English ones do.
+"""Picture requests in the app's other languages: only the unmistakable shapes draw.
 
-"Zeichne eine Katze mit Hut" drew nothing: every rule read English words. Each case
-here was None before ``gen_intent_local``.
+"Zeichne mir eine Katze mit Hut" drew nothing on main: every rule read English words.
+Now a draw verb addressed with "me" ("dibújame", "¿me dibujas …?", "zeichne mir", "mi
+disegni …?", "нарисуй мне", "bana … çiz", "… ሳልልኝ") and "create a picture of" ("crea una
+imagen de", "erstelle ein Bild von") draw a short, plain subject. Everything else in
+those languages is answered in words, as on main.
 """
 
 from __future__ import annotations
@@ -13,153 +16,173 @@ import pytest
 
 from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.images.gen_intent import extract_image_gen_prompt
-from app.modules.images.gen_intent_parts import Part, picture_and_request
+from app.modules.images.gen_intent_parts import Part, picture_and_request, picture_language
 from app.modules.images.intent import composer_image_intent, image_gen_request
 
-# One plain "draw" request per app language (English for comparison).
-DRAW = [
-    ("en", "Draw a cat with a hat", "cat with a hat"),
-    ("es", "Dibuja un gato con sombrero", "gato con sombrero"),
-    ("fr", "Dessine un chat avec un chapeau", "chat avec un chapeau"),
-    ("de", "Zeichne eine Katze mit Hut", "Katze mit Hut"),
-    ("it", "Disegna un gatto con il cappello", "gatto con il cappello"),
-    ("pt", "Desenhe um gato com chapéu", "gato com chapéu"),
-    ("tr", "Şapkalı bir kedi çiz", "Şapkalı bir kedi"),
-    ("ru", "Нарисуй кошку в шляпе", "кошку в шляпе"),
-    ("am", "ድመት ሳልልኝ", "ድመት"),
+# At least six common requests per language, with the subject drawn.
+DRAWN: dict[str, list[tuple[str, str]]] = {
+    "es": [
+        ("Dibújame un dragón", "dragón"),
+        ("¿Me dibujas un dragón?", "dragón"),
+        ("Dibújame un gato con sombrero", "gato con sombrero"),
+        ("Píntame un atardecer en la playa", "atardecer en la playa"),
+        ("¿Puedes dibujarme un unicornio?", "unicornio"),
+        ("¿Me puedes dibujar un castillo?", "castillo"),
+        ("Crea una imagen de un león", "león"),
+        ("Genera una ilustración de un bosque mágico", "bosque mágico"),
+    ],
+    "fr": [
+        ("Dessine-moi un mouton", "mouton"),
+        ("Tu peux me dessiner un chat ?", "chat"),
+        ("Peux-tu me dessiner un dragon ?", "dragon"),
+        ("Dessinez-moi une maison dans la forêt", "maison dans la forêt"),
+        ("Tu me dessines un panda ?", "panda"),
+        ("Génère une image d'un lion", "lion"),
+        ("Crée une illustration d'une forêt magique", "forêt magique"),
+    ],
+    "de": [
+        ("Zeichne mir einen Drachen", "Drachen"),
+        ("Male mir eine Katze mit Hut", "Katze mit Hut"),
+        ("Mal mir einen Drachen", "Drachen"),
+        ("Kannst du mir einen Panda malen?", "Panda"),
+        ("Kannst du mir bitte eine Katze zeichnen?", "Katze"),
+        ("Zeichne mir bitte ein Einhorn", "Einhorn"),
+        ("Erstelle ein Bild von einem Löwen", "Löwen"),
+    ],
+    "it": [
+        ("Disegnami un drago", "drago"),
+        ("Mi disegni un panda?", "panda"),
+        ("Puoi disegnarmi un gatto?", "gatto"),
+        ("Mi puoi disegnare un castello?", "castello"),
+        ("Dipingimi un tramonto sul mare", "tramonto sul mare"),
+        ("Crea un'immagine di un leone", "leone"),
+        ("Genera un'illustrazione di una foresta magica", "foresta magica"),
+    ],
+    "pt": [
+        ("Desenha-me um gato", "gato"),
+        ("Me desenhe um cachorro", "cachorro"),
+        ("Pode me desenhar um dragão?", "dragão"),
+        ("Você pode me desenhar um unicórnio?", "unicórnio"),
+        ("Me desenha um castelo nas nuvens", "castelo nas nuvens"),
+        ("Crie uma imagem de um leão", "leão"),
+        ("Gere uma ilustração de uma floresta mágica", "floresta mágica"),
+    ],
+    "ru": [
+        ("Нарисуй мне собаку", "собаку"),
+        ("Нарисуй мне единорога", "единорога"),
+        ("Можешь нарисовать мне кота?", "кота"),
+        ("Нарисуйте мне замок в облаках", "замок в облаках"),
+        ("Можешь мне нарисовать дракона?", "дракона"),
+        ("Создай изображение льва", "льва"),
+        ("Сгенерируй картинку замка в облаках", "замка в облаках"),
+    ],
+    "tr": [
+        ("Bana bir panda çizer misin?", "panda"),
+        ("Bana bir kedi çiz", "kedi"),
+        ("Bana şapkalı bir kedi çiz", "şapkalı bir kedi"),
+        ("Bana bir ejderha çizebilir misin?", "ejderha"),
+        ("Bana bir unicorn çiz lütfen", "unicorn"),
+        ("Bir aslan resmi oluştur", "aslan"),
+        ("Büyülü bir orman görseli oluştur", "Büyülü bir orman"),
+    ],
+    "am": [
+        ("ድመት ሳልልኝ", "ድመት"),
+        ("የዘንዶ ስዕል ሳልልኝ", "ዘንዶ"),
+        ("እባክህ ድመት ሳልልኝ", "ድመት"),
+        ("የአንበሳ ምስል ፍጠር", "አንበሳ"),
+        ("የአበባ ምስል ፍጠርልኝ", "አበባ"),
+        ("ፈረስ ሳልልኝ", "ፈረስ"),
+    ],
+}
+DRAWN_CASES = [(lang, text, subject) for lang, cases in DRAWN.items() for text, subject in cases]
+
+# On main and now, answered in words: no "me", no picture noun with "of", a definite or
+# pointing-back subject, a long or numeric one, the "illustrate" verbs, Turkish and
+# Amharic without "bana" / "ልኝ", German "mal" without "mir", a photo.
+ANSWERED = [
+    "Dibuja un gato",
+    "Dibuja un gato con sombrero",
+    "Zeichne eine Katze mit Hut",
+    "Male eine Katze",
+    "Dessine un chat",
+    "Disegna un gatto",
+    "Desenhe um gato com chapéu",
+    "Нарисуй кошку",
+    "Şapkalı bir kedi çiz",
+    "Bir kedi çizer misin?",
+    "የድመት ስዕል ሳል",
+    "Ilustra un bosque",
+    "Illustrami un drago",
+    "Genera una foto di un gatto",
+    "Crea una imagen realista de un león",
+    "Me desenhe o Pikachu",
+    "Dessine-moi la tour Eiffel",
+    "Zeichne mir den Mond",
+    "Bana kediyi çiz",
+    "Zeichne mir das größer",
+    "Dibújame eso otra vez",
+    "Нарисуй мне это ещё раз",
+    "Dibújame un gato con 3 colas",
+    "Dibújame un gato grande negro con un sombrero rojo enorme",
+    "Dibújame y = x^2",
+    "Zeichne mir Ethanol",
 ]
 
-# "Generate / create an image of …", the noun shape.
-GENERATE = [
-    ("en", "Generate an image of a lion", "a lion"),
-    ("es", "Genera una imagen de un león", "un león"),
-    ("fr", "Génère une image d'un lion", "un lion"),
-    ("de", "Erstelle ein Bild von einem Löwen", "einem Löwen"),
-    ("it", "Genera un'immagine di un leone", "un leone"),
-    ("pt", "Gere uma imagem de um leão", "um leão"),
-    ("tr", "Bir aslan resmi oluştur", "aslan"),
-    ("ru", "Создай изображение льва", "льва"),
-    ("am", "የአንበሳ ምስል ፍጠር", "አንበሳ"),
-]
 
-# Asked politely, with "me", or as a question, as English "can you draw me …" is.
-POLITE = [
-    ("Dessine-moi un mouton", "mouton"),
-    ("Tu peux me dessiner un chat ?", "chat"),
-    ("Kannst du mir bitte eine Katze zeichnen?", "Katze"),
-    ("Zeichne bitte eine Katze", "Katze"),
-    ("Zeichnen Sie eine Katze", "Katze"),
-    ("Male mir einen Drachen", "Drachen"),
-    # "Paint a cat" draws: "male" with an article paints ("male lions" is English).
-    ("Male eine Katze", "Katze"),
-    ("¿Puedes dibujar un gato?", "gato"),
-    ("Dibújame un perro", "perro"),
-    ("Dibuja un gato, por favor", "gato"),
-    ("Disegnami un drago", "drago"),
-    ("Me desenhe um cachorro", "cachorro"),
-    ("Pode desenhar um cachorro?", "cachorro"),
-    ("Bana bir kedi çizer misin lütfen?", "kedi"),
-    ("Нарисуй мне собаку", "собаку"),
-    ("Можешь нарисовать собаку?", "собаку"),
-    ("Erstelle ein realistisches Bild von einem Löwen", "einem Löwen"),
-    ("Fais un dessin d'un chat", "un chat"),
-    ("Сгенерируй картинку с котом", "с котом"),
-    ("የድመት ስዕል ሳል", "ድመት"),
-]
+@pytest.mark.parametrize(("lang", "text", "subject"), DRAWN_CASES)
+def test_a_draw_me_or_create_request_draws(lang: str, text: str, subject: str) -> None:
+    assert extract_image_gen_prompt(text) == subject
+    assert picture_language(text) == lang
 
-# Look-alikes: each English twin draws nothing on main either, or goes to a subject
-# ("draw a conclusion", "draw me a table of the results", "draw a graph of y=x^2" is
-# maths, "draw ethanol" chemistry, "make a list", "draw it again" is the thread's).
-NOT_A_PICTURE = [
-    "Dibuja una conclusión",
-    "dibuja el límite de 1/x cuando x tiende a 0",
-    "dibuja la gráfica de y=x^2",
-    "Dibuja un triángulo rectángulo",
-    "Dibuja la molécula de etanol",
-    "Dibuja una tabla con los resultados",
-    "dibuja eso otra vez",
-    "Crea una lista de compras",
-    "Haz un plan de estudio",
-    "Haz una foto",
-    "Me encanta dibujar gatos",
-    "Dessine le graphique de la fonction f(x)=x²",
-    "dessine un triangle de côtés 3, 4 et 5",
-    "Dessine un tableau des résultats",
-    "Fais-moi une liste",
-    "Je dessine un chat",
-    "Zeichne mir eine Tabelle der Ergebnisse",
-    "Zeichne den Graphen von y=x^2",
-    "Zeichne ein Dreieck mit den Seiten 3, 4 und 5",
-    "Zeichne die Strukturformel von Ethanol",
-    # A compound chemistry names draws as its structure card, as "draw ethanol" does.
-    "Zeichne Ethanol",
-    "Disegna il benzene",
-    "Zeichne ein Freikörperdiagramm",
-    "Zeichne das Gespräch auf",
-    "Mach dir ein Bild davon",
-    "Erstelle einen Plan für meine Woche",
-    "Zeichne das nochmal",
-    "Disegna il grafico di y=x^2",
-    "Disegna una tabella dei risultati",
-    "Disegni animati per bambini",
-    "Fammi una lista della spesa",
-    "Desenhe o gráfico de y=x^2",
-    "Desenhe uma tabela com os resultados",
-    "Crie uma lista de tarefas",
-    "Нарисуй график функции",
-    "Нарисуй таблицу результатов",
-    "Нарисуй треугольник",
-    "Нарисуй молекулу этанола",
-    "Сделай список покупок",
-    "Нарисуй это ещё раз",
-    "Нарисуй картину будущего словами",
-    "grafik çiz",
-    "y=x^2 fonksiyonunun grafiğini çiz",
-    "Bir tablo çiz",
-    "önemli yerlerin altını çiz",
-    "bir liste oluştur",
-    "tekrar çiz",
-    # Amharic "ሳል" is also "a cough": only "draw for me" or a picture noun draws.
-    "ደረቅ ሳል",
-    "ሳል እና ትኩሳት አለብኝ",
-    "ግራፍ ሳልልኝ",
-]
 
-# A picture, then a second request in the same language (or English after it).
+@pytest.mark.parametrize(("lang", "text", "subject"), DRAWN_CASES)
+def test_the_composer_draws_it_as_the_chat_turn_would(lang: str, text: str, subject: str) -> None:
+    intent = composer_image_intent(text, [])
+    assert intent.lookup_query is None
+    assert intent.request is not None and intent.request.prompt == subject, lang
+
+
+@pytest.mark.parametrize("text", ANSWERED)
+def test_other_shapes_are_answered_in_words(text: str) -> None:
+    assert composer_image_intent(text, []).request is None
+    assert not plan_turn(text).of_kind("image")
+
+
+# A narrow picture, then a second request in the same language (or English after it).
 WITH_A_SECOND_REQUEST = [
     (
-        "Dibuja un gato con sombrero y también explica qué es un agujero negro",
-        "Dibuja un gato con sombrero",
+        "Dibújame un gato con sombrero y también explica qué es un agujero negro",
+        "Dibújame un gato con sombrero",
         "explica qué es un agujero negro",
     ),
     (
-        "Dessine un chat avec un chapeau et explique aussi ce qu'est un trou noir",
-        "Dessine un chat avec un chapeau",
+        "Dessine-moi un chat et explique aussi ce qu'est un trou noir",
+        "Dessine-moi un chat",
         "explique aussi ce qu'est un trou noir",
     ),
     (
-        "Zeichne eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
-        "Zeichne eine Katze mit Hut",
+        "Zeichne mir eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
+        "Zeichne mir eine Katze mit Hut",
         "erkläre auch, was ein schwarzes Loch ist",
     ),
     (
-        "Disegna un gatto con il cappello e spiega anche cos'è un buco nero",
-        "Disegna un gatto con il cappello",
+        "Disegnami un gatto e spiega anche cos'è un buco nero",
+        "Disegnami un gatto",
         "spiega anche cos'è un buco nero",
     ),
     (
-        "Desenhe um gato com chapéu e também explique o que é um buraco negro",
-        "Desenhe um gato com chapéu",
+        "Me desenhe um gato e também explique o que é um buraco negro",
+        "Me desenhe um gato",
         "explique o que é um buraco negro",
     ),
     (
-        "Şapkalı bir kedi çiz ve ayrıca kara deliğin ne olduğunu açıkla",
-        "Şapkalı bir kedi çiz",
+        "Bana şapkalı bir kedi çiz ve ayrıca kara deliğin ne olduğunu açıkla",
+        "Bana şapkalı bir kedi çiz",
         "kara deliğin ne olduğunu açıkla",
     ),
     (
-        "Нарисуй кошку в шляпе, а также объясни, что такое чёрная дыра",
-        "Нарисуй кошку в шляпе",
+        "Нарисуй мне кошку, а также объясни, что такое чёрная дыра",
+        "Нарисуй мне кошку",
         "объясни, что такое чёрная дыра",
     ),
     (
@@ -168,40 +191,17 @@ WITH_A_SECOND_REQUEST = [
         "ጥቁር ቀዳዳ ምን እንደሆነ አስረዳኝ",
     ),
     (
-        "Zeichne eine Katze mit Hut and also explain what a black hole is",
-        "Zeichne eine Katze mit Hut",
+        "Zeichne mir eine Katze and also explain what a black hole is",
+        "Zeichne mir eine Katze",
         "explain what a black hole is",
     ),
 ]
 
 
-@pytest.mark.parametrize(("lang", "text", "subject"), DRAW + GENERATE)
-def test_a_picture_request_reads_in_every_app_language(lang: str, text: str, subject: str) -> None:
-    assert extract_image_gen_prompt(text) == subject, lang
-
-
-@pytest.mark.parametrize(("lang", "text", "subject"), DRAW + GENERATE)
-def test_the_composer_draws_it_as_the_chat_turn_would(lang: str, text: str, subject: str) -> None:
-    intent = composer_image_intent(text, [])
-    assert intent.lookup_query is None
-    assert intent.request is not None and intent.request.prompt == subject, lang
-
-
-@pytest.mark.parametrize(("text", "subject"), POLITE)
-def test_polite_and_me_forms_read_as_english_ones_do(text: str, subject: str) -> None:
-    assert extract_image_gen_prompt(text) == subject
-
-
-@pytest.mark.parametrize("text", NOT_A_PICTURE)
-def test_look_alikes_draw_nothing(text: str) -> None:
-    assert extract_image_gen_prompt(text) is None
-    assert picture_and_request(text) is None
-
-
 @pytest.mark.parametrize(("text", "picture", "rest"), WITH_A_SECOND_REQUEST)
 def test_a_second_request_is_not_part_of_the_picture(text: str, picture: str, rest: str) -> None:
-    """The whole line draws nothing, as "draw a cat and also explain …" does; the planner
-    takes the two parts."""
+    """The whole line draws nothing, as "draw me a cat and also explain …" does; the
+    planner takes the two parts."""
     assert extract_image_gen_prompt(text) is None
     assert picture_and_request(text) == (Part(picture, picture=True), Part(rest, picture=False))
 
@@ -209,10 +209,24 @@ def test_a_second_request_is_not_part_of_the_picture(text: str, picture: str, re
 @pytest.mark.parametrize(
     "text",
     [
-        # A picture of more than one thing, or one described at length, is one request.
-        "Dibuja un gato y un perro",
-        "Dessine un chat qui danse et chante",
-        "Zeichne eine Katze und auch einen Hund",
+        # The picture clause is no narrow shape: one answer, no picture part.
+        "Dibuja un gato con sombrero y también explica qué es un agujero negro",
+        "Explica qué es un agujero negro y dibuja un gato",
+        "Zeichne eine Katze und erkläre, was ein schwarzes Loch ist",
+        "Нарисуй кошку и объясни, что такое чёрная дыра",
+    ],
+)
+def test_a_broad_picture_clause_beside_a_question_is_one_answer(text: str) -> None:
+    assert picture_and_request(text) is None
+    assert not plan_turn(text).of_kind("image")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Dibújame un gato y un perro",
+        "Dessine-moi un chat qui danse",
+        "Zeichne mir eine Katze und einen Hund",
     ],
 )
 def test_a_longer_picture_is_still_one_picture(text: str) -> None:
@@ -243,6 +257,9 @@ def test_english_reads_as_on_main(text: str) -> None:
         ("draw me a cat and show it sleeping", "cat and show it sleeping"),
         ("draw me a robot and tell me its name", "robot and tell me its name"),
         ("draw me a cat and then show me a dog", "cat and then show me a dog"),
+        # Main's plan does not cut "… and how are you": the whole line is the picture.
+        ("draw me a cat and how are you", "cat and how are you"),
+        ("draw me a castle and help", "castle and help"),
     ],
 )
 def test_english_draw_me_with_a_picture_detail_draws_as_on_main(text: str, subject: str) -> None:
