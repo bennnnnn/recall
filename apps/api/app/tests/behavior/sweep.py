@@ -132,8 +132,9 @@ LOOKALIKE_HINTS = {
     # A "hi" after a question is a new greeting, not one more of a run.
     "greeting lookalike": "greeting_again",
     "money lookalike": "money",
-    # A money follow-up the server leaves to the model: a new price, a down payment, a card
-    # payment, a deposit or a kind ("what if I put 5000 down?"). It works terms and rates only.
+    # A money follow-up the server leaves to the model: a new price, a percent down, a card
+    # payment, a deposit or a kind ("what if I put 20% down?"), or a bare amount beside a
+    # price that may be the loan or the down payment. It works terms, rates and sums down.
     "money declined": "money",
     # "I don't understand why she left" is not a topic to be taught.
     "walkthrough lookalike": "walkthrough",

@@ -1,4 +1,5 @@
-"""The note under a money reply that compares the user's rate with today's average.
+"""The notes under a money reply: today's average beside the user's rate, and how a bare
+amount beside a price was read.
 
 The server writes it, so the average, its date and its source are exactly what the
 checked lookup found (``rates.py``). A rate further than ``money_unrealistic_ratio``
@@ -10,9 +11,29 @@ judges no rate unrealistic: a used-car rate far above the new-car average is ord
 
 from __future__ import annotations
 
-from app.modules.money.numbers import day_text, percent_text
+from app.modules.money.numbers import day_text, money_text, percent_text
 from app.modules.money.rates import MarketRate
+from app.modules.money.read import MoneyRequest
 from app.modules.money.solve import Worked, rate_name
+
+
+def reading_note(request: MoneyRequest) -> str | None:
+    """How a bare amount beside a price was read, so a misread shows (``purchase``)."""
+    amount, price = request.values.get("amount"), request.price
+    if amount is None or price is None:
+        return None
+    if request.guessed == "down" and request.down is not None:
+        down = money_text(request.down)
+        return (
+            f"**Read as:** {down} is the down payment on the {money_text(price)} price, so the "
+            f"loan is {money_text(amount)}. If {down} is the loan, move the amount slider."
+        )
+    if request.guessed == "loan":
+        return (
+            f"**Read as:** {money_text(amount)} is the loan on the {money_text(price)} price. "
+            "If it is the down payment, move the amount slider."
+        )
+    return None
 
 
 def market_note(worked: Worked, average: MarketRate | None, ratio: float) -> str | None:

@@ -39,6 +39,16 @@ CURRENCY_WORDS = (
     r"shillings?|kes|yen|jpy|cad|aud"
 )
 _CURRENCY_WORD = re.compile(rf"\s?({CURRENCY_WORDS})\b", re.I)
+
+
+def sum_phrase(name: str) -> str:
+    """A sum as a phrase in a lower-cased line ("$20k", "3 grand"), read by ``read_sum``."""
+    return (
+        rf"(?P<{name}>[$€£¥₹₦]?\s?\d[\d,]*(?:\.\d{{1,2}})?"
+        rf"(?:\s?(?:k|m|thousand|million|mil|grand))?(?:\s(?:{CURRENCY_WORDS}))?)"
+    )
+
+
 _MONTHLY = re.compile(r"\s?(?:a|per|/|each|every)\s?(?:month|mo)\b|\s?monthly\b|\s?/\s?mo\b", re.I)
 _DOWN = re.compile(r"\b(?:down\s?payment(?:\s(?:of|is))?|put(?:ting)?\s(?:down)?|down)\s?$", re.I)
 _DOWN_AFTER = re.compile(r"\s?(?:down\b|as\s(?:a\s)?down\s?payment\b)", re.I)
@@ -123,6 +133,12 @@ class MoneyRequest:
     variant: str = ""
     # What a follow-up changed ("months", "rate"); empty for a first ask.
     changed: tuple[str, ...] = ()
+    # A loan for something bought with money down: its price and the down payment. A new
+    # down payment is taken off this price, never off the loan ("follow_up").
+    price: float | None = None
+    down: float | None = None
+    # A bare amount beside a price, read as the "down" payment or the "loan" (``purchase``).
+    guessed: str = ""
 
 
 @dataclass(frozen=True)
@@ -154,7 +170,8 @@ def read_money_request(text: str) -> MoneyRequest | None:
     values.update(_term(found, text))
     if not any(name in values for name in _principal_names(found)):
         return None
-    return MoneyRequest(found, values, currency, variant=variant)
+    price, down = _price_and_down(found, amounts)
+    return MoneyRequest(found, values, currency, variant=variant, price=price, down=down)
 
 
 def named_product(text: str) -> Product | None:
@@ -269,6 +286,16 @@ def _values(product: Product, rate: float | None, amounts: list[_Amount]) -> dic
         if monthly:
             values["deposit"] = monthly[0].value
     return values
+
+
+def _price_and_down(product: Product, amounts: list[_Amount]) -> tuple[float | None, float | None]:
+    """A loan's price and down payment when the message gave both ("14000 with 3000 down")."""
+    once = [item for item in amounts if not item.monthly]
+    price = next((item.value for item in once if not item.down), None)
+    down = next((item.value for item in once if item.down), None)
+    if product.family != "loan" or price is None or down is None or not 0 < down < price:
+        return None, None
+    return price, down
 
 
 def _term(product: Product, text: str) -> dict[str, float]:

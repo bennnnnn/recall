@@ -2066,15 +2066,42 @@ CASES: tuple[Case, ...] = (
         ),
     ),
     Case(
-        "money-two-lines-ambiguous",
+        "money-two-lines-down",
         "money",
         "60k at 6 percent",
-        Expect(no_hints=("money",)),
-        "The model answers: after a $400k house and a question for the down payment and the "
-        "rate, 60k may be either, so the server works no numbers it cannot be sure of.",
+        Expect(hints=("money",)),
+        "The live line (2026-10-25): after a $400k house and a question for the down payment "
+        "and the rate, 60k is a sixth of the price, read as the down payment with a note "
+        "saying so; the model's own payment was 27 cents off.",
         history=(
             ("user", "House buying for 400k"),
             ("assistant", "How much are you putting down, and what rate have you been quoted?"),
+        ),
+    ),
+    Case(
+        "money-two-lines-ambiguous",
+        "money",
+        "150k at 6 percent",
+        Expect(no_hints=("money",)),
+        "The model answers: after a $400k house, 150k may be the loan or the down payment, so "
+        "the server works no numbers it cannot be sure of.",
+        history=(
+            ("user", "House buying for 400k"),
+            ("assistant", "How much are you putting down, and what rate have you been quoted?"),
+        ),
+    ),
+    Case(
+        "money-down-follow-up",
+        "money",
+        "Down payment 3k",
+        Expect(hints=("money",)),
+        "The live line (2026-10-25): a down payment after a car loan of 20k at 6% comes off "
+        "the 20k; the model's own payment was 50 cents off.",
+        history=(
+            ("user", "I am planing to buy a car"),
+            ("assistant", "Nice! Are you looking at new or used, and what's your budget?"),
+            ("user", "20k with 6 percent"),
+            ("assistant", "About $386.66 a month over 60 months."),
         ),
     ),
     Case(

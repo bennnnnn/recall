@@ -5,14 +5,17 @@ months, is that loan over 36 months. The turn read only its own message, so no c
 built and the model did the arithmetic itself, off by dollars (live, 2026-10-25). The
 follow-up chips under a money reply ask exactly this.
 
-The server works a new term or a new rate only (``change_line``), read by a positive
-grammar so a line about anything else is no follow-up. The new value must also lie on
-the slider the request's last card had (a mortgage runs 5 to 40 years: "2 years" is no new
-term). The request it changes is the last one in the user's last few lines, with every
-line after it a change of it too. Every other change (a price, a down payment, a card
-payment, a deposit, used or new) goes to the model, which answers it as before: three
-reviews of wider readers each found new shapes they misread, and a misread follow-up is
-a wrong number the reply calls the answer.
+The server works a new term, a new rate or a new down payment only (``change_line``), read
+by a positive grammar so a line about anything else is no follow-up. A down payment comes
+off the price of what a loan buys (``Product.goods``: a car, a house), never off the loan:
+the price the request named, else its amount ("Down payment 3k" after "20k with 6 percent"
+is a loan of 17k, live 2026-10-25), and a second one replaces the first. The new value
+must also lie on the slider the request's last card had (a mortgage runs 5 to 40 years: "2
+years" is no new term). The request it changes is the last one in the user's last few
+lines, with every line after it a change of it too. Every other change (a price, a percent
+down, a card payment, a deposit, used or new) goes to the model, which answers it as
+before: three reviews of wider readers each found new shapes they misread, and a misread
+follow-up is a wrong number the reply calls the answer.
 """
 
 from __future__ import annotations
@@ -70,14 +73,24 @@ def _line_request(
 
 
 def changed(request: MoneyRequest, line: str) -> MoneyRequest | None:
-    """``request`` with the new term or rate ``line`` states, or None when it states none
-    that fits."""
+    """``request`` with the new term, rate or down payment ``line`` states, or None when it
+    states none that fits."""
     change = read_change(line)
     product = request.product
     if change is None or _switches_product(product, line):
         return None
     values = dict(request.values)
     names: list[str] = []
+    price, down = request.price, request.down
+    if change.down is not None:
+        down, said_in = change.down
+        price = request.price if request.price is not None else request.values.get("amount")
+        if not product.goods or price is None or not 0 < down < price:
+            return None
+        if said_in and request.currency and said_in != request.currency:
+            return None
+        values["amount"] = price - down
+        names.append("amount")
     if change.rate is not None:
         values[rate_name(product)] = change.rate
         names.append(rate_name(product))
@@ -89,7 +102,7 @@ def changed(request: MoneyRequest, line: str) -> MoneyRequest | None:
         names.extend(term)
     if not _in_range(request, values):
         return None
-    return replace(request, values=values, changed=tuple(names))
+    return replace(request, values=values, changed=tuple(names), price=price, down=down, guessed="")
 
 
 def _fresh(line: str, before: tuple[str, ...]) -> MoneyRequest | None:

@@ -1,15 +1,20 @@
-"""One follow-up line read by a positive grammar: a new term, a new rate, or nothing.
+"""One follow-up line read by a positive grammar: a new term, rate or down payment, or nothing.
 
-The server works two changes only, the two that are both common and safe: the live
-"hmm what if i only do 3 years instead" and the app's own follow-up chips.
+The server works three changes only, the ones that are both common and safe: the live
+"hmm what if i only do 3 years instead", the live "Down payment 3k" (after a car loan of
+20k at 6%, the model's own payment was 50 cents off) and the app's own follow-up chips.
 
 - A term: "3 years", "36 months", "over 4 years", "a 15 year mortgage", "pay it off in 2
   years" (and, for savings, "save for 20 years").
 - A rate with its words: "at 6%", "6% apr", "6% interest", "the rate is 6%", "a 6% rate".
+- A down payment, a sum written as money with its words: "down payment 3k", "down payment
+  of $3,000", "3k down", "with 5000 down", "I can put 3 grand down". A percent down ("20%
+  down") is not one: the model answers it.
 
 The line must ask for a change: it opens (after "hmm", "ok", "so") with "what if", "what
 about", "how about", "and", "or", "make it", "try", "do", "go with" or "i only do", or it
-ends with "instead" or "instead of N". Every other word must belong to a term or rate
+ends with "instead" or "instead of N". A down payment needs no such frame: its own words
+say it is one. Every other word must belong to a term or rate
 phrase or be filler; any word left over means the line is about something else, and the
 model answers it as before. Four reviews (2026-10-25) of wider readers found shapes they
 misread into numbers the reply then called the answer: a model year as a price, a card
@@ -22,7 +27,7 @@ import re
 from dataclasses import dataclass
 from functools import partial
 
-from app.modules.money.read import DURATION, PERCENT
+from app.modules.money.read import DURATION, PERCENT, read_sum, sum_phrase
 
 _MAX_CHARS = 200
 _PCT = rf"(?<![\w.]){PERCENT}"
@@ -60,6 +65,14 @@ _RATE_PHRASES = [
     rf"\bat\s{_PCT}",
     rf"\b{_PCT}\s(?:apr|apy|interest(?:\srate)?|rate|fixed)\b",
 ]
+_PUTS = (
+    r"(?:with\s|(?:i|we)(?:'m|'re|\sam|\sare)\sputting\s"
+    r"|(?:(?:i|we)\s(?:can|could|will|would)\s|(?:i|we)'(?:ll|d)\s)?put(?:ting)?\s)?"
+)
+_DOWNS = [
+    re.compile(rf"\b(?:(?:a|the|my)\s)?down\s?payment(?:\s(?:of|is))?\s{sum_phrase('down')}\b"),
+    re.compile(rf"(?<![\w.,$€£¥₹₦]){_PUTS}{sum_phrase('down')}\sdown(?:\s?payment)?\b"),
+]
 _TERMS = [(re.compile(pattern, re.I), saving) for pattern, saving in _TERM_PHRASES]
 _RATES = [re.compile(pattern, re.I) for pattern in _RATE_PHRASES]
 # Words a change line may hold beside its frame and its phrases. "Payment", "monthly",
@@ -77,9 +90,17 @@ class Change:
 
     rate: float | None = None
     term: tuple[float, str] | None = None
+    # A new down payment and the currency it names ("" for none).
+    down: tuple[float, str] | None = None
     # "Save for 20 years": a term only a savings plan takes.
     saving_term: bool = False
     clash: bool = False
+
+    def take_down(self, match: re.Match[str]) -> str:
+        said = read_sum(match["down"])
+        self.clash = self.clash or self.down is not None or said is None
+        self.down = said
+        return " " * len(match.group(0))
 
     def take_rate(self, match: re.Match[str]) -> str:
         self.clash = self.clash or self.rate is not None
@@ -94,25 +115,27 @@ class Change:
 
 
 def read_change(line: str) -> Change | None:
-    """The new term and rate ``line`` asks for, or None when it asks for no such change."""
+    """The new term, rate and down payment ``line`` asks for, or None when it asks for no
+    such change."""
     text = " ".join(line.lower().replace("\u2019", "'").split())
-    if not text or len(text) > _MAX_CHARS:
-        return None
-    if _RATE_FOR_A_WHILE.search(text) or _NOT_A_CHANGE.search(text):
+    if not text or len(text) > _MAX_CHARS or _RATE_FOR_A_WHILE.search(text):
         return None
     start, end = _FRAME_START.match(text), _FRAME_END.search(text)
-    if start is None and end is None:
-        return None
     if end is not None:
         text = text[: end.start()]
     if start is not None:
         text = text[start.end() :]
     change = Change()
+    for pattern in _DOWNS:
+        text = pattern.sub(change.take_down, text)
+    # "I'm putting 3k down" is read before "I'm" says the line is about the user.
+    if (start is None and end is None and change.down is None) or _NOT_A_CHANGE.search(text):
+        return None
     for pattern, saving in _TERMS:
         text = pattern.sub(partial(change.take_term, saving=saving), text)
     for pattern in _RATES:
         text = pattern.sub(change.take_rate, text)
-    if change.rate is None and change.term is None:
+    if change.rate is None and change.term is None and change.down is None:
         return None
     if change.clash or any(word not in _FILLER for word in _WORDS.findall(text)):
         return None

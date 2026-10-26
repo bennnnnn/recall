@@ -72,6 +72,14 @@ RECTANGLE = "a rectangle has a perimeter of 40 and a length of 12, what is the w
         ([PERSONAL], "what about 24 months at 10%", {"rate": 10, "months": 24}, ("rate", "months")),
         # Each change builds on the one before it.
         ([CAR, "what if i only do 3 years instead"], "and at 5%?", {"rate": 5, "months": 36}, ("rate",)),
+        # A sum down comes off the price the request named (14000), never off the loan.
+        ([CAR], "what if I put 5000 down?", {"amount": 9000, "months": 60}, ("amount",)),
+        ([CAR, "what if i only do 3 years instead"], "and with 5000 down?", {"amount": 9000, "months": 36}, ("amount",)),
+        ([MORTGAGE_6], "with 60k down", {"amount": 240000}, ("amount",)),
+        ([MORTGAGE_6], "60k down at 5.5%", {"amount": 240000, "rate": 5.5}, ("amount", "rate")),
+        ([CAR_PLAIN], "down payment of $3,000", {"amount": 17000}, ("amount",)),
+        ([CAR_PLAIN], "I can put 3 grand down", {"amount": 17000}, ("amount",)),
+        ([CAR_PLAIN], "I'm putting 3k down for 4 years", {"amount": 17000, "months": 48}, ("amount", "months")),
     ],
 )  # fmt: skip
 def test_a_new_term_or_rate_is_the_last_request_changed(
@@ -161,12 +169,10 @@ def test_a_new_term_or_rate_is_the_last_request_changed(
         ([CARD], "what if I only do 3%"),
         ([USED], "what if the new rate is 9%"),
         ([USED], "what if the new price is 12k"),
-        # A price, an amount, a down payment, a payment, a deposit or a kind: the model's.
-        ([CAR], "what if I put 5000 down?"),
+        # A price, an amount, a percent down, a payment, a deposit or a kind: the model's.
         ([CAR], "what if I put 20% down?"),
         ([CAR], "what if the car was $18,000?"),
         ([CAR], "what if I only borrow 8000?"),
-        ([CAR, "what if i only do 3 years instead"], "and with 5000 down?"),
         ([MORTGAGE_6], "what about 400k?"),
         ([CARD], "what if I pay 300 a month instead?"),
         ([CARD], "what if I owe 8000"),
@@ -196,6 +202,38 @@ def test_a_new_term_or_rate_is_the_last_request_changed(
 )
 def test_a_line_that_changes_no_term_or_rate_is_none(earlier: list[str], line: str) -> None:
     assert follow_up_request(line, earlier) is None
+
+
+@pytest.mark.parametrize(
+    ("earlier", "line"),
+    [
+        ([CAR_PLAIN], "down payment assistance programs?"),
+        ([CAR_PLAIN], "what's a good down payment?"),
+        ([CAR_PLAIN], "I put 3k down on my old car last year"),
+        # Not the user's own: the model asks whether to work it.
+        ([CAR_PLAIN], "the dealer wants 3k down"),
+        ([CAR_PLAIN], "$0 down"),
+        ([CAR_PLAIN], "no money down"),
+        ([CAR_PLAIN], "3k down and 5k down"),
+        ([CAR_PLAIN], "20k down"),
+        ([], "down payment 3k"),
+        # Only what a loan buys takes a down payment.
+        ([SAVINGS], "3k down"),
+        ([CARD], "3k down"),
+        ([PERSONAL], "with 3k down"),
+        ([STUDENT], "3k down"),
+        ([BIRR], "$300k down"),
+    ],
+)
+def test_a_down_payment_that_fits_no_loan_is_none(earlier: list[str], line: str) -> None:
+    assert follow_up_request(line, earlier) is None
+
+
+def test_a_second_down_payment_replaces_the_first() -> None:
+    earlier = ["I am planing to buy a car", "20k with 6 percent", "Down payment 3k"]
+    request = follow_up_request("with 5k down instead", earlier)
+    assert request is not None
+    assert (request.values["amount"], request.price, request.down) == (15000, 20000, 5000)
 
 
 def test_an_earlier_line_is_read_in_its_own_turns_parts() -> None:
