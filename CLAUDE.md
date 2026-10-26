@@ -185,7 +185,7 @@ New chat-loop code → `modules/chat/`. Both transports call `stream_entry.py` w
 
 Steps 6–8 are the only ones on the user's critical path. Everything in step 9 is a durable Redis-Stream job. A turn chat does not stream (a picture or photo intercept, `/images/generate`, live talk) saves its rows through `turn_record.add_turn_message`, which moves the chat up the drawer, and `turn_record.finish_turn` enqueues the same step-9 jobs.
 
-**Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `memory_history_scan`, `lesson_progress`, `compress`, `transactional_email`, `attachment_index`, `message_index`, `storage_sweep`.
+**Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `memory_history_scan`, `lesson_progress`, `compress`, `transactional_email`, `attachment_index`, `message_index`, `storage_sweep`, `account_sweep_backstop` (a deleted account's sweep, scheduled inside the delete's transaction; it skips while the account exists).
 
 **Worker** (`worker_main.py`): consumes that stream and runs the schedulers `process_bootstrap.py` lists (push, email reminders, attachment orphan reaper, billing reconcile, analytics retention, data retention: drafts never sent to and old daily usage rows).
 
