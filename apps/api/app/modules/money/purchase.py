@@ -55,6 +55,23 @@ def _sum(name: str) -> str:
     )
 
 
+def _marked_sum(name: str) -> str:
+    """A sum written as money: a currency sign or word, k/m/grand, or thousands commas.
+
+    A bare number before what is bought is its model year as often as its price: "a 2018
+    truck", "a 1999 car". Only a sum marked as money is the price there ("a 30k car").
+    """
+    number = r"\d[\d,]*(?:\.\d{1,2})?"
+    scale = r"(?:k|m|thousand|million|mil|grand)"
+    word = rf"(?:\s(?:{CURRENCY_WORDS}))"
+    return (
+        rf"(?P<{name}>[$€£¥₹₦]\s?{number}(?:\s?{scale})?{word}?"
+        rf"|{number}\s?{scale}{word}?"
+        rf"|\d{{1,3}}(?:,\d{{3}})+(?:\.\d{{1,2}})?{word}?"
+        rf"|{number}{word})"
+    )
+
+
 # --- The line before: what is being bought -------------------------------------------
 
 _WHO = r"(?:i|we|i'm|im|we're|i\sam|we\sare|i'd|we'd|i'll|we'll)\s"
@@ -63,8 +80,15 @@ _INTENT = (
     r"about\sto|hoping\sto|want(?:ing)?\sto|wanna|would\slike\sto|like\sto|need\sto|"
     r"ready\sto|trying\sto)\s"
 )
-_VERB = r"(?:buy(?:ing)?|purchas(?:e|ing)|financ(?:e|ing)|get(?:ting)?)"
 _ARTICLE = r"(?:(?:a|an|the|my|our)\s)?"
+# "Get my car" is a car already theirs (from the shop, back from a friend): "my" and "our"
+# go only with a verb that buys.
+_VERB = (
+    r"(?:(?:buy(?:ing)?|purchas(?:e|ing)|financ(?:e|ing))\s(?:(?:a|an|the|my|our)\s)?"
+    r"|get(?:ting)?\s(?:(?:a|an|the)\s)?)"
+)
+# A model year describes what is bought: "a 2018 truck", "a used 2015 car".
+_YEAR = r"(?:(?:19|20)\d{2}\s)?"
 _PRICE_WORD = r"(?:for|at|worth|costing|priced\sat)"
 _WHEN = r"(?:\s(?:soon|next\s(?:week|month|year)|this\s(?:week|month|year)))?"
 
@@ -78,11 +102,11 @@ def _purchase_lines(product_key: str) -> tuple[re.Pattern[str], ...]:
     price = rf"(?:\s{_PRICE_WORD}\s{_sum('price')})?{_WHEN}"
     return (
         re.compile(
-            rf"(?:{_WHO})?(?:{_INTENT})?{_VERB}\s{_ARTICLE}(?:{_sum('price_before')}\s)?"
-            rf"{kind}{good}{price}"
+            rf"(?:{_WHO})?(?:{_INTENT})?{_VERB}(?:{_marked_sum('price_before')}\s)?"
+            rf"{_YEAR}{kind}{_YEAR}{good}{price}"
         ),
         # "House buying for 400k".
-        re.compile(rf"{_ARTICLE}{kind}{good}\s(?:buying|purchase){price}"),
+        re.compile(rf"{_ARTICLE}{_YEAR}{kind}{_YEAR}{good}\s(?:buying|purchase){price}"),
     )
 
 

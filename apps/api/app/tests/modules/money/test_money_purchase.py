@@ -40,6 +40,12 @@ HOUSE = "House buying for 400k"
         ("buying a house for 400k", "down payment of 60k at 6%", "mortgage", {"amount": 340000}),
         ("we're buying a 400k house", "with 80k down", "mortgage", {"amount": 320000}),
         ("I'm looking to buy a 30k car", "I can put 5k down at 7%", "car", {"amount": 25000}),
+        ("buying a 30,000 car", "5k down", "car", {"amount": 25000}),
+        # A model year describes the car; it is not its price.
+        ("I want to buy a 2018 truck", "20k at 7%", "car", {"amount": 20000, "rate": 7}),
+        ("getting a used 2016 car", "12k at 8%", "car", {"amount": 12000}),
+        ("I want to buy a 2018 truck for 15k", "$500 down", "car", {"amount": 14500}),
+        ("I want to finance my car", "20k at 6%", "car", {"amount": 20000}),
     ],
 )  # fmt: skip
 def test_a_purchase_then_an_amount_and_rate_is_that_products_loan(
@@ -72,6 +78,17 @@ def test_a_currency_named_is_kept() -> None:
         ("my car does 20k miles a year", "20k at 6%"),
         ("I want to buy a car loan calculator app", "20k at 6%"),
         ("what's the best savings account?", "20k at 6%"),
+        # "Get my car" is one already theirs.
+        ("I want to get my car", "20k at 6%"),
+        ("I need to get my car", "20k at 6%"),
+        ("we need to get our house", "300k at 6%"),
+        # A model year is not a price, so a down payment has nothing to come off.
+        ("I'm buying a 2021 suv", "$2,000 down"),
+        ("buying a 2015 car", "with $1,000 down at 8%"),
+        ("I want to buy a 2018 truck", "$500 down at 7%"),
+        ("I want to buy a 1999 car", "1500 down at 6%"),
+        # A bare number before the car may be either.
+        ("buying a 1500 car", "500 down"),
         # Not only an amount and a rate.
         (CAR, "20k steps with 6 percent incline"),
         (CAR, "my car does 20k miles a year"),

@@ -1210,5 +1210,124 @@
   ],
   "reply": "A $20,000 car loan at 6% over 60 months is about $386.66 a month.",
   "expect": "answer"
+ },
+ {
+  "id": "mo-081",
+  "area": "money lookalike",
+  "prompt": "$2,000 down",
+  "history": [
+   [
+    "user",
+    "I'm buying a 2021 suv"
+   ],
+   [
+    "assistant",
+    "Nice! Do you have a budget and a rate in mind?"
+   ]
+  ],
+  "reply": "With $2,000 down, what's the price and the rate you've been quoted?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-082",
+  "area": "money lookalike",
+  "prompt": "with $1,000 down at 8%",
+  "history": [
+   [
+    "user",
+    "buying a 2015 car"
+   ],
+   [
+    "assistant",
+    "Nice! Do you have a budget and a rate in mind?"
+   ]
+  ],
+  "reply": "What's the price of the car? Then I can work out the loan.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-083",
+  "area": "money lookalike",
+  "prompt": "$500 down at 7%",
+  "history": [
+   [
+    "user",
+    "I want to buy a 2018 truck"
+   ],
+   [
+    "assistant",
+    "Nice! Do you have a budget and a rate in mind?"
+   ]
+  ],
+  "reply": "How much is the truck? With $500 down at 7% I can work out the payment.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-084",
+  "area": "money lookalike",
+  "prompt": "1500 down at 6%",
+  "history": [
+   [
+    "user",
+    "I want to buy a 1999 car"
+   ],
+   [
+    "assistant",
+    "Nice! Do you have a budget and a rate in mind?"
+   ]
+  ],
+  "reply": "What's the car's price? Then I can take the $1,500 off it.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-085",
+  "area": "money",
+  "prompt": "20k at 7%",
+  "history": [
+   [
+    "user",
+    "I want to buy a 2018 truck"
+   ],
+   [
+    "assistant",
+    "Nice! Do you have a budget and a rate in mind?"
+   ]
+  ],
+  "reply": "A $20,000 car loan at 7% over 60 months is about $396.02 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-086",
+  "area": "money lookalike",
+  "prompt": "20k at 6%",
+  "history": [
+   [
+    "user",
+    "I want to get my car"
+   ],
+   [
+    "assistant",
+    "Nice! Do you have a budget and a rate in mind?"
+   ]
+  ],
+  "reply": "Is the 20k a loan on the car, or something else?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-087",
+  "area": "money lookalike",
+  "prompt": "20k at 6%",
+  "history": [
+   [
+    "user",
+    "I need to get my car"
+   ],
+   [
+    "assistant",
+    "Nice! Do you have a budget and a rate in mind?"
+   ]
+  ],
+  "reply": "Is the 20k a loan on the car, or something else?",
+  "expect": "answer"
  }
 ]
