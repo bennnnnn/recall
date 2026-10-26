@@ -1,11 +1,13 @@
-"""Every misfire the four reviews found, and the round-5 probes: answered in words.
+"""Every misfire the five reviews found, and the round-5 and round-6 probes: answered.
 
 A misfire (a picture drawn where the user wanted words) costs a daily picture and the
 answer. ``language_misfires.json`` holds each sentence a review named as drawn wrongly
 (physics homework, plans, tables, algorithms, idioms, "Dibuja un ejemplo", "Mal den
 Teufel nicht an die Wand", a Docker image…), the reviewers' non-picture probe lines,
-and the everyday lines with picture words written for round 5, most of them in a
-draw-me shape ("Dibújame la pirámide alimenticia", "Zeichne mir einen Trainingsplan").
+the everyday lines with picture words written for round 5, most of them in a draw-me
+shape ("Dibújame la pirámide alimenticia", "Zeichne mir einen Trainingsplan"), review 5's
+task subjects ("Dibújame un cuadro comparativo", "Нарисуй мне сказку на ночь"), and round
+6's blind set and its drawable heads with task words ("un volcán con sus partes").
 """
 
 from __future__ import annotations
@@ -30,8 +32,8 @@ MISFIRES = [
 
 def test_every_review_is_here() -> None:
     reviews = {group.split(" (")[0] for group in _GROUPS}
-    assert {"review 1", "review 2", "review 3", "review 4"} <= reviews
-    assert len(MISFIRES) >= 850
+    assert {"review 1", "review 2", "review 3", "review 4", "review 5"} <= reviews
+    assert len(MISFIRES) >= 1400
 
 
 @pytest.mark.parametrize("text", MISFIRES)
