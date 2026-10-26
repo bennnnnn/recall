@@ -33,25 +33,38 @@ _APOSTROPHES = str.maketrans({"\u2019": "'", "\u2018": "'"})
 # A name runs to the end of its clause: "User's name is Sam; they nurse", "Sam and …".
 _CLAUSE = r"[^;,.()]+?"
 _CLAUSE_END = r"(?=\s*$|\s*[;,.()]|\s+(?:and|but|who|whose)\b)"
+# "Dr. Sam Lee": the title's full stop does not end the clause.
+_TITLE = r"(?:(?:dr|mr|mrs|ms|mx|prof)\.? )?"
 # The fact's opening clause states the user's own name.
 _STATED = re.compile(
-    rf"(?:(?:(?:the )?user(?:'s|s)? )?name is|(?:the )?user is named)"
-    rf" (?P<name>{_CLAUSE}){_CLAUSE_END}"
+    rf"(?:(?:(?:the )?user(?:'s|s)? )?(?:(?:full|first|given|legal|real) )?name is"
+    rf"|(?:the )?user is named) (?P<name>{_TITLE}{_CLAUSE}){_CLAUSE_END}"
     rf"|(?P<before>{_CLAUSE}) is the user'?s? name\b",
     re.IGNORECASE,
 )
 _NICKNAME = re.compile(
-    rf"(?:(?:the )?user )?(?:also )?goes by (?P<name>{_CLAUSE}){_CLAUSE_END}", re.IGNORECASE
+    rf"(?:(?:(?:the )?user )?(?:also )?goes by"
+    rf"|(?:the )?user(?:'s|s)? (?:nickname|preferred name) is)"
+    rf" (?P<name>{_TITLE}{_CLAUSE}){_CLAUSE_END}",
+    re.IGNORECASE,
 )
 _NAME_WORD = re.compile(r"[^\W\d_][\w'-]*")
 _NAME_PART = re.compile(r"[^\W\d_]+(?:['-][^\W\d_]+)*")
 # Most words a clause can start with are lower case ("pronounced BEE-nee", "short for
-# Bini", "bike to work"); these are the capitalised ones that still name no one.
+# Bini", "bike to work"); these name no one in either case.
 _NOT_A_NAME = frozenset(
     {"the", "a", "an", "not", "unknown", "none", "he", "she", "they", "him", "her", "them"}
+    | {"private", "secret", "long", "short", "unusual", "common", "rare", "unique", "hidden"}
 )
-# A name is one to four words, each a word that does not start in lower case.
-_MAX_NAME_WORDS = 4
+# Lower-case words inside a name: "Maria de la Cruz", "Omar al-Hassan".
+_PARTICLES = frozenset(
+    {"de", "la", "del", "della", "der", "den", "van", "von", "al", "el", "bin", "bint", "ibn"}
+    | {"da", "di", "do", "dos", "das", "du", "le", "y", "ben", "ter", "ten", "zu"}
+)
+_TITLES = frozenset({"dr", "mr", "mrs", "ms", "mx", "prof"})
+# A name is one to six words, each starting in upper case past its particles; a name
+# written all in lower case counts only as one word ("User's name is sam").
+_MAX_NAME_WORDS = 6
 # Shared first letters that make "Bini" a short form of "Binalfew".
 _SHORT_FORM_PREFIX = 3
 
@@ -61,11 +74,20 @@ def _clean(text: str) -> str:
 
 
 def _as_name(candidate: str | None) -> str | None:
-    """``candidate`` when it reads as a name ("Sam", "Sam Okafor"), else None."""
+    """``candidate`` when it reads as a name ("Sam", "Sam Okafor"), else None.
+
+    A leading title is not part of it: "Dr. Sam Lee" is "Sam Lee"."""
     words = (candidate or "").split()
+    if len(words) > 1 and words[0].casefold().rstrip(".") in _TITLES:
+        words = words[1:]
     if not 0 < len(words) <= _MAX_NAME_WORDS or words[0].casefold() in _NOT_A_NAME:
         return None
-    if any(not _NAME_WORD.fullmatch(word) or word[0].islower() for word in words):
+    if not all(_NAME_WORD.fullmatch(word) for word in words):
+        return None
+    if len(words) > 1 and any(
+        word[0].islower() and (index == 0 or word.split("-")[0] not in _PARTICLES)
+        for index, word in enumerate(words)
+    ):
         return None
     return " ".join(words)
 

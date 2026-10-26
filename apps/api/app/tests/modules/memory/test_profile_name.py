@@ -233,6 +233,13 @@ async def test_every_prompt_reads_the_block_without_the_other_name(fake_redis) -
         (_SAM, "User: Pretend I'm Sam, a nursing student in Chicago.", "Dev", _SAM),
         ("User's name is Liz", "User: I'm Liz", "Elizabeth", "User's name is Liz"),
         ("User's name is Sam", "User: imagine my name is Sam", "Dev", "User's name is Sam"),
+        # A role word further back is not a role: an introduction.
+        (
+            "User's name is Sam",
+            "User: I imagine you are busy, but my name is Sam",
+            "Dev",
+            "User goes by Sam",
+        ),
         # A refusal, a filler word or a name they never gave: unchanged.
         (
             "User's name is Sam",
@@ -312,6 +319,8 @@ def test_a_self_stated_name_unlike_the_account_is_written_as_a_nickname() -> Non
         "User goes by bike to work",
         "User goes by they/them pronouns",
         "User goes by They",
+        "User's name is private",
+        "User's name is de Sam",
     ],
 )
 def test_a_fact_about_the_name_names_no_one(fact: str) -> None:
@@ -328,6 +337,13 @@ def test_a_fact_about_the_name_names_no_one(fact: str) -> None:
         ("User's name is Sam, a nurse", "Sam"),
         ("Sam is the user's name", "Sam"),
         ("User's name is 太郎", "太郎"),
+        ("User's name is Maria de la Cruz", "Maria de la Cruz"),
+        ("User's name is Omar al-Hassan", "Omar al-Hassan"),
+        ("User's name is Abebe Bikila Tesfaye Haile Mariam", "Abebe Bikila Tesfaye Haile Mariam"),
+        ("User's name is sam", "sam"),
+        ("User's full name is Sam Lee", "Sam Lee"),
+        ("User's first name is Sam", "Sam"),
+        ("User's name is Dr. Sam Lee", "Sam Lee"),
     ],
 )
 def test_a_name_runs_to_the_end_of_its_clause(fact: str, name: str) -> None:
@@ -346,6 +362,19 @@ def test_a_fact_about_how_they_travel_never_takes_the_slot() -> None:
     core = identity_core([own, pronouns, bike])  # type: ignore[list-item]
 
     assert [memory.text for memory in core] == ["User's name is Binalfew"]
+
+
+@pytest.mark.parametrize(
+    "fact", ["User's nickname is Bini", "User's preferred name is Bini", "User goes by Dr. Bini"]
+)
+def test_a_nickname_or_preferred_name_names_the_user_and_stays(fact: str) -> None:
+    assert names_the_user(fact)
+    assert stated_user_name(fact) is None
+    assert not names_another_person(fact, "Sam Lee")
+
+
+def test_a_full_name_unlike_the_account_is_left_out() -> None:
+    assert names_another_person("User's full name is Sam Lee", "Dev")
 
 
 def test_stated_names_leave_out_nicknames() -> None:

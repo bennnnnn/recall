@@ -55,10 +55,12 @@ _PREFIXES_BY_WAY = {
     "chosen": _CHOSEN_PREFIXES,
     "any": _CLAIM_PREFIXES,
 }
-# "Pretend I'm Sam", "imagine my name is Sam": a role, not who the user is.
+# "Pretend I'm Sam", "imagine that my name is Sam": a role, not who the user is. The
+# word comes at most three words before, with no comma between ("I imagine you are
+# busy, but my name is Sam" is an introduction).
 _PLAYED = re.compile(
     r"\b(?:pretend(?:ing)?|imagine|suppose|hypothetically|role-?play(?:ing)?|as if|what if"
-    r"|let's say)\b[^.!?\n]*$"
+    r"|let's say)\b(?: +[\w']+){0,3} *$"
 )
 # "Don't call me Sam" asks for the opposite.
 _REFUSALS = ("don't ", "do not ", "never ", "not ", "stop ")
