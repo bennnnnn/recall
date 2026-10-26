@@ -114,6 +114,12 @@ describe("image intent prefilter", () => {
     "የአንበሳ ምስል ፍጠር",
     "Mal mir eine Katze mit Hut",
     "Explica qué es un agujero negro y dibújame un gato",
+    "Peux-tu me peindre un chat ?",
+    "Malen Sie mir eine Katze",
+    "Male uns einen Drachen",
+    "Crea una ilustracion de un leon",
+    "Crie uma ilustração de um leão",
+    "Erstelle ein Bild von einem Löwen",
   ])("asks the server about a picture asked in another language: %j", (text) => {
     expect(mightBeImageTurn(text, [], false)).toBe(true);
   });
@@ -123,6 +129,14 @@ describe("image intent prefilter", () => {
     "Wie spät ist es in Berlin?",
     "Привет, как дела?",
     "Bugün hava nasıl?",
+    // Everyday words that once started a picture word: "mal" (bad, once), "peine", "Bildung".
+    "Me siento mal hoy",
+    "Estou mal",
+    "Erklär mal die Steuer",
+    "Ce n'est pas la peine",
+    "Bildung in Deutschland",
+    "Is my cat male or female?",
+    "Ho tre valigie, male?",
   ])("sends %j in another language straight to chat", (text) => {
     expect(mightBeImageTurn(text, [], false)).toBe(false);
   });
