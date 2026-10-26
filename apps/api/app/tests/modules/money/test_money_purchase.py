@@ -184,9 +184,12 @@ def test_a_bare_amount_beside_a_price_says_how_it_was_read(
     assert request is not None and request.guessed == guessed
     assert request.values["amount"] == amount
     assert reading_note(request) == note
-    # A sum said to be down needs no note.
+    # A sum said to be down, or the whole price, needs no note.
     said = purchase_request("60k down at 6 percent", (HOUSE,))
     assert said is not None and reading_note(said) is None
+    whole = purchase_request("400k at 6 percent", (HOUSE,))
+    assert whole is not None and whole.values["amount"] == 400000
+    assert reading_note(whole) is None
 
 
 async def test_the_live_car_loan_is_worked_by_the_server(monkeypatch) -> None:

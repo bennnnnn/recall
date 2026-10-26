@@ -192,8 +192,9 @@ def purchase_request(line: str, before: Sequence[str]) -> MoneyRequest | None:
             guessed = _guess(amount, price)
             if not guessed:
                 return None
-        if guessed == "loan":
+        if guessed in ("loan", "whole"):
             down = price - amount or None
+            guessed = "" if guessed == "whole" else guessed
         else:
             if amount == price:
                 return None
@@ -211,8 +212,11 @@ def purchase_request(line: str, before: Sequence[str]) -> MoneyRequest | None:
 
 
 def _guess(amount: float, price: float) -> str:
-    """What a bare amount beside a price is: "down", "loan", or "" for either."""
+    """What a bare amount beside a price is: "down", "loan", "whole" (the price itself, a
+    loan for all of it: nothing to say), or "" for either."""
     share = amount / price
+    if share == 1:
+        return "whole"
     if share <= _DOWN_SHARE:
         return "down"
     return "loan" if share >= _LOAN_SHARE else ""
