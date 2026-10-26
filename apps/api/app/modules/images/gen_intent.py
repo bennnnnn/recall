@@ -16,12 +16,7 @@ import re
 from itertools import pairwise
 from typing import TYPE_CHECKING
 
-from app.modules.images.gen_intent_parts import (
-    Part,
-    extract_other_language_prompt,
-    other_language_of,
-    split_picture_request,
-)
+from app.modules.images.gen_intent_parts import extract_other_language_prompt
 from app.modules.images.gen_intent_words import (
     ARTICLES,
     CODEISH_WORDS,
@@ -268,7 +263,7 @@ def _match_draw_me(tokens: list[str]) -> str | None:
     if i >= len(tokens):
         return None
     # "Draw me a cat and also explain black holes" asks twice: the plan draws the cat.
-    if _asks_again(tokens[i:]):
+    if _asks_separately(tokens[i:]):
         return None
     subject = join_subject(tokens[i:])
     if has_non_image_subject(subject, drawn=True) or has_non_image_draw(subject):
@@ -312,6 +307,26 @@ def _asks_again(parts: list[str]) -> bool:
     """A second request in the subject: "… and also explain …", "… and tell me …"."""
     words = [word for word in map(fold_token, parts) if word != "also"]
     return any(word in {"and", "then"} and nxt in _SECOND_ASKS for word, nxt in pairwise(words))
+
+
+# "… and tell me its name", "… and show it sleeping": the clause is about the picture.
+_POINTS_BACK = frozenset(
+    "it its itself them their him his her she he they this that these those".split()
+)
+
+
+def _asks_separately(parts: list[str]) -> bool:
+    """ "… and (also) explain black holes": a request of its own after "and", which the
+    turn's plan answers beside the picture. Not "… and write Max on its collar", "… and
+    then show me a dog" or "… and tell me its name", which add to the picture."""
+    words = [fold_token(part) for part in parts]
+    for index, word in enumerate(words[:-1]):
+        if word != "and":
+            continue
+        ask = index + 2 if words[index + 1] == "also" else index + 1
+        if ask < len(words) and words[ask] in _SECOND_ASKS:
+            return not any(rest in _POINTS_BACK for rest in words[ask + 1 :])
+    return False
 
 
 def _make_is_not_a_picture(subject: str) -> bool:
@@ -453,19 +468,6 @@ def extract_image_gen_prompt(text: str) -> str | None:
 
     # "Zeichne eine Katze", "нарисуй кошку": the same shapes in the app's other languages.
     return extract_other_language_prompt(trimmed)
-
-
-def picture_and_request(text: str) -> tuple[Part, Part] | None:
-    """A picture asked in another language beside a second request: the parts, in order.
-    "Dibuja un gato y explica qué es un agujero negro" is two, as English "draw a cat and
-    also explain …" is; no English cut divides it, so the planner asks here."""
-    return split_picture_request(text)
-
-
-def picture_language(text: str, prefer: str | None = None) -> str | None:
-    """The language a picture request was read in ("es" for "dibuja un gato"); None for
-    English, or for no picture. ``prefer`` breaks a tie ("pinte" is es and pt)."""
-    return other_language_of(text, prefer)
 
 
 def stem_subject(text: str, *, chemistry_enabled: bool = True) -> SubjectName | None:

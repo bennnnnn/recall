@@ -157,11 +157,19 @@ def test_a_picture_asked_second_plans_after_the_answer(lang: str, text: str, sub
     assert reply_picture_prompt(text, Settings()) == subject
 
 
-@pytest.mark.parametrize(("locale", "lang"), [("pt-BR", "pt"), ("es", "es"), ("en", "es")])
-def test_a_verb_spanish_and_portuguese_share_takes_the_apps_language(
-    locale: str, lang: str
+@pytest.mark.parametrize(
+    ("text", "locale", "lang"),
+    [
+        # Portuguese wording ("um", "explique") is Portuguese, whatever the app's language.
+        ("Pinte um gato e explique o que é um buraco negro", "pt-BR", "pt"),
+        ("Pinte um gato e explique o que é um buraco negro", "es", "pt"),
+        ("Pinte um gato e explique o que é um buraco negro", "en", "pt"),
+        ("Pinta un gato y explica qué es un agujero negro", "pt-BR", "es"),
+    ],
+)
+def test_a_verb_spanish_and_portuguese_share_follows_the_wording(
+    text: str, locale: str, lang: str
 ) -> None:
-    """ "Pinte um gato e explique …" reads the same in both; the app's language decides,
-    and an English app keeps the first reading."""
-    _drawn, line = _not_drawn_line("Pinte um gato e explique o que é um buraco negro", locale)
+    """ "pinta", "pinte" are Spanish and Portuguese: the message's own words decide."""
+    _drawn, line = _not_drawn_line(text, locale)
     assert line.startswith(LINE_START[lang]), line

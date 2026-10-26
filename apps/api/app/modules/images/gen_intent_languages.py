@@ -4,15 +4,14 @@
 English is ``gen_intent_words.py``; these are its shapes in Spanish, French, German,
 Italian, Portuguese, Russian, Turkish and Amharic. "Draw" (dibuja, zeichne, нарисуй)
 takes its subject; "create", "generate" and "make" need a picture noun first (erstelle
-ein Bild von …), as "make a decision" is no picture in English either. A word in a
-subject that the app draws itself, or that is no picture (a table, a graph, a limit, a
-triangle, a molecule), keeps the request out of image generation, as its English twin
-does. Words are lowercase; a phrase is a tuple of words.
+ein Bild von …), as "make a decision" is no picture in English either. What a subject may
+not be (a table, a graph, a triangle, a molecule) is ``gen_intent_topics.py``. Words are
+lowercase; a phrase is a tuple of words.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 def _w(words: str) -> frozenset[str]:
@@ -62,10 +61,6 @@ class VerbFirst:
     # Articles that are also pronouns ("la", "das"): one only when nothing follows.
     determiners: frozenset[str] = frozenset()
     again: tuple[tuple[str, ...], ...] = ()
-    not_words: frozenset[str] = frozenset()
-    not_stems: tuple[str, ...] = ()
-    not_endings: tuple[str, ...] = ()
-    not_pairs: frozenset[tuple[str, str]] = frozenset()
     # German separable verbs: "zeichne das Gespräch auf" records it.
     particles: frozenset[str] = frozenset()
     # What the picture is for ("para mi proyecto"): its words are not the subject.
@@ -93,9 +88,6 @@ class VerbLast:
     of_prefix: str = ""
     pronouns: frozenset[str] = frozenset()
     again: tuple[tuple[str, ...], ...] = ()
-    not_words: frozenset[str] = frozenset()
-    not_stems: tuple[str, ...] = ()
-    not_pairs: frozenset[tuple[str, str]] = field(default_factory=frozenset)
     # "Projem için bir kedi çiz": the words up to it say what the picture is for.
     purpose: frozenset[str] = frozenset()
 
@@ -134,27 +126,6 @@ SPANISH = VerbFirst(
     pronouns=_w("eso esto ello aquello ese esa este esta estos estas esos esas mí"),
     determiners=_w("lo la los las le"),
     again=_phrases("otra vez", "de nuevo", "nuevamente"),
-    not_words=_w(
-        "gráfica gráficas grafica graficas gráfico gráficos grafico graficos diagrama "
-        "diagramas tabla tablas lista listas esquema esquemas cuadro cuadros "
-        "conclusión conclusion conclusiones límite limite límites limites función funcion "
-        "funciones derivada derivadas integral integrales ecuación ecuacion ecuaciones "
-        "recta rectas línea linea líneas lineas segmento triángulo triangulo triángulos "
-        "círculo circulo círculos cuadrado cuadrados rectángulo rectangulo polígono "
-        "poligono trapecio rombo paralelogramo hipotenusa geometría geometria molécula "
-        "molecula moléculas moleculas estructura estructuras fórmula formula plan planes "
-        "horario cronograma organigrama"
-    ),
-    not_pairs=frozenset(
-        {
-            ("mapa", "conceptual"),
-            ("mapa", "mental"),
-            ("árbol", "genealógico"),
-            ("arbol", "genealogico"),
-            ("árbol", "de"),
-            ("plano", "cartesiano"),
-        }
-    ),
 )
 
 FRENCH = VerbFirst(
@@ -187,23 +158,6 @@ FRENCH = VerbFirst(
     pronouns=_w("ça ca cela ceci ce cet cette ces moi"),
     determiners=_w("le la les l'"),
     again=_phrases("encore", "à nouveau", "a nouveau", "de nouveau"),
-    not_words=_w(
-        "graphique graphiques graphe graphes courbe courbes diagramme diagrammes schéma "
-        "schémas schema tableau tableaux liste listes organigramme conclusion conclusions "
-        "limite limites fonction fonctions dérivée derivee intégrale integrale équation "
-        "equation équations droite droites ligne lignes segment triangle triangles cercle "
-        "cercles carré carre carrés rectangle polygone trapèze losange parallélogramme "
-        "hypoténuse géométrie geometrie molécule molecule molécules structure structures "
-        "formule plan planning frise"
-    ),
-    not_pairs=frozenset(
-        {
-            ("carte", "mentale"),
-            ("arbre", "généalogique"),
-            ("arbre", "genealogique"),
-            ("arbre", "de"),
-        }
-    ),
 )
 
 GERMAN = VerbFirst(
@@ -213,7 +167,8 @@ GERMAN = VerbFirst(
         "erstelle erstell erstellen generiere generier generieren erzeuge erzeug erzeugen "
         "mache mach machen gestalte gestalten entwirf entwerfe entwerfen"
     ),
-    needs_me=_w("male mal malen"),
+    # "Male eine Katze" paints; "male lions" is English, "mal sehen" is "let's see".
+    needs_article=_w("male mal"),
     me=_w("mir uns ihr ihm"),
     reflexive=_w("dir dich sich euch"),
     # "Zeichnen Sie …" is the polite imperative; "sie" after another verb is "her".
@@ -231,19 +186,6 @@ GERMAN = VerbFirst(
     pronouns=_w("es dies dieses diese diesen ihn mir mich davon dazu darüber"),
     determiners=_w("das die den der"),
     again=_phrases("nochmal", "noch mal", "noch einmal", "erneut", "wieder"),
-    not_words=_w(
-        "graph graphen schaubild kurve kurven funktion funktionen ableitung integral "
-        "gleichung gleichungen gerade geraden linie linien strecke dreieck dreiecke kreis "
-        "kreise quadrat rechteck vieleck polygon trapez raute parallelogramm hypotenuse "
-        "geometrie molekül moleküle molekuel struktur strukturen mindmap stammbaum "
-        "entscheidungsbaum organigramm zeitstrahl schlussfolgerung fazit grenze grenzwert "
-        "limes vertrag budget"
-    ),
-    # German joins nouns: "Freikörperdiagramm", "Wertetabelle", "Zeitplan".
-    not_endings=_stems(
-        "tabelle tabellen diagramm diagramme grafik graph plan liste kurve gleichung "
-        "formel struktur"
-    ),
     particles=_w("auf ab aus an ein vor"),
     purpose=_w("für"),
 )
@@ -271,16 +213,6 @@ ITALIAN = VerbFirst(
     pronouns=_w("questo questa quello quella questi queste quelli ciò cio me"),
     determiners=_w("lo la li le l'"),
     again=_phrases("di nuovo", "ancora"),
-    not_words=_w(
-        "grafico grafici diagramma diagrammi tabella tabelle elenco lista schema schemi "
-        "conclusione conclusioni limite limiti funzione funzioni derivata integrale "
-        "equazione equazioni retta rette linea linee segmento triangolo triangoli cerchio "
-        "quadrato rettangolo poligono trapezio rombo parallelogramma ipotenusa geometria "
-        "molecola molecole struttura strutture formula organigramma curva curve"
-    ),
-    not_pairs=frozenset(
-        {("mappa", "concettuale"), ("mappa", "mentale"), ("albero", "genealogico"), ("piano", "di")}
-    ),
 )
 
 PORTUGUESE = VerbFirst(
@@ -305,37 +237,18 @@ PORTUGUESE = VerbFirst(
     pronouns=_w("isso isto aquilo este esta esse essa aquele aquela estes estas esses essas mim"),
     determiners=_w("o a os as"),
     again=_phrases("de novo", "outra vez", "novamente"),
-    not_words=_w(
-        "gráfico grafico gráficos graficos diagrama diagramas tabela tabelas lista listas "
-        "esquema quadro conclusão conclusao conclusões limite limites função funcao "
-        "funções derivada integral equação equacao equações reta retas linha linhas "
-        "segmento triângulo triangulo círculo circulo quadrado retângulo retangulo "
-        "polígono poligono trapézio losango paralelogramo hipotenusa geometria molécula "
-        "molecula moléculas estrutura estruturas fórmula formula plano cronograma "
-        "organograma fluxograma"
-    ),
-    not_pairs=frozenset(
-        {
-            ("mapa", "mental"),
-            ("mapa", "conceitual"),
-            ("árvore", "genealógica"),
-            ("arvore", "genealogica"),
-        }
-    ),
 )
 
 RUSSIAN = VerbFirst(
     "ru",
     purpose=_w("для"),
     draw=_w("нарисуй нарисуйте нарисуешь"),
-    # "Изобрази удивление" asks to act surprised: with "мне" it draws.
-    needs_me=_w("изобрази изобразите"),
     create=_w("создай создайте сгенерируй сгенерируйте сделай сделайте"),
     me=_w("мне нам"),
     can_you=_phrases(
         "можешь", "можете", "ты можешь", "вы можете", "мог бы", "могла бы", "могли бы"
     ),
-    draw_infinitives=_w("нарисовать изобразить"),
+    draw_infinitives=_w("нарисовать"),
     create_infinitives=_w("создать сгенерировать сделать"),
     polite=_phrases("пожалуйста", "плиз", "пж"),
     nouns=_w(
@@ -344,15 +257,6 @@ RUSSIAN = VerbFirst(
     ),
     pronouns=_w("это этого эту этот эти его её ее их то того тот ту меня"),
     again=_phrases("ещё раз", "еще раз", "снова", "опять", "заново"),
-    not_words=_w("граф графа графы план плана планы словами"),
-    # Russian inflects: "график", "графика"; "таблицу", "таблица".
-    not_stems=_stems(
-        "график диаграм схем таблиц список списк функци предел производн интеграл "
-        "уравнени прямую прямая лини отрез треугольник окружност круг квадрат "
-        "прямоугольник многоугольник трапеци ромб параллелограмм гипотенуз геометри "
-        "молекул структур формул вывод границ блок-схем интеллект-карт генеалогическ "
-        "расписани"
-    ),
 )
 
 TURKISH = VerbLast(
@@ -372,18 +276,7 @@ TURKISH = VerbLast(
     ),
     pronouns=_w("bunu onu şunu bunları onları şunları bu şu o"),
     again=_phrases("tekrar", "yine", "yeniden"),
-    # "Altını çiz" underlines, "üstünü çiz" crosses out; "doğru" is a line.
-    # Question words: "kedi nasıl çiz" is half a question.
-    not_words=_w("altını altlarını üstünü üzerini doğru nasıl neden niye nedir"),
     purpose=_w("için"),
-    not_stems=_stems(
-        "grafi tablo liste diyagram şema akış fonksiyon türev integral limit denklem "
-        "çizgi üçgen daire çember kare dikdörtgen çokgen yamuk paralelkenar hipotenüs "
-        "geometri molekül yapı formül sonuç sınır plan takvim çizelge"
-    ),
-    not_pairs=frozenset(
-        {("kavram", "harita"), ("soy", "ağac"), ("karar", "ağac"), ("yol", "harita")}
-    ),
 )
 
 # Amharic: "draw for me" (ሳልልኝ) is never anything else; bare "ሳል" is also "a cough"
@@ -398,8 +291,6 @@ AMHARIC = VerbLast(
     of_prefix="የ",
     pronouns=_w("ይህን ይሄን ያንን እሱን እሷን እነሱን"),
     again=_phrases("እንደገና"),
-    not_words=_w("ክብ"),
-    not_stems=_stems("ግራፍ ሰንጠረዥ ቻርት ዲያግራም ዝርዝር መስመር ማዕዘን ሞለኪውል ቀመር እኩልታ እቅድ"),
 )
 
 VERB_FIRST: tuple[VerbFirst, ...] = (SPANISH, PORTUGUESE, ITALIAN, FRENCH, GERMAN, RUSSIAN)
@@ -409,7 +300,10 @@ VERB_LAST: tuple[VerbLast, ...] = (TURKISH, AMHARIC)
 ARTICLES = _w("un una uno un' une ein eine einen einem einer um uma")
 
 # What joins a second request to a picture: "… und erkläre auch, was …", "… ve ayrıca …".
-CONNECTORS = _w("and y e ed et und ve и а እና then luego después puis ensuite dann danach poi")
+CONNECTORS = _w(
+    "and y e ed et und ve и а እና then luego después puis ensuite dann danach poi depois "
+    "потом затем sonra"
+)
 ALSO = _w(
     "also también además aussi également auch außerdem ausserdem zudem anche inoltre pure "
     "também tambem além disso ayrıca также тоже ещё еще እንዲሁም ደግሞ ደግሞም"

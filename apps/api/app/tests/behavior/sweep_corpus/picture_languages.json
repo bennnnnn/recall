@@ -674,7 +674,7 @@
   {
     "id": "pl-es-50",
     "area": "picture languages",
-    "prompt": "Dibuja un circuito con dos resistencias en serie",
+    "prompt": "¡Pinta bien!",
     "history": [],
     "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
     "expect": "answer"
@@ -682,7 +682,7 @@
   {
     "id": "pl-es-51",
     "area": "picture languages",
-    "prompt": "Dibuja los rayos de una lente convexa",
+    "prompt": "Pinta mal",
     "history": [],
     "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
     "expect": "answer"
@@ -690,7 +690,7 @@
   {
     "id": "pl-es-52",
     "area": "picture languages",
-    "prompt": "¡Pinta bien!",
+    "prompt": "Pinta muy bien tu proyecto",
     "history": [],
     "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
     "expect": "answer"
@@ -698,29 +698,13 @@
   {
     "id": "pl-es-53",
     "area": "picture languages",
-    "prompt": "Pinta mal",
-    "history": [],
-    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-es-54",
-    "area": "picture languages",
-    "prompt": "Pinta muy bien tu proyecto",
-    "history": [],
-    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-es-55",
-    "area": "picture languages",
     "prompt": "Pinta que va a llover",
     "history": [],
     "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
     "expect": "answer"
   },
   {
-    "id": "pl-es-56",
+    "id": "pl-es-54",
     "area": "picture languages",
     "prompt": "Pinta bien, y dime qué más necesitas",
     "history": [],
@@ -768,14 +752,6 @@
     "expect": "answer"
   },
   {
-    "id": "pl-fr-45",
-    "area": "picture languages",
-    "prompt": "Dessine une cellule végétale",
-    "history": [],
-    "reply": "Bien sûr. Voici l'explication étape par étape, avec un exemple simple à la fin.",
-    "expect": "answer"
-  },
-  {
     "id": "pl-de-40",
     "area": "picture languages",
     "prompt": "Illustriere die Lösung",
@@ -818,21 +794,13 @@
   {
     "id": "pl-de-45",
     "area": "picture languages",
-    "prompt": "Zeichne den Strahlengang einer Sammellinse",
-    "history": [],
-    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-de-46",
-    "area": "picture languages",
     "prompt": "Male mir aus, wie es wäre",
     "history": [],
     "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
     "expect": "answer"
   },
   {
-    "id": "pl-de-47",
+    "id": "pl-de-46",
     "area": "picture languages",
     "prompt": "Zeichne mir auf, wie das geht",
     "history": [],
@@ -875,14 +843,6 @@
     "id": "pl-it-44",
     "area": "picture languages",
     "prompt": "Disegna la caffeina",
-    "history": [],
-    "reply": "Certo. Ecco la spiegazione passo per passo, con un esempio semplice alla fine.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-it-45",
-    "area": "picture languages",
-    "prompt": "Disegna un atomo",
     "history": [],
     "reply": "Certo. Ecco la spiegazione passo per passo, con un esempio semplice alla fine.",
     "expect": "answer"
@@ -960,14 +920,6 @@
     "expect": "answer"
   },
   {
-    "id": "pl-tr-43",
-    "area": "picture languages",
-    "prompt": "Bir hücre çiz",
-    "history": [],
-    "reply": "Tabii. İşte adım adım açıklama, sonunda basit bir örnekle.",
-    "expect": "answer"
-  },
-  {
     "id": "pl-ru-40",
     "area": "picture languages",
     "prompt": "Нарисуй пример",
@@ -1009,14 +961,6 @@
   },
   {
     "id": "pl-ru-45",
-    "area": "picture languages",
-    "prompt": "Нарисуй параболу",
-    "history": [],
-    "reply": "Конечно. Вот объяснение по шагам, с простым примером в конце.",
-    "expect": "answer"
-  },
-  {
-    "id": "pl-ru-46",
     "area": "picture languages",
     "prompt": "Изобрази удивление",
     "history": [],
@@ -1188,5 +1132,474 @@
       "image_gen",
       "answer"
     ]
+  },
+  {
+    "id": "pl-ru-80",
+    "area": "picture languages",
+    "prompt": "Нарисуй белку с орехом",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-ru-81",
+    "area": "picture languages",
+    "prompt": "Нарисуй попугая в клетке",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-ru-82",
+    "area": "picture languages",
+    "prompt": "Нарисуй кота на письменном столе",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-ru-83",
+    "area": "picture languages",
+    "prompt": "Нарисуй круглый торт со свечами",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-ru-84",
+    "area": "picture languages",
+    "prompt": "Нарисуй волну",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-ru-85",
+    "area": "picture languages",
+    "prompt": "Нарисуй музыканта с гитарой",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-ru-86",
+    "area": "picture languages",
+    "prompt": "Нарисуй девочку, читающую книгу по истории",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-ru-87",
+    "area": "picture languages",
+    "prompt": "Нарисуй параболу",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-ru-88",
+    "area": "picture languages",
+    "prompt": "Нарисуй клетку",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-80",
+    "area": "picture languages",
+    "prompt": "Çizgi film tarzında bir köpek çiz",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-81",
+    "area": "picture languages",
+    "prompt": "Kareli gömlekli bir adam çiz",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-82",
+    "area": "picture languages",
+    "prompt": "Van Gogh tablosu gibi bir manzara çiz",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-83",
+    "area": "picture languages",
+    "prompt": "Duvarda grafiti yapan bir çocuk çiz",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-84",
+    "area": "picture languages",
+    "prompt": "Bir planör çiz",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-85",
+    "area": "picture languages",
+    "prompt": "Bir hesap makinesi çiz",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-86",
+    "area": "picture languages",
+    "prompt": "Bir hücre çiz",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-80",
+    "area": "picture languages",
+    "prompt": "Zeichne eine Katze, die gerade schläft",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-81",
+    "area": "picture languages",
+    "prompt": "Zeichne einen Musiker mit Gitarre",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-82",
+    "area": "picture languages",
+    "prompt": "Zeichne das Meer mit großen Wellen",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-83",
+    "area": "picture languages",
+    "prompt": "Zeichne einen Ritter voller Kraft",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-84",
+    "area": "picture languages",
+    "prompt": "Zeichne den Strahlengang einer Sammellinse",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-85",
+    "area": "picture languages",
+    "prompt": "Male eine Katze",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-80",
+    "area": "picture languages",
+    "prompt": "Dessine une voiture à grande vitesse",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-81",
+    "area": "picture languages",
+    "prompt": "Dessine un chat sous les rayons du soleil",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-82",
+    "area": "picture languages",
+    "prompt": "Dessine un bouton de rose",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-83",
+    "area": "picture languages",
+    "prompt": "Dessine un chevalier plein de force",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-84",
+    "area": "picture languages",
+    "prompt": "Dessine une cellule végétale",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-it-80",
+    "area": "picture languages",
+    "prompt": "Disegna un gatto a tema natalizio",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-it-81",
+    "area": "picture languages",
+    "prompt": "Disegna le onde del mare",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-it-82",
+    "area": "picture languages",
+    "prompt": "Disegna un gatto sotto i raggi del sole",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-it-83",
+    "area": "picture languages",
+    "prompt": "Disegna un gatto nell'angolo della stanza",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-it-84",
+    "area": "picture languages",
+    "prompt": "Disegna un atomo",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-80",
+    "area": "picture languages",
+    "prompt": "Desenhe uma onda gigante com um surfista",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-81",
+    "area": "picture languages",
+    "prompt": "Desenhe uma tempestade com raios",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-82",
+    "area": "picture languages",
+    "prompt": "Desenhe um cavaleiro cheio de força",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-83",
+    "area": "picture languages",
+    "prompt": "Desenhe uma célula",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-80",
+    "area": "picture languages",
+    "prompt": "Dibuja un gato con energía",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-81",
+    "area": "picture languages",
+    "prompt": "Dibuja una niña leyendo un libro de historia",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-82",
+    "area": "picture languages",
+    "prompt": "Dibuja los rayos de una lente convexa",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-83",
+    "area": "picture languages",
+    "prompt": "Dibuja un circuito con dos resistencias en serie",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-84",
+    "area": "picture languages",
+    "prompt": "Dibuja una célula",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-85",
+    "area": "picture languages",
+    "prompt": "Dibuja el límite",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-95",
+    "area": "picture languages",
+    "prompt": "Zeichne das größer",
+    "history": [
+      [
+        "user",
+        "Generate image: black cat"
+      ],
+      [
+        "assistant",
+        "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]"
+      ]
+    ],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-96",
+    "area": "picture languages",
+    "prompt": "Zeichne die noch größer",
+    "history": [
+      [
+        "user",
+        "Generate image: black cat"
+      ],
+      [
+        "assistant",
+        "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]"
+      ]
+    ],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-95",
+    "area": "picture languages",
+    "prompt": "Dessine-la plus grande",
+    "history": [
+      [
+        "user",
+        "Generate image: black cat"
+      ],
+      [
+        "assistant",
+        "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]"
+      ]
+    ],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-96",
+    "area": "picture languages",
+    "prompt": "Dessine le en bleu",
+    "history": [
+      [
+        "user",
+        "Generate image: black cat"
+      ],
+      [
+        "assistant",
+        "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]"
+      ]
+    ],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-13",
+    "area": "multi",
+    "prompt": "Explique a fotossíntese e depois desenhe um girassol",
+    "history": [],
+    "reply": "Claro. Aqui está a explicação passo a passo, com um exemplo simples no final.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-ru-13",
+    "area": "multi",
+    "prompt": "Объясни фотосинтез, а потом нарисуй подсолнух",
+    "history": [],
+    "reply": "Конечно. Вот объяснение по шагам, с простым примером в конце.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-tr-13",
+    "area": "multi",
+    "prompt": "Fotosentezi açıkla, sonra bir ayçiçeği çiz",
+    "history": [],
+    "reply": "Tabii. İşte adım adım açıklama, sonunda basit bir örnekle.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ]
+  },
+  {
+    "id": "pl-en-draw-me-detail-1",
+    "area": "picture languages",
+    "prompt": "draw me a dog and write Max on its collar",
+    "history": [],
+    "reply": "Here is your picture.",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-en-draw-me-detail-2",
+    "area": "picture languages",
+    "prompt": "draw me a cat and show it sleeping",
+    "history": [],
+    "reply": "Here is your picture.",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-en-draw-me-detail-3",
+    "area": "picture languages",
+    "prompt": "draw me a robot and tell me its name",
+    "history": [],
+    "reply": "Here is your picture.",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-en-draw-me-detail-4",
+    "area": "picture languages",
+    "prompt": "draw me a cat and then show me a dog",
+    "history": [],
+    "reply": "Here is your picture.",
+    "expect": "image_gen"
   }
 ]

@@ -6,11 +6,15 @@ here was None before ``gen_intent_local``.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
-from app.modules.images.gen_intent import extract_image_gen_prompt, picture_and_request
-from app.modules.images.gen_intent_parts import Part
-from app.modules.images.intent import composer_image_intent
+from app.modules.chat.turn_prep.intents import plan_turn
+from app.modules.images.gen_intent import extract_image_gen_prompt
+from app.modules.images.gen_intent_parts import Part, picture_and_request
+from app.modules.images.intent import composer_image_intent, image_gen_request
 
 # One plain "draw" request per app language (English for comparison).
 DRAW = [
@@ -46,6 +50,8 @@ POLITE = [
     ("Zeichne bitte eine Katze", "Katze"),
     ("Zeichnen Sie eine Katze", "Katze"),
     ("Male mir einen Drachen", "Drachen"),
+    # "Paint a cat" draws: "male" with an article paints ("male lions" is English).
+    ("Male eine Katze", "Katze"),
     ("¿Puedes dibujar un gato?", "gato"),
     ("Dibújame un perro", "perro"),
     ("Dibuja un gato, por favor", "gato"),
@@ -61,8 +67,9 @@ POLITE = [
     ("የድመት ስዕል ሳል", "ድመት"),
 ]
 
-# Look-alikes: each English twin draws nothing either ("draw a conclusion", "draw me a
-# table of the results", "draw a graph of y=x^2", "make a list", "draw it again").
+# Look-alikes: each English twin draws nothing on main either, or goes to a subject
+# ("draw a conclusion", "draw me a table of the results", "draw a graph of y=x^2" is
+# maths, "draw ethanol" chemistry, "make a list", "draw it again" is the thread's).
 NOT_A_PICTURE = [
     "Dibuja una conclusión",
     "dibuja el límite de 1/x cuando x tiende a 0",
@@ -92,7 +99,6 @@ NOT_A_PICTURE = [
     "Mach dir ein Bild davon",
     "Erstelle einen Plan für meine Woche",
     "Zeichne das nochmal",
-    "Male eine Katze",
     "Disegna il grafico di y=x^2",
     "Disegna una tabella dei risultati",
     "Disegni animati per bambini",
@@ -214,10 +220,49 @@ def test_a_longer_picture_is_still_one_picture(text: str) -> None:
     assert picture_and_request(text) is None
 
 
+# Main's readings of 374 English prompts from the sweep, STEM corpus, battery and intent
+# fixture: every one main drew (141) and every 20th of the rest. Recorded on origin/main.
+_ENGLISH_ON_MAIN: dict[str, dict[str, str | None]] = json.loads(
+    (Path(__file__).with_name("english_main_readings.json")).read_text(encoding="utf-8")
+)
+
+
+@pytest.mark.parametrize("text", sorted(_ENGLISH_ON_MAIN))
+def test_english_reads_as_on_main(text: str) -> None:
+    """The other languages are read only after every English rule declined."""
+    request = image_gen_request(text, [])
+    assert extract_image_gen_prompt(text) == _ENGLISH_ON_MAIN[text]["extract"]
+    assert (request.prompt if request else None) == _ENGLISH_ON_MAIN[text]["request"]
+
+
+@pytest.mark.parametrize(
+    ("text", "subject"),
+    [
+        # Drawn on main, and still: the words after "and" describe the picture.
+        ("draw me a dog and write Max on its collar", "dog and write Max on its collar"),
+        ("draw me a cat and show it sleeping", "cat and show it sleeping"),
+        ("draw me a robot and tell me its name", "robot and tell me its name"),
+        ("draw me a cat and then show me a dog", "cat and then show me a dog"),
+    ],
+)
+def test_english_draw_me_with_a_picture_detail_draws_as_on_main(text: str, subject: str) -> None:
+    assert extract_image_gen_prompt(text) == subject
+
+
 @pytest.mark.parametrize(
     "text",
-    ["draw a conclusion from this", "make money", "create an image", "show me a picture of a cat"],
+    [
+        "draw me a cat and also explain black holes",
+        "draw me a cat and explain what a black hole is",
+        "draw me a cat and tell me what a black hole is",
+        "draw me a cat and how do magnets work",
+        "draw me a cat, and also explain black holes",
+        "draw me a cat and also show me a dog",
+    ],
 )
-def test_english_reads_as_before(text: str) -> None:
-    """The other languages are read only after every English rule declined."""
+def test_english_draw_me_with_a_second_request_draws_only_the_picture_part(text: str) -> None:
+    """Main drew the whole line ("cat and also explain black holes") although its plan
+    split it; now the plan's picture part is drawn beside the answer."""
     assert extract_image_gen_prompt(text) is None
+    plan = plan_turn(text)
+    assert plan.parts[0].kind == "image" and plan.parts[0].text.startswith("draw me a cat")

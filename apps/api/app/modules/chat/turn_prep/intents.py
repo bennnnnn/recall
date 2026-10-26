@@ -29,11 +29,8 @@ from app.modules.chat.turn_prep.clauses import (
     request_clauses,
     without_connector,
 )
-from app.modules.images.gen_intent import (
-    extract_image_gen_prompt,
-    picture_and_request,
-    stem_subject_claims,
-)
+from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
+from app.modules.images.gen_intent_parts import picture_and_request
 from app.modules.images.lookup_intent import extract_image_lookup_query
 from app.modules.web_search.detection import needs_web_search
 from app.services.subject_solving import detect_subject

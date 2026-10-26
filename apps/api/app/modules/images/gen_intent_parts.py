@@ -162,16 +162,17 @@ def extract_other_language_prompt(text: str) -> str | None:
     return found[0]
 
 
-def split_picture_request(text: str) -> tuple[Part, Part] | None:
-    """The picture request and the other request, in the message's order, for a message
-    no English cut divides."""
+def picture_and_request(text: str) -> tuple[Part, Part] | None:
+    """A picture asked in another language beside a second request: the parts, in order.
+    "Dibuja un gato y explica qué es un agujero negro" is two, as English "draw a cat and
+    also explain …" is; no English cut divides it, so the planner asks here."""
     read = _candidate(text)
     return _split(*read) if read is not None else None
 
 
-def other_language_of(text: str, prefer: str | None = None) -> str | None:
-    """The language a picture request was read in ("de" for "Zeichne eine Katze").
-    ``prefer`` (the app's language) decides between two that share the verb."""
+def picture_language(text: str, prefer: str | None = None) -> str | None:
+    """The language a picture request was read in ("de" for "Zeichne eine Katze"); None
+    for English or no picture. ``prefer`` (the app's language) breaks a tie."""
     read = _candidate(text)
     found = read_picture(*read, prefer=prefer) if read is not None else None
     return found[1] if found else None

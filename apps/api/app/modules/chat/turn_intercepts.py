@@ -30,11 +30,8 @@ from app.modules.chemistry.shape_followup import (
     last_question_line,
     shape_followup_problem,
 )
-from app.modules.images.gen_intent import (
-    extract_image_gen_prompt,
-    picture_language,
-    stem_subject_claims,
-)
+from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
+from app.modules.images.gen_intent_parts import picture_language
 from app.modules.images.generation import ImageGenerationError
 from app.modules.images.intent import (
     image_gen_request,
