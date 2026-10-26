@@ -20,7 +20,7 @@ words are a best effort and want a native speaker's review.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from itertools import pairwise
 
 _FORMS = re.compile(r"^([^()]+)\(([^()]+)\)$")
@@ -40,6 +40,11 @@ def _w(words: str) -> frozenset[str]:
     return frozenset(out)
 
 
+def _phrases(phrases: str) -> tuple[tuple[str, ...], ...]:
+    """ "tabla de surf, a prueba": comma-separated phrases."""
+    return tuple(tuple(phrase.split()) for phrase in phrases.split(","))
+
+
 def _pairs(words: str) -> frozenset[tuple[str, str]]:
     """ "mapa conceptual árbol genealógico": two neighbouring words, two by two."""
     split = words.split()
@@ -50,25 +55,61 @@ def _pairs(words: str) -> frozenset[tuple[str, str]]:
 class Topics:
     words: frozenset[str]
     pairs: frozenset[tuple[str, str]] = field(default_factory=frozenset)
-    # The word keeps its picture sense before this one ("bouton de rose").
-    allowed: frozenset[tuple[str, str]] = field(default_factory=frozenset)
+    # Phrases where a word keeps its everyday sense: "bouton de rose", "tabla de surf",
+    # "primeiro plano", "линию горизонта".
+    allowed: tuple[tuple[str, ...], ...] = ()
+    # … and a word before a name ("un tableau de Monet", "le plan de Paris").
+    before_name: frozenset[tuple[str, str]] = field(default_factory=frozenset)
     forces: frozenset[str] = frozenset()
     slopes: frozenset[str] = frozenset()
-    # A topic only as the thing drawn: "(eine) Gerade" is a line, "die gerade schläft" not.
-    leading: frozenset[str] = frozenset()
-    determiners: frozenset[str] = frozenset()
+    # Counted only as the thing drawn, the subject's first word past "the", "a", "my":
+    # "(eine) Gerade" is a line, "die gerade schläft" is right now.
+    heads: frozenset[str] = frozenset()
+    leads: frozenset[str] = frozenset()
+    # German joins nouns: "Säulendiagramm", "Funktionsgraph", "Einkaufsliste".
+    endings: tuple[str, ...] = ()
+    # Turkish puts the thing drawn last: "denize doğru koşan bir at" is a horse.
+    head_last: bool = False
 
-    def names_one(self, words: list[str]) -> bool:
-        """True when ``words`` (lowercase) are about something English draws nothing for."""
-        head = words[1:2] if words[:1] and words[0] in self.determiners else words[:1]
-        if head and head[0] in self.leading:
+    def names_one(self, words: list[str], typed: list[str] | None = None) -> bool:
+        """True when ``words`` (lowercase; ``typed`` as written) are about something
+        English draws nothing for."""
+        if not words:
+            return False
+        start = 0
+        while start < len(words) - 1 and words[start] in self.leads:
+            start += 1
+        if words[start] in self.heads:
             return True
-        for index, word in enumerate(words):
+        checked = range(len(words) - 1, len(words)) if self.head_last else range(len(words))
+        return self._names(words, checked, typed) or self._together(words)
+
+    def _everyday(self, words: list[str]) -> set[int]:
+        """Where an allowed phrase stands: its words keep their everyday sense."""
+        kept: set[int] = set()
+        for phrase in self.allowed:
+            size = len(phrase)
+            for start in range(len(words) - size + 1):
+                if tuple(words[start : start + size]) == phrase:
+                    kept.update(range(start, start + size))
+        return kept
+
+    def _names(self, words: list[str], checked: range, typed: list[str] | None) -> bool:
+        kept = self._everyday(words) if self.allowed else set()
+        for index in checked:
+            word = words[index]
             following = words[index + 1] if index + 1 < len(words) else ""
-            if word in self.words and (word, following) not in self.allowed:
-                return True
-        if any(pair in self.pairs for pair in pairwise(words)):
+            if word not in self.words and not (self.endings and word.endswith(self.endings)):
+                continue
+            if index in kept:
+                continue
+            name = typed[index + 2] if typed and index + 2 < len(typed) else ""
+            if (word, following) in self.before_name and name[:1].isupper():
+                continue
             return True
+        return any(pair in self.pairs for pair in pairwise(words))
+
+    def _together(self, words: list[str]) -> bool:
         found = set(words)
         return bool(found & self.forces) and bool(found & self.slopes)
 
@@ -111,7 +152,10 @@ SPANISH = Topics(
         "mapa conceptual mapa mental árbol genealógico arbol genealogico de decisión "
         "ácido acético ácido sulfúrico ácido clorhídrico ácido nítrico acido acetico"
     ),
-    allowed=_pairs("botón de"),
+    allowed=_phrases(
+        "botón de, tabla de surf, tabla de planchar, tabla de snowboard, de cuentas, a prueba, "
+        "con curvas, en curva"
+    ),
     forces=_w("fuerza(s)"),
     slopes=_w("inclinado inclinada rampa pendiente"),
 )
@@ -147,9 +191,12 @@ FRENCH = Topics(
         "croisés acide acétique acide sulfurique acide chlorhydrique acide nitrique"
     ),
     # "(Une) droite" is a line; "un chat à droite" is on the right.
-    leading=_w("droite"),
-    determiners=_w("la le l' une"),
-    allowed=_pairs("bouton de bouton d'"),
+    heads=_w("droite"),
+    leads=_w("la le l' les une mon ma mes ton ta tes son sa ses"),
+    allowed=_phrases(
+        "bouton de, bouton d', tableau noir, site archéologique, site historique, conte de fées"
+    ),
+    before_name=_pairs("tableau de tableau d' plan de plan d'"),
     forces=_w("force(s)"),
     slopes=_w("incliné inclinée rampe pente"),
 )
@@ -184,10 +231,15 @@ GERMAN = Topics(
     ),
     pairs=_pairs("chemische verbindung chemischen verbindung"),
     # "(Eine) Gerade" is a line; "eine Katze, die gerade schläft" is right now.
-    leading=_w("gerade geraden"),
-    determiners=_w("die eine zwei"),
+    heads=_w("gerade geraden"),
+    allowed=_phrases("einem satz, einen satz, satz über"),
+    leads=_w("die der das den dem eine zwei mein meine meinen dein deine sein seine ihre"),
     forces=_w("kraft kräfte"),
-    slopes=_w("schiefe schiefen rampe hang abhang"),
+    slopes=_w("schiefe schiefen schiefer geneigte geneigten geneigter rampe hang abhang"),
+    endings=tuple(
+        "diagramm diagramme diagrammen graph graphen tabelle tabellen liste listen kurve "
+        "kurven gleichung gleichungen aufgabe aufgaben datenbank datenbanken".split()
+    ),
 )
 
 ITALIAN = Topics(
@@ -225,6 +277,7 @@ ITALIAN = Topics(
     ),
     forces=_w("forza forze"),
     slopes=_w("inclinato inclinata rampa pendio pendenza"),
+    allowed=_phrases("una relazione felice, in una relazione, in relazione, file di, in curva"),
 )
 
 PORTUGUESE = Topics(
@@ -233,7 +286,7 @@ PORTUGUESE = Topics(
         "função funções funcao classe(s) arquivo(s) chat(s) nota(s) anotação anotações "
         "resumo(s) plano(s) cronograma(s) evento(s) reunião reuniões quiz questionário(s) "
         "email(s) e-mail(s) mensagem mensagens rascunho(s) relatório(s) tabela(s) "
-        "componente(s) página(s) pagina(s) tela(s) botão botões formulário(s) usuário(s) "
+        "componente(s) página(s) pagina(s) botão botões formulário(s) usuário(s) "
         "senha(s) commit(s) bug(s) teste(s) objeto(s) comparação comparações exemplo(s) "
         "problema(s) equação equações pergunta(s) questão questões exercício(s) "
         "exercicio(s) solução soluções solucao demonstração demonstrações ficha(s) dica(s) "
@@ -259,7 +312,9 @@ PORTUGUESE = Topics(
         "mapa mental mapa conceitual árvore genealógica arvore genealogica de decisão "
         "palavras cruzadas ácido acético ácido sulfúrico ácido clorídrico ácido nítrico"
     ),
-    allowed=_pairs("botão de"),
+    allowed=_phrases(
+        "botão de, nota de, primeiro plano, segundo plano, de contas, com curvas, em curva"
+    ),
     forces=_w("força(s)"),
     slopes=_w("inclinado inclinada rampa ladeira declive"),
 )
@@ -281,7 +336,7 @@ RUSSIAN = Topics(
         "идея идею идеи запрос тренировка тренировку распорядок маршрут речь бюджет анкета "
         "анкету договор контракт презентация презентацию слайд слайды загадка загадку "
         "кроссворд "
-        "диаграмма диаграмму диаграммы схема схему график графика графики граф графа вывод "
+        "диаграмма диаграмму диаграммы схема схему график графика графики граф вывод "
         "линия линию линии прямая прямую треугольник треугольника круг круга кругу "
         "окружность окружности квадрат квадрата прямоугольник трапеция трапецию "
         "многоугольник ромб параллелограмм геометрия геометрию гипотенуза гипотенузу "
@@ -301,6 +356,9 @@ RUSSIAN = Topics(
     ),
     forces=_w("сила силу силы сил"),
     slopes=_w("наклонной наклонная наклонную горке склоне склону"),
+    allowed=_phrases(
+        "линию горизонта, линия горизонта, линии горизонта, совет директоров, совета директоров"
+    ),
 )
 
 TURKISH = Topics(
@@ -333,7 +391,8 @@ TURKISH = Topics(
         "kavram haritası kavram haritasını soy ağacı soy ağacını karar ağacı karar ağacını "
         "asetik asit sülfürik asit karbon dioksit"
     ),
-    allowed=_pairs("çizgi film çizgi filmi çizgi roman hesap makinesi"),
+    allowed=_phrases("çizgi film, çizgi filmi, çizgi roman, hesap makinesi, oyun parkı"),
+    head_last=True,
     forces=_w("kuvvet kuvveti kuvvetler kuvvetleri"),
     slopes=_w("eğik eğimli rampa rampada yokuş yokuşta"),
 )
@@ -351,13 +410,60 @@ AMHARIC = Topics(
     slopes=_w("ተዳፋት"),
 )
 
+# Lists, boundaries and databases, and the plural and case forms Russian and Turkish need
+# ("треугольники", "этанола", "üçgenler", "listesini").
+_MORE: dict[str, tuple[frozenset[str], frozenset[tuple[str, str]]]] = {
+    "es": (_w("lista(s) frontera(s)"), _pairs("de datos")),
+    "fr": (_w("liste(s) frontière(s)"), _pairs("de données")),
+    "de": (_w("grenze(n) datenbank(en) liste(n)"), frozenset()),
+    "it": (_w("lista liste elenco elenchi confine confini frontiera frontiere database"),
+           _pairs("banca dati")),
+    "pt": (_w("lista(s) fronteira(s)"), _pairs("de dados")),
+    "ru": (
+        _w(
+            "список списка списки списков списком граница границу границы границе "
+            "треугольники треугольников квадраты квадратов прямоугольники прямоугольников "
+            "круги кругов окружностей линий схемы схем диаграмм диаграммой графиков "
+            "графиком таблиц таблице таблицей задача задачу задачи задач примеров "
+            "уравнений упражнений вопросов решений проектов рецептов стихов песен "
+            "молекулой структурную структурная структурной этанола метанола бензола "
+            "кофеина аспирина глюкозы сахарозы метана этана пропана бутана аммиака ацетона "
+            "озона холестерина дофамина серотонина никотина парацетамола ибупрофена "
+            "инсулина пенициллина морфина адреналина диоксида оксида хлорида сульфата "
+            "нитрата гидроксида карбоната фенола толуола глицерина мочевины хлороформа "
+            "ментола"
+        ),
+        _pairs("база данных базу данных базы данных"),
+    ),
+    "tr": (
+        _w(
+            "liste listesi listesini listeyi listeler listeleri sınır sınırı sınırını "
+            "sınırlar sınırları veritabanı veritabanını üçgenler üçgenleri kareler kareleri "
+            "daireler daireleri çemberler dikdörtgenler grafikler grafikleri diyagramlar "
+            "diyagramları şemalar şemaları tabloları örnekleri problemler problemleri "
+            "soruları ödevleri projeler projeleri molekülleri"
+        ),
+        _pairs("veri tabanı veri tabanını"),
+    ),
+    "am": (_w("ድንበር ዳታቤዝ"), frozenset()),
+}  # fmt: skip
+
+
+def _with_more(code: str, topics: Topics) -> Topics:
+    words, pairs = _MORE.get(code, (frozenset(), frozenset()))
+    return replace(topics, words=topics.words | words, pairs=topics.pairs | pairs)
+
+
 TOPICS: dict[str, Topics] = {
-    "es": SPANISH,
-    "fr": FRENCH,
-    "de": GERMAN,
-    "it": ITALIAN,
-    "pt": PORTUGUESE,
-    "ru": RUSSIAN,
-    "tr": TURKISH,
-    "am": AMHARIC,
+    code: _with_more(code, topics)
+    for code, topics in (
+        ("es", SPANISH),
+        ("fr", FRENCH),
+        ("de", GERMAN),
+        ("it", ITALIAN),
+        ("pt", PORTUGUESE),
+        ("ru", RUSSIAN),
+        ("tr", TURKISH),
+        ("am", AMHARIC),
+    )
 }

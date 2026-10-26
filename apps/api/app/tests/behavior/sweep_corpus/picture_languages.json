@@ -1601,5 +1601,685 @@
     "history": [],
     "reply": "Here is your picture.",
     "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-100",
+    "area": "picture languages",
+    "prompt": "Mal den Teufel nicht an die Wand",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-101",
+    "area": "picture languages",
+    "prompt": "Mal die Situation nicht so schwarz",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-102",
+    "area": "picture languages",
+    "prompt": "Mal die Hand aufs Herz, wer war das?",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-103",
+    "area": "picture languages",
+    "prompt": "Mal einen Kaffee trinken?",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-104",
+    "area": "picture languages",
+    "prompt": "Mal ein Gedanke: sollten wir umziehen?",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-105",
+    "area": "picture languages",
+    "prompt": "Mal ein Kompliment an dich: du bist toll",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-106",
+    "area": "picture languages",
+    "prompt": "Mal ein anderes Thema: was kochen wir heute?",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-100",
+    "area": "picture languages",
+    "prompt": "Dibuja una lista de las capitales de Europa",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-fr-100",
+    "area": "picture languages",
+    "prompt": "Dessine une liste des capitales européennes",
+    "history": [],
+    "reply": "Bien sûr. Voici l'explication étape par étape, avec un exemple simple à la fin.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-107",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Liste der Hauptstädte",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-it-100",
+    "area": "picture languages",
+    "prompt": "Disegna un elenco delle capitali europee",
+    "history": [],
+    "reply": "Certo. Ecco la spiegazione passo per passo, con un esempio semplice alla fine.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-pt-100",
+    "area": "picture languages",
+    "prompt": "Desenhe uma lista das capitais da Europa",
+    "history": [],
+    "reply": "Claro. Aqui está a explicação passo a passo, com um exemplo simples no final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-100",
+    "area": "picture languages",
+    "prompt": "Нарисуй список столиц Европы",
+    "history": [],
+    "reply": "Конечно. Вот объяснение по шагам, с простым примером в конце.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-tr-100",
+    "area": "picture languages",
+    "prompt": "Avrupa başkentlerinin bir listesini çiz",
+    "history": [],
+    "reply": "Tabii. İşte adım adım açıklama, sonunda basit bir örnekle.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-101",
+    "area": "picture languages",
+    "prompt": "Dibuja la frontera entre España y Francia",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-108",
+    "area": "picture languages",
+    "prompt": "Zeichne die Grenze zwischen Deutschland und Polen",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-es-102",
+    "area": "picture languages",
+    "prompt": "Dibuja la base de datos de mi tienda",
+    "history": [],
+    "reply": "Claro. Aquí va la explicación paso a paso, con un ejemplo sencillo al final.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-109",
+    "area": "picture languages",
+    "prompt": "Zeichne die Datenbank meines Shops",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-110",
+    "area": "picture languages",
+    "prompt": "Zeichne ein Säulendiagramm",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-111",
+    "area": "picture languages",
+    "prompt": "Zeichne ein Kreisdiagramm meiner Ausgaben",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-112",
+    "area": "picture languages",
+    "prompt": "Zeichne den Funktionsgraphen",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-101",
+    "area": "picture languages",
+    "prompt": "Нарисуй треугольники",
+    "history": [],
+    "reply": "Конечно. Вот объяснение по шагам, с простым примером в конце.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-102",
+    "area": "picture languages",
+    "prompt": "Нарисуй квадраты",
+    "history": [],
+    "reply": "Конечно. Вот объяснение по шагам, с простым примером в конце.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-103",
+    "area": "picture languages",
+    "prompt": "Нарисуй схемы",
+    "history": [],
+    "reply": "Конечно. Вот объяснение по шагам, с простым примером в конце.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-104",
+    "area": "picture languages",
+    "prompt": "Нарисуй диаграмм",
+    "history": [],
+    "reply": "Конечно. Вот объяснение по шагам, с простым примером в конце.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-tr-101",
+    "area": "picture languages",
+    "prompt": "Üçgenler çiz",
+    "history": [],
+    "reply": "Tabii. İşte adım adım açıklama, sonunda basit bir örnekle.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-ru-105",
+    "area": "picture languages",
+    "prompt": "Нарисуй структурную формулу этанола",
+    "history": [],
+    "reply": "Конечно. Вот объяснение по шагам, с простым примером в конце.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-113",
+    "area": "picture languages",
+    "prompt": "Zeichne die Kräfte auf einen Block auf einer geneigten Ebene",
+    "history": [],
+    "reply": "Gern. Hier ist die Erklärung Schritt für Schritt, mit einem einfachen Beispiel am Ende.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-fr-101",
+    "area": "picture languages",
+    "prompt": "Dessine un tableau des résultats",
+    "history": [],
+    "reply": "Bien sûr. Voici l'explication étape par étape, avec un exemple simple à la fin.",
+    "expect": "answer"
+  },
+  {
+    "id": "pl-de-114",
+    "area": "picture languages",
+    "prompt": "Mal mir einen Drachen",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-115",
+    "area": "picture languages",
+    "prompt": "Male eine Katze mit Hut",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-it-101",
+    "area": "picture languages",
+    "prompt": "Genera una foto di un gatto",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-it-102",
+    "area": "picture languages",
+    "prompt": "Crea una foto di un gatto",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-101",
+    "area": "picture languages",
+    "prompt": "Desenhe o mar ao pôr do sol",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-102",
+    "area": "picture languages",
+    "prompt": "Desenhe o Cristo Redentor",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-103",
+    "area": "picture languages",
+    "prompt": "Desenhe o gato de botas",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-104",
+    "area": "picture languages",
+    "prompt": "Pinte o céu estrelado",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-105",
+    "area": "picture languages",
+    "prompt": "Me desenhe o Pikachu",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-106",
+    "area": "picture languages",
+    "prompt": "Você pode desenhar o meu cachorro?",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-107",
+    "area": "picture languages",
+    "prompt": "Ilustre o Pequeno Príncipe",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-102",
+    "area": "picture languages",
+    "prompt": "Dessine le plus beau chat du monde",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-103",
+    "area": "picture languages",
+    "prompt": "Dessine la plus grande montagne du monde",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-103",
+    "area": "picture languages",
+    "prompt": "Dibuja la más bonita de las flores",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-104",
+    "area": "picture languages",
+    "prompt": "Dibuja lo más bonito que se te ocurra",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-116",
+    "area": "picture languages",
+    "prompt": "Zeichne die vier Jahreszeiten",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-117",
+    "area": "picture languages",
+    "prompt": "Zeichne die super süße Katze",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-118",
+    "area": "picture languages",
+    "prompt": "Zeichne die unter dem Baum schlafende Katze",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-119",
+    "area": "picture languages",
+    "prompt": "Zeichne die immer größer werdende Welle",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-120",
+    "area": "picture languages",
+    "prompt": "Zeichne die mit Blumen bedeckte Wiese",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-121",
+    "area": "picture languages",
+    "prompt": "Zeichne das in der Nacht leuchtende Schloss",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-122",
+    "area": "picture languages",
+    "prompt": "Zeichne die noch nie gesehene Kreatur",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-108",
+    "area": "picture languages",
+    "prompt": "Pinte el mar",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-105",
+    "area": "picture languages",
+    "prompt": "Pinta el mar",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-102",
+    "area": "picture languages",
+    "prompt": "Denize doğru koşan bir at çiz",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-103",
+    "area": "picture languages",
+    "prompt": "Güneşe doğru uçan bir kuş çiz",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-104",
+    "area": "picture languages",
+    "prompt": "Eğri bir ağaç çiz",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-105",
+    "area": "picture languages",
+    "prompt": "Eski bir eğri köprü çiz",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-106",
+    "area": "picture languages",
+    "prompt": "Giriş kapısı kırmızı olan bir ev çiz",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-tr-107",
+    "area": "picture languages",
+    "prompt": "Bir oyun parkında çocuklar çiz",
+    "history": [],
+    "reply": "İşte resmin. Başka bir tarz ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-ru-106",
+    "area": "picture languages",
+    "prompt": "Нарисуй графа Дракулу",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-ru-107",
+    "area": "picture languages",
+    "prompt": "Нарисуй графа в замке",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-ru-108",
+    "area": "picture languages",
+    "prompt": "Нарисуй линию горизонта на закате",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-ru-109",
+    "area": "picture languages",
+    "prompt": "Нарисуй совет директоров из котов",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-it-103",
+    "area": "picture languages",
+    "prompt": "Disegna una coppia in una relazione felice",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-it-104",
+    "area": "picture languages",
+    "prompt": "Disegna file di alberi lungo un viale",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-it-105",
+    "area": "picture languages",
+    "prompt": "Disegna una macchina in curva",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-109",
+    "area": "picture languages",
+    "prompt": "Desenhe um gato em primeiro plano",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-110",
+    "area": "picture languages",
+    "prompt": "Desenhe uma estrada com curvas",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-111",
+    "area": "picture languages",
+    "prompt": "Pinte uma tela com flores",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-112",
+    "area": "picture languages",
+    "prompt": "Desenhe um colar de contas",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-pt-113",
+    "area": "picture languages",
+    "prompt": "Desenhe uma nota de cem reais",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-106",
+    "area": "picture languages",
+    "prompt": "Dibuja un perro en una tabla de surf",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-107",
+    "area": "picture languages",
+    "prompt": "Dibuja un collar de cuentas",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-108",
+    "area": "picture languages",
+    "prompt": "Dibuja un reloj a prueba de agua",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-es-109",
+    "area": "picture languages",
+    "prompt": "Dibuja una carretera con curvas",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-104",
+    "area": "picture languages",
+    "prompt": "Dessine un tableau de Monet",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-105",
+    "area": "picture languages",
+    "prompt": "Dessine un chat devant le tableau noir",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-106",
+    "area": "picture languages",
+    "prompt": "Dessine le plan de Paris",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-107",
+    "area": "picture languages",
+    "prompt": "Dessine un site archéologique",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-fr-108",
+    "area": "picture languages",
+    "prompt": "Dessine un conte de fées",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-de-123",
+    "area": "picture languages",
+    "prompt": "Zeichne eine Katze in einem Satz über den Zaun",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-en-100",
+    "area": "picture languages",
+    "prompt": "draw me a cat and how are you",
+    "history": [],
+    "reply": "Here is your picture.",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-en-101",
+    "area": "picture languages",
+    "prompt": "draw me a cat and how",
+    "history": [],
+    "reply": "Here is your picture.",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-en-102",
+    "area": "picture languages",
+    "prompt": "draw me a castle and help",
+    "history": [],
+    "reply": "Here is your picture.",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl-en-103",
+    "area": "picture languages",
+    "prompt": "draw me a cat and who",
+    "history": [],
+    "reply": "Here is your picture.",
+    "expect": "image_gen"
   }
 ]

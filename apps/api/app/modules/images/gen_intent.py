@@ -17,6 +17,7 @@ from itertools import pairwise
 from typing import TYPE_CHECKING
 
 from app.modules.images.gen_intent_parts import extract_other_language_prompt
+from app.modules.images.gen_intent_second import SECOND_ASKS, asks_separately
 from app.modules.images.gen_intent_words import (
     ARTICLES,
     CODEISH_WORDS,
@@ -263,7 +264,7 @@ def _match_draw_me(tokens: list[str]) -> str | None:
     if i >= len(tokens):
         return None
     # "Draw me a cat and also explain black holes" asks twice: the plan draws the cat.
-    if _asks_separately(tokens[i:]):
+    if asks_separately(tokens[i:]):
         return None
     subject = join_subject(tokens[i:])
     if has_non_image_subject(subject, drawn=True) or has_non_image_draw(subject):
@@ -300,35 +301,13 @@ _DRAW_NOT_A_PICTURE = frozenset(
 _LONG_SUBJECT_WORDS = 12
 
 
-_SECOND_ASKS = frozenset({"explain", "tell", "write", "show", "help", "what", "how", "why", "who"})
-
-
 def _asks_again(parts: list[str]) -> bool:
     """A second request in the subject: "… and also explain …", "… and tell me …"."""
     words = [word for word in map(fold_token, parts) if word != "also"]
-    return any(word in {"and", "then"} and nxt in _SECOND_ASKS for word, nxt in pairwise(words))
+    return any(word in {"and", "then"} and nxt in SECOND_ASKS for word, nxt in pairwise(words))
 
 
 # "… and tell me its name", "… and show it sleeping": the clause is about the picture.
-_POINTS_BACK = frozenset(
-    "it its itself them their him his her she he they this that these those".split()
-)
-
-
-def _asks_separately(parts: list[str]) -> bool:
-    """ "… and (also) explain black holes": a request of its own after "and", which the
-    turn's plan answers beside the picture. Not "… and write Max on its collar", "… and
-    then show me a dog" or "… and tell me its name", which add to the picture."""
-    words = [fold_token(part) for part in parts]
-    for index, word in enumerate(words[:-1]):
-        if word != "and":
-            continue
-        ask = index + 2 if words[index + 1] == "also" else index + 1
-        if ask < len(words) and words[ask] in _SECOND_ASKS:
-            return not any(rest in _POINTS_BACK for rest in words[ask + 1 :])
-    return False
-
-
 def _make_is_not_a_picture(subject: str) -> bool:
     """ "Make money", "make a decision about moving": the idiom's noun leads, and no picture
     word follows it ("make a living room illustration" is still a picture)."""

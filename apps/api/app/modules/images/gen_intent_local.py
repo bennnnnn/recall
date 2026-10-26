@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import pairwise
 
 from app.modules.chemistry.request import extract_compound_name
@@ -146,36 +146,47 @@ _PRONOUNS = frozenset(
     {word for lang in VERB_FIRST for word in lang.pronouns}
     | {word for lang in VERB_LAST for word in lang.pronouns}
 )
-_DETERMINERS = frozenset(word for lang in VERB_FIRST for word in lang.determiners)
+# A language's own pronouns, and others' that no language writes as an article: Turkish
+# "o" ("that") is Portuguese "the" ("Desenhe o mar", "Ilustre o Pequeno Príncipe").
+_ARTICLE_WORDS = ARTICLES | {word for lang in VERB_FIRST for word in lang.determiners}
+_PRONOUNS_IN = {lang.code: lang.pronouns | (_PRONOUNS - _ARTICLE_WORDS) for lang in VERB_FIRST}
 _AGAIN = tuple(phrase for lang in VERB_FIRST for phrase in lang.again) + tuple(
     phrase for lang in VERB_LAST for phrase in lang.again
 )
 
 
-# After "das", "la", "le" these say how to change the last picture, not what to draw:
+# After "das", "la", "le" standing alone these say how to change the last picture:
 # "Zeichne das größer", "Dessine-la plus grande", "Dessine le en bleu", "Dibuja la más …".
 _CHANGES = frozenset(
     "plus moins en más mas menos mayor menor più meno mais maior em in im noch etwas viel "
     "nochmal mit avec con com aussi también auch anche tan so così tão très muy molto sehr "
-    "bem bien".split()
+    "bem bien größer kleiner heller dunkler bunter breiter schmaler länger kürzer höher "
+    "schöner dicker dünner hier da dort aquí aqui ici là qui ali".split()
 )
+# German capitalises nouns, and colours after "in": "das in Blau" names no new thing.
+_COLOURS = frozenset("blau rot grün gelb schwarz weiß weiss orange lila rosa grau braun".split())
+# "Le plus beau chat du monde" is a new picture: a change word ends a short phrase.
+_MAX_CHANGE_WORDS = 3
 
 
-def _points_back(words: list[str], *, cased: list[str] | None = None) -> bool:
+def _points_back(words: list[str], lang: VerbFirst, typed: list[str]) -> bool:
     """ "Zeichne das nochmal", "dibuja eso", "Pinte isso de novo", "Zeichne das größer":
     the chat names what to draw, as English "draw it again" and "draw that bigger" leave
-    to the thread. ``cased`` (German, as typed): a lowercase "…er" after "das" is a
-    comparative ("größer"), not a noun."""
-    if words[0] in _PRONOUNS:
+    to the thread. "Dessine le plus beau chat du monde" and "Zeichne die vier
+    Jahreszeiten" name a new thing: a noun follows."""
+    if words[0] in _PRONOUNS_IN[lang.code]:
         return True
     tokens = [Token(0, 0, word) for word in words]
     if phrase_at(_AGAIN, tokens, 0):
         return True
-    if words[0] not in _DETERMINERS:
+    if words[0] not in lang.determiners:
         return False
-    if len(words) == 1 or phrase_at(_AGAIN, tokens, 1) > 0 or words[1] in _CHANGES:
+    if len(words) == 1 or phrase_at(_AGAIN, tokens, 1) > 0:
         return True
-    return cased is not None and cased[1][:1].islower() and words[1].endswith("er")
+    if words[1] not in _CHANGES or len(words) > _MAX_CHANGE_WORDS:
+        return False
+    nouns = [word for word in typed[1:] if word[:1].isupper() and word.lower() not in _COLOURS]
+    return lang.code != "de" or not nouns
 
 
 def _before_purpose(words: list[str], purpose: frozenset[str], *, leads: bool = False) -> list[str]:
@@ -190,11 +201,11 @@ def _before_purpose(words: list[str], purpose: frozenset[str], *, leads: bool = 
 def _subject_checks(lang: VerbFirst, words: list[str], typed: list[str]) -> bool:
     drawn = _before_purpose(words, lang.purpose)
     return not (
-        _points_back(words, cased=typed if lang.code == "de" else None)
+        _points_back(words, lang, typed)
         # "Male mir aus, wie es wäre", "zeichne das Gespräch auf": a separable verb.
         or words[0] in lang.particles
         or words[-1] in lang.particles
-        or TOPICS[lang.code].names_one(drawn)
+        or TOPICS[lang.code].names_one(drawn, typed[: len(drawn)])
     )
 
 
@@ -366,10 +377,15 @@ def _read_verb_last(lang: VerbLast, text: str, tokens: list[Token]) -> str | Non
         return None
     if bounded and (len(subject) > _SHORT_WORDS or len(text.strip()) > _SHORT_CHARS):
         return None
-    words = [t.word for t in subject + after]
+    # The thing drawn closes the words before the verb; an afterthought only adds to it.
+    words = [t.word.removeprefix(lang.of_prefix) for t in subject]
     drawn = _before_purpose(words, lang.purpose, leads=True)
-    if _points_back(words) or TOPICS[lang.code].names_one(
-        [word.removeprefix(lang.of_prefix) for word in drawn]
+    topics = TOPICS[lang.code]
+    if (
+        words[0] in _PRONOUNS
+        or phrase_at(_AGAIN, subject, 0)
+        or topics.names_one(drawn)
+        or (after and replace(topics, head_last=False).names_one([t.word for t in after]))
     ):
         return _DECLINED
     drawn_text = _subject_text(text, subject, lang.of_prefix)
@@ -411,8 +427,9 @@ def read_picture(
             found.append((subject, code))
     if not found:
         return None
+    worded = _worded_in(tokens, {code for _subject, code in found})
     subject, code = next(
-        (pick for pick in found if pick[1] == _worded_in(tokens)),
+        (pick for pick in found if pick[1] == worded),
         next((pick for pick in found if pick[1] == prefer), found[0]),
     )
     # "Zeichne Ethanol": a compound the chemistry card draws, as for "draw ethanol".
@@ -421,19 +438,28 @@ def read_picture(
     return subject, code
 
 
-# Words only one of Spanish and Portuguese writes: "Pinte um gato" is Portuguese, whatever
-# the app's language; the two share "pinta", "pinte", "ilustra", "ilustre".
-_ONLY_IN = {
-    "pt": frozenset("um uma uns umas você voce não nao é também isso isto desenhe explique "
-                    "os do dos em com meu minha seu sua".split()),
+# Everyday words of the languages that share a verb ("pinta", "ilustra", "crea", "genera"):
+# one that only one of the readings writes decides it, whatever the app's language.
+# "Pinte um gato" is Portuguese, "Pinta un gato" Spanish ("un" is Italian too, but Italian
+# has no "pinta"), "Genera una foto di un gatto" Italian.
+_OWN_WORDS = {
+    "pt": frozenset("um uma uns umas o os a as do da dos das em com meu minha seu sua você "
+                    "voce não nao é também isso isto desenhe explique".split()),
     "es": frozenset("un una unos unas el los las del con mi su eso esto explica qué y "
-                    "dibuja".split()),
+                    "dibuja además".split()),
+    "it": frozenset("un una uno un' il lo la gli le di del della dello dei degli delle con "
+                    "è anche spiega disegna immagine".split()),
 }  # fmt: skip
 
 
-def _worded_in(tokens: list[Token]) -> str | None:
+def _worded_in(tokens: list[Token], codes: set[str]) -> str | None:
     words = {t.word for t in tokens}
-    marked = [code for code, only in _ONLY_IN.items() if words & only]
+    readings = codes & _OWN_WORDS.keys()
+    marked = []
+    for code in readings:
+        others = set().union(*(_OWN_WORDS[other] for other in readings - {code}))
+        if words & (_OWN_WORDS[code] - others):
+            marked.append(code)
     return marked[0] if len(marked) == 1 else None
 
 

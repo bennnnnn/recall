@@ -124,7 +124,7 @@ SPANISH = VerbFirst(
     ),
     of=_w("de del"),
     pronouns=_w("eso esto ello aquello ese esa este esta estos estas esos esas mí"),
-    determiners=_w("lo la los las le"),
+    determiners=_w("el lo la los las le"),
     again=_phrases("otra vez", "de nuevo", "nuevamente"),
 )
 
@@ -167,8 +167,10 @@ GERMAN = VerbFirst(
         "erstelle erstell erstellen generiere generier generieren erzeuge erzeug erzeugen "
         "mache mach machen gestalte gestalten entwirf entwerfe entwerfen"
     ),
-    # "Male eine Katze" paints; "male lions" is English, "mal sehen" is "let's see".
-    needs_article=_w("male mal"),
+    # "Male eine Katze" paints ("male lions" is English). "Mal" alone is an everyday word
+    # ("mal sehen", "Mal den Teufel nicht an die Wand"): it draws only with "mir".
+    needs_article=_w("male"),
+    needs_me=_w("mal"),
     me=_w("mir uns ihr ihm"),
     reflexive=_w("dir dich sich euch"),
     # "Zeichnen Sie …" is the polite imperative; "sie" after another verb is "her".
