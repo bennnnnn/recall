@@ -1,7 +1,8 @@
 """A money turn from message to card: read, look up today's average, work, write.
 
 ``prepare_money_turn`` runs while the prompt is built. It reads the request (or the
-change a follow-up makes to the chat's last one, ``follow_up``) and starts the
+change a follow-up makes to the chat's last one, ``follow_up``, or an amount and a rate
+for what the user's line before says they are buying, ``purchase``) and starts the
 average-rate lookup at once. The lookup is awaited before the prompt only when the
 numbers need it (the user gave no rate, or asked what rates are); otherwise it runs while
 the reply streams, and ``finish_money_reply`` collects it to write the note and the
@@ -28,8 +29,9 @@ from app.models.orm import User
 from app.modules.money.block import money_block
 from app.modules.money.currencies import country_for, currency_for
 from app.modules.money.fence import calculator_fence, card_values
-from app.modules.money.follow_up import follow_up_request
+from app.modules.money.follow_up import as_parts, follow_up_request
 from app.modules.money.note import market_note
+from app.modules.money.purchase import purchase_request
 from app.modules.money.rates import MarketRate, current_average
 from app.modules.money.read import MoneyRequest, read_money_request
 from app.modules.money.solve import Worked, rate_name, work
@@ -77,7 +79,12 @@ async def prepare_money_turn(
     """
     if not settings.money_enabled:
         return None
-    request = follow_up_request(text, earlier) or read_money_request(text)
+    before = as_parts(earlier[-1]) if earlier else ()
+    request = (
+        follow_up_request(text, earlier)
+        or read_money_request(text)
+        or purchase_request(text, before)
+    )
     if request is None:
         return None
     # The card and the prompt use one currency: the one named, else the user's place's.

@@ -198,6 +198,21 @@ def test_yes_follow_through_hint_is_not_a_greeting():
     assert "Carry out that offer" in CONFIRM_FOLLOW_THROUGH_HINT
 
 
+def test_yes_confirms_what_the_last_reply_asked_to_confirm():
+    # Live (2026-10-25): "Could you confirm both figures?", "Yes", and it asked again.
+    from app.modules.chat.prompt_constants.conversation import CONFIRMED_HINT
+
+    for query in ("yes", "Yes.", "yep", "sure"):
+        parts = _style_format_hints(
+            query_text=query, is_day_plan=False, minimal_personal_context=False, compact=True
+        )
+        assert CONFIRMED_HINT in parts
+    parts = _style_format_hints(
+        query_text="y", is_day_plan=False, minimal_personal_context=False, compact=True
+    )
+    assert CONFIRMED_HINT not in parts
+
+
 def test_bare_y_does_not_invent_an_offer_to_follow_through_on():
     from app.modules.chat.prompt_constants import CONFIRM_FOLLOW_THROUGH_HINT
 

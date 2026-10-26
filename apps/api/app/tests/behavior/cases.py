@@ -2053,6 +2053,58 @@ CASES: tuple[Case, ...] = (
         Expect(subject="math", no_hints=("money",)),
         "School compound interest is maths' worked answer, not a calculator card.",
     ),
+    Case(
+        "money-two-lines",
+        "money",
+        "20k with 6 percent",
+        Expect(hints=("money", "money_reply"), image_gen=False, photo=NO_PHOTO),
+        "A $20,000 car loan at 6% over an assumed 60 months, worked by the server with its "
+        "card (live 2026-10-25 no card came and the model's totals were off).",
+        history=(
+            ("user", "I am planing to buy a car"),
+            ("assistant", "Nice! Are you looking at new or used, and what's your budget?"),
+        ),
+    ),
+    Case(
+        "money-two-lines-ambiguous",
+        "money",
+        "60k at 6 percent",
+        Expect(no_hints=("money",)),
+        "The model answers: after a $400k house and a question for the down payment and the "
+        "rate, 60k may be either, so the server works no numbers it cannot be sure of.",
+        history=(
+            ("user", "House buying for 400k"),
+            ("assistant", "How much are you putting down, and what rate have you been quoted?"),
+        ),
+    ),
+    Case(
+        "confirmed-figures",
+        "personal",
+        "Yes",
+        Expect(hints=("confirmed",), lightweight=False),
+        "Goes ahead with $100k take-home and $50k essentials: the budget, never another "
+        "request to confirm (live 2026-10-25 it asked to double-check again).",
+        history=(
+            (
+                "user",
+                "My monthly take-home is $100k and my essentials are $50k. How should I "
+                "split the rest?",
+            ),
+            ("assistant", "Those are large figures for a month. Could you confirm both figures?"),
+        ),
+    ),
+    Case(
+        "clarify-plain-words",
+        "format",
+        "Don't uses want to see clean food?",
+        Expect(image_gen=False, photo=NO_PHOTO),
+        "Answers with a view on whether users want clean-food scores (the typo is 'users'); "
+        "never a card asking what 'clean food' means (live 2026-10-25).",
+        history=(
+            ("user", "I'm building a grocery app that shows a score for each food"),
+            ("assistant", "Nice idea: a clear score helps shoppers compare products at a glance."),
+        ),
+    ),
 )
 
 

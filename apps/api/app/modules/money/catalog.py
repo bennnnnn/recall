@@ -113,6 +113,7 @@ class Product:
     lookup: RateLookup | None = None
     # Kinds of the product priced apart; none named is the product's own ``lookup``.
     variants: tuple[Variant, ...] = ()
+    goods: tuple[str, ...] = ()  # What the loan buys: "planning to buy a car" (``purchase``).
 
     def input(self, name: str) -> Input | None:
         return next((item for item in self.inputs if item.name == name), None)
@@ -197,6 +198,7 @@ PRODUCTS: tuple[Product, ...] = (
         outputs=_loan_outputs("years*12"),
         defaults={"years": 30},
         lookup=RateLookup("{term}-year fixed mortgage rate", (1.0, 15.0), 21, (15, 30)),
+        goods=("house", "home", "condo"),
     ),
     Product(
         key="car",
@@ -207,6 +209,7 @@ PRODUCTS: tuple[Product, ...] = (
         outputs=_loan_outputs("months"),
         defaults={"months": 60},
         lookup=RateLookup("{term}-month new car loan rate", (1.0, 25.0), 120, (36, 48, 60, 72)),
+        goods=("car", "truck", "suv", "vehicle"),
         variants=(
             # Published for every term at once, often quarterly: no term, an older figure.
             Variant(
