@@ -490,9 +490,11 @@ background, and runs the new code from the next launch.
       the chat analytics fields `paint_bucket` (on `chat_ttft`) and
       `send_ready_bucket` (on `chat_turn_outcome`), and the newer `error_code` values
       on `chat_turn_outcome` (`failed`, `not_found`, `consent_required`, …), get a 422
-      there. The app drops
-      a failed analytics post, so the cost is only those samples, but they are lost
-      until the API is out.
+      there. The API refuses the whole batch for one unknown value, and the app drops
+      a refused post without retrying and stops that flush, so every event queued
+      with it (other chat timings, a paywall or purchase event) is lost too, until the
+      API is out. An older API also sends a picture turn's spend-cap frame without
+      `feature`, so a new app words it as the chat-wide cap line.
 - [ ] Review [`docs/ROLLBACK.md`](ROLLBACK.md) before the first store submission
 
 ---
