@@ -83,6 +83,9 @@ NOT_A_PICTURE = [
     "Zeichne den Graphen von y=x^2",
     "Zeichne ein Dreieck mit den Seiten 3, 4 und 5",
     "Zeichne die Strukturformel von Ethanol",
+    # A compound chemistry names draws as its structure card, as "draw ethanol" does.
+    "Zeichne Ethanol",
+    "Disegna il benzene",
     "Zeichne ein Freikörperdiagramm",
     "Zeichne das Gespräch auf",
     "Mach dir ein Bild davon",

@@ -241,6 +241,14 @@
     "expect": "answer"
   },
   {
+    "id": "pl-de-26",
+    "area": "picture languages",
+    "prompt": "Zeichne Ethanol",
+    "history": [],
+    "reply": "Ethanol (C₂H₅OH): zwei Kohlenstoffatome, an einem hängt die OH-Gruppe.",
+    "expect": "answer"
+  },
+  {
     "id": "pl-it-01",
     "area": "picture languages",
     "prompt": "Disegna un gatto con il cappello",

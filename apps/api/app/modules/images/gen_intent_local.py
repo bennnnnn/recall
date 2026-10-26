@@ -23,6 +23,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from itertools import pairwise
 
+from app.modules.chemistry.request import extract_compound_name
 from app.modules.images.gen_intent_languages import (
     ALSO,
     ARTICLES,
@@ -378,7 +379,10 @@ def _read_in(text: str, tokens: list[_Token]) -> tuple[str, str] | None:
 
 def _read(text: str, tokens: list[_Token]) -> str | None:
     read = _read_in(text, tokens)
-    return read[0] if read else None
+    # "Zeichne Ethanol": a compound the chemistry card draws, as for "draw ethanol".
+    if read is None or extract_compound_name(f"draw {read[0]}") is not None:
+        return None
+    return read[0]
 
 
 def _asks_something(tokens: list[_Token]) -> bool:
@@ -487,7 +491,7 @@ def split_picture_request(text: str) -> tuple[str, str] | None:
 def other_language_of(text: str) -> str | None:
     """The language a picture request was read in ("de" for "Zeichne eine Katze")."""
     read = _candidate(text)
-    if read is None:
+    if read is None or _read(*read) is None:
         return None
     found = _read_in(*read)
     return found[1] if found else None
