@@ -394,3 +394,29 @@ def test_a_json_answer_the_user_asked_for_stays_code() -> None:
     quiz = json.dumps({"questions": [{"question": "2 + 2?", "options": ["3", "4"]}]})
     text = f"Here is your quiz:\n\n```json\n{quiz}\n```"
     assert settle_clarify_cards(text, allowed=True) == text
+
+
+@pytest.mark.parametrize(
+    ("start", "kept"),
+    [
+        (
+            "A $400,000 house is a big purchase, Dev. Before I run numbers, I need a few "
+            "details, so let me ask.",
+            "A $400,000 house is a big purchase, Dev.",
+        ),
+        ("I have a couple of quick questions first.", ""),
+        ("To plan your week, I need one detail.", "To plan your week, I need one detail."),
+        (
+            "Let me know what matters most. It depends.",
+            "Let me know what matters most. It depends.",
+        ),
+    ],
+)
+def test_a_start_that_already_says_it_will_ask_says_it_once(start: str, kept: str) -> None:
+    text = f"{start}\n\n**Let me ask you one thing.**\n\nWhat matters most?\n\n"
+    text += f"```clarify\n{_card_body(_PRIORITY)}\n```"
+
+    settled = settle_clarify_cards(text, allowed=True)
+
+    assert settled.lower().count("let me ask") == 1
+    assert settled.split("**Let me ask")[0].strip() == kept

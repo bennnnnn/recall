@@ -234,6 +234,16 @@ _LEAD_IN = re.compile(
     re.IGNORECASE,
 )
 _HOW_MANY = {1: "one thing", 2: "a couple of things"}
+# A sentence of the start that says the same as the lead-in: "Before I run numbers, I need
+# a few details, so let me ask." above **Let me ask you a couple of things.** (live,
+# 2026-10-25).
+_ASKS_ALREADY = re.compile(
+    r"\blet\s+me\s+ask\b|\bi(?:'ll|\s+will)?\s+need\s+(?:a\s+few|some|a\s+couple\s+of)"
+    r"\s+(?:more\s+)?(?:details|questions)\b|\bi\s+have\s+(?:a\s+few|a\s+couple\s+of)"
+    r"\s+(?:quick\s+)?questions\b",
+    re.IGNORECASE,
+)
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 
 
 def _fit_lead_in(prose: str, questions: int) -> str:
@@ -248,8 +258,17 @@ def _fit_lead_in(prose: str, questions: int) -> str:
         opener = "But let me" if after_options else "Let me"
         fitted = f"**{opener} ask you {_HOW_MANY.get(questions, 'a few things')}.**"
         lines[index] = fitted + line[lead_in.end() :]
+        lines[:index] = [_without_ask_note(earlier) for earlier in lines[:index]]
         break
     return "\n".join(lines)
+
+
+def _without_ask_note(line: str) -> str:
+    """A plain line of the start without the sentences that already say it will ask."""
+    if line.lstrip().startswith(("**", "-", "*", "#", "|", ">")) or not _ASKS_ALREADY.search(line):
+        return line
+    kept = [s for s in _SENTENCE_END.split(line.strip()) if not _ASKS_ALREADY.search(s)]
+    return " ".join(kept)
 
 
 def settle_clarify_cards(text: str, *, allowed: bool, after_card: bool = False) -> str:
