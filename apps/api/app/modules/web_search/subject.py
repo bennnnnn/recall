@@ -37,7 +37,7 @@ def last_assistant_content(prompt_messages: list[dict[str, str]]) -> str | None:
     return None
 
 
-def _substantive(message: str) -> bool:
+def stands_as_query(message: str) -> bool:
     """A prior line that can stand as a query: not "Wrong", "ok", or another command."""
     cleaned = collapse_ws(message)
     return len(cleaned.split()) >= _MIN_QUERY_WORDS and not asks_for_prior_subject(cleaned)
@@ -77,7 +77,7 @@ def resolve_search_subject(
         # Without the model's reading of the conversation, the last line that
         # can stand alone. "Wrong" or "no" before "do a search" is not a query.
         for msg in reversed(prior_user_messages):
-            if _substantive(msg):
+            if stands_as_query(msg):
                 return collapse_ws(msg)
         for msg in reversed(prior_user_messages):
             prior = collapse_ws(msg)

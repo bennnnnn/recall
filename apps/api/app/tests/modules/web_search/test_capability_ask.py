@@ -107,6 +107,25 @@ def test_a_capability_question_after_something_to_search_searches(
     assert needs_web_search(text, prior_user_messages=prior, prior_assistant=reply)
 
 
+@pytest.mark.parametrize(
+    "prior, reply",
+    [
+        # Review: an older search topic is not the line a search would send.
+        (["who won the bears game yesterday", "how do I boil an egg", "Show me how u work"], None),
+        (["who won the bears game yesterday", "Show me how u work"], _PRIOR_REPLY),
+        # An offer to search, with nothing that could stand as a query.
+        (["hi"], "Hi! Should I check online for anything?"),
+        (["hi"], "Hi! Want me to google that?"),
+    ],
+)
+def test_a_capability_question_reads_the_line_a_search_would_send(
+    prior: list[str], reply: str | None
+) -> None:
+    text = "can you search the web?"
+    assert asks_only_whether_it_searches(text, prior_user_messages=prior, prior_assistant=reply)
+    assert not needs_web_search(text, prior_user_messages=prior, prior_assistant=reply)
+
+
 @pytest.mark.parametrize("text", SEARCH_REQUESTS)
 def test_a_search_request_still_searches(text: str) -> None:
     assert not asks_whether_it_searches(text)

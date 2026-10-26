@@ -387,5 +387,121 @@
   ],
   "reply": "Purecart is an online grocery store.",
   "expect": "search"
+ },
+ {
+  "id": "sc-014",
+  "area": "search capability",
+  "prompt": "can you search the web?",
+  "history": [
+   [
+    "user",
+    "who won the bears game yesterday"
+   ],
+   [
+    "assistant",
+    "I don't have yesterday's result in front of me."
+   ],
+   [
+    "user",
+    "how do I boil an egg"
+   ],
+   [
+    "assistant",
+    "Put it in boiling water for 9 minutes."
+   ],
+   [
+    "user",
+    "Show me how u work"
+   ],
+   [
+    "assistant",
+    "I'm Recall, a chat assistant. Ask me questions or keep reminders."
+   ]
+  ],
+  "reply": "Yes, I can search the web for current information. What should I look up?",
+  "expect": "answer"
+ },
+ {
+  "id": "sc-015",
+  "area": "search capability",
+  "prompt": "can you search the web?",
+  "history": [
+   [
+    "user",
+    "who won the bears game yesterday"
+   ],
+   [
+    "assistant",
+    "I don't have yesterday's result in front of me."
+   ],
+   [
+    "user",
+    "how do I boil an egg"
+   ],
+   [
+    "assistant",
+    "Put it in boiling water for 9 minutes."
+   ],
+   [
+    "user",
+    "how do I boil an egg"
+   ],
+   [
+    "assistant",
+    "Put it in boiling water for 9 minutes."
+   ],
+   [
+    "user",
+    "how do I boil an egg"
+   ],
+   [
+    "assistant",
+    "Put it in boiling water for 9 minutes."
+   ],
+   [
+    "user",
+    "Show me how u work"
+   ],
+   [
+    "assistant",
+    "I'm Recall, a chat assistant. Ask me questions or keep reminders."
+   ]
+  ],
+  "reply": "Yes, I can search the web for current information. What should I look up?",
+  "expect": "answer"
+ },
+ {
+  "id": "sc-016",
+  "area": "search capability",
+  "prompt": "can you search the web?",
+  "history": [
+   [
+    "user",
+    "hi"
+   ],
+   [
+    "assistant",
+    "Hi! Should I check online for anything?"
+   ]
+  ],
+  "reply": "Yes, I can search the web for current information. What should I look up?",
+  "expect": "answer"
+ },
+ {
+  "id": "sc-017",
+  "area": "search capability",
+  "prompt": "can you search the web?",
+  "history": [
+   [
+    "user",
+    "hi"
+   ],
+   [
+    "assistant",
+    "Hi! Want me to google that?"
+   ]
+  ],
+  "reply": "Yes, I can search the web for current information. What should I look up?",
+  "expect": "answer"
  }
 ]

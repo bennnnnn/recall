@@ -59,6 +59,7 @@ from app.modules.web_search.search_word import is_search_word
 from app.modules.web_search.subject import (
     _prior_searchable_topic,
     resolve_search_subject,
+    stands_as_query,
 )
 from app.services import time_context as time_context_service
 from app.services.text_normalize import fold_token
@@ -115,14 +116,21 @@ def asks_only_whether_it_searches(
 ) -> bool:
     """ "Can you search the web?" with nothing in the chat to search: a question about Recall.
 
-    After a question it could not answer ("who won the bears game yesterday") or an offer
-    to search, the same words ask for that search ("Show me how u work" is neither).
+    Read against the line a search would use (``resolve_search_subject``), not any earlier
+    one: after "who won the bears game yesterday" the same words ask for that search, but
+    "Show me how u work" after it is what a search would send. An offer to search
+    ("Should I check online?") asks for one too, when that line can stand as a query
+    ("hi" cannot).
     """
     if not asks_whether_it_searches(text):
         return False
-    if _offered_a_search(prior_assistant):
+    cleaned = collapse_ws(text)
+    line = resolve_search_subject(cleaned, prior_user_messages=prior_user_messages)
+    if not prior_user_messages or line == cleaned:
+        return True
+    if _prior_searchable_topic([line]) is not None:
         return False
-    return _prior_searchable_topic(prior_user_messages) is None
+    return not (_offered_a_search(prior_assistant) and stands_as_query(line))
 
 
 def web_search_skip(
