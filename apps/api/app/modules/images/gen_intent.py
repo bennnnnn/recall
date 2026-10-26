@@ -263,9 +263,6 @@ def _match_draw_me(tokens: list[str]) -> str | None:
         i += 1
     if i >= len(tokens):
         return None
-    # "Draw me a cat and also explain black holes" asks twice: the plan draws the cat.
-    if asks_separately(tokens[i:]):
-        return None
     subject = join_subject(tokens[i:])
     if has_non_image_subject(subject, drawn=True) or has_non_image_draw(subject):
         return None
@@ -421,6 +418,12 @@ def extract_image_gen_prompt(text: str) -> str | None:
 
     tokens = strip_polite(trimmed.split())
     if not tokens:
+        return None
+
+    # "Draw me a cat and also explain black holes" asks twice: the plan draws the cat and
+    # answers the rest, so no reading here takes the whole line.
+    draws_me = len(tokens) > 2 and tokens[0].lower() in VERBS_DRAW and tokens[1].lower() == "me"
+    if draws_me and asks_separately(trimmed):
         return None
 
     matched = _match_verb_then_image(tokens)
