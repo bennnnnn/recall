@@ -17,7 +17,7 @@ const FAILURE_MEMORY_MS = 5 * 60_000;
 /**
  * The server's code for "your other previews are still loading" (modules/link_preview/api.py):
  * not a failure of this link, so it is kept only as long as the server asked (its `Retry-After`);
- * the card asks again the next time it is shown after that, with no timer while it stays on screen.
+ * a card on screen asks again when that ends (`busyPreviewRetryAt`), one shown later asks then.
  * Kept for five minutes, a reply with four or more links showed plain links that long.
  */
 const BUSY_CODE = "link_preview_busy";
@@ -34,7 +34,7 @@ const MAX_PREVIEWS = 200;
 type Entry =
   | { state: "ready"; preview: LinkPreview }
   | { state: "loading"; promise: Promise<LinkPreview> }
-  | { state: "failed"; until: number };
+  | { state: "failed"; until: number; busy: boolean };
 
 const cache = new Map<string, Entry>();
 
@@ -70,16 +70,30 @@ export function fetchLinkPreview(url: string): Promise<LinkPreview> {
       if (cache.get(url) === loading) remember(url, { state: "ready", preview });
     },
     (error: unknown) => {
-      if (cache.get(url) === loading) remember(url, { state: "failed", until: Date.now() + failureMemoryMs(error) });
+      if (cache.get(url) !== loading) return;
+      const busy = isBusy(error);
+      remember(url, { state: "failed", until: Date.now() + (busy ? busyMemoryMs(error) : FAILURE_MEMORY_MS), busy });
     },
   );
   return promise;
 }
 
-/** How long a failed preview is not asked for again: a busy refusal its wait, anything else five minutes. */
-function failureMemoryMs(error: unknown): number {
-  if (!(error instanceof ApiRequestError) || error.code !== BUSY_CODE) return FAILURE_MEMORY_MS;
+function isBusy(error: unknown): error is ApiRequestError {
+  return error instanceof ApiRequestError && error.code === BUSY_CODE;
+}
+
+/** How long a busy refusal is kept: the server's wait, at most a minute. */
+function busyMemoryMs(error: ApiRequestError): number {
   return Math.min(error.retryAfterMs ?? BUSY_FALLBACK_MS, BUSY_MAX_MS);
+}
+
+/**
+ * When `url`'s busy refusal may be asked again (ms since the epoch), or null when its last
+ * answer was not a busy refusal: a dead page or the rate limit is never asked again on screen.
+ */
+export function busyPreviewRetryAt(url: string): number | null {
+  const entry = cache.get(url);
+  return entry?.state === "failed" && entry.busy ? entry.until : null;
 }
 
 /** Sign-out: the next account fetches its own previews. */
