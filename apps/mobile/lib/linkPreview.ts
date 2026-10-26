@@ -1,4 +1,5 @@
 import { request } from "@/lib/api/client";
+import { ApiRequestError } from "@/lib/api/errorBody";
 import { getToken } from "@/lib/auth";
 
 export type LinkPreview = {
@@ -13,13 +14,26 @@ export type LinkPreview = {
  * asked again each time its card scrolled back into view (code-health audit NET-19).
  */
 const FAILURE_MEMORY_MS = 5 * 60_000;
+/**
+ * The server's code for "your other previews are still loading" (modules/link_preview/api.py):
+ * not a failure of this link, so it is kept only as long as the server asked (its `Retry-After`).
+ * Kept for five minutes, a reply with four or more links showed plain links that long.
+ */
+const BUSY_CODE = "link_preview_busy";
+/** The wait the server states for a busy refusal (`_BUSY_RETRY_AFTER_SECONDS`), when the header is lost. */
+const BUSY_FALLBACK_MS = 8_000;
+/**
+ * The longest a busy refusal is kept: the fetches it waits on end within the server's 8 s
+ * deadline and stop counting after 30 s at most, so a longer header is a wrong one.
+ */
+const BUSY_MAX_MS = 60_000;
 /** Previews kept; the oldest goes first. */
 const MAX_PREVIEWS = 200;
 
 type Entry =
   | { state: "ready"; preview: LinkPreview }
   | { state: "loading"; promise: Promise<LinkPreview> }
-  | { state: "failed"; at: number };
+  | { state: "failed"; until: number };
 
 const cache = new Map<string, Entry>();
 
@@ -39,7 +53,7 @@ export function fetchLinkPreview(url: string): Promise<LinkPreview> {
   const entry = cache.get(url);
   if (entry?.state === "ready") return Promise.resolve(entry.preview);
   if (entry?.state === "loading") return entry.promise;
-  if (entry?.state === "failed" && Date.now() - entry.at < FAILURE_MEMORY_MS) {
+  if (entry?.state === "failed" && Date.now() < entry.until) {
     return Promise.reject(new Error("preview failed"));
   }
   const promise = (async () => {
@@ -54,11 +68,17 @@ export function fetchLinkPreview(url: string): Promise<LinkPreview> {
     (preview) => {
       if (cache.get(url) === loading) remember(url, { state: "ready", preview });
     },
-    () => {
-      if (cache.get(url) === loading) remember(url, { state: "failed", at: Date.now() });
+    (error: unknown) => {
+      if (cache.get(url) === loading) remember(url, { state: "failed", until: Date.now() + failureMemoryMs(error) });
     },
   );
   return promise;
+}
+
+/** How long a failed preview is not asked for again: a busy refusal its wait, anything else five minutes. */
+function failureMemoryMs(error: unknown): number {
+  if (!(error instanceof ApiRequestError) || error.code !== BUSY_CODE) return FAILURE_MEMORY_MS;
+  return Math.min(error.retryAfterMs ?? BUSY_FALLBACK_MS, BUSY_MAX_MS);
 }
 
 /** Sign-out: the next account fetches its own previews. */
