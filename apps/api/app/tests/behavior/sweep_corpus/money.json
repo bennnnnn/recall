@@ -170,7 +170,7 @@
  },
  {
   "id": "mo-021",
-  "area": "money declined",
+  "area": "money",
   "prompt": "what if I put 5000 down?",
   "history": [
    [
@@ -221,7 +221,7 @@
  },
  {
   "id": "mo-024",
-  "area": "money declined",
+  "area": "money",
   "prompt": "and with 5000 down?",
   "history": [
    [
@@ -1052,7 +1052,7 @@
  },
  {
   "id": "mo-072",
-  "area": "money declined",
+  "area": "money",
   "prompt": "60k at 6 percent",
   "history": [
    [
@@ -1064,12 +1064,12 @@
     "Congrats! How much are you putting down, and what rate have you been quoted?"
    ]
   ],
-  "reply": "Is the $60,000 your down payment or the amount you want to borrow?",
+  "reply": "Reading $60,000 as your down payment, you borrow $340,000: about $2,038.47 a month over 30 years at 6%.",
   "expect": "answer"
  },
  {
   "id": "mo-073",
-  "area": "money declined",
+  "area": "money",
   "prompt": "Down payment 3k",
   "history": [
    [
@@ -1328,6 +1328,526 @@
    ]
   ],
   "reply": "Is the 20k a loan on the car, or something else?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-088",
+  "area": "money",
+  "prompt": "I'm putting 3k down",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "About $386.66 a month over 60 months."
+   ]
+  ],
+  "reply": "With $3,000 down you borrow $17,000: about $328.66 a month over 60 months.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-089",
+  "area": "money",
+  "prompt": "3k down for 4 years",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "About $386.66 a month over 60 months."
+   ]
+  ],
+  "reply": "With $3,000 down over 48 months, about $399.25 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-090",
+  "area": "money",
+  "prompt": "5k at 7%",
+  "history": [
+   [
+    "user",
+    "car shopping for 20k"
+   ],
+   [
+    "assistant",
+    "Nice! What rate and down payment are you looking at?"
+   ]
+  ],
+  "reply": "Reading $5,000 as your down payment, you borrow $15,000: about $297.02 a month over 60 months.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-091",
+  "area": "money",
+  "prompt": "320k at 6%",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ]
+  ],
+  "reply": "Reading $320,000 as the loan, about $1,918.56 a month over 30 years.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-092",
+  "area": "money lookalike",
+  "prompt": "down payment assistance programs?",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "About $386.66 a month over 60 months."
+   ]
+  ],
+  "reply": "Many states run down payment assistance programs for first-time buyers.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-093",
+  "area": "money lookalike",
+  "prompt": "what's a good down payment?",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "About $386.66 a month over 60 months."
+   ]
+  ],
+  "reply": "For a car, 10 to 20 percent of the price is a common target.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-094",
+  "area": "money lookalike",
+  "prompt": "I put 3k down on my old car last year",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "About $386.66 a month over 60 months."
+   ]
+  ],
+  "reply": "That's a solid start. Is this car a trade-in?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-095",
+  "area": "money lookalike",
+  "prompt": "the dealer wants 3k down",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "About $386.66 a month over 60 months."
+   ]
+  ],
+  "reply": "That's common. Do you want me to work the loan with $3,000 down?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-096",
+  "area": "money lookalike",
+  "prompt": "down payment 3k",
+  "history": [],
+  "reply": "A $3,000 down payment on what? A car, a house?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-097",
+  "area": "money lookalike",
+  "prompt": "3k down",
+  "history": [
+   [
+    "user",
+    "if I save 200 a month at 4.5% for 10 years how much will I have"
+   ],
+   [
+    "assistant",
+    "About $30,190 after 10 years."
+   ]
+  ],
+  "reply": "Do you mean a $3,000 starting deposit for your savings?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-098",
+  "area": "money lookalike",
+  "prompt": "3k down",
+  "history": [
+   [
+    "user",
+    "I owe 5000 on my credit card at 22% apr and pay 200 a month, how long to pay off"
+   ],
+   [
+    "assistant",
+    "About 33 months to pay it off."
+   ]
+  ],
+  "reply": "Do you mean paying $3,000 off the card now?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-099",
+  "area": "money declined",
+  "prompt": "150k at 6%",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ]
+  ],
+  "reply": "Is the $150,000 your down payment or the amount you want to borrow?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-100",
+  "area": "money lookalike",
+  "prompt": "20k at 6%",
+  "history": [
+   [
+    "user",
+    "I went car shopping for 3 hours"
+   ],
+   [
+    "assistant",
+    "That sounds tiring! Find anything?"
+   ]
+  ],
+  "reply": "Is 20k at 6% a loan you were offered?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-101",
+  "area": "money lookalike",
+  "prompt": "300k at 6%",
+  "history": [
+   [
+    "user",
+    "house hunting tips"
+   ],
+   [
+    "assistant",
+    "Start with your budget and the neighbourhoods you like."
+   ]
+  ],
+  "reply": "Is that a mortgage of $300,000 at 6%?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-102",
+  "area": "money lookalike",
+  "prompt": "20k at 6%",
+  "history": [
+   [
+    "user",
+    "shopping for a car for my son"
+   ],
+   [
+    "assistant",
+    "Lovely! What's he looking for?"
+   ]
+  ],
+  "reply": "Is that a loan of $20,000 at 6% for his car?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-103",
+  "area": "money",
+  "prompt": "400k house with 20% down at 6%",
+  "history": [],
+  "reply": "With $80,000 down you borrow $320,000: about $1,918.56 a month over 30 years at 6%.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-104",
+  "area": "money",
+  "prompt": "no, 60k is the loan",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "About $2,038.47 a month on a $340,000 loan over 30 years.\n\n**Read as:** 60,000 is the down payment on the 400,000 price, so the loan is 340,000. If 60,000 is the loan, say so."
+   ]
+  ],
+  "reply": "Got it: a $60,000 loan at 6% over 30 years is about $359.73 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-105",
+  "area": "money",
+  "prompt": "im putting 3k down",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "About $386.66 a month over 60 months."
+   ]
+  ],
+  "reply": "With $3,000 down you borrow $17,000: about $328.66 a month over 60 months.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-106",
+  "area": "money lookalike",
+  "prompt": "3k down",
+  "history": [
+   [
+    "user",
+    "car loan 20k at 6%"
+   ],
+   [
+    "assistant",
+    "About $386.66 a month over 60 months."
+   ]
+  ],
+  "reply": "Is the $20,000 the car's price, so $3,000 down leaves $17,000 to borrow?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-107",
+  "area": "money lookalike",
+  "prompt": "with 10k down",
+  "history": [
+   [
+    "user",
+    "refinance my 250k mortgage at 6%"
+   ],
+   [
+    "assistant",
+    "About $1,498.88 a month over 30 years."
+   ]
+  ],
+  "reply": "A refinance usually has no down payment; do you mean paying $10,000 off the balance?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-108",
+  "area": "money lookalike",
+  "prompt": "it was 3k down",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "About $386.66 a month over 60 months."
+   ]
+  ],
+  "reply": "Was that on a car you had before?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-109",
+  "area": "money lookalike",
+  "prompt": "I put 3k down",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "About $386.66 a month over 60 months."
+   ]
+  ],
+  "reply": "Do you mean on this car, so you borrow $17,000?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-110",
+  "area": "money lookalike",
+  "prompt": "is it 3k down",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "About $386.66 a month over 60 months."
+   ]
+  ],
+  "reply": "That depends on the dealer; 10 to 20 percent is common.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-111",
+  "area": "money lookalike",
+  "prompt": "down payment 2026",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "About $386.66 a month over 60 months."
+   ]
+  ],
+  "reply": "Do you mean a down payment in 2026?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-112",
+  "area": "money lookalike",
+  "prompt": "2026 at 6%",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ]
+  ],
+  "reply": "Is 2026 the year you plan to buy?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-113",
+  "area": "money lookalike",
+  "prompt": "$500 at 6%",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ]
+  ],
+  "reply": "Is $500 a monthly amount, or the down payment?",
   "expect": "answer"
  }
 ]

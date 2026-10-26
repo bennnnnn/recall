@@ -40,6 +40,11 @@ MONEY_RATE_CHANGED = (
     "The rate is {rate}, not the {shown} the last reply used: it is today's average {name} "
     "for this request. Say that the rate changed and why."
 )
+# A bare amount beside a price, read as the down payment or the loan (``purchase``).
+MONEY_GUESSED = (
+    "The amount the user gave was taken as the {what} on the {price} price. The app writes "
+    "a note saying so under the reply; do not repeat it."
+)
 MONEY_RATE_MISSING = (
     "The user gave no interest rate and no current average was found. Ask one short "
     "question for the rate their lender or card quoted; do not guess one."
@@ -92,6 +97,9 @@ def money_block(
     lines = [head]
     if request.changed:
         lines.append(MONEY_FOLLOW_UP.format(changes="; ".join(_changes(request, worked))))
+    if request.guessed and request.price is not None:
+        what = "down payment" if request.guessed == "down" else "loan"
+        lines.append(MONEY_GUESSED.format(what=what, price=money_text(request.price)))
     if request.currency:
         lines.append(f"Currency: {request.currency}.")
     lines.append("Inputs: " + "; ".join(_inputs(product, worked)) + ".")
@@ -114,10 +122,17 @@ def money_block(
 def _changes(request: MoneyRequest, worked: Worked) -> list[str]:
     """What the follow-up changed, in the block's words ("term in months 36")."""
     product = request.product
-    return [
-        f"{_INPUT_WORDS.get(name, name)} {_value_text(name, worked.values[name], product)}"
-        for name in request.changed
-    ]
+    changes = []
+    for name in request.changed:
+        value = _value_text(name, worked.values[name], product)
+        if name == "amount" and request.down is not None and request.price is not None:
+            changes.append(
+                f"a down payment of {money_text(request.down)} off the price "
+                f"{money_text(request.price)}, so the amount borrowed is {value}"
+            )
+        else:
+            changes.append(f"{_INPUT_WORDS.get(name, name)} {value}")
+    return changes
 
 
 def _stand_in(request: MoneyRequest, average: MarketRate | None) -> str:

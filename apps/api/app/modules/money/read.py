@@ -39,9 +39,45 @@ CURRENCY_WORDS = (
     r"shillings?|kes|yen|jpy|cad|aud"
 )
 _CURRENCY_WORD = re.compile(rf"\s?({CURRENCY_WORDS})\b", re.I)
+
+
+def sum_phrase(name: str) -> str:
+    """A sum as a phrase in a lower-cased line ("$20k", "3 grand"), read by ``read_sum``."""
+    return (
+        rf"(?P<{name}>[$€£¥₹₦]?\s?\d[\d,]*(?:\.\d{{1,2}})?"
+        rf"(?:\s?(?:k|m|thousand|million|mil|grand))?(?:\s(?:{CURRENCY_WORDS}))?)"
+    )
+
+
 _MONTHLY = re.compile(r"\s?(?:a|per|/|each|every)\s?(?:month|mo)\b|\s?monthly\b|\s?/\s?mo\b", re.I)
 _DOWN = re.compile(r"\b(?:down\s?payment(?:\s(?:of|is))?|put(?:ting)?\s(?:down)?|down)\s?$", re.I)
 _DOWN_AFTER = re.compile(r"\s?(?:down\b|as\s(?:a\s)?down\s?payment\b)", re.I)
+_YEAR = re.compile(r"(?:19|20)\d{2}")
+# A percent that is a share of the price put down: "20% down", "a down payment of 20%",
+# "down payment 20%", "putting down 20%". Not a rate beside a sum down ("at 7% down
+# payment of 5000", "100k down payment 6.25%"), "6% down payment 20%" (the 20% is the
+# share), "rate is 6% down from 7%" or "at 6%".
+_MONEY_NEXT = (
+    r"\s?(?:[$€£¥₹₦]\s?\d|\d[\d,]*(?:\.\d+)?\s?(?:k|m|thousand|million|mil|grand)\b"
+    r"|\d{1,3}(?:,\d{3})+|\d{4,})"
+)
+_PERCENT_NEXT = r"\s?\d{1,3}(?:\.\d+)?\s?(?:%|percent\b|per\s?cent\b|pct\b)"
+_NOT_A_SHARE = r"(?!\s(?:from|to|by|on|of|is)\b)"
+_SHARE_DOWN_AFTER = re.compile(
+    rf"\s?down\s?payment\b{_NOT_A_SHARE}(?!{_MONEY_NEXT})(?!{_PERCENT_NEXT})"
+    rf"|\s?(?:as\s(?:a\s)?down\s?payment|down(?!\s?payment))\b{_NOT_A_SHARE}(?!{_MONEY_NEXT})",
+    re.I,
+)
+_SHARE_DOWN_BEFORE = re.compile(
+    r"\bdown\s?payment(?:\s(?:of|is))?\s?$|\bput(?:ting)?\s(?:down\s)?$", re.I
+)
+# "100k down payment 6.25%": a sum is the down payment, so the percent is the rate.
+_SUM_DOWN_BEFORE = re.compile(
+    r"(?:[$€£¥₹₦]\s?)?\d[\d,.]*\s?(?:k|m|thousand|million|mil|grand)?\s"
+    r"(?:as\s(?:a\s)?)?down\s?payment(?:\s(?:of|is))?\s?$",
+    re.I,
+)
+_RATE_BEFORE = re.compile(r"\b(?:at|@)\s?$", re.I)
 # A bare number is money only after a word that says so ("borrow 25000", "balance is 4000");
 # "rates in 2026" has no sum in it.
 _MONEY_BEFORE = re.compile(
@@ -123,6 +159,15 @@ class MoneyRequest:
     variant: str = ""
     # What a follow-up changed ("months", "rate"); empty for a first ask.
     changed: tuple[str, ...] = ()
+    # A loan for something bought with money down: its price and the down payment. A new
+    # down payment is taken off this price, never off the loan ("follow_up").
+    price: float | None = None
+    down: float | None = None
+    # A bare amount beside a price, read as the "down" payment or the "loan" (``purchase``).
+    guessed: str = ""
+    # How many rates the line gave: a down payment is worked after one only, so a line
+    # read wrong ("20% down … 6%") never carries into a worked follow-up.
+    rates_given: int = 0
 
 
 @dataclass(frozen=True)
@@ -133,6 +178,11 @@ class _Amount:
     start: bool
 
 
+def bare_year(text: str) -> bool:
+    """``text`` is a year written as a bare number ("2026"), not a sum."""
+    return _YEAR.fullmatch(text.strip()) is not None
+
+
 def read_money_request(text: str) -> MoneyRequest | None:
     """The money request in ``text``, or None when it is not one."""
     if not text or len(text) > 600:
@@ -141,6 +191,7 @@ def read_money_request(text: str) -> MoneyRequest | None:
     if found is None or _HOMEWORK_INTEREST.search(text):
         return None
     rate = _rate(text)
+    share = _percent_down(text)
     amounts = _amounts(text)
     currency = _currency(text)
     variant = named_variant(found, text)
@@ -150,11 +201,20 @@ def read_money_request(text: str) -> MoneyRequest | None:
         return None
     if rate is None and not _FINANCE.search(text):
         return None
-    values = _values(found, rate, amounts)
+    values = _values(found, rate, amounts, share)
     values.update(_term(found, text))
     if not any(name in values for name in _principal_names(found)):
         return None
-    return MoneyRequest(found, values, currency, variant=variant)
+    price, down = _price_and_down(found, amounts, share)
+    return MoneyRequest(
+        found,
+        values,
+        currency,
+        variant=variant,
+        price=price,
+        down=down,
+        rates_given=_rates_given(text),
+    )
 
 
 def named_product(text: str) -> Product | None:
@@ -173,8 +233,31 @@ def named_product(text: str) -> Product | None:
 
 
 def _rate(text: str) -> float | None:
-    match = _RATE.search(text)
-    return float(match.group(1)) if match is not None else None
+    """The first percent that is not a share down: "a 400k house with 20% down at 6%" is 6%."""
+    for match in _RATE.finditer(text):
+        if not _is_share_down(text, match):
+            return float(match.group(1))
+    return None
+
+
+def _rates_given(text: str) -> int:
+    return sum(1 for match in _RATE.finditer(text) if not _is_share_down(text, match))
+
+
+def _percent_down(text: str) -> float | None:
+    """The share of the price put down ("20% down", "a down payment of 20%"), or None."""
+    for match in _RATE.finditer(text):
+        if _is_share_down(text, match):
+            share = float(match.group(1))
+            return share if 0 < share < 100 else None
+    return None
+
+
+def _is_share_down(text: str, match: re.Match[str]) -> bool:
+    before = text[max(0, match.start() - 24) : match.start()]
+    if _RATE_BEFORE.search(before) or _SUM_DOWN_BEFORE.search(before):
+        return False
+    return bool(_SHARE_DOWN_AFTER.match(text, match.end()) or _SHARE_DOWN_BEFORE.search(before))
 
 
 def _amounts(text: str) -> list[_Amount]:
@@ -244,17 +327,19 @@ def _principal_names(product: Product) -> tuple[str, ...]:
     ]
 
 
-def _values(product: Product, rate: float | None, amounts: list[_Amount]) -> dict[str, float]:
+def _values(
+    product: Product, rate: float | None, amounts: list[_Amount], share: float | None
+) -> dict[str, float]:
     values: dict[str, float] = {}
     if rate is not None:
         values["apr" if product.family == "card_payoff" else "rate"] = rate
     once = [item for item in amounts if not item.monthly]
     monthly = [item for item in amounts if item.monthly]
     if product.family == "loan":
-        price = next((item.value for item in once if not item.down), None)
-        down = next((item.value for item in once if item.down), 0.0)
-        if price is not None and price > down:
-            values["amount"] = price - down
+        first = next((item.value for item in once if not item.down), None)
+        down = _down(once, first, share) or 0.0
+        if first is not None and first > down:
+            values["amount"] = first - down
     elif product.family == "card_payoff":
         if once:
             values["balance"] = once[0].value
@@ -269,6 +354,28 @@ def _values(product: Product, rate: float | None, amounts: list[_Amount]) -> dic
         if monthly:
             values["deposit"] = monthly[0].value
     return values
+
+
+def _down(once: list[_Amount], first: float | None, share: float | None) -> float | None:
+    """The sum down: said ("3000 down"), else a share of the first sum ("20% down")."""
+    said = next((item.value for item in once if item.down), None)
+    if said is None and share is not None and first is not None:
+        return first * share / 100
+    return said
+
+
+def _price_and_down(
+    product: Product, amounts: list[_Amount], share: float | None
+) -> tuple[float | None, float | None]:
+    """A loan's price and its down payment, when the message gives a sum with money down
+    ("14000 with 3000 down", "a 400k house with 20% down"). Any other sum may be a loan,
+    a balance or an equity line ("a 400k home, refinancing at 6%"): no price."""
+    once = [item for item in amounts if not item.monthly]
+    first = next((item.value for item in once if not item.down), None)
+    if product.family != "loan" or first is None:
+        return None, None
+    down = _down(once, first, share)
+    return (first, down) if down is not None and 0 < down < first else (None, None)
 
 
 def _term(product: Product, text: str) -> dict[str, float]:

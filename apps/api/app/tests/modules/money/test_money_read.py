@@ -182,8 +182,49 @@ def test_a_rates_question_keeps_the_kind() -> None:
         ("a 2000 car with a loan at 10% for 12 months", {"amount": 2000, "rate": 10, "years": 1}),
         ("financing a 2000 car at 12% for 12 months with 500 down", {"amount": 1500, "rate": 12, "years": 1}),
         ("car loan 25000 6.9% 60 months, is that better than the 8% apr my bank offered?", {"amount": 25000, "rate": 6.9, "months": 60}),
+        # A percent down is a share of the price, never the rate (review, 2026-10-25).
+        ("400k house with 20% down at 6%", {"amount": 320000, "rate": 6}),
+        ("mortgage on a 400k house, 20% down, 6%", {"amount": 320000, "rate": 6}),
+        ("400k house, down payment of 20%, at 6%", {"amount": 320000, "rate": 6}),
+        ("a 400k house at 6% with 20 percent down", {"amount": 320000, "rate": 6}),
+        ("400k house putting down 20% at 6%", {"amount": 320000, "rate": 6}),
+        # Round 2: a percent or a term after "down" is not a sum down.
+        ("400k house 20% down 6% rate", {"amount": 320000, "rate": 6}),
+        ("400k house 20% down 6.5% interest", {"amount": 320000, "rate": 6.5}),
+        ("400k house 10% down 30 years at 6%", {"amount": 360000, "rate": 6, "years": 30}),
+        ("400k house 20% down 15 years, 6%", {"amount": 320000, "rate": 6, "years": 15}),
+        ("400k house 20% down 30 year fixed 6%", {"amount": 320000, "rate": 6, "years": 30}),
+        ("400k house, down payment 20% 6% rate", {"amount": 320000, "rate": 6}),
+        # A percent right after "down payment" is the share; the other is the rate.
+        ("400k house, 6% down payment 20%", {"amount": 320000, "rate": 6}),
     ],
 )  # fmt: skip
 def test_read_money_request_reads_what_a_number_is(text: str, values: dict[str, float]) -> None:
     request = read_money_request(text)
     assert request is not None and request.values == values
+
+
+@pytest.mark.parametrize(
+    ("text", "price", "down"),
+    [
+        ("400k house with 20% down at 6%", 400000, 80000),
+        ("car loan 25000 with 5000 down 6.9% apr 60 months", 25000, 5000),
+        ("400k house, 6% down payment 20%", 400000, 80000),
+        # A sum with no money down may be a loan, a balance or an equity line: no price.
+        ("mortgage at 6% on a 400k house", None, None),
+        ("I have a 400k home and owe 250k at 6%", None, None),
+        ("a 400k home equity loan at 8%", None, None),
+        ("a 400k home, refinancing at 6%", None, None),
+        ("20k car repairs at 9%", None, None),
+        ("a 20k car loan at 6%", None, None),
+        ("car loan of 20k at 6%", None, None),
+        ("I owe 15k on my car loan at 6%", None, None),
+        ("refinance my 250k mortgage at 6%", None, None),
+        ("mortgage of 320k at 6%", None, None),
+    ],
+)
+def test_a_price_is_a_sum_said_to_be_what_the_thing_costs(
+    text: str, price: float | None, down: float | None
+) -> None:
+    request = read_money_request(text)
+    assert request is not None and (request.price, request.down) == (price, down)

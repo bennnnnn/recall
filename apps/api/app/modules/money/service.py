@@ -30,7 +30,7 @@ from app.modules.money.block import money_block
 from app.modules.money.currencies import country_for, currency_for
 from app.modules.money.fence import calculator_fence, card_values
 from app.modules.money.follow_up import as_parts, follow_up_request
-from app.modules.money.note import market_note
+from app.modules.money.note import market_note, reading_note
 from app.modules.money.purchase import purchase_request
 from app.modules.money.rates import MarketRate, current_average
 from app.modules.money.read import MoneyRequest, read_money_request
@@ -124,7 +124,7 @@ async def finish_money_reply(turn: MoneyTurn, text: str, settings: Settings) -> 
     average = turn.average
     if average is None and turn.lookup is not None:
         average = await _average(turn.request, turn.lookup, turn.stand_in, _FINISH_WAIT_SECONDS)
-    pieces = [text.rstrip()]
+    pieces = [text.rstrip(), reading_note(turn.request) or ""]
     note = market_note(turn.worked, average, settings.money_unrealistic_ratio)
     if note:
         pieces.append(note)
