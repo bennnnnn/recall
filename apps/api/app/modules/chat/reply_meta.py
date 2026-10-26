@@ -34,10 +34,15 @@ _MONTHS = (
 )
 _MONTH = rf"(?:{'|'.join(_MONTHS)})"
 _CLOCK_TIME = r",?\s+(?:at\s+)?\d{1,2}:\d{2}(?::\d{2})?\s*(?:[ap]\.?\s?m\.?)?(?:\s+[A-Z]{2,5})?"
-# The clock as a whole sentence: "It's currently **Sunday, October 25, 2026, 6:15 PM EDT**."
+# The clock as a whole sentence: "It's currently **Sunday, October 25, 2026, 6:15 PM EDT**.",
+# "Yes, today is Monday, October 26, 2026, and it's 2:14 PM EDT."
+_LEAD_IN = r"(?:(?:yes|yeah|yep|sure|right|well|okay|ok)[,!.]?\s+)?"
+_TIME_OF_DAY = r"\d{1,2}:\d{2}(?::\d{2})?\s*(?:[ap]\.?\s?m\.?)?(?:\s+(?-i:[A-Z]{2,5}))?"
 _CLOCK_SENTENCE = re.compile(
-    rf"(^|[.!?]\s+)it(?:['\u2019]s|\s+is)\s+(?:currently\s+|now\s+)?[*_]*{_WEEKDAY},\s+"
+    rf"(^|[.!?]\s+){_LEAD_IN}(?:it(?:['\u2019]s|\s+is)|today\s+is)\s+(?:currently\s+|now\s+)?"
+    rf"[*_]*{_WEEKDAY},\s+"
     rf"(?P<month>{_MONTH})\s+(?P<day>\d{{1,2}}),\s+(?P<year>\d{{4}})(?:{_CLOCK_TIME})?"
+    rf"(?:,?\s+and\s+(?:it(?:['\u2019]s|\s+is)\s+)?(?:at\s+)?{_TIME_OF_DAY})?"
     r"(?:[*_]*[.!](?=\s|$)|[*_]*\s*$)",
     re.IGNORECASE,
 )
@@ -53,6 +58,11 @@ _ACCEPTED_LEAD = re.compile(
     r"(?:\s+again)?\s*[,.]\s*(?:so\s+)?",
     re.IGNORECASE,
 )
+
+
+def is_about_time(text: str | None) -> bool:
+    """The message names a time, a day or a date: the clock may be what it needs."""
+    return bool(text and _ABOUT_TIME.search(text))
 
 
 def _is_today(found: re.Match[str], today: date | None) -> bool:
@@ -81,7 +91,7 @@ def without_turn_meta(text: str, asked: str, today: date | None = None) -> str:
         rest = stripped[lead.end() :]
         # "here is…" opens the reply; "iPhone tips" keeps its case.
         text = rest[0].upper() + rest[1:] if rest[:2].islower() else rest
-    if _ABOUT_TIME.search(asked or ""):
+    if is_about_time(asked):
         return text
     lines: list[str] = []
     changed = False

@@ -75,6 +75,7 @@ from app.modules.chat.prompt_constants import (
 )
 from app.modules.chat.prompt_constants.lesson_flow import lesson_after_gap
 from app.modules.chat.prompt_constants.multi_part import multi_part_contract
+from app.modules.chat.prompt_constants.routing import is_reaction_turn
 from app.modules.chat.prompt_format import (
     PromptRule,
     _layout_format_hint,
@@ -88,6 +89,7 @@ from app.modules.chat.prompt_profile import (
     format_user_profile_block,
     should_include_profile_email,
 )
+from app.modules.chat.reply_meta import is_about_time
 from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chat.turn_prep.followups import FollowupSubject
 from app.modules.chemistry.followup import CHEMISTRY_FOLLOWUP_HINT
@@ -335,8 +337,12 @@ TURN_SECTIONS: tuple[PromptSection, ...] = (
 # follow-up policies that hang on it. Before the history, any of it would leave the
 # whole history uncached.
 CONTEXT_SECTIONS: tuple[PromptSection, ...] = (
+    # Not on a greeting, an ack or a reaction unless it names a time: with nothing else to
+    # answer, a model reads the freshest line back ("Oh really?" -> today's date and clock).
     PromptSection(
-        _always,
+        lambda t: (
+            not (t.lightweight or is_reaction_turn(t.query_text)) or is_about_time(t.query_text)
+        ),
         lambda t: [
             time_context_service.format_now_awareness(t.local_tz, t.user.locale, t.query_text)
         ],

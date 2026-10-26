@@ -950,6 +950,10 @@ def test_is_broad_self_question(text, expected):
         ("yes", True),
         ("go", True),
         ("sure", True),
+        # A reaction is not a greeting: it keeps the full path ("really?" can challenge a solve).
+        ("Oh really?", False),
+        ("oh yeah", False),
+        ("Why?", False),
         ("x", False),
         ("X", False),
         ("y", False),
@@ -1982,3 +1986,93 @@ def test_format_user_profile_block_signs_drafts_with_the_first_name():
     user.location_enabled = False
     block = format_user_profile_block(user)
     assert "Sign emails and messages the user will send as Ada." in block
+
+
+def _clock_user() -> MagicMock:
+    user = MagicMock()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = None
+    user.location_enabled = False
+    user.response_tone = None
+    user.memory_enabled = False
+    user.locale = "en"
+    user.timezone = "America/Indiana/Indianapolis"
+    user.custom_instructions = None
+    return user
+
+
+async def _system_for(text: str, *, lightweight: bool) -> str:
+    with patch.object(messages_repository, "list_recent", return_value=[]):
+        messages = await build_prompt_messages(
+            _clock_user(),
+            uuid4(),
+            Settings(attachment_rag_enabled=False, web_search_enabled=False),
+            query_text=text,
+            lightweight=lightweight,
+            rich_context=False,
+        )
+    return system_prompt(messages)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "lightweight"),
+    [("Oh really?", False), ("wow", False), ("Is that so?", False), ("Okay", True), ("hi", True)],
+)
+async def test_a_casual_turn_gets_no_clock_to_read_back(text: str, lightweight: bool) -> None:
+    """Live 2026-10-26: "Oh really?" was answered "Yes, today is Monday, October 26, 2026, and
+    it's 2:14 PM EDT." The clock is the freshest line of the prompt and there was nothing
+    else to answer."""
+    assert "Current local time" not in await _system_for(text, lightweight=lightweight)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "lightweight"),
+    [
+        ("thanks, see you tomorrow", True),
+        ("ok what day is it", True),
+        ("How old is Obama?", False),
+        ("Why is the sky blue?", False),
+        ("Really? Explain more", False),
+        ("Why?", False),
+    ],
+)
+async def test_a_turn_that_may_need_the_clock_keeps_it(text: str, lightweight: bool) -> None:
+    assert "Current local time" in await _system_for(text, lightweight=lightweight)
+
+
+@pytest.mark.parametrize(
+    ("text", "reaction"),
+    [
+        ("Oh really?", True),
+        ("Really?", True),
+        ("wow", True),
+        ("hmm", True),
+        ("Seriously?", True),
+        ("Is that so?", True),
+        ("Really? Explain more", False),
+        ("Why?", False),
+        ("Interesting question about taxes", False),
+        ("hi", False),
+        ("", False),
+        (None, False),
+    ],
+)
+def test_is_reaction_turn(text: str | None, reaction: bool) -> None:
+    from app.modules.chat.prompt_constants.routing import is_reaction_turn
+
+    assert is_reaction_turn(text) is reaction
+
+
+@pytest.mark.parametrize("text", ["Oh really?", "oh yeah", "Really?", "oh okay"])
+def test_a_reaction_keeps_its_routing_after_an_offer_or_a_solve(text: str) -> None:
+    """Making reactions lightweight would have dropped the offer guard and a solve's follow-up."""
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
+
+    recent = [
+        SimpleNamespace(role="user", content="17*23"),
+        SimpleNamespace(role="assistant", content="391. Want me to draft the email?"),
+    ]
+    assert classify_turn_mode(recent, text).lightweight is False

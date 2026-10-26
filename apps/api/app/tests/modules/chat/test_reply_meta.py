@@ -38,6 +38,18 @@ _TODAY = date(2026, 10, 25)
             "Got it. What next?",
         ),
         ("Great, you accepted my offer. iPhone tips below.", "yes", "iPhone tips below."),
+        # Live chat (2026-10-26): "Oh really?" got the date and the clock, in another shape.
+        (
+            "Yes, today is Sunday, October 25, 2026, and it's 2:14 PM EDT. Your next item is "
+            "the pharm study session on Wednesday, October 28, 2026, at 7:00 PM.",
+            "Oh really?",
+            "Your next item is the pharm study session on Wednesday, October 28, 2026, at 7:00 PM.",
+        ),
+        (
+            "Today is Sunday, October 25, 2026. Here is the answer you wanted.",
+            "Oh really?",
+            "Here is the answer you wanted.",
+        ),
     ],
 )
 def test_turn_meta_goes(reply: str, asked: str, kept: str) -> None:
@@ -68,6 +80,9 @@ def test_turn_meta_goes(reply: str, asked: str, kept: str) -> None:
         ("Got it. It's Monday, November 2, 2026.", "ok"),
         ("Your deadline? It's Sunday, October 25, 2026. Get it in tonight.", "when is it due?"),
         ("| Date | Plan |\n|---|---|\n| It's Monday, November 2, 2026 | Fly out |", "plan my trip"),
+        # Only a timezone abbreviation ends the clock; a word after it is the sentence going on.
+        ("Today is Sunday, October 25, 2026, and it's 2:14 PM sharp. Be ready.", "Oh really?"),
+        ("Today is Sunday, October 25, 2026, and it's the deadline for your essay.", "Oh really?"),
     ],
 )
 def test_other_text_stays(reply: str, asked: str) -> None:
