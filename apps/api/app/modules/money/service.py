@@ -26,7 +26,7 @@ from redis.asyncio import Redis
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.models.orm import User
-from app.modules.money.agreement import card_figures_line
+from app.modules.money.agreement import card_figures
 from app.modules.money.block import money_block, standing_block
 from app.modules.money.currencies import country_for, currency_for
 from app.modules.money.fence import calculator_fence, card_values
@@ -181,16 +181,18 @@ async def finish_money_reply(
 ) -> str:
     """The reply with the market note and the calculator card under it.
 
-    A reply whose stated payment is not the card's gets the card's figures in a line above
-    the note (``agreement``), when the chat is in English (the server writes English) and
-    the reply answers this request alone. The model's words are never changed."""
+    A reply whose stated payment is not the card's gets the card's figures in a line, at the
+    top when it worked another loan, else above the note (``agreement``), when the chat is
+    in English (the server writes English) and the reply answers this request alone. The
+    model's words are never changed."""
     if turn.worked is None:
         return text
     if turn.standing:
         return text
-    figures_line = None
-    if english and not turn.multi:
-        figures_line = card_figures_line(text, turn.request, turn.worked)
+    figures = card_figures(text, turn.request, turn.worked) if english and not turn.multi else None
+    if figures is not None and figures.on_top:
+        text = f"{figures.line}\n\n{text.lstrip()}"
+    figures_line = figures.line if figures is not None and not figures.on_top else None
     average = turn.average
     if average is None and turn.lookup is not None:
         average = await _average(turn.request, turn.lookup, turn.stand_in, _FINISH_WAIT_SECONDS)

@@ -7,7 +7,7 @@ from dataclasses import replace
 import pytest
 
 from app.core.config import Settings
-from app.modules.money.agreement import card_figures_line
+from app.modules.money.agreement import CardFigures, card_figures
 from app.modules.money.block import money_block
 from app.modules.money.purchase import purchase_request
 from app.modules.money.read import read_money_request
@@ -21,6 +21,12 @@ _WRONG = (
     "*   **Total Amount Paid:** $131,535.54"
 )
 _LINE = "The card's figures: **$2,038.47** a month on a $340,000 loan at 6% over 30 years."
+_TOP = "**The card's figures:** $2,038.47 a month on a $340,000 loan at 6% over 30 years."
+# The live reply on c7a37ce56 (2026-10-26, free model), verbatim.
+_ROUGHLY = (
+    "At **6%** interest over a standard **30-year** term, the monthly payment for $60k is "
+    "roughly **$360**.\n\n*   **Monthly Payment**: ~$360\n*   **Total Interest**: ~$69,600"
+)
 
 
 def _house():
@@ -32,19 +38,25 @@ def _house():
     return request, worked
 
 
+@pytest.mark.parametrize("reply", [_WRONG, _ROUGHLY])
+def test_a_reply_that_worked_another_loan_gets_the_cards_figures_on_top(reply: str) -> None:
+    request, worked = _house()
+
+    assert card_figures(reply, request, worked) == CardFigures(_TOP, on_top=True)
+
+
 @pytest.mark.parametrize(
     "reply",
     [
-        _WRONG,
-        "Your monthly payment is $2,037.97.",
-        "That works out to $2,100.00 a month.",
-        "You'd pay $2,100/month.",
+        "The principal is $340,000. Your monthly payment is $2,037.97.",
+        "On the $340k loan, that works out to $2,100.00 a month.",
+        "Borrowing 340,000, you'd pay $2,100/month.",
     ],
 )
 def test_a_payment_that_is_not_the_cards_gets_the_cards_figures(reply: str) -> None:
     request, worked = _house()
 
-    assert card_figures_line(reply, request, worked) == _LINE
+    assert card_figures(reply, request, worked) == CardFigures(_LINE, on_top=False)
 
 
 @pytest.mark.parametrize(
@@ -77,12 +89,17 @@ def test_a_payment_that_is_not_the_cards_gets_the_cards_figures(reply: str) -> N
         "If you split it, each of you pays $1,019.24 a month.",
         # No labelled payment at all.
         "Here are your numbers. The card below lets you try other terms.",
+        # A comparison with a side note about another loan.
+        "Your monthly payment is $2,038.47. For comparison, a $60k loan would be $359.82 a month.",
+        "Lenders like housing costs under 28% of gross income, so aim for income of at least "
+        "$7,280 a month.",
+        "In the first year, about $20,300 goes to interest and $4,160 to principal.",
     ],
 )
 def test_other_replies_get_nothing(reply: str) -> None:
     request, worked = _house()
 
-    assert card_figures_line(reply, request, worked) is None
+    assert card_figures(reply, request, worked) is None
 
 
 @pytest.mark.parametrize(
@@ -106,7 +123,7 @@ def test_a_reply_that_answers_its_own_request_gets_nothing(ask: str, reply: str)
     worked = work(request, None)
     assert worked is not None
 
-    assert card_figures_line(reply, request, worked) is None
+    assert card_figures(reply, request, worked) is None
 
 
 def test_card_and_savings_turns_get_nothing() -> None:
@@ -118,7 +135,7 @@ def test_card_and_savings_turns_get_nothing() -> None:
         assert request is not None
         worked = work(request, None)
         assert worked is not None
-        assert card_figures_line("You'll pay $999.99 a month.", request, worked) is None
+        assert card_figures("You'll pay $999.99 a month.", request, worked) is None
 
 
 def _turn(*, multi: bool = False) -> MoneyTurn:
@@ -126,14 +143,22 @@ def _turn(*, multi: bool = False) -> MoneyTurn:
     return MoneyTurn(request, worked, money_block(request, worked, None), None, None, multi=multi)
 
 
-async def test_the_line_goes_above_the_note_and_the_reply_is_kept() -> None:
+async def test_the_line_opens_a_misread_reply_and_the_reply_is_kept() -> None:
     settings = Settings()
 
     english = await finish_money_reply(_turn(), _WRONG, settings)
     other = await finish_money_reply(_turn(), _WRONG, settings, english=False)
     multi = await finish_money_reply(_turn(multi=True), _WRONG, settings)
 
-    assert english.startswith(_WRONG + "\n\n" + _LINE + "\n\n**Read as:**")
+    assert english.startswith(_TOP + "\n\n" + _WRONG + "\n\n**Read as:**")
     assert "```calculator" in english
-    assert _LINE not in other and _LINE not in multi
+    assert _TOP not in other and _TOP not in multi
     assert other.startswith(_WRONG) and multi.startswith(_WRONG)
+
+
+async def test_the_line_follows_a_comparing_reply() -> None:
+    reply = "On the $340k loan, your monthly payment is $2,100.00."
+
+    finished = await finish_money_reply(_turn(), reply, Settings())
+
+    assert finished.startswith(reply + "\n\n" + _LINE + "\n\n")
