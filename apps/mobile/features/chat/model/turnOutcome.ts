@@ -21,7 +21,12 @@ const TOOL_PHASES = new Set([
   "image_gen",
 ]);
 
-/** Error frame codes the server sends (stream_events.error_payload_for_exception). */
+/**
+ * Error frame codes the server sends once a turn has started (stream_events): the same
+ * list as the server's `chat_turn_outcome` buckets (modules/analytics/service.py), which
+ * the API's test_turn_outcome_codes.py holds to this one and to the codes a frame carries.
+ * Seven of them were counted as "other".
+ */
 const ERROR_CODES = new Set([
   "quota_exceeded",
   "spend_cap",
@@ -31,6 +36,13 @@ const ERROR_CODES = new Set([
   "attachment_rejected",
   "unknown_model",
   "rate_limited",
+  "consent_required",
+  "daily_limit",
+  "content_blocked",
+  "not_found",
+  "failed",
+  "reply_not_saved",
+  "server_restarting",
 ]);
 
 type Completion = ChatTurnOutcomeProperties["completion"];

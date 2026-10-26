@@ -488,7 +488,9 @@ background, and runs the new code from the next launch.
 - [ ] **Deploy the API before the app** (store build or update) whenever the app
       starts sending something new. An older API refuses fields it does not know:
       the chat analytics fields `paint_bucket` (on `chat_ttft`) and
-      `send_ready_bucket` (on `chat_turn_outcome`) get a 422 there. The app drops
+      `send_ready_bucket` (on `chat_turn_outcome`), and the newer `error_code` values
+      on `chat_turn_outcome` (`failed`, `not_found`, `consent_required`, …), get a 422
+      there. The app drops
       a failed analytics post, so the cost is only those samples, but they are lost
       until the API is out.
 - [ ] Review [`docs/ROLLBACK.md`](ROLLBACK.md) before the first store submission
