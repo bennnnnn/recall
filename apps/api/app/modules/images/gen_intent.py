@@ -16,6 +16,11 @@ import re
 from itertools import pairwise
 from typing import TYPE_CHECKING
 
+from app.modules.images.gen_intent_local import (
+    extract_other_language_prompt,
+    other_language_of,
+    split_picture_request,
+)
 from app.modules.images.gen_intent_words import (
     ARTICLES,
     CODEISH_WORDS,
@@ -442,7 +447,23 @@ def extract_image_gen_prompt(text: str) -> str | None:
         if matched:
             return matched
 
-    return None
+    # "Zeichne eine Katze", "нарисуй кошку": the same shapes in the app's other languages.
+    return extract_other_language_prompt(trimmed)
+
+
+def picture_and_request(text: str) -> tuple[str, str] | None:
+    """A picture asked for in another language, then a second request: the two parts.
+
+    "Dibuja un gato y explica qué es un agujero negro" is two requests, as English "draw a
+    cat and also explain …" is; no English cut divides it, so the planner asks here.
+    """
+    return split_picture_request(text)
+
+
+def picture_language(text: str) -> str | None:
+    """The language a picture request was read in ("es" for "dibuja un gato"); None for
+    English, or for no picture."""
+    return other_language_of(text)
 
 
 def stem_subject(text: str, *, chemistry_enabled: bool = True) -> SubjectName | None:

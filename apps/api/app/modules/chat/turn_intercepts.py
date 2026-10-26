@@ -29,7 +29,11 @@ from app.modules.chemistry.shape_followup import (
     last_question_line,
     shape_followup_problem,
 )
-from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
+from app.modules.images.gen_intent import (
+    extract_image_gen_prompt,
+    picture_language,
+    stem_subject_claims,
+)
 from app.modules.images.generation import ImageGenerationError
 from app.modules.images.intent import (
     image_gen_request,
@@ -312,13 +316,19 @@ async def try_image_lookup_for_turn(
     return True
 
 
-def reply_picture_prompt(content: str, settings: Settings) -> str | None:
-    """What to draw for the picture part of a multi-part message, if it has one."""
+def _picture_part(content: str, settings: Settings) -> str | None:
+    """The picture request of a multi-part message, in the user's words, if it has one."""
     from app.modules.chat.turn_prep.intents import plan_turn
 
     plan = plan_turn(content, chemistry_enabled=settings.chemistry_enabled)
     asked = plan.of_kind("image") if plan.multi else ()
-    return extract_image_gen_prompt(request_body(asked[0].text)) if asked else None
+    return request_body(asked[0].text) if asked else None
+
+
+def reply_picture_prompt(content: str, settings: Settings) -> str | None:
+    """What to draw for the picture part of a multi-part message, if it has one."""
+    part = _picture_part(content, settings)
+    return extract_image_gen_prompt(part) if part else None
 
 
 def start_reply_picture(
@@ -329,13 +339,14 @@ def start_reply_picture(
     "Draw a cat wearing a hat and also explain what a black hole is": the intercept
     above declines the whole line, so the model answers the rest while this draws.
     """
-    prompt = reply_picture_prompt(content, settings)
-    if not prompt:
+    part = _picture_part(content, settings)
+    prompt = extract_image_gen_prompt(part) if part else None
+    if not part or not prompt:
         return None
-    # The line saying why not is in the reply's language, which follows the message. The
-    # picture part is only recognised in English ("draw …"), so a message no language
-    # plainly claims gets an English reply, and an English line under it.
-    language = line_language(content, "en")
+    # The line saying why not is in the reply's language, which follows the message. A
+    # message no language plainly claims ("Dibuja un gato y explica …" has few Spanish
+    # marks) is in the language its picture was asked in: English for "draw …".
+    language = line_language(content, picture_language(part) or "en")
     if not settings.image_generation_enabled:
         return ReplyPicture.refused(prompt, "not_available", language)
     if not deps.plan.can_use(user, "image_generation", settings):

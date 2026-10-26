@@ -29,7 +29,11 @@ from app.modules.chat.turn_prep.clauses import (
     request_clauses,
     without_connector,
 )
-from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
+from app.modules.images.gen_intent import (
+    extract_image_gen_prompt,
+    picture_and_request,
+    stem_subject_claims,
+)
 from app.modules.images.lookup_intent import extract_image_lookup_query
 from app.modules.web_search.detection import needs_web_search
 from app.services.subject_solving import detect_subject
@@ -118,7 +122,7 @@ def plan_turn(text: str, *, chemistry_enabled: bool = True) -> TurnPlan:
     """The separate requests in ``text``, in order; one part when it asks one thing."""
     split = request_clauses(text)
     if len(split.clauses) < 2:
-        return single_plan(text)
+        return _picture_and_request(text, chemistry_enabled=chemistry_enabled) or single_plan(text)
     merged: list[tuple[Clause, PartKind]] = []
     for clause in split.clauses:
         kind = part_kind(clause.text, chemistry_enabled=chemistry_enabled)
@@ -132,6 +136,20 @@ def plan_turn(text: str, *, chemistry_enabled: bool = True) -> TurnPlan:
         return single_plan(text)
     parts = tuple(TurnPart(_quoted(clause.text), kind) for clause, kind in merged)
     return TurnPlan(parts, context=split.context)
+
+
+def _picture_and_request(text: str, *, chemistry_enabled: bool) -> TurnPlan | None:
+    """ "Zeichne eine Katze und erkläre auch, was ein schwarzes Loch ist": a picture asked
+    in another language, then a second request. The clause rules read English, so the
+    picture reader cuts it, as "draw a cat and also explain …" is cut."""
+    pair = picture_and_request(text)
+    if pair is None:
+        return None
+    picture, rest = pair
+    if not rest or part_kind(picture, chemistry_enabled=chemistry_enabled) != "image":
+        return None
+    asked = TurnPart(rest, part_kind(rest, chemistry_enabled=chemistry_enabled))
+    return TurnPlan((TurnPart(picture, "image"), asked))
 
 
 def _quoted(text: str) -> str:
