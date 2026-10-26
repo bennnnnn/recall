@@ -13417,5 +13417,4454 @@
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
     "expect": "image_gen"
+  },
+  {
+    "id": "pl7-mis-001",
+    "area": "picture languages",
+    "prompt": "Dibújame un perro con una lista de razas",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-002",
+    "area": "picture languages",
+    "prompt": "Dibújame un gato explicando la fotosíntesis",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-003",
+    "area": "picture languages",
+    "prompt": "Dibújame un árbol binario",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-004",
+    "area": "picture languages",
+    "prompt": "Dibújame un árbol binario de búsqueda",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-005",
+    "area": "picture languages",
+    "prompt": "Dibújame un árbol de directorios",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-006",
+    "area": "picture languages",
+    "prompt": "Dibújame un árbol sintáctico",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-007",
+    "area": "picture languages",
+    "prompt": "Dibújame un bosque aleatorio",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-008",
+    "area": "picture languages",
+    "prompt": "Dibújame un gato en ASCII",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-009",
+    "area": "picture languages",
+    "prompt": "Dibújame un árbol de Navidad con asteriscos",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-010",
+    "area": "picture languages",
+    "prompt": "Dibújame una pizza dividida en fracciones",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-011",
+    "area": "picture languages",
+    "prompt": "Dibújame una tarta con los porcentajes de votos",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-012",
+    "area": "picture languages",
+    "prompt": "Dibújame un puente de Wheatstone",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-013",
+    "area": "picture languages",
+    "prompt": "Dibújame una torre de Hanoi",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-014",
+    "area": "picture languages",
+    "prompt": "Dibújame un puente entre la teoría y la práctica",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-015",
+    "area": "picture languages",
+    "prompt": "Dibújame un río de emociones",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-016",
+    "area": "picture languages",
+    "prompt": "Dibújame una montaña de deudas",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-017",
+    "area": "picture languages",
+    "prompt": "Dibújame un cohete con su empuje y su peso",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-018",
+    "area": "picture languages",
+    "prompt": "Dibújame una pelota en tiro parabólico",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-019",
+    "area": "picture languages",
+    "prompt": "Dibújame un coche frenando con rozamiento",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-020",
+    "area": "picture languages",
+    "prompt": "Dibújame un robot en Python",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-021",
+    "area": "picture languages",
+    "prompt": "Dibújame un gato con emojis",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-022",
+    "area": "picture languages",
+    "prompt": "Dibújame un tren de pulsos",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-023",
+    "area": "picture languages",
+    "prompt": "Dibújame un perro y sugiéreme nombres",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-024",
+    "area": "picture languages",
+    "prompt": "Dibújame un caballo y recomiéndame razas",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-025",
+    "area": "picture languages",
+    "prompt": "Dibújame un conejo con la sucesión de Fibonacci",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-026",
+    "area": "picture languages",
+    "prompt": "Dibújame una estrella en coordenadas polares",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-027",
+    "area": "picture languages",
+    "prompt": "Crea una imagen de un gato con mi horóscopo",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-028",
+    "area": "picture languages",
+    "prompt": "Dibújame un robot de cocina con sus especificaciones",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-029",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un arbre binaire",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-030",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un arbre syntaxique",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-031",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une forêt aléatoire",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-032",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un chat en ASCII",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-033",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un sapin en astérisques",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-034",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une pizza coupée en fractions",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-035",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un gâteau avec les pourcentages des votes",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-036",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un pont de Wheatstone",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-037",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un pont diviseur de tension",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-038",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un chien avec la liste des races",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-039",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un chat expliquant la photosynthèse",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-040",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une fusée avec sa poussée et son poids",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-041",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une balle en chute libre avec frottements",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-042",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un pont entre la théorie et la pratique",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-043",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un océan de possibilités",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-044",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une montagne de dettes",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-045",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un robot en Python",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-046",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un chat avec des emojis",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-047",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un train d'impulsions",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-048",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un arbre des répertoires",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-049",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une étoile dans un repère orthonormé",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-050",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un chien et propose-moi des noms",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-051",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un lapin avec la suite de Fibonacci",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-052",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une maison avec sa superficie",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-053",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une souris d'ordinateur avec ses caractéristiques",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-054",
+    "area": "picture languages",
+    "prompt": "Crée une image d'un chat avec mon horoscope",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-055",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen binären Baum",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-056",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Binärbaum",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-057",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Hund und die Regeln des Schachs",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-058",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Katze mit einer Liste der Rassen",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-059",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Katze in ASCII",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-060",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Tannenbaum aus Sternchen",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-061",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Pizza in Achteln",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-062",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Kuchen mit den Prozenten der Wahl",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-063",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Wheatstone-Brücke",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-064",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Wheatstonesche Brücke",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-065",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Brücke zwischen Theorie und Praxis",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-066",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Zufallswald",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-067",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Rakete mit Schub und Gewichtskraft",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-068",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Roboter in Python",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-069",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Katze mit Emojis",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-070",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Verzeichnisbaum",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-071",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Syntaxbaum",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-072",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Hasen mit der Fibonacci-Folge",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-073",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Berg voller Schulden",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-074",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Stern im Koordinatensystem",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-075",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Ball beim schiefen Wurf",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-076",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Hund und gib ihm Namen",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-077",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Turm von Hanoi",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-078",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Wolkenkratzer mit Statik",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-079",
+    "area": "picture languages",
+    "prompt": "Zeichne mir ein Haus mit Grundfläche",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-080",
+    "area": "picture languages",
+    "prompt": "Erstelle ein Bild von einer Katze mit meinem Horoskop",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-081",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Diodenbrücke",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-082",
+    "area": "picture languages",
+    "prompt": "Disegnami un albero binario",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-083",
+    "area": "picture languages",
+    "prompt": "Disegnami un albero sintattico",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-084",
+    "area": "picture languages",
+    "prompt": "Disegnami una foresta casuale",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-085",
+    "area": "picture languages",
+    "prompt": "Disegnami un gatto in ASCII",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-086",
+    "area": "picture languages",
+    "prompt": "Disegnami un albero di Natale con gli asterischi",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-087",
+    "area": "picture languages",
+    "prompt": "Disegnami una pizza divisa in frazioni",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-088",
+    "area": "picture languages",
+    "prompt": "Disegnami una torta con le percentuali dei voti",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-089",
+    "area": "picture languages",
+    "prompt": "Disegnami un ponte di Wheatstone",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-090",
+    "area": "picture languages",
+    "prompt": "Disegnami una torre di Hanoi",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-091",
+    "area": "picture languages",
+    "prompt": "Disegnami un cane con una lista delle razze",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-092",
+    "area": "picture languages",
+    "prompt": "Disegnami un gatto che spiega la fotosintesi",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-093",
+    "area": "picture languages",
+    "prompt": "Disegnami un razzo con la spinta e il peso",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-094",
+    "area": "picture languages",
+    "prompt": "Disegnami un ponte tra teoria e pratica",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-095",
+    "area": "picture languages",
+    "prompt": "Disegnami un mare di debiti",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-096",
+    "area": "picture languages",
+    "prompt": "Disegnami un robot in Python",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-097",
+    "area": "picture languages",
+    "prompt": "Disegnami un gatto con le emoji",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-098",
+    "area": "picture languages",
+    "prompt": "Disegnami un treno di impulsi",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-099",
+    "area": "picture languages",
+    "prompt": "Disegnami un albero delle directory",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-100",
+    "area": "picture languages",
+    "prompt": "Disegnami una stella sugli assi cartesiani",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-101",
+    "area": "picture languages",
+    "prompt": "Disegnami un coniglio con la successione di Fibonacci",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-102",
+    "area": "picture languages",
+    "prompt": "Disegnami una palla in caduta libera con attrito",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-103",
+    "area": "picture languages",
+    "prompt": "Disegnami una casa con la sua metratura",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-104",
+    "area": "picture languages",
+    "prompt": "Disegnami un cane e suggeriscimi nomi",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-105",
+    "area": "picture languages",
+    "prompt": "Disegnami un ponte di diodi",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-106",
+    "area": "picture languages",
+    "prompt": "Crea un'immagine di un gatto con il mio oroscopo",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-107",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma árvore binária",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-108",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma árvore sintática",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-109",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma floresta aleatória",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-110",
+    "area": "picture languages",
+    "prompt": "Desenha-me um gato em ASCII",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-111",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma árvore de Natal com asteriscos",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-112",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma pizza dividida em frações",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-113",
+    "area": "picture languages",
+    "prompt": "Desenha-me um bolo com as porcentagens dos votos",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-114",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma ponte de Wheatstone",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-115",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma torre de Hanói",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-116",
+    "area": "picture languages",
+    "prompt": "Desenha-me um cachorro com uma lista de raças",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-117",
+    "area": "picture languages",
+    "prompt": "Desenha-me um gato explicando a fotossíntese",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-118",
+    "area": "picture languages",
+    "prompt": "Desenha-me um foguete com o empuxo e o peso",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-119",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma ponte entre a teoria e a prática",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-120",
+    "area": "picture languages",
+    "prompt": "Desenha-me um mar de dívidas",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-121",
+    "area": "picture languages",
+    "prompt": "Desenha-me um robô em Python",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-122",
+    "area": "picture languages",
+    "prompt": "Desenha-me um gato com emojis",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-123",
+    "area": "picture languages",
+    "prompt": "Desenha-me um trem de pulsos",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-124",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma árvore de diretórios",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-125",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma estrela no plano cartesiano",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-126",
+    "area": "picture languages",
+    "prompt": "Desenha-me um coelho com a sequência de Fibonacci",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-127",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma bola em queda livre com atrito",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-128",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma casa com a metragem",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-129",
+    "area": "picture languages",
+    "prompt": "Desenha-me um cachorro e sugira nomes",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-130",
+    "area": "picture languages",
+    "prompt": "Me desenha uma chuva de ideias",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-131",
+    "area": "picture languages",
+    "prompt": "Crie uma imagem de um gato com meu horóscopo",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-132",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне бинарное дерево",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-133",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне дерево поиска",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-134",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне дерево отрезков",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-135",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне синтаксическое дерево",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-136",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне случайный лес",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-137",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне кота в ASCII",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-138",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне ёлку из звёздочек",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-139",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне пиццу, разделённую на дроби",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-140",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне торт с процентами голосов",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-141",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне мост Уитстона",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-142",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне диодный мост",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-143",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне башню Ханоя",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-144",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне собаку со списком пород",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-145",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне кота, объясняющего фотосинтез",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-146",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне ракету с тягой и весом",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-147",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне мост между теорией и практикой",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-148",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне гору долгов",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-149",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне робота на Python",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-150",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне кота из эмодзи",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-151",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне дерево каталогов",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-152",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне звезду в полярных координатах",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-153",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне кролика с числами Фибоначчи",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-154",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне мяч в свободном падении с трением",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-155",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне облако тегов",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-156",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне собаку и придумай ей имя",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-157",
+    "area": "picture languages",
+    "prompt": "Создай картинку кота с моим гороскопом",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-158",
+    "area": "picture languages",
+    "prompt": "Bana bir ikili ağaç çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-159",
+    "area": "picture languages",
+    "prompt": "Bana bir dosya ağacı çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-160",
+    "area": "picture languages",
+    "prompt": "Bana bir sözdizimi ağacı çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-161",
+    "area": "picture languages",
+    "prompt": "Bana bir rastgele orman çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-162",
+    "area": "picture languages",
+    "prompt": "Bana ASCII ile bir kedi çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-163",
+    "area": "picture languages",
+    "prompt": "Bana yıldızlardan bir çam ağacı çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-164",
+    "area": "picture languages",
+    "prompt": "Bana kesirlere bölünmüş bir pizza çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-165",
+    "area": "picture languages",
+    "prompt": "Bana oy yüzdeleriyle bir pasta çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-166",
+    "area": "picture languages",
+    "prompt": "Bana bir Wheatstone köprüsü çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-167",
+    "area": "picture languages",
+    "prompt": "Bana bir diyot köprüsü çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-168",
+    "area": "picture languages",
+    "prompt": "Bana bir Hanoi kulesi çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-169",
+    "area": "picture languages",
+    "prompt": "Bana ırkların listesiyle bir köpek çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-170",
+    "area": "picture languages",
+    "prompt": "Bana fotosentezi açıklayan bir kedi çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-171",
+    "area": "picture languages",
+    "prompt": "Bana itki ve ağırlıkla bir roket çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-172",
+    "area": "picture languages",
+    "prompt": "Bana teori ile pratik arasında bir köprü çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-173",
+    "area": "picture languages",
+    "prompt": "Bana bir borç dağı çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-174",
+    "area": "picture languages",
+    "prompt": "Bana Python ile bir robot çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-175",
+    "area": "picture languages",
+    "prompt": "Bana emojilerle bir kedi çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-176",
+    "area": "picture languages",
+    "prompt": "Bana bir beyin fırtınası çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-177",
+    "area": "picture languages",
+    "prompt": "Bana Fibonacci dizisiyle bir tavşan çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-178",
+    "area": "picture languages",
+    "prompt": "Bana sürtünmeli serbest düşen bir top çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-179",
+    "area": "picture languages",
+    "prompt": "Bana bir köpek çiz ve isim öner",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-180",
+    "area": "picture languages",
+    "prompt": "Bana bir arama ağacı çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-181",
+    "area": "picture languages",
+    "prompt": "Bana bir başarı merdiveni çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-182",
+    "area": "picture languages",
+    "prompt": "Bir kedi resmi oluştur ve burcumu yorumla",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-183",
+    "area": "picture languages",
+    "prompt": "የሁለትዮሽ ዛፍ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-184",
+    "area": "picture languages",
+    "prompt": "የፋይል ዛፍ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-185",
+    "area": "picture languages",
+    "prompt": "በASCII ድመት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-186",
+    "area": "picture languages",
+    "prompt": "ከኮከቦች የተሠራ ዛፍ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-187",
+    "area": "picture languages",
+    "prompt": "በክፍልፋዮች የተከፈለ ፒዛ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-188",
+    "area": "picture languages",
+    "prompt": "የዊትስቶን ድልድይ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-189",
+    "area": "picture languages",
+    "prompt": "የዕዳ ተራራ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-190",
+    "area": "picture languages",
+    "prompt": "የሀሳብ ዝናብ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-191",
+    "area": "picture languages",
+    "prompt": "የቃላት ደመና ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-192",
+    "area": "picture languages",
+    "prompt": "በፓይተን ሮቦት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-193",
+    "area": "picture languages",
+    "prompt": "በኢሞጂ ድመት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-194",
+    "area": "picture languages",
+    "prompt": "የውሻ ዝርያዎችን የሚያሳይ ውሻ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-195",
+    "area": "picture languages",
+    "prompt": "ፎቶሲንተሲስን የሚያስረዳ ድመት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-196",
+    "area": "picture languages",
+    "prompt": "የስኬት መንገድ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-197",
+    "area": "picture languages",
+    "prompt": "የሕይወት ዛፍ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-198",
+    "area": "picture languages",
+    "prompt": "የፊቦናቺ ጥንቸል ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-199",
+    "area": "picture languages",
+    "prompt": "የፍቅር ደብዳቤ ኮከብ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-200",
+    "area": "picture languages",
+    "prompt": "የመረጃ ደመና ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-201",
+    "area": "picture languages",
+    "prompt": "የውሳኔ ዛፍ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-202",
+    "area": "picture languages",
+    "prompt": "የኢትዮጵያ ታሪክ ቤት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-203",
+    "area": "picture languages",
+    "prompt": "ውሻ ሳልልኝ እና ስም ስጠው",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-204",
+    "area": "picture languages",
+    "prompt": "የፊዚክስ ሮኬት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-205",
+    "area": "picture languages",
+    "prompt": "የኮምፒውተር አይጥ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-206",
+    "area": "picture languages",
+    "prompt": "የቤት ዋጋ ቤት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-207",
+    "area": "picture languages",
+    "prompt": "የጥናት ዛፍ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 1)."
+  },
+  {
+    "id": "pl7-mis-208",
+    "area": "picture languages",
+    "prompt": "Dibújame un gato en SVG",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-209",
+    "area": "picture languages",
+    "prompt": "Dibújame un gato en TikZ",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-210",
+    "area": "picture languages",
+    "prompt": "Dibújame un árbol con nodos y aristas",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-211",
+    "area": "picture languages",
+    "prompt": "Dibújame un gato paso a paso",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-212",
+    "area": "picture languages",
+    "prompt": "No me dibujes un gato, explícame qué es",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-213",
+    "area": "picture languages",
+    "prompt": "Dibújame un perro y dame consejos",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-multi-01",
+    "area": "multi",
+    "prompt": "Dibújame un perro y dime cuánto vive",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "A picture, then a second request answered beside it (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-214",
+    "area": "picture languages",
+    "prompt": "Dibújame una estrella con sus vértices",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-215",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un chat en SVG",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-216",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un arbre avec des nœuds et des arêtes",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-217",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un chat étape par étape",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-multi-02",
+    "area": "multi",
+    "prompt": "Dessine-moi un chien et dis-moi combien il vit",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "A picture, then a second request answered beside it (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-218",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un chat en LaTeX",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-219",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une étoile avec ses sommets",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-220",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Katze in SVG",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-221",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Baum mit Knoten und Kanten",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-multi-03",
+    "area": "multi",
+    "prompt": "Zeichne mir einen Hund und sag mir, wie alt er wird",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "A picture, then a second request answered beside it (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-222",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Katze in LaTeX",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-223",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Stern mit seinen Ecken",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-224",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Baum mit Wurzel und Blättern als Datenstruktur",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-225",
+    "area": "picture languages",
+    "prompt": "Disegnami un gatto in SVG",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-226",
+    "area": "picture languages",
+    "prompt": "Disegnami un albero con nodi e archi",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-multi-04",
+    "area": "multi",
+    "prompt": "Disegnami un cane e dimmi quanto vive",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "A picture, then a second request answered beside it (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-227",
+    "area": "picture languages",
+    "prompt": "Disegnami un gatto in LaTeX",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-228",
+    "area": "picture languages",
+    "prompt": "Desenha-me um gato em SVG",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-229",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma árvore com nós e arestas",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-multi-05",
+    "area": "multi",
+    "prompt": "Desenha-me um cachorro e diz quanto tempo vive",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "A picture, then a second request answered beside it (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-230",
+    "area": "picture languages",
+    "prompt": "Desenha-me um gato em LaTeX",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-231",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне кота в SVG",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-232",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне дерево с вершинами и рёбрами",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-233",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне кота пошагово",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-234",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне кота поэтапно",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-multi-06",
+    "area": "multi",
+    "prompt": "Нарисуй мне собаку и скажи, сколько она живёт",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "A picture, then a second request answered beside it (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-235",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне кота в LaTeX",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-236",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне кота символами",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-237",
+    "area": "picture languages",
+    "prompt": "Bana SVG ile bir kedi çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-238",
+    "area": "picture languages",
+    "prompt": "Bana düğümleri ve kenarları olan bir ağaç çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-239",
+    "area": "picture languages",
+    "prompt": "Bana adım adım bir kedi çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-multi-07",
+    "area": "multi",
+    "prompt": "Bana bir köpek çiz ve ne kadar yaşadığını söyle",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "A picture, then a second request answered beside it (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-240",
+    "area": "picture languages",
+    "prompt": "Bana karakterlerle bir kedi çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-241",
+    "area": "picture languages",
+    "prompt": "በSVG ድመት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (review 6 set 2)."
+  },
+  {
+    "id": "pl7-multi-08",
+    "area": "multi",
+    "prompt": "ውሻ ሳልልኝ እና ምን ያህል እንደሚኖር ንገረኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "A picture, then a second request answered beside it (review 6 set 2)."
+  },
+  {
+    "id": "pl7-mis-242",
+    "area": "picture languages",
+    "prompt": "Dibújame un gato en código binario",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-243",
+    "area": "picture languages",
+    "prompt": "Dibújame un perro con caracteres Unicode",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-244",
+    "area": "picture languages",
+    "prompt": "Dibújame una casa en HTML",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-245",
+    "area": "picture languages",
+    "prompt": "Dibújame un árbol de expansión mínima",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-246",
+    "area": "picture languages",
+    "prompt": "Dibújame un árbol de Huffman",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-247",
+    "area": "picture languages",
+    "prompt": "Dibújame un grafo de un perro",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-248",
+    "area": "picture languages",
+    "prompt": "Dibújame un puente en H",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-249",
+    "area": "picture languages",
+    "prompt": "Dibújame un tren de ondas",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-250",
+    "area": "picture languages",
+    "prompt": "Dibújame una pirámide alimenticia con frutas",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-251",
+    "area": "picture languages",
+    "prompt": "Dibújame una manzana cortada en cuartos para explicar fracciones",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-252",
+    "area": "picture languages",
+    "prompt": "Dibújame un barco con las fuerzas de flotación",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-253",
+    "area": "picture languages",
+    "prompt": "Dibújame un gato con las capitales de Europa",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-254",
+    "area": "picture languages",
+    "prompt": "Dibújame un perro y escríbeme un poema",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-multi-09",
+    "area": "multi",
+    "prompt": "Dibújame un caballo y cuéntame su historia",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "A picture, then a second request answered beside it (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-255",
+    "area": "picture languages",
+    "prompt": "Dibújame una montaña de trabajo pendiente",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-256",
+    "area": "picture languages",
+    "prompt": "Dibújame un océano de dudas existenciales",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-257",
+    "area": "picture languages",
+    "prompt": "Dibújame un lago de datos",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-258",
+    "area": "picture languages",
+    "prompt": "Dibújame una nube de puntos",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-259",
+    "area": "picture languages",
+    "prompt": "Dibújame una flor con su ciclo de vida",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-260",
+    "area": "picture languages",
+    "prompt": "Dibújame una estrella de cinco puntas inscrita en un círculo",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-261",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un chat en code binaire",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-262",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un chien en caractères Unicode",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-263",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une maison en HTML",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-264",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un arbre couvrant minimal",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-265",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un arbre de Huffman",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-266",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un pont en H",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-267",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un train d'ondes",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-268",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une pomme coupée en quarts pour les fractions",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-269",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un bateau avec la poussée d'Archimède",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-270",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un chat avec les capitales d'Europe",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-271",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un chien et écris-moi un poème",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-multi-10",
+    "area": "multi",
+    "prompt": "Dessine-moi un cheval et raconte-moi son histoire",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "A picture, then a second request answered beside it (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-272",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une montagne de travail en retard",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-273",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un lac de données",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-274",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un nuage de points",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-275",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une fleur avec son cycle de vie",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-276",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une étoile inscrite dans un cercle",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-277",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un robot en JavaScript",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-278",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une tortue en Logo",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-279",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un soleil en pixels ASCII",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-280",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Katze in Binärcode",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-281",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Hund aus Unicode-Zeichen",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-282",
+    "area": "picture languages",
+    "prompt": "Zeichne mir ein Haus in HTML",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-283",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen minimalen Spannbaum",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-284",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Huffman-Baum",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-285",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine H-Brücke",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-286",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Wellenzug",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-287",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Apfel in Vierteln für Brüche",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-288",
+    "area": "picture languages",
+    "prompt": "Zeichne mir ein Schiff mit Auftrieb",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-289",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Katze mit den Hauptstädten Europas",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-290",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Hund und schreib mir ein Gedicht",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-multi-11",
+    "area": "multi",
+    "prompt": "Zeichne mir ein Pferd und erzähl mir seine Geschichte",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "A picture, then a second request answered beside it (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-291",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Berg an Arbeit",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-292",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Datensee",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-293",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Punktwolke",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-294",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Blume mit ihrem Lebenszyklus",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-295",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Stern im Kreis eingeschrieben",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-296",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Roboter in JavaScript",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-297",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Schildkröte in Logo",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-298",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen roten Baum für Algorithmen",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-299",
+    "area": "picture languages",
+    "prompt": "Disegnami un gatto in codice binario",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-300",
+    "area": "picture languages",
+    "prompt": "Disegnami un cane con caratteri Unicode",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-301",
+    "area": "picture languages",
+    "prompt": "Disegnami una casa in HTML",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-302",
+    "area": "picture languages",
+    "prompt": "Disegnami un albero ricoprente minimo",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-303",
+    "area": "picture languages",
+    "prompt": "Disegnami un albero di Huffman",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-304",
+    "area": "picture languages",
+    "prompt": "Disegnami un ponte ad H",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-305",
+    "area": "picture languages",
+    "prompt": "Disegnami un treno d'onde",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-306",
+    "area": "picture languages",
+    "prompt": "Disegnami una mela tagliata in quarti per le frazioni",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-307",
+    "area": "picture languages",
+    "prompt": "Disegnami una barca con la spinta di Archimede",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-308",
+    "area": "picture languages",
+    "prompt": "Disegnami un gatto con le capitali d'Europa",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-309",
+    "area": "picture languages",
+    "prompt": "Disegnami un cane e scrivimi una poesia",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-multi-12",
+    "area": "multi",
+    "prompt": "Disegnami un cavallo e raccontami la sua storia",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "A picture, then a second request answered beside it (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-310",
+    "area": "picture languages",
+    "prompt": "Disegnami una montagna di lavoro arretrato",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-311",
+    "area": "picture languages",
+    "prompt": "Disegnami un lago di dati",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-312",
+    "area": "picture languages",
+    "prompt": "Disegnami una nuvola di punti",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-313",
+    "area": "picture languages",
+    "prompt": "Disegnami un fiore con il suo ciclo vitale",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-314",
+    "area": "picture languages",
+    "prompt": "Disegnami una stella inscritta in un cerchio",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-315",
+    "area": "picture languages",
+    "prompt": "Disegnami un robot in JavaScript",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-316",
+    "area": "picture languages",
+    "prompt": "Disegnami una tartaruga in Logo",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-317",
+    "area": "picture languages",
+    "prompt": "Disegnami un albero rosso-nero",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-318",
+    "area": "picture languages",
+    "prompt": "Desenha-me um gato em código binário",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-319",
+    "area": "picture languages",
+    "prompt": "Desenha-me um cachorro com caracteres Unicode",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-320",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma casa em HTML",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-321",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma árvore geradora mínima",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-322",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma árvore de Huffman",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-323",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma ponte H",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-324",
+    "area": "picture languages",
+    "prompt": "Desenha-me um trem de ondas",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-325",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma maçã cortada em quartos para frações",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-326",
+    "area": "picture languages",
+    "prompt": "Desenha-me um barco com o empuxo",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-327",
+    "area": "picture languages",
+    "prompt": "Desenha-me um gato com as capitais da Europa",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-328",
+    "area": "picture languages",
+    "prompt": "Desenha-me um cachorro e escreve-me um poema",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-329",
+    "area": "picture languages",
+    "prompt": "Desenha-me um cavalo e conta-me a sua história",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-330",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma montanha de trabalho atrasado",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-331",
+    "area": "picture languages",
+    "prompt": "Desenha-me um lago de dados",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-332",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma nuvem de pontos",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-333",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma flor com o seu ciclo de vida",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-334",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma estrela inscrita num círculo",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-335",
+    "area": "picture languages",
+    "prompt": "Desenha-me um robô em JavaScript",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-336",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma tartaruga em Logo",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-337",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma árvore rubro-negra",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-338",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне кота в двоичном коде",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-339",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне собаку символами юникода",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-340",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне дом на HTML",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-341",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне минимальное остовное дерево",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-342",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне дерево Хаффмана",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-343",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне красно-чёрное дерево",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-344",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне H-мост",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-345",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне цуг волн",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-346",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне яблоко, разрезанное на четверти",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-347",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне лодку с силой Архимеда",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-348",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне кота со столицами Европы",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-349",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне собаку и напиши стихотворение",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-multi-13",
+    "area": "multi",
+    "prompt": "Нарисуй мне лошадь и расскажи её историю",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "A picture, then a second request answered beside it (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-350",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне гору невыполненной работы",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-351",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне озеро данных",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-352",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне облако точек",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-353",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне цветок с его жизненным циклом",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-354",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне звезду, вписанную в круг",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-355",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне робота на JavaScript",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-356",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне черепаху на Логотипе",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-357",
+    "area": "picture languages",
+    "prompt": "Bana ikili kodla bir kedi çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-358",
+    "area": "picture languages",
+    "prompt": "Bana Unicode karakterlerle bir köpek çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-359",
+    "area": "picture languages",
+    "prompt": "Bana HTML ile bir ev çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-360",
+    "area": "picture languages",
+    "prompt": "Bana minimum kapsayan ağaç çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-361",
+    "area": "picture languages",
+    "prompt": "Bana bir Huffman ağacı çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-362",
+    "area": "picture languages",
+    "prompt": "Bana kırmızı-siyah ağaç çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-363",
+    "area": "picture languages",
+    "prompt": "Bana bir H köprüsü çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-364",
+    "area": "picture languages",
+    "prompt": "Bana bir dalga treni çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-365",
+    "area": "picture languages",
+    "prompt": "Bana kesirler için dörde bölünmüş bir elma çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-366",
+    "area": "picture languages",
+    "prompt": "Bana kaldırma kuvvetli bir tekne çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-367",
+    "area": "picture languages",
+    "prompt": "Bana Avrupa başkentleriyle bir kedi çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-368",
+    "area": "picture languages",
+    "prompt": "Bana bir köpek çiz ve bir şiir yaz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-multi-14",
+    "area": "multi",
+    "prompt": "Bana bir at çiz ve onun hikayesini anlat",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "A picture, then a second request answered beside it (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-369",
+    "area": "picture languages",
+    "prompt": "Bana bir iş dağı çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-370",
+    "area": "picture languages",
+    "prompt": "Bana bir veri gölü çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-371",
+    "area": "picture languages",
+    "prompt": "Bana bir nokta bulutu çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-372",
+    "area": "picture languages",
+    "prompt": "Bana yaşam döngüsüyle bir çiçek çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-373",
+    "area": "picture languages",
+    "prompt": "Bana çembere çizilmiş bir yıldız çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-374",
+    "area": "picture languages",
+    "prompt": "Bana JavaScript ile bir robot çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-375",
+    "area": "picture languages",
+    "prompt": "Bana sorunlar denizi çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-376",
+    "area": "picture languages",
+    "prompt": "በHTML ቤት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-377",
+    "area": "picture languages",
+    "prompt": "በኮድ ድመት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-378",
+    "area": "picture languages",
+    "prompt": "የሃፍማን ዛፍ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-379",
+    "area": "picture languages",
+    "prompt": "የመረጃ ሐይቅ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-380",
+    "area": "picture languages",
+    "prompt": "የነጥብ ደመና ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-381",
+    "area": "picture languages",
+    "prompt": "የሥራ ተራራ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-382",
+    "area": "picture languages",
+    "prompt": "የችግር ባሕር ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-383",
+    "area": "picture languages",
+    "prompt": "የአበባ የሕይወት ዑደት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-384",
+    "area": "picture languages",
+    "prompt": "የፓይቶን ሮቦት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-385",
+    "area": "picture languages",
+    "prompt": "የፊደል ድመት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-386",
+    "area": "picture languages",
+    "prompt": "በክፍልፋይ የተከፈለ ፒዛ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-387",
+    "area": "picture languages",
+    "prompt": "የአውሮፓ ዋና ከተሞች ያሉት ድመት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-388",
+    "area": "picture languages",
+    "prompt": "ውሻ ሳልልኝና ስም ጠቁመኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-389",
+    "area": "picture languages",
+    "prompt": "የኮምፒውተር ዛፍ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-390",
+    "area": "picture languages",
+    "prompt": "የገንዘብ ተራራ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-391",
+    "area": "picture languages",
+    "prompt": "የስሜት ወንዝ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-392",
+    "area": "picture languages",
+    "prompt": "የኤሌክትሪክ ድልድይ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-393",
+    "area": "picture languages",
+    "prompt": "የሂሳብ ኮከብ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-394",
+    "area": "picture languages",
+    "prompt": "የዳታ ዛፍ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 blind set)."
+  },
+  {
+    "id": "pl7-mis-395",
+    "area": "picture languages",
+    "prompt": "Dibújame un pájaro volando con velocidad constante",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-396",
+    "area": "picture languages",
+    "prompt": "Dibújame un perro corriendo en un plano inclinado",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-397",
+    "area": "picture languages",
+    "prompt": "Dibújame un árbol rojo y negro",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-398",
+    "area": "picture languages",
+    "prompt": "Dibújame una estrella entre paréntesis",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-399",
+    "area": "picture languages",
+    "prompt": "Dibújame un gato futurista en JSON",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-400",
+    "area": "picture languages",
+    "prompt": "Dibújame un bosque en invierno con datos",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-401",
+    "area": "picture languages",
+    "prompt": "Dibújame una pizza en ocho porciones iguales",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-402",
+    "area": "picture languages",
+    "prompt": "Dibújame un puente entre la física y la química",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-403",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un chat qui joue aux échecs",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-404",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un oiseau qui vole à vitesse constante",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-405",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un arbre rouge et noir",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-406",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une étoile entre crochets",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-407",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une forêt en hiver avec des statistiques",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-408",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une pizza en huit parts égales",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-409",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen fliegenden Vogel mit konstanter Geschwindigkeit",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-410",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen rot-schwarzen Baum",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-411",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Stern zwischen Klammern",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-412",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Winterwald mit Daten",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-413",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Pizza in acht gleichen Stücken",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-414",
+    "area": "picture languages",
+    "prompt": "Disegnami un uccello che vola a velocità costante",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-415",
+    "area": "picture languages",
+    "prompt": "Disegnami un albero rosso e nero",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-416",
+    "area": "picture languages",
+    "prompt": "Disegnami una stella tra parentesi",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-417",
+    "area": "picture languages",
+    "prompt": "Disegnami un bosco in inverno con i dati",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-418",
+    "area": "picture languages",
+    "prompt": "Disegnami una pizza in otto fette uguali",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-419",
+    "area": "picture languages",
+    "prompt": "Desenha-me um pássaro voando com velocidade constante",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-420",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma árvore vermelha e preta",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-421",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma estrela entre parênteses",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-422",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma pizza em oito fatias iguais",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-423",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне летящую птицу с постоянной скоростью",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-424",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне красное и чёрное дерево",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-425",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне звезду между скобками",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-426",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне зимний лес с данными",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-427",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне пиццу на восемь равных частей",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-428",
+    "area": "picture languages",
+    "prompt": "Bana sabit hızla uçan bir kuş çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-429",
+    "area": "picture languages",
+    "prompt": "Bana kırmızı ve siyah bir ağaç çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-430",
+    "area": "picture languages",
+    "prompt": "Bana parantez arasında bir yıldız çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-431",
+    "area": "picture languages",
+    "prompt": "Bana sekiz eşit dilime bölünmüş bir pizza çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-432",
+    "area": "picture languages",
+    "prompt": "ቀይ እና ጥቁር ዛፍ ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-mis-433",
+    "area": "picture languages",
+    "prompt": "በቁጥር ድመት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "A word of the subject is no listed noun, descriptor or function word (round 7 after the blind run)."
+  },
+  {
+    "id": "pl7-en-multi-1",
+    "area": "multi",
+    "prompt": "Draw me a dog and suggest names",
+    "history": [],
+    "reply": "Here you go: the answer to your second question is below the picture.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "The plan cuts the picture part off; the rest is answered (round 7)."
+  },
+  {
+    "id": "pl7-en-multi-2",
+    "area": "multi",
+    "prompt": "Draw me a cat and also give me facts about cats",
+    "history": [],
+    "reply": "Here you go: the answer to your second question is below the picture.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "The plan cuts the picture part off; the rest is answered (round 7)."
+  },
+  {
+    "id": "pl7-en-multi-3",
+    "area": "multi",
+    "prompt": "Draw me a cat. Also explain black holes",
+    "history": [],
+    "reply": "Here you go: the answer to your second question is below the picture.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "The plan cuts the picture part off; the rest is answered (round 7)."
+  },
+  {
+    "id": "pl7-en-multi-4",
+    "area": "multi",
+    "prompt": "Draw me a whale and why is the sea salty?",
+    "history": [],
+    "reply": "Here you go: the answer to your second question is below the picture.",
+    "expect": [
+      "image_gen",
+      "answer"
+    ],
+    "note": "The plan cuts the picture part off; the rest is answered (round 7)."
+  },
+  {
+    "id": "pl7-es-draw-022",
+    "area": "picture languages",
+    "prompt": "Dibújame un gato durmiendo en un sofá",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-es-draw-023",
+    "area": "picture languages",
+    "prompt": "¿Me dibujas un dragón azul?",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-es-draw-024",
+    "area": "picture languages",
+    "prompt": "Crea una imagen de un faro en una tormenta",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-es-draw-025",
+    "area": "picture languages",
+    "prompt": "Dibújame un unicornio con alas",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-es-draw-026",
+    "area": "picture languages",
+    "prompt": "Dibújame un perro astronauta",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-es-draw-027",
+    "area": "picture languages",
+    "prompt": "¿Puedes dibujarme un castillo encantado?",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-es-draw-028",
+    "area": "picture languages",
+    "prompt": "Dibújame una ballena saltando",
+    "history": [],
+    "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-fr-draw-020",
+    "area": "picture languages",
+    "prompt": "Peux-tu me dessiner une licorne ?",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-fr-draw-021",
+    "area": "picture languages",
+    "prompt": "Dessine-moi une maison dans la forêt",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-fr-draw-022",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un robot gentil",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-fr-draw-023",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un coucher de soleil sur la mer",
+    "history": [],
+    "reply": "Voici ton dessin. Tu veux un autre style ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-de-draw-021",
+    "area": "picture languages",
+    "prompt": "Zeichne mir eine Katze mit Hut",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-de-draw-022",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen süßen Hund",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-de-draw-023",
+    "area": "picture languages",
+    "prompt": "Male mir einen Sonnenuntergang am Meer",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-de-draw-024",
+    "area": "picture languages",
+    "prompt": "Zeichne mir ein Einhorn",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-de-draw-025",
+    "area": "picture languages",
+    "prompt": "Zeichne mir einen Roboter im Wald",
+    "history": [],
+    "reply": "Hier ist dein Bild. Möchtest du einen anderen Stil?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-it-draw-020",
+    "area": "picture languages",
+    "prompt": "Crea un'immagine di un faro nella tempesta",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-it-draw-021",
+    "area": "picture languages",
+    "prompt": "Disegnami un unicorno",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-it-draw-022",
+    "area": "picture languages",
+    "prompt": "Disegnami un tramonto sul mare",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-it-draw-023",
+    "area": "picture languages",
+    "prompt": "Disegnami un cane astronauta",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-it-draw-024",
+    "area": "picture languages",
+    "prompt": "Puoi disegnarmi un castello?",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-it-draw-025",
+    "area": "picture languages",
+    "prompt": "Disegnami una balena",
+    "history": [],
+    "reply": "Ecco il tuo disegno. Vuoi un altro stile?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-pt-draw-019",
+    "area": "picture languages",
+    "prompt": "Desenha-me um gato de chapéu",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-pt-draw-020",
+    "area": "picture languages",
+    "prompt": "Me desenha um dragão",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-pt-draw-021",
+    "area": "picture languages",
+    "prompt": "Crie uma imagem de um farol numa tempestade",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-pt-draw-022",
+    "area": "picture languages",
+    "prompt": "Desenha-me um pôr do sol na praia",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-pt-draw-023",
+    "area": "picture languages",
+    "prompt": "Pode me desenhar um castelo?",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-pt-draw-024",
+    "area": "picture languages",
+    "prompt": "Desenha-me um robô",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-pt-draw-025",
+    "area": "picture languages",
+    "prompt": "Desenha-me uma baleia",
+    "history": [],
+    "reply": "Aqui está o seu desenho. Quer outro estilo?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-ru-draw-018",
+    "area": "picture languages",
+    "prompt": "Создай картинку маяка в шторм",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-ru-draw-019",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне закат на море",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-ru-draw-020",
+    "area": "picture languages",
+    "prompt": "Можешь нарисовать мне замок?",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-ru-draw-021",
+    "area": "picture languages",
+    "prompt": "Нарисуй мне робота",
+    "history": [],
+    "reply": "Вот твой рисунок. Хочешь другой стиль?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-tr-draw-020",
+    "area": "picture languages",
+    "prompt": "Bana bir ejderha çiz",
+    "history": [],
+    "reply": "İşte çizimin. Başka bir stil ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-tr-draw-021",
+    "area": "picture languages",
+    "prompt": "Bir deniz feneri resmi oluştur",
+    "history": [],
+    "reply": "İşte çizimin. Başka bir stil ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-tr-draw-022",
+    "area": "picture languages",
+    "prompt": "Bana bir tek boynuzlu at çiz",
+    "history": [],
+    "reply": "İşte çizimin. Başka bir stil ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-tr-draw-023",
+    "area": "picture languages",
+    "prompt": "Bana bir kale çizer misin?",
+    "history": [],
+    "reply": "İşte çizimin. Başka bir stil ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-tr-draw-024",
+    "area": "picture languages",
+    "prompt": "Bana bir robot çiz",
+    "history": [],
+    "reply": "İşte çizimin. Başka bir stil ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-tr-draw-025",
+    "area": "picture languages",
+    "prompt": "Bana bir balina çiz",
+    "history": [],
+    "reply": "İşte çizimin. Başka bir stil ister misin?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-am-draw-012",
+    "area": "picture languages",
+    "prompt": "ዘንዶ ሳልልኝ",
+    "history": [],
+    "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-am-draw-013",
+    "area": "picture languages",
+    "prompt": "ሮቦት ሳልልኝ",
+    "history": [],
+    "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
+    "expect": "image_gen"
+  },
+  {
+    "id": "pl7-am-draw-014",
+    "area": "picture languages",
+    "prompt": "የፈረስ ምስል ፍጠርልኝ",
+    "history": [],
+    "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
+    "expect": "image_gen"
   }
 ]

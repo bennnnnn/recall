@@ -20,7 +20,14 @@
     "Dibújame una tarta de cumpleaños",
     "Dibújame un caballo blanco",
     "Dibújame una niña con un globo",
-    "Dibújame mi casa"
+    "Dibújame mi casa",
+    "Dibújame un gato durmiendo en un sofá",
+    "¿Me dibujas un dragón azul?",
+    "Crea una imagen de un faro en una tormenta",
+    "Dibújame un unicornio con alas",
+    "Dibújame un perro astronauta",
+    "¿Puedes dibujarme un castillo encantado?",
+    "Dibújame una ballena saltando"
   ],
   "fr": [
     "Dessine-moi un mouton",
@@ -41,7 +48,11 @@
     "Dessine-moi un sapin de Noël",
     "Dessine-moi un bonhomme de neige",
     "Dessine-moi une petite fille avec un ballon",
-    "Dessine-moi un paysage de montagne"
+    "Dessine-moi un paysage de montagne",
+    "Peux-tu me dessiner une licorne ?",
+    "Dessine-moi une maison dans la forêt",
+    "Dessine-moi un robot gentil",
+    "Dessine-moi un coucher de soleil sur la mer"
   ],
   "de": [
     "Zeichne mir einen Hund mit Sonnenbrille",
@@ -63,7 +74,12 @@
     "Zeichne mir ein weißes Pferd",
     "Zeichne mir eine Prinzessin in einem Schloss",
     "Zeichne mir einen Schneemann",
-    "Zeichne mir einen Hund"
+    "Zeichne mir einen Hund",
+    "Zeichne mir eine Katze mit Hut",
+    "Zeichne mir einen süßen Hund",
+    "Male mir einen Sonnenuntergang am Meer",
+    "Zeichne mir ein Einhorn",
+    "Zeichne mir einen Roboter im Wald"
   ],
   "it": [
     "Disegnami un gatto con il cappello",
@@ -84,7 +100,13 @@
     "Crea un'immagine di una tigre nella giungla",
     "Disegnami un cavallo bianco",
     "Disegnami una principessa in un castello",
-    "Disegnami un pupazzo di neve"
+    "Disegnami un pupazzo di neve",
+    "Crea un'immagine di un faro nella tempesta",
+    "Disegnami un unicorno",
+    "Disegnami un tramonto sul mare",
+    "Disegnami un cane astronauta",
+    "Puoi disegnarmi un castello?",
+    "Disegnami una balena"
   ],
   "pt": [
     "Me desenhe um gato de chapéu",
@@ -104,7 +126,14 @@
     "Crie uma imagem de um tigre na selva",
     "Me desenhe um cavalo branco",
     "Me desenhe uma princesa num castelo",
-    "Me desenhe um boneco de neve"
+    "Me desenhe um boneco de neve",
+    "Desenha-me um gato de chapéu",
+    "Me desenha um dragão",
+    "Crie uma imagem de um farol numa tempestade",
+    "Desenha-me um pôr do sol na praia",
+    "Pode me desenhar um castelo?",
+    "Desenha-me um robô",
+    "Desenha-me uma baleia"
   ],
   "ru": [
     "Нарисуй мне кота в шляпе",
@@ -123,7 +152,11 @@
     "Создай картинку тигра в джунглях",
     "Нарисуй мне белую лошадь",
     "Нарисуй мне принцессу в замке",
-    "Нарисуй мне снеговика"
+    "Нарисуй мне снеговика",
+    "Создай картинку маяка в шторм",
+    "Нарисуй мне закат на море",
+    "Можешь нарисовать мне замок?",
+    "Нарисуй мне робота"
   ],
   "tr": [
     "Bana şapkalı bir kedi çiz",
@@ -144,7 +177,13 @@
     "Ormanda bir kaplan resmi oluştur",
     "Bana beyaz bir at çiz",
     "Bana bir kardan adam çiz",
-    "Bana bir prenses çiz"
+    "Bana bir prenses çiz",
+    "Bana bir ejderha çiz",
+    "Bir deniz feneri resmi oluştur",
+    "Bana bir tek boynuzlu at çiz",
+    "Bana bir kale çizer misin?",
+    "Bana bir robot çiz",
+    "Bana bir balina çiz"
   ],
   "am": [
     "ድመት ሳልልኝ",
@@ -157,6 +196,9 @@
     "ፈረስ ሳልልኝ",
     "የተራራ ስዕል ሳልልኝ",
     "መኪና ሳልልኝ",
-    "ልጅ ሳልልኝ"
+    "ልጅ ሳልልኝ",
+    "ዘንዶ ሳልልኝ",
+    "ሮቦት ሳልልኝ",
+    "የፈረስ ምስል ፍጠርልኝ"
   ]
 }

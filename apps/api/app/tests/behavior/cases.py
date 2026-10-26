@@ -844,6 +844,40 @@ CASES: tuple[Case, ...] = (
         pro=True,
     ),
     Case(
+        "image-gen-ascii-es",
+        "photos and maps",
+        "Dibújame un gato en ASCII",
+        Expect(image_gen=False, photo=NO_PHOTO),
+        "Characters, not a picture: 'ASCII' is no listed word, so the line is answered (round 7).",
+        pro=True,
+    ),
+    Case(
+        "image-gen-binary-tree-de",
+        "photos and maps",
+        "Zeichne mir einen binären Baum",
+        Expect(image_gen=False, photo=NO_PHOTO),
+        "A data structure, answered: 'binären' is no listed descriptor (round 7).",
+        pro=True,
+    ),
+    Case(
+        "image-gen-second-ask-es",
+        "photos and maps",
+        "Dibújame un perro y sugiéreme nombres",
+        Expect(image_gen=False, photo=NO_PHOTO),
+        "Answered, not a picture of 'perro y sugiéreme nombres': the second request is no "
+        "listed word, so the line is not one picture (round 7).",
+        pro=True,
+    ),
+    Case(
+        "image-gen-scene-es",
+        "photos and maps",
+        "Dibújame un gato negro en la playa",
+        Expect(image_gen=True, photo=NO_PHOTO),
+        "A black cat on a beach: every word is a listed noun, descriptor or function word "
+        "(round 7).",
+        pro=True,
+    ),
+    Case(
         "image-gen-squirrel-ru",
         "photos and maps",
         "Нарисуй белку с орехом",
@@ -2003,6 +2037,15 @@ CASES: tuple[Case, ...] = (
         Expect(image_gen=False, picture=True, hints=("multi_intent",)),
         "The cat above a short black-hole explanation; the whole line was drawn as one "
         "picture of 'cat and also explain black holes' before.",
+        pro=True,
+    ),
+    Case(
+        "multi-draw-me-and-suggest",
+        "multi-intent",
+        "Draw me a dog and suggest names",
+        Expect(image_gen=False, picture=True, hints=("multi_intent",)),
+        "The dog above a few name ideas; the whole line was drawn as one picture of 'dog "
+        "and suggest names' before, though the plan cut it (round 7).",
         pro=True,
     ),
     Case(
