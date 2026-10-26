@@ -67,6 +67,21 @@ def accepted_reminder_offer(user_text: str | None, prior_assistant: str | None) 
     return offer if _OFFER.search(offer) else None
 
 
+def follows_reminder_card(recent: Sequence[Any] | None) -> bool:
+    """The last reply held a reminder card, so this message is about that change.
+
+    Live (2026-10-26): "Delete overdue" got a card and the user tapped it. Then "Did u remove
+    it?" has no to-do word and nothing left overdue, so the turn carried no To-do text; a
+    light model answered "I don't have access to your To-do list" and apologised for a delete
+    that had happened, three turns running. A turn after a card keeps the To-do text.
+    """
+    for message in reversed(recent or ()):
+        if getattr(message, "role", None) == "assistant":
+            content = getattr(message, "content", None)
+            return isinstance(content, str) and f"```{CARD_FENCE}" in content
+    return False
+
+
 def accepted_offer_in(user_text: str | None, recent: Sequence[Any] | None) -> str | None:
     """The same, with the last reply read from the recent window (a regenerate's window
     leaves out the reply it redoes: ``turn_load.load_regenerate_turn``)."""

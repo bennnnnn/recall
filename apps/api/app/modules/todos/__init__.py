@@ -70,6 +70,9 @@ if TYPE_CHECKING:
     from app.modules.todos.offer_reply import (
         accepted_offer_in as accepted_offer_in,
     )
+    from app.modules.todos.offer_reply import (
+        follows_reminder_card as follows_reminder_card,
+    )
     from app.modules.todos.prompt_context import (
         build_todos_system_section as build_todos_system_section,
     )
@@ -107,6 +110,7 @@ _EXPORTS = {
     "without_denials": ("reply_denials", "without_denials"),
     "query_implies_todos": ("classification", "query_implies_todos"),
     "accepted_offer_in": ("offer_reply", "accepted_offer_in"),
+    "follows_reminder_card": ("offer_reply", "follows_reminder_card"),
     "TODO_LINK_FENCE": ("chat_language", "TODO_LINK_FENCE"),
     "language_evidence": ("chat_language", "language_evidence"),
     "message_language": ("chat_language", "message_language"),

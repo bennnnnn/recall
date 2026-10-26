@@ -458,3 +458,72 @@ async def test_a_yes_never_takes_a_time_nobody_said(db_session, fake_redis):
         "Would you like me to set a reminder to stretch?",
     )
     assert "```reminder_proposal" not in text
+
+
+_DELETE_CARD_REPLY = (
+    "I'll remove both overdue items.\n\n```reminder_proposal\n"
+    '{"proposal_id": "57ec8cda-033e-455d-b08a-9ea6aea1672f", "tz": "UTC", "items": '
+    '[{"action": "delete", "title": "Start anatomy study session"}], "status": "saved"}\n```'
+)
+
+
+def _msg_row(role: str, content: str) -> SimpleNamespace:
+    return SimpleNamespace(role=role, content=content)
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["Did u remove it?", "But it is removed", "Did u create it?", "lol, u render it in the chat"],
+)
+def test_a_message_right_after_a_reminder_card_keeps_the_todo_text(text: str) -> None:
+    """Live 2026-10-26: after a tapped delete card, "Did u remove it?" carried no To-do text
+    and a light model said "I don't have access to your To-do list", three turns running."""
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
+
+    recent = [
+        _msg_row("user", "Delete overdue"),
+        _msg_row("assistant", _DELETE_CARD_REPLY),
+        _msg_row("user", text),
+    ]
+    mode = classify_turn_mode(recent, text)
+    assert mode.accepted_offer is True
+    assert mode.rich_context is True
+
+
+def test_follows_reminder_card_reads_only_the_last_reply() -> None:
+    from app.modules.todos.offer_reply import follows_reminder_card
+
+    assert follows_reminder_card(
+        [_msg_row("assistant", _DELETE_CARD_REPLY), _msg_row("user", "ok")]
+    )
+    # A later reply with no card: the card is no longer what the user is talking about.
+    assert not follows_reminder_card(
+        [
+            _msg_row("assistant", _DELETE_CARD_REPLY),
+            _msg_row("user", "ok"),
+            _msg_row("assistant", "Sure, anything else?"),
+        ]
+    )
+    assert not follows_reminder_card([])
+    assert not follows_reminder_card(None)
+    assert not follows_reminder_card([_msg_row("user", "```reminder_proposal")])
+
+
+def test_a_chat_with_no_card_is_unchanged() -> None:
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
+
+    recent = [
+        _msg_row("user", "hi"),
+        _msg_row("assistant", "Hi there!"),
+        _msg_row("user", "Did u eat?"),
+    ]
+    assert classify_turn_mode(recent, "Did u eat?").accepted_offer is False
+
+
+def test_the_write_hint_says_the_model_has_access_and_how_to_read_a_result_line() -> None:
+    from app.modules.todos.prompt_hint import TODO_HINT, TODO_READ_ONLY_HINT
+
+    assert "never say you have no access" in TODO_HINT
+    assert "'Card offered, not tapped' means it is not saved yet" in TODO_HINT
+    # A turn that may only read to-dos is not taught that it can write them.
+    assert "never say you have no access" not in TODO_READ_ONLY_HINT

@@ -192,8 +192,11 @@ def classify_turn_mode(recent: Sequence[Any], content: str) -> _TurnMode:
     if is_profile_recall_pushback(content):
         prior_users = prior_user_texts(recent, content)
         profile_followup = profile_question_to_answer(content, prior_users) is not None
-    # "Yes" to "Want me to set that reminder?" is the reminder request.
-    accepted_offer = todos_service.accepted_offer_in(content, recent) is not None
+    # "Yes" to "Want me to set that reminder?" is the reminder request, and so is any
+    # message right after a reminder card ("Did u remove it?", "move it to 7").
+    accepted_offer = todos_service.accepted_offer_in(
+        content, recent
+    ) is not None or todos_service.follows_reminder_card(recent)
     rich_context = (
         after_card
         or accepted_offer
