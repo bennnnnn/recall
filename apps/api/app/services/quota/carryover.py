@@ -1,9 +1,10 @@
-"""Carry-over to a new account for the same sign-in.
+"""Carry-over to a new account for the same sign-in or email address.
 
 Counters are keyed by user id, so deleting an account and signing up again
-with the same Google/Apple login would start every cap from zero. Account
-delete reads today's counters and this month's live talk seconds; the new
-account's counters are raised to them (modules/account/quota_carryover.py).
+with the same Google/Apple login, or on the same address, would start every cap
+from zero. Account delete reads today's counters and this month's live talk
+seconds; the new account's counters are raised to them
+(modules/account/quota_carryover.py).
 """
 
 from uuid import UUID
