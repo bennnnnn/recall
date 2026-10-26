@@ -8,6 +8,7 @@ import { mightBeImageTurn } from "@/features/images/model/imageIntentPrefilter";
 import fixture from "../../../../../../docs/fixtures/image_intent_cases.json";
 import followups from "../../../../../api/app/tests/behavior/sweep_corpus/followups.json";
 import intentLookalikes from "../../../../../api/app/tests/behavior/sweep_corpus/intent_lookalikes.json";
+import pictureLanguages from "../../../../../api/app/tests/behavior/sweep_corpus/picture_languages.json";
 import searchPhotos from "../../../../../api/app/tests/behavior/sweep_corpus/search_photos.json";
 import stemWordProblems from "../../../../../api/app/tests/behavior/sweep_corpus/stem_word_problems.json";
 import writingLanguages from "../../../../../api/app/tests/behavior/sweep_corpus/writing_languages.json";
@@ -53,7 +54,9 @@ function fixturePositives(): Positive[] {
 }
 
 function sweepPositives(): Positive[] {
-  const corpora = [followups, intentLookalikes, searchPhotos, stemWordProblems, writingLanguages] as SweepEntry[][];
+  const corpora = [
+    followups, intentLookalikes, pictureLanguages, searchPhotos, stemWordProblems, writingLanguages,
+  ] as SweepEntry[][];
   return corpora.flat()
     .filter((entry) => entry.expect === "photo" || entry.expect === "image_gen")
     .map((entry) => ({
@@ -69,7 +72,7 @@ describe("image intent prefilter", () => {
 
   it("has the server's cases to run", () => {
     expect(fixtureCases.length).toBeGreaterThan(400);
-    expect(sweepCases.length).toBeGreaterThanOrEqual(38);
+    expect(sweepCases.length).toBeGreaterThanOrEqual(70);
   });
 
   it.each(fixtureCases.map((c) => [label(c.text), c] as const))(
@@ -95,6 +98,25 @@ describe("image intent prefilter", () => {
     "remind me to call mom at 5",
     "turn off the lights",
   ])("sends %j straight to chat on an empty thread", (text) => {
+    expect(mightBeImageTurn(text, [], false)).toBe(false);
+  });
+
+  it.each([
+    "Zeichne eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
+    "Dibuja un gato con sombrero",
+    "Нарисуй кошку в шляпе",
+    "Şapkalı bir kedi çiz",
+    "ድመት ሳልልኝ",
+  ])("asks the server about a picture asked in another language: %j", (text) => {
+    expect(mightBeImageTurn(text, [], false)).toBe(true);
+  });
+
+  it.each([
+    "Hola, ¿qué tal?",
+    "Wie spät ist es in Berlin?",
+    "Привет, как дела?",
+    "Bugün hava nasıl?",
+  ])("sends %j in another language straight to chat", (text) => {
     expect(mightBeImageTurn(text, [], false)).toBe(false);
   });
 

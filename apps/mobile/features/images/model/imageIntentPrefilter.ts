@@ -21,6 +21,18 @@ type Row = { id: string; role: string; content: string };
  */
 const IMAGE_WORDS =
   /(?:^|[^a-z0-9_])(?:create|design|generate|make|produce|render|draw|illustrat|paint|image|photo|pic|artwork|portrait|show|see|look)/;
+/**
+ * The same in the app's other languages (gen_intent_languages.py): the "draw" verbs and
+ * the picture nouns. "Create", "generate" and "make" draw there only with a picture noun
+ * ("erstelle ein Bild …", "bir aslan resmi oluştur"), so the noun is the word to look for.
+ */
+const OTHER_LANGUAGE_WORDS = new RegExp(
+  "(?:^|[^a-z0-9_])(?:" +
+    "dibuj|pint|ilustr|retrat|foto|dessin|pein|illustr|zeichn|male|bild|gemälde|porträt|" +
+    "disegn|dipin|immagin|ritratt|desenh|çiz|resim|resm|görsel|görüntü|illüstr|portre|" +
+    "нарис|изобра|картин|рисун|иллюстр|портрет|фото|" +
+    "ሳል|ሣል|ሳይ|ሣይ|ሳሉ|ሣሉ|ምስል|ስዕል|ሥዕል|ስእል|ፎቶ)",
+);
 /** With an image attached, these start an edit of it ("crop it", "turn it into…"). */
 const EDIT_WORDS = /(?:^|[^a-z0-9_])(?:edit|change|remove|replace|recolor|crop|transform|turn)/;
 /** "do it" after a picture request: the server reads one only in a line this short. */
@@ -29,7 +41,8 @@ const CLOSING_PUNCTUATION = /[.!?]+$/;
 
 function hasImageWord(text: string, imageAttached: boolean): boolean {
   const folded = text.toLowerCase();
-  return IMAGE_WORDS.test(folded) || (imageAttached && EDIT_WORDS.test(folded));
+  return IMAGE_WORDS.test(folded) || OTHER_LANGUAGE_WORDS.test(folded) ||
+    (imageAttached && EDIT_WORDS.test(folded));
 }
 
 /** Whitespace to the phone or to the server (Python also splits on \x1c–\x1f and \x85). */
