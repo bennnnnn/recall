@@ -176,11 +176,14 @@ async def enqueue_index_jobs(
     )
 
 
-async def purge_attachments_for_user(
-    session: AsyncSession, settings: Settings, user_id: UUID
-) -> int:
-    """Delete a deleted account's stored bytes, then their rows; how many were removed."""
-    return await _lifecycle.purge_attachments_for_user(session, settings, user_id)
+async def delete_account_files(settings: Settings, storage_keys: list[str]) -> None:
+    """Delete a deleted account's stored files, once its rows are committed; never raises."""
+    await _lifecycle.delete_objects_of_deleted_rows(settings, storage_keys)
+
+
+async def sweep_account_storage(settings: Settings, user_id: UUID) -> int:
+    """Delete every object left under a deleted account's prefix (its ``storage_sweep``)."""
+    return await _lifecycle.sweep_user_storage(settings, user_id)
 
 
 async def queue_storage_deletes(storage_keys: list[str]) -> None:
@@ -188,10 +191,13 @@ async def queue_storage_deletes(storage_keys: list[str]) -> None:
     await _lifecycle.enqueue_failed_storage_deletes(storage_keys)
 
 
-async def delete_user_rows(session: AsyncSession, user_id: UUID) -> None:
-    """The rows left of a deleted account's attachments; no commit (``account.lifecycle``).
+async def delete_user_rows(session: AsyncSession, user_id: UUID) -> list[str]:
+    """Every attachment row of a deleted account; no commit (``account.lifecycle``).
 
-    ``purge_attachments_for_user`` deleted the bytes and their rows first; a row whose
-    bytes failed to delete goes here, its key already queued for the storage retry.
+    Returns the storage keys they named, for ``delete_account_files`` once the account's
+    delete commits: the files go only with the rows, never before them. Under the user's
+    row lock no attachment can be added between the read and the delete.
     """
+    rows = await _repo.list_for_user(session, user_id)
     await _repo.delete_all_for_user(session, user_id)
+    return [row.storage_key for row in rows if row.storage_key]

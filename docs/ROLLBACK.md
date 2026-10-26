@@ -155,7 +155,8 @@ and the logs.
 
 A failed job retries by itself for about 50 minutes before it is dead-lettered, and once
 an hour the worker re-enqueues dead letters of types that are safe to run twice
-(`storage_sweep`, `attachment_index`, `transactional_email`), each at most three times.
+(`storage_sweep`, `account_sweep_backstop`, `attachment_index`, `transactional_email`), each
+at most three times.
 Dead letters older than seven days are trimmed. Inspect the queue before replaying
 anything else:
 
