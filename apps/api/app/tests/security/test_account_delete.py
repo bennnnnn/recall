@@ -84,10 +84,16 @@ async def test_delete_account_leaves_nothing_of_the_user_behind(world: World) ->
     response = await c.delete("/auth/me", headers=a.headers)
     assert response.status_code == 204
 
-    # The worker runs the queued account sweep.
-    entries = await redis.xrange("recall:jobs")
-    assert any(fields.get("type") == "storage_sweep" for _id, fields in entries)
-    await _handle_storage_sweep(world.settings, {"user_id": str(a.id)})
+    # The worker runs the queued account sweep: it names the replies whose cached
+    # follow-up questions it drops (keyed by reply id, so only the rows could find them).
+    sweeps = [
+        json.loads(fields["payload"])
+        for _id, fields in await redis.xrange("recall:jobs")
+        if fields.get("type") == "storage_sweep"
+    ]
+    assert len(sweeps) == 1
+    assert str(data.assistant_message_id) in sweeps[0]["reply_ids"]
+    await _handle_storage_sweep(world.settings, sweeps[0])
 
     assert set((await _rows_owned_by(a.id)).values()) == {0}
     assert not (world.storage_root / data.attachment_key).exists()

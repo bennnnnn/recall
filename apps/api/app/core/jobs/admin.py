@@ -41,7 +41,9 @@ _BACKLOG_AGE_ALERT_S = 600
 _METRICS_LOCK_KEY = "recall:jobs:metrics:lock"
 # Types safe to run again by themselves once their dependency is back: replaying one
 # twice does no harm. At most this many per pass, each at most _MAX_AUTO_REPLAYS times.
-_AUTO_REPLAY_TYPES = frozenset({"storage_sweep", "attachment_index", "transactional_email"})
+_AUTO_REPLAY_TYPES = frozenset(
+    {"storage_sweep", "account_sweep_backstop", "attachment_index", "transactional_email"}
+)
 _AUTO_REPLAY_BATCH = 50
 _MAX_AUTO_REPLAYS = 3
 _AUTO_REPLAY_MIN_AGE_S = 3_600

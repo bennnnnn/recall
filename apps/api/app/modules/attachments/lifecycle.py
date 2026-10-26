@@ -163,33 +163,19 @@ async def purge_attachments_for_messages(
     return len(storage_keys)
 
 
-async def purge_attachments_for_user(
-    session: AsyncSession,
-    settings: Settings,
-    user_id: UUID,
-) -> int:
-    """Delete storage bytes then DB rows for every attachment owned by ``user_id``.
+async def delete_objects_of_deleted_rows(settings: Settings, storage_keys: list[str]) -> None:
+    """Delete the stored objects (and thumbnails) of rows already deleted and committed.
 
-    Bytes are removed before rows (same ordering as the orphan reaper): if storage
-    delete fails or the process dies mid-loop, rows remain so a retry can finish.
-    Call this before ``account.lifecycle.erase_user_rows``, which clears the rows left.
+    Account delete calls it once the account's rows are gone. Best effort, never raises:
+    a failed object is queued for the reaper's retry, and the account's ``storage_sweep``
+    deletes everything left under ``{user_id}/``.
     """
-    rows = await attachments_repo.list_for_user(session, user_id)
-    if not rows:
-        return 0
-    # Per-object best-effort: one R2 failure must not abort GDPR account wipe.
-    # Failed keys may leave storage orphans; the orphan reaper / bucket lifecycle
-    # covers those — failing the whole delete would leave the user logged out
-    # with their account still intact.
-    keys = [row.storage_key for row in rows if row.storage_key]
-    failed = set(await delete_storage_keys(settings, keys))
-    await enqueue_failed_storage_deletes(list(failed))
-    attachment_ids = [
-        row.id for row in rows if not row.storage_key or row.storage_key not in failed
-    ]
-    if not attachment_ids:
-        return 0
-    return await attachments_repo.delete_rows(session, attachment_ids)
+    try:
+        failed = await delete_storage_keys(settings, storage_keys)
+    except Exception:
+        logger.warning("Stored objects of a deleted account not deleted; queued", exc_info=True)
+        failed = storage_keys
+    await enqueue_failed_storage_deletes(failed)
 
 
 async def reap_orphan_attachments(settings: Settings) -> int:
@@ -271,7 +257,7 @@ async def _reap_orphan_batch(settings: Settings) -> tuple[int, int]:
 async def sweep_user_storage(settings: Settings, user_id: UUID) -> int:
     """Delete leftover objects under ``{user_id}/`` after account wipe.
 
-    Complements ``purge_attachments_for_user`` when Redis pending-delete never
+    Complements ``delete_objects_of_deleted_rows`` when Redis pending-delete never
     ran. Prefix is the user UUID only — never ``/`` or ``..``.
     """
     prefix = f"{user_id}/"

@@ -12,7 +12,6 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 
 from app.core.config import Settings
 from app.core.deps import get_redis
-from app.exceptions import RedisUnavailableError
 from app.main import create_app
 
 
@@ -88,39 +87,37 @@ def test_delete_account_returns_204():
     app = _app_with_user(user)
     order: list[str] = []
 
-    async def carry(*_a, **_k):
-        order.append("carry")
+    def step(name: str, result: Any = None) -> AsyncMock:
+        def record(*_a: Any, **_k: Any) -> Any:
+            order.append(name)
+            return result
 
-    async def purge_sessions(*_a, **_k):
-        order.append("purge_sessions")
+        return AsyncMock(side_effect=record)
 
-    async def purge(*_a, **_k):
-        order.append("purge")
-
-    async def delete_user(*_a, **_k):
-        order.append("delete_user")
-
+    lifecycle = "app.modules.account.lifecycle"
     with (
-        patch("app.modules.account.lifecycle.quota_carryover.save_on_delete", side_effect=carry),
-        patch(
-            "app.modules.account.lifecycle.tokens_service.purge_user_sessions",
-            side_effect=purge_sessions,
-        ),
-        patch(
-            "app.modules.account.lifecycle.attachments_service.purge_attachments_for_user",
-            side_effect=purge,
-        ),
-        patch("app.modules.account.lifecycle.users_repo.delete_user", side_effect=delete_user),
-        patch("app.modules.account.lifecycle.enqueue", AsyncMock()) as enqueue_mock,
+        patch(f"{lifecycle}.quota_carryover.save_on_delete", step("carry")),
+        patch(f"{lifecycle}.schedule_job", step("backstop_sweep")),
+        patch(f"{lifecycle}.users_repo.delete_user", step("delete_rows")),
+        patch(f"{lifecycle}.tokens_service.purge_user_sessions", step("purge_sessions")),
+        patch(f"{lifecycle}.attachments_service.delete_account_files", step("delete_files")),
+        patch(f"{lifecycle}.enqueue", step("sweep")) as enqueue_mock,
     ):
         client = TestClient(app)
         r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 204
-    # The usage counters are carried first, while a refusal undoes nothing. Sessions are
-    # purged next, before any data: otherwise a logged-in client keeps a working access
-    # token after the row is gone, with only the (now-deleted) DB user check to stop it.
-    assert order == ["carry", "purge_sessions", "purge", "delete_user"]
-    enqueue_mock.assert_awaited_once()
+    # The usage counters are carried first, while a refusal undoes nothing; the backstop
+    # sweep is scheduled before the rows go. Sessions end and files go only once the rows
+    # commit: a database failure before that leaves the account whole and signed in.
+    # (A cached user row elsewhere is still refused: its token's session is revoked.)
+    assert order == [
+        "carry",
+        "backstop_sweep",
+        "delete_rows",
+        "purge_sessions",
+        "delete_files",
+        "sweep",
+    ]
     assert enqueue_mock.await_args.args[1] == "storage_sweep"
 
 
@@ -132,24 +129,24 @@ _UNAVAILABLE = {
 }
 
 
-@pytest.mark.parametrize("step", ["carry", "purge_sessions"])
+@pytest.mark.parametrize("step", ["carry", "backstop_sweep"])
 def test_delete_account_with_redis_failing_is_refused_503_unavailable(step: str) -> None:
-    """Redis failing at the delete's first steps refuses it with the shared outage body: the
-    phone says Recall is unavailable and to try again. The carry-over was best-effort (its
-    failure lost the day's counters, ``security/test_quota_carryover.py``) and the session
-    purge answered a code-less 503. A refused carry-over undoes nothing, sessions included."""
+    """Redis failing before the rows commit refuses the delete with the shared outage body:
+    the phone says Recall is unavailable and to try again. The carry-over was best-effort
+    (its failure lost the day's counters, ``security/test_quota_carryover.py``). A refusal
+    undoes nothing, sessions included: the retry needs no sign-in."""
     user = _fake_user()
     user.google_sub = "google-sub"
     user.apple_sub = None
     down = AsyncMock(side_effect=RedisConnectionError("Error 111 connecting to redis"))
-    redis = MagicMock(mget=down, set=down)
-    purge = AsyncMock()
-    if step == "purge_sessions":
-        # Nothing used today, so nothing to carry: the purge is reached.
+    zadd = AsyncMock(side_effect=RedisConnectionError("Error 111 connecting to redis"))
+    redis = MagicMock(mget=down, set=down, zadd=zadd)
+    if step == "backstop_sweep":
+        # Nothing used today, so nothing to carry: the backstop is reached.
         redis.mget = AsyncMock(side_effect=lambda keys: [None] * len(keys))
-        purge.side_effect = RedisUnavailableError()
     app = _app_with_user(user)
     app.dependency_overrides[get_redis] = lambda: redis
+    purge = AsyncMock()
     with (
         patch("app.modules.account.lifecycle.tokens_service.purge_user_sessions", purge),
         patch("app.modules.account.lifecycle.users_repo.delete_user", AsyncMock()) as delete_user,
@@ -159,20 +156,16 @@ def test_delete_account_with_redis_failing_is_refused_503_unavailable(step: str)
     assert response.status_code == 503
     assert response.json() == _UNAVAILABLE
     assert response.headers["retry-after"] == "5"
-    assert purge.await_count == (step == "purge_sessions")
+    assert zadd.await_count == (step == "backstop_sweep")
+    purge.assert_not_awaited()
     delete_user.assert_not_awaited()
 
 
 def test_delete_account_returns_204_when_one_storage_delete_fails():
-    """R2 outage on one object must not leave the account wipe unfinished."""
+    """R2 outage on one object must not leave the account wipe unfinished: the rows are
+    gone, the failed object is queued for the retry, and the sweep deletes the prefix."""
     user = _fake_user()
     app = _app_with_user(user)
-    ok = MagicMock()
-    ok.id = uuid4()
-    ok.storage_key = "user/ok"
-    bad = MagicMock()
-    bad.id = uuid4()
-    bad.storage_key = "user/bad"
 
     async def delete_bytes(key: str) -> None:
         if key == "user/bad":
@@ -180,32 +173,30 @@ def test_delete_account_returns_204_when_one_storage_delete_fails():
 
     gateway = MagicMock()
     gateway.delete_bytes = delete_bytes
-
+    lifecycle = "app.modules.account.lifecycle"
     with (
+        patch(f"{lifecycle}.quota_carryover.save_on_delete", AsyncMock()),
+        patch(f"{lifecycle}.schedule_job", AsyncMock()),
+        patch(f"{lifecycle}.tokens_service.purge_user_sessions", AsyncMock()),
         patch(
-            "app.modules.account.lifecycle.tokens_service.purge_user_sessions",
-            AsyncMock(),
+            f"{lifecycle}.attachments_service.delete_user_rows",
+            AsyncMock(return_value=["user/ok", "user/bad"]),
         ),
+        patch(f"{lifecycle}.users_repo.delete_user", AsyncMock()) as delete_user,
+        patch("app.modules.attachments.lifecycle.get_storage_gateway", return_value=gateway),
+        patch("app.modules.attachments.lifecycle.delete_thumbnails", AsyncMock(return_value=True)),
         patch(
-            "app.modules.attachments.lifecycle.attachments_repo.list_for_user",
-            AsyncMock(return_value=[ok, bad]),
-        ),
-        patch(
-            "app.modules.attachments.lifecycle.attachments_repo.delete_rows",
-            AsyncMock(return_value=2),
-        ),
-        patch(
-            "app.modules.attachments.lifecycle.get_storage_gateway",
-            return_value=gateway,
-        ),
-        patch("app.modules.account.lifecycle.users_repo.delete_user", AsyncMock()) as delete_user,
-        patch("app.modules.account.lifecycle.enqueue", AsyncMock()),
+            "app.modules.attachments.lifecycle.enqueue_failed_storage_deletes", AsyncMock()
+        ) as queued,
+        patch(f"{lifecycle}.enqueue", AsyncMock()) as sweep,
     ):
         client = TestClient(app)
         r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})
 
     assert r.status_code == 204
     delete_user.assert_awaited_once()
+    queued.assert_awaited_once_with(["user/bad"])
+    sweep.assert_awaited_once()
 
 
 def test_export_returns_data():

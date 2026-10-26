@@ -55,76 +55,9 @@ async def test_purge_attachments_for_messages_deletes_bytes_and_rows():
 
 
 @pytest.mark.asyncio
-async def test_purge_attachments_for_user_deletes_bytes_before_rows():
-    settings = Settings()
-    user_id = uuid4()
-    row = MagicMock()
-    row.id = uuid4()
-    row.storage_key = "user/acct-file"
-    session = AsyncMock()
-    order: list[str] = []
-
-    async def delete_bytes(key: str) -> None:
-        order.append(f"bytes:{key}")
-
-    async def delete_rows(_session, ids):
-        order.append(f"rows:{ids[0]}")
-        return 1
-
-    gateway = MagicMock()
-    gateway.delete_bytes = delete_bytes
-
-    with (
-        patch(
-            "app.modules.attachments.lifecycle.attachments_repo.list_for_user",
-            AsyncMock(return_value=[row]),
-        ),
-        patch(
-            "app.modules.attachments.lifecycle.attachments_repo.delete_rows",
-            side_effect=delete_rows,
-        ),
-        patch(
-            "app.modules.attachments.lifecycle.get_storage_gateway",
-            return_value=gateway,
-        ),
-    ):
-        deleted = await attachment_lifecycle.purge_attachments_for_user(session, settings, user_id)
-
-    assert deleted == 1
-    assert order == [f"bytes:{row.storage_key}", f"rows:{row.id}"]
-
-
-@pytest.mark.asyncio
-async def test_purge_attachments_for_user_noop_when_empty():
-    settings = Settings()
-    session = AsyncMock()
-    with (
-        patch(
-            "app.modules.attachments.lifecycle.attachments_repo.list_for_user",
-            AsyncMock(return_value=[]),
-        ),
-        patch(
-            "app.modules.attachments.lifecycle.get_storage_gateway",
-        ) as gateway_factory,
-    ):
-        deleted = await attachment_lifecycle.purge_attachments_for_user(session, settings, uuid4())
-
-    assert deleted == 0
-    gateway_factory.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_purge_attachments_for_user_continues_when_one_delete_fails():
-    """One R2 failure must not abort account wipe — remaining keys + DB rows still go."""
-    settings = Settings()
-    user_id = uuid4()
-    ok = MagicMock()
-    ok.id = uuid4()
-    ok.storage_key = "user/ok"
-    bad = MagicMock()
-    bad.id = uuid4()
-    bad.storage_key = "user/bad"
-    session = AsyncMock()
+async def test_delete_objects_of_deleted_rows_queues_only_the_failed_ones():
+    """Account delete's files go after its rows commit: one R2 failure is queued for the
+    reaper's retry and never stops the others."""
     deleted_keys: list[str] = []
 
     async def delete_bytes(key: str) -> None:
@@ -134,31 +67,36 @@ async def test_purge_attachments_for_user_continues_when_one_delete_fails():
 
     gateway = MagicMock()
     gateway.delete_bytes = delete_bytes
+    gateway.delete_prefix = AsyncMock(return_value=0)
+    with (
+        patch("app.modules.attachments.lifecycle.get_storage_gateway", return_value=gateway),
+        patch(
+            "app.modules.attachments.lifecycle.enqueue_failed_storage_deletes", AsyncMock()
+        ) as queued,
+    ):
+        await attachment_lifecycle.delete_objects_of_deleted_rows(
+            Settings(), ["user/ok", "user/bad"]
+        )
 
+    assert deleted_keys == ["user/ok"]
+    queued.assert_awaited_once_with(["user/bad"])
+
+
+@pytest.mark.asyncio
+async def test_delete_objects_of_deleted_rows_never_raises():
+    """No gateway at all (misconfigured storage): every key is queued, nothing raises."""
     with (
         patch(
-            "app.modules.attachments.lifecycle.attachments_repo.list_for_user",
-            AsyncMock(return_value=[ok, bad]),
-        ),
-        patch(
-            "app.modules.attachments.lifecycle.attachments_repo.delete_rows",
-            AsyncMock(return_value=1),
-        ) as delete_rows,
-        patch(
             "app.modules.attachments.lifecycle.get_storage_gateway",
-            return_value=gateway,
+            side_effect=RuntimeError("no storage"),
         ),
         patch(
-            "app.modules.attachments.lifecycle.enqueue_failed_storage_deletes",
-            AsyncMock(),
-        ),
+            "app.modules.attachments.lifecycle.enqueue_failed_storage_deletes", AsyncMock()
+        ) as queued,
     ):
-        deleted = await attachment_lifecycle.purge_attachments_for_user(session, settings, user_id)
+        await attachment_lifecycle.delete_objects_of_deleted_rows(Settings(), ["user/a"])
 
-    assert deleted == 1
-    assert deleted_keys == ["user/ok"]
-    delete_rows.assert_awaited_once()
-    assert delete_rows.await_args.args[1] == [ok.id]
+    queued.assert_awaited_once_with(["user/a"])
 
 
 @pytest.mark.asyncio
