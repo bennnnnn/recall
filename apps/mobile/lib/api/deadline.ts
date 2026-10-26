@@ -3,6 +3,7 @@
  * these also cover the body, a token refresh, and a wait on someone else's work
  * (code-health audit NET-17).
  */
+import { isAbortError } from "@/lib/api/abort";
 
 export function abortError(): Error {
   const error = new Error("Request canceled");
@@ -63,7 +64,27 @@ export async function withDeadline<T>(
   }
 }
 
-/** What a caller is told when the server could not be reached in time. */
+const UNREACHABLE = "ServerUnreachableError";
+
+/** What a caller is told when the server could not be reached in time. Its English is
+ * for logs: a screen words it in the phone's language (`isServerUnreachable`). */
 export function serverUnreachableError(): Error {
-  return new Error("Could not reach the Recall server. Check your connection and try again.");
+  const error = new Error("Could not reach the Recall server. Check your connection and try again.");
+  error.name = UNREACHABLE;
+  return error;
+}
+
+/** fetch's own failure with no answer, however the runtime words it. */
+const NO_ANSWER = /network request failed|failed to fetch|network error/i;
+
+/**
+ * Recall gave no answer: offline or a dropped connection (fetch's own failure), or past a
+ * deadline (`serverUnreachableError`, a timeout's AbortError). A caller that cancels its
+ * own request checks for that first. A refusal the API answered (it has a `status`) is
+ * never this. The English of each showed as it came in a Library toast and on a picture card.
+ */
+export function isServerUnreachable(error: unknown): boolean {
+  if (isAbortError(error)) return true;
+  if (!(error instanceof Error) || "status" in error) return false;
+  return error.name === UNREACHABLE || NO_ANSWER.test(error.message);
 }

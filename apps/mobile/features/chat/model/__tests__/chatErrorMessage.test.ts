@@ -1,4 +1,6 @@
 import { refusalCode, resolveChatError } from "@/features/chat/model/errorMessage";
+import i18n, { ensureLocale } from "@/lib/i18n";
+import de from "@/lib/i18n/de.json";
 
 describe("chatErrorMessage", () => {
   const t = (key: string) => key;
@@ -57,13 +59,22 @@ describe("chatErrorMessage", () => {
     });
   });
 
-  // The socket's frames for a turn the spend gate refused. Redis down at the spend read sent
-  // spend_cap too: "Recall is at capacity for today… Try again after midnight UTC."
-  it("says the day's spend cap in the server's words, and an outage as Recall unavailable", () => {
+  // The socket's frames for a turn the spend gate refused: the server's English showed in
+  // every language. Redis down at the spend read sent spend_cap too ("Recall is at capacity
+  // for today… Try again after midnight UTC.").
+  it("says the day's spend cap in the phone's language, and an outage as Recall unavailable", () => {
     const capacity = "Recall is at capacity for today, so new messages are paused for everyone.";
     expect(resolveChatError({ message: capacity, code: "spend_cap", isPaid: false, t })).toEqual({
       kind: "generic",
-      message: capacity,
+      message: "chat.spend_cap",
+    });
+    // A picture turn's cap names its feature: the picture is paused, not every message.
+    expect(refusalCode("spend_cap", "image_generation")).toBe("image_spend_cap");
+    expect(refusalCode("spend_cap", undefined)).toBe("spend_cap");
+    const picture = "Image generation is temporarily unavailable. Try again later.";
+    expect(resolveChatError({ message: picture, code: "image_spend_cap", isPaid: true, t })).toEqual({
+      kind: "generic",
+      message: "chat.image_spend_cap",
     });
     expect(
       resolveChatError({ message: "Service temporarily unavailable.", code: "unavailable", isPaid: true, t }),
@@ -81,6 +92,21 @@ describe("chatErrorMessage", () => {
     ["reply_not_saved", "Failed to save the response. Please retry.", "chat.reply_not_saved"],
   ])("words the turn's %s frame in the phone's language", (code, english, key) => {
     expect(resolveChatError({ message: english, code, isPaid: false, t })).toEqual({ kind: "generic", message: key });
+  });
+
+  describe("on a German phone", () => {
+    beforeAll(async () => { await ensureLocale("de"); });
+    afterAll(async () => { await ensureLocale("en"); });
+
+    it.each([
+      ["spend_cap", undefined, "Recall is at capacity for today, so new messages are paused for everyone.", "chat.spend_cap"],
+      ["spend_cap", "image_generation", "Image generation is temporarily unavailable. Try again later.", "chat.image_spend_cap"],
+    ] as const)("says the %s frame (feature %s) in German", (code, feature, english, key) => {
+      const german = i18n.getFixedT("de");
+      const resolved = resolveChatError({ message: english, code: refusalCode(code, feature), isPaid: false, t: german });
+      expect(resolved.message).toBe(de[key]);
+      expect(resolved.message).not.toBe(english);
+    });
   });
 
   it("falls back for an empty message", () => {

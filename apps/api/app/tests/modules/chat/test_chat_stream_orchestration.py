@@ -1076,8 +1076,9 @@ async def test_a_refused_picture_says_which_limit_not_the_chat_quota(
         )
     payload = error_payload_for_exception(caught.value)
     assert payload["code"] == code and payload["message"] == "No more pictures today."
-    if raised == "TurnRefusedError":
-        assert payload["feature"] == "image_generation"
+    # The phone words each as the picture's own (a picture's spend cap is not every
+    # message paused), in its language.
+    assert payload["feature"] == "image_generation"
 
 
 @pytest.mark.asyncio

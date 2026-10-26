@@ -110,8 +110,13 @@ class SpendCapReachedError(ChatServiceError):
 
     Not a ``QuotaExceededError``: the user's own allowance is not used up, so
     the transports send the plain error event (this message), not the quota
-    code that opens the upgrade prompt.
+    code that opens the upgrade prompt. ``fields`` (``feature``) go on the event:
+    a picture's cap is worded as the picture's, not as every message paused.
     """
+
+    def __init__(self, message: str, **fields: str) -> None:
+        super().__init__(message)
+        self.fields = fields
 
 
 class ChatNotFoundError(ChatServiceError):

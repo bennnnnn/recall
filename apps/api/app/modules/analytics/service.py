@@ -39,8 +39,10 @@ _ALLOWED_PROPERTIES: dict[str, dict[str, frozenset[str]]] = {
     # never the prompt, the reply, a query, a chat id or a provider message.
     "chat_turn_outcome": {
         "completion": frozenset({"complete", "stopped", "interrupted", "error"}),
-        # The error frame's code (stream_events.error_payload_for_exception);
-        # "other" for one with no code, "none" for a turn that did not fail.
+        # The error frame's code once a turn started (stream_events); "other" for one
+        # with no code, "none" for a turn that did not fail. The phone keeps the same
+        # list (turnOutcome.ts); test_turn_outcome_codes.py holds the two together and to
+        # every code such a frame carries.
         "error_code": frozenset(
             {
                 "none",
@@ -52,6 +54,13 @@ _ALLOWED_PROPERTIES: dict[str, dict[str, frozenset[str]]] = {
                 "attachment_rejected",
                 "unknown_model",
                 "rate_limited",
+                "consent_required",
+                "daily_limit",
+                "content_blocked",
+                "not_found",
+                "failed",
+                "reply_not_saved",
+                "server_restarting",
                 "other",
             }
         ),
