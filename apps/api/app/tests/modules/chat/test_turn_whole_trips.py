@@ -112,9 +112,10 @@ CEILINGS: dict[str, Ceiling] = {
         _FIRST,
     ),
     # "Who won …?" is about now: a dated news search runs beside the general one, with
-    # its own cache read, lock and write.
+    # its own cache read, lock and write. A searched reply also gets one claim check (a
+    # model call and its spend write) before it saves, so a claim no source made is cut.
     "web search": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=34, models=2, searches=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=35, models=3, searches=2),
         Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
         _FIRST,
     ),

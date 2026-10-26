@@ -110,6 +110,26 @@ _ENTRY_RULES = re.compile(
 )
 
 
+# What an institution charges is set by it and changes: "the exact transaction charges for
+# NSE shares", "official stamp duty on a car", "M-PESA withdrawal fees". A model answers these
+# from memory with figures that look exact; a search reads them off the schedule.
+_OFFICIAL_CHARGES = re.compile(
+    r"\b(?:exact|official|actual|current|real|up[\s-]to[\s-]date)\b[\w\s,()/&-]{0,40}?"
+    r"\b(?:fees?|charges?|levy|levies|duty|duties|commissions?|tariffs?|taxes)\b"
+    r"|\b(?:transaction|brokerage|stamp|registration|licen[cs]e|filing|processing|"
+    r"withdrawal|transfer|cash[- ]out)\s+(?:fees?|charges?|duty|levy|levies)\b",
+    re.IGNORECASE,
+)
+# Working a figure out is for the solver, not the web.
+_WORKING_OUT = re.compile(r"\b(?:calculate|compute|work\s+out|solve|formula)\b", re.IGNORECASE)
+
+
+def asks_for_official_charges(text: str) -> bool:
+    """The fees, levies or duties an institution sets: a figure to read, not to recall."""
+    cleaned = collapse_ws(text)
+    return _OFFICIAL_CHARGES.search(cleaned) is not None and _WORKING_OUT.search(cleaned) is None
+
+
 def asks_for_job_listings(text: str) -> bool:
     """ "Find remote backend jobs", "python developer openings in Berlin", "who is hiring"."""
     cleaned = collapse_ws(text)

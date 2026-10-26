@@ -62,6 +62,14 @@ _PRODUCE = re.compile(
     r"cases|users|accounts|emails)\b)\b",
     re.IGNORECASE,
 )
+# "Give me a table of the exact transaction charges": made in form, found in substance. A
+# word that asks for the real figure beside a fee, rate or price is a lookup, not a draft.
+_EXACT_FIGURES = re.compile(
+    r"\b(?:exact|actual|official|current|real|precise|up[\s-]to[\s-]date)\b[\w\s,()/-]{0,40}?"
+    r"\b(?:fees?|charges?|rates?|prices?|costs?|taxes|tax|levy|levies|duty|duties|commissions?|"
+    r"yields?|minimums?|limits?|requirements?|interest)\b",
+    re.IGNORECASE,
+)
 _ABOUT_US = re.compile(
     r"\b(?:i|i'm|im|i've|i'd|i'll|me|my|mine|we|we're|us|our|you|you're|your|u|ur|"
     r"mood|feeling)\b",
@@ -137,7 +145,7 @@ def asks_nothing_to_look_up(text: str) -> bool:
         return True
     body = _POLITE.sub("", re.sub(rf"^{_LEAD_IN}", "", cleaned, flags=re.IGNORECASE))
     if _PRODUCE.match(body):
-        return not _live_subject(cleaned)
+        return not (_live_subject(cleaned) or _EXACT_FIGURES.search(cleaned))
     questions = _questions(cleaned)
     if questions:
         return all(_asks_about_us(q) for q in questions)

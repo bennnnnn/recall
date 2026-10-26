@@ -30,3 +30,8 @@ class ChatContextSettings(BaseModel):
     history_summary_batch: int = 10
     history_summary_urgent_pending: int = 3
     summary_max_tokens: int = 800
+
+    # Claim check — on a searched reply, a claim the sources and the user's messages do not
+    # support is cut before it saves (``modules/chat/claim_check.py``). Off: replies as written.
+    claim_check_enabled: bool = True
+    claim_check_timeout_seconds: float = 8.0

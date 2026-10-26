@@ -13,6 +13,7 @@ from app.modules.web_search.live_asks import (
     asks_for_a_price,
     asks_for_entry_rules,
     asks_for_job_listings,
+    asks_for_official_charges,
 )
 from app.modules.web_search.release_asks import asks_if_released
 
@@ -119,6 +120,37 @@ def test_price_lookalikes_are_not_lookups(text: str) -> None:
 def test_visa_rules_search_at_once(text: str) -> None:
     assert asks_for_entry_rules(text)
     assert web_search_fast_yes(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Answered from memory with a "CSTA levy" and a 0.75% stamp duty no schedule lists.
+        "Give me a table of the exact transaction charges when buying 30,000 KES of NSE shares",
+        "what are the official stamp duty rates on a car sale in Kenya",
+        "M-PESA withdrawal charges",
+        "what are the brokerage fees for buying shares on the NSE",
+        "list the current registration fees for a new company in Rwanda",
+    ],
+)
+def test_what_an_institution_charges_is_read_not_recalled(text: str) -> None:
+    assert asks_for_official_charges(text)
+    assert needs_web_search(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "calculate the exact tax on 50,000 at 16%",
+        "work out the transaction fee as 2% of 30,000",
+        "write a poem about fees and charges",
+        "my phone charges slowly, is that normal",
+        "what is the formula for the current in a circuit",
+        "I paid a brokerage fee yesterday and it annoyed me",
+    ],
+)
+def test_charge_lookalikes_do_not_search(text: str) -> None:
+    assert not needs_web_search(text)
 
 
 @pytest.mark.parametrize(

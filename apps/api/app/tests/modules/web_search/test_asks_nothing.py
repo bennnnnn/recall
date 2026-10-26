@@ -23,6 +23,9 @@ from app.modules.web_search.asks_nothing import asks_nothing_to_look_up
         "give me mock API responses for a login endpoint",
         "show me sample SQL inserts for a library app",
         "give me test data for a signup form",
+        # Made, with no figure to find: an exact word beside something that is not a fee.
+        "Give me a table of the exact synonyms for happy",
+        "Give me a table of the current players in my fantasy team draft",
         # A question about the chat itself, opening with a preposition.
         "In which order did we cover topics today? List them.",
         "In what order did we talk about things today?",
@@ -52,6 +55,11 @@ def test_asks_nothing_to_look_up_statements_and_requests_to_make(text):
         "In what year did the Berlin Wall fall?",
         "At what time does the Lakers game start tonight?",
         "From where did you get that? Find the source",
+        # A table or list in form, the real figures in substance.
+        "Give me a table of the exact transaction charges for buying 30,000 KES of NSE shares",
+        "Give me a list of the official visa fees for Kenya",
+        "Write me a summary of the current interest rates on Kenyan savings accounts",
+        "Make a table of the actual brokerage commission and levy rates in Kenya",
     ],
 )
 def test_asks_nothing_to_look_up_keeps_lookups(text):

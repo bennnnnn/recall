@@ -25,6 +25,7 @@ from app.modules.web_search.live_asks import (
     asks_for_a_price,
     asks_for_entry_rules,
     asks_for_job_listings,
+    asks_for_official_charges,
 )
 from app.modules.web_search.officeholder import asks_who_holds_office
 from app.modules.web_search.patterns import (
@@ -214,6 +215,9 @@ def web_search_fast_yes(
         return True
     # Openings, prices and visa rules change: the classifier alone used to decide them.
     if asks_for_job_listings(cleaned) or asks_for_a_price(cleaned) or asks_for_entry_rules(cleaned):
+        return True
+    # What an institution charges in fees, levies and duties is read off its schedule.
+    if asks_for_official_charges(cleaned):
         return True
     # A chart of facts the user did not give is drawn from a search, not from memory.
     if chart_of_public_facts(cleaned):
