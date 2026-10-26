@@ -15,7 +15,12 @@ from app.modules.memory.facts import identity_core, render_memory_block
 from app.modules.memory.pass_writes import writes_from_ops
 from app.modules.memory.profile_name import without_conflicting_names
 from app.modules.memory.schemas import MemoryFactOp
-from app.modules.memory.user_name import as_chosen_name, names_another_person, stated_user_name
+from app.modules.memory.user_name import (
+    as_chosen_name,
+    names_another_person,
+    names_the_user,
+    stated_user_name,
+)
 
 _SAID = datetime(2026, 10, 24, tzinfo=UTC)
 # The live account: profile name Dev, an older test fact naming the user Sam.
@@ -204,7 +209,7 @@ async def test_every_prompt_reads_the_block_without_the_other_name(fake_redis) -
         ("User's name is Sam", "User: My friends call me Sam", None, "User goes by Sam"),
         # Their own name that differs from the account: the name they go by.
         ("User's name is Bill", "User: My name is Bill", "William Smith", "User goes by Bill"),
-        ("User's name is Liz", "User: I'm Liz", "Elizabeth", "User goes by Liz"),
+        ("User's name is Liz", "User: my name's Liz", "Elizabeth", "User goes by Liz"),
         (
             "User's name is Дима",
             "User: my name is Дима",
@@ -214,7 +219,7 @@ async def test_every_prompt_reads_the_block_without_the_other_name(fake_redis) -
         ("User's name is 太郎", "User: my name is 太郎", "Taro Yamada", "User goes by 太郎"),
         (
             "User's name is Bill; they teach maths",
-            "User: I'm Bill and I teach maths",
+            "User: My name is Bill and I teach maths",
             "William",
             "User goes by Bill; they teach maths",
         ),
@@ -222,6 +227,12 @@ async def test_every_prompt_reads_the_block_without_the_other_name(fake_redis) -
         ("User's name is Sam", "User: my name is Sam", None, "User's name is Sam"),
         ("User's name is Sam", "User: my name is Sam", "Samantha", "User's name is Sam"),
         ("User's name is Sam", "User: I'm Sam. Call me Sam.", None, "User's name is Sam"),
+        # "I'm Sam" against another account name is as often a role: it stays a stated
+        # name, which the read leaves out (the live fact, 2026-10-25).
+        (_SAM, "User: I'm Sam, a nursing student in Chicago. Plan my week.", "Dev", _SAM),
+        (_SAM, "User: Pretend I'm Sam, a nursing student in Chicago.", "Dev", _SAM),
+        ("User's name is Liz", "User: I'm Liz", "Elizabeth", "User's name is Liz"),
+        ("User's name is Sam", "User: imagine my name is Sam", "Dev", "User's name is Sam"),
         # A refusal, a filler word or a name they never gave: unchanged.
         (
             "User's name is Sam",
@@ -286,6 +297,55 @@ def test_a_self_stated_name_unlike_the_account_is_written_as_a_nickname() -> Non
     )
 
     assert [write.text for write in writes] == ["User goes by Bill"]
+
+
+@pytest.mark.parametrize(
+    "fact",
+    [
+        "User's name is pronounced BEE-nee",
+        "User's name is spelled with one n",
+        "User's name is short for Binalfew",
+        "User's name is often misspelled",
+        "User's name is hard to pronounce",
+        "User's name is Ethiopian in origin",
+        "Name is not important to them",
+        "User goes by bike to work",
+        "User goes by they/them pronouns",
+        "User goes by They",
+    ],
+)
+def test_a_fact_about_the_name_names_no_one(fact: str) -> None:
+    assert stated_user_name(fact) is None
+    assert not names_the_user(fact)
+    assert not names_another_person(fact, "Binalfew Mecuriaw")
+
+
+@pytest.mark.parametrize(
+    ("fact", "name"),
+    [
+        ("User's name is Sam Okafor", "Sam Okafor"),
+        ("User's name is Sam and they nurse", "Sam"),
+        ("User's name is Sam, a nurse", "Sam"),
+        ("Sam is the user's name", "Sam"),
+        ("User's name is 太郎", "太郎"),
+    ],
+)
+def test_a_name_runs_to_the_end_of_its_clause(fact: str, name: str) -> None:
+    assert stated_user_name(fact) == name
+
+
+def test_a_fact_about_how_they_travel_never_takes_the_slot() -> None:
+    own = _ranked("User's name is Binalfew", said=datetime(2026, 1, 1, tzinfo=UTC), importance=1.0)
+    pronouns = _ranked(
+        "User goes by they/them pronouns", said=datetime(2026, 10, 1, tzinfo=UTC), importance=0.4
+    )
+    bike = _ranked(
+        "User goes by bike to work", said=datetime(2026, 10, 2, tzinfo=UTC), importance=0.4
+    )
+
+    core = identity_core([own, pronouns, bike])  # type: ignore[list-item]
+
+    assert [memory.text for memory in core] == ["User's name is Binalfew"]
 
 
 def test_stated_names_leave_out_nicknames() -> None:

@@ -6,6 +6,7 @@ name is a separate field and is not inferred from other people in the chat.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from typing import Literal
 
@@ -50,9 +51,15 @@ _CHOSEN_PREFIXES = (
 _CLAIM_PREFIXES = (*_IDENTITY_PREFIXES, *_CHOSEN_PREFIXES)
 _PREFIXES_BY_WAY = {
     "identity": _IDENTITY_PREFIXES,
+    "named": ("my name is ", "my name's "),
     "chosen": _CHOSEN_PREFIXES,
     "any": _CLAIM_PREFIXES,
 }
+# "Pretend I'm Sam", "imagine my name is Sam": a role, not who the user is.
+_PLAYED = re.compile(
+    r"\b(?:pretend(?:ing)?|imagine|suppose|hypothetically|role-?play(?:ing)?|as if|what if"
+    r"|let's say)\b[^.!?\n]*$"
+)
 # "Don't call me Sam" asks for the opposite.
 _REFUSALS = ("don't ", "do not ", "never ", "not ", "stop ")
 
@@ -206,7 +213,7 @@ def _claimed(speech: str, name: str, prefixes: tuple[str, ...] = _CLAIM_PREFIXES
             after = index + len(phrase)
             possessive = after < len(speech) and speech[after] == "'"
             after_ok = after >= len(speech) or not speech[after].isalnum()
-            if before_ok and after_ok and not possessive:
+            if before_ok and after_ok and not possessive and not _PLAYED.search(speech[:index]):
                 return True
             start = index + 1
     return False
@@ -232,10 +239,11 @@ def is_unclaimed_user_name(
 
 
 def user_claimed_name(
-    transcript: str, name: str, *, way: Literal["identity", "chosen", "any"] = "any"
+    transcript: str, name: str, *, way: Literal["identity", "named", "chosen", "any"] = "any"
 ) -> bool:
-    """The user's own lines give ``name`` as who they are ("I'm Sam", ``identity``) or
-    as what to call them ("call me Sam", ``chosen``). "Don't call me Sam" claims nothing."""
+    """The user's own lines give ``name`` as who they are ("I'm Sam", ``identity``; only
+    "my name is Sam", ``named``) or as what to call them ("call me Sam", ``chosen``).
+    "Don't call me Sam" and "pretend I'm Sam" claim nothing."""
     speech = _user_speech(transcript)
     folded = _fold(name)
     if not _keep(folded) or any(f"{refusal}call me {folded}" in speech for refusal in _REFUSALS):

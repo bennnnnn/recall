@@ -14,8 +14,8 @@ this user's chat with Recall ("this conversation", "what you've told me", "your 
 file"; not a bare "your name" or "about you", which an answer about a CMS or an LLM
 uses). The sentence after it goes too when it points back ("It names a different
 person…"). Never inside a code fence, an inline code span, a table, a heading or a
-quote, never the whole reply, and never on a turn whose recent messages are about
-prompts, language models or these parts.
+quote, never the whole reply, and never on a turn whose recent messages name these
+parts or prompt writing, or whose message asks about language models or Recall's memory.
 """
 
 from __future__ import annotations
@@ -47,11 +47,19 @@ _ABOUT_THIS_USER = re.compile(
 )
 # A sentence that goes on about the one before it.
 _POINTS_BACK = re.compile(r"(?:it|this|that|they|these|those)\b", re.IGNORECASE)
-# The chat is about prompts or language models: the reply may name these parts.
-_ASKED_ABOUT = re.compile(
-    r"\bprompts?\b|\bmemory block|\bsystem message|\bknown[- ]facts|\bchemistry note"
-    r"|\buntrusted content|\bllms?\b|\bgpts?\b|\bchatgpt\b|\bchat ?bots?\b"
-    r"|\blanguage models?\b|\bai (?:agents?|assistants?|models?)\b",
+# The user's latest messages name these parts or ask about prompt writing.
+_ASKED_ABOUT_PARTS = re.compile(
+    r"\bmemory block|\bsystem (?:message|prompt)|\bknown[- ]facts|\bchemistry note"
+    r"|\buntrusted content|\bprompt (?:engineering|injection|templates?)\b"
+    r"|\b(?:user|good|better|my) prompts?\b|\bprompts? (?:for|to) (?:chatgpt|gpts?|an? (?:ai|llm))",
+    re.IGNORECASE,
+)
+# This message asks about language models or about what Recall remembers. Only this
+# one: "I asked ChatGPT earlier" two messages back says nothing about this reply.
+_ASKED_ABOUT_MODELS = re.compile(
+    r"\bllms?\b|\bgpts?\b|\bchatgpt\b|\bchat ?bots?\b|\blanguage models?\b"
+    r"|\bai (?:agents?|assistants?|models?)\b|\byour memory\b|\byou remember\b"
+    r"|\b(?:know|remember) about me\b",
     re.IGNORECASE,
 )
 # How many of the user's latest messages say what the chat is about.
@@ -83,11 +91,11 @@ def _recent_user_lines(state: FinalizeState) -> list[str]:
 def drop_prompt_leaks(text: str, *asked: str | None) -> str:
     """``text`` without sentences that name the prompt's internal parts, or unchanged.
 
-    ``asked`` is what the user wrote this turn and just before it.
+    ``asked`` is what the user wrote this turn, then just before it.
     """
     if not text or not (_PROMPT_LABEL.search(text) or _PROMPT_PART.search(text)):
         return text
-    if any(line and _ASKED_ABOUT.search(straighten_apostrophes(line)) for line in asked):
+    if _asked_about(asked):
         return text
     lines = text.split("\n")
     owners = line_fences(text)
@@ -105,6 +113,14 @@ def drop_prompt_leaks(text: str, *asked: str | None) -> str:
         out.append(kept)
     result = "\n".join(out)
     return result if result.strip() else text
+
+
+def _asked_about(asked: tuple[str | None, ...]) -> bool:
+    """The user asked about these parts lately, or about models or memory just now."""
+    lines = [straighten_apostrophes(line) for line in asked if line]
+    if any(_ASKED_ABOUT_PARTS.search(line) for line in lines):
+        return True
+    return bool(asked and asked[0] and _ASKED_ABOUT_MODELS.search(lines[0]))
 
 
 def _without_leaks(line: str) -> str | None:

@@ -92,7 +92,21 @@ def test_a_chat_about_language_models_keeps_its_reply() -> None:
     for asked in asks:
         assert drop_prompt_leaks(reply, asked) == reply
     # An earlier message in the chat says what it is about.
-    assert drop_prompt_leaks(reply, "and the tone?", "how do prompts work?") == reply
+    assert drop_prompt_leaks(reply, "and the tone?", "how do system prompts work?") == reply
+
+
+@pytest.mark.parametrize(
+    "earlier",
+    [
+        "I asked ChatGPT earlier but it was wrong",
+        "I'm a GPT user",
+        "give me a writing prompt for my class",
+        "my boss wants a prompt reply",
+    ],
+)
+def test_a_passing_mention_of_chatgpt_or_a_prompt_keeps_the_guard(earlier: str) -> None:
+    reply = f"{LIVE_LEAK}\n\n{ANSWER}"
+    assert drop_prompt_leaks(reply, "how should I invest 10k?", earlier) == ANSWER
 
 
 @pytest.mark.parametrize(
