@@ -83,8 +83,9 @@ it.each([
   ["scan_rate_limited", "chat.scan_rate_limit"],
   ["scan_spend_cap", "chat.scan_spend_cap"],
   ["scan_invalid_image", null],
-  // The request limiter's 429: its words, as when it named no code.
-  ["rate_limited", "Too many requests. Please slow down."],
+  // The request limiter's 429 and a refused refresh: their English showed.
+  ["rate_limited", "chat.rate_limited"],
+  ["refresh_rate_limited", "chat.rate_limited"],
   // A Redis outage said "Too many scans in a row", then "couldn't scan that photo".
   ["service_unavailable", "common.service_unavailable"],
 ])("words a refused scan: %s", (name, words) => {
