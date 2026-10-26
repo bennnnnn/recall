@@ -28,6 +28,7 @@ import { notifyDestructive, tap } from "@/lib/haptics";
 import { queueComposerAttachment } from "@/features/attachments/model/pendingComposerAttachment";
 import { pendingFromLibraryItem } from "@/features/attachments/model/pendingFromLibraryItem";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { libraryActionMessage } from "@/features/attachments/model/attachmentErrors";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 
 export function useGalleryLibrary(
@@ -115,10 +116,7 @@ export function useGalleryLibrary(
         if (isCurrent(version)) setActionItem((current) => current?.id === item.id ? null : current);
       } catch (shareError) {
         if (!isCurrent(version)) return;
-        reportRecoverableError(
-          feedback,
-          shareError instanceof Error ? shareError.message : t("common.share_failed"),
-        );
+        reportRecoverableError(feedback, libraryActionMessage(shareError, "common.share_failed", t));
       } finally {
         sharingRef.current = false;
         setBusyItemId((current) => (current === item.id ? null : current));
@@ -153,10 +151,7 @@ export function useGalleryLibrary(
         else router.replace("/");
       } catch (attachError) {
         if (!isCurrent(version)) return;
-        reportRecoverableError(
-          feedback,
-          attachError instanceof Error ? attachError.message : t("chat.attach_failed"),
-        );
+        reportRecoverableError(feedback, libraryActionMessage(attachError, "chat.attach_failed", t));
       } finally {
         attachingRef.current = false;
         setBusyItemId((current) => (current === item.id ? null : current));
@@ -186,10 +181,7 @@ export function useGalleryLibrary(
         setActionItem((current) => (current?.id === item.id ? null : current));
       } catch (deleteError) {
         if (!isCurrent(version)) return;
-        reportRecoverableError(
-          feedback,
-          deleteError instanceof Error ? deleteError.message : t("gallery.delete_failed"),
-        );
+        reportRecoverableError(feedback, libraryActionMessage(deleteError, "gallery.delete_failed", t));
       } finally {
         deletingRef.current.delete(item.id);
       }

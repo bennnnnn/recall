@@ -6,6 +6,8 @@ import type { AttachmentListItem } from "@/lib/api";
 import { pendingFromLibraryItem } from "@/features/attachments/model/pendingFromLibraryItem";
 import { queueComposerAttachment } from "@/features/attachments/model/pendingComposerAttachment";
 import { notifyDestructive, selection, tap } from "@/lib/haptics";
+import { ApiRequestError } from "@/lib/api/errorBody";
+import fixture from "../../../../../../docs/fixtures/error_codes.json";
 
 let mockSession = 0;
 const mockBack = jest.fn();
@@ -150,6 +152,25 @@ describe("the photo viewer follows the photo on screen", () => {
     await act(async () => { await Promise.resolve(); });
     expect(api.deleteAttachment).toHaveBeenCalledTimes(2);
     expect(notifyDestructive).toHaveBeenCalledTimes(1);
+  });
+
+  // The server's English showed: "Too many requests. Please slow down.", the outage body's.
+  it.each([
+    ["rate_limited", "chat.rate_limited"],
+    ["refresh_rate_limited", "chat.rate_limited"],
+    ["service_unavailable", "common.service_unavailable"],
+    ["not_found", "gallery.delete_failed"],
+  ] as const)("words a delete refused by %s in the phone's language", async (name, line) => {
+    const { api } = jest.requireMock("@/lib/api") as { api: { deleteAttachment: jest.Mock } };
+    const refusal = name === "not_found"
+      ? { status: 404, detail: { code: "not_found", message: "Not found" } }
+      : fixture[name];
+    api.deleteAttachment.mockRejectedValueOnce(new ApiRequestError(refusal.status, JSON.stringify({ detail: refusal.detail })));
+    mockFeedbackEnabled = true;
+    await render(<ViewerProbe />);
+    await act(async () => { current.confirmDelete(photos[0]); });
+    await act(async () => { await Promise.resolve(); });
+    expect(mockFeedback.error).toHaveBeenCalledWith(line);
   });
 
   it("closes after deleting the only photo", async () => {

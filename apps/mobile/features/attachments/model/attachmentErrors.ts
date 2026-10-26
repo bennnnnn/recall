@@ -1,4 +1,5 @@
 import { ApiRequestError } from "@/lib/api/client";
+import { isServiceUnavailable } from "@/lib/api/errorBody";
 import { MAX_ATTACHMENT_MEGABYTES } from "@/features/attachments/model/attachmentLimits";
 
 /** Why an attachment could not be picked or uploaded. Each reason has one message. */
@@ -36,6 +37,20 @@ type Translate = (key: string, options?: Record<string, unknown>) => string;
 export function attachmentErrorMessage(error: unknown, t: Translate): string {
   if (!(error instanceof AttachmentError)) return t("chat.attach_failed");
   return t(MESSAGE_KEYS[error.reason], { limit: MAX_ATTACHMENT_MEGABYTES });
+}
+
+/**
+ * The toast for a failed Library action (share, attach, delete). A refusal from the API is
+ * worded by the phone: over a request limit, Recall down, or the action's own line. Its
+ * English showed ("Too many requests. Please slow down.", a delete's "Not found"). Any
+ * other error keeps its message.
+ */
+export function libraryActionMessage(error: unknown, fallbackKey: string, t: Translate): string {
+  if (error instanceof ApiRequestError) {
+    if (error.code === "rate_limited") return t("chat.rate_limited");
+    return t(isServiceUnavailable(error) ? "common.service_unavailable" : fallbackKey);
+  }
+  return error instanceof Error ? error.message : t(fallbackKey);
 }
 
 /** The fields FastAPI's validation refused: each error's `loc`, last part. */
