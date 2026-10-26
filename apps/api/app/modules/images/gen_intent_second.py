@@ -1,28 +1,19 @@
 """English "draw me a cat and also explain black holes": a second request after the picture.
 
 The turn's plan cuts it off and answers it beside the picture, so the whole line is not
-one picture. Only a request the plan really cuts counts: one with words of its own ("…
-and how do magnets work"), not "… and how are you", "… and help", or a clause about the
-picture ("… and tell me its name", "… and write Max on its collar").
+one picture. Only a cut the plan really makes counts, read with the plan's own rules
+(``services/request_words``): "… and also <request>" always; "… and <request>" when the
+request names something of its own the picture does not ("… and tell me a joke"). "…
+and tell me about dog breeds" after a dog, "… and show the cat sleeping", "… and how are
+you" and "… and tell me its name" stay with the picture, as the plan keeps them.
 """
 
 from __future__ import annotations
 
+from app.services.request_words import points_back, topic_words
 from app.services.text_normalize import fold_token
 
 SECOND_ASKS = frozenset({"explain", "tell", "write", "show", "help", "what", "how", "why", "who"})
-
-# "… and tell me its name", "… and show it sleeping": the clause is about the picture.
-_POINTS_BACK = frozenset(
-    "it its itself them their him his her she he they this that these those".split()
-)
-# Words that name nothing of their own, so the plan keeps the clause with the picture.
-_EMPTY = frozenset(
-    "a an the me us you your yours i is are am was were be do does did can could would "
-    "will should to of in on at for with and also please pls now so just about up out "
-    "going doing today there here".split()
-)
-_MIN_TOPIC_LETTERS = 3
 
 
 def asks_separately(parts: list[str]) -> bool:
@@ -31,13 +22,12 @@ def asks_separately(parts: list[str]) -> bool:
     for index, word in enumerate(words[:-1]):
         if word != "and":
             continue
-        ask = index + 2 if words[index + 1] == "also" else index + 1
+        strong = words[index + 1] == "also"
+        ask = index + 2 if strong else index + 1
         if ask < len(words) and words[ask] in SECOND_ASKS:
-            rest = words[ask + 1 :]
-            if any(word in _POINTS_BACK for word in rest):
+            rest = " ".join(parts[ask:])
+            topics = topic_words(rest)
+            if not topics or points_back(rest):
                 return False
-            return any(
-                len(word) >= _MIN_TOPIC_LETTERS and word not in _EMPTY and word not in SECOND_ASKS
-                for word in rest
-            )
+            return strong or not topics & topic_words(" ".join(parts[:index]))
     return False

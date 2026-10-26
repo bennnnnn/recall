@@ -307,7 +307,6 @@ def _asks_again(parts: list[str]) -> bool:
     return any(word in {"and", "then"} and nxt in SECOND_ASKS for word, nxt in pairwise(words))
 
 
-# "… and tell me its name", "… and show it sleeping": the clause is about the picture.
 def _make_is_not_a_picture(subject: str) -> bool:
     """ "Make money", "make a decision about moving": the idiom's noun leads, and no picture
     word follows it ("make a living room illustration" is still a picture)."""
