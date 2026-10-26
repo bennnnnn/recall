@@ -116,7 +116,8 @@ _ENTRY_RULES = re.compile(
 _OFFICIAL_CHARGES = re.compile(
     r"\b(?:exact|official|actual|current|real|up[\s-]to[\s-]date)\b[\w\s,()/&-]{0,40}?"
     r"\b(?:fees?|charges?|levy|levies|duty|duties|commissions?|tariffs?|taxes)\b"
-    r"|\b(?:transaction|brokerage|stamp|registration|licen[cs]e|filing|processing|"
+    r"|\b(?:how\s+much|what\s+(?:are|is)\s+the|list|table|breakdown\s+of)\b[\w\s,()/&-]{0,50}?"
+    r"\b(?:transaction|brokerage|stamp|registration|licen[cs]e|filing|processing|"
     r"withdrawal|transfer|cash[- ]out)\s+(?:fees?|charges?|duty|levy|levies)\b",
     re.IGNORECASE,
 )

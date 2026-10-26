@@ -128,7 +128,7 @@ def test_visa_rules_search_at_once(text: str) -> None:
         # Answered from memory with a "CSTA levy" and a 0.75% stamp duty no schedule lists.
         "Give me a table of the exact transaction charges when buying 30,000 KES of NSE shares",
         "what are the official stamp duty rates on a car sale in Kenya",
-        "M-PESA withdrawal charges",
+        "what are the M-PESA withdrawal charges",
         "what are the brokerage fees for buying shares on the NSE",
         "list the current registration fees for a new company in Rwanda",
     ],
@@ -147,6 +147,8 @@ def test_what_an_institution_charges_is_read_not_recalled(text: str) -> None:
         "my phone charges slowly, is that normal",
         "what is the formula for the current in a circuit",
         "I paid a brokerage fee yesterday and it annoyed me",
+        "What is a brokerage fee?",
+        "I paid a withdrawal fee, why?",
     ],
 )
 def test_charge_lookalikes_do_not_search(text: str) -> None:

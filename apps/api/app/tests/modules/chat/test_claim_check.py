@@ -241,3 +241,69 @@ def test_the_checker_is_told_a_headline_is_evidence() -> None:
 async def test_the_default_note_names_what_was_left_out() -> None:
     out = await _run(_state(), _verdict("| CSTA Levy | 0.5% | 150 |"))
     assert out.rstrip().endswith("left them out: a levy.*")
+
+
+_LEAD = "The charges on a 30,000 KES purchase are listed below, with each in shillings.\n\n"
+
+
+async def test_a_cut_header_takes_its_whole_table_not_just_the_title() -> None:
+    reply = f"{_LEAD}| Fee | Rate |\n|---|---|\n| Brokerage | 1.2% |\n| Levy | 0.12% |\n\nAsk your broker for the final amount."
+    out = await _run(_state(reply), _verdict("| Fee | Rate |"))
+    assert "---" not in out
+    assert "Brokerage" not in out
+
+
+async def test_a_cut_line_between_two_tables_leaves_each_table_alone() -> None:
+    a = "| A | Cost |\n|---|---|\n| One | 1 |\n| Total | 1 |"
+    b = "| B | Cost |\n|---|---|\n| Two | 2 |\n| Total | 2 |"
+    reply = f"{_LEAD}{a}\nNote: the levy is 5%.\n{b}\n\nAsk your broker."
+    out = await _run(_state(reply), _verdict("Note: the levy is 5%."))
+    assert "| Total | 1 |" in out
+    assert "| Total | 2 |" in out
+    assert "5%" not in out
+
+
+async def test_a_table_the_cut_did_not_touch_is_left_as_written() -> None:
+    header_only = "| Fee | Rate |\n|---|---|"
+    reply = f"{_LEAD}{header_only}\n\nBad claim here: Cytonn is reinstated.\n\nAsk your broker."
+    out = await _run(_state(reply), _verdict("Bad claim here: Cytonn is reinstated."))
+    assert header_only in out
+
+
+async def test_a_bullet_keeps_its_marker_when_its_first_sentence_is_cut() -> None:
+    reply = (
+        f"{_LEAD}- Costs $5 a month. Next thing to know is here.\n- Another point stays as it was."
+    )
+    out = await _run(_state(reply), _verdict("Costs $5 a month."))
+    assert "- Next thing to know is here." in out
+    assert "- Another point stays" in out
+
+
+async def test_a_quote_that_names_no_single_sentence_cuts_and_says_nothing() -> None:
+    reply = f"{_LEAD}Brokerage fee is 1.2% of value. The levy is 0.12%. Ask your broker today."
+    out = await _run(_state(reply), _verdict("Brokerage fee 1.5% of value"))
+    assert out == reply
+
+
+async def test_a_short_quote_is_not_found_inside_a_longer_figure() -> None:
+    reply = f"{_LEAD}Other is 10.5%. The levy is 0.5%. Ask your broker for the final amount."
+    out = await _run(_state(reply), _verdict("0.5%"))
+    assert "Other is 10.5%." in out
+    assert "The levy is 0.5%." not in out
+
+
+async def test_a_retyped_quote_with_another_figure_does_not_cut_a_sibling_row() -> None:
+    table = "| Charge | Rate |\n|---|---|\n| Brokerage fee | 1.2% |\n| Levy | 0.12% |"
+    reply = f"{_LEAD}{table}\n\nAsk your broker for the final amount."
+    out = await _run(_state(reply), _verdict("Brokerage fee 1.5%"))
+    assert "| Brokerage fee | 1.2% |" in out
+
+
+async def test_what_the_user_asked_us_to_remember_is_evidence() -> None:
+    state = _state()
+    state.ctx.memory_hints = ["Works at Safaricom as an engineer"]
+    ask = _ask(None)
+    with patch.object(claim_check, "complete_structured", ask):
+        await cut_unsupported_claims(state)
+    assert ask.await_args is not None
+    assert "Works at Safaricom" in ask.await_args.kwargs["messages"][1]["content"]

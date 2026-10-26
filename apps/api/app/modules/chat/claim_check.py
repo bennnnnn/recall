@@ -7,11 +7,10 @@ five sources that were its own research pages, and a fee table carried a "CSTA l
 credited to the regulator that no source named.
 
 A cheap model lists the claims the evidence does not support: a figure, a legal or
-regulatory status, a named organisation or product said to do something, an attribution
-to a source. The evidence is this turn's search results and the user's own messages;
-an earlier reply of the assistant is not evidence, it is where an invention starts.
-Each listed quote must be in the reply word for word, or it is ignored. The pass then
-removes the table row or sentence that holds it, outside fences, and adds one line
+regulatory status, a named organisation said to do something, an attribution. The evidence
+is this turn's search results and the user's own words; an earlier reply of the assistant
+is where an invention starts, so it is not evidence. Each quote must be found in the reply.
+The pass removes the table row or sentence that holds it, outside fences, and adds one line
 saying what was left out. A check that fails, times out or flags most of the reply
 changes nothing: it never costs the user an answer.
 """
@@ -40,10 +39,10 @@ _MIN_REPLY_CHARS = 120
 _MAX_HITS = 8
 _HIT_CHARS = 700
 _EARLIER_USER_MESSAGES = 4
+_MAX_MEMORY = 20
 _USER_CHARS = 600
 _REPLY_CHARS = 7000
-# More than this share of the reply flagged: the check is wrong or the reply is not worth
-# editing; either way the user keeps what they were sent.
+# More than this share of the reply flagged: the check is wrong; the user keeps the reply.
 _MAX_CUT_SHARE = 0.5
 _MAX_CLAIMS = 12
 _SEARCH_BLOCK_MARK = "Web search results"
@@ -56,8 +55,8 @@ _SYSTEM = (
     "organisation, product or person said to offer or do something; or an attribution "
     "to a named source or authority.\n\n"
     "Evidence is ONLY the web results (each one's title, address and text all count; a "
-    "headline that states a fact supports it) and the user's own messages. Earlier "
-    "assistant replies are NOT evidence. A figure within rounding of one in the evidence is "
+    "headline that states a fact supports it) and the user's own messages and saved memory. "
+    "Earlier assistant replies are NOT evidence. A figure within rounding of one in the evidence is "
     "supported, and so is arithmetic done on supported or user-given figures.\n\n"
     "Not a claim to list: advice, opinions, definitions, general explanations of how "
     "something works, steps for doing something, hedged estimates the reply calls "
@@ -95,11 +94,14 @@ def _evidence(state: FinalizeState) -> str:
         and _SEARCH_BLOCK_MARK not in m["content"]
     ][-_EARLIER_USER_MESSAGES:]
     said = [*earlier, (ctx.user_message_content or "")[:_USER_CHARS]]
+    remembered = "\n".join(f"- {hint[:_USER_CHARS]}" for hint in ctx.memory_hints[:_MAX_MEMORY])
+    memory = f"\n\nWHAT THE USER ASKED US TO REMEMBER:\n{remembered}" if remembered else ""
     return (
         "WEB RESULTS:\n"
         + "\n\n".join(hits)
         + "\n\nTHE USER'S MESSAGES (oldest first):\n"
         + "\n".join(f"- {message}" for message in said)
+        + memory
     )
 
 
@@ -111,8 +113,7 @@ _ONLY_MARKUP = re.compile(r"^[\s>*_\-•\d.)#]*$")
 
 _MARKUP = re.compile(r"[*_`~|]+")
 _WORD = re.compile(r"[\w.%]+")
-# A quote the model re-typed, not copied: it still names the line when this much of its
-# words are the line's own.
+# A re-typed quote still names a line when this share of its words are the line's own.
 _MIN_OVERLAP = 0.8
 
 
@@ -121,18 +122,24 @@ def _plain(text: str) -> str:
     return collapse_ws(_MARKUP.sub(" ", text)).casefold()
 
 
+def _contains(line: str, needle: str) -> bool:
+    """``needle`` as whole words: ``5%`` is not in ``15%``, nor ``KES 50`` in ``KES 500``."""
+    return re.search(rf"(?<![\w.]){re.escape(needle)}(?!\w)", _plain(line)) is not None
+
+
 def _find_line(lines: list[str], quote: str) -> int | None:
     needle = _plain(quote)
     if not needle:
         return None
     for index, line in enumerate(lines):
-        if needle in _plain(line):
+        if _contains(line, needle):
             return index
     words = set(_WORD.findall(needle))
+    figures = {w for w in words if any(c.isdigit() for c in w)}
     best: tuple[float, int] | None = None
     for index, line in enumerate(lines):
         have = set(_WORD.findall(_plain(line)))
-        if not have or len(words) < 3:
+        if not have or len(words) < 3 or figures - have:
             continue
         overlap = len(words & have) / len(words)
         if overlap >= _MIN_OVERLAP and (best is None or overlap > best[0]):
@@ -140,71 +147,83 @@ def _find_line(lines: list[str], quote: str) -> int | None:
     return None if best is None else best[1]
 
 
+_LIST_MARKER = re.compile(r"^\s*(?:[-*+\u2022]|\d+[.)])\s+")
+# A table row the cut took out: it keeps its place, so its table can be tidied as one.
+_CUT_ROW = "\x00cut"
+
+
 def _cut_from_line(line: str, quote: str) -> str | None:
-    """The line without the sentence holding ``quote``; None when nothing is left."""
+    """The line without the sentence holding ``quote``; ``_CUT_ROW`` for a table row, None
+    when nothing is left, the line itself when it cannot tell which sentence was meant."""
     if _TABLE_ROW.match(line):
-        return None
+        return _CUT_ROW
     needle = _plain(quote)
     sentences = _SENTENCE_GAP.split(line)
-    kept = [s for s in sentences if needle not in _plain(s)]
+    kept = [s for s in sentences if not _contains(s, needle)]
     if len(kept) == len(sentences):
         # Named by its words, not copied: one sentence has nothing else to keep, and with
         # several there is no telling which one it meant.
         return None if len(sentences) == 1 else line
     rest = " ".join(kept).rstrip()
-    return None if _ONLY_MARKUP.match(rest) else rest
+    if _ONLY_MARKUP.match(rest):
+        return None
+    marker = _LIST_MARKER.match(line)
+    return rest if marker is None or _LIST_MARKER.match(rest) else f"{marker.group()}{rest}"
 
 
 _TOTAL_ROW = re.compile(r"^\s*\|[\s*_]*(?:grand\s+)?(?:total|sum)\b", re.IGNORECASE)
 
 
 def _tidy_tables(lines: list[str | None]) -> list[str]:
-    """A table that lost rows: its total no longer adds up, so that goes too; a table whose
-    rows are all gone leaves nothing to show, so its header goes with them."""
+    """A table that lost rows: its total no longer adds up, so that goes too; a table that
+    lost its header, or every row, leaves nothing to show. Other tables are left as written."""
     out: list[str] = []
     run: list[str] = []
-    cut = False
 
     def flush() -> None:
-        nonlocal cut
-        rows = [row for row in run if not _TABLE_RULE.match(row)]
-        if cut:
-            rows = [row for row in rows if not _TOTAL_ROW.match(row)]
-        if len(rows) > 1:
-            out.extend(row for row in run if _TABLE_RULE.match(row) or row in rows)
+        if _CUT_ROW not in run:
+            out.extend(run)
+        else:
+            rows = [row for row in run if not _TABLE_RULE.match(row)]
+            header_cut = rows[0] == _CUT_ROW
+            body = [row for row in rows[1:] if row != _CUT_ROW and not _TOTAL_ROW.match(row)]
+            if not header_cut and body:
+                rule = [row for row in run[1:2] if _TABLE_RULE.match(row)]
+                out.extend([rows[0], *rule, *body])
         run.clear()
-        cut = False
 
     for line in lines:
-        if line is None:
-            cut = cut or bool(run)
-            continue
-        if _TABLE_ROW.match(line):
+        if line is not None and (line == _CUT_ROW or _TABLE_ROW.match(line)):
             run.append(line)
             continue
         flush()
-        out.append(line)
+        if line is not None:
+            out.append(line)
     flush()
     return out
 
 
 def cut_claims(text: str, quotes: list[str]) -> tuple[str, int]:
     """``text`` without the sentence or table row of each quote found in its prose,
-    and how many quotes it found."""
-    found = 0
+    and how many quotes it took out."""
+    handled: set[str] = set()
 
     def rewrite(prose: str) -> str:
-        nonlocal found
         lines: list[str | None] = prose.split("\n")  # type: ignore[assignment]
         for quote in quotes:
+            if quote in handled:
+                continue
             index = _find_line([line or "" for line in lines], quote)
             if index is None:
                 continue
-            found += 1
-            lines[index] = _cut_from_line(lines[index] or "", quote)
+            before = lines[index]
+            after = _cut_from_line(before or "", quote)
+            if after != before:
+                lines[index] = after
+                handled.add(quote)
         return "\n".join(_tidy_tables(lines))
 
-    return map_prose_outside_fences(text, rewrite), found
+    return map_prose_outside_fences(text, rewrite), len(handled)
 
 
 async def _verdict(state: FinalizeState) -> _Verdict | None:
