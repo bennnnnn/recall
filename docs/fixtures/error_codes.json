@@ -20,6 +20,13 @@
    "message": "Too many chat requests. Try again shortly."
   }
  },
+ "refresh_rate_limited": {
+  "status": 429,
+  "detail": {
+   "code": "rate_limited",
+   "message": "Too many refresh attempts. Try again shortly."
+  }
+ },
  "link_preview_rate_limited": {
   "status": 429,
   "detail": {

@@ -13,6 +13,7 @@ import {
   setUnauthorizedHandler,
 } from "@/lib/api/client";
 import { readRetryAfter } from "@/lib/api/errorBody";
+import fixture from "../../../../docs/fixtures/error_codes.json";
 
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "http://test.local" }));
 
@@ -124,8 +125,9 @@ it("asks for a refresh the server refused with Retry-After: 60 once in that minu
     if (String(url).endsWith("/auth/refresh")) {
       refreshes += 1;
       await wait(30);
-      return new Response(JSON.stringify({ detail: "Too many refresh attempts. Try again shortly." }), {
-        status: 429,
+      const refusal = fixture.refresh_rate_limited;
+      return new Response(JSON.stringify({ detail: refusal.detail }), {
+        status: refusal.status,
         headers: { "Retry-After": "60" },
       });
     }
@@ -139,9 +141,10 @@ it("asks for a refresh the server refused with Retry-After: 60 once in that minu
     await jest.advanceTimersByTimeAsync(2_000);
   }
   expect(refreshes).toBe(1);
-  // Each request fails as the refused refresh did.
+  // Each request fails as the refused refresh did, with its code: every reader words
+  // `rate_limited` (a chat said "Couldn't reach the server" for the English alone).
   expect(outcomes).toHaveLength(20);
-  expect(outcomes.every((error) => error instanceof ApiRequestError && error.status === 429)).toBe(true);
+  expect(outcomes.every((error) => error instanceof ApiRequestError && error.status === 429 && error.code === "rate_limited")).toBe(true);
   await jest.advanceTimersByTimeAsync(41_000);
   void request("/c", expired).catch(() => undefined);
   await jest.advanceTimersByTimeAsync(100);

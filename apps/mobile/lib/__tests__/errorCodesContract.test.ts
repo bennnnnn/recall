@@ -200,8 +200,9 @@ it("words a chat turn the API could not serve", () => {
 });
 
 // Each 429 named no code: a refused Regenerate said "Couldn't reach the server"
-// (chatTurnState's refusalReport). The request limiter's and the chat stream's own.
-it.each(["rate_limited", "chat_rate_limited"])("words a chat turn over a limit: %s", (name) => {
+// (chatTurnState's refusalReport). The request limiter's, the chat stream's own, and a
+// refresh's, which fails every request that needs one until its wait ends (lib/api/client.ts).
+it.each(["rate_limited", "chat_rate_limited", "refresh_rate_limited"])("words a chat turn over a limit: %s", (name) => {
   const error = refused(name);
   expect(resolveChatError({ message: error.detail, code: error.code ?? undefined, isPaid: false, t }))
     .toEqual({ kind: "generic", message: "chat.rate_limited" });

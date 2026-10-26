@@ -400,6 +400,12 @@ def _chat_over_its_limit() -> Any:
         return _client(_user()).post(f"/chats/{uuid4()}/regenerate/stream", headers=_AUTH, json={})
 
 
+def _refresh_over_its_limit() -> Any:
+    """A refresh past its per-address limit (``modules/account/refresh_limit.py``)."""
+    with patch("app.modules.account.refresh_limit.address_allowed", AsyncMock(return_value=False)):
+        return _client(_user()).post("/auth/refresh", json={"refresh_token": "token"})
+
+
 def _link_preview(*, allowed: bool = True, busy: bool = False) -> Any:
     """GET /link-preview past the user's minute, or with their most previews loading."""
     from app.modules.link_preview.service import LinkPreviewBusyError
@@ -442,6 +448,7 @@ def _bodies() -> dict[str, dict[str, Any]]:
         "rate_limited": _refusal(_over_the_limit()),
         # Each route's own limit over its minute answers the same code.
         "chat_rate_limited": _refusal(_chat_over_its_limit()),
+        "refresh_rate_limited": _refusal(_refresh_over_its_limit()),
         "link_preview_rate_limited": _refusal(_link_preview(allowed=False)),
         "link_preview_busy": _refusal(_link_preview(busy=True)),
         "consent_required": _refusal(consent),
