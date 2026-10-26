@@ -176,6 +176,36 @@ class _TrackedSessionCM(FakeSessionCM):
 
 
 @pytest.mark.asyncio
+async def test_the_summary_reads_a_reply_without_its_sources_fence():
+    """A summary once kept "3.8% in June 2025" from a search result as if it were said."""
+    session = AsyncMock()
+    chat = MagicMock(summary=None, summary_message_count=0)
+    session.get = AsyncMock(return_value=chat)
+    reply = _msg(
+        'Kenya held the rate at 8.75%.\n\n```sources\n[{"title": "CBK", "url": "https://x.test", '
+        '"snippet": "Inflation 3.8% | June 2025"}]\n```'
+    )
+    reply.role = "assistant"
+    seen: list[list[dict[str, str]]] = []
+
+    async def summarize(_settings, _prior, transcript):
+        seen.append(transcript)
+        return "SUMMARY"
+
+    with ExitStack() as stack:
+        for each in _over_window_patches(session, summarize):
+            stack.enter_context(each)
+        stack.enter_context(
+            patch(
+                "app.modules.chat.compaction.messages_repo.list_range",
+                AsyncMock(return_value=[_msg("What is the rate?"), reply]),
+            )
+        )
+        await compaction.compress_chat_history(_OVER_WINDOW, uuid4())
+    assert [m["content"] for m in seen[0]] == ["What is the rate?", "Kenya held the rate at 8.75%."]
+
+
+@pytest.mark.asyncio
 async def test_the_summary_model_runs_with_no_session_open():
     session = AsyncMock()
     chat = MagicMock(summary=None, summary_message_count=0)
@@ -252,6 +282,19 @@ def test_summary_system_prompt_preserves_uncertainty():
 
     assert "considering" in SUMMARY_SYSTEM_PROMPT
     assert "uses Postgres" in SUMMARY_SYSTEM_PROMPT
+
+
+def test_summary_system_prompt_keeps_topics_in_order_and_short():
+    from app.modules.chat.context_window import SUMMARY_SYSTEM_PROMPT
+
+    # A 36-message chat once saved a summary cut off mid-sentence, with the middle topics
+    # gone: the model was never asked to stay short, so it ran out of tokens.
+    assert "oldest first" in SUMMARY_SYSTEM_PROMPT
+    assert "under 300 words" in SUMMARY_SYSTEM_PROMPT
+    assert "most recent one with its date" in SUMMARY_SYSTEM_PROMPT
+    # An invented "Open: user considering sleeping 6-7 hours" later came back as something
+    # the assistant had asked.
+    assert "never invent a plan" in SUMMARY_SYSTEM_PROMPT
 
 
 @pytest.mark.asyncio

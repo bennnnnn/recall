@@ -23,6 +23,11 @@ from app.modules.web_search.asks_nothing import asks_nothing_to_look_up
         "give me mock API responses for a login endpoint",
         "show me sample SQL inserts for a library app",
         "give me test data for a signup form",
+        # A question about the chat itself, opening with a preposition.
+        "In which order did we cover topics today? List them.",
+        "In what order did we talk about things today?",
+        "At what point did you say that?",
+        "For which topics did I ask you for sources?",
     ],
 )
 def test_asks_nothing_to_look_up_statements_and_requests_to_make(text):
@@ -44,6 +49,9 @@ def test_asks_nothing_to_look_up_statements_and_requests_to_make(text):
         "Is it going to rain tonight in London?",
         "give me test results for the 2024 national exam in Ethiopia",
         "give me the sample size of the Framingham study",
+        "In what year did the Berlin Wall fall?",
+        "At what time does the Lakers game start tonight?",
+        "From where did you get that? Find the source",
     ],
 )
 def test_asks_nothing_to_look_up_keeps_lookups(text):

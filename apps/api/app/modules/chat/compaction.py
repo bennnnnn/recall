@@ -18,6 +18,7 @@ from app.modules.chat.context_window import (
     should_run_compression,
     trim_message_for_summary,
 )
+from app.modules.chat.prompt_window import _strip_prompt_owned_fences
 from app.modules.chat.summarize import summarize_conversation
 
 logger = logging.getLogger(__name__)
@@ -108,7 +109,13 @@ async def _pending_fold(settings: Settings, chat_id: UUID, user_id: UUID | None)
         transcript = [
             {
                 "role": message.role,
-                "content": trim_message_for_summary(message.content),
+                "content": trim_message_for_summary(
+                    # The recent window drops these fences too: a reply's search results are
+                    # not what was said, and a summary kept their stale figures as facts.
+                    _strip_prompt_owned_fences(message.content)
+                    if message.role == "assistant"
+                    else message.content
+                ),
             }
             for message in slice_messages
         ]

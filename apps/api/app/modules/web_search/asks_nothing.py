@@ -36,6 +36,13 @@ _ASK_OPENER = re.compile(
     r"is|are|was|were|did|does|do|has|have|will|can|could|should|any)\b",
     re.IGNORECASE,
 )
+# "In which order did we cover it", "at what point did you say": the question opens with a
+# preposition, and reads the same without it.
+_PREP_OPENER = re.compile(
+    r"^(?:in|at|on|for|by|with|from|to|of|about|after|before|during|since|until)\s+"
+    r"(?=(?:which|what)\b)",
+    re.IGNORECASE,
+)
 # Asks for something wherever it sits: "I want the latest news", "let me know the score".
 _REQUEST = re.compile(
     r"\b(?:tell\s+me|show\s+me|let\s+me\s+know|find|look\s+up|check|search|google|"
@@ -113,7 +120,7 @@ def _questions(text: str) -> list[str]:
     asked = []
     for clause in _clauses(text):
         body = re.sub(rf"^{_LEAD_IN}", "", clause, flags=re.IGNORECASE)
-        body = _POLITE.sub("", body)
+        body = _PREP_OPENER.sub("", _POLITE.sub("", body))
         if _ASK_OPENER.match(body):
             asked.append(body)
     return asked

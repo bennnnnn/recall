@@ -29,4 +29,4 @@ class ChatContextSettings(BaseModel):
     context_token_budget: int = 6000
     history_summary_batch: int = 10
     history_summary_urgent_pending: int = 3
-    summary_max_tokens: int = 400
+    summary_max_tokens: int = 800
