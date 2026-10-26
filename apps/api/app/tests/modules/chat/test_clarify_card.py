@@ -394,3 +394,98 @@ def test_a_json_answer_the_user_asked_for_stays_code() -> None:
     quiz = json.dumps({"questions": [{"question": "2 + 2?", "options": ["3", "4"]}]})
     text = f"Here is your quiz:\n\n```json\n{quiz}\n```"
     assert settle_clarify_cards(text, allowed=True) == text
+
+
+@pytest.mark.parametrize(
+    ("start", "kept"),
+    [
+        (
+            "A $400,000 house is a big purchase, Dev. Before I run numbers, I need a few "
+            "details, so let me ask.",
+            "A $400,000 house is a big purchase, Dev.",
+        ),
+        # The whole start stays: the lead-in never opens a reply on its own.
+        ("I have a couple of quick questions first.", None),
+        ("To find you the best laptop under 800 dollars, I need a few details.", None),
+        ("Rates are high.\nI need some details.", "Rates are high."),
+        ("It depends on you.\n\nSo let me ask.", "It depends on you."),
+        # Anything more than the ask stays.
+        ("To plan your week, I need one detail.", None),
+        ("Let me know what matters most. It depends.", None),
+        ("At 6.5% over 30 years, $400,000 is about $2,528 a month, but let me ask a few "
+         "things to refine it.", None),
+        ("I can estimate it now, but I'll need some details to be exact: your rate.", None),
+        ("Let me ask: do you already own a home? It changes the math.", None),
+        ('Your lender may say "let me ask underwriting." That can take a week.', None),
+        ("Dr. Smith said rates are 6.5%. E.g. let me ask about taxes first.", None),
+        ("+ Rent: let me ask about cost.", None),
+        ("a | let me ask | b", None),
+        ("```python\n    print('let me ask.  ok')\n```", None),
+        (
+            "🇨🇭 **Switzerland — quality of life**\nHigh pay, so let me ask where you'd live.",
+            None,
+        ),
+    ],
+)  # fmt: skip
+def test_a_start_that_only_says_it_will_ask_says_it_once(start: str, kept: str | None) -> None:
+    text = f"{start}\n\n**Let me ask you one thing.**\n\nWhat matters most?\n\n"
+    text += f"```clarify\n{_card_body(_PRIORITY)}\n```"
+
+    settled = settle_clarify_cards(text, allowed=True)
+
+    before = settled.split("**Let me ask")[0].split("**But let me ask")[0]
+    assert before.rstrip("\n") == (start if kept is None else kept)
+    assert not before.startswith("\n")
+
+
+def test_but_follows_options_left_after_the_ask_goes() -> None:
+    text = "A house is a **big** purchase, so let me ask.\n\n**Let me ask you one thing.**\n\n"
+    text += f"```clarify\n{_card_body(_PRIORITY)}\n```"
+
+    settled = settle_clarify_cards(text, allowed=True)
+
+    assert settled.startswith("A house is a **big** purchase, so let me ask.\n\n**But let me")
+
+
+def test_a_bare_json_card_is_put_in_its_fence() -> None:
+    body = _card_body(_PRIORITY)
+    text = f"It depends on your goal.\n\n🎯 **What's the main goal?**\n\n{body}"
+
+    settled = settle_clarify_cards(text, allowed=True)
+
+    assert settled.endswith("```")
+    assert "\n```clarify\n" in settled
+    assert settled.count('"questions"') == 1
+    assert read_card(settled.split("```clarify\n")[1].rsplit("```", 1)[0]) is not None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # JSON the user asked for, and a card already in code, stay as they are.
+        'Here is the object:\n\n{"questions": [1, 2], "answer": 3}',
+        '```python\nx = {"request": 1, "questions": [], "submit": 2}\n```',
+        "Plain prose only.",
+    ],
+)
+def test_other_json_is_not_a_card(text: str) -> None:
+    assert settle_clarify_cards(text, allowed=True) == text
+
+
+def test_the_finalize_pass_fences_a_bare_card() -> None:
+    raw = f"It depends on your goal.\n\n🎯 **What's the main goal?**\n\n{_card_body(_PRIORITY)}"
+
+    settled = settle_clarify(_state(raw))
+
+    assert _card(settled) is not None
+    assert not settled.rstrip().endswith("}")
+
+
+def test_a_bare_card_with_blank_lines_inside_is_one_card() -> None:
+    body = json.dumps(json.loads(_card_body(_PRIORITY)), indent=2).replace("],\n", "],\n\n")
+    text = f"It depends.\n\n{body}\n\nThanks!"
+
+    settled = settle_clarify_cards(text, allowed=True)
+
+    assert '"questions"' in settled and settled.count("```clarify") == 1
+    assert "Thanks!" in settled

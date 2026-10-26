@@ -24,11 +24,13 @@ from pydantic import (
     model_validator,
 )
 
-from app.services.md_fence_scan import Fence, iter_fences
+from app.services.md_fence_scan import Fence, iter_fences, line_fences
 
 logger = logging.getLogger(__name__)
 
 CLARIFY_FENCE = "clarify"
+# How many lines a card's bare JSON may run to (pretty-printed, three questions).
+_MAX_CARD_LINES = 80
 MAX_QUESTIONS = 3
 MIN_OPTIONS = 2
 MAX_OPTIONS = 8
@@ -213,8 +215,12 @@ def _holds_a_card(text: str, fence: Fence) -> bool:
         return True
     if fence.lang not in ("json", ""):
         return False
+    return _is_card_json(text[fence.body_start : fence.body_end])
+
+
+def _is_card_json(body: str) -> bool:
     try:
-        raw = json.loads(text[fence.body_start : fence.body_end])
+        raw = json.loads(body)
     except ValueError:
         return False
     return (
@@ -234,6 +240,18 @@ _LEAD_IN = re.compile(
     re.IGNORECASE,
 )
 _HOW_MANY = {1: "one thing", 2: "a couple of things"}
+# The start's last sentence when it only says the lead-in's ask: "Before I run numbers, I
+# need a few details, so let me ask." above **Let me ask you a couple of things.** (live,
+# 2026-10-25). A sentence with anything more in it stays.
+_ONLY_ASKS = re.compile(
+    r"(?:(?:before|to)\s[^.!?,]{1,60},\s*)?"
+    r"(?:(?:i(?:'ll|\swill)?\sneed\s(?:a\sfew|some|a\scouple\sof)\s(?:more\s)?(?:details|questions)"
+    r"|i\shave\s(?:a\sfew|a\scouple\sof)\s(?:quick\s)?questions)(?:\sfirst)?"
+    r"(?:,?\s*so\slet\sme\sask(?:\syou)?(?:\sfirst)?)?"
+    r"|(?:so\s)?let\sme\sask(?:\syou)?(?:\sfirst)?)[.!:]?",
+    re.IGNORECASE,
+)
+_LAST_SENTENCE = re.compile(r"(?:^|(?<=[.!?])\s+)(?P<last>[^.!?]+[.!?:]?)$")
 
 
 def _fit_lead_in(prose: str, questions: int) -> str:
@@ -244,12 +262,78 @@ def _fit_lead_in(prose: str, questions: int) -> str:
         lead_in = _LEAD_IN.match(line)
         if lead_in is None:
             continue
+        start = _without_ask_note(lines[:index])
+        lines, index = [*start, *lines[index:]], len(start)
         after_options = any("**" in earlier for earlier in lines[:index])
         opener = "But let me" if after_options else "Let me"
         fitted = f"**{opener} ask you {_HOW_MANY.get(questions, 'a few things')}.**"
         lines[index] = fitted + line[lead_in.end() :]
         break
     return "\n".join(lines)
+
+
+def _without_ask_note(start: list[str]) -> list[str]:
+    """``start`` without its last sentence when that sentence only says it will ask.
+
+    Only a plain line just above the lead-in: never an option, a list, a table or code."""
+    last = len(start) - 1
+    while last >= 0 and not start[last].strip():
+        last -= 1
+    if last < 0:
+        return start
+    line = start[last]
+    if line != line.lstrip() or "**" in line or "`" in line or "|" in line:
+        return start
+    if line.startswith(("-", "*", "+", "#", ">")) or re.match(r"\d+[.)]\s", line):
+        return start
+    found = _LAST_SENTENCE.search(line)
+    if found is None or not _ONLY_ASKS.fullmatch(found.group("last").strip()):
+        return start
+    kept = line[: found.start("last")].rstrip()
+    if kept:
+        return [*start[:last], kept, *start[last + 1 :]]
+    rest = start[:last]
+    # The ask with its reason ("To find your laptop, I need a few details.") is the whole
+    # start: it stays.
+    if not any(earlier.strip() for earlier in rest):
+        return start
+    # The lead-in keeps a blank line above it.
+    return rest if not rest[-1].strip() else [*rest, ""]
+
+
+def _fence_bare_cards(text: str) -> str:
+    """A card written as a bare JSON paragraph, outside any fence, put in its fence.
+
+    The phone showed the raw JSON of one (live, 2026-10-25: "🎯 **What's the main goal
+    for this money?**" then ``{"request": …}`` with no fence)."""
+    if '"questions"' not in text:
+        return text
+    lines = text.split("\n")
+    owners = line_fences(text)
+    out: list[str] = []
+    index = 0
+    while index < len(lines):
+        end = _bare_card_end(lines, owners, index)
+        if end is not None:
+            block = "\n".join(lines[index:end]).strip()
+            out += [f"```{CLARIFY_FENCE}", block, "```"]
+            index = end
+            continue
+        out.append(lines[index])
+        index += 1
+    return "\n".join(out)
+
+
+def _bare_card_end(lines: list[str], owners: list[Fence | None], start: int) -> int | None:
+    """The end of a card's bare JSON opening at ``start``, blank lines inside it included."""
+    if owners[start] is not None or not lines[start].lstrip().startswith("{"):
+        return None
+    for end in range(start + 1, min(len(lines), start + _MAX_CARD_LINES) + 1):
+        if owners[end - 1] is not None:
+            return None
+        if lines[end - 1].rstrip().endswith("}") and _is_card_json("\n".join(lines[start:end])):
+            return end
+    return None
 
 
 def settle_clarify_cards(text: str, *, allowed: bool, after_card: bool = False) -> str:
@@ -259,6 +343,7 @@ def settle_clarify_cards(text: str, *, allowed: bool, after_card: bool = False) 
     its questions as prose, so the user still knows what to answer. The turn after a
     card (``after_card``) keeps no questions at all: the user already answered.
     """
+    text = _fence_bare_cards(text)
     fences = [fence for fence in iter_fences(text) if _holds_a_card(text, fence)]
     if not fences:
         return text
