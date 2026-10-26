@@ -407,7 +407,39 @@ def _split_at(text: str, tokens: list[_Token], index: int) -> bool:
     return before in ",፣" and word in ASK_VERBS
 
 
+def _words_of(*groups: Iterable[str]) -> frozenset[str]:
+    return frozenset(word for group in groups for word in group)
+
+
+# Words a picture request can open with, or close with (Turkish, Amharic, German "…
+# zeichnen?"): a message with none of them is never cut for a picture.
+_OPENERS = _words_of(
+    *(
+        lang.draw | lang.create | lang.draw_me | lang.create_me | lang.needs_me
+        for lang in VERB_FIRST
+    ),
+    *(lang.draw_infinitives | lang.create_infinitives | lang.me for lang in VERB_FIRST),
+    *(phrase[0] for lang in VERB_FIRST for phrase in (*lang.can_you, *lang.polite)),
+)
+_CLOSERS = _words_of(
+    *(lang.draw_infinitives | lang.create_infinitives for lang in VERB_FIRST),
+    *(
+        lang.draw | lang.create | lang.bare_draw | lang.asked_draw | lang.asked_create
+        for lang in VERB_LAST
+    ),
+)
+_OPENING_WORDS = 3
+
+
+def _could_hold_a_picture(tokens: list[_Token]) -> bool:
+    return any(t.word in _OPENERS for t in tokens[:_OPENING_WORDS]) or any(
+        t.word in _CLOSERS for t in tokens
+    )
+
+
 def _split(text: str, tokens: list[_Token]) -> tuple[str, str] | None:
+    if not _could_hold_a_picture(tokens):
+        return None
     for index in range(1, len(tokens)):
         if not _split_at(text, tokens, index):
             continue
