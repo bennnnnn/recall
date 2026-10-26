@@ -158,7 +158,8 @@ def _turn_may_ask(state: FinalizeState) -> bool:
 
 def settle_clarify(state: FinalizeState) -> str:
     """The finalize pass: one checked card, or none."""
-    if CLARIFY_FENCE not in state.text:
+    # A card the model wrote as bare JSON names no fence, only its questions.
+    if CLARIFY_FENCE not in state.text and '"questions"' not in state.text:
         return state.text
     allowed = _turn_may_ask(state)
     text = settle_clarify_cards(state.text, allowed=allowed, after_card=state.ctx.after_card)

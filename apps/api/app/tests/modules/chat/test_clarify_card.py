@@ -404,7 +404,10 @@ def test_a_json_answer_the_user_asked_for_stays_code() -> None:
             "details, so let me ask.",
             "A $400,000 house is a big purchase, Dev.",
         ),
-        ("I have a couple of quick questions first.", ""),
+        # The whole start stays: the lead-in never opens a reply on its own.
+        ("I have a couple of quick questions first.", None),
+        ("To find you the best laptop under 800 dollars, I need a few details.", None),
+        ("Rates are high.\nI need some details.", "Rates are high."),
         ("It depends on you.\n\nSo let me ask.", "It depends on you."),
         # Anything more than the ask stays.
         ("To plan your week, I need one detail.", None),
@@ -467,3 +470,22 @@ def test_a_bare_json_card_is_put_in_its_fence() -> None:
 )
 def test_other_json_is_not_a_card(text: str) -> None:
     assert settle_clarify_cards(text, allowed=True) == text
+
+
+def test_the_finalize_pass_fences_a_bare_card() -> None:
+    raw = f"It depends on your goal.\n\n🎯 **What's the main goal?**\n\n{_card_body(_PRIORITY)}"
+
+    settled = settle_clarify(_state(raw))
+
+    assert _card(settled) is not None
+    assert not settled.rstrip().endswith("}")
+
+
+def test_a_bare_card_with_blank_lines_inside_is_one_card() -> None:
+    body = json.dumps(json.loads(_card_body(_PRIORITY)), indent=2).replace("],\n", "],\n\n")
+    text = f"It depends.\n\n{body}\n\nThanks!"
+
+    settled = settle_clarify_cards(text, allowed=True)
+
+    assert '"questions"' in settled and settled.count("```clarify") == 1
+    assert "Thanks!" in settled

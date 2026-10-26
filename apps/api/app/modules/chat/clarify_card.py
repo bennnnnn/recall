@@ -29,6 +29,8 @@ from app.services.md_fence_scan import Fence, iter_fences, line_fences
 logger = logging.getLogger(__name__)
 
 CLARIFY_FENCE = "clarify"
+# How many lines a card's bare JSON may run to (pretty-printed, three questions).
+_MAX_CARD_LINES = 80
 MAX_QUESTIONS = 3
 MIN_OPTIONS = 2
 MAX_OPTIONS = 8
@@ -290,8 +292,13 @@ def _without_ask_note(start: list[str]) -> list[str]:
     kept = line[: found.start("last")].rstrip()
     if kept:
         return [*start[:last], kept, *start[last + 1 :]]
-    # The line goes with the blank lines after it; those before it part it from the rest.
-    return start[:last]
+    rest = start[:last]
+    # The ask with its reason ("To find your laptop, I need a few details.") is the whole
+    # start: it stays.
+    if not any(earlier.strip() for earlier in rest):
+        return start
+    # The lead-in keeps a blank line above it.
+    return rest if not rest[-1].strip() else [*rest, ""]
 
 
 def _fence_bare_cards(text: str) -> str:
@@ -306,18 +313,27 @@ def _fence_bare_cards(text: str) -> str:
     out: list[str] = []
     index = 0
     while index < len(lines):
-        end = index
-        if owners[index] is None and lines[index].lstrip().startswith("{"):
-            while end < len(lines) and owners[end] is None and lines[end].strip():
-                end += 1
+        end = _bare_card_end(lines, owners, index)
+        if end is not None:
             block = "\n".join(lines[index:end]).strip()
-            if block.endswith("}") and _is_card_json(block):
-                out += [f"```{CLARIFY_FENCE}", block, "```"]
-                index = end
-                continue
+            out += [f"```{CLARIFY_FENCE}", block, "```"]
+            index = end
+            continue
         out.append(lines[index])
         index += 1
     return "\n".join(out)
+
+
+def _bare_card_end(lines: list[str], owners: list[Fence | None], start: int) -> int | None:
+    """The end of a card's bare JSON opening at ``start``, blank lines inside it included."""
+    if owners[start] is not None or not lines[start].lstrip().startswith("{"):
+        return None
+    for end in range(start + 1, min(len(lines), start + _MAX_CARD_LINES) + 1):
+        if owners[end - 1] is not None:
+            return None
+        if lines[end - 1].rstrip().endswith("}") and _is_card_json("\n".join(lines[start:end])):
+            return end
+    return None
 
 
 def settle_clarify_cards(text: str, *, allowed: bool, after_card: bool = False) -> str:
