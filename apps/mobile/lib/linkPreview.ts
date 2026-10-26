@@ -16,7 +16,8 @@ export type LinkPreview = {
 const FAILURE_MEMORY_MS = 5 * 60_000;
 /**
  * The server's code for "your other previews are still loading" (modules/link_preview/api.py):
- * not a failure of this link, so it is kept only as long as the server asked (its `Retry-After`).
+ * not a failure of this link, so it is kept only as long as the server asked (its `Retry-After`);
+ * the card asks again the next time it is shown after that, with no timer while it stays on screen.
  * Kept for five minutes, a reply with four or more links showed plain links that long.
  */
 const BUSY_CODE = "link_preview_busy";

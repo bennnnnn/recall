@@ -12,7 +12,7 @@ Real Postgres and the configured Redis (``real_redis``), through the HTTP sign-i
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -26,7 +26,8 @@ from app.core.config import Settings
 from app.core.db import SessionLocal, engine
 from app.core.redis import get_redis_client
 from app.models.orm import User
-from app.modules.account import quota_carryover
+from app.modules.account import quota_carryover, signin_limit
+from app.modules.account.email_authority import SignInProvider
 from app.modules.billing.entitlements import setting_name
 from app.services import quota
 from app.services.quota import carryover, counters, live_talk
@@ -49,13 +50,19 @@ class Linked:
     settings: Settings
     redis: Any
     users: list[UUID]
+    # What the test made in Redis, deleted by name after it: the configured Redis may be a
+    # shared development one, so nothing else (the job stream, the per-IP limiter) is touched.
+    made_ids: set[UUID] = field(default_factory=set)
+    identities: set[tuple[str, str]] = field(default_factory=set)
+    refresh_tokens: set[str] = field(default_factory=set)
 
 
 @pytest.fixture
 async def linked(
     real_redis: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> AsyncIterator[Linked]:
-    """The app on the configured Redis; every key the test made is deleted after it."""
+    """The app on the configured Redis; the keys of the test's accounts and identities are
+    deleted after it."""
     from app.main import create_app
 
     settings = isolated_settings(monkeypatch, tmp_path)
@@ -65,24 +72,36 @@ async def linked(
     monkeypatch.setattr(live_talk, "utc_month", lambda: month)
     monkeypatch.setattr(carryover, "utc_month", lambda: month)
     redis = get_redis_client()
-    before = {key async for key in redis.scan_iter(match="*")}
     await engine.dispose(close=False)
-    users: list[UUID] = []
+    world: Linked | None = None
     try:
         transport = httpx.ASGITransport(app=create_app())
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            yield Linked(client=client, settings=settings, redis=redis, users=users)
+            world = Linked(client=client, settings=settings, redis=redis, users=[])
+            yield world
     finally:
-        await delete_accounts(*users)
-        made = [key async for key in redis.scan_iter(match="*") if key not in before]
-        if made:
-            await redis.delete(*made)
+        if world is not None:
+            await delete_accounts(*world.users)
+            await _delete_made_keys(world)
         await redis.aclose()
         await engine.dispose(close=False)
         reset_process_caches()
 
 
+async def _delete_made_keys(world: Linked) -> None:
+    made = {f"refresh:{token}" for token in world.refresh_tokens}
+    for provider, sub in world.identities:
+        made.add(quota_carryover.carry_key(world.settings, provider, sub))
+        limited: SignInProvider = "apple" if provider == "apple" else "google"
+        made.add(signin_limit.identity_key(world.settings, limited, sub))
+    for user_id in world.made_ids:
+        made.update([key async for key in world.redis.scan_iter(match=f"*{user_id}*")])
+    if made:
+        await world.redis.delete(*made)
+
+
 async def _sign_in(world: Linked, provider: str, sub: str, email: str) -> httpx.Response:
+    world.identities.add((provider, sub))
     payload: dict[str, Any] = {"sub": sub, "email": email, "email_verified": True}
     if provider == "apple":
         payload["email_verified"] = "true"
@@ -98,6 +117,8 @@ async def _signed_in(world: Linked, provider: str, sub: str, email: str) -> tupl
     assert response.status_code == 200, response.text
     body = response.json()
     user_id = UUID(body["user"]["id"])
+    world.made_ids.add(user_id)
+    world.refresh_tokens.add(str(body["refresh_token"]))
     if user_id not in world.users:
         world.users.append(user_id)
     return user_id, str(body["access_token"])
