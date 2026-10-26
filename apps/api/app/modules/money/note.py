@@ -26,12 +26,12 @@ def reading_note(request: MoneyRequest) -> str | None:
         down = money_text(request.down)
         return (
             f"**Read as:** {down} is the down payment on the {money_text(price)} price, so the "
-            f"loan is {money_text(amount)}. If {down} is the loan, move the amount slider."
+            f"loan is {money_text(amount)}. If {down} is the loan, say so."
         )
     if request.guessed == "loan":
         return (
             f"**Read as:** {money_text(amount)} is the loan on the {money_text(price)} price. "
-            "If it is the down payment, move the amount slider."
+            "If it is the down payment, say so."
         )
     return None
 

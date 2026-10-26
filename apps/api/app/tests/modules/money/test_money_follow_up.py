@@ -34,6 +34,8 @@ SAVINGS_1K = "if I save 1000 a month at 5% for 20 years how much will I have"
 PERSONAL = "personal loan of 10000 at 12% for 36 months"
 STUDENT = "student loan of 30000 at 5.5% for 10 years"
 BIRR = "mortgage of 3 million birr at 15% for 20 years"
+# The live car loan, told over two lines: 20k is the price of the car being bought.
+BUYING = ["I am planing to buy a car", "20k with 6 percent"]
 WORKOUT = "give me a 4 day workout plan with 4 sets of each exercise"
 RECTANGLE = "a rectangle has a perimeter of 40 and a length of 12, what is the width?"
 
@@ -75,11 +77,18 @@ RECTANGLE = "a rectangle has a perimeter of 40 and a length of 12, what is the w
         # A sum down comes off the price the request named (14000), never off the loan.
         ([CAR], "what if I put 5000 down?", {"amount": 9000, "months": 60}, ("amount",)),
         ([CAR, "what if i only do 3 years instead"], "and with 5000 down?", {"amount": 9000, "months": 36}, ("amount",)),
-        ([MORTGAGE_6], "with 60k down", {"amount": 240000}, ("amount",)),
-        ([MORTGAGE_6], "60k down at 5.5%", {"amount": 240000, "rate": 5.5}, ("amount", "rate")),
-        ([CAR_PLAIN], "down payment of $3,000", {"amount": 17000}, ("amount",)),
-        ([CAR_PLAIN], "I can put 3 grand down", {"amount": 17000}, ("amount",)),
-        ([CAR_PLAIN], "I'm putting 3k down for 4 years", {"amount": 17000, "months": 48}, ("amount", "months")),
+        ([MORTGAGE_SHARE], "with 60k down", {"amount": 290000}, ("amount",)),
+        ([MORTGAGE_SHARE], "60k down at 5.5%", {"amount": 290000, "rate": 5.5}, ("amount", "rate")),
+        (BUYING, "Down payment 3k", {"amount": 17000, "rate": 6}, ("amount",)),
+        (BUYING, "down payment of 3,000", {"amount": 17000}, ("amount",)),
+        (BUYING, "the down payment is 3k", {"amount": 17000}, ("amount",)),
+        (BUYING, "with 3k down", {"amount": 17000}, ("amount",)),
+        (BUYING, "3k down", {"amount": 17000}, ("amount",)),
+        (BUYING, "and 3k down?", {"amount": 17000}, ("amount",)),
+        (BUYING, "I can put 3 grand down", {"amount": 17000}, ("amount",)),
+        (BUYING, "I'm putting 3k down for 4 years", {"amount": 17000, "months": 48}, ("amount", "months")),
+        (BUYING, "im putting 3k down", {"amount": 17000}, ("amount",)),
+        (BUYING, "we want to put 3k down", {"amount": 17000}, ("amount",)),
     ],
 )  # fmt: skip
 def test_a_new_term_or_rate_is_the_last_request_changed(
@@ -207,15 +216,29 @@ def test_a_line_that_changes_no_term_or_rate_is_none(earlier: list[str], line: s
 @pytest.mark.parametrize(
     ("earlier", "line"),
     [
-        ([CAR_PLAIN], "down payment assistance programs?"),
-        ([CAR_PLAIN], "what's a good down payment?"),
-        ([CAR_PLAIN], "I put 3k down on my old car last year"),
+        (BUYING, "down payment assistance programs?"),
+        (BUYING, "what's a good down payment?"),
+        (BUYING, "I put 3k down on my old car last year"),
         # Not the user's own: the model asks whether to work it.
         ([CAR_PLAIN], "the dealer wants 3k down"),
-        ([CAR_PLAIN], "$0 down"),
-        ([CAR_PLAIN], "no money down"),
-        ([CAR_PLAIN], "3k down and 5k down"),
-        ([CAR_PLAIN], "20k down"),
+        # A sum the user called a loan or a balance has no price to come off.
+        ([CAR_PLAIN], "3k down"),
+        ([MORTGAGE_6], "with 60k down"),
+        (["I owe 15k on my car loan at 6%"], "what if I put 3k down"),
+        (["refinance my 250k mortgage at 6%"], "with 10k down"),
+        # Gone by, only talked about, a year, or a currency the loan does not have.
+        (BUYING, "I put 3k down"),
+        (BUYING, "we put 3k down"),
+        (BUYING, "it was 3k down"),
+        (BUYING, "it's 3k down"),
+        (BUYING, "is it 3k down"),
+        (BUYING, "my down payment was 3k"),
+        (BUYING, "down payment 2026"),
+        (BUYING, "€3k down"),
+        (BUYING, "$0 down"),
+        (BUYING, "no money down"),
+        (BUYING, "3k down and 5k down"),
+        (BUYING, "20k down"),
         ([], "down payment 3k"),
         # Only what a loan buys takes a down payment.
         ([SAVINGS], "3k down"),
@@ -230,7 +253,7 @@ def test_a_down_payment_that_fits_no_loan_is_none(earlier: list[str], line: str)
 
 
 def test_a_second_down_payment_replaces_the_first() -> None:
-    earlier = ["I am planing to buy a car", "20k with 6 percent", "Down payment 3k"]
+    earlier = [*BUYING, "Down payment 3k"]
     request = follow_up_request("with 5k down instead", earlier)
     assert request is not None
     assert (request.values["amount"], request.price, request.down) == (15000, 20000, 5000)

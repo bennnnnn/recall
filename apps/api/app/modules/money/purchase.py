@@ -15,13 +15,14 @@ other word means the line is not this, and the model answers it as before.
   week", "buy a house in minecraft", "buying a car for my son" or "car shopping for 3
   hours".
 - With no price there, this line is only an amount and a rate, and maybe a term: "20k
-  with 6 percent", "$20,000 at 6% apr", "20k at 6% for 5 years". The amount is the loan's,
-  as "car loan 20k at 6%" reads in one line.
+  with 6 percent", "$20,000 at 6% apr", "20k at 6% for 5 years". The amount is what they
+  will pay for it, financed whole, so a down payment told after it comes off it.
 - With a price there, an amount said to be down comes off it ("60k down at 6%", "with 60k
   down", "down payment of 60k at 6 percent"). A bare amount may be either: "60k at 6
   percent" after "House buying for 400k" (live) was the down payment the reply had asked
   for. A third of the price or less is read as the down payment, two thirds or more as
-  the loan; between, it stays with the model. The reply's note says how it was read
+  the loan; between, it stays with the model. A year ("2026 at 6%") and a sum under 1,000
+  are never read as either. The reply's note says how it was read
   (``guessed``), so a misread shows, and the amount slider puts it right.
 
 A down payment on its own line after the loan ("down payment 3k" after "20k with 6
@@ -42,6 +43,7 @@ from app.modules.money.read import (
     DURATION,
     PERCENT,
     MoneyRequest,
+    bare_year,
     read_sum,
     sum_phrase,
     term_in,
@@ -161,6 +163,8 @@ _DOWN_LINES = (
 # house), from two thirds the loan ("320k at 6%"); between, either.
 _DOWN_SHARE = 1 / 3
 _LOAN_SHARE = 2 / 3
+# "$500 at 6%" beside a 400k house is neither.
+_LEAST_GUESSED = 1000
 
 
 def purchase_request(line: str, before: Sequence[str]) -> MoneyRequest | None:
@@ -177,13 +181,15 @@ def purchase_request(line: str, before: Sequence[str]) -> MoneyRequest | None:
     text = _normal(line)
     patterns = (_LOAN_LINE,) if bought.price is None else (*_DOWN_LINES, _LOAN_LINE)
     match = next((found for pattern in patterns if (found := pattern.fullmatch(text))), None)
-    said = read_sum(match["sum"]) if match is not None else None
+    said = read_sum(match["sum"]) if match is not None and not bare_year(match["sum"]) else None
     if match is None or said is None:
         return None
     amount, currency = said
     price = down = None
     guessed = ""
-    if bought.price is not None:
+    if bought.price is None:
+        price = amount
+    else:
         price, priced_in = bought.price
         if (currency and priced_in and currency != priced_in) or not 0 < amount <= price:
             return None
@@ -215,6 +221,8 @@ def _guess(amount: float, price: float) -> str:
     """What a bare amount beside a price is: "down", "loan", "whole" (the price itself, a
     loan for all of it: nothing to say), or "" for either."""
     share = amount / price
+    if amount < _LEAST_GUESSED:
+        return ""
     if share == 1:
         return "whole"
     if share <= _DOWN_SHARE:

@@ -7,15 +7,17 @@ follow-up chips under a money reply ask exactly this.
 
 The server works a new term, a new rate or a new down payment only (``change_line``), read
 by a positive grammar so a line about anything else is no follow-up. A down payment comes
-off the price of what a loan buys (``Product.goods``: a car, a house), never off the loan:
-the price the request named, else its amount ("Down payment 3k" after "20k with 6 percent"
-is a loan of 17k, live 2026-10-25), and a second one replaces the first. The new value
-must also lie on the slider the request's last card had (a mortgage runs 5 to 40 years: "2
-years" is no new term). The request it changes is the last one in the user's last few
-lines, with every line after it a change of it too. Every other change (a price, a percent
-down, a card payment, a deposit, used or new) goes to the model, which answers it as
-before: three reviews of wider readers each found new shapes they misread, and a misread
-follow-up is a wrong number the reply calls the answer.
+off a price the user stated, never off a sum they called a loan or a balance ("a 20k car
+loan", "I owe 15k"): the price a buying line gave ("buying a car" then "20k with 6
+percent", live 2026-10-25: "Down payment 3k" is a loan of 17k) or one with money down ("a
+400k house with 20% down"). A second one replaces the first. A line that says which a
+guessed amount was ("no, 60k is the loan") puts the guess right (``correction``). The new
+value must also lie on the slider the request's last card had (a mortgage runs 5 to 40
+years: "2 years" is no new term). The request it changes is the last one in the user's
+last few lines, with every line after it a change of it too. Every other change (a price,
+a percent down, a card payment, a deposit, used or new) goes to the model, which answers
+it as before: three reviews of wider readers each found new shapes they misread, and a
+misread follow-up is a wrong number the reply calls the answer.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ from dataclasses import replace
 
 from app.modules.money.catalog import Product
 from app.modules.money.change_line import read_change
+from app.modules.money.correction import corrected, is_correction
 from app.modules.money.fence import slider_range
 from app.modules.money.purchase import purchase_request
 from app.modules.money.read import MoneyRequest, named_product, read_money_request, term_in
@@ -45,14 +48,14 @@ def follow_up_request(text: str, earlier: Sequence[str | Sequence[str]]) -> Mone
     conversation. A review (2026-10-25) found the whole of "set a reminder for 9 tomorrow
     and what's the payment on a 20000 car loan at 6%" read as a loan of 9.
     """
-    if read_change(text) is None:
+    if read_change(text) is None and not is_correction(text):
         return None
     lines = [as_parts(line) for line in earlier]
     request: MoneyRequest | None = None
     for index in range(max(0, len(lines) - _WINDOW), len(lines)):
         before = lines[index - 1] if index else ()
         request = _line_request(request, lines[index], before)
-    return changed(request, text) if request is not None else None
+    return _then(request, text) if request is not None else None
 
 
 def as_parts(line: str | Sequence[str]) -> tuple[str, ...]:
@@ -66,10 +69,15 @@ def _line_request(
     """The money request an earlier line left, read part by part as its turn read it;
     ``before`` is the line before it, which may say what a bare amount and rate buy."""
     for part in parts:
-        found = (changed(request, part) if request is not None else None) or _fresh(part, before)
+        found = (_then(request, part) if request is not None else None) or _fresh(part, before)
         if found is not None:
             return found
     return None
+
+
+def _then(request: MoneyRequest, line: str) -> MoneyRequest | None:
+    """``request`` after ``line``: a guess put right, or a change made."""
+    return corrected(request, line) or changed(request, line)
 
 
 def changed(request: MoneyRequest, line: str) -> MoneyRequest | None:
@@ -84,10 +92,9 @@ def changed(request: MoneyRequest, line: str) -> MoneyRequest | None:
     price, down = request.price, request.down
     if change.down is not None:
         down, said_in = change.down
-        price = request.price if request.price is not None else request.values.get("amount")
         if not product.goods or price is None or not 0 < down < price:
             return None
-        if said_in and request.currency and said_in != request.currency:
+        if said_in and said_in != request.currency:
             return None
         values["amount"] = price - down
         names.append("amount")

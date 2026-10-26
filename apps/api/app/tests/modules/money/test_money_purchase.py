@@ -116,6 +116,11 @@ def test_a_currency_named_is_kept() -> None:
         (HOUSE, "150k at 6 percent"),
         (HOUSE, "250k at 6 percent"),
         ("car shopping for 20k", "10k at 7%"),
+        # A year or a sum under 1,000 is never guessed.
+        (HOUSE, "2026 at 6%"),
+        (HOUSE, "$500 at 6%"),
+        (CAR, "2026 at 6%"),
+        (HOUSE, "down payment 2026"),
         (HOUSE, "at 6 percent"),
         (HOUSE, "500k at 6%"),
         # Shopping that is not for one.
@@ -166,14 +171,14 @@ def test_a_down_payment_after_the_loan_comes_off_its_amount() -> None:
             "down",
             340000,
             "**Read as:** 60,000 is the down payment on the 400,000 price, so the loan is "
-            "340,000. If 60,000 is the loan, move the amount slider.",
+            "340,000. If 60,000 is the loan, say so.",
         ),
         (
             "320k at 6%",
             "loan",
             320000,
             "**Read as:** 320,000 is the loan on the 400,000 price. If it is the down "
-            "payment, move the amount slider.",
+            "payment, say so.",
         ),
     ],
 )
@@ -190,6 +195,50 @@ def test_a_bare_amount_beside_a_price_says_how_it_was_read(
     whole = purchase_request("400k at 6 percent", (HOUSE,))
     assert whole is not None and whole.values["amount"] == 400000
     assert reading_note(whole) is None
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "no, 60k is the loan",
+        "60k is the loan",
+        "no the loan is 60k",
+        "it's the loan",
+        "Actually, it's the loan.",
+    ],
+)
+def test_a_guessed_down_payment_put_right_is_the_loan(line: str) -> None:
+    request = follow_up_request(line, [HOUSE, "60k at 6 percent"])
+    assert request is not None and request.changed == ("amount",)
+    assert request.values == {"amount": 60000, "rate": 6}
+    assert (request.price, request.down, request.guessed) == (None, None, "")
+    assert reading_note(request) is None
+
+
+def test_a_guessed_loan_put_right_is_the_down_payment() -> None:
+    request = follow_up_request("it's the down payment", [HOUSE, "320k at 6%"])
+    assert request is not None and request.values["amount"] == 80000
+    assert (request.price, request.down) == (400000, 320000)
+
+
+@pytest.mark.parametrize(
+    ("earlier", "line"),
+    [
+        # Agrees with the guess, names another sum, or follows no guess.
+        ([HOUSE, "60k at 6 percent"], "60k is the down payment"),
+        ([HOUSE, "60k at 6 percent"], "no, 50k is the loan"),
+        ([HOUSE, "60k down at 6 percent"], "no, 60k is the loan"),
+        ([CAR, "20k with 6 percent"], "it's the loan"),
+        ([HOUSE, "60k at 6 percent"], "the loan is fine"),
+    ],
+)
+def test_a_line_that_puts_no_guess_right_is_none(earlier: list[str], line: str) -> None:
+    assert follow_up_request(line, earlier) is None
+
+
+def test_the_live_two_lines_state_the_cars_price() -> None:
+    request = purchase_request("20k with 6 percent", (CAR,))
+    assert request is not None and (request.price, request.down) == (20000, None)
 
 
 async def test_the_live_car_loan_is_worked_by_the_server(monkeypatch) -> None:
