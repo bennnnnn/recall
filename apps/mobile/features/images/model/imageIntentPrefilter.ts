@@ -23,12 +23,13 @@ const IMAGE_WORDS =
   /(?:^|[^a-z0-9_])(?:create|design|generate|make|produce|render|draw|illustrat|paint|image|photo|pic|artwork|portrait|show|see|look)/;
 /**
  * The same in the app's other languages (gen_intent_languages.py): the "draw" verbs and
- * the picture nouns. "Create", "generate" and "make" draw there only with a picture noun
- * ("erstelle ein Bild …", "bir aslan resmi oluştur"), so the noun is the word to look for.
+ * the picture nouns. The server draws there only "draw me" ("dibújame", "zeichne mir",
+ * "bana … çiz") and "create a picture of" ("erstelle ein Bild von"); this stays broader,
+ * as it only decides whether to ask.
  */
 const OTHER_LANGUAGE_WORDS = new RegExp(
   "(?:^|[^a-z0-9_])(?:" +
-    "dibuj|pint|ilustr|retrat|foto|dessin|pein|illustr|zeichn|male|mal(?![a-zäöüß])|bild|" +
+    "dibuj|dibúj|pint|pínt|ilustr|retrat|foto|dessin|pein|illustr|zeichn|male|mal(?![a-zäöüß])|bild|" +
     "gemälde|porträt|" +
     "disegn|dipin|immagin|ritratt|desenh|çiz|resim|resm|görsel|görüntü|illüstr|portre|" +
     "нарис|изобра|картин|рисун|иллюстр|портрет|фото|арт(?![а-яё])|" +

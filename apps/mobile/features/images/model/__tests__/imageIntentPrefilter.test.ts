@@ -102,13 +102,18 @@ describe("image intent prefilter", () => {
   });
 
   it.each([
-    "Zeichne eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
-    "Dibuja un gato con sombrero",
-    "Нарисуй кошку в шляпе",
-    "Şapkalı bir kedi çiz",
+    "Zeichne mir eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
+    "Dibújame un dragón",
+    "¿Me dibujas un dragón?",
+    "Píntame un atardecer",
+    "Mi disegni un panda?",
+    "Tu me dessines un panda ?",
+    "Нарисуешь мне кота?",
+    "Bana bir panda çizer misin?",
     "ድመት ሳልልኝ",
+    "የአንበሳ ምስል ፍጠር",
     "Mal mir eine Katze mit Hut",
-    "Создай арт с котом",
+    "Explica qué es un agujero negro y dibújame un gato",
   ])("asks the server about a picture asked in another language: %j", (text) => {
     expect(mightBeImageTurn(text, [], false)).toBe(true);
   });
