@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001, RUF002, RUF003 - the words matched are the languages' own
+# ruff: noqa: RUF001, RUF002 - the words matched are the languages' own
 """What a picture asked in German, Russian, Turkish or Amharic may be of.
 
 As ``gen_intent_drawable_romance``: concrete things only (animals, people and roles,
@@ -75,16 +75,12 @@ Traube+n Wassermelone+n Melone+n Ananas Zitrone+n Pfirsich+e Avocado+s Karotte+n
 Tomate+n Kürbis+se Käse Obst Kaffee
 *Gitarre+n Klavier+e Geige+n Violine+n Cello+s *Trommel+n Schlagzeug+e *Trompete+n Flöte+n
 Harfe+n Saxophon+e Akkordeon+s Ukulele+n Xylophon+e Tamburin+e
+Ast/Äste Weltraum
+Leuchtturm/Leuchttürme Flügel Segelboot+e
 """
 
 # Never drawn though their last part is ("Stammbaum", "Steckenpferd" are not pictures).
 GERMAN_NOT_COMPOUNDS = "stammbaum stammbaume entscheidungsbaum suchbaum lebensbaum"
-
-# Said before the head noun and not inflected like an adjective ("zwei Katzen").
-GERMAN_BEFORE = """
-zwei drei vier fünf sechs sieben acht neun zehn paar viele einige sehr super ganz total mega
-mini rosa lila
-"""
 
 RUSSIAN = """
 кот/кота/коты/котов кошка/кошек котёнок/котёнка/котята/котят котик пёс/пса/псы/псов
@@ -150,13 +146,8 @@ RUSSIAN = """
 груша/груш персик авокадо морковь помидор тыква сыр/сыра фрукт кофе
 гитара/гитар пианино рояль/рояля скрипка/скрипок виолончель барабан флейта/флейт арфа/арф
 саксофон аккордеон баян укулеле ксилофон бубен/бубна
-"""
-
-# Said before the head noun: "with" ("картинку с котом"), a number, "very", a word like an
-# adjective without an adjective's ending ("божью коровку").
-RUSSIAN_BEFORE = """
-с со два две три четыре пять шесть семь восемь девять десять двух трёх четырёх пару несколько
-нескольких много очень супер божья божью божьей
+ветка/веток серф космос
+шторм крыло/крылья/крыльями/крыльях очки/очках/очками джунгли/джунглях
 """
 
 TURKISH = """
@@ -193,6 +184,9 @@ lolipop kruvasan simit ekmek turta krep elma muz portakal çilek kiraz üzüm ka
 armut şeftali avokado havuç domates kabak peynir meyve kahve
 gitar piyano keman çello davul bateri trompet flüt arp saksafon akordeon ukulele ksilofon
 bağlama saz ud tef
+dal uzay gün_batım tek_boynuzlu_at
+kanat
+kutup_ayı
 """
 
 AMHARIC = """

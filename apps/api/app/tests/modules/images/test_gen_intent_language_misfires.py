@@ -1,4 +1,4 @@
-"""Every misfire the five reviews found, and the round-5 and round-6 probes: answered.
+"""Every misfire the six reviews found, and the round-5 to round-7 probes: answered.
 
 A misfire (a picture drawn where the user wanted words) costs a daily picture and the
 answer. ``language_misfires.json`` holds each sentence a review named as drawn wrongly
@@ -6,8 +6,10 @@ answer. ``language_misfires.json`` holds each sentence a review named as drawn w
 Teufel nicht an die Wand", a Docker image…), the reviewers' non-picture probe lines,
 the everyday lines with picture words written for round 5, most of them in a draw-me
 shape ("Dibújame la pirámide alimenticia", "Zeichne mir einen Trainingsplan"), review 5's
-task subjects ("Dibújame un cuadro comparativo", "Нарисуй мне сказку на ночь"), and round
-6's blind set and its drawable heads with task words ("un volcán con sus partes").
+task subjects ("Dibújame un cuadro comparativo", "Нарисуй мне сказку на ночь"), round
+6's blind set and its drawable heads with task words ("un volcán con sus partes"), review
+6's listed nouns beside a format, a data structure or a second request ("un gato en
+ASCII", "un árbol binario", "un perro y sugiéreme nombres"), and round 7's blind set.
 """
 
 from __future__ import annotations
@@ -32,8 +34,8 @@ MISFIRES = [
 
 def test_every_review_is_here() -> None:
     reviews = {group.split(" (")[0] for group in _GROUPS}
-    assert {"review 1", "review 2", "review 3", "review 4", "review 5"} <= reviews
-    assert len(MISFIRES) >= 1400
+    assert {f"review {n}" for n in range(1, 7)} <= reviews
+    assert len(MISFIRES) >= 1850
 
 
 @pytest.mark.parametrize("text", MISFIRES)

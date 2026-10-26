@@ -5,14 +5,13 @@
 un panda?", "Bana bir panda çizer misin?", "Crea una imagen de un león" draw. "Dibuja un
 gato", "Illustra il problema" and "Mal den Teufel nicht an die Wand" are answered in
 words, as on main: a picture there could be homework, an idiom or a plan. The shapes are
-``gen_intent_languages.py``; what a subject may be of is ``gen_intent_drawable.py``, and
-what it may not hold anywhere is ``gen_intent_topics.py``.
+``gen_intent_languages.py``; what a subject may hold is ``gen_intent_drawable.py``.
 
 The subject must be short and plain: at most six words, no digits, units or maths signs,
-a head noun on the language's list of drawable things, no word the topic lists block,
-and nothing pointing back ("eso", "das nochmal": no revisions here). When in doubt,
-nothing is drawn. Matching is linear token scans, as in ``gen_intent``: no ``\\s+`` /
-``.+`` regex on user chat text.
+every word a listed drawable noun, plain descriptor or function word ("un gato negro en
+la playa", not "un gato en ASCII" or "un árbol binario"), and nothing pointing back
+("eso", "das nochmal": no revisions here). When in doubt, nothing is drawn. Matching is
+linear token scans, as in ``gen_intent``: no ``\\s+`` / ``.+`` regex on user chat text.
 """
 
 from __future__ import annotations
@@ -24,7 +23,6 @@ from dataclasses import dataclass
 from app.modules.chemistry.request import extract_compound_name
 from app.modules.images.gen_intent_drawable import is_entry, names_drawable
 from app.modules.images.gen_intent_languages import ALSO, ARTICLES, LANGUAGES, Language, Shape
-from app.modules.images.gen_intent_topics import TOPICS
 
 _WORDS = re.compile(r"\S+")
 # Punctuation around a word, Spanish "¿¡", French and German quotes, Ethiopic stops.
@@ -127,7 +125,7 @@ def _span(lang: Language, words: list[str]) -> tuple[int, int, Shape] | None:
 
 def _plain(lang: Language, words: list[str], typed: list[str]) -> bool:
     """A short, plain subject: a new thing ("un dragón", not "la pirámide" or "eso" the
-    chat would have to name), no maths, a listed head noun, no blocked topic."""
+    chat would have to name), no maths, and only listed words."""
     if not 1 <= len(words) <= _MAX_SUBJECT_WORDS:
         return False
     if any(char.isdigit() or char in _MATHS_MARKS for word in typed for char in word):
@@ -140,7 +138,7 @@ def _plain(lang: Language, words: list[str], typed: list[str]) -> bool:
         return False
     if any(phrase_at(lang.again, words, i) for i in range(len(words))):
         return False
-    return names_drawable(lang.code, words, typed) and not TOPICS[lang.code].names_one(words)
+    return names_drawable(lang.code, words)
 
 
 def _read(lang: Language, text: str, tokens: list[Token]) -> str | None:

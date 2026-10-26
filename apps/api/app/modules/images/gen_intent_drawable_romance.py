@@ -1,9 +1,9 @@
 """What a picture asked in Spanish, French, Italian or Portuguese may be of.
 
-``gen_intent_drawable`` reads these. A subject draws only when its head noun (the first
-noun after the article: "un gato con sombrero", "une jolie maison") is one of these
-concrete things: animals, people and roles, creatures, objects, vehicles, buildings and
-places, nature and weather, food, plants, sky, toys and instruments.
+``gen_intent_drawable`` reads these. A subject draws only when each of its nouns ("un
+gato con sombrero en la playa") is one of these concrete things: animals, people and
+roles, creatures, objects, vehicles, buildings and places, nature and weather, food,
+plants, sky, toys and instruments. Its other words are ``gen_intent_drawable_words``.
 
 Left out on purpose, even where they could be drawn: tables, plans, maps, charts,
 diagrams, stories, letters, cells, hearts, skeletons, pyramids, systems, cycles, the
@@ -71,16 +71,8 @@ frutilla+s cereza+s uva+s sandía+s piña+s limón/limones pera+s melocotón/mel
 durazno+s aguacate+s palta+s zanahoria+s tomate+s calabaza+s queso+s fruta+s café+s
 guitarra+s piano+s violín/violines violonchelo+s chelo+s tambor+es trompeta+s flauta+s arpa+s
 saxofón/saxofones acordeón/acordeones ukelele+s xilófono+s pandereta+s
-"""
-
-# Said before the head noun: "my", a size, a look, a number ("un pequeño gato", "dos perros").
-SPANISH_BEFORE = """
-mi mis unos unas dos tres cuatro cinco seis siete ocho nueve diez varios varias muchos muchas
-muy súper super mini pequeño pequeña pequeños pequeñas pequeñito pequeñita gran grande grandes
-bonito bonita bonitos bonitas lindo linda lindos lindas hermoso hermosa hermosos hermosas
-precioso preciosa bello bella viejo vieja viejos viejas nuevo nueva enorme enormes gigantesco
-gigantesca adorable tierno tierna simpático simpática gracioso graciosa feroz misterioso
-misteriosa majestuoso majestuosa antiguo antigua mágico mágica valiente
+roca+s rama+s espacio
+ala+s
 """
 
 FRENCH = """
@@ -135,14 +127,8 @@ crêpe+s pomme+s banane+s orange+s fraise+s cerise+s raisin+s pastèque+s ananas
 pêche+s avocat+s carotte+s tomate+s citrouille+s fromage+s fruit+s café+s
 guitare+s piano+s violon+s violoncelle+s tambour+s trompette+s flûte+s harpe+s saxophone+s
 accordéon+s ukulélé+s xylophone+s tambourin+s
-"""
-
-FRENCH_BEFORE = """
-mon ma mes deux trois quatre cinq six sept huit neuf dix plusieurs quelques très super mini petit
-petite
-petits petites grand grande grands grandes beau bel belle beaux belles joli jolie jolis jolies
-vieux vieil vieille vieilles jeune jeunes gros grosse bon bonne mignon mignonne énorme énormes
-immense immenses gigantesque magnifique superbe adorable drôle nouveau nouvel nouvelle
+branche+s espace coucher_du_soleil
+aile+s tempête+s
 """
 
 ITALIAN = """
@@ -219,15 +205,8 @@ limone/limoni pera/pere pesca/pesche avocado carota/carote pomodoro/pomodori zuc
 formaggio/formaggi frutta caffè
 chitarra/chitarre pianoforte violino/violini violoncello tamburo/tamburi tromba/trombe
 flauto/flauti arpa/arpe sassofono/sassofoni fisarmonica/fisarmoniche ukulele xilofono
-"""
-
-ITALIAN_BEFORE = """
-mio mia miei mie due tre quattro cinque sei sette otto nove dieci alcuni alcune tanti tante molto
-super mini
-piccolo piccola piccoli piccole grande grandi gran bel bello bella belli belle bei vecchio
-vecchia giovane nuovo nuova enorme gigantesco gigantesca grosso grossa buon buono buona
-adorabile simpatico simpatica magnifico magnifica splendido splendida strano strana
-misterioso misteriosa antico antica magico magica
+ramo/rami spazio orso_polare/orsi_polari
+ala/ali barca_a_vela
 """
 
 PORTUGUESE = """
@@ -284,13 +263,6 @@ torta+s panqueca+s maçã+s banana+s laranja+s morango+s cereja+s uva+s melancia
 limão/limões pera+s pêssego+s abacate+s cenoura+s tomate+s abóbora+s queijo+s fruta+s café+s
 violão/violões guitarra+s piano+s violino+s violoncelo+s tambor+es trompete+s flauta+s harpa+s
 saxofone+s acordeão/acordeões sanfona+s ukulele+s xilofone+s pandeiro+s
-"""
-
-PORTUGUESE_BEFORE = """
-meu minha meus minhas dois duas três quatro cinco seis sete oito nove dez alguns algumas vários
-várias muito super
-mini pequeno pequena pequenos pequenas grande grandes belo bela lindo linda lindos lindas
-bonito bonita velho velha novo nova enorme gigante gigantesco gigantesca fofo fofa adorável
-simpático simpática magnífico magnífica estranho estranha misterioso misteriosa antigo antiga
-mágico mágica
+galho+s espaço areia
+asa+s
 """
