@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getDeviceLocationLabel } from "@/lib/deviceLocation";
 import { canUseDeviceLocation } from "@/lib/expoRuntime";
 import { useDataControls } from "@/features/account/hooks/useDataControls";
+import { accountDeleteFailureKey } from "@/lib/accountDelete";
 import { api, withdrawAiDataSharing } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/errorBody";
 import { invalidateChatListCache } from "@/features/chat/model/chatListCache";
@@ -79,8 +80,8 @@ export default function DataControlsScreen() {
       if (outcome === "deleted") {
         notifyDestructive();
         router.replace("/login");
-      } else if (outcome === "failed") {
-        reportRecoverableError(feedback, t("settings.delete_failed"));
+      } else if (outcome === "failed" || outcome === "unavailable") {
+        reportRecoverableError(feedback, t(accountDeleteFailureKey(outcome)));
       }
     });
   };

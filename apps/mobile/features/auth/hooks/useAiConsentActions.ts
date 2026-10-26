@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAccountDelete } from "@/hooks/useAccountDelete";
+import { accountDeleteFailureKey } from "@/lib/accountDelete";
 import { agreeToAiDataSharing } from "@/lib/api";
 import { writeCachedUser } from "@/lib/cachedUser";
 import { tap } from "@/lib/haptics";
@@ -72,7 +73,9 @@ export function useAiConsentActions() {
     const outcome = await deleteAndSignOut();
     busyRef.current = false;
     setBusy(null);
-    if (outcome === "failed") reportRecoverableError(feedback, t("settings.delete_failed"));
+    if (outcome === "failed" || outcome === "unavailable") {
+      reportRecoverableError(feedback, t(accountDeleteFailureKey(outcome)));
+    }
   }, [deleteAndSignOut, feedback, t]);
 
   return { busy, agree, decline, deleteAccount };
