@@ -85,6 +85,57 @@ def test_spend_cap_refusal_has_its_own_code():
     assert payload == {"type": "error", "code": "spend_cap", "message": "Paused today."}
 
 
+def _turn_failures() -> list[BaseException]:
+    from app.exceptions import (
+        AttachmentValidationError,
+        ChatBusyError,
+        ChatNotFoundError,
+        ChatServiceError,
+        ConsentRequiredError,
+        QuotaExceededError,
+        RedisUnavailableError,
+        SpendCapReachedError,
+        TurnRefusedError,
+        UnknownModelOverrideError,
+    )
+    from app.gateways.litellm_gateway import ModelUnavailableError
+
+    return [
+        QuotaExceededError("Out of messages."),
+        RedisUnavailableError(),
+        ChatBusyError(),
+        AttachmentValidationError("Too big."),
+        UnknownModelOverrideError("x"),
+        SpendCapReachedError("Paused today."),
+        ConsentRequiredError(),
+        TurnRefusedError("No more pictures.", code="daily_limit"),
+        ModelUnavailableError("Model down."),
+        ChatNotFoundError("Chat not found."),
+        ChatServiceError("Could not generate image"),
+        RuntimeError("boom"),
+    ]
+
+
+@pytest.mark.parametrize("exc", _turn_failures(), ids=lambda exc: type(exc).__name__)
+def test_every_turn_error_frame_names_a_code(exc: BaseException) -> None:
+    """The phone words a frame by its code. A chat gone, an image service failure and
+    any unexpected error named none, and the phone showed their English."""
+    payload = stream_events.error_payload_for_exception(exc)
+    assert payload["code"]
+    assert payload["message"]
+
+
+def test_a_failure_with_no_exception_is_failed_unless_it_says_otherwise() -> None:
+    assert stream_events.turn_error_payload(None, user_message_saved=False)["code"] == "failed"
+    restart = stream_events.turn_error_payload(
+        None,
+        user_message_saved=False,
+        message=stream_events.SERVER_RESTARTING_MESSAGE,
+        code=stream_events.SERVER_RESTARTING_CODE,
+    )
+    assert restart["code"] == "server_restarting"
+
+
 @pytest.mark.parametrize("saved", [True, False])
 def test_turn_error_payload_says_whether_the_user_message_saved(saved: bool):
     from app.exceptions import ChatBusyError
@@ -99,6 +150,7 @@ def test_turn_error_payload_says_whether_the_user_message_saved(saved: bool):
         None, user_message_saved=saved, message=stream_events.REPLY_SAVE_FAILED_MESSAGE
     ) == {
         "type": "error",
+        "code": "failed",
         "message": stream_events.REPLY_SAVE_FAILED_MESSAGE,
         "user_message_saved": saved,
     }
@@ -113,6 +165,8 @@ def test_turn_error_payload_says_whether_the_user_message_saved(saved: bool):
             "failed",
             {
                 "type": "error",
+                # Coded: the phone showed the English.
+                "code": "reply_not_saved",
                 "message": stream_events.REPLY_SAVE_FAILED_MESSAGE,
                 "user_message_saved": True,
             },

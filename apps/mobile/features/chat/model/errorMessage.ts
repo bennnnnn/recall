@@ -18,6 +18,17 @@ export function refusalCode(code: string | undefined, feature: unknown): string 
   return code === "daily_limit" && feature === "image_generation" ? "image_daily_limit" : code;
 }
 
+/**
+ * A turn that failed for no reason the user can act on (the chat or its message gone, an
+ * image service failure, anything unexpected), a deploy, a reply that did not save.
+ */
+const TURN_FAILURE_KEYS: Readonly<Record<string, string>> = {
+  failed: "chat.error_generic",
+  not_found: "chat.error_generic",
+  server_restarting: "chat.server_restarting",
+  reply_not_saved: "chat.reply_not_saved",
+};
+
 export type ResolvedChatError = {
   kind: ChatErrorKind;
   message: string;
@@ -53,6 +64,9 @@ export function resolveChatError(options: {
   if (options.code === "rate_limited") {
     return { kind: "generic", message: options.t("chat.rate_limited") };
   }
+  // The turn's own failures (modules/chat/stream_events.py): their English showed.
+  const ownKey = TURN_FAILURE_KEYS[options.code ?? ""];
+  if (ownKey) return { kind: "generic", message: options.t(ownKey) };
   if (options.code === "image_daily_limit") {
     // A free plan can buy more pictures; a paid one waits for tomorrow.
     return options.isPaid

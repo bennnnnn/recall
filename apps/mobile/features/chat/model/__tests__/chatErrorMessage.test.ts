@@ -70,6 +70,19 @@ describe("chatErrorMessage", () => {
     ).toEqual({ kind: "generic", message: "common.service_unavailable" });
   });
 
+  // The turn's own failure frames (modules/chat/stream_events.py) named no code, and their
+  // English showed: "Something went wrong. Try again.", "Chat not found.", "The server is
+  // restarting. Send again in a moment.", "Failed to save the response. Please retry."
+  it.each([
+    ["failed", "Something went wrong. Try again.", "chat.error_generic"],
+    ["failed", "Could not generate image", "chat.error_generic"],
+    ["not_found", "Chat not found.", "chat.error_generic"],
+    ["server_restarting", "The server is restarting. Send again in a moment.", "chat.server_restarting"],
+    ["reply_not_saved", "Failed to save the response. Please retry.", "chat.reply_not_saved"],
+  ])("words the turn's %s frame in the phone's language", (code, english, key) => {
+    expect(resolveChatError({ message: english, code, isPaid: false, t })).toEqual({ kind: "generic", message: key });
+  });
+
   it("falls back for an empty message", () => {
     expect(resolveChatError({ message: "", isPaid: false, t })).toEqual({
       kind: "generic",

@@ -70,6 +70,7 @@ def test_websocket_turns_on_another_users_chat_are_refused(
         for frames in (sent, regenerated):
             assert frames[-1] == {
                 "type": "error",
+                "code": "not_found",
                 "message": "Chat not found.",
                 "user_message_saved": False,
             }, frames

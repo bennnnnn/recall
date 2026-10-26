@@ -216,6 +216,7 @@
   "chat.scroll_to_latest": "Aller aux derniers messages",
   "chat.send_a11y": "Envoyer le message",
   "chat.send_rejected": "Le message n’a pas été envoyé. Patientez un instant, puis réessayez.",
+  "chat.server_restarting": "Recall redémarre. Renvoyez dans un instant.",
   "chat.sending": "Envoi",
   "chat.share": "Partager",
   "chat.share_failed": "Impossible de partager ce chat.",

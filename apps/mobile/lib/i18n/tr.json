@@ -216,6 +216,7 @@
   "chat.scroll_to_latest": "En son mesajlara git",
   "chat.send_a11y": "Mesaj gönder",
   "chat.send_rejected": "Mesaj gönderilmedi. Biraz bekleyip tekrar deneyin.",
+  "chat.server_restarting": "Recall yeniden başlatılıyor. Biraz sonra tekrar gönderin.",
   "chat.sending": "Gönderiliyor",
   "chat.share": "Paylaş",
   "chat.share_failed": "Bu sohbet paylaşılamadı.",

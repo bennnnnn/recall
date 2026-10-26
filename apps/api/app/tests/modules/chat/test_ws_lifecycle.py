@@ -166,8 +166,10 @@ def test_ws_refuses_a_new_turn_once_the_server_is_stopping(monkeypatch) -> None:
             _auth(ws, user_id, settings)
             ws.send_json({"type": "message", "content": "hi"})
             error = ws.receive_json()
+    # Coded: a Regenerate refused during a deploy showed the English.
     assert error == {
         "type": "error",
+        "code": "server_restarting",
         "message": SERVER_RESTARTING_MESSAGE,
         "user_message_saved": False,
     }
@@ -300,6 +302,11 @@ async def test_sse_refuses_a_new_turn_once_the_server_is_stopping(monkeypatch):
         )
     ]
     assert [json.loads(chunk.removeprefix("data: ")) for chunk in chunks] == [
-        {"type": "error", "message": SERVER_RESTARTING_MESSAGE, "user_message_saved": False}
+        {
+            "type": "error",
+            "code": "server_restarting",
+            "message": SERVER_RESTARTING_MESSAGE,
+            "user_message_saved": False,
+        }
     ]
     factory.assert_not_called()

@@ -28,7 +28,6 @@ from app.modules.chat.client_message import UNNAMED, ClientMessageClaim, claim_c
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
-    SERVER_RESTARTING_MESSAGE,
     TURN_KEEPALIVE_SECONDS,
     StreamEndEvent,
     await_finalize_commit,
@@ -42,6 +41,7 @@ from app.modules.chat.stream_events import (
     finish_open_stream,
     persist_finalize_if_pending,
     pop_finalize_tasks,
+    restarting_payload,
     settled_turn_event,
     take_related_prompts_event,
     turn_error_payload,
@@ -137,9 +137,7 @@ async def _claim_turn(claim_message: _ClaimMessage | None) -> ClientMessageClaim
     """
     if shutdown.stopping():
         # A turn begun now would be stopped before its first token.
-        return _sse(
-            turn_error_payload(None, user_message_saved=False, message=SERVER_RESTARTING_MESSAGE)
-        )
+        return _sse(restarting_payload(user_message_saved=False))
     try:
         claim = UNNAMED if claim_message is None else await claim_message()
     except RedisUnavailableError as unavailable:
@@ -270,13 +268,7 @@ async def _turn_sse_lines(
                 return
             # The server stopped the turn; the client is still here to be told.
             if outcome.message_id is None:
-                yield _sse(
-                    turn_error_payload(
-                        None,
-                        user_message_saved=outcome.user_message_saved,
-                        message=SERVER_RESTARTING_MESSAGE,
-                    )
-                )
+                yield _sse(restarting_payload(user_message_saved=outcome.user_message_saved))
                 return
 
         await _until_done(producer)
