@@ -10,6 +10,8 @@ one too.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from redis.asyncio import Redis
 
 from app.core.aio import gather_or_cancel
@@ -57,7 +59,7 @@ async def money_turn(
             last_reply=last_reply,
         )
         if turn is not None:
-            return turn
+            return replace(turn, multi=plan.multi)
     return await prepare_standing_turn(
         request.content,
         settings,

@@ -2,13 +2,15 @@
 
 The ``calculator`` fence is the server's: one the model wrote is dropped on every turn,
 and a money turn gets the one ``modules/money`` builds, with today's average when the
-lookup that started with the turn found one. A stopped reply adds nothing.
+lookup that started with the turn found one. A reply in English that contradicts the card
+is replaced by the server's own (``money/agreement``). A stopped reply adds nothing.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app.modules import todos as todos_service
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.money.service import MoneyTurn, finish_money_reply
 from app.services.md_fence_scan import strip_closed_fences
@@ -26,6 +28,8 @@ async def attach_money_card(state: FinalizeState) -> str:
     turn = state.ctx.money
     if not isinstance(turn, MoneyTurn) or state.was_cancelled or state.user_stopped:
         return text
-    text = await finish_money_reply(turn, text, state.settings)
+    asked = state.ctx.user_message_content or ""
+    english = todos_service.message_language(asked) is None
+    text = await finish_money_reply(turn, text, state.settings, english=english, asked=asked)
     state.committed = fallback_text(text, server_text=state.server_text)
     return text

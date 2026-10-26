@@ -1902,7 +1902,7 @@
    ],
    [
     "assistant",
-    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**. Want me to break down how the payment is worked out?"
    ]
   ],
   "reply": "The payment uses the standard amortization formula on the $340,000 loan.",
@@ -1936,7 +1936,7 @@
  {
   "id": "mo-117",
   "area": "money standing",
-  "prompt": "can I afford that on 90k a year?",
+  "prompt": "can I afford that payment on 90k a year?",
   "history": [
    [
     "user",
@@ -2131,6 +2131,147 @@
    ]
   ],
   "reply": "Here is a four-week plan.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-125",
+  "area": "money standing lookalike",
+  "prompt": "how many years did WW2 last?",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ]
+  ],
+  "reply": "World War II lasted about six years, from 1939 to 1945.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-126",
+  "area": "money standing lookalike",
+  "prompt": "how many months until christmas?",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ]
+  ],
+  "reply": "Christmas is about two months away.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-127",
+  "area": "money standing lookalike",
+  "prompt": "what's the cost of a trip to Paris?",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ]
+  ],
+  "reply": "A week in Paris often runs $2,000 to $4,000 with flights.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-128",
+  "area": "money standing lookalike",
+  "prompt": "Yes",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ],
+   [
+    "user",
+    "remind me to call the bank"
+   ],
+   [
+    "assistant",
+    "Want me to set a reminder for Friday at 9?"
+   ]
+  ],
+  "reply": "Done, tap the card to save it.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-129",
+  "area": "money standing lookalike",
+  "prompt": "Yes",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ],
+   [
+    "user",
+    "60k at 6 percent"
+   ],
+   [
+    "assistant",
+    "Your monthly payment on a $340,000 mortgage at 6% over 30 years would be **$2,038.47**."
+   ],
+   [
+    "user",
+    "help me write to my landlord"
+   ],
+   [
+    "assistant",
+    "Should I draft an email to your landlord?"
+   ]
+  ],
+  "reply": "Here is a draft.",
   "expect": "answer"
  }
 ]

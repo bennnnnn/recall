@@ -4,16 +4,17 @@ Live (2026-10-25): "House buying for 400k" then "60k at 6 percent" (card: 340,00
 30 years, $2,038.47 a month), then "How", "Yes" and "Yes", the last taking the reply's
 offer of a 15-year comparison. No line after the card was a money request, so the model
 worked the 15-year loan itself: $2,921.00 a month and $185,780.00 interest, where the loan
-costs $2,869.11 and $176,440.06.
+costs $2,869.11 and $176,440.38.
 
 While the chat's last money request stands in the user's recent lines
-(``follow_up.standing_request``) and this message is about it (``about_the_loan``: money
-words, or a short "yes" / "how" after a reply about the loan), the model reads the loan's
-figures at its own term and the common others (``block.standing_block``). Prompts do not
-hold, so ``correct_figures`` then reads the reply: a sum written to the cent that misses
-the loan's figure at a term the reply names by a few percent is that figure, worked wrong,
-and is put right. Every other number stays as written, and a reply that names another
-rate is left alone: its figures are for a loan the app did not work.
+(``follow_up.standing_request``) and this message is about that loan (``about_the_loan``),
+the model reads the loan's figures at its own term and the common others
+(``block.standing_block``). A message is about the loan when it names the loan's own
+subject (its payment, interest, rate, term, "the loan", "the mortgage", a term with a
+number) or asks for its maths, or when it is a short "yes" / "how" right after a reply
+whose last sentence offered something about the loan. The reply's own sums are never
+rewritten: a review (2026-10-26) found a nearness test turned rent, budgets, other
+principals and totals with taxes into the loan's figures.
 """
 
 from __future__ import annotations
@@ -22,9 +23,7 @@ import re
 from dataclasses import dataclass
 
 from app.modules.money.catalog import Product
-from app.modules.money.read import MoneyRequest
-from app.modules.money.solve import Worked, output_value, rate_name
-from app.services.md_fence_scan import line_fences
+from app.modules.money.solve import Worked, output_value
 
 # The terms a reply about a loan most often compares, by product; the rest are the card's.
 COMMON_TERMS: dict[str, tuple[float, ...]] = {
@@ -35,43 +34,30 @@ COMMON_TERMS: dict[str, tuple[float, ...]] = {
     "loan": (3, 5, 10),
     "savings": (5, 10, 20, 30),
 }
-_MONEY_WORDS = re.compile(
-    r"\b(?:pay(?:ment|ments|ing|off)?|interest|rates?|aprs?|apy|terms?|loans?|mortgages?"
-    r"|monthly|afford\w*|years?|yrs?|months?|down\s?payment|compar\w*|refinanc\w*|principal"
-    r"|amorti[sz]\w*|cheaper|totals?|borrow\w*|owe|costs?)\b|[%$€£¥₹₦]",
+# The loan's own subject: its payment, interest, rate or term, the loan by name, or its maths.
+_LOAN_SUBJECT = re.compile(
+    r"\b(?:monthly\s+)?payments?\b|\binterest\b|\b(?:interest\s+)?rates?\b|\baprs?\b"
+    r"|\bterms?\b|\b(?:the|this|that|my|our)\s+(?:loan|mortgage|car\s+loan|home\s+loan)\b"
+    r"|\bmortgages?\b|\bcar\s+loans?\b|\b\d{1,2}[\s-]?(?:years?|yrs?)\b|\b\d{1,3}[\s-]?months?\b"
+    r"|\bshow\s(?:me\s)?(?:the\s)?(?:math|maths|working|steps|calculation)\b"
+    r"|\bhow\sdid\syou\s(?:get|work\sout|calculate)\b",
     re.IGNORECASE,
-)
-# A reply about the loan: what makes a bare "yes" or "how" about it too.
-_LOAN_TALK = re.compile(
-    r"\b(?:payments?|interest|loans?|mortgages?|aprs?|borrow\w*|principal)\b", re.IGNORECASE
 )
 _SHORT = re.compile(
     r"^\W*(?:(?:yes|yeah|yep|yup|sure|ok(?:ay)?|please|go\sahead|do\sit|do\sthat|sounds\sgood"
-    r"|let'?s\sdo\sit|show\sme|how|why|explain|how\sso|really|go\son|continue)\W*){1,3}"
-    r"(?:(?:please|thanks|thank\syou)\W*)?$"
-    r"|^\W*(?:how\sdid\syou\s(?:get|work\sout|calculate)|show\s(?:me\s)?(?:the\s)?"
-    r"(?:math|maths|working|steps|calculation)|explain\s(?:that|it|this|the\smath))\b[^.!?\n]*\W*$",
+    r"|let'?s\sdo\sit|show\sme|how|why|how\sso|go\son)\W*){1,3}"
+    r"(?:(?:please|thanks|thank\syou)\W*)?$",
     re.IGNORECASE,
 )
-# A sum written to the cent: "2,921.00", "2{,}921.00" in LaTeX, "185780.00".
-_CENTS = re.compile(r"(?<![\d.^])(\d{1,3}(?:(?:,|\{,\})\d{3})+|\d+)\.(\d{2})(?![\d%])")
-_PERCENT = re.compile(r"(\d+(?:\.\d+)?)\s?(?:\\?%|percent\b)", re.IGNORECASE)
-_YEARS = re.compile(r"\b(\d{1,2})[\s-]?(?:years?|yrs?)\b", re.IGNORECASE)
-_MONTHS = re.compile(r"\b(\d{1,3})[\s-]?months?\b", re.IGNORECASE)
-# A sum the reply names as what is borrowed or bought: "a $350,000 loan", "borrow 30k". One
-# that is not this loan's makes the reply's figures another loan's.
-_AMOUNT_NAMED = re.compile(
-    r"(?:\b(?:borrow(?:ing|ed)?|loan\s+of|price\s+of|principal\s+of|financ(?:e|ing))\s+\$?\s?"
-    r"(?P<a>\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?\s?(?P<ak>k\b)?)"
-    r"|(?:\$?\s?(?P<b>\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?\s?(?P<bk>k\b)?\s+"
-    r"(?:\w+\s+){0,2}(?:loan|mortgage|house|home|condo|car|truck|price|principal)\b)",
+# The last sentence of a reply that offers more about the loan: "If you'd like, I can also
+# show how a 15-year term changes the monthly payment".
+_OFFER = re.compile(r"\b(?:want|like|can|could|shall|should|happy\sto)\b", re.IGNORECASE)
+_OFFER_ABOUT = re.compile(
+    r"\b(?:term|payments?|interest|breakdown|math|maths|calculation|comparison|compare"
+    r"|amorti[sz]\w*|loan|mortgage|refinanc\w*)\b",
     re.IGNORECASE,
 )
-# How far a sum may miss a figure and still be that figure worked wrong.
-_NEAR = 0.06
-# A sum within this of a figure is that figure, rounded another way.
-_ROUNDING = 1.0
-_SMALLEST = 50.0
+_SENTENCES = re.compile(r"(?<=[.!?])\s+|\n+")
 
 
 @dataclass(frozen=True)
@@ -83,13 +69,21 @@ class Figures:
 
 
 def about_the_loan(text: str, last_reply: str) -> bool:
-    """``text`` is about the money the chat is discussing: it has money words, or it is a
-    short "yes" / "how" / "show me the math" after a reply about a loan."""
+    """``text`` is about the loan the chat is discussing: it names the loan's own subject or
+    asks for its maths, or it is a short "yes" / "how" taking the last reply's offer about it."""
     if not text or len(text) > 600:
         return False
-    if _MONEY_WORDS.search(text):
+    if _LOAN_SUBJECT.search(text):
         return True
-    return bool(_SHORT.match(text.strip()) and _LOAN_TALK.search(last_reply or ""))
+    return bool(_SHORT.match(text.strip()) and _offers_about_the_loan(last_reply))
+
+
+def _offers_about_the_loan(reply: str) -> bool:
+    sentences = [part.strip() for part in _SENTENCES.split(reply or "") if part.strip()]
+    if not sentences:
+        return False
+    last = sentences[-1]
+    return bool(_OFFER.search(last) and _OFFER_ABOUT.search(last))
 
 
 def term_name(product: Product) -> str | None:
@@ -113,60 +107,3 @@ def figures(worked: Worked) -> Figures | None:
         by_term[term] = {key: value for key, value in outputs.items() if value is not None}
         term += step
     return Figures(name, by_term)
-
-
-def correct_figures(text: str, request: MoneyRequest, worked: Worked) -> str:
-    """``text`` with each sum to the cent that misses one of the loan's figures put right."""
-    grid = figures(worked)
-    if grid is None or not _CENTS.search(text):
-        return text
-    rate = worked.values[rate_name(worked.product)]
-    owners = line_fences(text)
-    lines = text.split("\n")
-    prose = "\n".join(line for line, owner in zip(lines, owners, strict=True) if owner is None)
-    if any(abs(float(found) - rate) > 1e-6 for found in _PERCENT.findall(prose)):
-        return text
-    known = {round(value, 2) for value in (*worked.values.values(), request.price, request.down)
-             if value is not None}  # fmt: skip
-    if _names_another_amount(prose, known):
-        return text
-    terms = {worked.values[grid.term_name], *_named_terms(prose, grid.term_name)}
-    named = [grid.by_term[term] for term in terms if term in grid.by_term]
-    candidates = sorted({round(value, 2) for outputs in named for value in outputs.values()})
-    for index, line in enumerate(lines):
-        if owners[index] is None:
-            lines[index] = _CENTS.sub(lambda m: _put_right(m, candidates, known), line)
-    return "\n".join(lines)
-
-
-def _names_another_amount(prose: str, known: set[float]) -> bool:
-    for found in _AMOUNT_NAMED.finditer(prose):
-        digits = found.group("a") or found.group("b")
-        scale = 1_000 if (found.group("ak") or found.group("bk")) else 1
-        value = float(digits.replace(",", "")) * scale
-        if value >= 1_000 and round(value, 2) not in known:
-            return True
-    return False
-
-
-def _named_terms(prose: str, name: str) -> set[float]:
-    """The terms ``prose`` names, in the loan's own unit: "15-year" and "180 months"."""
-    years = [float(found) for found in _YEARS.findall(prose)]
-    months = [float(found) for found in _MONTHS.findall(prose)]
-    if name == "years":
-        return {*years, *(count / 12 for count in months if count % 12 == 0)}
-    return {*months, *(count * 12 for count in years)}
-
-
-def _put_right(match: re.Match[str], candidates: list[float], known: set[float]) -> str:
-    written = match.group(0)
-    value = float(match.group(1).replace("{,}", "").replace(",", "") + "." + match.group(2))
-    if value < _SMALLEST or round(value, 2) in known:
-        return written
-    if any(abs(value - figure) <= _ROUNDING for figure in candidates):
-        return written
-    near = [figure for figure in candidates if abs(value - figure) <= _NEAR * figure]
-    if len(near) != 1:
-        return written
-    separator = "{,}" if "{,}" in written else ","
-    return f"{near[0]:,.2f}".replace(",", separator)
