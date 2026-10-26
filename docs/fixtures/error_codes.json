@@ -272,6 +272,13 @@
    "message": "Image generation is temporarily unavailable. Try again later."
   }
  },
+ "image_upstream_failed": {
+  "status": 502,
+  "detail": {
+   "code": "upstream_failed",
+   "message": "Could not generate image"
+  }
+ },
  "sign_in_rate_limited": {
   "status": 429,
   "detail": {

@@ -257,6 +257,8 @@ def _generate(code: str) -> Any:
         "spend_cap": ImageGenerationError(
             IMAGE_GENERATION_SPEND_CAP_MESSAGE, status_code=429, code="spend_cap"
         ),
+        # The image service failed (generation.py's 502s): the code is the status's.
+        "upstream_failed": ImageGenerationError("Could not generate image", status_code=502),
     }
     with (
         patch(
@@ -497,6 +499,7 @@ def _bodies() -> dict[str, dict[str, Any]]:
         "image_daily_limit": _refusal(_generate("daily_limit")),
         "image_content_blocked": _refusal(_generate("content_blocked")),
         "image_spend_cap": _refusal(_generate("spend_cap")),
+        "image_upstream_failed": _refusal(_generate("upstream_failed")),
         **_sign_in_bodies(),
     }
 
