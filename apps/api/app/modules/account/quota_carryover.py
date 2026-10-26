@@ -8,8 +8,11 @@ Account delete stores what the account had used in one Redis key per sign-in
 identity, ``quota_carry:<HMAC-SHA256(jwt_secret, "google:<sub>")>``: never the
 raw provider subject, never the user id (so the account's Redis sweep, which
 deletes every key naming the user id, leaves it). It expires when the UTC
-month ends. When sign-in creates a new user for that identity, the new
-account's counters are raised to the stored ones and the key is deleted.
+month ends. When sign-in creates a new user for that identity, or links the
+identity to the existing account that holds its email (``service._link_identity``),
+that account's counters are raised to the stored ones and the key is deleted. A
+link was left out: delete an Apple account, sign in with Apple to the Google
+account on the same address, and the day started again from zero.
 
 Both sides fail closed. A delete whose counters cannot be stored is refused with
 ``RedisUnavailableError`` (503 ``unavailable``), before anything is undone, and the phone
@@ -96,12 +99,14 @@ async def restore_for_new_account(
     provider: str,
     sub: str,
 ) -> str | None:
-    """Raise a just-created, not yet committed account's counters to its identity's snapshot.
+    """Raise the counters of an account that just gained this identity (made for it, or
+    linked to it by email), not yet committed, to the identity's snapshot. Raise-only.
 
     Returns the snapshot's key for ``drop_restored`` once the account commits, or None when
     there is none: one GET, the common case. Raises ``RedisUnavailableError`` when the
-    snapshot cannot be read or applied, so sign-in refuses and makes no account (the next
-    sign-in would find the account and never restore). The snapshot stays for the retry.
+    snapshot cannot be read or applied, so sign-in refuses and saves neither account nor
+    link (the next sign-in would find the identity and never restore). The snapshot stays
+    for the retry.
     """
     key = carry_key(settings, provider, sub)
     try:

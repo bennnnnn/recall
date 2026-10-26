@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import user_cache
 from app.core.config import Settings
 from app.core.validation import claim_is_true, normalize_display_name
 from app.exceptions import AuthenticationError
@@ -93,13 +94,58 @@ async def _create_account(
         avatar_url=avatar_url,
         commit=False,
     )
-    restored = await quota_carryover.restore_for_new_account(
-        redis, settings, user.id, provider=provider, sub=sub
-    )
-    await session.commit()
+    await _commit_with_carried_usage(session, redis, settings, user, provider=provider, sub=sub)
+    return user
+
+
+async def _link_identity(
+    session: AsyncSession,
+    redis: Redis,
+    settings: Settings,
+    user: User,
+    *,
+    provider: str,
+    sub: str,
+) -> User:
+    """Add a sign-in identity to the account that holds its email, with its carried counters.
+
+    The identity may be one whose account was deleted today: its snapshot raises this
+    account's counters as it would a new account's, so deleting an Apple account and then
+    signing in with Apple to the Google account on the same address starts nothing over.
+    Once: the next sign-in finds the identity on the account and never comes here.
+    """
+    field = "google_sub" if provider == "google" else "apple_sub"
+    user = await users_repo.update(session, user, commit=False, **{field: sub})
+    await _commit_with_carried_usage(session, redis, settings, user, provider=provider, sub=sub)
+    await user_cache.publish_change(user.id)
+    return user
+
+
+async def _commit_with_carried_usage(
+    session: AsyncSession,
+    redis: Redis,
+    settings: Settings,
+    user: User,
+    *,
+    provider: str,
+    sub: str,
+) -> None:
+    """Commit the account that just gained this identity, after raising its counters to the
+    identity's carried snapshot (raise-only, ``quota_carryover``), then drop the snapshot.
+
+    A restore Redis refuses rolls the account or link back, so the sign-in answers 503
+    ``sign_in_unavailable`` and its retry restores.
+    """
+    try:
+        restored = await quota_carryover.restore_for_new_account(
+            redis, settings, user.id, provider=provider, sub=sub
+        )
+        await session.commit()
+    except BaseException:
+        await session.rollback()
+        raise
     if restored is not None:
         await quota_carryover.drop_restored(redis, restored)
-    return user
 
 
 async def login_with_google(
@@ -130,7 +176,9 @@ async def login_with_google(
         if existing is not None:
             if existing.google_sub or not google_owns_email(payload, email):
                 raise AccountExistsError(previous_sign_in(existing, "google"))
-            user = await users_repo.update(session, existing, google_sub=google_sub)
+            user = await _link_identity(
+                session, redis, settings, existing, provider="google", sub=google_sub
+            )
             is_new_user = False
 
     if user is None:
@@ -217,7 +265,9 @@ async def login_with_apple(
         if existing is not None:
             if existing.apple_sub or not apple_owns_email(payload, email):
                 raise AccountExistsError(previous_sign_in(existing, "apple"))
-            user = await users_repo.update(session, existing, apple_sub=apple_sub)
+            user = await _link_identity(
+                session, redis, settings, existing, provider="apple", sub=apple_sub
+            )
             is_new_user = False
 
     if user is None:
