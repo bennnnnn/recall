@@ -104,7 +104,11 @@ def test_ws_handshake_over_its_limit_is_refused_1008() -> None:
 
 def test_ws_connect_over_its_limit_says_too_many_requests() -> None:
     received = _connect("connect", down=False, frame=None)
-    assert received[0] == {"type": "error", "message": "Too many requests. Try again shortly."}
+    assert received[0] == {
+        "type": "error",
+        "code": "rate_limited",
+        "message": "Too many requests. Try again shortly.",
+    }
     assert received[1] != 1013
 
 
@@ -118,8 +122,10 @@ def test_ws_message_over_its_limit_says_too_many_requests_and_stays_open() -> No
         refused = socket.receive_json()
         socket.send_json({"type": "ping"})
         pong = socket.receive_json()
+    # Coded, as the SSE route's 429 is: a Regenerate over the limit showed the English.
     assert refused == {
         "type": "error",
+        "code": "rate_limited",
         "message": "Too many requests. Try again shortly.",
         "user_message_saved": False,
     }

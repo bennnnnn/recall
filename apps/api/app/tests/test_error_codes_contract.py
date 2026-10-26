@@ -390,6 +390,16 @@ def _over_the_limit() -> Any:
         return _client(_user()).get("/todos/page", headers=_AUTH)
 
 
+def _chat_over_its_limit() -> Any:
+    """A Regenerate past the chat stream's own per-user limit (``require_chat_rate_limit``)."""
+    # The limit's own counter says no (core.rate_limit), so the route's real check runs.
+    with (
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+        patch("app.core.rate_limit.allow_request", AsyncMock(return_value=False)),
+    ):
+        return _client(_user()).post(f"/chats/{uuid4()}/regenerate/stream", headers=_AUTH, json={})
+
+
 def _bodies() -> dict[str, dict[str, Any]]:
     too_big = base64.b64encode(b"\xff" * (SCAN_MAX_IMAGE_BYTES + 1)).decode()
     with (
@@ -409,6 +419,8 @@ def _bodies() -> dict[str, dict[str, Any]]:
     return {
         "service_unavailable": _refusal(_outage()),
         "rate_limited": _refusal(_over_the_limit()),
+        # The chat stream's own limit over its minute answers the same code.
+        "chat_rate_limited": _refusal(_chat_over_its_limit()),
         "consent_required": _refusal(consent),
         "account_exists": _refusal(exists),
         "scan_not_available": _refusal(

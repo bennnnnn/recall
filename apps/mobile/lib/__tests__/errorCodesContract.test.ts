@@ -199,10 +199,10 @@ it("words a chat turn the API could not serve", () => {
     .toEqual({ kind: "generic", message: "common.service_unavailable" });
 });
 
-// The request limiter's 429 named no code: a refused Regenerate said "Couldn't reach the
-// server" (chatTurnState's refusalReport), and its English would have shown once coded.
-it("words a chat turn over the request limit", () => {
-  const error = refused("rate_limited");
+// Each 429 named no code: a refused Regenerate said "Couldn't reach the server"
+// (chatTurnState's refusalReport). The request limiter's and the chat stream's own.
+it.each(["rate_limited", "chat_rate_limited"])("words a chat turn over a limit: %s", (name) => {
+  const error = refused(name);
   expect(resolveChatError({ message: error.detail, code: error.code ?? undefined, isPaid: false, t }))
     .toEqual({ kind: "generic", message: "chat.rate_limited" });
 });

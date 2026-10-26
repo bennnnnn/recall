@@ -15,11 +15,9 @@ from app.core.domain_errors import domain_error_response
 from app.core.rate_limit import allow_request
 from app.core.redis import get_redis_client
 from app.core.unavailable import unavailable_response
-from app.exceptions import DomainError
+from app.exceptions import RateLimitedError
 
 logger = logging.getLogger(__name__)
-
-RATE_LIMITED_CODE = "rate_limited"
 
 # Refresh and Google/Apple sign-in have their own limits, per account or identity and per IP
 # (modules/account/refresh_limit.py, signin_limit.py), each IP limit checked before any costly
@@ -78,11 +76,6 @@ class RestRateLimitMiddleware(BaseHTTPMiddleware):
             # named no code: a chat read it as "Couldn't reach the server", dev login as
             # the generic sign-in failure.
             return domain_error_response(
-                DomainError(
-                    "Too many requests. Please slow down.",
-                    status_code=429,
-                    code=RATE_LIMITED_CODE,
-                    headers={"Retry-After": "60"},
-                )
+                RateLimitedError("Too many requests. Please slow down.", retry_after_seconds=60)
             )
         return await call_next(request)

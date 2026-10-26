@@ -60,7 +60,7 @@ LIMITS: dict[str, _Limit] = {
         send=lambda c: c.post(
             f"/chats/{_CHAT_ID}/messages/stream", headers=_AUTH, json={"content": "hi"}
         ),
-        over="Too many chat requests. Try again shortly.",
+        over="rate_limited",
     ),
     "dictation": _Limit(
         send=lambda c: c.post(

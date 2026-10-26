@@ -91,6 +91,7 @@ def test_ws_rate_limited_message_is_unsaved() -> None:
             _auth(ws, user_id, settings)
             ws.send_json({"type": "message", "content": "hi"})
             error = ws.receive_json()
+    assert error["code"] == "rate_limited"
     assert error["message"] == "Too many requests. Try again shortly."
     assert error["user_message_saved"] is False
 
