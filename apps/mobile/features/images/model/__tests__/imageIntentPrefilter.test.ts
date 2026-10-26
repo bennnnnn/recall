@@ -107,6 +107,8 @@ describe("image intent prefilter", () => {
     "Нарисуй кошку в шляпе",
     "Şapkalı bir kedi çiz",
     "ድመት ሳልልኝ",
+    "Mal mir eine Katze mit Hut",
+    "Создай арт с котом",
   ])("asks the server about a picture asked in another language: %j", (text) => {
     expect(mightBeImageTurn(text, [], false)).toBe(true);
   });

@@ -28,9 +28,10 @@ const IMAGE_WORDS =
  */
 const OTHER_LANGUAGE_WORDS = new RegExp(
   "(?:^|[^a-z0-9_])(?:" +
-    "dibuj|pint|ilustr|retrat|foto|dessin|pein|illustr|zeichn|male|bild|gemälde|porträt|" +
+    "dibuj|pint|ilustr|retrat|foto|dessin|pein|illustr|zeichn|male|mal(?![a-zäöüß])|bild|" +
+    "gemälde|porträt|" +
     "disegn|dipin|immagin|ritratt|desenh|çiz|resim|resm|görsel|görüntü|illüstr|portre|" +
-    "нарис|изобра|картин|рисун|иллюстр|портрет|фото|" +
+    "нарис|изобра|картин|рисун|иллюстр|портрет|фото|арт(?![а-яё])|" +
     "ሳል|ሣል|ሳይ|ሣይ|ሳሉ|ሣሉ|ምስል|ስዕል|ሥዕል|ስእል|ፎቶ)",
 );
 /** With an image attached, these start an edit of it ("crop it", "turn it into…"). */
