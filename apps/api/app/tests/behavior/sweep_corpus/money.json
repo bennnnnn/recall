@@ -990,5 +990,225 @@
   ],
   "reply": "Over 36 months the payment is about $608.44 a month.",
   "expect": "answer"
+ },
+ {
+  "id": "mo-069",
+  "area": "money",
+  "prompt": "20k with 6 percent",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ]
+  ],
+  "reply": "A $20,000 car loan at 6% over 60 months is about $386.66 a month, with about $3,199.36 in interest.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-070",
+  "area": "money",
+  "prompt": "60k down at 6 percent",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ]
+  ],
+  "reply": "With $60,000 down you borrow $340,000: about $2,038.47 a month over 30 years.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-071",
+  "area": "money",
+  "prompt": "what if 3 years instead",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "About $386.66 a month over 60 months."
+   ]
+  ],
+  "reply": "Over 36 months the payment is about $608.44 a month, with about $1,903.80 in interest.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-072",
+  "area": "money declined",
+  "prompt": "60k at 6 percent",
+  "history": [
+   [
+    "user",
+    "House buying for 400k"
+   ],
+   [
+    "assistant",
+    "Congrats! How much are you putting down, and what rate have you been quoted?"
+   ]
+  ],
+  "reply": "Is the $60,000 your down payment or the amount you want to borrow?",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-073",
+  "area": "money declined",
+  "prompt": "Down payment 3k",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ],
+   [
+    "user",
+    "20k with 6 percent"
+   ],
+   [
+    "assistant",
+    "About $386.66 a month over 60 months."
+   ]
+  ],
+  "reply": "With $3,000 down you borrow $17,000: about $328.66 a month over 60 months.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-074",
+  "area": "money lookalike",
+  "prompt": "20k with 6 percent was a good deal?",
+  "history": [
+   [
+    "user",
+    "I bought a car last week."
+   ],
+   [
+    "assistant",
+    "Congrats on the new car! How are you liking it?"
+   ]
+  ],
+  "reply": "6% is close to today's average for a new car loan, so it was a fair deal.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-075",
+  "area": "money lookalike",
+  "prompt": "20k steps with 6 percent incline",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ]
+  ],
+  "reply": "That's a solid walk: 20k steps at a 6% incline burns far more than walking on the flat.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-076",
+  "area": "money lookalike",
+  "prompt": "my car does 20k miles a year",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ]
+  ],
+  "reply": "At 20k miles a year, a reliable hybrid will save you the most on fuel.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-077",
+  "area": "money lookalike",
+  "prompt": "20k with 6 percent",
+  "history": [
+   [
+    "user",
+    "buy a house in minecraft"
+   ],
+   [
+    "assistant",
+    "Find a village and trade emeralds with a villager, or build your own."
+   ]
+  ],
+  "reply": "Minecraft houses don't take loans: you trade emeralds or build one yourself.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-078",
+  "area": "money lookalike",
+  "prompt": "20k with 6 percent growth for 3 years",
+  "history": [
+   [
+    "user",
+    "I am planing to buy a car"
+   ],
+   [
+    "assistant",
+    "Nice! Are you looking at new or used, and what's your budget?"
+   ]
+  ],
+  "reply": "At 6% growth a year, 20k becomes about $23,820 after 3 years.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-079",
+  "area": "money lookalike",
+  "prompt": "I make 60k with 6 percent raise",
+  "history": [
+   [
+    "user",
+    "I'm planning to buy a house"
+   ],
+   [
+    "assistant",
+    "Exciting! What's your price range?"
+   ]
+  ],
+  "reply": "On $60,000 a 6% raise is $3,600 a year more, about $300 a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-080",
+  "area": "money declined",
+  "prompt": "20k at 6%",
+  "history": [
+   [
+    "user",
+    "I'm planning to buy a car. What should I check first?"
+   ],
+   [
+    "assistant",
+    "Check reliability ratings, insurance costs and the total price, not just the monthly payment."
+   ]
+  ],
+  "reply": "A $20,000 car loan at 6% over 60 months is about $386.66 a month.",
+  "expect": "answer"
  }
 ]
