@@ -66,6 +66,42 @@ async def _signed_in(
     )
 
 
+async def _create_account(
+    session: AsyncSession,
+    redis: Redis,
+    settings: Settings,
+    *,
+    provider: str,
+    sub: str,
+    email: str,
+    name: str | None,
+    avatar_url: str | None,
+) -> User:
+    """A new account, committed only once its sign-in's carried counters are restored.
+
+    A restore Redis refuses raises ``RedisUnavailableError`` before the commit, so the
+    sign-in answers 503 ``sign_in_unavailable`` with no account made, and the retry
+    restores (``quota_carryover``). Committed first, the retry found the account and the
+    deleted one's limits were gone.
+    """
+    user = await users_repo.create(
+        session,
+        google_sub=sub if provider == "google" else None,
+        apple_sub=sub if provider == "apple" else None,
+        email=email,
+        name=name,
+        avatar_url=avatar_url,
+        commit=False,
+    )
+    restored = await quota_carryover.restore_for_new_account(
+        redis, settings, user.id, provider=provider, sub=sub
+    )
+    await session.commit()
+    if restored is not None:
+        await quota_carryover.drop_restored(redis, restored)
+    return user
+
+
 async def login_with_google(
     session: AsyncSession,
     settings: Settings,
@@ -104,15 +140,15 @@ async def login_with_google(
                 "has a verified email, or use Apple Sign-In.",
                 code="google_email_missing",
             )
-        user = await users_repo.create(
+        user = await _create_account(
             session,
-            google_sub=google_sub,
+            redis,
+            settings,
+            provider="google",
+            sub=google_sub,
             email=email,
             name=name,
             avatar_url=avatar_url,
-        )
-        await quota_carryover.restore_for_new_account(
-            redis, settings, user.id, provider="google", sub=google_sub
         )
     else:
         # Decide against the current locked row: a profile save may have
@@ -191,15 +227,15 @@ async def login_with_apple(
                 "and sign in again, or use Google Sign-In.",
                 code="apple_email_missing",
             )
-        user = await users_repo.create(
+        user = await _create_account(
             session,
-            apple_sub=apple_sub,
+            redis,
+            settings,
+            provider="apple",
+            sub=apple_sub,
             email=email,
             name=name,
             avatar_url=None,
-        )
-        await quota_carryover.restore_for_new_account(
-            redis, settings, user.id, provider="apple", sub=apple_sub
         )
     else:
         if name:
@@ -242,15 +278,15 @@ async def login_dev(
     user = await users_repo.get_by_google_sub(session, google_sub)
     is_new_user = user is None
     if user is None:
-        user = await users_repo.create(
+        user = await _create_account(
             session,
-            google_sub=google_sub,
+            redis,
+            settings,
+            provider="google",
+            sub=google_sub,
             email=email,
             name=name,
             avatar_url=None,
-        )
-        await quota_carryover.restore_for_new_account(
-            redis, settings, user.id, provider="google", sub=google_sub
         )
     elif name and user.name != name:
         # Keep dev re-login in step with Google/Apple, which refresh the name

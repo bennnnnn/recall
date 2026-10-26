@@ -57,7 +57,10 @@ async def create(
     avatar_url: str | None,
     google_sub: str | None = None,
     apple_sub: str | None = None,
+    commit: bool = True,
 ) -> User:
+    """A new user row. With ``commit=False`` it is flushed (its id is set) and the
+    caller commits."""
     if not google_sub and not apple_sub:
         raise ValueError("google_sub or apple_sub is required")
     user = User(
@@ -68,7 +71,10 @@ async def create(
         avatar_url=avatar_url,
     )
     session.add(user)
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     await session.refresh(user)
     return user
 
