@@ -38,6 +38,7 @@ from app.modules.chat.prompt_constants.coding import (
     CODE_EXPLAIN_HINT,
     CODE_RUN_HINT,
 )
+from app.modules.chat.prompt_constants.conversation import CONFIRMED_HINT
 from app.modules.chat.prompt_constants.multi_part import MULTI_PART_MARKER
 from app.modules.chat.prompt_constants.reply_missed import REPLY_MISSED_HINT
 from app.modules.chat.prompt_constants.shared_numbers import SHARED_NUMBERS_HINT
@@ -96,6 +97,8 @@ HINTS: dict[str, str] = {
     "clarify": pc.CLARIFY_CARD_HINT,
     "clarify_picks": CLARIFY_PICKS_HINT,
     "clarify_unanswered": CLARIFY_UNANSWERED_HINT,
+    # "Yes" to the last reply's request to confirm something: it is confirmed.
+    "confirmed": CONFIRMED_HINT,
     # Any money turn; its reply rules; asking for the rate; no checked average for "rates now".
     "money": MONEY_HEADER,
     "money_reply": MONEY_REPLY_RULES,
