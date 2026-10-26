@@ -53,14 +53,14 @@ from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.tool_loop.selection import _search_before_the_model
 from app.modules.chat.turn_deps import default_deps
-from app.modules.chat.turn_intercepts import _chemistry_draws_it, reply_picture_prompt
+from app.modules.chat.turn_intercepts import _chemistry_draws_it, reply_picture_part
 from app.modules.chat.turn_prep.context import (
     build_stream_prompt_context,
     stream_context_from_bundle,
 )
 from app.modules.chat.turn_prep.mode import classify_turn_mode
 from app.modules.chat.turn_prep.request import TurnRequest
-from app.modules.images.gen_intent import stem_subject_claims
+from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.intent import image_gen_request
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
 from app.modules.money.block import (
@@ -484,7 +484,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         picture=bool(
             not photo
             and not image_gen
-            and reply_picture_prompt(text, settings)
+            and extract_image_gen_prompt(reply_picture_part(text, settings) or "")
             and settings.image_generation_enabled
             and can_use(user, "image_generation", settings)
         ),

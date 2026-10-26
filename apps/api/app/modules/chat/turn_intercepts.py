@@ -314,19 +314,13 @@ async def try_image_lookup_for_turn(
     return True
 
 
-def _picture_part(content: str, settings: Settings) -> str | None:
+def reply_picture_part(content: str, settings: Settings) -> str | None:
     """The picture request of a multi-part message, in the user's words, if it has one."""
     from app.modules.chat.turn_prep.intents import plan_turn
 
     plan = plan_turn(content, chemistry_enabled=settings.chemistry_enabled)
     asked = plan.of_kind("image") if plan.multi else ()
     return request_body(asked[0].text) if asked else None
-
-
-def reply_picture_prompt(content: str, settings: Settings) -> str | None:
-    """What to draw for the picture part of a multi-part message, if it has one."""
-    part = _picture_part(content, settings)
-    return extract_image_gen_prompt(part) if part else None
 
 
 def start_reply_picture(
@@ -337,7 +331,7 @@ def start_reply_picture(
     "Draw a cat wearing a hat and also explain what a black hole is": the intercept
     above declines the whole line, so the model answers the rest while this draws.
     """
-    part = _picture_part(content, settings)
+    part = reply_picture_part(content, settings)
     prompt = extract_image_gen_prompt(part) if part else None
     if not part or not prompt:
         return None

@@ -15,8 +15,9 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import User
-from app.modules.chat.turn_intercepts import reply_picture_prompt, start_reply_picture
+from app.modules.chat.turn_intercepts import reply_picture_part, start_reply_picture
 from app.modules.chat.turn_prep.intents import plan_turn
+from app.modules.images.gen_intent import extract_image_gen_prompt
 from app.tests.modules.images.test_gen_intent_languages import DRAWN
 
 # The picture, then "… and also explain what a black hole is" in the same language.
@@ -59,6 +60,14 @@ NATIVE = [
     ),
     ("am", "ድመት ሳልልኝ እንዲሁም ጥቁር ቀዳዳ ምን እንደሆነ አስረዳኝ", "ድመት"),
 ]
+
+
+def _drawn_part(text: str) -> str | None:
+    """What the picture part of ``text`` draws, as ``start_reply_picture`` reads it."""
+    part = reply_picture_part(text, Settings())
+    return extract_image_gen_prompt(part) if part else None
+
+
 # One drawn request per language, for the English question after it.
 FIRST_DRAWN = [(lang, *cases[0]) for lang, cases in DRAWN.items()]
 
@@ -67,7 +76,7 @@ FIRST_DRAWN = [(lang, *cases[0]) for lang, cases in DRAWN.items()]
 def test_a_picture_and_a_question_plan_as_two_parts(lang: str, text: str, subject: str) -> None:
     plan = plan_turn(text)
     assert [part.kind for part in plan.parts] == ["image", "ask"], lang
-    assert reply_picture_prompt(text, Settings()) == subject
+    assert _drawn_part(text) == subject
 
 
 @pytest.mark.parametrize(("lang", "text", "subject"), FIRST_DRAWN)
@@ -76,7 +85,7 @@ def test_the_picture_part_reads_before_an_english_question(
 ) -> None:
     """The owner's measurement: "<X> and also explain what a black hole is"."""
     message = f"{text} and also explain what a black hole is"
-    assert reply_picture_prompt(message, Settings()) == subject, lang
+    assert _drawn_part(message) == subject, lang
 
 
 @pytest.mark.parametrize(
@@ -92,7 +101,7 @@ def test_the_picture_part_reads_before_an_english_question(
 )
 def test_no_picture_part_for_a_table_a_graph_or_a_bare_draw(text: str) -> None:
     assert not plan_turn(text).of_kind("image")
-    assert reply_picture_prompt(text, Settings()) is None
+    assert _drawn_part(text) is None
 
 
 # How the not-drawn line under the answer starts, in each language.
@@ -164,4 +173,4 @@ def test_the_picture_starts_beside_the_answer_with_its_line_in_the_message_langu
 def test_a_picture_asked_second_plans_after_the_answer(lang: str, text: str, subject: str) -> None:
     plan = plan_turn(text)
     assert [part.kind for part in plan.parts] == ["ask", "image"], lang
-    assert reply_picture_prompt(text, Settings()) == subject
+    assert _drawn_part(text) == subject
