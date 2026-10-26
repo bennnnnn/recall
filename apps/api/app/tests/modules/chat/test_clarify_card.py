@@ -442,3 +442,28 @@ def test_but_follows_options_left_after_the_ask_goes() -> None:
     settled = settle_clarify_cards(text, allowed=True)
 
     assert settled.startswith("A house is a **big** purchase, so let me ask.\n\n**But let me")
+
+
+def test_a_bare_json_card_is_put_in_its_fence() -> None:
+    body = _card_body(_PRIORITY)
+    text = f"It depends on your goal.\n\n🎯 **What's the main goal?**\n\n{body}"
+
+    settled = settle_clarify_cards(text, allowed=True)
+
+    assert settled.endswith("```")
+    assert "\n```clarify\n" in settled
+    assert settled.count('"questions"') == 1
+    assert read_card(settled.split("```clarify\n")[1].rsplit("```", 1)[0]) is not None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # JSON the user asked for, and a card already in code, stay as they are.
+        'Here is the object:\n\n{"questions": [1, 2], "answer": 3}',
+        '```python\nx = {"request": 1, "questions": [], "submit": 2}\n```',
+        "Plain prose only.",
+    ],
+)
+def test_other_json_is_not_a_card(text: str) -> None:
+    assert settle_clarify_cards(text, allowed=True) == text

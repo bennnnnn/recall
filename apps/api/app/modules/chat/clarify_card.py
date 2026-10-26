@@ -24,7 +24,7 @@ from pydantic import (
     model_validator,
 )
 
-from app.services.md_fence_scan import Fence, iter_fences
+from app.services.md_fence_scan import Fence, iter_fences, line_fences
 
 logger = logging.getLogger(__name__)
 
@@ -213,8 +213,12 @@ def _holds_a_card(text: str, fence: Fence) -> bool:
         return True
     if fence.lang not in ("json", ""):
         return False
+    return _is_card_json(text[fence.body_start : fence.body_end])
+
+
+def _is_card_json(body: str) -> bool:
     try:
-        raw = json.loads(text[fence.body_start : fence.body_end])
+        raw = json.loads(body)
     except ValueError:
         return False
     return (
@@ -290,6 +294,32 @@ def _without_ask_note(start: list[str]) -> list[str]:
     return start[:last]
 
 
+def _fence_bare_cards(text: str) -> str:
+    """A card written as a bare JSON paragraph, outside any fence, put in its fence.
+
+    The phone showed the raw JSON of one (live, 2026-10-25: "🎯 **What's the main goal
+    for this money?**" then ``{"request": …}`` with no fence)."""
+    if '"questions"' not in text:
+        return text
+    lines = text.split("\n")
+    owners = line_fences(text)
+    out: list[str] = []
+    index = 0
+    while index < len(lines):
+        end = index
+        if owners[index] is None and lines[index].lstrip().startswith("{"):
+            while end < len(lines) and owners[end] is None and lines[end].strip():
+                end += 1
+            block = "\n".join(lines[index:end]).strip()
+            if block.endswith("}") and _is_card_json(block):
+                out += [f"```{CLARIFY_FENCE}", block, "```"]
+                index = end
+                continue
+        out.append(lines[index])
+        index += 1
+    return "\n".join(out)
+
+
 def settle_clarify_cards(text: str, *, allowed: bool, after_card: bool = False) -> str:
     """At most one valid card, last in the reply; none when the turn may not ask.
 
@@ -297,6 +327,7 @@ def settle_clarify_cards(text: str, *, allowed: bool, after_card: bool = False) 
     its questions as prose, so the user still knows what to answer. The turn after a
     card (``after_card``) keeps no questions at all: the user already answered.
     """
+    text = _fence_bare_cards(text)
     fences = [fence for fence in iter_fences(text) if _holds_a_card(text, fence)]
     if not fences:
         return text
