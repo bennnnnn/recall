@@ -819,6 +819,31 @@ CASES: tuple[Case, ...] = (
         pro=True,
     ),
     Case(
+        "image-gen-draw-me-same-topic-en",
+        "photos and maps",
+        "Draw me a dog and tell me about dog breeds",
+        Expect(image_gen=True, photo=NO_PHOTO),
+        "A dog picture of the whole line, as on main: the plan keeps one request when "
+        "both halves are about dogs (round 6).",
+        pro=True,
+    ),
+    Case(
+        "image-gen-not-listed-es",
+        "photos and maps",
+        "Dibújame un cuadro comparativo entre iPhone y Android",
+        Expect(image_gen=False, photo=NO_PHOTO),
+        "A comparison in words: 'cuadro' is no listed drawable thing (round 6).",
+        pro=True,
+    ),
+    Case(
+        "image-gen-parts-fr",
+        "photos and maps",
+        "Dessine-moi un volcan avec ses parties",
+        Expect(image_gen=False, photo=NO_PHOTO),
+        "A labelled school figure, answered in words: 'parties' asks for the parts (round 6).",
+        pro=True,
+    ),
+    Case(
         "image-gen-squirrel-ru",
         "photos and maps",
         "Нарисуй белку с орехом",
