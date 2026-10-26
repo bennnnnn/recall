@@ -1,11 +1,11 @@
-# ruff: noqa: RUF001 - the line is written in the app's languages (Turkish dotless i, Cyrillic)
 """A picture drawn above an answer, for a message that asks for one among other things.
 
 "Draw a cat wearing a hat and also explain what a black hole is" used to get
 nothing: the intercept that draws a picture takes a whole turn and declined the
 compound line, so neither the picture nor the explanation came back clearly. Now
 the picture is drawn while the model answers the rest, and the finished reply
-carries both: the picture above the text, or one line saying why it could not.
+carries both: the picture above the text, or one line saying why it could not, in
+the app's language (``reply_picture_lines``).
 
 Drawing is generation's own: the same plan check, daily slot, storage and spend
 cap (``generation``); only the rows differ. The picture is stored unlinked and the
@@ -20,11 +20,12 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.core.validation import normalize_locale_code
 from app.models.orm import User
 from app.modules.attachments import service as attachments_service
 from app.modules.attachments.markers import image_marker
+from app.modules.billing import is_paid
 from app.modules.images import generation
+from app.modules.images.reply_picture_lines import Reason, not_drawn_line, reason_for_code
 from app.services import quota as quota_service
 
 logger = logging.getLogger(__name__)
@@ -32,37 +33,6 @@ logger = logging.getLogger(__name__)
 # A picture takes 10-40 s; the answer usually streams in less. The provider's own
 # limit (120 s) is longer, so a reply never waits on a stuck call past this.
 _WAIT_SECONDS = 90.0
-_NOT_MADE = "I couldn't draw the picture ({subject}) this time: {reason}"
-_TOO_SLOW = "the picture took too long. Ask for it again on its own."
-_FAILED = "something went wrong. Ask for it again on its own."
-# The day's spend cap (``generation``'s ``spend_cap``, or drawing switched off): the whole
-# line in the app's language, as the To-do line is (``todos.chat_language``). Its English
-# showed under a reply in any language.
-_PAUSED = {
-    "en": "I couldn't draw the picture ({subject}) this time: "
-    "Image generation is temporarily unavailable. Try again later.",
-    "es": "Esta vez no pude dibujar la imagen ({subject}): "
-    "la generación de imágenes no está disponible temporalmente. Inténtalo más tarde.",
-    "fr": "Je n'ai pas pu dessiner l'image ({subject}) cette fois : "
-    "la génération d'images est temporairement indisponible. Réessayez plus tard.",
-    "de": "Das Bild ({subject}) konnte ich diesmal nicht zeichnen: "
-    "Die Bilderstellung ist vorübergehend nicht verfügbar. Versuche es später erneut.",
-    "it": "Questa volta non sono riuscito a disegnare l'immagine ({subject}): "
-    "la generazione di immagini non è temporaneamente disponibile. Riprova più tardi.",
-    "pt": "Desta vez não consegui desenhar a imagem ({subject}): "
-    "a geração de imagens está temporariamente indisponível. Tente novamente mais tarde.",
-    "tr": "Bu sefer resmi ({subject}) çizemedim: "
-    "görsel oluşturma geçici olarak kullanılamıyor. Daha sonra tekrar deneyin.",
-    "ru": "В этот раз не удалось нарисовать картинку ({subject}): "
-    "создание изображений временно недоступно. Попробуйте позже.",
-    "am": "ምስሉን ({subject}) በዚህ ጊዜ መሳል አልቻልኩም፦ ምስል መፍጠር ለጊዜው አይገኝም። ቆይተው እንደገና ይሞክሩ።",
-}
-
-
-def paused_note(subject: str, locale: str | None) -> str:
-    """The line for a picture the spend cap stopped, in ``locale`` (English otherwise)."""
-    line = _PAUSED.get(normalize_locale_code(locale), _PAUSED["en"])
-    return line.format(subject=subject)
 
 
 async def draw_unlinked(settings: Settings, *, user: User, chat_id: UUID, prompt: str) -> UUID:
@@ -114,62 +84,58 @@ class ReplyPicture:
         subject: str,
         *,
         task: asyncio.Task[UUID] | None,
-        refusal: str = "",
+        refusal: Reason | None = None,
         locale: str | None = None,
-        paused: bool = False,
+        paid: bool = False,
     ) -> None:
         self.subject = subject
         self._task = task
         self._refusal = refusal
         self._locale = locale
-        self._paused = paused
+        self._paid = paid
 
     @classmethod
-    def start(cls, settings: Settings, *, user: User, chat_id: UUID, prompt: str) -> ReplyPicture:
+    def start(
+        cls,
+        settings: Settings,
+        *,
+        user: User,
+        chat_id: UUID,
+        prompt: str,
+        language: str | None = None,
+    ) -> ReplyPicture:
+        """Start drawing; a line saying why not is in ``language`` (else the app's)."""
         task = asyncio.create_task(
             draw_unlinked(settings, user=user, chat_id=chat_id, prompt=prompt),
             name="reply_picture",
         )
-        return cls(prompt, task=task, locale=user.locale)
+        return cls(prompt, task=task, locale=language or user.locale, paid=is_paid(user))
 
     @classmethod
-    def refused(cls, subject: str, reason: str) -> ReplyPicture:
-        """The picture cannot be drawn (the plan): the reply says so in one line."""
-        return cls(subject, task=None, refusal=reason)
-
-    @classmethod
-    def paused_for(cls, subject: str, locale: str | None) -> ReplyPicture:
-        """Drawing is switched off: the spend cap's line, in the app's language."""
-        return cls(subject, task=None, locale=locale, paused=True)
+    def refused(cls, subject: str, code: str, locale: str | None) -> ReplyPicture:
+        """The picture cannot be drawn (the plan, drawing off): one line, by generation's code."""
+        return cls(subject, task=None, refusal=reason_for_code(code), locale=locale)
 
     async def attach(self, text: str) -> tuple[str, list[UUID]]:
         """The reply with the picture above it, and its id; or the reply and why not."""
         if self._task is None:
-            if self._paused:
-                return self._with_line(text, paused_note(self.subject, self._locale)), []
-            return self._with_note(text, self._refusal), []
+            return self._with_note(text, self._refusal or "failed"), []
         try:
             picture = await asyncio.wait_for(asyncio.shield(self._task), timeout=_WAIT_SECONDS)
         except TimeoutError:
             # A picture finished after the reply saved stays unlinked; the reaper removes it.
             logger.info("Reply picture took too long; the reply goes without it")
-            return self._with_note(text, _TOO_SLOW), []
+            return self._with_note(text, "too_slow"), []
         except generation.ImageGenerationError as exc:
-            if exc.code == "spend_cap":
-                return self._with_line(text, paused_note(self.subject, self._locale)), []
-            return self._with_note(text, exc.detail), []
+            # By its code: the refusal's English (or a provider's words) never goes in.
+            return self._with_note(text, reason_for_code(exc.code)), []
         except Exception:
             logger.exception("Reply picture failed")
-            return self._with_note(text, _FAILED), []
+            return self._with_note(text, "failed"), []
         return f"{image_marker(picture)}\n\n{text.lstrip()}", [picture]
 
-    def _with_note(self, text: str, reason: str) -> str:
-        return self._with_line(
-            text, _NOT_MADE.format(subject=self.subject, reason=reason.rstrip(".") + ".")
-        )
-
-    @staticmethod
-    def _with_line(text: str, line: str) -> str:
+    def _with_note(self, text: str, reason: Reason) -> str:
+        line = not_drawn_line(reason, self.subject, self._locale, paid=self._paid)
         return f"{text.rstrip()}\n\n{line}".strip()
 
     def cancel(self) -> None:

@@ -19,11 +19,13 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules.chat.finalize_parts import add_settings_card, attach_reply_picture
 from app.modules.chat.finalize_passes import FinalizeState
+from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_intercepts import start_reply_picture
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.turn_prep.instant import resolve_instant_reply, settings_card
 from app.modules.chat.turn_prep.intents import plan_turn
+from app.modules.images import reply_picture
 from app.modules.images.generation import ImageGenerationError
 from app.modules.images.reply_picture import ReplyPicture
 
@@ -99,31 +101,100 @@ async def test_the_picture_goes_above_the_answer_and_is_linked() -> None:
     assert state.committed == text
 
 
-@pytest.mark.asyncio
-async def test_a_refused_picture_says_why_in_one_line() -> None:
-    state = _state(
-        "A black hole is...",
-        reply_picture=ReplyPicture.refused("cat wearing a hat", "Upgrade for it."),
-    )
-    text = await attach_reply_picture(state)
-    assert text.startswith("A black hole is...")
-    assert text.endswith(
-        "I couldn't draw the picture (cat wearing a hat) this time: Upgrade for it."
-    )
-    assert state.ctx.answer_photo_ids == []
+_EN = "I couldn't draw the picture (a fox) this time: "
+_DE = "Das Bild (a fox) konnte ich diesmal nicht zeichnen: "
+# Each reason the line can give, how a picture comes to it, and its German and English.
+_NOT_DRAWN = {
+    "not_in_plan": (
+        "Die Bilderstellung ist in deinem Tarif nicht enthalten. Mit einem Upgrade bekommst du sie.",
+        "Image generation isn't part of your plan. Upgrade for it.",
+    ),
+    "daily_limit_free": (
+        "Du hast das heutige Limit für Bilderstellung erreicht. Upgrade für mehr, "
+        "oder versuche es nach Mitternacht UTC erneut.",
+        "You've reached today's image generation limit. "
+        "Upgrade for more — or try again after midnight UTC.",
+    ),
+    "daily_limit_paid": (
+        "Du hast das heutige Limit für Bilderstellung erreicht. "
+        "Versuche es nach Mitternacht UTC erneut.",
+        "You've reached today's image generation limit. Try again after midnight UTC.",
+    ),
+    "content_blocked": (
+        "Dieses Bild kann nicht erstellt werden: "
+        "Es verstößt gegen die Inhaltsregeln des Bilddienstes.",
+        "That picture can't be made: it breaks the image service's content rules.",
+    ),
+    "too_slow": (
+        "Das Bild hat zu lange gedauert. Bitte frag in einer eigenen Nachricht noch einmal danach.",
+        "the picture took too long. Ask for it again on its own.",
+    ),
+    "failed": (
+        "Etwas ist schiefgelaufen. Bitte frag in einer eigenen Nachricht noch einmal danach.",
+        "something went wrong. Ask for it again on its own.",
+    ),
+    "upstream_failed": (
+        "Etwas ist schiefgelaufen. Bitte frag in einer eigenen Nachricht noch einmal danach.",
+        "something went wrong. Ask for it again on its own.",
+    ),
+    "unknown_code": (
+        "Etwas ist schiefgelaufen. Bitte frag in einer eigenen Nachricht noch einmal danach.",
+        "something went wrong. Ask for it again on its own.",
+    ),
+}
+
+
+async def _never() -> UUID:
+    await asyncio.sleep(60)
+    return uuid4()
+
+
+def _picture(case: str, locale: str | None) -> ReplyPicture:
+    """The picture for ``case`` as the turn makes it: refused up front, or failing to draw."""
+    if case == "not_in_plan":
+        return ReplyPicture.refused("a fox", "not_in_plan", locale)
+    errors: dict[str, BaseException] = {
+        # Each with the English (or provider text) that must not reach the reply.
+        "daily_limit_free": ImageGenerationError("Daily cap!", status_code=429, code="daily_limit"),
+        "daily_limit_paid": ImageGenerationError("Daily cap!", status_code=429, code="daily_limit"),
+        "content_blocked": ImageGenerationError(
+            "Blocked!", status_code=422, code="content_blocked"
+        ),
+        "failed": RuntimeError("provider said: 500 Internal Server Error"),
+        "upstream_failed": ImageGenerationError("Could not generate image", status_code=502),
+        "unknown_code": ImageGenerationError("raw provider text {x}", code="some_new_code"),
+    }
+
+    async def draw() -> UUID:
+        if case == "too_slow":
+            return await _never()
+        raise errors[case]
+
+    task = asyncio.ensure_future(draw())
+    if case == "daily_limit_paid":
+        return ReplyPicture("a fox", task=task, locale=locale, paid=True)
+    return ReplyPicture("a fox", task=task, locale=locale)
 
 
 @pytest.mark.asyncio
-async def test_a_failed_picture_says_so_and_links_nothing() -> None:
-    async def fail() -> UUID:
-        raise ImageGenerationError("Daily limit reached", status_code=429)
+@pytest.mark.parametrize("case", list(_NOT_DRAWN))
+@pytest.mark.parametrize("locale", ["de", "de-AT", "en", None, ""])
+async def test_a_picture_not_drawn_says_why_in_the_apps_language(
+    case: str, locale: str | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only the spend cap's line was in the app's language; the rest showed English."""
+    german, english = _NOT_DRAWN[case]
+    line = _DE + german if locale and locale.startswith("de") else _EN + english
+    picture = _picture(case, locale)
+    monkeypatch.setattr(reply_picture, "_WAIT_SECONDS", 0.01)
+    text = await attach_reply_picture(_state_with(picture))
+    picture.cancel()
+    assert text == f"Antwort.\n\n{line}"
+    assert "!" not in text and "provider" not in text and "Could not" not in text
 
-    state = _state(
-        "Answer.", reply_picture=ReplyPicture("a fox", task=asyncio.ensure_future(fail()))
-    )
-    text = await attach_reply_picture(state)
-    assert "I couldn't draw the picture (a fox) this time: Daily limit reached." in text
-    assert state.ctx.answer_photo_ids == []
+
+def _state_with(picture: ReplyPicture) -> FinalizeState:
+    return _state("Antwort.", reply_picture=picture)
 
 
 @pytest.mark.asyncio
@@ -162,7 +233,9 @@ async def test_a_picture_the_spend_cap_stopped_says_so_in_the_apps_language(
     assert state.ctx.answer_photo_ids == []
 
 
-def test_a_picture_with_drawing_off_says_the_caps_line_in_the_apps_language() -> None:
+def test_a_picture_with_drawing_off_says_the_caps_line_in_the_replys_language() -> None:
+    """A German app asked in English gets an English reply, so the line is English too;
+    it was German under the English answer."""
     picture = start_reply_picture(
         _deps(can_use=True),
         Settings(image_generation_enabled=False),
@@ -171,11 +244,30 @@ def test_a_picture_with_drawing_off_says_the_caps_line_in_the_apps_language() ->
         content="draw a cat wearing a hat and also explain what a black hole is",
     )
     assert picture is not None
-    text, ids = asyncio.run(picture.attach("Antwort."))
-    assert text.endswith(
-        "Die Bilderstellung ist vorübergehend nicht verfügbar. Versuche es später erneut."
+    text, ids = asyncio.run(picture.attach("Answer."))
+    assert text == (
+        "Answer.\n\nI couldn't draw the picture (cat wearing a hat) this time: "
+        "Image generation is temporarily unavailable. Try again later."
     )
     assert ids == []
+
+
+@pytest.mark.parametrize(
+    ("message", "locale", "language"),
+    [
+        ("Draw a cat and also explain what a black hole is", "de", "en"),
+        ("Zeichne eine Katze und erkläre mir bitte, was ein schwarzes Loch ist", "en", "de"),
+        ("Нарисуй кошку и объясни чёрную дыру", "en", "ru"),
+        # Nothing plainly one language: the app's.
+        ("cat + black hole", "de", "de"),
+        ("cat + black hole", "pt-BR", "pt"),
+        ("cat + black hole", None, "en"),
+    ],
+)
+def test_line_language_follows_the_message_then_the_app(
+    message: str, locale: str | None, language: str
+) -> None:
+    assert line_language(message, locale) == language
 
 
 @pytest.mark.asyncio
@@ -216,11 +308,36 @@ def test_start_reply_picture_refuses_without_the_plan() -> None:
     picture = start_reply_picture(
         _deps(can_use=False),
         Settings(),
-        user=User(id=uuid4(), plan="pro"),
+        user=User(id=uuid4(), plan="pro", locale="de"),
         chat_id=uuid4(),
         content="draw a cat wearing a hat and also explain what a black hole is",
     )
     assert picture is not None and picture.subject == "cat wearing a hat"
+    text, ids = asyncio.run(picture.attach("Answer."))
+    assert text == (
+        "Answer.\n\nI couldn't draw the picture (cat wearing a hat) this time: "
+        "Image generation isn't part of your plan. Upgrade for it."
+    )
+    assert ids == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("plan", "paid"), [("free", False), ("pro", True)])
+async def test_a_started_picture_knows_the_plan_for_the_daily_limit_line(
+    plan: str, paid: bool
+) -> None:
+    """Only a free plan is offered an upgrade, as ``quota.plan_message`` words it."""
+    drawn = AsyncMock(side_effect=ImageGenerationError("x", status_code=429, code="daily_limit"))
+    with patch("app.modules.images.reply_picture.draw_unlinked", drawn):
+        picture = ReplyPicture.start(
+            Settings(),
+            user=User(id=uuid4(), plan=plan, locale="en"),
+            chat_id=uuid4(),
+            prompt="a fox",
+        )
+        text, _ids = await picture.attach("Answer.")
+    assert text.lower().endswith("try again after midnight utc.")
+    assert ("Upgrade for more" in text) is not paid
 
 
 @pytest.mark.asyncio
