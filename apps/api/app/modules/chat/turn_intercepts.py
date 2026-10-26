@@ -16,6 +16,7 @@ from app.core.sympy_executor import run_sympy
 from app.exceptions import ChatServiceError, SpendCapReachedError, TurnRefusedError
 from app.models.orm import Message, User
 from app.modules.attachments.markers import strip_attachment_from_content
+from app.modules.chat.reply_language import line_language
 from app.modules.chat.stream_status import StreamStatusFn, StreamStatusPhase, clip_status_detail
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -331,11 +332,17 @@ def start_reply_picture(
     prompt = reply_picture_prompt(content, settings)
     if not prompt:
         return None
+    # The line saying why not is in the reply's language, which follows the message. The
+    # picture part is only recognised in English ("draw …"), so a message no language
+    # plainly claims gets an English reply, and an English line under it.
+    language = line_language(content, "en")
     if not settings.image_generation_enabled:
-        return ReplyPicture.refused(prompt, "not_available", user.locale)
+        return ReplyPicture.refused(prompt, "not_available", language)
     if not deps.plan.can_use(user, "image_generation", settings):
-        return ReplyPicture.refused(prompt, "not_in_plan", user.locale)
-    return ReplyPicture.start(settings, user=user, chat_id=chat_id, prompt=prompt)
+        return ReplyPicture.refused(prompt, "not_in_plan", language)
+    return ReplyPicture.start(
+        settings, user=user, chat_id=chat_id, prompt=prompt, language=language
+    )
 
 
 async def intercept_new_turn(

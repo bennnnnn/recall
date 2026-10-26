@@ -95,12 +95,21 @@ class ReplyPicture:
         self._paid = paid
 
     @classmethod
-    def start(cls, settings: Settings, *, user: User, chat_id: UUID, prompt: str) -> ReplyPicture:
+    def start(
+        cls,
+        settings: Settings,
+        *,
+        user: User,
+        chat_id: UUID,
+        prompt: str,
+        language: str | None = None,
+    ) -> ReplyPicture:
+        """Start drawing; a line saying why not is in ``language`` (else the app's)."""
         task = asyncio.create_task(
             draw_unlinked(settings, user=user, chat_id=chat_id, prompt=prompt),
             name="reply_picture",
         )
-        return cls(prompt, task=task, locale=user.locale, paid=is_paid(user))
+        return cls(prompt, task=task, locale=language or user.locale, paid=is_paid(user))
 
     @classmethod
     def refused(cls, subject: str, code: str, locale: str | None) -> ReplyPicture:

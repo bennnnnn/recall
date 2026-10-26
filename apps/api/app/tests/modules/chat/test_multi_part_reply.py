@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.models.orm import User
 from app.modules.chat.finalize_parts import add_settings_card, attach_reply_picture
 from app.modules.chat.finalize_passes import FinalizeState
+from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_intercepts import start_reply_picture
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
@@ -232,7 +233,9 @@ async def test_a_picture_the_spend_cap_stopped_says_so_in_the_apps_language(
     assert state.ctx.answer_photo_ids == []
 
 
-def test_a_picture_with_drawing_off_says_the_caps_line_in_the_apps_language() -> None:
+def test_a_picture_with_drawing_off_says_the_caps_line_in_the_replys_language() -> None:
+    """A German app asked in English gets an English reply, so the line is English too;
+    it was German under the English answer."""
     picture = start_reply_picture(
         _deps(can_use=True),
         Settings(image_generation_enabled=False),
@@ -241,11 +244,30 @@ def test_a_picture_with_drawing_off_says_the_caps_line_in_the_apps_language() ->
         content="draw a cat wearing a hat and also explain what a black hole is",
     )
     assert picture is not None
-    text, ids = asyncio.run(picture.attach("Antwort."))
-    assert text.endswith(
-        "Die Bilderstellung ist vorübergehend nicht verfügbar. Versuche es später erneut."
+    text, ids = asyncio.run(picture.attach("Answer."))
+    assert text == (
+        "Answer.\n\nI couldn't draw the picture (cat wearing a hat) this time: "
+        "Image generation is temporarily unavailable. Try again later."
     )
     assert ids == []
+
+
+@pytest.mark.parametrize(
+    ("message", "locale", "language"),
+    [
+        ("Draw a cat and also explain what a black hole is", "de", "en"),
+        ("Zeichne eine Katze und erkläre mir bitte, was ein schwarzes Loch ist", "en", "de"),
+        ("Нарисуй кошку и объясни чёрную дыру", "en", "ru"),
+        # Nothing plainly one language: the app's.
+        ("cat + black hole", "de", "de"),
+        ("cat + black hole", "pt-BR", "pt"),
+        ("cat + black hole", None, "en"),
+    ],
+)
+def test_line_language_follows_the_message_then_the_app(
+    message: str, locale: str | None, language: str
+) -> None:
+    assert line_language(message, locale) == language
 
 
 @pytest.mark.asyncio
@@ -291,10 +313,10 @@ def test_start_reply_picture_refuses_without_the_plan() -> None:
         content="draw a cat wearing a hat and also explain what a black hole is",
     )
     assert picture is not None and picture.subject == "cat wearing a hat"
-    text, ids = asyncio.run(picture.attach("Antwort."))
+    text, ids = asyncio.run(picture.attach("Answer."))
     assert text == (
-        "Antwort.\n\nDas Bild (cat wearing a hat) konnte ich diesmal nicht zeichnen: "
-        "Die Bilderstellung ist in deinem Tarif nicht enthalten. Mit einem Upgrade bekommst du sie."
+        "Answer.\n\nI couldn't draw the picture (cat wearing a hat) this time: "
+        "Image generation isn't part of your plan. Upgrade for it."
     )
     assert ids == []
 
