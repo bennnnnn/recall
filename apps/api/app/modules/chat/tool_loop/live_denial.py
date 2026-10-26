@@ -19,6 +19,8 @@ from typing import Any
 from app.modules.chat.clock_denial import model_denies_clock
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.turn_prep import StreamContext
+from app.modules.web_search import asks_only_whether_it_searches
+from app.modules.web_search.subject import collect_prior_user_messages, last_assistant_content
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 _MAX_LEN = 600
@@ -45,11 +47,27 @@ def denies_live_data(reply: str) -> bool:
     return bool(cleaned) and len(cleaned) <= _MAX_LEN and _DENIAL.search(cleaned) is not None
 
 
+def _asks_only_whether_it_searches(ctx: StreamContext) -> bool:
+    """ "Can you search the web?" with nothing in the chat to search asks about Recall: a
+    retry offering search could search whatever the chat said before it."""
+    asked = ctx.user_message_content
+    if not isinstance(asked, str):
+        return False
+    prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
+    return asks_only_whether_it_searches(
+        asked,
+        prior_user_messages=collect_prior_user_messages(prompt, asked) or None,
+        prior_assistant=last_assistant_content(prompt),
+    )
+
+
 def asks_again(
     ctx: StreamContext, calls: list[dict[str, Any]], accum: StreamAccum, written: int
 ) -> bool:
     """The first call's answer, with no tool call, denies live data: ask again."""
     if calls or accum.was_cancelled or ctx.search_sources:
+        return False
+    if _asks_only_whether_it_searches(ctx):
         return False
     reply = "".join(accum.parts[written:])
     # "What time is it" denied gets the clock (``finalize_text.fix_clock``).

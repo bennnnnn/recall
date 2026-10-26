@@ -10,7 +10,9 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from app.modules.web_search.capability_ask import asks_whether_it_searches
     from app.modules.web_search.detection import (
+        asks_only_whether_it_searches,
         needs_web_search,
         should_web_search,
         web_search_fast_yes,
@@ -69,6 +71,8 @@ _EXPORTS = {
     "TurnTavilyBudget": "search_cache",
     "WEB_SEARCH_HINT": "formatting",
     "WebSearchAdapter": "tool",
+    "asks_only_whether_it_searches": "detection",
+    "asks_whether_it_searches": "capability_ask",
     "build_search_queries": "query_builders",
     "format_location_not_set_answer": "geo_intent",
     "format_places_fence": "formatting",
@@ -103,6 +107,8 @@ __all__ = [
     "SearchSource",
     "TurnTavilyBudget",
     "WebSearchAdapter",
+    "asks_only_whether_it_searches",
+    "asks_whether_it_searches",
     "build_search_queries",
     "format_location_not_set_answer",
     "format_places_fence",

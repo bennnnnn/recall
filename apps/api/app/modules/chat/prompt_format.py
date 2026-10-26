@@ -82,6 +82,7 @@ from app.modules.chat.prompt_constants import (
 from app.modules.chat.prompt_constants.answer_subject import asked_about_subject, subject_photo_hint
 from app.modules.chat.prompt_constants.chart import chart_followup_data, with_chart_followup
 from app.modules.chat.prompt_constants.clarify import names_its_purpose, ranking_layout
+from app.modules.chat.prompt_constants.conversation import CONFIRMED_HINT
 from app.modules.chat.prompt_constants.diagrams import asks_for_a_visual
 from app.modules.chat.prompt_constants.lesson_flow import lesson_turn_hint
 from app.modules.chat.prompt_constants.visuals import (
@@ -362,7 +363,7 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
         lambda t: bool(t.query) and t.writing is None and t.writing_kind != "edit" and not t.multi,
         _hints(NON_DRAFT_TURN_HINT),
     ),
-    PromptRule(_asks(is_short_confirmation), _hints(CONFIRM_FOLLOW_THROUGH_HINT)),
+    PromptRule(_asks(is_short_confirmation), _hints(CONFIRM_FOLLOW_THROUGH_HINT, CONFIRMED_HINT)),
     PromptRule(_asks(is_day_planning_question), _day_planning),
     PromptRule(lambda t: t.minimal_personal_context, _hints(BROAD_SELF_ANSWER_HINT)),
     PromptRule(_always, _format_pack),
