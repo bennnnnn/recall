@@ -166,6 +166,9 @@ const NO_ACCOUNT_DATA = [
   "lib/launchSplash.ts#deadlinePassed",
   "lib/launchSplash.ts#hidden",
   "lib/launchSplash.ts#ready",
+  // How many previews are loading, and a counter raised at sign-out (waiting ones never go).
+  "lib/linkPreview.ts#generation",
+  "lib/linkPreview.ts#inFlight",
   "lib/math/svgMath.ts#rendererImpl",
   "lib/math/svgMath.ts#rendererPromise",
   "lib/previewPageFile.ts#pageFiles",
