@@ -6,6 +6,10 @@
 - "no, I said I'm vegetarian" corrects what the last reply assumed: ``CORRECTION_HINT``.
 - "continue" picks up where the last reply stopped: ``CONTINUE_HINT``, on the turns
   ``continuation_subject.is_resume_request`` names.
+- "yes" after the last reply asked them to confirm something ("Could you confirm both
+  figures?") confirms it: ``CONFIRMED_HINT``, beside the follow-through hint every short yes
+  gets. Live (2026-10-25): $100k monthly take-home and $50k essentials, "Could you confirm
+  both figures?", "Yes", and the reply asked to double-check them again.
 
 Patterns read text passed through ``collapse_ws`` (one space) and lowercased.
 """
@@ -168,4 +172,13 @@ CONTINUE_HINT = (
     "The user asked you to continue. Pick up exactly where your last reply stopped: the next "
     "sentence, step or line of code, in the same format (reopen the same code fence if it was "
     "cut mid-code). Do not restart, recap, or repeat what you already wrote."
+)
+
+# Said on every short yes (``routing.is_short_confirmation``): conditional, so it needs no
+# reading of the last reply, and a yes to an offer is still that offer's.
+CONFIRMED_HINT = (
+    "If your last reply asked them to confirm something (figures, details, a plan or what "
+    "they meant), this yes confirms it exactly as stated, even a figure that looks unusual. "
+    "Treat it as settled and give the answer it was for now, using those values. Never ask "
+    "them to confirm, double-check or restate it again."
 )

@@ -24,6 +24,7 @@ from dataclasses import replace
 from app.modules.money.catalog import Product
 from app.modules.money.change_line import read_change
 from app.modules.money.fence import slider_range
+from app.modules.money.purchase import purchase_request
 from app.modules.money.read import MoneyRequest, named_product, read_money_request, term_in
 from app.modules.money.solve import rate_name
 
@@ -43,16 +44,26 @@ def follow_up_request(text: str, earlier: Sequence[str | Sequence[str]]) -> Mone
     """
     if read_change(text) is None:
         return None
+    lines = [as_parts(line) for line in earlier]
     request: MoneyRequest | None = None
-    for line in list(earlier)[-_WINDOW:]:
-        request = _line_request(request, (line,) if isinstance(line, str) else tuple(line))
+    for index in range(max(0, len(lines) - _WINDOW), len(lines)):
+        before = lines[index - 1] if index else ()
+        request = _line_request(request, lines[index], before)
     return changed(request, text) if request is not None else None
 
 
-def _line_request(request: MoneyRequest | None, parts: tuple[str, ...]) -> MoneyRequest | None:
-    """The money request an earlier line left, read part by part as its turn read it."""
+def as_parts(line: str | Sequence[str]) -> tuple[str, ...]:
+    """An earlier line as the parts its turn read it in (a plain line is one part)."""
+    return (line,) if isinstance(line, str) else tuple(line)
+
+
+def _line_request(
+    request: MoneyRequest | None, parts: tuple[str, ...], before: tuple[str, ...]
+) -> MoneyRequest | None:
+    """The money request an earlier line left, read part by part as its turn read it;
+    ``before`` is the line before it, which may say what a bare amount and rate buy."""
     for part in parts:
-        found = (changed(request, part) if request is not None else None) or _fresh(part)
+        found = (changed(request, part) if request is not None else None) or _fresh(part, before)
         if found is not None:
             return found
     return None
@@ -81,8 +92,8 @@ def changed(request: MoneyRequest, line: str) -> MoneyRequest | None:
     return replace(request, values=values, changed=tuple(names))
 
 
-def _fresh(line: str) -> MoneyRequest | None:
-    found = read_money_request(line)
+def _fresh(line: str, before: tuple[str, ...]) -> MoneyRequest | None:
+    found = read_money_request(line) or purchase_request(line, before)
     return found if found is not None and not found.rates_only else None
 
 

@@ -33,11 +33,12 @@ _AMOUNT = re.compile(
     r"(?:\s?(?P<mult>k|m|thousand|million|mil|grand)\b)?",
     re.I,
 )
-_CURRENCY_WORD = re.compile(
-    r"\s?(dollars?|bucks|usd|euros?|eur|pounds?|gbp|birr|etb|rupees?|inr|naira|ngn|"
-    r"shillings?|kes|yen|jpy|cad|aud)\b",
-    re.I,
+# Currency words, as ``purchase`` reads a sum too.
+CURRENCY_WORDS = (
+    r"dollars?|bucks|usd|euros?|eur|pounds?|gbp|birr|etb|rupees?|inr|naira|ngn|"
+    r"shillings?|kes|yen|jpy|cad|aud"
 )
+_CURRENCY_WORD = re.compile(rf"\s?({CURRENCY_WORDS})\b", re.I)
 _MONTHLY = re.compile(r"\s?(?:a|per|/|each|every)\s?(?:month|mo)\b|\s?monthly\b|\s?/\s?mo\b", re.I)
 _DOWN = re.compile(r"\b(?:down\s?payment(?:\s(?:of|is))?|put(?:ting)?\s(?:down)?|down)\s?$", re.I)
 _DOWN_AFTER = re.compile(r"\s?(?:down\b|as\s(?:a\s)?down\s?payment\b)", re.I)
@@ -208,6 +209,23 @@ def _amounts(text: str) -> list[_Amount]:
             )
         )
     return found
+
+
+def read_sum(text: str) -> tuple[float, str] | None:
+    """The one sum ``text`` is, whole ("$20k", "20,000 dollars", "3 grand"), with the
+    currency it names (""), or None. A bare number is a sum only from 1000 up: "20 at 6%"
+    is no loan."""
+    text = text.strip()
+    word = re.search(rf"\s?\b(?:{CURRENCY_WORDS})$", text, re.I)
+    match = _AMOUNT.fullmatch(text[: word.start()] if word else text)
+    if match is None:
+        return None
+    number = float(match["num"].replace(",", ""))
+    if match["mult"]:
+        number *= _MULTIPLIERS[match["mult"].lower()]
+    elif not (match["sym"] or word or "," in match["num"] or number >= 1000):
+        return None
+    return number, _currency(text)
 
 
 def _currency(text: str) -> str:

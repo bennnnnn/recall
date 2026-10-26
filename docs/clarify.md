@@ -22,10 +22,15 @@ Three parts, in this order:
 
 Recall asks only when the picks would change the answer in a real way. When a good general
 answer exists it gives it in full and does not ask. **Never** for a plain fact, a sum or a
-STEM problem, a greeting, a reminder, a picture, a draft whose purpose was given, or a message
+STEM problem, a greeting, a reminder, a picture, a draft whose purpose was given, a question
+about an idea or project the chat is already about (it takes Recall's view), or a message
 that is merely garbled (that keeps its one-line "did you mean…?" reply,
-`prompt_constants/unclear.py`). Memory, the chat so far and the question itself come first:
-Recall never asks what it already knows.
+`prompt_constants/unclear.py`). It never asks what a plain word means ("clean food",
+"healthy", "cheap") when the everyday sense, or the chat's, is enough to answer, and it reads
+a typo as the word meant. Live (2026-10-25): "Don't uses want to see clean food?", in a chat
+about a grocery app that scores food, got a card asking what "clean food" means. "Best" is
+different: what it means is the user's own criterion. Memory, the chat so far and the
+question itself come first: Recall never asks what it already knows.
 
 ## The card
 

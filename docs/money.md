@@ -16,6 +16,7 @@ as a slider moves by **evaluating** the formula the server sent; it never solves
 | Products, formulas, defaults, slider ranges (data, not code paths) | `apps/api/app/modules/money/catalog.py` |
 | Reading a request (product, amount, rate, term, payment, currency, country) | `apps/api/app/modules/money/read.py`; the kind (a used car), `kinds.py` |
 | A what-if that changes the chat's last request ("what if i only do 3 years instead") | `apps/api/app/modules/money/follow_up.py`, its grammar `change_line.py` |
+| A loan told over two lines ("I am planning to buy a car", then "20k with 6 percent") | `apps/api/app/modules/money/purchase.py`; what each loan buys, `Product.goods` |
 | The card's currency and the country a rate search names | `apps/api/app/modules/money/currencies.py` |
 | Numbers for the asked values, the prompt block and the note | `apps/api/app/modules/money/solve.py`, `block.py`, `note.py` |
 | Today's average rate: one web search, one checked structured read, cached | `apps/api/app/modules/money/rates.py` |
@@ -101,6 +102,32 @@ off by dollars (live 2026-10-25: $340.58 a month for $340.45).
   block says the rate changed and why.
 - The money block tells the model which inputs changed and that the numbers below are the
   answer, never to be redone from the earlier reply.
+
+## A loan told over two lines
+
+"I am planing to buy a car", a reply asking new or used and the budget, then "20k with 6
+percent" is a car loan of 20,000 at 6%, worked by the server with its card. Neither line is a
+request on its own, so before (live 2026-10-25) the model did the sums and was off ($1,930
+interest where 20k at 6% over 36 months is $1,904). Both lines are read by a positive grammar
+(`purchase.py`); any word outside it leaves the line to the model, as before.
+
+- The user's line before says only that they are buying what a loan product finances, its
+  `goods` (a car, truck, SUV or vehicle; a house, home or condo): "I am planning to buy a
+  car", "we want to buy a used car", "buying a house for 400k", "House buying for 400k", "I'm
+  getting a 30k truck next month". Not "I bought a car last week", "buy a house in minecraft",
+  "buying a car for my son" or a line that also asks something. A used car there is the
+  used-car loan, as in one line.
+- With no price there, this line is only an amount and a rate ("with", "at"), and maybe a term:
+  "20k with 6 percent", "$20,000 at 6% apr", "20k at 6% for 3 years". The amount is the loan's,
+  as "car loan 20k at 6%" reads in one line. "20k steps with 6 percent incline", "my car does
+  20k miles a year", "20k with 6 percent growth for 3 years" and a salary line are not.
+- With a price there, a bare amount is not certain: "60k at 6 percent", after the reply asked
+  for the down payment and the rate, may be either, so it goes to the model. Only an amount
+  said to be down is read ("60k down at 6 percent", "with 60k down", "down payment of 60k at
+  6%"), and the loan is the price less it. The reply's question is not read to decide.
+- A down payment after a line with no price ("Down payment 3k" after "20k with 6 percent")
+  goes to the model: whether the 20k was the price or the loan was never said.
+- A what-if after the loan ("what if 3 years instead") changes it like any other request.
 
 ## Today's rates
 
