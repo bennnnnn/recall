@@ -405,18 +405,40 @@ def test_a_json_answer_the_user_asked_for_stays_code() -> None:
             "A $400,000 house is a big purchase, Dev.",
         ),
         ("I have a couple of quick questions first.", ""),
-        ("To plan your week, I need one detail.", "To plan your week, I need one detail."),
+        ("It depends on you.\n\nSo let me ask.", "It depends on you."),
+        # Anything more than the ask stays.
+        ("To plan your week, I need one detail.", None),
+        ("Let me know what matters most. It depends.", None),
+        ("At 6.5% over 30 years, $400,000 is about $2,528 a month, but let me ask a few "
+         "things to refine it.", None),
+        ("I can estimate it now, but I'll need some details to be exact: your rate.", None),
+        ("Let me ask: do you already own a home? It changes the math.", None),
+        ('Your lender may say "let me ask underwriting." That can take a week.', None),
+        ("Dr. Smith said rates are 6.5%. E.g. let me ask about taxes first.", None),
+        ("+ Rent: let me ask about cost.", None),
+        ("a | let me ask | b", None),
+        ("```python\n    print('let me ask.  ok')\n```", None),
         (
-            "Let me know what matters most. It depends.",
-            "Let me know what matters most. It depends.",
+            "🇨🇭 **Switzerland — quality of life**\nHigh pay, so let me ask where you'd live.",
+            None,
         ),
     ],
-)
-def test_a_start_that_already_says_it_will_ask_says_it_once(start: str, kept: str) -> None:
+)  # fmt: skip
+def test_a_start_that_only_says_it_will_ask_says_it_once(start: str, kept: str | None) -> None:
     text = f"{start}\n\n**Let me ask you one thing.**\n\nWhat matters most?\n\n"
     text += f"```clarify\n{_card_body(_PRIORITY)}\n```"
 
     settled = settle_clarify_cards(text, allowed=True)
 
-    assert settled.lower().count("let me ask") == 1
-    assert settled.split("**Let me ask")[0].strip() == kept
+    before = settled.split("**Let me ask")[0].split("**But let me ask")[0]
+    assert before.rstrip("\n") == (start if kept is None else kept)
+    assert not before.startswith("\n")
+
+
+def test_but_follows_options_left_after_the_ask_goes() -> None:
+    text = "A house is a **big** purchase, so let me ask.\n\n**Let me ask you one thing.**\n\n"
+    text += f"```clarify\n{_card_body(_PRIORITY)}\n```"
+
+    settled = settle_clarify_cards(text, allowed=True)
+
+    assert settled.startswith("A house is a **big** purchase, so let me ask.\n\n**But let me")

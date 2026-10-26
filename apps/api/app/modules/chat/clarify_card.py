@@ -234,16 +234,18 @@ _LEAD_IN = re.compile(
     re.IGNORECASE,
 )
 _HOW_MANY = {1: "one thing", 2: "a couple of things"}
-# A sentence of the start that says the same as the lead-in: "Before I run numbers, I need
-# a few details, so let me ask." above **Let me ask you a couple of things.** (live,
-# 2026-10-25).
-_ASKS_ALREADY = re.compile(
-    r"\blet\s+me\s+ask\b|\bi(?:'ll|\s+will)?\s+need\s+(?:a\s+few|some|a\s+couple\s+of)"
-    r"\s+(?:more\s+)?(?:details|questions)\b|\bi\s+have\s+(?:a\s+few|a\s+couple\s+of)"
-    r"\s+(?:quick\s+)?questions\b",
+# The start's last sentence when it only says the lead-in's ask: "Before I run numbers, I
+# need a few details, so let me ask." above **Let me ask you a couple of things.** (live,
+# 2026-10-25). A sentence with anything more in it stays.
+_ONLY_ASKS = re.compile(
+    r"(?:(?:before|to)\s[^.!?,]{1,60},\s*)?"
+    r"(?:(?:i(?:'ll|\swill)?\sneed\s(?:a\sfew|some|a\scouple\sof)\s(?:more\s)?(?:details|questions)"
+    r"|i\shave\s(?:a\sfew|a\scouple\sof)\s(?:quick\s)?questions)(?:\sfirst)?"
+    r"(?:,?\s*so\slet\sme\sask(?:\syou)?(?:\sfirst)?)?"
+    r"|(?:so\s)?let\sme\sask(?:\syou)?(?:\sfirst)?)[.!:]?",
     re.IGNORECASE,
 )
-_SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+_LAST_SENTENCE = re.compile(r"(?:^|(?<=[.!?])\s+)(?P<last>[^.!?]+[.!?:]?)$")
 
 
 def _fit_lead_in(prose: str, questions: int) -> str:
@@ -254,21 +256,38 @@ def _fit_lead_in(prose: str, questions: int) -> str:
         lead_in = _LEAD_IN.match(line)
         if lead_in is None:
             continue
+        start = _without_ask_note(lines[:index])
+        lines, index = [*start, *lines[index:]], len(start)
         after_options = any("**" in earlier for earlier in lines[:index])
         opener = "But let me" if after_options else "Let me"
         fitted = f"**{opener} ask you {_HOW_MANY.get(questions, 'a few things')}.**"
         lines[index] = fitted + line[lead_in.end() :]
-        lines[:index] = [_without_ask_note(earlier) for earlier in lines[:index]]
         break
     return "\n".join(lines)
 
 
-def _without_ask_note(line: str) -> str:
-    """A plain line of the start without the sentences that already say it will ask."""
-    if line.lstrip().startswith(("**", "-", "*", "#", "|", ">")) or not _ASKS_ALREADY.search(line):
-        return line
-    kept = [s for s in _SENTENCE_END.split(line.strip()) if not _ASKS_ALREADY.search(s)]
-    return " ".join(kept)
+def _without_ask_note(start: list[str]) -> list[str]:
+    """``start`` without its last sentence when that sentence only says it will ask.
+
+    Only a plain line just above the lead-in: never an option, a list, a table or code."""
+    last = len(start) - 1
+    while last >= 0 and not start[last].strip():
+        last -= 1
+    if last < 0:
+        return start
+    line = start[last]
+    if line != line.lstrip() or "**" in line or "`" in line or "|" in line:
+        return start
+    if line.startswith(("-", "*", "+", "#", ">")) or re.match(r"\d+[.)]\s", line):
+        return start
+    found = _LAST_SENTENCE.search(line)
+    if found is None or not _ONLY_ASKS.fullmatch(found.group("last").strip()):
+        return start
+    kept = line[: found.start("last")].rstrip()
+    if kept:
+        return [*start[:last], kept, *start[last + 1 :]]
+    # The line goes with the blank lines after it; those before it part it from the rest.
+    return start[:last]
 
 
 def settle_clarify_cards(text: str, *, allowed: bool, after_card: bool = False) -> str:
