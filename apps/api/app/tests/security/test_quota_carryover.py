@@ -2,8 +2,8 @@
 
 Quota counters are keyed by user id, so a new account would start every daily
 cap (and this month's live talk minutes) from zero. Account delete keeps one
-snapshot keyed by an HMAC of the Google/Apple identity and, when its sign-in provider
-owns the address, one keyed by an HMAC of the account's email; the new account for the
+snapshot keyed by an HMAC of the Google/Apple identity and, on an address a provider
+owns (Gmail, iCloud), one keyed by an HMAC of the account's email; the new account for the
 same identity or address picks them up at sign-up (the address alone:
 ``test_quota_carryover_email.py``, ownership: ``test_quota_carryover_email_owner.py``).
 """

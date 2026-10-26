@@ -1,14 +1,15 @@
-"""A deleted account's limits are filed under its email only when its provider owns it.
+"""A deleted account's limits are filed under its email only on an address a provider owns.
 
 The email key (``quota_carryover``) let a quota be handed to a stranger: a Google account
 can be verified on an address Google does not own (a stale work address, a lapsed domain,
 ``email_authority``). Its holder signs up with it, uses up the day and the live talk month,
 deletes the account, and whoever signs up on that address next started at those counts.
-Account delete now files the email key only when one of the account's sign-in providers
-owns the address on ``email_authority``'s rules, read from the account row: Google for
-Gmail, Apple for iCloud, me.com, mac.com and its relay. A Workspace address (owned through
-the token's ``hd``, which the row does not keep) cannot be decided at delete, so it gets no
-email key. The identity keys are unchanged.
+Account delete now files the email key only for an address a provider owns by its domain,
+on ``email_authority``'s rules: Google's Gmail, Apple's iCloud, me.com, mac.com and relay.
+Those are never given to anyone else, so it is filed whichever provider signed in (an Apple
+ID on a Gmail address is common, and deleting it then signing in with Google must not start
+a fresh day). A Workspace address (owned through the token's ``hd``, which the row does not
+keep) cannot be decided at delete, so it gets no email key. The identity keys are unchanged.
 
 Real Postgres and the configured Redis (``real_redis``), through the HTTP sign-in and
 delete routes.
@@ -21,7 +22,6 @@ from uuid import uuid4
 
 import pytest
 
-from app.models.orm import User
 from app.modules.account import quota_carryover
 from app.services import quota
 
@@ -45,12 +45,10 @@ def _email_key(world: Linked, email: str) -> str:
 @pytest.mark.parametrize(
     ("deleted", "domain", "claims", "later"),
     [
-        # A Google account verified on an iCloud address: Apple owns it, Google does not.
-        ("google", "icloud.com", {}, "apple"),
         # A Google account on a company domain that is not its Workspace (no ``hd``).
         ("google", "example.org", {}, "google"),
-        # An Apple ID whose shared address is a Gmail one: Google owns it, Apple does not.
-        ("apple", "gmail.com", {}, "google"),
+        # An Apple ID on a company address: no provider owns it.
+        ("apple", "example.org", {}, "google"),
         # Google owns a Workspace address through the token's ``hd``, which the account
         # row does not keep: the delete cannot tell, so it keeps no email key.
         ("google", "acme-carry.example", {"hd": "acme-carry.example"}, "apple"),
@@ -59,8 +57,7 @@ def _email_key(world: Linked, email: str) -> str:
 async def test_quota_carryover_email_unowned_address_starts_the_next_sign_up_fresh(
     linked: Linked, deleted: str, domain: str, claims: dict[str, Any], later: str
 ) -> None:
-    """Delete an account whose provider does not own (or cannot be shown at delete to own)
-    its address: only the identity key is kept, and a later sign-up on that address with
+    """Delete an account on an address no provider owns (or can be shown at delete to own): only the identity key is kept, and a later sign-up on that address with
     another login starts from zero. Before, it started at the deleted account's counts."""
     email = _address(domain)
     deleted_sub = await deleted_account(
@@ -79,12 +76,22 @@ async def test_quota_carryover_email_unowned_address_starts_the_next_sign_up_fre
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(("deleted", "domain"), [("google", "gmail.com"), ("apple", "icloud.com")])
+@pytest.mark.parametrize(
+    ("deleted", "domain"),
+    [
+        ("google", "gmail.com"),
+        ("apple", "icloud.com"),
+        # The other provider's address: an Apple ID on Gmail, a Google account on iCloud.
+        # Deleting it and signing in with the other provider must not start a fresh day.
+        ("apple", "gmail.com"),
+        ("google", "icloud.com"),
+    ],
+)
 async def test_quota_carryover_email_owned_address_carries_to_a_new_login(
     linked: Linked, deleted: str, domain: str
 ) -> None:
-    """Deleted on an address its provider owns, the account files the email key, and a
-    new login on that address (not the deleted one) starts at its counts."""
+    """Deleted on a Gmail or iCloud address, whichever provider it signed in with, the
+    account files the email key, and a new login on that address starts at its counts."""
     email = _address(domain)
     await deleted_account(linked, deleted, email, _DELETED, live_talk=_LIVE_TALK_SECONDS)
     email_key = _email_key(linked, email)
@@ -133,27 +140,20 @@ async def test_quota_carryover_email_both_logins_on_a_workspace_address_store_no
 
 
 @pytest.mark.parametrize(
-    ("google_sub", "apple_sub", "email", "owned"),
+    ("email", "owned"),
     [
-        ("g", None, "x@gmail.com", True),
-        ("g", None, " X@GoogleMail.COM ", True),
-        ("g", None, "x@icloud.com", False),
-        ("g", None, "x@acme.example", False),
-        (None, "a", "x@icloud.com", True),
-        (None, "a", "x@me.com", True),
-        (None, "a", "x@mac.com", True),
-        (None, "a", "abc@privaterelay.appleid.com", True),
-        (None, "a", "x@gmail.com", False),
-        ("g", "a", "x@icloud.com", True),
-        ("g", "a", "x@gmail.com", True),
-        ("g", "a", "x@acme.example", False),
-        (None, None, "x@gmail.com", False),
-        ("g", "a", "", False),
-        ("g", None, "not-an-address", False),
+        ("x@gmail.com", True),
+        (" X@GoogleMail.COM ", True),
+        ("x@icloud.com", True),
+        ("x@me.com", True),
+        ("x@mac.com", True),
+        ("abc@privaterelay.appleid.com", True),
+        ("x@acme.example", False),
+        ("x@gmail.com.evil.example", False),
+        ("", False),
+        (None, False),
+        ("not-an-address", False),
     ],
 )
-def test_quota_carryover_email_owned_by_sign_in(
-    google_sub: str | None, apple_sub: str | None, email: str, owned: bool
-) -> None:
-    user = User(google_sub=google_sub, apple_sub=apple_sub, email=email)
-    assert quota_carryover.email_owned_by_sign_in(user) is owned
+def test_quota_carryover_address_owned_by_a_provider(email: str | None, owned: bool) -> None:
+    assert quota_carryover.address_owned_by_a_provider(email) is owned

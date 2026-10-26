@@ -4,7 +4,7 @@ Account delete kept the day's counters only under the sign-in identity
 (``quota_carryover``). Delete an Apple account on x@icloud.com, sign in with Google on the
 same address, and the new account started from zero: its snapshot was filed under the
 Apple id. The snapshot is now also kept under a one-way code of the address (trimmed and
-lower-cased) when one of the deleted account's sign-in providers owns the address (only
+lower-cased) when a provider owns the address by its domain, Gmail or iCloud (only
 then: ``test_quota_carryover_email_owner.py``), and every new account or new link on that
 address starts from it. Each counter ends at the larger value, never summed.
 
