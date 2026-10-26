@@ -80,7 +80,9 @@ _DOWNS = [
     # "3k down" opening the line, or after a frame ("what if 3k down", "and 3k down?").
     re.compile(rf"^\s*{sum_phrase('down')}{_DOWN_WORDS}"),
 ]
-# After a change frame, a plain put is one too: "what if I put 5000 down?".
+# Right after "what if", a plain put is one too: "what if I put 5000 down?". Not "and I put
+# 3k down" or "I put 3k down instead": those tell of one made.
+_WHAT_IF = re.compile(r"\bwhat\sif\W*$")
 _FRAMED_DOWN = re.compile(rf"^\s*(?:(?:i|we)\s)?put\s{sum_phrase('down')}{_DOWN_WORDS}")
 _TERMS = [(re.compile(pattern, re.I), saving) for pattern, saving in _TERM_PHRASES]
 _RATES = [re.compile(pattern, re.I) for pattern in _RATE_PHRASES]
@@ -138,7 +140,8 @@ def read_change(line: str) -> Change | None:
         text = text[start.end() :]
     change = Change()
     framed = start is not None or end is not None
-    for pattern in (*_DOWNS, _FRAMED_DOWN) if framed else _DOWNS:
+    what_if = start is not None and _WHAT_IF.search(start.group(0)) is not None
+    for pattern in (*_DOWNS, _FRAMED_DOWN) if what_if else _DOWNS:
         text = pattern.sub(change.take_down, text)
     # "I'm putting 3k down" is read before "I'm" says the line is about the user.
     if (not framed and change.down is None) or _NOT_A_CHANGE.search(text):

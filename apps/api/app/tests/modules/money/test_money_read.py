@@ -188,6 +188,15 @@ def test_a_rates_question_keeps_the_kind() -> None:
         ("400k house, down payment of 20%, at 6%", {"amount": 320000, "rate": 6}),
         ("a 400k house at 6% with 20 percent down", {"amount": 320000, "rate": 6}),
         ("400k house putting down 20% at 6%", {"amount": 320000, "rate": 6}),
+        # Round 2: a percent or a term after "down" is not a sum down.
+        ("400k house 20% down 6% rate", {"amount": 320000, "rate": 6}),
+        ("400k house 20% down 6.5% interest", {"amount": 320000, "rate": 6.5}),
+        ("400k house 10% down 30 years at 6%", {"amount": 360000, "rate": 6, "years": 30}),
+        ("400k house 20% down 15 years, 6%", {"amount": 320000, "rate": 6, "years": 15}),
+        ("400k house 20% down 30 year fixed 6%", {"amount": 320000, "rate": 6, "years": 30}),
+        ("400k house, down payment 20% 6% rate", {"amount": 320000, "rate": 6}),
+        # A percent right after "down payment" is the share; the other is the rate.
+        ("400k house, 6% down payment 20%", {"amount": 320000, "rate": 6}),
     ],
 )  # fmt: skip
 def test_read_money_request_reads_what_a_number_is(text: str, values: dict[str, float]) -> None:
@@ -200,9 +209,13 @@ def test_read_money_request_reads_what_a_number_is(text: str, values: dict[str, 
     [
         ("400k house with 20% down at 6%", 400000, 80000),
         ("car loan 25000 with 5000 down 6.9% apr 60 months", 25000, 5000),
-        ("mortgage at 6% on a 400k house", 400000, None),
-        ("30k car at 7%, financing it", 30000, None),
-        # A sum called a loan or a balance is no price.
+        ("400k house, 6% down payment 20%", 400000, 80000),
+        # A sum with no money down may be a loan, a balance or an equity line: no price.
+        ("mortgage at 6% on a 400k house", None, None),
+        ("I have a 400k home and owe 250k at 6%", None, None),
+        ("a 400k home equity loan at 8%", None, None),
+        ("a 400k home, refinancing at 6%", None, None),
+        ("20k car repairs at 9%", None, None),
         ("a 20k car loan at 6%", None, None),
         ("car loan of 20k at 6%", None, None),
         ("I owe 15k on my car loan at 6%", None, None),

@@ -213,7 +213,14 @@ def purchase_request(line: str, before: Sequence[str]) -> MoneyRequest | None:
         values.update(term_in(product, float(match["n"]), match["unit"]))
     variant = named_variant(product, before[0])
     return MoneyRequest(
-        product, values, currency, variant=variant, price=price, down=down, guessed=guessed
+        product,
+        values,
+        currency,
+        variant=variant,
+        price=price,
+        down=down,
+        guessed=guessed,
+        rates_given=0 if match["pct"] is None else 1,
     )
 
 

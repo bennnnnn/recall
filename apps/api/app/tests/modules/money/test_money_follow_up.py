@@ -77,8 +77,8 @@ RECTANGLE = "a rectangle has a perimeter of 40 and a length of 12, what is the w
         # A sum down comes off the price the request named (14000), never off the loan.
         ([CAR], "what if I put 5000 down?", {"amount": 9000, "months": 60}, ("amount",)),
         ([CAR, "what if i only do 3 years instead"], "and with 5000 down?", {"amount": 9000, "months": 36}, ("amount",)),
-        ([MORTGAGE_SHARE], "with 60k down", {"amount": 290000}, ("amount",)),
-        ([MORTGAGE_SHARE], "60k down at 5.5%", {"amount": 290000, "rate": 5.5}, ("amount", "rate")),
+        (["400k house with 20% down at 6%"], "with 60k down", {"amount": 340000, "rate": 6}, ("amount",)),
+        (["400k house with 20% down at 6%"], "60k down at 5.5%", {"amount": 340000, "rate": 5.5}, ("amount", "rate")),
         (BUYING, "Down payment 3k", {"amount": 17000, "rate": 6}, ("amount",)),
         (BUYING, "down payment of 3,000", {"amount": 17000}, ("amount",)),
         (BUYING, "the down payment is 3k", {"amount": 17000}, ("amount",)),
@@ -234,7 +234,23 @@ def test_a_line_that_changes_no_term_or_rate_is_none(earlier: list[str], line: s
         (BUYING, "is it 3k down"),
         (BUYING, "my down payment was 3k"),
         (BUYING, "down payment 2026"),
-        (BUYING, "€3k down"),
+        (["I am planing to buy a car", "$20k with 6 percent"], "€3k down"),
+        # Told of a down payment made, not asked: only "what if I put" is one.
+        (BUYING, "and I put 3k down"),
+        (BUYING, "I put 3k down instead"),
+        # A line read with two rates is not worked further.
+        (
+            [
+                "car loan 25000 with 5000 down 6.9% apr 60 months, is that better than the 8% apr my bank offered?"
+            ],
+            "with 3k down",
+        ),
+        # No money down in the line: "a 400k home" may be an equity line or a refinance.
+        (["I have a 400k home and owe 250k at 6%"], "with 50k down"),
+        (["a 400k home equity loan at 8%"], "with 50k down"),
+        (["a 400k home, refinancing at 6%"], "with 50k down"),
+        (["20k car repairs at 9%"], "with 5k down"),
+        (["20k car leasing at 6%"], "with 5k down"),
         (BUYING, "$0 down"),
         (BUYING, "no money down"),
         (BUYING, "3k down and 5k down"),
@@ -246,10 +262,18 @@ def test_a_line_that_changes_no_term_or_rate_is_none(earlier: list[str], line: s
         ([PERSONAL], "with 3k down"),
         ([STUDENT], "3k down"),
         ([BIRR], "$300k down"),
+        # No rate in the line, so the first turn's own reading is not built on.
+        ([MORTGAGE_SHARE], "with 60k down"),
     ],
 )
 def test_a_down_payment_that_fits_no_loan_is_none(earlier: list[str], line: str) -> None:
     assert follow_up_request(line, earlier) is None
+
+
+def test_a_down_payment_in_a_currency_gives_the_loan_that_currency() -> None:
+    request = follow_up_request("down payment $3k", BUYING)
+    assert request is not None and request.currency == "USD"
+    assert request.values["amount"] == 17000
 
 
 def test_a_second_down_payment_replaces_the_first() -> None:

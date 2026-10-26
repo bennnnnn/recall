@@ -9,8 +9,10 @@ The server works a new term, a new rate or a new down payment only (``change_lin
 by a positive grammar so a line about anything else is no follow-up. A down payment comes
 off a price the user stated, never off a sum they called a loan or a balance ("a 20k car
 loan", "I owe 15k"): the price a buying line gave ("buying a car" then "20k with 6
-percent", live 2026-10-25: "Down payment 3k" is a loan of 17k) or one with money down ("a
-400k house with 20% down"). A second one replaces the first. A line that says which a
+percent", live 2026-10-25: "Down payment 3k" is a loan of 17k) or a line with money down
+("a 400k house with 20% down"), and only after a line that gave one rate, so a line read
+wrong never carries into a worked follow-up. A sum down in a currency the loan named none
+of gives it that currency. A second one replaces the first. A line that says which a
 guessed amount was ("no, 60k is the loan") puts the guess right (``correction``). The new
 value must also lie on the slider the request's last card had (a mortgage runs 5 to 40
 years: "2 years" is no new term). The request it changes is the last one in the user's
@@ -89,13 +91,14 @@ def changed(request: MoneyRequest, line: str) -> MoneyRequest | None:
         return None
     values = dict(request.values)
     names: list[str] = []
-    price, down = request.price, request.down
+    price, down, currency = request.price, request.down, request.currency
     if change.down is not None:
         down, said_in = change.down
         if not product.goods or price is None or not 0 < down < price:
             return None
-        if said_in and said_in != request.currency:
+        if request.rates_given != 1 or (said_in and currency and said_in != currency):
             return None
+        currency = currency or said_in
         values["amount"] = price - down
         names.append("amount")
     if change.rate is not None:
@@ -109,7 +112,15 @@ def changed(request: MoneyRequest, line: str) -> MoneyRequest | None:
         names.extend(term)
     if not _in_range(request, values):
         return None
-    return replace(request, values=values, changed=tuple(names), price=price, down=down, guessed="")
+    return replace(
+        request,
+        values=values,
+        changed=tuple(names),
+        price=price,
+        down=down,
+        currency=currency,
+        guessed="",
+    )
 
 
 def _fresh(line: str, before: tuple[str, ...]) -> MoneyRequest | None:
