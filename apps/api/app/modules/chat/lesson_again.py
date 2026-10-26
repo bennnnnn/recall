@@ -26,6 +26,7 @@ from app.modules.chat.prompt_constants.lesson_flow import (
 )
 from app.modules.chat.prompt_constants.teaching import is_teaching_request
 from app.services.md_fence_scan import iter_fences
+from app.services.text_normalize import straighten_apostrophes
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
@@ -44,12 +45,13 @@ _ASK = re.compile(
 )
 _SENTENCES = re.compile(r"(?<=[.!?])\s+")
 # A reaction before the ask ("Very interesting."): a few words, no number or option.
-_REACTION = re.compile(r"^\W*(?:[^\W\d_]{2,}\W+){0,2}[^\W\d_]{2,}\W*$")
+_WORD = r"[^\W\d_]{2,}(?:'[^\W\d_]+)?"
+_REACTION = re.compile(rf"^\W*(?:{_WORD}\W+){{0,2}}{_WORD}\W*$")
 
 
 def asked_lesson(text: str | None) -> int | None:
     """The lesson number the message asks to start or go to, or None."""
-    sentences = _SENTENCES.split((text or "").strip())
+    sentences = _SENTENCES.split(straighten_apostrophes(text or "").strip())
     if not sentences[-1] or not all(_REACTION.match(s) for s in sentences[:-1]):
         return None
     found = _ASK.match(sentences[-1])

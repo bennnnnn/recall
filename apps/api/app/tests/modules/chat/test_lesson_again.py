@@ -35,6 +35,8 @@ _AFTER_LESSON_1 = [_said("user", "Teach me American sayings"), _said("assistant"
     [
         ("Very interesting. Lets start with 1", 1),
         ("Let's start with 1", 1),
+        ("Let\u2019s start with 1", 1),  # an iPhone's apostrophe
+        ("That\u2019s interesting. Let\u2019s start with 1", 1),
         ("ok let's begin with lesson 1", 1),
         ("let's start with the first one", 1),
         ("Shall we start with lesson 1?", 1),
