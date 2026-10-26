@@ -4,8 +4,9 @@ Account delete kept the day's counters only under the sign-in identity
 (``quota_carryover``). Delete an Apple account on x@icloud.com, sign in with Google on the
 same address, and the new account started from zero: its snapshot was filed under the
 Apple id. The snapshot is now also kept under a one-way code of the address (trimmed and
-lower-cased), and every new account or new link on that address starts from it. Each
-counter ends at the larger value, never summed.
+lower-cased) when a provider owns the address by its domain, Gmail or iCloud (only
+then: ``test_quota_carryover_email_owner.py``), and every new account or new link on that
+address starts from it. Each counter ends at the larger value, never summed.
 
 Real Postgres and the configured Redis (``real_redis``), through the HTTP sign-in and
 delete routes.
@@ -29,7 +30,16 @@ from app.models.orm import User
 from app.modules.account import quota_carryover
 from app.services import quota
 
-from .carry_world import Linked, counts, delete, linked_sub, sign_in, signed_in, use
+from .carry_world import (
+    Linked,
+    counts,
+    delete,
+    deleted_account,
+    linked_sub,
+    sign_in,
+    signed_in,
+    use,
+)
 
 _DELETED = {"usage": 1234, "imggen": 2, "tavily": 4}
 _LIVE_TALK_SECONDS = 300
@@ -37,6 +47,8 @@ _MORE = {"usage": 5000, "tavily": 1}
 # The new account's own use goes on top of what it started from.
 _DELETED_THEN_MORE = {"usage": 6234, "imggen": 2, "tavily": 5}
 _OTHER = {"apple": "google", "google": "apple"}
+# Where each provider owns the address, so its delete files the email key.
+_OWNED = {"apple": "icloud.com", "google": "gmail.com"}
 
 
 def _address(domain: str = "icloud.com") -> str:
@@ -53,11 +65,7 @@ async def _deleted_account(
     world: Linked, provider: str, email: str, used: dict[str, int] = _DELETED
 ) -> str:
     """An account made with *provider* on *email* uses *used* and is deleted. Its sub."""
-    sub = f"{provider}-{uuid4()}"
-    user_id, token = await signed_in(world, provider, sub, email)
-    await use(world.redis, user_id, used, live_talk=_LIVE_TALK_SECONDS)
-    await delete(world, user_id, token)
-    return sub
+    return await deleted_account(world, provider, email, used, live_talk=_LIVE_TALK_SECONDS)
 
 
 async def _accounts_on(email: str) -> int:
@@ -71,10 +79,10 @@ async def _accounts_on(email: str) -> int:
 async def test_quota_carryover_email_starts_the_other_providers_account(
     linked: Linked, deleted: str
 ) -> None:
-    """Delete one provider's account; the other provider's new account on the same address
-    starts from its day. Started from zero before the email key."""
+    """Delete one provider's account on an address it owns; the other provider's new account
+    on the same address starts from its day. Started from zero before the email key."""
     other = _OTHER[deleted]
-    email = _address()
+    email = _address(_OWNED[deleted])
     deleted_sub = await _deleted_account(linked, deleted, email)
     identity_key, email_key = _keys(linked, deleted, deleted_sub, email)
     assert await linked.redis.get(identity_key) == await linked.redis.get(email_key)
@@ -94,10 +102,8 @@ async def test_quota_carryover_email_starts_the_other_providers_account(
         assert again == fresh
         assert applied.await_count == 1
 
-    # The deleted identity then joins this account (where its provider owns the address):
-    # its snapshot holds the same counts, and raise-only never adds them a second time.
-    if deleted == "google":
-        return  # Google does not own an icloud.com address: no link, nothing more to see.
+    # The deleted identity then joins this account (its provider owns the address): its
+    # snapshot holds the same counts, and raise-only never adds them a second time.
     await use(linked.redis, fresh, _MORE)
     joined, _ = await signed_in(linked, deleted, deleted_sub, email)
     assert joined == fresh
@@ -112,8 +118,8 @@ async def test_quota_carryover_email_ignores_case_and_surrounding_spaces(linked:
     """The address is trimmed and lower-cased before it is hashed: the same mailbox typed
     differently by two providers finds the snapshot."""
     local = f"Carry-{uuid4().hex[:12]}"
-    await _deleted_account(linked, "google", f"  {local}@Example.COM ")
-    fresh, _ = await signed_in(linked, "apple", f"apple-{uuid4()}", f" {local.lower()}@example.com")
+    await _deleted_account(linked, "google", f"  {local}@GMail.COM ")
+    fresh, _ = await signed_in(linked, "apple", f"apple-{uuid4()}", f" {local.lower()}@gmail.com")
     assert await counts(linked.redis, fresh) == _DELETED
     assert await quota.live_talk_used_seconds(linked.redis, fresh) == _LIVE_TALK_SECONDS
 
@@ -148,7 +154,7 @@ async def test_quota_carryover_account_without_email_keeps_only_its_identity(
 ) -> None:
     """An account whose stored address is blank (the column is required, so only an empty
     value is possible) stores its identity key and nothing else."""
-    email, sub = _address(), f"google-{uuid4()}"
+    email, sub = _address("gmail.com"), f"google-{uuid4()}"
     user_id, token = await signed_in(linked, "google", sub, email)
     await use(linked.redis, user_id, _DELETED)
     async with SessionLocal() as session:
