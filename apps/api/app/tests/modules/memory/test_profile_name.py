@@ -12,10 +12,10 @@ import pytest
 from app.core.config import Settings
 from app.models.orm import User
 from app.modules.memory.facts import identity_core, render_memory_block
-from app.modules.memory.name_claim import as_chosen_name, stated_user_names
 from app.modules.memory.pass_writes import writes_from_ops
-from app.modules.memory.profile_name import names_another_person, without_conflicting_names
+from app.modules.memory.profile_name import without_conflicting_names
 from app.modules.memory.schemas import MemoryFactOp
+from app.modules.memory.user_name import as_chosen_name, names_another_person, stated_user_name
 
 _SAID = datetime(2026, 10, 24, tzinfo=UTC)
 # The live account: profile name Dev, an older test fact naming the user Sam.
@@ -40,8 +40,8 @@ def _block(*texts: str) -> str:
         (_SAM, "Dev"),
         ("The user's name is Sam", "Dev Patel"),
         ("Sam is the user's name", "Dev"),
-        ("The user is Sam", "Dev"),
         ("User is named Sam", "Dev"),
+        ("User's name is Дима", "Taro Yamada"),
         # A stated name with a nickname is still a stated name.
         ("User's name is Sam; also goes by Sammy", "Dev"),
     ],
@@ -63,10 +63,23 @@ def test_a_fact_naming_someone_else_is_another_person(fact: str, profile_name: s
         # The name they chose to be called stays beside the profile name.
         ("User goes by Sam", "Dev"),
         ("User's name is Dev; also goes by Sam", "Dev"),
-        # Not a name for the user at all.
+        # Not a name for the user at all: a bare "User is X" is a trait, not a name.
         ("User is a nursing student", "Dev"),
         ("User's dog is named Sam", "Dev"),
         ("User's sister's name is Sam", "Dev"),
+        ("User's mother's name is Sam", "Dev"),
+        ("User's son is named Sam", "Dev"),
+        ("User's company name is Acme", "Dev"),
+        ("User's username is samx", "Dev"),
+        ("User's user name is samx", "Dev"),
+        ("User's Instagram user name is Sam", "Dev"),
+        ("User's Wi-Fi network name is Sam", "Dev"),
+        ("User's last name is Smith", "Dev"),
+        ("User's middle name is Lee", "Dev"),
+        ("User's maiden name is Smith", "Dev"),
+        ("The user's manager is Sam Lee", "Dev"),
+        ("The user is Sam", "Dev"),
+        ("User is Sam, a student", "Dev"),
         # No profile name: memory is the only source of the name.
         (_SAM, None),
         (_SAM, ""),
@@ -75,6 +88,29 @@ def test_a_fact_naming_someone_else_is_another_person(fact: str, profile_name: s
 )
 def test_facts_that_agree_or_name_no_one_stay(fact: str, profile_name: str | None) -> None:
     assert not names_another_person(fact, profile_name)
+
+
+@pytest.mark.parametrize(
+    "trait",
+    [
+        "User is retired",
+        "User is married",
+        "User is pregnant",
+        "User is diabetic",
+        "User is Christian",
+        "User is Ethiopian",
+        "User is bilingual",
+        "User is self-employed",
+        "User is left-handed",
+        "User is vegetarian",
+        "the user is vegetarian",
+    ],
+)
+def test_a_one_word_trait_is_not_a_name_and_stays(trait: str) -> None:
+    block = _block(trait)
+
+    assert stated_user_name(trait) is None
+    assert without_conflicting_names(block, "Dev") == block
 
 
 def test_the_block_drops_the_line_naming_someone_else() -> None:
@@ -154,23 +190,65 @@ async def test_every_prompt_reads_the_block_without_the_other_name(fake_redis) -
 
 
 @pytest.mark.parametrize(
-    ("text", "speech", "saved"),
+    ("text", "speech", "profile_name", "saved"),
     [
-        ("User's name is Sam", "User: call me Sam", "User goes by Sam"),
-        ("The user's name is Sam.", "User: Please call me Sam from now on!", "User goes by Sam"),
-        ("User's name is Sam", "User: I go by Sam", "User goes by Sam"),
-        ("User is named Sam", "User: I'd like to be called Sam", "User goes by Sam"),
-        # Who they are, said in their own words, stays their name.
-        ("User's name is Sam", "User: my name is Sam", "User's name is Sam"),
-        ("User's name is Sam", "User: I'm Sam. Call me Sam.", "User's name is Sam"),
-        # More than the name, or a name they never asked for: unchanged.
-        (_SAM, "User: call me Sam", _SAM),
-        ("User's name is Sam", "User: call me Ben", "User's name is Sam"),
-        ("User works at Stripe", "User: call me Sam", "User works at Stripe"),
+        ("User's name is Sam", "User: call me Sam", None, "User goes by Sam"),
+        (
+            "The user's name is Sam.",
+            "User: Please call me Sam from now on!",
+            "Dev",
+            "User goes by Sam",
+        ),
+        ("User's name is Sam", "User: I go by Sam", None, "User goes by Sam"),
+        ("User is named Sam", "User: I'd like to be called Sam", None, "User goes by Sam"),
+        ("User's name is Sam", "User: My friends call me Sam", None, "User goes by Sam"),
+        # Their own name that differs from the account: the name they go by.
+        ("User's name is Bill", "User: My name is Bill", "William Smith", "User goes by Bill"),
+        ("User's name is Liz", "User: I'm Liz", "Elizabeth", "User goes by Liz"),
+        (
+            "User's name is Дима",
+            "User: my name is Дима",
+            "Dmitry",
+            "User goes by Дима",
+        ),
+        ("User's name is 太郎", "User: my name is 太郎", "Taro Yamada", "User goes by 太郎"),
+        (
+            "User's name is Bill; they teach maths",
+            "User: I'm Bill and I teach maths",
+            "William",
+            "User goes by Bill; they teach maths",
+        ),
+        # Their own name that agrees with the account, or no account name: unchanged.
+        ("User's name is Sam", "User: my name is Sam", None, "User's name is Sam"),
+        ("User's name is Sam", "User: my name is Sam", "Samantha", "User's name is Sam"),
+        ("User's name is Sam", "User: I'm Sam. Call me Sam.", None, "User's name is Sam"),
+        # A refusal, a filler word or a name they never gave: unchanged.
+        (
+            "User's name is Sam",
+            "User: don't call me Sam, my name is Samuel",
+            "Dev",
+            "User's name is Sam",
+        ),
+        ("User's name is When", "User: call me when you're done", None, "User's name is When"),
+        ("User's name is Sam", "User: call me Ben", "Dev", "User's name is Sam"),
+        ("User works at Stripe", "User: call me Sam", "Dev", "User works at Stripe"),
+        (
+            "User's sister's name is Sam",
+            "User: my name is Sam",
+            "Dev",
+            "User's sister's name is Sam",
+        ),
     ],
 )
-def test_call_me_saves_the_name_they_chose(text: str, speech: str, saved: str) -> None:
-    assert as_chosen_name(text, speech) == saved
+def test_the_name_they_go_by_is_saved_as_one(
+    text: str, speech: str, profile_name: str | None, saved: str
+) -> None:
+    assert as_chosen_name(text, speech, profile_name) == saved
+
+
+def test_the_old_test_fact_is_still_dropped_on_read() -> None:
+    assert names_another_person(_SAM, "Dev")
+    assert without_conflicting_names(render_memory_block([_fact(_SAM)]), "Dev") == ""
 
 
 def test_call_me_is_written_as_a_nickname() -> None:
@@ -192,9 +270,27 @@ def test_call_me_is_written_as_a_nickname() -> None:
     assert not names_another_person(writes[0].text, "Dev")
 
 
+def test_a_self_stated_name_unlike_the_account_is_written_as_a_nickname() -> None:
+    op = MemoryFactOp(
+        op="add", type="profile", text="User's name is Bill", confidence=0.9, importance=0.8
+    )
+
+    writes, _ = writes_from_ops(
+        [op],
+        chat_id=uuid4(),
+        explicit_remember=False,
+        include_sensitive=False,
+        min_confidence=0.5,
+        transcript="User: My name is Bill",
+        profile_name="William Smith",
+    )
+
+    assert [write.text for write in writes] == ["User goes by Bill"]
+
+
 def test_stated_names_leave_out_nicknames() -> None:
-    assert stated_user_names("User's name is Dev; also goes by Sam") == ["dev"]
-    assert stated_user_names("User goes by Sam") == []
+    assert stated_user_name("User's name is Dev; also goes by Sam") == "Dev"
+    assert stated_user_name("User goes by Sam") is None
 
 
 def test_the_newest_name_is_the_one_in_every_prompt() -> None:
@@ -207,3 +303,38 @@ def test_the_newest_name_is_the_one_in_every_prompt() -> None:
     core = identity_core([older, older_but_important, newest])  # type: ignore[list-item]
 
     assert [memory.text for memory in core] == ["User goes by Ben"]
+
+
+def _ranked(text: str, *, said: datetime, importance: float) -> SimpleNamespace:
+    memory = _fact(text, said=said)
+    memory.importance = importance
+    return memory
+
+
+def test_another_persons_name_never_takes_the_users_slot() -> None:
+    own = _ranked("User's name is Binalfew", said=datetime(2026, 1, 1, tzinfo=UTC), importance=1.0)
+    sister = _ranked(
+        "User's sister's name is Sam", said=datetime(2026, 10, 1, tzinfo=UTC), importance=0.5
+    )
+    dog = _ranked(
+        "User's dog's name is Max", said=datetime(2026, 10, 2, tzinfo=UTC), importance=0.4
+    )
+
+    core = identity_core([own, sister, dog])  # type: ignore[list-item]
+
+    assert [memory.text for memory in core] == ["User's name is Binalfew"]
+
+
+def test_a_conflicting_name_never_takes_the_slot() -> None:
+    nickname = _ranked("User goes by Ben", said=datetime(2026, 3, 1, tzinfo=UTC), importance=0.5)
+    conflicting = _ranked(
+        "User's name is Sam", said=datetime(2026, 10, 1, tzinfo=UTC), importance=1.0
+    )
+
+    core = identity_core([nickname, conflicting], profile_name="Dev")  # type: ignore[list-item]
+
+    assert [memory.text for memory in core] == ["User goes by Ben"]
+    # Without an account name, the newest name is the user's.
+    assert [m.text for m in identity_core([nickname, conflicting])] == [  # type: ignore[list-item]
+        "User's name is Sam"
+    ]

@@ -7,11 +7,10 @@ the switch, and once told the user that "the memory block" named a different per
 (live chats, 2026-10-25). A fact line that states a different name is left out of the
 memory block every prompt reads, so the prompt holds one name.
 
-What stays: a name the user chose to be called ("User goes by Sam", what "call me Sam"
-saves as, ``name_claim.as_chosen_name``; "User's name is Dev; also goes by Sam"), a
-short form of the profile name ("Bini" on an account named Binalfew), and every name
-fact when no profile name is set. The block is filtered as text, after its cache, so a
-renamed profile takes effect on the next turn.
+What a fact names, and what agrees, is ``user_name``. Selection already keeps such a
+fact out of the identity slot (``facts.identity_core``); this filter runs on the block
+text after its cache, so a fact the query brings in is dropped too, and a renamed
+profile takes effect on the next turn.
 """
 
 from __future__ import annotations
@@ -19,47 +18,16 @@ from __future__ import annotations
 import re
 
 from app.modules.memory.facts import SECTION_LABELS
-from app.modules.memory.name_claim import stated_user_names
+from app.modules.memory.user_name import names_another_person
 
 _PROFILE_HEADING = f"## {SECTION_LABELS['profile']}"
 # The notes ``facts._fact_line`` adds after a fact: "(said 2026-10)", "(unconfirmed)".
 _LINE_NOTES = re.compile(r" \((?:said \d{4}-\d{2})?(?:, )?(?:unconfirmed)?\)$")
-_NAME_PART = re.compile(r"[^\W\d_]+(?:['-][^\W\d_]+)*")
-# Shared first letters that make "Bini" a short form of "Binalfew".
-_SHORT_FORM_PREFIX = 3
-
-
-def _name_parts(name: str | None) -> list[str]:
-    if not isinstance(name, str):
-        return []
-    return [part.casefold() for part in _NAME_PART.findall(name)]
-
-
-def _agrees(stated: str, part: str) -> bool:
-    """One name matches one part of the profile name, or is a short form of it."""
-    if stated == part:
-        return True
-    shorter, longer = sorted((stated, part), key=len)
-    if len(shorter) >= 2 and longer.startswith(shorter):
-        return True
-    prefix = _SHORT_FORM_PREFIX
-    return len(shorter) >= prefix and shorter[:prefix] == longer[:prefix]
-
-
-def names_another_person(fact: str, profile_name: str | None) -> bool:
-    """True when ``fact`` states a name for the user that the profile name does not have."""
-    parts = _name_parts(profile_name)
-    if not parts:
-        return False
-    stated = [_name_parts(name)[0] for name in stated_user_names(fact) if _name_parts(name)]
-    if not stated:
-        return False
-    return not any(_agrees(name, part) for name in stated for part in parts)
 
 
 def without_conflicting_names(block: str, profile_name: str | None) -> str:
     """The memory block without a Profile line that names the user differently."""
-    if not block or _PROFILE_HEADING not in block or not _name_parts(profile_name):
+    if not block or _PROFILE_HEADING not in block or not isinstance(profile_name, str):
         return block
     lines = block.split("\n")
     kept: list[str] = []

@@ -90,6 +90,7 @@ async def _snapshot(session: AsyncSession, user: User, *, facts: bool = True) ->
             {"topic": area.key, "title": area.title, "summary": area.summary} for area in areas
         ],
         edited_at=user.memory_edited_at,
+        profile_name=user.name,
         active_facts=tuple(
             FactView(
                 text=memory.text,

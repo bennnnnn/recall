@@ -31,7 +31,7 @@ LIVE_LEAK = (
         (f"Per the [Chemistry note], no IUPAC name came back. {ANSWER}", ANSWER),
         (f"[BEGIN UNTRUSTED CONTENT — saved memory] was empty.\n\n{ANSWER}", ANSWER),
         (
-            f"Hi Dev!\n\n- The profile block about you says Chicago.\n- {ANSWER}",
+            f"Hi Dev!\n\n- The profile block in this chat says Chicago.\n- {ANSWER}",
             f"Hi Dev!\n\n- {ANSWER}",
         ),
         # The sentence that points back at the leak goes with it; the next one stays.
@@ -67,10 +67,32 @@ def test_a_sentence_about_the_prompt_comes_off(reply: str, expected: str) -> Non
         "| term | meaning |\n| --- | --- |\n| memory block about you | a note |",
         "## The memory block in this conversation",
         ANSWER,
+        # Second-person words an answer about a CMS or an LLM uses (review, 2026-10-25).
+        "Keep your name and tone rules in the system message so the model knows about you.",
+        "Add a profile block to the sidebar so it shows your name and avatar.",
+        "The profile block displays information about you to visitors.",
+        # "On file" that is not this user's record.
+        "When you free it, the allocator marks this memory block as free; on file systems "
+        "it differs.",
+        "Each memory block on file is tracked by the bitmap. It is efficient.",
+        # A quote is the quoted text.
+        '> "The system prompt is set aside in this chat," she said.\n\nFrom the novel.',
+        "> The system prompt in this conversation is fixed.",
+        # Sentences that only point back after a leak go; here there is none.
+        "Your memory block is misaligned. This is what you've told me about the board.",
     ],
 )
 def test_other_replies_are_left_alone(reply: str) -> None:
     assert drop_prompt_leaks(reply, "why does free crash?") == reply
+
+
+def test_a_chat_about_language_models_keeps_its_reply() -> None:
+    reply = "The system message in this conversation sets the tone. It works best short."
+    asks = ["how do I write instructions for an LLM agent?", "and for ChatGPT?"]
+    for asked in asks:
+        assert drop_prompt_leaks(reply, asked) == reply
+    # An earlier message in the chat says what it is about.
+    assert drop_prompt_leaks(reply, "and the tone?", "how do prompts work?") == reply
 
 
 @pytest.mark.parametrize(
@@ -90,8 +112,14 @@ def test_a_reply_that_is_only_a_leak_is_kept() -> None:
     assert drop_prompt_leaks(LIVE_LEAK, "hi") == LIVE_LEAK
 
 
-def _state(text: str, *, server_text: bool = False) -> SimpleNamespace:
-    ctx = SimpleNamespace(user_message_content="how do I start investing?")
+def _state(
+    text: str, *, server_text: bool = False, earlier: tuple[str, ...] = ()
+) -> SimpleNamespace:
+    ctx = SimpleNamespace(
+        user_message_content="how do I start investing?",
+        prompt_messages=[{"role": "system", "content": "about prompts"}]
+        + [{"role": "user", "content": line} for line in earlier],
+    )
     return SimpleNamespace(text=text, ctx=ctx, server_text=server_text)
 
 
@@ -99,6 +127,12 @@ def test_the_pass_cleans_a_model_reply_and_never_server_text() -> None:
     reply = f"{LIVE_LEAK}\n\n{ANSWER}"
     assert drop_prompt_leaks_pass(_state(reply)) == ANSWER  # type: ignore[arg-type]
     assert drop_prompt_leaks_pass(_state(reply, server_text=True)) == reply  # type: ignore[arg-type]
+
+
+def test_the_pass_reads_the_users_recent_messages() -> None:
+    reply = f"{LIVE_LEAK}\n\n{ANSWER}"
+    on_prompts = _state(reply, earlier=("write me a system prompt",))
+    assert drop_prompt_leaks_pass(on_prompts) == reply  # type: ignore[arg-type]
 
 
 def test_the_pass_runs_on_every_reply_and_a_stopped_one() -> None:

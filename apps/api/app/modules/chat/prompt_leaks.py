@@ -10,10 +10,12 @@ It is deliberately narrow. A sentence goes only when it names an internal part f
 closed list: a label only Recall's prompt uses ("[Chemistry note]", "saved memory
 block", "BEGIN UNTRUSTED CONTENT"), or a word that also has an everyday meaning
 ("memory block" in C, "system prompt" in prompt writing) together with words about
-this user or conversation ("this conversation", "what you've told me", "on file").
-The sentence after it goes too when it points back ("It names a different person…").
-Never inside a code fence, an inline code span, a table or a heading, never the whole
-reply, and never on a turn whose message names one of these parts itself.
+this user's chat with Recall ("this conversation", "what you've told me", "your … on
+file"; not a bare "your name" or "about you", which an answer about a CMS or an LLM
+uses). The sentence after it goes too when it points back ("It names a different
+person…"). Never inside a code fence, an inline code span, a table, a heading or a
+quote, never the whole reply, and never on a turn whose recent messages are about
+prompts, language models or these parts.
 """
 
 from __future__ import annotations
@@ -39,37 +41,53 @@ _PROMPT_PART = re.compile(
 )
 _ABOUT_THIS_USER = re.compile(
     r"\b(?:this|our) (?:conversation|chat)\b|\bwhat you(?:'ve| have)? (?:told|shared with) me\b"
-    r"|\byou(?:'ve| have) told me\b|\bon file\b|\byour name\b|\babout you\b"
+    r"|\byou(?:'ve| have) told me\b|\byour? \w+(?: \w+)? on file\b"
     r"|\b(?:a )?different person\b|\bset(?:ting)? (?:it|that|this|them) aside\b",
     re.IGNORECASE,
 )
 # A sentence that goes on about the one before it.
 _POINTS_BACK = re.compile(r"(?:it|this|that|they|these|those)\b", re.IGNORECASE)
-# The user asked about prompts or these parts: the reply may name them.
+# The chat is about prompts or language models: the reply may name these parts.
 _ASKED_ABOUT = re.compile(
     r"\bprompts?\b|\bmemory block|\bsystem message|\bknown[- ]facts|\bchemistry note"
-    r"|\buntrusted content",
+    r"|\buntrusted content|\bllms?\b|\bgpts?\b|\bchatgpt\b|\bchat ?bots?\b"
+    r"|\blanguage models?\b|\bai (?:agents?|assistants?|models?)\b",
     re.IGNORECASE,
 )
+# How many of the user's latest messages say what the chat is about.
+_RECENT_USER_MESSAGES = 4
 _INLINE_CODE = re.compile(r"`[^`\n]*`")
 _SENTENCE_BREAK = re.compile(r"(?<=[.!?…]) +")
-# A line's list marker or quote marker, kept when its sentences change.
-_LEAD = re.compile(r"[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|\d{1,3}[.)])[ \t]+)?")
-_SKIPPED_STARTS = ("|", "#", "    ", "\t")
+# A line's list marker, kept when its sentences change.
+_LEAD = re.compile(r"[ \t]*(?:(?:[-*+]|\d{1,3}[.)])[ \t]+)?")
+_SKIPPED_STARTS = ("|", "#", ">", "    ", "\t")
 
 
 def drop_prompt_leaks_pass(state: FinalizeState) -> str:
     """The finalize pass: a model reply loses sentences about the prompt's parts."""
     if state.server_text:
         return state.text
-    return drop_prompt_leaks(state.text, state.ctx.user_message_content)
+    return drop_prompt_leaks(state.text, *_recent_user_lines(state))
 
 
-def drop_prompt_leaks(text: str, query: str | None = None) -> str:
-    """``text`` without sentences that name the prompt's internal parts, or unchanged."""
+def _recent_user_lines(state: FinalizeState) -> list[str]:
+    """The message and the user's messages just before it."""
+    earlier = [
+        content
+        for message in getattr(state.ctx, "prompt_messages", None) or []
+        if message.get("role") == "user" and isinstance(content := message.get("content"), str)
+    ]
+    return [state.ctx.user_message_content or "", *earlier[-_RECENT_USER_MESSAGES:]]
+
+
+def drop_prompt_leaks(text: str, *asked: str | None) -> str:
+    """``text`` without sentences that name the prompt's internal parts, or unchanged.
+
+    ``asked`` is what the user wrote this turn and just before it.
+    """
     if not text or not (_PROMPT_LABEL.search(text) or _PROMPT_PART.search(text)):
         return text
-    if query and _ASKED_ABOUT.search(straighten_apostrophes(query)):
+    if any(line and _ASKED_ABOUT.search(straighten_apostrophes(line)) for line in asked):
         return text
     lines = text.split("\n")
     owners = line_fences(text)
@@ -91,7 +109,7 @@ def drop_prompt_leaks(text: str, query: str | None = None) -> str:
 
 def _without_leaks(line: str) -> str | None:
     """The line without its leaking sentences; None when none of it is left."""
-    if line.startswith(_SKIPPED_STARTS) or line.lstrip().startswith(("|", "#")):
+    if line.startswith(_SKIPPED_STARTS) or line.lstrip().startswith(("|", "#", ">")):
         return line
     lead_match = _LEAD.match(line)
     lead = lead_match.group(0) if lead_match else ""

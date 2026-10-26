@@ -80,6 +80,7 @@ async def semantic_memories_from_vec(
         settings,
         query_text=query_text,
         with_profile=with_profile,
+        profile_name=user.name,
     )
 
 
@@ -112,9 +113,13 @@ async def load_relevant_memories(
         all_memories = await memories_repo.list_for_user(session, user.id)
         if lexical:
             return selection.select_memories_lexical(
-                all_memories, settings, query_text=query_text, with_profile=with_profile
+                all_memories,
+                settings,
+                query_text=query_text,
+                with_profile=with_profile,
+                profile_name=user.name,
             )
-        return selection.select_memories_for_prompt(all_memories, settings)
+        return selection.select_memories_for_prompt(all_memories, settings, profile_name=user.name)
     except Exception:
         logger.warning("Memory retrieval failed for user_id=%s", user.id, exc_info=True)
         if report is not None:
@@ -268,7 +273,9 @@ async def _scoped_block(
             suffix="w",
             exclude_sensitive=exclude_sensitive,
             report=report,
-            select=lambda rows: selection.select_work_memories(rows, settings),
+            select=lambda rows: selection.select_work_memories(
+                rows, settings, profile_name=user.name
+            ),
         )
     if scope == "self" or not (query_text and settings.semantic_memory_enabled):
         return await _cached_block(

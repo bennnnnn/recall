@@ -23,12 +23,13 @@ from app.modules.memory.commands import (
 from app.modules.memory.fact_quality import FactView, is_one_off_schedule_fact, texts_to_drop
 from app.modules.memory.facts import should_skip_sensitive_persist
 from app.modules.memory.forget_match import names_nothing, phrase_names_fact
-from app.modules.memory.name_claim import as_chosen_name, is_unclaimed_user_name
+from app.modules.memory.name_claim import is_unclaimed_user_name
 from app.modules.memory.ops import EXPLICIT_IMPORTANCE, MODEL_IMPORTANCE_MAX, normalize_memory_text
 from app.modules.memory.schemas import MemoryFactOp
 from app.modules.memory.self_facts import stated_fact_writes
 from app.modules.memory.text import classify_memory_sensitivity
 from app.modules.memory.topics import is_area, parse_topic, topic_memory_type
+from app.modules.memory.user_name import as_chosen_name
 from app.modules.memory.writes_repository import MemoryFactWrite
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,8 @@ class MemorySnapshot:
     active_facts: tuple[FactView, ...] = ()
     # Their zone: "next Friday" is saved as the date it means on their calendar.
     user_timezone: str | None = None
+    # The account name: a name they give that differs is saved as the one they go by.
+    profile_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -95,6 +98,7 @@ def compose_writes(
         min_confidence=min_confidence,
         transcript=lines,
         existing_texts=snapshot.existing_facts.values(),
+        profile_name=snapshot.profile_name,
     )
     if asks.forget and not from_history and not any(write.op == "delete" for write in writes):
         writes.extend(
@@ -155,6 +159,7 @@ def writes_from_ops(
     min_confidence: float,
     transcript: str,
     existing_texts: Iterable[str] = (),
+    profile_name: str | None = None,
 ) -> tuple[list[MemoryFactWrite], int]:
     writes: list[MemoryFactWrite] = []
     skipped = 0
@@ -192,8 +197,9 @@ def writes_from_ops(
             skipped += 1
             continue
         if writes_text:
-            # "Call me Sam" is a nickname, kept beside a different profile name.
-            text = as_chosen_name(text, transcript)
+            # "Call me Sam", or "My name is Bill" on an account named William, is
+            # the name they go by, kept beside the profile name.
+            text = as_chosen_name(text, transcript, profile_name)
         # No valid topic keeps a matched fact where it is; a new fact then gets
         # the default document for its type.
         topic = parse_topic(op.topic)

@@ -6,10 +6,8 @@ name is a separate field and is not inferred from other people in the chat.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable
-
-from app.services.text_normalize import collapse_ws
+from typing import Literal
 
 _APOSTROPHES = str.maketrans({"\u2019": "'", "\u2018": "'"})
 
@@ -50,14 +48,20 @@ _CHOSEN_PREFIXES = (
     "i want to be called ",
 )
 _CLAIM_PREFIXES = (*_IDENTITY_PREFIXES, *_CHOSEN_PREFIXES)
+_PREFIXES_BY_WAY = {
+    "identity": _IDENTITY_PREFIXES,
+    "chosen": _CHOSEN_PREFIXES,
+    "any": _CLAIM_PREFIXES,
+}
+# "Don't call me Sam" asks for the opposite.
+_REFUSALS = ("don't ", "do not ", "never ", "not ", "stop ")
 
-# A fact that is only the user's name: "User's name is Sam", "The user is named Sam."
-_PURE_NAME_SENTENCE = re.compile(
-    r"(?:the )?(?:user(?:'s|s)? name is|user is named) (?P<name>[^\W\d_][\w'-]*)\.?",
-    re.IGNORECASE,
+_NOT_A_NAME = frozenset(
+    {"the", "a", "an", "my", "not", "unknown", "missing", "none", "user"}
+    # "Call me when you're done", "call me back", "call me crazy".
+    | {"when", "if", "back", "later", "tomorrow", "tonight", "anytime", "now", "after"}
+    | {"before", "once", "again", "maybe", "crazy", "sometime", "please", "at", "on", "in"}
 )
-
-_NOT_A_NAME = frozenset({"the", "a", "an", "my", "not", "unknown", "missing", "none", "user"})
 
 
 def _fold(text: str) -> str:
@@ -177,12 +181,6 @@ def _unique(names: list[str]) -> list[str]:
     return list(dict.fromkeys(names))
 
 
-def stated_user_names(text: str) -> list[str]:
-    """Names this sentence says the user has ("User's name is Sam"), not a nickname."""
-    folded = _fold(text)
-    return _unique(_identity_names(folded)) if "user" in folded else []
-
-
 def assigned_user_names(text: str) -> list[str]:
     """Names this sentence assigns to the user. Empty when it does not."""
     folded = _fold(text)
@@ -230,25 +228,16 @@ def is_unclaimed_user_name(
     known: set[str] = set()
     for existing in existing_texts:
         known.update(assigned_user_names(existing))
+    return any(name not in known and not user_claimed_name(transcript, name) for name in names)
+
+
+def user_claimed_name(
+    transcript: str, name: str, *, way: Literal["identity", "chosen", "any"] = "any"
+) -> bool:
+    """The user's own lines give ``name`` as who they are ("I'm Sam", ``identity``) or
+    as what to call them ("call me Sam", ``chosen``). "Don't call me Sam" claims nothing."""
     speech = _user_speech(transcript)
-    return any(name not in known and not _claimed(speech, name) for name in names)
-
-
-def as_chosen_name(text: str, transcript: str) -> str:
-    """ "User's name is Sam" as "User goes by Sam" when the user only asked to be called it.
-
-    "Call me Sam" is the name they chose to be called, not a claim about who they are:
-    saved as a nickname it stays beside a different profile name (``profile_name``),
-    where a stated name that disagrees with the profile is left out of the prompt.
-    """
-    match = _PURE_NAME_SENTENCE.fullmatch(collapse_ws(text.translate(_APOSTROPHES)))
-    if match is None:
-        return text
-    name = match.group("name")
     folded = _fold(name)
-    speech = _user_speech(transcript)
-    if _claimed(speech, folded, _IDENTITY_PREFIXES):
-        return text
-    if not _claimed(speech, folded, _CHOSEN_PREFIXES):
-        return text
-    return f"User goes by {name}"
+    if not _keep(folded) or any(f"{refusal}call me {folded}" in speech for refusal in _REFUSALS):
+        return False
+    return _claimed(speech, folded, _PREFIXES_BY_WAY[way])
