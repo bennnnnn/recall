@@ -89,7 +89,7 @@
     "eslint": "^9.39.4",
     "eslint-config-expo": "~57.0.0",
     "jest": "^30.5.2",
-    "lucide-static": "1.55.0",
+    "lucide-static": "1.61.0",
     "react-native-render-html": "^6.3.4",
     "test-renderer": "^1.2.0",
     "ts-jest": "29.4.15",

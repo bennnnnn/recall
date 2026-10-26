@@ -263,8 +263,8 @@ importers:
         specifier: ^30.5.2
         version: 30.5.2(@types/node@26.0.0)
       lucide-static:
-        specifier: 1.55.0
-        version: 1.55.0
+        specifier: 1.61.0
+        version: 1.61.0
       react-native-render-html:
         specifier: ^6.3.4
         version: 6.3.4(@types/react-native@0.73.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.3.0))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0))(@types/react@19.3.0)(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.3.0))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)
@@ -4373,8 +4373,8 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
-  lucide-static@1.55.0:
-    resolution: {integrity: sha512-h18lunTFsIJWnY0FMRPjXeO9KcAtNi7fDqtqgWHOFbssfgUWsctn/pA7bpiyrd4g1DuBOJ24CsRnPfkYblwm/A==}
+  lucide-static@1.61.0:
+    resolution: {integrity: sha512-yLAiQB3MWUJEstsEDAwenSA3m7vr1tdLvgnC16Q/XMxRRma0DWwMs8M2bWlvgShrIs1m2mWMJ+0AiahqQO4GrA==}
 
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
@@ -11103,7 +11103,7 @@ snapshots:
     dependencies:
       yallist: 3.1.1
 
-  lucide-static@1.55.0: {}
+  lucide-static@1.61.0: {}
 
   lz-string@1.5.0: {}
 
