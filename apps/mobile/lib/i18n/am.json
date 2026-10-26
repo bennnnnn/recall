@@ -306,6 +306,7 @@
   "common.service_unavailable": "Recall አሁን አይገኝም። ትንሽ ቆይተው እንደገና ይሞክሩ።",
   "common.share_failed": "ማጋራት አልተሳካም",
   "common.share_image_error": "ይህን ምስል ማጋራት አልተቻለም።",
+  "common.share_needs_update": "በዚህ የመተግበሪያ ስሪት ፋይሎችን ማጋራት አይገኝም። ለመጠቀም መተግበሪያውን ያዘምኑ።",
   "common.try_again": "እንደገና ሞክር",
   "common.show_less": "ያነሰ አሳይ",
   "common.show_more": "ተጨማሪ አሳይ",

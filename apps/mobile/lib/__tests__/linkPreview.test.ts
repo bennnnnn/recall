@@ -93,3 +93,38 @@ it("does not let a request from before sign-out fill the next account's cache", 
   await expect(fetchLinkPreview("https://a.example")).resolves.toMatchObject({ title: "B" });
   expect(fetchPreview).toHaveBeenCalledTimes(2);
 });
+
+it("asks for three previews at a time, the next as one finishes, in the order asked", async () => {
+  const finish: ((value: unknown) => void)[] = [];
+  fetchPreview.mockImplementation(() => new Promise((resolve) => finish.push(resolve)));
+  const urls = [1, 2, 3, 4, 5].map((n) => `https://q${n}.example`);
+  const asked = urls.map((url) => fetchLinkPreview(url));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(fetchPreview).toHaveBeenCalledTimes(3);
+
+  finish[0]({ ...preview, url: urls[0] });
+  await asked[0];
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(fetchPreview).toHaveBeenCalledTimes(4);
+  expect(String(fetchPreview.mock.calls[3][0])).toContain(encodeURIComponent(urls[3]));
+
+  for (let n = 1; n < 5; n += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    finish[n]({ ...preview, url: urls[n] });
+  }
+  await Promise.all(asked);
+  expect(fetchPreview).toHaveBeenCalledTimes(5);
+});
+
+it("never sends a preview still waiting for its turn when the account signs out", async () => {
+  const finish: ((value: unknown) => void)[] = [];
+  fetchPreview.mockImplementation(() => new Promise((resolve) => finish.push(resolve)));
+  const loading = [1, 2, 3].map((n) => fetchLinkPreview(`https://l${n}.example`));
+  const waiting = fetchLinkPreview("https://waiting.example");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  clearLinkPreviewCache();
+  await expect(waiting).rejects.toThrow("preview failed");
+  finish.forEach((resolve) => resolve(preview));
+  await Promise.all(loading);
+  expect(fetchPreview).toHaveBeenCalledTimes(3);
+});

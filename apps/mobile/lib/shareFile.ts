@@ -3,6 +3,7 @@
 import { Platform, Share } from "react-native";
 
 import { isShareCancelled } from "@/lib/shareCancelled";
+import { SharingUnavailableError } from "@/lib/shareUnavailable";
 
 type SharingModule = {
   shareAsync: (url: string, options?: { mimeType?: string; UTI?: string; dialogTitle?: string }) => Promise<void>;
@@ -41,7 +42,7 @@ export function shareRoute(platform: string, hasSharing: boolean): ShareRoute {
 
 /**
  * Open the share sheet for a `file://` URI. A dismissed sheet is not an
- * error; a build that cannot share a file on this platform throws.
+ * error; a build that cannot share a file on this platform throws `SharingUnavailableError`.
  */
 export async function shareLocalFile(
   localUri: string,
@@ -50,7 +51,7 @@ export async function shareLocalFile(
   const sharing = loadSharing();
   const route = shareRoute(Platform.OS, sharing != null);
   if (route === "unavailable") {
-    throw new Error("Sharing files needs an app update.");
+    throw new SharingUnavailableError();
   }
   try {
     if (route === "expo-sharing" && sharing) {

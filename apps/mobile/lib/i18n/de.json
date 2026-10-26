@@ -306,6 +306,7 @@
   "common.service_unavailable": "Recall ist gerade nicht verfügbar. Bitte gleich noch einmal versuchen.",
   "common.share_failed": "Teilen fehlgeschlagen",
   "common.share_image_error": "Dieses Bild konnte nicht geteilt werden.",
+  "common.share_needs_update": "Das Teilen von Dateien ist in dieser Version der App nicht verfügbar. Aktualisiere die App, um es zu nutzen.",
   "common.try_again": "Noch einmal versuchen",
   "common.show_less": "Weniger anzeigen",
   "common.show_more": "Mehr anzeigen",

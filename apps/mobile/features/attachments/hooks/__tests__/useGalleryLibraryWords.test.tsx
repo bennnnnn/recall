@@ -12,6 +12,7 @@ import { pendingFromLibraryItem } from "@/features/attachments/model/pendingFrom
 import { shareChatAttachment } from "@/features/attachments/model/downloadChatAttachment";
 import { api, type AttachmentListItem } from "@/lib/api";
 import { serverUnreachableError } from "@/lib/api/deadline";
+import { SharingUnavailableError } from "@/lib/shareUnavailable";
 import { ensureLocale } from "@/lib/i18n";
 import de from "@/lib/i18n/de.json";
 
@@ -81,4 +82,12 @@ it.each([
   });
   expect(mockFeedback.error).toHaveBeenCalledWith(de[key]);
   expect(mockFeedback.error).not.toHaveBeenCalledWith(english);
+});
+
+// Android without expo-sharing (lib/shareFile.ts): since #2081 it read as the generic "Share failed".
+it("says to update the app when this build cannot share files, in German", async () => {
+  jest.mocked(shareChatAttachment).mockRejectedValueOnce(new SharingUnavailableError());
+  await render(<Probe />);
+  await act(async () => { await library.shareFile(item); });
+  expect(mockFeedback.error).toHaveBeenCalledWith(de["common.share_needs_update"]);
 });

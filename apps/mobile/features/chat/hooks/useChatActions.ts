@@ -13,6 +13,7 @@ import type { EmailDraft } from "@/lib/richBlocks";
 import { isServerMessageId } from "@/lib/serverMessageId";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { shareFailureKey } from "@/lib/shareUnavailable";
 import { useLatestRef } from "@/lib/latestRef";
 
 type Options = {
@@ -153,7 +154,7 @@ export function useChatActions({
       if (isShareCancelled(error)) return;
       reportRecoverableError(
         feedback,
-        t(error instanceof NothingToExportError ? "chat.export_pdf_empty" : "chat.export_pdf_failed"),
+        t(error instanceof NothingToExportError ? "chat.export_pdf_empty" : shareFailureKey(error, "chat.export_pdf_failed")),
       );
     }
   }, [chatTitle, dismissActionBanner, loadTranscriptMessages, showActionBanner, feedback, t]);

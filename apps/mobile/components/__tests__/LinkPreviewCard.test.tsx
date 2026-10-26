@@ -8,6 +8,7 @@ import { fetchLinkPreview } from "@/lib/linkPreview";
 
 jest.mock("@/lib/linkPreview", () => ({
   fetchLinkPreview: jest.fn(),
+  busyPreviewRetryAt: jest.fn(() => null),
 }));
 jest.mock("@/lib/linkSchemePolicy", () => ({
   openAllowedUrl: jest.fn(),

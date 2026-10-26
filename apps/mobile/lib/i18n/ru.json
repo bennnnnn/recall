@@ -308,6 +308,7 @@
   "common.service_unavailable": "Recall сейчас недоступен. Попробуйте чуть позже.",
   "common.share_failed": "Не удалось поделиться",
   "common.share_image_error": "Не удалось поделиться этим изображением.",
+  "common.share_needs_update": "Отправка файлов недоступна в этой версии приложения. Обновите приложение, чтобы ею пользоваться.",
   "common.try_again": "Попробовать снова",
   "common.show_less": "Показать меньше",
   "common.show_more": "Показать больше",

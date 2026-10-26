@@ -4,6 +4,7 @@ import { StyleSheet } from "react-native";
 import { ChatMessagePdf } from "@/features/attachments/components/ChatMessagePdf";
 import { downloadChatAttachment } from "@/features/attachments/model/downloadChatAttachment";
 import { serverUnreachableError } from "@/lib/api/deadline";
+import { SharingUnavailableError } from "@/lib/shareUnavailable";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 import { alertDialog } from "@/ui/overlay/dialogs";
 
@@ -80,6 +81,7 @@ it.each([
   ["no answer", serverUnreachableError(), "chat.error_unreachable"],
   ["no connection", new TypeError("Network request failed"), "chat.error_unreachable"],
   ["a file the phone could not open", new Error("Could not open this attachment."), "chat.pdf_export_failed"],
+  ["a build that cannot share files", new SharingUnavailableError(), "common.share_needs_update"],
 ])("words a share that failed with %s in the phone's language", async (_label, failure, key) => {
   jest.mocked(downloadChatAttachment).mockRejectedValueOnce(failure);
   await render(<ChatMessagePdf attachmentId="doc" fileName="lease-notes.pdf" />);

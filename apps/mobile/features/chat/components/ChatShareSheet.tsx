@@ -5,6 +5,7 @@ import type { Message } from "@/lib/api";
 import { NothingToExportError } from "@/features/chat/model/nothingToExport";
 import { conversationTranscript } from "@/features/chat/model/transcript";
 import { formatDate } from "@/lib/datetime/format";
+import { shareFailureKey } from "@/lib/shareUnavailable";
 import { ShareSheet } from "@/ui/share/ShareSheet";
 import { useLatestRef } from "@/lib/latestRef";
 
@@ -59,9 +60,11 @@ export function ChatShareSheet({ visible, onClose, title, loadMessages }: Props)
         const { exportConversationAsPdf } = await import("@/features/chat/model/exportMessagePdf");
         await exportConversationAsPdf(title, await getMessages());
       }}
-      failureText={(error) =>
-        error instanceof NothingToExportError ? t("chat.export_pdf_empty") : null
-      }
+      failureText={(error) => {
+        if (error instanceof NothingToExportError) return t("chat.export_pdf_empty");
+        const key = shareFailureKey(error, null);
+        return key ? t(key) : null;
+      }}
       labels={{
         share: t("share.action_share"),
         copy: t("share.action_copy"),

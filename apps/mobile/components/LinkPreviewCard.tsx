@@ -4,7 +4,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
 import { useLinkPreviewAllowed } from "@/components/markdown/LinkPreviewTrust";
-import { fetchLinkPreview, LinkPreview } from "@/lib/linkPreview";
+import { busyPreviewRetryAt, fetchLinkPreview, LinkPreview } from "@/lib/linkPreview";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
@@ -14,6 +14,14 @@ import { IconSize } from "@/ui/icons/sizes";
 import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 
 type Props = { url: string };
+
+/**
+ * Times a card on screen asks again after a busy refusal. This phone asks for three previews
+ * at a time, as many as the server loads at once (`lib/linkPreview.ts`), so a refusal means
+ * another install of the account holds slots; its previews end within the server's 8 s
+ * deadline. Bounded, since every request counts against the server's 20 a minute.
+ */
+const BUSY_RETRIES = 2;
 
 export function LinkPreviewCard({ url }: Props) {
   const theme = useTheme();
@@ -28,15 +36,34 @@ export function LinkPreviewCard({ url }: Props) {
     // URL can carry the user's data), so it stays a plain link card.
     if (!mayFetch) return;
     let cancelled = false;
-    fetchLinkPreview(url)
-      .then((data) => {
-        if (!cancelled) setPreview(data);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let retriesLeft = BUSY_RETRIES;
+    // Cards showing the same link wait for the same moment and then share one request.
+    const askAt = (at: number) => {
+      retry = setTimeout(() => (Date.now() < at ? askAt(at) : load()), Math.max(0, at - Date.now()));
+    };
+    const load = () => {
+      fetchLinkPreview(url).then(
+        (data) => {
+          if (cancelled) return;
+          setPreview(data);
+          setFailed(false);
+        },
+        () => {
+          if (cancelled) return;
+          setFailed(true);
+          // Only a busy refusal is asked again while the card is shown; any other failure never is.
+          const at = busyPreviewRetryAt(url);
+          if (at === null || retriesLeft === 0) return;
+          retriesLeft -= 1;
+          askAt(at);
+        },
+      );
+    };
+    load();
     return () => {
       cancelled = true;
+      clearTimeout(retry);
     };
   }, [url, mayFetch]);
 
