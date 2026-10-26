@@ -5,12 +5,14 @@
 un panda?", "Bana bir panda çizer misin?", "Crea una imagen de un león" draw. "Dibuja un
 gato", "Illustra il problema" and "Mal den Teufel nicht an die Wand" are answered in
 words, as on main: a picture there could be homework, an idiom or a plan. The shapes are
-``gen_intent_languages.py``; what a subject may not hold is ``gen_intent_topics.py``.
+``gen_intent_languages.py``; what a subject may be of is ``gen_intent_drawable.py``, and
+what it may not hold anywhere is ``gen_intent_topics.py``.
 
 The subject must be short and plain: at most six words, no digits, units or maths signs,
-no word the topic lists block, and nothing pointing back ("eso", "das nochmal": no
-revisions here). When in doubt, nothing is drawn. Matching is linear token scans, as in
-``gen_intent``: no ``\\s+`` / ``.+`` regex on user chat text.
+a head noun on the language's list of drawable things, no word the topic lists block,
+and nothing pointing back ("eso", "das nochmal": no revisions here). When in doubt,
+nothing is drawn. Matching is linear token scans, as in ``gen_intent``: no ``\\s+`` /
+``.+`` regex on user chat text.
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from app.modules.chemistry.request import extract_compound_name
+from app.modules.images.gen_intent_drawable import is_entry, names_drawable
 from app.modules.images.gen_intent_languages import ALSO, ARTICLES, LANGUAGES, Language, Shape
 from app.modules.images.gen_intent_topics import TOPICS
 
@@ -122,21 +125,22 @@ def _span(lang: Language, words: list[str]) -> tuple[int, int, Shape] | None:
     return None
 
 
-def _plain(lang: Language, words: list[str], typed: str) -> bool:
+def _plain(lang: Language, words: list[str], typed: list[str]) -> bool:
     """A short, plain subject: a new thing ("un dragón", not "la pirámide" or "eso" the
-    chat would have to name), no maths, no blocked topic."""
+    chat would have to name), no maths, a listed head noun, no blocked topic."""
     if not 1 <= len(words) <= _MAX_SUBJECT_WORDS:
         return False
-    if any(char.isdigit() or char in _MATHS_MARKS for char in typed):
+    if any(char.isdigit() or char in _MATHS_MARKS for word in typed for char in word):
         return False
     first, last = words[0], words[-1]
-    if first in lang.pronouns or first in lang.definite or last.endswith(lang.definite_endings):
+    definite_end = last.endswith(lang.definite_endings) and not is_entry(lang.code, last)
+    if first in lang.pronouns or first in lang.definite or definite_end:
         return False
     if first in lang.particles or last in lang.particles:
         return False
     if any(phrase_at(lang.again, words, i) for i in range(len(words))):
         return False
-    return not TOPICS[lang.code].names_one(words)
+    return names_drawable(lang.code, words, typed) and not TOPICS[lang.code].names_one(words)
 
 
 def _read(lang: Language, text: str, tokens: list[Token]) -> str | None:
@@ -150,12 +154,14 @@ def _read(lang: Language, text: str, tokens: list[Token]) -> str | None:
     if i >= end:
         return ""
     start, checked = tokens[i].start, words[i:end]
+    typed = [text[t.start : t.end].strip(_EDGES) for t in tokens[i:end]]
     if shape.of_prefix and checked[0].startswith(shape.of_prefix):
         # Amharic "የድመት ምስል": the picture of a cat draws "ድመት".
         start += len(shape.of_prefix)
         checked[0] = checked[0].removeprefix(shape.of_prefix)
+        typed[0] = typed[0].removeprefix(shape.of_prefix)
     subject = text[start : tokens[end - 1].end].strip().strip(_EDGES).strip()
-    if len(subject) < 2 or not _plain(lang, checked, subject):
+    if len(subject) < 2 or not _plain(lang, checked, typed):
         return ""
     return subject
 

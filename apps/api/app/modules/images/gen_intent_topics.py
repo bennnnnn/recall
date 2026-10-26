@@ -1,14 +1,16 @@
 # ruff: noqa: RUF001, RUF003 - Turkish dotless i and Cyrillic are the words matched
-"""What a picture asked in another language may not be about. When in doubt, no picture.
+"""What may not be said anywhere in a picture asked in another language.
 
-A subject holding one of these words is answered in words: what English declines
-(``gen_intent_words.NON_IMAGE_WORDS`` and ``NON_IMAGE_DRAW_WORDS``: an example, a
-homework, a plan, a list, a table, a triangle, a molecule), compounds by name, and the
-homework and figures of speech a draw-me request in these languages turned out to be:
-trajectories, forces, algorithms, cycles, cells, circuits, "tu respuesta", "la
-situación", "in drei Sätzen", a room to paint, a passport photo, a brand or disk image.
-Question words and negations block too ("Píntame cómo sería …", "Male mir das nicht so
-schwarz").
+``gen_intent_drawable`` decides what a picture may be of: its head noun must be a listed
+concrete thing. These lists guard the rest of the subject: "un gato con una tabla de
+multiplicar", "un volcán con sus partes", "eine Blume mit ihren Teilen" have a drawable
+head and are still answered in words. A subject holding one of these words draws
+nothing: what English declines (``gen_intent_words.NON_IMAGE_WORDS`` and
+``NON_IMAGE_DRAW_WORDS``: an example, a homework, a plan, a list, a table, a triangle, a
+molecule), and the homework and figures of speech draw-me requests in these languages
+turned out to hold: trajectories, forces, algorithms, cycles, parts and layers,
+probabilities, decisions, family trees, "tu respuesta", "la situación", "in drei
+Sätzen". Question words and negations block too ("Píntame cómo sería …").
 
 Over-blocking is accepted: "Dibújame un perro en una tabla de surf" is answered. Words
 are whole and each inflection is listed ("ejemplo(s)" is "ejemplo" and "ejemplos");
@@ -91,17 +93,9 @@ SPANISH = Topics(
         "círculo(s) circulo(s) rectángulo(s) rectangulo(s) trapecio(s) polígono(s) poligono(s) "
         "rombo(s) paralelogramo(s) geometría geometria hipotenusa molécula(s) molecula(s) "
         "estructura(s) química(s) quimica químico(s) curva(s) organigrama(s) cronograma(s) "
-        # Chemistry by name.
-        "compuesto(s) isómero(s) adn cafeína cafeina benceno etanol metanol aspirina glucosa "
-        "sacarosa metano etano propano butano amoníaco amoniaco acetona ozono colesterol dopamina "
-        "serotonina nicotina paracetamol ibuprofeno insulina penicilina morfina adrenalina dióxido "
-        "monóxido óxido oxido cloruro sulfato nitrato hidróxido carbonato fenol tolueno glicerol "
-        "urea formaldehído cloroformo mentol"
+        "compuesto(s) isómero(s) adn"
     ),
-    pairs=_pairs(
-        "mapa conceptual mapa mental árbol genealógico arbol genealogico de decisión ácido acético "
-        "ácido sulfúrico ácido clorhídrico ácido nítrico acido acetico"
-    ),
+    pairs=_pairs("mapa conceptual mapa mental árbol genealógico arbol genealogico de decisión"),
 )
 
 FRENCH = Topics(
@@ -122,16 +116,9 @@ FRENCH = Topics(
         "graphique(s) graphe(s) courbe(s) conclusion(s) inférence(s) ligne(s) droites triangle(s) "
         "carré(s) carre(s) cercle(s) rectangle(s) trapèze(s) polygone(s) losange(s) "
         "parallélogramme(s) géométrie geometrie hypoténuse molécule(s) molecule(s) structure(s) "
-        "chimie chimique(s) organigramme(s) composé(s) isomère(s) adn caféine benzène éthanol "
-        "méthanol aspirine glucose saccharose méthane éthane propane butane ammoniac acétone ozone "
-        "cholestérol dopamine sérotonine nicotine paracétamol ibuprofène insuline pénicilline "
-        "morphine adrénaline dioxyde monoxyde oxyde chlorure sulfate nitrate hydroxyde carbonate "
-        "phénol toluène glycérol urée chloroforme menthol"
+        "chimie chimique(s) organigramme(s) composé(s) isomère(s) adn"
     ),
-    pairs=_pairs(
-        "carte mentale arbre généalogique arbre genealogique de décision mots croisés acide "
-        "acétique acide sulfurique acide chlorhydrique acide nitrique"
-    ),
+    pairs=_pairs("carte mentale arbre généalogique arbre genealogique de décision mots croisés"),
     # "(Une) droite" is a line; "un chat à droite" is on the right.
 )
 
@@ -154,12 +141,7 @@ GERMAN = Topics(
         "dreieck(e) quadrat(e) kreis(e) rechteck(e) trapez(e) vieleck(e) polygon(e) raute(n) "
         "parallelogramm(e) geometrie hypotenuse molekül(e) struktur(en) chemie flussdiagramm(e) "
         "mindmap(s) stammbaum stammbäume entscheidungsbaum organigramm(e) freikörperdiagramm(e) "
-        "wertetabelle(n) strukturformel(n) chemisch(e|en|er|es) isomer(e) dna koffein coffein "
-        "benzol ethanol methanol aspirin glukose glucose saccharose methan ethan propan butan "
-        "ammoniak aceton ozon cholesterin dopamin serotonin nikotin paracetamol ibuprofen insulin "
-        "penicillin morphin adrenalin kohlendioxid kohlenmonoxid natriumchlorid eisenoxid phenol "
-        "toluol glycerin harnstoff chloroform menthol essigsäure schwefelsäure salzsäure "
-        "salpetersäure"
+        "wertetabelle(n) strukturformel(n) chemisch(e|en|er|es) isomer(e) dna"
     ),
     pairs=_pairs("chemische verbindung chemischen verbindung"),
     endings=tuple(
@@ -189,15 +171,11 @@ ITALIAN = Topics(
         "grafico grafici conclusione conclusioni linea linee retta rette triangolo triangoli "
         "quadrato quadrati cerchio cerchi rettangolo rettangoli trapezio poligono poligoni rombo "
         "parallelogramma geometria ipotenusa molecola molecole struttura strutture chimica chimico "
-        "chimiche chimici curva curve organigramma composto composti isomero dna caffeina benzene "
-        "etanolo metanolo aspirina glucosio saccarosio metano etano propano butano ammoniaca "
-        "acetone ozono colesterolo dopamina serotonina nicotina paracetamolo ibuprofene insulina "
-        "penicillina morfina adrenalina anidride biossido ossido cloruro solfato nitrato idrossido "
-        "carbonato fenolo toluene glicerolo urea cloroformio mentolo"
+        "chimiche chimici curva curve organigramma composto composti isomero dna"
     ),
     pairs=_pairs(
-        "mappa concettuale mappa mentale albero genealogico piano di di decisione acido acetico "
-        "acido solforico acido cloridrico acido nitrico"
+        "mappa concettuale mappa mentale albero genealogico piano di di decisione albero "
+        "decisionale"
     ),
 )
 
@@ -219,15 +197,11 @@ PORTUGUESE = Topics(
         "gráfico(s) grafico(s) conclusão conclusões linha(s) reta(s) triângulo(s) quadrado(s) "
         "círculo(s) retângulo(s) trapézio(s) polígono(s) losango(s) paralelogramo(s) geometria "
         "hipotenusa molécula(s) molecula(s) estrutura(s) química quimica químico(s) curva(s) "
-        "organograma(s) fluxograma(s) esquema(s) composto(s) isômero(s) dna cafeína cafeina "
-        "benzeno etanol metanol aspirina glicose sacarose metano etano propano butano amônia "
-        "amonia amoníaco acetona ozônio colesterol dopamina serotonina nicotina paracetamol "
-        "ibuprofeno insulina penicilina morfina adrenalina dióxido monóxido óxido cloreto sulfato "
-        "nitrato hidróxido carbonato fenol tolueno glicerol ureia clorofórmio mentol"
+        "organograma(s) fluxograma(s) esquema(s) composto(s) isômero(s) dna"
     ),
     pairs=_pairs(
         "mapa mental mapa conceitual árvore genealógica arvore genealogica de decisão palavras "
-        "cruzadas ácido acético ácido sulfúrico ácido clorídrico ácido nítrico"
+        "cruzadas"
     ),
 )
 
@@ -251,17 +225,9 @@ RUSSIAN = Topics(
         "квадрата прямоугольник трапеция трапецию многоугольник ромб параллелограмм геометрия "
         "геометрию гипотенуза гипотенузу молекула молекулу молекулы структура структуру химия "
         "химию кривая кривую химический химическая химическое химическую химической блок-схема "
-        "блок-схему интеллект-карта интеллект-карту словами изомер днк кофеин бензол этанол "
-        "метанол аспирин глюкоза глюкозу сахароза сахарозу метан этан пропан бутан аммиак ацетон "
-        "озон холестерин дофамин серотонин никотин парацетамол ибупрофен инсулин пенициллин морфин "
-        "адреналин диоксид оксид хлорид сульфат нитрат гидроксид карбонат фенол толуол глицерин "
-        "мочевина мочевину хлороформ ментол"
+        "блок-схему интеллект-карта интеллект-карту словами изомер днк"
     ),
-    pairs=_pairs(
-        "генеалогическое древо генеалогическое дерево химическое соединение уксусная кислота "
-        "уксусную кислоту серная кислота серную кислоту соляная кислота соляную кислоту углекислый "
-        "газ"
-    ),
+    pairs=_pairs("генеалогическое древо генеалогическое дерево химическое соединение"),
 )
 
 TURKISH = Topics(
@@ -281,15 +247,11 @@ TURKISH = Topics(
         "kareyi daire daireyi çember çemberi dikdörtgen yamuk çokgen paralelkenar hipotenüs "
         "geometri molekül molekülü molekülünü yapısı yapısını kimya kimyasal eğri eğrisi "
         # "Altını çiz" underlines, "üstünü çiz" crosses out; "kedi nasıl çiz" is a question.
-        "altını altlarını üstünü üzerini nasıl neden niye nedir bileşik izomer dna kafein kafeini "
-        "benzen benzeni etanol etanolü metanol aspirin aspirini glikoz glikozu sakkaroz metan "
-        "metanı etan propan bütan amonyak amonyağı aseton ozon kolesterol dopamin serotonin "
-        "nikotin parasetamol ibuprofen insülin penisilin morfin adrenalin dioksit monoksit oksit "
-        "klorür sülfat nitrat hidroksit karbonat fenol toluen gliserol üre kloroform mentol"
+        "altını altlarını üstünü üzerini nasıl neden niye nedir bileşik izomer dna"
     ),
     pairs=_pairs(
-        "kavram haritası kavram haritasını soy ağacı soy ağacını karar ağacı karar ağacını asetik "
-        "asit sülfürik asit karbon dioksit"
+        "kavram haritası kavram haritasını soy ağacı soy ağacını karar ağacı karar ağacını aile "
+        "ağacı"
     ),
 )
 
@@ -297,7 +259,7 @@ AMHARIC = Topics(
     _w(
         "ምሳሌ ምሳሌዎች ችግር ችግሩን መፍትሄ መፍትሔ ጥያቄ ጥያቄዎች መልመጃ ማጠቃለያ ፕሮጀክት ኢሜል መልእክት ሪፖርት ድርሰት ግጥም ቀልድ ሀሳብ "
         "ሃሳብ አቀራረብ ኮድ መተግበሪያ ጨዋታ ዘፈን በጀት ውል ንግግር ሰንጠረዥ ሰንጠረዡን ግራፍ ግራፉን ቻርት ዲያግራም ዝርዝር መስመር ክብ "
-        "ሞለኪውል እኩልታ እቅድ ካፌይን ኢታኖል አስፕሪን ግሉኮስ ሚቴን አሞኒያ ኦዞን ኮሌስትሮል ኒኮቲን ፓራሲታሞል ኢንሱሊን ዳይኦክሳይድ ኦክሳይድ"
+        "ሞለኪውል እኩልታ እቅድ ዕቅድ ቤተሰብ ክፍሎች ክፍሎቹ ካርታ ታሪክ ደብዳቤ ገበታ ንድፍ ዑደት ሂደት መዋቅር ሥርዓት ስርዓት"
     ),
     pairs=_pairs("ሶስት ማዕዘን የቤት ስራ የቤት ሥራ"),
 )
@@ -325,7 +287,8 @@ _MORE: dict[str, tuple[str, str, str]] = {
         "ángulo(s) angulo(s) parábola(s) onda(s) datos dato grados metros kilómetros diferencia(s) "
         "inflación límite(s) derivada(s) integral(es) proyectil(es) paso(s) proceso(s) "
         "fotosíntesis economía oferta demanda éxito candidato(s) organización tu tus respaldo "
-        "servidor contenedor gastos camino(s) ruta(s) uñas estoy soy tengo",
+        "servidor contenedor gastos camino(s) ruta(s) uñas estoy soy tengo partes capas etiquetas "
+        "familiar decisiones probabilidad(es) plano(s) duda(s)",
         "",
         "",
     ),
@@ -339,7 +302,8 @@ _MORE: dict[str, tuple[str, str, str]] = {
         "degrés mètres différence(s) tva impôt(s) limite(s) dérivée(s) intégrale(s) projectile(s) "
         "droite schéma(s) processus photosynthèse économie offre demande succès réussite "
         "candidat(s) organisation parcours ton ta tes votre vos sauvegarde serveur conteneur "
-        "dépenses aperçu chemin(s) ongles suis",
+        "dépenses aperçu chemin(s) ongles suis parties couches étiquette(s) table(s) familial "
+        "décisions probabilité(s) doute(s)",
         "",
         "",
     ),
@@ -355,7 +319,8 @@ _MORE: dict[str, tuple[str, str, str]] = {
         "integral(e) schema schritt(e) schritten ablauf prozess(e) photosynthese fotosynthese "
         "mitose wirtschaft angebot nachfrage erfolg kandidat(en) organisation werdegang dein deine "
         "deinen deinem deiner deines euer eure sicherung server container ausgaben übersicht weg "
-        "route zusammenhang bin",
+        "route zusammenhang bin teil(e|en) bestandteil(e|en) schicht(en) beschriftung(en) "
+        "beschriftet(e|en|er) grundriss(e) zweifel wahrscheinlichkeit(en)",
         "",
         "",
     ),
@@ -370,7 +335,9 @@ _MORE: dict[str, tuple[str, str, str]] = {
         "angolo angoli parabola onda onde dati gradi metri differenza differenze limite derivata "
         "integrale proiettile piano piani schema schemi passo passi passaggio passaggi processo "
         "processi fotosintesi economia offerta domanda successo candidato candidati organizzazione "
-        "percorso tuo tua tuoi tue vostro vostra server container spese panoramica strada sono",
+        "percorso tuo tua tuoi tue vostro vostra server container spese panoramica strada sono "
+        "parti strati etichette tabellina tabelline famiglia decisioni probabilità pianta "
+        "piantina dubbi",
         "banca dati",
         "",
     ),
@@ -384,28 +351,30 @@ _MORE: dict[str, tuple[str, str, str]] = {
         "velocidade aceleração ângulo(s) angulo(s) parábola(s) onda(s) dados graus metros "
         "diferença(s) limite(s) derivada(s) integral projétil passo(s) processo(s) fotossíntese "
         "economia oferta demanda sucesso candidato(s) organização teu tua teus tuas servidor "
-        "contêiner despesas gastos caminho(s) rota(s) unhas estou sou",
+        "contêiner despesas gastos caminho(s) rota(s) unhas estou sou partes camadas etiquetas "
+        "rótulos tabuada(s) família decisões probabilidade(s) planta dúvida(s)",
         "de dados",
         "",
     ),
     "ru": (
         "угол план плана планы планом планов сила силу силы сил силами метр метра метров цен цены "
         "ценам общую общая общий общей граница границу границы границе карта карту карты рынок я "
-        "твой твою твоё твоего твоей твои твоих свой свою своё своего своей свои своих",
+        "твой твою твоё твоего твоей твои твоих свой свою своё своего своей свои своих слои слоями "
+        "слоёв слоев",
         "база данных базу данных базы данных",
         "спис треугольн квадрат прямоугольн окружност круги кругов линий схем диаграм график "
         "таблиц задач пример уравнен упражнен вопрос решени проект рецепт стих песен молекул "
-        "структурн формул этанол метанол бензол кофеин аспирин глюкоз траектор алгоритм цикл "
+        "структурн формул траектор алгоритм цикл "
         "ситуац ответ аргумент причин слов предложени селфи паспорт документ бренд компани диск "
         "распределени вектор орбит клетк атом цеп энерги скорост ускорен угл парабол волн данн "
         "градус разниц предел производн интеграл снаряд размер сценари распорядк бизнес анатоми "
         "шкал хронолог пирамид содержани систем функционир динамик развити тенденц теорем фаз "
         "митоз контекст будущ мысл устройств строени событ расстояни шаг процесс фотосинтез "
         "экономик спрос успех кандидат организац ваш резерв сервер обзор расход происход "
-        "перспектив рынк пут",
+        "перспектив рынк пут част подпис семейн тьюринг теплов вероятн проблем сомнени",
     ),
     "tr": (
-        "açı açısı açıyı açıları yol yolu yolunu senin sizin",
+        "açı açısı açıyı açıları yol yolu yolunu senin sizin aile",
         "veri tabanı veri tabanını",
         "liste sınır veritaban üçgen kare daire çember dikdörtgen grafi diyagram şema tablo örnek "
         "problem soru ödev proje molekül yörünge kuvvet algoritma döngü plan formül denklem cevap "
@@ -413,7 +382,8 @@ _MORE: dict[str, tuple[str, str, str]] = {
         "metre fark selfie kimlik pasaport belge marka şirket disk çalış gelişim eğilim fiyat "
         "teorem evre aşama mitoz bağlam gelecek düşünce yapı genel olay mesafe limit türev "
         "integral mermi ölçü senaryo rutin anatomi çizelge program adım süreç sürec cevab örneğ "
-        "kimliğ taleb fotosentez ekonomi arz talep başarı aday organizasyon yedek sunucu harcama",
+        "kimliğ taleb fotosentez ekonomi arz talep başarı aday organizasyon yedek sunucu harcama "
+        "parça katman etiket olasılık",
     ),
     "am": ("ድንበር ዳታቤዝ ቀመር ስሌት ሕዋስ አቶም ኃይል ኃይሎች ሀይል መልስ መልሱን", "", ""),
 }  # fmt: skip
@@ -421,9 +391,13 @@ _MORE: dict[str, tuple[str, str, str]] = {
 
 def _with_more(code: str, topics: Topics) -> Topics:
     words, pairs, stems = _MORE[code]
+    listed = topics.words | _w(words)
+    if code == "am":
+        # "የቤተሰብ ዛፍ" (the family's tree): Amharic writes "of" as the noun's first letter.
+        listed |= {f"የ{word}" for word in listed}
     return replace(
         topics,
-        words=topics.words | _w(words) | _EVERY,
+        words=listed | _EVERY,
         pairs=topics.pairs | (_pairs(pairs) if pairs else frozenset()),
         stems=tuple(stems.split()),
     )
