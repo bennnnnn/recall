@@ -3,6 +3,7 @@ import type { ComponentType } from "react";
 
 import { HTML_RUN_CDN_HOSTS } from "@/lib/htmlRunCdn";
 import { isAllowedLinkUrl } from "@/lib/linkSchemePolicy";
+import type { PreviewTapGate } from "@/lib/previewTap";
 import { isPreviewInlineDocumentUrl } from "@/lib/staticOnlyNavigationGuard";
 
 type PreviewWebViewMode = "rnc" | "expo-dom";
@@ -119,14 +120,38 @@ export function allowPreviewPageNavigation(pageUri: string, request?: unknown): 
 /**
  * A navigation the page may not make that should still open, as links in
  * these cards did before they were files: a top-frame link the chat would open
- * too (lib/linkSchemePolicy.ts). iOS reports what started a navigation, so
- * there only a tap on a link opens.
+ * too (lib/linkSchemePolicy.ts), right after the user touched the WebView
+ * (lib/previewTap.ts). Script in the page can navigate on its own; without
+ * that touch nothing opens.
  */
-export function previewPageLinkToOpen(request?: unknown): string | null {
+export function previewPageLinkToOpen(request: unknown, tap: PreviewTapGate): string | null {
   if (!navigationRequestIsTopFrame(request)) return null;
-  if (Platform.OS === "ios" && navigationRequestType(request) !== "click") return null;
-  const url = navigationRequestUrl(request).trim();
-  return isAllowedLinkUrl(url) ? url : null;
+  if (!navigationRequestMayBeTap(request)) return null;
+  return previewPagePostedLinkToOpen(navigationRequestUrl(request), tap);
+}
+
+/**
+ * A link the page posted (lib/previewPage.ts) opens on the same terms: a link
+ * the chat would open, right after a touch. The page posts what it likes.
+ */
+export function previewPagePostedLinkToOpen(url: string, tap: PreviewTapGate): string | null {
+  const link = url.trim();
+  return isAllowedLinkUrl(link) && tap.claim() ? link : null;
+}
+
+/**
+ * What the WebView itself says started a navigation. iOS reports the type,
+ * and only a link activation may open (script can click a link too, so the
+ * touch still decides). Android (react-native-webview 14) reports nothing
+ * there, so the touch alone decides; a request that does say it had no
+ * gesture, or was a redirect, never opens.
+ */
+function navigationRequestMayBeTap(request: unknown): boolean {
+  if (Platform.OS === "ios") return navigationRequestType(request) === "click";
+  return (
+    navigationRequestField(request, "hasGesture") !== false &&
+    navigationRequestField(request, "isRedirect") !== true
+  );
 }
 
 /**
@@ -153,38 +178,25 @@ function filePath(url: string): string | null {
   }
 }
 
-/** Pull URL from RN WebView's nativeEvent (or a plain `{ url }` test stub). */
-function navigationRequestUrl(request: unknown): string {
-  if (request == null || typeof request !== "object") return "";
-  const rec = request as { url?: unknown; nativeEvent?: { url?: unknown } };
-  if (typeof rec.url === "string") return rec.url;
-  if (typeof rec.nativeEvent?.url === "string") return rec.nativeEvent.url;
-  return "";
+/** One field of RN WebView's request, from the request or its nativeEvent (a test stub is plain). */
+function navigationRequestField(request: unknown, name: string): unknown {
+  if (request == null || typeof request !== "object") return undefined;
+  const rec = request as Record<string, unknown> & { nativeEvent?: Record<string, unknown> };
+  return rec[name] ?? rec.nativeEvent?.[name];
 }
 
-/** Top-frame flag from RN WebView request (defaults true when unknown). */
+function navigationRequestUrl(request: unknown): string {
+  const url = navigationRequestField(request, "url");
+  return typeof url === "string" ? url : "";
+}
+
+/** Top-frame flag from RN WebView request (defaults true when unknown: Android sends none). */
 function navigationRequestIsTopFrame(request: unknown): boolean {
-  if (request == null || typeof request !== "object") return true;
-  const rec = request as {
-    isTopFrame?: unknown;
-    nativeEvent?: { isTopFrame?: unknown };
-  };
-  if (typeof rec.isTopFrame === "boolean") return rec.isTopFrame;
-  if (typeof rec.nativeEvent?.isTopFrame === "boolean") {
-    return rec.nativeEvent.isTopFrame;
-  }
-  return true;
+  const isTopFrame = navigationRequestField(request, "isTopFrame");
+  return typeof isTopFrame === "boolean" ? isTopFrame : true;
 }
 
 function navigationRequestType(request: unknown): string {
-  if (request == null || typeof request !== "object") return "other";
-  const rec = request as {
-    navigationType?: unknown;
-    nativeEvent?: { navigationType?: unknown };
-  };
-  if (typeof rec.navigationType === "string") return rec.navigationType;
-  if (typeof rec.nativeEvent?.navigationType === "string") {
-    return rec.nativeEvent.navigationType;
-  }
-  return "other";
+  const navigationType = navigationRequestField(request, "navigationType");
+  return typeof navigationType === "string" ? navigationType : "other";
 }
