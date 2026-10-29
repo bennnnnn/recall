@@ -10,7 +10,7 @@ import pytest
 from app.core.config import Settings
 from app.models.orm import Chat
 from app.modules.chat import compaction
-from app.tests.fakes import FakeSessionCM, redis_mock
+from app.tests.fakes import FakeSessionCM, fake_session, redis_mock
 
 
 def _msg(content="x"):
@@ -139,7 +139,7 @@ async def test_compress_runs_under_token_pressure_before_full_batch():
     session.commit.assert_awaited()
 
 
-def _over_window_patches(session, summarize):
+def _over_window_patches(session, summarize, history=None):
     return (
         patch("app.modules.chat.compaction.get_redis_client", return_value=_fake_redis()),
         patch("app.modules.chat.compaction.SessionLocal", FakeSessionCM(session)),
@@ -152,7 +152,7 @@ def _over_window_patches(session, summarize):
         ),
         patch(
             "app.modules.chat.compaction.messages_repo.list_range",
-            AsyncMock(return_value=[_msg("a"), _msg("b")]),
+            AsyncMock(return_value=history or [_msg("a"), _msg("b")]),
         ),
         patch("app.modules.chat.compaction.summarize_conversation", summarize),
     )
@@ -178,9 +178,8 @@ class _TrackedSessionCM(FakeSessionCM):
 @pytest.mark.asyncio
 async def test_the_summary_reads_a_reply_without_its_sources_fence():
     """A summary once kept "3.8% in June 2025" from a search result as if it were said."""
-    session = AsyncMock()
     chat = MagicMock(summary=None, summary_message_count=0)
-    session.get = AsyncMock(return_value=chat)
+    session = fake_session(get=AsyncMock(return_value=chat))
     reply = _msg(
         'Kenya held the rate at 8.75%.\n\n```sources\n[{"title": "CBK", "url": "https://x.test", '
         '"snippet": "Inflation 3.8% | June 2025"}]\n```'
@@ -193,14 +192,8 @@ async def test_the_summary_reads_a_reply_without_its_sources_fence():
         return "SUMMARY"
 
     with ExitStack() as stack:
-        for each in _over_window_patches(session, summarize):
+        for each in _over_window_patches(session, summarize, [_msg("What is the rate?"), reply]):
             stack.enter_context(each)
-        stack.enter_context(
-            patch(
-                "app.modules.chat.compaction.messages_repo.list_range",
-                AsyncMock(return_value=[_msg("What is the rate?"), reply]),
-            )
-        )
         await compaction.compress_chat_history(_OVER_WINDOW, uuid4())
     assert [m["content"] for m in seen[0]] == ["What is the rate?", "Kenya held the rate at 8.75%."]
 
@@ -285,16 +278,20 @@ def test_summary_system_prompt_preserves_uncertainty():
 
 
 def test_summary_system_prompt_keeps_topics_in_order_and_short():
-    from app.modules.chat.context_window import SUMMARY_SYSTEM_PROMPT
+    from app.modules.chat.context_window import (
+        NEWEST_FIGURE_RULE,
+        NO_INVENTED_PLAN,
+        SUMMARY_SYSTEM_PROMPT,
+    )
 
     # A 36-message chat once saved a summary cut off mid-sentence, with the middle topics
     # gone: the model was never asked to stay short, so it ran out of tokens.
     assert "oldest first" in SUMMARY_SYSTEM_PROMPT
     assert "under 300 words" in SUMMARY_SYSTEM_PROMPT
-    assert "most recent one with its date" in SUMMARY_SYSTEM_PROMPT
+    assert NEWEST_FIGURE_RULE in SUMMARY_SYSTEM_PROMPT
     # An invented "Open: user considering sleeping 6-7 hours" later came back as something
     # the assistant had asked.
-    assert "never invent a plan" in SUMMARY_SYSTEM_PROMPT
+    assert NO_INVENTED_PLAN in SUMMARY_SYSTEM_PROMPT
 
 
 @pytest.mark.asyncio

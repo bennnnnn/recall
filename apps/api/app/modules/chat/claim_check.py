@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import re
+import string
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -47,6 +48,10 @@ _MAX_CUT_SHARE = 0.5
 _MAX_CLAIMS = 12
 _SEARCH_BLOCK_MARK = "Web search results"
 
+# A reply citing a result's headline was once cut as unsupported: the checker read only the
+# text under it.
+HEADLINE_IS_EVIDENCE = "a headline that states a fact supports it"
+
 _SYSTEM = (
     "You check an assistant reply against the evidence it had, and list every claim the "
     "evidence does not support.\n\n"
@@ -54,8 +59,9 @@ _SYSTEM = (
     "regulatory status (licensed, banned, approved, reinstated, safe to use); a named "
     "organisation, product or person said to offer or do something; or an attribution "
     "to a named source or authority.\n\n"
-    "Evidence is ONLY the web results (each one's title, address and text all count; a "
-    "headline that states a fact supports it) and the user's own messages and saved memory. "
+    "Evidence is ONLY the web results (each one's title, address and text all count; "
+    + HEADLINE_IS_EVIDENCE
+    + ") and the user's own messages and saved memory. "
     "Earlier assistant replies are NOT evidence. A figure within rounding of one in the evidence is "
     "supported, and so is arithmetic done on supported or user-given figures.\n\n"
     "Not a claim to list: advice, opinions, definitions, general explanations of how "
@@ -106,8 +112,10 @@ def _evidence(state: FinalizeState) -> str:
 
 
 _TABLE_ROW = re.compile(r"^\s*\|")
-_TABLE_RULE = re.compile(r"^\s*\|?[\s:|-]+\|[\s:|-]*$")
-_SENTENCE_GAP = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9*_\[(\"'])")
+# Linear checks: a reply is untrusted text, and overlapping `\s*`/`\s+` groups backtrack.
+_TABLE_RULE_CHARS = re.compile(r"[\s:|-]*")
+_SENTENCE_END = re.compile(r"[.!?]")
+_SENTENCE_OPENERS = frozenset(string.ascii_uppercase + string.digits + "*_[(\"'")
 _ONLY_MARKUP = re.compile(r"^[\s>*_\-•\d.)#]*$")
 
 
@@ -152,13 +160,35 @@ _LIST_MARKER = re.compile(r"^\s*(?:[-*+\u2022]|\d+[.)])\s+")
 _CUT_ROW = "\x00cut"
 
 
+def _is_table_rule(row: str) -> bool:
+    """A table's rule row, "|---|:--|": only pipes, dashes, colons and spaces, with a pipe
+    after the first character."""
+    return _TABLE_RULE_CHARS.fullmatch(row) is not None and "|" in row[1:]
+
+
+def _sentences(line: str) -> list[str]:
+    """``line`` split after each ``.``, ``!`` or ``?`` that whitespace and then a capital,
+    digit, markup or quote follow; the whitespace goes."""
+    parts: list[str] = []
+    start = 0
+    for end in _SENTENCE_END.finditer(line):
+        stop = gap = end.end()
+        while gap < len(line) and line[gap].isspace():
+            gap += 1
+        if stop < gap < len(line) and line[gap] in _SENTENCE_OPENERS:
+            parts.append(line[start:stop])
+            start = gap
+    parts.append(line[start:])
+    return parts
+
+
 def _cut_from_line(line: str, quote: str) -> str | None:
     """The line without the sentence holding ``quote``; ``_CUT_ROW`` for a table row, None
     when nothing is left, the line itself when it cannot tell which sentence was meant."""
     if _TABLE_ROW.match(line):
         return _CUT_ROW
     needle = _plain(quote)
-    sentences = _SENTENCE_GAP.split(line)
+    sentences = _sentences(line)
     kept = [s for s in sentences if not _contains(s, needle)]
     if len(kept) == len(sentences):
         # Named by its words, not copied: one sentence has nothing else to keep, and with
@@ -184,11 +214,11 @@ def _tidy_tables(lines: list[str | None]) -> list[str]:
         if _CUT_ROW not in run:
             out.extend(run)
         else:
-            rows = [row for row in run if not _TABLE_RULE.match(row)]
+            rows = [row for row in run if not _is_table_rule(row)]
             header_cut = rows[0] == _CUT_ROW
             body = [row for row in rows[1:] if row != _CUT_ROW and not _TOTAL_ROW.match(row)]
             if not header_cut and body:
-                rule = [row for row in run[1:2] if _TABLE_RULE.match(row)]
+                rule = [row for row in run[1:2] if _is_table_rule(row)]
                 out.extend([rows[0], *rule, *body])
         run.clear()
 
@@ -209,7 +239,7 @@ def cut_claims(text: str, quotes: list[str]) -> tuple[str, int]:
     handled: set[str] = set()
 
     def rewrite(prose: str) -> str:
-        lines: list[str | None] = prose.split("\n")  # type: ignore[assignment]
+        lines: list[str | None] = [*prose.split("\n")]
         for quote in quotes:
             if quote in handled:
                 continue

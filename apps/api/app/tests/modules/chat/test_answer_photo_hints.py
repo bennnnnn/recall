@@ -10,7 +10,7 @@ from app.modules.chat.prompt_constants import (
     where_is_place,
 )
 from app.modules.chat.prompt_format import _style_format_hints
-from app.modules.chat.prompt_window import _strip_prompt_owned_fences
+from app.modules.chat.prompt_window import strip_prompt_owned_fences
 
 
 @pytest.mark.parametrize(
@@ -165,4 +165,4 @@ def test_photo_hint_keeps_abstract_topics_and_lessons_out() -> None:
 
 def test_photo_fence_is_dropped_from_history_so_it_is_not_copied() -> None:
     reply = "```photo\nKenya location map\n```\n\nKenya is in East Africa."
-    assert _strip_prompt_owned_fences(reply).strip() == "Kenya is in East Africa."
+    assert strip_prompt_owned_fences(reply).strip() == "Kenya is in East Africa."

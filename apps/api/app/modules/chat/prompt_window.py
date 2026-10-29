@@ -137,7 +137,7 @@ def _answer_line(body: str) -> str:
 _LABEL_UNDER_HEADING = re.compile(r"(?m)^(\*\*Answer:?\*\*:?[ \t]*\n(?:[ \t]*\n)*)Answer: ")
 
 
-def _strip_prompt_owned_fences(content: str) -> str:
+def strip_prompt_owned_fences(content: str) -> str:
     """Drop solver/search fences from assistant history before the model sees them.
 
     Persisted messages keep the fences for the client. Re-injecting ```answer /
@@ -171,7 +171,7 @@ def history_messages(window: PromptWindow, *, math_followup: bool) -> list[dict[
                 else None
             )
             content = prior_result or todos_service.reminder_cards_as_text(
-                _strip_prompt_owned_fences(content)
+                strip_prompt_owned_fences(content)
             )
         messages.append({"role": msg.role, "content": content})
     return messages

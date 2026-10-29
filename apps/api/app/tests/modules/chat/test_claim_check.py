@@ -235,7 +235,7 @@ async def test_the_model_sees_the_sources_and_the_users_words_but_not_earlier_re
 def test_the_checker_is_told_a_headline_is_evidence() -> None:
     # A reply citing a result's headline was once cut as unsupported: the verifier read
     # only the text under it.
-    assert "headline that states a fact supports it" in claim_check._SYSTEM
+    assert claim_check.HEADLINE_IS_EVIDENCE in claim_check._SYSTEM
 
 
 async def test_the_default_note_names_what_was_left_out() -> None:

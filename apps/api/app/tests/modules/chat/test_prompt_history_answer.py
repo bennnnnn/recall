@@ -3,7 +3,7 @@ under a second Answer label."""
 
 import pytest
 
-from app.modules.chat.prompt_window import _strip_prompt_owned_fences
+from app.modules.chat.prompt_window import strip_prompt_owned_fences
 
 
 @pytest.mark.parametrize(
@@ -26,9 +26,9 @@ from app.modules.chat.prompt_window import _strip_prompt_owned_fences
     ],
 )
 def test_history_keeps_the_verified_value_as_a_line(reply: str, history: str) -> None:
-    assert _strip_prompt_owned_fences(reply) == history
+    assert strip_prompt_owned_fences(reply) == history
 
 
 def test_history_never_carries_the_verified_marker() -> None:
-    stripped = _strip_prompt_owned_fences("```answer\nverified: true\nx = 6\n```")
+    stripped = strip_prompt_owned_fences("```answer\nverified: true\nx = 6\n```")
     assert "verified" not in stripped and "```" not in stripped
