@@ -1,4 +1,6 @@
-"""Small whole-number facts are drawn as objects to count; big ones keep the written method."""
+"""Small whole-number facts are drawn as objects to count when the user asks how; big ones
+keep the written method, and a plain sum gets its answer (2026-10-29: "what's 2+2" from an
+adult got "2 fish and 2 more make 4 fish")."""
 
 import json
 
@@ -30,17 +32,16 @@ def _picture(reply: str) -> dict[str, object] | None:
 @pytest.mark.parametrize(
     ("query", "operation", "first", "second", "result", "sentence"),
     [
-        ("3-3", "subtract", 3, 3, 0, "Take away 3. None are left."),
-        ("4-3", "subtract", 4, 3, 1, "1 ball is left."),
-        ("3+4", "add", 3, 4, 7, "3 balls and 4 more make 7 balls."),
-        ("10+10", "add", 10, 10, 20, "make 20"),
-        ("3*4", "multiply", 3, 4, 12, "3 rows of 4"),
-        ("12 ÷ 3", "divide", 12, 3, 4, "shared into 3 equal groups is 4 in each group."),
+        ("explain 3-3", "subtract", 3, 3, 0, "Take away 3. None are left."),
+        ("show the steps for 4-3", "subtract", 4, 3, 1, "1 ball is left."),
+        ("explain 3+4", "add", 3, 4, 7, "3 balls and 4 more make 7 balls."),
+        ("10+10 show steps", "add", 10, 10, 20, "make 20"),
+        ("explain 3*4", "multiply", 3, 4, 12, "3 rows of 4"),
+        ("explain 12 ÷ 3", "divide", 12, 3, 4, "shared into 3 equal groups is 4 in each group."),
         ("explain 9-4", "subtract", 9, 4, 5, "5 strawberries are left."),
-        # The app's own suggestion wording, with the real minus sign it prints.
-        ("What if it were 3 \u2212 2?", "subtract", 3, 2, 1, "1 apple is left."),
-        ("what if it was 12 \u00f7 3?", "divide", 12, 3, 4, "4 in each group."),
-        ("3 \u2212 2", "subtract", 3, 2, 1, "1 apple is left."),
+        # The real minus and division signs the app prints.
+        ("explain 3 \u2212 2", "subtract", 3, 2, 1, "1 apple is left."),
+        ("explain 12 \u00f7 3", "divide", 12, 3, 4, "4 in each group."),
     ],
 )
 async def test_a_small_fact_is_drawn_as_objects_with_one_sentence(
@@ -62,7 +63,17 @@ async def test_a_small_fact_is_drawn_as_objects_with_one_sentence(
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "query",
-    ["11+2", "123+45", "7*8", "just the answer 3-3"],
+    [
+        "11+2",
+        "123+45",
+        "7*8",
+        "just the answer 3-3",
+        # Asked plainly: the answer, no objects to count.
+        "what's 2+2",
+        "3+4",
+        "3-3",
+        "What if it were 3 \u2212 2?",
+    ],
 )
 async def test_big_numbers_and_answer_only_get_no_picture(query: str) -> None:
     assert _picture(await _reply(query)) is None
@@ -86,7 +97,7 @@ def test_counting_spec_rejects_a_picture_that_shows_the_wrong_fact() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("query", ["3-3", "3*4", "explain 9-4"])
+@pytest.mark.parametrize("query", ["explain 3-3", "3*4 show steps", "explain 9-4"])
 async def test_the_fence_rewriter_keeps_the_verified_picture_only(query: str) -> None:
     from dataclasses import replace
 
@@ -132,3 +143,20 @@ async def test_a_named_written_method_keeps_its_column_trace(query: str) -> None
     reply = await _reply(query)
     assert _picture(reply) is None
     assert '"type":"arithmetic"' in reply
+
+
+@pytest.mark.asyncio
+async def test_a_picture_copied_into_a_plain_sum_is_dropped() -> None:
+    from dataclasses import replace
+
+    from app.modules.math.fence import validate_math_fences
+    from app.modules.math.response_intent import classify_math_response_intent
+
+    _, explained = await build_math_augmentation("explain 3-3", Settings(math_tools_enabled=True))
+    _, plain = await build_math_augmentation("3-3", Settings(math_tools_enabled=True))
+    assert explained is not None and plain is not None
+    shown = maybe_direct_math_reply(explained, "explain 3-3") or ""
+    assert '"type":"counting"' in shown
+    # The model repeats the earlier card under a plain "3-3": it does not survive.
+    scoped = replace(plain, response_intent=classify_math_response_intent("3-3"))
+    assert '"type":"counting"' not in validate_math_fences(shown, verified=scoped)

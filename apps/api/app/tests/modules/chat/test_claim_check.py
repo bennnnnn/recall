@@ -307,3 +307,66 @@ async def test_what_the_user_asked_us_to_remember_is_evidence() -> None:
         await cut_unsupported_claims(state)
     assert ask.await_args is not None
     assert "Works at Safaricom" in ask.await_args.kwargs["messages"][1]["content"]
+
+
+_STEPS = (
+    "1. The NSE levy is 0.12% of the trade value.\n"
+    "2. The CSTA levy is 0.5% of the trade value.\n"
+    "3. The CDSC fee is a flat 90 shillings.\n"
+    "4. Brokerage is about 2% at most brokers."
+)
+
+
+@pytest.mark.parametrize(
+    ("quote", "kept"),
+    [
+        # Live (2026-10-29): item 1 went and the list started at 2.
+        (
+            "The NSE levy is 0.12% of the trade value.",
+            ["1. The CSTA", "2. The CDSC", "3. Brokerage"],
+        ),
+        (
+            "The CSTA levy is 0.5% of the trade value.",
+            ["1. The NSE", "2. The CDSC", "3. Brokerage"],
+        ),
+    ],
+)
+async def test_a_numbered_list_that_lost_an_item_counts_on(quote: str, kept: list[str]) -> None:
+    out = await _run(
+        _state(f"{_LEAD}{_STEPS}\n\nAsk your broker for the final amount."), _verdict(quote)
+    )
+    numbered = [
+        line[: len(start)]
+        for line in out.splitlines()
+        for start in kept
+        if line.startswith(start[:3])
+    ]
+    assert numbered == kept
+
+
+async def test_a_list_that_lost_nothing_keeps_its_numbers() -> None:
+    reply = f"{_LEAD}{_STEPS}\n\nThen, at settlement:\n\n5. Pay within three days.\n6. Keep the contract note."
+    out = await _run(_state(reply), _verdict("The CSTA levy is 0.5% of the trade value."))
+    assert "5. Pay within three days.\n6. Keep the contract note." in out
+    assert "3. Brokerage is about 2% at most brokers." in out
+
+
+async def test_a_nested_list_does_not_end_the_outer_count() -> None:
+    reply = (
+        f"{_LEAD}1. The NSE levy is 0.12% of the trade value.\n"
+        "2. The CSTA levy is 0.5% of the trade value.\n"
+        "   1. It is charged on both sides of the trade.\n"
+        "3. The CDSC fee is a flat 90 shillings.\n"
+        "4. Brokerage is about 2% at most brokers."
+    )
+    out = await _run(_state(reply), _verdict("The NSE levy is 0.12% of the trade value."))
+    assert "1. The CSTA levy" in out
+    assert "   1. It is charged on both sides" in out
+    assert "2. The CDSC fee" in out
+    assert "3. Brokerage is about 2%" in out
+
+
+async def test_a_list_numbered_with_brackets_counts_on_too() -> None:
+    reply = f"{_LEAD}{_STEPS.replace('. ', ') ', 4)}\n\nAsk your broker."
+    out = await _run(_state(reply), _verdict("The CSTA levy is 0.5% of the trade value."))
+    assert "2) The CDSC fee" in out and "3) Brokerage" in out

@@ -267,6 +267,18 @@
       "expected": "ማስታወሻ:*ይህ* ጠቃሚ ነው"
     },
     {
+      "id": "mnemonic-bold-first-letters",
+      "area": "boundaries",
+      "input": "**A**ffect is **A**ction; **E**ffect is the **E**nd.",
+      "expected": "**A**ffect is **A**ction; **E**ffect is the **E**nd."
+    },
+    {
+      "id": "glued-bold-word-still-spaced",
+      "area": "boundaries",
+      "input": "the**answer**is here",
+      "expected": "the **answer** is here"
+    },
+    {
       "id": "bare-number-with-point",
       "area": "boundaries",
       "input": "Step one gives $1.$ Step two gives $2$.",

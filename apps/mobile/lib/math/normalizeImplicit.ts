@@ -127,8 +127,18 @@ function unwrapParens(expr: string): string {
   return m ? m[1].trim() : s;
 }
 
+// A word that joins maths ("x = 2 or 3"). Read as maths it went italic with its space
+// gone, "x = 2or 3" (2026-10-29): it is text in the formula, as solutionBars writes it.
+const MATH_JOINING_WORD_RE = /(?<![\\{])\s+(or|and|if|when|where|then)\s+(?![A-Za-z]*})/g;
+
+function uprightJoiningWords(expr: string): string {
+  if (expr.includes("\\text")) return expr;
+  return expr.replace(MATH_JOINING_WORD_RE, (_full, word: string) => ` \\text{ ${word} } `);
+}
+
 function wrapMath(expr: string, format?: (expr: string) => string): string {
-  const body = format ? format(unwrapParens(expr)) : fixImplicitExponents(unwrapParens(expr));
+  const inner = uprightJoiningWords(unwrapParens(expr));
+  const body = format ? format(inner) : fixImplicitExponents(inner);
   return `$${body}$`;
 }
 

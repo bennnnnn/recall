@@ -33,8 +33,10 @@ SUBJECT_SYSTEM = (
     f"{SHAPE}"
 )
 
+# "Up to five" got one question in about half the calls (2026-10-29), and three or none
+# are shown: ask for five, or none.
 GENERAL_SYSTEM = (
-    "You write up to five follow-up questions the user is likely to tap next, best first, "
+    "You write five follow-up questions the user is likely to tap next, best first, "
     "about exactly what they just asked. Each digs one step further into the same "
     "topic: a detail the reply only touched on, the usual next step, or a likely "
     '"what if". Stay on their topic. '

@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 import re
 import string
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -233,6 +234,59 @@ def _tidy_tables(lines: list[str | None]) -> list[str]:
     return out
 
 
+_ORDERED = re.compile(r"^(?P<indent>\s*)(?P<number>\d+)(?P<mark>[.)])(?=\s)")
+
+
+@dataclass
+class _ListRun:
+    indent: int
+    start: int
+    lost: bool = False
+    items: list[tuple[int, re.Match[str]]] = field(default_factory=list)
+
+
+def _renumber_lists(lines: list[str | None], cut: dict[int, tuple[str, int]]) -> list[str | None]:
+    """A numbered list that lost a whole item counts on without the gap.
+
+    A searched reply's "1. … 2. … 3." lost item 1 to the cut and showed as a list
+    starting at 2 (2026-10-29). ``cut`` maps a removed item's line to its indent and
+    number: the list still starts at its first number, and lists that lost nothing keep
+    theirs. A list nested under an item is its own, and the outer one goes on after it.
+    """
+    out = list(lines)
+    open_runs: list[_ListRun] = []  # outermost first
+
+    def close_from(depth: int) -> None:
+        """Ends every open list at ``depth`` or deeper."""
+        while open_runs and open_runs[-1].indent >= depth:
+            run = open_runs.pop()
+            if run.lost:
+                for offset, (index, match) in enumerate(run.items):
+                    rest = (out[index] or "")[match.end() :]
+                    out[index] = f"{match['indent']}{run.start + offset}{match['mark']}{rest}"
+
+    def run_at(depth: int, number: int) -> _ListRun:
+        close_from(depth + 1)
+        if not open_runs or open_runs[-1].indent != depth:
+            open_runs.append(_ListRun(depth, number))
+        return open_runs[-1]
+
+    for index, line in enumerate(lines):
+        if line is None:
+            if index in cut:
+                indent, number = cut[index]
+                run_at(len(indent), number).lost = True
+            continue
+        match = _ORDERED.match(line)
+        if match is not None:
+            run_at(len(match["indent"]), int(match["number"])).items.append((index, match))
+        elif line.strip():
+            # A paragraph ends every list at its own depth or deeper.
+            close_from(len(line) - len(line.lstrip()))
+    close_from(0)
+    return out
+
+
 def cut_claims(text: str, quotes: list[str]) -> tuple[str, int]:
     """``text`` without the sentence or table row of each quote found in its prose,
     and how many quotes it took out."""
@@ -240,6 +294,7 @@ def cut_claims(text: str, quotes: list[str]) -> tuple[str, int]:
 
     def rewrite(prose: str) -> str:
         lines: list[str | None] = [*prose.split("\n")]
+        cut_items: dict[int, tuple[str, int]] = {}
         for quote in quotes:
             if quote in handled:
                 continue
@@ -251,7 +306,10 @@ def cut_claims(text: str, quotes: list[str]) -> tuple[str, int]:
             if after != before:
                 lines[index] = after
                 handled.add(quote)
-        return "\n".join(_tidy_tables(lines))
+                item = _ORDERED.match(before or "")
+                if after is None and item is not None:
+                    cut_items[index] = (item["indent"], int(item["number"]))
+        return "\n".join(_tidy_tables(_renumber_lists(lines, cut_items)))
 
     return map_prose_outside_fences(text, rewrite), len(handled)
 

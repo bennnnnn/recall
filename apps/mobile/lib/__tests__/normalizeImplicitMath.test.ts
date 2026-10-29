@@ -336,4 +336,17 @@ describe("applyImplicitPowerNotation", () => {
   it("does not rewrite adjacent digits as a base and exponent", () => {
     expect(applyImplicitPowerNotation("12+3=15")).toBe("12+3=15");
   });
+
+  // "(x = 2 or 3)" drew as "x = 2or 3", the "or" two italic variables (2026-10-29).
+  it.each([
+    ["the roots are (x = 2 or 3).", "the roots are $x = 2 \\text{ or } 3$."],
+    ["(x = 1 if y = 2)", "$x = 1 \\text{ if } y = 2$"],
+    ["(a = b or c)", "$a = b \\text{ or } c$"],
+  ])("sets a joining word in a formula as text: %s", (source, expected) => {
+    expect(normalizeImplicitMath(source)).toBe(expected);
+  });
+
+  it("leaves a variable that spells part of a word alone", () => {
+    expect(normalizeImplicitMath("(x = 2or)")).not.toContain("\\text");
+  });
 });

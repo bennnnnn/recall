@@ -126,10 +126,27 @@ def test_teaching_request_declines(text):
         "learning plan for SQL",
         "roadmap to master FastAPI",
         "Dame un plan de 4 semanas para aprender español",
+        "Give me a 30 day plan to learn Spanish",
+        "6 week study plan for the SAT",
+        "I want to learn guitar in 3 months, make me a plan",
+        # Named by subject or goal, not by "learn".
+        "30 day plan for calculus",
+        "8 week MCAT prep plan",
+        "12 week plan to become a data analyst",
+        "6 week Spanish plan",
+        "Give me a 90 day plan to get good at chess",
+        "training plan for my new hires",
     ],
 )
 def test_learning_plan_request_detected(text):
     assert is_learning_plan_request(text)
+
+
+def test_only_a_programming_roadmap_ends_on_production_experience() -> None:
+    assert "Production-experience note" in learning_plan_daily_contract("30 day Python plan")
+    spanish = learning_plan_daily_contract("6 day Spanish plan")
+    assert "Checkpoints and milestones" in spanish
+    assert "Production" not in spanish
 
 
 @pytest.mark.parametrize(
@@ -146,6 +163,18 @@ def test_learning_plan_request_detected(text):
         "I've been studying Python for 8 weeks",
         "I studied Python for 70 days and now plan to apply for jobs",
         "Plan my day",
+        # Plans for doing, not learning (2026-10-29: the Rome trip came back as a study
+        # roadmap with a "Production-experience note").
+        "Plan a 3 day trip to Rome for me",
+        "Make me a 2 week itinerary for Japan",
+        "plan my 2 week Japan trip",
+        "plan a 2 week road trip",
+        "a 3 day honeymoon plan in Bali",
+        "Create a 16 week marathon training plan",
+        "Give me a 7 day detox plan",
+        "12 week weight loss plan",
+        "6 month wedding plan",
+        "4 week plan to move apartments",
     ],
 )
 def test_learning_plan_request_declines_non_plans(text):

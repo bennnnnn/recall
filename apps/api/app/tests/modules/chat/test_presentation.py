@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 
 from app.modules.chat.calculation_layout import split_math_expression
+from app.modules.chat.inline_boundaries import repair_inline_token_boundaries
 from app.modules.chat.presentation import drop_orphan_leading_answer, present_assistant_markdown
 
 FIXTURE = Path(__file__).resolve().parents[6] / "docs" / "fixtures" / "presentation_cases.json"
@@ -117,3 +118,19 @@ def test_a_long_run_of_punctuation_is_peeled_in_one_pass() -> None:
     presented = present_assistant_markdown(text)
     assert time.perf_counter() - start < 0.5
     assert presented == text
+
+
+@pytest.mark.parametrize(
+    ("written", "presented"),
+    [
+        # Live (2026-10-29): a mnemonic's bold first letters were split from their words.
+        ("**A**ffect is **A**ction, **E**ffect is the **E**nd result.", None),
+        ("Set **S**pecific, **M**easurable goals.", None),
+        ("the**US**economy", "the **US** economy"),
+        # A longer span, or one against a digit, still gets its missing space.
+        ("the**answer**is", "the **answer** is"),
+        ("See **at**40 for it.", "See **at** 40 for it."),
+    ],
+)
+def test_bold_inside_a_word_stays_inside_it(written: str, presented: str | None) -> None:
+    assert repair_inline_token_boundaries(written) == (presented or written)

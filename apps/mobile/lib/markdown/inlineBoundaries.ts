@@ -170,10 +170,25 @@ function readEmphasis(text: string, index: number): number | null {
   return close + 1;
 }
 
+// One letter in bold or italics, inside a word: a mnemonic's "**A**ffect is
+// **A**ction" became "**A** ffect is **A** ction" (2026-10-29). Letters of an alphabet
+// (Latin, Greek, Cyrillic): in a syllabary such as Amharic's, one sign is a syllable. A
+// longer span ("the**US**economy"), or one against a digit ("**at**40"), is still a missing space. The
+// server's twin is apps/api/app/modules/chat/inline_boundaries.py.
+const ALPHABET = "A-Za-z\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff";
+const IN_WORD = new RegExp(`^(\\*{1,3})[${ALPHABET}]\\1$`);
+const ALPHABET_LETTER = new RegExp(`^[${ALPHABET}]$`);
+
+function inWord(span: string, neighbour: string): boolean {
+  return ALPHABET_LETTER.test(neighbour) && IN_WORD.test(span);
+}
+
 function emit(out: string[], span: string, next: string): void {
-  if (out.length > 0 && glueBefore(lastChar(out[out.length - 1]))) out.push(" ");
+  const previous = out.length > 0 ? lastChar(out[out.length - 1]) : "";
+  if (out.length > 0 && glueBefore(previous) && !inWord(span, previous)) out.push(" ");
   out.push(span);
-  if (glueAfter(charAt(next, 0))) out.push(" ");
+  const after = charAt(next, 0);
+  if (glueAfter(after) && !inWord(span, after)) out.push(" ");
 }
 
 function repairLine(line: string): string {

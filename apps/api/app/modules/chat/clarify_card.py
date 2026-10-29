@@ -234,11 +234,13 @@ def _is_card_json(body: str) -> bool:
 # Our lead-in (prompt_constants/clarify.py) made to fit the card it introduces: "one thing"
 # over two questions, and a "But" with no options before it, read wrong. A reply in
 # another language follows the prompt's own rule.
-_LEAD_IN = re.compile(
-    r"\*\*(?:but\s+)?let\s+me\s+ask\s+you\s+(?:one\s+thing|a\s+couple\s+of\s+things|"
-    r"a\s+few\s+things)\.?\*\*",
-    re.IGNORECASE,
+# Bold as the prompt asks, opening its line; or plain as a sentence of its own: "Let me ask
+# you one thing." over a two-question card stayed plain and said "one thing" (2026-10-29).
+# A plain sentence that goes on ("Let me ask you one thing about your budget") is prose.
+_ASKS = (
+    r"(?:but\s+)?let\s+me\s+ask\s+you\s+(?:one\s+thing|a\s+couple\s+of\s+things|a\s+few\s+things)"
 )
+_LEAD_IN = re.compile(rf"\*\*{_ASKS}\.?\*\*|{_ASKS}(?:[.!:](?=\s|$)|\s*$)", re.IGNORECASE)
 _HOW_MANY = {1: "one thing", 2: "a couple of things"}
 # The start's last sentence when it only says the lead-in's ask: "Before I run numbers, I
 # need a few details, so let me ask." above **Let me ask you a couple of things.** (live,
