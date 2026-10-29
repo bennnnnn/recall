@@ -217,8 +217,8 @@ importers:
         specifier: 5.2.3
         version: 5.2.3(l5aynomfmp7ksn5hpuase5deti)
       react-native-webrtc:
-        specifier: 155.0.0
-        version: 155.0.0(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.3.0))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0))
+        specifier: 155.0.1
+        version: 155.0.1(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.3.0))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0))
       react-native-webview:
         specifier: ^14.0.1
         version: 14.0.1(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.3.0))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)
@@ -5141,8 +5141,8 @@ packages:
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
 
-  react-native-webrtc@155.0.0:
-    resolution: {integrity: sha512-qA+rDkvn+/GWASN2t5JPDQevVMIZ3uBWaR3oJ1BeJ4A21pnp6SLZSTN3FEbaLGzpcfsmi57hnOZYY9MbHS1gHA==}
+  react-native-webrtc@155.0.1:
+    resolution: {integrity: sha512-xQ71L3l1yE9o7H0VWupktdib08OXt5hnGspQYTSW1S3sYqXQHkYx8ZY9HNjw8o1FfBZuoFJ/ypGTUzky6YHnsQ==}
     peerDependencies:
       react-native: '>=0.60.0'
 
@@ -12073,7 +12073,7 @@ snapshots:
       - encoding
     optional: true
 
-  react-native-webrtc@155.0.0(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.3.0))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0)):
+  react-native-webrtc@155.0.1(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.3.0))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0)):
     dependencies:
       base64-js: 1.5.1
       debug: 4.3.4
