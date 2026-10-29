@@ -59,6 +59,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 3.5 | HTML preview (WebView) | ☐ | ☐ | Dev build only |
 | 3.6 | Chart / Mermaid (WebView) | ☐ | ☐ | Dev build only |
 | 3.7 | PDF attachment preview | ☐ | ☐ | Dev build |
+| 3.8 | A link in a chart card opens only on a tap | ☐ | ☐ | Dev build. Ask for a Vega-Lite bar chart with an `href` channel to `https://example.com`: tapping a bar opens the browser once. A card whose page script runs `location = "tel:123"` (or `window.open("https://example.com")`) on load or on a timer opens nothing, not even after scrolling the chat over it. |
 
 ---
 
