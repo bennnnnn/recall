@@ -43,8 +43,12 @@ const URL_ATTR = attributePattern(
 );
 /** Of those, the ones holding several URLs: every entry is checked, not just the first. */
 const URL_LIST_ATTR = /(?:^|:)(?:srcset|values|from|to|by)$/;
-/** A `<meta>` tag, quoted values read whole (a `>` inside one does not end the tag). */
-const META_TAG = /<\s*meta\b(?:"[^"]*"|'[^']*'|[^>"'])*>/gi;
+/**
+ * A `<meta>` tag, quoted values read whole (a `>` inside one does not end it).
+ * It never reads past a `<`, so each match stays short on any input; a tag it
+ * cannot read is still caught by the `http-equiv` pass after it.
+ */
+const META_TAG = /<\s*meta\b(?:"[^"<]*"|'[^'<]*'|[^<>"'])*>/gi;
 const SCHEME_START = /javascript:|vbscript:|data:/g;
 
 // Whitespace and C0 control characters, built via String.fromCharCode (not a
