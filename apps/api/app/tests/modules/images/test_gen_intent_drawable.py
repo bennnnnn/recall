@@ -88,7 +88,7 @@ def test_a_subject_of_listed_words_draws(text: str, subject: str) -> None:
         "Dibújame un mapa del tesoro",
         "Dessine-moi un avenir meilleur",
         "Dibújame una ciudad del futuro",
-        # A German compound whose first part is no listed word.
+        # A German compound: its last part ends no compound, or its first is no listed word.
         "Zeichne mir einen Muskelkater",
         "Zeichne mir eine Eselsbrücke",
         "Zeichne mir einen Stammbaum",
@@ -198,9 +198,7 @@ def test_every_language_lists_its_common_things(code: str) -> None:
     [
         ("es", "mapa"),
         ("es", "planta"),
-        ("es", "binario"),
         ("fr", "tableau"),
-        ("fr", "ascii"),
         ("de", "Herz"),
         ("it", "piano"),
         ("pt", "planta"),
@@ -209,5 +207,24 @@ def test_every_language_lists_its_common_things(code: str) -> None:
         ("am", "ካርታ"),
     ],
 )
-def test_task_and_format_words_are_not_listed(code: str, word: str) -> None:
+def test_task_nouns_are_not_listed(code: str, word: str) -> None:
     assert not names_drawable(code, [word])
+
+
+@pytest.mark.parametrize(
+    ("code", "text", "words"),
+    [
+        ("es", "Dibújame un árbol binario", ["árbol", "binario"]),
+        ("es", "Dibújame un gato en ASCII", ["gato", "en", "ascii"]),
+        ("fr", "Dessine-moi un chat en ASCII", ["chat", "en", "ascii"]),
+        ("de", "Zeichne mir einen binären Baum", ["binären", "baum"]),
+    ],
+)
+def test_format_and_data_structure_words_are_not_listed(
+    code: str, text: str, words: list[str]
+) -> None:
+    """A lone descriptor never draws (a subject needs a noun), so each word is read beside
+    a listed noun: the noun draws, the subject with the word does not."""
+    assert any(names_drawable(code, [word]) for word in words)
+    assert not names_drawable(code, words)
+    assert extract_image_gen_prompt(text) is None

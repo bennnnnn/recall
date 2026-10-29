@@ -149,9 +149,8 @@ def _describers(code: str, text: str) -> frozenset[str]:
 class Nouns:
     words: frozenset[str]
     names: frozenset[tuple[str, ...]]
-    # German compounds end with these ("Feuerdrache"), except ``not_compounds``.
+    # German compounds end with these ("Feuerdrache").
     compounds: tuple[str, ...] = ()
-    not_compounds: frozenset[str] = frozenset()
     # Each entry as written: Turkish "ayı" (a bear) is no definite "-yı" object.
     entries: frozenset[str] = frozenset()
 
@@ -166,9 +165,7 @@ def _forms_of(word: str, index: int, forms: Callable[[str], list[str]] | None) -
     return [word, *forms(word[:-1])] if word.endswith(("а", "я")) and forms is _russian else [word]
 
 
-def _nouns(
-    text: str, forms: Callable[[str], list[str]] | None = None, not_compounds: str = ""
-) -> Nouns:
+def _nouns(text: str, forms: Callable[[str], list[str]] | None = None) -> Nouns:
     """The language's nouns; ``forms`` makes the inflected forms of each entry's first."""
     words: set[str] = set()
     names: set[tuple[str, ...]] = set()
@@ -190,7 +187,6 @@ def _nouns(
         frozenset(words),
         frozenset(names),
         tuple(sorted(compounds)),
-        frozenset(map(fold, not_compounds.split())),
         frozenset(entries),
     )
 
@@ -200,7 +196,7 @@ NOUNS: dict[str, Nouns] = {
     "fr": _nouns(romance.FRENCH),
     "it": _nouns(romance.ITALIAN),
     "pt": _nouns(romance.PORTUGUESE),
-    "de": _nouns(other.GERMAN, not_compounds=other.GERMAN_NOT_COMPOUNDS),
+    "de": _nouns(other.GERMAN),
     "ru": _nouns(other.RUSSIAN, forms=_russian),
     "tr": _nouns(other.TURKISH, forms=_turkish),
     "am": _nouns(other.AMHARIC),
@@ -241,7 +237,7 @@ def _is_noun(code: str, word: str) -> bool:
             word.startswith(prefix) and word[len(prefix) :] in nouns.words
             for prefix in _AM_PREFIXES
         )
-    if code != "de" or word in nouns.not_compounds:
+    if code != "de":
         return False
     return any(
         word.endswith(end)

@@ -10,7 +10,8 @@ field), "труба" (a pipe), "кольцо" (an annulus), "палочка" (a 
 
 German: "Katze+n" is "Katze" and "Katzen" ("+e+en" two endings); a "*" noun also ends a
 compound ("Feuerdrache", "Leuchtturm", "Segelschiff"); only nouns no abstract compound
-ends with are marked ("Stammbaum", "Steckenpferd", "Medienlandschaft" are not pictures).
+ends with are marked, so "Baum", "Pferd" and "Landschaft" are not ("Stammbaum",
+"Steckenpferd" and "Medienlandschaft" are no pictures).
 Russian: the nominative; its case and plural forms are made from it, and irregular ones
 follow "/" ("лев/льва/львы/львов"). Turkish: the bare noun; plural and compound forms
 ("kediler", "gemisi", "ağacı") are made from it. Amharic: the forms listed, plurals where
@@ -78,9 +79,6 @@ Harfe+n Saxophon+e Akkordeon+s Ukulele+n Xylophon+e Tamburin+e
 Ast/Äste Weltraum
 Leuchtturm/Leuchttürme Flügel Segelboot+e
 """
-
-# Never drawn though their last part is ("Stammbaum", "Steckenpferd" are not pictures).
-GERMAN_NOT_COMPOUNDS = "stammbaum stammbaume entscheidungsbaum suchbaum lebensbaum"
 
 RUSSIAN = """
 кот/кота/коты/котов кошка/кошек котёнок/котёнка/котята/котят котик пёс/пса/псы/псов
