@@ -3,7 +3,7 @@ import { randomUUID } from "expo-crypto";
 
 import type { Message } from "@/lib/api";
 import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
-import { headRejectedSend, type ChatTurnEvent, type ChatTurnState } from "@/features/chat/model/chatTurnCore";
+import { canRegenerate, headRejectedSend, type ChatTurnEvent, type ChatTurnState } from "@/features/chat/model/chatTurnCore";
 import { whenOpenedPageSettled } from "@/features/chat/model/openedPage";
 import type { ComposerSendDraft, PendingSend, RejectedSend, SendMessageOptions } from "@/features/chat/model/sendLogic";
 import type { useChatTransport } from "@/features/chat/hooks/useChatTransport";
@@ -122,6 +122,8 @@ export function useChatTurnActions({ token, chatId, isCurrentView, turn, step, m
 
   const beginRegenerateUi = useCallback(() => {
     if (!isCurrentView()) return;
+    // Refused mid-reply: the caller stops before it asks for anything.
+    if (turn.current.phase !== "idle") return () => false;
     step({ type: "regenerate_ui", messages: messagesRef.current });
     const { attempt } = turn.current;
     return () => isCurrentView() && turn.current.attempt === attempt;
@@ -132,7 +134,7 @@ export function useChatTurnActions({ token, chatId, isCurrentView, turn, step, m
   }, [isCurrentView, step]);
 
   const regenerateResponse = useCallback(async (model?: string | null, clientGeo?: ClientGeo | null) => {
-    if (!token || !chatId || !isCurrentView()) return;
+    if (!token || !chatId || !isCurrentView() || !canRegenerate(turn.current)) return;
     step({ type: "regenerate", messages: messagesRef.current });
     const { attempt } = turn.current;
     if (!(await ensureConnected(null))) return;

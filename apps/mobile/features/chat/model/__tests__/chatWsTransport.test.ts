@@ -529,6 +529,57 @@ describe("ChatWsTransport", () => {
     expect(onFallback).not.toHaveBeenCalled();
   });
 
+  it("ends a stopped turn when its last frame comes", async () => {
+    const { socket, transport } = await openTransport(true);
+    transport.sendMessage(MESSAGE);
+    socket.emit({ type: "start" });
+    transport.cancel();
+    expect(transport.isTurnActive()).toBe(true);
+    socket.emit({ type: "done", message_id: "m1" });
+    expect(transport.isTurnActive()).toBe(false);
+    jest.advanceTimersByTime(5 * STREAM_IDLE_TIMEOUT_MS);
+    expect(socket.close).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["nothing more", [] as object[]],
+    ["one late token", [{ type: "token", content: "more" }]],
+  ])("lets go of a socket that never ends a stopped turn, without a word (%s)", async (_label, late) => {
+    const { socket, transport, onFallback } = await openTransport(true);
+    transport.sendMessage(MESSAGE);
+    socket.emit({ type: "start" });
+    socket.emit({ type: "token", content: "par" });
+    transport.cancel();
+    for (const frame of late) socket.emit(frame);
+    jest.advanceTimersByTime(STREAM_IDLE_TIMEOUT_MS);
+
+    // No longer busy: it may be released in the background and its token renewed.
+    expect(transport.isTurnActive()).toBe(false);
+    expect(socket.close).toHaveBeenCalledTimes(1);
+    // A drop reported now would land on whatever the chat began since (a Regenerate).
+    expect(onFallback).not.toHaveBeenCalled();
+  });
+
+  it("reports a quiet turn begun after a stop as usual", async () => {
+    const { socket, transport, onFallback } = await openTransport(true);
+    transport.sendMessage(MESSAGE);
+    socket.emit({ type: "start" });
+    transport.cancel();
+    socket.emit({ type: "done", message_id: "m1" });
+    transport.sendRegenerate(REGENERATE);
+    socket.emit({ type: "start" });
+    jest.advanceTimersByTime(STREAM_IDLE_TIMEOUT_MS);
+    expect(onFallback).toHaveBeenCalledWith({ reason: "disconnect", duringTurn: true });
+  });
+
+  it("is not busy after a stop on a socket that already closed", async () => {
+    const { socket, transport } = await openTransport(true);
+    transport.sendMessage(MESSAGE);
+    socket.readyState = 3;
+    transport.cancel();
+    expect(transport.isTurnActive()).toBe(false);
+  });
+
   it("sends cancel and detaches callbacks on intentional close", async () => {
     const { socket, transport, onPayload, onFallback } = await openTransport(true);
 

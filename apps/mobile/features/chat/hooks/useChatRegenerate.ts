@@ -35,6 +35,8 @@ export function useChatRegenerate({
       setRegenerating(true);
       const isCurrentAttempt = beginRegenerateUi?.();
       try {
+        // A reply is still coming: no regenerate, and no location prompt for one.
+        if (isCurrentAttempt && !isCurrentAttempt()) return;
         const lastUser = [...messages].reverse().find((m) => m.role === "user");
         const result = await resolveClientGeoForQuery(
           token,

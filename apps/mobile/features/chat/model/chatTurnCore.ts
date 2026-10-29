@@ -126,6 +126,11 @@ export function initialChatTurnState(chatId: string | null, session: number): Ch
   };
 }
 
+/** At rest, or the regenerate `regenerate_ui` already opened (the model picker's). */
+export function canRegenerate(state: ChatTurnState): boolean {
+  return state.phase === "idle" || state.regenerating;
+}
+
 /** The first send the server never saved in this chat, offered as Retry. */
 export function headRejectedSend(state: ChatTurnState): RejectedSend | null {
   return state.chatId ? state.rejected.get(state.chatId)?.[0] ?? null : null;
