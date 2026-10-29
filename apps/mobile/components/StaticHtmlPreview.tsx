@@ -4,7 +4,7 @@ import RenderHtml, { defaultSystemFonts, type MixedStyleDeclaration } from "reac
 
 import { CODE_FONT } from "@/lib/fonts";
 import { htmlForInlinePreview } from "@/lib/htmlForInlinePreview";
-import { stripScripts } from "@/lib/previewSandbox";
+import { stripScripts } from "@/lib/htmlScriptStrip";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import type { Theme } from "@/lib/theme";

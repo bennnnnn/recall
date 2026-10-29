@@ -89,7 +89,9 @@ describe("prepareHtmlRunDocument", () => {
 
   it("puts the page's CSP and the link trap together ahead of every page script", () => {
     const { page } = pageFrame(prepareHtmlRunDocument(PAGE));
-    const headAt = page.indexOf(`<head>${LIVE_CSP_META}<script>`);
+    // First in the document, after its DOCTYPE (injectAtHeadStart, lib/previewSandbox.ts).
+    expect(page.startsWith(`<!DOCTYPE html>${LIVE_CSP_META}<script>`)).toBe(true);
+    const headAt = page.indexOf(`${LIVE_CSP_META}<script>`);
     const trapAt = page.indexOf('addEventListener("click"');
     const userAt = page.indexOf("window.user = 1");
     expect(headAt).toBeGreaterThan(-1);
@@ -104,24 +106,26 @@ describe("prepareHtmlRunDocument", () => {
     "<noscript><head></noscript>",
     "<noframes><head></noframes>",
     "<xmp><head></xmp>",
-  ])("puts the page's CSP and link trap in the real head past the decoy %s", (decoy) => {
-    const { page } = pageFrame(
-      prepareHtmlRunDocument(`${decoy}<html><head></head><body><a href="https://x.example">x</a></body></html>`),
-    );
-    expect(page.startsWith(decoy)).toBe(true);
-    expect(page).toContain(
-      `<html><head>${LIVE_CSP_META}<script>(function () {\n  document.addEventListener("click"`,
-    );
+  ])("puts the page's CSP and link trap first, ahead of the decoy %s", (decoy) => {
+    // Nothing is searched for, so no decoy can misplace them.
+    const html = `${decoy}<html><head></head><body><a href="https://x.example">x</a></body></html>`;
+    const { page } = pageFrame(prepareHtmlRunDocument(html));
+    expect(
+      page.startsWith(`${LIVE_CSP_META}<script>(function () {\n  document.addEventListener("click"`),
+    ).toBe(true);
+    // Untouched, but for an http-equiv in a decoy comment, disarmed like any other.
+    expect(page.replace(/data-blocked-/g, "")).toContain(html);
   });
 
   it.each([
     '<html><head><meta http-equiv="refresh" content="0;url=https://evil.example/x"></head><body>ok</body></html>',
-    // Removing the script before <head> joins the two halves into a live tag.
+    // Removing the script before <head> would join the two halves into a live tag.
     '<me<script>x</script>ta http-equiv="refresh" content="0;url=https://evil.example/x"><head></head><body>ok</body>',
   ])("leaves no meta refresh in the page: %s", (html) => {
     const { page } = pageFrame(prepareHtmlRunDocument(html));
-    expect(page.toLowerCase()).not.toMatch(/http-equiv="?refresh/);
-    expect(page).not.toContain("evil.example");
+    // Disarmed, not removed (lib/htmlMetaPragmas.ts): no <meta> is left whose
+    // http-equiv says refresh.
+    expect(page).not.toMatch(/<meta\b[^>]*[\s/"']http-equiv\s*=\s*"?refresh/i);
   });
 
   it("relays the page frame's empty signal through the wrapper", () => {

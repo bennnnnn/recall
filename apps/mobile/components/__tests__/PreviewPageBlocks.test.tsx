@@ -6,7 +6,7 @@
  */
 import { act, render, waitFor } from "@testing-library/react-native";
 import type { ReactElement } from "react";
-import { Linking } from "react-native";
+import { Linking, Platform } from "react-native";
 
 import { ChartBlock } from "@/components/rich/ChartBlock";
 import { Chemistry2DView } from "@/components/rich/ChemistryBlock";
@@ -108,6 +108,10 @@ const fileFor = (page: PreviewPage) => `file:///cache/preview-pages/${page.name}
 
 type Guard = (request: Record<string, unknown>) => boolean;
 const guard = () => lastProps().onShouldStartLoadWithRequest as Guard;
+/** The native touch system: the user's finger lands on the card (script in the page cannot do this). */
+const touch = () => (lastProps().onTouchStart as (event: unknown) => void)({ nativeEvent: { timestamp: 0 } });
+/** What react-native-webview 14 sends on Android: a URL, no navigation type, frame or gesture. */
+const android = (url: string) => ({ url, loading: false, canGoBack: false, canGoForward: false, lockIdentifier: 1 });
 /** The page posting `message` to the app. */
 const post = (message: object) =>
   act(async () =>
@@ -116,7 +120,12 @@ const post = (message: object) =>
     }),
   );
 
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 beforeEach(() => {
+  jest.replaceProperty(Platform, "OS", "ios");
   jest.spyOn(Linking, "openURL").mockReset().mockResolvedValue(true);
   mockWebView.renders.length = 0;
   mockWebView.mounts = 0;
@@ -154,6 +163,8 @@ describe.each(CASES)("%s", (_name, { page, element, data, inScript, failure, dra
     expect(props.allowFileAccessFromFileURLs).toBeUndefined();
     expect(props.allowUniversalAccessFromFileURLs).toBeUndefined();
     expect(props.originWhitelist).toEqual(["*"]);
+    // A link opens only right after the native touch system saw a finger on the card.
+    expect(props.onTouchStart).toEqual(expect.any(Function));
     // No window (Android) or link preview (iOS) that loads outside the guard.
     expect(props.setSupportMultipleWindows).toBe(false);
     expect(props.allowsLinkPreview).toBe(false);
@@ -172,20 +183,49 @@ describe.each(CASES)("%s", (_name, { page, element, data, inScript, failure, dra
     await findByTestId("preview-webview");
 
     // iOS: a tap on a link the page did not catch reaches the guard.
-    expect(guard()({ url: "https://example.com/a", navigationType: "click", isTopFrame: true })).toBe(false);
+    touch();
     expect(guard()({ url: "javascript:alert(1)", navigationType: "click", isTopFrame: true })).toBe(false);
     expect(guard()({ url: "file:///cache/att-1-2-doc.pdf", navigationType: "click", isTopFrame: true })).toBe(false);
+    expect(guard()({ url: "https://example.com/a", navigationType: "click", isTopFrame: true })).toBe(false);
+    // One tap, one link.
+    expect(guard()({ url: "tel:123", navigationType: "click", isTopFrame: true })).toBe(false);
     expect(Linking.openURL).toHaveBeenCalledTimes(1);
     expect(Linking.openURL).toHaveBeenCalledWith("https://example.com/a");
+
+    // Android says nothing about what started a navigation: the touch decides.
+    jest.replaceProperty(Platform, "OS", "android");
+    touch();
+    expect(guard()(android("https://example.com/b"))).toBe(false);
+    expect(Linking.openURL).toHaveBeenCalledTimes(2);
+    expect(Linking.openURL).toHaveBeenLastCalledWith("https://example.com/b");
   });
+
+  it.each(["ios", "android"] as const)(
+    "opens nothing on %s that the page's script sends it to with no finger on the card",
+    async (os) => {
+      jest.replaceProperty(Platform, "OS", os);
+      const { findByTestId } = await render(element(data[0]));
+      await findByTestId("preview-webview");
+
+      for (const url of ["tel:+19005550100", "sms:+15550100?body=hi", "https://evil.example/phish"]) {
+        // location = "…" (Android reports nothing), or a link script made and clicked (iOS says "click").
+        expect(guard()(os === "ios" ? { url, navigationType: "click", isTopFrame: true } : android(url))).toBe(false);
+        // window.open, or a link message the script posted itself.
+        await post({ kind: "preview-link", url });
+      }
+      expect(Linking.openURL).not.toHaveBeenCalled();
+    },
+  );
 
   it("opens the links the page hands over and leaves the rest of its messages to the card", async () => {
     const { findByTestId, findByText, queryByTestId } = await render(element(data[0]));
     await findByTestId("preview-webview");
 
-    await post({ kind: "preview-link", url: "https://example.com/b" });
+    touch();
     await post({ kind: "preview-link", url: "javascript:alert(1)" });
     await post({ kind: "preview-link", url: "recall://chat/1" });
+    await post({ kind: "preview-link", url: "https://example.com/b" });
+    await post({ kind: "preview-link", url: "https://example.com/c" });
     expect(Linking.openURL).toHaveBeenCalledTimes(1);
     expect(Linking.openURL).toHaveBeenCalledWith("https://example.com/b");
     expect(queryByTestId("preview-webview")).toBeTruthy();

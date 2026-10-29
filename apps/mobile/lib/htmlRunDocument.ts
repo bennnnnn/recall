@@ -1,9 +1,9 @@
+import { disarmMetaPragmas } from "@/lib/htmlMetaPragmas";
 import {
   PREVIEW_CSP_LIVE,
   PREVIEW_VIEWPORT,
   cspMetaTag,
   injectAtHeadStart,
-  stripMetaRefresh,
 } from "@/lib/previewSandbox";
 
 /**
@@ -101,12 +101,14 @@ const WRAPPER_CSS =
   "html,body{margin:0;height:100%;overflow:hidden}" +
   "iframe{display:block;width:100%;height:100%;border:0}";
 
-/** The model's page: the live CSP and the link trap first in its real head. */
+/** The model's page: the live CSP and the link trap first in the document. */
 function preparePage(html: string): string {
-  const head = `${cspMetaTag(PREVIEW_CSP_LIVE)}<script>${LINK_TRAP_JS}</script>`;
-  const page = injectAtHeadStart(html, head) + `<script>${EMPTY_CHECK_JS}</script>`;
-  // Last: dropping the scripts before <head> can join text into a new refresh tag.
-  return stripMetaRefresh(page);
+  const cspTag = cspMetaTag(PREVIEW_CSP_LIVE);
+  const page =
+    injectAtHeadStart(html, `${cspTag}<script>${LINK_TRAP_JS}</script>`) +
+    `<script>${EMPTY_CHECK_JS}</script>`;
+  // Last, over the whole page: the CSP written above is the one pragma kept.
+  return disarmMetaPragmas(page, cspTag);
 }
 
 /** Escape for a double-quoted attribute: the parser decodes it back exactly. */

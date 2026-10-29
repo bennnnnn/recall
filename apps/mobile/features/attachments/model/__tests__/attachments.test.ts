@@ -1,3 +1,11 @@
+import {
+  containsText,
+  GEOTAGGED_JPEG,
+  gifBytes,
+  gifParts,
+  GPS_XMP,
+  jpegHasGps,
+} from "@/features/attachments/model/__tests__/fixtures/photoBytes";
 // lib/ tests run under ts-jest/node — react-native is ESM and cannot load
 // as CJS.
 jest.mock("react-native", () => ({
@@ -18,7 +26,7 @@ import {
   uploadChatAttachment,
   NativePickerBusyError,
 } from "@/features/attachments/model/attachments";
-import { MAX_ATTACHMENT_BYTES } from "@/features/attachments/model/attachmentLimits";
+import { IMAGE_JPEG_QUALITY, MAX_ATTACHMENT_BYTES } from "@/features/attachments/model/attachmentLimits";
 import { discardLocalCopy } from "@/features/attachments/model/localAttachmentFile";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
@@ -59,7 +67,7 @@ jest.mock("expo-image-manipulator", () => {
     },
   });
   return {
-    SaveFormat: { JPEG: "jpeg" },
+    SaveFormat: { JPEG: "jpeg", PNG: "png", WEBP: "webp" },
     ImageManipulator: {
       manipulate: jest.fn((source: string | { width: number; height: number }) =>
         context(typeof source === "string" ? mockDecoded : source)),
@@ -88,17 +96,20 @@ const mockFetch = jest.fn();
 const originalFetch = globalThis.fetch;
 const pending = { localUri: "file:///picked.pdf", contentType: "application/pdf", fileName: "picked.pdf", kind: "file" as const };
 const MiB = 1024 * 1024;
-// Byte size per file (3 bytes unless set), and the files deleted.
+// Byte size per file (3 bytes unless set), bytes per file, and the files deleted.
 let mockSizes: Record<string, number> = {};
+let mockBytes: Record<string, Uint8Array> = {};
 const mockDeleted: string[] = [];
 beforeEach(() => {
   jest.clearAllMocks();
   mockGeneration = 0;
   mockDecoded = { width: 100, height: 100 };
   mockSizes = {};
+  mockBytes = {};
   mockDeleted.length = 0;
-  mockSave.mockImplementation(async (_options: unknown, size: { width: number; height: number }) => ({
-    uri: `file:///cache/ImageManipulator/out-${mockSave.mock.calls.length}.jpg`, ...size,
+  mockSave.mockImplementation(async (options: { format: string }, size: { width: number; height: number }) => ({
+    uri: `file:///cache/ImageManipulator/out-${mockSave.mock.calls.length}.${options.format === "jpeg" ? "jpg" : options.format}`,
+    ...size,
   }));
   mockFetch.mockReset().mockResolvedValue({ ok: true, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer });
   mockRead.mockReset().mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
@@ -106,8 +117,10 @@ beforeEach(() => {
     const uri = String(uris[0]);
     return {
       exists: !mockDeleted.includes(uri),
-      size: mockSizes[uri] ?? 3,
-      arrayBuffer: mockRead,
+      size: mockSizes[uri] ?? mockBytes[uri]?.length ?? 3,
+      arrayBuffer: () => mockRead(uri),
+      bytes: async () => mockBytes[uri] ?? new Uint8Array([1, 2, 3]),
+      write: (bytes: Uint8Array) => { mockBytes[uri] = bytes; },
       delete: () => { mockDeleted.push(uri); },
     } as unknown as File;
   });
@@ -312,7 +325,7 @@ it("reuploads a restored Library document after its rejected server ID is remove
   expect(requestRaw).toHaveBeenCalledWith("/attachments/a1/upload", "token", expect.objectContaining({ method: "PUT", body: expect.any(ArrayBuffer) }), true, expect.any(Number));
 });
 
-describe("every picked image leaves as something the API takes", () => {
+describe("every picked photo leaves without its metadata, as something the API takes", () => {
   type Asset = { uri: string; mimeType?: string; width?: number; height?: number; name: string };
   const library = (asset: Asset) => {
     jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValue({
@@ -332,6 +345,12 @@ describe("every picked image leaves as something the API takes", () => {
     });
     return pickDocument();
   };
+  const scannerFiles = (asset: Asset) => {
+    jest.mocked(DocumentPicker.getDocumentAsync).mockResolvedValue({
+      canceled: false, assets: [{ uri: asset.uri, name: asset.name, mimeType: asset.mimeType, lastModified: 0 }],
+    });
+    return pickImageDocument();
+  };
   const cases: {
     name: string;
     via: (asset: Asset) => Promise<unknown>;
@@ -339,52 +358,142 @@ describe("every picked image leaves as something the API takes", () => {
     decoded?: { width: number; height: number };
     bytes?: number;
     resize: { width?: number; height?: number } | null;
+    /** The format the manipulator writes. */
+    saved: "jpeg" | "png" | "webp";
     contentType: string;
-    reencoded: boolean;
+    extension: string;
   }[] = [
+    { name: "a small library JPEG is written again, not sent with its EXIF", via: library,
+      asset: { uri: "file:///cache/ImagePicker/s.jpg", mimeType: "image/jpeg", width: 1200, height: 900, name: "s.jpg" },
+      decoded: { width: 1200, height: 900 }, resize: null, saved: "jpeg", contentType: "image/jpeg", extension: "jpg" },
+    { name: "a small camera JPEG is written again", via: camera,
+      asset: { uri: "file:///cache/ImagePicker/t.jpg", mimeType: "image/jpeg", width: 2048, height: 1536, name: "t.jpg" },
+      decoded: { width: 2048, height: 1536 }, resize: null, saved: "jpeg", contentType: "image/jpeg", extension: "jpg" },
+    { name: "a small Files JPEG is written again", via: files,
+      asset: { uri: "file:///cache/DocumentPicker/u.jpeg", mimeType: "image/jpeg", name: "u.jpeg" },
+      decoded: { width: 640, height: 480 }, resize: null, saved: "jpeg", contentType: "image/jpeg", extension: "jpg" },
+    { name: "a scanner photo from Files is written again", via: scannerFiles,
+      asset: { uri: "file:///cache/DocumentPicker/v.jpg", mimeType: "image/jpeg", name: "v.jpg" },
+      decoded: { width: 900, height: 1200 }, resize: null, saved: "jpeg", contentType: "image/jpeg", extension: "jpg" },
     { name: "a full-size camera frame is scaled to 2048 wide", via: camera,
       asset: { uri: "file:///cache/ImagePicker/a.jpg", mimeType: "image/jpeg", width: 4032, height: 3024, name: "a.jpg" },
-      decoded: { width: 4032, height: 3024 }, resize: { width: 2048 }, contentType: "image/jpeg", reencoded: true },
+      decoded: { width: 4032, height: 3024 }, resize: { width: 2048 }, saved: "jpeg", contentType: "image/jpeg", extension: "jpg" },
     { name: "a tall library photo is scaled to 2048 high", via: library,
       asset: { uri: "file:///cache/ImagePicker/b.jpg", mimeType: "image/jpeg", width: 3000, height: 4000, name: "b.jpg" },
-      decoded: { width: 3000, height: 4000 }, resize: { height: 2048 }, contentType: "image/jpeg", reencoded: true },
-    { name: "a small PNG goes untouched, without decoding", via: library,
+      decoded: { width: 3000, height: 4000 }, resize: { height: 2048 }, saved: "jpeg", contentType: "image/jpeg", extension: "jpg" },
+    { name: "a small PNG stays a PNG, transparency and all", via: library,
       asset: { uri: "file:///cache/ImagePicker/c.png", mimeType: "image/png", width: 1000, height: 800, name: "c.png" },
-      resize: null, contentType: "image/png", reencoded: false },
-    { name: "a Files GIF within bounds keeps its animation", via: files,
-      asset: { uri: "file:///cache/DocumentPicker/d.gif", mimeType: "image/gif", name: "d.gif" },
-      decoded: { width: 480, height: 270 }, resize: null, contentType: "image/gif", reencoded: false },
+      decoded: { width: 1000, height: 800 }, resize: null, saved: "png", contentType: "image/png", extension: "png" },
+    { name: "a WEBP stays a WEBP", via: library,
+      asset: { uri: "file:///cache/ImagePicker/g.webp", mimeType: "image/webp", width: 2000, height: 1500, name: "g.webp" },
+      bytes: 12 * MiB, decoded: { width: 2000, height: 1500 }, resize: null, saved: "webp", contentType: "image/webp", extension: "webp" },
+    { name: "a file only named a GIF (Android's picker writes a JPEG) becomes a JPEG", via: library,
+      asset: { uri: "file:///cache/ImagePicker/h.gif", mimeType: "image/gif", width: 480, height: 270, name: "h.gif" },
+      decoded: { width: 480, height: 270 }, resize: null, saved: "jpeg", contentType: "image/jpeg", extension: "jpg" },
     { name: "a TIFF the API does not take becomes a JPEG", via: files,
       asset: { uri: "file:///cache/DocumentPicker/e.tiff", mimeType: "image/tiff", name: "e.tiff" },
-      decoded: { width: 800, height: 600 }, resize: null, contentType: "image/jpeg", reencoded: true },
+      decoded: { width: 800, height: 600 }, resize: null, saved: "jpeg", contentType: "image/jpeg", extension: "jpg" },
     { name: "a large HEIC from Files is scaled and becomes a JPEG", via: files,
       asset: { uri: "file:///cache/DocumentPicker/f.heic", name: "f.heic" },
-      decoded: { width: 4000, height: 3000 }, resize: { width: 2048 }, contentType: "image/jpeg", reencoded: true },
-    { name: "a WEBP within bounds but over the byte cap is re-encoded", via: library,
-      asset: { uri: "file:///cache/ImagePicker/g.webp", mimeType: "image/webp", width: 2000, height: 1500, name: "g.webp" },
-      bytes: 12 * MiB, decoded: { width: 2000, height: 1500 }, resize: null, contentType: "image/jpeg", reencoded: true },
+      decoded: { width: 4000, height: 3000 }, resize: { width: 2048 }, saved: "jpeg", contentType: "image/jpeg", extension: "jpg" },
   ];
 
-  it.each(cases)("$name", async ({ via, asset, decoded, bytes, resize, contentType, reencoded }) => {
+  it.each(cases)("$name", async ({ via, asset, decoded, bytes, resize, saved, contentType, extension }) => {
     if (decoded) mockDecoded = decoded;
     if (bytes) mockSizes[asset.uri] = bytes;
     const picked = await via(asset) as { localUri: string; contentType: string; fileName: string };
+    expect(ImageManipulator.manipulate).toHaveBeenCalledWith(asset.uri);
+    expect(mockSave).toHaveBeenCalledTimes(1);
+    expect(mockSave).toHaveBeenCalledWith({ format: saved, compress: IMAGE_JPEG_QUALITY }, expect.anything());
     expect(picked.contentType).toBe(contentType);
     if (resize) expect(mockResize).toHaveBeenCalledWith(resize);
     else expect(mockResize).not.toHaveBeenCalled();
-    if (reencoded) {
-      expect(picked.localUri).toMatch(/^file:\/\/\/cache\/ImageManipulator\//);
-      expect(picked.fileName).toMatch(/\.jpg$/);
-      // The picker's copy is the intermediate: it goes once the JPEG replaces it.
-      expect(mockDeleted).toEqual([asset.uri]);
-      // The JPEG is this pick's own copy: it goes once nothing needs it.
-      discardLocalCopy(picked.localUri);
-      expect(mockDeleted).toEqual([asset.uri, picked.localUri]);
-    } else {
-      expect(picked.localUri).toBe(asset.uri);
-      expect(mockSave).not.toHaveBeenCalled();
-      expect(mockDeleted).toEqual([]);
-    }
+    expect(picked.localUri).toMatch(/^file:\/\/\/cache\/ImageManipulator\//);
+    expect(picked.fileName).toBe(`${asset.name.replace(/\.[^.]+$/, "")}.${extension}`);
+    // The picker's copy is the intermediate: it goes once the re-encode replaces it.
+    expect(mockDeleted).toEqual([asset.uri]);
+    // The re-encode is this pick's own copy: it goes once nothing needs it.
+    discardLocalCopy(picked.localUri);
+    expect(mockDeleted).toEqual([asset.uri, picked.localUri]);
+  });
+
+  it("uploads the re-encode of a small geotagged photo, never the picked file with its GPS", async () => {
+    const uri = "file:///cache/ImagePicker/geotagged.jpg";
+    expect(jpegHasGps(GEOTAGGED_JPEG)).toBe(true);
+    mockBytes[uri] = GEOTAGGED_JPEG;
+    // What the manipulator writes: the pixels' JPEG, no APP1 segment.
+    const reencoded = new Uint8Array([0xff, 0xd8, 0xff, 0xdb, 0x00, 0x02, 0xff, 0xd9]);
+    mockBytes["file:///cache/ImageManipulator/out-1.jpg"] = reencoded;
+    mockRead.mockImplementation(async (read: string) => (mockBytes[read] ?? new Uint8Array(3)).slice().buffer);
+    mockDecoded = { width: 16, height: 8 };
+
+    const picked = await library({ uri, mimeType: "image/jpeg", width: 16, height: 8, name: "geotagged.jpg" });
+    await uploadChatAttachment("token", picked as NonNullable<Awaited<ReturnType<typeof pickFromPhotoLibrary>>>);
+
+    const sent = new Uint8Array(jest.mocked(requestRaw).mock.calls[0]![2]!.body as ArrayBuffer);
+    expect(sent).toEqual(reencoded);
+    expect(jpegHasGps(sent)).toBe(false);
+    expect(api.presignAttachment).toHaveBeenCalledWith("token", {
+      content_type: "image/jpeg", size_bytes: reencoded.length, filename: "geotagged.jpg",
+    });
+  });
+
+  it("sends a PNG too large as a PNG as a JPEG, and removes the PNG", async () => {
+    mockDecoded = { width: 2048, height: 2048 };
+    mockSizes["file:///cache/ImageManipulator/out-1.png"] = MAX_ATTACHMENT_BYTES + 1;
+    const picked = await library({
+      uri: "file:///cache/ImagePicker/big.png", mimeType: "image/png", width: 2048, height: 2048, name: "big.png",
+    });
+    expect(picked).toMatchObject({
+      localUri: "file:///cache/ImageManipulator/out-2.jpg", contentType: "image/jpeg", fileName: "big.jpg",
+    });
+    expect(mockSave.mock.calls.map(([options]) => options)).toEqual([
+      { format: "png", compress: IMAGE_JPEG_QUALITY }, { format: "jpeg", compress: IMAGE_JPEG_QUALITY },
+    ]);
+    expect(mockDeleted.sort()).toEqual(["file:///cache/ImageManipulator/out-1.png", "file:///cache/ImagePicker/big.png"]);
+  });
+});
+
+describe("a GIF keeps its frames and loses its metadata", () => {
+  const { header, loop, frame, xmp, comment, trailer } = gifParts;
+  const pickGif = (uri: string, bytes: Uint8Array) => {
+    mockBytes[uri] = bytes;
+    jest.mocked(DocumentPicker.getDocumentAsync).mockResolvedValue({
+      canceled: false, assets: [{ uri, name: "wave.gif", mimeType: "image/gif", lastModified: 0 }],
+    });
+    return pickDocument();
+  };
+
+  it("drops its XMP and comments in its own copy, and uploads that copy", async () => {
+    const uri = "file:///cache/DocumentPicker/wave.gif";
+    const tagged = gifBytes(header(480, 270), loop, xmp(GPS_XMP), comment("home"), frame(8), frame(8), trailer);
+    mockRead.mockImplementation(async (read: string) => (mockBytes[read] ?? new Uint8Array(3)).slice().buffer);
+
+    const picked = await pickGif(uri, tagged);
+    expect(picked).toEqual({ localUri: uri, contentType: "image/gif", fileName: "wave.gif", kind: "image" });
+    expect(ImageManipulator.manipulate).not.toHaveBeenCalled();
+    const clean = gifBytes(header(480, 270), loop, frame(8), frame(8), trailer);
+    expect(mockBytes[uri]).toEqual(clean);
+
+    await uploadChatAttachment("token", picked!);
+    const sent = new Uint8Array(jest.mocked(requestRaw).mock.calls[0]![2]!.body as ArrayBuffer);
+    expect(sent).toEqual(clean);
+    expect(containsText(sent, "GPS")).toBe(false);
+  });
+
+  it("re-encodes a GIF too large to send as it is to a still JPEG", async () => {
+    mockDecoded = { width: 3000, height: 200 };
+    const picked = await pickGif("file:///cache/DocumentPicker/wide.gif", gifBytes(header(3000, 200), frame(0), trailer));
+    expect(picked).toMatchObject({ contentType: "image/jpeg", fileName: "wave.jpg" });
+    expect(mockResize).toHaveBeenCalledWith({ width: 2048 });
+  });
+
+  it("never rewrites a GIF that is not this pick's own copy", async () => {
+    const uri = "file:///documents/wave.gif";
+    const tagged = gifBytes(header(10, 10), comment("home"), frame(0), trailer);
+    const picked = await pickGif(uri, tagged);
+    expect(mockBytes[uri]).toBe(tagged);
+    expect(picked).toMatchObject({ contentType: "image/jpeg", localUri: "file:///cache/ImageManipulator/out-1.jpg" });
   });
 });
 

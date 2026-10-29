@@ -22,7 +22,10 @@ export type PreviewPageConfig = Record<string, unknown>;
 const CONFIG_GLOBAL = "RECALL_PREVIEW";
 const START_GLOBAL = "RECALL_PREVIEW_START";
 
-/** What a page posts for a link the user tapped: `{ kind, url }`. The app decides whether it opens. */
+/**
+ * What a page posts for a link the user tapped: `{ kind, url }`. Any script in the page can post
+ * one, so the app opens it only right after a touch on the WebView (lib/previewTap.ts).
+ */
 export const PREVIEW_PAGE_LINK_KIND = "preview-link";
 
 /**
