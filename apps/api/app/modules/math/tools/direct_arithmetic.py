@@ -187,12 +187,18 @@ def format_direct_written_arithmetic(spec: ArithmeticWorkSpec, user_text: str) -
     answer = f"```answer\n{shown}\n```\n"
     if response.mode == MathResponseMode.ANSWER_ONLY:
         return answer
-    # Small whole numbers are shown as objects to count, asked plainly or "how".
+    # Small whole numbers are shown as objects to count when the user asks how ("explain
+    # 3-3", "show the steps for 3-3"): "what's 2+2" from an adult got "2 fish and 2 more
+    # make 4 fish" (2026-10-29).
     from app.modules.math.match.written import requests_written_method
     from app.modules.math.tools.direct_counting import counting_picture
 
     # A named written method ("8 + 7 using carrying") keeps its column trace.
-    picture = None if requests_written_method(user_text) else counting_picture(spec)
+    picture = (
+        counting_picture(spec)
+        if response.wants_explanation and not requests_written_method(user_text)
+        else None
+    )
     if picture is not None:
         body = json.dumps(picture.model_dump(), separators=(",", ":"), ensure_ascii=False)
         return f"```arithmetic\n{body}\n```\n\n{picture.speech}\n\n{answer}"
