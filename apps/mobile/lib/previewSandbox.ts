@@ -1,4 +1,5 @@
 import { HTML_RUN_CDN_CSP } from "@/lib/htmlRunCdn";
+import { stripRefreshRedirects } from "@/lib/htmlScriptStrip";
 
 /**
  * Content-Security-Policy for the sandboxed HTML/JS preview.
@@ -110,12 +111,10 @@ const HTML_RUN_STAY_JS = `(function () {
   } catch (err) {}
 })();`;
 
-const META_REFRESH = /<\s*meta\b[^>]*\shttp-equiv\s*=\s*["']?refresh["']?[^>]*>/gi;
 
 /** Full document for the HTML Run WebView: wrap + live CSP + stay-on-page trap. */
 export function prepareHtmlRunDocument(html: string): string {
-  const withoutRefresh = replaceUntilStable(html, META_REFRESH, "");
-  const withCsp = injectPreviewCsp(withoutRefresh, PREVIEW_CSP_LIVE);
+  const withCsp = injectPreviewCsp(stripRefreshRedirects(html), PREVIEW_CSP_LIVE);
   const stayTag = `<script>${HTML_RUN_STAY_JS}</script>`;
   const cspTag = /(<meta http-equiv="Content-Security-Policy"[^>]*>)/i.exec(withCsp);
   if (cspTag && cspTag.index != null) {
@@ -172,85 +171,62 @@ export const CHART_PREVIEW_CSP = [
 ].join("; ");
 
 /**
+ * CSP for a reply's HTML handed to the system browser or the share sheet
+ * ("Open in browser", Share). That file opens outside the app (a browser tab,
+ * Quick Look, another app) where nothing of ours sandboxes it, so its policy
+ * travels inside it, and holds even where `stripScripts` missed something:
+ *  - default-src 'none': no script of any kind. With no script-src, inline
+ *    `<script>`, `on*` handlers and `javascript:` URLs are all refused, and so
+ *    are fetch/XHR/WebSocket, frames, objects, embeds, fonts, media, workers
+ *    and manifests: every fetch directive falls back to it.
+ *  - style-src 'unsafe-inline': the page's own `<style>` and `style=""` paint;
+ *    no stylesheet or `@import` loads.
+ *  - img-src data: https:: its pictures show. The person chose to open the
+ *    page; `http:` and every other scheme stay blocked.
+ *  - base-uri 'none' and form-action 'none': no `<base>` retargets its links
+ *    and no form submits anywhere. Neither falls back to default-src.
+ * Left out: script-src 'none' and object-src 'none' (default-src already says
+ * so); frame-ancestors, report-uri and sandbox (ignored in a `<meta>` CSP);
+ * upgrade-insecure-requests (no `http:` source to upgrade). A meta refresh is
+ * not a CSP matter: `stripScripts` removes it.
+ */
+export const HTML_EXPORT_CSP = [
+  "default-src 'none'",
+  "style-src 'unsafe-inline'",
+  "img-src data: https:",
+  "base-uri 'none'",
+  "form-action 'none'",
+].join("; ");
+
+/**
  * End-tag pattern that accepts HTML5 junk before `>` (e.g. `</script\t\n bar>`).
  * CodeQL js/bad-tag-filter rejects `</script\s*>` which misses those shapes.
  */
 const SCRIPT_END = String.raw`<\/script[^>]*>`;
-const STYLE_END = String.raw`<\/style[^>]*>`;
-const TEXTAREA_END = String.raw`<\/textarea[^>]*>`;
-const TITLE_END = String.raw`<\/title[^>]*>`;
 
-const RAW_TEXT_REGION_RE = new RegExp(
-  [
-    String.raw`<!--[\s\S]*?-->`,
-    String.raw`<script\b[^>]*>[\s\S]*?${SCRIPT_END}`,
-    String.raw`<style\b[^>]*>[\s\S]*?${STYLE_END}`,
-    String.raw`<textarea\b[^>]*>[\s\S]*?${TEXTAREA_END}`,
-    String.raw`<title\b[^>]*>[\s\S]*?${TITLE_END}`,
-  ].join("|"),
-  "gi",
-);
-
-const SCRIPT_BLOCK_RE = new RegExp(
-  String.raw`<\s*script\b[^>]*>[\s\S]*?<\s*\/\s*script[^>]*>`,
-  "gi",
-);
-const SCRIPT_SELF_CLOSE_RE = /<\s*script\b[^>]*\/>/gi;
-
-/** Apply `replace` until the string stops changing (CodeQL multi-char sanitization). */
-function replaceUntilStable(input: string, pattern: RegExp, replacement: string): string {
-  let out = input;
-  let prev = "";
-  // Cap iterations — adversarial input should not hang the UI.
-  for (let i = 0; i < 32 && out !== prev; i++) {
-    prev = out;
-    out = out.replace(pattern, replacement);
-  }
-  return out;
-}
+/** A DOCTYPE at the very start: only HTML whitespace before it, ending at its first `>` as a browser's does. */
+const LEADING_DOCTYPE = /^[\t\n\f\r ]*<!doctype[^>]*>/i;
+/** A tag that makes the text a document (put the meta in front) rather than a fragment (wrap it). */
+const DOCUMENT_TAG = /<(?:html|head|body)[\s/>]/i;
 
 /**
- * Replace raw-text/CDATA-like regions (script, style, comments, textarea,
- * title) with equal-length whitespace, preserving the string's length so
- * indices found in the result stay valid against the original string.
+ * Inject a CSP meta into an HTML document, or wrap a bare fragment in one.
  *
- * injectPreviewCsp() finds the real <head> with these regions blanked: a document
- * that puts a decoy `<head` inside a <script> comment (or <style>, an HTML comment,
- * <textarea> or <title>) before the real tag would otherwise get its CSP <meta>
- * spliced into that inert text, never parsed as a tag, leaving the document with no
- * CSP at all (a sandbox escape).
+ * The meta becomes the document's first element (after a leading DOCTYPE), not
+ * the first child of the document's own `<head>` tag. A browser ignores a CSP
+ * meta outside `<head>` (HTML §4.2.5.3), and a `<head>` tag that comes after
+ * body content (`<html>x<head>`) is itself ignored, so a meta spliced after it
+ * lands in `<body>` and the page runs with no policy. The first element of a
+ * document always goes into the head the parser opens, and nothing before it
+ * can run or load. Nothing is searched for, so a decoy `<head` inside a
+ * script, comment, `<textarea>` or attribute cannot misplace it. A well-formed
+ * document gets the same DOM as before: the CSP is its head's first child.
  */
-function maskRawTextRegions(html: string): string {
-  return html.replace(RAW_TEXT_REGION_RE, (match) => " ".repeat(match.length));
-}
-
-function stripScriptBlocks(html: string): string {
-  let out = replaceUntilStable(html, SCRIPT_BLOCK_RE, "");
-  out = replaceUntilStable(out, SCRIPT_SELF_CLOSE_RE, "");
-  return out;
-}
-
-/** Inject the sandbox CSP meta into an HTML document (bare or full). */
 export function injectPreviewCsp(html: string, csp: string = PREVIEW_CSP): string {
   const meta = `<meta http-equiv="Content-Security-Policy" content="${csp}">`;
-  const masked = maskRawTextRegions(html);
-
-  const headMatch = /<head(\s[^>]*)?>/i.exec(masked);
-  if (headMatch && headMatch.index != null) {
-    const headIdx = headMatch.index;
-    const headTag = html.slice(headIdx, headIdx + headMatch[0].length);
-    // Meta CSP only constrains resources after it is parsed. Drop real
-    // <script> blocks that appear before the (now decoy-proof) real <head>
-    // so they cannot run unconstrained.
-    const before = stripScriptBlocks(html.slice(0, headIdx));
-    return before + headTag + meta + html.slice(headIdx + headMatch[0].length);
-  }
-
-  const htmlMatch = /<html(\s[^>]*)?>/i.exec(masked);
-  if (htmlMatch && htmlMatch.index != null) {
-    const at = htmlMatch.index + htmlMatch[0].length;
-    return html.slice(0, at) + `<head>${meta}</head>` + html.slice(at);
-  }
+  const doctype = LEADING_DOCTYPE.exec(html)?.[0];
+  if (doctype) return doctype + meta + html.slice(doctype.length);
+  if (DOCUMENT_TAG.test(html)) return meta + html;
   return `<!DOCTYPE html><html><head>${meta}</head><body>${html}</body></html>`;
 }
 
@@ -261,58 +237,4 @@ export function injectPreviewCsp(html: string, csp: string = PREVIEW_CSP): strin
  */
 export function inlineScript(source: string): string {
   return source.replace(new RegExp(SCRIPT_END, "gi"), "<\\/script>");
-}
-
-// Matches whitespace and C0 control characters, built via String.fromCharCode
-// (not a literal char class) so no raw control bytes live in this source file.
-const CONTROL_OR_WHITESPACE = new RegExp(
-  "[\\s" + Array.from({ length: 0x20 }, (_, i) => String.fromCharCode(i)).join("") + "]",
-  "g",
-);
-
-const ON_ATTR_DQ = /[\s/]on\w+\s*=\s*"[^"]*"/gi;
-const ON_ATTR_SQ = /[\s/]on\w+\s*=\s*'[^']*'/gi;
-const ON_ATTR_UQ = /[\s/]on\w+\s*=\s*[^\s>]+/gi;
-const SRCDOC_DQ = /\ssrcdoc\s*=\s*"[^"]*"/gi;
-const SRCDOC_SQ = /\ssrcdoc\s*=\s*'[^']*'/gi;
-
-function isDangerousUrlScheme(cleaned: string): boolean {
-  if (cleaned.startsWith("javascript:") || cleaned.startsWith("vbscript:")) {
-    return true;
-  }
-  // Block data: except image payloads used by static <img src="data:image/...">.
-  if (cleaned.startsWith("data:") && !cleaned.startsWith("data:image/")) {
-    return true;
-  }
-  return false;
-}
-
-/**
- * Remove `<script>...</script>` blocks and inline event handlers from HTML.
- *
- * Used for the "Open in browser" / share paths, which hand model-generated HTML
- * to the system browser. The system browser runs `<script>` unsandboxed (no CSP,
- * same origin as the browser), so untrusted model JS must never reach it.
- */
-export function stripScripts(html: string): string {
-  let out = stripScriptBlocks(html);
-  out = replaceUntilStable(out, ON_ATTR_DQ, "");
-  out = replaceUntilStable(out, ON_ATTR_SQ, "");
-  out = replaceUntilStable(out, ON_ATTR_UQ, "");
-  out = replaceUntilStable(out, SRCDOC_DQ, "");
-  out = replaceUntilStable(out, SRCDOC_SQ, "");
-  out = replaceUntilStable(out, META_REFRESH, "");
-
-  out = out.replace(
-    /\s(href|src|action|formaction|data)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi,
-    (match, _attr: string, value: string) => {
-      const unquoted = value.replace(/^["']|["']$/g, "");
-      const cleaned = unquoted.replace(CONTROL_OR_WHITESPACE, "").toLowerCase();
-      if (isDangerousUrlScheme(cleaned)) {
-        return "";
-      }
-      return match;
-    },
-  );
-  return out;
 }
