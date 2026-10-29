@@ -5,7 +5,7 @@ type NavigationGuardRequest = {
   navigationType?: string;
 };
 
-export type StaticOnlyNavigationGuard = {
+type StaticOnlyNavigationGuard = {
   shouldAllow: (request?: NavigationGuardRequest | string) => boolean;
   /** Call when the WebView's source content legitimately changes. */
   reset: () => void;
@@ -32,29 +32,23 @@ export function isPreviewFrameworkUrl(url: string): boolean {
 }
 
 /**
- * Inline-HTML document origin (`baseUrl`), not an open-web navigation.
- * react-native-webview's historical `baseUrl` for inline HTML on iOS is
- * https://localhost/. It must stay allowlisted: denying it blanks the Run tab
- * even when the HTML is already in memory (security #415 tightened
- * originWhitelist to about:blank and the nav guard blocked it as "external").
+ * The document URL react-native-webview gives inline `source={{ html }}`
+ * when no `baseUrl` is passed, and no preview passes one. iOS
+ * (RNCWebViewImpl.m `visitSource`) falls back to about:blank; Android
+ * (RNCWebViewManagerImpl.kt) hands "" to loadDataWithBaseURL, which WebView
+ * reads as about:blank.
+ */
+export const PREVIEW_INLINE_BASE_URL = "about:blank";
+
+/**
+ * The inline-HTML document itself, not a navigation. Only its exact URL:
+ * a preview must never reach a server on the phone (`localhost`,
+ * `127.0.0.1`: a dev server, another app's local server), in any build.
+ * Development needs no more: the dev-only @expo/dom-webview never asks the
+ * guards, and vendored libraries reach a page inlined, not from Metro.
  */
 export function isPreviewInlineDocumentUrl(url: string): boolean {
-  const u = url.trim().toLowerCase();
-  if (!u) return false;
-  try {
-    const parsed = new URL(u);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
-    return parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
-  } catch {
-    return (
-      u === "https://localhost/" ||
-      u === "https://localhost" ||
-      u.startsWith("https://localhost/") ||
-      u === "http://localhost/" ||
-      u === "http://localhost" ||
-      u.startsWith("http://localhost/")
-    );
-  }
+  return url.trim().toLowerCase() === PREVIEW_INLINE_BASE_URL;
 }
 
 export function isExternalHttpUrl(url: string): boolean {

@@ -58,12 +58,12 @@ describe("stripScripts", () => {
     expect(out.toLowerCase()).not.toContain("vbscript:");
   });
 
-  it("strips zero-click meta-refresh redirects", () => {
+  it("disarms zero-click meta-refresh redirects", () => {
     const out = stripScripts(
       '<meta http-equiv="refresh" content="0;url=https://evil.example/phish">',
     );
-    expect(out).not.toContain("evil.example");
-    expect(out.toLowerCase()).not.toContain("refresh");
+    // Renamed, not removed (lib/htmlMetaPragmas.ts): no pragma is left to act.
+    expect(out).toBe('<meta data-blocked-http-equiv="refresh" content="0;url=https://evil.example/phish">');
   });
 
   it("leaves ordinary safe links and images untouched", () => {

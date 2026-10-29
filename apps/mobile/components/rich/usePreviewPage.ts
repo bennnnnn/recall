@@ -17,11 +17,13 @@ import {
   previewPageFile,
   readyPreviewPageFile,
 } from "@/lib/previewPageFile";
+import { createPreviewTapGate } from "@/lib/previewTap";
 import type { VendorLibrary } from "@/lib/vendorAssets";
 import {
   allowPreviewPageNavigation,
   PREVIEW_PAGE_ORIGIN_WHITELIST,
   previewPageLinkToOpen,
+  previewPagePostedLinkToOpen,
 } from "@/lib/webView";
 
 /** A load that fails (the system cleared the cache) writes the page and loads it once more. */
@@ -69,25 +71,31 @@ export function usePreviewPage<L extends VendorLibrary>(
 
   const { uri, attempt } = file;
   const script = useMemo(() => previewPageConfigScript(config), [config]);
+  // A link opens only right after the user's finger touched this WebView.
+  const [tap] = useState(createPreviewTapGate);
 
   const onShouldStartLoadWithRequest = useCallback(
     (request?: unknown) => {
       if (uri !== null && allowPreviewPageNavigation(uri, request)) return true;
-      // Not in the card: a link the user tapped opens as a chat link would.
-      const link = previewPageLinkToOpen(request);
+      // Not in the card: a link the user just tapped opens as a chat link would.
+      const link = previewPageLinkToOpen(request, tap);
       if (link) void openAllowedUrl(link);
       return false;
     },
-    [uri],
+    [uri, tap],
   );
 
   const handleMessage = useCallback(
     (event: WebViewMessage) => {
-      const link = previewPageLink(event.nativeEvent.data);
-      if (link === null) onMessage(event);
-      else void openAllowedUrl(link);
+      const posted = previewPageLink(event.nativeEvent.data);
+      if (posted === null) {
+        onMessage(event);
+        return;
+      }
+      const link = previewPagePostedLinkToOpen(posted, tap);
+      if (link) void openAllowedUrl(link);
     },
-    [onMessage],
+    [onMessage, tap],
   );
 
   const onError = useCallback(() => {
@@ -105,6 +113,8 @@ export function usePreviewPage<L extends VendorLibrary>(
       source: { uri },
       originWhitelist: PREVIEW_PAGE_ORIGIN_WHITELIST,
       onShouldStartLoadWithRequest,
+      // The native touch system's word that the user touched the card; page script cannot fake it.
+      onTouchStart: tap.touched,
       // Android loads a file:// page only with file access on. iOS reads just
       // the page itself: no allowingReadAccessToURL.
       allowFileAccess: true,
@@ -117,7 +127,7 @@ export function usePreviewPage<L extends VendorLibrary>(
       onMessage: handleMessage,
       onError,
     }),
-    [uri, onShouldStartLoadWithRequest, script, handleMessage, onError],
+    [uri, onShouldStartLoadWithRequest, tap, script, handleMessage, onError],
   );
 
   if (file.failed) return { status: "failed" };

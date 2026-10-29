@@ -60,9 +60,12 @@ describe("cropScanImage", () => {
     expect(mockContext.release).toHaveBeenCalled();
   });
 
-  it("keeps a small crop at its own size", async () => {
-    await cropScanImage("file:///capture.jpg", () => ({ originX: 0, originY: 0, width: 800, height: 300 }));
+  it("keeps a small crop at its own size, still written again without the capture's metadata", async () => {
+    await expect(
+      cropScanImage("file:///capture.jpg", () => ({ originX: 0, originY: 0, width: 800, height: 300 })),
+    ).resolves.toMatchObject({ uri: "file:///cache/crop.jpg" });
     expect(mockContext.resize).not.toHaveBeenCalled();
+    expect(mockResult.saveAsync).toHaveBeenCalledWith({ compress: SCAN_JPEG_QUALITY, format: "jpeg" });
   });
 
   it("releases the context when the crop fails", async () => {

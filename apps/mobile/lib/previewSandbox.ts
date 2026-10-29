@@ -1,3 +1,4 @@
+import { disarmMetaPragmas } from "@/lib/htmlMetaPragmas";
 import { HTML_RUN_CDN_CSP } from "@/lib/htmlRunCdn";
 
 /**
@@ -49,8 +50,9 @@ export const PREVIEW_CSP = `${PREVIEW_CSP_INLINE}; sandbox allow-scripts`;
  * HTML Run tab — still isolated from the app (no shared cookies / tokens),
  * but allows an explicit CDN allowlist so CSS/JS demos actually paint.
  * Leave-document navigations are blocked in-page (see HTML_RUN_STAY_JS) and
- * via form-action 'none' plus stripping meta-refresh. There is no native nav
- * guard on this path — iOS mis-labels CDN fetches as top-frame.
+ * via form-action 'none' plus disarming every meta pragma
+ * (lib/htmlMetaPragmas.ts). There is no native nav guard on this path — iOS
+ * mis-labels CDN fetches as top-frame.
  */
 export const PREVIEW_CSP_LIVE = [
   "default-src 'none'",
@@ -69,10 +71,9 @@ export const PREVIEW_CSP_LIVE = [
 /**
  * Inlined into the HTML Run document (not via RN injectedJavaScript*).
  * Blocks leave-document navigations: <a> clicks, form submits, location.assign /
- * replace / href, window.open, and (separately) meta-refresh tags stripped
- * before this script is injected. Hash / javascript: links still work for
- * in-page demos. Injected immediately after the CSP meta so it runs before
- * user scripts.
+ * replace / href, window.open, and (separately) meta-refresh tags disarmed
+ * in the document. Hash / javascript: links still work for in-page demos.
+ * Injected immediately after the CSP meta so it runs before user scripts.
  */
 const HTML_RUN_STAY_JS = `(function () {
   function stay(e) {
@@ -110,19 +111,12 @@ const HTML_RUN_STAY_JS = `(function () {
   } catch (err) {}
 })();`;
 
-export const META_REFRESH = /<\s*meta\b[^>]*\shttp-equiv\s*=\s*["']?refresh["']?[^>]*>/gi;
-
 /** Full document for the HTML Run WebView: wrap + live CSP + stay-on-page trap. */
 export function prepareHtmlRunDocument(html: string): string {
-  const withoutRefresh = replaceUntilStable(html, META_REFRESH, "");
-  const withCsp = injectPreviewCsp(withoutRefresh, PREVIEW_CSP_LIVE);
-  const stayTag = `<script>${HTML_RUN_STAY_JS}</script>`;
-  const cspTag = /(<meta http-equiv="Content-Security-Policy"[^>]*>)/i.exec(withCsp);
-  if (cspTag && cspTag.index != null) {
-    const at = cspTag.index + cspTag[0].length;
-    return withCsp.slice(0, at) + stayTag + withCsp.slice(at);
-  }
-  return stayTag + withCsp;
+  const cspTag = cspMetaTag(PREVIEW_CSP_LIVE);
+  const doc = injectAtHeadStart(html, `${cspTag}<script>${HTML_RUN_STAY_JS}</script>`);
+  // Last: the CSP written above is the one pragma kept.
+  return disarmMetaPragmas(doc, cspTag);
 }
 
 /**
@@ -130,19 +124,20 @@ export function prepareHtmlRunDocument(html: string): string {
  *
  * pdf.js + its worker are vendored and inlined (the worker is built from a
  * Blob URL at runtime, hence `worker-src blob:`). The PDF bytes are inlined
- * as base64 — no fetch. With the worker no longer pulled from cdnjs, the PDF
- * preview needs zero network egress, so `connect-src 'none'` holds just like
- * the other sandbox CSPs. (CMap/standard-font fetches are not configured, so
- * pdf.js never reaches the network for the previews we render.)
+ * as base64 — no fetch, and no file read (lib/pdfPreviewHtml.ts). A PDF is
+ * untrusted and pdf.js has had script-capable bugs, so the page reaches
+ * nothing outside itself: `connect-src 'none'`, and images, fonts and media
+ * only from data: and blob:. (CMap/standard-font fetches are not configured,
+ * so pdf.js never reaches the network for the previews we render.)
  */
 export const PDF_PREVIEW_CSP = [
   "default-src 'none'",
   "style-src 'unsafe-inline'",
   "script-src 'unsafe-inline'",
   "worker-src blob:",
-  "img-src data: blob: https:",
-  "font-src data: https:",
-  "media-src data: blob: https:",
+  "img-src data: blob:",
+  "font-src data:",
+  "media-src data: blob:",
   "connect-src 'none'",
   "base-uri 'none'",
   "form-action 'none'",
@@ -189,7 +184,7 @@ export const CHART_PREVIEW_CSP = [
  * Left out: script-src 'none' and object-src 'none' (default-src already says
  * so); frame-ancestors, report-uri and sandbox (ignored in a `<meta>` CSP);
  * upgrade-insecure-requests (no `http:` source to upgrade). A meta refresh is
- * not a CSP matter: `stripScripts` removes it.
+ * not a CSP matter: `stripScripts` disarms every `<meta http-equiv>`.
  */
 export const HTML_EXPORT_CSP = [
   "default-src 'none'",
@@ -204,18 +199,6 @@ export const HTML_EXPORT_CSP = [
  * CodeQL js/bad-tag-filter rejects `</script\s*>` which misses those shapes.
  */
 const SCRIPT_END = String.raw`<\/script[^>]*>`;
-
-/** Apply `replace` until the string stops changing (CodeQL multi-char sanitization). */
-function replaceUntilStable(input: string, pattern: RegExp, replacement: string): string {
-  let out = input;
-  let prev = "";
-  // Cap iterations — adversarial input should not hang the UI.
-  for (let i = 0; i < 32 && out !== prev; i++) {
-    prev = out;
-    out = out.replace(pattern, replacement);
-  }
-  return out;
-}
 
 /** A DOCTYPE at the very start: only HTML whitespace before it, ending at its first `>` as a browser's does. */
 const LEADING_DOCTYPE = /^[\t\n\f\r ]*<!doctype[^>]*>/i;
@@ -236,11 +219,19 @@ const DOCUMENT_TAG = /<(?:html|head|body)[\s/>]/i;
  * document gets the same DOM as before: the CSP is its head's first child.
  */
 export function injectPreviewCsp(html: string, csp: string = PREVIEW_CSP): string {
-  const meta = `<meta http-equiv="Content-Security-Policy" content="${csp}">`;
+  return injectAtHeadStart(html, cspMetaTag(csp));
+}
+
+function cspMetaTag(csp: string): string {
+  return `<meta http-equiv="Content-Security-Policy" content="${csp}">`;
+}
+
+/** Put `markup` first in the document, as {@link injectPreviewCsp} does its meta. */
+function injectAtHeadStart(html: string, markup: string): string {
   const doctype = LEADING_DOCTYPE.exec(html)?.[0];
-  if (doctype) return doctype + meta + html.slice(doctype.length);
-  if (DOCUMENT_TAG.test(html)) return meta + html;
-  return `<!DOCTYPE html><html><head>${meta}</head><body>${html}</body></html>`;
+  if (doctype) return doctype + markup + html.slice(doctype.length);
+  if (DOCUMENT_TAG.test(html)) return markup + html;
+  return `<!DOCTYPE html><html><head>${markup}</head><body>${html}</body></html>`;
 }
 
 /**

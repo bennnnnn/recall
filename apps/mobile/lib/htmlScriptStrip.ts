@@ -1,6 +1,6 @@
 import { decodeAttributeEntities } from "@/lib/htmlEntities";
+import { disarmMetaPragmas } from "@/lib/htmlMetaPragmas";
 import { isInlineRasterDataUrl } from "@/lib/images/inlineRaster";
-import { META_REFRESH } from "@/lib/previewSandbox";
 
 // Strips script from model-written HTML before it leaves the app's sandbox
 // (system browser, share sheet) or reaches the Expo Go static renderer.
@@ -91,29 +91,31 @@ function stripScriptsOnce(html: string): string {
   out = dropAttributes(out, EVENT_HANDLER_ATTR, () => true);
   // An iframe decodes srcdoc into a document of its own, so any value can hold a script.
   out = dropAttributes(out, SRCDOC_ATTR, () => true);
-  out = out.replace(META_REFRESH, REMOVED);
   return dropAttributes(out, URL_ATTR, (name, value) => hasScriptUrl(name, attributeUrl(value)));
 }
 
 /**
- * Remove `<script>` blocks, inline event handlers, `srcdoc`, meta refreshes and
- * script URLs (`javascript:`, `vbscript:`, non-raster `data:`) from HTML.
+ * Remove `<script>` blocks, inline event handlers, `srcdoc` and script URLs
+ * (`javascript:`, `vbscript:`, non-raster `data:`) from HTML, and disarm every
+ * `<meta http-equiv>` (lib/htmlMetaPragmas.ts).
  *
  * Used for the "Open in browser" / share paths, which hand model-generated HTML
  * to the system browser, and the Expo Go static preview. Handler, `srcdoc` and
  * URL attributes are read as a browser's tokenizer reads them: any separator,
- * any case, character references decoded (meta refresh uses the HTML Run tab's
- * {@link META_REFRESH}). A removal can expose new markup (`<a onclick
- * href="javascript:x"=alert(1)>` leaves `onclick =alert(1)`), so the passes run
- * until nothing changes; input still changing after {@link MAX_STRIP_PASSES}
- * comes back as escaped text. The export also carries `HTML_EXPORT_CSP`
- * (`lib/previewSandbox.ts`), which refuses every script even if this misses one.
+ * any case, character references decoded. A removal can expose new markup (`<a
+ * onclick href="javascript:x"=alert(1)>` leaves `onclick =alert(1)`), so the
+ * passes run until nothing changes; input still changing after
+ * {@link MAX_STRIP_PASSES} comes back as escaped text. Pragmas are disarmed
+ * last, on the final text: a removal can join a new `<meta http-equiv>`, and
+ * disarming renames rather than removes, so it joins nothing. The export also
+ * carries `HTML_EXPORT_CSP` (`lib/previewSandbox.ts`), which refuses every
+ * script even if this misses one.
  */
 export function stripScripts(html: string): string {
   let out = html;
   for (let pass = 0; pass < MAX_STRIP_PASSES; pass++) {
     const next = stripScriptsOnce(out);
-    if (next === out) return out;
+    if (next === out) return disarmMetaPragmas(out);
     out = next;
   }
   return html.replace(/&/g, "&amp;").replace(/</g, "&lt;");

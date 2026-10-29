@@ -21,6 +21,21 @@ type Row = { id: string; role: string; content: string };
  */
 const IMAGE_WORDS =
   /(?:^|[^a-z0-9_])(?:create|design|generate|make|produce|render|draw|illustrat|paint|image|photo|pic|artwork|portrait|show|see|look)/;
+/**
+ * The same in the app's other languages (gen_intent_languages.py): the server draws there
+ * only "draw me" ("dibújame", "zeichne mir", "bana … çiz", "ድመት ሳልልኝ") and "create a
+ * picture of" ("erstelle ein Bild von", "crea una ilustración de"), so these are its draw
+ * verbs and picture nouns. German "mal"/"male" count only before "mir"/"uns": alone they
+ * are "once" and "bad" ("Erklär mal …", "Me siento mal").
+ */
+const OTHER_LANGUAGE_WORDS = new RegExp(
+  "(?:^|[^a-z0-9_])(?:" +
+    "dibuj|dibúj|pínt|pintame|pintas|pintar|ilustrac|ilustraç|dessin|peins|peignez|peindre|illustr|" +
+    "zeichn|male?\\s+(?:mir|uns)(?![a-zäöüß])|malen|bild(?![a-zäöüß])|" +
+    "disegn|dipin|immagin|desenh|çiz|resm|görsel|" +
+    "нарис|изобра|картинк|рисун|иллюстр|" +
+    "ሳልልኝ|ሣልልኝ|ሳይልኝ|ሣይልኝ|ሳሉልኝ|ሣሉልኝ|ምስል|ስዕል|ሥዕል|ስእል)",
+);
 /** With an image attached, these start an edit of it ("crop it", "turn it into…"). */
 const EDIT_WORDS = /(?:^|[^a-z0-9_])(?:edit|change|remove|replace|recolor|crop|transform|turn)/;
 /** "do it" after a picture request: the server reads one only in a line this short. */
@@ -29,7 +44,8 @@ const CLOSING_PUNCTUATION = /[.!?]+$/;
 
 function hasImageWord(text: string, imageAttached: boolean): boolean {
   const folded = text.toLowerCase();
-  return IMAGE_WORDS.test(folded) || (imageAttached && EDIT_WORDS.test(folded));
+  return IMAGE_WORDS.test(folded) || OTHER_LANGUAGE_WORDS.test(folded) ||
+    (imageAttached && EDIT_WORDS.test(folded));
 }
 
 /** Whitespace to the phone or to the server (Python also splits on \x1c–\x1f and \x85). */

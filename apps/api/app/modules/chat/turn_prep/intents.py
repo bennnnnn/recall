@@ -16,6 +16,7 @@ is not this module's job: the prompt renders the plan (``prompt_constants.multi_
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from functools import lru_cache
 
 from app.core.readings import reading
@@ -132,6 +133,36 @@ def plan_turn(text: str, *, chemistry_enabled: bool = True) -> TurnPlan:
         return single_plan(text)
     parts = tuple(TurnPart(_quoted(clause.text), kind) for clause, kind in merged)
     return TurnPlan(parts, context=split.context)
+
+
+def cuts_after_picture(text: str, is_picture: Callable[[str], bool]) -> bool:
+    """Whether ``plan_turn`` cuts ``text`` after a first part that is a picture: "draw me a
+    cat and also explain black holes", "draw me a cat. Also, what is the capital of
+    France?", "draw me a cat and suggest names". The picture reader asks this before it
+    draws the whole line, so the line is drawn whole exactly where the plan keeps it whole.
+
+    The same clause and cut rules as ``plan_turn``, with ``is_picture`` (the picture
+    reader's own, on a request's body) for ``part_kind``: after a picture, every other
+    kind of request cuts alike, and the reader must not ask the SymPy-backed readings
+    on the event loop.
+    """
+
+    def kind(clause: Clause) -> PartKind:
+        return "image" if is_picture(request_body(clause.text)) else "ask"
+
+    clauses = request_clauses(text).clauses
+    if len(clauses) < 2 or kind(clauses[0]) != "image":
+        return False
+    last = clauses[0]
+    for index, clause in enumerate(clauses[1:], start=1):
+        if _keeps_cut(clause, kind(clause), last, "image", chemistry_enabled=True):
+            return True
+        if index == len(clauses) - 1:
+            return False
+        last = Clause(f"{last.text} {clause.text}", last.cut, last.topics | clause.topics)
+        if kind(last) != "image":
+            return False
+    return False
 
 
 def _quoted(text: str) -> str:
