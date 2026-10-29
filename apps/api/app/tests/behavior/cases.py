@@ -2142,40 +2142,45 @@ CASES: tuple[Case, ...] = (
         "multi-draw-and-explain-am",
         "multi-intent",
         "ድመት ሳልልኝ እንዲሁም ጥቁር ቀዳዳ ምን እንደሆነ አስረዳኝ",
-        Expect(image_gen=False, picture=True, hints=("multi_intent",)),
-        "The cat picture above the black-hole explanation in the message's language.",
+        Expect(image_gen=False, picture=False, no_hints=("multi_intent",)),
+        "One answer in the message's language, no picture: no other-language message is "
+        "cut into a picture and a request (round 9).",
         pro=True,
     ),
     Case(
         "multi-draw-me-and-explain-es",
         "multi-intent",
         "Dibújame un gato con sombrero y también explica qué es un agujero negro",
-        Expect(image_gen=False, picture=True, hints=("multi_intent",)),
-        "A draw-me picture beside the black-hole explanation, in the message's language.",
+        Expect(image_gen=False, picture=False, no_hints=("multi_intent",)),
+        "One answer in the message's language, no picture: no other-language message is "
+        "cut into a picture and a request (round 9).",
         pro=True,
     ),
     Case(
         "multi-draw-me-and-explain-de",
         "multi-intent",
         "Zeichne mir eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
-        Expect(image_gen=False, picture=True, hints=("multi_intent",)),
-        "A draw-me picture beside the black-hole explanation, in the message's language.",
+        Expect(image_gen=False, picture=False, no_hints=("multi_intent",)),
+        "One answer in the message's language, no picture: no other-language message is "
+        "cut into a picture and a request (round 9).",
         pro=True,
     ),
     Case(
         "multi-explain-and-draw-me-ru",
         "multi-intent",
         "Объясни, что такое чёрная дыра, и нарисуй мне кошку",
-        Expect(image_gen=False, picture=True, hints=("multi_intent",)),
-        "A draw-me picture beside the black-hole explanation, in the message's language.",
+        Expect(image_gen=False, picture=False, no_hints=("multi_intent",)),
+        "One answer in the message's language, no picture: no other-language message is "
+        "cut into a picture and a request (round 9).",
         pro=True,
     ),
     Case(
         "multi-question-then-draw-me-fr",
         "multi-intent",
         "Quelle est la capitale de l'Italie ? Dessine-moi un chat",
-        Expect(image_gen=False, picture=True, hints=("multi_intent",)),
-        "A question of its own, then a draw-me picture: the cat above the answer (round 8).",
+        Expect(image_gen=False, picture=False, no_hints=("multi_intent",)),
+        "One answer in the message's language, no picture: no other-language message is "
+        "cut into a picture and a request (round 9).",
         pro=True,
     ),
     Case(

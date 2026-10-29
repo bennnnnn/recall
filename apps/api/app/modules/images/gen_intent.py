@@ -16,7 +16,7 @@ import re
 from itertools import pairwise
 from typing import TYPE_CHECKING
 
-from app.modules.images.gen_intent_parts import extract_other_language_prompt
+from app.modules.images.gen_intent_local import extract_other_language_prompt
 from app.modules.images.gen_intent_second import SECOND_ASKS, asks_separately
 from app.modules.images.gen_intent_words import (
     ARTICLES,

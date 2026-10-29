@@ -18,8 +18,8 @@ import pytest
 
 from app.modules.images.gen_intent import extract_image_gen_prompt
 from app.modules.images.gen_intent_drawable import DESCRIBE, GLUE, NOUNS, names_drawable
-from app.modules.images.gen_intent_parts import picture_language
 from app.modules.images.intent import composer_image_intent
+from app.tests.modules.images.test_gen_intent_languages import read_in
 
 _PICTURES: dict[str, list[str]] = json.loads(
     Path(__file__).with_name("language_pictures.json").read_text(encoding="utf-8")
@@ -30,7 +30,7 @@ PICTURES = [(lang, text) for lang, texts in _PICTURES.items() for text in texts]
 @pytest.mark.parametrize(("lang", "text"), PICTURES)
 def test_an_everyday_picture_still_draws(lang: str, text: str) -> None:
     assert composer_image_intent(text, []).request is not None
-    assert picture_language(text) == lang
+    assert read_in(text)[:1] == [lang]
 
 
 @pytest.mark.parametrize(

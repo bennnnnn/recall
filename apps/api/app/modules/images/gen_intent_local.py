@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001 - Turkish dotless i, Cyrillic and maths signs are the words matched
+# ruff: noqa: RUF001, RUF003 - Turkish dotless i, Cyrillic and maths signs are the words matched
 """One picture request in the app's eight other languages: only the unmistakable shapes.
 
 "Dibújame un dragón", "¿Me dibujas un dragón?", "Zeichne mir einen Drachen", "Mi disegni
@@ -23,14 +23,21 @@ from dataclasses import dataclass
 from app.modules.chemistry.request import extract_compound_name
 from app.modules.images.gen_intent_drawable import is_entry, names_drawable
 from app.modules.images.gen_intent_languages import ALSO, ARTICLES, LANGUAGES, Language, Shape
+from app.services.text_normalize import straighten_apostrophes
 
+_MAX_CHARS = 500
 _WORDS = re.compile(r"\S+")
 # Punctuation around a word: Spanish "¿¡", Ethiopic stops. Not quote marks: a quoted line
-# is no request (``gen_intent_wording``), and a word kept in its quotes matches nothing.
+# is no request, and a word kept in its quotes matches nothing.
 _EDGES = ".,!?;:()[]{}¿¡…።፣፤፥፦፧፨"
-SENTENCE_ENDS = tuple(".!?;።፧")
 # Inside a subject they join two sentences or a request and its content: "ቀይ? ድመት".
 _STOPS = frozenset(".!?;:።፧፥፦")
+# Any of these makes the line a quotation: «Dibújame un cordero», „Zeichne mir …“, "…".
+_QUOTE_MARKS = frozenset('"«»‹›„“”‟「」『』〝〞＂')
+# A single quote opens a quotation at the start of a word ("'Dibújame un gato': …"); inside
+# a word it is an apostrophe ("d'un", "un'immagine", "Fransa'nın").
+_SINGLE_QUOTES = ("'", "\u2018", "\u2019", "\u201a", "\u201b")
+_BEFORE_QUOTE = "¿¡([{—–-"
 # "d'un", "l'image", "un'immagine", "s'il": the elided word is its own token.
 _ELISIONS = frozenset(
     "d' l' m' t' s' j' n' c' qu' un' dell' all' dall' nell' sull' quest' cos'".split()
@@ -43,7 +50,7 @@ _MAX_SUBJECT_WORDS = 6
 
 
 @dataclass(frozen=True)
-class Token:
+class _Token:
     start: int
     end: int
     word: str
@@ -69,18 +76,18 @@ def _pieces(text: str, start: int, end: int) -> Iterable[tuple[int, int]]:
     yield start, end
 
 
-def tokens_of(text: str) -> list[Token]:
+def _tokens_of(text: str) -> list[_Token]:
     """The words of ``text`` with where each sits, lowercase, elisions and clitics apart."""
-    out: list[Token] = []
+    out: list[_Token] = []
     for match in _WORDS.finditer(text):
         for start, end in _pieces(text, *match.span()):
             word = _fold(text[start:end])
             if word:
-                out.append(Token(start, end, word))
+                out.append(_Token(start, end, word))
     return out
 
 
-def phrase_at(phrases: Iterable[tuple[str, ...]], words: list[str], i: int) -> int:
+def _phrase_at(phrases: Iterable[tuple[str, ...]], words: list[str], i: int) -> int:
     """How many words a phrase from ``phrases`` covers at ``i`` (the longest), else 0."""
     best = 0
     for phrase in phrases:
@@ -106,9 +113,9 @@ def _tail_at(shape: Shape, words: list[str], end: int) -> int | None:
 
 def _span(lang: Language, words: list[str]) -> tuple[int, int, Shape] | None:
     """Where the subject of ``lang``'s request sits, and its shape; None for no request."""
-    start, end = phrase_at(lang.polite, words, 0), len(words)
+    start, end = _phrase_at(lang.polite, words, 0), len(words)
     for size in (2, 1):
-        if end - size > start and phrase_at(lang.polite, words, end - size) == size:
+        if end - size > start and _phrase_at(lang.polite, words, end - size) == size:
             end -= size
             break
     for shape in lang.shapes:
@@ -117,9 +124,9 @@ def _span(lang: Language, words: list[str]) -> tuple[int, int, Shape] | None:
             i = start + lead
             # "zeichne mir bitte …", "… und zeichne mir auch eine Katze".
             while i < end - tail and (
-                words[i] in lang.fillers or words[i] in ALSO or phrase_at(lang.polite, words, i)
+                words[i] in lang.fillers or words[i] in ALSO or _phrase_at(lang.polite, words, i)
             ):
-                i += max(1, phrase_at(lang.polite, words, i))
+                i += max(1, _phrase_at(lang.polite, words, i))
             if i < end - tail and words[i] in ARTICLES:
                 i += 1
             return i, end - tail, shape
@@ -139,12 +146,12 @@ def _plain(lang: Language, words: list[str], typed: list[str]) -> bool:
         return False
     if first in lang.particles or last in lang.particles:
         return False
-    if any(phrase_at(lang.again, words, i) for i in range(len(words))):
+    if any(_phrase_at(lang.again, words, i) for i in range(len(words))):
         return False
     return names_drawable(lang.code, words)
 
 
-def _read(lang: Language, text: str, tokens: list[Token]) -> str | None:
+def _read(lang: Language, text: str, tokens: list[_Token]) -> str | None:
     """The subject of ``lang``'s request; "" when its shape matched but the subject is no
     plain picture; None when the shape is not there."""
     words = [t.word for t in tokens]
@@ -167,44 +174,43 @@ def _read(lang: Language, text: str, tokens: list[Token]) -> str | None:
     return subject
 
 
-def read_picture(
-    text: str, tokens: list[Token], prefer: str | None = None
-) -> tuple[str, str] | None:
-    """The subject and language when the whole of ``text`` asks for one picture in one
-    of the narrow shapes. ``prefer`` (the app's language) names a line two read."""
+def _read_picture(text: str, tokens: list[_Token]) -> str | None:
+    """The subject when the whole of ``text`` asks for one picture in one of the narrow
+    shapes, in any language that reads it."""
     if not tokens:
         return None
-    found: list[tuple[str, str]] = []
+    found: list[str] = []
     for lang in LANGUAGES:
         subject = _read(lang, text, tokens)
         if subject == "":
             return None
         if subject is not None:
-            found.append((subject, lang.code))
+            found.append(subject)
     if not found:
         return None
-    subject, code = next((pick for pick in found if pick[1] == prefer), found[0])
     # "Zeichne mir Ethanol": a compound the chemistry card draws, as for "draw ethanol".
-    if extract_compound_name(f"draw {subject}") is not None:
+    return None if extract_compound_name(f"draw {found[0]}") is not None else found[0]
+
+
+def _quoted(text: str) -> bool:
+    """``text`` quotes something: a quote mark, or a word that opens with a single quote."""
+    if not _QUOTE_MARKS.isdisjoint(text):
+        return True
+    return any(chunk.lstrip(_BEFORE_QUOTE).startswith(_SINGLE_QUOTES) for chunk in text.split())
+
+
+def extract_other_language_prompt(text: str) -> str | None:
+    """The picture ``text`` asks for in Spanish, French, German, Italian, Portuguese,
+    Russian, Turkish or Amharic, in the user's words, when the whole message is that one
+    request; None otherwise.
+
+    A message that asks for anything beside the picture ("Dibújame un gato y explica qué
+    es un agujero negro") is answered in words, as on main: its other words are no listed
+    ones, and no other-language message is cut into a picture and a request, since a line
+    beside a draw-me line is often about it ("¿Cómo se dice en inglés? Dibújame un gato").
+    A quoted line ("«Dibújame un cordero»: ¿quién lo dijo?") is no request at all.
+    """
+    trimmed = straighten_apostrophes(text.strip())
+    if not trimmed or len(trimmed) > _MAX_CHARS or _quoted(trimmed):
         return None
-    return subject, code
-
-
-# Every word a picture request turns on: a message with none of them asks for no picture.
-PICTURE_VERBS = frozenset(word for lang in LANGUAGES for word in lang.verbs)
-
-
-def _edge_words(*, last: bool) -> frozenset[str]:
-    out: set[str] = set()
-    for lang in LANGUAGES:
-        for shape in lang.shapes:
-            out.update(
-                seq[-1 if last else 0] for seq in (shape.tails if last else shape.leads) if seq
-            )
-    return frozenset(out)
-
-
-# The words a request can open with ("dibújame", "me", "kannst", "bana") or close with
-# ("zeichnen", "çiz", "misin", "ሳልልኝ"): where a picture asked second may start or end.
-OPENERS = _edge_words(last=False)
-CLOSERS = _edge_words(last=True)
+    return _read_picture(trimmed, _tokens_of(trimmed))

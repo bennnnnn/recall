@@ -23,7 +23,6 @@ from app.core.config import Settings
 from app.modules.chat.turn_prep.clauses import Cut, is_request
 from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.images.gen_intent import extract_image_gen_prompt
-from app.modules.images.gen_intent_parts import picture_and_request
 from app.modules.images.gen_intent_second import SECOND_ASKS, asks_separately
 from app.modules.images.intent import composer_intent_for_chat
 from app.tests.behavior.cases import CASES
@@ -159,15 +158,13 @@ def test_asks_separately_agrees_with_the_plan_on_every_opener() -> None:
         "draw me a cat and also explain black holes",
         "Draw me a cat. Also what is the capital of France",
         "Draw me a dog and suggest names",
-        "Zeichne mir eine Katze and also explain what a black hole is",
     ],
 )
 async def test_a_cut_line_reads_nothing_on_the_event_loop(text: str) -> None:
-    """The composer reader runs ``asks_separately`` (and, for another language,
-    ``picture_and_request``) inside a production coroutine, after the turn's one pool read.
-    Every line here is cut, so it reaches ``is_picture`` and ``_keeps_cut``, and the suite's
-    loop guard (``conftest._nothing_read_on_the_loop``) fails the test if either asks a
-    reading or SymPy on the event loop."""
+    """The composer reader runs ``asks_separately`` inside a production coroutine, after
+    the turn's one pool read. Every line here is cut, so it reaches ``is_picture`` and
+    ``_keeps_cut``, and the suite's loop guard (``conftest._nothing_read_on_the_loop``)
+    fails the test if either asks a reading or SymPy on the event loop."""
     verdict = await composer_intent_for_chat(Settings(), user_id=uuid4(), text=text, chat_id=None)
     assert verdict is not None and verdict.request is None
-    assert asks_separately(text) or picture_and_request(text) is not None
+    assert asks_separately(text)

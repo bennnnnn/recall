@@ -3,9 +3,9 @@
 "Zeichne mir eine Katze mit Hut" drew nothing on main: every rule read English words.
 Now a draw verb addressed with "me" ("dibújame", "¿me dibujas …?", "zeichne mir", "mi
 disegni …?", "нарисуй мне", "bana … çiz", "… ሳልልኝ") and "create a picture of" ("crea una
-imagen de", "erstelle ein Bild von") draw a short, plain subject whose head noun is a
-listed thing (``test_gen_intent_drawable``). Everything else in those languages is
-answered in words, as on main.
+imagen de", "erstelle ein Bild von") draw a short, plain subject whose every word is
+listed (``test_gen_intent_drawable``), when that request is the whole message. Everything
+else in those languages is answered in words, as on main.
 """
 
 from __future__ import annotations
@@ -17,8 +17,16 @@ import pytest
 
 from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.images.gen_intent import extract_image_gen_prompt
-from app.modules.images.gen_intent_parts import Part, picture_and_request, picture_language
+from app.modules.images.gen_intent_languages import LANGUAGES
+from app.modules.images.gen_intent_local import _read, _tokens_of
 from app.modules.images.intent import composer_image_intent, image_gen_request
+
+
+def read_in(text: str) -> list[str]:
+    """The languages whose shapes read ``text`` as one picture request, in reading order."""
+    tokens = _tokens_of(text)
+    return [lang.code for lang in LANGUAGES if _read(lang, text, tokens)]
+
 
 # At least six common requests per language, with the subject drawn.
 DRAWN: dict[str, list[tuple[str, str]]] = {
@@ -133,7 +141,7 @@ ANSWERED = [
 @pytest.mark.parametrize(("lang", "text", "subject"), DRAWN_CASES)
 def test_a_draw_me_or_create_request_draws(lang: str, text: str, subject: str) -> None:
     assert extract_image_gen_prompt(text) == subject
-    assert picture_language(text) == lang
+    assert read_in(text)[:1] == [lang]
 
 
 @pytest.mark.parametrize(("lang", "text", "subject"), DRAWN_CASES)
@@ -149,62 +157,35 @@ def test_other_shapes_are_answered_in_words(text: str) -> None:
     assert not plan_turn(text).of_kind("image")
 
 
-# A narrow picture, then a second request in the same language (or English after it).
+# A draw-me picture beside a second request, either order. English cuts "draw me a cat and
+# also explain …" into a picture and an answer; in the other languages a line beside a
+# draw-me line is often about it ("¿Cómo se dice en inglés? Dibújame un gato", "Dime si
+# es educado. Dibújame un gato"), so no such message is cut: it is answered, as on main.
 WITH_A_SECOND_REQUEST = [
-    (
-        "Dibújame un gato con sombrero y también explica qué es un agujero negro",
-        "Dibújame un gato con sombrero",
-        "explica qué es un agujero negro",
-    ),
-    (
-        "Dessine-moi un chat et explique aussi ce qu'est un trou noir",
-        "Dessine-moi un chat",
-        "explique aussi ce qu'est un trou noir",
-    ),
-    (
-        "Zeichne mir eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
-        "Zeichne mir eine Katze mit Hut",
-        "erkläre auch, was ein schwarzes Loch ist",
-    ),
-    (
-        "Disegnami un gatto e spiega anche cos'è un buco nero",
-        "Disegnami un gatto",
-        "spiega anche cos'è un buco nero",
-    ),
-    (
-        "Me desenhe um gato e também explique o que é um buraco negro",
-        "Me desenhe um gato",
-        "explique o que é um buraco negro",
-    ),
-    (
-        "Bana şapkalı bir kedi çiz ve ayrıca kara deliğin ne olduğunu açıkla",
-        "Bana şapkalı bir kedi çiz",
-        "kara deliğin ne olduğunu açıkla",
-    ),
-    (
-        "Нарисуй мне кошку, а также объясни, что такое чёрная дыра",
-        "Нарисуй мне кошку",
-        "объясни, что такое чёрная дыра",
-    ),
-    (
-        "ድመት ሳልልኝ እንዲሁም ጥቁር ቀዳዳ ምን እንደሆነ አስረዳኝ",
-        "ድመት ሳልልኝ",
-        "ጥቁር ቀዳዳ ምን እንደሆነ አስረዳኝ",
-    ),
-    (
-        "Zeichne mir eine Katze and also explain what a black hole is",
-        "Zeichne mir eine Katze",
-        "explain what a black hole is",
-    ),
+    "Dibújame un gato con sombrero y también explica qué es un agujero negro",
+    "Dessine-moi un chat et explique aussi ce qu'est un trou noir",
+    "Zeichne mir eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
+    "Disegnami un gatto e spiega anche cos'è un buco nero",
+    "Me desenhe um gato e também explique o que é um buraco negro",
+    "Bana şapkalı bir kedi çiz ve ayrıca kara deliğin ne olduğunu açıkla",
+    "Нарисуй мне кошку, а также объясни, что такое чёрная дыра",
+    "ድመት ሳልልኝ እንዲሁም ጥቁር ቀዳዳ ምን እንደሆነ አስረዳኝ",
+    "Zeichne mir eine Katze and also explain what a black hole is",
+    "Explica qué es un agujero negro y dibújame un gato",
+    "¿Qué es un agujero negro? Dibújame un gato",
+    "Quelle est la capitale de l'Italie ? Dessine-moi un chat",
+    "Erkläre, was ein schwarzes Loch ist, und kannst du mir eine Katze malen?",
+    "Kara deliğin ne olduğunu açıkla ve bana bir kedi çiz",
+    "Объясни фотосинтез, а потом нарисуй мне подсолнух",
+    "Dibújame un perro y dime cuánto vive",
 ]
 
 
-@pytest.mark.parametrize(("text", "picture", "rest"), WITH_A_SECOND_REQUEST)
-def test_a_second_request_is_not_part_of_the_picture(text: str, picture: str, rest: str) -> None:
-    """The whole line draws nothing, as "draw me a cat and also explain …" does; the
-    planner takes the two parts."""
+@pytest.mark.parametrize("text", WITH_A_SECOND_REQUEST)
+def test_a_draw_me_line_beside_a_second_request_is_answered(text: str) -> None:
     assert extract_image_gen_prompt(text) is None
-    assert picture_and_request(text) == (Part(picture, picture=True), Part(rest, picture=False))
+    assert composer_image_intent(text, []).request is None
+    assert not plan_turn(text).of_kind("image")
 
 
 @pytest.mark.parametrize(
@@ -218,7 +199,6 @@ def test_a_second_request_is_not_part_of_the_picture(text: str, picture: str, re
     ],
 )
 def test_a_broad_picture_clause_beside_a_question_is_one_answer(text: str) -> None:
-    assert picture_and_request(text) is None
     assert not plan_turn(text).of_kind("image")
 
 
@@ -232,7 +212,39 @@ def test_a_broad_picture_clause_beside_a_question_is_one_answer(text: str) -> No
 )
 def test_a_longer_picture_is_still_one_picture(text: str) -> None:
     assert extract_image_gen_prompt(text)
-    assert picture_and_request(text) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "«Dibújame un cordero»: ¿quién lo dijo?",
+        "„Zeichne mir ein Schaf“: Wer hat das gesagt?",
+        "« Dessine-moi un mouton » : qui a dit ça ?",
+        "'Bana bir kuzu çiz' sözü kimin?",
+        "「ድመት ሳልልኝ」 ማን አለ?",
+        # A quoted request alone is a quotation too.
+        "«Dibújame un gato»",
+        "'Dibújame un gato'",
+        "\u2018Dibújame un gato\u2019",
+        "Zeichne mir eine „Katze“",
+    ],
+)
+def test_a_quoted_line_is_no_request(text: str) -> None:
+    assert extract_image_gen_prompt(text) is None
+    assert not plan_turn(text).of_kind("image")
+
+
+@pytest.mark.parametrize(
+    ("text", "subject"),
+    [
+        ("Crée une image d'un dragon rouge", "dragon rouge"),
+        ("Crée une image d\u2019un dragon rouge", "dragon rouge"),
+        ("Crea un'immagine di un castello incantato", "castello incantato"),
+        ("Dessine-moi un gâteau d'anniversaire", "gâteau d'anniversaire"),
+    ],
+)
+def test_an_apostrophe_inside_a_word_is_no_quote(text: str, subject: str) -> None:
+    assert extract_image_gen_prompt(text) == subject
 
 
 # Main's readings of 374 English prompts from the sweep, STEM corpus, battery and intent

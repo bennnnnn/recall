@@ -31,7 +31,6 @@ from app.modules.chat.turn_prep.clauses import (
     without_connector,
 )
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
-from app.modules.images.gen_intent_parts import picture_and_request
 from app.modules.images.lookup_intent import extract_image_lookup_query
 from app.modules.web_search.detection import needs_web_search
 from app.services.subject_solving import detect_subject
@@ -120,7 +119,7 @@ def plan_turn(text: str, *, chemistry_enabled: bool = True) -> TurnPlan:
     """The separate requests in ``text``, in order; one part when it asks one thing."""
     split = request_clauses(text)
     if len(split.clauses) < 2:
-        return _picture_and_request(text, chemistry_enabled=chemistry_enabled) or single_plan(text)
+        return single_plan(text)
     merged: list[tuple[Clause, PartKind]] = []
     for clause in split.clauses:
         kind = part_kind(clause.text, chemistry_enabled=chemistry_enabled)
@@ -164,23 +163,6 @@ def cuts_after_picture(text: str, is_picture: Callable[[str], bool]) -> bool:
         if kind(last) != "image":
             return False
     return False
-
-
-def _picture_and_request(text: str, *, chemistry_enabled: bool) -> TurnPlan | None:
-    """ "Zeichne mir eine Katze und erkläre auch, was ein schwarzes Loch ist", "Explica qué
-    es un agujero negro y dibújame un gato": a picture asked in another language beside a
-    second request. The clause rules read English, so the picture reader cuts it, as
-    "draw a cat and also explain …" is cut."""
-    pair = picture_and_request(text)
-    if pair is None or not all(part.text for part in pair):
-        return None
-    parts: list[TurnPart] = []
-    for part in pair:
-        kind = part_kind(part.text, chemistry_enabled=chemistry_enabled)
-        if part.picture and kind != "image":
-            return None
-        parts.append(TurnPart(part.text, kind))
-    return TurnPlan(tuple(parts))
 
 
 def _quoted(text: str) -> str:

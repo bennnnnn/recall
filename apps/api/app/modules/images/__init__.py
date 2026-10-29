@@ -9,7 +9,6 @@ Importing a submodule must not pull the other product's service graph.
 _MODULE_EXPORTS = (
     "answer_photo",
     "gen_intent",
-    "gen_intent_parts",
     "generation",
     "intent",
     "lookup_intent",

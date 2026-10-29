@@ -553,14 +553,12 @@
   },
   {
     "id": "pl-am-10",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "ድመት ሳልልኝ እንዲሁም ጥቁር ቀዳዳ ምን እንደሆነ አስረዳኝ",
     "history": [],
     "reply": "ጥቁር ቀዳዳ ስበቱ እጅግ ጠንካራ ስለሆነ ብርሃን እንኳ ማምለጥ የማይችልበት የህዋ ክፍል ነው።",
-    "expect": [
-      "image_gen",
-      "answer"
-    ]
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
   {
     "id": "pl-am-20",
@@ -1090,14 +1088,12 @@
   },
   {
     "id": "pl-am-11",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "ጥቁር ቀዳዳ ምን እንደሆነ አስረዳኝ እንዲሁም ድመት ሳልልኝ",
     "history": [],
     "reply": "ጥቁር ቀዳዳ ስበቱ እጅግ ጠንካራ ስለሆነ ብርሃን እንኳ ማምለጥ የማይችልበት የህዋ ክፍል ነው።",
-    "expect": [
-      "image_gen",
-      "answer"
-    ]
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
   {
     "id": "pl-es-12",
@@ -2805,157 +2801,129 @@
   },
   {
     "id": "pl5-es-multi-1",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Dibújame un gato con sombrero y también explica qué es un agujero negro",
     "history": [],
     "reply": "Un agujero negro es una región del espacio donde la gravedad es tan fuerte que nada, ni siquiera la luz, puede escapar.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ]
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
   {
     "id": "pl5-es-multi-2",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Explica qué es un agujero negro y dibújame un gato",
     "history": [],
     "reply": "Un agujero negro es una región del espacio donde la gravedad es tan fuerte que nada, ni siquiera la luz, puede escapar.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ]
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
   {
     "id": "pl5-fr-multi-1",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Dessine-moi un chat avec un chapeau et explique aussi ce qu'est un trou noir",
     "history": [],
     "reply": "Un trou noir est une région de l'espace où la gravité est si forte que rien, pas même la lumière, ne peut s'en échapper.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ]
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
   {
     "id": "pl5-fr-multi-2",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Explique ce qu'est un trou noir et dessine-moi un chat",
     "history": [],
     "reply": "Un trou noir est une région de l'espace où la gravité est si forte que rien, pas même la lumière, ne peut s'en échapper.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ]
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
   {
     "id": "pl5-de-multi-1",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Zeichne mir eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
     "history": [],
     "reply": "Ein schwarzes Loch ist ein Bereich im Weltraum, in dem die Schwerkraft so stark ist, dass nicht einmal Licht entkommen kann.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ]
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
   {
     "id": "pl5-de-multi-2",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Erkläre, was ein schwarzes Loch ist, und zeichne mir auch eine Katze",
     "history": [],
     "reply": "Ein schwarzes Loch ist ein Bereich im Weltraum, in dem die Schwerkraft so stark ist, dass nicht einmal Licht entkommen kann.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ]
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
   {
     "id": "pl5-it-multi-1",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Disegnami un gatto con il cappello e spiega anche cos'è un buco nero",
     "history": [],
     "reply": "Un buco nero è una regione dello spazio in cui la gravità è così forte che nemmeno la luce può sfuggire.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ]
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
   {
     "id": "pl5-it-multi-2",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Spiegami cos'è un buco nero e disegnami un gatto",
     "history": [],
     "reply": "Un buco nero è una regione dello spazio in cui la gravità è così forte che nemmeno la luce può sfuggire.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ]
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
   {
     "id": "pl5-pt-multi-1",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Me desenhe um gato com chapéu e também explique o que é um buraco negro",
     "history": [],
     "reply": "Um buraco negro é uma região do espaço onde a gravidade é tão forte que nem a luz consegue escapar.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ]
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
   {
     "id": "pl5-pt-multi-2",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Explique o que é um buraco negro e me desenhe um gato",
     "history": [],
     "reply": "Um buraco negro é uma região do espaço onde a gravidade é tão forte que nem a luz consegue escapar.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ]
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
   {
     "id": "pl5-ru-multi-1",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Нарисуй мне кошку в шляпе, а также объясни, что такое чёрная дыра",
     "history": [],
     "reply": "Чёрная дыра — это область пространства, где гравитация настолько сильна, что даже свет не может её покинуть.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ]
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
   {
     "id": "pl5-ru-multi-2",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Объясни, что такое чёрная дыра, и нарисуй мне кошку",
     "history": [],
     "reply": "Чёрная дыра — это область пространства, где гравитация настолько сильна, что даже свет не может её покинуть.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ]
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
   {
     "id": "pl5-tr-multi-1",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Bana şapkalı bir kedi çiz ve ayrıca kara deliğin ne olduğunu açıkla",
     "history": [],
     "reply": "Kara delik, kütleçekiminin o kadar güçlü olduğu bir bölgedir ki ışık bile kaçamaz.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ]
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
   {
     "id": "pl5-tr-multi-2",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Kara deliğin ne olduğunu açıkla ve bana bir kedi çiz",
     "history": [],
     "reply": "Kara delik, kütleçekiminin o kadar güçlü olduğu bir bölgedir ki ışık bile kaçamaz.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ]
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9)."
   },
   {
     "id": "pl5-mis-001",
@@ -15337,15 +15305,12 @@
   },
   {
     "id": "pl7-multi-01",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Dibújame un perro y dime cuánto vive",
     "history": [],
     "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A picture, then a second request answered beside it (review 6 set 2)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A picture, then a second request answered beside it (review 6 set 2)."
   },
   {
     "id": "pl7-mis-214",
@@ -15385,15 +15350,12 @@
   },
   {
     "id": "pl7-multi-02",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Dessine-moi un chien et dis-moi combien il vit",
     "history": [],
     "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A picture, then a second request answered beside it (review 6 set 2)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A picture, then a second request answered beside it (review 6 set 2)."
   },
   {
     "id": "pl7-mis-218",
@@ -15433,15 +15395,12 @@
   },
   {
     "id": "pl7-multi-03",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Zeichne mir einen Hund und sag mir, wie alt er wird",
     "history": [],
     "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A picture, then a second request answered beside it (review 6 set 2)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A picture, then a second request answered beside it (review 6 set 2)."
   },
   {
     "id": "pl7-mis-222",
@@ -15490,15 +15449,12 @@
   },
   {
     "id": "pl7-multi-04",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Disegnami un cane e dimmi quanto vive",
     "history": [],
     "reply": "Certo, te lo spiego a parole con un esempio semplice.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A picture, then a second request answered beside it (review 6 set 2)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A picture, then a second request answered beside it (review 6 set 2)."
   },
   {
     "id": "pl7-mis-227",
@@ -15529,15 +15485,12 @@
   },
   {
     "id": "pl7-multi-05",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Desenha-me um cachorro e diz quanto tempo vive",
     "history": [],
     "reply": "Claro, eu explico com palavras e um exemplo simples.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A picture, then a second request answered beside it (review 6 set 2)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A picture, then a second request answered beside it (review 6 set 2)."
   },
   {
     "id": "pl7-mis-230",
@@ -15586,15 +15539,12 @@
   },
   {
     "id": "pl7-multi-06",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Нарисуй мне собаку и скажи, сколько она живёт",
     "history": [],
     "reply": "Конечно, объясню словами на простом примере.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A picture, then a second request answered beside it (review 6 set 2)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A picture, then a second request answered beside it (review 6 set 2)."
   },
   {
     "id": "pl7-mis-235",
@@ -15643,15 +15593,12 @@
   },
   {
     "id": "pl7-multi-07",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Bana bir köpek çiz ve ne kadar yaşadığını söyle",
     "history": [],
     "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A picture, then a second request answered beside it (review 6 set 2)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A picture, then a second request answered beside it (review 6 set 2)."
   },
   {
     "id": "pl7-mis-240",
@@ -15673,15 +15620,12 @@
   },
   {
     "id": "pl7-multi-08",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "ውሻ ሳልልኝ እና ምን ያህል እንደሚኖር ንገረኝ",
     "history": [],
     "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A picture, then a second request answered beside it (review 6 set 2)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A picture, then a second request answered beside it (review 6 set 2)."
   },
   {
     "id": "pl7-mis-242",
@@ -15802,15 +15746,12 @@
   },
   {
     "id": "pl7-multi-09",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Dibújame un caballo y cuéntame su historia",
     "history": [],
     "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A picture, then a second request answered beside it (round 7 blind set)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A picture, then a second request answered beside it (round 7 blind set)."
   },
   {
     "id": "pl7-mis-255",
@@ -15967,15 +15908,12 @@
   },
   {
     "id": "pl7-multi-10",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Dessine-moi un cheval et raconte-moi son histoire",
     "history": [],
     "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A picture, then a second request answered beside it (round 7 blind set)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A picture, then a second request answered beside it (round 7 blind set)."
   },
   {
     "id": "pl7-mis-272",
@@ -16150,15 +16088,12 @@
   },
   {
     "id": "pl7-multi-11",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Zeichne mir ein Pferd und erzähl mir seine Geschichte",
     "history": [],
     "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A picture, then a second request answered beside it (round 7 blind set)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A picture, then a second request answered beside it (round 7 blind set)."
   },
   {
     "id": "pl7-mis-291",
@@ -16333,15 +16268,12 @@
   },
   {
     "id": "pl7-multi-12",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Disegnami un cavallo e raccontami la sua storia",
     "history": [],
     "reply": "Certo, te lo spiego a parole con un esempio semplice.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A picture, then a second request answered beside it (round 7 blind set)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A picture, then a second request answered beside it (round 7 blind set)."
   },
   {
     "id": "pl7-mis-310",
@@ -16705,15 +16637,12 @@
   },
   {
     "id": "pl7-multi-13",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Нарисуй мне лошадь и расскажи её историю",
     "history": [],
     "reply": "Конечно, объясню словами на простом примере.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A picture, then a second request answered beside it (round 7 blind set)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A picture, then a second request answered beside it (round 7 blind set)."
   },
   {
     "id": "pl7-mis-350",
@@ -16888,15 +16817,12 @@
   },
   {
     "id": "pl7-multi-14",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Bana bir at çiz ve onun hikayesini anlat",
     "history": [],
     "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A picture, then a second request answered beside it (round 7 blind set)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A picture, then a second request answered beside it (round 7 blind set)."
   },
   {
     "id": "pl7-mis-369",
@@ -20704,423 +20630,318 @@
   },
   {
     "id": "pl8-multi-01",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "¿Cuál es la capital de Francia? Dibújame un gato",
     "history": [],
     "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-02",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Resume la Revolución Francesa y dibújame un caballo",
     "history": [],
     "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-03",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Dibújame un perro y explica por qué ladran",
     "history": [],
     "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-04",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Quelle est la capitale de l'Italie ? Dessine-moi un chat",
     "history": [],
     "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-05",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Explique la photosynthèse et dessine-moi un arbre",
     "history": [],
     "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-06",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Dessine-moi un chien et explique pourquoi il aboie",
     "history": [],
     "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-07",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Was ist die Hauptstadt von Frankreich? Zeichne mir eine Katze",
     "history": [],
     "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-08",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Erkläre die Photosynthese und zeichne mir einen Baum",
     "history": [],
     "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-09",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Zeichne mir einen Hund und erkläre, warum er bellt",
     "history": [],
     "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-10",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Qual è la capitale della Francia? Disegnami un gatto",
     "history": [],
     "reply": "Certo, te lo spiego a parole con un esempio semplice.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-11",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Spiega la fotosintesi e disegnami un albero",
     "history": [],
     "reply": "Certo, te lo spiego a parole con un esempio semplice.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-12",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Disegnami un cane e spiega perché abbaia",
     "history": [],
     "reply": "Certo, te lo spiego a parole con un esempio semplice.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-13",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Qual é a capital da França? Desenha-me um gato",
     "history": [],
     "reply": "Claro, eu explico com palavras e um exemplo simples.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-14",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Explica a fotossíntese e desenha-me uma árvore",
     "history": [],
     "reply": "Claro, eu explico com palavras e um exemplo simples.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-15",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Desenha-me um cachorro e explica por que ele late",
     "history": [],
     "reply": "Claro, eu explico com palavras e um exemplo simples.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-16",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Какая столица Франции? Нарисуй мне кота",
     "history": [],
     "reply": "Конечно, объясню словами на простом примере.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-17",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Объясни фотосинтез и нарисуй мне дерево",
     "history": [],
     "reply": "Конечно, объясню словами на простом примере.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-18",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Нарисуй мне собаку и объясни, почему она лает",
     "history": [],
     "reply": "Конечно, объясню словами на простом примере.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-19",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Fransa'nın başkenti nedir? Bana bir kedi çiz",
     "history": [],
     "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-20",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Fotosentezi açıkla ve bana bir ağaç çiz",
     "history": [],
     "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-21",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Bana bir köpek çiz ve neden havladığını açıkla",
     "history": [],
     "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-22",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "ፎቶሲንተሲስን አስረዳኝ እና ዛፍ ሳልልኝ",
     "history": [],
     "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-23",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "ውሻ ሳልልኝ እና ለምን እንደሚጮህ አስረዳኝ",
     "history": [],
     "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-24",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "¿Qué es un agujero negro? Dibújame un gato",
     "history": [],
     "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-25",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Explica la fotosíntesis y dibújame un gato",
     "history": [],
     "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-26",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "¿Cuál es el planeta más grande? Dibújame un planeta",
     "history": [],
     "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-27",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Dibújame un perro y explica por qué mueven la cola",
     "history": [],
     "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-28",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Qu'est-ce qu'un trou noir ? Dessine-moi un chat",
     "history": [],
     "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-29",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Was ist ein schwarzes Loch? Zeichne mir eine Katze",
     "history": [],
     "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-30",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Zeichne mir eine Katze und erkläre, warum Katzen schnurren",
     "history": [],
     "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-31",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Cos'è un buco nero? Disegnami un gatto",
     "history": [],
     "reply": "Certo, te lo spiego a parole con un esempio semplice.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-32",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "O que é um buraco negro? Desenha-me um gato",
     "history": [],
     "reply": "Claro, eu explico com palavras e um exemplo simples.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-33",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Что такое чёрная дыра? Нарисуй мне кота",
     "history": [],
     "reply": "Конечно, объясню словами на простом примере.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-34",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "Kara delik nedir? Bana bir kedi çiz",
     "history": [],
     "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-multi-35",
-    "area": "multi",
+    "area": "picture languages",
     "prompt": "ጥቁር ቀዳዳ ምን እንደሆነ አስረዳኝ እና ድመት ሳልልኝ",
     "history": [],
     "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
-    "expect": [
-      "image_gen",
-      "answer"
-    ],
-    "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+    "expect": "answer",
+    "note": "Answered in words, as on main: no other-language message is cut into a picture and a request, since a line beside a draw-me line is often about it (round 9). Was: A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
   },
   {
     "id": "pl8-mis-316",

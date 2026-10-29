@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001, RUF003 - Turkish dotless i and Cyrillic are the words matched
+# ruff: noqa: RUF001 - Turkish dotless i and Cyrillic are the words matched
 """Picture requests in the app's other languages: the few shapes ``gen_intent_local`` reads.
 
 Only two unmistakable shapes draw in Spanish, French, German, Italian, Portuguese,
@@ -63,8 +63,6 @@ def _shape(lead: str = "", tail: str = "", of_prefix: str = "") -> Shape:
 class Language:
     code: str
     shapes: tuple[Shape, ...]
-    # The picture verbs: a message with none of them asks for no picture.
-    verbs: frozenset[str]
     polite: tuple[tuple[str, ...], ...] = ()
     # Said between the lead and the subject: "zeichne mir bitte …", "zeichne mir mal …".
     fillers: frozenset[str] = frozenset()
@@ -79,13 +77,6 @@ class Language:
     again: tuple[tuple[str, ...], ...] = ()
     # German separable verbs: "zeichne mir das auf" writes it down, "male mir aus" imagines.
     particles: frozenset[str] = frozenset()
-
-
-def _verbs(*patterns: str) -> frozenset[str]:
-    """The first word of each choice: "zeichnen_sie" is "zeichnen"."""
-    return frozenset(
-        choice.split("_")[0] for pattern in patterns for choice in pattern.replace("|", " ").split()
-    )
 
 
 # Spanish.
@@ -108,7 +99,6 @@ SPANISH = Language(
         _shape(f"{_ES_CREATE} {_ES_PICTURE}"),
         _shape(f"?me {_ES_CAN} {_ES_TO_CREATE} {_ES_PICTURE}"),
     ),
-    verbs=_verbs(_ES_ME, _ES_YOU, _ES_TO_ME, _ES_TO, _ES_CREATE, _ES_TO_CREATE),
     polite=_phrases("por_favor porfa porfavor"),
     pronouns=_w("eso esto ello aquello ese esa este esta estos estas esos esas mí lo"),
     definite=_w("el la los las le al del"),
@@ -134,7 +124,6 @@ FRENCH = Language(
         _shape(f"{_FR_CREATE} ?moi {_FR_PICTURE}"),
         _shape(f"{_FR_CAN} ?me {_FR_TO_CREATE} {_FR_PICTURE}"),
     ),
-    verbs=_verbs(_FR_DRAW, _FR_YOU, "dessiner peindre", _FR_CREATE, _FR_TO_CREATE),
     polite=_phrases("s'_il_te_plaît s'_il_te_plait s'_il_vous_plaît s'_il_vous_plait stp svp"),
     pronouns=_w("ça ca cela ceci ce cet cette ces moi"),
     definite=_w("le la les l' du des au aux"),
@@ -155,7 +144,6 @@ GERMAN = Language(
         _shape(f"{_DE_CREATE} ?mir|uns {_DE_PICTURE}"),
         _shape(f"{_DE_CAN} ?mir|uns {_DE_PICTURE}", "erstellen|generieren|erzeugen"),
     ),
-    verbs=_verbs(_DE_DRAW, "zeichnen malen", _DE_CREATE, "erstellen generieren erzeugen"),
     polite=_phrases("bitte"),
     fillers=_w("bitte mal doch einfach schnell"),
     pronouns=_w("es dies dieses diese diesen ihn mir mich davon dazu darüber"),
@@ -182,9 +170,6 @@ ITALIAN = Language(
         _shape(f"{_IT_CREATE} {_IT_PICTURE}"),
         _shape(f"?mi {_IT_CAN} {_IT_TO_CREATE} {_IT_PICTURE}"),
     ),
-    verbs=_verbs(
-        _IT_ME, _IT_YOU, "disegnarmi dipingermi disegnare dipingere", _IT_CREATE, _IT_TO_CREATE
-    ),
     polite=_phrases("per_favore per_piacere perfavore"),
     pronouns=_w("questo questa quello quella questi queste quelli ciò cio me"),
     definite=_w("il lo la i gli le l' del della dello dei degli delle"),
@@ -210,7 +195,6 @@ PORTUGUESE = Language(
         _shape(f"{_PT_CREATE} ?me {_PT_PICTURE}"),
         _shape(f"{_PT_CAN} ?me criar|gerar {_PT_PICTURE}"),
     ),
-    verbs=_verbs(_PT_DRAW, "desenhar", _PT_CREATE, "criar gerar"),
     polite=_phrases("por_favor pfv"),
     pronouns=_w("isso isto aquilo este esta esse essa aquele aquela estes estas esses essas mim"),
     definite=_w("o a os as do da dos das ao"),
@@ -232,7 +216,6 @@ RUSSIAN = Language(
         _shape(f"{_RU_CREATE} ?мне|нам {_RU_PICTURE}"),
         _shape(f"{_RU_CAN} ?мне|нам создать|сгенерировать {_RU_PICTURE}"),
     ),
-    verbs=_verbs(_RU_DRAW, "нарисовать", _RU_CREATE, "создать сгенерировать"),
     polite=_phrases("пожалуйста плиз пж"),
     pronouns=_w("это этого эту этот эти его её ее их то того тот ту меня"),
     again=_phrases("ещё_раз еще_раз снова опять заново"),
@@ -254,7 +237,6 @@ TURKISH = Language(
         _shape("bana|bize", _TR_DRAW),
         _shape("?bana|bize", f"resmi|resmini|görseli|görselini {_TR_CREATE}"),
     ),
-    verbs=_verbs(_TR_DRAW, _TR_CREATE),
     polite=_phrases("lütfen lutfen"),
     pronouns=_w("bunu onu şunu bunları onları şunları bu şu o"),
     definite_endings=("nı", "ni", "nu", "nü", "yı", "yi", "yu", "yü"),
@@ -273,7 +255,6 @@ AMHARIC = Language(
         _shape(tail=f"{_AM_PICTURE} {_AM_CREATE}", of_prefix="የ"),
         _shape(tail=_AM_DRAW),
     ),
-    verbs=_verbs(_AM_DRAW, _AM_CREATE),
     polite=_phrases("እባክህ እባክሽ እባካችሁ እባክዎ እባክዎን"),
     pronouns=_w("ይህን ይሄን ያንን እሱን እሷን እነሱን"),
     again=_phrases("እንደገና"),
@@ -293,60 +274,8 @@ LANGUAGES: tuple[Language, ...] = (
 # Dropped before the subject ("dibújame un gato" draws "gato").
 ARTICLES = _w("un una uno un' une ein eine einen einem einer um uma bir")
 
-# What joins a second request to a picture: "… und erkläre auch, was …", "… ve ayrıca …".
-CONNECTORS = _w(
-    "and y e ed et und ve и а እና then luego después puis ensuite dann danach poi depois "
-    "потом затем sonra"
-)
+# "Zeichne mir auch eine Katze", "dibújame también un gato": "also" after the lead.
 ALSO = _w(
     "also también además aussi également auch außerdem ausserdem zudem anche inoltre pure "
     "também tambem além disso ayrıca также тоже ещё еще እንዲሁም ደግሞ ደግሞም"
-)
-# A second request: one of these starts it (in Turkish and Amharic, a verb ends it).
-# Only verbs that ask for an answer: "write its name below", "give it a hat" add to the
-# picture, and Turkish "yaz" is also "summer".
-ASK_VERBS = _w(
-    # English, for a picture asked in one language and the rest in English.
-    "explain tell help "
-    "explica explícame explicame explique dime cuéntame cuentame ayúdame ayudame enséñame "
-    "traduce resume calcula resuelve describe "
-    "expliquez dis dites raconte aide traduis résume calcule résous décris "
-    "erkläre erklär erklären erklärt sag sage sagt erzähl erzähle hilf nenne übersetze "
-    "fasse berechne löse beschreibe "
-    "spiega spiegami dimmi raccontami racconta aiutami traduci riassumi calcola risolvi "
-    "descrivi "
-    "diga diz conte ajude traduza resuma calcule resolva descreva "
-    "объясни объясните расскажи расскажите скажи скажите помоги помогите переведи "
-    "посчитай реши опиши "
-    "açıkla anlat söyle çevir özetle hesapla çöz "
-    "አስረዳ አስረዳኝ አስረዱኝ አብራራ አብራራልኝ ንገረኝ ንገሪኝ ግለጽ"
-)
-# Question words, after "and" or a new sentence. Only words that ask: "como", "come", "как"
-# are also "like", and "que", "che", "qui" describe the picture ("un chat qui danse").
-ASK_QUESTIONS = _w(
-    "what how why who "
-    "qué cómo quién cuál cuáles dónde cuándo cuánto "
-    "quel quelle quels quelles comment pourquoi combien "
-    "was warum wieso weshalb wer wann welche welcher welches "
-    "cosa cos' quale quali quanto "
-    "quem qual quais quanto "
-    "почему зачем кто какой какая какие сколько "
-    "nedir nasıl neden niye kimdir "
-    "ምን እንዴት ለምን ማን የት መቼ"
-)
-# Turkish and Amharic close a request with its verb or question word.
-ASK_LAST = _w(
-    "açıkla anlat söyle çevir özetle hesapla çöz nedir nasıl neden niye kimdir "
-    "አስረዳ አስረዳኝ አስረዱኝ አብራራ አብራራልኝ ንገረኝ ንገሪኝ ግለጽ"
-)
-ASK_PAIRS = frozenset(
-    {
-        ("o", "que"),
-        ("por", "qué"),
-        ("por", "que"),
-        ("qu'", "est-ce"),
-        ("что", "такое"),
-        ("что", "это"),
-        ("как", "работает"),
-    }
 )
