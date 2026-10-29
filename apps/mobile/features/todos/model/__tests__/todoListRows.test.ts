@@ -53,15 +53,56 @@ it("treats an invalid due date as an anytime to-do", () => {
 });
 
 // A later day took each of its to-dos by copying the day so far, and every comparison
-// parsed both due dates: 20,000 to-dos on one day took 1.5-1.8 s (jest), now 40-100 ms.
-it("lists a very busy day in one pass", () => {
-  const now = new Date(2026, 8, 22, 9);
-  const busy = Array.from({ length: 20_000 }, (_, i) =>
+// parsed both due dates: 20,000 to-dos on one day took 1.5-1.8 s (jest). A time limit
+// on the fix failed on a busy CI runner (907 ms, 2026-10-29), so these check the work.
+const NOW = new Date(2026, 8, 22, 9);
+
+function busyDay(count: number): Todo[] {
+  return Array.from({ length: count }, (_, i) =>
     todo(`t${i}`, new Date(2026, 8, 25, 9, i % 600).toISOString()));
-  const start = performance.now();
-  const rows = buildTodoListRows(busy, now);
-  expect(performance.now() - start).toBeLessThan(400);
+}
+
+it("lists a very busy day in order", () => {
+  const rows = buildTodoListRows(busyDay(20_000), NOW);
   expect(rows).toHaveLength(20_001);
   expect(rows[0]).toMatchObject({ kind: "heading", section: "date", count: 20_000 });
   expect(rows[1]).toMatchObject({ kind: "todo", todo: { due_at: new Date(2026, 8, 25, 9, 0).toISOString() } });
+});
+
+it("reads each due date a fixed number of times, not once per comparison", () => {
+  let reads = 0;
+  const busy = busyDay(5_000).map((item) => {
+    const dueAt = item.due_at;
+    return Object.defineProperty({ ...item }, "due_at", {
+      get: () => {
+        reads += 1;
+        return dueAt;
+      },
+    });
+  });
+  buildTodoListRows(busy, NOW);
+  // Two reads today; one per comparison would be ~18 per to-do.
+  expect(reads).toBeLessThanOrEqual(4 * busy.length);
+});
+
+// The same 20,000 to-dos as ten days' worth of 2,000, timed in turn so a slow machine
+// slows both: linear work costs about the same, a copy per to-do about 10x.
+it("grows linearly with a busy day", () => {
+  const small = busyDay(2_000);
+  const large = busyDay(20_000);
+  const timed = (run: () => void): number => {
+    const start = performance.now();
+    run();
+    return performance.now() - start;
+  };
+  buildTodoListRows(large, NOW);
+  let tenSmall = Number.POSITIVE_INFINITY;
+  let oneLarge = Number.POSITIVE_INFINITY;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    tenSmall = Math.min(tenSmall, timed(() => {
+      for (let day = 0; day < 10; day += 1) buildTodoListRows(small, NOW);
+    }));
+    oneLarge = Math.min(oneLarge, timed(() => buildTodoListRows(large, NOW)));
+  }
+  expect(oneLarge).toBeLessThan(4 * tenSmall);
 });
