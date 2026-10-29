@@ -104,10 +104,13 @@ describe("liveTalkShouldCloseOnChatChange", () => {
 });
 
 describe("liveTalkShouldCloseOnAppState", () => {
-  it("closes when the app leaves the foreground", () => {
+  it("closes when the app goes to the background", () => {
     expect(liveTalkShouldCloseOnAppState("background")).toBe(true);
-    expect(liveTalkShouldCloseOnAppState("inactive")).toBe(true);
     expect(liveTalkShouldCloseOnAppState("active")).toBe(false);
+  });
+
+  it("stays on through iOS's inactive moments, its microphone prompt among them", () => {
+    expect(liveTalkShouldCloseOnAppState("inactive")).toBe(false);
   });
 });
 
