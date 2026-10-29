@@ -1,5 +1,5 @@
 /** CDN hosts HTML Run may load. Not open `https:` — keep this list tight. */
-export const HTML_RUN_CDN_HOSTS = [
+const HTML_RUN_CDN_HOSTS = [
   "https://cdn.jsdelivr.net",
   "https://unpkg.com",
   "https://cdnjs.cloudflare.com",

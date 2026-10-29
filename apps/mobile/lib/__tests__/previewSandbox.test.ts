@@ -7,12 +7,19 @@ import {
   PREVIEW_CSP_LIVE,
   PREVIEW_VIEWPORT,
   injectPreviewCsp,
-  prepareHtmlRunDocument,
 } from "@/lib/previewSandbox";
+import { prepareHtmlRunDocument } from "@/lib/htmlRunDocument";
 import { stripScripts } from "@/lib/htmlScriptStrip";
 
-/** The CSP meta prepareHtmlRunDocument writes: the one pragma the Run tab keeps. */
+/** The CSP meta prepareHtmlRunDocument writes into the page: the one pragma it keeps. */
 const RUN_CSP_TAG = `<meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP_LIVE}">`;
+
+/** The model's page in the Run tab: its sandboxed frame's srcdoc, decoded. */
+function runPage(html: string): string {
+  const frame = /<iframe [^>]*srcdoc="([^"]*)"><\/iframe>/.exec(prepareHtmlRunDocument(html));
+  if (!frame) throw new Error("no page frame");
+  return frame[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+}
 
 /**
  * How many times "http-equiv" sits where an attribute name can start (after
@@ -61,49 +68,6 @@ describe("PREVIEW_CSP", () => {
     const tokens = PREVIEW_CSP_LIVE.split(/[;\s]+/);
     expect(tokens).not.toContain("https:");
     expect(tokens).not.toContain("http:");
-  });
-});
-
-describe("prepareHtmlRunDocument", () => {
-  it("injects live CSP and stay-on-page script", () => {
-    const out = prepareHtmlRunDocument(
-      "<!DOCTYPE html><html><head></head><body><h1>Hi</h1></body></html>",
-    );
-    expect(out).toContain("Content-Security-Policy");
-    expect(out).toContain("https://cdn.jsdelivr.net");
-    expect(out).not.toContain("connect-src https: http:");
-    expect(out).toContain("addEventListener(\"click\"");
-    expect(out).toContain("<h1>Hi</h1>");
-  });
-
-  it("overrides window.open, location.assign/replace, and location.href", () => {
-    const out = prepareHtmlRunDocument(
-      "<!DOCTYPE html><html><head></head><body></body></html>",
-    );
-    expect(out).toContain("window.open = function");
-    expect(out).toContain("loc.assign = function");
-    expect(out).toContain("loc.replace = function");
-    expect(out).toContain("Object.defineProperty(loc, \"href\"");
-  });
-
-  it("disarms meta-refresh and keeps its own CSP and stay script", () => {
-    const out = prepareHtmlRunDocument(
-      '<html><head><meta http-equiv="refresh" content="0;url=https://evil.example/phish"></head><body>ok</body></html>',
-    );
-    expect(pragmaNames(out)).toBe(1);
-    expect(out).toContain(`${RUN_CSP_TAG}<script>`);
-  });
-
-  it("injects the stay script immediately after the CSP meta, before user head scripts", () => {
-    const out = prepareHtmlRunDocument(
-      "<html><head><script>window.user=1</script></head><body></body></html>",
-    );
-    const cspAt = out.indexOf("Content-Security-Policy");
-    const stayAt = out.indexOf("window.open = function");
-    const userAt = out.indexOf("window.user=1");
-    expect(cspAt).toBeGreaterThan(-1);
-    expect(stayAt).toBeGreaterThan(cspAt);
-    expect(userAt).toBeGreaterThan(stayAt);
   });
 });
 
@@ -378,16 +342,14 @@ describe("meta pragmas (A2)", () => {
   ];
 
   describe.each([...REFRESH_SHAPES, ...OTHER_PRAGMAS])("%s", (_shape, meta) => {
-    it("prepareHtmlRunDocument keeps only its own CSP", () => {
-      const out = prepareHtmlRunDocument(
-        `<!DOCTYPE html><html><head>${meta}</head><body><p>ok</p>${meta}</body></html>`,
-      );
+    it("the Run tab's page keeps only its own CSP", () => {
+      const out = runPage(`<!DOCTYPE html><html><head>${meta}</head><body><p>ok</p>${meta}</body></html>`);
       expect(pragmaNames(out)).toBe(1);
       expect(out.startsWith(`<!DOCTYPE html>${RUN_CSP_TAG}<script>(function () {`)).toBe(true);
     });
 
-    it("prepareHtmlRunDocument disarms it in a bare fragment", () => {
-      const out = prepareHtmlRunDocument(`<p>ok</p>${meta}`);
+    it("the Run tab's page disarms it in a bare fragment", () => {
+      const out = runPage(`<p>ok</p>${meta}`);
       expect(pragmaNames(out)).toBe(1);
       expect(out).toContain(`${RUN_CSP_TAG}<script>`);
     });
@@ -418,18 +380,18 @@ describe("meta pragmas (A2)", () => {
     expect(out).not.toMatch(/<meta/i);
   });
 
-  it("prepareHtmlRunDocument removes nothing, so no pragma is pieced together", () => {
+  it("the Run tab removes nothing from the page, so no pragma is pieced together", () => {
     // The CSP goes first in the document (A3), so no script before <head> is
     // dropped to keep it covered, and "<me" and "ta ..." never join into a meta.
     const html = `<html><me<script></script>ta http-equiv=refresh content="0;url=${EVIL}"><head></head><body></body></html>`;
-    const out = prepareHtmlRunDocument(html);
+    const out = runPage(html);
     expect(out.startsWith(`${RUN_CSP_TAG}<script>(function () {`)).toBe(true);
-    expect(out.endsWith(html)).toBe(true);
+    expect(out).toContain(html);
     expect(out).not.toMatch(/<meta[\t\n\f\r /]+http-equiv=refresh/i);
   });
 
   it("puts the stay script after the real CSP, not a decoy in a comment", () => {
-    const out = prepareHtmlRunDocument(
+    const out = runPage(
       '<html><!-- <meta http-equiv="Content-Security-Policy" content="x"> --><head></head><body></body></html>',
     );
     expect(out.startsWith(`${RUN_CSP_TAG}<script>(function () {`)).toBe(true);
@@ -437,9 +399,7 @@ describe("meta pragmas (A2)", () => {
   });
 
   it("puts the stay script after the real CSP even when the page copies that tag", () => {
-    const out = prepareHtmlRunDocument(
-      `<html><!-- ${RUN_CSP_TAG} --><head></head><body></body></html>`,
-    );
+    const out = runPage(`<html><!-- ${RUN_CSP_TAG} --><head></head><body></body></html>`);
     expect(out).toContain(`<!-- ${RUN_CSP_TAG} -->`);
     expect(out.startsWith(`${RUN_CSP_TAG}<script>(function () {`)).toBe(true);
   });

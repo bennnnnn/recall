@@ -798,8 +798,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   missing symbol (`htmlDependsOnNetwork` / `isWebViewAvailable`); error boundary
   fell back to script-stripped static HTML → white. Also: nav-guard/CSP/onLayout
   stack. Fix: show the real error (no silent static fallback); Run path =
-  chart-like `source={{ html }}` only + `prepareHtmlRunDocument` (live CSP +
-  in-document stay script); clear Metro cache after preview edits.
+  chart-like `source={{ html }}` only + `prepareHtmlRunDocument` (live CSP,
+  page in a sandboxed iframe); clear Metro cache after preview edits.
 - **“No internet” banner stuck after Wi‑Fi returns.** Cause: NetInfo
   `isConnected`/`isInternetReachable` can stay stale and `NetInfo.refresh()` can
   remain unresolved; 1.5s polling also overlapped slower probes. Fix: bound the

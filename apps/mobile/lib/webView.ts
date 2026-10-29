@@ -1,10 +1,8 @@
 import { NativeModules, Platform, TurboModuleRegistry } from "react-native";
 import type { ComponentType } from "react";
 
-import { HTML_RUN_CDN_HOSTS } from "@/lib/htmlRunCdn";
 import { isAllowedLinkUrl } from "@/lib/linkSchemePolicy";
 import type { PreviewTapGate } from "@/lib/previewTap";
-import { isPreviewInlineDocumentUrl } from "@/lib/staticOnlyNavigationGuard";
 
 type PreviewWebViewMode = "rnc" | "expo-dom";
 
@@ -80,25 +78,35 @@ export function getPreviewWebView(): PreviewWebViewResult | null {
  */
 export const HTML_RUN_ORIGIN_WHITELIST: string[] = ["*"];
 
-const HTML_RUN_CDN_ORIGINS = new Set<string>(HTML_RUN_CDN_HOSTS);
+/**
+ * The Run tab's own documents (lib/htmlRunDocument.ts): the wrapper, which
+ * `source={{ html }}` with no baseUrl loads at about:blank (RNCWebViewImpl.m
+ * visitSource on iOS; Android loads it without asking), and the page's
+ * sandboxed frame.
+ */
+const HTML_RUN_DOCUMENTS = new Set(["about:blank", "about:srcdoc"]);
 
 /**
- * Loads the Run tab may make in its own frame: the inline document itself
- * and the CDN allowlist (the same set the old origin whitelist let through,
- * matched by exact origin instead of string prefix). Everything else is
- * refused in place.
+ * The Run tab may navigate only within its own documents (a `#` link
+ * included). Everything else, CDN pages included (anyone can publish one), is
+ * refused in place and opened nowhere.
+ *
+ * Which navigations come here differs by platform. iOS asks about every frame
+ * (decidePolicyForNavigationAction). Android asks only about GET navigations,
+ * and of a subframe's only those to other schemes than http, https and about
+ * (AwContentBrowserClient::ShouldOverrideUrlLoading); the page frame's own
+ * web navigations are stopped by the wrapper's frame-src instead
+ * (lib/htmlRunDocument.ts). Neither platform asks about subresources: CDN
+ * scripts, styles, images, fonts and fetches follow PREVIEW_CSP_LIVE alone.
+ * The frame flag is not read: iOS derives isTopFrame by comparing the URL with
+ * the main document's, and Android does not send it.
  */
 export function allowHtmlRunNavigation(request?: unknown): boolean {
-  const url = navigationRequestUrl(request).trim();
-  const lower = url.toLowerCase();
-  if (lower.startsWith("about:") || lower.startsWith("applewebdata:")) return true;
-  if (isPreviewInlineDocumentUrl(url)) return true;
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:" && HTML_RUN_CDN_ORIGINS.has(parsed.origin);
-  } catch {
-    return false;
-  }
+  const url = navigationRequestUrl(request).trim().toLowerCase();
+  // WebKit's name for a page loaded from a string without a base URL.
+  if (url.startsWith("applewebdata:")) return true;
+  const hash = url.indexOf("#");
+  return HTML_RUN_DOCUMENTS.has(hash === -1 ? url : url.slice(0, hash));
 }
 
 /**

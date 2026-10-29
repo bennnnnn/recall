@@ -1,4 +1,3 @@
-import { disarmMetaPragmas } from "@/lib/htmlMetaPragmas";
 import { HTML_RUN_CDN_CSP } from "@/lib/htmlRunCdn";
 
 /**
@@ -47,12 +46,21 @@ export const PREVIEW_VIEWPORT = "width=device-width, initial-scale=1";
 export const PREVIEW_CSP = `${PREVIEW_CSP_INLINE}; sandbox allow-scripts`;
 
 /**
- * HTML Run tab — still isolated from the app (no shared cookies / tokens),
- * but allows an explicit CDN allowlist so CSS/JS demos actually paint.
- * Leave-document navigations are blocked in-page (see HTML_RUN_STAY_JS) and
- * via form-action 'none' plus disarming every meta pragma
- * (lib/htmlMetaPragmas.ts). There is no native nav guard on this path — iOS
- * mis-labels CDN fetches as top-frame.
+ * HTML Run tab policy (lib/htmlRunDocument.ts). The wrapper page carries it and
+ * the model's page inherits it (a srcdoc frame takes its parent's policy), so
+ * page markup cannot drop or misplace it. Scripts, styles, images, fonts and
+ * fetches may come from the CDN allowlist (lib/htmlRunCdn.ts) so CSS/JS demos
+ * paint; no other host is reachable and no form submits. Every `<meta
+ * http-equiv>` in the page is disarmed (lib/htmlMetaPragmas.ts), so none
+ * redirects it or adds a policy.
+ *
+ * frame-src 'none' also stops the page frame navigating itself: Chromium
+ * (NavigationRequest::CheckCSPDirectives) and WebKit (PolicyChecker) check the
+ * parent's frame-src on every navigation of a child frame and skip about: URLs,
+ * so the srcdoc frame itself still loads. Android needs this: its WebView never
+ * asks the app about a subframe's http(s) navigation. A CDN script, stylesheet
+ * or image is a subresource load, not a navigation, and never reaches the
+ * WebView's navigation callback.
  */
 export const PREVIEW_CSP_LIVE = [
   "default-src 'none'",
@@ -67,57 +75,6 @@ export const PREVIEW_CSP_LIVE = [
   "base-uri 'none'",
   "form-action 'none'",
 ].join("; ");
-
-/**
- * Inlined into the HTML Run document (not via RN injectedJavaScript*).
- * Blocks leave-document navigations: <a> clicks, form submits, location.assign /
- * replace / href, window.open, and (separately) meta-refresh tags disarmed
- * in the document. Hash / javascript: links still work for in-page demos.
- * Injected immediately after the CSP meta so it runs before user scripts.
- */
-const HTML_RUN_STAY_JS = `(function () {
-  function stay(e) {
-    try {
-      var t = e.target;
-      if (e.type === "submit") {
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-      while (t && t.tagName !== "A") t = t.parentElement;
-      if (!t || !t.getAttribute) return;
-      var href = t.getAttribute("href") || "";
-      if (!href || href.charAt(0) === "#" || href.indexOf("javascript:") === 0) return;
-      e.preventDefault();
-      e.stopPropagation();
-    } catch (err) {}
-  }
-  document.addEventListener("click", stay, true);
-  document.addEventListener("submit", stay, true);
-  try {
-    window.open = function () { return null; };
-  } catch (err) {}
-  try {
-    var loc = window.location;
-    loc.assign = function () {};
-    loc.replace = function () {};
-    var hrefNow = "";
-    try { hrefNow = loc.href; } catch (e) {}
-    Object.defineProperty(loc, "href", {
-      configurable: true,
-      get: function () { return hrefNow; },
-      set: function () {},
-    });
-  } catch (err) {}
-})();`;
-
-/** Full document for the HTML Run WebView: wrap + live CSP + stay-on-page trap. */
-export function prepareHtmlRunDocument(html: string): string {
-  const cspTag = cspMetaTag(PREVIEW_CSP_LIVE);
-  const doc = injectAtHeadStart(html, `${cspTag}<script>${HTML_RUN_STAY_JS}</script>`);
-  // Last: the CSP written above is the one pragma kept.
-  return disarmMetaPragmas(doc, cspTag);
-}
 
 /**
  * CSP for the PDF preview WebView (pdf.js).
