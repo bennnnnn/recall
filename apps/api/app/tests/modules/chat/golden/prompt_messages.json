@@ -147,6 +147,7 @@
   "ok",
   "solve 2x + 5 = 17",
   "Subtract 5 from both sides.\n\n$2x = 12$\n\n$x = 6$\n\nAnswer: x = 6\n",
+  "\n\nWrite this reply in English, the language of the user's message, whatever a saved memory or an earlier reply says.\n\n",
   "how?",
   "good morning!",
   "explain in detail how Raft handles split votes",
@@ -1888,11 +1889,11 @@
      ],
      [
       "system",
-      "7 @MATH_REPLY_POLICY 1 @MATH_FOLLOWUP_HINT"
+      "82 @REPLY_HOW_HINT 98 @MATH_REPLY_POLICY 1 @MATH_FOLLOWUP_HINT"
      ],
      [
       "user",
-      "98"
+      "99"
      ]
     ],
     "out": {}
@@ -1926,7 +1927,7 @@
      ],
      [
       "user",
-      "99"
+      "100"
      ]
     ],
     "out": {}
@@ -1960,7 +1961,7 @@
      ],
      [
       "user",
-      "100"
+      "101"
      ]
     ],
     "out": {}
@@ -1994,7 +1995,7 @@
      ],
      [
       "user",
-      "101"
+      "102"
      ]
     ],
     "out": {}
@@ -2032,11 +2033,11 @@
      ],
      [
       "user",
-      "102"
+      "103"
      ],
      [
       "assistant",
-      "103"
+      "104"
      ],
      [
       "system",
@@ -2048,7 +2049,7 @@
      ],
      [
       "user",
-      "104"
+      "105"
      ]
     ],
     "out": {}
@@ -2087,11 +2088,11 @@
      ],
      [
       "user",
-      "105"
+      "106"
      ],
      [
       "assistant",
-      "106"
+      "107"
      ],
      [
       "system",
@@ -2103,7 +2104,7 @@
      ],
      [
       "user",
-      "107"
+      "108"
      ]
     ],
     "out": {}
