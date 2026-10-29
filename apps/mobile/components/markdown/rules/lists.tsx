@@ -163,8 +163,9 @@ export function listRules(t: Theme, mdMath: MdMathStyles, continuesBelow = false
             </Text>
             <View
               style={[
-                styles._VIEW_SAFE_ordered_list_content as object,
                 mdMath.listContent,
+                // Last, so a sent bubble's sizing (compactMdStyles) wins over the flex column.
+                styles._VIEW_SAFE_ordered_list_content as object,
               ]}
             >
               {children}
@@ -196,8 +197,9 @@ export function listRules(t: Theme, mdMath: MdMathStyles, continuesBelow = false
             )}
             <View
               style={[
-                styles._VIEW_SAFE_bullet_list_content as object,
                 mdMath.listContent,
+                // Last, so a sent bubble's sizing (compactMdStyles) wins over the flex column.
+                styles._VIEW_SAFE_bullet_list_content as object,
               ]}
             >
               {children}
