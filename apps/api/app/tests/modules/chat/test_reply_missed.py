@@ -11,7 +11,12 @@ from types import SimpleNamespace
 import pytest
 
 from app.modules.chat.message_notes import message_notes
-from app.modules.chat.prompt_constants.reply_missed import REPLY_MISSED_HINT, reply_missed_hint
+from app.modules.chat.prompt_constants.reply_missed import (
+    REPLY_HOW_HINT,
+    REPLY_MISSED_HINT,
+    reply_how_hint,
+    reply_missed_hint,
+)
 from app.modules.chat.prompt_constants.shared_numbers import SHARED_NUMBERS_HINT
 from app.modules.chat.prompt_constants.unclear import UNCLEAR_MESSAGE_HINT
 
@@ -112,3 +117,67 @@ def test_the_unclear_rule_gives_no_reply_to_copy() -> None:
     """Its examples were whole replies a small model sent as they were."""
     assert "Gd:" not in UNCLEAR_MESSAGE_HINT
     assert "Were you still typing?" not in UNCLEAR_MESSAGE_HINT
+
+
+# Live (2026-10-29): after "Answer: 16.09344 km", "How" got "Did you mean how the
+# conversion works, or were you still typing?".
+_AFTER_AN_ANSWER = [
+    ("user", "What if I convert 10 miles instead?"),
+    ("assistant", "Answer: $16.09344\\ \\mathrm{km}$"),
+]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "How",
+        "how?",
+        "Why?",
+        "how so",
+        "How come?",
+        "how did you get that?",
+        "Explain",
+        "show me how",
+        "show your work",
+    ],
+)
+def test_how_right_after_a_reply_asks_how_it_was_reached(query: str) -> None:
+    assert reply_how_hint(query, _AFTER_AN_ANSWER) == REPLY_HOW_HINT
+    exchange = [SimpleNamespace(role=role, content=text) for role, text in _AFTER_AN_ANSWER]
+    assert REPLY_HOW_HINT in message_notes(query, exchange, _EN)
+    assert reply_missed_hint(query, _AFTER_AN_ANSWER) is None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "How are you?",
+        "how do I bake bread",
+        "Why not",
+        "How much is 10 miles in feet?",
+        "explain photosynthesis",
+    ],
+)
+def test_a_question_of_its_own_is_not_how_at_the_last_reply(query: str) -> None:
+    assert reply_how_hint(query, _AFTER_AN_ANSWER) is None
+
+
+def test_how_with_no_reply_before_it_is_left_to_the_model() -> None:
+    assert reply_how_hint("How", []) is None
+
+
+@pytest.mark.parametrize(
+    ("last_reply", "query"),
+    [
+        # A reply that ended on its own question: "Why" answers it.
+        ("Should we use Redis?", "Why"),
+        ("Hey! How are you?", "how"),
+        # "show me" after an offer is a yes, not a how.
+        ("Let's solve 5x^2 - 3 = -3. Want me to work it out?", "show me"),
+        ("Answer: 4", "show me"),
+    ],
+)
+def test_how_after_a_question_or_an_offer_is_not_about_an_answer(
+    last_reply: str, query: str
+) -> None:
+    assert reply_how_hint(query, [("user", "hi"), ("assistant", last_reply)]) is None
