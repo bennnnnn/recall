@@ -68,19 +68,6 @@ export function getPreviewWebView(): PreviewWebViewResult | null {
 }
 
 /**
- * Inline `source={{ html }}` previews. Include the historical RNC `baseUrl`
- * (`https://localhost/`) plus `about:blank`; the nav guard still blocks real
- * open-web navigations after load.
- */
-export const STATIC_HTML_ORIGIN_WHITELIST: string[] = [
-  "about:blank",
-  "http://localhost*",
-  "https://localhost*",
-  "http://127.0.0.1*",
-  "https://127.0.0.1*",
-];
-
-/**
  * HTML Run passes every navigation to {@link allowHtmlRunNavigation}.
  *
  * react-native-webview hands any URL that misses `originWhitelist` to

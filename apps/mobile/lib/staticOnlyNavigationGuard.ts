@@ -5,7 +5,7 @@ type NavigationGuardRequest = {
   navigationType?: string;
 };
 
-export type StaticOnlyNavigationGuard = {
+type StaticOnlyNavigationGuard = {
   shouldAllow: (request?: NavigationGuardRequest | string) => boolean;
   /** Call when the WebView's source content legitimately changes. */
   reset: () => void;
