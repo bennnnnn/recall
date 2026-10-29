@@ -23,7 +23,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
-import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
+import { getPreviewWebView } from "@/lib/webView";
 import { alertDialog } from "@/ui/overlay/dialogs";
 
 type Props = {
@@ -67,9 +67,6 @@ export function ChatMessagePdf({
     allPages: false,
   });
   const previewFailed = preview.status === "failed";
-  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(
-    preview.status === "ready" ? preview.webViewKey : null,
-  );
 
   useEffect(() => {
     // Let the next deferred WebView mount instead of waiting on this card.
@@ -127,7 +124,6 @@ export function ChatMessagePdf({
             style={s.previewWeb}
             javaScriptEnabled
             onLoadEnd={onLoaded}
-            onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           />
         </Pressable>
       ) : !compact && canRenderInline && !previewFailed ? (

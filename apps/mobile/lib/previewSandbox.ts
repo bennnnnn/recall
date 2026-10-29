@@ -125,19 +125,20 @@ export function prepareHtmlRunDocument(html: string): string {
  *
  * pdf.js + its worker are vendored and inlined (the worker is built from a
  * Blob URL at runtime, hence `worker-src blob:`). The PDF bytes are inlined
- * as base64 — no fetch. With the worker no longer pulled from cdnjs, the PDF
- * preview needs zero network egress, so `connect-src 'none'` holds just like
- * the other sandbox CSPs. (CMap/standard-font fetches are not configured, so
- * pdf.js never reaches the network for the previews we render.)
+ * as base64 — no fetch, and no file read (lib/pdfPreviewHtml.ts). A PDF is
+ * untrusted and pdf.js has had script-capable bugs, so the page reaches
+ * nothing outside itself: `connect-src 'none'`, and images, fonts and media
+ * only from data: and blob:. (CMap/standard-font fetches are not configured,
+ * so pdf.js never reaches the network for the previews we render.)
  */
 export const PDF_PREVIEW_CSP = [
   "default-src 'none'",
   "style-src 'unsafe-inline'",
   "script-src 'unsafe-inline'",
   "worker-src blob:",
-  "img-src data: blob: https:",
-  "font-src data: https:",
-  "media-src data: blob: https:",
+  "img-src data: blob:",
+  "font-src data:",
+  "media-src data: blob:",
   "connect-src 'none'",
   "base-uri 'none'",
   "form-action 'none'",

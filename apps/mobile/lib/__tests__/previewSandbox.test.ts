@@ -167,6 +167,16 @@ describe("PDF_PREVIEW_CSP", () => {
     expect(connectSrcValue).not.toContain("cdnjs.cloudflare.com");
   });
 
+  it("lets a PDF fetch nothing: no file and no network in any directive", () => {
+    // A PDF is untrusted and pdf.js has had script-capable bugs: images, fonts
+    // and media load only from the page itself (data:, blob:).
+    expect(PDF_PREVIEW_CSP).not.toMatch(/file:|https?:|\*/);
+    for (const directive of ["img-src", "font-src", "media-src"]) {
+      const value = new RegExp(`${directive}\\s+([^;]+)`).exec(PDF_PREVIEW_CSP)?.[1].trim();
+      expect(value?.split(/\s+/).every((source) => source === "data:" || source === "blob:")).toBe(true);
+    }
+  });
+
   it("allows worker-src only for blob: (not arbitrary origins)", () => {
     const workerSrcMatch = PDF_PREVIEW_CSP.match(/worker-src\s+([^;]+)/);
     expect(workerSrcMatch).not.toBeNull();

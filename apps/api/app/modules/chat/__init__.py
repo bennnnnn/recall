@@ -71,6 +71,9 @@ if TYPE_CHECKING:
     from app.modules.chat.turn_prep import (
         StreamContext as StreamContext,
     )
+    from app.modules.chat.turn_prep.intents import (
+        cuts_after_picture as cuts_after_picture,
+    )
 
 _EXPORTS = {
     "RegenerateBackup": ("turn_prep", "RegenerateBackup"),
@@ -78,6 +81,7 @@ _EXPORTS = {
     "StreamContext": ("turn_prep", "StreamContext"),
     "StreamStatusFn": ("stream_status", "StreamStatusFn"),
     "clip_status_detail": ("stream_status", "clip_status_detail"),
+    "cuts_after_picture": ("turn_prep.intents", "cuts_after_picture"),
     "has_code_syntax": ("prompt_constants.coding", "has_code_syntax"),
     "chart_names_no_curve": ("prompt_constants.chart", "chart_names_no_curve"),
     "chart_of_public_facts": ("prompt_constants.chart", "chart_of_public_facts"),
