@@ -2,8 +2,8 @@
 
 Quota counters are keyed by user id, so deleting an account and signing in
 again with the same Google or Apple login, or with the other provider on the
-same email address, would otherwise start every daily cap, and this month's
-live talk minutes, from zero.
+same email address (a Gmail or iCloud one), would otherwise start
+every daily cap, and this month's live talk minutes, from zero.
 
 Account delete stores what the account had used under one Redis key per sign-in
 identity, ``quota_carry:<HMAC-SHA256(jwt_secret, "quota-carry:google:<sub>")>``, and
@@ -11,10 +11,22 @@ one for the account's email, ``quota_carry:<HMAC-SHA256(jwt_secret,
 "quota-carry-email:<address>")>``: never the raw provider subject, never the address,
 never the user id (so the account's Redis sweep, which deletes every key naming the
 user id, leaves them). Each holds the same counts and expires when the UTC month ends.
-An account with no email stores only its identity keys. The email key closed a gap:
-delete an Apple account on x@icloud.com, sign in with Google on the same address, and
-the new account's day started again from zero, its snapshot filed only under the
-Apple id.
+The email key closed a gap: delete an Apple account on x@icloud.com, sign in with
+Google on the same address, and the new account's day started again from zero, its
+snapshot filed only under the Apple id.
+
+The email key is stored only for an address a sign-in provider owns by its domain
+(``address_owned_by_a_provider``, on ``email_authority``'s rules): Google's ``@gmail.com``
+and ``@googlemail.com``, Apple's iCloud, ``me.com``, ``mac.com`` and its relay. Those
+addresses are never given to someone else, so whoever verified one holds it, whichever
+provider they signed in with (an Apple ID on a Gmail address is common). Any other
+address was only verified by a provider, which does not prove the person still has it
+(a stale work address, a lapsed domain): with an email key there, someone could use up
+the address's day and live talk month, delete the account, and whoever signs up on it
+next would start at those counts. A Google Workspace address is owned by Google only
+when the sign-in token's ``hd`` claim names its domain; the account row keeps no token,
+so a delete cannot tell, and stores no email key for it. An account with no email, or
+with any other address, stores only its identity keys.
 
 The address is trimmed and lower-cased before it is hashed (``normalised_email``) and
 nothing else: no provider's own rules (Gmail's dots or ``+tags``), which would merge
@@ -49,6 +61,7 @@ from redis.exceptions import RedisError
 from app.core.config import Settings
 from app.exceptions import RedisUnavailableError
 from app.models.orm import User
+from app.modules.account.email_authority import apple_owns_email, google_owns_email
 from app.services import quota as quota_service
 
 logger = logging.getLogger(__name__)
@@ -78,6 +91,18 @@ def email_carry_key(settings: Settings, email: str | None) -> str | None:
     return _hashed(settings, f"quota-carry-email:{address}") if address else None
 
 
+def address_owned_by_a_provider(email: str | None) -> bool:
+    """Google or Apple owns ``email`` by its domain (Gmail; iCloud, me.com, mac.com, relay).
+
+    Decided from the address alone, with no token claims: a delete has no sign-in token,
+    so a Google Workspace address (owned only when the token's ``hd`` names its domain)
+    is not counted, and Apple's relay addresses count by their domain.
+    """
+    address = email or ""
+    no_claims: dict[str, object] = {}
+    return google_owns_email(no_claims, address) or apple_owns_email(no_claims, address)
+
+
 def _identities(user: User) -> list[tuple[str, str]]:
     found: list[tuple[str, str]] = []
     for provider, sub in (("google", user.google_sub), ("apple", user.apple_sub)):
@@ -93,15 +118,17 @@ def _ttl_seconds(now: datetime | None = None) -> int:
 
 
 async def save_on_delete(redis: Redis, settings: Settings, user: User) -> None:
-    """Keep the account's used counters for its sign-in identities and its email.
+    """Keep the account's used counters for its sign-in identities, and for its email
+    when a provider owns the address by its domain (``address_owned_by_a_provider``).
 
     Raises ``RedisUnavailableError`` when they cannot be read or stored: the delete is
     refused rather than lose them (``lifecycle.delete_account`` calls this first).
     """
     keys = [carry_key(settings, provider, sub) for provider, sub in _identities(user)]
-    by_email = email_carry_key(settings, user.email)
-    if by_email is not None:
-        keys.append(by_email)
+    if address_owned_by_a_provider(user.email):
+        by_email = email_carry_key(settings, user.email)
+        if by_email is not None:
+            keys.append(by_email)
     if not keys:
         return
     try:

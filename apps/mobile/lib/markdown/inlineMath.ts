@@ -73,8 +73,11 @@ export function readInlineMathSpan(
 }
 
 function looksLikeEnglishMathSpan(inner: string): boolean {
-  if (/\\[a-zA-Z]+/.test(restoreMathEscapes(inner))) return false;
-  return (inner.match(/[A-Za-z]{3,}/g) ?? []).length >= 2;
+  const source = restoreMathEscapes(inner);
+  if (/\\[a-zA-Z]+/.test(source)) return false;
+  // Words inside a subscript or superscript (`W_{lost}`, `W_{out}`) are labels, not prose.
+  const prose = source.replace(/[_^]\{[^{}]*\}/g, " ");
+  return (prose.match(/[A-Za-z]{3,}/g) ?? []).length >= 2;
 }
 
 /** Split prose without interpreting inline code or currency as mathematics. */
@@ -93,7 +96,10 @@ export function splitInlineMath(text: string): InlineMathPart[] {
     const span = readInlineMathSpan(text, i);
     if (!span) { i += 1; continue; }
     if (i > last) parts.push({ type: "text", value: text.slice(last, i) });
-    parts.push({ type: looksLikeEnglishMathSpan(span.value) ? "text" : "math", value: span.value });
+    // Prose-looking spans are shown as text: restore their placeholders so no private-use character reaches the reader.
+    parts.push(looksLikeEnglishMathSpan(span.value)
+      ? { type: "text", value: restoreMathEscapes(span.value) }
+      : { type: "math", value: span.value });
     i = span.end;
     last = i;
   }

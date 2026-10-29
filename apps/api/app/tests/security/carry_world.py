@@ -8,13 +8,13 @@ shared development one, so nothing else (the job stream, the per-IP limiter) is 
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, patch
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
@@ -88,12 +88,17 @@ async def _delete_made_keys(world: Linked) -> None:
         await world.redis.delete(*made)
 
 
-async def sign_in(world: Linked, provider: str, sub: str, email: str) -> httpx.Response:
+async def sign_in(
+    world: Linked, provider: str, sub: str, email: str, claims: Mapping[str, Any] | None = None
+) -> httpx.Response:
+    """Sign in through the route with a verified token for *email* (plus *claims*, such as
+    Google's ``hd``)."""
     world.identities.add((provider, sub))
     world.emails.add(email)
     payload: dict[str, Any] = {"sub": sub, "email": email, "email_verified": True}
     if provider == "apple":
         payload["email_verified"] = "true"
+    payload.update(claims or {})
     verify = f"app.modules.account.service.verify_{provider}_id_token"
     with patch(verify, AsyncMock(return_value=payload)):
         return await world.client.post(
@@ -101,8 +106,10 @@ async def sign_in(world: Linked, provider: str, sub: str, email: str) -> httpx.R
         )
 
 
-async def signed_in(world: Linked, provider: str, sub: str, email: str) -> tuple[UUID, str]:
-    response = await sign_in(world, provider, sub, email)
+async def signed_in(
+    world: Linked, provider: str, sub: str, email: str, claims: Mapping[str, Any] | None = None
+) -> tuple[UUID, str]:
+    response = await sign_in(world, provider, sub, email, claims)
     assert response.status_code == 200, response.text
     body = response.json()
     user_id = UUID(body["user"]["id"])
@@ -153,6 +160,24 @@ async def delete(world: Linked, user_id: UUID, token: str) -> None:
     assert response.status_code == 204, response.text
     await _handle_storage_sweep(world.settings, {"user_id": str(user_id)})
     world.users.remove(user_id)
+
+
+async def deleted_account(
+    world: Linked,
+    provider: str,
+    email: str,
+    used: dict[str, int],
+    *,
+    live_talk: int,
+    claims: Mapping[str, Any] | None = None,
+) -> str:
+    """An account made with *provider* on *email* uses *used* and *live_talk* seconds and is
+    deleted. Returns its sub."""
+    sub = f"{provider}-{uuid4()}"
+    user_id, token = await signed_in(world, provider, sub, email, claims)
+    await use(world.redis, user_id, used, live_talk=live_talk)
+    await delete(world, user_id, token)
+    return sub
 
 
 async def linked_sub(user_id: UUID, provider: str) -> str | None:
