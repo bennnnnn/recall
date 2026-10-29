@@ -39,7 +39,7 @@ from app.modules.chat.prompt_profile import (
 )
 from app.modules.chat.turn_prep import resolve_client_geo
 from app.services.locale import locale_system_hint
-from app.tests.fakes import FakeSessionCM
+from app.tests.fakes import FakeSessionCM, make_user
 from app.tests.modules.chat.chat_test_support import system_prompt
 
 
@@ -1989,17 +1989,17 @@ def test_format_user_profile_block_signs_drafts_with_the_first_name():
 
 
 def _clock_user() -> MagicMock:
-    user = MagicMock()
-    user.name = "Dev User"
-    user.email = "dev@example.com"
-    user.location = None
-    user.location_enabled = False
-    user.response_tone = None
-    user.memory_enabled = False
-    user.locale = "en"
-    user.timezone = "America/Indiana/Indianapolis"
-    user.custom_instructions = None
-    return user
+    return make_user(
+        name="Dev User",
+        email="dev@example.com",
+        location=None,
+        location_enabled=False,
+        response_tone=None,
+        memory_enabled=False,
+        locale="en",
+        timezone="America/Indiana/Indianapolis",
+        custom_instructions=None,
+    )
 
 
 async def _system_for(text: str, *, lightweight: bool) -> str:
@@ -2061,7 +2061,7 @@ async def test_a_turn_that_may_need_the_clock_keeps_it(text: str, lightweight: b
     ],
 )
 def test_is_reaction_turn(text: str | None, reaction: bool) -> None:
-    from app.modules.chat.prompt_constants.routing import is_reaction_turn
+    from app.modules.chat.prompt_constants.reactions import is_reaction_turn
 
     assert is_reaction_turn(text) is reaction
 

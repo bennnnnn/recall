@@ -41,14 +41,6 @@ _SOCIAL_WORDS = (
     r"|bye|goodbye|cya|see ya"
     r"|lol|lmao|haha|hehe"
 )
-# A reaction says nothing to look up or work out ("oh really?", "wow", "hmm"). It is not a
-# lightweight turn: "really?" after a solve is a challenge, "oh yeah" can accept an offer, and
-# both need the full path. It only needs no clock: with nothing else to answer, a model read
-# the freshest line of the prompt back.
-_REACTION_WORDS = (
-    r"oh really|really|seriously|oh wow|wow|whoa|hmm+|huh|ah|oh|ooh|i see|oh i see"
-    r"|no way|interesting|is that so|is that right|oh okay|oh ok|oh yeah|oh nice|oh cool"
-)
 _REPLY_WORDS = (
     r"ok|okay|k|cool|nice|great|perfect|awesome"
     r"|got it|sounds good|makes sense|understood"
@@ -59,7 +51,6 @@ _LIGHTWEIGHT_TURN = re.compile(
     rf"^(?:{_SOCIAL_WORDS}|{_REPLY_WORDS}){_THANKS_TAIL}",
     re.IGNORECASE,
 )
-_REACTION = re.compile(rf"^(?:{_REACTION_WORDS}){_THANKS_TAIL}", re.IGNORECASE)
 _SHORT_REPLY = re.compile(rf"^(?:{_REPLY_WORDS}){_THANKS_TAIL}", re.IGNORECASE)
 
 # Accepting an offer — not a greeting. "no" / "thanks" / "hi" stay off this list.
@@ -99,12 +90,6 @@ _OFFER_PHRASES = (
     "if you would like",
     "if you want",
 )
-
-
-def is_reaction_turn(text: str | None) -> bool:
-    """A bare reaction to the last reply: "oh really?", "wow", "hmm", "is that so?"."""
-    cleaned = collapse_ws(EMOJI.sub(" ", text or ""))
-    return bool(cleaned) and len(cleaned) <= 24 and _REACTION.match(cleaned) is not None
 
 
 def is_short_confirmation(text: str) -> bool:
