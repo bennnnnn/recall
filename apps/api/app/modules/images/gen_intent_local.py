@@ -25,9 +25,12 @@ from app.modules.images.gen_intent_drawable import is_entry, names_drawable
 from app.modules.images.gen_intent_languages import ALSO, ARTICLES, LANGUAGES, Language, Shape
 
 _WORDS = re.compile(r"\S+")
-# Punctuation around a word, Spanish "¿¡", French and German quotes, Ethiopic stops.
-_EDGES = '.,!?;:"()[]{}¿¡«»“”„…።፣፤፥፦፧፨'
-SENTENCE_ENDS = tuple(".!?;:።፧")
+# Punctuation around a word: Spanish "¿¡", Ethiopic stops. Not quote marks: a quoted line
+# is no request (``gen_intent_wording``), and a word kept in its quotes matches nothing.
+_EDGES = ".,!?;:()[]{}¿¡…።፣፤፥፦፧፨"
+SENTENCE_ENDS = tuple(".!?;።፧")
+# Inside a subject they join two sentences or a request and its content: "ቀይ? ድመት".
+_STOPS = frozenset(".!?;:።፧፥፦")
 # "d'un", "l'image", "un'immagine", "s'il": the elided word is its own token.
 _ELISIONS = frozenset(
     "d' l' m' t' s' j' n' c' qu' un' dell' all' dall' nell' sull' quest' cos'".split()
@@ -159,7 +162,7 @@ def _read(lang: Language, text: str, tokens: list[Token]) -> str | None:
         checked[0] = checked[0].removeprefix(shape.of_prefix)
         typed[0] = typed[0].removeprefix(shape.of_prefix)
     subject = text[start : tokens[end - 1].end].strip().strip(_EDGES).strip()
-    if len(subject) < 2 or not _plain(lang, checked, typed):
+    if len(subject) < 2 or not _STOPS.isdisjoint(subject) or not _plain(lang, checked, typed):
         return ""
     return subject
 
