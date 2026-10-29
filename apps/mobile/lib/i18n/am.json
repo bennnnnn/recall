@@ -1036,7 +1036,7 @@
   "todos.error_create": "መቀመጥ አልተቻለም",
   "todos.error_delete": "መሰረዝ አልተቻለም",
   "todos.error_due": "ቀን መዘመን አልተቻለም",
-  "todos.error_toggle": "መዘመን አልተቻለም",
+  "todos.error_update": "መዘመን አልተቻለም",
   "todos.overdue_days": "{{count}}ቀን አልፏል",
   "todos.overdue_today": "ዛሬ ጊዜው አልፏል",
   "todos.row_overdue": "ጊዜው አልፏል",

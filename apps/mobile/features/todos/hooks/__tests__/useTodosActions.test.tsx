@@ -206,6 +206,23 @@ describe("useTodosActions reminders", () => {
     expect(rollback(optimistic([existing]))).toEqual([existing]);
   });
 
+  it("says the edit failed, not the date, when a renamed to-do does not save", async () => {
+    (api.updateTodo as jest.Mock).mockRejectedValue(new Error("fail"));
+    const existing = todo({ id: "r2", content: "Package" });
+    await act(async () => {
+      render(<Probe todos={[existing]} />);
+    });
+    await act(async () => {
+      actions.openTodoEditor(existing);
+    });
+    await act(async () => {
+      await actions.handleUpdateTodo(existing, "Parcel", null, null);
+    });
+    const shown = JSON.stringify(jest.mocked(Alert.alert).mock.calls);
+    expect(shown).toContain("todos.error_update");
+    expect(shown).not.toContain("todos.error_due");
+  });
+
   it("keeps the reminder instant for an edit that leaves the time alone", async () => {
     const existing = todo({
       id: "r3",

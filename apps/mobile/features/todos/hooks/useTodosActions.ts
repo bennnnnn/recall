@@ -176,7 +176,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
       checked: !snapshot.checked,
       updated_at: snapshot.checked ? snapshot.updated_at : new Date().toISOString(),
     }),
-      (snapshot) => api.updateTodo(token, todo.id, { checked: !snapshot.checked }), "todos.error_toggle", "toggle");
+      (snapshot) => api.updateTodo(token, todo.id, { checked: !snapshot.checked }), "todos.error_update", "toggle");
   }, [token, mutateRow]);
 
   const handleDeleteItem = useCallback((todo: Todo) => {
@@ -250,7 +250,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
         topic: nextTopic,
         due_at: dueIso,
         recurrence_rule: recurrenceRule,
-      }), "todos.error_due");
+      }), "todos.error_update");
     if (saved && closeOnSave && editorRef.current.value?.id === todo.id) setEditingTodo(null);
     return saved;
   }, [token, canAct, owner, reportError, mutateRow, setEditingTodo, askForAlerts]);
@@ -264,7 +264,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
         ...snapshot,
         checked: true,
         updated_at: new Date().toISOString(),
-      }), () => api.updateTodo(token, id, { checked: true }), "todos.error_toggle", "toggle");
+      }), () => api.updateTodo(token, id, { checked: true }), "todos.error_update", "toggle");
     }
   }, [token, latestTodo, mutateRow]);
 
