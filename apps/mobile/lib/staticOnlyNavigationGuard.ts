@@ -5,7 +5,7 @@ type NavigationGuardRequest = {
   navigationType?: string;
 };
 
-export type StaticOnlyNavigationGuard = {
+type StaticOnlyNavigationGuard = {
   shouldAllow: (request?: NavigationGuardRequest | string) => boolean;
   /** Call when the WebView's source content legitimately changes. */
   reset: () => void;
@@ -38,7 +38,7 @@ export function isPreviewFrameworkUrl(url: string): boolean {
  * (RNCWebViewManagerImpl.kt) hands "" to loadDataWithBaseURL, which WebView
  * reads as about:blank.
  */
-export const PREVIEW_INLINE_BASE_URL = "about:blank";
+const PREVIEW_INLINE_BASE_URL = "about:blank";
 
 /**
  * The inline-HTML document itself, not a navigation. Only its exact URL:

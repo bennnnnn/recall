@@ -58,7 +58,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 3.4 | Geometry / graph SVG | ☐ | ☐ | Works in Expo Go |
 | 3.5 | HTML preview (WebView) | ☐ | ☐ | Dev build only |
 | 3.6 | Chart / Mermaid (WebView) | ☐ | ☐ | Dev build only |
-| 3.7 | PDF attachment preview | ☐ | ☐ | Dev build |
+| 3.7 | PDF attachment preview | ☐ | ☐ | Dev build. A one-page PDF and one near the 10 MB cap: the card shows page 1; the viewer pages through to the end and pinch-zooms. |
 
 ---
 

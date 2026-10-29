@@ -12,8 +12,13 @@ jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => "tok" }));
 jest.mock("@/features/attachments/hooks/useAttachmentIndexed", () => ({
   useAttachmentIndexed: () => ({ indexed: true, failed: false }),
 }));
+const mockPdfGuard = () => false;
 jest.mock("@/features/attachments/hooks/usePdfPreview", () => ({
-  usePdfPreview: () => ({ status: "ready", webViewKey: "doc", webViewProps: {} }),
+  usePdfPreview: () => ({
+    status: "ready",
+    webViewKey: "doc",
+    webViewProps: { originWhitelist: ["*"], onShouldStartLoadWithRequest: mockPdfGuard },
+  }),
 }));
 jest.mock("@/hooks/useDeferredWebViewMount", () => ({
   useDeferredWebViewMount: () => ({ canMount: true, onLoaded: jest.fn() }),
@@ -37,15 +42,16 @@ jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
   useTheme: () => mockLightTheme,
 }));
+const mockWebViewProps: Record<string, unknown>[] = [];
 jest.mock("@/lib/webView", () => ({
   getPreviewWebView: () => ({
     mode: "rnc",
-    Component: () => {
+    Component: (props: Record<string, unknown>) => {
+      mockWebViewProps.push(props);
       const { View: MockView } = jest.requireActual<typeof import("react-native")>("react-native");
       return <MockView testID="pdf-webview" />;
     },
   }),
-  useStaticOnlyNavigation: () => undefined,
 }));
 
 it("gives the page preview a width of its own that nothing between shrinks", async () => {
@@ -74,6 +80,14 @@ it("gives a screen reader one way in: the named card, not the unnamed page pictu
   expect(getAllByRole("button").map((button) => button.props.accessibilityLabel)).toEqual([
     "chat.pdf_open_a11y",
   ]);
+});
+
+it("keeps the preview's own navigation guard: the card adds none of its own", async () => {
+  const { findByTestId } = await render(<ChatMessagePdf attachmentId="doc" fileName="lease-notes.pdf" />);
+  await findByTestId("pdf-webview", { includeHiddenElements: true });
+  const props = mockWebViewProps[mockWebViewProps.length - 1]!;
+  expect(props.onShouldStartLoadWithRequest).toBe(mockPdfGuard);
+  expect(props.originWhitelist).toEqual(["*"]);
 });
 
 // The viewer's Share showed the failure's English as it came, in every language.

@@ -1,4 +1,4 @@
-import { render, renderHook } from "@testing-library/react-native";
+import { render } from "@testing-library/react-native";
 // react-native-webview's own gate: a URL that misses originWhitelist is handed
 // to Linking.openURL; one that passes goes to onShouldStartLoadWithRequest.
 import { createOnShouldStartLoadWithRequest } from "react-native-webview/lib/WebViewShared";
@@ -6,10 +6,10 @@ import { createOnShouldStartLoadWithRequest } from "react-native-webview/lib/Web
 import { HtmlPreviewModal } from "@/components/HtmlPreviewModal";
 import { INLINE_DOCUMENT_URL, LOOPBACK_URLS } from "@/lib/__tests__/fixtures/loopbackUrls";
 import {
+  allowPdfPageNavigation,
   allowPreviewPageNavigation,
+  PDF_PAGE_ORIGIN_WHITELIST,
   PREVIEW_PAGE_ORIGIN_WHITELIST,
-  STATIC_HTML_ORIGIN_WHITELIST,
-  useStaticOnlyNavigation,
 } from "@/lib/webView";
 
 // A preview page could reach a server on the phone itself (a dev server,
@@ -65,11 +65,10 @@ function loadsInFrame(originWhitelist: string[], decide: Decide, url: string): b
 
 async function previewWebViews(): Promise<[string, string[], Decide][]> {
   const run = await runTabProps();
-  // The guard the PDF card and viewer pass to their WebView.
-  const pdf = (await renderHook(() => useStaticOnlyNavigation("pdf"))).result.current;
   return [
     ["the HTML Run tab", run.originWhitelist as string[], run.onShouldStartLoadWithRequest as Decide],
-    ["an inline PDF preview", STATIC_HTML_ORIGIN_WHITELIST, pdf],
+    // The whitelist and guard the PDF card and viewer pass to their WebView.
+    ["an inline PDF preview", PDF_PAGE_ORIGIN_WHITELIST, allowPdfPageNavigation],
     [
       "a diagram, chart or molecule page",
       PREVIEW_PAGE_ORIGIN_WHITELIST,
@@ -89,7 +88,6 @@ describe("preview WebViews and servers on the phone", () => {
     for (const [, whitelist, decide] of [run, pdf]) {
       expect(loadsInFrame(whitelist, decide, INLINE_DOCUMENT_URL)).toBe(true);
     }
-    expect(STATIC_HTML_ORIGIN_WHITELIST).toEqual([INLINE_DOCUMENT_URL]);
   });
 
   it.each(LOOPBACK_URLS)("loads %s in no preview", async (url) => {

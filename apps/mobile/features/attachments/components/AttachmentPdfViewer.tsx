@@ -16,7 +16,7 @@ import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
 import { Type, Weight } from "@/lib/type";
-import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
+import { getPreviewWebView } from "@/lib/webView";
 
 type Props = AttachmentViewerProps & {
   attachmentId?: string | null;
@@ -42,9 +42,6 @@ export function AttachmentPdfViewer({ visible, attachmentId, localUri, path, ...
     enabled: visible && Boolean(remoteUri),
     allPages: true,
   });
-  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(
-    preview.status === "ready" ? preview.webViewKey : null,
-  );
 
   return (
     <AttachmentViewerChrome
@@ -64,7 +61,6 @@ export function AttachmentPdfViewer({ visible, attachmentId, localUri, path, ...
             {...preview.webViewProps}
             style={s.webview}
             javaScriptEnabled
-            onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           />
         )}
       </View>
