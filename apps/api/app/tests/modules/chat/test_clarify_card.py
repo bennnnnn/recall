@@ -19,6 +19,8 @@ from app.services.md_fence_scan import iter_fences
 from app.tests.modules.chat.chat_test_support import turn_deps
 
 _ASK = "But let me ask you one thing. What do you mean by *best*?"
+# The lead-in fitted to a two-question card, with no options before it.
+_ASK_FITTED_TWO = "**Let me ask you a couple of things.** What do you mean by *best*?"
 _PRIORITY = {
     "id": "priority",
     "label": "Main priority",
@@ -65,7 +67,7 @@ def test_a_valid_card_is_kept_last_in_its_normal_shape() -> None:
         "submit": "Find my best country",
     }
     settled = settle_clarify_cards(f"{_ASK}\n\n{_fence(card)}", allowed=True)
-    assert settled.startswith(_ASK)
+    assert settled.startswith(_ASK_FITTED_TWO)
     assert settled.rstrip().endswith("```")
     assert _card(settled) == {
         "questions": [{**_PRIORITY, "values": _PRIORITY_VALUES}, _values(_LEVEL)],
@@ -334,7 +336,7 @@ async def test_every_finalize_pass_leaves_a_valid_card_whole() -> None:
     assert await run_finalize_passes(state)
     card = _card(state.text)
     assert card is not None and [q["id"] for q in card["questions"]] == ["priority", "goal"]
-    assert state.text.startswith(_ASK)
+    assert state.text.startswith(_ASK_FITTED_TWO)
 
 
 async def test_an_unclosed_card_is_closed_then_read() -> None:
@@ -489,3 +491,26 @@ def test_a_bare_card_with_blank_lines_inside_is_one_card() -> None:
 
     assert '"questions"' in settled and settled.count("```clarify") == 1
     assert "Thanks!" in settled
+
+
+def test_a_plain_lead_in_is_fitted_and_bolded() -> None:
+    # Live (2026-10-29): plain "Let me ask you one thing." over a two-question card.
+    text = "I can help with that!\n\nLet me ask you one thing.\n\nWhat matters most?\n\n"
+    text += f"```clarify\n{_card_body(_PRIORITY, _LEVEL)}\n```"
+    settled = settle_clarify_cards(text, allowed=True)
+    assert "**Let me ask you a couple of things.**" in settled
+    assert settled.lower().count("let me ask you") == 1
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Let me ask you one thing about your budget before I pick.",
+        "Let me ask you one thing, then I will draft it.",
+    ],
+)
+def test_a_plain_sentence_that_goes_on_is_left_as_prose(line: str) -> None:
+    text = f"I can help with that!\n\n{line}\n\n```clarify\n{_card_body(_PRIORITY, _LEVEL)}\n```"
+    settled = settle_clarify_cards(text, allowed=True)
+    assert line in settled
+    assert "**" not in settled.split("```")[0]
