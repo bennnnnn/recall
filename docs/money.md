@@ -60,6 +60,8 @@ no used-car average and got no numbers at all, where the new-car average had wor
   at or below the first month's interest never pays it off, and the card says so.
 - **Savings**: starting amount, monthly deposit, annual rate, years → final balance, total
   deposited, interest earned.
+- **Investing** (invest, investing, investment, retirement): the same inputs and results as
+  savings, with no average looked up: a market's return has no bank average to judge it by.
 
 A term the user didn't give comes from the row's default (a 30-year mortgage, a 5-year car loan),
 and the reply says it assumed one. A rate they didn't give comes from today's average when there
@@ -211,7 +213,7 @@ the raw key. Keys the phone has (a server test, `test_money_label_keys.py`, hold
 
 | Use | Keys |
 |-----|------|
-| `title_key` | `money.title.mortgage`, `money.title.car`, `money.title.personal`, `money.title.student`, `money.title.loan`, `money.title.card`, `money.title.savings` |
+| `title_key` | `money.title.mortgage`, `money.title.car`, `money.title.personal`, `money.title.student`, `money.title.loan`, `money.title.card`, `money.title.savings`, `money.title.investing` |
 | control `label_key` | `money.amount`, `money.rate`, `money.term_years`, `money.term_months`, `money.balance`, `money.apr`, `money.payment`, `money.start`, `money.deposit` |
 | readout `label_key` | `money.monthly_payment`, `money.total_interest`, `money.total_paid`, `money.months_to_payoff`, `money.final_balance`, `money.total_deposited`, `money.interest_earned` |
 | readout `never_key` | `money.never` ("Never at this payment") |
@@ -228,7 +230,7 @@ only on amounts under 10,000 that have them). Tapping the marker sets the slider
 exact value. Where the user left the sliders survives the list recycling the card and is cleared at
 sign-out. Copy and Read aloud leave the card out: the reply's own text states its numbers.
 
-Control names per product: mortgage `amount, rate, years`; car `amount, rate, months`; student `amount, rate, years`; personal `amount, rate, months`; loan `amount, rate, years`; card `balance, apr, payment`; savings `start, deposit, rate, years`. A car or personal loan's term is `months`; every other term is `years`.
+Control names per product: mortgage `amount, rate, years`; car `amount, rate, months`; student `amount, rate, years`; personal `amount, rate, months`; loan `amount, rate, years`; card `balance, apr, payment`; savings and investing `start, deposit, rate, years`. A car or personal loan's term is `months`; every other term is `years`.
 
 ## The formula tree
 
