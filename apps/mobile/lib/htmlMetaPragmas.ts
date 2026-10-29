@@ -1,6 +1,6 @@
 /**
- * Disarms `<meta http-equiv>` pragmas in untrusted HTML: the preview's Run tab and the
- * browser export (lib/previewSandbox.ts).
+ * Disarms `<meta http-equiv>` pragmas in untrusted HTML: the preview's Run tab
+ * (lib/previewSandbox.ts) and the browser export (lib/htmlScriptStrip.ts).
  *
  * A pragma acts without any script. `refresh` sends the page elsewhere with no tap,
  * `set-cookie` writes a cookie, `content-security-policy` adds a policy,

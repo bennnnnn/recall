@@ -18,10 +18,9 @@
  * this covers the reply while it streams and older saved rows.
  */
 import { getApiUrl } from "@/lib/config";
+import { isInlineRasterDataUrl } from "@/lib/images/inlineRaster";
 
 type ImageLoadPolicy = "load" | "ask" | "block";
-
-const INLINE_RASTER = /^data:image\/(?:png|jpe?g|gif|webp|avif|heic|bmp);/i;
 
 function apiOrigin(): string | null {
   try {
@@ -47,7 +46,7 @@ export function imageLoadPolicy(src: string | undefined | null): ImageLoadPolicy
   const url = parse(src);
   if (!url) return "block";
   if (url.protocol === "blob:") return "load";
-  if (url.protocol === "data:") return INLINE_RASTER.test(url.href) ? "load" : "block";
+  if (url.protocol === "data:") return isInlineRasterDataUrl(url.href) ? "load" : "block";
   if (url.username || url.password) return "block";
   // The API's own origin, whatever its scheme (a dev server is plain http).
   if (url.origin === apiOrigin()) return "load";

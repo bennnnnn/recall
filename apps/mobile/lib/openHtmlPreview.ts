@@ -6,7 +6,8 @@ import {
 import * as WebBrowser from "expo-web-browser";
 import { Linking, Platform, Share } from "react-native";
 import { newAccountFile } from "@/lib/accountFiles";
-import { stripScripts } from "@/lib/previewSandbox";
+import { stripScripts } from "@/lib/htmlScriptStrip";
+import { HTML_EXPORT_CSP, cspMetaTag, injectAtHeadStart } from "@/lib/previewSandbox";
 import type { Theme } from "@/lib/theme";
 import { CODE_FONT } from "@/lib/fonts";
 
@@ -55,13 +56,24 @@ export function looksLikeInteractiveHtml(html: string): boolean {
   return /<\s*script\b/i.test(html);
 }
 
+/**
+ * Starts the file. A file has no transport charset, so without it a browser
+ * would decode the page by its own `<meta charset>`: ISO-2022-JP drops "ESC ( B"
+ * and joins `http-equ` and `iv` into a pragma that disarming, which reads the
+ * JS string, never saw. A byte-order mark settles the encoding before any meta.
+ */
+const UTF8_BOM = "\uFEFF";
+
+/** First in the export, ahead of its CSP and the page: a second guard on the charset. */
+const EXPORT_CHARSET_META = '<meta charset="utf-8">';
+
 async function writeHtmlPreviewFile(html: string): Promise<string | null> {
   const dir = cacheDirectory;
   if (!dir) return null;
 
   const fileUri = newAccountFile("htmlPreview", "html");
   try {
-    await writeAsStringAsync(fileUri, html, {
+    await writeAsStringAsync(fileUri, UTF8_BOM + html, {
       encoding: EncodingType.UTF8,
     });
     return fileUri;
@@ -70,13 +82,24 @@ async function writeHtmlPreviewFile(html: string): Promise<string | null> {
   }
 }
 
-/** Open rendered HTML in the system browser (works in Expo Go).
+/**
+ * The document "Open in browser" and Share hand over: a static view of the
+ * reply's HTML. The system browser (or whatever app opens the shared file) runs
+ * `<script>` with no sandbox of ours, so model-generated JS is stripped, and the
+ * document starts with a utf-8 charset and {@link HTML_EXPORT_CSP}, which
+ * refuses every script even where the strip misses one. Interactive previews
+ * run in the in-app WebView (CSP-sandboxed) instead.
+ */
+function htmlExportDocument(html: string): string {
+  return injectAtHeadStart(
+    wrapFullDocument(stripScripts(html)),
+    EXPORT_CHARSET_META + cspMetaTag(HTML_EXPORT_CSP),
+  );
+}
 
-The system browser runs `<script>` unsandboxed, so model-generated JS is stripped
-first — this path is a static view only. Interactive previews run in the in-app
-WebView (CSP-sandboxed) instead. */
+/** Open rendered HTML in the system browser (works in Expo Go); static view only. */
 export async function openHtmlInBrowser(html: string): Promise<boolean> {
-  const fullHtml = wrapFullDocument(stripScripts(html));
+  const fullHtml = htmlExportDocument(html);
 
   if (fullHtml.length < 120_000) {
     const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(fullHtml)}`;
@@ -126,9 +149,9 @@ export async function openHtmlInBrowser(html: string): Promise<boolean> {
   return false;
 }
 
-/** Share rendered HTML via the system share sheet (scripts stripped — static view only). */
+/** Share rendered HTML via the system share sheet; static view only. */
 export async function shareHtmlPreview(html: string): Promise<boolean> {
-  const fullHtml = wrapFullDocument(stripScripts(html));
+  const fullHtml = htmlExportDocument(html);
   const fileUri = await writeHtmlPreviewFile(fullHtml);
 
   if (fileUri) {

