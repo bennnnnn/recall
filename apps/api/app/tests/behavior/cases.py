@@ -2201,6 +2201,22 @@ CASES: tuple[Case, ...] = (
         pro=True,
     ),
     Case(
+        "multi-dropped-it-draw-me-line-es",
+        "multi-intent",
+        "Dime si es educado. Dibújame un gato",
+        Expect(image_gen=False, picture=False, photo=NO_PHOTO),
+        "Whether the draw-me line is polite, 'it' dropped: answered, no picture (review 8).",
+        pro=True,
+    ),
+    Case(
+        "multi-english-about-draw-me-line-es",
+        "multi-intent",
+        "Dibújame un gato. Why is the me at the end?",
+        Expect(image_gen=False, picture=False, photo=NO_PHOTO),
+        "An English question about a Spanish draw-me line: answered, no picture (review 8).",
+        pro=True,
+    ),
+    Case(
         "multi-compare-and-install",
         "multi-intent",
         "compare python and javascript, and how do I install node on mac?",

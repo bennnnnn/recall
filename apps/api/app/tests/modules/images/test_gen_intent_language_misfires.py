@@ -1,4 +1,4 @@
-"""Every misfire the seven reviews found, and the round-5 to round-8 probes: answered.
+"""Every misfire the eight reviews found, and the round-5 to round-8 probes: answered.
 
 A misfire (a picture drawn where the user wanted words) costs a daily picture and the
 answer. ``language_misfires.json`` holds each sentence a review named as drawn wrongly
@@ -12,7 +12,11 @@ task subjects ("Dibújame un cuadro comparativo", "Нарисуй мне ска�
 ASCII", "un árbol binario", "un perro y sugiéreme nombres"), round 7's blind set, and
 review 7's and round 8's draw-me lines the user asks about rather than asks for: translated
 ("Traduce al inglés: dibújame un gato"), checked ("¿Esta frase es correcta? Dibújame un
-gato"), explained, quoted or attributed ("«Dibújame un cordero»: ¿quién lo dijo?").
+gato"), explained, quoted or attributed ("«Dibújame un cordero»: ¿quién lo dijo?"), and
+review 8's: asked about with a dropped "it" ("Dime si es educado. Dibújame un gato") or
+in English ("Dibújame un gato. Why is the me at the end?"). No rule told those apart
+from a real second request, so no other-language message is cut into a picture and a
+request at all.
 """
 
 from __future__ import annotations
@@ -37,8 +41,8 @@ MISFIRES = [
 
 def test_every_review_is_here() -> None:
     reviews = {group.split(" (")[0] for group in _GROUPS}
-    assert {f"review {n}" for n in range(1, 8)} <= reviews
-    assert len(MISFIRES) >= 2150
+    assert {f"review {n}" for n in range(1, 9)} <= reviews
+    assert len(MISFIRES) >= 2400
 
 
 @pytest.mark.parametrize("text", MISFIRES)
