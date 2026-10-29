@@ -29,6 +29,8 @@ describe("HTML Run navigation", () => {
   it.each<[string, Record<string, unknown>]>([
     // `location.href = …` in the page: iOS reports the main frame.
     ["a CDN page in the top frame", { url: CDN_PAGE, isTopFrame: true, navigationType: "other" }],
+    // iOS asks about subframes; Android never sends their http(s) navigations
+    // (the wrapper's frame-src stops those, see htmlRunDocument.test.ts).
     ["a CDN page in a subframe", { url: CDN_PAGE, isTopFrame: false }],
     // Android's event carries no frame flag at all.
     ["a CDN page with no frame flag", { url: "https://unpkg.com/some-pkg@1.0.0/index.html" }],

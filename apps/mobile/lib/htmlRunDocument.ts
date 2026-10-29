@@ -1,7 +1,8 @@
 import {
   PREVIEW_CSP_LIVE,
   PREVIEW_VIEWPORT,
-  injectPreviewCsp,
+  cspMetaTag,
+  injectAtHeadStart,
   stripMetaRefresh,
 } from "@/lib/previewSandbox";
 
@@ -13,19 +14,22 @@ import {
  *    the like fail, so the WebView never leaves the wrapper;
  *  - no allow-popups: `window.open` and `target="_blank"` open nothing;
  *  - no allow-same-origin: the page has an opaque origin and cannot reach the
- *    wrapper, cookies or storage;
- *  - no allow-forms: no form submits, and no submit event reaches a script.
+ *    wrapper, cookies or storage.
+ * allow-forms lets a demo's submit handler run (Blink drops the submit event
+ * in a frame without it); form-action 'none' still stops every submission.
  * allow-modals keeps the alert / confirm that demos use (react-native-webview
  * shows them natively).
  *
- * allowHtmlRunNavigation (lib/webView.ts) also refuses every navigation out of
- * these two documents, but it cannot be the only wall: on Android,
- * react-native-webview waits 250 ms for the JS thread to decide a navigation
- * and then lets it through (RNCWebViewClient.shouldOverrideUrlLoading), and
- * page script can keep that thread busy by flooding
- * window.ReactNativeWebView.postMessage.
+ * Page script can still try to navigate its own frame. The wrapper carries
+ * PREVIEW_CSP_LIVE, which the frame inherits (page markup cannot drop or move
+ * it), and both engines check its frame-src 'none' on each of the frame's
+ * navigations, skipping only about: URLs such as the srcdoc itself. That, not
+ * allowHtmlRunNavigation, is what stops it on Android, which never asks the app
+ * about a subframe's http(s) navigation (AwContentBrowserClient::
+ * ShouldOverrideUrlLoading) and lets a navigation through when the JS thread
+ * takes over 250 ms to answer (RNCWebViewClient.shouldOverrideUrlLoading).
  */
-const HTML_RUN_FRAME_SANDBOX = "allow-scripts allow-modals";
+const HTML_RUN_FRAME_SANDBOX = "allow-scripts allow-forms allow-modals";
 
 /** `kind` of the WebView message the Run tab gets when the page drew nothing. */
 export const HTML_RUN_EMPTY_KIND = "preview-empty";
@@ -34,10 +38,11 @@ export const HTML_RUN_EMPTY_KIND = "preview-empty";
 const EMPTY_SIGNAL = "recall-run:empty";
 
 /**
- * Cancels a tapped link, which would replace the page inside its frame;
- * `#` and `javascript:` links still work for in-page demos. Script that sets
- * `location` is not stopped here (Location cannot be overridden): the sandbox
- * keeps it out of the wrapper and allowHtmlRunNavigation refuses it.
+ * Cancels a tapped link, which would replace the page inside its frame (or,
+ * blocked by frame-src, leave an error page there); `#` and `javascript:`
+ * links still work for in-page demos. Script that sets `location` is not
+ * stopped here (Location cannot be overridden): the sandbox keeps it out of
+ * the wrapper and frame-src out of the frame.
  */
 const LINK_TRAP_JS = `(function () {
   document.addEventListener("click", function (e) {
@@ -72,8 +77,10 @@ const EMPTY_CHECK_JS = `(function () {
 })();`;
 
 /**
- * Only the main frame has window.ReactNativeWebView on iOS, so the wrapper
- * passes the page frame's signal on, and nothing else.
+ * The page frame has no window.ReactNativeWebView on iOS, so the wrapper
+ * passes its empty signal on. (Any frame can still post to the app directly:
+ * iOS registers the message handler for every frame and Android's listener
+ * matches every origin. The Run tab acts on nothing but this signal.)
  */
 const RELAY_JS = `(function () {
   window.addEventListener("message", function (event) {
@@ -88,21 +95,18 @@ const RELAY_JS = `(function () {
 
 /**
  * The frame fills the WebView and scrolls itself. No background: the page's
- * own (the themed wrapFullDocument body) or the browser's white shows through,
- * as before the frame. No CSP either: a srcdoc frame inherits its parent's
- * policy on top of its own, so one here could only narrow the page's.
+ * own (the themed wrapFullDocument body) or the browser's white shows through.
  */
 const WRAPPER_CSS =
   "html,body{margin:0;height:100%;overflow:hidden}" +
   "iframe{display:block;width:100%;height:100%;border:0}";
 
-/** The model's page: meta refresh stripped, live CSP first, then the link trap. */
+/** The model's page: the live CSP and the link trap first in its real head. */
 function preparePage(html: string): string {
-  const withCsp = injectPreviewCsp(stripMetaRefresh(html), PREVIEW_CSP_LIVE);
-  const trap = `<script>${LINK_TRAP_JS}</script>`;
-  const csp = /<meta http-equiv="Content-Security-Policy"[^>]*>/i.exec(withCsp);
-  const at = csp ? csp.index + csp[0].length : 0;
-  return withCsp.slice(0, at) + trap + withCsp.slice(at) + `<script>${EMPTY_CHECK_JS}</script>`;
+  const head = `${cspMetaTag(PREVIEW_CSP_LIVE)}<script>${LINK_TRAP_JS}</script>`;
+  const page = injectAtHeadStart(html, head) + `<script>${EMPTY_CHECK_JS}</script>`;
+  // Last: dropping the scripts before <head> can join text into a new refresh tag.
+  return stripMetaRefresh(page);
 }
 
 /** Escape for a double-quoted attribute: the parser decodes it back exactly. */
@@ -113,8 +117,9 @@ function escapeAttribute(value: string): string {
 /** The whole Run tab document for `source={{ html }}`. */
 export function prepareHtmlRunDocument(html: string): string {
   return (
-    "<!DOCTYPE html><html><head>" +
-    `<meta charset="utf-8"><meta name="viewport" content="${PREVIEW_VIEWPORT}">` +
+    '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+    cspMetaTag(PREVIEW_CSP_LIVE) +
+    `<meta name="viewport" content="${PREVIEW_VIEWPORT}">` +
     `<style>${WRAPPER_CSS}</style></head><body>` +
     `<iframe sandbox="${HTML_RUN_FRAME_SANDBOX}" srcdoc="${escapeAttribute(preparePage(html))}"></iframe>` +
     `<script>${RELAY_JS}</script></body></html>`

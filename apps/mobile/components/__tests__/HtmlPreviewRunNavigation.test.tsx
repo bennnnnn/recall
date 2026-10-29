@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react-native";
+import { act, render } from "@testing-library/react-native";
 
 import { HtmlPreviewModal } from "@/components/HtmlPreviewModal";
 
@@ -68,5 +68,29 @@ describe("HtmlPreviewModal Run tab navigation", () => {
     expect(html.replace(/srcdoc="[^"]*"/, "")).not.toContain("accounts-google.example");
     expect(props.setSupportMultipleWindows).toBe(false);
     expect(props.onOpenWindow).toBeUndefined();
+  });
+
+  it("does nothing with a message from the page but show the empty hint", async () => {
+    // Every frame can post to the app (iOS registers the handler for all
+    // frames, Android's listener matches every origin), so a page can forge one.
+    mockWebViewProps.length = 0;
+    const { queryByText } = await render(
+      <HtmlPreviewModal visible html={HOSTILE_HTML} onClose={() => {}} />,
+    );
+    const onMessage = mockWebViewProps[mockWebViewProps.length - 1].onMessage as (event: {
+      nativeEvent: { data: string };
+    }) => void;
+    // i18n is not set up here, so the overlay shows its key.
+    const empty = "preview.empty_sandbox";
+    for (const data of [
+      "not json",
+      JSON.stringify({ kind: "navigate", url: "https://cdn.jsdelivr.net/x.html" }),
+      JSON.stringify(null),
+    ]) {
+      await act(async () => onMessage({ nativeEvent: { data } }));
+    }
+    expect(queryByText(empty)).toBeNull();
+    await act(async () => onMessage({ nativeEvent: { data: JSON.stringify({ kind: "preview-empty" }) } }));
+    expect(queryByText(empty)).not.toBeNull();
   });
 });

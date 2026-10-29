@@ -104,12 +104,13 @@ type PreviewTab = "run" | "code";
  * Sandboxed HTML Run tab (RNC WebView only).
  *
  * Keep this path as close as charts: `source={{ html }}`, no baseUrl. The
- * model's page runs in a sandboxed frame inside that document
- * (lib/htmlRunDocument.ts), so it cannot navigate the WebView or open
- * windows; CDN loads are allowed by PREVIEW_CSP_LIVE. Every navigation also
- * goes through allowHtmlRunNavigation, which keeps the tab's own documents
- * and refuses the rest without handing them to the OS (react-native-webview
- * opens a URL outside originWhitelist externally). No onOpenWindow and no
+ * model's page runs in a sandboxed frame inside that document, under the
+ * wrapper's PREVIEW_CSP_LIVE (lib/htmlRunDocument.ts), so it cannot navigate
+ * the WebView, its own frame or open windows; CDN loads are allowed. The
+ * WebView's navigations (on iOS, every frame's) also go through
+ * allowHtmlRunNavigation, which keeps the tab's own documents and refuses the
+ * rest without handing them to the OS (react-native-webview opens a URL
+ * outside originWhitelist externally). No onOpenWindow and no
  * multiple windows: a window request is never handed to the app, and the
  * sandbox keeps the page from making one.
  */

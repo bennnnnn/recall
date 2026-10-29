@@ -46,16 +46,19 @@ export const PREVIEW_VIEWPORT = "width=device-width, initial-scale=1";
 export const PREVIEW_CSP = `${PREVIEW_CSP_INLINE}; sandbox allow-scripts`;
 
 /**
- * HTML Run tab: the policy of the model's page, which lib/htmlRunDocument.ts
- * runs inside a sandboxed frame. Scripts, styles, images, fonts and fetches may
- * come from the CDN allowlist (lib/htmlRunCdn.ts) so CSS/JS demos paint; no
- * other host is reachable, the page may not embed a frame and no form submits.
+ * HTML Run tab policy (lib/htmlRunDocument.ts). The wrapper page carries it and
+ * the model's page inherits it (a srcdoc frame takes its parent's policy), so
+ * page markup cannot drop or misplace it. Scripts, styles, images, fonts and
+ * fetches may come from the CDN allowlist (lib/htmlRunCdn.ts) so CSS/JS demos
+ * paint; no other host is reachable and no form submits.
  *
- * A CDN script, stylesheet or image is a subresource load, not a navigation,
- * and never reaches the WebView's navigation callback. Leaving the page is
- * stopped outside this policy: the sandboxed frame cannot navigate the Run
- * tab's wrapper or open windows, and allowHtmlRunNavigation (lib/webView.ts)
- * refuses every navigation but the tab's own two documents.
+ * frame-src 'none' also stops the page frame navigating itself: Chromium
+ * (NavigationRequest::CheckCSPDirectives) and WebKit (PolicyChecker) check the
+ * parent's frame-src on every navigation of a child frame and skip about: URLs,
+ * so the srcdoc frame itself still loads. Android needs this: its WebView never
+ * asks the app about a subframe's http(s) navigation. A CDN script, stylesheet
+ * or image is a subresource load, not a navigation, and never reaches the
+ * WebView's navigation callback.
  */
 export const PREVIEW_CSP_LIVE = [
   "default-src 'none'",
@@ -140,6 +143,10 @@ const RAW_TEXT_REGION_RE = new RegExp(
     String.raw`<style\b[^>]*>[\s\S]*?${STYLE_END}`,
     String.raw`<textarea\b[^>]*>[\s\S]*?${TEXTAREA_END}`,
     String.raw`<title\b[^>]*>[\s\S]*?${TITLE_END}`,
+    // Also read as text (noscript while scripts run, as they do in a preview).
+    String.raw`<(noscript|noframes|noembed|xmp|iframe)\b[^>]*>[\s\S]*?<\/\1[^>]*>`,
+    // Everything after <plaintext> is text.
+    String.raw`<plaintext\b[\s\S]*`,
   ].join("|"),
   "gi",
 );
@@ -164,14 +171,14 @@ function replaceUntilStable(input: string, pattern: RegExp, replacement: string)
 
 /**
  * Replace raw-text/CDATA-like regions (script, style, comments, textarea,
- * title) with equal-length whitespace, preserving the string's length so
- * indices found in the result stay valid against the original string.
+ * title, noscript, noframes, noembed, xmp, iframe, plaintext) with
+ * equal-length whitespace, preserving the string's length so indices found in
+ * the result stay valid against the original string.
  *
- * injectPreviewCsp() finds the real <head> with these regions blanked: a document
- * that puts a decoy `<head` inside a <script> comment (or <style>, an HTML comment,
- * <textarea> or <title>) before the real tag would otherwise get its CSP <meta>
- * spliced into that inert text, never parsed as a tag, leaving the document with no
- * CSP at all (a sandbox escape).
+ * injectAtHeadStart() finds the real <head> with these regions blanked: a document
+ * that puts a decoy `<head` inside one of them before the real tag would otherwise
+ * get its CSP <meta> spliced into that inert text, never parsed as a tag, leaving
+ * the document with no CSP at all (a sandbox escape).
  */
 function maskRawTextRegions(html: string): string {
   return html.replace(RAW_TEXT_REGION_RE, (match) => " ".repeat(match.length));
@@ -183,9 +190,18 @@ function stripScriptBlocks(html: string): string {
   return out;
 }
 
+/** The `<meta>` that delivers `csp`. */
+export function cspMetaTag(csp: string): string {
+  return `<meta http-equiv="Content-Security-Policy" content="${csp}">`;
+}
+
 /** Inject the sandbox CSP meta into an HTML document (bare or full). */
 export function injectPreviewCsp(html: string, csp: string = PREVIEW_CSP): string {
-  const meta = `<meta http-equiv="Content-Security-Policy" content="${csp}">`;
+  return injectAtHeadStart(html, cspMetaTag(csp));
+}
+
+/** Put `markup` first in the document's real <head>, adding a head when it has none. */
+export function injectAtHeadStart(html: string, markup: string): string {
   const masked = maskRawTextRegions(html);
 
   const headMatch = /<head(\s[^>]*)?>/i.exec(masked);
@@ -196,15 +212,15 @@ export function injectPreviewCsp(html: string, csp: string = PREVIEW_CSP): strin
     // <script> blocks that appear before the (now decoy-proof) real <head>
     // so they cannot run unconstrained.
     const before = stripScriptBlocks(html.slice(0, headIdx));
-    return before + headTag + meta + html.slice(headIdx + headMatch[0].length);
+    return before + headTag + markup + html.slice(headIdx + headMatch[0].length);
   }
 
   const htmlMatch = /<html(\s[^>]*)?>/i.exec(masked);
   if (htmlMatch && htmlMatch.index != null) {
     const at = htmlMatch.index + htmlMatch[0].length;
-    return html.slice(0, at) + `<head>${meta}</head>` + html.slice(at);
+    return html.slice(0, at) + `<head>${markup}</head>` + html.slice(at);
   }
-  return `<!DOCTYPE html><html><head>${meta}</head><body>${html}</body></html>`;
+  return `<!DOCTYPE html><html><head>${markup}</head><body>${html}</body></html>`;
 }
 
 /**

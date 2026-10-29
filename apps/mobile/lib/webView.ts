@@ -105,15 +105,18 @@ const HTML_RUN_DOCUMENTS = new Set(["about:blank", "about:srcdoc"]);
 
 /**
  * The Run tab may navigate only within its own documents (a `#` link
- * included), in any frame. Everything else, CDN pages included (anyone can
- * publish one), is refused in place and opened nowhere.
+ * included). Everything else, CDN pages included (anyone can publish one), is
+ * refused in place and opened nowhere.
  *
- * CDN scripts, styles, images, fonts and fetches never come through here:
- * react-native-webview asks this only from decidePolicyForNavigationAction
- * (iOS) and shouldOverrideUrlLoading (Android), which WebKit and Chromium call
- * for frame navigations, not subresources; PREVIEW_CSP_LIVE governs those.
- * The frame flag is not read: iOS derives isTopFrame by comparing the URL
- * with the main document's, and Android does not send it.
+ * Which navigations come here differs by platform. iOS asks about every frame
+ * (decidePolicyForNavigationAction). Android asks only about GET navigations,
+ * and of a subframe's only those to other schemes than http, https and about
+ * (AwContentBrowserClient::ShouldOverrideUrlLoading); the page frame's own
+ * web navigations are stopped by the wrapper's frame-src instead
+ * (lib/htmlRunDocument.ts). Neither platform asks about subresources: CDN
+ * scripts, styles, images, fonts and fetches follow PREVIEW_CSP_LIVE alone.
+ * The frame flag is not read: iOS derives isTopFrame by comparing the URL with
+ * the main document's, and Android does not send it.
  */
 export function allowHtmlRunNavigation(request?: unknown): boolean {
   const url = navigationRequestUrl(request).trim().toLowerCase();
