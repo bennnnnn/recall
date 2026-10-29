@@ -126,8 +126,10 @@ _EXPLICIT_LEARNING_PLAN = re.compile(
     r")",
     re.IGNORECASE,
 )
+# "Training" alone is a marathon's or a team's as often as a learner's: a training plan
+# is caught by name above, and a marathon one there is a plan that does not teach.
 _LEARNING_CUE = re.compile(
-    r"\b(?:learn|learning|master|mastering|mastery|study|studying|train|training|"
+    r"\b(?:learn|learning|master|mastering|mastery|study|studying|"
     r"beginner|intermediate|advanced|senior|course|curriculum|syllabus|skill)\b",
     re.IGNORECASE,
 )
@@ -152,9 +154,17 @@ _ELAPSED_LEARNING = re.compile(
     rf")",
     re.IGNORECASE,
 )
+# Plans for doing, not learning, by kind: work, travel, events, health, home and money.
+# "Plan a 3 day trip to Rome" was a study roadmap ("Learn the Forum's layout → … → Done
+# when", 2026-10-29): the list named travel and vacation but not the trip.
 _NON_LEARNING_PLAN_CUE = re.compile(
-    r"\b(?:business|workout|fitness|exercise|meal|diet|launch|marketing|content|"
-    r"social\s+media|product|project|travel|vacation|budget|savings|campaign)\b",
+    r"\b(?:business|launch|marketing|content|social\s+media|product|project|campaign|sales|"
+    r"travel|vacation|trip|itinerary|holiday|honeymoon|road\s+trip|visit|tour|"
+    r"wedding|party|birthday|event|"
+    r"workout|fitness|exercise|gym|marathon|running|race|weight\s+loss|lose\s+weight|"
+    r"meal|diet|detox|fasting|sleep|"
+    r"move|moving|cleaning|declutter|renovation|garden|"
+    r"budget|savings|debt|finance)\b",
     re.IGNORECASE,
 )
 _INTERNATIONAL_LEARNING_PLAN = re.compile(
@@ -229,6 +239,9 @@ def learning_plan_daily_contract(text: str) -> str:
         return ""
     labels = " | ".join(f"Day {day}" for day in range(1, count + 1))
     programming_rule = ""
+    # Production experience is a software engineer's: a Spanish or calculus plan ended on
+    # "Production experience takes longer than this roadmap" too.
+    closing = "`### Checkpoints and milestones` and `### Daily routine`."
     tag = _programming_tag(text)
     if tag:
         checkpoints = sorted({max(1, round(count * fraction / 5)) for fraction in range(1, 6)})
@@ -236,6 +249,11 @@ def learning_plan_daily_contract(text: str) -> str:
         programming_rule = (
             f"\n- Include exactly five short runnable ```{tag} code blocks total, placed after "
             f"{locations}. Inline snippets do not count."
+        )
+        closing = (
+            "`### Checkpoints and milestones`, `### Daily routine`, and "
+            "`### Production-experience note`. Under the last heading, write the exact sentence "
+            "`Production experience takes longer than this roadmap.` before briefly explaining why."
         )
     return (
         f"HARD DAILY-COVERAGE CONTRACT FOR THIS {count}-DAY PLAN:\n"
@@ -245,10 +263,7 @@ def learning_plan_daily_contract(text: str) -> str:
         "- Do not combine days, skip a number, or use a day range in the daily breakdown.\n"
         f"- Required labels, in order: {labels}.\n"
         f"- Keep every day line compact so Day {count} and all closing sections fit.\n"
-        "- After the daily lines, include these exact headings: `### Checkpoints and milestones`, "
-        "`### Daily routine`, and `### Production-experience note`. Under the last heading, "
-        "write the exact sentence `Production experience takes longer than this roadmap.` "
-        f"before briefly explaining why.{programming_rule}"
+        f"- After the daily lines, include these exact headings: {closing}{programming_rule}"
     )
 
 
