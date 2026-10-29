@@ -16,6 +16,8 @@ import re
 from itertools import pairwise
 from typing import TYPE_CHECKING
 
+from app.modules.images.gen_intent_local import extract_other_language_prompt
+from app.modules.images.gen_intent_second import SECOND_ASKS, asks_separately
 from app.modules.images.gen_intent_words import (
     ARTICLES,
     CODEISH_WORDS,
@@ -296,13 +298,10 @@ _DRAW_NOT_A_PICTURE = frozenset(
 _LONG_SUBJECT_WORDS = 12
 
 
-_SECOND_ASKS = frozenset({"explain", "tell", "write", "show", "help", "what", "how", "why", "who"})
-
-
 def _asks_again(parts: list[str]) -> bool:
     """A second request in the subject: "… and also explain …", "… and tell me …"."""
     words = [word for word in map(fold_token, parts) if word != "also"]
-    return any(word in {"and", "then"} and nxt in _SECOND_ASKS for word, nxt in pairwise(words))
+    return any(word in {"and", "then"} and nxt in SECOND_ASKS for word, nxt in pairwise(words))
 
 
 def _make_is_not_a_picture(subject: str) -> bool:
@@ -421,6 +420,12 @@ def extract_image_gen_prompt(text: str) -> str | None:
     if not tokens:
         return None
 
+    # "Draw me a cat and also explain black holes" asks twice: the plan draws the cat and
+    # answers the rest, so no reading here takes the whole line.
+    draws_me = len(tokens) > 2 and tokens[0].lower() in VERBS_DRAW and tokens[1].lower() == "me"
+    if draws_me and asks_separately(trimmed):
+        return None
+
     matched = _match_verb_then_image(tokens)
     if matched:
         return matched
@@ -442,7 +447,8 @@ def extract_image_gen_prompt(text: str) -> str | None:
         if matched:
             return matched
 
-    return None
+    # "Zeichne mir eine Katze", "нарисуй мне кошку": draw-me requests in other languages.
+    return extract_other_language_prompt(trimmed)
 
 
 def stem_subject(text: str, *, chemistry_enabled: bool = True) -> SubjectName | None:

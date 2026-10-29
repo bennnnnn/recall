@@ -57,6 +57,17 @@ def test_privacy_policy_names_each_processor_and_fact(named: str) -> None:
     assert named in _client().get("/legal/privacy").text
 
 
+def test_privacy_policy_says_where_a_scanned_photo_goes() -> None:
+    """The scanner sends its photo to the server the moment it is cut (``/{subject}/scan/read``):
+    math to Mathpix and a vision model, physics and chemistry to a vision model through
+    OpenRouter; the read keeps nothing. The policy said so only for math photos."""
+    page = _client().get("/legal/privacy").text
+    assert "Scanned problems" in page
+    assert "is sent to Recall" in page and "to read the problem" in page
+    assert "Recall does not keep that photo" in page
+    assert "photos you scan in the scanner (math, physics and chemistry)" in page
+
+
 @pytest.mark.parametrize("path", ["/legal/privacy", "/legal/terms", "/legal/delete-account"])
 def test_legal_pages_link_the_support_email(path: str) -> None:
     text = _client().get(path).text

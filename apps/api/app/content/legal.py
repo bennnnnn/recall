@@ -14,7 +14,7 @@ from app.core.config import Settings
 logger = logging.getLogger(__name__)
 
 # Shown at the top of the privacy policy and terms. Change it with any edit to their text.
-LEGAL_EFFECTIVE_DATE = "October 25, 2026"
+LEGAL_EFFECTIVE_DATE = "October 29, 2026"
 
 # Without SUPPORT_EMAIL (local dev) the pages still render; production boot warns.
 _NO_EMAIL_CONTACT = "use the support link on Recall's app-store listing"

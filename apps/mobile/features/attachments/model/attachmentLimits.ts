@@ -27,5 +27,8 @@ export const DOCUMENT_MIME_TYPES: readonly string[] = [
 /** Long edge of a chat photo. Vision models read no finer, and a full camera frame is 3–5×. */
 export const MAX_IMAGE_EDGE = 2048;
 
-/** JPEG quality for a photo Recall re-encodes. */
+/**
+ * Quality of a lossy re-encode (JPEG, WebP). Every picked photo but a GIF is
+ * re-encoded so it leaves without its metadata (attachmentPrep.ts).
+ */
 export const IMAGE_JPEG_QUALITY = 0.8;
