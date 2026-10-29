@@ -82,6 +82,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Downloads use distinct cache files, verify cached files still exist, and clear on logout.
   Temporary storage failures preserve attachment records; failed object deletions remain
   queued for cleanup. Local upload retries cannot overwrite an existing Library file.
+- ✅ **Photos leave without their metadata** — every picked photo (library, camera, Files,
+  scanner, profile) is uploaded as a re-encode with no EXIF, GPS or XMP, upright; PNG and
+  WebP keep their format, the rest become JPEG, and a GIF keeps its frames with its
+  metadata blocks dropped (`features/attachments/model/attachmentPrep.ts`).
 - ✅ **Archive** — drawer long-press and in-chat `⋯` menu; archived chats show in a separate
   section and are excluded from the main list.
 - ✅ **Multi-select** — drawer **Select** mode: tap rows to choose, then bulk **Archive** or
