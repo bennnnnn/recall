@@ -1,35 +1,25 @@
-import type { PreviewPage } from "@/lib/previewPage";
-import { injectPreviewCsp, PDF_PREVIEW_CSP, PREVIEW_VIEWPORT, inlineScript } from "@/lib/previewSandbox";
+import { PDF_PREVIEW_CSP, PREVIEW_VIEWPORT, inlineScript } from "@/lib/previewSandbox";
 import type { Theme } from "@/lib/theme";
 
-/** pdf.js and its worker, which the page inlines. */
-type PdfLibrary = "pdf" | "pdfWorker";
-export type PdfSources = Readonly<Record<PdfLibrary, string>>;
+/** pdf.js and its worker, which the page inlines (lib/vendorAssets.ts). */
+export const PDF_LIBRARIES = ["pdf", "pdfWorker"] as const;
+export type PdfSources = Readonly<Record<(typeof PDF_LIBRARIES)[number], string>>;
 
-/** What one preview shows; the page reads it as `window.RECALL_PDF`. */
+/** How one preview draws; the page reads it as `window.RECALL_PDF`. */
 type PdfPreviewConfig = {
-  /** A local file:// PDF the page reads itself (the file-backed page). */
-  src?: string;
-  /** The PDF as base64 (the inline fallback, where the WebView cannot read files). */
-  data?: string;
   /** Every page, drawn as it scrolls near; otherwise page 1 only. */
   allPages: boolean;
   colors: { bg: string; text: string; danger: string };
 };
 
-/** The page posts this when it could not show the PDF. */
-export const PDF_PREVIEW_ERROR = "pdf-error";
-
-/** The file-backed page reads its PDF from disk; nothing else may be fetched. */
-export const PDF_FILE_PREVIEW_CSP = PDF_PREVIEW_CSP.replace("connect-src 'none'", "connect-src file:");
+/**
+ * Anything but base64 and the whitespace atob skips. The page holds its PDF in
+ * the markup as is, so a character like this (`<`, say) must never reach it.
+ */
+const NOT_BASE64 = /[^A-Za-z0-9+/=\t\n\f\r ]/;
 
 export function pdfPreviewColors(theme: Theme): PdfPreviewConfig["colors"] {
   return { bg: theme.bg, text: theme.text, danger: theme.danger };
-}
-
-/** Sets the config before the page script runs (`injectedJavaScriptBeforeContentLoaded`). */
-export function pdfPreviewConfigScript(config: PdfPreviewConfig): string {
-  return `window.RECALL_PDF = ${JSON.stringify(config)}; true;`;
 }
 
 // Runs inside the WebView. Pages are drawn when they come near the viewport and
@@ -43,35 +33,22 @@ const PAGE_SCRIPT = `(function () {
   if (colors.danger) style.setProperty('--danger', colors.danger);
   var errBox = document.getElementById('err');
   var pages = document.getElementById('pages');
-  function post(type) {
-    if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify({ type: type }));
-  }
   function fail(err) {
     errBox.textContent = 'PDF preview: ' + (err && err.message ? err.message : String(err));
     errBox.style.display = 'block';
-    post('${PDF_PREVIEW_ERROR}');
   }
   // The worker source sits in a non-executable tag; a Blob URL spawns it with no fetch.
   var workerText = document.getElementById('pdf-worker-src').textContent;
   pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([workerText], { type: 'application/javascript' }));
-  function loadBytes() {
-    if (cfg.data) {
-      var raw = atob(cfg.data);
-      var bytes = new Uint8Array(raw.length);
-      for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-      return Promise.resolve(bytes);
-    }
-    return new Promise(function (resolve, reject) {
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', cfg.src);
-      xhr.responseType = 'arraybuffer';
-      xhr.onload = function () {
-        if ((xhr.status === 0 || xhr.status === 200) && xhr.response) resolve(new Uint8Array(xhr.response));
-        else reject(new Error('Could not read the file'));
-      };
-      xhr.onerror = function () { reject(new Error('Could not read the file')); };
-      xhr.send();
-    });
+  // The PDF is this page's own text, in a tag that never runs: nothing is fetched or read.
+  // The tag goes once decoded, so the page keeps no second copy of the file.
+  function readBytes() {
+    var tag = document.getElementById('pdf-data');
+    var raw = atob(tag.textContent);
+    tag.parentNode.removeChild(tag);
+    var bytes = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+    return bytes;
   }
   var ratio = Math.min(2, window.devicePixelRatio || 1);
   function fit(page) { return (window.innerWidth - 16) / page.getViewport({ scale: 1 }).width; }
@@ -128,9 +105,9 @@ const PAGE_SCRIPT = `(function () {
       observer.observe(canvas);
     }
   }
-  loadBytes().then(function (bytes) {
+  new Promise(function (resolve) { resolve(readBytes()); }).then(function (bytes) {
     // No eval-compiled font paths: pdf.js 3.x runs a crafted font as script (CVE-2024-4367),
-    // and this page can read files.
+    // and a PDF is untrusted content.
     return pdfjsLib.getDocument({ data: bytes, isEvalSupported: false }).promise;
   }).then(function (pdf) {
     return pdf.getPage(1).then(function (first) {
@@ -140,14 +117,32 @@ const PAGE_SCRIPT = `(function () {
   }).catch(fail);
 })();`;
 
-function pdfPageHtml(csp: string, configScript: string, sources: PdfSources): string {
-  return injectPreviewCsp(`<!DOCTYPE html>
+/**
+ * The PDF's page, handed to the WebView whole (`source: { html }`): pdf.js, its
+ * worker and the PDF itself all ride in it, so it fetches and reads nothing and
+ * needs no file access. `base64` is the PDF; the page holds it as text and
+ * decodes it once (an attachment is at most MAX_ATTACHMENT_BYTES, so at most
+ * about 13.4 MB of base64). The template is ours, so its CSP is written in
+ * place rather than found by scanning the whole document (injectPreviewCsp).
+ */
+export function buildPdfPreviewHtml(
+  base64: string,
+  theme: Theme,
+  allPages: boolean,
+  sources: PdfSources,
+): string {
+  if (NOT_BASE64.test(base64)) throw new Error("The PDF is not base64.");
+  const config: PdfPreviewConfig = { allPages, colors: pdfPreviewColors(theme) };
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
+<meta http-equiv="Content-Security-Policy" content="${PDF_PREVIEW_CSP}">
 <meta charset="UTF-8">
 <meta name="viewport" content="${PREVIEW_VIEWPORT}">
-${configScript}<script>${inlineScript(sources.pdf)}</script>
+<script>${inlineScript(`window.RECALL_PDF = ${JSON.stringify(config)};`)}</script>
+<script>${inlineScript(sources.pdf)}</script>
 <script type="text/pdf-worker" id="pdf-worker-src">${inlineScript(sources.pdfWorker)}</script>
+<script type="application/pdf" id="pdf-data">${base64}</script>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; padding: 8px; background: var(--bg, #fff); color: var(--text, #111); font-family: -apple-system, sans-serif; }
@@ -160,37 +155,5 @@ ${configScript}<script>${inlineScript(sources.pdf)}</script>
 <div id="err"></div>
 <script>${PAGE_SCRIPT}</script>
 </body>
-</html>`, csp);
-}
-
-/**
- * The file-backed page: one document for every preview, written to disk once
- * per version (lib/previewPageFile.ts). Each WebView hands it its PDF path and
- * colors with `pdfPreviewConfigScript`.
- */
-export function buildPdfViewerHtml(sources: PdfSources): string {
-  return pdfPageHtml(PDF_FILE_PREVIEW_CSP, "", sources);
-}
-
-export const PDF_VIEWER_PAGE: PreviewPage<PdfLibrary> = {
-  name: "pdf-viewer",
-  libraries: ["pdf", "pdfWorker"],
-  build: buildPdfViewerHtml,
-  // Earlier versions rewrote one unversioned viewer page in the cache root each run.
-  formerFile: "pdf-viewer.html",
-};
-
-/** Inline fallback for WebViews that cannot read local files: the PDF rides in the page. */
-export function buildPdfPreviewHtml(
-  base64: string,
-  theme: Theme,
-  allPages: boolean,
-  sources: PdfSources,
-): string {
-  const config: PdfPreviewConfig = { data: base64, allPages, colors: pdfPreviewColors(theme) };
-  return pdfPageHtml(
-    PDF_PREVIEW_CSP,
-    `<script>${inlineScript(`window.RECALL_PDF = ${JSON.stringify(config)};`)}</script>\n`,
-    sources,
-  );
+</html>`;
 }

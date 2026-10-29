@@ -1,12 +1,13 @@
-import { act, render, waitFor } from "@testing-library/react-native";
+import { render, waitFor } from "@testing-library/react-native";
+import { getInfoAsync, readAsStringAsync } from "expo-file-system/legacy";
 import { StyleSheet } from "react-native";
 
 import { AttachmentPdfViewer } from "@/features/attachments/components/AttachmentPdfViewer";
+import { MAX_ATTACHMENT_BYTES } from "@/features/attachments/model/attachmentLimits";
 import { ensureLocalAttachmentFile } from "@/features/attachments/model/downloadChatAttachment";
-import { PDF_VIEWER_PAGE } from "@/lib/pdfPreviewHtml";
-import { forgetPreviewPageFile, previewPageFile } from "@/lib/previewPageFile";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 import { readVendorLibraries } from "@/lib/vendorAssets";
+import { STATIC_HTML_ORIGIN_WHITELIST } from "@/lib/webView";
 
 // One object, as the provider keeps it: a new getter per render re-runs every effect.
 const mockAccountSession = { account: "user-1:0", getToken: () => "tok" };
@@ -22,21 +23,14 @@ jest.mock("@/features/attachments/model/attachmentUri", () => ({
 jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({
   ensureLocalAttachmentFile: jest.fn(),
 }));
-jest.mock("@/lib/previewPageFile", () => ({
-  previewPageFile: jest.fn(async () => "file:///cache/preview-pages/pdf-viewer-0123456789abcdef.html"),
-  forgetPreviewPageFile: jest.fn(),
-}));
 jest.mock("@/lib/vendorAssets", () => ({
   readVendorLibraries: jest.fn(async () => ({ pdf: "/*pdf.js*/", pdfWorker: "/*worker*/" })),
 }));
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
   EncodingType: { Base64: "base64" },
+  getInfoAsync: jest.fn(),
   readAsStringAsync: jest.fn(async () => "QUJD"),
-}));
-jest.mock("@/lib/pdfPreviewHtml", () => ({
-  ...jest.requireActual("@/lib/pdfPreviewHtml"),
-  buildPdfPreviewHtml: (base64: string) => `<html>${base64}</html>`,
 }));
 jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
@@ -44,15 +38,11 @@ jest.mock("@/lib/theme", () => ({
 }));
 
 const mockWebViewProps: Record<string, unknown>[] = [];
-const mockWebViewMounts = { count: 0 };
 jest.mock("@/lib/webView", () => ({
   ...jest.requireActual("@/lib/webView"),
   getPreviewWebView: () => ({
     mode: "rnc",
     Component: (props: Record<string, unknown>) => {
-      jest.requireActual<typeof import("react")>("react").useEffect(() => {
-        mockWebViewMounts.count += 1;
-      }, []);
       mockWebViewProps.push(props);
       const { View: MockView } = jest.requireActual<typeof import("react-native")>("react-native");
       return <MockView testID="pdf-webview" />;
@@ -68,62 +58,84 @@ function viewer(visible: boolean) {
   );
 }
 
-const VIEWER_FILE = "file:///cache/preview-pages/pdf-viewer-0123456789abcdef.html";
+/** The page the WebView loads: it must be HTML handed over whole, never a file URL. */
+async function shownPage(): Promise<{ html: string; props: Record<string, unknown> }> {
+  const { findByTestId } = await render(viewer(true));
+  await findByTestId("pdf-webview");
+  const props = lastProps();
+  const source = props.source as { html?: unknown; uri?: unknown };
+  expect(source.uri).toBeUndefined();
+  expect(typeof source.html).toBe("string");
+  return { html: source.html as string, props };
+}
 
 beforeEach(() => {
   mockWebViewProps.length = 0;
-  mockWebViewMounts.count = 0;
-  jest.mocked(previewPageFile).mockClear();
-  jest.mocked(forgetPreviewPageFile).mockClear();
+  jest.mocked(readAsStringAsync).mockClear();
+  jest.mocked(getInfoAsync).mockReset().mockResolvedValue({
+    exists: true, isDirectory: false, size: 3, uri: "file:///cache/att-1-2-doc.pdf", modificationTime: 0,
+  });
   jest.mocked(ensureLocalAttachmentFile).mockReset().mockResolvedValue("file:///cache/att-1-2-doc.pdf");
 });
 
-it("loads the shared pdf.js page from disk and lets it read the cached PDF, every page", async () => {
-  const { findByTestId } = await render(viewer(true));
-  await findByTestId("pdf-webview");
+it("carries the cached PDF inline in its page, every page", async () => {
+  const { html } = await shownPage();
   expect(ensureLocalAttachmentFile).toHaveBeenCalledWith(expect.objectContaining({
     uri: "https://api.test/attachments/doc/file", fileName: "doc.pdf", signal: expect.any(AbortSignal),
   }));
-  const props = lastProps();
-  expect(previewPageFile).toHaveBeenCalledWith(PDF_VIEWER_PAGE);
-  expect(props.source).toEqual({ uri: "file:///cache/preview-pages/pdf-viewer-0123456789abcdef.html" });
-  expect(props.allowingReadAccessToURL).toBe("file:///cache/");
-  expect(props.allowFileAccessFromFileURLs).toBe(true);
-  expect(props.injectedJavaScriptBeforeContentLoaded).toContain('"src":"file:///cache/att-1-2-doc.pdf"');
-  expect(props.injectedJavaScriptBeforeContentLoaded).toContain('"allPages":true');
-});
-
-it("falls back to the inline page when the WebView cannot read the file", async () => {
-  const { findByTestId } = await render(viewer(true));
-  await findByTestId("pdf-webview");
-  const onMessage = lastProps().onMessage as (event: { nativeEvent: { data: string } }) => void;
-  await act(async () => {
-    onMessage({ nativeEvent: { data: JSON.stringify({ type: "pdf-error" }) } });
-  });
-  await waitFor(() => expect(lastProps().source).toEqual({ html: "<html>QUJD</html>" }));
-  // pdf.js rides in the inline page too, read from its vendored asset.
+  // The bytes come from the cached file, read here, not by the page.
+  expect(readAsStringAsync).toHaveBeenCalledWith("file:///cache/att-1-2-doc.pdf", { encoding: "base64" });
+  expect(html).toContain('<script type="application/pdf" id="pdf-data">QUJD</script>');
+  expect(html).toContain('"allPages":true');
+  expect(html).not.toContain("att-1-2-doc.pdf");
+  // pdf.js rides in the page too, read from its vendored asset.
   expect(readVendorLibraries).toHaveBeenCalledWith(["pdf", "pdfWorker"]);
-  // The bytes come from the cached file, not a second download.
-  expect(ensureLocalAttachmentFile).toHaveBeenLastCalledWith(expect.objectContaining({ uri: "https://api.test/attachments/doc/file" }));
+  expect(html).toContain("/*pdf.js*/");
 });
 
-it("writes the viewer page again when the WebView cannot load it, then shows the PDF inline", async () => {
-  const { findByTestId } = await render(viewer(true));
-  await findByTestId("pdf-webview");
-  expect(mockWebViewMounts.count).toBe(1);
+it("gives the PDF's page no file access on either platform", async () => {
+  const { props } = await shownPage();
+  // Android: off is react-native-webview's default; a file:// page would need it on.
+  expect(props.allowFileAccess).not.toBe(true);
+  expect(props.allowFileAccessFromFileURLs).toBeUndefined();
+  expect(props.allowUniversalAccessFromFileURLs).toBeUndefined();
+  // iOS: no read access to the cache directory, or to anything.
+  expect(props.allowingReadAccessToURL).toBeUndefined();
+  expect(props.originWhitelist).toEqual(STATIC_HTML_ORIGIN_WHITELIST);
+  expect(props.injectedJavaScriptBeforeContentLoaded).toBeUndefined();
+});
 
-  // The system cleared the cache: the page is written again and loads in a fresh WebView.
-  await act(async () => (lastProps().onError as () => void)());
-  expect(forgetPreviewPageFile).toHaveBeenCalledWith(PDF_VIEWER_PAGE, VIEWER_FILE);
-  await waitFor(() => expect(mockWebViewMounts.count).toBe(2));
-  expect(previewPageFile).toHaveBeenCalledTimes(2);
-  expect(lastProps().source).toEqual({ uri: VIEWER_FILE });
+it("loads its page under a policy that fetches nothing: no file, no network", async () => {
+  const { html } = await shownPage();
+  const csp = /<meta http-equiv="Content-Security-Policy" content="([^"]*)">/.exec(html)?.[1];
+  expect(csp).toBeDefined();
+  expect(csp).toContain("default-src 'none'");
+  expect(csp).toContain("connect-src 'none'");
+  expect(csp).not.toMatch(/file:|https?:|\*/);
+  // The page script reads nothing either.
+  expect(html).not.toMatch(/XMLHttpRequest|fetch\(/);
+});
 
-  // It failed again: the PDF goes inline, as when the WebView cannot read files.
-  await act(async () => (lastProps().onError as () => void)());
-  await waitFor(() => expect(lastProps().source).toEqual({ html: "<html>QUJD</html>" }));
-  expect(forgetPreviewPageFile).toHaveBeenCalledTimes(2);
-  expect(previewPageFile).toHaveBeenCalledTimes(2);
+it("does not preview a file past the upload cap: the page would hold all of it", async () => {
+  jest.mocked(getInfoAsync).mockResolvedValue({
+    exists: true, isDirectory: false, size: MAX_ATTACHMENT_BYTES + 1, uri: "file:///cache/att-1-2-doc.pdf", modificationTime: 0,
+  });
+  const { findByText, queryByTestId } = await render(viewer(true));
+  await findByText("chat.pdf_preview_failed");
+  expect(queryByTestId("pdf-webview")).toBeNull();
+  expect(readAsStringAsync).not.toHaveBeenCalled();
+});
+
+it("lets go of the PDF when the viewer closes: opened again, it waits for a new read", async () => {
+  const view = await render(viewer(true));
+  await view.findByTestId("pdf-webview");
+  await view.rerender(viewer(false));
+  expect(view.queryByTestId("pdf-webview")).toBeNull();
+  jest.mocked(readAsStringAsync).mockReturnValueOnce(new Promise(() => {}));
+  await view.rerender(viewer(true));
+  await waitFor(() => expect(readAsStringAsync).toHaveBeenCalledTimes(2));
+  // Nothing of the last opening is kept to show.
+  expect(view.queryByTestId("pdf-webview")).toBeNull();
 });
 
 it("stops the download when the viewer closes", async () => {
