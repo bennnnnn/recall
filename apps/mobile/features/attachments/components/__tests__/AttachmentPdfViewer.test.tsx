@@ -1,13 +1,13 @@
 import { render, waitFor } from "@testing-library/react-native";
 import { getInfoAsync, readAsStringAsync } from "expo-file-system/legacy";
-import { StyleSheet } from "react-native";
+import { Linking, StyleSheet } from "react-native";
+import { createOnShouldStartLoadWithRequest } from "react-native-webview/lib/WebViewShared";
 
 import { AttachmentPdfViewer } from "@/features/attachments/components/AttachmentPdfViewer";
 import { MAX_ATTACHMENT_BYTES } from "@/features/attachments/model/attachmentLimits";
 import { ensureLocalAttachmentFile } from "@/features/attachments/model/downloadChatAttachment";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 import { readVendorLibraries } from "@/lib/vendorAssets";
-import { STATIC_HTML_ORIGIN_WHITELIST } from "@/lib/webView";
 
 // One object, as the provider keeps it: a new getter per render re-runs every effect.
 const mockAccountSession = { account: "user-1:0", getToken: () => "tok" };
@@ -101,8 +101,53 @@ it("gives the PDF's page no file access on either platform", async () => {
   expect(props.allowUniversalAccessFromFileURLs).toBeUndefined();
   // iOS: no read access to the cache directory, or to anything.
   expect(props.allowingReadAccessToURL).toBeUndefined();
-  expect(props.originWhitelist).toEqual(STATIC_HTML_ORIGIN_WHITELIST);
   expect(props.injectedJavaScriptBeforeContentLoaded).toBeUndefined();
+});
+
+it("keeps the PDF's page in place: a navigation it starts loads nothing and opens nothing", async () => {
+  const { props } = await shownPage();
+  jest.mocked(Linking.openURL).mockClear();
+  // What react-native-webview does with each navigation: a URL outside
+  // originWhitelist goes to Linking.openURL, with no tap; the rest ask the guard.
+  const loads: [boolean, string][] = [];
+  const navigate = createOnShouldStartLoadWithRequest(
+    (shouldStart, url) => loads.push([shouldStart, url]),
+    props.originWhitelist as string[],
+    props.onShouldStartLoadWithRequest as (request: unknown) => boolean,
+  );
+  const request = (url: string) =>
+    ({ nativeEvent: { url, isTopFrame: true, navigationType: "other", lockIdentifier: 0 } }) as Parameters<typeof navigate>[0];
+
+  // The page itself: iOS asks for the string-loaded document as about:blank.
+  navigate(request("about:blank"));
+  expect(loads).toEqual([[true, "about:blank"]]);
+
+  const elsewhere = [
+    "https://evil.example/steal",
+    "http://localhost:8081/",
+    "https://localhost/",
+    "tel:5551234",
+    "sms:5551234",
+    "mailto:a@example.com",
+    "recall://chat/1",
+    "intent://x#Intent;end",
+    "file:///etc/hosts",
+    "data:text/html,hi",
+    "blob:null/1",
+    "javascript:alert(1)",
+    "some-app:open",
+    "some-app:open",
+  ];
+  for (const url of elsewhere) navigate(request(url));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(Linking.openURL).not.toHaveBeenCalled();
+  expect(loads.slice(1)).toEqual(elsewhere.map((url) => [false, url]));
+});
+
+it("opens no second window: on Android it would load with no guard", async () => {
+  const { props } = await shownPage();
+  expect(props.setSupportMultipleWindows).toBe(false);
+  expect(props.allowsLinkPreview).toBe(false);
 });
 
 it("loads its page under a policy that fetches nothing: no file, no network", async () => {

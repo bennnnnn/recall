@@ -1,14 +1,9 @@
-import { useCallback, useEffect, useRef } from "react";
 import { NativeModules, Platform, TurboModuleRegistry } from "react-native";
 import type { ComponentType } from "react";
 
 import { HTML_RUN_CDN_HOSTS } from "@/lib/htmlRunCdn";
 import { isAllowedLinkUrl } from "@/lib/linkSchemePolicy";
-import {
-  createStaticOnlyNavigationGuard,
-  isPreviewInlineDocumentUrl,
-  type StaticOnlyNavigationGuard,
-} from "@/lib/staticOnlyNavigationGuard";
+import { isPreviewInlineDocumentUrl } from "@/lib/staticOnlyNavigationGuard";
 
 type PreviewWebViewMode = "rnc" | "expo-dom";
 
@@ -147,6 +142,19 @@ export function previewPageLinkToOpen(request?: unknown): string | null {
   return isAllowedLinkUrl(url) ? url : null;
 }
 
+/**
+ * A PDF preview's page (features/attachments/hooks/usePdfPreview.ts) is an
+ * HTML string. Every URL reaches {@link allowPdfPageNavigation}, so
+ * react-native-webview never hands one to the OS: a PDF is untrusted, and its
+ * page has no links of its own to follow.
+ */
+export const PDF_PAGE_ORIGIN_WHITELIST: string[] = ["*"];
+
+/** The page may load itself (iOS reports the string's document as about:blank) and nothing else. */
+export function allowPdfPageNavigation(request?: unknown): boolean {
+  return navigationRequestUrl(request).trim().toLowerCase() === "about:blank";
+}
+
 /** A file URL's whole path, decoded, with iOS's /private/var spelled /var. */
 function filePath(url: string): string | null {
   const match = /^file:\/\/(?:localhost)?(\/[^?#]*)/i.exec(url);
@@ -192,36 +200,4 @@ function navigationRequestType(request: unknown): string {
     return rec.nativeEvent.navigationType;
   }
   return "other";
-}
-
-function guardRequestFromEvent(request?: unknown) {
-  return {
-    url: navigationRequestUrl(request),
-    isTopFrame: navigationRequestIsTopFrame(request),
-    navigationType: navigationRequestType(request),
-  };
-}
-
-/**
- * React wiring for {@link createStaticOnlyNavigationGuard}: pass the HTML
- * string (or other value identifying "new content") as `sourceKey` so a
- * legitimate content change still gets its one allowed load.
- */
-export function useStaticOnlyNavigation(
-  sourceKey: unknown,
-): (request?: unknown) => boolean {
-  const guardRef = useRef<StaticOnlyNavigationGuard | null>(null);
-  if (guardRef.current == null) {
-    guardRef.current = createStaticOnlyNavigationGuard();
-  }
-  const guard = guardRef.current;
-
-  useEffect(() => {
-    guard.reset();
-  }, [sourceKey, guard]);
-
-  return useCallback(
-    (request?: unknown) => guard.shouldAllow(guardRequestFromEvent(request)),
-    [guard],
-  );
 }

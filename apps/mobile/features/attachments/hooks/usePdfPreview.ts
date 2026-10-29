@@ -12,7 +12,7 @@ import {
 } from "@/lib/pdfPreviewHtml";
 import { useTheme } from "@/lib/theme";
 import { readVendorLibraries } from "@/lib/vendorAssets";
-import { STATIC_HTML_ORIGIN_WHITELIST } from "@/lib/webView";
+import { allowPdfPageNavigation, PDF_PAGE_ORIGIN_WHITELIST } from "@/lib/webView";
 
 type Loaded = { uri: string; base64: string; sources: PdfSources };
 
@@ -85,8 +85,17 @@ export function usePdfPreview(options: {
   return {
     status: "ready",
     webViewKey: `${uri}|${colorKey}`,
-    // No allowFileAccess (react-native-webview leaves it off on Android), no
-    // allowingReadAccessToURL (iOS loads the string with no file read access).
-    webViewProps: { source: { html }, originWhitelist: STATIC_HTML_ORIGIN_WHITELIST },
+    webViewProps: {
+      // No allowFileAccess (react-native-webview leaves it off on Android), no
+      // allowingReadAccessToURL (iOS loads the string with no file read access).
+      source: { html },
+      // Every navigation asks the guard, which keeps the page where it is and opens nothing.
+      originWhitelist: PDF_PAGE_ORIGIN_WHITELIST,
+      onShouldStartLoadWithRequest: allowPdfPageNavigation,
+      // Android: window.open would load in a window the guard never sees.
+      setSupportMultipleWindows: false,
+      // iOS: a long press would preview, so load, a link.
+      allowsLinkPreview: false,
+    },
   };
 }
