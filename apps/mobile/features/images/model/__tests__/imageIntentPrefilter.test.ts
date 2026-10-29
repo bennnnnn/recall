@@ -8,6 +8,7 @@ import { mightBeImageTurn } from "@/features/images/model/imageIntentPrefilter";
 import fixture from "../../../../../../docs/fixtures/image_intent_cases.json";
 import followups from "../../../../../api/app/tests/behavior/sweep_corpus/followups.json";
 import intentLookalikes from "../../../../../api/app/tests/behavior/sweep_corpus/intent_lookalikes.json";
+import pictureLanguages from "../../../../../api/app/tests/behavior/sweep_corpus/picture_languages.json";
 import searchPhotos from "../../../../../api/app/tests/behavior/sweep_corpus/search_photos.json";
 import stemWordProblems from "../../../../../api/app/tests/behavior/sweep_corpus/stem_word_problems.json";
 import writingLanguages from "../../../../../api/app/tests/behavior/sweep_corpus/writing_languages.json";
@@ -53,7 +54,9 @@ function fixturePositives(): Positive[] {
 }
 
 function sweepPositives(): Positive[] {
-  const corpora = [followups, intentLookalikes, searchPhotos, stemWordProblems, writingLanguages] as SweepEntry[][];
+  const corpora = [
+    followups, intentLookalikes, pictureLanguages, searchPhotos, stemWordProblems, writingLanguages,
+  ] as SweepEntry[][];
   return corpora.flat()
     .filter((entry) => entry.expect === "photo" || entry.expect === "image_gen")
     .map((entry) => ({
@@ -69,7 +72,7 @@ describe("image intent prefilter", () => {
 
   it("has the server's cases to run", () => {
     expect(fixtureCases.length).toBeGreaterThan(400);
-    expect(sweepCases.length).toBeGreaterThanOrEqual(38);
+    expect(sweepCases.length).toBeGreaterThanOrEqual(70);
   });
 
   it.each(fixtureCases.map((c) => [label(c.text), c] as const))(
@@ -95,6 +98,46 @@ describe("image intent prefilter", () => {
     "remind me to call mom at 5",
     "turn off the lights",
   ])("sends %j straight to chat on an empty thread", (text) => {
+    expect(mightBeImageTurn(text, [], false)).toBe(false);
+  });
+
+  it.each([
+    "Zeichne mir eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
+    "Dibújame un dragón",
+    "¿Me dibujas un dragón?",
+    "Píntame un atardecer",
+    "Mi disegni un panda?",
+    "Tu me dessines un panda ?",
+    "Нарисуешь мне кота?",
+    "Bana bir panda çizer misin?",
+    "ድመት ሳልልኝ",
+    "የአንበሳ ምስል ፍጠር",
+    "Mal mir eine Katze mit Hut",
+    "Explica qué es un agujero negro y dibújame un gato",
+    "Peux-tu me peindre un chat ?",
+    "Malen Sie mir eine Katze",
+    "Male uns einen Drachen",
+    "Crea una ilustracion de un leon",
+    "Crie uma ilustração de um leão",
+    "Erstelle ein Bild von einem Löwen",
+  ])("asks the server about a picture asked in another language: %j", (text) => {
+    expect(mightBeImageTurn(text, [], false)).toBe(true);
+  });
+
+  it.each([
+    "Hola, ¿qué tal?",
+    "Wie spät ist es in Berlin?",
+    "Привет, как дела?",
+    "Bugün hava nasıl?",
+    // Everyday words that once started a picture word: "mal" (bad, once), "peine", "Bildung".
+    "Me siento mal hoy",
+    "Estou mal",
+    "Erklär mal die Steuer",
+    "Ce n'est pas la peine",
+    "Bildung in Deutschland",
+    "Is my cat male or female?",
+    "Ho tre valigie, male?",
+  ])("sends %j in another language straight to chat", (text) => {
     expect(mightBeImageTurn(text, [], false)).toBe(false);
   });
 

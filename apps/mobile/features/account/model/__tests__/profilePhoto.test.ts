@@ -66,14 +66,15 @@ it("prepares a square JPEG preview without changing the original", async () => {
   expect(mockDelete).not.toHaveBeenCalled();
 });
 
-it("keeps a small square photo at its original dimensions", async () => {
+it("keeps a small square photo at its original dimensions, still written again without its metadata", async () => {
   jest.mocked(pickFromPhotoLibrary).mockResolvedValue({
     ...selected, imageSize: { width: 200, height: 200 },
   });
   mockImage.saveAsync.mockResolvedValue({ uri: preview.localUri, width: 200, height: 200 });
-  await pickProfilePhoto();
+  await expect(pickProfilePhoto()).resolves.toMatchObject({ localUri: preview.localUri });
   expect(mockContext.crop).not.toHaveBeenCalled();
   expect(mockContext.resize).not.toHaveBeenCalled();
+  expect(mockImage.saveAsync).toHaveBeenCalledWith({ format: "jpeg", compress: 0.8 });
 });
 
 it("returns cancellation without preparing or deleting any file", async () => {
