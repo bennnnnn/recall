@@ -522,8 +522,13 @@ def test_a_chat_with_no_card_is_unchanged() -> None:
 
 def test_the_write_hint_says_the_model_has_access_and_how_to_read_a_result_line() -> None:
     from app.modules.todos.prompt_hint import TODO_HINT, TODO_READ_ONLY_HINT
+    from app.modules.todos.proposals import FENCE_LANG, reminder_cards_as_text
 
-    assert "never say you have no access" in TODO_HINT
-    assert "'Card offered, not tapped' means it is not saved yet" in TODO_HINT
+    assert "never say you have no access" in TODO_HINT  # safety phrase
     # A turn that may only read to-dos is not taught that it can write them.
-    assert "never say you have no access" not in TODO_READ_ONLY_HINT
+    assert "never say you have no access" not in TODO_READ_ONLY_HINT  # safety phrase
+    # The hint names the line the history shows for a card nobody tapped.
+    card = json.dumps({"items": [{"action": "add", "title": "gym"}]})
+    untapped = reminder_cards_as_text(f"```{FENCE_LANG}\n{card}\n```")
+    marker = ", ".join(untapped.split(", ")[:2])  # "Card offered, not tapped"
+    assert marker in TODO_HINT
