@@ -83,6 +83,40 @@ def dimension_of(expression: str) -> str | None:
     return None if reading is None else reading[0]
 
 
+_CARET_POWER = re.compile(r"\^(-?\d)")
+_SUPERSCRIPT_POWER = re.compile(r"⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]")
+_TO_SUPERSCRIPT = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
+_FROM_SUPERSCRIPT = str.maketrans("⁻⁰¹²³⁴⁵⁶⁷⁸⁹", "-0123456789")
+
+
+def _power_spellings(table: Mapping[str, str]) -> dict[str, str]:
+    """Each listed power also in the other ways it is typed: m/s^2, m/s², m/s2.
+
+    Units listed apart are also read joined by · or * ("m s^-2", "m·s⁻²"). A bare
+    negative power is read only between units ("m s-2"): alone, "2 m-3 m" is a range.
+    A spelling the table lists keeps its own expression.
+    """
+    spellings = dict(table)
+    for spelling, expression in table.items():
+        caret = _SUPERSCRIPT_POWER.sub(
+            lambda match: "^" + match.group(0).translate(_FROM_SUPERSCRIPT), spelling
+        )
+        if "^" not in caret:
+            continue
+        between_units = " " in caret
+        joined = [caret, *(caret.replace(" ", mark) for mark in "·*")] if between_units else [caret]
+        for form in joined:
+            superscript = _CARET_POWER.sub(
+                lambda match: match.group(1).translate(_TO_SUPERSCRIPT), form
+            )
+            variants = [form, superscript]
+            if between_units or "^-" not in form:
+                variants.append(_CARET_POWER.sub(r"\1", form))
+            for variant in variants:
+                spellings.setdefault(variant, expression)
+    return spellings
+
+
 def _alternation(spellings: list[str]) -> str:
     """The spellings longest first; an empty table matches nothing, not an empty unit."""
     if not spellings:
@@ -107,8 +141,8 @@ class UnitTable:
         special: SpecialUnit | None = None,
         exact: Mapping[str, str] | None = None,
     ) -> None:
-        self.symbols = dict(symbols)
-        self.words = dict(words)
+        self.symbols = _power_spellings(symbols)
+        self.words = _power_spellings(words)
         self._special = special
         self._exact = dict(exact or {})
         self._symbol_re = re.compile(rf"[ \t]?(?P<unit>{_alternation(list(self.symbols))}){_END}")

@@ -55,6 +55,9 @@ _SYMBOLS: dict[str, str] = {
     "kPa": "kilopascal",
     "MPa": "megapascal",
     "GPa": "gigapascal",
+    "N/m^2": "newton / meter ** 2",
+    # A rate or a decay constant; alone, "s-1" is not read (see law_binding.units).
+    "s^-1": "1 / second",
     # Field strength: a newton per coulomb is a volt per metre.
     "N/C": "newton / coulomb",
     # Case-sensitive: "nm" stays nanometres.
@@ -111,6 +114,8 @@ _WORDS: dict[str, str] = {
     "m/s2": "meter / second ** 2",
     "m/s²": "meter / second ** 2",
     "m s^-2": "meter / second ** 2",
+    # A speed as a product of powers: "10 m s-1" was read as 10 metres.
+    "m s^-1": "meter / second",
     "rad/s^2": "radian / second ** 2",
     "rad/s2": "radian / second ** 2",
     "m/s": "meter / second",

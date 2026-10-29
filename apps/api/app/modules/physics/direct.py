@@ -254,8 +254,10 @@ def _given_value(name: str, value: float, unit: str, substitution: str) -> str:
     if latex_unit(si_unit) == latex_unit(unit) and math.isclose(si_value, value):
         return written
     # The factor that makes the SI value, so the step reads as one: 100 km/h * 1000/3600.
+    # A unit that is SI under another name (N/m² is Pa) has none to show.
     factor = si_factor(unit, expected_key=name) if value else None
-    times = f" {latex_factor(*factor)}" if factor else ""
+    scales = factor is not None and not math.isclose(factor[0], factor[1])
+    times = f" {latex_factor(*factor)}" if factor and scales else ""
     return f"{written}{times} = {latex_given(si_value)}{latex_unit(si_unit)}"
 
 

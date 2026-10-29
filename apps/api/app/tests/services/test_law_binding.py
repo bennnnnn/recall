@@ -84,6 +84,32 @@ def test_a_special_reader_and_an_exact_spelling_extend_the_table() -> None:
 
 
 @pytest.mark.parametrize(
+    ("listed", "typed"),
+    [
+        ("m/s^2", ("m/s^2", "m/s²", "m/s2")),
+        ("cm³", ("cm^3", "cm³", "cm3")),
+        ("m s^-2", ("m s^-2", "m s⁻²", "m s-2", "m·s⁻²", "m*s^-2", "m·s-2")),
+    ],
+)
+def test_a_listed_power_reads_however_it_is_typed(listed: str, typed: tuple[str, ...]) -> None:
+    table = UnitTable({listed: "unit"}, {})
+    for spelling in typed:
+        assert table.at(f"2 {spelling}", 1) == (spelling, "unit")
+
+
+def test_a_bare_negative_power_alone_is_not_a_unit() -> None:
+    # "between 2 m-3 m" is a range, so only "m^-3" and "m⁻³" read.
+    table = UnitTable({"m": "meter", "m^-3": "1 / meter ** 3"}, {})
+    assert table.at("2 m⁻³", 1) == ("m⁻³", "1 / meter ** 3")
+    assert table.at("2 m-3 m", 1) == ("m", "meter")
+
+
+def test_a_listed_spelling_keeps_its_own_meaning() -> None:
+    table = UnitTable({"x^2": "first", "x2": "second"}, {})
+    assert table.expression("x2") == "second"
+
+
+@pytest.mark.parametrize(
     "table",
     [UnitTable({"L": "liter"}, {}), UnitTable({}, {"liter": "liter"}), UnitTable({}, {})],
 )

@@ -55,6 +55,10 @@ _UNIT_NORMALIZATIONS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bv[ _]?sound\b", re.IGNORECASE), "speed of sound"),
     # "120 kph": the speed readers split a speed at its slash.
     (re.compile(r"(?<=\d)(\s*)(?:kph|kmph|kmh)\b", re.IGNORECASE), r"\1km/h"),
+    # "9.8 m s-2", "m s^-2", "m·s⁻¹": a unit written as a product of powers, which
+    # the readers know only with a slash. "ms" stays milliseconds.
+    (re.compile(r"(?<=\d)(\s*)m(?:\s+|\s*[·*]\s*)s\s*(?:\^\s*-\s*2|-2|⁻²)(?!\d)"), r"\1m/s^2"),
+    (re.compile(r"(?<=\d)(\s*)m(?:\s+|\s*[·*]\s*)s\s*(?:\^\s*-\s*1|-1|⁻¹)(?!\d)"), r"\1m/s"),
 )
 
 
