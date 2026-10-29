@@ -76,6 +76,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 4.8 | Daily image cap enforced (free) | ☐ | ☐ | |
 | 4.9 | Daily speech STT / TTS caps | ☐ | ☐ | Free: no voice input (the mic opens the plans) and read-aloud uses the phone's voice only. Plus and Pro: 200 dictations and 100 natural read-alouds a day (`core/settings/plans.py`); over the cap shows the limit message. |
 | 4.10 | Dictation with the microphone denied | ☐ | ☐ | Turn Recall's microphone off in system Settings, tap the mic: "Microphone access needed" alert; no recording starts and nothing uploads. Airplane mode after recording: "network" message, not a transcription failure. |
+| 4.11 | A geotagged photo leaves without its location | ☐ | ☐ | Attach a photo with GPS (taken with camera location tagging on), small (a screenshot-sized crop under 2048 px) and full size, from the library, the camera and Files; also a scanner capture and a profile photo. Download each stored file (Library → ⋮ → Save, or `GET /attachments/{id}/file`) and run `exiftool -gps:all -xmp:all <file>`: nothing. Portrait photos stay upright; a PNG with transparency keeps it; an animated GIF still animates. |
 
 ---
 

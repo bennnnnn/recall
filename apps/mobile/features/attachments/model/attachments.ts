@@ -210,9 +210,7 @@ export async function pickFromPhotoLibrary(
         imageSize: { width: asset.width, height: asset.height },
       };
     }
-    return await assetToPending({
-      uri: asset.uri, contentType: asset.mimeType ?? "", fileName, width: asset.width, height: asset.height,
-    });
+    return await assetToPending({ uri: asset.uri, contentType: asset.mimeType ?? "", fileName });
   });
 }
 
@@ -267,8 +265,6 @@ export async function pickFromCamera(): Promise<PendingAttachment | null> {
       uri: asset.uri,
       contentType: asset.mimeType ?? "",
       fileName: asset.fileName ?? `camera-${Date.now()}.jpg`,
-      width: asset.width,
-      height: asset.height,
     });
   });
 }
