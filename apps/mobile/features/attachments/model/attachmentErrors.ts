@@ -34,8 +34,13 @@ const MESSAGE_KEYS: Record<AttachmentFailure, string> = {
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
-/** The toast for a failed pick or upload. Anything untyped is the generic message, never raw text. */
+/**
+ * The toast for a failed pick or upload. No answer from Recall (offline at the presign)
+ * is the unreachable line, as everywhere else; it said "Could not attach". Anything else
+ * untyped is the generic message, never raw text.
+ */
 export function attachmentErrorMessage(error: unknown, t: Translate): string {
+  if (isServerUnreachable(error)) return t("chat.error_unreachable");
   if (!(error instanceof AttachmentError)) return t("chat.attach_failed");
   return t(MESSAGE_KEYS[error.reason], { limit: MAX_ATTACHMENT_MEGABYTES });
 }
