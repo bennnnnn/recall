@@ -17,6 +17,10 @@ review 8's: asked about with a dropped "it" ("Dime si es educado. Dibújame un g
 in English ("Dibújame un gato. Why is the me at the end?"). No rule told those apart
 from a real second request, so no other-language message is cut into a picture and a
 request at all.
+
+Every line is checked here, at the reader. The behavior sweep runs every tenth line of each
+group through the whole turn (``sweep_corpus/picture_languages.json``), so a rule elsewhere
+that hijacks one of these shapes shows up there without repeating 2,400 full turns in CI.
 """
 
 from __future__ import annotations
@@ -32,20 +36,28 @@ from app.modules.images.intent import composer_image_intent
 _GROUPS: dict[str, list[str]] = json.loads(
     Path(__file__).with_name("language_misfires.json").read_text(encoding="utf-8")
 )
-MISFIRES = [
-    pytest.param(text, id=f"group{n}-{i}")
-    for n, texts in enumerate(_GROUPS.values())
-    for i, text in enumerate(texts)
-]
 
 
 def test_every_review_is_here() -> None:
     reviews = {group.split(" (")[0] for group in _GROUPS}
     assert {f"review {n}" for n in range(1, 9)} <= reviews
-    assert len(MISFIRES) >= 2400
+    assert sum(len(texts) for texts in _GROUPS.values()) >= 2400
 
 
-@pytest.mark.parametrize("text", MISFIRES)
-def test_no_picture(text: str) -> None:
-    assert composer_image_intent(text, []).request is None
-    assert not plan_turn(text).of_kind("image")
+def test_the_sweep_runs_every_group_through_the_whole_turn() -> None:
+    corpus = Path(__file__).parents[2] / "behavior" / "sweep_corpus" / "picture_languages.json"
+    swept = {entry["prompt"] for entry in json.loads(corpus.read_text(encoding="utf-8"))}
+    assert [name for name, texts in _GROUPS.items() if not swept & set(texts)] == []
+
+
+# One test per group, not per line: 2,400 parametrized tests cost CI four times the checks.
+@pytest.mark.parametrize(
+    "group", [pytest.param(name, id=f"group{n}") for n, name in enumerate(_GROUPS)]
+)
+def test_no_picture(group: str) -> None:
+    drawn = [
+        text
+        for text in _GROUPS[group]
+        if composer_image_intent(text, []).request is not None or plan_turn(text).of_kind("image")
+    ]
+    assert drawn == []
