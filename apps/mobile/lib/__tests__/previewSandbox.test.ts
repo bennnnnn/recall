@@ -10,6 +10,19 @@ import {
   stripScripts,
 } from "@/lib/previewSandbox";
 
+/** The CSP meta prepareHtmlRunDocument writes: the one pragma the Run tab keeps. */
+const RUN_CSP_TAG = `<meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP_LIVE}">`;
+
+/**
+ * How many times "http-equiv" sits where an attribute name can start (after
+ * whitespace, "/" or a quote), so a browser could read it as a pragma. Test inputs
+ * hold the word only as an attribute name, so 0 means no live pragma is left; in a
+ * Run document the one left must be the app's own CSP.
+ */
+function pragmaNames(html: string): number {
+  return (html.match(/(?<![\w-])http-equiv/gi) ?? []).length;
+}
+
 describe("PREVIEW_VIEWPORT", () => {
   it("does not lock pinch zoom or system text scaling", () => {
     expect(PREVIEW_VIEWPORT).toContain("width=device-width");
@@ -72,13 +85,12 @@ describe("prepareHtmlRunDocument", () => {
     expect(out).toContain("Object.defineProperty(loc, \"href\"");
   });
 
-  it("strips meta-refresh before injecting CSP and stay script", () => {
+  it("disarms meta-refresh and keeps its own CSP and stay script", () => {
     const out = prepareHtmlRunDocument(
       '<html><head><meta http-equiv="refresh" content="0;url=https://evil.example/phish"></head><body>ok</body></html>',
     );
-    expect(out.toLowerCase()).not.toContain("refresh");
-    expect(out).not.toContain("evil.example");
-    expect(out).toContain("Content-Security-Policy");
+    expect(pragmaNames(out)).toBe(1);
+    expect(out).toContain(`${RUN_CSP_TAG}<script>`);
   });
 
   it("injects the stay script immediately after the CSP meta, before user head scripts", () => {
@@ -316,12 +328,11 @@ describe("stripScripts", () => {
     expect(out.toLowerCase()).not.toContain("vbscript:");
   });
 
-  it("strips zero-click meta-refresh redirects", () => {
+  it("disarms zero-click meta-refresh redirects", () => {
     const out = stripScripts(
       '<meta http-equiv="refresh" content="0;url=https://evil.example/phish">',
     );
-    expect(out).not.toContain("evil.example");
-    expect(out.toLowerCase()).not.toContain("refresh");
+    expect(pragmaNames(out)).toBe(0);
   });
 
   it("leaves ordinary safe links and images untouched", () => {
@@ -345,5 +356,130 @@ describe("stripScripts", () => {
     const out = stripScripts("<script>alert(1)</script\t\n bar><p>ok</p>");
     expect(out.toLowerCase()).not.toContain("alert");
     expect(out).toContain("<p>ok</p>");
+  });
+});
+
+// A2: the meta-refresh strip was one regex that wanted whitespace before
+// http-equiv and a literal "refresh", so "/" between attributes, an encoded
+// value or a ">" in an earlier quoted value walked past it. Every shape below
+// must leave no live pragma on either path: the Run tab (its own CSP aside) and
+// the stripped copy that Open in browser / Share hand to the system browser.
+describe("meta pragmas (A2)", () => {
+  const EVIL = "https://evil.example/phish";
+  const REFRESH_SHAPES: [string, string][] = [
+    ["'/' before the attribute", `<meta/http-equiv=refresh content="0;url=${EVIL}">`],
+    ["a tab before the attribute", `<meta\thttp-equiv=refresh content="0;url=${EVIL}">`],
+    ["a newline before the attribute", `<meta\nhttp-equiv=refresh content="0;url=${EVIL}">`],
+    ["a form feed before the attribute", `<meta\fhttp-equiv=refresh content="0;url=${EVIL}">`],
+    ["a carriage return before the attribute", `<meta\rhttp-equiv=refresh content="0;url=${EVIL}">`],
+    ["'/' between attributes", `<meta content="0;url=${EVIL}"/http-equiv=refresh>`],
+    ["no space after a quoted value", `<meta content="0;url=${EVIL}"http-equiv=refresh>`],
+    ["an upper-case tag, name and value", `<META HTTP-EQUIV="REFRESH" CONTENT="0;URL=${EVIL}">`],
+    ["mixed case, single quotes", `<MeTa Http-Equiv='ReFresh' content='0;url=${EVIL}'>`],
+    ["an unquoted value", `<meta http-equiv=refresh content=0;url=${EVIL}>`],
+    ["whitespace around '='", `<meta http-equiv = "refresh" content = "0;url=${EVIL}">`],
+    ["a decimal entity in the value", `<meta http-equiv="&#114;efresh" content="0;url=${EVIL}">`],
+    ["a hex entity in the value", `<meta http-equiv="re&#x66;resh" content="0;url=${EVIL}">`],
+    [
+      "a fully encoded value",
+      `<meta http-equiv="&#x72;&#x65;&#x66;&#x72;&#x65;&#x73;&#x68;" content="0;url=${EVIL}">`,
+    ],
+    [
+      "extra attributes before and after",
+      `<meta name="x" data-a=1 http-equiv="refresh" content="0;url=${EVIL}" id=y>`,
+    ],
+    ["'>' in an earlier double-quoted value", `<meta content="a>b" http-equiv=refresh>`],
+    [
+      "'>' in an earlier single-quoted value",
+      `<meta name='a>b' http-equiv="refresh" content="0;url=${EVIL}">`,
+    ],
+    ["a self-closing tag", `<meta http-equiv="refresh" content="0;url=${EVIL}" />`],
+    ["the attribute twice", `<meta http-equiv=x HTTP-EQUIV=refresh content="0;url=${EVIL}">`],
+    ["no closing '>' (the app's next text closes it)", `<p>hi</p><meta http-equiv=refresh content="0;url=${EVIL}"`],
+    [
+      "a dead tag in a comment running over a live one",
+      `<!-- <meta title=' --><meta http-equiv=refresh content="0;url=${EVIL}"><p>'</p>`,
+    ],
+  ];
+
+  // Every http-equiv a preview could meet, not only refresh: none is needed
+  // (the charset comes from how the page is loaded) and some act on their own.
+  const OTHER_PRAGMAS: [string, string][] = [
+    ["set-cookie", `<meta http-equiv="set-cookie" content="sid=1; path=/">`],
+    ["a second content-security-policy", `<meta http-equiv="Content-Security-Policy" content="default-src *">`],
+    ["default-style", `<meta http-equiv="default-style" content="dark">`],
+    ["x-dns-prefetch-control", `<meta http-equiv="x-dns-prefetch-control" content="on">`],
+    ["content-type", `<meta http-equiv="content-type" content="text/html; charset=iso-2022-jp">`],
+  ];
+
+  describe.each([...REFRESH_SHAPES, ...OTHER_PRAGMAS])("%s", (_shape, meta) => {
+    it("prepareHtmlRunDocument keeps only its own CSP", () => {
+      const out = prepareHtmlRunDocument(
+        `<!DOCTYPE html><html><head>${meta}</head><body><p>ok</p>${meta}</body></html>`,
+      );
+      expect(pragmaNames(out)).toBe(1);
+      expect(out).toContain(`<head>${RUN_CSP_TAG}<script>(function () {`);
+    });
+
+    it("prepareHtmlRunDocument disarms it in a bare fragment", () => {
+      const out = prepareHtmlRunDocument(`<p>ok</p>${meta}`);
+      expect(pragmaNames(out)).toBe(1);
+      expect(out).toContain(`${RUN_CSP_TAG}<script>`);
+    });
+
+    it("stripScripts leaves no pragma", () => {
+      expect(pragmaNames(stripScripts(`<p>ok</p>${meta}<p>after</p>`))).toBe(0);
+    });
+  });
+
+  it("stripScripts does not turn a removed meta into a live <script>", () => {
+    // On main, deleting the meta joined "<scr" and "ipt>" into a real script tag.
+    const out = stripScripts(`<scr<meta http-equiv=refresh content="0;url=${EVIL}">ipt>alert(1)</script>`);
+    expect(out).not.toMatch(/<script/i);
+    expect(pragmaNames(out)).toBe(0);
+  });
+
+  it("stripScripts disarms a pragma that its URL filter pieces together", () => {
+    // Removing the javascript: href joins "http-equ" and "iv" into http-equiv.
+    const out = stripScripts(`<meta http-equ href="javascript:x"iv=refresh content="0;url=${EVIL}">`);
+    expect(pragmaNames(out)).toBe(0);
+  });
+
+  it("stripScripts disarms a pragma that its script filter pieces together", () => {
+    const out = stripScripts(`<me<script></script>ta http-equiv=refresh content="0;url=${EVIL}">`);
+    expect(pragmaNames(out)).toBe(0);
+  });
+
+  it("prepareHtmlRunDocument disarms a pragma pieced together before <head>", () => {
+    // Scripts before <head> are dropped (the CSP would not cover them), which
+    // joins "<me" and "ta ..." into a meta the old pre-pass never saw.
+    const out = prepareHtmlRunDocument(
+      `<html><me<script></script>ta http-equiv=refresh content="0;url=${EVIL}"><head></head><body></body></html>`,
+    );
+    expect(pragmaNames(out)).toBe(1);
+    expect(out).toContain(`<head>${RUN_CSP_TAG}<script>`);
+  });
+
+  it("puts the stay script after the real CSP, not a decoy in a comment", () => {
+    const out = prepareHtmlRunDocument(
+      '<html><!-- <meta http-equiv="Content-Security-Policy" content="x"> --><head></head><body></body></html>',
+    );
+    expect(out).toContain(`<head>${RUN_CSP_TAG}<script>(function () {`);
+    expect(pragmaNames(out)).toBe(1);
+  });
+
+  it("puts the stay script after the real CSP even when the page copies that tag", () => {
+    const out = prepareHtmlRunDocument(
+      `<html><!-- ${RUN_CSP_TAG} --><head></head><body></body></html>`,
+    );
+    expect(out).toContain(`<!-- ${RUN_CSP_TAG} -->`);
+    expect(out).toContain(`<head>${RUN_CSP_TAG}<script>(function () {`);
+  });
+
+  it("stripScripts leaves ordinary metas and prose about http-equiv alone", () => {
+    const html =
+      '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
+      "<p>The http-equiv attribute: <code>&lt;meta http-equiv=&quot;refresh&quot;&gt;</code></p>";
+    expect(stripScripts(html)).toBe(html);
   });
 });
