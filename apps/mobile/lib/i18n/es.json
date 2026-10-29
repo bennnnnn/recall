@@ -1044,7 +1044,7 @@
   "todos.error_create": "No se pudo crear la tarea",
   "todos.error_delete": "No se pudo eliminar",
   "todos.error_due": "No se pudo actualizar la fecha",
-  "todos.error_toggle": "No se pudo actualizar",
+  "todos.error_update": "No se pudo actualizar",
   "todos.overdue_days": "{{count}} d de retraso",
   "todos.overdue_today": "Vencido hoy",
   "todos.row_overdue": "vencida",

@@ -1026,7 +1026,7 @@
   "todos.error_create": "Could not save",
   "todos.error_delete": "Could not delete",
   "todos.error_due": "Could not update date",
-  "todos.error_toggle": "Could not update",
+  "todos.error_update": "Could not update",
   "todos.group_anytime": "Anytime",
   "todos.group_completed": "Completed",
   "todos.show_older_completed": "Show older completed",

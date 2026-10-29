@@ -1036,7 +1036,7 @@
   "todos.error_create": "Aufgabe konnte nicht erstellt werden",
   "todos.error_delete": "Löschen fehlgeschlagen",
   "todos.error_due": "Datum konnte nicht aktualisiert werden",
-  "todos.error_toggle": "Aktualisierung fehlgeschlagen",
+  "todos.error_update": "Aktualisierung fehlgeschlagen",
   "todos.overdue_days": "{{count}} T. überfällig",
   "todos.overdue_today": "Heute überfällig",
   "todos.row_overdue": "überfällig",

@@ -127,6 +127,33 @@ it.each([
   expect(hapticCount()).toBe(1);
 });
 
+it("sends one save for two taps before the card re-renders", async () => {
+  let answer!: (value: { items: never[]; todos: Todo[]; deleted_ids: string[] }) => void;
+  jest.mocked(api.confirmReminderProposal).mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+  const { result } = await renderHook(() => useReminderProposal(proposal));
+  await act(async () => {
+    void result.current.confirm();
+    void result.current.confirm();
+  });
+  await act(async () => { answer({ items: [], todos: [], deleted_ids: [] }); });
+  expect(api.confirmReminderProposal).toHaveBeenCalledTimes(1);
+  expect(result.current.done).toBe(true);
+  expect(result.current.error).toBeNull();
+});
+
+it("lets a failed save be tapped again", async () => {
+  jest.mocked(api.confirmReminderProposal)
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValueOnce({ items: [], todos: [], deleted_ids: [] });
+  const { result } = await renderHook(() => useReminderProposal(proposal));
+  await act(async () => { await result.current.confirm(); });
+  expect(result.current.error).toBe("failed");
+  await act(async () => { await result.current.confirm(); });
+  expect(api.confirmReminderProposal).toHaveBeenCalledTimes(2);
+  expect(result.current.done).toBe(true);
+  expect(result.current.error).toBeNull();
+});
+
 it("says a failed save with a haptic and no success", async () => {
   jest.mocked(api.confirmReminderProposal).mockRejectedValue(Object.assign(new Error("gone"), { status: 410 }));
   const { result } = await renderHook(() => useReminderProposal(proposal));

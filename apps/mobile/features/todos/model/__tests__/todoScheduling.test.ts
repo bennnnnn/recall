@@ -1,5 +1,10 @@
 import * as Notifications from "expo-notifications";
-import { syncTodoReminders, cancelAllTodoReminders, todoNotificationId } from "@/features/todos/model/todoReminders";
+import {
+  cancelAllTodoReminders,
+  MAX_SCHEDULED_REMINDERS,
+  syncTodoReminders,
+  todoNotificationId,
+} from "@/features/todos/model/todoReminders";
 import { ensureNotificationPermission } from "@/lib/pushNotifications";
 import type { Todo } from "@/lib/api/types";
 let mockSession = 1;
@@ -185,5 +190,32 @@ describe("the alert goes at the server's notify_at, as it is", () => {
   it("still leaves every alert to push when the server holds this device's token", async () => {
     await syncTodoReminders([todo], { remotePush: true });
     expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe("the iOS pending-alert limit", () => {
+  // Reminder i is due i hours into 2099, listed latest first.
+  const many = Array.from({ length: MAX_SCHEDULED_REMINDERS + 10 }, (_, i) => ({
+    ...todo,
+    id: `t${i}`,
+    notify_at: new Date(Date.UTC(2099, 0, 1, i)).toISOString(),
+  })).reverse();
+
+  it("schedules only the soonest alerts", async () => {
+    await syncTodoReminders(many, { remotePush: false });
+    expect(scheduled.size).toBe(MAX_SCHEDULED_REMINDERS);
+    expect(scheduled.has(todoNotificationId("t0"))).toBe(true);
+    expect(scheduled.has(todoNotificationId(`t${MAX_SCHEDULED_REMINDERS - 1}`))).toBe(true);
+    expect(scheduled.has(todoNotificationId(`t${MAX_SCHEDULED_REMINDERS}`))).toBe(false);
+  });
+
+  it("gives a fired alert's slot to the next reminder on the next sync", async () => {
+    await syncTodoReminders(many, { remotePush: false });
+    // t0 fired (the OS drops it), and the list read on coming back says it is past.
+    scheduled.delete(todoNotificationId("t0"));
+    const later = many.map((item) => (item.id === "t0" ? { ...item, notify_at: "2020-01-01T00:00:00Z" } : item));
+    await syncTodoReminders(later, { remotePush: false });
+    expect(scheduled.size).toBe(MAX_SCHEDULED_REMINDERS);
+    expect(scheduled.has(todoNotificationId(`t${MAX_SCHEDULED_REMINDERS}`))).toBe(true);
   });
 });
