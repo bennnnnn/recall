@@ -7,6 +7,7 @@ import { isAllowedLinkUrl } from "@/lib/linkSchemePolicy";
 import {
   createStaticOnlyNavigationGuard,
   isPreviewInlineDocumentUrl,
+  PREVIEW_INLINE_BASE_URL,
   type StaticOnlyNavigationGuard,
 } from "@/lib/staticOnlyNavigationGuard";
 
@@ -73,17 +74,12 @@ export function getPreviewWebView(): PreviewWebViewResult | null {
 }
 
 /**
- * Inline `source={{ html }}` previews. Include the historical RNC `baseUrl`
- * (`https://localhost/`) plus `about:blank`; the nav guard still blocks real
- * open-web navigations after load.
+ * Inline `source={{ html }}` previews: their own document and nothing else.
+ * No `localhost` or `127.0.0.1` pattern: react-native-webview matches these
+ * as origin prefixes, so one let any local port (and `localhost.evil.com`)
+ * reach the guard.
  */
-export const STATIC_HTML_ORIGIN_WHITELIST: string[] = [
-  "about:blank",
-  "http://localhost*",
-  "https://localhost*",
-  "http://127.0.0.1*",
-  "https://127.0.0.1*",
-];
+export const STATIC_HTML_ORIGIN_WHITELIST: string[] = [PREVIEW_INLINE_BASE_URL];
 
 /**
  * HTML Run passes every navigation to {@link allowHtmlRunNavigation}.

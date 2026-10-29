@@ -177,7 +177,6 @@ function LiveWebPreview({
         javaScriptEnabled
         domStorageEnabled={false}
         allowsInlineMediaPlayback
-        mixedContentMode="always"
         setSupportMultipleWindows={false}
         nestedScrollEnabled
         onLoadStart={() => setLoading(true)}
