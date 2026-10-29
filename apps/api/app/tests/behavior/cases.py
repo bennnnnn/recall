@@ -2171,6 +2171,31 @@ CASES: tuple[Case, ...] = (
         pro=True,
     ),
     Case(
+        "multi-question-then-draw-me-fr",
+        "multi-intent",
+        "Quelle est la capitale de l'Italie ? Dessine-moi un chat",
+        Expect(image_gen=False, picture=True, hints=("multi_intent",)),
+        "A question of its own, then a draw-me picture: the cat above the answer (round 8).",
+        pro=True,
+    ),
+    Case(
+        "multi-translate-draw-me-line-es",
+        "multi-intent",
+        "Traduce al inglés: dibújame un gato",
+        Expect(image_gen=False, picture=False, photo=NO_PHOTO),
+        "The draw-me line is the text to translate: answered, no picture, as English "
+        "'Translate to Spanish: draw me a cat' is (round 8).",
+        pro=True,
+    ),
+    Case(
+        "multi-quoted-draw-me-line-de",
+        "multi-intent",
+        "„Zeichne mir ein Schaf“: Wer hat das gesagt?",
+        Expect(image_gen=False, picture=False, photo=NO_PHOTO),
+        "Who said a quoted draw-me line: answered, no picture (round 8).",
+        pro=True,
+    ),
+    Case(
         "multi-compare-and-install",
         "multi-intent",
         "compare python and javascript, and how do I install node on mac?",
