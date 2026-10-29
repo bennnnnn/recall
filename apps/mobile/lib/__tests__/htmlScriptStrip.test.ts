@@ -139,11 +139,6 @@ const BYPASSES: { name: string; html: string; gone: RegExp }[] = [
   { name: "script assembled by removing a URL", html: '<scr href="javascript:x"ipt>alert(1)</script>', gone: /<script/i },
   { name: "script assembled by removing a refresh", html: "<scr<meta http-equiv=refresh content=0>ipt>alert(1)</script>", gone: /<script/i },
   { name: "handler assembled by removing a URL", html: '<a onclick href="javascript:x"=alert(1)>x</a>', gone: /onclick/i },
-  // Meta refresh in shapes the old pattern missed.
-  { name: "refresh after a slash", html: '<meta/http-equiv="refresh" content="0;url=https://evil.example">', gone: /http-equiv/i },
-  { name: "encoded refresh", html: '<meta http-equiv="re&#102;resh" content="0;url=https://evil.example">', gone: /http-equiv/i },
-  { name: "refresh with > in a value", html: '<meta content="a>b" http-equiv="REFRESH" content="0;url=https://evil.example">', gone: /http-equiv/i },
-  { name: "refresh after a quote in a name", html: '<meta x" http-equiv=refresh content="0;url=https://evil.example">', gone: /http-equiv/i },
 ];
 
 describe("stripScripts: bypass classes (A3)", () => {

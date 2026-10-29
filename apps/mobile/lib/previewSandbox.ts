@@ -1,5 +1,4 @@
 import { HTML_RUN_CDN_CSP } from "@/lib/htmlRunCdn";
-import { stripRefreshRedirects } from "@/lib/htmlScriptStrip";
 
 /**
  * Content-Security-Policy for the sandboxed HTML/JS preview.
@@ -111,9 +110,12 @@ const HTML_RUN_STAY_JS = `(function () {
   } catch (err) {}
 })();`;
 
+export const META_REFRESH = /<\s*meta\b[^>]*\shttp-equiv\s*=\s*["']?refresh["']?[^>]*>/gi;
+
 /** Full document for the HTML Run WebView: wrap + live CSP + stay-on-page trap. */
 export function prepareHtmlRunDocument(html: string): string {
-  const withCsp = injectPreviewCsp(stripRefreshRedirects(html), PREVIEW_CSP_LIVE);
+  const withoutRefresh = replaceUntilStable(html, META_REFRESH, "");
+  const withCsp = injectPreviewCsp(withoutRefresh, PREVIEW_CSP_LIVE);
   const stayTag = `<script>${HTML_RUN_STAY_JS}</script>`;
   const cspTag = /(<meta http-equiv="Content-Security-Policy"[^>]*>)/i.exec(withCsp);
   if (cspTag && cspTag.index != null) {
@@ -202,6 +204,18 @@ export const HTML_EXPORT_CSP = [
  * CodeQL js/bad-tag-filter rejects `</script\s*>` which misses those shapes.
  */
 const SCRIPT_END = String.raw`<\/script[^>]*>`;
+
+/** Apply `replace` until the string stops changing (CodeQL multi-char sanitization). */
+function replaceUntilStable(input: string, pattern: RegExp, replacement: string): string {
+  let out = input;
+  let prev = "";
+  // Cap iterations — adversarial input should not hang the UI.
+  for (let i = 0; i < 32 && out !== prev; i++) {
+    prev = out;
+    out = out.replace(pattern, replacement);
+  }
+  return out;
+}
 
 /** A DOCTYPE at the very start: only HTML whitespace before it, ending at its first `>` as a browser's does. */
 const LEADING_DOCTYPE = /^[\t\n\f\r ]*<!doctype[^>]*>/i;

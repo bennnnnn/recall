@@ -1,5 +1,6 @@
 import { decodeAttributeEntities } from "@/lib/htmlEntities";
 import { isInlineRasterDataUrl } from "@/lib/images/inlineRaster";
+import { META_REFRESH } from "@/lib/previewSandbox";
 
 // Strips script from model-written HTML before it leaves the app's sandbox
 // (system browser, share sheet) or reaches the Expo Go static renderer.
@@ -32,7 +33,6 @@ function attributePattern(name: string): RegExp {
 
 const EVENT_HANDLER_ATTR = attributePattern(String.raw`on\w+`);
 const SRCDOC_ATTR = attributePattern("srcdoc");
-const HTTP_EQUIV_ATTR = attributePattern("http-equiv");
 /**
  * Attributes a browser follows or loads as a URL, under any `prefix:` too (SVG's
  * `xlink:href`). `values`/`from`/`to`/`by` are SVG animation values, which can
@@ -43,12 +43,6 @@ const URL_ATTR = attributePattern(
 );
 /** Of those, the ones holding several URLs: every entry is checked, not just the first. */
 const URL_LIST_ATTR = /(?:^|:)(?:srcset|values|from|to|by)$/;
-/**
- * A `<meta>` tag, quoted values read whole (a `>` inside one does not end it).
- * It never reads past a `<`, so each match stays short on any input; a tag it
- * cannot read is still caught by the `http-equiv` pass after it.
- */
-const META_TAG = /<\s*meta\b(?:"[^"<]*"|'[^'<]*'|[^<>"'])*>/gi;
 const SCHEME_START = /javascript:|vbscript:|data:/g;
 
 // Whitespace and C0 control characters, built via String.fromCharCode (not a
@@ -92,28 +86,12 @@ function dropAttributes(
   );
 }
 
-function isRefresh(_name: string, rawValue: string): boolean {
-  return attributeUrl(rawValue) === "refresh";
-}
-
-/**
- * Remove meta-refresh redirects: each `<meta>` whose `http-equiv` reads
- * "refresh" once decoded, then any such `http-equiv` left in a shape that tag
- * pattern cannot read (a quote inside an attribute name), so no element keeps one.
- */
-export function stripRefreshRedirects(html: string): string {
-  const withoutTags = html.replace(META_TAG, (tag) =>
-    dropAttributes(tag, HTTP_EQUIV_ATTR, isRefresh) === tag ? tag : REMOVED,
-  );
-  return dropAttributes(withoutTags, HTTP_EQUIV_ATTR, isRefresh);
-}
-
 function stripScriptsOnce(html: string): string {
   let out = html.replace(SCRIPT_BLOCK_RE, REMOVED).replace(SCRIPT_SELF_CLOSE_RE, REMOVED);
   out = dropAttributes(out, EVENT_HANDLER_ATTR, () => true);
   // An iframe decodes srcdoc into a document of its own, so any value can hold a script.
   out = dropAttributes(out, SRCDOC_ATTR, () => true);
-  out = stripRefreshRedirects(out);
+  out = out.replace(META_REFRESH, REMOVED);
   return dropAttributes(out, URL_ATTR, (name, value) => hasScriptUrl(name, attributeUrl(value)));
 }
 
@@ -122,9 +100,10 @@ function stripScriptsOnce(html: string): string {
  * script URLs (`javascript:`, `vbscript:`, non-raster `data:`) from HTML.
  *
  * Used for the "Open in browser" / share paths, which hand model-generated HTML
- * to the system browser, and the Expo Go static preview. Attributes are read as
- * a browser's tokenizer reads them: any separator, any case, character
- * references decoded. A removal can expose new markup (`<a onclick
+ * to the system browser, and the Expo Go static preview. Handler, `srcdoc` and
+ * URL attributes are read as a browser's tokenizer reads them: any separator,
+ * any case, character references decoded (meta refresh uses the HTML Run tab's
+ * {@link META_REFRESH}). A removal can expose new markup (`<a onclick
  * href="javascript:x"=alert(1)>` leaves `onclick =alert(1)`), so the passes run
  * until nothing changes; input still changing after {@link MAX_STRIP_PASSES}
  * comes back as escaped text. The export also carries `HTML_EXPORT_CSP`

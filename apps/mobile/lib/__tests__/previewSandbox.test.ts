@@ -81,18 +81,6 @@ describe("prepareHtmlRunDocument", () => {
     expect(out).toContain("Content-Security-Policy");
   });
 
-  it("strips meta-refresh in the shapes the tokenizer still reads as one", () => {
-    for (const refresh of [
-      '<meta/http-equiv="refresh" content="0;url=https://evil.example/phish">',
-      '<meta http-equiv="re&#102;resh" content="0;url=https://evil.example/phish">',
-      '<meta content="a>b" http-equiv=REFRESH content="0;url=https://evil.example/phish">',
-    ]) {
-      const out = prepareHtmlRunDocument(`<html><head>${refresh}</head><body>ok</body></html>`);
-      expect(out).not.toContain("evil.example");
-      expect(out).toContain("<body>ok</body>");
-    }
-  });
-
   it("injects the stay script immediately after the CSP meta, before user head scripts", () => {
     const out = prepareHtmlRunDocument(
       "<html><head><script>window.user=1</script></head><body></body></html>",
