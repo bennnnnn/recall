@@ -79,7 +79,7 @@ async function writeHtmlPreviewFile(html: string): Promise<string | null> {
  * refuses every script even where the strip misses one. Interactive previews
  * run in the in-app WebView (CSP-sandboxed) instead.
  */
-export function htmlExportDocument(html: string): string {
+function htmlExportDocument(html: string): string {
   return injectPreviewCsp(wrapFullDocument(stripScripts(html)), HTML_EXPORT_CSP);
 }
 

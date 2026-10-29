@@ -111,7 +111,6 @@ const HTML_RUN_STAY_JS = `(function () {
   } catch (err) {}
 })();`;
 
-
 /** Full document for the HTML Run WebView: wrap + live CSP + stay-on-page trap. */
 export function prepareHtmlRunDocument(html: string): string {
   const withCsp = injectPreviewCsp(stripRefreshRedirects(html), PREVIEW_CSP_LIVE);
