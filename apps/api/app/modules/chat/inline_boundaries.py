@@ -209,11 +209,27 @@ def _read_emphasis(text: str, index: int) -> int | None:
     return close + 1
 
 
+# One letter in bold or italics, inside a word: a mnemonic's "**A**ffect is
+# **A**ction" became "**A** ffect is **A** ction" (2026-10-29). Letters of an alphabet
+# (Latin, Greek, Cyrillic): in a syllabary such as Amharic's, one sign is a syllable. A
+# longer span ("the**US**economy"), or one against a digit ("**at**40"), is still a missing space.
+_ALPHABET = "A-Za-z\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff"
+_IN_WORD = re.compile(rf"(\*{{1,3}})[{_ALPHABET}]\1")
+_ALPHABET_LETTER = re.compile(rf"[{_ALPHABET}]")
+
+
+def _in_word(span: str, neighbour: str) -> bool:
+    return (
+        _ALPHABET_LETTER.fullmatch(neighbour) is not None and _IN_WORD.fullmatch(span) is not None
+    )
+
+
 def _emit(out: list[str], span: str, nxt: str) -> None:
-    if out and _glue_before(out[-1][-1:]):
+    previous = out[-1][-1:] if out else ""
+    if out and _glue_before(previous) and not _in_word(span, previous):
         out.append(" ")
     out.append(span)
-    if _glue_after(nxt[:1]):
+    if _glue_after(nxt[:1]) and not _in_word(span, nxt[:1]):
         out.append(" ")
 
 
