@@ -128,8 +128,9 @@ async def test_a_turn_in_a_chat_its_window_holds_queues_no_compress_job(prior: i
     [
         # Three messages out of the newest twenty: the job folds them.
         (21, _lines(20)),
-        # Long messages push the older ones out of the token budget, not the count.
-        (4, _lines(5, words=1500)),
+        # Long messages push the older ones out of the token budget, not the count:
+        # three of ~5,400 tokens overflow 16,000.
+        (4, _lines(5, words=4000)),
     ],
 )
 async def test_a_turn_with_messages_out_of_the_window_queues_the_compress_job(
