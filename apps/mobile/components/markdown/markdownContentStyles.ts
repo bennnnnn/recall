@@ -251,6 +251,13 @@ export function compactMdStyles<T extends ReturnType<typeof makeMdStyles>>(style
     paragraphRun: { ...styles.paragraphRun, marginBottom: 0 },
     bullet_list: { ...styles.bullet_list, marginBottom: 0 },
     ordered_list: { ...styles.ordered_list, marginBottom: 0 },
+    // A sent bubble is as wide as its text. Yoga gives any positive `flex` a zero basis (an
+    // explicit `flexBasis: "auto"` does not override it), so an item's text added no width:
+    // the bubble fit only the numbers and "1. buy milk" showed as "1.". `flex: 0` with grow
+    // and shrink sizes the text from its content and still wraps it. The library derives
+    // each `_VIEW_SAFE_` key from these.
+    ordered_list_content: { flex: 0, flexGrow: 1, flexShrink: 1 },
+    bullet_list_content: { flex: 0, flexGrow: 1, flexShrink: 1 },
   };
 }
 

@@ -303,3 +303,32 @@ describe("UserMessageContent for a screen reader", () => {
     },
   );
 });
+
+/** The style of the nearest ancestor that flexes: the item's text column. */
+type TreeNode = { parent: TreeNode | null; props: { style?: unknown } };
+
+function itemColumnStyle(node: TreeNode): { flex?: unknown; flexShrink?: unknown } | null {
+  for (let at = node.parent; at; at = at.parent) {
+    const style = StyleSheet.flatten(at.props.style as never) as { flex?: unknown; flexShrink?: unknown };
+    if (style && "flex" in style) return style;
+  }
+  return null;
+}
+
+describe("UserMessageContent typed lists", () => {
+  // The bubble is as wide as its text. A list item's text column with positive flex has a
+  // zero basis and adds no width, so "1. dhdhd" showed as a bubble of bare numbers.
+  it.each([
+    ["1. dhdhd\n2. hjdjdjd", ["dhdhd", "hjdjdjd"]],
+    ["- milk\n- eggs", ["milk", "eggs"]],
+  ])("sizes each item of %j from its own text", async (content, items) => {
+    const { getByText } = await render(<UserMessageContent message={userMessage(content)} />);
+    for (const item of items) {
+      // Yoga gives any positive flex a zero basis, whatever flexBasis says.
+      const style = itemColumnStyle(getByText(item));
+      expect(style?.flex).toBe(0);
+      expect(style?.flexShrink).toBe(1);
+    }
+  });
+});
+
