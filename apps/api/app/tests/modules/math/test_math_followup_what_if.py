@@ -61,3 +61,79 @@ async def test_the_rebuilt_equation_gets_the_verified_lesson() -> None:
     assert reply is not None
     assert "**1. Subtract 5 from both sides** — Subtraction property of equality" in reply
     assert reply.count("```answer") == 1
+
+
+# Live (2026-10-29): the follow-up chip "What if I convert 10 miles instead?" after
+# "convert 5 miles to km" went to the model and came back as a bare "Answer:" line.
+@pytest.mark.parametrize(
+    ("query", "rebuilt"),
+    [
+        ("What if I convert 10 miles instead?", "convert 10 miles to km"),
+        ("what about 10 miles?", "convert 10 miles to km"),
+        ("and 12 miles", "convert 12 miles to km"),
+    ],
+)
+def test_a_new_amount_of_the_problems_unit_is_the_same_problem(query: str, rebuilt: str) -> None:
+    assert restated_math_problem(query, _history("convert 5 miles to km")) == rebuilt
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # A unit the problem has no amount of, or none it has at all.
+        "how about 3 km",
+        "what about 10 kg?",
+        "What if I had 10 friends?",
+    ],
+)
+def test_an_amount_the_problem_does_not_have_is_left_alone(query: str) -> None:
+    assert restated_math_problem(query, _history("convert 5 miles to km")) is None
+
+
+@pytest.mark.parametrize(
+    ("query", "prior", "rebuilt"),
+    [
+        # The whole quantity is replaced, its sign included.
+        (
+            "what about 10 celsius",
+            "convert -5 celsius to fahrenheit",
+            "convert 10 celsius to fahrenheit",
+        ),
+        (
+            "what about -10 celsius",
+            "convert 5 celsius to fahrenheit",
+            "convert -10 celsius to fahrenheit",
+        ),
+        # The same unit written another way.
+        ("what about 3 feet", "convert 5 ft to m", "convert 3 feet to m"),
+        ("what about 3 inches", "convert 5 inch to cm", "convert 3 inches to cm"),
+        ("what about 3 hours", "convert 5 hr to minutes", "convert 3 hours to minutes"),
+    ],
+)
+def test_the_whole_amount_is_replaced_in_any_spelling_of_its_unit(
+    query: str, prior: str, rebuilt: str
+) -> None:
+    assert restated_math_problem(query, _history(prior)) == rebuilt
+
+
+# Review (2026-10-29): each of these was rewritten into a different problem the solver
+# then verified ("-5" read as "5" kept its minus, "1/2" became "1/3").
+@pytest.mark.parametrize(
+    ("query", "prior"),
+    [
+        ("what about 3 miles", "convert 1/2 mile to feet"),
+        ("what about 3 miles", "convert 5 1/2 miles to km"),
+        ("what about 5 miles", "convert 1,000 miles to km"),
+        ("what about negative 10 celsius", "convert 5 celsius to fahrenheit"),
+        ("and another 3 apples", "I have 5 apples and eat 2. How many are left?"),
+        ("and not 10 miles", "convert 5 miles to km"),
+        ("what about 3 ms", "convert 5 m to cm"),
+        ("what about 3 m", "convert 5 ms to s"),
+        ("what about 3 mb", "convert 5 MB to KB"),
+        ("what about 10 m", "convert 5 m/s to km/h"),
+    ],
+)
+def test_a_line_that_is_not_just_a_new_amount_of_the_same_unit_is_left_alone(
+    query: str, prior: str
+) -> None:
+    assert restated_math_problem(query, _history(prior)) is None
