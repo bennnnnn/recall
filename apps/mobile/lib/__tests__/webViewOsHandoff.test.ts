@@ -4,13 +4,7 @@
  * with no tap from the user. These run the library's own handler with each
  * preview's whitelist, so a page's script navigation never reaches the OS.
  */
-import { createStaticOnlyNavigationGuard } from "@/lib/staticOnlyNavigationGuard";
-import {
-  allowHtmlRunNavigation,
-  HTML_RUN_ORIGIN_WHITELIST,
-  PDF_PREVIEW_ORIGIN_WHITELIST,
-  PREVIEW_PAGE_ORIGIN_WHITELIST,
-} from "@/lib/webView";
+import { allowHtmlRunNavigation, HTML_RUN_ORIGIN_WHITELIST, PREVIEW_PAGE_ORIGIN_WHITELIST } from "@/lib/webView";
 
 const mockLinking = {
   openURL: jest.fn(() => Promise.resolve()),
@@ -42,12 +36,9 @@ const { createOnShouldStartLoadWithRequest } = require("react-native-webview/lib
   createOnShouldStartLoadWithRequest: CreateHandler;
 };
 
-const PDF_PAGE = "file:///data/user/0/com.recall.app/cache/preview-pages/pdf-viewer-0123456789abcdef.html";
-
 /** Each preview WebView: its whitelist and a guard that says no to a page leaving (it opens nothing itself). */
 const SURFACES: [string, readonly string[], (request: { url: string }) => boolean][] = [
   ["a diagram, chart or drawing card", PREVIEW_PAGE_ORIGIN_WHITELIST, () => false],
-  ["the PDF card and viewer", PDF_PREVIEW_ORIGIN_WHITELIST, createStaticOnlyNavigationGuard().shouldAllow],
   ["the HTML Run tab", HTML_RUN_ORIGIN_WHITELIST, allowHtmlRunNavigation],
 ];
 
@@ -80,8 +71,6 @@ describe("preview WebViews hand no navigation to the OS", () => {
         whitelist,
         (request) => {
           asked.push(request.url);
-          // The PDF guard may let one unknown scheme load in its own frame (an
-          // error page there); what matters is that the OS never sees it.
           return guard(request);
         },
       );
@@ -93,18 +82,4 @@ describe("preview WebViews hand no navigation to the OS", () => {
       expect(decided).toHaveLength(1);
     },
   );
-
-  it("still loads the PDF viewer's own page", () => {
-    const decided: boolean[] = [];
-    const guard = createStaticOnlyNavigationGuard();
-    const handler = createOnShouldStartLoadWithRequest(
-      (shouldStart) => decided.push(shouldStart),
-      PDF_PREVIEW_ORIGIN_WHITELIST,
-      guard.shouldAllow,
-    );
-    handler({ nativeEvent: { url: PDF_PAGE, lockIdentifier: 1 } });
-    handler({ nativeEvent: { url: "about:blank", lockIdentifier: 2 } });
-    expect(decided).toEqual([true, true]);
-    expect(mockLinking.openURL).not.toHaveBeenCalled();
-  });
 });

@@ -14,18 +14,10 @@ import {
 import { forgetPreviewPageFile, previewPageFile } from "@/lib/previewPageFile";
 import { useTheme } from "@/lib/theme";
 import { readVendorLibraries } from "@/lib/vendorAssets";
-import { getPreviewWebView, PDF_PREVIEW_ORIGIN_WHITELIST } from "@/lib/webView";
+import { getPreviewWebView, STATIC_HTML_ORIGIN_WHITELIST } from "@/lib/webView";
 
-/**
- * What every PDF WebView needs so no navigation reaches the OS: every URL
- * goes to the viewer's navigation guard, and on Android a window the page
- * opens (target="_blank", window.open) stays in this WebView, where the guard
- * sees it, instead of a bare WebView that hands it to the system.
- */
-const PDF_NAVIGATION_PROPS = {
-  originWhitelist: PDF_PREVIEW_ORIGIN_WHITELIST,
-  setSupportMultipleWindows: false,
-} as const;
+/** The file-backed page is a file:// document reading a file:// PDF. */
+const FILE_ORIGIN_WHITELIST = [...STATIC_HTML_ORIGIN_WHITELIST, "file://*"];
 
 /** A viewer page that will not load (the system cleared the cache) is written and loaded once more. */
 const VIEWER_RETRIES = 1;
@@ -121,7 +113,7 @@ export function usePdfPreview(options: {
     return {
       status: "ready",
       webViewKey: `${key}|${colorKey}`,
-      webViewProps: { source: { html }, ...PDF_NAVIGATION_PROPS, onMessage },
+      webViewProps: { source: { html }, originWhitelist: STATIC_HTML_ORIGIN_WHITELIST, onMessage },
     };
   }
   return {
@@ -130,7 +122,7 @@ export function usePdfPreview(options: {
     webViewProps: {
       source: { uri: current.viewer },
       injectedJavaScriptBeforeContentLoaded: pdfPreviewConfigScript({ src: current.pdf, allPages, colors }),
-      ...PDF_NAVIGATION_PROPS,
+      originWhitelist: FILE_ORIGIN_WHITELIST,
       allowFileAccess: true,
       allowFileAccessFromFileURLs: true,
       allowingReadAccessToURL: cacheDirectory ?? undefined,

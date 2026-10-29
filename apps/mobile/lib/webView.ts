@@ -74,12 +74,17 @@ export function getPreviewWebView(): PreviewWebViewResult | null {
 }
 
 /**
- * The PDF preview, on its page file or inline. Every URL reaches its
- * {@link useStaticOnlyNavigation} guard, which only ever says yes or no: a URL
- * that missed a narrower list (a web page, the dialer, Messages, an Android
- * `intent:`) went to `Linking.openURL` with no tap from the user.
+ * Inline `source={{ html }}` previews. Include the historical RNC `baseUrl`
+ * (`https://localhost/`) plus `about:blank`; the nav guard still blocks real
+ * open-web navigations after load.
  */
-export const PDF_PREVIEW_ORIGIN_WHITELIST: string[] = ["*"];
+export const STATIC_HTML_ORIGIN_WHITELIST: string[] = [
+  "about:blank",
+  "http://localhost*",
+  "https://localhost*",
+  "http://127.0.0.1*",
+  "https://127.0.0.1*",
+];
 
 /**
  * HTML Run passes every navigation to {@link allowHtmlRunNavigation}.
