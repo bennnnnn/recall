@@ -409,10 +409,6 @@
      [
       "system",
       "@STYLE_HINTS[short] 1 @LIGHTWEIGHT_REPLY_HINT 1 @SHORT_RESPONSE_FORMAT_HINT 1 @MATH_FENCE_SAFETY_HINT 3"
-     ],
-     [
-      "system",
-      "4"
      ]
     ],
     "out": {}

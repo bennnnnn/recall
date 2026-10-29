@@ -75,6 +75,7 @@ from app.modules.chat.prompt_constants import (
 )
 from app.modules.chat.prompt_constants.lesson_flow import lesson_after_gap
 from app.modules.chat.prompt_constants.multi_part import multi_part_contract
+from app.modules.chat.prompt_constants.reactions import clock_is_relevant
 from app.modules.chat.prompt_format import (
     PromptRule,
     _layout_format_hint,
@@ -335,8 +336,9 @@ TURN_SECTIONS: tuple[PromptSection, ...] = (
 # follow-up policies that hang on it. Before the history, any of it would leave the
 # whole history uncached.
 CONTEXT_SECTIONS: tuple[PromptSection, ...] = (
+    # Not on a greeting, an ack or a reaction unless it names a time (reactions.py).
     PromptSection(
-        _always,
+        lambda t: clock_is_relevant(t.lightweight, t.query_text),
         lambda t: [
             time_context_service.format_now_awareness(t.local_tz, t.user.locale, t.query_text)
         ],
