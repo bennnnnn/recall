@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.services.glyphs import SUPERSCRIPT_DIGIT_GLYPHS, SUPERSCRIPT_DIGITS
+from app.services.glyphs import SUPERSCRIPT_DIGIT_GLYPHS, SUPERSCRIPT_SIGNED
 from app.services.text_normalize import collapse_ws
 
 _MAX_SYMBOLIC_REQUEST = 1000
@@ -14,7 +14,8 @@ _MAX_PHYSICS_REQUEST = 4_000
 # and only its head and tail are worth looking at.
 _MAX_SUBJECT_TEXT = 20_000
 _SUP_GLYPHS = SUPERSCRIPT_DIGIT_GLYPHS
-_SUP_TABLE = SUPERSCRIPT_DIGITS
+_SUP_SIGNS = "⁻⁺"
+_SUP_TABLE = SUPERSCRIPT_SIGNED
 
 
 def strip_inline_math_delimiters(text: str) -> str:
@@ -57,7 +58,9 @@ def fold_numeric_superscripts(text: str) -> str:
     index = 0
     while index < len(text):
         char = text[index]
-        if char in _SUP_GLYPHS:
+        # A sign opens the power it belongs to: "s⁻²" is "s^-2", not "s⁻^2".
+        signed = char in _SUP_SIGNS and index + 1 < len(text) and text[index + 1] in _SUP_GLYPHS
+        if char in _SUP_GLYPHS or signed:
             end = index + 1
             while end < len(text) and text[end] in _SUP_GLYPHS:
                 end += 1
