@@ -88,15 +88,18 @@ def _left(result: int, count: Callable[[int], str]) -> str:
 
 
 def verified_counting_fence(body: str, verified: VerifiedMathBlock | None) -> str | None:
-    """Keep a counting picture only when it is the one the verified working draws.
+    """Keep a counting picture only when it is the one the verified working draws, on a
+    turn that asked how.
 
-    The fence rewriter otherwise drops an arithmetic fence it did not produce,
-    and a bare ``3-3`` is not an explanation request, so the picture would never
-    reach the phone. A model-written or altered picture still does not pass.
+    The fence rewriter otherwise drops an arithmetic fence it did not produce. A plain
+    sum gets no picture (2026-10-29), so one copied from an explained turn earlier in
+    the chat is dropped too. A model-written or altered picture still does not pass.
     """
     from app.modules.math.tools.direct_arithmetic import arithmetic_work_spec
 
-    if verified is None:
+    if verified is None or verified.response_intent is None:
+        return None
+    if not verified.response_intent.wants_explanation:
         return None
     try:
         data = json.loads(body.strip())

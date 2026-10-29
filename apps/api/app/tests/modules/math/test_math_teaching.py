@@ -69,11 +69,11 @@ def test_seven_plus_five_is_one_equation():
     _intent, block = _block("7+5")
     assert block.canonical_answer == "12"
     assert block.display_answer == "7 + 5 = 12"
-    # One answer line, under a picture of objects to count.
+    # One answer line; objects to count only when asked how (test_math_counting_picture).
     reply = maybe_direct_math_reply(block, "7+5") or ""
     assert reply.endswith(card_with_working("7 + 5 = 12", "7+5"))
     assert reply.count("```answer") == 1
-    assert '"type":"counting"' in reply
+    assert '"type":"counting"' not in reply
 
 
 @pytest.mark.parametrize(
@@ -122,9 +122,9 @@ def test_each_operation_is_the_same_equation_line(text, equation, value):
     reply = maybe_direct_math_reply(block, text) or ""
     assert reply.endswith(card_with_working(equation, text))
     assert reply.count("```answer") == 1
-    # Objects to count, not the old dot array.
+    # Asked plainly: no old dot array, and no objects to count.
     assert '"type":"array"' not in reply
-    assert '"type":"counting"' in reply
+    assert '"type":"counting"' not in reply
 
 
 def test_multidigit_addition_keeps_the_column_trace():
