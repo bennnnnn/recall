@@ -21121,5 +21121,338 @@
       "answer"
     ],
     "note": "A request of its own and a draw-me picture: the picture is drawn beside the answer (round 8)."
+  },
+  {
+    "id": "pl8-mis-316",
+    "area": "picture languages",
+    "prompt": "¿Qué figura retórica es? Dibújame un gato",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-317",
+    "area": "picture languages",
+    "prompt": "¿Es una metáfora? Dibújame un gato",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-318",
+    "area": "picture languages",
+    "prompt": "¿Qué recurso literario usa? Dibújame un gato",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-319",
+    "area": "picture languages",
+    "prompt": "Explica el chiste. Dibújame un gato",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-320",
+    "area": "picture languages",
+    "prompt": "Dibújame un gato y dime qué figura retórica usa",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-321",
+    "area": "picture languages",
+    "prompt": "Quelle figure de style est-ce ? Dessine-moi un mouton",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-322",
+    "area": "picture languages",
+    "prompt": "Explique la blague. Dessine-moi un mouton",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-323",
+    "area": "picture languages",
+    "prompt": "Welche Zeitform? Zeichne mir eine Katze",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-324",
+    "area": "picture languages",
+    "prompt": "Welches Stilmittel ist das? Zeichne mir eine Katze",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-325",
+    "area": "picture languages",
+    "prompt": "Erkläre den Witz. Zeichne mir eine Katze",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-326",
+    "area": "picture languages",
+    "prompt": "Quale figura retorica è? Disegnami un gatto",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-327",
+    "area": "picture languages",
+    "prompt": "Spiega la barzelletta. Disegnami un gatto",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-328",
+    "area": "picture languages",
+    "prompt": "Qual figura de linguagem é? Desenha-me um gato",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-329",
+    "area": "picture languages",
+    "prompt": "Explica a piada. Desenha-me um gato",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-330",
+    "area": "picture languages",
+    "prompt": "Какой падеж? Нарисуй мне кота",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-331",
+    "area": "picture languages",
+    "prompt": "Какая метафора? Нарисуй мне кота",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-332",
+    "area": "picture languages",
+    "prompt": "Объясни шутку. Нарисуй мне кота",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-333",
+    "area": "picture languages",
+    "prompt": "Hangi zaman? Bana bir kedi çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-334",
+    "area": "picture languages",
+    "prompt": "Fıkrayı açıkla. Bana bir kedi çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-335",
+    "area": "picture languages",
+    "prompt": "ቀልዱን አስረዳኝ። ድመት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-336",
+    "area": "picture languages",
+    "prompt": "Dibújame un gato. ¿Qué tal mi español?",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-337",
+    "area": "picture languages",
+    "prompt": "¿Qué tal mi español? Dibújame un gato",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-338",
+    "area": "picture languages",
+    "prompt": "‘Dibújame un gato’: ¿quién lo dijo?",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-339",
+    "area": "picture languages",
+    "prompt": "Dibújame un gato y traduce la frase",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-340",
+    "area": "picture languages",
+    "prompt": "¿Cómo se llama esto en inglés? Dibújame un gato",
+    "history": [],
+    "reply": "Claro, te lo explico con palabras y un ejemplo sencillo.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-341",
+    "area": "picture languages",
+    "prompt": "Comment est mon français ? Dessine-moi un chat",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-342",
+    "area": "picture languages",
+    "prompt": "Dessine-moi un chat. Comment est mon français ?",
+    "history": [],
+    "reply": "Bien sûr, je t'explique avec des mots et un exemple simple.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-343",
+    "area": "picture languages",
+    "prompt": "Erkläre das und zeichne mir eine Katze",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-344",
+    "area": "picture languages",
+    "prompt": "Was ist mit meinem Deutsch? Zeichne mir eine Katze",
+    "history": [],
+    "reply": "Klar, ich erkläre es dir in Worten und mit einem einfachen Beispiel.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-345",
+    "area": "picture languages",
+    "prompt": "Com'è il mio italiano? Disegnami un gatto",
+    "history": [],
+    "reply": "Certo, te lo spiego a parole con un esempio semplice.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-346",
+    "area": "picture languages",
+    "prompt": "Como está o meu português? Desenha-me um gato",
+    "history": [],
+    "reply": "Claro, eu explico com palavras e um exemplo simples.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-347",
+    "area": "picture languages",
+    "prompt": "Объясни это и нарисуй мне кота",
+    "history": [],
+    "reply": "Конечно, объясню словами на простом примере.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-348",
+    "area": "picture languages",
+    "prompt": "Bunu açıkla ve bana bir kedi çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-349",
+    "area": "picture languages",
+    "prompt": "Türkçem nasıl? Bana bir kedi çiz",
+    "history": [],
+    "reply": "Tabii, bunu kelimelerle ve basit bir örnekle açıklayayım.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-350",
+    "area": "picture languages",
+    "prompt": "ይህን አስረዳኝ እና ድመት ሳልልኝ",
+    "history": [],
+    "reply": "እሺ፣ በቃላት እና በቀላል ምሳሌ ላስረዳህ።",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-351",
+    "area": "picture languages",
+    "prompt": "How is my Spanish? Dibújame un gato",
+    "history": [],
+    "reply": "Sure, here it is in words with a simple example.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
+  },
+  {
+    "id": "pl8-mis-352",
+    "area": "picture languages",
+    "prompt": "Translate this and dibújame un gato",
+    "history": [],
+    "reply": "Sure, here it is in words with a simple example.",
+    "expect": "answer",
+    "note": "Answered, no picture: the request beside the draw-me line asks about its wording or points at it (round 8 after the blind run)."
   }
 ]

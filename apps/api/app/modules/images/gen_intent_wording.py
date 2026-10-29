@@ -59,9 +59,10 @@ def _w(text: str) -> frozenset[str]:
 
 # A word starting with one of these asks about wording: translate, mean, spell, pronounce,
 # grammar and its terms, word, sentence, language, correct, accent, capitals, rhyme, repeat,
-# conjugate, tense, the opposite, how it sounds or reads, a quote, and who wrote it or which
-# book, film, song or poem it is from. Turkish, Russian "по-" and Amharic language names
-# name only the language ("İngilizce", "по-английски"), so they are here too.
+# conjugate, tense and case, the opposite, a figure of speech or style, how it sounds or
+# reads, a joke, a quote, and who wrote it or which book, film, song or poem it is from.
+# Turkish, Russian "по-" and Amharic language names name only the language ("İngilizce",
+# "по-английски"), so they are here too.
 _STEMS = tuple(
     """
     translat pronounc spell grammar grammatic meaning synonym antonym rhym quotation
@@ -100,6 +101,10 @@ _STEMS = tuple(
     pelicula film movie canción cancion chanson lied canzone canção cancao песн şarkı song
     poem poème poesía poesia poet poète dichter gedicht стих поэт şiir şair escribió
     escribio написал yazdı yazmış yazıyor
+    retóric retoric rhétori rhetori metáfor metafor métaphor metaphor метафор stilmittel
+    stilfigur literari literári letterari littérai literarisch литератур edebi zeitform
+    tempus падеж склонени kasus deklin chiste blague witz barzellett piada шутк анекдот
+    fıkra şaka
     """.split()
 )
 # Whole words: forms of "say", "written", "word", "error".
@@ -117,9 +122,11 @@ _WORDS = _w(
     верно
     denir deniyor demek dil dili dilde dilinde diline dilin
     wrote suena suenan suona suonano sonne sonnent klingt звучит soa soam tono tone тон
+    style joke jokes
     """
 )
-# A language's name after "in", "into", "to": "en inglés", "ins Englische", "на английский".
+# A language's name after "in", "into", "to" or "my": "en inglés", "ins Englische", "на
+# английский", "¿Qué tal mi español?".
 # Alone it is often a people's or a country's adjective: "la Revolución Francesa",
 # "deutsche Geschichte", "a French recipe".
 _LANGUAGE_STEMS = tuple(
@@ -147,6 +154,8 @@ _INTO = _w(
     """
     in into to from en al a del de el auf ins aus im vom em para pro do da o l' le lo il
     dal dall' all' allo nel nell' на с со из в по
+    my your mi mis tu tus mon ma ton ta mein meine meinem meinen dein deine deinem mio mia
+    tuo tua meu minha teu мой моя моё твой твоя твоё
     """
 )
 # Two words: "se dice", "quer dizer", "sagt man".
@@ -173,7 +182,7 @@ _AMHARIC = (
     "ርጉም ይባላል ማለት ቃል ቃላት ዓረፍተ አረፍተ ሰዋሰው ፊደል አጻጻፍ አፃፃፍ ተጽፏ ተፅፏ ተጻፈ ተፃፈ "
     "አነባበብ አጠራር ይነበባል ቋንቋ እንግሊዝኛ ስፓኒሽ ፈረንሳይኛ ጀርመንኛ ጣሊያንኛ ፖርቱጋልኛ "
     "ሩሲያኛ ቱርክኛ አማርኛ ቻይንኛ ዓረብኛ አረብኛ ትክክል ስህተት ተሳሳ ጥቅስ ተናገ ድገም ድገሚ "
-    "ይጻፋል ይፃፋል ጻፈ ፃፈ ይላል ደራሲ መጽሐፍ መፅሐፍ ፊልም ዘፈን ግጥም"
+    "ይጻፋል ይፃፋል ጻፈ ፃፈ ይላል ደራሲ መጽሐፍ መፅሐፍ ፊልም ዘፈን ግጥም ቀልድ ቀልዱ ቀልዶ"
 ).split()
 # Words that point at the line or at something earlier: "esta frase", "eso", "это".
 POINTERS = _w(

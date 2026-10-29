@@ -120,6 +120,14 @@ def test_a_time_is_no_colon() -> None:
         "በእንግሊዝኛ እንዴት ይባላል? ድመት ሳልልኝ",
         "ይህ ዓረፍተ ነገር ትክክል ነው? ድመት ሳልልኝ",
         "How do you pronounce this? Zeichne mir eine Katze",
+        # Figures of speech, tense and case, a joke, "how is my Spanish?".
+        "¿Qué figura retórica es? Dibújame un gato",
+        "Quelle figure de style est-ce ? Dessine-moi un mouton",
+        "Welche Zeitform? Zeichne mir eine Katze",
+        "Какой падеж? Нарисуй мне кота",
+        "Explica el chiste. Dibújame un gato",
+        "¿Qué tal mi español? Dibújame un gato",
+        "How is my Spanish? Dibújame un gato",
         # Attribution.
         "¿Quién es el autor? Dibújame un cordero",
         "¿Qué libro es? Dibújame un cordero",
@@ -149,6 +157,8 @@ def test_a_picture_after_an_ask_about_it_is_not_cut(text: str) -> None:
         "Zeichne mir ein Schaf. Wie sagt man das auf Französisch?",
         "Нарисуй мне барашка. Кто автор?",
         "Bana bir kuzu çiz. Yazarı kim?",
+        "Dessine-moi un chat. Comment est mon français ?",
+        "Dibújame un gato y dime qué figura retórica usa",
         "በግ ሳልልኝ። በእንግሊዝኛ እንዴት ይባላል?",
     ],
 )
