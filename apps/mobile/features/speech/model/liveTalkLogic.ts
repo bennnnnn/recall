@@ -143,9 +143,14 @@ export function liveTalkShouldCloseOnChatChange(
   return Boolean(boundChatId) && nextChatId !== boundChatId;
 }
 
-/** Background / inactive: flush and hang up so Realtime billing cannot continue. */
+/**
+ * Background: flush and hang up so Realtime billing cannot continue. iOS reports
+ * "inactive" for Control Center, a notification pulled down and its own microphone
+ * prompt, which ended a first call before the user could answer it; leaving the
+ * app still passes through "background".
+ */
 export function liveTalkShouldCloseOnAppState(state: string): boolean {
-  return state !== "active";
+  return state === "background";
 }
 
 /** react-native-webrtc may deliver data-channel payloads as a string or bytes. */

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Linking } from "react-native";
 import { useSharedValue } from "react-native-reanimated";
 
 import { transcribeSpeech } from "@/lib/api";
@@ -14,7 +15,7 @@ import {
   VOICE_MAX_RECORDING_MS,
   type VoiceRecorder,
 } from "@/lib/speech/voiceAudio";
-import { alertDialog } from "@/ui/overlay/dialogs";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 type Options = {
   token: string | null;
@@ -100,9 +101,14 @@ export function useVoiceInput({
       const permission = await requestVoicePermission(mod);
       if (gen !== captureGenRef.current) return false;
       if (!permission.granted) {
-        void alertDialog({
+        // The OS asks only once; after a denial only Settings can turn it on.
+        void confirmDialog({
           title: t("chat.voice_permission_title"),
           message: t("chat.voice_permission_body"),
+          cancelLabel: t("common.cancel"),
+          confirmLabel: t("chat.location_open_settings"),
+        }).then((open) => {
+          if (open) void Linking.openSettings();
         });
         return false;
       }
