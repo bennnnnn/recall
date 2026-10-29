@@ -56,6 +56,9 @@ describe("wrapFullDocument", () => {
 
 const DATA_URL_PREFIX = "data:text/html;charset=utf-8,";
 const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${HTML_EXPORT_CSP}">`;
+/** What the exported document starts with: its charset, then its CSP. */
+const EXPORT_HEAD = `<!DOCTYPE html><meta charset="utf-8">${CSP_META}`;
+const UTF8_BOM = "\uFEFF";
 
 /** The document "Open in browser" hands the system browser as a data: URL. */
 async function openedDocument(html: string): Promise<string> {
@@ -67,20 +70,22 @@ async function openedDocument(html: string): Promise<string> {
   return decodeURIComponent(url.slice(DATA_URL_PREFIX.length));
 }
 
-/** The file Share writes and hands the share sheet. */
+/** The file Share writes and hands the share sheet, after its byte-order mark. */
 async function sharedDocument(html: string): Promise<string> {
   jest.spyOn(Share, "share").mockResolvedValue({ action: Share.sharedAction });
   jest.mocked(writeAsStringAsync).mockClear();
   await expect(shareHtmlPreview(html)).resolves.toBe(true);
-  return String(jest.mocked(writeAsStringAsync).mock.calls[0]?.[1]);
+  const file = String(jest.mocked(writeAsStringAsync).mock.calls[0]?.[1]);
+  expect(file.startsWith(UTF8_BOM)).toBe(true);
+  return file.slice(UTF8_BOM.length);
 }
 
 /**
- * The CSP is the document's first element: the parser puts it in the head it
- * opens, before anything else in the document can run or load.
+ * The charset and the CSP are the document's first elements: the parser puts
+ * them in the head it opens, before anything else in the document can run or load.
  */
 function expectCspInHead(doc: string): void {
-  expect(doc.startsWith(`<!DOCTYPE html>${CSP_META}`)).toBe(true);
+  expect(doc.startsWith(EXPORT_HEAD)).toBe(true);
   expect(doc.split("Content-Security-Policy")).toHaveLength(2);
 }
 
@@ -98,7 +103,9 @@ describe("exported HTML (Open in browser, Share)", () => {
     jest.mocked(writeAsStringAsync).mockClear();
     jest.spyOn(Linking, "openURL").mockResolvedValue(true);
     await openHtmlInBrowser(`<p>${"x".repeat(130_000)}</p>`);
-    expectCspInHead(String(jest.mocked(writeAsStringAsync).mock.calls[0]?.[1]));
+    const file = String(jest.mocked(writeAsStringAsync).mock.calls[0]?.[1]);
+    expect(file.startsWith(UTF8_BOM)).toBe(true);
+    expectCspInHead(file.slice(UTF8_BOM.length));
 
     jest.spyOn(Linking, "openURL").mockRejectedValue(new Error("no handler"));
     jest.mocked(openBrowserAsync).mockClear();
@@ -132,7 +139,21 @@ describe("exported HTML (Open in browser, Share)", () => {
   ])("neutralises %s in the exported document", async (_name, html, gone) => {
     for (const doc of [await openedDocument(html), await sharedDocument(html)]) {
       expectCspInHead(doc);
-      expect(doc.slice(`<!DOCTYPE html>${CSP_META}`.length)).not.toMatch(gone);
+      expect(doc.slice(EXPORT_HEAD.length)).not.toMatch(gone);
     }
+  });
+
+  // A file has no transport charset, so a browser reads the page's own <meta
+  // charset>. ISO-2022-JP drops "ESC ( B", which joins "http-equ" and "iv" into a
+  // pragma after the disarming already ran on the JS string. The byte-order mark
+  // (and the utf-8 meta ahead of the page's) keep the file UTF-8 whatever it says.
+  it("is read as UTF-8 whatever charset the page declares", async () => {
+    const html =
+      '<!DOCTYPE html><html><head><meta charset="iso-2022-jp">' +
+      '<meta http-equ\u001b(Biv=refresh content="0;url=https://evil.example/"></head><body>x</body></html>';
+    const doc = await sharedDocument(html);
+    expect(doc.startsWith(EXPORT_HEAD)).toBe(true);
+    expect(doc.indexOf('<meta charset="utf-8">')).toBeLessThan(doc.indexOf('charset="iso-2022-jp"'));
+    expect(new TextDecoder("utf-8").decode(new TextEncoder().encode(doc))).not.toContain("http-equiv=refresh");
   });
 });
