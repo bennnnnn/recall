@@ -66,6 +66,7 @@ from app.modules.chat.prompt_constants.grounding import (
     FACT_GROUNDING_HINT,
     WEB_SEARCH_OFF_HINT,
 )
+from app.modules.chat.prompt_constants.learning_plan_contract import learning_plan_daily_contract
 from app.modules.chat.prompt_constants.length import (
     BREVITY_REQUEST_HINT,
     MIXED_LENGTH_HINT,
@@ -122,7 +123,6 @@ from app.modules.chat.prompt_constants.teaching import (
     is_standing_preference,
     is_teaching_request,
     is_walkthrough_request,
-    learning_plan_daily_contract,
     programming_lesson_contract,
 )
 from app.modules.chat.prompt_constants.unclear import UNCLEAR_MESSAGE_HINT

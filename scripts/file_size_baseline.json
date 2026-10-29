@@ -10,7 +10,7 @@
       "why": "Exception: Prompt copy (53% text), same rule; review if the functions pass 250 lines"
     },
     "apps/api/app/modules/chat/prompt_constants/teaching.py": {
-      "lines": 620,
+      "lines": 597,
       "why": "Exception: Prompt copy (59% text), same rule"
     },
     "apps/api/app/modules/chemistry/catalog.py": {
