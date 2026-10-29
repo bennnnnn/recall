@@ -1,3 +1,4 @@
+import { disarmMetaPragmas } from "@/lib/htmlMetaPragmas";
 import { HTML_RUN_CDN_CSP } from "@/lib/htmlRunCdn";
 
 /**
@@ -49,8 +50,9 @@ export const PREVIEW_CSP = `${PREVIEW_CSP_INLINE}; sandbox allow-scripts`;
  * HTML Run tab — still isolated from the app (no shared cookies / tokens),
  * but allows an explicit CDN allowlist so CSS/JS demos actually paint.
  * Leave-document navigations are blocked in-page (see HTML_RUN_STAY_JS) and
- * via form-action 'none' plus stripping meta-refresh. There is no native nav
- * guard on this path — iOS mis-labels CDN fetches as top-frame.
+ * via form-action 'none' plus disarming every meta pragma
+ * (lib/htmlMetaPragmas.ts). There is no native nav guard on this path — iOS
+ * mis-labels CDN fetches as top-frame.
  */
 export const PREVIEW_CSP_LIVE = [
   "default-src 'none'",
@@ -69,10 +71,9 @@ export const PREVIEW_CSP_LIVE = [
 /**
  * Inlined into the HTML Run document (not via RN injectedJavaScript*).
  * Blocks leave-document navigations: <a> clicks, form submits, location.assign /
- * replace / href, window.open, and (separately) meta-refresh tags stripped
- * before this script is injected. Hash / javascript: links still work for
- * in-page demos. Injected immediately after the CSP meta so it runs before
- * user scripts.
+ * replace / href, window.open, and (separately) meta-refresh tags disarmed
+ * in the document. Hash / javascript: links still work for in-page demos.
+ * Injected immediately after the CSP meta so it runs before user scripts.
  */
 const HTML_RUN_STAY_JS = `(function () {
   function stay(e) {
@@ -110,19 +111,13 @@ const HTML_RUN_STAY_JS = `(function () {
   } catch (err) {}
 })();`;
 
-const META_REFRESH = /<\s*meta\b[^>]*\shttp-equiv\s*=\s*["']?refresh["']?[^>]*>/gi;
-
 /** Full document for the HTML Run WebView: wrap + live CSP + stay-on-page trap. */
 export function prepareHtmlRunDocument(html: string): string {
-  const withoutRefresh = replaceUntilStable(html, META_REFRESH, "");
-  const withCsp = injectPreviewCsp(withoutRefresh, PREVIEW_CSP_LIVE);
-  const stayTag = `<script>${HTML_RUN_STAY_JS}</script>`;
-  const cspTag = /(<meta http-equiv="Content-Security-Policy"[^>]*>)/i.exec(withCsp);
-  if (cspTag && cspTag.index != null) {
-    const at = cspTag.index + cspTag[0].length;
-    return withCsp.slice(0, at) + stayTag + withCsp.slice(at);
-  }
-  return stayTag + withCsp;
+  const cspTag = cspMetaTag(PREVIEW_CSP_LIVE);
+  const doc = injectAtHeadStart(html, `${cspTag}<script>${HTML_RUN_STAY_JS}</script>`);
+  // Last, so a <meta http-equiv> pieced together by removing the scripts before
+  // <head> is caught too; the CSP written above is the one pragma kept.
+  return disarmMetaPragmas(doc, cspTag);
 }
 
 /**
@@ -231,9 +226,17 @@ function stripScriptBlocks(html: string): string {
   return out;
 }
 
+function cspMetaTag(csp: string): string {
+  return `<meta http-equiv="Content-Security-Policy" content="${csp}">`;
+}
+
 /** Inject the sandbox CSP meta into an HTML document (bare or full). */
 export function injectPreviewCsp(html: string, csp: string = PREVIEW_CSP): string {
-  const meta = `<meta http-equiv="Content-Security-Policy" content="${csp}">`;
+  return injectAtHeadStart(html, cspMetaTag(csp));
+}
+
+/** Put `markup` first in the document's real <head>, adding a head when it has none. */
+function injectAtHeadStart(html: string, markup: string): string {
   const masked = maskRawTextRegions(html);
 
   const headMatch = /<head(\s[^>]*)?>/i.exec(masked);
@@ -244,15 +247,15 @@ export function injectPreviewCsp(html: string, csp: string = PREVIEW_CSP): strin
     // <script> blocks that appear before the (now decoy-proof) real <head>
     // so they cannot run unconstrained.
     const before = stripScriptBlocks(html.slice(0, headIdx));
-    return before + headTag + meta + html.slice(headIdx + headMatch[0].length);
+    return before + headTag + markup + html.slice(headIdx + headMatch[0].length);
   }
 
   const htmlMatch = /<html(\s[^>]*)?>/i.exec(masked);
   if (htmlMatch && htmlMatch.index != null) {
     const at = htmlMatch.index + htmlMatch[0].length;
-    return html.slice(0, at) + `<head>${meta}</head>` + html.slice(at);
+    return html.slice(0, at) + `<head>${markup}</head>` + html.slice(at);
   }
-  return `<!DOCTYPE html><html><head>${meta}</head><body>${html}</body></html>`;
+  return `<!DOCTYPE html><html><head>${markup}</head><body>${html}</body></html>`;
 }
 
 /**
@@ -302,7 +305,6 @@ export function stripScripts(html: string): string {
   out = replaceUntilStable(out, ON_ATTR_UQ, "");
   out = replaceUntilStable(out, SRCDOC_DQ, "");
   out = replaceUntilStable(out, SRCDOC_SQ, "");
-  out = replaceUntilStable(out, META_REFRESH, "");
 
   out = out.replace(
     /\s(href|src|action|formaction|data)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi,
@@ -315,5 +317,7 @@ export function stripScripts(html: string): string {
       return match;
     },
   );
-  return out;
+  // Last: each removal above can join the text either side of it into a new
+  // <meta http-equiv>, and disarming removes nothing that could join.
+  return disarmMetaPragmas(out);
 }
