@@ -395,3 +395,18 @@ async def db_session():
             await session.close()
             await connection.rollback()
     await engine.dispose(close=False)
+
+
+def pytest_terminal_summary(terminalreporter: pytest.TerminalReporter) -> None:
+    """TEMPORARY diagnostics: on GitHub Actions, each failure becomes an annotation."""
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    counts = {
+        kind: len(terminalreporter.stats.get(kind, [])) for kind in ("passed", "failed", "error")
+    }
+    terminalreporter.write_line(f"::notice title=pytest counts::{counts}")
+    for kind in ("failed", "error"):
+        for report in terminalreporter.stats.get(kind, []):
+            text = getattr(report, "longreprtext", "")[-3000:]
+            text = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+            terminalreporter.write_line(f"::error title={kind} {report.nodeid}::{text}")
