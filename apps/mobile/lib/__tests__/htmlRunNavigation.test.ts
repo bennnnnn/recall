@@ -14,7 +14,6 @@ describe("HTML Run navigation", () => {
 
   it.each([
     "about:blank",
-    "https://localhost/",
     "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js",
     "https://unpkg.com/three@0.160.0/build/three.module.js",
     "https://fonts.googleapis.com/css2?family=Inter",
@@ -28,6 +27,9 @@ describe("HTML Run navigation", () => {
     "https://accounts-google.example/signin",
     "http://cdn.jsdelivr.net/npm/x.js",
     "https://cdn.jsdelivr.net.evil.example/phish.html",
+    // A server on the phone itself: the inline document is about:blank.
+    "https://localhost/",
+    "http://127.0.0.1:8081/index.bundle",
     "tel:+19005550100",
     "sms:+15550100?body=hi",
     "mailto:someone@example.com",

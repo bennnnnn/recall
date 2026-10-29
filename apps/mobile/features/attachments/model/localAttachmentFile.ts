@@ -19,6 +19,11 @@ export function adoptLocalCopy(uri: string): void {
   if (inCacheDirectory(uri)) ownedCopies.add(uri);
 }
 
+/** Whether `uri` is a temporary copy made for this pick, so one Recall may rewrite. */
+export function ownsLocalCopy(uri: string): boolean {
+  return ownedCopies.has(uri);
+}
+
 /** Delete a temporary copy once nothing needs it. Any other file is left alone. */
 export function discardLocalCopy(uri: string | null | undefined): void {
   if (!uri || !ownedCopies.delete(uri)) return;

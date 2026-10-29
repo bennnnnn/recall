@@ -5,8 +5,15 @@ import {
   isPreviewInlineDocumentUrl,
 } from "@/lib/staticOnlyNavigationGuard";
 
-/** react-native-webview's inline-HTML `baseUrl` on iOS. */
-const PREVIEW_INLINE_BASE_URL = "https://localhost/";
+import { INLINE_DOCUMENT_URL, LOOPBACK_URLS } from "./fixtures/loopbackUrls";
+
+type DevFlag = { __DEV__?: boolean };
+
+/** Runs the same checks in a release build and a development one. */
+const BUILDS = [
+  { build: "release", dev: false },
+  { build: "development", dev: true },
+];
 
 describe("isPreviewFrameworkUrl", () => {
   it("allows blank / data / file / applewebdata loads", () => {
@@ -24,13 +31,44 @@ describe("isPreviewFrameworkUrl", () => {
   });
 });
 
-describe("isPreviewInlineDocumentUrl", () => {
-  it("allows the RNC inline HTML baseUrl only on localhost", () => {
-    expect(isPreviewInlineDocumentUrl(PREVIEW_INLINE_BASE_URL)).toBe(true);
-    expect(isPreviewInlineDocumentUrl("https://localhost")).toBe(true);
-    expect(isPreviewInlineDocumentUrl("http://127.0.0.1/")).toBe(true);
-    expect(isPreviewInlineDocumentUrl("https://evil.example/")).toBe(false);
-    expect(isPreviewInlineDocumentUrl("about:blank")).toBe(false);
+describe.each(BUILDS)("in a $build build", ({ dev }) => {
+  // Nothing in development loads a preview from localhost (the dev-only
+  // @expo/dom-webview never asks these guards; vendored libraries are read
+  // from Metro natively, then inlined), so a dev build accepts no more.
+  beforeEach(() => {
+    (globalThis as DevFlag).__DEV__ = dev;
+  });
+  afterEach(() => {
+    delete (globalThis as DevFlag).__DEV__;
+  });
+
+  describe("isPreviewInlineDocumentUrl", () => {
+    it("accepts the URL react-native-webview gives inline HTML", () => {
+      expect(isPreviewInlineDocumentUrl(INLINE_DOCUMENT_URL)).toBe(true);
+    });
+
+    it.each(LOOPBACK_URLS)("refuses %s: a server on the phone is not the inline document", (url) => {
+      expect(isPreviewInlineDocumentUrl(url)).toBe(false);
+    });
+
+    it.each(["https://evil.example/", "about:srcdoc", ""])("refuses %j", (url) => {
+      expect(isPreviewInlineDocumentUrl(url)).toBe(false);
+    });
+  });
+
+  describe("createStaticOnlyNavigationGuard", () => {
+    it("loads the inline document (otherwise the preview is blank)", () => {
+      const guard = createStaticOnlyNavigationGuard();
+      expect(guard.shouldAllow(INLINE_DOCUMENT_URL)).toBe(true);
+      expect(guard.shouldAllow({ url: INLINE_DOCUMENT_URL, isTopFrame: true })).toBe(true);
+    });
+
+    it.each(LOOPBACK_URLS)("never navigates to %s", (url) => {
+      const guard = createStaticOnlyNavigationGuard();
+      guard.shouldAllow(INLINE_DOCUMENT_URL);
+      expect(guard.shouldAllow({ url, isTopFrame: true })).toBe(false);
+      expect(guard.shouldAllow({ url, isTopFrame: false })).toBe(false);
+    });
   });
 });
 
@@ -48,13 +86,6 @@ describe("createStaticOnlyNavigationGuard", () => {
     expect(guard.shouldAllow("about:blank")).toBe(true);
     expect(guard.shouldAllow("about:blank")).toBe(true);
     expect(guard.shouldAllow("data:text/html,%3Ch1%3Ehi%3C%2Fh1%3E")).toBe(true);
-  });
-
-  it("allows the inline document baseUrl (otherwise Run tab is blank)", () => {
-    const guard = createStaticOnlyNavigationGuard();
-    expect(guard.shouldAllow(PREVIEW_INLINE_BASE_URL)).toBe(true);
-    expect(guard.shouldAllow("https://localhost/")).toBe(true);
-    expect(guard.shouldAllow("https://localhost/?v=1")).toBe(true);
   });
 
   it("denies open-web http(s) navigations (phishing)", () => {
