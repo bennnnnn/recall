@@ -16,7 +16,7 @@ from typing import Any
 from app.modules.chat.clarify_card import CLARIFY_FENCE
 from app.modules.chat.follow_up_repeats import repeats_earlier
 from app.modules.chat.follow_up_thread import subject_for_related, thread_problem
-from app.modules.chat.follow_up_words import LATIN, STOP_WORDS, TOPIC_WORD
+from app.modules.chat.follow_up_words import LATIN, STOP_WORDS, TOPIC_WORD, topic_words
 from app.modules.chat.prompt_constants.routing import (
     is_lightweight_chat_turn,
     is_personal_disclosure_turn,
@@ -112,6 +112,13 @@ def _space_math_span(span: str) -> str:
     return "".join(out).strip()
 
 
+_QUESTION_OPENER = re.compile(
+    r"^(?:how|what|why|when|where|which|who|whose|can|could|should|would|is|are|do|does|"
+    r"did|will)\b",
+    re.IGNORECASE,
+)
+
+
 def _symbols_stay_apart(text: str) -> bool:
     for span in _MATH_SPAN.findall(text):
         if _GLUED_RADICAL.search(span) or _GLUED_VARIABLE.search(span):
@@ -141,6 +148,9 @@ def _one_short_line(text: str) -> bool:
 def _prepare_question(candidate: str) -> str | None:
     """A short full question with a variable and a number kept apart, or none."""
     cleaned = collapse_ws(candidate).strip("\"'“”")
+    if not cleaned.endswith("?") and _QUESTION_OPENER.match(cleaned):
+        # The model left off the mark ("why does everest grow taller"): the question is whole.
+        cleaned = cleaned.rstrip(".") + "?"
     letter_words = _WORD.findall(cleaned)
     # A sum such as "What is 3 + 5?" is short, and it still names the problem.
     # "How" does not.
@@ -205,13 +215,15 @@ def _problem_anchors(question: str) -> set[str]:
     return numbers | set(_CONTENT_WORD.findall(folded)) | set(_UNIT_TOKEN.findall(folded))
 
 
-def topic_anchors(question: str, excerpt: str) -> set[str]:
+def topic_anchors(question: str, reply: str) -> set[str]:
     """Words that keep a general follow-up on the user's topic.
 
-    The question's words, and the reply's longer words: "Can I use whole wheat
-    flour?" stays with a sourdough answer that mentions flour. A four-letter reply
-    word counts when it has an accent ("pâte"): no English function word does. A
-    question in a script without Latin letters has none, and the check stays off.
+    The question's words, and the topic words of the whole reply's prose: "Can I use
+    whole wheat flour?" stays with a sourdough answer that mentions flour. The reply's
+    first 800 characters and its five-letter words were too few: under a flat-tire answer
+    "How do I jack up the car?" and "Do I need to torque the nuts?" were dropped
+    (2026-10-29). Fillers ("good", "sure"), links and code are no topic. A question in a
+    script without Latin letters has none, and the check stays off.
     """
     asked = {
         word
@@ -220,17 +232,26 @@ def topic_anchors(question: str, excerpt: str) -> set[str]:
     }
     if not asked:
         return set()
-    replied = {
-        word
-        for word in TOPIC_WORD.findall(excerpt.casefold())
-        if (len(word) >= 5 or not word.isascii()) and word not in STOP_WORDS
-    }
-    return asked | replied
+    return asked | topic_words(straighten_apostrophes(_reply_prose(reply)))
+
+
+_LINK = re.compile(r"https?://\S+")
+
+
+def _reply_prose(reply: str) -> str:
+    """The reply without its fenced blocks and links."""
+    kept, last = [], 0
+    for fence in iter_fences(reply):
+        kept.append(reply[last : fence.start])
+        last = fence.end
+    kept.append(reply[last:])
+    return _LINK.sub(" ", "".join(kept))
 
 
 def _mentions_anchor(follow_up: str, anchors: set[str]) -> bool:
     folded = collapse_ws(follow_up).casefold()
-    return any(re.search(rf"\b{re.escape(anchor)}\b", folded) for anchor in anchors)
+    # A reply's topic words are singular: "nut" anchors "the nuts".
+    return any(re.search(rf"\b{re.escape(anchor)}s?\b", folded) for anchor in anchors)
 
 
 def accepted_questions(
@@ -265,17 +286,20 @@ def answer_excerpt(answer: str) -> str:
     return collapse_ws(" ".join(lines).replace("```", " "))[:_ANSWER_CHARS]
 
 
-# A line that asks for something to know: a question, or "explain", "tips for".
+# A line that asks for something to know: a question, or "explain", "tips for", "pros
+# and cons of", "make me a plan". A draft is a writing request and gets none.
 _ASKS_TO_KNOW = re.compile(
     r"^(?:how|what|what's|whats|why|when|where|which|who|whose|can|could|would|should|"
     r"is|are|was|were|do|does|did|will|explain|tell me|teach me|show me|give me|list|"
-    r"compare|describe|summari[sz]e|recommend|suggest|help me|ideas?|tips?|best)\b",
+    r"compare|describe|summari[sz]e|recommend|suggest|help me|ideas?|tips?|best|"
+    r"pros and cons|make me|plan (?:a|an|my|our|the|me)|create)\b",
     re.IGNORECASE,
 )
 # A reminder, a saved fact or a setting is done once it is done. "How do I
 # remember vocabulary?" and "best to-do list app?" are questions, not commands.
 _ADMIN_REQUEST = re.compile(
-    r"\b(?:remind me|set (?:a |an )?(?:reminder|alarm|timer)|remember (?:that|this|my|me)\b|"
+    r"\b(?:remind me|(?:set|make|create)(?: me)? (?:a |an )?(?:new )?(?:reminder|alarm|timer|to[- ]?do)|"
+    r"remember (?:that|this|my|me)\b|"
     r"don'?t forget|(?:add|put)\b.{0,40}\bto my (?:to-?do|list|schedule|reminders)|"
     r"my settings|my preferences|turn (?:on|off)|switch (?:on|off)|call me)",
     re.IGNORECASE,

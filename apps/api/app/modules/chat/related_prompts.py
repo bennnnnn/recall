@@ -104,7 +104,7 @@ async def generate_related_questions(
     else:
         lines.append(f"Question:\n{collapse_ws(question)[:_QUESTION_CHARS]}")
         system = _GENERAL_SYSTEM
-        anchors = topic_anchors(question, excerpt)
+        anchors = topic_anchors(question, answer)
     lines.append(f"Reply:\n{excerpt}")
     earlier = [*_earlier_user_lines(question, problem, prior), *shown]
     if earlier:
