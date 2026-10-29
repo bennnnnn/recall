@@ -222,12 +222,13 @@ export function injectPreviewCsp(html: string, csp: string = PREVIEW_CSP): strin
   return injectAtHeadStart(html, cspMetaTag(csp));
 }
 
-function cspMetaTag(csp: string): string {
+/** The `<meta>` that delivers `csp`. */
+export function cspMetaTag(csp: string): string {
   return `<meta http-equiv="Content-Security-Policy" content="${csp}">`;
 }
 
 /** Put `markup` first in the document, as {@link injectPreviewCsp} does its meta. */
-function injectAtHeadStart(html: string, markup: string): string {
+export function injectAtHeadStart(html: string, markup: string): string {
   const doctype = LEADING_DOCTYPE.exec(html)?.[0];
   if (doctype) return doctype + markup + html.slice(doctype.length);
   if (DOCUMENT_TAG.test(html)) return markup + html;
