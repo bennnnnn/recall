@@ -88,8 +88,31 @@ describe("decoded attachment frame proportions", () => {
     await fireEvent(view.getByTestId("chat-image-preview"), "error");
     expect(view.queryByTestId("chat-image-preview")).toBeNull();
     expect(view.getByTestId("chat-image-frame")).toHaveStyle({ width: 148, height: 189 });
-    await fireEvent.press(view.getByRole("button"));
+    await fireEvent.press(view.getByLabelText("chat.image_unavailable_a11y"));
     expect(view.getByTestId("image-viewer")).toBeOnTheScreen();
+  });
+
+  it("offers Retry to VoiceOver as the frame's action", async () => {
+    const view = await render(<ChatMessageImage attachmentId="a" animatedReveal={false} width={148} height={189} />);
+    expect(view.getByLabelText("chat.image_view_a11y").props.accessibilityActions).toBeUndefined();
+    await fireEvent(view.getByTestId("chat-image-preview"), "error");
+    const frame = view.getByLabelText("chat.image_unavailable_a11y");
+    expect(frame.props.accessibilityActions).toEqual([{ name: "retry", label: "common.retry" }]);
+    await fireEvent(frame, "accessibilityAction", { nativeEvent: { actionName: "retry" } });
+    expect(view.getByTestId("chat-image-preview")).toBeOnTheScreen();
+    expect(view.queryByTestId("image-viewer")).toBeNull();
+  });
+
+  it("loads a failed photo again on Retry, without opening the viewer", async () => {
+    const view = await render(<ChatMessageImage attachmentId="a" animatedReveal={false} width={148} height={189} />);
+    const first = view.getByTestId("chat-image-preview");
+    await fireEvent(first, "error");
+    await fireEvent.press(view.getByTestId("media-load-retry"));
+    const second = view.getByTestId("chat-image-preview");
+    expect(second).toBeOnTheScreen();
+    // A new image element: the failed load is not reused.
+    expect(second).not.toBe(first);
+    expect(view.queryByTestId("image-viewer")).toBeNull();
   });
 
   it("leaves generated image dimensions and cover behavior unchanged after load", async () => {
