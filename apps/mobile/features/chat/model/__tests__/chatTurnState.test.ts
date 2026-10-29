@@ -268,6 +268,24 @@ describe("a turn from send to the end", () => {
     expect(run.state.stoppedStreamedId).toBeNull();
   });
 
+  it.each([
+    ["the model picker's start", [{ type: "regenerate_ui", messages: [bubble] }]],
+    ["the regenerate itself", [{ type: "regenerate", messages: [bubble] }]],
+    ["both, in order", [{ type: "regenerate_ui", messages: [bubble] }, { type: "regenerate", messages: [bubble] }]],
+  ] as [string, ChatTurnEvent[]][])("refuses %s while a reply streams, leaving that reply alone", (_label, events) => {
+    const run = play(streaming({ buffer: "Half an answer", attempt: 4 }), events, [bubble]);
+    expect(run.commands).toEqual([]);
+    expect(run.messages).toEqual([bubble]);
+    expect(run.state).toMatchObject({ phase: "streaming", buffer: "Half an answer", attempt: 4, regenerating: false });
+  });
+
+  it("runs the regenerate the model picker opened", () => {
+    const old = answer("old", "old answer");
+    const run = play(idle(), [{ type: "regenerate_ui", messages: [old] }, { type: "regenerate", messages: [old] }], [old]);
+    expect(run.state).toMatchObject({ phase: "streaming", regenerating: true });
+    expect(run.of("pop_for_regenerate")).toHaveLength(1);
+  });
+
   it("Stop with nothing streamed during Regenerate restores the old answer", () => {
     const old = answer("old", "old answer");
     const run = play(idle(), [{ type: "regenerate_ui", messages: [old] }, { type: "stop" }], [old]);
