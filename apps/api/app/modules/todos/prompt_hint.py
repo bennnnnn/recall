@@ -50,6 +50,10 @@ _TODO_WRITE_HINT = (
     "Do not say the change is done, coming, or set. The app shows the change under "
     "your reply for the user to confirm (or a failure line). Without the fence, "
     "nothing is saved.\n"
+    "You can add, change and delete their to-dos this way: never say you have no access to "
+    "their To-do list. Asked whether an earlier change happened, read the result line in the "
+    "history: 'Added', 'Deleted', 'Set' and the like mean the user confirmed it and it is "
+    "saved; 'Card offered, not tapped' means it is not saved yet.\n"
     "If the user says not to create, set, add, save, or schedule a reminder, do not emit "
     "a reminder fence and do not claim one was set. Give only the non-saving advice they asked for.\n"
     'Bulk delete overdue ("delete overdue") — emit one delete fence per overdue item. '
