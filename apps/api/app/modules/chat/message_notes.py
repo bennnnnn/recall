@@ -17,6 +17,7 @@ from app.modules.chat.continuation_subject import exchange_pairs
 from app.modules.chat.prompt_constants.lesson_flow import active_lesson_step, outline_awaits_pick
 from app.modules.chat.prompt_constants.reply_missed import reply_missed_hint
 from app.modules.chat.prompt_constants.shared_numbers import shared_numbers_hint
+from app.modules.chat.prompt_constants.teaching import is_teaching_request
 from app.modules.chat.reply_language import reply_language_hint
 from app.modules.chat.response_tone import emoji_note
 
@@ -31,7 +32,10 @@ def _own_way(query: str, exchange: list[Any], pairs: Sequence[tuple[str, str]]) 
 def message_notes(query: str, exchange: list[Any], user: Any, memory_block: str = "") -> list[str]:
     """The notes that apply to this message, in order; its language last, nearest it."""
     pairs = exchange_pairs(exchange)
-    missed = None if _own_way(query, exchange, pairs) else reply_missed_hint(query, pairs)
-    emoji = emoji_note(user.emoji_use, memory_block)
+    own_way = _own_way(query, exchange, pairs)
+    missed = None if own_way else reply_missed_hint(query, pairs)
+    # A lesson (its first one too), outline or clarify card places its own emoji.
+    lesson_like = own_way or is_teaching_request(query)
+    emoji = None if lesson_like else emoji_note(user.emoji_use, memory_block)
     language = reply_language_hint(query, pairs, user.locale, user.custom_instructions)
     return [note for note in (shared_numbers_hint(query), missed, emoji, language) if note]

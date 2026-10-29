@@ -16,7 +16,7 @@ import pytest
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
 from app.modules.chat.message_notes import message_notes
-from app.modules.chat.response_tone import EMOJI_HINTS, emoji_note
+from app.modules.chat.response_tone import _EMOJI_NEVER, EMOJI_HINTS, emoji_note
 from app.modules.memory import llm as memory_llm
 from app.modules.memory.llm import INSTRUCT_SETTING_RULE, SETTING_PREFERENCE_RULE
 
@@ -97,3 +97,31 @@ def test_a_few_and_off_get_a_note_only_when_it_helps(
     assert (note is not None) == noted
     if noted:
         assert note is not None and note.startswith("Emoji in this reply: a few,")
+
+
+def test_the_lots_note_carries_where_emoji_never_go() -> None:
+    # Nearest the message, it would outrank the Emoji line's exceptions it only pointed at.
+    note = emoji_note("more", "")
+    assert note is not None
+    assert _EMOJI_NEVER in note
+    assert "A lesson keeps its own emoji rule." in note
+
+
+def test_a_fact_that_only_names_emoji_is_not_called_out_of_date() -> None:
+    project = "Known facts about the user:\n\n## Projects\n- Building an emoji picker app"
+    note = emoji_note("more", project)
+    assert note is not None and "out of date" not in note
+    assert emoji_note("some", project) is None
+
+
+def test_a_lesson_places_its_own_emoji() -> None:
+    user = SimpleNamespace(locale="en", custom_instructions=None, emoji_use="more")
+    taught = "### Lesson 1: Dictionaries\n\nA dict maps keys to values.\n\nWhat does d['a'] return?"
+    lesson = [
+        SimpleNamespace(role="user", content="Teach me dictionaries"),
+        SimpleNamespace(role="assistant", content=taught),
+    ]
+    assert not any(n.startswith("Emoji in this reply") for n in message_notes("ok", lesson, user))
+    # The first lesson too: "one fitting emoji in the opening line" is the lesson's rule.
+    first = message_notes("Teach me Python dictionaries", [], user)
+    assert not any(n.startswith("Emoji in this reply") for n in first)
