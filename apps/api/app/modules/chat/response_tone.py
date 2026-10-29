@@ -1,5 +1,7 @@
 """Preset response tones and emoji use — mapped into chat system prompts."""
 
+import re
+
 from app.models.schemas.common import EmojiUse, ResponseTone
 
 DEFAULT_RESPONSE_TONE: ResponseTone = "casual"
@@ -64,3 +66,33 @@ EMOJI_HINTS: dict[str, str] = {
 
 def emoji_hint(level: str | None) -> str:
     return EMOJI_HINTS[level if level in EMOJI_HINTS else DEFAULT_EMOJI_USE]
+
+
+# The Emoji line sits at the top of the prompt, far from the message, and lost: at "Lots", a
+# list of tips came back with no emoji in most replies (2026-10-29), and a fact saved before
+# memory left settings alone ("User prefers replies in English and without emojis") pulls
+# the same way. Like the language note, this one goes beside the message. "Lots" always gets
+# it (the user asked for them); "A few" only when a loaded memory talks about emoji; "off"
+# needs none (emoji_placement removes them).
+_MENTIONS_EMOJI = re.compile(r"\bemoj(?:i|is)\b", re.IGNORECASE)
+
+
+def emoji_note(level: str | None, memory_block: str) -> str | None:
+    """The Emoji setting, said beside the message, when the line at the top may not hold."""
+    level = level if level in EMOJI_HINTS else DEFAULT_EMOJI_USE
+    competing = _MENTIONS_EMOJI.search(memory_block) is not None
+    if level == "more":
+        note = (
+            "Emoji in this reply: plenty, as the user's Emoji setting says. A fitting emoji "
+            "leads every heading and every list item's label (1. 💧 **Drink water** — …), "
+            "except where the Emoji line above says never."
+        )
+    elif level == "some" and competing:
+        note = (
+            "Emoji in this reply: a few, as the user's Emoji setting says (the Emoji line above)."
+        )
+    else:
+        return None
+    if competing:
+        note += " A saved memory about emoji is out of date and does not change it."
+    return note

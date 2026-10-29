@@ -349,7 +349,7 @@ CONTEXT_SECTIONS: tuple[PromptSection, ...] = (
     PromptSection(lambda t: t.slim and t.recall_memory, _slim_memory),
     PromptSection(_gives_advice, _advice),
     PromptSection(_always, memory_notes),
-    PromptSection(_always, lambda t: message_notes(t.query, t.exchange, t.user)),
+    PromptSection(_always, lambda t: message_notes(t.query, t.exchange, t.user, t.memory_block)),
     PromptSection(
         lambda t: t.followup == "math", lambda _t: [MATH_REPLY_POLICY, MATH_FOLLOWUP_HINT]
     ),

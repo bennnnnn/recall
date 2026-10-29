@@ -20,7 +20,7 @@ _AFTER_A_REPLY = [
     ("assistant", "La fotosíntesis es el proceso por el cual las plantas convierten la luz..."),
 ]
 _IN_ENGLISH = "Write it in English, the language of their message."
-_EN = SimpleNamespace(locale="en", custom_instructions=None)
+_EN = SimpleNamespace(locale="en", custom_instructions=None, emoji_use="some")
 
 
 @pytest.mark.parametrize(

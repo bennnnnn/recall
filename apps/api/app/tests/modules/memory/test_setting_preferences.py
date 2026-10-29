@@ -8,13 +8,15 @@ memory models are told instead, and the reply's language line ranks a saved memo
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
-from app.modules.chat.response_tone import EMOJI_HINTS
+from app.modules.chat.message_notes import message_notes
+from app.modules.chat.response_tone import EMOJI_HINTS, emoji_note
 from app.modules.memory import llm as memory_llm
 from app.modules.memory.llm import INSTRUCT_SETTING_RULE, SETTING_PREFERENCE_RULE
 
@@ -58,3 +60,40 @@ async def test_the_memory_page_points_a_settings_preference_to_settings(
 @pytest.mark.parametrize("level", list(EMOJI_HINTS))
 def test_the_emoji_setting_outranks_a_saved_memory(level: str) -> None:
     assert EMOJI_HINTS[level].endswith("a saved memory never changes it.")
+
+
+# At "Lots" a list of tips came back with no emoji in most replies (2026-10-29): the Emoji
+# line at the top of the prompt lost to the rest, and a saved "no emojis" fact pulls the
+# same way. The setting is said again beside the message.
+_NO_EMOJI_FACT = "Known facts about the user:\n\n## Preferences\n- User prefers no emojis"
+_OTHER_FACT = "Known facts about the user:\n\n## Profile\n- Name is Bini"
+
+
+@pytest.mark.parametrize("memory_block", ["", _OTHER_FACT, _NO_EMOJI_FACT])
+def test_lots_always_gets_the_setting_beside_the_message(memory_block: str) -> None:
+    user = SimpleNamespace(locale="en", custom_instructions=None, emoji_use="more")
+    note = emoji_note("more", memory_block)
+    assert note is not None and note.startswith("Emoji in this reply: plenty,")
+    assert ("out of date" in note) == (memory_block == _NO_EMOJI_FACT)
+    assert note in message_notes("Give me tips to sleep better", [], user, memory_block)
+
+
+@pytest.mark.parametrize(
+    ("level", "memory_block", "noted"),
+    [
+        # "A few" (and an unknown level, read as the default) only when a memory competes.
+        ("some", _NO_EMOJI_FACT, True),
+        (None, _NO_EMOJI_FACT, True),
+        ("some", _OTHER_FACT, False),
+        ("some", "", False),
+        # "off" is enforced after the reply (emoji_placement), so no note.
+        ("off", _NO_EMOJI_FACT, False),
+    ],
+)
+def test_a_few_and_off_get_a_note_only_when_it_helps(
+    level: str | None, memory_block: str, noted: bool
+) -> None:
+    note = emoji_note(level, memory_block)
+    assert (note is not None) == noted
+    if noted:
+        assert note is not None and note.startswith("Emoji in this reply: a few,")
