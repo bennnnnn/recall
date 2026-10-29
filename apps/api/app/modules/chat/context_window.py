@@ -15,14 +15,28 @@ _SUMMARY_MAX_CHARS = 6000
 _SUMMARY_MESSAGE_MAX_CHARS = 1200
 _TRIM_MARK = " … [truncated] … "
 
+# An invented "Open: user considering sleeping 6-7 hours" later came back as something the
+# assistant had asked.
+NO_INVENTED_PLAN = "never invent a plan or a question nobody voiced"
+# Two figures for one thing: the summary keeps the newer, dated, so an old one is not read
+# as current.
+NEWEST_FIGURE_RULE = (
+    "When two figures for the same thing differ, keep the most recent one with its date. "
+)
+
 SUMMARY_SYSTEM_PROMPT = (
     "You compress a conversation into a concise running summary so an assistant can "
     "continue it later. Merge the existing summary with the new messages.\n\n"
     "Format (plain text, no markdown headings):\n"
     "Facts: durable preferences, names, numbers, decisions\n"
-    "Topics: what was discussed and outcomes\n"
-    "Open: unresolved questions or next steps\n\n"
-    "Keep durable facts and decisions; drop greetings and filler. Preserve uncertainty: "
+    "Topics: one short line per topic in the order it was discussed (oldest first), "
+    "with its outcome\n"
+    "Open: questions the user left unanswered or next steps they asked for; write None when "
+    "there are none, and " + NO_INVENTED_PLAN + "\n\n"
+    "Keep the whole summary under 300 words: shorten older topic lines as new ones arrive, "
+    "never drop a topic, and always finish every section. "
+    + NEWEST_FIGURE_RULE
+    + "Keep durable facts and decisions; drop greetings and filler. Preserve uncertainty: "
     "if someone is considering an option or has not decided, do not upgrade that into a "
     "decision (e.g. keep 'considering Postgres', never 'uses Postgres'). Reply with the "
     "summary only."

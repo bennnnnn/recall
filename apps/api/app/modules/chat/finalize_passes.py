@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from redis.asyncio import Redis
 
 from app.core.config import Settings
+from app.modules.chat.claim_check import cut_unsupported_claims
 from app.modules.chat.emoji_placement import place_reply_emoji
 from app.modules.chat.finalize_money import attach_money_card
 from app.modules.chat.finalize_parts import (
@@ -177,6 +178,8 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("server_answer_cards", mark_server_cards, FALL_BACK),
     FinalizePass("unverified_notes", append_unverified_notes, FALL_BACK),
     FinalizePass("working_check", check_working, FALL_BACK),
+    # Before the source chips: it reads the reply's prose, and a failure keeps it whole.
+    FinalizePass("claim_check", cut_unsupported_claims, OnError(log_as="claim_check")),
     FinalizePass("text_plots", strip_text_plots, FALL_BACK),
     FinalizePass("solve_markers", strip_solve_markers, FALL_BACK),
     FinalizePass(

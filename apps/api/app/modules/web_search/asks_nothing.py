@@ -36,6 +36,13 @@ _ASK_OPENER = re.compile(
     r"is|are|was|were|did|does|do|has|have|will|can|could|should|any)\b",
     re.IGNORECASE,
 )
+# "In which order did we cover it", "at what point did you say": the question opens with a
+# preposition, and reads the same without it.
+_PREP_OPENER = re.compile(
+    r"^(?:in|at|on|for|by|with|from|to|of|about|after|before|during|since|until)\s+"
+    r"(?=(?:which|what)\b)",
+    re.IGNORECASE,
+)
 # Asks for something wherever it sits: "I want the latest news", "let me know the score".
 _REQUEST = re.compile(
     r"\b(?:tell\s+me|show\s+me|let\s+me\s+know|find|look\s+up|check|search|google|"
@@ -53,6 +60,14 @@ _PRODUCE = re.compile(
     r"placeholder|random|made[\s-]up)\s+\w+|"
     r"(?:give|show|send)\s+me\s+(?:some\s+)?test\s+(?:data|rows|records|values|inputs|"
     r"cases|users|accounts|emails)\b)\b",
+    re.IGNORECASE,
+)
+# "Give me a table of the exact transaction charges": made in form, found in substance. A
+# word that asks for the real figure beside a fee, rate or price is a lookup, not a draft.
+_EXACT_FIGURES = re.compile(
+    r"\b(?:exact|actual|official|current|real|precise|up[\s-]to[\s-]date)\b[\w\s,()/-]{0,40}?"
+    r"\b(?:fees?|charges?|rates?|prices?|costs?|taxes|tax|levy|levies|duty|duties|commissions?|"
+    r"yields?|minimums?|limits?|requirements?|interest)\b",
     re.IGNORECASE,
 )
 _ABOUT_US = re.compile(
@@ -113,7 +128,7 @@ def _questions(text: str) -> list[str]:
     asked = []
     for clause in _clauses(text):
         body = re.sub(rf"^{_LEAD_IN}", "", clause, flags=re.IGNORECASE)
-        body = _POLITE.sub("", body)
+        body = _PREP_OPENER.sub("", _POLITE.sub("", body))
         if _ASK_OPENER.match(body):
             asked.append(body)
     return asked
@@ -130,7 +145,7 @@ def asks_nothing_to_look_up(text: str) -> bool:
         return True
     body = _POLITE.sub("", re.sub(rf"^{_LEAD_IN}", "", cleaned, flags=re.IGNORECASE))
     if _PRODUCE.match(body):
-        return not _live_subject(cleaned)
+        return not (_live_subject(cleaned) or _EXACT_FIGURES.search(cleaned))
     questions = _questions(cleaned)
     if questions:
         return all(_asks_about_us(q) for q in questions)
