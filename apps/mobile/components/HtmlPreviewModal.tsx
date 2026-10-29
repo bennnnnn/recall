@@ -29,7 +29,7 @@ import {
   shareHtmlPreview,
   wrapFullDocument,
 } from "@/lib/openHtmlPreview";
-import { prepareHtmlRunDocument } from "@/lib/previewSandbox";
+import { HTML_RUN_EMPTY_KIND, prepareHtmlRunDocument } from "@/lib/htmlRunDocument";
 import { Space } from "@/lib/space";
 import { Radius } from "@/lib/radius";
 import {
@@ -46,9 +46,6 @@ const StaticHtmlPreview = __DEV__
   ? // eslint-disable-next-line @typescript-eslint/no-require-imports -- development only, so production bundles leave it out
     (require("@/components/StaticHtmlPreview") as typeof import("@/components/StaticHtmlPreview")).StaticHtmlPreview
   : null;
-
-const EMPTY_CHECK_SCRIPT =
-  "<script>(function(){function chk(){var b=document.body;if(!b)return;var txt=(b.innerText||'').trim();var imgs=b.querySelectorAll('img,svg,canvas,video,iframe').length;var els=b.querySelectorAll('div,section,main,article,p,span,ul,ol,table,pre,code,h1,h2,h3,h4,h5,h6').length;if(!txt&&!imgs&&els<=1){try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({kind:'preview-empty'}));}catch(e){}}}if(document.readyState==='complete'){chk();}else{window.addEventListener('load',function(){setTimeout(chk,300);});}})();</script>";
 
 class PreviewRenderBoundary extends Component<
   {
@@ -106,13 +103,15 @@ type PreviewTab = "run" | "code";
 /**
  * Sandboxed HTML Run tab (RNC WebView only).
  *
- * Keep this path as close as charts: `source={{ html }}`, no baseUrl. CDN is
- * allowed by PREVIEW_CSP_LIVE; leave-page is blocked by an in-document script
- * (click/submit/location/open), stripping meta-refresh, form-action 'none',
- * and `domStorageEnabled={false}`. Page script can still assign `location`,
- * so every navigation also goes through allowHtmlRunNavigation, which keeps
- * the same loads as before and refuses the rest without handing them to the
- * OS (react-native-webview opens a URL outside originWhitelist externally).
+ * Keep this path as close as charts: `source={{ html }}`, no baseUrl. The
+ * model's page runs in a sandboxed frame inside that document
+ * (lib/htmlRunDocument.ts), so it cannot navigate the WebView or open
+ * windows; CDN loads are allowed by PREVIEW_CSP_LIVE. Every navigation also
+ * goes through allowHtmlRunNavigation, which keeps the tab's own documents
+ * and refuses the rest without handing them to the OS (react-native-webview
+ * opens a URL outside originWhitelist externally). No onOpenWindow and no
+ * multiple windows: a window request is never handed to the app, and the
+ * sandbox keeps the page from making one.
  */
 function LiveWebPreview({
   html,
@@ -130,7 +129,7 @@ function LiveWebPreview({
   const previewWebView = useMemo(() => getPreviewWebView(), []);
 
   const fullHtml = useMemo(
-    () => prepareHtmlRunDocument(wrapFullDocument(html, theme)) + EMPTY_CHECK_SCRIPT,
+    () => prepareHtmlRunDocument(wrapFullDocument(html, theme)),
     [html, theme],
   );
   const source = useMemo(() => ({ html: fullHtml }), [fullHtml]);
@@ -185,7 +184,7 @@ function LiveWebPreview({
         onMessage={(e: { nativeEvent?: { data?: string } }) => {
           try {
             const data = JSON.parse(e.nativeEvent?.data ?? "{}");
-            if (data && data.kind === "preview-empty") setEmpty(true);
+            if (data && data.kind === HTML_RUN_EMPTY_KIND) setEmpty(true);
           } catch {
             /* ignore non-JSON messages */
           }

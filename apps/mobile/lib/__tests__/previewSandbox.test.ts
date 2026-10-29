@@ -6,7 +6,6 @@ import {
   PREVIEW_CSP_LIVE,
   PREVIEW_VIEWPORT,
   injectPreviewCsp,
-  prepareHtmlRunDocument,
   stripScripts,
 } from "@/lib/previewSandbox";
 
@@ -47,50 +46,6 @@ describe("PREVIEW_CSP", () => {
     const tokens = PREVIEW_CSP_LIVE.split(/[;\s]+/);
     expect(tokens).not.toContain("https:");
     expect(tokens).not.toContain("http:");
-  });
-});
-
-describe("prepareHtmlRunDocument", () => {
-  it("injects live CSP and stay-on-page script", () => {
-    const out = prepareHtmlRunDocument(
-      "<!DOCTYPE html><html><head></head><body><h1>Hi</h1></body></html>",
-    );
-    expect(out).toContain("Content-Security-Policy");
-    expect(out).toContain("https://cdn.jsdelivr.net");
-    expect(out).not.toContain("connect-src https: http:");
-    expect(out).toContain("addEventListener(\"click\"");
-    expect(out).toContain("<h1>Hi</h1>");
-  });
-
-  it("overrides window.open, location.assign/replace, and location.href", () => {
-    const out = prepareHtmlRunDocument(
-      "<!DOCTYPE html><html><head></head><body></body></html>",
-    );
-    expect(out).toContain("window.open = function");
-    expect(out).toContain("loc.assign = function");
-    expect(out).toContain("loc.replace = function");
-    expect(out).toContain("Object.defineProperty(loc, \"href\"");
-  });
-
-  it("strips meta-refresh before injecting CSP and stay script", () => {
-    const out = prepareHtmlRunDocument(
-      '<html><head><meta http-equiv="refresh" content="0;url=https://evil.example/phish"></head><body>ok</body></html>',
-    );
-    expect(out.toLowerCase()).not.toContain("refresh");
-    expect(out).not.toContain("evil.example");
-    expect(out).toContain("Content-Security-Policy");
-  });
-
-  it("injects the stay script immediately after the CSP meta, before user head scripts", () => {
-    const out = prepareHtmlRunDocument(
-      "<html><head><script>window.user=1</script></head><body></body></html>",
-    );
-    const cspAt = out.indexOf("Content-Security-Policy");
-    const stayAt = out.indexOf("window.open = function");
-    const userAt = out.indexOf("window.user=1");
-    expect(cspAt).toBeGreaterThan(-1);
-    expect(stayAt).toBeGreaterThan(cspAt);
-    expect(userAt).toBeGreaterThan(stayAt);
   });
 });
 

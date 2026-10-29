@@ -46,11 +46,16 @@ export const PREVIEW_VIEWPORT = "width=device-width, initial-scale=1";
 export const PREVIEW_CSP = `${PREVIEW_CSP_INLINE}; sandbox allow-scripts`;
 
 /**
- * HTML Run tab — still isolated from the app (no shared cookies / tokens),
- * but allows an explicit CDN allowlist so CSS/JS demos actually paint.
- * Leave-document navigations are blocked in-page (see HTML_RUN_STAY_JS) and
- * via form-action 'none' plus stripping meta-refresh. There is no native nav
- * guard on this path — iOS mis-labels CDN fetches as top-frame.
+ * HTML Run tab: the policy of the model's page, which lib/htmlRunDocument.ts
+ * runs inside a sandboxed frame. Scripts, styles, images, fonts and fetches may
+ * come from the CDN allowlist (lib/htmlRunCdn.ts) so CSS/JS demos paint; no
+ * other host is reachable, the page may not embed a frame and no form submits.
+ *
+ * A CDN script, stylesheet or image is a subresource load, not a navigation,
+ * and never reaches the WebView's navigation callback. Leaving the page is
+ * stopped outside this policy: the sandboxed frame cannot navigate the Run
+ * tab's wrapper or open windows, and allowHtmlRunNavigation (lib/webView.ts)
+ * refuses every navigation but the tab's own two documents.
  */
 export const PREVIEW_CSP_LIVE = [
   "default-src 'none'",
@@ -66,63 +71,11 @@ export const PREVIEW_CSP_LIVE = [
   "form-action 'none'",
 ].join("; ");
 
-/**
- * Inlined into the HTML Run document (not via RN injectedJavaScript*).
- * Blocks leave-document navigations: <a> clicks, form submits, location.assign /
- * replace / href, window.open, and (separately) meta-refresh tags stripped
- * before this script is injected. Hash / javascript: links still work for
- * in-page demos. Injected immediately after the CSP meta so it runs before
- * user scripts.
- */
-const HTML_RUN_STAY_JS = `(function () {
-  function stay(e) {
-    try {
-      var t = e.target;
-      if (e.type === "submit") {
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-      while (t && t.tagName !== "A") t = t.parentElement;
-      if (!t || !t.getAttribute) return;
-      var href = t.getAttribute("href") || "";
-      if (!href || href.charAt(0) === "#" || href.indexOf("javascript:") === 0) return;
-      e.preventDefault();
-      e.stopPropagation();
-    } catch (err) {}
-  }
-  document.addEventListener("click", stay, true);
-  document.addEventListener("submit", stay, true);
-  try {
-    window.open = function () { return null; };
-  } catch (err) {}
-  try {
-    var loc = window.location;
-    loc.assign = function () {};
-    loc.replace = function () {};
-    var hrefNow = "";
-    try { hrefNow = loc.href; } catch (e) {}
-    Object.defineProperty(loc, "href", {
-      configurable: true,
-      get: function () { return hrefNow; },
-      set: function () {},
-    });
-  } catch (err) {}
-})();`;
-
 const META_REFRESH = /<\s*meta\b[^>]*\shttp-equiv\s*=\s*["']?refresh["']?[^>]*>/gi;
 
-/** Full document for the HTML Run WebView: wrap + live CSP + stay-on-page trap. */
-export function prepareHtmlRunDocument(html: string): string {
-  const withoutRefresh = replaceUntilStable(html, META_REFRESH, "");
-  const withCsp = injectPreviewCsp(withoutRefresh, PREVIEW_CSP_LIVE);
-  const stayTag = `<script>${HTML_RUN_STAY_JS}</script>`;
-  const cspTag = /(<meta http-equiv="Content-Security-Policy"[^>]*>)/i.exec(withCsp);
-  if (cspTag && cspTag.index != null) {
-    const at = cspTag.index + cspTag[0].length;
-    return withCsp.slice(0, at) + stayTag + withCsp.slice(at);
-  }
-  return stayTag + withCsp;
+/** Remove `<meta http-equiv="refresh">` tags, which would navigate the page away. */
+export function stripMetaRefresh(html: string): string {
+  return replaceUntilStable(html, META_REFRESH, "");
 }
 
 /**
@@ -301,7 +254,7 @@ export function stripScripts(html: string): string {
   out = replaceUntilStable(out, ON_ATTR_UQ, "");
   out = replaceUntilStable(out, SRCDOC_DQ, "");
   out = replaceUntilStable(out, SRCDOC_SQ, "");
-  out = replaceUntilStable(out, META_REFRESH, "");
+  out = stripMetaRefresh(out);
 
   out = out.replace(
     /\s(href|src|action|formaction|data)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi,

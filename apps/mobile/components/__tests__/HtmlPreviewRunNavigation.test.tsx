@@ -44,11 +44,29 @@ describe("HtmlPreviewModal Run tab navigation", () => {
     const decide = props.onShouldStartLoadWithRequest as (request: unknown) => boolean;
     expect(typeof decide).toBe("function");
     expect(decide({ url: "about:blank", isTopFrame: true })).toBe(true);
-    expect(decide({ url: "https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js" })).toBe(true);
+    expect(decide({ url: "about:srcdoc", isTopFrame: false })).toBe(true);
+    // CDN scripts, styles and images never come through here; a CDN URL that
+    // does is page script replacing the preview with a page anyone can publish.
+    const cdnPage = "https://cdn.jsdelivr.net/gh/someone/demo@1.0.0/signin.html";
+    expect(decide({ url: cdnPage, isTopFrame: true })).toBe(false);
+    expect(decide({ url: cdnPage, isTopFrame: false })).toBe(false);
     expect(decide({ url: "https://accounts-google.example/signin", isTopFrame: true })).toBe(
       false,
     );
     expect(decide({ url: "tel:+19005550100", isTopFrame: true })).toBe(false);
     expect(decide({ url: "recall://settings", isTopFrame: true })).toBe(false);
+  });
+
+  it("runs the page in a sandboxed frame and opens no second window", async () => {
+    mockWebViewProps.length = 0;
+    await render(<HtmlPreviewModal visible html={HOSTILE_HTML} onClose={() => {}} />);
+
+    const props = mockWebViewProps[mockWebViewProps.length - 1];
+    const html = (props.source as { html: string }).html;
+    // The page's script lives only inside the frame's srcdoc.
+    expect(html).toMatch(/^<!DOCTYPE html>[\s\S]*<iframe sandbox="allow-scripts[^"]*" srcdoc="/);
+    expect(html.replace(/srcdoc="[^"]*"/, "")).not.toContain("accounts-google.example");
+    expect(props.setSupportMultipleWindows).toBe(false);
+    expect(props.onOpenWindow).toBeUndefined();
   });
 });
