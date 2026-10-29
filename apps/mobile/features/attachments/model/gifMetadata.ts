@@ -21,7 +21,7 @@ const APPLICATION_ID_BYTES = 11;
 /** The loop count (Netscape's, and its older twin) and a colour profile. */
 const KEPT_APPLICATIONS: ReadonlySet<string> = new Set(["NETSCAPE2.0", "ANIMEXTS1.0", "ICCRGBG1012"]);
 
-export type StrippedGif = { width: number; height: number; bytes: Uint8Array };
+type StrippedGif = { width: number; height: number; bytes: Uint8Array };
 
 function ascii(bytes: Uint8Array, start: number, end: number): string {
   return String.fromCharCode(...bytes.subarray(start, end));
