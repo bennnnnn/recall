@@ -33,6 +33,7 @@ COMMON_TERMS: dict[str, tuple[float, ...]] = {
     "personal": (24, 36, 60),
     "loan": (3, 5, 10),
     "savings": (5, 10, 20, 30),
+    "investing": (5, 10, 20, 30),
 }
 # The loan's own subject: its payment, interest, rate or term, the loan by name, or its maths.
 # A count of years or months is a term only with a term's words ("over 15 years", "a 15-year

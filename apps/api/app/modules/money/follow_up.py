@@ -146,10 +146,13 @@ def switches_product(product: Product, text: str) -> bool:
     """The line names another product: "a 15 year mortgage" after a car loan.
 
     A plainer word for this one is no switch: "a 4 year loan" after a car loan (the
-    generic loan's word "loan" is inside "car loan").
+    generic loan's word "loan" is inside "car loan"). Nor is its twin: "what if I invest
+    for 20 years" after saving works the same deposits.
     """
     named = named_product(text)
     if named is None or named.key == product.key:
+        return False
+    if product.key == named.twin or named.key == product.twin:
         return False
     return not any(
         re.search(rf"\b{re.escape(word)}\b", own) for word in named.words for own in product.words

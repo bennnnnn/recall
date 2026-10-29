@@ -114,6 +114,9 @@ class Product:
     # Kinds of the product priced apart; none named is the product's own ``lookup``.
     variants: tuple[Variant, ...] = ()
     goods: tuple[str, ...] = ()  # What the loan buys: "planning to buy a car" (``purchase``).
+    # The product this one works as, judged by another average: a follow-up moving from one
+    # to the other ("what if I invest for 20 years" after saving) is no switch.
+    twin: str = ""
 
     def input(self, name: str) -> Input | None:
         return next((item for item in self.inputs if item.name == name), None)
@@ -183,6 +186,13 @@ def _years(low: float, high: float) -> Input:
 def _months(low: float, high: float, step: float) -> Input:
     return Input("months", "money.term_months", "months", Span("fixed", low, high, step=step))
 
+
+# Savings and investing grow money the same way; only the rate they are judged by differs.
+_SAVINGS_OUTPUTS = (
+    Output("balance", "money.final_balance", "money", _SAVED, primary=True),
+    Output("deposited", "money.total_deposited", "money", "start + deposit*years*12"),
+    Output("interest", "money.interest_earned", "money", f"{_SAVED} - start - deposit*years*12"),
+)
 
 _USED_WORDS = (  # "certified pre-owned" is read by "pre-owned"
     "used", "pre-owned", "preowned", "pre owned", "second-hand", "secondhand", "second hand",
@@ -271,27 +281,26 @@ PRODUCTS: tuple[Product, ...] = (
         key="savings",
         family="savings",
         title_key="money.title.savings",
-        words=(
-            "savings",
-            "save",
-            "saving",
-            "invest",
-            "investing",
-            "investment",
-            "deposit",
-            "compound",
-            "retirement",
-        ),
+        # "a savings account for my retirement" is a savings account: the longer name wins.
+        words=("savings account", "savings", "save", "saving", "deposit", "compound"),
         inputs=(_START, _DEPOSIT, _RATE, _years(1, 50)),
-        outputs=(
-            Output("balance", "money.final_balance", "money", _SAVED, primary=True),
-            Output("deposited", "money.total_deposited", "money", "start + deposit*years*12"),
-            Output(
-                "interest", "money.interest_earned", "money", f"{_SAVED} - start - deposit*years*12"
-            ),
-        ),
+        outputs=_SAVINGS_OUTPUTS,
         defaults={"start": 0, "deposit": 0, "years": 10},
         lookup=RateLookup("savings account interest rate (APY)", (0.01, 10.0), 60),
+    ),
+    # Money put into a market, not a bank. "If I invest $200 a month at 7%" was a savings
+    # account, and its note said "7% is not a realistic savings account interest rate
+    # (APY)" beside the 0.37% average (2026-10-29); 7% is a usual long-run market
+    # assumption. No average compares to a market's return, so none is looked up.
+    Product(
+        key="investing",
+        family="savings",
+        title_key="money.title.investing",
+        words=("invest", "investing", "investment", "retirement"),
+        inputs=(_START, _DEPOSIT, _RATE, _years(1, 50)),
+        outputs=_SAVINGS_OUTPUTS,
+        defaults={"start": 0, "deposit": 0, "years": 10},
+        twin="savings",
     ),
 )
 
