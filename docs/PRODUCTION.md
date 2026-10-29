@@ -426,6 +426,17 @@ permission. Changing any of it is a native change (bump `version`, new build).
   (ITMS-90683).
 - **Export compliance:** `ios.config.usesNonExemptEncryption: false` (HTTPS
   only), so App Store Connect does not ask on every build.
+- **Privacy manifest:** `ios.privacyManifests` in `app.json`, which `expo prebuild`
+  writes to `ios/Recall/PrivacyInfo.xcprivacy`. It lists the data the app
+  collects (the [App Privacy answers](#app-privacy-answers-draft) below) with
+  `NSPrivacyTracking: false`, and the one required-reason API the app's own code
+  reaches: file timestamps, `C617.1`, for the modification times and sizes of its
+  own cache and document files, read through `expo-file-system` (whose manifest
+  gives only the SDK wrapper reason, `0A2A.1`). Each SDK declares its own
+  required-reason APIs (user defaults, system boot time, disk space) in its
+  manifest, and `pod install` copies them into the app's (React Native's privacy
+  manifest aggregation, on unless `apple.privacyManifestAggregationEnabled` is
+  `false`). `lib/__tests__/appStoreConfig.test.ts` holds both lists.
 - Expo's dev launcher adds a local-network prompt to Info.plist; its own Release
   build phase ("Strip Local Network Keys for Release") removes it from store builds.
 
@@ -449,18 +460,53 @@ permission. Changing any of it is a native change (bump `version`, new build).
       and Live Talk needs Pro: buy them with the sandbox account (no charge)
       to test the microphone features.
 - [ ] **After the first upload**, watch App Store Connect email for
-      **ITMS-91053** (an SDK uses a required-reason API without declaring it).
-      If it names an API category, add it with the listed reason under
-      `ios.privacyManifests.NSPrivacyAccessedAPITypes` in `app.json` and rebuild.
-- [ ] **App Privacy (App Store) and Data safety (Play)** answers include:
-      precise location; audio (voice input and Live Talk); photos and files
-      (attachments); user content (messages, chats, memory, to-dos); name,
-      email and user ID (sign-in); purchase history (RevenueCat); crash data
-      (Sentry, when the DSN is set); app interactions (metadata-only analytics).
-      None is used for tracking or sold.
+      **ITMS-91053** (the binary uses a required-reason API that no privacy
+      manifest declares). If it names an API category, add it with the right
+      reason under `ios.privacyManifests.NSPrivacyAccessedAPITypes` in `app.json`
+      (and in the test's list) and rebuild.
+- [ ] **App Privacy (App Store) and Data safety (Play):** answer from the
+      [draft below](#app-privacy-answers-draft). None of it is used for tracking
+      or sold. Play's Data safety form asks for the same data in its own
+      categories.
 - [ ] Play Console → App content: the build declares no `READ_MEDIA_*` or
       foreground-service permission, so the photo and video permissions and
       foreground service declarations do not apply
+
+#### App Privacy answers (draft)
+
+The same rows as the privacy manifest (`ios.privacyManifests` in `app.json`) and
+the hosted privacy policy (`apps/api/app/content/privacy_policy.py`). "Linked"
+means tied to the account. Tracking (Apple's sense: combining with other
+companies' data for advertising, or sharing with data brokers) is **No** for
+every row, and the manifest says `NSPrivacyTracking: false`.
+
+| App Store Connect data type | Linked | Tracking | Purposes | What the app collects |
+|---|---|---|---|---|
+| Contact Info → Email Address | Yes | No | App Functionality | Google or Apple sign-in; reminder, welcome and receipt emails |
+| Contact Info → Name | Yes | No | App Functionality, Product Personalization | Sign-in and profile name; the greeting and the model's answers use it |
+| Location → Precise Location | Yes | No | App Functionality | A nearby or "where am I" message carries the phone's coordinates; when the phone finds no place name, the label sent is the coordinates to four decimals, which reaches the model and the web search |
+| Location → Coarse Location | Yes | No | App Functionality | The city, region and country saved while Use current location is on |
+| User Content → Photos or Videos | Yes | No | App Functionality | Attached photos, maths scans, the profile photo |
+| User Content → Audio Data | Yes | No | App Functionality | Voice input and Live Talk (sent to OpenAI; Recall keeps the text, not the audio) |
+| User Content → Other User Content | Yes | No | App Functionality, Product Personalization | Messages, chats, memory, to-dos, attached files, custom instructions, thumbs-up/down feedback |
+| Identifiers → User ID | Yes | No | App Functionality, Analytics | The account id, also RevenueCat's app user id; product events are stored under it |
+| Identifiers → Device ID | Yes | No | App Functionality, Analytics | This install's id (`lib/installationId.ts`), sent with the push token and product events; the push token |
+| Purchases → Purchase History | Yes | No | App Functionality, Analytics | Plan and subscription status (RevenueCat); purchase started, succeeded and failed events |
+| Usage Data → Product Interaction | Yes | No | Analytics | Metadata-only product events: paywall views, purchase outcomes, notification permission, how a chat turn ended |
+| Diagnostics → Performance Data | Yes | No | Analytics, App Functionality | How quickly replies start (bucketed product events); Sentry traces when the DSN is set |
+| Diagnostics → Crash Data | No | No | App Functionality | Sentry crash reports when the DSN is set: no user id, no message text (`lib/sentry.ts`) |
+| Diagnostics → Other Diagnostic Data | No | No | App Functionality | Sentry error reports (a screen or message that failed to draw, store and push failures), same rules |
+| Other Data → Other Data Types | Yes | No | App Functionality, Product Personalization | Optional profile fields (age, country, job); each signed-in session's device name or model |
+
+Not collected: phone number, physical address, contacts, health or fitness,
+financial info (Apple or Google take payment), browsing history, search history
+(the drawer's search reads saved chats and keeps no query) and advertising data.
+Sensitive Info is not a row of its own: memory keeps a sensitive fact only when
+the user asks it to or turns on sensitive memory, and it is then the user's own
+words (Other User Content); owner to confirm. The Crash Data and Other Diagnostic
+Data rows, and Sentry's share of Performance Data, apply only when the store
+build sets `EXPO_PUBLIC_SENTRY_DSN`; the Sentry SDK's own manifest declares them
+in every build.
 
 ### Over-the-air updates (EAS Update)
 
