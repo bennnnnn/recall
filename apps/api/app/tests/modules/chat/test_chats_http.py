@@ -316,7 +316,7 @@ def test_today_usage():
     assert "remaining" in data
     assert "used_tokens" in data
     assert data["remaining"] == data["daily_limit"] - data["used_tokens"]
-    assert data["context_token_budget"] == 6000
+    assert data["context_token_budget"] == 16_000
     assert data["recent_message_window"] == 20
 
 

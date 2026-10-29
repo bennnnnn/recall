@@ -24,9 +24,13 @@ class ChatContextSettings(BaseModel):
     todo_prompt_limit: int = 48
 
     # History compression — keep recent turns verbatim within a token budget,
-    # summarise everything older.
+    # summarise everything older. At 6000 a chat building an HTML page kept only its
+    # last version and the new request (each version ~5,900 tokens), and every earlier
+    # request lived in an 800-token summary (2026-10-29). 16000 keeps about three
+    # versions, and an ordinary chat whole to the 20-message cap. Every model alias
+    # reads 128k or more.
     history_compression_enabled: bool = True
-    context_token_budget: int = 6000
+    context_token_budget: int = 16_000
     history_summary_batch: int = 10
     history_summary_urgent_pending: int = 3
     summary_max_tokens: int = 800
