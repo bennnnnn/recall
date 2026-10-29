@@ -153,6 +153,7 @@
   "chat.math_scan_frame_grow": "Agrandar marco",
   "chat.math_scan_frame_shrink": "Reducir marco",
   "chat.math_scan_permission": "Se necesita acceso a la cámara para escanear problemas.",
+  "chat.math_scan_photo_disclosure": "Tu foto se envía a Recall y a proveedores de IA externos para leer el problema.",
   "chat.math_scan_photos_a11y": "Elegir una imagen de Fotos",
   "chat.math_scan_files_a11y": "Elegir una imagen de Archivos",
   "chat.math_scan_files_hint": "Mantén pulsado para elegir de Archivos.",

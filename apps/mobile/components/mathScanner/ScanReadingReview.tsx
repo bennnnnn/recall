@@ -11,6 +11,7 @@ import {
 import type { EdgeInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { ScanPhotoDisclosure } from "@/components/mathScanner/ScanPhotoDisclosure";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -104,6 +105,8 @@ export function ScanReadingReview({
             testID="math-scan-reading"
           />
         ) : null}
+        {/* The read already sent the photo, and Send photo sends it into the chat. */}
+        <ScanPhotoDisclosure appearance="card" />
         <View style={s.actions}>
           <Button
             title={t("chat.math_scan_solve")}

@@ -3,6 +3,7 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { ScanReadingReview, type ScanReadingState } from "@/components/mathScanner/ScanReadingReview";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
+import { DYNAMIC_TYPE_MAX } from "@/lib/type";
 
 jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
@@ -92,5 +93,21 @@ describe("ScanReadingReview", () => {
       fireEvent.press(view.getByText("chat.math_scan_solve"));
     });
     expect(view.onSolve).not.toHaveBeenCalled();
+  });
+
+  // Privacy B9: the read already sent the photo to Recall and on to third-party
+  // AI providers, and Send photo sends it again into the chat. The review says so
+  // in every state, above the actions, where a screen reader also reaches it first.
+  it.each<ScanReadingState>([
+    { status: "reading" },
+    { status: "ready", reading: "2x + 3 = 7", uncertain: false },
+    { status: "failed" },
+  ])("says where the photo goes while $status", async (state) => {
+    const view = await renderReview(state);
+    const line = view.getByText("chat.math_scan_photo_disclosure");
+    expect(line.props.maxFontSizeMultiplier).toBe(DYNAMIC_TYPE_MAX);
+    const texts = view.getAllByText(/^chat\./).map((node) => node.props.children as string);
+    expect(texts.indexOf("chat.math_scan_photo_disclosure")).toBeLessThan(texts.indexOf("chat.math_scan_solve"));
+    expect(texts.indexOf("chat.math_scan_photo_disclosure")).toBeLessThan(texts.indexOf("chat.math_scan_send_photo"));
   });
 });

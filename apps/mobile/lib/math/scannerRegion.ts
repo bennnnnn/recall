@@ -39,15 +39,21 @@ export const SCANNER_SUBJECT_SWITCHER_PX = 42;
 
 const ZERO_INSET: ScanChromeInset = { top: 0, right: 0, bottom: 0, left: 0 };
 
+/**
+ * `measuredBottomPx` is chrome above the controls whose height follows the
+ * reader's text size (the photo disclosure), as it last laid out.
+ */
 export function scanChromeInset(
   windowWidth: number,
   windowHeight: number,
   safe: { top: number; bottom: number },
+  measuredBottomPx = 0,
 ): ScanChromeInset {
   if (windowWidth <= 0 || windowHeight <= 0) return ZERO_INSET;
   const topPx = safe.top + 8 + SCANNER_TOP_CONTROL_PX + 8;
   const bottomPx =
-    Math.max(safe.bottom, 16) + 12 + SCANNER_SHUTTER_PX + SCANNER_SUBJECT_SWITCHER_PX + 44;
+    Math.max(safe.bottom, 16) + 12 + SCANNER_SHUTTER_PX + SCANNER_SUBJECT_SWITCHER_PX + 44 +
+    measuredBottomPx;
   return {
     top: Math.min(0.4, topPx / windowHeight),
     right: 0,

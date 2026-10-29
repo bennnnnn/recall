@@ -153,6 +153,7 @@
   "chat.math_scan_frame_grow": "Çerçeveyi büyüt",
   "chat.math_scan_frame_shrink": "Çerçeveyi küçült",
   "chat.math_scan_permission": "Problem taramak için kamera erişimi gerekir.",
+  "chat.math_scan_photo_disclosure": "Fotoğrafın, problemi okumak için Recall'a ve üçüncü taraf yapay zekâ sağlayıcılarına gönderilir.",
   "chat.math_scan_photos_a11y": "Fotoğraflardan görsel seç",
   "chat.math_scan_files_a11y": "Dosyalardan görsel seç",
   "chat.math_scan_files_hint": "Dosyalardan seçmek için basılı tutun.",

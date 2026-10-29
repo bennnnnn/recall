@@ -153,6 +153,7 @@
   "chat.math_scan_frame_grow": "Aumentar moldura",
   "chat.math_scan_frame_shrink": "Diminuir moldura",
   "chat.math_scan_permission": "É necessário acesso à câmera para escanear problemas.",
+  "chat.math_scan_photo_disclosure": "Sua foto é enviada ao Recall e a provedores de IA terceirizados para ler o problema.",
   "chat.math_scan_photos_a11y": "Escolher uma imagem nas Fotos",
   "chat.math_scan_files_a11y": "Escolher uma imagem nos Arquivos",
   "chat.math_scan_files_hint": "Toque e segure para escolher nos Arquivos.",

@@ -153,6 +153,7 @@
   "chat.math_scan_frame_grow": "Ingrandisci cornice",
   "chat.math_scan_frame_shrink": "Riduci cornice",
   "chat.math_scan_permission": "Serve l’accesso alla fotocamera per scansionare i problemi.",
+  "chat.math_scan_photo_disclosure": "La tua foto viene inviata a Recall e a fornitori di IA di terze parti per leggere il problema.",
   "chat.math_scan_photos_a11y": "Scegli un'immagine da Foto",
   "chat.math_scan_files_a11y": "Scegli un'immagine da File",
   "chat.math_scan_files_hint": "Tieni premuto per scegliere da File.",

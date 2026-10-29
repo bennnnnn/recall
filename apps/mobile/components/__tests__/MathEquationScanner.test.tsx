@@ -9,6 +9,7 @@ import { MathEquationScanner } from "@/components/MathEquationScanner";
 import { cropScanImage, measureScanImage } from "@/lib/scanner/scanImage";
 import { selection } from "@/lib/haptics";
 import { playScannerSwitchCue } from "@/lib/scanner/switchCue";
+import { DYNAMIC_TYPE_MAX } from "@/lib/type";
 import { AA, compositeOver, contrastRatio } from "@/lib/__tests__/support/contrast";
 
 const mockTakePictureAsync = jest.fn(async (): Promise<{ uri: string } | null> => ({
@@ -869,5 +870,148 @@ describe("scanner sessions and scan files", () => {
       fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
     });
     expect(cropScanImage).toHaveBeenCalledTimes(1);
+  });
+});
+
+type JsonNode = { props: Record<string, unknown>; children: (JsonNode | string)[] | null };
+
+/** Every testID in drawing order, which is also the order a screen reader reads. */
+function testIdsInOrder(tree: JsonNode | JsonNode[] | null): string[] {
+  if (!tree) return [];
+  if (Array.isArray(tree)) return tree.flatMap(testIdsInOrder);
+  const own = typeof tree.props.testID === "string" ? [tree.props.testID] : [];
+  const children = (tree.children ?? []).filter((child): child is JsonNode => typeof child !== "string");
+  return [...own, ...children.flatMap(testIdsInOrder)];
+}
+
+// Privacy B9: a scanned photo goes to Recall's server and on to third-party AI
+// providers to be read. It leaves the phone from the live camera (the shutter
+// starts the read), from a picked photo's crop (Solve) and from the review (Send
+// photo), so each of them says so, above the control that sends it.
+describe("where a scanned photo goes", () => {
+  const DISCLOSURE = "chat.math_scan_photo_disclosure";
+
+  beforeEach(() => {
+    jest.spyOn(Dimensions, "get").mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 1 });
+    mockPermission.granted = true;
+    mockScanImages();
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  function layoutDisclosure(view: Awaited<ReturnType<typeof render>>, height: number) {
+    fireEvent(view.getByTestId("math-scanner-disclosure"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 390, height } },
+    });
+  }
+
+  it.each(["math", "physics", "chemistry", "biology"])(
+    "says so on the %s camera, ahead of the controls",
+    async (subject) => {
+      const view = await render(
+        <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+      );
+      await act(async () => {
+        fireEvent.press(view.getByTestId(`scanner-subject-${subject}`));
+      });
+      const line = view.getByText(DISCLOSURE);
+      expect(line.props.maxFontSizeMultiplier).toBe(DYNAMIC_TYPE_MAX);
+      const order = testIdsInOrder(view.toJSON() as JsonNode | JsonNode[] | null);
+      expect(order.indexOf("math-scanner-disclosure")).toBeGreaterThan(-1);
+      expect(order.indexOf("math-scanner-disclosure")).toBeLessThan(order.indexOf("scanner-subject-switcher"));
+      expect(order.indexOf("math-scanner-disclosure")).toBeLessThan(order.indexOf("math-scanner-shutter"));
+    },
+  );
+
+  it.each([
+    ["light", false],
+    ["dark", true],
+  ] as const)("keeps the camera line readable over a white page in %s mode", async (_scheme, dark) => {
+    mockTheme.dark = dark;
+    try {
+      const view = await render(
+        <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+      );
+      const plate = view.getByTestId("math-scanner-disclosure-plate");
+      const ink = String(StyleSheet.flatten(within(plate).getByText(DISCLOSURE).props.style).color);
+      const scrim = String(StyleSheet.flatten(plate.props.style).backgroundColor);
+      expect(contrastRatio(ink, compositeOver(scrim, "#FFFFFF"))).toBeGreaterThanOrEqual(AA);
+    } finally {
+      mockTheme.dark = false;
+    }
+  });
+
+  it("says so on a picked photo's crop, ahead of Solve", async () => {
+    jest.mocked(pickFromPhotoLibrary).mockResolvedValue({
+      localUri: "file:///landscape.png", contentType: "image/png", fileName: "landscape.png", kind: "image",
+    });
+    const view = await render(
+      <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+    );
+    await act(async () => {
+      fireEvent.press(view.getByTestId("math-scanner-photos"));
+    });
+    expect(view.getByTestId("math-scanner-preview")).toBeTruthy();
+    expect(view.getByText(DISCLOSURE)).toBeTruthy();
+    const order = testIdsInOrder(view.toJSON() as JsonNode | JsonNode[] | null);
+    expect(order.indexOf("math-scanner-disclosure")).toBeGreaterThan(-1);
+    expect(order.indexOf("math-scanner-disclosure")).toBeLessThan(order.indexOf("math-scanner-preview-solve"));
+  });
+
+  it("says so on the review, and only once", async () => {
+    const view = await render(
+      <MathEquationScanner
+        visible
+        onClose={jest.fn()}
+        onCaptured={jest.fn()}
+        onReadScan={jest.fn(() => new Promise<null>(() => undefined))}
+        onSolveReading={jest.fn()}
+      />,
+    );
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_capture_a11y"));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(within(view.getByTestId("math-scan-review")).getByText(DISCLOSURE)).toBeTruthy();
+    // The camera's own line steps aside under the review.
+    expect(view.getAllByText(DISCLOSURE)).toHaveLength(1);
+  });
+
+  // At the largest text sizes the line wraps to several lines: the crop frame
+  // and the error banner move up by what it measures, never under it.
+  it("keeps a picked photo's crop above the line at a large text size", async () => {
+    jest.mocked(pickFromPhotoLibrary).mockResolvedValue({
+      localUri: "file:///shot.jpg", contentType: "image/jpeg", fileName: "shot.jpg", kind: "image",
+    });
+    const view = await render(
+      <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+    );
+    await act(async () => {
+      fireEvent.press(view.getByTestId("math-scanner-photos"));
+    });
+    // Four wrapped lines at the line's 1.5x text cap, with its padding.
+    const lineHeight = 120;
+    await act(async () => {
+      layoutDisclosure(view, lineHeight);
+    });
+    const frame = StyleSheet.flatten(view.getByTestId("math-scanner-preview").props.style);
+    // Safe bottom 34: bottom padding 46, switcher 42, controls 12 + 76, slack 32.
+    const chromeTop = 844 - (Math.max(34, 16) + 12 + 76 + 42 + 44) - lineHeight;
+    expect(Number(frame.top) + Number(frame.height)).toBeLessThanOrEqual(chromeTop + 0.01);
+  });
+
+  it("lifts the error banner above the line", async () => {
+    const view = await render(
+      <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+    );
+    await act(async () => {
+      view.getByTestId("mock-live-scanner-camera").props.onUnavailable?.();
+    });
+    const before = Number(StyleSheet.flatten(view.getByTestId("math-scanner-error").props.style).bottom);
+    await act(async () => {
+      layoutDisclosure(view, 120);
+    });
+    const after = Number(StyleSheet.flatten(view.getByTestId("math-scanner-error").props.style).bottom);
+    expect(after - before).toBe(120);
   });
 });

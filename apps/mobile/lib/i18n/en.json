@@ -153,6 +153,7 @@
   "chat.math_scan_frame_grow": "Grow crop frame",
   "chat.math_scan_frame_shrink": "Shrink crop frame",
   "chat.math_scan_permission": "Camera access is needed to scan problems.",
+  "chat.math_scan_photo_disclosure": "Your photo is sent to Recall and third-party AI providers to read the problem.",
   "chat.math_scan_photos_a11y": "Choose an image from Photos",
   "chat.math_scan_files_a11y": "Choose an image from Files",
   "chat.math_scan_files_hint": "Touch and hold to choose from Files instead.",

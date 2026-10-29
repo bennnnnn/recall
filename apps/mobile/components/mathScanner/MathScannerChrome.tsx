@@ -17,6 +17,7 @@ import type { EdgeInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
+import { ScanPhotoDisclosure } from "@/components/mathScanner/ScanPhotoDisclosure";
 import { ScannerSubjectSwitcher } from "@/components/mathScanner/ScannerSubjectSwitcher";
 import { IconSize } from "@/ui/icons/sizes";
 import {
@@ -46,6 +47,10 @@ type Props = {
   error: string | null;
   /** The reading review is open, so capture controls must not sit on top of it. */
   reviewing?: boolean;
+  /** The photo disclosure's last measured height; the error banner sits above it. */
+  disclosureHeight?: number;
+  /** Reports that height, which grows with text size, so the crop frame keeps clear of it. */
+  onDisclosureLayout?: (height: number) => void;
   onClose: () => void;
   onSubjectChange: (subject: ScannerSubject) => void;
   onToggleTorch: () => void;
@@ -68,6 +73,8 @@ export function MathScannerChrome({
   subject,
   error,
   reviewing = false,
+  disclosureHeight = 0,
+  onDisclosureLayout,
   onClose,
   onSubjectChange,
   onToggleTorch,
@@ -89,7 +96,8 @@ export function MathScannerChrome({
   }));
 
   const bottomPad = Math.max(insets.bottom, Space.md) + Space.sm;
-  const errorBottom = bottomPad + SCANNER_SHUTTER_PX + SCANNER_SUBJECT_SWITCHER_PX + Space.xl;
+  const errorBottom =
+    bottomPad + SCANNER_SHUTTER_PX + SCANNER_SUBJECT_SWITCHER_PX + Space.xl + disclosureHeight;
   useLiveAnnouncement(error);
 
   const closeButton = (
@@ -103,6 +111,20 @@ export function MathScannerChrome({
     >
       <Icon name="close" size={IconSize.md} color={theme.onMedia} />
     </Pressable>
+  );
+
+  // The photo leaves the phone from the shutter and from a picked photo's
+  // Solve, so it is said here, above those controls (the review says it again).
+  const disclosure = (
+    <View
+      style={s.disclosure}
+      testID="math-scanner-disclosure"
+      onLayout={(event) => onDisclosureLayout?.(event.nativeEvent.layout.height)}
+    >
+      <View style={s.disclosurePlate} testID="math-scanner-disclosure-plate">
+        <ScanPhotoDisclosure appearance="media" />
+      </View>
+    </View>
   );
 
   if (reviewing) {
@@ -134,37 +156,41 @@ export function MathScannerChrome({
       ) : null}
 
       {preview ? (
-        <View style={[s.previewActions, { paddingBottom: bottomPad }]}>
-          <GHPressable
-            style={s.previewSecondary}
-            onPress={onRetake}
-            disabled={busy}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: busy }}
-            testID="math-scanner-preview-retake"
-            accessibilityLabel={t("chat.math_scan_retake")}
-          >
-            <Text style={s.previewSecondaryText}>{t("chat.math_scan_retake")}</Text>
-          </GHPressable>
-          <GHPressable
-            style={s.previewPrimary}
-            onPress={onSolve}
-            disabled={busy}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: busy, busy }}
-            testID="math-scanner-preview-solve"
-            accessibilityLabel={t("chat.math_scan_solve")}
-          >
-            {busy ? (
-              <ActivityIndicator color={theme.onPrimary} />
-            ) : (
-              <Text style={s.previewPrimaryText}>{t("chat.math_scan_solve")}</Text>
-            )}
-          </GHPressable>
+        <View style={[s.previewBar, { paddingBottom: bottomPad }]}>
+          {disclosure}
+          <View style={s.previewActions}>
+            <GHPressable
+              style={s.previewSecondary}
+              onPress={onRetake}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: busy }}
+              testID="math-scanner-preview-retake"
+              accessibilityLabel={t("chat.math_scan_retake")}
+            >
+              <Text style={s.previewSecondaryText}>{t("chat.math_scan_retake")}</Text>
+            </GHPressable>
+            <GHPressable
+              style={s.previewPrimary}
+              onPress={onSolve}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: busy, busy }}
+              testID="math-scanner-preview-solve"
+              accessibilityLabel={t("chat.math_scan_solve")}
+            >
+              {busy ? (
+                <ActivityIndicator color={theme.onPrimary} />
+              ) : (
+                <Text style={s.previewPrimaryText}>{t("chat.math_scan_solve")}</Text>
+              )}
+            </GHPressable>
+          </View>
         </View>
       ) : granted ? (
         <View style={[s.bottom, { paddingBottom: bottomPad }]}>
           <View style={s.bottomScrim} pointerEvents="none" />
+          {disclosure}
           <ScannerSubjectSwitcher value={subject} onChange={onSubjectChange} />
           <View style={s.controls}>
             <GHPressable
@@ -344,14 +370,29 @@ function makeStyles(theme: Theme) {
       borderRadius: Radius.full,
       backgroundColor: theme.onMedia,
     },
-    previewActions: {
+    // White ink on its own plate: the bottom scrim alone over a white page read 3.4:1.
+    disclosure: {
+      alignItems: "center",
+      paddingHorizontal: Space.md,
+      paddingBottom: Space.xs,
+    },
+    disclosurePlate: {
+      backgroundColor: withAlpha(theme.mediaScrim, 0.65),
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.xxs,
+      borderRadius: Radius.xs,
+    },
+    previewBar: {
       position: "absolute",
-      left: Space.md,
-      right: Space.md,
+      left: 0,
+      right: 0,
       bottom: 0,
+      zIndex: 10,
+    },
+    previewActions: {
       flexDirection: "row",
       gap: Space.sm,
-      zIndex: 10,
+      paddingHorizontal: Space.md,
     },
     previewSecondary: {
       flex: 1,

@@ -153,6 +153,7 @@
   "chat.math_scan_frame_grow": "ክፈፉን አሳድግ",
   "chat.math_scan_frame_shrink": "ክፈፉን አሳንስ",
   "chat.math_scan_permission": "ችግሮችን ለመቃኘት የካሜራ ፍቃድ ያስፈልጋል።",
+  "chat.math_scan_photo_disclosure": "ፎቶዎ ችግሩን ለማንበብ ወደ Recall እና ወደ ሶስተኛ ወገን የAI አቅራቢዎች ይላካል።",
   "chat.math_scan_photos_a11y": "ከፎቶዎች ምስል ይምረጡ",
   "chat.math_scan_files_a11y": "ከፋይሎች ምስል ይምረጡ",
   "chat.math_scan_files_hint": "ከፋይሎች ለመምረጥ ተጭነው ይያዙ።",

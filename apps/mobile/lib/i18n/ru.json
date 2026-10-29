@@ -153,6 +153,7 @@
   "chat.math_scan_frame_grow": "Увеличить рамку",
   "chat.math_scan_frame_shrink": "Уменьшить рамку",
   "chat.math_scan_permission": "Для сканирования задач нужен доступ к камере.",
+  "chat.math_scan_photo_disclosure": "Ваше фото отправляется в Recall и сторонним поставщикам ИИ, чтобы прочитать задачу.",
   "chat.math_scan_photos_a11y": "Выбрать изображение из фото",
   "chat.math_scan_files_a11y": "Выбрать изображение из файлов",
   "chat.math_scan_files_hint": "Нажмите и удерживайте, чтобы выбрать из файлов.",

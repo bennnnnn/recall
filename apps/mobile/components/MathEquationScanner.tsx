@@ -27,6 +27,7 @@ import { ScanReadingReview } from "@/components/mathScanner/ScanReadingReview";
 import { ScannerPermission } from "@/components/mathScanner/ScannerPermission";
 import { ScannerSubjectGuide } from "@/components/mathScanner/ScannerSubjectGuide";
 import { useScanReview } from "@/components/mathScanner/useScanReview";
+import { useScannerChromeInset } from "@/components/mathScanner/useScannerChromeInset";
 import { useMathScannerCrop } from "@/hooks/useMathScannerCrop";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import type { ScanReading } from "@/lib/api";
@@ -45,7 +46,6 @@ import {
   regionToContainedImageCrop,
   regionToImageCrop,
   regionsClose,
-  scanChromeInset,
   type ScanRegion,
 } from "@/lib/math/scannerRegion";
 import { cropScanImage, measureScanImage, ScanFiles } from "@/lib/scanner/scanImage";
@@ -143,10 +143,7 @@ export function MathEquationScanner({
   const handleCameraReady = useCallback(() => setCameraReady(true), []);
   const handleCameraError = useCallback(() => setError(t("chat.math_scan_camera_unavailable")), [t]);
   const handleCameraMissing = useCallback(() => setError(t("chat.math_scan_camera_needs_build")), [t]);
-  const inset = useMemo(
-    () => scanChromeInset(view.width, view.height, insets),
-    [view.width, view.height, insets.top, insets.bottom],
-  );
+  const { inset, disclosureHeight, onDisclosureLayout } = useScannerChromeInset(view, insets);
   const resetLive = useCallback(() => {
     setLiveStatus("idle");
     liveReadyRef.current = false;
@@ -476,6 +473,8 @@ export function MathEquationScanner({
           onRetake={retake}
           onSolve={confirmPreview}
           reviewing={review !== null}
+          disclosureHeight={disclosureHeight}
+          onDisclosureLayout={onDisclosureLayout}
         />
         {review ? (
           <ScanReadingReview

@@ -160,6 +160,14 @@ describe("handleHitSize / scanChromeInset", () => {
     expect(inset.bottom).toBeGreaterThan(0);
     expect(inset.top + inset.bottom).toBeLessThan(0.8);
   });
+
+  it("keeps the crop clear of the measured photo disclosure above the controls", () => {
+    const safe = { top: 47, bottom: 34 };
+    const plain = scanChromeInset(390, 844, safe);
+    const withLine = scanChromeInset(390, 844, safe, 60);
+    expect(withLine.bottom * 844).toBeCloseTo(plain.bottom * 844 + 60, 6);
+    expect(withLine.top).toBe(plain.top);
+  });
 });
 
 describe("regionToImageCrop", () => {
