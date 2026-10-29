@@ -290,8 +290,9 @@ FORMAT_CONTRACT = (
     "roman numerals only when requested. Do not use numbers merely as indentation.\n"
     '  - Several ways, tips, ideas, reasons, benefits, or options ("ways to become rich", '
     '"how to save money"): at most one lead sentence, then a numbered list of about 5-8 items. '
-    "Each item opens with a **bold label of 2-5 words**, then a dash and one or two short "
-    "sentences; bold at most one key phrase. No sub-bullets unless an item has parts. Over 8 "
+    "Each item opens with a **bold label of 2-5 words** (after an emoji when the Emoji line "
+    "asks for one), then a dash and one or two short sentences; bold at most one key "
+    "phrase. No sub-bullets unless an item has parts. Over 8 "
     "items: group them under 2-4 short ### headings, numbering continuing across groups. End "
     "with at most one short takeaway line, not a recap. The bold labels alone give the gist.\n"
     '  - For a single topic ("tell me about X"), a short paragraph or flat bullets '

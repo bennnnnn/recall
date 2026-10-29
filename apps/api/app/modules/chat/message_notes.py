@@ -1,5 +1,5 @@
 """What the latest message is, said beside it: a list of values, "What?" at the last reply,
-and the language it is written in.
+the user's Emoji setting, and the language it is written in.
 
 These sit nearest the user's turn (``prompt_sections.CONTEXT_SECTIONS``): a small model
 follows the note closest to the message. A lesson, its outline and a clarify card read
@@ -17,7 +17,9 @@ from app.modules.chat.continuation_subject import exchange_pairs
 from app.modules.chat.prompt_constants.lesson_flow import active_lesson_step, outline_awaits_pick
 from app.modules.chat.prompt_constants.reply_missed import reply_missed_hint
 from app.modules.chat.prompt_constants.shared_numbers import shared_numbers_hint
+from app.modules.chat.prompt_constants.teaching import is_teaching_request
 from app.modules.chat.reply_language import reply_language_hint
+from app.modules.chat.response_tone import emoji_note
 
 
 def _own_way(query: str, exchange: list[Any], pairs: Sequence[tuple[str, str]]) -> bool:
@@ -27,9 +29,13 @@ def _own_way(query: str, exchange: list[Any], pairs: Sequence[tuple[str, str]]) 
     return clarify_reply_hint(query, pairs) is not None
 
 
-def message_notes(query: str, exchange: list[Any], user: Any) -> list[str]:
+def message_notes(query: str, exchange: list[Any], user: Any, memory_block: str = "") -> list[str]:
     """The notes that apply to this message, in order; its language last, nearest it."""
     pairs = exchange_pairs(exchange)
-    missed = None if _own_way(query, exchange, pairs) else reply_missed_hint(query, pairs)
+    own_way = _own_way(query, exchange, pairs)
+    missed = None if own_way else reply_missed_hint(query, pairs)
+    # A lesson (its first one too), outline or clarify card places its own emoji.
+    lesson_like = own_way or is_teaching_request(query)
+    emoji = None if lesson_like else emoji_note(user.emoji_use, memory_block)
     language = reply_language_hint(query, pairs, user.locale, user.custom_instructions)
-    return [note for note in (shared_numbers_hint(query), missed, language) if note]
+    return [note for note in (shared_numbers_hint(query), missed, emoji, language) if note]
