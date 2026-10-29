@@ -177,7 +177,8 @@ def _split(text: str, tokens: list[Token], *, second: bool = True) -> tuple[Part
     for index in range(1, len(tokens)):
         if not _cut_here(text, tokens, index):
             continue
-        head = text[: tokens[index - 1].end].strip().rstrip(",፣ ")
+        # Through a mark set apart ("… l'Italie ?"): the request keeps its question mark.
+        head = text[: tokens[index].start].strip().rstrip(",፣ ")
         if _picture_first(text, tokens, words, index):
             asked = _joined(words, index)
             rest = text[tokens[min(asked, len(tokens) - 1)].start :].strip()
