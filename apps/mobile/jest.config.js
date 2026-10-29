@@ -14,6 +14,11 @@ const RN_TRANSFORM_ALLOWLIST =
 
 /** @type {import('jest').Config} */
 module.exports = {
+  // A worker keeps what each test file leaves in memory, and on CI one grew past
+  // its 2 GB heap and crashed the run ("JavaScript heap out of memory", 2026-10-29,
+  // on main and on a PR, passing on rerun). A worker that ends a file above this
+  // is replaced before the next one.
+  workerIdleMemoryLimit: "1GB",
   projects: [
     {
       displayName: "lib",

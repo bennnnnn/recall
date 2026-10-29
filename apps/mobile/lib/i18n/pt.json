@@ -1044,7 +1044,7 @@
   "todos.error_create": "Não foi possível criar a tarefa",
   "todos.error_delete": "Não foi possível excluir",
   "todos.error_due": "Não foi possível atualizar a data",
-  "todos.error_toggle": "Não foi possível atualizar",
+  "todos.error_update": "Não foi possível atualizar",
   "todos.overdue_days": "{{count}}d atrasado",
   "todos.overdue_today": "Atrasado hoje",
   "todos.row_overdue": "atrasada",

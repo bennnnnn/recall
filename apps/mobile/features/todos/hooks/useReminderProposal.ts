@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodosOptional } from "@/features/todos/context/TodosContext";
@@ -31,34 +31,42 @@ export function useReminderProposal(proposal: ReminderProposal) {
   const [done, setDone] = useState(() => isProposalSaved(proposal));
   const [error, setError] = useState<ReminderProposalError | null>(null);
   const [alertsOff, setAlertsOff] = useState(false);
+  // State lags a render: two quick taps both saw `busy` false and both sent, and the
+  // second's 409 put "That reminder changed" under a card that said Saved.
+  const sending = useRef(false);
 
   const confirm = async () => {
-    if (!token || busy || done) return;
+    if (!token || busy || done || sending.current) return;
+    sending.current = true;
     setBusy(true);
     setError(null);
+    let saved: Awaited<ReturnType<typeof api.confirmReminderProposal>>;
     try {
-      const saved = await api.confirmReminderProposal(token, proposal.proposalId);
-      markProposalSaved(proposal.proposalId);
-      setDone(true);
-      // One haptic for the tap, when the card is saved (a delete, as every delete does).
-      if (proposalAction(proposal) === "delete") notifyDestructive();
-      else notifySuccess();
-      // Ask before the rows land, so the reminder sync that follows may schedule its alert.
-      if (proposal.items.some((item) => item.dueAt && (item.action === "add" || item.action === "set_due"))) {
-        setAlertsOff((await allowReminderAlerts()) === "off");
-      }
-      // The rows the tap wrote, applied as they are (code-health audit NET-16); a card
-      // another device saved first sends none, and the list is read again.
-      if (saved.todos) todos?.setTodos((rows) => applySavedRows(rows, saved.todos ?? [], saved.deleted_ids));
-      else void todos?.refresh({ silent: true, force: true });
+      saved = await api.confirmReminderProposal(token, proposal.proposalId);
     } catch (caught) {
       // ApiRequestError carries the HTTP status: 410 expired, 409 changed since.
       const status = (caught as { status?: unknown } | null)?.status;
       setError(status === 410 ? "expired" : status === 409 ? "changed" : "failed");
       notifyError();
-    } finally {
+      sending.current = false;
       setBusy(false);
+      return;
     }
+    // Saved: nothing after this is the save failing.
+    markProposalSaved(proposal.proposalId);
+    setDone(true);
+    setBusy(false);
+    // One haptic for the tap, when the card is saved (a delete, as every delete does).
+    if (proposalAction(proposal) === "delete") notifyDestructive();
+    else notifySuccess();
+    // Ask before the rows land, so the reminder sync that follows may schedule its alert.
+    if (proposal.items.some((item) => item.dueAt && (item.action === "add" || item.action === "set_due"))) {
+      setAlertsOff((await allowReminderAlerts()) === "off");
+    }
+    // The rows the tap wrote, applied as they are (code-health audit NET-16); a card
+    // another device saved first sends none, and the list is read again.
+    if (saved.todos) todos?.setTodos((rows) => applySavedRows(rows, saved.todos ?? [], saved.deleted_ids));
+    else void todos?.refresh({ silent: true, force: true });
   };
 
   return { busy, done: done || isProposalSaved(proposal), error, alertsOff, confirm };

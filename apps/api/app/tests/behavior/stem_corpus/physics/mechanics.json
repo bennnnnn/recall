@@ -1376,5 +1376,63 @@
   "prompt": "A box is pushed with 50 N. What is its acceleration?",
   "expect": "decline",
   "note": "no mass"
+ },
+ {
+  "id": "units-typed-01",
+  "area": "forces",
+  "prompt": "A 10 kg toy car accelerates at 2 m/s2. What net force acts on it?",
+  "expect": "answer",
+  "answer": [
+   20.0,
+   "N"
+  ],
+  "visual": "free_body",
+  "note": "power typed bare"
+ },
+ {
+  "id": "units-typed-02",
+  "area": "forces",
+  "prompt": "A 4 kg box accelerates at 3 m s-2. What net force acts on it?",
+  "expect": "answer",
+  "answer": [
+   12.0,
+   "N"
+  ],
+  "visual": "free_body",
+  "note": "power as a product, typed bare"
+ },
+ {
+  "id": "units-typed-03",
+  "area": "forces",
+  "prompt": "A 4 kg box accelerates at 3 m s⁻². What net force acts on it?",
+  "expect": "answer",
+  "answer": [
+   12.0,
+   "N"
+  ],
+  "visual": "free_body",
+  "note": "power as a product, superscript"
+ },
+ {
+  "id": "units-typed-04",
+  "area": "kinematics",
+  "prompt": "A car travels 100 m at 20 m s-1. How long does it take?",
+  "expect": "answer",
+  "answer": [
+   5.0,
+   "s"
+  ],
+  "note": "speed as a product of powers"
+ },
+ {
+  "id": "units-typed-05",
+  "area": "pressure",
+  "prompt": "A force of 600 N acts on an area of 3 m2. Find the pressure.",
+  "expect": "answer",
+  "answer": [
+   200.0,
+   "Pa"
+  ],
+  "note": "area typed bare"
  }
 ]

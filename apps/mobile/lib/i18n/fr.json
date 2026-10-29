@@ -1044,7 +1044,7 @@
   "todos.error_create": "Impossible de créer la tâche",
   "todos.error_delete": "Impossible de supprimer",
   "todos.error_due": "Impossible de mettre à jour la date",
-  "todos.error_toggle": "Impossible de mettre à jour",
+  "todos.error_update": "Impossible de mettre à jour",
   "todos.overdue_days": "{{count}} j de retard",
   "todos.overdue_today": "En retard aujourd'hui",
   "todos.row_overdue": "en retard",

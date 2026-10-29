@@ -80,6 +80,19 @@ describe("useChatRegenerate", () => {
     expect(cancelRegenerateUi).not.toHaveBeenCalled();
   });
 
+  it("asks for no location and sends nothing when the start was refused mid-reply", async () => {
+    const regenerateResponse = jest.fn();
+    await render(<Probe
+      messages={[msg("user", "question", "u1"), msg("assistant", "answer", "a1")]}
+      regenerateResponse={regenerateResponse}
+      beginRegenerateUi={jest.fn(() => () => false)}
+    />);
+    await act(async () => { await currentRegenerate("free-chat"); });
+    expect(resolveGeo).not.toHaveBeenCalled();
+    expect(regenerateResponse).not.toHaveBeenCalled();
+    expect(currentRegenerating).toBe(false);
+  });
+
   it("regenerates a lookup photo through the stream", async () => {
     const messages: Message[] = [
       msg("user", "Show me a car.", "u1"),

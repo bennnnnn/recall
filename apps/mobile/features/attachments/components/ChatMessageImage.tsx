@@ -9,14 +9,13 @@ import { Image, type ImageLoadEventData, type ImageSource } from "expo-image";
 import { useTranslation } from "react-i18next";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
-import { Icon } from "@/ui/icons/Icon";
+import { MediaLoadRetry } from "@/components/MediaLoadRetry";
 import { LazyAttachmentImageViewer } from "@/features/attachments/components/LazyAttachmentImageViewer";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { resolveAttachmentUri, attachmentRequestHeaders } from "@/features/attachments/model/attachmentUri";
 import { fitAttachmentImage, type ImageSize } from "@/features/attachments/model/attachmentImageSize";
 import { motionMs, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
-import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 
 const AnimatedImage = Animated.createAnimatedComponent(Image);
@@ -181,6 +180,8 @@ function ChatMessageImageContent({
   };
   const s = useMemo(() => makeStyles(C, width, height), [C, width, height]);
   const [failed, setFailed] = useState(false);
+  // Each Retry loads the photo afresh: a failure offline stayed broken until the row remounted.
+  const [attempt, setAttempt] = useState(0);
   const [viewerOpen, setViewerOpen] = useState(false);
 
   useEffect(() => {
@@ -195,6 +196,10 @@ function ChatMessageImageContent({
   // Local file:// previews (and user attach thumbs) stay sharp — no blur
   // "develop" reveal that restarts when a silent refetch swaps the URI.
   const usePlainPreview = Boolean(localUri) || !animatedReveal;
+  const retry = () => {
+    setFailed(false);
+    setAttempt((n) => n + 1);
+  };
 
   return (
     <>
@@ -206,21 +211,24 @@ function ChatMessageImageContent({
           }
           setViewerOpen(true);
         }}
-        accessibilityLabel={t("chat.image_view_a11y")}
+        accessibilityLabel={t(failed ? "chat.image_unavailable_a11y" : "chat.image_view_a11y")}
         accessibilityRole="button"
+        // VoiceOver reads the frame as one button, so the Retry inside it is an action.
+        accessibilityActions={failed ? [{ name: "retry", label: t("common.retry") }] : undefined}
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === "retry") retry();
+        }}
       >
         <View style={s.wrap} testID="chat-image-frame">
           {failed ? (
-            // Static broken-image mark — never a spinner (that read as
-            // "still generating" when the attachment 404'd).
-            <View
-              style={[s.preview, s.fallback]}
-              accessibilityLabel={t("chat.image_unavailable_a11y")}
-            >
-              <Icon name="image" size={IconSize.lg} color={C.textTertiary} />
+            // Retry, never a spinner (that read as "still generating" when the
+            // attachment 404'd). The rest of the frame still opens the viewer.
+            <View style={[s.preview, s.fallback]}>
+              <MediaLoadRetry onRetry={retry} />
             </View>
           ) : usePlainPreview ? (
             <Image
+              key={attempt}
               source={localUri ? { uri: localUri } : source}
               style={s.preview}
               contentFit={previewFit}
@@ -231,7 +239,7 @@ function ChatMessageImageContent({
             />
           ) : (
             <RevealingImage
-              key={remoteUri}
+              key={`${remoteUri}#${attempt}`}
               source={source}
               style={s.preview}
               layerStyle={s.layer}

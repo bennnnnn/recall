@@ -8,6 +8,7 @@ import { mergeReconciledPage, SSE_DROPPED_TURN_POLLS } from "@/features/chat/mod
 import type { ChatWsFallbackSignal, ChatWsTransport } from "@/features/chat/model/wsTransport";
 import { applyFrame } from "@/features/chat/model/chatTurnFrames";
 import {
+  canRegenerate,
   clearStreamingBubble,
   cue,
   dropUndispatchedRetry,
@@ -367,12 +368,15 @@ export function reduceChatTurn(state: ChatTurnState, event: ChatTurnEvent, now: 
       s.authFallback = event.fallback;
       break;
     case "regenerate_ui":
-      onRegenerateUi(s, out, event.messages);
+      // Only from rest: during a reply it would cut that reply and start a second
+      // stream (the button is hidden then, not refused).
+      if (s.phase === "idle") onRegenerateUi(s, out, event.messages);
       break;
     case "regenerate_backup":
       s.regenerateBackup = event.backup;
       break;
     case "regenerate":
+      if (!canRegenerate(s)) break;
       cue(out, "reset");
       if (s.stoppedStreamedId) {
         out.push({ type: "drop_socket" });

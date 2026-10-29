@@ -111,13 +111,30 @@ async function permitted(current: IsCurrent): Promise<boolean> {
   return current() && permission.status === "granted";
 }
 
+/**
+ * iOS keeps 64 pending local notifications and drops the rest without a word, so
+ * past that the later reminders never fired. The soonest are scheduled; the list is
+ * read again each time the app comes to the front, and the next ones take the slots
+ * the fired ones left.
+ */
+export const MAX_SCHEDULED_REMINDERS = 60;
+
+function soonestReminders(todos: Todo[]): Todo[] {
+  return todos
+    .map((todo) => ({ todo, at: upcomingNotifyAt(todo)?.getTime() }))
+    .filter((item): item is { todo: Todo; at: number } => item.at !== undefined)
+    .sort((a, b) => a.at - b.at)
+    .slice(0, MAX_SCHEDULED_REMINDERS)
+    .map((item) => item.todo);
+}
+
 export function syncTodoReminders(todos: Todo[], options?: ReminderOptions): Promise<void> {
   return enqueue(options?.session ?? getSessionGeneration(), async (current) => {
     if (options?.remindersEnabled === false || !shouldSyncLocalTodoReminders(options?.remotePush)) {
       await cancelMatching((id) => id.startsWith(TODO_PREFIX), current);
       return;
     }
-    const upcoming = todos.filter((todo) => upcomingNotifyAt(todo) !== null);
+    const upcoming = soonestReminders(todos);
     const keepIds = new Set(upcoming.map((todo) => todoNotificationId(todo.id)));
     let listed = await cancelMatching((id) => id.startsWith(TODO_PREFIX) && !keepIds.has(id), current);
     if (!upcoming.length || !current() || !await permitted(current)) return;

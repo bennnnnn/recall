@@ -125,6 +125,7 @@ _LATEX_SYMBOLS = {
     "": "",
 }
 _POWER = re.compile(r"\^\{?(-?\d+)\}?")
+_BARE_POWER = re.compile(r"(?<=[A-Za-zµμΩ])(-?\d)(?![\d.])")
 
 # A unit written in words, by the unit it means: "miles per hour" is mph, and
 # "ohm m" is Ω·m. Spelling it back out would print "miles·per·hour".
@@ -162,6 +163,18 @@ def _written_in_words(unit: str) -> str | None:
     return None if expression is None else _WORD_UNIT_SYMBOLS.get(expression)
 
 
+def _explicit_powers(unit: str) -> str:
+    """``m/s2`` as ``m/s^2``: a power typed bare, in a spelling the unit table reads.
+
+    Only a table spelling: there a digit after a unit letter can only be a power.
+    """
+    from app.modules.physics.givens import unit_expression
+
+    if unit_expression(unit) is None:
+        return unit
+    return _BARE_POWER.sub(r"^\1", unit)
+
+
 def plain_unit(unit: str) -> str:
     """``m/s²``, ``kg·m²``, ``J/(kg·K)``, ``°``, ``Ω``."""
     unit = _symbol(unit)
@@ -170,7 +183,7 @@ def plain_unit(unit: str) -> str:
     words = _written_in_words(unit)
     if words is not None:
         return words
-    spelled = _grouped_denominator(unit).replace("*", "·").replace(" ", "·")
+    spelled = _grouped_denominator(_explicit_powers(unit)).replace("*", "·").replace(" ", "·")
     return _POWER.sub(lambda match: match.group(1).translate(_SUPERSCRIPT), spelled)
 
 

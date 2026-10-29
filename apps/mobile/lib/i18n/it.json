@@ -1044,7 +1044,7 @@
   "todos.error_create": "Impossibile creare l'attività",
   "todos.error_delete": "Impossibile eliminare",
   "todos.error_due": "Impossibile aggiornare la data",
-  "todos.error_toggle": "Impossibile aggiornare",
+  "todos.error_update": "Impossibile aggiornare",
   "todos.overdue_days": "{{count}}g di ritardo",
   "todos.overdue_today": "Scaduto oggi",
   "todos.row_overdue": "scaduta",

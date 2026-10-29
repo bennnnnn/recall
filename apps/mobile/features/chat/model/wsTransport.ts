@@ -132,6 +132,8 @@ export class ChatWsTransport {
   /** Once the turn has spoken, the wait for its next event (`STREAM_IDLE_TIMEOUT_MS`). */
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private turnActive = false;
+  /** The user stopped the turn: its end is waited for, but its loss is nobody's news. */
+  private turnStopped = false;
   /** The server refused this transport's token; a refreshed token gets a new transport. */
   private authRejected = false;
   /** The current socket's server answered the connect ping, so it can be probed. */
@@ -347,8 +349,18 @@ export class ChatWsTransport {
    */
   cancel(shownChars?: number): void {
     this.clearTurnTimers();
-    if (!this.isOpen()) return;
+    if (!this.isOpen()) {
+      // Nothing is left to answer the stop.
+      this.turnActive = false;
+      return;
+    }
     this.sendFrame(shownChars == null ? { type: "cancel" } : { type: "cancel", shown_chars: shownChars });
+    // The stopped turn ends with its last frame. A socket that never sends one stayed
+    // busy for good: kept open in the background, its token never renewed. It gets the
+    // turn's silence deadline, and is let go without a word: a drop reported then would
+    // land on whatever the chat began since (a Regenerate) and undo it.
+    this.turnStopped = true;
+    if (this.turnActive && this.socket) this.awaitNextEvent(this.socket);
   }
 
   close(): void {
@@ -368,6 +380,7 @@ export class ChatWsTransport {
   ): boolean {
     if (!this.isOpen()) return false;
     this.turnActive = true;
+    this.turnStopped = false;
     this.clearTurnTimers();
     this.firstEventTimer = setTimeout(() => {
       if (!this.turnActive || !this.socket) return;
@@ -450,7 +463,7 @@ export class ChatWsTransport {
       this.socket = null;
       this.turnActive = false;
       this.clearTurnTimers();
-      this.options.onFallback({ reason: "disconnect", duringTurn: true });
+      if (!this.turnStopped) this.options.onFallback({ reason: "disconnect", duringTurn: true });
       socket.close();
     }, STREAM_IDLE_TIMEOUT_MS);
   }
