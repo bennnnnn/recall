@@ -179,5 +179,27 @@
   "area": "lookalike",
   "prompt": "how steep is the learning curve for a new language, and what forces you to stick with it?",
   "expect": "not_subject"
+ },
+ {
+  "id": "fb-g8-01",
+  "area": "free_body",
+  "prompt": "Draw and explain a free body diagram (FBD) to show all the forces acting on a car.",
+  "expect": "explain",
+  "visual": "free_body",
+  "note": "Class 8 book (2026-10-30): no surface named, so nothing was drawn"
+ },
+ {
+  "id": "fb-g8-02",
+  "area": "free_body",
+  "prompt": "A book is placed on the surface of a table. The book is pushed in one direction. Draw the forces acting on the book and explain.",
+  "expect": "explain",
+  "visual": "free_body"
+ },
+ {
+  "id": "fb-g8-03",
+  "area": "free_body",
+  "prompt": "Draw a free body diagram (FBD) to show various forces acting on a body which is sliding on an inclined plane.",
+  "expect": "explain",
+  "visual": "incline"
  }
 ]

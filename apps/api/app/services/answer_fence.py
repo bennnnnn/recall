@@ -13,7 +13,7 @@ card. Model text never keeps it:
    (indented in a list, ``~~~answer``, four backticks, ``` answer``, capital
    ``Answer``, ``result`` / ``final``) to the plain column-0 form, so each
    subject's fence pass sees and demotes all of them, not only ``\\n```answer``.
-3. ``strip_verification_claims`` drops the model's own "✅ Verified with SymPy",
+3. ``modules/chat/verification_claims`` drops the model's own "✅ Verified with SymPy",
    and ``strip_model_simulation_fences`` its own ```simulation scene.
 
 The server writes the line with ``verified_answer_fence`` (post-stream cards)
@@ -312,8 +312,9 @@ _MATH_SPAN = re.compile(r"\$\$.*?\$\$|\$[^$\n]*\$|\\\(.*?\\\)", re.DOTALL)
 
 
 def _wordy(value: str) -> bool:
-    """More than eight words outside its maths: a sentence, not a value."""
-    return len(_WORD.findall(_MATH_SPAN.sub(" ", value))) > 8
+    """A paragraph, not a value: over twenty words outside its maths and no equation."""
+    prose = _MATH_SPAN.sub(" ", value[:2000])  # no card holds more; the spans read it once
+    return len(value) > 2000 or ("=" not in _relations(prose) and len(_WORD.findall(prose)) > 20)
 
 
 # Display maths spanning lines: its opener and the closer that ends it.
@@ -455,9 +456,8 @@ def land_answer_card(text: str, verified_body: str | None, *, above: str | None 
         value = answer_header_and_value(joined)[1]
         if value.startswith("\\[") and value.endswith("\\]"):
             value = f"$${value[2:-2]}$$"  # the card reads $$ display maths
-        # A card draws maths; "Paris" under a quiz's Answer heading, or a sentence round
-        # its maths ("If 'same angle' means … each reflects at **5°**"), stays prose.
-        if "$" not in value and "=" not in _relations(value) or _wordy(value):
+        # A card draws maths; "Paris" under a quiz's Answer, or a paragraph, stays prose.
+        if ("$" not in value and "=" not in _relations(value)) or _wordy(value):
             return text
         card = f"```answer\n{value}\n```"
     steps = lines[values[0][0] : values[shown][0]] if values else []

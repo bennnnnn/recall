@@ -70,9 +70,17 @@ _NO_FRICTION = re.compile(
 # A body pushed, pulled or sliding on a real surface rubs against it: "A book is placed
 # on a table and pushed" and "a body sliding on an inclined plane" had no friction drawn
 # (2026-10-30, a Class 8 book, whose chapter on friction draws it). Only "smooth",
-# "frictionless" and the like leave it out.
-_MOVES_ON = re.compile(
-    r"\b(?:slid(?:e|es|ing)|mov(?:es|ed|ing)|push\w*|pull\w*|drag\w*|tow\w*|shov\w*)\b",
+# "frictionless" and the like leave it out, and a body at rest with nothing pushing it
+# has none ("lies on the floor, not moving", "resting on the floor of a moving lift").
+_DRIVEN = re.compile(
+    r"\b(?:push(?:es|ed|ing)?|pull(?:s|ed|ing)?|drag(?:s|ged|ging)?|tow(?:s|ed|ing)?"
+    r"|shov(?:e|es|ed|ing))\b",
+    re.IGNORECASE,
+)
+# "A moving bus" or "a moving lift" names how the vehicle goes, not the body sliding.
+_SLIDING = re.compile(
+    r"\b(?:slid(?:e|es|ing)|mov(?:es|ed)|moving(?!\s+(?:bus|car|train|truck|lift|elevator"
+    r"|vehicle|walkway|belt|platform|escalator)))\b",
     re.IGNORECASE,
 )
 # A vehicle stands on a road: "the forces acting on a car" names no surface.
@@ -80,7 +88,32 @@ _VEHICLE = re.compile(
     r"\b(?:car|bus|truck|lorry|bike|bicycle|cyclist|motorcycle|scooter|vehicle|tractor)\b",
     re.IGNORECASE,
 )
+# A part of the vehicle ("a car engine piston", "a bicycle chain"), someone riding in it
+# ("a person standing in a moving bus") or a hill: not the vehicle on a level road.
+_VEHICLES = r"(?:car|bus|truck|lorry|bike|bicycle|motorcycle|scooter|vehicle|tractor|train)"
+_RIDERS = (
+    r"(?:person|man|woman|child|boy|girl|passenger|driver|people|box|block|crate|book|bag"
+    r"|ball|suitcase|package|parcel|load)"
+)
+_NOT_THE_VEHICLE = re.compile(
+    rf"\b{_VEHICLES}(?:'s)?\s+(?:engine|piston|tyres?|tires?|wheels?|chain|seat|door|battery"
+    r"|axle|pedals?)\b"
+    rf"|\b{_RIDERS}\b[^.?!]*\b(?:in|on|of|inside)\s+(?:a|the)\s+(?:moving\s+)?{_VEHICLES}\b"
+    r"|\b(?:hill|slope|ramp|incline)\b",
+    re.IGNORECASE,
+)
+# "Draw the forces on the car", "forces acting on a parked car": the body is named after.
+_FORCES_ON = re.compile(r"\bforces?\b[^.?!]{0,30}?\bon\b", re.IGNORECASE)
+# Pulled by another: a rope's tension, not its own engine, which this picture does not draw.
+_STEADY = re.compile(r"\b(?:constant|uniform|steady)\s+(?:velocity|speed)\b", re.I)
+_TOWED = re.compile(r"\b(?:towed|being\s+pulled|pulled\s+by|trailer)\b", re.IGNORECASE)
 _PARKED = re.compile(r"\b(?:parked|at\s+rest|stationary|not\s+moving|standing\s+still)\b", re.I)
+# No engine force forward: braking, coasting or slowing down.
+_NO_DRIVE = re.compile(
+    r"\b(?:brak(?:e|es|ed|ing)|coast(?:s|ed|ing)?|engine\s+off|slow(?:s|ing)\s+down"
+    r"|decelerat\w*)\b",
+    re.IGNORECASE,
+)
 _AT_REST = re.compile(
     r"\b(?:at\s+rest|rests|resting|stationary|held|not\s+moving|"
     r"(?:does\s+not|doesn'?t)\s+(?:slide|move))\b",
@@ -129,7 +162,15 @@ def force_picture(text: str) -> ForcePicture | None:
         return ForcePicture(*rig)
     if _TOO_MANY.search(text) is not None:
         return None
-    rubs = friction or (_NO_FRICTION.search(text) is None and _MOVES_ON.search(text) is not None)
+    # At rest, or sliding at a constant velocity with nothing driving it: a lone friction
+    # arrow would leave the picture's forces unbalanced.
+    still = _AT_REST.search(text) is not None or _STEADY.search(text) is not None
+    rubs = friction or (
+        _NO_FRICTION.search(text) is None
+        and (_DRIVEN.search(text) is not None or (_SLIDING.search(text) is not None and not still))
+    )
+    if _VEHICLE.fullmatch(_subject(text)) is not None:
+        return _vehicle(text)
     if _INCLINE.search(text) is not None:
         return _on_incline(text, rubs)
     if _HANGING.search(text) is not None:
@@ -138,9 +179,16 @@ def force_picture(text: str) -> ForcePicture | None:
         return _in_the_air(text)
     if _SURFACE.search(text) is not None:
         return _on_surface(text, rubs)
-    if _VEHICLE.search(text) is not None:
-        return _vehicle(text)
     return None
+
+
+def _subject(text: str) -> str:
+    """The body whose forces are asked for: the one just after "forces on", else the
+    first one named ("A lamp hangs from the ceiling of a bus" is the lamp's)."""
+    asked = _FORCES_ON.search(text)
+    body = _BODY.search(text, asked.end(), asked.end() + 40) if asked else None
+    body = body or _BODY.search(text)
+    return body.group(0).lower() if body else ""
 
 
 def _angle(text: str) -> float | None:
@@ -278,30 +326,37 @@ def _on_surface(text: str, friction: bool) -> ForcePicture:
             angles.append(
                 SimulationAngle(vertex=[size, size], start_deg=0.0, end_deg=deg, label=f"{deg:g}°")
             )
-    if friction and (pulled or pushed or _MOVES_ON.search(text) is not None):
+    if friction and (pulled or pushed or _SLIDING.search(text) is not None):
         vectors.append(
             SimulationVector(anchor=[-size, -size * 0.6], dx=-0.5, dy=0.0, label="f", body=0)
         )
         forces.append("friction f against the motion")
-    alt = "A box on a level surface: " + listed(forces) + "."
+    # The body named, drawn as a box: "a man on a level surface", not "a box".
+    body = _BODY.search(text)
+    noun = body.group(0).lower() if body else "box"
+    article = "an" if noun[0] in "aeiou" else "a"
+    alt = f"{article.capitalize()} {noun} on a level surface: " + listed(forces) + "."
     spec = _level_scene(vectors, angles, alt)
-    return ForcePicture(spec, "a box on a level surface with " + listed(forces))
+    return ForcePicture(spec, f"{article} {noun} on a level surface with " + listed(forces))
 
 
-def _vehicle(text: str) -> ForcePicture:
+def _vehicle(text: str) -> ForcePicture | None:
     """A vehicle on a level road: weight and normal, and while it drives, the engine's
     forward force and the friction and air resistance against it."""
     vectors = [
         SimulationVector(anchor=[0.0, 0.0], dx=0.0, dy=-1.0, label="mg", body=0),
         SimulationVector(anchor=[0.0, 0.0], dx=0.0, dy=1.0, label="N", body=0),
     ]
+    if _NOT_THE_VEHICLE.search(text) is not None or _TOWED.search(text) is not None:
+        return None
     forces = ["its weight mg", "the normal force N from the road"]
-    if _PARKED.search(text) is None:
-        vectors += [
-            SimulationVector(anchor=[0.5, 0.0], dx=0.7, dy=0.0, label="F", body=0),
-            SimulationVector(anchor=[-0.5, -0.3], dx=-0.5, dy=0.0, label="f", body=0),
-        ]
-        forces += ["the driving force F forward", "friction and air resistance f backward"]
+    if _PARKED.search(text) is None and _AT_REST.search(text) is None:
+        # Braking or coasting: nothing drives it, and the resistance slows it.
+        if _NO_DRIVE.search(text) is None:
+            vectors.append(SimulationVector(anchor=[0.5, 0.0], dx=0.7, dy=0.0, label="F", body=0))
+            forces.append("the driving force F forward")
+        vectors.append(SimulationVector(anchor=[-0.5, -0.3], dx=-0.5, dy=0.0, label="f", body=0))
+        forces.append("friction and air resistance f backward")
     alt = "A vehicle on a level road: " + listed(forces) + "."
     spec = _level_scene(vectors, [], alt)
     return ForcePicture(spec, "a vehicle on a level road with " + listed(forces))

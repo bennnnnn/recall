@@ -21,8 +21,11 @@ parts or prompt writing, or whose message asks about language models or Recall's
 from __future__ import annotations
 
 import re
+from collections.abc import Set as AbstractSet
+from functools import cache
 from typing import TYPE_CHECKING
 
+from app.modules.chat.prompt_rule_text import prompt_rule_text
 from app.services.md_fence_scan import line_fences
 from app.services.text_normalize import straighten_apostrophes
 
@@ -33,12 +36,15 @@ if TYPE_CHECKING:
 _PROMPT_LABEL = re.compile(
     r"\[(?:chemistry|physics|math) (?:note|context)\]|\bsaved[- ]memory block\b"
     r"|\bknown[- ]facts block\b|\b(?:begin|end) (?:untrusted content|verified (?:math|physics))\b"
-    r"|\bverified (?:(?:math|physics|chemistry) )?block\b",
+    # "No verified block is present": "each verified block is added to the chain" is bitcoin.
+    r"|\bverified (?:math|physics|chemistry) block\b|\bno verified block\b"
+    r"|\bverified block (?:is|was) (?:present|given|shown|provided|attached)\b",
     re.IGNORECASE,
 )
-# An instruction copied from the prompt: "Do not describe the work as math, algebra, or
-# solving equations." opened a Class 8 speed answer (2026-10-30). Only an instruction's
-# shape counts, so a saved fact about the user, also in the prompt, is never one.
+# An instruction copied from the prompt's rules: "Do not describe the work as math,
+# algebra, or solving equations." opened a Class 8 speed answer (2026-10-30). Read only
+# against the fixed rules (``prompt_rule_text``), never a turn's memory, to-dos or
+# documents, and only in an instruction's shape.
 _INSTRUCTION = re.compile(
     r"(?:do not|don't|never|always|when|if no|use|copy|put|give|state)\b", re.IGNORECASE
 )
@@ -84,14 +90,12 @@ def drop_prompt_leaks_pass(state: FinalizeState) -> str:
     """The finalize pass: a model reply loses sentences about the prompt's parts."""
     if state.server_text:
         return state.text
-    instructions = "\n".join(
-        content
-        for message in getattr(state.ctx, "prompt_messages", None) or []
-        if message.get("role") == "system" and isinstance(content := message.get("content"), str)
-    )
-    return drop_prompt_leaks(
-        state.text, *_recent_user_lines(state), instructions=instructions
-    )
+    return drop_prompt_leaks(state.text, *_recent_user_lines(state), rules=_rule_grams())
+
+
+@cache
+def _rule_grams() -> frozenset[str]:
+    return frozenset(_grams(prompt_rule_text(), 4))
 
 
 def _recent_user_lines(state: FinalizeState) -> list[str]:
@@ -109,16 +113,23 @@ def _grams(text: str, size: int) -> set[str]:
     return {" ".join(words[at : at + size]) for at in range(len(words) - size + 1)}
 
 
-def drop_prompt_leaks(text: str, *asked: str | None, instructions: str = "") -> str:
+def drop_prompt_leaks(
+    text: str,
+    *asked: str | None,
+    instructions: str = "",
+    rules: frozenset[str] | None = None,
+) -> str:
     """``text`` without sentences that name the prompt's internal parts or copy one of
     its ``instructions``, or unchanged.
 
     ``asked`` is what the user wrote this turn, then just before it.
     """
-    prompt = _grams(instructions, 4)
-    if not text or not (
-        _PROMPT_LABEL.search(text) or _PROMPT_PART.search(text) or _copies_any(text, prompt)
-    ):
+    prompt: AbstractSet[str] = rules if rules is not None else _grams(instructions, 4)
+    # A leak copies a run of rules; one sentence that matches is advice the reply gives
+    # ("Never open with a rhetorical hook." in tips on blog intros, review 2026-10-30).
+    if _copied_count(text, prompt) < 2:
+        prompt = frozenset()
+    if not text or not (_PROMPT_LABEL.search(text) or _PROMPT_PART.search(text) or prompt):
         return text
     if _asked_about(asked):
         return text
@@ -148,7 +159,7 @@ def _asked_about(asked: tuple[str | None, ...]) -> bool:
     return bool(asked and asked[0] and _ASKED_ABOUT_MODELS.search(lines[0]))
 
 
-def _copies(sentence: str, prompt: set[str]) -> bool:
+def _copies(sentence: str, prompt: AbstractSet[str]) -> bool:
     """An instruction of six words or more, half its four-word runs the prompt's own."""
     grams = _grams(sentence, 4)
     return (
@@ -158,13 +169,14 @@ def _copies(sentence: str, prompt: set[str]) -> bool:
     )
 
 
-def _copies_any(text: str, prompt: set[str]) -> bool:
-    return bool(prompt) and any(
-        _copies(sentence, prompt) for sentence in _SENTENCE_BREAK.split(text.replace("\n", " "))
-    )
+def _copied_count(text: str, prompt: AbstractSet[str]) -> int:
+    if not prompt:
+        return 0
+    sentences = _SENTENCE_BREAK.split(text.replace("\n", " "))
+    return sum(_copies(sentence, prompt) for sentence in sentences)
 
 
-def _without_leaks(line: str, prompt: set[str] | None = None) -> str | None:
+def _without_leaks(line: str, prompt: AbstractSet[str] | None = None) -> str | None:
     """The line without its leaking sentences; None when none of it is left."""
     if line.startswith(_SKIPPED_STARTS) or line.lstrip().startswith(("|", "#", ">")):
         return line
@@ -177,7 +189,7 @@ def _without_leaks(line: str, prompt: set[str] | None = None) -> str | None:
     copied = 0
     for sentence in sentences:
         prose = straighten_apostrophes(_INLINE_CODE.sub(" ", sentence))
-        copy = bool(prompt) and _copies(prose, prompt or set())
+        copy = bool(prompt) and _copies(prose, prompt or frozenset())
         copied += copy
         if _leaks(prose) or copy or (after_leak and _points_back(prose)):
             after_leak = True

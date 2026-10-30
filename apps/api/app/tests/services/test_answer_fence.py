@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.modules.chat.verification_claims import strip_verification_claims
 from app.services.answer_fence import (
     VERIFIED_ANSWER_MARKER,
     answer_fence_value,
@@ -15,7 +16,6 @@ from app.services.answer_fence import (
     strip_model_simulation_fences,
     verified_answer_fence,
 )
-from app.modules.chat.verification_claims import strip_verification_claims
 
 
 @pytest.mark.parametrize(
@@ -355,3 +355,22 @@ def test_land_never_writes_a_header_line_into_an_unverified_card(reply: str) -> 
 )
 def test_land_leaves_text_that_is_not_an_answer_section(reply: str) -> None:
     assert land_answer_card(reply, None) == reply
+
+
+def test_a_sentence_round_its_maths_is_no_card() -> None:
+    # The model's own conditional answer to a mirror question (2026-10-30).
+    reply = (
+        '**Answer**\n\nIf "same incident angle" means each ray\'s own incidence angle equals '
+        "its reflection angle, then each reflects at $\\theta_r = \\theta_i$, so each reflects "
+        "at **5°** from the normal."
+    )
+    assert land_answer_card(reply, None) == reply
+    assert "```answer" in land_answer_card("**Answer**\n\n$5°$ from the normal", None)
+
+
+def test_an_equation_in_words_keeps_its_card() -> None:
+    reply = (
+        "**Answer:** Average speed = total distance travelled / total time taken = 1200 metres "
+        "/ 300 seconds = 4 metres per second"
+    )
+    assert "```answer" in land_answer_card(reply, None)

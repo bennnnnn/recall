@@ -43,7 +43,7 @@ _LESSON = re.compile(r"^#{1,6}\s.*\bLesson\s+\d", re.MULTILINE)
 _EMOJI_LEAD = rf"(?:(?:{EMOJI.pattern})[ \t]*)?"
 _WORKED_SECTION = re.compile(
     rf"^[^\S\n]*(?:#{{1,4}}[ \t]+)?{_EMOJI_LEAD}\*\*{_EMOJI_LEAD}"
-    r"(?P<name>Given|Find|Formula|Substitution|Answer|Check)\b[^*\n]*\*\*",
+    r"(?P<name>Given|Find|Formula|Substitution|Answer|Check)(?:\s*\([a-h]\))?\s*:?\*\*",
     re.MULTILINE | re.IGNORECASE,
 )
 
@@ -184,13 +184,15 @@ def _leading_emoji(line: str) -> str:
 
 
 def _is_worked_solution(text: str) -> bool:
-    return len({match.group("name").lower() for match in _WORKED_SECTION.finditer(text)}) >= 2
+    """Two sections, one of them the working: "Answer" and "Check out" are a list."""
+    names = {match.group("name").lower() for match in _WORKED_SECTION.finditer(text)}
+    return len(names) >= 2 and bool(names & {"given", "formula", "substitution"})
 
 
 def place_emoji(text: str, level: str | None, *, user_wrote_emoji: bool) -> str:
     """``text`` with its emoji where ``level`` puts them; a worked solution has none."""
     level = level if level in {"off", "some", "more"} else DEFAULT_EMOJI_USE
-    if not EMOJI.search(text) or _LESSON.search(text) and level != "off":
+    if not EMOJI.search(text) or (_LESSON.search(text) and level != "off"):
         return text
     if _is_worked_solution(text):
         level, user_wrote_emoji = "off", False

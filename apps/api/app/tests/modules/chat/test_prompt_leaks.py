@@ -153,3 +153,68 @@ def test_the_pass_runs_on_every_reply_and_a_stopped_one() -> None:
     names = [finalize_pass.name for finalize_pass in FINALIZE_PASSES]
     assert names.index("prompt_leaks") == names.index("meta_notes") + 1
     assert "prompt_leaks" in STOPPED_REPLY_PASSES
+
+
+# An instruction copied from the prompt opened a Class 8 speed answer (2026-10-30).
+_PHYSICS_RULES = (
+    "Physics answers:\n  - This is a physics problem. Do not describe the work as math, "
+    "algebra, or solving equations.\n  - When verified results appear in a [BEGIN VERIFIED "
+    "PHYSICS] block, use those exact numbers and units. Do not recompute. If no verified "
+    "block is present, do not claim verification.\n"
+    "Saved facts: Bini is building a recipe app called Spoon. Use metric units always."
+)
+_ECHO = (
+    "This is a physics question. Do not describe the work as math, algebra, or solving "
+    "equations. When verified results appear in a  block, use those exact numbers and units. "
+    "Do not recompute. If no verified block is present, do not claim verification.\n\n"
+    "No verified block is present, so I compute and check the result myself.\n\n"
+    "**Given**\n$d = 29\\ \\text{km}$"
+)
+
+
+def test_instructions_copied_from_the_prompt_come_off() -> None:
+    out = drop_prompt_leaks(_ECHO, "How far is the city?", instructions=_PHYSICS_RULES)
+    assert out == "**Given**\n$d = 29\\ \\text{km}$"
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # Ordinary advice in an instruction's shape, and a saved fact said back.
+        "Use the formula v = d / t to find the speed of the car here.",
+        "Bini is building a recipe app called Spoon, so the tips below fit it.",
+        "Do not mix the two solutions before the test tube cools down.",
+    ],
+)
+def test_a_sentence_the_prompt_does_not_hold_stays(reply: str) -> None:
+    assert drop_prompt_leaks(reply, "q", instructions=_PHYSICS_RULES) == reply
+
+
+def test_the_pass_reads_only_the_fixed_rules() -> None:
+    # The physics rules a model copied are caught by the pass's own rule text; a reply
+    # quoting the user's recipe, to-do or a bitcoin explainer is not (review, 2026-10-30).
+    from app.modules.chat.prompt_leaks import _rule_grams
+
+    rules = _rule_grams()
+    assert drop_prompt_leaks(_ECHO, "q", rules=rules) == "**Given**\n$d = 29\\ \\text{km}$"
+    for reply in (
+        "1. Use a heavy-based pan for the risotto.\n2. When the stock is simmering, add one "
+        "ladle at a time.\n3. Never let the rice dry out.",
+        "You have two things on your list. Put the bins out on Thursday night. Call the dentist.",
+        "Each verified block is then added to the chain, and it links to the one before it.",
+    ):
+        assert drop_prompt_leaks(reply, "q", rules=rules) == reply
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "How to write a recipe card:\n- Give numbered steps, one action each, in the order "
+        "they are done.\n- Keep it short.",
+        "Never open with a rhetorical hook. It wastes the reader's first seconds.",
+    ],
+)
+def test_one_sentence_of_advice_like_a_rule_stays(reply: str) -> None:
+    from app.modules.chat.prompt_leaks import _rule_grams
+
+    assert drop_prompt_leaks(reply, "How do I write it?", rules=_rule_grams()) == reply
