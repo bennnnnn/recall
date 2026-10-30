@@ -5,6 +5,7 @@ power and the car's time were never on a card)."""
 import pytest
 
 from app.core.config import Settings
+from app.modules.physics.fence import validate_physics_fences
 from app.modules.physics.part_answers import land_one_part_card
 from app.modules.physics.prompt import solve_physics_request
 
@@ -79,6 +80,32 @@ def test_a_lone_card_lands_under_the_part_it_answers() -> None:
     # The other part keeps the value the model wrote, and no empty Answer is left.
     assert "$N = 49.05\\ \\text{N}$" in landed
     assert landed.count("**Answer**") == 0
+
+
+_BLOCK = (
+    "A block of mass 5 kg is being pulled along a board horizontally with a constant "
+    "velocity; the coefficient of friction between the two surfaces is 0.25. a) What is "
+    "the normal reaction force between the board and the block? b) What is the "
+    "frictional force that opposes the motion?"
+)
+
+
+def test_a_closing_answer_after_the_verified_part_is_never_carded() -> None:
+    # Review (2026-10-30): "## Answer" stating another value read as part (b)'s answer
+    # and got an unchecked card under the verified one.
+    _, block = solve_physics_request(_BLOCK, _SETTINGS, None)
+    reply = _REPLY.replace("**Answer**\n", "## Answer\n$F = 15\\ \\text{N}$\n")
+    landed = validate_physics_fences(reply, verified=block, user_text=_BLOCK)
+    assert landed.count("```answer") == 2
+    assert landed.rstrip().endswith("## Answer\n$F = 15\\ \\text{N}$")
+
+
+def test_the_parts_the_server_did_not_solve_get_a_card_without_the_check() -> None:
+    _, block = solve_physics_request(_BLOCK, _SETTINGS, None)
+    assert block is not None and block.display_answer == r"12.3\,\mathrm{N}"
+    landed = validate_physics_fences(_REPLY, verified=block, user_text=_BLOCK)
+    assert "**Answer (a)**\n\n```answer\n$N = 49.05\\ \\text{N}$\n```" in landed
+    assert "**Answer (b)**\n\n```answer\nverified: true\n12.3\\,\\mathrm{N}\n```" in landed
 
 
 def test_a_card_no_part_states_is_not_placed() -> None:

@@ -13,8 +13,8 @@ from collections.abc import Sequence
 
 from app.services.answer_check import stated_verdict
 from app.services.answer_fence import verified_answer_fence
+from app.services.part_answer_cards import PART_ANSWER_HEADING as _PART_ANSWER
 
-_PART_ANSWER = re.compile(r"^\s*(?:#{1,4}\s+)?\*\*Answer \((?P<letter>[a-h])\):?\*\*:?\s*$")
 # A line that only restates a value: maths, "t = 2.04 s", "Answer: 2.04 s".
 _RESTATED = re.compile(
     r"^\s*(?:\$[^$]+\$|\\\(.+\\\)|[A-Za-z_\\{}' ]{1,20}\s*[=≈].{0,60}|(?:\*\*)?answer\s*:.*)$",
