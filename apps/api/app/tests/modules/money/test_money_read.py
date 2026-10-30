@@ -228,3 +228,31 @@ def test_a_price_is_a_sum_said_to_be_what_the_thing_costs(
 ) -> None:
     request = read_money_request(text)
     assert request is not None and (request.price, request.down) == (price, down)
+
+
+# 2026-10-30, a grade 7 physics book: "6m/s2" was read as $6 million and "the rate of"
+# as a loan's rate, and a car-loan calculator sat under F = 9000 N.
+@pytest.mark.parametrize(
+    "text",
+    [
+        "4) How much external force is required to accelerate a 1500 kg car at the rate of 6m/s2\n?",
+        "A 2000 kg car moving at 20 m/s brakes at a rate of 5 m/s2. How far does it go?",
+        "A car went 500m at a constant rate. What was its speed?",
+        "A 1200 kg car accelerates at 3 m/s^2. What is the net force on the car?",
+    ],
+)
+def test_a_physics_quantity_is_no_loan(text: str) -> None:
+    assert read_money_request(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "amount"),
+    [
+        ("a 1.2m house with 20% down at 6.5%", 960000.0),
+        ("I bought a 1500 kg car for $20k at 6% over 60 months", 20000.0),
+        ("car loan of 30k at 6% for 5 years", 30000.0),
+    ],
+)
+def test_money_beside_a_measurement_is_still_read(text: str, amount: float) -> None:
+    request = read_money_request(text)
+    assert request is not None and request.values["amount"] == amount

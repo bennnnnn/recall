@@ -58,6 +58,13 @@ _FORCE_CUE_RES: tuple[re.Pattern[str], ...] = (
     # A bare physics force symbol is ``f``. Function notation and derivatives
     # (``f(x)``, ``f'(x)``) remain math even when introduced with "find".
     re.compile(r"\b(?:find|calculate|determine|compute)\s+f\b(?!\s*[('])"),
+    # "How much external force is required to accelerate a 1500 kg car …" (a grade 7
+    # physics book, 2026-10-30): a word before "force" broke "how much force".
+    re.compile(
+        r"\b(?:how\s+much|what|which|find\s+the|calculate\s+the|determine\s+the)\s+"
+        r"(?:external|applied|resultant|unbalanced|total|average)\s+force\b"
+    ),
+    re.compile(r"\bforce\s+(?:is\s+|was\s+|would\s+be\s+)?(?:needed|required)\b"),
 )
 
 

@@ -188,7 +188,7 @@ def read_money_request(text: str) -> MoneyRequest | None:
     if not text or len(text) > 600:
         return None
     found = named_product(text)
-    if found is None or _HOMEWORK_INTEREST.search(text):
+    if found is None or _HOMEWORK_INTEREST.search(text) or measures_without_money(text):
         return None
     rate = _rate(text)
     share = _percent_down(text)
@@ -279,6 +279,9 @@ def _amounts(text: str) -> list[_Amount]:
         before = text[max(0, at - 24) : at]
         if not marked and _MONEY_BEFORE.search(before) is None:
             continue
+        if match.group("mult") and not _is_multiplier(text, match):
+            # "6m/s2", "20 m/s": a measurement, never 6 million.
+            continue
         number = float(match["num"].replace(",", ""))
         if match.group("mult"):
             number *= _MULTIPLIERS[match["mult"].lower()]
@@ -292,6 +295,32 @@ def _amounts(text: str) -> list[_Amount]:
             )
         )
     return found
+
+
+# What follows an "m" or "k" that makes it a unit: "6m/s2", "5 m²", "3 km".
+_UNIT_AFTER_LETTER = re.compile(r"[/^²³\d]")
+# A physical measurement: "1500 kg", "6 m/s2", "20 N". Units are case-sensitive.
+_MEASUREMENT = re.compile(
+    r"(?<![\w.])\d+(?:\.\d+)?\s?(?:kg|mg|g|m/s(?:\^?2|²)?|km/h|kmh|mph|kN|N|kJ|J|kW|W|Pa|Hz|"
+    r"cm|mm|km|m)(?![\w/])"
+)
+_SAYS_MONEY = re.compile(rf"[$€£¥₹₦%]|\b(?:{CURRENCY_WORDS}|percent|apr)\b", re.I)
+
+
+def _is_multiplier(text: str, match: re.Match[str]) -> bool:
+    """A "k" or "m" is thousands or millions written on the number ("$20k", "a 1.2m
+    house"), not a unit: "6m/s2", "500 m" and "3 km" are measurements."""
+    mult = match["mult"].lower()
+    if mult not in {"k", "m"}:
+        return True
+    attached = match.start("mult") == match.end("num")
+    return attached and not _UNIT_AFTER_LETTER.match(text, match.end("mult"))
+
+
+def measures_without_money(text: str) -> bool:
+    """A physics or maths quantity ("a 1500 kg car at the rate of 6m/s2") and no money
+    word, currency or percent: "car" and "rate" there are no car loan (2026-10-30)."""
+    return _MEASUREMENT.search(text) is not None and _SAYS_MONEY.search(text) is None
 
 
 def read_sum(text: str) -> tuple[float, str] | None:
