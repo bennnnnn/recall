@@ -1,5 +1,6 @@
 """A school exercise gets a note beside it: the textbook's answer, at its level
-(2026-10-30, a Class 8 physical science book)."""
+(2026-10-30, a Class 8 physical science book, then a Class 9 book in every subject).
+Any other question about the world gets the lighter factual note."""
 
 from __future__ import annotations
 
@@ -9,8 +10,9 @@ import pytest
 
 from app.modules.chat.message_notes import message_notes
 from app.modules.chat.prompt_constants.school_question import (
+    FACTUAL_QUESTION_NOTE,
     SCHOOL_QUESTION_NOTE,
-    SCIENCE_QUESTION_NOTE,
+    question_hint,
     school_question_hint,
 )
 
@@ -30,6 +32,29 @@ from app.modules.chat.prompt_constants.school_question import (
         "Suppose you have to go out on that day. Would you carry an umbrella? Explain.",
         "Do you agree with the statement “friction is both good and evil”? Explain.",
         "Why do tools meant for cutting always have sharp edges? (AS1)",
+        # A Class 9 book (2026-10-30): the shapes every textbook prints, in any subject.
+        "If a plant is unable to transport food from leaves to roots which tissue is "
+        "malfunctioning?\n(i) Xylem\n(ii) Phloem\n(iii) Epidermis\n(iv) Sclerenchyma",
+        "Two similar animal cells are placed in two different solutions. Which statement "
+        "provides the correct explanation?\n(i) Salt molecules moved into Cell Y, causing "
+        "it to shrink.\n(ii) Water moved into Cell X and more water moved out of Cell Y than "
+        "the salt solution entered in it.\n(iii) Water moved into Cell X and moved out of "
+        "Cell Y through the cell membrane.\n(iv) Solute movement caused osmosis in both.",
+        "Assertion: Cardiac muscle can contract continuously without fatigue.\nReason: "
+        "Cardiac muscle cells have a high number of mitochondria.",
+        "Fill in the blanks. Power is defined as the ______ at which work is done.",
+        "Two students, Renu and Rohit, were having a discussion on the plastids. Who is "
+        "correct? Justify your answer.",
+        "A farmer wants to produce a large number of genetically identical plants quickly. "
+        "Suggest suitable reproduction methods.",
+        "A car starts from rest and its velocity reaches 24 m/s in 6 s. Find the average "
+        "acceleration and the distance travelled in these 6 s.",
+        "Determine the formula unit mass of (i) ammonium nitrate (NH4NO3), (ii) phosphoric "
+        "acid (H3PO4), (iii) sodium hydrogencarbonate (NaHCO3).",
+        "Identify the pair that incorrectly matches the cell organelle with its function.",
+        "Write the formulae for the compounds formed by magnesium and nitrogen.",
+        "A vehicle's parking sensor emits ultrasonic waves at 40 kHz. When the beep starts "
+        "at 1.2 m from the obstacle, how much time does the wave take to come back?",
     ],
 )
 def test_a_school_exercise_gets_the_note(query: str) -> None:
@@ -83,8 +108,24 @@ def test_a_multiple_choice_question_is_told_to_name_one_option_first() -> None:
         "What does the error TypeError: undefined is not a function mean in JavaScript? Explain.",
     ],
 )
-def test_anyone_elses_question_gets_none(query: str) -> None:
+def test_anyone_elses_question_is_no_exercise(query: str) -> None:
     assert school_question_hint(query) is None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Rohan studies from 6 PM to 7:30 PM. The minute hand is 7 cm long. What is its "
+        "(i) distance travelled, (ii) displacement, (iii) speed, and (iv) velocity?",
+        "Fill in the blanks.\n(i) Work done = ______ × ______\n(ii) 1 joule is done when a "
+        "force of ______ newton acts\n(iii) Power is the ______ at which work is done.",
+        "If a species has 11 protons, (i) what is its atomic number? (ii) is it neutral, a "
+        "cation or an anion? (iii) write its electronic configuration.",
+    ],
+)
+def test_parts_are_not_options(query: str) -> None:
+    hint = school_question_hint(query)
+    assert hint is not None and "It asks you to choose" not in hint
 
 
 def _user() -> SimpleNamespace:
@@ -104,33 +145,38 @@ def test_a_lesson_keeps_its_own_way() -> None:
 
 
 # The rerun (2026-10-30) still opened "Most pans actually do have metal handles" and
-# "it doesn't, really": a plain science question gets the textbook answer first too.
+# "it doesn't, really": any question about the world gets the textbook answer first too.
 @pytest.mark.parametrize(
     "query",
     [
         "Why don't cooking pans have metal handles?",
         "Why does the image in a plane mirror suffer lateral inversion?",
-        "Is plastic coated by the process of electroplating? Why?",
         "Why is phosphorus preserved in water?",
+        "Why do cats purr?",
+        "Explain how a rainbow forms",
+        "Mitochondria and chloroplasts are two organelles. Discuss how they are similar.",
+        "Electrons move around the nucleus in orbits. Why do they not fly away?",
     ],
 )
-def test_a_plain_science_question_gets_the_general_note(query: str) -> None:
-    assert school_question_hint(query) == SCIENCE_QUESTION_NOTE
+def test_a_question_about_the_world_gets_the_factual_note(query: str) -> None:
+    assert question_hint(query) == FACTUAL_QUESTION_NOTE
 
 
 @pytest.mark.parametrize(
     "query",
     [
-        "Why do cats purr?",
         "Why is my car battery dead?",
         "What is the current price of gold?",
-        "How does electricity pricing work in Texas?",
         "What metal is best for a wedding ring?",
         "Why does my code throw a TypeError?",
+        "Write a poem about the rain",
+        "Translate 'good morning' into French",
+        "hi",
+        "Which laptop would you recommend for video editing?",
     ],
 )
-def test_a_personal_current_or_taste_question_gets_no_science_note(query: str) -> None:
-    assert school_question_hint(query) is None
+def test_a_personal_current_taste_or_task_message_gets_no_note(query: str) -> None:
+    assert question_hint(query) is None
 
 
 @pytest.mark.parametrize(
@@ -142,7 +188,7 @@ def test_a_personal_current_or_taste_question_gets_no_science_note(query: str) -
             "d) Normal temperature",
             True,
         ),
-        ("Why is phosphorus preserved in water?", True),
+        ("What is the SI unit of force?", True),
         ("Who won the champions league final?", False),
         ("What is the current Fed funds rate? a) 3.5% b) 4.25% c) 5%", False),
     ],
@@ -152,3 +198,130 @@ def test_a_textbook_question_has_nothing_to_look_up(content: str, nothing: bool)
     from app.modules.chat.tool_loop.reply_calls import _nothing_to_look_up
 
     assert _nothing_to_look_up(content, None) is nothing
+
+
+# Review (2026-10-30): anyone's own matter is no exercise, whatever its shape, and so is
+# never kept from searching.
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Biden said inflation is falling. Is that correct?",
+        "Mark says Bitcoin will hit 200k. Is he right?",
+        "Elon claims Mars colonies by 2030. Is that realistic?",
+        "Predict who will win the Super Bowl",
+        "Hello! Which is more popular: a) Taylor Swift b) Drake c) Beyoncé?",
+        "Some friends want to go to Bali for 7 days with 2000 each. Is that enough?",
+        "Which neighbourhood is safer: (a) Brooklyn (b) Queens (c) Bronx?",
+        "What's the difference between (a) an LLC and (b) an S-corp for taxes?",
+        "Estimate how long it takes to drive from Boston to New York",
+        "Is intermittent fasting healthy for diabetics? Explain why.",
+        "Determine the root cause of the 502s on our nginx server",
+        "Predict the output of print(2**10)",
+        "Quick questions: (a) is Rust memory safe? (b) does it have a GC?",
+        "Calculate my BMI if I weigh 80 kg and am 1.8 m tall",
+        "Two options: a) take the job in Berlin b) stay in Toronto. Thoughts?",
+        "John says we should refactor the database layer. What do you think?",
+        "Indicate your availability for next Tuesday",
+        "Justify your previous answer",
+        "State whether you can access the internet",
+        "Complete the following sentence for my wedding toast: Love is",
+        "Classify the following tweets as positive or negative",
+        "Sarah and John were arguing about whether to move to Austin. Who is correct?",
+    ],
+)
+def test_anyones_own_matter_is_no_exercise(query: str) -> None:
+    assert school_question_hint(query) is None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Write a short note on the Harappan civilisation.",
+        "Give an account of the Mughal administration.",
+        "Mention two uses of baking soda.",
+        "What is meant by the term 'osmosis'? Give an example.",
+        "Define photosynthesis. Write the balanced chemical equation for it.",
+        "Change the following sentences into passive voice: He wrote a letter.",
+        "A ball is thrown vertically upwards with a velocity of 49 m/s. Calculate the maximum "
+        "height.",
+        "A car accelerates from rest to 72 km/h in 5 minutes. Find the acceleration.",
+    ],
+)
+def test_more_textbook_shapes_are_exercises(query: str) -> None:
+    assert school_question_hint(query) is not None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Why don't cooking pans have metal handles?",
+        "Why is phosphorus preserved in water?",
+        "Why does the image in a plane mirror suffer lateral inversion?",
+        "What causes earthquakes?",
+        "How do we hear sound?",
+    ],
+)
+def test_a_plain_science_question_has_nothing_to_look_up(query: str) -> None:
+    # Main kept these from searching (1278d63b6); the factual note must not undo it.
+    from app.modules.chat.tool_loop.reply_calls import _nothing_to_look_up
+
+    assert _nothing_to_look_up(query, None) is True
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Can you set a reminder for 5pm?",
+        "What's a good name for a cat?",
+        "Is a 5-star hotel worth it in Paris?",
+        "Is it normal to feel anxious before a job interview?",
+        "What does the Fed's rate cut mean for mortgages?",
+    ],
+)
+def test_a_task_feeling_taste_or_news_gets_no_factual_note(query: str) -> None:
+    assert question_hint(query) is None
+
+
+# Second review (2026-10-30): a book's "current", "cost", "President" and "World War I"
+# are no news, and an exercise's note never keeps a changing question from its search.
+@pytest.mark.parametrize(
+    "query",
+    [
+        "A resistor of 10 Ω is connected to a 5 V battery. Find the current.",
+        "A current of 2 A flows through a wire for 5 minutes. Calculate the charge.",
+        "What is the direction of induced current in a coil? Explain.",
+        "Find the cost of fencing a rectangular field 120 m long and 80 m wide at Rs 15 per metre.",
+        "Who was the first President of the United States?",
+        "Outline the causes of World War I.",
+        "Why do we need a fuse in an electric circuit?",
+        "Give reasons: Aluminium is used for making cooking utensils.",
+        "Account for the fact that ionic compounds have high melting points.",
+    ],
+)
+def test_a_books_words_are_no_news(query: str) -> None:
+    assert question_hint(query) is not None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Which of the following should our team prioritize next quarter?\na) onboarding\n"
+        "b) billing\nc) search",
+        "Which of the following will the Fed do in December? a) cut b) hold c) hike",
+        "Which of the following teams won the 2026 World Series?\n(a) Dodgers\n(b) Yankees\n(c) Mets",
+        "Which of the following is a good investment: a) gold b) bonds c) stocks",
+        "Was there an earthquake in Japan?",
+        "When is the next total solar eclipse?",
+        "Is Ozempic safe for weight loss?",
+        "How many Starlink satellites are in orbit?",
+        "Which car brand is more reliable, Toyota or Honda?",
+    ],
+)
+def test_a_changing_or_everyday_question_keeps_its_search_and_lane(query: str) -> None:
+    from app.modules.chat.prompt_constants.school_question import (
+        has_nothing_to_look_up,
+        needs_reasoned_choice,
+    )
+
+    assert not has_nothing_to_look_up(query)
+    assert not needs_reasoned_choice(query)

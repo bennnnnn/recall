@@ -277,14 +277,14 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         (
             "What is the orbital speed of a satellite at a radius of 7 x 10^6 m around Earth? "
             "(mass of Earth = 6 x 10^24 kg)",
-            "7560 m/s",
+            "7564 m/s",
         ),
         (
             "A satellite orbits Earth at a radius of 7 x 10^6 m. What is its orbital speed? "
             "(mass of Earth = 6 x 10^24 kg)",
-            "7560 m/s",
+            "7564 m/s",
         ),
-        ("A satellite orbits 400 km above Earth's surface. What is its orbital speed?", "7670 m/s"),
+        ("A satellite orbits 400 km above Earth's surface. What is its orbital speed?", "7673 m/s"),
         ("Convert 25 degrees Celsius to kelvin.", r"298.15\ \mathrm{K}"),
         # A second, harder battery: each returned no verified answer.
         (
@@ -419,7 +419,7 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
             "Two forces of 3 N and 4 N act at right angles. What is the resultant force?",
             "5 N at 53.1°",
         ),
-        ("What is the escape velocity from Earth?", "11200 m/s"),
+        ("What is the escape velocity from Earth?", "11186 m/s"),
         (
             "How much of an 80 g sample of a radioactive isotope with a half-life of 10 days "
             "remains after 30 days?",

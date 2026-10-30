@@ -78,6 +78,7 @@ from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.untrusted_media import neutralize_untrusted_media
+from app.modules.chat.worked_lead import drop_guessed_lead
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +143,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("prepare_model_reply", prepare_model_reply, FALL_BACK),
     # Before a subject lands its card under the reply's Answer heading.
     FinalizePass("answer_labels", lambda s: one_answer_label(s.text), FALL_BACK),
+    FinalizePass("worked_lead", lambda s: drop_guessed_lead(s.text), FALL_BACK),
     FinalizePass("untrusted_media", neutralize_untrusted_media, FALL_BACK),
     FinalizePass("search_links", unlink_unretrieved_links, OnError(log_as="search_links")),
     FinalizePass("generic_closer", strip_generic_closer, OnError(log_as="generic_closer")),

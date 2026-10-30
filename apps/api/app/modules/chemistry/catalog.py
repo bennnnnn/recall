@@ -335,6 +335,7 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "steric number = bonded atoms + lone pairs",
     ),
     ("formal_charge", "structure", "Formal charge", "FC = V − N − B/2"),
+    ("atom_particles", "structure", "Atomic structure", "A = Z + N; electrons = Z − charge"),
     (
         "valence_electrons",
         "structure",

@@ -16,7 +16,7 @@ from app.modules.chat.clarify_turn import clarify_reply_hint
 from app.modules.chat.continuation_subject import exchange_pairs
 from app.modules.chat.prompt_constants.lesson_flow import active_lesson_step, outline_awaits_pick
 from app.modules.chat.prompt_constants.reply_missed import reply_how_hint, reply_missed_hint
-from app.modules.chat.prompt_constants.school_question import school_question_hint
+from app.modules.chat.prompt_constants.school_question import question_hint
 from app.modules.chat.prompt_constants.shared_numbers import shared_numbers_hint
 from app.modules.chat.prompt_constants.teaching import is_teaching_request
 from app.modules.chat.reply_language import reply_language_hint
@@ -40,6 +40,7 @@ def message_notes(query: str, exchange: list[Any], user: Any, memory_block: str 
     emoji = None if lesson_like else emoji_note(user.emoji_use, memory_block)
     language = reply_language_hint(query, pairs, user.locale, user.custom_instructions)
     # A lesson teaches its own way; a school exercise asked in it is still the lesson's.
-    school = None if lesson_like else school_question_hint(query)
+    # Any other question gets a school exercise's note or a factual question's.
+    school = None if lesson_like else question_hint(query)
     notes = (shared_numbers_hint(query), missed, school, emoji, language)
     return [note for note in notes if note]

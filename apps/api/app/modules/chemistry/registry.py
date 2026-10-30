@@ -25,6 +25,7 @@ from app.modules.chemistry.extractors.analytical import (
     _extract_analytical,
     _extract_statistics,
 )
+from app.modules.chemistry.extractors.atom_particles import extract_atom_particles
 from app.modules.chemistry.extractors.described import extract_described_reaction
 from app.modules.chemistry.extractors.electrochemistry import (
     _extract_cells,
@@ -88,6 +89,8 @@ CHEMISTRY_EXTRACTORS: tuple[Extractor, ...] = (
     _extract_beer_lambert,
     _extract_solutions,
     _extract_amounts,
+    # One atom's or ion's particles, before a one-law reader takes the neutrons alone.
+    extract_atom_particles,
     # Closed calculations with their own vocabulary, ahead of the topic readers.
     _extract_mass_defect,
     _extract_crystal_field,

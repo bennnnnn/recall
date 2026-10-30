@@ -83,7 +83,7 @@ def test_without_a_matching_statement_the_text_is_kept(text: str) -> None:
         (
             "Take 1 L of oil = 0.9 kg of oil. A pump lifts 1,500 L of oil 10 m in 60 s. "
             "What power?",
-            r"2210\,\mathrm{W}",
+            r"2207\,\mathrm{W}",
         ),
         ("The load is connected to 12 V. R is 6 ohm. What current flows?", r"2\,\mathrm{A}"),
     ],

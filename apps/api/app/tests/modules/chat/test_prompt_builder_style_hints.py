@@ -77,7 +77,9 @@ def test_rich_turn_injects_universal_format_baseline():
     parts = _hints()
     assert UNIVERSAL_FORMAT_BASELINE in parts
     joined = "\n".join(parts)
-    assert "Lead with the answer; explanation after." in joined
+    assert (
+        "Lead with the answer (a calculation leads with its working); explanation after." in joined
+    )
     assert "[OpenAI docs](url)" in joined
     assert "do not add sections just to look structured" in joined
 

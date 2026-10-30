@@ -94,7 +94,7 @@ def test_a_gas_law_without_a_unit_is_not_verified(question: str) -> None:
 
 def test_a_gas_stated_in_si_keeps_si() -> None:
     assert _physics_answer("A gas of 2 mol at 300 K occupies 0.05 m^3. Find the pressure.") == (
-        "99800 Pa"
+        "99774 Pa"
     )
 
 

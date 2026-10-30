@@ -24,17 +24,28 @@ from app.modules.physics.solvers.results import QuantityResult
         (0.2157, "0.216", "0.216"),
         (36.7875, "36.8", "36.8"),
         (20.0, "20", "20"),
-        (22620, "22600", "22600"),
+        # An answer that ends within one decimal is printed whole, as a book does.
+        (22620, "22620", "22620"),
+        (36250, "36250", "36250"),
+        (3812.5, "3812.5", "3812.5"),
         (240000, "2.4 × 10⁵", r"2.4 \times 10^{5}"),
+        (612500, "612500", "612500"),
+        # Longer ones keep three figures but every whole digit.
+        (22620.47, "22620", "22620"),
+        (1 / 3, "0.333", "0.333"),
+        (12345678.0, "1.23 × 10⁷", r"1.23 \times 10^{7}"),
+        (117187.5, "117187.5", "117187.5"),
+        (6.4e6, "6.4 × 10⁶", r"6.4 \times 10^{6}"),
+        (1234567, "1234567", "1234567"),
         (3.3131e-19, "3.31 × 10⁻¹⁹", r"3.31 \times 10^{-19}"),
         # Rounding comes before the choice of form.
-        (99999.7, "1 × 10⁵", r"1 \times 10^{5}"),
+        (99999.97, "1 × 10⁵", r"1 \times 10^{5}"),
         (0.00099996, "0.001", "0.001"),
         (-29.714, "-29.7", "-29.7"),
         (0.0, "0", "0"),
     ],
 )
-def test_answer_numbers_have_three_figures_and_no_calculator_notation(
+def test_answer_numbers_have_school_figures_and_no_calculator_notation(
     value: float, plain: str, latex: str
 ) -> None:
     assert plain_number(value) == plain

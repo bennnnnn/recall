@@ -529,7 +529,7 @@ def test_a_floor_friction_question_draws_friction_against_the_push() -> None:
     (scene,) = solve_physics(intent).simulation_specs
     friction, push = scene.vectors[2:]
     assert friction.dx < 0 < push.dx
-    assert push.role == "result" and push.label == "F = 196 N"
+    assert push.role == "result" and push.label == "F = 196.2 N"
 
 
 def test_the_angle_ships_without_floating_point_noise() -> None:

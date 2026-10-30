@@ -83,8 +83,8 @@ def _answer(text: str) -> str | None:
             "time_of_flight",
             "3.03 s",  # √(2·45/9.81)
         ),
-        ("What is the weight of a 70 kg person on Earth?", "weight", "687 N"),
-        ("What is the weight of a 70 kg astronaut on the Moon?", "weight", "113 N"),  # 70·1.62
+        ("What is the weight of a 70 kg person on Earth?", "weight", "686.7 N"),
+        ("What is the weight of a 70 kg astronaut on the Moon?", "weight", "113.4 N"),  # 70·1.62
         (
             "Two masses of 3 kg and 5 kg hang over a frictionless pulley. "
             "Find the acceleration and the tension.",
@@ -105,7 +105,7 @@ def _answer(text: str) -> str | None:
         (
             "Find the period of a satellite orbiting at a radius of 7000 km around Earth.",
             "kepler_period",
-            "5830 s",  # 2π√(r³/GM)
+            "5829 s",  # 2π√(r³/GM)
         ),
         (
             "A flywheel with moment of inertia 4 kg m^2 spins at 10 rad/s. "
@@ -304,7 +304,7 @@ def test_stated_forms_answer_the_law_that_was_asked(text: str, operation: str, a
 def test_a_stated_g_answers_for_a_body_without_a_school_value() -> None:
     assert (
         _answer("What is the weight of a 70 kg astronaut on Jupiter where gravity is 24.8 m/s^2?")
-        == "1740 N"
+        == "1736 N"
     )
 
 

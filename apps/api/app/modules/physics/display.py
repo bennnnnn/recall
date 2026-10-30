@@ -2,7 +2,8 @@
 """How physics shows a number and a unit: one formatter for every answer.
 
 A verified answer has three significant figures, never calculator notation,
-and upright units. Scientific notation is used outside [10⁻³, 10⁵). A given
+and upright units, unless it ends within six figures: 36250 J stays 36250 J.
+Scientific notation is used outside [10⁻³, 10⁵). A given
 is echoed with the figures the user typed (up to six), never rounded to the
 answer's precision.
 
@@ -22,19 +23,55 @@ ANSWER_FIGURES = 3
 GIVEN_FIGURES = 6
 _SCIENTIFIC_BELOW = 1e-3
 _SCIENTIFIC_FROM = 1e5
+_PLAIN_WHOLE_BELOW = 1e7
+# A value below 10⁷ that ends within one decimal has at most eight figures.
+_EXACT_FIGURES = 8
 
 _SUPERSCRIPT = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
+
+
+def _school_figures(value: float) -> tuple[int, bool]:
+    """How many figures a textbook prints for ``value``, and whether that is all of it.
+
+    A book never rounds away a digit before the point: 50 × 10 × 72.5 is 36250,
+    and 7625 / 2 is 3812.5, so an answer that ends within one decimal place is
+    printed whole; 36300 and 3810 read to a student as a wrong sum. Anything
+    longer keeps three figures, but at least every whole digit: 9.81 × 3.75 is
+    36.8 and 22620.47 is 22620.
+    """
+    if value == 0 or not math.isfinite(value):
+        return ANSWER_FIGURES, False
+    mantissa, exponent = round_figures(value, _EXACT_FIGURES)
+    written = trim_zeros(format(mantissa.scaleb(exponent), "f"))
+    if abs(value) >= _PLAIN_WHOLE_BELOW:
+        return ANSWER_FIGURES, False
+    if value.is_integer():
+        return max(len(str(int(abs(value))).rstrip("0")), 1), True
+    if math.isclose(float(written), value, rel_tol=1e-9):
+        whole, _, decimals = written.lstrip("-").partition(".")
+        if len(decimals) <= 1:
+            return max(len((whole + decimals).strip("0")), 1), True
+    return max(ANSWER_FIGURES, exponent + 1 if abs(value) < _SCIENTIFIC_FROM else 0), False
 
 
 def _parts(value: float, figures: int) -> tuple[str, int | None]:
     """(mantissa, exponent) after rounding half up, exponent None for plain form.
 
-    Rounding comes first, so 99999.7 is 1 × 10⁵ rather than 100000, and the
-    plain form is fixed-point, so 22620 at three figures is 22600.
+    Rounding comes first, so 99999.97 is 1 × 10⁵ rather than 100000, and the
+    plain form is fixed-point. An answer's figures are a textbook's
+    (``_school_figures``); past 10⁵ one stays plain below 10⁷ when it has
+    more than three figures.
     """
+    exact = False
+    if figures == ANSWER_FIGURES:
+        figures, exact = _school_figures(value)
     mantissa, exponent = round_figures(value, figures)
     rounded = float(mantissa.scaleb(exponent))
-    if rounded != 0 and not _SCIENTIFIC_BELOW <= abs(rounded) < _SCIENTIFIC_FROM:
+    # Past 10⁵ a value stays plain only when its exponent form would round digits away:
+    # 117187.5 and 612500, but 6.4 × 10⁶ and 2.4 × 10⁵ as books print them.
+    plain_whole = exact and figures > ANSWER_FIGURES and abs(rounded) < _PLAIN_WHOLE_BELOW
+    in_plain_range = _SCIENTIFIC_BELOW <= abs(rounded) < _SCIENTIFIC_FROM
+    if rounded != 0 and not plain_whole and not in_plain_range:
         return trim_zeros(f"{mantissa:.{figures - 1}f}"), exponent
     decimals = max(figures - 1 - exponent, 0)
     return trim_zeros(f"{rounded:.{decimals}f}"), None

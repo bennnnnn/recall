@@ -616,6 +616,17 @@ SWEEP_GAP_CASES: tuple[tuple[str, str, str], ...] = (
     ("How many valence electrons are in CO2?", "valence_electrons", "CO2: 16 valence electrons"),
     ("what is the formula of calcium nitrate", "ionic_formula", "calcium nitrate: Ca(NO3)2"),
     ("What's the name of Fe2(SO4)3?", "ionic_name", "Fe2(SO4)3: iron(III) sulfate"),
+    # A Class 9 book (2026-10-30): every fact about one atom, every quantity asked.
+    (
+        "An atom 70X has 31 electrons. How many neutrons are there in its nucleus?",
+        "atom_particles",
+        "Neutrons = 39",
+    ),
+    (
+        "How many protons, neutrons and electrons are in 27Al?",
+        "atom_particles",
+        "Protons = 13\nNeutrons = 14\nElectrons = 13",
+    ),
 )
 
 NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (

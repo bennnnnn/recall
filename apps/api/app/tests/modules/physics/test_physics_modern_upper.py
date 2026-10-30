@@ -135,7 +135,7 @@ def _answer(text: str) -> str | None:
             "relativistic_velocity_addition",
             "0.846 c",  # 1.1 / 1.3
         ),
-        ("Find the Schwarzschild radius of the Sun.", "schwarzschild_radius", "2950 m"),
+        ("Find the Schwarzschild radius of the Sun.", "schwarzschild_radius", "2953 m"),
         (
             "Two energy levels are separated by 0.1 eV. "
             "Find the Boltzmann population ratio at 300 K.",
@@ -157,7 +157,7 @@ def _answer(text: str) -> str | None:
             # r = R_Earth + 400 km = 6771 km.
             "Find the period of a satellite orbiting 400 km above Earth.",
             "kepler_period_altitude",
-            "5540 s",
+            "5545 s",
         ),
     ],
 )

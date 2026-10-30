@@ -113,7 +113,7 @@ def test_a_wrong_answer_the_sweep_found_is_right(text: str, was: str, now: str) 
             "A 60 kg skydiver falls at constant (terminal) velocity. "
             "What is the air resistance on her?",
             "terminal_drag",
-            "589 N",
+            "588.6 N",
         ),
         (
             "what is the component of gravity along a 40 degree slope for a 3 kg mass",

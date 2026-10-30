@@ -32,7 +32,7 @@ def _answer(text: str) -> str | None:
         (
             "A gas of 2 mol at 300 K occupies 0.05 m^3. Find the pressure.",
             "ideal_gas_pressure",
-            "99800 Pa",
+            "99774 Pa",
         ),
         (
             "A gas occupies 4 L at 2 atm. If the pressure is increased to 4 atm at constant "
@@ -94,12 +94,12 @@ def _answer(text: str) -> str | None:
             # "of 2 mol" in the question is the gas's amount, not the energy.
             "Find the internal energy of 2 mol of a diatomic gas at 300 K.",
             "diatomic_internal_energy",
-            "12500 J",  # 5/2·2·8.314·300
+            "12472 J",  # 5/2·2·8.314·300
         ),
         (
             "How much energy is needed to raise the temperature of 2 kg of water by 10 °C?",
             "heat_energy",
-            "83700 J",  # water's c; a rise of 10 °C is 10 K
+            "83720 J",  # water's c; a rise of 10 °C is 10 K
         ),
         (
             # "specific heat of" is the capacity, not the heat being asked for.
@@ -140,7 +140,7 @@ def _answer(text: str) -> str | None:
         (
             "Find the absolute pressure at a depth of 10 m in water.",
             "absolute_pressure_at_depth",
-            "1.99 × 10⁵ Pa",  # 101325 + 1000·9.81·10
+            "199425 Pa",  # 101325 + 1000·9.81·10
         ),
         (
             "A 5 kg block of volume 0.002 m^3 is fully submerged in water. "

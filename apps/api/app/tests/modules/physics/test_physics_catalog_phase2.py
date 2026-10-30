@@ -30,7 +30,7 @@ CASES: list[tuple[str, str, str]] = [
     (
         "Find the electric potential 0.2 m from a point charge of 2 uC.",
         "electric_potential",
-        "89900 V",
+        "89876 V",
     ),
     (
         "Find the electric potential energy of two point charges 2 uC and -3 uC "
