@@ -284,17 +284,20 @@ _VERDICT = re.compile(
     r"|\bwhich\s+(?:\w+\s+){0,3}(?:is|are|will\s+be|would\s+be|has)\s+(?:more|less|most|least"
     r"|greater|smaller|larger|higher|lower|correct|incorrect|true|false)\b"
     r"|\b(?:correct|true|valid)\s+or\s+(?:not|false|incorrect)\b|\bstate\s+whether\b"
-    r"|\bcritically\s+examine\b|\bwhat\s+do\s+you\s+think\s+about\s+this\s+statement\b",
+    r"|\bcritically\s+examine\b|\bwhat\s+do\s+you\s+think\s+about\s+this\s+statement\b"
+    # A class to read from clues: "Which type of pollination happens in these flowers?"
+    r"|\bwhich\s+(?:type|kind|group|category|class|kingdom|phylum)\s*(?:\(s\)|s)?\s+of\b",
     re.IGNORECASE,
 )
 
 
 def needs_reasoned_choice(query: str) -> bool:
-    """A school exercise whose answer is a choice or a verdict to reason out first."""
+    """A choice or a verdict to reason out first: an exercise's options or assertion, or
+    any question about the world that asks who is right or which class the clues fit."""
     text = query.strip()
-    if not is_school_exercise(text):
-        return False
-    return bool(_choice(text) or _ASSERTION.search(text) or _VERDICT.search(text))
+    if is_school_exercise(text):
+        return bool(_choice(text) or _ASSERTION.search(text) or _VERDICT.search(text))
+    return is_factual_question(text) and _VERDICT.search(text) is not None
 
 
 def school_question_hint(query: str) -> str | None:
