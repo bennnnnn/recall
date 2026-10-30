@@ -2381,5 +2381,45 @@
   ],
   "reply": "Here is a draft.",
   "expect": "answer"
+ },
+ {
+  "id": "mo-134",
+  "area": "money lookalike",
+  "prompt": "4) How much external force is required to accelerate a 1500 kg car at the rate of 6m/s2\n?",
+  "history": [],
+  "reply": "**Newton's second law**\n$F = ma = 1500 \\times 6 = 9000\\ \\text{N}$",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-135",
+  "area": "money lookalike",
+  "prompt": "A car travels 120 miles at a rate of 40 miles per hour. How long does it take?",
+  "history": [],
+  "reply": "It takes 3 hours: 120 / 40 = 3.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-136",
+  "area": "money lookalike",
+  "prompt": "A 2000 kg car moving at 20 m/s brakes at a rate of 5 m/s2. How far does it go?",
+  "history": [],
+  "reply": "It stops in 40 m: v² / (2a) = 400 / 10.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-137",
+  "area": "money lookalike",
+  "prompt": "A car went 500m at a constant rate in 50 s. What was its speed?",
+  "history": [],
+  "reply": "Its speed was 10 m/s.",
+  "expect": "answer"
+ },
+ {
+  "id": "mo-138",
+  "area": "money lookalike",
+  "prompt": "A 1200 kg car accelerates at 3 m/s^2. What is the net force on the car?",
+  "history": [],
+  "reply": "The net force is 3600 N.",
+  "expect": "answer"
  }
 ]

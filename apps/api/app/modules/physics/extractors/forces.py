@@ -58,6 +58,13 @@ _FORCE_CUE_RES: tuple[re.Pattern[str], ...] = (
     # A bare physics force symbol is ``f``. Function notation and derivatives
     # (``f(x)``, ``f'(x)``) remain math even when introduced with "find".
     re.compile(r"\b(?:find|calculate|determine|compute)\s+f\b(?!\s*[('])"),
+    # "How much external force is required to accelerate a 1500 kg car …" (a grade 7
+    # physics book, 2026-10-30): a word before "force" broke "how much force".
+    re.compile(
+        r"\b(?:how\s+much|what|which|find\s+the|calculate\s+the|determine\s+the)\s+"
+        r"(?:external|applied|resultant|unbalanced|total|average)\s+force\b"
+    ),
+    re.compile(r"\bforce\s+(?:is\s+|was\s+|would\s+be\s+)?(?:needed|required)\b"),
 )
 
 
@@ -68,11 +75,23 @@ _F_MA_DIMENSIONS = frozenset(
 )
 
 
+# Lifting, an elevator or a launch: the force up is m(g + a), not ma ("What applied force
+# is needed to lift a 20 kg box upward at 2 m/s²?" was verified as 40 N; review,
+# 2026-10-30). Only the net force asked for is ma there.
+_AGAINST_GRAVITY = re.compile(
+    r"\b(?:lift(?:s|ed|ing)?|raise[sd]?|raising|hoist\w*|upwards?|elevators?|"
+    r"launch\w*|rockets?|vertical(?:ly)?)\b"
+)
+_NET_FORCE = re.compile(r"\b(?:net|resultant|unbalanced)\s+force\b")
+
+
 def _extract_force_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not has_cue(lower, _FORCE_CUES, _FORCE_CUE_RES):
         return None
     if any(word in lower for word in _UNSUPPORTED_FORCE_CONTEXT):
+        return None
+    if _AGAINST_GRAVITY.search(lower) and not _NET_FORCE.search(lower):
         return None
     if has_equation(strip_param_assignments(cleaned)):
         return None
