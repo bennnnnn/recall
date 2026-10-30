@@ -44,14 +44,12 @@ from app.modules.web_search.patterns import (
     _SPORTS_LOOKUP,
     _TEAM_POSSESSIVE_SCORE,
     _TEAM_SCORE,
-    _WEATHER_NOT_A_FORECAST,
     _WORLD_CUP,
     _YESTERDAY,
     asks_for_prior_subject,
     collapse_ws,
     has_recency,
     is_correspondence_request,
-    is_weather_request,
     is_word_problem,
 )
 from app.modules.web_search.place_answer import question_in_given_place
@@ -62,6 +60,7 @@ from app.modules.web_search.subject import (
     resolve_search_subject,
     stands_as_query,
 )
+from app.modules.web_search.weather import WEATHER_NOT_A_FORECAST, is_weather_request
 from app.services import time_context as time_context_service
 from app.services.text_normalize import fold_token
 
@@ -188,7 +187,7 @@ def web_search_skip(
     if _SKIP.search(cleaned):
         return True
     # "Under the weather today", "a poem about the weather": a figure of speech.
-    if _WEATHER_NOT_A_FORECAST.search(cleaned) and not is_weather_request(cleaned):
+    if WEATHER_NOT_A_FORECAST.search(cleaned) and not is_weather_request(cleaned):
         return True
     if _REMINDER_TURN.search(cleaned):
         return True

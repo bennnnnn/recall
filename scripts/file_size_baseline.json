@@ -133,10 +133,6 @@
       "lines": 511,
       "why": "Over 500 before the standards; ES-12 split the readers out. What is left is the move and adjust parsers (see the cleanup PR)"
     },
-    "apps/api/app/modules/web_search/patterns.py": {
-      "lines": 517,
-      "why": "Exception: Regex pattern table plus thin predicates; the phone twin is under ES-07"
-    },
     "apps/api/app/services/answer_check.py": {
       "lines": 595,
       "why": "Over 500 before the standards; tracked in ES-01"
