@@ -7,6 +7,9 @@ same verified layout instead of the model guessing at it.
 - coefficient (of x), the x coefficient, the leading coefficient
 - the constant (term), the number added
 - the right side, the other side, or "it equalled 4"
+
+A problem with no equation ("convert 5 miles to km") takes a new amount of one of its
+units instead: "what if I convert 10 miles instead?".
 """
 
 from __future__ import annotations
@@ -93,5 +96,47 @@ def changed_part_problem(
         return None
     intent = extract_math_intent(prior)
     if intent is None or not intent.lhs or not intent.rhs:
-        return None
+        return changed_amount_problem(line, prior)
     return changed_part_equation(line, intent.lhs, intent.rhs, intent.variable or "x")
+
+
+# "What if I convert 10 miles instead?" after "convert 5 miles to km": the follow-up
+# chip went to the model and came back as a bare "Answer: 16.09344 km" (2026-10-29).
+# The line is one amount and nothing else: "another 3 apples", "not 10 miles" or
+# "negative 10 celsius" says more than a new amount, and is the model's.
+_NEW_AMOUNT = re.compile(
+    r"(?:(?:and|so|ok(?:ay)?|now|then)[ ,]+)*"
+    r"(?:(?:what|how)\s+about|what\s+if\s+(?:i|we|you)\s+"
+    r"(?:convert|use|try|put\s+in|take|had|have)|try|and)\s+"
+    r"(?P<value>[-+]?\d+(?:\.\d+)?)\s*(?P<unit>[^\W\d_]+)(?:\s+instead)?",
+    re.IGNORECASE,
+)
+# A whole quantity of the prior: its sign, a decimal, grouped, fraction or mixed number,
+# and a compound unit ("5 m/s"), so "-5", "1/2" or "1,000" is never cut in half.
+_QUANTITY = re.compile(
+    r"(?<![\w.,/])(?P<number>[-+]?\d+(?:[.,/]\d+)*(?:\s+\d+/\d+)?)\s*"
+    r"(?P<unit>[^\W\d_]+(?:/[^\W\d_]+)?)\b"
+)
+_PLAIN_NUMBER = re.compile(r"[-+]?\d+(?:\.\d+)?")
+
+
+def changed_amount_problem(line: str, prior: str) -> str | None:
+    """The last problem with its one amount of the named unit changed: "10 miles" in
+    "convert 5 miles to km" is "convert 10 miles to km". None when the unit is not
+    there once as a plain number, or the result is no maths problem."""
+    from app.modules.math.tools.prompt import needs_symbolic_math
+    from app.modules.math.unit_conversion import unit_key
+    from app.services.problem_followup import followup_line
+
+    written = followup_line(line)
+    match = _NEW_AMOUNT.fullmatch(written) if written else None
+    if match is None:
+        return None
+    key = unit_key(match.group("unit"))
+    amounts = [q for q in _QUANTITY.finditer(prior) if unit_key(q.group("unit")) == key]
+    if len(amounts) != 1 or not _PLAIN_NUMBER.fullmatch(amounts[0].group("number")):
+        return None
+    found = amounts[0]
+    new = f"{match.group('value')} {match.group('unit')}"
+    rewritten = f"{prior[: found.start()]}{new}{prior[found.end() :]}"
+    return rewritten if rewritten != prior and needs_symbolic_math(rewritten) else None

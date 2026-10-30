@@ -43,6 +43,21 @@ _UNIT_ALIASES = {
 }
 
 
+def unit_key(unit: str) -> str:
+    """One name for the ways a unit is written: "miles", "mile" and "mi" are ``mile``,
+    "ms" stays a millisecond, never a plural of "m", and "MB" is not "mb"."""
+    key = unit.strip()
+    lower = key.lower()
+    if lower in _UNIT_ALIASES:
+        return _UNIT_ALIASES[lower]
+    singular = lower.removesuffix("s")
+    if len(lower) > 2 and singular in _UNIT_ALIASES:
+        return _UNIT_ALIASES[singular]
+    if len(key) > 3 and key.islower():
+        return key.removesuffix("es" if key.endswith("ches") else "s")
+    return key
+
+
 def convert_unit(value: float, src: str, dest: str) -> str:
     """Convert a value from one unit to another using Pint dimensional analysis.
 
