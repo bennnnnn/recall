@@ -13,6 +13,10 @@ from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.block.answer_text import format_quantity
 from app.modules.math.tools.extractors.readings import read
+from app.modules.math.tools.school.worded_units import (
+    extract_quantity_sum,
+    extract_worded_conversion,
+)
 from app.modules.math.unit_conversion import convert_unit
 from app.services.number_text import SIGNED_DECIMAL
 from app.services.workout import Workout, math_line, render_workout
@@ -221,6 +225,9 @@ def _extract_unit_intent(cleaned: str) -> MathIntent | None:
     asked = read(extract_asked_conversion, cleaned)
     if asked is not None:
         return asked
+    worded = read(extract_worded_conversion, cleaned) or read(extract_quantity_sum, cleaned)
+    if worded is not None:
+        return worded
     lower = cleaned.lower()
     if "convert" not in lower and " to " not in lower:
         return None

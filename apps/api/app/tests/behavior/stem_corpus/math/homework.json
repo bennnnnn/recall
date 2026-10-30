@@ -215,5 +215,11 @@
   {"id": "f11", "area": "followup", "prompt": "Do it", "expect": "answer", "check": ["expr", "20*x**3-2"], "history": [["user", "give me a derivative to practice"], ["assistant", "Try this one: find the derivative of $f(x) = 5x^4 - 2x$."]]},
   {"id": "f12", "area": "followup", "prompt": "and 7 x 9?", "expect": "answer", "check": ["num", "63"], "history": [["user", "what is 7 x 8"], ["assistant", "```answer\n7 × 8 = 56\n```"]]},
   {"id": "f13", "area": "followup", "prompt": "check my work: 3x - 5 = 10, 3x = 15, x = 5", "expect": "answer", "check": ["regex", "correct|right|✓|all"], "note": "all lines right"},
-  {"id": "f14", "area": "followup", "prompt": "just the answer", "expect": "answer", "check": ["nums", ["5/2", "-1"]], "history": [["user", "solve 2x^2-3x-5=0 step by step"], ["assistant", "Sure, factoring: $(2x-5)(x+1)=0$ so $x = 5/2$ or $x=-1$."]]}
+  {"id": "f14", "area": "followup", "prompt": "just the answer", "expect": "answer", "check": ["nums", ["5/2", "-1"]], "history": [["user", "solve 2x^2-3x-5=0 step by step"], ["assistant", "Sure, factoring: $(2x-5)(x+1)=0$ so $x = 5/2$ or $x=-1$."]]},
+  {"id": "uc1", "area": "units", "prompt": "What will be the temperature reading in Fahrenheit scale when the reading is 310 K?", "expect": "answer", "check": ["num", "98.33"], "note": "grade 7 physics book wording, read as no maths (2026-10-29); the model searched the web"},
+  {"id": "uc2", "area": "units", "prompt": "What is the temperature reading in Kelvin scale if the reading in Celsius scale is 50 °C?", "expect": "answer", "check": ["num", "323.15"], "note": "grade 7 physics book wording, read as no maths (2026-10-29)"},
+  {"id": "uc3", "area": "units", "prompt": "The temperature of an object is 40 °C. What is this temperature in Fahrenheit scale?", "expect": "answer", "check": ["num", "104"], "note": "grade 7 physics book wording, read as no maths (2026-10-29)"},
+  {"id": "uc4", "area": "units", "prompt": "How many centimeters are there in 9.3 m?", "expect": "answer", "check": ["num", "930"], "note": "grade 7 physics book wording, read as no maths (2026-10-29)"},
+  {"id": "uc5", "area": "units", "prompt": "I ran 5 km today, how many miles is that?", "expect": "answer", "check": ["num", "3.107"]},
+  {"id": "uc6", "area": "units", "prompt": "2 hr + 20 min + 60 sec are equal to how many minutes?", "expect": "answer", "check": ["num", "141"], "note": "grade 7 physics book, a sum in mixed units (2026-10-29)"}
 ]

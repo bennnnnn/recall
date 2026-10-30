@@ -30,6 +30,10 @@ from app.modules.math.tools.school.probability import extract_at_least_one_inten
 from app.modules.math.tools.school.shopping import extract_change_intent
 from app.modules.math.tools.school.single_draw import extract_single_draw_intent
 from app.modules.math.tools.school.units import extract_how_many_in_intent
+from app.modules.math.tools.school.worded_units import (
+    extract_quantity_sum,
+    extract_worded_conversion,
+)
 from app.services.text_match import word_index
 
 _ALWAYS_ASKED: tuple[Reader, ...] = (
@@ -54,6 +58,10 @@ _ALWAYS_ASKED: tuple[Reader, ...] = (
     extract_at_least_one_intent,
     # "how many seconds in a day": a conversion between two units of fixed size.
     extract_how_many_in_intent,
+    # "What is this temperature in Fahrenheit scale?": one quantity, one unit to give it in.
+    extract_worded_conversion,
+    # "2 hr + 20 min + 60 sec are equal to how many minutes?"
+    extract_quantity_sum,
     # "I bought 3 notebooks at $2.40 each ... I paid with a $20 bill. how much change".
     extract_change_intent,
 )
