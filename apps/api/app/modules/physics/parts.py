@@ -15,9 +15,8 @@ from app.modules.physics.ask import QUANTITY, SENTENCE, ask_clause
 from app.modules.physics.claims import CHECK_ONLY
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.ask import ASK_VERBS
+from app.services.question_parts import labelled_parts
 
-# "(a)", "b)", "(ii)": a labelled part. Two or more distinct labels are parts.
-_PART_LABEL = re.compile(r"(?:^|[\s,;:.?!])\(?([a-h]|i{1,3}|iv)\)(?=\s)", re.IGNORECASE)
 # A second quantity joined to the first: "the deceleration and the braking force".
 _JOINED = re.compile(
     r"\b(?:and|as\s+well\s+as|plus)\s+(?:also\s+)?(?:the\s+|its\s+|their\s+)?"
@@ -40,11 +39,6 @@ _JOINS = re.compile(
     r"(?:,|;|&|\band\b|\bthen\b|\bas\s+well\s+as\b|\bplus\b)\s*(?:also\s+|then\s+)?$",
     re.IGNORECASE,
 )
-
-
-def _labelled_parts(text: str) -> int:
-    labels = {match.group(1).lower() for match in _PART_LABEL.finditer(text)}
-    return len(labels) if len(labels) >= 2 else 0
 
 
 def _question_sentences(text: str) -> int:
@@ -85,7 +79,7 @@ def asks_count(text: str) -> int:
     """How many things the text asks for: labelled parts, questions, joined quantities
     or joined questions."""
     return max(
-        _labelled_parts(text),
+        labelled_parts(text),
         _question_sentences(text),
         _joined_quantities(text),
         _joined_asks(text),

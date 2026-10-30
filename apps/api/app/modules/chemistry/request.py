@@ -529,6 +529,11 @@ def is_chemistry_question(content: str) -> bool:
         return True
     if _particles_of_substance(cleaned) or _PARTICLES_IN_AMOUNT.search(cleaned):
         return True
+    # One atom's particles: "An atom 70X has 31 electrons. How many neutrons?"
+    from app.modules.chemistry.extractors.atom_particles import extract_atom_particles
+
+    if extract_atom_particles(cleaned) is not None:
+        return True
     if _PARTICLE_WORD.search(cleaned) and names_compound(cleaned):
         return True
     if _element_share(cleaned) or _gas_mixture(cleaned):

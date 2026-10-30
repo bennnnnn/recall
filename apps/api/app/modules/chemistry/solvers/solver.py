@@ -50,6 +50,7 @@ from app.modules.chemistry.solvers.analytical import (
     solve_standard_deviation,
     solve_standard_error,
 )
+from app.modules.chemistry.solvers.atom_particles import solve_atom_particles
 from app.modules.chemistry.solvers.electrochemistry import (
     solve_cell_potential,
     solve_electrochemistry,
@@ -253,6 +254,7 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "michaelis_menten": solve_michaelis_menten,
     "average_atomic_mass": solve_average_atomic_mass,
     "electron_configuration": solve_electron_configuration,
+    "atom_particles": solve_atom_particles,
     "balance": solve_equation,
     "half_reaction": solve_half_reaction,
     "molar_mass": solve_molar_mass,

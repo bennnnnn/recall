@@ -29,6 +29,7 @@ from app.modules.chemistry.request import (
 )
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.smiles import MAX_SMILES_LENGTH
+from app.services.question_parts import ONE_PART_NOTE, asks_more_parts
 from app.services.workout import SELF_CHECK_PROMPT_RULE, WORKOUT_PROMPT_RULE
 
 logger = logging.getLogger(__name__)
@@ -329,6 +330,8 @@ async def build_chemistry_augmentation(
         logger.warning("chemistry solve failed", exc_info=True)
         return unverified_chemistry_note(), None, True
     if solved is not None:
+        if asks_more_parts(content, solved.result.answer):
+            return f"{solved.prompt_text}\n{ONE_PART_NOTE}", solved, False
         return solved.prompt_text, solved, False
     if local_context is not None:
         return local_context, None, False
