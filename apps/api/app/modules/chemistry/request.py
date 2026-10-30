@@ -19,8 +19,9 @@ import re
 
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.input_text import HYDRATE_DOT, read_chemistry_text
+from app.modules.chemistry.particle_cues import PARTICLE_WORD, asks_about_particles
 from app.modules.chemistry.species import ARROWS
-from app.modules.chemistry.species_facts import ELEMENT_NAMES, NAMED_COMPOUNDS, is_formula
+from app.modules.chemistry.species_facts import ELEMENT_NAMES, is_formula
 
 # Formula characters are case-sensitive on purpose. Under ``re.IGNORECASE`` a
 # lowercase word such as "sodium" splits into "so" + "di" + "um" in Fibonacci-many
@@ -189,36 +190,6 @@ _WEAK_CUE = re.compile(
 )
 # An element followed by a digit ("H2O", "Fe2") or a capital run ("NaOH").
 _FORMULA_HINT = re.compile(r"\b[A-Z][a-z]?\d|\b(?:[A-Z][a-z]?){2,4}\b")
-# A count of particles in powers of ten is Avogadro's scale: "1.20 x 10^24 atoms of iron".
-_TIMES_TEN = r"\s*[x×*]\s*10\s*\^\s*"  # noqa: RUF001 -- a student types the multiplication sign
-_PARTICLE_COUNT = re.compile(
-    rf"(?<![\w.])(?:\d+(?:\.\d+)?{_TIMES_TEN}[-+]?\d{{1,3}}|\d+(?:\.\d+)?[eE][-+]?\d{{1,3}}"
-    r"|10\s*\^\s*\d{1,3})\s*(?:atoms?|molecules?|formula\s+units?|ions?)\s+of\s+(?:the\s+)?"
-    r"(?P<substance>[A-Za-z][A-Za-z0-9()]*)",
-    re.IGNORECASE,
-)
-# "How many atoms are in 5.0 g of Fe?": a particle count of a stated amount.
-_PARTICLES_IN_AMOUNT = re.compile(
-    r"\b(?:how\s+many|number\s+of)\s+(?:atoms|molecules|formula\s+units)\s+(?:are\s+|is\s+)?"
-    r"(?:there\s+)?in\s+(?:an?\s+)?\d",
-    re.IGNORECASE,
-)
-
-
-def _particles_of_substance(text: str) -> bool:
-    """Avogadro-scale particles of an element or a compound: "1.20 x 10^24 atoms of iron"."""
-    for match in _PARTICLE_COUNT.finditer(text):
-        word = match.group("substance")
-        if word in BY_SYMBOL or word.lower() in ELEMENT_NAMES or is_formula(word):
-            return True
-        if any(text.lower().startswith(name, match.start("substance")) for name in _NAMED):
-            return True
-    return False
-
-
-_NAMED = tuple(NAMED_COMPOUNDS)
-# Particles of a compound written as a formula: "How many molecules are in 10 g of CO2?".
-_PARTICLE_WORD = re.compile(r"\b(?:atoms?|molecules?|formula\s+units?)\b", re.IGNORECASE)
 _FORMULA_WORD = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*)")
 
 # "What % of Fe2O3 is iron?": an element's share of a compound written as a formula.
@@ -527,14 +498,9 @@ def is_chemistry_question(content: str) -> bool:
     weak = {match.group(0).lower() for match in _WEAK_CUE.finditer(cleaned)}
     if len(weak) >= 2 or (weak and _FORMULA_HINT.search(cleaned)):
         return True
-    if _particles_of_substance(cleaned) or _PARTICLES_IN_AMOUNT.search(cleaned):
+    if asks_about_particles(cleaned):
         return True
-    # One atom's particles: "An atom 70X has 31 electrons. How many neutrons?"
-    from app.modules.chemistry.extractors.atom_particles import extract_atom_particles
-
-    if extract_atom_particles(cleaned) is not None:
-        return True
-    if _PARTICLE_WORD.search(cleaned) and names_compound(cleaned):
+    if PARTICLE_WORD.search(cleaned) and names_compound(cleaned):
         return True
     if _element_share(cleaned) or _gas_mixture(cleaned):
         return True

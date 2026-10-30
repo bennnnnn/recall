@@ -9,11 +9,15 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
+from app.modules.chat.answer_photo_offer import (
+    NO_PHOTO_SUBJECTS,
+    answer_photo_hints,
+    offers_answer_photo,
+)
 from app.modules.chat.clarify_turn import answers_last_card, last_reply_card
 from app.modules.chat.continuation_subject import (
     effective_presentation_subject,
     is_new_problem_request,
-    works_on_last_reply,
 )
 from app.modules.chat.lesson_again import asked_lesson, lesson_again_hint
 from app.modules.chat.prompt_constants import (
@@ -61,13 +65,10 @@ from app.modules.chat.prompt_constants import (
     is_checklist_request,
     is_howto_question,
     is_learning_plan_request,
-    is_lightweight_chat_turn,
     is_personal_disclosure_turn,
     is_practice_request,
-    is_programming_turn,
     is_quote_question,
     is_short_confirmation,
-    is_social_opener,
     is_standing_preference,
     is_structured_comparison_question,
     is_task_howto,
@@ -80,20 +81,15 @@ from app.modules.chat.prompt_constants import (
     writing_format_hint,
     writing_request_kind,
 )
-from app.modules.chat.prompt_constants.answer_subject import asked_about_subject, subject_photo_hint
 from app.modules.chat.prompt_constants.chart import chart_followup_data, with_chart_followup
 from app.modules.chat.prompt_constants.clarify import names_its_purpose, ranking_layout
 from app.modules.chat.prompt_constants.conversation import CONFIRMED_HINT
 from app.modules.chat.prompt_constants.diagrams import asks_for_a_visual
 from app.modules.chat.prompt_constants.lesson_flow import lesson_turn_hint
-from app.modules.chat.prompt_constants.school_question import is_school_exercise
 from app.modules.chat.prompt_constants.visuals import (
-    ANSWER_PHOTO_HINT,
     IMAGE_GEN_HONESTY_HINT,
     IMAGE_GEN_UNAVAILABLE_HINT,
-    WHERE_IS_PHOTO_HINT,
     is_image_generation_mention,
-    where_is_place,
 )
 from app.modules.chat.prompt_subjects import subject_closing_hints, subject_presentation_hints
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
@@ -170,10 +166,6 @@ def code_question_layout(query_text: str | None) -> str | None:
     if writing_request_kind(query_text) is not None:
         return None
     return code_question_hint(query_text)
-
-
-# Subjects whose answers are worked problems, never one thing to look at.
-_NO_PHOTO_SUBJECTS = frozenset({"math", "physics", "chemistry", "statistics"})
 
 
 @dataclass(frozen=True)
@@ -318,47 +310,11 @@ def _format_pack(turn: StyleTurn) -> list[str]:
     return [UNIVERSAL_FORMAT_BASELINE, FORMAT_CONTRACT, *viz, *_present(layout)]
 
 
-def _offers_answer_photo(turn: StyleTurn) -> bool:
-    """Whether this turn could be about one thing worth seeing ("what is a capybara").
-
-    Code, a subject problem, a school exercise, a lesson, a draft, a chart or day plan,
-    a pasted fragment, small talk and "continue" / "fix that" never are. Offering the photo
-    there only confused the reply ("I can't see the image you're referring to").
-    """
-    # A multi-part message's photo, if it asks for one, is in its contract.
-    if turn.multi or not turn.image_search_enabled or not turn.query.strip():
-        return False
-    if turn.writing or turn.writing_kind or turn.viz_intent or turn.is_day_plan:
-        return False
-    if turn.teaching or turn.walkthrough or turn.learning_plan or turn.lesson_hint:
-        return False
-    if turn.subject in _NO_PHOTO_SUBJECTS:
-        return False
-    if is_lightweight_chat_turn(turn.query) or is_social_opener(turn.query):
-        return False
-    if is_bare_writing_line(turn.query) or works_on_last_reply(turn.query):
-        return False
-    # A school exercise is answered in the textbook's words: a photo above "Verify the law
-    # of conservation of mass" or the nitrogen cycle was one nobody asked for (2026-10-30).
-    if is_school_exercise(turn.query):
-        return False
-    return not is_programming_turn(turn.query)
-
-
-def _answer_photo(turn: StyleTurn) -> list[str]:
-    if turn.query and where_is_place(turn.query):
-        return [ANSWER_PHOTO_HINT, WHERE_IS_PHOTO_HINT]
-    subject = asked_about_subject(turn.query)
-    if subject:
-        return [ANSWER_PHOTO_HINT, subject_photo_hint(subject)]
-    return [ANSWER_PHOTO_HINT]
-
-
 def _may_ask_with_card(turn: StyleTurn) -> bool:
     """An unshaped turn (no greeting, draft, code, lesson, problem), not a card's answer,
     and not a "best X for Y" question, which already says what it is for."""
     shaped = turn.compact or turn.multi or turn.writing or turn.code_hint or turn.lesson_hint
-    lesson = turn.teaching or turn.learning_plan or turn.subject in _NO_PHOTO_SUBJECTS
+    lesson = turn.teaching or turn.learning_plan or turn.subject in NO_PHOTO_SUBJECTS
     answerable = turn.after_card or names_its_purpose(turn.query)
     return bool(turn.query) and not shaped and not lesson and not answerable
 
@@ -377,7 +333,7 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
     PromptRule(_always, _format_pack),
     PromptRule(lambda t: bool(t.lesson_hint), lambda t: _present(t.lesson_hint)),
     # A real photo above an answer about something to see.
-    PromptRule(_offers_answer_photo, _answer_photo),
+    PromptRule(offers_answer_photo, answer_photo_hints),
     PromptRule(
         _asks(is_image_generation_mention),
         lambda t: [
