@@ -193,12 +193,40 @@ def solve_in_parts(text: str, settings: Settings) -> VerifiedPhysicsBlock | None
         blocks.append(part[0])
         workings.append(part[1])
     dimensions = [asked_dimensions(f"{parts.givens} {ask}") for ask in parts.asks]
+    names = [_law_name(working.op, ask) for working, ask in zip(workings, parts.asks, strict=True)]
     for first in range(len(parts.asks)):
         for second in range(first + 1, len(parts.asks)):
             shared = set(dimensions[first]) & set(dimensions[second])
-            if (shared or not dimensions[first] or not dimensions[second]) and not own:
+            if (shared or not dimensions[first] or not dimensions[second]) and not (
+                own or _named_apart(names, parts.asks, first, second)
+            ):
                 return None
     return _joined(blocks, workings)
+
+
+def _law_name(op: str, ask: str) -> str | None:
+    """The longest phrase the part's law is asked by that its own ask says."""
+    from app.modules.physics.catalog import formula_spec
+
+    spec = formula_spec(op)
+    if spec is None or spec.binding is None:
+        return None
+    lower = ask.lower()
+    said = [phrase for phrase in spec.binding.asks if phrase in lower]
+    return max(said, key=len) if said else None
+
+
+def _named_apart(names: list[str | None], asks: list[str], first: int, second: int) -> bool:
+    """Two parts of one kind each ask for their own law by its name, and neither name is
+    in the other's ask: "the velocity ratio" and "the mechanical advantage" are two
+    numbers; "the normal reaction force" and "the frictional force" both say "force"."""
+    one, other = names[first], names[second]
+    return (
+        one is not None
+        and other is not None
+        and one not in asks[second].lower()
+        and other not in asks[first].lower()
+    )
 
 
 def reads_in_parts(text: str) -> bool:
