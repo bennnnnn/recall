@@ -256,3 +256,34 @@ def test_a_physics_quantity_is_no_loan(text: str) -> None:
 def test_money_beside_a_measurement_is_still_read(text: str, amount: float) -> None:
     request = read_money_request(text)
     assert request is not None and request.values["amount"] == amount
+
+
+# Review (2026-10-30): a sum written apart from its "k" or "m", an "m" on the number,
+# and a loan that mentions a distance are all still money.
+@pytest.mark.parametrize(
+    ("text", "amount"),
+    [
+        ("borrow 20 k for a car at 7%", 20000.0),
+        ("$1.2 m mortgage at 6.5% for 30 years", 1200000.0),
+        ("car loan 1.5 m birr at 12%", 1500000.0),
+        ("borrow 2 m for a house over 30 years", 2000000.0),
+        ("monthly payment on a 1.2m mortgage over 30 years", 1200000.0),
+        ("I drive 15 km to work, what are the payments on a 30k car loan over 5 years?", 30000.0),
+        ("I need a 50k loan, 10 km from the bank, 5 years", 50000.0),
+    ],
+)
+def test_a_sum_in_any_spelling_is_still_money(text: str, amount: float) -> None:
+    request = read_money_request(text)
+    assert request is not None and request.values["amount"] == amount
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A car travels 120 miles at a rate of 40 miles per hour. How long?",
+        "A 3000 lb car accelerates at the rate of 10 ft/s^2. What force?",
+        "A car went 500m at a constant rate. What was its speed?",
+    ],
+)
+def test_a_rate_of_a_quantity_is_no_interest_rate(text: str) -> None:
+    assert read_money_request(text) is None

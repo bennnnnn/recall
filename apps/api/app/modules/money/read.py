@@ -199,7 +199,7 @@ def read_money_request(text: str) -> MoneyRequest | None:
         if _RATES_QUESTION.search(text):
             return MoneyRequest(found, {}, currency, rates_only=True, variant=variant)
         return None
-    if rate is None and not _FINANCE.search(text):
+    if rate is None and not _FINANCE.search(_RATE_OF_A_QUANTITY.sub(" ", text)):
         return None
     values = _values(found, rate, amounts, share)
     values.update(_term(found, text))
@@ -300,21 +300,45 @@ def _amounts(text: str) -> list[_Amount]:
 # What follows an "m" or "k" that makes it a unit: "6m/s2", "5 m²", "3 km".
 _UNIT_AFTER_LETTER = re.compile(r"[/^²³\d]")
 # A physical measurement: "1500 kg", "6 m/s2", "20 N". Units are case-sensitive.
+# A bare "m" is metres only apart from its number: "1.2m" is a sum, "500 m" a distance.
 _MEASUREMENT = re.compile(
-    r"(?<![\w.])\d+(?:\.\d+)?\s?(?:kg|mg|g|m/s(?:\^?2|²)?|km/h|kmh|mph|kN|N|kJ|J|kW|W|Pa|Hz|"
-    r"cm|mm|km|m)(?![\w/])"
+    r"(?<![\w.])\d+(?:\.\d+)?(?:\s?(?:kg|mg|g|m/s(?:\^?2|²)?|km/h|kmh|mph|kN|N|kJ|J|kW|W|Pa|Hz|"
+    r"cm|mm|km)|\s+m)(?![\w/])"
 )
-_SAYS_MONEY = re.compile(rf"[$€£¥₹₦%]|\b(?:{CURRENCY_WORDS}|percent|apr)\b", re.I)
+# Money named outright: a currency, a percent, or a word only money uses. "Rate" and
+# "payment" are physics words too.
+_SAYS_MONEY = re.compile(
+    rf"[$€£¥₹₦%]|\b(?:{CURRENCY_WORDS}|percent|apr|loans?|mortgages?|borrow\w*|owe[sd]?|"
+    r"balance|credit\s+card|deposit\w*|invest\w*)\b",
+    re.I,
+)
+# "at the rate of 40 miles per hour", "a rate of 6 m/s2": a rate with no percent is no
+# interest rate.
+_RATE_OF_A_QUANTITY = re.compile(
+    r"\brates?\s+of\s+\d[\d.,]*\s*(?!\d|%|per\s?cent|percent|pct)"
+    r"|\b(?:constant|steady|uniform|same|average)\s+rates?\b",
+    re.I,
+)
 
 
 def _is_multiplier(text: str, match: re.Match[str]) -> bool:
-    """A "k" or "m" is thousands or millions written on the number ("$20k", "a 1.2m
-    house"), not a unit: "6m/s2", "500 m" and "3 km" are measurements."""
-    mult = match["mult"].lower()
-    if mult not in {"k", "m"}:
+    """An "m" is millions written with the number ("$1.2 m", "a 1.2m house", "2 m birr"),
+    not a unit: "6m/s2" and "500 m" are measurements. A "k" alone is never a unit."""
+    if match["mult"].lower() != "m":
         return True
+    if _UNIT_AFTER_LETTER.match(text, match.end("mult")):
+        return False
     attached = match.start("mult") == match.end("num")
-    return attached and not _UNIT_AFTER_LETTER.match(text, match.end("mult"))
+    return (
+        attached
+        or match.group("sym") is not None
+        or _CURRENCY_WORD.match(text, match.end("mult")) is not None
+        # "borrow 2 m for a house": a loan word, and no measurement beside it.
+        or (
+            _SAYS_MONEY.search(text) is not None
+            and _MEASUREMENT.search(f"{text[: match.start()]} {text[match.end() :]}") is None
+        )
+    )
 
 
 def measures_without_money(text: str) -> bool:
