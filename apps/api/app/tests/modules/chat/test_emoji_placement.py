@@ -145,3 +145,32 @@ def test_only_a_neutral_person_joins_a_tree() -> None:
 def test_code_is_left_as_written() -> None:
     text = "```python\nprint('👨🚀')\n```"
     assert join_split_emoji(text) == text
+
+
+# A worked solution has no emoji at any setting: at "Lots", "✅ **Answer**" was no Answer
+# heading, and a Class 8 speed came back with no answer box (2026-10-30).
+_WORKED = (
+    "🚶 **Given**\n$d = 15\\ \\text{km}$\n\n🎯 **Find**\nAverage speed $v$.\n\n"
+    "**Substitution**\n$v = \\frac{15}{3}$\n\n✅ **Answer**\nRaja's average speed is "
+    "$5\\ \\text{km/h}$. 🎉"
+)
+
+
+@pytest.mark.parametrize("level", ["off", "some", "more"])
+def test_a_worked_solution_has_no_emoji_at_any_setting(level: str) -> None:
+    out = place_emoji(_WORKED, level, user_wrote_emoji=True)
+    assert out == (
+        "**Given**\n$d = 15\\ \\text{km}$\n\n**Find**\nAverage speed $v$.\n\n"
+        "**Substitution**\n$v = \\frac{15}{3}$\n\n**Answer**\nRaja's average speed is "
+        "$5\\ \\text{km/h}$."
+    )
+
+
+def test_one_answer_heading_alone_is_not_a_worked_solution() -> None:
+    reply = "### 🧠 Memory\nSleep helps it.\n\n✅ **Answer**\nSleep more."
+    assert place_emoji(reply, "more", user_wrote_emoji=False) == reply
+
+
+def test_answer_and_check_out_labels_are_no_worked_solution() -> None:
+    reply = "🎯 **Answer:** Paris is the capital of France 🇫🇷.\n📌 **Check out** the Louvre."
+    assert place_emoji(reply, "more", user_wrote_emoji=False) == reply

@@ -33,9 +33,10 @@ def _labels(text: str) -> set[str]:
         ("draw the forces on a lamp suspended from the ceiling", "free_body", {"T", "mg"}),
         ("What forces act on a book resting on a table?", "free_body", {"mg", "N"}),
         (
+            # A real table rubs: friction is drawn unless it is smooth.
             "draw the forces on a block on a table pulled by a rope at 30 degrees",
             "free_body",
-            {"mg", "N", "T"},
+            {"mg", "N", "T", "f"},
         ),
         (
             "draw a free-body diagram of a crate pushed across a rough floor",
@@ -139,7 +140,7 @@ def test_the_picture_replaces_a_sketch_in_characters() -> None:
             "incline",
             {"mg", "N", "F", "f"},
         ),
-        ("draw the forces on a box pulled up a ramp by a rope", "incline", {"mg", "N", "T"}),
+        ("draw the forces on a box pulled up a ramp by a rope", "incline", {"mg", "N", "T", "f"}),
         (
             "draw a free body diagram of a block pushed horizontally up a frictionless 30° ramp",
             "incline",
@@ -213,3 +214,135 @@ def test_a_banked_curve_keeps_its_angle() -> None:
     assert picture is not None
     assert [angle.label for angle in picture.spec.angles] == ["15°"]
     assert picture.spec.title_key == "circular_motion"
+
+
+# A Class 8 book (2026-10-30): a body pushed, pulled or sliding on a real surface rubs
+# against it, so friction is drawn unless the surface is smooth; a vehicle stands on a road.
+@pytest.mark.parametrize(
+    "text, labels",
+    [
+        (
+            "A book is placed on the surface of a table. The book is pushed in one "
+            "direction. Draw the forces acting on the book and explain.",
+            {"mg", "N", "F", "f"},
+        ),
+        (
+            "Draw a free body diagram (FBD) to show various forces acting on a body which "
+            "is sliding on an inclined plane.",
+            {"mg", "N", "f"},
+        ),
+        (
+            "Draw and explain a free body diagram (FBD) to show all the forces acting on a car.",
+            {"mg", "N", "F", "f"},
+        ),
+        ("Draw the forces on a parked car.", {"mg", "N"}),
+        ("Draw the forces on a box pushed across a smooth floor.", {"mg", "N", "F"}),
+        ("Draw the free-body diagram of a block resting on a table.", {"mg", "N"}),
+        ("Draw the forces on a crate dragged along a frictionless floor.", {"mg", "N", "T"}),
+    ],
+)
+def test_friction_is_drawn_where_a_body_rubs_on_a_surface(text: str, labels: set[str]) -> None:
+    assert _labels(text) == labels
+
+
+def test_the_reply_never_says_where_the_picture_is_drawn() -> None:
+    text = "Draw the forces on a parked car."
+    block = force_picture_block(text)
+    assert block is not None
+    reply = "The diagram is drawn under this reply. Its weight $mg$ acts down."
+    out = validate_physics_fences(reply, verified=block, user_text=text)
+    assert out.startswith("The diagram is shown below. Its weight")
+
+
+# Review (2026-10-30): no friction on a body at rest with nothing driving it, and no
+# level-road car for a car part, a rider, a braking car's engine force or a hill.
+@pytest.mark.parametrize(
+    "text, labels",
+    [
+        ("A box lies on the floor, not moving. Draw the forces on it.", {"mg", "N"}),
+        ("A box rests on the floor and does not slide. What forces act on it?", {"mg", "N"}),
+        ("Draw the forces acting on a box resting on the floor of a moving elevator.", {"mg", "N"}),
+        (
+            "A book lies on a table near the edge, facing towards the window. Draw the forces "
+            "on the book.",
+            {"mg", "N"},
+        ),
+        ("A box slides across the floor. Draw the forces on it.", {"mg", "N", "f"}),
+        (
+            "A car moves along a level road at constant speed. Draw the forces on it.",
+            {"mg", "N", "F", "f"},
+        ),
+        ("Draw the forces on a car that is braking to a stop.", {"mg", "N", "f"}),
+        ("A car coasts with its engine off. Draw the forces on it.", {"mg", "N", "f"}),
+    ],
+)
+def test_friction_and_drive_follow_what_the_body_does(text: str, labels: set[str]) -> None:
+    assert _labels(text) == labels
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "What forces act on a car engine piston?",
+        "What forces act on a bicycle chain?",
+        "Show the forces acting on a car tyre.",
+        "Draw the forces on a person standing in a moving bus.",
+        "A car drives up a hill. What forces act on it?",
+    ],
+)
+def test_a_vehicle_part_rider_or_hill_is_no_level_road_car(text: str) -> None:
+    picture = force_picture(text)
+    assert picture is None or "vehicle" not in picture.shows
+
+
+def test_a_man_is_named_as_himself() -> None:
+    picture = force_picture("A man stands still on a level floor. Draw the forces on him.")
+    assert picture is not None and picture.shows.startswith("a man on a level surface")
+
+
+def test_the_picture_note_keeps_is_and_are() -> None:
+    text = "Draw the forces on a parked car."
+    block = force_picture_block(text)
+    assert block is not None
+    reply = "The forces are drawn below this answer. Its weight $mg$ acts down."
+    out = validate_physics_fences(reply, verified=block, user_text=text)
+    assert out.startswith("The forces are shown below.")
+
+
+# Second review (2026-10-30): the vehicle is drawn only when its own forces are asked.
+@pytest.mark.parametrize(
+    "text, shows",
+    [
+        ("A lamp hangs from the ceiling of a bus. Draw the forces on the lamp.", "a hanging mass"),
+        (
+            "A pendulum bob hangs from the ceiling of an accelerating car. Draw the forces on "
+            "the bob.",
+            "a hanging mass",
+        ),
+        ("A ball is thrown from a moving car. Draw the forces on the ball.", "a body in the air"),
+        ("Draw the forces on a box moving at constant velocity on a table.", "a box on a level"),
+        ("An apple lies on a desk. Draw the forces on it.", "an apple on a level"),
+    ],
+)
+def test_the_body_asked_about_is_the_one_drawn(text: str, shows: str) -> None:
+    picture = force_picture(text)
+    assert picture is not None and picture.shows.startswith(shows)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A car is towed by a truck. Draw the forces on the car.",
+        "A truck pulls a trailer. Draw the forces on the trailer.",
+    ],
+)
+def test_a_towed_vehicle_gets_no_engine_force(text: str) -> None:
+    picture = force_picture(text)
+    assert picture is None or "driving force" not in picture.shows
+
+
+def test_a_box_at_constant_velocity_has_no_lone_friction() -> None:
+    assert _labels("Draw the forces on a box moving at constant velocity on a table.") == {
+        "mg",
+        "N",
+    }

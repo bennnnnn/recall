@@ -126,23 +126,19 @@
       "why": "Exception: Law catalog; all data"
     },
     "apps/api/app/modules/physics/schemas/simulation.py": {
-      "lines": 600,
+      "lines": 576,
       "why": "Exception: Pydantic wire schema for the `simulation` fence v2 (425 lines of model classes)"
     },
     "apps/api/app/modules/todos/spoken_change.py": {
       "lines": 511,
       "why": "Over 500 before the standards; ES-12 split the readers out. What is left is the move and adjust parsers (see the cleanup PR)"
     },
-    "apps/api/app/modules/web_search/patterns.py": {
-      "lines": 517,
-      "why": "Exception: Regex pattern table plus thin predicates; the phone twin is under ES-07"
-    },
     "apps/api/app/services/answer_check.py": {
       "lines": 595,
       "why": "Over 500 before the standards; tracked in ES-01"
     },
     "apps/api/app/services/answer_fence.py": {
-      "lines": 569,
+      "lines": 517,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/api/app/services/time_context.py": {

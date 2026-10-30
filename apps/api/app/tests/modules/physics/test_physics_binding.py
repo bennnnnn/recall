@@ -387,3 +387,26 @@ def test_the_initial_velocity_satisfies_every_suvat_equation(
         assert math.isclose(d, (u + v) * t / 2)
     if a is not None and d is not None and v is not None:
         assert math.isclose(v * v, u * u + 2 * a * d)
+
+
+# "… and write the correct unit of speed" (a Class 8 book, 2026-10-30): the unit is part
+# of the answer, not a second request; a real second request still declines.
+@pytest.mark.parametrize(
+    ("text", "op"),
+    [
+        (
+            "Raja travelled 15 kilometers in 3 hours. Calculate his average speed and "
+            "write the correct unit of speed.",
+            "rate_speed",
+        ),
+        (
+            "A force of 20 N acts on a 4 kg mass. Find the acceleration and state its SI unit.",
+            "net_force",
+        ),
+        ("A car moves 100 m in 20 s. Find its speed and write the unit.", "rate_speed"),
+        ("A car moves 100 m in 20 s. Find its speed and write a poem about it.", None),
+    ],
+)
+def test_asking_for_the_unit_is_part_of_the_answer(text: str, op: str | None) -> None:
+    intent = extract_physics_intent(text)
+    assert (intent.physics_op if intent else None) == op

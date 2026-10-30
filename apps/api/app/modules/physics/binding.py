@@ -43,6 +43,14 @@ _SECOND_REQUEST = re.compile(
     r"(?:tell|explain|show|write|give|convert|calculate|compute|solve|draw|plot|describe)\b",
     re.IGNORECASE,
 )
+# "Calculate his average speed and write the correct unit of speed" (a Class 8 book,
+# 2026-10-30): the unit is part of the answer the card gives, not a second request.
+_UNIT_REQUEST = re.compile(
+    r",?\s+(?:and|also|then)\s+(?:also\s+)?(?:write|give|state|mention|name)\s+(?:down\s+)?"
+    r"(?:(?:the|its|his|her|their)\s+)?(?:(?:correct|proper|right|appropriate|SI|S\.I\.)\s+)?"
+    r"units?(?:\s+of\s+(?:the\s+)?[a-z]+(?:\s+[a-z]+)?)?(?=\s*[.?!]|\s*$)",
+    re.IGNORECASE,
+)
 _PHYSICS = Subject(units=PHYSICS_UNITS, fallback=fallback_value, unit_of=si_unit)
 _NORTH_SOUTH = re.compile(r"\b(?:north|south)(?:wards?|bound|erly)?\b")
 _EAST_WEST = re.compile(r"\b(?:east|west)(?:wards?|bound|erly)?\b")
@@ -68,6 +76,7 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
     few regex searches and never reads units. Detection calls this on every
     chat turn.
     """
+    text = _UNIT_REQUEST.sub("", text)
     clause = ask_clause(text)
     if clause is None or _SECOND_REQUEST.search(text):
         return None

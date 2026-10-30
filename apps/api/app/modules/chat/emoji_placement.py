@@ -10,6 +10,9 @@ here:
   later in such a line moves to its front, and any in a sentence goes.
 - ``more``: as written.
 
+A worked maths, physics or chemistry solution (Given, Find, Substitution, Answer…) has
+none at any setting: the prompt says so, and at "Lots" its headings still got them.
+
 Fences (code, cards, the clarify card's options), inline code and table rows are never
 touched, nor is a lesson (its 🐍 and 🎉 are the lesson's own) or server text.
 """
@@ -34,6 +37,15 @@ _BOLD_START = re.compile(r"^(?:\*\*|__)")
 _INLINE_CODE = re.compile(r"(`+)[^`]*?\1")
 # "### Lesson 2: Loops": a lesson keeps the emoji its own rules give it.
 _LESSON = re.compile(r"^#{1,6}\s.*\bLesson\s+\d", re.MULTILINE)
+# A worked solution's sections, an emoji before one or not ("🎯 **Find**", "**✅ Answer**"):
+# none belongs there at any setting, and "✅ **Answer**" was no Answer heading, so a Class 8
+# speed came back with no answer box (2026-10-30).
+_EMOJI_LEAD = rf"(?:(?:{EMOJI.pattern})[ \t]*)?"
+_WORKED_SECTION = re.compile(
+    rf"^[^\S\n]*(?:#{{1,4}}[ \t]+)?{_EMOJI_LEAD}\*\*{_EMOJI_LEAD}"
+    r"(?P<name>Given|Find|Formula|Substitution|Answer|Check)(?:\s*\([a-h]\))?\s*:?\*\*",
+    re.MULTILINE | re.IGNORECASE,
+)
 
 
 def _outside_code(text: str, change: Callable[[str], str]) -> str:
@@ -171,12 +183,20 @@ def _leading_emoji(line: str) -> str:
     return f"{lead}{emoji} {rest}" if rest else line
 
 
+def _is_worked_solution(text: str) -> bool:
+    """Two sections, one of them the working: "Answer" and "Check out" are a list."""
+    names = {match.group("name").lower() for match in _WORKED_SECTION.finditer(text)}
+    return len(names) >= 2 and bool(names & {"given", "formula", "substitution"})
+
+
 def place_emoji(text: str, level: str | None, *, user_wrote_emoji: bool) -> str:
-    """``text`` with its emoji where ``level`` puts them."""
+    """``text`` with its emoji where ``level`` puts them; a worked solution has none."""
     level = level if level in {"off", "some", "more"} else DEFAULT_EMOJI_USE
-    if level == "more" or (level == "off" and user_wrote_emoji) or not EMOJI.search(text):
+    if not EMOJI.search(text) or (_LESSON.search(text) and level != "off"):
         return text
-    if level == "some" and _LESSON.search(text):
+    if _is_worked_solution(text):
+        level, user_wrote_emoji = "off", False
+    if level == "more" or (level == "off" and user_wrote_emoji):
         return text
     lines = text.split("\n")
     owners = line_fences(text)
