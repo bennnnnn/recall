@@ -113,3 +113,80 @@ def test_a_question_with_more_parts_than_answers_goes_to_the_model() -> None:
         maybe_direct_chemistry_reply(verified, has_image_attachment=False, user_text=question)
         is None
     )
+
+
+# Review (2026-10-30): electrons gained or lost make the charge; a shell's count is no total.
+@pytest.mark.parametrize(
+    ("question", "answer"),
+    [
+        ("An atom with 17 protons gains 1 electron. What is the charge of the ion?", "Charge = -1"),
+        (
+            "Magnesium loses 2 electrons. What is the electronic configuration of the ion?",
+            "Electronic configuration = 2, 8",
+        ),
+        (
+            "An element with atomic number 8 gains 2 electrons. How many protons and what charge?",
+            "Protons = 8\nCharge = -2",
+        ),
+        (
+            "An atom has 3 electrons in its outermost shell and atomic number 13. What is its "
+            "valency?",
+            "Valency = 3",
+        ),
+        ("An element X has atomic number 7. Its ion X3- has how many electrons?", "Electrons = 10"),
+        ("Carbon-14 has how many neutrons and electrons?", "Neutrons = 8\nElectrons = 6"),
+        (
+            "Uranium-238 has 92 protons. How many neutrons and electrons?",
+            "Neutrons = 146\nElectrons = 92",
+        ),
+    ],
+)
+def test_gained_lost_and_shell_counts_read_right(question: str, answer: str) -> None:
+    assert _answer(question) == answer
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "How many electrons pass through a wire if a charge of 10C flows?",
+        "A capacitor stores 12C of charge. How many electrons is that?",
+        "How many electrons does a 24V battery push?",
+        "How many electrons per second flow through a 100W bulb?",
+        "My B-12 levels are low, how many protons do I need?",
+        "Our 40K salary: how many electrons?",
+    ],
+)
+def test_a_unit_is_no_nuclide(question: str) -> None:
+    intent = extract_chemistry_intent(question)
+    assert intent is None or intent.chemistry_op != "atom_particles"
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "An atom has 11 protons, 12 neutrons and mass number 25. How many electrons?",
+        "A Na+ ion has 11 electrons. How many protons?",
+        "An atom with mass number 12 and 14 neutrons: how many protons?",
+    ],
+)
+def test_givens_that_disagree_verify_nothing(question: str) -> None:
+    assert _answer(question) is None
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Atomic number 26, mass number 56: protons, neutrons, electrons and electronic "
+        "configuration?",
+        "What is the electronic configuration of magnesium? How many protons?",
+    ],
+)
+def test_a_reply_that_would_drop_an_ask_is_the_models(question: str) -> None:
+    intent = extract_chemistry_intent(question)
+    assert intent is not None
+    verified = build_verified_chemistry(intent)
+    assert verified is not None
+    assert (
+        maybe_direct_chemistry_reply(verified, has_image_attachment=False, user_text=question)
+        is None
+    )

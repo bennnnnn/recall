@@ -21,6 +21,7 @@ from app.modules.chemistry.block import (
 from app.modules.chemistry.elements import BY_NUMBER, ELEMENTS, Element
 from app.modules.chemistry.equations import balance_equation, format_balanced
 from app.modules.chemistry.extract import extract_chemistry_intent
+from app.modules.chemistry.extractors.atom_particles import asks_more_particles
 from app.modules.chemistry.input_text import read_chemistry_text
 from app.modules.chemistry.request import (
     EQUATION_RE,
@@ -330,7 +331,8 @@ async def build_chemistry_augmentation(
         logger.warning("chemistry solve failed", exc_info=True)
         return unverified_chemistry_note(), None, True
     if solved is not None:
-        if asks_more_parts(content, solved.result.answer):
+        answer = solved.result.answer
+        if asks_more_parts(content, answer) or asks_more_particles(content, answer):
             return f"{solved.prompt_text}\n{ONE_PART_NOTE}", solved, False
         return solved.prompt_text, solved, False
     if local_context is not None:

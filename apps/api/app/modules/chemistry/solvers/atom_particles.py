@@ -97,7 +97,11 @@ def _derive(
     rows: list[str],
 ) -> _Atom:
     z = _atomic_number(params, element, neutral, rows)
+    if z <= 0:
+        raise SolveServiceError("an atom has at least one proton")
     mass, neutrons = _int(params, "mass_number"), _int(params, "neutrons")
+    if mass is not None and neutrons is not None and mass != z + neutrons:
+        raise SolveServiceError("the mass number is not the protons and neutrons together")
     if mass is None and neutrons is not None:
         mass = z + neutrons
         rows.append(f"A = Z + N = {z} + {neutrons} = {mass}")
@@ -114,6 +118,8 @@ def _derive(
             raise SolveServiceError("an ion's electrons need its charge")
         electrons = z - charge
         rows.append(f"electrons = Z − charge = {z} − ({charge}) = {electrons}")
+    elif charge is not None and electrons != z - charge:
+        raise SolveServiceError("the electrons and the charge disagree")
     elif charge is None:
         charge = z - electrons
         rows.append(f"charge = protons − electrons = {z} − {electrons} = {charge:+d}")

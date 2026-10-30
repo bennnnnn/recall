@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from app.modules.chemistry.block import VerifiedChemistry
+from app.modules.chemistry.extractors.atom_particles import asks_more_particles
 from app.modules.chemistry.fence import assemble_chemistry_reply
 from app.modules.chemistry.notation import typeset
 from app.modules.chemistry.solvers.types import ChemistryResult
@@ -57,7 +58,9 @@ def maybe_direct_chemistry_reply(
     """
     if verified is None or has_stated_result(user_text):
         return None
-    if asks_more_parts(user_text, verified.result.answer):
+    if asks_more_parts(user_text, verified.result.answer) or asks_more_particles(
+        user_text, verified.result.answer
+    ):
         return None
     if has_image_attachment:
         from app.modules.chemistry.reading import confirmed_chemistry_reading
