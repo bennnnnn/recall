@@ -24,6 +24,7 @@ from app.services.md_fence_scan import (
     iter_fences,
     strip_closed_fences,
 )
+from app.services.part_answer_cards import land_part_answer_cards
 from app.services.solving import VerifiedPhysicsBlock
 from app.services.workout import as_formula_heading
 
@@ -93,6 +94,9 @@ def validate_physics_fences(
     by_part = land_part_cards(cleaned, part_cards)
     if by_part is None and answer and len(verified.physics_parts) < 2:
         by_part = land_one_part_card(cleaned, answer)
+        # The parts the server did not solve get their own card, without the check.
+        if by_part is not None:
+            by_part = land_part_answer_cards(by_part) or by_part
     if by_part is not None:
         cleaned, answer = by_part, ""
     # The law's own heading heads inputs, like **Formula**: its equations are no result.

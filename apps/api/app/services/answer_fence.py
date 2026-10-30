@@ -277,7 +277,7 @@ def _value_line(line: str) -> str:
     return text.removesuffix(".") if text.endswith("$.") else text
 
 
-def _answer_heading(line: str) -> str | None:
+def answer_heading(line: str) -> str | None:
     """The value on an Answer heading's own line ("" for none; bare "Answer" too), else None."""
     match = _ANSWER_HEADING.fullmatch(line.strip())
     if match is None:
@@ -421,7 +421,7 @@ def land_answer_card(text: str, verified_body: str | None, *, above: str | None 
     fences, inside = _scan(lines)
     heading, same_line = -1, ""
     for number, line in enumerate(lines):
-        found = None if number in inside else _answer_heading(line)
+        found = None if number in inside else answer_heading(line)
         if found is not None:
             heading, same_line = number, found
     values: list[tuple[int, str]] = []
@@ -455,7 +455,7 @@ def land_answer_card(text: str, verified_body: str | None, *, above: str | None 
     while steps and not steps[-1].strip():
         steps.pop()
     before = lines[:heading]
-    while before and (not before[-1].strip() or _answer_heading(before[-1]) == ""):
+    while before and (not before[-1].strip() or answer_heading(before[-1]) == ""):
         before.pop()
     block = [*steps, *([""] if steps else []), *([above, ""] if above else [])]
     block += [_HEADING_LINE, "", card]

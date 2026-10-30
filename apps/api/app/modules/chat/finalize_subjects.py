@@ -29,6 +29,7 @@ from app.services.answer_fence import (
     strip_model_simulation_fences,
     strip_verification_claims,
 )
+from app.services.part_answer_cards import land_part_answer_cards
 from app.services.solving import (
     VerifiedMathBlock,
     VerifiedPhysicsBlock,
@@ -212,7 +213,8 @@ def check_working(state: FinalizeState) -> str:
         return text
     if ctx.solver_unverified is True or is_worked_solution(text):
         note = working_note(text)
-        text = land_answer_card(text, None)
+        # A reply in parts gets a card under each part's Answer heading.
+        text = land_part_answer_cards(text) or land_answer_card(text, None)
         if note:
             text = f"{text.rstrip()}\n\n{note}"
     return text
