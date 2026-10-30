@@ -237,6 +237,11 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
 
     if is_learning_plan_request(content) or is_teaching_request(content):
         return fast
+    from app.modules.chat.prompt_constants.school_question import needs_reasoned_choice
+
+    # An exercise's option or verdict, reasoned before it is written (school_question).
+    if needs_reasoned_choice(content):
+        return smart
     # A request whose task is to *format* a small example as a Markdown table
     # is not a deep architecture/trade-off analysis. The column label
     # "Main tradeoff" previously tripped the generic smart cue and sent this

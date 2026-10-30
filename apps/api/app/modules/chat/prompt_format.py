@@ -86,6 +86,7 @@ from app.modules.chat.prompt_constants.clarify import names_its_purpose, ranking
 from app.modules.chat.prompt_constants.conversation import CONFIRMED_HINT
 from app.modules.chat.prompt_constants.diagrams import asks_for_a_visual
 from app.modules.chat.prompt_constants.lesson_flow import lesson_turn_hint
+from app.modules.chat.prompt_constants.school_question import is_school_exercise
 from app.modules.chat.prompt_constants.visuals import (
     ANSWER_PHOTO_HINT,
     IMAGE_GEN_HONESTY_HINT,
@@ -320,8 +321,8 @@ def _format_pack(turn: StyleTurn) -> list[str]:
 def _offers_answer_photo(turn: StyleTurn) -> bool:
     """Whether this turn could be about one thing worth seeing ("what is a capybara").
 
-    Code, a subject problem, a lesson, a draft, a chart or day plan, a pasted
-    fragment, small talk and "continue" / "fix that" never are. Offering the photo
+    Code, a subject problem, a school exercise, a lesson, a draft, a chart or day plan,
+    a pasted fragment, small talk and "continue" / "fix that" never are. Offering the photo
     there only confused the reply ("I can't see the image you're referring to").
     """
     # A multi-part message's photo, if it asks for one, is in its contract.
@@ -336,6 +337,10 @@ def _offers_answer_photo(turn: StyleTurn) -> bool:
     if is_lightweight_chat_turn(turn.query) or is_social_opener(turn.query):
         return False
     if is_bare_writing_line(turn.query) or works_on_last_reply(turn.query):
+        return False
+    # A school exercise is answered in the textbook's words: a photo above "Verify the law
+    # of conservation of mass" or the nitrogen cycle was one nobody asked for (2026-10-30).
+    if is_school_exercise(turn.query):
         return False
     return not is_programming_turn(turn.query)
 

@@ -1,5 +1,6 @@
 """A school exercise gets a note beside it: the textbook's answer, at its level
-(2026-10-30, a Class 8 physical science book)."""
+(2026-10-30, a Class 8 physical science book, then a Class 9 book in every subject).
+Any other question about the world gets the lighter factual note."""
 
 from __future__ import annotations
 
@@ -9,8 +10,9 @@ import pytest
 
 from app.modules.chat.message_notes import message_notes
 from app.modules.chat.prompt_constants.school_question import (
+    FACTUAL_QUESTION_NOTE,
     SCHOOL_QUESTION_NOTE,
-    SCIENCE_QUESTION_NOTE,
+    question_hint,
     school_question_hint,
 )
 
@@ -30,6 +32,29 @@ from app.modules.chat.prompt_constants.school_question import (
         "Suppose you have to go out on that day. Would you carry an umbrella? Explain.",
         "Do you agree with the statement “friction is both good and evil”? Explain.",
         "Why do tools meant for cutting always have sharp edges? (AS1)",
+        # A Class 9 book (2026-10-30): the shapes every textbook prints, in any subject.
+        "If a plant is unable to transport food from leaves to roots which tissue is "
+        "malfunctioning?\n(i) Xylem\n(ii) Phloem\n(iii) Epidermis\n(iv) Sclerenchyma",
+        "Two similar animal cells are placed in two different solutions. Which statement "
+        "provides the correct explanation?\n(i) Salt molecules moved into Cell Y, causing "
+        "it to shrink.\n(ii) Water moved into Cell X and more water moved out of Cell Y than "
+        "the salt solution entered in it.\n(iii) Water moved into Cell X and moved out of "
+        "Cell Y through the cell membrane.\n(iv) Solute movement caused osmosis in both.",
+        "Assertion: Cardiac muscle can contract continuously without fatigue.\nReason: "
+        "Cardiac muscle cells have a high number of mitochondria.",
+        "Fill in the blanks. Power is defined as the ______ at which work is done.",
+        "Two students, Renu and Rohit, were having a discussion on the plastids. Who is "
+        "correct? Justify your answer.",
+        "A farmer wants to produce a large number of genetically identical plants quickly. "
+        "Suggest suitable reproduction methods.",
+        "A car starts from rest and its velocity reaches 24 m/s in 6 s. Find the average "
+        "acceleration and the distance travelled in these 6 s.",
+        "Determine the formula unit mass of (i) ammonium nitrate (NH4NO3), (ii) phosphoric "
+        "acid (H3PO4), (iii) sodium hydrogencarbonate (NaHCO3).",
+        "Identify the pair that incorrectly matches the cell organelle with its function.",
+        "Write the formulae for the compounds formed by magnesium and nitrogen.",
+        "A vehicle's parking sensor emits ultrasonic waves at 40 kHz. When the beep starts "
+        "at 1.2 m from the obstacle, how much time does the wave take to come back?",
     ],
 )
 def test_a_school_exercise_gets_the_note(query: str) -> None:
@@ -83,8 +108,24 @@ def test_a_multiple_choice_question_is_told_to_name_one_option_first() -> None:
         "What does the error TypeError: undefined is not a function mean in JavaScript? Explain.",
     ],
 )
-def test_anyone_elses_question_gets_none(query: str) -> None:
+def test_anyone_elses_question_is_no_exercise(query: str) -> None:
     assert school_question_hint(query) is None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Rohan studies from 6 PM to 7:30 PM. The minute hand is 7 cm long. What is its "
+        "(i) distance travelled, (ii) displacement, (iii) speed, and (iv) velocity?",
+        "Fill in the blanks.\n(i) Work done = ______ × ______\n(ii) 1 joule is done when a "
+        "force of ______ newton acts\n(iii) Power is the ______ at which work is done.",
+        "If a species has 11 protons, (i) what is its atomic number? (ii) is it neutral, a "
+        "cation or an anion? (iii) write its electronic configuration.",
+    ],
+)
+def test_parts_are_not_options(query: str) -> None:
+    hint = school_question_hint(query)
+    assert hint is not None and "It asks you to choose" not in hint
 
 
 def _user() -> SimpleNamespace:
@@ -104,33 +145,38 @@ def test_a_lesson_keeps_its_own_way() -> None:
 
 
 # The rerun (2026-10-30) still opened "Most pans actually do have metal handles" and
-# "it doesn't, really": a plain science question gets the textbook answer first too.
+# "it doesn't, really": any question about the world gets the textbook answer first too.
 @pytest.mark.parametrize(
     "query",
     [
         "Why don't cooking pans have metal handles?",
         "Why does the image in a plane mirror suffer lateral inversion?",
-        "Is plastic coated by the process of electroplating? Why?",
         "Why is phosphorus preserved in water?",
+        "Why do cats purr?",
+        "Explain how a mortgage works",
+        "Mitochondria and chloroplasts are two organelles. Discuss how they are similar.",
+        "Electrons move around the nucleus in orbits. Why do they not fly away?",
     ],
 )
-def test_a_plain_science_question_gets_the_general_note(query: str) -> None:
-    assert school_question_hint(query) == SCIENCE_QUESTION_NOTE
+def test_a_question_about_the_world_gets_the_factual_note(query: str) -> None:
+    assert question_hint(query) == FACTUAL_QUESTION_NOTE
 
 
 @pytest.mark.parametrize(
     "query",
     [
-        "Why do cats purr?",
         "Why is my car battery dead?",
         "What is the current price of gold?",
-        "How does electricity pricing work in Texas?",
         "What metal is best for a wedding ring?",
         "Why does my code throw a TypeError?",
+        "Write a poem about the rain",
+        "Translate 'good morning' into French",
+        "hi",
+        "Which laptop would you recommend for video editing?",
     ],
 )
-def test_a_personal_current_or_taste_question_gets_no_science_note(query: str) -> None:
-    assert school_question_hint(query) is None
+def test_a_personal_current_taste_or_task_message_gets_no_note(query: str) -> None:
+    assert question_hint(query) is None
 
 
 @pytest.mark.parametrize(
@@ -142,7 +188,7 @@ def test_a_personal_current_or_taste_question_gets_no_science_note(query: str) -
             "d) Normal temperature",
             True,
         ),
-        ("Why is phosphorus preserved in water?", True),
+        ("Two students, Renu and Rohit, argue about plastids. Who is correct?", True),
         ("Who won the champions league final?", False),
         ("What is the current Fed funds rate? a) 3.5% b) 4.25% c) 5%", False),
     ],

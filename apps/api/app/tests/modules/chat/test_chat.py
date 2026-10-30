@@ -426,7 +426,10 @@ def test_universal_format_baseline_pins_answer_first_and_no_decoration():
         UNIVERSAL_FORMAT_BASELINE,
     )
 
-    assert "Lead with the answer; explanation after." in UNIVERSAL_FORMAT_BASELINE
+    assert (
+        "Lead with the answer (a calculation leads with its working); explanation after."
+        in UNIVERSAL_FORMAT_BASELINE
+    )
     assert "No intro paragraph before the conclusion." in UNIVERSAL_FORMAT_BASELINE
     assert "Never use decorative headings" in UNIVERSAL_FORMAT_BASELINE
     assert "Introduction, Background, Overview, Conclusion" in UNIVERSAL_FORMAT_BASELINE
@@ -438,7 +441,10 @@ def test_universal_format_baseline_pins_answer_first_and_no_decoration():
     assert "Do not restate the question." in UNIVERSAL_FORMAT_BASELINE
     assert "simplest structure" in UNIVERSAL_FORMAT_BASELINE
     assert "do not add sections just to look structured" in UNIVERSAL_FORMAT_BASELINE
-    assert "Lead with the answer; explanation after." in STYLE_HINTS["balanced"]
+    assert (
+        "Lead with the answer (a calculation leads with its working); explanation after."
+        in STYLE_HINTS["balanced"]
+    )
 
 
 def test_format_contract_is_markdown_not_ui_fences():
