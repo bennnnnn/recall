@@ -95,14 +95,23 @@ _MACHINE = re.compile(
 )
 _ABBREVIATION_LEAD = (
     r"(?:(?<=\bthe )|(?<=\bits )|(?<=\b[a-hA-H]\. )|(?<=\b[a-hA-H]\) )|(?<=\()|(?<=: )"
-    r"|(?<=\bfind )|(?<=\bcalculate )|(?<=\bdetermine )|(?<=^))"
+    r"|(?<=\bfind )|(?<=\bFind )|(?<=\bcalculate )|(?<=\bCalculate )|(?<=\bdetermine )"
+    r"|(?<=\bDetermine )|(?<=^)|(?<=, )|(?<=\band ))"
 )
+# "MA = 5 kg" names block A's mass and "VR = 12 V" a voltage: a value assigned is a name.
+_NOT_NAMED = r"(?!\s*=)"
 _MACHINE_ABBREVIATIONS: tuple[tuple[re.Pattern[str], str], ...] = (
     # "M.A." loses its last dot when the sentence goes on; "MA." keeps its full stop.
-    (re.compile(rf"{_ABBREVIATION_LEAD}M\.A(?:\.(?=\s+[a-z]))?(?![\w.])"), "mechanical advantage"),
-    (re.compile(rf"{_ABBREVIATION_LEAD}MA\b(?!\.\w)"), "mechanical advantage"),
-    (re.compile(rf"{_ABBREVIATION_LEAD}V\.R(?:\.(?=\s+[a-z]))?(?![\w.])"), "velocity ratio"),
-    (re.compile(rf"{_ABBREVIATION_LEAD}VR\b(?!\.\w)"), "velocity ratio"),
+    (
+        re.compile(rf"{_ABBREVIATION_LEAD}M\.A(?:\.(?=\s+[a-z]))?(?![\w.]){_NOT_NAMED}"),
+        "mechanical advantage",
+    ),
+    (re.compile(rf"{_ABBREVIATION_LEAD}MA\b(?!\.\w){_NOT_NAMED}"), "mechanical advantage"),
+    (
+        re.compile(rf"{_ABBREVIATION_LEAD}V\.R(?:\.(?=\s+[a-z]))?(?![\w.]){_NOT_NAMED}"),
+        "velocity ratio",
+    ),
+    (re.compile(rf"{_ABBREVIATION_LEAD}VR\b(?!\.\w){_NOT_NAMED}"), "velocity ratio"),
 )
 # "a 20 m plank": a length written before the thing it measures is that thing's length.
 _LENGTH_BEFORE_PLANK = re.compile(

@@ -23,7 +23,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             inputs=(frozenset({"F_in", "F_out"}),),
             cues=("input force", "output force", "force in", "force out", "load", "effort"),
             # The ideal advantage is the machine's geometry, not its forces.
-            excludes=("ideal",),
+            excludes=("ideal", "theoretical", "expected", "without friction", "frictionless"),
             nonnegative=True,
         ),
     ),

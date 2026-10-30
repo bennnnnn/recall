@@ -24,7 +24,11 @@ _EFFORT = ("effort", "input", "applied", "pushes", "pulls with")
 
 
 # A lever's arm or a pulley's rope is no plank: their lengths are not the effort's path.
-_NOT_A_PLANK = ("lever", "pulley", "rope", "gear", "wheel", "axle", "screw", "wedge", "ideal")
+_NOT_A_PLANK = (
+    "lever", "pulley", "rope", "gear", "wheel", "axle", "screw", "wedge",
+    # The ideal advantage, however it is named, is the plank's geometry, not its forces.
+    "ideal", "theoretical", "expected", "without friction", "frictionless", "no friction",
+)  # fmt: skip
 
 
 def _effort_force() -> VariableSpec:
