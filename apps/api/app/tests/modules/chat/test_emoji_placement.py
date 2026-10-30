@@ -9,7 +9,7 @@ from typing import Any, cast
 
 import pytest
 
-from app.modules.chat.emoji_placement import place_emoji, place_reply_emoji
+from app.modules.chat.emoji_placement import join_split_emoji, place_emoji, place_reply_emoji
 
 # "What are the benefits of drinking water" at "A few", as the model wrote it.
 _LIVE = (
@@ -107,3 +107,41 @@ _CASES = json.loads(
 def test_the_shared_cases(case: dict[str, Any]) -> None:
     placed = place_emoji(case["text"], case["level"], user_wrote_emoji=case["user_wrote_emoji"])
     assert placed == case["expected"]
+
+
+@pytest.mark.parametrize(
+    ("written", "joined"),
+    [
+        # Live (2026-10-29): astronauts in a searched reply, written without the joiner.
+        ("1. 👨🚀 **Reid Wiseman's new role**", "1. 👨‍🚀 **Reid Wiseman's new role**"),
+        ("👩🍳 Method", "👩‍🍳 Method"),
+        ("🧑🏽💻 code", "🧑🏽‍💻 code"),
+        ("⚖️ 👩⚖️ judge", "⚖️ 👩‍⚖️ judge"),
+    ],
+)
+def test_a_person_and_role_written_apart_are_one_emoji(written: str, joined: str) -> None:
+    assert join_split_emoji(written) == joined
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "👩‍🚀 already joined",
+        "👨 🚀 a space between them",
+        "🚀 then 👨 alone",
+        "👨🐶 a pair Unicode does not join",
+        "no emoji at all",
+    ],
+)
+def test_other_text_is_left_as_written(text: str) -> None:
+    assert join_split_emoji(text) == text
+
+
+def test_only_a_neutral_person_joins_a_tree() -> None:
+    assert join_split_emoji("🧑🎄") == "🧑‍🎄"
+    assert join_split_emoji("👩🎄") == "👩🎄"
+
+
+def test_code_is_left_as_written() -> None:
+    text = "```python\nprint('👨🚀')\n```"
+    assert join_split_emoji(text) == text

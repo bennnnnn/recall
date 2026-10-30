@@ -20,6 +20,7 @@ import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from app.modules.chat.markdown_regions import map_prose_outside_fences
 from app.modules.chat.prompt_constants.routing import EMOJI
 from app.modules.chat.response_tone import DEFAULT_EMOJI_USE
 from app.services.md_fence_scan import line_fences
@@ -186,9 +187,40 @@ def place_emoji(text: str, level: str | None, *, user_wrote_emoji: bool) -> str:
     return "\n".join(lines)
 
 
+# A person and the object of a job side by side, "👩🚀" for 👩‍🚀: the model behind a searched
+# reply wrote astronauts without the joiner (2026-10-29), and the phone drew a woman and a
+# rocket. Only the pairs Unicode joins into one emoji (a role, a hair style) are joined.
+_PERSON = "\U0001f468\U0001f469\U0001f9d1"
+_SKIN = "[\U0001f3fb-\U0001f3ff]?"
+_JOINED_WITH_PERSON = (
+    "\u2695\u2696\u2708\U0001f33e\U0001f373\U0001f37c\U0001f393\U0001f3a4\U0001f3a8"
+    "\U0001f3eb\U0001f3ed\U0001f4bb\U0001f4bc\U0001f527\U0001f52c\U0001f680\U0001f692"
+    "\U0001f9af\U0001f9b0\U0001f9b1\U0001f9b2\U0001f9b3\U0001f9bc\U0001f9bd"
+)
+# 🧑‍🎄 is a sequence; a man or a woman with a tree is not.
+_SPLIT_PERSON = re.compile(
+    rf"([{_PERSON}]{_SKIN})(?=[{_JOINED_WITH_PERSON}])|(\U0001f9d1{_SKIN})(?=\U0001f384)"
+)
+
+
+def join_split_emoji(text: str) -> str:
+    """``text`` with each person-and-role pair written apart joined into its one emoji,
+    outside code."""
+    if not any(person in text for person in _PERSON):
+        return text
+    return map_prose_outside_fences(text, lambda prose: _SPLIT_PERSON.sub(_joined, prose))
+
+
+def _joined(match: re.Match[str]) -> str:
+    return f"{match.group(1) or match.group(2)}\u200d"
+
+
 def place_reply_emoji(state: FinalizeState) -> str:
     """The finalize pass: a model reply's emoji follow the user's setting."""
-    if state.server_text or state.ctx.user is None:
+    if state.server_text:
         return state.text
+    text = join_split_emoji(state.text)
+    if state.ctx.user is None:
+        return text
     user_wrote_emoji = EMOJI.search(state.ctx.user_message_content or "") is not None
-    return place_emoji(state.text, state.ctx.user.emoji_use, user_wrote_emoji=user_wrote_emoji)
+    return place_emoji(text, state.ctx.user.emoji_use, user_wrote_emoji=user_wrote_emoji)
