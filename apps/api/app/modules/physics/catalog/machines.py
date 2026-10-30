@@ -13,14 +13,17 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"MA = \frac{F_{out}}{F_{in}}",
         expression="F_out/F_in",
         variables=(
-            var("F_out", "F_{out}", "newton", words=("output", "out"), needs_words=True),
-            var("F_in", "F_{in}", "newton", words=("input", "in"), needs_words=True),
+            # A school book's load and effort are the output and input forces.
+            var("F_out", "F_{out}", "newton", words=("output", "out", "load"), needs_words=True),
+            var("F_in", "F_{in}", "newton", words=("input", "in", "effort"), needs_words=True),
         ),
         binding=Binding(
-            asks=("mechanical advantage",),
+            asks=("mechanical advantage", "m.a"),
             result=("dimensionless",),
             inputs=(frozenset({"F_in", "F_out"}),),
-            cues=("input force", "output force", "force in", "force out"),
+            cues=("input force", "output force", "force in", "force out", "load", "effort"),
+            # The ideal advantage is the machine's geometry, not its forces.
+            excludes=("ideal", "theoretical", "expected", "without friction", "frictionless"),
             nonnegative=True,
         ),
     ),
