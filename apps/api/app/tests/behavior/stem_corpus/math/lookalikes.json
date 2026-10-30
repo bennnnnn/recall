@@ -68,5 +68,13 @@
   {"id": "L67", "area": "lookalike", "prompt": "the cotton costs 3 dollars", "expect": "not_math"},
   {"id": "L68", "area": "lookalike", "prompt": "how many intercepts did our defense have this season?", "expect": "not_math"},
   {"id": "L69", "area": "lookalike", "prompt": "what does the intercept mean in my regression output?", "expect": "not_math"},
-  {"id": "L70", "area": "lookalike", "prompt": "show me where the vertex is on this roof truss design", "expect": "not_math"}
+  {"id": "L70", "area": "lookalike", "prompt": "show me where the vertex is on this roof truss design", "expect": "not_math"},
+  {"id": "L71", "area": "lookalike", "prompt": "how many hours of sleep do I need in 1 day?", "expect": "not_math"},
+  {"id": "L72", "area": "lookalike", "prompt": "My son is 5 feet tall, what size bike in inches?", "expect": "not_math"},
+  {"id": "L73", "area": "lookalike", "prompt": "How many calories in 100 g of rice?", "expect": "not_math"},
+  {"id": "L74", "area": "lookalike", "prompt": "I have 5 m of rope, what can I make?", "expect": "not_math"},
+  {"id": "L75", "area": "lookalike", "prompt": "What should I wear in 20 degree weather?", "expect": "not_math"},
+  {"id": "L76", "area": "lookalike", "prompt": "Can you remind me in 5 minutes?", "expect": "not_math"},
+  {"id": "L77", "area": "lookalike", "prompt": "How many hours do I work in 5 days?", "expect": "not_math"},
+  {"id": "L78", "area": "lookalike", "prompt": "What is 2 km in my running plan?", "expect": "not_math"}
 ]
