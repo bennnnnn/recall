@@ -22,6 +22,7 @@ from app.core.config import Settings
 from app.modules.physics.ask import _QUANTITY, SENTENCE, asked_dimensions
 from app.modules.physics.block import _build_physics_block, part_title
 from app.modules.physics.extract import extract_physics_intent
+from app.modules.physics.numbers import normalize_physics_units
 from app.services.law_binding.ask import ASK_VERBS
 from app.services.solving import PhysicsPartWorking, VerifiedPhysicsBlock
 from app.services.workout import PHYSICS_WORKOUT_PARTS_PROMPT
@@ -193,12 +194,14 @@ def solve_in_parts(text: str, settings: Settings) -> VerifiedPhysicsBlock | None
         blocks.append(part[0])
         workings.append(part[1])
     dimensions = [asked_dimensions(f"{parts.givens} {ask}") for ask in parts.asks]
-    names = [_law_name(working.op, ask) for working, ask in zip(workings, parts.asks, strict=True)]
+    # The asks as the laws read them: "MA of the machine" names "mechanical advantage".
+    read = [normalize_physics_units(ask).lower() for ask in parts.asks]
+    names = [_law_name(working.op, ask) for working, ask in zip(workings, read, strict=True)]
     for first in range(len(parts.asks)):
         for second in range(first + 1, len(parts.asks)):
             shared = set(dimensions[first]) & set(dimensions[second])
             if (shared or not dimensions[first] or not dimensions[second]) and not (
-                own or _named_apart(names, parts.asks, first, second)
+                own or _named_apart(names, read, first, second)
             ):
                 return None
     return _joined(blocks, workings)
@@ -211,8 +214,7 @@ def _law_name(op: str, ask: str) -> str | None:
     spec = formula_spec(op)
     if spec is None or spec.binding is None:
         return None
-    lower = ask.lower()
-    said = [phrase for phrase in spec.binding.asks if phrase in lower]
+    said = [phrase for phrase in spec.binding.asks if phrase in ask]
     return max(said, key=len) if said else None
 
 
@@ -224,8 +226,8 @@ def _named_apart(names: list[str | None], asks: list[str], first: int, second: i
     return (
         one is not None
         and other is not None
-        and one not in asks[second].lower()
-        and other not in asks[first].lower()
+        and one not in asks[second]
+        and other not in asks[first]
     )
 
 
