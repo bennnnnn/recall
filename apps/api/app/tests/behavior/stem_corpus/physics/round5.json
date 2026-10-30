@@ -737,10 +737,20 @@
   "prompt": "A ball is dropped from 45 m. (a) how long does it take to hit the ground? (b) how fast is it going when it lands?",
   "expect": "answer",
   "answer": [
-   29.713633,
-   "m/s"
+   3.02891,
+   "s"
   ],
-  "note": "(b) is the verified block; the model writes (a), 3.03 s"
+  "parts": [
+   [
+    3.02891,
+    "s"
+   ],
+   [
+    29.713633,
+    "m/s"
+   ]
+  ],
+  "note": "each part solved on its own (split_parts.py); (b) alone was verified before"
  },
  {
   "id": "r5-parts-03",

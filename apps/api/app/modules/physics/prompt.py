@@ -9,7 +9,9 @@ from typing import Literal
 from app.core.config import Settings
 from app.modules.physics.block import _build_physics_block
 from app.modules.physics.extract import extract_physics_intent, needs_physics
+from app.modules.physics.parts import asks_count
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY
+from app.modules.physics.split_parts import solve_in_parts
 from app.services.solving import VerifiedPhysicsBlock, wrap_verified_physics
 from app.services.workout import PHYSICS_WORKOUT_PARTS_PROMPT, SELF_CHECK_PROMPT_RULE
 
@@ -64,15 +66,17 @@ def solve_physics_request(
             logger.info("symbolic physics model declined", exc_info=True)
             return "failed", None
     intent = extract_physics_intent(user_content)
-    if intent is None:
-        return _picture_or(user_content, "note")
-    try:
-        block = _build_physics_block(intent, settings, [])
-    except Exception:
-        logger.warning("physics solve failed for kind=%s", intent.kind, exc_info=True)
-        return _picture_or(user_content, "failed")
+    block: VerifiedPhysicsBlock | None = None
+    if intent is not None:
+        try:
+            block = _build_physics_block(intent, settings, [])
+        except Exception:
+            logger.warning("physics solve failed for kind=%s", intent.kind, exc_info=True)
+    # A question in parts the solve answered one part of: every part, or that one.
+    if block is None or (len(block.physics_parts) < 2 and asks_count(user_content) > 1):
+        block = solve_in_parts(user_content, settings) or block
     if block is None:
-        return _picture_or(user_content, "failed")
+        return _picture_or(user_content, "note" if intent is None else "failed")
     return "verified", replace(block, text=wrap_verified_physics(block.text))
 
 

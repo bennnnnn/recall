@@ -99,6 +99,15 @@ def _states_upward(text: str) -> bool:
     return _UP_BEFORE_RE.search(text) is not None or _UPWARD_WORDS_RE.search(text) is not None
 
 
+# The place it was thrown from, not the ground below it.
+_ABOVE_LAUNCH = re.compile(
+    r"\babove\s+(?:the\s+|its\s+|his\s+|her\s+|their\s+)?(?:balcony|cliff|roof|building|"
+    r"tower|bridge|window|hand|launch(?:\s+point)?|release\s+point|point\s+of\s+release|"
+    r"(?:starting|throwing)\s+point|platform|table|ledge|edge|thrower)\b",
+    re.IGNORECASE,
+)
+
+
 def _answerable_without_height(op: str, v0: float, time_value: float | None) -> bool:
     """Whether this ask has one answer when no starting height was stated.
 
@@ -274,6 +283,10 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     g = detect_gravity(cleaned)
     params: dict[str, float] = {"g": g}
     units: dict[str, str] = {"g": "m/s^2"}
+    # "How high above the balcony does it go?" asks the rise from where it was thrown;
+    # with the balcony's 10 m added it was answered as the height above the ground.
+    if op == "vertical_max_height" and _ABOVE_LAUNCH.search(lower) is not None:
+        h0 = None
     if h0 is not None:
         params["h0"] = h0
         units["h0"] = h0_unit or "m"
