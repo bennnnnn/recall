@@ -43,6 +43,8 @@ def _school_figures(value: float) -> tuple[int, bool]:
     written = trim_zeros(format(mantissa.scaleb(exponent), "f"))
     if abs(value) >= _PLAIN_WHOLE_BELOW:
         return ANSWER_FIGURES, False
+    if value.is_integer():
+        return max(len(str(int(abs(value))).rstrip("0")), 1), True
     if math.isclose(float(written), value, rel_tol=1e-9):
         whole, _, decimals = written.lstrip("-").partition(".")
         if len(decimals) <= 1:
@@ -53,7 +55,7 @@ def _school_figures(value: float) -> tuple[int, bool]:
 def _parts(value: float, figures: int) -> tuple[str, int | None]:
     """(mantissa, exponent) after rounding half up, exponent None for plain form.
 
-    Rounding comes first, so 99999.7 is 1 × 10⁵ rather than 100000, and the
+    Rounding comes first, so 99999.97 is 1 × 10⁵ rather than 100000, and the
     plain form is fixed-point. An answer's figures are a textbook's
     (``_school_figures``), and a whole one like 612500 stays plain below 10⁷.
     """

@@ -237,11 +237,6 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
 
     if is_learning_plan_request(content) or is_teaching_request(content):
         return fast
-    from app.modules.chat.prompt_constants.school_question import needs_reasoned_choice
-
-    # An exercise's option or verdict, reasoned before it is written (school_question).
-    if needs_reasoned_choice(content):
-        return smart
     # A request whose task is to *format* a small example as a Markdown table
     # is not a deep architecture/trade-off analysis. The column label
     # "Main tradeoff" previously tripped the generic smart cue and sent this
@@ -264,6 +259,12 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
     # lane's algebra, and a curve's maximum is maths' though it cues physics.
     chemistry_enabled = settings is None or settings.chemistry_enabled
     subject = detect_subject(content, chemistry_enabled=chemistry_enabled)
+    from app.modules.chat.prompt_constants.school_question import needs_reasoned_choice
+
+    # An exercise's option or verdict, reasoned before it is written (school_question);
+    # a maths one keeps the maths lane below.
+    if subject != "math" and needs_reasoned_choice(content):
+        return smart
     if subject == "chemistry":
         return fast
     if subject != "math":

@@ -153,7 +153,7 @@ def test_a_lesson_keeps_its_own_way() -> None:
         "Why does the image in a plane mirror suffer lateral inversion?",
         "Why is phosphorus preserved in water?",
         "Why do cats purr?",
-        "Explain how a mortgage works",
+        "Explain how a rainbow forms",
         "Mitochondria and chloroplasts are two organelles. Discuss how they are similar.",
         "Electrons move around the nucleus in orbits. Why do they not fly away?",
     ],
@@ -198,3 +198,85 @@ def test_a_textbook_question_has_nothing_to_look_up(content: str, nothing: bool)
     from app.modules.chat.tool_loop.reply_calls import _nothing_to_look_up
 
     assert _nothing_to_look_up(content, None) is nothing
+
+
+# Review (2026-10-30): anyone's own matter is no exercise, whatever its shape, and so is
+# never kept from searching.
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Biden said inflation is falling. Is that correct?",
+        "Mark says Bitcoin will hit 200k. Is he right?",
+        "Elon claims Mars colonies by 2030. Is that realistic?",
+        "Predict who will win the Super Bowl",
+        "Hello! Which is more popular: a) Taylor Swift b) Drake c) Beyoncé?",
+        "Some friends want to go to Bali for 7 days with 2000 each. Is that enough?",
+        "Which neighbourhood is safer: (a) Brooklyn (b) Queens (c) Bronx?",
+        "What's the difference between (a) an LLC and (b) an S-corp for taxes?",
+        "Estimate how long it takes to drive from Boston to New York",
+        "Is intermittent fasting healthy for diabetics? Explain why.",
+        "Determine the root cause of the 502s on our nginx server",
+        "Predict the output of print(2**10)",
+        "Quick questions: (a) is Rust memory safe? (b) does it have a GC?",
+        "Calculate my BMI if I weigh 80 kg and am 1.8 m tall",
+        "Two options: a) take the job in Berlin b) stay in Toronto. Thoughts?",
+        "John says we should refactor the database layer. What do you think?",
+        "Indicate your availability for next Tuesday",
+        "Justify your previous answer",
+        "State whether you can access the internet",
+        "Complete the following sentence for my wedding toast: Love is",
+        "Classify the following tweets as positive or negative",
+        "Sarah and John were arguing about whether to move to Austin. Who is correct?",
+    ],
+)
+def test_anyones_own_matter_is_no_exercise(query: str) -> None:
+    assert school_question_hint(query) is None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Write a short note on the Harappan civilisation.",
+        "Give an account of the Mughal administration.",
+        "Mention two uses of baking soda.",
+        "What is meant by the term 'osmosis'? Give an example.",
+        "Define photosynthesis. Write the balanced chemical equation for it.",
+        "Change the following sentences into passive voice: He wrote a letter.",
+        "A ball is thrown vertically upwards with a velocity of 49 m/s. Calculate the maximum "
+        "height.",
+        "A car accelerates from rest to 72 km/h in 5 minutes. Find the acceleration.",
+    ],
+)
+def test_more_textbook_shapes_are_exercises(query: str) -> None:
+    assert school_question_hint(query) is not None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Why don't cooking pans have metal handles?",
+        "Why is phosphorus preserved in water?",
+        "Why does the image in a plane mirror suffer lateral inversion?",
+        "What causes earthquakes?",
+        "How do we hear sound?",
+    ],
+)
+def test_a_plain_science_question_has_nothing_to_look_up(query: str) -> None:
+    # Main kept these from searching (1278d63b6); the factual note must not undo it.
+    from app.modules.chat.tool_loop.reply_calls import _nothing_to_look_up
+
+    assert _nothing_to_look_up(query, None) is True
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Can you set a reminder for 5pm?",
+        "What's a good name for a cat?",
+        "Is a 5-star hotel worth it in Paris?",
+        "Is it normal to feel anxious before a job interview?",
+        "What does the Fed's rate cut mean for mortgages?",
+    ],
+)
+def test_a_task_feeling_taste_or_news_gets_no_factual_note(query: str) -> None:
+    assert question_hint(query) is None

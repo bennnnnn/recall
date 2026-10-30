@@ -49,3 +49,8 @@ def test_only_the_guess_goes_from_a_lead_with_a_heading() -> None:
 )
 def test_anything_else_is_left_alone(text: str) -> None:
     assert drop_guessed_lead(text) == text
+
+
+def test_a_photo_fence_above_the_working_stays() -> None:
+    text = "```photo\nEiffel Tower 1889\n```\n\n" + _WORKED
+    assert drop_guessed_lead(text) == text

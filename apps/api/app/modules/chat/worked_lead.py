@@ -22,14 +22,24 @@ _DIGIT = re.compile(r"\d")
 _MOST_WORDS = 60
 
 
-def _paragraphs(lead: str) -> list[str]:
-    return [part for part in re.split(r"\n[^\S\n]*\n", lead) if part.strip()]
+def _paragraphs(lead: str) -> list[tuple[int, int]]:
+    """Each paragraph's (start, end) in ``lead``."""
+    spans: list[tuple[int, int]] = []
+    start = 0
+    for gap in re.finditer(r"\n[^\S\n]*\n", lead):
+        spans.append((start, gap.start()))
+        start = gap.end()
+    spans.append((start, len(lead)))
+    return [(begin, end) for begin, end in spans if lead[begin:end].strip()]
 
 
-def _a_guess(paragraph: str) -> bool:
-    """Prose that states a number: not a heading, a photo or a fence."""
-    stripped = paragraph.strip()
-    if _HEADING.match(stripped) or _KEEP.match(stripped) or stripped.startswith("```"):
+def _a_guess(lead: str, span: tuple[int, int], fenced: list[tuple[int, int]]) -> bool:
+    """Prose that states a number: not a heading, a photo or a fence (a photo's query)."""
+    begin, end = span
+    if any(begin < fence_end and fence_start < end for fence_start, fence_end in fenced):
+        return False
+    stripped = lead[begin:end].strip()
+    if _HEADING.match(stripped) or _KEEP.match(stripped):
         return False
     return _DIGIT.search(stripped) is not None
 
@@ -49,8 +59,10 @@ def drop_guessed_lead(text: str) -> str:
     lead = text[: given.start()]
     if len(lead.split()) > _MOST_WORDS or not lead.strip():
         return text
-    kept = [paragraph for paragraph in _paragraphs(lead) if not _a_guess(paragraph)]
-    if len(kept) == len(_paragraphs(lead)):
+    fenced = [(fence.start, fence.end) for fence in iter_fences(lead)]
+    spans = _paragraphs(lead)
+    kept = [span for span in spans if not _a_guess(lead, span, fenced)]
+    if len(kept) == len(spans):
         return text
-    head = "\n\n".join(paragraph.strip("\n") for paragraph in kept)
+    head = "\n\n".join(lead[begin:end].strip("\n") for begin, end in kept)
     return f"{head}\n\n{text[given.start() :]}" if head else text[given.start() :]

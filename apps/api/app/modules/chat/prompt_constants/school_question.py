@@ -19,17 +19,24 @@ textbook prints, whatever the subject:
 - a closing order ("…? Explain."), an assessment code ("(AS1)"), a textbook's phrase.
 
 Never from words anyone uses ("Explain decorators", "Define success.", "Plan a trip
-covering a) Rome b) …", "Which is better for a beginner: a) Python b) Rust", a Markdown
-checklist's "[ ]"): a message about the asker, code, anything current or a matter of
-taste is no exercise. Any other question about the world gets the lighter factual note.
+covering a) Rome b) …", "Calculate my BMI", a Markdown checklist's "[ ]"): a message that
+is anyone's own matter (``question_kinds.anyones``) is no exercise, whatever its shape.
+Any other question about the world gets the lighter factual note.
 """
 
 from __future__ import annotations
 
 import re
 
-from app.modules.chat.prompt_constants.coding import has_code_syntax
-from app.modules.chat.prompt_constants.conversation import is_social_opener
+from app.modules.chat.prompt_constants.question_kinds import (
+    CODE_TALK,
+    CURRENT,
+    OWN,
+    TASTE,
+    anyones,
+    is_factual_question,
+    mentions_science,
+)
 from app.services.question_parts import labelled_parts
 
 # "a) …", "(b) …", "C. …", "[D] …", "(iii) …": an option's label, after a space or the start.
@@ -41,8 +48,6 @@ _CHOOSE = re.compile(
     r"(?:option|answer|statement|explanation|sequence|order|pair))\b",
     re.IGNORECASE,
 )
-# The asker: "I", "my", "me". Not "(i)", a part's label, and not a book's "we observe".
-_OWN = re.compile(r"(?<!\()\b(?:i(?!\))|i'm|i've|my|me)\b", re.IGNORECASE)
 # A request for every item, not a choice of one: "Plan a trip covering a) Rome b) …",
 # "opening hours of a) the Louvre b) …", "Compare the specs of a) …".
 _ALL_ITEMS = re.compile(
@@ -51,68 +56,47 @@ _ALL_ITEMS = re.compile(
     r"|\b(?:of|for|between|covering|about|these|each|both|all)\s*:?\s*$",
     re.IGNORECASE,
 )
-# A matter of taste, not a fact a book states: "Which is better for a beginner", "Which
-# toppings go well together", "Which sounds more professional".
-_TASTE = re.compile(
-    r"\b(?:(?:better|best)\s+(?:for|than|to|choice|option|pick)|prefer\w*|favou?rite"
-    r"|sounds\s+(?:more|better|nicer|best)|go\s+well|should\s+(?:i|we)"
-    r"|would\s+you\s+(?:rather|prefer|recommend|choose|pick|buy|use)"
-    r"|recommend\w*|nicer|cuter|cooler|tastier"
-    # "What is the best country", not "the best conductor of heat".
-    r"|(?:best|worst)\s+(?!conductors?|insulators?|examples?|answer|options?|describes|explains)"
-    r"\w+)\b",
-    re.IGNORECASE,
-)
-# What changes, so no textbook holds it: news, prices, people in office, travel.
-_CURRENT = re.compile(
-    r"\b(?:current(?:ly)?|right\s+now|as\s+of\s+now|today|latest|newest|this\s+(?:week|year|month)|price|cost|stocks?"
-    r"|pric\w*|ceo|president|prime\s+minister|airlines?|flights?|visa|open(?:ing)?\s+hours"
-    r"|weather|buy|cheapest|tomorrow|tonight|yesterday|this\s+weekend|next\s+week|who\s+won"
-    r"|last\s+(?:\w+\s+)?(?:cup|final|election|year|week|month|night|season|match|game))\b|\$\d",
-    re.IGNORECASE,
-)
 _CODE = re.compile(r"\(\s*AS\s*\d\s*\)|\[[ \t]+\]\s*(?:$|\(?[aA][).])", re.MULTILINE)
-# Code, an error or a programming word: a developer's question, whatever its shape.
-# A chemical formula (NaHCO3, CuSO4) is a camel-cased word too, and no code.
-_CODE_TALK = re.compile(
-    r"`|\b(?![A-Z][a-z]?\d*(?:[A-Z][a-z]?\d*)+\b|[kmMGµ][A-Z]\w?\b)(?:[a-z]+[A-Z]\w*|[A-Z][a-z]+[A-Z]\w*)\b"
-    r"|\b(?i:error|exception|code|javascript|typescript|python|java|sql|api|bug|compile\w*"
-    r"|emails?)\b"
-)
-# An exercise's own order. "Define success." and "Explain decorators" are anyone's, so
-# define, describe, explain and list are not here: the factual note has them.
+# An exercise's own order, opening the message or a sentence of it. "Define success." and
+# "Explain decorators" are anyone's, so define, describe, explain and list are not here:
+# the factual note has them.
 _OPENING = re.compile(
-    r"^\s*(?:\d{1,2}[.)]\s*)?(?:distinguish\s+between|differentiate\s+between"
+    r"(?:^|[.?!:]\s+)(?:\d{1,2}[.)]\s*)?(?:distinguish\s+between|differentiate\s+between"
     r"|give\s+(?:two|three|four|five|any\s+two|any\s+three)\s+examples?\s+each"
     r"|write\s+the\s+differences?\s+between|identify|justify|indicate|illustrate"
-    r"|arrange\s+the|classify\s+the\s+following\s+(?!emails?)|match\s+the\s+following"
+    r"|arrange\s+the|classify\s+the\s+following|match\s+the\s+following"
     r"|fill\s+in\s+the\s+blanks?|choose\s+the\s+correct|tick|state\s+whether"
     r"|calculate|determine|estimate|predict|give\s+reasons?\s+(?:why|for\s+the)"
     r"|complete\s+the\s+(?:table|following)|verify\s+(?:whether|that|the)"
-    r"|write\s+(?:down\s+)?the\s+(?:formulae?|chemical|balanced|electronic|symbols?|correct))\b",
+    r"|write\s+(?:down\s+)?the\s+(?:formulae?|chemical|balanced|electronic|symbols?|correct)"
+    r"|write\s+a\s+short\s+note\s+on|give\s+an\s+account\s+of|mention\s+(?:two|three|any|the)"
+    r"|what\s+is\s+meant\s+by|(?:change|correct|rewrite|punctuate)\s+the\s+following"
+    r"|use\s+the\s+following\s+words|name\s+the\s+following)\b",
     re.IGNORECASE,
 )
 _ASSERTION = re.compile(r"\bassertion\b.*\breason\b", re.IGNORECASE | re.DOTALL)
 _BLANK = re.compile(r"_{3,}|…{2,}|\.{6,}")
 # Someone a textbook's scenario is about: "A student said", "Two students, Renu and
-# Rohit", "A farmer wants", "A researcher placed".
+# Rohit", "A farmer wants", "Vibha claims to her friend that, “…”".
 _SCENARIO = re.compile(
     r"\b(?i:a|an|the|two|three|some)\s+(?:\w+\s+)?(?:students?|girl|boy|teacher|farmer"
-    r"|researchers?|scientists?|class(?:mates)?|classroom|friends?)\b"
+    r"|researchers?|scientists?|class(?:mates)?|classroom)\b"
     r"|\b[A-Z][a-z]+\s+and\s+[A-Z][a-z]+\s+(?:were|are|observed|noticed|had)\b"
-    r"|\b[A-Z][a-z]+\s+(?:claims?|argues|counter\s+argues|observed|noticed|says|said)\b",
+    r"|\b[A-Z][a-z]+\s+(?:claims?|argues|counter\s+argues|says|said)\b[^\"\u201c\n]{0,40}[\"\u201c]",
 )
-_ASKS = re.compile(
-    r"\?|\b(?:explain|justify|predict|suggest|identify|discuss|calculate|find|determine"
-    r"|estimate|verify|obtain|express|state|give\s+reasons?|provide"
-    r"|what\s+do\s+you\s+think)\b",
+# An exercise's verb: what a book asks a student to do.
+_ORDER = re.compile(
+    r"\b(?:explain|justify|predict|suggest|identify|discuss|calculate|find|determine"
+    r"|estimate|verify|obtain|express|state|give\s+reasons?|provide|what\s+do\s+you\s+think)\b",
     re.IGNORECASE,
 )
-# A quantity a word problem gives: "24 m/s", "50 g", "6 s", "70%".
+# A quantity a word problem gives: "24 m/s", "50 g", "6 s", "5 minutes", "70%".
 _QUANTITY = re.compile(
-    r"\d(?:[\d,]*\d)?(?:\.\d+)?\s*(?:%|°\s*[CF]\b|(?:km|cm|mm|m|kg|g|mg|s|min|h|N|J|kJ|W|kW"
-    r"|Hz|kHz|K|Pa|L|mL|u|mol|V|A|Ω)(?:\s*(?:/|per)\s*(?:s²|s\^?2|s|h|m³|m\^?3|L|mol))?\b)"
+    r"\d(?:[\d,]*\d)?(?:\.\d+)?\s*(?:%|°\s*[CF]\b|(?:km|cm|mm|m|kg|g|mg|s|min|minutes?|h|hours?"
+    r"|seconds?|N|J|kJ|W|kW|Hz|kHz|K|Pa|L|mL|u|mol|V|A|Ω)"
+    r"(?:\s*(?:/|per)\s*(?:s²|s\^?2|s|h|m³|m\^?3|L|mol))?\b)"
 )
+_COMPUTE = re.compile(r"\b(?:calculate|compute|find|determine|work\s+out)\b", re.IGNORECASE)
 _CLOSING = re.compile(
     r"[.?!]\s*(?:explain(?:\s+why)?|justify|discuss|(?:give|specify)\s+reasons?)\s*[.?!]?\s*$",
     re.IGNORECASE,
@@ -200,78 +184,34 @@ def _choice(text: str) -> bool:
     return (
         asked
         and len(stem.split()) >= 3
-        and _OWN.search(stem) is None
+        and OWN.search(stem) is None
         and _ALL_ITEMS.search(stem) is None
-        and _TASTE.search(stem) is None
-        and _CURRENT.search(text) is None
-        and _CODE_TALK.search(text) is None
-    )
-
-
-def _anyones(text: str) -> bool:
-    """About the asker, code, anything current or a matter of taste."""
-    return any(pattern.search(text) is not None for pattern in (_OWN, _CODE_TALK, _CURRENT, _TASTE))
-
-
-def _closing_order(text: str) -> bool:
-    """ "…? Explain." after a question of eight words or more, not about the asker or code."""
-    return (
-        _CLOSING.search(text) is not None
-        and len(text.split()) >= 8
-        and _OWN.search(text) is None
-        and _CODE_TALK.search(text) is None
+        and TASTE.search(stem) is None
+        and CURRENT.search(text) is None
+        and CODE_TALK.search(text) is None
     )
 
 
 def is_school_exercise(query: str) -> bool:
     text = query.strip()
-    if _choice(text) or _CODE.search(text) or _closing_order(text) or _TEXTBOOK.search(text):
+    if _choice(text):
         return True
-    if _CODE_TALK.search(text) or _CURRENT.search(text) or _TASTE.search(text):
+    if anyones(text):
         return False
-    if _ASSERTION.search(text) or _BLANK.search(text) or _OPENING.search(text):
+    if _CODE.search(text) or (_CLOSING.search(text) and len(text.split()) >= 8):
         return True
-    if _OWN.search(text):
+    if _TEXTBOOK.search(text) or _ASSERTION.search(text) or _BLANK.search(text):
+        return True
+    if _OPENING.search(text):
+        return True
+    if _ORDER.search(text) is None and "?" not in text:
         return False
-    if _ASKS.search(text) is None:
-        return False
-    return bool(labelled_parts(text) or _SCENARIO.search(text) or len(_QUANTITY.findall(text)) >= 2)
-
-
-# A question, or an order to explain, opening the message or any sentence of it.
-_QUESTION = re.compile(
-    r"\?|(?:^|[.!:]\s+)(?:why|how|what|which|who|whom|whose|where|when|is|are|was|were|does"
-    r"|do|did|can|could|will|explain|describe|define|state|name|list|compare|discuss"
-    r"|identify|justify|suggest|predict|find|calculate|determine)\b",
-    re.IGNORECASE,
-)
-# A task to do, not a question to answer: "Write a poem about rain", "Translate …",
-# "Find remote backend jobs", "do a search".
-_TASK = re.compile(
-    r"^\s*(?:write|draft|make|create|generate|plan|translate|summari[sz]e|rewrite|edit|fix"
-    r"|help|remind|search|look\s+up|do\s+a|find\s+(?!the\b)|tell\s+me\s+a\s+(?:joke|story))\b",
-    re.IGNORECASE,
-)
-# Talk with the assistant, or the clock and calendar: "how are you?", "what can you do",
-# "what time is it", "What did we decide last time?".
-_CHAT = re.compile(
-    r"\b(?:how\s+are\s+you|who\s+are\s+you|are\s+you|can\s+you\s+(?:do|help|see|hear)"
-    r"|what\s+can\s+you|what\s+time|what\s+day|today'?s\s+date|we|our|us)\b",
-    re.IGNORECASE,
-)
-
-
-def is_factual_question(query: str) -> bool:
-    """A question about the world, not about the asker, code, anything current or taste."""
-    text = query.strip()
-    return (
-        3 <= len(text.split()) <= 150
-        and _QUESTION.search(text) is not None
-        and _TASK.search(text) is None
-        and _CHAT.search(text) is None
-        and not _anyones(text)
-        and not is_social_opener(text)
-        and not has_code_syntax(text)
+    quantities = len(_QUANTITY.findall(text))
+    return bool(
+        (labelled_parts(text) and (_ORDER.search(text) or quantities or mentions_science(text)))
+        or _SCENARIO.search(text)
+        or quantities >= 2
+        or (quantities == 1 and _COMPUTE.search(text))
     )
 
 
