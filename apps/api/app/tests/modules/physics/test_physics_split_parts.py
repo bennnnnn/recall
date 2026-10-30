@@ -26,7 +26,7 @@ _SETTINGS = Settings(math_tools_enabled=True)
             "g = 10 m/s^2, calculate: a) The potential energy of the concrete. b) The power "
             "developed by the crane",
             [
-                ("Potential energy", r"225000\,\mathrm{J}"),
+                ("Potential energy", r"2.25 \times 10^{5}\,\mathrm{J}"),
                 ("Power", r"45000\,\mathrm{W}"),
             ],
         ),

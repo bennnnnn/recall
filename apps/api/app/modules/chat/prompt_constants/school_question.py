@@ -29,12 +29,9 @@ from __future__ import annotations
 import re
 
 from app.modules.chat.prompt_constants.question_kinds import (
-    CODE_TALK,
-    CURRENT,
-    OWN,
-    TASTE,
     anyones,
     is_factual_question,
+    is_science_question,
     mentions_science,
 )
 from app.services.question_parts import labelled_parts
@@ -71,7 +68,8 @@ _OPENING = re.compile(
     r"|write\s+(?:down\s+)?the\s+(?:formulae?|chemical|balanced|electronic|symbols?|correct)"
     r"|write\s+a\s+short\s+note\s+on|give\s+an\s+account\s+of|mention\s+(?:two|three|any|the)"
     r"|what\s+is\s+meant\s+by|(?:change|correct|rewrite|punctuate)\s+the\s+following"
-    r"|use\s+the\s+following\s+words|name\s+the\s+following)\b",
+    r"|use\s+the\s+following\s+words|name\s+the\s+following|give\s+reasons?(?=\s*:)|outline\s+the"
+    r"|account\s+for|balance\s+the|convert)\b",
     re.IGNORECASE,
 )
 _ASSERTION = re.compile(r"\bassertion\b.*\breason\b", re.IGNORECASE | re.DOTALL)
@@ -124,7 +122,7 @@ WORK_FIRST = (
 SCHOOL_QUESTION_NOTE = (
     "This message is a school exercise. Answer it as the textbook expects, for the "
     "student who asked, at the level the question is written, from what the textbook "
-    "teaches (no web search for it): open with the answer itself in plain words, using "
+    "teaches: open with the answer itself in plain words, using "
     "the textbook's terms, then a short reason or two to four everyday examples. "
     + WORK_FIRST
     + " Stay at "
@@ -182,13 +180,7 @@ def _choice(text: str) -> bool:
         or (own_lines and stem.rstrip().endswith(("?", ":", ".")))
     )
     return (
-        asked
-        and len(stem.split()) >= 3
-        and OWN.search(stem) is None
-        and _ALL_ITEMS.search(stem) is None
-        and TASTE.search(stem) is None
-        and CURRENT.search(text) is None
-        and CODE_TALK.search(text) is None
+        asked and len(stem.split()) >= 3 and _ALL_ITEMS.search(stem) is None and not anyones(text)
     )
 
 
@@ -232,12 +224,28 @@ _VERDICT = re.compile(
 
 
 def needs_reasoned_choice(query: str) -> bool:
-    """A choice or a verdict to reason out first: an exercise's options or assertion, or
-    any question about the world that asks who is right or which class the clues fit."""
+    """An exercise's choice to reason out first: its options, its assertion and reason,
+    or a verdict on a textbook scenario ("Two students… Who is correct?"). An everyday
+    "which is more reliable" stays on its own lane."""
     text = query.strip()
-    if is_school_exercise(text):
-        return bool(_choice(text) or _ASSERTION.search(text) or _VERDICT.search(text))
-    return is_factual_question(text) and _VERDICT.search(text) is not None
+    if not is_school_exercise(text):
+        return False
+    verdict = _SCENARIO.search(text) is not None and _VERDICT.search(text) is not None
+    return bool(_choice(text) or _ASSERTION.search(text) or verdict)
+
+
+def has_nothing_to_look_up(query: str) -> bool:
+    """An exercise in a textbook's own form (options, an assertion and its reason, a blank,
+    an assessment code), or a plain science question: a search only finds worse answers
+    ("…is called its a) Ignition temperature b) …" was answered from a YouTube comment)."""
+    text = query.strip()
+    if is_science_question(text):
+        return True
+    if anyones(text):
+        return False
+    return bool(
+        _choice(text) or _ASSERTION.search(text) or _BLANK.search(text) or _CODE.search(text)
+    )
 
 
 def school_question_hint(query: str) -> str | None:

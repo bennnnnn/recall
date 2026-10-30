@@ -24,6 +24,8 @@ GIVEN_FIGURES = 6
 _SCIENTIFIC_BELOW = 1e-3
 _SCIENTIFIC_FROM = 1e5
 _PLAIN_WHOLE_BELOW = 1e7
+# A value below 10⁷ that ends within one decimal has at most eight figures.
+_EXACT_FIGURES = 8
 
 _SUPERSCRIPT = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
 
@@ -39,7 +41,7 @@ def _school_figures(value: float) -> tuple[int, bool]:
     """
     if value == 0 or not math.isfinite(value):
         return ANSWER_FIGURES, False
-    mantissa, exponent = round_figures(value, GIVEN_FIGURES)
+    mantissa, exponent = round_figures(value, _EXACT_FIGURES)
     written = trim_zeros(format(mantissa.scaleb(exponent), "f"))
     if abs(value) >= _PLAIN_WHOLE_BELOW:
         return ANSWER_FIGURES, False
@@ -57,14 +59,17 @@ def _parts(value: float, figures: int) -> tuple[str, int | None]:
 
     Rounding comes first, so 99999.97 is 1 × 10⁵ rather than 100000, and the
     plain form is fixed-point. An answer's figures are a textbook's
-    (``_school_figures``), and a whole one like 612500 stays plain below 10⁷.
+    (``_school_figures``); past 10⁵ one stays plain below 10⁷ when it has
+    more than three figures.
     """
     exact = False
     if figures == ANSWER_FIGURES:
         figures, exact = _school_figures(value)
     mantissa, exponent = round_figures(value, figures)
     rounded = float(mantissa.scaleb(exponent))
-    plain_whole = exact and rounded.is_integer() and abs(rounded) < _PLAIN_WHOLE_BELOW
+    # Past 10⁵ a value stays plain only when its exponent form would round digits away:
+    # 117187.5 and 612500, but 6.4 × 10⁶ and 2.4 × 10⁵ as books print them.
+    plain_whole = exact and figures > ANSWER_FIGURES and abs(rounded) < _PLAIN_WHOLE_BELOW
     in_plain_range = _SCIENTIFIC_BELOW <= abs(rounded) < _SCIENTIFIC_FROM
     if rounded != 0 and not plain_whole and not in_plain_range:
         return trim_zeros(f"{mantissa:.{figures - 1}f}"), exponent

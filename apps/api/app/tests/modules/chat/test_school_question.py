@@ -188,7 +188,7 @@ def test_a_personal_current_taste_or_task_message_gets_no_note(query: str) -> No
             "d) Normal temperature",
             True,
         ),
-        ("Two students, Renu and Rohit, argue about plastids. Who is correct?", True),
+        ("What is the SI unit of force?", True),
         ("Who won the champions league final?", False),
         ("What is the current Fed funds rate? a) 3.5% b) 4.25% c) 5%", False),
     ],
@@ -280,3 +280,48 @@ def test_a_plain_science_question_has_nothing_to_look_up(query: str) -> None:
 )
 def test_a_task_feeling_taste_or_news_gets_no_factual_note(query: str) -> None:
     assert question_hint(query) is None
+
+
+# Second review (2026-10-30): a book's "current", "cost", "President" and "World War I"
+# are no news, and an exercise's note never keeps a changing question from its search.
+@pytest.mark.parametrize(
+    "query",
+    [
+        "A resistor of 10 Ω is connected to a 5 V battery. Find the current.",
+        "A current of 2 A flows through a wire for 5 minutes. Calculate the charge.",
+        "What is the direction of induced current in a coil? Explain.",
+        "Find the cost of fencing a rectangular field 120 m long and 80 m wide at Rs 15 per metre.",
+        "Who was the first President of the United States?",
+        "Outline the causes of World War I.",
+        "Why do we need a fuse in an electric circuit?",
+        "Give reasons: Aluminium is used for making cooking utensils.",
+        "Account for the fact that ionic compounds have high melting points.",
+    ],
+)
+def test_a_books_words_are_no_news(query: str) -> None:
+    assert question_hint(query) is not None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Which of the following should our team prioritize next quarter?\na) onboarding\n"
+        "b) billing\nc) search",
+        "Which of the following will the Fed do in December? a) cut b) hold c) hike",
+        "Which of the following teams won the 2026 World Series?\n(a) Dodgers\n(b) Yankees\n(c) Mets",
+        "Which of the following is a good investment: a) gold b) bonds c) stocks",
+        "Was there an earthquake in Japan?",
+        "When is the next total solar eclipse?",
+        "Is Ozempic safe for weight loss?",
+        "How many Starlink satellites are in orbit?",
+        "Which car brand is more reliable, Toyota or Honda?",
+    ],
+)
+def test_a_changing_or_everyday_question_keeps_its_search_and_lane(query: str) -> None:
+    from app.modules.chat.prompt_constants.school_question import (
+        has_nothing_to_look_up,
+        needs_reasoned_choice,
+    )
+
+    assert not has_nothing_to_look_up(query)
+    assert not needs_reasoned_choice(query)

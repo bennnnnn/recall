@@ -78,7 +78,7 @@ def _answer(text: str) -> str | None:
             "0.00300 m^3, and an initial temperature of 300 K. The new volume is "
             "0.00600 m^3 and the new temperature is 600 K. Find the new pressure.",
             "combined_gas_pressure",
-            "200000 Pa",
+            "2 × 10⁵ Pa",
         ),
         (
             "Find the rms speed of oxygen molecules at 300 K. The molar mass of oxygen is 32 g/mol.",
@@ -129,7 +129,7 @@ def _answer(text: str) -> str | None:
         (
             "It takes 668000 J to melt 2 kg of ice. Find the specific latent heat of fusion.",
             "latent_heat_from_energy",
-            "334000 J/kg",
+            "3.34 × 10⁵ J/kg",
         ),
         (
             "A steel rod 2 m long is heated by 50 K. The expansion coefficient is "

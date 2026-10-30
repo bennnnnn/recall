@@ -206,7 +206,7 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         (
             "How much energy is needed to melt 0.5 kg of ice? (specific latent heat of fusion = "
             "334000 J/kg)",
-            "167000 J",
+            "1.67 × 10⁵ J",
         ),
         (
             "A gas at 300 K and 100 kPa is heated to 600 K at constant volume. What is the new "
@@ -328,7 +328,7 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         (
             "A 1000 kg car travelling at 20 m/s brakes to a stop. How much work is done by the "
             "brakes?",
-            "-200000 J",
+            "-2 × 10⁵ J",
         ),
         (
             "A 60 kg person stands in an elevator accelerating upward at 2 m/s^2. What is the "

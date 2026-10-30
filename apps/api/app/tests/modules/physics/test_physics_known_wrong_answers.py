@@ -81,7 +81,7 @@ def test_heat_uses_both_readings_and_the_stated_capacity() -> None:
         "How much energy is needed to heat 2 kg of water from 20 °C to 80 °C? "
         "The specific heat capacity is 4200 J/kg°C."
     )
-    assert _answer(text) == "504000 J"
+    assert _answer(text) == "5.04 × 10⁵ J"
     intent = extract_physics_intent(text)
     assert intent is not None
     formulas = _solve_requested_quantities(intent).formulas
