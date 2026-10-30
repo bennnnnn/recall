@@ -171,7 +171,9 @@ def _first_new_part(
 def solve_in_parts(text: str, settings: Settings) -> VerifiedPhysicsBlock | None:
     """One verified block holding every part of ``text``, each solved on its own; None
     unless every part solves to its own answer."""
-    parts = _split(text)
+    # Read as the laws read the whole question: "a) Find the VR. b) Find the MA." of a
+    # plank names its machine once, and each part read alone lost it (review, 2026-10-30).
+    parts = _split(normalize_physics_units(text))
     if parts is None or len(parts.asks) > _MAX_PARTS:
         return None
     if any(_RELATIVE.search(ask) for ask in parts.asks):
@@ -238,7 +240,7 @@ def reads_in_parts(text: str) -> bool:
 
     if len(_LABEL.findall(text)) < 2:
         return False
-    parts = _split(text)
+    parts = _split(normalize_physics_units(text))
     return parts is not None and any(
         bind_physics_intent(f"{parts.givens} {ask}") is not None for ask in parts.asks
     )
