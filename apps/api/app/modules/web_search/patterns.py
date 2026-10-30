@@ -162,7 +162,11 @@ _WEATHER = re.compile(
     r"|forecast|report|update)"
     r"|(?:today|tomorrow|tonight)(?:['\u2019]s)?\s+(?:weather|forecast)"
     r"|(?:weather\s+)?forecast\s+(?:for|in|today|tomorrow|tonight|this)"
-    r"|temperature\s+(?:outside|today|tomorrow|tonight|right\s+now|in|at)"
+    # "The lowest temperature at which a substance catches fire", "temperature in kelvin":
+    # a science question, not the temperature at a place (a Class 8 book, 2026-10-30).
+    r"|temperature\s+(?:outside|today|tomorrow|tonight|right\s+now|(?:in|at)\s+(?!(?:which|whom"
+    r"|room|kelvin|celsius|fahrenheit|degrees?|the\s+same|absolute|this|that|a\s+(?:substance"
+    r"|body|metal|liquid|gas))\b))"
     r"|(?:(?:will|is)\s+it|^(?:i\s+(?:want|need)\s+to\s+know|(?:can|could)\s+you\s+(?:tell\s+me|check)"
     r"|do\s+you\s+know|i\s+wonder|tell\s+me|check|find\s+out)\s+(?:if|whether)\s+it(?:\s+will"
     r"|['\u2019]ll|\s+is|['\u2019]s))\s+(?:going\s+to\s+|gonna\s+)?(?:rain|snow|storm)(?:ing)?"
@@ -176,6 +180,11 @@ _WEATHER_NOT_A_FORECAST = re.compile(
     r"|(?:mean(?:s|ing)?|definition|synonyms?|spell|spelling)\b.*\bweather"
     r"|weather\b.*\b(?:mean(?:s|ing)?|definition|synonyms?)"
     r"|weather\s+vs\.?\s+whether|whether\s+(?:or|vs)"
+    # A temperature science asks about: a scale, or a thing's own ("of boiling water").
+    r"|temperature(?![^.?!]*\b(?:today|tonight|tomorrow|now|this\s+(?:week|weekend))\b)"
+    r"\s+(?:in\s+(?:kelvin|celsius|fahrenheit|centigrade)|at\s+which"
+    r"|of\s+(?:a\s+|an\s+|the\s+)?(?:boiling|melting|freezing|ice|water|steam|sun|human\s+body"
+    r"|body|object|substance|liquid|gas|flame|metal|core|surface\s+of))"
     # Weather on/in/of a planet is science ("in mars" found Marseille); "Mars, PA" searches.
     r"|(?:weather|forecast|temperature|climate)(?:\s+[\w'\u2019]+){0,3}?\s+(?:(?:on|in|of|at)"
     r"\s+(?:the\s+)?(?:planet\s+)?(?:mercury|venus|mars|jupiter|saturn|uranus|neptune|pluto"

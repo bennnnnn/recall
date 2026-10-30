@@ -283,3 +283,28 @@ def test_weather_in_or_of_another_world_is_science_not_a_forecast(
     from app.modules.web_search.detection import needs_web_search
 
     assert needs_web_search(text) is searches
+
+
+# A Class 8 book's "The lowest temperature at which a substance catches fire is called
+# its a) Ignition temperature …" searched as weather and cited a YouTube comment
+# (2026-10-30): a temperature science asks about is no forecast.
+@pytest.mark.parametrize(
+    ("text", "weather"),
+    [
+        (
+            "The lowest temperature at which a substance catches fire is called its "
+            "a) Ignition temperature b) Maximum temperature c) Room temperature",
+            False,
+        ),
+        ("What is the temperature in kelvin of boiling water?", False),
+        ("What is the temperature of the sun?", False),
+        ("What is the temperature in Paris?", True),
+        ("whats the temperature in nyc", True),
+        ("what is the temperature of the water at Santa Monica beach today", True),
+        ("temperature at the beach today", True),
+    ],
+)
+def test_a_science_temperature_is_no_forecast(text: str, weather: bool) -> None:
+    from app.modules.web_search.patterns import is_weather_request
+
+    assert is_weather_request(text) is weather
