@@ -25,6 +25,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
+from app.modules.physics.schemas.scene_titles import TitleKey
+
 # Matches GraphBlockSpec.points: the solver never legitimately needs more
 # samples than the canonical solve produced.
 MAX_PATH_POINTS = 500
@@ -406,32 +408,6 @@ _DEFAULT_TITLES: dict[str, str] = {
     "wave": "Wave",
 }
 
-# Titles the client translates. A scene sets the one that names it; the
-# English `title` stays for clients that do not know the key.
-TitleKey = Literal[
-    "projectile",
-    "free_fall",
-    "orbit",
-    "satellite",
-    "circular_motion",
-    "collision",
-    "recoil",
-    "incline",
-    "moments",
-    "free_body",
-    "atwood",
-    "forces",
-    "spring",
-    "pendulum",
-    "circuit",
-    "lens",
-    "mirror",
-    "refraction",
-    "wave",
-    "standing_wave",
-    "buoyancy",
-    "charges",
-]
 ArrowKind = Literal["gravity", "velocity", "centripetal", "normal", "friction"]
 _BODILESS = frozenset({"circuit", "rays", "wave"})
 

@@ -104,6 +104,7 @@ export const SCENE_TITLE_KEYS = [
   "incline",
   "moments",
   "free_body",
+  "height",
   "atwood",
   "forces",
   "spring",
