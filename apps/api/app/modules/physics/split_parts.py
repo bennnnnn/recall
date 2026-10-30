@@ -19,8 +19,8 @@ import re
 from dataclasses import dataclass, replace
 
 from app.core.config import Settings
-from app.modules.physics.ask import _QUANTITY, SENTENCE, asked_dimensions
-from app.modules.physics.block import _build_physics_block, part_title
+from app.modules.physics.ask import QUANTITY, SENTENCE, asked_dimensions
+from app.modules.physics.block import build_verified_physics_block, part_title
 from app.modules.physics.extract import extract_physics_intent
 from app.modules.physics.numbers import normalize_physics_units
 from app.services.law_binding.ask import ASK_VERBS
@@ -115,7 +115,7 @@ def _solved(text: str, settings: Settings) -> VerifiedPhysicsBlock | None:
     if intent is None:
         return None
     try:
-        return _build_physics_block(intent, settings, [])
+        return build_verified_physics_block(intent, settings)
     except Exception:
         return None
 
@@ -124,7 +124,7 @@ def _title(ask: str, op: str, symbol: str, givens: str) -> str:
     """The part's label from its own ask ("The power developed…" is "Power"), or from the
     question's ("What is her weight on: a) the earth" is "Weight")."""
     asked = [sentence for sentence in _sentences(givens) if _asks(sentence)]
-    named = _QUANTITY.search(ask) or (_QUANTITY.search(asked[-1]) if asked else None)
+    named = QUANTITY.search(ask) or (QUANTITY.search(asked[-1]) if asked else None)
     if named is None:
         return part_title(op, symbol)
     phrase = named.group(0).lower()

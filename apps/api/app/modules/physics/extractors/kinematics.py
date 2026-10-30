@@ -108,6 +108,15 @@ _ABOVE_LAUNCH = re.compile(
 )
 
 
+def _height_measured_from(op: str, h0: float | None, lower: str) -> float | None:
+    """The launch height the asked height counts from: "How high above the balcony does
+    it go?" asks the rise from where it was thrown; with the balcony's 10 m added it was
+    answered as the height above the ground."""
+    if op == "vertical_max_height" and _ABOVE_LAUNCH.search(lower) is not None:
+        return None
+    return h0
+
+
 def _answerable_without_height(op: str, v0: float, time_value: float | None) -> bool:
     """Whether this ask has one answer when no starting height was stated.
 
@@ -283,11 +292,7 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     g = detect_gravity(cleaned)
     params: dict[str, float] = {"g": g}
     units: dict[str, str] = {"g": "m/s^2"}
-    # "How high above the balcony does it go?" asks the rise from where it was thrown;
-    # with the balcony's 10 m added it was answered as the height above the ground.
-    if op == "vertical_max_height" and _ABOVE_LAUNCH.search(lower) is not None:
-        h0 = None
-    if h0 is not None:
+    if (h0 := _height_measured_from(op, h0, lower)) is not None:
         params["h0"] = h0
         units["h0"] = h0_unit or "m"
     params["v0"] = v0
