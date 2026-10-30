@@ -37,7 +37,7 @@ def _verified(text: str) -> VerifiedPhysicsBlock:
         # A note that says something else stays.
         (
             "How much heat is released when 3 kg of water cools from 90 °C to 40 °C? Give it in kJ.",
-            "628 kJ (released)",
+            "627.9 kJ (released)",
         ),
     ],
 )

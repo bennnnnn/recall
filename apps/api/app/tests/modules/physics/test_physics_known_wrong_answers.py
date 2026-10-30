@@ -81,7 +81,7 @@ def test_heat_uses_both_readings_and_the_stated_capacity() -> None:
         "How much energy is needed to heat 2 kg of water from 20 °C to 80 °C? "
         "The specific heat capacity is 4200 J/kg°C."
     )
-    assert _answer(text) == "5.04 × 10⁵ J"
+    assert _answer(text) == "504000 J"
     intent = extract_physics_intent(text)
     assert intent is not None
     formulas = _solve_requested_quantities(intent).formulas
@@ -90,7 +90,7 @@ def test_heat_uses_both_readings_and_the_stated_capacity() -> None:
 
 def test_cooling_releases_heat() -> None:
     assert _answer("How much heat is released when 3 kg of water cools from 90 °C to 40 °C?") == (
-        "6.28 × 10⁵ J (released)"
+        "627900 J (released)"
     )
 
 
@@ -183,7 +183,7 @@ def test_a_body_without_a_school_g_does_not_get_earths(text: str) -> None:
             "c = 4.18 J/g°C",
             "4180 J",
         ),
-        ("How much heat is needed to raise 50 g of copper by 30 °C? c = 0.385 J/g°C", "578 J"),
+        ("How much heat is needed to raise 50 g of copper by 30 °C? c = 0.385 J/g°C", "577.5 J"),
     ],
 )
 def test_a_specific_heat_per_gram_is_read(text: str, answer: str) -> None:

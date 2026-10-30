@@ -319,7 +319,7 @@ def test_givens_in_different_units_answer_in_si() -> None:
             "2.4 µF",
         ),
         # "Bill" is a name here, not a price.
-        ("Bill has a mass of 70 kg. What is Bill's weight?", "687 N"),
+        ("Bill has a mass of 70 kg. What is Bill's weight?", "686.7 N"),
     ],
 )
 def test_review_cases_answer_the_question_asked(text: str, answer: str) -> None:

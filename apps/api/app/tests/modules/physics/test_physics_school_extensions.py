@@ -47,7 +47,7 @@ VERIFIED: list[tuple[str, str, str]] = [
         "Use Gauss's law inside a uniform sphere of charge 2e-6 C "
         "with radius 0.5 m and a distance of 0.2 m from the center.",
         "gauss_inside_sphere",
-        "28800 N/C",
+        "28760 N/C",
     ),
     (
         "Use Gauss's law for an infinite line charge of 2e-6 C/m at a distance of 0.05 m.",
@@ -150,7 +150,7 @@ VERIFIED: list[tuple[str, str, str]] = [
         "Use Bernoulli for water flow with initial height of 5 m and final height of 1 m. "
         "P1 is 100000 Pa, density 1000 kg/m^3, v1 is 2 m/s and v2 is 2 m/s. Find P2.",
         "bernoulli_pressure",
-        "1.39 × 10⁵ Pa",
+        "139240 Pa",
     ),
     (
         "Find the gravitational potential of a 6e24 kg mass at a distance of 6e6 m.",
@@ -171,12 +171,12 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "Use Kepler's law for a 6e24 kg mass and an orbital radius of 6e6 m. Find the period.",
         "kepler_period",
-        "4610 s",
+        "4615 s",
     ),
     (
         "Find the internal energy of 2 mol of monatomic ideal gas at 300 K.",
         "monatomic_energy",
-        "7480 J",
+        "7483 J",
     ),
     (
         "An isobaric expansion at a pressure of 100000 Pa changes volume "
@@ -188,7 +188,7 @@ VERIFIED: list[tuple[str, str, str]] = [
         "An adiabatic expansion with gamma of 1.4 starts at 200000 Pa and volume 0.01 m^3 "
         "and ends at volume 0.02 m^3. Find the final pressure.",
         "adiabatic_pressure",
-        "75800 Pa",
+        "75786 Pa",
     ),
     (
         "An adiabatic process with gamma of 1.4 starts at 200000 Pa and volume 0.01 m^3 "

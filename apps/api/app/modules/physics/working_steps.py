@@ -18,20 +18,22 @@ the row is past reading. A row the solver already worked (``E = 2000 \\cdot 1080
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Sequence
 from typing import Any
 
 from app.modules.physics.display import (
+    ANSWER_FIGURES,
     is_conversion_row,
     is_value_row,
     latex_given,
     latex_unit,
-    plain_number,
     quantity_number,
 )
 from app.modules.physics.givens import unit_readings
 from app.services.law_binding.reduction import Reduction, reduce_substitution
+from app.services.school_rounding import round_figures
 from app.services.units import get_unit_registry
 
 # How a verified answer joins its values (solvers/chip.py render_chip_latex).
@@ -64,7 +66,11 @@ def answer_parts(latex_answer: str | None) -> list[tuple[str, float]]:
 
 
 def _same(worked: float, verified: float) -> bool:
-    return plain_number(worked) == plain_number(verified)
+    """Equal to three figures, or within 0.1%: the working's constants are rounded as
+    typed, so 7672.4 worked from them is the verified 7673, and 5542 is 5545."""
+    return round_figures(worked, ANSWER_FIGURES) == round_figures(
+        verified, ANSWER_FIGURES
+    ) or math.isclose(worked, verified, rel_tol=1e-3)
 
 
 # The SI unit a working value is in, found by the answer's unit's dimension.

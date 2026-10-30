@@ -105,7 +105,7 @@ CASES: list[tuple[str, str, str, str, str]] = [
         "Find the latent heat energy for 2 kg with latent heat 334000 J/kg.",
         "thermal",
         "latent_heat",
-        "6.68 × 10⁵ J",
+        "668000 J",
         "Latent-heat equation:",
     ),
     (
@@ -170,7 +170,7 @@ def test_new_catalog_problem_is_verified_and_explained(
         ),
         (
             "Find the latent heat energy for 2 kg with latent heat 334 kJ/kg.",
-            "6.68 × 10⁵ J",
+            "668000 J",
         ),
         (
             "Using the first law of thermodynamics, heat added is 0.5 kJ and "

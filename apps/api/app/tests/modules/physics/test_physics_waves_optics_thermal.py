@@ -163,18 +163,18 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "3",
     ),
     # --- thermal ---------------------------------------------------------
-    ("how much heat to raise 2 kg of water by 20 K", "thermal", "heat_energy", "1.67 × 10⁵ J"),
+    ("how much heat to raise 2 kg of water by 20 K", "thermal", "heat_energy", "167440 J"),
     (
         "how much heat is needed to warm 0.5 kg of water by 10 K",
         "thermal",
         "heat_energy",
-        "20900 J",
+        "20930 J",
     ),
     (
         "what is the pressure of 2 moles of ideal gas at 300 K in 0.05 m^3",
         "thermal",
         "ideal_gas_pressure",
-        "99800 Pa",
+        "99774 Pa",
     ),
     (
         "what is the efficiency of an engine doing 300 J of work from 1000 J",
@@ -324,7 +324,7 @@ def test_a_temperature_rise_may_omit_its_scale() -> None:
     water by 10 degrees" is answerable where "at 300 degrees" is not.
     """
     assert _verified_answer("how much heat is needed to raise 2 kg of water by 10 degrees") == (
-        "83700 J"
+        "83720 J"
     )
 
 
@@ -351,7 +351,7 @@ def test_a_mole_count_beside_a_temperature_is_its_own_signature() -> None:
     """ "the pressure of 2 moles of gas at 300 K" names no thermal word."""
     assert needs_physics("what is the pressure of 2 moles of gas at 300 K in 0.05 m^3")
     assert _verified_answer("what is the pressure of 2 moles of gas at 300 K in 0.05 m^3") == (
-        "99800 Pa"
+        "99774 Pa"
     )
 
 

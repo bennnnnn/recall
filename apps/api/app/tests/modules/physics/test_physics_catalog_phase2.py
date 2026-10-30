@@ -30,7 +30,7 @@ CASES: list[tuple[str, str, str]] = [
     (
         "Find the electric potential 0.2 m from a point charge of 2 uC.",
         "electric_potential",
-        "89900 V",
+        "89876 V",
     ),
     (
         "Find the electric potential energy of two point charges 2 uC and -3 uC "
@@ -130,7 +130,7 @@ CASES: list[tuple[str, str, str]] = [
         "Find Reynolds number for density 1000 kg/m^3, speed 2 m/s, characteristic "
         "length 0.1 m, and viscosity 0.001 Pa*s.",
         "reynolds_number",
-        "2 × 10⁵",
+        "200000",
     ),
     (
         "Find surface tension if force is 0.14 N along contact length 2 m.",

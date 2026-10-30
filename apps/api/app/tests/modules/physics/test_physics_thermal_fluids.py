@@ -32,7 +32,7 @@ def _answer(text: str) -> str | None:
         (
             "A gas of 2 mol at 300 K occupies 0.05 m^3. Find the pressure.",
             "ideal_gas_pressure",
-            "99800 Pa",
+            "99774 Pa",
         ),
         (
             "A gas occupies 4 L at 2 atm. If the pressure is increased to 4 atm at constant "
@@ -78,7 +78,7 @@ def _answer(text: str) -> str | None:
             "0.00300 m^3, and an initial temperature of 300 K. The new volume is "
             "0.00600 m^3 and the new temperature is 600 K. Find the new pressure.",
             "combined_gas_pressure",
-            "2 × 10⁵ Pa",
+            "200000 Pa",
         ),
         (
             "Find the rms speed of oxygen molecules at 300 K. The molar mass of oxygen is 32 g/mol.",
@@ -94,12 +94,12 @@ def _answer(text: str) -> str | None:
             # "of 2 mol" in the question is the gas's amount, not the energy.
             "Find the internal energy of 2 mol of a diatomic gas at 300 K.",
             "diatomic_internal_energy",
-            "12500 J",  # 5/2·2·8.314·300
+            "12472 J",  # 5/2·2·8.314·300
         ),
         (
             "How much energy is needed to raise the temperature of 2 kg of water by 10 °C?",
             "heat_energy",
-            "83700 J",  # water's c; a rise of 10 °C is 10 K
+            "83720 J",  # water's c; a rise of 10 °C is 10 K
         ),
         (
             # "specific heat of" is the capacity, not the heat being asked for.
@@ -129,7 +129,7 @@ def _answer(text: str) -> str | None:
         (
             "It takes 668000 J to melt 2 kg of ice. Find the specific latent heat of fusion.",
             "latent_heat_from_energy",
-            "3.34 × 10⁵ J/kg",
+            "334000 J/kg",
         ),
         (
             "A steel rod 2 m long is heated by 50 K. The expansion coefficient is "
@@ -140,7 +140,7 @@ def _answer(text: str) -> str | None:
         (
             "Find the absolute pressure at a depth of 10 m in water.",
             "absolute_pressure_at_depth",
-            "1.99 × 10⁵ Pa",  # 101325 + 1000·9.81·10
+            "199425 Pa",  # 101325 + 1000·9.81·10
         ),
         (
             "A 5 kg block of volume 0.002 m^3 is fully submerged in water. "

@@ -372,9 +372,9 @@ NEW_OPS: list[tuple[str, str, str]] = [
     (
         "how much energy does a 100 W bulb use in 10 hours",
         "electrical_energy",
-        "3.6 × 10⁶ J (1 kWh)",
+        "3600000 J (1 kWh)",
     ),
-    ("energy consumed by a 500 W device in 2 hours", "electrical_energy", "3.6 × 10⁶ J (1 kWh)"),
+    ("energy consumed by a 500 W device in 2 hours", "electrical_energy", "3600000 J (1 kWh)"),
     ("what is the capacitance storing 6 C at 3 V", "capacitance", "2 F"),
     ("a capacitor holds 12 C at 4 V, what is the capacitance", "capacitance", "3 F"),
     ("find the capacitance of a capacitor with 10 C at 5 V", "capacitance", "2 F"),
