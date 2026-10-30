@@ -106,6 +106,14 @@ def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
     )
 
 
+def part_title(op: str, symbol: str) -> str:
+    """What a part finds, as its label names it: "Time", "Power", "Weight"."""
+    if op in _PART_TITLES:
+        return _PART_TITLES[op]
+    spec = formula_spec(op)
+    return law_title(spec.law_name) if spec is not None else symbol
+
+
 def _part_workings(result: PhysicsResult) -> tuple[PhysicsPartWorking, ...]:
     """Each part of a question in parts, with its own working and its own card."""
     return tuple(

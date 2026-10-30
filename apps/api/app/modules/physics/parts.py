@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.ask import _QUANTITY, SENTENCE, ask_clause
+from app.modules.physics.ask import QUANTITY, SENTENCE, ask_clause
 from app.modules.physics.claims import CHECK_ONLY
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.ask import ASK_VERBS
@@ -21,7 +21,7 @@ _PART_LABEL = re.compile(r"(?:^|[\s,;:.?!])\(?([a-h]|i{1,3}|iv)\)(?=\s)", re.IGN
 # A second quantity joined to the first: "the deceleration and the braking force".
 _JOINED = re.compile(
     r"\b(?:and|as\s+well\s+as|plus)\s+(?:also\s+)?(?:the\s+|its\s+|their\s+)?"
-    r"(?:[\w-]+\s+){0,2}?(" + _QUANTITY.pattern.removeprefix(r"\b") + ")",
+    r"(?:[\w-]+\s+){0,2}?(" + QUANTITY.pattern.removeprefix(r"\b") + ")",
     re.IGNORECASE,
 )
 # "and acceleration 4 m/s^2", "and a mass of 2 kg": a given's label, not an ask.

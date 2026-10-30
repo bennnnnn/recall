@@ -23,7 +23,7 @@ import math
 import re
 from dataclasses import dataclass
 
-from app.modules.physics.ask import _QUANTITY, SENTENCE, has_ask
+from app.modules.physics.ask import QUANTITY, SENTENCE, has_ask
 from app.modules.physics.givens import scan_givens, unit_dimension, unit_expression
 from app.services.law_binding.units import dimension_of
 from app.services.student_claim import CHECK_ONLY as CHECK_ONLY
@@ -158,7 +158,7 @@ _NOT_A_QUALIFIER = frozenset(
 
 def _named_quantity(sentence: str) -> str | None:
     """The quantity a claim names, written as the ask would: "impact speed"."""
-    noun = _QUANTITY.search(sentence)
+    noun = QUANTITY.search(sentence)
     if noun is None:
         return None
     phrase = noun.group().lower()

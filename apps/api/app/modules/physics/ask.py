@@ -28,7 +28,7 @@ __all__ = [
     "result_reading",
 ]
 
-_QUANTITY = re.compile(
+QUANTITY = re.compile(
     r"\b(?:"
     + "|".join(re.escape(phrase) for phrase in sorted(_QUANTITIES, key=len, reverse=True))
     + r")(?![\w-])",
@@ -67,7 +67,7 @@ def _bare_question(text: str) -> str | None:
         return None
     ask = match.group("ask")
     words = re.sub(rf"^(?:(?:the|its|their)\s+)?(?:(?:{_ADJECTIVES})\s+)*", "", ask, flags=re.I)
-    if len(ask.split()) > 8 or _QUANTITY.match(words) is None:
+    if len(ask.split()) > 8 or QUANTITY.match(words) is None:
         return None
     return ask
 
@@ -128,7 +128,7 @@ def _names_its_quantity(text: str) -> bool:
         # The quantity itself, or up to two words naming its kind first
         # ("centripetal force on a 2 kg mass"); a verb before it is a statement.
         for _ in range(3):
-            noun = _QUANTITY.match(words, at)
+            noun = QUANTITY.match(words, at)
             if noun is not None:
                 if not _STATEMENT_VERB.match(words[noun.end() :]):
                     return True
@@ -221,7 +221,7 @@ def asked_phrases(text: str) -> tuple[str, ...]:
     clause = ask_clause(text)
     if clause is None:
         return ()
-    nouns = [noun for noun in _QUANTITY.finditer(clause) if not _labels_a_value(clause, noun, text)]
+    nouns = [noun for noun in QUANTITY.finditer(clause) if not _labels_a_value(clause, noun, text)]
     if not nouns or nouns[0].start() > _ASK_REACH:
         return ()
     phrases: list[str] = []

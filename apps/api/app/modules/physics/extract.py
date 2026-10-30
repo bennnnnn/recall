@@ -154,10 +154,15 @@ def needs_physics(text: str) -> bool:
     )
     from app.modules.physics.extractors.two_stage import extract_two_stage_intent
 
-    return any(
+    if any(
         reader(cleaned) is not None
         for reader in (extract_two_stage_intent, extract_chase_intent, extract_legs_intent)
-    )
+    ):
+        return True
+    # A question in lettered parts whose parts a law reads, though the whole is read by none.
+    from app.modules.physics.split_parts import reads_in_parts
+
+    return reads_in_parts(cleaned)
 
 
 def extract_physics_intent(text: str) -> PhysicsIntent | None:

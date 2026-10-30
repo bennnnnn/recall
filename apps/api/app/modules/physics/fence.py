@@ -14,7 +14,7 @@ import json
 import logging
 import re
 
-from app.modules.physics.part_answers import land_part_cards
+from app.modules.physics.part_answers import land_one_part_card, land_part_cards, parts_conflict
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.services.answer_check import asks_without_answering, correction_line, stated_verdict
 from app.services.answer_fence import ANSWER_FENCE_LANGS, land_answer_card
@@ -85,8 +85,14 @@ def validate_physics_fences(
         return cleaned
     extras: list[str] = []
     answer = (verified.display_answer or verified.canonical_answer or "").strip()
-    # A question in parts: each part's card under its own Answer heading.
-    by_part = land_part_cards(cleaned, [part.display_answer for part in verified.physics_parts])
+    # A question in parts: each part's card under its own Answer heading. A reply whose
+    # part states another value is left as written, with no card claiming either.
+    part_cards = [part.display_answer for part in verified.physics_parts]
+    if len(part_cards) > 1 and parts_conflict(cleaned, part_cards):
+        return cleaned
+    by_part = land_part_cards(cleaned, part_cards)
+    if by_part is None and answer and len(verified.physics_parts) < 2:
+        by_part = land_one_part_card(cleaned, answer)
     if by_part is not None:
         cleaned, answer = by_part, ""
     # The law's own heading heads inputs, like **Formula**: its equations are no result.
