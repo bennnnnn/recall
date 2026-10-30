@@ -18,6 +18,13 @@ on:
   # themselves when nothing they check changed (a skipped job counts as passed).
   pull_request:
 
+# A new push to a pull request stops the run it replaces: its result no longer
+# counts and it held a runner for up to half an hour. Runs on main are never
+# cancelled; the deploy gate reads each of main's commits.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -50,8 +57,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-latest
-    # A hung run fails here instead of holding a runner for GitHub's six hours.
-    timeout-minutes: 30
+    # A hung run fails here instead of holding a runner for GitHub's six hours. A
+    # passing run takes up to 30 minutes; a limit at 30 cut those off to run again.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 
