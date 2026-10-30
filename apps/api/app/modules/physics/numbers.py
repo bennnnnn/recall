@@ -86,15 +86,25 @@ _SPELLING_NORMALIZATIONS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 
-# A school book's machine abbreviations, in capitals and only beside a machine: "the M.A
-# of the machine", "b. MA", "a. VR". A small "mA" is a milliamp; "I live in MA" is a state.
+# A school book's machine abbreviations, in capitals and only beside a machine, after
+# "the", "its" or a part's letter: "the M.A of the machine", "b. MA", "a. VR". A small
+# "mA" is a milliamp, "12 V. R = 6 ohm" a voltage and a resistance, "Boston, MA" a state.
 _MACHINE = re.compile(
-    r"\b(?:machines?|effort|load|levers?|pulleys?|planks?|ramps?|inclined\s+plane)\b",
+    r"\b(?:machines?|effort|levers?|pulleys?|planks?|ramps?|inclined\s+plane)\b",
     re.IGNORECASE,
 )
+_ABBREVIATION_LEAD = r"(?:(?<=\bthe )|(?<=\bits )|(?<=\b[a-hA-H]\. )|(?<=\b[a-hA-H]\) )|(?<=\())"
 _MACHINE_ABBREVIATIONS: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"(?<![\w.])M\.?\s?A(?![\w.]\w)\b(?:\.(?=\s+[a-z]))?"), "mechanical advantage"),
-    (re.compile(r"(?<![\w.])V\.?\s?R(?![\w.]\w)\b(?:\.(?=\s+[a-z]))?"), "velocity ratio"),
+    # "M.A." loses its last dot when the sentence goes on; "MA." keeps its full stop.
+    (re.compile(rf"{_ABBREVIATION_LEAD}M\.A(?:\.(?=\s+[a-z]))?(?![\w.])"), "mechanical advantage"),
+    (re.compile(rf"{_ABBREVIATION_LEAD}MA\b(?!\.\w)"), "mechanical advantage"),
+    (re.compile(rf"{_ABBREVIATION_LEAD}V\.R(?:\.(?=\s+[a-z]))?(?![\w.])"), "velocity ratio"),
+    (re.compile(rf"{_ABBREVIATION_LEAD}VR\b(?!\.\w)"), "velocity ratio"),
+)
+# "a 20 m plank": a length written before the thing it measures is that thing's length.
+_LENGTH_BEFORE_PLANK = re.compile(
+    r"(?<![\w.])(\d+(?:\.\d+)?\s*(?:m|cm|km|metres?|meters?))\s+(planks?|ramps?|slopes?|boards?)\b",
+    re.IGNORECASE,
 )
 
 
@@ -114,6 +124,7 @@ def normalize_physics_units(text: str) -> str:
     if _MACHINE.search(normalized):
         for pattern, replacement in _MACHINE_ABBREVIATIONS:
             normalized = pattern.sub(replacement, normalized)
+        normalized = _LENGTH_BEFORE_PLANK.sub(r"\1 long \2", normalized)
     return normalized
 
 

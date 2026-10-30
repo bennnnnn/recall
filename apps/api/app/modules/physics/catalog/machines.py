@@ -22,6 +22,8 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("dimensionless",),
             inputs=(frozenset({"F_in", "F_out"}),),
             cues=("input force", "output force", "force in", "force out", "load", "effort"),
+            # The ideal advantage is the machine's geometry, not its forces.
+            excludes=("ideal",),
             nonnegative=True,
         ),
     ),

@@ -11,7 +11,9 @@ from __future__ import annotations
 from app.services.law_binding.spec import Binding, FormulaSpec, VariableSpec, formula, var
 
 _ASKS_VR = ("velocity ratio", "v.r", "vr")
-_PLANK = ("plank", "ramp", "slope", "incline", "inclined plane", "long", "length", "along")
+# "A ramp 2 m high": a noun before a value is the subject, not the value's name, so only
+# "long" and "length" name the plank's length ("a 20 m plank" is read "a 20 m long plank").
+_PLANK = ("long", "length", "along")
 _HEIGHT = ("height", "high", "above", "rise", "raised", "lifted")
 # The load: "a load of 500 N", or the weight of the thing moved ("a 500 N car").
 _LOAD = (
@@ -19,6 +21,10 @@ _LOAD = (
     "barrel", "drum", "trolley", "cart", "body", "object", "bag", "rock", "log",
 )  # fmt: skip
 _EFFORT = ("effort", "input", "applied", "pushes", "pulls with")
+
+
+# A lever's arm or a pulley's rope is no plank: their lengths are not the effort's path.
+_NOT_A_PLANK = ("lever", "pulley", "rope", "gear", "wheel", "axle", "screw", "wedge", "ideal")
 
 
 def _effort_force() -> VariableSpec:
@@ -59,6 +65,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("dimensionless",),
             inputs=(frozenset({"incline_length", "incline_height"}), _ALL),
             cues=("plank", "ramp", "inclined plane", "slope"),
+            excludes=_NOT_A_PLANK,
             nonnegative=True,
         ),
     ),
@@ -77,6 +84,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("dimensionless",),
             inputs=(_ALL,),
             cues=("effort",),
+            excludes=_NOT_A_PLANK,
             nonnegative=True,
         ),
     ),
@@ -93,6 +101,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("joule",),
             inputs=(frozenset({"F_in", "incline_length"}), _ALL),
             cues=("effort",),
+            excludes=_NOT_A_PLANK,
             nonnegative=True,
         ),
     ),
@@ -109,6 +118,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("joule",),
             inputs=(frozenset({"F_out", "incline_height"}), _ALL),
             cues=("effort", "load"),
+            excludes=_NOT_A_PLANK,
             nonnegative=True,
         ),
     ),
@@ -125,6 +135,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("percent",),
             inputs=(_ALL,),
             cues=("effort", "plank", "ramp", "inclined plane"),
+            excludes=_NOT_A_PLANK,
             nonnegative=True,
             at_most=100.0,
         ),

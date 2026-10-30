@@ -13,9 +13,11 @@ import re
 
 _UNIT = r"[A-Za-z]+"
 _NUMBER = r"\d+(?:\.\d+)?"
+# An amount as written: "1,500", "200", ".5".
+_AMOUNT = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+"
 # "Take 1 liter of water = 1 kg of water.", "1 L of water has a mass of 1 kg."
 _STATED = re.compile(
-    rf"(?:^|(?<=[.?!;])\s*|\s+)(?:take\s+|assume\s+(?:that\s+)?)?1\s*(?P<from>{_UNIT})\s+of\s+"
+    rf"(?<![\w.,])(?:take\s+|assume\s+(?:that\s+)?)?1\s*(?P<from>{_UNIT})\s+of\s+"
     rf"(?P<what>[a-z]+)\s+(?:=|is|equals|has\s+a\s+mass\s+of|weighs)\s*(?P<k>{_NUMBER})\s*"
     rf"(?P<to>{_UNIT})(?:\s+of\s+(?P=what))?\s*(?:[.;]|$)",
     re.IGNORECASE,
@@ -35,13 +37,29 @@ def apply_stated_equivalence(text: str) -> str:
         return text
     rest = f"{text[: stated.start()]} {text[stated.end() :]}".strip()
     amount = re.compile(
-        rf"(?<![\w.])(?P<n>{_NUMBER})\s*{_plural_of(stated.group('from'))}\s+of\s+"
+        rf"(?<![\w.,])(?P<n>{_AMOUNT})\s*{_plural_of(stated.group('from'))}\s+of\s+"
         rf"(?={re.escape(stated.group('what'))}\b)",
         re.IGNORECASE,
     )
     factor = float(stated.group("k"))
     to = stated.group("to")
+    if _known_density(stated.group("what"), stated.group("from"), factor, to):
+        # Water's own density, which the solver already uses: the statement adds nothing.
+        return rest if amount.search(rest) else text
     rewritten, count = amount.subn(
-        lambda match: f"{float(match.group('n')) * factor:g} {to} of ", rest
+        lambda match: f"{float(match.group('n').replace(',', '')) * factor:.10g} {to} of ", rest
     )
     return rewritten if count else text
+
+
+_LITRES = frozenset({"l", "liter", "liters", "litre", "litres"})
+
+
+def _known_density(what: str, unit: str, factor: float, to: str) -> bool:
+    """1 litre of water is 1 kg: what the solver takes water to weigh anyway."""
+    return (
+        what.lower() == "water"
+        and unit.lower() in _LITRES
+        and to.lower() in {"kg", "kilogram", "kilograms"}
+        and factor == 1.0
+    )

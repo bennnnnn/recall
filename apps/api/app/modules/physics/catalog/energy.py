@@ -164,7 +164,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("power output", "average power", "power"),
             result=("watt",),
             inputs=(frozenset({"g", "h", "m", "t"}),),
-            cues=("climb", "lift", "raise", "stair", "hoist", "ascend", "pump"),
+            cues=("climb", "lift", "raise", "stair", "hoist", "ascend"),
             nonnegative=True,
         ),
     ),
