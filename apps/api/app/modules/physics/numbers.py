@@ -93,7 +93,10 @@ _MACHINE = re.compile(
     r"\b(?:machines?|effort|levers?|pulleys?|planks?|ramps?|inclined\s+plane)\b",
     re.IGNORECASE,
 )
-_ABBREVIATION_LEAD = r"(?:(?<=\bthe )|(?<=\bits )|(?<=\b[a-hA-H]\. )|(?<=\b[a-hA-H]\) )|(?<=\())"
+_ABBREVIATION_LEAD = (
+    r"(?:(?<=\bthe )|(?<=\bits )|(?<=\b[a-hA-H]\. )|(?<=\b[a-hA-H]\) )|(?<=\()|(?<=: )"
+    r"|(?<=\bfind )|(?<=\bcalculate )|(?<=\bdetermine )|(?<=^))"
+)
 _MACHINE_ABBREVIATIONS: tuple[tuple[re.Pattern[str], str], ...] = (
     # "M.A." loses its last dot when the sentence goes on; "MA." keeps its full stop.
     (re.compile(rf"{_ABBREVIATION_LEAD}M\.A(?:\.(?=\s+[a-z]))?(?![\w.])"), "mechanical advantage"),
