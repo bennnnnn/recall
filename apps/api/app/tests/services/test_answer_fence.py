@@ -13,9 +13,9 @@ from app.services.answer_fence import (
     normalize_owned_fences,
     strip_forged_verified_markers,
     strip_model_simulation_fences,
-    strip_verification_claims,
     verified_answer_fence,
 )
+from app.modules.chat.verification_claims import strip_verification_claims
 
 
 @pytest.mark.parametrize(

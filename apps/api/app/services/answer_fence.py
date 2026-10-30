@@ -308,6 +308,14 @@ def _ends_section(line: str) -> bool:
 _EQUATION_START = re.compile(r"[^\s=]+\s*=")
 _LATEX_COMMAND = re.compile(r"\\[A-Za-z]+")
 _WORD = re.compile(r"[A-Za-z]{3,}")
+_MATH_SPAN = re.compile(r"\$\$.*?\$\$|\$[^$\n]*\$|\\\(.*?\\\)", re.DOTALL)
+
+
+def _wordy(value: str) -> bool:
+    """More than eight words outside its maths: a sentence, not a value."""
+    return len(_WORD.findall(_MATH_SPAN.sub(" ", value))) > 8
+
+
 # Display maths spanning lines: its opener and the closer that ends it.
 _DISPLAY = {"$$": "$$", "\\[": "\\]"}
 
@@ -447,8 +455,9 @@ def land_answer_card(text: str, verified_body: str | None, *, above: str | None 
         value = answer_header_and_value(joined)[1]
         if value.startswith("\\[") and value.endswith("\\]"):
             value = f"$${value[2:-2]}$$"  # the card reads $$ display maths
-        # A card draws maths; "Paris" under a quiz's Answer heading stays prose.
-        if "$" not in value and "=" not in _relations(value):
+        # A card draws maths; "Paris" under a quiz's Answer heading, or a sentence round
+        # its maths ("If 'same angle' means … each reflects at **5°**"), stays prose.
+        if "$" not in value and "=" not in _relations(value) or _wordy(value):
             return text
         card = f"```answer\n{value}\n```"
     steps = lines[values[0][0] : values[shown][0]] if values else []
@@ -506,64 +515,3 @@ def map_outside_fences(text: str, transform: Callable[[str], str]) -> str:
     if run:
         out.append(transform("\n".join(run)))
     return "\n".join(out)
-
-
-# --- Claims of verification the server did not make -------------------------------------
-
-_CHECK_MARKS = "✅✔☑✓"  # ✅ ✔ ☑ ✓
-_CLAIM_VERB = r"(?:verified|checked|confirmed|double[- ]checked)"
-_CHECKER = (
-    r"(?:sympy|sym\s*py|the\s+(?:symbolic\s+)?solver|a\s+(?:symbolic\s+)?solver|"
-    r"the\s+(?:symbolic\s+|math\s+)+engine|a\s+(?:symbolic\s+)?(?:math\s+)?engine|"
-    r"symbolic\s+(?:math|algebra)|a\s+computer\s+algebra\s+system|a\s+cas|"
-    r"the\s+cas|the\s+server|the\s+app)"
-)
-# ✅ Verified with SymPy. / ✓ Checked, ending its sentence or line: "✅ Checked in online" stays.
-_EMOJI_CLAIM = re.compile(
-    rf"[ \t]*[{_CHECK_MARKS}]️?[ \t]*(?:\*\*|__|\*|_)?[ \t]*{_CLAIM_VERB}\b(?:[ \t]+(?:"
-    rf"(?:with|by|using|via|in)[ \t]+{_CHECKER}|(?:with|using|via)[ \t]+[A-Za-z][\w.-]*))?"
-    r"[ \t]*(?:\*\*|__|\*|_)?[ \t]*(?:[.!](?:\*\*|__|\*|_)?(?=\s|$)|(?=[ \t]*(?:\n|$)))",
-    re.IGNORECASE,
-)
-# (verified) / (verified with SymPy) / [checked]
-_PAREN_CLAIM = re.compile(
-    rf"[ \t]*[(\[][ \t]*[{_CHECK_MARKS}]?️?[ \t]*{_CLAIM_VERB}"
-    r"(?:[ \t]+(?:with|by|using|via|in)[ \t]+[^)\]\n]{1,40})?[ \t]*[)\]]",
-    re.IGNORECASE,
-)
-# A sentence that says a solver checked the result: "This was verified by the solver."
-_SENTENCE_CLAIM = re.compile(
-    rf"(?:(?<=^)|(?<=[.!?\n])[ \t]*)[^.!?\n]*\b{_CLAIM_VERB}[ \t]+(?:with|by|using|via|in)[ \t]+"
-    rf"{_CHECKER}\b[^.!?\n]*[.!]?",
-    re.IGNORECASE,
-)
-# A "Verified answer:" / "**Verified result:**" label opening a line keeps its job
-# as a label and loses the claim. Mid-sentence wording is left alone.
-_LABEL_CLAIM = re.compile(
-    r"^(?P<lead>[ \t>]*(?:\*\*|__)?[ \t]*)verified[ \t]+(?P<noun>answer|result|solution)"
-    r"(?=[ \t]*(?:\*\*|__)?[ \t]*:)",
-    re.IGNORECASE | re.MULTILINE,
-)
-
-
-def _claimless(prose: str) -> str:
-    out = _EMOJI_CLAIM.sub("", prose)
-    out = _PAREN_CLAIM.sub("", out)
-    out = _SENTENCE_CLAIM.sub("", out)
-    out = _LABEL_CLAIM.sub(
-        lambda match: f"{match.group('lead') or ''}{match.group('noun').capitalize()}", out
-    )
-    out = re.sub(r"[ \t]+\n", "\n", out)
-    return re.sub(r"\n{3,}", "\n\n", out)
-
-
-def strip_verification_claims(text: str) -> str:
-    """Remove the model's own "verified" claims from prose (fences untouched).
-
-    Only for a turn the server did not verify: there the check mark is absent
-    by design, and text that says otherwise would fake it.
-    """
-    lower = text.lower()
-    if not any(word in lower for word in ("verif", "checked", "confirmed")):
-        return text
-    return map_outside_fences(text, _claimless).strip()

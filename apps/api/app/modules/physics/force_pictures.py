@@ -67,6 +67,20 @@ _NO_FRICTION = re.compile(
     r"(?:ignore|ignoring|neglect|neglecting)\s+friction)\b",
     re.IGNORECASE,
 )
+# A body pushed, pulled or sliding on a real surface rubs against it: "A book is placed
+# on a table and pushed" and "a body sliding on an inclined plane" had no friction drawn
+# (2026-10-30, a Class 8 book, whose chapter on friction draws it). Only "smooth",
+# "frictionless" and the like leave it out.
+_MOVES_ON = re.compile(
+    r"\b(?:slid(?:e|es|ing)|mov(?:es|ed|ing)|push\w*|pull\w*|drag\w*|tow\w*|shov\w*)\b",
+    re.IGNORECASE,
+)
+# A vehicle stands on a road: "the forces acting on a car" names no surface.
+_VEHICLE = re.compile(
+    r"\b(?:car|bus|truck|lorry|bike|bicycle|cyclist|motorcycle|scooter|vehicle|tractor)\b",
+    re.IGNORECASE,
+)
+_PARKED = re.compile(r"\b(?:parked|at\s+rest|stationary|not\s+moving|standing\s+still)\b", re.I)
 _AT_REST = re.compile(
     r"\b(?:at\s+rest|rests|resting|stationary|held|not\s+moving|"
     r"(?:does\s+not|doesn'?t)\s+(?:slide|move))\b",
@@ -115,14 +129,17 @@ def force_picture(text: str) -> ForcePicture | None:
         return ForcePicture(*rig)
     if _TOO_MANY.search(text) is not None:
         return None
+    rubs = friction or (_NO_FRICTION.search(text) is None and _MOVES_ON.search(text) is not None)
     if _INCLINE.search(text) is not None:
-        return _on_incline(text, friction)
+        return _on_incline(text, rubs)
     if _HANGING.search(text) is not None:
         return _hanging()
     if _FALLING.search(text) is not None:
         return _in_the_air(text)
     if _SURFACE.search(text) is not None:
-        return _on_surface(text, friction)
+        return _on_surface(text, rubs)
+    if _VEHICLE.search(text) is not None:
+        return _vehicle(text)
     return None
 
 
@@ -261,14 +278,41 @@ def _on_surface(text: str, friction: bool) -> ForcePicture:
             angles.append(
                 SimulationAngle(vertex=[size, size], start_deg=0.0, end_deg=deg, label=f"{deg:g}°")
             )
-    if friction and (pulled or pushed):
+    if friction and (pulled or pushed or _MOVES_ON.search(text) is not None):
         vectors.append(
             SimulationVector(anchor=[-size, -size * 0.6], dx=-0.5, dy=0.0, label="f", body=0)
         )
         forces.append("friction f against the motion")
-    centre = [0.0, size]
     alt = "A box on a level surface: " + listed(forces) + "."
-    spec = SimulationBlockSpec(
+    spec = _level_scene(vectors, angles, alt)
+    return ForcePicture(spec, "a box on a level surface with " + listed(forces))
+
+
+def _vehicle(text: str) -> ForcePicture:
+    """A vehicle on a level road: weight and normal, and while it drives, the engine's
+    forward force and the friction and air resistance against it."""
+    vectors = [
+        SimulationVector(anchor=[0.0, 0.0], dx=0.0, dy=-1.0, label="mg", body=0),
+        SimulationVector(anchor=[0.0, 0.0], dx=0.0, dy=1.0, label="N", body=0),
+    ]
+    forces = ["its weight mg", "the normal force N from the road"]
+    if _PARKED.search(text) is None:
+        vectors += [
+            SimulationVector(anchor=[0.5, 0.0], dx=0.7, dy=0.0, label="F", body=0),
+            SimulationVector(anchor=[-0.5, -0.3], dx=-0.5, dy=0.0, label="f", body=0),
+        ]
+        forces += ["the driving force F forward", "friction and air resistance f backward"]
+    alt = "A vehicle on a level road: " + listed(forces) + "."
+    spec = _level_scene(vectors, [], alt)
+    return ForcePicture(spec, "a vehicle on a level road with " + listed(forces))
+
+
+def _level_scene(
+    vectors: list[SimulationVector], angles: list[SimulationAngle], alt: str
+) -> SimulationBlockSpec:
+    size = 0.5
+    centre = [0.0, size]
+    return SimulationBlockSpec(
         type="free_body",
         title="Free-Body Diagram",
         title_key="free_body",
@@ -282,12 +326,12 @@ def _on_surface(text: str, friction: bool) -> ForcePicture:
         y_max=3.0,
         alt=alt,
     )
-    return ForcePicture(spec, "a box on a level surface with " + listed(forces))
 
 
 def _picture_note(shows: str) -> str:
     return (
-        f"Physics picture: Recall draws the free-body diagram under the reply: {shows}. "
+        f"Physics picture: the free-body diagram shown below the words is {shows}; call it "
+        "the diagram below, never say where or how it is drawn. "
         "Do not draw it yourself: no ASCII or text-art sketch, no ```text, ```mermaid or "
         "```simulation fence for it. Name each force on the body, what exerts it and its "
         "direction, with its size in symbols (mg, N = mg cos θ, f = μN, T). Use only numbers "

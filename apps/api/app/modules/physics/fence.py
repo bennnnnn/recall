@@ -44,6 +44,12 @@ _ASKED_FOR_DIAGRAM = re.compile(
 )
 # Box-drawing lines, arrows and blocks, or a run of slashes, bars and dashes.
 _DRAWN = re.compile(r"[\u2190-\u21ff\u2500-\u257f\u25a0-\u25ff]|[-_|/\\]{3,}|[/\\]\s*$")
+# "The diagram is drawn under this reply": where the app puts the picture, not the
+# lesson's words (2026-10-30). The picture is simply below.
+_DRAWN_UNDER_REPLY = re.compile(
+    r"\b(?:is|are)\s+drawn\s+(?:under|below|beneath)\s+(?:this|the|my)\s+(?:reply|answer|message)",
+    re.IGNORECASE,
+)
 
 
 def _has_picture_fence(content: str) -> bool:
@@ -150,7 +156,9 @@ def _with_pictures(text: str, pictures: list[str]) -> str:
     """The solve's pictures under its last answer card when another request's section
     follows it ("…, and also tell me a joke": the graph under the joke read as the
     joke's); otherwise at the end, as ever."""
-    cards = [fence for fence in iter_fences(text) if fence.closed and fence.lang == "answer"]
+    if pictures:
+        text = _DRAWN_UNDER_REPLY.sub("is shown below", text)
+    cards =[fence for fence in iter_fences(text) if fence.closed and fence.lang == "answer"]
     end = block_end(text, cards[-1]) if cards else -1
     if pictures and end >= 0 and _LATER_SECTION.search(text, end):
         return f"{text[:end]}\n\n" + "\n\n".join(pictures) + text[end:]
