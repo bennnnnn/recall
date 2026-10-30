@@ -86,6 +86,18 @@ _SPELLING_NORMALIZATIONS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 
+# A school book's machine abbreviations, in capitals and only beside a machine: "the M.A
+# of the machine", "b. MA", "a. VR". A small "mA" is a milliamp; "I live in MA" is a state.
+_MACHINE = re.compile(
+    r"\b(?:machines?|effort|load|levers?|pulleys?|planks?|ramps?|inclined\s+plane)\b",
+    re.IGNORECASE,
+)
+_MACHINE_ABBREVIATIONS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"(?<![\w.])M\.?\s?A(?![\w.]\w)\b(?:\.(?=\s+[a-z]))?"), "mechanical advantage"),
+    (re.compile(r"(?<![\w.])V\.?\s?R(?![\w.]\w)\b(?:\.(?=\s+[a-z]))?"), "velocity ratio"),
+)
+
+
 def normalize_physics_units(text: str) -> str:
     """Canonicalize common spoken unit spellings before cue detection.
 
@@ -94,9 +106,14 @@ def normalize_physics_units(text: str) -> str:
     dimension-checked extractors and Pint conversion layer. A misspelt asked
     word ("accelaration") is read as the word it can only be.
     """
-    normalized = text
+    from app.modules.physics.stated_equivalence import apply_stated_equivalence
+
+    normalized = apply_stated_equivalence(text)
     for pattern, replacement in (*_UNIT_NORMALIZATIONS, *_SPELLING_NORMALIZATIONS):
         normalized = pattern.sub(replacement, normalized)
+    if _MACHINE.search(normalized):
+        for pattern, replacement in _MACHINE_ABBREVIATIONS:
+            normalized = pattern.sub(replacement, normalized)
     return normalized
 
 
