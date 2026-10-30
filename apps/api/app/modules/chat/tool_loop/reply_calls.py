@@ -25,6 +25,7 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
 from app.modules.chat.prompt_constants.coding import has_code_syntax
 from app.modules.chat.prompt_constants.conversation import is_social_opener
+from app.modules.chat.prompt_constants.school_question import school_question_hint
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.tool_loop.calls import CallRound, execute_calls
 from app.modules.chat.tool_loop.parts import open_parts
@@ -89,9 +90,13 @@ def web_search_tool(settings: Settings) -> list[dict[str, Any]]:
 
 def _nothing_to_look_up(part: str, turn: ReplyTurn | None) -> bool:
     """A request the rules never search (chitchat, the user's own facts, a reminder, a
-    sum), a greeting, a question about the code it pastes, or the time somewhere else:
-    the user's clock, moved to that place's zone, answers it."""
+    sum), a greeting, a question about the code it pastes, the time somewhere else (the
+    user's clock, moved to that place's zone, answers it), or a textbook question: "The
+    lowest temperature at which a substance catches fire is called its a) … b) …" was
+    answered from a YouTube comment (2026-10-30), though its note said not to search."""
     if is_social_opener(part) or has_code_syntax(part) or is_remote_time_question(part):
+        return True
+    if school_question_hint(part) is not None:
         return True
     return web_search_skip(
         part,

@@ -131,3 +131,24 @@ def test_a_plain_science_question_gets_the_general_note(query: str) -> None:
 )
 def test_a_personal_current_or_taste_question_gets_no_science_note(query: str) -> None:
     assert school_question_hint(query) is None
+
+
+@pytest.mark.parametrize(
+    ("content", "nothing"),
+    [
+        (
+            "The lowest temperature at which a substance catches fire is called its "
+            "a) Ignition temperature b) Maximum temperature c) Room temperature "
+            "d) Normal temperature",
+            True,
+        ),
+        ("Why is phosphorus preserved in water?", True),
+        ("Who won the champions league final?", False),
+        ("What is the current Fed funds rate? a) 3.5% b) 4.25% c) 5%", False),
+    ],
+)
+def test_a_textbook_question_has_nothing_to_look_up(content: str, nothing: bool) -> None:
+    # Its note said not to search, and the reply searched anyway (2026-10-30).
+    from app.modules.chat.tool_loop.reply_calls import _nothing_to_look_up
+
+    assert _nothing_to_look_up(content, None) is nothing
