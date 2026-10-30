@@ -33,6 +33,7 @@ from app.modules.chat.prompt_constants.question_kinds import (
     is_factual_question,
     is_science_question,
     mentions_science,
+    names_or_news,
 )
 from app.services.question_parts import labelled_parts
 
@@ -243,6 +244,10 @@ def has_nothing_to_look_up(query: str) -> bool:
         return True
     if anyones(text):
         return False
+    # A science exercise written as an order: "Differentiate between RER and SER", "Explain
+    # osmosis with an example".
+    if is_school_exercise(text) and mentions_science(text) and not names_or_news(text):
+        return True
     return bool(
         _choice(text) or _ASSERTION.search(text) or _BLANK.search(text) or _CODE.search(text)
     )

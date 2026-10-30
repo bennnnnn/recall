@@ -157,7 +157,8 @@ _SCIENCE = re.compile(
     r"|earthquakes?|lightning|thunder\w*|evaporat\w+|condens\w+|boiling|melting|density"
     r"|reactive|reactivity|phosphorus|sodium|potassium|calcium|magnesium|iron|copper|zinc"
     r"|alumin\w+|sulph\w+|sulfur|mercury|silver|gold|chlorine|helium|neon|electrons?|protons?|neutrons?|cells?|tissues?|organs?|photosynthe\w+"
-    r"|respiration|chloroplasts?|mitochondria|nucleus|dna|chromosomes?|genes?|osmosis"
+    r"|respiration|chloroplasts?|mitochondria|nucleus|membranes?|organelles?|ribosom\w*|reticulum"
+    r"|plastids?|vacuoles?|golgi|cytoplasm|dna|chromosomes?|genes?|osmosis"
     r"|diffusion|pollinat\w+|reproduc\w+|seeds?|plants?|roots?|leaves|stems?|xylem|phloem"
     r"|species|ecosystems?|food\s+chain|bacteria|fungi|viruses|kingdoms?|classification"
     r"|digest\w+|blood|heart|lungs?|kidneys?|hormones?|enzymes?|climate|atmosphere"
@@ -178,6 +179,11 @@ _NAMED = re.compile(r"(?<=[a-z,;]\s)(?!(?:Earth|Moon|Sun|I)\b)[A-Z][a-z]+|\b(?:1
 _NEW = re.compile(r"\b(?:next|new|newly|recent\w*|just|latest|so\s+far|been\s+discovered)\b", re.I)
 
 
+def names_or_news(text: str) -> bool:
+    """Names something in the world or something new: there may be news about it."""
+    return _NAMED.search(text) is not None or _NEW.search(text) is not None
+
+
 def is_science_question(query: str) -> bool:
     """A question a science textbook explains, about nothing named or new, so there is
     nothing to look up."""
@@ -186,6 +192,5 @@ def is_science_question(query: str) -> bool:
         len(text.split()) <= 60
         and is_factual_question(text)
         and _SCIENCE.search(text) is not None
-        and _NAMED.search(text) is None
-        and _NEW.search(text) is None
+        and not names_or_news(text)
     )
