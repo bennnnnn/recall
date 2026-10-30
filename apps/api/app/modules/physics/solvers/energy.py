@@ -162,6 +162,10 @@ def height_scene(mass: float, g: float, height: float) -> list[SimulationBlockSp
         label=shown_mass,
         ground=True,
         position=(0.0, height),
+        # A mass at a height for its potential energy: no free-body diagram, whose
+        # title it had (2026-10-29, a crane lifting 450 kg 50 m).
+        title="Height Above the Ground",
+        title_key="height",
         alt=(
             f"A {shown_mass} mass {plain_number(height, GIVEN_FIGURES)} m above the ground, "
             f"weighing {plain_number(mass * g)} N."
