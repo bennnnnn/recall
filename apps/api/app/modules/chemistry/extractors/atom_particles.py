@@ -56,7 +56,8 @@ _ABOUT_ATOMS = re.compile(r"\b(?:atoms?|nucle(?:us|i)|isotopes?|nuclides?|ions?|
 _PHYSICS = re.compile(
     r"\b(?:current|wires?|batter(?:y|ies)|volts?|voltage|watts?|bulbs?|capacitors?|coulombs?"
     r"|flows?|per\s+second|forces?|circuits?|resistors?|accelerated|potential\s+difference"
-    r"|fields?|beams?|charged\s+particles?)\b",
+    r"|fields?|beams?|charged\s+particles?|orbits?|radius|wavelength|de\s+broglie|speed"
+    r"|velocity|energy\s+levels?|drops?|jumps?|photons?|n\s*=)",
     re.IGNORECASE,
 )
 _COUNT = r"(?P<n>\d|one|two|three)"
@@ -86,7 +87,7 @@ _ASKED: dict[str, re.Pattern[str]] = {
     "atomic_number": re.compile(r"\batomic\s+number\b", re.IGNORECASE),
     "mass_number": re.compile(r"\bmass\s+number\b", re.IGNORECASE),
     "configuration": re.compile(
-        r"\b(?:electronic|electron)\s+(?:configuration|arrangement|distribution)"
+        r"\b(?:electronic|electron|its)\s+(?:configuration|arrangement|distribution)"
         r"|\barrangement\s+of\s+(?:the\s+)?electrons\b",
         re.IGNORECASE,
     ),
@@ -103,9 +104,13 @@ _ASKED: dict[str, re.Pattern[str]] = {
 # Not one atom: amounts, reactions, several species, or a hypothetical particle.
 _DECLINE = re.compile(
     r"\b(?:moles?|mol|grams?|molecules?|compounds?|reaction|isotopes\s+of|hypothetical"
-    r"|replaced|table|respectively|ratio|percentage|abundance|average)\b",
+    r"|replaced|table|respectively|ratio|percentage|abundance|average|decay\w*|emits?"
+    r"|alpha|beta|gamma|daughter|product|fission|fusion|compared?|versus|vs|kg|block)\b"
+    # A count of ions: "How many electrons are in 3 Na+ ions?"
+    r"|\b\d+\s+\S+\s+ions\b",
     re.IGNORECASE,
 )
+_ION_WORD = re.compile(r"\bions?\b|\b\w+ide\b", re.IGNORECASE)
 _ATOM = re.compile(r"\batom\b(?!ic)", re.IGNORECASE)
 _SHELL_RULE_LAST = 20
 # One number a one-line law already reads ("how many neutrons in carbon-14", "the charge
@@ -147,7 +152,10 @@ def particle_asks(text: str) -> int:
     """How many of an atom's quantities ``text`` asks for: an instant reply answering
     fewer drops the rest."""
     asking = _not_counts(text)
-    return sum(1 for pattern in _ASKED.values() if pattern.search(asking))
+    stated = {name for name, patterns in _FACTS.items() if any(p.search(asking) for p in patterns)}
+    return sum(
+        1 for name, pattern in _ASKED.items() if name not in stated and pattern.search(asking)
+    )
 
 
 def _not_counts(text: str) -> str:
@@ -172,6 +180,16 @@ def _gain_loss(text: str) -> int | None:
     size = _WORD_COUNT.get(found.group("n").lower()) or int(found.group("n"))
     gains = found.group("verb").lower().startswith(("gain", "accept", "receiv"))
     return -size if gains else size
+
+
+def _species(text: str) -> set[str]:
+    """Each atom or ion written by symbol, charge included: {"Na", "Na+"}."""
+    found = {
+        match.group(0)
+        for match in re.finditer(r"(?<![\w])[A-Z][a-z]?(?:\d?[+\-−–])?(?![\w+\-−–])", text)
+        if match.group(0).rstrip("+-−–0123456789") in BY_SYMBOL
+    }
+    return found | {f"{name}" for name in _named_elements(text)} if found else found
 
 
 def _named_elements(text: str) -> set[str]:
@@ -229,10 +247,18 @@ def extract_atom_particles(text: str) -> ChemistryIntent | None:
     worded = _CHARGE_WORDS.search(text)
     if worded and "charge" not in params:
         params["charge"] = float(_SIGN[worded.group("sign")] * int(worded.group("size")))
+    # Two species ("Na and Na+", "F- or Ne") are a comparison, not one atom.
+    if len(_species(text)) > 1:
+        return None
     named = _named_elements(text) - ({symbol} if symbol else set())
     if symbol is None and len(named) == 1:
         symbol = named.pop()
     elif named:
+        return None
+    # "the oxide ion", "a chloride ion": an ion named in words has a charge this reader
+    # cannot see, so its electrons are not the atom's.
+    unseen = "charge" not in params and "electrons" not in params and changed is None
+    if _ION_WORD.search(text) and unseen:
         return None
     stated = set(params)
     if changed is not None:

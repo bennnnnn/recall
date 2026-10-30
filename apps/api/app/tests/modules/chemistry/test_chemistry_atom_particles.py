@@ -190,3 +190,31 @@ def test_a_reply_that_would_drop_an_ask_is_the_models(question: str) -> None:
         maybe_direct_chemistry_reply(verified, has_image_attachment=False, user_text=question)
         is None
     )
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # Second review (2026-10-30): decay, orbits, counts of ions, comparisons, masses
+        # and an ion named only in words are not one atom's particles to read.
+        "A 238U nucleus emits an alpha particle. How many protons and neutrons does the "
+        "daughter have?",
+        "A 14C nucleus undergoes beta decay. How many protons and neutrons does the product have?",
+        "Find the radius of the orbit of an electron in a He+ ion.",
+        "How many electrons are in 3 Na+ ions?",
+        "How many electrons are in Na and Na+?",
+        "Which has more electrons, F- or Ne?",
+        "How many electrons are in Cl- compared with Ar?",
+        "A 2 kg block has how many protons if made of carbon-12?",
+        "Oxygen has atomic number 8 and mass number 16. How many electrons are in the oxide ion?",
+        "What is the speed of an electron in an atom with 1 proton?",
+    ],
+)
+def test_not_one_atoms_particles(question: str) -> None:
+    intent = extract_chemistry_intent(question)
+    assert intent is None or intent.chemistry_op != "atom_particles"
+
+
+def test_an_ions_configuration_asked_as_its_configuration() -> None:
+    question = "How many electrons does N3- have and what is its configuration?"
+    assert _answer(question) == "Electrons = 10\nElectronic configuration = 2, 8"
