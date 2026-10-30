@@ -220,5 +220,6 @@
   {"id": "uc2", "area": "units", "prompt": "What is the temperature reading in Kelvin scale if the reading in Celsius scale is 50 °C?", "expect": "answer", "check": ["num", "323.15"], "note": "grade 7 physics book wording, read as no maths (2026-10-29)"},
   {"id": "uc3", "area": "units", "prompt": "The temperature of an object is 40 °C. What is this temperature in Fahrenheit scale?", "expect": "answer", "check": ["num", "104"], "note": "grade 7 physics book wording, read as no maths (2026-10-29)"},
   {"id": "uc4", "area": "units", "prompt": "How many centimeters are there in 9.3 m?", "expect": "answer", "check": ["num", "930"], "note": "grade 7 physics book wording, read as no maths (2026-10-29)"},
-  {"id": "uc5", "area": "units", "prompt": "I ran 5 km today, how many miles is that?", "expect": "answer", "check": ["num", "3.107"]}
+  {"id": "uc5", "area": "units", "prompt": "I ran 5 km today, how many miles is that?", "expect": "answer", "check": ["num", "3.107"]},
+  {"id": "uc6", "area": "units", "prompt": "2 hr + 20 min + 60 sec are equal to how many minutes?", "expect": "answer", "check": ["num", "141"], "note": "grade 7 physics book, a sum in mixed units (2026-10-29)"}
 ]

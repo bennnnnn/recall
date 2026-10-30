@@ -109,3 +109,31 @@ def test_a_worded_conversion_reads_its_quantity_and_unit(
 )
 def test_anything_else_is_not_a_worded_conversion(text: str) -> None:
     assert extract_worded_conversion(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "value", "src", "dest"),
+    [
+        ("2 hr + 20 min + 60 sec are equal to how many minutes?", 8460.0, "sec", "minutes"),
+        ("How many minutes are in 1 hr + 30 min?", 90.0, "min", "minutes"),
+        ("3 km + 500 m is how many meters?", 3500.0, "m", "meters"),
+    ],
+)
+def test_a_sum_of_amounts_of_one_kind_is_one_amount(
+    text: str, value: float, src: str, dest: str
+) -> None:
+    from app.modules.math.tools.school.worded_units import extract_quantity_sum
+
+    intent = extract_quantity_sum(text)
+    assert intent is not None
+    assert (intent.percent_base, intent.unit_from, intent.unit_to) == (value, src, dest)
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["2 kg + 3 m is how many kg?", "2 apples + 3 apples is how many apples?", "5 + 3 is how many?"],
+)
+def test_a_sum_of_other_kinds_is_not_one_amount(text: str) -> None:
+    from app.modules.math.tools.school.worded_units import extract_quantity_sum
+
+    assert extract_quantity_sum(text) is None

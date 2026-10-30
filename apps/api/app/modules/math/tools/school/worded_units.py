@@ -127,3 +127,48 @@ def extract_worded_conversion(cleaned: str) -> MathIntent | None:
         unit_to=dest,
         operation="solve",
     )
+
+
+# "2 hr + 20 min + 60 sec are equal to how many minutes?" (the same book): a sum of
+# amounts in different units of one kind, asked in one unit.
+_TERM = rf"\d+(?:\.\d+)?\s*{_UNIT}"
+_SUM = rf"(?P<sum>{_TERM}(?:\s*\+\s*{_TERM})+)"
+_SUM_ASKS = (
+    re.compile(
+        rf"{_SUM}\s+(?:is|are|equals?|makes?|are\s+equal\s+to|is\s+equal\s+to)\s+"
+        rf"how\s+many\s+(?P<to>{_UNIT})",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"how\s+many\s+(?P<to>{_UNIT})\s+(?:are\s+there\s+in|are\s+in|is|are|in|make)\s+{_SUM}",
+        re.IGNORECASE,
+    ),
+)
+_TERM_PARTS = re.compile(rf"(?P<n>\d+(?:\.\d+)?)\s*(?P<unit>{_UNIT})")
+
+
+def extract_quantity_sum(cleaned: str) -> MathIntent | None:
+    """The sum of amounts of one kind, in the unit its ask names: every amount is put in
+    the last one's unit and added, "2 hr + 20 min + 60 sec" is 8460 sec."""
+    text = " ".join(cleaned.split()).strip(" ?.!")
+    asked = next((m for pattern in _SUM_ASKS if (m := pattern.fullmatch(text))), None)
+    if asked is None:
+        return None
+    terms = list(_TERM_PARTS.finditer(asked.group("sum")))
+    base, dest = terms[-1].group("unit"), asked.group("to")
+    if {base.lower(), dest.lower()} & _UNSURE_UNITS or _converts(1.0, base, dest) is None:
+        return None
+    total = 0.0
+    for term in terms:
+        value = _converts(float(term.group("n")), term.group("unit"), base)
+        if value is None:
+            return None
+        total += value
+    return MathIntent(
+        kind="unit",
+        school_op="convert",
+        percent_base=total,
+        unit_from=base,
+        unit_to=dest,
+        operation="solve",
+    )
