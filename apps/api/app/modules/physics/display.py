@@ -63,7 +63,8 @@ def _parts(value: float, figures: int) -> tuple[str, int | None]:
     mantissa, exponent = round_figures(value, figures)
     rounded = float(mantissa.scaleb(exponent))
     plain_whole = exact and rounded.is_integer() and abs(rounded) < _PLAIN_WHOLE_BELOW
-    if rounded != 0 and not plain_whole and not _SCIENTIFIC_BELOW <= abs(rounded) < _SCIENTIFIC_FROM:
+    in_plain_range = _SCIENTIFIC_BELOW <= abs(rounded) < _SCIENTIFIC_FROM
+    if rounded != 0 and not plain_whole and not in_plain_range:
         return trim_zeros(f"{mantissa:.{figures - 1}f}"), exponent
     decimals = max(figures - 1 - exponent, 0)
     return trim_zeros(f"{rounded:.{decimals}f}"), None
