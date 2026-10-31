@@ -39,6 +39,7 @@ jobs:
       pull-requests: read
     outputs:
       run: ${{ steps.diff.outputs.run }}
+      sweeps: ${{ steps.diff.outputs.sweeps }}
     steps:
       - id: diff
         working-directory: .
@@ -47,18 +48,25 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           run=true
+          sweeps=true
           if [ -n "$PR" ] && files=$(gh pr diff "$PR" --repo "$GITHUB_REPOSITORY" --name-only); then
             echo "$files" | grep -qE '^(apps/api/|docs/fixtures/|scripts/(check_file_sizes\.py|file_size_baseline\.json)$|\.github/workflows/api-ci\.yml$)' || run=false
+            # The sweeps read the app's code, the shared test helpers, their corpora and the
+            # fixtures: a pull request that only changes other tests, migrations or scripts
+            # leaves what they check as it was.
+            hit=$(echo "$files" | grep -E '^apps/api/(app/|pyproject\.toml$|uv\.lock$)' | grep -vE '^apps/api/app/tests/.+/' || true)
+            hit="$hit$(echo "$files" | grep -E '^(apps/api/app/tests/behavior/|docs/fixtures/|\.github/workflows/api-ci\.yml$)' || true)"
+            [ -n "$hit" ] && [ "$run" = true ] || sweeps=false
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "sweeps=$sweeps" >> "$GITHUB_OUTPUT"
 
-  test:
+  unit:
     needs: changes
     if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-latest
-    # A hung run fails here instead of holding a runner for GitHub's six hours. A
-    # passing run takes up to 30 minutes; a limit at 30 cut those off to run again.
-    timeout-minutes: 45
+    # A hung run fails here instead of holding a runner for GitHub's six hours.
+    timeout-minutes: 30
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -112,12 +120,75 @@ jobs:
       - name: Migrate test database
         run: uv run alembic upgrade head
 
+      # One copy of the migrated database per test worker; conftest.py points each worker
+      # at its own (and at its own Redis index), so no two share a row or a lock.
+      - name: A database per test worker
+        working-directory: .
+        env:
+          PGPASSWORD: postgres
+        run: |
+          workers=$(nproc)
+          echo "WORKERS=$workers" >> "$GITHUB_ENV"
+          for i in $(seq 0 $((workers - 1))); do
+            psql -h localhost -U postgres -v ON_ERROR_STOP=1 \
+              -c "CREATE DATABASE recall_test_gw$i TEMPLATE recall_test"
+          done
+
+      # Every test but the sweeps, one worker per core (Actions bills job minutes, and the
+      # serial run took 25-30 of them). Coverage is combined across the workers.
       - name: Pytest
         env:
           VIRTUAL_ENV: ""
           HYPOTHESIS_PROFILE: ci
-        # One run, as scripts/check.sh does (code-health audit TEST-03).
-        run: uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=80
+          RECALL_TEST_DB_PER_WORKER: "1"
+        run: >-
+          uv run pytest -n "$WORKERS" --dist loadfile --ignore=app/tests/behavior
+          --cov=app --cov-report=term-missing --cov-fail-under=80
+
+  # The behaviour and STEM sweeps (app/tests/behavior), on their own runner and only when
+  # what they read changed. They fake the database and Redis, so no services start.
+  sweeps:
+    needs: changes
+    if: needs.changes.outputs.sweeps == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-groups --frozen
+
+      - name: Sweeps
+        env:
+          VIRTUAL_ENV: ""
+          HYPOTHESIS_PROFILE: ci
+        run: uv run pytest app/tests/behavior -n "$(nproc)" --dist load
+
+  # The required "test" check: the unit tests passed, and the sweeps passed or had nothing
+  # to check. A job that failed, was cancelled or never started fails it.
+  test:
+    needs: [changes, unit, sweeps]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Unit tests and sweeps
+        working-directory: .
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          UNIT: ${{ needs.unit.result }}
+          SWEEPS: ${{ needs.sweeps.result }}
+        run: |
+          [ "$CHANGES" = success ] || { echo "::error::changes ended $CHANGES"; exit 1; }
+          for result in "$UNIT" "$SWEEPS"; do
+            case "$result" in
+              success | skipped) ;;
+              *) echo "::error::a test job ended $result"; exit 1 ;;
+            esac
+          done
 
   # Validate the production image builds so a Dockerfile/dependency regression
   # surfaces on the PR, not at deploy time. No push — build only. Layer cache

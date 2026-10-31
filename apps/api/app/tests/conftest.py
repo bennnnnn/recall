@@ -33,6 +33,19 @@ for _provider_key in (
     os.environ[_provider_key] = ""
 os.environ["WEB_SEARCH_FALLBACK_ENABLED"] = "false"
 
+# Under pytest-xdist (CI runs ``-n``) each worker gets its own database and Redis index,
+# which CI copies from the migrated one: two runs sharing a database held each other's rows
+# and locks, and one hung at 94% with sessions "idle in transaction" (2026-10-31). Opt-in,
+# so a local ``-n`` run against one development database is never silently redirected.
+_XDIST_WORKER = os.environ.get("PYTEST_XDIST_WORKER", "")
+if _XDIST_WORKER.startswith("gw") and os.environ.get("RECALL_TEST_DB_PER_WORKER") == "1":
+    _database, _, _query = os.environ["DATABASE_URL"].partition("?")
+    os.environ["DATABASE_URL"] = f"{_database}_{_XDIST_WORKER}" + (f"?{_query}" if _query else "")
+    _redis = os.environ.get("REDIS_URL", "redis://localhost:6379").rstrip("/")
+    _redis_base, _, _redis_index = _redis.rpartition("/")
+    _redis = _redis_base if _redis_index.isdigit() else _redis
+    os.environ["REDIS_URL"] = f"{_redis}/{int(_XDIST_WORKER[2:]) + 1}"
+
 # A maths decline that would hide a programming error (an AttributeError, NameError or our
 # own TypeError; see app/modules/math/solve/declines.py) raises under pytest. A value already in
 # the environment wins: RECALL_STRICT_DECLINES=0 runs the suite with production's declines.
