@@ -107,7 +107,12 @@ _DECLINE = re.compile(
     r"|replaced|table|respectively|ratio|percentage|abundance|average|decay\w*|emits?"
     r"|alpha|beta|gamma|daughter|product|fission|fusion|compared?|versus|vs|kg|block)\b"
     # A count of ions: "How many electrons are in 3 Na+ ions?"
-    r"|\b\d+\s+\S+\s+ions\b",
+    r"|\b\d+\s+\S+\s+ions\b"
+    # Some of the electrons, not all: valence, unpaired, outer, bonding, d-electrons. Read
+    # as the atom's count, "valence shell of Ga" was certified 31 and "unpaired electrons
+    # in Cr3+" 21 (2026-10-30, Ethiopian Grade 9 and 11 chemistry books).
+    r"|\b(?:valence|unpaired|paired|outer(?:most)?|inner(?:most)?|core|bonding|non-?bonding"
+    r"|lone)\b|\b[spdf]\s*-?\s*electrons\b",
     re.IGNORECASE,
 )
 _ION_WORD = re.compile(r"\bions?\b|\b\w+ide\b", re.IGNORECASE)

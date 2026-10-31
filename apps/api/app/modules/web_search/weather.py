@@ -56,8 +56,31 @@ def is_weather_request(text: str) -> bool:
     """
     if _WEATHER.search(text) is None or WEATHER_NOT_A_FORECAST.search(text) is not None:
         return False
+    if is_worked_problem(text):
+        return False
     return not (_STATED_TEMPERATURE.search(text) and _TEMPERATURE_UNIT.search(text))
 
 
 _STATED_TEMPERATURE = re.compile(r"\d\s*(?:°|degrees?\b)", re.IGNORECASE)
 _TEMPERATURE_UNIT = re.compile(r"\b(?:fahrenheit|celsius|kelvin)\b", re.IGNORECASE)
+# A quantity the question states: "2.50 L", "175 g", "10.0 atm", "18 meters". Two of them, a
+# coordinate pair or a function make a worked problem, never a question about where the user
+# is: "a 2.50 L container of 175 g of argon at 10.0 atm: what is the temperature?", "How far
+# from the foot of the 18 meters tree…" and "the points closest to (0, 2)" each asked for the
+# user's city (2026-10-30, Ethiopian chemistry and maths books).
+_MEASURED = re.compile(
+    r"\d(?:\.\d+)?\s*(?:mL|L|g|kg|mg|mol|atm|kPa|Pa|mmHg|torr|K|J|kJ|N|W|V|A|m|cm|km|s"
+    r"|m/s|Hz|°\s*[CF]|(?:kilo|centi|milli)?met(?:er|re)s?|grams?|liters?|litres?|seconds?"
+    r"|minutes?|hours?|miles?|feet|foot)(?![A-Za-z])"
+)
+_COORDINATES = re.compile(r"\(\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\)")
+_FUNCTION = re.compile(r"\b[a-zA-Z]\s*\(\s*[a-z]\s*\)\s*=")
+
+
+def is_worked_problem(text: str) -> bool:
+    """A problem that states its own measurements, coordinates or function."""
+    return (
+        len(_MEASURED.findall(text)) >= 2
+        or _COORDINATES.search(text) is not None
+        or _FUNCTION.search(text) is not None
+    )

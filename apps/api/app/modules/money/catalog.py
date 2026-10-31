@@ -282,7 +282,12 @@ PRODUCTS: tuple[Product, ...] = (
         family="savings",
         title_key="money.title.savings",
         # "a savings account for my retirement" is a savings account: the longer name wins.
-        words=("savings account", "savings", "save", "saving", "deposit", "compound"),
+        # "compound" alone is a chemistry noun: "A compound is composed of 53.33% carbon"
+        # got a savings calculator (2026-10-30, a Grade 8 chemistry book).
+        words=(
+            *("savings account", "savings", "save", "saving", "deposit"),
+            *("compound interest", "compounded", "compounding"),
+        ),
         inputs=(_START, _DEPOSIT, _RATE, _years(1, 50)),
         outputs=_SAVINGS_OUTPUTS,
         defaults={"start": 0, "deposit": 0, "years": 10},
