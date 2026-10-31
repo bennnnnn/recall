@@ -14,7 +14,7 @@ import re
 from typing import TYPE_CHECKING
 
 from app.modules.chat.finalize_subjects import fallback_text
-from app.modules.chat.turn_prep.intents import plan_turn
+from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.images.reply_picture import ReplyPicture
 from app.services.md_fence_scan import line_fences, strip_closed_fences
 
@@ -59,7 +59,7 @@ _RULE = re.compile(r"^\s*(?:-{3,}|\*{3,}|_{3,})\s*$")
 def divide_request_sections(state: FinalizeState) -> str:
     """A message that asks several things: a hairline between the requests' sections."""
     settings = state.settings
-    plan = plan_turn(state.ctx.user_message_content, chemistry_enabled=settings.chemistry_enabled)
+    plan = plan_of(state.ctx.user_message_content, settings)
     return divide_sections(state.text) if plan.multi else state.text
 
 

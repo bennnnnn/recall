@@ -14,13 +14,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from app.core.config import Settings
-from app.modules.chat.turn_plan import HANDLED_KINDS, TurnPlan
-
-
-def turn_plan(text: str, settings: Settings | None = None) -> TurnPlan:
-    from app.modules.chat.turn_prep.intents import plan_turn
-
-    return plan_turn(text, chemistry_enabled=settings is None or settings.chemistry_enabled)
+from app.modules.turn_reading.plan import HANDLED_KINDS
 
 
 def open_parts(
@@ -32,7 +26,9 @@ def open_parts(
     multi-part plan the verified solve answers only its maths part, and the
     settings, picture and photo parts belong to their own paths, never the loop's.
     """
-    plan = turn_plan(text, settings)
+    from app.modules.chat.turn_prep.reading import plan_of
+
+    plan = plan_of(text, settings)
     if not plan.multi:
         return [] if has_verified_math else [text]
     done = {*HANDLED_KINDS, "solve"} if has_verified_math else set(HANDLED_KINDS)

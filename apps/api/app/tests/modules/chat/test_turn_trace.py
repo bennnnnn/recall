@@ -52,6 +52,7 @@ _ALLOWED_KEYS = {
     "error",
     "route",
     "plan",
+    "plan_reason",
     "prompt_rules",
     "tools",
     "passes_changed",
@@ -117,7 +118,7 @@ def test_a_turn_line_holds_its_decisions_and_none_of_its_words(
     caplog.set_level(logging.INFO, logger=turn_trace.__name__)
     begin_turn_trace("new")
     note_route("auto.math")
-    note_plan(["ask", "solve"])
+    note_plan(["ask", "solve"], "several_requests")
     note_prompt_rule("hints.format_pack")
     note_tool("web_search")
     note_tool("web_search")
@@ -135,6 +136,7 @@ def test_a_turn_line_holds_its_decisions_and_none_of_its_words(
     assert json.loads(record.getMessage().removeprefix("turn_trace ")) == trace
     assert trace["route"] == "auto.math"
     assert trace["plan"] == ["ask", "solve"]
+    assert trace["plan_reason"] == "several_requests"
     assert trace["tools"] == {"web_search": 2}
     assert trace["passes_changed"] == [["prose", 1]]
     assert trace["transport"] == "ws"

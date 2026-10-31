@@ -269,6 +269,28 @@ for presentation and the post-turn jobs, not for reading.
   them.
 - **Risk:** medium to high (precedence hidden in call order). **Size:** L. Land it in steps:
   plan first, then lightweight, then teaching, then subject.
+- **Status, step 1 (the plan): done.**
+  - `turn_reading.turn.TurnReading` (frozen: the message, the chemistry setting, the plan and
+    a `plan_reason`: `one_request`, `several_requests` or `read_declined`) is built once by
+    `chat.turn_prep.reading.read_turn` right after the pooled read, and kept for the turn
+    (`core.readings.keep_for_turn`). The plan types moved from `chat/turn_plan.py` to
+    `turn_reading/plan.py`.
+  - Every place that planned the message again now asks `plan_of(text, settings)`, which
+    returns the turn's plan when `text` is the turn's message: `turn_prep/context.py`,
+    `turn_prep/augment.py`, `turn_intercepts.py` (the reply picture), `finalize_parts.py`,
+    `emoji_placement.py`, `stream_paths.py` (the web verdict), `tool_loop/parts.py`
+    (`open_parts`; its `turn_plan` wrapper is gone) and `tool_loop/selection.py`. The pooled
+    read and a money follow-up's earlier lines still plan their own texts.
+  - `plan_reason` is on the turn's trace line. Decision diff over the five corpora: no
+    decision changed (`--added plan_reason`: one_request ×5,006, several_requests ×42). In
+    those corpora every `plan_of` call read the turn's own reading.
+  - **Precedence question, kept as today:** the tool loop (`tool_loop/selection.py`,
+    `forced_search.py`, `reply_calls.py` through `open_parts`) plans
+    `last_user_content(messages)`, the prompt's last user line, stripped. That is the turn's
+    message on most turns, but not when the message has surrounding whitespace or the prompt
+    rewrites the line; those calls fall back to planning their own text, as before. The
+    behaviour harness does not run the tool rounds, so a later step should pass the turn's
+    reading down instead of the line, in a behaviour PR of its own.
 
 ### ST-06 — Finalize passes declare their order and their kind
 

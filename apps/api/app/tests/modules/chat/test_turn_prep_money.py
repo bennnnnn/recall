@@ -9,11 +9,11 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.readings import begin_turn
-from app.modules.chat.turn_plan import TurnPart, TurnPlan, single_plan
 from app.modules.chat.turn_prep import money as money_prep
 from app.modules.chat.turn_prep.reading import read_turn_message
 from app.modules.money.block import MONEY_HEADER
 from app.modules.money.service import MoneyTurn
+from app.modules.turn_reading.plan import TurnPart, TurnPlan, single_plan
 from app.tests import loop_guard
 
 _SENTENCE = "what is my mortgage for 300k dollars house if mr rate is 1 percent"

@@ -14,10 +14,56 @@ from collections.abc import Sequence
 from typing import Any
 
 from app.core.config import Settings
-from app.core.readings import first_read, read_off_loop
+from app.core.readings import first_read, read_off_loop, readings_declined
+from app.modules.turn_reading.plan import TurnPlan, single_plan
+from app.modules.turn_reading.turn import (
+    PlanReason,
+    TurnReading,
+    current_turn_reading,
+    keep_turn_reading,
+)
 
 # Exchanges a terse follow-up reaches back over (``math.followup``).
 _FOLLOWUP_EXCHANGES = 4
+
+
+def read_turn(content: str, settings: Settings) -> TurnReading:
+    """The turn's reading of its message, built once from the pooled readings and kept.
+
+    Its fields come from the readings ``ask_turn_readings`` made in the pool, so building
+    it reads nothing on the loop.
+    """
+    from app.modules.chat.turn_prep.intents import plan_turn
+
+    chemistry = settings.chemistry_enabled
+    kept = current_turn_reading()
+    if kept is not None and kept.reads(content, chemistry_enabled=chemistry):
+        return kept
+    reason: PlanReason
+    if readings_declined():
+        # The pool gave up: the whole message is one request, as ``plan_turn`` declines.
+        plan, reason = single_plan(content), "read_declined"
+    else:
+        plan = plan_turn(content, chemistry_enabled=chemistry)
+        reason = "several_requests" if plan.multi else "one_request"
+    reading = TurnReading(content, chemistry, plan, reason)
+    keep_turn_reading(reading)
+    return reading
+
+
+def plan_of(text: str, settings: Settings | None = None) -> TurnPlan:
+    """The plan of ``text``: the turn's own plan when ``text`` is the turn's message.
+
+    A caller holding another text (a line from the prompt the turn rewrote, an earlier
+    line) reads that text's plan as before.
+    """
+    from app.modules.chat.turn_prep.intents import plan_turn
+
+    chemistry = settings is None or settings.chemistry_enabled
+    kept = current_turn_reading()
+    if kept is not None and kept.reads(text, chemistry_enabled=chemistry):
+        return kept.plan
+    return plan_turn(text, chemistry_enabled=chemistry)
 
 
 def ask_turn_readings(
@@ -73,7 +119,8 @@ async def read_turn_message(
     *,
     has_image_attachment: bool = False,
 ) -> None:
-    """Read the message (and the line before it, for routing) off the loop, for this turn.
+    """Read the message (and the line before it, for routing) off the loop, for this turn,
+    and keep the turn's reading of it (``read_turn``).
 
     Turn load reads it; turn prep asks again (a regenerate, the behavior harness) and
     pays only for what changed.
@@ -87,19 +134,19 @@ async def read_turn_message(
     if earlier and message_role_content(earlier[-1]) == ("user", content):
         earlier.pop()
     prior_user, prior_model = last_user_turn(earlier)
-    if not first_read(("turn_message", content, prior_user, has_image_attachment)):
-        return
-    await read_off_loop(
-        ask_turn_readings,
-        content,
-        prior_user=prior_user,
-        prior_model=prior_model,
-        lesson_active=active_lesson_step(list(recent)) is not None,
-        has_image_attachment=has_image_attachment,
-        settings=settings,
-        earlier_lines=_earlier_user_lines(earlier),
-        timeout=settings.subject_read_timeout_seconds,
-    )
+    if first_read(("turn_message", content, prior_user, has_image_attachment)):
+        await read_off_loop(
+            ask_turn_readings,
+            content,
+            prior_user=prior_user,
+            prior_model=prior_model,
+            lesson_active=active_lesson_step(list(recent)) is not None,
+            has_image_attachment=has_image_attachment,
+            settings=settings,
+            earlier_lines=_earlier_user_lines(earlier),
+            timeout=settings.subject_read_timeout_seconds,
+        )
+    read_turn(content, settings)
 
 
 def _earlier_user_lines(earlier: Sequence[Any]) -> tuple[str, ...]:

@@ -50,6 +50,8 @@ class TurnTrace:
     started: float = field(default_factory=time.perf_counter)
     route: str | None = None
     plan: tuple[str, ...] = ()
+    # Why the plan is what it is (``turn_reading.turn.PlanReason``).
+    plan_reason: str | None = None
     prompt_rules: list[str] = field(default_factory=list)
     tools: Counter[str] = field(default_factory=Counter)
     passes_changed: list[tuple[str, int]] = field(default_factory=list)
@@ -108,9 +110,11 @@ def note_route(trace: TurnTrace, reason: str) -> None:
 
 
 @_quietly
-def note_plan(trace: TurnTrace, kinds: Iterable[str]) -> None:
-    """The kinds of the requests the message holds (``intents.plan_turn``)."""
+def note_plan(trace: TurnTrace, kinds: Iterable[str], reason: str | None = None) -> None:
+    """The kinds of the requests the message holds (``intents.plan_turn``), and why
+    (the turn's reading, ``turn_reading.turn``)."""
     trace.plan = tuple(kind for kind in map(_token, kinds) if kind)[:_MAX_NAMES]
+    trace.plan_reason = _token(reason)
 
 
 @_quietly
@@ -237,6 +241,7 @@ def turn_record(
         "error": _token(type(failure).__name__) if failure is not None else None,
         "route": trace.route,
         "plan": list(trace.plan),
+        "plan_reason": trace.plan_reason,
         "prompt_rules": list(trace.prompt_rules),
         "tools": dict(trace.tools),
         "passes_changed": [list(item) for item in trace.passes_changed],

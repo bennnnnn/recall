@@ -8,6 +8,7 @@ tests' thread executor, which schedules as the process pool does.
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import pickle
 import threading
 from collections.abc import Iterator
@@ -19,11 +20,12 @@ from app.core.config import Settings
 from app.core.readings import begin_turn, read_off_loop
 from app.core.sympy_executor import set_sympy_executor
 from app.modules.chat.related_questions import follow_up_topic
-from app.modules.chat.turn_plan import TurnPlan, single_plan
 from app.modules.chat.turn_prep.followups import read_prompt_inputs
-from app.modules.chat.turn_prep.reading import read_turn_message
+from app.modules.chat.turn_prep.reading import plan_of, read_turn, read_turn_message
 from app.modules.math.tools.prompt import build_math_augmentation
 from app.modules.physics.prompt import build_physics_augmentation
+from app.modules.turn_reading.plan import TurnPlan, single_plan
+from app.modules.turn_reading.turn import current_turn_reading
 from app.services.subject_solving import detect_subject, read_direct_reply
 from app.tests.sympy_support import ThreadSympyExecutor
 
@@ -70,6 +72,10 @@ async def test_a_slow_message_read_leaves_the_loop_free_and_reads_no_subject(
     assert ticks >= 10
     # The read gave up: nothing on the loop reads this message again this turn.
     assert detect_subject("solve 2x + 3 = 7") is None
+    # The turn's reading says so, and plans the whole message as one request.
+    reading = current_turn_reading()
+    assert reading is not None and reading.plan_reason == "read_declined"
+    assert reading.plan == single_plan("solve 2x + 3 = 7")
 
 
 async def test_a_slow_maths_read_answers_with_the_unverified_note(
@@ -139,3 +145,35 @@ async def test_every_read_crosses_the_process_boundary(pickling_pool: None) -> N
     assert await read_off_loop(
         follow_up_topic, "solve 2x + 3 = 7", "x = 2", exchange, allow_general=True, timeout=3
     ) == ("subject", "solve 2x + 3 = 7")
+
+
+async def test_a_turn_reads_its_plan_once_and_callers_read_it() -> None:
+    settings = Settings()
+    two = "switch to dark mode and tell me a joke"
+    begin_turn()
+    await read_turn_message(two, [], settings)
+
+    reading = current_turn_reading()
+    assert reading is not None and reading.plan.multi
+    assert reading.plan_reason == "several_requests"
+    # Asked again, the turn's reading answers: nothing is planned twice.
+    assert read_turn(two, settings) is reading
+    assert plan_of(two, settings) is reading.plan
+    # Another text, or the same text read without chemistry, is not this reading.
+    assert not reading.reads("tell me a joke", chemistry_enabled=True)
+    assert not reading.reads(two, chemistry_enabled=False)
+
+
+async def test_one_request_is_read_as_one() -> None:
+    begin_turn()
+    await read_turn_message("solve 2x + 3 = 7", [], Settings())
+
+    reading = current_turn_reading()
+    assert reading is not None and not reading.plan.multi
+    assert reading.plan_reason == "one_request"
+
+
+def test_outside_a_turn_a_plan_is_read_from_its_text() -> None:
+    plan = contextvars.Context().run(plan_of, "tell me a joke", Settings())
+
+    assert plan.texts() == ("tell me a joke",)

@@ -31,13 +31,14 @@ from app.modules.chat.stream_scaffold import ScaffoldFilter
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn, thinking_status
 from app.modules.chat.tool_gate import should_classify_tool_web_search
 from app.modules.chat.tool_loop import live_denial, reply_calls
-from app.modules.chat.tool_loop.parts import open_parts, searchable_parts, turn_plan
+from app.modules.chat.tool_loop.parts import open_parts, searchable_parts
 from app.modules.chat.tool_loop.repeat_filter import without_repeats
 from app.modules.chat.tool_loop.rounds import ToolRoundsOutcome
 from app.modules.chat.tool_verified import with_tool_verified
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
+from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.web_search.subject import collect_prior_user_messages, last_assistant_content
 
 logger = logging.getLogger(__name__)
@@ -159,7 +160,7 @@ def _web_verdict(
         prior_user_messages=collect_prior_user_messages(prompt, gate.content) or None,
         prior_assistant=last_assistant_content(prompt),
     )
-    return bool(found), found if turn_plan(gate.content, settings).multi else None
+    return bool(found), found if plan_of(gate.content, settings).multi else None
 
 
 def _apply_tool_rounds(ctx: StreamContext, rounds: ToolRoundsOutcome) -> None:

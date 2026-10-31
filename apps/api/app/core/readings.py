@@ -150,6 +150,26 @@ async def read_off_loop[T](
     return result
 
 
+def keep_for_turn(name: str, value: Any) -> None:
+    """Keep one thing the turn decided, beside its readings: what this turn's message is,
+    not a reading of an argument, so its callers ask for it by name, not by text."""
+    memo = _MEMO.get()
+    if memo is not None:
+        memo[("__turn__", name)] = value
+
+
+def kept_for_turn(name: str) -> Any:
+    """What ``keep_for_turn`` kept as ``name`` this turn, or None (no turn, nothing kept)."""
+    memo = _MEMO.get()
+    return None if memo is None else memo.get(("__turn__", name))
+
+
+def readings_declined() -> bool:
+    """True when this turn's pool read gave up and every reading returns its declined value."""
+    memo = _MEMO.get()
+    return memo is not None and _DECLINED in memo
+
+
 def first_read(marker: tuple[Any, ...]) -> bool:
     """True the first time this turn asks ``marker``; a read that ran need not run again."""
     memo = _MEMO.get()

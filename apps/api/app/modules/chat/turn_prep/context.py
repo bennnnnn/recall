@@ -22,10 +22,9 @@ from app.modules.chat.turn_prep.instant import (
     recurring_pay_reply,
     resolve_instant_reply,
 )
-from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import classify_turn_mode
 from app.modules.chat.turn_prep.money import server_parts, with_money_block
-from app.modules.chat.turn_prep.reading import read_turn_message
+from app.modules.chat.turn_prep.reading import read_turn, read_turn_message
 from app.modules.chat.turn_prep.request import (
     ClientGeoContext,
     TurnIdentity,
@@ -35,6 +34,7 @@ from app.modules.chat.turn_prep.request import (
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.modules.chat.turn_trace import note_plan
 from app.modules.conversation import history as conversation_history
+from app.modules.turn_reading.plan import TurnPlan
 from app.repositories import users as users_repo
 from app.services import model_health as model_health_service
 from app.services import time_context as time_context_service
@@ -364,6 +364,13 @@ def _mark_prompt_ready(timing: TurnTimingTracker | None) -> None:
         timing.mark_prompt_ready()
 
 
+def _turn_plan(content: str, settings: Settings) -> TurnPlan:
+    """The turn's plan, from its reading, and why, for the turn's trace line."""
+    reading = read_turn(content, settings)
+    note_plan((part.kind for part in reading.plan.parts), reading.plan_reason)
+    return reading.plan
+
+
 async def build_stream_prompt_context(
     request: TurnRequest, settings: Settings, redis: Redis
 ) -> TurnPromptBundle:
@@ -398,8 +405,7 @@ async def build_stream_prompt_context(
     user, chat, mode, geo = identity.user, identity.chat, identity.mode, identity.geo
     stats = PromptStats()
     # More than one request: each is answered (``intents``), and the prompt says how.
-    plan = plan_turn(request.content, chemistry_enabled=settings.chemistry_enabled)
-    note_plan(part.kind for part in plan.parts)
+    plan = _turn_plan(request.content, settings)
     # Phase A: prompt + instant-reply + fallback-health share no data.
     prompt_messages, instant_reply, (fallback_models, half_open), extras = await gather_or_cancel(
         build_prompt_messages(
