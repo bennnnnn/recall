@@ -29,7 +29,8 @@ from app.modules.math.schemas import (
     TriangleSidesGeometryBlockSpec,
     TriangleSidesInput,
 )
-from app.modules.math.solve.geometry import answer_is_rounded
+from app.modules.math.solve.geometry import angle_list, answer_is_rounded
+from app.modules.math.solve.geometry import measure_text as _shown
 from app.modules.math.tools.block.answer_text import format_quantity
 from app.modules.math.tools.block.canonical import _diagram_block, finish_with_answer
 from app.services.solving import VerifiedMathBlock
@@ -106,23 +107,23 @@ def _verified_block_rectangle(
         labels=rect_geo.labels,
     )
     if intent.geometry_target == "width":
-        answer = f"{rect_geo.width:g}"
+        answer = _shown(rect_geo.width)
     elif intent.geometry_target == "length":
-        answer = f"{rect_geo.height:g}"
+        answer = _shown(rect_geo.height)
     elif intent.wants_angle and intent.wants_diagonal:
         # “Angle made by the diagonal” mentions the diagonal as a reference,
         # not as a request to substitute its length for the angle.
         answer = rf"{rect_geo.angle_deg:g}^\circ"
     elif intent.wants_area and intent.wants_perimeter:
-        area = format_quantity(f"{rect_geo.area:g}", f"{intent.unit}²")
-        perimeter = format_quantity(f"{rect_geo.perimeter:g}", intent.unit)
+        area = format_quantity(_shown(rect_geo.area), f"{intent.unit}²")
+        perimeter = format_quantity(_shown(rect_geo.perimeter), intent.unit)
         answer = rf"A = {area},\quad P = {perimeter}"
     elif intent.wants_perimeter:
-        answer = f"{rect_geo.perimeter:g}"
+        answer = _shown(rect_geo.perimeter)
     elif intent.wants_diagonal and not intent.wants_area:
-        answer = f"{rect_geo.diagonal:g}"
+        answer = _shown(rect_geo.diagonal)
     elif intent.wants_area:
-        answer = f"{rect_geo.area:g}"
+        answer = _shown(rect_geo.area)
     else:
         answer = None
     return _finish_geometry(intent, lines, spec, answer, rect_geo)
@@ -163,7 +164,7 @@ def _verified_block_square(
         answer = square_geo.diagonal
     elif intent.wants_area:
         answer = square_geo.area
-    shown = f"{answer:g}" if answer is not None else None
+    shown = _shown(answer) if answer is not None else None
     return _finish_geometry(intent, lines, spec, shown, square_geo)
 
 
@@ -236,7 +237,7 @@ def _verified_block_circle(
     if intent.wants_circumference:
         circle_answer = math_solve.format_geometry_decimal(circle_geo.circumference)
     elif intent.wants_diameter and not intent.wants_area:
-        circle_answer = f"{circle_geo.diameter:g}"
+        circle_answer = _shown(circle_geo.diameter)
     elif intent.wants_area:
         circle_answer = math_solve.format_geometry_decimal(circle_geo.area)
     else:
@@ -268,7 +269,7 @@ def _verified_block_triangle(
         area=tri_geo.area,
         labels=tri_geo.labels,
     )
-    area = f"{tri_geo.area:g}" if intent.wants_area else None
+    area = _shown(tri_geo.area) if intent.wants_area else None
     return _finish_geometry(intent, lines, tri_spec, area, tri_geo)
 
 
@@ -308,11 +309,11 @@ def _verified_block_right_triangle(
     lines.append("Interior-angle labels: all three vertices (not only the 90° square).")
     # Draw-and-label asks are the diagram — do not attach a leftover area pill
     # (6x4 default used to dump a gray "12" under a 3-4-5 request).
-    answer = f"{rt_geo.area:g}" if intent.wants_area else None
+    answer = _shown(rt_geo.area) if intent.wants_area else None
     if intent.wants_hypotenuse and not (intent.wants_area or intent.wants_perimeter):
-        answer = f"{rt_geo.hypotenuse:g}"
+        answer = _shown(rt_geo.hypotenuse)
     if intent.wants_perimeter:
-        answer = f"{rt_geo.base + rt_geo.height + rt_geo.hypotenuse:g}"
+        answer = _shown(rt_geo.base + rt_geo.height + rt_geo.hypotenuse)
     return _finish_geometry(intent, lines, rt_spec, answer, rt_geo)
 
 
@@ -388,16 +389,14 @@ def _verified_block_triangle_sides(
         # canonical answer would make finalization append a redundant card.
         return _finish_geometry(intent, lines, tri_spec)
     if intent.wants_angle and not (intent.wants_area or intent.wants_perimeter):
-        answer = (
-            f"{tri_geo.labels['angle_a']}, {tri_geo.labels['angle_b']}, {tri_geo.labels['angle_c']}"
-        )
+        answer = angle_list(tri_geo, given=bool(relative))
         return _finish_geometry(intent, lines, tri_spec, answer)
     quantity: float | None = None
     if intent.wants_perimeter:
         quantity = tri_geo.perimeter
     elif intent.wants_area:
         quantity = tri_geo.area
-    shown = f"{quantity:g}" if quantity is not None else None
+    shown = _shown(quantity) if quantity is not None else None
     return _finish_geometry(intent, lines, tri_spec, shown, tri_geo)
 
 
@@ -431,7 +430,7 @@ def _verified_block_trapezoid(
         labels=trap_geo.labels,
     )
     lines.append("area = (top + bottom) / 2 \\times height")
-    area = f"{trap_geo.area:g}" if intent.wants_area else None
+    area = _shown(trap_geo.area) if intent.wants_area else None
     return _finish_geometry(intent, lines, trap_spec, area, trap_geo)
 
 
@@ -468,7 +467,7 @@ def _verified_block_parallelogram(
         answer = para_geo.perimeter
     elif intent.wants_area:
         answer = para_geo.area
-    shown = f"{answer:g}" if answer is not None else None
+    shown = _shown(answer) if answer is not None else None
     return _finish_geometry(intent, lines, para_spec, shown, para_geo)
 
 
@@ -499,7 +498,7 @@ def _verified_block_sector(
     )
     answer: str | None = None
     if intent.wants_area:
-        answer = f"{sector_geo.area:g}"
+        answer = _shown(sector_geo.area)
     elif intent.wants_arc_length:
         answer = math_solve.format_geometry_decimal(sector_geo.arc_length)
     return _finish_geometry(intent, lines, sector_spec, answer, sector_geo)

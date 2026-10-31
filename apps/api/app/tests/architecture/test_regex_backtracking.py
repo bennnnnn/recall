@@ -24,6 +24,10 @@ _RUNS = range(4, 27, 2)
 # A character no pattern accepts, so the anchored match has to fail and backtrack.
 _STOP = "\x00"
 _SHAPES = (" ", ",", ", ", ".", ". ", ":", "=", "-", "(", "1", "1 ", "a", "a ", "of ", "x", "\n")
+# A lead the pattern must get past before the run: a root sign before spaces, and a
+# choice label before more of them ("A)!" then " a)!" again and again).
+_LEADS = ("", "\u221a", "A)!")
+_LED_SHAPES = {"": _SHAPES, "\u221a": (" ",), "A)!": (" a)!",)}
 
 
 def _module_patterns() -> dict[str, re.Pattern[str]]:
@@ -59,13 +63,15 @@ def test_no_pattern_backtracks_exponentially_on_a_short_run() -> None:
     assert len(patterns) > 1_000, "the scan should see the subject readers' tables"
     slow = []
     for label, pattern in patterns.items():
-        for shape in _SHAPES:
-            for attempt in (pattern.fullmatch, pattern.match, pattern.search):
-                for run in _RUNS:
-                    elapsed = _timed(attempt, shape * run + _STOP)
-                    if elapsed > _BUDGET_SECONDS:
-                        slow.append(
-                            f"{label}.{attempt.__name__} on {shape!r} x{run}: {elapsed:.2f}s"
-                        )
-                        break
+        for lead in _LEADS:
+            for shape in _LED_SHAPES[lead]:
+                for attempt in (pattern.fullmatch, pattern.match, pattern.search):
+                    for run in _RUNS:
+                        elapsed = _timed(attempt, lead + shape * run + _STOP)
+                        if elapsed > _BUDGET_SECONDS:
+                            slow.append(
+                                f"{label}.{attempt.__name__} on {lead!r} + {shape!r} x{run}: "
+                                f"{elapsed:.2f}s"
+                            )
+                            break
     assert not slow, "patterns that backtrack exponentially:\n" + "\n".join(slow)

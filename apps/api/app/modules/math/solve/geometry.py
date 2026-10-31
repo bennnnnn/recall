@@ -39,6 +39,11 @@ def format_geometry_decimal(value: float, places: int = 2) -> str:
     return f"{value:.{places}f}".rstrip("0").rstrip(".") or "0"
 
 
+def measure_text(value: float) -> str:
+    """A measure as a card writes it: to at most 4 places, never in e-notation."""
+    return format_geometry_decimal(value, 4)
+
+
 def _rounded(**measures: float) -> frozenset[str]:
     """The measures a result holds only to 4 places: a root, π, a third."""
     return frozenset(
@@ -62,11 +67,22 @@ def answer_is_rounded(answer: str, result: BaseModel | None) -> bool:
         if not isinstance(value, float) or answer not in (
             f"{value:g}",
             format_geometry_decimal(value),
+            measure_text(value),
         ):
             continue
         return name in rounded or not math.isclose(shown, value, rel_tol=1e-12, abs_tol=1e-12)
     # A sum of measures (a perimeter with its hypotenuse) is as rounded as any part of it.
     return bool(rounded)
+
+
+def angle_list(result: TriangleSidesResult, *, given: bool) -> str:
+    """``120°, ≈ 38.2°, ≈ 21.8°``: a rounded angle says so, a given one is exact."""
+    return ", ".join(
+        rf"\approx {result.labels[name]}"
+        if name in result.rounded and not given
+        else result.labels[name]
+        for name in ("angle_a", "angle_b", "angle_c")
+    )
 
 
 def format_degree_label(deg: float) -> str:
@@ -219,8 +235,8 @@ def solid_geometry(data: SolidGeometryInput) -> SolidGeometryResult:
         raise SolveServiceError(f"unsupported solid {shape}")
 
     uses_pi = shape in {"cylinder", "cone", "sphere"}
-    volume_text = format_geometry_decimal(volume) if uses_pi else f"{volume:g}"
-    surface_text = format_geometry_decimal(surface) if uses_pi else f"{surface:g}"
+    volume_text = format_geometry_decimal(volume) if uses_pi else measure_text(volume)
+    surface_text = format_geometry_decimal(surface) if uses_pi else measure_text(surface)
     vol_label = f"{volume_text} {unit}³"
     sa_label = f"{surface_text} {unit}²"
     labels = {**extra, "volume": vol_label, "surface_area": sa_label}
@@ -323,8 +339,15 @@ def triangle_sides_geometry(data: TriangleSidesInput) -> TriangleSidesResult:
         "angle_b": format_degree_label(angle_b),
         "angle_c": format_degree_label(angle_c),
     }
+    # An angle label to a tenth (38.2°) or the nearest degree is a rounding unless exact.
+    shown_angles = {"angle_a": angle_a, "angle_b": angle_b, "angle_c": angle_c}
+    angles_rounded = {
+        name
+        for name, angle in shown_angles.items()
+        if not math.isclose(float(labels[name].rstrip("°")), angle, abs_tol=1e-9)
+    }
     return TriangleSidesResult(
-        rounded=_rounded(area=area, perimeter=perimeter),
+        rounded=_rounded(area=area, perimeter=perimeter) | angles_rounded,
         a=a,
         b=b,
         c=c,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from itertools import pairwise
 
@@ -62,6 +63,28 @@ def _solid_word_index(lower: str, stem: str) -> int:
         if before_ok and after_ok:
             return idx
         start = idx + 1
+
+
+# The question sets π's value ("use π = 22/7", "take π as 3.14") or asks for the answer
+# in π ("in terms of π", "leave your answer in π", "the exact area"). A card worked with
+# π itself to two places answers neither.
+_PI = r"(?:\u03c0|\\pi\b|\bpi\b)"
+_PI_VALUE = re.compile(
+    rf"{_PI}\s*(?:=|\u2248|as\b|to\s+be\b)|\b(?:use|using|take|taking)\s+{_PI}", re.IGNORECASE
+)
+_PI_FORM = re.compile(
+    rf"\bin\s+terms\s+of\s+{_PI}|\bleave\s+(?:your\s+|the\s+)?answers?\s+in\s+"
+    rf"(?:terms\s+of\s+)?{_PI}|\bexact\s+(?:answer|value|form|area|volume|length)\b",
+    re.IGNORECASE,
+)
+
+
+def pi_value_set(text: str) -> bool:
+    return _PI_VALUE.search(text) is not None
+
+
+def pi_form_or_value_set(text: str) -> bool:
+    return _PI_VALUE.search(text) is not None or _PI_FORM.search(text) is not None
 
 
 def classify_solid_shape(lower: str) -> SolidShape | None:
@@ -137,6 +160,8 @@ def parse_solid(cleaned: str) -> SolidParse | None:
     lower = cleaned.lower()
     shape = classify_solid_shape(lower)
     if shape is None:
+        return None
+    if pi_form_or_value_set(cleaned):
         return None
     if geometry_deferred_for_algebra(lower):
         return None

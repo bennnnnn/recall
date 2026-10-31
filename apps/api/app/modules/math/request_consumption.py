@@ -140,6 +140,10 @@ _SOLUTION_COUNT_CONDITION = re.compile(
 )
 # Inequalities keep "the range of values of x for which ..." as a solve.
 _SOLVED_EQUATION_KINDS = frozenset({"equation", "system"})
+# A point beside an equation in a sentence ("the image of (2, 3) in the line y = x", "the
+# line through (1, 2) and the intersection of y = x and y = 2x - 1") asks about the
+# point and the line or curve, not for the equation's solutions.
+_POINT_LITERAL = re.compile(r"\(\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\)")
 _DOMAIN_BLIND_KINDS = frozenset(
     {"equation", "system", "inequality", "calculus", "limit", "graph", "graph_pair"}
 )
@@ -233,6 +237,12 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
         _EQUATION_FEATURE_REQUEST.search(text) or _SOLUTION_COUNT_CONDITION.search(text)
     ):
         leftovers.append("a feature of the equation, not its solutions")
+    if intent.kind in _SOLVED_EQUATION_KINDS and _POINT_LITERAL.search(text):
+        sides = " ".join(
+            part for pair in intent.system_equations or [] for part in pair
+        ) + " ".join(part for part in (intent.lhs, intent.rhs) if part)
+        if not _POINT_LITERAL.search(sides):
+            leftovers.append("a point beside the equation, not its solutions")
     has_unrepresented_domain = bool(_NONDEFAULT_DOMAIN.search(text))
     if _linked_equality_would_be_dropped(text, intent):
         has_unrepresented_domain = True

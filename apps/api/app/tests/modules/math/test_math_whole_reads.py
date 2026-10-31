@@ -8,11 +8,18 @@ the volume 166666.67 shown as an exact 166667.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from app.core.config import Settings
 from app.modules.math.match import measure_after
 from app.modules.math.tools.school.single_draw import extract_single_draw_intent
+from app.modules.math.tools.school.single_draw_events import (
+    card_event,
+    one_die_event,
+    two_dice_event,
+)
 from app.services.subject_solving import build_subject_augmentation, maybe_direct_subject_reply
 
 
@@ -212,7 +219,7 @@ async def test_a_solid_with_a_measure_it_cannot_read_gets_no_card(text: str) -> 
     [
         (
             "volume of a square pyramid with base side 10 cm and height 7 cm",
-            r"\approx 233.333\ \mathrm{cm}^{3}",
+            r"\approx 233.3333\ \mathrm{cm}^{3}",
         ),
         ("find the diagonal of a rectangle 3 cm by 5 cm", r"\approx 5.831\ \mathrm{cm}"),
         ("area of a circle with radius 3 cm", r"\approx 28.27\ \mathrm{cm}^{2}"),
@@ -234,3 +241,59 @@ async def test_a_rounded_measure_is_shown_as_a_rounding(text: str, card: str) ->
         # The working ends where the card does: ≈, not =.
         number = card.split()[1].split("\\")[0]
         assert f"= {number}" not in reply
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Two dice are rolled. What is the probability that the sum is less than 12?",
+        "Two dice are rolled. What is the probability that the sum is greater than 2?",
+        "A card is drawn from a deck of 52 cards. What is the probability of a red face card or "
+        "a black ace?",
+        "A card is drawn from a deck of 52 cards. What is the probability of a king of hearts or "
+        "a queen?",
+        "A card is drawn from a deck of 52 cards. What is the probability of a heart or king or "
+        "queen?",
+    ],
+)
+def test_a_long_event_travels_as_numbers_and_never_raises(text: str) -> None:
+    # Its label once outgrew a 24-character field: the turn read no subject at all.
+    intent = extract_single_draw_intent(text)
+    assert intent is not None
+    assert len(intent.trial_outcome or "") <= 24
+
+
+_LONG = 10_000
+_ADVERSARIAL = [
+    "√" + " " * _LONG,
+    "A)!" + " a)!" * (_LONG // 4),
+    "a)!" * (_LONG // 3),
+    " " * _LONG,
+    "a sum of 5 or " * (_LONG // 14),
+    "radius " * (_LONG // 7),
+    "slant" + " " * _LONG,
+    "(1, 2) " * (_LONG // 7),
+    "the image of (1, 2) is (3, 4) " * (_LONG // 30),
+    "a red king or " * (_LONG // 14),
+    "if two dice are rolled " * (_LONG // 23),
+]
+
+
+@pytest.mark.parametrize("text", _ADVERSARIAL)
+def test_the_whole_readers_stay_linear_on_a_long_run(text: str) -> None:
+    from app.modules.math.tools.school.coordinate import _extract_coord_intent
+    from app.modules.math.tools.school.geometry_measures import extract_geometry_measure_intent
+
+    readers = (
+        lambda: two_dice_event("two dice " + text),
+        lambda: one_die_event("a die " + text),
+        lambda: card_event("a deck of 52 cards " + text),
+        lambda: measure_after(text + " 3", "radius"),
+        lambda: measure_after("height" + text + "4", "height"),
+        lambda: _extract_coord_intent("equation of the line through " + text),
+        lambda: extract_geometry_measure_intent(text),
+    )
+    for read in readers:
+        start = time.perf_counter()
+        read()
+        assert time.perf_counter() - start < 0.25

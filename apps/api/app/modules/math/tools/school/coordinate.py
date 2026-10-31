@@ -39,26 +39,51 @@ def _linear_abc(cleaned: str) -> tuple[float, float, float] | None:
     return a, b, c
 
 
-# The line through two points is the one asked only when the question puts both points on
-# it ("through", "joining", "line AB") and relates the line to them in no other way: the
-# perpendicular bisector of the two, the mirror taking one to the other, a parallel line.
-_ON_THE_LINE = re.compile(
-    r"\b(?:through|pass(?:es|ing)?|join(?:s|ing)?|connect(?:s|ing)?|contain(?:s|ing)?|between"
-    r"|via|lies?\s+on)\b",
-    re.IGNORECASE,
+# A question about two points is read whole: with the points and their labels taken out,
+# every word left must belong to the ask. "The line through (1, 2) and (3, 4) is shifted
+# 3 units to the right", "the line 2 units above it", "the line through the origin and
+# their midpoint" or "its x-intercept" leave words the ask has no place for.
+_POINT = re.compile(
+    r"(?:\b[A-Za-z][\'\u2019\u2032]?\s*)?\(\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\)"
 )
-_NAMED_BY_POINTS = re.compile(r"\bline\s+[A-Z]{2}\b")
-_OTHER_LINE = re.compile(
-    r"\b(?:perpendicular|parallel|bisect\w*|reflect\w*|mirror|image|tangent|normal|median"
-    r"|altitude|symmetr\w*|rotat\w*|translat\w*|circle|diameter|radius|equidistant)\b",
+_ASK_WORDS = frozenset(
+    """
+    a an the find calculate compute determine write give state work out what is are of and
+    points point segment line straight through joining joins join joined passing passes pass
+    going goes connecting connects connect containing contains between from to its with
+    where given that which coordinates endpoints end ends please explain show working steps
+    step by hint only how why formula method briefly me
+    """.split()
+)
+_OP_WORDS = {
+    "line": frozenset({"equation"}),
+    "distance": frozenset({"distance", "how", "far", "apart", "length"}),
+    "midpoint": frozenset({"midpoint", "mid"}),
+    "slope": frozenset({"slope", "gradient"}),
+}
+# The form the card is written in may be asked for; any other form may not.
+_CARD_FORM = re.compile(
+    r"\bin\s+(?:the\s+)?(?:slope|gradient)[- ]intercept\s+form\b"
+    r"|\bin\s+the\s+form\s+y\s*=\s*mx\s*\+\s*[bc]\b",
     re.IGNORECASE,
 )
 
 
-def _line_through_asked(cleaned: str) -> bool:
-    if _OTHER_LINE.search(cleaned):
-        return False
-    return bool(_ON_THE_LINE.search(cleaned) or _NAMED_BY_POINTS.search(cleaned))
+def _read_whole(cleaned: str, op: str) -> bool:
+    labels: list[str] = []
+
+    def blank(point: re.Match[str]) -> str:
+        if point.group(0)[0].isalpha():
+            labels.append(point.group(0)[0].lower())
+        return " "
+
+    rest = _POINT.sub(blank, _CARD_FORM.sub(" ", cleaned) if op == "line" else cleaned)
+    words = _ASK_WORDS | _OP_WORDS[op]
+    named = "".join(labels)  # "line AB" names the line by its points
+    return all(
+        word in words or (len(word) > 1 and word == named)
+        for word in re.findall(r"[a-z]+|\d+", rest.lower())
+    )
 
 
 def extract_coord_formulas(cleaned: str) -> MathIntent | None:
@@ -71,7 +96,7 @@ def extract_coord_formulas(cleaned: str) -> MathIntent | None:
             return None
         if "line" not in lower and "equation" not in lower:
             return None
-        if not _line_through_asked(cleaned):
+        if not _read_whole(cleaned, "line"):
             return None
         (x1, y1), (x2, y2) = (points[0][0], points[0][1]), (points[1][0], points[1][1])
         return MathIntent(
@@ -120,7 +145,7 @@ def _extract_coord_intent(cleaned: str) -> MathIntent | None:
     if op == "distance" and re.search(r"\b(?:sphere|spherical|geodesic)\b", lower):
         return None
     pts = _two_points(cleaned)
-    if pts is None:
+    if pts is None or not _read_whole(cleaned, op):
         return None
     (x1, y1), (x2, y2) = pts
     return MathIntent(
@@ -291,7 +316,8 @@ def _coordinate_working(
             return None
     else:
         return None
-    if value is not None and f"{float(value):g}" != answer:
+    worked = {"distance": math_school.coord_distance, "slope": math_school.coord_slope}.get(op)
+    if worked is not None and worked(*first, *second) != answer:
         return None
     return render_workout(
         Workout(given=given, find=(find,), formula=(formula,), substitution=substitution),

@@ -20,7 +20,7 @@ from app.modules.physics.extractors.forces import _extract_force_intent
         (
             "Find the angles of a triangle with sides 3,4,5",
             "triangle_sides",
-            "36.9°, 53.1°, 90°",
+            r"\approx 36.9°, \approx 53.1°, 90°",
         ),
         ("Find the area of a triangle with sides 3,4,5", "triangle_sides", "6"),
         ("Find the perimeter of a triangle with sides 3,4,5", "triangle_sides", "12"),

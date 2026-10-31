@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.math.match.geometry import pi_value_set
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.school._parse import _SIDE_ASKED
 
@@ -21,12 +22,21 @@ _IS = r"\s*(?:of\s+|is\s+|=\s*|:\s*)?"
 _UNIT = r"(?:\s*(mm|cm|km|m|in|ft))?"
 _POINT = rf"\(\s*{_N}\s*,\s*{_N}\s*\)"
 # A point with its label: "the point P(3, 10)", "P'(7, 2)", "(7, 2)".
-_LABELLED = rf"(?:the\s+point\s+)?(?:[A-Za-z][\'\u2019\u2032]*\s*)?{_POINT}"
+_LABELLED = rf"(?:the\s+point\s+)?(?:\b[A-Za-z][\'\u2019\u2032]*\s*)?{_POINT}"
 # One point and its image under a reflection, in the ways a book states it.
 _IMAGE = (
     rf"(?:\bimage\s+of\s+{_LABELLED}\s+(?:is|=|was|will\s+be)\s+{_LABELLED}"
     rf"|{_LABELLED}\s+(?:is|was)\s+(?:reflected|mapped|sent|taken)\s+(?:on)?to\s+{_LABELLED}"
     rf"|\b(?:maps?|takes?|sends?|reflects?|carries)\s+{_LABELLED}\s+(?:on)?to\s+{_LABELLED})"
+)
+# Every word of a line-of-reflection question, with its two points taken out: "after a
+# reflection and then a translation" or "a glide reflection" is another transformation.
+_REFLECTION_WORDS = frozenset(
+    """
+    in a an the reflection reflected reflect reflects image of point is was will be to onto
+    into find determine write give state what equation line mirror axis maps map mapped
+    takes take taken sends send sent carries carry under its it this that which
+    """.split()
 )
 _REFLECTION_LINE = (
     r"\b(?:(?:line|axis)\s+of\s+(?:the\s+)?reflection|(?:mirror|reflection|reflecting)\s+line)\b"
@@ -219,12 +229,14 @@ _PI_OPS = {"circle_from_circumference", "circle_from_area"}
 
 def extract_geometry_measure_intent(cleaned: str) -> MathIntent | None:
     body = " ".join(cleaned.split()).strip().rstrip("?.!")
-    if not body or len(body) > 300:
-        return None
+    if not body or len(body) > 300 or pi_value_set(body):
+        return None  # "use π = 22/7": the solvers work with π itself
     for op, pattern in _RULES:
         found = pattern.search(body)
         if found is None:
             continue
+        if op == "reflection_line" and not _reflection_read_whole(body):
+            return None
         tail = body[found.end() :]
         pi = _PI_AFTER.match(tail)
         if pi is not None:
@@ -234,6 +246,11 @@ def extract_geometry_measure_intent(cleaned: str) -> MathIntent | None:
             return None
         return _intent(op, found)
     return _sine_rule_intent(body) or _right_trig_intent(body)
+
+
+def _reflection_read_whole(body: str) -> bool:
+    rest = re.sub(_LABELLED, " ", body, flags=re.IGNORECASE)
+    return all(word in _REFLECTION_WORDS for word in re.findall(r"[a-z]+|\d+", rest.lower()))
 
 
 def _pi_intent(op: str, found: re.Match[str], unit: str | None) -> MathIntent | None:

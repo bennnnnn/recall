@@ -16,6 +16,7 @@ from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school.single_draw_events import (
     DrawEvent,
     card_event,
+    card_label,
     one_die_event,
     two_dice_event,
 )
@@ -51,12 +52,15 @@ def extract_single_draw_intent(cleaned: str) -> MathIntent | None:
         event = one_die_event(cleaned)
     if event is None:
         return None
+    # The event travels as numbers, never as a label that could outgrow its field.
     return MathIntent(
         kind="probability",
         school_op="single_draw",
         combo_k=event.favourable,
         combo_n=event.total,
-        trial_outcome=event.outcome,
+        trial_outcome=f"not|{event.kind}" if event.negated else event.kind,
+        stats_numbers=[float(value) for value in event.values] or None,
+        stats_numbers_b=[float(number) for code in event.cards for number in code] or None,
         operation="solve",
     )
 
@@ -87,35 +91,40 @@ def _dice_pairs(target: int) -> str:
     return ", ".join(pairs)
 
 
-def _event_rows(outcome: str, favourable: int, total: int) -> list[str]:
+def _event_rows(intent: MathIntent, favourable: int, total: int) -> list[str]:
     """The favourable outcomes, counted: the pairs for each sum, the faces, or the cards."""
-    negated, _, named = outcome.rpartition("|")
+    negated, _, kind = (intent.trial_outcome or "").rpartition("|")
+    values = [int(value) for value in intent.stats_numbers or []]
     count = total - favourable if negated else favourable
     rows: list[str] = []
-    if named.startswith("sum:"):
-        targets = [int(target) for target in named.split(":", 1)[1].split(",")]
-        if len(targets) == 1:
-            rows.append(
-                math_line(
-                    rf"\text{{{_dice_pairs(targets[0])}}}",
-                    f"the {count} ways two dice make {targets[0]}, of 36",
-                )
+    if kind == "sum" and len(values) == 1:
+        rows.append(
+            math_line(
+                rf"\text{{{_dice_pairs(values[0])}}}",
+                f"the {count} ways two dice make {values[0]}, of 36",
             )
-        else:
-            rows.extend(
-                math_line(
-                    rf"\text{{{_dice_pairs(target)}}}",
-                    f"the {6 - abs(target - 7)} ways to make {target}",
-                )
-                for target in targets
+        )
+    elif kind == "sum":
+        rows.extend(
+            math_line(
+                rf"\text{{{_dice_pairs(value)}}}", f"the {6 - abs(value - 7)} ways to make {value}"
             )
-            listed = ", ".join(str(target) for target in targets[:-1]) + f" or {targets[-1]}"
-            rows.append(math_line(rf"{count} \text{{ of 36}}", f"rolls that make {listed}"))
-    elif named == "doubles":
+            for value in values
+        )
+        listed = ", ".join(str(value) for value in values[:-1]) + f" or {values[-1]}"
+        rows.append(math_line(rf"{count} \text{{ of 36}}", f"rolls that make {listed}"))
+    elif kind == "doubles":
         rows.append(math_line(r"\text{(1, 1), (2, 2), ..., (6, 6)}", "6 doubles of 36"))
-    elif total == 6:
-        rows.append(math_line(rf"\text{{{named}}}", f"{favourable} of the 6 faces"))
+    elif kind == "faces":
+        shown = ", ".join(str(value) for value in values)
+        rows.append(math_line(rf"\text{{{shown}}}", f"{favourable} of the 6 faces"))
     else:
+        numbers = [int(number) for number in intent.stats_numbers_b or []]
+        codes = [
+            (numbers[index], numbers[index + 1], numbers[index + 2])
+            for index in range(0, len(numbers), 3)
+        ]
+        named = " or ".join(card_label(code) for code in codes)
         rows.append(math_line(rf"{count} \text{{ {named}}}", "in a deck of 52"))
     if negated:
         rows.append(math_line(rf"{total} - {count} = {favourable}", "every outcome but those"))
@@ -128,7 +137,7 @@ def single_draw_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock
         return None
     probability = Fraction(favourable, total)
     answer = probability_answer(probability)
-    rows = _event_rows(intent.trial_outcome or "", favourable, total)
+    rows = _event_rows(intent, favourable, total)
     # The simplified value is the answer's, on its own line.
     rows.append(math_line(rf"P = \frac{{{favourable}}}{{{total}}}", "favourable over all outcomes"))
     lines.append(f"P = {favourable}/{total} = {probability}")
