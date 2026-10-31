@@ -63,6 +63,21 @@ def num(value: float) -> str:
     return format_number(value)
 
 
+def mean(value: float) -> str:
+    """A weighted mean of the givens (an average atomic mass), as ``sig_figs`` sets it.
+
+    Its figures, but never more decimal places than ``decimals``; with neither, the mean of
+    exact values, written without padding zeros (10.8).
+    """
+    written = sig_figs.current()
+    if written is None or written.figures is None:
+        return format_number(value)
+    text = format_number(value, significant=written.figures, keep_zeros=True)
+    if written.decimals is not None and sig_figs.decimals_of(text) > written.decimals:
+        return fixed(value, written.decimals)
+    return text
+
+
 def table_num(value: float) -> str:
     """A value from the element table alone, such as a formula's percent composition.
 
