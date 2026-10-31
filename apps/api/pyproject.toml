@@ -149,6 +149,8 @@ module = [
     "app.gateways.*",
     "app.modules.memory",
     "app.modules.memory.*",
+    "app.modules.chat",
+    "app.modules.chat.*",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

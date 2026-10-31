@@ -12,7 +12,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import User
-from app.modules.chat import related_prompts
+from app.modules.chat import related_prompts, related_questions
 from app.modules.chat.follow_up_thread import subject_for_related, thread_problem
 from app.modules.chat.related_prompts import (
     RelatedQuestions,
@@ -209,7 +209,7 @@ async def test_a_line_the_turn_did_not_read_as_asked_is_read_in_the_pool(
     as written. A multi-line question's topic was read on the event loop (18 ms for a
     4,000-character problem): it is read in the pool, with its questions."""
     asked: list[str] = []
-    real = related_prompts.follow_up_topic
+    real = related_questions.follow_up_topic
 
     def recording(*args: Any, **kwargs: Any) -> Any:
         asked.append(str(args[0]))

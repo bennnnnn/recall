@@ -44,7 +44,8 @@ _MAX_CHARS = 6_000
 _MAX_DEPTH = 20
 
 
-class _Loader(yaml.SafeLoader):
+# PyYAML ships no type stubs here, so its SafeLoader reads as Any to mypy.
+class _Loader(yaml.SafeLoader):  # type: ignore[misc]
     """YAML whose plain words stay words: a chart's labels are names ("No", "2024-01",
     "1:30"), never YAML 1.1's yes/no booleans, dates or base-60 numbers. No aliases:
     ``*a`` repeats a node by reference, and written out as JSON a few lines grew without
