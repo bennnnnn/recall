@@ -77,13 +77,14 @@ def _network_equivalent(values: list[float], *, series: bool) -> float | None:
 _WHOLE_RESISTANCE_ASK = re.compile(
     r"\b(?:total|equivalent|combined|effective|net|overall)\s+resistance"
     r"|\bresistance\s+of\s+the\s+(?:combination|circuit|network|arrangement|whole)"
-    r"|\bresistance\s*(?:[.?!]|$)"
+    r"|\bresistance\s*(?:[.?!]|$)|\b(?:the\s+)?(?:total|equivalent)\s*(?:[.?!,]|$)"
 )
 _WHOLE_CURRENT_ASK = re.compile(
     r"\btotal\s+current|\b(?:main|circuit|supply|line)\s+current"
     r"|\bcurrent\s+(?:drawn\s+|taken\s+)?(?:from|supplied\s+by|delivered\s+by|out\s+of"
     r"|in|through|round|around)\s+the\s+(?:battery|cell|supply|source|mains|circuit|network"
     r"|combination)\b|\bcurrent\s*(?:[.?!]|$)"
+    r"|\bcurrent\s+(?:flows|is\s+drawn|is\s+supplied|passes)\s*(?:[.?!]|$)"
 )
 # A meter's reading is a voltage across part of the circuit, not the supply's.
 _METER_READING = re.compile(r"\bvoltmeter|\breads?\b|\breading")
