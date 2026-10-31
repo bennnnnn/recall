@@ -1,0 +1,20 @@
+{
+  "core/jobs/worker.py": 1,
+  "gateways/safe_fetch.py": 1,
+  "gateways/signing_keys.py": 1,
+  "modules/attachments/content.py": 1,
+  "modules/attachments/ocr.py": 1,
+  "modules/chat/chart_loose.py": 1,
+  "modules/chat/turn_resources.py": 1,
+  "modules/chemistry/smiles.py": 1,
+  "modules/math/chart_formula.py": 2,
+  "modules/math/solve/number_size.py": 1,
+  "modules/math/tool.py": 1,
+  "modules/math/unit_conversion.py": 3,
+  "modules/money/fence.py": 1,
+  "modules/physics/solvers/si.py": 1,
+  "modules/physics/split_parts.py": 1,
+  "modules/physics/working_steps.py": 1,
+  "modules/todos/recurrence.py": 1,
+  "routers/health.py": 2
+}
