@@ -53,46 +53,48 @@ from app.modules.chat.prompt_constants import (
     VISUALIZATION_HINTS,
     WALKTHROUGH_HINT,
     WRITING_LINE_HINT,
-    ReplyLength,
     code_question_hint,
-    draft_followup,
     draft_followup_hint,
     is_bare_writing_line,
-    is_brevity_request,
-    is_callout_question,
-    is_capabilities_question,
-    is_chart_question,
-    is_checklist_request,
-    is_howto_question,
-    is_learning_plan_request,
-    is_personal_disclosure_turn,
-    is_practice_request,
-    is_quote_question,
-    is_short_confirmation,
-    is_standing_preference,
-    is_structured_comparison_question,
-    is_task_howto,
-    is_teaching_request,
-    is_walkthrough_request,
     learning_plan_daily_contract,
     mermaid_format_hint,
     programming_lesson_contract,
-    reply_length,
     writing_format_hint,
-    writing_request_kind,
 )
-from app.modules.chat.prompt_constants.chart import chart_followup_data, with_chart_followup
-from app.modules.chat.prompt_constants.clarify import names_its_purpose, ranking_layout
+from app.modules.chat.prompt_constants.chart import with_chart_followup
+from app.modules.chat.prompt_constants.clarify import ranking_layout
 from app.modules.chat.prompt_constants.conversation import CONFIRMED_HINT
-from app.modules.chat.prompt_constants.diagrams import asks_for_a_visual
 from app.modules.chat.prompt_constants.lesson_flow import lesson_turn_hint
 from app.modules.chat.prompt_constants.visuals import (
     IMAGE_GEN_HONESTY_HINT,
     IMAGE_GEN_UNAVAILABLE_HINT,
-    is_image_generation_mention,
 )
 from app.modules.chat.prompt_subjects import subject_closing_hints, subject_presentation_hints
 from app.modules.chat.turn_trace import note_prompt_rule
+from app.modules.turn_reading.capabilities import is_capabilities_question
+from app.modules.turn_reading.chart import chart_followup_data, is_chart_question
+from app.modules.turn_reading.checklist import is_checklist_request
+from app.modules.turn_reading.clarify import names_its_purpose
+from app.modules.turn_reading.diagrams import asks_for_a_visual
+from app.modules.turn_reading.format import (
+    is_callout_question,
+    is_howto_question,
+    is_quote_question,
+    is_structured_comparison_question,
+    is_task_howto,
+)
+from app.modules.turn_reading.length import ReplyLength, is_brevity_request, reply_length
+from app.modules.turn_reading.practice import is_practice_request
+from app.modules.turn_reading.routing import is_personal_disclosure_turn, is_short_confirmation
+from app.modules.turn_reading.teaching import (
+    is_learning_plan_request,
+    is_standing_preference,
+    is_teaching_request,
+    is_walkthrough_request,
+)
+from app.modules.turn_reading.visuals import is_image_generation_mention
+from app.modules.turn_reading.writing import draft_followup
+from app.modules.turn_reading.writing_kind import writing_request_kind
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
 from app.services.subject_solving import detect_subject
 

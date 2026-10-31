@@ -13,16 +13,18 @@ from typing import TYPE_CHECKING
 
 from app.core.config import Settings
 from app.modules import memory as memory_service
-from app.modules.chat.prompt_constants import (
-    is_broad_self_question,
-    is_career_personal_question,
-    is_profile_fact_question,
-    is_profile_recall_pushback,
-    is_programming_turn,
-    recalls_earlier_conversation,
-)
 from app.modules.memory.switch import memory_switch_on
 from app.modules.todos import query_implies_todos
+from app.modules.turn_reading.coding import is_programming_turn
+from app.modules.turn_reading.profile_ask import (
+    is_profile_fact_question,
+    is_profile_recall_pushback,
+)
+from app.modules.turn_reading.routing import (
+    is_broad_self_question,
+    is_career_personal_question,
+    recalls_earlier_conversation,
+)
 from app.services.subject_solving import detect_subject
 
 if TYPE_CHECKING:

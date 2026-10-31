@@ -7,11 +7,11 @@ import pytest
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
 from app.models.orm import Memory
-from app.modules.chat.prompt_constants import writing_request_kind
 from app.modules.memory import llm as memory_llm
 from app.modules.memory.schemas import MemoryFactUpdateResult
 from app.modules.memory.selection import select_memories_semantic
 from app.modules.memory.text import is_memory_candidate
+from app.modules.turn_reading.writing_kind import writing_request_kind
 from app.tests.modules.memory.scoring import scored
 
 CURRENT_EMPLOYER_QUERIES = [

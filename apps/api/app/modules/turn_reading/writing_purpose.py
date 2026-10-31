@@ -6,11 +6,8 @@
 
 import re
 
-from app.modules.chat.prompt_constants.writing_kind import PASTED_TEXT, writing_request_kind
-from app.modules.chat.prompt_constants.writing_locales import (
-    is_bare_locale_draft,
-    locale_draft_kind,
-)
+from app.modules.turn_reading.writing_kind import PASTED_TEXT, writing_request_kind
+from app.modules.turn_reading.writing_locales import is_bare_locale_draft, locale_draft_kind
 from app.services.text_normalize import collapse_ws
 
 _WRITING_PURPOSE_MARKERS = (

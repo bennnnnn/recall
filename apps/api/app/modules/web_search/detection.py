@@ -6,16 +6,16 @@ import itertools
 import re
 
 from app.core.config import Settings
-from app.modules.chat import (
-    chart_of_public_facts,
-    has_code_syntax,
-    has_locale_cue,
+from app.modules.turn_reading.chart import chart_of_public_facts
+from app.modules.turn_reading.coding import has_code_syntax
+from app.modules.turn_reading.locale_cues import has_locale_cue
+from app.modules.turn_reading.routing import (
     is_lightweight_chat_turn,
     is_personal_disclosure_turn,
     is_short_confirmation,
-    is_standing_preference,
     prior_looks_like_offer,
 )
+from app.modules.turn_reading.teaching import is_standing_preference
 from app.modules.web_search.asks_nothing import asks_nothing_to_look_up
 from app.modules.web_search.capability_ask import asks_whether_it_searches
 from app.modules.web_search.chat_bound import answers_a_check, works_from_the_chat

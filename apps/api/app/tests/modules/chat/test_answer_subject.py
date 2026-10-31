@@ -9,11 +9,9 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.chat.prompt_constants.answer_subject import (
-    asked_about_subject,
-    subject_photo_hint,
-)
+from app.modules.chat.prompt_constants.answer_subject import subject_photo_hint
 from app.modules.chat.prompt_format import _style_format_hints
+from app.modules.turn_reading.answer_subject import asked_about_subject
 
 
 @pytest.mark.parametrize(

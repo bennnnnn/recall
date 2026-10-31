@@ -13,9 +13,9 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from app.modules.chat.prompt_constants.routing import EMOJI
-from app.modules.chat.prompt_constants.writing import draft_followup
-from app.modules.chat.prompt_constants.writing_kind import writing_request_kind
+from app.modules.turn_reading.routing import EMOJI
+from app.modules.turn_reading.writing import draft_followup
+from app.modules.turn_reading.writing_kind import writing_request_kind
 from app.services.md_fence_scan import last_fence
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 

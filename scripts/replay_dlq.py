@@ -21,9 +21,9 @@ import sys
 # Ensure the api package is importable when run from the repo root.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "apps", "api"))
 
-from app.core.config import Settings  # noqa: E402
-from app.core import jobs  # noqa: E402
-from app.core.redis import get_redis_client  # noqa: E402
+from app.core import jobs
+from app.core.config import Settings
+from app.core.redis import get_redis_client
 
 
 async def main() -> int:

@@ -10,15 +10,10 @@ from app.modules.chat.continuation_subject import (
     is_resume_request,
     works_on_last_reply,
 )
-from app.modules.chat.prompt_constants import (
-    greeting_run,
-    is_correction,
-    is_lightweight_chat_turn,
-    is_social_opener,
-    repeated_greeting_hint,
-    reply_length,
-)
-from app.modules.chat.prompt_constants.length import is_detail_request
+from app.modules.chat.prompt_constants import repeated_greeting_hint
+from app.modules.turn_reading.conversation import greeting_run, is_correction, is_social_opener
+from app.modules.turn_reading.length import is_detail_request, reply_length
+from app.modules.turn_reading.routing import is_lightweight_chat_turn
 
 
 @pytest.mark.parametrize(

@@ -103,6 +103,7 @@ select = ["E", "F", "I", "UP", "RUF", "B", "ASYNC", "S"]
 "app/gateways/storage_gateway.py" = ["S105", "S108"]
 "app/models/orm/**" = ["E501"]
 "app/modules/chat/**" = ["E501"]
+"app/modules/turn_reading/**" = ["E501"]
 "app/modules/chat/*_api.py" = ["B008", "E501"]
 "app/modules/notifications/push.py" = ["RUF001", "RUF002", "RUF003"]
 "app/modules/notifications/email_copy.py" = ["RUF001", "RUF002", "RUF003"]
@@ -153,6 +154,8 @@ module = [
     "app.modules.chat.*",
     "app.modules.conversation",
     "app.modules.conversation.*",
+    "app.modules.turn_reading",
+    "app.modules.turn_reading.*",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

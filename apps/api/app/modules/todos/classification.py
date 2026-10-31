@@ -62,7 +62,7 @@ def query_implies_todos(query_text: str | None) -> bool:
         return False
     if _TODO_QUERY_FIXED.search(text):
         return True
-    from app.modules.chat import has_locale_cue
+    from app.modules.turn_reading.locale_cues import has_locale_cue
 
     if has_locale_cue(text, "todos"):
         return True

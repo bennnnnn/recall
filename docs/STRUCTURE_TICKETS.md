@@ -186,6 +186,24 @@ baseline did not move: its cycles are file-level ones inside the subjects and ch
 
 ### ST-04 — `turn_reading`: the text cues out of chat's prompt constants
 
+**Status: done.** `modules/turn_reading/` holds the readers from 25 `prompt_constants` files: seven
+moved whole (`locale_cues`, `stuck`, `profile_ask`, `question_kinds`, `writing_kind`,
+`writing_locales`, `writing_purpose`) and 18 split, the readers out and the copy kept
+(`routing`, `coding`, `chart`, `teaching`, `visuals`, `lesson_flow`, `school_question`, …).
+It imports only services, so the direction test places it with the leaves (`_LAYER_OF`) and
+a subject may ask it. `chart_names_no_curve` takes maths' reader as an argument (the
+dispatcher passes it) instead of importing maths, and the chemistry fence hint moved to
+`chemistry/reply_policy.py`, beside chemistry's other prompt hints. Chat no longer exports
+any reader. Four upward edges left `_UPWARD`: maths, to-dos, web search and the subject
+dispatcher import no chat. The decision diff over 5,048 corpus turns printed "no decision
+changed". The #2151 cycle baseline did not move: its 50-module cycle lies wholly inside
+maths and has no chat edge.
+
+Left in `prompt_constants`: `shared_numbers.py` (its hint reads the same private regexes as
+its reader; split it with the copy-selection work) and `reactions.clock_is_relevant` (a
+prompt decision that reads `reply_meta`). Still upward: account, images, physics and speech,
+for presentation and the post-turn jobs, not for reading.
+
 - **Problem:** subjects and other modules import chat to read the user's words:
   - `todos/offer_reply.py:56` and `web_search/chat_bound.py:28` take `is_short_confirmation`;
   - `math/followup.py:111` and `speech/live_talk_tools.py:20` take `is_lightweight_chat_turn`;

@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.chat import is_short_confirmation
+from app.modules.turn_reading.routing import is_short_confirmation
 from app.modules.web_search.patterns import has_recency
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 

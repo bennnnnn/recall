@@ -4,13 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.chat.prompt_constants import (
-    ANSWER_PHOTO_HINT,
-    WHERE_IS_PHOTO_HINT,
-    where_is_place,
-)
+from app.modules.chat.prompt_constants import ANSWER_PHOTO_HINT, WHERE_IS_PHOTO_HINT
 from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.chat.prompt_window import strip_prompt_owned_fences
+from app.modules.turn_reading.visuals import where_is_place
 
 
 @pytest.mark.parametrize(

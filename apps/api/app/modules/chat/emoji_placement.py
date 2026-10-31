@@ -29,10 +29,10 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from app.modules.chat.markdown_regions import map_prose_outside_fences
-from app.modules.chat.prompt_constants.routing import EMOJI
-from app.modules.chat.prompt_constants.school_question import in_textbook_form
 from app.modules.chat.response_tone import DEFAULT_EMOJI_USE
 from app.modules.chat.turn_prep.intents import plan_turn
+from app.modules.turn_reading.routing import EMOJI
+from app.modules.turn_reading.school_question import in_textbook_form
 from app.services.md_fence_scan import line_fences
 
 if TYPE_CHECKING:

@@ -6,21 +6,23 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.modules.chat.clarify_turn import follows_card
-from app.modules.chat.prompt_constants import (
-    draft_followup,
+from app.modules.memory import is_food_or_diet_query
+from app.modules.turn_reading.capabilities import is_capabilities_question
+from app.modules.turn_reading.profile_ask import (
+    is_profile_fact_question,
+    is_profile_recall_pushback,
+    profile_question_to_answer,
+)
+from app.modules.turn_reading.routing import (
     is_broad_self_question,
-    is_capabilities_question,
     is_career_personal_question,
     is_lightweight_chat_turn,
     is_personal_advice_question,
-    is_profile_fact_question,
-    is_profile_recall_pushback,
     is_short_reply,
-    is_teaching_request,
     needs_rich_context,
-    profile_question_to_answer,
 )
-from app.modules.memory import is_food_or_diet_query
+from app.modules.turn_reading.teaching import is_teaching_request
+from app.modules.turn_reading.writing import draft_followup
 from app.services import day_planning as day_planning_service
 from app.services.subject_solving import detect_subject
 from app.services.text_normalize import collapse_ws

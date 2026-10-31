@@ -24,7 +24,6 @@ from app.core.config import Settings
 from app.exceptions import RedisUnavailableError
 from app.models.orm import Message, User
 from app.modules.chat.context_window import compute_history_split, should_run_compression
-from app.modules.chat.prompt_constants.lesson_flow import lesson_step
 from app.modules.chat.titles import title_job_key
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.memory import (
@@ -32,6 +31,7 @@ from app.modules.memory import (
     memory_extraction_due,
 )
 from app.modules.memory.switch import memory_switch_on
+from app.modules.turn_reading.lesson_flow import lesson_step
 from app.services import quota as quota_service
 from app.services.text_normalize import cap_text_head_tail
 

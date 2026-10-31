@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.chat.prompt_constants.profile_ask import is_profile_fact_question
+from app.modules.turn_reading.profile_ask import is_profile_fact_question
 
 
 @pytest.mark.parametrize(

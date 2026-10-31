@@ -159,12 +159,12 @@ def _leading_followup_verb(lowered: str) -> bool:
 def _looks_like_smart_continuation(content: str) -> bool:
     """True when this line continues the prior hard turn, not a new topic."""
     from app.modules.chat.continuation_subject import is_pure_continuation
-    from app.modules.chat.prompt_constants.routing import (
+    from app.modules.turn_reading.routing import (
         is_lightweight_chat_turn,
         is_personal_advice_question,
         is_short_confirmation,
     )
-    from app.modules.chat.prompt_constants.writing_kind import is_writing_deliverable_request
+    from app.modules.turn_reading.writing_kind import is_writing_deliverable_request
     from app.services.day_planning import is_day_planning_question
     from app.services.text_normalize import collapse_ws
 
@@ -236,10 +236,7 @@ def _routed_line(content: str, settings: Settings | None = None) -> tuple[str, s
     # live QA at a fraction of the TTFT, so keep this classifier shared with the
     # prompt layer and use the fast lane. Hard coding/math still reaches the
     # smart checks below when it is not an explicit tutor/roadmap request.
-    from app.modules.chat.prompt_constants.teaching import (
-        is_learning_plan_request,
-        is_teaching_request,
-    )
+    from app.modules.turn_reading.teaching import is_learning_plan_request, is_teaching_request
 
     if is_learning_plan_request(content) or is_teaching_request(content):
         return fast, "teaching"
@@ -253,7 +250,7 @@ def _routed_line(content: str, settings: Settings | None = None) -> tuple[str, s
         return fast, "table_layout"
     if any(trigger in text for trigger in SMART_TRIGGERS):
         return smart, "smart_trigger"
-    from app.modules.chat.prompt_constants.writing_kind import is_writing_deliverable_request
+    from app.modules.turn_reading.writing_kind import is_writing_deliverable_request
 
     # A tweet or an email about a migration is writing, not the migration.
     if needs_strong_model(content) and not is_writing_deliverable_request(content):
@@ -265,7 +262,7 @@ def _routed_line(content: str, settings: Settings | None = None) -> tuple[str, s
     # lane's algebra, and a curve's maximum is maths' though it cues physics.
     chemistry_enabled = settings is None or settings.chemistry_enabled
     subject = detect_subject(content, chemistry_enabled=chemistry_enabled)
-    from app.modules.chat.prompt_constants.school_question import needs_reasoned_choice
+    from app.modules.turn_reading.school_question import needs_reasoned_choice
 
     # An exercise's option or verdict, reasoned before it is written (school_question);
     # a maths one keeps the maths lane below.

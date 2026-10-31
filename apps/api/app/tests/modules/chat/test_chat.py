@@ -7,13 +7,6 @@ import pytest
 from app.core.config import Settings
 from app.modules.chat.context_window import estimate_tokens
 from app.modules.chat.prompt_builder import PromptStats, build_prompt_messages
-from app.modules.chat.prompt_constants import (
-    is_broad_self_question,
-    is_lightweight_chat_turn,
-    is_personal_advice_question,
-    is_writing_deliverable_request,
-    needs_rich_context,
-)
 from app.modules.chat.prompt_constants.capabilities import CAPABILITIES_FORMAT_HINT
 from app.modules.chat.prompt_constants.chart import CHART_FORMAT_HINT
 from app.modules.chat.prompt_constants.diagrams import MERMAID_FORMAT_HINT
@@ -29,7 +22,6 @@ from app.modules.chat.prompt_constants.privacy import (
     PRIVACY_HINT,
 )
 from app.modules.chat.prompt_constants.routing import LIGHTWEIGHT_REPLY_HINT
-from app.modules.chat.prompt_constants.visuals import CHEMISTRY_FENCE_HINT
 from app.modules.chat.prompt_constants.writing import EMAIL_DRAFT_HINT
 from app.modules.chat.prompt_profile import (
     format_user_name_only_block,
@@ -37,7 +29,15 @@ from app.modules.chat.prompt_profile import (
     should_include_profile_email,
 )
 from app.modules.chat.turn_prep import resolve_client_geo
+from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 from app.modules.conversation import chats_repository, messages_repository
+from app.modules.turn_reading.routing import (
+    is_broad_self_question,
+    is_lightweight_chat_turn,
+    is_personal_advice_question,
+    needs_rich_context,
+)
+from app.modules.turn_reading.writing_kind import is_writing_deliverable_request
 from app.services.locale import locale_system_hint
 from app.tests.fakes import FakeSessionCM, make_user
 from app.tests.modules.chat.chat_test_support import system_prompt
@@ -284,7 +284,7 @@ async def test_build_prompt_includes_mermaid_layout_hint():
     ],
 )
 def test_is_comparison_question(text, expected):
-    from app.modules.chat.prompt_constants import is_comparison_question
+    from app.modules.turn_reading.format import is_comparison_question
 
     assert is_comparison_question(text) is expected
 
@@ -325,7 +325,7 @@ def test_is_comparison_question(text, expected):
     ],
 )
 def test_is_chart_question(text, expected):
-    from app.modules.chat.prompt_constants import is_chart_question
+    from app.modules.turn_reading.chart import is_chart_question
 
     assert is_chart_question(text) is expected
 
@@ -349,7 +349,7 @@ def test_is_chart_question(text, expected):
     ],
 )
 def test_is_mermaid_question(text, expected):
-    from app.modules.chat.prompt_constants import is_mermaid_question
+    from app.modules.turn_reading.diagrams import is_mermaid_question
 
     assert is_mermaid_question(text) is expected
 
@@ -374,7 +374,7 @@ def test_is_mermaid_question(text, expected):
     ],
 )
 def test_is_callout_question(text, expected):
-    from app.modules.chat.prompt_constants import is_callout_question
+    from app.modules.turn_reading.format import is_callout_question
 
     assert is_callout_question(text) is expected
 
@@ -399,7 +399,7 @@ def test_is_callout_question(text, expected):
     ],
 )
 def test_is_howto_question(text, expected):
-    from app.modules.chat.prompt_constants import is_howto_question
+    from app.modules.turn_reading.format import is_howto_question
 
     assert is_howto_question(text) is expected
 
@@ -491,7 +491,7 @@ def test_format_contract_is_markdown_not_ui_fences():
     assert "Do not emit ```molecule3d" in CHEMISTRY_FENCE_HINT
     assert "```smiles" not in MATH_SOLVER_HINT
 
-    from app.modules.chat.prompt_constants import attach_chemistry_fence_hint
+    from app.modules.chemistry.reply_policy import attach_chemistry_fence_hint
 
     pubchem = "[Chemistry context]\nCanonical SMILES: CCO"
     assert attach_chemistry_fence_hint(pubchem).startswith(CHEMISTRY_FENCE_HINT)
@@ -970,10 +970,7 @@ def test_is_lightweight_chat_turn(text, expected):
 
 
 def test_short_confirmation_after_offer_is_not_lightweight():
-    from app.modules.chat.prompt_constants import (
-        is_short_confirmation,
-        prior_looks_like_offer,
-    )
+    from app.modules.turn_reading.routing import is_short_confirmation, prior_looks_like_offer
 
     offer = "Want me to check the current result?"
     assert is_short_confirmation("yes")
@@ -997,7 +994,7 @@ def test_short_confirmation_after_offer_is_not_lightweight():
 
 @pytest.mark.parametrize("reply", ["No", "nope", "got it", "Understood.", "makes sense", "ok"])
 def test_short_answer_to_a_tutor_question_is_not_a_greeting(reply):
-    from app.modules.chat.prompt_constants import is_short_reply
+    from app.modules.turn_reading.routing import is_short_reply
 
     question = "This proverb means it's good to do something, even if there's a delay. Understood?"
     assert is_short_reply(reply)
@@ -1008,7 +1005,7 @@ def test_short_answer_to_a_tutor_question_is_not_a_greeting(reply):
 
 @pytest.mark.parametrize("text", ["hi", "Thanks!", "bye", "lol", "What is a proverb?", ""])
 def test_social_turns_are_not_short_replies(text):
-    from app.modules.chat.prompt_constants import is_short_reply
+    from app.modules.turn_reading.routing import is_short_reply
 
     assert not is_short_reply(text)
 
@@ -2067,7 +2064,7 @@ async def test_a_turn_that_may_need_the_clock_keeps_it(text: str, lightweight: b
     ],
 )
 def test_is_reaction_turn(text: str | None, reaction: bool) -> None:
-    from app.modules.chat.prompt_constants.reactions import is_reaction_turn
+    from app.modules.turn_reading.reactions import is_reaction_turn
 
     assert is_reaction_turn(text) is reaction
 
