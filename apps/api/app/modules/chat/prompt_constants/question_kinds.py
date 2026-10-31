@@ -93,7 +93,7 @@ CODE_TALK = re.compile(
     r"|\b(?i:error|exception|code|javascript|typescript|python|java|sql|api|bug|compile\w*"
     r"|emails?|tweets?|nginx|ssh|servers?|deploy\w*|database|repo|git|github|docker"
     r"|kubernetes|linux|regex|css|html|npm|frontend|backend|postgres\w*|mysql|mongo\w*|redis"
-    r"|cpu|replica|aws|font|logo)\b|\b(?:Rust|Golang|Kotlin)\b"
+    r"|cpu|replica|aws|font|logo|excel|spreadsheets?|vlookup|xlookup)\b|\b(?:Rust|Golang|Kotlin)\b"
     r"|\bprint\(|\w\(\)"
 )
 # Health advice for someone, which changes with the person and the research.

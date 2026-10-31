@@ -245,6 +245,10 @@ def test_anyones_own_matter_is_no_exercise(query: str) -> None:
         "A ball is thrown vertically upwards with a velocity of 49 m/s. Calculate the maximum "
         "height.",
         "A car accelerates from rest to 72 km/h in 5 minutes. Find the acceleration.",
+        # NCERT Class 10 (2026-10-30): got a photo above its equations.
+        "Write one equation each for decomposition reactions where energy is supplied in the "
+        "form of heat, light or electricity.",
+        "Write a balanced chemical equation for the reaction of zinc with dilute sulphuric acid.",
     ],
 )
 def test_more_textbook_shapes_are_exercises(query: str) -> None:
@@ -359,6 +363,7 @@ def test_a_books_science_words_and_hypotheticals_get_a_note(query: str) -> None:
         "Why is xValue undefined after the loop?",
         "What is a uFunc in numpy?",
         "How do I update iOS on my phone?",
+        "Write a formula in Excel to sum column B.",
     ],
 )
 def test_code_news_and_ones_own_still_get_no_note(query: str) -> None:

@@ -67,6 +67,8 @@ _OPENING = re.compile(
     r"|calculate|determine|estimate|predict|give\s+reasons?\s+(?:why|for\s+the)"
     r"|complete\s+the\s+(?:table|following)|verify\s+(?:whether|that|the)"
     r"|write\s+(?:down\s+)?the\s+(?:formulae?|chemical|balanced|electronic|symbols?|correct)"
+    # "Write one equation each for…", "Write a balanced equation for…".
+    r"|write\s+(?:down\s+)?(?:an?|one|two|three)\s+(?:\w+\s+){0,2}(?:equations?|formulae?)"
     r"|write\s+a\s+short\s+note\s+on|give\s+an\s+account\s+of|mention\s+(?:two|three|any|the)"
     r"|what\s+is\s+meant\s+by|(?:change|correct|rewrite|punctuate)\s+the\s+following"
     r"|use\s+the\s+following\s+words|name\s+the\s+following|give\s+reasons?(?=\s*:)|outline\s+the"
