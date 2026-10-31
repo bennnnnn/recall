@@ -166,4 +166,24 @@ async def llm_extract_math_intent(text: str, settings: Settings) -> MathIntent |
         return None
     if parsed is None:
         return None
-    return to_math_intent(parsed)
+    return complex_reading(to_math_intent(parsed), cleaned)
+
+
+def complex_reading(intent: MathIntent | None, text: str) -> MathIntent | None:
+    """A simplification about complex numbers is complex arithmetic.
+
+    The schema has no complex kind, so "Simplify and write in the form a + bi:
+    i^320 - 5i^121 + 3i^45" came back a simplification in the letter i, and its card
+    was ``i^45(i^275 - 5i^76 + 3)``; read with i the imaginary unit it is 1 - 2i."""
+    from app.modules.math.tools.school.complex import imaginary_unit_meant
+
+    if (
+        intent is None
+        or intent.kind != "calculus"
+        or intent.operation not in {"simplify", "expand"}
+        or not imaginary_unit_meant(text, intent.expr or "")
+    ):
+        return intent
+    # "Expand (x + 3i)²" stays an expansion, in complex numbers.
+    operation = "expand" if intent.operation == "expand" else "eval"
+    return MathIntent(kind="complex", school_op=operation, expr=intent.expr, operation="solve")

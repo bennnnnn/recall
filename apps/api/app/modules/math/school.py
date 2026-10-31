@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+import re
 from fractions import Fraction
 from math import gcd
 from typing import Any
@@ -69,7 +70,10 @@ def evaluate_arithmetic(expr: str) -> str:
         raise SolveServiceError("not a numeric arithmetic expression")
     if parsed.free_symbols:
         raise SolveServiceError("arithmetic expression still has variables")
-    return _defined_value_latex(simplify(parsed))
+    from app.modules.math.solve.real_reading import real_odd_roots
+
+    # ∛(-27) is -3, as everywhere in school algebra; SymPy's principal root is complex.
+    return _defined_value_latex(simplify(real_odd_roots(parsed)))
 
 
 def percent_of(rate: float, base: float) -> str:
@@ -356,12 +360,17 @@ def expected_value(values: list[float], probs: list[float] | None) -> str:
     return f"{sum(v * p for v, p in zip(values, probs, strict=True)):g}"
 
 
+_LETTER_TIMES_I = re.compile(r"(?<![A-Za-z_\\])([a-hk-oq-z])i(?![A-Za-z_0-9(])")
+
+
 def _imaginary_unit_to_sympy(expr: str) -> str:
     """Map standalone ``i``/``j`` to SymPy ``I`` without rewriting ``sin``/``pi``.
 
     A naive ``str.replace("i", "I")`` turns ``sin`` into ``sIn`` and ``pi``
     into ``pI``. Only replace when the letter is not inside an identifier.
     """
+    # ``a + bi``: one letter written against i is a product with it (never ``pi``).
+    expr = _LETTER_TIMES_I.sub(r"\1*i", expr)
     out: list[str] = []
     n = len(expr)
     for idx, ch in enumerate(expr):
@@ -375,12 +384,23 @@ def _imaginary_unit_to_sympy(expr: str) -> str:
     return "".join(out)
 
 
-def evaluate_complex(expr: str) -> str:
-    parsed = parse_expression(_imaginary_unit_to_sympy(expr), ["x"])
-    value = simplify(parsed)
+def evaluate_complex(expr: str, *, expanded: bool = False) -> str:
+    """The value, odd roots read as real roots like everywhere else (∛(-8) = -2)."""
+    from app.modules.math.solve.complex_form import a_plus_bi
+    from app.modules.math.solve.real_reading import real_odd_roots
+
+    parsed = real_odd_roots(parse_expression(_imaginary_unit_to_sympy(expr), ["x"]))
+    value = expand(parsed) if expanded else simplify(parsed)
     if not getattr(value, "free_symbols", None) and _defined_value_latex(value) == UNDEFINED_LATEX:
         return UNDEFINED_LATEX
-    return str(latex(value))
+    return a_plus_bi(value) or str(latex(value))
+
+
+def restates_complex(expr: str, answer: str) -> bool:
+    """The complex answer is the question as typed, so it certifies nothing."""
+    from app.modules.math.solve.complex_form import restates
+
+    return restates(_imaginary_unit_to_sympy(expr), answer)
 
 
 def taylor_series(

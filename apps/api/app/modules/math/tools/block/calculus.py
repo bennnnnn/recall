@@ -12,6 +12,7 @@ from app.modules.math.schemas import MathExprResult, MathIntent
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.derivative_steps import derivative_trace
 from app.modules.math.solve.key_steps import KeyStep, written_side
+from app.modules.math.solve.real_reading import real_zeros
 from app.modules.math.tools.block.calculus_applications import (
     _CALCULUS_APPLICATION_OPS,
     _verified_calculus_application,
@@ -106,8 +107,12 @@ def _simplify(
     out = math_solve.simplify_expression(expr, intent.variable)
     if not out.solved:
         return _no_closed_form(out, lines)
-    block = _finish_operation(out, lines, out.latex)
-    return replace(block, direct_reply=_simplification_direct_reply(intent, out.latex))
+    reply = _simplification_direct_reply(intent, out.latex)
+    if reply is None:
+        # A value the simplification cancelled may be one the question excludes, and
+        # which it is cannot be worked out: certify nothing.
+        return _no_closed_form(out, lines)
+    return replace(_finish_operation(out, lines, out.latex), direct_reply=reply)
 
 
 def _factor(
@@ -194,14 +199,45 @@ _CALCULUS_OPERATIONS: dict[str, _Operation] = {
 }
 
 
-def _simplification_direct_reply(intent: MathIntent, answer: str) -> str:
-    """Render a verified simplification and preserve the original domain."""
-    from sympy import Eq, Symbol, latex, preorder_traversal, solve
+def _readable_zeros(
+    denominator: Any, symbol: Any, zeros: list[Any]
+) -> list[tuple[Any, list[Any] | None]]:
+    """The zeros by factor; None for a factor whose real roots print only as CRootOf or
+    complex radicals, so ``(x - 1)(x⁵ - x + 1)`` excludes 1 and states x⁵ - x + 1 ≠ 0."""
+    from sympy import CRootOf, I, factor_list
+
+    def readable(values: list[Any]) -> bool:
+        return not any(value.has(CRootOf, I) for value in values)
+
+    if readable(zeros):
+        return [(denominator, zeros)]
+    whole = denominator.doit()
+    if not whole.is_polynomial(symbol):
+        return [(whole, None)]
+    found: list[tuple[Any, list[Any] | None]] = []
+    for part, _ in factor_list(whole, symbol)[1]:
+        part_zeros = real_zeros(part, symbol) or []
+        found.append((part, part_zeros if readable(part_zeros) else None))
+    return found
+
+
+def _number_first(value: Any) -> tuple[int, float, str]:
+    """Numbers in order (-3, 2, 10), then letters (``x \\ne y``)."""
+    if value.is_number and value.is_real:
+        return (0, float(value), "")
+    return (1, 0.0, str(value))
+
+
+def _simplification_direct_reply(intent: MathIntent, answer: str) -> str | None:
+    """Render a verified simplification and preserve the original domain; None when the
+    excluded values cannot be worked out."""
+    from sympy import Abs, Symbol, latex, preorder_traversal
+
+    from app.modules.math.solve.real_reading import real_zeros
 
     names = math_solve.guess_variables(intent.expr or "") or [intent.variable]
     original = math_solve.parse_expression(intent.expr or "", names, evaluate=False)
     display_original = math_solve.parse_expression(intent.expr or "", names)
-    parsed = math_solve.parse_expression(intent.expr or "", names, real=True)
     restrictions: list[str] = []
     seen_symmetric: set[tuple[str, str]] = set()
     denominator_bases = [
@@ -218,10 +254,20 @@ def _simplification_direct_reply(intent: MathIntent, answer: str) -> str:
             if sym not in getattr(denominator, "free_symbols", set()):
                 continue
             with sympy_decline():  # one unsolved symbolic factor is non-fatal
-                for value in solve(Eq(denominator, 0), sym):
-                    if value not in excluded_values:
-                        excluded_values.append(value)
-        for value in sorted(excluded_values, key=str):
+                # Over the reals, as the card reads: x³ - 1 = 0 excludes 1 alone, and
+                # ∛x + 1 = 0 excludes -1.
+                zeros = real_zeros(denominator, sym)
+                if zeros is None:
+                    return None  # not established: nothing is certified
+                for part, part_zeros in _readable_zeros(denominator, sym, zeros):
+                    if part_zeros is None:
+                        # Real roots that print only as CRootOf or complex radicals: the
+                        # restriction is stated as the factor itself.
+                        stated = rf"{latex(part)} \ne 0"
+                        restrictions += [stated] if stated not in restrictions else []
+                        continue
+                    excluded_values += [v for v in part_zeros if v not in excluded_values]
+        for value in sorted(excluded_values, key=_number_first):
             if getattr(value, "is_Symbol", False):
                 first, second = sorted((str(sym), str(value)))
                 pair = (first, second)
@@ -235,7 +281,11 @@ def _simplification_direct_reply(intent: MathIntent, answer: str) -> str:
     steps = [math_line(f"{shown} = {answer}", "simplify")]
     if restrictions:
         steps.append(math_line(r",\; ".join(restrictions), "excluded by the original expression"))
-    elif "Abs(" in str(parsed):
+    elif r"\left|" in answer and any(
+        isinstance(node, Abs) or (node.is_Pow and node.exp.is_Rational and node.exp.q % 2 == 0)
+        for node in preorder_traversal(original.doit())
+    ):
+        # Only a square root or an absolute value the student wrote explains |x|.
         steps.append(
             text_line("a principal square root is never negative, so keep the absolute value")
         )
