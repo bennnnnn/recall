@@ -160,14 +160,12 @@ async def stream_chat_completion(
             # A recovering model that another turn is trying (model health's probe).
             logger.info("Chat stream %s passed over: another turn is trying it", alias)
             continue
-        # Buffer until the first non-whitespace token so whitespace-only
-        # "success" streams (common flaky provider quirk) still fall through
-        # to the next alias instead of locking in an empty reply.
+        # Buffer until the first non-whitespace token: a whitespace-only "success" stream
+        # (a flaky provider's quirk) falls through instead of locking in an empty reply.
         pending: list[str] = []
         started = False
-        # Discarded attempts must not add provider tokens onto the caller's
-        # daily quota. Tool-loop usage already lives on `usage`; only merge
-        # the attempt that actually produced content.
+        # Discarded attempts add no provider tokens to the caller's daily quota: only the
+        # attempt that produced content merges (tool-loop usage is already on `usage`).
         attempt_usage: dict[str, int] = {}
         attempt_calls: list[dict[str, Any]] = []
         cap = first_reply_cap(settings, alias, thinking, has_next=has_next, prompt=shape)
@@ -187,6 +185,7 @@ async def stream_chat_completion(
                 stream_meta=stream_meta,
                 thinking=thinking,
                 first_content_timeout_seconds=cap,
+                open_timeout_seconds=_open_wait(settings, has_next=has_next),
                 attempt=attempt,
                 on_thinking=on_thinking,
                 tools=tools,
@@ -220,11 +219,9 @@ async def stream_chat_completion(
                 merge_attempt_usage(usage, attempt_usage)
                 raise
             if has_next:
-                logger.warning(
-                    "Chat stream %s unavailable; retrying with fallback %s",
-                    alias,
-                    aliases[index + 1],
-                )
+                logger.warning("Chat stream %s unavailable; trying %s", alias, aliases[index + 1])
+                continue
+            if _try_again(aliases, exc, attempt, settings, stream_meta):
                 continue
             failed = exc.failed_alias or alias
             if stream_meta is not None:
@@ -233,6 +230,47 @@ async def stream_chat_completion(
 
     if last_error is not None:
         raise last_error
+
+
+# A reply the provider ended itself, at the length limit or a filter: the same request
+# ends the same way.
+_FINAL_FINISH_REASONS = frozenset({"length", "max_tokens", "content_filter"})
+# A retry gives a reply that never got going a second chance, not a second full reply.
+_NO_RETRY_CAUSES = frozenset({REQUEST_FAULT, "rate_limit"})
+
+
+def _try_again(
+    aliases: list[str],
+    exc: ModelUnavailableError,
+    attempt: StreamAttempt,
+    settings: Settings,
+    stream_meta: dict[str, str] | None,
+) -> bool:
+    """The last model failed before any text: it is tried once more (appended to
+    ``aliases``). A user who enabled one model has no backup, and one empty or stalled
+    stream left the reply empty ("That model isn't responding"). Not when the provider
+    refused or rate-limited the request, ended the reply itself, or the attempt already
+    took longer than a stream that never starts can (a retry would only double the wait)."""
+    alias = attempt.alias
+    if exc.cause in _NO_RETRY_CAUSES or (len(aliases) > 1 and aliases[-2] == alias):
+        return False
+    if stream_meta is not None and stream_meta.get("finish_reason") in _FINAL_FINISH_REASONS:
+        return False
+    stalled_start = _open_wait(settings, has_next=False) + settings.chat_stream_timeout_seconds
+    if (attempt.elapsed_ms or 0) > stalled_start * 1000:
+        return False
+    logger.warning("Chat stream %s answered nothing; trying it once more", alias)
+    aliases.append(alias)
+    return True
+
+
+def _open_wait(settings: Settings, *, has_next: bool) -> float:
+    """How long one attempt waits for its stream to open. The short connect timeout
+    is there so the next model can take over; the last model has no next, and a
+    slow opening is a slow reply, so it gets the idle timeout a stalled stream gets."""
+    if has_next:
+        return settings.chat_stream_connect_timeout_seconds
+    return max(settings.chat_stream_connect_timeout_seconds, settings.chat_stream_timeout_seconds)
 
 
 def _answered_nothing(alias: str, fallback: str | None) -> ModelUnavailableError:
@@ -335,6 +373,7 @@ async def _stream_chat_once(
     on_reasoning: Callable[[str], Awaitable[None]] | None = None,
     stream_meta: dict[str, str] | None = None,
     first_content_timeout_seconds: float | None = None,
+    open_timeout_seconds: float | None = None,
     thinking: bool | str | None = None,
     attempt: StreamAttempt | None = None,
     on_thinking: Callable[[], Awaitable[None]] | None = None,
@@ -343,7 +382,8 @@ async def _stream_chat_once(
 ) -> AsyncIterator[str]:
     """One model's stream. ``first_content_timeout_seconds`` caps the wait for its
     first text or reasoning (``stream_signals.first_reply_cap``); a tool call ends
-    it too."""
+    it too. ``open_timeout_seconds`` (default the connect timeout) bounds the open."""
+    open_seconds = open_timeout_seconds or settings.chat_stream_connect_timeout_seconds
     route = resolve_route(model_alias)
     kwargs, calls = _call_kwargs(settings, route, thinking, tools)
     stripper = ThinkStripper(lead_hold=STRAY_THINK_LEAD_HOLD if route.stray_think_guard else 0)
@@ -354,7 +394,7 @@ async def _stream_chat_once(
     response = None
     try:
         # A first-reply cap also bounds the wait for the stream to open.
-        async with asyncio.timeout(watch.bound(settings.chat_stream_connect_timeout_seconds)):
+        async with asyncio.timeout(watch.bound(open_seconds)):
             response = await acompletion(
                 model=route.model,
                 messages=with_cache_breakpoint(
@@ -420,14 +460,7 @@ async def _stream_chat_once(
             tool_calls.extend(calls.calls())
     except TimeoutError as exc:
         # Only the wait for the stream to open raises one here.
-        cap = watch.expired()
-        logger.warning(
-            "LiteLLM stream for alias=%s did not open: %s",
-            model_alias,
-            cap or f"connect {settings.chat_stream_connect_timeout_seconds}s",
-        )
-        cause = "cap" if cap is not None else "timeout"
-        raise ModelUnavailableError.for_alias(model_alias, cause=cause) from exc
+        raise _did_not_open(model_alias, watch.expired(), open_seconds) from exc
     except ModelUnavailableError:
         raise
     except Exception as exc:
@@ -450,6 +483,14 @@ async def _close_response(response: Any) -> None:
     else:
         with suppress(Exception):
             await close()
+
+
+def _did_not_open(model_alias: str, cap: str | None, open_seconds: float) -> ModelUnavailableError:
+    """The stream never opened: within the first-reply ``cap``, when one ran out."""
+    reason = cap or f"connect {open_seconds}s"
+    logger.warning("LiteLLM stream for alias=%s did not open: %s", model_alias, reason)
+    cause = "cap" if cap is not None else "timeout"
+    return ModelUnavailableError.for_alias(model_alias, cause=cause)
 
 
 def _gave_up(model_alias: str, ran_out: str, cause: str) -> ModelUnavailableError:
