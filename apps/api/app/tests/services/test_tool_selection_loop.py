@@ -4,7 +4,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat.tool_loop import calls, rounds
+from app.gateways import litellm_gateway
+from app.gateways.litellm_gateway import ModelUnavailableError
+from app.gateways.mcp import registry as mcp_registry
+from app.modules.chat.tool_loop import rounds
 from app.tests.tool_context import tool_context
 
 
@@ -13,7 +16,7 @@ from app.tests.tool_context import tool_context
 async def test_tool_selection_uses_own_budget_and_preserves_visible_cap(budget):
     settings = Settings(mcp_tool_loop_probe_max_tokens=budget, max_output_tokens=8192)
     complete = AsyncMock(return_value={"content": None, "tool_calls": [], "finish_reason": "stop"})
-    with patch.object(rounds.litellm_gateway, "complete_with_tools", complete):
+    with patch.object(litellm_gateway, "complete_with_tools", complete):
         await rounds._run_rounds(
             settings=settings,
             messages=[{"role": "user", "content": "Solve this"}],
@@ -48,8 +51,8 @@ async def test_truncated_complete_json_never_invokes_a_tool():
     messages = [{"role": "user", "content": "Create an event"}]
     invoke = AsyncMock()
     with (
-        patch.object(rounds.litellm_gateway, "acompletion", AsyncMock(return_value=response)),
-        patch.object(calls.mcp_registry, "invoke_validated", invoke),
+        patch.object(litellm_gateway, "acompletion", AsyncMock(return_value=response)),
+        patch.object(mcp_registry, "invoke_validated", invoke),
     ):
         out, verified, terminal, hits = await rounds._run_rounds(
             settings=Settings(mock_llm_enabled=False, openrouter_api_key="test-only"),
@@ -80,8 +83,8 @@ async def test_cancel_after_selection_prevents_invocation_and_failure_context():
     messages = [{"role": "user", "content": "Create an event"}]
     invoke = AsyncMock()
     with (
-        patch.object(rounds.litellm_gateway, "complete_with_tools", complete),
-        patch.object(calls.mcp_registry, "invoke_validated", invoke),
+        patch.object(litellm_gateway, "complete_with_tools", complete),
+        patch.object(mcp_registry, "invoke_validated", invoke),
     ):
         out, *_ = await rounds._run_rounds(
             settings=Settings(),
@@ -97,7 +100,7 @@ async def test_cancel_after_selection_prevents_invocation_and_failure_context():
 
 
 def _unavailable(alias: str, *, timed_out: bool = False) -> Exception:
-    error = rounds.ModelUnavailableError("down", failed_alias=alias)
+    error = ModelUnavailableError("down", failed_alias=alias)
     if timed_out:
         error.__cause__ = TimeoutError()
     return error
@@ -114,8 +117,8 @@ async def _select(complete: AsyncMock) -> tuple[list[dict], AsyncMock]:
     messages = [{"role": "user", "content": "weather in lisbon"}]
     invoke = AsyncMock(return_value=SimpleNamespace(name="web_search", content="Sunny", data=None))
     with (
-        patch.object(rounds.litellm_gateway, "complete_with_tools", complete),
-        patch.object(calls.mcp_registry, "invoke_validated", invoke),
+        patch.object(litellm_gateway, "complete_with_tools", complete),
+        patch.object(mcp_registry, "invoke_validated", invoke),
     ):
         out, *_ = await rounds._run_rounds(
             settings=Settings(),

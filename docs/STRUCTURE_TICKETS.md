@@ -121,6 +121,11 @@ Each ticket's PR runs these before and after and shows the diff is empty:
 - **Conflicts:** none until a package is cleaned; cleaning PRs then conflict with whatever touches
   the same files.
 - **Risk:** low. **Size:** S for the ratchet, L to burn it down.
+- **Status:** the ratchet runs in API CI and `scripts/check.sh` (`scripts/check_mypy_strict.py`,
+  baseline `scripts/mypy_strict_baseline.json`). Measured with `--strict --follow-imports=silent`,
+  the four packages had 46 errors, not the thousands their size suggested: chat 2, chemistry 4,
+  math 35, money 2, physics 3. Chat reached 0 and joined the strict overrides (its tests now
+  import names from the modules that define them); 44 remain recorded.
 
 ## P2 — Chat stops being both the orchestrator and a library
 
