@@ -62,8 +62,8 @@ async def read_with_model(text: str, settings: Settings) -> ModelRead:
         subject: str | None, op: str | None, intent: object | None, reason: Reason
     ) -> ModelRead:
         elapsed = round((time.perf_counter() - started) * 1000, 1)
-        tokens = int(usage.get("prompt_tokens", 0)) + int(usage.get("completion_tokens", 0))
-        return ModelRead(subject, op, intent, reason, elapsed, tokens)
+        tokens = int(usage.get("input", 0)), int(usage.get("output", 0))
+        return ModelRead(subject, op, intent, reason, elapsed, *tokens)
 
     question = text.strip()[:_MAX_INPUT_CHARS]
     if not question:
@@ -75,7 +75,7 @@ async def read_with_model(text: str, settings: Settings) -> ModelRead:
         if route.subject == "none":
             return done(None, None, None, "not_subject")
         if route.subject == "math":
-            intent = await llm_extract_math_intent(question, settings)
+            intent = await llm_extract_math_intent(question, settings, usage=usage)
             kind = getattr(intent, "kind", None)
             return done("math", kind, intent, "ok" if intent is not None else "no_read")
         menu = physics_menu() if route.subject == "physics" else chemistry_menu()

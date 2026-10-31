@@ -171,14 +171,18 @@ def _money(ctx: StreamContext) -> dict[str, Any] | None:
 
 
 def _model_read(trace: TurnTrace, solver: Mapping[str, Any] | None) -> dict[str, Any] | None:
-    """How the model reader's shadow read compares with the patterns' verified read."""
-    from app.modules.turn_reading.schemas import verdict
-
+    """How the model reader's shadow read compares with the patterns' verified read;
+    ``pending`` while it is still reading (its own line follows, ``_log_late_read``)."""
     if trace.model_read_task is None:
         return None
-    read = trace.model_read
-    if read is None:
-        return {"verdict": "late"}
+    if trace.model_read is None:
+        return {"verdict": "pending"}
+    return _shadow_fields(trace.model_read, solver)
+
+
+def _shadow_fields(read: Any, solver: Mapping[str, Any] | None) -> dict[str, Any]:
+    from app.modules.turn_reading.schemas import verdict
+
     regex_subject = solver.get("verified") if solver else None
     regex_op = solver.get("op") if solver else None
     return {
@@ -187,8 +191,24 @@ def _model_read(trace: TurnTrace, solver: Mapping[str, Any] | None) -> dict[str,
         "op": _token(read.op),
         "reason": _token(read.reason),
         "ms": read.ms,
-        "tokens": read.tokens,
+        "tokens": read.input_tokens + read.output_tokens,
     }
+
+
+def _log_late_read(trace: TurnTrace, solver: Mapping[str, Any] | None, task: Any) -> None:
+    """A shadow read that finished after the turn's line logs its own, with the same ids
+    (the callback runs in the turn's context). It is bounded by its calls' own timeouts."""
+    if task.cancelled() or task.exception() is not None or trace.model_read is None:
+        return
+    try:
+        fields = _shadow_fields(trace.model_read, solver)
+        logger.info(
+            "turn_model_read %s",
+            json.dumps(fields, separators=(",", ":"), sort_keys=True),
+            extra={"turn_model_read": fields},
+        )
+    except Exception as exc:
+        logger.info("turn model read line failed (%s)", type(exc).__name__)
 
 
 def _completion(outcome: TurnOutcome | None, failure: BaseException | None) -> str:
@@ -306,12 +326,10 @@ def emit_turn_trace(
     except Exception:
         logger.warning("turn trace could not be built", exc_info=True)
         return
-    finally:
-        # A shadow read still running is late: it stops with the turn and costs no more.
-        task = trace.model_read_task
-        if task is not None and not task.done():
-            task.cancel()
     logger.info("turn_trace %s", line, extra={"turn_trace": record})
+    task = trace.model_read_task
+    if task is not None and not task.done():
+        task.add_done_callback(functools.partial(_log_late_read, trace, record.get("solver")))
 
 
 def plain_record(record: Mapping[str, Any]) -> bool:

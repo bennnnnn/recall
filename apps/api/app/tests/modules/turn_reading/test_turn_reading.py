@@ -124,7 +124,7 @@ def _fake(replies: list[BaseModel | None]) -> Any:
 
     async def complete_structured(**kwargs: Any) -> BaseModel | None:
         calls.append(kwargs["schema"].__name__)
-        kwargs["usage"]["prompt_tokens"] = kwargs["usage"].get("prompt_tokens", 0) + 100
+        kwargs["usage"]["input"] = kwargs["usage"].get("input", 0) + 100
         return replies.pop(0)
 
     complete_structured.calls = calls  # type: ignore[attr-defined]
@@ -140,7 +140,7 @@ async def test_a_physics_question_reads_to_the_binders_intent(
     read = await read_with_model(_SPEED, Settings())
     assert (read.subject, read.op, read.reason) == ("physics", "rate_speed", "ok")
     assert getattr(read.intent, "physics_params", None) == {"d": 120.0, "t": 8.0}
-    assert fake.calls == ["RouteRead", "LawRead"] and read.tokens == 200
+    assert fake.calls == ["RouteRead", "LawRead"] and read.input_tokens == 200
 
 
 @pytest.mark.asyncio
@@ -206,7 +206,7 @@ def _read(subject: str | None, op: str | None, reason: str = "ok") -> ModelRead:
     ("regex", "read", "expected"),
     [
         (("physics", "rate_speed"), _read("physics", "rate_speed"), "agree"),
-        (("physics", "rate_speed"), _read("physics", "ohms_law"), "disagree"),
+        (("physics", "average_speed"), _read("physics", "rate_speed"), "other_op"),
         (("physics", "rate_speed"), _read("chemistry", "molarity"), "disagree"),
         (("math", "solve"), _read("math", "equation"), "agree"),
         (("physics", "rate_speed"), _read(None, None, "not_subject"), "regex_only"),

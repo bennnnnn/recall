@@ -60,23 +60,28 @@ async def test_a_finished_read_is_compared_in_the_line(monkeypatch: pytest.Monke
 
 
 @pytest.mark.asyncio
-async def test_a_read_still_running_is_late_and_stops_with_the_turn(
+async def test_a_read_that_outlives_the_turn_logs_its_own_line(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    started = asyncio.Event()
+    release = asyncio.Event()
+    reads: list[BaseModel] = [RouteRead(subject="none")]
 
-    async def slow(**_kwargs: Any) -> None:
-        started.set()
-        await asyncio.sleep(60)
+    async def slow(**_kwargs: Any) -> BaseModel:
+        await release.wait()
+        return reads.pop(0)
 
     monkeypatch.setattr(structured_completion, "complete_structured", slow)
     trace = begin_turn_trace("new")
     start_model_read_shadow(_SPEED, Settings(model_reader_shadow_enabled=True))
-    await started.wait()
     with caplog.at_level(logging.INFO, logger="app.modules.chat.turn_trace"):
         emit_turn_trace(None, outcome=None)
-    assert '"model_read":{"verdict":"late"}' in caplog.text
-    task = trace.model_read_task
-    with pytest.raises(asyncio.CancelledError):
-        await task
-    assert task.cancelled()
+        assert '"model_read":{"verdict":"pending"}' in caplog.text
+        release.set()
+        await trace.model_read_task
+        await asyncio.sleep(0)
+    late = [
+        record for record in caplog.records if record.getMessage().startswith("turn_model_read")
+    ]
+    assert len(late) == 1
+    assert '"verdict":"neither"' in late[0].getMessage()
+    assert '"reason":"not_subject"' in late[0].getMessage()

@@ -134,8 +134,12 @@ def to_math_intent(extract: LLMMathExtract) -> MathIntent | None:
     return None
 
 
-async def llm_extract_math_intent(text: str, settings: Settings) -> MathIntent | None:
-    """One bounded structured-extraction call. Never raises into the chat path."""
+async def llm_extract_math_intent(
+    text: str, settings: Settings, *, usage: dict[str, int] | None = None
+) -> MathIntent | None:
+    """One bounded structured-extraction call. Never raises into the chat path.
+
+    ``usage`` collects the call's tokens for a caller that counts them (the model reader)."""
     if not settings.math_llm_extract_enabled:
         return None
     cleaned = text.strip()
@@ -156,6 +160,7 @@ async def llm_extract_math_intent(text: str, settings: Settings) -> MathIntent |
             schema=LLMMathExtract,
             max_tokens=256,
             timeout_seconds=settings.math_llm_extract_timeout_seconds,
+            usage=usage,
             allow_fallback=True,
             fallback_on_invalid=True,
         )

@@ -61,21 +61,24 @@ class ModelRead:
     intent: object | None
     reason: Reason
     ms: float
-    tokens: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
 
 
 def verdict(regex_subject: str | None, regex_op: str | None, read: ModelRead | None) -> str:
-    """How the model's read compares with the patterns': ``agree``, ``disagree``,
-    ``regex_only``, ``model_only`` or ``neither``. Maths compares the subject only: its
-    pattern operation names are not the model's kinds."""
+    """How the model's read compares with the patterns': ``agree`` (same law),
+    ``other_op`` (same subject, another operation id: a hand-written extractor's id and a
+    catalog law's may name one law twice, so only answers can tell), ``disagree`` (another
+    subject), ``regex_only``, ``model_only`` or ``neither``. Maths compares the subject
+    only: its pattern operation names are not the model's kinds."""
     model_subject = read.subject if read is not None and read.reason == "ok" else None
     model_op = read.op if model_subject is not None and read is not None else None
     if regex_subject and model_subject:
         if regex_subject != model_subject:
             return "disagree"
-        if regex_subject == "math":
+        if regex_subject == "math" or regex_op == model_op:
             return "agree"
-        return "agree" if regex_op == model_op else "disagree"
+        return "other_op"
     if regex_subject:
         return "regex_only"
     return "model_only" if model_subject else "neither"
