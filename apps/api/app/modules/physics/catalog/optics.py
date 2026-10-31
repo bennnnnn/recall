@@ -252,7 +252,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             inputs=(frozenset({"p1", "p2"}),),
             cues=("in contact",),
             interchangeable=("p1", "p2"),
-            excludes=("telescope",),
+            excludes=("telescope", "diverging"),  # a concave lens's power is negative
             nonnegative=True,
         ),
     ),
@@ -560,7 +560,6 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
-    # A lens's power in dioptres is one over its focal length in metres.
     formula(
         "focal_from_power",
         "optics",
@@ -573,6 +572,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("focal length",),
             result=("meter",),
             inputs=(frozenset({"lens_power"}),),
+            excludes=("diverging",),  # a concave lens's focal length is negative
             nonnegative=True,
         ),
     ),

@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import re
 
-_CONVEX = re.compile(r"\bconvex\b")
-_CONCAVE = re.compile(r"\bconcave\b")
-_MIRROR = re.compile(r"\bmirrors?\b")
+# "biconcave" and "double-concave" too; a plane mirror beside a convex lens is no convex mirror.
+_CONVEX = re.compile(r"convex\b")
+_CONCAVE = re.compile(r"concave\b")
+_MIRROR = re.compile(r"(?<!plane )\bmirrors?\b")
 _LENS = re.compile(r"\blens(?:es)?\b")
 _DIVERGING = re.compile(r"\bdiverging\b|\bvirtual\s+image\b|\bnegative\s+focal\b")
 

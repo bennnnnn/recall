@@ -231,6 +231,11 @@ def test_optics_laws_answer_the_investigation_questions(
         "away. Find the magnification.",
         "A convex lens forms an upright image 30 cm from the lens of an object 10 cm away. "
         "Find the magnification.",
+        # Second review: "biconcave", power to focal length, and lenses in contact.
+        "An object is 30 cm from a biconcave lens of focal length 15 cm. Find the image distance.",
+        "A concave lens has power 2.5 D. Find its focal length.",
+        "A convex lens of power 4 D and a concave lens of power 2.5 D are in contact. Find "
+        "the total power.",
     ],
 )
 def test_optics_laws_decline_what_they_cannot_read_whole(text: str) -> None:
