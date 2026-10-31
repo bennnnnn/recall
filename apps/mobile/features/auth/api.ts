@@ -8,6 +8,7 @@ import {
   request,
 } from "@/lib/api/client";
 import { withDeadline } from "@/lib/api/deadline";
+import { responseRequestId } from "@/lib/api/requestId";
 import type { AuthResult, User } from "@/lib/api/types";
 import { AccountExistsError, accountExistsProvider } from "@/features/auth/model/accountExists";
 import {
@@ -27,7 +28,12 @@ const AGREED_BY_SIGNING_IN = { ai_data_consent: true } as const;
 
 /** A refused sign-in, read by its code: never the server's English (signInRefusal.ts). */
 async function loginFailure(response: Response): Promise<Error> {
-  const refused = new ApiRequestError(response.status, await response.text());
+  const refused = new ApiRequestError(
+    response.status,
+    await response.text(),
+    null,
+    responseRequestId(response),
+  );
   const provider = accountExistsProvider(refused);
   if (provider) return new AccountExistsError(provider);
   return new SignInRefusedError(signInRefusalKey(refused));

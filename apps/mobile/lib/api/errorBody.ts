@@ -52,8 +52,15 @@ export class ApiRequestError extends Error {
   readonly fields: Readonly<Record<string, unknown>>;
   /** How long the server asked to be left alone (its `Retry-After`), or null. */
   readonly retryAfterMs: number | null;
+  /** The call's id (`requestId.ts`): a Sentry report of this error is tagged with it. */
+  readonly requestId: string | null;
 
-  constructor(status: number, body: string, retryAfterMs: number | null = null) {
+  constructor(
+    status: number,
+    body: string,
+    retryAfterMs: number | null = null,
+    requestId: string | null = null,
+  ) {
     const read = readErrorBody(body);
     super(read.message || `Request failed: ${status}`);
     this.name = "ApiRequestError";
@@ -62,6 +69,7 @@ export class ApiRequestError extends Error {
     this.detail = read.message;
     this.fields = read.fields;
     this.retryAfterMs = retryAfterMs;
+    this.requestId = requestId;
   }
 }
 

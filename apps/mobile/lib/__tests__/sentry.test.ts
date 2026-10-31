@@ -6,7 +6,12 @@ const mockSdkLoads: string[] = [];
 
 jest.mock("@sentry/react-native", () => {
   mockSdkLoads.push("@sentry/react-native");
-  return { init: jest.fn(), captureException: jest.fn(), captureMessage: jest.fn() };
+  return {
+    init: jest.fn(),
+    captureException: jest.fn(),
+    captureMessage: jest.fn(),
+    addBreadcrumb: jest.fn(),
+  };
 });
 
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.recall.test" }));
@@ -62,6 +67,26 @@ describe("mobile Sentry scrubbing (O10.1)", () => {
   it("drops console breadcrumbs before they are recorded", () => {
     expect(scrubBreadcrumb({ category: "console", message: "hello" })).toBeNull();
   });
+
+  it("tags a refused call's report with its id, and nothing that is no id", () => {
+    const tagged = scrubSentryEvent({ tags: { area: "x" } } as unknown as ErrorEvent, {
+      originalException: { requestId: "m1abc-0123456789abcdef" },
+    });
+    expect(tagged?.tags).toEqual({ area: "x", request_id: "m1abc-0123456789abcdef" });
+    const untagged = scrubSentryEvent({} as unknown as ErrorEvent, {
+      originalException: { requestId: "my private question" },
+    });
+    expect(untagged?.tags).toBeUndefined();
+    expect(scrubSentryEvent({} as unknown as ErrorEvent, { originalException: null })?.tags).toBeUndefined();
+  });
+
+  it("keeps a failed call's id on its crumb", () => {
+    const crumb = scrubBreadcrumb({
+      category: "api",
+      data: { method: "GET", url: "/search", status_code: 500, request_id: "abc-1", body: "q" },
+    });
+    expect(crumb?.data).toEqual({ method: "GET", url: "/search", status_code: 500, request_id: "abc-1" });
+  });
 });
 
 describe("error-boundary capture", () => {
@@ -71,7 +96,12 @@ describe("error-boundary capture", () => {
     jest.resetModules();
   });
 
-  type SdkMock = { init: jest.Mock; captureException: jest.Mock; captureMessage: jest.Mock };
+  type SdkMock = {
+    init: jest.Mock;
+    captureException: jest.Mock;
+    captureMessage: jest.Mock;
+    addBreadcrumb: jest.Mock;
+  };
 
   function freshSentry() {
     jest.resetModules();
@@ -81,6 +111,24 @@ describe("error-boundary capture", () => {
     const sdk = () => jest.requireMock<SdkMock>("@sentry/react-native");
     return { mod, sdk };
   }
+
+  it("leaves a failed call's crumb without its query, and never fails the call", async () => {
+    (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
+    process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example.com/1";
+    const { mod, sdk } = freshSentry();
+    await mod.initMobileSentry();
+    mod.noteApiFailure("GET", "/search?q=my private question", 503, "abc-1");
+    expect(sdk().addBreadcrumb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: "api",
+        data: { method: "GET", url: "/search", status_code: 503, request_id: "abc-1" },
+      }),
+    );
+    sdk().addBreadcrumb.mockImplementation(() => {
+      throw new Error("sdk broke");
+    });
+    expect(() => mod.noteApiFailure("GET", "/chats", null, "abc-2")).not.toThrow();
+  });
 
   it("reports nothing when Sentry is not configured", async () => {
     delete process.env.EXPO_PUBLIC_SENTRY_DSN;

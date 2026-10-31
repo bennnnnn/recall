@@ -10,6 +10,8 @@
 
 import type { Breadcrumb, ErrorEvent } from "@sentry/react-native";
 
+import { isRequestId } from "@/lib/api/requestId";
+
 type SentrySdk = typeof import("@sentry/react-native");
 
 /** The SDK once `init` has run. */
@@ -58,14 +60,23 @@ export function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
   const data = breadcrumb.data;
   if (!data) return breadcrumb;
   const kept: Record<string, unknown> = {};
-  for (const key of ["method", "status_code", "url", "from", "to"]) {
+  for (const key of ["method", "status_code", "url", "from", "to", "request_id"]) {
     if (key in data) kept[key] = key === "url" ? withoutQuery(data[key]) : data[key];
   }
   return { ...breadcrumb, data: kept };
 }
 
-/** Drop bodies, query strings, cookies, auth headers, extras and user fields. */
-export function scrubSentryEvent(event: ErrorEvent): ErrorEvent | null {
+/**
+ * Drop bodies, query strings, cookies, auth headers, extras and user fields. An API
+ * refusal's call id becomes the event's `request_id` tag, the API's log lines' own id.
+ */
+export function scrubSentryEvent(
+  event: ErrorEvent,
+  hint?: { originalException?: unknown },
+): ErrorEvent | null {
+  const requestId = (hint?.originalException as { requestId?: unknown } | null | undefined)
+    ?.requestId;
+  if (isRequestId(requestId)) event.tags = { ...event.tags, request_id: requestId };
   const request = event.request;
   if (request) {
     delete request.data;
@@ -187,6 +198,35 @@ export function reportCorruptSessionCleared(): void {
       tags: { area: "stored_session" },
     });
   });
+}
+
+/**
+ * A call to our API that failed: a crumb with its method, path (no query, which can
+ * hold what the user searched), status and id, so the next report names the call.
+ * Before the SDK is up there is nowhere to put it, and it is dropped.
+ */
+export function noteApiFailure(
+  method: string,
+  path: string,
+  status: number | null,
+  requestId: string,
+): void {
+  try {
+    sdk?.addBreadcrumb({
+      category: "api",
+      level: "warning",
+      message: "API call failed",
+      data: {
+        method,
+        url: withoutQuery(path),
+        status_code: status ?? undefined,
+        request_id: requestId,
+      },
+    });
+  } catch {
+    // Best effort: the caller gets the call's own response or error, never this one.
+    return;
+  }
 }
 
 /** Sent at once when the SDK is up; before that it waits in the short queue. */
