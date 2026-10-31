@@ -105,3 +105,36 @@ def test_the_menu_is_every_bound_law_by_kind() -> None:
     assert {card.op for cards in menu.values() for card in cards} == bound
     card = next(card for card in menu["kinematics"] if card.op == "rate_speed")
     assert {item.name for item in card.inputs} >= {"d", "t"}
+
+
+def test_the_message_rules_a_law_out_as_it_does_for_the_binder() -> None:
+    water = [
+        Stated("m1", 2.0, "kg", "2 kg"),
+        Stated("m2", 3.0, "kg", "3 kg"),
+        Stated("temp_a", 20.0, "degC", "20 °C"),
+        Stated("temp_b", 80.0, "degC", "80 °C"),
+    ]
+    only_water = "2 kg of water at 20 °C is mixed with 3 kg of water at 80 °C. Final temperature?"
+    with_alcohol = (
+        "2 kg of water at 20 °C is mixed with 3 kg of alcohol at 80 °C. Final temperature?"
+    )
+    assert physics_read_intent("water_mixture_temperature", water, only_water) is not None
+    assert physics_read_intent("water_mixture_temperature", water, with_alcohol) is None
+    # A word the law's binding excludes: a falling body's speed is no average speed.
+    speed = [Stated("d", 20.0, "m", "20 m"), Stated("t", 2.0, "s", "2 s")]
+    assert physics_read_intent("rate_speed", speed, "A car goes 20 m in 2 s.") is not None
+    assert physics_read_intent("rate_speed", speed, "A stone falls 20 m in 2 s.") is None
+
+
+@pytest.mark.parametrize(
+    ("unit", "quote", "reads"),
+    [
+        ("m", "8 cm", False),  # read at another scale than the quote writes
+        ("cm", "8 cm", True),
+        ("m", "8 m", True),
+        ("m", "٨ ሜትር", True),  # a unit the table cannot read in the quote: not checked
+    ],
+)
+def test_a_unit_must_be_the_one_its_quote_writes(unit: str, quote: str, reads: bool) -> None:
+    stated = [Stated("d", 8.0, unit, quote), Stated("t", 2.0, "s", "2 s")]
+    assert (physics_read_intent("rate_speed", stated) is not None) is reads

@@ -59,9 +59,10 @@ class StemSettings(BaseModel):
     math_model_intent_budget_seconds: float = 7.0
     # A model reads each question beside the patterns, and the turn's trace line says
     # whether the two agree (docs/MODEL_READER.md). Off: a measurement, not a feature;
-    # nothing it reads reaches a reply. Each of its two calls has this long.
+    # nothing it reads reaches a reply. Each of its two calls has this long: the measured
+    # p95 of a call (docs/MODEL_READER.md); the turn never waits for the read.
     model_reader_shadow_enabled: bool = False
-    model_reader_timeout_seconds: float = 1.5
+    model_reader_timeout_seconds: float = 3.5
     # POST /{math,physics,chemistry}/scan/read runs OCR (Mathpix, then vision)
     # so the student can confirm what the camera read before it is solved.
     # Per user, per hour, shared by every subject's reader (it was

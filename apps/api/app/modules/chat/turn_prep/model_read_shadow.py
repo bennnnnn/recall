@@ -24,6 +24,9 @@ def start_model_read_shadow(text: str, settings: Settings) -> None:
         return
 
     async def read() -> None:
-        trace.model_read = await read_with_model(text, settings)
+        # Bounded on its own: its two calls and the maths read, never longer, whatever the
+        # gateway does. Nothing awaits it; the turn's line says ``pending`` meanwhile.
+        async with asyncio.timeout(3 * settings.model_reader_timeout_seconds + 1):
+            trace.model_read = await read_with_model(text, settings)
 
     trace.model_read_task = asyncio.create_task(read())

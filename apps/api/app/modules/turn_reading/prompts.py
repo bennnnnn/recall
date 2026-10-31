@@ -16,14 +16,19 @@ listed for that subject, or null>}}.
 
 - physics or chemistry: a question that asks for a number one law gives from values the
   question states. Pick the kind whose results match what is asked.
-- math: an equation, expression, calculus, geometry, statistics or probability question.
+- math: a maths question. Its kind is the one task it asks, from the maths kinds; when it
+  asks anything else (checking someone's work, a value at a point such as a slope at
+  x = 1, a word problem, a proof, an explanation, geometry, statistics, probability), its
+  kind is "other". Never pick the nearest task.
 - none: anything else, including explanations, opinions and everyday chat.
 
 Physics kinds:
 {physics}
 
 Chemistry kinds:
-{chemistry}"""
+{chemistry}
+
+Maths kinds: {maths}, other"""
 
 _LAW = """Read a student's {subject} question (in any language) into ONE law from the list
 below and the values the question states.
@@ -45,7 +50,8 @@ Rules:
 - Copy, never compute: a value is a given only when the question writes it. Do not
   convert units, add constants (g, the speed of light) or fill in missing values.
 - Every number the question writes appears in exactly one given's quote or in unused.
-- If no law on the list answers what is asked, return {{"op": "none"}}."""
+- If no law on the list answers what is asked, or the question breaks a law's "only for"
+  or "never for" condition, return {{"op": "none"}}. Never pick the nearest law."""
 
 
 def _kinds(menu: Mapping[str, Sequence[OpCard]]) -> str:
@@ -56,9 +62,13 @@ def _kinds(menu: Mapping[str, Sequence[OpCard]]) -> str:
 
 
 def route_prompt(
-    physics: Mapping[str, Sequence[OpCard]], chemistry: Mapping[str, Sequence[OpCard]]
+    physics: Mapping[str, Sequence[OpCard]],
+    chemistry: Mapping[str, Sequence[OpCard]],
+    maths: Sequence[str],
 ) -> str:
-    return _ROUTE.format(physics=_kinds(physics), chemistry=_kinds(chemistry))
+    return _ROUTE.format(
+        physics=_kinds(physics), chemistry=_kinds(chemistry), maths=", ".join(maths)
+    )
 
 
 def law_prompt(subject: str, cards: Sequence[OpCard]) -> str:
