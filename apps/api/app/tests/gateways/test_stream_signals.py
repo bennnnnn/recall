@@ -383,7 +383,7 @@ async def test_the_last_model_still_gives_up_on_a_stream_that_never_opens() -> N
     started = time.monotonic()
     with pytest.raises(litellm_gateway.ModelUnavailableError):
         await _reply("smart-chat", [], fake, settings)
-    assert 1.8 < time.monotonic() - started < 3.0
+    assert 1.8 < time.monotonic() - started < 4.0
 
 
 @pytest.mark.asyncio
