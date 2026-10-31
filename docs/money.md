@@ -66,21 +66,29 @@ no used-car average and got no numbers at all, where the new-car average had wor
   does. A start grows (1 + rate/n)^(n·years); a deposit made each month grows by the month's
   share of that. Each compounding word is read with what follows it ("compounded per
   quarter", "on a quarterly basis") or the one word before it ("semi annual compounding");
-  spaces and hyphens are one. A compounding word whose frequency can't be read
-  ("continuously", "bi-monthly", "every 2 months", "fortnightly"), two that disagree, or a
-  loan compounded other than monthly is left to the model, never worked as monthly; a
+  spaces and hyphens are one. Any compounding word whose frequency isn't read so
+  ("continuously", "compounded and paid quarterly", a bare "compounded"), two that disagree,
+  or a loan compounded other than monthly is left to the model, never worked as monthly; a
   card's APR is charged by the month however it compounds (`compounding.py`; live
   2026-10-31, "compounded quarterly" was worked monthly).
 - **Investing** (invest, investing, investment, retirement): the same inputs and results as
   savings, with no average looked up: a market's return has no bank average to judge it by.
+
+**One value per slot.** A request is worked only from what it says once, read whole: one
+sum for each input, one rate, one term, one money down, one compounding. Two rates or two
+terms (a comparison, a refinance, "15 or 30 years"), two sums for one input, a sum the reader
+cannot read whole ("5 lakh", "1.2 billion"; digits are read in every grouping: "250,000.50",
+"250.000,50", "5,00,000"), a deposit paid each week, or a compounding word it cannot read
+give no worked numbers and no card: the model answers. "N% down" is always the share of the
+price put down, never the rate; a plan's name ("401k", "529 plan") is no sum; interest said
+to be simple ("if interest is simple", "no compounding", "I = PRT") is left to maths.
 
 A term the user didn't give comes from the row's default (a 30-year mortgage, a 5-year car loan),
 and the reply says it assumed one. A term in words is read as in digits ("seven years",
 "twenty-five years", "two and a half years"), by the first ask, the follow-up grammar and the
 two-line loan alike (`phrases.py`). A length of time that is no term is left out: an age, time
 gone by or a gap ("thirty years old", "ten years ago", "five years apart", "been paying for
-three years", "twelve months of payments", "the past 2 years"); two different terms give none,
-and the default is said as assumed. A currency named before its sum ("Birr 3,000", "USD 500")
+three years", "twelve months of payments", "the past 2 years"). A currency named before its sum ("Birr 3,000", "USD 500")
 marks it as money; an exchange rate ("USD 1 = ETB 57", "57 birr to the dollar"), a note or
 coin ("Birr 500 notes") and the same sum said again ("that's about USD 21,600") are no sum
 (`sums.py`).

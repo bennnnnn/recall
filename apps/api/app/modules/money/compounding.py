@@ -5,9 +5,10 @@ quarterly" was worked monthly, and the card's interest was off by birr. A produc
 grows money (``Product.settings`` has ``per_year``) works the frequency said. Each word of
 compounding is read with what follows it ("compounded per quarter", "compounded on a
 quarterly basis"), else with the one word before it ("semi annual compounding",
-"quarterly compounded"). A compounding word whose frequency cannot be read
-("compounded continuously", "bi-monthly", "every 2 months", "fortnightly compounding"),
-or two frequencies that disagree, are ``UNKNOWN``: never worked as monthly.
+"quarterly compounded"). Any compounding word whose frequency is not read so
+("compounded continuously", "compounded and paid quarterly", "compounding happens
+quarterly", a bare "compounded"), or two frequencies that disagree, is ``UNKNOWN``: the
+request gets no worked numbers, never monthly ones.
 """
 
 from __future__ import annotations
@@ -34,20 +35,13 @@ _AFTER = [(re.compile(rf"{_LEAD}(?:{after})\b", re.I), count) for after, _, coun
 _BEFORE = [
     (re.compile(rf"(?<![\w-])(?:{before})\s+$", re.I), count) for _, before, count in _FREQUENCIES
 ]
-# A frequency said in a shape the list has no count for.
-_OTHER_AFTER = re.compile(
-    rf"{_LEAD}(?:\w+ly\b|per\b|every\b|each\b|twice\b|once\b|thrice\b|\w+\s+times\b|"
-    r"(?:bi|semi)-\w+|\w+\s+basis\b)",
-    re.I,
-)
-_OTHER_BEFORE = re.compile(r"(?<![\w-])(?:continu\w+|fortnightly|hourly|(?:bi|semi)-\w+)\s+$", re.I)
 
 UNKNOWN = 0
 
 
 def compounding_per_year(text: str) -> int | None:
-    """Times a year ``text`` says interest compounds; None when it says none, ``UNKNOWN``
-    (0) when it says one the catalog cannot write, or two that disagree."""
+    """Times a year ``text`` says interest compounds; None when no word of compounding is
+    in it, ``UNKNOWN`` (0) when one is that this does not read, or two disagree."""
     text = re.sub(r"\b(semi|bi|half)[\s-]+(?=\w)", r"\1-", text)
     said: set[int] = set()
     for word in _COMPOUND.finditer(text):
@@ -55,10 +49,9 @@ def compounding_per_year(text: str) -> int | None:
         count = next((count for pattern, count in _AFTER if pattern.match(after)), None)
         if count is None:
             count = next((count for pattern, count in _BEFORE if pattern.search(before)), None)
-        if count is None and (_OTHER_AFTER.match(after) or _OTHER_BEFORE.search(before)):
+        if count is None:
             return UNKNOWN
-        if count is not None:
-            said.add(count)
+        said.add(count)
     if len(said) > 1:
         return UNKNOWN
     return said.pop() if said else None

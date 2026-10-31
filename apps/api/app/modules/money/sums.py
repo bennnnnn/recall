@@ -4,7 +4,12 @@
 money down, "200 a month" monthly, "my salary is 90,000" an income. ``loan_sums`` decides
 from these which sum a loan is. Some numbers next to a currency are no sum at all: an
 exchange rate ("USD 1 = ETB 57", "57 birr to the dollar"), a note or coin ("Birr 500
-notes") or the same sum said again in another currency ("that's about USD 21,600").
+notes"), the same sum said again in another currency ("that's about USD 21,600") or a
+plan's name ("my 401k").
+
+A sum is read whole or not at all: digits left over ("25.000" read as 25.00) mean the
+message holds a sum the reader cannot read, and ``amounts`` gives None: no numbers are
+worked from it.
 """
 
 from __future__ import annotations
@@ -19,6 +24,9 @@ from app.modules.money.phrases import (
     MULTIPLIERS,
     RATE,
     TERM,
+    UNREAD_DIGITS,
+    amount_value,
+    grouped,
 )
 
 
@@ -40,9 +48,16 @@ class Sum:
     paid: bool = False
     # An income ("my salary is 90,000", "I make 80k a year"): never a loan.
     income: bool = False
+    # Paid each week, fortnight, day or quarter: no product works it ("$200 a week").
+    other_period: bool = False
 
 
 _MONTHLY = re.compile(r"\s?(?:a|per|/|each|every)\s?(?:month|mo)\b|\s?monthly\b|\s?/\s?mo\b", re.I)
+_OTHER_PERIOD = re.compile(
+    r"\s?(?:a|per|/|each|every)\s?(?:week|wk|fortnight|day|quarter)\b"
+    r"|\s?(?:weekly|bi-?weekly|fortnightly|daily|quarterly)\b",
+    re.I,
+)
 _DOWN = re.compile(r"\b(?:down\s?payment(?:\s(?:of|is))?|put(?:ting)?\s(?:down)?|down)\s?$", re.I)
 _DOWN_AFTER = re.compile(r"\s?(?:down\b|as\s(?:a\s)?down\s?payment\b)", re.I)
 # A sum put toward the price in a clause after it: "50,000 which he will use as a deposit",
@@ -108,6 +123,10 @@ _EXCHANGE_AFTER = re.compile(
     rf"\s*=|\s(?:to|per|for)\s(?:the\s|one\s|a\s|1\s)?(?:{CURRENCY_WORDS})\b", re.I
 )
 _DENOMINATION_AFTER = re.compile(r"\s?(?:notes?|bills?|coins?|banknotes?|denominations?)\b", re.I)
+# A scale word the reader has no number for: "5 lakh", "2 crore", "1.2 billion".
+_UNREAD_SCALE = re.compile(r"\s?(?:lakhs?|lacs?|crores?|billions?|bn|trillions?|hundred)\b", re.I)
+# A retirement or college plan's name: "401k", "403(b)", "457b", "a 529 plan".
+_PLAN = re.compile(r"(?:401|403|457)\s?\(?[kb]\)?(?!\w)|529\s(?:plan|account|savings)\b", re.I)
 # A currency named before its sum, as many countries write it: "Birr 3,000", "USD 500".
 _CURRENCY_BEFORE = re.compile(rf"\b(?:{CURRENCY_WORDS})\s?$", re.I)
 
@@ -128,11 +147,13 @@ SAYS_MONEY = re.compile(
 )
 
 
-def amounts(text: str) -> list[Sum]:
-    """Every sum of money in the message, in order, with what its neighbours say it is."""
+def amounts(text: str) -> list[Sum] | None:
+    """Every sum of money in the message, in order, with what its neighbours say it is;
+    None when one of them cannot be read whole."""
     found: list[Sum] = []
     for match in AMOUNT.finditer(text):
-        if RATE.match(text, match.start("num")) or TERM.match(text, match.start("num")):
+        start = match.start("num")
+        if RATE.match(text, start) or TERM.match(text, start) or _PLAN.match(text, start):
             continue
         word = CURRENCY_WORD.match(text, match.end())
         end = word.end() if word else match.end()
@@ -146,8 +167,9 @@ def amounts(text: str) -> list[Sum]:
             or match.group("mult")
             or word
             or named
-            or "," in match["num"]
+            or grouped(match["num"])
             or _PRODUCT_AFTER.match(rest)
+            or _MONTHLY.match(rest)
         )
         if not marked and _MONEY_BEFORE.search(before) is None:
             continue
@@ -156,7 +178,11 @@ def amounts(text: str) -> list[Sum]:
             continue
         if _no_sum(before, rest):
             continue
-        number = float(match["num"].replace(",", ""))
+        if match.group("mult") is None and (
+            UNREAD_DIGITS.match(text, match.end("num")) or _UNREAD_SCALE.match(text, end)
+        ):
+            return None
+        number = amount_value(match["num"])
         if match.group("mult"):
             number *= MULTIPLIERS[match["mult"].lower()]
         found.append(_sum(number, before, rest, clause, lead))
@@ -186,6 +212,7 @@ def _sum(value: float, before: str, rest: str, clause: str, lead: str) -> Sum:
         price=_PRICE_BEFORE.search(before) is not None or _GOODS_AFTER.match(rest) is not None,
         paid=_PAID_BEFORE.search(before) is not None,
         income=_INCOME_BEFORE.search(before) is not None or _INCOME_AFTER.match(rest) is not None,
+        other_period=_OTHER_PERIOD.match(rest) is not None,
     )
 
 

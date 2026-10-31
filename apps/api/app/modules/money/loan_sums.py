@@ -67,7 +67,7 @@ def loan_sums(sums: list[Sum], share: float | None, rest: bool) -> LoanSums:
             return LoanSums(None)
     first = named[0].value if named else None
     down = _down(once, first, share)
-    if first is None or first <= (down or 0.0):
+    if first is None or first <= (down or 0.0) or (down is not None and down < 0):
         return LoanSums(None)
     if down is not None and 0 < down < first:
         return LoanSums(first - down, first, down)
@@ -75,8 +75,11 @@ def loan_sums(sums: list[Sum], share: float | None, rest: bool) -> LoanSums:
 
 
 def _down(once: list[Sum], first: float | None, share: float | None) -> float | None:
-    """The sum down: said ("3000 down"), else a share of the first sum ("20% down")."""
-    said = next((item.value for item in once if item.down), None)
-    if said is None and share is not None and first is not None:
-        return first * share / 100
-    return said
+    """The sum down: said ("3000 down"), else a share of the first sum ("20% down"); -1
+    (no loan) when two are given that differ."""
+    said = {item.value for item in once if item.down}
+    if share is not None and first is not None:
+        said.add(first * share / 100)
+    if len(said) > 1:
+        return -1.0
+    return said.pop() if said else None

@@ -24,11 +24,19 @@ DURATION = (
 )
 RATE = re.compile(PERCENT, re.I)
 TERM = re.compile(rf"\b{DURATION}", re.I)
+_SCALE = r"(?:k|m|thousand|million|mil|grand)\b"
+# A sum's digits in every grouping people write: "250,000.50", "5,00,000" (lakh),
+# "250.000,50" (a dot between thousands, a comma before the cents), "250000".
+_US = r"\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?"
+_LAKH = r"\d{1,2}(?:,\d{2})+,\d{3}(?:\.\d{1,2})?"
+_DOTTED = rf"\d{{1,3}}(?:\.\d{{3}})+(?:,\d{{1,2}})?(?!\s?{_SCALE})"
 AMOUNT = re.compile(
-    r"(?P<sym>[$€£¥₹₦])?\s?(?P<num>\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)"
-    r"(?:\s?(?P<mult>k|m|thousand|million|mil|grand)\b)?",
+    rf"(?P<sym>[$€£¥₹₦])?\s?(?P<num>{_US}|{_LAKH}|{_DOTTED}|\d+(?:\.\d{{1,2}})?)"
+    rf"(?:\s?(?P<mult>{_SCALE}))?",
     re.I,
 )
+# Digits left over after a sum: "25.000" read as 25.00 and a 0, "5,00,000" as 5.
+UNREAD_DIGITS = re.compile(r"[.,]?\d")
 MULTIPLIERS = {"k": 1e3, "thousand": 1e3, "grand": 1e3, "m": 1e6, "million": 1e6, "mil": 1e6}
 CURRENCY_WORDS = (
     r"dollars?|bucks|usd|euros?|eur|pounds?|gbp|birr|etb|rupees?|inr|naira|ngn|"
@@ -43,6 +51,18 @@ def sum_phrase(name: str) -> str:
         rf"(?P<{name}>[$€£¥₹₦]?\s?\d[\d,]*(?:\.\d{{1,2}})?"
         rf"(?:\s?(?:k|m|thousand|million|mil|grand))?(?:\s(?:{CURRENCY_WORDS}))?)"
     )
+
+
+def grouped(num: str) -> bool:
+    """The digits are grouped as money is written ("250,000", "250.000", "5,00,000")."""
+    return "," in num or re.fullmatch(_DOTTED, num) is not None
+
+
+def amount_value(num: str) -> float:
+    """The ``num`` group of ``AMOUNT`` as a number, in the grouping it was written in."""
+    if re.fullmatch(_DOTTED, num):
+        return float(num.replace(".", "").replace(",", "."))
+    return float(num.replace(",", ""))
 
 
 def count_value(text: str) -> float:

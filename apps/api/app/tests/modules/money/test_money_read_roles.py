@@ -59,8 +59,6 @@ def test_the_term_is_the_length_of_time_said_as_one(text: str, term: dict[str, f
         "a $200k mortgage at 4%, it's been 5 years",
         "a 5-year-old car, car loan of 12000 at 9%",
         "I am 30 years old, mortgage of 300k at 6%",
-        # Two terms: neither is the request's, and the default is said as assumed.
-        "compare a 15 year and a 30 year mortgage of 300k at 6%",
     ],
 )
 def test_a_length_of_time_that_is_no_term_leaves_the_default(text: str) -> None:
