@@ -589,6 +589,10 @@ async def _turns(harness: _Harness) -> dict[str, _Seen]:
     return seen
 
 
+# Every kind of turn end to end, then its jobs: the suite's longest test, and on a CI worker
+# sharing the machine with three others it ran past the one-minute hang limit. It counts and
+# never times, so a longer limit changes no result.
+@pytest.mark.timeout(240)
 async def test_each_kind_of_turn_stays_under_its_ceilings_to_its_last_job(
     harness: _Harness,
 ) -> None:
