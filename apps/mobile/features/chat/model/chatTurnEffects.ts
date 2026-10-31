@@ -102,4 +102,3 @@ function runCommand(command: ChatTurnCommand, effects: ChatTurnEffects): void {
 export function runChatTurnCommands(commands: readonly ChatTurnCommand[], effects: ChatTurnEffects): void {
   for (const command of commands) runCommand(command, effects);
 }
-
