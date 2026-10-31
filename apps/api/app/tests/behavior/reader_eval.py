@@ -10,7 +10,7 @@ A script, not a test: it calls the real model through the gateway (``apps/api/.e
 each card with the sweep's own checks (``stem_sweep.check_answer``):
 
 - ``regex``: the turn as it runs today (``stem_sweep.run_entry``, model mocked);
-- ``model``: ``turn_reading.read_with_model`` and the same solvers;
+- ``model``: ``model_reader.read_with_model`` and the same solvers;
 - ``both``: a card only when the two agree on its value.
 
 It prints, per subject and language: reach (cards on questions that have an answer),
@@ -43,9 +43,9 @@ from pydantic import BaseModel, Field
 from app.core.config import Settings
 from app.models.model_catalog import CATALOG
 from app.models.routing_lanes import ROUTING
-from app.modules.turn_reading.checks import normalized, values_in
-from app.modules.turn_reading.schemas import ModelRead
-from app.modules.turn_reading.service import read_with_model
+from app.modules.model_reader.checks import normalized, values_in
+from app.modules.model_reader.schemas import ModelRead
+from app.modules.model_reader.service import read_with_model
 from app.tests.behavior.stem_sweep import (
     SUBJECT_NAMES,
     Entry,
@@ -331,8 +331,12 @@ async def run(
             ]
     for row in rows:
         await _regex(row)
+    # Reads run side by side and each binds in the pool: a slot each, and one to spare
+    # (the reader only binds with a slot to spare, as in a turn).
+    set_sympy_executor(ThreadSympyExecutor(max_workers=_CONCURRENCY + 1))
     gate = asyncio.Semaphore(_CONCURRENCY)
     await asyncio.gather(*(_model(row, settings, gate) for row in rows))
+    set_sympy_executor(ThreadSympyExecutor(max_workers=1))
     for row in rows:
         _finish(row, settings)
     order = ["en", "holdout", *[lang for lang in langs if lang != "en"], "book"]
