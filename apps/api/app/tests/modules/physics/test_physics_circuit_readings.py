@@ -47,6 +47,18 @@ def _answer(text: str) -> str | None:
         ),
         ("Find the total resistance of the 10 Ω and the 10 Ω resistors in series.", 20.0),
         ("A resistor R of 6 Ω and a 3 Ω resistor are in series. Find the total resistance.", 9.0),
+        # One list names each resistor, "the" or not.
+        (
+            "In the circuit, a 6 Ω resistor and the 6 Ω lamp are connected in series with a "
+            "3 Ω resistor. Find the total resistance.",
+            15.0,
+        ),
+        ("A 6 Ω resistor is in series with another 6 Ω resistor. Find the total resistance.", 12.0),
+        (
+            "A 4 Ω and a 8 Ω resistor are connected in series to a 12 V battery. Find the "
+            "current drawn from the battery.",
+            1.0,
+        ),
         ("A 6 Ω and a 3 Ω resistor are in parallel across 6 V. Find the current.", 3.0),
         # A one-letter unit before ")" with no next part after it is still a unit.
         ("A force of 10 N) acts on a 2 kg mass. Find the acceleration.", 5.0),
@@ -73,8 +85,6 @@ def test_a_circuit_read_whole_keeps_its_card(text: str, value: float) -> None:
         # "the 6 Ω" may be another resistor or the one before.
         "A 6 Ω resistor is connected in parallel with the 6 Ω resistor and the 3 Ω resistor "
         "of the circuit. Find the equivalent resistance.",
-        "In the circuit, a 6 Ω resistor and the 6 Ω lamp are connected in series with a 3 Ω "
-        "resistor. Find the total resistance.",
         # Certified 6 Ω: an unknown R beside "the 3 Ω resistor" named twice.
         "a) What current is flowing round the circuit? b) How great must the p.d. be across "
         "resistor R? c) What is the resistance of resistor R? [Figure: a 48 V battery in "
@@ -104,6 +114,19 @@ def test_a_circuit_read_whole_keeps_its_card(text: str, value: float) -> None:
         "Draw the circuit. (b) Work out the resistance R of the bulb.",
         "A 12 V light bulb is tested: Current (A): 0.4, 0.6, 1.6 p.d. (V): 1.4, 2.6, 12.6 a. "
         "Draw the circuit. b. Work out the resistance R of the bulb.",
+        # Third review: a value named again without "the", one resistor's share however
+        # worded, and a meter's reading taken for the supply.
+        "A 50 Ω and a 100 Ω resistor are in series with a 12 V battery. Find the total "
+        "resistance and the p.d. across R1 (50 Ω).",
+        "50 Ω and 100 Ω resistors are in series with a 12 V battery. Find the total "
+        "resistance. Which resistor, 50 Ω or 100 Ω, has the larger voltage?",
+        "A 6 Ω and a 3 Ω resistor are in parallel across 6 V. Find the current in the 3-Ω "
+        "resistor.",
+        "A 6 Ω and a 3 Ω resistor are in parallel across 6 V. Find the current in the "
+        "smaller resistor.",
+        "A 6 Ω and a 3 Ω resistor are in parallel across 6 V. Find the current through each.",
+        "A voltmeter connected across an 8 Ω resistor in series with a 4 Ω resistor reads "
+        "8 V. Find the current.",
         # Two voltages: which one Ohm's law takes is a guess.
         "A 12 V battery is connected to a 4 Ω lamp, and a voltmeter across the lamp reads 10 V. "
         "Find the current.",

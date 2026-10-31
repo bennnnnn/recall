@@ -158,9 +158,9 @@ def resistor_values(text: str) -> list[float]:
 # resistor R of 6 Ω" or "R = 4 Ω".
 _UNKNOWN_RESISTOR_RE = re.compile(r"\b[Rr]esistors?\s+R\b(?!\s*[=_\d])|\bunknown\s+resist")
 _VALUED_R_RE = re.compile(r"\bR\s*(?:=|is\b|of\b)")
-# "the 6 Ω resistor": a value named with "the", which may be one already stated.
-_DEFINITE_RE = re.compile(r"\b(?:the|that|this)\s+$", re.IGNORECASE)
-# Between two values of one list: "6 Ω, 6 Ω and 3 Ω", "a 6 Ω resistor and the 6 Ω lamp".
+# A place that introduces a resistor: "a 6 Ω", "another 6 Ω".
+_INTRODUCES_RE = re.compile(r"\b(?:a|an|another|one)\s+$", re.IGNORECASE)
+# Between two values of one list: "6 Ω, 6 Ω and 3 Ω", "a 6 Ω and a 6 Ω resistor".
 _LIST_JOIN_RE = re.compile(
     r"\s*(?:\u03a9|\u03c9|ohms?)?\s*(?:resistors?)?\s*(?:,|,?\s*and|,?\s*or)\s*"
     r"(?:a|an|the|another)?\s*",
@@ -171,31 +171,25 @@ _LIST_JOIN_RE = re.compile(
 def _stated_resistances(text: str) -> list[float]:
     """Each resistance stated, or none when one may be named twice.
 
-    A value named with "the" ("the 50 Ω resistor", "the 10 Ω and the 20 Ω resistors") is
-    one stated elsewhere or a new one, and the text does not say which: read as new, "the
-    p.d. across the 50 Ω resistor" added a resistor (certified 200 Ω for 150 Ω) and "the
-    current the 3 Ω resistor draws" got the network's total; read as the same, "in parallel
-    with the 6 Ω resistor" lost one (2026-10-30, a Grade 10 physics book). So a definite
-    group whose values are all its own ("the 6 Ω, 6 Ω and 3 Ω resistors") names each one,
-    and one sharing a value with the rest of the question declines."""
+    A value stated in two places is two resistors only when each place introduces one
+    ("a 6 Ω resistor … another 6 Ω resistor"), or when both are in one list ("the 6 Ω,
+    6 Ω and 3 Ω resistors"). Anywhere else the second place may name the first: "the p.d.
+    across the 50 Ω resistor", "R1 (50 Ω)", "which resistor, 50 Ω or 100 Ω" each added a
+    resistor to a certified total (2026-10-30, a Grade 10 physics book and its reviews)."""
     found = positioned_values(text, OHM_PATTERN)
     values = [value for _, value, _ in found]
     starts = [start for start, _, _ in found]
     ends = [_value_end(text, start) for start in starts]
-    index = 0
-    while index < len(found):
-        if not _DEFINITE_RE.search(text[max(0, starts[index] - 8) : starts[index]]):
-            index += 1
+    group = [0] * len(found)
+    for index in range(1, len(found)):
+        joined = _LIST_JOIN_RE.fullmatch(text[ends[index - 1] : starts[index]])
+        group[index] = group[index - 1] if joined else group[index - 1] + 1
+    for value in set(values):
+        places = [index for index, other in enumerate(values) if other == value]
+        if len({group[index] for index in places}) < 2:
             continue
-        last = index
-        while last + 1 < len(found) and _LIST_JOIN_RE.fullmatch(
-            text[ends[last] : starts[last + 1]]
-        ):
-            last += 1
-        rest = values[:index] + values[last + 1 :]
-        if any(value in rest for value in values[index : last + 1]):
+        if not all(_INTRODUCES_RE.search(text[max(0, starts[i] - 10) : starts[i]]) for i in places):
             return []
-        index = last + 1
     return values
 
 

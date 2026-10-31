@@ -160,3 +160,17 @@ def test_a_rounding_chain_carries_its_exact_value(reply: str) -> None:
 )
 def test_a_slip_on_a_rounded_result_is_still_one(reply: str) -> None:
     assert wrong_steps(reply)
+
+
+# Third review: only a decimal result is carried, never a whole number or an exponent, and
+# a later given with the same digits is that given.
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "$n = 9/4 = 2$ then $m = 2\\ \\text{kg}$ $F = 2 \\times 4.5 = 10$",
+        "$n = 9/4 = 2$ then $0.5 \\times 4 \\times 3^2 = 23.7$",
+        "$t = 1/3 = 0.3$ part b $\\mu = 0.3$ then $0.3 \\times 50 = 16.7$",
+    ],
+)
+def test_a_carried_value_stays_with_its_own_result(reply: str) -> None:
+    assert wrong_steps(reply)

@@ -233,8 +233,8 @@ def _prefix_shift(value: float, shown: float) -> bool:
     )
 
 
-# A number in a plain side: 0.36, 40, 3.98e-19.
-_LITERAL = re.compile(r"(?<![\d.])\d+(?:\.\d+)?(?:e[-+]?\d+)?")
+# A decimal in a plain side (0.36, 3.98e-19), not a power's exponent.
+_DECIMAL = re.compile(r"(?<![\d.])(?<!\*\*)(?<!\*\*\()\d+\.\d+(?:e[-+]?\d+)?")
 
 
 def _exact_side(plain: str, rounded: dict[str, float]) -> str:
@@ -242,8 +242,9 @@ def _exact_side(plain: str, rounded: dict[str, float]) -> str:
 
     A line built on a rounded result may carry the exact one: "2 * 0.36 = 0.71" is right
     when 0.36 was 0.357, and was flagged "0.72, not 0.71" (2026-10-30, a long-jump answer).
-    A given is exact as written, so "3.2 * 4.5 = 14.8" is still a slip."""
-    return _LITERAL.sub(
+    A given is exact as written, so "3.2 * 4.5 = 14.8" is still a slip; a whole number or
+    an exponent is never taken for a rounded result (the "2" of "3^2" after "9/4 = 2")."""
+    return _DECIMAL.sub(
         lambda m: f"({rounded[m.group(0)]!r})" if m.group(0) in rounded else m.group(0), plain
     )
 
@@ -256,8 +257,8 @@ def _is_wrong(value: float, shown: float, rounding: float, approximate: bool) ->
     return difference > rounding * (1 + 1e-9) and difference > slack
 
 
-# A name a step solves for: t, v_1, t_{\text{flight}}.
-_NAME = re.compile(r"[A-Za-z](?:_\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}|_\w)?")
+# A name a step solves for or a given names: t, v_1, t_{\text{flight}}, \mu, \theta_1.
+_NAME = re.compile(r"(?:\\[A-Za-z]+|[A-Za-z])(?:_\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}|_\w)?")
 
 
 def _note_rounded(
@@ -280,6 +281,10 @@ def _note_rounded(
         if shown is None:
             if (value := _evaluate(_exact_side(right, rounded))) is not None:
                 worked[name] = value
+            return
+        if name not in worked:
+            # A given ("mu = 0.3"): the same digits after it are this value, not a rounding.
+            rounded.pop(right, None)
             return
         exact = worked.get(name)
     if exact is None or shown is None:

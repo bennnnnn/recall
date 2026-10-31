@@ -71,11 +71,22 @@ def _network_equivalent(values: list[float], *, series: bool) -> float | None:
     return 1.0 / sum(1.0 / value for value in values)
 
 
-_ONE_RESISTOR_ASK = re.compile(
-    r"\b(?:across|through|in|by)\s+(?:the|each)\s+\d+(?:\.\d+)?\s*(?:\u03a9|\u03c9|ohms?)"
-    r"|\beach\s+(?:resistor|lamp|bulb|branch)|\b(?:first|second|third|other|last)\s+resistor"
+# What a network's total answers: the whole circuit, never one resistor's share. "the
+# current the 3 Ω resistor draws" and "the p.d. across the 50 Ω resistor" got the network's
+# total; a list of one-resistor phrasings is never complete, so the whole is what is named.
+_WHOLE_RESISTANCE_ASK = re.compile(
+    r"\b(?:total|equivalent|combined|effective|net|overall)\s+resistance"
+    r"|\bresistance\s+of\s+the\s+(?:combination|circuit|network|arrangement|whole)"
+    r"|\bresistance\s*(?:[.?!]|$)"
 )
-_TOTAL_RESISTANCE_ASK = re.compile(r"\b(?:total|equivalent|combined|effective|net)\s+resistance")
+_WHOLE_CURRENT_ASK = re.compile(
+    r"\btotal\s+current|\b(?:main|circuit|supply|line)\s+current"
+    r"|\bcurrent\s+(?:drawn\s+|taken\s+)?(?:from|supplied\s+by|delivered\s+by|out\s+of"
+    r"|in|through|round|around)\s+the\s+(?:battery|cell|supply|source|mains|circuit|network"
+    r"|combination)\b|\bcurrent\s*(?:[.?!]|$)"
+)
+# A meter's reading is a voltage across part of the circuit, not the supply's.
+_METER_READING = re.compile(r"\bvoltmeter|\breads?\b|\breading")
 
 
 def _network_intent(
@@ -90,16 +101,14 @@ def _network_intent(
     stated = 1 if counted is not None else len(network)
     if stated > _MAX_NETWORK_RESISTORS or len(network) > _MAX_COUNTED_RESISTORS:
         return None
-    # "Find the p.d. across the 50 Ω resistor": one resistor's share, which the network's
-    # total (certified 150 Ω) does not answer, unless the total is asked too.
-    if _ONE_RESISTOR_ASK.search(lower) and not _TOTAL_RESISTANCE_ASK.search(lower):
-        return None
     series = "series" in lower
     # "Find the current" with a supply voltage is Ohm's law on the
     # equivalent resistance. Answering the resistance sum is a different law.
     asks_current = re.search(r"\bcurrents?\b", lower) is not None
     asks_resistance = re.search(r"\bresistances?\b", lower) is not None
     if asks_current and not asks_resistance:
+        if not _WHOLE_CURRENT_ASK.search(lower) or _METER_READING.search(lower):
+            return None
         # Every resistor stays a parameter, so the working and the schematic
         # show the network the user described, not one equivalent resistor.
         if len(volts) != 1 or amps or _network_equivalent(network, series=series) is None:
@@ -117,6 +126,8 @@ def _network_intent(
             },
             operation="solve",
         )
+    if not _WHOLE_RESISTANCE_ASK.search(lower):
+        return None
     return PhysicsIntent(
         kind="circuit",
         physics_op="series_resistance" if series else "parallel_resistance",
