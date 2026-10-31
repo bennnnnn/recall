@@ -411,6 +411,9 @@ def test_absolute_value_note_only_under_a_square_root(expression: str, note: boo
 @pytest.mark.parametrize(
     ("expression", "simplest"),
     [
+        # A number takes its real odd roots; a high power's sign changes where x's does.
+        ("cbrt(-8) + sqrt(-9)", "-2 + 3 i"),
+        ("cbrt(-64x^9)", "- 4 x^{3}"),
         # Irrational cut points are found numerically; the rewrite is still checked.
         ("cbrt(-8)*sqrt((x-sqrt(2))^2)", r"- 2 \left|{x - \sqrt{2}}\right|"),
         ("cbrt(x^3)*abs(x^2-pi)", r"x \left|{x^{2} - \pi}\right|"),
@@ -491,8 +494,23 @@ def test_complex_card_equal_to_the_question_is_not_certified(query: str) -> None
     assert block is None or block.canonical_answer is None
 
 
-@pytest.mark.parametrize("expression", ["1/(x^5-x+1)", "1/(x^3-3*x+1)"])
-def test_excluded_values_a_student_cannot_read_are_not_certified(expression: str) -> None:
+@pytest.mark.parametrize(
+    ("expression", "answer", "restriction"),
+    [
+        # Real roots that print only as CRootOf or complex radicals: the factor is stated.
+        ("(x^3-3*x+1)/(x^3-3*x+1)", "1", r"x^{3} - 3 x + 1 \ne 0"),
+        ("(x^4-3*x^2+x)/(x^3-3*x+1)", "x", r"x^{3} - 3 x + 1 \ne 0"),
+        ("x*(x^5-x+1)/(x^5-x+1)", "x", r"x^{5} - x + 1 \ne 0"),
+        ("1/((x-1)*(x^5-x+1))", None, r"x^{5} - x + 1 \ne 0,\; x \ne 1"),
+    ],
+)
+def test_unreadable_excluded_values_are_stated_as_the_factor(
+    expression: str, answer: str | None, restriction: str
+) -> None:
     intent = MathIntent(kind="calculus", expr=expression, operation="simplify", variable="x")
     block = _build_verified_block(intent, _SETTINGS)
-    assert block is None or block.canonical_answer is None
+    assert block is not None
+    if answer is not None:
+        assert block.canonical_answer == answer
+    assert f"${restriction}$ — excluded by the original expression" in (block.direct_reply or "")
+    assert "CRootOf" not in (block.direct_reply or "")

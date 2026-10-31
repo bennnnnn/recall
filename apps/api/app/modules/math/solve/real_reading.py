@@ -121,7 +121,7 @@ def _real_cuts(arguments: list[Any], symbol: Any) -> list[float] | None:
         for part in fraction(together(argument)):
             if symbol not in part.free_symbols:
                 continue
-            poly = Poly(part, symbol)
+            poly = Poly(part, symbol).sqf_part()  # x⁹ changes sign where x does
             if poly.degree() > _MAX_DEGREE:
                 return None
             cuts.update(_real_roots(poly))

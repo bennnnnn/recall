@@ -12,6 +12,7 @@ from app.modules.math.schemas import MathExprResult, MathIntent
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.derivative_steps import derivative_trace
 from app.modules.math.solve.key_steps import KeyStep, written_side
+from app.modules.math.solve.real_reading import real_zeros
 from app.modules.math.tools.block.calculus_applications import (
     _CALCULUS_APPLICATION_OPS,
     _verified_calculus_application,
@@ -198,6 +199,28 @@ _CALCULUS_OPERATIONS: dict[str, _Operation] = {
 }
 
 
+def _readable_zeros(
+    denominator: Any, symbol: Any, zeros: list[Any]
+) -> list[tuple[Any, list[Any] | None]]:
+    """The zeros by factor; None for a factor whose real roots print only as CRootOf or
+    complex radicals, so ``(x - 1)(x⁵ - x + 1)`` excludes 1 and states x⁵ - x + 1 ≠ 0."""
+    from sympy import CRootOf, I, factor_list
+
+    def readable(values: list[Any]) -> bool:
+        return not any(value.has(CRootOf, I) for value in values)
+
+    if readable(zeros):
+        return [(denominator, zeros)]
+    whole = denominator.doit()
+    if not whole.is_polynomial(symbol):
+        return [(whole, None)]
+    found: list[tuple[Any, list[Any] | None]] = []
+    for part, _ in factor_list(whole, symbol)[1]:
+        part_zeros = real_zeros(part, symbol) or []
+        found.append((part, part_zeros if readable(part_zeros) else None))
+    return found
+
+
 def _number_first(value: Any) -> tuple[int, float, str]:
     """Numbers in order (-3, 2, 10), then letters (``x \\ne y``)."""
     if value.is_number and value.is_real:
@@ -208,7 +231,7 @@ def _number_first(value: Any) -> tuple[int, float, str]:
 def _simplification_direct_reply(intent: MathIntent, answer: str) -> str | None:
     """Render a verified simplification and preserve the original domain; None when the
     excluded values cannot be worked out."""
-    from sympy import Abs, CRootOf, I, Symbol, latex, preorder_traversal
+    from sympy import Abs, Symbol, latex, preorder_traversal
 
     from app.modules.math.solve.real_reading import real_zeros
 
@@ -234,11 +257,16 @@ def _simplification_direct_reply(intent: MathIntent, answer: str) -> str | None:
                 # Over the reals, as the card reads: x³ - 1 = 0 excludes 1 alone, and
                 # ∛x + 1 = 0 excludes -1.
                 zeros = real_zeros(denominator, sym)
-                # Not found, or found only as CRootOf or through complex radicals: a
-                # student cannot read that line, so nothing is certified.
-                if zeros is None or any(value.has(CRootOf, I) for value in zeros):
-                    return None
-                excluded_values += [value for value in zeros if value not in excluded_values]
+                if zeros is None:
+                    return None  # not established: nothing is certified
+                for part, part_zeros in _readable_zeros(denominator, sym, zeros):
+                    if part_zeros is None:
+                        # Real roots that print only as CRootOf or complex radicals: the
+                        # restriction is stated as the factor itself.
+                        stated = rf"{latex(part)} \ne 0"
+                        restrictions += [stated] if stated not in restrictions else []
+                        continue
+                    excluded_values += [v for v in part_zeros if v not in excluded_values]
         for value in sorted(excluded_values, key=_number_first):
             if getattr(value, "is_Symbol", False):
                 first, second = sorted((str(sym), str(value)))

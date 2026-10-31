@@ -38,6 +38,7 @@ from sympy import (
     together,
 )
 
+from app.modules.math.solve.complex_form import a_plus_bi
 from app.modules.math.solve.radical_form import book_radicals_latex, has_radical
 from app.modules.math.solve.real_reading import agrees_on_reals, real_odd_roots
 
@@ -56,6 +57,9 @@ def simplest_form(parsed: Any) -> tuple[Any, str | None]:
     radicals = book_radicals_latex(chosen) if has_radical(parsed) else None
     if radicals is not None:
         return chosen, radicals
+    complex_number = a_plus_bi(chosen)  # ∛(-8) + √(-9) is -2 + 3i, real part first
+    if complex_number is not None:
+        return chosen, complex_number
     return chosen, (None if chosen == result else latex(chosen))
 
 
@@ -68,6 +72,8 @@ def _real_root_form(parsed: Expr, result: Expr) -> Expr:
     candidate = simplify(real_odd_roots(parsed).subs(positive)).subs(back)
     if count_ops(candidate) > count_ops(result) or candidate == result:
         return result
+    if not symbols:
+        return candidate  # a number: the real odd root is its value (∛(-8) + √(-9) = -2 + 3i)
     return candidate if agrees_on_reals(parsed, candidate) else result
 
 
