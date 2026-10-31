@@ -62,8 +62,9 @@ class StemSettings(BaseModel):
     # nothing it reads reaches a reply. Each of its two calls has this long: the measured
     # p95 of a call (docs/MODEL_READER.md); the turn never waits for the read.
     model_reader_shadow_enabled: bool = False
-    # The share of STEM turns read in shadow when it is on: each costs two model calls.
-    model_reader_shadow_rate: float = Field(default=0.1, ge=0.0, le=1.0)
+    # The share of STEM turns read in shadow when it is on (0 none, 1 every one): each read
+    # costs two model calls.
+    model_reader_shadow_rate: float = 0.1
     model_reader_timeout_seconds: float = 3.5
     # POST /{math,physics,chemistry}/scan/read runs OCR (Mathpix, then vision)
     # so the student can confirm what the camera read before it is solved.
