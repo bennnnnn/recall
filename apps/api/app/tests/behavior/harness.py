@@ -60,6 +60,7 @@ from app.modules.chat.turn_prep.context import (
 )
 from app.modules.chat.turn_prep.mode import classify_turn_mode
 from app.modules.chat.turn_prep.request import TurnRequest
+from app.modules.chat.turn_trace import TurnTrace, begin_turn_trace
 from app.modules.images.gen_intent import stem_subject_claims
 from app.modules.images.intent import image_gen_request
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
@@ -201,6 +202,11 @@ class Route:
     history_rag: bool = False
     # The scenes a verified block appends under a model-written reply, as fences.
     server_pictures: str = ""
+    # What the turn decided, as production records it (``turn_trace``): the trace keeps
+    # collecting while the caller runs the reply's finalize step. ``decisions.py`` reads
+    # both to diff a change's decisions against main's.
+    trace: TurnTrace | None = None
+    context: Any = None
 
     def summary(self) -> str:
         parts = [f"search={self.search}"]
@@ -331,6 +337,7 @@ def _hints_in(system: str, case: Case) -> set[str]:
 
 async def route_case(case: Case, settings: Settings | None = None) -> Route:
     settings = settings or battery_settings()
+    trace = begin_turn_trace("new")
     user = User(
         id=uuid4(),
         name=USER_NAME,
@@ -497,6 +504,8 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         memory_scope=str(loaded.get("memory_scope") or "") if loaded.get("load_memory") else "",
         history_rag=bool(loaded.get("history_rag")),
         server_pictures=_server_pictures(verified),
+        trace=trace,
+        context=ctx,
     )
 
 
