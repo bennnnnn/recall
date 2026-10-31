@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sympy import Add, Expr, Mul, Pow, Rational, latex
+from sympy import Add, Expr, Mul, Pow, Rational, latex, preorder_traversal
 
 
 def has_radical(expr: Expr) -> bool:
@@ -36,22 +36,29 @@ def _root_part(factor: Any) -> bool:
 
 
 def _needs_rewrite(expr: Any) -> bool:
-    """A letter with a fractional power above 1, or two radicals of one index in a term."""
-    for term in Add.make_args(expr):
-        roots = [factor for factor in Mul.make_args(term) if _root_part(factor)]
-        if any(root.base.is_Symbol and root.exp.p > 1 for root in roots):
-            return True
-        indices = [int(root.exp.q) for root in roots]
-        if len(indices) != len(set(indices)):
-            return True
+    """Anywhere in it, a letter with a fractional power above 1 (``x^(2/3)`` in a
+    denominator too), or two radicals of one index in one product."""
+    if any(_root_part(node) and node.base.is_Symbol and node.exp.p > 1 for node in expr.atoms(Pow)):
+        return True
+    for node in preorder_traversal(expr):
+        if node.is_Mul:
+            indices = [int(root.exp.q) for root in node.args if _root_part(root)]
+            if len(indices) != len(set(indices)):
+                return True
     return False
 
 
 def _book_form(expr: Any) -> Any:
+    """Every node rebuilt in the order SymPy prints it, since ``order="none"`` prints the
+    tree as built: ``|3x - √3|`` and ``(x - 1)``, never ``|-√3 + 3x|`` or ``(-1 + x)``."""
     if expr.is_Add:
         return Add(*(_book_form(term) for term in expr.as_ordered_terms()), evaluate=False)
     if expr.is_Mul or _root_part(expr):
         return _radical_product(Mul.make_args(expr) if expr.is_Mul else (expr,))
+    if expr.is_Pow:
+        return Pow(_book_form(expr.base), expr.exp, evaluate=False)
+    if expr.args and expr.is_Function:
+        return expr.func(*(_book_form(arg) for arg in expr.args), evaluate=False)
     return expr
 
 
@@ -62,14 +69,14 @@ def _radical_product(factors: tuple[Any, ...]) -> Any:
     radicands: dict[int, list[Any]] = {}
     for factor in rest.as_ordered_factors():
         if not _root_part(factor):
-            outside.append(factor)
+            outside.append(_book_form(factor))
             continue
         index = int(factor.exp.q)
         whole, part = divmod(int(factor.exp.p), index)
         if whole:
             outside.append(factor.base**whole)
         if part:
-            radicands.setdefault(index, []).append(factor.base**part)
+            radicands.setdefault(index, []).append(_book_form(factor.base**part))
     roots = [
         Pow(_in_order(parts), Rational(1, index), evaluate=False)
         for index, parts in sorted(radicands.items())

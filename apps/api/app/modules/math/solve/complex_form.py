@@ -36,12 +36,10 @@ def a_plus_bi(value: Any) -> str | None:
 
 
 def restates(typed: str, answer: str) -> bool:
-    """The answer is the question as typed with its brackets still to work out, like
-    ``(1 - i)(√3 + i)``. ``3 + 4i`` as typed is already its own answer."""
+    """The answer is the question's own expression: ``x + 2`` asked "in the form a + bi",
+    an unexpanded product, ``i y + x`` for ``x + yi``. It certifies nothing."""
     from app.modules.math.solve.key_steps import written_side
 
-    if r"\left(" not in answer:
-        return False
     written = written_side(typed, ["x"])
     if written is None:
         return False

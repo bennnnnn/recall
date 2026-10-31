@@ -11,9 +11,10 @@ factored. Three rules, each one for every expression of its kind:
   otherwise SymPy's own form stands.
 - A rational expression is in lowest terms: no factor is left common to the numerator
   and the denominator.
-- A sum of polynomial terms is its collected terms, as long as collecting them is no
-  longer than what was written: ``(x+1)² - 1`` is ``x² + 2x``, while ``(x+1)¹⁰ - 1`` and a
-  product the student wrote keep SymPy's form.
+- A sum of polynomial terms with like terms or brackets is its collected terms, as long as
+  collecting them is no longer than what was written: ``(x+1)² - 1`` is ``x² + 2x``, while
+  ``(x+1)¹⁰ - 1``, a sum already collected and a product the student wrote keep SymPy's
+  form.
 
 Length alone does not decide: ``1/x + 1/(x+1)`` as one fraction is longer, and it is the
 book's answer.
@@ -86,4 +87,6 @@ def _collected_polynomial(parsed: Expr, chosen: Expr) -> Expr:
     if not symbols or not parsed.is_Add or not parsed.is_polynomial(*symbols):
         return chosen
     collected = expand(parsed)
+    if collected == parsed:
+        return chosen  # nothing to collect: x³ + x² or i²R + i²r keep SymPy's form
     return collected if count_ops(collected) <= count_ops(parsed) else chosen

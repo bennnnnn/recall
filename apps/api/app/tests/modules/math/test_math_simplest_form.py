@@ -40,14 +40,19 @@ _SETTINGS = Settings(math_tools_enabled=True)
         # A rational expression is in lowest terms.
         ("x/(x^3 - 1) / (2 - 1/(1 + 1/(x - 2)))", r"\frac{1}{x^{2} + x + 1}"),
         ("(x^3 - 8)/(x - 2)", "x^{2} + 2 x + 4"),
-        # A sum of polynomial terms is its collected terms, when that is no longer.
-        ("x^3 + x^2", "x^{3} + x^{2}"),
+        # A sum with like terms or brackets is its collected terms, when that is no longer.
         ("3x + 2x^2 - x + 4", "2 x^{2} + 2 x + 4"),
         ("(x+1)^2 - 1", "x^{2} + 2 x"),
         ("2*x*(x+1) + 3*(x+1)", "2 x^{2} + 5 x + 3"),
         # A product as written keeps SymPy's form.
         ("x^2*(x+1)", r"x^{2} \left(x + 1\right)"),
         ("3*x*(x-2)", r"3 x \left(x - 2\right)"),
+        # In radicals anywhere, every sum in the order SymPy prints it.
+        ("1/(cbrt(x^2) - 4)", r"\frac{1}{\sqrt[3]{x^{2}} - 4}"),
+        (
+            "x^(5/3)*abs(x - 1/sqrt(3))",
+            r"\frac{x \left|{3 x - \sqrt{3}}\right| \sqrt[3]{x^{2}}}{3}",
+        ),
         # One radical per index, its letters in order.
         ("sqrt(x)*sqrt(y)", r"\sqrt{x y}"),
         ("cbrt(x)*cbrt(y)", r"\sqrt[3]{x y}"),
@@ -81,6 +86,8 @@ def test_simplify_prints_the_book_form(expression: str, simplest: str) -> None:
         ("(x+1)^2 - (x-1)^2", "4 x"),
         ("sin(x)^2 + cos(x)^2", "1"),
         ("x + x", "2 x"),
+        # A sum already collected keeps SymPy's form.
+        ("x^3 + x^2", r"x^{2} \left(x + 1\right)"),
         # |x + c| is |x + c| for every c: its sign changes at -c, wherever that is.
         ("sqrt(12*(x+5)^2)", r"2 \sqrt{3} \left|{x + 5}\right|"),
         ("sqrt(18*(x+3)^2)", r"3 \sqrt{2} \left|{x + 3}\right|"),
@@ -368,7 +375,9 @@ def test_complex_cards_main_got_right_stay_right(query: str, answer: str) -> Non
 
 def test_complex_card_never_restates_the_question() -> None:
     assert math_school.restates_complex("(x+3i)^2", r"\left(x + 3 i\right)^{2}")
-    assert not math_school.restates_complex("3+4i", "3 + 4 i")
+    assert math_school.restates_complex("3+4i", "3 + 4 i")
+    assert math_school.restates_complex("x + yi", "i y + x")
+    assert not math_school.restates_complex("(1+i)^2", "2 i")
 
 
 @pytest.mark.parametrize(
@@ -416,3 +425,74 @@ def test_absolute_value_note_only_under_a_square_root(expression: str, note: boo
 )
 def test_real_reading_check_never_fails_the_card(expression: str, simplest: str) -> None:
     assert simplify_expression(expression, "x").latex == simplest
+
+
+@pytest.mark.parametrize(
+    ("query", "kind", "answer"),
+    [
+        # i beside j, or in a question about vectors, is a unit vector.
+        ("Simplify 3i + 2j - i", "calculus", "2 i + 2 j"),
+        ("Simplify i^2 + j^2", "calculus", "i^{2} + j^{2}"),
+        ("Simplify 3i - 2j + 5k - i + j", "calculus", "2 i - j + 5 k"),
+        # A quantity: a circuit's current, an interest rate (the whole message counts).
+        ("In a circuit, simplify i^2 R + i^2 r", "calculus", r"i^{2} \left(R + r\right)"),
+        (
+            "Let i be the interest rate. Simplify 1000(1+i)^2 - 1000",
+            "calculus",
+            "1000 i^{2} + 2000 i",
+        ),
+        ("Simplify P(1+i)^n / (1+i)", "calculus", r"P \left(i + 1\right)^{n - 1}"),
+        # i the only letter, a letter against i, and real odd roots on the arithmetic path.
+        ("Simplify 1/i", "complex", "- i"),
+        ("Simplify i(i+1)", "complex", "-1 + i"),
+        ("Simplify (x+yi)(x-yi)", "complex", "x^{2} + y^{2}"),
+        ("Expand (a+bi)^2", "complex", "a^{2} + 2 i a b - b^{2}"),
+        ("Simplify x^2 + 2xi - i^2", "complex", "x^{2} + 2 i x + 1"),
+        ("Evaluate (-27)^(1/3)", "arithmetic", "-3"),
+        ("Evaluate (-125)^(2/3)", "arithmetic", "25"),
+        ("Evaluate (-8)^(2/3)", "arithmetic", "4"),
+    ],
+)
+def test_round_three_readings(query: str, kind: str, answer: str) -> None:
+    intent = extract_math_intent(query)
+    assert intent is not None and intent.kind == kind
+    block = _build_verified_block(intent, _SETTINGS)
+    assert block is not None and block.canonical_answer == answer
+
+
+@pytest.mark.parametrize(
+    ("text", "expression"),
+    [
+        ("Simplify the vectors (3i + 4j) - (i - 2j)", "(3i + 4j) - (i - 2j)"),
+        ("Given a = 3i + 4j and b = i - 2j, simplify 2a - b", "2(3i + 4j) - (i - 2j)"),
+        ("Simplify the force (2i + 3j) + (4i - j)", "(2i + 3j) + (4i - j)"),
+        ("Simplify (3i+4j)^2", "(3i+4j)^2"),
+        ("simplify the power dissipated i^2 R + i^2 r", "i^2 R + i^2 r"),
+        ("simplify the interest formula 1000(1+i)^2 - 1000", "1000(1+i)^2 - 1000"),
+        ("Simplify (1+i)^3 where i is the interest rate", "(1+i)^3"),
+    ],
+)
+def test_model_reading_keeps_vectors_and_quantities(text: str, expression: str) -> None:
+    intent = MathIntent(kind="calculus", expr=expression, operation="simplify", variable="x")
+    assert complex_reading(intent, text) is intent
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Write x + 2 in the form a + bi",
+        "Write x + yi in the form a + bi",
+        "Simplify the complex number 3 + 4i",
+    ],
+)
+def test_complex_card_equal_to_the_question_is_not_certified(query: str) -> None:
+    intent = extract_math_intent(query)
+    block = _build_verified_block(intent, _SETTINGS) if intent is not None else None
+    assert block is None or block.canonical_answer is None
+
+
+@pytest.mark.parametrize("expression", ["1/(x^5-x+1)", "1/(x^3-3*x+1)"])
+def test_excluded_values_a_student_cannot_read_are_not_certified(expression: str) -> None:
+    intent = MathIntent(kind="calculus", expr=expression, operation="simplify", variable="x")
+    block = _build_verified_block(intent, _SETTINGS)
+    assert block is None or block.canonical_answer is None

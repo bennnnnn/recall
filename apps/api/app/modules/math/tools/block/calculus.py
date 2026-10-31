@@ -208,7 +208,7 @@ def _number_first(value: Any) -> tuple[int, float, str]:
 def _simplification_direct_reply(intent: MathIntent, answer: str) -> str | None:
     """Render a verified simplification and preserve the original domain; None when the
     excluded values cannot be worked out."""
-    from sympy import Abs, Symbol, latex, preorder_traversal
+    from sympy import Abs, CRootOf, I, Symbol, latex, preorder_traversal
 
     from app.modules.math.solve.real_reading import real_zeros
 
@@ -234,7 +234,9 @@ def _simplification_direct_reply(intent: MathIntent, answer: str) -> str | None:
                 # Over the reals, as the card reads: x³ - 1 = 0 excludes 1 alone, and
                 # ∛x + 1 = 0 excludes -1.
                 zeros = real_zeros(denominator, sym)
-                if zeros is None:
+                # Not found, or found only as CRootOf or through complex radicals: a
+                # student cannot read that line, so nothing is certified.
+                if zeros is None or any(value.has(CRootOf, I) for value in zeros):
                     return None
                 excluded_values += [value for value in zeros if value not in excluded_values]
         for value in sorted(excluded_values, key=_number_first):
