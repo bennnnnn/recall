@@ -274,8 +274,9 @@ async function fetchApi(path: string, init: RequestInit, generation: number): Pr
   } finally {
     if (unreachable && generation === getSessionGeneration()) reportConnectionFailure();
     if (answered) reportConnectionAnswered(sentAt);
-    // A failed call leaves a crumb with its id: the next report sent says which call it was.
-    else if (unreachable || (status !== null && status >= 400)) {
+    // A call the API failed (no answer, or a 5xx) leaves a crumb with its id: the next
+    // report sent says which call it was. An expected refusal (401, 404, 409) does not.
+    else if (unreachable || (status !== null && status >= 500)) {
       noteApiFailure(init.method ?? "GET", path, status, requestId);
     }
   }
@@ -460,7 +461,10 @@ export async function authorizeNativeTransfer(
     requireSession(generation);
     if (refreshed) effectiveToken = refreshed;
   }
-  const status = await send(effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {});
+  const status = await send({
+    [REQUEST_ID_HEADER]: newRequestId(),
+    ...(effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {}),
+  });
   requireSession(generation);
   if (status === 401 && effectiveToken) {
     const replaced = allowRefresh ? replacedToken(effectiveToken, generation) : null;

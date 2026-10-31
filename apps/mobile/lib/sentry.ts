@@ -211,17 +211,22 @@ export function noteApiFailure(
   status: number | null,
   requestId: string,
 ): void {
-  sdk?.addBreadcrumb({
-    category: "api",
-    level: "warning",
-    message: "API call failed",
-    data: {
-      method,
-      url: withoutQuery(path),
-      status_code: status ?? undefined,
-      request_id: requestId,
-    },
-  });
+  try {
+    sdk?.addBreadcrumb({
+      category: "api",
+      level: "warning",
+      message: "API call failed",
+      data: {
+        method,
+        url: withoutQuery(path),
+        status_code: status ?? undefined,
+        request_id: requestId,
+      },
+    });
+  } catch {
+    // Best effort: the caller gets the call's own response or error, never this one.
+    return;
+  }
 }
 
 /** Sent at once when the SDK is up; before that it waits in the short queue. */

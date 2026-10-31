@@ -15,6 +15,7 @@ import { reportConnectionAnswered, reportConnectionFailure } from "@/lib/api/con
 import { UNAVAILABLE_CODE } from "@/lib/api/errorBody";
 import { getSessionGeneration } from "@/lib/auth";
 import { newRequestId, withRequestId } from "@/lib/api/requestId";
+import { noteApiFailure } from "@/lib/sentry";
 
 const WS_TURN_EVENT_TYPES = new Set([
   "start",
@@ -182,9 +183,11 @@ export class ChatWsTransport {
     }
     if (this.connectPromise) return this.connectPromise;
 
-    // Each connection names itself, so the API's lines for this socket can be found.
+    // Each connection names itself, so the API's lines for this socket can be found; an
+    // outage it meets leaves a crumb with that id for the next report.
+    const requestId = newRequestId();
     const socket = (this.options.createSocket ?? ((url) => new WebSocket(url)))(
-      withRequestId(this.options.url, newRequestId()),
+      withRequestId(this.options.url, requestId),
     );
     this.socket = socket;
     this.answersPing = false;
@@ -200,6 +203,7 @@ export class ChatWsTransport {
       if (outageReported || generation !== getSessionGeneration()) return;
       outageReported = true;
       reportConnectionFailure();
+      noteApiFailure("WS", this.options.url, null, requestId);
     };
     this.connectPromise = new Promise<void>((resolve) => {
       this.settleConnect = resolve;

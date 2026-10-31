@@ -585,10 +585,12 @@ describe("authorizeNativeTransfer", () => {
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
   });
 
-  it("sends no credentials without a token", async () => {
-    const send = jest.fn(async () => 200);
+  it("sends no credentials without a token, only the call's id", async () => {
+    const send = jest.fn(async (_headers: Record<string, string>) => 200);
     await authorizeNativeTransfer(null, send);
-    expect(send).toHaveBeenCalledWith({});
+    const [[headers]] = send.mock.calls;
+    expect(Object.keys(headers)).toEqual(["X-Request-ID"]);
+    expect(headers["X-Request-ID"]).toMatch(/^[A-Za-z0-9_-]{1,64}$/);
   });
 });
 

@@ -15,6 +15,10 @@ import { onConnectionAnswered, onConnectionFailure } from "@/lib/api/connectionF
 
 let mockSession = 0;
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
+const mockNoteApiFailure = jest.fn();
+jest.mock("@/lib/sentry", () => ({
+  noteApiFailure: (...args: unknown[]) => mockNoteApiFailure(...args),
+}));
 
 class FakeSocket {
   readyState = 0;
@@ -643,6 +647,31 @@ describe("ChatWsTransport outages and the connection check", () => {
     closeWith(socket, 1013);
     expect(onPayload).toHaveBeenCalledWith(frame);
     expect(reported).toBe(1);
+  });
+
+  it("leaves a crumb with the failed socket's own id", async () => {
+    mockNoteApiFailure.mockClear();
+    const urls: string[] = [];
+    const socket = new FakeSocket();
+    const transport = new ChatWsTransport({
+      url: "wss://test/chat",
+      getToken: () => "token",
+      clientTimezone: () => "UTC",
+      onPayload: jest.fn(),
+      onFallback: jest.fn(),
+      backoff: createWsBackoff(),
+      createSocket: (url) => {
+        urls.push(url);
+        return socket as unknown as WebSocket;
+      },
+    });
+    void transport.connect();
+    socket.open();
+    socket.emit({ type: "pong" });
+    socket.emit({ type: "error", code: "unavailable", message: "Down" });
+    const id = new URL(urls[0]).searchParams.get("request_id");
+    expect(mockNoteApiFailure).toHaveBeenCalledWith("WS", "wss://test/chat", null, id);
+    transport.close();
   });
 
   it("asks for one check for an unavailable frame mid-turn", async () => {
