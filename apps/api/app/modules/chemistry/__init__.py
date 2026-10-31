@@ -39,6 +39,8 @@ _MODULE_EXPORTS = (
     "fence",
     "followup",
     "input_text",
+    # The laws a model reader chooses from, and the intent its read binds to.
+    "model_read",
     "reading",
     "reply_policy",
     "request",
