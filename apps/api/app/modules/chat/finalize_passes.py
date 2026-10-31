@@ -365,7 +365,7 @@ async def enrich_final_content(
         user_stopped=user_stopped,
         on_status=on_status,
     )
-    enriched = await run_finalize_passes(state)
+    await run_finalize_passes(state)
     # Last, on the finished text: no later pass can fail and lose its card.
     text = (
         state.text
@@ -374,13 +374,13 @@ async def enrich_final_content(
     )
 
     # One write: done.final_content must equal the string we persist. Skip on
-    # an unchanged normal turn so done payloads stay small. After a failure the
-    # client settles what it streamed unless done carries the text, so a fallback
-    # that differs (a stripped forged marker, a marked instant card, a reply its
-    # safety passes emptied) is always sent back.
+    # an unchanged normal turn so done payloads stay small. The client settles
+    # what it streamed unless done carries the text, so any text that differs
+    # (a stripped forged marker, a marked instant card, a reply its safety passes
+    # emptied) is always sent back, an empty one included.
     if outcome is not None:
         if was_cancelled and text:
             outcome.final_content = text
-        elif text != assistant_text and (text or not enriched):
+        elif text != assistant_text:
             outcome.final_content = text
     return text

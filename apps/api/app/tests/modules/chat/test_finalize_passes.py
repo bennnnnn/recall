@@ -511,6 +511,37 @@ async def test_a_fallback_its_safety_passes_emptied_reaches_done(
 
 
 @pytest.mark.asyncio
+async def test_a_reply_the_passes_emptied_reaches_done(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def no_reminders(*args: Any) -> str:
+        return str(args[4])
+
+    monkeypatch.setattr(finalize_passes, "apply_reminder_pass", no_reminders)
+    monkeypatch.setattr(
+        finalize_passes,
+        "FINALIZE_PASSES",
+        (FinalizePass("leak", lambda s: "", FALL_BACK),),
+    )
+    state = _state(_PLANTED)
+    outcome = TurnOutcome()
+
+    text = await finalize_passes.enrich_final_content(
+        state.deps,
+        MagicMock(),
+        state.settings,
+        state.ctx,
+        assistant_text=_PLANTED,
+        usage={},
+        outcome=outcome,
+        was_cancelled=False,
+        assistant_parts=[_PLANTED],
+        should_cancel=None,
+    )
+
+    # What streamed is not what persists, so the phone is told, even when it is nothing.
+    assert text == "" and outcome.final_content == ""
+
+
+@pytest.mark.asyncio
 async def test_the_maths_pass_runs_the_turns_own_math_fence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
