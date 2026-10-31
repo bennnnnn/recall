@@ -46,6 +46,14 @@ CELSIUS_KEYS = frozenset({"temperature_c"})
 ADDITIVE_OPS = frozenset(
     {"bond_enthalpy", "cell_potential", "dalton", "formation_enthalpy", "hess"}
 )
+# An average atomic mass is a mean of the isotope masses weighted by abundances that add to
+# 100%, so like a sum it keeps decimal places, not figures: boron's 10 and 11 at 20% and 80%
+# average to 10.8, not 11. A mass with decimals limits them. A whole-number mass is the mass
+# number standing in for the mass (C-12's 12 is exact), a count. An abundance moves the mean
+# only by its share of the masses' spread, a few u, so it allows its own places plus two.
+# Masses from the isotope table give the table's four figures.
+WEIGHTED_MEAN_OPS = frozenset({"average_atomic_mass"})
+_WEIGHT_PLACES = 2
 
 # Units an extractor converts between. A converted value keeps its typed literal's figures.
 _CONVERTIBLE = (
@@ -184,7 +192,9 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
     # A concentration from a typed pH has as many figures as the pH has decimals.
     measured_figures = figures or log_places
     answer = min(max(min(measured_figures), MIN_FIGURES), MAX_FIGURES) if measured_figures else None
-    if intent.chemistry_op in ADDITIVE_OPS:
+    if intent.chemistry_op in WEIGHTED_MEAN_OPS:
+        answer, decimals = _weighted_mean_precision(intent, forms)
+    elif intent.chemistry_op in ADDITIVE_OPS:
         decimals = min(places, default=None)
     else:
         # Every given limits a pH: pKa 4.756 + log10(0.20 / 0.10) keeps the ratio's two places.
@@ -198,6 +208,27 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
             "converted": converted,
         }
     )
+
+
+def _weighted_mean_precision(
+    intent: ChemistryIntent, forms: dict[float, list[str]]
+) -> tuple[int | None, int | None]:
+    """(figures, decimals) of a weighted mean: masses in ``params``, abundances in ``species``.
+
+    The mean of whole mass numbers alone is exact, so it sets neither.
+    """
+    typed = [forms.get(value, []) for value in intent.params.values()]
+    mass_places = [decimals_of(form) for forms_of in typed for form in forms_of]
+    if any(mass_places):
+        weights = [
+            decimals_of(form) + _WEIGHT_PLACES
+            for value in intent.species.values()
+            for form in forms.get(value, [])
+        ]
+        return None, min([*(places for places in mass_places if places), *weights, MAX_DECIMALS])
+    if not all(typed):
+        return MAX_FIGURES, None
+    return None, None
 
 
 @dataclass(frozen=True, slots=True)
@@ -223,7 +254,7 @@ def numbers_as_written(intent: ChemistryIntent) -> Iterator[None]:
             intent.decimals,
             intent.written,
             intent.converted,
-            additive=intent.chemistry_op in ADDITIVE_OPS,
+            additive=intent.chemistry_op in ADDITIVE_OPS | WEIGHTED_MEAN_OPS,
         )
     )
     try:
