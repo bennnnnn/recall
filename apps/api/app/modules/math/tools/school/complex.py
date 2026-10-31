@@ -19,7 +19,7 @@ _POWER_OF_I = re.compile(r"(?<![A-Za-z_])i\s*\^\s*\(?\s*-?\d")
 # "and write in the form a + bi:", "in standard form a+bi": the answer's shape, said of
 # a complex number. The clause is no part of the expression.
 _FORM_CLAUSE = re.compile(
-    r"[,;]?\s*(?:\band\s+)?(?:\b(?:write|express|give|leave|put|present)\s+"
+    r"[,;]?[ \t]?(?:\band\s+)?(?:\b(?:write|express|give|leave|put|present)\s+"
     r"(?:it\s+|them\s+|(?:the|your)\s+(?:answer|result)\s+)?)?"
     r"\bin\s+(?:the\s+)?(?:standard\s+|rectangular\s+|cartesian\s+)?form\s+a\s*\+\s*b\s*i\b\s*:?",
     re.IGNORECASE,
@@ -28,7 +28,7 @@ _FORM_CLAUSE = re.compile(
 _COMPLEX_WORDS = re.compile(r"\bcomplex\b(?!\s+fractions?\b)|\bimaginary\b", re.IGNORECASE)
 # "where i is the imaginary unit": a definition, no part of the expression.
 _UNIT_CLAUSE = re.compile(
-    r"[,;]?\s*\b(?:where|with|given)\s+i\s*(?:is|=|denotes)\s*(?:the\s+)?"
+    r"[,;]?[ \t]?\b(?:where|with|given)\s+i\s*(?:is|=|denotes)\s*(?:the\s+)?"
     r"(?:imaginary\s+unit|√\s*\(?\s*-\s*1\s*\)?|sqrt\s*\(\s*-\s*1\s*\))",
     re.IGNORECASE,
 )
@@ -40,11 +40,11 @@ _SUBSCRIPT_I = re.compile(r"_\s*[{(]?\s*i\b")
 # dissipates, or an interest rate (P(1 + i)^n grows by a rate i each period).
 _INDEX_OR_QUANTITY = re.compile(
     r"\bfor\s+(?:each\s+|every\s+|all\s+)?i\b|\bi\s*=\s*\d|\bover\s+i\b|[Σ∑]"
-    r"|\bi\s*-?\s*th\b|\bith\b"
+    r"|\bi(?:\s*-)?\s*th\b|\bith\b"
     r"|\b(?:currents?|circuits?|resistors?|resistances?|ohms?|amperes?|amps?|volts?|voltages?)\b"
     r"|\bdissipat\w*|\bpower\s+(?:loss|lost|consumed|delivered|developed)\b"
     r"|\b(?:interest|rates?|compound\w*|annuit\w*|principal|invest\w*|loans?|deposit\w*)\b"
-    r"|\(\s*1\s*[+-]\s*i\s*\)\s*\^\s*\(?\s*-?\s*[a-hj-z]"
+    r"|\(\s*1\s*[+-]\s*i\s*\)\s*\^\s*(?:\(\s*)?(?:-\s*)?[a-hj-z]"
     r"|\b(?:let|where)\s+i\s+(?:be|is|denotes?)\b(?!\s+(?:the\s+)?imaginary)",
     re.IGNORECASE,
 )
