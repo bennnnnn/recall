@@ -29,7 +29,7 @@ _COMPLEX_WORDS = re.compile(r"\bcomplex\b(?!\s+fractions?\b)|\bimaginary\b", re.
 # "where i is the imaginary unit": a definition, no part of the expression.
 _UNIT_CLAUSE = re.compile(
     r"[,;]?[ \t]?\b(?:where|with|given)\s+i\s*(?:is|=|denotes)\s*(?:the\s+)?"
-    r"(?:imaginary\s+unit|√\s*\(?\s*-\s*1\s*\)?|sqrt\s*\(\s*-\s*1\s*\))",
+    r"(?:imaginary\s+unit|√\s*(?:\(\s*)?-\s*1\s*\)?|sqrt\s*\(\s*-\s*1\s*\))",
     re.IGNORECASE,
 )
 # ``x_i`` is a name with a subscript, never a product with i.
