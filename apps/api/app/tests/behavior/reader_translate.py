@@ -132,7 +132,29 @@ def _judge(question: Question, english: English) -> None:
 
 
 def _language(lang: str) -> str:
-    return lang.removeprefix("book-") if lang.startswith("book-") else lang
+    return lang.split("-", 1)[1] if lang.startswith(("book-", "heldout-")) else lang
+
+
+HELDOUT = Path(__file__).with_name("reader_corpus") / "heldout.json"
+
+
+def heldout_entries() -> list[tuple[str, str, Entry, str]]:
+    """The held-out questions, written naturally by a reviewer after the tables were filled
+    (2026-10-31): (language, subject, the original, its faithful English)."""
+    found: list[tuple[str, str, Entry, str]] = []
+    for raw in json.loads(HELDOUT.read_text()):
+        check = raw.get("check")
+        answers = (tuple(raw["answer"]),) if raw.get("answer") else ()
+        entry = Entry(
+            raw["id"],
+            "heldout",
+            raw["prompt"],
+            "answer",
+            answers=tuple((float(value), str(unit)) for value, unit in answers),
+            check=(check[0], check[1]) if check else None,
+        )
+        found.append((raw["lang"], raw["subject"], entry, raw["english"]))
+    return found
 
 
 async def _translate(question: Question, settings: Settings, gate: asyncio.Semaphore) -> None:
@@ -199,6 +221,9 @@ def _report(questions: list[Question]) -> None:
         corpus = [q for q in questions if q.row.subject == subject and q.row.lang in LANGUAGES]
         if corpus:
             print(_line(f"{subject} all 5", corpus))
+    heldout = [q for q in questions if q.row.lang.startswith("heldout-")]
+    if heldout:
+        print(_line("held out (all)", heldout))
     for index, alias in enumerate(_MODELS):
         p50, p95, dollars = _cost(questions, index)
         print(f"{alias}: p50 {p50:.2f}s p95 {p95:.2f}s ${dollars:.3f}/1k turns")
@@ -241,6 +266,9 @@ async def run(langs: list[str], books: list[dict[str, Any]] | None, dump: Path |
     settings = Settings()
     rows = [Row(subject, lang, entry) for lang in langs for subject, entry in _translated(lang)]
     rows += _book_rows(books or [])[0]
+    rows += [
+        Row(subject, f"heldout-{lang}", entry) for lang, subject, entry, _ in heldout_entries()
+    ]
     questions = [Question(row, _language(row.lang)) for row in rows]
     gate = asyncio.Semaphore(_CONCURRENCY)
     await asyncio.gather(*(_translate(q, settings, gate) for q in questions))
@@ -255,6 +283,10 @@ async def recheck(lines: list[str]) -> None:
         (lang, subject, entry.id): entry
         for lang in LANGUAGES
         for subject, entry in _translated(lang)
+    }
+    corpus |= {
+        (f"heldout-{lang}", subject, entry.id): entry
+        for lang, subject, entry, _ in heldout_entries()
     }
     questions: list[Question] = []
     for line in lines:

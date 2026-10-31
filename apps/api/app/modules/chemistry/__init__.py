@@ -48,4 +48,6 @@ _MODULE_EXPORTS = (
     "request",
     "shape_followup",
     "species",
+    # Where formulas are written (the model reader's translation check keeps them verbatim).
+    "species_facts",
 )

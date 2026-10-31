@@ -184,7 +184,7 @@ def test_the_kind_asked_is_named_beside_an_ask_word(
 ) -> None:
     asked = asked_kinds(text, language)
     assert asked is not None
-    assert frozenset().union(*asked) == kinds
+    assert frozenset().union(*(ask.kinds for ask in asked)) == kinds
 
 
 def _reply(text: str | None) -> Any:
@@ -215,3 +215,353 @@ async def test_english_is_kept_only_when_it_checks(
     assert (translated.english is not None) is kept
     assert translated.candidate == english
     assert translated.input_tokens == 50
+
+
+# The second review's probes (PR #2171): (id, language, original, English, reason).
+ROUND_TWO: list[tuple[str, str, str, str, str]] = [
+    (
+        "fr-kilometres-noaccent",
+        "fr",
+        "Une voiture roule 3 kilometres en 2 heures. Quelle est sa vitesse ?",
+        "A car travels 3 km in 2 h. What is its speed?",
+        "ok",
+    ),
+    (
+        "es-kms-plural-abbr",
+        "es",
+        "Un ciclista recorre 15 kms en 1 hora. ¿Cuál es su rapidez?",
+        "A cyclist travels 15 km in 1 h. What is its speed?",
+        "ok",
+    ),
+    (
+        "es-km-por-hora-good",
+        "es",
+        "Un coche va a 72 km por hora durante 2 h. ¿Qué distancia recorre?",
+        "A car moves at 72 km/h for 2 h. What distance does it travel?",
+        "ok",
+    ),
+    (
+        "es-km-por-hora-dropped",
+        "es",
+        "Un coche va a 72 km por hora durante 2 h. ¿Qué distancia recorre?",
+        "A car moves 72 km for 2 h. What distance does it travel?",
+        "units_changed",
+    ),
+    (
+        "ar-mm-double-lam",
+        "ar",
+        "قطر سلك ٢ ملليمتر. ما مساحة مقطعه؟",
+        "A wire has a diameter of 2 mm. What is its cross-sectional area?",
+        "ok",
+    ),
+    (
+        "hi-km-dotted-abbr",
+        "hi",
+        "एक बस 120 कि.मी. 2 घंटे में चलती है। उसकी चाल क्या है?",
+        "A bus travels 120 km in 2 h. What is its speed?",
+        "ok",
+    ),
+    (
+        "am-metres-plural",
+        "am",
+        "አንድ ልጅ 100 ሜትሮችን በ20 ሰከንድ ሮጠ። ፍጥነቱ ስንት ነው?",
+        "A child ran 100 m in 20 s. What is his speed?",
+        "ok",
+    ),
+    (
+        "ar-ms2-digit-2",
+        "ar",
+        "يتسارع جسم بمقدار ٤ م/ث٢ لمدة ٥ ث. ما سرعته النهائية إذا بدأ من السكون؟",
+        "A body accelerates at 4 m/s² for 5 s. What is its final speed if it starts from rest?",
+        "ok",
+    ),
+    (
+        "ar-g-per-mol-good",
+        "ar",
+        "الكتلة المولية للماء ١٨ غ/مول. كم مولًا في ٣٦ غ من الماء؟",
+        "The molar mass of water is 18 g/mol. How many moles are in 36 g of water?",
+        "ok",
+    ),
+    (
+        "ar-g-per-mol-dropped",
+        "ar",
+        "الكتلة المولية للماء ١٨ غ/مول. كم مولًا في ٣٦ غ من الماء؟",
+        "The mass of water is 18 g. How many moles are in 36 g of water?",
+        "units_changed",
+    ),
+    (
+        "ar-mol-per-L-dropped",
+        "ar",
+        "محلول تركيزه ٠٫٥ مول/لتر حجمه ٢ لتر. كم عدد المولات؟",
+        "A solution of 0.5 mol has a volume of 2 L. How many moles are there?",
+        "units_changed",
+    ),
+    (
+        "es-molL-as-M",
+        "es",
+        "¿Cuántos moles hay en 2 L de una disolución 0,5 mol/L?",
+        "How many moles are in 2 L of a 0.5 M solution?",
+        "ok",
+    ),
+    (
+        "fr-kWh-as-kW",
+        "fr",
+        "Un radiateur consomme 3 kWh en 2 h. Quelle est sa puissance ?",
+        "A heater uses 3 kW in 2 h. What is its power?",
+        "units_changed",
+    ),
+    (
+        "hi-ms2",
+        "hi",
+        "एक कार 3 मी/से² के त्वरण से 4 सेकंड चलती है। अंतिम वेग क्या है?",
+        "A car accelerates at 3 m/s² for 4 s. What is its final velocity?",
+        "ok",
+    ),
+    ("es-por-ciento", "es", "¿Cuánto es el 25 por ciento de 80?", "What is 25% of 80?", "ok"),
+    (
+        "hi-pratishat",
+        "hi",
+        "एक मशीन की दक्षता 80 प्रतिशत है और निवेश 500 जूल है। निर्गत ऊर्जा कितनी है?",
+        "A machine has an efficiency of 80% and an input of 500 J. What is the output energy?",
+        "ok",
+    ),
+    ("ar-arabic-percent", "ar", "ما هو ١٥٪ من ٢٠٠؟", "What is 15% of 200?", "ok"),
+    (
+        "es-percent-dropped",
+        "es",
+        "Un precio de 200 sube un 20 %. ¿Cuál es el nuevo precio?",
+        "A price of 200 rises by 20. What is the new price?",
+        "units_changed",
+    ),
+    (
+        "es-medio-km",
+        "es",
+        "Un ciclista recorre medio kilómetro en 50 s. ¿Cuál es su rapidez?",
+        "A cyclist covers 0.5 km in 50 s. What is its speed?",
+        "ok",
+    ),
+    (
+        "es-tercio-as-half",
+        "es",
+        "¿Cuánto es un tercio de 90?",
+        "What is half of 90?",
+        "numbers_changed",
+    ),
+    (
+        "hi-aadha-as-quarter",
+        "hi",
+        "एक टंकी में 40 लीटर पानी है। आधा पानी निकाल दिया गया। कितना पानी बचा?",
+        "A tank holds 40 L of water. A quarter of the water is removed. How much water is left?",
+        "numbers_changed",
+    ),
+    (
+        "es-mil-as-million",
+        "es",
+        "La luz recorre 300 mil kilómetros en un segundo. ¿Cuál es su rapidez?",
+        "Light travels 300 million km in one second. What is its speed?",
+        "numbers_changed",
+    ),
+    (
+        "hi-hazaar-as-million",
+        "hi",
+        "एक रॉकेट 3 हज़ार मीटर ऊपर जाता है। कितना समय लगेगा यदि चाल 100 मी/से है?",
+        "A rocket rises 3 million metres. How long does it take if its speed is 100 m/s?",
+        "numbers_changed",
+    ),
+    (
+        "hi-devanagari-digits",
+        "hi",
+        "एक कार १२० किमी २ घंटे में चलती है। उसकी चाल क्या है?",
+        "A car travels 120 km in 2 h. What is its speed?",
+        "ok",
+    ),
+    (
+        "am-latin-units",
+        "am",
+        "መኪናው በ20 m/s ለ5 ሰከንድ ተጓዘ። ርቀቱ ስንት ነው?",
+        "The car travels at 20 m/s for 5 s. What is the distance?",
+        "ok",
+    ),
+    (
+        "es-5km-nospace",
+        "es",
+        "Un corredor recorre 5km en 25 min. ¿Cuál es su rapidez?",
+        "A runner covers 5 km in 25 min. What is its speed?",
+        "ok",
+    ),
+    (
+        "es-H2SO4-good",
+        "es",
+        "¿Cuántos gramos hay en 2 mol de H2SO4?",
+        "How many grams are in 2 mol of H2SO4?",
+        "ok",
+    ),
+    (
+        "es-glucose-swapped",
+        "es",
+        "¿Cuál es la masa de 2 mol de C6H12O6?",
+        "What is the mass of 2 mol of C6H6?",
+        "formulas_changed",
+    ),
+    (
+        "fr-H2O2-as-H2O",
+        "fr",
+        "Quelle est la masse de 3 mol de H2O2 ?",
+        "What is the mass of 3 mol of H2O?",
+        "formulas_changed",
+    ),
+    (
+        "fr-CaOH2-subscript",
+        "fr",
+        "Quelle masse de Ca(OH)2 faut-il pour 0,5 L d'une solution 0,1 M ?",
+        "What mass of Ca(OH)₂ is needed for 0.5 L of a 0.1 M solution?",
+        "ok",
+    ),
+    (
+        "es-equation-coefs",
+        "es",
+        "Según 2H2 + O2 → 2H2O, ¿cuántos moles de agua se forman con 4 mol de H2?",
+        "According to 2H2 + O2 → 2H2O, how many moles of water form from 4 mol of H2?",
+        "ok",
+    ),
+    (
+        "fr-exercise-number",
+        "fr",
+        "Exercice 2.15 : Une voiture de 1 000 kg roule à 20 m/s. Quelle est son énergie cinétique ?",
+        "Exercise 2.15: A 1000 kg car moves at 20 m/s. What is its kinetic energy?",
+        "ok",
+    ),
+    (
+        "es-year",
+        "es",
+        "En 2023, un tren recorrió 150 km en 2 h. ¿Cuál fue su rapidez?",
+        "In 2023, a train travelled 150 km in 2 h. What was its speed?",
+        "ok",
+    ),
+    (
+        "es-range-spaced-dash",
+        "es",
+        "La temperatura del agua sube de 5 a 10 °C. ¿Cuánto calor absorben 2 kg?",
+        "The water temperature rises 5 – 10 °C. How much heat do 2 kg absorb?",
+        "ok",
+    ),
+    (
+        "fr-range-endash",
+        "fr",
+        "Un ressort s'allonge de 5–10 cm. Quelle est la variation de longueur ?",
+        "A spring stretches from 5–10 cm. What is the change in length?",
+        "ok",
+    ),
+    ("es-minus-to-plus", "es", "¿Cuánto es 8−3?", "What is 8+3?", "operators_changed"),
+    (
+        "es-square-to-cube",
+        "es",
+        "Resuelve x² − 5x + 6 = 0",
+        "Solve x³ − 5x + 6 = 0",
+        "operators_changed",
+    ),
+    (
+        "fr-power-ten-changed",
+        "fr",
+        "Une onde a une fréquence de 5 × 10¹⁴ Hz. Quelle est sa longueur d'onde ?",
+        "A wave has a frequency of 5 × 10¹² Hz. What is its wavelength?",
+        "numbers_changed",
+    ),
+    (
+        "es-time-as-distance",
+        "es",
+        "Un coche va a 20 m/s y recorre 400 m. ¿Cuánto tiempo tarda?",
+        "A car goes at 20 m/s and travels 400 m. What distance does it cover?",
+        "ask_changed",
+    ),
+    (
+        "es-time-good",
+        "es",
+        "Un coche va a 20 m/s y recorre 400 m. ¿Cuánto tiempo tarda?",
+        "A car goes at 20 m/s and travels 400 m. How long does it take?",
+        "ok",
+    ),
+    (
+        "fr-distance-as-time",
+        "fr",
+        "Un train roule à 30 m/s pendant 60 s. Quelle distance parcourt-il ?",
+        "A train moves at 30 m/s for 60 s. How long does it take?",
+        "ask_changed",
+    ),
+    (
+        "ar-time-as-distance",
+        "ar",
+        "تتحرك سيارة بسرعة ٢٥ م/ث لمسافة ٥٠٠ م. كم من الوقت تستغرق؟",
+        "A car moves at 25 m/s over 500 m. How far does it go?",
+        "ask_changed",
+    ),
+    (
+        "hi-time-as-speed",
+        "hi",
+        "एक ट्रेन 60 मी/से की चाल से 1200 मीटर चलती है। कितना समय लगेगा?",
+        "A train moves 1200 m at 60 m/s. What is its speed?",
+        "ask_changed",
+    ),
+    (
+        "am-time-as-distance",
+        "am",
+        "መኪና በ15 ሜ/ሰ ፍጥነት 300 ሜትር ተጓዘ። ምን ያህል ጊዜ ወሰደበት?",
+        "A car travelled 300 m at 15 m/s. How far did it go?",
+        "ask_changed",
+    ),
+    (
+        "fr-grams-as-moles",
+        "fr",
+        "Combien de grammes de NaCl faut-il pour 0,5 mol ?",
+        "How many moles of NaCl are needed for 0.5 mol?",
+        "ask_changed",
+    ),
+    (
+        "es-side-unread",
+        "es",
+        "Un cuadrado tiene un área de 49 cm². ¿Cuánto mide su lado?",
+        "A square has an area of 49 cm². How long is its side?",
+        "ok",
+    ),
+    (
+        "es-average-as-final",
+        "es",
+        "Un coche pasa de 10 m/s a 30 m/s en 5 s. ¿Cuál es su rapidez media?",
+        "A car goes from 10 m/s to 30 m/s in 5 s. What is its final speed?",
+        "ask_changed",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("name", "language", "original", "english", "reason"),
+    ROUND_TWO,
+    ids=[row[0] for row in ROUND_TWO],
+)
+def test_every_token_of_the_original_is_kept(
+    name: str, language: str, original: str, english: str, reason: str
+) -> None:
+    assert check_translation(original, english, _TABLES, language) == reason
+
+
+# A change of meaning that keeps every token: what the check does not see. The second
+# translation (another model, read to the same solve) is what guards these.
+MEANING_ONLY = [
+    (
+        "es",
+        "Un coche que no parte del reposo acelera a 2 m/s² durante 5 s.",
+        "A car starting from rest accelerates at 2 m/s² for 5 s.",
+    ),
+    (
+        "fr",
+        "Deux résistances de 10 Ω chacune sont en parallèle sur 5 V.",
+        "Two 10 Ω resistors are across 5 V.",
+    ),
+]
+
+
+@pytest.mark.parametrize(("language", "original", "english"), MEANING_ONLY)
+def test_a_meaning_change_that_keeps_every_token_passes_the_check(
+    language: str, original: str, english: str
+) -> None:
+    assert check_translation(original, english, _TABLES, language) == "ok"

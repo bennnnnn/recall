@@ -32,8 +32,8 @@ from pydantic import BaseModel, Field
 
 from app.core.config import Settings
 from app.models.routing_lanes import ROUTING
-from app.modules.model_reader.notation import below_zero, written_values
-from app.modules.model_reader.words import asked_kinds, unit_word_at
+from app.modules.model_reader.tokens import UNREAD, Quantity, Tokens, read_tokens
+from app.modules.model_reader.words import Asked, asked_kinds
 from app.services.law_binding.units import UnitTable, unit_dimension
 
 _MAX_INPUT_CHARS = 1500
@@ -58,6 +58,8 @@ TranslationReason = Literal[
     "numbers_changed",
     "signs_changed",
     "units_changed",
+    "formulas_changed",
+    "operators_changed",
     "ask_changed",
     "ask_unread",
 ]
@@ -85,43 +87,6 @@ class Translated:
     candidate: str | None = None
 
 
-@dataclass(frozen=True, slots=True)
-class _Value:
-    value: float
-    unit: str | None  # the Pint expression written after it; None for none or a count's noun
-
-
-def _unit_at(
-    text: str, end: int, tables: Sequence[UnitTable], language: str
-) -> tuple[str | None, int]:
-    """The unit written right after ``end`` and where it ends; the longer reading wins,
-    as in a unit table ("°ሴ" is Celsius, not a degree)."""
-    best: tuple[str | None, int] = (None, end)
-    for table in tables:
-        read = table.at(text, end)
-        if read is not None:
-            stop = text.index(read[0], end) + len(read[0])
-            if stop > best[1]:
-                best = (read[1], stop)
-    word = unit_word_at(text, end, language)
-    if word is not None and word[1] > best[1]:
-        best = word
-    return best
-
-
-def _values(text: str, tables: Sequence[UnitTable], language: str) -> list[_Value] | None:
-    read = written_values(text, language)
-    if read is None:
-        return None
-    plain, written = read
-    found: list[_Value] = []
-    for item in written:
-        unit, stop = _unit_at(plain, item.end, tables, language)
-        value = -abs(item.value) if below_zero(plain, stop, language) else item.value
-        found.append(_Value(value, unit))
-    return found
-
-
 def _same_scale(first: str, second: str) -> bool:
     one, two = unit_dimension(first), unit_dimension(second)
     return (
@@ -137,17 +102,17 @@ def _same(first: float, second: float) -> bool:
     return math.isclose(first, second, rel_tol=1e-9, abs_tol=1e-12)
 
 
-def _carries(original: _Value, english: _Value) -> bool:
-    """``english`` is ``original``: the same signed value, and its unit at its scale (or no
-    unit, for a value with none or a count's noun)."""
-    if not _same(original.value, english.value):
+def _carries(original: Quantity, english: Quantity) -> bool:
+    """``english`` is ``original``: the same signed value, and its whole unit at its scale
+    (or no unit, for a value with none or a count's noun)."""
+    if not _same(original.value, english.value) or UNREAD in (original.unit, english.unit):
         return False
     if original.unit is None:
         return english.unit is None
     return english.unit is not None and _same_scale(original.unit, english.unit)
 
 
-def _numbers_reason(before: list[_Value], after: list[_Value]) -> TranslationReason:
+def _numbers_reason(before: Sequence[Quantity], after: Sequence[Quantity]) -> TranslationReason:
     if len(before) != len(after):
         return "numbers_changed"
     left = list(after)
@@ -163,22 +128,43 @@ def _numbers_reason(before: list[_Value], after: list[_Value]) -> TranslationRea
     return "ok"
 
 
+def _tokens_reason(before: Tokens, after: Tokens) -> TranslationReason:
+    reason = _numbers_reason(before.quantities, after.quantities)
+    if reason != "ok":
+        return reason
+    if before.formulas != after.formulas:
+        return "formulas_changed"
+    if before.operators != after.operators or before.powers != after.powers:
+        return "operators_changed"
+    return "ok"
+
+
 def _ask_reason(original: str, english: str, language: str, ask: AskCheck) -> TranslationReason:
-    """Each ask on either side could be one the other side makes: "how far" against "how
-    long" is refused, Amharic "ፍጥነት" (a speed or an acceleration) against "acceleration"
-    kept. An original whose ask the tables cannot read is ``ask_unread`` when the English
-    asks for something (``strict``), since nothing shows the two are the same."""
+    """Each ask on either side is one the other side makes: a kind in common and the same
+    qualifiers. "How far" against "how long", or "rapidez media" (average speed) against
+    "final speed", is refused; Amharic "ፍጥነት" (a speed or an acceleration) against
+    "acceleration" kept. An original whose ask the tables cannot read is ``ask_unread`` when
+    the English asks for something (``strict``), since nothing shows the two are the same."""
     if ask == "off":
         return "ok"
     strict = ask == "strict"
     before, after = asked_kinds(original, language), asked_kinds(english, "en")
-    if before is None or after is None or any(_UNNAMED & kinds for kinds in (*before, *after)):
+    if (
+        before is None
+        or after is None
+        or any(_UNNAMED & asked.kinds for asked in (*before, *after))
+    ):
         # "How much water": which quantity is a translator's choice the tables cannot check.
         return "ask_unread" if strict else "ok"
     if not before:
         return "ask_unread" if strict and after else "ok"
-    either, other = frozenset().union(*before), frozenset().union(*after)
-    if all(kinds & other for kinds in before) and all(kinds & either for kinds in after):
+
+    def met(asked: Asked, others: tuple[Asked, ...]) -> bool:
+        return any(
+            asked.kinds & other.kinds and asked.qualifiers == other.qualifiers for other in others
+        )
+
+    if all(met(asked, after) for asked in before) and all(met(asked, before) for asked in after):
         return "ok"
     return "ask_changed"
 
@@ -193,13 +179,13 @@ def check_translation(
 ) -> TranslationReason:
     """``ok`` when ``english`` writes exactly the original's signed values, each with its
     unit, and asks for the same kind of quantity."""
-    before = _values(original, tables, language)
+    before = read_tokens(original, tables, language)
     if before is None:
         return "original_unreadable"
-    after = _values(english, tables, "en")
+    after = read_tokens(english, tables, "en")
     if after is None:
         return "numbers_not_english"
-    reason = _numbers_reason(before, after)
+    reason = _tokens_reason(before, after)
     if reason != "ok":
         return reason
     return _ask_reason(original, english, language, ask)

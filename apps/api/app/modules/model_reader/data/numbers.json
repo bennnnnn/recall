@@ -1,0 +1,62 @@
+{
+  "_doc": "Words that are numbers, by language (lowercase): scale words multiply the number before them (\"300 mil\" is 300000), fraction words are values (\"medio kilómetro\" is 0.5 km). A fraction word in \"need_unit\" is a value only before a unit (\"media hora\", not \"rapidez media\"); a phrase in \"not\" is never one (\"half-life\"). \"labels\" name an exercise or a page: their number is no value. \"per\" joins two units (\"km por hora\").",
+  "scales": {
+    "en": {"thousand": 1000, "thousands": 1000, "million": 1000000, "millions": 1000000, "billion": 1000000000},
+    "es": {"mil": 1000, "millón": 1000000, "millones": 1000000},
+    "fr": {"mille": 1000, "million": 1000000, "millions": 1000000, "milliard": 1000000000, "milliards": 1000000000},
+    "pt": {"mil": 1000, "milhão": 1000000, "milhões": 1000000},
+    "it": {"mila": 1000, "mille": 1000, "milione": 1000000, "milioni": 1000000},
+    "de": {"tausend": 1000, "million": 1000000, "millionen": 1000000},
+    "ru": {"тысяча": 1000, "тысячи": 1000, "тысяч": 1000, "миллион": 1000000, "миллиона": 1000000, "миллионов": 1000000},
+    "tr": {"bin": 1000, "milyon": 1000000},
+    "ar": {"ألف": 1000, "آلاف": 1000, "مليون": 1000000, "ملايين": 1000000},
+    "hi": {"हज़ार": 1000, "हजार": 1000, "लाख": 100000, "करोड़": 10000000},
+    "am": {"ሺህ": 1000, "ሺ": 1000, "ሚሊዮን": 1000000}
+  },
+  "fractions": {
+    "en": {"half": 0.5, "a third": 0.3333333333333333, "one third": 0.3333333333333333, "two thirds": 0.6666666666666666, "a quarter": 0.25, "one quarter": 0.25, "three quarters": 0.75},
+    "es": {"medio": 0.5, "media": 0.5, "la mitad": 0.5, "un tercio": 0.3333333333333333, "dos tercios": 0.6666666666666666, "un cuarto": 0.25, "tres cuartos": 0.75},
+    "fr": {"demi": 0.5, "demie": 0.5, "la moitié": 0.5, "un tiers": 0.3333333333333333, "deux tiers": 0.6666666666666666, "un quart": 0.25, "trois quarts": 0.75},
+    "pt": {"meio": 0.5, "meia": 0.5, "metade": 0.5, "um terço": 0.3333333333333333, "dois terços": 0.6666666666666666, "um quarto": 0.25, "três quartos": 0.75},
+    "it": {"mezzo": 0.5, "mezza": 0.5, "metà": 0.5, "un terzo": 0.3333333333333333, "due terzi": 0.6666666666666666, "un quarto": 0.25, "tre quarti": 0.75},
+    "de": {"halb": 0.5, "halbe": 0.5, "halben": 0.5, "hälfte": 0.5, "ein drittel": 0.3333333333333333, "zwei drittel": 0.6666666666666666, "ein viertel": 0.25, "drei viertel": 0.75},
+    "ru": {"половина": 0.5, "половину": 0.5, "треть": 0.3333333333333333, "четверть": 0.25},
+    "tr": {"yarım": 0.5, "yarısı": 0.5, "üçte bir": 0.3333333333333333, "dörtte bir": 0.25, "çeyrek": 0.25},
+    "ar": {"نصف": 0.5, "ثلث": 0.3333333333333333, "ثلثا": 0.6666666666666666, "ربع": 0.25, "ثلاثة أرباع": 0.75},
+    "hi": {"आधा": 0.5, "आधी": 0.5, "आधे": 0.5, "एक तिहाई": 0.3333333333333333, "दो तिहाई": 0.6666666666666666, "चौथाई": 0.25, "पौना": 0.75, "डेढ़": 1.5, "ढाई": 2.5},
+    "am": {"ግማሽ": 0.5, "ሲሶ": 0.3333333333333333, "ሩብ": 0.25}
+  },
+  "need_unit": {
+    "es": ["medio", "media"], "pt": ["meio", "meia"], "it": ["mezzo", "mezza"], "de": ["halb", "halbe", "halben"], "tr": ["yarım"]
+  },
+  "not": {
+    "en": ["half-life", "half life", "half-way", "half way"],
+    "es": ["vida media", "punto medio"],
+    "fr": ["demi-vie", "demi-droite"],
+    "pt": ["meia-vida", "meia vida"],
+    "it": ["emivita"],
+    "de": ["halbwertszeit"],
+    "ru": ["период полураспада"],
+    "tr": ["yarı ömür"],
+    "ar": ["عمر النصف", "نصف القطر", "نصف قطر", "نصف العمر"],
+    "hi": ["अर्ध-आयु"],
+    "am": ["ግማሽ ሕይወት", "ግማሽ ዕድሜ"]
+  },
+  "labels": {
+    "en": ["exercise", "problem", "question", "example", "page", "chapter", "section", "part", "q", "ex"],
+    "es": ["ejercicio", "problema", "pregunta", "ejemplo", "página", "capítulo", "sección", "parte"],
+    "fr": ["exercice", "problème", "question", "exemple", "page", "chapitre", "section", "partie"],
+    "pt": ["exercício", "problema", "questão", "pergunta", "exemplo", "página", "capítulo"],
+    "it": ["esercizio", "problema", "domanda", "esempio", "pagina", "capitolo"],
+    "de": ["aufgabe", "übung", "beispiel", "frage", "seite", "kapitel"],
+    "ru": ["задача", "упражнение", "вопрос", "пример", "страница", "глава"],
+    "tr": ["soru", "alıştırma", "örnek", "problem", "sayfa", "bölüm"],
+    "ar": ["تمرين", "سؤال", "مسألة", "مثال", "صفحة", "فصل"],
+    "hi": ["प्रश्न", "उदाहरण", "अभ्यास", "पृष्ठ", "अध्याय"],
+    "am": ["ጥያቄ", "ምሳሌ", "መልመጃ", "ገጽ", "ምዕራፍ"]
+  },
+  "per": {
+    "en": ["per", "an", "a"], "es": ["por", "por cada"], "fr": ["par", "à l'", "au"], "pt": ["por"], "it": ["al", "all'", "per"],
+    "de": ["pro", "je"], "ru": ["в"], "tr": [], "ar": ["في", "لكل", "بال"], "hi": ["प्रति"], "am": ["በ"]
+  }
+}

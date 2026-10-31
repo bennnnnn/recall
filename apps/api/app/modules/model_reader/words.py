@@ -66,6 +66,14 @@ def _alternation(words: list[str]) -> str:
     return "|".join(_written(word) for word in sorted(set(words), key=len, reverse=True))
 
 
+def number_words(section: str, language: str) -> Any:
+    """One section of ``numbers.json`` for one language (``{}`` or ``[]`` when it has none)."""
+    found = _table("numbers").get(section, {}).get(language)
+    if found is not None:
+        return found
+    return {} if section in {"scales", "fractions"} else []
+
+
 @cache
 def below_zero_words(language: str) -> re.Pattern[str]:
     """Words right after a value (up to two more words of its unit) that make it negative."""
@@ -89,7 +97,9 @@ def _unit_words(language: str) -> tuple[re.Pattern[str], dict[str, str]]:
         f"({_written(word)})" + ("" if attached and len(word) >= _ATTACHED_LENGTH else ends)
         for word in words
     )
-    return re.compile(rf"\s?(?:{groups})", re.IGNORECASE), dict(
+    # A unit starts a word ("م", metre, is not the start of "من"); a digit may come before
+    # it ("15٪", "5km").
+    return re.compile(rf"\s?(?<![^\W\d_])(?:{groups})", re.IGNORECASE), dict(
         zip(map(str, range(1, len(words) + 1)), (meaning[word] for word in words), strict=True)
     )
 
@@ -114,9 +124,31 @@ def unit_word_at(text: str, end: int, language: str) -> tuple[str, int] | None:
 
 
 def _bounded(phrases: str, language: str) -> str:
+    affixes = _affixes(language)
+    if affixes is not None:
+        # A word with the prefixes and suffixes its language attaches ("سرعته", its speed).
+        prefixes, suffixes = (
+            _alternation(affixes.get(key, [])) for key in ("prefixes", "suffixes")
+        )
+        return rf"(?<!\w)(?:{prefixes})?(?:{phrases})(?:{suffixes})?(?!\w)"
     before = "" if language in _ATTACHED_PREFIX else r"(?<!\w)"
     after = "" if language in _ATTACHED_SUFFIX else r"(?!\w)"
     return rf"{before}(?:{phrases}){after}"
+
+
+def _affixes(language: str) -> dict[str, Any] | None:
+    table = _table("asks").get(language)
+    return table.get("affixes") if isinstance(table, dict) else None
+
+
+def _with_endings(phrase: str, language: str) -> str:
+    """``phrase`` as a pattern, its last letter in any form a suffix gives it ("طاقة",
+    energy; "طاقته", its energy)."""
+    endings = (_affixes(language) or {}).get("endings", {})
+    last = phrase[-1:]
+    if last in endings:
+        return re.escape(phrase[:-1]) + f"[{re.escape(last + endings[last])}]"
+    return _written(phrase)
 
 
 @cache
@@ -132,7 +164,7 @@ def _asks(
             kinds[phrase.lower()] = kinds.get(phrase.lower(), frozenset()) | frozenset(
                 named.split("|")
             )
-    patterns = {_written(phrase): phrase for phrase in kinds}
+    patterns = {_with_endings(phrase, language): phrase for phrase in kinds}
     marker_end = "" if language == "am" else r"(?!\w)"
     markers = re.compile(rf"(?<!\w)(?:{_alternation(table['markers'])}){marker_end}")
     named = [
@@ -150,6 +182,8 @@ _QUESTION_MARK = re.compile("[?\u061f\u1367]")
 _UNNAMED = frozenset({"unnamed"})
 # Languages that put a phrase's head last: an ask with no ask word names its kind last.
 _HEAD_LAST = frozenset({"am", "hi", "tr"})
+# How far from the named quantity its qualifier may be: "rapidez media", "final speed".
+_QUALIFIER_REACH = 16
 # A unit this close after an ask word is what it asks: "how many grams", "ስንት ግራም".
 _UNIT_ASK_REACH = 14
 
@@ -188,7 +222,37 @@ def _span(edges: list[int], start: int, end: int) -> tuple[int, int]:
     return max(edge for edge in edges if edge <= start), min(edge for edge in edges if edge >= end)
 
 
-def asked_kinds(text: str, language: str) -> tuple[frozenset[str], ...] | None:
+@dataclass(frozen=True, slots=True)
+class Asked:
+    """One ask: the kinds of quantity it could be, and how it is qualified ("average",
+    "final")."""
+
+    kinds: frozenset[str]
+    qualifiers: frozenset[str]
+
+
+@cache
+def _qualifiers(language: str) -> list[tuple[re.Pattern[str], str]]:
+    table = _table("asks").get(language)
+    named = table.get("qualifiers", {}) if isinstance(table, dict) else {}
+    return [
+        (re.compile(_bounded(_alternation(words), language)), name) for name, words in named.items()
+    ]
+
+
+def _qualified(lower: str, item: _Named, clause: tuple[int, int], language: str) -> Asked:
+    """The ask named by ``item`` with the qualifiers written beside it in its clause."""
+    lo, hi = (
+        max(clause[0], item.start - _QUALIFIER_REACH),
+        min(clause[1], item.end + _QUALIFIER_REACH),
+    )
+    found = {
+        name for pattern, name in _qualifiers(language) if pattern.search(lower, lo, hi) is not None
+    }
+    return Asked(item.kinds, frozenset(found))
+
+
+def asked_kinds(text: str, language: str) -> tuple[Asked, ...] | None:
     """The kinds of quantity each ask could be; None for a language with no table.
 
     For each ask word: a unit right after it ("how many grams"), else the quantity named
@@ -221,8 +285,8 @@ def asked_kinds(text: str, language: str) -> tuple[frozenset[str], ...] | None:
         )
         if not inside:
             return ()
-        return (inside[-1 if language in _HEAD_LAST else 0].kinds,)
-    found: list[frozenset[str]] = []
+        return (_qualified(lower, inside[-1 if language in _HEAD_LAST else 0], clause, language),)
+    found: list[Asked] = []
     for start, end in marks:
         clause_end = _span(clauses, start, end)[1]
         after = [
@@ -231,7 +295,8 @@ def asked_kinds(text: str, language: str) -> tuple[frozenset[str], ...] | None:
             if item.unit and 0 <= item.start - end <= _UNIT_ASK_REACH and item.end <= clause_end
         ]
         if after:
-            found.append(min(after, key=lambda item: item.start).kinds)
+            unit = min(after, key=lambda item: item.start)
+            found.append(_qualified(lower, unit, _span(clauses, start, end), language))
             continue
         for edges in (clauses, sentences):
             lo, hi = _span(edges, start, end)
@@ -244,6 +309,6 @@ def asked_kinds(text: str, language: str) -> tuple[frozenset[str], ...] | None:
             if near:
                 # "Amount" names no kind; "the amount of charge" names charge.
                 nearest = min(near, key=lambda pair: (pair[1].kinds == _UNNAMED, pair[0]))
-                found.append(nearest[1].kinds)
+                found.append(_qualified(lower, nearest[1], (lo, hi), language))
                 break
     return tuple(found)

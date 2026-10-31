@@ -138,12 +138,24 @@ def number_value(token: str, notation: Notation) -> float | None:
     return sign * float("".join(groups[:-1]) + "." + groups[-1])
 
 
+def plain_for(text: str) -> str:
+    """``text`` as the readers take it: ASCII digits (Ethiopic numerals added up), Arabic's
+    thousands mark kept apart, superscript powers as ``^n``, spaces single."""
+    kept = with_ascii_numerals(text).replace(_ARABIC_THOUSANDS, _KEPT_THOUSANDS)
+    return plain_text(kept).replace("\u00a0", " ").replace("\u202f", " ")
+
+
 def written_values(text: str, language: str) -> tuple[str, list[Written]] | None:
     """The plain text and every value it writes, read in ``language``'s notation; None
     when a number there has no one value ("0,125" in English, "1.200" in Spanish)."""
+    plain = plain_for(text)
+    found = values_in(plain, language)
+    return None if found is None else (plain, found)
+
+
+def values_in(plain: str, language: str) -> list[Written] | None:
+    """Every value ``plain`` (from ``plain_for``) writes; None when one has no one value."""
     notation = NOTATIONS.get(language, NOTATIONS["en"])
-    kept = with_ascii_numerals(text).replace(_ARABIC_THOUSANDS, _KEPT_THOUSANDS)
-    plain = plain_text(kept).replace("\u00a0", " ").replace("\u202f", " ")
     found: list[Written] = []
     for token in _TOKENS.get(language, _TOKENS["en"]).finditer(plain):
         if found and found[-1].end > token.start():
@@ -160,7 +172,7 @@ def written_values(text: str, language: str) -> tuple[str, list[Written]] | None
             value *= 10.0 ** int(power.group(1).replace("\u2212", "-"))
             end = power.end()
         found.append(Written(value, start, end))
-    return plain, found
+    return found
 
 
 def below_zero(plain: str, end: int, language: str) -> bool:
