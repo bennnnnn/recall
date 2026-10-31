@@ -24,6 +24,7 @@ from app.modules.chat.turn_prep.followups import (
 from app.modules.chat.turn_prep.instant import location_not_set_reply
 from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import _should_augment_web_and_tools
+from app.modules.chat.turn_prep.model_read_shadow import start_model_read_shadow
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.math.tools.extract import is_graph_followup
 from app.modules.math.tools.solve_timeouts import recording as recording_solve_timeouts
@@ -86,6 +87,7 @@ async def gather_and_inject(
 
     A money turn (``turn_prep.money``) has its numbers worked already: no subject solve.
     """
+    start_model_read_shadow(request.content, settings)
     if money:
         return Augmentation(prompt_messages)
     mode = identity.mode

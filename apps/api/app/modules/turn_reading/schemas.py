@@ -1,0 +1,81 @@
+"""What a model's read of a question looks like, and what the reader makes of it."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+Subject = Literal["physics", "chemistry", "math", "none"]
+
+
+class RouteRead(BaseModel):
+    """The first call: which subject the question is in, and which kind of law."""
+
+    subject: Subject = "none"
+    kind: str | None = Field(default=None, max_length=40)
+
+
+class GivenRead(BaseModel):
+    """One value the question states, as the model read it."""
+
+    name: str = Field(max_length=40)
+    value: float
+    unit: str = Field(default="", max_length=24)
+    # The question's own characters that state it, in the question's language.
+    quote: str = Field(max_length=160)
+
+
+class LawRead(BaseModel):
+    """The second call: one law from the kind's list and the values it is given."""
+
+    op: str = Field(default="none", max_length=64)
+    givens: list[GivenRead] = Field(default_factory=list, max_length=12)
+    # Quotes of numbers the question states that are no input of the law.
+    unused: list[str] = Field(default_factory=list, max_length=20)
+    formula: str | None = Field(default=None, max_length=40)
+
+
+# Why a read gave no intent: an identifier the turn's trace line may carry.
+Reason = Literal[
+    "ok",
+    "no_read",
+    "not_subject",
+    "unknown_kind",
+    "unknown_op",
+    "quote_missing",
+    "number_unaccounted",
+    "value_not_in_quote",
+    "binder_disagrees",
+    "failed",
+]
+
+
+@dataclass(frozen=True, slots=True)
+class ModelRead:
+    """What the model reader made of one message."""
+
+    subject: str | None
+    op: str | None
+    intent: object | None
+    reason: Reason
+    ms: float
+    tokens: int = 0
+
+
+def verdict(regex_subject: str | None, regex_op: str | None, read: ModelRead | None) -> str:
+    """How the model's read compares with the patterns': ``agree``, ``disagree``,
+    ``regex_only``, ``model_only`` or ``neither``. Maths compares the subject only: its
+    pattern operation names are not the model's kinds."""
+    model_subject = read.subject if read is not None and read.reason == "ok" else None
+    model_op = read.op if model_subject is not None and read is not None else None
+    if regex_subject and model_subject:
+        if regex_subject != model_subject:
+            return "disagree"
+        if regex_subject == "math":
+            return "agree"
+        return "agree" if regex_op == model_op else "disagree"
+    if regex_subject:
+        return "regex_only"
+    return "model_only" if model_subject else "neither"

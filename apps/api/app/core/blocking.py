@@ -17,7 +17,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Literal
 
-Kind = Literal["storage", "images", "sign_in", "web_search", "processes"]
+Kind = Literal["storage", "images", "sign_in", "web_search", "processes", "model_reads"]
 
 # Threads per kind. R2 calls are the most frequent and mostly wait on the network;
 # ``processes`` reaps a killed pool worker (a join of up to a second).
@@ -27,6 +27,8 @@ _SIZES: dict[Kind, int] = {
     "sign_in": 2,
     "web_search": 2,
     "processes": 2,
+    # The model reader's binder on the English it writes back (modules/turn_reading).
+    "model_reads": 2,
 }
 
 _pools: dict[Kind, ThreadPoolExecutor] = {}

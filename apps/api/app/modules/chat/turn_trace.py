@@ -54,6 +54,10 @@ class TurnTrace:
     tools: Counter[str] = field(default_factory=Counter)
     passes_changed: list[tuple[str, int]] = field(default_factory=list)
     passes_failed: list[str] = field(default_factory=list)
+    # The model reader's shadow read (``turn_prep.model_read_shadow``): its task, and the
+    # ``turn_reading.schemas.ModelRead`` it set when it finished.
+    model_read_task: Any = None
+    model_read: Any = None
     emitted: bool = False
 
 
@@ -166,6 +170,27 @@ def _money(ctx: StreamContext) -> dict[str, Any] | None:
     return {"product": _token(product), "worked": money.worked is not None}
 
 
+def _model_read(trace: TurnTrace, solver: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """How the model reader's shadow read compares with the patterns' verified read."""
+    from app.modules.turn_reading.schemas import verdict
+
+    if trace.model_read_task is None:
+        return None
+    read = trace.model_read
+    if read is None:
+        return {"verdict": "late"}
+    regex_subject = solver.get("verified") if solver else None
+    regex_op = solver.get("op") if solver else None
+    return {
+        "verdict": verdict(regex_subject, regex_op, read),
+        "subject": _token(read.subject),
+        "op": _token(read.op),
+        "reason": _token(read.reason),
+        "ms": read.ms,
+        "tokens": read.tokens,
+    }
+
+
 def _completion(outcome: TurnOutcome | None, failure: BaseException | None) -> str:
     """``complete``, ``user_stop``, ``interrupted`` (``stream_accum``), ``cancelled`` or
     ``error``."""
@@ -223,6 +248,9 @@ def turn_record(
         )
         if ctx.timing is not None:
             record.update(ctx.timing.milestones())
+    shadow = _model_read(trace, record.get("solver"))
+    if shadow is not None:
+        record["model_read"] = shadow
     return record
 
 
@@ -278,6 +306,11 @@ def emit_turn_trace(
     except Exception:
         logger.warning("turn trace could not be built", exc_info=True)
         return
+    finally:
+        # A shadow read still running is late: it stops with the turn and costs no more.
+        task = trace.model_read_task
+        if task is not None and not task.done():
+            task.cancel()
     logger.info("turn_trace %s", line, extra={"turn_trace": record})
 
 
