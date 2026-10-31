@@ -43,6 +43,8 @@ async def _card(text: str) -> tuple[str | None, str | None]:
             36,
         ),
         ("probability of rolling a sum of 7 with two dice", 6, 36),
+        # An actor and a pronoun are the scene, not the event.
+        ("Abebe rolls two dice. What is the probability that he gets a sum of 7?", 6, 36),
         ("Two dice are rolled. Find the probability that the sum is greater than 9.", 6, 36),
         ("Two dice are rolled. What is the probability that the sum is not 7?", 30, 36),
         (
@@ -120,7 +122,6 @@ def test_a_draw_is_read_with_every_outcome_and_not(text: str, favourable: int, t
         "A card is drawn from a standard deck. What is the probability that it is a king and a "
         "heart?",
         "A card is drawn from a standard deck. What is the probability that it is a 7?",
-        "Abebe rolls two dice. What is the probability that he gets a sum of 7?",
         # Four rolls, not one: this was certified as 6 of 6 faces, a probability of 1.
         "probability of getting at least one 6 in 4 rolls of a die",
     ],

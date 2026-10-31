@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from app.modules.math.match.geometry import pi_value_set
+from app.modules.math.response_intent import strip_ask_frame
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.school._parse import _SIDE_ASKED
 
@@ -249,7 +250,7 @@ def extract_geometry_measure_intent(cleaned: str) -> MathIntent | None:
 
 
 def _reflection_read_whole(body: str) -> bool:
-    rest = re.sub(_LABELLED, " ", body, flags=re.IGNORECASE)
+    rest = re.sub(_LABELLED, " ", strip_ask_frame(body), flags=re.IGNORECASE)
     return all(word in _REFLECTION_WORDS for word in re.findall(r"[a-z]+|\d+", rest.lower()))
 
 

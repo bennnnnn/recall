@@ -8,6 +8,7 @@ from dataclasses import replace
 from app.core.config import Settings
 from app.modules.math import school as math_school
 from app.modules.math.match.coordinate_vector import literal_math_tuples
+from app.modules.math.response_intent import strip_ask_frame
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school._parse import _exactly_n_numbers
@@ -48,11 +49,12 @@ _POINT = re.compile(
 )
 _ASK_WORDS = frozenset(
     """
-    a an the find calculate compute determine write give state work out what is are of and
-    points point segment line straight through joining joins join joined passing passes pass
-    going goes connecting connects connect containing contains between from to its with
-    where given that which coordinates endpoints end ends please explain show working steps
-    step by hint only how why formula method briefly me
+    a an the find calculate compute determine write give state work out what s is are of and
+    points point two segment line straight through thru joining joins join joined passing
+    passes pass going goes connecting connects connect containing contains between from to its
+    with where whose given if that which coordinates coordinate plane grid on in units unit
+    endpoints end ends please explain show working steps step by hint only how why formula
+    method briefly me
     """.split()
 )
 _OP_WORDS = {
@@ -64,25 +66,44 @@ _OP_WORDS = {
 # The form the card is written in may be asked for; any other form may not.
 _CARD_FORM = re.compile(
     r"\bin\s+(?:the\s+)?(?:slope|gradient)[- ]intercept\s+form\b"
-    r"|\bin\s+the\s+form\s+y\s*=\s*mx\s*\+\s*[bc]\b",
+    r"|\bin\s+(?:the\s+)?(?:form\s+)?y\s*=\s*mx\s*\+\s*[bc](?:\s+form)?\b",
     re.IGNORECASE,
+)
+# A line named by its two labelled points: "the line through P and P'", "line AB".
+_BY_LABELS = re.compile(
+    r"\bline\s+(?:(?:through|thru|joining|connecting|passing\s+through)\s+)?([A-Z])"
+    r"[\'\u2019\u2032]?\s*(?:and\s+)?([A-Z])[\'\u2019\u2032]?(?![A-Za-z])"
+)
+# How a labelled point came to be: "the image of P(3, 10) under reflection in line L is
+# P'(7, 2)". The coordinates are stated, so the line through P and P' is that line.
+_POINT_STORY = frozenset(
+    "image under reflection reflected reflecting rotation rotated translation translated "
+    "mapped maps onto mirror".split()
 )
 
 
 def _read_whole(cleaned: str, op: str) -> bool:
+    framed = strip_ask_frame(cleaned)
+    if op == "line":
+        framed = _CARD_FORM.sub(" ", framed)
     labels: list[str] = []
 
     def blank(point: re.Match[str]) -> str:
         if point.group(0)[0].isalpha():
-            labels.append(point.group(0)[0].lower())
+            labels.append(point.group(0)[0])
         return " "
 
-    rest = _POINT.sub(blank, _CARD_FORM.sub(" ", cleaned) if op == "line" else cleaned)
+    rest = _POINT.sub(blank, framed)
     words = _ASK_WORDS | _OP_WORDS[op]
-    named = "".join(labels)  # "line AB" names the line by its points
+    by_labels = _BY_LABELS.search(rest)
+    if op == "line" and by_labels and set(by_labels.groups()) == set(labels):
+        words |= _POINT_STORY
+    named = "".join(labels).lower()  # "the distance AB" names it by its points
     return all(
-        word in words or (len(word) > 1 and word == named)
-        for word in re.findall(r"[a-z]+|\d+", rest.lower())
+        token.lower() in words
+        or (len(token) <= 3 and token.isupper())  # labels: "midpoint M", "where A is", "AB"
+        or (len(token) > 1 and token.lower() == named)
+        for token in re.findall(r"[A-Za-z]+|\d+", rest)
     )
 
 

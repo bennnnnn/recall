@@ -110,7 +110,7 @@ _DRAWS = [
     ),
     (
         "A card is drawn from a deck of 52 cards. What is the probability of drawing a black card that is a king?",
-        None,
+        (2, 52),
     ),
     (
         "A card is drawn from a deck of 52 cards. What is the probability of drawing a black card or a king?",
@@ -280,7 +280,7 @@ _CARDS = [
     ),
     (
         "The image of P(3, 10) under reflection in line L is P'(7, 2). Find the equation of the line through P and P'.",
-        None,
+        "y = 16 - 2 x",
     ),
     (
         "The image of P(3, 10) is P'(7, 2). Find the equation of the line of reflection and the distance PP'.",
@@ -491,4 +491,149 @@ async def test_the_card_shown_is_the_answer_read_in_full(text: str, card: str | 
     shown = None
     if verified is not None:
         shown = getattr(verified, "display_answer", None) or verified.canonical_answer
+    assert shown == card
+
+
+# What a whole-question review over 5,474 prompts found the first allowlists lost: the
+# question's frame (an opener, an actor, the answer's format, a unit, a label) read as
+# content, and a point to check read as a point the answer passes through. Each keeps the
+# card main gave it, read and solved as the harness does.
+_FRAMED = [
+    ("Find the distance between the points (1, 2) and (4, 6) in units.", "5"),
+    ("Find the distance between A(1, 2) and B(4, 6) in cm.", "5"),
+    (
+        "A card is drawn from a pack of 52 cards. Find the probability of getting a king. Express your answer in simplest form.",
+        "\\frac{1}{13} \\approx 0.07692",
+    ),
+    ("Solve the system x + y = 5, x - y = 1 and check that (3, 2) works.", "x = 3, y = 2"),
+    ("Solve the system 2x + y = 7 and x - y = 2. Is the solution (3, 1)?", "x = 3, y = 1"),
+    (
+        "Two dice are rolled. Find the probability that the sum is 7, in simplest form.",
+        "\\frac{1}{6} \\approx 0.1667",
+    ),
+    (
+        "A card is drawn from a 52-card deck. What is the probability that it is an ace of spades?",
+        "\\frac{1}{52} \\approx 0.01923",
+    ),
+    ("Can you find the equation of the line through (1, 2) and (3, 6)?", "y = 2 x"),
+    (
+        "Find the equation of a line passing through the two points (1, 1) and (3, 5).",
+        "y = 2 x - 1",
+    ),
+    ("Find the distance between the two points (2, 3) and (5, 7).", "5"),
+    ("Can you find the distance between (1, 2) and (4, 6)?", "5"),
+    ("What's the distance between (1,2) and (4,6)?", "5"),
+    ("Find the distance between (1, 2) and (4, 6) units.", "5"),
+    ("Find the midpoint of AB if A(2, 3) and B(4, 7).", "(3, 5)"),
+    ("What's the slope between (1,2) and (3,4)?", "1"),
+    ("Find the slope of the line joining the two points (1, 3) and (4, 12).", "3"),
+    ("Can you find the slope of the line through (1, 2) and (3, 6)?", "2"),
+    ("Could you find the midpoint of (2, 4) and (6, 8)?", "(4, 6)"),
+    ("Hey, what's the slope of the line through (1, 2) and (3, 6)?", "2"),
+    ("I need the distance between (1, 2) and (4, 6)", "5"),
+    ("Help me find the midpoint of (2, 4) and (6, 8)", "(4, 6)"),
+    ("What is the gradient of the line joining the two points (1, 2) and (3, 8)?", "3"),
+    ("Find the distance between the two points A(1, 2) and B(4, 6).", "5"),
+    ("Find the slope of the line passing through two points (1, 2) and (3, 8).", "3"),
+    ("Find the distance between (1, 2) and (4, 6) and show your work.", "5"),
+    ("Find the distance AB if A(1, 2) and B(4, 6).", "5"),
+    ("Find the distance between the points (1, 2) and (4, 6) on the coordinate plane.", "5"),
+    ("slope of line passing thru (1,2) and (3,6)", "2"),
+    ("Find the distance between (1, 2) and (4, 6) using the distance formula.", "5"),
+    ("Use the distance formula to find the distance between (1, 2) and (4, 6).", "5"),
+    ("Use the midpoint formula to find the midpoint of (2, 4) and (6, 8).", "(4, 6)"),
+    ("Find the slope of the line through (1, 2) and (3, 6) using the slope formula.", "2"),
+    ("Find the distance between the points (1, 2) and (4, 6). Round to the nearest tenth.", "5"),
+    (
+        "Find the equation of the line passing through (1, 2) and (3, 6) in y = mx + b form.",
+        "y = 2 x",
+    ),
+    ("Find the midpoint of the line segment whose endpoints are (2, 4) and (6, 8).", "(4, 6)"),
+    ("Find the midpoint M of the segment joining A(2, 4) and B(6, 8).", "(4, 6)"),
+    ("Find the coordinates of the midpoint of AB where A is (2, 4) and B is (6, 8).", "(4, 6)"),
+    (
+        "If you roll two dice, what is the probability of getting a sum of 7?",
+        "\\frac{1}{6} \\approx 0.1667",
+    ),
+    ("If I roll two dice, what's the probability the sum is 7?", "\\frac{1}{6} \\approx 0.1667"),
+    (
+        "What is the probability of rolling two dice and getting a sum of 7?",
+        "\\frac{1}{6} \\approx 0.1667",
+    ),
+    (
+        "When rolling two dice, what is the probability of a sum of 8?",
+        "\\frac{5}{36} \\approx 0.1389",
+    ),
+    (
+        "Two dice are rolled. What is the probability that their sum is 7?",
+        "\\frac{1}{6} \\approx 0.1667",
+    ),
+    (
+        "Two dice are rolled. What is the probability of getting a sum of 7? Express your answer as a fraction.",
+        "\\frac{1}{6} \\approx 0.1667",
+    ),
+    (
+        "Kebede throws two dice. What is the probability that the sum is 8?",
+        "\\frac{5}{36} \\approx 0.1389",
+    ),
+    (
+        "John draws a card from a deck of 52 cards. What is the probability that he draws a queen?",
+        "\\frac{1}{13} \\approx 0.07692",
+    ),
+    ("If you roll a die, what is the probability of getting a 6?", "\\frac{1}{6} \\approx 0.1667"),
+    (
+        "What is the probability of rolling a 4 with a fair 6-sided die?",
+        "\\frac{1}{6} \\approx 0.1667",
+    ),
+    (
+        "If you draw a card from a standard deck, what's the probability it's a king?",
+        "\\frac{1}{13} \\approx 0.07692",
+    ),
+    (
+        "A card is drawn from a standard 52-card deck. What is the probability that it is a king?",
+        "\\frac{1}{13} \\approx 0.07692",
+    ),
+    (
+        "What is the probability of drawing a heart from a standard 52-card deck?",
+        "\\frac{1}{4} = 0.25",
+    ),
+    (
+        "What is the probability of getting a sum of 7 when you roll two dice?",
+        "\\frac{1}{6} \\approx 0.1667",
+    ),
+    (
+        "Two dice are rolled. What is the probability of getting a sum of 7 in simplest form?",
+        "\\frac{1}{6} \\approx 0.1667",
+    ),
+    (
+        "Two dice are rolled. Find the probability of getting a sum of 9. Give your answer as a fraction in its simplest form.",
+        "\\frac{1}{9} \\approx 0.1111",
+    ),
+    (
+        "Abebe rolls two dice. What is the probability that he gets a sum of 7?",
+        "\\frac{1}{6} \\approx 0.1667",
+    ),
+    (
+        "A card is drawn from a deck of 52 cards. What is the probability of drawing a black card that is a king?",
+        "\\frac{1}{26} \\approx 0.03846",
+    ),
+    (
+        "The image of P(3, 10) under reflection in line L is P'(7, 2). Find the equation of the line through P and P'.",
+        "y = 16 - 2 x",
+    ),
+    ("Solve 2x + 3 = 7 for x on the interval (0, 10).", "x = 2"),
+    ("Solve x^2 = 4 on (0, 5)", None),
+    ("Solve x^2 - 5x + 6 = 0 for x in (0, 2.5)", None),
+]
+
+
+@pytest.mark.parametrize(("text", "card"), _FRAMED)
+def test_the_frame_of_a_question_is_not_its_content(text: str, card: str | None) -> None:
+    from app.modules.math.tools.block import _build_verified_block
+    from app.modules.math.tools.extract import extract_math_intent
+
+    intent = extract_math_intent(text)
+    settings = Settings(math_tools_enabled=True)
+    block = None if intent is None else _build_verified_block(intent, settings)
+    shown = None if block is None else (block.display_answer or block.canonical_answer)
     assert shown == card

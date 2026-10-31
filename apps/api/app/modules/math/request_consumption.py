@@ -140,10 +140,18 @@ _SOLUTION_COUNT_CONDITION = re.compile(
 )
 # Inequalities keep "the range of values of x for which ..." as a solve.
 _SOLVED_EQUATION_KINDS = frozenset({"equation", "system"})
-# A point beside an equation in a sentence ("the image of (2, 3) in the line y = x", "the
-# line through (1, 2) and the intersection of y = x and y = 2x - 1") asks about the
-# point and the line or curve, not for the equation's solutions.
+# A point the asked object passes through, starts from or holds ("the image of (2, 3) in the
+# line y = x", "the line through (1, 2) and the intersection of y = x and y = 2x - 1", "find
+# k if (1, 5) lies on y = kx + 3") makes the ask about that point, not the equation's
+# solutions. A point to check ("check that (3, 2) works", "is the solution (3, 1)?") or an
+# interval ("on (0, 10)") leaves the solve whole.
 _POINT_LITERAL = re.compile(r"\(\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\)")
+_POINT_OF_THE_ASK = re.compile(
+    r"\b(?:through|thru|of|joining|connecting|containing)\s+(?:the\s+point\s+)?"
+    r"(?:[A-Za-z][\'\u2019\u2032]?\s*)?\(\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\)"
+    r"|\(\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\)\s+(?:lies|lie|is|are)\s+on\b",
+    re.IGNORECASE,
+)
 _DOMAIN_BLIND_KINDS = frozenset(
     {"equation", "system", "inequality", "calculus", "limit", "graph", "graph_pair"}
 )
@@ -237,7 +245,7 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
         _EQUATION_FEATURE_REQUEST.search(text) or _SOLUTION_COUNT_CONDITION.search(text)
     ):
         leftovers.append("a feature of the equation, not its solutions")
-    if intent.kind in _SOLVED_EQUATION_KINDS and _POINT_LITERAL.search(text):
+    if intent.kind in _SOLVED_EQUATION_KINDS and _POINT_OF_THE_ASK.search(text):
         sides = " ".join(
             part for pair in intent.system_equations or [] for part in pair
         ) + " ".join(part for part in (intent.lhs, intent.rhs) if part)

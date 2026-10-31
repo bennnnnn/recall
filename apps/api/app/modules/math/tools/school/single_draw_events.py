@@ -16,6 +16,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.modules.math.response_intent import strip_ask_frame
+
 # A multiple-choice list after the question: "a. 2/9  b. 8/9", "(A) 1/6 (B) 1/3". Each
 # label is found on its own, so no lazy run between them is retried from every "a)".
 _FIRST_CHOICE = re.compile(r"(?<!\S)\(?[aA][.)]\s*\S")
@@ -32,7 +34,7 @@ _NOT = (
 )
 _SUM_VALUE = rf"(?:(?:a\s+)?(?:sum|total)\s+(?:of\s+)?)?(?:{_COMPARE}\s+)?\d{{1,2}}"
 _SUM_EVENT = re.compile(
-    rf"\b{_NOT}(?:(?:a|an|the)\s+)?(?:sum|total)"
+    rf"\b{_NOT}(?:(?:a|an|the|their)\s+)?(?:sum|total)"
     r"(?:\s+of\s+(?:the\s+)?(?:two\s+)?(?:numbers|faces|scores)"
     r"(?:\s+(?:on|shown\s+on)\s+(?:the\s+|both\s+)?(?:two\s+)?dice)?)?"
     r"(?:\s+(?:is|will\s+be|equals|of|is\s+equal\s+to|equal\s+to))?(?:\s+(not))?"
@@ -80,13 +82,19 @@ _DECK_SETUP = re.compile(
 )
 _KIT = (
     r"(?:a|an|one|two|2|the|a\s+pair\s+of)\s+(?:(?:fair|unbiased|standard|ordinary|full"
-    r"|well[- ]shuffled|shuffled|(?:six|6)[- ]sided)\s+)*(?:dice|die|cards?|deck|pack)"
+    r"|well[- ]shuffled|shuffled|(?:six|6)[- ]sided|52[- ]card)\s+)*(?:dice|die|cards?|deck|pack)"
+)
+_ACT = (
+    r"(?:roll|rolls|rolling|throw|throws|throwing|toss|tosses|tossing|cast|casts|casting|draw"
+    r"|draws|drawing|pick|picks|picking|select|selects|selecting)"
 )
 # Phrases that only set the scene. "if", "when", "with", "on", "same" and "one" are
 # neutral only inside them: "if the dice show the same number" is a condition.
 _SCENE = re.compile(
     rf"\b(?:if|when)\s+{_KIT}(?:\s+of\s+52\s+(?:playing\s+)?cards)?\s+(?:is|are)\s+"
     r"(?:rolled|thrown|tossed|cast|drawn|picked|selected|chosen|taken)\b"
+    rf"|\b(?:if|when)\s+(?:(?:you|i|we|he|she|they)\s+)?{_ACT}\s+{_KIT}\b"
+    rf"|\b{_ACT}\s+{_KIT}\s+and\s+(?=(?:getting|get|obtaining|obtain|drawing|having)\b)"
     rf"|\b(?:with|on|using|from)\s+{_KIT}\b|\b(?:one|a\s+single)\s+(?:fair\s+)?(?:die|card)\b"
     r"|\bat\s+(?:random|the\s+same\s+time)\b|\bin\s+(?:a|one)\s+(?:single\s+)?"
     r"(?:throw|roll|toss|draw|cast)\b|\b(?:lands?|landing)\s+on\b",
@@ -101,7 +109,8 @@ _FILLER = frozenset(
     rolled throwing throw throws thrown tossing toss tosses tossed cast casting obtaining obtain
     obtained drawing draw draws drawn picking pick picks picked selecting select selected
     choosing choose chosen taking take taken showing show shows shown up randomly once
-    simultaneously together fair unbiased standard ordinary single it its i you we number
+    simultaneously together fair unbiased standard ordinary single it its i you we he she they
+    his her him their someone number
     numbers face faces result outcome your answer as fraction simplest form decimal please
     explain show working steps step by hint only how why briefly me
     """.split()
@@ -131,11 +140,12 @@ class DrawEvent:
 
 
 def _question(text: str) -> str:
-    """The question without a multiple-choice list after it."""
+    """The question without a multiple-choice list after it, or its frame (openers, an
+    actor's name, how the answer is to be written)."""
     first = _FIRST_CHOICE.search(text)
-    if first is None or _SECOND_CHOICE.search(text, first.end()) is None:
-        return text
-    return text[: first.start()]
+    if first is not None and _SECOND_CHOICE.search(text, first.end()) is not None:
+        text = text[: first.start()]
+    return strip_ask_frame(text)
 
 
 def _whole(text: str, spans: list[tuple[int, int]], words: frozenset[str]) -> bool:
@@ -205,8 +215,9 @@ def two_dice_event(text: str) -> DrawEvent | None:
 
 
 def one_die_event(text: str) -> DrawEvent | None:
-    question = _question(text)
-    setup = [match.span() for match in _DIE_SETUP.finditer(question)]
+    # "a fair 6-sided die": the 6 is no face, so the setup is blanked before faces are read.
+    question = _DIE_SETUP.sub(lambda match: " " * len(match.group(0)), _question(text))
+    setup: list[tuple[int, int]] = []
     events = list(_FACE_EVENT.finditer(question))
     if len(events) != 1:
         return None
@@ -240,6 +251,13 @@ def card_event(text: str) -> DrawEvent | None:
     question = _question(text)
     setup = [match.span() for match in _DECK_SETUP.finditer(question)]
     events = list(_CARD_EVENT.finditer(question))
+    both = _both_kinds(question, events)
+    if both is not None:
+        return (
+            both
+            if _whole(question, [*setup, (events[0].start(), events[1].end())], _DECK_WORDS)
+            else None
+        )
     if len(events) != 1:
         return None
     event = events[0]
@@ -258,6 +276,30 @@ def card_event(text: str) -> DrawEvent | None:
     if not codes or not cards or not _uncertain(favourable, 52):
         return None
     return DrawEvent(favourable, 52, "cards", negated, cards=codes)
+
+
+_BOTH = re.compile(r"\s+(?:that|which)\s+is\s+(?:also\s+)?", re.IGNORECASE)
+
+
+def _both_kinds(question: str, events: list[re.Match[str]]) -> DrawEvent | None:
+    """ "A black card that is a king": one card of both kinds, the black kings."""
+    if len(events) != 2 or any(event.group(1) for event in events):
+        return None
+    if _BOTH.fullmatch(question, events[0].end(), events[1].start()) is None:
+        return None
+    parts = [
+        [part for part in _CARD_PART.finditer(event.group(2)) if any(part.groups()[1:])]
+        for event in events
+    ]
+    if any(len(named) != 1 for named in parts):
+        return None
+    first, second = (_card_code(named[0]) for named in parts)
+    # Each field is named once: a colour and a rank, never two colours.
+    if any(one and other and one != other for one, other in zip(first, second, strict=True)):
+        return None
+    code = (first[0] or second[0], first[1] or second[1], first[2] or second[2])
+    count = len(_cards(code))
+    return DrawEvent(count, 52, "cards", cards=(code,)) if _uncertain(count, 52) else None
 
 
 def _card_code(part: re.Match[str]) -> tuple[int, int, int]:
