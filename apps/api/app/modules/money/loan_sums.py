@@ -1,13 +1,19 @@
-"""Which sum in a loan request is the loan: the price less what is put down, or the one
-said to be borrowed, or none.
+"""Which sum in a loan request is the loan: the one borrowed, or the price less what is put
+down, or none.
 
 Live (2026-10-31, an Ethiopian grade 12 book): "a house that costs Birr 250,000. He has
 saved Birr 50,000 which he will use as a deposit, and will finance the rest of the cost
 by taking out a loan" was worked as a loan of 250,000, the first sum, and the card's
-payment was the price's. The loan is the price less the sum put down, said as a down
-payment or a deposit ("which he will use as a deposit") or by borrowing "the rest" of
-two sums. When two sums stand with one said to be a price and none said to be borrowed,
-which one is the loan is not said, and none is read: the model asks or works it in words.
+payment was the price's.
+
+- A sum said to be borrowed or owed ("still owe 20k", "I borrowed $20,000") is the loan as
+  it stands: money put down came off it already.
+- Otherwise the loan is the price less the sum put down, said as a down payment or a
+  deposit (also in a clause after it, "which he will use as a deposit"), or as paid toward
+  it when "the rest" is borrowed ("she pays $5,000 and borrows the rest").
+- Two sums with one said to be a price and none borrowed or named a loan say no loan
+  ("the difference between a $300,000 house and a $350,000 house"): none is read, and the
+  model answers. An income ("my salary is $90,000") is never a candidate.
 """
 
 from __future__ import annotations
@@ -15,19 +21,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-
-@dataclass(frozen=True)
-class Sum:
-    """One sum of money in a request, with what its neighbours say it is."""
-
-    value: float
-    monthly: bool
-    down: bool
-    start: bool
-    # Said to be borrowed ("borrow 20k", "owe 250k", "a 200k loan").
-    loan: bool = False
-    # Said to be what the thing costs ("costs 250,000", "a 400k house").
-    price: bool = False
+from app.modules.money.sums import Sum
 
 
 @dataclass(frozen=True)
@@ -38,34 +32,37 @@ class LoanSums:
     down: float | None = None
 
 
-# "Finance the rest of the cost", "borrows the remainder", "the difference on a loan".
+# "Finance the rest of the cost", "borrows the remainder", "the rest is on a loan".
 _REST = re.compile(
-    r"\bthe\s(?:rest|remainder|difference|remaining\s(?:amount|cost|price|sum))\b", re.I
+    r"\b(?:borrow\w*|financ\w*|cover\w*)\s(?:for\s)?the\s(?:rest|remainder|difference|"
+    r"remaining\s(?:amount|cost|price|sum))\b"
+    r"|\bthe\s(?:rest|remainder)\b[^.;!?]{0,40}?\b(?:borrowed|financed|on\s(?:a|the)\s(?:loan|"
+    r"mortgage)|(?:by|with|through)\s(?:taking\s(?:out\s)?)?(?:a|the)\s(?:loan|mortgage))\b",
+    re.I,
 )
-_BORROWED = re.compile(r"\b(?:borrow\w*|financ\w*|loans?|mortgage)\b", re.I)
-_SENTENCES = re.compile(r"[^.;!?]+")
 
 
 def rest_is_borrowed(text: str) -> bool:
-    """One sentence borrows what is left of the price: "and borrows the rest"."""
-    return any(
-        _REST.search(sentence) and _BORROWED.search(sentence)
-        for sentence in _SENTENCES.findall(text)
-    )
+    """The message borrows what is left of the price: "and borrows the rest"."""
+    return _REST.search(text) is not None
 
 
 def loan_sums(sums: list[Sum], share: float | None, rest: bool) -> LoanSums:
     """The loan, and its price and down payment when the request gives money down."""
-    once = [item for item in sums if not item.monthly]
+    once = [item for item in sums if not item.monthly and not item.income]
     named = [item for item in once if not item.down]
-    # "Borrow 20k and pay the rest in cash" borrows the sum it names, not the rest.
-    if rest and len(once) == 2 and len(named) == 2 and not any(item.loan for item in named):
-        put, cost = sorted(item.value for item in named)
-        return LoanSums(cost - put, cost, put) if put < cost else LoanSums(None)
+    borrowed = {item.value for item in named if item.borrowed}
+    if borrowed:
+        return LoanSums(borrowed.pop()) if len(borrowed) == 1 else LoanSums(None)
+    if rest and len(named) == 2 and len(once) == 2 and not any(item.loan for item in named):
+        put, cost = sorted(named, key=lambda item: item.value)
+        if put.paid and put.value < cost.value:
+            return LoanSums(cost.value - put.value, cost.value, put.value)
+        return LoanSums(None)
     if len(named) > 1:
-        borrowed = [item for item in named if item.loan]
-        if len(borrowed) == 1 and len(named) == len(once):
-            return LoanSums(borrowed[0].value)
+        loans = [item for item in named if item.loan]
+        if len(loans) == 1 and len(named) == len(once):
+            return LoanSums(loans[0].value)
         if any(item.price for item in named):
             return LoanSums(None)
     first = named[0].value if named else None

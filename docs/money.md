@@ -64,24 +64,41 @@ no used-car average and got no numbers at all, where the new-car average had wor
   (`Product.settings`, `per_year`), not a slider, written into the card's trees as a number
   (`Product.outputs_at`), monthly when it says none, and the block names it so the reply
   does. A start grows (1 + rate/n)^(n·years); a deposit made each month grows by the month's
-  share of that. A frequency with no count a year ("continuously", "bi-monthly", "every 2
-  months"), two that disagree, or a loan or card compounded other than monthly is left to
-  the model (`compounding.py`; live 2026-10-31, "compounded quarterly" was worked monthly).
+  share of that. Each compounding word is read with what follows it ("compounded per
+  quarter", "on a quarterly basis") or the one word before it ("semi annual compounding");
+  spaces and hyphens are one. A compounding word whose frequency can't be read
+  ("continuously", "bi-monthly", "every 2 months", "fortnightly"), two that disagree, or a
+  loan compounded other than monthly is left to the model, never worked as monthly; a
+  card's APR is charged by the month however it compounds (`compounding.py`; live
+  2026-10-31, "compounded quarterly" was worked monthly).
 - **Investing** (invest, investing, investment, retirement): the same inputs and results as
   savings, with no average looked up: a market's return has no bank average to judge it by.
 
 A term the user didn't give comes from the row's default (a 30-year mortgage, a 5-year car loan),
 and the reply says it assumed one. A term in words is read as in digits ("seven years",
 "twenty-five years", "two and a half years"), by the first ask, the follow-up grammar and the
-two-line loan alike; a currency named before its sum ("Birr 3,000", "USD 500") marks it as money.
+two-line loan alike (`phrases.py`). A length of time that is no term is left out: an age, time
+gone by or a gap ("thirty years old", "ten years ago", "five years apart", "been paying for
+three years", "twelve months of payments", "the past 2 years"); two different terms give none,
+and the default is said as assumed. A currency named before its sum ("Birr 3,000", "USD 500")
+marks it as money; an exchange rate ("USD 1 = ETB 57", "57 birr to the dollar"), a note or
+coin ("Birr 500 notes") and the same sum said again ("that's about USD 21,600") are no sum
+(`sums.py`).
 
 Which sum is the loan (`loan_sums.py`; live 2026-10-31, a house that "costs Birr 250,000" with
-"Birr 50,000 which he will use as a deposit" was worked as a 250,000 loan): the price less the
-sum put down, said as a down payment or a deposit, also in a clause after it ("which he will
-use as a deposit"), or by borrowing "the rest" ("the remainder", "the difference") of two sums.
-A sum said to be borrowed ("borrow 20k", "owe 250k", "a 300k mortgage") is the loan beside any
-other. Two sums, one said to be a price and none said to be borrowed ("costs 250,000 and I
-have 50,000 saved"), name no loan, and none is assumed: the model answers. A rate they didn't give comes from today's average when there
+"Birr 50,000 which he will use as a deposit" was worked as a 250,000 loan):
+
+- A sum said to be borrowed or owed ("borrow 20k", "still owe 20k") is the loan as it stands;
+  money put down came off it already.
+- Otherwise the price less the sum put down, said as a down payment or a deposit, also in a
+  clause after it ("which he will use as a deposit"; not a deposit with a landlord, a bank or
+  a booking), or as paid toward it when "the rest" is borrowed ("she pays $5,000 and borrows
+  the rest").
+- One sum named as the loan ("a $15,000 car loan", "a 300k mortgage") beside others is the loan.
+- Two sums, one said to be a price and none borrowed or named a loan ("costs 250,000 and I have
+  50,000 saved", "the difference between a $300,000 house and a $350,000 house"), name no loan,
+  and none is assumed: the model answers. An income ("my salary is $90,000", "I make 80k a
+  year") is never a candidate. A rate they didn't give comes from today's average when there
 is one; otherwise the model asks for it.
 
 ## Follow-ups

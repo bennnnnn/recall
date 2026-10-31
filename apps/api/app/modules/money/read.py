@@ -11,8 +11,9 @@ rates. Yearly simple or compound interest ("compound interest on 1000 at 5% for 
 years") is maths homework and stays with maths.
 
 The kind of the product is read by ``kinds`` ("buying a used car" is looked up at the
-used-car average). The percent and the length of time are shared with ``change_line``,
-which reads a follow-up ("what if i only do 3 years instead") by its own stricter grammar.
+used-car average), each sum's role by ``sums`` and the loan among them by ``loan_sums``.
+The percent and the length of time (``phrases``) are shared with ``change_line``, which
+reads a follow-up ("what if i only do 3 years instead") by its own stricter grammar.
 """
 
 from __future__ import annotations
@@ -23,56 +24,18 @@ from dataclasses import dataclass, field
 from app.modules.money.catalog import PRODUCTS, Product
 from app.modules.money.compounding import UNKNOWN, compounding_per_year
 from app.modules.money.kinds import named_variant
-from app.modules.money.loan_sums import LoanSums, Sum, loan_sums, rest_is_borrowed
-from app.services.number_text import NUMBER_WORDS, count_word_pattern
-
-# A count in words, as a book writes a term: "seven", "twenty-five", "two and a half".
-_TENS = "|".join(word for word, value in NUMBER_WORDS.items() if value >= 20)
-_ONES = count_word_pattern(low=1, high=9)
-_SPELLED = (
-    rf"(?:(?:{_TENS})(?:[\s-](?:{_ONES}))?|{count_word_pattern(low=1, high=19)})"
-    r"(?:\sand\sa\shalf)?"
+from app.modules.money.loan_sums import LoanSums, loan_sums, rest_is_borrowed
+from app.modules.money.phrases import (
+    AMOUNT,
+    CURRENCY_WORD,
+    CURRENCY_WORDS,
+    MULTIPLIERS,
+    RATE,
+    TERM,
+    count_value,
 )
-# A percent and a length of time, as ``change_line`` and ``purchase`` read them too; the
-# count of a length of time is ``count_value``'s.
-PERCENT = r"(?P<pct>\d{1,3}(?:\.\d{1,4})?)\s?(?:%|percent\b|per\s?cent\b|pct\b)"
-DURATION = (
-    rf"(?P<n>\d{{1,3}}(?:\.\d{{1,2}})?|{_SPELLED})\s?-?\s?(?P<unit>years?|yrs?|months?|mos?)\b"
-)
-_RATE = re.compile(PERCENT, re.I)
-_TERM = re.compile(rf"\b{DURATION}", re.I)
-_AMOUNT = re.compile(
-    r"(?P<sym>[$€£¥₹₦])?\s?(?P<num>\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)"
-    r"(?:\s?(?P<mult>k|m|thousand|million|mil|grand)\b)?",
-    re.I,
-)
-# Currency words, as ``purchase`` reads a sum too.
-CURRENCY_WORDS = (
-    r"dollars?|bucks|usd|euros?|eur|pounds?|gbp|birr|etb|rupees?|inr|naira|ngn|"
-    r"shillings?|kes|yen|jpy|cad|aud"
-)
-_CURRENCY_WORD = re.compile(rf"\s?({CURRENCY_WORDS})\b", re.I)
-# A currency named before its sum, as many countries write it: "Birr 3,000", "USD 500".
-_CURRENCY_BEFORE = re.compile(rf"\b(?:{CURRENCY_WORDS})\s?$", re.I)
+from app.modules.money.sums import MEASUREMENT, SAYS_MONEY, Sum, amounts
 
-
-def sum_phrase(name: str) -> str:
-    """A sum as a phrase in a lower-cased line ("$20k", "3 grand"), read by ``read_sum``."""
-    return (
-        rf"(?P<{name}>[$€£¥₹₦]?\s?\d[\d,]*(?:\.\d{{1,2}})?"
-        rf"(?:\s?(?:k|m|thousand|million|mil|grand))?(?:\s(?:{CURRENCY_WORDS}))?)"
-    )
-
-
-_MONTHLY = re.compile(r"\s?(?:a|per|/|each|every)\s?(?:month|mo)\b|\s?monthly\b|\s?/\s?mo\b", re.I)
-_DOWN = re.compile(r"\b(?:down\s?payment(?:\s(?:of|is))?|put(?:ting)?\s(?:down)?|down)\s?$", re.I)
-_DOWN_AFTER = re.compile(r"\s?(?:down\b|as\s(?:a\s)?down\s?payment\b)", re.I)
-# A sum put toward the price in a clause after it: "50,000 which he will use as a deposit",
-# "50k as the down payment". A loan's deposit is its down payment.
-_DOWN_CLAUSE = re.compile(
-    r"[^\d.;!?]{0,40}?\bas\s(?:a|an|the|his|her|their|my|our|your)\s(?:deposit|down\s?payment)\b",
-    re.I,
-)
 _YEAR = re.compile(r"(?:19|20)\d{2}")
 # A percent that is a share of the price put down: "20% down", "a down payment of 20%",
 # "down payment 20%", "putting down 20%". Not a rate beside a sum down ("at 7% down
@@ -99,18 +62,6 @@ _SUM_DOWN_BEFORE = re.compile(
     re.I,
 )
 _RATE_BEFORE = re.compile(r"\b(?:at|@)\s?$", re.I)
-# A bare number is money only after a word that says so ("borrow 25000", "balance is 4000");
-# "rates in 2026" has no sum in it.
-_MONEY_BEFORE = re.compile(
-    r"\b(?:for|of|borrow(?:ing)?|owe|balance(?:\sis)?|loan|price(?:d)?|costs?|worth|save|"
-    r"saving|deposit(?:ing)?|invest(?:ing)?|pay(?:ing)?|put|with|is)\s?$",
-    re.I,
-)
-_START = re.compile(
-    r"\b(?:start(?:ing)?\s(?:with|at)|have|initial(?:ly)?|already|lump\s?sum(?:\sof)?|"
-    r"currently|right\snow)\s?$",
-    re.I,
-)
 # Words that make a product word a money request ("car" alone is not; "car loan" at 6 % is).
 _FINANCE = re.compile(
     r"\b(?:loan|loans|mortgage|payments?|pay|paying|apr|interest|rates?|finance|financing|"
@@ -122,24 +73,7 @@ _RATES_QUESTION = re.compile(
     r"|\b(?:rates?|aprs?|apy)\b[^.?!\n]{0,40}\b(?:now|today|currently|these\sdays|"
     r"this\s(?:week|month|year))\b",
     re.I,
-)
-# "a 250000 mortgage": a bare number right before what it buys is its price.
-_PRODUCT_AFTER = re.compile(r"\s?(?:mortgage|house|home|condo|car|loan|balance)\b", re.I)
-# What a sum is said to be: borrowed ("borrow 20k", "owe 250k", "a 200k loan"), or what the
-# thing costs ("costs 250,000", "a 400k house").
-_LOAN_BEFORE = re.compile(
-    r"\b(?:borrow(?:s|ed|ing)?|owe[sd]?|owing|loan(?:\samount)?(?:\s(?:of|is))?|"
-    r"financ(?:e|es|ed|ing))\s?$",
-    re.I,
-)
-_LOAN_AFTER = re.compile(r"\s?(?:loan|mortgage)\b", re.I)
-_PRICE_BEFORE = re.compile(
-    r"\b(?:costs?|costing|priced\sat|price(?:\s(?:of|is|tag\sof))?|worth|sells?\sfor|"
-    r"selling\sfor|valued\sat)\s?$",
-    re.I,
-)
-_GOODS_AFTER = re.compile(r"\s?(?:house|home|condo|car|truck|suv|vehicle|apartment|flat)\b", re.I)
-# Yearly simple or compound interest is a school exercise maths works (math.school).
+)  # Yearly simple or compound interest is a school exercise maths works (math.school).
 _HOMEWORK_INTEREST = re.compile(
     r"\b(?:simple|compound)\s+interest\b|\bcompounded\s+(?:annually|yearly|every\s+year)\b",
     re.I,
@@ -176,8 +110,20 @@ _CURRENCIES = {
     "cad": "CAD",
     "aud": "AUD",
 }
-_MULTIPLIERS = {"k": 1e3, "thousand": 1e3, "grand": 1e3, "m": 1e6, "million": 1e6, "mil": 1e6}
 _TERM_UNITS = {"year": "years", "years": "years", "yr": "years", "yrs": "years"}
+# A length of time that is no term: an age, time gone by, a gap, payments already made
+# ("ten years ago", "thirty years old", "five years apart", "been paying for three years",
+# "twelve months of payments", "for the past 3 years", "every 3 months").
+_SPAN_AFTER = re.compile(
+    r"\s?(?:-\s?)?(?:ago|old|apart|of\sage|later|earlier|back|since|in\sa\srow|into|behind|"
+    r"of\s(?:payments?|paying|saving|savings|work|experience|service|marriage))\b",
+    re.I,
+)
+_SPAN_BEFORE = re.compile(
+    r"\b(?:been\s(?:\w+\s){0,2}(?:for\s)?|(?:the|my|our)\s(?:past|last|previous)\s|made\s|"
+    r"every\s|each\s|per\s|aged?\s)$",
+    re.I,
+)
 
 
 @dataclass(frozen=True)
@@ -208,15 +154,6 @@ class MoneyRequest:
     settings: dict[str, float] = field(default_factory=dict)
 
 
-def count_value(text: str) -> float:
-    """A duration's count, in digits or words: "3.5", "seven", "twenty-five", "two and a half"."""
-    words = text.lower().replace("-", " ").split()
-    if not words or words[0] not in NUMBER_WORDS:
-        return float(text)
-    half = words[-3:] == ["and", "a", "half"]
-    return sum(NUMBER_WORDS[word] for word in words[: -3 if half else None]) + 0.5 * half
-
-
 def bare_year(text: str) -> bool:
     """``text`` is a year written as a bare number ("2026"), not a sum."""
     return _YEAR.fullmatch(text.strip()) is not None
@@ -231,10 +168,10 @@ def read_money_request(text: str) -> MoneyRequest | None:
         return None
     rate = _rate(text)
     share = _percent_down(text)
-    amounts = _amounts(text)
+    sums = amounts(text)
     currency = _currency(text)
     variant = named_variant(found, text)
-    if rate is None and not amounts:
+    if rate is None and not sums:
         if _RATES_QUESTION.search(text):
             return MoneyRequest(found, {}, currency, rates_only=True, variant=variant)
         return None
@@ -243,8 +180,8 @@ def read_money_request(text: str) -> MoneyRequest | None:
     settings = _settings(found, text)
     if settings is None:
         return None
-    loan = loan_sums(amounts, share, rest_is_borrowed(text)) if found.family == "loan" else None
-    values = _values(found, rate, amounts, loan)
+    loan = loan_sums(sums, share, rest_is_borrowed(text)) if found.family == "loan" else None
+    values = _values(found, rate, sums, loan)
     values.update(_term(found, text))
     if not any(name in values for name in _principal_names(found)):
         return None
@@ -262,9 +199,10 @@ def read_money_request(text: str) -> MoneyRequest | None:
 
 def _settings(product: Product, text: str) -> dict[str, float] | None:
     """The settings ``text`` fixes; None when it says one the product cannot work: savings
-    "compounded continuously", or a loan compounded other than monthly."""
+    "compounded continuously", or a loan compounded other than monthly. A card's APR is
+    charged a month at a time however it compounds, as its statement works it."""
     per_year = compounding_per_year(text)
-    if per_year is None:
+    if per_year is None or product.family == "card_payoff":
         return {}
     if "per_year" in product.settings:
         return None if per_year == UNKNOWN else {"per_year": per_year}
@@ -288,19 +226,19 @@ def named_product(text: str) -> Product | None:
 
 def _rate(text: str) -> float | None:
     """The first percent that is not a share down: "a 400k house with 20% down at 6%" is 6%."""
-    for match in _RATE.finditer(text):
+    for match in RATE.finditer(text):
         if not _is_share_down(text, match):
             return float(match.group(1))
     return None
 
 
 def _rates_given(text: str) -> int:
-    return sum(1 for match in _RATE.finditer(text) if not _is_share_down(text, match))
+    return sum(1 for match in RATE.finditer(text) if not _is_share_down(text, match))
 
 
 def _percent_down(text: str) -> float | None:
     """The share of the price put down ("20% down", "a down payment of 20%"), or None."""
-    for match in _RATE.finditer(text):
+    for match in RATE.finditer(text):
         if _is_share_down(text, match):
             share = float(match.group(1))
             return share if 0 < share < 100 else None
@@ -314,67 +252,6 @@ def _is_share_down(text: str, match: re.Match[str]) -> bool:
     return bool(_SHARE_DOWN_AFTER.match(text, match.end()) or _SHARE_DOWN_BEFORE.search(before))
 
 
-def _amounts(text: str) -> list[Sum]:
-    """Every sum of money in the message, in order, with what its neighbours say it is."""
-    found: list[Sum] = []
-    for match in _AMOUNT.finditer(text):
-        after = text[match.end() : match.end() + 24]
-        if _RATE.match(text, match.start("num")) or _TERM.match(text, match.start("num")):
-            continue
-        word = _CURRENCY_WORD.match(after)
-        at = match.start("sym") if match.group("sym") else match.start("num")
-        lead = text[max(0, at - 40) : at]
-        named = None if match.group("sym") else _CURRENCY_BEFORE.search(lead)
-        before = (lead[: named.start()] if named else lead)[-24:]
-        marked = bool(
-            match.group("sym")
-            or match.group("mult")
-            or word
-            or named
-            or "," in match["num"]
-            or _PRODUCT_AFTER.match(after)
-        )
-        if not marked and _MONEY_BEFORE.search(before) is None:
-            continue
-        if match.group("mult") and not _is_multiplier(text, match):
-            # "6m/s2", "20 m/s": a measurement, never 6 million.
-            continue
-        number = float(match["num"].replace(",", ""))
-        if match.group("mult"):
-            number *= _MULTIPLIERS[match["mult"].lower()]
-        rest = after[word.end() :] if word else after
-        clause = text[match.end() + (word.end() if word else 0) : match.end() + 64]
-        found.append(
-            Sum(
-                value=number,
-                monthly=_MONTHLY.match(rest) is not None,
-                down=_DOWN.search(before) is not None
-                or _DOWN_AFTER.match(rest) is not None
-                or _DOWN_CLAUSE.match(clause) is not None,
-                start=_START.search(before) is not None,
-                loan=_LOAN_BEFORE.search(before) is not None or _LOAN_AFTER.match(rest) is not None,
-                price=_PRICE_BEFORE.search(before) is not None
-                or _GOODS_AFTER.match(rest) is not None,
-            )
-        )
-    return found
-
-
-# What follows an "m" or "k" that makes it a unit: "6m/s2", "5 m²", "3 km".
-_UNIT_AFTER_LETTER = re.compile(r"[/^²³\d]")
-# A physical measurement: "1500 kg", "6 m/s2", "20 N". Units are case-sensitive.
-# A bare "m" is metres only apart from its number: "1.2m" is a sum, "500 m" a distance.
-_MEASUREMENT = re.compile(
-    r"(?<![\w.])\d+(?:\.\d+)?(?:\s?(?:kg|mg|g|m/s(?:\^?2|²)?|km/h|kmh|mph|kN|N|kJ|J|kW|W|Pa|Hz|"
-    r"cm|mm|km)|\s+m)(?![\w/])"
-)
-# Money named outright: a currency, a percent, or a word only money uses. "Rate" and
-# "payment" are physics words too.
-_SAYS_MONEY = re.compile(
-    rf"[$€£¥₹₦%]|\b(?:{CURRENCY_WORDS}|percent|apr|loans?|mortgages?|borrow\w*|owe[sd]?|"
-    r"balance|credit\s+card|deposit\w*|invest\w*)\b",
-    re.I,
-)
 # "at the rate of 40 miles per hour", "a rate of 6 m/s2": a rate with no percent is no
 # interest rate.
 _RATE_OF_A_QUANTITY = re.compile(
@@ -384,30 +261,10 @@ _RATE_OF_A_QUANTITY = re.compile(
 )
 
 
-def _is_multiplier(text: str, match: re.Match[str]) -> bool:
-    """An "m" is millions written with the number ("$1.2 m", "a 1.2m house", "2 m birr"),
-    not a unit: "6m/s2" and "500 m" are measurements. A "k" alone is never a unit."""
-    if match["mult"].lower() != "m":
-        return True
-    if _UNIT_AFTER_LETTER.match(text, match.end("mult")):
-        return False
-    attached = match.start("mult") == match.end("num")
-    return (
-        attached
-        or match.group("sym") is not None
-        or _CURRENCY_WORD.match(text, match.end("mult")) is not None
-        # "borrow 2 m for a house": a loan word, and no measurement beside it.
-        or (
-            _SAYS_MONEY.search(text) is not None
-            and _MEASUREMENT.search(f"{text[: match.start()]} {text[match.end() :]}") is None
-        )
-    )
-
-
 def measures_without_money(text: str) -> bool:
     """A physics or maths quantity ("a 1500 kg car at the rate of 6m/s2") and no money
     word, currency or percent: "car" and "rate" there are no car loan (2026-10-30)."""
-    return _MEASUREMENT.search(text) is not None and _SAYS_MONEY.search(text) is None
+    return MEASUREMENT.search(text) is not None and SAYS_MONEY.search(text) is None
 
 
 def read_sum(text: str) -> tuple[float, str] | None:
@@ -416,12 +273,12 @@ def read_sum(text: str) -> tuple[float, str] | None:
     is no loan."""
     text = text.strip()
     word = re.search(rf"\s?\b(?:{CURRENCY_WORDS})$", text, re.I)
-    match = _AMOUNT.fullmatch(text[: word.start()] if word else text)
+    match = AMOUNT.fullmatch(text[: word.start()] if word else text)
     if match is None:
         return None
     number = float(match["num"].replace(",", ""))
     if match["mult"]:
-        number *= _MULTIPLIERS[match["mult"].lower()]
+        number *= MULTIPLIERS[match["mult"].lower()]
     elif not (match["sym"] or word or "," in match["num"] or number >= 1000):
         return None
     return number, _currency(text)
@@ -431,7 +288,7 @@ def _currency(text: str) -> str:
     symbol = re.search(r"[$€£¥₹₦]", text)
     if symbol is not None:
         return _CURRENCIES[symbol.group(0)]
-    for match in _CURRENCY_WORD.finditer(text):
+    for match in CURRENCY_WORD.finditer(text):
         return _CURRENCIES.get(match.group(1).lower(), "")
     return ""
 
@@ -471,9 +328,17 @@ def _values(
 
 
 def _term(product: Product, text: str) -> dict[str, float]:
-    """The term the message gives, in the product's own unit (a car loan counts months)."""
-    match = _TERM.search(text)
-    return term_in(product, count_value(match["n"]), match["unit"]) if match is not None else {}
+    """The term the message gives, in the product's own unit (a car loan counts months).
+
+    A length of time that is no term is left out (``_SPAN_AFTER``, ``_SPAN_BEFORE``), and
+    two different terms give none: the product's default stands, said as assumed."""
+    terms: set[tuple[tuple[str, float], ...]] = set()
+    for match in TERM.finditer(text):
+        before = text[max(0, match.start() - 30) : match.start()]
+        if _SPAN_AFTER.match(text, match.end()) or _SPAN_BEFORE.search(before):
+            continue
+        terms.add(tuple(term_in(product, count_value(match["n"]), match["unit"]).items()))
+    return dict(terms.pop()) if len(terms) == 1 else {}
 
 
 def term_in(product: Product, number: float, unit: str) -> dict[str, float]:

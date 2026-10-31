@@ -2,41 +2,45 @@
 
 Live (2026-10-31, an Ethiopian grade 11 book): "6% interest rate per year, compounded
 quarterly" was worked monthly, and the card's interest was off by birr. A product that
-grows money (``Product.settings`` has ``per_year``) works the frequency said; a loan or a
-card is worked monthly, so a request saying any other frequency for one is left to the
-model. A frequency the catalog cannot write as a count a year ("compounded continuously",
-"bi-monthly", "every 2 months") is never read as monthly: the request is left too.
+grows money (``Product.settings`` has ``per_year``) works the frequency said. Each word of
+compounding is read with what follows it ("compounded per quarter", "compounded on a
+quarterly basis"), else with the one word before it ("semi annual compounding",
+"quarterly compounded"). A compounding word whose frequency cannot be read
+("compounded continuously", "bi-monthly", "every 2 months", "fortnightly compounding"),
+or two frequencies that disagree, are ``UNKNOWN``: never worked as monthly.
 """
 
 from __future__ import annotations
 
 import re
 
-# (said after "compounded", said as the describing word of "compounding", times a year).
-# Only a single word goes before: "deposit 100 every month, compounded quarterly" is
-# deposited monthly and compounded quarterly.
+# (said after the word, said as the one word before it, times a year). Spaces and hyphens
+# are one: "semi annual", "semi-annual" and "semiannual" are read alike.
 _FREQUENCIES: tuple[tuple[str, str, int], ...] = (
-    (r"semi-?annual(?:ly)?|half-?yearly|half\syearly|twice\s(?:a|per|each)\syear"
-     r"|every\s(?:6|six)\smonths|every\shalf\syear", r"semi-?annual|half-?yearly", 2),
-    (r"quarterly|every\squarter|each\squarter|every\s(?:3|three)\smonths"
+    (r"semi-?annual(?:ly)?|half-?year(?:ly)?|twice\s(?:a|per|each)\syear|every\s(?:6|six)\smonths"
+     r"|every\shalf-?year|per\shalf-?year", r"semi-?annual(?:ly)?|half-?yearly", 2),
+    (r"quarterly|(?:every|each|per)\squarter|every\s(?:3|three)\smonths"
      r"|(?:4|four)\stimes\s(?:a|per)\syear", "quarterly", 4),
-    (r"monthly|every\smonth|each\smonth|(?:12|twelve)\stimes\s(?:a|per)\syear", "monthly", 12),
-    (r"weekly|every\sweek|each\sweek", "weekly", 52),
-    (r"daily|every\sday|each\sday", "daily", 365),
-    (r"annual(?:ly)?|yearly|every\syear|each\syear|once\s(?:a|per)\syear", "annual|yearly", 1),
+    (r"monthly|(?:every|each|per)\smonth|(?:12|twelve)\stimes\s(?:a|per)\syear", "monthly", 12),
+    (r"weekly|(?:every|each|per)\sweek", "weekly", 52),
+    (r"daily|(?:every|each|per)\sday", "daily", 365),
+    (r"annual(?:ly)?|yearly|(?:every|each|per)\syear|per\sannum|once\s(?:a|per)\syear",
+     r"annual(?:ly)?|yearly", 1),
 )  # fmt: skip
-_WORD = r"\bcompound(?:ed|ing|s)?\b(?:\s+interest)?(?:\s+is)?\s+"
-_SAID = [
-    (re.compile(rf"{_WORD}(?:{after})\b|(?<![\w-])(?:{before})\s+compounding\b", re.I), count)
-    for after, before, count in _FREQUENCIES
+_COMPOUND = re.compile(r"\bcompound(?:ed|ing|s)?\b", re.I)
+# What may stand between the word and its frequency: "compounded interest is paid ...".
+_LEAD = r"(?:\s+interest)?(?:\s+(?:is|are))?\s+(?:on\s+an?\s+)?"
+_AFTER = [(re.compile(rf"{_LEAD}(?:{after})\b", re.I), count) for after, _, count in _FREQUENCIES]
+_BEFORE = [
+    (re.compile(rf"(?<![\w-])(?:{before})\s+$", re.I), count) for _, before, count in _FREQUENCIES
 ]
-# A frequency of a shape the list has no count for.
-_OTHER = re.compile(
-    rf"{_WORD}(?:continu\w*|bi-?\w+|semi-?month\w*|fortnight\w*|every\b|each\b|twice\b|"
-    r"once\b|\w+\s+times\b)"
-    r"|\b(?:continuous|continual|bi-?\w+|semi-?monthly|fortnightly)\s+compounding\b",
+# A frequency said in a shape the list has no count for.
+_OTHER_AFTER = re.compile(
+    rf"{_LEAD}(?:\w+ly\b|per\b|every\b|each\b|twice\b|once\b|thrice\b|\w+\s+times\b|"
+    r"(?:bi|semi)-\w+|\w+\s+basis\b)",
     re.I,
 )
+_OTHER_BEFORE = re.compile(r"(?<![\w-])(?:continu\w+|fortnightly|hourly|(?:bi|semi)-\w+)\s+$", re.I)
 
 UNKNOWN = 0
 
@@ -44,9 +48,17 @@ UNKNOWN = 0
 def compounding_per_year(text: str) -> int | None:
     """Times a year ``text`` says interest compounds; None when it says none, ``UNKNOWN``
     (0) when it says one the catalog cannot write, or two that disagree."""
-    said = {count for pattern, count in _SAID if pattern.search(text)}
+    text = re.sub(r"\b(semi|bi|half)[\s-]+(?=\w)", r"\1-", text)
+    said: set[int] = set()
+    for word in _COMPOUND.finditer(text):
+        after, before = text[word.end() :], text[: word.start()]
+        count = next((count for pattern, count in _AFTER if pattern.match(after)), None)
+        if count is None:
+            count = next((count for pattern, count in _BEFORE if pattern.search(before)), None)
+        if count is None and (_OTHER_AFTER.match(after) or _OTHER_BEFORE.search(before)):
+            return UNKNOWN
+        if count is not None:
+            said.add(count)
     if len(said) > 1:
         return UNKNOWN
-    if said:
-        return said.pop()
-    return UNKNOWN if _OTHER.search(text) else None
+    return said.pop() if said else None

@@ -29,14 +29,8 @@ import re
 from dataclasses import dataclass
 from functools import partial
 
-from app.modules.money.read import (
-    DURATION,
-    PERCENT,
-    bare_year,
-    count_value,
-    read_sum,
-    sum_phrase,
-)
+from app.modules.money.phrases import DURATION, PERCENT, count_value, sum_phrase
+from app.modules.money.read import bare_year, read_sum
 
 _MAX_CHARS = 200
 _PCT = rf"(?<![\w.]){PERCENT}"

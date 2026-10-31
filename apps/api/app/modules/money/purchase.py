@@ -38,17 +38,8 @@ from functools import cache
 
 from app.modules.money.catalog import PRODUCTS, Product
 from app.modules.money.kinds import named_variant
-from app.modules.money.read import (
-    CURRENCY_WORDS,
-    DURATION,
-    PERCENT,
-    MoneyRequest,
-    bare_year,
-    count_value,
-    read_sum,
-    sum_phrase,
-    term_in,
-)
+from app.modules.money.phrases import CURRENCY_WORDS, DURATION, PERCENT, count_value, sum_phrase
+from app.modules.money.read import MoneyRequest, bare_year, read_sum, term_in
 from app.modules.money.solve import rate_name
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
