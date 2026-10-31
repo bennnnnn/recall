@@ -11,7 +11,6 @@ from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
 from app.core.redis_lock import acquire_lock, release_lock
 from app.models.orm import Chat
-from app.modules.chat import messages_repository as messages_repo
 from app.modules.chat.context_window import (
     cap_summary,
     compute_history_split,
@@ -20,6 +19,7 @@ from app.modules.chat.context_window import (
 )
 from app.modules.chat.prompt_window import strip_prompt_owned_fences
 from app.modules.chat.summarize import summarize_conversation
+from app.modules.conversation import history as conversation_history
 
 logger = logging.getLogger(__name__)
 
@@ -66,9 +66,7 @@ async def compress_chat_history(
 
 async def _load_chat(session: AsyncSession, chat_id: UUID, user_id: UUID | None) -> Chat | None:
     if user_id is not None:
-        from app.modules.chat import chats_repository as chats_repo
-
-        return await chats_repo.get_by_id(session, chat_id, user_id)
+        return await conversation_history.get_chat(session, chat_id, user_id)
     return await session.get(Chat, chat_id)
 
 
@@ -78,8 +76,8 @@ async def _pending_fold(settings: Settings, chat_id: UUID, user_id: UUID | None)
         chat = await _load_chat(session, chat_id, user_id)
         if chat is None:
             return None
-        total = await messages_repo.count_for_chat(session, chat_id)
-        recent_all = await messages_repo.list_recent(
+        total = await conversation_history.message_count(session, chat_id)
+        recent_all = await conversation_history.recent_messages(
             session,
             chat_id,
             limit=settings.recent_message_window,
@@ -98,7 +96,7 @@ async def _pending_fold(settings: Settings, chat_id: UUID, user_id: UUID | None)
             urgent_min_pending=settings.history_summary_urgent_pending,
         ):
             return None
-        slice_messages = await messages_repo.list_range(
+        slice_messages = await conversation_history.messages_page(
             session,
             chat_id,
             offset=already,

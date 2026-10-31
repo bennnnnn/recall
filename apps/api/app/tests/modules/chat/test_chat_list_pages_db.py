@@ -15,8 +15,8 @@ from sqlalchemy import update
 
 from app.models.orm import Chat
 from app.models.schemas import ChatListOut
-from app.modules.chat import chats_repository as chats_repo
-from app.modules.chat import messages_repository as messages_repo
+from app.modules.conversation import chats_repository as chats_repo
+from app.modules.conversation import messages_repository as messages_repo
 from app.modules.chat import service as chats_service
 from app.repositories import users as users_repo
 

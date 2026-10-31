@@ -17,8 +17,8 @@ from app.modules import todos, web_search
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan
-from app.modules.chat import chats_repository as chats
-from app.modules.chat import messages_repository as messages
+from app.modules.conversation import chats_repository as chats
+from app.modules.conversation import messages_repository as messages
 from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.turn_deps import ChatTurnDeps, default_deps
 from app.modules.images import generation as image_generation

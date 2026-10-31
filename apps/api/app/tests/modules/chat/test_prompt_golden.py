@@ -133,7 +133,7 @@ async def render(case: Case) -> tuple[list[dict[str, str]], dict[str, object]]:
             return_value=case["total"]
         ),
         "app.modules.chat.prompt_context.messages_repo.list_before": AsyncMock(return_value=older),
-        "app.modules.chat.history_rag.retrieve_for_prompt": AsyncMock(
+        "app.modules.conversation.history_rag.retrieve_for_prompt": AsyncMock(
             return_value=case["history_rag_block"]
         ),
     }

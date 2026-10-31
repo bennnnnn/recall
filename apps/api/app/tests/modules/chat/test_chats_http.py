@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
-from app.modules.chat import chats_repository as chats_repo
+from app.modules.conversation import chats_repository as chats_repo
 from app.tests.api_support import api_user, app_with_user
 
 

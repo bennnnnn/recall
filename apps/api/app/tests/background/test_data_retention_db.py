@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.background import data_retention_scheduler
 from app.core.config import Settings
 from app.models.orm import Chat, Message, UsageDaily
-from app.modules.chat import chats_repository as chats_repo
+from app.modules.conversation import chats_repository as chats_repo
 from app.repositories import usage as usage_repo
 from app.repositories import users as users_repo
 

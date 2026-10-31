@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 from uuid import UUID
@@ -19,9 +18,7 @@ from app.exceptions import DomainError
 from app.models.orm import Chat, Message, User
 from app.models.schemas import ChatListOut, ChatOut, MessageOut, MessagePageOut, UsageOut
 from app.models.schemas.page import Page
-from app.modules.chat import chats_repository as chats_repo
 from app.modules.chat import finalize_registry
-from app.modules.chat import messages_repository as messages_repo
 from app.modules.chat.email_fence import rewrite_first_email_fence
 from app.modules.chat.related_prompts import (
     RELATED_PROMPTS_TTL_SECONDS,
@@ -29,6 +26,8 @@ from app.modules.chat.related_prompts import (
     load_related_prompts,
 )
 from app.modules.chat.titles import sanitize_manual_chat_title, title_job_key
+from app.modules.conversation import history as conversation_history
+from app.modules.conversation import service as conversation_service
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
 from app.services import time_context as time_context_service
@@ -50,7 +49,7 @@ async def create_chat(
     *,
     model: str,
 ) -> Chat:
-    return await chats_repo.create(
+    return await conversation_service.create_chat(
         session,
         user_id=user.id,
         model=model,
@@ -77,18 +76,18 @@ async def list_chats_grouped(
         if cursor is not None:
             return [], ([], None)
         async with SessionLocal() as side_session:
-            pinned = await chats_repo.list_pinned(side_session, user.id)
-            archived = await chats_repo.list_archived_page(
+            pinned = await conversation_history.pinned_chats(side_session, user.id)
+            archived = await conversation_history.archived_chats_page(
                 side_session, user.id, limit=ARCHIVED_CHAT_LIST_LIMIT
             )
         return pinned, archived
 
     (dated, next_cursor), (pinned, (archived, archived_cursor)) = await gather_or_cancel(
-        chats_repo.list_recent_page(session, user.id, limit=limit, cursor=cursor),
+        conversation_history.recent_chats_page(session, user.id, limit=limit, cursor=cursor),
         _pinned_and_archived(),
     )
     zone = time_context_service.effective_timezone(user.timezone, client_timezone)
-    grouped = chats_repo.group_by_recency(dated, user_timezone=zone)
+    grouped = conversation_history.chats_by_recency(dated, user_timezone=zone)
     return ChatListOut(
         pinned=[ChatOut.model_validate(c) for c in pinned],
         today=[ChatOut.model_validate(c) for c in grouped["today"]],
@@ -106,14 +105,14 @@ async def list_archived_chats(
     session: AsyncSession, user: User, *, limit: int, cursor: str | None
 ) -> Page[ChatOut]:
     """Archived chats after the drawer's first page, by cursor: none is out of reach."""
-    chats, next_cursor = await chats_repo.list_archived_page(
+    chats, next_cursor = await conversation_history.archived_chats_page(
         session, user.id, limit=limit, cursor=cursor
     )
     return Page(items=[ChatOut.model_validate(c) for c in chats], next_cursor=next_cursor)
 
 
 async def get_chat(session: AsyncSession, user: User, chat_id: UUID) -> Chat:
-    chat = await chats_repo.get_by_id(session, chat_id, user.id)
+    chat = await conversation_history.get_chat(session, chat_id, user.id)
     if chat is None:
         raise ChatsError("Chat not found", status_code=404)
     return chat
@@ -124,14 +123,14 @@ async def rename_chat(session: AsyncSession, user: User, chat_id: UUID, title: s
     cleaned = sanitize_manual_chat_title(title)
     if not cleaned:
         raise ChatsError("Invalid title", status_code=400)
-    return await chats_repo.set_title(session, chat, cleaned)
+    return await conversation_service.set_title(session, chat, cleaned)
 
 
 async def pin_chat(session: AsyncSession, user: User, chat_id: UUID, *, pinned: bool) -> Chat:
     chat = await get_chat(session, user, chat_id)
     if pinned and chat.archived:
         raise ChatsError("Unarchive the chat before pinning", status_code=409)
-    chat = await chats_repo.set_pinned(session, chat, pinned)
+    chat = await conversation_service.set_pinned(session, chat, pinned)
     if pinned and chat.archived:
         raise ChatsError("Unarchive the chat before pinning", status_code=409)
     return chat
@@ -139,12 +138,12 @@ async def pin_chat(session: AsyncSession, user: User, chat_id: UUID, *, pinned: 
 
 async def archive_chat(session: AsyncSession, user: User, chat_id: UUID, *, archived: bool) -> Chat:
     chat = await get_chat(session, user, chat_id)
-    return await chats_repo.set_archived(session, chat, archived)
+    return await conversation_service.set_archived(session, chat, archived)
 
 
 async def archive_all_chats(session: AsyncSession, user: User) -> int:
     try:
-        count = await chats_repo.archive_all_for_user(session, user.id, commit=False)
+        count = await conversation_service.archive_all_chats(session, user.id, commit=False)
         await session.commit()
     except Exception:
         await session.rollback()
@@ -164,9 +163,9 @@ async def bulk_chats(
     unique = list(dict.fromkeys(chat_ids))
     try:
         if action == "delete":
-            changed = await chats_repo.delete_many(session, user.id, unique)
+            changed = await conversation_service.delete_chats(session, user.id, unique)
         else:
-            changed = await chats_repo.set_archived_many(
+            changed = await conversation_service.set_archived_many(
                 session, user.id, unique, archived=action == "archive"
             )
         await session.commit()
@@ -175,7 +174,7 @@ async def bulk_chats(
         raise
     if action == "delete":
         for chat_id in changed:
-            chats_repo.forget_chat(chat_id)
+            conversation_service.forget_chat(chat_id)
     return changed
 
 
@@ -188,7 +187,7 @@ async def delete_all_chats(
     """Remove every conversation. Library attachments stay (message_id SET NULL)."""
     _ = settings
     try:
-        count = await chats_repo.delete_all_for_user(session, user.id, commit=False)
+        count = await conversation_service.delete_all_chats(session, user.id, commit=False)
         await session.commit()
     except Exception:
         await session.rollback()
@@ -210,17 +209,17 @@ async def delete_chat(
     with this one request, where it read a page of messages and deleted twice
     (code-health audit NET-13).
     """
-    chat = await chats_repo.get_by_id(session, chat_id, user.id)
+    chat = await conversation_history.get_chat(session, chat_id, user.id)
     if chat is None:
         raise ChatsError("Chat not found", status_code=404)
-    if if_empty and await messages_repo.count_for_chat(session, chat_id):
+    if if_empty and await conversation_history.message_count(session, chat_id):
         return
     # Do not detach rows or delete bytes — explicit Library delete owns that.
     # attachments.message_id SET NULLs when messages cascade.
     _ = settings
     await session.delete(chat)
     await session.commit()
-    chats_repo.forget_chat(chat_id)
+    conversation_service.forget_chat(chat_id)
 
 
 async def today_usage(
@@ -284,16 +283,16 @@ async def list_messages_page(
     await finalize_registry.wait_for_pending_finalize(chat_id, redis)
     has_more_after = False
     if around is not None:
-        msgs, has_more, has_more_after = await messages_repo.list_around(
+        msgs, has_more, has_more_after = await conversation_history.messages_around(
             session, chat_id, limit=limit, around_id=around
         )
     elif after is not None:
-        msgs, has_more_after = await messages_repo.list_after(
+        msgs, has_more_after = await conversation_history.messages_after(
             session, chat_id, limit=limit, after_id=after
         )
         has_more = True
     else:
-        msgs, has_more = await messages_repo.list_page(
+        msgs, has_more = await conversation_history.messages_page_before(
             session, chat_id, limit=limit, before_id=before
         )
     newest = before is None and after is None and around is None
@@ -336,7 +335,7 @@ async def follow_up_reply_ids(session: AsyncSession, user_id: UUID) -> list[str]
     user's messages are deleted; ``forget_follow_up_questions`` drops them.
     """
     since = datetime.now(UTC) - timedelta(seconds=RELATED_PROMPTS_TTL_SECONDS)
-    message_ids = await messages_repo.list_assistant_ids_since(session, user_id, since=since)
+    message_ids = await conversation_history.reply_ids_since(session, user_id, since=since)
     return [str(message_id) for message_id in message_ids]
 
 
@@ -366,11 +365,11 @@ async def set_message_feedback(
     feedback: str | None,
 ) -> Message:
     await get_chat(session, user, chat_id)
-    message = await messages_repo.set_feedback(session, message_id, chat_id, feedback)
+    message = await conversation_service.set_feedback(session, message_id, chat_id, feedback)
     if message is None:
         await session.rollback()  # nothing was written; no transaction across the wait
         await finalize_registry.wait_for_pending_finalize(chat_id, redis)
-        message = await messages_repo.set_feedback(session, message_id, chat_id, feedback)
+        message = await conversation_service.set_feedback(session, message_id, chat_id, feedback)
     if message is None:
         raise ChatsError("Message not found", status_code=404)
     if message.role != "assistant":
@@ -391,11 +390,11 @@ async def update_message_email(
 ) -> Message:
     """Rewrite the first ```email fence on an assistant message. Not arbitrary content PATCH."""
     await get_chat(session, user, chat_id)
-    message = await messages_repo.get_by_id(session, message_id, chat_id)
+    message = await conversation_history.message_in_chat(session, message_id, chat_id)
     if message is None:
         await session.commit()  # end the reads; no transaction across the wait
         await finalize_registry.wait_for_pending_finalize(chat_id, redis)
-        message = await messages_repo.get_by_id(session, message_id, chat_id)
+        message = await conversation_history.message_in_chat(session, message_id, chat_id)
     if message is None:
         raise ChatsError("Message not found", status_code=404)
     if message.role != "assistant":
@@ -405,33 +404,4 @@ async def update_message_email(
         raise ChatsError("No email draft on this message", status_code=400)
     if rewritten == message.content:
         return message
-    return await messages_repo.update_content(session, message, rewritten)
-
-
-async def edit_recent_reply(
-    session: AsyncSession,
-    chat_id: UUID,
-    *,
-    containing: str,
-    edit: Callable[[str], str],
-    scan: int = 30,
-) -> bool:
-    """Rewrite the chat's recent reply that holds ``containing``; commits. Whether it changed.
-
-    A card the user acted on in another module (a reminder card saved by its tap) is
-    stored as acted on; chat keeps the only writes to its messages (audit ARCH-08).
-    """
-    for message in await messages_repo.list_recent(session, chat_id, limit=scan):
-        if message.role != "assistant" or containing not in (message.content or ""):
-            continue
-        updated = edit(message.content)
-        if updated == message.content:
-            return False
-        await messages_repo.update_content(session, message, updated)
-        return True
-    return False
-
-
-async def delete_abandoned_drafts(session: AsyncSession, cutoff: datetime, *, limit: int) -> int:
-    """Chats never sent to, older than ``cutoff`` (data retention); no commit."""
-    return await chats_repo.delete_abandoned_drafts(session, cutoff, limit=limit)
+    return await conversation_service.update_content(session, message, rewritten)

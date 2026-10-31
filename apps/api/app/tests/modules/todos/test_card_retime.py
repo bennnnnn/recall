@@ -10,7 +10,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.modules.chat import messages_repository as messages_repo
+from app.modules.conversation import messages_repository as messages_repo
 from app.modules.todos.card_retime import (
     _reply_before_last_message,
     retime_untapped_card,

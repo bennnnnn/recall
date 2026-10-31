@@ -210,7 +210,7 @@ async def _erase_account(
     Returns the sweep's payload and the stored files' keys. Rolls back and raises on any
     failure, so nothing is deleted.
     """
-    from app.modules.chat.history import forget_user_chats
+    from app.modules.conversation.history import forget_user_chats
 
     try:
         await users_repo.lock_for_delete(session, user_id)

@@ -11,7 +11,7 @@ from app.core.validation import normalize_chat_title as normalize_chat_title
 from app.core.validation import normalize_stored_chat_title, unwrap_chat_title
 from app.gateways import litellm_gateway, mock_llm
 from app.models.routing_lanes import ROUTING
-from app.modules.chat import chats_repository as chats_repo
+from app.modules.conversation import service as conversation_service
 
 GREETING_CHAT_TITLE = "Greeting"
 
@@ -149,7 +149,7 @@ async def generate_chat_title(
         if not title:
             return False
         async with SessionLocal() as session:
-            applied = await chats_repo.set_title_if_empty(
+            applied = await conversation_service.set_title_if_empty(
                 session, chat_id, title, user_id=user_id, commit=False
             )
             await session.commit()

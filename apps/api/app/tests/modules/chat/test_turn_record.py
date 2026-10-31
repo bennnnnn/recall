@@ -18,8 +18,9 @@ from sqlalchemy import select
 
 from app.core.config import Settings
 from app.models.orm import Chat
-from app.modules.chat import chats_repository as chats_repo
-from app.modules.chat import messages_repository, post_turn, turn_record
+from app.modules.conversation import chats_repository as chats_repo
+from app.modules.chat import post_turn
+from app.modules.conversation import messages_repository, turn_record
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.speech.live_talk import persist_live_talk_turn
 from app.repositories import users as users_repo

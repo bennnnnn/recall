@@ -82,7 +82,7 @@ def test_the_catalog_and_seams_name_paths_that_exist() -> None:
 
 
 def test_the_check_reads_cells_as_the_tables_write_them() -> None:
-    assert _unresolved("`modules/chat/` (`ws_api.py`, `turn_record.py`)") == []
+    assert _unresolved("`modules/chat/` (`ws_api.py`, `post_turn.py`)") == []
     assert _unresolved("`routers/admin.py`, `legal.py`, `health.py`") == []
     assert _unresolved("`modules/chat/` (`chat_history_rag.py`)") == ["chat_history_rag.py"]
     assert _unresolved("`chat_history_rag.py`, `message_chunks`") == ["chat_history_rag.py"]

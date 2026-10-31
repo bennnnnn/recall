@@ -38,8 +38,9 @@ from app.modules.attachments.service import (
     normalize_content_type,
 )
 from app.modules.billing import can_use
-from app.modules.chat import history as chat_history
-from app.modules.chat import turn_record
+from app.modules.chat import finish_turn
+from app.modules.conversation import history as chat_history
+from app.modules.conversation import turn_record
 from app.modules.images.intent import image_reference_ids as image_reference_ids
 from app.modules.images.turn_references import shown_in_chat, turn_reference_ids
 from app.services import quota as quota_service
@@ -174,7 +175,7 @@ async def generate_for_chat(
 
     await _record_spend(redis)
     if create_user_message:
-        await turn_record.finish_turn(
+        await finish_turn(
             redis,
             settings,
             user=user,
@@ -400,7 +401,7 @@ async def _persist_turn(
     Returns the two messages and how many the chat held before this turn.
     """
     async with SessionLocal() as session:
-        prior_count = await turn_record.count_messages(session, chat_id)
+        prior_count = await chat_history.message_count(session, chat_id)
         if create_user_message:
             user_message = await _create_user_message(
                 session,

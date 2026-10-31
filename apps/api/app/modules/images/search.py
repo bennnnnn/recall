@@ -36,8 +36,9 @@ from app.modules.attachments.service import (
     is_image_content_type,
     normalize_content_type,
 )
-from app.modules.chat import history as chat_history
-from app.modules.chat import turn_record
+from app.modules.chat import finish_turn
+from app.modules.conversation import history as chat_history
+from app.modules.conversation import turn_record
 from app.services import quota as quota_service
 from app.services.quota import counters
 
@@ -277,7 +278,7 @@ async def search_and_attach_for_chat(
         )
         stored = await _upload_photos(gateway, user, fetched, written_keys=written_keys)
         async with SessionLocal() as session:
-            prior_count = await turn_record.count_messages(session, chat_id)
+            prior_count = await chat_history.message_count(session, chat_id)
             if create_user_message:
                 bubble = (user_message_content or f"{_USER_MESSAGE_PREFIX}{cleaned}").strip()
                 if not bubble:
@@ -319,7 +320,7 @@ async def search_and_attach_for_chat(
         logger.exception("record_global_spend failed after photo lookup")
     if create_user_message:
         # As a typed turn's: its title, memory and indexing (code-health audit ARCH-08).
-        await turn_record.finish_turn(
+        await finish_turn(
             redis,
             settings,
             user=user,

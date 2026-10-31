@@ -7,7 +7,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import User
-from app.modules.chat import messages_repository, turn_record
+from app.modules.conversation import messages_repository, turn_record
 from app.modules.images.generation import ImageGenerationError, generate_for_chat
 from app.services.quota import counters
 from app.tests.fakes import redis_mock

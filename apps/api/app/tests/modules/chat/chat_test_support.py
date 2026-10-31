@@ -8,7 +8,7 @@ import pytest
 
 from app.core.access_tokens import AccessCheck
 from app.core.config import Settings
-from app.modules.chat import messages_repository
+from app.modules.conversation import messages_repository
 from app.modules.chat.prompt_builder import PromptStats, fetch_subject, inject_subject_block
 from app.modules.chat.turn_deps import ChatTurnDeps, default_deps
 from app.modules.chat.turn_prep import ClientGeoContext, TurnPromptBundle

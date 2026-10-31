@@ -17,7 +17,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Memory
-from app.modules.chat import history_rag as chat_history_rag
+from app.modules.conversation import history_rag as chat_history_rag
 
 # A snippet this close to a removed fact says the same thing (retrieval itself
 # reads snippets from 0.30 up, against the question rather than the fact).

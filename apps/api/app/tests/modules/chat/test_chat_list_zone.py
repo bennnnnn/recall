@@ -24,8 +24,8 @@ from app.core.db import get_db
 from app.core.deps import get_current_user
 from app.models.orm import Chat, User
 from app.modules.chat import api as chats_api
-from app.modules.chat import chats_repository as chats_repo
-from app.modules.chat import messages_repository as messages_repo
+from app.modules.conversation import chats_repository as chats_repo
+from app.modules.conversation import messages_repository as messages_repo
 from app.repositories import users as users_repo
 
 # 11:45 in Kathmandu, 11:30 in Kolkata, 20:00 in Kiritimati, 03:30 in St. John's.

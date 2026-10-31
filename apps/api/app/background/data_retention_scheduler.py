@@ -23,7 +23,7 @@ from app.background.periodic import (
 )
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.modules.chat import service as chat_service
+from app.modules.conversation import service as conversation_service
 from app.repositories import usage as usage_repo
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ async def run_retention(settings: Settings, keep_going: Callable[[], Awaitable[b
     usage_before = (now - timedelta(days=max(1, settings.usage_daily_retention_days))).date()
     drafts = await _delete_in_batches(
         settings,
-        lambda session, limit: chat_service.delete_abandoned_drafts(
+        lambda session, limit: conversation_service.delete_abandoned_drafts(
             session, drafts_before, limit=limit
         ),
         keep_going,

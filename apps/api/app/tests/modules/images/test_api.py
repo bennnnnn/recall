@@ -16,7 +16,7 @@ from app.core.deps import get_settings_dep
 from app.gateways.storage_gateway import LocalStorageGateway, PresignedUpload
 from app.main import create_app
 from app.models.orm import Chat, Message, User
-from app.modules.chat import messages_repository
+from app.modules.conversation import messages_repository
 from app.modules.images import api as images_api
 from app.modules.images.schemas import ImageGenerateIn
 

@@ -7,7 +7,7 @@ import pytest
 from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatBusyError
 from app.gateways.storage_gateway import LocalStorageGateway
-from app.modules.chat import chats_repository, messages_repository
+from app.modules.conversation import chats_repository, messages_repository
 from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.turn_prep import TurnPromptBundle
 from app.modules.chat.turn_prep.request import TurnRequest

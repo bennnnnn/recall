@@ -8,7 +8,8 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat import chats_repository, messages_repository, stream_entry
+from app.modules.chat import stream_entry
+from app.modules.conversation import chats_repository, messages_repository
 from app.modules.chat.turn_resources import TurnResources
 from app.tests.fakes import FakeSessionCM, redis_mock
 from app.tests.modules.chat.chat_test_support import FakeSessionCM as _FakeSessionCM

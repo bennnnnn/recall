@@ -11,7 +11,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import Chat, User
-from app.modules.chat import messages_repository
+from app.modules.conversation import messages_repository
 from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.prompt_inject import conversation_turns
 from app.modules.chat.turn_prep.context import build_stream_prompt_context

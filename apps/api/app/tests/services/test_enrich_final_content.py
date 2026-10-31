@@ -17,7 +17,7 @@ from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules import todos as todos_service
 from app.modules import web_search as web_search_service
-from app.modules.chat import chats_repository as chats_repo
+from app.modules.conversation import chats_repository as chats_repo
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.prompt_constants import MERMAID_FORMAT_HINT
 from app.modules.chat.turn_outcome import TurnOutcome

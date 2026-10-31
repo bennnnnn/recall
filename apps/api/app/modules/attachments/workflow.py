@@ -33,7 +33,7 @@ from app.modules.attachments.quota import has_current_upload_reservation, upload
 from app.modules.attachments.schemas import AttachmentListItemOut, AttachmentOut
 from app.modules.attachments.thumbnails import thumbnail_bytes, thumbnail_edge
 from app.modules.attachments.upload import AttachmentUploadError, cancel_pending_upload
-from app.modules.chat import history as chat_history
+from app.modules.conversation import history as chat_history
 from app.services.quota import counters
 
 logger = logging.getLogger(__name__)

@@ -11,7 +11,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import User
-from app.modules.chat import chats_repository, messages_repository
+from app.modules.conversation import chats_repository, messages_repository
 from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_constants import WEB_SEARCH_OFF_HINT
 from app.tests.modules.chat.chat_test_support import system_prompt
