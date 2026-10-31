@@ -194,6 +194,13 @@ _CALCULUS_OPERATIONS: dict[str, _Operation] = {
 }
 
 
+def _number_first(value: Any) -> tuple[int, float, str]:
+    """Numbers in order (-3, 2, 10), then letters (``x \\ne y``)."""
+    if value.is_number and value.is_real:
+        return (0, float(value), "")
+    return (1, 0.0, str(value))
+
+
 def _simplification_direct_reply(intent: MathIntent, answer: str) -> str:
     """Render a verified simplification and preserve the original domain."""
     from sympy import Eq, Symbol, latex, preorder_traversal, solve
@@ -219,9 +226,10 @@ def _simplification_direct_reply(intent: MathIntent, answer: str) -> str:
                 continue
             with sympy_decline():  # one unsolved symbolic factor is non-fatal
                 for value in solve(Eq(denominator, 0), sym):
-                    if value not in excluded_values:
+                    # School algebra is over the reals: x³ - 1 = 0 excludes 1 alone.
+                    if value.is_real is not False and value not in excluded_values:
                         excluded_values.append(value)
-        for value in sorted(excluded_values, key=str):
+        for value in sorted(excluded_values, key=_number_first):
             if getattr(value, "is_Symbol", False):
                 first, second = sorted((str(sym), str(value)))
                 pair = (first, second)

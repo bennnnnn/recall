@@ -380,7 +380,23 @@ def evaluate_complex(expr: str) -> str:
     value = simplify(parsed)
     if not getattr(value, "free_symbols", None) and _defined_value_latex(value) == UNDEFINED_LATEX:
         return UNDEFINED_LATEX
-    return str(latex(value))
+    return _a_plus_bi(value) or str(latex(value))
+
+
+def _a_plus_bi(value: Any) -> str | None:
+    """A complex number as a + bi, the real part first.
+
+    SymPy prints ``\\frac{5 i}{2} - \\frac{1}{2}`` for -1/2 + 5i/2."""
+    if getattr(value, "free_symbols", None) or not getattr(value, "is_number", False):
+        return None
+    real, imaginary = value.as_real_imag()
+    if real == 0 or imaginary == 0 or not (real.is_comparable and imaginary.is_comparable):
+        return None
+    size = abs(imaginary)
+    if size.could_extract_minus_sign():  # 3·sin(30) is negative and prints as one
+        return None
+    coefficient = "" if size == 1 else f"{latex(size)} "
+    return f"{latex(real)} {'-' if imaginary < 0 else '+'} {coefficient}i"
 
 
 def taylor_series(

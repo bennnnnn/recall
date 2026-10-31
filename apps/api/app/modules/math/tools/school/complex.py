@@ -15,6 +15,34 @@ from app.services.text_match import word_index
 # ``i^23`` is a power of the imaginary unit, as in ``(1 + i)/(1 - i)``; read as a
 # letter it was left unsimplified behind a verified card.
 _POWER_OF_I = re.compile(r"(?<![a-z])i\s*\^\s*\(?\s*-?\d")
+# "and write in the form a + bi:", "in standard form a+bi": the answer's shape, said of
+# a complex number. The clause is no part of the expression.
+_FORM_CLAUSE = re.compile(
+    r"[,;]?\s*(?:\band\s+)?(?:\b(?:write|express|give|leave|put|present)\s+"
+    r"(?:it\s+|them\s+|(?:the|your)\s+(?:answer|result)\s+)?)?"
+    r"\bin\s+(?:the\s+)?(?:standard\s+|rectangular\s+|cartesian\s+)?form\s+a\s*\+\s*b\s*i\b\s*:?",
+    re.IGNORECASE,
+)
+# "a complex fraction" is a fraction of fractions, not a complex number.
+_COMPLEX_WORDS = re.compile(r"\bcomplex\b(?!\s+fractions?\b)|\bimaginary\b", re.IGNORECASE)
+_LONE_I = re.compile(r"(?<![A-Za-z])i(?![A-Za-z])")
+
+
+def without_form_clause(text: str) -> str:
+    """The request without "in the form a + bi": a complex answer is printed in that form."""
+    return " ".join(_FORM_CLAUSE.sub(" ", text).split())
+
+
+def imaginary_unit_meant(text: str, expression: str) -> bool:
+    """A bare i in ``expression`` is the imaginary unit: the question is about complex
+    numbers (it names them, asks for a + bi, or raises i to a power)."""
+    if _LONE_I.search(expression) is None:
+        return False
+    return bool(
+        _FORM_CLAUSE.search(text)
+        or _COMPLEX_WORDS.search(text)
+        or _POWER_OF_I.search(f"{text} {expression}".lower())
+    )
 
 
 def _complex_op(lower: str) -> str | None:
@@ -30,11 +58,14 @@ def _complex_op(lower: str) -> str | None:
 
 
 def _extract_complex_intent(cleaned: str) -> MathIntent | None:
+    form_asked = _FORM_CLAUSE.search(cleaned) is not None
+    cleaned = without_form_clause(cleaned)
     lower = cleaned.lower()
     op = _complex_op(lower)
     if op is None:
         has_complex_token = (
-            "complex" in lower
+            form_asked
+            or "complex" in lower
             or "i)" in lower
             or "+ i" in lower
             or "- i" in lower
@@ -55,6 +86,8 @@ def _extract_complex_intent(cleaned: str) -> MathIntent | None:
             "simplify",
             "evaluate",
             "compute",
+            "express",
+            "write",
             "modulus of",
             "modulus",
             "magnitude of",
