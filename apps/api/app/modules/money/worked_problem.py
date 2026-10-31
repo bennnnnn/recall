@@ -31,13 +31,6 @@ _CHOICE = re.compile(
     re.IGNORECASE,
 )
 _ASKS = re.compile(r"\?|\b(?:calculate|compute|find|determine|work\s+out)\b", re.IGNORECASE)
-# Compounding the question names that the worked numbers do not use: they compound monthly.
-_OTHER_COMPOUNDING = re.compile(
-    r"\bcompound\w*\s+(?:annually|yearly|semi[\s-]?annually|half[\s-]?yearly|quarterly"
-    r"|weekly|daily|continuously)\b|\b(?:annual|yearly|semi[\s-]?annual|half[\s-]?yearly"
-    r"|quarterly|weekly|daily|continuous)\s+compounding\b",
-    re.IGNORECASE,
-)
 
 
 def is_worked_problem(text: str) -> bool:
@@ -52,8 +45,8 @@ def is_worked_problem(text: str) -> bool:
 def lays_out_working(text: str, request: MoneyRequest, worked: Worked | None) -> bool:
     """A worked problem whose numbers are all the question's: no term, rate or sum assumed
     (a flow the question leaves out, no monthly deposit beside a lump sum, is no
-    assumption), every sum and rate it states used, no compounding it names that the
-    numbers do not use, and no follow-up."""
+    assumption), every sum and rate it states used, and no follow-up. Compounding the
+    question names is the reader's (``request.settings``), or it worked no numbers."""
     if worked is None or request.changed or request.rates_only:
         return False
     defaults = request.product.defaults
@@ -66,4 +59,4 @@ def lays_out_working(text: str, request: MoneyRequest, worked: Worked | None) ->
         not any(math.isclose(stated, value) for value in used) for stated in stated_sums(text)
     ):
         return False
-    return _OTHER_COMPOUNDING.search(text) is None and is_worked_problem(text)
+    return is_worked_problem(text)

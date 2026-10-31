@@ -72,18 +72,25 @@ def test_own_money_advice_or_no_ask_is_not(text: str) -> None:
             "Ato Alula deposited Birr 3,000 in a saving account at 6% a year. What is the amount?",
             False,
         ),
-        # Compounding it names that the numbers (monthly) do not use.
+        # Compounding the question names is read (#2154), and the loan is the price less
+        # the money down: every number is the question's.
         (
             "Ato Alula deposited Birr 3,000 in a saving account that pays 6% interest rate "
-            "per year, compounded quarterly. What is the amount at the end of 7 years?",
-            False,
+            "per year, compounded quarterly. What is the amount of interest obtained at the "
+            "end of seven years?",
+            True,
         ),
-        # A stated sum the numbers never use: 50,000 down, worked as a 250,000 loan.
         (
             "Moges wants to buy a house that costs Birr 250,000. He has saved Birr 50,000 "
             "which he will use as a deposit, and will finance the rest of the cost by taking "
             "out a loan, amortized over 30 years, at an annual interest rate of 7%. What will "
             "his monthly payment be?",
+            True,
+        ),
+        # A stated sum the numbers never use.
+        (
+            "Mr. Bekele earns $90,000 a year and takes a $300,000 mortgage at 6.5% for 30 "
+            "years. What is the monthly payment?",
             False,
         ),
     ],

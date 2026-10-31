@@ -12,7 +12,8 @@ from __future__ import annotations
 import re
 from dataclasses import replace
 
-from app.modules.money.read import MoneyRequest, read_sum, sum_phrase
+from app.modules.money.phrases import sum_phrase
+from app.modules.money.read import MoneyRequest, read_sum
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 _WHAT = r"(?P<what>loan|down\s?payment|down)"

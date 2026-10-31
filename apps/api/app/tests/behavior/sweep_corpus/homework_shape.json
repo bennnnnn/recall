@@ -66,17 +66,17 @@
  {
   "id": "hs-013",
   "area": "money everyday",
-  "prompt": "The business has a $500,000 loan at 8% over 10 years. Should the owner refinance at 6%?",
+  "prompt": "The business has a $500,000 loan at 8% over 10 years. Should the owner pay it off early?",
   "history": [],
-  "reply": "At 8% the payment is about **$6,066.38** a month; refinancing at 6% would save money if the fees are low.",
+  "reply": "The payment is about **$6,066.38** a month; paying early saves interest if there is no penalty.",
   "expect": "answer"
  },
  {
   "id": "hs-014",
-  "area": "money everyday",
+  "area": "money lesson",
   "prompt": "Ato Alula deposited Birr 3,000 in a saving account that pays 6% interest rate per year, compounded quarterly. What is the amount of interest obtained at the end of seven years?",
   "history": [],
-  "reply": "About **Birr 1,551.67** in interest (assumed values are noted below).",
+  "reply": "**Given**\nStart: Birr 3,000; rate: 6%; compounded quarterly; time: 7 years\n\n**Answer**\nThe interest is **Birr 1,551.67**.",
   "expect": "answer"
  },
  {

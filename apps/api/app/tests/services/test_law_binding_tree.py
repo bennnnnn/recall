@@ -39,7 +39,8 @@ _ABOUT = (
 
 
 def _output(key: str, name: str) -> str:
-    return next(item.expression for item in product(key).outputs if item.name == name)
+    """The output's formula as a card sends it: its settings written in, usual values."""
+    return next(item.expression for item in product(key).outputs_at() if item.name == name)
 
 
 # (id, expression, values): the money catalog's formulas, then the language's edges.
@@ -62,6 +63,8 @@ _CASES: list[tuple[str, str, dict[str, float]]] = [
     ("card-interest", _output("card", "interest"), {"balance": 5000, "apr": 22.8, "payment": 200}),
     ("card-zero-apr", _output("card", "months"), {"balance": 1200, "apr": 0, "payment": 100}),
     ("savings-interest", _output("savings", "interest"), {"start": 10000, "deposit": 500, "rate": 4, "years": 20}),
+    # "Compounded quarterly" (2026-10-31): 3000 at 6% for 7 years is 3000·1.015^28.
+    ("savings-quarterly", product("savings").outputs_at({"per_year": 4})[0].expression, {"start": 3000, "deposit": 100, "rate": 6, "years": 7}),
 ]  # fmt: skip
 
 
