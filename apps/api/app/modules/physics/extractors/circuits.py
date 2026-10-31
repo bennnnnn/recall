@@ -73,6 +73,7 @@ def _network_equivalent(values: list[float], *, series: bool) -> float | None:
 
 _ONE_RESISTOR_ASK = re.compile(
     r"\b(?:across|through|in|by)\s+(?:the|each)\s+\d+(?:\.\d+)?\s*(?:\u03a9|\u03c9|ohms?)"
+    r"|\beach\s+(?:resistor|lamp|bulb|branch)|\b(?:first|second|third|other|last)\s+resistor"
 )
 _TOTAL_RESISTANCE_ASK = re.compile(r"\b(?:total|equivalent|combined|effective|net)\s+resistance")
 

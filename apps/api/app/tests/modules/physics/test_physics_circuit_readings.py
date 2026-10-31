@@ -1,6 +1,12 @@
-"""Circuit givens read whole: a resistor named again is one resistor, a part's label is no
-unit, and two values of one quantity are no single law's (2026-10-30, a Grade 10 physics
-book's circuits, three of which were certified wrong)."""
+"""Circuit givens read whole or not at all (2026-10-30, a Grade 10 physics book's circuits,
+three of which were certified wrong, then two rounds of adversarial review).
+
+- A value named with "the" may be a resistor stated elsewhere or a new one: a definite
+  group whose values are all its own names each one; one sharing a value declines.
+- One resistor's share (its p.d., its current) is not the network's total.
+- A part's label ("12.6 a) Draw …") is no unit.
+- One quantity stated with two values is no single law's given.
+"""
 
 from __future__ import annotations
 
@@ -24,23 +30,30 @@ def _answer(text: str) -> str | None:
 @pytest.mark.parametrize(
     ("text", "value"),
     [
-        # Certified 200 Ω: "the 50 Ω resistor" in part (c) was a third resistor.
-        (
-            "In the circuit the battery has negligible internal resistance. Calculate: a) the "
-            "total resistance in the circuit c) the potential difference across the 50 Ω "
-            "resistor. [Figure: a 3 V battery with a 50 Ω resistor and a 100 Ω resistor in "
-            "series.]",
-            150.0,
-        ),
         ("A 6 Ω and a 6 Ω resistor are connected in series. Find the total resistance.", 12.0),
         (
-            "A 10 Ω resistor and a 20 Ω resistor are joined in series. What is the total "
-            "resistance of the 10 Ω resistor and the 20 Ω resistor together?",
-            30.0,
+            "Find the equivalent resistance of the 6 Ω, 6 Ω and 3 Ω resistors connected in "
+            "parallel.",
+            1.5,
         ),
+        (
+            "Find the combined resistance of the 2 Ω, 2 Ω and 4 Ω resistors connected in series.",
+            8.0,
+        ),
+        (
+            "Find the total resistance of the 5 Ω and 5 Ω resistors joined in series with a "
+            "10 Ω resistor.",
+            20.0,
+        ),
+        ("Find the total resistance of the 10 Ω and the 10 Ω resistors in series.", 20.0),
+        ("A resistor R of 6 Ω and a 3 Ω resistor are in series. Find the total resistance.", 9.0),
+        ("A 6 Ω and a 3 Ω resistor are in parallel across 6 V. Find the current.", 3.0),
+        # A one-letter unit before ")" with no next part after it is still a unit.
+        ("A force of 10 N) acts on a 2 kg mass. Find the acceleration.", 5.0),
+        ("A current (2 A) flows through a 6 Ω resistor. Find the voltage.", 12.0),
     ],
 )
-def test_a_resistor_named_again_is_one_resistor(text: str, value: float) -> None:
+def test_a_circuit_read_whole_keeps_its_card(text: str, value: float) -> None:
     answer = _answer(text)
     assert answer is not None, text
     assert answer_number(answer) == pytest.approx(value), answer
@@ -49,64 +62,52 @@ def test_a_resistor_named_again_is_one_resistor(text: str, value: float) -> None
 @pytest.mark.parametrize(
     "text",
     [
-        # Certified 0.952 Ω: "12.6 a) Draw…" read as 12.6 A beside the bulb's 12 V rating.
-        "A 12 V light bulb is put under test, with the following results: Current through "
-        "bulb (A): 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6 p.d. across bulb (V): 1.4, 2.6, 3.9, 5.5, "
-        "7.4, 9.7, 12.6\na) Draw the circuit you would use. b) Work out the resistance R of "
-        "the bulb for each set of readings.",
+        # Certified 200 Ω: "the 50 Ω resistor" of part (c) read as a third resistor.
+        "In the circuit the battery has negligible internal resistance. Calculate: a) the "
+        "total resistance in the circuit c) the potential difference across the 50 Ω "
+        "resistor. [Figure: a 3 V battery with a 50 Ω resistor and a 100 Ω resistor in "
+        "series.]",
+        # Back-references: counted again they certify 60 Ω.
+        "A 10 Ω resistor and a 20 Ω resistor are joined in series. What is the total "
+        "resistance of the 10 Ω resistor and the 20 Ω resistor together?",
+        # "the 6 Ω" may be another resistor or the one before.
+        "A 6 Ω resistor is connected in parallel with the 6 Ω resistor and the 3 Ω resistor "
+        "of the circuit. Find the equivalent resistance.",
+        "In the circuit, a 6 Ω resistor and the 6 Ω lamp are connected in series with a 3 Ω "
+        "resistor. Find the total resistance.",
         # Certified 6 Ω: an unknown R beside "the 3 Ω resistor" named twice.
         "a) What current is flowing round the circuit? b) How great must the p.d. be across "
         "resistor R? c) What is the resistance of resistor R? [Figure: a 48 V battery in "
         "series with a 3 Ω resistor and a resistor R; a voltmeter across the 3 Ω resistor "
         "reads 9 V.]",
+        # One resistor's share is not the network's total (certified 150 Ω, 3 A, 5 A).
+        "A 50 Ω and a 100 Ω resistor are in series with a 12 V battery. Find the p.d. across "
+        "the 50 Ω resistor.",
+        "A 50 Ω and a 100 Ω resistor are in series with a 12 V battery. Find the p.d. of the "
+        "50 Ω resistor.",
+        "A 6 Ω and a 3 Ω resistor are in parallel across 6 V. Find the current through the "
+        "3 Ω resistor.",
+        "A 6 Ω and a 3 Ω resistor are in parallel across 6 V. What current does the 3 Ω "
+        "resistor draw?",
+        "A 4 Ω and a 6 Ω resistor are in parallel across 12 V. Find the current in the 6 Ω "
+        "resistor.",
+        "A 6 Ω and a 3 Ω resistor are in parallel across 6 V. Find the current in each resistor.",
+        "A 6 Ω and a 3 Ω resistor are in parallel across 6 V. Find the current through the "
+        "second resistor.",
+        # Certified 0.952 Ω: "12.6 a) Draw…" read as 12.6 A beside the bulb's 12 V rating,
+        # whichever way the next part is labelled.
+        "A 12 V light bulb is put under test, with the following results: Current through "
+        "bulb (A): 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6 p.d. across bulb (V): 1.4, 2.6, 3.9, 5.5, "
+        "7.4, 9.7, 12.6\na) Draw the circuit you would use. b) Work out the resistance R of "
+        "the bulb for each set of readings.",
+        "A 12 V light bulb is tested: Current (A): 0.4, 0.6, 1.6 p.d. (V): 1.4, 2.6, 12.6 a) "
+        "Draw the circuit. (b) Work out the resistance R of the bulb.",
+        "A 12 V light bulb is tested: Current (A): 0.4, 0.6, 1.6 p.d. (V): 1.4, 2.6, 12.6 a. "
+        "Draw the circuit. b. Work out the resistance R of the bulb.",
         # Two voltages: which one Ohm's law takes is a guess.
         "A 12 V battery is connected to a 4 Ω lamp, and a voltmeter across the lamp reads 10 V. "
         "Find the current.",
     ],
 )
 def test_a_circuit_read_in_part_declines(text: str) -> None:
-    assert _answer(text) is None
-
-
-def test_a_bracketed_unit_is_still_a_unit() -> None:
-    answer = _answer("A current (2 A) flows through a 6 Ω resistor. Find the voltage.")
-    assert answer is not None
-    assert answer_number(answer) == pytest.approx(12.0)
-
-
-# Review of the first fix: each was certified, or declined, wrongly.
-@pytest.mark.parametrize(
-    ("text", "value"),
-    [
-        # "with the 6 Ω resistor" may be another one: 6 ∥ 6 ∥ 3 is 1.5 Ω.
-        (
-            "A 6 Ω resistor is connected in parallel with the 6 Ω resistor and the 3 Ω "
-            "resistor of the circuit. Find the equivalent resistance.",
-            1.5,
-        ),
-        # A one-letter unit before ")" with no next part after it is still a unit.
-        ("A force of 10 N) acts on a 2 kg mass. Find the acceleration.", 5.0),
-        # "a resistor R of 6 Ω" is valued.
-        ("A resistor R of 6 Ω and a 3 Ω resistor are in series. Find the total resistance.", 9.0),
-    ],
-)
-def test_review_cases_keep_their_card(text: str, value: float) -> None:
-    answer = _answer(text)
-    assert answer is not None, text
-    assert answer_number(answer) == pytest.approx(value), answer
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        # One resistor's share is not the network's total (certified 150 Ω, 3 A, 5 A).
-        "A 50 Ω and a 100 Ω resistor are in series with a 12 V battery. Find the p.d. across "
-        "the 50 Ω resistor.",
-        "A 6 Ω and a 3 Ω resistor are in parallel across 6 V. Find the current through the "
-        "3 Ω resistor.",
-        "A 4 Ω and a 6 Ω resistor are in parallel across 12 V. Find the current in the 6 Ω "
-        "resistor.",
-    ],
-)
-def test_one_resistors_share_is_no_network_total(text: str) -> None:
     assert _answer(text) is None

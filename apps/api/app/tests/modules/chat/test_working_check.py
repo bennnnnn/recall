@@ -133,3 +133,30 @@ def test_a_given_or_exact_result_carries_no_rounding(reply: str) -> None:
 def test_a_name_solved_then_rounded_carries_its_rounding() -> None:
     reply = "$t = \\frac{3.5}{9.8}$\n$t = 0.36\\ \\text{s}$\n$t_{f} = 2 \\times 0.36 = 0.71$"
     assert wrong_steps(reply) == []
+
+
+# Second review: a step is checked against the exact value an earlier rounded result had,
+# and a result is rounded only when it is within half its last place of that value.
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "$t = \\frac{3.5}{9.8} = 0.357 \\approx 0.36$ then $2 \\times 0.36 = 0.71$",
+        "$t = \\frac{3.5}{9.8} = 0.357$\n$= 0.36$ then $2 \\times 0.36 = 0.71$",
+    ],
+)
+def test_a_rounding_chain_carries_its_exact_value(reply: str) -> None:
+    assert wrong_steps(reply) == []
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # 36 on the shown 0.3, 34.3 on the exact 2/7: 40 is neither.
+        "$t = 2/7 = 0.3$ then $d = 120 \\times 0.3 = 40$",
+        "$x = 1/3 = 0.3$ then $1000 \\times 0.3 = 349$",
+        # A name reused in a later part holds a new value, not a rounding of the old one.
+        "$I = \\frac{6}{20}$ $I = 0.3$ part b $I = 0.2$ then $R = 12/0.2 = 55$",
+    ],
+)
+def test_a_slip_on_a_rounded_result_is_still_one(reply: str) -> None:
+    assert wrong_steps(reply)
