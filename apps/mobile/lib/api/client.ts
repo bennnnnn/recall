@@ -11,9 +11,11 @@ import {
 } from "@/lib/auth";
 
 import { reportConnectionAnswered, reportConnectionFailure } from "@/lib/api/connectionFailures";
+import { newRequestId, REQUEST_ID_HEADER, responseRequestId } from "@/lib/api/requestId";
 import { CONSENT_REQUIRED_CODE, notifyConsentRequired } from "@/lib/api/consentRefusal";
 import type { AuthResult, User } from "@/lib/api/types";
 import { deviceSessionFields } from "@/lib/deviceSession";
+import { noteApiFailure } from "@/lib/sentry";
 
 let onUnauthorized: (() => void) | null = null;
 let onTokenRefresh: ((accessToken: string, user?: User) => void) | null = null;
@@ -81,15 +83,17 @@ export function accessTokenNeedsRefresh(
 export const AUTH_FETCH_TIMEOUT_MS = 15_000;
 
 /** A fetch outside a session (sign-in, sign-out) that gives up after 15 s without
- * headers; `init.signal` aborts it too. The caller bounds the body it reads. */
+ * headers; `init.signal` aborts it too. The caller bounds the body it reads. It carries
+ * a call id like every call to the API (`requestId.ts`). */
 export async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AUTH_FETCH_TIMEOUT_MS);
   const forwardAbort = () => controller.abort();
   init.signal?.addEventListener("abort", forwardAbort, { once: true });
   if (init.signal?.aborted) controller.abort();
+  const headers = { ...(init.headers as Record<string, string> | undefined), [REQUEST_ID_HEADER]: newRequestId() };
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    return await fetch(url, { ...init, headers, signal: controller.signal });
   } catch (error) {
     if (isAbortError(error)) throw serverUnreachableError();
     throw error;
@@ -131,7 +135,12 @@ let refreshRefused: { generation: number; until: number; error: ApiRequestError 
 
 /** A refused response as the error a caller throws, with its `Retry-After`. */
 async function refusal(response: Response): Promise<ApiRequestError> {
-  return new ApiRequestError(response.status, await response.text(), readRetryAfter(responseHeader(response, "retry-after")));
+  return new ApiRequestError(
+    response.status,
+    await response.text(),
+    readRetryAfter(responseHeader(response, "retry-after")),
+    responseRequestId(response),
+  );
 }
 
 /** The token this sign-in's last refresh put in place of `token`, if it did. */
@@ -248,10 +257,14 @@ export function apiUrl(path: string) {
  */
 async function fetchApi(path: string, init: RequestInit, generation: number): Promise<Response> {
   const sentAt = Date.now();
+  const requestId = newRequestId();
   let unreachable = false;
   let answered = false;
+  let status: number | null = null;
   try {
-    const response = await fetch(apiUrl(path), init);
+    const headers = { ...(init.headers as Record<string, string> | undefined), [REQUEST_ID_HEADER]: requestId };
+    const response = await fetch(apiUrl(path), { ...init, headers });
+    status = response.status;
     unreachable = UNAVAILABLE_STATUSES.has(response.status);
     answered = response.ok || response.status === 304;
     return response;
@@ -261,6 +274,11 @@ async function fetchApi(path: string, init: RequestInit, generation: number): Pr
   } finally {
     if (unreachable && generation === getSessionGeneration()) reportConnectionFailure();
     if (answered) reportConnectionAnswered(sentAt);
+    // A call the API failed (no answer, or a 5xx) leaves a crumb with its id: the next
+    // report sent says which call it was. An expected refusal (401, 404, 409) does not.
+    else if (unreachable || (status !== null && status >= 500)) {
+      noteApiFailure(init.method ?? "GET", path, status, requestId);
+    }
   }
 }
 
@@ -443,7 +461,10 @@ export async function authorizeNativeTransfer(
     requireSession(generation);
     if (refreshed) effectiveToken = refreshed;
   }
-  const status = await send(effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {});
+  const status = await send({
+    [REQUEST_ID_HEADER]: newRequestId(),
+    ...(effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {}),
+  });
   requireSession(generation);
   if (status === 401 && effectiveToken) {
     const replaced = allowRefresh ? replacedToken(effectiveToken, generation) : null;

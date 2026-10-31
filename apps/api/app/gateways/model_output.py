@@ -16,7 +16,8 @@ _LATEX_ON_JSON_ESCAPES = frozenset(
     {
         *("bar", "begin", "beta", "binom", "bmod", "boxed"),
         *("forall", "frac"),
-        *("nabla", "neg", "neq", "not", "nu"),
+        *("nabla", "ne", "neg", "neq", "nexists", "ngeq", "ni", "nleq", "nmid", "not", "notin"),
+        "nu",
         *("rangle", "rceil", "rfloor", "rho", "right", "rightarrow"),
         *("tan", "tanh", "tau", "text", "textbf", "textit", "textrm", "tfrac", "theta"),
         *("tilde", "times", "triangle"),
@@ -36,7 +37,12 @@ def escape_latex_in_json(raw: str) -> str:
     """
     out: list[str] = []
     i = 0
+    # Inside a $…$ span a backslash, t, f, b or r and letters is a command, listed or not
+    # ("$30^\\textdegree$" read as a tab and "extdegree"); a JSON string's quote ends it.
+    in_math = False
     while i < len(raw):
+        if raw[i] in '$"':
+            in_math = not in_math if raw[i] == "$" else False
         if raw[i] != "\\" or i + 1 == len(raw):
             out.append(raw[i])
             i += 1
@@ -54,7 +60,9 @@ def escape_latex_in_json(raw: str) -> str:
             end = i + 1
             while end < len(raw) and raw[end].isascii() and raw[end].isalpha():
                 end += 1
-            if raw[i + 1 : end] not in _LATEX_ON_JSON_ESCAPES:
+            # "\\n" before letters may be a newline before a word even in a "$5 … $6" span.
+            command = in_math and after != "n" and end - i > 2
+            if not command and raw[i + 1 : end] not in _LATEX_ON_JSON_ESCAPES:
                 out.append(raw[i : i + 2])
                 i += 2
                 continue

@@ -12,6 +12,7 @@ from app.modules.chemistry.solvers.display import (
     atomic_mass,
     const,
     inp,
+    mean,
     molar_mass_text,
     molar_mass_working,
     num,
@@ -326,7 +327,7 @@ def solve_average_atomic_mass(intent: ChemistryIntent) -> ChemistryResult:
         raise SolveServiceError("isotope abundances must add up to 100%")
     average = sum(masses[label] * abundances[label] / 100 for label in abundances)
     symbol = intent.target or ""
-    shown = f"{num(average)} u"
+    shown = f"{mean(average)} u"
     terms = " + ".join(
         f"({inp(masses[label])} u)({inp(abundances[label] / 100)})" for label in abundances
     )

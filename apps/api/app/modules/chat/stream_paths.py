@@ -23,6 +23,7 @@ from app.exceptions import RedisUnavailableError
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
 from app.modules.chat import tool_loop
+from app.modules.chat.control_tokens import until_control_run
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_events import clear_task_cancellation
 from app.modules.chat.stream_health import ReplyHealth, probe_gate
@@ -408,8 +409,9 @@ async def _stream_round(
         tools=reply_round.tools or None,
         tool_calls=reply_round.calls,
     )
-    repeats = without_repeats(llm_stream, reply_round.before) if reply_round.before else None
-    tokens = repeats or llm_stream
+    guarded = until_control_run(llm_stream)
+    repeats = without_repeats(guarded, reply_round.before) if reply_round.before else None
+    tokens = repeats or guarded
     try:
         async for token in tokens:
             if should_cancel and should_cancel():
@@ -446,6 +448,7 @@ async def _stream_round(
     finally:
         if repeats is not None:
             await repeats.aclose()
+        await guarded.aclose()
         close = getattr(llm_stream, "aclose", None)
         if close is not None:
             if accum.was_cancelled:

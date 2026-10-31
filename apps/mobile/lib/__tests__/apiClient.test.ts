@@ -71,6 +71,33 @@ describe("api client", () => {
     );
   });
 
+  it("names every call with a fresh id the API accepts", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) });
+
+    await request("/chats/1", "access-token");
+    await request("/chats/2", "access-token");
+    const ids = mockFetch.mock.calls.map(([, init]) => (init as RequestInit & { headers: Record<string, string> }).headers["X-Request-ID"]);
+    expect(ids).toHaveLength(2);
+    for (const id of ids) expect(id).toMatch(/^[A-Za-z0-9_-]{1,64}$/);
+    expect(ids[0]).not.toBe(ids[1]);
+  });
+
+  it("a refusal carries the id the API echoed", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      headers: { get: (name: string) => (name === "X-Request-ID" ? "echoed-id-1" : null) },
+      text: async () => '{"detail":"boom"}',
+    });
+
+    await expect(request("/chats/1", "access-token")).rejects.toMatchObject({
+      status: 500,
+      requestId: "echoed-id-1",
+    });
+  });
+
   it("request refreshes on 401 and retries once", async () => {
     mockGetRefreshToken.mockResolvedValue("refresh-token");
     mockSetTokenPair.mockResolvedValue(true);
@@ -558,10 +585,12 @@ describe("authorizeNativeTransfer", () => {
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
   });
 
-  it("sends no credentials without a token", async () => {
-    const send = jest.fn(async () => 200);
+  it("sends no credentials without a token, only the call's id", async () => {
+    const send = jest.fn(async (_headers: Record<string, string>) => 200);
     await authorizeNativeTransfer(null, send);
-    expect(send).toHaveBeenCalledWith({});
+    const [[headers]] = send.mock.calls;
+    expect(Object.keys(headers)).toEqual(["X-Request-ID"]);
+    expect(headers["X-Request-ID"]).toMatch(/^[A-Za-z0-9_-]{1,64}$/);
   });
 });
 

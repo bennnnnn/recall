@@ -245,6 +245,10 @@ def test_anyones_own_matter_is_no_exercise(query: str) -> None:
         "A ball is thrown vertically upwards with a velocity of 49 m/s. Calculate the maximum "
         "height.",
         "A car accelerates from rest to 72 km/h in 5 minutes. Find the acceleration.",
+        # NCERT Class 10 (2026-10-30): got a photo above its equations.
+        "Write one equation each for decomposition reactions where energy is supplied in the "
+        "form of heat, light or electricity.",
+        "Write a balanced chemical equation for the reaction of zinc with dilute sulphuric acid.",
     ],
 )
 def test_more_textbook_shapes_are_exercises(query: str) -> None:
@@ -325,3 +329,65 @@ def test_a_changing_or_everyday_question_keeps_its_search_and_lane(query: str) -
 
     assert not has_nothing_to_look_up(query)
     assert not needs_reasoned_choice(query)
+
+
+# NCERT Class 10 (2026-10-30): "pH" read as a camel-cased identifier, "What will happen if"
+# as a forecast, and "Explain your answer." went unread, so these got no note at all.
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Fresh milk has a pH of 6. How do you think the pH will change as it turns into curd? "
+        "Explain your answer.",
+        "Why does a solution of pH 2 have more hydrogen ions than one of pH 6?",
+        "What will happen if we kill all the organisms in one trophic level?",
+        "What role does mRNA play in making proteins?",
+    ],
+)
+def test_a_books_science_words_and_hypotheticals_get_a_note(query: str) -> None:
+    assert question_hint(query) is not None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Why does useState not update right away?",
+        "What does getUserById return when the row is missing?",
+        "What will happen to Bitcoin after the halving?",
+        "What will happen in the election?",
+        "What will happen if I quit my job?",
+        # Review: a forecast, a product and research that changes keep their search.
+        "What will happen if the volcano erupts again?",
+        "What will happen if the gold price drops?",
+        "Is the iPhone 17 screen more reflective than the 16?",
+        "Are mRNA vaccines linked to heart inflammation?",
+        "Why is xValue undefined after the loop?",
+        "What is a uFunc in numpy?",
+        "How do I update iOS on my phone?",
+        "Write a formula in Excel to sum column B.",
+    ],
+)
+def test_code_news_and_ones_own_still_get_no_note(query: str) -> None:
+    assert question_hint(query) is None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Was Napoleon a good leader? Explain your answer.",
+        "Is coffee bad for you? Explain your answer.",
+    ],
+)
+def test_an_opinion_closing_on_your_answer_is_no_exercise(query: str) -> None:
+    assert school_question_hint(query) is None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "A ball of mass 2 kg falls from 10 m. Does it gain or lose energy? Explain your answer.",
+        "Is sound a longitudinal wave? Justify your answer.",
+        "Can a metal displace hydrogen from water? Give reasons for your answer.",
+    ],
+)
+def test_an_exercise_closing_on_your_answer_is_an_exercise(query: str) -> None:
+    assert school_question_hint(query) is not None

@@ -24,6 +24,7 @@ from app.modules.physics.binding_values import fallback_value, si_unit
 from app.modules.physics.bodies import names_only_water
 from app.modules.physics.catalog import CATALOG, WATER_ONLY
 from app.modules.physics.givens import FRACTION_OF_C, PHYSICS_UNITS, unit_expression
+from app.modules.physics.optic_elements import diverging_element
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.fit import (
     Subject,
@@ -88,6 +89,9 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
     if crosswise(lower):
         cue_text = f"{cue_text} crosswise"
     only_water = names_only_water(lower)
+    # "The mirror is convex": a law that excludes a diverging element excludes it, however
+    # the question words it.
+    excluded = f"{lower} diverging" if diverging_element(lower) else lower
     named = [
         (spec, spec, strength)
         for spec in _bindable()
@@ -95,7 +99,7 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
         and (only_water or spec.id not in WATER_ONLY)
         and (
             strength := named_strength(
-                spec.binding, clause, lower, PHYSICS_UNITS, cue_text=cue_text
+                spec.binding, clause, excluded, PHYSICS_UNITS, cue_text=cue_text
             )
         )
     ]

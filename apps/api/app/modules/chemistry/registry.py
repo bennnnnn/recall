@@ -15,7 +15,6 @@ from collections.abc import Callable
 from app.modules.chemistry.extractors.acid_base import _extract_acid_solution, _extract_ph
 from app.modules.chemistry.extractors.amounts import (
     _extract_amounts,
-    _extract_average_atomic_mass,
     _extract_combustion,
     _extract_element_mass,
     _extract_empirical,
@@ -38,6 +37,7 @@ from app.modules.chemistry.extractors.gases import (
     _extract_graham,
     _extract_henry,
 )
+from app.modules.chemistry.extractors.isotope_average import extract_average_atomic_mass
 from app.modules.chemistry.extractors.kinetics import (
     _extract_first_order,
     _extract_michaelis,
@@ -126,7 +126,7 @@ CHEMISTRY_EXTRACTORS: tuple[Extractor, ...] = (
     # Readers of named substances, last.
     _extract_graham,
     _extract_element_mass,
-    _extract_average_atomic_mass,
+    extract_average_atomic_mass,
     _extract_electron_configuration,
     _extract_valence_electrons,
     _extract_ionic_name,

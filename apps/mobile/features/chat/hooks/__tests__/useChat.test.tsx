@@ -1515,7 +1515,7 @@ describe("useChat socket while the app is in the background", () => {
     await setAppState("active");
     expect(FakeSocket.instances).toHaveLength(2);
     const reopened = FakeSocket.instances[1];
-    expect(reopened.url).toBe("wss://test/a");
+    expect(reopened.url).toMatch(/^wss:\/\/test\/a\?request_id=[\w-]+$/);
     await act(async () => { reopened.open(); });
     await sendAndStream(reopened, "after resume");
     expect(reopened.send).toHaveBeenCalledWith(expect.stringContaining("\"type\":\"message\""));
@@ -1830,7 +1830,7 @@ describe("useChat socket recovery", () => {
     await network(CELLULAR);
     expect(first.close).toHaveBeenCalledTimes(1);
     expect(FakeSocket.instances).toHaveLength(2);
-    expect(latestSocket().url).toBe("wss://test/a");
+    expect(latestSocket().url).toMatch(/^wss:\/\/test\/a\?request_id=[\w-]+$/);
 
     await network({ type: "none", isConnected: false, isInternetReachable: false, details: null });
     expect(latestSocket().close).toHaveBeenCalledTimes(1);

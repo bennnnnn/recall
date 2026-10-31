@@ -196,10 +196,102 @@ def test_optics_laws_answer_the_investigation_questions(
         # A diverging lens is outside these laws.
         "A 4 cm tall object is 15 cm in front of a diverging lens of focal length 10 cm. "
         "how tall is the image?",
+        # A convex mirror diverges too: it was certified 30 cm (the image is 6 cm behind).
+        "An object is placed at a distance of 10 cm from a convex mirror of focal length "
+        "15 cm. Find the position and nature of the image.",
+        "A 2 m tall person stands in front of a convex mirror of focal length 1 m, 3 m away. "
+        "Where is the image?",
+        # A far point is not a focal length: it was certified +1.25 D (the lens is concave).
+        "The far point of a myopic person is 80 cm in front of the eye. What is the nature "
+        "and power of the lens required to correct the problem?",
+        "The near point of a hypermetropic eye is 1 m. What is the power of the lens "
+        "required to correct this defect?",
+        # A concave lens's power is negative.
+        "Find the power of a concave lens of focal length 2 m.",
+        # A diverging element however worded (review of the first fix).
+        "An object is placed 10 cm from a convex spherical mirror of focal length 15 cm. "
+        "Find the image distance.",
+        "An object is 10 cm from a convex rear-view mirror of focal length 15 cm. Where is "
+        "the image?",
+        "A spherical mirror is convex. Its focal length is 15 cm and an object is placed "
+        "10 cm in front of it. Find the image distance.",
+        "An object 30 cm from a concave thin lens of focal length 15 cm. Find the image distance.",
+        "The lens is concave. An object is placed 30 cm from it and its focal length is "
+        "15 cm. Find the image distance.",
+        # A short-sighted eye's lens diverges.
+        "A myopic person uses a lens of focal length 80 cm. Find the power.",
+        "A short-sighted person wears spectacles with lenses of focal length 50 cm. What is "
+        "their power?",
+        # -v/u is an inverted image's: a diverging element's or an erect image is +.
+        "An object is 15 cm from a convex mirror; the image is 6 cm behind the mirror. Find "
+        "the magnification.",
+        "A concave lens forms an image 10 cm from the lens of an object 20 cm away. Find "
+        "the magnification.",
+        "A concave mirror forms an erect image 30 cm behind the mirror of an object 10 cm "
+        "away. Find the magnification.",
+        "A convex lens forms an upright image 30 cm from the lens of an object 10 cm away. "
+        "Find the magnification.",
+        # Heights are no distances: a Grade 10 book's 5 cm object and 25 cm image (-5).
+        "The height of an object is 5 cm and the height of its image in a concave mirror is "
+        "25 cm high. What is the magnification of the image?",
+        # Second review: "biconcave", power to focal length, and lenses in contact.
+        "An object is 30 cm from a biconcave lens of focal length 15 cm. Find the image distance.",
+        "A concave lens has power 2.5 D. Find its focal length.",
+        "A convex lens of power 4 D and a concave lens of power 2.5 D are in contact. Find "
+        "the total power.",
     ],
 )
 def test_optics_laws_decline_what_they_cannot_read_whole(text: str) -> None:
     assert _answer(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "operation", "value", "unit"),
+    [
+        (
+            "An object is placed 30 cm in front of a convex lens of focal length 10 cm. "
+            "Find the image distance.",
+            "image_distance",
+            15.0,
+            "cm",
+        ),
+        (
+            "An object is placed 30 cm from a concave mirror of focal length 10 cm. Where "
+            "is the image?",
+            "image_distance",
+            15.0,
+            "cm",
+        ),
+        (
+            "A convex lens forms a real image 30 cm from the lens of an object 15 cm away. "
+            "Find the magnification.",
+            "magnification_distances",
+            -2.0,
+            "",
+        ),
+        (
+            "A hypermetropic person uses a lens of focal length 50 cm. Find the power.",
+            "lens_power",
+            2.0,
+            "D",
+        ),
+    ],
+)
+def test_a_converging_element_keeps_its_card(
+    text: str, operation: str, value: float, unit: str
+) -> None:
+    _assert_answer(text, operation, value, unit)
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("What is the power of a lens with a focal length of 25 cm?", 4.0),
+        ("A convex lens has f = 50 cm. What is its power?", 2.0),
+    ],
+)
+def test_lens_power_reads_a_length_called_the_focal_length(text: str, value: float) -> None:
+    _assert_answer(text, "lens_power", value, "D")
 
 
 # --- forces and motion ------------------------------------------------------
