@@ -337,7 +337,13 @@ for presentation and the post-turn jobs, not for reading.
 handles a deleted attachment). The picture and live-talk hooks name their own source, so they need
 no import from chat. `lib/__tests__/threadOwner.test.ts` holds that only `useChat` and the
 reducer's command runner touch the setter, and that no other file holds a setter for a list of
-messages. The `ChatScreen` split by concern is still to do: its function is unchanged at 480 lines.
+messages.
+
+**Status: done (screen split).** `ChatScreen` is 354 lines (was 480): the composer's
+surroundings (mic, live talk, attachment sheet, maths scanner and the heights they add) are
+`useChatComposerWiring`, called where those hooks ran, so hook order is unchanged; the header
+menu's sheets get their props from `chatMenuSheetProps`. Nothing that renders changed: the same
+components get the same props.
 
 ### ST-09 — Feature code out of `lib/`; fences read only the registry
 

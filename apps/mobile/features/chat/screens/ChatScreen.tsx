@@ -12,6 +12,7 @@ import type { IconName } from "@/ui/icons/names";
 import { useTheme } from "@/lib/theme";
 import { ChatScreenBody } from "@/features/chat/components/ChatScreenBody";
 import { ChatScreenMenuSheets } from "@/features/chat/components/ChatScreenMenuSheets";
+import { chatMenuSheetProps } from "@/features/chat/components/chatMenuSheetProps";
 import { LazyLiveTalkOverlay } from "@/features/speech/components/LazyLiveTalkOverlay";
 import { makeChatScreenStyles } from "@/features/chat/components/chatScreenStyles";
 import { COMPOSER_HEIGHT } from "@/features/chat/components/ChatComposer";
@@ -25,7 +26,7 @@ import { useChat } from "@/features/chat/hooks/useChat";
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { useChatComposerState } from "@/features/chat/hooks/useChatComposerState";
 import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
-import { useComposerDictation } from "@/features/chat/hooks/useComposerDictation";
+import { useChatComposerWiring } from "@/features/chat/hooks/useChatComposerWiring";
 import { useChatDraftWarmup } from "@/features/chat/hooks/useChatDraftWarmup";
 import { useChatLayoutMetrics } from "@/features/chat/hooks/useChatLayoutMetrics";
 import { useChatMessageList } from "@/features/chat/hooks/useChatMessageList";
@@ -33,7 +34,6 @@ import { useChatRegenerate } from "@/features/chat/hooks/useChatRegenerate";
 import { useChatRouteLoader } from "@/features/chat/hooks/useChatRouteLoader";
 import { useChatScroll, useScrollHoldForHighlight } from "@/features/chat/hooks/useChatScroll";
 import { useChatSend } from "@/features/chat/hooks/useChatSend";
-import { useLiveTalk } from "@/features/speech/hooks/useLiveTalk";
 import { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";
@@ -158,28 +158,7 @@ function ChatScreen() {
     t,
   });
 
-  const {
-    menuVisible,
-    setMenuVisible,
-    renameVisible,
-    renameText,
-    setRenameText,
-    setRenameVisible,
-    actionBanner,
-    dismissActionBanner,
-    handleFeedback,
-    handleSaveEmailDraft,
-    confirmRename,
-    shareVisible,
-    closeShare,
-    loadTranscriptMessages,
-    onShareFromMenu,
-    onExportPdfFromMenu,
-    onRenameFromMenu,
-    onTogglePinFromMenu,
-    onToggleArchiveFromMenu,
-    onDeleteFromMenu,
-  } = chatActions;
+  const { setMenuVisible, actionBanner, dismissActionBanner, handleFeedback, handleSaveEmailDraft } = chatActions;
 
   const composer = useChatComposerState({
     autoEnabled,
@@ -247,65 +226,12 @@ function ChatScreen() {
     onGenerateImage: (request) => void imageGen.submitPrompt(request),
   });
 
-  const {
-    setInput,
-    pendingAttachment,
-    removePendingAttachment,
-    attachPicking,
-    sendPhase,
-    attachSheetOpen,
-    setAttachSheetOpen,
-    handleSend,
-    sendTappedLine,
-    restoreComposerDraft,
-    handlePickAttachment,
-    handleAttachmentSheetSelect,
-    handleMathScanCaptured,
-    readScan,
-    handleMathScanSolve,
-    mathScannerOpen,
-    setMathScannerOpen,
-  } = send;
-
-  const [mathChromeExtra, setMathChromeExtra] = useState(0);
-  const [composerInputExtra, setComposerInputExtra] = useState(0);
-
-  const {
-    voiceInputAvailable,
-    voiceRecording,
-    voiceTranscribing,
-    voiceMeterLevel,
-    toggleVoiceInput: handleToggleVoiceInput,
-    cancelVoiceInput,
-  } = useComposerDictation({ token, user, routeChatId, setInput, openUpgradeRef, t });
-
-  // Live talk runs without a saved chat when none can be made, as it always has.
-  const ensureLiveTalkChatId = useCallback(() => ensureChatId().catch(() => null), [ensureChatId]);
-  const liveTalk = useLiveTalk({
-    token,
-    chatId,
-    ensureChatId: ensureLiveTalkChatId,
-    editThread,
-    isOffline,
-    onUpgrade: () => openUpgradeRef.current?.("live_talk"),
-    onScrollToLatest: scroll.scrollToLatest,
-    newMessageCountRef: scroll.newMessageCountRef,
-    onFirstReply: (id?: string | null) => {
-      void onFirstReplyRef.current(id);
-    },
-    t,
+  const { pendingAttachment, sendPhase, attachSheetOpen, handleSend, sendTappedLine, restoreComposerDraft } = send;
+  const composerWiring = useChatComposerWiring({
+    token, user, routeChatId, chatId, send, scroll, ensureChatId, editThread, isOffline, openUpgradeRef,
+    onFirstReplyRef, t,
   });
-
-  const closeAttachSheet = useCallback(() => {
-    setAttachSheetOpen(false);
-  }, [setAttachSheetOpen]);
-
-  const closeMathScanner = useCallback(() => {
-    setMathScannerOpen(false);
-  }, [setMathScannerOpen]);
-  const openMathScanner = useCallback(() => {
-    setMathScannerOpen(true);
-  }, [setMathScannerOpen]);
+  const { mathChromeExtra, composerInputExtra, liveTalk } = composerWiring;
 
   useEffect(() => setActiveChatIdGlobal(chatId), [chatId]);
 
@@ -426,23 +352,7 @@ function ChatScreen() {
     showScrollToBottom,
     scrollAwayCount,
     scrollToLatest,
-    attachments: {
-      attachSheetOpen,
-      closeAttachSheet,
-      attachPicking,
-      pendingAttachment,
-      removePendingAttachment,
-      handlePickAttachment,
-      handleAttachmentSheetSelect,
-      mathScannerOpen,
-      closeMathScanner,
-      handleMathScanCaptured,
-      readScan,
-      handleMathScanSolve,
-      onOpenMathScanner: openMathScanner,
-      onMathChromeHeightChange: setMathChromeExtra,
-      onInputFrameExtraChange: setComposerInputExtra,
-    },
+    attachments: composerWiring.attachments,
     quotaNudge,
     chatError,
     isPaid,
@@ -456,23 +366,8 @@ function ChatScreen() {
     sendStatus: sendPhase === "locating" ? t("chat.locating") : undefined,
     stopGeneration: stopTurn,
     isOffline,
-    voice: {
-      voiceAvailable: voiceInputAvailable,
-      voiceRecording,
-      voiceTranscribing,
-      voiceMeterLevel,
-      toggleVoiceInput: handleToggleVoiceInput,
-      cancelVoiceInput,
-      onLiveTalkPress: liveTalk.open,
-    },
-    liveTalkSession: liveTalk.visible
-      ? {
-          muted: liveTalk.muted,
-          onClose: liveTalk.close,
-          onMutePress: liveTalk.toggleMute,
-          onYield: liveTalk.yieldToComposer,
-        }
-      : null,
+    voice: composerWiring.voice,
+    liveTalkSession: composerWiring.liveTalkSession,
   });
   // Bound late for the hooks above, which need them before they exist; set once the render commits.
   useLayoutEffect(() => {
@@ -499,28 +394,7 @@ function ChatScreen() {
           onToggle={() => void liveTalk.toggle()}
         />
 
-        <ChatScreenMenuSheets
-          menuVisible={menuVisible}
-          menuAnchorRef={menuAnchorRef}
-          chatTitle={chatTitle}
-          pinned={pinned}
-          archived={archived}
-          onCloseMenu={() => setMenuVisible(false)}
-          onShare={onShareFromMenu}
-          onExportPdf={onExportPdfFromMenu}
-          onRename={onRenameFromMenu}
-          onTogglePin={onTogglePinFromMenu}
-          onToggleArchive={onToggleArchiveFromMenu}
-          onDelete={onDeleteFromMenu}
-          renameVisible={renameVisible}
-          renameText={renameText}
-          onRenameTextChange={setRenameText}
-          onCloseRename={() => setRenameVisible(false)}
-          onConfirmRename={() => void confirmRename()}
-          shareVisible={shareVisible}
-          onCloseShare={closeShare}
-          loadShareMessages={loadTranscriptMessages}
-        />
+        <ChatScreenMenuSheets menuAnchorRef={menuAnchorRef} {...chatMenuSheetProps(chatActions, { chatTitle, pinned, archived })} />
       </View>
     </ChatReplyProviders>
   );
