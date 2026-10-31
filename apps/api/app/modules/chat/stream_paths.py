@@ -12,7 +12,7 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from contextlib import aclosing, suppress
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from typing import Any
 
 from redis.asyncio import Redis
@@ -33,12 +33,11 @@ from app.modules.chat.tool_loop import live_denial, reply_calls
 from app.modules.chat.tool_loop.parts import open_parts, searchable_parts, turn_plan
 from app.modules.chat.tool_loop.repeat_filter import without_repeats
 from app.modules.chat.tool_loop.rounds import ToolRoundsOutcome
+from app.modules.chat.tool_verified import with_tool_verified
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
-from app.modules.chat.whole_question import answers_with
 from app.modules.web_search.subject import collect_prior_user_messages, last_assistant_content
-from app.services.solving import VerifiedMathBlock
 
 logger = logging.getLogger(__name__)
 
@@ -166,10 +165,9 @@ def _apply_tool_rounds(ctx: StreamContext, rounds: ToolRoundsOutcome) -> None:
     """What the tool rounds found becomes the turn's: the messages the stream reads,
     a verified block, a terminal picture, search sources the prompt path lacked."""
     ctx.prompt_messages, tool_verified, terminal_image, tool_search_hits = rounds
-    # The model's own tool call is held to the question too: a card the gate dropped from
-    # the server's solve never comes back through it.
-    if tool_verified is not None and answers_with(ctx.user_message_content or "", tool_verified):
-        ctx.verified_subject = _with_tool_verified(ctx.verified_subject, tool_verified)
+    if tool_verified is not None:
+        question = ctx.user_message_content or ""
+        ctx.verified_subject = with_tool_verified(ctx.verified_subject, tool_verified, question)
     if terminal_image is not None:
         ctx.terminal_image_message_id = terminal_image.message_id
         ctx.terminal_image_content = terminal_image.final_content
@@ -238,31 +236,6 @@ async def run_tool_loop_path(
         skip_tools=gate.skip_tools,
     )
     _apply_tool_rounds(ctx, rounds)
-
-
-def _with_tool_verified(server: Any, tool: Any) -> Any:
-    """The turn's verified block after the tool loop.
-
-    A block the server built from the user's own text is never replaced by one
-    the model's tool call produced: the model may have mistyped the problem.
-    A maths block may gain a diagram the server did not draw; its answer stays.
-    """
-    if server is None:
-        return tool
-    if not isinstance(server, VerifiedMathBlock) or not isinstance(tool, VerifiedMathBlock):
-        return server
-    kinds = {
-        fence.get("type") for fence in (server.canonical_fence, *server.canonical_fences) if fence
-    }
-    kinds.add("answer")
-    extra: list[dict[str, Any]] = []
-    for fence in (tool.canonical_fence, *tool.canonical_fences):
-        if fence and fence.get("type") not in kinds:
-            kinds.add(fence.get("type"))
-            extra.append(fence)
-    if not extra:
-        return server
-    return replace(server, canonical_fences=[*server.canonical_fences, *extra])
 
 
 @dataclass
